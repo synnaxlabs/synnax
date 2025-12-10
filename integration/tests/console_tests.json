@@ -2,22 +2,81 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "Console_Tests",
+      "sequence_name": "general",
+      "sequence_order": "asynchronous",
+      "pool_size": 3,
       "tests": [
         {
-          "case": "console/channel_lifecycle"
+          "case": "console/schematic/alignment"
         },
         {
-          "case": "console/snap_pages_to_grid"
+          "case": "console/schematic/edit_props"
         },
         {
-          "case": "console/schematic_set_output"
+          "case": "console/line-plot/download_csv"
         },
         {
-          "case": "console/schematic_edit_symbol_props"
+          "case": "console/pages/open_close"
+        }
+      ]
+    },
+    {
+      "sequence_name": "access",
+      "sequence_order": "asynchronous",
+      "pool_size": 3,
+      "tests": [
+        {
+          "case": "console/user_register"
         },
         {
-          "case": "console/pages_open_close"
+          "case": "console/user_assign_role"
+        },
+        {
+          "case": "console/user_drag_to_role"
+        },
+        {
+          "case": "console/user_login_logout"
+        },
+        {
+          "case": "console/user_logout_badge"
+        },
+        {
+          "case": "console/role_operator_permissions"
+        },
+        {
+          "case": "console/role_viewer_permissions"
+        }
+      ]
+    },
+    {
+      "sequence_name": "permissions",
+      "sequence_order": "asynchronous",
+      "pool_size": 3,
+      "tests": [
+        {
+          "case": "console/role_engineer_permissions"
+        },
+        {
+          "case": "console/role_operator_permissions"
+        },
+        {
+          "case": "console/role_viewer_permissions"
+        }
+      ]
+    },
+    {
+      "sequence_name": "tasks",
+      "sequence_order": "asynchronous",
+      "pool_size": 3,
+      "tests": [
+        {
+          "case": "console/task/ni_analog_write_forms"
+        },
+        {
+          "case": "console/task/ni_counter_read_forms"
+        },
+        {
+          "case": "console/task/ni_analog_read_forms"
         }
       ]
     }

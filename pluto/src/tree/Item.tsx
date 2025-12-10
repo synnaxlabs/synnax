@@ -16,7 +16,7 @@ import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { Select } from "@/select";
-import { useNodeShape } from "@/tree/Context";
+import { useContext } from "@/tree/Context";
 
 export type ItemProps<
   K extends record.Key,
@@ -37,7 +37,7 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
   ...rest
 }: ItemProps<K, E>) => {
   const { index } = rest;
-  const { expanded, depth, hasChildren } = useNodeShape(index);
+  const { expanded, depth, hasChildren } = useContext("Tree.Item")[index];
   return (
     <Select.ListItem
       className={CSS(

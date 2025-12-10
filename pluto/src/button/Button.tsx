@@ -9,8 +9,7 @@
 
 import "@/button/Button.css";
 
-import { color, record } from "@synnaxlabs/x";
-import { TimeSpan } from "@synnaxlabs/x/telem";
+import { color, record, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useRef } from "react";
 
 import { CSS } from "@/css";
@@ -43,6 +42,7 @@ export interface ExtensionProps
   contrast?: Text.Shade | false;
   disabled?: boolean;
   preventClick?: boolean;
+  propagateClick?: boolean;
   onClickDelay?: number | TimeSpan;
   ghost?: boolean;
 }
@@ -108,6 +108,8 @@ const Core = <E extends ElementType = "button">({
   defaultEl = "button",
   el,
   ghost,
+  propagateClick = false,
+  href,
   ...rest
 }: ButtonProps<E>): ReactElement => {
   const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
@@ -119,12 +121,13 @@ const Core = <E extends ElementType = "button">({
   if (disabled || (preventClick && tabIndex == null)) tabIndex = -1;
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!propagateClick) e.stopPropagation();
     if (isDisabled || variant === "preview" || preventClick === true) return;
     // @ts-expect-error - TODO: fix this
     if (parsedDelay.isZero) return onClick?.(e);
   };
 
-  const toRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleMouseDown = (e: any) => {
     if (tabIndex == -1) e.preventDefault();
@@ -132,11 +135,11 @@ const Core = <E extends ElementType = "button">({
     if (isDisabled || variant === "preview" || parsedDelay.isZero) return;
     document.addEventListener(
       "mouseup",
-      () => toRef.current != null && clearTimeout(toRef.current),
+      () => timeoutRef.current != null && clearTimeout(timeoutRef.current),
     );
-    toRef.current = setTimeout(() => {
+    timeoutRef.current = setTimeout(() => {
       onClick?.(e);
-      toRef.current = null;
+      timeoutRef.current = null;
     }, parsedDelay.milliseconds);
   };
 
@@ -212,6 +215,7 @@ const Core = <E extends ElementType = "button">({
       square={square}
       overflow="nowrap"
       status={status}
+      href={href}
       {...(record.purgeUndefined(rest) as Text.TextProps<E>)}
     >
       {(!isLoading || !square) && children}

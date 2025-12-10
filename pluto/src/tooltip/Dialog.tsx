@@ -12,7 +12,7 @@ import "@/tooltip/Dialog.css";
 import {
   box,
   type CrudeTimeSpan,
-  type Destructor,
+  type destructor,
   type dimensions,
   location,
   TimeSpan,
@@ -167,7 +167,7 @@ export const Dialog = ({
   const [loadCLS, setLoadCLS] = useState<string>("");
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const id = useId();
-  const visibleCleanup = useRef<Destructor | null>(null);
+  const visibleCleanup = useRef<destructor.Destructor | null>(null);
   const updateCLSTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setStateAndLoadCLS = useCallback((s: State | null): void => {
@@ -286,7 +286,6 @@ export const Dialog = ({
           root,
         )}
       {cloneElement(children_, {
-        id,
         onMouseEnter: (e) => {
           handleMouseEnter(e);
           children_.props.onMouseEnter?.(e);
@@ -310,7 +309,7 @@ export const Dialog = ({
 export const formatTip = (tip: ReactNode): ReactNode => {
   if (typeof tip === "string" || typeof tip === "number" || !isValidElement(tip))
     return (
-      <Text.Text level="small" color={1} weight={450}>
+      <Text.Text level="small" color={11}>
         {tip as string | number}
       </Text.Text>
     );

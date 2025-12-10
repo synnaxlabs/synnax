@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Series, TimeRange } from "@synnaxlabs/x/telem";
+import { DataType, Series, TimeRange } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { framer } from "@/framer";
@@ -541,6 +541,433 @@ describe("framer.Frame", () => {
       expect(digest[12][0]).toEqual(s1.digest);
       expect(digest[12][1]).toEqual(s2.digest);
       expect(digest[13][0]).toEqual(s3.digest);
+    });
+  });
+
+  describe("forEachUnique", () => {
+    it("should iterate over all unique columns in the frame", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(1, 2),
+              }),
+            ],
+          ],
+          [
+            13,
+            [
+              new Series({
+                data: new Float32Array([4, 5, 6]),
+                timeRange: new TimeRange(4, 6),
+              }),
+            ],
+          ],
+          [
+            14,
+            [
+              new Series({
+                data: new Float32Array([7, 8, 9]),
+                timeRange: new TimeRange(7, 9),
+              }),
+            ],
+          ],
+        ]),
+      );
+      f.push(
+        12,
+        new Series({
+          data: new Float32Array([10, 11, 12]),
+          timeRange: new TimeRange(10, 12),
+        }),
+      );
+      f.push(
+        13,
+        new Series({
+          data: new Float32Array([13, 14, 15]),
+          timeRange: new TimeRange(13, 15),
+        }),
+      );
+      f.push(
+        14,
+        new Series({
+          data: new Float32Array([7, 8, 9]),
+          timeRange: new TimeRange(7, 9),
+        }),
+      );
+      const firstValues = new Set<number>();
+      f.forEachUnique((_, ms) => {
+        firstValues.add(ms.at(0) as number);
+      });
+      expect(firstValues).toEqual(new Set([1, 4, 7]));
+    });
+    it("should get all data from the frame", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(1, 2),
+              }),
+            ],
+          ],
+        ]),
+      );
+      f.push(
+        12,
+        new Series({
+          data: new Float32Array([10, 11, 12]),
+          timeRange: new TimeRange(10, 12),
+        }),
+      );
+      f.push(
+        13,
+        new Series({
+          data: new Float32Array([13, 14, 15]),
+          timeRange: new TimeRange(13, 15),
+        }),
+      );
+      const data: number[] = [];
+      f.forEachUnique((key, ms) => {
+        if (key !== 12) return;
+        for (let i = 0; i < ms.length; i++) data.push(ms.at(i, true) as number);
+      });
+      expect(data).toEqual([1, 2, 3, 10, 11, 12]);
+    });
+    it("should allow use of an index parameter", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(1, 2),
+              }),
+            ],
+          ],
+        ]),
+      );
+      f.push(
+        12,
+        new Series({
+          data: new Float32Array([10, 11, 12]),
+          timeRange: new TimeRange(10, 12),
+        }),
+      );
+      f.push(
+        13,
+        new Series({
+          data: new Float32Array([13, 14, 15]),
+          timeRange: new TimeRange(13, 15),
+        }),
+      );
+      let currentIndex = 0;
+      f.forEachUnique((_, __, i) => {
+        expect(i).toEqual(currentIndex);
+        currentIndex++;
+      });
+      expect(currentIndex).toEqual(2);
+    });
+  });
+  describe("mapFilter", () => {
+    it("should filter out items based on the keep boolean", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(40, 50000),
+              }),
+            ],
+          ],
+          [
+            13,
+            [
+              new Series({
+                data: new Float32Array([4, 5, 6]),
+                timeRange: new TimeRange(500, 50001),
+              }),
+            ],
+          ],
+          [
+            14,
+            [
+              new Series({
+                data: new Float32Array([7, 8, 9]),
+                timeRange: new TimeRange(600, 60000),
+              }),
+            ],
+          ],
+        ]),
+      );
+      const filtered = f.mapFilter((k, arr) => [k, arr, k !== 13]);
+      expect(filtered.columns).toEqual([12, 14]);
+      expect(filtered.series.length).toEqual(2);
+    });
+
+    it("should map keys to new values", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(40, 50000),
+              }),
+            ],
+          ],
+          [
+            13,
+            [
+              new Series({
+                data: new Float32Array([4, 5, 6]),
+                timeRange: new TimeRange(500, 50001),
+              }),
+            ],
+          ],
+        ]),
+      );
+      const mapped = f.mapFilter((k, arr) => {
+        const newKey = typeof k === "number" ? k + 100 : k;
+        return [newKey, arr, true];
+      });
+      expect(mapped.columns).toEqual([112, 113]);
+      expect(mapped.series.length).toEqual(2);
+    });
+
+    it("should map series to new series", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(40, 50000),
+              }),
+            ],
+          ],
+        ]),
+      );
+      const mapped = f.mapFilter((k, arr) => {
+        const newData = new Float32Array(arr.length);
+        for (let j = 0; j < arr.length; j++) newData[j] = (arr.at(j) as number) * 2;
+        const newArr = new Series({
+          data: newData,
+          timeRange: arr.timeRange,
+        });
+        return [k, newArr, true];
+      });
+      expect(mapped.get(12).at(0)).toEqual(2);
+      expect(mapped.get(12).at(1)).toEqual(4);
+      expect(mapped.get(12).at(2)).toEqual(6);
+    });
+
+    it("should both map and filter simultaneously", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(40, 50000),
+              }),
+            ],
+          ],
+          [
+            13,
+            [
+              new Series({
+                data: new Float32Array([4, 5, 6]),
+                timeRange: new TimeRange(500, 50001),
+              }),
+            ],
+          ],
+          [
+            14,
+            [
+              new Series({
+                data: new Float32Array([7, 8, 9]),
+                timeRange: new TimeRange(600, 60000),
+              }),
+            ],
+          ],
+        ]),
+      );
+      const result = f.mapFilter((k, arr) => {
+        const keep = typeof k === "number" && k % 2 === 0;
+        const newKey = typeof k === "number" ? k + 1 : k;
+        return [newKey, arr, keep];
+      });
+      expect(result.columns).toEqual([13, 15]);
+      expect(result.series.length).toEqual(2);
+    });
+
+    it("should handle empty frames", () => {
+      const f = new framer.Frame();
+      const result = f.mapFilter((k, arr) => [k, arr, true]);
+      expect(result.columns).toEqual([]);
+      expect(result.series.length).toEqual(0);
+    });
+
+    it("should handle filtering out all items", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(40, 50000),
+              }),
+            ],
+          ],
+          [
+            13,
+            [
+              new Series({
+                data: new Float32Array([4, 5, 6]),
+                timeRange: new TimeRange(500, 50001),
+              }),
+            ],
+          ],
+        ]),
+      );
+      const result = f.mapFilter((k, arr) => [k, arr, false]);
+      expect(result.columns).toEqual([]);
+      expect(result.series.length).toEqual(0);
+    });
+
+    it("should keep all items when keep is always true", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(40, 50000),
+              }),
+            ],
+          ],
+          [
+            13,
+            [
+              new Series({
+                data: new Float32Array([4, 5, 6]),
+                timeRange: new TimeRange(500, 50001),
+              }),
+            ],
+          ],
+        ]),
+      );
+      const result = f.mapFilter((k, arr) => [k, arr, true]);
+      expect(result.columns).toEqual([12, 13]);
+      expect(result.series.length).toEqual(2);
+    });
+
+    it("should use the index parameter correctly", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(40, 50000),
+              }),
+            ],
+          ],
+          [
+            13,
+            [
+              new Series({
+                data: new Float32Array([4, 5, 6]),
+                timeRange: new TimeRange(500, 50001),
+              }),
+            ],
+          ],
+          [
+            14,
+            [
+              new Series({
+                data: new Float32Array([7, 8, 9]),
+                timeRange: new TimeRange(600, 60000),
+              }),
+            ],
+          ],
+        ]),
+      );
+      // Keep only items at even indices
+      const result = f.mapFilter((k, arr, i) => [k, arr, i % 2 === 0]);
+      expect(result.columns).toEqual([12, 14]);
+      expect(result.series.length).toEqual(2);
+    });
+
+    it("should work with string keys", () => {
+      const f = new framer.Frame({
+        a: new Series({
+          data: new Float32Array([1, 2, 3]),
+          timeRange: new TimeRange(40, 50000),
+        }),
+        b: new Series({
+          data: new Float32Array([4, 5, 6]),
+          timeRange: new TimeRange(500, 50001),
+        }),
+        c: new Series({
+          data: new Float32Array([7, 8, 9]),
+          timeRange: new TimeRange(600, 60000),
+        }),
+      });
+      const result = f.mapFilter((k, arr) => {
+        const newKey = k === "a" ? "x" : k;
+        const keep = k === "a" || k === "c";
+        return [newKey, arr, keep];
+      });
+      expect(result.columns).toEqual(["x", "c"]);
+      expect(result.series.length).toEqual(2);
+    });
+
+    it("should handle frames with multiple series per channel", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(40, 50000),
+              }),
+              new Series({
+                data: new Float32Array([4, 5, 6]),
+                timeRange: new TimeRange(50001, 60000),
+              }),
+            ],
+          ],
+          [
+            13,
+            [
+              new Series({
+                data: new Float32Array([7, 8, 9]),
+                timeRange: new TimeRange(500, 50001),
+              }),
+            ],
+          ],
+        ]),
+      );
+      const result = f.mapFilter((k, arr) => [k, arr, k === 12]);
+      expect(result.columns).toEqual([12, 12]);
+      expect(result.series.length).toEqual(2);
     });
   });
 });

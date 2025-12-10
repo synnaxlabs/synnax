@@ -10,9 +10,14 @@
 import "@/channel/LinePlot.css";
 
 import { type channel } from "@synnaxlabs/client";
-import { type color } from "@synnaxlabs/x";
-import { box, location as loc, type xy } from "@synnaxlabs/x/spatial";
-import { type TimeRange, type TimeSpan } from "@synnaxlabs/x/telem";
+import {
+  box,
+  type color,
+  location as loc,
+  type TimeRange,
+  type TimeSpan,
+  type xy,
+} from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useRef } from "react";
 
 import { HAUL_TYPE } from "@/channel/types";
@@ -26,6 +31,7 @@ import { telem } from "@/telem/aether";
 import { type Text } from "@/text";
 import { type Viewport } from "@/viewport";
 import { Measure } from "@/vis/measure";
+import { type measure } from "@/vis/measure/aether";
 import { Rule } from "@/vis/rule";
 
 /** Props for an axis in {@link LinePlot} */
@@ -91,6 +97,8 @@ export interface LinePlotProps extends Core.LinePlotProps {
   onViewportChange?: Viewport.UseProps["onChange"];
   viewportTriggers?: Viewport.UseProps["triggers"];
   rangeProviderProps?: Range.ProviderProps;
+  measureMode?: measure.Mode;
+  onMeasureModeChange?: (mode: measure.Mode) => void;
 }
 
 const canDrop = Haul.canDropOfType(HAUL_TYPE);
@@ -122,6 +130,8 @@ export const LinePlot = ({
   viewportTriggers,
   rangeProviderProps,
   onSelectRule,
+  measureMode,
+  onMeasureModeChange,
   children,
   ...rest
 }: LinePlotProps): ReactElement => {
@@ -177,7 +187,9 @@ export const LinePlot = ({
         ref={ref}
       >
         {enableTooltip && <Tooltip.Tooltip />}
-        {enableMeasure && <Measure.Measure />}
+        {enableMeasure && (
+          <Measure.Measure mode={measureMode} onModeChange={onMeasureModeChange} />
+        )}
         {children}
       </Core.Viewport>
     </Core.LinePlot>

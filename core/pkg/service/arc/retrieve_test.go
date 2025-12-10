@@ -30,14 +30,13 @@ var _ = Describe("Retrieve", func() {
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 
-			// Retrieve the arc
 			var retrievedArc arc.Arc
 			Expect(svc.NewRetrieve().WhereKeys(a.Key).Entry(&retrievedArc).Exec(ctx, tx)).To(Succeed())
 			Expect(retrievedArc).To(Equal(a))
 
-			var s status.Status
+			var s status.Status[arc.StatusDetails]
 			statusKey := a.Key.String()
-			Expect(gorp.NewRetrieve[string, status.Status]().
+			Expect(gorp.NewRetrieve[string, status.Status[arc.StatusDetails]]().
 				WhereKeys(statusKey).
 				Entry(&s).
 				Exec(ctx, tx)).To(Succeed())
@@ -64,8 +63,8 @@ var _ = Describe("Retrieve", func() {
 			Expect(retrievedArcs).To(HaveLen(3))
 
 			for _, a := range retrievedArcs {
-				var s status.Status
-				Expect(gorp.NewRetrieve[string, status.Status]().
+				var s status.Status[arc.StatusDetails]
+				Expect(gorp.NewRetrieve[string, status.Status[arc.StatusDetails]]().
 					WhereKeys(a.Key.String()).
 					Entry(&s).
 					Exec(ctx, tx)).To(Succeed())
@@ -87,20 +86,20 @@ var _ = Describe("Retrieve", func() {
 			Expect(localTx.Commit(ctx)).To(Succeed())
 
 			newTx := db.OpenTx()
-			defer newTx.Close()
 
 			var retrievedArc arc.Arc
 			Expect(svc.NewRetrieve().WhereKeys(a.Key).Entry(&retrievedArc).Exec(ctx, newTx)).To(Succeed())
 			Expect(retrievedArc.Name).To(Equal("tx-test-arc"))
 
-			var s status.Status
-			Expect(gorp.NewRetrieve[string, status.Status]().
+			var s status.Status[arc.StatusDetails]
+			Expect(gorp.NewRetrieve[string, status.Status[arc.StatusDetails]]().
 				WhereKeys(a.Key.String()).
 				Entry(&s).
 				Exec(ctx, newTx)).To(Succeed())
 
 			Expect(s.Key).To(Equal(a.Key.String()))
 			Expect(s.Name).To(Equal("tx-test-arc Status"))
+			Expect(newTx.Close()).To(Succeed())
 		})
 
 		It("Should retrieve Arc without transaction", func() {
@@ -117,8 +116,8 @@ var _ = Describe("Retrieve", func() {
 			Expect(svc.NewRetrieve().WhereKeys(a.Key).Entry(&retrievedArc).Exec(ctx, nil)).To(Succeed())
 			Expect(retrievedArc.Name).To(Equal("no-tx-arc"))
 
-			var s status.Status
-			Expect(gorp.NewRetrieve[string, status.Status]().
+			var s status.Status[arc.StatusDetails]
+			Expect(gorp.NewRetrieve[string, status.Status[arc.StatusDetails]]().
 				WhereKeys(a.Key.String()).
 				Entry(&s).
 				Exec(ctx, db)).To(Succeed())
@@ -137,8 +136,8 @@ var _ = Describe("Retrieve", func() {
 			var retrievedArc arc.Arc
 			Expect(svc.NewRetrieve().WhereKeys(a.Key).Entry(&retrievedArc).Exec(ctx, tx)).To(Succeed())
 
-			var s status.Status
-			Expect(gorp.NewRetrieve[string, status.Status]().
+			var s status.Status[arc.StatusDetails]
+			Expect(gorp.NewRetrieve[string, status.Status[arc.StatusDetails]]().
 				WhereKeys(a.Key.String()).
 				Entry(&s).
 				Exec(ctx, tx)).To(Succeed())

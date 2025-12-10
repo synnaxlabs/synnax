@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import synnax as sy
 
@@ -17,32 +17,70 @@ from .symbol import Symbol
 class Valve(Symbol):
     """Schematic valve symbol"""
 
-    def edit_properties(
+    def __init__(
         self,
-        channel_name: Optional[str] = None,
-        state_channel: Optional[str] = None,
-        command_channel: Optional[str] = None,
-        show_control_chip: Optional[bool] = None,
+        *,
+        label: str,
+        state_channel: str,
+        command_channel: str,
+        show_control_chip: bool = True,
+        symbol_type: str = "Valve",
+        rotatable: bool = True,
+    ):
+        """Initialize a valve symbol with configuration.
+
+        Args:
+            label: Display label for the symbol
+            state_channel: Channel name for valve state
+            command_channel: Channel name for valve commands
+            show_control_chip: Whether to show the control chip (optional)
+            symbol_type: The type of symbol (default: "Valve")
+            rotatable: Whether the symbol can be rotated (default: True)
+        """
+        super().__init__(label, symbol_type=symbol_type, rotatable=rotatable)
+        self.state_channel = state_channel
+        self.command_channel = command_channel
+        self.show_control_chip = show_control_chip
+
+    def _add_symbol_to_schematic(self, symbol_type: str) -> str:
+        """Add a valve symbol using the Valves menu."""
+        if self.page is None or self.console is None:
+            raise RuntimeError("Symbol not attached to schematic")
+
+        self.console.close_all_notifications()
+        self.console.click("Symbols")
+        initial_count = len(self.page.locator("[data-testid^='rf__node-']").all())
+
+        self.console.click("Valves")
+        self.console.click("Generic")
+
+        self.page.wait_for_function(
+            f"document.querySelectorAll('[data-testid^=\"rf__node-\"]').length > {initial_count}"
+        )
+
+        all_symbols = self.page.locator("[data-testid^='rf__node-']").all()
+        return all_symbols[-1].get_attribute("data-testid") or "unknown"
+
+    def _apply_properties(self) -> None:
+        """Apply valve configuration after being added to schematic."""
+        self.set_properties(
+            state_channel=self.state_channel,
+            command_channel=self.command_channel,
+            show_control_chip=self.show_control_chip,
+        )
+
+    def set_properties(
+        self,
+        channel_name: str | None = None,
+        state_channel: str | None = None,
+        command_channel: str | None = None,
+        show_control_chip: bool | None = None,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
-        """Edit Setpoint properties including channel settings."""
-        self._click_symbol()
+    ) -> dict[str, Any]:
+        """Set Valve properties including channel settings."""
+        self.click()
 
-        applied_properties: Dict[str, Any] = {}
-
-        # Only set label if the names match
-        if (
-            state_channel is not None
-            and command_channel is not None
-            and state_channel.endswith("_state")
-            and command_channel.endswith("_cmd")
-        ):
-            if state_channel[:-5] == command_channel[:-3]:
-                self.set_label(state_channel[:-6])
-        elif state_channel is not None or command_channel is not None:
-            raise ValueError(
-                "State and command channels must match and end with _state and _cmd respectively"
-            )
+        applied_properties: dict[str, Any] = {}
 
         # Navigate to Properties > Control tab
         self.page.get_by_text("Properties").click()
@@ -70,13 +108,11 @@ class Valve(Symbol):
 
         return applied_properties
 
-    def get_properties(self) -> Dict[str, Any]:
+    def get_properties(self, tab: str = "Control") -> dict[str, Any]:
         """Get the current properties of the symbol"""
-        self._click_symbol()
-        self.page.get_by_text("Properties").click()
-        self.page.get_by_text("Control").last.click()
+        super().get_properties(tab=tab)
 
-        props: Dict[str, Any] = {
+        props: dict[str, Any] = {
             "channel": "",
             "activation_delay": -1.0,
             "show_control_chip": False,
@@ -108,10 +144,15 @@ class Valve(Symbol):
 
         return props
 
-    def press(self) -> None:
-        """Press button"""
+    def press(self, sleep: int = 100) -> None:
+        """Press button
+
+        Args:
+            sleep: Time in milliseconds to wait after pressing. Buffer for network delays and slow animations.
+        """
+
         self._disable_edit_mode()
-        self._click_symbol()
+        self.click(sleep=sleep)
 
     def press_and_hold(self, delay: sy.TimeSpan = sy.TimeSpan.SECOND) -> None:
         """Click and hold the button for the specified duration."""

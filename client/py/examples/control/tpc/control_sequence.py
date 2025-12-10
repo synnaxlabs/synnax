@@ -14,7 +14,6 @@ import numpy as np
 from scipy.signal import find_peaks
 
 import synnax as sy
-from synnax.control.controller import Controller
 
 client = sy.Synnax()
 
@@ -74,11 +73,11 @@ auto_logs = client.channels.create(
 )
 
 
-def start_sim_cmd(aut: Controller):
+def start_sim_cmd(aut: sy.Controller):
     return sim_cmd.key in aut.state and aut[START_SIM_CMD] == 1
 
 
-def log(aut: Controller, msg: str):
+def log(aut: sy.Controller, msg: str):
     aut.set(
         AUTO_LOGS,
         f"TPC  {sy.TimeStamp.now().datetime().strftime('%H:%M:%S.%f')}  {msg}",
@@ -86,7 +85,7 @@ def log(aut: Controller, msg: str):
 
 
 def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Range:
-    def run_tpc(auto: Controller):
+    def run_tpc(auto: sy.Controller):
         pressure = auto[FUEL_TANK_PT]
         one_open = auto[TPC_CMD_ACK]
         if pressure > params.tpc_upper_bound:
@@ -152,7 +151,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
                 ctrl.sleep(params.press_step_delay)
 
             dual_press_end = sy.TimeStamp.now()
-            parent_rng.create_sub_range(
+            parent_rng.create_child_range(
                 name=f"Setup",
                 time_range=sy.TimeRange(dual_press_start, dual_press_end),
                 color="#D81E5B",
@@ -187,7 +186,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
             ctrl.sleep(2)
 
             press_tank_end = sy.TimeStamp.now()
-            parent_rng.create_sub_range(
+            parent_rng.create_child_range(
                 name=f"Pressurization",
                 time_range=sy.TimeRange(press_tank_start, press_tank_end),
                 color="#1E90FF",
@@ -201,7 +200,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
             ctrl.wait_until(lambda c: run_tpc(c))
             log(ctrl, "Test complete. Safeing System")
 
-            rng = parent_rng.create_sub_range(
+            rng = parent_rng.create_child_range(
                 name=f"Test",
                 time_range=sy.TimeRange(start, sy.TimeStamp.now()),
                 color="#bada55",

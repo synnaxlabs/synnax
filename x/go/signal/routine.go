@@ -354,7 +354,7 @@ func (r *routine) maybeRecover(panicReason any) error {
 	case recoverErr:
 		r.state.state = Failed
 		if err, ok := panicReason.(error); ok {
-			return errors.Wrap(err, "routine recovered")
+			return errors.Wrapf(err, "routine %s recovered", r.key)
 		}
 		return errors.Newf("%s", panicReason)
 	case recoverNoErr:
@@ -387,7 +387,7 @@ func (r *routine) zapFields() []zap.Field {
 }
 
 func (r *routine) path() string {
-	insP := r.ctx.Instrumentation.Meta.Path
+	insP := r.ctx.Meta.Path
 	if len(insP) > 0 {
 		return insP + "." + r.key
 	}

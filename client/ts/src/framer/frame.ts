@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, unique } from "@synnaxlabs/x";
 import {
+  array,
   MultiSeries,
   Series,
   type SeriesDigest,
@@ -17,7 +17,8 @@ import {
   type TelemValue,
   TimeRange,
   TimeStamp,
-} from "@synnaxlabs/x/telem";
+  unique,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
@@ -221,9 +222,9 @@ export class Frame {
 
   /**
    * @returns true if the frame is horizontal. Horizontal frames have a single channel,
-   * and are strongly aligned by default.A horizontal frame typically has a single array
-   * (in which case, it's also 'square'), although it can have multiple series if all
-   * the series are continuous in time.
+   * and are strongly aligned by default. A horizontal frame typically has a single
+   * array (in which case, it's also 'square'), although it can have multiple series if
+   * all the series are continuous in time.
    */
   get isHorizontal(): boolean {
     return this.uniqueColumns.length === 1;
@@ -304,7 +305,11 @@ export class Frame {
 
   push(keyOrFrame: channel.KeyOrName | Frame, ...v: Series[]): void {
     if (keyOrFrame instanceof Frame) {
-      if (this.colType !== null && keyOrFrame.colType !== this.colType)
+      if (
+        keyOrFrame.colType != null &&
+        this.colType !== null &&
+        keyOrFrame.colType !== this.colType
+      )
         throw new ValidationError("keyVariant must match");
       this.series.push(...keyOrFrame.series);
       (this.columns as channel.Keys).push(...(keyOrFrame.columns as channel.Keys));
@@ -354,6 +359,21 @@ export class Frame {
     return frame;
   }
 
+  mapFilter(
+    fn: (
+      k: channel.KeyOrName,
+      arr: Series,
+      i: number,
+    ) => [channel.KeyOrName, Series, boolean],
+  ): Frame {
+    const frame = new Frame();
+    this.forEach((k, arr, i) => {
+      const [newK, newArr, keep] = fn(k, arr, i);
+      if (keep) frame.push(newK, newArr);
+    });
+    return frame;
+  }
+
   /**
    * Iterates over all series in the current frame.
    *
@@ -364,6 +384,14 @@ export class Frame {
       const a = this.series[i];
       fn(k, a, i);
     });
+  }
+
+  /**
+   * Iterates over all unique columns in the frame.
+   * @param fn a function that takes a channel key, multi-series, and index.
+   */
+  forEachUnique(fn: (k: channel.KeyOrName, ms: MultiSeries, i: number) => void): void {
+    this.uniqueColumns.forEach((k, i) => fn(k, this.get(k), i));
   }
 
   at(index: number, required: true): Record<channel.KeyOrName, TelemValue>;
@@ -437,11 +465,11 @@ export class Frame {
 export const frameZ = z.object({
   keys: z.union([
     z.null().transform<number[]>(() => []),
-    z.number().array().optional().default([]),
+    z.number().array().default([]),
   ]),
   series: z.union([
     z.null().transform<z.infer<typeof Series.crudeZ>[]>(() => []),
-    Series.crudeZ.array().optional().default([]),
+    Series.crudeZ.array().default([]),
   ]),
 });
 

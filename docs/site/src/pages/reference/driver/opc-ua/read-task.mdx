@@ -1,0 +1,340 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "OPC UA Read Task"
+description: "Learn how to acquire data from OPC UA servers with Synnax."
+next: "Write Task"
+nextURL: "/reference/driver/opc-ua/write-task"
+prev: "Connect Server"
+prevURL: "/reference/driver/opc-ua/connect-server"
+---
+
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
+import { Video, Image } from "@/components/Media";
+import { Fragment } from "react";
+import ChannelTypeDetails from "@/components/details/ChannelTypeDetails.astro";
+import ExampleDetails from "@/components/details/ExampleDetails.astro";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+For task lifecycle management, see the
+[Task Basics](/reference/driver/task-basics#how-to) page.
+
+<Divider.Divider x />
+
+## Task Configuration Reference
+
+| Parameter     | Type    | Required | Default       | Description                                                                                 |
+| ------------- | ------- | -------- | ------------- | ------------------------------------------------------------------------------------------- |
+| `name`        | string  | Yes      | -             | Human-readable task name                                                                    |
+| `device`      | string  | Yes      | -             | Key of the OPC UA server device                                                             |
+| `sample_rate` | number  | Yes      | -             | Samples per second (Hz)                                                                     |
+| `stream_rate` | number  | No       | `sample_rate` | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate`. Used when `array_mode=false` |
+| `array_mode`  | boolean | No       | `false`       | Enable array sampling mode for high-rate tasks                                              |
+| `array_size`  | number  | No       | `1`           | Number of samples to read in bulk. Required when `array_mode=true`                          |
+| `data_saving` | boolean | No       | `false`       | Enable permanent storage in Synnax                                                          |
+| `auto_start`  | boolean | No       | `false`       | Automatically start task after configuration                                                |
+| `channels`    | array   | Yes      | -             | List of input channel configurations                                                        |
+
+<Divider.Divider x />
+
+## Channel Configuration Reference
+
+[OPC UA Read Service Specification](https://reference.opcfoundation.org/Core/Part4/v104/docs/5.10.2)
+
+The task's `array_mode` setting determines how all channels are read. When
+`array_mode=false`, channels are read individually at `stream_rate`. When
+`array_mode=true`, all channels read `array_size` samples in bulk.
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Value /> Standard Mode (`array_mode=false`)</Text.Text>
+
+Reads scalar values from an OPC UA node at the specified sample rate. Suitable for most
+applications with standard data rates.
+
+| Parameter | Type   | Required | Default | Description                               |
+| --------- | ------ | -------- | ------- | ----------------------------------------- |
+| `channel` | number | Yes      | -       | Synnax channel key                        |
+| `node_id` | string | Yes      | -       | OPC UA NodeId (e.g., `ns=2;s=MyVariable`) |
+
+**NodeId Format Examples:**
+
+- Numeric: `ns=2;i=1000`
+- String: `ns=2;s=Temperature`
+- GUID: `ns=2;g=12345678-1234-1234-1234-123456789012`
+- Opaque: `ns=2;b=aGVsbG8=`
+
+</ChannelTypeDetails>
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Array /> Array Mode (`array_mode=true`)</Text.Text>
+
+Reads array data from an OPC UA node in bulk. Designed for high-frequency data (&gt;500
+Hz) where the server writes samples into arrays.
+
+<Note.Note variant="info">
+  When `array_mode=true`, the task reads multiple samples in bulk from the OPC UA
+  server. This is more efficient for high-rate tasks but requires careful configuration
+  to avoid undersampling or oversampling.
+</Note.Note>
+
+| Parameter | Type   | Required | Default | Description                                 |
+| --------- | ------ | -------- | ------- | ------------------------------------------- |
+| `channel` | number | Yes      | -       | Synnax channel key                          |
+| `node_id` | string | Yes      | -       | OPC UA NodeId pointing to an array variable |
+
+**Array Sampling Guidelines:**
+
+- Set `sample_rate` to match the OPC UA server's sampling rate
+- Set `array_size` to an integer factor of the sampling rate
+- **Oversampling** occurs when the server doesn't fully replace array values between
+  reads
+- **Undersampling** occurs when the server writes faster than Synnax reads
+
+</ChannelTypeDetails>
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Time /> Server Timestamp Read</Text.Text>
+
+Reads timestamps directly from the OPC UA server for high-precision timing instead of
+using Synnax-generated timestamps.
+
+| Parameter | Type   | Required | Default | Description                                              |
+| --------- | ------ | -------- | ------- | -------------------------------------------------------- |
+| `channel` | number | Yes      | -       | Synnax index channel key (must be `TIMESTAMP` data type) |
+| `node_id` | string | Yes      | -       | OPC UA NodeId containing server timestamps               |
+
+**Note**: If timestamp channels are not added to the task, Synnax automatically
+generates timestamps with ~ 100μs precision using software timing.
+
+</ChannelTypeDetails>
+
+<Divider.Divider x />
+
+## Important Rules
+
+- **Sample rates**: All channels in a task sample at the same rate. Create separate
+  tasks for different rates.
+- **Software timing**: Synnax uses software timing with ~100μs precision. Under heavy
+  load, timing precision may degrade.
+- **One running task per channel**: A channel can only receive live data from one task
+  at a time.
+- **Stream rate optimization**: For low-rate tasks (< 50 Hz), set the stream rate to the
+  sample rate. For high-rate tasks, keep the stream rate less than 50 Hz for better
+  performance.
+- **Array mode**: Only use array mode for high-rate tasks (> 500 Hz). Requires tuning to
+  avoid undersampling/oversampling.
+
+<Divider.Divider x />
+
+## How-To
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+    <Video
+      client:only="react"
+      id="device-drivers/opc-ua/read-task/read"
+    />
+  </Fragment>
+  <Fragment slot="python">
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
+
+```python
+import synnax as sy
+from synnax import opcua
+
+client = sy.Synnax()
+
+# Retrieve OPC UA server device
+dev = client.devices.retrieve(name="my_opc_server")
+
+# Create index channel
+data_time = client.channels.create(
+    name="data_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+
+# Create data channels
+temp_sensor = client.channels.create(
+    name="temperature",
+    index=data_time.key,
+    data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
+)
+
+pressure_sensor = client.channels.create(
+    name="pressure",
+    index=data_time.key,
+    data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
+)
+
+# Create and configure task
+task = opcua.ReadTask(
+    name="OPC UA Read Task",
+    device=dev.key,
+    sample_rate=sy.Rate.HZ * 10,
+    stream_rate=sy.Rate.HZ * 10,
+    data_saving=True,
+    channels=[
+        opcua.ReadChannel(
+            channel=temp_sensor.key,
+            node_id="ns=2;s=TemperatureSensor",
+        ),
+        opcua.ReadChannel(
+            channel=pressure_sensor.key,
+            node_id="ns=2;s=PressureSensor",
+        ),
+    ],
+)
+
+client.tasks.configure(task)
+
+# Start task and read data
+with task.run():
+    with client.open_streamer(["temperature", "pressure"]) as streamer:
+        for _ in range(10):
+            frame = streamer.read()
+            print(frame)
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
+
+```python
+# Retrieve existing task
+task = client.tasks.retrieve(name="OPC UA Read Task")
+task = opcua.ReadTask(internal=task)
+
+# Update task-level configuration
+task.config.auto_start = True
+task.config.stream_rate = int(sy.Rate.HZ * 5)
+
+# Update first channel configuration
+task.config.channels[0].node_id = "ns=2;s=TemperatureSensor2"
+
+# Update second channel configuration
+task.config.channels[1].node_id = "ns=2;s=PressureSensor2"
+
+# Apply changes
+client.tasks.configure(task)
+```
+
+</ExampleDetails>
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// Retrieve OPC UA server device
+const dev = await client.devices.retrieve({ name: "my_opc_server" });
+
+// Create index channel
+const dataTime = await client.channels.create({
+  name: "data_time",
+  isIndex: true,
+  dataType: "timestamp",
+  retrieveIfNameExists: true,
+});
+
+// Create data channels
+const tempSensor = await client.channels.create({
+  name: "temperature",
+  index: dataTime.key,
+  dataType: "float32",
+  retrieveIfNameExists: true,
+});
+
+const pressureSensor = await client.channels.create({
+  name: "pressure",
+  index: dataTime.key,
+  dataType: "float32",
+  retrieveIfNameExists: true,
+});
+
+// Create and configure task
+const task = await client.tasks.create({
+  name: "OPC UA Read Task",
+  type: "opc_read",
+  config: JSON.stringify({
+    device: dev.key,
+    sample_rate: 10,
+    stream_rate: 10,
+    data_saving: true,
+    array_mode: false,
+    channels: [
+      {
+        channel: tempSensor.key,
+        node_id: "ns=2;s=TemperatureSensor",
+      },
+      {
+        channel: pressureSensor.key,
+        node_id: "ns=2;s=PressureSensor",
+      },
+    ],
+  }),
+});
+
+// Start task
+await task.executeCommandSync("start");
+
+// Read data
+const streamer = await client.openStreamer(["temperature", "pressure"]);
+for (let i = 0; i < 10; i++) {
+  const frame = await streamer.read();
+  console.log(frame);
+}
+
+// Stop task
+await task.executeCommandSync("stop");
+await streamer.close();
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
+
+```typescript
+// Retrieve existing task
+const task = await client.tasks.retrieve({ name: "OPC UA Read Task" });
+
+// Parse and update configuration
+const config = JSON.parse(task.config);
+
+// Update task-level configuration
+config.auto_start = true;
+config.stream_rate = 5;
+
+// Update first channel configuration
+config.channels[0].node_id = "ns=2;s=TemperatureSensor2";
+
+// Update second channel configuration
+config.channels[1].node_id = "ns=2;s=PressureSensor2";
+
+// Apply changes
+await client.tasks.create({
+  key: task.key,
+  name: task.name,
+  type: task.type,
+  config: JSON.stringify(config),
+});
+```
+
+</ExampleDetails>
+
+  </Fragment>
+</Client.Tabs>

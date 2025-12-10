@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -30,7 +30,9 @@ inline const std::map<std::string, int32_t> UNITS_MAP = {
     {"Strain", DAQmx_Val_Strain},
     {"Ohms", DAQmx_Val_Ohms},
     {"Hz", DAQmx_Val_Hz},
+    {"Ticks", DAQmx_Val_Ticks},
     {"Seconds", DAQmx_Val_Seconds},
+    {"FromCustomScale", DAQmx_Val_FromCustomScale},
     {"Meters", DAQmx_Val_Meters},
     {"Inches", DAQmx_Val_Inches},
     {"Degrees", DAQmx_Val_Degrees},
@@ -40,6 +42,9 @@ inline const std::map<std::string, int32_t> UNITS_MAP = {
     {"MetersPerSecond", DAQmx_Val_MetersPerSecond},
     {"m/s", DAQmx_Val_MetersPerSecond},
     {"InchesPerSecond", DAQmx_Val_InchesPerSecond},
+    {"in/s", DAQmx_Val_InchesPerSecond},
+    {"RPM", DAQmx_Val_RPM},
+    {"Radians/s", DAQmx_Val_RadiansPerSecond},
     {"mV/m/s", DAQmx_Val_MillivoltsPerMillimeterPerSecond},
     {"MillivoltsPerMillimeterPerSecond", DAQmx_Val_MillivoltsPerMillimeterPerSecond},
     {"MilliVoltsPerInchPerSecond", DAQmx_Val_MilliVoltsPerInchPerSecond},
@@ -65,7 +70,7 @@ inline const std::map<std::string, int32_t> UNITS_MAP = {
 };
 
 int32_t inline parse_units(xjson::Parser &cfg, const std::string &path) {
-    const auto str_units = cfg.optional<std::string>(path, "Volts");
+    const auto str_units = cfg.field<std::string>(path, "Volts");
     const auto units = UNITS_MAP.find(str_units);
     if (units == UNITS_MAP.end()) cfg.field_err(path, "invalid units: " + str_units);
     return units->second;

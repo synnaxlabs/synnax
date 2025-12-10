@@ -7,6 +7,7 @@ on:
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
+      - knip.json
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
@@ -21,6 +22,7 @@ on:
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
+      - knip.json
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
@@ -35,6 +37,7 @@ jobs:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     strategy:
+      fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
@@ -64,8 +67,17 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
-      - name: Build
-        run: pnpm build:x
+      - name: Check Types
+        if: matrix.lint
+        run: pnpm check-types:x
+
+      - name: Check Circular Dependencies
+        if: matrix.lint
+        run: pnpm madge:x
+
+      - name: Check Unused Code
+        if: matrix.lint
+        run: pnpm knip:x
 
       - name: Lint
         if: matrix.lint

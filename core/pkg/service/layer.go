@@ -21,12 +21,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/console"
+	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/hardware"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
@@ -108,10 +110,10 @@ type Layer struct {
 	Table *table.Service
 	// Label is for working with user-defined labels that can be attached to various
 	// data structures within Synnax.
-	Label *label.Service
-	// Hardware is for managing devices, racks, and tasks to control data acquisition
-	// and control processes across the cluster.
-	Hardware *hardware.Service
+	Label  *label.Service
+	Rack   *rack.Service
+	Task   *task.Service
+	Device *device.Service
 	// Framer is for reading, writing, and streaming frames of telemetry from channels
 	// across the cluster.
 	Framer *framer.Service
@@ -145,18 +147,22 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		err = cleanup(err)
 	}()
 
-	if l.User, err = user.NewService(ctx, user.Config{
+	if l.User, err = user.OpenService(ctx, user.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.RBAC, err = rbac.NewService(rbac.Config{
-		DB: cfg.Distribution.DB,
+	if l.RBAC, err = rbac.OpenService(ctx, rbac.ServiceConfig{
+		DB:       cfg.Distribution.DB,
+		Ontology: cfg.Distribution.Ontology,
+		Signals:  cfg.Distribution.Signals,
+		Group:    cfg.Distribution.Group,
 	}); !ok(err, nil) {
 		return nil, err
 	}
+
 	l.Auth = &auth.KV{DB: cfg.Distribution.DB}
 	if l.Token, err = token.NewService(token.ServiceConfig{
 		KeyProvider:      cfg.Security,
@@ -187,73 +193,39 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
-	}); !ok(err, nil) {
+	}); !ok(err, l.Workspace) {
 		return nil, err
 	}
-	if l.Schematic, err = schematic.NewService(ctx, schematic.Config{
+	if l.Schematic, err = schematic.OpenService(ctx, schematic.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
 		Signals:  cfg.Distribution.Signals,
-	}); !ok(err, l.Workspace) {
+	}); !ok(err, l.Schematic) {
 		return nil, err
 	}
-	if l.LinePlot, err = lineplot.NewService(ctx, lineplot.Config{
+	if l.LinePlot, err = lineplot.NewService(lineplot.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.Log, err = log.NewService(ctx, log.Config{
+	if l.Log, err = log.NewService(log.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.Table, err = table.NewService(ctx, table.Config{
+	if l.Table, err = table.NewService(table.Config{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 	}); !ok(err, nil) {
-		return nil, err
-	}
-
-	if l.Hardware, err = hardware.OpenService(ctx, hardware.Config{
-		Instrumentation: cfg.Instrumentation.Child("hardware"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        cfg.Distribution.Ontology,
-		Group:           cfg.Distribution.Group,
-		HostProvider:    cfg.Distribution.Cluster,
-		Signals:         cfg.Distribution.Signals,
-		Channel:         cfg.Distribution.Channel,
-		Framer:          cfg.Distribution.Framer,
-	}); !ok(err, l.Hardware) {
-		return nil, err
-	}
-	if l.Framer, err = framer.OpenService(
-		ctx,
-		framer.Config{
-			Instrumentation: cfg.Instrumentation.Child("framer"),
-			Framer:          cfg.Distribution.Framer,
-			Channel:         cfg.Distribution.Channel,
-		},
-	); !ok(err, l.Framer) {
-		return nil, err
-	}
-	l.Console = console.NewService()
-	if l.Metrics, err = metrics.OpenService(
-		ctx,
-		metrics.Config{
-			Instrumentation: cfg.Instrumentation.Child("metrics"),
-			Framer:          l.Framer,
-			Channel:         cfg.Distribution.Channel,
-			HostProvider:    cfg.Distribution.Cluster,
-		}); !ok(err, l.Metrics) {
 		return nil, err
 	}
 	if l.Status, err = status.OpenService(
 		ctx,
 		status.ServiceConfig{
-			Instrumentation: cfg.Instrumentation.Child("status"),
+			Instrumentation: cfg.Child("status"),
 			DB:              cfg.Distribution.DB,
 			Signals:         cfg.Distribution.Signals,
 			Ontology:        cfg.Distribution.Ontology,
@@ -263,10 +235,43 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	); !ok(err, l.Status) {
 		return nil, err
 	}
+	if l.Rack, err = rack.OpenService(ctx, rack.Config{
+		Instrumentation: cfg.Child("rack"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Group:           cfg.Distribution.Group,
+		HostProvider:    cfg.Distribution.Cluster,
+		Signals:         cfg.Distribution.Signals,
+		Status:          l.Status,
+	}); !ok(err, l.Rack) {
+		return nil, err
+	}
+	if l.Device, err = device.OpenService(ctx, device.Config{
+		DB:       cfg.Distribution.DB,
+		Ontology: cfg.Distribution.Ontology,
+		Group:    cfg.Distribution.Group,
+		Signals:  cfg.Distribution.Signals,
+		Status:   l.Status,
+		Rack:     l.Rack,
+	}); !ok(err, l.Device) {
+		return nil, err
+	}
+	if l.Task, err = task.OpenService(ctx, task.Config{
+		Instrumentation: cfg.Child("task"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Group:           cfg.Distribution.Group,
+		Signals:         cfg.Distribution.Signals,
+		Channel:         cfg.Distribution.Channel,
+		Rack:            l.Rack,
+		Status:          l.Status,
+	}); !ok(err, l.Task) {
+		return nil, err
+	}
 	if l.Arc, err = arc.OpenService(
 		ctx,
 		arc.ServiceConfig{
-			Instrumentation: cfg.Instrumentation.Child("arc"),
+			Instrumentation: cfg.Child("arc"),
 			DB:              cfg.Distribution.DB,
 			Ontology:        cfg.Distribution.Ontology,
 			Framer:          cfg.Distribution.Framer,
@@ -277,5 +282,31 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	); !ok(err, l.Arc) {
 		return nil, err
 	}
+	cfg.Distribution.Channel.SetCalculationAnalyzer(l.Arc.AnalyzeCalculation)
+	if l.Framer, err = framer.OpenService(
+		ctx,
+		framer.Config{
+			DB:                       cfg.Distribution.DB,
+			Instrumentation:          cfg.Child("framer"),
+			Framer:                   cfg.Distribution.Framer,
+			Channel:                  cfg.Distribution.Channel,
+			Arc:                      l.Arc,
+			EnableLegacyCalculations: config.True(),
+		},
+	); !ok(err, l.Framer) {
+		return nil, err
+	}
+	l.Console = console.NewService()
+	if l.Metrics, err = metrics.OpenService(
+		ctx,
+		metrics.Config{
+			Instrumentation: cfg.Child("metrics"),
+			Framer:          l.Framer,
+			Channel:         cfg.Distribution.Channel,
+			HostProvider:    cfg.Distribution.Cluster,
+		}); !ok(err, l.Metrics) {
+		return nil, err
+	}
+
 	return l, nil
 }

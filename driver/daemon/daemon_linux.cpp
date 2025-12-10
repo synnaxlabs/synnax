@@ -14,12 +14,12 @@
 #include <mutex>
 #include <thread>
 
-/// external.
+#include "glog/logging.h"
 #include <sys/stat.h>
 #include <systemd/sd-daemon.h>
-#include "glog/logging.h"
 
-/// internal
+#include "x/cpp/xthread/xthread.h"
+
 #include "driver/daemon/daemon.h"
 
 namespace fs = std::filesystem;
@@ -35,7 +35,7 @@ bool should_stop = false;
 
 auto SYSTEMD_SERVICE_TEMPLATE = R"([Unit]
 Description=Synnax Driver Service
-Documentation=https://docs.synnaxlabs.com/
+Documentation=https://docs.synnaxlabs.com/reference/driver
 After=network-online.target
 Wants=network-online.target
 StartLimitIntervalSec=60
@@ -125,7 +125,8 @@ xerrors::Error install_service() {
     LOG(INFO) << "Checking for existing service";
     if (fs::exists(SYSTEMD_SERVICE_PATH)) {
         LOG(INFO) << "Existing service found, stopping and removing it";
-        system("systemctl stop synnax-driver");
+        if (int result = system("systemctl stop synnax-driver"); result != 0)
+            LOG(WARNING) << "Failed to stop existing service (may not be running)";
         // Give it a moment to stop
         std::this_thread::sleep_for(std::chrono::seconds(2));
         // Uninstall the existing service
@@ -159,8 +160,10 @@ xerrors::Error install_service() {
 
 xerrors::Error uninstall_service() {
     LOG(INFO) << "Stopping and disabling service";
-    system("systemctl stop synnax-driver");
-    system("systemctl disable synnax-driver");
+    if (int result = system("systemctl stop synnax-driver"); result != 0)
+        LOG(WARNING) << "Failed to stop service (may not be running)";
+    if (int result = system("systemctl disable synnax-driver"); result != 0)
+        LOG(WARNING) << "Failed to disable service (may not be enabled)";
 
     fs::remove(SYSTEMD_SERVICE_PATH);
 
@@ -210,6 +213,7 @@ void run(const Config &config, int argc, char *argv[]) {
 
     // Start watchdog thread
     std::thread watchdog([&]() {
+        xthread::set_name("watchdog");
         while (!should_stop) {
             notify_watchdog();
             std::this_thread::sleep_for(std::chrono::seconds(config.watchdog_interval));

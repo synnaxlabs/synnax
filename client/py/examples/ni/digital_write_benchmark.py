@@ -8,14 +8,13 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from synnax.hardware import ni
 
 # We've logged in via the CLI, so there's no need to provide credentials here.
 # See https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
 client = sy.Synnax()
 
 # Retrieve the USB-6289 device from Synnax.
-dev = client.hardware.devices.retrieve(model="USB-6289")
+dev = client.devices.retrieve(model="USB-6289")
 
 # Create a channel that will be used to send commands to the device. We're using
 # a virtual channel here that won't store any data to disk. Don't worry, we're
@@ -47,7 +46,7 @@ do_1_state = client.channels.create(
 # Instantiate the task. A task is a background process that can be used to acquire data
 # from, or, in this case, write commands to a device. Tasks are the primary method for
 # interacting with Synnax hardware devices.
-tsk = ni.DigitalWriteTask(
+tsk = sy.ni.DigitalWriteTask(
     # A name to find and monitor the task via the Synnax Console.
     name="Basic Digital Write",
     # The key of the device to execute the task on.
@@ -61,7 +60,7 @@ tsk = ni.DigitalWriteTask(
     data_saving=True,
     # The mapping of the digital output channels on the device to the Synnax channels.
     channels=[
-        ni.DOChan(
+        sy.ni.DOChan(
             # The cmd channel will be used to send commands to the device.
             cmd_channel=do_1_cmd.key,
             # The state channel will be used to store the state of the digital output
@@ -76,12 +75,12 @@ tsk = ni.DigitalWriteTask(
 
 # Create the task in Synnax and wait for the driver to validate that the configuration
 # is correct.
-client.hardware.tasks.configure(tsk)
+client.tasks.configure(tsk)
 
 durations = list()
 
 # Start the task.
-with tsk.start():
+with tsk.run():
     with client.control.acquire(
         name="Control Sequence",
         read=["do_1_state"],
@@ -96,7 +95,7 @@ with tsk.start():
             ctrl["do_1_cmd"] = 0
             ctrl.wait_until(lambda c: c["do_1_state"] == 0)
 
-client.hardware.tasks.delete(tsk.key)
+client.tasks.delete(tsk.key)
 
 import matplotlib.pyplot as plt
 import numpy as np

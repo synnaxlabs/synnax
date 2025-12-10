@@ -12,6 +12,7 @@ package kv
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 
 	"github.com/samber/lo"
@@ -20,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
+	xiter "github.com/synnaxlabs/x/iter"
 	xkv "github.com/synnaxlabs/x/kv"
 	"go.uber.org/zap"
 )
@@ -104,7 +106,7 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 	for _, dig := range b.digests {
 		op := dig.Operation()
 		if op.Variant == change.Set {
-			v, closer, err := b.Tx.Get(ctx, dig.Key)
+			v, closer, err := b.Get(ctx, dig.Key)
 			if errors.Is(err, xkv.NotFound) {
 				zap.S().Error("[aspen] - operation not found when batching tx", zap.String("key", string(dig.Key)))
 				continue
@@ -153,14 +155,6 @@ func (tr TxRequest) empty() bool { return len(tr.Operations) == 0 }
 
 func (tr TxRequest) size() int { return len(tr.Operations) }
 
-func (tr TxRequest) logFields() []zap.Field {
-	return []zap.Field{
-		zap.Int("size", tr.size()),
-		zap.Uint64("leaseholder", uint64(tr.Leaseholder)),
-		zap.Uint64("sender", uint64(tr.Sender)),
-	}
-}
-
 func (tr TxRequest) commitTo(db xkv.Atomic) (err error) {
 	b := db.OpenTx()
 	defer func() {
@@ -194,7 +188,13 @@ func (tr TxRequest) done(err error) {
 	}
 }
 
-func (tr TxRequest) reader() xkv.TxReader { return &txReader{ops: tr.Operations} }
+func extractOpChange(op Operation) xkv.Change {
+	return op.Change
+}
+
+func (tr TxRequest) reader() xkv.TxReader {
+	return xiter.Map(slices.Values(tr.Operations), extractOpChange)
+}
 
 func (tr TxRequest) digests() []Digest {
 	return lo.Map(tr.Operations, func(o Operation, _ int) Digest { return o.Digest() })
@@ -239,24 +239,4 @@ func (bc *txCoordinator) wait() error {
 func (bc *txCoordinator) add(data *TxRequest) {
 	bc.wg.Add(1)
 	data.doneF = bc.done
-}
-
-type txReader struct {
-	curr int
-	ops  []Operation
-}
-
-var _ xkv.TxReader = (*txReader)(nil)
-
-// Count implements xkv.TxReader.
-func (r *txReader) Count() int { return len(r.ops) }
-
-// Next implements xkv.TxReader.
-func (r *txReader) Next(_ context.Context) (xkv.Change, bool) {
-	if r.curr >= len(r.ops) {
-		return xkv.Change{}, false
-	}
-	op := r.ops[r.curr]
-	r.curr++
-	return op.Change, true
 }

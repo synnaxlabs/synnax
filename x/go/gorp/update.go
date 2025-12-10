@@ -11,6 +11,7 @@ package gorp
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -23,7 +24,7 @@ func NewUpdate[K Key, E Entry[K]]() Update[K, E] {
 	return Update[K, E]{retrieve: NewRetrieve[K, E]()}
 }
 
-func (u Update[K, E]) Where(filter func(*E) bool) Update[K, E] {
+func (u Update[K, E]) Where(filter FilterFunc[K, E]) Update[K, E] {
 	u.retrieve = u.retrieve.Where(filter)
 	return u
 }
@@ -33,12 +34,12 @@ func (u Update[K, E]) WhereKeys(keys ...K) Update[K, E] {
 	return u
 }
 
-func (u Update[K, E]) Change(f func(E) E) Update[K, E] {
-	return u.ChangeErr(func(e E) (E, error) { return f(e), nil })
+func (u Update[K, E]) Change(f func(Context, E) E) Update[K, E] {
+	return u.ChangeErr(func(ctx Context, e E) (E, error) { return f(ctx, e), nil })
 }
 
-func (u Update[K, E]) ChangeErr(f func(E) (E, error)) Update[K, E] {
-	addChange[K, E](u.retrieve.Params, f)
+func (u Update[K, E]) ChangeErr(f func(Context, E) (E, error)) Update[K, E] {
+	addChange(u.retrieve.Params, f)
 	return u
 }
 
@@ -53,7 +54,7 @@ func (u Update[K, E]) Exec(ctx context.Context, tx Tx) (err error) {
 		return errors.Wrap(query.InvalidParameters, "[gorp] - update query must specify at least one change function")
 	}
 	for i, e := range entries {
-		if entries[i], err = c.exec(e); err != nil {
+		if entries[i], err = c.exec(Context{Context: ctx, Tx: tx}, e); err != nil {
 			return err
 		}
 	}
@@ -62,18 +63,20 @@ func (u Update[K, E]) Exec(ctx context.Context, tx Tx) (err error) {
 
 const updateChangeKey = "updateChange"
 
-type changes[K Key, E Entry[K]] []func(E) (E, error)
+type ChangeFunc[K Key, E Entry[K]] = func(Context, E) (E, error)
 
-func (c changes[K, E]) exec(entry E) (o E, err error) {
+type changes[K Key, E Entry[K]] []ChangeFunc[K, E]
+
+func (c changes[K, E]) exec(ctx Context, entry E) (o E, err error) {
 	for _, change := range c {
-		if o, err = change(entry); err != nil {
+		if o, err = change(ctx, entry); err != nil {
 			return
 		}
 	}
 	return
 }
 
-func addChange[K Key, E Entry[K]](q query.Parameters, change func(E) (E, error)) {
+func addChange[K Key, E Entry[K]](q query.Parameters, change ChangeFunc[K, E]) {
 	var c changes[K, E]
 	rc, ok := q.Get(updateChangeKey)
 	if !ok {

@@ -9,7 +9,9 @@
 
 import "@/range/Toolbar.css";
 
+import { ranger } from "@synnaxlabs/client";
 import {
+  Access,
   Component,
   Flex,
   type Flux,
@@ -39,11 +41,12 @@ import { type RootState } from "@/store";
 
 const NoRanges = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
+  const canCreateRange = Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID);
   const handleLinkClick = () => placeLayout(CREATE_LAYOUT);
   return (
     <EmptyAction
       message="No ranges loaded."
-      action="Create a range"
+      action={canCreateRange ? "Create a range" : undefined}
       onClick={handleLinkClick}
     />
   );
@@ -122,6 +125,7 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
   const entry = useSelect(itemKey);
   const labels = Ranger.useLabels(itemKey)?.data ?? [];
   const onRename = useRename();
+  const hasEditPermission = Access.useUpdateGranted(ranger.ontologyID(itemKey));
   if (entry == null || entry.variant === "dynamic") return null;
   const { key, name, timeRange, persisted } = entry;
   return (
@@ -140,7 +144,9 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
           id={`text-${key}`}
           level="p"
           value={name}
-          onChange={(name) => onRename.update({ key, name })}
+          onChange={
+            hasEditPermission ? (name) => onRename.update({ key, name }) : undefined
+          }
           allowDoubleClick={false}
         />
       </Flex.Box>
@@ -165,17 +171,20 @@ const listItem = Component.renderProp((props: CoreList.ItemProps<string>) => {
 
 const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
+  const canCreateRange = Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
         <Toolbar.Actions>
-          <Toolbar.Action
-            tooltip="Create Range"
-            onClick={() => placeLayout(CREATE_LAYOUT)}
-          >
-            <Icon.Add />
-          </Toolbar.Action>
+          {canCreateRange && (
+            <Toolbar.Action
+              tooltip="Create range"
+              onClick={() => placeLayout(CREATE_LAYOUT)}
+            >
+              <Icon.Add />
+            </Toolbar.Action>
+          )}
           <Toolbar.Action
             tooltip="Open Range Explorer"
             onClick={() => placeLayout(EXPLORER_LAYOUT)}
@@ -199,4 +208,5 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 175,
   maxSize: 400,
+  useVisible: () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
 };

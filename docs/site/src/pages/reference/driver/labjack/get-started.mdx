@@ -1,0 +1,46 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "LabJack | Get Started"
+heading: "LabJack Device Driver"
+description: "Learn how to acquire data from and control LabJack devices using Synnax."
+next: "Configure a Device"
+nextURL: "/reference/driver/labjack/configure-device"
+---
+
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The Synnax Driver supports reading and writing data from LabJack devices.
+
+<Divider.Divider x />
+
+## Installing LJM
+
+The
+[LabJack LJM library](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit)
+must be installed for the Driver to communicate with your LabJack devices.
+
+<Divider.Divider x />
+
+## Supported Devices
+
+Synnax supports reading and writing data to all LabJack T-Series devices.
+
+<Note.Note variant="warning" className="compact">
+  Currently, only T-Series LabJack devices are supported by Synnax. If you are
+  interested in using Synnax with other devices, please [contact
+  us](https://www.synnaxlabs.com/contact).
+</Note.Note>
+
+<Divider.Divider x />
+
+## Supported Operating Systems
+
+| Platform                            | Status          |
+| ----------------------------------- | --------------- |
+| <Icon.Logo.Windows /> Windows       | ✓ Supported     |
+| <Icon.Logo.Linux /> Linux           | ✓ Supported     |
+| <Icon.Logo.NI /> NI Linux Real-Time | ✗ Not Supported |
+| <Icon.Logo.Apple /> macOS           | ✓ Supported     |
+| <Icon.Logo.Docker /> Docker         | ✗ Not Supported |

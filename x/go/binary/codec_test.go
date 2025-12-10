@@ -11,11 +11,13 @@ package binary_test
 
 import (
 	"bytes"
+	"context"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/binary"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 type toEncode struct {
@@ -24,13 +26,14 @@ type toEncode struct {
 
 var _ = Describe("Codec", func() {
 	DescribeTable("Encode + Decode", func(codec binary.Codec) {
-		b, err := codec.Encode(nil, toEncode{1})
+		ctx := context.Background()
+		b, err := codec.Encode(ctx, toEncode{1})
 		Expect(err).ToNot(HaveOccurred())
 		var d toEncode
 		Expect(codec.Decode(ctx, b, &d)).To(Succeed())
 		Expect(d.Value).To(Equal(1))
 		var d2 toEncode
-		Expect(codec.DecodeStream(nil, bytes.NewReader(b), &d2)).To(Succeed())
+		Expect(codec.DecodeStream(ctx, bytes.NewReader(b), &d2)).To(Succeed())
 		Expect(d2.Value).To(Equal(1))
 	},
 		Entry("Gob", &binary.GobCodec{}),
@@ -181,7 +184,7 @@ var _ = Describe("Codec", func() {
 			b := []byte(input)
 			val, err := binary.UnmarshalJSONStringInt64(b)
 			if shouldError {
-				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(ContainSubstring("invalid")))
 			} else {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(val).To(Equal(expected))
@@ -242,5 +245,107 @@ var _ = Describe("Codec", func() {
 		It("Should encode a uint64 value as a string", func() {
 			Expect(binary.MarshalStringUint64(12)).To(Equal([]byte("\"12\"")))
 		})
+	})
+	Describe("UnmarshalMsgpackUint64", func() {
+		DescribeTable("Should decode various types to uint64",
+			func(value any, expected uint64) {
+				b := MustSucceed(msgpack.Marshal(value))
+				dec := msgpack.NewDecoder(bytes.NewReader(b))
+				result := MustSucceed(binary.UnmarshalMsgpackUint64(dec))
+				Expect(result).To(Equal(expected))
+			},
+			Entry("uint64", uint64(12345678901234), uint64(12345678901234)),
+			Entry("uint32", uint32(123456), uint64(123456)),
+			Entry("uint16", uint16(1234), uint64(1234)),
+			Entry("uint8", uint8(123), uint64(123)),
+			Entry("int64", int64(12345678901234), uint64(12345678901234)),
+			Entry("int32", int32(123456), uint64(123456)),
+			Entry("int16", int16(1234), uint64(1234)),
+			Entry("int8", int8(123), uint64(123)),
+			Entry("int", int(123456789), uint64(123456789)),
+			Entry("float64", float64(123456), uint64(123456)),
+			Entry("float32", float32(1234), uint64(1234)),
+			Entry("string", "281543696187399", uint64(281543696187399)),
+		)
+		It("Should return an error for unsupported types", func() {
+			b := MustSucceed(msgpack.Marshal([]int{1, 2, 3}))
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			Expect(binary.UnmarshalMsgpackUint64(dec)).Error().To(MatchError(ContainSubstring("cannot unmarshal")))
+		})
+		It("Should return an error for invalid string", func() {
+			b := MustSucceed(msgpack.Marshal("not-a-number"))
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			Expect(binary.UnmarshalMsgpackUint64(dec)).Error().To(MatchError(ContainSubstring("invalid")))
+		})
+		DescribeTable("Should return an error for negative values",
+			func(value any) {
+				b := MustSucceed(msgpack.Marshal(value))
+				dec := msgpack.NewDecoder(bytes.NewReader(b))
+				Expect(binary.UnmarshalMsgpackUint64(dec)).Error().To(MatchError(ContainSubstring("negative")))
+			},
+			Entry("negative int64", int64(-1)),
+			Entry("negative int32", int32(-1)),
+			Entry("negative int16", int16(-1)),
+			Entry("negative int8", int8(-1)),
+			Entry("negative int", int(-1)),
+			Entry("negative float64", float64(-1.5)),
+			Entry("negative float32", float32(-1.5)),
+		)
+	})
+	Describe("UnmarshalMsgpackUint32", func() {
+		DescribeTable("Should decode various types to uint32",
+			func(value any, expected uint32) {
+				b := MustSucceed(msgpack.Marshal(value))
+				dec := msgpack.NewDecoder(bytes.NewReader(b))
+				result := MustSucceed(binary.UnmarshalMsgpackUint32(dec))
+				Expect(result).To(Equal(expected))
+			},
+			Entry("uint64", uint64(123456), uint32(123456)),
+			Entry("uint32", uint32(123456), uint32(123456)),
+			Entry("uint16", uint16(1234), uint32(1234)),
+			Entry("uint8", uint8(123), uint32(123)),
+			Entry("int64", int64(123456), uint32(123456)),
+			Entry("int32", int32(123456), uint32(123456)),
+			Entry("int16", int16(1234), uint32(1234)),
+			Entry("int8", int8(123), uint32(123)),
+			Entry("int", int(123456), uint32(123456)),
+			Entry("float64", float64(65536), uint32(65536)),
+			Entry("float32", float32(1234), uint32(1234)),
+			Entry("string", "65537", uint32(65537)),
+		)
+		It("Should return an error for unsupported types", func() {
+			b := MustSucceed(msgpack.Marshal(map[string]int{"a": 1}))
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			Expect(binary.UnmarshalMsgpackUint32(dec)).Error().To(MatchError(ContainSubstring("cannot unmarshal")))
+		})
+		It("Should return an error for invalid string", func() {
+			b := MustSucceed(msgpack.Marshal("invalid"))
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			Expect(binary.UnmarshalMsgpackUint32(dec)).Error().To(MatchError(ContainSubstring("invalid")))
+		})
+		DescribeTable("Should return an error for negative values",
+			func(value any) {
+				b := MustSucceed(msgpack.Marshal(value))
+				dec := msgpack.NewDecoder(bytes.NewReader(b))
+				Expect(binary.UnmarshalMsgpackUint32(dec)).Error().To(MatchError(Or(ContainSubstring("negative"), ContainSubstring("out of uint32 range"))))
+			},
+			Entry("negative int64", int64(-1)),
+			Entry("negative int32", int32(-1)),
+			Entry("negative int16", int16(-1)),
+			Entry("negative int8", int8(-1)),
+			Entry("negative int", int(-1)),
+			Entry("negative float64", float64(-1.5)),
+			Entry("negative float32", float32(-1.5)),
+		)
+		DescribeTable("Should return an error for overflow values",
+			func(value any) {
+				b := MustSucceed(msgpack.Marshal(value))
+				dec := msgpack.NewDecoder(bytes.NewReader(b))
+				Expect(binary.UnmarshalMsgpackUint32(dec)).Error().To(MatchError(Or(ContainSubstring("exceeds uint32 max"), ContainSubstring("out of uint32 range"))))
+			},
+			Entry("uint64 overflow", uint64(5000000000)),
+			Entry("int64 overflow", int64(5000000000)),
+			Entry("float64 overflow", float64(5000000000)),
+		)
 	})
 })

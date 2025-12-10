@@ -86,8 +86,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
-          cache-from: type=gha,scope=test-pluto
-          cache-to: type=gha,mode=max,scope=test-pluto
+          cache-from: type=gha,scope=synnax-docker-cache
+          cache-to: type=inline
           build-args: |
             DRIVER_ENABLED=false
 
@@ -126,8 +126,11 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
-      - name: Build
-        run: pnpm build:pluto
+      - name: Check Types
+        run: pnpm check-types:pluto
+
+      - name: Check Circular Dependencies
+        run: pnpm madge:pluto
 
       - name: Lint
         run: pnpm lint:pluto

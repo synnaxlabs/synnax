@@ -50,6 +50,7 @@ jobs:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     strategy:
+      fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
@@ -80,7 +81,12 @@ jobs:
         run: pnpm install
 
       - name: Check Types
+        if: matrix.lint
         run: pnpm check-types:console
+
+      - name: Check Circular Dependencies
+        if: matrix.lint
+        run: pnpm madge:console
 
       - name: Lint
         if: matrix.lint

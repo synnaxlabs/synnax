@@ -7,24 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { URL } from "@synnaxlabs/x/url";
+import { URL } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { auth } from "@/auth";
 import { connection } from "@/connection";
-import { TEST_CLIENT_PROPS } from "@/testutil/client";
+import { TEST_CLIENT_PARAMS } from "@/testutil/client";
 import { Transport } from "@/transport";
 
 describe("connectivity", () => {
   it("should connect to the server", async () => {
     const transport = new Transport(
       new URL({
-        host: TEST_CLIENT_PROPS.host,
-        port: Number(TEST_CLIENT_PROPS.port),
+        host: TEST_CLIENT_PARAMS.host,
+        port: Number(TEST_CLIENT_PARAMS.port),
       }),
     );
-    const client = new auth.Client(transport.unary, TEST_CLIENT_PROPS);
+    const client = new auth.Client(transport.unary, TEST_CLIENT_PARAMS);
     transport.use(client.middleware());
     const connectivity = new connection.Checker(
       transport.unary,
@@ -39,11 +39,11 @@ describe("connectivity", () => {
     it("should pull the server and client versions", async () => {
       const transport = new Transport(
         new URL({
-          host: TEST_CLIENT_PROPS.host,
-          port: Number(TEST_CLIENT_PROPS.port),
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
         }),
       );
-      const client = new auth.Client(transport.unary, TEST_CLIENT_PROPS);
+      const client = new auth.Client(transport.unary, TEST_CLIENT_PARAMS);
       transport.use(client.middleware());
       const connectivity = new connection.Checker(
         transport.unary,
@@ -57,11 +57,11 @@ describe("connectivity", () => {
     it("should adjust state if the server is too old", async () => {
       const transport = new Transport(
         new URL({
-          host: TEST_CLIENT_PROPS.host,
-          port: Number(TEST_CLIENT_PROPS.port),
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
         }),
       );
-      const client = new auth.Client(transport.unary, TEST_CLIENT_PROPS);
+      const client = new auth.Client(transport.unary, TEST_CLIENT_PARAMS);
       transport.use(client.middleware());
       const connectivity = new connection.Checker(
         transport.unary,
@@ -75,11 +75,11 @@ describe("connectivity", () => {
     it("should adjust state if the server is too new", async () => {
       const transport = new Transport(
         new URL({
-          host: TEST_CLIENT_PROPS.host,
-          port: Number(TEST_CLIENT_PROPS.port),
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
         }),
       );
-      const client = new auth.Client(transport.unary, TEST_CLIENT_PROPS);
+      const client = new auth.Client(transport.unary, TEST_CLIENT_PARAMS);
       transport.use(client.middleware());
       const connectivity = new connection.Checker(transport.unary, undefined, "0.0.0");
       const state = await connectivity.check();

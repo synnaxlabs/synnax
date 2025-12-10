@@ -9,14 +9,11 @@
 
 #pragma once
 
-/// std
 #include <map>
 #include <mutex>
 
-/// external
 #include "glog/logging.h"
 
-/// internal
 #include "driver/labjack/ljm/LabJackM.h"
 #include "driver/labjack/ljm/api.h"
 #include "driver/labjack/ljm/errors.h"
@@ -251,7 +248,7 @@ public:
     }
 };
 
-/// @brief manager handles the lifecycle of labjack devices, allowing callers to
+/// @brief manager handles the lifecycle of LabJack devices, allowing callers to
 /// acquire and release devices for use at will.
 class Manager {
     std::mutex mu;
@@ -284,7 +281,6 @@ public:
             )
         );
     }
-
 
     std::pair<std::shared_ptr<Device>, xerrors::Error>
     acquire(const std::string &serial_number) {

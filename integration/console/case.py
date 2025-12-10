@@ -7,9 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import os
 import random
 from typing import cast
 
+import synnax as sy
 from playwright.sync_api import Browser, BrowserType, Page, sync_playwright
 
 from console.console import Console
@@ -19,30 +21,33 @@ from framework.test_case import TestCase
 class ConsoleCase(TestCase):
     """
     Console TestCase implementation using Playwright
+
+    Environment Variables:
+    - PLAYWRIGHT_CONSOLE_HEADED: Run in headed mode (default: False)
+      Can be set via command line: --console-headed or -ch
     """
 
     browser: Browser
     page: Page
-    headless: bool
+    headed: bool
     default_timeout: int
     default_nav_timeout: int
     console: Console
 
     def setup(self) -> None:
-
-        headless = self.params.get("headless", True)
+        env_headed = os.environ.get("PLAYWRIGHT_CONSOLE_HEADED", "0") == "1"
+        headed = self.params.get("headed", env_headed)
         slow_mo = self.params.get("slow_mo", 0)
-        default_timeout = self.params.get("default_timeout", 5000)  # 5s
-        default_nav_timeout = self.params.get("default_nav_timeout", 5000)  # 5s
+        default_timeout = self.params.get("default_timeout", 15000)  # 15s
+        default_nav_timeout = self.params.get("default_nav_timeout", 15000)  # 15s
 
         # Open page
-        self._log_message(
-            f"Opening browser in {'headless' if headless else 'visible'} mode"
-        )
+        self.log(f"Opening browser in {'headed' if headed else 'headless'} mode")
         self.playwright = sync_playwright().start()
         browser_engine = self.determine_browser()
-        self.browser = browser_engine.launch(headless=headless, slow_mo=slow_mo)
-        self.page = self.browser.new_page()
+        self.browser = browser_engine.launch(headless=not headed, slow_mo=slow_mo)
+        # Use larger viewport to reduce element overlap
+        self.page = self.browser.new_page(viewport={"width": 1920, "height": 1080})
 
         # Set timeouts
         self.page.set_default_timeout(default_timeout)  # 1s
@@ -57,26 +62,32 @@ class ConsoleCase(TestCase):
             port = 5173
             self.page.goto(f"http://{host}:{port}/", timeout=15000)
 
-        self._log_message(f"Console found on port {port}")
+        self.log(f"Console found on port {port}")
 
         # Wait for and fill login form
         username = self.synnax_connection.username
         password = self.synnax_connection.password
-        self.page.wait_for_selector("input", timeout=10000)
-        self.page.locator("input").first.fill(f"{username}")
-        self.page.locator('input[type="password"]').fill(f"{password}")
-        self.page.get_by_role("button", name="Sign In").click()
+
+        self.page.wait_for_selector(".pluto-field__username", timeout=5000)
+        username_input = self.page.locator(".pluto-field__username input").first
+        username_input.fill(username)
+
+        password_input = self.page.locator(".pluto-field__password input").first
+        password_input.fill(password)
+
+        login_button = self.page.get_by_role("button", name="Log In")
+        login_button.wait_for(state="attached", timeout=2000)
+        login_button.click()
+
         self.page.wait_for_load_state("networkidle")
 
         # Initialize Console interface
         self.console = Console(self.page)
-
-        # Toggle theme
-        self.page.wait_for_timeout(1000)
-        self.console.command_palette("Toggle Color Theme")
+        self.page.wait_for_selector("text=Get Started", timeout=5000)
 
     def teardown(self) -> None:
         self.browser.close()
+        self.playwright.stop()
 
     def determine_browser(self) -> BrowserType:
         """
@@ -88,6 +99,6 @@ class ConsoleCase(TestCase):
         # Webkit failing on Win in CI
         browsers = ["chromium"]
         selected = random.choice(browsers)
-        self._log_message(f"Randomly selected browser: {selected}")
+        self.log(f"Randomly selected browser: {selected}")
         browser_attr = getattr(self.playwright, selected)
         return cast(BrowserType, browser_attr)

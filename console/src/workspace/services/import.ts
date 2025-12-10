@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type Synnax, type workspace } from "@synnaxlabs/client";
-import { type Status } from "@synnaxlabs/pluto";
+import { type Synnax, workspace } from "@synnaxlabs/client";
+import { Access, type Pluto, type Status } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { join, sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -23,28 +23,41 @@ import { Workspace } from "@/workspace";
 export const ingest: Import.DirectoryIngestor = async (
   name,
   files,
-  { client, fileIngestors, placeLayout, store },
+  { client, fileIngestors, placeLayout, store, fluxStore },
 ) => {
+  if (
+    !Access.updateGranted({ id: workspace.TYPE_ONTOLOGY_ID, store: fluxStore, client })
+  )
+    throw new Error("You do not have permission to import workspaces");
   const layoutData = files.find((file) => file.name === Workspace.LAYOUT_FILE_NAME);
   if (layoutData == null) throw new Error(`${Workspace.LAYOUT_FILE_NAME} not found`);
-  const layout = Layout.migrateSlice(JSON.parse(layoutData.data));
+  const layout = Layout.migrateSlice(Layout.anySliceStateZ.parse(layoutData.data));
   const wsKey = uuid.create();
   const wsName = name;
   const ws: workspace.Workspace = { key: wsKey, name: wsName, layout };
   const createdWs = await client?.workspaces.create(ws);
-  store.dispatch(Workspace.add(createdWs ?? ws));
+  store.dispatch(Workspace.setActive(createdWs ?? ws));
   store.dispatch(
     Layout.setWorkspace({
       slice: (createdWs?.layout as Layout.SliceState) ?? layout,
       keepNav: false,
     }),
   );
+
   Object.entries(layout.layouts).forEach(([key, layout]) => {
     const ingest = fileIngestors[layout.type];
     if (ingest == null) return;
-    const data = files.find((file) => file.name === `${key}.json`)?.data;
+    const data = files.find(
+      (file) =>
+        file.name === `${layout.name}.json` ||
+        file.name === `${key}.json` ||
+        (typeof file.data === "object" &&
+          file.data != null &&
+          (("key" in file.data && file.data.key === key) ||
+            ("name" in file.data && file.data.name === layout.name))),
+    )?.data;
     if (data == null) throw new Error(`Data for ${key} not found`);
-    ingest(data, { layout, placeLayout, store });
+    ingest(data, { layout, placeLayout, store: fluxStore, client });
   });
 };
 
@@ -54,6 +67,7 @@ export interface IngestContext {
   fileIngestors: Import.FileIngestors;
   placeLayout: Layout.Placer;
   store: Store;
+  fluxStore: Pluto.FluxStore;
 }
 
 export const import_ = ({
@@ -62,6 +76,7 @@ export const import_ = ({
   fileIngestors,
   placeLayout,
   store,
+  fluxStore,
 }: IngestContext) => {
   let name: string | undefined = "workspace";
   handleError(async () => {
@@ -79,11 +94,19 @@ export const import_ = ({
     if (name == null) throw new Error("Cannot read workspace");
     const files = await readDir(path);
     const fileData = await Promise.all(
-      files.map(async (file) => ({
-        name: file.name,
-        data: await readTextFile(await join(path, file.name)),
-      })),
+      files.map(
+        async (file): Promise<Import.File> => ({
+          name: file.name,
+          data: JSON.parse(await readTextFile(await join(path, file.name))),
+        }),
+      ),
     );
-    await ingest(name, fileData, { client, fileIngestors, placeLayout, store });
+    await ingest(name, fileData, {
+      client,
+      fileIngestors,
+      placeLayout,
+      store,
+      fluxStore,
+    });
   }, `Failed to import ${name}`);
 };

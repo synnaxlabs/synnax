@@ -15,6 +15,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
+	arclsp "github.com/synnaxlabs/arc/lsp"
+	arctransport "github.com/synnaxlabs/arc/lsp/transport"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -23,21 +27,24 @@ import (
 
 type Arc struct {
 	arc.Arc
-	Status status.Status `json:"status" msgpack:"status"`
+	Status *status.Status[arc.StatusDetails] `json:"status" msgpack:"status"`
 }
 
 type ArcService struct {
 	dbProvider
 	accessProvider
+	alamos.Instrumentation
 	internal *arc.Service
 	status   *status.Service
 }
 
 func NewArcService(p Provider) *ArcService {
 	return &ArcService{
-		dbProvider:     p.db,
-		accessProvider: p.access,
-		internal:       p.Service.Arc,
+		dbProvider:      p.db,
+		accessProvider:  p.access,
+		Instrumentation: p.Instrumentation,
+		internal:        p.Service.Arc,
+		status:          p.Service.Status,
 	}
 }
 
@@ -51,7 +58,7 @@ type (
 func (s *ArcService) Create(ctx context.Context, req ArcCreateRequest) (res ArcCreateResponse, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.ActionCreate,
 		Objects: arc.OntologyIDsFromArcs(translateArcsToService(req.Arcs)),
 	}); err != nil {
 		return res, err
@@ -76,7 +83,7 @@ type ArcDeleteRequest struct {
 func (s *ArcService) Delete(ctx context.Context, req ArcDeleteRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access.ActionDelete,
 		Objects: arc.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
@@ -132,20 +139,23 @@ func (s *ArcService) Retrieve(ctx context.Context, req ArcRetrieveRequest) (res 
 	res.Arcs = translateArcsFromService(svcArcs)
 
 	if req.IncludeStatus {
-		statuses := make([]status.Status, 0, len(res.Arcs))
-		uuidStrings := lo.Map(req.Keys, func(item uuid.UUID, _ int) string {
-			return item.String()
+		statuses := make([]status.Status[arc.StatusDetails], 0, len(res.Arcs))
+		uuidStrings := lo.Map(res.Arcs, func(a Arc, _ int) string {
+			return a.Key.String()
 		})
-		if err = s.status.NewRetrieve().WhereKeys(uuidStrings...).Entries(&statuses).Exec(ctx, nil); err != nil {
+		if err = status.NewRetrieve[arc.StatusDetails](s.status).
+			WhereKeys(uuidStrings...).
+			Entries(&statuses).
+			Exec(ctx, nil); err != nil {
 			return ArcRetrieveResponse{}, err
 		}
 		for i, stat := range statuses {
-			res.Arcs[i].Status = stat
+			res.Arcs[i].Status = &stat
 		}
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: arc.OntologyIDsFromArcs(svcArcs),
 	}); err != nil {
 		return ArcRetrieveResponse{}, err
@@ -159,4 +169,21 @@ func translateArcsToService(arcs []Arc) []arc.Arc {
 
 func translateArcsFromService(arcs []arc.Arc) []Arc {
 	return lo.Map(arcs, func(a arc.Arc, _ int) Arc { return Arc{Arc: a} })
+}
+
+// ArcLSPMessage represents a single JSON-RPC message for the LSP
+type ArcLSPMessage = arctransport.JSONRPCMessage
+
+// LSP handles LSP protocol messages over a Freighter stream
+func (s *ArcService) LSP(ctx context.Context, stream freighter.ServerStream[ArcLSPMessage, ArcLSPMessage]) error {
+	// Create a new LSP server instance for this connection with a no-op logger
+	// to avoid nil pointer panics
+	lspServer, err := arclsp.New(arclsp.Config{
+		Instrumentation: s.Child("arc").Child("lsp"),
+		GlobalResolver:  s.internal.SymbolResolver(),
+	})
+	if err != nil {
+		return err
+	}
+	return arctransport.ServeFreighter(ctx, lspServer, stream)
 }

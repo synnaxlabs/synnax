@@ -51,6 +51,8 @@ export class InvalidTokenError extends AuthError.sub("invalid_token") {}
 
 export class ExpiredTokenError extends AuthError.sub("expired_token") {}
 
+export class AccessDeniedError extends AuthError.sub("access_denied") {}
+
 /**
  * UnexpectedError is raised when an unexpected error occurs.
  */
@@ -92,7 +94,7 @@ export class ControlError extends SynnaxError.sub("control") {}
 export class UnauthorizedError extends ControlError.sub("unauthorized") {}
 
 export class DisconnectedError extends SynnaxError.sub("disconnected") {
-  constructor(message: string = "Operation failed because no cluster is connected.") {
+  constructor(message: string = "Operation failed because no Core is connected.") {
     super(message);
   }
 }
@@ -161,7 +163,7 @@ export const errorsMiddleware: Middleware = async (ctx, next) => {
     return [
       res,
       new Unreachable({
-        message: `Cannot reach cluster at ${err.url.host}:${err.url.port}`,
+        message: `Cannot reach Core at ${err.url.host}:${err.url.port}`,
         url: err.url,
       }),
     ];

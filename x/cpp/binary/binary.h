@@ -17,64 +17,82 @@
 namespace binary {
 /// @brief A simple binary writer to help with frame encoding
 class Writer {
-    std::vector<uint8_t> *buf{nullptr};
+    std::vector<uint8_t> &buf;
     size_t offset;
 
 public:
     /// @brief Creates a new binary writer that writes to an existing buffer
     /// @param buffer The buffer to write to
-    /// @param buffer_size The size to resize the buffer to
+    /// @param size The size to resize the buffer to
     /// @param starting_offset The starting offset
     Writer(
         std::vector<uint8_t> &buffer,
-        size_t buffer_size,
-        size_t starting_offset = 0
+        const size_t size,
+        const size_t starting_offset = 0
     ):
-        buf(&buffer), offset(starting_offset) {
-        buf->resize(buffer_size);
+        buf(buffer), offset(starting_offset) {
+        buf.resize(size);
     }
 
     /// @brief Writes a byte to the buffer
     /// @param value The byte to write
-    void uint8(uint8_t value) { (*buf)[offset++] = value; }
-
-    /// @brief Writes a 32-bit unsigned integer to the buffer
-    /// @param value The uint32 to write
-    void uint32(uint32_t value) {
-        this->uint8(static_cast<uint8_t>(value));
-        this->uint8(static_cast<uint8_t>(value >> 8U));
-        this->uint8(static_cast<uint8_t>(value >> 16U));
-        this->uint8(static_cast<uint8_t>(value >> 24U));
+    /// @return The number of bytes written (0 or 1)
+    size_t uint8(const uint8_t value) {
+        if (offset >= buf.size()) return 0;
+        buf[offset++] = value;
+        return 1;
     }
 
-    /// @brief Writes a 64-bit unsigned integer to the buffer
+    /// @brief Writes a 32-bit unsigned integer to the buffer (little-endian)
+    /// @param value The uint32 to write
+    /// @return The number of bytes written (0-4)
+    size_t uint32(const uint32_t value) {
+        size_t written = 0;
+        written += this->uint8(static_cast<uint8_t>(value));
+        written += this->uint8(static_cast<uint8_t>(value >> 8));
+        written += this->uint8(static_cast<uint8_t>(value >> 16));
+        written += this->uint8(static_cast<uint8_t>(value >> 24));
+        return written;
+    }
+
+    /// @brief Writes a 64-bit unsigned integer to the buffer (little-endian)
     /// @param value The uint64 to write
-    void uint64(uint64_t value) {
-        this->uint8(static_cast<uint8_t>(value));
-        this->uint8(static_cast<uint8_t>(value >> 8U));
-        this->uint8(static_cast<uint8_t>(value >> 16U));
-        this->uint8(static_cast<uint8_t>(value >> 24U));
-        this->uint8(static_cast<uint8_t>(value >> 32U));
-        this->uint8(static_cast<uint8_t>(value >> 40U));
-        this->uint8(static_cast<uint8_t>(value >> 48U));
-        this->uint8(static_cast<uint8_t>(value >> 56U));
+    /// @return The number of bytes written (0-8)
+    size_t uint64(const uint64_t value) {
+        size_t written = 0;
+        written += this->uint8(static_cast<uint8_t>(value));
+        written += this->uint8(static_cast<uint8_t>(value >> 8));
+        written += this->uint8(static_cast<uint8_t>(value >> 16));
+        written += this->uint8(static_cast<uint8_t>(value >> 24));
+        written += this->uint8(static_cast<uint8_t>(value >> 32));
+        written += this->uint8(static_cast<uint8_t>(value >> 40));
+        written += this->uint8(static_cast<uint8_t>(value >> 48));
+        written += this->uint8(static_cast<uint8_t>(value >> 56));
+        return written;
     }
 
     /// @brief Writes a 64-bit signed integer to the buffer
     /// @param value The int64 to write
-    void int64(int64_t value) { this->uint64(static_cast<uint64_t>(value)); }
+    /// @return The number of bytes written (0-8)
+    size_t int64(const int64_t value) {
+        return this->uint64(static_cast<uint64_t>(value));
+    }
 
     /// @brief Writes raw bytes to the buffer
     /// @param data The bytes to write
-    /// @param num_bytes The number of bytes to write
-    void write(const void *data, size_t num_bytes) {
-        std::memcpy(buf->data() + offset, data, num_bytes);
-        offset += num_bytes;
+    /// @param size The number of bytes to write
+    /// @return The number of bytes actually written
+    size_t write(const void *data, const size_t size) {
+        const size_t available = buf.size() - offset;
+        const size_t to_write = size < available ? size : available;
+        std::memcpy(buf.data() + offset, data, to_write);
+        offset += to_write;
+        return to_write;
     }
 
     /// @brief Returns the buffer
     /// @return The buffer as a byte vector
-    [[nodiscard]] std::vector<uint8_t> &bytes() const { return *this->buf; }
+    [[nodiscard]] std::vector<uint8_t> &bytes() const { return this->buf; }
 };
 
 class Reader {

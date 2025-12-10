@@ -8,14 +8,13 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from synnax.hardware import ni
 
 """
 This examples demonstrates how to configure and start an Analog Read Task on a National
 Instruments USB-6289 device.
 
 To run this example, you'll need to have your Synnax cluster properly configured to
-detect National Instruments devices: https://docs.synnaxlabs.com/reference/device-drivers/ni/get-started
+detect National Instruments devices: https://docs.synnaxlabs.com/reference/driver/ni/get-started
 
 You'll also need to have either a physical USB-6289 device or create a simulated device
 via the NI-MAX software.
@@ -25,8 +24,7 @@ via the NI-MAX software.
 # See https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
 client = sy.Synnax()
 
-# Retrieve the USB-6289 device from Synnax.
-dev = client.hardware.devices.retrieve(model="USB-6289")
+dev = client.devices.retrieve(model="USB-6289")
 
 # Create an index channel that will be used to store the timestamps
 # for the analog read data.
@@ -58,7 +56,7 @@ ai_1 = client.channels.create(
 # Instantiate the task. A task is a background process that can be used to acquire data
 # from, or write commands to a device. Tasks are the primary method for interacting with
 # hardware in Synnax.
-tsk = ni.AnalogReadTask(
+tsk = sy.ni.AnalogReadTask(
     # A name to find and monitor the task via the Synnax Console.
     name="Basic Analog Read",
     # The rate at which the task will sample data from the device.
@@ -73,7 +71,7 @@ tsk = ni.AnalogReadTask(
     data_saving=True,
     # The list of physical channels we'd like to acquire data from.
     channels=[
-        ni.AIVoltageChan(
+        sy.ni.AIVoltageChan(
             # The key of the Synnax channel we're acquiring data for.
             channel=ai_0.key,
             # The key of the device on which the channel is located.
@@ -82,18 +80,18 @@ tsk = ni.AnalogReadTask(
             port=0,
             # A custom scale to apply to the data. This is optional, but can be useful
             # for converting raw data into meaningful units.
-            custom_scale=ni.LinScale(
+            custom_scale=sy.ni.LinScale(
                 slope=2e4,
                 y_intercept=50,
                 pre_scaled_units="Volts",
                 scaled_units="Volts",
             ),
         ),
-        ni.AIVoltageChan(
+        sy.ni.AIVoltageChan(
             channel=ai_1.key,
             device=dev.key,
             port=1,
-            custom_scale=ni.MapScale(
+            custom_scale=sy.ni.MapScale(
                 pre_scaled_min=0,
                 pre_scaled_max=10,
                 scaled_min=0,
@@ -107,7 +105,7 @@ tsk = ni.AnalogReadTask(
 
 # This will create the task in Synnax and wait for the driver to validate that the
 # configuration is correct.
-client.hardware.tasks.configure(tsk)
+client.tasks.configure(tsk)
 
 # Stream 100 reads, which will accumulate a total of 400 samples
 # for each channel over a period of 4 seconds.
@@ -117,13 +115,8 @@ total_reads = 100
 frame = sy.Frame()
 
 # Start the task under a context manager, which ensures the task gets stopped
-# when the block exits. If you want to stop the task manually, you can call
-# tsk.start()
-# ...your code
-# tsk.stop()
-# We recommend wrapped your code in a try/finally block to ensure the task is
-# stopped in case of an exception.
-with tsk.start():
+# when the block exits.
+with tsk.run():
     # Open a streamer on the analog input channels.
     with client.open_streamer(["ai_0", "ai_1"]) as streamer:
         for i in range(total_reads):

@@ -12,7 +12,7 @@ import synnax as sy
 from framework.test_case import TestCase
 
 
-class Simple_Press(TestCase):
+class SimplePress(TestCase):
     """
     Test a basic press control sequence
     """
@@ -22,7 +22,6 @@ class Simple_Press(TestCase):
         self.subscribe(
             [
                 "end_test_cmd",
-                "end_test_state",
                 "press_vlv_cmd",
                 "press_vlv_state",
                 "vent_vlv_cmd",
@@ -48,41 +47,42 @@ class Simple_Press(TestCase):
             read=[PRESSURE],
         ) as ctrl:
 
-            target_pressure = 20
+            target_pressure = 30
             ctrl[PRESS_VALVE] = False
             ctrl[VENT_VALVE] = False
 
             # Pressurize the system
-            for i in range(5):
+            for i in range(4):
                 if self.should_stop:
                     return
                 # Open press valve and wait
-                ctrl[PRESS_VALVE] = True
+                ctrl[PRESS_VALVE] = 1
                 self.assert_states(press_state=1, vent_state=0)
                 if ctrl.wait_until(
                     (lambda c: c[PRESSURE] > target_pressure),
                     timeout=10 * sy.TimeSpan.SECOND,
                 ):
-                    self._log_message(
+                    self.log(
                         f"Target pressure reached: {ctrl[PRESSURE]:.2f} > {target_pressure}"
                     )
-                    ctrl[PRESS_VALVE] = False
+                    ctrl[PRESS_VALVE] = 0
                     self.assert_states(press_state=0, vent_state=0)
-                    target_pressure += 20
+                    target_pressure += 30
+                    sy.sleep(1)  # Give "Bad Actor" time to run
                 else:
                     self.fail(f"{ctrl[PRESSURE]:.2f} < {target_pressure}")
                     return
 
             # Depressurize the system
-            ctrl[VENT_VALVE] = True
+            ctrl[VENT_VALVE] = 1
             self.assert_states(press_state=0, vent_state=1)
             ctrl.wait_until(
                 lambda c: c[PRESSURE] < 5,
                 timeout=10 * sy.TimeSpan.SECOND,
             )
-            ctrl[VENT_VALVE] = False
+            ctrl[VENT_VALVE] = 0
             self.assert_states(press_state=0, vent_state=0)
-            ctrl[END_TEST_CMD] = True
+            ctrl[END_TEST_CMD] = 1
 
     def assert_states(self, press_state: int, vent_state: int) -> None:
         sy.sleep(1)

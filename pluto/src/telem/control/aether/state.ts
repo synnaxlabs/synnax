@@ -14,7 +14,7 @@ import {
   type Synnax,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import { color, type Destructor, observe, unique } from "@synnaxlabs/x";
+import { color, type destructor, observe, unique } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -22,6 +22,7 @@ import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { theming } from "@/theming/aether";
+
 export const stateProviderStateZ = z.object({});
 
 interface InternalState {
@@ -66,7 +67,7 @@ export class StateProvider extends aether.Composite<
   /** Tracks the current control state for each channel and allows us to access it */
   private tracker?: control.StateTracker;
   /** Stop listening for changes to the tracker */
-  private disconnectTrackerChange?: Destructor;
+  private disconnectTrackerChange?: destructor.Destructor;
 
   /** An observer that lets external subscribers know when the control state changes */
   private readonly obs: observe.Observer<control.Transfer[]> = new observe.Observer();
@@ -115,7 +116,7 @@ export class StateProvider extends aether.Composite<
     }, "failed to close control state tracker");
   }
 
-  onChange(cb: (transfers: control.Transfer[]) => void): Destructor {
+  onChange(cb: (transfers: control.Transfer[]) => void): destructor.Destructor {
     return this.obs.onChange(cb);
   }
 

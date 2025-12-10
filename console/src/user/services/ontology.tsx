@@ -7,25 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type user } from "@synnaxlabs/client";
-import { type Flux, Icon, Menu as PMenu, Text, User } from "@synnaxlabs/pluto";
+import { ontology } from "@synnaxlabs/client";
+import { Access, type Flux, Icon, Menu as PMenu, Text, User } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Menu } from "@/components";
+import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
-import { Permissions } from "@/permissions";
-import { useSelectHasPermission } from "@/user/selectors";
-
-const editPermissions = ({
-  placeLayout,
-  selection: { ids },
-  state: { getResource },
-}: Ontology.TreeContextMenuProps) => {
-  const user = getResource(ids[0]).data as user.User;
-  const layout = Permissions.createEditLayout(user);
-  placeLayout(layout);
-};
+import { ASSIGN_ROLE_LAYOUT } from "@/user/AssignRole";
 
 const useDelete = createUseDelete({
   type: "User",
@@ -47,11 +37,26 @@ const useRename = ({
     },
     [firstID],
   );
-  const { update, status } = User.useRename({ beforeUpdate });
-  console.log(status);
+  const { update } = User.useRename({ beforeUpdate });
   return useCallback(
     () => update({ key: firstID.key, username: getResource(firstID).name }),
     [update, firstID, getResource],
+  );
+};
+
+const useAssignRole = (): ((props: Ontology.TreeContextMenuProps) => void) => {
+  const placeLayout = Layout.usePlacer();
+
+  return useCallback(
+    ({ selection: { ids }, state: { getResource } }: Ontology.TreeContextMenuProps) => {
+      const resource = getResource(ids[0]);
+      placeLayout({
+        ...ASSIGN_ROLE_LAYOUT,
+        name: `Role.Assign.${resource.name}`,
+        args: { key: ids[0].key },
+      });
+    },
+    [placeLayout],
   );
 };
 
@@ -61,44 +66,41 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state: { getResource },
     selection: { ids },
   } = props;
+  const canEdit = Access.useUpdateGranted(ids);
+  const canDelete = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
+  const handleAssignRole = useAssignRole();
   const handleSelect = {
-    permissions: () => editPermissions(props),
     rename,
     delete: handleDelete,
+    assignRole: () => handleAssignRole(props),
   };
   const singleResource = ids.length === 1;
-  const hasRootUser = ids.some((id) => {
-    const user = getResource(id).data as user.User;
-    return user.rootUser;
-  });
-  const isNotCurrentUser = getResource(ids[0]).name !== client.props.username;
-  const canEditPermissions = Permissions.useSelectCanEditPolicies();
-  const canEditOrDelete = useSelectHasPermission();
+  const isNotCurrentUser = getResource(ids[0]).name !== client.params.username;
+  const isRootUser = getResource(ids[0]).data?.root_user === true;
 
   return (
     <PMenu.Menu onChange={handleSelect} level="small" gap="small">
-      {singleResource && isNotCurrentUser && (
+      {canEdit && singleResource && isNotCurrentUser && (
         <>
-          {canEditPermissions && !hasRootUser && (
-            <PMenu.Item itemKey="permissions">
-              <Icon.Access />
-              Edit Permissions
-            </PMenu.Item>
-          )}
-          {canEditOrDelete && (
-            <>
-              <PMenu.Item itemKey="rename">
-                <Icon.Rename />
-                Change Username
-              </PMenu.Item>
-              <PMenu.Divider />
-            </>
-          )}
+          <PMenu.Item itemKey="rename">
+            <Icon.Rename />
+            Change username
+          </PMenu.Item>
+          <PMenu.Divider />
         </>
       )}
-      {canEditOrDelete && !hasRootUser && (
+      {canEdit && singleResource && !isRootUser && isNotCurrentUser && (
+        <>
+          <PMenu.Item itemKey="assignRole">
+            <Icon.Role />
+            Assign to role
+          </PMenu.Item>
+          <PMenu.Divider />
+        </>
+      )}
+      {canDelete && (
         <>
           <Menu.DeleteItem />
           <PMenu.Divider />
@@ -110,7 +112,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
-      <Menu.HardReloadItem />
+      <Menu.ReloadConsoleItem />
     </PMenu.Menu>
   );
 };
@@ -120,4 +122,6 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "user",
   icon: <Icon.User />,
   TreeContextMenu,
+  hasChildren: false,
+  haulItems: ({ id, data }) => [{ ...id, data: data ?? undefined }],
 };

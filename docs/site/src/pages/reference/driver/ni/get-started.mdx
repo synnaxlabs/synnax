@@ -1,0 +1,48 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "NI | Get Started"
+heading: "National Instruments Device Driver"
+description:
+  "Learn how to acquire data from and control National Instruments hardware using
+  Synnax."
+next: "Configure a Device"
+nextURL: "/reference/driver/ni/configure-device"
+---
+
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The Synnax Driver supports reading and writing data from
+[National Instruments (NI)](https://www.ni.com/en-us.html) hardware, including
+CompactDAQ, CompactRIO, and PXI systems.
+
+<Divider.Divider x />
+
+## Installing NI-DAQmx and System Configuration Libraries
+
+[NI-DAQmx](https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html) and
+[System Configuration](https://www.ni.com/en/support/downloads/drivers/download.system-configuration.html)
+libraries must be installed for the Driver to communicate with your NI devices.
+
+<Divider.Divider x />
+
+## Supported Devices
+
+**Synnax supports reading and writing data to all National Instruments devices that are
+supported by the
+[NI-DAQmx driver](https://www.ni.com/en-us/support/downloads/drivers/download.ni-daqmx.html).**
+
+Aside from very old DAQ modules, Synnax is generally compatible with every NI device.
+
+<Divider.Divider x />
+
+## Supported Operating Systems
+
+| Platform                            | Status          |
+| ----------------------------------- | --------------- |
+| <Icon.Logo.Windows /> Windows       | ✓ Supported     |
+| <Icon.Logo.Linux /> Linux           | ✓ Supported     |
+| <Icon.Logo.NI /> NI Linux Real-Time | ✓ Supported     |
+| <Icon.Logo.Apple /> macOS           | ✗ Not Supported |
+| <Icon.Logo.Docker /> Docker         | ✗ Not Supported |

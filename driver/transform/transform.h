@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// std
 #include <functional>
 #include <map>
 #include <memory>
@@ -18,10 +17,8 @@
 #include <variant>
 #include <vector>
 
-/// external
 #include "glog/logging.h"
 
-/// module
 #include "client/cpp/synnax.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xjson/xjson.h"
@@ -68,7 +65,7 @@ public:
 
     xerrors::Error tare(json &arg) {
         xjson::Parser parser(arg);
-        const auto channels = parser.optional_vec<synnax::ChannelKey>(
+        const auto channels = parser.field<std::vector<synnax::ChannelKey>>(
             "keys",
             std::vector<synnax::ChannelKey>{}
         );
@@ -122,8 +119,8 @@ class UnaryLinearScale {
 
 public:
     explicit UnaryLinearScale(xjson::Parser &parser, const telem::DataType &dt):
-        slope(parser.required<double>("slope")),
-        offset(parser.required<double>("offset")),
+        slope(parser.field<double>("slope")),
+        offset(parser.field<double>("offset")),
         dt(dt) {}
 
     xerrors::Error transform_inplace(const telem::Series &series) const {
@@ -151,10 +148,10 @@ class UnaryMapScale {
 
 public:
     explicit UnaryMapScale(xjson::Parser &parser, const telem::DataType &dt):
-        prescaled_min(parser.required<double>("pre_scaled_min")),
-        prescaled_max(parser.required<double>("pre_scaled_max")),
-        scaled_min(parser.required<double>("scaled_min")),
-        scaled_max(parser.required<double>("scaled_max")),
+        prescaled_min(parser.field<double>("pre_scaled_min")),
+        prescaled_max(parser.field<double>("pre_scaled_max")),
+        scaled_min(parser.field<double>("scaled_min")),
+        scaled_max(parser.field<double>("scaled_max")),
         dt(dt) {}
 
     xerrors::Error transform_inplace(const telem::Series &series) const {
@@ -185,8 +182,8 @@ public:
         const std::unordered_map<synnax::ChannelKey, synnax::Channel> &channels
     ) {
         parser.iter("channels", [this, &channels](xjson::Parser &channel_parser) {
-            const auto key = channel_parser.required<synnax::ChannelKey>("channel");
-            const auto enabled = channel_parser.optional<bool>("enabled", true);
+            const auto key = channel_parser.field<synnax::ChannelKey>("channel");
+            const auto enabled = channel_parser.field<bool>("enabled", true);
             auto scale_parser = channel_parser.optional_child("scale");
             if (!channel_parser.ok() || !enabled) return;
             const auto ch_t = channels.find(key);
@@ -197,7 +194,7 @@ public:
                 );
                 return;
             }
-            const auto type = scale_parser.required<std::string>("type");
+            const auto type = scale_parser.field<std::string>("type");
             const auto dt = ch_t->second.data_type;
             if (type == "linear") {
                 UnaryLinearScale linear_scale(scale_parser, dt);

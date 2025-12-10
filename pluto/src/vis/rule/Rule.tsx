@@ -9,8 +9,7 @@
 
 import "@/vis/rule/Rule.css";
 
-import { color } from "@synnaxlabs/x";
-import { box } from "@synnaxlabs/x/spatial";
+import { box, color } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { type z } from "zod";
@@ -85,7 +84,7 @@ export const Rule = ({
   const pixelPosRef = useRef(pixelPosition);
   if (pixelPosition !== pixelPosRef.current) pixelPosRef.current = pixelPosition;
 
-  const { id } = LinePlot.useContext("Rule");
+  const { id } = LinePlot.useContext("Rule.Rule");
 
   const plotEl = document.getElementById(id);
   const viewportEl = plotEl?.querySelector(".pluto-line-plot__viewport");

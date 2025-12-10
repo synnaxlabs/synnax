@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { task } from "@synnaxlabs/client";
+import { Access } from "@synnaxlabs/pluto";
+
 import { LabJack } from "@/hardware/labjack";
 import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
@@ -21,7 +24,10 @@ export const SELECTABLES: CoreSelector.Selectable[] = [
   ...NI.Task.SELECTABLES,
   ...OPC.Task.SELECTABLES,
   ...Sequence.SELECTABLES,
-];
+].map((selectable) => ({
+  ...selectable,
+  useVisible: () => Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID),
+}));
 
 export const SELECTOR_LAYOUT_TYPE = "taskSelector";
 

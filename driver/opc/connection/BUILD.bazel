@@ -1,0 +1,41 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "connection",
+    srcs = [
+        "connection.cpp",
+        "pool.cpp",
+    ],
+    hdrs = [
+        "connection.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/errors",
+        "//driver/opc/errors",
+        "//driver/task",
+        "//vendor/mbedtls",
+        "//vendor/open62541",
+        "//x/cpp/xerrors",
+        "//x/cpp/xjson",
+        "@glog",
+        "@nlohmann_json//:json",
+    ],
+)
+
+cc_test(
+    name = "connection_test",
+    srcs = [
+        "connection_test.cpp",
+        "keepalive_test.cpp",
+        "pool_test.cpp",
+    ],
+    deps = [
+        ":connection",
+        "//driver/opc/mock",
+        "//driver/opc/testutil",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

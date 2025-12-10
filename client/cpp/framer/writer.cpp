@@ -11,9 +11,8 @@
 #include <utility>
 
 #include "client/cpp/framer/framer.h"
-#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/framer.pb.h"
 
-const std::string WRITE_ENDPOINT = "/frame/write";
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/framer.pb.h"
 
 /// @brief enumeration of possible writer commands.
 enum WriterCommand : uint32_t {
@@ -32,7 +31,7 @@ FrameClient::open_writer(const WriterConfig &cfg) const {
         if (const auto codec_err = codec.update(cfg.channels))
             return {Writer(), codec_err};
     }
-    auto [net_writer, err] = this->writer_client->stream(WRITE_ENDPOINT);
+    auto [net_writer, err] = this->writer_client->stream("/frame/write");
     if (err) return {Writer(), err};
     api::v1::FrameWriterRequest req;
     req.set_command(OPEN);

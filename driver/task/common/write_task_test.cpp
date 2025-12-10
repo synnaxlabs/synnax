@@ -7,13 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 
-/// module
 #include "x/cpp/xtest/xtest.h"
 
-/// internal
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/task/common/write_task.h"
 
@@ -99,9 +96,10 @@ TEST(TestCommonWriteTask, testBasicOperation) {
 
     std::string cmd_key = "cmd";
     ASSERT_TRUE(write_task.start(cmd_key));
-    ASSERT_EVENTUALLY_EQ(ctx->states.size(), 1);
-    auto start_state = ctx->states[0];
-    EXPECT_EQ(start_state.key, cmd_key);
+    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
+    auto start_state = ctx->statuses[0];
+    EXPECT_EQ(start_state.key, task.status_key());
+    EXPECT_EQ(start_state.details.cmd, cmd_key);
     EXPECT_EQ(start_state.details.task, task.key);
     EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(start_state.message, "Task started successfully");
@@ -111,7 +109,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
 
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writes->size(), 1);
     ASSERT_EVENTUALLY_EQ(writes->size(), 1);
-    auto check_state_writes = [&] -> uint8_t {
+    auto check_state_writes = [&]() -> uint8_t {
         const auto fr = std::move(
             mock_writer_factory->writes->at(mock_writer_factory->writes->size() - 1)
         );
@@ -124,9 +122,10 @@ TEST(TestCommonWriteTask, testBasicOperation) {
 
     const std::string stop_cmd_key = "stop_cmd";
     ASSERT_TRUE(write_task.stop(stop_cmd_key, true));
-    ASSERT_EVENTUALLY_EQ(ctx->states.size(), 2);
-    auto stop_state = ctx->states[1];
-    EXPECT_EQ(stop_state.key, stop_cmd_key);
+    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
+    auto stop_state = ctx->statuses[1];
+    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.details.cmd, stop_cmd_key);
     EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(stop_state.message, "Task stopped successfully");

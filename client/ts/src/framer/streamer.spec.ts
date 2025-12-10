@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, Unreachable } from "@synnaxlabs/freighter";
-import { DataType, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
+import { DataType, id, Rate, Series, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, test, vi } from "vitest";
 
 import { type channel } from "@/channel";
@@ -46,7 +46,12 @@ describe("Streamer", () => {
       await expect(client.openStreamer({ channels: ch.key })).resolves.not.toThrow();
     });
     it("should not throw an error when the streamer is opened with zero channels", async () => {
-      await expect(client.openStreamer([])).resolves.not.toThrow();
+      await expect(
+        (async () => {
+          const s = await client.openStreamer([]);
+          s.close();
+        })(),
+      ).resolves.not.toThrow();
     });
     it("should throw an error when the streamer is opened with a channel that does not exist", async () => {
       await expect(client.openStreamer([5678])).rejects.toThrow("not found");
@@ -108,11 +113,98 @@ describe("Streamer", () => {
       });
     });
 
+    describe("throttling", () => {
+      test("throttle at 60Hz", async () => {
+        const ch = await newVirtualChannel(client);
+        const streamer = await client.openStreamer({
+          channels: ch.key,
+          throttleRate: 60,
+        });
+        const writer = await client.openWriter({
+          start: TimeStamp.now(),
+          channels: ch.key,
+        });
+        try {
+          const startTime = Date.now();
+          // Write data rapidly
+          for (let i = 0; i < 10; i++) {
+            await writer.write(ch.key, new Float64Array([i]));
+            await sleep.sleep(TimeSpan.milliseconds(5));
+          }
+
+          // Read frames - should be throttled
+          const receivedFrames: Frame[] = [];
+          const timeout = Date.now() + 500;
+          while (Date.now() < timeout)
+            try {
+              const frame = await Promise.race([
+                streamer.read(),
+                sleep.sleep(TimeSpan.milliseconds(100)).then(() => null),
+              ]);
+              if (frame) receivedFrames.push(frame);
+              else break;
+            } catch {
+              break;
+            }
+
+          expect(receivedFrames.length).toBeGreaterThan(0);
+          const elapsed = Date.now() - startTime;
+          // Should take at least the throttle period
+          expect(elapsed).toBeGreaterThanOrEqual(16); // ~1/60Hz
+        } finally {
+          await writer.close();
+          streamer.close();
+        }
+      });
+
+      test("no throttling with rate of 0", async () => {
+        const ch = await newVirtualChannel(client);
+        const streamer = await client.openStreamer({
+          channels: ch.key,
+          throttleRate: 0,
+        });
+        const writer = await client.openWriter({
+          start: TimeStamp.now(),
+          channels: ch.key,
+        });
+        try {
+          await writer.write(ch.key, new Float64Array([1, 2, 3]));
+          const d = await streamer.read();
+          expect(Array.from(d.get(ch.key))).toEqual([1, 2, 3]);
+        } finally {
+          await writer.close();
+          streamer.close();
+        }
+      });
+
+      test("combine throttling and downsampling", async () => {
+        const ch = await newVirtualChannel(client);
+        const streamer = await client.openStreamer({
+          channels: ch.key,
+          downsampleFactor: 2,
+          throttleRate: 10,
+        });
+        const writer = await client.openWriter({
+          start: TimeStamp.now(),
+          channels: ch.key,
+        });
+        try {
+          await writer.write(ch.key, new Float64Array([1, 2, 3, 4, 5, 6]));
+          const d = await streamer.read();
+          // Should be downsampled to [1, 3, 5] and throttled
+          expect(Array.from(d.get(ch.key))).toEqual([1, 3, 5]);
+        } finally {
+          await writer.close();
+          streamer.close();
+        }
+      });
+    });
+
     describe("calculations", () => {
       test("basic calculated channel streaming", async () => {
         // Create a timestamp index channel
         const timeChannel = await client.channels.create({
-          name: "calc_test_time",
+          name: id.create(),
           isIndex: true,
           dataType: DataType.TIMESTAMP,
         });
@@ -120,12 +212,12 @@ describe("Streamer", () => {
         // Create source channels with the timestamp index
         const [channelA, channelB] = await client.channels.create([
           {
-            name: "test_a",
+            name: id.create(),
             dataType: DataType.FLOAT64,
             index: timeChannel.key,
           },
           {
-            name: "test_b",
+            name: id.create(),
             dataType: DataType.FLOAT64,
             index: timeChannel.key,
           },
@@ -133,16 +225,15 @@ describe("Streamer", () => {
 
         // Create calculated channel that adds the two source channels
         const calcChannel = await client.channels.create({
-          name: "test_calc",
+          name: id.create(),
           dataType: DataType.FLOAT64,
-          index: timeChannel.key,
           virtual: true,
-          expression: "return test_a + test_b",
-          requires: [channelA.key, channelB.key],
+          expression: `return ${channelA.name} + ${channelB.name}`,
         });
 
         // Set up streamer to listen for calculated results
         const streamer = await client.openStreamer(calcChannel.key);
+        await sleep.sleep(TimeSpan.milliseconds(10));
 
         // Write test data
         const startTime = TimeStamp.now();
@@ -170,32 +261,32 @@ describe("Streamer", () => {
           streamer.close();
         }
       });
+
       test("calculated channel with constant", async () => {
         // Create an index channel for timestamps
         const timeChannel = await client.channels.create({
-          name: "calc_const_time",
+          name: id.create(),
           isIndex: true,
           dataType: DataType.TIMESTAMP,
         });
 
         // Create base channel with index
         const baseChannel = await client.channels.create({
-          name: "base_channel",
+          name: id.create(),
           dataType: DataType.FLOAT64,
           index: timeChannel.key,
         });
 
         // Create calculated channel that adds 5
         const calcChannel = await client.channels.create({
-          name: "calc_const_channel",
+          name: id.create(),
           dataType: DataType.FLOAT64,
-          index: timeChannel.key,
           virtual: true,
           expression: `return ${baseChannel.name} + 5`,
-          requires: [baseChannel.key],
         });
 
         const streamer = await client.openStreamer(calcChannel.key);
+        await sleep.sleep(TimeSpan.milliseconds(20));
 
         const startTime = TimeStamp.now();
         const writer = await client.openWriter({
@@ -227,28 +318,28 @@ describe("Streamer", () => {
       test("calculated channel with multiple operations", async () => {
         // Create timestamp channel
         const timeChannel = await client.channels.create({
-          name: "calc_multi_time",
+          name: id.create(),
           isIndex: true,
           dataType: DataType.TIMESTAMP,
         });
 
         // Create source channels
+        const names = [id.create(), id.create()];
         const [channelA, channelB] = await client.channels.create([
-          { name: "multi_test_a", dataType: DataType.FLOAT64, index: timeChannel.key },
-          { name: "multi_test_b", dataType: DataType.FLOAT64, index: timeChannel.key },
+          { name: names[0], dataType: DataType.FLOAT64, index: timeChannel.key },
+          { name: names[1], dataType: DataType.FLOAT64, index: timeChannel.key },
         ]);
 
         // Create calculated channel with multiple operations
         const calcChannel = await client.channels.create({
-          name: "multi_calc",
+          name: id.create(),
           dataType: DataType.FLOAT64,
-          index: timeChannel.key,
           virtual: true,
-          expression: "return (multi_test_a * 2) + (multi_test_b / 2)",
-          requires: [channelA.key, channelB.key],
+          expression: `return (${names[0]} * 2) + (${names[1]} / 2)`,
         });
 
         const streamer = await client.openStreamer(calcChannel.key);
+        await sleep.sleep(TimeSpan.milliseconds(5));
 
         const startTime = TimeStamp.now();
         const writer = await client.openWriter({
@@ -270,6 +361,62 @@ describe("Streamer", () => {
           await writer.close();
           streamer.close();
         }
+      });
+
+      describe("legacy calculations", async () => {
+        it("should correctly execute a calculation with a requires field", async () => {
+          const timeChannel = await client.channels.create({
+            name: id.create(),
+            isIndex: true,
+            dataType: DataType.TIMESTAMP,
+          });
+
+          const [channelA, channelB] = await client.channels.create([
+            {
+              name: id.create(),
+              dataType: DataType.FLOAT64,
+              index: timeChannel.key,
+            },
+            {
+              name: id.create(),
+              dataType: DataType.FLOAT64,
+              index: timeChannel.key,
+            },
+          ]);
+
+          const calcChannel = await client.channels.create({
+            name: id.create(),
+            dataType: DataType.FLOAT64,
+            virtual: true,
+            expression: `return ${channelA.name} + ${channelB.name}`,
+            requires: [channelA.key, channelB.key],
+          });
+
+          const streamer = await client.openStreamer(calcChannel.key);
+          await sleep.sleep(TimeSpan.milliseconds(10));
+
+          const startTime = TimeStamp.now();
+          const writer = await client.openWriter({
+            start: startTime,
+            channels: [timeChannel.key, channelA.key, channelB.key],
+          });
+
+          try {
+            await writer.write({
+              [timeChannel.key]: [startTime],
+              [channelA.key]: new Float64Array([2.5]),
+              [channelB.key]: new Float64Array([2.5]),
+            });
+
+            const frame = await streamer.read();
+
+            const calcData = Array.from(frame.get(calcChannel.key));
+            expect(calcData).toEqual([5.0]);
+          } finally {
+            await writer.close();
+            streamer.close();
+          }
+        });
       });
     });
   });
@@ -338,6 +485,7 @@ describe("Streamer", () => {
       expect(openMock).toHaveBeenCalledWith({
         ...config,
         downsampleFactor: 1,
+        throttleRate: new Rate(0),
       });
       await hardened.update([1, 2, 3]);
       expect(streamer.updateMock).toHaveBeenCalledWith([1, 2, 3]);

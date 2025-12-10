@@ -114,7 +114,7 @@ export const TextForm = ({ onVariantChange }: FormProps) => (
     </Form.Field>
     <Form.Field<Flex.Alignment> path="align" label="Alignment" hideIfNull>
       {({ value, onChange, variant: _, ...rest }) => (
-        <Flex.SelectAlignment value={value} onChange={onChange} {...rest} />
+        <Select.Flex.Alignment value={value} onChange={onChange} {...rest} />
       )}
     </Form.Field>
     <Form.Field<color.Crude>
@@ -137,5 +137,5 @@ export interface SelectVariantProps
   extends Omit<Select.StaticProps<Variant>, "data" | "resourceName"> {}
 
 export const SelectVariant = (props: SelectVariantProps) => (
-  <Select.Static {...props} data={VARIANT_DATA} resourceName="Variant" />
+  <Select.Static {...props} data={VARIANT_DATA} resourceName="variant" />
 );

@@ -11,7 +11,7 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type record } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
 import {
@@ -23,12 +23,6 @@ import {
   remoteZ,
   type Table,
 } from "@/workspace/table/payload";
-
-const RETRIEVE_ENDPOINT = "/workspace/table/retrieve";
-const CREATE_ENDPOINT = "/workspace/table/create";
-const RENAME_ENDPOINT = "/workspace/table/rename";
-const SET_DATA_ENDPOINT = "/workspace/table/set-data";
-const DELETE_ENDPOINT = "/workspace/table/delete";
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
@@ -65,7 +59,7 @@ export class Client {
     const isMany = Array.isArray(tables);
     const res = await sendRequired(
       this.client,
-      CREATE_ENDPOINT,
+      "/workspace/table/create",
       { workspace, tables: array.toArray(tables) },
       createReqZ,
       createResZ,
@@ -76,7 +70,7 @@ export class Client {
   async rename(key: Key, name: string): Promise<void> {
     await sendRequired(
       this.client,
-      RENAME_ENDPOINT,
+      "/workspace/table/rename",
       { key, name },
       renameReqZ,
       emptyResZ,
@@ -86,7 +80,7 @@ export class Client {
   async setData(key: Key, data: record.Unknown): Promise<void> {
     await sendRequired(
       this.client,
-      SET_DATA_ENDPOINT,
+      "/workspace/table/set-data",
       { key, data: JSON.stringify(data) },
       setDataReqZ,
       emptyResZ,
@@ -101,7 +95,7 @@ export class Client {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
     const res = await sendRequired(
       this.client,
-      RETRIEVE_ENDPOINT,
+      "/workspace/table/retrieve",
       args,
       retrieveArgsZ,
       retrieveResZ,
@@ -113,7 +107,7 @@ export class Client {
   async delete(keys: Params): Promise<void> {
     await sendRequired(
       this.client,
-      DELETE_ENDPOINT,
+      "/workspace/table/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       emptyResZ,
@@ -121,4 +115,5 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: "table", key });
+export const ontologyID = ontology.createIDFactory<Key>("table");
+export const TYPE_ONTOLOGY_ID = ontologyID("");

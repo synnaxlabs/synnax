@@ -9,30 +9,25 @@
 
 #pragma once
 
-/// std
 #include <atomic>
 #include <mutex>
 #include <string>
 
-/// protos
-#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/auth.pb.h"
-
-/// external
 #include "glog/logging.h"
 
-/// module
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/clock_skew.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xos/xos.h"
 
+#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/auth.pb.h"
+
 /// @brief auth metadata key. NOTE: This must be lowercase, GRPC will panic on
 /// capitalized or uppercase keys.
 const std::string HEADER_KEY = "authorization";
 /// @brief auth token prefix that will be parsed by the cluster.
 const std::string HEADER_VALUE_PREFIX = "Bearer ";
-const std::string AUTH_ENDPOINT = "/auth/login";
 
 /// @brief type alias for the auth login transport.
 using AuthLoginClient = freighter::
@@ -51,7 +46,7 @@ struct ClusterInfo {
     /// @brief the version string of the Synnax node. Follows the semver format.
     std::string node_version;
     /// @brief the key of the node within the cluster.
-    std::uint16_t node_key = 0;
+    std::uint32_t node_key = 0;
     /// @brief the time of the node at the midpoint of the server processing the
     /// request.
     telem::TimeStamp node_time = telem::TimeStamp(0);
@@ -110,7 +105,7 @@ public:
         req.set_password(this->password);
         auto skew_calc = telem::ClockSkewCalculator();
         skew_calc.start();
-        auto [res, err] = login_client->send(AUTH_ENDPOINT, req);
+        auto [res, err] = login_client->send("/auth/login", req);
         if (err) return err;
         this->token = res.token();
         this->cluster_info = ClusterInfo(res.cluster_info());

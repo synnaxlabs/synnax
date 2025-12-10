@@ -1,0 +1,369 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "LabJack Read Task"
+description: "Learn how to acquire data from LabJack devices with Synnax."
+prev: "Configure a Device"
+prevURL: "/reference/driver/labjack/configure-device"
+next: "Write Task"
+nextURL: "/reference/driver/labjack/write-task"
+---
+
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
+import { Video, Image } from "@/components/Media";
+import { Fragment } from "react";
+import ChannelTypeDetails from "@/components/details/ChannelTypeDetails.astro";
+import ExampleDetails from "@/components/details/ExampleDetails.astro";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+For task lifecycle management, see the
+[Task Basics](/reference/driver/task-basics#how-to) page.
+
+<Divider.Divider x />
+
+## Task Configuration Reference
+
+| Parameter     | Type    | Required | Default       | Description                                                   |
+| ------------- | ------- | -------- | ------------- | ------------------------------------------------------------- |
+| `name`        | string  | Yes      | -             | Human-readable task name                                      |
+| `sample_rate` | number  | Yes      | -             | Samples per second (Hz)                                       |
+| `stream_rate` | number  | No       | `sample_rate` | Rate data is streamed to Synnax (Hz), must be ≤ `sample_rate` |
+| `data_saving` | boolean | No       | `false`       | Enable permanent storage in Synnax                            |
+| `auto_start`  | boolean | No       | `false`       | Automatically start task after configuration                  |
+| `channels`    | array   | Yes      | -             | List of input channel configurations                          |
+
+<Divider.Divider x />
+
+## Channel Types Reference
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Analog Input ([`AI`](https://support.labjack.com/docs/14-0-analog-inputs-t-series-datasheet))</Text.Text>
+
+Reads analog voltage from a specified input terminal. Supports single-ended and
+differential configurations.
+
+| Parameter  | Type   | Required | Default | Description                                                             |
+| ---------- | ------ | -------- | ------- | ----------------------------------------------------------------------- |
+| `channel`  | number | Yes      | -       | Synnax channel key                                                      |
+| `port`     | string | Yes      | -       | Port location (e.g., `AIN0`, `AIN1`)                                    |
+| `range`    | number | No       | `10.0`  | Voltage range (±range volts)                                            |
+| `neg_chan` | number | No       | `199`   | Negative channel for differential measurements (199 = single-ended/GND) |
+| `pos_chan` | number | No       | `0`     | Positive channel number (e.g., 0 for AIN0)                              |
+
+</ChannelTypeDetails>
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Units.Temperature /> Thermocouple ([`TC`](https://support.labjack.com/docs/14-1-1-thermocouple-t7-t8-t-series-datasheet))</Text.Text>
+
+Reads temperature from a thermocouple with cold junction compensation (CJC).
+
+<Note.Note variant="warning">
+  **Performance Note**: Thermocouple channels use LabJack's built-in thermocouple
+  features, which [reduce the maximum reliable sample
+  rate](https://support.labjack.com/docs/using-a-thermocouple-with-the-t7#UsingaThermocouplewiththeT7-ThermocouplesinStreamMode)
+  compared to tasks with only analog or digital inputs.
+</Note.Note>
+
+| Parameter           | Type   | Required | Default                | Description                                                             |
+| ------------------- | ------ | -------- | ---------------------- | ----------------------------------------------------------------------- |
+| `channel`           | number | Yes      | -                      | Synnax channel key                                                      |
+| `port`              | string | Yes      | -                      | Port location (e.g., `AIN0`, `AIN1`)                                    |
+| `thermocouple_type` | enum   | Yes      | -                      | `B`, `E`, `J`, `K`, `N`, `R`, `S`, `T`, `C`                             |
+| `units`             | enum   | No       | `C`                    | Temperature units (`K`, `C`, `F`)                                       |
+| `cjc_source`        | string | No       | `TEMPERATURE_DEVICE_K` | CJC source: `TEMPERATURE_DEVICE_K`, `TEMPERATURE_AIR_K`, or `AIN#`      |
+| `cjc_slope`         | number | No       | `1.0`                  | CJC voltage to temperature slope (K/V)                                  |
+| `cjc_offset`        | number | No       | `0.0`                  | CJC temperature offset (K)                                              |
+| `neg_chan`          | number | No       | `199`                  | Negative channel for differential measurements (199 = single-ended/GND) |
+| `pos_chan`          | number | No       | `0`                    | Positive channel number (e.g., 0 for AIN0)                              |
+
+**CJC Configuration Examples:**
+
+- **Device temp sensor**: `cjc_source="TEMPERATURE_DEVICE_K"`, `cjc_slope=1.0`,
+  `cjc_offset=0.0`
+- **LM34 sensor**: `cjc_source="AIN1"`, `cjc_slope=55.56`, `cjc_offset=255.37`
+
+</ChannelTypeDetails>
+
+<ChannelTypeDetails>
+<Text.Text slot="summary" level="p"><Icon.Wave.Square /> Digital Input ([`DI`](https://support.labjack.com/docs/13-0-digital-i-o-t-series-datasheet))</Text.Text>
+
+Reads digital state (0 or 1) from a specified digital I/O line.
+
+| Parameter | Type   | Required | Default | Description                          |
+| --------- | ------ | -------- | ------- | ------------------------------------ |
+| `channel` | number | Yes      | -       | Synnax channel key                   |
+| `port`    | string | Yes      | -       | Port location (e.g., `DIO4`, `FIO5`) |
+
+</ChannelTypeDetails>
+
+<Divider.Divider x />
+
+## Important Rules
+
+- **Sample rates**: All channels in a task sample at the same rate. Create separate
+  tasks for different rates.
+- **Thermocouple performance**: Tasks with thermocouple channels have reduced maximum
+  sample rates due to LJM thermocouple processing.
+- **One running task per channel**: A channel can only receive live data from one task
+  at a time.
+- **Stream rate optimization**: For low-rate tasks (< 50 Hz), set the stream rate to the
+  sample rate. For high-rate tasks, keep stream rate less than 50 Hz for better
+  performance.
+
+<Divider.Divider x />
+
+## How-To
+
+<Client.Tabs client:load exclude={["cpp"]}>
+  <Fragment slot="console">
+    <Video
+      client:only="react"
+      id="device-drivers/labjack/read-task/lj-read"
+    />
+  </Fragment>
+  <Fragment slot="python">
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
+
+```python
+import synnax as sy
+from synnax import labjack
+
+client = sy.Synnax()
+
+# Retrieve device
+dev = client.devices.retrieve(name="my_labjack")
+
+# Create index channel
+ai_time = client.channels.create(
+    name="ai_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+    retrieve_if_name_exists=True,
+)
+
+# Create data channels
+ai_0 = client.channels.create(
+    name="ai_0",
+    index=ai_time.key,
+    data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
+)
+ai_1 = client.channels.create(
+    name="ai_1",
+    index=ai_time.key,
+    data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
+)
+di_4 = client.channels.create(
+    name="di_4",
+    index=ai_time.key,
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+)
+
+# Create and configure task
+task = labjack.ReadTask(
+    name="LabJack Read Task",
+    device=dev.key,
+    sample_rate=sy.Rate.HZ * 100,
+    stream_rate=sy.Rate.HZ * 25,
+    data_saving=True,
+    channels=[
+        labjack.AIChan(
+            channel=ai_0.key,
+            port="AIN0",
+            range=10.0,
+            neg_chan=199,  # Single-ended
+            pos_chan=0,
+        ),
+        labjack.AIChan(
+            channel=ai_1.key,
+            port="AIN1",
+            range=10.0,
+            neg_chan=199,  # Single-ended
+            pos_chan=1,
+        ),
+        labjack.DIChan(
+            channel=di_4.key,
+            port="DIO4",
+        ),
+    ],
+)
+
+client.tasks.configure(task)
+
+# Start task and read data
+with task.run():
+    with client.open_streamer(["ai_0", "ai_1", "di_4"]) as streamer:
+        for _ in range(10):
+            frame = streamer.read()
+            print(frame)
+```
+
+</ExampleDetails>
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
+
+```python
+# Retrieve existing task
+task = client.tasks.retrieve(name="LabJack Read Task")
+task = labjack.ReadTask(internal=task)
+
+# Update task-level configuration
+task.config.auto_start = True
+task.config.stream_rate = int(sy.Rate.HZ * 50)
+
+# Update first analog input configuration
+task.config.channels[0].port = "AIN2"
+task.config.channels[0].range = 5.0
+
+# Update second analog input configuration
+task.config.channels[1].port = "AIN3"
+task.config.channels[1].range = 1.0
+
+# Update digital input configuration
+task.config.channels[2].port = "DIO5"
+
+# Apply changes
+client.tasks.configure(task)
+```
+
+</ExampleDetails>
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax();
+
+// Retrieve device
+const dev = await client.devices.retrieve({ name: "my_labjack" });
+
+// Create index channel
+const aiTime = await client.channels.create({
+  name: "ai_time",
+  isIndex: true,
+  dataType: "timestamp",
+  retrieveIfNameExists: true,
+});
+
+// Create data channels
+const ai0 = await client.channels.create({
+  name: "ai_0",
+  index: aiTime.key,
+  dataType: "float32",
+  retrieveIfNameExists: true,
+});
+
+const ai1 = await client.channels.create({
+  name: "ai_1",
+  index: aiTime.key,
+  dataType: "float32",
+  retrieveIfNameExists: true,
+});
+
+const di4 = await client.channels.create({
+  name: "di_4",
+  index: aiTime.key,
+  dataType: "uint8",
+  retrieveIfNameExists: true,
+});
+
+// Create and configure task
+const task = await client.tasks.create({
+  name: "LabJack Read Task",
+  type: "labjack_read",
+  config: JSON.stringify({
+    device: dev.key,
+    sample_rate: 100,
+    stream_rate: 25,
+    data_saving: true,
+    channels: [
+      {
+        type: "AI",
+        channel: ai0.key,
+        port: "AIN0",
+        range: 10.0,
+        neg_chan: 199,
+        pos_chan: 0,
+      },
+      {
+        type: "AI",
+        channel: ai1.key,
+        port: "AIN1",
+        range: 10.0,
+        neg_chan: 199,
+        pos_chan: 1,
+      },
+      {
+        type: "DI",
+        channel: di4.key,
+        port: "DIO4",
+      },
+    ],
+  }),
+});
+
+// Start task
+await task.executeCommandSync("start");
+
+// Read data
+const streamer = await client.openStreamer(["ai_0", "ai_1", "di_4"]);
+for (let i = 0; i < 10; i++) {
+  const frame = await streamer.read();
+  console.log(frame);
+}
+
+// Stop task
+await task.executeCommandSync("stop");
+await streamer.close();
+```
+
+</ExampleDetails>
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
+
+```typescript
+// Retrieve existing task
+const task = await client.tasks.retrieve({ name: "LabJack Read Task" });
+
+// Parse and update configuration
+const config = JSON.parse(task.config);
+
+// Update task-level configuration
+config.auto_start = true;
+config.stream_rate = 50;
+
+// Update first analog input configuration
+config.channels[0].port = "AIN2";
+config.channels[0].range = 5.0;
+
+// Update second analog input configuration
+config.channels[1].port = "AIN3";
+config.channels[1].range = 1.0;
+
+// Update digital input configuration
+config.channels[2].port = "DIO5";
+
+// Apply changes
+await client.tasks.create({
+  key: task.key,
+  name: task.name,
+  type: task.type,
+  config: JSON.stringify(config),
+});
+```
+
+</ExampleDetails>
+
+  </Fragment>
+</Client.Tabs>

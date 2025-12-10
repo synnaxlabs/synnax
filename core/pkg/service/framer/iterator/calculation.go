@@ -12,50 +12,109 @@ package iterator
 import (
 	"context"
 
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/signal"
 )
 
 type calculationTransform struct {
-	confluence.LinearTransform[framer.IteratorResponse, framer.IteratorResponse]
-	calculators      []*calculation.Calculator
+	confluence.UnarySink[framer.IteratorResponse]
+	confluence.AbstractUnarySource[framer.IteratorResponse]
+	keepKeys         channel.Keys
+	calculators      []*calculator.Calculator
 	accumulatedError error
+	pendingFrames    []core.Frame
 }
 
 func newCalculationTransform(
-	calculators []*calculation.Calculator,
-) ResponseSegment {
-	t := &calculationTransform{calculators: calculators}
-	t.Transform = t.transform
-	return t
+	keepKeys channel.Keys,
+	calculators []*calculator.Calculator,
+) *calculationTransform {
+	return &calculationTransform{
+		calculators:   calculators,
+		keepKeys:      keepKeys,
+		pendingFrames: make([]core.Frame, 0, 8),
+	}
 }
 
-func (t *calculationTransform) transform(
-	_ context.Context,
-	res framer.IteratorResponse,
-) (framer.IteratorResponse, bool, error) {
+func (t *calculationTransform) close() error {
+	c := errors.NewCatcher(errors.WithAggregation())
+	for _, calc := range t.calculators {
+		c.Exec(calc.Close)
+	}
+	return c.Error()
+}
+
+func (t *calculationTransform) Flow(sCtx signal.Context, opts ...confluence.Option) {
+	o := confluence.NewOptions(opts)
+	o.AttachClosables(t.Out)
+	sCtx.Go(func(ctx context.Context) error {
+		for {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case res, ok := <-t.In.Outlet():
+				if !ok {
+					return nil
+				}
+				t.processResponse(ctx, res)
+			}
+		}
+	}, o.Signal...)
+}
+
+func (t *calculationTransform) processResponse(ctx context.Context, res framer.IteratorResponse) {
 	if res.Command == Error {
 		res.Error = errors.Combine(res.Error, t.accumulatedError)
-		return res, true, nil
+		t.Out.Inlet() <- res
+		return
+	}
+	if res.Variant == DataResponse {
+		if res.Frame.Count() > 0 {
+			t.pendingFrames = append(t.pendingFrames, res.Frame)
+		}
+		return
 	}
 	if res.Variant == AckResponse {
-		if t.accumulatedError != nil {
-			res.Ack = false
-		}
-		return res, true, nil
+		t.processBufferedFrames(ctx, res)
+		return
 	}
+	t.Out.Inlet() <- res
+}
 
+func (t *calculationTransform) processBufferedFrames(ctx context.Context, ackRes framer.IteratorResponse) {
+	defer func() { t.pendingFrames = t.pendingFrames[:0] }()
+	if len(t.pendingFrames) == 0 {
+		if t.accumulatedError != nil {
+			ackRes.Ack = false
+		}
+		t.Out.Inlet() <- ackRes
+		return
+	}
+	mergedFrame := core.MergeFrames(t.pendingFrames)
+	var err error
 	for _, c := range t.calculators {
-		s, err := c.Next(res.Frame)
+		mergedFrame, _, err = c.Next(ctx, mergedFrame, mergedFrame)
 		if err != nil {
 			t.accumulatedError = err
 			continue
 		}
-		if s.Len() > 0 {
-			res.Frame = res.Frame.Append(c.Channel().Key(), s)
+	}
+	mergedFrame = mergedFrame.KeepKeys(t.keepKeys)
+	if mergedFrame.Count() > 0 {
+		t.Out.Inlet() <- framer.IteratorResponse{
+			Variant: DataResponse,
+			Command: ackRes.Command,
+			SeqNum:  ackRes.SeqNum,
+			Frame:   mergedFrame,
 		}
 	}
-	return res, true, nil
+	if t.accumulatedError != nil {
+		ackRes.Ack = false
+	}
+	t.Out.Inlet() <- ackRes
 }

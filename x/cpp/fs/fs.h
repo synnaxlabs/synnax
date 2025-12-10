@@ -9,11 +9,6 @@
 
 #pragma once
 
-/// std
-#include <fstream>
-#include <sstream>
-
-/// module
 #include "x/cpp/xerrors/errors.h"
 
 namespace fs {
@@ -26,15 +21,18 @@ const xerrors::Error READ_ERROR = FS_ERROR.sub("read_error");
 /// @brief an internal method for reading the entire contents of certificate files
 /// into a string.
 inline std::pair<std::string, xerrors::Error> read_file(const std::string &path) {
-    std::ifstream file(path);
-    if (!file.is_open())
-        return {"", xerrors::Error(NOT_FOUND, "failed to open " + path)};
-
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-
-    if (file.bad()) return {"", xerrors::Error(READ_ERROR, "failed to read " + path)};
-
-    return {buffer.str(), xerrors::NIL};
+    std::string data;
+    FILE *f = fopen(path.c_str(), "r");
+    if (f == nullptr)
+        return {data, xerrors::Error(NOT_FOUND, "failed to open " + path)};
+    char buf[1024];
+    for (;;) {
+        const size_t n = fread(buf, 1, sizeof(buf), f);
+        if (n <= 0) break;
+        data.append(buf, n);
+    }
+    if (ferror(f)) return {"", xerrors::Error(READ_ERROR, "failed to read " + path)};
+    fclose(f);
+    return {data, xerrors::NIL};
 }
 }

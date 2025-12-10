@@ -6,12 +6,11 @@
 
 ## QA Template
 
-- [ ] <!-- prettier-ignore --> I have verified that any changes to the `rc.md` template in this diff have been manually added to this pull request.
+- [ ] I have verified that any changes to the `rc.md` template in this diff have been manually added to this pull request.
 
 ## Version Conflicts
 
-I have verified that, when released, the following packages will not conflict with any
-previously released packages:
+I have verified that, when released, the following packages will not conflict with any previously released packages:
 
 - [ ] [`alamos/py`](https://pypi.org/project/alamos/)
 - [ ] [`alamos/ts`](https://www.npmjs.com/package/@synnaxlabs/alamos)
@@ -30,20 +29,24 @@ previously released packages:
 
 ### Content Changes
 
-I have verified that user-facing documentation for each of the following services has
-been updated to match any changes in the release candidate:
+I have verified that user-facing documentation for each of the following services has been updated to match any changes in the release candidate:
 
 - [ ] `guides/analyst`
+- [ ] `guides/comparison`
 - [ ] `guides/get-started`
 - [ ] `guides/operations`
 - [ ] `guides/sys-admin`
-- [ ] `reference/cluster`
+- [ ] `reference/core`
 - [ ] `reference/concepts`
 - [ ] `reference/console`
 - [ ] `reference/control`
-- [ ] `reference/device-drivers/labjack`
-- [ ] `reference/device-drivers/ni`
-- [ ] `reference/device-drivers/opc-ua`
+- [ ] `reference/control/python`
+- [ ] `reference/control/embedded`
+- [ ] `reference/driver`
+- [ ] `reference/driver/labjack`
+- [ ] `reference/driver/modbus`
+- [ ] `reference/driver/ni`
+- [ ] `reference/driver/opc-ua`
 - [ ] `reference/python-client`
 - [ ] `reference/typescript-client`
 
@@ -57,7 +60,7 @@ I have verified that code examples for each of the following services run correc
 
 ### Broken Links
 
-- [ ] <!-- prettier-ignore --> I have used a broken link checker like [brokenlinkcheck.com](https://www.brokenlinkcheck.com/) or [Dr. LinkCheck](https://www.drlinkcheck.com/) to check that all links work on the live website.
+- [ ] I have used a broken link checker like [brokenlinkcheck.com](https://www.brokenlinkcheck.com/) or [Dr. LinkCheck](https://www.drlinkcheck.com/) to check that all links work on the live website.
 
 ### Release Notes
 
@@ -92,8 +95,7 @@ I can successfully:
 - **Calculated Channels**
   - [ ] Plot a basic calculated channel.
   - [ ] Plot a nested calculated channel.
-  - [ ] <!-- prettier-ignore --> Intentionally create a channel with an erroneous expression, plot it and make sure the server and console remain stable and the error is logged to the server and the console.
-  - [ ] Plot a calculated channel that uses channels with hyphenated names.
+  - [ ] Intentionally create a channel with an erroneous expression, plot it and make sure the Console and Core remain stable and the error is logged to the Core and the Console.
   - [ ] Run and plot channels from python calc_channel_stress.py setting `--rate` with
     - [ ] 10 Hz
     - [ ] 100 Hz
@@ -142,8 +144,28 @@ I can successfully:
     - [ ] Hard reload the console.
 - **Search and Command Palette**
   - [ ] Open the "Connect Cluster" modal.
+  - [ ] Open the "Add a Core" command (replaces "Connect a Core").
+  - [ ] Use the "Log Out" command to log out of the active cluster.
 - [ ] Open a cluster from a link.
 - [ ] Receive meaningful feedback when a cluster connection fails.
+
+### Login Page
+
+I can successfully:
+
+- **Login Screen**
+  - [ ] See the cluster list on the left when multiple clusters are configured.
+  - [ ] Select a cluster from the list and see it highlighted.
+  - [ ] Switch between clusters and see the login form reset (username/password cleared).
+  - [ ] Log in with valid credentials (username: synnax, password: seldon).
+  - [ ] Receive meaningful error feedback when logging in with invalid credentials.
+  - [ ] Add a new cluster using the "+" button in the cluster list header.
+  - [ ] See connection status indicators for each cluster in the list.
+- **User Badge**
+  - [ ] See the user avatar and username in the top-right corner after logging in.
+  - [ ] Click the user badge to open the logout menu.
+  - [ ] Log out using the logout button in the user badge dropdown.
+  - [ ] See the login screen again after logging out.
 
 ### Devices
 
@@ -177,7 +199,7 @@ I can successfully:
   - [ ] Edit an existing label's name.
   - [ ] Change the color of an existing label.
   - [ ] Rename a label and ensure the change synchronizes with the range toolbar.
-  - [ ] <!-- prettier-ignore --> Change a label's color and ensure the change synchronizes with the range toolbar.
+  - [ ] Change a label's color and ensure the change synchronizes with the range toolbar.
 
 ### Layout
 
@@ -281,20 +303,32 @@ I can successfully:
 - [ ] Rename a group.
 - [ ] Delete a group.
 
-### Permissions
+### Permissions & Roles
 
 I can successfully:
 
-- **As a user without schematic permissions:**
-  - [ ] Cannot open the "Create Schematic" dialog from the command palette.
-  - [ ] Cannot create a new schematic from the workspace resources toolbar.
-  - [ ] Cannot import a schematic from the workspace resources toolbar.
-  - [ ] Cannot import a schematic via drag-and-drop.
+- **Role Management**
+  - [ ] View all available roles in the Resources Toolbar.
+  - [ ] Assign a role to a user.
+  - [ ] Unassign a role from a user.
+  - [ ] Cannot delete built-in roles (Owner, Engineer, Operator, Viewer).
+
+- **As an Owner:**
+  - [ ] Can register new users and assign roles.
+  - [ ] Can create, edit, and delete all resource types.
+
+- **As an Engineer:**
+  - [ ] Can create and edit schematics, line plots, tables, logs, and workspaces.
+  - [ ] Cannot register new users or assign roles.
+
+- **As an Operator:**
   - [ ] Can actuate valves on a schematic.
-  - [ ] Cannot switch to edit mode on a schematic.
-- **As a user without admin permissions:**
-  - [ ] Cannot open the "Register User" dialog from the command palette.
-  - [ ] <!-- prettier-ignore --> Cannot delete users, open the permissions dialog, or change a username from the resources toolbar.
+  - [ ] Cannot create or edit schematics.
+
+- **As a Viewer:**
+  - [ ] Can view schematics, line plots, tables, logs.
+  - [ ] Cannot actuate valves on a schematic.
+  - [ ] Cannot create or edit any resources.
 
 ### Racks
 
@@ -480,9 +514,6 @@ I can successfully:
       - [ ] Export a symbol.
       - [ ] Edit a symbol.
       - [ ] Rename a symbol.
-- **Search and Command Palette**
-  - [ ] Open the "Create Symbol" modal.
-  - [ ] Create a symbol from the "Create Symbol" modal.
 
 ### Tables
 
@@ -558,13 +589,20 @@ I can successfully:
 I can successfully:
 
 - **Resources Toolbar**
+  - [ ] Open the "Assign Role" dialog for a user.
+  - [ ] Assign a role to a user.
+  - [ ] Unassign a role from a user.
+  - [ ] View the roles assigned to a user.
   - [ ] Open the "Permissions" dialog.
   - [ ] Rename a user.
   - [ ] Delete a user.
   - [ ] Delete multiple users.
 - **Search and Command Palette**
   - [ ] Register a new user.
+  - [ ] Register a new user with a specific role assigned.
 - [ ] Change a user's username and log in with the new username.
+- [ ] Change a user's role and verify their permissions change accordingly.
+- [ ] Log in as a user with a specific role and verify permission enforcement.
 
 ### Arc
 
@@ -574,12 +612,18 @@ I can successfully:
   - [ ] Created a named arc automation.
   - [ ] Open an existing arc automation.
 
+- **Arc Toolbar**
+  - [ ] Toggle Arc toolbar visibility with "A" keyboard shortcut
+  - [ ] Create a new Arc automation with the "+" button
+  - [ ] Start/stop an Arc automation with the play/pause button
+  - [ ] Double-click an Arc to open the editor
+  - [ ] Rename the arc automation via the context menu, ensuring that a warning that arcs will get redeployed on rename.
+  - [ ] Delete the arc automation via the context menu, ensuring that any arc layouts get removes from the console mosaic.
+  - [ ] View Arc status indicators (deployed/not deployed, running/stopped)
+
 - **Arc Editor**
-  - [ ] Create an alarm automation that changes statuses and includes the following
-        blocks: channel source, constant, comparison, stable for, select, and status
-        change.
-  - [ ] Deploy the arc automation using `press_simulated_daq` and see statuses change
-        based on the constant condition.
+  - [ ] Create an alarm automation that changes statuses and includes the following blocks: channel source, constant, comparison, stable for, select, and status change.
+  - [ ] Deploy the arc automation using `press_simulated_daq` and see statuses change based on the constant condition.
   - [ ] Stop the arc deployment.
   - [ ] Rename an arc, re-deploy it, and ensure that the new name is displayed.
 
@@ -599,9 +643,16 @@ I can successfully:
   - [ ] Filter statuses by labels.
   - [ ] Delete a single status.
   - [ ] Delete multiple statuses.
+  - [ ] Favorite a status.
+  - [ ] Unfavorite a status.
 
 - **Status Notifications**
   - [ ] See status notifications in the bottom right corner when creating a new status.
+
+- **Status Toolbar**
+  - [ ] Unfavorite a status
+  - [ ] Delete a status
+  - [ ] Rename a status
 
 ### Version
 
@@ -642,7 +693,7 @@ I can successfully:
 - [ ] Rename a workspace and ensure synchronization across:
   - Resources Toolbar
   - Workspace Selector
-- [ ] <!-- prettier-ignore --> Create a workspace in a previous version of Synnax, add visualizations, and open it in the release candidate.
+- [ ] Create a workspace in a previous version of Synnax, add visualizations, and open it in the release candidate.
 
 ## Driver
 
@@ -650,14 +701,14 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Run the driver for long periods with minimal memory leakage.
+- [ ] Run the Driver for long periods with minimal memory leakage.
 - **Handle invalid device configurations and receive meaningful feedback:**
   - [ ] Invalid ports.
   - [ ] Incorrect task type for devices (e.g., analog read on an analog output device).
   - [ ] Out-of-range values.
   - [ ] Multiple tasks using the same channel.
   - [ ] Device disconnection during a running task.
-- [ ] Shut down the server (`Ctrl + C`) without errors from the driver routine.
+- [ ] Shut down the Core (`Ctrl + C`) without errors from the Driver routine.
 
 ### Control Sequences
 
@@ -672,13 +723,13 @@ I can successfully:
   - [ ] Delete a control sequence.
 - **Sequence Editing**
   - [ ] Edit a control sequence and see auto-complete suggestions for channels.
-  - [ ] <!-- prettier-ignore --> Edit a control sequence and see auto-complete suggestions for the following built-in functions:
+  - [ ] Edit a control sequence and see auto-complete suggestions for the following built-in functions:
     - [ ] `elapsed_time_within`
     - [ ] `elapsed_time`
     - [ ] `iteration`
     - [ ] `set`
     - [ ] `set_authority`
-  - [ ] <!-- prettier-ignore --> Accept channel auto-complete suggestions and see the correct channel populated in the `read_from` or `write_to` fields.
+  - [ ] Accept channel auto-complete suggestions and see the correct channel populated in the `read_from` or `write_to` fields.
   - [ ] Manually configure the `read_from` and `write_to` fields.
   - [ ] Set the sequence control rate.
   - [ ] Configure, start, and correctly operate a minimal bang bang control sequence.
@@ -700,7 +751,7 @@ I can successfully:
   - [ ] Ensure no lag between sensor input and data written to the server.
   - [ ] Configure and run a read task for a thermocouple.
   - [ ] Run a read task with thermocouples, digital, and analog channels.
-  - [ ] <!-- prettier-ignore --> Disconnect a device while reading, reconnect it, and read data after reconfiguration.
+  - [ ] Disconnect a device while reading, reconnect it, and read data after reconfiguration.
   - **Reliable data plotting at the following sample rates:**
     - [ ] 1 Hz
     - [ ] 10 Hz
@@ -713,12 +764,11 @@ I can successfully:
     - [ ] Actuate a valve via a digital input.
     - [ ] Set an analog output to a specific voltage via a setpoint.
   - [ ] Stop, start, and reconfigure the task.
-  - [ ] Disconnect a device while writing, reconnect it, and read data after
-        reconfiguration.
+  - [ ] Disconnect a device while writing, reconnect it, and read data after reconfiguration.
   - **Configure response time based on the specified state rate:**
     - [ ] 1 Hz (should have a visible delay)
     - [ ] 20 Hz (should be nearly immediate)
-- [ ] <!-- prettier-ignore --> Configure simultaneous write and read tasks and stop or delete either without affecting the other.
+- [ ] Configure simultaneous write and read tasks and stop or delete either without affecting the other.
 
 ### NI
 
@@ -730,8 +780,8 @@ I can successfully:
 - [ ] Recognize and connect to physical and simulated devices.
 - [ ] Disconnect a physical device while a task is running without causing faults.
 - [ ] Ignore chassis and view devices connected to it.
-- [ ] Run the driver without NI-DAQmx and SysCfg libraries installed.
-- [ ] <!-- prettier-ignore --> Receive feedback when trying to create an NI task on a machine lacking the necessary libraries.
+- [ ] Run the Driver without NI-DAQmx and System Configuration libraries installed.
+- [ ] Receive feedback when trying to create an NI task on a machine lacking the necessary libraries.
 - **Handle invalid device configurations and receive meaningful feedback:**
   - [ ] Invalid ports.
   - [ ] Incorrect task type for devices.
@@ -756,8 +806,8 @@ I can successfully:
   - [ ] Handle device disconnection during active tasks with appropriate feedback.
   - [ ] Start multiple tasks at different times and view live data.
   - [ ] Enable and disable data saving.
-  - [ ] <!-- prettier-ignore --> Enabled auto-start, and ensure that the task automatically starts after configuration.
-  - [ ] Ensure no lag between sensor input and server data recording.
+  - [ ] Enabled auto-start, and ensure that the task automatically starts after configuration.
+  - [ ] Ensure no lag between sensor input and Core data recording.
   - [ ] Configure and run an analog read task for the following channels:
     - [ ] Current (NI-9203)
     - [ ] Resistance (NI-9219)
@@ -813,7 +863,7 @@ I can successfully:
     - [ ] Avoid driver crashes when improper array sizes are specified.
   - [ ] Obtain recommended Synnax channels based on the configured OPC UA node.
   - [ ] Connect to and read data from a physical device.
-  - [ ] <!-- prettier-ignore --> Maintain driver operation during device disconnection or channel removal while a task is running.
+  - [ ] Maintain Driver operation during device disconnection or channel removal while a task is running.
   - [ ] Enable and disable data saving.
 - **Write Task**
   - [ ] Perform control and verify changes on the connected OPC UA server.
@@ -829,9 +879,9 @@ I can successfully:
 - [ ] Connect to a Modbus TCP server.
 - [ ] Configure connection parameters (IP address, port, unit ID).
 - **Read Task**
-  - [ ] Read holding registers from a Modbus device.
-  - [ ] Read input registers from a Modbus device.
-  - [ ] Read coils and discrete inputs from a Modbus device.
+  - [ ] Read holding registers from a Modbus server.
+  - [ ] Read input registers from a Modbus server.
+  - [ ] Read coils and discrete inputs from a Modbus server.
   - [ ] Plot live data from Modbus registers.
   - [ ] Apply scaling to register values.
   - [ ] Enable and disable data saving.
@@ -842,12 +892,12 @@ I can successfully:
     - [ ] 10 Hz
     - [ ] 100 Hz
 - **Write Task**
-  - [ ] Write to holding registers on a Modbus device.
-  - [ ] Write to coils on a Modbus device.
+  - [ ] Write to holding registers on a Modbus server.
+  - [ ] Write to coils on a Modbus server.
   - [ ] Perform control actions using a schematic.
   - [ ] Stop, start, and reconfigure write tasks.
   - **Configure response time for specified state rates:**
     - [ ] 1 Hz (visible delay)
     - [ ] 20 Hz (near-instant response)
 - [ ] Run simultaneous read and write tasks on the same device.
-- [ ] Run tasks across multiple Modbus devices concurrently.
+- [ ] Run tasks across multiple Modbus servers concurrently.

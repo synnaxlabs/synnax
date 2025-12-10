@@ -13,7 +13,7 @@ import {
   box,
   clamp,
   color,
-  type Destructor,
+  type destructor,
   type scale,
   TimeRange,
   TimeSpan,
@@ -49,7 +49,7 @@ interface InternalState {
   requestRender: render.Requestor;
   draw: Draw2D;
   runAsync: status.ErrorHandler;
-  removeListener: Destructor | null;
+  removeListener: destructor.Destructor | null;
 }
 
 interface ProviderProps {

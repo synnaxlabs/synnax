@@ -13,37 +13,34 @@ import (
 	"context"
 	"strings"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"go.uber.org/zap"
-
-	"github.com/gofiber/fiber/v2"
-	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/errors"
+	"go.uber.org/zap"
 )
-
-const tokenRefreshHeader = "Refresh-Token"
 
 func tokenMiddleware(svc *token.Service) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,
 		next freighter.Next,
 	) (freighter.Context, error) {
-		tk, _err := tryParseToken(ctx.Params)
-		if _err != nil {
-			return ctx, _err
+		tk, err := tryParseToken(ctx.Params)
+		if err != nil {
+			return ctx, err
 		}
 		userKey, newTK, err := svc.ValidateMaybeRefresh(tk)
 		if err != nil {
 			return ctx, err
 		}
-		setSubject(ctx.Params, user.OntologyID(userKey))
+		ctx.Set(subjectKey, user.OntologyID(userKey))
 		oCtx, err := next(ctx)
 		if newTK != "" {
-			oCtx.Params.Set(tokenRefreshHeader, newTK)
+			oCtx.Set("Refresh-Token", newTK)
 		}
 		return oCtx, err
 	})
@@ -52,44 +49,41 @@ func tokenMiddleware(svc *token.Service) freighter.Middleware {
 const tokenParamPrefix = "Bearer "
 
 var (
-	invalidAuthenticationParam = errors.Wrapf(auth.Error,
+	errInvalidAuthenticationParam = errors.Wrapf(
+		auth.Error,
 		`invalid authorization token. Format should be
-		'Authorization: %s <token>'`, tokenParamPrefix,
+		'Authorization: %s <token>'`,
+		tokenParamPrefix,
 	)
-	noAuthenticationParam = errors.Wrapf(auth.Error, "no authentication token provided")
+	errNoAuthenticationParam = errors.Wrapf(
+		auth.Error,
+		"no authentication token provided",
+	)
 )
 
-func tryParseToken(p freighter.Params) (string, error) {
-	tkParam, ok := p.Get(fiber.HeaderAuthorization)
+func tryParseToken(params freighter.Params) (string, error) {
+	tkParam, ok := params.Get(fiber.HeaderAuthorization)
 	if !ok {
 		// GRPC sends a lowercase header
-		tkParam, ok = p.Get(strings.ToLower(fiber.HeaderAuthorization))
+		tkParam, ok = params.Get(strings.ToLower(fiber.HeaderAuthorization))
 		if !ok {
-			return "", noAuthenticationParam
+			return "", errNoAuthenticationParam
 		}
 	}
 	tkStr, ok := tkParam.(string)
 	if !ok {
-		return "", noAuthenticationParam
+		return "", errNoAuthenticationParam
 	}
 	if !strings.HasPrefix(tkStr, tokenParamPrefix) {
-		return "", invalidAuthenticationParam
+		return "", errInvalidAuthenticationParam
 	}
-	tkStr = strings.TrimPrefix(tkStr, tokenParamPrefix)
-	if !ok {
-		return "", invalidAuthenticationParam
-	}
-	return tkStr, nil
+	return strings.TrimPrefix(tkStr, tokenParamPrefix), nil
 }
 
 const subjectKey = "Subject"
 
-func setSubject(p freighter.Params, subject ontology.ID) {
-	p.Set(subjectKey, subject)
-}
-
 func getSubject(ctx context.Context) ontology.ID {
-	s, ok := freighter.MDFromContext(ctx).Params.Get(subjectKey)
+	s, ok := freighter.MDFromContext(ctx).Get(subjectKey)
 	if !ok {
 		zap.S().DPanic("[api] - no subject found in context")
 		return user.OntologyID(uuid.Nil)

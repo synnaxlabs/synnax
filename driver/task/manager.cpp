@@ -7,21 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <memory>
 #include <thread>
 #include <utility>
 
-/// external
 #include "glog/logging.h"
 
-/// internal
-#include "driver/task/task.h"
-
-/// module
 #include "x/cpp/xjson/xjson.h"
 #include "x/cpp/xlog/xlog.h"
 #include "x/cpp/xos/xos.h"
+
+#include "driver/task/task.h"
 
 const std::string TASK_SET_CHANNEL = "sy_task_set";
 const std::string TASK_DELETE_CHANNEL = "sy_task_delete";
@@ -76,7 +72,7 @@ xerrors::Error task::Manager::configure_initial_tasks() {
         if (handled && driver_task != nullptr)
             this->tasks[task.key] = std::move(driver_task);
         else if (handled && driver_task == nullptr)
-            LOG(WARNING) << "unexpected nullptr returned by factory for " << task;
+            VLOG(1) << "nullptr returned by factory for " << task;
     }
     VLOG(1) << "configuring initial tasks from factories";
     auto initial_tasks = this->factory->configure_initial_tasks(this->ctx, this->rack);

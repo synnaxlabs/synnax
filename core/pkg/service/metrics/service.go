@@ -36,7 +36,7 @@ type Config struct {
 	// Channel is used to create and retrieve metric collection channels.
 	//
 	// [REQUIRED]
-	Channel channel.Service
+	Channel *channel.Service
 	// Framer is used to write metrics to the metric channels.
 	//
 	// [REQUIRED}
@@ -106,7 +106,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	s := &Service{stopCollector: make(chan struct{})}
 	nameBase := fmt.Sprintf("sy_node_%s_metrics_", cfg.HostProvider.HostKey())
 	c := &collector{
-		ins:      cfg.Instrumentation.Child("collector"),
+		ins:      cfg.Child("collector"),
 		interval: cfg.CollectionInterval,
 		stop:     s.stopCollector,
 		metrics:  make([]metric, len(all)),
@@ -119,7 +119,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err := cfg.Channel.Create(
 		ctx,
 		&c.idx,
-		channel.RetrieveIfNameExists(true),
+		channel.RetrieveIfNameExists(),
 	); err != nil {
 		return nil, err
 	}
@@ -132,7 +132,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err := cfg.Channel.CreateMany(
 		ctx,
 		&metricChannels,
-		channel.RetrieveIfNameExists(true),
+		channel.RetrieveIfNameExists(),
 	); err != nil {
 		return nil, err
 	}
@@ -144,7 +144,6 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		framer.WriterConfig{
 			Keys:                     append(channel.KeysFromChannels(metricChannels), c.idx.Key()),
 			Start:                    telem.Now(),
-			EnableAutoCommit:         config.True(),
 			AutoIndexPersistInterval: telem.Second * 30,
 		},
 	)

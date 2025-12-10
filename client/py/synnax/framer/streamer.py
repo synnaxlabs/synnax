@@ -13,7 +13,6 @@ from freighter import (
     EOF,
     AsyncStream,
     AsyncStreamClient,
-    ExceptionPayload,
     Payload,
     Stream,
     WebsocketClient,
@@ -31,6 +30,7 @@ from synnax.telem import TimeSpan
 class _Request(Payload):
     keys: ChannelKeys
     downsample_factor: int
+    throttle_rate_hz: float | None = None
 
 
 class _Response(Payload):
@@ -79,6 +79,7 @@ class Streamer:
         client: WebsocketClient,
         adapter: ReadFrameAdapter,
         downsample_factor: int = 1,
+        throttle_rate: float = 0,
         use_experimental_codec: bool = True,
     ) -> None:
         self._adapter = adapter
@@ -87,8 +88,13 @@ class Streamer:
 
         self._stream = client.stream(_ENDPOINT, _Request, _Response)
         self._downsample_factor = downsample_factor
+        self._throttle_rate = throttle_rate
         self._stream.send(
-            _Request(keys=self._adapter.keys, downsample_factor=self._downsample_factor)
+            _Request(
+                keys=self._adapter.keys,
+                downsample_factor=self._downsample_factor,
+                throttle_rate_hz=self._throttle_rate,
+            )
         )
         _, exc = self._stream.receive()
         if exc is not None:
@@ -147,7 +153,11 @@ class Streamer:
         """
         self._adapter.update(channels)
         self._stream.send(
-            _Request(keys=self._adapter.keys, downsample_factor=self._downsample_factor)
+            _Request(
+                keys=self._adapter.keys,
+                downsample_factor=self._downsample_factor,
+                throttle_rate_hz=self._throttle_rate,
+            )
         )
 
     def close(self, timeout: float | int | TimeSpan | None = None):
@@ -220,10 +230,12 @@ class AsyncStreamer:
         client: AsyncStreamClient,
         adapter: ReadFrameAdapter,
         downsample_factor: int,
+        throttle_rate: float = 0,
     ) -> None:
         self._client = client
         self._adapter = adapter
         self._downsample_factor = downsample_factor
+        self._throttle_rate = throttle_rate
 
     async def _open(self):
         self._stream = await self._client.stream(_ENDPOINT, _Request, _Response)
@@ -231,6 +243,7 @@ class AsyncStreamer:
             _Request(
                 keys=self._adapter.keys,
                 downsample_factor=self._downsample_factor,
+                throttle_rate_hz=self._throttle_rate,
             )
         )
         _, exc = await self._stream.receive()

@@ -9,15 +9,12 @@
 
 #pragma once
 
-/// std
 #include <string>
 #include <vector>
 
-/// module
 #include "client/cpp/synnax.h"
 #include "x/cpp/xjson/xjson.h"
 
-/// internal
 #include "driver/labjack/device/device.h"
 #include "driver/labjack/labjack.h"
 #include "driver/task/common/write_task.h"
@@ -37,10 +34,14 @@ struct OutputChan {
     synnax::Channel state_ch;
 
     explicit OutputChan(xjson::Parser &parser):
-        port(parser.optional<std::string>("port", "")),
-        enabled(parser.optional<bool>("enabled", true)),
-        cmd_ch_key(parser.required<uint32_t>("cmd_key", "cmd_channel")),
-        state_ch_key(parser.required<uint32_t>("state_key", "state_channel")) {}
+        port(parser.field<std::string>("port", "")),
+        enabled(parser.field<bool>("enabled", true)),
+        cmd_ch_key(
+            parser.field<uint32_t>(std::vector<std::string>{"cmd_key", "cmd_channel"})
+        ),
+        state_ch_key(parser.field<uint32_t>(
+            std::vector<std::string>{"state_key", "state_channel"}
+        )) {}
 
     /// @brief binds cluster information about the channel after it has been
     /// externally fetched.
@@ -79,8 +80,8 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         xjson::Parser &parser
     ):
         common::BaseWriteTaskConfig(parser),
-        state_rate(telem::Rate(parser.optional<int>("state_rate", 1))),
-        conn_method(parser.optional<std::string>("connection_type", "")) {
+        state_rate(telem::Rate(parser.field<int>("state_rate", 1))),
+        conn_method(parser.field<std::string>("connection_type", "")) {
         std::unordered_map<synnax::ChannelKey, synnax::ChannelKey> state_to_cmd;
         parser.iter("channels", [this, &state_to_cmd](xjson::Parser &p) {
             auto ch = std::make_unique<OutputChan>(p);
@@ -92,7 +93,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             parser.field_err("channels", "task must have at least one enabled channel");
             return;
         }
-        auto [dev, err] = client->hardware.retrieve_device(this->device_key);
+        auto [dev, err] = client->devices.retrieve(this->device_key);
         if (err) {
             parser.field_err("device", "failed to retrieve device: " + err.message());
             return;
@@ -196,7 +197,7 @@ public:
         return this->write_buf_to_dev();
     }
 
-    /// @brief flushes the current value buffer to the labjack device, executing the
+    /// @brief flushes the current value buffer to the LabJack device, executing the
     /// write.
     xerrors::Error write_buf_to_dev() const {
         int err_addr = 0;
@@ -209,7 +210,7 @@ public:
         );
     }
 
-    /// @brief implements pipeline::Sink to write to the Labjack device.
+    /// @brief implements pipeline::Sink to write to the LabJack device.
     xerrors::Error write(const synnax::Frame &frame) override {
         this->reset_buffer(this->cfg.channels.size());
         for (const auto &[cmd_key, s]: frame)

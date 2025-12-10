@@ -1,0 +1,149 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "OPC UA | Connect Server"
+heading: "Connect to an OPC UA Server"
+description: "Connect to an OPC UA server using Synnax."
+prev: "Get Started"
+prevURL: "/reference/driver/opc-ua/get-started"
+next: "Read Task"
+nextURL: "/reference/driver/opc-ua/read-task"
+---
+
+import StepText from "@/components/StepText.astro";
+import { Divider, Text, Icon, Note } from "@synnaxlabs/pluto";
+import { Video } from "@/components/Media";
+import { Fragment } from "react";
+import Table from "@/components/Table.astro";
+import ExampleDetails from "@/components/details/ExampleDetails.astro";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+<Divider.Divider x />
+
+## Prerequisites
+
+Before you can connect to an OPC UA server, you will need to ensure that you have the
+following:
+
+1. A [Synnax Core](/reference/core/quick-start) running on your network.
+2. A [Synnax Driver](/reference/driver/get-started) running on your network. This Driver
+   must be connected to the Core and running on the same machine or network as your OPC
+   UA server.
+3. The [Synnax Console](/reference/console/get-started) installed on your local machine.
+4. An OPC UA server running on your network. This server must be reachable by the
+   Driver.
+
+<Divider.Divider x />
+
+## Configuration Parameters Reference
+
+| Parameter            | Type   | Required | Default | Description                                                                                                         |
+| -------------------- | ------ | -------- | ------- | ------------------------------------------------------------------------------------------------------------------- |
+| `name`               | string | Yes      | -       | Human-readable server name for identification in Console                                                            |
+| `rack`               | string | Yes      | -       | Synnax Driver (rack) key that will connect to the OPC UA server                                                     |
+| `endpoint`           | string | Yes      | -       | Server endpoint URL (e.g., `opc.tcp://localhost:4840`)                                                              |
+| `username`           | string | No       | -       | Username for server authentication (optional)                                                                       |
+| `password`           | string | No       | -       | Password for server authentication (optional)                                                                       |
+| `security_mode`      | string | No       | `None`  | Security mode: `None`, `Sign`, or `SignAndEncrypt`                                                                  |
+| `security_policy`    | string | No       | `None`  | Security policy: `None`, `Basic128Rsa15`, `Basic256`, `Basic256Sha256`, `Aes128Sha256RsaOaep`, `Aes256Sha256RsaPss` |
+| `client_certificate` | string | No       | -       | Client certificate for signing/encrypting (required if security policy ≠ `None`)                                    |
+| `client_private_key` | string | No       | -       | Client private key for signing/encrypting (required if security policy ≠ `None`)                                    |
+| `server_certificate` | string | No       | -       | Trusted server certificate (required if security policy ≠ `None`)                                                   |
+
+<ExampleDetails>
+<Text.Text slot="summary" level="p"><Icon.Details /> Security Mode & Policy Reference</Text.Text>
+
+**Security Mode:**
+
+- **None**: No security applied
+- **Sign**: Messages are signed but not encrypted. Provides authentication without
+  confidentiality
+- **SignAndEncrypt**: Messages are signed and encrypted for full authenticity and
+  confidentiality
+
+**Security Policy:**
+
+- **None**: No encryption
+- **Basic128Rsa15**: 128-bit encryption with RSA-15
+- **Basic256**: 256-bit encryption
+- **Basic256Sha256**: 256-bit encryption with SHA-256
+- **Aes128Sha256RsaOaep**: 128-bit AES with SHA-256 and RSA OAEP
+- **Aes256Sha256RsaPss**: 256-bit AES with SHA-256 and RSA PSS
+
+</ExampleDetails>
+
+<Divider.Divider x />
+
+## How-To
+
+<Client.Tabs client:load exclude={["typescript", "cpp"]}>
+  <Fragment slot="console">
+
+<Video client:only="react" id="device-drivers/opc-ua/connect-server/connect-server" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+<ExampleDetails open>
+<Text.Text slot="summary" level="p"><Icon.Connect /> Connect to OPC UA Server</Text.Text>
+
+```python
+import synnax as sy
+from synnax import opcua
+
+# Initialize Synnax client
+client = sy.Synnax()
+
+# Retrieve the embedded rack
+rack = client.racks.retrieve_embedded_rack()
+
+# Create the OPC UA device
+device = opcua.Device(
+    endpoint="opc.tcp://localhost:4841/",
+    name="My OPC UA Server",
+    location="opc.tcp://localhost:4841/",
+    rack=rack.key,
+)
+
+# Create the device in Synnax
+device = client.devices.create(device)
+
+# Or retrieve by location
+device = client.devices.retrieve(location="opc.tcp://localhost:4841/")
+
+# Or retrieve by name
+device = client.devices.retrieve(name="My OPC UA Server")
+
+print(f"Connected to OPC UA server: {device.name}")
+```
+
+</ExampleDetails>
+
+<ExampleDetails open>
+<Text.Text slot="summary" level="p"><Icon.Close /> Disconnect server</Text.Text>
+
+```python
+import synnax as sy
+
+# Initialize Synnax client
+client = sy.Synnax()
+
+# Retrieve the device by name
+device = client.devices.retrieve(
+    name="My OPC UA Server",
+    ignore_not_found=True
+)
+
+if device is not None:
+    # Delete the server
+    client.devices.delete([device.key])
+    print(f"Disconnected OPC UA server: {device.name}")
+else:
+    print("Server not found")
+```
+
+</ExampleDetails>
+
+  </Fragment>
+</Client.Tabs>

@@ -7,13 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <string>
 
-/// internal
 #include "client/cpp/framer/framer.h"
-
-const std::string STREAM_ENDPOINT = "/frame/stream";
 
 namespace synnax {
 void StreamerConfig::to_proto(api::v1::FrameStreamerRequest &f) const {
@@ -24,7 +20,7 @@ void StreamerConfig::to_proto(api::v1::FrameStreamerRequest &f) const {
 
 std::pair<Streamer, xerrors::Error>
 FrameClient::open_streamer(const StreamerConfig &config) const {
-    auto [net_stream, err] = streamer_client->stream(STREAM_ENDPOINT);
+    auto [net_stream, err] = streamer_client->stream("/frame/stream");
     if (err) return {Streamer(), err};
     api::v1::FrameStreamerRequest req;
     config.to_proto(req);

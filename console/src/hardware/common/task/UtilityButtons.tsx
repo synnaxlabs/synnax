@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { Button, Flex, Form, Icon, Text } from "@synnaxlabs/pluto";
+import { Button, Flex, Form, Icon } from "@synnaxlabs/pluto";
 import { binary } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
 import { useExport } from "@/hardware/common/task/export";
-import { useKey } from "@/hardware/common/task/Form";
+import { useKey } from "@/hardware/common/task/useKey";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 
 interface UtilityButtonProps {
@@ -23,13 +23,8 @@ interface UtilityButtonProps {
   tooltip: string;
 }
 
-const UtilityButton = ({ children: Icon, tooltip, ...rest }: UtilityButtonProps) => (
-  <Button.Button
-    tooltip={<Text.Text level="small">{tooltip}</Text.Text>}
-    tooltipLocation="left"
-    variant="text"
-    {...rest}
-  >
+const UtilityButton = ({ children: Icon, ...rest }: UtilityButtonProps) => (
+  <Button.Button tooltipLocation="left" variant="text" {...rest}>
     <Icon style={{ color: "var(--pluto-gray-l9)" }} />
   </Button.Button>
 );
@@ -46,7 +41,7 @@ export const UtilityButtons = () => {
     copy(
       `
       // Retrieve ${name}
-      const task = client.hardware.tasks.retrieve("${taskKey}")
+      const task = client.tasks.retrieve("${taskKey}")
       `,
       `TypeScript code for retrieving ${name}`,
     );
@@ -56,7 +51,7 @@ export const UtilityButtons = () => {
     copy(
       `
       # Retrieve ${name}
-      task = client.hardware.tasks.retrieve("${taskKey}")
+      task = client.tasks.retrieve("${taskKey}")
       `,
       `Python code for retrieving ${name}`,
     );

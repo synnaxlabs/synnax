@@ -12,8 +12,8 @@ import "@/table/Table.css";
 import { table } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
+  Access,
   Button,
-  Flex,
   Icon,
   Menu as PMenu,
   Table as Core,
@@ -25,7 +25,7 @@ import { box, clamp, dimensions, location, type record, uuid, xy } from "@synnax
 import { memo, type ReactElement, useCallback, useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
 
-import { Menu } from "@/components";
+import { Controls, Menu } from "@/components";
 import { CSS } from "@/css";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
@@ -86,8 +86,10 @@ const parseRowCalArgs = <L extends location.Outer | undefined>(
 
 export const useSyncComponent = Workspace.createSyncComponent(
   "Table",
-  async ({ key, workspace, store, client }) => {
+  async ({ key, workspace, store, fluxStore, client }) => {
     const storeState = store.getState();
+    if (!Access.updateGranted({ id: table.ontologyID(key), store: fluxStore, client }))
+      return;
     const data = select(storeState, key);
     if (data == null) return;
     const layout = Layout.selectRequired(storeState, key);
@@ -105,7 +107,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const layout = useSelectLayout(layoutKey);
   const syncDispatch = useSyncComponent(layoutKey);
-  const editable = useSelectEditable(layoutKey);
+  const editMode = useSelectEditable(layoutKey);
+  const hasEditPermission = Access.useUpdateGranted(table.ontologyID(layoutKey));
+  const canEdit = hasEditPermission && editMode;
 
   const handleAddRow = () => {
     syncDispatch(addRow({ key: layoutKey }));
@@ -144,39 +148,41 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         <>
           <PMenu.Item size="small" itemKey="addRowBelow">
             <Icon.Add />
-            Add Row Below
+            Add row below
           </PMenu.Item>
           <PMenu.Item size="small" itemKey="addRowAbove">
             <Icon.Add />
-            Add Row Above
+            Add row above
           </PMenu.Item>
           <PMenu.Divider />
           <PMenu.Item size="small" itemKey="addColRight">
             <Icon.Add />
-            Add Column Right
+            Add column right
           </PMenu.Item>
           <PMenu.Item size="small" itemKey="addColLeft">
             <Icon.Add />
-            Add Column Left
+            Add column left
           </PMenu.Item>
           <PMenu.Divider />
           <PMenu.Item size="small" itemKey="deleteRow">
             <Icon.Delete />
-            Delete Row
+            Delete row
           </PMenu.Item>
           <PMenu.Item size="small" itemKey="deleteCol">
             <Icon.Delete />
-            Delete Column
+            Delete column
           </PMenu.Item>
           <PMenu.Divider />
         </>
       )}
-      <PMenu.Item itemKey="toggleEdit">
-        {editable ? <Icon.EditOff /> : <Icon.Edit />}
-        {`${editable ? "Disable" : "Enable"} editing`}
-      </PMenu.Item>
+      {canEdit && (
+        <PMenu.Item itemKey="toggleEdit">
+          {editMode ? <Icon.EditOff /> : <Icon.Edit />}
+          {`${editMode ? "Disable" : "Enable"} editing`}
+        </PMenu.Item>
+      )}
       <PMenu.Divider />
-      <Menu.HardReloadItem />
+      <Menu.ReloadConsoleItem />
     </PMenu.Menu>
   );
 
@@ -189,11 +195,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
 
   const handleDoubleClick = useCallback(() => {
-    if (!editable) return;
+    if (!canEdit) return;
     syncDispatch(
       Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
     );
-  }, [editable]);
+  }, [canEdit]);
 
   const colSizes = layout.columns.map((col) => col.size);
   const totalColSizes = colSizes.reduce((acc, size) => acc + size, 0);
@@ -226,10 +232,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
         <Core.Table
           visible={visible}
-          style={{
-            width: totalColSizes,
-            height: totalRowSizes,
-          }}
+          style={{ width: totalColSizes, height: totalRowSizes }}
           onContextMenu={menuProps.open}
           className={menuProps.className}
         >
@@ -254,7 +257,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
             );
           })}
         </Core.Table>
-        {editable && (
+        {canEdit && (
           <>
             <Button.Button
               className={CSS.BE("table", "add-col")}
@@ -290,23 +293,27 @@ interface TableControls {
 
 const TableControls = ({ tableKey }: TableControls) => {
   const dispatch = useDispatch();
-  const editable = useSelectEditable(tableKey);
+  const editMode = useSelectEditable(tableKey);
+  const hasEditPermission = Access.useUpdateGranted(table.ontologyID(tableKey));
+  const canEdit = hasEditPermission && editMode;
   const handleEdit = useCallback(() => {
     dispatch(setEditable({ key: tableKey }));
   }, []);
 
+  if (!hasEditPermission) return null;
+
   return (
-    <Flex.Box pack className={CSS.BE("table", "edit")}>
+    <Controls>
       <Button.Toggle
-        value={editable}
+        value={canEdit}
         onChange={handleEdit}
         size="small"
         tooltipLocation={location.BOTTOM_LEFT}
-        tooltip={`${editable ? "Disable" : "Enable"} editing`}
+        tooltip={`${canEdit ? "Disable" : "Enable"} editing`}
       >
-        {editable ? <Icon.EditOff /> : <Icon.Edit />}
+        {canEdit ? <Icon.EditOff /> : <Icon.Edit />}
       </Button.Toggle>
-    </Flex.Box>
+    </Controls>
   );
 };
 
@@ -384,6 +391,7 @@ export const SELECTABLE: Selector.Selectable = {
   key: LAYOUT_TYPE,
   title: "Table",
   icon: <Icon.Table />,
+  useVisible: () => Access.useUpdateGranted(table.TYPE_ONTOLOGY_ID),
   create: async ({ layoutKey }) => create({ key: layoutKey }),
 };
 

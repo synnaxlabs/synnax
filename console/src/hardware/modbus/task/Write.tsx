@@ -9,8 +9,17 @@
 
 import "@/hardware/modbus/task/Task.css";
 
-import { NotFoundError } from "@synnaxlabs/client";
-import { Component, Flex, Form as PForm, Icon, Select, Telem } from "@synnaxlabs/pluto";
+import { channel, NotFoundError } from "@synnaxlabs/client";
+import {
+  Component,
+  Flex,
+  Form as PForm,
+  Icon,
+  Menu,
+  Select,
+  Telem,
+  Text,
+} from "@synnaxlabs/pluto";
 import { caseconv, deep, id } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -130,12 +139,35 @@ const getOpenChannel = (channels: OutputChannel[]): OutputChannel => {
 
 const listItem = Component.renderProp(ChannelListItem);
 
+interface ContextMenuItemProps
+  extends Common.Task.ContextMenuItemProps<OutputChannel> {}
+
+const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => {
+  if (keys.length !== 1) return null;
+  const key = keys[0];
+  const cmdChannel = channels.find((ch) => ch.key === key)?.channel;
+  if (cmdChannel == null || cmdChannel == 0) return null;
+  const handleRename = () => Text.edit(Common.Task.getChannelNameID(key));
+  return (
+    <>
+      <Menu.Item itemKey="rename" onClick={handleRename}>
+        <Icon.Rename />
+        Rename
+      </Menu.Item>
+      <Menu.Divider />
+    </>
+  );
+};
+
+const contextMenuItems = Component.renderProp(ContextMenuItem);
+
 const Form: FC<
   Common.Task.FormProps<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ>
 > = () => (
   <Common.Task.Layouts.List<OutputChannel>
     createChannel={getOpenChannel}
     listItem={listItem}
+    contextMenuItems={contextMenuItems}
   />
 );
 
@@ -158,7 +190,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.hardware.devices.retrieve<Device.Properties>({
+  const dev = await client.devices.retrieve<Device.Properties>({
     key: config.device,
   });
   const commandsToCreate: OutputChannel[] = [];
@@ -179,17 +211,18 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
     }
   }
 
+  const safeName = channel.escapeInvalidName(dev.name);
   if (commandsToCreate.length > 0) {
     const commandIndexes = await client.channels.create(
       commandsToCreate.map((c) => ({
-        name: `${dev.name}_${c.type}_${c.address}_cmd_time`,
+        name: `${safeName}_${c.type}_${c.address}_cmd_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commands = await client.channels.create(
       commandsToCreate.map((c, i) => ({
-        name: `${dev.name}_${c.type}_${c.address}_cmd`,
+        name: `${safeName}_${c.type}_${c.address}_cmd`,
         dataType: c.type === "holding_register_output" ? c.dataType : "uint8",
         index: commandIndexes[i].key,
       })),
@@ -198,7 +231,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
       const channel = commandsToCreate[i];
       dev.properties.write.channels[writeMapKey(channel)] = c.key;
     });
-    await client.hardware.devices.create(dev);
+    await client.devices.create(dev);
   }
 
   config.channels = config.channels.map((c) => ({

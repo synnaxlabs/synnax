@@ -8,13 +8,20 @@
 // included in the file licenses/APL.txt.
 
 export { access } from "@/access";
-export { policy } from "@/access/policy";
 export { arc } from "@/arc";
 export { channel } from "@/channel";
 export { Channel, isCalculated } from "@/channel/client";
-export { default as Synnax, type SynnaxProps, synnaxPropsZ } from "@/client";
+export {
+  checkConnection,
+  type CheckConnectionParams,
+  newConnectionChecker,
+  default as Synnax,
+  type SynnaxParams,
+  synnaxParamsZ,
+} from "@/client";
 export * from "@/connection";
 export { control } from "@/control";
+export { device } from "@/device";
 export {
   AuthError,
   ContiguityError,
@@ -28,16 +35,15 @@ export {
 } from "@/errors";
 export { framer } from "@/framer";
 export { Frame } from "@/framer/frame";
-export { hardware } from "@/hardware";
-export { device } from "@/hardware/device";
-export { rack } from "@/hardware/rack";
-export { task } from "@/hardware/task";
 export { label } from "@/label";
 export { ontology } from "@/ontology";
 export { group } from "@/ontology/group";
+export { rack } from "@/rack";
 export { ranger } from "@/ranger";
 export { status } from "@/status";
-export { createTestClient, TEST_CLIENT_PROPS } from "@/testutil/client";
+export { task } from "@/task";
+export { createTestClientWithPolicy } from "@/testutil/access";
+export { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil/client";
 export { user } from "@/user";
 export { workspace } from "@/workspace";
 export { lineplot } from "@/workspace/lineplot";
@@ -63,4 +69,4 @@ export {
   type TimeStampStringFormat,
   type TypedArray,
   type TZInfo,
-} from "@synnaxlabs/x/telem";
+} from "@synnaxlabs/x";

@@ -7,28 +7,32 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import warnings
+
 from alamos import NOOP, Instrumentation
 from freighter import URL
 
-from synnax import PolicyClient
+from synnax.access import Client as AccessClient
+from synnax.access.policy.client import PolicyClient
+from synnax.access.role.client import RoleClient
 from synnax.auth import AuthenticationClient
 from synnax.channel import ChannelClient
 from synnax.channel.retrieve import CacheChannelRetriever, ClusterChannelRetriever
 from synnax.channel.writer import ChannelWriter
 from synnax.config import try_load_options_if_none_provided
 from synnax.control import Client as ControlClient
+from synnax.device import Client as DeviceClient
 from synnax.framer import Client
 from synnax.framer.deleter import Deleter
-from synnax.hardware.client import Client as HardwareClient
-from synnax.hardware.device import Client as DeviceClient
-from synnax.hardware.rack import Client as RackClient
-from synnax.hardware.task import Client as TaskClient
 from synnax.ontology import Client as OntologyClient
 from synnax.ontology.group import Client as GroupClient
 from synnax.options import SynnaxOptions
+from synnax.rack import Client as RackClient
 from synnax.ranger import RangeRetriever, RangeWriter
 from synnax.ranger.client import RangeClient
 from synnax.signals.signals import Registry
+from synnax.status.client import Client as StatusClient
+from synnax.task import Client as TaskClient
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
 from synnax.user.client import Client as UserClient
@@ -57,13 +61,16 @@ class Synnax(Client):
     """
 
     channels: ChannelClient
-    access: PolicyClient
+    access: AccessClient
     user: UserClient
     ranges: RangeClient
     control: ControlClient
     signals: Registry
-    hardware: HardwareClient
+    racks: RackClient
+    devices: DeviceClient
+    tasks: TaskClient
     ontology: OntologyClient
+    statuses: StatusClient
 
     _transport: Transport
 
@@ -137,11 +144,14 @@ class Synnax(Client):
         range_retriever = RangeRetriever(self._transport.unary, instrumentation)
         range_creator = RangeWriter(self._transport.unary, instrumentation)
         self.signals = Registry(frame_client=self, channels=ch_retriever)
-        racks = RackClient(client=self._transport.unary)
-        tasks = TaskClient(
-            client=self._transport.unary, frame_client=self, rack_client=racks
+        self.racks = RackClient(client=self._transport.unary)
+        self.devices = DeviceClient(client=self._transport.unary)
+        self.tasks = TaskClient(
+            client=self._transport.unary,
+            frame_client=self,
+            rack_client=self.racks,
+            device_client=self.devices,
         )
-        devices = DeviceClient(client=self._transport.unary)
         self.ranges = RangeClient(
             unary_client=self._transport.unary,
             frame_client=self,
@@ -150,13 +160,26 @@ class Synnax(Client):
             retriever=range_retriever,
             signals=self.signals,
             ontology=self.ontology,
-            tasks=tasks,
+            tasks=self.tasks,
         )
         self.control = ControlClient(self, ch_retriever)
-
-        self.hardware = HardwareClient(tasks=tasks, devices=devices, racks=racks)
-        self.access = PolicyClient(self._transport.unary, instrumentation)
         self.user = UserClient(self._transport.unary)
+        self.statuses = StatusClient(self._transport.unary)
+        self.access = AccessClient(
+            roles=RoleClient(self._transport.unary, instrumentation),
+            policies=PolicyClient(self._transport.unary, instrumentation),
+        )
+
+    @property
+    def hardware(self) -> "Synnax":
+        """Deprecated: Use client.devices, client.tasks, client.racks directly."""
+        warnings.warn(
+            "client.hardware is deprecated and will be removed in a future version. "
+            "Use client.devices, client.tasks, client.racks directly instead.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return self
 
     def close(self):
         """Shuts down the client and closes all connections. All open iterators or

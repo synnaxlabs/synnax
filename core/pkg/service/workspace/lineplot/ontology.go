@@ -11,6 +11,8 @@ package lineplot
 
 import (
 	"context"
+	"io"
+	"iter"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -18,16 +20,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	changex "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/iter"
+	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const ontologyType ontology.Type = "lineplot"
+const OntologyType ontology.Type = "lineplot"
 
 // OntologyID returns unique identifier for the lineplot within the ontology.
 func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: ontologyType, Key: k.String()}
+	return ontology.ID{Type: OntologyType, Key: k.String()}
 }
 
 // OntologyIDs returns unique identifiers for the schematics within the ontology.
@@ -69,7 +71,7 @@ var _ ontology.Service = (*Service)(nil)
 
 type change = changex.Change[uuid.UUID, LinePlot]
 
-func (s *Service) Type() ontology.Type { return ontologyType }
+func (s *Service) Type() ontology.Type { return OntologyType }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }
@@ -91,18 +93,15 @@ func translateChange(c change) ontology.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[ontology.Change])) observe.Disconnect {
+func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, LinePlot]) {
-		f(ctx, iter.NexterTranslator[change, ontology.Change]{Wrap: reader, Translate: translateChange})
+		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return gorp.Observe[uuid.UUID, LinePlot](s.DB).OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
-	n, err := gorp.WrapReader[uuid.UUID, LinePlot](s.DB).OpenNexter()
-	return iter.NexterCloserTranslator[LinePlot, ontology.Resource]{
-		Wrap:      n,
-		Translate: newResource,
-	}, err
+func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+	n, closer, err := gorp.WrapReader[uuid.UUID, LinePlot](s.DB).OpenNexter(ctx)
+	return xiter.Map(n, newResource), closer, err
 }

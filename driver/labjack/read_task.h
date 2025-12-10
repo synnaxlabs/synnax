@@ -6,20 +6,20 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
+
 #pragma once
 
-/// std
 #include <map>
 #include <set>
 #include <string>
 #include <vector>
 
-/// module
+#include "glog/logging.h"
+
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/xjson/xjson.h"
 
-/// internal
 #include "device/device.h"
 #include "driver/labjack/labjack.h"
 #include "driver/labjack/ljm/LJM_Utilities.h"
@@ -28,8 +28,6 @@
 #include "driver/task/common/read_task.h"
 #include "driver/task/common/sample_clock.h"
 #include "driver/transform/transform.h"
-#include "glog/logging.h"
-
 
 namespace labjack {
 constexpr int SINGLE_ENDED = 199; // default negative channel for single ended signals
@@ -69,18 +67,17 @@ const std::map<std::string, LJM_TemperatureUnits> TEMPERATURE_UNITS = {
 
 inline LJM_TemperatureUnits
 parse_temperature_units(xjson::Parser &parser, const std::string &path) {
-    const auto units = parser.required<std::string>(path);
+    const auto units = parser.field<std::string>(path);
     const auto v = TEMPERATURE_UNITS.find(units);
     if (v == TEMPERATURE_UNITS.end())
         parser.field_err(path, "Invalid temperature units: " + units);
     return v->second;
 }
 
-
 /// @brief parses the thermocouple type from the configuration and converts it to
 /// the appropriate LJM type.
 inline long parse_tc_type(xjson::Parser &parser, const std::string &path) {
-    const auto tc_type = parser.required<std::string>(path);
+    const auto tc_type = parser.field<std::string>(path);
     const auto v = TC_TYPE_LUT.find(tc_type);
     if (v == TC_TYPE_LUT.end())
         parser.field_err(path, "Invalid thermocouple type: " + tc_type);
@@ -89,7 +86,7 @@ inline long parse_tc_type(xjson::Parser &parser, const std::string &path) {
 
 /// @brief parses the CJC address for the device.
 inline int parse_cjc_addr(xjson::Parser &parser, const std::string &path) {
-    const auto cjc_source = parser.required<std::string>(path);
+    const auto cjc_source = parser.field<std::string>(path);
     if (cjc_source == DEVICE_CJC_SOURCE) return LJM_TEMPERATURE_DEVICE_K_ADDRESS;
     if (cjc_source == AIR_CJC_SOURCE) return LJM_TEMPERATURE_AIR_K_ADDRESS;
     if (cjc_source.find(AIN_PREFIX) != std::string::npos) {
@@ -116,11 +113,11 @@ struct InputChan {
     synnax::Channel ch;
 
     explicit InputChan(xjson::Parser &parser):
-        enabled(parser.optional<bool>("enabled", true)),
-        port(parser.required<std::string>("port")),
-        synnax_key(parser.required<uint32_t>("channel")),
-        neg_chan(parser.optional<int>("neg_chan", SINGLE_ENDED)),
-        pos_chan(parser.optional<int>("pos_chan", 0)) {}
+        enabled(parser.field<bool>("enabled", true)),
+        port(parser.field<std::string>("port")),
+        synnax_key(parser.field<uint32_t>("channel")),
+        neg_chan(parser.field<int>("neg_chan", SINGLE_ENDED)),
+        pos_chan(parser.field<int>("pos_chan", 0)) {}
 
     /// @brief applies the configuration to the device.
     virtual xerrors::Error
@@ -145,7 +142,7 @@ struct ThermocoupleChan final : InputChan {
     //     LJM_ttT (val=6008)
     //     LJM_ttC (val=6009)
     // Note that the values above do not align with the AIN_EF index values
-    // or order. We use a lookup table provided by labjack to convert our
+    // or order. We use a lookup table provided by LabJack to convert our
     // thermocouple constant to the correct index when using the AIN_EF
     // Lookup table: TC_INDEX_LUT[ x - 60001] = AIN_EF_INDEX
     long type;
@@ -167,13 +164,12 @@ struct ThermocoupleChan final : InputChan {
     ///@brief units for the thermocouple reading
     LJM_TemperatureUnits units;
 
-
     explicit ThermocoupleChan(xjson::Parser &parser):
         InputChan(parser),
         type(parse_tc_type(parser, "thermocouple_type")),
         cjc_addr(parse_cjc_addr(parser, "cjc_source")),
-        cjc_slope(parser.required<float>("cjc_slope")),
-        cjc_offset(parser.required<float>("cjc_offset")),
+        cjc_slope(parser.field<float>("cjc_slope")),
+        cjc_offset(parser.field<float>("cjc_offset")),
         units(parse_temperature_units(parser, "units")) {
         this->port = AIN_PREFIX + std::to_string(this->pos_chan) + TC_SUFFIX;
     }
@@ -237,7 +233,7 @@ struct AIChan final : InputChan {
     const double range;
 
     explicit AIChan(xjson::Parser &parser):
-        InputChan(parser), range(parser.optional<double>("range", 10.0)) {}
+        InputChan(parser), range(parser.field<double>("range", 10.0)) {}
 
     xerrors::Error apply(
         const std::shared_ptr<device::Device> &dev,
@@ -282,7 +278,7 @@ inline std::map<std::string, InputChanFactory<InputChan>> INPUTS = {
 /// @returns nullptr if the configuration is in valid, and binds any relevant
 /// field errors to the config.
 inline std::unique_ptr<InputChan> parse_input_chan(xjson::Parser &cfg) {
-    const auto type = cfg.required<std::string>("type");
+    const auto type = cfg.field<std::string>("type");
     const auto input = INPUTS.find(type);
     if (input != INPUTS.end()) return input->second(cfg);
     cfg.field_err("type", "unknown channel type: " + type);
@@ -331,8 +327,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         const common::TimingConfig timing_cfg = common::TimingConfig()
     ):
         common::BaseReadTaskConfig(parser, timing_cfg),
-        device_key(parser.optional<std::string>("device", "cross-device")),
-        conn_method(parser.optional<std::string>("conn_method", "")),
+        device_key(parser.field<std::string>("device", "cross-device")),
+        conn_method(parser.field<std::string>("conn_method", "")),
         samples_per_chan(sample_rate / stream_rate),
         channels(parser.map<std::unique_ptr<InputChan>>(
             "channels",
@@ -342,11 +338,11 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 return {std::move(ch), ch->enabled};
             }
         )),
-        device_scan_backlog_warn_on_count(parser.optional<size_t>(
+        device_scan_backlog_warn_on_count(parser.field<size_t>(
             "device_scan_backlog_warn_on_count",
             this->sample_rate.hz() * 2 // Default to 2 seconds of scans.
         )),
-        ljm_scan_backlog_warn_on_count(parser.optional<size_t>(
+        ljm_scan_backlog_warn_on_count(parser.field<size_t>(
             "ljm_scan_backlog_warn_on_count",
             this->sample_rate.hz() // Default to 1 second of scans.
         )) {
@@ -354,7 +350,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             parser.field_err("channels", "task must have at least one enabled channel");
             return;
         }
-        auto [dev, err] = client->hardware.retrieve_device(this->device_key);
+        auto [dev, err] = client->devices.retrieve(this->device_key);
         if (err) {
             parser.field_err("device", "failed to retrieve device: " + err.message());
             return;
@@ -400,8 +396,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             keys.push_back(idx);
         return synnax::WriterConfig{
             .channels = keys,
-            .mode = synnax::data_saving_writer_mode(this->data_saving),
-            .enable_auto_commit = true,
+            .mode = common::data_saving_writer_mode(this->data_saving),
         };
     }
 
@@ -435,7 +430,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     }
 };
 
-/// @brief a source implementation that reads from labjack devices via a unary
+/// @brief a source implementation that reads from LabJack devices via a unary
 /// request-response cycle on each acquisition. This source is only used when the
 /// task has thermocouples, as LJM does not support streaming of thermocouple data.
 class UnarySource final : public common::Source {
@@ -515,7 +510,7 @@ public:
     }
 };
 
-/// @brief a source implementation that reads from labjack deices via the LJM
+/// @brief a source implementation that reads from LabJack devices via the LJM
 /// streaming protocol. This is much higher performance than unary request/response
 /// cycles, and is preferred in cases where we don't acquire data from
 /// thermocouples.
@@ -617,9 +612,11 @@ public:
             if (res.error.matches(ljm::TEMPORARILY_UNREACHABLE)) this->restart(true);
             return res;
         }
-        if (device_scan_backlog > this->cfg.device_scan_backlog_warn_on_count)
+        if (static_cast<size_t>(device_scan_backlog) >
+            this->cfg.device_scan_backlog_warn_on_count)
             res.warning = common::skew_warning(device_scan_backlog);
-        if (ljm_scan_backlog > this->cfg.ljm_scan_backlog_warn_on_count)
+        if (static_cast<size_t>(ljm_scan_backlog) >
+            this->cfg.ljm_scan_backlog_warn_on_count)
             res.warning = common::skew_warning(ljm_scan_backlog);
         const auto end = this->sample_clock.end();
         common::transfer_buf(this->deinterleave(), fr, n_channels, n_samples);

@@ -26,6 +26,7 @@ package ontology
 
 import (
 	"context"
+	"iter"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
@@ -33,7 +34,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
@@ -54,13 +54,9 @@ type (
 
 func ParseID(s string) (ID, error) { return core.ParseID(s) }
 
-func IDs(resources []Resource) []ID {
-	ids := make([]ID, 0, len(resources))
-	for _, r := range resources {
-		ids = append(ids, r.ID)
-	}
-	return ids
-}
+func ResourceIDs(resources []Resource) []ID { return core.ResourceIDs(resources) }
+
+func IDsToString(ids []ID) []string { return core.IDsToString(ids) }
 
 // NewResource creates a new entity with the given schema and name and an empty set of
 // field data. NewResource panics if the provided data value does not fit the ontology
@@ -72,7 +68,7 @@ func NewResource(schema zyn.Schema, id ID, name string, data any) core.Resource 
 // Ontology exposes an ontology stored in a key-value database for reading and writing.
 type Ontology struct {
 	Config
-	ResourceObserver     observe.Observer[iter.Nexter[Change]]
+	ResourceObserver     observe.Observer[iter.Seq[Change]]
 	RelationshipObserver observe.Observable[gorp.TxReader[[]byte, Relationship]]
 	search               struct {
 		*search.Index
@@ -119,7 +115,7 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 	}
 	o := &Ontology{
 		Config:               cfg,
-		ResourceObserver:     observe.New[iter.Nexter[Change]](),
+		ResourceObserver:     observe.New[iter.Seq[Change]](),
 		RelationshipObserver: gorp.Observe[[]byte, Relationship](cfg.DB),
 		registrar:            serviceRegistrar{BuiltInType: &builtinService{}},
 	}
@@ -131,7 +127,7 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 		return nil, err
 	}
 
-	if *o.Config.EnableSearch {
+	if *o.EnableSearch {
 		o.search.Index, err = search.New(search.Config{Instrumentation: cfg.Instrumentation})
 	}
 
@@ -199,10 +195,10 @@ func (o *Ontology) Search(ctx context.Context, req search.Request) ([]Resource, 
 }
 
 func (o *Ontology) SearchIDs(ctx context.Context, req search.Request) ([]ID, error) {
-	if !*o.Config.EnableSearch {
+	if !*o.EnableSearch {
 		return nil, errors.New("[ontology] - search is not enabled")
 	}
-	return o.search.Index.Search(ctx, req)
+	return o.search.Search(ctx, req)
 }
 
 // NewWriter opens a new Writer using the provided transaction.
@@ -231,18 +227,18 @@ func (o *Ontology) InitializeSearchIndex(ctx context.Context) error {
 	}
 	oCtx, cancel := signal.WithCancel(ctx)
 	defer cancel()
-	if *o.Config.EnableSearch {
+	if *o.EnableSearch {
 		for _, svc := range o.registrar {
 			o.search.Register(ctx, svc.Type(), svc.Schema())
 		}
 	}
 	for _, svc := range o.registrar {
-		if !*o.Config.EnableSearch {
+		if !*o.EnableSearch {
 			continue
 		}
-		disconnect := svc.OnChange(func(ctx context.Context, i iter.Nexter[Change]) {
-			err := o.search.Index.WithTx(func(tx search.Tx) error {
-				for ch, ok := i.Next(ctx); ok; ch, ok = i.Next(ctx) {
+		disconnect := svc.OnChange(func(ctx context.Context, i iter.Seq[Change]) {
+			err := o.search.WithTx(func(tx search.Tx) error {
+				for ch := range i {
 					o.L.Debug(
 						"updating search index",
 						zap.String("key", ch.Key.String()),
@@ -264,20 +260,26 @@ func (o *Ontology) InitializeSearchIndex(ctx context.Context) error {
 		})
 		o.disconnectObservers = append(o.disconnectObservers, disconnect)
 		oCtx.Go(func(ctx context.Context) error {
-			n, err := svc.OpenNexter()
+			n, closer, err := svc.OpenNexter(ctx)
 			if err != nil {
 				return err
 			}
-			err = o.search.Index.WithTx(func(tx search.Tx) error {
-				for r, ok := n.Next(ctx); ok; r, ok = n.Next(ctx) {
+			defer func() {
+				err = errors.Combine(err, closer.Close())
+			}()
+			err = o.search.WithTx(func(tx search.Tx) error {
+				for r := range n {
+					if ctx.Err() != nil {
+						return ctx.Err()
+					}
 					if err = tx.Index(r); err != nil {
 						return err
 					}
 				}
 				return nil
 			})
-			return errors.Combine(err, n.Close())
-		}, signal.WithKeyf("startup-indexing-%s", svc.Type()))
+			return err
+		}, signal.WithKeyf("startup_indexing_%s", svc.Type()))
 	}
 	return oCtx.Wait()
 }

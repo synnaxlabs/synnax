@@ -15,8 +15,7 @@ import { type ReactElement } from "react";
 import { Button as CoreButton } from "@/button";
 import { Flex } from "@/flex";
 import { List } from "@/list";
-import { Select } from "@/select";
-import { type FrameProps, useContext, useItemState } from "@/select/Frame";
+import { Frame, type FrameProps, useContext, useItemState } from "@/select/Frame";
 
 export interface ButtonsProps<
   K extends record.Key = record.Key,
@@ -36,7 +35,7 @@ export const Buttons = <K extends record.Key = record.Key>({
 }: ButtonsProps<K>): ReactElement => {
   const listProps = List.useKeysData<K>(keys);
   return (
-    <Select.Frame<K, record.Keyed<K>>
+    <Frame<K, record.Keyed<K>>
       closeDialogOnSelect={false}
       {...listProps}
       allowNone={allowNone}
@@ -45,7 +44,7 @@ export const Buttons = <K extends record.Key = record.Key>({
       onChange={onChange as any}
     >
       <Flex.Box pack {...rest} />
-    </Select.Frame>
+    </Frame>
   );
 };
 

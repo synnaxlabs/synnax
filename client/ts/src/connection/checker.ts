@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { UnaryClient } from "@synnaxlabs/freighter";
-import { migrate } from "@synnaxlabs/x";
-import { TimeSpan } from "@synnaxlabs/x/telem";
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { migrate, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const statusZ = z.enum(["disconnected", "connecting", "connected", "failed"]);
@@ -30,6 +29,7 @@ const responseZ = z.object({
   clusterKey: z.string(),
   nodeVersion: z.string().optional(),
 });
+const requestZ = z.void();
 
 const DEFAULT: State = {
   clusterKey: "",
@@ -45,15 +45,14 @@ const createWarning = (
   clientVersion: string,
   clientIsNewer: boolean,
 ): string => {
-  const toUpgrade = clientIsNewer ? "cluster" : "client";
-  return `Synnax cluster node version ${nodeVersion != null ? `${nodeVersion} ` : ""}is too ${clientIsNewer ? "old" : "new"} for client version ${clientVersion}.
+  const toUpgrade = clientIsNewer ? "Core" : "client";
+  return `Synnax Core version ${nodeVersion != null ? `${nodeVersion} ` : ""}is too ${clientIsNewer ? "old" : "new"} for client version ${clientVersion}.
   This may cause compatibility issues. We recommend updating the ${toUpgrade}. For more information, see
   https://docs.synnaxlabs.com/reference/typescript-client/troubleshooting#old-${toUpgrade}-version`;
 };
 
 /** Polls a synnax cluster for connectivity information. */
 export class Checker {
-  private static readonly ENDPOINT = "/connectivity/check";
   static readonly DEFAULT: State = DEFAULT;
   private readonly _state: State;
   private readonly pollFrequency = TimeSpan.seconds(30);
@@ -82,11 +81,11 @@ export class Checker {
     this.clientVersion = clientVersion;
     this.name = name;
     void this.check();
-    this.startChecking();
+    this.start();
   }
 
   /** Stops the connectivity client from polling the cluster for connectivity */
-  stopChecking(): void {
+  stop(): void {
     if (this.interval != null) clearInterval(this.interval);
   }
 
@@ -97,13 +96,13 @@ export class Checker {
   async check(): Promise<State> {
     const prevStatus = this._state.status;
     try {
-      const [res, err] = await this.client.send(
-        Checker.ENDPOINT,
-        {},
-        z.object({}),
+      const res = await sendRequired(
+        this.client,
+        "/connectivity/check",
+        undefined,
+        requestZ,
         responseZ,
       );
-      if (err != null) throw err;
       const nodeVersion = res.nodeVersion;
       const clientVersion = this.clientVersion;
       const warned = this.versionWarned;
@@ -157,7 +156,7 @@ export class Checker {
     this.onChangeHandlers.push(callback);
   }
 
-  private startChecking(): void {
+  private start(): void {
     this.interval = setInterval(() => {
       void this.check();
     }, this.pollFrequency.milliseconds);

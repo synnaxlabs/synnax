@@ -7,12 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <exception>
 #include <stdexcept>
 #include <utility>
 
-/// internal
 #include "driver/errors/errors.h"
 #include "driver/pipeline/control.h"
 
@@ -21,22 +19,25 @@ Control::Control(
     std::shared_ptr<synnax::Synnax> client,
     synnax::StreamerConfig streamer_config,
     std::shared_ptr<pipeline::Sink> sink,
-    const breaker::Config &breaker_config
+    const breaker::Config &breaker_config,
+    std::string thread_name
 ):
     Control(
         std::make_shared<SynnaxStreamerFactory>(std::move(client)),
         streamer_config,
         sink,
-        breaker_config
+        breaker_config,
+        std::move(thread_name)
     ) {}
 
 Control::Control(
     std::shared_ptr<StreamerFactory> streamer_factory,
     synnax::StreamerConfig streamer_config,
     std::shared_ptr<Sink> sink,
-    const breaker::Config &breaker_config
+    const breaker::Config &breaker_config,
+    std::string thread_name
 ):
-    Base(breaker_config),
+    Base(breaker_config, std::move(thread_name)),
     factory(std::move(streamer_factory)),
     config(std::move(streamer_config)),
     sink(std::move(sink)) {}

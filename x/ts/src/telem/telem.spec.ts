@@ -11,7 +11,6 @@ import { describe, expect, it, test } from "vitest";
 
 import { binary } from "@/binary";
 import {
-  addSamples,
   type CrudeDataType,
   DataType,
   Density,
@@ -96,6 +95,55 @@ describe("TimeStamp", () => {
           .add(TimeStamp.utcOffset),
       ),
     ).toBe(true);
+  });
+
+  describe("datetime-local format parsing", () => {
+    test("should parse as UTC by default", () => {
+      const ts = new TimeStamp("2025-11-03T17:44:45.500");
+      const utcTS = new TimeStamp("2025-11-03T17:44:45.500Z");
+
+      expect(ts.valueOf()).toEqual(utcTS.valueOf());
+    });
+
+    test("should handle 1-digit milliseconds with default UTC", () => {
+      const ts = new TimeStamp("2025-11-03T17:44:45.5");
+      expect(ts.millisecond).toBe(500);
+    });
+
+    test("should handle 1-digit milliseconds with local", () => {
+      const ts = new TimeStamp("2025-11-03T17:44:45.5", "local");
+      expect(ts.millisecond).toBe(500);
+    });
+
+    test("should handle 2-digit milliseconds", () => {
+      const ts = new TimeStamp("2025-11-03T17:44:45.50");
+      expect(ts.millisecond).toBe(500);
+    });
+
+    test("should handle 3-digit milliseconds", () => {
+      const ts = new TimeStamp("2025-11-03T17:44:45.809");
+      expect(ts.millisecond).toBe(809);
+    });
+
+    test("should handle 810 milliseconds", () => {
+      const ts = new TimeStamp("2025-11-03T17:44:45.810");
+      expect(ts.millisecond).toBeGreaterThanOrEqual(809);
+      expect(ts.millisecond).toBeLessThanOrEqual(810);
+    });
+
+    test("should handle datetime without milliseconds", () => {
+      const ts = new TimeStamp("2025-11-03T17:44:45");
+      expect(ts.millisecond).toBe(0);
+    });
+
+    test("should round-trip when using local tzInfo", () => {
+      const input = "2025-11-03T17:44:45.809";
+      const ts1 = new TimeStamp(input, "local");
+      const output = ts1.toString("ISO", "local").slice(0, -1);
+      const ts2 = new TimeStamp(output, "local");
+
+      expect(ts1.valueOf()).toEqual(ts2.valueOf());
+    });
   });
 
   test("construct from date", () => {
@@ -732,6 +780,44 @@ describe("TimeStamp", () => {
       test(`TimeStamp.sort(${a.toString()}, ${b.toString()}) = ${expected}`, () => {
         expect(TimeStamp.sort(a, b)).toEqual(expected);
       });
+    });
+  });
+
+  describe("formatBySpan", () => {
+    test("should return 'shortDate' for spans >= 30 days", () => {
+      const ts = new TimeStamp([2022, 12, 15], "UTC");
+      const span = TimeSpan.days(30);
+      expect(ts.formatBySpan(span)).toBe("shortDate");
+    });
+
+    test("should return 'dateTime' for spans >= 1 day", () => {
+      const ts = new TimeStamp([2022, 12, 15], "UTC");
+      const span = TimeSpan.days(1);
+      expect(ts.formatBySpan(span)).toBe("dateTime");
+    });
+
+    test("should return 'time' for spans >= 1 hour", () => {
+      const ts = new TimeStamp([2022, 12, 15], "UTC");
+      const span = TimeSpan.hours(1);
+      expect(ts.formatBySpan(span)).toBe("time");
+    });
+
+    test("should return 'preciseTime' for spans >= 1 second", () => {
+      const ts = new TimeStamp([2022, 12, 15], "UTC");
+      const span = TimeSpan.seconds(1);
+      expect(ts.formatBySpan(span)).toBe("preciseTime");
+    });
+
+    test("should return 'ISOTime' for spans < 1 second", () => {
+      const ts = new TimeStamp([2022, 12, 15], "UTC");
+      const span = TimeSpan.milliseconds(500);
+      expect(ts.formatBySpan(span)).toBe("ISOTime");
+    });
+
+    test("should work with very small spans", () => {
+      const ts = new TimeStamp([2022, 12, 15], "UTC");
+      const span = TimeSpan.microseconds(100);
+      expect(ts.formatBySpan(span)).toBe("ISOTime");
     });
   });
 });
@@ -1933,32 +2019,5 @@ describe("Size", () => {
       expect(result).toBeInstanceOf(Size);
       expect(result.valueOf()).toBe(10000);
     });
-  });
-});
-
-describe("addSamples", () => {
-  test("adds two numbers", () => {
-    expect(addSamples(1, 2)).toBe(3);
-    expect(addSamples(1.5, 2.5)).toBe(4);
-    expect(addSamples(-1, 1)).toBe(0);
-  });
-
-  test("adds two bigints", () => {
-    expect(addSamples(1n, 2n)).toBe(3n);
-    expect(addSamples(-1n, 1n)).toBe(0n);
-    expect(addSamples(9007199254740991n, 1n)).toBe(9007199254740992n);
-  });
-
-  test("handles mixed numeric types", () => {
-    expect(addSamples(1, 2n)).toBe(3);
-    expect(addSamples(2n, 1)).toBe(3);
-    expect(addSamples(1.5, 2n)).toBe(3.5);
-    expect(addSamples(2n, 1.5)).toBe(3.5);
-  });
-
-  test("handles edge cases", () => {
-    expect(addSamples(0, 0)).toBe(0);
-    expect(addSamples(Number.MAX_SAFE_INTEGER, 1)).toBe(Number.MAX_SAFE_INTEGER + 1);
-    expect(addSamples(Number.MIN_SAFE_INTEGER, -1)).toBe(Number.MIN_SAFE_INTEGER - 1);
   });
 });

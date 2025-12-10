@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, log } from "@synnaxlabs/client";
-import { Channel, Flex, Icon, Input } from "@synnaxlabs/pluto";
+import { Access, Channel, Flex, Icon, Input } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
@@ -28,12 +28,13 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const dispatch = useSyncComponent(layoutKey);
   const { name } = Layout.useSelectRequired(layoutKey);
   const state = useSelectOptional(layoutKey);
+  const hasEditPermission = Access.useUpdateGranted(log.ontologyID(layoutKey));
   const handleChannelChange = (v: channel.Key) =>
     dispatch(setChannels({ key: layoutKey, channels: [v ?? 0] }));
   const handleExport = useExport();
   if (state == null) return null;
   return (
-    <Core.Content disableClusterBoundary>
+    <Core.Content>
       <Core.Header>
         <Core.Title icon={<Icon.Log />}>{name}</Core.Title>
         <Flex.Box x style={{ width: 66 }} empty>
@@ -49,7 +50,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           <Channel.SelectSingle
             value={state.channels[0]}
             onChange={handleChannelChange}
-            initialQuery={{ internal: IS_DEV }}
+            initialQuery={{ internal: IS_DEV ? undefined : false }}
+            disabled={!hasEditPermission}
           />
         </Input.Item>
       </Flex.Box>

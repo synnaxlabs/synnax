@@ -1,9 +1,20 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+#include "driver/ni/errors.h"
 #include "driver/ni/syscfg/sugared.h"
 
 namespace syscfg {
 xerrors::Error SugaredAPI::process_error(NISysCfgStatus status) const {
     wchar_t *error_buf = nullptr;
     if (status == NISysCfg_OK) return xerrors::NIL;
+    if (status == NISysCfg_EndOfEnum) return ni::END_OF_ENUM;
     const auto desc_status = this->syscfg
                                  ->GetStatusDescriptionW(nullptr, status, &error_buf);
     if (desc_status != NISysCfg_OK || error_buf == nullptr)
@@ -55,10 +66,14 @@ xerrors::Error SugaredAPI::SetFilterProperty(
     // Note: Enum types undergo default argument promotion to int in varargs.
     // This is a known limitation of C varargs but is how the NI API is designed.
     // Suppressing the warning to maintain semantic type safety of the enum.
+#ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wvarargs"
+#endif
     va_start(args, propertyID);
+#ifdef __clang__
 #pragma clang diagnostic pop
+#endif
     auto status = syscfg->SetFilterPropertyV(filterHandle, propertyID, args);
     va_end(args);
     return process_error(status);

@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <vector>
 
-/// external.
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
 
-/// internal
+#include "x/cpp/xos/xos.h"
+
 #include "driver/ni/daqmx/prod.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/ni.h"
@@ -24,13 +23,9 @@
 #include "driver/ni/write_task.h"
 #include "driver/task/common/factory.h"
 
-/// module
-#include "x/cpp/xos/xos.h"
-
 const std::string
-    NO_LIBS_MSG = "Cannot create the task because the National Instruments DAQMX and "
+    NO_LIBS_MSG = "Cannot create the task because the NI-DAQmx and "
                   "System Configuration libraries are not installed on this system.";
-
 
 ni::Factory::Factory(
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -48,13 +43,14 @@ bool ni::Factory::check_health(
     const synnax::Task &task
 ) const {
     if (this->check_health()) return true;
-    ctx->set_status({
+    synnax::TaskStatus status{
+        .key = task.status_key(),
+        .name = task.name,
         .variant = status::variant::ERR,
         .message = NO_LIBS_MSG,
-        .details = synnax::TaskStatusDetails{
-            .task = task.key,
-        },
-    });
+        .details = synnax::TaskStatusDetails{.task = task.key, .running = false},
+    };
+    ctx->set_status(status);
     return false;
 }
 
@@ -78,7 +74,7 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
 ) {
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
     if (!this->check_health(ctx, task)) return {nullptr, true};
-    common::ConfigureResult res;
+    std::pair<common::ConfigureResult, xerrors::Error> res;
     if (task.type == SCAN_TASK_TYPE)
         res = configure_scan(ctx, task);
     else if (task.type == ANALOG_READ_TASK_TYPE)
@@ -93,6 +89,12 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
             ni::ReadTaskConfig,
             ni::ReadTaskSource<uint8_t>,
             common::ReadTask>(ctx, task);
+    else if (task.type == COUNTER_READ_TASK_TYPE)
+        res = configure<
+            hardware::daqmx::CounterReader,
+            ni::ReadTaskConfig,
+            ni::ReadTaskSource<double>,
+            common::ReadTask>(ctx, task);
     else if (task.type == ANALOG_WRITE_TASK_TYPE)
         res = configure<
             hardware::daqmx::AnalogWriter,
@@ -105,16 +107,14 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configure_task(
             ni::WriteTaskConfig,
             ni::WriteTaskSink<uint8_t>,
             common::WriteTask>(ctx, task);
-    return common::handle_config_err(ctx, task, res);
+    return common::handle_config_err(ctx, task, std::move(res));
 }
-
 
 std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
 ni::Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ) {
-    if (!this->check_health()) return {};
     return common::configure_initial_factory_tasks(
         this,
         ctx,
@@ -125,24 +125,21 @@ ni::Factory::configure_initial_tasks(
     );
 }
 
-common::ConfigureResult ni::Factory::configure_scan(
+std::pair<common::ConfigureResult, xerrors::Error> ni::Factory::configure_scan(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
     auto parser = xjson::Parser(task.config);
     auto cfg = ScanTaskConfig(parser);
     common::ConfigureResult res;
-    if (parser.error()) {
-        res.error = parser.error();
-        return res;
-    }
+    if (parser.error()) return {std::move(res), parser.error()};
     res.task = std::make_unique<common::ScanTask>(
         std::make_unique<ni::Scanner>(this->syscfg, cfg, task),
         ctx,
         task,
         breaker::default_config(task.name),
-        cfg.rate
+        cfg.scan_rate
     );
     res.auto_start = cfg.enabled;
-    return res;
+    return {std::move(res), xerrors::NIL};
 }

@@ -7,18 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
+import { type destructor, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
 import {
-  createContext,
   type PropsWithChildren,
   type ReactElement,
-  use,
   useCallback,
   useEffect,
   useMemo,
   useRef,
 } from "react";
 
+import { context } from "@/context";
 import { useStateRef } from "@/hooks/ref";
 import {
   type Callback,
@@ -33,20 +32,18 @@ import {
 } from "@/triggers/triggers";
 
 export interface Listen {
-  (callback: Callback): Destructor;
+  (callback: Callback): destructor.Destructor;
 }
 
 export interface ContextValue {
   listen: Listen;
 }
 
-const ZERO_CONTEXT_VALUE: ContextValue = {
-  listen: () => () => {},
-};
-
-const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
-
-export const useContext = () => use(Context);
+const [Context, useContext] = context.create<ContextValue>({
+  defaultValue: { listen: () => () => {} },
+  displayName: "Triggers.Context",
+});
+export { useContext };
 
 interface RefState {
   next: Trigger;
@@ -70,9 +67,10 @@ export interface ProviderProps extends PropsWithChildren {
 const isInputOrContentEditable = (e: KeyboardEvent): boolean => {
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)
     return true;
+  const isHTMLElement = e.target instanceof HTMLElement;
   if (
-    e.target instanceof HTMLElement &&
-    e.target.getAttribute("contenteditable") === "true"
+    isHTMLElement &&
+    (e.target.getAttribute("contenteditable") === "true" || e.target.role === "textbox")
   )
     return true;
   return false;

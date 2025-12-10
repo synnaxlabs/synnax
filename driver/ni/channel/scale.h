@@ -9,14 +9,11 @@
 
 #pragma once
 
-/// std
 #include <string>
 #include <vector>
 
-/// module
 #include "x/cpp/xjson/xjson.h"
 
-/// internal
 #include "driver/ni/channel/units.h"
 #include "driver/ni/daqmx/sugared.h"
 
@@ -51,8 +48,8 @@ struct BaseScale : Scale {
     bool is_none() override { return false; }
 
     explicit BaseScale(xjson::Parser &cfg):
-        type(cfg.required<std::string>("type")),
-        scaled_units(cfg.optional<std::string>("scaled_units", "Volts")),
+        type(cfg.field<std::string>("type")),
+        scaled_units(cfg.field<std::string>("scaled_units", "Volts")),
         pre_scaled_units(parse_units(cfg, "pre_scaled_units")) {}
 };
 
@@ -67,8 +64,8 @@ struct LinearScale final : BaseScale {
 
     explicit LinearScale(xjson::Parser &cfg):
         BaseScale(cfg),
-        slope(cfg.required<double>("slope")),
-        offset(cfg.required<double>("y_intercept")) {}
+        slope(cfg.field<double>("slope")),
+        offset(cfg.field<double>("y_intercept")) {}
 
     std::pair<std::string, xerrors::Error>
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
@@ -101,10 +98,10 @@ struct MapScale final : BaseScale {
 
     explicit MapScale(xjson::Parser &cfg):
         BaseScale(cfg),
-        pre_scaled_min(cfg.required<double>("pre_scaled_min")),
-        pre_scaled_max(cfg.required<double>("pre_scaled_max")),
-        scaled_min(cfg.required<double>("scaled_min")),
-        scaled_max(cfg.required<double>("scaled_max")) {}
+        pre_scaled_min(cfg.field<double>("pre_scaled_min")),
+        pre_scaled_max(cfg.field<double>("pre_scaled_max")),
+        scaled_min(cfg.field<double>("scaled_min")),
+        scaled_max(cfg.field<double>("scaled_max")) {}
 
     std::pair<std::string, xerrors::Error>
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
@@ -145,11 +142,11 @@ struct PolynomialScale final : BaseScale {
 
     explicit PolynomialScale(xjson::Parser &cfg):
         BaseScale(cfg),
-        forward_coeffs(cfg.required_vec<double>("forward_coeffs")),
-        min_x(cfg.required<double>("min_x")),
-        max_x(cfg.required<double>("max_x")),
-        reverse_poly_order(cfg.optional<int>("poly_order", -1)),
-        num_points_to_compute(cfg.optional<size_t>("num_points_to_compute", 100)) {}
+        forward_coeffs(cfg.field<std::vector<double>>("forward_coeffs")),
+        min_x(cfg.field<double>("min_x")),
+        max_x(cfg.field<double>("max_x")),
+        reverse_poly_order(cfg.field<int>("poly_order", -1)),
+        num_points_to_compute(cfg.field<size_t>("num_points_to_compute", 100)) {}
 
     std::pair<std::string, xerrors::Error>
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
@@ -191,8 +188,8 @@ struct TableScale final : BaseScale {
 
     explicit TableScale(xjson::Parser &cfg):
         BaseScale(cfg),
-        pre_scaled(cfg.required_vec<double>("pre_scaled")),
-        scaled(cfg.required_vec<double>("scaled")) {
+        pre_scaled(cfg.field<std::vector<double>>("pre_scaled")),
+        scaled(cfg.field<std::vector<double>>("scaled")) {
         if (pre_scaled.size() == scaled.size()) return;
         cfg.field_err(
             "pre_scaled_vals",
@@ -225,7 +222,7 @@ struct TableScale final : BaseScale {
 inline std::unique_ptr<Scale>
 parse_scale(const xjson::Parser &parent_cfg, const std::string &path) {
     auto cfg = parent_cfg.child(path);
-    const auto type = cfg.required<std::string>("type");
+    const auto type = cfg.field<std::string>("type");
     if (type == "linear") return std::make_unique<LinearScale>(cfg);
     if (type == "map") return std::make_unique<MapScale>(cfg);
     if (type == "polynomial") return std::make_unique<PolynomialScale>(cfg);

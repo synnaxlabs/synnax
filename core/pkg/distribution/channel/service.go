@@ -19,45 +19,28 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
-type Service interface {
-	Readable
-	Writeable
-	ontology.Service
-	Group() group.Group
-}
+type CalculationAnalyzer = func(ctx context.Context, expr string) (telem.DataType, error)
 
-type Writeable interface {
-	Writer
-	NewWriter(tx gorp.Tx) Writer
-}
-
-type Readable interface {
-	NewRetrieve() Retrieve
-	NewObservable() observe.Observable[gorp.TxReader[Key, Channel]]
-}
-
-type ReadWriteable interface {
-	Writeable
-	Readable
-}
-
-// service is central entity for managing channels within delta's distribution layer. It
-// provides facilities for creating and retrieving channels.
-type service struct {
-	*gorp.DB
+// Service is the central entity for managing channels within Synnax's distribution
+// layer. It provides facilities for creating and retrieving channels.
+type Service struct {
+	cfg Config
+	db  *gorp.DB
 	Writer
 	proxy *leaseProxy
 	otg   *ontology.Ontology
 	group group.Group
 }
 
-var _ Service = (*service)(nil)
+func (s *Service) SetCalculationAnalyzer(analyzer CalculationAnalyzer) {
+	s.proxy.analyzeCalculation = analyzer
+}
 
 type IntOverflowChecker = func(types.Uint20) error
 
@@ -70,7 +53,7 @@ func FixedOverflowChecker(limit int) IntOverflowChecker {
 	}
 }
 
-type ServiceConfig struct {
+type Config struct {
 	HostResolver     cluster.HostResolver
 	ClusterDB        *gorp.DB
 	TSChannel        *ts.DB
@@ -78,21 +61,29 @@ type ServiceConfig struct {
 	Ontology         *ontology.Ontology
 	Group            *group.Service
 	IntOverflowCheck IntOverflowChecker
+	// ValidateNames sets whether to validate channel names during creation and
+	// renaming.
+	ValidateNames *bool
+	// ForceMigration will force all migrations to run, regardless of whether they have
+	// already been run.
+	ForceMigration *bool
 }
 
-var _ config.Config[ServiceConfig] = ServiceConfig{}
+var _ config.Config[Config] = Config{}
 
-func (c ServiceConfig) Validate() error {
+func (c Config) Validate() error {
 	v := validate.New("distribution.channel")
-	validate.NotNil(v, "host_provider", c.HostResolver)
+	validate.NotNil(v, "host_resolver", c.HostResolver)
 	validate.NotNil(v, "cluster_db", c.ClusterDB)
 	validate.NotNil(v, "ts_channel", c.TSChannel)
 	validate.NotNil(v, "transport", c.Transport)
 	validate.NotNil(v, "int_overflow_check", c.IntOverflowCheck)
+	validate.NotNil(v, "validate_names", c.ValidateNames)
+	validate.NotNil(v, "force_migration", c.ForceMigration)
 	return v.Error()
 }
 
-func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+func (c Config) Override(other Config) Config {
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.ClusterDB = override.Nil(c.ClusterDB, other.ClusterDB)
 	c.TSChannel = override.Nil(c.TSChannel, other.TSChannel)
@@ -100,12 +91,14 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.IntOverflowCheck = override.Nil(c.IntOverflowCheck, other.IntOverflowCheck)
+	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
+	c.ForceMigration = override.Nil(c.ForceMigration, other.ForceMigration)
 	return c
 }
 
-var DefaultConfig = ServiceConfig{}
+var DefaultConfig = Config{ValidateNames: config.True(), ForceMigration: config.False()}
 
-func New(ctx context.Context, cfgs ...ServiceConfig) (Service, error) {
+func NewService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
@@ -120,8 +113,9 @@ func New(ctx context.Context, cfgs ...ServiceConfig) (Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &service{
-		DB:    cfg.ClusterDB,
+	s := &Service{
+		cfg:   cfg,
+		db:    cfg.ClusterDB,
 		proxy: proxy,
 		otg:   cfg.Ontology,
 		group: g,
@@ -133,22 +127,22 @@ func New(ctx context.Context, cfgs ...ServiceConfig) (Service, error) {
 	return s, nil
 }
 
-func (s *service) NewWriter(tx gorp.Tx) Writer {
-	return writer{svc: s, tx: s.DB.OverrideTx(tx)}
+func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	return Writer{svc: s, tx: s.db.OverrideTx(tx)}
 }
 
-func (s *service) Group() group.Group { return s.group }
+func (s *Service) Group() group.Group { return s.group }
 
-func (s *service) NewRetrieve() Retrieve {
+func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:                      gorp.NewRetrieve[Key, Channel](),
-		tx:                        s.DB,
+		tx:                        s.db,
 		otg:                       s.otg,
 		validateRetrievedChannels: s.validateChannels,
 	}
 }
 
-func (s *service) validateChannels(channels []Channel) ([]Channel, error) {
+func (s *Service) validateChannels(channels []Channel) ([]Channel, error) {
 	res := make([]Channel, 0, len(channels))
 	s.proxy.mu.RLock()
 	defer s.proxy.mu.RUnlock()
@@ -164,12 +158,12 @@ func (s *service) validateChannels(channels []Channel) ([]Channel, error) {
 	return res, nil
 }
 
-func TryToRetrieveStringer(ctx context.Context, readable Readable, key Key) string {
-	var ch Channel
-	if readable == nil {
+func TryToRetrieveStringer(ctx context.Context, svc *Service, key Key) string {
+	if svc == nil {
 		return key.String()
 	}
-	if err := readable.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil); err != nil {
+	var ch Channel
+	if err := svc.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil); err != nil {
 		return key.String()
 	}
 	return ch.String()

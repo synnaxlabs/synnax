@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, group, ontology, status } from "@synnaxlabs/client";
-import { TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -130,7 +130,7 @@ describe("Status queries", () => {
       });
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data.length).toBeLessThanOrEqual(2);
+      expect(result.current.data.length).toBeGreaterThanOrEqual(2);
     });
   });
 
@@ -674,6 +674,69 @@ describe("Status queries", () => {
         expect(result.current.form.form.value().key).toEqual(key);
         expect(result.current.retrieve.data?.key).toEqual(key);
         expect(result.current.retrieve.data?.name).toEqual("Updated");
+      });
+    });
+  });
+  describe("useRetrieveMultiple", () => {
+    it("should retrieve multiple statuses by keys", async () => {
+      const status1 = await client.statuses.set({
+        name: "Retrieve Multiple 1",
+        key: `retrieve-multiple-${id.create()}`,
+        variant: "info",
+        message: "First status",
+        time: TimeStamp.now(),
+      });
+      const status2 = await client.statuses.set({
+        name: "Retrieve Multiple 2",
+        key: `retrieve-multiple-${id.create()}`,
+        variant: "success",
+        message: "Second status",
+        time: TimeStamp.now(),
+      });
+      const { result } = renderHook(
+        () => Status.useRetrieveMultiple({ keys: [status1.key, status2.key] }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).toHaveLength(2);
+      expect(result.current.data?.map((s) => s.key)).toContain(status1.key);
+      expect(result.current.data?.map((s) => s.key)).toContain(status2.key);
+    });
+    it("should update when a status changes", async () => {
+      const status1 = await client.statuses.set({
+        name: "Retrieve Multiple 1",
+        key: `retrieve-multiple-${id.create()}`,
+        variant: "info",
+        message: "First status",
+        time: TimeStamp.now(),
+      });
+      const status2 = await client.statuses.set({
+        name: "Retrieve Multiple 2",
+        key: `retrieve-multiple-${id.create()}`,
+        variant: "success",
+        message: "Second status",
+        time: TimeStamp.now(),
+      });
+      const { result } = renderHook(
+        () => Status.useRetrieveMultiple({ keys: [status1.key, status2.key] }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).toHaveLength(2);
+      expect(result.current.data?.map((s) => s.key)).toContain(status1.key);
+      expect(result.current.data?.map((s) => s.key)).toContain(status2.key);
+      await act(async () => {
+        await client.statuses.set({
+          name: "Retrieve Multiple 1 Updated",
+          key: status1.key,
+          variant: "success",
+          message: "First status updated",
+          time: TimeStamp.now(),
+        });
+      });
+      await waitFor(() => {
+        const updated = result.current.data?.find((s) => s.key === status1.key);
+        expect(updated?.name).toEqual("Retrieve Multiple 1 Updated");
       });
     });
   });

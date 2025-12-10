@@ -9,7 +9,7 @@
 
 import { describe, expect, it, test } from "vitest";
 
-import * as box from "@/spatial/box/box";
+import { box } from "@/spatial/box";
 import { Scale, XY } from "@/spatial/scale/scale";
 
 type ScaleSpec = [name: string, scale: Scale<number>, i: number, o: number];

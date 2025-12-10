@@ -9,10 +9,13 @@
 
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Triggers } from "@synnaxlabs/pluto";
-import { useMemo } from "react";
-import { useDispatch } from "react-redux";
+import { useCallback, useMemo } from "react";
+import { useDispatch, useStore } from "react-redux";
 
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
+import { selectActiveMosaicTabState } from "@/layout/selectors";
+import { setNavDrawerVisible, toggleNavHover } from "@/layout/slice";
+import { type RootState } from "@/store";
 
 const createModeConfig = (items: Layout.NavDrawerItem[]): Triggers.ModeConfig<string> =>
   Object.fromEntries(
@@ -30,25 +33,32 @@ export interface UseTriggersProps {
 
 export const useTriggers = ({ items }: UseTriggersProps) => {
   const dispatch = useDispatch();
+  const store = useStore<RootState>();
   const modeConfig = useMemo(() => createModeConfig(items), [items]);
   const flattenedConfig = Triggers.flattenConfig(modeConfig);
   const windowKey = useSelectWindowKey();
   Triggers.use({
     triggers: flattenedConfig,
     loose: false,
-    callback: (e) => {
-      if (
-        e.stage !== "start" ||
-        windowKey == null ||
-        (e.prevTriggers.length > 0 && e.prevTriggers[0].length > 1)
-      )
-        return;
-      const mode = Triggers.determineMode(modeConfig, e.triggers, { loose: false });
-      if (mode.length === 0) return;
-      if (mode.includes("double")) {
-        const key = mode.split("-")[0];
-        dispatch(Layout.setNavDrawerVisible({ windowKey, key, value: true }));
-      } else dispatch(Layout.toggleNavHover({ windowKey, key: mode }));
-    },
+    callback: useCallback(
+      (e: Triggers.UseEvent) => {
+        if (
+          e.stage !== "start" ||
+          windowKey == null ||
+          (e.prevTriggers.length > 0 && e.prevTriggers[0].length > 1)
+        )
+          return;
+        const state = store.getState();
+        const { blurred } = selectActiveMosaicTabState(state, windowKey);
+        if (blurred) return;
+        const mode = Triggers.determineMode(modeConfig, e.triggers, { loose: false });
+        if (mode.length === 0) return;
+        if (mode.includes("double")) {
+          const key = mode.split("-")[0];
+          dispatch(setNavDrawerVisible({ windowKey, key, value: true }));
+        } else dispatch(toggleNavHover({ windowKey, key: mode }));
+      },
+      [dispatch, modeConfig, windowKey],
+    ),
   });
 };

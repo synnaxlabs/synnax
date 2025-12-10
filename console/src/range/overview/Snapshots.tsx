@@ -65,7 +65,7 @@ const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
       retrieveAndPlaceTaskLayout(client, key, placeLayout),
     onDelete: async ({ id: { key } }, { client }) => {
       if (client == null) throw new DisconnectedError();
-      await client.hardware.tasks.delete(key);
+      await client.tasks.delete(key);
     },
   },
 };
@@ -88,8 +88,7 @@ const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   const promptConfirm = useConfirmDelete({
     type: "Snapshot",
   });
-  const handleDelete = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
+  const handleDelete = () => {
     handleError(async () => {
       const confirmed = await promptConfirm({ name });
       if (!confirmed) return;

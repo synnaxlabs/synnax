@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x/array";
-import { isObject } from "@synnaxlabs/x/identity";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Key, keyZ } from "@/ranger/payload";
@@ -35,9 +34,6 @@ const deleteReqZ = z.object({ range: keyZ, keys: z.string().array() });
 export interface DeleteRequest extends z.infer<typeof deleteReqZ> {}
 
 export class KV {
-  private static readonly GET_ENDPOINT = "/range/kv/get";
-  private static readonly SET_ENDPOINT = "/range/kv/set";
-  private static readonly DELETE_ENDPOINT = "/range/kv/delete";
   private readonly rangeKey: Key;
   private readonly client: UnaryClient;
 
@@ -51,7 +47,7 @@ export class KV {
   async get(keys: string | string[]): Promise<string | Record<string, string>> {
     const res = await sendRequired(
       this.client,
-      KV.GET_ENDPOINT,
+      "/range/kv/get",
       { range: this.rangeKey, keys: array.toArray(keys) },
       getReqZ,
       getResZ,
@@ -68,16 +64,17 @@ export class KV {
   async set(kv: Record<string, string>): Promise<void>;
   async set(key: string | Record<string, string>, value: string = ""): Promise<void> {
     let pairs: KVPair[];
-    if (isObject(key))
+    if (typeof key == "string") pairs = [{ range: this.rangeKey, key, value }];
+    else
       pairs = Object.entries(key).map(([k, v]) => ({
         range: this.rangeKey,
         key: k,
         value: v,
       }));
-    else pairs = [{ range: this.rangeKey, key, value }];
+
     await sendRequired(
       this.client,
-      KV.SET_ENDPOINT,
+      "/range/kv/set",
       { range: this.rangeKey, pairs },
       setReqZ,
       z.unknown(),
@@ -87,7 +84,7 @@ export class KV {
   async delete(key: string | string[]): Promise<void> {
     await sendRequired(
       this.client,
-      KV.DELETE_ENDPOINT,
+      "/range/kv/delete",
       { range: this.rangeKey, keys: array.toArray(key) },
       deleteReqZ,
       z.unknown(),

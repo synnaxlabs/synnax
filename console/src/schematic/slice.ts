@@ -23,7 +23,6 @@ export type SliceState = latest.SliceState;
 export type NodeProps = latest.NodeProps;
 export type EdgeProps = latest.EdgeProps;
 export type State = latest.State;
-export type StateWithName = State & { name: string };
 export type LegendState = latest.LegendState;
 export type ToolbarTab = latest.ToolbarTab;
 export type ToolbarState = latest.ToolbarState;
@@ -85,7 +84,7 @@ export interface SetNodesPayload {
 
 export interface SetNodePositionsPayload {
   key: string;
-  positions: Record<string, xy.XY>;
+  positions: Array<[string, xy.XY]>;
 }
 
 export interface SetEdgesPayload {
@@ -149,6 +148,11 @@ export interface SetRemoteCreatedPayload {
 export interface SetLegendPayload {
   key: string;
   legend: Partial<LegendState>;
+}
+
+export interface SetLegendVisiblePayload {
+  key: string;
+  visible: boolean;
 }
 
 export interface SelectAllPayload {
@@ -320,7 +324,7 @@ export const { actions, reducer } = createSlice({
     setNodePositions: (state, { payload }: PayloadAction<SetNodePositionsPayload>) => {
       const { key: layoutKey, positions } = payload;
       const schematic = state.schematics[layoutKey];
-      Object.entries(positions).forEach(([key, position]) => {
+      positions.forEach(([key, position]) => {
         const node = schematic.nodes.find((node) => node.key === key);
         if (node == null) return;
         node.position = position;
@@ -439,6 +443,11 @@ export const { actions, reducer } = createSlice({
       const schematic = state.schematics[layoutKey];
       schematic.legend = { ...schematic.legend, ...legend };
     },
+    setLegendVisible: (state, { payload }: PayloadAction<SetLegendVisiblePayload>) => {
+      const { key: layoutKey, visible } = payload;
+      const schematic = state.schematics[layoutKey];
+      schematic.legend.visible = visible;
+    },
     selectAll: (state, { payload }: PayloadAction<SelectAllPayload>) => {
       const { key: layoutKey } = payload;
       const schematic = state.schematics[layoutKey];
@@ -479,6 +488,7 @@ const clearSelections = (state: State): void => {
 
 export const {
   setLegend,
+  setLegendVisible,
   setNodePositions,
   toggleControl,
   setControlStatus,

@@ -7,15 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
-#include "gtest/gtest.h"
-
-/// std
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
 
-/// internal
+#include "gtest/gtest.h"
+
 #include "x/cpp/fs/fs.h"
 
 class FSTest : public ::testing::Test {
@@ -29,7 +26,7 @@ protected:
     std::string special_chars_file;
 
     void SetUp() override {
-        test_dir = std::filesystem::temp_directory_path() / "fs_test";
+        test_dir = (std::filesystem::temp_directory_path() / "fs_test").string();
         std::filesystem::create_directories(test_dir);
         test_file = test_dir + "/test.txt";
         empty_file = test_dir + "/empty.txt";

@@ -9,10 +9,8 @@
 
 #pragma once
 
-/// module
 #include "client/cpp/synnax.h"
 
-/// internal
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
 
@@ -48,6 +46,9 @@ public:
         if (current_read >= config.reads->size()) {
             // block "indefinitely"
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            if (this->config.read_errors != nullptr &&
+                !this->config.read_errors->empty())
+                return {synnax::Frame{}, this->config.read_errors->at(0)};
             return {synnax::Frame(0), xerrors::NIL};
         }
         auto fr = std::move(config.reads->at(current_read));
@@ -60,7 +61,11 @@ public:
 
     xerrors::Error close() override { return config.close_err; }
 
-    void close_send() override {}
+    void close_send() override {
+        if (this->config.read_errors == nullptr)
+            this->config.read_errors = std::make_shared<std::vector<xerrors::Error>>();
+        this->config.read_errors->push_back(freighter::STREAM_CLOSED);
+    }
 };
 
 // Factory for creating mock Streamers with configurable behavior.
@@ -140,7 +145,8 @@ public:
         return_false_ok_on(return_false_ok_on) {}
 
     xerrors::Error write(const synnax::Frame &fr) override {
-        if (this->writes->size() == this->return_false_ok_on)
+        if (this->return_false_ok_on != -1 &&
+            this->writes->size() == static_cast<size_t>(this->return_false_ok_on))
             return xerrors::VALIDATION;
         this->writes->push_back(fr.deep_copy());
         return xerrors::NIL;

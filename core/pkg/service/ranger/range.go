@@ -88,11 +88,13 @@ func (r Range) GetManyKV(ctx context.Context, keys []string) ([]KVPair, error) {
 }
 
 // ListKV lists all key-value pairs on the range.
-func (r Range) ListKV() (res []KVPair, err error) {
+func (r Range) ListKV(ctx context.Context) (res []KVPair, err error) {
 	err = gorp.NewRetrieve[string, KVPair]().
-		Where(func(kv *KVPair) bool { return kv.Range == r.Key }).
+		Where(func(ctx gorp.Context, kv *KVPair) (bool, error) {
+			return kv.Range == r.Key, nil
+		}).
 		Entries(&res).
-		Exec(context.Background(), r.tx)
+		Exec(ctx, r.tx)
 	return res, err
 }
 
@@ -157,11 +159,13 @@ func (r Range) RetrieveAlias(ctx context.Context, ch channel.Key) (string, error
 // ResolveAlias attempts to resolve the provided Alias to a channel key on the range.
 func (r Range) ResolveAlias(ctx context.Context, alias string) (channel.Key, error) {
 	var res Alias
-	matcher := func(a *Alias) bool { return a.Range == r.Key && a.Alias == alias }
+	matcher := func(ctx gorp.Context, a *Alias) (bool, error) {
+		return a.Range == r.Key && a.Alias == alias, nil
+	}
 	rxp, err := regexp.Compile(alias)
 	if err == nil {
-		matcher = func(a *Alias) bool {
-			return a.Range == r.Key && rxp.MatchString(a.Alias)
+		matcher = func(ctx gorp.Context, a *Alias) (bool, error) {
+			return a.Range == r.Key && rxp.MatchString(a.Alias), nil
 		}
 	}
 	err = gorp.
@@ -217,7 +221,7 @@ func (r Range) RetrieveParent(ctx context.Context) (Range, error) {
 func (r Range) SearchAliases(ctx context.Context, term string) ([]channel.Key, error) {
 	ids, err := r.otg.SearchIDs(
 		ctx,
-		search.Request{Term: term, Type: aliasOntologyType},
+		search.Request{Term: term, Type: AliasOntologyType},
 	)
 	if err != nil {
 		return nil, err
@@ -259,7 +263,9 @@ func (r Range) listAliases(
 ) error {
 	res := make([]Alias, 0)
 	if err := gorp.NewRetrieve[string, Alias]().
-		Where(func(a *Alias) bool { return a.Range == r.Key }).
+		Where(func(_ gorp.Context, a *Alias) (bool, error) {
+			return a.Range == r.Key, nil
+		}).
 		Entries(&res).
 		Exec(ctx, r.tx); err != nil {
 		return err

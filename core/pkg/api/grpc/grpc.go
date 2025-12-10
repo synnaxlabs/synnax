@@ -18,20 +18,22 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 )
 
-func New(channels channel.Readable) (a api.Transport, transports []fgrpc.BindableTransport) {
-	transports = make([]fgrpc.BindableTransport, 0, 20)
-	transports = append(transports, newChannel(&a)...)
-	transports = append(transports, newFramer(&a, channels))
-	transports = append(transports, newConnectivity(&a))
-	transports = append(transports, newAuth(&a))
-	transports = append(transports, newRanger(&a))
-	transports = append(transports, newHardware(&a))
+func New(channelSvc *channel.Service) (api.Transport, []fgrpc.BindableTransport) {
+	var a api.Transport
+	transports := fgrpc.CompoundBindableTransport{
+		newChannel(&a),
+		newFramer(&a, channelSvc),
+		newConnectivity(&a),
+		newAuth(&a),
+		newRanger(&a),
+		newRack(&a),
+		newTask(&a),
+		newDevice(&a),
+		newStatus(&a),
+	}
 
 	// AUTH
 	a.AuthChangePassword = fnoop.UnaryServer[api.AuthChangePasswordRequest, types.Nil]{}
-
-	// HARDWARE
-	a.HardwareCopyTask = fnoop.UnaryServer[api.HardwareCopyTaskRequest, api.HardwareCopyTaskResponse]{}
 
 	// CHANNEL
 	a.ChannelRename = fnoop.UnaryServer[api.ChannelRenameRequest, types.Nil]{}
@@ -55,9 +57,9 @@ func New(channels channel.Readable) (a api.Transport, transports []fgrpc.Bindabl
 	a.OntologyMoveChildren = fnoop.UnaryServer[api.OntologyMoveChildrenRequest, types.Nil]{}
 
 	// GROUP
-	a.OntologyGroupCreate = fnoop.UnaryServer[api.OntologyCreateGroupRequest, api.OntologyCreateGroupResponse]{}
-	a.OntologyGroupDelete = fnoop.UnaryServer[api.OntologyDeleteGroupRequest, types.Nil]{}
-	a.OntologyGroupRename = fnoop.UnaryServer[api.OntologyRenameGroupRequest, types.Nil]{}
+	a.GroupCreate = fnoop.UnaryServer[api.GroupCreateRequest, api.GroupCreateResponse]{}
+	a.GroupDelete = fnoop.UnaryServer[api.GroupDeleteRequest, types.Nil]{}
+	a.GroupRename = fnoop.UnaryServer[api.GroupRenameRequest, types.Nil]{}
 
 	// WORKSPACE
 	a.WorkspaceCreate = fnoop.UnaryServer[api.WorkspaceCreateRequest, api.WorkspaceCreateResponse]{}
@@ -75,11 +77,11 @@ func New(channels channel.Readable) (a api.Transport, transports []fgrpc.Bindabl
 	a.SchematicCopy = fnoop.UnaryServer[api.SchematicCopyRequest, api.SchematicCopyResponse]{}
 
 	// SCHEMATIC SYMBOL
-	a.SchematicSymbolCreate = fnoop.UnaryServer[api.SymbolCreateRequest, api.SymbolCreateResponse]{}
-	a.SchematicSymbolRetrieve = fnoop.UnaryServer[api.SymbolRetrieveRequest, api.SymbolRetrieveResponse]{}
-	a.SchematicSymbolDelete = fnoop.UnaryServer[api.SymbolDeleteRequest, types.Nil]{}
-	a.SchematicSymbolRename = fnoop.UnaryServer[api.SymbolRenameRequest, types.Nil]{}
-	a.SchematicSymbolRetrieveGroup = fnoop.UnaryServer[api.SymbolRetrieveGroupRequest, api.SymbolRetrieveGroupResponse]{}
+	a.SchematicCreateSymbol = fnoop.UnaryServer[api.SchematicCreateSymbolRequest, api.SchematicCreateSymbolResponse]{}
+	a.SchematicRetrieveSymbol = fnoop.UnaryServer[api.SchematicRetrieveSymbolRequest, api.SchematicRetrieveSymbolResponse]{}
+	a.SchematicDeleteSymbol = fnoop.UnaryServer[api.SchematicDeleteSymbolRequest, types.Nil]{}
+	a.SchematicRenameSymbol = fnoop.UnaryServer[api.SchematicRenameSymbolRequest, types.Nil]{}
+	a.SchematicRetrieveSymbolGroup = fnoop.UnaryServer[api.SchematicRetrieveSymbolGroupRequest, api.SchematicRetrieveSymbolGroupResponse]{}
 
 	// LINE PLOT
 	a.LinePlotCreate = fnoop.UnaryServer[api.LinePlotCreateRequest, api.LinePlotCreateResponse]{}
@@ -113,16 +115,17 @@ func New(channels channel.Readable) (a api.Transport, transports []fgrpc.Bindabl
 	a.AccessCreatePolicy = fnoop.UnaryServer[api.AccessCreatePolicyRequest, api.AccessCreatePolicyResponse]{}
 	a.AccessDeletePolicy = fnoop.UnaryServer[api.AccessDeletePolicyRequest, types.Nil]{}
 	a.AccessRetrievePolicy = fnoop.UnaryServer[api.AccessRetrievePolicyRequest, api.AccessRetrievePolicyResponse]{}
-
-	// STATUS
-	a.StatusSet = fnoop.UnaryServer[api.StatusSetRequest, api.StatusSetResponse]{}
-	a.StatusRetrieve = fnoop.UnaryServer[api.StatusRetrieveRequest, api.StatusRetrieveResponse]{}
-	a.StatusDelete = fnoop.UnaryServer[api.StatusDeleteRequest, types.Nil]{}
+	a.AccessCreateRole = fnoop.UnaryServer[api.AccessCreateRoleRequest, api.AccessCreateRoleResponse]{}
+	a.AccessDeleteRole = fnoop.UnaryServer[api.AccessDeleteRoleRequest, types.Nil]{}
+	a.AccessRetrieveRole = fnoop.UnaryServer[api.AccessRetrieveRoleRequest, api.AccessRetrieveRoleResponse]{}
+	a.AccessAssignRole = fnoop.UnaryServer[api.AccessAssignRoleRequest, types.Nil]{}
+	a.AccessUnassignRole = fnoop.UnaryServer[api.AccessUnassignRoleRequest, types.Nil]{}
 
 	// arc
 	a.ArcCreate = fnoop.UnaryServer[api.ArcCreateRequest, api.ArcCreateResponse]{}
 	a.ArcDelete = fnoop.UnaryServer[api.ArcDeleteRequest, types.Nil]{}
 	a.ArcRetrieve = fnoop.UnaryServer[api.ArcRetrieveRequest, api.ArcRetrieveResponse]{}
+	a.ArcLSP = fnoop.StreamServer[api.ArcLSPMessage, api.ArcLSPMessage]{}
 
 	return a, transports
 }

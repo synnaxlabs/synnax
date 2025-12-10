@@ -7,18 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <exception>
 #include <stdexcept>
 #include <thread>
 
-/// external
 #include "nlohmann/json.hpp"
 
-/// module
 #include "driver/errors/errors.h"
-
-/// internal
 #include "driver/pipeline/acquisition.h"
 
 using json = nlohmann::json;
@@ -48,22 +43,25 @@ Acquisition::Acquisition(
     std::shared_ptr<synnax::Synnax> client,
     synnax::WriterConfig writer_config,
     std::shared_ptr<Source> source,
-    const breaker::Config &breaker_config
+    const breaker::Config &breaker_config,
+    std::string thread_name
 ):
     Acquisition(
         std::make_shared<SynnaxWriterFactory>(std::move(client)),
         std::move(writer_config),
         std::move(source),
-        breaker_config
+        breaker_config,
+        std::move(thread_name)
     ) {}
 
 Acquisition::Acquisition(
     std::shared_ptr<WriterFactory> factory,
     synnax::WriterConfig writer_config,
     std::shared_ptr<Source> source,
-    const breaker::Config &breaker_config
+    const breaker::Config &breaker_config,
+    std::string thread_name
 ):
-    Base(breaker_config),
+    Base(breaker_config, std::move(thread_name)),
     factory(std::move(factory)),
     source(std::move(source)),
     writer_config(std::move(writer_config)) {}

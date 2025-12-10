@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// std
 #include <algorithm>
 #include <atomic>
 #include <memory>
@@ -31,19 +30,15 @@
 #include <unistd.h>
 #endif
 
-/// external
 #include "modbus/modbus.h"
 
-/// internal
-#include "driver/modbus/util/util.h"
-
-/// module
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xerrors/errors.h"
 
+#include "driver/modbus/util/util.h"
+
 /// glog
 #include "glog/logging.h"
-
 
 namespace modbus::mock {
 /// @brief Configuration for a mock Modbus slave
@@ -89,19 +84,21 @@ class Slave {
         if (config_.holding_registers.empty())
             max_holding_register = 16;
         else
-            max_holding_register += telem::DataType::infer(
-                                        config_.holding_registers[max_holding_register]
-                                    )
-                                        .density() /
+            max_holding_register += (telem::DataType::infer(
+                                         config_.holding_registers[max_holding_register]
+                                     )
+                                         .density() +
+                                     1) /
                                     2;
         int max_input_register = std::max(16, get_max_address(config_.input_registers));
         if (config_.input_registers.empty())
             max_input_register = 16;
         else
-            max_input_register += telem::DataType::infer(
-                                      config_.input_registers[max_input_register]
-                                  )
-                                      .density() /
+            max_input_register += (telem::DataType::infer(
+                                       config_.input_registers[max_input_register]
+                                   )
+                                       .density() +
+                                   1) /
                                   2;
 
         const int nb_bits = max_coil + 1;
@@ -141,7 +138,11 @@ class Slave {
         for (const auto &[addr, value]: config_.holding_registers)
             if (addr < nb_registers) {
                 auto dt = telem::DataType::infer(value);
-                std::vector<uint16_t> dest(dt.density() / 2);
+                LOG(INFO) << "Holding register[" << addr
+                          << "]: inferred type=" << dt.name()
+                          << " density=" << dt.density()
+                          << " dest_size=" << ((dt.density() + 1) / 2);
+                std::vector<uint16_t> dest((dt.density() + 1) / 2);
                 if (const auto err = util::format_register(
                         value,
                         dest.data(),
@@ -157,7 +158,11 @@ class Slave {
         for (const auto &[addr, value]: config_.input_registers)
             if (addr < nb_input_registers) {
                 auto dt = telem::DataType::infer(value);
-                std::vector<uint16_t> dest(dt.density() / 2);
+                LOG(INFO) << "Input register[" << addr
+                          << "]: inferred type=" << dt.name()
+                          << " density=" << dt.density()
+                          << " dest_size=" << ((dt.density() + 1) / 2);
+                std::vector<uint16_t> dest((dt.density() + 1) / 2);
                 if (const auto err = util::format_register(
                         value,
                         dest.data(),

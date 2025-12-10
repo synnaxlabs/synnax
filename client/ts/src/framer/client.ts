@@ -23,12 +23,10 @@ import { Frame } from "@/framer/frame";
 import { AUTO_SPAN, Iterator, type IteratorConfig } from "@/framer/iterator";
 import { openStreamer, type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
 
-export const ontologyID = (key: channel.Key): ontology.ID => ({
-  type: "framer",
-  key: key.toString(),
-});
+export const ontologyID = ontology.createIDFactory<string>("framer");
+export const TYPE_ONTOLOGY_ID = ontologyID("");
 
 export class Client {
   private readonly streamClient: WebSocketClient;
@@ -125,7 +123,6 @@ export class Client {
         channels: Object.keys(data_),
         mode: WriterMode.Persist,
         errOnUnauthorized: true,
-        enableAutoCommit: true,
         autoIndexPersistInterval: TimeSpan.MAX,
       });
       await w.write(data_);
@@ -136,7 +133,6 @@ export class Client {
       channels: channels as channel.Params,
       mode: WriterMode.Persist,
       errOnUnauthorized: true,
-      enableAutoCommit: true,
       autoIndexPersistInterval: TimeSpan.MAX,
     });
     await w.write(channels as channel.Params, data);

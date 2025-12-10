@@ -19,14 +19,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestSchematic(t *testing.T) {
+func TestLinePlot(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Line Plot Suite")
 }
@@ -37,14 +37,12 @@ var (
 	otg     *ontology.Ontology
 	ws      workspace.Workspace
 	userSvc *user.Service
-	svc     *schematic.Service
+	svc     *lineplot.Service
 	tx      gorp.Tx
 )
 
 var _ = BeforeSuite(func() {
-	var err error
 	db = gorp.Wrap(memkv.New())
-	Expect(err).ToNot(HaveOccurred())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{
 		EnableSearch: config.False(),
 		DB:           db,
@@ -58,7 +56,7 @@ var _ = BeforeSuite(func() {
 		Ontology: otg,
 		Group:    g,
 	}))
-	userSvc = MustSucceed(user.NewService(ctx, user.Config{
+	userSvc = MustSucceed(user.OpenService(ctx, user.Config{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
@@ -68,7 +66,7 @@ var _ = BeforeSuite(func() {
 	Expect(userSvc.NewWriter(nil).Create(ctx, &author)).To(Succeed())
 	ws.Author = author.Key
 	Expect(workspaceSvc.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
-	svc = MustSucceed(schematic.NewService(ctx, schematic.Config{
+	svc = MustSucceed(lineplot.NewService(lineplot.Config{
 		DB:       db,
 		Ontology: otg,
 	}))

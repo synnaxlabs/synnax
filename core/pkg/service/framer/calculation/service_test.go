@@ -10,43 +10,120 @@
 package calculation_test
 
 import (
+	"context"
+	"fmt"
 	"time"
-
-	"encoding/json"
-
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
-	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/status"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var sleepInterval = 25 * time.Millisecond
-
 var _ = Describe("Calculation", Ordered, func() {
 	var (
 		c    *calculation.Service
 		dist mock.Node
 	)
+	open := func(
+		indexChannels,
+		baseChannels,
+		calculations *[]channel.Channel,
+		streamKeys func([]channel.Channel) channel.Keys,
+	) (*framer.Writer, confluence.Outlet[streamer.Response], context.CancelFunc) {
+		if indexChannels != nil {
+			Expect(dist.Channel.CreateMany(ctx, indexChannels)).To(Succeed())
+		}
+		for i, channel := range *baseChannels {
+			if channel.Virtual {
+				continue
+			}
+			toGet := i
+			if len(*indexChannels) == 1 {
+				toGet = 0
+			}
+			channel.LocalIndex = (*indexChannels)[toGet].LocalKey
+			(*baseChannels)[i] = channel
+		}
+		Expect(dist.Channel.CreateMany(ctx, baseChannels)).To(Succeed())
+		Expect(dist.Channel.CreateMany(ctx, calculations)).To(Succeed())
+		rm := c.OpenRequestManager()
+		Expect(rm.Set(ctx, channel.KeysFromChannels(*calculations))).To(Succeed())
+		writerKeys := channel.KeysFromChannels(*baseChannels)
+		if indexChannels != nil {
+			writerKeys = append(writerKeys, channel.KeysFromChannels(*indexChannels)...)
+		}
+		sCtx, cancel := signal.Isolated()
+		w := MustSucceed(dist.Framer.OpenWriter(
+			ctx,
+			framer.WriterConfig{
+				Start: 1 * telem.SecondTS,
+				Keys:  writerKeys,
+			},
+		))
+		filtered := lo.Filter(*calculations, func(item channel.Channel, index int) bool {
+			return !item.IsIndex
+		})
+		streamer := MustSucceed(
+			dist.Framer.NewStreamer(
+				ctx,
+				framer.StreamerConfig{Keys: streamKeys(filtered), SendOpenAck: config.True()},
+			),
+		)
+		_, sOutlet := confluence.Attach(streamer, 1, 1)
+		streamer.Flow(sCtx)
+		Eventually(sOutlet.Outlet()).Should(Receive())
+		return w, sOutlet, func() {
+			Expect(rm.Close(ctx)).To(Succeed())
+			Expect(w.Close()).To(Succeed())
+			cancel()
+		}
+	}
 
 	BeforeAll(func() {
 		distB := mock.NewCluster()
 		dist = distB.Provision(ctx)
+		labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+			DB:       dist.DB,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+			Signals:  dist.Signals,
+		}))
+		statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+			DB:       dist.DB,
+			Label:    labelSvc,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+			Signals:  dist.Signals,
+		}))
+		arcSvc := MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
+			Channel:  dist.Channel,
+			Ontology: dist.Ontology,
+			DB:       dist.DB,
+			Framer:   dist.Framer,
+			Status:   statusSvc,
+			Signals:  dist.Signals,
+		}))
 		c = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
+			DB:                dist.DB,
 			Framer:            dist.Framer,
 			Channel:           dist.Channel,
 			ChannelObservable: dist.Channel.NewObservable(),
+			Arc:               arcSvc,
 		}))
 	})
 
@@ -55,323 +132,427 @@ var _ = Describe("Calculation", Ordered, func() {
 		Expect(dist.Close()).To(Succeed())
 	})
 
-	It("Output a basic calculation", func() {
-		baseCH := channel.Channel{
-			Name:     "base",
-			DataType: telem.Int64T,
-			Virtual:  true,
-		}
-		Expect(dist.Channel.Create(ctx, &baseCH)).To(Succeed())
-		calculatedCH := channel.Channel{
-			Name:        "calculated",
-			DataType:    telem.Int64T,
-			Virtual:     true,
-			Leaseholder: cluster.Free,
-			Requires:    []channel.Key{baseCH.Key()},
-			Expression:  "return base * 2",
-		}
-		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
-		MustSucceed(c.Request(ctx, calculatedCH.Key()))
-		sCtx, cancel := signal.WithCancel(ctx)
-		defer cancel()
-		w := MustSucceed(dist.Framer.OpenWriter(
-			ctx,
-			framer.WriterConfig{
-				Start: telem.Now(),
-				Keys:  []channel.Key{baseCH.Key()},
-			},
-		))
-		streamer := MustSucceed(
-			dist.Framer.NewStreamer(
-				ctx,
-				framer.StreamerConfig{
-					Keys: []channel.Key{calculatedCH.Key()},
+	Describe("Calculation Patterns", func() {
+
+		Specify("Single Virtual Channel as Base", func() {
+			bases := []channel.Channel{{
+				Name:     channel.NewRandomName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}}
+			calcs := []channel.Channel{{
+				Name:        channel.NewRandomName(),
+				DataType:    telem.Int64T,
+				Virtual:     true,
+				Leaseholder: cluster.Free,
+				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
+			}}
+			w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
+			defer cancel()
+			baseCh := bases[0]
+			calcCh := calcs[0]
+			MustSucceed(w.Write(core.UnaryFrame(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
+			var res framer.StreamerResponse
+			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
+			Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](2, 4))
+			Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
+		})
+
+		Describe("Two Virtual Channels as Bases", func() {
+			var (
+				bases []channel.Channel
+				calcs []channel.Channel
+			)
+			BeforeEach(func() {
+				bases = []channel.Channel{
+					{
+						Name:     channel.NewRandomName(),
+						DataType: telem.Int64T,
+						Virtual:  true,
+					},
+					{
+						Name:     channel.NewRandomName(),
+						DataType: telem.Int64T,
+						Virtual:  true,
+					},
+				}
+				calcs = []channel.Channel{{
+					Name:        channel.NewRandomName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: cluster.Free,
+					Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
+				}}
+			})
+			Specify("Single Write with Data for Both Channels", func() {
+				w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
+				defer cancel()
+				baseCh1 := bases[0]
+				baseCh2 := bases[1]
+				calcCh := calcs[0]
+				MustSucceed(w.Write(core.MultiFrame(
+					[]channel.Key{baseCh1.Key(), baseCh2.Key()},
+					[]telem.Series{telem.NewSeriesV[int64](1, 2), telem.NewSeriesV[int64](2, 4)},
+				)))
+				var res framer.StreamerResponse
+				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
+				Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](2, 8))
+				Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
+			})
+
+			Specify("Two Writes with Data for Individual Channels", func() {
+				w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
+				defer cancel()
+				baseCh1 := bases[0]
+				baseCh2 := bases[1]
+				calcCh := calcs[0]
+				MustSucceed(w.Write(core.UnaryFrame(baseCh1.Key(), telem.NewSeriesV[int64](1, 2))))
+				MustSucceed(w.Write(core.UnaryFrame(baseCh2.Key(), telem.NewSeriesV[int64](2, 4))))
+				var res framer.StreamerResponse
+				Eventually(sOutlet.Outlet()).Should(Receive(&res))
+				Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
+				Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](2, 8))
+				Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
+			})
+		})
+
+		Specify("Single Data Channel as Base", func() {
+			var (
+				indexes = []channel.Channel{{
+					Name:     channel.NewRandomName(),
+					DataType: telem.TimeStampT,
+					IsIndex:  true,
+				}}
+				bases = []channel.Channel{{
+					Name:     channel.NewRandomName(),
+					DataType: telem.Int64T,
+				}}
+				calcs = []channel.Channel{{
+					Name:        channel.NewRandomName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: cluster.Free,
+					Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
+				}}
+			)
+			w, sOutlet, cancel := open(&indexes, &bases, &calcs, channel.KeysFromChannels)
+			defer cancel()
+			idxCh := indexes[0]
+			baseCh := bases[0]
+			calcCh := calcs[0]
+			MustSucceed(w.Write(core.MultiFrame(
+				[]channel.Key{idxCh.Key(), baseCh.Key()},
+				[]telem.Series{
+					telem.NewSeriesSecondsTSV(1, 2),
+					telem.NewSeriesV[int64](1, 2),
 				},
-			),
-		)
-		_, sOutlet := confluence.Attach(streamer, 1, 1)
-		streamer.Flow(sCtx)
-		time.Sleep(sleepInterval)
-		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
-		var res framer.StreamerResponse
-		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
-		Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calculatedCH.Key()}))
-		Expect(w.Close()).To(Succeed())
+			)))
+			var res framer.StreamerResponse
+			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
+			Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](2, 4))
+			Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
+		})
+
+		Describe("Multiple Data Channels as Base", func() {
+			Specify("Shared Index", func() {
+				var (
+					indexes = []channel.Channel{{
+						Name:     channel.NewRandomName(),
+						DataType: telem.TimeStampT,
+						IsIndex:  true,
+					}}
+					bases = []channel.Channel{
+						{
+							Name:     channel.NewRandomName(),
+							DataType: telem.Float32T,
+						},
+						{
+							Name:     channel.NewRandomName(),
+							DataType: telem.Float32T,
+						},
+					}
+					calcs = []channel.Channel{{
+						Name:        channel.NewRandomName(),
+						DataType:    telem.Float32T,
+						Virtual:     true,
+						Leaseholder: cluster.Free,
+						Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
+					}}
+				)
+				w, sOutlet, cancel := open(&indexes, &bases, &calcs, channel.KeysFromChannels)
+				defer cancel()
+				idxCh := indexes[0]
+				baseCh1 := bases[0]
+				baseCh2 := bases[1]
+				calcCh := calcs[0]
+				MustSucceed(w.Write(core.MultiFrame(
+					[]channel.Key{idxCh.Key(), baseCh1.Key(), baseCh2.Key()},
+					[]telem.Series{
+						telem.NewSeriesSecondsTSV(1, 2),
+						telem.NewSeriesV[float32](1, 2),
+						telem.NewSeriesV[float32](2, 4),
+					},
+				)))
+				var res framer.StreamerResponse
+				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](2, 8))
+			})
+
+			Specify("Unique Indexes", func() {
+				var (
+					indexes = []channel.Channel{
+						{
+							Name:     channel.NewRandomName(),
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
+						},
+						{
+							Name:     channel.NewRandomName(),
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
+						},
+					}
+					bases = []channel.Channel{
+						{
+							Name:     channel.NewRandomName(),
+							DataType: telem.Float32T,
+						},
+						{
+							Name:     channel.NewRandomName(),
+							DataType: telem.Float32T,
+						},
+					}
+					calcs = []channel.Channel{{
+						Name:        channel.NewRandomName(),
+						DataType:    telem.Float32T,
+						Virtual:     true,
+						Leaseholder: cluster.Free,
+						Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
+					}}
+				)
+				w, sOutlet, cancel := open(&indexes, &bases, &calcs, channel.KeysFromChannels)
+				defer cancel()
+				var (
+					idxCh1  = indexes[0]
+					idxCh2  = indexes[1]
+					baseCh1 = bases[0]
+					baseCh2 = bases[1]
+					calcCh  = calcs[0]
+				)
+				MustSucceed(w.Write(core.MultiFrame(
+					[]channel.Key{idxCh1.Key(), idxCh2.Key(), baseCh1.Key(), baseCh2.Key()},
+					[]telem.Series{
+						telem.NewSeriesSecondsTSV(1, 2),
+						telem.NewSeriesSecondsTSV(3, 4),
+						telem.NewSeriesV[float32](1, 2),
+						telem.NewSeriesV[float32](2, 4),
+					},
+				)))
+				var res framer.StreamerResponse
+				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](2, 8))
+			})
+
+			Specify("Unique Indexes, Separate Writes", func() {
+				var (
+					indexes = []channel.Channel{
+						{
+							Name:     channel.NewRandomName(),
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
+						},
+						{
+							Name:     channel.NewRandomName(),
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
+						},
+					}
+					bases = []channel.Channel{
+						{
+							Name:     channel.NewRandomName(),
+							DataType: telem.Float32T,
+						},
+						{
+							Name:     channel.NewRandomName(),
+							DataType: telem.Float32T,
+						},
+					}
+					calcs = []channel.Channel{{
+						Name:        channel.NewRandomName(),
+						DataType:    telem.Float32T,
+						Virtual:     true,
+						Leaseholder: cluster.Free,
+						Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
+					}}
+				)
+				w, sOutlet, cancel := open(&indexes, &bases, &calcs, channel.KeysFromChannels)
+				defer cancel()
+				var (
+					idxCh1  = indexes[0]
+					idxCh2  = indexes[1]
+					baseCh1 = bases[0]
+					baseCh2 = bases[1]
+					calcCh  = calcs[0]
+				)
+				MustSucceed(w.Write(core.MultiFrame(
+					[]channel.Key{idxCh1.Key(), baseCh1.Key()},
+					[]telem.Series{
+						telem.NewSeriesSecondsTSV(3, 4),
+						telem.NewSeriesV[float32](2, 4),
+					},
+				)))
+				MustSucceed(w.Write(core.MultiFrame(
+					[]channel.Key{idxCh2.Key(), baseCh2.Key()},
+					[]telem.Series{
+						telem.NewSeriesSecondsTSV(1, 2),
+						telem.NewSeriesV[float32](2, 4),
+					},
+				)))
+				var res framer.StreamerResponse
+				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](4, 16))
+			})
+		})
+
+		Describe("Nested Calculations", func() {
+			var (
+				bases []channel.Channel
+				calcs []channel.Channel
+			)
+			BeforeEach(func() {
+				calc1Name := channel.NewRandomName()
+				bases = []channel.Channel{{
+					Name:     channel.NewRandomName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}}
+				calcs = []channel.Channel{{
+					Name:        calc1Name,
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: cluster.Free,
+					Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
+				}, {
+					Name:        channel.NewRandomName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: cluster.Free,
+					Expression:  fmt.Sprintf("return %s * 2", calc1Name),
+				}}
+			})
+			Specify("Base and Derived Requested", func() {
+				w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
+				defer cancel()
+				baseCh := bases[0]
+				calcCh := calcs[0]
+				calc2Ch := calcs[1]
+				MustSucceed(w.Write(core.UnaryFrame(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
+
+				var res framer.StreamerResponse
+				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key(), calc2Ch.Key()}))
+				Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](2, 4))
+				Expect(res.Frame.Get(calc2Ch.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](4, 8))
+			})
+
+			Specify("Calculations of Calculations, Base Not Requested", func() {
+				w, sOutlet, cancel := open(nil, &bases, &calcs, func(calcs []channel.Channel) channel.Keys {
+					return []channel.Key{calcs[1].Key()}
+				})
+				defer cancel()
+				baseCh := bases[0]
+				calc2Ch := calcs[1]
+				MustSucceed(w.Write(core.UnaryFrame(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
+
+				var res framer.StreamerResponse
+				Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calc2Ch.Key()}))
+				Expect(res.Frame.Get(calc2Ch.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](4, 8))
+			})
+		})
 	})
 
-	It("Handle undefined symbols", func() {
-		baseCH := channel.Channel{
-			Name:     "base",
-			DataType: telem.Int64T,
-			Virtual:  true,
-		}
-		Expect(dist.Channel.Create(ctx, &baseCH)).To(Succeed())
-		calculatedCH := channel.Channel{
-			Name:        "calculated",
-			DataType:    telem.Int64T,
-			Virtual:     true,
-			Leaseholder: cluster.Free,
-			Requires:    []channel.Key{baseCH.Key()},
-			Expression:  "return base * fake",
-		}
-		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
-		MustSucceed(c.Request(ctx, calculatedCH.Key()))
-		sCtx, cancel := signal.WithCancel(ctx)
-		defer cancel()
-		w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
-			Start: telem.Now(),
-			Keys:  []channel.Key{baseCH.Key()},
-		}))
-		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
-			Keys:        []channel.Key{calculatedCH.Key()},
-			SendOpenAck: config.True(),
-		}))
-		_, sOutlet := confluence.Attach(streamer, 1, 1)
-		streamer.Flow(sCtx)
-		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
-		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
-		Consistently(sOutlet.Outlet(), 500*time.Millisecond).ShouldNot(Receive())
-		Expect(w.Close()).To(Succeed())
-	})
+	Describe("Calculation Updates", func() {
+		Specify("Modified Expression, No New Dependencies", func() {
+			bases := []channel.Channel{{
+				Name:     channel.NewRandomName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}}
+			calcs := []channel.Channel{{
+				Name:        channel.NewRandomName(),
+				DataType:    telem.Int64T,
+				Virtual:     true,
+				Leaseholder: cluster.Free,
+				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
+			}}
+			w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
+			defer cancel()
+			baseCh := bases[0]
+			calcCh := calcs[0]
+			MustSucceed(w.Write(core.UnaryFrame(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
+			var res framer.StreamerResponse
+			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
+			Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](2, 4))
 
-	It("Return a warning for dividing by zero", func() {
-		baseCH := channel.Channel{
-			Name:     "base",
-			DataType: telem.Int64T,
-			Virtual:  true,
-		}
-		Expect(dist.Channel.Create(ctx, &baseCH)).To(Succeed())
-		calculatedCH := channel.Channel{
-			Name:        "calculated",
-			DataType:    telem.Int64T,
-			Virtual:     true,
-			Leaseholder: cluster.Free,
-			Requires:    []channel.Key{baseCH.Key()},
-			Expression:  "return base / 0",
-		}
-		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
-		MustSucceed(c.Request(ctx, calculatedCH.Key()))
-		sCtx, cancel := signal.WithCancel(ctx)
-		defer cancel()
-		w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
-			Start: telem.Now(),
-			Keys:  []channel.Key{baseCH.Key()},
-		}))
-		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
-			Keys:        []channel.Key{calculatedCH.Key()},
-			SendOpenAck: config.True(),
-		}))
-		_, sOutlet := confluence.Attach(streamer, 1, 1)
-		streamer.Flow(sCtx)
-		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
-		MustSucceed(w.Write(core.UnaryFrame(
-			baseCH.Key(),
-			telem.NewSeriesV[int64](1, 2),
-		)))
-		var res framer.StreamerResponse
-		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
-		Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calculatedCH.Key()}))
-	})
+			calcs[0].Expression = fmt.Sprintf("return %s * 3", bases[0].Name)
+			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
 
-	It("Should handle nested calculations", func() {
-		baseCH := channel.Channel{
-			Name:     "base",
-			DataType: telem.Int64T,
-			Virtual:  true,
-		}
-		Expect(dist.Channel.Create(ctx, &baseCH)).To(Succeed())
+			Eventually(func(g Gomega) {
+				_, err := w.Write(core.UnaryFrame(baseCh.Key(), telem.NewSeriesV[int64](1, 2)))
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				g.Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
+				g.Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](3, 6))
+			})
 
-		// First calculated channel that doubles the base value
-		calc1CH := channel.Channel{
-			Name:        "calc1",
-			DataType:    telem.Int64T,
-			Virtual:     true,
-			Leaseholder: cluster.Free,
-			Requires:    []channel.Key{baseCH.Key()},
-			Expression:  "return base * 2",
-		}
-		Expect(dist.Channel.Create(ctx, &calc1CH)).To(Succeed())
+			Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
+		})
 
-		// Second calculated channel that adds 1 to the first calculated channel
-		calc2CH := channel.Channel{
-			Name:        "calc2",
-			DataType:    telem.Int64T,
-			Virtual:     true,
-			Leaseholder: cluster.Free,
-			Requires:    []channel.Key{calc1CH.Key()},
-			Expression:  "return calc1 + 1",
-		}
-		Expect(dist.Channel.Create(ctx, &calc2CH)).To(Succeed())
+		Specify("Modified Expression, New Dependencies", func() {
+			bases := []channel.Channel{{
+				Name:     channel.NewRandomName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}, {
+				Name:     channel.NewRandomName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}}
+			calcs := []channel.Channel{{
+				Name:        channel.NewRandomName(),
+				DataType:    telem.Int64T,
+				Virtual:     true,
+				Leaseholder: cluster.Free,
+				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
+			}}
+			w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
+			defer cancel()
+			baseCh := bases[0]
+			baseCh2 := bases[1]
+			calcCh := calcs[0]
+			MustSucceed(w.Write(core.UnaryFrame(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
+			var res framer.StreamerResponse
+			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+			Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
+			Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](2, 4))
 
-		MustSucceed(c.Request(ctx, calc1CH.Key()))
-		MustSucceed(c.Request(ctx, calc2CH.Key()))
+			calcs[0].Expression = fmt.Sprintf("return %s * 3", baseCh2.Name)
+			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
 
-		sCtx, cancel := signal.WithCancel(ctx)
-		defer cancel()
+			Expect(func(g Gomega) {
+				_, err := w.Write(core.UnaryFrame(baseCh2.Key(), telem.NewSeriesV[int64](1, 2)))
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				g.Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
+				g.Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](3, 6))
+			})
 
-		w := MustSucceed(dist.Framer.OpenWriter(ctx,
-			framer.WriterConfig{
-				Start: telem.Now(),
-				Keys:  []channel.Key{baseCH.Key()},
-			},
-		))
-		streamer := MustSucceed(
-			dist.Framer.NewStreamer(
-				ctx,
-				framer.StreamerConfig{
-					Keys:        []channel.Key{calc2CH.Key()},
-					SendOpenAck: config.True(),
-				},
-			),
-		)
-		_, sOutlet := confluence.Attach(streamer, 1, 1)
-		streamer.Flow(sCtx)
-		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
-
-		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
-		var res framer.StreamerResponse
-		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
-		Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calc2CH.Key()}))
-
-		// For base values [1, 2]:
-		// calc1 should be [2, 4] (base * 2)
-		// calc2 should be [3, 5] (calc1 + 1)
-		series := res.Frame.SeriesAt(0)
-		Expect(series.Len()).To(Equal(int64(2)))
-		Expect(telem.ValueAt[int64](series, 0)).To(Equal(int64(3)))
-		Expect(telem.ValueAt[int64](series, 1)).To(Equal(int64(5)))
-	})
-
-	It("Should error when calculating with undefined channels in expression", func() {
-		baseCH := channel.Channel{
-			Name:     "base",
-			DataType: telem.Int64T,
-			Virtual:  true,
-		}
-		Expect(dist.Channel.Create(ctx, &baseCH)).To(Succeed())
-
-		calculatedCH := channel.Channel{
-			Name:        "calculated",
-			DataType:    telem.Int64T,
-			Virtual:     true,
-			Leaseholder: cluster.Free,
-			Requires:    []channel.Key{baseCH.Key()},
-			Expression:  "return fake1 + fake2",
-		}
-		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
-
-		var statusCh channel.Channel
-		statusCh.Name = calculation.StatusChannelName
-		Expect(
-			dist.Channel.Create(
-				ctx,
-				&statusCh,
-				channel.RetrieveIfNameExists(true),
-			),
-		).To(Succeed())
-
-		sCtx, cancel := signal.WithCancel(ctx)
-		defer cancel()
-
-		// Set up writer for base channel
-		w := MustSucceed(
-			dist.Framer.OpenWriter(
-				ctx,
-				framer.WriterConfig{
-					Start: telem.Now(),
-					Keys:  []channel.Key{baseCH.Key()},
-				},
-			),
-		)
-		// Set up a streamer to watch for status changes
-		streamer := MustSucceed(
-			dist.Framer.NewStreamer(
-				ctx,
-				framer.StreamerConfig{
-					Keys:        []channel.Key{statusCh.Key()},
-					SendOpenAck: config.True(),
-				},
-			),
-		)
-		_, sOutlet := confluence.Attach(streamer, 1, 1)
-		streamer.Flow(sCtx)
-		MustSucceed(c.Request(ctx, calculatedCH.Key()))
-		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive())
-
-		time.Sleep(5 * time.Millisecond)
-		MustSucceed(w.Write(core.UnaryFrame(
-			baseCH.Key(),
-			telem.NewSeriesV[int64](1, 2),
-		)))
-
-		var res framer.StreamerResponse
-		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
-		Expect(res.Frame.SeriesAt(0).DataType).To(Equal(telem.JSONT))
-
-		var s calculation.Status
-		data := res.Frame.SeriesAt(0).Data
-		Expect(json.Unmarshal(data[:len(data)-1], &s)).To(Succeed()) // -1 to remove newline
-
-		Expect(s.Key).To(Equal(calculatedCH.Key().String()))
-		Expect(s.Variant).To(Equal(status.ErrorVariant))
-		Expect(s.Message).To(ContainSubstring("Failed to start calculation for"))
-		Expect(s.Description).To(ContainSubstring("cannot perform add operation between nil and nil"))
-	})
-
-	It("Should allow the caller to update a calculation", func() {
-		baseCH := channel.Channel{
-			Name:     "base",
-			DataType: telem.Int64T,
-			Virtual:  true,
-		}
-		Expect(dist.Channel.Create(ctx, &baseCH)).To(Succeed())
-		calculatedCH := channel.Channel{
-			Name:        "calculated",
-			DataType:    telem.Int64T,
-			Virtual:     true,
-			Leaseholder: cluster.Free,
-			Requires:    []channel.Key{baseCH.Key()},
-			Expression:  "return base * 2",
-		}
-		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
-		MustSucceed(c.Request(ctx, calculatedCH.Key()))
-		sCtx, cancel := signal.WithCancel(ctx)
-		defer cancel()
-		w := MustSucceed(dist.Framer.OpenWriter(
-			ctx,
-			framer.WriterConfig{
-				Start: telem.Now(),
-				Keys:  []channel.Key{baseCH.Key()},
-			},
-		))
-		streamer := MustSucceed(
-			dist.Framer.NewStreamer(
-				ctx,
-				framer.StreamerConfig{
-					Keys: []channel.Key{calculatedCH.Key()},
-				},
-			),
-		)
-		_, sOutlet := confluence.Attach(streamer, 1, 1)
-		streamer.Flow(sCtx)
-		time.Sleep(sleepInterval)
-		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
-		var res framer.StreamerResponse
-		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
-		Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calculatedCH.Key()}))
-		series := res.Frame.SeriesAt(0)
-		Expect(telem.ValueAt[int64](series, 0)).To(Equal(int64(2)))
-		Expect(telem.ValueAt[int64](series, 1)).To(Equal(int64(4)))
-
-		calculatedCH.Expression = "return base * 3"
-		Expect(dist.Channel.Create(ctx, &calculatedCH)).To(Succeed())
-		time.Sleep(sleepInterval)
-		MustSucceed(w.Write(core.UnaryFrame(baseCH.Key(), telem.NewSeriesV[int64](1, 2))))
-		Eventually(sOutlet.Outlet(), 5*time.Second).Should(Receive(&res))
-		Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calculatedCH.Key()}))
-		series = res.Frame.SeriesAt(0)
-		Expect(telem.ValueAt[int64](series, 0)).To(Equal(int64(3)))
-		Expect(telem.ValueAt[int64](series, 1)).To(Equal(int64(6)))
-		Expect(w.Close()).To(Succeed())
+			Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
+		})
 	})
 })

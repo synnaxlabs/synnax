@@ -11,7 +11,7 @@ import {
   array,
   box,
   color,
-  type Destructor,
+  type destructor,
   type dimensions,
   direction,
   location,
@@ -45,6 +45,7 @@ export interface Draw2DCircleProps {
   fill?: color.Color;
   stroke?: color.Color;
   strokeWidth?: number;
+  lineDash?: number;
   radius: number | { inner: number; outer: number };
   position: xy.XY;
   angle?: { lower: number; upper: number };
@@ -154,6 +155,7 @@ export class Draw2D {
     fill,
     stroke,
     strokeWidth,
+    lineDash,
     radius,
     position,
     angle,
@@ -174,7 +176,18 @@ export class Draw2D {
       ctx.strokeStyle = color.hex(stroke);
       ctx.lineWidth = strokeWidth ?? arcWidth;
       if (lineCap) ctx.lineCap = lineCap;
+      if (lineDash != null) ctx.setLineDash([lineDash]);
       ctx.stroke();
+      if (lineDash != null) ctx.setLineDash([]);
+    } else if (stroke != null && typeof radius === "number") {
+      // Stroke mode for simple circles
+      ctx.arc(...xy.couple(position), radius, startAngle, endAngle, false);
+      ctx.strokeStyle = color.hex(stroke);
+      ctx.lineWidth = strokeWidth ?? 1;
+      if (lineCap) ctx.lineCap = lineCap;
+      if (lineDash != null) ctx.setLineDash([lineDash]);
+      ctx.stroke();
+      if (lineDash != null) ctx.setLineDash([]);
     } else if (fill != null) {
       // Fill mode (original behavior)
       ctx.fillStyle = color.hex(fill);
@@ -328,6 +341,7 @@ export class Draw2D {
         this.canvas.font = font;
         this.canvas.fillStyle = color.hex(this.theme.colors.text);
         this.canvas.textBaseline = "top";
+        this.canvas.textAlign = "start";
         text.forEach((v, i) => {
           this.canvas.fillText(v, position.x, position.y + offset * i);
         });
@@ -396,7 +410,7 @@ export class Draw2D {
     else this.canvas.fillStyle = color.hex(this.theme.colors.gray[`l${shade}`]);
     this.canvas.textAlign = justify;
     this.canvas.textBaseline = align;
-    let removeScissor: Destructor | undefined;
+    let removeScissor: destructor.Destructor | undefined;
     if (maxWidth != null)
       removeScissor = this.canvas.scissor(box.construct(position, maxWidth, 1000));
     this.canvas.fillText(text, position.x, position.y, undefined, { useAtlas });

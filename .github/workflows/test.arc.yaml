@@ -28,11 +28,12 @@ jobs:
   test:
     name: Test (${{ matrix.os }})
     strategy:
+      fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - os: ubuntu-latest
-            format: true
+            lint: true
         exclude:
           - os:
               ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
@@ -54,12 +55,18 @@ jobs:
             **/go.sum
 
       - name: Check Formatting
-        if: matrix.format
+        if: matrix.lint
         run: scripts/check_gofmt.sh arc
+
+      - name: Lint
+        if: matrix.lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          working-directory: arc/go
 
       - name: Test
         run:
           go run github.com/onsi/ginkgo/v2/ginkgo -r -p --randomize-all
           --randomize-suites --fail-on-pending --fail-on-empty --keep-going --race
           --trace --github-output
-        working-directory: arc
+        working-directory: arc/go

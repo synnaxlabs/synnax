@@ -14,6 +14,7 @@ import pandas as pd
 import pytest
 
 import synnax as sy
+from synnax.util.random import random_name
 from tests.telem import seconds_linspace
 
 
@@ -26,7 +27,6 @@ class TestWriter:
         with client.open_writer(
             start=1 * sy.TimeSpan.SECOND,
             channels=indexed_pair,
-            use_experimental_codec=True,
         ) as w:
             w.write(
                 {
@@ -108,7 +108,7 @@ class TestWriter:
         """Should open an auto-committing writer to write data that persists after 1s"""
         idx_ch, data_ch = indexed_pair
         with client.open_writer(
-            start=sy.TimeSpan.SECOND * 1, channels=indexed_pair, enable_auto_commit=True
+            start=sy.TimeSpan.SECOND * 1, channels=indexed_pair
         ) as w:
             data = np.random.rand(3).astype(np.float64)
             w.write(
@@ -148,7 +148,6 @@ class TestWriter:
             with client.open_writer(
                 start=sy.TimeStamp.now(),
                 channels=[time_ch.key, data_ch.key],
-                enable_auto_commit=True,
             ) as w:
                 for i in range(100):
                     w.write({time_ch.key: [i], data_ch.key: [i]})
@@ -163,7 +162,6 @@ class TestWriter:
             with client.open_writer(
                 start=sy.TimeSpan.SECOND,
                 channels=[time_ch.key, data_ch.key],
-                enable_auto_commit=True,
             ) as w:
                 for i in range(100):
                     time = sy.TimeSpan.SECOND * (101 - i)
@@ -181,7 +179,6 @@ class TestWriter:
             with client.open_writer(
                 start=sy.TimeSpan.SECOND,
                 channels=[time_ch.key, data_ch.key],
-                enable_auto_commit=True,
                 strict=True,
             ) as w:
                 w.write(
@@ -215,20 +212,18 @@ class TestWriter:
     def test_write_persist_stream_regression(self, client: sy.Synnax):
         """Should work"""
         idx = client.channels.create(
-            name="idx",
+            name=random_name(),
             is_index=True,
             data_type="timestamp",
         )
         data = client.channels.create(
-            name="data",
+            name=random_name(),
             data_type="float64",
             index=idx.key,
         )
         # Write some data
         start = sy.TimeStamp.now()
-        with client.open_writer(
-            start, [idx.key, data.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(start, [idx.key, data.key]) as w:
             w.write({idx.key: [start], data.key: [1]})
 
         # Read the data
@@ -239,19 +234,17 @@ class TestWriter:
         assert len(f) == 1
 
         data_2 = client.channels.create(
-            name="data_2",
+            name=random_name(),
             data_type="float64",
             index=idx.key,
         )
         data_3 = client.channels.create(
-            name="data_3",
+            name=random_name(),
             data_type="float64",
             index=idx.key,
         )
         with client.open_writer(
-            next_start,
-            [idx.key, data.key, data_2.key, data_3.key],
-            enable_auto_commit=True,
+            next_start, [idx.key, data.key, data_2.key, data_3.key]
         ) as w:
             w.write(
                 {idx.key: [next_start], data.key: [1], data_2.key: [2], data_3.key: [3]}
@@ -268,15 +261,11 @@ class TestWriter:
         assert len(f2[data_2.key]) == 1
         assert len(f2[data_3.key]) == 1
 
-    def test_set_authority(self, client: sy.Synnax, indexed_pair: list[sy.channel]):
+    def test_set_authority(self, client: sy.Synnax, indexed_pair: list[sy.Channel]):
         start = sy.TimeSpan.SECOND * 1
         idx_ch, data_ch = indexed_pair
-        w1 = client.open_writer(
-            start=start, channels=indexed_pair, authorities=100, enable_auto_commit=True
-        )
-        w2 = client.open_writer(
-            start=start, channels=indexed_pair, authorities=200, enable_auto_commit=True
-        )
+        w1 = client.open_writer(start=start, channels=indexed_pair, authorities=100)
+        w2 = client.open_writer(start=start, channels=indexed_pair, authorities=200)
         try:
             w1.write(
                 pd.DataFrame(
@@ -304,16 +293,12 @@ class TestWriter:
             w2.close()
 
     def test_set_authority_by_name(
-        self, client: sy.Synnax, indexed_pair: list[sy.channel]
+        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
     ):
         start = sy.TimeSpan.SECOND * 1
         idx_ch, data_ch = indexed_pair
-        w1 = client.open_writer(
-            start=start, channels=indexed_pair, authorities=100, enable_auto_commit=True
-        )
-        w2 = client.open_writer(
-            start=start, channels=indexed_pair, authorities=200, enable_auto_commit=True
-        )
+        w1 = client.open_writer(start=start, channels=indexed_pair, authorities=100)
+        w2 = client.open_writer(start=start, channels=indexed_pair, authorities=200)
         try:
             w1.write(
                 pd.DataFrame(
@@ -341,16 +326,12 @@ class TestWriter:
             w2.close()
 
     def test_set_authority_by_name_value(
-        self, client: sy.Synnax, indexed_pair: list[sy.channel]
+        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
     ):
         start = sy.TimeSpan.SECOND * 1
         idx_ch, data_ch = indexed_pair
-        w1 = client.open_writer(
-            start=start, channels=indexed_pair, authorities=100, enable_auto_commit=True
-        )
-        w2 = client.open_writer(
-            start=start, channels=indexed_pair, authorities=200, enable_auto_commit=True
-        )
+        w1 = client.open_writer(start=start, channels=indexed_pair, authorities=100)
+        w2 = client.open_writer(start=start, channels=indexed_pair, authorities=200)
         try:
             w1.write(
                 pd.DataFrame(
@@ -381,13 +362,11 @@ class TestWriter:
     def test_writer_overlap_err(
         self,
         client: sy.Synnax,
-        indexed_pair: list[sy.channel],
+        indexed_pair: list[sy.Channel],
     ):
         idx_ch, data_ch = indexed_pair
         start = sy.TimeSpan.SECOND * 30
-        with client.open_writer(
-            start=start, channels=indexed_pair, enable_auto_commit=True
-        ) as w:
+        with client.open_writer(start=start, channels=indexed_pair) as w:
             w.write(
                 {
                     idx_ch.key: seconds_linspace(30, 10),
@@ -397,23 +376,17 @@ class TestWriter:
 
         with pytest.raises(sy.ValidationError):
             with client.open_writer(
-                start=start + sy.TimeSpan.SECOND * 3,
-                channels=indexed_pair,
-                enable_auto_commit=True,
+                start=start + sy.TimeSpan.SECOND * 3, channels=indexed_pair
             ):
                 ...
 
     def test_set_authority_on_all_channels(
-        self, client: sy.Synnax, indexed_pair: list[sy.channel]
+        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
     ):
         start = sy.TimeSpan.SECOND * 1
         idx_ch, data_ch = indexed_pair
-        w1 = client.open_writer(
-            start=start, channels=indexed_pair, authorities=100, enable_auto_commit=True
-        )
-        w2 = client.open_writer(
-            start=start, channels=indexed_pair, authorities=200, enable_auto_commit=True
-        )
+        w1 = client.open_writer(start=start, channels=indexed_pair, authorities=100)
+        w2 = client.open_writer(start=start, channels=indexed_pair, authorities=200)
         try:
             w1.write(
                 pd.DataFrame(

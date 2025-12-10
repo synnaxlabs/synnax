@@ -37,6 +37,7 @@ jobs:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     strategy:
+      fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
@@ -66,8 +67,13 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
-      - name: Build
-        run: pnpm build:alamos
+      - name: Check Types
+        if: matrix.lint
+        run: pnpm check-types:alamos
+
+      - name: Check Circular Dependencies
+        if: matrix.lint
+        run: pnpm madge:alamos
 
       - name: Lint
         if: matrix.lint

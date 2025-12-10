@@ -222,6 +222,28 @@ describe("Text", () => {
     });
   });
 
+  describe("lineClamp", () => {
+    it("should not add a line-clamp classname by default", () => {
+      const c = render(<Text.Text>Hello</Text.Text>);
+      expect(c.getByText("Hello").className).not.toContain("pluto-text--line-clamp");
+    });
+
+    it("should add a line-clamp classname when lineClamp is set", () => {
+      const c = render(<Text.Text lineClamp={2}>Hello</Text.Text>);
+      expect(c.getByText("Hello").className).toContain("pluto-text--line-clamp");
+    });
+
+    it("should set the WebkitLineClamp style to the provided value", () => {
+      const c = render(<Text.Text lineClamp={3}>Hello</Text.Text>);
+      expect(c.getByText("Hello").style.webkitLineClamp).toBe("3");
+    });
+
+    it("should work with different lineClamp values", () => {
+      const c = render(<Text.Text lineClamp={5}>Hello</Text.Text>);
+      expect(c.getByText("Hello").style.webkitLineClamp).toBe("5");
+    });
+  });
+
   describe("Editable", () => {
     it("should focus and select the text when double clicked", () => {
       const c = render(

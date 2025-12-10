@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "driver/sequence/sequence.h"
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/status/status.h"
+#include "x/cpp/xthread/xthread.h"
+
+#include "driver/sequence/sequence.h"
 
 sequence::Task::Task(
     const std::shared_ptr<task::Context> &ctx,
@@ -25,6 +27,7 @@ sequence::Task::Task(
     seq(std::move(seq)),
     status(
         synnax::TaskStatus{
+            .key = task.status_key(),
             .variant = status::variant::SUCCESS,
             .details = synnax::TaskStatusDetails{
                 .task = task.key,
@@ -34,6 +37,7 @@ sequence::Task::Task(
     ) {}
 
 void sequence::Task::run() {
+    xthread::set_name(this->task.name.c_str());
     if (const auto err = this->seq->begin(); err) {
         if (const auto end_err = this->seq->end())
             LOG(ERROR) << "[sequence] failed to end after failed start:" << end_err;

@@ -2,28 +2,16 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "Sequential_Tests",
-      "sequence_order": "sequential",
+      "sequence_name": "Matrix_Example",
+      "sequence_order": "asynchronous",
+      "pool_size": 4,
       "tests": [
         {
-          "case": "example_basic"
-        },
-        {
           "case": "example_basic",
-          "name": "inject_timeout",
           "parameters": {
-            "timeout": 2,
-            "wait_time": 5
-          },
-          "expect": "TIMEOUT"
-        },
-        {
-          "case": "example_basic",
-          "name": "inject_failure",
-          "parameters": {
-            "fail_test": true
-          },
-          "expect": "FAILED"
+            "wait_time": [1, 3],
+            "timeout": [5, 10]
+          }
         }
       ]
     }

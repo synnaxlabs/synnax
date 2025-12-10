@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -70,8 +70,8 @@ public:
     bool load() {
         if (this->handle != nullptr || name.empty()) return false;
         this->handle = ::dlopen(name.c_str(), RTLD_NOW | RTLD_GLOBAL);
-        if (this->handle == nullptr)
-            std::cout << "Error loading library: " << ::dlerror() << std::endl;
+        // Don't log error if specific hardware driver libraries are
+        // not installed. Downstream code handles this gracefully.
         return this->handle != nullptr;
     }
 

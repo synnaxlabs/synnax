@@ -8,14 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { Button, Form, Header as PHeader, Icon } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 
 import { EmptyAction } from "@/components";
-import { Common } from "@/hardware/common";
 import {
   ChannelList as Core,
   type ChannelListProps as CoreProps,
 } from "@/hardware/common/task/ChannelList";
+import { useIsSnapshot } from "@/hardware/common/task/Form";
 import { type Channel } from "@/hardware/common/task/types";
 
 interface HeaderProps {
@@ -23,7 +23,7 @@ interface HeaderProps {
 }
 
 const Header = ({ onAdd }: HeaderProps) => {
-  const isSnapshot = Common.Task.useIsSnapshot();
+  const isSnapshot = useIsSnapshot();
   return (
     <PHeader.Header>
       <PHeader.Title weight={500} color={10}>
@@ -49,7 +49,7 @@ const Header = ({ onAdd }: HeaderProps) => {
 interface EmptyContentProps extends HeaderProps {}
 
 const EmptyContent = ({ onAdd }: EmptyContentProps) => {
-  const isSnapshot = Common.Task.useIsSnapshot();
+  const isSnapshot = useIsSnapshot();
   return (
     <EmptyAction
       message="No channels in task."
@@ -76,6 +76,24 @@ export const ChannelList = <C extends Channel>({
   ...rest
 }: ChannelListProps<C>) => {
   const ctx = Form.useContext();
+
+  // Hotfix for an issue we have been having with the "path config.channels" issue.
+  // Would like to remove this but it's just something that comes up consistently in
+  // prod and it's more important to make sure that we don't break anything in prod then
+  // have pretty code.
+  useEffect(() => {
+    if (path === "config.channels") {
+      const cfg = ctx.get("config").value;
+      if (
+        typeof cfg !== "object" ||
+        cfg == null ||
+        !("channels" in cfg) ||
+        !Array.isArray(cfg.channels)
+      )
+        ctx.set(path, []);
+    }
+  }, [path, ctx]);
+
   const { data, push, remove } = Form.useFieldList<C["key"], C>(path);
   const { onSelect } = rest;
   const handleAdd = useCallback(() => {

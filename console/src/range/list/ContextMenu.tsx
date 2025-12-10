@@ -9,6 +9,7 @@
 
 import { ranger } from "@synnaxlabs/client";
 import {
+  Access,
   Divider,
   Form,
   Icon,
@@ -44,6 +45,9 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
   const ranges = getItem(keys);
   const isNotEmpty = ranges.length !== 0;
   const isSingle = ranges.length === 1;
+  const ids = ranger.ontologyID(keys);
+  const canEditAccess = Access.useUpdateGranted(ids);
+  const canDeleteAccess = Access.useDeleteGranted(ids);
   const placeLayout = Layout.usePlacer();
   const favoriteKeys = useSelectKeys();
   const someAreFavorites = ranges.some((r) => favoriteKeys.includes(r.key));
@@ -107,25 +111,29 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
       {isSingle && (
         <>
           {viewDetailsMenuItem}
-          <Menu.RenameItem />
-          {createChildRangeMenuItem}
+          {canEditAccess && (
+            <>
+              <Menu.RenameItem />
+              {createChildRangeMenuItem}
+            </>
+          )}
           <Divider.Divider x />
         </>
       )}
       {someAreNotFavorites && (
         <PMenu.Item itemKey="favorite">
           <Icon.StarFilled />
-          Add to Favorites
+          Add to favorites
         </PMenu.Item>
       )}
       {someAreFavorites && (
         <PMenu.Item itemKey="unfavorite">
           <Icon.StarOutlined />
-          Remove from Favorites
+          Remove from favorites
         </PMenu.Item>
       )}
       {(someAreFavorites || someAreNotFavorites) && <Divider.Divider x />}
-      {isNotEmpty && (
+      {canDeleteAccess && isNotEmpty && (
         <>
           {deleteMenuItem}
           <Divider.Divider x />
@@ -137,7 +145,7 @@ export const ContextMenu = ({ keys, getItem }: ContextMenuProps) => {
           <Divider.Divider x />
         </>
       )}
-      <Menu.HardReloadItem />
+      <Menu.ReloadConsoleItem />
     </PMenu.Menu>
   );
 };

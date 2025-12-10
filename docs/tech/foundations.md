@@ -256,8 +256,8 @@ Documentation is available [here](https://turbo.fyi/).
 
 # 9.0 - An Introduction to Javascript Frameworks
 
-The world of javascript UI frameworks is one of the most chaotic in software
-engineering. Here are two good videos introducing what javascript frameworks are, how to
+The world of JavaScript UI frameworks is one of the most chaotic in software
+engineering. Here are two good videos introducing what JavaScript frameworks are, how to
 choose one, and what the current landscape looks like:
 
 - [I built a JavaScript framework](https://www.youtube.com/watch?v=SJeBRW1QQMA&ab_channel=Fireship)
@@ -276,7 +276,7 @@ leverage a lot of advanced React patterns in our codebase.
 As a supplement, the [React API Reference](https://react.dev/reference/react) is useful
 as you start to work your first issues.
 
-- Javascript Frameworks in General
+- JavaScript Frameworks in General
 - React
 - Redux
 - Astro

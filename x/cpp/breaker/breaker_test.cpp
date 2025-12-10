@@ -7,13 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <thread>
 
-/// external
 #include "gtest/gtest.h"
 
-/// internal
 #include "x/cpp/breaker/breaker.h"
 
 void helper(breaker::Breaker &b) {
@@ -92,7 +89,7 @@ TEST(BreakerTests, testInfiniteRetries) {
             if (retry_count >= 100) break; // Safety break to prevent infinite test
         }
     });
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
     EXPECT_TRUE(b.stop());
     EXPECT_FALSE(b.running());
     t.join();

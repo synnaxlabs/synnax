@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/client",
-  "version": "0.46.0",
+  "version": "0.49.0",
   "description": "The Synnax Client Library",
   "keywords": [
     "synnax",
@@ -51,6 +51,6 @@
     "vitest": "catalog:"
   },
   "type": "module",
-  "types": "dist/index.d.ts",
+  "types": "dist/src/index.d.ts",
   "module": "dist/client.js"
 }

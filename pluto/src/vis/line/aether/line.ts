@@ -15,7 +15,7 @@ import {
   clamp,
   color,
   DataType,
-  type Destructor,
+  type destructor,
   type direction,
   math,
   type MultiSeries,
@@ -44,7 +44,7 @@ export const stateZ = z.object({
   strokeWidth: z.number().default(1),
   downsample: z.number().min(1).max(50).default(1),
   downsampleMode: telem.downsampleModeZ.default("decimate"),
-  visible: z.boolean().optional().default(true),
+  visible: z.boolean().default(true),
 });
 
 const safelyGetDataValue = (
@@ -268,9 +268,9 @@ interface InternalState {
   instrumentation: Instrumentation;
   lineCtx: Context;
   xTelem: telem.SeriesSource;
-  stopListeningXTelem?: Destructor;
+  stopListeningXTelem?: destructor.Destructor;
   yTelem: telem.SeriesSource;
-  stopListeningYTelem?: Destructor;
+  stopListeningYTelem?: destructor.Destructor;
   requestRender: render.Requestor;
 
   xDownsampler: telem.SeriesDownsampler;

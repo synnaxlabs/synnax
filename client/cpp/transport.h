@@ -9,12 +9,13 @@
 
 #pragma once
 
-/// internal
 #include "client/cpp/auth/auth.h"
 #include "client/cpp/channel/channel.h"
+#include "client/cpp/device/device.h"
 #include "client/cpp/framer/framer.h"
-#include "client/cpp/hardware/hardware.h"
+#include "client/cpp/rack/rack.h"
 #include "client/cpp/ranger/ranger.h"
+#include "client/cpp/status/status.h"
 
 namespace synnax {
 struct Transport {
@@ -38,14 +39,17 @@ struct Transport {
     std::shared_ptr<RangeKVDeleteClient> range_kv_delete;
     std::shared_ptr<RangeKVGetClient> range_kv_get;
     std::shared_ptr<RangeKVSetClient> range_kv_set;
-    std::unique_ptr<HardwareCreateRackClient> rack_create_client;
-    std::unique_ptr<HardwareRetrieveRackClient> rack_retrieve;
-    std::unique_ptr<HardwareDeleteRackClient> rack_delete;
-    std::shared_ptr<HardwareCreateTaskClient> module_create;
-    std::shared_ptr<HardwareRetrieveTaskClient> module_retrieve;
-    std::shared_ptr<HardwareDeleteTaskClient> module_delete;
-    std::unique_ptr<HardwareCreateDeviceClient> device_create;
-    std::unique_ptr<HardwareRetrieveDeviceClient> device_retrieve;
-    std::unique_ptr<HardwareDeleteDeviceClient> device_delete;
+    std::unique_ptr<RackCreateClient> rack_create_client;
+    std::unique_ptr<RackRetrieveClient> rack_retrieve;
+    std::unique_ptr<RackDeleteClient> rack_delete;
+    std::shared_ptr<TaskCreateClient> module_create;
+    std::shared_ptr<TaskRetrieveClient> module_retrieve;
+    std::shared_ptr<TaskDeleteClient> module_delete;
+    std::unique_ptr<DeviceCreateClient> device_create;
+    std::unique_ptr<DeviceRetrieveClient> device_retrieve;
+    std::unique_ptr<DeviceDeleteClient> device_delete;
+    std::shared_ptr<StatusRetrieveClient> status_retrieve;
+    std::shared_ptr<StatusSetClient> status_set;
+    std::shared_ptr<StatusDeleteClient> status_delete;
 };
 }

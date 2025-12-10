@@ -25,13 +25,13 @@ import {
   Tree,
   useCombinedStateAndRef,
 } from "@synnaxlabs/pluto";
-import { type Optional, type status } from "@synnaxlabs/x";
+import { type optional, type status } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
 import { retrieveScanTask } from "@/hardware/opc/device/retrieveScanTask";
 import { type Device } from "@/hardware/opc/device/types";
-import { SCAN_COMMAND_TYPE, type ScannedNode } from "@/hardware/opc/task/types";
+import { BROWSE_COMMAND_TYPE, type ScannedNode } from "@/hardware/opc/task/types";
 
 const ICONS: Record<string, ReactElement> = {
   VariableType: <Icon.Type />,
@@ -86,7 +86,7 @@ const { useRetrieveObservable: useRetrieveNodes } = Flux.createRetrieve<
   ScannedNode[],
   PDevice.FluxSubStore
 >({
-  name: "OPC Node",
+  name: "OPC UA Node",
   retrieve: async ({
     client,
     store,
@@ -100,7 +100,7 @@ const { useRetrieveObservable: useRetrieveNodes } = Flux.createRetrieve<
   }) => {
     const scanTask = await retrieveScanTask(client, store, rack);
     const { details, variant, message } = await scanTask.executeCommandSync({
-      type: SCAN_COMMAND_TYPE,
+      type: BROWSE_COMMAND_TYPE,
       timeout: TimeSpan.seconds(10),
       args: { connection, node_id: id },
     });
@@ -142,7 +142,7 @@ export const Browser = ({ device }: BrowserProps) => {
   });
 
   const expand = useCallback(
-    ({ clicked, action }: Optional<Tree.HandleExpandProps, "clicked">) => {
+    ({ clicked, action }: optional.Optional<Tree.HandleExpandProps, "clicked">) => {
       if (action === "contract") return;
       retrieveNodes({
         clicked: { key: clicked, id: clicked == null ? "" : parseNodeID(clicked) },

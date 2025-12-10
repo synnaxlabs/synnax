@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeRange, TimeStamp } from "@synnaxlabs/x/telem";
+import { TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { NotFoundError, UnauthorizedError } from "@/errors";
@@ -58,7 +58,7 @@ describe("Deleter", () => {
     });
 
     await expect(
-      client.delete(["billy bob", dataCh.name], TimeRange.MAX),
+      client.delete(["nonexistent_channel_name", dataCh.name], TimeRange.MAX),
     ).rejects.toThrow(NotFoundError);
 
     const res = await client.read(TimeRange.MAX, dataCh.key);

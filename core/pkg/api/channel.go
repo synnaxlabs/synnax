@@ -32,25 +32,26 @@ type ChannelKey = channel.Key
 // Channel is an API-friendly version of the channel.Channel type. It is simplified for
 // use purely as a data container.
 type Channel struct {
-	Key         channel.Key     `json:"key" msgpack:"key"`
-	Name        string          `json:"name" msgpack:"name"`
-	Leaseholder cluster.NodeKey `json:"leaseholder" msgpack:"leaseholder"`
-	DataType    telem.DataType  `json:"data_type" msgpack:"data_type"`
-	Density     telem.Density   `json:"density" msgpack:"density"`
-	IsIndex     bool            `json:"is_index" msgpack:"is_index"`
-	Index       channel.Key     `json:"index" msgpack:"index"`
-	Alias       string          `json:"alias" msgpack:"alias"`
-	Virtual     bool            `json:"virtual" msgpack:"virtual"`
-	Internal    bool            `json:"internal" msgpack:"internal"`
-	Requires    channel.Keys    `json:"requires" msgpack:"requires"`
-	Expression  string          `json:"expression" msgpack:"expression"`
+	Key         channel.Key         `json:"key" msgpack:"key"`
+	Name        string              `json:"name" msgpack:"name"`
+	Leaseholder cluster.NodeKey     `json:"leaseholder" msgpack:"leaseholder"`
+	DataType    telem.DataType      `json:"data_type" msgpack:"data_type"`
+	Density     telem.Density       `json:"density" msgpack:"density"`
+	IsIndex     bool                `json:"is_index" msgpack:"is_index"`
+	Index       channel.Key         `json:"index" msgpack:"index"`
+	Alias       string              `json:"alias" msgpack:"alias"`
+	Virtual     bool                `json:"virtual" msgpack:"virtual"`
+	Internal    bool                `json:"internal" msgpack:"internal"`
+	Requires    channel.Keys        `json:"requires" msgpack:"requires"`
+	Expression  string              `json:"expression" msgpack:"expression"`
+	Operations  []channel.Operation `json:"operations" msgpack:"operations"`
 }
 
 // ChannelService is the central service for all things Channel related.
 type ChannelService struct {
 	dbProvider
 	accessProvider
-	internal channel.Service
+	internal *channel.Service
 	ranger   *ranger.Service
 }
 
@@ -80,27 +81,37 @@ type ChannelCreateResponse struct {
 func (s *ChannelService) Create(
 	ctx context.Context,
 	req ChannelCreateRequest,
-) (res ChannelCreateResponse, _ error) {
+) (ChannelCreateResponse, error) {
 	translated, err := translateChannelsBackward(req.Channels)
 	if err != nil {
-		return res, err
+		return ChannelCreateResponse{}, err
 	}
 	for i := range translated {
 		translated[i].Internal = false
 	}
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.ActionCreate,
 		Objects: channel.OntologyIDsFromChannels(translated),
 	}); err != nil {
-		return res, err
+		return ChannelCreateResponse{}, err
 	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) (err error) {
+	var res ChannelCreateResponse
+	if err := s.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.internal.NewWriter(tx)
-		err = w.CreateMany(ctx, &translated, channel.RetrieveIfNameExists(req.RetrieveIfNameExists))
+		opts := []channel.CreateOption{}
+		if req.RetrieveIfNameExists {
+			opts = append(opts, channel.RetrieveIfNameExists())
+		}
+		if err := w.CreateMany(ctx, &translated, opts...); err != nil {
+			return err
+		}
 		res.Channels = translateChannelsForward(translated)
-		return err
-	})
+		return nil
+	}); err != nil {
+		return ChannelCreateResponse{}, err
+	}
+	return res, nil
 }
 
 // ChannelRetrieveRequest is a request for retrieving information about a Channel
@@ -129,7 +140,8 @@ type ChannelRetrieveRequest struct {
 	// IsIndex filters for channels that are indexes if true, or are not indexes if false.
 	IsIndex *bool `json:"is_index" msgpack:"is_index"`
 	// Internal filters for channels that are internal if true, or are not internal if false.
-	Internal *bool `json:"internal" msgpack:"internal"`
+	Internal         *bool `json:"internal" msgpack:"internal"`
+	LegacyCalculated *bool `json:"legacy_calculated" msgpack:"legacy_calculated"`
 }
 
 // ChannelRetrieveResponse is the response for a ChannelRetrieveRequest.
@@ -208,12 +220,15 @@ func (s *ChannelService) Retrieve(
 	if req.Internal != nil {
 		q = q.WhereInternal(*req.Internal)
 	}
+	if req.LegacyCalculated != nil {
+		q = q.WhereLegacyCalculated(*req.LegacyCalculated)
+	}
 	if err := q.Exec(ctx, nil); err != nil {
 		return ChannelRetrieveResponse{}, err
 	}
 	if len(aliasChannels) > 0 {
 		aliasKeys := channel.KeysFromChannels(aliasChannels)
-		resChannels = append(aliasChannels, lo.Filter(resChannels, func(ch channel.Channel, i int) bool {
+		resChannels = append(aliasChannels, lo.Filter(resChannels, func(ch channel.Channel, _ int) bool {
 			return !aliasKeys.Contains(ch.Key())
 		})...)
 	}
@@ -228,7 +243,7 @@ func (s *ChannelService) Retrieve(
 	}
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: channel.OntologyIDsFromChannels(resChannels),
 	}); err != nil {
 		return ChannelRetrieveResponse{}, err
@@ -251,6 +266,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 			Internal:    ch.Internal,
 			Expression:  ch.Expression,
 			Requires:    ch.Requires,
+			Operations:  ch.Operations,
 		}
 	}
 	return translated
@@ -261,7 +277,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 	translated := make([]channel.Channel, len(channels))
 	for i, ch := range channels {
-		tCH := channel.Channel{
+		tCh := channel.Channel{
 			Name:        ch.Name,
 			Leaseholder: ch.Leaseholder,
 			DataType:    ch.DataType,
@@ -272,12 +288,13 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 			Internal:    ch.Internal,
 			Expression:  ch.Expression,
 			Requires:    ch.Requires,
+			Operations:  ch.Operations,
 		}
 		if ch.IsIndex {
-			tCH.LocalIndex = tCH.LocalKey
+			tCh.LocalIndex = tCh.LocalKey
 		}
 
-		translated[i] = tCH
+		translated[i] = tCh
 	}
 	return translated, nil
 }
@@ -298,7 +315,7 @@ func (s *ChannelService) Delete(
 			c.Exec(func() error {
 				if err := s.access.Enforce(ctx, access.Request{
 					Subject: getSubject(ctx),
-					Action:  access.Delete,
+					Action:  access.ActionDelete,
 					Objects: req.Keys.OntologyIDs(),
 				}); err != nil {
 					return err
@@ -315,7 +332,7 @@ func (s *ChannelService) Delete(
 				}
 				if err = s.access.Enforce(ctx, access.Request{
 					Subject: getSubject(ctx),
-					Action:  access.Delete,
+					Action:  access.ActionDelete,
 					Objects: channel.OntologyIDsFromChannels(res),
 				}); err != nil {
 					return err
@@ -338,7 +355,7 @@ func (s *ChannelService) Rename(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Update,
+		Action:  access.ActionUpdate,
 		Objects: req.Keys.OntologyIDs(),
 	}); err != nil {
 		return types.Nil{}, err
@@ -361,7 +378,7 @@ func (s *ChannelService) RetrieveGroup(
 	g := s.internal.Group()
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: []ontology.ID{g.OntologyID()},
 	}); err != nil {
 		return ChannelRetrieveGroupResponse{}, err

@@ -11,7 +11,7 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type record } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import {
   type Key,
@@ -23,12 +23,6 @@ import {
   type Params,
 } from "@/workspace/lineplot/payload";
 import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
-
-const RETRIEVE_ENDPOINT = "/workspace/lineplot/retrieve";
-const CREATE_ENDPOINT = "/workspace/lineplot/create";
-const RENAME_ENDPOINT = "/workspace/lineplot/rename";
-const SET_DATA_ENDPOINT = "/workspace/lineplot/set-data";
-const DELETE_ENDPOINT = "/workspace/lineplot/delete";
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
@@ -68,7 +62,7 @@ export class Client {
     const isMany = Array.isArray(linePlots);
     const res = await sendRequired(
       this.client,
-      CREATE_ENDPOINT,
+      "/workspace/lineplot/create",
       { workspace, linePlots: array.toArray(linePlots) },
       createReqZ,
       createResZ,
@@ -79,7 +73,7 @@ export class Client {
   async rename(key: Key, name: string): Promise<void> {
     await sendRequired(
       this.client,
-      RENAME_ENDPOINT,
+      "/workspace/lineplot/rename",
       { key, name },
       renameReqZ,
       emptyResZ,
@@ -89,7 +83,7 @@ export class Client {
   async setData(key: Key, data: record.Unknown): Promise<void> {
     await sendRequired(
       this.client,
-      SET_DATA_ENDPOINT,
+      "/workspace/lineplot/set-data",
       { key, data: JSON.stringify(data) },
       setDataReqZ,
       emptyResZ,
@@ -104,7 +98,7 @@ export class Client {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
     const res = await sendRequired(
       this.client,
-      RETRIEVE_ENDPOINT,
+      "/workspace/lineplot/retrieve",
       args,
       retrieveArgsZ,
       retrieveResZ,
@@ -116,7 +110,7 @@ export class Client {
   async delete(keys: Params): Promise<void> {
     await sendRequired(
       this.client,
-      DELETE_ENDPOINT,
+      "/workspace/lineplot/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       emptyResZ,
@@ -124,4 +118,5 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: "lineplot", key });
+export const ontologyID = ontology.createIDFactory<Key>("lineplot");
+export const TYPE_ONTOLOGY_ID = ontologyID("");

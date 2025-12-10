@@ -29,6 +29,7 @@ import {
   type NodeProps as RFNodeProps,
   type ProOptions,
   ReactFlow,
+  type ReactFlowInstance,
   type ReactFlowProps,
   ReactFlowProvider,
   reconnectEdge,
@@ -39,10 +40,8 @@ import {
 } from "@xyflow/react";
 import {
   type ComponentPropsWithoutRef,
-  createContext,
   memo,
   type ReactElement,
-  use as reactUse,
   useCallback,
   useEffect,
   useMemo,
@@ -54,8 +53,8 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { Button } from "@/button";
 import { type RenderProp } from "@/component/renderProp";
+import { context } from "@/context";
 import { CSS } from "@/css";
-import { Flex } from "@/flex";
 import { useCombinedRefs, useDebouncedCallback } from "@/hooks";
 import { Icon } from "@/icon";
 import { useMemoCompare, useMemoDeepEqual } from "@/memo";
@@ -201,21 +200,23 @@ interface ContextValue {
   fitViewOptions: FitViewOptions;
 }
 
-const Context = createContext<ContextValue>({
-  editable: true,
-  visible: true,
-  viewportMode: "select",
-  onViewportModeChange: () => {},
-  onEditableChange: () => {},
-  registerNodeRenderer: () => {},
-  registerEdgeRenderer: () => {},
-  registerConnectionLineComponent: () => {},
-  fitViewOnResize: false,
-  setFitViewOnResize: () => {},
-  fitViewOptions: FIT_VIEW_OPTIONS,
+const [Context, useContext] = context.create<ContextValue>({
+  defaultValue: {
+    editable: true,
+    fitViewOnResize: false,
+    fitViewOptions: FIT_VIEW_OPTIONS,
+    onEditableChange: () => {},
+    onViewportModeChange: () => {},
+    registerConnectionLineComponent: () => {},
+    registerEdgeRenderer: () => {},
+    registerNodeRenderer: () => {},
+    setFitViewOnResize: () => {},
+    viewportMode: "select",
+    visible: true,
+  },
+  displayName: "Diagram.Context",
 });
-
-export const useContext = () => reactUse(Context);
+export { useContext };
 
 export interface NodeRendererProps {
   children: RenderProp<SymbolProps>;
@@ -491,6 +492,13 @@ const Core = ({
 
   const combinedRefs = useCombinedRefs(triggerRef, resizeRef);
 
+  const handleInit = useCallback(
+    (i: ReactFlowInstance<RFNode, RFEdge<record.Unknown>>) => {
+      void i.fitView(fitViewOptions);
+    },
+    [fitViewOptions],
+  );
+
   const ctxValue = useMemo(
     () => ({
       visible,
@@ -519,6 +527,18 @@ const Core = ({
     ],
   );
 
+  const defaultEdgeOptions = useMemo(
+    () => ({
+      type: edgeRenderer == null ? "smoothstep" : "default",
+    }),
+    [edgeRenderer],
+  );
+
+  const style = useMemo(
+    () => ({ [CSS.var("diagram-zoom")]: viewport.zoom, ...rest.style }),
+    [viewport.zoom, rest.style],
+  );
+
   return (
     <Context value={ctxValue}>
       <Aether.Composite path={path}>
@@ -544,9 +564,7 @@ const Core = ({
             onReconnect={handleEdgeUpdate}
             defaultViewport={translateViewportForward(viewport)}
             elevateEdgesOnSelect
-            defaultEdgeOptions={{
-              type: edgeRenderer == null ? "smoothstep" : "default",
-            }}
+            defaultEdgeOptions={defaultEdgeOptions}
             minZoom={fitViewOptions.minZoom}
             maxZoom={fitViewOptions.maxZoom}
             isValidConnection={isValidConnection}
@@ -558,9 +576,10 @@ const Core = ({
             snapGrid={snapGrid}
             snapToGrid={snapToGrid}
             {...rest}
-            style={{ [CSS.var("diagram-zoom")]: viewport.zoom, ...rest.style }}
+            style={style}
             {...editableProps}
             nodesDraggable={editable}
+            onInit={handleInit}
           />
         )}
       </Aether.Composite>
@@ -573,16 +592,8 @@ export const Background = (): ReactElement | null => {
   return editable ? <RFBackground /> : null;
 };
 
-export interface ControlsProps extends Flex.BoxProps {}
-
-export const Controls = (props: ControlsProps): ReactElement => (
-  <Flex.Box pack borderColor={5} className={CSS.BE("diagram", "controls")} {...props} />
-);
-
 export interface ToggleEditControlProps
   extends Omit<Button.ToggleProps, "value" | "onChange" | "children"> {}
-
-const CONTROL_TOOLTIP_LOCATION = location.BOTTOM_LEFT;
 
 export const ToggleEditControl = ({
   onClick,
@@ -591,14 +602,12 @@ export const ToggleEditControl = ({
   const { editable, onEditableChange } = useContext();
   return (
     <Button.Toggle
-      onChange={() => onEditableChange(!editable)}
-      value={editable}
-      uncheckedVariant="outlined"
-      checkedVariant="filled"
-      tooltipLocation={CONTROL_TOOLTIP_LOCATION}
+      tooltipLocation={location.BOTTOM_LEFT}
       size="small"
       tooltip={`${editable ? "Disable" : "Enable"} editing`}
       {...rest}
+      onChange={() => onEditableChange(!editable)}
+      value={editable}
     >
       {editable ? <Icon.EditOff /> : <Icon.Edit />}
     </Button.Toggle>
@@ -620,13 +629,12 @@ export const FitViewControl = ({
         void fitView(FIT_VIEW_OPTIONS);
         onClick?.(e);
       }}
-      value={fitViewOnResize}
-      onChange={setFitViewOnResize}
-      rightClickToggle
       tooltip={<Text.Text level="small">Fit view to contents</Text.Text>}
       tooltipLocation={location.BOTTOM_LEFT}
       size="small"
       {...rest}
+      value={fitViewOnResize}
+      onChange={setFitViewOnResize}
     >
       <Icon.Expand />
     </Button.Toggle>
@@ -649,7 +657,7 @@ export const SelectViewportModeControl = (): ReactElement => {
         itemKey="pan"
         size="small"
         tooltip={<CoreViewport.TooltipText mode="pan" triggers={PAN_TRIGGER} />}
-        tooltipLocation={CONTROL_TOOLTIP_LOCATION}
+        tooltipLocation={location.BOTTOM_LEFT}
       >
         <Icon.Pan />
       </Select.Button>
@@ -657,7 +665,7 @@ export const SelectViewportModeControl = (): ReactElement => {
         itemKey="select"
         size="small"
         tooltip={<CoreViewport.TooltipText mode="select" triggers={SELECT_TRIGGER} />}
-        tooltipLocation={CONTROL_TOOLTIP_LOCATION}
+        tooltipLocation={location.BOTTOM_LEFT}
       >
         <Icon.Selection />
       </Select.Button>

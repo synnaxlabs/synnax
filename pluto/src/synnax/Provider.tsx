@@ -10,20 +10,15 @@
 import {
   type connection,
   Synnax,
-  type SynnaxProps,
+  type SynnaxParams,
   TimeSpan,
 } from "@synnaxlabs/client";
 import { type breaker, caseconv, migrate, type status } from "@synnaxlabs/x";
-import {
-  createContext,
-  type PropsWithChildren,
-  type ReactElement,
-  use as reactUse,
-  useCallback,
-} from "react";
+import { type PropsWithChildren, type ReactElement, useCallback, useMemo } from "react";
 import z from "zod";
 
 import { Aether } from "@/aether";
+import { context } from "@/context";
 import { useAsyncEffect, useCombinedStateAndRef } from "@/hooks";
 import { Status } from "@/status/core";
 import { synnax } from "@/synnax/aether";
@@ -43,16 +38,17 @@ const DEFAULT_RETRY_CONFIG: breaker.Config = {
   scale: 2,
 };
 
-const Context = createContext<ContextValue>(ZERO_CONTEXT_VALUE);
-
-const useContext = () => reactUse(Context);
+const [Context, useContext] = context.create({
+  defaultValue: ZERO_CONTEXT_VALUE,
+  displayName: "Synnax.Context",
+});
 
 export const use = () => useContext().client;
 
 export const useConnectionState = () => useContext().state;
 
 export interface ProviderProps extends PropsWithChildren {
-  connParams?: SynnaxProps;
+  connParams?: SynnaxParams;
 }
 
 export const CONNECTION_STATE_VARIANTS: Record<connection.Status, status.Variant> = {
@@ -78,7 +74,7 @@ const createErrorDescription = (
   clientVersion: string,
   nodeVersion?: string,
 ): string =>
-  `Cluster version ${nodeVersion != null ? `${nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${clientVersion}. Compatibility issues may arise.`;
+  `Core version ${nodeVersion != null ? `${nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${clientVersion}. Compatibility issues may arise.`;
 
 interface TestProviderProps extends PropsWithChildren {
   client: Synnax | null;
@@ -90,8 +86,9 @@ export const TestProvider = ({ children, client }: TestProviderProps): ReactElem
     schema: synnax.Provider.stateZ,
     state: { props: null, state: null },
   });
+  const value = useMemo(() => ({ ...ZERO_CONTEXT_VALUE, client }), [client]);
   return (
-    <Context value={{ ...ZERO_CONTEXT_VALUE, client }}>
+    <Context value={value}>
       <Aether.Composite path={path}>{children}</Aether.Composite>
     </Context>
   );
@@ -165,7 +162,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
 
         addStatus<StatusDetails>({
           variant: "warning",
-          message: "Incompatible cluster version",
+          message: "Incompatible Core version",
           description,
           details: {
             type: SERVER_VERSION_MISMATCH,

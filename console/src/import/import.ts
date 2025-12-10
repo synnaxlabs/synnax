@@ -9,7 +9,7 @@
 
 import { type Store } from "@reduxjs/toolkit";
 import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
-import { Status, Synnax } from "@synnaxlabs/pluto";
+import { Flux, type Pluto, Status, Synnax } from "@synnaxlabs/pluto";
 import { sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readTextFile } from "@tauri-apps/plugin-fs";
@@ -29,6 +29,7 @@ export interface ImportArgs {
   placeLayout: Layout.Placer;
   store: Store;
   workspaceKey?: string;
+  fluxStore: Pluto.FluxStore;
 }
 
 export interface Importer {
@@ -43,7 +44,7 @@ const FILTERS = [{ name: "JSON", extensions: ["json"] }];
 
 export const createImporter: ImporterCreator =
   (ingest, type) =>
-  ({ store, client, placeLayout, handleError, workspaceKey }) => {
+  ({ store, client, placeLayout, handleError, workspaceKey, fluxStore }) => {
     handleError(async () => {
       if (Runtime.ENGINE !== "tauri")
         throw new Error(
@@ -59,12 +60,9 @@ export const createImporter: ImporterCreator =
       const storeState = store.getState();
       const activeWorkspaceKey = Workspace.selectActiveKey(storeState);
       if (workspaceKey != null && activeWorkspaceKey !== workspaceKey) {
-        let ws = Workspace.select(storeState, workspaceKey);
-        if (ws == null) {
-          if (client == null) throw new DisconnectedError();
-          ws = await client.workspaces.retrieve(workspaceKey);
-        }
-        store.dispatch(Workspace.add(ws));
+        if (client == null) throw new DisconnectedError();
+        const ws = await client.workspaces.retrieve(workspaceKey);
+        store.dispatch(Workspace.setActive(ws));
         store.dispatch(
           Layout.setWorkspace({
             slice: ws.layout as Layout.SliceState,
@@ -78,7 +76,12 @@ export const createImporter: ImporterCreator =
           const fileName = path.split(sep()).pop();
           if (fileName == null) throw new Error(`Cannot read file located at ${path}`);
           const name = trimFileName(fileName);
-          ingest(data, { layout: { name }, placeLayout, store });
+          ingest(JSON.parse(data), {
+            layout: { name },
+            placeLayout,
+            store: fluxStore,
+            client,
+          });
         }, `Failed to import ${type} at ${path}`),
       );
     });
@@ -89,8 +92,9 @@ export const use = (import_: Importer, workspaceKey?: string): (() => void) => {
   const store = useStore<RootState>();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
+  const fluxStore = Flux.useStore<Pluto.FluxStore>();
   return useCallback(
-    () => import_({ store, placeLayout, client, handleError, workspaceKey }),
+    () => import_({ store, placeLayout, client, handleError, workspaceKey, fluxStore }),
     [import_, store, placeLayout, client, handleError, workspaceKey],
   );
 };

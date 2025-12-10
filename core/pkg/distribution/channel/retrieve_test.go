@@ -10,12 +10,13 @@
 package channel_test
 
 import (
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 const internalChannelCount = 1
@@ -33,39 +34,36 @@ var _ = Describe("Retrieve", Ordered, func() {
 	})
 	Describe("Retrieve", func() {
 		It("Should correctly retrieve a set of channels", func() {
-			ch1 := channel.Channel{
-				Virtual:  true,
-				DataType: telem.Float32T,
-				Name:     "SG02",
-			}
-			ch2 := channel.Channel{
-				Virtual:  true,
-				DataType: telem.Float32T,
-				Name:     "SG03",
-			}
-			created := []channel.Channel{ch1, ch2}
-			err := mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)
-			Expect(err).ToNot(HaveOccurred())
+			created := []channel.Channel{
+				{
+					Virtual:  true,
+					DataType: telem.Float32T,
+					Name:     channel.NewRandomName(),
+				},
+				{
+					Virtual:  true,
+					DataType: telem.Float32T,
+					Name:     channel.NewRandomName(),
+				}}
+			Expect(mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
 
 			var resChannels []channel.Channel
 
-			err = mockCluster.Nodes[1].Channel.
+			Expect(mockCluster.Nodes[1].Channel.
 				NewRetrieve().
 				WhereNodeKey(1).
 				Entries(&resChannels).
-				Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+				Exec(ctx, nil)).To(Succeed())
 			Expect(resChannels).To(HaveLen(len(created) + internalChannelCount))
 
 			Eventually(func(g Gomega) {
 				var resChannelsTwo []channel.Channel
 
-				err = mockCluster.Nodes[2].Channel.
+				g.Expect(mockCluster.Nodes[2].Channel.
 					NewRetrieve().
 					WhereNodeKey(1).
 					Entries(&resChannelsTwo).
-					Exec(ctx, nil)
-				g.Expect(err).ToNot(HaveOccurred())
+					Exec(ctx, nil)).To(Succeed())
 				g.Expect(resChannelsTwo).To(HaveLen(len(created) + internalChannelCount))
 			})
 
@@ -75,29 +73,27 @@ var _ = Describe("Retrieve", Ordered, func() {
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     "SG02",
+					Name:     channel.NewRandomName(),
 				},
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     "SG03",
+					Name:     channel.NewRandomName(),
 				},
 			}
-			err := mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
 			var resChannels []channel.Channel
 
-			err = mockCluster.Nodes[1].Channel.
+			Expect(mockCluster.Nodes[1].Channel.
 				NewRetrieve().
 				WhereKeys(created[0].Key()).
 				Entries(&resChannels).
-				Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+				Exec(ctx, nil)).To(Succeed())
 			Expect(resChannels).To(HaveLen(1))
 			Expect(resChannels[0].Key()).To(Equal(created[0].Key()))
 		})
 		It("Should correctly retrieve a channel by its name", func() {
-			n := uuid.New().String()
+			n := channel.NewRandomName()
 			created := []channel.Channel{
 				{
 					Virtual:  true,
@@ -105,16 +101,14 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     n,
 				},
 			}
-			err := mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
 			var resChannels []channel.Channel
 
-			err = mockCluster.Nodes[1].Channel.
+			Expect(mockCluster.Nodes[1].Channel.
 				NewRetrieve().
 				WhereNames(n).
 				Entries(&resChannels).
-				Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+				Exec(ctx, nil)).To(Succeed())
 			Expect(resChannels).To(HaveLen(1))
 			Expect(resChannels[0].Name).To(Equal(n))
 		})
@@ -131,35 +125,30 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     "SG223",
 				},
 			}
-			err := mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
 			var resChannels []channel.Channel
 
-			err = mockCluster.Nodes[1].Channel.
+			Expect(mockCluster.Nodes[1].Channel.
 				NewRetrieve().
 				WhereNames("SG22.*").
 				Entries(&resChannels).
-				Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+				Exec(ctx, nil)).To(Succeed())
 			Expect(resChannels).To(HaveLen(2))
 		})
 		It("Should return a well formatted error if a channel cannot be found by its key", func() {
 			var resChannels []channel.Channel
-			err := mockCluster.Nodes[1].Channel.
+			Expect(mockCluster.Nodes[1].Channel.
 				NewRetrieve().
 				WhereKeys(435).
 				Entries(&resChannels).
-				Exec(ctx, nil)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("Channels with keys [435] not found"))
-
+				Exec(ctx, nil)).To(MatchError(ContainSubstring("Channels with keys [435] not found")))
 		})
 		It("Should correctly filter channels by search term", func() {
 			created := []channel.Channel{
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     "YXG-----222",
+					Name:     "a_completely_different_name",
 				},
 				{
 					Virtual:  true,
@@ -175,10 +164,20 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Search("catalina").
 					Entries(&resChannels).
 					Exec(ctx, nil)).To(Succeed())
-				g.Expect(len(resChannels)).To(BeNumerically(">", 0))
+				g.Expect(resChannels).To(HaveLen(1))
 				g.Expect(resChannels[0].Name).To(Equal("catalina"))
 			}).Should(Succeed())
 		})
+
+		It("Should return an error when retrieving a channel with a key of 0", func() {
+			var resChannels []channel.Channel
+			Expect(mockCluster.Nodes[1].Channel.
+				NewRetrieve().
+				WhereKeys(0).
+				Entries(&resChannels).
+				Exec(ctx, nil)).To(MatchError(query.NotFound))
+		})
+
 	})
 	Describe("Exists", func() {
 		It("Should return true if a channel exists", func() {
@@ -186,24 +185,21 @@ var _ = Describe("Retrieve", Ordered, func() {
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     "SG02",
+					Name:     channel.NewRandomName(),
 				},
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     "SG03",
+					Name:     channel.NewRandomName(),
 				},
 			}
-			err := mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
 
-			exists, err := mockCluster.Nodes[1].Channel.
+			exists := MustSucceed(mockCluster.Nodes[1].Channel.
 				NewRetrieve().
 				WhereKeys(created[0].Key()).
-				Exists(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+				Exists(ctx, nil))
 			Expect(exists).To(BeTrue())
 		})
 	})
-
 })

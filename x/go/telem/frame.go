@@ -25,7 +25,7 @@ import (
 
 // Frame is a performance-optimized record of numeric keys to series.
 // size = 24 + 24 + 1 + 16 + (7 buffer) = 72 bytes.
-type Frame[K types.Numeric] struct {
+type Frame[K types.SizedNumeric] struct {
 	// keys are the keys of the frame record. the keys slice is guaranteed to have the
 	// same length as the series slice. Note that keys are not guaranteed to be unique.
 	// 24 bytes
@@ -48,7 +48,7 @@ type Frame[K types.Numeric] struct {
 
 // UnsafeReinterpretFrameKeysAs reinterprets the keys of the frame as a different type. This
 // method performs no static type checking and is unsafe. Caveat emptor.
-func UnsafeReinterpretFrameKeysAs[I, O types.Numeric](f Frame[I]) Frame[O] {
+func UnsafeReinterpretFrameKeysAs[I, O types.SizedNumeric](f Frame[I]) Frame[O] {
 	return Frame[O]{
 		keys:   unsafe.ReinterpretSlice[I, O](f.keys),
 		series: f.series,
@@ -57,13 +57,13 @@ func UnsafeReinterpretFrameKeysAs[I, O types.Numeric](f Frame[I]) Frame[O] {
 }
 
 // UnaryFrame creates a new frame with a single key and series.
-func UnaryFrame[K types.Numeric](key K, series Series) Frame[K] {
+func UnaryFrame[K types.SizedNumeric](key K, series Series) Frame[K] {
 	return Frame[K]{keys: []K{key}, series: []Series{series}}
 }
 
 // MultiFrame creates a new Frame with multiple keys and series. The keys and series
 // slices must be the same length, or this function will panic.
-func MultiFrame[K types.Numeric](keys []K, series []Series) Frame[K] {
+func MultiFrame[K types.SizedNumeric](keys []K, series []Series) Frame[K] {
 	if len(keys) != len(series) {
 		panic("keys and series must be of the same length")
 	}
@@ -74,7 +74,7 @@ func MultiFrame[K types.Numeric](keys []K, series []Series) Frame[K] {
 // number of entries that can be added to the frame before it needs to be resized. The
 // frame is not initialized, so the keys and series slices will be empty. This function
 // is useful for creating a frame with a known number of entries
-func AllocFrame[K types.Numeric](cap int) Frame[K] {
+func AllocFrame[K types.SizedNumeric](cap int) Frame[K] {
 	return Frame[K]{keys: make([]K, 0, cap), series: make([]Series, 0, cap)}
 }
 
@@ -99,9 +99,11 @@ func (f Frame[K]) ShouldExcludeRaw(rawIndex int) bool {
 	return f.mask.enabled && f.mask.Get(rawIndex)
 }
 
-// KeysSlice returns the slice of keys in the frame. If FilterKeys has been called
-// on the frame, this function will have a considerable performance impact on the
-// hot path. If not, the performance impact is negligible.
+// KeysSlice returns the slice of keys in the frame.
+//
+// If the frame has been filtered via KeepKeys or ExcludeKeys, this function will
+// result in a deep copy of the keys slice, and may have a considerable performance
+// impact. If the frame has not been filtered, the performance impact is negligible.
 func (f Frame[K]) KeysSlice() []K {
 	if !f.mask.enabled {
 		return f.keys
@@ -113,9 +115,11 @@ func (f Frame[K]) KeysSlice() []K {
 	return keys
 }
 
-// SeriesSlice returns the slice of series in the frame. If FilterKeys has been called
-// on the frame, this function will have a considerable performance impact on the
-// hot path. If not, the performance impact is negligible.
+// SeriesSlice returns the slice of series in the frame.
+//
+// If the frame has been filtered via KeepKeys or ExcludeKeys, this function will
+// result in a deep copy of the keys slice, and may have a considerable performance
+// impact. If the frame has not been filtered, the performance impact is negligible.
 func (f Frame[K]) SeriesSlice() []Series {
 	if !f.mask.enabled {
 		return f.series
@@ -128,8 +132,8 @@ func (f Frame[K]) SeriesSlice() []Series {
 }
 
 // RawSeries returns the raw slice of series in the frame. This includes any series that
-// have been filtered out by FilterKeys. To check whether an index in this slice has
-// been filtered out, use ShouldExcludeRaw.
+// have been filtered out by KeepKeys or ExcludeKeys. To check whether an index in
+// this slice has been filtered out, use ShouldExcludeRaw.
 //
 // It is generally recommended to avoid using this function except for
 // performance-critical paths where the overhead of allocating returned closures
@@ -139,8 +143,8 @@ func (f Frame[K]) SeriesSlice() []Series {
 func (f Frame[K]) RawSeries() []Series { return f.series }
 
 // RawKeys returns the raw slice of keys in teh frame. This includes any keys that have
-// been filtered out by FilterKeys. To check whether an index in this slice has been
-// filtered out, use ShouldExcludeRaw.
+// been filtered out by KeepKeys or ExcludeKeys. To check whether an index in this
+// slice has been filtered out, use ShouldExcludeRaw.
 //
 // It is not safe to modify the contents of the returned slice.
 func (f Frame[K]) RawKeys() []K { return f.keys }
@@ -262,10 +266,10 @@ func (f Frame[K]) RawKeyAt(i int) K {
 }
 
 var (
-	_ json.Marshaler        = Frame[int]{}
-	_ json.Unmarshaler      = &Frame[int]{}
-	_ msgpack.CustomEncoder = Frame[int]{}
-	_ msgpack.CustomDecoder = &Frame[int]{}
+	_ json.Marshaler        = Frame[int8]{}
+	_ json.Unmarshaler      = &Frame[int8]{}
+	_ msgpack.CustomEncoder = Frame[int8]{}
+	_ msgpack.CustomDecoder = &Frame[int8]{}
 )
 
 // serializableFrame is a helper type for serializing the Frame to encoded
@@ -423,11 +427,34 @@ func (f Frame[K]) Count() int {
 	return len(f.series)
 }
 
-// Extend extends the frame by appending the keys and series from another frame to it.
 func (f Frame[K]) Extend(frames ...Frame[K]) Frame[K] {
+	if len(frames) == 0 {
+		return f
+	}
+	totalKeys := len(f.keys)
 	for _, fr := range frames {
-		f.keys = append(f.keys, fr.KeysSlice()...)
-		f.series = append(f.series, fr.SeriesSlice()...)
+		totalKeys += fr.Count()
+	}
+	if cap(f.keys) < totalKeys {
+		newKeys := make([]K, len(f.keys), totalKeys)
+		copy(newKeys, f.keys)
+		f.keys = newKeys
+		newSeries := make([]Series, len(f.series), totalKeys)
+		copy(newSeries, f.series)
+		f.series = newSeries
+	}
+	for _, fr := range frames {
+		if !fr.mask.enabled {
+			f.keys = append(f.keys, fr.keys...)
+			f.series = append(f.series, fr.series...)
+		} else {
+			for i, k := range fr.keys {
+				if !fr.ShouldExcludeRaw(i) {
+					f.keys = append(f.keys, k)
+					f.series = append(f.series, fr.series[i])
+				}
+			}
+		}
 	}
 	return f
 }
@@ -442,13 +469,30 @@ func (f Frame[K]) ShallowCopy() Frame[K] {
 	return Frame[K]{keys: keys, series: series, mask: f.mask}
 }
 
-// FilterKeys filters the frame to only include the keys in the given slice, returning
+// KeepKeys filters the frame to only include the keys in the given slice, returning
 // a shallow copy of the filtered frame.
-func (f Frame[K]) FilterKeys(keys []K) Frame[K] {
+func (f Frame[K]) KeepKeys(keys []K) Frame[K] {
+	return f.filter(keys, lo.Contains)
+}
+
+// notContain is defined statically so that it doesn't accidentally escape to the heap,
+// applying more pressure on GC
+func notContains[T comparable](s []T, e T) bool { return !lo.Contains(s, e) }
+
+// ExcludeKeys filters the frame to include any keys that are NOT in the given slice,
+// returning a shallow copy of the filtered frame.
+func (f Frame[K]) ExcludeKeys(keys []K) Frame[K] {
+	if len(keys) == 0 {
+		return f
+	}
+	return f.filter(keys, notContains)
+}
+
+func (f Frame[K]) filter(keys []K, keep func([]K, K) bool) Frame[K] {
 	if len(f.keys) < f.mask.Cap() {
 		f.mask.enabled = true
 		for i, key := range f.keys {
-			if !lo.Contains(keys, key) {
+			if !keep(keys, key) {
 				f.mask.Mask128 = f.mask.Set(i, true)
 			}
 		}
@@ -459,7 +503,7 @@ func (f Frame[K]) FilterKeys(keys []K) Frame[K] {
 		fSeries = make([]Series, 0, len(keys))
 	)
 	for k, s := range f.Entries() {
-		if lo.Contains(keys, k) {
+		if keep(keys, k) {
 			fKeys = append(fKeys, k)
 			fSeries = append(fSeries, s)
 		}

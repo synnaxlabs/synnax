@@ -9,8 +9,12 @@
 
 __version__ = "0.3.0"
 
-from synnax.access import Policy, PolicyClient
+from synnax import labjack, modbus, ni, opcua, sequence, status
+from synnax.access.policy import Policy
+from synnax.access.role import Role
 from synnax.channel import Channel
+from synnax.control import Controller
+from synnax.device import Device
 from synnax.exceptions import (
     AuthError,
     ConfigurationError,
@@ -35,16 +39,17 @@ from synnax.framer import (
     Writer,
     WriterMode,
 )
-from synnax.hardware import Client as HardwareClient
-from synnax.hardware.device import Device
-from synnax.hardware.rack import Rack
-from synnax.hardware.task import Task, TaskStatus, TaskStatusDetails
 from synnax.options import SynnaxOptions
+from synnax.rack import Rack
 from synnax.ranger import Range
+from synnax.status import Status
 from synnax.synnax import Synnax
+from synnax.task import Task, TaskStatus, TaskStatusDetails
 from synnax.telem import (
+    Alignment,
     Authority,
     Bounds,
+    CrudeAlignment,
     CrudeAuthority,
     CrudeDataType,
     CrudeDensity,
@@ -53,6 +58,7 @@ from synnax.telem import (
     CrudeTimeStamp,
     DataType,
     Density,
+    MultiSeries,
     Rate,
     Series,
     Size,
@@ -67,15 +73,18 @@ from synnax.timing import Loop, Timer, sleep
 from synnax.user.payload import User
 
 __all__ = [
+    "Alignment",
     "AUTO_SPAN",
     "AuthError",
     "Authority",
+    "Controller",
     "Bounds",
     "Channel",
     "ConfigurationError",
     "ContiguityError",
     "ControlError",
     "convert_time_units",
+    "CrudeAlignment",
     "CrudeAuthority",
     "CrudeDataType",
     "CrudeDensity",
@@ -89,20 +98,20 @@ __all__ = [
     "ExpiredToken",
     "PathError",
     "Frame",
-    "HardwareClient",
     "Iterator",
     "InvalidToken",
     "Loop",
     "MultipleFoundError",
     "NotFoundError",
     "Policy",
-    "PolicyClient",
     "QueryError",
     "Rack",
     "Range",
     "Rate",
+    "Role",
     "RouteError",
     "Series",
+    "MultiSeries",
     "Size",
     "sleep",
     "Streamer",
@@ -122,4 +131,13 @@ __all__ = [
     "ValidationError",
     "Writer",
     "WriterMode",
+    "modbus",
+    "ni",
+    "labjack",
+    "opcua",
+    "sequence",
+    "ontology",
+    "auth",
+    "status",
+    "Status",
 ]

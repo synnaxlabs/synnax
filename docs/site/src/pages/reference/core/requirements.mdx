@@ -1,0 +1,227 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Requirements"
+heading: "Deployment Requirements"
+next: "CLI Reference"
+nextURL: "/reference/core/cli-reference"
+prev: "Production"
+prevURL: "/reference/core/production"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import Table from "@/components/Table.astro";
+export const components = mdxOverrides;
+
+This page lists the hardware and software requirements for deploying a Synnax Core to
+production.
+
+<Divider.Divider x />
+
+## Operating System
+
+A Synnax Core can run on Linux, macOS, Windows, or a containerized environment.
+
+For most production scenarios, we recommend running a glibc-based Linux distribution and
+a Linux kernel version from the last 5 years, such as
+[Ubuntu](https://ubuntu.com/download/server),
+[Red Hat Enterprise Linux](https://www.redhat.com/en/technologies/linux-platforms/enterprise-linux),
+or [CentOS](https://www.centos.org/centos-stream/).
+
+### Synnax Driver Compatibility
+
+If you plan on using the Synnax Driver to integrate directly with your hardware, only
+certain operating systems are supported.
+
+- [National Instruments](https://docs.synnaxlabs.com/reference/driver/ni) - Windows,
+  Linux
+- [LabJack](https://docs.synnaxlabs.com/reference/driver/labjack) - Windows, Linux,
+  macOS
+- [OPC UA](https://docs.synnaxlabs.com/reference/driver/opc-ua) - Windows, Linux, macOS,
+  or a containerized environment
+- [Modbus](https://docs.synnaxlabs.com/reference/driver/modbus) - Windows, Linux, macOS,
+  or a containerized environment
+
+<Divider.Divider x />
+
+## Hardware
+
+Core hardware requirements vary depending on your data acquisition and control workload.
+
+### Calculating Workload
+
+The first step in sizing a system to meet your requirements is to calculate the total
+sample throughput of your workload.
+
+- The approximate number of channels you'll be acquiring data from. This includes
+  sensors, actuators, logs, and any other channels you may be using.
+- The average rate at which you'll be writing data for each channel. To be even more
+  precise, separate your channels into groups with specific sampling rates.
+
+The total throughput is the number of channels multiplied by the average rate at which
+you'll be writing data for each channel.
+
+For example, if we have three groups of channels:
+
+- 10 high speed at 25 kHz -> 250k samples/s
+- 100 medium speed at 100 Hz -> 10k samples/s
+- 20 actuators sending states at 50 Hz -> 1k samples/s
+
+The total throughput for our Core is 250k + 10k + 1k = 261k samples/s.
+
+### Workload-Based Minimum Requirements
+
+Once you've calculated your total throughput, use the following table to determine the
+_minimum_ hardware requirements for your Core.
+
+<Table>
+  <thead>
+    <th>Throughput (samples/s)</th>
+    <th>CPU (Cores) </th>
+    <th>Memory (GB)</th>
+    <th>Storage (GB)</th>
+    <th>Storage Throughput (MB/s)</th>
+  </thead>
+  <tbody>
+    <tr>
+      <td>250k</td>
+      <td>4</td>
+      <td>8</td>
+      <td>100</td>
+      <td>120</td>
+    </tr>
+    <tr>
+      <td>500k</td>
+      <td>6</td>
+      <td>16</td>
+      <td>200</td>
+      <td>1000</td>
+    </tr>
+    <tr>
+      <td>1M</td>
+      <td>12</td>
+      <td>16</td>
+      <td>500</td>
+      <td>600</td>
+    </tr>
+    <tr>
+      <td>2M</td>
+      <td>16</td>
+      <td>32</td>
+      <td>1000</td>
+      <td>1200</td>
+    </tr>
+    <tr>
+      <td>4M</td>
+      <td>24</td>
+      <td>64</td>
+      <td>2000</td>
+      <td>2400</td>
+    </tr>
+  </tbody>
+</Table>
+
+<Note.Note variant="info">
+  When operating Synnax in mission critical environments, we recommend provisioning
+  hardware that is at least twice the minimum requirements. This leaves ample room for
+  workload growth and unexpected spikes in throughput.
+</Note.Note>
+
+### Storage
+
+We highly recommend using a high-performance M.2, NVMe, or SATA SSD for storage. This
+recommendation becomes more of a requirement if you have any very high throughput data
+acquisition channels (10 kHz or higher).
+
+### CPU
+
+The Synnax Core is CPU intensive during data ingestion, streaming, and control
+operations. Modern multi-core processors perform best, and are a must when working in
+safety/performance critical environments.
+
+For production deployments, we recommend using a minimum four core processors from one
+of the following families:
+
+- Intel x86-64 processors (Xeon or Core i7/i9 series).
+- AMD x86-64 processors (EPYC or Ryzen series).
+- Apple Silicon Chips on MacOS (M1/M2/M3 series).
+
+Avoid single or dual core processors for anything beyond development or testing
+environments.
+
+If you plan on using large numbers of
+[calculated channels](/reference/console/calculated-channels), increase the number of
+cores for your deployment.
+
+### Memory
+
+The Synnax Core is generally less memory-intensive than it is storage- or
+compute-intensive. For most production deployments, we recommend using a minimum of 8 GB
+of RAM.
+
+<Divider.Divider x />
+
+## Network
+
+Synnax Cores communicate using TCP and/or UDP protocols for coordination, data
+replication, and client connections. Given Synnax's high-performance capabilities for
+both data acquisition and control operations, the network infrastructure must be
+designed to handle substantial throughput with minimal latency.
+
+### Network Interface Requirements
+
+For production deployments, we recommend the following network interface specifications:
+
+#### Minimum Requirements
+
+- 10 Gigabit Ethernet (10GbE) network interface cards (NICs)
+- Full-duplex operation support
+- Hardware-based packet processing capabilities
+
+#### High-Performance Scenarios
+
+- 25 Gigabit Ethernet (25GbE) or higher for workloads exceeding 2M samples/s
+- Multiple NICs for redundancy and load balancing in mission-critical environments
+- RDMA-capable NICs for ultra-low latency applications
+
+### Switch Infrastructure
+
+Network switches should be selected and configured to minimize latency and maximize
+throughput:
+
+- **Low-Latency Switches** -> Use enterprise-grade switches with sub-microsecond
+  port-to-port latency.
+- **Non-Blocking Architecture** -> Ensure switches provide full line-rate forwarding
+  across all ports.
+- **Buffer Management** -> Configure appropriate buffer sizes to handle bursty traffic
+  patterns common in data acquisition workloads.
+- **Quality of Service (QoS)** -> Implement traffic prioritization to ensure control
+  commands receive priority over bulk data transfers.
+
+### Cabling and Physical Infrastructure
+
+For optimal performance, especially over longer distances:
+
+- **Fiber Optic Cabling** -> Use single-mode or multi-mode fiber for runs longer than
+  100 meters.
+- **Direct Attach Cables (DAC)** -> Acceptable for short runs (< 10 meters) between
+  adjacent equipment.
+
+### Network Security and Isolation
+
+<Note.Note variant="error">
+  **Critical Security & Performance Requirement** -> Never use public internet
+  connections for control operations. Control systems must operate on isolated,
+  dedicated networks.
+</Note.Note>
+
+For production control environments:
+
+- **Isolated Networks**: Deploy Synnax Cores on dedicated, air-gapped networks separate
+  from corporate IT infrastructure.
+- **Network Segmentation**: Use VLANs or physical separation to isolate control traffic
+  from data acquisition traffic.
+- **Firewall Protection**: Implement network firewalls with strict access control
+  policies.
+- **VPN Access**: When remote access is required, use industrial-grade VPN solutions
+  with multi-factor authentication.

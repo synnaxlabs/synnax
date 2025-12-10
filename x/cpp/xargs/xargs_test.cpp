@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 
 /// local
@@ -36,7 +35,7 @@ protected:
 TEST_F(XArgsTest, TestRequiredStringHappyPath) {
     auto [argc, argv] = make_args({"program", "--name", "test"});
     parser = xargs::Parser(argc, argv);
-    const auto name = parser.required<std::string>("--name");
+    const auto name = parser.field<std::string>("--name");
     EXPECT_TRUE(parser.errors.empty());
     ASSERT_EQ(name, "test");
     cleanup(argc, argv);
@@ -45,7 +44,7 @@ TEST_F(XArgsTest, TestRequiredStringHappyPath) {
 TEST_F(XArgsTest, TestRequiredStringMissing) {
     auto [argc, argv] = make_args({"program"});
     parser = xargs::Parser(argc, argv);
-    auto name = parser.required<std::string>("--name");
+    auto name = parser.field<std::string>("--name");
     EXPECT_FALSE(parser.errors.empty());
     ASSERT_EQ(parser.errors.at(0).message(), "[--name] Required argument not found");
     cleanup(argc, argv);
@@ -54,7 +53,7 @@ TEST_F(XArgsTest, TestRequiredStringMissing) {
 TEST_F(XArgsTest, TestRequiredIntegerHappyPath) {
     auto [argc, argv] = make_args({"program", "--count", "42"});
     parser = xargs::Parser(argc, argv);
-    const auto count = parser.required<int>("--count");
+    const auto count = parser.field<int>("--count");
     EXPECT_TRUE(parser.errors.empty());
     ASSERT_EQ(count, 42);
     cleanup(argc, argv);
@@ -63,7 +62,7 @@ TEST_F(XArgsTest, TestRequiredIntegerHappyPath) {
 TEST_F(XArgsTest, TestRequiredIntegerInvalidFormat) {
     auto [argc, argv] = make_args({"program", "--count", "not_a_number"});
     parser = xargs::Parser(argc, argv);
-    const auto count = parser.required<int>("--count");
+    const auto count = parser.field<int>("--count");
     ASSERT_EQ(count, 0);
     EXPECT_FALSE(parser.errors.empty());
     ASSERT_EQ(parser.errors.at(0).message(), "[--count] Invalid value");
@@ -73,7 +72,7 @@ TEST_F(XArgsTest, TestRequiredIntegerInvalidFormat) {
 TEST_F(XArgsTest, TestOptionalWithDefault) {
     auto [argc, argv] = make_args({"program"});
     parser = xargs::Parser(argc, argv);
-    const auto count = parser.optional<int>("--count", 100);
+    const auto count = parser.field<int>("--count", 100);
     EXPECT_TRUE(parser.errors.empty());
     ASSERT_EQ(count, 100);
     cleanup(argc, argv);
@@ -82,7 +81,7 @@ TEST_F(XArgsTest, TestOptionalWithDefault) {
 TEST_F(XArgsTest, TestOptionalWithValue) {
     auto [argc, argv] = make_args({"program", "--count", "42"});
     parser = xargs::Parser(argc, argv);
-    const auto count = parser.optional<int>("--count", 100);
+    const auto count = parser.field<int>("--count", 100);
     EXPECT_TRUE(parser.errors.empty());
     ASSERT_EQ(count, 42);
     cleanup(argc, argv);
@@ -101,8 +100,8 @@ TEST_F(XArgsTest, TestMultipleArguments) {
         {"program", "--name", "test", "--count", "42", "--verbose"}
     );
     parser = xargs::Parser(argc, argv);
-    const auto name = parser.required<std::string>("--name");
-    const auto count = parser.required<int>("--count");
+    const auto name = parser.field<std::string>("--name");
+    const auto count = parser.field<int>("--count");
     const auto verbose = parser.flag("--verbose");
     EXPECT_TRUE(parser.errors.empty());
     ASSERT_EQ(name, "test");
@@ -115,7 +114,7 @@ TEST_F(XArgsTest, TestError) {
     auto [argc, argv] = make_args({"program"});
     parser = xargs::Parser(argc, argv);
     ASSERT_EQ(parser.error(), xerrors::NIL);
-    parser.required<std::string>("--name");
+    parser.field<std::string>("--name");
     ASSERT_NE(parser.error(), xerrors::NIL);
     cleanup(argc, argv);
 }
@@ -128,14 +127,14 @@ TEST(XArgs, Regression) {
             "/tmp/rack-config-test/state.json"
         }
     );
-    const std::string value = parser.optional("--state-file", "");
+    const std::string value = parser.field("--state-file", "");
     ASSERT_EQ(value, "/tmp/rack-config-test/state.json");
 }
 
 TEST_F(XArgsTest, TestEqualsFormatString) {
     auto [argc, argv] = make_args({"program", "--name=test"});
     parser = xargs::Parser(argc, argv);
-    const auto name = parser.required<std::string>("--name");
+    const auto name = parser.field<std::string>("--name");
     EXPECT_TRUE(parser.errors.empty());
     ASSERT_EQ(name, "test");
     cleanup(argc, argv);
@@ -144,7 +143,7 @@ TEST_F(XArgsTest, TestEqualsFormatString) {
 TEST_F(XArgsTest, TestEqualsFormatInteger) {
     auto [argc, argv] = make_args({"program", "--count=42"});
     parser = xargs::Parser(argc, argv);
-    const auto count = parser.required<int>("--count");
+    const auto count = parser.field<int>("--count");
     EXPECT_TRUE(parser.errors.empty());
     ASSERT_EQ(count, 42);
     cleanup(argc, argv);
@@ -153,7 +152,7 @@ TEST_F(XArgsTest, TestEqualsFormatInteger) {
 TEST_F(XArgsTest, TestEqualsFormatOptional) {
     auto [argc, argv] = make_args({"program", "--value=123"});
     parser = xargs::Parser(argc, argv);
-    const auto value = parser.optional<int>("--value", 100);
+    const auto value = parser.field<int>("--value", 100);
     EXPECT_TRUE(parser.errors.empty());
     ASSERT_EQ(value, 123);
     cleanup(argc, argv);
@@ -162,7 +161,7 @@ TEST_F(XArgsTest, TestEqualsFormatOptional) {
 TEST_F(XArgsTest, TestEqualsFormatInvalid) {
     auto [argc, argv] = make_args({"program", "--count=not_a_number"});
     parser = xargs::Parser(argc, argv);
-    const auto count = parser.required<int>("--count");
+    const auto count = parser.field<int>("--count");
     ASSERT_EQ(count, 0);
     EXPECT_FALSE(parser.errors.empty());
     ASSERT_EQ(parser.errors.at(0).message(), "[--count] Invalid value");
@@ -174,8 +173,8 @@ TEST_F(XArgsTest, TestMixedFormatArguments) {
         {"program", "--name=test", "--count", "42", "--verbose", "--debug=true"}
     );
     parser = xargs::Parser(argc, argv);
-    const auto name = parser.required<std::string>("--name");
-    const auto count = parser.required<int>("--count");
+    const auto name = parser.field<std::string>("--name");
+    const auto count = parser.field<int>("--count");
     const auto verbose = parser.flag("--verbose");
     const auto debug = parser.flag("--debug");
 
@@ -198,8 +197,8 @@ TEST_F(XArgsTest, TestPrefixHandling) {
     ASSERT_TRUE(parser.flag("long-flag")); // Auto-add --
     ASSERT_TRUE(parser.flag("-v")); // Preserve single -
     ASSERT_TRUE(parser.flag("v")); // Auto-add --
-    ASSERT_EQ(parser.required<std::string>("-f"), "file.txt"); // Preserve single -
-    ASSERT_EQ(parser.required<std::string>("unprefixed"), "value"); // Auto-add --
+    ASSERT_EQ(parser.field<std::string>("-f"), "file.txt"); // Preserve single -
+    ASSERT_EQ(parser.field<std::string>("unprefixed"), "value"); // Auto-add --
 
     EXPECT_TRUE(parser.errors.empty());
     cleanup(argc, argv);
@@ -229,7 +228,7 @@ TEST_F(XArgsTest, TestNullPointerHandling) {
     EXPECT_TRUE(parser.errors.empty());
 
     // Verify behavior when trying to access values
-    const auto required_str = parser.required<std::string>("test");
+    const auto required_str = parser.field<std::string>("test");
     EXPECT_TRUE(required_str.empty());
     EXPECT_FALSE(parser.errors.empty());
     EXPECT_EQ(parser.errors[0].message(), "[test] Required argument not found");
@@ -238,7 +237,7 @@ TEST_F(XArgsTest, TestNullPointerHandling) {
     parser.errors.clear();
 
     // Test optional values
-    const auto optional_str = parser.optional<std::string>("test", "default");
+    const auto optional_str = parser.field<std::string>("test", "default");
     EXPECT_EQ(optional_str, "default");
     EXPECT_TRUE(parser.errors.empty());
 
@@ -281,20 +280,20 @@ TEST_F(XArgsTest, TestWeirdArgumentNames) {
 
     ASSERT_FALSE(parser.flag("triple-dash"));
     ASSERT_TRUE(parser.flag("---triple-dash"));
-    ASSERT_EQ(parser.required<std::string>("quad-dash"), "");
-    ASSERT_EQ(parser.required<std::string>("----quad-dash"), "value");
+    ASSERT_EQ(parser.field<std::string>("quad-dash"), "");
+    ASSERT_EQ(parser.field<std::string>("----quad-dash"), "value");
     ASSERT_TRUE(parser.flag("weird@#$%chars"));
-    ASSERT_EQ(parser.required<std::string>("spaces"), "");
-    ASSERT_EQ(parser.required<std::string>("unicode-☺"), "smiley");
-    ASSERT_EQ(parser.required<std::string>("empty"), "");
-    ASSERT_EQ(parser.required<std::string>("---"), "direct");
-    ASSERT_EQ(parser.required<std::string>("chain"), "one--chain=two");
+    ASSERT_EQ(parser.field<std::string>("spaces"), "");
+    ASSERT_EQ(parser.field<std::string>("unicode-☺"), "smiley");
+    ASSERT_EQ(parser.field<std::string>("empty"), "");
+    ASSERT_EQ(parser.field<std::string>("---"), "direct");
+    ASSERT_EQ(parser.field<std::string>("chain"), "one--chain=two");
     ASSERT_FALSE(parser.flag("=standalone-equals"));
-    ASSERT_EQ(parser.required<std::string>(""), "standalone-equals");
-    ASSERT_EQ(parser.required<std::string>("=double-equals"), "");
+    ASSERT_EQ(parser.field<std::string>(""), "standalone-equals");
+    ASSERT_EQ(parser.field<std::string>("=double-equals"), "");
     ASSERT_TRUE(parser.flag("missing-equals-dash--next-arg"));
-    ASSERT_EQ(parser.required<std::string>("space"), "");
-    ASSERT_EQ(parser.required<std::string>("-"), "-");
+    ASSERT_EQ(parser.field<std::string>("space"), "");
+    ASSERT_EQ(parser.field<std::string>("-"), "-");
     ASSERT_TRUE(parser.flag("----"));
     ASSERT_TRUE(parser.flag("- -"));
     ASSERT_TRUE(parser.flag("--"));
@@ -319,8 +318,8 @@ TEST_F(XArgsTest, TestDuplicateArguments) {
     );
     parser = xargs::Parser(argc, argv);
 
-    const auto name = parser.required<std::string>("name");
-    const auto count = parser.required<int>("count");
+    const auto name = parser.field<std::string>("name");
+    const auto count = parser.field<int>("count");
     const auto verbose = parser.flag("verbose");
 
     EXPECT_TRUE(parser.errors.empty());
@@ -337,7 +336,7 @@ TEST_F(XArgsTest, TestRegressionDash) {
     });
     parser = xargs::Parser(argc, argv);
 
-    const auto correct_skew = parser.required<bool>("correct_skew");
+    const auto correct_skew = parser.field<bool>("correct_skew");
     EXPECT_TRUE(parser.errors.empty());
     ASSERT_TRUE(correct_skew);
     cleanup(argc, argv);
@@ -353,7 +352,7 @@ TEST_F(XArgsTest, TestVectorArguments) {
     parser = xargs::Parser(argc, argv);
 
     // Test string vector
-    auto strings = parser.required<std::vector<std::string>>("strings");
+    auto strings = parser.field<std::vector<std::string>>("strings");
     EXPECT_TRUE(parser.errors.empty());
     ASSERT_EQ(strings.size(), 3);
     ASSERT_EQ(strings[0], "dog");
@@ -361,14 +360,14 @@ TEST_F(XArgsTest, TestVectorArguments) {
     ASSERT_EQ(strings[2], "ferret");
 
     // Test integer vector
-    auto numbers = parser.required<std::vector<int>>("numbers");
+    auto numbers = parser.field<std::vector<int>>("numbers");
     EXPECT_TRUE(parser.errors.empty());
     ASSERT_EQ(numbers.size(), 5);
     ASSERT_EQ(numbers[0], 1);
     ASSERT_EQ(numbers[4], 5);
 
     // Test double vector
-    auto doubles = parser.required<std::vector<double>>("doubles");
+    auto doubles = parser.field<std::vector<double>>("doubles");
     EXPECT_TRUE(parser.errors.empty());
     ASSERT_EQ(doubles.size(), 3);
     ASSERT_DOUBLE_EQ(doubles[0], 1.5);
@@ -377,7 +376,7 @@ TEST_F(XArgsTest, TestVectorArguments) {
 
     // Test optional vector with default
     std::vector<int> default_vec = {1, 2, 3};
-    auto optional_nums = parser.optional<std::vector<int>>("missing", default_vec);
+    auto optional_nums = parser.field<std::vector<int>>("missing", default_vec);
     EXPECT_TRUE(parser.errors.empty());
     ASSERT_EQ(optional_nums, default_vec);
 

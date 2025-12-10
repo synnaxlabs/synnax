@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// internal
 #include "driver/modbus/channels.h"
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/util/util.h"
@@ -101,9 +100,10 @@ public:
     xerrors::Error initialize_state(const std::shared_ptr<device::Device> &dev) {
         if (!this->state.empty()) return xerrors::NIL;
         const auto &last_ch = channels.back();
+        // Use ceiling division to convert bytes to 16-bit registers
         state.resize(
             last_ch.address - channels.front().address +
-            last_ch.value_type.density() / 2
+            (last_ch.value_type.density() + 1) / 2
         );
         return dev->read_registers(
             device::HoldingRegister,
@@ -145,10 +145,13 @@ struct WriteTaskConfig {
     device::ConnectionConfig conn;
     /// @brief the list of writers to use for writing data to the device.
     std::vector<std::unique_ptr<Writer>> writers;
+    /// @brief whether to automatically start the task after configuration.
+    bool auto_start;
 
     WriteTaskConfig(const std::shared_ptr<synnax::Synnax> &client, xjson::Parser &cfg):
-        device_key(cfg.required<std::string>("device")) {
-        auto [dev_info, dev_err] = client->hardware.retrieve_device(this->device_key);
+        device_key(cfg.field<std::string>("device")),
+        auto_start(cfg.field<bool>("auto_start", false)) {
+        auto [dev_info, dev_err] = client->devices.retrieve(this->device_key);
         if (dev_err) {
             cfg.field_err("device", dev_err);
             return;
@@ -162,7 +165,7 @@ struct WriteTaskConfig {
         std::vector<channel::OutputCoil> coils;
         std::vector<channel::OutputHoldingRegister> registers;
         cfg.iter("channels", [&](xjson::Parser &ch) {
-            const auto type = ch.required<std::string>("type");
+            const auto type = ch.field<std::string>("type");
             if (type == "coil_output")
                 coils.emplace_back(ch);
             else if (type == "holding_register_output")
@@ -190,16 +193,16 @@ struct WriteTaskConfig {
     /// @param client the Synnax client to use to retrieve the device and channel
     /// information.
     /// @param task the task to parse.
-    /// @returns a pair containing the parsed configuration and any error that
-    /// occurred during parsing.
+    /// @returns a pair containing the parsed configuration and any error that occurred.
     static std::pair<WriteTaskConfig, xerrors::Error>
     parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::Task &task) {
         auto parser = xjson::Parser(task.config);
-        return {WriteTaskConfig(client, parser), parser.error()};
+        WriteTaskConfig cfg(client, parser);
+        return {std::move(cfg), parser.error()};
     }
 };
 
-/// @brief implements common::Sink to write to a modbus device.
+/// @brief implements common::Sink to write to a Modbus server.
 class WriteTaskSink final : public common::Sink {
     /// @brief the configuration for the task.
     const WriteTaskConfig config;

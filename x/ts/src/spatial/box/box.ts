@@ -9,11 +9,11 @@
 
 import { z } from "zod";
 
-import type * as bounds from "@/spatial/bounds/bounds";
-import type * as dimensions from "@/spatial/dimensions/dimensions";
-import * as direction from "@/spatial/direction/direction";
-import * as location from "@/spatial/location/location";
-import * as xy from "@/spatial/xy/xy";
+import { type bounds } from "@/spatial/bounds";
+import { type dimensions } from "@/spatial/dimensions";
+import { direction } from "@/spatial/direction";
+import { location } from "@/spatial/location";
+import { xy } from "@/spatial/xy";
 
 const cssPos = z.union([z.number(), z.string()]);
 

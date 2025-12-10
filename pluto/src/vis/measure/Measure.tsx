@@ -11,65 +11,81 @@ import { xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 
 import { Aether } from "@/aether";
+import { useSyncedRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { LinePlot } from "@/lineplot";
 import { Triggers } from "@/triggers";
 import { type Viewport } from "@/viewport";
 import { measure } from "@/vis/measure/aether";
 
-type ClickMode = "one" | "two" | "clear" | "empty";
-
-const MEASURE_TRIGGERS: Triggers.ModeConfig<ClickMode> = {
-  defaultMode: "empty",
+const MEASURE_TRIGGERS: Triggers.ModeConfig<measure.Mode> = {
   one: [["1"]],
   two: [["2"]],
-  clear: [["Shift"]],
-  empty: [[]],
+  defaultMode: "one",
 };
 
 const REDUCED_MEASURE_TRIGGERS = Triggers.flattenConfig(MEASURE_TRIGGERS);
 
-export interface MeasureProps extends Aether.ComponentProps {}
+export interface MeasureProps extends Aether.ComponentProps {
+  mode?: measure.Mode;
+  onModeChange?: (mode: measure.Mode) => void;
+}
 
-export const Measure = ({ aetherKey }: MeasureProps): ReactElement => {
+const determineMode = (triggers: Triggers.Trigger[]): measure.Mode =>
+  Triggers.determineMode<measure.Mode>(MEASURE_TRIGGERS, triggers, { loose: true });
+
+export const Measure = ({
+  aetherKey,
+  mode = "one",
+  onModeChange,
+}: MeasureProps): ReactElement => {
   const cKey = useUniqueKey(aetherKey);
-  const [, , setState] = Aether.use({
+  const [, state, setState] = Aether.use({
     aetherKey: cKey,
     type: measure.Measure.TYPE,
     schema: measure.measureStateZ,
-    initialState: { hover: null, one: null, two: null },
+    initialState: { hover: null, one: null, two: null, mode },
   });
+
+  useEffect(() => setState((p) => ({ ...p, mode })), [mode]);
 
   const ref = useRef<HTMLSpanElement>(null);
 
-  const triggers = Triggers.useHeldRef({
+  Triggers.use({
     triggers: REDUCED_MEASURE_TRIGGERS,
     loose: true,
+    callback: useCallback(
+      (e: Triggers.UseEvent) => {
+        const measureMode = determineMode(e.triggers);
+        if (measureMode === "one" || measureMode === "two") onModeChange?.(measureMode);
+      },
+      [onModeChange],
+    ),
   });
+
+  const measureModeRef = useSyncedRef(mode);
+  const hasSecondRef = useSyncedRef(state.two != null);
+  const hasFirstRef = useSyncedRef(state.one != null);
 
   const handleClick: Viewport.UseHandler = useCallback(
     ({ mode, cursor }): void => {
+      const measureMode = measureModeRef.current;
       if (mode === "click") {
-        const measureMode = Triggers.determineMode<ClickMode>(
-          MEASURE_TRIGGERS,
-          triggers.current.triggers,
-          { loose: true },
-        );
-        if (["one", "two"].includes(measureMode))
-          return setState((p) => ({ ...p, [measureMode]: cursor }));
-        if (measureMode === "clear") setState((p) => ({ ...p, one: null, two: null }));
-        else
-          setState((p) => ({
-            ...p,
-            one: p.one ?? cursor,
-            two: p.one !== null ? cursor : p.two,
-          }));
+        const isOne = measureMode === "one";
+        const isTwo = measureMode === "two";
+        setState((p) => ({ ...p, [measureMode]: cursor }));
+        const moveToTwo = isOne && !hasSecondRef.current;
+        const moveToOne = isTwo && !hasFirstRef.current;
+        if (moveToTwo || moveToOne)
+          // Add a small delay to allow the aether state to propagate. This ensures
+          // that we don't accidentally clear the new point state we just set.
+          setTimeout(() => onModeChange?.(moveToTwo ? "two" : "one"), 10);
       }
     },
-    [setState, triggers],
+    [setState, onModeChange],
   );
 
-  LinePlot.useViewport(handleClick);
+  LinePlot.useViewport(handleClick, "Measure.Measure");
 
   const handleMove = useCallback(
     (e: MouseEvent): void => setState((p) => ({ ...p, hover: xy.construct(e) })),

@@ -31,17 +31,14 @@ const listItem = Component.renderProp((props: OntologyListItemProps) => {
   const { itemKey } = props;
   const id = ontology.idZ.parse(itemKey);
   const item = List.useItem<string, ontology.Resource>(itemKey);
-  const { icon, onSelect, PaletteListItem } = Ontology.useService(id.type);
+  const { icon, PaletteListItem } = Ontology.useService(id.type);
   if (item == null) return null;
   const { name } = item;
-  // return null if the ontology service does not have an onSelect method, that way we
-  // don't show pointless items in the palette.
-  return onSelect == null ? null : PaletteListItem != null ? (
-    <PaletteListItem {...props} />
-  ) : (
+  if (PaletteListItem != null) return <PaletteListItem {...props} />;
+  return (
     <Select.ListItem highlightHovered {...props}>
       <Text.Text weight={450} gap="medium">
-        {isValidElement(icon) ? icon : icon(item)}
+        {icon != null && (isValidElement(icon) ? icon : icon(item))}
         {name}
       </Text.Text>
     </Select.ListItem>
@@ -49,8 +46,12 @@ const listItem = Component.renderProp((props: OntologyListItemProps) => {
 });
 
 export const useResourceList = (): UseListReturn<ontology.Resource> => {
-  const { data, getItem, subscribe, retrieve } = POntology.useResourceList();
   const services = Ontology.useServices();
+  const filter = useCallback(
+    (item: ontology.Resource) => services[item.id.type].onSelect != null,
+    [services],
+  );
+  const { data, getItem, subscribe, retrieve } = POntology.useResourceList({ filter });
   const client = Synnax.use();
   const store = useStore<RootState, RootAction>();
   const addStatus = Status.useAdder();

@@ -11,6 +11,7 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
+      - scripts/sanitizers/**
       - x/cpp/**
       - x/go/**/*.pb.go
   push:
@@ -26,6 +27,7 @@ on:
       - MODULE.bazel
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
+      - scripts/sanitizers/**
       - x/cpp/**
       - x/go/**/*.pb.go
   workflow_dispatch:
@@ -34,6 +36,7 @@ jobs:
   test:
     name: Test (${{ matrix.os }})
     strategy:
+      fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
@@ -41,11 +44,11 @@ jobs:
             format: true
         exclude:
           - os:
-              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
-              'macos-latest' }}
+              ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
+              'refs/heads/main' && github.base_ref != 'main') && 'macos-latest' }}
           - os:
-              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
-              'windows-latest' }}
+              ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
+              'refs/heads/main' && github.base_ref != 'main') && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -70,5 +73,19 @@ jobs:
         if: matrix.format
         run: scripts/check_clang_format.sh x/cpp
 
-      - name: Test
-        run: bazel test --test_output=all //x/cpp/... --nocache_test_results
+      - name: Test (macOS)
+        if: matrix.os == 'macos-latest'
+        run:
+          bazel test --config=asan --test_output=all //x/cpp/...
+          --test_tag_filters=-no-asan
+        shell: bash
+
+      - name: Test (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: bazel test --config=asan-leak --test_output=all //x/cpp/...
+        shell: bash
+
+      - name: Test (Windows)
+        if: matrix.os == 'windows-latest'
+        run: bazel test --test_output=all //x/cpp/...
+        shell: bash

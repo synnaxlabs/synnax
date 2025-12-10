@@ -19,7 +19,13 @@ import {
   scale,
   xy,
 } from "@synnaxlabs/x";
-import { type CSSProperties, type FC, type ReactElement, useMemo } from "react";
+import {
+  type CSSProperties,
+  type FC,
+  type ReactElement,
+  useMemo,
+  useState,
+} from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
@@ -36,6 +42,7 @@ import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Button as CoreButton } from "@/vis/button";
 import { Gauge as CoreGauge } from "@/vis/gauge";
+import { Input as CoreInput } from "@/vis/input";
 import { Light as CoreLight } from "@/vis/light";
 import { Setpoint as CoreSetpoint } from "@/vis/setpoint";
 import { Toggle } from "@/vis/toggle";
@@ -170,9 +177,9 @@ export const createToggle = <P extends object = record.Unknown>(
         symbolKey={symbolKey}
         items={gridItems}
         onRotate={() =>
-          onChange({ orientation: location.rotate90(orientation) } as Partial<
-            ToggleProps<P>
-          >)
+          onChange({
+            orientation: location.rotate(orientation, "clockwise"),
+          } as Partial<ToggleProps<P>>)
         }
         onLocationChange={(key, loc) => {
           if (key === "label")
@@ -234,9 +241,9 @@ export const createLabeled = <P extends object = record.Unknown>(
         editable={selected}
         symbolKey={symbolKey}
         onRotate={() =>
-          onChange({ orientation: location.rotate90(orientation) } as Partial<
-            LabeledProps<P>
-          >)
+          onChange({
+            orientation: location.rotate(orientation, "clockwise"),
+          } as Partial<LabeledProps<P>>)
         }
         onLocationChange={(key, loc) => {
           if (key === "label")
@@ -287,9 +294,9 @@ export const createDummyToggle = <P extends object = record.Unknown>(
         editable={selected}
         symbolKey={symbolKey}
         onRotate={() =>
-          onChange({ orientation: location.rotate90(orientation) } as Partial<
-            LabeledProps<P>
-          >)
+          onChange({
+            orientation: location.rotate(orientation, "clockwise"),
+          } as Partial<LabeledProps<P>>)
         }
         onLocationChange={(key, loc) => {
           if (key === "label")
@@ -655,6 +662,67 @@ export const BoxPreview = (props: BoxProps): ReactElement => (
   <Primitives.Tank {...props} dimensions={{ width: 25, height: 50 }} borderRadius={0} />
 );
 
+export interface InputProps
+  extends Omit<Primitives.InputProps, "value" | "onChange">,
+    Omit<CoreInput.UseProps, "aetherKey"> {
+  label?: LabelExtensionProps;
+  control?: ControlStateProps;
+}
+
+export const Input = ({
+  label,
+  symbolKey,
+  orientation = "left",
+  control,
+  color,
+  sink,
+  onChange,
+  selected,
+  size,
+  disabled,
+  draggable,
+}: SymbolProps<InputProps>): ReactElement => {
+  const { set } = CoreInput.use({ aetherKey: symbolKey, sink });
+  const gridItems: GridItem[] = [];
+  const controlItem = controlStateGridItem(control);
+  if (controlItem != null) gridItems.push(controlItem);
+  const labelItem = labelGridItem(label, onChange);
+  if (labelItem != null) gridItems.push(labelItem);
+  const [value, setValue] = useState("");
+  return (
+    <Grid
+      symbolKey={symbolKey}
+      allowRotate={false}
+      editable={selected && !draggable}
+      items={gridItems}
+      onLocationChange={(key, loc) => {
+        if (key !== "label") return;
+        onChange({ label: { ...label, orientation: loc } });
+      }}
+    >
+      <Primitives.Input
+        value={value}
+        onChange={setValue}
+        onSend={set}
+        color={color}
+        orientation={orientation}
+        disabled={disabled}
+        size={size}
+      />
+    </Grid>
+  );
+};
+
+export const InputPreview = ({ color, className }: InputProps): ReactElement => (
+  <Primitives.Input
+    value="send message"
+    onChange={() => {}}
+    color={color}
+    disabled
+    className={CSS(CSS.BM("input-symbol", "preview"), className)}
+  />
+);
+
 export interface SetpointProps
   extends Omit<Primitives.SetpointProps, "value" | "onChange">,
     Omit<CoreSetpoint.UseProps, "aetherKey"> {
@@ -688,11 +756,6 @@ export const Setpoint = ({
       symbolKey={symbolKey}
       allowRotate={false}
       editable={selected && !draggable}
-      onRotate={() =>
-        onChange({
-          orientation: location.rotate90(orientation),
-        } as Partial<SetpointProps>)
-      }
       items={gridItems}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;
@@ -998,7 +1061,7 @@ export const Button = ({
     <Grid
       onRotate={() =>
         onChange({
-          orientation: location.rotate90(orientation),
+          orientation: location.rotate(orientation, "clockwise"),
         } as Partial<ButtonProps>)
       }
       allowRotate={false}

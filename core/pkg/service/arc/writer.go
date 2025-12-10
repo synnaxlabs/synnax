@@ -14,7 +14,9 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/core"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	xstatus "github.com/synnaxlabs/x/status"
@@ -28,7 +30,7 @@ import (
 type Writer struct {
 	tx     gorp.Tx
 	otg    ontology.Writer
-	status status.Writer
+	status status.Writer[core.StatusDetails]
 }
 
 // Create creates the given Arc. If the Arc does not have a key,
@@ -54,20 +56,18 @@ func (w Writer) Create(
 	}
 	otgID := OntologyID(c.Key)
 	if !exists {
-		if err := w.otg.DefineResource(ctx, otgID); err != nil {
+		if err = w.otg.DefineResource(ctx, otgID); err != nil {
 			return err
 		}
 	}
 
-	return w.status.SetWithParent(ctx, &status.Status{
+	return w.status.SetWithParent(ctx, &status.Status[core.StatusDetails]{
 		Name:    fmt.Sprintf("%s Status", c.Name),
 		Key:     c.Key.String(),
 		Variant: xstatus.LoadingVariant,
 		Message: "Deploying",
 		Time:    telem.Now(),
-		Details: map[string]interface{}{
-			"running": false,
-		},
+		Details: core.StatusDetails{Running: false},
 	}, otgID)
 }
 
@@ -78,6 +78,10 @@ func (w Writer) Delete(
 ) (err error) {
 	if err = gorp.NewDelete[uuid.UUID, Arc]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
 		return
+	}
+	statusKeys := lo.Map(keys, func(k uuid.UUID, _ int) string { return k.String() })
+	if err = w.status.DeleteMany(ctx, statusKeys...); err != nil {
+		return err
 	}
 	for _, key := range keys {
 		if err = w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {

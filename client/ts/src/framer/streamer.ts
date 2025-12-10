@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
-import { breaker, observe, TimeSpan } from "@synnaxlabs/x";
+import { breaker, observe, Rate, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
@@ -18,7 +18,11 @@ import { WSStreamerCodec } from "@/framer/codec";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
-const reqZ = z.object({ keys: z.number().array(), downsampleFactor: z.number() });
+const reqZ = z.object({
+  keys: z.number().array(),
+  downsampleFactor: z.int(),
+  throttleRate: Rate.z.optional(),
+});
 
 /**
  * Request interface for streaming frames from a Synnax cluster.
@@ -34,16 +38,16 @@ const resZ = z.object({ frame: frameZ });
  */
 export interface StreamerResponse extends z.infer<typeof resZ> {}
 
-const ENDPOINT = "/frame/stream";
-
 const intermediateStreamerConfigZ = z.object({
   /** The channels to stream data from. Can be channel keys, names, or payloads. */
   channels: paramsZ,
   /** Optional factor to downsample the data by. Defaults to 1 (no downsampling). */
-  downsampleFactor: z.number().optional().default(1),
-  /** useHighPerformanceCodec sets whether the writer will use the synnax frame
-  /* encoder as opposed to the standard JSON encoding mechanisms for frames. */
-  useHighPerformanceCodec: z.boolean().optional().default(true),
+  downsampleFactor: z.int().default(1),
+  /** Optional throttle rate in Hz to limit the rate of frames sent to the client. Defaults to 0 (no throttling). */
+  throttleRate: Rate.z.default(new Rate(0)),
+  /** useHighPerformanceCodec sets whether the writer will use the Synnax frame encoder
+   as opposed to the standard JSON encoding mechanisms for frames. */
+  useHighPerformanceCodec: z.boolean().default(true),
 });
 
 export const streamerConfigZ = intermediateStreamerConfigZ.or(
@@ -106,9 +110,18 @@ export const createStreamOpener =
     const adapter = await ReadAdapter.open(retriever, cfg.channels);
     if (cfg.useHighPerformanceCodec)
       client = client.withCodec(new WSStreamerCodec(adapter.codec));
-    const stream = await client.stream(ENDPOINT, reqZ, resZ);
-    const streamer = new CoreStreamer(stream, adapter);
-    stream.send({ keys: adapter.keys, downsampleFactor: cfg.downsampleFactor ?? 1 });
+    const stream = await client.stream("/frame/stream", reqZ, resZ);
+    const streamer = new CoreStreamer(
+      stream,
+      adapter,
+      cfg.downsampleFactor,
+      cfg.throttleRate,
+    );
+    stream.send({
+      keys: Array.from(adapter.keys),
+      downsampleFactor: cfg.downsampleFactor,
+      throttleRate: cfg.throttleRate,
+    });
     const [, err] = await stream.receive();
     if (err != null) throw err;
     return streamer;
@@ -131,15 +144,22 @@ class CoreStreamer implements Streamer {
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
   private readonly adapter: ReadAdapter;
   private readonly downsampleFactor: number;
+  private readonly throttleRate: Rate;
 
-  constructor(stream: Stream<typeof reqZ, typeof resZ>, adapter: ReadAdapter) {
+  constructor(
+    stream: Stream<typeof reqZ, typeof resZ>,
+    adapter: ReadAdapter,
+    downsampleFactor: number = 1,
+    throttleRate: Rate = new Rate(0),
+  ) {
     this.stream = new StreamProxy("Streamer", stream);
     this.adapter = adapter;
-    this.downsampleFactor = 1;
+    this.downsampleFactor = downsampleFactor;
+    this.throttleRate = throttleRate;
   }
 
   get keys(): channel.Key[] {
-    return this.adapter.keys;
+    return Array.from(this.adapter.keys);
   }
 
   async next(): Promise<IteratorResult<Frame, any>> {
@@ -160,8 +180,9 @@ class CoreStreamer implements Streamer {
     const hasChanged = await this.adapter.update(channels);
     if (!hasChanged) return;
     this.stream.send({
-      keys: this.adapter.keys,
+      keys: Array.from(this.adapter.keys),
       downsampleFactor: this.downsampleFactor,
+      throttleRate: this.throttleRate,
     });
   }
 

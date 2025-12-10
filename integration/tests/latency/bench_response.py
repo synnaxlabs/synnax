@@ -13,14 +13,14 @@ from time import time as now
 
 import synnax as sy
 
-from framework.test_case import TestCase
+from tests.latency.latency import Latency
 
 
-class BenchResponse(TestCase):
+class BenchResponse(Latency):
 
     def setup(self) -> None:
-
-        self.set_manual_timeout(15)
+        super().setup()
+        self.set_manual_timeout(10)
 
         self.bench_client = sy.Synnax(
             host=self.synnax_connection.server_address,
@@ -32,7 +32,6 @@ class BenchResponse(TestCase):
 
         self.state_channel = "bench_state"
         self.cmd_channel = "bench_command"
-        self.test_state = True
 
         self.bench_client.channels.create(
             name=self.state_channel,
@@ -53,8 +52,6 @@ class BenchResponse(TestCase):
         Run the test case.
         """
 
-        start: float = time.time()
-        uptime: int = 0
         state_channel: str = self.state_channel
         cmd_channel: str = self.cmd_channel
 

@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/client";
 import {
+  Access,
   Component,
   Flex,
   type Flux,
@@ -41,11 +42,12 @@ const componentRenderProp = Component.renderProp(Item);
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
+  const canEdit = Access.useUpdateGranted(status.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No statuses found."
-      action="Create a status"
-      onClick={() => placeLayout(CREATE_LAYOUT)}
+      action={canEdit ? "Create a status" : undefined}
+      onClick={canEdit ? () => placeLayout(CREATE_LAYOUT) : undefined}
     />
   );
 };
@@ -128,11 +130,7 @@ export const List = ({
             <Filters request={request} onRequestChange={handleRequestChange} />
           </Flex.Box>
         )}
-        <PList.Items<status.Key>
-          emptyContent={<EmptyContent />}
-          displayItems={Infinity}
-          grow
-        >
+        <PList.Items<status.Key> emptyContent={<EmptyContent />} grow>
           {componentRenderProp}
         </PList.Items>
       </Select.Frame>

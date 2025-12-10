@@ -20,9 +20,8 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -33,7 +32,7 @@ var _ = Describe("Delete", func() {
 		Context("FS: "+fsName, Ordered, func() {
 			var (
 				db      *cesium.DB
-				fs      xfs.FS
+				fs      fs.FS
 				cleanUp func() error
 			)
 			BeforeAll(func() {
@@ -254,7 +253,7 @@ var _ = Describe("Delete", func() {
 						}))
 
 						By("Writing data to the channel")
-						MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey](
+						MustSucceed(w.Write(telem.MultiFrame(
 							[]cesium.ChannelKey{dataChannelKey, indexChannelKey},
 							[]telem.Series{
 								telem.NewSeriesV[int64](100, 101, 102),
@@ -505,7 +504,7 @@ var _ = Describe("Delete", func() {
 						}))
 
 						By("Writing data to the channel")
-						MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey](
+						MustSucceed(w.Write(telem.MultiFrame(
 							[]cesium.ChannelKey{basic1, basic1Index},
 							[]telem.Series{
 								telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
@@ -534,18 +533,18 @@ var _ = Describe("Delete", func() {
 						Expect(frame.Count()).To(Equal(2))
 						Expect(frame.SeriesAt(0).TimeRange.End).To(Equal(12 * telem.SecondTS))
 
-						series0Data := telem.UnmarshalSlice[int](frame.SeriesAt(0).Data, telem.Int64T)
-						Expect(series0Data).To(ContainElement(0))
-						Expect(series0Data).To(ContainElement(1))
-						Expect(series0Data).ToNot(ContainElement(2))
+						series0Data := telem.UnmarshalSlice[int64](frame.SeriesAt(0).Data, telem.Int64T)
+						Expect(series0Data).To(ContainElement(int64(0)))
+						Expect(series0Data).To(ContainElement(int64(1)))
+						Expect(series0Data).ToNot(ContainElement(int64(2)))
 
 						Expect(frame.SeriesAt(1).TimeRange.Start).To(Equal(17 * telem.SecondTS))
-						series1Data := telem.UnmarshalSlice[int](frame.SeriesAt(1).Data, telem.Int64T)
+						series1Data := telem.UnmarshalSlice[int64](frame.SeriesAt(1).Data, telem.Int64T)
 
-						Expect(series1Data).ToNot(ContainElement(6))
-						Expect(series1Data).To(ContainElement(7))
-						Expect(series1Data).To(ContainElement(8))
-						Expect(series1Data).To(ContainElement(9))
+						Expect(series1Data).ToNot(ContainElement(int64(6)))
+						Expect(series1Data).To(ContainElement(int64(7)))
+						Expect(series1Data).To(ContainElement(int64(8)))
+						Expect(series1Data).To(ContainElement(int64(9)))
 					})
 				})
 
@@ -562,7 +561,7 @@ var _ = Describe("Delete", func() {
 						}))
 
 						By("Writing data to the channel")
-						MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey](
+						MustSucceed(w.Write(telem.MultiFrame(
 							[]cesium.ChannelKey{basic2Index},
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19),
@@ -617,7 +616,7 @@ var _ = Describe("Delete", func() {
 						}))
 
 						By("Writing data to the channel")
-						MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey](
+						MustSucceed(w.Write(telem.MultiFrame(
 							[]cesium.ChannelKey{basic3, basic3Index},
 							[]telem.Series{
 								telem.NewSeriesV[int64](100, 101, 102),
@@ -657,13 +656,12 @@ var _ = Describe("Delete", func() {
 								cesium.Channel{Name: "Bohmer", Key: basic2, DataType: telem.Int64T, Index: index1},
 							)).To(Succeed())
 							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-								Channels:         []cesium.ChannelKey{index1, basic1, basic2},
-								Start:            10 * telem.SecondTS,
-								EnableAutoCommit: config.True(),
+								Channels: []cesium.ChannelKey{index1, basic1, basic2},
+								Start:    10 * telem.SecondTS,
 							}))
 
 							By("Writing data to the channel")
-							MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey](
+							MustSucceed(w.Write(telem.MultiFrame(
 								[]cesium.ChannelKey{index1, basic1, basic2},
 								[]telem.Series{
 									telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14),
@@ -700,11 +698,10 @@ var _ = Describe("Delete", func() {
 
 							By("Asserting that writes are still successful")
 							w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-								Channels:         []cesium.ChannelKey{index1, basic1, basic2},
-								Start:            11 * telem.SecondTS,
-								EnableAutoCommit: config.True(),
+								Channels: []cesium.ChannelKey{index1, basic1, basic2},
+								Start:    11 * telem.SecondTS,
 							}))
-							MustSucceed(w.Write(telem.MultiFrame[cesium.ChannelKey](
+							MustSucceed(w.Write(telem.MultiFrame(
 								[]cesium.ChannelKey{index1, basic1, basic2},
 								[]telem.Series{
 									telem.NewSeriesSecondsTSV(11, 12, 13, 14),
@@ -745,7 +742,7 @@ var _ = Describe("Delete", func() {
 						Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{math.MaxUint32 - 10}, telem.TimeRangeMax)).To(MatchError(cesium.ErrChannelNotFound))
 					})
 					It("Should not delete any data when one channel does not exist", func() {
-						Expect(db.Write(ctx, 0, telem.MultiFrame[cesium.ChannelKey](
+						Expect(db.Write(ctx, 0, telem.MultiFrame(
 							[]core.ChannelKey{data, index},
 							[]telem.Series{telem.NewSeriesV[int64](0, 1, 2, 3), telem.NewSeriesSecondsTSV(0, 1, 2, 3)},
 						))).To(Succeed())
@@ -817,7 +814,7 @@ var _ = Describe("Delete", func() {
 
 						Expect(db.CreateChannel(ctx, newChannels...)).To(Succeed())
 
-						Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
+						Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
 							[]cesium.ChannelKey{index, data, data2, data3},
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14),

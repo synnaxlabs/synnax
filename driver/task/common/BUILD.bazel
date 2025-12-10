@@ -17,12 +17,14 @@ cc_library(
         "//driver/transform",
         "//x/cpp/loop",
         "//x/cpp/status",
+        "//x/cpp/xthread",
     ],
 )
 
 cc_test(
     name = "common_test",
     srcs = [
+        "common_test.cpp",
         "factory_test.cpp",
         "read_task_test.cpp",
         "sample_clock_test.cpp",

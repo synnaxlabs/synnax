@@ -7,27 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, UnexpectedError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/pluto";
+import { DisconnectedError, task, UnexpectedError } from "@synnaxlabs/client";
+import { Access, Icon } from "@synnaxlabs/pluto";
 
 import { ANALOG_READ_LAYOUT } from "@/hardware/ni/task/AnalogRead";
 import { ANALOG_WRITE_LAYOUT } from "@/hardware/ni/task/AnalogWrite";
+import { COUNTER_READ_LAYOUT } from "@/hardware/ni/task/CounterRead";
 import { DIGITAL_READ_LAYOUT } from "@/hardware/ni/task/DigitalRead";
 import { DIGITAL_WRITE_LAYOUT } from "@/hardware/ni/task/DigitalWrite";
 import {
   importAnalogRead,
   importAnalogWrite,
+  importCounterRead,
   importDigitalRead,
   importDigitalWrite,
 } from "@/hardware/ni/task/import";
 import { SCAN_SCHEMAS, SCAN_TYPE } from "@/hardware/ni/task/types";
 import { type Palette } from "@/palette";
 
+const visibleFilter = ({ store, client }: Palette.CommandVisibleContext) =>
+  Access.updateGranted({ id: task.TYPE_ONTOLOGY_ID, store, client });
+
 const CREATE_ANALOG_READ_COMMAND: Palette.Command = {
   key: "ni-create-analog-read-task",
   name: "Create an NI Analog Read Task",
   icon: <Icon.Logo.NI />,
   onSelect: ({ placeLayout }) => placeLayout(ANALOG_READ_LAYOUT),
+  visible: visibleFilter,
 };
 
 const CREATE_ANALOG_WRITE_COMMAND: Palette.Command = {
@@ -35,6 +41,15 @@ const CREATE_ANALOG_WRITE_COMMAND: Palette.Command = {
   name: "Create an NI Analog Write Task",
   icon: <Icon.Logo.NI />,
   onSelect: ({ placeLayout }) => placeLayout(ANALOG_WRITE_LAYOUT),
+  visible: visibleFilter,
+};
+
+const CREATE_COUNTER_READ_COMMAND: Palette.Command = {
+  key: "ni-create-counter-read-task",
+  name: "Create an NI Counter Read Task",
+  icon: <Icon.Logo.NI />,
+  onSelect: ({ placeLayout }) => placeLayout(COUNTER_READ_LAYOUT),
+  visible: visibleFilter,
 };
 
 const CREATE_DIGITAL_WRITE_COMMAND: Palette.Command = {
@@ -42,6 +57,7 @@ const CREATE_DIGITAL_WRITE_COMMAND: Palette.Command = {
   name: "Create an NI Digital Write Task",
   icon: <Icon.Logo.NI />,
   onSelect: ({ placeLayout }) => placeLayout(DIGITAL_WRITE_LAYOUT),
+  visible: visibleFilter,
 };
 
 const CREATE_DIGITAL_READ_COMMAND: Palette.Command = {
@@ -49,6 +65,7 @@ const CREATE_DIGITAL_READ_COMMAND: Palette.Command = {
   name: "Create an NI Digital Read Task",
   icon: <Icon.Logo.NI />,
   onSelect: ({ placeLayout }) => placeLayout(DIGITAL_READ_LAYOUT),
+  visible: visibleFilter,
 };
 
 const IMPORT_ANALOG_READ_COMMAND: Palette.Command = {
@@ -57,6 +74,7 @@ const IMPORT_ANALOG_READ_COMMAND: Palette.Command = {
   sortOrder: -1,
   icon: <Icon.Logo.NI />,
   onSelect: importAnalogRead,
+  visible: visibleFilter,
 };
 
 const IMPORT_ANALOG_WRITE_COMMAND: Palette.Command = {
@@ -65,6 +83,16 @@ const IMPORT_ANALOG_WRITE_COMMAND: Palette.Command = {
   sortOrder: -1,
   icon: <Icon.Logo.NI />,
   onSelect: importAnalogWrite,
+  visible: visibleFilter,
+};
+
+const IMPORT_COUNTER_READ_COMMAND: Palette.Command = {
+  key: "ni-import-counter-read-task",
+  name: "Import NI Counter Read Task(s)",
+  sortOrder: -1,
+  icon: <Icon.Logo.NI />,
+  onSelect: importCounterRead,
+  visible: visibleFilter,
 };
 
 const IMPORT_DIGITAL_READ_COMMAND: Palette.Command = {
@@ -73,6 +101,7 @@ const IMPORT_DIGITAL_READ_COMMAND: Palette.Command = {
   sortOrder: -1,
   icon: <Icon.Logo.NI />,
   onSelect: importDigitalRead,
+  visible: visibleFilter,
 };
 
 const IMPORT_DIGITAL_WRITE_COMMAND: Palette.Command = {
@@ -81,16 +110,18 @@ const IMPORT_DIGITAL_WRITE_COMMAND: Palette.Command = {
   sortOrder: -1,
   icon: <Icon.Import />,
   onSelect: importDigitalWrite,
+  visible: visibleFilter,
 };
 
 const TOGGLE_SCAN_TASK_COMMAND: Palette.Command = {
   key: "ni-toggle-scan-task",
   name: "Toggle the NI Device Scanner",
   icon: <Icon.Logo.NI />,
+  visible: visibleFilter,
   onSelect: ({ client, addStatus, handleError }) => {
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
-      const scanTasks = await client.hardware.tasks.retrieve({
+      const scanTasks = await client.tasks.retrieve({
         types: [SCAN_TYPE],
         schemas: SCAN_SCHEMAS,
       });
@@ -99,7 +130,7 @@ const TOGGLE_SCAN_TASK_COMMAND: Palette.Command = {
       const { config, payload } = scanTasks[0];
       const {
         config: { enabled },
-      } = await client.hardware.tasks.create(
+      } = await client.tasks.create(
         {
           ...payload,
           config: { ...config, enabled: !config.enabled },
@@ -117,10 +148,12 @@ const TOGGLE_SCAN_TASK_COMMAND: Palette.Command = {
 export const COMMANDS = [
   CREATE_ANALOG_READ_COMMAND,
   CREATE_ANALOG_WRITE_COMMAND,
+  CREATE_COUNTER_READ_COMMAND,
   CREATE_DIGITAL_WRITE_COMMAND,
   CREATE_DIGITAL_READ_COMMAND,
   IMPORT_ANALOG_READ_COMMAND,
   IMPORT_ANALOG_WRITE_COMMAND,
+  IMPORT_COUNTER_READ_COMMAND,
   IMPORT_DIGITAL_READ_COMMAND,
   IMPORT_DIGITAL_WRITE_COMMAND,
   TOGGLE_SCAN_TASK_COMMAND,

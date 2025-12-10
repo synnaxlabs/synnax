@@ -1,9 +1,16 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 #pragma once
 
-/// external
 #include "glog/logging.h"
 
-/// internal
 #include "driver/task/task.h"
 
 namespace common {
@@ -71,8 +78,8 @@ configure_initial_factory_tasks(
     if (task != nullptr)
         tasks.emplace_back(sy_task, std::move(task));
     else
-        LOG(WARNING) << "[" << integration_name
-                     << "] unexpected failure to configure initial scan task";
+        VLOG(1) << "[" << integration_name
+                << "] failure to configure initial scan task";
     return tasks;
 }
 

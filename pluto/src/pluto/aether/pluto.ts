@@ -10,6 +10,7 @@
 import { Instrumentation, Logger, logThresholdFilter } from "@synnaxlabs/alamos";
 import { RoutedWorker } from "@synnaxlabs/x";
 
+import { access } from "@/access/aether";
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { flux } from "@/flux/aether";
@@ -30,6 +31,7 @@ import { canvas } from "@/vis/canvas/aether";
 import { diagram } from "@/vis/diagram/aether";
 import { eraser } from "@/vis/eraser/aether";
 import { gauge } from "@/vis/gauge/aether";
+import { input } from "@/vis/input/aether";
 import { light } from "@/vis/light/aether";
 import { line } from "@/vis/line/aether";
 import { measure } from "@/vis/measure/aether";
@@ -42,10 +44,14 @@ const STORE_CONFIG: flux.StoreConfig<{
   [ranger.FLUX_STORE_KEY]: ranger.FluxStore;
   [ontology.RELATIONSHIPS_FLUX_STORE_KEY]: ontology.RelationshipFluxStore;
   [ontology.RESOURCES_FLUX_STORE_KEY]: ontology.ResourceFluxStore;
+  [access.policy.FLUX_STORE_KEY]: access.policy.FluxStore;
+  [access.role.FLUX_STORE_KEY]: access.role.FluxStore;
 }> = {
   [ranger.FLUX_STORE_KEY]: ranger.FLUX_STORE_CONFIG,
   [ontology.RELATIONSHIPS_FLUX_STORE_KEY]: ontology.RELATIONSHIP_FLUX_STORE_CONFIG,
   [ontology.RESOURCES_FLUX_STORE_KEY]: ontology.RESOURCE_FLUX_STORE_CONFIG,
+  [access.policy.FLUX_STORE_KEY]: access.policy.FLUX_STORE_CONFIG,
+  [access.role.FLUX_STORE_KEY]: access.role.FLUX_STORE_CONFIG,
 };
 
 export const render = (): void => {
@@ -60,6 +66,7 @@ export const render = (): void => {
     ...control.REGISTRY,
     ...diagram.REGISTRY,
     ...eraser.REGISTRY,
+    ...input.REGISTRY,
     ...light.REGISTRY,
     ...line.REGISTRY,
     ...lineplot.REGISTRY,

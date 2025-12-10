@@ -18,7 +18,7 @@ import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { type NotificationSpec } from "@/status/core/Aggregator";
 import { Indicator } from "@/status/core/Indicator";
-import { Telem } from "@/telem";
+import { Text as TelemText } from "@/telem/text";
 import { Text } from "@/text";
 
 interface ActionProps {
@@ -57,20 +57,32 @@ export const Notification = ({
       ref={ref}
       {...rest}
     >
-      <Flex.Box x justify="between" grow style={{ width: "100%" }}>
+      <Flex.Box
+        x
+        justify="between"
+        grow
+        className={CSS(CSS.BE("notification", "header"))}
+      >
         <Flex.Box x align="center" gap="small">
-          <Text.Text level="small" status={variant} gap="tiny">
+          <Text.Text
+            level="small"
+            status={variant}
+            gap="tiny"
+            className={CSS(CSS.BE("notification", "name"))}
+          >
             <Indicator variant={variant} />
-            {primitive.isNonZero(name) && name}
+            <Text.Text el="span" overflow="ellipsis" status={variant}>
+              {primitive.isNonZero(name) && name}
+            </Text.Text>
           </Text.Text>
           <Text.Text level="small">{`x${count}`}</Text.Text>
-          <Telem.Text.TimeStamp
+          <TelemText.TimeStamp
             className={CSS(CSS.BE("notification", "time"))}
             level="small"
             format="time"
           >
             {time}
-          </Telem.Text.TimeStamp>
+          </TelemText.TimeStamp>
         </Flex.Box>
         <Button.Button
           className={CSS(CSS.BE("notification", "silence"))}
@@ -92,7 +104,8 @@ export const Notification = ({
         ) : (
           <Text.Text
             className={CSS(CSS.BE("notification", "message"))}
-            style={{ flexGrow: 1 }}
+            lineClamp={3}
+            grow
           >
             {message}
           </Text.Text>
@@ -101,7 +114,8 @@ export const Notification = ({
           <Text.Text
             className={CSS(CSS.BE("notification", "description"))}
             level="small"
-            style={{ flexGrow: 1 }}
+            lineClamp={8}
+            grow
           >
             {description}
           </Text.Text>

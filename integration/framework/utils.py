@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import multiprocessing
 import os
 import platform
 import re
@@ -196,6 +197,11 @@ def get_memory_info() -> str:
             return f"{mem_gb}GB RAM"
 
     raise RuntimeError(f"Unable to get memory information for {platform.system()}")
+
+
+def get_cpu_cores() -> int:
+    """Get the number of CPU cores."""
+    return multiprocessing.cpu_count()
 
 
 def get_synnax_version() -> str:

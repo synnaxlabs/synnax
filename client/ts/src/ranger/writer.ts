@@ -26,10 +26,6 @@ const deleteResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: nameZ });
 const renameResZ = z.object({});
 
-const CREATE_ENDPOINT = "/range/create";
-const DELETE_ENDPOINT = "/range/delete";
-const RENAME_ENDPOINT = "/range/rename";
-
 export class Writer {
   client: UnaryClient;
 
@@ -40,7 +36,7 @@ export class Writer {
   async rename(key: string, name: string): Promise<void> {
     await sendRequired<typeof renameReqZ, typeof renameResZ>(
       this.client,
-      RENAME_ENDPOINT,
+      "/range/rename",
       { key, name },
       renameReqZ,
       renameResZ,
@@ -50,7 +46,7 @@ export class Writer {
   async create(ranges: New[], options?: CreateOptions): Promise<Payload[]> {
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
-      CREATE_ENDPOINT,
+      "/range/create",
       { ranges, ...options },
       createReqZ,
       createResZ,
@@ -61,7 +57,7 @@ export class Writer {
   async delete(keys: string[]): Promise<void> {
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
-      DELETE_ENDPOINT,
+      "/range/delete",
       { keys },
       deleteReqZ,
       deleteResZ,

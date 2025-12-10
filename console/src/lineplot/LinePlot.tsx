@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/lineplot/LinePlot.css";
-
-import { type channel, type lineplot, type ranger } from "@synnaxlabs/client";
+import { type channel, lineplot, type ranger } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
+  Access,
   type axis,
   Channel,
   Icon,
-  type Legend,
   LinePlot as Core,
   Menu as PMenu,
   Ranger,
@@ -26,6 +24,7 @@ import {
   usePrevious,
   Viewport,
 } from "@synnaxlabs/pluto";
+import { type measure } from "@synnaxlabs/pluto/ether";
 import {
   box,
   color,
@@ -34,6 +33,7 @@ import {
   primitive,
   record,
   scale,
+  type sticky,
   TimeRange,
   unique,
 } from "@synnaxlabs/x";
@@ -58,7 +58,7 @@ import {
   type YAxisKey,
 } from "@/lineplot/axis";
 import { buildLines } from "@/lineplot/buildLines";
-import { NavControls } from "@/lineplot/NavControls";
+import { Controls } from "@/lineplot/Controls";
 import {
   select,
   useSelect,
@@ -78,6 +78,7 @@ import {
   setControlState,
   setLegend,
   setLine,
+  setMeasureMode,
   setRanges,
   setRemoteCreated,
   setRule,
@@ -96,8 +97,12 @@ import { Workspace } from "@/workspace";
 
 const useSyncComponent = Workspace.createSyncComponent(
   "Line Plot",
-  async ({ key, workspace, store, client }) => {
+  async ({ key, workspace, store, fluxStore, client }) => {
     const s = store.getState();
+    if (
+      !Access.updateGranted({ id: lineplot.ontologyID(key), store: fluxStore, client })
+    )
+      return;
     const data = select(s, key);
     if (data == null) return;
     const la = Layout.selectRequired(s, key);
@@ -140,11 +145,11 @@ const RangeAnnotationContextMenu = ({
       </PMenu.Item>
       <PMenu.Item itemKey="line-plot" onClick={handleOpenInNewPlot}>
         <Icon.LinePlot />
-        Open in New Plot
+        Open in new plot
       </PMenu.Item>
       <PMenu.Item itemKey="metadata" onClick={handleViewDetails}>
         <Icon.Annotate />
-        View Details
+        View details
       </PMenu.Item>
     </PMenu.Menu>
   );
@@ -161,6 +166,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const syncDispatch = useSyncComponent(layoutKey);
   const lines = buildLines(vis, ranges);
   const prevName = usePrevious(name);
+  const hasEditPermission = Access.useUpdateGranted(lineplot.ontologyID(layoutKey));
 
   useEffect(() => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
@@ -300,14 +306,14 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const [legendPosition, setLegendPosition] = useState(vis.legend.position);
 
   const storeLegendPosition = useDebouncedCallback(
-    (position: Legend.StickyXY) =>
+    (position: sticky.XY) =>
       syncDispatch(setLegend({ key: layoutKey, legend: { position } })),
     100,
     [syncDispatch, layoutKey],
   );
 
   const handleLegendPositionChange = useCallback(
-    (position: Legend.StickyXY) => {
+    (position: sticky.XY) => {
       setLegendPosition(position);
       storeLegendPosition(position);
     },
@@ -333,6 +339,27 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     );
     dispatch(setActiveToolbarTab({ key: layoutKey, tab: "data" }));
   }, [windowKey, dispatch, layoutKey]);
+
+  const handleSelectRule = useCallback(
+    (ruleKey: string) => {
+      dispatch(setSelectedRule({ key: layoutKey, ruleKey }));
+    },
+    [dispatch, layoutKey],
+  );
+
+  const handleMeasureModeChange = useCallback(
+    (mode: measure.Mode) => {
+      dispatch(setMeasureMode({ key: layoutKey, mode }));
+    },
+    [dispatch, layoutKey],
+  );
+
+  const handleHold = useCallback(
+    (hold: boolean) => {
+      dispatch(setControlState({ key: layoutKey, state: { hold } }));
+    },
+    [dispatch, layoutKey],
+  );
 
   const props = PMenu.useContextMenu();
 
@@ -392,26 +419,26 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
         {!box.areaIsZero(selection) && (
           <>
             <PMenu.Item itemKey="iso">
-              <Icon.Range /> Copy ISO Time Range
+              <Icon.Range /> Copy ISO time range
             </PMenu.Item>
             <PMenu.Item itemKey="python">
-              <Icon.Python /> Copy Python Time Range
+              <Icon.Python /> Copy Python time range
             </PMenu.Item>
             <PMenu.Item itemKey="typescript">
-              <Icon.TypeScript /> Copy TypeScript Time Range
+              <Icon.TypeScript /> Copy TypeScript time range
             </PMenu.Item>
             <PMenu.Divider />
             <PMenu.Item itemKey="range">
-              <Ranger.CreateIcon /> Create Range from Selection
+              <Ranger.CreateIcon /> Create range from selection
             </PMenu.Item>
             <PMenu.Divider />
             <PMenu.Item itemKey="download">
-              <Icon.CSV /> Download Region as CSV
+              <Icon.CSV /> Download region as CSV
             </PMenu.Item>
             <PMenu.Divider />
           </>
         )}
-        <Menu.HardReloadItem />
+        <Menu.ReloadConsoleItem />
       </PMenu.Menu>
     );
   };
@@ -438,37 +465,37 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           lines={propsLines}
           rules={vis.rules}
           clearOverScan={{ x: 5, y: 5 }}
-          onTitleChange={handleTitleChange}
+          onTitleChange={hasEditPermission ? handleTitleChange : undefined}
           visible={visible}
           titleLevel={vis.title.level}
           showTitle={vis.title.visible}
           showLegend={vis.legend.visible}
-          onLineChange={handleLineChange}
-          onRuleChange={handleRuleChange}
-          onAxisChannelDrop={handleChannelAxisDrop}
-          onAxisChange={handleAxisChange}
+          onLineChange={hasEditPermission ? handleLineChange : undefined}
+          onRuleChange={hasEditPermission ? handleRuleChange : undefined}
+          onAxisChannelDrop={hasEditPermission ? handleChannelAxisDrop : undefined}
+          onAxisChange={hasEditPermission ? handleAxisChange : undefined}
           onViewportChange={handleViewportChange}
           initialViewport={initialViewport}
-          onLegendPositionChange={handleLegendPositionChange}
+          onLegendPositionChange={
+            hasEditPermission ? handleLegendPositionChange : undefined
+          }
           legendPosition={legendPosition}
           viewportTriggers={triggers}
           enableTooltip={enableTooltip}
           legendVariant={focused ? "fixed" : "floating"}
           enableMeasure={clickMode === "measure"}
           onDoubleClick={handleDoubleClick}
-          onSelectRule={(ruleKey) =>
-            dispatch(setSelectedRule({ key: layoutKey, ruleKey }))
-          }
-          onHold={(hold) =>
-            dispatch(setControlState({ key: layoutKey, state: { hold } }))
-          }
+          onSelectRule={hasEditPermission ? handleSelectRule : undefined}
+          onHold={handleHold}
           rangeProviderProps={rangeProviderProps}
+          measureMode={vis.measure.mode}
+          onMeasureModeChange={hasEditPermission ? handleMeasureModeChange : undefined}
         >
-          {!focused && <NavControls layoutKey={layoutKey} />}
+          {!focused && <Controls layoutKey={layoutKey} />}
           <Core.BoundsQuerier ref={boundsQuerierRef} />
         </Channel.LinePlot>
       </PMenu.ContextMenu>
-      {focused && <NavControls layoutKey={layoutKey} />}
+      {focused && <Controls layoutKey={layoutKey} />}
     </div>
   );
 };

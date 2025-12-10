@@ -9,10 +9,8 @@
 
 #pragma once
 
-/// std
 #include <set>
 
-/// internal
 #include "driver/modbus/channels.h"
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/util/util.h"
@@ -72,7 +70,8 @@ public:
         BaseReader(chs), register_type(register_type) {
         auto first_addr = this->channels.front().address;
         auto last_addr = this->channels.back().address;
-        last_addr += this->channels.back().value_type.density() / 2;
+        // Use ceiling division to convert bytes to 16-bit registers
+        last_addr += (this->channels.back().value_type.density() + 1) / 2;
         this->buffer.resize(last_addr - first_addr);
     }
 
@@ -182,14 +181,14 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     ):
         BaseReadTaskConfig(cfg),
         data_channel_count(0),
-        device_key(cfg.required<std::string>("device")),
+        device_key(cfg.field<std::string>("device")),
         samples_per_chan(sample_rate / stream_rate) {
         std::vector<channel::InputRegister> holding_registers;
         std::vector<channel::InputRegister> input_registers;
         std::vector<channel::InputDiscrete> coils;
         std::vector<channel::InputDiscrete> discrete_inputs;
 
-        auto [dev, dev_err] = client->hardware.retrieve_device(this->device_key);
+        auto [dev, dev_err] = client->devices.retrieve(this->device_key);
         if (dev_err) {
             cfg.field_err("device", dev_err.message());
             return;
@@ -203,7 +202,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         }
 
         cfg.iter("channels", [&, this](xjson::Parser &ch) {
-            const auto type = ch.required<std::string>("type");
+            const auto type = ch.field<std::string>("type");
             if (type == "holding_register_input")
                 holding_registers.emplace_back(ch);
             else if (type == "register_input")
@@ -240,14 +239,14 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             return;
         }
 
-        for (auto i = 0; i < holding_registers.size(); i++)
+        for (size_t i = 0; i < holding_registers.size(); i++)
             holding_registers[i].ch = synnax_channels[i];
-        for (auto i = 0; i < input_registers.size(); i++)
+        for (size_t i = 0; i < input_registers.size(); i++)
             input_registers[i].ch = synnax_channels[i + holding_registers.size()];
-        for (auto i = 0; i < coils.size(); i++)
+        for (size_t i = 0; i < coils.size(); i++)
             coils[i].ch = synnax_channels
                 [i + holding_registers.size() + input_registers.size()];
-        for (auto i = 0; i < discrete_inputs.size(); i++)
+        for (size_t i = 0; i < discrete_inputs.size(); i++)
             discrete_inputs[i].ch = synnax_channels
                 [i + holding_registers.size() + input_registers.size() + coils.size()];
 
@@ -285,12 +284,12 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @param client the Synnax client to use to retrieve the device and channel
     /// information.
     /// @param task the task to parse.
-    /// @returns a pair containing the parsed configuration and any error that occurred
-    /// during parsing.
+    /// @returns a pair containing the parsed configuration and any error that occurred.
     static std::pair<ReadTaskConfig, xerrors::Error>
     parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::Task &task) {
         auto parser = xjson::Parser(task.config);
-        return {ReadTaskConfig(client, parser), parser.error()};
+        ReadTaskConfig cfg(client, parser);
+        return {std::move(cfg), parser.error()};
     }
 
     /// @brief all synnax channels that the task will write to, excluding indexes.
@@ -314,13 +313,12 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             keys.push_back(idx);
         return synnax::WriterConfig{
             .channels = keys,
-            .start = telem::TimeStamp::now(),
-            .mode = synnax::data_saving_writer_mode(this->data_saving),
+            .mode = common::data_saving_writer_mode(this->data_saving),
         };
     }
 };
 
-/// @brief implements common::Source to read from a modbus device.
+/// @brief implements common::Source to read from a Modbus server.
 class ReadTaskSource final : public common::Source {
     /// @brief the configuration for the task.
     const ReadTaskConfig config;

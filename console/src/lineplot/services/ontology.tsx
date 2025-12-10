@@ -8,7 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot, ontology } from "@synnaxlabs/client";
-import { Icon, LinePlot as Core, Menu as PMenu, Mosaic } from "@synnaxlabs/pluto";
+import {
+  Access,
+  Icon,
+  LinePlot as Core,
+  Menu as PMenu,
+  Mosaic,
+} from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
@@ -56,6 +62,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleExport = LinePlot.useExport();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
+  const canDelete = Access.useDeleteGranted(ids);
+  const canEdit = Access.useUpdateGranted(ids);
   const firstID = ids[0];
   const isSingle = ids.length === 1;
   const first = getResource(firstID);
@@ -68,18 +76,24 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   };
   return (
     <PMenu.Menu onChange={onSelect} level="small" gap="small">
-      {isSingle && (
+      {canEdit && (
         <>
-          <Menu.RenameItem />
+          {isSingle && (
+            <>
+              <Menu.RenameItem />
+              <PMenu.Divider />
+            </>
+          )}
+          <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
+          {canDelete && (
+            <PMenu.Item itemKey="delete">
+              <Icon.Delete />
+              Delete
+            </PMenu.Item>
+          )}
           <PMenu.Divider />
         </>
       )}
-      <Group.MenuItem ids={ids} shape={shape} rootID={rootID} />
-      <PMenu.Item itemKey="delete">
-        <Icon.Delete />
-        Delete
-      </PMenu.Item>
-      <PMenu.Divider />
       {isSingle && (
         <>
           <Export.MenuItem />
@@ -88,7 +102,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
-      <Menu.HardReloadItem />
+      <Menu.ReloadConsoleItem />
     </PMenu.Menu>
   );
 };

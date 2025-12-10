@@ -7,30 +7,65 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Literal
 
 import synnax as sy
 
 from .symbol import Symbol
 
+ButtonMode = Literal["Fire", "Momentary", "Pulse"]
+
 
 class Button(Symbol):
     """Schematic button symbol"""
 
-    def edit_properties(
+    def __init__(
         self,
-        channel_name: Optional[str] = None,
-        activation_delay: Optional[float] = None,
-        show_control_chip: Optional[bool] = None,
-        mode: Optional[
-            Literal["fire", "momentary", "pulse", "Fire", "Momentary", "Pulse"]
-        ] = None,
-        **kwargs: Any,
-    ) -> Dict[str, Any]:
-        """Edit Setpoint properties including channel settings."""
-        self._click_symbol()
+        *,
+        label: str,
+        channel_name: str,
+        activation_delay: float | None = None,
+        show_control_chip: bool | None = None,
+        mode: ButtonMode = "Fire",
+        symbol_type: str = "Button",
+    ):
+        """Initialize a button symbol with configuration.
 
-        applied_properties: Dict[str, Any] = {}
+        Args:
+            label: Display label for the symbol
+            channel_name: Channel name for the button
+            activation_delay: Delay before activation in seconds (optional)
+            show_control_chip: Whether to show the control chip (optional)
+            mode: Button mode - "Fire", "Momentary", or "Pulse" (optional)
+            symbol_type: The type of symbol (default: "Button")
+        """
+        super().__init__(label, symbol_type=symbol_type, rotatable=False)
+        self.channel_name = channel_name
+        self.activation_delay = activation_delay
+        self.show_control_chip = show_control_chip
+        self.mode = mode
+
+    def _apply_properties(self) -> None:
+        """Apply button configuration after being added to schematic."""
+        self.set_properties(
+            channel_name=self.channel_name,
+            activation_delay=self.activation_delay,
+            show_control_chip=self.show_control_chip,
+            mode=self.mode,
+        )
+
+    def set_properties(
+        self,
+        channel_name: str | None = None,
+        activation_delay: float | None = None,
+        show_control_chip: bool | None = None,
+        mode: ButtonMode = "Fire",
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Set Button properties including channel settings."""
+        self.click()
+
+        applied_properties: dict[str, Any] = {}
         if channel_name is not None:
             self.set_label(channel_name)
 
@@ -60,20 +95,16 @@ class Button(Symbol):
             applied_properties["show_control_chip"] = show_control_chip
 
         if mode is not None:
-            # Convert to title case for UI interaction
-            mode_title = mode.title()
-            self.page.get_by_text(mode_title, exact=True).click()
-            applied_properties["mode"] = mode.lower()
+            self.page.get_by_text(mode).click()
+            applied_properties["mode"] = mode
 
         return applied_properties
 
-    def get_properties(self) -> Dict[str, Any]:
+    def get_properties(self, tab: str = "Control") -> dict[str, Any]:
         """Get the current properties of the symbol"""
-        self._click_symbol()
-        self.page.get_by_text("Properties").click()
-        self.page.get_by_text("Control").last.click()
+        super().get_properties(tab=tab)
 
-        props: Dict[str, Any] = {
+        props: dict[str, Any] = {
             "channel": "",
             "activation_delay": -1.0,
             "show_control_chip": False,
@@ -109,17 +140,22 @@ class Button(Symbol):
                 if button.count() > 0:
                     class_name = button.get_attribute("class") or ""
                     if "pluto-btn--filled" in class_name:
-                        props["mode"] = str(option).lower()
+                        props["mode"] = option
                         break
             except Exception as e:
                 raise RuntimeError(f"Error getting mode property: {e}")
 
         return props
 
-    def press(self) -> None:
-        """Press button"""
+    def press(self, sleep: int = 100) -> None:
+        """Press button
+
+        Args:
+            sleep: Time in milliseconds to wait after pressing. Buffer for network delays and slow animations.
+        """
+
         self._disable_edit_mode()
-        self._click_symbol()
+        self.click(sleep=sleep)
 
     def press_and_hold(self, delay: sy.TimeSpan = sy.TimeSpan.SECOND) -> None:
         """Click and hold the button for the specified duration."""

@@ -9,13 +9,12 @@
 
 #pragma once
 
-/// std
 #include <cstdlib>
 #include <string>
 #include <type_traits>
 
-/// external
 #include "glog/logging.h"
+
 #include "x/cpp/caseconv/caseconv.h"
 
 namespace xenv {
@@ -42,7 +41,7 @@ public:
     }
 
     template<typename T>
-    T optional(const std::string &name, const T &default_value) const {
+    T field(const std::string &name, const T &default_value) const {
         auto screaming_name = caseconv::snake_to_scream(prefix_ + name);
         const char *value = std::getenv(screaming_name.c_str());
         if (value == nullptr) return default_value;
@@ -62,7 +61,7 @@ public:
 template<typename T>
 T load(const std::string &name, const T &default_value) {
     static Parser default_parser;
-    return default_parser.optional(name, default_value);
+    return default_parser.field(name, default_value);
 }
 
 inline int set(const std::string &name, const std::string &value) {

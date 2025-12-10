@@ -9,10 +9,8 @@
 
 #pragma once
 
-/// external
 #include "glog/logging.h"
 
-/// internal
 #include "driver/ni/daqmx/sugared.h"
 #include "driver/task/common/read_task.h"
 
@@ -31,7 +29,7 @@ struct ReadResult : common::ReadResult {
     int64 skew = 0;
 };
 
-/// @brief a thing shim on top of NI DAQMX that allows us to use different read
+/// @brief a thin shim on top of NI-DAQmx that allows us to use different read
 /// interfaces for analog and digital tasks. It also allows us to mock the hardware
 /// during testing.
 template<typename T>
@@ -61,7 +59,7 @@ struct Base : virtual Hardware {
 protected:
     /// @brief the handle for the task.
     TaskHandle task_handle;
-    /// @brief the NI DAQmx API.
+    /// @brief the NI-DAQmx API.
     std::shared_ptr<::daqmx::SugaredAPI> dmx;
     /// @brief a flag to indicate if the task is running.
     std::atomic<bool> running = false;
@@ -111,8 +109,10 @@ struct DigitalReader final : Base, Reader<uint8_t> {
     read(size_t samples_per_channel, std::vector<unsigned char> &data) override;
 };
 
-/// @brief a hardware interface for analog tasks.
-struct AnalogReader final : Base, Reader<double> {
+/// @brief Base class for readers that track sample acquisition skew
+template<typename T>
+struct SkewTrackingReader : Base, Reader<T> {
+protected:
     /// @brief the total number of samples requested by calls to read() from
     /// the user.
     size_t total_samples_requested = 0;
@@ -120,15 +120,37 @@ struct AnalogReader final : Base, Reader<double> {
     /// by DAQmx.
     uInt64 total_samples_acquired = 0;
 
+    SkewTrackingReader(
+        const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle
+    ):
+        Base(task_handle, dmx) {}
+
+    /// @brief Updates the skew between requested and acquired samples
+    /// @param n_requested Number of samples requested in this read
+    /// @return The current skew (acquired - requested)
+    int64 update_skew(const size_t &n_requested);
+
+public:
+    xerrors::Error start() override;
+};
+
+/// @brief a hardware interface for analog tasks.
+struct AnalogReader final : SkewTrackingReader<double> {
     AnalogReader(
         const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     );
     ReadResult read(size_t samples_per_channel, std::vector<double> &data) override;
+};
 
-    xerrors::Error start() override;
-
-    int64 update_skew(const size_t &n_requested);
+/// @brief a hardware interface for counter input tasks.
+struct CounterReader final : SkewTrackingReader<double> {
+    CounterReader(
+        const std::shared_ptr<::daqmx::SugaredAPI> &dmx,
+        TaskHandle task_handle
+    );
+    ReadResult read(size_t samples_per_channel, std::vector<double> &data) override;
 };
 }
 

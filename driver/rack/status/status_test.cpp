@@ -7,23 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// external
 #include "gtest/gtest.h"
 
-/// module
+#include "client/cpp/testutil/testutil.h"
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/xtest/xtest.h"
 
-/// internal
-#include "client/cpp/testutil/testutil.h"
 #include "driver/rack/status/status.h"
-
-#include "x/cpp/defer/defer.h"
 
 /// @brief tests the nominal state case.
 TEST(stateTests, testNominal) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto rack = ASSERT_NIL_P(client->hardware.create_rack("test_rack"));
-    auto ch = ASSERT_NIL_P(client->channels.retrieve(synnax::RACK_STATUS_CHANNEL_NAME));
+    auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
+    auto ch = ASSERT_NIL_P(client->channels.retrieve(synnax::STATUS_SET_CHANNEL_NAME));
     auto ctx = std::make_shared<task::SynnaxContext>(client);
     auto hb = rack::status::Task::configure(
         ctx,

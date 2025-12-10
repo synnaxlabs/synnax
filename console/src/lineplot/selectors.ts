@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Viewport } from "@synnaxlabs/pluto";
+import { type measure } from "@synnaxlabs/pluto/ether";
 import { type bounds } from "@synnaxlabs/x";
 
 import { useMemoSelect } from "@/hooks";
@@ -56,10 +57,12 @@ export const useSelectRanges = (key: string): XAxisRecord<Range.Range[]> =>
     [key],
   );
 
-export const selectToolbar = (state: StoreState, key: string): ToolbarState =>
-  select(state, key).toolbar;
+export const selectToolbar = (
+  state: StoreState,
+  key: string,
+): ToolbarState | undefined => selectOptional(state, key)?.toolbar;
 
-export const useSelectToolbar = (key: string): ToolbarState =>
+export const useSelectToolbar = (key: string): ToolbarState | undefined =>
   useMemoSelect((state: StoreState) => selectToolbar(state, key), [key]);
 
 export const selectControlState = (state: StoreState, key: string): ControlState =>
@@ -81,6 +84,12 @@ export const selectViewportMode = (state: StoreState, key: string): Viewport.Mod
 
 export const useSelectViewportMode = (key: string): Viewport.Mode =>
   useMemoSelect((state: StoreState) => selectViewportMode(state, key), [key]);
+
+export const selectMeasureMode = (state: StoreState, key: string): measure.Mode =>
+  select(state, key).measure.mode;
+
+export const useSelectMeasureMode = (key: string): measure.Mode =>
+  useMemoSelect((state: StoreState) => selectMeasureMode(state, key), [key]);
 
 export const selectSelection = (state: StoreState, key: string): SelectionState =>
   select(state, key).selection;

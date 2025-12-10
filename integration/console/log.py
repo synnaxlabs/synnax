@@ -7,34 +7,39 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import TYPE_CHECKING, List, Optional
+import synnax as sy
+from synnax.channel.payload import ChannelName
 
-from playwright.sync_api import Page
-from synnax.channel.payload import (
-    ChannelName,
-)
-
+from .console import Console
 from .page import ConsolePage
-
-if TYPE_CHECKING:
-    from .console import Console
 
 
 class Log(ConsolePage):
     """Log page management interface"""
 
-    channel_name: Optional[ChannelName]
+    page_type: str = "Log"
+    pluto_label: str = ".pluto-log"
 
-    def __init__(self, page: Page, console: "Console") -> None:
-        super().__init__(page, console)
-        self.page_type = "Log"
-        self.pluto_label = ".pluto-log"
+    def __init__(
+        self,
+        client: sy.Synnax,
+        console: Console,
+        page_name: str,
+        channel_name: ChannelName | None = None,
+    ) -> None:
+        """
+        Initialize a Log page.
 
-    def new(self, channel_name: Optional[ChannelName] = None) -> str:
-        page_id = super().new()
+        Args:
+            client: Synnax client instance
+            console: Console instance
+            page_name: Name for the page
+            channel_name: Optional channel to set for the log page
+        """
+        super().__init__(client, console, page_name)
+
         if channel_name is not None:
             self.set_channel(channel_name)
-        return page_id
 
     def set_channel(self, channel_name: str) -> None:
         self.console.click_btn("Channel")

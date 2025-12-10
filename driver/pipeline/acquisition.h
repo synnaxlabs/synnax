@@ -9,11 +9,9 @@
 
 #pragma once
 
-/// module
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
 
-/// internal
 #include "driver/pipeline/base.h"
 
 namespace pipeline {
@@ -145,11 +143,13 @@ public:
     /// @param breaker_config the configuration for the breaker used to manage the
     /// acquisition thread lifecycle and retry requests on connection loss or
     /// temporary hardware errors.
+    /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     Acquisition(
         std::shared_ptr<synnax::Synnax> client,
         synnax::WriterConfig writer_config,
         std::shared_ptr<Source> source,
-        const breaker::Config &breaker_config
+        const breaker::Config &breaker_config,
+        std::string thread_name = ""
     );
 
     /// @brief construct an acquisition pipeline that opens writers using a writer
@@ -164,11 +164,13 @@ public:
     /// @param breaker_config the configuration for the breaker used to manage the
     /// acquisition thread lifecycle and retry requests on connection loss or
     /// temporary
+    /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     Acquisition(
         std::shared_ptr<WriterFactory> factory,
         synnax::WriterConfig writer_config,
         std::shared_ptr<Source> source,
-        const breaker::Config &breaker_config
+        const breaker::Config &breaker_config,
+        std::string thread_name = ""
     );
 };
 }

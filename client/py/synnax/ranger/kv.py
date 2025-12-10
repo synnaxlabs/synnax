@@ -12,7 +12,7 @@ from typing import overload
 
 from freighter import Payload, UnaryClient, send_required
 
-from synnax import ValidationError
+from synnax.exceptions import ValidationError
 from synnax.util.normalize import normalize
 from synnax.util.primitive import is_primitive
 
@@ -58,11 +58,6 @@ class _DeleteRequest(Payload):
 class _EmptyResponse(Payload): ...
 
 
-_SET_ENDPOINT = "/range/kv/set"
-_GET_ENDPOINT = "/range/kv/get"
-_DELETE_ENDPOINT = "/range/kv/delete"
-
-
 class KV:
     _client: UnaryClient
     _rng_key: uuid.UUID
@@ -76,7 +71,7 @@ class KV:
 
     def get(self, keys: str | list[str]) -> dict[str, str] | str:
         req = _GetRequest(range=self._rng_key, keys=normalize(keys))
-        res = send_required(self._client, _GET_ENDPOINT, req, _GetResponse)
+        res = send_required(self._client, "/range/kv/get", req, _GetResponse)
         if isinstance(keys, str):
             return res.pairs[0].value
         return {pair.key: pair.value for pair in res.pairs}
@@ -95,11 +90,11 @@ class KV:
             for k, v in key.items():
                 pairs.append(KVPair(range=self._rng_key, key=k, value=v))
         req = _SetRequest(range=self._rng_key, pairs=pairs)
-        send_required(self._client, _SET_ENDPOINT, req, _EmptyResponse)
+        send_required(self._client, "/range/kv/set", req, _EmptyResponse)
 
     def delete(self, keys: str | list[str]) -> None:
         req = _DeleteRequest(range=self._rng_key, keys=normalize(keys))
-        send_required(self._client, _DELETE_ENDPOINT, req, _EmptyResponse)
+        send_required(self._client, "/range/kv/delete", req, _EmptyResponse)
 
     def __getitem__(self, key: str) -> str:
         return self.get(key)

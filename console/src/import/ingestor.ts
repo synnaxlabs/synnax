@@ -9,18 +9,24 @@
 
 import { type Store } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
+import { type Pluto } from "@synnaxlabs/pluto";
 
-import { type Export } from "@/export";
 import { type Layout } from "@/layout";
+
+export interface File {
+  data: unknown;
+  name: string;
+}
 
 interface FileIngestorContext {
   layout: Partial<Layout.State>;
   placeLayout: Layout.Placer;
-  store: Store;
+  store: Pluto.FluxStore;
+  client: Synnax | null;
 }
 
 export interface FileIngestor {
-  (data: string, ctx: FileIngestorContext): void;
+  (data: unknown, ctx: FileIngestorContext): void;
 }
 
 export interface FileIngestors extends Record<string, FileIngestor> {}
@@ -30,8 +36,9 @@ interface DirectoryIngestorContext {
   fileIngestors: FileIngestors;
   placeLayout: Layout.Placer;
   store: Store;
+  fluxStore: Pluto.FluxStore;
 }
 
 export interface DirectoryIngestor {
-  (name: string, file: Export.FileInfo[], ctx: DirectoryIngestorContext): Promise<void>;
+  (name: string, files: File[], ctx: DirectoryIngestorContext): Promise<void>;
 }

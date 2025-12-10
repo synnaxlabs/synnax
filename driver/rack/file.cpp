@@ -7,16 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// internal
-#include "driver/rack/rack.h"
-
-/// module
 #include "x/cpp/xos/xos.h"
 #include "x/cpp/xpath/xpath.h"
 
+#include "driver/rack/rack.h"
+
 xerrors::Error
 rack::Config::load_config_file(xargs::Parser &args, breaker::Breaker &breaker) {
-    std::string config_path = args.optional("--config", "");
+    std::string config_path = args.field("--config", "");
     if (config_path.empty()) {
         if (breaker.retry_count() == 0) LOG(INFO) << "no config file specified";
         return xerrors::NIL;
@@ -31,6 +29,6 @@ rack::Config::load_config_file(xargs::Parser &args, breaker::Breaker &breaker) {
     this->remote_info.override(remote_info);
     auto timing_config = p.optional_child("timing");
     this->timing.override(timing_config);
-    this->integrations = p.optional("integrations", this->integrations);
+    this->integrations = p.field("integrations", this->integrations);
     return p.error();
 }

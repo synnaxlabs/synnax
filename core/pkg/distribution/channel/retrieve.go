@@ -16,7 +16,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/errors"
@@ -32,7 +31,7 @@ type Retrieve struct {
 	otg                       *ontology.Ontology
 	keys                      Keys
 	searchTerm                string
-	validateRetrievedChannels func(channels []Channel) ([]Channel, error)
+	validateRetrievedChannels func([]Channel) ([]Channel, error)
 }
 
 // Search sets the search term for the query. Note that the fuzzy search will be executed
@@ -50,15 +49,17 @@ func (r Retrieve) Entries(ch *[]Channel) Retrieve { r.gorp.Entries(ch); return r
 // WhereNodeKey filters for channels whose Leaseholder attribute matches the provided
 // leaseholder node Key.
 func (r Retrieve) WhereNodeKey(nodeKey cluster.NodeKey) Retrieve {
-	r.gorp.Where(func(ch *Channel) bool { return ch.Leaseholder == nodeKey })
+	r.gorp.Where(func(ctx gorp.Context, ch *Channel) (bool, error) {
+		return ch.Leaseholder == nodeKey, nil
+	})
 	return r
 }
 
 // WhereIsIndex filters the query for channels that are indexes if isIndex is true, or
 // are not indexes if isIndex is false.
 func (r Retrieve) WhereIsIndex(isIndex bool) Retrieve {
-	r.gorp.Where(func(ch *Channel) bool {
-		return ch.IsIndex == isIndex
+	r.gorp.Where(func(_ gorp.Context, ch *Channel) (bool, error) {
+		return ch.IsIndex == isIndex, nil
 	}, gorp.Required())
 	return r
 }
@@ -66,9 +67,9 @@ func (r Retrieve) WhereIsIndex(isIndex bool) Retrieve {
 // WhereVirtual filters the query for channels that are virtual if virtual is true, or are
 // not virtual if virtual is false.
 func (r Retrieve) WhereVirtual(virtual bool) Retrieve {
-	r.gorp.Where(func(ch *Channel) bool {
+	r.gorp.Where(func(_ gorp.Context, ch *Channel) (bool, error) {
 		isVirtual := ch.Virtual && !ch.IsCalculated()
-		return isVirtual == virtual
+		return isVirtual == virtual, nil
 	}, gorp.Required())
 	return r
 }
@@ -76,21 +77,34 @@ func (r Retrieve) WhereVirtual(virtual bool) Retrieve {
 // WhereInternal filters the query for channels that are internal if internal is true, or
 // are not internal if internal is false.
 func (r Retrieve) WhereInternal(internal bool) Retrieve {
-	r.gorp.Where(func(ch *Channel) bool { return ch.Internal == internal }, gorp.Required())
+	r.gorp.Where(func(_ gorp.Context, ch *Channel) (bool, error) {
+		return ch.Internal == internal, nil
+	}, gorp.Required())
+	return r
+}
+
+func (r Retrieve) WhereLegacyCalculated(legacyCalculated bool) Retrieve {
+	r.gorp.Where(func(_ gorp.Context, ch *Channel) (bool, error) {
+		return ch.IsLegacyCalculated() == legacyCalculated, nil
+	}, gorp.Required())
 	return r
 }
 
 // WhereDataTypes filters for channels whose DataType attribute matches the provided
 // data types.
 func (r Retrieve) WhereDataTypes(dataTypes ...telem.DataType) Retrieve {
-	r.gorp.Where(func(ch *Channel) bool { return lo.Contains(dataTypes, ch.DataType) })
+	r.gorp.Where(func(_ gorp.Context, ch *Channel) (bool, error) {
+		return lo.Contains(dataTypes, ch.DataType), nil
+	})
 	return r
 }
 
 // WhereNotDataTypes filters for channels whose DataType attribute does not match the
 // provided data types.
 func (r Retrieve) WhereNotDataTypes(dataTypes ...telem.DataType) Retrieve {
-	r.gorp.Where(func(ch *Channel) bool { return !lo.Contains(dataTypes, ch.DataType) })
+	r.gorp.Where(func(_ gorp.Context, ch *Channel) (bool, error) {
+		return !lo.Contains(dataTypes, ch.DataType), nil
+	})
 	return r
 }
 
@@ -100,10 +114,10 @@ func (r Retrieve) WhereNames(names ...string) Retrieve {
 	for i, name := range names {
 		matchers[i] = formatNameMatcher(name)
 	}
-	r.gorp.Where(func(ch *Channel) bool {
+	r.gorp.Where(func(_ gorp.Context, ch *Channel) (bool, error) {
 		return lo.SomeBy(matchers, func(matcher func(string) bool) bool {
 			return matcher(ch.Name)
-		})
+		}), nil
 	})
 	return r
 }
@@ -111,10 +125,6 @@ func (r Retrieve) WhereNames(names ...string) Retrieve {
 // WhereKeys filters for channels with the provided Key. This is an identical interface
 // to gorp.Retrieve.
 func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
-	notFound := lo.IndexOf(keys, 0)
-	if notFound != -1 {
-		keys = lo.Filter(keys, func(k Key, _ int) bool { return k != 0 })
-	}
 	r.keys = append(r.keys, keys...)
 	r.gorp.WhereKeys(keys...)
 	return r

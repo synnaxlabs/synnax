@@ -10,14 +10,16 @@
 import { status } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
 
 export const keyZ = z.string();
 export type Key = z.infer<typeof keyZ>;
 
 export type Params = Key | Key[];
 
-export const statusZ = status.statusZ;
+export const statusZ = <Details extends z.ZodType = z.ZodNever>(
+  detailsSchema?: Details,
+) => status.statusZ(detailsSchema);
 
 export const newZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
@@ -27,9 +29,10 @@ export type New<DetailsSchema extends z.ZodType = z.ZodNever> = z.input<
   ReturnType<typeof newZ<DetailsSchema>>
 >;
 
-export type Status<Details = never> = status.Status<Details>;
+export type Status<Details extends z.ZodType = z.ZodNever> = status.Status<Details>;
 
 export const SET_CHANNEL_NAME = "sy_status_set";
 export const DELETE_CHANNEL_NAME = "sy_status_delete";
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: "status", key });
+export const ontologyID = ontology.createIDFactory<Key>("status");
+export const TYPE_ONTOLOGY_ID = ontologyID("");

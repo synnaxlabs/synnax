@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor } from "@synnaxlabs/x";
+import { type destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -18,8 +18,8 @@ import { type diagram } from "@/vis/diagram/aether";
 export const toggleStateZ = z.object({
   triggered: z.boolean(),
   enabled: z.boolean(),
-  sink: telem.booleanSinkSpecZ.optional().default(telem.noopBooleanSinkSpec),
-  source: telem.booleanSourceSpecZ.optional().default(telem.noopBooleanSourceSpec),
+  sink: telem.booleanSinkSpecZ.default(telem.noopBooleanSinkSpec),
+  source: telem.booleanSourceSpecZ.default(telem.noopBooleanSourceSpec),
 });
 
 export type ToggleState = z.input<typeof toggleStateZ>;
@@ -28,7 +28,7 @@ interface InternalState {
   source: telem.BooleanSource;
   sink: telem.BooleanSink;
   addStatus: status.Adder;
-  stopListening: Destructor;
+  stopListening: destructor.Destructor;
 }
 
 // Toggle is a component that acts as a switch, commanding a boolean telemetry sink to

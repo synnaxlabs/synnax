@@ -20,6 +20,7 @@ package writer
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -73,10 +74,12 @@ type Config struct {
 	// WriterModePersistStream. See the ts.WriterMode documentation for more.
 	// [OPTIONAL] - Defaults to WriterModePersistStream.
 	Mode ts.WriterMode `json:"mode" msgpack:"mode"`
-	// EnableAutoCommit determines whether the writer will automatically commit after each write.
-	// If EnableAutoCommit is true, then the writer will commit after each write, and will
-	// flush that commit to index on FS after the specified AutoIndexPersistInterval.
-	// [OPTIONAL] - Defaults to false.
+	// EnableAutoCommit determines whether the writer will automatically commit after
+	// each write. If EnableAutoCommit is true, then the writer will commit after each
+	// write, and will flush that commit to index on FS after the specified
+	// AutoIndexPersistInterval.
+	//
+	// [OPTIONAL] - Defaults to true.
 	EnableAutoCommit *bool `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
 	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
 	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
@@ -131,14 +134,14 @@ func DefaultConfig() Config {
 		Authorities:              []control.Authority{control.AuthorityAbsolute},
 		ErrOnUnauthorized:        config.False(),
 		Mode:                     ts.WriterPersistStream,
-		EnableAutoCommit:         config.False(),
+		EnableAutoCommit:         config.True(),
 		AutoIndexPersistInterval: 1 * telem.Second,
 		Sync:                     config.False(),
 	}
 }
 
 // keyAuthorities returns a slice of keyAuthority structs that can be used to shard
-// channel keys across multiple nodes in the cluster. This method should only be valled
+// channel keys across multiple nodes in the cluster. This method should only be called
 // after the config has been validated.
 func (c Config) keyAuthorities() []keyAuthority {
 	authorities := make([]keyAuthority, len(c.Keys))
@@ -199,10 +202,11 @@ type ServiceConfig struct {
 	// TS is the local time series store to write to.
 	// [REQUIRED]
 	TS *ts.DB
-	// ChannelReader is used to resolve metadata and routing information for the provided
+	// Channel is used to resolve metadata and routing information for the provided
 	// keys.
+	//
 	// [REQUIRED]
-	ChannelReader channel.Readable
+	Channel *channel.Service
 	// HostResolver is used to resolve the host address for nodes in the cluster in order
 	// to route writes.
 	// [REQUIRED]
@@ -226,7 +230,7 @@ var (
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	validate.NotNil(v, "ts", cfg.TS)
-	validate.NotNil(v, "channels", cfg.ChannelReader)
+	validate.NotNil(v, "channel", cfg.Channel)
 	validate.NotNil(v, "host_provider", cfg.HostResolver)
 	validate.NotNil(v, "transport", cfg.Transport)
 	return v.Error()
@@ -235,7 +239,7 @@ func (cfg ServiceConfig) Validate() error {
 // Override implements config.Config.
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.TS = override.Nil(cfg.TS, other.TS)
-	cfg.ChannelReader = override.Nil(cfg.ChannelReader, other.ChannelReader)
+	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
 	cfg.HostResolver = override.Nil(cfg.HostResolver, other.HostResolver)
 	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
@@ -247,14 +251,24 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Writers and StreamWriters for writing data to the cluster.
 type Service struct {
 	ServiceConfig
-	server *server
+	server              *server
+	freeWriteAlignments *freeWriteAlignments
 }
 
-// OpenService opens the writer service using the given configuration. Also binds a server
-// to the given transport for receiving writes from other nodes in the cluster.
-func OpenService(configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
-	return &Service{ServiceConfig: cfg, server: startServer(cfg)}, err
+// NewService opens the writer service using the given configuration. Also binds a
+// server to the given transport for receiving writes from other nodes in the cluster.
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	return &Service{
+		ServiceConfig: cfg,
+		server:        startServer(cfg),
+		freeWriteAlignments: &freeWriteAlignments{
+			alignments: make(map[channel.Key]*atomic.Uint32),
+		},
+	}, nil
 }
 
 const (
@@ -307,7 +321,8 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		return nil, err
 	}
 
-	if err := s.validateChannelKeys(ctx, cfg.Keys); err != nil {
+	channels, err := s.validateChannelKeys(ctx, cfg.Keys)
+	if err != nil {
 		return nil, err
 	}
 
@@ -364,7 +379,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	if hasFree {
 		routeValidatorTo = freeWriterAddr
 		switchTargets = append(switchTargets, freeWriterAddr)
-		w := s.newFree(cfg.Mode, *cfg.Sync)
+		w := s.newFree(cfg.Mode, *cfg.Sync, channels)
 		plumber.SetSegment(pipe, freeWriterAddr, w)
 		receiverAddresses = append(receiverAddresses, freeWriterAddr)
 	}
@@ -399,22 +414,22 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	return seg, nil
 }
 
-func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) error {
+func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) ([]channel.Channel, error) {
 	v := validate.New("distribution.framer.writer")
 	if validate.NotEmptySlice(v, "keys", keys) {
-		return v.Error()
+		return nil, v.Error()
 	}
 	var channels []channel.Channel
-	if err := s.ChannelReader.
+	if err := s.Channel.
 		NewRetrieve().
 		Entries(&channels).
 		WhereKeys(keys...).
 		Exec(ctx, nil); err != nil {
-		return err
+		return nil, err
 	}
 	if len(channels) != len(keys) {
 		missing, _ := lo.Difference(keys, channel.KeysFromChannels(channels))
-		return errors.Wrapf(validate.Error, "missing channels: %v", missing)
+		return nil, errors.Wrapf(validate.Error, "missing channels: %v", missing)
 	}
-	return nil
+	return channels, nil
 }

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Form, Status, stopPropagation, Text } from "@synnaxlabs/pluto";
+import { Button, Form, Status } from "@synnaxlabs/pluto";
 
-import { Common } from "@/hardware/common";
+import { useIsSnapshot } from "@/hardware/common/task/Form";
 
 export interface EnableDisableButtonProps
   extends Omit<Button.ToggleProps, "onChange" | "value" | "children"> {
@@ -17,7 +17,7 @@ export interface EnableDisableButtonProps
 }
 
 export const EnableDisableButton = ({ path, ...rest }: EnableDisableButtonProps) => {
-  const isSnapshot = Common.Task.useIsSnapshot();
+  const isSnapshot = useIsSnapshot();
   const { get, set } = Form.useContext();
   const fs = get<boolean>(path, { optional: true });
   if (fs == null) return null;
@@ -27,13 +27,8 @@ export const EnableDisableButton = ({ path, ...rest }: EnableDisableButtonProps)
       disabled={isSnapshot}
       onChange={(v) => set(path, v)}
       size="small"
-      onClick={stopPropagation}
       tooltip={
-        isSnapshot ? undefined : (
-          <Text.Text level="small">
-            {value ? "Disable" : "Enable"} data acquisition
-          </Text.Text>
-        )
+        isSnapshot ? undefined : `${value ? "Disable" : "Enable"} data acquisition`
       }
       value={value}
       {...rest}

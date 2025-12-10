@@ -34,11 +34,12 @@ jobs:
   test:
     name: Test (${{ matrix.os }})
     strategy:
+      fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - os: ubuntu-latest
-            format: true
+            lint: true
         exclude:
           - os:
               ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
@@ -60,8 +61,15 @@ jobs:
             **/go.sum
 
       - name: Check Formatting
-        if: matrix.format
+        if: matrix.lint
         run: scripts/check_gofmt.sh core
+
+      - name: Lint
+        if: matrix.lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          working-directory: core
+          args: --build-tags driver
 
       - name: Test
         run:

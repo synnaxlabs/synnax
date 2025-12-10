@@ -4,25 +4,16 @@
 // licenses/BSL.txt.
 //
 // As of the Change Date specified in that file, in accordance with the Business Source
-// License, Version 2.0,
+// License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
-/// std
 #include <utility>
 #include <vector>
 
-/// module
+#include "client/cpp/channel/channel.h"
+#include "client/cpp/errors/errors.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/xerrors/errors.h"
-
-/// internal
-#include "client/cpp/channel/channel.h"
-
-#include "client/cpp/errors/errors.h"
-
-const std::string CREATE_ENDPOINT = "/api/v1/channel/create";
-const std::string RETRIEVE_ENDPOINT = "/api/v1/channel/retrieve";
 
 namespace synnax {
 Channel::Channel(const api::v1::Channel &ch):
@@ -62,9 +53,9 @@ void Channel::to_proto(api::v1::Channel *ch) const {
 xerrors::Error ChannelClient::create(synnax::Channel &channel) const {
     auto req = api::v1::ChannelCreateRequest();
     channel.to_proto(req.add_channels());
-    auto [res, err] = create_client->send(CREATE_ENDPOINT, req);
+    auto [res, err] = create_client->send("/channel/create", req);
     if (err) return err;
-    if (res.channels_size() == 0) return unexpected_missing("channel");
+    if (res.channels_size() == 0) return unexpected_missing_error("channel");
     const auto first = res.channels(0);
     channel.key = first.key();
     channel.name = first.name();
@@ -102,7 +93,7 @@ xerrors::Error ChannelClient::create(std::vector<Channel> &channels) const {
     req.mutable_channels()->Reserve(static_cast<int>(channels.size()));
     for (const auto &ch: channels)
         ch.to_proto(req.add_channels());
-    auto [res, exc] = create_client->send(CREATE_ENDPOINT, req);
+    auto [res, exc] = create_client->send("/channel/create", req);
     for (auto i = 0; i < res.channels_size(); i++)
         channels[i] = Channel(res.channels(i));
     return exc;
@@ -111,16 +102,10 @@ xerrors::Error ChannelClient::create(std::vector<Channel> &channels) const {
 std::pair<Channel, xerrors::Error> ChannelClient::retrieve(const ChannelKey key) const {
     auto req = api::v1::ChannelRetrieveRequest();
     req.add_keys(key);
-    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
+    auto [res, err] = retrieve_client->send("/channel/retrieve", req);
     if (err) return {Channel(), err};
     if (res.channels_size() == 0)
-        return {
-            Channel(),
-            xerrors::Error(
-                xerrors::NOT_FOUND,
-                "no channels found matching key " + std::to_string(key)
-            )
-        };
+        return {Channel(), not_found_error("channel", "key " + std::to_string(key))};
     return {Channel(res.channels(0)), err};
 }
 
@@ -128,32 +113,20 @@ std::pair<Channel, xerrors::Error>
 ChannelClient::retrieve(const std::string &name) const {
     auto payload = api::v1::ChannelRetrieveRequest();
     payload.add_names(name);
-    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, payload);
+    auto [res, err] = retrieve_client->send("/channel/retrieve", payload);
     if (err) return {Channel(), err};
     if (res.channels_size() == 0)
-        return {
-            Channel(),
-            xerrors::Error(
-                xerrors::NOT_FOUND,
-                "no channels found matching name " + name
-            )
-        };
+        return {Channel(), not_found_error("channel", "name " + name)};
     if (res.channels_size() > 1)
-        return {
-            Channel(),
-            xerrors::Error(
-                xerrors::QUERY,
-                "multiple channels found matching name " + name
-            )
-        };
+        return {Channel(), multiple_found_error("channels", "name " + name)};
     return {Channel(res.channels(0)), err};
 }
 
 std::pair<std::vector<Channel>, xerrors::Error>
 ChannelClient::retrieve(const std::vector<ChannelKey> &keys) const {
-    auto req = api::v1::ChannelRetrieveRequest();
+    api::v1::ChannelRetrieveRequest req;
     req.mutable_keys()->Add(keys.begin(), keys.end());
-    auto [res, exc] = this->retrieve_client->send(RETRIEVE_ENDPOINT, req);
+    auto [res, exc] = this->retrieve_client->send("/channel/retrieve", req);
     std::vector<Channel> channels = {res.channels().begin(), res.channels().end()};
     return {channels, exc};
 }
@@ -162,7 +135,7 @@ std::pair<std::vector<Channel>, xerrors::Error>
 ChannelClient::retrieve(const std::vector<std::string> &names) const {
     auto req = api::v1::ChannelRetrieveRequest();
     req.mutable_names()->Add(names.begin(), names.end());
-    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
+    auto [res, err] = retrieve_client->send("/channel/retrieve", req);
     std::vector<Channel> channels = {res.channels().begin(), res.channels().end()};
     return {channels, err};
 }

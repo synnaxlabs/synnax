@@ -9,14 +9,15 @@
 
 import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
 import {
-  createContext,
   type PropsWithChildren,
   type ReactElement,
-  use,
   useCallback,
+  useMemo,
   useRef,
   useState,
 } from "react";
+
+import { context } from "@/context";
 
 export interface ContextValue {
   delay: CrudeTimeSpan;
@@ -31,14 +32,11 @@ export interface ConfigProps
   accelerationDelay?: CrudeTimeSpan;
 }
 
-const ZERO_TOOLTIP_CONFIG: ContextValue = {
-  delay: TimeSpan.milliseconds(750),
-  startAccelerating: () => {},
-};
-
-const Context = createContext<ContextValue>(ZERO_TOOLTIP_CONFIG);
-
-export const useConfig = () => use(Context);
+const [Context, useConfig] = context.create<ContextValue>({
+  defaultValue: { delay: TimeSpan.milliseconds(750), startAccelerating: () => {} },
+  displayName: "Tooltip.Context",
+});
+export { useConfig };
 
 /**
  * Sets the default configuration for all tooltips in its children.
@@ -46,8 +44,8 @@ export const useConfig = () => use(Context);
  * @param props - The props for the tooltip config.
  * @param props.delay - The delay before the tooltip appears, in milliseconds.
  * @default 500ms.
- * @param props.accelerate - Whether to enable accelerated visibility of tooltps for
- * a short period of time after the user has hovered over a first tooltip.
+ * @param props.accelerate - Whether to enable accelerated visibility of tooltips for a
+ * short period of time after the user has hovered over a first tooltip.
  * @default true.
  * @param props.acceleratedDelay - The delay before the tooltip appears when
  * accelerated visibility is enabled.
@@ -72,11 +70,13 @@ export const Config = ({
       setAccelerating(false);
     }, new TimeSpan(accelerationDelay).milliseconds);
   }, [accelerating, accelerationDelay]);
-  return (
-    <Context
-      value={{ delay: accelerating ? acceleratedDelay : delay, startAccelerating }}
-    >
-      {children}
-    </Context>
+  const parsedDelay = useMemo(
+    () => (accelerating ? acceleratedDelay : delay),
+    [accelerating, acceleratedDelay, delay],
   );
+  const value = useMemo(
+    () => ({ delay: parsedDelay, startAccelerating }),
+    [parsedDelay, startAccelerating],
+  );
+  return <Context value={value}>{children}</Context>;
 };

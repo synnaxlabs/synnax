@@ -7,17 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
 
 import pytest
 
-from synnax import ValidationError
-from synnax.hardware.ni import (
-    AIVoltageChan,
-    AnalogReadTask,
-    AnalogReadTaskConfig,
-    DigitalReadConfig,
-    DigitalWriteConfig,
-)
+import synnax as sy
 
 
 @pytest.mark.ni
@@ -26,6 +20,7 @@ class TestNITask:
         data = {
             "sample_rate": 10,
             "stream_rate": 5,
+            "auto_start": True,
             "channels": [
                 {
                     "name": "",
@@ -364,15 +359,15 @@ class TestNITask:
             ],
             "data_saving": True,
         }
-        AnalogReadTaskConfig.model_validate(data)
+        sy.ni.AnalogReadTaskConfig.model_validate(data)
 
     def test_parse_analog_read_task_default_device_none_provided(self):
-        with pytest.raises(ValidationError):
-            AnalogReadTask(
+        with pytest.raises(sy.ValidationError):
+            sy.ni.AnalogReadTask(
                 sample_rate=10,
                 stream_rate=5,
                 channels=[
-                    AIVoltageChan(
+                    sy.ni.AIVoltageChan(
                         key="k09AWoiyLxN",
                         terminal_config="Cfg_Default",
                         channel=1048582,
@@ -386,12 +381,12 @@ class TestNITask:
             )
 
     def test_parse_analog_read_task_default_device_provided(self):
-        AnalogReadTask(
+        sy.ni.AnalogReadTask(
             device="474503CF-49FD-11EF-80E5-91C59E7C9645",
             sample_rate=10,
             stream_rate=5,
             channels=[
-                AIVoltageChan(
+                sy.ni.AIVoltageChan(
                     key="k09AWoiyLxN",
                     terminal_config="Cfg_Default",
                     channel=1048582,
@@ -403,6 +398,194 @@ class TestNITask:
                 )
             ],
         )
+
+    def test_parse_analog_write_task(self):
+        data = {
+            "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
+            "state_rate": 10,
+            "channels": [
+                {
+                    "key": "AnalogOut1",
+                    "type": "ao_voltage",
+                    "enabled": True,
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
+                    "cmd_channel": 1048610,
+                    "state_channel": 1048611,
+                    "port": 0,
+                    "min_val": -10.0,
+                    "max_val": 10.0,
+                    "units": "Volts",
+                    "custom_scale": {"type": "none"},
+                }
+            ],
+            "data_saving": True,
+            "auto_start": False,
+        }
+        sy.ni.AnalogWriteConfig.model_validate(data)
+
+    def test_parse_counter_read_task(self):
+        data = {
+            "sample_rate": 1000,
+            "stream_rate": 500,
+            "channels": [
+                {
+                    "key": "CounterFreq1",
+                    "type": "ci_frequency",
+                    "enabled": True,
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
+                    "channel": 1048630,
+                    "port": 0,
+                    "min_val": 0.0,
+                    "max_val": 1000.0,
+                    "units": "Hz",
+                    "edge": "Rising",
+                    "meas_method": "LowFreq1Ctr",
+                    "meas_time": 0.001,
+                    "divisor": 4,
+                    "custom_scale": {"type": "none"},
+                }
+            ],
+            "data_saving": True,
+            "auto_start": False,
+        }
+        sy.ni.CounterReadConfig.model_validate(data)
+
+    def test_parse_counter_read_linear_velocity_task(self):
+        data = {
+            "sample_rate": 1000,
+            "stream_rate": 500,
+            "channels": [
+                {
+                    "key": "LinearVel1",
+                    "type": "ci_velocity_linear",
+                    "enabled": True,
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
+                    "channel": 1048631,
+                    "port": 0,
+                    "min_val": 0.0,
+                    "max_val": 100.0,
+                    "units": "MetersPerSecond",
+                    "decoding_type": "X4",
+                    "dist_per_pulse": 0.001,
+                    "terminalA": "",
+                    "terminalB": "",
+                    "custom_scale": {"type": "none"},
+                }
+            ],
+            "data_saving": True,
+            "auto_start": False,
+        }
+        sy.ni.CounterReadConfig.model_validate(data)
+
+    def test_parse_counter_read_angular_velocity_task(self):
+        data = {
+            "sample_rate": 1000,
+            "stream_rate": 500,
+            "channels": [
+                {
+                    "key": "AngularVel1",
+                    "type": "ci_velocity_angular",
+                    "enabled": True,
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
+                    "channel": 1048632,
+                    "port": 1,
+                    "min_val": 0.0,
+                    "max_val": 10000.0,
+                    "units": "RPM",
+                    "decoding_type": "X4",
+                    "pulses_per_rev": 1024,
+                    "terminalA": "",
+                    "terminalB": "",
+                    "custom_scale": {"type": "none"},
+                }
+            ],
+            "data_saving": True,
+            "auto_start": False,
+        }
+        sy.ni.CounterReadConfig.model_validate(data)
+
+    def test_parse_counter_read_linear_position_task(self):
+        data = {
+            "sample_rate": 1000,
+            "stream_rate": 500,
+            "channels": [
+                {
+                    "key": "LinearPos1",
+                    "type": "ci_position_linear",
+                    "enabled": True,
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
+                    "channel": 1048633,
+                    "port": 2,
+                    "units": "Meters",
+                    "decoding_type": "X4",
+                    "dist_per_pulse": 0.001,
+                    "initial_pos": 0.0,
+                    "z_index_enable": False,
+                    "z_index_val": 0.0,
+                    "z_index_phase": "AHighBHigh",
+                    "terminalA": "",
+                    "terminalB": "",
+                    "terminalZ": "",
+                    "custom_scale": {"type": "none"},
+                }
+            ],
+            "data_saving": True,
+            "auto_start": False,
+        }
+        sy.ni.CounterReadConfig.model_validate(data)
+
+    def test_parse_counter_read_angular_position_task(self):
+        data = {
+            "sample_rate": 1000,
+            "stream_rate": 500,
+            "channels": [
+                {
+                    "key": "AngularPos1",
+                    "type": "ci_position_angular",
+                    "enabled": True,
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
+                    "channel": 1048634,
+                    "port": 3,
+                    "units": "Degrees",
+                    "decoding_type": "X4",
+                    "pulses_per_rev": 1024,
+                    "initial_angle": 0.0,
+                    "z_index_enable": False,
+                    "z_index_val": 0.0,
+                    "z_index_phase": "AHighBHigh",
+                    "terminalA": "",
+                    "terminalB": "",
+                    "terminalZ": "",
+                    "custom_scale": {"type": "none"},
+                }
+            ],
+            "data_saving": True,
+            "auto_start": False,
+        }
+        sy.ni.CounterReadConfig.model_validate(data)
+
+    def test_parse_counter_read_duty_cycle_task(self):
+        data = {
+            "sample_rate": 1000,
+            "stream_rate": 500,
+            "channels": [
+                {
+                    "key": "DutyCycle1",
+                    "type": "ci_duty_cycle",
+                    "enabled": True,
+                    "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
+                    "channel": 1048635,
+                    "port": 4,
+                    "min_val": 0.0,
+                    "max_val": 1.0,
+                    "activeEdge": "Rising",
+                    "custom_scale": {"type": "none"},
+                }
+            ],
+            "data_saving": True,
+            "auto_start": False,
+        }
+        sy.ni.CounterReadConfig.model_validate(data)
 
     def test_parse_digital_read_task(self):
         data = {
@@ -420,8 +603,9 @@ class TestNITask:
             "sample_rate": 50,
             "stream_rate": 25,
             "data_saving": True,
+            "auto_start": False,
         }
-        DigitalReadConfig.model_validate(data)
+        sy.ni.DigitalReadConfig.model_validate(data)
 
     def test_parse_digital_write_task(self):
         data = {
@@ -439,5 +623,159 @@ class TestNITask:
                 }
             ],
             "data_saving": True,
+            "auto_start": True,
         }
-        DigitalWriteConfig.model_validate(data)
+        sy.ni.DigitalWriteConfig.model_validate(data)
+
+
+@pytest.mark.ni
+class TestNIDeviceHelpers:
+    """Tests for NI Device class."""
+
+    def test_device_creates_correct_structure(self):
+        """Test that Device class creates the expected properties."""
+        device = sy.ni.Device(
+            identifier="test_device_01",
+            name="Test Device",
+            model="NI 9205",
+            location="cDAQ1/dev_mod1",
+            rack=1,
+        )
+
+        assert isinstance(device.properties, str)
+        props = json.loads(device.properties)
+        assert isinstance(props, dict)
+        assert "identifier" in props
+        assert props["identifier"] == "test_device_01"
+
+    def test_device_with_different_identifiers(self):
+        """Test Device class with various identifier formats."""
+        test_cases = [
+            "ni_9205",
+            "cDAQ1/dev_mod1",
+            "USB-6008",
+            "my_custom_id",
+        ]
+
+        for identifier in test_cases:
+            device = sy.ni.Device(
+                identifier=identifier,
+                name="Test",
+                model="NI 9205",
+                location="cDAQ1/dev_mod1",
+                rack=1,
+            )
+            props = json.loads(device.properties)
+            assert props["identifier"] == identifier
+
+    def test_device_sets_make(self, client: sy.Synnax):
+        """Test that Device class automatically sets make to 'NI'."""
+        rack = client.racks.retrieve_embedded_rack()
+
+        device = sy.ni.Device(
+            identifier="dev_mod1",
+            name="Test NI Device",
+            model="NI 9205",
+            location="cDAQ1/dev_mod1",
+            rack=rack.key,
+        )
+
+        created_device = client.devices.create(device)
+
+        assert created_device.make == sy.ni.MAKE
+        assert created_device.make == "NI"
+        assert created_device.name == "Test NI Device"
+        assert created_device.model == "NI 9205"
+        assert created_device.location == "cDAQ1/dev_mod1"
+
+    def test_device_auto_generates_key(self, client: sy.Synnax):
+        """Test that Device class auto-generates a UUID key if not provided."""
+        rack = client.racks.retrieve_embedded_rack()
+
+        device = sy.ni.Device(
+            identifier="dev_mod2",
+            name="Test NI Device Auto Key",
+            model="NI 9205",
+            location="cDAQ1/dev_mod2",
+            rack=rack.key,
+        )
+
+        created_device = client.devices.create(device)
+
+        assert created_device.key is not None
+        assert len(created_device.key) > 0
+        # UUID format check (basic)
+        assert "-" in created_device.key or len(created_device.key) > 10
+
+    def test_device_with_explicit_key(self, client: sy.Synnax):
+        """Test that Device class accepts an explicit key."""
+        rack = client.racks.retrieve_embedded_rack()
+        explicit_key = "my-explicit-ni-key"
+
+        device = sy.ni.Device(
+            identifier="dev_mod3",
+            key=explicit_key,
+            name="Test NI Device Explicit Key",
+            model="NI 9205",
+            location="cDAQ1/dev_mod3",
+            rack=rack.key,
+        )
+
+        created_device = client.devices.create(device)
+
+        assert created_device.key == explicit_key
+
+    def test_device_properties_parsing(self, client: sy.Synnax):
+        """Test that device properties are correctly stored and retrieved."""
+        rack = client.racks.retrieve_embedded_rack()
+        test_identifier = "test_ni_module_01"
+
+        device = sy.ni.Device(
+            identifier=test_identifier,
+            name="Test NI Props",
+            model="NI 9205",
+            location="cDAQ1/dev_mod4",
+            rack=rack.key,
+        )
+
+        created_device = client.devices.create(device)
+
+        # Retrieve and parse properties
+        props = json.loads(created_device.properties)
+        assert "identifier" in props
+        assert props["identifier"] == test_identifier
+
+    def test_create_device_using_ni_module_directly(self, client: sy.Synnax):
+        """Test that ni.Device works when imported via module."""
+        rack = client.racks.retrieve_embedded_rack()
+
+        device = sy.ni.Device(
+            identifier="dev_mod5",
+            name="Test via ni module",
+            model="NI 9205",
+            location="cDAQ1/dev_mod5",
+            rack=rack.key,
+        )
+
+        created_device = client.devices.create(device)
+
+        assert created_device.make == "NI"
+        assert created_device.name == "Test via ni module"
+
+    def test_device_has_properties_set(self):
+        """Test that ni.Device sets properties correctly."""
+        device = sy.ni.Device(
+            identifier="test_id",
+            name="Test Device",
+            model="NI 9205",
+            location="cDAQ1/dev_mod1",
+            rack=1,
+        )
+
+        # Properties should be JSON string
+        assert isinstance(device.properties, str)
+
+        # Parse and verify
+        props = json.loads(device.properties)
+        assert isinstance(props, dict)
+        assert props["identifier"] == "test_id"

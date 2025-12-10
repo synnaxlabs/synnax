@@ -23,12 +23,6 @@ import {
   symbolZ,
 } from "@/workspace/schematic/symbol/payload";
 
-const RETRIEVE_ENDPOINT = "/workspace/schematic/symbol/retrieve";
-const CREATE_ENDPOINT = "/workspace/schematic/symbol/create";
-const RENAME_ENDPOINT = "/workspace/schematic/symbol/rename";
-const DELETE_ENDPOINT = "/workspace/schematic/symbol/delete";
-const RETRIEVE_GROUP_ENDPOINT = "/workspace/schematic/symbol/retrieve_group";
-
 const createReqZ = z.object({ symbols: newZ.array(), parent: ontology.idZ });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
@@ -36,8 +30,6 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
   searchTerm: z.string().optional(),
-  offset: z.number().optional(),
-  limit: z.number().optional(),
 });
 
 const singleRetrieveArgsZ = z
@@ -82,7 +74,7 @@ export class Client {
     const symbols = isMany ? options.symbols : [options];
     const res = await sendRequired(
       this.client,
-      CREATE_ENDPOINT,
+      "/workspace/schematic/symbol/create",
       { symbols, parent: options.parent },
       createReqZ,
       createResZ,
@@ -93,7 +85,7 @@ export class Client {
   async rename(key: Key, name: string): Promise<void> {
     await sendRequired(
       this.client,
-      RENAME_ENDPOINT,
+      "/workspace/schematic/symbol/rename",
       { key, name },
       renameReqZ,
       emptyResZ,
@@ -106,7 +98,7 @@ export class Client {
     const isSingle = "key" in args;
     const res = await sendRequired(
       this.client,
-      RETRIEVE_ENDPOINT,
+      "/workspace/schematic/symbol/retrieve",
       args,
       retrieveArgsZ,
       retrieveResZ,
@@ -118,7 +110,7 @@ export class Client {
   async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired(
       this.client,
-      DELETE_ENDPOINT,
+      "/workspace/schematic/symbol/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
       emptyResZ,
@@ -128,7 +120,7 @@ export class Client {
   async retrieveGroup(): Promise<group.Group> {
     const res = await sendRequired(
       this.client,
-      RETRIEVE_GROUP_ENDPOINT,
+      "/workspace/schematic/symbol/retrieve_group",
       {},
       retrieveGroupReqZ,
       retrieveGroupResZ,
@@ -137,7 +129,4 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({
-  type: "schematic_symbol",
-  key,
-});
+export const ontologyID = ontology.createIDFactory<Key>("schematic_symbol");

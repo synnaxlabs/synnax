@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { breaker } from "@synnaxlabs/x";
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
-import { URL } from "@synnaxlabs/x/url";
+import { breaker, TimeSpan, TimeStamp, URL } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { access } from "@/access";
@@ -18,21 +16,20 @@ import { auth } from "@/auth";
 import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { control } from "@/control";
+import { device } from "@/device";
 import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
-import { hardware } from "@/hardware";
-import { device } from "@/hardware/device";
-import { rack } from "@/hardware/rack";
-import { task } from "@/hardware/task";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
+import { rack } from "@/rack";
 import { ranger } from "@/ranger";
 import { status } from "@/status";
+import { task } from "@/task";
 import { Transport } from "@/transport";
 import { user } from "@/user";
 import { workspace } from "@/workspace";
 
-export const synnaxPropsZ = z.object({
+export const synnaxParamsZ = z.object({
   host: z.string({ error: "Host is required" }).min(1, "Host is required"),
   port: z
     .number({ error: "Port is required" })
@@ -40,13 +37,13 @@ export const synnaxPropsZ = z.object({
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
-  secure: z.boolean().optional().default(false),
+  secure: z.boolean().default(false),
   name: z.string().optional(),
   retry: breaker.breakerConfigZ.optional(),
 });
 
-export interface SynnaxProps extends z.input<typeof synnaxPropsZ> {}
-export interface ParsedSynnaxProps extends z.infer<typeof synnaxPropsZ> {}
+export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {}
+export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
 
 /**
  * Client to perform operations against a Synnax cluster.
@@ -58,10 +55,10 @@ export interface ParsedSynnaxProps extends z.infer<typeof synnaxPropsZ> {}
  */
 export default class Synnax extends framer.Client {
   readonly createdAt: TimeStamp;
-  readonly props: ParsedSynnaxProps;
+  readonly params: ParsedSynnaxParams;
   readonly ranges: ranger.Client;
   readonly channels: channel.Client;
-  readonly auth: auth.Client | undefined;
+  readonly auth: auth.Client;
   readonly users: user.Client;
   readonly access: access.Client;
   readonly connectivity: connection.Checker;
@@ -69,7 +66,9 @@ export default class Synnax extends framer.Client {
   readonly workspaces: workspace.Client;
   readonly labels: label.Client;
   readonly statuses: status.Client;
-  readonly hardware: hardware.Client;
+  readonly tasks: task.Client;
+  readonly racks: rack.Client;
+  readonly devices: device.Client;
   readonly control: control.Client;
   readonly arcs: arc.Client;
   static readonly connectivity = connection.Checker;
@@ -95,8 +94,8 @@ export default class Synnax extends framer.Client {
    * A Synnax client must be closed when it is no longer needed. This will stop
    * the client from polling the cluster for connectivity information.
    */
-  constructor(props_: SynnaxProps) {
-    const props = synnaxPropsZ.parse(props_);
+  constructor(params: SynnaxParams) {
+    const parsedParams = synnaxParamsZ.parse(params);
     const {
       host,
       port,
@@ -105,33 +104,29 @@ export default class Synnax extends framer.Client {
       connectivityPollFrequency,
       secure,
       retry: breaker,
-    } = props;
+    } = parsedParams;
     const transport = new Transport(
       new URL({ host, port: Number(port) }),
       breaker,
       secure,
     );
     transport.use(errorsMiddleware);
-    let auth_: auth.Client | undefined;
-    if (username != null && password != null) {
-      auth_ = new auth.Client(transport.unary, { username, password });
-      transport.use(auth_.middleware());
-    }
     const chRetriever = new channel.CacheRetriever(
       new channel.ClusterRetriever(transport.unary),
     );
-    const chCreator = new channel.Writer(transport.unary, chRetriever);
     super(transport.stream, transport.unary, chRetriever);
+    this.auth = new auth.Client(transport.unary, { username, password });
+    transport.use(this.auth.middleware());
+    const chCreator = new channel.Writer(transport.unary, chRetriever);
     this.createdAt = TimeStamp.now();
-    this.props = props;
-    this.auth = auth_;
+    this.params = parsedParams;
     this.transport = transport;
     this.channels = new channel.Client(this, chRetriever, transport.unary, chCreator);
     this.connectivity = new connection.Checker(
       transport.unary,
       connectivityPollFrequency,
       this.clientVersion,
-      props.name,
+      parsedParams.name,
     );
     this.control = new control.Client(this);
     this.ontology = new ontology.Client(transport.unary, this);
@@ -149,16 +144,15 @@ export default class Synnax extends framer.Client {
     this.access = new access.Client(this.transport.unary);
     this.users = new user.Client(this.transport.unary);
     this.workspaces = new workspace.Client(this.transport.unary);
-    const devices = new device.Client(this.transport.unary);
-    const tasks = new task.Client(
+    this.tasks = new task.Client(
       this.transport.unary,
       this,
       this.ontology,
       this.ranges,
     );
-    const racks = new rack.Client(this.transport.unary, tasks);
-    this.hardware = new hardware.Client(tasks, racks, devices);
-    this.arcs = new arc.Client(this.transport.unary);
+    this.racks = new rack.Client(this.transport.unary, this.tasks);
+    this.devices = new device.Client(this.transport.unary);
+    this.arcs = new arc.Client(this.transport.unary, this.transport.stream);
   }
 
   get key(): string {
@@ -166,6 +160,20 @@ export default class Synnax extends framer.Client {
   }
 
   close(): void {
-    this.connectivity.stopChecking();
+    this.connectivity.stop();
   }
 }
+
+export interface CheckConnectionParams
+  extends Pick<SynnaxParams, "host" | "port" | "secure" | "retry" | "name"> {}
+
+export const checkConnection = async (params: CheckConnectionParams) =>
+  await newConnectionChecker(params).check();
+
+export const newConnectionChecker = (params: CheckConnectionParams) => {
+  const { host, port, secure, name, retry } = params;
+  const retryConfig = breaker.breakerConfigZ.optional().parse(retry);
+  const url = new URL({ host, port: Number(port) });
+  const transport = new Transport(url, retryConfig, secure);
+  return new connection.Checker(transport.unary, undefined, __VERSION__, name);
+};

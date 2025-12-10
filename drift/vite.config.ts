@@ -22,7 +22,6 @@ export default defineConfig({
         index: path.resolve(".", "src/index.ts"),
         react: path.resolve(".", "src/react/index.ts"),
         tauri: path.resolve(".", "src/tauri/index.ts"),
-        electron: path.resolve(".", "src/electron/index.ts"),
       },
     },
     rollupOptions: {
@@ -33,10 +32,9 @@ export default defineConfig({
         "@reduxjs/toolkit",
         "proxy-memoize",
         "@tauri-apps/api",
-        "electron",
       ],
       output: {
-        globals: { react: "react", "react-dom": "ReactDOM", electron: "electron" },
+        globals: { react: "react", "react-dom": "ReactDOM" },
       },
     },
   },

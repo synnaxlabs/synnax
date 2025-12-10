@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package cesium_test
 
 import (
@@ -7,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -17,7 +26,7 @@ var _ = Describe("Open", func() {
 		ShouldNotLeakRoutinesJustBeforeEach()
 		Context("FS: "+fsName, Ordered, func() {
 			var (
-				fs      xfs.FS
+				fs      fs.FS
 				cleanUp func() error
 			)
 			BeforeAll(func() {
@@ -68,7 +77,7 @@ var _ = Describe("Open", func() {
 					Expect(ch.Key).To(Equal(key))
 					Expect(ch.IsIndex).To(BeTrue())
 
-					Expect(db.Write(ctx, 1*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
+					Expect(db.Write(ctx, 1*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{key},
 						[]telem.Series{telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)},
 					))).To(Succeed())
@@ -97,7 +106,7 @@ var _ = Describe("Open", func() {
 						Index:    indexKey,
 						DataType: telem.Int64T,
 					})).To(Succeed())
-					Expect(db.Write(ctx, 1*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
+					Expect(db.Write(ctx, 1*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{indexKey, key},
 						[]telem.Series{telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5), telem.NewSeriesV[int64](1, 2, 3, 4, 5)},
 					))).To(Succeed())
@@ -120,7 +129,7 @@ var _ = Describe("Open", func() {
 					Expect(ch.DataType).To(Equal(telem.TimeStampT))
 
 					By("Asserting that writes to the db still occurs normally")
-					Expect(db.Write(ctx, 11*telem.SecondTS, telem.MultiFrame[cesium.ChannelKey](
+					Expect(db.Write(ctx, 11*telem.SecondTS, telem.MultiFrame(
 						[]cesium.ChannelKey{key, indexKey},
 						[]telem.Series{telem.NewSeriesV[int64](11, 12, 13, 14, 15), telem.NewSeriesSecondsTSV(11, 12, 13, 14, 15)},
 					))).To(Succeed())

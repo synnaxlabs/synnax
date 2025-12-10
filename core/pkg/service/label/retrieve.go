@@ -48,7 +48,9 @@ func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve { r.gorp.WhereKeys(keys.
 
 // WhereNames filters for labels whose Name attribute matches the provided name.
 func (r Retrieve) WhereNames(names ...string) Retrieve {
-	r.gorp.Where(func(label *Label) bool { return lo.Contains(names, label.Name) })
+	r.gorp.Where(func(ctx gorp.Context, label *Label) (bool, error) {
+		return lo.Contains(names, label.Name), nil
+	})
 	return r
 }
 
@@ -60,7 +62,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.baseTx, tx)
 	if r.searchTerm != "" {
 		ids, err := r.otg.SearchIDs(ctx, search.Request{
-			Type: ontologyType,
+			Type: OntologyType,
 			Term: r.searchTerm,
 		})
 		if err != nil {
@@ -92,7 +94,7 @@ func (s *Service) RetrieveFor(
 		Exec(ctx, tx); err != nil {
 		return nil, err
 	}
-	keys, err := KeysFromOntologyIds(ontology.IDs(labelResources))
+	keys, err := KeysFromOntologyIds(ontology.ResourceIDs(labelResources))
 	if err != nil {
 		return nil, err
 	}

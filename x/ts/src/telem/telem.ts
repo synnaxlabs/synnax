@@ -154,6 +154,32 @@ export class TimeStamp
   private static parseDateTimeString(str: string, tzInfo: TZInfo = "UTC"): bigint {
     if (!str.includes("/") && !str.includes("-"))
       return TimeStamp.parseTimeString(str, tzInfo);
+
+    const isDateTimeLocal =
+      str.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?$/) != null;
+
+    if (isDateTimeLocal) {
+      let datePart = str;
+      let ms = 0;
+
+      if (str.includes(".")) {
+        const parts = str.split(".");
+        datePart = parts[0];
+        const msPart = parts[1] || "0";
+        ms = parseInt(msPart.padEnd(3, "0").slice(0, 3));
+      }
+
+      const d =
+        tzInfo === "local"
+          ? new Date(datePart.replace("T", " "))
+          : new Date(`${datePart}Z`);
+
+      const baseBigInt = BigInt(d.getTime()) * TimeStamp.MILLISECOND.valueOf();
+      const msBigInt = BigInt(ms) * TimeStamp.MILLISECOND.valueOf();
+
+      return baseBigInt + msBigInt;
+    }
+
     const d = new Date(str);
     // Essential to note that this makes the date midnight in UTC! Not local!
     // As a result, we need to add the tzInfo offset back in.
@@ -558,6 +584,28 @@ export class TimeStamp
    */
   truncate(span: TimeSpan | TimeStamp): TimeStamp {
     return this.sub(this.remainder(span));
+  }
+
+  /**
+   * Determines the appropriate string format based on the span magnitude.
+   *
+   * @param span - The span that provides context for format selection
+   * @returns The appropriate TimeStampStringFormat
+   *
+   * Rules:
+   * - For spans >= 30 days: "shortDate" (e.g., "Nov 5")
+   * - For spans >= 1 day: "dateTime" (e.g., "Nov 5 14:23:45")
+   * - For spans >= 1 hour: "time" (e.g., "14:23:45")
+   * - For spans >= 1 second: "preciseTime" (e.g., "14:23:45.123")
+   * - For spans < 1 second: "ISOTime" (full precision time)
+   */
+  formatBySpan(span: TimeSpan): TimeStampStringFormat {
+    if (span.greaterThanOrEqual(TimeSpan.days(30))) return "shortDate";
+    if (span.greaterThanOrEqual(TimeSpan.DAY)) return "dateTime";
+    if (span.greaterThanOrEqual(TimeSpan.HOUR)) return "time";
+    if (span.greaterThanOrEqual(TimeSpan.SECOND)) return "preciseTime";
+
+    return "ISOTime";
   }
 
   /**
@@ -2250,13 +2298,5 @@ export const convertDataType = (
   if (source.usesBigInt && !target.usesBigInt) return Number(value) - Number(offset);
   if (!source.usesBigInt && target.usesBigInt)
     return BigInt(value.valueOf()) - BigInt(offset.valueOf());
-  return addSamples(value, -offset);
-};
-
-export const addSamples = (a: math.Numeric, b: math.Numeric): math.Numeric => {
-  if (b == 0) return a;
-  if (a == 0) return b;
-  if (typeof a === "bigint" && typeof b === "bigint") return a + b;
-  if (typeof a === "number" && typeof b === "number") return a + b;
-  return Number(a) + Number(b);
+  return math.sub(value, offset);
 };

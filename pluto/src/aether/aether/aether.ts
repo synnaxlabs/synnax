@@ -10,13 +10,13 @@
 import { alamos } from "@synnaxlabs/alamos";
 import { NotFoundError, UnexpectedError, ValidationError } from "@synnaxlabs/client";
 import {
+  deep,
   type errors,
   type record,
   type Sender,
   type SenderHandler,
-  shallowCopy,
+  shallow,
 } from "@synnaxlabs/x";
-import { deep } from "@synnaxlabs/x/deep";
 import { z } from "zod";
 
 import {
@@ -223,7 +223,7 @@ export abstract class Leaf<
    */
   setState(next: state.SetArg<z.infer<StateSchema>>): void {
     const nextState = state.executeSetter(next, this.state);
-    this._prevState = shallowCopy(this._state);
+    this._prevState = shallow.copy(this._state);
     this._state = prettyParse(this._schema, nextState, `${this.toString()}`);
     this.sender.send({ variant: "update", key: this.key, state: this._state });
   }
@@ -426,13 +426,13 @@ export abstract class Composite<
       const childPath = path.slice(0, path.indexOf(childKey) + 1).join(".");
       const fullPath = path.join(".");
       throw new UnexpectedError(
-        `Child of ${this.toString()} at path ${childPath} does not exist, 
-        but an extended path ${fullPath} was provided. This means that the aether 
-        tree is attempting to create a new child  of type ${type} (or nested children) 
+        `Child of ${this.toString()} at path ${childPath} does not exist,
+        but an extended path ${fullPath} was provided. This means that the aether
+        tree is attempting to create a new child  of type ${type} (or nested children)
         on a child that does not exist.
 
         Children present: ${this.children.map((c) => `${c.type}:${c.key}`).join(".")}
-        
+
         `,
       );
     }

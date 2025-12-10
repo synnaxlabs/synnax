@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type Context } from "@synnaxlabs/freighter";
-import { URL } from "@synnaxlabs/x/url";
+import { URL } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { auth } from "@/auth";
 import { AuthError, ExpiredTokenError, InvalidTokenError } from "@/errors";
-import { TEST_CLIENT_PROPS } from "@/testutil/client";
+import { TEST_CLIENT_PARAMS } from "@/testutil/client";
 import { Transport } from "@/transport";
 
 const DUMMY_CTX: Context = {
@@ -27,11 +27,11 @@ describe("auth", () => {
   test("valid credentials", async () => {
     const transport = new Transport(
       new URL({
-        host: TEST_CLIENT_PROPS.host,
-        port: Number(TEST_CLIENT_PROPS.port),
+        host: TEST_CLIENT_PARAMS.host,
+        port: Number(TEST_CLIENT_PARAMS.port),
       }),
     );
-    const client = new auth.Client(transport.unary, TEST_CLIENT_PROPS);
+    const client = new auth.Client(transport.unary, TEST_CLIENT_PARAMS);
     const mw = client.middleware();
     const res = await mw(DUMMY_CTX, async () => [DUMMY_CTX, null]);
     expect(res).toEqual([DUMMY_CTX, null]);
@@ -40,12 +40,12 @@ describe("auth", () => {
   test("invalid credentials", async () => {
     const transport = new Transport(
       new URL({
-        host: TEST_CLIENT_PROPS.host,
-        port: Number(TEST_CLIENT_PROPS.port),
+        host: TEST_CLIENT_PARAMS.host,
+        port: Number(TEST_CLIENT_PARAMS.port),
       }),
     );
     const client = new auth.Client(transport.unary, {
-      ...TEST_CLIENT_PROPS,
+      ...TEST_CLIENT_PARAMS,
       password: "wrong",
     });
     const mw = client.middleware();
@@ -59,11 +59,11 @@ describe("auth", () => {
       it(`should re-authenticate and retry the request for ${ErrorType.name}`, async () => {
         const transport = new Transport(
           new URL({
-            host: TEST_CLIENT_PROPS.host,
-            port: Number(TEST_CLIENT_PROPS.port),
+            host: TEST_CLIENT_PARAMS.host,
+            port: Number(TEST_CLIENT_PARAMS.port),
           }),
         );
-        const client = new auth.Client(transport.unary, TEST_CLIENT_PROPS);
+        const client = new auth.Client(transport.unary, TEST_CLIENT_PARAMS);
         const mw = client.middleware();
         let isFirst = true;
         let tkOne: string | undefined;
@@ -86,11 +86,11 @@ describe("auth", () => {
     it("should fail after MAX_RETRIES", async () => {
       const transport = new Transport(
         new URL({
-          host: TEST_CLIENT_PROPS.host,
-          port: Number(TEST_CLIENT_PROPS.port),
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
         }),
       );
-      const client = new auth.Client(transport.unary, TEST_CLIENT_PROPS);
+      const client = new auth.Client(transport.unary, TEST_CLIENT_PARAMS);
       const mw = client.middleware();
       const [, err] = await mw(DUMMY_CTX, async () => [
         DUMMY_CTX,

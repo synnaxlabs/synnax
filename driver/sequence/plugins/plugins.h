@@ -9,11 +9,9 @@
 
 #pragma once
 
-/// std
 #include <memory>
 #include <string>
 
-/// external
 #include "nlohmann/json.hpp"
 
 extern "C" {
@@ -21,7 +19,6 @@ extern "C" {
 #include <lua.h>
 }
 
-/// internal
 #include "driver/pipeline/control.h"
 
 using json = nlohmann::json;
@@ -169,7 +166,7 @@ public:
         const std::vector<synnax::Channel> &channels
     );
 
-    std::pair<synnax::Channel, xerrors::Error> resolve(const std::string &name);
+    std::pair<synnax::Channel, bool> resolve(const std::string &name);
 
     xerrors::Error before_all(lua_State *L) override;
 
@@ -198,7 +195,6 @@ class ChannelReceive final : public Plugin {
     /// @brief maps channel keys to channels in order to bind variable names
     /// appropriately.
     std::unordered_map<synnax::ChannelKey, synnax::Channel> channels;
-
 
     class Sink final : public pipeline::Sink {
         ChannelReceive &receiver;

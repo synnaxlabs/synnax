@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, notation } from "@synnaxlabs/x";
-import { box, location, scale, xy } from "@synnaxlabs/x/spatial";
+import { box, color, location, notation, scale, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -24,20 +23,20 @@ const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
 
 const valueState = z.object({
   box: box.box,
-  telem: telem.stringSourceSpecZ.optional().default(telem.noopStringSourceSpec),
-  backgroundTelem: telem.colorSourceSpecZ.optional().default(telem.noopColorSourceSpec),
-  level: text.levelZ.optional().default("p"),
-  color: color.colorZ.optional().default(color.ZERO),
-  precision: z.number().optional().default(2),
-  stalenessTimeout: z.number().optional().default(5),
-  stalenessColor: color.colorZ.optional().default(color.ZERO),
-  minWidth: z.number().optional().default(60),
+  telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
+  backgroundTelem: telem.colorSourceSpecZ.default(telem.noopColorSourceSpec),
+  level: text.levelZ.default("p"),
+  color: color.colorZ.default(color.ZERO),
+  precision: z.number().default(2),
+  stalenessTimeout: z.number().default(5),
+  stalenessColor: color.colorZ.default(color.ZERO),
+  minWidth: z.number().default(60),
   width: z.number().optional(),
-  notation: notation.notationZ.optional().default("standard"),
-  location: location.xy.optional().default({ x: "left", y: "center" }),
-  useWidthForBackground: z.boolean().optional().default(false),
-  valueBackgroundShift: xy.xy.optional().default(xy.ZERO),
-  valueBackgroundOverScan: xy.xy.optional().default(xy.ZERO),
+  notation: notation.notationZ.default("standard"),
+  location: location.xy.default({ x: "left", y: "center" }),
+  useWidthForBackground: z.boolean().default(false),
+  valueBackgroundShift: xy.xy.default(xy.ZERO),
+  valueBackgroundOverScan: xy.xy.default(xy.ZERO),
 });
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];

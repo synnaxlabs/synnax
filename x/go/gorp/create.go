@@ -11,6 +11,7 @@ package gorp
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -28,56 +29,72 @@ func NewCreate[K Key, E Entry[K]]() Create[K, E] {
 // the existing entry and should return an error if the entry should not be overwritten.
 // If no entry with a matching GorpKey is found, the function is not called. MergeExisting
 // adds overhead to the query, as a retrieval is required to check for existing entries.
-func (c Create[K, E]) MergeExisting(filter func(creating E, existing E) (E, error)) Create[K, E] {
-	addMergeExisting[K, E](c.params, filter)
+func (c Create[K, E]) MergeExisting(filter func(ctx Context, creating E, existing E) (E, error)) Create[K, E] {
+	addMergeExisting(c.params, filter)
 	return c
 }
 
 // Entries sets the Entries to write to the DB.
-func (c Create[K, E]) Entries(entries *[]E) Create[K, E] { SetEntries[K](c.params, entries); return c }
+func (c Create[K, E]) Entries(entries *[]E) Create[K, E] {
+	SetEntries(c.params, entries)
+	return c
+}
 
 // Entry sets the entry to write to the DB.
-func (c Create[K, E]) Entry(entry *E) Create[K, E] { SetEntry[K](c.params, entry); return c }
+func (c Create[K, E]) Entry(entry *E) Create[K, E] {
+	SetEntry(c.params, entry)
+	return c
+}
 
-// Exec executes the Params against the provided DB. It returns any errors encountered during execution.
+// Exec executes the query against the provided transaction. It returns any errors
+// encountered during execution.
 func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Create.Exec", tx)
 	entries, w := GetEntries[K, E](c.params), WrapWriter[K, E](tx)
 	mergeExisting, hasMergeExisting := getMergeExisting[K, E](c.params)
-	if hasMergeExisting {
-		r := WrapReader[K, E](tx)
-		for i, entry := range entries.All() {
-			e, err := r.Get(ctx, entry.GorpKey())
-			if errors.Is(err, query.NotFound) {
-				continue
-			}
-			if err != nil {
-				return err
-			}
-			if e, err = mergeExisting.exec(entry, e); err != nil {
-				return err
-			}
-			entries.Set(i, e)
-		}
+	if !hasMergeExisting {
+		return w.Set(ctx, entries.All()...)
 	}
-	return w.Set(ctx, entries.All()...)
+	r := WrapReader[K, E](tx)
+	all := entries.All()
+	toWrite := make([]E, 0, len(all))
+	for _, entry := range all {
+		e, err := r.Get(ctx, entry.GorpKey())
+		if errors.Is(err, query.NotFound) {
+			toWrite = append(toWrite, entry)
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if e, err = mergeExisting.exec(Context{
+			Context: ctx,
+			Tx:      tx,
+		}, entry, e); err != nil {
+			return err
+		}
+		toWrite = append(toWrite, e)
+	}
+	return w.Set(ctx, toWrite...)
 }
 
 const mergeExistingKey = "mergeExisting"
 
-type onUpdate[K Key, E Entry[K]] []func(creating E, existing E) (E, error)
+type MergeExistingFunc[K Key, E Entry[K]] = func(ctx Context, creating, existing E) (E, error)
 
-func (o onUpdate[K, E]) exec(creating E, existing E) (E, error) {
+type onUpdate[K Key, E Entry[K]] []MergeExistingFunc[K, E]
+
+func (o onUpdate[K, E]) exec(ctx Context, creating, existing E) (E, error) {
 	var err error
 	for _, f := range o {
-		if creating, err = f(creating, existing); err != nil {
+		if creating, err = f(ctx, creating, existing); err != nil {
 			return creating, err
 		}
 	}
 	return creating, nil
 }
 
-func addMergeExisting[K Key, E Entry[K]](q query.Parameters, f func(creating E, existing E) (E, error)) {
+func addMergeExisting[K Key, E Entry[K]](q query.Parameters, f MergeExistingFunc[K, E]) {
 	var o onUpdate[K, E]
 	ro, ok := q.Get(mergeExistingKey)
 	if !ok {

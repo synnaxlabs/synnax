@@ -25,7 +25,7 @@ import {
   AiOutlineMinus,
   AiOutlineSync,
 } from "react-icons/ai";
-import { BiLinkExternal, BiMath, BiRename } from "react-icons/bi";
+import { BiLinkExternal, BiRename } from "react-icons/bi";
 import {
   BsBorderWidth,
   BsFillInfoSquareFill,
@@ -86,6 +86,7 @@ import {
   MdBlurLinear,
   MdBook,
   MdBorderColor,
+  MdCalculate,
   MdCalendarToday,
   MdComment,
   MdCommit,
@@ -99,6 +100,7 @@ import {
   MdFilterCenterFocus,
   MdHardware,
   MdHive,
+  MdHorizontalDistribute,
   MdInsights,
   MdKeyboardAlt,
   MdKeyboardArrowDown,
@@ -116,6 +118,7 @@ import {
   MdLabel,
   MdLightMode,
   MdLink,
+  MdLogout,
   MdMoreVert,
   MdNewReleases,
   MdOutlineControlCamera,
@@ -133,16 +136,23 @@ import {
   MdOutlineVisibilityOff,
   MdOutlineWebAsset,
   MdPause,
+  MdPeople,
   MdPerson,
   MdPictureInPicture,
   MdPlayArrow,
+  MdPolicy,
   MdQuestionMark,
+  MdRotate90DegreesCcw,
+  MdRotate90DegreesCw,
+  MdRotateLeft,
+  MdRotateRight,
   MdSaveAlt,
   MdSensors,
   MdShield,
   MdSquareFoot,
   MdTextFields,
   MdTypeSpecimen,
+  MdVerticalDistribute,
   MdWorkspacesFilled,
 } from "react-icons/md";
 import {
@@ -171,6 +181,7 @@ import {
 } from "react-icons/ri";
 import { RxComponentBoolean, RxReset } from "react-icons/rx";
 import {
+  SiCplusplus,
   SiGooglenearby,
   SiNpm,
   SiPnpm,
@@ -266,6 +277,7 @@ export const Workspace = wrapSVGIcon(MdWorkspacesFilled, "workspace");
 export const Box = wrapSVGIcon(AiOutlineBorder, "box");
 export const Python = wrapSVGIcon(SiPython, "python");
 export const TypeScript = wrapSVGIcon(SiTypescript, "typescript");
+export const CPlusPlus = wrapSVGIcon(SiCplusplus, "cplusplus");
 export const NPM = wrapSVGIcon(SiNpm, "npm");
 export const PNPM = wrapSVGIcon(SiPnpm, "pnpm");
 export const Yarn = wrapSVGIcon(SiYarn, "yarn");
@@ -317,6 +329,8 @@ export const Selection = wrapSVGIcon(PiSelectionPlusBold, "selection");
 export const Pan = wrapSVGIcon(GrPan, "pan");
 export const Rule = wrapSVGIcon(MdSquareFoot, "rule");
 export const User = wrapSVGIcon(MdPerson, "user");
+export const Role = wrapSVGIcon(MdPeople, "role");
+export const Policy = wrapSVGIcon(MdPolicy, "policy");
 export const Rename = wrapSVGIcon(BiRename, "rename");
 export const Snapshot = wrapSVGIcon(MdPictureInPicture, "snapshot");
 export const Sync = wrapSVGIcon(AiOutlineSync, "sync");
@@ -336,6 +350,10 @@ export const Align = {
   YCenter: wrapSVGIcon(MdAlignVerticalCenter, "align-y-center"),
   Top: wrapSVGIcon(MdAlignVerticalTop, "align-top"),
   Bottom: wrapSVGIcon(MdAlignVerticalBottom, "align-bottom"),
+};
+export const Distribute = {
+  X: wrapSVGIcon(MdHorizontalDistribute, "distribute-x"),
+  Y: wrapSVGIcon(MdVerticalDistribute, "distribute-y"),
 };
 export const TextAlign = {
   Center: wrapSVGIcon(FaAlignCenter, "text-align-center"),
@@ -374,13 +392,21 @@ export const Snooze = wrapSVGIcon(IoNotificationsOff, "snooze");
 export const Log = wrapSVGIcon(FaStream, "log");
 export const Tare = wrapSVGIcon(FaCreativeCommonsZero, "tare");
 export const Rotate = wrapSVGIcon(GrRotateRight, "rotate");
+export const RotateGroup = {
+  CW: wrapSVGIcon(MdRotateRight, "rotate-group-cw"),
+  CCW: wrapSVGIcon(MdRotateLeft, "rotate-group-ccw"),
+};
+export const RotateAroundCenter = {
+  CW: wrapSVGIcon(MdRotate90DegreesCw, "rotate-around-center-cw"),
+  CCW: wrapSVGIcon(MdRotate90DegreesCcw, "rotate-around-center-ccw"),
+};
 export const Text = wrapSVGIcon(MdTextFields, "text");
 export const Value = wrapSVGIcon(GoNumber, "value");
 export const Calendar = wrapSVGIcon(MdCalendarToday, "calendar");
 export const Release = wrapSVGIcon(MdNewReleases, "release");
 export const OpenExternal = wrapSVGIcon(MdArrowOutward, "open-external");
 export const Feedback = wrapSVGIcon(MdFeedback, "feedback");
-export const Calculation = wrapSVGIcon(BiMath, "calculation");
+export const Calculation = wrapSVGIcon(MdCalculate, "calculation");
 export const Binary = wrapSVGIcon(PiBinary, "binary");
 export const Index = wrapSVGIcon(IoTime, "index");
 export const Decimal = wrapSVGIcon(TbDecimal, "decimal");
@@ -437,6 +463,7 @@ export const CSV = wrapSVGIcon(PiFileCsv, "csv");
 export const Reset = wrapSVGIcon(RxReset, "reset");
 export const FillColor = wrapSVGIcon(IoMdColorFill, "fill-color");
 export const StrokeColor = wrapSVGIcon(MdBorderColor, "stroke-color");
+export const Logout = wrapSVGIcon(MdLogout, "logout");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
@@ -487,6 +514,7 @@ const icons = {
   Box,
   Python,
   TypeScript,
+  CPlusPlus,
   NPM,
   PNPM,
   Yarn,
@@ -502,6 +530,8 @@ const icons = {
   Pan,
   Rule,
   User,
+  Role,
+  Policy,
   Rename,
   Snapshot,
   Sync,
@@ -591,6 +621,7 @@ const icons = {
   Status,
   FillColor,
   StrokeColor,
+  Logout,
 };
 
 export const resolve = ((

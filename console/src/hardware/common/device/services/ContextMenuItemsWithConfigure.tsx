@@ -36,7 +36,7 @@ export const ContextMenuItemsWithConfigure = ({
       <>
         <Menu.Item itemKey={itemKey} onClick={handleEditConnection}>
           <Icon.Edit />
-          Edit Connection
+          Edit connection
         </Menu.Item>
         <Menu.Divider />
       </>

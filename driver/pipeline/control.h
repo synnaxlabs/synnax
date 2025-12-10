@@ -9,14 +9,11 @@
 
 #pragma once
 
-/// std
 #include <memory>
 
-/// module
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
 
-/// internal
 #include "driver/pipeline/base.h"
 
 namespace pipeline {
@@ -86,7 +83,6 @@ public:
     virtual ~StreamerFactory() = default;
 };
 
-
 /// @brief an implementation of the pipeline::Streamer interface that is backed
 /// by a Synnax streamer that receives data from a cluster.
 class SynnaxStreamer final : public Streamer {
@@ -125,7 +121,6 @@ public:
     open_streamer(synnax::StreamerConfig config) override;
 };
 
-
 /// @brief A pipeline that reads incoming data over the network and writes to a
 /// sink. The pipeline should be used as a utility for implementing a broader
 /// control task. It implements retry handling on connection loss and handles
@@ -152,11 +147,13 @@ public:
     /// @param breaker_config the configuration for the breaker used to manage the
     /// control thread lifecycle and retry requests on connection loss or temporary
     /// hardware errors.
+    /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     Control(
         std::shared_ptr<synnax::Synnax> client,
         synnax::StreamerConfig streamer_config,
         std::shared_ptr<Sink> sink,
-        const breaker::Config &breaker_config
+        const breaker::Config &breaker_config,
+        std::string thread_name = ""
     );
 
     //// @brief constructs a new control pipeline that opens streamers using the
@@ -169,11 +166,13 @@ public:
     /// @param breaker_config the configuration for the breaker used to manage the
     /// control thread lifecycle and retry requests on connection loss or temporary
     /// hardware errors.
+    /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     Control(
         std::shared_ptr<StreamerFactory> streamer_factory,
         synnax::StreamerConfig streamer_config,
         std::shared_ptr<Sink> sink,
-        const breaker::Config &breaker_config
+        const breaker::Config &breaker_config,
+        std::string thread_name = ""
     );
 
     /// @brief stops the control pipeline, blocking until the control thread has

@@ -11,7 +11,7 @@ import "@/hardware/common/task/Form.css";
 
 import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
 import { Device, Flex, type Flux, Form as PForm, Input, Task } from "@synnaxlabs/pluto";
-import { id, primitive, TimeStamp } from "@synnaxlabs/x";
+import { primitive, TimeStamp } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 import { type z } from "zod";
@@ -20,6 +20,7 @@ import { CSS } from "@/css";
 import { Controls } from "@/hardware/common/task/Controls";
 import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
 import { Rack } from "@/hardware/common/task/Rack";
+import { useStatus } from "@/hardware/common/task/useStatus";
 import { UtilityButtons } from "@/hardware/common/task/UtilityButtons";
 import { Layout } from "@/layout";
 import { useConfirm } from "@/modals/Confirm";
@@ -86,30 +87,12 @@ export interface WrapFormArgs<
   showControls?: boolean;
 }
 
-const defaultStatus = <StatusData extends z.ZodType>(): task.Status<
-  ReturnType<typeof task.statusDetailsZ<StatusData>>
-> => ({
-  key: id.create(),
-  name: "Task Status",
-  variant: "disabled",
-  message: "Task has not been configured",
-  time: TimeStamp.now(),
-  details: { task: "", running: false, data: {} as any },
-});
-
-export const useStatus = <Schema extends z.ZodType>(ctx?: PForm.ContextValue<Schema>) =>
-  PForm.useFieldValue<task.Status>("status", { ctx, optional: true }) ??
-  defaultStatus();
-
 export const useIsRunning = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
 ) => useStatus(ctx)?.details.running ?? false;
 export const useIsSnapshot = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
 ) => PForm.useFieldValue<boolean>("snapshot", { ctx });
-
-export const useKey = <Schema extends z.ZodType>(ctx?: PForm.ContextValue<Schema>) =>
-  PForm.useFieldValue<task.Key | undefined>("key", { ctx, optional: true });
 
 interface HeaderProps {
   isSnapshot: boolean;
@@ -177,10 +160,18 @@ export const wrapForm = <
             cancel: { label: "Cancel" },
           });
           if (!confirmed) return false;
-          await client.hardware.tasks.delete(taskKey);
+          await client.tasks.delete(taskKey);
         }
         form.set("rackKey", rackKey);
         form.set("config", newConfig);
+        const status: task.NewStatus = {
+          name,
+          time: TimeStamp.now(),
+          variant: "loading",
+          message: "Configuring task",
+          details: { running: true, data: null },
+        };
+        form.set("status", status);
         return true;
       },
       afterSave: ({ client, ...form }) => {

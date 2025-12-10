@@ -2,7 +2,7 @@
 layout: "@/layouts/Reference.astro"
 title: "Workspaces"
 heading: "Workspaces"
-description: "Organize and share console layouts with workspaces."
+description: "Organize and share Console layouts with workspaces."
 prev: "Calculated Channels"
 prevURL: "/reference/console/calculated-channels"
 next: "Ranges"
@@ -32,9 +32,9 @@ export const components = mdxOverrides;
   />
 </Diagram>
 
-Workspaces allow you to save a particular console layout for later access and to share
-with others. This can be useful for organizing your console layouts for different tasks,
-component configurations, or to collaboratively develop a project.
+Workspaces allow you to save a particular layout for later access and to share with
+others. This can be useful for organizing layouts for different tasks, component
+configurations, or to collaboratively develop a project.
 
 <Note.Note variant="warning">
   Make sure that you are working in an active workspace! If you are working on a
@@ -47,8 +47,8 @@ component configurations, or to collaboratively develop a project.
 
 ## Creating a New Workspace
 
-To create a new workspace, use the workspace selector in the top-left corner of the
-console.
+To create a new workspace, use the Workspace Selector in the top-left corner of the
+Console.
 
 <Video client:only="react" id="console/workspaces/create" />
 
@@ -56,8 +56,8 @@ console.
 
 ## Loading a Workspace
 
-Workspaces can be loaded by finding them in the resources toolbar on the left-hand side
-or clicking the workspace tab on the top.
+Workspaces can be loaded by finding them in the Workspaces Toolbar on the left-hand side
+or from the Workspace Selector in the top-left corner of the Console.
 
 <Video client:only="react" id="console/workspaces/load" />
 
@@ -66,24 +66,24 @@ or clicking the workspace tab on the top.
 ## Sharing a Workspace
 
 If you want to share a workspace with someone else, you have two different options:
-sharing a workspace with someone connected to the same Synnax server, or sharing a
+sharing a workspace with someone connected to the same Synnax Core, or sharing a
 workspace via exporting it to a directory file.
 
 ### Sharing via Link
 
-To share a workspace by link, find the workspace in the resources toolbar, right-click
+To share a workspace by link, find the workspace in the Workspaces Toolbar, right-click
 and open the context menu, and then click the "Copy Link" option.
 
 <Image client:only="react" id="console/workspaces/copy-link" />
 
-Anyone with this link that is connected to the cluster on their Synnax Console can open
-the workspace by pasting the link into a web browser or other application.
+Anyone with this link that is connected to the Core on their Synnax Console can open the
+workspace by pasting the link into a web browser or other application.
 
 ### Sharing via File
 
 #### Exporting a workspace
 
-To share a workspace by file, find the workspace in the resources toolbar, right-click
+To share a workspace by file, find the workspace in the Workspaces Toolbar, right-click
 on it and open the context menu, and then click the "Export" option.
 
 <Image client:only="react" id="console/workspaces/export" />

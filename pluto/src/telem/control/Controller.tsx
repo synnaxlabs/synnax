@@ -8,16 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import {
-  createContext,
-  type PropsWithChildren,
-  type ReactElement,
-  use,
-  useEffect,
-} from "react";
+import { type PropsWithChildren, type ReactElement, useEffect, useMemo } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
+import { context } from "@/context";
 import { useMemoDeepEqual } from "@/memo";
 import { control } from "@/telem/control/aether";
 
@@ -32,9 +27,11 @@ export interface ContextValue {
   needsControlOf: channel.Keys;
 }
 
-const Context = createContext<ContextValue>({ needsControlOf: [] });
-
-export const useContext = () => use(Context);
+const [Context, useContext] = context.create<ContextValue>({
+  defaultValue: { needsControlOf: [] },
+  displayName: "Control.Context",
+});
+export { useContext };
 
 export const Controller = ({
   children,
@@ -54,9 +51,9 @@ export const Controller = ({
     setState((state) => ({ ...state, ...memoProps }));
   }, [memoProps, setState]);
   useEffect(() => () => onStatusChange?.("released"), []);
-
+  const value = useMemo(() => ({ needsControlOf }), [needsControlOf]);
   return (
-    <Context value={{ needsControlOf }}>
+    <Context value={value}>
       <Aether.Composite path={path}>{children}</Aether.Composite>;
     </Context>
   );

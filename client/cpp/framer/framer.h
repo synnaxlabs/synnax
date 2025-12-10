@@ -9,22 +9,17 @@
 
 #pragma once
 
-/// std
 #include <memory>
 #include <set>
 #include <utility>
 #include <vector>
 
-/// internal
 #include "client/cpp/channel/channel.h"
-
-/// module
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/control.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
-/// protos
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/framer.pb.h"
 
 namespace synnax {
@@ -184,7 +179,6 @@ public:
     }
 };
 
-
 /// @brief Bit positions for flags in the frame codec
 enum class FlagPosition : uint8_t {
     ZeroAlignments = 5,
@@ -280,7 +274,6 @@ public:
     [[nodiscard]] std::pair<Frame, xerrors::Error>
     decode(const std::uint8_t *data, std::size_t size) const;
 };
-
 
 /// @brief configuration for opening a new streamer.
 class StreamerConfig {
@@ -382,11 +375,6 @@ enum WriterMode : uint8_t {
     StreamOnly = 3
 };
 
-inline WriterMode data_saving_writer_mode(const bool data_saving) {
-    if (data_saving) return WriterMode::PersistStream;
-    return WriterMode::StreamOnly;
-}
-
 /// @brief configuration for opening a new Writer. For more information on writers,
 /// see https://docs.synnaxlabs.com/concepts/write.
 struct WriterConfig {
@@ -418,7 +406,7 @@ struct WriterConfig {
     /// @brief sets whether auto commit is enabled for the writer. If true, samples
     /// will be made immediately available for reads. If false, samples will be made
     /// available for reads only after a call to Writer::commit().
-    bool enable_auto_commit = false;
+    bool enable_auto_commit = true;
 
     /// @brief sets whether the writer returns error if the writer attempts to write
     /// to a channel that it does not have authority to write to. If false, the
@@ -564,7 +552,6 @@ private:
     friend class FrameClient;
 };
 
-
 class FrameClient {
 public:
     FrameClient(
@@ -606,6 +593,5 @@ private:
     /// cluster.
     ChannelClient channel_client;
 };
-
 
 }

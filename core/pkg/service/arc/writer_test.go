@@ -20,7 +20,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	xstatus "github.com/synnaxlabs/x/status"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Writer", func() {
@@ -35,9 +37,9 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 				Expect(a.Key).ToNot(Equal(uuid.Nil))
 
-				var s status.Status
+				var s status.Status[arc.StatusDetails]
 				statusKey := a.Key.String()
-				Expect(gorp.NewRetrieve[string, status.Status]().
+				Expect(gorp.NewRetrieve[string, status.Status[arc.StatusDetails]]().
 					WhereKeys(statusKey).
 					Entry(&s).
 					Exec(ctx, tx)).To(Succeed())
@@ -60,9 +62,9 @@ var _ = Describe("Writer", func() {
 				Expect(a.Key).To(Equal(key))
 
 				// Verify the status was created with the correct key
-				var s status.Status
+				var s status.Status[arc.StatusDetails]
 				statusKey := key.String()
-				Expect(gorp.NewRetrieve[string, status.Status]().
+				Expect(gorp.NewRetrieve[string, status.Status[arc.StatusDetails]]().
 					WhereKeys(statusKey).
 					Entry(&s).
 					Exec(ctx, tx)).To(Succeed())
@@ -80,9 +82,9 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 
 				// Verify the status was created
-				var s status.Status
+				var s status.Status[arc.StatusDetails]
 				statusKey := a.Key.String()
-				Expect(gorp.NewRetrieve[string, status.Status]().
+				Expect(gorp.NewRetrieve[string, status.Status[arc.StatusDetails]]().
 					WhereKeys(statusKey).
 					Entry(&s).
 					Exec(ctx, tx)).To(Succeed())
@@ -108,12 +110,12 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, &a2)).To(Succeed())
 
 				// Verify both statuses were created
-				var s1, s2 status.Status
-				Expect(gorp.NewRetrieve[string, status.Status]().
+				var s1, s2 status.Status[arc.StatusDetails]
+				Expect(gorp.NewRetrieve[string, status.Status[arc.StatusDetails]]().
 					WhereKeys(a1.Key.String()).
 					Entry(&s1).
 					Exec(ctx, tx)).To(Succeed())
-				Expect(gorp.NewRetrieve[string, status.Status]().
+				Expect(gorp.NewRetrieve[string, status.Status[arc.StatusDetails]]().
 					WhereKeys(a2.Key.String()).
 					Entry(&s2).
 					Exec(ctx, tx)).To(Succeed())
@@ -141,8 +143,8 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 
 				// Status should still exist
-				var s status.Status
-				Expect(gorp.NewRetrieve[string, status.Status]().
+				var s status.Status[arc.StatusDetails]
+				Expect(gorp.NewRetrieve[string, status.Status[arc.StatusDetails]]().
 					WhereKeys(key.String()).
 					Entry(&s).
 					Exec(ctx, tx)).To(Succeed())
@@ -153,31 +155,57 @@ var _ = Describe("Writer", func() {
 		})
 
 		Describe("Delete with Status cleanup", func() {
-			It("Should not directly delete status on arc deletion", func() {
+			It("Should delete status when arc is deleted", func() {
 				a := arc.Arc{
 					Name:  "arc-to-delete",
 					Graph: graph.Graph{},
 					Text:  text.Text{},
 				}
 				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
-
-				// Verify status exists
-				var s status.Status
+				var s status.Status[arc.StatusDetails]
 				statusKey := a.Key.String()
-				Expect(gorp.NewRetrieve[string, status.Status]().
+				Expect(gorp.NewRetrieve[string, status.Status[arc.StatusDetails]]().
 					WhereKeys(statusKey).
 					Entry(&s).
 					Exec(ctx, tx)).To(Succeed())
+				Expect(s.Key).To(Equal(statusKey))
 
-				// Delete the arc
 				Expect(svc.NewWriter(tx).Delete(ctx, a.Key)).To(Succeed())
 
-				// Status should still exist (it's managed separately)
-				// The status service would handle cleanup through ontology relationships
-				Expect(gorp.NewRetrieve[string, status.Status]().
+				Expect(status.NewRetrieve[arc.StatusDetails](statusSvc).
 					WhereKeys(statusKey).
-					Entry(&s).
-					Exec(ctx, tx)).To(Succeed())
+					Exec(ctx, tx)).To(HaveOccurredAs(query.NotFound))
+			})
+
+			It("Should delete multiple statuses when multiple arcs are deleted", func() {
+				a1 := arc.Arc{
+					Name:  "arc-to-delete-1",
+					Graph: graph.Graph{},
+					Text:  text.Text{},
+				}
+				a2 := arc.Arc{
+					Name:  "arc-to-delete-2",
+					Graph: graph.Graph{},
+					Text:  text.Text{},
+				}
+				w := svc.NewWriter(tx)
+				Expect(w.Create(ctx, &a1)).To(Succeed())
+				Expect(w.Create(ctx, &a2)).To(Succeed())
+
+				Expect(svc.NewWriter(tx).Delete(ctx, a1.Key, a2.Key)).To(Succeed())
+
+				Expect(status.NewRetrieve[arc.StatusDetails](statusSvc).
+					WhereKeys(a1.Key.String()).
+					Exec(ctx, tx)).To(HaveOccurredAs(query.NotFound))
+
+				Expect(status.NewRetrieve[arc.StatusDetails](statusSvc).
+					WhereKeys(a2.Key.String()).
+					Exec(ctx, tx)).To(HaveOccurredAs(query.NotFound))
+			})
+
+			It("Should handle delete of non-existent arc gracefully", func() {
+				nonExistentKey := uuid.New()
+				Expect(svc.NewWriter(tx).Delete(ctx, nonExistentKey)).To(Succeed())
 			})
 		})
 	})

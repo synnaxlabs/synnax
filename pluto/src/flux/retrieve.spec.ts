@@ -80,8 +80,27 @@ describe("retrieve", () => {
           expect(result.current.data).toEqual(undefined);
           expect(result.current.status.message).toEqual("Failed to retrieve Resource");
           expect(result.current.status.description).toEqual(
-            "Cannot retrieve Resource because no cluster is connected.",
+            "Cannot retrieve Resource because no Core is connected.",
           );
+        });
+      });
+
+      it("should allow null client when allowDisconnected is true", async () => {
+        const { useRetrieve } = Flux.createRetrieve<{}, number, {}, true>({
+          name: "Resource",
+          retrieve: async ({ client }) => {
+            if (client == null) return 42;
+            return 0;
+          },
+          allowDisconnected: true,
+        });
+
+        const { result } = renderHook(() => useRetrieve({ params: {} }), {
+          wrapper: createSynnaxWrapper({ client: null }),
+        });
+        await waitFor(() => {
+          expect(result.current.variant).toEqual("success");
+          expect(result.current.data).toEqual(42);
         });
       });
     });

@@ -19,10 +19,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -49,14 +51,19 @@ type (
 
 type Config struct {
 	alamos.Instrumentation
+	DB *gorp.DB
 	//  Distribution layer framer service.
-	Framer  *framer.Service
-	Channel channel.Service
+	Framer                   *framer.Service
+	Channel                  *channel.Service
+	Arc                      *arc.Service
+	EnableLegacyCalculations *bool
 }
 
 var (
 	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	DefaultConfig                       = Config{
+		EnableLegacyCalculations: config.False(),
+	}
 )
 
 // Validate implements config.Config.
@@ -64,6 +71,9 @@ func (c Config) Validate() error {
 	v := validate.New("framer")
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "arc", c.Arc)
+	validate.NotNil(v, "enable_legacy_calculations", c.EnableLegacyCalculations)
+	validate.NotNil(v, "db", c.DB)
 	return v.Error()
 }
 
@@ -72,6 +82,9 @@ func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Arc = override.Nil(c.Arc, other.Arc)
+	c.EnableLegacyCalculations = override.Nil(c.EnableLegacyCalculations, other.EnableLegacyCalculations)
+	c.DB = override.Nil(c.DB, other.DB)
 	return c
 }
 
@@ -115,17 +128,21 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	calcSvc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
-		Instrumentation:   cfg.Instrumentation.Child("calculated"),
-		Channel:           cfg.Channel,
-		Framer:            cfg.Framer,
-		ChannelObservable: cfg.Channel.NewObservable(),
+		Instrumentation:          cfg.Child("calculation"),
+		DB:                       cfg.DB,
+		Channel:                  cfg.Channel,
+		Framer:                   cfg.Framer,
+		Arc:                      cfg.Arc,
+		ChannelObservable:        cfg.Channel.NewObservable(),
+		EnableLegacyCalculations: cfg.EnableLegacyCalculations,
 	})
 	if err != nil {
 		return nil, err
 	}
 	streamerSvc, err := streamer.NewService(streamer.ServiceConfig{
-		Instrumentation: cfg.Instrumentation.Child("streamer"),
+		Instrumentation: cfg.Child("streamer"),
 		DistFramer:      cfg.Framer,
 		Channel:         cfg.Channel,
 		Calculation:     calcSvc,
@@ -136,6 +153,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
 		DistFramer: cfg.Framer,
 		Channel:    cfg.Channel,
+		Arc:        cfg.Arc,
 	})
 	if err != nil {
 		return nil, err

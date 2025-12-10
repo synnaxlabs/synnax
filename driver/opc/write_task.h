@@ -19,8 +19,10 @@
 #include "x/cpp/xjson/xjson.h"
 
 /// internal
-#include "driver/opc/util/conn_pool.h"
-#include "driver/opc/util/util.h"
+#include "driver/opc/connection/connection.h"
+#include "driver/opc/errors/errors.h"
+#include "driver/opc/types/types.h"
+#include "driver/opc/write_task.h"
 #include "driver/pipeline/control.h"
 #include "driver/task/common/write_task.h"
 
@@ -29,17 +31,17 @@ struct OutputChan {
     /// @brief whether output for the channel is enabled.
     const bool enabled;
     /// @brief the OPC UA node id.
-    const UA_NodeId node;
+    opc::NodeId node;
     /// @brief the corresponding channel key to write the variable for the node
     /// from.
     const synnax::ChannelKey cmd_channel;
 
     explicit OutputChan(xjson::Parser &parser):
-        enabled(parser.optional<bool>("enabled", true)),
-        node(util::parse_node_id("node_id", parser)),
+        enabled(parser.field<bool>("enabled", true)),
+        node(opc::NodeId::parse("node_id", parser)),
         cmd_channel([&parser] {
-            auto ch = parser.optional("cmd_channel", 0);
-            if (ch == 0) ch = parser.optional("channel", 0);
+            auto ch = parser.field<synnax::ChannelKey>("cmd_channel", 0);
+            if (ch == 0) ch = parser.field<synnax::ChannelKey>("channel", 0);
             if (ch == 0) parser.field_err("cmd_channel", "channel must be specified");
             return ch;
         }()) {}
@@ -49,7 +51,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
     /// @brief the list of channels to read from the server.
     std::unordered_map<synnax::ChannelKey, std::unique_ptr<OutputChan>> channels;
     /// @brief the config for connecting to the OPC UA server.
-    util::ConnectionConfig conn;
+    opc::connection::Config connection;
 
     explicit WriteTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
@@ -64,13 +66,13 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             parser.field_err("channels", "task must have at least one enabled channel");
             return;
         }
-        auto [dev, err] = client->hardware.retrieve_device(this->device_key);
+        auto [dev, err] = client->devices.retrieve(this->device_key);
         if (err) {
             parser.field_err("device", "failed to retrieve device: " + err.message());
             return;
         }
         const auto properties = xjson::Parser(dev.properties);
-        this->conn = util::ConnectionConfig(properties.child("connection"));
+        this->connection = opc::connection::Config(properties.child("connection"));
         if (properties.error())
             parser.field_err("device", properties.error().message());
     }
@@ -92,98 +94,64 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
 
 class WriteTaskSink final : public common::Sink {
     const WriteTaskConfig cfg;
-    std::shared_ptr<util::ConnectionPool> pool;
-    util::ConnectionPool::Connection conn;
+    std::shared_ptr<opc::connection::Pool> pool;
+    opc::connection::Pool::Connection connection;
+    opc::WriteRequestBuilder builder;
 
 public:
-    WriteTaskSink(std::shared_ptr<util::ConnectionPool> pool, WriteTaskConfig cfg):
+    WriteTaskSink(std::shared_ptr<opc::connection::Pool> pool, WriteTaskConfig cfg):
         Sink(cfg.cmd_keys()),
         cfg(std::move(cfg)),
         pool(std::move(pool)),
-        conn(nullptr, nullptr, "") {}
+        connection(nullptr, nullptr, "") {}
 
     xerrors::Error start() override {
-        auto [c, err] = pool->acquire(cfg.conn, "[opc.write] ");
+        auto [c, err] = pool->acquire(cfg.connection, "[opc.write] ");
         if (err) return err;
-        conn = std::move(c);
+        connection = std::move(c);
         return xerrors::NIL;
     }
 
     xerrors::Error stop() override {
-        conn = util::ConnectionPool::Connection(nullptr, nullptr, "");
+        connection = opc::connection::Pool::Connection(nullptr, nullptr, "");
         return xerrors::NIL;
     }
 
     xerrors::Error write(const synnax::Frame &frame) override {
         auto err = this->perform_write(frame);
-        if (!err.matches(util::UNREACHABLE_ERROR)) return err;
+        if (!err.matches(opc::errors::UNREACHABLE)) return err;
         LOG(
             WARNING
         ) << "[opc.write_task] connection error detected, attempting reconnect: "
           << err;
-        this->conn = util::ConnectionPool::Connection(nullptr, nullptr, "");
-        auto [c, conn_err] = this->pool->acquire(this->cfg.conn, "[opc.write] ");
+        this->connection = opc::connection::Pool::Connection(nullptr, nullptr, "");
+        auto [c, conn_err] = this->pool->acquire(this->cfg.connection, "[opc.write] ");
         if (conn_err) {
             LOG(ERROR) << "[opc.write_task] failed to reconnect: " << conn_err;
             return conn_err;
         }
-        this->conn = std::move(c);
+        this->connection = std::move(c);
         LOG(INFO) << "[opc.write_task] reconnected successfully, retrying write";
         return this->perform_write(frame);
     }
 
 private:
     xerrors::Error perform_write(const synnax::Frame &frame) {
-        if (!this->conn) return util::NO_CONNECTION_ERROR;
-
-        UA_WriteRequest req;
-        UA_WriteRequest_init(&req);
-        req.nodesToWrite = static_cast<UA_WriteValue *>(
-            UA_Array_new(frame.size(), &UA_TYPES[UA_TYPES_WRITEVALUE])
-        );
-        for (size_t i = 0; i < frame.size(); ++i)
-            UA_WriteValue_init(&req.nodesToWrite[i]);
-
-        size_t actual_writes = 0;
-        const size_t max_size = frame.size();
-        x::defer clear_req([&req, &actual_writes, max_size] {
-            for (size_t i = 0; i < actual_writes; ++i)
-                UA_NodeId_clear(&req.nodesToWrite[i].nodeId);
-            UA_Array_delete(req.nodesToWrite, max_size, &UA_TYPES[UA_TYPES_WRITEVALUE]);
-        });
-
+        if (!this->connection) return opc::errors::NO_CONNECTION;
+        this->builder.clear();
         for (const auto &[key, s]: frame) {
             auto it = this->cfg.channels.find(key);
             if (it == this->cfg.channels.end()) continue;
-            const auto &ch = it->second;
-            auto [val, err] = util::series_to_variant(s);
-            if (err) {
-                LOG(ERROR) << "[opc.write_task] failed to convert series to variant: "
-                           << err;
+            if (auto err = this->builder.add_value(it->second->node, s); err) {
+                LOG(ERROR) << "[opc.write_task] failed to add value: " << err;
                 continue;
             }
-            UA_WriteValue &node = req.nodesToWrite[actual_writes];
-            node.attributeId = UA_ATTRIBUTEID_VALUE;
-            auto copy_status = UA_NodeId_copy(&ch->node, &node.nodeId);
-            if (copy_status != UA_STATUSCODE_GOOD) {
-                LOG(ERROR) << "[opc.write_task] failed to copy node id: "
-                           << util::parse_error(copy_status);
-                continue;
-            }
-            node.value.hasValue = true;
-            node.value.value = val;
-            // transfer ownership - zero out val to prevent doubel free.
-            UA_Variant_init(&val);
-            actual_writes++;
         }
-
-        req.nodesToWriteSize = actual_writes;
-        if (req.nodesToWriteSize == 0) return xerrors::NIL;
-
-        UA_WriteResponse res = UA_Client_Service_write(this->conn.get(), req);
-        auto err = util::parse_error(res.responseHeader.serviceResult);
-        UA_WriteResponse_clear(&res);
-        return err;
+        if (this->builder.empty()) return xerrors::NIL;
+        opc::WriteResponse res(
+            UA_Client_Service_write(this->connection.get(), this->builder.build())
+        );
+        return opc::errors::parse(res.get().responseHeader.serviceResult);
     }
 };
 }

@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Device, Icon } from "@synnaxlabs/pluto";
+import { device } from "@synnaxlabs/client";
+import { Access, Device, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Toolbar } from "@/components";
@@ -35,4 +36,5 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   minSize: 175,
   maxSize: 400,
   trigger: ["D"],
+  useVisible: () => Access.useRetrieveGranted(device.TYPE_ONTOLOGY_ID),
 };

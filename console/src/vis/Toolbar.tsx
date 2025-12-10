@@ -17,7 +17,7 @@ import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Schematic } from "@/schematic";
 import { Table } from "@/table";
-import { createSelectorLayout } from "@/vis/Selector";
+import { createSelectorLayout, useSelectorVisible } from "@/vis/Selector";
 import { type LayoutType } from "@/vis/types";
 
 interface ToolbarProps {
@@ -29,7 +29,7 @@ const TOOLBARS: Record<LayoutType, FC<ToolbarProps>> = {
   [Log.LAYOUT_TYPE]: Log.Toolbar,
   [Schematic.LAYOUT_TYPE]: Schematic.Toolbar,
   [Table.LAYOUT_TYPE]: Table.Toolbar,
-  [Arc.EDIT_LAYOUT_TYPE]: Arc.Toolbar,
+  [Arc.Editor.LAYOUT_TYPE]: Arc.Editor.Toolbar,
 };
 
 const NoVis = (): ReactElement => {
@@ -37,15 +37,21 @@ const NoVis = (): ReactElement => {
   const handleCreateNewVisualization = () => {
     placeLayout(createSelectorLayout());
   };
+  const createComponentEnabled = useSelectorVisible();
+  let message: string = "No visualization selected. Select a visualization";
+  if (!createComponentEnabled) message += ".";
+  else message += " or ";
+  const action = createComponentEnabled ? "create a new one." : undefined;
+
   return (
-    <Toolbar.Content disableClusterBoundary>
+    <Toolbar.Content>
       <Toolbar.Header>
         <Toolbar.Title icon={<Icon.Visualize />}>Visualization</Toolbar.Title>
       </Toolbar.Header>
       <EmptyAction
         x
-        message="No visualization selected. Select a visualization or"
-        action="create a new one."
+        message={message}
+        action={action}
         onClick={handleCreateNewVisualization}
       />
     </Toolbar.Content>

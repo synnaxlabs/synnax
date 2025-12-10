@@ -9,10 +9,8 @@
 
 #pragma once
 
-/// std
 #include <string>
 
-/// module
 #include "client/cpp/synnax.h"
 #include "x/cpp/xjson/xjson.h"
 
@@ -25,8 +23,8 @@ struct Channel {
     uint16_t address;
 
     explicit Channel(xjson::Parser &parser):
-        enabled(parser.optional<bool>("enabled", true)),
-        address(parser.required<uint16_t>("address")) {}
+        enabled(parser.field<bool>("enabled", true)),
+        address(parser.field<uint16_t>("address")) {}
 
     /// @brief Virtual destructor
     virtual ~Channel() = default;
@@ -40,7 +38,7 @@ struct Input : virtual Channel {
     synnax::Channel ch;
 
     explicit Input(xjson::Parser &parser):
-        Channel(parser), synnax_key(parser.required<synnax::ChannelKey>("channel")) {}
+        Channel(parser), synnax_key(parser.field<synnax::ChannelKey>("channel")) {}
 
     /// @brief Binds remote channel information
     void bind_remote_info(const synnax::Channel &remote_ch) { this->ch = remote_ch; }
@@ -65,10 +63,10 @@ struct InputRegister final : Input {
     explicit InputRegister(xjson::Parser &parser):
         Channel(parser),
         Input(parser),
-        value_type(telem::DataType(parser.required<std::string>("data_type"))),
-        swap_bytes(parser.optional<bool>("swap_bytes", false)),
-        swap_words(parser.optional<bool>("swap_words", false)),
-        string_length(parser.optional<int>("string_length", 0)) {}
+        value_type(telem::DataType(parser.field<std::string>("data_type"))),
+        swap_bytes(parser.field<bool>("swap_bytes", false)),
+        swap_words(parser.field<bool>("swap_words", false)),
+        string_length(parser.field<int>("string_length", 0)) {}
 };
 
 /// @brief Output channel for writing to coils
@@ -77,7 +75,7 @@ struct OutputCoil final : Channel {
     synnax::ChannelKey channel;
 
     explicit OutputCoil(xjson::Parser &parser):
-        Channel(parser), channel(parser.required<synnax::ChannelKey>("channel")) {}
+        Channel(parser), channel(parser.field<synnax::ChannelKey>("channel")) {}
 };
 
 /// @brief Output channel for writing to holding registers
@@ -93,10 +91,10 @@ struct OutputHoldingRegister final : Channel {
 
     explicit OutputHoldingRegister(xjson::Parser &parser):
         Channel(parser),
-        channel(parser.required<synnax::ChannelKey>("channel")),
-        value_type(telem::DataType(parser.required<std::string>("data_type"))),
-        swap_bytes(parser.optional<bool>("swap_bytes", false)),
-        swap_words(parser.optional<bool>("swap_words", false)) {}
+        channel(parser.field<synnax::ChannelKey>("channel")),
+        value_type(telem::DataType(parser.field<std::string>("data_type"))),
+        swap_bytes(parser.field<bool>("swap_bytes", false)),
+        swap_words(parser.field<bool>("swap_words", false)) {}
 };
 
 /// @brief sorts a vector of channels in place by their address.

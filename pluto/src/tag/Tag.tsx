@@ -9,16 +9,17 @@
 
 import "@/tag/Tag.css";
 
-import { color, type Optional } from "@synnaxlabs/x";
+import { color, type optional } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
+import { Text } from "@/text";
 
 export interface TagProps
-  extends Optional<
+  extends optional.Optional<
     Omit<Button.ButtonProps<"div">, "size" | "wrap" | "color">,
     "level"
   > {
@@ -49,10 +50,7 @@ export const Tag = ({
         variant="text"
         className={CSS.BE("tag", "close")}
         sharp
-        onClick={(e) => {
-          e.stopPropagation();
-          onClose();
-        }}
+        onClick={onClose}
       >
         <Icon.Close />
       </Button.Button>
@@ -74,7 +72,9 @@ export const Tag = ({
     >
       {icon}
       {closeIcon}
-      {children}
+      <Text.Text el="span" overflow="ellipsis">
+        {children}
+      </Text.Text>
     </Button.Button>
   );
 };

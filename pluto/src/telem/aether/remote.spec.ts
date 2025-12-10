@@ -9,8 +9,8 @@
 
 import { channel, DataType, TimeRange } from "@synnaxlabs/client";
 import {
-  type AsyncDestructor,
   bounds,
+  type destructor,
   id,
   MultiSeries,
   Series,
@@ -71,7 +71,7 @@ describe("remote", () => {
       async stream(
         handler: client.StreamHandler,
         keys: channel.Keys,
-      ): Promise<AsyncDestructor> {
+      ): Promise<destructor.Async> {
         this.streamHandler = handler;
         this.streamKeys = keys;
         this.streamF(handler, keys);
@@ -377,7 +377,7 @@ describe("remote", () => {
       async stream(
         handler: client.StreamHandler,
         keys: channel.Keys,
-      ): Promise<AsyncDestructor> {
+      ): Promise<destructor.Async> {
         this.streamHandler = handler;
         this.streamKeys = keys;
         this.streamF(handler, keys);
@@ -634,7 +634,6 @@ describe("remote", () => {
       c.channel = new channel.Channel({
         ...c.channel,
         expression: "1 + 2",
-        requires: [1, 2],
       });
       const props: StreamChannelDataProps = {
         timeSpan: TimeSpan.seconds(1),

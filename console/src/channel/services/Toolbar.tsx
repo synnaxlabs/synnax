@@ -7,26 +7,46 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group } from "@synnaxlabs/client";
-import { Channel, Icon } from "@synnaxlabs/pluto";
+import { channel, group } from "@synnaxlabs/client";
+import { Access, Channel, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { CALCULATED_LAYOUT } from "@/channel/calculatedLayout";
 import { CREATE_LAYOUT } from "@/channel/Create";
 import { Toolbar } from "@/components";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 
+const CreateChannelButtons = (): ReactElement | null => {
+  const placeLayout = Layout.usePlacer();
+  const canCreate = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
+  if (!canCreate) return null;
+  return (
+    <Toolbar.Actions>
+      <Toolbar.Action
+        onClick={() => placeLayout(CALCULATED_LAYOUT)}
+        tooltip="Create Calculated Channel"
+      >
+        <Channel.CreateCalculatedIcon />
+      </Toolbar.Action>
+      <Toolbar.Action
+        onClick={() => placeLayout(CREATE_LAYOUT)}
+        tooltip="Create Channel"
+      >
+        <Icon.Add />
+      </Toolbar.Action>
+    </Toolbar.Actions>
+  );
+};
+
 const Content = (): ReactElement => {
   const { data: g } = Channel.useRetrieveGroup({});
-  const placeLayout = Layout.usePlacer();
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
         <Toolbar.Actions>
-          <Toolbar.Action onClick={() => placeLayout(CREATE_LAYOUT)}>
-            <Icon.Add />
-          </Toolbar.Action>
+          <CreateChannelButtons />
         </Toolbar.Actions>
       </Toolbar.Header>
       <Ontology.Tree root={g == null ? undefined : group.ontologyID(g.key)} />
@@ -43,4 +63,5 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 175,
   maxSize: 400,
+  useVisible: () => Access.useRetrieveGranted(channel.TYPE_ONTOLOGY_ID),
 };
