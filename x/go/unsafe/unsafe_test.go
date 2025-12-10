@@ -311,17 +311,17 @@ var _ = Describe("Unsafe", func() {
 	Describe("EncodePrimitive", func() {
 		Context("String types", func() {
 			It("should encode a string to bytes", func() {
-				encoded := MustSucceed(unsafe.EncodePrimitive("hello"))
+				encoded := unsafe.EncodePrimitive("hello")
 				Expect(encoded).To(Equal([]byte("hello")))
 			})
 
 			It("should encode an empty string", func() {
-				encoded := MustSucceed(unsafe.EncodePrimitive(""))
+				encoded := unsafe.EncodePrimitive("")
 				Expect(encoded).To(Equal([]byte("")))
 			})
 
 			It("should encode a string with special characters", func() {
-				encoded := MustSucceed(unsafe.EncodePrimitive("hello\nworld\t!"))
+				encoded := unsafe.EncodePrimitive("hello\nworld\t!")
 				Expect(encoded).To(Equal([]byte("hello\nworld\t!")))
 			})
 		})
@@ -329,51 +329,51 @@ var _ = Describe("Unsafe", func() {
 		Context("Byte slice types", func() {
 			It("should return the same byte slice", func() {
 				input := []byte{1, 2, 3, 4, 5}
-				encoded := MustSucceed(unsafe.EncodePrimitive(input))
+				encoded := unsafe.EncodePrimitive(input)
 				Expect(encoded).To(Equal(input))
 			})
 
 			It("should handle empty byte slice", func() {
-				encoded := MustSucceed(unsafe.EncodePrimitive([]byte{}))
+				encoded := unsafe.EncodePrimitive([]byte{})
 				Expect(encoded).To(Equal([]byte{}))
 			})
 		})
 
 		Context("Numeric types", func() {
 			It("should encode uint8", func() {
-				encoded := MustSucceed(unsafe.EncodePrimitive(uint8(255)))
+				encoded := unsafe.EncodePrimitive(uint8(255))
 				Expect(encoded).To(Equal([]byte{255}))
 			})
 
 			It("should encode uint16 in little-endian", func() {
-				encoded := MustSucceed(unsafe.EncodePrimitive(uint16(0x0201)))
+				encoded := unsafe.EncodePrimitive(uint16(0x0201))
 				Expect(encoded).To(Equal([]byte{0x01, 0x02}))
 			})
 
 			It("should encode uint32 in little-endian", func() {
-				encoded := MustSucceed(unsafe.EncodePrimitive(uint32(0x04030201)))
+				encoded := unsafe.EncodePrimitive(uint32(0x04030201))
 				Expect(encoded).To(Equal([]byte{0x01, 0x02, 0x03, 0x04}))
 			})
 
 			It("should encode uint64 in little-endian", func() {
-				encoded := MustSucceed(unsafe.EncodePrimitive(uint64(0x0807060504030201)))
+				encoded := unsafe.EncodePrimitive(uint64(0x0807060504030201))
 				Expect(encoded).To(Equal([]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}))
 			})
 
 			It("should encode int32 including negative values", func() {
-				encoded := MustSucceed(unsafe.EncodePrimitive(int32(-1)))
+				encoded := unsafe.EncodePrimitive(int32(-1))
 				Expect(encoded).To(Equal([]byte{0xFF, 0xFF, 0xFF, 0xFF}))
 			})
 
 			It("should encode float32", func() {
-				encoded := MustSucceed(unsafe.EncodePrimitive(float32(1.0)))
+				encoded := unsafe.EncodePrimitive(float32(1.0))
 				Expect(len(encoded)).To(Equal(4))
 				// 1.0 as float32 in IEEE 754: 0x3F800000
 				Expect(encoded).To(Equal([]byte{0x00, 0x00, 0x80, 0x3F}))
 			})
 
 			It("should encode float64", func() {
-				encoded := MustSucceed(unsafe.EncodePrimitive(float64(1.0)))
+				encoded := unsafe.EncodePrimitive(float64(1.0))
 				Expect(len(encoded)).To(Equal(8))
 				// 1.0 as float64 in IEEE 754: 0x3FF0000000000000
 				Expect(encoded).To(Equal([]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xF0, 0x3F}))
@@ -384,12 +384,12 @@ var _ = Describe("Unsafe", func() {
 	Describe("DecodePrimitive", func() {
 		Context("String types", func() {
 			It("should decode bytes to a string", func() {
-				decoded := MustSucceed(unsafe.DecodePrimitive[string]([]byte("hello")))
+				decoded := unsafe.DecodePrimitive[string]([]byte("hello"))
 				Expect(decoded).To(Equal("hello"))
 			})
 
 			It("should decode empty bytes to empty string", func() {
-				decoded := MustSucceed(unsafe.DecodePrimitive[string]([]byte{}))
+				decoded := unsafe.DecodePrimitive[string]([]byte{})
 				Expect(decoded).To(Equal(""))
 			})
 		})
@@ -397,44 +397,44 @@ var _ = Describe("Unsafe", func() {
 		Context("Byte slice types", func() {
 			It("should return the byte slice as-is", func() {
 				input := []byte{1, 2, 3, 4, 5}
-				decoded := MustSucceed(unsafe.DecodePrimitive[[]byte](input))
+				decoded := unsafe.DecodePrimitive[[]byte](input)
 				Expect(decoded).To(Equal(input))
 			})
 		})
 
 		Context("Numeric types", func() {
 			It("should decode uint8", func() {
-				decoded := MustSucceed(unsafe.DecodePrimitive[uint8]([]byte{255}))
+				decoded := unsafe.DecodePrimitive[uint8]([]byte{255})
 				Expect(decoded).To(Equal(uint8(255)))
 			})
 
 			It("should decode uint16 from little-endian", func() {
-				decoded := MustSucceed(unsafe.DecodePrimitive[uint16]([]byte{0x01, 0x02}))
+				decoded := unsafe.DecodePrimitive[uint16]([]byte{0x01, 0x02})
 				Expect(decoded).To(Equal(uint16(0x0201)))
 			})
 
 			It("should decode uint32 from little-endian", func() {
-				decoded := MustSucceed(unsafe.DecodePrimitive[uint32]([]byte{0x01, 0x02, 0x03, 0x04}))
+				decoded := unsafe.DecodePrimitive[uint32]([]byte{0x01, 0x02, 0x03, 0x04})
 				Expect(decoded).To(Equal(uint32(0x04030201)))
 			})
 
 			It("should decode uint64 from little-endian", func() {
-				decoded := MustSucceed(unsafe.DecodePrimitive[uint64]([]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}))
+				decoded := unsafe.DecodePrimitive[uint64]([]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08})
 				Expect(decoded).To(Equal(uint64(0x0807060504030201)))
 			})
 
 			It("should decode int32 including negative values", func() {
-				decoded := MustSucceed(unsafe.DecodePrimitive[int32]([]byte{0xFF, 0xFF, 0xFF, 0xFF}))
+				decoded := unsafe.DecodePrimitive[int32]([]byte{0xFF, 0xFF, 0xFF, 0xFF})
 				Expect(decoded).To(Equal(int32(-1)))
 			})
 
 			It("should decode float32", func() {
-				decoded := MustSucceed(unsafe.DecodePrimitive[float32]([]byte{0x00, 0x00, 0x80, 0x3F}))
+				decoded := unsafe.DecodePrimitive[float32]([]byte{0x00, 0x00, 0x80, 0x3F})
 				Expect(decoded).To(Equal(float32(1.0)))
 			})
 
 			It("should decode float64", func() {
-				decoded := MustSucceed(unsafe.DecodePrimitive[float64]([]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xF0, 0x3F}))
+				decoded := unsafe.DecodePrimitive[float64]([]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xF0, 0x3F})
 				Expect(decoded).To(Equal(float64(1.0)))
 			})
 		})
@@ -443,36 +443,36 @@ var _ = Describe("Unsafe", func() {
 	Describe("EncodePrimitive and DecodePrimitive round-trip", func() {
 		It("should round-trip strings", func() {
 			original := "hello world"
-			encoded := MustSucceed(unsafe.EncodePrimitive(original))
-			decoded := MustSucceed(unsafe.DecodePrimitive[string](encoded))
+			encoded := unsafe.EncodePrimitive(original)
+			decoded := unsafe.DecodePrimitive[string](encoded)
 			Expect(decoded).To(Equal(original))
 		})
 
 		It("should round-trip byte slices", func() {
 			original := []byte{0xDE, 0xAD, 0xBE, 0xEF}
-			encoded := MustSucceed(unsafe.EncodePrimitive(original))
-			decoded := MustSucceed(unsafe.DecodePrimitive[[]byte](encoded))
+			encoded := unsafe.EncodePrimitive(original)
+			decoded := unsafe.DecodePrimitive[[]byte](encoded)
 			Expect(decoded).To(Equal(original))
 		})
 
 		It("should round-trip uint32", func() {
 			original := uint32(12345678)
-			encoded := MustSucceed(unsafe.EncodePrimitive(original))
-			decoded := MustSucceed(unsafe.DecodePrimitive[uint32](encoded))
+			encoded := unsafe.EncodePrimitive(original)
+			decoded := unsafe.DecodePrimitive[uint32](encoded)
 			Expect(decoded).To(Equal(original))
 		})
 
 		It("should round-trip int64", func() {
 			original := int64(-9876543210)
-			encoded := MustSucceed(unsafe.EncodePrimitive(original))
-			decoded := MustSucceed(unsafe.DecodePrimitive[int64](encoded))
+			encoded := unsafe.EncodePrimitive(original)
+			decoded := unsafe.DecodePrimitive[int64](encoded)
 			Expect(decoded).To(Equal(original))
 		})
 
 		It("should round-trip float64 with precision", func() {
-			original := float64(3.141592653589793)
-			encoded := MustSucceed(unsafe.EncodePrimitive(original))
-			decoded := MustSucceed(unsafe.DecodePrimitive[float64](encoded))
+			original := 3.141592653589793
+			encoded := unsafe.EncodePrimitive(original)
+			decoded := unsafe.DecodePrimitive[float64](encoded)
 			Expect(decoded).To(Equal(original))
 		})
 	})

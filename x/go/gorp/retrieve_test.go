@@ -376,37 +376,34 @@ var _ = Describe("Retrieve", func() {
 	})
 	Describe("GetWhereKeys", func() {
 		It("Should return keys when WhereKeys has been called", func() {
-			q := gorp.NewRetrieve[int, entry]().WhereKeys(1, 2, 3)
-			keys, ok := gorp.GetWhereKeys[int](q.Params)
-			Expect(ok).To(BeTrue())
+			q := gorp.NewRetrieve[int32, entry]().WhereKeys(1, 2, 3)
+			keys := q.GetWhereKeys()
 			Expect(keys).To(Equal([]int{1, 2, 3}))
 		})
 		It("Should return false when WhereKeys has not been called", func() {
-			q := gorp.NewRetrieve[int, entry]()
-			_, ok := gorp.GetWhereKeys[int](q.Params)
-			Expect(ok).To(BeFalse())
+			q := gorp.NewRetrieve[int32, entry]()
+			Expect(q.HasWhereKeys()).To(BeFalse())
 		})
 		It("Should accumulate keys across multiple WhereKeys calls", func() {
-			q := gorp.NewRetrieve[int, entry]().WhereKeys(1, 2).WhereKeys(3, 4)
-			keys, ok := gorp.GetWhereKeys[int](q.Params)
-			Expect(ok).To(BeTrue())
+			q := gorp.NewRetrieve[int32, entry]().WhereKeys(1, 2).WhereKeys(3, 4)
+			keys := q.GetWhereKeys()
 			Expect(keys).To(Equal([]int{1, 2, 3, 4}))
 		})
 	})
 	Describe("HasFilters", func() {
 		It("Should return true when Where has been called", func() {
-			q := gorp.NewRetrieve[int, entry]().Where(func(_ gorp.Context, e *entry) (bool, error) {
+			q := gorp.NewRetrieve[int32, entry]().Where(func(_ gorp.Context, e *entry) (bool, error) {
 				return e.ID == 1, nil
 			})
-			Expect(gorp.HasFilters(q.Params)).To(BeTrue())
+			Expect(q.HasFilters()).To(BeTrue())
 		})
 		It("Should return false when Where has not been called", func() {
-			q := gorp.NewRetrieve[int, entry]().WhereKeys(1, 2, 3)
-			Expect(gorp.HasFilters(q.Params)).To(BeFalse())
+			q := gorp.NewRetrieve[int32, entry]().WhereKeys(1, 2, 3)
+			Expect(q.HasFilters()).To(BeFalse())
 		})
 		It("Should return false for a fresh query", func() {
-			q := gorp.NewRetrieve[int, entry]()
-			Expect(gorp.HasFilters(q.Params)).To(BeFalse())
+			q := gorp.NewRetrieve[int32, entry]()
+			Expect(q.HasFilters()).To(BeFalse())
 		})
 	})
 	Describe("Count", func() {

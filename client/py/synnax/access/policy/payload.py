@@ -21,13 +21,6 @@ DELETE_ACTION = "delete"
 RETRIEVE_ACTION = "retrieve"
 UPDATE_ACTION = "update"
 
-ALL_ACTION = "*"
-CREATE_ACTION = "create"
-DELETE_ACTION = "delete"
-RETRIEVE_ACTION = "retrieve"
-UPDATE_ACTION = "update"
-
-
 class Policy(Payload):
     key: UUID | None = None
     name: str
