@@ -12,7 +12,7 @@ import { csv } from "@synnaxlabs/x";
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type Frame } from "@/framer/frame";
-import { AUTO_SPAN, type Iterator } from "@/framer/iterator";
+import { type Iterator } from "@/framer/iterator";
 
 export interface CreateCSVExportStreamParams {
   iterator: Iterator;
@@ -36,7 +36,7 @@ export const createCSVExportStream = ({
     groups,
     headers,
   );
-  // Use a cursor-based approach instead of shift() for O(1) access
+  // Use a cursor-based approach instead of having to call .shift() for O(1) access
   let pendingRecords: RecordEntry[] = [];
   let pendingCursor = 0;
   let stagedRecords: RecordEntry[] = [];
@@ -56,20 +56,16 @@ export const createCSVExportStream = ({
     }
   };
 
-  const ensurePendingSorted = (): void => {
-    if (stagedRecords.length === 0) return;
-    stagedRecords.sort((a, b) => Number(a.time - b.time));
-    // Compact pendingRecords if cursor has advanced significantly
-    if (pendingCursor > 0) {
-      pendingRecords = pendingRecords.slice(pendingCursor);
-      pendingCursor = 0;
-    }
-    pendingRecords = mergeSortedRecords(pendingRecords, stagedRecords);
-    stagedRecords = [];
-  };
-
   const buildCSVRows = (maxRows: number, flush: boolean = false): string[] => {
-    ensurePendingSorted();
+    if (stagedRecords.length > 0) {
+      stagedRecords.sort((a, b) => Number(a.time - b.time));
+      if (pendingCursor > 0) {
+        pendingRecords = pendingRecords.slice(pendingCursor);
+        pendingCursor = 0;
+      }
+      pendingRecords = mergeSortedRecords(pendingRecords, stagedRecords);
+      stagedRecords = [];
+    }
     const rows: string[] = [];
     const pendingLen = pendingRecords.length;
     while (pendingCursor < pendingLen && rows.length < maxRows) {
@@ -115,7 +111,7 @@ export const createCSVExportStream = ({
         const bufferedCount =
           pendingRecords.length - pendingCursor + stagedRecords.length;
         if (bufferedCount < 1000) {
-          const hasMore = await iterator.next(AUTO_SPAN);
+          const hasMore = await iterator.next();
           if (hasMore) extractRecordsFromFrame(iterator.value);
         }
         const rows = buildCSVRows(1000);
@@ -123,7 +119,7 @@ export const createCSVExportStream = ({
           controller.enqueue(encoder.encode(`${rows.join(delimiter)}${delimiter}`));
         const remainingPending = pendingRecords.length - pendingCursor;
         if (remainingPending === 0 || stagedRecords.length === 0) {
-          const hasMore = await iterator.next(AUTO_SPAN);
+          const hasMore = await iterator.next();
           if (!hasMore) {
             // Flush remaining records
             const finalRows = buildCSVRows(Infinity, true);
