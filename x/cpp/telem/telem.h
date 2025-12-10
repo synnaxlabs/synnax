@@ -268,9 +268,6 @@ public:
     [[nodiscard]] std::chrono::nanoseconds chrono() const {
         return std::chrono::nanoseconds(value);
     }
-
-    /// @brief a zero nanosecond timespan.
-    static TimeSpan zero() { return TimeSpan(0); }
 };
 
 /// @brief represents a 64-bit nanosecond-precision, UNIX Epoch UTC timestamp.
@@ -659,16 +656,16 @@ const std::vector VARIABLE_TYPES = {JSON_T, STRING_T};
 class DataType {
     /// @brief Holds the id of the data type
     std::string value;
-    size_t density = 0;
+    size_t density_ = 0;
 
 public:
     DataType() = default;
 
     /// @brief constructs a data type from the provided string.
     explicit DataType(std::string data_type): value(std::move(data_type)) {
-        const auto cached_density_iter = densities.find(value);
+        const auto cached_density_iter = DENSITIES.find(value);
         if (cached_density_iter != DENSITIES.end())
-            this->density = cached_density_iter->second;
+            this->density_ = cached_density_iter->second;
     }
 
     /// @brief Infers the data type from a given C++ type along with an optional
@@ -723,7 +720,7 @@ public:
     [[nodiscard]] std::string name() const { return value; }
 
     /// @property how many bytes in memory the data type holds.
-    [[nodiscard]] size_t density() const { return this->density; }
+    [[nodiscard]] size_t density() const { return this->density_; }
 
     [[nodiscard]] bool is_variable() const {
         return this->matches(internal::VARIABLE_TYPES);
@@ -855,7 +852,7 @@ public:
     friend struct std::hash<telem::DataType>;
 
 private:
-    inline static std::unordered_map<std::string, size_t> densities = {
+    inline static std::unordered_map<std::string, size_t> DENSITIES = {
         {internal::FLOAT64_T, 8},
         {internal::FLOAT32_T, 4},
         {internal::INT8_T, 1},
@@ -874,28 +871,34 @@ private:
 
     /// @brief stores a map of C++ type indexes to their corresponding synnax data
     /// type identifiers.
-    inline static std::unordered_map<std::type_index, std::string> type_indexes = {
+    inline static std::unordered_map<std::type_index, std::string> TYPE_INDEXES = {
         {std::type_index(typeid(float)), internal::FLOAT32_T},
         {std::type_index(typeid(double)), internal::FLOAT64_T},
         {std::type_index(typeid(char)), internal::INT8_T},
         {std::type_index(typeid(std::int8_t)), internal::INT8_T},
-        {std::type_index(typeid(short)), internal::INT16_T}, // NOLINT
+        // NOLINTNEXTLINE(google-runtime-int) - need platform-native types for type_index mapping
+        {std::type_index(typeid(short)), internal::INT16_T},
         {std::type_index(typeid(std::int16_t)), internal::INT16_T},
         {std::type_index(typeid(int)), internal::INT32_T},
         {std::type_index(typeid(std::int32_t)), internal::INT32_T},
-        {std::type_index(typeid(long)), // NOLINT
-         sizeof(long) == 8 ? internal::INT64_T : internal::INT32_T},
-        {std::type_index(typeid(long long)), internal::INT64_T}, // NOLINT
+        // NOLINTBEGIN(google-runtime-int) - need platform-native types for type_index mapping
+        {std::type_index(typeid(long)), sizeof(long) == 8 ? internal::INT64_T : internal::INT32_T},
+        // NOLINTEND(google-runtime-int)
+        // NOLINTNEXTLINE(google-runtime-int) - need platform-native types for type_index mapping
+        {std::type_index(typeid(long long)), internal::INT64_T},
         {std::type_index(typeid(std::int64_t)), internal::INT64_T},
         {std::type_index(typeid(unsigned char)), internal::UINT8_T},
         {std::type_index(typeid(std::uint8_t)), internal::UINT8_T},
-        {std::type_index(typeid(unsigned short)), internal::UINT16_T}, // NOLINT
+        // NOLINTNEXTLINE(google-runtime-int) - need platform-native types for type_index mapping
+        {std::type_index(typeid(unsigned short)), internal::UINT16_T},
         {std::type_index(typeid(std::uint16_t)), internal::UINT16_T},
         {std::type_index(typeid(unsigned int)), internal::UINT32_T},
         {std::type_index(typeid(std::uint32_t)), internal::UINT32_T},
-        {std::type_index(typeid(unsigned long)), // NOLINT
-         sizeof(unsigned long) == 8 ? internal::UINT64_T : internal::UINT32_T},
-        {std::type_index(typeid(unsigned long long)), internal::UINT64_T}, // NOLINT
+        // NOLINTBEGIN(google-runtime-int) - need platform-native types for type_index mapping
+        {std::type_index(typeid(unsigned long)), sizeof(unsigned long) == 8 ? internal::UINT64_T : internal::UINT32_T},
+        // NOLINTEND(google-runtime-int)
+        // NOLINTNEXTLINE(google-runtime-int) - need platform-native types for type_index mapping
+        {std::type_index(typeid(unsigned long long)), internal::UINT64_T},
         {std::type_index(typeid(std::uint64_t)), internal::UINT64_T},
         {std::type_index(typeid(std::string)), internal::STRING_T},
         {std::type_index(typeid(TimeStamp)), internal::TIMESTAMP_T},

@@ -18,19 +18,19 @@ inline std::string get_color(const std::string &color) {
     return FLAGS_colorlogtostderr ? color : "";
 }
 
-inline std::string RED() {
+inline std::string red() {
     return get_color("\033[1;31m");
 }
-inline std::string GREEN() {
+inline std::string green() {
     return get_color("\033[1;32m");
 }
-inline std::string RESET() {
+inline std::string reset() {
     return get_color("\033[0m");
 }
-inline std::string BLUE() {
+inline std::string blue() {
     return get_color("\033[1;34m");
 }
-inline std::string SHALE() {
+inline std::string shale() {
     return get_color("\033[1;38;2;112;128;144m");
 }
 

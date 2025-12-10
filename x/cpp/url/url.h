@@ -40,6 +40,6 @@ struct URL {
     /// @returns the URL as a string.
     [[nodiscard]] std::string to_string() const;
 
-    std::string host_address() const;
+    [[nodiscard]] std::string host_address() const;
 };
 }

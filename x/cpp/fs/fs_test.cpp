@@ -70,8 +70,8 @@ private:
 
     void create_binary_file() const {
         std::ofstream file(binary_file, std::ios::binary);
-        unsigned char data[] = {0x00, 0x01, 0x02, 0xFF, 0xFE, 0xFD};
-        file.write(reinterpret_cast<const char *>(data), sizeof(data));
+        std::array<unsigned char, 6> data{0x00, 0x01, 0x02, 0xFF, 0xFE, 0xFD};
+        file.write(reinterpret_cast<const char *>(data.data()), sizeof(data));
         file.close();
     }
 

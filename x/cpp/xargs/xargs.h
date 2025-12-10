@@ -100,7 +100,7 @@ class Parser {
             for (const auto &name: {names...}) {
                 auto norm = normalize_arg_name(name);
                 std::string prefix = norm.double_ + "=";
-                if (arg.compare(0, prefix.length(), prefix) == 0) {
+                if (arg.starts_with(prefix)) {
                     last_found = {arg.substr(arg.find('=') + 1), true};
                     continue;
                 }
@@ -228,6 +228,7 @@ public:
     /// @brief Constructs a parser from argc and argv
     /// @param argc The argument count
     /// @param argv The argument values array
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays) - standard main() signature
     explicit Parser(const int argc, char *argv[]): argv_(argv, argv + argc) {}
 
     /// @brief Constructs a parser from a vector of strings

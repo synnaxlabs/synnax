@@ -16,10 +16,10 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
-typedef HMODULE LibraryHandle;
+using LibraryHandle = HMODULE;
 #else
 #include <dlfcn.h>
-typedef void *LibraryHandle;
+using LibraryHandle = void *;
 #endif
 
 namespace xlib {

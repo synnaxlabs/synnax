@@ -116,7 +116,7 @@ xerrors::Error task::Manager::run(std::function<void()> on_started) {
         return xerrors::NIL;
     }
     if (const auto err = this->open_streamer()) return err;
-    LOG(INFO) << xlog::GREEN() << "started successfully" << xlog::RESET();
+    LOG(INFO) << xlog::green() << "started successfully" << xlog::reset();
     if (on_started) on_started();
     do {
         // no need to lock the streamer here, as it's safe to call close_send()

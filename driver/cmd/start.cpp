@@ -15,8 +15,8 @@
 #include "driver/cmd/cmd.h"
 
 int cmd::sub::start(xargs::Parser &args) {
-    LOG(INFO) << xlog::BLUE() << "starting Synnax Driver " << cmd::version()
-              << xlog::RESET();
+    LOG(INFO) << xlog::blue() << "starting Synnax Driver " << cmd::version()
+              << xlog::reset();
 
     const bool stdin_stop_enabled = !args.flag("--disable-stdin-stop");
     VLOG(1) << "stdin stop " << (stdin_stop_enabled ? "enabled" : "disabled");
@@ -44,15 +44,15 @@ int cmd::sub::start(xargs::Parser &args) {
     // Register a signal handler to stop the driver when the process receives a signal.
     xshutdown::listen(sig_stop_enabled, stdin_stop_enabled);
     if (!early_shutdown->load())
-        LOG(INFO) << xlog::BLUE()
+        LOG(INFO) << xlog::blue()
                   << "received shutdown signal. Gracefully stopping driver. "
                      "This can take up to 5 seconds. Please be patient"
-                  << xlog::RESET();
+                  << xlog::reset();
     else
         LOG(WARNING) << "unexpected early shutdown";
     if (const auto err = r.stop())
         LOG(ERROR) << "stopped with error: " << err;
     else
-        LOG(INFO) << xlog::BLUE() << "stopped" << xlog::RESET();
+        LOG(INFO) << xlog::blue() << "stopped" << xlog::reset();
     return 0;
 }

@@ -1050,8 +1050,6 @@ struct AIStrainGauge final : AICustomScale {
 
     using Base::apply;
 
-    using Base::apply;
-
     xerrors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
@@ -1176,8 +1174,6 @@ struct AIFrequencyVoltage final : AICustomScale {
         AICustomScale(cfg),
         threshold_level(cfg.field<double>("threshold_level")),
         hysteresis(cfg.field<double>("hysteresis")) {}
-
-    using Base::apply;
 
     using Base::apply;
 

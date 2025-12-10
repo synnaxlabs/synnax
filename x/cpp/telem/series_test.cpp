@@ -206,14 +206,14 @@ TEST(TestSeries, testProto) {
 
 /// @brief it should correctly construct a series from a single value.
 TEST(TestSeries, testConstructionSingleValue) {
-    constexpr std::uint64_t value = 1;
-    const auto s = telem::Series(value);
+    constexpr std::uint64_t VALUE = 1;
+    const auto s = telem::Series(VALUE);
     ASSERT_EQ(s.data_type(), telem::UINT64_T);
     ASSERT_EQ(s.size(), 1);
     ASSERT_EQ(s.byte_size(), 8);
     const auto v = s.values<std::uint64_t>();
     ASSERT_EQ(v[0], 1);
-    ASSERT_EQ(s.at<std::uint64_t>(0), value);
+    ASSERT_EQ(s.at<std::uint64_t>(0), VALUE);
 }
 
 /// @brief it should construct a variable density series from it's protobuf
@@ -324,7 +324,7 @@ TEST(TestSeries, testOstreamOperatorForAllTypes) {
     );
 
     telem::Series s_float32{telem::FLOAT32_T, 3};
-    for (float i = 1.5f; i <= 3.5f; i += 1.0f)
+    for (float i = 1.5f; i <= 3.5f; i += 1.0f) // NOLINT(*-flp30-c)
         s_float32.write(i);
     std::ostringstream oss_float32;
     oss_float32 << s_float32;
@@ -364,7 +364,7 @@ TEST(TestSeries, testOstreamOperatorForAllTypes) {
     );
 
     telem::Series s_float64{telem::FLOAT64_T, 3};
-    for (double i = 1.5; i <= 3.5; i += 1.0)
+    for (double i = 1.5; i <= 3.5; i += 1.0) // NOLINT(*-flp30-c)
         s_float64.write(i);
     std::ostringstream oss_float64;
     oss_float64 << s_float64;
@@ -383,7 +383,7 @@ TEST(TestSeries, testOstreamOperatorForAllTypes) {
 class SeriesAtTest : public ::testing::Test {
 protected:
     template<typename T>
-    void validateAt(
+    void validate_at(
         const telem::Series &s,
         const std::vector<T> &vals,
         const telem::DataType &expected_type
@@ -404,49 +404,49 @@ protected:
 TEST_F(SeriesAtTest, testAtUInt8) {
     const std::vector<uint8_t> vals = {1, 2, 3, 4, 5};
     const telem::Series s{vals};
-    validateAt(s, vals, telem::UINT8_T);
+    validate_at(s, vals, telem::UINT8_T);
 }
 
 /// @brief it should retrieve uint32 values at specific indices.
 TEST_F(SeriesAtTest, testAtUInt32) {
     const std::vector<uint32_t> vals = {100000, 200000, 300000};
     const telem::Series s{vals};
-    validateAt(s, vals, telem::UINT32_T);
+    validate_at(s, vals, telem::UINT32_T);
 }
 
 /// @brief it should retrieve uint64 values at specific indices.
 TEST_F(SeriesAtTest, testAtUInt64) {
     const std::vector<uint64_t> vals = {1000000000ULL, 2000000000ULL, 3000000000ULL};
     const telem::Series s{vals};
-    validateAt(s, vals, telem::UINT64_T);
+    validate_at(s, vals, telem::UINT64_T);
 }
 
 /// @brief it should retrieve int32 values at specific indices.
 TEST_F(SeriesAtTest, testAtInt32) {
     const std::vector<int32_t> vals = {-100000, 0, 100000};
     const telem::Series s{vals};
-    validateAt(s, vals, telem::INT32_T);
+    validate_at(s, vals, telem::INT32_T);
 }
 
 /// @brief it should retrieve int64 values at specific indices.
 TEST_F(SeriesAtTest, testAtInt64) {
     const std::vector<int64_t> vals = {-1000000000LL, 0, 1000000000LL};
     const telem::Series s{vals};
-    validateAt(s, vals, telem::INT64_T);
+    validate_at(s, vals, telem::INT64_T);
 }
 
 /// @brief it should retrieve float32 values at specific indices.
 TEST_F(SeriesAtTest, testAtFloat32) {
     const std::vector vals = {-1.5f, 0.0f, 1.5f};
     const telem::Series s{vals};
-    validateAt(s, vals, telem::FLOAT32_T);
+    validate_at(s, vals, telem::FLOAT32_T);
 }
 
 /// @brief it should retrieve float64 values at specific indices.
 TEST_F(SeriesAtTest, testAtFloat64) {
     const std::vector vals = {-1.5, 0.0, 1.5};
     const telem::Series s{vals};
-    validateAt(s, vals, telem::FLOAT64_T);
+    validate_at(s, vals, telem::FLOAT64_T);
 }
 
 /// @brief it should retrieve timestamp values at specific indices.
@@ -525,10 +525,10 @@ TEST(TestSeries, testDeepCopyVariableDataType) {
 TEST(TestSeriesLinspace, BasicEvenSpacing) {
     const auto start = telem::TimeStamp(100);
     const auto end = telem::TimeStamp(500);
-    constexpr size_t count = 5;
-    const auto s = telem::Series::linspace(start, end, count);
+    constexpr size_t COUNT = 5;
+    const auto s = telem::Series::linspace(start, end, COUNT);
     ASSERT_EQ(s.data_type(), telem::TIMESTAMP_T);
-    ASSERT_EQ(s.size(), count);
+    ASSERT_EQ(s.size(), COUNT);
     const auto values = s.values<uint64_t>();
     ASSERT_EQ(values[0], 100);
     ASSERT_EQ(values[1], 180);
@@ -550,8 +550,8 @@ TEST(TestSeriesLinspace, SinglePoint) {
 TEST(TestSeriesLinspace, LargeTimestamps) {
     const auto start = telem::TimeStamp(1000000000000ULL);
     const auto end = telem::TimeStamp(1000000001000ULL);
-    constexpr size_t count = 3;
-    const auto s = telem::Series::linspace(start, end, count);
+    constexpr size_t COUNT = 3;
+    const auto s = telem::Series::linspace(start, end, COUNT);
     const auto values = s.values<uint64_t>();
     ASSERT_EQ(values[0], 1000000000000ULL);
     ASSERT_EQ(values[1], 1000000000333ULL);

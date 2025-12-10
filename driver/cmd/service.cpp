@@ -16,13 +16,13 @@ int exec_svc_cmd(
     const std::string &past_tense = ""
 ) {
     if (const auto err = cmd()) {
-        LOG(ERROR) << "" << xlog::RED() << "Failed to " << action << ": " << err
-                   << xlog::RESET();
+        LOG(ERROR) << "" << xlog::red() << "Failed to " << action << ": " << err
+                   << xlog::reset();
         return 1;
     }
     if (!past_tense.empty()) {
-        LOG(INFO) << "" << xlog::GREEN() << past_tense << " successfully"
-                  << xlog::RESET();
+        LOG(INFO) << "" << xlog::green() << past_tense << " successfully"
+                  << xlog::reset();
     }
     return 0;
 }

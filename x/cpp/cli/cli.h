@@ -14,6 +14,9 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#else
+#include <termios.h>
+#include <unistd.h>
 #endif
 
 #include <iostream>
@@ -42,9 +45,16 @@ inline std::string prompt(
         GetConsoleMode(h_stdin, &mode);
         if (hide_input) SetConsoleMode(h_stdin, mode & (~ENABLE_ECHO_INPUT));
 #else
-        if (hide_input)
-            if (int result = system("stty -echo"); result != 0)
-                std::cerr << "warning: failed to hide input" << std::endl;
+        struct termios oldt{};
+        if (hide_input) {
+            if (tcgetattr(STDIN_FILENO, &oldt) == 0) {
+                struct termios newt = oldt;
+                newt.c_lflag &= ~ECHO;
+                tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+            } else {
+                std::cerr << "warning: failed to hide input" << '\n';
+            }
+        }
 #endif
 
         std::string input;
@@ -52,12 +62,11 @@ inline std::string prompt(
         std::getline(std::cin, input);
 
         if (hide_input) {
-            std::cout << std::endl;
+            std::cout << '\n';
 #ifdef _WIN32
             SetConsoleMode(h_stdin, mode);
 #else
-            if (int result = system("stty echo"); result != 0)
-                std::cerr << "warning: failed to restore terminal echo" << std::endl;
+            tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
 #endif
         }
 
@@ -85,7 +94,7 @@ confirm(const std::string &message, std::optional<bool> default_value = std::nul
         );
         if (response == 'Y') return true;
         if (response == 'N') return false;
-        std::cout << "Please enter Y or N" << std::endl;
+        std::cout << "Please enter Y or N \n";
     }
 }
 
@@ -101,8 +110,8 @@ prompt(const std::string &message, std::optional<T> default_value = std::nullopt
         "Template parameter T must be an arithmetic type"
     );
     while (true) {
-        std::string prompt_text = message;
-        std::string default_str = "";
+        const std::string& prompt_text = message;
+        std::string default_str;
         if (default_value.has_value()) default_str = std::to_string(*default_value);
         std::string input = prompt(prompt_text, default_str);
         try {
@@ -112,14 +121,14 @@ prompt(const std::string &message, std::optional<T> default_value = std::nullopt
                 return std::stof(input);
             else if constexpr (std::is_same_v<T, double>)
                 return std::stod(input);
-            else if constexpr (std::is_same_v<T, long>)
+            else if constexpr (std::is_same_v<T, std::int64_t>)
                 return std::stol(input);
-            else if constexpr (std::is_same_v<T, unsigned short>)
-                return static_cast<unsigned short>(std::stoul(input));
+            else if constexpr (std::is_same_v<T, std::uint16_t>)
+                return static_cast<std::uint16_t>(std::stoul(input));
             else
                 static_assert(sizeof(T) == 0, "Unsupported numeric type");
         } catch (const std::exception &) {
-            std::cout << "Invalid input: please enter a valid number" << std::endl;
+            std::cout << "Invalid input: please enter a valid number \n";
         }
     }
 }

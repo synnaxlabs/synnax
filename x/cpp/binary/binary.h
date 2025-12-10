@@ -148,13 +148,13 @@ public:
 
     /// @brief Reads raw bytes from the buffer into a provided memory location
     /// @param data Pointer to the memory location to write to
-    /// @param size The number of bytes to read
-    size_t read(void *data, const size_t size) {
-        size_t read_size = size;
-        if (offset + size > this->size) read_size = this->size - offset;
-        std::memcpy(data, buf + offset, read_size);
-        offset += read_size;
-        return read_size;
+    /// @param read_size The number of bytes to read
+    size_t read(void *data, const size_t read_size) {
+        size_t clamped_read_size = read_size;
+        if (offset + read_size > this->size) clamped_read_size = this->size - offset;
+        std::memcpy(data, buf + offset, clamped_read_size);
+        offset += clamped_read_size;
+        return clamped_read_size;
     }
 };
 

@@ -6,6 +6,7 @@
 Checks: >
   bugprone-*,
   -bugprone-easily-swappable-parameters,
+  -bugprone-exception-escape,
   cert-*,
   -cert-err58-cpp,
   performance-*,
@@ -14,33 +15,47 @@ Checks: >
   -modernize-use-integer-sign-comparison,
   -modernize-use-ranges,
   -modernize-use-trailing-return-type,
+  -modernize-return-braced-init-list,
   readability-*,
   -readability-braces-around-statements,
   -readability-convert-member-functions-to-static,
   -readability-identifier-length,
   -readability-magic-numbers,
+  -readability-redundant-member-init,
+  -readability-uppercase-literal-suffix,
+  -readability-math-missing-parentheses,
+  -readability-use-anyofallof,
   cppcoreguidelines-*,
   -cppcoreguidelines-avoid-const-or-ref-data-members,
   -cppcoreguidelines-avoid-magic-numbers,
   -cppcoreguidelines-pro-bounds-pointer-arithmetic,
   -cppcoreguidelines-pro-type-reinterpret-cast,
   -cppcoreguidelines-special-member-functions,
+  -cppcoreguidelines-non-private-member-variables-in-classes,
+  -cppcoreguidelines-avoid-do-while,
   clang-analyzer-*,
   misc-*,
   -misc-const-correctness,
   -misc-include-cleaner,
   -misc-non-private-member-variables-in-classes,
   -misc-use-internal-linkage,
+  -misc-no-recursion,
   portability-*,
+  -portability-avoid-pragma-once,
   concurrency-*,
   hicpp-*,
   -hicpp-braces-around-statements,
   -hicpp-signed-bitwise,
   -hicpp-special-member-functions,
+  -hicpp-uppercase-literal-suffix,
   google-build-namespaces,
   google-explicit-constructor,
   google-runtime-int,
-  google-runtime-operator
+  google-runtime-operator,
+  -bugprone-throwing-static-initialization,
+  -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
+  -readability-isolate-declaration,
+  -cert-dcl16-c
 
 # Treat warnings as errors in CI
 WarningsAsErrors: '*'
@@ -73,8 +88,20 @@ CheckOptions:
     value: lower_case
   - key: readability-identifier-naming.ParameterCase
     value: lower_case
+  # Members: snake_case (trailing underscore allowed via regex for disambiguation)
   - key: readability-identifier-naming.MemberCase
     value: lower_case
+  - key: readability-identifier-naming.MemberIgnoredRegexp
+    value: '.*_'
+  # Static members: allow UPPER_CASE for constant-like static members (e.g., DENSITIES)
+  - key: readability-identifier-naming.StaticVariableCase
+    value: lower_case
+  - key: readability-identifier-naming.StaticVariableIgnoredRegexp
+    value: '[A-Z][A-Z_0-9]*'
+  - key: readability-identifier-naming.ClassMemberCase
+    value: lower_case
+  - key: readability-identifier-naming.ClassMemberIgnoredRegexp
+    value: '[A-Z][A-Z_0-9]*|.*_'
 
   # Constants: UPPER_CASE (scream case)
   # Only constexpr enforced - regular const variables ignored if UPPER_CASE

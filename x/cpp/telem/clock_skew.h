@@ -26,7 +26,7 @@ public:
     /// @brief timestamp when the most recent measurement started
     telem::TimeStamp local_start_t = telem::TimeStamp(0);
     /// @brief running sum of all measured clock skews
-    telem::TimeSpan accumulated_skew = telem::TimeSpan::ZERO();
+    telem::TimeSpan accumulated_skew;
     /// @brief number of measurements taken
     std::uint64_t n = 0;
 
@@ -56,16 +56,16 @@ public:
 
     /// @brief returns the average clock skew across all measurements
     /// @return TimeSpan representing the average clock skew
-    telem::TimeSpan skew() const {
-        if (this->n == 0) return telem::TimeSpan::ZERO();
-        return this->accumulated_skew / this->n;
+    [[nodiscard]] telem::TimeSpan skew() const {
+        if (this->n == 0) return telem::TimeSpan(0);
+        return this->accumulated_skew / static_cast<int64_t>(this->n);
     }
 
     /// @brief checks if the absolute value of the average clock skew exceeds a
     /// threshold
     /// @param threshold The maximum acceptable clock skew
     /// @return true if the absolute skew exceeds the threshold, false otherwise
-    bool exceeds(const telem::TimeSpan &threshold) const {
+    [[nodiscard]] bool exceeds(const telem::TimeSpan &threshold) const {
         return skew().abs() > threshold;
     }
 };

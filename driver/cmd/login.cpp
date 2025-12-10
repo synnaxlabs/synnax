@@ -26,15 +26,15 @@ int cmd::sub::login(xargs::Parser &args) {
     LOG(INFO) << "connecting to Synnax using the following parameters: \n" << config;
     const synnax::Synnax client(config);
     if (const auto err = client.auth->authenticate()) {
-        LOG(ERROR) << xlog::RED() << "failed to authenticate: " << err << xlog::RESET();
+        LOG(ERROR) << xlog::red() << "failed to authenticate: " << err << xlog::reset();
         return 1;
     }
-    LOG(INFO) << xlog::GREEN() << "successfully logged in!" << xlog::RESET();
+    LOG(INFO) << xlog::green() << "successfully logged in!" << xlog::reset();
     if (const auto err = rack::Config::save_conn_params(args, config)) {
-        LOG(ERROR) << xlog::RED() << "failed to save credentials: " << err
-                   << xlog::RESET();
+        LOG(ERROR) << xlog::red() << "failed to save credentials: " << err
+                   << xlog::reset();
         return 1;
     }
-    LOG(INFO) << xlog::GREEN() << "credentials saved successfully!" << xlog::RESET();
+    LOG(INFO) << xlog::green() << "credentials saved successfully!" << xlog::reset();
     return 0;
 }

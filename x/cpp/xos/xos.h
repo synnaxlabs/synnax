@@ -27,7 +27,7 @@ namespace xos {
 /// returns an empty string and false.
 inline std::pair<std::string, bool> get_hostname() {
     std::array<char, 256> hostname{};
-    bool ok;
+    bool ok = false;
 #ifdef _WIN32
     DWORD size = hostname.size();
     ok = GetComputerNameA(hostname.data(), &size) == 0;

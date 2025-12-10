@@ -35,7 +35,7 @@ inline void precise_sleep(const telem::TimeSpan &dur) {
     // to compute a more accurate sleep time for the machine running the code
     static telem::TimeSpan estimate = RESOLUTION * 10; // overestimate initially
     static telem::TimeSpan mean = RESOLUTION * 10;
-    static auto M2 = telem::TimeSpan::ZERO();
+    static auto M2 = telem::TimeSpan(0);
     static int64_t count = 1;
     while (dur > estimate) {
         auto start = hs_clock::now();
@@ -47,7 +47,7 @@ inline void precise_sleep(const telem::TimeSpan &dur) {
         const telem::TimeSpan delta = elapsed - mean;
         mean += delta / count;
         M2 += delta * (elapsed - mean);
-        estimate = mean + std::sqrt((M2 / count).nanoseconds());
+        estimate = mean + static_cast<int64_t>(std::sqrt((M2 / count).nanoseconds()));
         count++;
     }
     // busy wait for the last bit to ensure we sleep for the correct duration
@@ -68,7 +68,7 @@ public:
     telem::TimeSpan elapsed(const std::chrono::high_resolution_clock::time_point now) {
         if (!last_set) {
             last_set = true;
-            return telem::TimeSpan::ZERO();
+            return telem::TimeSpan(0);
         }
         const auto elapsed = now - last;
         return telem::TimeSpan(elapsed);

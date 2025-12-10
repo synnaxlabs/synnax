@@ -114,7 +114,7 @@ public:
         if (skew_calc.exceeds(this->clock_skew_threshold)) {
             auto [host, _] = xos::get_hostname();
             auto direction = "ahead";
-            if (skew_calc.skew() > telem::TimeSpan::ZERO()) direction = "behind";
+            if (skew_calc.skew() > 0) direction = "behind";
             LOG(WARNING) << "measured excessive clock skew between this host and the "
                             "Synnax cluster.";
             LOG(WARNING) << "this host (" << host << ") is " << direction

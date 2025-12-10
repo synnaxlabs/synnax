@@ -18,7 +18,7 @@ extern "C" {
 /// @brief it should correctly return the elapsed sequence time based on the current
 /// time.
 TEST(TimePluginTest, testElapsed) {
-    auto current_time = telem::TimeSpan::ZERO();
+    auto current_time = telem::TimeSpan(0);
     auto now = [&current_time]() -> telem::TimeStamp {
         return telem::TimeStamp(current_time);
     };
@@ -75,7 +75,7 @@ TEST(TimePluginTest, testIteration) {
 
 /// @brief it should check if elapsed time is within a specified range.
 TEST(TimePluginTest, testElapsedWithin) {
-    auto current_time = telem::TimeSpan::ZERO();
+    auto current_time = telem::TimeSpan(0);
     auto now = [&current_time]() -> telem::TimeStamp {
         return telem::TimeStamp(current_time);
     };

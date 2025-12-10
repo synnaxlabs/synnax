@@ -32,6 +32,7 @@ template<typename DestType, typename SrcType>
 static void cast_to_type(std::byte *dest, SrcType *src, const size_t count) {
     auto *typed_dest = reinterpret_cast<DestType *>(dest);
     for (size_t i = 0; i < count; i++)
+        // NOLINTNEXTLINE(bugprone-signed-char-misuse,cert-str34-c) - intentional type casting for telemetry data conversion
         typed_dest[i] = static_cast<DestType>(src[i]);
 }
 
@@ -65,6 +66,9 @@ output_partial_vector_byte(std::ostream &os, const std::vector<uint8_t> &vec) {
 
 /// @brief Series is a strongly typed array of telemetry samples backed by an
 /// underlying binary buffer.
+// NOLINTBEGIN(modernize-avoid-c-arrays,cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays)
+// Series uses unique_ptr<byte[]> instead of std::vector to avoid zero-initialization
+// overhead on allocation, which matters for high-frequency telemetry.
 class Series {
     /// @brief the data type of the series.
     DataType data_type_;
@@ -329,10 +333,10 @@ public:
     /// @brief constructs the series from the given string. This can also be a JSON
     /// encoded string, in which case the data type should be set to JSON.
     /// @param data the string to be used as the data_.
-    /// @param data_type_ the type of data being used. Defaults to STRING, but can
+    /// @param data_type the type of data being used. Defaults to STRING, but can
     /// also be set to JSON.
-    explicit Series(const std::string &data, DataType data_type_ = STRING_T):
-        data_type_(std::move(data_type_)),
+    explicit Series(const std::string &data, DataType data_type = STRING_T):
+        data_type_(std::move(data_type)),
         cap_(1),
         cached_byte_size(data.size() + 1),
         size_(1),
@@ -345,7 +349,7 @@ public:
         this->data_[byte_size() - 1] = NEWLINE_TERMINATOR;
     }
 
-    explicit Series(const char *data) {}
+    explicit Series(const char *data): Series(std::string(data)) {}
 
     /// @brief constructs the series from its protobuf representation.
     explicit Series(const PBSeries &s):
@@ -378,8 +382,9 @@ public:
             return;
         }
         std::visit(
-            [this]<typename IT>(IT &&arg) {
+            [this]<typename IT>(const IT &arg) {
                 this->data_ = std::make_unique<std::byte[]>(this->byte_size());
+                // NOLINTNEXTLINE(bugprone-undefined-memory-manipulation) - string case handled above, only numeric types reach here
                 memcpy(data_.get(), &arg, this->byte_size());
             },
             v
@@ -391,7 +396,6 @@ public:
     explicit Series(const std::vector<json> &values):
         data_type_(JSON_T), cap_(values.size()), size_(values.size()) {
         // Calculate the total byte size needed (including newline terminators)
-        this->cached_byte_size = 0;
         for (const auto &value: values)
             this->cached_byte_size += value.dump().size() + 1;
 
@@ -516,8 +520,8 @@ public:
                 );
             if (this->size() >= this->cap()) return 0;
 
-            const char *str_data;
-            size_t str_len;
+            const char *str_data = nullptr;
+            size_t str_len = 0;
             if constexpr (std::is_same_v<T, std::string>) {
                 str_data = d.c_str();
                 str_len = d.length();
@@ -964,43 +968,43 @@ public:
         const auto size = this->size();
 
         if (this->data_type() == FLOAT64_T) {
-            auto *data_ptr = reinterpret_cast<const double *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const double *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == FLOAT32_T) {
-            auto *data_ptr = reinterpret_cast<const float *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const float *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == INT64_T) {
-            auto *data_ptr = reinterpret_cast<const int64_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const int64_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == INT32_T) {
-            auto *data_ptr = reinterpret_cast<const int32_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const int32_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == INT16_T) {
-            auto *data_ptr = reinterpret_cast<const int16_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const int16_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == INT8_T) {
-            auto *data_ptr = reinterpret_cast<const int8_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const int8_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == UINT64_T) {
-            auto *data_ptr = reinterpret_cast<const uint64_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const uint64_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == UINT32_T) {
-            auto *data_ptr = reinterpret_cast<const uint32_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const uint32_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == UINT16_T) {
-            auto *data_ptr = reinterpret_cast<const uint16_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const uint16_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == UINT8_T) {
-            auto *data_ptr = reinterpret_cast<const uint8_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const uint8_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == TIMESTAMP_T) {
@@ -1029,4 +1033,5 @@ public:
         return n_read;
     }
 };
+// NOLINTEND(modernize-avoid-c-arrays,cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays)
 }

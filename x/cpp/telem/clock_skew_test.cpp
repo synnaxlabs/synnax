@@ -13,27 +13,28 @@
 
 namespace {
 // A mock global time variable to simulate custom time behavior.
-static telem::TimeStamp mockTime(0);
+// NOLINTNEXTLINE(*-static-definition-in-anonymous-namespace, *-avoid-non-const-global-variables)
+static telem::TimeStamp mock_time(0);
 
 // Custom "now()" function that returns the current mock time.
-telem::TimeStamp customNow() {
-    return mockTime;
+telem::TimeStamp custom_now() {
+    return mock_time;
 }
 }
 
 /// @brief it should correctly calculate clock skew from a single measurement.
 TEST(ClockSkewCalculatorTest, SingleMeasurement) {
     // Reset mock time to 0 for a clean test.
-    mockTime = telem::TimeStamp(0);
+    mock_time = telem::TimeStamp(0);
 
     // Create ClockSkewCalculator with our custom "now" function.
-    telem::ClockSkewCalculator calc(customNow);
+    telem::ClockSkewCalculator calc(custom_now);
 
     // Local system starts measuring.
     calc.start(); // local_start_t = 0
 
     // Advance the local clock by 10 ns.
-    mockTime = telem::TimeStamp(10);
+    mock_time = telem::TimeStamp(10);
 
     // Suppose the remote system's midpoint was 3 ns at the same "real" point in time.
     const telem::TimeStamp remoteMidpoint(3);
@@ -52,13 +53,13 @@ TEST(ClockSkewCalculatorTest, SingleMeasurement) {
 /// @brief it should report zero skew when local and remote times match perfectly.
 TEST(ClockSkewCalculatorTest, ZeroSkewScenario) {
     // Reset mock time to 0.
-    mockTime = telem::TimeStamp(0);
-    telem::ClockSkewCalculator calc(customNow);
+    mock_time = telem::TimeStamp(0);
+    telem::ClockSkewCalculator calc(custom_now);
 
     // Pretend local and remote times match perfectly.
     calc.start();
     // Move local time forward by 1000.
-    mockTime = telem::TimeStamp(1000);
+    mock_time = telem::TimeStamp(1000);
     // If remote time is exactly the same midpoint (500 behind us from the start),
     // that forces the skew to be zero.
     calc.end(telem::TimeStamp(500));

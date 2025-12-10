@@ -183,7 +183,7 @@ public:
     /// was already stopped.
     bool stop() {
         if (!this->mark_stopped()) return false;
-        std::lock_guard lock(this->mu);
+        std::scoped_lock lock(this->mu);
         this->shutdown_cv.notify_all();
         return true;
     }
