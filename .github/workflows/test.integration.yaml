@@ -76,9 +76,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CACHE_SCOPE: deploy-synnax
-  S3_CACHE_BUCKET: ${{ vars.S3_CACHE_BUCKET }}
-  S3_CACHE_REGION: ${{ vars.S3_CACHE_REGION }}
   BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
 
 jobs:
@@ -199,11 +196,9 @@ jobs:
           - os: ubuntu-build-bot
             artifact-name: synnax-core-linux
             binary-suffix: linux
-            shell: bash
           - os: windows-build-bot
             artifact-name: synnax-core-windows
             binary-suffix: windows.exe
-            shell: cmd
     runs-on: ${{ matrix.os }}
     needs: setup
     steps:
@@ -214,6 +209,8 @@ jobs:
       - name: Checkout Repository
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: actions/checkout@v5
+        with:
+          clean: false
 
       - name: Update Submodules
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -266,22 +263,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.work
-          cache: false  # Disable GitHub cache, use S3 cache below
-
-      - name: Restore Go Cache (S3)
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: tespkg/actions-cache/restore@v1
-        with:
-          endpoint: s3.amazonaws.com
-          bucket: ${{ env.S3_CACHE_BUCKET }}
-          region: ${{ env.S3_CACHE_REGION }}
-          useEc2RoleForAuth: true
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ env.CACHE_SCOPE }}-go-${{ matrix.os }}-${{ hashFiles('go.work.sum', '**/go.sum') }}
-          restore-keys: |
-            ${{ env.CACHE_SCOPE }}-go-${{ matrix.os }}-
+          cache: false
 
       - name: Set up pnpm
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -292,20 +274,6 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version-file: package.json
-          cache: ""  # Disable GitHub cache, use S3 cache below
-
-      - name: Restore pnpm Cache (S3)
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: tespkg/actions-cache/restore@v1
-        with:
-          endpoint: s3.amazonaws.com
-          bucket: ${{ env.S3_CACHE_BUCKET }}
-          region: ${{ env.S3_CACHE_REGION }}
-          useEc2RoleForAuth: true
-          path: ~/.pnpm-store
-          key: ${{ env.CACHE_SCOPE }}-pnpm-${{ matrix.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ env.CACHE_SCOPE }}-pnpm-${{ matrix.os }}-
 
       - name: Install Node Dependencies
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -345,30 +313,6 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-      - name: Save Go Cache (S3)
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && always() }}
-        uses: tespkg/actions-cache/save@v1
-        with:
-          endpoint: s3.amazonaws.com
-          bucket: ${{ env.S3_CACHE_BUCKET }}
-          region: ${{ env.S3_CACHE_REGION }}
-          useEc2RoleForAuth: true
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ env.CACHE_SCOPE }}-go-${{ matrix.os }}-${{ hashFiles('go.work.sum', '**/go.sum') }}
-
-      - name: Save pnpm Cache (S3)
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && always() }}
-        uses: tespkg/actions-cache/save@v1
-        with:
-          endpoint: s3.amazonaws.com
-          bucket: ${{ env.S3_CACHE_BUCKET }}
-          region: ${{ env.S3_CACHE_REGION }}
-          useEc2RoleForAuth: true
-          path: ~/.pnpm-store
-          key: ${{ env.CACHE_SCOPE }}-pnpm-${{ matrix.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-
       - name: Debug Build Environment
         if: failure() && matrix.os != 'windows-build-bot'
         run: integration/scripts/debug_build_environment_unix.sh
@@ -388,6 +332,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
+        with:
+          clean: false
 
       - name: Force Quit Existing Synnax Processes (Windows)
         shell: cmd
@@ -461,6 +407,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
+        with:
+          clean: false
 
       - name: Force Quit Existing Synnax Processes
         run: integration/scripts/kill_synnax_processes_unix.sh
@@ -521,6 +469,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
+        with:
+          clean: false
 
       - name: Force Quit Existing Synnax Processes
         continue-on-error: true
