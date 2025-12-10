@@ -311,6 +311,11 @@ class MultiSeries:
     def __array__(
         self, dtype: np.dtype | None = None, copy: bool | None = None
     ) -> np.ndarray:
+        if len(self.series) == 0:
+            target_dtype = dtype if dtype is not None else np.float64
+            return np.empty((0,), dtype=target_dtype)
+        if len(self.series) == 1:
+            return self.series[0].__array__(dtype=dtype, copy=copy)
         target_dtype = dtype if dtype is not None else self.series[0].data_type.np
         pre_alloc = np.empty((len(self),), dtype=target_dtype)
         start = 0
@@ -318,7 +323,6 @@ class MultiSeries:
             end = start + len(s)
             pre_alloc[start:end] = s.__array__(dtype=target_dtype)
             start = end
-        # copy is implicitly handled since we're creating a new array
         return pre_alloc
 
     def to_numpy(

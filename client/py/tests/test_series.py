@@ -407,3 +407,35 @@ class TestMultiSeries:
         bounds = ms.alignment_bounds
         assert bounds.lower == 0
         assert bounds.upper == 0
+
+    def test_empty_multiseries_to_numpy(self):
+        """Should return an empty numpy array for empty sy.MultiSeries"""
+        ms = sy.MultiSeries([])
+        arr = ms.to_numpy()
+        assert len(arr) == 0
+        assert arr.dtype == np.float64
+
+    def test_empty_multiseries_to_numpy_with_dtype(self):
+        """Should return an empty numpy array with specified dtype"""
+        ms = sy.MultiSeries([])
+        arr = ms.to_numpy(dtype=np.int32)
+        assert len(arr) == 0
+        assert arr.dtype == np.int32
+
+    def test_single_series_copy_false(self):
+        """Should respect copy=False for single series MultiSeries"""
+        s = sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)
+        ms = sy.MultiSeries([s])
+        arr1 = ms.__array__(copy=False)
+        arr2 = ms.__array__(copy=False)
+        # With copy=False on single series, both should share the same buffer
+        assert np.shares_memory(arr1, arr2)
+
+    def test_single_series_copy_true(self):
+        """Should create a copy when copy=True for single series MultiSeries"""
+        s = sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)
+        ms = sy.MultiSeries([s])
+        arr1 = ms.__array__(copy=True)
+        arr2 = ms.__array__(copy=True)
+        # With copy=True, they should not share memory
+        assert not np.shares_memory(arr1, arr2)
