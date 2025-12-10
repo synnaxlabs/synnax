@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { csv, unique } from "@synnaxlabs/x";
+import { csv } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
+import { UnexpectedError } from "@/errors";
 import { type Frame } from "@/framer/frame";
 import { AUTO_SPAN, type Iterator } from "@/framer/iterator";
 
@@ -43,17 +44,13 @@ export const createCSVExportStream = ({
   const extractRecordsFromFrame = (frame: Frame): void => {
     for (const [indexKey] of groups) {
       const indexSeries = frame.get(indexKey);
-      const seriesLen = indexSeries.length;
-      if (seriesLen === 0) continue;
+      if (indexSeries.length === 0) continue;
       const groupColumns = columnsByIndexKey.get(indexKey) ?? [];
-      const numCols = groupColumns.length;
       // Pre-fetch all series for this group to avoid repeated lookups
       const seriesData = groupColumns.map((col) => frame.get(col.key));
-      for (let i = 0; i < seriesLen; i++) {
+      for (let i = 0; i < indexSeries.length; i++) {
         const time = indexSeries.at(i, true) as bigint;
-        const values: string[] = new Array(numCols);
-        for (let c = 0; c < numCols; c++)
-          values[c] = csv.formatValue(seriesData[c].at(i, true));
+        const values = seriesData.map((series) => csv.formatValue(series.at(i, true)));
         stagedRecords.push({ time, values, indexKey });
       }
     }
@@ -95,9 +92,7 @@ export const createCSVExportStream = ({
       for (const [indexKey] of groups) {
         const record = recordsByGroup.get(indexKey);
         rowParts.push(
-          record != null
-            ? record.values.join(",")
-            : (emptyGroupStrings.get(indexKey) ?? ""),
+          record?.values.join(",") ?? emptyGroupStrings.get(indexKey) ?? "",
         );
       }
       rows.push(rowParts.join(","));
@@ -158,17 +153,15 @@ const groupChannelsByIndex = (
   channels: channel.Payload[],
 ): Map<channel.Key, channel.Keys> => {
   const groupMap = new Map<channel.Key, channel.Keys>();
-  const indexKeys = unique.unique(
-    channels.map((ch) => ch.index).filter((k) => k !== 0),
-  );
-  indexKeys.forEach((indexKey) => {
-    groupMap.set(indexKey, [indexKey]);
-  });
-  channels.forEach((ch) => {
-    if (ch.isIndex) return;
-    const group = groupMap.get(ch.index);
-    if (group != null && !group.includes(ch.key)) group.push(ch.key);
-  });
+  for (const ch of channels) {
+    if (ch.index === 0) continue;
+    let group = groupMap.get(ch.index);
+    if (group == null) {
+      group = [ch.index];
+      groupMap.set(ch.index, group);
+    }
+    if (!ch.isIndex && !group.includes(ch.key)) group.push(ch.key);
+  }
   return groupMap;
 };
 
@@ -195,19 +188,19 @@ const buildColumnMeta = (
 
   for (const [indexKey, channelKeys] of groups) {
     const groupColumns: ColumnMeta[] = [];
-    channelKeys.forEach((key) => {
+    for (const key of channelKeys) {
       const ch = channelMap.get(key);
-      if (ch == null) return;
+      if (ch == null) throw new UnexpectedError(`Channel ${key} not found`);
       const meta: ColumnMeta = {
         key,
         header: headers?.get(key) ?? headers?.get(ch.name) ?? ch.name,
       };
       columns.push(meta);
       groupColumns.push(meta);
-    });
+    }
     columnsByIndexKey.set(indexKey, groupColumns);
     // Pre-compute empty group string for fast row building
-    emptyGroupStrings.set(indexKey, Array(groupColumns.length).fill("").join(","));
+    emptyGroupStrings.set(indexKey, ",".repeat(groupColumns.length - 1));
   }
 
   return { columns, columnsByIndexKey, emptyGroupStrings };
@@ -220,12 +213,11 @@ interface RecordEntry {
 
 const mergeSortedRecords = (a: RecordEntry[], b: RecordEntry[]): RecordEntry[] => {
   const result: RecordEntry[] = [];
-  let i = 0,
-    j = 0;
+  let i = 0;
+  let j = 0;
   while (i < a.length && j < b.length)
     if (a[i].time <= b[j].time) result.push(a[i++]);
     else result.push(b[j++]);
-  while (i < a.length) result.push(a[i++]);
-  while (j < b.length) result.push(b[j++]);
+  result.push(...a.slice(i), ...b.slice(j));
   return result;
 };
