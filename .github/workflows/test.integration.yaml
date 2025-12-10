@@ -79,8 +79,6 @@ env:
   CACHE_SCOPE: deploy-synnax
   S3_CACHE_BUCKET: ${{ vars.S3_CACHE_BUCKET }}
   S3_CACHE_REGION: ${{ vars.S3_CACHE_REGION }}
-  AWS_ACCESS_KEY_ID: ${{ secrets.S3_CACHE_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_CACHE_SECRET_ACCESS_KEY }}
   BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
 
 jobs:
@@ -277,8 +275,7 @@ jobs:
           endpoint: s3.amazonaws.com
           bucket: ${{ env.S3_CACHE_BUCKET }}
           region: ${{ env.S3_CACHE_REGION }}
-          accessKey: ${{ env.AWS_ACCESS_KEY_ID }}
-          secretKey: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          useEc2RoleForAuth: true
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
@@ -304,8 +301,7 @@ jobs:
           endpoint: s3.amazonaws.com
           bucket: ${{ env.S3_CACHE_BUCKET }}
           region: ${{ env.S3_CACHE_REGION }}
-          accessKey: ${{ env.AWS_ACCESS_KEY_ID }}
-          secretKey: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          useEc2RoleForAuth: true
           path: ~/.pnpm-store
           key: ${{ env.CACHE_SCOPE }}-pnpm-${{ matrix.os }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
@@ -356,8 +352,7 @@ jobs:
           endpoint: s3.amazonaws.com
           bucket: ${{ env.S3_CACHE_BUCKET }}
           region: ${{ env.S3_CACHE_REGION }}
-          accessKey: ${{ env.AWS_ACCESS_KEY_ID }}
-          secretKey: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          useEc2RoleForAuth: true
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
@@ -370,8 +365,7 @@ jobs:
           endpoint: s3.amazonaws.com
           bucket: ${{ env.S3_CACHE_BUCKET }}
           region: ${{ env.S3_CACHE_REGION }}
-          accessKey: ${{ env.AWS_ACCESS_KEY_ID }}
-          secretKey: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          useEc2RoleForAuth: true
           path: ~/.pnpm-store
           key: ${{ env.CACHE_SCOPE }}-pnpm-${{ matrix.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
