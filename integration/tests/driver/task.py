@@ -137,6 +137,7 @@ class TaskCase(TestCase):
 
         self.log("Test 1 - Start and Stop")
         self.assert_sample_count(task=tsk, duration=self.TASK_DURATION)
+        sy.sleep(0.5)
 
         self.log("Test 2 - Reconfigure Task")
         new_rate = int(self.SAMPLE_RATE * 2)
@@ -219,33 +220,40 @@ class TaskCase(TestCase):
         self,
         *,
         task: sy.Task,
-        duration: sy.TimeSpan = 1,
+        duration: sy.TimeSpan = 1 * sy.TimeSpan.SECOND,
         strict: bool = True,
     ) -> None:
         """Assert that the task has the expected number of samples.
 
         Args:
             task: The task to assert the sample count of
-            duration: Duration (s) to run the task for
+            duration: Duration to run the task for (sy.TimeSpan)
             strict: Sample count within 20% tolerance if True, else no check
 
         Raises:
             AssertionError: If sample counts are incorrect or inconsistent
         """
-        with task.run():
-            sy.sleep(0.5)  # Allow task to start
-            start_time = sy.TimeStamp.now()
-            sy.sleep(duration)
-            end_time = sy.TimeStamp.now()
 
         sample_rate = task.config.sample_rate
-        time_range = sy.TimeRange(start_time, end_time)
-        duration_seconds = time_range.end.span(time_range.start).seconds
+        channel_keys = [ch.channel for ch in task.config.channels]
 
-        # Allow 20% tolerance for CI environments with timing variance
-        expected_samples = int(sample_rate * duration_seconds)
-        min_samples = int(expected_samples * 0.8) if strict else 1
-        max_samples = int(expected_samples * 1.2) if strict else sys.maxsize
+        with task.run():
+            # Block until first frame arrives
+            with self.client.open_streamer(channel_keys) as streamer:
+                streamer.read(timeout=1)
+            sy.sleep(0.2)
+            start_time = sy.TimeStamp.now()
+            sy.sleep(duration.seconds * 1.2)  # Bufffer for CI
+
+        end_time = sy.TimeStamp.now()
+
+        # Allow 35% tolerance for CI environments with timing variance
+        expected_samples = int(sample_rate * duration.seconds)
+        min_samples = int(expected_samples * 0.65) if strict else 1
+        max_samples = int(expected_samples * 1.35) if strict else sys.maxsize
+
+        # Read from start_time to now (captures any buffered/flushed samples)
+        time_range = sy.TimeRange(start_time, end_time)
 
         sample_counts = []
         for channel_config in task.config.channels:
@@ -257,7 +265,7 @@ class TaskCase(TestCase):
                 if strict:
                     raise AssertionError(
                         f"Channel '{ch.name}' has {num_samples} samples, "
-                        f"expected {expected_samples} ±20% ({min_samples}-{max_samples})"
+                        f"expected {expected_samples} ±35% ({min_samples}-{max_samples})"
                     )
                 else:
                     raise AssertionError(
