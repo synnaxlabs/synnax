@@ -221,39 +221,32 @@ public:
         const synnax::Task &task
     ) override {
         if (task.type != TASK_TYPE) return {nullptr, false};
+        synnax::TaskStatus stat{
+            .key  = task.status_key(),
+            .name = task.name,
+            .variant = "error",
+            .details = synnax::TaskStatusDetails{
+                .task = task.key,
+                .running = false,
+            },
+        };
 
         auto parser = xjson::Parser(task.config);
         auto [cfg, cfg_err] = TaskConfig::parse(ctx->client, parser);
         if (cfg_err) {
-            ctx->set_status(
-                synnax::TaskStatus{
-                    .variant = "error",
-                    .details = synnax::TaskStatusDetails{
-                        .task = task.key,
-                        .running = false,
-                    },
-                }
-            );
+            ctx->set_status(stat);
             return {nullptr, true};
         }
 
-        // Load runtime
         auto [runtime, rt_err] = load_runtime(cfg, ctx->client);
         if (rt_err) {
-            ctx->set_status(
-                synnax::TaskStatus{
-                    .variant = "error",
-                    .details = synnax::TaskStatusDetails{
-                        .task = task.key,
-                        .running = false,
-                    },
-                }
-            );
+            ctx->set_status(stat);
             return {nullptr, true};
         }
-
         return {std::make_unique<Task>(task, ctx, std::move(runtime), cfg), true};
     }
+
+
 
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
