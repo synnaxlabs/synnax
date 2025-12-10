@@ -17,7 +17,6 @@ export type Cluster = latest.Cluster;
 export type SliceState = latest.SliceState;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const migrateSlice = latest.migrateSlice;
-const getPredefinedClusterKey = latest.getPredefinedClusterKey;
 
 export const SLICE_NAME = "cluster";
 
@@ -46,14 +45,32 @@ const checkName = (state: SliceState, name: string, key?: string) => {
     throw new Error(`A cluster with the name ${name} already exists.`);
 };
 
+/**
+ *  Purges any duplicate clusters with the exact same host, port, secure, username, and
+ *  password, while keeping the cluster with the given key.
+ */
+const purgeDuplicateClusters = (state: SliceState, keep?: string) => {
+  const clusters = Object.values(state.clusters);
+  for (const cluster of clusters) {
+    const duplicate = clusters.find(
+      (c) =>
+        (keep == null || c.key !== keep) &&
+        c.key !== cluster.key &&
+        c.host === cluster.host &&
+        c.port === cluster.port &&
+        c.secure === cluster.secure,
+    );
+    if (duplicate) delete state.clusters[duplicate.key];
+  }
+};
+
 const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
     set: (state, { payload: cluster }: PayloadAction<SetPayload>) => {
-      const predefinedKey = getPredefinedClusterKey(cluster);
-      if (predefinedKey != null) delete state.clusters[predefinedKey];
       state.clusters[cluster.key] = cluster;
+      purgeDuplicateClusters(state, cluster.key);
     },
     remove: ({ clusters }, { payload: keys }: PayloadAction<RemovePayload>) =>
       array.toArray(keys).forEach((key) => delete clusters[key]),
