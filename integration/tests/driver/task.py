@@ -137,7 +137,6 @@ class TaskCase(TestCase):
 
         self.log("Test 1 - Start and Stop")
         self.assert_sample_count(task=tsk, duration=self.TASK_DURATION)
-        sy.sleep(0.5)
 
         self.log("Test 2 - Reconfigure Task")
         new_rate = int(self.SAMPLE_RATE * 2)
@@ -234,7 +233,7 @@ class TaskCase(TestCase):
             AssertionError: If sample counts are incorrect or inconsistent
         """
         with task.run():
-            sy.sleep(0.2)  # Allow task to start
+            sy.sleep(0.5)  # Allow task to start
             start_time = sy.TimeStamp.now()
             sy.sleep(duration)
             end_time = sy.TimeStamp.now()

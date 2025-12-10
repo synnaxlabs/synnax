@@ -182,7 +182,7 @@ async def run_server() -> None:
     # Initialize server
     server = Server()
     await server.init()
-    server.set_endpoint("opc.tcp://localhost:4841/freeopcua/server/")
+    server.set_endpoint("opc.tcp://127.0.0.1:4841/freeopcua/server/")
     uri = "http://examples.freeopcua.github.io"
     idx = await server.register_namespace(uri)
 

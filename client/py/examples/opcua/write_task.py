@@ -17,7 +17,7 @@ Before running this example:
 
 2. Connect the OPC UA server device in Synnax:
    See: https://docs.synnaxlabs.com/reference/driver/opc-ua/connect-server
-   Use endpoint: opc.tcp://localhost:4841/
+   Use endpoint: opc.tcp://127.0.0.1:4841/
 
 3. The server will print the node IDs for the command variables on startup.
    Update the node_id values below with the actual IDs from your server output.

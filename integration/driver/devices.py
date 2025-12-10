@@ -89,9 +89,9 @@ class KnownDevices:
     def opcua_sim(rack_key: int) -> opcua.Device:
         """OPC UA simulator device configuration."""
         return opcua.Device(
-            endpoint="opc.tcp://localhost:4841/freeopcua/server/",
+            endpoint="opc.tcp://127.0.0.1:4841/freeopcua/server/",
             name="OPC UA Test Server",
-            location="opc.tcp://localhost:4841/freeopcua/server/",
+            location="opc.tcp://127.0.0.1:4841/freeopcua/server/",
             rack=rack_key,
         )
 
@@ -128,14 +128,14 @@ class Simulator:
 
     MODBUS = SimulatorConfig(
         server_setup=start_modbus_server,
-        startup_delay_seconds=5.0,
+        startup_delay_seconds=3.0,
         device_factory=KnownDevices.modbus_sim,
         device_name="Modbus TCP Test Server",
     )
 
     OPCUA = SimulatorConfig(
         server_setup=start_opcua_server,
-        startup_delay_seconds=5.0,
+        startup_delay_seconds=3.0,
         device_factory=KnownDevices.opcua_sim,
         device_name="OPC UA Test Server",
     )
