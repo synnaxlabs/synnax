@@ -67,7 +67,7 @@
     {
       "sequence_name": "tasks",
       "sequence_order": "asynchronous",
-      "pool_size": 3,
+      "pool_size": 2,
       "tests": [
         {
           "case": "console/task/ni_analog_write_forms"
