@@ -517,6 +517,83 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(st.Variant).To(Equal(xstatus.ErrorVariant))
 			Expect(rm.Close(ctx)).To(Succeed())
 		})
+		Specify("Should persist error status on calculation update failure", func() {
+			bases := []channel.Channel{{
+				Name:     channel.NewRandomName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}}
+			calcs := []channel.Channel{{
+				Name:        channel.NewRandomName(),
+				DataType:    telem.Int64T,
+				Virtual:     true,
+				Leaseholder: cluster.Free,
+				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
+			}}
+			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
+			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
+			rm := c.OpenRequestManager()
+			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
+			calcs[0].Expression = "invalid expression without return"
+			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
+			var st calculation.Status
+			statusKey := channel.OntologyID(calcs[0].Key()).String()
+			Eventually(func(g Gomega) {
+				err := status.NewRetrieve[calculation.StatusDetails](statusSvc).
+					WhereKeys(statusKey).
+					Entry(&st).
+					Exec(ctx, nil)
+				g.Expect(err).To(Succeed())
+				g.Expect(st.Variant).To(Equal(xstatus.ErrorVariant))
+			}).Should(Succeed())
+			Expect(rm.Close(ctx)).To(Succeed())
+		})
+		Specify("Should include channel key in status details", func() {
+			calcs := []channel.Channel{{
+				Name:        channel.NewRandomName(),
+				DataType:    telem.Int64T,
+				Virtual:     true,
+				Leaseholder: cluster.Free,
+				Expression:  "invalid expression",
+			}}
+			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
+			rm := c.OpenRequestManager()
+			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
+			var st calculation.Status
+			statusKey := channel.OntologyID(calcs[0].Key()).String()
+			Eventually(func(g Gomega) {
+				err := status.NewRetrieve[calculation.StatusDetails](statusSvc).
+					WhereKeys(statusKey).
+					Entry(&st).
+					Exec(ctx, nil)
+				g.Expect(err).To(Succeed())
+			}).Should(Succeed())
+			Expect(st.Details.Channel).To(Equal(calcs[0].Key()))
+			Expect(rm.Close(ctx)).To(Succeed())
+		})
+		Specify("Should use channel ontology ID as status key", func() {
+			calcs := []channel.Channel{{
+				Name:        channel.NewRandomName(),
+				DataType:    telem.Int64T,
+				Virtual:     true,
+				Leaseholder: cluster.Free,
+				Expression:  "invalid expression",
+			}}
+			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
+			rm := c.OpenRequestManager()
+			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
+			var st calculation.Status
+			expectedKey := channel.OntologyID(calcs[0].Key()).String()
+			Eventually(func(g Gomega) {
+				err := status.NewRetrieve[calculation.StatusDetails](statusSvc).
+					WhereKeys(expectedKey).
+					Entry(&st).
+					Exec(ctx, nil)
+				g.Expect(err).To(Succeed())
+			}).Should(Succeed())
+			Expect(st.Key).To(Equal(expectedKey))
+			Expect(rm.Close(ctx)).To(Succeed())
+		})
 	})
 
 	Describe("Calculation Updates", func() {
