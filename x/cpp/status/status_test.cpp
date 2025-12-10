@@ -14,7 +14,7 @@
 
 /// @brief it should correctly convert a status to its JSON representation.
 TEST(StatusTest, TestToJSON) {
-    const status::Status stat{
+    const status::Status<> stat{
         .key = "dog",
         .variant = status::variant::SUCCESS,
         .message = "the dog is happy",
@@ -103,30 +103,30 @@ TEST(StatusTest, TestProtobufDetailsRoundTrip) {
 /// @brief it should correctly identify a zero/default status.
 TEST(StatusTest, TestIsZero) {
     // Default-constructed status should be zero
-    const status::Status zero_status{};
+    const status::Status<> zero_status{};
     ASSERT_TRUE(zero_status.is_zero());
 
     // Status with any non-default field should not be zero
-    const status::Status with_key{.key = "test"};
+    const status::Status<> with_key{.key = "test"};
     ASSERT_FALSE(with_key.is_zero());
 
-    const status::Status with_name{.name = "Test"};
+    const status::Status<> with_name{.name = "Test"};
     ASSERT_FALSE(with_name.is_zero());
 
-    const status::Status with_variant{.variant = status::variant::SUCCESS};
+    const status::Status<> with_variant{.variant = status::variant::SUCCESS};
     ASSERT_FALSE(with_variant.is_zero());
 
-    const status::Status with_message{.message = "hello"};
+    const status::Status<> with_message{.message = "hello"};
     ASSERT_FALSE(with_message.is_zero());
 
-    const status::Status with_description{.description = "desc"};
+    const status::Status<> with_description{.description = "desc"};
     ASSERT_FALSE(with_description.is_zero());
 
-    const status::Status with_time{.time = telem::TimeStamp(1)};
+    const status::Status<> with_time{.time = telem::TimeStamp(1)};
     ASSERT_FALSE(with_time.is_zero());
 
     // Fully populated status should not be zero
-    const status::Status full_status{
+    const status::Status<> full_status{
         .key = "key",
         .name = "name",
         .variant = status::variant::INFO,

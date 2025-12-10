@@ -159,9 +159,9 @@ TEST_F(RackConfigTest, loadFromCommandLineArgs) {
             "--state-file",
             "/tmp/rack-config-test/state.json",
             "--host",
-            "arghost",
+            "localhost",
             "--port",
-            "8080",
+            "9090",
             "--username",
             "arguser",
             "--password",
@@ -169,9 +169,10 @@ TEST_F(RackConfigTest, loadFromCommandLineArgs) {
         }
     );
 
-    const auto cfg = ASSERT_NIL_P(rack::Config::load(args_with_config, brk));
-    ASSERT_EQ(cfg.connection.host, "arghost");
-    ASSERT_EQ(cfg.connection.port, 8080);
+    const auto [cfg, err] = rack::Config::load(args_with_config, brk);
+    ASSERT_OCCURRED_AS(err, AUTH_ERROR);
+    ASSERT_EQ(cfg.connection.host, "localhost");
+    ASSERT_EQ(cfg.connection.port, 9090);
     ASSERT_EQ(cfg.connection.username, "arguser");
     ASSERT_EQ(cfg.connection.password, "argpass");
 }
@@ -179,14 +180,15 @@ TEST_F(RackConfigTest, loadFromCommandLineArgs) {
 /// @brief it should load connection parameters from environment variables.
 TEST_F(RackConfigTest, loadFromEnvironmentVariables) {
     // Set environment variables
-    xenv::set("SYNNAX_DRIVER_HOST", "envhost");
-    xenv::set("SYNNAX_DRIVER_PORT", "7070");
+    xenv::set("SYNNAX_DRIVER_HOST", "localhost");
+    xenv::set("SYNNAX_DRIVER_PORT", "9090");
     xenv::set("SYNNAX_DRIVER_USERNAME", "envuser");
     xenv::set("SYNNAX_DRIVER_PASSWORD", "envpass");
 
-    const auto cfg = ASSERT_NIL_P(rack::Config::load(args, brk));
-    ASSERT_EQ(cfg.connection.host, "envhost");
-    ASSERT_EQ(cfg.connection.port, 7070);
+    const auto [cfg, err] = rack::Config::load(args, brk);
+    ASSERT_OCCURRED_AS(err, AUTH_ERROR);
+    ASSERT_EQ(cfg.connection.host, "localhost");
+    ASSERT_EQ(cfg.connection.port, 9090);
     ASSERT_EQ(cfg.connection.username, "envuser");
     ASSERT_EQ(cfg.connection.password, "envpass");
 
@@ -204,7 +206,7 @@ TEST_F(RackConfigTest, configurationPrecedence) {
     std::ofstream config_file(config_path);
     config_file << R"({
         "connection": {
-            "host": "filehost",
+            "host": "localhost",
             "port": 6060,
             "username": "fileuser",
             "password": "filepass"
@@ -213,7 +215,7 @@ TEST_F(RackConfigTest, configurationPrecedence) {
     config_file.close();
 
     // Set environment variables (should override file)
-    xenv::set("SYNNAX_DRIVER_PORT", "7070");
+    xenv::set("SYNNAX_DRIVER_PORT", "9090");
     xenv::set("SYNNAX_DRIVER_USERNAME", "envuser");
     xenv::set("SYNNAX_DRIVER_PASSWORD", "envpass");
     x::defer unset_env([&] {
@@ -238,11 +240,12 @@ TEST_F(RackConfigTest, configurationPrecedence) {
         }
     );
 
-    const auto cfg = ASSERT_NIL_P(rack::Config::load(args_with_config, brk));
+    const auto [cfg, err] = rack::Config::load(args_with_config, brk);
+    ASSERT_OCCURRED_AS(err, AUTH_ERROR);
 
     // Command line args should take precedence
-    ASSERT_EQ(cfg.connection.host, "filehost");
-    ASSERT_EQ(cfg.connection.port, 7070);
+    ASSERT_EQ(cfg.connection.host, "localhost");
+    ASSERT_EQ(cfg.connection.port, 9090);
     ASSERT_EQ(cfg.connection.username, "arguser");
     ASSERT_EQ(cfg.connection.password, "argpass");
 }
