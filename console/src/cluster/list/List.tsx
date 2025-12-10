@@ -55,6 +55,10 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   );
 
   const handleRemove = (key: string): void => {
+    if (key === value) {
+      const nextCluster = allClusters.find((c) => c.key !== key);
+      onChange(nextCluster?.key);
+    }
     dispatch(remove(key));
   };
 

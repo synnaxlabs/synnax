@@ -137,8 +137,10 @@ class Series(Payload):
         )
         self.__len_cache = None
 
-    def __array__(self, *args, **kwargs) -> np.ndarray:
-        """Implemented to that the Series can be passed around as a numpy array. See
+    def __array__(
+        self, dtype: np.dtype | None = None, copy: bool | None = None
+    ) -> np.ndarray:
+        """Implemented so that the Series can be passed around as a numpy array. See
         https://numpy.org/doc/stable/user/basics.interoperability.html#the-array-method.
         """
         if not self.data_type.has_np:
@@ -149,15 +151,20 @@ class Series(Payload):
                 """
             )
 
-        if len(args) > 0:
-            return np.array(self.__array__(), *args, **kwargs)
-        return np.frombuffer(self.data, dtype=self.data_type.np, **kwargs)
+        arr = np.frombuffer(self.data, dtype=self.data_type.np)
+        if dtype is not None and dtype != arr.dtype:
+            arr = arr.astype(dtype, copy=True)
+        elif copy:
+            arr = arr.copy()
+        return arr
 
-    def to_numpy(self, *args, **kwargs) -> np.ndarray:
+    def to_numpy(
+        self, dtype: np.dtype | None = None, copy: bool | None = None
+    ) -> np.ndarray:
         """Converts the Series to a numpy array. This is necessary for matplotlib
         interop.
         """
-        return self.__array__(*args, **kwargs)
+        return self.__array__(dtype=dtype, copy=copy)
 
     def __getitem__(self, index: int) -> SampleValue:
         if not self.data_type.has_np and index < 0:
@@ -301,17 +308,23 @@ class MultiSeries:
                     """
                 )
 
-    def __array__(self) -> np.ndarray:
-        pre_alloc = np.empty((len(self),), dtype=self.series[0].data_type.np)
+    def __array__(
+        self, dtype: np.dtype | None = None, copy: bool | None = None
+    ) -> np.ndarray:
+        target_dtype = dtype if dtype is not None else self.series[0].data_type.np
+        pre_alloc = np.empty((len(self),), dtype=target_dtype)
         start = 0
         for s in self.series:
             end = start + len(s)
-            pre_alloc[start:end] = s.__array__()
+            pre_alloc[start:end] = s.__array__(dtype=target_dtype)
             start = end
+        # copy is implicitly handled since we're creating a new array
         return pre_alloc
 
-    def to_numpy(self) -> np.ndarray:
-        return self.__array__()
+    def to_numpy(
+        self, dtype: np.dtype | None = None, copy: bool | None = None
+    ) -> np.ndarray:
+        return self.__array__(dtype=dtype, copy=copy)
 
     @property
     def time_range(self) -> TimeRange | None:
