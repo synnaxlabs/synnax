@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
+	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -124,6 +125,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Channel:           dist.Channel,
 			ChannelObservable: dist.Channel.NewObservable(),
 			Arc:               arcSvc,
+			Status:            statusSvc,
 		}))
 	})
 
@@ -472,6 +474,48 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calc2Ch.Key()}))
 				Expect(res.Frame.Get(calc2Ch.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](4, 8))
 			})
+		})
+	})
+
+	Describe("Calculation Status", func() {
+		var statusSvc *status.Service
+		BeforeAll(func() {
+			labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+				DB:       dist.DB,
+				Ontology: dist.Ontology,
+				Group:    dist.Group,
+				Signals:  dist.Signals,
+			}))
+			statusSvc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+				DB:       dist.DB,
+				Label:    labelSvc,
+				Ontology: dist.Ontology,
+				Group:    dist.Group,
+				Signals:  dist.Signals,
+			}))
+		})
+		Specify("Should persist error status on invalid expression request", func() {
+			calcs := []channel.Channel{{
+				Name:        channel.NewRandomName(),
+				DataType:    telem.Int64T,
+				Virtual:     true,
+				Leaseholder: cluster.Free,
+				Expression:  "invalid expression without return",
+			}}
+			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
+			rm := c.OpenRequestManager()
+			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
+			var st calculation.Status
+			statusKey := channel.OntologyID(calcs[0].Key()).String()
+			Eventually(func(g Gomega) {
+				err := status.NewRetrieve[calculation.StatusDetails](statusSvc).
+					WhereKeys(statusKey).
+					Entry(&st).
+					Exec(ctx, nil)
+				g.Expect(err).To(Succeed())
+			}).Should(Succeed())
+			Expect(st.Variant).To(Equal(xstatus.ErrorVariant))
+			Expect(rm.Close(ctx)).To(Succeed())
 		})
 	})
 

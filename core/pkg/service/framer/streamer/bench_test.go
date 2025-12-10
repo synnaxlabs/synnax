@@ -82,6 +82,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		Framer:            dist.Framer,
 		Channel:           dist.Channel,
 		ChannelObservable: dist.Channel.NewObservable(),
+		Status:            statusSvc,
 	})
 	if err != nil {
 		b.Fatalf("failed to open calculation service: %v", err)

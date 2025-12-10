@@ -17,6 +17,7 @@ import { type Group } from "@/group";
 import { Ontology } from "@/ontology";
 import { type Ranger } from "@/ranger";
 import { state } from "@/state";
+import { Status } from "@/status";
 
 export const FLUX_STORE_KEY = "channels";
 const RESOURCE_NAME = "Channel";
@@ -30,6 +31,7 @@ interface FluxSubStore extends Flux.Store {
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
   [Group.FLUX_STORE_KEY]: Group.FluxStore;
+  [Status.FLUX_STORE_KEY]: Status.FluxStore;
 }
 
 const SET_CHANNEL_LISTENER: Flux.ChannelListener<
@@ -49,30 +51,18 @@ const DELETE_CHANNEL_LISTENER: Flux.ChannelListener<FluxSubStore, typeof channel
     onChange: ({ store, changed }) => store.channels.delete(changed),
   };
 
-const CALCULATION_STATUS_LISTENER: Flux.ChannelListener<
-  FluxSubStore,
-  typeof channel.statusZ
-> = {
-  channel: channel.CALCULATION_STATUS_CHANNEL_NAME,
-  schema: channel.statusZ,
-  onChange: async ({ store, changed, client }) =>
-    store.channels.set(Number(changed.key), (p) => {
-      if (p == null) return p;
-      return client.channels.sugar({ ...p, status: changed });
-    }),
-};
-
 export const useListenForCalculationStatus = (
-  onChange: (status: channel.Status) => void,
+  onChange: (status: channel.CalculationStatus) => void,
 ): void => {
   const store = Flux.useStore<FluxSubStore>();
   useEffect(
     () =>
-      store.channels.onSet((ch) => {
-        if (ch.status == null) return;
-        onChange(ch.status);
+      store.statuses.onSet((s) => {
+        const parsed = channel.calculationStatusZ.safeParse(s);
+        if (!parsed.success) return;
+        onChange(parsed.data);
       }),
-    [store],
+    [store, onChange],
   );
 };
 
@@ -82,11 +72,7 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
   channel.Channel
 > = {
   equal: (a, b) => deep.equal(a.payload, b.payload),
-  listeners: [
-    SET_CHANNEL_LISTENER,
-    DELETE_CHANNEL_LISTENER,
-    CALCULATION_STATUS_LISTENER,
-  ],
+  listeners: [SET_CHANNEL_LISTENER, DELETE_CHANNEL_LISTENER],
 };
 
 export const formSchema = channel.newZ
