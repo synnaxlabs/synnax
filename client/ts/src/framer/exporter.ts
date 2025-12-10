@@ -30,7 +30,6 @@ export const createCSVExportStream = ({
   let headerWritten = false;
   let seekDone = false;
   const groups = groupChannelsByIndex(channelPayloads);
-  const numGroups = groups.length;
   const { columns, columnsByGroupIdx, columnsPerGroup } = buildColumnMeta(
     channelPayloads,
     groups,
@@ -46,7 +45,7 @@ export const createCSVExportStream = ({
   let stagedRecords: RecordEntry[] = [];
 
   const extractRecordsFromFrame = (frame: Frame): void => {
-    for (let groupIdx = 0; groupIdx < numGroups; groupIdx++) {
+    for (let groupIdx = 0; groupIdx < groups.length; groupIdx++) {
       const group = groups[groupIdx];
       const indexSeries = frame.get(group.indexKey);
       const seriesLen = indexSeries.length;
@@ -88,7 +87,9 @@ export const createCSVExportStream = ({
       if (!flush && pendingRecords[pendingLen - 1].time === minTime) break;
       // Collect all records at this timestamp using cursor (O(1) per record)
       // Use array indexed by groupIdx for O(1) lookup instead of find()
-      const recordsByGroup: (RecordEntry | null)[] = new Array(numGroups).fill(null);
+      const recordsByGroup: (RecordEntry | null)[] = new Array(groups.length).fill(
+        null,
+      );
       while (
         pendingCursor < pendingLen &&
         pendingRecords[pendingCursor].time === minTime
@@ -97,8 +98,8 @@ export const createCSVExportStream = ({
         recordsByGroup[record.groupIdx] = record;
       }
       // Build row string directly
-      const rowParts: string[] = new Array(numGroups);
-      for (let groupIdx = 0; groupIdx < numGroups; groupIdx++) {
+      const rowParts: string[] = new Array(groups.length);
+      for (let groupIdx = 0; groupIdx < groups.length; groupIdx++) {
         const record = recordsByGroup[groupIdx];
         rowParts[groupIdx] =
           record != null ? record.values.join(",") : emptyGroupStrings[groupIdx];
@@ -215,7 +216,6 @@ const buildColumnMeta = (
     });
   });
   const columnsPerGroup = columnsByGroupIdx.map((cols) => cols.length);
-
   return { columns, columnsByGroupIdx, columnsPerGroup };
 };
 interface RecordEntry {

@@ -543,9 +543,9 @@ describe("Exporter", () => {
     });
     it(
       "should handle huge dense and sparse indexes with correct ordering and merging",
-      { timeout: 20_000 },
+      { timeout: 8_000 },
       async () => {
-        const denseSamples = 160_000;
+        const denseSamples = 200_000;
         const sparseStep = 1_000;
         const sparseSamples = denseSamples / sparseStep;
 
