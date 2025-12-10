@@ -22,6 +22,10 @@ on:
         description: "OS: NI Linux RT (Ubuntu 22.04)"
         type: boolean
         default: false
+      docker:
+        description: "Docker Image"
+        type: boolean
+        default: false
       driver:
         description: "Build: Driver"
         type: boolean
@@ -34,11 +38,82 @@ on:
         description: "Build: Core"
         type: boolean
         default: false
+      sign_binaries:
+        description: "Sign binaries (macOS + Windows)"
+        type: boolean
+        default: false
+      upload_to_release:
+        description: "Upload to GitHub release"
+        type: boolean
+        default: false
+      use_simple_artifact_names:
+        description: "Use simple artifact names (e.g., synnax-core-linux)"
+        type: boolean
+        default: false
       RUN_NAME:
         description: "Custom name for run"
         required: false
         default: ""
         type: string
+
+  workflow_call:
+    inputs:
+      windows:
+        type: boolean
+        default: false
+      macos:
+        type: boolean
+        default: false
+      ubuntu:
+        type: boolean
+        default: false
+      ubuntu_22_04:
+        type: boolean
+        default: false
+      docker:
+        type: boolean
+        default: false
+      driver:
+        type: boolean
+        default: false
+      console:
+        type: boolean
+        default: false
+      core:
+        type: boolean
+        default: false
+      sign_binaries:
+        type: boolean
+        default: false
+      upload_to_release:
+        type: boolean
+        default: false
+      use_simple_artifact_names:
+        type: boolean
+        default: false
+      version:
+        type: string
+        required: false
+        default: ""
+    secrets:
+      APPLE_CERTIFICATE:
+        required: false
+      APPLE_CERTIFICATE_PASSWORD:
+        required: false
+      KEYCHAIN_PASSWORD:
+        required: false
+      AZURE_CLIENT_ID:
+        required: false
+      AZURE_CLIENT_SECRET:
+        required: false
+      AZURE_TENANT_ID:
+        required: false
+      DOCKER_USERNAME:
+        required: false
+      DOCKER_PASSWORD:
+        required: false
+      TURBO_TOKEN:
+        required: false
 
 env:
   BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
@@ -58,14 +133,18 @@ jobs:
         id: version
         working-directory: core
         run: |
-          BASE_VERSION=$(cat pkg/version/VERSION)
-          if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
-            echo "VERSION=${BASE_VERSION}" >> $GITHUB_OUTPUT
-          elif [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
-            echo "VERSION=${BASE_VERSION}-rc" >> $GITHUB_OUTPUT
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
           else
-            BRANCH_NAME="${GITHUB_REF#refs/heads/}"
-            echo "VERSION=${BASE_VERSION}-${BRANCH_NAME}" >> $GITHUB_OUTPUT
+            BASE_VERSION=$(cat pkg/version/VERSION)
+            if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
+              echo "VERSION=${BASE_VERSION}" >> $GITHUB_OUTPUT
+            elif [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
+              echo "VERSION=${BASE_VERSION}-rc" >> $GITHUB_OUTPUT
+            else
+              BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+              echo "VERSION=${BASE_VERSION}-${BRANCH_NAME}" >> $GITHUB_OUTPUT
+            fi
           fi
 
       - name: Generate OS Matrix
@@ -100,9 +179,13 @@ jobs:
     needs: setup
     if: needs.setup.outputs.matrix != '[]'
     timeout-minutes: 75
+    permissions:
+      contents: write
+      packages: write
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+      GH_TOKEN: ${{ github.token }}
     strategy:
       fail-fast: false
       matrix:
@@ -122,6 +205,20 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libsystemd-dev autoconf automake libtool
+
+      - name: Install Deps on macOS
+        if: matrix.os == 'macos-build-bot'
+        run: brew install autoconf automake libtool
+
+      # TODO: Remove this step once confirmed windows-build-bot has MSYS2 pre-installed
+      # - name: Install MSYS2
+      #   if: matrix.os == 'windows-build-bot'
+      #   uses: msys2/setup-msys2@v2
+      #   with:
+      #     msystem: MINGW64
+      #     update: true
+      #     install: >-
+      #       autoconf automake libtool
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
@@ -152,47 +249,117 @@ jobs:
           --announce_rc --disk_cache=C:/tmp/bazel-disk --remote_cache=${{
           env.BAZEL_REMOTE_CACHE }} //driver
 
+      - name: Import Apple Developer Certificate
+        if: inputs.sign_binaries && matrix.os == 'macos-build-bot'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+
+      - name: Sign macOS Driver Binary
+        if: inputs.sign_binaries && inputs.driver && matrix.os == 'macos-build-bot'
+        run: |
+          cat > driver-entitlements.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>com.apple.security.cs.disable-library-validation</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+
+          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
+          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
+          codesign --force --options runtime --timestamp --entitlements driver-entitlements.plist --sign "$CERT_ID" bazel-bin/driver/driver
+          codesign --verify --verbose bazel-bin/driver/driver
+
+      - name: Download relic for Windows signing
+        if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
+        run: |
+          curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
+
+      - name: Add relic to PATH
+        if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path relic-bin
+          Move-Item -Force relic.exe relic-bin\
+          echo "${{ github.workspace }}\relic-bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Sign Windows Driver Binary
+        if: inputs.sign_binaries && inputs.driver && matrix.os == 'windows-build-bot'
+        shell: pwsh
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: |
+          $bin = "bazel-bin\driver\driver.exe"
+          Start-Sleep -Seconds 2
+          attrib -R -S -H -A $bin
+          takeown /F $bin | Out-Null
+          icacls $bin /grant "*S-1-1-0:(F)" /inheritance:e | Out-Null
+          $max = 5
+          for ($i = 1; $i -le $max; $i++) {
+            try {
+              relic sign --file $bin --key azure --config relic.conf
+              break
+            } catch {
+              if ($i -eq $max) { throw }
+              Start-Sleep -Seconds 3
+            }
+          }
+
       - name: Rename Driver Binary
         if: inputs.driver && matrix.os != 'windows-build-bot'
         run: |
-          mv bazel-bin/driver/driver${{ matrix.executable }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
+          mv bazel-bin/driver/driver${{ matrix.executable }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}${{ matrix.executable }}
 
       - name: Rename Driver Binary (Windows)
         if: inputs.driver && matrix.os == 'windows-build-bot'
         shell: powershell
         run: |
-          Move-Item -Force bazel-bin/driver/driver.exe bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}.exe
+          Move-Item -Force bazel-bin/driver/driver.exe bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}.exe
 
       - name: Upload Driver Binary as Artifact
         if: inputs.driver
         uses: actions/upload-artifact@v4
         with:
           name:
-            synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix
-            }}
+            ${{ inputs.use_simple_artifact_names && format('synnax-driver-{0}',
+            matrix.binary-suffix) || format('synnax-driver-v{0}-{1}',
+            needs.setup.outputs.VERSION, matrix.binary-suffix) }}
           path:
-            bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}${{
-            matrix.executable }}
+            bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{
+            matrix.binary-suffix }}${{ matrix.executable }}
           retention-days: 7
           if-no-files-found: error
+
+      - name: Upload Driver to Release
+        if: inputs.driver && inputs.upload_to_release
+        run: |
+          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}${{ matrix.executable }}
 
       - name: Copy Driver to Assets
         if: inputs.driver && inputs.core && matrix.os != 'windows-build-bot'
         run: |
-          cp bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }} core/pkg/service/driver/assets/driver${{ matrix.executable }}
+          cp bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}${{ matrix.executable }} core/pkg/service/driver/assets/driver${{ matrix.executable }}
 
       - name: Copy Driver to Assets (Windows)
         if: inputs.driver && inputs.core && matrix.os == 'windows-build-bot'
         shell: powershell
         run: |
-          Copy-Item -Force bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}.exe core/pkg/service/driver/assets/driver.exe
-
-      - name: Set up Go
-        if: inputs.core
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.work
-          cache: false
+          Copy-Item -Force bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}.exe core/pkg/service/driver/assets/driver.exe
 
       - name: Set up pnpm
         if: inputs.console
@@ -219,8 +386,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name:
-            synnax-console-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix
-            }}
+            ${{ inputs.use_simple_artifact_names && format('synnax-console-{0}',
+            matrix.binary-suffix) || format('synnax-console-v{0}-{1}',
+            needs.setup.outputs.VERSION, matrix.binary-suffix) }}
           path: console/dist/
           retention-days: 7
           if-no-files-found: error
@@ -235,21 +403,130 @@ jobs:
         run: |
           Copy-Item -Recurse -Force console/dist/* core/pkg/service/console/dist/
 
+      - name: Set up Go
+        if: inputs.core
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.work
+          cache: false
+
       - name: Build Core
         if: inputs.core
         working-directory: core
-        run:
-          go build ${{ needs.setup.outputs.GO_BUILD_TAGS }} -o synnax-v${{
-          needs.setup.outputs.VERSION }}${{ matrix.executable }}
+        run: |
+          go build ${{ needs.setup.outputs.GO_BUILD_TAGS }} \
+            -ldflags="-w -s \
+              -X github.com/synnaxlabs/synnax/pkg/version.Version=${{ needs.setup.outputs.VERSION }} \
+              -X github.com/synnaxlabs/synnax/pkg/version.GitCommit=${{ github.sha }} \
+              -X github.com/synnaxlabs/synnax/pkg/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
+
+      - name: Sign macOS Server Binary
+        if: inputs.sign_binaries && inputs.core && matrix.os == 'macos-build-bot'
+        working-directory: core
+        run: |
+          cat > server-entitlements.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>com.apple.security.cs.allow-jit</key><true/>
+            <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
+          </dict>
+          </plist>
+          EOF
+
+          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
+          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
+          codesign --force --options runtime --timestamp \
+            --entitlements server-entitlements.plist \
+            --sign "$CERT_ID" ./synnax-v${{ needs.setup.outputs.VERSION }}
+          codesign --verify --verbose ./synnax-v${{ needs.setup.outputs.VERSION }}
+
+      - name: Sign Windows Server Binary
+        if: inputs.sign_binaries && inputs.core && matrix.os == 'windows-build-bot'
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: |
+          relic sign --file core/synnax-v${{ needs.setup.outputs.VERSION }}.exe --key azure --config relic.conf
 
       - name: Upload Core Binary as Artifact
         if: inputs.core
         uses: actions/upload-artifact@v4
         with:
-          name: synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}
+          name:
+            ${{ inputs.use_simple_artifact_names && matrix.artifact-name ||
+            format('synnax-v{0}-{1}', needs.setup.outputs.VERSION, matrix.binary-suffix)
+            }}
           path: core/synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
           retention-days: 7
           if-no-files-found: error
+
+      - name: Rename Core Binary for Release
+        if: inputs.core && inputs.upload_to_release && matrix.os != 'windows-build-bot'
+        working-directory: core
+        run: |
+          cp synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }} synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}${{ matrix.executable }}
+
+      - name: Rename Core Binary for Release (Windows)
+        if: inputs.core && inputs.upload_to_release && matrix.os == 'windows-build-bot'
+        working-directory: core
+        shell: powershell
+        run: |
+          Copy-Item -Force synnax-v${{ needs.setup.outputs.VERSION }}.exe synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}.exe
+
+      - name: Upload Core to Release
+        if: inputs.core && inputs.upload_to_release
+        run: |
+          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}${{ matrix.executable }}
+
+      - name: Set up Docker Buildx
+        if: inputs.docker && matrix.os == 'ubuntu-build-bot'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        if: inputs.docker && matrix.os == 'ubuntu-build-bot' && inputs.upload_to_release
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Login to Github Container Registry
+        if: inputs.docker && matrix.os == 'ubuntu-build-bot'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and Push Docker Images
+        if: inputs.docker && matrix.os == 'ubuntu-build-bot'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./core/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ !inputs.upload_to_release && format('ghcr.io/synnaxlabs/synnax:{0}', github.sha) || '' }}
+            ${{ inputs.upload_to_release && format('ghcr.io/synnaxlabs/synnax:{0}', needs.setup.outputs.VERSION) || '' }}
+            ${{ inputs.upload_to_release && format('synnaxlabs/synnax:{0}', needs.setup.outputs.VERSION) || '' }}
+            ${{ inputs.upload_to_release && github.ref == 'refs/heads/main' && 'ghcr.io/synnaxlabs/synnax:latest' || '' }}
+            ${{ inputs.upload_to_release && github.ref == 'refs/heads/main' && 'synnaxlabs/synnax:latest' || '' }}
+            ${{ inputs.upload_to_release && github.ref == 'refs/heads/rc' && 'ghcr.io/synnaxlabs/synnax:rc' || '' }}
+            ${{ inputs.upload_to_release && github.ref == 'refs/heads/rc' && 'synnaxlabs/synnax:rc' || '' }}
+          cache-from: type=gha,scope=synnax-docker-cache
+          cache-to: type=gha,mode=min,scope=synnax-docker-cache
+          sbom: ${{ inputs.upload_to_release }}
+          provenance: ${{ inputs.upload_to_release && 'mode=max' || 'false' }}
+          build-args: |
+            DRIVER_ENABLED=${{ inputs.driver }}
+            CONSOLE_ENABLED=${{ inputs.console }}
+            VERSION=${{ needs.setup.outputs.VERSION }}
+            GIT_COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
 
       - name: Debug Build Environment
         if: failure() && matrix.os != 'windows-build-bot'

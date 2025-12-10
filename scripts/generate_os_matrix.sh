@@ -9,7 +9,7 @@ BUILD_UBUNTU_22_04=$4
 OS_LIST=""
 
 if [ "$BUILD_WINDOWS" = "true" ]; then
-    OS_LIST="{\"os\":\"windows-build-bot\",\"artifact-name\":\"synnax-core-windows\",\"binary-suffix\":\"windows.exe\",\"executable\":\".exe\"}"
+    OS_LIST="{\"os\":\"windows-build-bot\",\"artifact-name\":\"synnax-core-windows\",\"binary-suffix\":\"windows\",\"executable\":\".exe\"}"
 fi
 
 if [ "$BUILD_MACOS" = "true" ]; then
