@@ -18,7 +18,6 @@ import {
   type Schematic as PSchematic,
   telem,
   Text,
-  Tooltip,
   Tree,
 } from "@synnaxlabs/pluto";
 import { primitive, type record } from "@synnaxlabs/x";
