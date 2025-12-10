@@ -77,7 +77,7 @@ class Console:
             try:
                 self.page.locator(
                     ".console-palette__list .pluto-list__item"
-                ).first.wait_for(state="visible", timeout=10000)
+                ).first.wait_for(state="attached", timeout=10000)
             except Exception:
                 no_commands = self.page.get_by_text("No commands found").is_visible()
                 if no_commands and attempt < retries - 1:
