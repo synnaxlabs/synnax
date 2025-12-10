@@ -13,7 +13,7 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { TimeRange } from "@synnaxlabs/x";
+import { runtime, TimeRange } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 
@@ -82,6 +82,7 @@ const download = async ({
     channels: keys,
     timeRange: mergedTimeRange,
     headers,
+    delimiter: runtime.getOS() === "Windows" ? "\r\n" : "\n",
   });
   if (savePath != null)
     // Tauri path: Stream directly to file
