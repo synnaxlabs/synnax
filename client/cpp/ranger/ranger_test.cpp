@@ -189,7 +189,7 @@ TEST(RangerTests, testRangeOntologyIds) {
 
 /// @brief it should return empty vector for empty input
 TEST(RangerTests, testRangeOntologyIdsEmpty) {
-    constexpr std::vector<std::string> keys;
+    const std::vector<std::string> keys = {};
     const auto ids = synnax::range_ontology_ids(keys);
     ASSERT_TRUE(ids.empty());
 }

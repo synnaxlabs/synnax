@@ -116,7 +116,7 @@ TEST(TaskTests, testTaskOntologyIds) {
 
 /// @brief it should return empty vector for empty input
 TEST(TaskTests, testTaskOntologyIdsEmpty) {
-    constexpr std::vector<synnax::TaskKey> keys;
+    const std::vector<synnax::TaskKey> keys;
     const auto ids = synnax::task_ontology_ids(keys);
     ASSERT_TRUE(ids.empty());
 }

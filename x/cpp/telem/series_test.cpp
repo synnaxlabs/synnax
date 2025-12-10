@@ -121,7 +121,7 @@ TEST(TestSeries, testTimeStampVectorConstruction) {
 
 /// @brief it should correctly construct a series from a signle string.
 TEST(TestSeries, testStringConstruction) {
-    constexpr std::string val = "hello";
+    const std::string val = "hello";
     const telem::Series s{val};
     ASSERT_EQ(s.data_type(), telem::STRING_T);
     ASSERT_EQ(s.size(), 1);
@@ -132,7 +132,7 @@ TEST(TestSeries, testStringConstruction) {
 
 /// @brief it should correctly construct a series from a single JSON string.
 TEST(TestSeries, testJSONStringConstruction) {
-    constexpr std::string raw = R"({ "key": "abc" })";
+    const std::string raw = R"({ "key": "abc" })";
     const telem::Series s(raw, telem::JSON_T);
     ASSERT_EQ(s.data_type(), telem::JSON_T);
     ASSERT_EQ(s.size(), 1);

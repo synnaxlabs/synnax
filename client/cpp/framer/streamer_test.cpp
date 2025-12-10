@@ -168,7 +168,7 @@ TEST(StreamerTests, TestStreamVariableChannel) {
         }
     ));
 
-    constexpr std::string value = "cat";
+    const std::string value = "cat";
     auto frame = synnax::Frame(data.key, telem::Series(value));
     ASSERT_NIL(writer.write(frame));
 

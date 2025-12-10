@@ -213,7 +213,7 @@ TEST(TestChannel, testOntologyIds) {
 
 /// @brief it should return empty vector for empty input
 TEST(TestChannel, testOntologyIdsEmpty) {
-    constexpr std::vector<synnax::ChannelKey> keys;
+    const std::vector<synnax::ChannelKey> keys;
     const auto ids = synnax::ontology_ids(keys);
     ASSERT_TRUE(ids.empty());
 }
