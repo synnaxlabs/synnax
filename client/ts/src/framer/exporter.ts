@@ -30,14 +30,10 @@ export const createCSVExportStream = ({
   let headerWritten = false;
   let seekDone = false;
   const groups = groupChannelsByIndex(channelPayloads);
-  const { columns, columnsByGroupIdx, columnsPerGroup } = buildColumnMeta(
+  const { columns, columnsByIndexKey, emptyGroupStrings } = buildColumnMeta(
     channelPayloads,
     groups,
     headers,
-  );
-  // Pre-compute empty group strings for fast row building
-  const emptyGroupStrings = columnsPerGroup.map((count) =>
-    Array(count).fill("").join(","),
   );
   // Use a cursor-based approach instead of shift() for O(1) access
   let pendingRecords: RecordEntry[] = [];
@@ -45,12 +41,11 @@ export const createCSVExportStream = ({
   let stagedRecords: RecordEntry[] = [];
 
   const extractRecordsFromFrame = (frame: Frame): void => {
-    for (let groupIdx = 0; groupIdx < groups.length; groupIdx++) {
-      const group = groups[groupIdx];
-      const indexSeries = frame.get(group.indexKey);
+    for (const [indexKey] of groups) {
+      const indexSeries = frame.get(indexKey);
       const seriesLen = indexSeries.length;
       if (seriesLen === 0) continue;
-      const groupColumns = columnsByGroupIdx[groupIdx];
+      const groupColumns = columnsByIndexKey.get(indexKey) ?? [];
       const numCols = groupColumns.length;
       // Pre-fetch all series for this group to avoid repeated lookups
       const seriesData = groupColumns.map((col) => frame.get(col.key));
@@ -59,7 +54,7 @@ export const createCSVExportStream = ({
         const values: string[] = new Array(numCols);
         for (let c = 0; c < numCols; c++)
           values[c] = csv.formatValue(seriesData[c].at(i, true));
-        stagedRecords.push({ time, values, groupIdx });
+        stagedRecords.push({ time, values, indexKey });
       }
     }
   };
@@ -86,23 +81,24 @@ export const createCSVExportStream = ({
       // Optimization: only check if last record has same time (since array is sorted)
       if (!flush && pendingRecords[pendingLen - 1].time === minTime) break;
       // Collect all records at this timestamp using cursor (O(1) per record)
-      // Use array indexed by groupIdx for O(1) lookup instead of find()
-      const recordsByGroup: (RecordEntry | null)[] = new Array(groups.length).fill(
-        null,
-      );
+      // Use Map keyed by indexKey for O(1) lookup instead of find()
+      const recordsByGroup = new Map<channel.Key, RecordEntry>();
       while (
         pendingCursor < pendingLen &&
         pendingRecords[pendingCursor].time === minTime
       ) {
         const record = pendingRecords[pendingCursor++];
-        recordsByGroup[record.groupIdx] = record;
+        recordsByGroup.set(record.indexKey, record);
       }
       // Build row string directly
-      const rowParts: string[] = new Array(groups.length);
-      for (let groupIdx = 0; groupIdx < groups.length; groupIdx++) {
-        const record = recordsByGroup[groupIdx];
-        rowParts[groupIdx] =
-          record != null ? record.values.join(",") : emptyGroupStrings[groupIdx];
+      const rowParts: string[] = [];
+      for (const [indexKey] of groups) {
+        const record = recordsByGroup.get(indexKey);
+        rowParts.push(
+          record != null
+            ? record.values.join(",")
+            : (emptyGroupStrings.get(indexKey) ?? ""),
+        );
       }
       rows.push(rowParts.join(","));
     }
@@ -158,12 +154,9 @@ export const createCSVExportStream = ({
   });
 };
 
-interface ChannelGroup {
-  indexKey: channel.Key;
-  channelKeys: channel.Keys;
-}
-
-const groupChannelsByIndex = (channels: channel.Payload[]): ChannelGroup[] => {
+const groupChannelsByIndex = (
+  channels: channel.Payload[],
+): Map<channel.Key, channel.Keys> => {
   const groupMap = new Map<channel.Key, channel.Keys>();
   const indexKeys = unique.unique(
     channels.map((ch) => ch.index).filter((k) => k !== 0),
@@ -176,52 +169,53 @@ const groupChannelsByIndex = (channels: channel.Payload[]): ChannelGroup[] => {
     const group = groupMap.get(ch.index);
     if (group != null && !group.includes(ch.key)) group.push(ch.key);
   });
-  return Array.from(groupMap.entries()).map(([indexKey, channelKeys]) => ({
-    indexKey,
-    channelKeys,
-  }));
+  return groupMap;
 };
 
 interface ColumnMeta {
   key: channel.Key;
   header: string;
-  groupIdx: number;
 }
 
 interface ColumnMetaResult {
   columns: ColumnMeta[];
-  columnsByGroupIdx: ColumnMeta[][];
-  columnsPerGroup: number[];
+  columnsByIndexKey: Map<channel.Key, ColumnMeta[]>;
+  emptyGroupStrings: Map<channel.Key, string>;
 }
 
 const buildColumnMeta = (
   channels: channel.Payload[],
-  groups: ChannelGroup[],
+  groups: Map<channel.Key, channel.Keys>,
   headers?: Map<channel.KeyOrName, string>,
 ): ColumnMetaResult => {
   const channelMap = new Map(channels.map((ch) => [ch.key, ch]));
   const columns: ColumnMeta[] = [];
-  const columnsByGroupIdx: ColumnMeta[][] = groups.map(() => []);
-  groups.forEach((group, groupIdx) => {
-    group.channelKeys.forEach((key) => {
+  const columnsByIndexKey = new Map<channel.Key, ColumnMeta[]>();
+  const emptyGroupStrings = new Map<channel.Key, string>();
+
+  for (const [indexKey, channelKeys] of groups) {
+    const groupColumns: ColumnMeta[] = [];
+    channelKeys.forEach((key) => {
       const ch = channelMap.get(key);
       if (ch == null) return;
       const meta: ColumnMeta = {
         key,
         header: headers?.get(key) ?? headers?.get(ch.name) ?? ch.name,
-        groupIdx,
       };
       columns.push(meta);
-      columnsByGroupIdx[groupIdx].push(meta);
+      groupColumns.push(meta);
     });
-  });
-  const columnsPerGroup = columnsByGroupIdx.map((cols) => cols.length);
-  return { columns, columnsByGroupIdx, columnsPerGroup };
+    columnsByIndexKey.set(indexKey, groupColumns);
+    // Pre-compute empty group string for fast row building
+    emptyGroupStrings.set(indexKey, Array(groupColumns.length).fill("").join(","));
+  }
+
+  return { columns, columnsByIndexKey, emptyGroupStrings };
 };
 interface RecordEntry {
   time: bigint;
   values: string[];
-  groupIdx: number;
+  indexKey: channel.Key;
 }
 
 const mergeSortedRecords = (a: RecordEntry[], b: RecordEntry[]): RecordEntry[] => {
