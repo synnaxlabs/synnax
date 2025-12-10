@@ -49,6 +49,7 @@ TEST(TimePluginTest, testElapsed) {
     lua_close(L);
 }
 
+/// @brief it should track iteration count across multiple executions.
 TEST(TimePluginTest, testIteration) {
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
@@ -72,6 +73,7 @@ TEST(TimePluginTest, testIteration) {
     lua_close(L);
 }
 
+/// @brief it should check if elapsed time is within a specified range.
 TEST(TimePluginTest, testElapsedWithin) {
     auto current_time = telem::TimeSpan::ZERO();
     auto now = [&current_time]() -> telem::TimeStamp {

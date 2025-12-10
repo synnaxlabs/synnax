@@ -50,6 +50,7 @@ json base_analog_config() {
 }
 }
 
+/// @brief it should parse basic analog read task configuration.
 TEST(ReadTaskConfigTest, testBasicAnalogReadTaskConfigParse) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
@@ -100,7 +101,7 @@ TEST(ReadTaskConfigTest, testNonExistingAnalogReadDevice) {
 /// @brief it should return a validation error if the channel does not exist.
 TEST(ReadTaskConfigTest, testNonExistentAnalogReadChannel) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto rack = ASSERT_NIL_P(client->racks.create("cat"));
+    const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::Device(
         "abc123",
         "my_device",
@@ -135,8 +136,7 @@ TEST(ReadTaskConfigTest, testSampleRateLessThanStreamRate) {
         "PXI-6255",
         ""
     );
-    auto dev_err = client->devices.create(dev);
-    ASSERT_FALSE(dev_err) << dev_err;
+    ASSERT_NIL(client->devices.create(dev));
 
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("virtual"),
@@ -331,7 +331,7 @@ TEST_F(AnalogReadTest, testBasicAnalogRead) {
     ASSERT_GE(fr.at<uint64_t>(index_channel.key, 0), 0);
 }
 
-/// @breif it should communicate an error when the hardware fails to start.
+/// @brief it should communicate an error when the hardware fails to start.
 TEST_F(AnalogReadTest, testErrorOnStart) {
     parse_config();
     const auto rt = create_task(
@@ -353,7 +353,7 @@ TEST_F(AnalogReadTest, testErrorOnStart) {
 /// @brief it should communicate an error when the hardware fails to stop.
 TEST_F(AnalogReadTest, testErrorOnStop) {
     parse_config();
-    auto rt = create_task(
+    const auto rt = create_task(
         std::make_unique<hardware::mock::Reader<double>>(
             std::vector{xerrors::NIL},
             std::vector{xerrors::Error(
@@ -379,7 +379,7 @@ TEST_F(AnalogReadTest, testErrorOnStop) {
 /// @brief it should communicate an error when the hardware fails to read.
 TEST_F(AnalogReadTest, testErrorOnRead) {
     parse_config();
-    auto rt = create_task(
+    const auto rt = create_task(
         std::make_unique<hardware::mock::Reader<double>>(
             std::vector{xerrors::NIL},
             std::vector{xerrors::NIL},
@@ -418,7 +418,7 @@ TEST_F(AnalogReadTest, testDataTypeCoersion) {
     data_channel.data_type = telem::FLOAT32_T;
     parse_config();
 
-    auto rt = create_task(
+    const auto rt = create_task(
         std::make_unique<hardware::mock::Reader<double>>(
             std::vector{xerrors::NIL},
             std::vector{xerrors::NIL},
@@ -443,14 +443,14 @@ TEST_F(AnalogReadTest, testDataTypeCoersion) {
 
     ASSERT_GE(mock_factory->writes->size(), 1);
 
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2);
     ASSERT_EQ(fr.length(), 1);
     ASSERT_EQ(fr.contains(data_channel.key), true);
 
     // Verify that the data was properly coerced to float32
     // The value should be stored as float32 and show some precision loss
-    auto value = fr.at<float>(data_channel.key, 0);
+    const auto value = fr.at<float>(data_channel.key, 0);
     ASSERT_EQ(sizeof(value), sizeof(float)); // Verify it's actually float32
     EXPECT_FLOAT_EQ(value, 1.23456789f); // Should match float32 precision
 
@@ -530,15 +530,12 @@ protected:
     void parse_config() {
         client = std::make_shared<synnax::Synnax>(new_test_client());
 
-        auto idx_err = client->channels.create(index_channel);
-        ASSERT_FALSE(idx_err) << idx_err;
+        ASSERT_NIL(client->channels.create(index_channel));
 
         data_channel.index = index_channel.key;
-        auto data_err = client->channels.create(data_channel);
-        ASSERT_FALSE(data_err) << data_err;
+        ASSERT_NIL(client->channels.create(data_channel));
 
-        auto [rack, rack_err] = client->racks.create("digital_rack");
-        ASSERT_FALSE(rack_err) << rack_err;
+        auto rack = ASSERT_NIL_P(client->racks.create("digital_rack"));
 
         synnax::Device dev(
             "130227d9-02aa-47e4-b370-0d590add1bc1",
@@ -549,8 +546,7 @@ protected:
             "PXI-6255",
             ""
         );
-        auto dev_err = client->devices.create(dev);
-        ASSERT_FALSE(dev_err) << dev_err;
+        ASSERT_NIL(client->devices.create(dev));
 
         task = synnax::Task(rack.key, "digital_task", "ni_digital_read", "");
 
@@ -572,7 +568,7 @@ protected:
 
         auto p = xjson::Parser(j);
         cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_digital_read");
-        ASSERT_FALSE(p.error()) << p.error();
+        ASSERT_NIL(p.error());
 
         ctx = std::make_shared<task::MockContext>(client);
         mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
@@ -692,15 +688,12 @@ protected:
     void parse_config() {
         client = std::make_shared<synnax::Synnax>(new_test_client());
 
-        auto idx_err = client->channels.create(index_channel);
-        ASSERT_FALSE(idx_err) << idx_err;
+        ASSERT_NIL(client->channels.create(index_channel));
 
         data_channel.index = index_channel.key;
-        auto data_err = client->channels.create(data_channel);
-        ASSERT_FALSE(data_err) << data_err;
+        ASSERT_NIL(client->channels.create(data_channel));
 
-        auto [rack, rack_err] = client->racks.create("counter_rack");
-        ASSERT_FALSE(rack_err) << rack_err;
+        auto rack = ASSERT_NIL_P(client->racks.create("counter_rack"));
 
         synnax::Device dev(
             "f8a9c7e6-1234-4567-890a-bcdef0123456",
@@ -711,8 +704,7 @@ protected:
             "PCIe-6343",
             ""
         );
-        auto dev_err = client->devices.create(dev);
-        ASSERT_FALSE(dev_err) << dev_err;
+        ASSERT_NIL(client->devices.create(dev));
 
         task = synnax::Task(rack.key, "counter_task", "ni_counter_read", "");
 
@@ -742,7 +734,7 @@ protected:
 
         auto p = xjson::Parser(j);
         cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_counter_read");
-        ASSERT_FALSE(p.error()) << p.error();
+        ASSERT_NIL(p.error());
 
         ctx = std::make_shared<task::MockContext>(client);
         mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
@@ -831,7 +823,7 @@ TEST_F(CounterReadTest, testCounterErrorOnStart) {
 /// @brief it should communicate an error when the counter hardware fails to stop.
 TEST_F(CounterReadTest, testCounterErrorOnStop) {
     parse_config();
-    auto rt = create_task(
+    const auto rt = create_task(
         std::make_unique<hardware::mock::Reader<double>>(
             std::vector{xerrors::NIL},
             std::vector{xerrors::Error(
@@ -857,7 +849,7 @@ TEST_F(CounterReadTest, testCounterErrorOnStop) {
 /// @brief it should communicate an error when the counter hardware fails to read.
 TEST_F(CounterReadTest, testCounterErrorOnRead) {
     parse_config();
-    auto rt = create_task(
+    const auto rt = create_task(
         std::make_unique<hardware::mock::Reader<double>>(
             std::vector{xerrors::NIL},
             std::vector{xerrors::NIL},
@@ -1109,9 +1101,8 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
 
     // Verify we can extract unique locations (what the validation code does)
     std::set<std::string> unique_locs;
-    for (const auto &ch: cfg->channels) {
+    for (const auto &ch: cfg->channels)
         if (!ch->dev_loc.empty()) { unique_locs.insert(ch->dev_loc); }
-    }
     EXPECT_EQ(unique_locs.size(), 2);
     EXPECT_TRUE(unique_locs.count("cDAQ1Mod1") > 0);
     EXPECT_TRUE(unique_locs.count("cDAQ1Mod2") > 0);

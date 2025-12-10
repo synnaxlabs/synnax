@@ -61,12 +61,13 @@ TEST(RangerTests, testRetrieveByName) {
     ASSERT_EQ(got.time_range.end, telem::TimeStamp(100));
 }
 
-/// @brief test retrieve by name not found
+/// @brief it should return a not found error when retrieving by non-existent name.
 TEST(RangerTests, testRetrieveByNameNotFound) {
-    auto client = new_test_client();
-    auto [got, err] = client.ranges.retrieve_by_name("not_found");
-    ASSERT_TRUE(err);
-    ASSERT_EQ(err, xerrors::NOT_FOUND);
+    const auto client = new_test_client();
+    ASSERT_OCCURRED_AS_P(
+        client.ranges.retrieve_by_name("not_found"),
+        xerrors::NOT_FOUND
+    );
 }
 
 /// @brief it should retrieve multiple ranges by their names.
@@ -120,7 +121,7 @@ TEST(RangerTests, testRetrieveMultipleByKey) {
 
 /// @brief it should set a key-value pair on the range.
 TEST(RangerTests, testSet) {
-    auto client = new_test_client();
+    const auto client = new_test_client();
     const auto range = ASSERT_NIL_P(client.ranges.create(
         "test",
         telem::TimeRange(telem::TimeStamp(30), telem::TimeStamp(100))
@@ -130,7 +131,7 @@ TEST(RangerTests, testSet) {
 
 /// @brief it should get a key-value pair on the range.
 TEST(RangerTests, testGet) {
-    auto client = new_test_client();
+    const auto client = new_test_client();
     const auto range = ASSERT_NIL_P(client.ranges.create(
         "test",
         telem::TimeRange(telem::TimeStamp(30), telem::TimeStamp(100))
@@ -188,7 +189,7 @@ TEST(RangerTests, testRangeOntologyIds) {
 
 /// @brief it should return empty vector for empty input
 TEST(RangerTests, testRangeOntologyIdsEmpty) {
-    const std::vector<std::string> keys;
+    const std::vector<std::string> keys = {};
     const auto ids = synnax::range_ontology_ids(keys);
     ASSERT_TRUE(ids.empty());
 }

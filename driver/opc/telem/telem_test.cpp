@@ -13,6 +13,7 @@
 
 #include "driver/opc/telem/telem.h"
 
+/// @brief it should convert UA types to telem data types.
 TEST(TelemTest, testUAToDataType) {
     EXPECT_EQ(opc::telem::ua_to_data_type(&UA_TYPES[UA_TYPES_FLOAT]), telem::FLOAT32_T);
     EXPECT_EQ(
@@ -37,6 +38,7 @@ TEST(TelemTest, testUAToDataType) {
     EXPECT_EQ(opc::telem::ua_to_data_type(nullptr), telem::UNKNOWN_T);
 }
 
+/// @brief it should convert telem data types to UA types.
 TEST(TelemTest, testDataTypeToUA) {
     EXPECT_EQ(opc::telem::data_type_to_ua(telem::FLOAT32_T), &UA_TYPES[UA_TYPES_FLOAT]);
     EXPECT_EQ(
@@ -62,6 +64,7 @@ TEST(TelemTest, testDataTypeToUA) {
     );
 }
 
+/// @brief it should convert UA float arrays to telem series.
 TEST(TelemTest, testUAFloatArrayToSeries) {
     UA_Variant array_v;
     UA_Variant_init(&array_v);
@@ -85,6 +88,7 @@ TEST(TelemTest, testUAFloatArrayToSeries) {
     EXPECT_EQ(s2.at<double>(2), 3.0);
 }
 
+/// @brief it should write UA variant values to telem series.
 TEST(TelemTest, testWriteToSeries) {
     auto series = telem::Series(telem::FLOAT32_T, 10);
 
@@ -109,13 +113,14 @@ TEST(TelemTest, testWriteToSeries) {
     EXPECT_EQ(series.at<float>(1), 43.0f);
 }
 
+/// @brief it should convert telem series to UA variant.
 TEST(TelemTest, testSeriesToVariant) {
     auto series = telem::Series(telem::FLOAT32_T, 1);
     float val = 42.0f;
     series.write(val);
 
     auto [variant, err] = opc::telem::series_to_variant(series);
-    EXPECT_EQ(err, xerrors::NIL);
+    ASSERT_NIL(err);
     EXPECT_TRUE(UA_Variant_hasScalarType(&variant, &UA_TYPES[UA_TYPES_FLOAT]));
     EXPECT_EQ(*static_cast<float *>(variant.data), 42.0f);
 
