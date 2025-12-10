@@ -27,9 +27,6 @@
       "sequence_order": "asynchronous",
       "tests": [
         {
-          "case": "console/line-plot/abcd"
-        },
-        {
           "case": "latency/abcd",
           "name": "async",
           "parameters": {
