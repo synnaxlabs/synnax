@@ -368,15 +368,23 @@ class TestCase(ABC):
         if self._status == STATUS.PENDING:
             self.STATUS = STATUS.PASSED
 
-    def _wait_for_client_completion(self, timeout: float | None = None) -> None:
+    def _wait_for_client_completion(self, timeout: float = 5.0) -> None:
         """Wait for client threads to complete."""
         # Wait for streamer thread
         if self.streamer_thread.is_alive():
             self.streamer_thread.join(timeout=timeout)
+            if self.streamer_thread.is_alive():
+                self.log(
+                    "Warning: streamer thread still alive after wait_for_client_completion"
+                )
 
         # Wait for writer thread
         if self.writer_thread.is_alive():
             self.writer_thread.join(timeout=timeout)
+            if self.writer_thread.is_alive():
+                self.log(
+                    "Warning: writer thread still alive after wait_for_client_completion"
+                )
 
     def _check_expectation(self) -> None:
         """Check if test met expected outcome and handle failures gracefully."""
@@ -772,8 +780,6 @@ class TestCase(ABC):
             if self._status not in [STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED]:
                 self.STATUS = STATUS.PENDING
 
-            self.teardown()
-
             # PASSED set in _check_expectation()
 
         except Exception as e:
@@ -783,6 +789,10 @@ class TestCase(ABC):
                 self.STATUS = STATUS.FAILED
                 self.log(f"EXCEPTION: {e}\n{traceback.format_exc()}")
         finally:
+            try:
+                self.teardown()
+            except Exception as teardown_error:
+                self.log(f"Teardown error: {teardown_error}")
             self._check_expectation()
             self._stop_client()
             self._wait_for_client_completion()
