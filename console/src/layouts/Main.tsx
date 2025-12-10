@@ -13,7 +13,6 @@ import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { Auth } from "@/auth";
-import { Channel } from "@/channel";
 import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
@@ -55,7 +54,6 @@ const SideEffect = (): null => {
   Version.useLoadTauri();
   Cluster.useSyncClusterKey();
   Hardware.Device.useListenForChanges();
-  Channel.useListenForCalculationStatus();
   Range.useListenForChanges();
   Workspace.useSyncLayout();
   Workspace.useCheckCore();

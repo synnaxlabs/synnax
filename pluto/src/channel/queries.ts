@@ -9,7 +9,6 @@
 
 import { channel, DataType, type group, ontology, ranger } from "@synnaxlabs/client";
 import { array, deep, type optional, primitive, TimeSpan } from "@synnaxlabs/x";
-import { useEffect } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -17,7 +16,7 @@ import { type Group } from "@/group";
 import { Ontology } from "@/ontology";
 import { type Ranger } from "@/ranger";
 import { state } from "@/state";
-import { Status } from "@/status";
+import { type Status } from "@/status";
 
 export const FLUX_STORE_KEY = "channels";
 const RESOURCE_NAME = "Channel";
@@ -50,21 +49,6 @@ const DELETE_CHANNEL_LISTENER: Flux.ChannelListener<FluxSubStore, typeof channel
     schema: channel.keyZ,
     onChange: ({ store, changed }) => store.channels.delete(changed),
   };
-
-export const useListenForCalculationStatus = (
-  onChange: (status: channel.CalculationStatus) => void,
-): void => {
-  const store = Flux.useStore<FluxSubStore>();
-  useEffect(
-    () =>
-      store.statuses.onSet((s) => {
-        const parsed = channel.calculationStatusZ.safeParse(s);
-        if (!parsed.success) return;
-        onChange(parsed.data);
-      }),
-    [store, onChange],
-  );
-};
 
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
   FluxSubStore,
