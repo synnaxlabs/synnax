@@ -77,6 +77,11 @@ concurrency:
 
 env:
   CACHE_SCOPE: deploy-synnax
+  S3_CACHE_BUCKET: ${{ vars.S3_CACHE_BUCKET }}
+  S3_CACHE_REGION: ${{ vars.S3_CACHE_REGION }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.S3_CACHE_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_CACHE_SECRET_ACCESS_KEY }}
+  BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
 
 jobs:
   lint-python:
@@ -226,22 +231,24 @@ jobs:
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
-          bazelisk-cache: true
-          disk-cache: ${{ env.CACHE_SCOPE }}-${{ matrix.os }}
-          repository-cache: true
+          bazelisk-cache: false
+          disk-cache: false
+          repository-cache: false
 
       - name: Build Driver
         if:
           matrix.os != 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
         run: |
-          bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc //driver
+          bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc \
+            --disk_cache=~/.cache/bazel-disk \
+            --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} \
+            //driver
 
       - name: Build Driver (Windows)
         if:
           matrix.os == 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
-        run:
-          bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt
-          --announce_rc //driver
+        run: |
+          bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt --announce_rc --disk_cache=C:/tmp/bazel-disk --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} //driver
 
       - name: Move Driver to Assets
         if:
@@ -261,9 +268,23 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.work
-          cache-dependency-path: |
-            go.work.sum
-            **/go.sum
+          cache: false  # Disable GitHub cache, use S3 cache below
+
+      - name: Restore Go Cache (S3)
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        uses: tespkg/actions-cache/restore@v1
+        with:
+          endpoint: s3.amazonaws.com
+          bucket: ${{ env.S3_CACHE_BUCKET }}
+          region: ${{ env.S3_CACHE_REGION }}
+          accessKey: ${{ env.AWS_ACCESS_KEY_ID }}
+          secretKey: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ env.CACHE_SCOPE }}-go-${{ matrix.os }}-${{ hashFiles('go.work.sum', '**/go.sum') }}
+          restore-keys: |
+            ${{ env.CACHE_SCOPE }}-go-${{ matrix.os }}-
 
       - name: Set up pnpm
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -274,7 +295,21 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version-file: package.json
-          cache: pnpm
+          cache: ""  # Disable GitHub cache, use S3 cache below
+
+      - name: Restore pnpm Cache (S3)
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
+        uses: tespkg/actions-cache/restore@v1
+        with:
+          endpoint: s3.amazonaws.com
+          bucket: ${{ env.S3_CACHE_BUCKET }}
+          region: ${{ env.S3_CACHE_REGION }}
+          accessKey: ${{ env.AWS_ACCESS_KEY_ID }}
+          secretKey: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          path: ~/.pnpm-store
+          key: ${{ env.CACHE_SCOPE }}-pnpm-${{ matrix.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ env.CACHE_SCOPE }}-pnpm-${{ matrix.os }}-
 
       - name: Install Node Dependencies
         if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
@@ -313,6 +348,32 @@ jobs:
             core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}
           retention-days: 7
           if-no-files-found: error
+
+      - name: Save Go Cache (S3)
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && always() }}
+        uses: tespkg/actions-cache/save@v1
+        with:
+          endpoint: s3.amazonaws.com
+          bucket: ${{ env.S3_CACHE_BUCKET }}
+          region: ${{ env.S3_CACHE_REGION }}
+          accessKey: ${{ env.AWS_ACCESS_KEY_ID }}
+          secretKey: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ env.CACHE_SCOPE }}-go-${{ matrix.os }}-${{ hashFiles('go.work.sum', '**/go.sum') }}
+
+      - name: Save pnpm Cache (S3)
+        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' && always() }}
+        uses: tespkg/actions-cache/save@v1
+        with:
+          endpoint: s3.amazonaws.com
+          bucket: ${{ env.S3_CACHE_BUCKET }}
+          region: ${{ env.S3_CACHE_REGION }}
+          accessKey: ${{ env.AWS_ACCESS_KEY_ID }}
+          secretKey: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          path: ~/.pnpm-store
+          key: ${{ env.CACHE_SCOPE }}-pnpm-${{ matrix.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Debug Build Environment
         if: failure() && matrix.os != 'windows-build-bot'
