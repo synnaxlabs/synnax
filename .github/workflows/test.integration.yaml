@@ -68,7 +68,7 @@ on:
         description:
           "Test case sequence to run (optional - will auto-discover if empty)"
         required: false
-        default: "driver"
+        default: ""
         type: string
 
 concurrency:
@@ -143,7 +143,7 @@ jobs:
         env:
           SKIP_BUILD: ${{ github.event.inputs.SKIP_BUILD || 'false' }}
           REF_RUN_ID: ${{ github.event.inputs.REF_RUN_ID || '' }}
-          SEQUENCE: ${{ github.event.inputs.SEQUENCE || 'driver' }}
+          SEQUENCE: ${{ github.event.inputs.SEQUENCE || '' }}
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ -z "${SEQUENCE}" ]; then
