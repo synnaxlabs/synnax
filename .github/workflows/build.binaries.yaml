@@ -40,12 +40,8 @@ on:
         default: ""
         type: string
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 env:
-  CACHE_SCOPE: deploy-synnax
+  BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
 
 jobs:
   setup:
@@ -115,6 +111,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v5
+        with:
+          clean: false
 
       - name: Update Submodules
         run: git submodule update --init --recursive
@@ -128,24 +126,31 @@ jobs:
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
-          bazelisk-cache: true
-          disk-cache: ${{ env.CACHE_SCOPE }}-${{ matrix.os }}
-          repository-cache: true
+          bazelisk-cache: false
+          disk-cache: false
+          repository-cache: false
 
       - name: Build Driver
         if: inputs.driver && matrix.os != 'windows-build-bot'
         run: |
           if [ "${{ matrix.os }}" = "ubuntu-2204-build-bot" ]; then
-            TMPDIR=/tmp bazel build --enable_platform_specific_config -c opt --define=platform=nilinuxrt --announce_rc --verbose_failures //driver
+            TMPDIR=/tmp bazel build --enable_platform_specific_config -c opt --define=platform=nilinuxrt --announce_rc --verbose_failures \
+              --disk_cache=~/.cache/bazel-disk \
+              --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} \
+              //driver
           else
-            bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc --verbose_failures //driver
+            bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc --verbose_failures \
+              --disk_cache=~/.cache/bazel-disk \
+              --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} \
+              //driver
           fi
 
       - name: Build Driver (Windows)
         if: inputs.driver && matrix.os == 'windows-build-bot'
         run:
           bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt
-          --announce_rc //driver
+          --announce_rc --disk_cache=C:/tmp/bazel-disk --remote_cache=${{
+          env.BAZEL_REMOTE_CACHE }} //driver
 
       - name: Rename Driver Binary
         if: inputs.driver && matrix.os != 'windows-build-bot'
@@ -187,7 +192,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.work
-          cache-dependency-path: go.work.sum
+          cache: false
 
       - name: Set up pnpm
         if: inputs.console
@@ -198,7 +203,6 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version-file: package.json
-          cache: pnpm
 
       - name: Install Node Dependencies
         if: inputs.console
