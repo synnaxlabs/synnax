@@ -325,6 +325,7 @@ jobs:
         run: |
           mv bazel-bin/driver/driver${{ matrix.executable }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}${{ matrix.executable }}
 
+      # TODO: Remove when bash is installed on windows-build-bot (choco install git -y)
       - name: Rename Driver Binary (Windows)
         if: inputs.driver && matrix.os == 'windows-build-bot'
         shell: powershell
@@ -355,6 +356,7 @@ jobs:
         run: |
           cp bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}${{ matrix.executable }} core/pkg/service/driver/assets/driver${{ matrix.executable }}
 
+      # TODO: Remove when bash is installed on windows-build-bot (choco install git -y)
       - name: Copy Driver to Assets (Windows)
         if: inputs.driver && inputs.core && matrix.os == 'windows-build-bot'
         shell: powershell
@@ -397,6 +399,7 @@ jobs:
         if: inputs.console && inputs.core && matrix.os != 'windows-build-bot'
         run: cp -r console/dist/* core/pkg/service/console/dist/
 
+      # TODO: Remove when bash is installed on windows-build-bot (choco install git -y)
       - name: Move Console to Assets (Windows)
         if: inputs.console && inputs.core && matrix.os == 'windows-build-bot'
         shell: powershell
@@ -411,9 +414,8 @@ jobs:
           cache: false
 
       - name: Build Core
-        if: inputs.core
+        if: inputs.core && matrix.os != 'windows-build-bot'
         working-directory: core
-        shell: bash
         run: |
           go build ${{ needs.setup.outputs.GO_BUILD_TAGS }} \
             -ldflags="-w -s \
@@ -421,6 +423,15 @@ jobs:
               -X github.com/synnaxlabs/synnax/pkg/version.GitCommit=${{ github.sha }} \
               -X github.com/synnaxlabs/synnax/pkg/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             -o synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
+
+      # TODO: Remove when bash is installed on windows-build-bot (choco install git -y)
+      - name: Build Core (Windows)
+        if: inputs.core && matrix.os == 'windows-build-bot'
+        working-directory: core
+        run: |
+          $buildDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+          $ldflags = "-w -s -X github.com/synnaxlabs/synnax/pkg/version.Version=${{ needs.setup.outputs.VERSION }} -X github.com/synnaxlabs/synnax/pkg/version.GitCommit=${{ github.sha }} -X github.com/synnaxlabs/synnax/pkg/version.BuildDate=$buildDate"
+          go build ${{ needs.setup.outputs.GO_BUILD_TAGS }} -ldflags="$ldflags" -o synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
 
       - name: Sign macOS Server Binary
         if: inputs.sign_binaries && inputs.core && matrix.os == 'macos-build-bot'
@@ -471,6 +482,7 @@ jobs:
         run: |
           cp synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }} synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}${{ matrix.executable }}
 
+      # TODO: Remove when bash is installed on windows-build-bot (choco install git -y)
       - name: Rename Core Binary for Release (Windows)
         if: inputs.core && inputs.upload_to_release && matrix.os == 'windows-build-bot'
         working-directory: core
