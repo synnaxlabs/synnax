@@ -13,6 +13,7 @@ import { Arc } from "@/arc";
 import { Hardware } from "@/hardware";
 import { type Layout } from "@/layout";
 import { Selector as CoreSelector } from "@/selector";
+import { Timeline } from "@/timeline";
 import { Vis } from "@/vis";
 
 // It's OK to call this in a map as SELECTABLES is a global constant. All hooks are
@@ -42,6 +43,7 @@ const SELECTABLES: CoreSelector.Selectable[] = [
   ...Vis.SELECTABLES,
   ...Hardware.SELECTABLES,
   ...Arc.SELECTABLES,
+  ...Timeline.SELECTABLES,
 ];
 
 export const Selector: Layout.Renderer = (props) => (

@@ -50,6 +50,7 @@ import { SERVICES } from "@/services";
 import { Status } from "@/status";
 import { store } from "@/store";
 import { Table } from "@/table";
+import { Timeline } from "@/timeline";
 import { User } from "@/user";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
@@ -77,6 +78,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Arc.LAYOUTS,
   ...Status.LAYOUTS,
   ...Access.LAYOUTS,
+  ...Timeline.LAYOUTS,
 };
 
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {

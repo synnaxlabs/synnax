@@ -1,0 +1,9 @@
+.pluto-timeline__frame {
+    background: var(--pluto-gray-l1);
+    height: 100%;
+    width: 100%;
+
+    .pluto-timeline__track {
+        padding: 3rem;
+    }
+}

@@ -68,6 +68,7 @@ export { Control } from "@/telem/control";
 export { control } from "@/telem/control/aether";
 export { Text } from "@/text";
 export { Theming } from "@/theming";
+export { Timeline } from "@/timeline";
 export { Tooltip } from "@/tooltip";
 export { Tree } from "@/tree";
 export { Triggers } from "@/triggers";
