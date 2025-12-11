@@ -41,14 +41,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-build-bot, windows-build-bot]
+        os: [macos-build-bot, ubuntu-build-bot, windows-build-bot]
         include:
           - os: ubuntu-build-bot
             format: true
         exclude:
           - os:
               ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
-              'refs/heads/main' && github.base_ref != 'main') && 'macos-latest' }}
+              'refs/heads/main' && github.base_ref != 'main') && 'macos-build-bot' }}
           - os:
               ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
               'refs/heads/main' && github.base_ref != 'main') && 'windows-build-bot' }}
@@ -60,9 +60,9 @@ jobs:
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
-          bazelisk-cache: ${{ matrix.os == 'macos-latest' }}
-          disk-cache: ${{ matrix.os == 'macos-latest' && format('{0}-{1}', github.workflow, matrix.os) || false }}
-          repository-cache: ${{ matrix.os == 'macos-latest' }}
+          bazelisk-cache: ${{ matrix.os == 'macos-build-bot' }}
+          disk-cache: ${{ matrix.os == 'macos-build-bot' && format('{0}-{1}', github.workflow, matrix.os) || false }}
+          repository-cache: ${{ matrix.os == 'macos-build-bot' }}
 
       - name: Install Clang Format
         if: matrix.format
@@ -77,7 +77,7 @@ jobs:
         run: scripts/check_clang_format.sh x/cpp
 
       - name: Test (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-build-bot'
         run:
           bazel test --config=asan --test_output=all //x/cpp/...
           --test_tag_filters=-no-asan
