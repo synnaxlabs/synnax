@@ -413,6 +413,7 @@ jobs:
       - name: Build Core
         if: inputs.core
         working-directory: core
+        shell: bash
         run: |
           go build ${{ needs.setup.outputs.GO_BUILD_TAGS }} \
             -ldflags="-w -s \
