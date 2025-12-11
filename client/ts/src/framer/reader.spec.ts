@@ -15,6 +15,8 @@ import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
 
+const delimiter = runtime.getOS() === "Windows" ? "\r\n" : "\n";
+
 /** Helper to collect stream into a string */
 const streamToString = async (stream: ReadableStream<Uint8Array>): Promise<string> => {
   const reader = stream.getReader();
@@ -29,7 +31,7 @@ const streamToString = async (stream: ReadableStream<Uint8Array>): Promise<strin
 };
 
 const parseCSV = (csv: string): string[][] => {
-  const lines = csv.trim().split(runtime.getOS() === "Windows" ? "\r\n" : "\n");
+  const lines = csv.trim().split(delimiter);
   return lines.map((line) => line.split(","));
 };
 
@@ -509,7 +511,7 @@ describe("Exporter", () => {
       // Decode and parse the full CSV
       const decoder = new TextDecoder();
       const csv = chunks.map((c) => decoder.decode(c)).join("");
-      const lines = csv.trim().split("\n");
+      const lines = csv.trim().split(delimiter);
 
       // Header + data rows (some timestamps may align, so rows <= totalSamples)
       expect(lines.length).toBeGreaterThan(1);
@@ -670,7 +672,7 @@ describe("Exporter", () => {
         buffer += decoder.decode(value);
 
         while (true) {
-          const idx = buffer.indexOf("\r\n");
+          const idx = buffer.indexOf(delimiter);
           if (idx === -1) break;
           const line = buffer.slice(0, idx);
           buffer = buffer.slice(idx + 2);
