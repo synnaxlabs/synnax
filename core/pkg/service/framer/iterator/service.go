@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
@@ -26,8 +27,39 @@ import (
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// Config is the configuration for opening an Iterator.
+type Config struct {
+	// Keys are the keys of the channels to iterate over. At least one key must be
+	// specified. An iterator cannot iterate over virtual channels or free channels, and
+	// calls to Open or NewStream will return an error when attempting to iterate over
+	// channels of these types.
+	//
+	// [REQUIRED]
+	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	// Bounds are the bounds of the time range to iterate over. This time range must be
+	// valid i.e., the start value must be before or equal to the end value.
+	//
+	// [REQUIRED]
+	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds"`
+	// ChunkSize sets the default number of samples to iterate over per-channel when
+	// calling Next or Prev with AutoSpan.
+	//
+	// [OPTIONAL]
+	ChunkSize int64 `json:"chunk_size" msgpack:"chunk_size"`
+	// DownsampleFactor is the factor to downsample the data by If DownsampleFactor is
+	// less than or equal to 1, no downsampling will be performed.
+	//
+	// [OPTIONAL]
+	DownsampleFactor int `json:"downsample_factor" msgpack:"downsample_factor"`
+}
+
+func (c Config) distribution() framer.IteratorConfig {
+	return iterator.Config{Keys: c.Keys, Bounds: c.Bounds, ChunkSize: c.ChunkSize}
+}
 
 // ServiceConfig is the configuration for opening the service layer frame Service.
 type ServiceConfig struct {
@@ -95,7 +127,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	if err != nil {
 		return nil, err
 	}
-	dist, err := s.cfg.DistFramer.NewStreamIterator(ctx, cfg)
+	dist, err := s.cfg.DistFramer.NewStreamIterator(ctx, cfg.distribution())
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +143,15 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 		plumber.MustConnect[Response](p, routeOutletFrom, "calculation", 25)
 		routeOutletFrom = "calculation"
 	}
-
+	if cfg.DownsampleFactor > 1 {
+		plumber.SetSegment(
+			p,
+			"downsampler",
+			newDownsampler(cfg),
+		)
+		plumber.MustConnect[Response](p, routeOutletFrom, "downsampler", 25)
+		routeOutletFrom = "downsampler"
+	}
 	if legacyCalcTransform != nil {
 		plumber.SetSegment(
 			p,

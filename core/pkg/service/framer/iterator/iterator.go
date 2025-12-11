@@ -21,7 +21,6 @@ import (
 )
 
 type (
-	Config         = framer.IteratorConfig
 	StreamIterator = framer.StreamIterator
 	Request        = framer.IteratorRequest
 	Response       = framer.IteratorResponse
