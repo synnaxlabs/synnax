@@ -22,7 +22,12 @@ export const States = ({ path }: StatesProps) => {
   return (
     <Flex.Box y pack>
       {states.data.map((state) => (
-        <State.State key={state} path={`${path}.${state}`} onDelete={states.remove} />
+        <State.State
+          key={state}
+          itemKey={state}
+          path={`${path}.${state}`}
+          onDelete={states.remove}
+        />
       ))}
       <Button.Button
         variant="text"

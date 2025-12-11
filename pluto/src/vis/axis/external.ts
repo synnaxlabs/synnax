@@ -9,4 +9,5 @@
 
 export * from "@/vis/axis/axis";
 export * from "@/vis/axis/canvas";
+export * from "@/vis/axis/SVG";
 export * from "@/vis/axis/ticks";
