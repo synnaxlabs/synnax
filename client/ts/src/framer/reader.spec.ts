@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { DataType, id, runtime, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
@@ -29,7 +29,7 @@ const streamToString = async (stream: ReadableStream<Uint8Array>): Promise<strin
 };
 
 const parseCSV = (csv: string): string[][] => {
-  const lines = csv.trim().split("\r\n");
+  const lines = csv.trim().split(runtime.getOS() === "Windows" ? "\r\n" : "\n");
   return lines.map((line) => line.split(","));
 };
 
@@ -184,7 +184,7 @@ describe("Exporter", () => {
         index: indexSlow.key,
       });
       const baseTime = TimeStamp.nanoseconds(0);
-      // Write fast data: 0ms, 100ms, 200ms, 300ms, 400ms
+      // Write fast data: 0ns, 1ns, 2ns, 3ns, 4ns, 5ns
       const writerFast = await client.openWriter({
         start: baseTime,
         channels: [indexFast.key, dataFast.key],
@@ -203,7 +203,7 @@ describe("Exporter", () => {
       await writerFast.commit();
       await writerFast.close();
 
-      // Write slow data: 0ms, 500ms
+      // Write slow data: 0ns, 5ns
       const writerSlow = await client.openWriter({
         start: baseTime,
         channels: [indexSlow.key, dataSlow.key],
@@ -218,8 +218,8 @@ describe("Exporter", () => {
       const stream = await client.read({
         channels: [dataFast.key, dataSlow.key],
         timeRange: {
-          start: baseTime.sub(TimeSpan.seconds(1)),
-          end: baseTime.add(TimeSpan.seconds(2)),
+          start: baseTime,
+          end: TimeStamp.nanoseconds(6),
         },
         responseType: "csv",
       });
