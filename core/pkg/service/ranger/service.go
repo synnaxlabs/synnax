@@ -111,8 +111,8 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{
-		Config:       cfg,
-		rangeManager: rangeManager,
+		Config:        cfg,
+		rangeManager:  rangeManager,
 		kvPairManager: kvPairManager,
 		aliasManager:  aliasManager,
 	}
