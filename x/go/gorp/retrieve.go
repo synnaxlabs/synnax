@@ -233,12 +233,17 @@ func newFilter[K Key, E Entry[K]](
 
 func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 	var (
-		keysResult, err = WrapReader[K, E](tx).GetMany(ctx, *r.keys)
+		reader          = WrapReader[K, E](tx)
+		keysResult, err = reader.GetMany(ctx, *r.keys)
 		toReplace       = make([]E, 0, len(keysResult))
 		validCount      int
+		match           bool
 	)
 	for _, e := range keysResult {
-		match, err := r.filters.exec(Context{Context: ctx, Tx: tx}, &e)
+		if !reader.keyCodec.matchPrefix(r.prefix, e.GorpKey()) {
+			continue
+		}
+		match, err = r.filters.exec(Context{Context: ctx, Tx: tx}, &e)
 		if err != nil {
 			return err
 		}

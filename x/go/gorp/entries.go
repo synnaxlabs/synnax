@@ -10,6 +10,8 @@
 package gorp
 
 import (
+	"bytes"
+
 	"github.com/synnaxlabs/x/types"
 	xunsafe "github.com/synnaxlabs/x/unsafe"
 	"go.uber.org/zap"
@@ -182,11 +184,18 @@ func newKeyCodec[K Key, E Entry[K]]() keyCodec[K, E] {
 	return keyCodec[K, E]{prefix: []byte(magicPrefix + types.Name[E]())}
 }
 
+func (k keyCodec[K, E]) baseEncode(key K) []byte {
+	return xunsafe.EncodePrimitive(key)
+}
+
 func (k keyCodec[K, E]) encode(key K) []byte {
-	byteKey := xunsafe.EncodePrimitive(key)
-	return append(k.prefix, byteKey...)
+	return append(k.prefix, k.baseEncode(key)...)
 }
 
 func (k keyCodec[K, E]) decode(b []byte) K {
 	return xunsafe.DecodePrimitive[K](b[len(k.prefix):])
+}
+
+func (k keyCodec[K, E]) matchPrefix(prefix []byte, key K) bool {
+	return bytes.HasPrefix(k.baseEncode(key), prefix)
 }
