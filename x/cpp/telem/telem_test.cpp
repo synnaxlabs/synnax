@@ -733,61 +733,61 @@ TEST(AlignmentTests, testUint64Equality) {
 
 /// @brief it should convert a double to a string.
 TEST(ToStringTests, testDoubleConversion) {
-    constexpr SampleValue value = 123.456;
+    const SampleValue value = 123.456;
     ASSERT_EQ(to_string(value), "123.456000");
 }
 
 /// @brief it should convert a float to a string.
 TEST(ToStringTests, testFloatConversion) {
-    constexpr SampleValue value = 123.456f;
+    const SampleValue value = 123.456f;
     ASSERT_EQ(to_string(value), "123.456001");
 }
 
 /// @brief it should convert an int64 to a string.
 TEST(ToStringTests, testInt64Conversion) {
-    constexpr SampleValue value = static_cast<int64_t>(123456789);
+    const SampleValue value = static_cast<int64_t>(123456789);
     ASSERT_EQ(to_string(value), "123456789");
 }
 
 /// @brief it should convert an int32 to a string.
 TEST(ToStringTests, testInt32Conversion) {
-    constexpr SampleValue value = static_cast<int32_t>(123456);
+    const SampleValue value = static_cast<int32_t>(123456);
     ASSERT_EQ(to_string(value), "123456");
 }
 
 /// @brief it should convert an int16 to a string.
 TEST(ToStringTests, testInt16Conversion) {
-    constexpr SampleValue value = static_cast<int16_t>(12345);
+    const SampleValue value = static_cast<int16_t>(12345);
     ASSERT_EQ(to_string(value), "12345");
 }
 
 /// @brief it should convert an int8 to a string.
 TEST(ToStringTests, testInt8Conversion) {
-    constexpr SampleValue value = static_cast<int8_t>(123);
+    const SampleValue value = static_cast<int8_t>(123);
     ASSERT_EQ(to_string(value), "123");
 }
 
 /// @brief it should convert a uint64 to a string.
 TEST(ToStringTests, testUint64Conversion) {
-    constexpr SampleValue value = static_cast<uint64_t>(123456789);
+    const SampleValue value = static_cast<uint64_t>(123456789);
     ASSERT_EQ(to_string(value), "123456789");
 }
 
 /// @brief it should convert a uint32 to a string.
 TEST(ToStringTests, testUint32Conversion) {
-    constexpr SampleValue value = static_cast<uint32_t>(123456);
+    const SampleValue value = static_cast<uint32_t>(123456);
     ASSERT_EQ(to_string(value), "123456");
 }
 
 /// @brief it should convert a uint16 to a string.
 TEST(ToStringTests, testUint16Conversion) {
-    constexpr SampleValue value = static_cast<uint16_t>(12345);
+    const SampleValue value = static_cast<uint16_t>(12345);
     ASSERT_EQ(to_string(value), "12345");
 }
 
 /// @brief it should convert a uint8 to a string.
 TEST(ToStringTests, testUint8Conversion) {
-    constexpr SampleValue value = static_cast<uint8_t>(123);
+    const SampleValue value = static_cast<uint8_t>(123);
     ASSERT_EQ(to_string(value), "123");
 }
 
@@ -799,40 +799,40 @@ TEST(ToStringTests, testTimeStampConversion) {
 
 /// @brief it should return a string unchanged.
 TEST(ToStringTests, testStringConversion) {
-    constexpr SampleValue value = std::string("hello world");
+    const SampleValue value = std::string("hello world");
     ASSERT_EQ(to_string(value), "hello world");
 }
 
 /// @brief it should convert negative numbers to strings.
 TEST(ToStringTests, testNegativeNumbers) {
-    constexpr SampleValue neg_int64 = static_cast<int64_t>(-123456789);
+    const SampleValue neg_int64 = static_cast<int64_t>(-123456789);
     ASSERT_EQ(to_string(neg_int64), "-123456789");
 
-    constexpr SampleValue neg_int32 = static_cast<int32_t>(-123456);
+    const SampleValue neg_int32 = static_cast<int32_t>(-123456);
     ASSERT_EQ(to_string(neg_int32), "-123456");
 
-    constexpr SampleValue neg_int16 = static_cast<int16_t>(-12345);
+    const SampleValue neg_int16 = static_cast<int16_t>(-12345);
     ASSERT_EQ(to_string(neg_int16), "-12345");
 
-    constexpr SampleValue neg_int8 = static_cast<int8_t>(-123);
+    const SampleValue neg_int8 = static_cast<int8_t>(-123);
     ASSERT_EQ(to_string(neg_int8), "-123");
 
-    constexpr SampleValue neg_double = -123.456;
+    const SampleValue neg_double = -123.456;
     ASSERT_EQ(to_string(neg_double), "-123.456000");
 
-    constexpr SampleValue neg_float = -123.456f;
+    const SampleValue neg_float = -123.456f;
     ASSERT_EQ(to_string(neg_float), "-123.456001");
 }
 
 /// @brief it should convert zero values to strings.
 TEST(ToStringTests, testZeroValues) {
-    constexpr SampleValue zero_int64 = static_cast<int64_t>(0);
+    const SampleValue zero_int64 = static_cast<int64_t>(0);
     ASSERT_EQ(to_string(zero_int64), "0");
 
-    constexpr SampleValue zero_double = 0.0;
+    const SampleValue zero_double = 0.0;
     ASSERT_EQ(to_string(zero_double), "0.000000");
 
-    constexpr SampleValue zero_float = 0.0f;
+    const SampleValue zero_float = 0.0f;
     ASSERT_EQ(to_string(zero_float), "0.000000");
 
     const SampleValue zero_timestamp = TimeStamp(0);

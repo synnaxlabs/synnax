@@ -72,7 +72,9 @@ TEST(TelemTest, testUAFloatArrayToSeries) {
     UA_Variant_setArray(&array_v, floats, 3, &UA_TYPES[UA_TYPES_FLOAT]);
 
     telem::Series series(telem::FLOAT32_T, 3);
-    auto written = ASSERT_NIL_P(opc::telem::ua_array_write_to_series(series, &array_v, 3));
+    auto written = ASSERT_NIL_P(
+        opc::telem::ua_array_write_to_series(series, &array_v, 3)
+    );
     EXPECT_EQ(written, 3);
     EXPECT_EQ(series.size(), 3);
     EXPECT_EQ(series.at<float>(0), 1.0f);
