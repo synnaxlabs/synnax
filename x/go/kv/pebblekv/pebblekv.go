@@ -192,9 +192,6 @@ var _ kv.Tx = (*tx)(nil)
 
 // Set implements kv.Writer.
 func (txn *tx) Set(_ context.Context, key, value []byte, opts ...any) error {
-	//if strings.Contains(string(key), "__gorp__") && strings.Contains(string(key), "leasedCounter") {
-	//	fmt.Println(string(key))
-	//}
 	return translateError(txn.Batch.Set(key, value, parseOpts(opts)))
 }
 

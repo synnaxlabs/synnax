@@ -142,7 +142,6 @@ func WrapIterator[E any](wrapped kv.Iterator, decoder binary.Decoder) *Iterator[
 func (k *Iterator[E]) Value(ctx context.Context) (entry *E) {
 	k.value = new(E)
 	if err := k.decoder.Decode(ctx, k.Iterator.Value(), k.value); err != nil {
-		fmt.Println("CAT", string(k.Iterator.Key()))
 		k.err = err
 	}
 	return k.value

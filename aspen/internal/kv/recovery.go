@@ -72,7 +72,7 @@ func (r *recoveryServer) recoverPeer(
 		}
 
 		op := Operation{}
-		op.Key = dig.Key
+		op.Key = bytes.Clone(dig.Key)
 		op.Version = dig.Version
 		op.Leaseholder = dig.Leaseholder
 		op.Variant = dig.Variant

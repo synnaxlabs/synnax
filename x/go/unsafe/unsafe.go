@@ -14,6 +14,7 @@
 package unsafe
 
 import (
+	"bytes"
 	"fmt"
 	"unsafe"
 
@@ -168,14 +169,15 @@ func EncodePrimitive[K types.Primitive](value K) []byte {
 }
 
 // DecodePrimitive decodes a byte slice into a primitive value using little-endian
-// byte order for numeric types.
+// byte order for numeric types. For []byte types, the data is cloned to prevent
+// issues with buffer reuse.
 func DecodePrimitive[K types.Primitive](data []byte) K {
 	var zero K
 	switch any(zero).(type) {
 	case string:
 		return any(string(data)).(K)
 	case []byte:
-		return any(data).(K)
+		return any(bytes.Clone(data)).(K)
 	default:
 		return *(*K)(unsafe.Pointer(&data[0]))
 	}
