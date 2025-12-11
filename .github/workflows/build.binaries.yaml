@@ -102,35 +102,6 @@ on:
         type: string
         required: false
         default: ""
-    secrets:
-      APPLE_CERTIFICATE:
-        required: false
-      APPLE_CERTIFICATE_PASSWORD:
-        required: false
-      KEYCHAIN_PASSWORD:
-        required: false
-      AZURE_CLIENT_ID:
-        required: false
-      AZURE_CLIENT_SECRET:
-        required: false
-      AZURE_TENANT_ID:
-        required: false
-      DOCKER_USERNAME:
-        required: false
-      DOCKER_PASSWORD:
-        required: false
-      TURBO_TOKEN:
-        required: false
-      TAURI_SIGNING_PRIVATE_KEY:
-        required: false
-      TAURI_KEY_PASSWORD:
-        required: false
-      APPLE_ID:
-        required: false
-      APPLE_ID_PASSWORD:
-        required: false
-      APPLE_TEAM_ID:
-        required: false
 
 env:
   BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
@@ -699,7 +670,7 @@ jobs:
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
         working-directory: console
         run: pnpm build
 
@@ -707,7 +678,7 @@ jobs:
         if: ${{ !inputs.sign_binaries }}
         env:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
         working-directory: console
         run: pnpm build
 

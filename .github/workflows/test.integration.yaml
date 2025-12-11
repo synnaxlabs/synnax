@@ -201,8 +201,7 @@ jobs:
       upload_to_release: false
       use_simple_artifact_names: true
       version: ${{ needs.setup.outputs.VERSION }}
-    secrets:
-      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+    secrets: inherit
 
   deploy-and-test-windows:
     name: Deploy and Test (windows)
