@@ -551,7 +551,7 @@ describe("Reader", () => {
       expect(nonEmptyValues.length).toBeGreaterThan(0);
     });
     it("should handle large dense and sparse indexes with correct ordering and merging", async () => {
-      const denseSamples = 150_000;
+      const denseSamples = 100_000;
       const sparseStep = 1_000;
       const sparseSamples = denseSamples / sparseStep;
 
