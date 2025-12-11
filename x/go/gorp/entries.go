@@ -189,7 +189,7 @@ func (k keyCodec[K, E]) baseEncode(key K) []byte {
 }
 
 func (k keyCodec[K, E]) encode(key K) []byte {
-	return append(k.prefix, k.baseEncode(key)...)
+	return append(bytes.Clone(k.prefix), k.baseEncode(key)...)
 }
 
 func (k keyCodec[K, E]) decode(b []byte) K {

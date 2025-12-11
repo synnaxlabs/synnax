@@ -10,8 +10,8 @@
 package kv
 
 import (
+	"bytes"
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter"
@@ -77,20 +77,19 @@ func (r *recoveryServer) recoverPeer(
 		op.Leaseholder = dig.Leaseholder
 		op.Variant = dig.Variant
 
-		var closer io.Closer
 		if op.Variant == change.Set {
-			if op.Value, closer, err = r.Engine.Get(ctx, dig.Key); err != nil {
+			v, closer, err := r.Engine.Get(ctx, dig.Key)
+			if err != nil {
+				return err
+			}
+			op.Value = bytes.Clone(v)
+			if err := closer.Close(); err != nil {
 				return err
 			}
 		}
 
 		if err = stream.Send(RecoveryResponse{Operations: []Operation{op}}); err != nil {
 			return err
-		}
-		if closer != nil {
-			if err = closer.Close(); err != nil {
-				return err
-			}
 		}
 	}
 	return nil

@@ -131,6 +131,7 @@ func (d db) Set(ctx context.Context, key, value []byte, opts ...any) error {
 	// Hot path: if we don't need to notify observers of changes, then go straight
 	// to the underlying DB.
 	if d.Observer == nil {
+		//fmt.Println(string(key))
 		return translateError(d.DB.Set(key, value, parseOpts(opts)))
 	}
 	return d.withTx(ctx, func(tx kv.Tx) error {
@@ -191,6 +192,9 @@ var _ kv.Tx = (*tx)(nil)
 
 // Set implements kv.Writer.
 func (txn *tx) Set(_ context.Context, key, value []byte, opts ...any) error {
+	//if strings.Contains(string(key), "__gorp__") && strings.Contains(string(key), "leasedCounter") {
+	//	fmt.Println(string(key))
+	//}
 	return translateError(txn.Batch.Set(key, value, parseOpts(opts)))
 }
 
