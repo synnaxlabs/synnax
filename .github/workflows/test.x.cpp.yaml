@@ -62,11 +62,9 @@ jobs:
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
-          bazelisk-cache: ${{ matrix.os == 'macos-build-bot' }}
-          disk-cache:
-            ${{ matrix.os == 'macos-build-bot' && format('{0}-{1}', github.workflow,
-            matrix.os) || false }}
-          repository-cache: ${{ matrix.os == 'macos-build-bot' }}
+          bazelisk-cache: false
+          disk-cache: false
+          repository-cache: false
 
       - name: Install Clang Format
         if: matrix.format
