@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export type RecordDelimiter = "\r\n" | "\n";
-
 /**
  * formatValue correctly formats the given value into a string that is safe to use as a
  * field in a CSV file.
