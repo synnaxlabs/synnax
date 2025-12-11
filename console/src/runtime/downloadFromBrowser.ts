@@ -48,5 +48,5 @@ export const downloadStreamFromBrowser = async (
   }
   const blob = await new Response(stream).blob();
   downloadFromBrowser(blob, fileName);
-  return fileName;
+  return "Downloads";
 };

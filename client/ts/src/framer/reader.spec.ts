@@ -70,14 +70,15 @@ describe("Exporter", () => {
       });
       await writer.commit();
       await writer.close();
-      const stream = await client.exportCSV({
+      const stream = await client.read({
         channels: [index.key, data1.key, data2.key],
         timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
-        headers: new Map([
+        channelNames: new Map([
           [index.key, "Time"],
           [data1.key, "Sensor1"],
           [data2.key, "Sensor2"],
         ]),
+        responseType: "csv",
       });
       const records = await streamToRecords(stream);
       expect(records).toEqual([
@@ -139,15 +140,16 @@ describe("Exporter", () => {
       });
       await writer2.commit();
       await writer2.close();
-      const stream = await client.exportCSV({
+      const stream = await client.read({
         channels: [data1.key, data2.key], // Just data channels - indexes auto-included
         timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
-        headers: new Map([
+        channelNames: new Map([
           [index1.key, "Time1"],
           [data1.key, "Data1"],
           [index2.key, "Time2"],
           [data2.key, "Data2"],
         ]),
+        responseType: "csv",
       });
       const records = await streamToRecords(stream);
       expect(records).toEqual([
@@ -213,12 +215,13 @@ describe("Exporter", () => {
       await writerSlow.commit();
       await writerSlow.close();
 
-      const stream = await client.exportCSV({
+      const stream = await client.read({
         channels: [dataFast.key, dataSlow.key],
         timeRange: {
           start: baseTime.sub(TimeSpan.seconds(1)),
           end: baseTime.add(TimeSpan.seconds(2)),
         },
+        responseType: "csv",
       });
       const records = await streamToRecords(stream);
       expect(records).toEqual([
@@ -314,9 +317,10 @@ describe("Exporter", () => {
       const expectedRows: string[][] = [];
       for (const timeStr of sortedTimes) expectedRows.push(rowsByTime.get(timeStr)!);
 
-      const stream = await client.exportCSV({
+      const stream = await client.read({
         channels: dataKeys,
         timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(20) },
+        responseType: "csv",
       });
       const rows = await streamToRecords(stream);
       // There should be a header and at least the expected number of rows
@@ -339,9 +343,10 @@ describe("Exporter", () => {
         dataType: DataType.FLOAT64,
         index: index.key,
       });
-      const stream = await client.exportCSV({
+      const stream = await client.read({
         channels: [data.key],
         timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
+        responseType: "csv",
       });
       const rows = await streamToRecords(stream);
       expect(rows).toEqual([[index.name, data.name]]);
@@ -371,9 +376,10 @@ describe("Exporter", () => {
       });
       await writer.commit();
       await writer.close();
-      const stream = await client.exportCSV({
+      const stream = await client.read({
         channels: [data.key],
         timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
+        responseType: "csv",
       });
       const records = await streamToRecords(stream);
       expect(records).toEqual([
@@ -476,12 +482,13 @@ describe("Exporter", () => {
       const totalSamples = samplesPerGroup.reduce((a, b) => a + b, 0);
 
       // Export the data
-      const stream = await client.exportCSV({
+      const stream = await client.read({
         channels: allDataKeys,
         timeRange: {
           start: TimeStamp.seconds(999),
           end: TimeStamp.seconds(1100),
         },
+        responseType: "csv",
       });
 
       // Collect all chunks and track streaming behavior
@@ -633,18 +640,19 @@ describe("Exporter", () => {
         await sparseWriter.close();
 
         // ---- Export CSV with explicit headers so we know column order ----
-        const stream = await client.exportCSV({
+        const stream = await client.read({
           channels: [dataFast.key, dataSlow.key],
           timeRange: {
             start: baseTime,
             end: baseTime.add(TimeSpan.nanoseconds(denseSamples + 1)),
           },
-          headers: new Map<channel.KeyOrName, string>([
+          channelNames: new Map([
             [indexFast.key, "FastTime"],
             [dataFast.key, "FastValue"],
             [indexSlow.key, "SlowTime"],
             [dataSlow.key, "SlowValue"],
           ]),
+          responseType: "csv",
         });
 
         const reader = stream.getReader();

@@ -13,7 +13,7 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { runtime, TimeRange } from "@synnaxlabs/x";
+import { TimeRange } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 
@@ -73,20 +73,17 @@ const download = async ({
     end: simplifiedTimeRanges[simplifiedTimeRanges.length - 1].end,
   });
 
-  // Build headers map from keysToNames
   const headers = new Map<channel.Key, string>();
   for (const [key, name] of Object.entries(keysToNames)) headers.set(Number(key), name);
 
   onPercentDownloadedChange?.(10);
-  const stream = await client.exportCSV({
+  const stream = await client.read({
     channels: keys,
     timeRange: mergedTimeRange,
-    headers,
-    delimiter: runtime.getOS() === "Windows" ? "\r\n" : "\n",
+    channelNames: new Map(Object.entries(keysToNames)),
+    responseType: "csv",
   });
-  if (savePath != null)
-    // Tauri path: Stream directly to file
-    await writeFile(savePath, stream);
+  if (savePath != null) await writeFile(savePath, stream);
   else savePath = await Runtime.downloadStreamFromBrowser(stream, `${fileName}.csv`);
   addStatus({ variant: "success", message: `Downloaded ${fileName} to ${savePath}` });
   onPercentDownloadedChange?.(100);

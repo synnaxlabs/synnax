@@ -7,26 +7,71 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { csv } from "@synnaxlabs/x";
+import { type WebSocketClient } from "@synnaxlabs/freighter";
+import { type CrudeTimeRange, csv, runtime } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type Frame } from "@/framer/frame";
-import { type Iterator } from "@/framer/iterator";
+import { Iterator } from "@/framer/iterator";
 
-export interface CreateCSVExportStreamParams {
+export interface ReadRequest {
+  channels: channel.Params;
+  timeRange: CrudeTimeRange;
+  channelNames?: Map<channel.KeyOrName, string>;
+  responseType: "csv";
+}
+
+export class Reader {
+  private readonly retriever: channel.Retriever;
+  private readonly streamClient: WebSocketClient;
+
+  constructor(retriever: channel.Retriever, streamClient: WebSocketClient) {
+    this.retriever = retriever;
+    this.streamClient = streamClient;
+  }
+
+  async read(request: ReadRequest): Promise<ReadableStream<Uint8Array>> {
+    const { channels: channelParams, timeRange, channelNames } = request;
+    const channelPayloads = await this.retriever.retrieve(channelParams);
+    const allKeys = new Set<channel.Key>();
+    channelPayloads.forEach((ch) => {
+      allKeys.add(ch.key);
+      if (ch.index !== 0) allKeys.add(ch.index);
+    });
+    const missingIndexKeys = Array.from(allKeys).filter(
+      (k) => !channelPayloads.some((ch) => ch.key === k),
+    );
+    if (missingIndexKeys.length > 0) {
+      const indexChannels = await this.retriever.retrieve(missingIndexKeys);
+      channelPayloads.push(...indexChannels);
+    }
+    const iterator = await Iterator._open(
+      timeRange,
+      Array.from(allKeys),
+      this.retriever,
+      this.streamClient,
+    );
+    return createCSVReadableStream({
+      iterator,
+      channelPayloads,
+      headers: channelNames,
+    });
+  }
+}
+
+interface CreateCSVExportStreamParams {
   iterator: Iterator;
   channelPayloads: channel.Payload[];
   headers?: Map<channel.KeyOrName, string>;
-  delimiter?: csv.RecordDelimiter;
 }
 
-export const createCSVExportStream = ({
+const createCSVReadableStream = ({
   iterator,
   channelPayloads,
   headers,
-  delimiter = "\r\n",
 }: CreateCSVExportStreamParams): ReadableStream<Uint8Array> => {
+  const delimiter = runtime.getOS() === "Windows" ? "\r\n" : "\n";
   const encoder = new TextEncoder();
   let headerWritten = false;
   let seekDone = false;
