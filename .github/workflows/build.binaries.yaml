@@ -258,24 +258,27 @@ jobs:
       - name: Build Driver
         if: inputs.driver && matrix.os != 'windows-build-bot'
         run: |
+          BAZEL_FLAGS=""
+
           if [ "${{ matrix.os }}" = "ubuntu-2204-build-bot" ]; then
-            TMPDIR=/tmp bazel build --enable_platform_specific_config -c opt --define=platform=nilinuxrt --announce_rc --verbose_failures \
-              --disk_cache=~/.cache/bazel-disk \
-              --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} \
-              //driver
+            export TMPDIR=/tmp
+            BAZEL_FLAGS="--define=platform=nilinuxrt"
           else
-            bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc --verbose_failures \
-              --disk_cache=~/.cache/bazel-disk \
-              --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} \
-              //driver
+            BAZEL_FLAGS="--config=hide_symbols"
           fi
+
+          # macOS runners are not on AWS, so local cache is faster
+          if [ "${{ matrix.os }}" != "macos-build-bot" ]; then
+            BAZEL_FLAGS="$BAZEL_FLAGS --remote_cache=${{ env.BAZEL_REMOTE_CACHE }}"
+          fi
+
+          bazel build --enable_platform_specific_config -c opt --announce_rc --verbose_failures $BAZEL_FLAGS //driver
 
       - name: Build Driver (Windows)
         if: inputs.driver && matrix.os == 'windows-build-bot'
         run:
           bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt
-          --announce_rc --disk_cache=C:/tmp/bazel-disk --remote_cache=${{
-          env.BAZEL_REMOTE_CACHE }} //driver
+          --announce_rc --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} //driver
 
       - name: Import Apple Developer Certificate
         if: inputs.sign_binaries && matrix.os == 'macos-build-bot'
@@ -702,6 +705,9 @@ jobs:
 
       - name: Build Console Tauri (Unsigned)
         if: ${{ !inputs.sign_binaries }}
+        env:
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         working-directory: console
         run: pnpm build
 
