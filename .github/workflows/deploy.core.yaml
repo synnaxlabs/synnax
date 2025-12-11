@@ -38,6 +38,7 @@ on:
       - scripts/EnVar.dll
       - turbo.json
       - vendor/**
+      - vendor/lua-language-server/**
       - x/cpp/**
       - x/go/**
       - x/media/**
@@ -73,6 +74,7 @@ on:
       - pnpm-workspace.yaml
       - turbo.json
       - vendor/**
+      - vendor/lua-language-server/**
       - x/cpp/**
       - x/go/**
       - x/ts/**
@@ -105,25 +107,61 @@ jobs:
     if: github.event_name == 'push'
     permissions:
       contents: write
+    outputs:
+      CONSOLE_VERSION: ${{ steps.console-version.outputs.VERSION }}
     steps:
-      - name: Create Release
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Get Console Version
+        id: console-version
+        working-directory: console
+        run: |
+          CONSOLE_VERSION=$(node -p "require('./package.json').version")
+          if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
+            echo "VERSION=${CONSOLE_VERSION}" >> $GITHUB_OUTPUT
+          elif [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
+            echo "VERSION=${CONSOLE_VERSION}-rc" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${CONSOLE_VERSION}-pr" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Releases
         uses: actions/github-script@v8
+        env:
+          CONSOLE_VERSION: ${{ steps.console-version.outputs.VERSION }}
         with:
           script: |
             const { data: releases } = await github.rest.repos.listReleases({
               owner: context.repo.owner,
               repo: context.repo.repo
             })
-            const release = releases.find(r => r.tag_name === 'synnax-v${{ needs.setup.outputs.VERSION }}')
-            if (release != null) return release.id
-            const { data: { id } } = await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: 'synnax-v${{ needs.setup.outputs.VERSION }}',
-              name: 'Synnax v${{ needs.setup.outputs.VERSION }}',
-              draft: false,
-              prerelease: false
-            });
+
+            // Create synnax-v* release
+            const synnaxTag = 'synnax-v${{ needs.setup.outputs.VERSION }}'
+            if (!releases.find(r => r.tag_name === synnaxTag)) {
+              await github.rest.repos.createRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag_name: synnaxTag,
+                name: 'Synnax v${{ needs.setup.outputs.VERSION }}',
+                draft: false,
+                prerelease: false
+              });
+            }
+
+            // Create console-v* release
+            const consoleTag = `console-v${process.env.CONSOLE_VERSION}`
+            if (!releases.find(r => r.tag_name === consoleTag)) {
+              await github.rest.repos.createRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag_name: consoleTag,
+                name: `Synnax Console v${process.env.CONSOLE_VERSION}`,
+                draft: false,
+                prerelease: false
+              });
+            }
 
   build:
     needs: [setup, create-release]
@@ -140,6 +178,7 @@ jobs:
       docker: false
       driver: true
       console: true
+      console_tauri: true
       core: true
       sign_binaries: ${{ github.event_name == 'push' }}
       upload_to_release: ${{ github.event_name == 'push' }}
@@ -154,6 +193,11 @@ jobs:
       DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+      TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
   windows-installer:
     name: Build Windows Installer
@@ -240,3 +284,94 @@ jobs:
       - name: Upload Install Script
         run: |
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} install-driver-nilinuxrt.sh
+
+  publish-console-update:
+    name: Publish Console Auto-Update
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: github.event_name == 'push'
+    needs: [create-release, build]
+    env:
+      VERSION: ${{ needs.create-release.outputs.CONSOLE_VERSION }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Get Console Version
+        id: console-version
+        working-directory: console
+        run: |
+          CONSOLE_VERSION=$(node -p "require('./package.json').version")
+          echo "CONSOLE_VERSION=${CONSOLE_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        if: github.ref == 'refs/heads/main'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        if: github.ref == 'refs/heads/main'
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - name: Add Auto Update JSON File
+        uses: actions/github-script@v8
+        if: github.ref == 'refs/heads/main'
+        env:
+          CONSOLE_VERSION: ${{ steps.console-version.outputs.CONSOLE_VERSION }}
+        with:
+          script: |
+            const fs = await import("fs");
+
+            const consoleVersion = process.env.CONSOLE_VERSION;
+            const version = process.env.VERSION;
+            const {
+              repo: { repo, owner },
+            } = context;
+
+            const baseURL = `https://github.com/${owner}/${repo}/releases/download/console-v${version}/`;
+
+            const darwinURL = baseURL + "Synnax.app.tar.gz";
+            const darwinSig = await github.request(`GET ${darwinURL}.sig`);
+            const windowsURL = baseURL + `Synnax_${consoleVersion}_x64_en-US.msi`;
+            const windowsSig = await github.request(`GET ${windowsURL}.sig`);
+            const pub_date = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+            const ecd = new TextDecoder();
+
+            const data = {
+              version: `v${consoleVersion}`,
+              notes: "Synnax Update",
+              pub_date,
+              platforms: {
+                "darwin-x86_64": {
+                  signature: ecd.decode(darwinSig.data),
+                  url: darwinURL,
+                },
+                "darwin-aarch64": {
+                  signature: ecd.decode(darwinSig.data),
+                  url: darwinURL,
+                },
+                "linux-x86_64": {
+                  signature: "not_supported_and_tauri_requires_an_entry",
+                  url: darwinURL,
+                },
+                "windows-x86_64": {
+                  signature: ecd.decode(windowsSig.data),
+                  url: windowsURL,
+                },
+              },
+            };
+
+            fs.writeFileSync("console/release-spec.json", JSON.stringify(data, null, 2) + "\n");
+
+      - name: Commit & Push Auto Update JSON File on Main
+        if: github.ref == 'refs/heads/main'
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: "*"
+          default_author: github_actor
+          message: Auto Update JSON File
+          pull: --commit --no-edit
+          push: origin main --force

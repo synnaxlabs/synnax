@@ -31,7 +31,11 @@ on:
         type: boolean
         default: false
       console:
-        description: "Build: Console"
+        description: "Build: Console Web Assets"
+        type: boolean
+        default: false
+      console_tauri:
+        description: "Build: Console Tauri Desktop App"
         type: boolean
         default: false
       core:
@@ -79,6 +83,9 @@ on:
       console:
         type: boolean
         default: false
+      console_tauri:
+        type: boolean
+        default: false
       core:
         type: boolean
         default: false
@@ -114,6 +121,16 @@ on:
         required: false
       TURBO_TOKEN:
         required: false
+      TAURI_SIGNING_PRIVATE_KEY:
+        required: false
+      TAURI_KEY_PASSWORD:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_ID_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
 
 env:
   BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
@@ -123,6 +140,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       VERSION: ${{ steps.version.outputs.VERSION }}
+      PURE_VERSION: ${{ steps.version.outputs.PURE_VERSION }}
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       GO_BUILD_TAGS: ${{ steps.go-tags.outputs.GO_BUILD_TAGS }}
     steps:
@@ -134,9 +152,13 @@ jobs:
         working-directory: core
         run: |
           if [ -n "${{ inputs.version }}" ]; then
+            # Extract pure version by removing any suffix (-rc, -branch, etc.)
+            PURE_VERSION=$(echo "${{ inputs.version }}" | sed 's/-.*$//')
             echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
+            echo "PURE_VERSION=${PURE_VERSION}" >> $GITHUB_OUTPUT
           else
             BASE_VERSION=$(cat pkg/version/VERSION)
+            echo "PURE_VERSION=${BASE_VERSION}" >> $GITHUB_OUTPUT
             if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
               echo "VERSION=${BASE_VERSION}" >> $GITHUB_OUTPUT
             elif [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
@@ -209,16 +231,6 @@ jobs:
       - name: Install Deps on macOS
         if: matrix.os == 'macos-build-bot'
         run: brew install autoconf automake libtool
-
-      # TODO: Remove this step once confirmed windows-build-bot has MSYS2 pre-installed
-      # - name: Install MSYS2
-      #   if: matrix.os == 'windows-build-bot'
-      #   uses: msys2/setup-msys2@v2
-      #   with:
-      #     msystem: MINGW64
-      #     update: true
-      #     install: >-
-      #       autoconf automake libtool
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
@@ -321,16 +333,10 @@ jobs:
           }
 
       - name: Rename Driver Binary
-        if: inputs.driver && matrix.os != 'windows-build-bot'
+        if: inputs.driver
+        shell: bash
         run: |
           mv bazel-bin/driver/driver${{ matrix.executable }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}${{ matrix.executable }}
-
-      # TODO: Remove when bash is installed on windows-build-bot (choco install git -y)
-      - name: Rename Driver Binary (Windows)
-        if: inputs.driver && matrix.os == 'windows-build-bot'
-        shell: powershell
-        run: |
-          Move-Item -Force bazel-bin/driver/driver.exe bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}.exe
 
       - name: Upload Driver Binary as Artifact
         if: inputs.driver
@@ -356,7 +362,6 @@ jobs:
         run: |
           cp bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}${{ matrix.executable }} core/pkg/service/driver/assets/driver${{ matrix.executable }}
 
-      # TODO: Remove when bash is installed on windows-build-bot (choco install git -y)
       - name: Copy Driver to Assets (Windows)
         if: inputs.driver && inputs.core && matrix.os == 'windows-build-bot'
         shell: powershell
@@ -395,12 +400,11 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-      - name: Move Console to Assets
+      - name: Copy Console to Assets
         if: inputs.console && inputs.core && matrix.os != 'windows-build-bot'
         run: cp -r console/dist/* core/pkg/service/console/dist/
 
-      # TODO: Remove when bash is installed on windows-build-bot (choco install git -y)
-      - name: Move Console to Assets (Windows)
+      - name: Copy Console to Assets (Windows)
         if: inputs.console && inputs.core && matrix.os == 'windows-build-bot'
         shell: powershell
         run: |
@@ -469,18 +473,10 @@ jobs:
           if-no-files-found: error
 
       - name: Rename Core Binary for Release
-        if: inputs.core && inputs.upload_to_release && matrix.os != 'windows-build-bot'
+        if: inputs.core && inputs.upload_to_release
         working-directory: core
         run: |
           cp synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }} synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}${{ matrix.executable }}
-
-      # TODO: Remove when bash is installed on windows-build-bot (choco install git -y)
-      - name: Rename Core Binary for Release (Windows)
-        if: inputs.core && inputs.upload_to_release && matrix.os == 'windows-build-bot'
-        working-directory: core
-        shell: powershell
-        run: |
-          Copy-Item -Force synnax-v${{ needs.setup.outputs.VERSION }}.exe synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}.exe
 
       - name: Upload Core to Release
         if: inputs.core && inputs.upload_to_release
@@ -541,3 +537,157 @@ jobs:
         if: failure() && matrix.os == 'windows-build-bot'
         shell: cmd
         run: integration/scripts/DebugBuildEnvironmentWindows.cmd
+
+  build-console-tauri:
+    name: Build Console Tauri Desktop App
+    needs: [setup]
+    if: inputs.console_tauri
+    permissions:
+      contents: write
+    env:
+      SYNNAX_TS_ENV: prod
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      NODE_OPTIONS: "--max_old_space_size=4096"
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Import Apple Developer Certificate
+        if: matrix.os == 'macos-latest' && inputs.sign_binaries
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          security find-identity -v -p codesigning build.keychain
+
+      - name: Verify Apple Developer Certificate
+        if: matrix.os == 'macos-latest' && inputs.sign_binaries
+        run: |
+          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
+          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
+          echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
+          echo "Certificate imported."
+
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Get Console Version
+        id: console-version
+        working-directory: console
+        shell: bash
+        run: |
+          CONSOLE_VERSION=$(node -p "require('./package.json').version")
+          echo "CONSOLE_VERSION=${CONSOLE_VERSION}" >> $GITHUB_OUTPUT
+          if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
+            echo "VERSION=${CONSOLE_VERSION}" >> $GITHUB_OUTPUT
+          elif [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
+            echo "VERSION=${CONSOLE_VERSION}-rc" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${CONSOLE_VERSION}-pr" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - name: Adjust Auto Updater URL for Release Candidate
+        if: inputs.sign_binaries && github.ref == 'refs/heads/rc'
+        working-directory: console/src-tauri
+        run: |
+          jq '.plugins.updater.endpoints = ["https://raw.githubusercontent.com/synnaxlabs/synnax/rc/console/release-spec.json"]' tauri.conf.json > temp.json
+          rm tauri.conf.json
+          mv temp.json tauri.conf.json
+
+      - name: Install Rust
+        run: rustup update
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: console/src-tauri -> target
+          shared-key: ${{ runner.os }}
+
+      - name: Install Dependencies
+        run: pnpm install
+
+      - name: Build TypeScript
+        run: pnpm build:console-vite
+
+      - name: Pre-sign Embedded lua-language-server
+        if: matrix.os == 'macos-latest' && inputs.sign_binaries
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
+        run: |
+          EMBEDDED_BIN_REPO="vendor/lua-language-server/bin/macOS/lua-language-server"
+          if [ ! -f "$EMBEDDED_BIN_REPO" ]; then
+            echo "Embedded binary not found at $EMBEDDED_BIN_REPO"
+            exit 1
+          fi
+          echo "Pre-signing embedded binary at $EMBEDDED_BIN_REPO..."
+          codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$EMBEDDED_BIN_REPO"
+          codesign --verify --verbose "$EMBEDDED_BIN_REPO"
+
+      - name: Download relic for Windows signing
+        if: matrix.os == 'windows-latest' && inputs.sign_binaries
+        run: |
+          curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
+
+      - name: Add relic to PATH
+        if: matrix.os == 'windows-latest' && inputs.sign_binaries
+        run: |
+          mkdir relic-bin
+          mv relic.exe relic-bin\
+          echo "${{ github.workspace }}\relic-bin" >> $env:GITHUB_PATH
+
+      - name: Build Console Tauri (Signed)
+        if: inputs.sign_binaries
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        working-directory: console
+        run: pnpm build
+
+      - name: Build Console Tauri (Unsigned)
+        if: ${{ !inputs.sign_binaries }}
+        working-directory: console
+        run: pnpm build
+
+      - name: Upload macOS Release Assets
+        if: inputs.upload_to_release && matrix.os == 'macos-latest'
+        run: |
+          gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
+          gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
+          gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_aarch64.dmg
+
+      - name: Upload Windows Release Assets
+        if: inputs.upload_to_release && matrix.os == 'windows-latest'
+        run: |
+          gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64_en-US.msi
+          gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64_en-US.msi.sig
+          gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64-setup.exe
+          gh release upload --clobber console-v${{ steps.console-version.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64-setup.exe.sig
