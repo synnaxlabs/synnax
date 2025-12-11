@@ -63,22 +63,26 @@ func newRetrieve(registrar serviceRegistrar, tx gorp.Tx) Retrieve {
 // WhereIDs filters resources by the provided keys.
 func (r Retrieve) WhereIDs(ids ...ID) Retrieve {
 	c := r.currentClause()
-	c.Retrieve = c.Retrieve.WhereKeys(IDsToString(ids)...)
+	c.Retrieve = c.WhereKeys(IDsToString(ids)...)
 	return r.setCurrentClause(c)
 }
 
 // Where filters resources by the provided predicate.
 func (r Retrieve) Where(filter gorp.FilterFunc[string, Resource]) Retrieve {
 	c := r.currentClause()
-	c.Retrieve = c.Retrieve.Where(filter)
+	c.Retrieve = c.Where(filter)
 	return r.setCurrentClause(c)
 }
 
 func (r Retrieve) WhereTypes(types ...Type) Retrieve {
 	c := r.currentClause()
-	c.Retrieve = c.Retrieve.Where(func(ctx gorp.Context, r *Resource) (bool, error) {
-		return lo.Contains(types, r.ID.Type), nil
-	})
+	if len(types) == 1 {
+		c.Retrieve = c.WherePrefix([]byte(types[0].String()))
+	} else {
+		c.Retrieve = c.Where(func(ctx gorp.Context, r *Resource) (bool, error) {
+			return lo.Contains(types, r.ID.Type), nil
+		})
+	}
 	return r.setCurrentClause(c)
 }
 

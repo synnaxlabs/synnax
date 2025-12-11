@@ -267,4 +267,128 @@ var _ = Describe("retrieveResource", func() {
 			Expect(lo.Intersect(r1Keys, r2Keys)).To(BeEmpty())
 		})
 	})
+
+	Describe("WhereTypes", func() {
+		It("Should retrieve resources of a single type using prefix matching", func() {
+			a := newSampleType("type-filter-A")
+			b := newSampleType("type-filter-B")
+			Expect(w.DefineResource(ctx, a)).To(Succeed())
+			Expect(w.DefineResource(ctx, b)).To(Succeed())
+			var r []ontology.Resource
+			Expect(w.NewRetrieve().
+				WhereTypes(sampleType).
+				Entries(&r).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(len(r)).To(BeNumerically(">=", 2))
+			types := lo.Map(r, func(res ontology.Resource, _ int) ontology.Type {
+				return res.ID.Type
+			})
+			for _, t := range types {
+				Expect(t).To(Equal(sampleType))
+			}
+		})
+
+		It("Should return empty results when filtering by non-existent type", func() {
+			Expect(w.DefineResource(ctx, newSampleType("type-filter-C"))).To(Succeed())
+			nonExistentType := ontology.Type("nonexistent")
+			var r []ontology.Resource
+			Expect(w.NewRetrieve().
+				WhereTypes(nonExistentType).
+				Entries(&r).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(r).To(BeEmpty())
+		})
+
+		It("Should retrieve resources matching any of multiple types using filter function", func() {
+			a := newSampleType("multi-type-A")
+			b := newSampleType("multi-type-B")
+			Expect(w.DefineResource(ctx, a)).To(Succeed())
+			Expect(w.DefineResource(ctx, b)).To(Succeed())
+			otherType := ontology.Type("other")
+			var r []ontology.Resource
+			Expect(w.NewRetrieve().
+				WhereTypes(sampleType, otherType).
+				Entries(&r).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(len(r)).To(BeNumerically(">=", 2))
+			for _, res := range r {
+				Expect(res.ID.Type).To(BeElementOf(sampleType, otherType))
+			}
+		})
+
+		It("Should return empty when none of the multiple types match", func() {
+			Expect(w.DefineResource(ctx, newSampleType("multi-type-none"))).To(Succeed())
+			var r []ontology.Resource
+			Expect(w.NewRetrieve().
+				WhereTypes(ontology.Type("foo"), ontology.Type("bar")).
+				Entries(&r).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(r).To(BeEmpty())
+		})
+
+		It("Should combine WhereTypes with WhereIDs", func() {
+			a := newSampleType("combined-A")
+			b := newSampleType("combined-B")
+			Expect(w.DefineResource(ctx, a)).To(Succeed())
+			Expect(w.DefineResource(ctx, b)).To(Succeed())
+			var r []ontology.Resource
+			Expect(w.NewRetrieve().
+				WhereIDs(a, b).
+				WhereTypes(sampleType).
+				Entries(&r).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(len(r)).To(Equal(2))
+			ids := lo.Map(r, func(res ontology.Resource, _ int) ontology.ID {
+				return res.ID
+			})
+			Expect(ids).To(ContainElements(a, b))
+		})
+
+		It("Should filter out resources when WhereIDs and WhereTypes don't overlap using filter function", func() {
+			a := newSampleType("no-overlap-A")
+			Expect(w.DefineResource(ctx, a)).To(Succeed())
+			var r []ontology.Resource
+			// Use multiple types to trigger filter function path (not prefix matching)
+			Expect(w.NewRetrieve().
+				WhereIDs(a).
+				WhereTypes(ontology.Type("different"), ontology.Type("another")).
+				Entries(&r).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(r).To(BeEmpty())
+		})
+
+		It("Should work with Limit when using single type prefix matching", func() {
+			for i := 0; i < 5; i++ {
+				Expect(w.DefineResource(ctx, newSampleType("limit-type-"+strconv.Itoa(i)))).To(Succeed())
+			}
+			var r []ontology.Resource
+			Expect(w.NewRetrieve().
+				WhereTypes(sampleType).
+				Limit(3).
+				Entries(&r).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(len(r)).To(Equal(3))
+		})
+
+		It("Should work with Limit when using multiple types filter", func() {
+			for i := 0; i < 5; i++ {
+				Expect(w.DefineResource(ctx, newSampleType("limit-multi-"+strconv.Itoa(i)))).To(Succeed())
+			}
+			var r []ontology.Resource
+			Expect(w.NewRetrieve().
+				WhereTypes(sampleType, ontology.Type("other")).
+				Limit(3).
+				Entries(&r).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(len(r)).To(Equal(3))
+		})
+	})
 })
