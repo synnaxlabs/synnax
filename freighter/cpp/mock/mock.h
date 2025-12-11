@@ -43,7 +43,7 @@ public:
             throw std::runtime_error("mock unary client has no responses left!");
         const auto ctx = freighter::Context(
             "mock",
-            freighter::URL(target),
+            url::URL(target),
             freighter::TransportVariant::STREAM
         );
         auto [res, err] = mw.exec(ctx, this, request);

@@ -85,16 +85,18 @@ TEST(DeviceTests, testRetrieveDevices) {
     ASSERT_NIL(client.devices.create(d2));
 
     // Retrieve both devices
-    std::vector keys = {d1.key, d2.key};
+    const std::vector keys = {d1.key, d2.key};
     const auto devices = ASSERT_NIL_P(client.devices.retrieve(keys));
 
     // Verify we got both devices
     ASSERT_EQ(devices.size(), 2);
 
     // Find and verify first device
-    auto it1 = std::find_if(devices.begin(), devices.end(), [&d1](const Device &d) {
-        return d.key == d1.key;
-    });
+    const auto it1 = std::find_if(
+        devices.begin(),
+        devices.end(),
+        [&d1](const Device &d) { return d.key == d1.key; }
+    );
     ASSERT_NE(it1, devices.end());
     ASSERT_EQ(it1->name, "test_device_1");
     ASSERT_EQ(it1->location, "location_1");
@@ -217,7 +219,7 @@ TEST(DeviceTests, testDeviceConfigured) {
     const auto retrieved2 = ASSERT_NIL_P(client.devices.retrieve(d2.key));
     ASSERT_TRUE(retrieved2.configured);
 
-    std::vector keys = {d1.key, d2.key};
+    const std::vector keys = {d1.key, d2.key};
     const auto devices = ASSERT_NIL_P(client.devices.retrieve(keys));
     auto device_map = map_device_keys(devices);
 
@@ -258,9 +260,7 @@ TEST(DeviceTests, testRetrieveDevicesAfterDeletion) {
     ASSERT_NIL(client.devices.del(d1.key));
 
     // Verify deleted device returns NOT_FOUND
-    auto [_, err] = client.devices.retrieve(d1.key);
-    ASSERT_TRUE(err);
-    ASSERT_MATCHES(err, xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS_P(client.devices.retrieve(d1.key), xerrors::NOT_FOUND);
 
     // Verify remaining device can still be retrieved
     const auto retrieved = ASSERT_NIL_P(client.devices.retrieve(d2.key));
@@ -284,12 +284,9 @@ TEST(DeviceTests, testDeleteDevice) {
         "test_properties"
     );
     ASSERT_NIL(client.devices.create(d));
-
     ASSERT_NIL(client.devices.del(d.key));
 
-    auto [_, err] = client.devices.retrieve(d.key);
-    ASSERT_TRUE(err);
-    ASSERT_MATCHES(err, xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS_P(client.devices.retrieve(d.key), xerrors::NOT_FOUND);
 }
 
 /// @brief it should correctly delete multiple devices.
@@ -492,8 +489,8 @@ TEST(DeviceTests, testRetrieveDevicesWithStatus) {
 /// @brief it should correctly parse DeviceStatusDetails from JSON.
 TEST(DeviceStatusDetailsTests, testParseFromJSON) {
     json j = {{"rack", 12345}, {"device", "device-abc-123"}};
-    xjson::Parser parser(j);
-    auto details = DeviceStatusDetails::parse(parser);
+    const xjson::Parser parser(j);
+    const auto details = DeviceStatusDetails::parse(parser);
     ASSERT_NIL(parser.error());
     ASSERT_EQ(details.rack, 12345);
     ASSERT_EQ(details.device, "device-abc-123");
@@ -501,7 +498,7 @@ TEST(DeviceStatusDetailsTests, testParseFromJSON) {
 
 /// @brief it should correctly serialize DeviceStatusDetails to JSON.
 TEST(DeviceStatusDetailsTests, testToJSON) {
-    DeviceStatusDetails details{
+    const DeviceStatusDetails details{
         .rack = 67890,
         .device = "device-xyz-456",
     };
@@ -550,9 +547,9 @@ TEST(DeviceTests, testParseFromJSON) {
 
 /// @brief it should handle default values when parsing Device from JSON.
 TEST(DeviceTests, testParseFromJSONDefaults) {
-    json j = json::object();
+    const json j = json::object();
     xjson::Parser parser(j);
-    auto d = Device::parse(parser);
+    const auto d = Device::parse(parser);
     ASSERT_EQ(d.key, "");
     ASSERT_EQ(d.name, "");
     ASSERT_EQ(d.rack, 0);

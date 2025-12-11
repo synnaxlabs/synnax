@@ -15,51 +15,49 @@
 
 using namespace synnax;
 
+/// @brief it should set a single status in the cluster.
 TEST(StatusTest, SetSingleStatus) {
-    auto client = new_test_client();
+    const auto client = new_test_client();
     Status s;
     s.key = "test-status-1";
     s.variant = status::variant::INFO;
     s.message = "Test message";
     s.time = telem::TimeStamp::now();
-    auto err = client.statuses.set(s);
-    EXPECT_FALSE(err) << err.message();
+    ASSERT_NIL(client.statuses.set(s));
     EXPECT_EQ(s.key, "test-status-1");
 }
 
+/// @brief it should retrieve a status by its key.
 TEST(StatusTest, RetrieveStatus) {
-    auto client = new_test_client();
+    const auto client = new_test_client();
     Status s;
     s.key = "test-status-retrieve";
     s.variant = status::variant::SUCCESS;
     s.message = "Retrievable";
     s.time = telem::TimeStamp::now();
-    auto set_err = client.statuses.set(s);
-    EXPECT_FALSE(set_err) << set_err.message();
-    auto [retrieved, err] = client.statuses.retrieve(s.key);
-    EXPECT_FALSE(err) << err.message();
+    ASSERT_NIL(client.statuses.set(s));
+    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(s.key));
     EXPECT_EQ(retrieved.key, s.key);
     EXPECT_EQ(retrieved.message, s.message);
     EXPECT_EQ(retrieved.variant, s.variant);
 }
 
+/// @brief it should delete a status from the cluster.
 TEST(StatusTest, DeleteStatus) {
-    auto client = new_test_client();
+    const auto client = new_test_client();
     Status s;
     s.key = "test-status-delete";
     s.variant = status::variant::INFO;
     s.message = "To delete";
     s.time = telem::TimeStamp::now();
-    auto set_err = client.statuses.set(s);
-    EXPECT_FALSE(set_err) << set_err.message();
-    auto err = client.statuses.del(s.key);
-    EXPECT_FALSE(err) << err.message();
-    auto [retrieved, err2] = client.statuses.retrieve(s.key);
-    EXPECT_TRUE(err2);
+    ASSERT_NIL(client.statuses.set(s));
+    ASSERT_NIL(client.statuses.del(s.key));
+    ASSERT_OCCURRED_AS_P(client.statuses.retrieve(s.key), xerrors::NOT_FOUND);
 }
 
+/// @brief it should set multiple statuses in a batch.
 TEST(StatusTest, SetMultipleStatuses) {
-    auto client = new_test_client();
+    const auto client = new_test_client();
     std::vector<Status> statuses;
     for (int i = 0; i < 3; i++) {
         Status s;
@@ -69,16 +67,15 @@ TEST(StatusTest, SetMultipleStatuses) {
         s.time = telem::TimeStamp::now();
         statuses.push_back(s);
     }
-    auto err = client.statuses.set(statuses);
-    EXPECT_FALSE(err) << err.message();
+    ASSERT_NIL(client.statuses.set(statuses));
     EXPECT_EQ(statuses.size(), 3);
-    for (size_t i = 0; i < statuses.size(); i++) {
+    for (size_t i = 0; i < statuses.size(); i++)
         EXPECT_EQ(statuses[i].key, "test-batch-" + std::to_string(i));
-    }
 }
 
+/// @brief it should retrieve multiple statuses by their keys.
 TEST(StatusTest, RetrieveMultipleStatuses) {
-    auto client = new_test_client();
+    const auto client = new_test_client();
     std::vector<Status> to_create;
     for (int i = 0; i < 3; i++) {
         Status s;
@@ -88,15 +85,13 @@ TEST(StatusTest, RetrieveMultipleStatuses) {
         s.time = telem::TimeStamp::now();
         to_create.push_back(s);
     }
-    auto set_err = client.statuses.set(to_create);
-    EXPECT_FALSE(set_err) << set_err.message();
-    std::vector<std::string> keys = {
+    ASSERT_NIL(client.statuses.set(to_create));
+    const std::vector<std::string> keys = {
         "test-multi-retrieve-0",
         "test-multi-retrieve-1",
         "test-multi-retrieve-2"
     };
-    auto [retrieved, err] = client.statuses.retrieve(keys);
-    EXPECT_FALSE(err) << err.message();
+    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(keys));
     EXPECT_EQ(retrieved.size(), 3);
     for (size_t i = 0; i < retrieved.size(); i++) {
         EXPECT_EQ(retrieved[i].key, "test-multi-retrieve-" + std::to_string(i));
@@ -104,39 +99,39 @@ TEST(StatusTest, RetrieveMultipleStatuses) {
     }
 }
 
+/// @brief it should update an existing status with new values.
 TEST(StatusTest, UpdateExistingStatus) {
-    auto client = new_test_client();
+    const auto client = new_test_client();
     Status s;
     s.key = "test-status-update";
     s.variant = status::variant::INFO;
     s.message = "Original message";
     s.time = telem::TimeStamp::now();
-    auto err1 = client.statuses.set(s);
-    EXPECT_FALSE(err1) << err1.message();
+    ASSERT_NIL(client.statuses.set(s));
     s.variant = status::variant::WARNING;
     s.message = "Updated message";
     s.description = "Added description";
     s.time = telem::TimeStamp::now();
-    auto err2 = client.statuses.set(s);
-    EXPECT_FALSE(err2) << err2.message();
-    auto [retrieved, err3] = client.statuses.retrieve(s.key);
-    EXPECT_FALSE(err3) << err3.message();
+    ASSERT_NIL(client.statuses.set(s));
+    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(s.key));
     EXPECT_EQ(retrieved.key, "test-status-update");
     EXPECT_EQ(retrieved.variant, status::variant::WARNING);
     EXPECT_EQ(retrieved.message, "Updated message");
     EXPECT_EQ(retrieved.description, "Added description");
 }
 
+/// @brief it should return a not found error for non-existent status.
 TEST(StatusTest, RetrieveNonExistentStatus) {
-    auto client = new_test_client();
-    auto [retrieved, err] = client.statuses.retrieve("non-existent-status-key");
-    EXPECT_TRUE(err);
-    EXPECT_TRUE(err.matches("sy.query.not_found"))
-        << "Expected not_found error, got: " << err.message();
+    const auto client = new_test_client();
+    ASSERT_OCCURRED_AS_P(
+        client.statuses.retrieve("non-existent-status-key"),
+        xerrors::NOT_FOUND
+    );
 }
 
+/// @brief it should delete multiple statuses in a batch.
 TEST(StatusTest, DeleteMultipleStatuses) {
-    auto client = new_test_client();
+    const auto client = new_test_client();
     std::vector<Status> to_create;
     for (int i = 0; i < 3; i++) {
         Status s;
@@ -146,36 +141,29 @@ TEST(StatusTest, DeleteMultipleStatuses) {
         s.time = telem::TimeStamp::now();
         to_create.push_back(s);
     }
-    auto set_err = client.statuses.set(to_create);
-    EXPECT_FALSE(set_err) << set_err.message();
+    ASSERT_NIL(client.statuses.set(to_create));
     std::vector<std::string> keys = {
         "test-multi-delete-0",
         "test-multi-delete-1",
         "test-multi-delete-2"
     };
-    auto del_err = client.statuses.del(keys);
-    EXPECT_FALSE(del_err) << del_err.message();
-    auto [retrieved, err] = client.statuses.retrieve(keys);
-    EXPECT_TRUE(err);
+    ASSERT_NIL(client.statuses.del(keys));
+    ASSERT_OCCURRED_AS_P(client.statuses.retrieve(keys), xerrors::NOT_FOUND);
 }
 
+/// @brief it should round-trip status details through JSON.
 TEST(StatusTest, DetailsRoundTrip) {
-    auto client = new_test_client();
+    const auto client = new_test_client();
     Status s;
     s.key = "test-status-details";
     s.variant = status::variant::INFO;
     s.message = "Testing details";
     s.time = telem::TimeStamp::now();
-    // DefaultDetails has a default to_json that returns empty object
-    // Verify it round-trips correctly
-    auto set_err = client.statuses.set(s);
-    EXPECT_FALSE(set_err) << set_err.message();
-    auto [retrieved, err] = client.statuses.retrieve(s.key);
-    EXPECT_FALSE(err) << err.message();
+    ASSERT_NIL(client.statuses.set(s));
+    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(s.key));
     EXPECT_EQ(retrieved.key, s.key);
     EXPECT_EQ(retrieved.message, s.message);
-    // DefaultDetails should serialize as empty JSON object and deserialize back
-    auto details_json = retrieved.details.to_json();
+    const auto details_json = retrieved.details.to_json();
     EXPECT_TRUE(details_json.is_object());
     EXPECT_TRUE(details_json.empty());
 }
@@ -203,8 +191,9 @@ struct CustomStatusDetails {
     }
 };
 
+/// @brief it should set and retrieve a status with custom details type.
 TEST(StatusTest, CustomDetailsSetAndRetrieve) {
-    auto client = new_test_client();
+    const auto client = new_test_client();
     status::Status<CustomStatusDetails> s;
     s.key = "test-custom-details-1";
     s.variant = status::variant::ERR;
@@ -215,11 +204,11 @@ TEST(StatusTest, CustomDetailsSetAndRetrieve) {
     s.details.error_code = 42;
     s.details.critical = true;
 
-    auto set_err = client.statuses.set<CustomStatusDetails>(s);
-    EXPECT_FALSE(set_err) << set_err.message();
+    ASSERT_NIL(client.statuses.set<CustomStatusDetails>(s));
 
-    auto [retrieved, err] = client.statuses.retrieve<CustomStatusDetails>(s.key);
-    EXPECT_FALSE(err) << err.message();
+    const auto retrieved = ASSERT_NIL_P(
+        client.statuses.retrieve<CustomStatusDetails>(s.key)
+    );
     EXPECT_EQ(retrieved.key, s.key);
     EXPECT_EQ(retrieved.variant, s.variant);
     EXPECT_EQ(retrieved.message, s.message);
@@ -229,8 +218,9 @@ TEST(StatusTest, CustomDetailsSetAndRetrieve) {
     EXPECT_EQ(retrieved.details.critical, true);
 }
 
+/// @brief it should set and retrieve multiple statuses with custom details.
 TEST(StatusTest, CustomDetailsSetMultiple) {
-    auto client = new_test_client();
+    const auto client = new_test_client();
     std::vector<status::Status<CustomStatusDetails>> statuses;
 
     for (int i = 0; i < 3; i++) {
@@ -245,17 +235,16 @@ TEST(StatusTest, CustomDetailsSetMultiple) {
         statuses.push_back(s);
     }
 
-    auto set_err = client.statuses.set<CustomStatusDetails>(statuses);
-    EXPECT_FALSE(set_err) << set_err.message();
+    ASSERT_NIL(client.statuses.set<CustomStatusDetails>(statuses));
     EXPECT_EQ(statuses.size(), 3);
 
     std::vector<std::string> keys;
-    for (const auto &s: statuses) {
+    for (const auto &s: statuses)
         keys.push_back(s.key);
-    }
 
-    auto [retrieved, err] = client.statuses.retrieve<CustomStatusDetails>(keys);
-    EXPECT_FALSE(err) << err.message();
+    const auto retrieved = ASSERT_NIL_P(
+        client.statuses.retrieve<CustomStatusDetails>(keys)
+    );
     EXPECT_EQ(retrieved.size(), 3);
 
     for (size_t i = 0; i < retrieved.size(); i++) {
@@ -267,8 +256,9 @@ TEST(StatusTest, CustomDetailsSetMultiple) {
     }
 }
 
+/// @brief it should update a status with custom details.
 TEST(StatusTest, CustomDetailsUpdate) {
-    auto client = new_test_client();
+    const auto client = new_test_client();
     status::Status<CustomStatusDetails> s;
     s.key = "test-custom-update";
     s.variant = status::variant::WARNING;
@@ -278,8 +268,7 @@ TEST(StatusTest, CustomDetailsUpdate) {
     s.details.error_code = 100;
     s.details.critical = false;
 
-    auto err1 = client.statuses.set<CustomStatusDetails>(s);
-    EXPECT_FALSE(err1) << err1.message();
+    ASSERT_NIL(client.statuses.set<CustomStatusDetails>(s));
 
     // Update the status with new details
     s.variant = status::variant::ERR;
@@ -287,11 +276,11 @@ TEST(StatusTest, CustomDetailsUpdate) {
     s.details.error_code = 500;
     s.details.critical = true;
 
-    auto err2 = client.statuses.set<CustomStatusDetails>(s);
-    EXPECT_FALSE(err2) << err2.message();
+    ASSERT_NIL(client.statuses.set<CustomStatusDetails>(s));
 
-    auto [retrieved, err3] = client.statuses.retrieve<CustomStatusDetails>(s.key);
-    EXPECT_FALSE(err3) << err3.message();
+    const auto retrieved = ASSERT_NIL_P(
+        client.statuses.retrieve<CustomStatusDetails>(s.key)
+    );
     EXPECT_EQ(retrieved.key, "test-custom-update");
     EXPECT_EQ(retrieved.variant, status::variant::ERR);
     EXPECT_EQ(retrieved.message, "Escalated to error");
@@ -300,8 +289,9 @@ TEST(StatusTest, CustomDetailsUpdate) {
     EXPECT_EQ(retrieved.details.critical, true);
 }
 
+/// @brief it should handle custom details with empty or default fields.
 TEST(StatusTest, CustomDetailsEmptyFields) {
-    auto client = new_test_client();
+    const auto client = new_test_client();
     status::Status<CustomStatusDetails> s;
     s.key = "test-custom-empty";
     s.variant = status::variant::INFO;
@@ -309,11 +299,11 @@ TEST(StatusTest, CustomDetailsEmptyFields) {
     s.time = telem::TimeStamp::now();
     // Leave details with default values
 
-    auto set_err = client.statuses.set<CustomStatusDetails>(s);
-    EXPECT_FALSE(set_err) << set_err.message();
+    ASSERT_NIL(client.statuses.set<CustomStatusDetails>(s));
 
-    auto [retrieved, err] = client.statuses.retrieve<CustomStatusDetails>(s.key);
-    EXPECT_FALSE(err) << err.message();
+    const auto retrieved = ASSERT_NIL_P(
+        client.statuses.retrieve<CustomStatusDetails>(s.key)
+    );
     EXPECT_EQ(retrieved.details.device_id, "");
     EXPECT_EQ(retrieved.details.error_code, 0);
     EXPECT_EQ(retrieved.details.critical, false);
