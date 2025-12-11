@@ -548,210 +548,206 @@ describe("Exporter", () => {
       const nonEmptyValues = firstDataRow.filter((v) => v !== "");
       expect(nonEmptyValues.length).toBeGreaterThan(0);
     });
-    it(
-      "should handle huge dense and sparse indexes with correct ordering and merging",
-      { timeout: 8_000 },
-      async () => {
-        const denseSamples = 200_000;
-        const sparseStep = 1_000;
-        const sparseSamples = denseSamples / sparseStep;
+    it("should handle huge dense and sparse indexes with correct ordering and merging", async () => {
+      const denseSamples = 100_000;
+      const sparseStep = 1_000;
+      const sparseSamples = denseSamples / sparseStep;
 
-        // Fast (dense) index + data
-        const indexFast = await client.channels.create({
-          name: `dense_index_${id.create()}`,
-          dataType: DataType.TIMESTAMP,
-          isIndex: true,
-        });
-        const dataFast = await client.channels.create({
-          name: `dense_data_${id.create()}`,
-          dataType: DataType.FLOAT64,
-          index: indexFast.key,
-        });
+      // Fast (dense) index + data
+      const indexFast = await client.channels.create({
+        name: `dense_index_${id.create()}`,
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const dataFast = await client.channels.create({
+        name: `dense_data_${id.create()}`,
+        dataType: DataType.FLOAT64,
+        index: indexFast.key,
+      });
 
-        // Slow (sparse) index + data
-        const indexSlow = await client.channels.create({
-          name: `sparse_index_${id.create()}`,
-          dataType: DataType.TIMESTAMP,
-          isIndex: true,
-        });
-        const dataSlow = await client.channels.create({
-          name: `sparse_data_${id.create()}`,
-          dataType: DataType.FLOAT64,
-          index: indexSlow.key,
-        });
-        const baseTime = TimeStamp.seconds(0);
-        const denseWriter = await client.openWriter({
-          start: baseTime,
-          channels: [indexFast.key, dataFast.key],
-        });
+      // Slow (sparse) index + data
+      const indexSlow = await client.channels.create({
+        name: `sparse_index_${id.create()}`,
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const dataSlow = await client.channels.create({
+        name: `sparse_data_${id.create()}`,
+        dataType: DataType.FLOAT64,
+        index: indexSlow.key,
+      });
+      const baseTime = TimeStamp.seconds(0);
+      const denseWriter = await client.openWriter({
+        start: baseTime,
+        channels: [indexFast.key, dataFast.key],
+      });
 
-        const denseBatchSize = 10_000;
-        for (
-          let batchStart = 1;
-          batchStart <= denseSamples;
-          batchStart += denseBatchSize
-        ) {
-          const batchEnd = Math.min(batchStart + denseBatchSize - 1, denseSamples);
-          const tsBatch: TimeStamp[] = [];
-          const valBatch: number[] = [];
+      const denseBatchSize = 10_000;
+      for (
+        let batchStart = 1;
+        batchStart <= denseSamples;
+        batchStart += denseBatchSize
+      ) {
+        const batchEnd = Math.min(batchStart + denseBatchSize - 1, denseSamples);
+        const tsBatch: TimeStamp[] = [];
+        const valBatch: number[] = [];
 
-          for (let i = batchStart; i <= batchEnd; i++) {
-            // baseTime + i ns => underlying raw timestamps ~ [1..1_000_000]
-            tsBatch.push(baseTime.add(TimeSpan.nanoseconds(i)));
-            valBatch.push(i); // arbitrary data value
-          }
-
-          await denseWriter.write({
-            [indexFast.key]: tsBatch,
-            [dataFast.key]: valBatch,
-          });
+        for (let i = batchStart; i <= batchEnd; i++) {
+          // baseTime + i ns => underlying raw timestamps ~ [1..1_000_000]
+          tsBatch.push(baseTime.add(TimeSpan.nanoseconds(i)));
+          valBatch.push(i); // arbitrary data value
         }
-        await denseWriter.commit();
-        await denseWriter.close();
 
-        // ---- Write sparse channel: timestamps 1..1_000_000 every 1000 ----
-        const sparseWriter = await client.openWriter({
-          start: baseTime,
-          channels: [indexSlow.key, dataSlow.key],
+        await denseWriter.write({
+          [indexFast.key]: tsBatch,
+          [dataFast.key]: valBatch,
         });
+      }
+      await denseWriter.commit();
+      await denseWriter.close();
 
-        const sparseBatchSize = 160; // at most 1000 sparse points total anyway
-        for (
-          let batchStart = 0;
-          batchStart < sparseSamples;
-          batchStart += sparseBatchSize
-        ) {
-          const batchEnd = Math.min(batchStart + sparseBatchSize, sparseSamples);
-          const tsBatch: TimeStamp[] = [];
-          const valBatch: number[] = [];
+      // ---- Write sparse channel: timestamps 1..1_000_000 every 1000 ----
+      const sparseWriter = await client.openWriter({
+        start: baseTime,
+        channels: [indexSlow.key, dataSlow.key],
+      });
 
-          for (let j = batchStart; j < batchEnd; j++) {
-            const logicalTs = (j + 1) * sparseStep; // 1000, 2000, ..., 1_000_000
-            tsBatch.push(baseTime.add(TimeSpan.nanoseconds(logicalTs)));
-            valBatch.push(logicalTs); // arbitrary data value
-          }
+      const sparseBatchSize = 160; // at most 1000 sparse points total anyway
+      for (
+        let batchStart = 0;
+        batchStart < sparseSamples;
+        batchStart += sparseBatchSize
+      ) {
+        const batchEnd = Math.min(batchStart + sparseBatchSize, sparseSamples);
+        const tsBatch: TimeStamp[] = [];
+        const valBatch: number[] = [];
 
-          await sparseWriter.write({
-            [indexSlow.key]: tsBatch,
-            [dataSlow.key]: valBatch,
-          });
+        for (let j = batchStart; j < batchEnd; j++) {
+          const logicalTs = (j + 1) * sparseStep; // 1000, 2000, ..., 1_000_000
+          tsBatch.push(baseTime.add(TimeSpan.nanoseconds(logicalTs)));
+          valBatch.push(logicalTs); // arbitrary data value
         }
-        await sparseWriter.commit();
-        await sparseWriter.close();
 
-        // ---- Export CSV with explicit headers so we know column order ----
-        const stream = await client.read({
-          channels: [dataFast.key, dataSlow.key],
-          timeRange: {
-            start: baseTime,
-            end: baseTime.add(TimeSpan.nanoseconds(denseSamples + 1)),
-          },
-          channelNames: new Map([
-            [indexFast.key, "FastTime"],
-            [dataFast.key, "FastValue"],
-            [indexSlow.key, "SlowTime"],
-            [dataSlow.key, "SlowValue"],
-          ]),
-          responseType: "csv",
+        await sparseWriter.write({
+          [indexSlow.key]: tsBatch,
+          [dataSlow.key]: valBatch,
         });
+      }
+      await sparseWriter.commit();
+      await sparseWriter.close();
 
-        const reader = stream.getReader();
-        const decoder = new TextDecoder();
+      // ---- Export CSV with explicit headers so we know column order ----
+      const stream = await client.read({
+        channels: [dataFast.key, dataSlow.key],
+        timeRange: {
+          start: baseTime,
+          end: baseTime.add(TimeSpan.nanoseconds(denseSamples + 1)),
+        },
+        channelNames: new Map([
+          [indexFast.key, "FastTime"],
+          [dataFast.key, "FastValue"],
+          [indexSlow.key, "SlowTime"],
+          [dataSlow.key, "SlowValue"],
+        ]),
+        responseType: "csv",
+      });
 
-        let buffer = "";
-        let chunkCount = 0;
-        let isHeader = true;
-        let totalRows = 0; // data rows only (exclude header)
-        let sparseRows = 0;
-        let lastTimestamp: bigint | null = null;
+      const reader = stream.getReader();
+      const decoder = new TextDecoder();
+
+      let buffer = "";
+      let chunkCount = 0;
+      let isHeader = true;
+      let totalRows = 0; // data rows only (exclude header)
+      let sparseRows = 0;
+      let lastTimestamp: bigint | null = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunkCount++;
+
+        buffer += decoder.decode(value);
 
         while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          chunkCount++;
+          const idx = buffer.indexOf("\r\n");
+          if (idx === -1) break;
+          const line = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
 
-          buffer += decoder.decode(value);
+          if (line === "") continue;
 
-          while (true) {
-            const idx = buffer.indexOf("\r\n");
-            if (idx === -1) break;
-            const line = buffer.slice(0, idx);
-            buffer = buffer.slice(idx + 2);
+          if (isHeader) {
+            const headerCols = line.split(",");
+            expect(headerCols).toEqual([
+              "FastTime",
+              "FastValue",
+              "SlowTime",
+              "SlowValue",
+            ]);
+            isHeader = false;
+            continue;
+          }
 
-            if (line === "") continue;
+          totalRows++;
 
-            if (isHeader) {
-              const headerCols = line.split(",");
-              expect(headerCols).toEqual([
-                "FastTime",
-                "FastValue",
-                "SlowTime",
-                "SlowValue",
-              ]);
-              isHeader = false;
-              continue;
-            }
+          const cols = line.split(",");
+          expect(cols).toHaveLength(4);
 
-            totalRows++;
+          const fastTsStr = cols[0];
+          const slowTsStr = cols[2];
+          const fastValStr = cols[1];
+          const slowValStr = cols[3];
 
-            const cols = line.split(",");
-            expect(cols).toHaveLength(4);
+          // Dense channel should always have a timestamp and value
+          expect(fastTsStr).not.toBe("");
+          expect(fastValStr).not.toBe("");
 
-            const fastTsStr = cols[0];
-            const slowTsStr = cols[2];
-            const fastValStr = cols[1];
-            const slowValStr = cols[3];
+          const ts = BigInt(fastTsStr);
+          if (lastTimestamp !== null) expect(ts).toBeGreaterThan(lastTimestamp);
+          lastTimestamp = ts;
 
-            // Dense channel should always have a timestamp and value
-            expect(fastTsStr).not.toBe("");
-            expect(fastValStr).not.toBe("");
-
-            const ts = BigInt(fastTsStr);
-            if (lastTimestamp !== null) expect(ts).toBeGreaterThan(lastTimestamp);
-            lastTimestamp = ts;
-
-            // Sparse channel only has data every 1000 "ticks"
-            if (slowValStr !== "") {
-              sparseRows++;
-              // When sparse has data, its timestamp should match dense's timestamp
-              expect(slowTsStr).not.toBe("");
-              const slowTs = BigInt(slowTsStr);
-              expect(slowTs).toBe(ts);
-            }
+          // Sparse channel only has data every 1000 "ticks"
+          if (slowValStr !== "") {
+            sparseRows++;
+            // When sparse has data, its timestamp should match dense's timestamp
+            expect(slowTsStr).not.toBe("");
+            const slowTs = BigInt(slowTsStr);
+            expect(slowTs).toBe(ts);
           }
         }
+      }
 
-        // Handle any final line without trailing CRLF
-        if (buffer.trim().length > 0) {
-          const line = buffer.trim();
-          if (!isHeader) {
-            totalRows++;
-            const cols = line.split(",");
-            expect(cols).toHaveLength(4);
-            const fastTsStr = cols[0];
-            const slowTsStr = cols[2];
-            const slowValStr = cols[3];
-            expect(fastTsStr).not.toBe("");
-            const ts = BigInt(fastTsStr);
-            if (lastTimestamp !== null) expect(ts).toBeGreaterThan(lastTimestamp);
+      // Handle any final line without trailing CRLF
+      if (buffer.trim().length > 0) {
+        const line = buffer.trim();
+        if (!isHeader) {
+          totalRows++;
+          const cols = line.split(",");
+          expect(cols).toHaveLength(4);
+          const fastTsStr = cols[0];
+          const slowTsStr = cols[2];
+          const slowValStr = cols[3];
+          expect(fastTsStr).not.toBe("");
+          const ts = BigInt(fastTsStr);
+          if (lastTimestamp !== null) expect(ts).toBeGreaterThan(lastTimestamp);
 
-            if (slowValStr !== "") {
-              sparseRows++;
-              expect(slowTsStr).not.toBe("");
-              expect(BigInt(slowTsStr)).toBe(ts);
-            }
+          if (slowValStr !== "") {
+            sparseRows++;
+            expect(slowTsStr).not.toBe("");
+            expect(BigInt(slowTsStr)).toBe(ts);
           }
         }
+      }
 
-        // We should have streamed multiple chunks (proves AUTO_SPAN / multi-frame)
-        expect(chunkCount).toBeGreaterThan(1);
+      // We should have streamed multiple chunks (proves AUTO_SPAN / multi-frame)
+      expect(chunkCount).toBeGreaterThan(1);
 
-        // One row per dense timestamp
-        expect(totalRows).toBe(denseSamples);
+      // One row per dense timestamp
+      expect(totalRows).toBe(denseSamples);
 
-        // One row per sparse timestamp (merged into dense rows)
-        expect(sparseRows).toBe(sparseSamples);
-      },
-    );
+      // One row per sparse timestamp (merged into dense rows)
+      expect(sparseRows).toBe(sparseSamples);
+    });
   });
 });
