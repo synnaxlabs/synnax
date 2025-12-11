@@ -323,6 +323,7 @@ class MultiSeries:
             end = start + len(s)
             pre_alloc[start:end] = s.__array__(dtype=target_dtype)
             start = end
+        # copy is implicitly handled since we're creating a new array
         return pre_alloc
 
     def to_numpy(

@@ -15,7 +15,7 @@ Before running this example:
    poetry run python driver/opc/dev/server_extended.py
 
 2. Connect the OPC UA server device in Synnax:
-   - Endpoint: opc.tcp://localhost:4841/
+   - Endpoint: opc.tcp://127.0.0.1:4841/
    - Name the device "OPC UA Server" (or update line 27 below)
 
 3. The server creates float variables (my_float_0, my_float_1, etc.) that continuously
