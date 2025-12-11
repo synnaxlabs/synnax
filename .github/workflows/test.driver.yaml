@@ -144,7 +144,6 @@ jobs:
       - name: Test Driver
         run: |
           bazel test --config=asan-leak --test_output=all //driver/... \
-            --disk_cache=~/.cache/bazel-disk \
             --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} \
             --test_env=LSAN_OPTIONS="suppressions=${{ github.workspace }}/scripts/sanitizers/lsan_suppressions.txt" \
             --spawn_strategy=local \

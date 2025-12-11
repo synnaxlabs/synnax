@@ -89,7 +89,6 @@ jobs:
         if: matrix.os == 'ubuntu-build-bot'
         run: |
           bazel test --config=asan-leak --test_output=all //x/cpp/... \
-            --disk_cache=~/.cache/bazel-disk \
             --remote_cache=${{ env.BAZEL_REMOTE_CACHE }}
         shell: bash
 
@@ -97,6 +96,5 @@ jobs:
         if: matrix.os == 'windows-build-bot'
         run: |
           bazel --output_user_root=C:/tmp test --test_output=all //x/cpp/... \
-            --disk_cache=C:/tmp/bazel-disk \
             --remote_cache=${{ env.BAZEL_REMOTE_CACHE }}
         shell: bash
