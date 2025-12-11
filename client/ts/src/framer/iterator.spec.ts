@@ -102,10 +102,7 @@ describe("Iterator", () => {
   test("downsample factor 2", async () => {
     const channels = await newIndexedPair(client);
     const [idx_ch, data_ch] = channels;
-    const writer = await client.openWriter({
-      start: TimeStamp.SECOND,
-      channels,
-    });
+    const writer = await client.openWriter({ start: TimeStamp.SECOND, channels });
     await writer.write({
       [idx_ch.key]: secondsLinspace(1, 8),
       [data_ch.key]: new Float64Array([1, 2, 3, 4, 5, 6, 7, 8]),
@@ -128,10 +125,7 @@ describe("Iterator", () => {
   test("downsample factor 3", async () => {
     const channels = await newIndexedPair(client);
     const [idx_ch, data_ch] = channels;
-    const writer = await client.openWriter({
-      start: TimeStamp.SECOND,
-      channels,
-    });
+    const writer = await client.openWriter({ start: TimeStamp.SECOND, channels });
     await writer.write({
       [idx_ch.key]: secondsLinspace(1, 9),
       [data_ch.key]: new Float64Array([1, 2, 3, 4, 5, 6, 7, 8, 9]),
@@ -154,10 +148,7 @@ describe("Iterator", () => {
   test("no downsample when factor is 1", async () => {
     const channels = await newIndexedPair(client);
     const [idx_ch, data_ch] = channels;
-    const writer = await client.openWriter({
-      start: TimeStamp.SECOND,
-      channels,
-    });
+    const writer = await client.openWriter({ start: TimeStamp.SECOND, channels });
     await writer.write({
       [idx_ch.key]: secondsLinspace(1, 4),
       [data_ch.key]: new Float64Array([1, 2, 3, 4]),
@@ -166,7 +157,6 @@ describe("Iterator", () => {
     const iter = await client.openIterator(TimeRange.MAX, channels, {
       downsampleFactor: 1,
     });
-
     try {
       expect(await iter.seekFirst()).toBe(true);
       expect(await iter.next(AUTO_SPAN)).toBe(true);

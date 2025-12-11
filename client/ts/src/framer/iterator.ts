@@ -68,7 +68,8 @@ export interface IteratorConfig {
    * resulting from a call to next with {@link AUTO_SPAN}.
    */
   chunkSize?: number;
-  /** downsampleFactor is the factor to downsample the data by. If downsampleFactor is
+  /**
+   * downsampleFactor is the factor to downsample the data by. If downsampleFactor is
    * less than or equal to 1, no downsampling will be performed.
    */
   downsampleFactor?: number;
