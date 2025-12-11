@@ -81,6 +81,8 @@ jobs:
       - name: Test (macOS)
         if: matrix.os == 'macos-build-bot'
         run:
+          # Running on real hardware, not in the AWS vpc. This means caching from S3 is slow.
+          # The hardware used is fast enough to not be a bottleneck.
           bazel test --config=asan --test_output=all //x/cpp/...
           --test_tag_filters=-no-asan
         shell: bash
