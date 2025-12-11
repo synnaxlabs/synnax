@@ -600,10 +600,7 @@ describe("Reader", () => {
           valBatch.push(i); // arbitrary data value
         }
 
-        await denseWriter.write({
-          [indexFast.key]: tsBatch,
-          [dataFast.key]: valBatch,
-        });
+        await denseWriter.write({ [indexFast.key]: tsBatch, [dataFast.key]: valBatch });
       }
       await denseWriter.commit();
       await denseWriter.close();
@@ -614,7 +611,7 @@ describe("Reader", () => {
         channels: [indexSlow.key, dataSlow.key],
       });
 
-      const sparseBatchSize = 160; // at most 1000 sparse points total anyway
+      const sparseBatchSize = 1000; // at most 1000 sparse points total anyway
       for (
         let batchStart = 0;
         batchStart < sparseSamples;
@@ -675,10 +672,8 @@ describe("Reader", () => {
           const idx = buffer.indexOf(delimiter);
           if (idx === -1) break;
           const line = buffer.slice(0, idx);
-          buffer = buffer.slice(idx + 2);
-
+          buffer = buffer.slice(idx + delimiter.length);
           if (line === "") continue;
-
           if (isHeader) {
             const headerCols = line.split(",");
             expect(headerCols).toEqual([
@@ -713,9 +708,7 @@ describe("Reader", () => {
           if (slowValStr !== "") {
             sparseRows++;
             // When sparse has data, its timestamp should match dense's timestamp
-            expect(slowTsStr).not.toBe("");
-            const slowTs = BigInt(slowTsStr);
-            expect(slowTs).toBe(ts);
+            expect(slowTsStr).toBe(fastTsStr);
           }
         }
       }
