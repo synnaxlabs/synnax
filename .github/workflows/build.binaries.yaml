@@ -414,8 +414,9 @@ jobs:
           cache: false
 
       - name: Build Core
-        if: inputs.core && matrix.os != 'windows-build-bot'
+        if: inputs.core
         working-directory: core
+        shell: bash
         run: |
           go build ${{ needs.setup.outputs.GO_BUILD_TAGS }} \
             -ldflags="-w -s \
@@ -423,15 +424,6 @@ jobs:
               -X github.com/synnaxlabs/synnax/pkg/version.GitCommit=${{ github.sha }} \
               -X github.com/synnaxlabs/synnax/pkg/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             -o synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
-
-      # TODO: Remove when bash is installed on windows-build-bot (choco install git -y)
-      - name: Build Core (Windows)
-        if: inputs.core && matrix.os == 'windows-build-bot'
-        working-directory: core
-        run: |
-          $buildDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-          $ldflags = "-w -s -X github.com/synnaxlabs/synnax/pkg/version.Version=${{ needs.setup.outputs.VERSION }} -X github.com/synnaxlabs/synnax/pkg/version.GitCommit=${{ github.sha }} -X github.com/synnaxlabs/synnax/pkg/version.BuildDate=$buildDate"
-          go build ${{ needs.setup.outputs.GO_BUILD_TAGS }} -ldflags="$ldflags" -o synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
 
       - name: Sign macOS Server Binary
         if: inputs.sign_binaries && inputs.core && matrix.os == 'macos-build-bot'
