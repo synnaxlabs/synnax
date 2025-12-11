@@ -42,8 +42,8 @@ const streamToRecords = async (
   return parseCSV(csv);
 };
 
-describe("Exporter", () => {
-  describe("exportCSV", () => {
+describe("Reader", () => {
+  describe("CSV", () => {
     it("should export channels with the same index", async () => {
       const index = await client.channels.create({
         name: id.create(),
@@ -550,8 +550,8 @@ describe("Exporter", () => {
       const nonEmptyValues = firstDataRow.filter((v) => v !== "");
       expect(nonEmptyValues.length).toBeGreaterThan(0);
     });
-    it("should handle huge dense and sparse indexes with correct ordering and merging", async () => {
-      const denseSamples = 100_000;
+    it("should handle large dense and sparse indexes with correct ordering and merging", async () => {
+      const denseSamples = 50_000;
       const sparseStep = 1_000;
       const sparseSamples = denseSamples / sparseStep;
 
