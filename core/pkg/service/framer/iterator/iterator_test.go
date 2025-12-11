@@ -914,7 +914,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8),
 				},
 			)
-			MustSucceed(w.Write(fr))
+			Expect(w.Write(fr)).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 
 			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
@@ -966,7 +966,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8, 9),
 				},
 			)
-			MustSucceed(w.Write(fr))
+			Expect(w.Write(fr)).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 
 			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
@@ -1082,7 +1082,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8),
 				},
 			)
-			MustSucceed(w.Write(fr))
+			Expect(w.Write(fr)).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 
 			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
@@ -1124,13 +1124,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Keys:             keys,
 				EnableAutoCommit: config.True(),
 			}))
-			MustSucceed(w.Write(core.MultiFrame(
+			Expect(w.Write(core.MultiFrame(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4),
 					telem.NewSeriesV[float32](1, 2, 3, 4),
 				},
-			)))
+			))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 
 			// Second domain
@@ -1139,13 +1139,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Keys:             keys,
 				EnableAutoCommit: config.True(),
 			}))
-			MustSucceed(w.Write(core.MultiFrame(
+			Expect(w.Write(core.MultiFrame(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(10, 11, 12, 13),
 					telem.NewSeriesV[float32](10, 11, 12, 13),
 				},
-			)))
+			))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 
 			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
