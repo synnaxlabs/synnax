@@ -233,17 +233,21 @@ func newFilter[K Key, E Entry[K]](
 
 func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 	var (
-		reader          = WrapReader[K, E](tx)
-		keysResult, err = reader.GetMany(ctx, *r.keys)
-		toReplace       = make([]E, 0, len(keysResult))
-		validCount      int
-		match           bool
+		reader             = WrapReader[K, E](tx)
+		keysResult, getErr = reader.GetMany(ctx, *r.keys)
+		toReplace          = make([]E, 0, len(keysResult))
+		validCount         int
 	)
+	// We don't return early even if getErr fails with a not found result in order
+	// to do a best effort retrieval of available items.
+	if getErr != nil && !errors.Is(getErr, query.NotFound) {
+		return getErr
+	}
 	for _, e := range keysResult {
 		if !reader.keyCodec.matchPrefix(r.prefix, e.GorpKey()) {
 			continue
 		}
-		match, err = r.filters.exec(Context{Context: ctx, Tx: tx}, &e)
+		match, err := r.filters.exec(Context{Context: ctx, Tx: tx}, &e)
 		if err != nil {
 			return err
 		}
@@ -255,7 +259,7 @@ func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 		}
 	}
 	r.entries.Replace(toReplace)
-	return err
+	return getErr
 }
 
 func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {

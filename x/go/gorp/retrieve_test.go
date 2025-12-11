@@ -455,9 +455,11 @@ var _ = Describe("Retrieve", func() {
 		})
 
 		Context("WherePrefix", func() {
+			var (
+				r1 = prefixEntry{ID: 123, Data: "data"}
+				r2 = prefixEntry{ID: 456, Data: "data"}
+			)
 			BeforeEach(func() {
-				r1 := prefixEntry{ID: 123, Data: "data"}
-				r2 := prefixEntry{ID: 456, Data: "data"}
 				Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r1).Exec(ctx, tx)).To(Succeed())
 				Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r2).Exec(ctx, tx)).To(Succeed())
 			})
@@ -472,6 +474,13 @@ var _ = Describe("Retrieve", func() {
 				Expect(gorp.NewRetrieve[[]byte, prefixEntry]().
 					WherePrefix([]byte("nonexistent-prefix")).
 					Count(ctx, tx)).To(Equal(0))
+			})
+
+			It("Should work in combination with WhereKeys", func() {
+				Expect(gorp.NewRetrieve[[]byte, prefixEntry]().
+					WhereKeys(r1.GorpKey(), r2.GorpKey()).
+					WherePrefix([]byte("prefix-123")).
+					Count(ctx, tx)).To(Equal(1))
 			})
 		})
 
