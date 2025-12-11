@@ -36,6 +36,39 @@ class TestSeries:
         assert s[3] == 4
         assert s.__array__().dtype == np.float64
 
+    def test_array_with_dtype(self):
+        """Should convert to specified dtype when using __array__"""
+        s = sy.Series([1, 2, 3], data_type=sy.DataType.INT64)
+        arr = s.__array__(dtype=np.float32)
+        assert arr.dtype == np.float32
+        assert list(arr) == [1.0, 2.0, 3.0]
+
+    def test_array_with_copy_true(self):
+        """Should return a copy when copy=True"""
+        s = sy.Series([1, 2, 3], data_type=sy.DataType.INT64)
+        arr1 = s.__array__(copy=True)
+        arr2 = s.__array__(copy=True)
+        assert not np.shares_memory(arr1, arr2)
+
+    def test_array_with_copy_false_same_dtype(self):
+        """Should not copy when copy=False and no dtype conversion needed"""
+        s = sy.Series([1, 2, 3], data_type=sy.DataType.INT64)
+        arr = s.__array__(copy=False)
+        assert arr.dtype == np.int64
+
+    def test_np_array_with_dtype(self):
+        """Should work with np.array() and dtype parameter (NumPy 2.0 protocol)"""
+        s = sy.Series([1, 2, 3], data_type=sy.DataType.INT64)
+        arr = np.array(s, dtype=np.float32)
+        assert arr.dtype == np.float32
+
+    def test_np_array_with_copy(self):
+        """Should work with np.array() and copy parameter (NumPy 2.0 protocol)"""
+        s = sy.Series([1, 2, 3], data_type=sy.DataType.INT64)
+        arr = np.array(s, copy=True)
+        assert arr.dtype == np.int64
+        assert list(arr) == [1, 2, 3]
+
     def test_construction_from_pd_series(self):
         """Should correctly construct the array from a pandas series"""
         d = pd.Series([1, 2, 3], dtype=np.float64)
@@ -247,6 +280,32 @@ class TestMultiSeries:
         s = sy.MultiSeries([s1, s2])
         assert len(s.to_numpy()) == 6
         assert s.to_numpy().dtype == np.int8
+
+    def test_array_with_dtype(self):
+        """Should convert to specified dtype when using __array__"""
+        s1 = sy.Series([1, 2, 3], data_type=sy.DataType.INT8)
+        s2 = sy.Series([4, 5, 6], data_type=sy.DataType.INT8)
+        s = sy.MultiSeries([s1, s2])
+        arr = s.__array__(dtype=np.float32)
+        assert arr.dtype == np.float32
+        assert list(arr) == [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+
+    def test_np_array_with_dtype(self):
+        """Should work with np.array() and dtype parameter (NumPy 2.0 protocol)"""
+        s1 = sy.Series([1, 2, 3], data_type=sy.DataType.INT8)
+        s2 = sy.Series([4, 5, 6], data_type=sy.DataType.INT8)
+        s = sy.MultiSeries([s1, s2])
+        arr = np.array(s, dtype=np.float64)
+        assert arr.dtype == np.float64
+
+    def test_np_array_with_copy(self):
+        """Should work with np.array() and copy parameter (NumPy 2.0 protocol)"""
+        s1 = sy.Series([1, 2, 3], data_type=sy.DataType.INT8)
+        s2 = sy.Series([4, 5, 6], data_type=sy.DataType.INT8)
+        s = sy.MultiSeries([s1, s2])
+        arr = np.array(s, copy=True)
+        assert arr.dtype == np.int8
+        assert list(arr) == [1, 2, 3, 4, 5, 6]
 
     def test_time_range(self):
         """Should correctly return the time range of the sy.MultiSeries"""

@@ -11,7 +11,7 @@ import { DataType, id } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { Channel } from "@/channel/client";
-import { NotFoundError, PathError } from "@/errors";
+import { NotFoundError } from "@/errors";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
