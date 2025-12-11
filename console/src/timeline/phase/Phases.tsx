@@ -16,20 +16,17 @@ export const Phases = () => {
     });
   }, [phases]);
   const handleDeletePhase = useCallback(
-    (path: string) => {
-      console.log("delete phase", path);
-      phases.remove(path);
-    },
+    (path: string) => phases.remove(path),
     [phases],
   );
   return (
-    <Timeline.Track full>
+    <Timeline.Track full y>
       {phases.data.map((phase, index) => (
         <Phase
           key={phase}
           path={`phases.${phase}`}
           index={index}
-          onDelete={() => phases.remove(phase)}
+          onDelete={handleDeletePhase}
         />
       ))}
       <Button.Button

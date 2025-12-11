@@ -10,7 +10,15 @@ export interface StateProps {
 }
 
 export const State = ({ itemKey, path, onDelete }: StateProps) => (
-  <Flex.Box y pack style={{ borderTop: "var(--pluto-border)" }}>
+  <Flex.Box
+    y
+    pack
+    grow
+    style={{
+      borderTop: "var(--pluto-border)",
+      borderLeft: "var(--pluto-border)",
+    }}
+  >
     <Header.Header level="h5" background={1}>
       <Form.TextField
         path={`${path}.name`}
@@ -31,7 +39,6 @@ export const State = ({ itemKey, path, onDelete }: StateProps) => (
       style={{
         height: "300px",
         borderTop: "var(--pluto-border)",
-        borderBottom: "var(--pluto-border)",
       }}
     >
       <Timeline.Track>

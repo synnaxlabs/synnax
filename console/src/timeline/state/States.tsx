@@ -20,7 +20,7 @@ export const States = ({ path }: StatesProps) => {
     });
   }, [states]);
   return (
-    <Flex.Box y pack>
+    <Flex.Box x pack>
       {states.data.map((state) => (
         <State.State
           key={state}
@@ -33,7 +33,7 @@ export const States = ({ path }: StatesProps) => {
         variant="text"
         contrast={2}
         full="y"
-        style={{ width: "calc(100% - 6px)", left: "3px", opacity: "0.7" }}
+        style={{ height: "100%" }}
         onClick={handleAddState}
       >
         <Icon.Add />
