@@ -154,11 +154,11 @@ const createCSVReadableStream = ({
         }
         const bufferedCount =
           pendingRecords.length - pendingCursor + stagedRecords.length;
-        if (bufferedCount < 1000) {
+        if (bufferedCount < BUFFER_SIZE) {
           const hasMore = await iterator.next();
           if (hasMore) extractRecordsFromFrame(iterator.value);
         }
-        const rows = buildCSVRows(1000);
+        const rows = buildCSVRows(BUFFER_SIZE);
         if (rows.length > 0)
           controller.enqueue(encoder.encode(`${rows.join(delimiter)}${delimiter}`));
         const remainingPending = pendingRecords.length - pendingCursor;
@@ -261,3 +261,5 @@ const mergeSortedRecords = (a: RecordEntry[], b: RecordEntry[]): RecordEntry[] =
   result.push(...a.slice(i), ...b.slice(j));
   return result;
 };
+
+const BUFFER_SIZE = 1000;
