@@ -4,8 +4,8 @@ cc_library(
     hdrs = ["auth.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//freighter/cpp/fgrpc",
         "//core/pkg/api/grpc/v1:api_grpc",
+        "//freighter/cpp/fgrpc",
         "//x/cpp/telem",
         "//x/cpp/xos",
         "@grpc//:grpc++",
@@ -16,8 +16,9 @@ cc_test(
     name = "auth_test",
     srcs = ["auth_test.cpp"],
     deps = [
-        ":auth",
+        "//client/cpp/auth",
         "//freighter/cpp/mock",
+        "//x/cpp/xtest",
         "@googletest//:gtest_main",
     ],
 )

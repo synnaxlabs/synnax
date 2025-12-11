@@ -168,6 +168,7 @@ public:
     }
 };
 
+/// @brief it should scan and create new devices in the cluster.
 TEST(TestScanTask, testSingleScan) {
     synnax::Device dev1;
     dev1.key = "device1";
@@ -219,6 +220,7 @@ TEST(TestScanTask, testSingleScan) {
     }
 }
 
+/// @brief it should not recreate devices that already exist on remote.
 TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
     synnax::Device dev1;
     dev1.key = "device1";
@@ -270,6 +272,7 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
     if (!created_devices->empty()) { EXPECT_EQ((*created_devices)[0].key, "device2"); }
 }
 
+/// @brief it should recreate device when rack key changes.
 TEST(TestScanTask, TestRecreateWhenRackChanges) {
     synnax::Device dev1;
     dev1.key = "device1";
@@ -343,6 +346,7 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     EXPECT_TRUE(created_devices->at(0).configured);
 }
 
+/// @brief it should propagate device status to cluster.
 TEST(TestScanTask, TestStatePropagation) {
     synnax::Device dev1;
     dev1.key = "device1";
@@ -433,7 +437,7 @@ TEST(TestScanTask, TestStatePropagation) {
     }
 }
 
-/// @brief Tests that unknown commands are delegated to scanner->exec().
+/// @brief it should delegate unknown commands to scanner exec handler.
 TEST(TestScanTask, testCustomCommandDelegation) {
     common::ScannerConfig cfg{.make = "test", .log_prefix = "[test] "};
     auto scanner = std::make_unique<MockScannerWithSignals>(cfg);
@@ -476,7 +480,7 @@ TEST(TestScanTask, testCustomCommandDelegation) {
     EXPECT_EQ(scanner_ptr->exec_commands[0].key, "test_cmd");
 }
 
-/// @brief Tests that config() returns the expected values from MockScannerWithSignals.
+/// @brief it should return expected config values from scanner.
 TEST(TestScanTask, testScannerConfigReturnsExpectedValues) {
     common::ScannerConfig cfg{.make = "test_make"};
     MockScannerWithSignals scanner(cfg);
@@ -525,8 +529,7 @@ public:
     }
 };
 
-/// @brief Tests that signal monitoring adds devices to dev_states when a device signal
-/// arrives, and the scanner sees them via ctx.devices.
+/// @brief it should add devices to context when device set signal arrives.
 TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
     synnax::Channel device_set_ch;
     device_set_ch.key = 100;
@@ -596,8 +599,7 @@ TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
     scan_task.stop();
 }
 
-/// @brief Tests that signal monitoring removes devices from dev_states when a delete
-/// signal arrives.
+/// @brief it should remove devices from context when device delete signal arrives.
 TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
     synnax::Channel device_set_ch;
     device_set_ch.key = 100;
@@ -668,7 +670,7 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
     scan_task.stop();
 }
 
-/// @brief Tests that signal monitoring filters by make - wrong make doesn't add device.
+/// @brief it should filter devices by make and not add mismatched devices.
 TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
     synnax::Channel device_set_ch;
     device_set_ch.key = 100;
