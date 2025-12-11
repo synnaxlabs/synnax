@@ -14,9 +14,9 @@ set -e
 PLATFORM=${1:-linux}
 
 if [ "${PLATFORM}" = "all" ]; then
-    ARTIFACT_NAMES=("synnax-core-linux" "synnax-core-windows")
+    ARTIFACT_NAMES=("linux-synnax-core" "windows-synnax-core")
 else
-    ARTIFACT_NAMES=("synnax-core-${PLATFORM}")
+    ARTIFACT_NAMES=("${PLATFORM}-synnax-core")
 fi
 
 REBUILD_PATHS=(

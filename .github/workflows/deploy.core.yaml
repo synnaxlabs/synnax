@@ -201,7 +201,7 @@ jobs:
       - name: Download Core Binary
         uses: actions/download-artifact@v4
         with:
-          name: synnax-v${{ needs.setup.outputs.VERSION }}-windows
+          name: windows-synnax-v${{ needs.setup.outputs.VERSION }}
           path: scripts/
 
       - name: Rename Binary for Installer

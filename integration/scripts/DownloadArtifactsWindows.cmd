@@ -133,8 +133,8 @@ rem Create binaries directory
 if not exist ".\binaries" mkdir ".\binaries"
 
 rem Download artifacts using GitHub CLI
-echo "Downloading synnax-core-windows artifact..."
-"%gh_cmd%" run download %REF_RUN_ID% --name synnax-core-windows --dir .\binaries --repo synnaxlabs/synnax
+echo "Downloading windows-synnax-core artifact..."
+"%gh_cmd%" run download %REF_RUN_ID% --name windows-synnax-core --dir .\binaries --repo synnaxlabs/synnax
 
 rem Check both exit code and if files were actually downloaded
 if %errorlevel% neq 0 (
