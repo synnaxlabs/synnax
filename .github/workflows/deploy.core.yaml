@@ -175,7 +175,7 @@ jobs:
       macos: false
       ubuntu: true
       ubuntu_22_04: true
-      docker: false
+      docker: true
       driver: true
       console: true
       console_tauri: true
