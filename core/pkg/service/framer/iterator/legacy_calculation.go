@@ -28,7 +28,7 @@ type legacyCalculationTransform struct {
 
 func newLegacyCalculationTransform(
 	calculators []*legacy.Calculator,
-) ResponseSegment {
+) responseSegment {
 	t := &legacyCalculationTransform{calculators: calculators}
 	t.Transform = t.transform
 	return t
@@ -62,7 +62,7 @@ func (t *legacyCalculationTransform) transform(
 	return res, true, nil
 }
 
-func (s *Service) newLegacyCalculationTransform(ctx context.Context, cfg *Config) (ResponseSegment, error) {
+func (s *Service) newLegacyCalculationTransform(ctx context.Context, cfg *Config) (responseSegment, error) {
 	var (
 		channels   []channel.Channel
 		calculated = make(set.Mapped[channel.Key, channel.Channel], len(channels))

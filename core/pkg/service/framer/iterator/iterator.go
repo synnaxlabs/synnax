@@ -42,7 +42,7 @@ const (
 	Valid        = iterator.Valid
 )
 
-type ResponseSegment = confluence.Segment[Response, Response]
+type responseSegment = confluence.Segment[Response, Response]
 
 type Iterator struct {
 	requests    confluence.Inlet[Request]
