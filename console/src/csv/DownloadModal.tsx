@@ -54,7 +54,7 @@ export const [useDownloadModal, DownloadModal] = Modals.createBase<
       downloadCSV({
         timeRanges: timeRanges.map((tr) => new TimeRange(tr)),
         keys: channels,
-        fileName: name,
+        name,
         afterDownload: onFinish,
         onPercentDownloadedChange: setPercentDownloaded,
       });

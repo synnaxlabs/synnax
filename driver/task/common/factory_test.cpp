@@ -40,6 +40,7 @@ public:
     bool should_fail = false;
 };
 
+/// @brief it should create a new task when type does not exist on rack.
 TEST(TestFactory, TestCreateIfTypeNotExistsOnRack_NewTask) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
@@ -52,6 +53,7 @@ TEST(TestFactory, TestCreateIfTypeNotExistsOnRack_NewTask) {
     ASSERT_EQ(task.type, "test_type");
 }
 
+/// @brief it should not create task when type already exists on rack.
 TEST(TestFactory, TestCreateIfTypeNotExistsOnRack_ExistingTask) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
@@ -63,6 +65,7 @@ TEST(TestFactory, TestCreateIfTypeNotExistsOnRack_ExistingTask) {
     ASSERT_EQ(synnax::local_task_key(new_task.key), 0);
 }
 
+/// @brief it should successfully configure initial factory tasks.
 TEST(TestFactory, TestConfigureInitialFactoryTasks_Success) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
@@ -83,6 +86,7 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_Success) {
     ASSERT_EQ(factory->configured_tasks.size(), 1);
 }
 
+/// @brief it should skip configuration when task type already exists.
 TEST(TestFactory, TestConfigureInitialFactoryTasks_ExistingTask) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
@@ -102,6 +106,7 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_ExistingTask) {
     ASSERT_TRUE(factory->configured_tasks.empty());
 }
 
+/// @brief it should return empty tasks list when configuration fails.
 TEST(TestFactory, TestConfigureInitialFactoryTasks_ConfigurationFailure) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
@@ -120,6 +125,7 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_ConfigurationFailure) {
     ASSERT_EQ(factory->configured_tasks.size(), 1);
 }
 
+/// @brief it should configure multiple tasks of different types.
 TEST(TestFactory, TestConfigureInitialFactoryTasks_MultipleConfigurations) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
@@ -150,6 +156,7 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_MultipleConfigurations) {
     ASSERT_EQ(factory->configured_tasks.size(), 2);
 }
 
+/// @brief it should delete legacy task by type successfully.
 TEST(TestFactory, TestDeleteLegacyTaskByType_Success) {
     const auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
@@ -162,6 +169,7 @@ TEST(TestFactory, TestDeleteLegacyTaskByType_Success) {
     );
 }
 
+/// @brief it should handle non-existent legacy task type gracefully.
 TEST(TestFactory, TestDeleteLegacyTaskByType_NonExistent) {
     const auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
