@@ -80,7 +80,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			MustSucceed(w.Write(fr))
 			Expect(w.Close()).To(Succeed())
 
-			iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 				Keys:   []channel.Key{ch.Key()},
 				Bounds: telem.TimeRangeMax,
 			}))
@@ -161,7 +161,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expression: "return sensor_1",
 				}
 				Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
-				iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+				iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 					Keys:   []channel.Key{calculation.Key(), calculation.Index()},
 					Bounds: telem.TimeRangeMax,
 				}))
@@ -192,7 +192,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Requires:   []channel.Key{dataCh1.Key()},
 					}
 					Expect(dist.Channel.Create(ctx, legacyCalculation)).To(Succeed())
-					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{legacyCalculation.Key()},
 						Bounds: telem.TimeRangeMax,
 					}))
@@ -225,7 +225,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(dist.Channel.Create(ctx, calcC)).To(Succeed())
 
 					// Open iterator requesting only the top-level calculated channel C
-					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calcC.Key(), calcC.Index()},
 						Bounds: telem.TimeRangeMax,
 					}))
@@ -282,7 +282,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(dist.Channel.Create(ctx, calcD)).To(Succeed())
 
 					// Open iterator requesting only the top-level calculated channel D
-					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calcD.Key(), calcD.Index()},
 						Bounds: telem.TimeRangeMax,
 					}))
@@ -346,7 +346,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(dist.Channel.Create(ctx, calcE)).To(Succeed())
 
 					// Open iterator requesting only the top-level calculated channel E
-					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calcE.Key(), calcE.Index()},
 						Bounds: telem.TimeRangeMax,
 					}))
@@ -401,7 +401,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(dist.Channel.Create(ctx, calcA)).To(Succeed())
 
 					// Now try to open an iterator - this should fail with circular dependency error
-					_, err := iteratorSvc.Open(ctx, framer.IteratorConfig{
+					_, err := iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calcA.Key()},
 						Bounds: telem.TimeRangeMax,
 					})
@@ -430,7 +430,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(dist.Channel.Create(ctx, calcMixedNested)).To(Succeed())
 
 					// Request both concrete channels (sensor_1, sensor_2) and calculated channels
-					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys: []channel.Key{
 							dataCh1.Key(),           // concrete: sensor_1
 							dataCh2.Key(),           // concrete: sensor_2
@@ -554,7 +554,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					}
 					Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
 
-					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calc.Key(), calc.Index()},
 						Bounds: telem.TimeRangeMax,
 					}))
@@ -606,7 +606,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					}
 					Expect(dist.Channel.Create(ctx, calcC)).To(Succeed())
 
-					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calcC.Key(), calcC.Index()},
 						Bounds: telem.TimeRangeMax,
 					}))
@@ -666,7 +666,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					}
 					Expect(dist.Channel.Create(ctx, calcE)).To(Succeed())
 
-					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calcE.Key(), calcE.Index()},
 						Bounds: telem.TimeRangeMax,
 					}))
@@ -705,7 +705,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(dist.Channel.Create(ctx, calcMixed)).To(Succeed())
 
 					// Request both concrete and calculated channels
-					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys: []channel.Key{
 							threeDomainDataCh.Key(),
 							calcMixed.Key(),
@@ -794,7 +794,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					}
 					Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
 
-					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calc.Key(), calc.Index()},
 						Bounds: telem.TimeRangeMax,
 					}))
@@ -839,7 +839,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					}
 					Expect(dist.Channel.Create(ctx, calcPlusTen)).To(Succeed())
 
-					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calcDouble.Key(), calcSquare.Key(), calcPlusTen.Key()},
 						Bounds: telem.TimeRangeMax,
 					}))
