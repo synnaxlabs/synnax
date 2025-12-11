@@ -7,23 +7,23 @@ on:
   workflow_dispatch:
     inputs:
       windows:
-        description: "OS: Windows"
+        description: "Platform: Windows"
         type: boolean
         default: false
       macos:
-        description: "OS: macOS"
+        description: "Platform: macOS"
         type: boolean
         default: false
       ubuntu:
-        description: "OS: Ubuntu"
+        description: "Platform: Ubuntu"
         type: boolean
         default: false
       ubuntu_22_04:
-        description: "OS: NI Linux RT (Ubuntu 22.04)"
+        description: "Platform: NI Linux RT (Ubuntu 22.04)"
         type: boolean
         default: false
       docker:
-        description: "Docker Image"
+        description: "Platform: Docker"
         type: boolean
         default: false
       driver:
@@ -142,6 +142,7 @@ jobs:
       VERSION: ${{ steps.version.outputs.VERSION }}
       PURE_VERSION: ${{ steps.version.outputs.PURE_VERSION }}
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      console_tauri_matrix: ${{ steps.set-console-tauri-matrix.outputs.matrix }}
       GO_BUILD_TAGS: ${{ steps.go-tags.outputs.GO_BUILD_TAGS }}
     steps:
       - name: Checkout Repository
@@ -175,6 +176,19 @@ jobs:
           MATRIX=$(scripts/generate_os_matrix.sh "${{ inputs.windows }}" "${{ inputs.macos }}" "${{ inputs.ubuntu }}" "${{ inputs.ubuntu_22_04 }}")
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
+      - name: Generate Console Tauri Matrix
+        id: set-console-tauri-matrix
+        run: |
+          OS_LIST=""
+          if [ "${{ inputs.macos }}" = "true" ]; then
+            OS_LIST="\"macos-latest\""
+          fi
+          if [ "${{ inputs.windows }}" = "true" ]; then
+            [ -n "$OS_LIST" ] && OS_LIST="$OS_LIST,"
+            OS_LIST="${OS_LIST}\"windows-latest\""
+          fi
+          echo "matrix=[${OS_LIST}]" >> $GITHUB_OUTPUT
+
       - name: Verify Build Configuration
         run: |
           scripts/verify_build_config.sh \
@@ -183,8 +197,10 @@ jobs:
             "${{ inputs.macos }}" \
             "${{ inputs.ubuntu }}" \
             "${{ inputs.ubuntu_22_04 }}" \
+            "${{ inputs.docker }}" \
             "${{ inputs.driver }}" \
             "${{ inputs.console }}" \
+            "${{ inputs.console_tauri }}" \
             "${{ inputs.core }}"
 
       - name: Generate Go Build Tags
@@ -551,22 +567,20 @@ jobs:
             BUILD_DATE=${{ github.event.repository.updated_at }}
 
   build-console-tauri:
-    name: Build Console App
+    name: Build Console App (${{ matrix.os }})
     needs: [setup]
-    if: inputs.console_tauri
+    if: inputs.console_tauri && needs.setup.outputs.console_tauri_matrix != '[]'
     permissions:
       contents: write
     env:
       SYNNAX_TS_ENV: prod
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       NODE_OPTIONS: "--max_old_space_size=4096"
-      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        os: ${{ fromJSON(needs.setup.outputs.console_tauri_matrix) }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Import Apple Developer Certificate
@@ -681,6 +695,8 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         working-directory: console
         run: pnpm build
 
