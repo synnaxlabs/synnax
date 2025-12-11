@@ -38,7 +38,7 @@ synnax::Transport synnax::Transport::configure(
     const std::string &client_cert_file,
     const std::string &client_key_file
 ) {
-    auto base_target = freighter::URL(ip, port, "").to_string();
+    auto base_target = url::URL(ip, port, "").to_string();
     auto pool = std::make_shared<fgrpc::Pool>(
         ca_cert_file,
         client_cert_file,

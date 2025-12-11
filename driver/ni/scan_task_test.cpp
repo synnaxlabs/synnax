@@ -13,6 +13,7 @@
 
 #include "driver/ni/scan_task.h"
 
+/// @brief it should parse scan task configuration with defaults and custom values.
 TEST(ScanTaskTest, testConfigParse) {
     // Test default configuration
     json j = {{"enabled", true}};
@@ -37,6 +38,7 @@ TEST(ScanTaskTest, testConfigParse) {
     EXPECT_EQ(cfg2.ignored_models.size(), 2);
 }
 
+/// @brief it should correctly identify models to ignore based on regex patterns.
 TEST(ScanTaskTest, testConfigShouldIgnore) {
     json j = {{"ignored_models", json::array({"^Test.*", "^Mock.*", "PXI-.*"})}};
     auto p = xjson::Parser(j);

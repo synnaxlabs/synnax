@@ -19,7 +19,7 @@ ARRAY_COUNT = 5
 ARRAY_SIZE = 5
 FLOAT_COUNT = 5
 BOOL_COUNT = 5
-RATE = 100  # Hz
+RATE = 50  # Hz
 BOOL_OFFSET = 0.2  # seconds between each boolean transition
 
 # Error injection configuration
@@ -178,11 +178,11 @@ async def update_bools(bools, elapsed):
         await bool_var.set_value(square_wave, varianttype=ua.VariantType.Boolean)
 
 
-async def main():
+async def run_server() -> None:
     # Initialize server
     server = Server()
     await server.init()
-    server.set_endpoint("opc.tcp://localhost:4841/freeopcua/server/")
+    server.set_endpoint("opc.tcp://127.0.0.1:4841/freeopcua/server/")
     uri = "http://examples.freeopcua.github.io"
     idx = await server.register_namespace(uri)
 
@@ -245,4 +245,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main(), debug=True)
+    asyncio.run(run_server(), debug=True)

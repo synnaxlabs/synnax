@@ -19,6 +19,7 @@ extern "C" {
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/sequence/plugins/plugins.h"
 
+/// @brief it should receive channel values and expose them as Lua globals.
 TEST(ChannelReceive, Basic) {
     synnax::Channel ch;
     ch.key = 1;
@@ -43,6 +44,7 @@ TEST(ChannelReceive, Basic) {
     plugin.after_all(L);
 }
 
+/// @brief it should safely handle stop being called before start.
 TEST(ChannelReceive, StopBeforeStart) {
     synnax::Channel ch;
     ch.key = 1;
@@ -60,6 +62,7 @@ TEST(ChannelReceive, StopBeforeStart) {
     lua_close(L);
 }
 
+/// @brief it should safely handle being started twice.
 TEST(ChannelReceive, DoubleStart) {
     synnax::Channel ch;
     ch.key = 1;
@@ -79,6 +82,7 @@ TEST(ChannelReceive, DoubleStart) {
     lua_close(L);
 }
 
+/// @brief it should safely handle being stopped twice.
 TEST(ChannelReceive, DoubleStop) {
     synnax::Channel ch;
     ch.key = 1;

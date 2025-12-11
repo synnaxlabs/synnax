@@ -44,7 +44,7 @@ TEST(FrameTests, toProto) {
     ASSERT_EQ(f2.series->at(0).values<float>()[0], 1);
 }
 
-/// @brief test ostream operator.
+/// @brief it should output frame contents to ostream.
 TEST(FrameTests, ostream) {
     const auto f = telem::Frame(2);
     auto s = telem::Series(std::vector<float>{1, 2, 3});
@@ -174,6 +174,7 @@ TEST(FrameTests, testIteration) {
     ASSERT_TRUE(empty_frame.begin() == empty_frame.end());
 }
 
+/// @brief it should work with STL algorithms using begin and end iterators.
 TEST(FrameTests, testIteratorWithSTLAlgorithms) {
     const auto frame = telem::Frame(3);
     frame.emplace(65537, telem::Series(std::vector{1.0f, 2.0f, 3.0f}));

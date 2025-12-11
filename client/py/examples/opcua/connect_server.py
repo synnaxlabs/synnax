@@ -36,7 +36,7 @@ import synnax as sy
 
 # Configuration
 DEVICE_NAME = "OPC UA Server"
-ENDPOINT = "opc.tcp://localhost:4841/"
+ENDPOINT = "opc.tcp://127.0.0.1:4841/"
 
 # Connect to Synnax
 client = sy.Synnax()

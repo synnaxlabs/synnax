@@ -21,6 +21,7 @@ telem::TimeStamp customNow() {
 }
 }
 
+/// @brief it should correctly calculate clock skew from a single measurement.
 TEST(ClockSkewCalculatorTest, SingleMeasurement) {
     // Reset mock time to 0 for a clean test.
     mockTime = telem::TimeStamp(0);
@@ -35,7 +36,7 @@ TEST(ClockSkewCalculatorTest, SingleMeasurement) {
     mockTime = telem::TimeStamp(10);
 
     // Suppose the remote system's midpoint was 3 ns at the same "real" point in time.
-    telem::TimeStamp remoteMidpoint(3);
+    const telem::TimeStamp remoteMidpoint(3);
 
     // Complete measurement. The local midpoint = 0 + (10 - 0)/2 = 5.
     // skew = local_midpoint - remote_midpoint = 5 - 3 = 2 ns.
@@ -48,6 +49,7 @@ TEST(ClockSkewCalculatorTest, SingleMeasurement) {
     EXPECT_FALSE(calc.exceeds(telem::TimeSpan(3)));
 }
 
+/// @brief it should report zero skew when local and remote times match perfectly.
 TEST(ClockSkewCalculatorTest, ZeroSkewScenario) {
     // Reset mock time to 0.
     mockTime = telem::TimeStamp(0);

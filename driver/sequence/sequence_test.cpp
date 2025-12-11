@@ -69,11 +69,10 @@ TEST(Sequence, nominal) {
         return mock_sink->writes->size();
     };
 
-    ASSERT_FALSE(start_err) << start_err;
-    ASSERT_FALSE(next_err) << next_err;
+    ASSERT_NIL(start_err);
+    ASSERT_NIL(next_err);
     ASSERT_EVENTUALLY_GE_F(check_writes, 1);
-    const auto stop_err = seq.end();
-    ASSERT_FALSE(stop_err) << stop_err;
+    ASSERT_NIL(seq.end());
     ASSERT_EQ(mock_sink->writes->at(0).channels->at(0), write_channel.key);
 }
 
@@ -90,9 +89,7 @@ TEST(Sequence, compileError) {
     )";
 
     auto seq = sequence::Sequence(plugins, script);
-    const auto err = seq.compile();
-    ASSERT_TRUE(err);
-    ASSERT_TRUE(err.matches(sequence::COMPILATION_ERROR));
+    ASSERT_OCCURRED_AS(seq.compile(), sequence::COMPILATION_ERROR);
 }
 
 /// @brief it should return an error when the caller tries to compare a number with
@@ -107,13 +104,9 @@ TEST(Sequence, compareNil) {
         end
     )";
     auto seq = sequence::Sequence(plugins, script);
-    const auto start_err = seq.begin();
-    ASSERT_FALSE(start_err) << start_err;
-    const auto next_err = seq.next();
-    ASSERT_TRUE(next_err) << next_err;
-    ASSERT_TRUE(next_err.matches(sequence::RUNTIME_ERROR));
-    const auto end_err = seq.end();
-    ASSERT_FALSE(end_err) << next_err;
+    ASSERT_NIL(seq.begin());
+    ASSERT_OCCURRED_AS(seq.next(), sequence::RUNTIME_ERROR);
+    ASSERT_NIL(seq.end());
 }
 
 /// @brief it should return an error when trying to set a non-existent channel
@@ -134,15 +127,12 @@ TEST(Sequence, channelNotFound) {
         set("nonexistent_channel", 42)
     )";
     auto seq = sequence::Sequence(plugins, script);
-    const auto start_err = seq.begin();
-    ASSERT_FALSE(start_err) << start_err;
+    ASSERT_NIL(seq.begin());
     const auto next_err = seq.next();
-    ASSERT_TRUE(next_err);
-    ASSERT_TRUE(next_err.matches(sequence::RUNTIME_ERROR));
+    ASSERT_MATCHES(next_err, sequence::RUNTIME_ERROR);
     EXPECT_NE(next_err.message().find("nonexistent_channel"), std::string::npos);
     EXPECT_NE(next_err.message().find("not found"), std::string::npos);
-    const auto end_err = seq.end();
-    ASSERT_FALSE(end_err) << end_err;
+    ASSERT_NIL(seq.end());
     EXPECT_EQ(mock_sink->writes->size(), 0);
 }
 
@@ -201,10 +191,10 @@ TEST(Sequence, restart) {
     };
 
     // First execution
-    ASSERT_FALSE(seq.begin());
-    ASSERT_FALSE(seq.next());
+    ASSERT_NIL(seq.begin());
+    ASSERT_NIL(seq.next());
     ASSERT_EVENTUALLY_GE_F(check_writes, 1);
-    ASSERT_FALSE(seq.end());
+    ASSERT_NIL(seq.end());
     ASSERT_EQ(mock_sink->writes->at(0).channels->at(0), write_channel.key);
 
     auto curr_size = mock_sink->writes->size();
@@ -214,9 +204,9 @@ TEST(Sequence, restart) {
         return mock_sink->writes->size();
     };
 
-    ASSERT_FALSE(seq.begin());
-    ASSERT_FALSE(seq.next());
+    ASSERT_NIL(seq.begin());
+    ASSERT_NIL(seq.next());
     ASSERT_EVENTUALLY_GE_F(check_writes_2, curr_size);
-    ASSERT_FALSE(seq.end());
+    ASSERT_NIL(seq.end());
     ASSERT_EQ(mock_sink->writes->at(0).channels->at(0), write_channel.key);
 }

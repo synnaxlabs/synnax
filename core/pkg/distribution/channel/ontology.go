@@ -66,7 +66,6 @@ func ToPayload(c Channel) map[string]any {
 		"internal":    c.Internal,
 		"virtual":     c.Virtual,
 		"expression":  c.Expression,
-		"requires":    c.Requires,
 		"operations":  c.Operations,
 	}
 }

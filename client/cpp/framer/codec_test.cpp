@@ -147,19 +147,18 @@ void assert_frames_equal(const telem::Frame &expected, const telem::Frame &actua
 
 telem::Frame create_large_equal_frame() {
     constexpr size_t NUM_CHANNELS = 500;
-    auto frame = telem::Frame(NUM_CHANNELS);
-    auto tr = telem::TimeRange{telem::TimeStamp(1000), telem::TimeStamp(2000)};
+    auto frame = synnax::Frame(NUM_CHANNELS);
+    const auto tr = telem::TimeRange{telem::TimeStamp(1000), telem::TimeStamp(2000)};
     for (size_t i = 0; i < NUM_CHANNELS; i++) {
-        uint64_t alignment = 10;
         auto series = telem::Series(std::vector{1.0f, 2.0f, 3.0f});
-        series.alignment = telem::Alignment(alignment);
+        series.alignment = telem::Alignment(10);
         series.time_range = tr;
         frame.emplace(65537 + i, std::move(series));
     }
     return frame;
 }
 
-/// @brief Test codec flags encoding and decoding
+/// @brief it should correctly encode and decode codec flags.
 TEST(CodecTests, FlagsEncodingDecoding) {
     synnax::CodecFlags flags;
     flags.equal_lens = true;
@@ -170,7 +169,7 @@ TEST(CodecTests, FlagsEncodingDecoding) {
     flags.zero_alignments = false;
 
     const uint8_t encoded = flags.encode();
-    synnax::CodecFlags decoded = synnax::CodecFlags::decode(encoded);
+    const synnax::CodecFlags decoded = synnax::CodecFlags::decode(encoded);
 
     ASSERT_EQ(decoded.equal_lens, flags.equal_lens);
     ASSERT_EQ(decoded.equal_time_ranges, flags.equal_time_ranges);
@@ -180,7 +179,7 @@ TEST(CodecTests, FlagsEncodingDecoding) {
     ASSERT_EQ(decoded.zero_alignments, flags.zero_alignments);
 }
 
-/// @brief Test encoding and decoding of a frame with various data types and properties
+/// @brief it should encode and decode a frame with various data types and properties.
 TEST(CodecTests, EncodeDecodeVariedFrame) {
     const auto original_frame = create_test_frame();
     const std::vector data_types = {telem::FLOAT32_T, telem::FLOAT64_T, telem::INT32_T};
@@ -194,8 +193,8 @@ TEST(CodecTests, EncodeDecodeVariedFrame) {
 
 /// @brief it should correctly decode and encode a frame with only one channel present.
 TEST(CodecTests, OnlyOneChannelPresent) {
-    std::vector<synnax::ChannelKey> channels = {1, 2, 3, 4, 5};
-    std::vector data_types = {
+    const std::vector<synnax::ChannelKey> channels = {1, 2, 3, 4, 5};
+    const std::vector data_types = {
         telem::UINT8_T,
         telem::UINT8_T,
         telem::UINT8_T,
@@ -210,7 +209,7 @@ TEST(CodecTests, OnlyOneChannelPresent) {
     assert_frames_equal(frame, decoded_frame);
 }
 
-/// @brief Test encoding and decoding of a frame with equal properties
+/// @brief it should encode and decode a frame with equal properties.
 TEST(CodecTests, EncodeDecodeEqualPropertiesFrame) {
     const auto original_frame = create_equal_properties_frame();
     const std::vector data_types = {
@@ -226,7 +225,8 @@ TEST(CodecTests, EncodeDecodeEqualPropertiesFrame) {
     assert_frames_equal(original_frame, decoded_frame);
 }
 
-/// @brief Test encoding and decoding with zero properties (optimized encoding)
+/// @brief it should encode and decode a frame with zero properties using optimized
+/// encoding.
 TEST(CodecTests, EncodeDecodeZeroPropertiesFrame) {
     const auto original_frame = create_zero_properties_frame();
     const std::vector data_types = {
@@ -234,7 +234,7 @@ TEST(CodecTests, EncodeDecodeZeroPropertiesFrame) {
         telem::FLOAT32_T,
         telem::FLOAT32_T
     };
-    std::vector<synnax::ChannelKey> channels = {65537, 65538, 65539};
+    const std::vector<synnax::ChannelKey> channels = {65537, 65538, 65539};
     synnax::Codec codec(channels, data_types);
     std::vector<uint8_t> encoded;
     codec.encode(original_frame, encoded);
@@ -242,7 +242,7 @@ TEST(CodecTests, EncodeDecodeZeroPropertiesFrame) {
     assert_frames_equal(original_frame, decoded_frame);
 }
 
-/// @brief Test encoding and decoding with different length series
+/// @brief it should encode and decode a frame with different length series.
 TEST(CodecTests, EncodeDecodeDifferentLengthsFrame) {
     const auto original_frame = create_diff_lengths_frame();
     const std::vector data_types = {
@@ -258,7 +258,7 @@ TEST(CodecTests, EncodeDecodeDifferentLengthsFrame) {
     assert_frames_equal(original_frame, decoded_frame);
 }
 
-/// @brief Test encoding and decoding with subset of channels
+/// @brief it should encode and decode a frame with a subset of channels.
 TEST(CodecTests, EncodeDecodeChannelSubset) {
     const auto original_frame = create_test_frame();
     const std::vector data_types =
@@ -271,7 +271,7 @@ TEST(CodecTests, EncodeDecodeChannelSubset) {
     assert_frames_equal(original_frame, decoded_frame);
 }
 
-/// @brief Test with a large frame to ensure robustness
+/// @brief it should handle a large frame to ensure robustness.
 TEST(CodecTests, LargeFrame) {
     const auto frame = telem::Frame(1);
     std::vector large_data(100000, 3.14159f);
@@ -304,15 +304,13 @@ TEST(CodecTests, DynamicCodecUpdate) {
 
     std::vector<uint8_t> encoded;
     ASSERT_NIL(codec.encode(frame, encoded));
-    auto [decoded_frame, err] = codec.decode(encoded);
-    ASSERT_NIL(err);
+    auto decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
     assert_frames_equal(frame, decoded_frame);
 
     codec.update(std::vector{data_ch.key});
     auto frame2 = telem::Frame(data_ch.key, telem::Series(1.0f));
     ASSERT_NIL(codec.encode(frame2, encoded));
-    auto [decoded_frame2, err2] = codec.decode(encoded);
-    ASSERT_NIL(err2);
+    auto decoded_frame2 = ASSERT_NIL_P(codec.decode(encoded));
     assert_frames_equal(frame2, decoded_frame2);
 }
 
@@ -351,27 +349,23 @@ TEST(CodecTests, OutOfSyncCodecs) {
 
     std::vector<uint8_t> encoded;
     ASSERT_NIL(encoder.encode(frame, encoded));
-    auto [decoded_frame, err] = decoder.decode(encoded);
-    ASSERT_NIL(err);
+    auto decoded_frame = ASSERT_NIL_P(decoder.decode(encoded));
     assert_frames_equal(frame, decoded_frame);
 
     // Decoder updates but encoder doesn't - should still work with old format
     ASSERT_NIL(decoder.update(std::vector{data_ch.key}));
     ASSERT_NIL(encoder.encode(frame, encoded));
-    auto [decoded_frame2, err2] = decoder.decode(encoded);
-    ASSERT_NIL(err2);
+    auto decoded_frame2 = ASSERT_NIL_P(decoder.decode(encoded));
     assert_frames_equal(frame, decoded_frame2);
 
     // Encoder updates - old frame should now fail
     ASSERT_NIL(encoder.update(std::vector{data_ch.key}));
-    auto err3 = encoder.encode(frame, encoded);
-    ASSERT_TRUE(err3.matches(xerrors::VALIDATION));
+    ASSERT_OCCURRED_AS(encoder.encode(frame, encoded), xerrors::VALIDATION);
 
     // New frame with updated channel should work
     auto frame2 = telem::Frame(data_ch.key, telem::Series(1.0f));
     ASSERT_NIL(encoder.encode(frame2, encoded));
-    auto [decoded_frame3, err4] = decoder.decode(encoded);
-    ASSERT_NIL(err4);
+    auto decoded_frame3 = ASSERT_NIL_P(decoder.decode(encoded));
     assert_frames_equal(frame2, decoded_frame3);
 }
 
@@ -392,9 +386,7 @@ TEST(CodecTests, EncodeMismatchedDataType) {
 
     std::vector<uint8_t> encoded;
     auto err = codec.encode(frame, encoded);
-
-    ASSERT_FALSE(err.ok());
-    ASSERT_TRUE(err.matches(xerrors::VALIDATION));
+    ASSERT_OCCURRED_AS(err, xerrors::VALIDATION);
     ASSERT_TRUE(err.message().find("data type") != std::string::npos);
 }
 
@@ -416,7 +408,6 @@ TEST(CodecTests, EncodeFrameUnknownKey) {
     std::vector<uint8_t> encoded;
     auto err = codec.encode(frame, encoded);
 
-    ASSERT_FALSE(err.ok());
-    ASSERT_TRUE(err.matches(xerrors::VALIDATION));
+    ASSERT_OCCURRED_AS(err, xerrors::VALIDATION);
     ASSERT_TRUE(err.message().find("extra key") != std::string::npos);
 }

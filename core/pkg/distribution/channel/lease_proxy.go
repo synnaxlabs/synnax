@@ -160,10 +160,9 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	}
 
 	// Auto-create index channels for calculated channels (only for new calculated channels)
-	// Skip channels with non-empty Requires field (legacy channels not yet migrated)
 	indexChannels := make([]Channel, 0, len(channels))
 	for _, ch := range channels {
-		if ch.IsCalculated() && ch.LocalKey == 0 && !ch.IsLegacyCalculated() {
+		if ch.IsCalculated() && ch.LocalKey == 0 {
 			indexCh := Channel{
 				Name:        ch.Name + calculatedIndexNameSuffix,
 				DataType:    telem.TimeStampT,
@@ -246,7 +245,6 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 					if c.IsCalculated() && ic.IsCalculated() {
 						c.Expression = ic.Expression
 						c.Operations = ic.Operations
-						c.Requires = ic.Requires
 						c.LocalIndex = ic.LocalIndex
 					}
 					return c, nil
@@ -263,11 +261,10 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	}
 
 	// Check for existing calculated channels that need index channels created
-	// This handles legacy channels that were migrated but don't have indexes yet
 	indexChannelsForExisting := make([]Channel, 0)
 	existingCalcChannelIndices := make([]int, 0) // Track which channels need linking
 	for i, ch := range *channels {
-		if ch.LocalKey != 0 && ch.IsCalculated() && ch.LocalIndex == 0 && len(ch.Requires) == 0 {
+		if ch.LocalKey != 0 && ch.IsCalculated() && ch.LocalIndex == 0 {
 			indexCh := Channel{
 				Name:        ch.Name + calculatedIndexNameSuffix,
 				DataType:    telem.TimeStampT,

@@ -41,6 +41,7 @@ public:
     }
 };
 
+/// @brief it should process command frames and write state updates.
 TEST(TestCommonWriteTask, testBasicOperation) {
     auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     const auto cmd_reads = std::make_shared<std::vector<telem::Frame>>();

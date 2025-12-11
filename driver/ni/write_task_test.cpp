@@ -60,30 +60,24 @@ protected:
     void parse_config() {
         client = std::make_shared<synnax::Synnax>(new_test_client());
 
-        auto idx_err = client->channels.create(state_idx_ch);
-        ASSERT_FALSE(idx_err) << idx_err;
+        ASSERT_NIL(client->channels.create(state_idx_ch));
 
         state_ch_1.index = state_idx_ch.key;
         state_ch_2.index = state_idx_ch.key;
-        auto data_err = client->channels.create(state_ch_1);
-        ASSERT_FALSE(data_err) << data_err;
-        data_err = client->channels.create(state_ch_2);
-        ASSERT_FALSE(data_err) << data_err;
-        auto cmd_err = client->channels.create(cmd_ch_1);
-        ASSERT_FALSE(cmd_err) << cmd_err;
-        cmd_err = client->channels.create(cmd_ch_2);
+        ASSERT_NIL(client->channels.create(state_ch_1));
+        ASSERT_NIL(client->channels.create(state_ch_2));
+        ASSERT_NIL(client->channels.create(cmd_ch_1));
+        ASSERT_NIL(client->channels.create(cmd_ch_2));
 
-        auto [rack, rack_err] = client->racks.create("cat");
-        ASSERT_FALSE(rack_err) << rack_err;
+        const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
 
         synnax::Device
             dev("abc123", "my_device", rack.key, "dev1", "ni", "PXI-6255", "");
-        auto dev_err = client->devices.create(dev);
-        ASSERT_FALSE(dev_err) << dev_err;
+        ASSERT_NIL(client->devices.create(dev));
 
         task = synnax::Task(rack.key, "my_task", "ni_analog_write", "");
 
-        json j{
+        const json j{
             {"data_saving", false},
             {"state_rate", 25},
             {"device", dev.key},
@@ -117,7 +111,7 @@ protected:
 
         auto p = xjson::Parser(j);
         cfg = std::make_unique<ni::WriteTaskConfig>(client, p);
-        ASSERT_FALSE(p.error()) << p.error();
+        ASSERT_NIL(p.error());
 
         ctx = std::make_shared<task::MockContext>(client);
         mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
@@ -139,6 +133,7 @@ protected:
     }
 };
 
+/// @brief it should write analog values and update state channels correctly.
 TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     parse_config();
     auto reads = std::make_shared<std::vector<telem::Frame>>();

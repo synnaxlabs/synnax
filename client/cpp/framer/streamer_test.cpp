@@ -55,7 +55,7 @@ TEST(StreamerTests, testStreamBasic) {
     ASSERT_NIL(streamer.close());
 }
 
-///@brief test streamer set channels after construction.
+/// @brief it should update streamer channels after construction.
 TEST(StreamerTests, testStreamSetChannels) {
     auto client = new_test_client();
     auto data = create_virtual_channel(client);
@@ -98,7 +98,7 @@ TEST(StreamerTests, testStreamSetChannels) {
     ASSERT_NIL(streamer.close());
 }
 
-/// @brief it should correctly receive a frame of streamed telemetry from the DB.
+/// @brief it should correctly downsample streamed telemetry with various factors.
 TEST(StreamerTests, TestStreamDownsample) {
     const std::vector data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
@@ -134,6 +134,7 @@ TEST(StreamerTests, TestStreamDownsample) {
     test_downsample(data, data, 0);
 }
 
+/// @brief it should return a validation error for negative downsample factor.
 TEST(StreamerTests, TestStreamDownsampleNegative) {
     auto client = new_test_client();
     ASSERT_OCCURRED_AS_P(
@@ -263,6 +264,7 @@ void test_downsample_string(
     ASSERT_NIL(streamer.close());
 }
 
+/// @brief it should correctly downsample string series data.
 TEST(StreamerTests, TestStreamDownsampleString) {
     const std::vector<std::string> data =
         {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"};
