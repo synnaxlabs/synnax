@@ -56,14 +56,14 @@ const download = async ({
   keys,
   keysToNames = {},
   client,
-  name: fileName,
+  name,
   afterDownload,
   onPercentDownloadedChange,
   addStatus,
 }: DownloadContext): Promise<void> => {
   let savePath: string | null = null;
   if (Runtime.ENGINE === "tauri") {
-    savePath = await save({ defaultPath: `${fileName}.csv` });
+    savePath = await save({ defaultPath: `${name}.csv` });
     if (savePath == null) return;
   }
 
@@ -84,8 +84,8 @@ const download = async ({
     responseType: "csv",
   });
   if (savePath != null) await writeFile(savePath, stream);
-  else savePath = await Runtime.downloadStreamFromBrowser(stream, `${fileName}.csv`);
-  addStatus({ variant: "success", message: `Downloaded ${fileName} to ${savePath}` });
+  else savePath = await Runtime.downloadStreamFromBrowser(stream, `${name}.csv`);
+  addStatus({ variant: "success", message: `Downloaded ${name} to ${savePath}` });
   onPercentDownloadedChange?.(100);
   afterDownload?.();
 };

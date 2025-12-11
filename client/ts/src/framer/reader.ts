@@ -128,7 +128,6 @@ const createCSVReadableStream = ({
         const record = pendingRecords[pendingCursor++];
         recordsByGroup.set(record.indexKey, record);
       }
-      // Build row string directly
       const rowParts: string[] = [];
       for (const [indexKey] of groups) {
         const record = recordsByGroup.get(indexKey);
