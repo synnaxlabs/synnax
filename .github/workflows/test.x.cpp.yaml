@@ -32,15 +32,18 @@ on:
       - x/go/**/*.pb.go
   workflow_dispatch:
 
+env:
+  BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+
 jobs:
   test:
     name: Test (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        os: [macos-latest, ubuntu-build-bot, windows-build-bot]
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-build-bot
             format: true
         exclude:
           - os:
@@ -48,7 +51,7 @@ jobs:
               'refs/heads/main' && github.base_ref != 'main') && 'macos-latest' }}
           - os:
               ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
-              'refs/heads/main' && github.base_ref != 'main') && 'windows-latest' }}
+              'refs/heads/main' && github.base_ref != 'main') && 'windows-build-bot' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -57,9 +60,9 @@ jobs:
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}-${{ matrix.os }}
-          repository-cache: true
+          bazelisk-cache: ${{ matrix.os == 'macos-latest' }}
+          disk-cache: ${{ matrix.os == 'macos-latest' && format('{0}-{1}', github.workflow, matrix.os) || false }}
+          repository-cache: ${{ matrix.os == 'macos-latest' }}
 
       - name: Install Clang Format
         if: matrix.format
@@ -81,11 +84,17 @@ jobs:
         shell: bash
 
       - name: Test (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
-        run: bazel test --config=asan-leak --test_output=all //x/cpp/...
+        if: matrix.os == 'ubuntu-build-bot'
+        run: |
+          bazel test --config=asan-leak --test_output=all //x/cpp/... \
+            --disk_cache=~/.cache/bazel-disk \
+            --remote_cache=${{ env.BAZEL_REMOTE_CACHE }}
         shell: bash
 
       - name: Test (Windows)
-        if: matrix.os == 'windows-latest'
-        run: bazel test --test_output=all //x/cpp/...
+        if: matrix.os == 'windows-build-bot'
+        run: |
+          bazel --output_user_root=C:/tmp test --test_output=all //x/cpp/... \
+            --disk_cache=C:/tmp/bazel-disk \
+            --remote_cache=${{ env.BAZEL_REMOTE_CACHE }}
         shell: bash

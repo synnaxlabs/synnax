@@ -56,6 +56,9 @@ on:
       - x/go/**
   workflow_dispatch:
 
+env:
+  BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+
 jobs:
   server:
     name: Build - Server
@@ -93,7 +96,7 @@ jobs:
 
   test:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-build-bot
     needs: server
     services:
       synnax:
@@ -124,9 +127,9 @@ jobs:
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
-          repository-cache: true
+          bazelisk-cache: false
+          disk-cache: false
+          repository-cache: false
 
       - name: Install Clang Format
         run: |
@@ -141,6 +144,8 @@ jobs:
       - name: Test Driver
         run: |
           bazel test --config=asan-leak --test_output=all //driver/... \
+            --disk_cache=~/.cache/bazel-disk \
+            --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} \
             --test_env=LSAN_OPTIONS="suppressions=${{ github.workspace }}/scripts/sanitizers/lsan_suppressions.txt" \
             --spawn_strategy=local \
             --jobs=1 --test_tag_filters=-hardware
