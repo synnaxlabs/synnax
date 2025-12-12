@@ -172,7 +172,7 @@ jobs:
     uses: ./.github/workflows/build.binaries.yaml
     with:
       windows: true
-      macos: false
+      macos: true
       ubuntu: true
       ubuntu_22_04: true
       docker: true

@@ -259,13 +259,12 @@ jobs:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           KEYCHAIN_NAME: build-${{ github.run_id }}.keychain
         run: |
-
-          # Unique keychain per workflow run, which allows multiple runner instances 
+          # Unique keychain per workflow run, which allows multiple runner instances
           # on the same machine to run simultaneously without conflicts.
-
           echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
           security delete-keychain $KEYCHAIN_NAME 2>/dev/null || true
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
+          security list-keychains -d user -s $KEYCHAIN_NAME $(security list-keychains -d user | tr -d '"')
           security default-keychain -s $KEYCHAIN_NAME
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
           security set-keychain-settings -t 3600 -u $KEYCHAIN_NAME
@@ -308,7 +307,7 @@ jobs:
 
       - name: Sign Windows Driver Binary
         if: inputs.sign_binaries && inputs.driver && matrix.os == 'windows-build-bot'
-        shell: pwsh
+        shell: powershell
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
@@ -576,6 +575,7 @@ jobs:
           echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
           security delete-keychain $KEYCHAIN_NAME 2>/dev/null || true
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
+          security list-keychains -d user -s $KEYCHAIN_NAME $(security list-keychains -d user | tr -d '"')
           security default-keychain -s $KEYCHAIN_NAME
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
           security set-keychain-settings -t 3600 -u $KEYCHAIN_NAME
