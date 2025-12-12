@@ -45,7 +45,7 @@ export const createBase = <R, A extends BaseArgs<R>>(
     name,
     type,
     location: "modal",
-    window: { resizable: false, size: { height: 250, width: 700 }, navTop: true },
+    window: { resizable: false, size: { height: 450, width: 700 }, navTop: true },
     ...layoutOverrides,
     key,
     args: { ...args, result: undefined },

@@ -8,81 +8,51 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type channel,
   DisconnectedError,
+  type framer,
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { TimeRange } from "@synnaxlabs/x";
-import { save } from "@tauri-apps/plugin-dialog";
-import { writeFile } from "@tauri-apps/plugin-fs";
 
 import { Runtime } from "@/runtime";
 
-export interface DownloadArgs {
-  timeRanges: TimeRange[];
-  keys: channel.Keys;
-  keysToNames?: Record<channel.Key, string>;
+export interface DownloadParams extends Omit<framer.ReadRequest, "responseType"> {
   name: string;
-  afterDownload?: () => void;
-  onPercentDownloadedChange?: (percent: number) => void;
+  onDownloadStart?: () => void;
 }
 
-export const useDownload = (): ((args: DownloadArgs) => void) => {
+export const useDownload = (): ((params: DownloadParams) => void) => {
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
   const addStatus = Status.useAdder();
-  return (args: DownloadArgs) => {
-    const { name, onPercentDownloadedChange } = args;
+  return (params: DownloadParams) => {
+    const { name } = params;
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
-      try {
-        await download({ ...args, client, addStatus });
-      } catch (e) {
-        onPercentDownloadedChange?.(0);
-        throw e;
-      }
+      await download({ ...params, client, addStatus });
     }, `Failed to download CSV data for ${name}`);
   };
 };
 
-interface DownloadContext extends DownloadArgs {
+interface DownloadFnParams extends DownloadParams {
   client: Client;
   addStatus: Status.Adder;
 }
 
 const download = async ({
-  timeRanges,
-  keys,
-  keysToNames = {},
   client,
   name,
-  afterDownload,
-  onPercentDownloadedChange,
   addStatus,
-}: DownloadContext): Promise<void> => {
-  let savePath: string | null = null;
-  if (Runtime.ENGINE === "tauri") {
-    savePath = await save({ defaultPath: `${name}.csv` });
-    if (savePath == null) return;
-  }
-
-  const simplifiedTimeRanges = TimeRange.simplify(timeRanges);
-  const mergedTimeRange = new TimeRange({
-    start: simplifiedTimeRanges[0].start,
-    end: simplifiedTimeRanges[simplifiedTimeRanges.length - 1].end,
+  onDownloadStart,
+  ...readParams
+}: DownloadFnParams): Promise<void> => {
+  console.log("download", readParams);
+  const stream = await client.read({ ...readParams, responseType: "csv" });
+  await Runtime.downloadStream({
+    stream,
+    name,
+    extension: "csv",
+    addStatus,
+    onDownloadStart,
   });
-
-  onPercentDownloadedChange?.(10);
-  const stream = await client.read({
-    channels: keys,
-    timeRange: mergedTimeRange,
-    channelNames: keysToNames,
-    responseType: "csv",
-  });
-  if (savePath != null) await writeFile(savePath, stream);
-  else savePath = await Runtime.downloadStreamFromBrowser(stream, `${name}.csv`);
-  addStatus({ variant: "success", message: `Downloaded ${name} to ${savePath}` });
-  onPercentDownloadedChange?.(100);
-  afterDownload?.();
 };

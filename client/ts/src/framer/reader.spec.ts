@@ -181,8 +181,14 @@ describe("Reader", () => {
         channels: [index.key, data.key],
       });
       await writer.write({
-        [index.key]: [TimeStamp.seconds(1), TimeStamp.seconds(2), TimeStamp.seconds(3)],
-        [data.key]: [10, 20, 30],
+        [index.key]: [
+          TimeStamp.seconds(1),
+          TimeStamp.seconds(2),
+          TimeStamp.seconds(3),
+          TimeStamp.seconds(4),
+          TimeStamp.seconds(5),
+        ],
+        [data.key]: [10, 20, 30, 40, 50],
       });
       await writer.commit();
       await writer.close();
@@ -197,6 +203,7 @@ describe("Reader", () => {
         [index.name, data.name],
         ["1000000000", "10"],
         ["3000000000", "30"],
+        ["5000000000", "50"],
       ]);
     });
     it("should handle channels at different uneven rates with correct row ordering", async () => {
