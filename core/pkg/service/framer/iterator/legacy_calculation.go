@@ -14,7 +14,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/legacy"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
@@ -22,14 +21,14 @@ import (
 )
 
 type legacyCalculationTransform struct {
-	confluence.LinearTransform[framer.IteratorResponse, framer.IteratorResponse]
+	confluence.LinearTransform[Response, Response]
 	calculators      []*legacy.Calculator
 	accumulatedError error
 }
 
 func newLegacyCalculationTransform(
 	calculators []*legacy.Calculator,
-) ResponseSegment {
+) responseSegment {
 	t := &legacyCalculationTransform{calculators: calculators}
 	t.Transform = t.transform
 	return t
@@ -37,8 +36,8 @@ func newLegacyCalculationTransform(
 
 func (t *legacyCalculationTransform) transform(
 	_ context.Context,
-	res framer.IteratorResponse,
-) (framer.IteratorResponse, bool, error) {
+	res Response,
+) (Response, bool, error) {
 	if res.Command == Error {
 		res.Error = errors.Combine(res.Error, t.accumulatedError)
 		return res, true, nil
@@ -63,7 +62,7 @@ func (t *legacyCalculationTransform) transform(
 	return res, true, nil
 }
 
-func (s *Service) newLegacyCalculationTransform(ctx context.Context, cfg *Config) (ResponseSegment, error) {
+func (s *Service) newLegacyCalculationTransform(ctx context.Context, cfg *Config) (responseSegment, error) {
 	var (
 		channels   []channel.Channel
 		calculated = make(set.Mapped[channel.Key, channel.Channel], len(channels))
