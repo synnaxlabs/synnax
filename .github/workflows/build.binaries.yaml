@@ -291,6 +291,22 @@ jobs:
           codesign --force --options runtime --timestamp --entitlements driver-entitlements.plist --sign "$CERT_ID" bazel-bin/driver/driver
           codesign --verify --verbose bazel-bin/driver/driver
 
+      - name: Notarize macOS Driver Binary
+        if: inputs.sign_binaries && inputs.driver && matrix.os == 'macos-build-bot'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Create a zip for notarization (notarytool requires a container format)
+          zip -j driver-notarize.zip bazel-bin/driver/driver
+          xcrun notarytool submit driver-notarize.zip \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          rm driver-notarize.zip
+
       - name: Download relic for Windows signing
         if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
         shell: bash
@@ -447,6 +463,23 @@ jobs:
             --entitlements server-entitlements.plist \
             --sign "$CERT_ID" ./synnax-v${{ needs.setup.outputs.VERSION }}
           codesign --verify --verbose ./synnax-v${{ needs.setup.outputs.VERSION }}
+
+      - name: Notarize macOS Core Binary
+        if: inputs.sign_binaries && inputs.core && matrix.os == 'macos-build-bot'
+        working-directory: core
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Create a zip for notarization (notarytool requires a container format)
+          zip -j server-notarize.zip ./synnax-v${{ needs.setup.outputs.VERSION }}
+          xcrun notarytool submit server-notarize.zip \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          rm server-notarize.zip
 
       - name: Sign Windows Server Binary
         if: inputs.sign_binaries && inputs.core && matrix.os == 'windows-build-bot'
