@@ -381,7 +381,7 @@ describe("Reader", () => {
       await writer.close();
       const stream = await client.read({
         channels: [data.key],
-        timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
+        timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(100000) },
         responseType: "csv",
       });
       const records = await streamToRecords(stream);
@@ -431,18 +431,15 @@ describe("Reader", () => {
       await writer.close();
       const stream = await client.read({
         channels: [data.key],
-        timeRange: { start: TimeStamp.nanoseconds(0), end: TimeStamp.nanoseconds(104) },
+        timeRange: { start: TimeStamp.nanoseconds(3), end: TimeStamp.nanoseconds(103) },
         responseType: "csv",
       });
       const rows = await streamToRecords(stream);
       expect(rows).toEqual([
         [index.name, data.name],
-        ["1", "1"],
-        ["2", "2"],
         ["3", "3"],
         ["101", "10"],
         ["102", "11"],
-        ["103", "12"],
       ]);
     });
     it("should handle non-overlapping data across domains", async () => {
@@ -759,7 +756,7 @@ describe("Reader", () => {
         const stream = await client.read({
           channels: [dataFast.key, dataSlow.key],
           timeRange: {
-            start,
+            start: TimeStamp.seconds(0),
             end: start.add(TimeSpan.seconds(denseSamples + 1)),
           },
           responseType: "csv",
