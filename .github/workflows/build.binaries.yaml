@@ -586,7 +586,7 @@ jobs:
             BUILD_DATE=${{ github.event.repository.updated_at }}
 
   build-console-tauri:
-    name: Build Console App (${{ matrix.os }})
+    name: Build Console App
     needs: [setup]
     if: inputs.console_tauri && needs.setup.outputs.console_tauri_matrix != '[]'
     permissions:
