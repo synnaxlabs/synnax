@@ -1,4 +1,4 @@
-name: Deploy - Core
+name: Deploy - Synnax
 
 on:
   push:
@@ -8,8 +8,8 @@ on:
     paths:
       - .bazeliskrc
       - .bazelrc
-      - .github/workflows/deploy.core.yaml
-      - .github/workflows/build.binaries.yaml
+      - .github/workflows/deploy.synnax.yaml
+      - .github/workflows/build.synnax.yaml
       - alamos/go/**
       - alamos/ts/**
       - aspen/**
@@ -47,8 +47,8 @@ on:
     paths:
       - .bazeliskrc
       - .bazelrc
-      - .github/workflows/deploy.core.yaml
-      - .github/workflows/build.binaries.yaml
+      - .github/workflows/deploy.synnax.yaml
+      - .github/workflows/build.synnax.yaml
       - alamos/go/**
       - alamos/ts/**
       - aspen/**
@@ -173,7 +173,7 @@ jobs:
     permissions:
       contents: write
       packages: write
-    uses: ./.github/workflows/build.binaries.yaml
+    uses: ./.github/workflows/build.synnax.yaml
     with:
       windows: true
       macos: true

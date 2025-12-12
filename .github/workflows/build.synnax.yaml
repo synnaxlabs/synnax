@@ -1,7 +1,7 @@
-name: Build - Binaries
+name: Build - Synnax
 
 run-name:
-  ${{ github.event.inputs.RUN_NAME || format('Build Binaries - {0}', github.ref_name) }}
+  ${{ github.event.inputs.RUN_NAME || format('Build Synnax - {0}', github.ref_name) }}
 
 on:
   workflow_dispatch:
