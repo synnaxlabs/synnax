@@ -11,7 +11,6 @@ import { DOWNLOAD_MODAL_LAYOUT_TYPE, DownloadModal } from "@/csv/DownloadModal";
 import { type Layout } from "@/layout";
 
 export * from "@/csv/DownloadModal";
-export * from "@/csv/useDownload";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [DOWNLOAD_MODAL_LAYOUT_TYPE]: DownloadModal,
