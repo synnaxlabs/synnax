@@ -19,7 +19,12 @@ import {
   type Select,
   Text,
 } from "@synnaxlabs/pluto";
-import { type CrudeTimeRange, numericTimeRangeZ, TimeRange } from "@synnaxlabs/x";
+import {
+  type CrudeTimeRange,
+  numericTimeRangeZ,
+  runtime,
+  TimeRange,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { useDownload } from "@/csv/useDownload";
@@ -74,8 +79,8 @@ export const [useDownloadModal, DownloadModal] = Modals.createBase<
           <Text.Text level="h3" weight={450}>
             Download data for {name} to a CSV
           </Text.Text>
-          <Flex.Box y full="x" gap="large">
-            <Flex.Box x gap="medium" align="center">
+          <Flex.Box y full="x" gap="medium">
+            <Flex.Box x gap="medium">
               <Form.Field<number>
                 path="timeRange.start"
                 padHelpText={false}
@@ -92,17 +97,25 @@ export const [useDownloadModal, DownloadModal] = Modals.createBase<
                 )}
               </Form.Field>
             </Flex.Box>
-            <ChannelsField />
-            <Form.NumericField
-              path="downsampleFactor"
-              label="Downsample Factor"
-              inputProps={{ style: { width: "15rem" } }}
-            />
-            <Text.Text status="warning" weight={450}>
-              For improved performance when downloading large datasets, we recommend
-              exporting from the Console when it is running in Google Chrome or
-              Microsoft Edge.
-            </Text.Text>
+            <Form.Field<channel.Keys> path="channels">
+              {({ value, onChange }) => (
+                <Channel.SelectMultiple
+                  value={value}
+                  onChange={onChange}
+                  initialQuery={NON_VIRTUAL_CHANNEL_QUERY}
+                  triggerProps={CHANNEL_SELECT_TRIGGER_PROPS}
+                  full="x"
+                />
+              )}
+            </Form.Field>
+            <DownsampleFactorField path="downsampleFactor" label="Downsample Factor" />
+            {runtime.getOS() !== "Windows" && (
+              <Text.Text status="warning" weight={450}>
+                For improved performance when downloading large datasets, we recommend
+                exporting from the Console when it is running in Google Chrome or
+                Microsoft Edge.
+              </Text.Text>
+            )}
           </Flex.Box>
         </Modals.ModalContentLayout>
       </Form.Form>
@@ -110,6 +123,10 @@ export const [useDownloadModal, DownloadModal] = Modals.createBase<
   },
   { window: { resizable: false, size: { height: 475, width: 700 }, navTop: true } },
 );
+
+const DownsampleFactorField = Form.buildNumericField({
+  inputProps: { style: { width: "15rem" } },
+});
 
 interface DownloadButtonProps {
   handleFinish: () => void;
@@ -147,20 +164,6 @@ const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
       <Icon.Download />
       Download
     </Button.Button>
-  );
-};
-
-const ChannelsField = () => {
-  const { onChange } = Form.useField<channel.Keys>("channels");
-  const currentKeys = Form.useFieldValue<channel.Keys>("channels");
-  return (
-    <Channel.SelectMultiple
-      value={currentKeys}
-      onChange={onChange}
-      initialQuery={NON_VIRTUAL_CHANNEL_QUERY}
-      triggerProps={CHANNEL_SELECT_TRIGGER_PROPS}
-      full="x"
-    />
   );
 };
 
