@@ -190,7 +190,6 @@ jobs:
     uses: ./.github/workflows/build.binaries.yaml
     with:
       windows: true
-      macos: false
       ubuntu: true
       ubuntu_22_04: false
       docker: false
@@ -279,69 +278,6 @@ jobs:
         if: failure()
         shell: cmd
         run: integration/scripts/DebugTestEnvironmentWindows.cmd
-
-  deploy-and-test-macos:
-    name: Deploy and Test (macOS)
-    timeout-minutes: 30
-    runs-on:
-      - self-hosted
-      - macos-latest
-    if: false
-    needs: [setup, build]
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v5
-        with:
-          clean: false
-
-      - name: Force Quit Existing Synnax Processes
-        run: integration/scripts/kill_synnax_processes_unix.sh
-
-      - name: Download and Setup macOS Artifacts
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
-        run: integration/scripts/download_artifacts_unix.sh
-
-      - name: Update Submodules
-        run: git submodule update --init --recursive
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version-file: integration/pyproject.toml
-
-      - name: Install Poetry & Dependencies
-        run: integration/scripts/install_poetry_deps_unix.sh
-
-      - name: Install Playwright
-        run: integration/scripts/install_playwright_unix.sh
-
-      - name: Start Core
-        timeout-minutes: 1
-        env:
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
-        run: integration/scripts/start_core_unix.sh
-
-      - name: Test Conductor
-        id: test-conductor
-        timeout-minutes: 20
-        working-directory: integration
-        run:
-          poetry run test-conductor --name tc_unix ${{ needs.setup.outputs.SEQUENCE_ARG
-          }}
-
-      - name: Upload Test Results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results-macos
-          path: integration/tests/results/*
-          retention-days: 7
-
-      - name: Debug Test Environment
-        if: failure()
-        run: integration/scripts/debug_test_environment_unix.sh
 
   deploy-and-test-ubuntu:
     name: Deploy and Test (ubuntu)

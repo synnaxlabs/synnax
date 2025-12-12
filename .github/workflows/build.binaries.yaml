@@ -257,14 +257,21 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          KEYCHAIN_NAME: build-${{ github.run_id }}.keychain
         run: |
+
+          # Unique keychain per workflow run, which allows multiple runner instances 
+          # on the same machine to run simultaneously without conflicts.
+
           echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
-          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security set-keychain-settings -t 3600 -u build.keychain
-          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          security delete-keychain $KEYCHAIN_NAME 2>/dev/null || true
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
+          security default-keychain -s $KEYCHAIN_NAME
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
+          security set-keychain-settings -t 3600 -u $KEYCHAIN_NAME
+          security import certificate.p12 -k $KEYCHAIN_NAME -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
+          echo "KEYCHAIN_NAME=$KEYCHAIN_NAME" >> $GITHUB_ENV
 
       - name: Sign macOS Driver Binary
         if: inputs.sign_binaries && inputs.driver && matrix.os == 'macos-build-bot'
@@ -280,13 +287,14 @@ jobs:
           </plist>
           EOF
 
-          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
+          CERT_INFO=$(security find-identity -v -p codesigning $KEYCHAIN_NAME | grep "Developer ID Application")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
           codesign --force --options runtime --timestamp --entitlements driver-entitlements.plist --sign "$CERT_ID" bazel-bin/driver/driver
           codesign --verify --verbose bazel-bin/driver/driver
 
       - name: Download relic for Windows signing
         if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
+        shell: bash
         run: |
           curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
 
@@ -383,8 +391,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name:
-            ${{ inputs.use_simple_artifact_names && format('{0}-synnax-console',
-            matrix.binary-suffix) || format('{0}-synnax-console-v{1}',
+            ${{ inputs.use_simple_artifact_names && format('{0}-synnax-console-assets',
+            matrix.binary-suffix) || format('{0}-synnax-console-assets-v{1}',
             matrix.binary-suffix, needs.setup.outputs.VERSION) }}
           path: console/dist/
           retention-days: 7
@@ -434,7 +442,7 @@ jobs:
           </plist>
           EOF
 
-          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
+          CERT_INFO=$(security find-identity -v -p codesigning $KEYCHAIN_NAME | grep "Developer ID Application")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
           codesign --force --options runtime --timestamp \
             --entitlements server-entitlements.plist \
@@ -563,20 +571,23 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          KEYCHAIN_NAME: build-${{ github.run_id }}.keychain
         run: |
           echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
-          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security set-keychain-settings -t 3600 -u build.keychain
-          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
-          security find-identity -v -p codesigning build.keychain
+          security delete-keychain $KEYCHAIN_NAME 2>/dev/null || true
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
+          security default-keychain -s $KEYCHAIN_NAME
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
+          security set-keychain-settings -t 3600 -u $KEYCHAIN_NAME
+          security import certificate.p12 -k $KEYCHAIN_NAME -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
+          security find-identity -v -p codesigning $KEYCHAIN_NAME
+          echo "KEYCHAIN_NAME=$KEYCHAIN_NAME" >> $GITHUB_ENV
 
       - name: Verify Apple Developer Certificate
         if: matrix.os == 'macos-latest' && inputs.sign_binaries
         run: |
-          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
+          CERT_INFO=$(security find-identity -v -p codesigning $KEYCHAIN_NAME | grep "Developer ID Application")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
           echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
           echo "Certificate imported."
@@ -647,6 +658,7 @@ jobs:
 
       - name: Download relic for Windows signing
         if: matrix.os == 'windows-latest' && inputs.sign_binaries
+        shell: bash
         run: |
           curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
 
