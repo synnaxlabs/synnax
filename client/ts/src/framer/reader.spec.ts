@@ -76,11 +76,11 @@ describe("Reader", () => {
       const stream = await client.read({
         channels: [index.key, data1.key, data2.key],
         timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
-        channelNames: new Map([
-          [index.key, "Time"],
-          [data1.key, "Sensor1"],
-          [data2.key, "Sensor2"],
-        ]),
+        channelNames: {
+          [index.key]: "Time",
+          [data1.key]: "Sensor1",
+          [data2.key]: "Sensor2",
+        },
         responseType: "csv",
       });
       const records = await streamToRecords(stream);
@@ -146,12 +146,12 @@ describe("Reader", () => {
       const stream = await client.read({
         channels: [data1.key, data2.key], // Just data channels - indexes auto-included
         timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
-        channelNames: new Map([
-          [index1.key, "Time1"],
-          [data1.key, "Data1"],
-          [index2.key, "Time2"],
-          [data2.key, "Data2"],
-        ]),
+        channelNames: {
+          [index1.key]: "Time1",
+          [data1.key]: "Data1",
+          [index2.key]: "Time2",
+          [data2.key]: "Data2",
+        },
         responseType: "csv",
       });
       const records = await streamToRecords(stream);

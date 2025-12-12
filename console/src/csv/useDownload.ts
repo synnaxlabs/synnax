@@ -73,14 +73,11 @@ const download = async ({
     end: simplifiedTimeRanges[simplifiedTimeRanges.length - 1].end,
   });
 
-  const headers = new Map<channel.Key, string>();
-  for (const [key, name] of Object.entries(keysToNames)) headers.set(Number(key), name);
-
   onPercentDownloadedChange?.(10);
   const stream = await client.read({
     channels: keys,
     timeRange: mergedTimeRange,
-    channelNames: new Map(Object.entries(keysToNames)),
+    channelNames: keysToNames,
     responseType: "csv",
   });
   if (savePath != null) await writeFile(savePath, stream);

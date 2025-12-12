@@ -18,7 +18,7 @@ import { Iterator, type IteratorConfig } from "@/framer/iterator";
 export interface ReadRequest {
   channels: channel.Params;
   timeRange: CrudeTimeRange;
-  channelNames?: Map<channel.KeyOrName, string>;
+  channelNames?: Record<channel.KeyOrName, string>;
   responseType: "csv";
   iteratorConfig?: IteratorConfig;
 }
@@ -70,7 +70,7 @@ export class Reader {
 interface CreateCSVExportStreamParams {
   iterator: Iterator;
   channelPayloads: channel.Payload[];
-  headers?: Map<channel.KeyOrName, string>;
+  headers?: Record<channel.KeyOrName, string>;
 }
 
 const createCSVReadableStream = ({
@@ -226,7 +226,7 @@ interface ColumnMetaResult {
 const buildColumnMeta = (
   channels: channel.Payload[],
   groups: Map<channel.Key, channel.Keys>,
-  headers?: Map<channel.KeyOrName, string>,
+  headers?: Record<channel.KeyOrName, string>,
 ): ColumnMetaResult => {
   const channelMap = new Map(channels.map((ch) => [ch.key, ch]));
   const columns: ColumnMeta[] = [];
@@ -240,7 +240,7 @@ const buildColumnMeta = (
       if (ch == null) throw new UnexpectedError(`Channel ${key} not found`);
       const meta: ColumnMeta = {
         key,
-        header: headers?.get(key) ?? headers?.get(ch.name) ?? ch.name,
+        header: headers?.[key] ?? headers?.[ch.name] ?? ch.name,
       };
       columns.push(meta);
       groupColumns.push(meta);
