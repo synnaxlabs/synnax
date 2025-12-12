@@ -165,6 +165,40 @@ describe("Reader", () => {
         ["", "", "6000000000", "600"],
       ]);
     });
+    it("should allow downsampling", async () => {
+      const index = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT64,
+        index: index.key,
+      });
+      const writer = await client.openWriter({
+        start: TimeStamp.seconds(1),
+        channels: [index.key, data.key],
+      });
+      await writer.write({
+        [index.key]: [TimeStamp.seconds(1), TimeStamp.seconds(2), TimeStamp.seconds(3)],
+        [data.key]: [10, 20, 30],
+      });
+      await writer.commit();
+      await writer.close();
+      const stream = await client.read({
+        channels: [data.key],
+        timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
+        responseType: "csv",
+        iteratorConfig: { downsampleFactor: 2 },
+      });
+      const records = await streamToRecords(stream);
+      expect(records).toEqual([
+        [index.name, data.name],
+        ["1000000000", "10"],
+        ["3000000000", "30"],
+      ]);
+    });
     it("should handle channels at different uneven rates with correct row ordering", async () => {
       const indexFast = await client.channels.create({
         name: id.create(),

@@ -13,13 +13,14 @@ import { type CrudeTimeRange, csv, runtime } from "@synnaxlabs/x";
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type Frame } from "@/framer/frame";
-import { Iterator } from "@/framer/iterator";
+import { Iterator, type IteratorConfig } from "@/framer/iterator";
 
 export interface ReadRequest {
   channels: channel.Params;
   timeRange: CrudeTimeRange;
   channelNames?: Map<channel.KeyOrName, string>;
   responseType: "csv";
+  iteratorConfig?: IteratorConfig;
 }
 
 export class Reader {
@@ -32,7 +33,12 @@ export class Reader {
   }
 
   async read(request: ReadRequest): Promise<ReadableStream<Uint8Array>> {
-    const { channels: channelParams, timeRange, channelNames } = request;
+    const {
+      channels: channelParams,
+      timeRange,
+      channelNames,
+      iteratorConfig,
+    } = request;
     const channelPayloads = await this.retriever.retrieve(channelParams);
     const allKeys = new Set<channel.Key>();
     channelPayloads.forEach((ch) => {
@@ -51,6 +57,7 @@ export class Reader {
       Array.from(allKeys),
       this.retriever,
       this.streamClient,
+      iteratorConfig,
     );
     return createCSVReadableStream({
       iterator,
