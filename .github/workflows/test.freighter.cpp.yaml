@@ -45,16 +45,14 @@ jobs:
           - os: ubuntu-latest
             format: true
         exclude:
-          - os:
-              ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
+          - os: ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
               'refs/heads/main' && github.base_ref != 'main') && 'macos-latest' }}
-          - os:
-              ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
+          - os: ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
               'refs/heads/main' && github.base_ref != 'main') && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
@@ -77,8 +75,7 @@ jobs:
 
       - name: Test (macOS)
         if: matrix.os == 'macos-latest'
-        run:
-          bazel test --config=asan --test_output=all //freighter/cpp/...
+        run: bazel test --config=asan --test_output=all //freighter/cpp/...
           --test_tag_filters=-no-asan
         shell: bash
 

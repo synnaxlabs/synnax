@@ -1,7 +1,6 @@
 name: Build - Binaries
 
-run-name:
-  ${{ github.event.inputs.RUN_NAME || format('Build Binaries - {0}', github.ref_name) }}
+run-name: ${{ github.event.inputs.RUN_NAME || format('Build Binaries - {0}', github.ref_name) }}
 
 on:
   workflow_dispatch:
@@ -52,7 +51,7 @@ jobs:
       GO_BUILD_TAGS: ${{ steps.go-tags.outputs.GO_BUILD_TAGS }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Get Version
         id: version
@@ -110,7 +109,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           clean: false
 
@@ -165,7 +164,7 @@ jobs:
 
       - name: Upload Driver Binary as Artifact
         if: inputs.driver
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name:
             synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix
@@ -200,8 +199,9 @@ jobs:
 
       - name: Set up Node.js
         if: inputs.console
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
+          cache: pnpm
           node-version-file: package.json
 
       - name: Install Node Dependencies
@@ -216,7 +216,7 @@ jobs:
 
       - name: Upload Console Assets as Artifact
         if: inputs.console
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name:
             synnax-console-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix
@@ -238,13 +238,12 @@ jobs:
       - name: Build Core
         if: inputs.core
         working-directory: core
-        run:
-          go build ${{ needs.setup.outputs.GO_BUILD_TAGS }} -o synnax-v${{
+        run: go build ${{ needs.setup.outputs.GO_BUILD_TAGS }} -o synnax-v${{
           needs.setup.outputs.VERSION }}${{ matrix.executable }}
 
       - name: Upload Core Binary as Artifact
         if: inputs.core
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}
           path: core/synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}

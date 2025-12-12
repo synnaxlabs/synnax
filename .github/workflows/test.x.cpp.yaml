@@ -46,16 +46,14 @@ jobs:
           - os: ubuntu-build-bot
             format: true
         exclude:
-          - os:
-              ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
+          - os: ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
               'refs/heads/main' && github.base_ref != 'main') && 'macos-build-bot' }}
-          - os:
-              ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
+          - os: ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
               'refs/heads/main' && github.base_ref != 'main') && 'windows-build-bot' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           clean: false
 

@@ -50,7 +50,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -66,13 +66,12 @@ jobs:
 
       - name: Lint
         if: matrix.lint
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@v9
         with:
           working-directory: core
           args: --build-tags driver
 
       - name: Test
-        run:
-          go run github.com/onsi/ginkgo/v2/ginkgo -r --randomize-suites
+        run: go run github.com/onsi/ginkgo/v2/ginkgo -r --randomize-suites
           --fail-on-pending --fail-on-empty --keep-going --trace --github-output
         working-directory: core

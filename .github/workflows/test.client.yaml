@@ -90,7 +90,7 @@ jobs:
       ts: ${{ steps.filter.outputs.ts }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Diff Changes
         uses: dorny/paths-filter@v3
@@ -150,7 +150,7 @@ jobs:
       GITHUB_SHA: ${{ github.sha }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -196,7 +196,7 @@ jobs:
           - 9090:9090
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
@@ -215,8 +215,7 @@ jobs:
         run: scripts/check_clang_format.sh client/cpp
 
       - name: Test (Ubuntu)
-        run:
-          bazel test --config=asan-leak --test_output=all //client/cpp/...
+        run: bazel test --config=asan-leak --test_output=all //client/cpp/...
           --nocache_test_results
 
   py:
@@ -240,7 +239,7 @@ jobs:
           - 9090:9090
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Poetry
         run: pipx install poetry
@@ -290,13 +289,13 @@ jobs:
           - 9090:9090
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version-file: package.json
           cache: pnpm

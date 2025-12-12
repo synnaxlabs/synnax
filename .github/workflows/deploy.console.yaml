@@ -52,7 +52,7 @@ jobs:
       VERSION: ${{ steps.version.outputs.VERSION }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Get Version
         id: version
@@ -79,7 +79,7 @@ jobs:
       release_id: ${{ steps.create-release.outputs.result }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Create Release
         id: create-release
@@ -152,13 +152,13 @@ jobs:
           echo "Certificate imported."
 
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version-file: package.json
           cache: pnpm
@@ -202,8 +202,7 @@ jobs:
 
       - name: Download relic for Windows signing
         if: matrix.os == 'windows-latest' && (github.event_name != 'pull_request')
-        run:
-          curl -L -o relic.exe
+        run: curl -L -o relic.exe
           https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
 
       - name: Add relic to PATH
@@ -253,8 +252,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    if:
-      needs.create-release.outputs.release_id != '' && github.event_name !=
+    if: needs.create-release.outputs.release_id != '' && github.event_name !=
       'pull_request'
     needs: [setup, create-release, build]
     env:
@@ -263,7 +261,7 @@ jobs:
       RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.ref }}
 
@@ -284,7 +282,7 @@ jobs:
         if: github.ref == 'refs/heads/main'
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         if: github.ref == 'refs/heads/main'
         with:
           node-version-file: package.json
