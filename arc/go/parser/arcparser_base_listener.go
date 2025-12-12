@@ -80,6 +80,78 @@ func (s *BaseArcParserListener) EnterConfig(ctx *ConfigContext) {}
 // ExitConfig is called when production config is exited.
 func (s *BaseArcParserListener) ExitConfig(ctx *ConfigContext) {}
 
+// EnterSequenceDeclaration is called when production sequenceDeclaration is entered.
+func (s *BaseArcParserListener) EnterSequenceDeclaration(ctx *SequenceDeclarationContext) {}
+
+// ExitSequenceDeclaration is called when production sequenceDeclaration is exited.
+func (s *BaseArcParserListener) ExitSequenceDeclaration(ctx *SequenceDeclarationContext) {}
+
+// EnterSequenceChain is called when production sequenceChain is entered.
+func (s *BaseArcParserListener) EnterSequenceChain(ctx *SequenceChainContext) {}
+
+// ExitSequenceChain is called when production sequenceChain is exited.
+func (s *BaseArcParserListener) ExitSequenceChain(ctx *SequenceChainContext) {}
+
+// EnterSequenceEntry is called when production sequenceEntry is entered.
+func (s *BaseArcParserListener) EnterSequenceEntry(ctx *SequenceEntryContext) {}
+
+// ExitSequenceEntry is called when production sequenceEntry is exited.
+func (s *BaseArcParserListener) ExitSequenceEntry(ctx *SequenceEntryContext) {}
+
+// EnterStageDeclaration is called when production stageDeclaration is entered.
+func (s *BaseArcParserListener) EnterStageDeclaration(ctx *StageDeclarationContext) {}
+
+// ExitStageDeclaration is called when production stageDeclaration is exited.
+func (s *BaseArcParserListener) ExitStageDeclaration(ctx *StageDeclarationContext) {}
+
+// EnterStageBody is called when production stageBody is entered.
+func (s *BaseArcParserListener) EnterStageBody(ctx *StageBodyContext) {}
+
+// ExitStageBody is called when production stageBody is exited.
+func (s *BaseArcParserListener) ExitStageBody(ctx *StageBodyContext) {}
+
+// EnterStageItem is called when production stageItem is entered.
+func (s *BaseArcParserListener) EnterStageItem(ctx *StageItemContext) {}
+
+// ExitStageItem is called when production stageItem is exited.
+func (s *BaseArcParserListener) ExitStageItem(ctx *StageItemContext) {}
+
+// EnterStageFlow is called when production stageFlow is entered.
+func (s *BaseArcParserListener) EnterStageFlow(ctx *StageFlowContext) {}
+
+// ExitStageFlow is called when production stageFlow is exited.
+func (s *BaseArcParserListener) ExitStageFlow(ctx *StageFlowContext) {}
+
+// EnterTransitionStatement is called when production transitionStatement is entered.
+func (s *BaseArcParserListener) EnterTransitionStatement(ctx *TransitionStatementContext) {}
+
+// ExitTransitionStatement is called when production transitionStatement is exited.
+func (s *BaseArcParserListener) ExitTransitionStatement(ctx *TransitionStatementContext) {}
+
+// EnterTransitionTarget is called when production transitionTarget is entered.
+func (s *BaseArcParserListener) EnterTransitionTarget(ctx *TransitionTargetContext) {}
+
+// ExitTransitionTarget is called when production transitionTarget is exited.
+func (s *BaseArcParserListener) ExitTransitionTarget(ctx *TransitionTargetContext) {}
+
+// EnterMatchBlock is called when production matchBlock is entered.
+func (s *BaseArcParserListener) EnterMatchBlock(ctx *MatchBlockContext) {}
+
+// ExitMatchBlock is called when production matchBlock is exited.
+func (s *BaseArcParserListener) ExitMatchBlock(ctx *MatchBlockContext) {}
+
+// EnterMatchEntry is called when production matchEntry is entered.
+func (s *BaseArcParserListener) EnterMatchEntry(ctx *MatchEntryContext) {}
+
+// ExitMatchEntry is called when production matchEntry is exited.
+func (s *BaseArcParserListener) ExitMatchEntry(ctx *MatchEntryContext) {}
+
+// EnterImperativeTransition is called when production imperativeTransition is entered.
+func (s *BaseArcParserListener) EnterImperativeTransition(ctx *ImperativeTransitionContext) {}
+
+// ExitImperativeTransition is called when production imperativeTransition is exited.
+func (s *BaseArcParserListener) ExitImperativeTransition(ctx *ImperativeTransitionContext) {}
+
 // EnterFlowStatement is called when production flowStatement is entered.
 func (s *BaseArcParserListener) EnterFlowStatement(ctx *FlowStatementContext) {}
 

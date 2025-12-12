@@ -15,6 +15,8 @@ program
 topLevelItem
     : functionDeclaration
     | flowStatement
+    | sequenceDeclaration
+    | stageDeclaration
     ;
 
 // =============================================================================
@@ -53,6 +55,73 @@ configBlock
 
 config
     : IDENTIFIER type
+    ;
+
+// =============================================================================
+// Sequence and Stage Declarations
+// =============================================================================
+
+// sequence main { chain1, chain2, ... }
+sequenceDeclaration
+    : SEQUENCE IDENTIFIER LBRACE sequenceChain (COMMA sequenceChain)* RBRACE
+    ;
+
+// start_cmd => precheck: stage { } => next_stage
+sequenceChain
+    : sequenceEntry (TRANSITION sequenceEntry)*
+    ;
+
+sequenceEntry
+    : IDENTIFIER COLON STAGE stageBody    // Labeled inline stage: precheck: stage { }
+    | STAGE stageBody                      // Anonymous inline stage: stage { }
+    | IDENTIFIER                           // Reference to existing stage or trigger
+    ;
+
+// stage precheck_hold { }
+stageDeclaration
+    : STAGE IDENTIFIER stageBody
+    ;
+
+// { reactive flows and transitions }
+stageBody
+    : LBRACE stageItem* RBRACE
+    ;
+
+stageItem
+    : stageFlow                // sensor -> controller{}
+    | transitionStatement      // condition => target
+    | imperativeTransition     // { ... } => match { ... }
+    ;
+
+// Reactive flow within a stage (runs continuously while in stage)
+stageFlow
+    : (routingTable | flowNode) (ARROW (routingTable | flowNode))+ SEMICOLON?
+    ;
+
+// condition => target
+transitionStatement
+    : expression TRANSITION transitionTarget
+    ;
+
+transitionTarget
+    : NEXT                     // Continue to next stage in chain
+    | matchBlock               // Pattern matching: match { ok => next, fail => abort }
+    | IDENTIFIER               // Stage name reference
+    ;
+
+// match { ok => next, fail => abort }
+matchBlock
+    : MATCH LBRACE matchEntry (COMMA matchEntry)* RBRACE
+    ;
+
+// ok => next
+matchEntry
+    : IDENTIFIER TRANSITION transitionTarget
+    ;
+
+// { imperative code } => match { ... }
+imperativeTransition
+    : block TRANSITION matchBlock
     ;
 
 // =============================================================================

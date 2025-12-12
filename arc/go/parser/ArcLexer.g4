@@ -11,6 +11,12 @@ RETURN      : 'return';
 NOW         : 'now';
 LEN         : 'len';
 
+// Sequencing keywords
+SEQUENCE    : 'sequence';
+STAGE       : 'stage';
+MATCH       : 'match';
+NEXT        : 'next';
+
 // Channel keywords
 CHAN        : 'chan';
 RECV_CHAN   : '<-chan';
@@ -43,6 +49,7 @@ RECV        : '<-';
 
 DECLARE     : ':=';  // Local variable declaration
 STATE_DECLARE: '$='; // Stateful variable declaration
+TRANSITION  : '=>';  // Stage transition operator
 ASSIGN      : '=';   // Assignment to existing variable
 
 // Arithmetic

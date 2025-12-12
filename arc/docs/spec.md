@@ -40,7 +40,7 @@ ChannelType ::= ('chan' | '<-chan' | '->chan') (PrimitiveType | SeriesType)
 ```
 
 Directional constraints (`<-chan` read-only, `->chan` write-only) can only be used in
-function/stage parameters, not variable declarations.
+function parameters, not variable declarations.
 
 ### Series Types
 
@@ -161,16 +161,16 @@ operations are convenience wrappers:
 - Scalar write `42 -> ch` creates single-element series `[42]`
 - Scalar read `<-ch` returns first element of next series
 
-**Snapshot guarantee**: All non-blocking reads within a stage activation see the same
-channel state taken at activation start.
+**Snapshot guarantee**: All non-blocking reads within a function invocation see the same
+channel state taken at invocation start.
 
 **Event ordering**: Multiple writes in same tick are deterministically ordered by (1)
 timestamp, (2) topological order, (3) channel identifier.
 
 ### Channel Piping
 
-In inter-stage layer, `sensor -> stage{}` creates reactive connection triggering stage
-execution. Inside functions/stages, `sensor -> display` is a simple read-then-write.
+In flow layer, `sensor -> func{}` creates reactive connection triggering function
+execution. Inside function bodies, `sensor -> display` is a simple read-then-write.
 
 ## Variables
 
@@ -186,8 +186,8 @@ StatefulVariable ::= Identifier '$=' Expression
 Assignment ::= Identifier '=' Expression
 ```
 
-**Local variables** (`:=`) reset on each function/stage invocation. **Stateful
-variables** (`$=`) persist across stage activations.
+**Local variables** (`:=`) reset on each function invocation. **Stateful
+variables** (`$=`) persist across function invocations.
 
 ```arc
 count := 0           // local
@@ -195,7 +195,7 @@ total $= 0           // stateful
 count = count + 1    // reassignment
 ```
 
-**Rules**: Variables are function/stage scoped only. No shadowing of global names.
+**Rules**: Variables are function scoped only. No shadowing of global names.
 Declaration once per scope. Type inference from initial value.
 
 ## Operators
@@ -232,20 +232,57 @@ remainder := 10 % 3      // 1
 in_range := temp >= 20 and temp <= 30
 ```
 
+## Built-in Functions
+
+Arc provides the following built-in functions:
+
+- `len(series)` - Returns the length of a series as `i64`
+- `now()` - Returns the current timestamp
+
+```arc
+data := [1.0, 2.0, 3.0]
+length := len(data)      // 3 (i64)
+current := now()         // current timestamp
+```
+
 ## Functions
 
 ### Function Grammar
 
 ```
-FunctionDeclaration ::= 'func' Identifier '(' ParameterList? ')' ReturnType? Block
+FunctionDeclaration ::= 'func' Identifier ConfigBlock? '(' ParameterList? ')' ReturnType? Block
+
+ConfigBlock ::= '{' ConfigParameter* '}'
+ConfigParameter ::= Identifier Type
 
 Parameter ::= Identifier Type ('=' Literal)?  // Optional default value
 
-ReturnType ::= Type                           // single return
-             | '{' NamedOutput* '}'          // multi-output
+ReturnType ::= Type                           // single unnamed return
+             | Identifier Type                // single named return
+             | '(' NamedOutput (',' NamedOutput)* ')'  // multi-output
 
 NamedOutput ::= Identifier Type
 ```
+
+### Configuration Parameters
+
+Functions can have a **config block** containing parameters that are set at instantiation
+time (compile-time constants). Config parameters are enclosed in `{}` after the function
+name:
+
+```arc
+func controller{
+    setpoint f64              // config: static at instantiation
+    sensor <-chan f64         // config: input channel
+    actuator ->chan f64       // config: output channel
+} (enable u8) f64 {
+    // function body
+}
+```
+
+**Rules:**
+- Config parameters must be literals or channel identifiers (compile-time constants only)
+- Config values are provided at instantiation using `=` syntax: `controller{setpoint=100}`
 
 ### Optional Parameters
 
@@ -284,55 +321,13 @@ func process(sensor <-chan f64, alarm ->chan u8) {
     }
 }
 
-// Multi-output function
-func threshold{} (value f64) {
-    above f64
-    below f64
-} {
-    if (value > 50) {
-        above = value
-    } else {
-        below = value
-    }
-}
-
-// Function with optional parameters
-func clamp(value f64, min f64 = 0.0, max f64 = 1.0) f64 {
-    if (value < min) {
-        return min
-    }
-    if (value > max) {
-        return max
-    }
-    return value
-}
-```
-
-**Restrictions**: No recursion, no closures, no nested functions, no function variables.
-Functions are strict on argument count, but optional parameters may be omitted.
-
-## Stages
-
-### Stage Grammar
-
-```
-StageDeclaration ::= 'stage' Identifier ConfigBlock? '(' ParameterList? ')' ReturnType? Block
-
-ConfigBlock ::= '{' ConfigParameter* '}'
-ConfigParameter ::= Identifier Type
-```
-
-Stages are reactive computation units with configuration and runtime parameters.
-
-### Stage Definition
-
-```arc
-stage controller{
-    setpoint f64              // config: static at instantiation
-    sensor <-chan f64         // config: input channel
-    actuator ->chan f64       // config: output channel
-} (enable u8) {              // runtime parameter
-    integral $= 0.0           // stateful variable
+// Function with config block
+func controller{
+    setpoint f64
+    sensor <-chan f64
+    actuator ->chan f64
+} (enable u8) {
+    integral $= 0.0           // stateful variable persists across invocations
 
     if not enable {
         0 -> actuator
@@ -344,33 +339,58 @@ stage controller{
     output := (error * 1.5) + (integral * 0.1)
     output -> actuator
 }
+
+// Multi-output function
+func threshold(value f64) (above f64, below f64) {
+    if value > 50 {
+        above = value
+    } else {
+        below = value
+    }
+}
+
+// Function with optional parameters
+func clamp(value f64, min f64 = 0.0, max f64 = 1.0) f64 {
+    if value < min {
+        return min
+    }
+    if value > max {
+        return max
+    }
+    return value
+}
 ```
 
-### Stage Invocation
+**Restrictions**: No recursion, no closures, no nested functions, no function variables.
+Functions are strict on argument count, but optional parameters may be omitted.
+
+### Stateful Variables
+
+Functions can declare **stateful variables** using `$=` that persist across invocations:
 
 ```arc
-controller{
-    setpoint: 100,
-    sensor: temp_sensor,
-    actuator: valve_cmd
-}(1)
+func counter() i64 {
+    count $= 0           // persists across calls
+    count = count + 1
+    return count
+}
 ```
 
-### Stage Execution Model
+Stateful variables are initialized on first invocation and retain their values between
+subsequent invocations. This enables reactive patterns without explicit loops.
 
-Stages are **purely event-driven** - they execute when receiving input values:
+### Reactive Execution Model
+
+Functions with config blocks are **purely event-driven** - they execute when receiving
+input values on their input channels:
 
 - **First execution**: When ALL input channels have received at least one value
 - **Subsequent executions**: When ANY input channel receives new value
-- No implicit intervals - use `interval{}` stdlib stage for periodic execution
-- Snapshot semantics: all non-blocking reads see same activation state
+- No implicit intervals - use `interval{period=100ms}` for periodic execution
+- Snapshot semantics: all non-blocking reads within an invocation see same state
 
-**Return values**: Stages with return type create anonymous output channel. Multi-output
-stages can route to different targets (see Inter-Stage Layer).
-
-**Restrictions**: No recursion. Extra runtime arguments silently ignored (unlike
-functions). Config parameters must be literals or channel identifiers (compile-time
-constants only).
+**Return values**: Functions with return type create anonymous output channels.
+Multi-output functions can route outputs to different targets (see Flow Layer).
 
 ## Control Flow
 
@@ -393,7 +413,7 @@ if pressure > 100 {
 }
 ```
 
-## Inter-Stage Layer
+## Flow Layer
 
 ### Flow Grammar
 
@@ -402,43 +422,43 @@ FlowStatement ::= (RoutingTable | FlowNode) (ARROW (RoutingTable | FlowNode))+ '
 
 RoutingTable ::= '{' RoutingEntry (',' RoutingEntry)* '}'
 
-RoutingEntry ::= Identifier ':' FlowNode (ARROW FlowNode)* (':' Identifier)?
+RoutingEntry ::= Identifier '=' FlowNode (ARROW FlowNode)*
 
-FlowNode ::= ChannelIdentifier | StageInvocation | Expression
+FlowNode ::= ChannelIdentifier | FunctionInvocation | Expression
 ```
 
 ### Data Flow and Routing
 
-The inter-stage layer connects stages via channels and expressions:
+The flow layer connects functions via channels and expressions:
 
 ```arc
 // Simple pipeline
-sensor -> filter{threshold: 50} -> controller{} -> actuator
+sensor -> filter{threshold=50} -> controller{} -> actuator
 
 // Input routing: map channels to named parameters
 {
-    setpoint: setpoint_chan,
-    measured: temp_sensor
-} -> pid_controller{kp: 1.0}
+    setpoint=setpoint_chan,
+    measured=temp_sensor
+} -> pid_controller{kp=1.0}
 
 // Output routing: route named outputs to different targets
 alarm_detector{} -> {
-    low_alarm: heater_on{},
-    high_alarm: cooler_on{},
-    normal: logger{}
+    low_alarm=heater_on{},
+    high_alarm=cooler_on{},
+    normal=logger{}
 }
 
 // Combined routing
 {
-    temp_sensor_1: sensor_a,
-    temp_sensor_2: sensor_b
+    temp_sensor_1=sensor_a,
+    temp_sensor_2=sensor_b
 } -> averager{} -> threshold_check{} -> {
-    above: alarm{},
-    below: logger{}
+    above=alarm{},
+    below=logger{}
 }
 ```
 
-**Inline expressions** can act as implicit stages in flows:
+**Inline expressions** can act as implicit functions in flows:
 
 ```arc
 temperature > 100 -> alarm{}             // comparison
@@ -448,45 +468,44 @@ pressure > 100 or emergency -> shutdown{} // logical
 
 Expressions can only reference channels and literals, not variables.
 
-### Standard Library Stages
+### Runtime-Provided Functions
 
-Built-in stages implemented by runtime:
+Built-in functions implemented by the Synnax runtime:
 
-- `interval{period: timespan}` - Emits at regular intervals
+- `interval{period=100ms}` - Emits at regular intervals
 - `all{inputs...}` - Waits for all inputs, emits when last arrives
 - `once{input}` - Emits only first value
 - `any{inputs...}` - Emits immediately on any input
-- `throttle{rate: frequency}` - Rate limits, drops intermediate values
+- `throttle{rate=10hz}` - Rate limits, drops intermediate values
 - `merge{inputs...}` - Forwards any input immediately
 - `tee{outputs...}` - Splits stream to multiple targets
 
 ### Cycle Detection
 
-Stage graphs must be acyclic. Cycles detected at compile time via DFS. Self-loops and
+Flow graphs must be acyclic. Cycles detected at compile time via DFS. Self-loops and
 circular dependencies are forbidden.
 
 ## Naming and Scoping
 
-**Global namespace**: All stages, functions, and external channels must have unique
-names.
+**Global namespace**: All functions and external channels must have unique names.
 
-**Variable scoping**: Variables are function/stage scoped. Cannot shadow global names.
+**Variable scoping**: Variables are function scoped. Cannot shadow global names.
 
 **Channel declaration**: Channels are external to Arc, referenced by name.
 
-**Stage return values**: Stages with return type create anonymous output channels.
-Multi-output stages create multiple named outputs.
+**Function return values**: Functions with return type create anonymous output channels.
+Multi-output functions create multiple named outputs.
 
 ## Language Restrictions
 
 These simplify implementation while maintaining expressiveness:
 
 1. **No mixed-type arithmetic**: Explicit casts required (`f32(x) + y`)
-2. **No nested function calls**: Use intermediate variables
-3. **No dynamic stage creation**: All stages instantiated at compile time
-4. **No assignment in expressions**: Separate statements required
-5. **No partial function application**: Must provide all arguments
-6. **Stage config = compile-time constants**: Only literals/channel IDs in config
+2. **No dynamic function instantiation**: All functions with config blocks are
+   instantiated at compile time
+3. **No assignment in expressions**: Separate statements required
+4. **No partial function application**: Must provide all arguments
+5. **Config = compile-time constants**: Only literals/channel IDs in config blocks
 
 ## Error Handling
 
@@ -512,8 +531,8 @@ Arc compiles exclusively to WebAssembly (WASM).
 Generated module contains:
 
 - **Imports**: Host functions for channel ops, series ops, state persistence, builtins
-- **Exports**: One function per stage/function
-- **Memory**: Optional linear memory for multi-output stages (1 page = 64KB)
+- **Exports**: One exported WASM function per Arc function
+- **Memory**: Optional linear memory for multi-output functions (1 page = 64KB)
 
 Example imports:
 
@@ -536,7 +555,7 @@ Compiler produces JSON with base64-encoded WASM module plus metadata:
 {
   "version": "1.0.0",
   "module": "<base64-wasm-bytes>",
-  "stages": [
+  "functions": [
     {
       "key": "controller",
       "config": [{ "name": "setpoint", "type": "f64" }],
@@ -562,7 +581,7 @@ Compiler produces JSON with base64-encoded WASM module plus metadata:
 
 ### Multi-Output Memory Layout
 
-Multi-output stages/functions use reserved memory regions:
+Multi-output functions use reserved memory regions:
 
 ```
 [base_addr + 0]: dirty_flags (i64 bitmap)
@@ -608,7 +627,7 @@ type SymbolResolver interface {
 }
 ```
 
-Resolves external channels, stdlib stages, and stdlib functions during analysis.
+Resolves external channels and runtime-provided functions during analysis.
 
 ### Runtime Responsibilities
 
@@ -616,7 +635,7 @@ Runtime (Synnax server) handles:
 
 - Reactive scheduling with event queue
 - Channel management (unbounded FIFO queues)
-- Stage lifecycle and state persistence
+- Function lifecycle and state persistence
 - Memory management for WASM modules
 - Flow graph execution in stratified order
 - Snapshot semantics for non-blocking reads

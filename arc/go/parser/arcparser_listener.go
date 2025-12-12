@@ -37,6 +37,42 @@ type ArcParserListener interface {
 	// EnterConfig is called when entering the config production.
 	EnterConfig(c *ConfigContext)
 
+	// EnterSequenceDeclaration is called when entering the sequenceDeclaration production.
+	EnterSequenceDeclaration(c *SequenceDeclarationContext)
+
+	// EnterSequenceChain is called when entering the sequenceChain production.
+	EnterSequenceChain(c *SequenceChainContext)
+
+	// EnterSequenceEntry is called when entering the sequenceEntry production.
+	EnterSequenceEntry(c *SequenceEntryContext)
+
+	// EnterStageDeclaration is called when entering the stageDeclaration production.
+	EnterStageDeclaration(c *StageDeclarationContext)
+
+	// EnterStageBody is called when entering the stageBody production.
+	EnterStageBody(c *StageBodyContext)
+
+	// EnterStageItem is called when entering the stageItem production.
+	EnterStageItem(c *StageItemContext)
+
+	// EnterStageFlow is called when entering the stageFlow production.
+	EnterStageFlow(c *StageFlowContext)
+
+	// EnterTransitionStatement is called when entering the transitionStatement production.
+	EnterTransitionStatement(c *TransitionStatementContext)
+
+	// EnterTransitionTarget is called when entering the transitionTarget production.
+	EnterTransitionTarget(c *TransitionTargetContext)
+
+	// EnterMatchBlock is called when entering the matchBlock production.
+	EnterMatchBlock(c *MatchBlockContext)
+
+	// EnterMatchEntry is called when entering the matchEntry production.
+	EnterMatchEntry(c *MatchEntryContext)
+
+	// EnterImperativeTransition is called when entering the imperativeTransition production.
+	EnterImperativeTransition(c *ImperativeTransitionContext)
+
 	// EnterFlowStatement is called when entering the flowStatement production.
 	EnterFlowStatement(c *FlowStatementContext)
 
@@ -237,6 +273,42 @@ type ArcParserListener interface {
 
 	// ExitConfig is called when exiting the config production.
 	ExitConfig(c *ConfigContext)
+
+	// ExitSequenceDeclaration is called when exiting the sequenceDeclaration production.
+	ExitSequenceDeclaration(c *SequenceDeclarationContext)
+
+	// ExitSequenceChain is called when exiting the sequenceChain production.
+	ExitSequenceChain(c *SequenceChainContext)
+
+	// ExitSequenceEntry is called when exiting the sequenceEntry production.
+	ExitSequenceEntry(c *SequenceEntryContext)
+
+	// ExitStageDeclaration is called when exiting the stageDeclaration production.
+	ExitStageDeclaration(c *StageDeclarationContext)
+
+	// ExitStageBody is called when exiting the stageBody production.
+	ExitStageBody(c *StageBodyContext)
+
+	// ExitStageItem is called when exiting the stageItem production.
+	ExitStageItem(c *StageItemContext)
+
+	// ExitStageFlow is called when exiting the stageFlow production.
+	ExitStageFlow(c *StageFlowContext)
+
+	// ExitTransitionStatement is called when exiting the transitionStatement production.
+	ExitTransitionStatement(c *TransitionStatementContext)
+
+	// ExitTransitionTarget is called when exiting the transitionTarget production.
+	ExitTransitionTarget(c *TransitionTargetContext)
+
+	// ExitMatchBlock is called when exiting the matchBlock production.
+	ExitMatchBlock(c *MatchBlockContext)
+
+	// ExitMatchEntry is called when exiting the matchEntry production.
+	ExitMatchEntry(c *MatchEntryContext)
+
+	// ExitImperativeTransition is called when exiting the imperativeTransition production.
+	ExitImperativeTransition(c *ImperativeTransitionContext)
 
 	// ExitFlowStatement is called when exiting the flowStatement production.
 	ExitFlowStatement(c *FlowStatementContext)

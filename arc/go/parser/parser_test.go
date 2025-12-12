@@ -434,9 +434,10 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 		})
 
 		It("Should fail parsing mixed named and anonymous config values", func() {
-			_, err := parser.Parse(`stage{ox_pt_1, second: ox_pt_2} -> output`)
+			// Note: 'stage' is now a reserved keyword, so we use a different function name
+			_, err := parser.Parse(`myfunc{ox_pt_1, second: ox_pt_2} -> output`)
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(ContainSubstring("1:21 error: mismatched input")))
+			Expect(err).To(MatchError(ContainSubstring("1:22 error: mismatched input")))
 		})
 	})
 
@@ -1364,6 +1365,224 @@ sensor -> demux{threshold=100.0} -> {
 				Expect(entry1Nodes).To(HaveLen(2))
 				Expect(entry1Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("scale"))
 				Expect(entry1Nodes[1].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("b"))
+			})
+		})
+	})
+
+	Describe("Sequences and Stages", func() {
+		Context("Sequence Declarations", func() {
+			It("Should parse a simple sequence with one stage", func() {
+				prog := mustParseProgram(`
+sequence main {
+    start_cmd => idle: stage {
+        1 -> output
+    }
+}`)
+				seq := prog.TopLevelItem(0).SequenceDeclaration()
+				Expect(seq).NotTo(BeNil())
+				Expect(seq.SEQUENCE()).NotTo(BeNil())
+				Expect(seq.IDENTIFIER().GetText()).To(Equal("main"))
+				Expect(seq.AllSequenceChain()).To(HaveLen(1))
+
+				chain := seq.SequenceChain(0)
+				entries := chain.AllSequenceEntry()
+				Expect(entries).To(HaveLen(2))
+
+				// First entry: start_cmd (identifier)
+				Expect(entries[0].IDENTIFIER()).NotTo(BeNil())
+				Expect(entries[0].IDENTIFIER().GetText()).To(Equal("start_cmd"))
+
+				// Second entry: idle: stage { }
+				Expect(entries[1].StageBody()).NotTo(BeNil())
+			})
+
+			It("Should parse a sequence with multiple chains", func() {
+				prog := mustParseProgram(`
+sequence main {
+    cmd_a => stage_a,
+    cmd_b => stage_b
+}`)
+				seq := prog.TopLevelItem(0).SequenceDeclaration()
+				Expect(seq.AllSequenceChain()).To(HaveLen(2))
+			})
+
+			It("Should parse anonymous inline stages", func() {
+				prog := mustParseProgram(`
+sequence abort {
+    stage {
+        0 -> valve_cmd
+    } => safing: stage {
+        1 -> vent_cmd
+    }
+}`)
+				seq := prog.TopLevelItem(0).SequenceDeclaration()
+				chain := seq.SequenceChain(0)
+				entries := chain.AllSequenceEntry()
+				Expect(entries).To(HaveLen(2))
+
+				// First entry: anonymous stage
+				Expect(entries[0].STAGE()).NotTo(BeNil())
+				Expect(entries[0].StageBody()).NotTo(BeNil())
+
+				// Second entry: labeled stage
+				Expect(entries[1].IDENTIFIER().GetText()).To(Equal("safing"))
+				Expect(entries[1].STAGE()).NotTo(BeNil())
+			})
+		})
+
+		Context("Stage Declarations", func() {
+			It("Should parse standalone stage declaration", func() {
+				prog := mustParseProgram(`
+stage hold {
+    resume_btn => main
+    abort_btn => abort
+}`)
+				stage := prog.TopLevelItem(0).StageDeclaration()
+				Expect(stage).NotTo(BeNil())
+				Expect(stage.STAGE()).NotTo(BeNil())
+				Expect(stage.IDENTIFIER().GetText()).To(Equal("hold"))
+				Expect(stage.StageBody()).NotTo(BeNil())
+				Expect(stage.StageBody().AllStageItem()).To(HaveLen(2))
+			})
+
+			It("Should parse stage with reactive flows", func() {
+				prog := mustParseProgram(`
+stage pressurization {
+    interval{100ms} -> ox_press_control{}
+    interval{100ms} -> fuel_press_control{}
+}`)
+				stage := prog.TopLevelItem(0).StageDeclaration()
+				body := stage.StageBody()
+				items := body.AllStageItem()
+				Expect(items).To(HaveLen(2))
+
+				// Check first flow
+				flow := items[0].StageFlow()
+				Expect(flow).NotTo(BeNil())
+				Expect(flow.AllFlowNode()).To(HaveLen(2))
+			})
+		})
+
+		Context("Transitions", func() {
+			It("Should parse transition to identifier", func() {
+				prog := mustParseProgram(`
+stage test {
+    condition => target
+}`)
+				stage := prog.TopLevelItem(0).StageDeclaration()
+				item := stage.StageBody().StageItem(0)
+				trans := item.TransitionStatement()
+				Expect(trans).NotTo(BeNil())
+				Expect(trans.TRANSITION()).NotTo(BeNil())
+				Expect(trans.Expression()).NotTo(BeNil())
+				target := trans.TransitionTarget()
+				Expect(target.IDENTIFIER().GetText()).To(Equal("target"))
+			})
+
+			It("Should parse transition to next", func() {
+				prog := mustParseProgram(`
+stage test {
+    done => next
+}`)
+				stage := prog.TopLevelItem(0).StageDeclaration()
+				trans := stage.StageBody().StageItem(0).TransitionStatement()
+				target := trans.TransitionTarget()
+				Expect(target.NEXT()).NotTo(BeNil())
+			})
+
+			It("Should parse transition with complex condition", func() {
+				prog := mustParseProgram(`
+stage test {
+    ox_psi > target and fuel_psi > target => next
+}`)
+				stage := prog.TopLevelItem(0).StageDeclaration()
+				trans := stage.StageBody().StageItem(0).TransitionStatement()
+				Expect(trans.Expression()).NotTo(BeNil())
+				// Expression should be a logical AND
+				logicalOr := trans.Expression().LogicalOrExpression()
+				logicalAnd := logicalOr.LogicalAndExpression(0)
+				Expect(logicalAnd.AllEqualityExpression()).To(HaveLen(2))
+			})
+		})
+
+		Context("Match Blocks", func() {
+			It("Should parse transition to match block", func() {
+				prog := mustParseProgram(`
+stage test {
+    result => match {
+        ok => next,
+        fail => abort
+    }
+}`)
+				stage := prog.TopLevelItem(0).StageDeclaration()
+				trans := stage.StageBody().StageItem(0).TransitionStatement()
+				target := trans.TransitionTarget()
+				matchBlock := target.MatchBlock()
+				Expect(matchBlock).NotTo(BeNil())
+				Expect(matchBlock.MATCH()).NotTo(BeNil())
+				entries := matchBlock.AllMatchEntry()
+				Expect(entries).To(HaveLen(2))
+
+				// ok => next
+				Expect(entries[0].IDENTIFIER().GetText()).To(Equal("ok"))
+				Expect(entries[0].TransitionTarget().NEXT()).NotTo(BeNil())
+
+				// fail => abort
+				Expect(entries[1].IDENTIFIER().GetText()).To(Equal("fail"))
+				Expect(entries[1].TransitionTarget().IDENTIFIER().GetText()).To(Equal("abort"))
+			})
+
+			It("Should parse imperative block with match", func() {
+				prog := mustParseProgram(`
+stage precheck {
+    {
+        if sensor < 0 { return bad }
+        return ok
+    } => match {
+        ok => next,
+        bad => abort
+    }
+}`)
+				stage := prog.TopLevelItem(0).StageDeclaration()
+				item := stage.StageBody().StageItem(0)
+				imperative := item.ImperativeTransition()
+				Expect(imperative).NotTo(BeNil())
+				Expect(imperative.Block()).NotTo(BeNil())
+				Expect(imperative.TRANSITION()).NotTo(BeNil())
+				Expect(imperative.MatchBlock()).NotTo(BeNil())
+			})
+		})
+
+		Context("Complex Sequences", func() {
+			It("Should parse hotfire-style sequence", func() {
+				prog := mustParseProgram(`
+sequence main {
+    start => precheck: stage {
+        sensor_ok => next
+        abort_btn => abort
+    } => pressurize: stage {
+        interval{100ms} -> press_control{}
+        pressure > target => next
+        timeout => abort
+    } => complete: stage {
+        1 -> done_flag
+    }
+}
+
+stage abort {
+    0 -> all_valves
+    safe => next
+}`)
+				// Verify sequence
+				seq := prog.TopLevelItem(0).SequenceDeclaration()
+				Expect(seq.IDENTIFIER().GetText()).To(Equal("main"))
+				chain := seq.SequenceChain(0)
+				entries := chain.AllSequenceEntry()
+				Expect(entries).To(HaveLen(4)) // start, precheck, pressurize, complete
+
+				// Verify standalone abort stage
+				abortStage := prog.TopLevelItem(1).StageDeclaration()
+				Expect(abortStage.IDENTIFIER().GetText()).To(Equal("abort"))
 			})
 		})
 	})
