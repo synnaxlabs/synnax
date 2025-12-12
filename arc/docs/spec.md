@@ -485,6 +485,195 @@ Built-in functions implemented by the Synnax runtime:
 Flow graphs must be acyclic. Cycles detected at compile time via DFS. Self-loops and
 circular dependencies are forbidden.
 
+## Sequences
+
+Sequences extend Arc's reactive model to support sequential automation workflows like test
+sequences, state machines, and ordered procedures.
+
+### Core Concepts
+
+**Sequence**: A state machine containing ordered stages. Only one stage is active at a
+time.
+
+**Stage**: A state within a sequence. When active, its reactive flows execute; when
+inactive, they don't.
+
+**Two edge types**:
+
+- `->` (Continuous): Reactive flow that runs while the stage is active
+- `=>` (OneShot): Fires once when condition becomes true, then doesn't fire again until
+  stage is re-entered
+
+### Sequence Syntax
+
+```
+SequenceDeclaration ::= 'sequence' Identifier '{' StageDeclaration+ '}'
+
+StageDeclaration ::= 'stage' Identifier '{' StageItem* '}'
+
+StageItem ::= ReactiveFlow | OneShotTransition
+
+ReactiveFlow ::= Expression '->' FlowTarget
+
+OneShotTransition ::= Expression '=>' TransitionTarget
+```
+
+### Example
+
+```arc
+sequence main {
+    stage pressurize {
+        // Reactive flows: run continuously while stage is active
+        interval{100ms} -> pressure_control{target=500},
+
+        // One-shot transitions: fire once when condition is true
+        pressure > 500 => next,
+        wait{30s} => abort,
+        abort_btn => abort
+    }
+
+    stage ignite {
+        1 -> igniter_cmd,
+        flame_detected => next,
+        wait{2s} => abort
+    }
+
+    stage complete {
+        log{"Sequence complete"}
+    }
+}
+
+sequence abort {
+    stage safed {
+        0 -> all_valves_cmd,
+        log{"System safed"}
+    }
+}
+```
+
+### Definition Order and `next`
+
+The `next` keyword resolves to the next stage in definition order:
+
+```arc
+stage step1 { ... => next }  // next = step2
+stage step2 { ... => next }  // next = step3
+stage step3 { ... }          // terminal (no outgoing transitions)
+```
+
+**Best practice**: Place happy-path stages first in order, exception handlers (holds) at
+the end. Avoid `next` in exception handlers—use explicit stage names.
+
+Using `next` on a stage with no following stage is a compile-time error.
+
+### Transition Targets
+
+- `=> next` — Go to the next stage in definition order
+- `=> stage_name` — Jump to any stage in the same sequence
+- `=> sequence_name` — Jump to a different sequence (starts at its first stage)
+
+### Timer Built-ins
+
+**`wait{duration}`**: One-shot timer. Returns false until duration elapses, then true
+once.
+
+**`interval{period}`**: Repeating timer. Fires every period.
+
+```arc
+interval{100ms} -> control{}       // Continuous: runs every 100ms
+wait{5s} => abort                   // One-shot: triggers after 5s
+wait{10ms} => 1 -> valve_cmd        // One-shot action after 10ms
+```
+
+Timers reset when their stage is entered (including re-entry from holds).
+
+### Reactive vs One-Shot Semantics
+
+**Reactive flows (`->`)**: Execute every time the source produces a value while the stage
+is active.
+
+**One-shot transitions (`=>`)**: Execute once when the condition becomes true, then stop.
+The "one-shot" state resets when the stage is re-entered.
+
+```arc
+stage example {
+    interval{100ms} -> control{},   // Runs every 100ms
+    wait{10ms} => 1 -> valve_cmd    // Runs once at 10ms, then done
+}
+```
+
+### Transition Priority
+
+When multiple transition conditions become true simultaneously, the first listed wins.
+List safety-critical conditions first:
+
+```arc
+stage pressurize {
+    // 1. Safety (highest priority)
+    pressure > max => abort,
+
+    // 2. Operator controls
+    hold_btn => hold,
+
+    // 3. Nominal completion
+    pressure > target => next,
+
+    // 4. Timeout (lowest priority)
+    wait{30s} => abort
+}
+```
+
+### Stage Entry Semantics
+
+When entering a stage:
+
+1. All `wait{}` timers reset to zero
+2. All reactive flows start fresh
+3. One-shot transition states reset (can fire again)
+
+Stages are stateless between entries—no implicit memory of previous time in the stage.
+
+### Cross-Sequence Transitions
+
+When transitioning to another sequence (e.g., `=> abort`):
+
+1. Source sequence terminates entirely (flows stop, timers cancelled)
+2. Target sequence starts at its first defined stage
+3. This is one-way—no built-in "return" mechanism
+
+### Imperative Blocks with Match
+
+For complex entry logic, use an imperative block with match routing:
+
+```arc
+stage precheck {
+    {
+        if not verify_connections() { return connection_fail }
+        if not verify_sensors() { return sensor_fail }
+        return ok
+    } => match {
+        ok => next,
+        connection_fail => abort,
+        sensor_fail => abort
+    }
+}
+```
+
+**Warning**: Imperative blocks block the entire stage, including abort checks. Keep them
+fast (< 10ms).
+
+### Top-Level Entry Points
+
+Entry points connect external events to sequences:
+
+```arc
+start_cmd => main           // Channel triggers sequence
+emergency_stop => abort     // Multiple entries allowed
+```
+
+The sequence starts when the source produces any value. The value is discarded; only the
+event matters.
+
 ## Naming and Scoping
 
 **Global namespace**: All functions and external channels must have unique names.

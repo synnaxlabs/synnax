@@ -18,8 +18,10 @@
 #include "x/cpp/telem/frame.h"
 
 #include "arc/cpp/runtime/loop/loop.h"
+#include "arc/cpp/runtime/match/match.h"
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/scheduler/scheduler.h"
+#include "arc/cpp/runtime/stage/stage.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/time/time.h"
 #include "arc/cpp/runtime/wasm/bindings.h"
@@ -145,15 +147,19 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
 
     // Step 4: Put together factories.
     auto wasm_factory = std::make_shared<wasm::Factory>(mod);
-    auto interval_factory = std::make_shared<time::Factory>();
+    auto time_factory = std::make_shared<time::Factory>();
+    auto stage_factory = std::make_shared<stage::Factory>();
+    auto match_factory = std::make_shared<match::Factory>();
     node::MultiFactory fact(
         std::vector<std::shared_ptr<node::Factory>>{
             wasm_factory,
-            interval_factory,
+            time_factory,
+            stage_factory,
+            match_factory,
         }
     );
 
-    // Step 4: Construct nodes.
+    // Step 5: Construct nodes.
     std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
     for (const auto &n: cfg.mod.nodes) {
         auto [node_state, node_state_err] = state->node(n.key);
@@ -168,21 +174,30 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
         nodes[n.key] = std::move(node);
     }
 
-    // Step 5: Construct scheduler.
+    // Step 6: Construct scheduler.
     auto sched = std::make_unique<scheduler::Scheduler>(cfg.mod, nodes);
 
-    // Step 6: Construct Loop with Mach thread enhancements
+    // Step 7: Wire stage activation callback to scheduler.
+    // Get raw pointer before move - Runtime will keep scheduler alive.
+    auto *sched_ptr = sched.get();
+    stage_factory->set_activate_callback(
+        [sched_ptr](const std::string &seq, const std::string &stage_name) {
+            sched_ptr->activate_stage(seq, stage_name);
+        }
+    );
+
+    // Step 8: Construct Loop with Mach thread enhancements
     auto [loop, err] = loop::create(
         loop::Config{
             .mode = loop::ExecutionMode::HIGH_RATE,
-            .interval = interval_factory->timing_base,
+            .interval = time_factory->timing_base,
             .rt_priority = 47,
             .cpu_affinity = -1,
         }
     );
     if (err) return {nullptr, err};
 
-    // Step 6: Build Runtime
+    // Step 9: Build Runtime
     return {
         std::make_shared<Runtime>(
             cfg.breaker,

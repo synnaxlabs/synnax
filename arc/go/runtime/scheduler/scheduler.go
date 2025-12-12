@@ -30,7 +30,9 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
+	arctime "github.com/synnaxlabs/arc/runtime/time"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // nodeState holds the runtime state for a single node in the scheduler.
@@ -45,7 +47,7 @@ type nodeState struct {
 
 // Scheduler orchestrates the execution of nodes in topological order.
 // It maintains the execution graph, tracks changed nodes, and propagates changes
-// through the dependency graph.
+// through the dependency graph. It also supports stage-based filtering for sequences.
 type Scheduler struct {
 	// strata defines the topological execution order.
 	// Each stratum contains nodes at the same dependency level.
@@ -62,6 +64,20 @@ type Scheduler struct {
 	// nodeCtx is a reusable context struct passed to nodes during execution.
 	// This eliminates allocations by reusing the same struct across all executions.
 	nodeCtx node.Context
+	// startTime tracks when the scheduler was initialized for elapsed time calculation.
+	startTime telem.TimeStamp
+
+	// Stage management
+	// activeSequence is the currently active sequence name.
+	activeSequence string
+	// activeStage is the currently active stage name within the active sequence.
+	activeStage string
+	// stageToNodes maps "sequence_stage" keys to lists of node keys in that stage.
+	stageToNodes map[string][]string
+	// activeNodeKeys contains the keys of nodes that are currently active (in the active stage).
+	activeNodeKeys set.Set[string]
+	// stagedNodes contains all nodes that belong to any stage (for filtering).
+	stagedNodes set.Set[string]
 }
 
 // ErrorHandler receives errors from node execution.
@@ -87,9 +103,12 @@ func New(
 	nodes map[string]node.Node,
 ) *Scheduler {
 	s := &Scheduler{
-		nodes:   make(map[string]*nodeState, len(prog.Nodes)),
-		strata:  prog.Strata,
-		changed: make(set.Set[string], len(prog.Nodes)),
+		nodes:          make(map[string]*nodeState, len(prog.Nodes)),
+		strata:         prog.Strata,
+		changed:        make(set.Set[string], len(prog.Nodes)),
+		stageToNodes:   make(map[string][]string),
+		activeNodeKeys: make(set.Set[string]),
+		stagedNodes:    make(set.Set[string]),
 	}
 	s.nodeCtx = node.Context{
 		MarkChanged: s.markChanged,
@@ -105,7 +124,31 @@ func New(
 			node: nodes[n.Key],
 		}
 	}
+
+	// Load sequence/stage information for stage filtering
+	s.loadSequences(prog.Sequences)
+
 	return s
+}
+
+// stageKey creates a unique key for a stage within a sequence.
+func stageKey(seqName, stageName string) string {
+	return seqName + "_" + stageName
+}
+
+// loadSequences builds the stage-to-nodes mapping from the IR sequences.
+func (s *Scheduler) loadSequences(sequences ir.Sequences) {
+	for _, seq := range sequences {
+		for _, stage := range seq.Stages {
+			key := stageKey(seq.Key, stage.Key)
+			s.stageToNodes[key] = stage.Nodes
+
+			// Track all nodes that belong to any stage
+			for _, nodeKey := range stage.Nodes {
+				s.stagedNodes.Add(nodeKey)
+			}
+		}
+	}
 }
 
 // SetErrorHandler configures the handler for node execution errors.
@@ -143,7 +186,9 @@ func (s *Scheduler) reportError(err error) {
 // Only nodes in stratum-0 have their Init method called. Downstream nodes are
 // initialized implicitly through their first Next execution when marked as changed.
 func (s *Scheduler) Init(ctx context.Context) {
+	s.startTime = telem.Now()
 	s.nodeCtx.Context = ctx
+	s.nodeCtx.Elapsed = 0
 	for _, stratum := range s.strata {
 		for _, nodeKey := range stratum {
 			s.currState = s.nodes[nodeKey]
@@ -156,14 +201,20 @@ func (s *Scheduler) Init(ctx context.Context) {
 // Nodes are executed in topological order (stratum by stratum). Within each cycle:
 //   - Stratum-0 nodes always execute (they are source nodes)
 //   - Other nodes only execute if marked as changed
+//   - Nodes in stages only execute if their stage is active
 //
 // After execution, the changed set is cleared for the next cycle.
 // Nodes can mark their outputs as changed during execution via MarkChanged callbacks,
 // which will schedule downstream nodes for the next cycle.
 func (s *Scheduler) Next(ctx context.Context) {
 	s.nodeCtx.Context = ctx
+	s.nodeCtx.Elapsed = telem.TimeSpan(telem.Now() - s.startTime)
 	for i, stratum := range s.strata {
 		for _, nodeKey := range stratum {
+			// Apply stage filtering
+			if !s.shouldExecuteNode(nodeKey) {
+				continue
+			}
 			if i == 0 || s.changed.Contains(nodeKey) {
 				s.currState = s.nodes[nodeKey]
 				s.currState.node.Next(s.nodeCtx)
@@ -171,4 +222,69 @@ func (s *Scheduler) Next(ctx context.Context) {
 		}
 	}
 	clear(s.changed)
+}
+
+// shouldExecuteNode determines if a node should execute based on stage filtering.
+// A node should execute if:
+//  1. No sequences are defined (no stage filtering active), OR
+//  2. The node is NOT part of any stage (always runs), OR
+//  3. The node is in the currently active stage
+func (s *Scheduler) shouldExecuteNode(nodeKey string) bool {
+	// If no stage filtering is active (no sequences defined), run all nodes
+	if len(s.stageToNodes) == 0 {
+		return true
+	}
+
+	// If the node is not part of any stage, always run it
+	if !s.stagedNodes.Contains(nodeKey) {
+		return true
+	}
+
+	// Otherwise, only run if in the active stage
+	return s.activeNodeKeys.Contains(nodeKey)
+}
+
+// ActivateStage transitions to a new stage within a sequence.
+// This updates the active node set and resets any Resettable nodes in the new stage.
+func (s *Scheduler) ActivateStage(seqName, stageName string) {
+	s.activeSequence = seqName
+	s.activeStage = stageName
+
+	// Update active nodes set
+	s.activeNodeKeys = make(set.Set[string])
+	key := stageKey(seqName, stageName)
+	if nodes, ok := s.stageToNodes[key]; ok {
+		for _, nodeKey := range nodes {
+			s.activeNodeKeys.Add(nodeKey)
+		}
+	}
+
+	// Reset resettable nodes in this stage (e.g., wait timers)
+	s.resetStageNodes(key)
+}
+
+// resetStageNodes resets all Resettable nodes in the given stage.
+// This is called when a stage is entered to reset timers and other stateful nodes.
+func (s *Scheduler) resetStageNodes(key string) {
+	nodes, ok := s.stageToNodes[key]
+	if !ok {
+		return
+	}
+	for _, nodeKey := range nodes {
+		if state, ok := s.nodes[nodeKey]; ok {
+			if resettable, ok := state.node.(arctime.Resettable); ok {
+				resettable.Reset()
+			}
+		}
+	}
+}
+
+// ActiveSequence returns the currently active sequence name.
+func (s *Scheduler) ActiveSequence() string {
+	return s.activeSequence
+}
+
+// ActiveStage returns the currently active stage name.
+func (s *Scheduler) ActiveStage() string {
+	return s.activeStage
 }

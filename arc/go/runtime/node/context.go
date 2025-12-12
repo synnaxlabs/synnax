@@ -9,12 +9,19 @@
 
 package node
 
-import "context"
+import (
+	"context"
+
+	"github.com/synnaxlabs/x/telem"
+)
 
 // Context carries runtime execution state and callbacks for node execution.
 // It embeds context.Context for cancellation, deadlines, and values.
 type Context struct {
 	context.Context
+	// Elapsed is the time elapsed since the runtime started.
+	// Used by time-based nodes (interval, wait) to track timing.
+	Elapsed telem.TimeSpan
 	// MarkChanged signals that an output parameter has new data.
 	// This triggers dependent nodes to execute in the next scheduler pass.
 	MarkChanged func(output string)

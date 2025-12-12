@@ -1,0 +1,11 @@
+cc_library(
+    name = "match",
+    hdrs = ["match.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/node",
+        "//arc/cpp/runtime/state",
+        "//x/cpp/xerrors",
+    ],
+)

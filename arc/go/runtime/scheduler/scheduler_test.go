@@ -467,6 +467,161 @@ var _ = Describe("Scheduler", func() {
 			Expect(handler.keys).To(ConsistOf("a", "b"))
 		})
 	})
+	Describe("Stage Filtering", func() {
+		It("Should execute all nodes when no sequences defined", func() {
+			prog = ir.IR{
+				Nodes: []ir.Node{
+					{Key: "a"},
+					{Key: "b"},
+				},
+				Strata: ir.Strata{{"a", "b"}},
+				// No sequences
+			}
+			nodes["a"] = nodeA
+			nodes["b"] = nodeB
+			s = scheduler.New(ctx, prog, nodes)
+			s.Next(ctx)
+			Expect(nodeA.nextCalled).To(Equal(1))
+			Expect(nodeB.nextCalled).To(Equal(1))
+		})
+		It("Should not execute staged nodes when no stage is active", func() {
+			prog = ir.IR{
+				Nodes: []ir.Node{
+					{Key: "a"},
+					{Key: "b"},
+				},
+				Strata: ir.Strata{{"a", "b"}},
+				Sequences: ir.Sequences{
+					{
+						Key: "seq1",
+						Stages: []ir.Stage{
+							{Key: "stage1", Nodes: []string{"a"}},
+							{Key: "stage2", Nodes: []string{"b"}},
+						},
+					},
+				},
+			}
+			nodes["a"] = nodeA
+			nodes["b"] = nodeB
+			s = scheduler.New(ctx, prog, nodes)
+			s.Next(ctx)
+			// No stage is active, so staged nodes should not execute
+			Expect(nodeA.nextCalled).To(Equal(0))
+			Expect(nodeB.nextCalled).To(Equal(0))
+		})
+		It("Should execute nodes in active stage only", func() {
+			prog = ir.IR{
+				Nodes: []ir.Node{
+					{Key: "a"},
+					{Key: "b"},
+				},
+				Strata: ir.Strata{{"a", "b"}},
+				Sequences: ir.Sequences{
+					{
+						Key: "seq1",
+						Stages: []ir.Stage{
+							{Key: "stage1", Nodes: []string{"a"}},
+							{Key: "stage2", Nodes: []string{"b"}},
+						},
+					},
+				},
+			}
+			nodes["a"] = nodeA
+			nodes["b"] = nodeB
+			s = scheduler.New(ctx, prog, nodes)
+			s.ActivateStage("seq1", "stage1")
+			s.Next(ctx)
+			Expect(nodeA.nextCalled).To(Equal(1))
+			Expect(nodeB.nextCalled).To(Equal(0))
+		})
+		It("Should switch active stage", func() {
+			prog = ir.IR{
+				Nodes: []ir.Node{
+					{Key: "a"},
+					{Key: "b"},
+				},
+				Strata: ir.Strata{{"a", "b"}},
+				Sequences: ir.Sequences{
+					{
+						Key: "seq1",
+						Stages: []ir.Stage{
+							{Key: "stage1", Nodes: []string{"a"}},
+							{Key: "stage2", Nodes: []string{"b"}},
+						},
+					},
+				},
+			}
+			nodes["a"] = nodeA
+			nodes["b"] = nodeB
+			s = scheduler.New(ctx, prog, nodes)
+
+			// Activate stage1
+			s.ActivateStage("seq1", "stage1")
+			s.Next(ctx)
+			Expect(nodeA.nextCalled).To(Equal(1))
+			Expect(nodeB.nextCalled).To(Equal(0))
+
+			// Switch to stage2
+			s.ActivateStage("seq1", "stage2")
+			s.Next(ctx)
+			Expect(nodeA.nextCalled).To(Equal(1)) // Still 1 (not in stage2)
+			Expect(nodeB.nextCalled).To(Equal(1)) // Now executes
+		})
+		It("Should always execute nodes not in any stage", func() {
+			prog = ir.IR{
+				Nodes: []ir.Node{
+					{Key: "a"},
+					{Key: "b"},
+					{Key: "c"}, // Not in any stage
+				},
+				Strata: ir.Strata{{"a", "b", "c"}},
+				Sequences: ir.Sequences{
+					{
+						Key: "seq1",
+						Stages: []ir.Stage{
+							{Key: "stage1", Nodes: []string{"a"}},
+							{Key: "stage2", Nodes: []string{"b"}},
+							// Note: "c" is not in any stage
+						},
+					},
+				},
+			}
+			nodes["a"] = nodeA
+			nodes["b"] = nodeB
+			nodes["c"] = nodeC
+			s = scheduler.New(ctx, prog, nodes)
+
+			// Activate stage1 - "c" should still execute
+			s.ActivateStage("seq1", "stage1")
+			s.Next(ctx)
+			Expect(nodeA.nextCalled).To(Equal(1))
+			Expect(nodeB.nextCalled).To(Equal(0))
+			Expect(nodeC.nextCalled).To(Equal(1)) // Always runs
+
+			// Next cycle
+			s.Next(ctx)
+			Expect(nodeC.nextCalled).To(Equal(2)) // Still runs
+		})
+		It("Should report active sequence and stage", func() {
+			prog = ir.IR{
+				Nodes: []ir.Node{{Key: "a"}},
+				Strata: ir.Strata{{"a"}},
+				Sequences: ir.Sequences{
+					{
+						Key: "myseq",
+						Stages: []ir.Stage{
+							{Key: "mystage", Nodes: []string{"a"}},
+						},
+					},
+				},
+			}
+			nodes["a"] = nodeA
+			s = scheduler.New(ctx, prog, nodes)
+			s.ActivateStage("myseq", "mystage")
+			Expect(s.ActiveSequence()).To(Equal("myseq"))
+			Expect(s.ActiveStage()).To(Equal("mystage"))
+		})
+	})
 	Describe("Complex Graphs", func() {
 		It("Should handle diamond dependency", func() {
 			nodeA.onNext = func(ctx node.Context) {

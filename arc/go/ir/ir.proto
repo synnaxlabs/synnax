@@ -64,4 +64,5 @@ message PBIR {
     repeated PBNode nodes = 2;
     repeated PBEdge edges = 3;
     repeated PBStratum strata = 4;
+    repeated PBSequence sequences = 5;
 }

@@ -27,6 +27,8 @@ constexpr std::string default_input_param = "input";
 constexpr std::string lhs_input_param = "lhs_input";
 constexpr std::string rhs_input_param = "rhs_input";
 
+enum class EdgeKind { Continuous = 0, OneShot = 1 };
+
 struct Handle {
     std::string node, param;
 
@@ -68,34 +70,41 @@ struct Handle {
 
 struct Edge {
     Handle source, target;
+    EdgeKind kind = EdgeKind::Continuous;
 
     explicit Edge(xjson::Parser parser) {
         this->source = parser.field<Handle>("source");
         this->target = parser.field<Handle>("target");
+        auto kind_val = parser.field<int>("kind", 0);
+        this->kind = static_cast<EdgeKind>(kind_val);
     }
 
     [[nodiscard]] nlohmann::json to_json() const {
         return {
             {"source", source.to_json()},
             {"target", target.to_json()},
+            {"kind", static_cast<int>(kind)},
         };
     }
 
     explicit Edge(const arc::v1::ir::PBEdge &pb) {
         if (pb.has_source()) this->source = Handle(pb.source());
         if (pb.has_target()) this->target = Handle(pb.target());
+        this->kind = static_cast<EdgeKind>(pb.kind());
     }
 
     void to_proto(arc::v1::ir::PBEdge *pb) const {
         source.to_proto(pb->mutable_source());
         target.to_proto(pb->mutable_target());
+        pb->set_kind(static_cast<arc::v1::ir::PBEdgeKind>(kind));
     }
 
     Edge() = default;
-    Edge(Handle src, Handle tgt): source(std::move(src)), target(std::move(tgt)) {}
+    Edge(Handle src, Handle tgt, EdgeKind k = EdgeKind::Continuous)
+        : source(std::move(src)), target(std::move(tgt)), kind(k) {}
 
     bool operator==(const Edge &other) const {
-        return source == other.source && target == other.target;
+        return source == other.source && target == other.target && kind == other.kind;
     }
 };
 
@@ -356,11 +365,77 @@ struct Strata {
     Strata() = default;
 };
 
+struct Stage {
+    std::string key;
+    std::vector<std::string> nodes;
+
+    Stage() = default;
+
+    explicit Stage(xjson::Parser parser) {
+        this->key = parser.field<std::string>("key");
+        this->nodes = parser.field<std::vector<std::string>>("nodes", {});
+    }
+
+    [[nodiscard]] nlohmann::json to_json() const {
+        return {{"key", key}, {"nodes", nodes}};
+    }
+
+    explicit Stage(const arc::v1::ir::PBStage &pb) {
+        this->key = pb.key();
+        for (const auto &node : pb.nodes())
+            this->nodes.push_back(node);
+    }
+
+    void to_proto(arc::v1::ir::PBStage *pb) const {
+        pb->set_key(key);
+        for (const auto &node : nodes)
+            pb->add_nodes(node);
+    }
+};
+
+struct Sequence {
+    std::string key;
+    std::vector<Stage> stages;
+
+    Sequence() = default;
+
+    explicit Sequence(xjson::Parser parser) {
+        this->key = parser.field<std::string>("key");
+        this->stages = parser.field<std::vector<Stage>>("stages", {});
+    }
+
+    [[nodiscard]] nlohmann::json to_json() const {
+        nlohmann::json stages_arr = nlohmann::json::array();
+        for (const auto &stage : stages)
+            stages_arr.push_back(stage.to_json());
+        return {{"key", key}, {"stages", stages_arr}};
+    }
+
+    explicit Sequence(const arc::v1::ir::PBSequence &pb) {
+        this->key = pb.key();
+        for (const auto &stage_pb : pb.stages())
+            this->stages.emplace_back(stage_pb);
+    }
+
+    void to_proto(arc::v1::ir::PBSequence *pb) const {
+        pb->set_key(key);
+        for (const auto &stage : stages)
+            stage.to_proto(pb->add_stages());
+    }
+
+    [[nodiscard]] const Stage* find_stage(const std::string &stage_key) const {
+        for (const auto &stage : stages)
+            if (stage.key == stage_key) return &stage;
+        return nullptr;
+    }
+};
+
 struct IR {
     std::vector<Function> functions;
     std::vector<Node> nodes;
     std::vector<Edge> edges;
     Strata strata;
+    std::vector<Sequence> sequences;
 
     IR() = default;
 
@@ -369,6 +444,7 @@ struct IR {
         this->nodes = parser.field<std::vector<Node>>("nodes");
         this->edges = parser.field<std::vector<Edge>>("edges");
         this->strata = parser.field<Strata>("strata");
+        this->sequences = parser.field<std::vector<Sequence>>("sequences", {});
     }
 
     [[nodiscard]] nlohmann::json to_json() const {
@@ -381,11 +457,15 @@ struct IR {
         nlohmann::json edges_arr = nlohmann::json::array();
         for (const auto &edge: edges)
             edges_arr.push_back(edge.to_json());
+        nlohmann::json sequences_arr = nlohmann::json::array();
+        for (const auto &seq: sequences)
+            sequences_arr.push_back(seq.to_json());
         return {
             {"functions", functions_arr},
             {"nodes", nodes_arr},
             {"edges", edges_arr},
-            {"strata", strata.to_json()}
+            {"strata", strata.to_json()},
+            {"sequences", sequences_arr}
         };
     }
 
@@ -400,6 +480,9 @@ struct IR {
         for (const auto &edge_pb: pb.edges())
             edges.emplace_back(edge_pb);
         strata = Strata(pb.strata());
+        sequences.reserve(pb.sequences_size());
+        for (const auto &seq_pb: pb.sequences())
+            sequences.emplace_back(seq_pb);
     }
 
     void to_proto(arc::v1::ir::PBIR *pb) const {
@@ -413,6 +496,15 @@ struct IR {
         for (const auto &edge: edges)
             edge.to_proto(pb->add_edges());
         strata.to_proto(pb->mutable_strata());
+        pb->mutable_sequences()->Reserve(static_cast<int>(sequences.size()));
+        for (const auto &seq: sequences)
+            seq.to_proto(pb->add_sequences());
+    }
+
+    [[nodiscard]] const Sequence* find_sequence(const std::string &key) const {
+        for (const auto &seq : sequences)
+            if (seq.key == key) return &seq;
+        return nullptr;
     }
 
     using function_iterator = std::vector<Function>::iterator;

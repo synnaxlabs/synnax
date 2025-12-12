@@ -4,8 +4,10 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/runtime/loop",
+        "//arc/cpp/runtime/match",
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/scheduler",
+        "//arc/cpp/runtime/stage",
         "//arc/cpp/runtime/state",
         "//arc/cpp/runtime/time",
         "//arc/cpp/runtime/wasm",
