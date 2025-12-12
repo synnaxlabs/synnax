@@ -12,7 +12,6 @@ NOW         : 'now';
 LEN         : 'len';
 
 // Sequencing keywords
-SEQUENCE    : 'sequence';
 STAGE       : 'stage';
 MATCH       : 'match';
 NEXT        : 'next';

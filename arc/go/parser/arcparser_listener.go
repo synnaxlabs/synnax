@@ -40,9 +40,6 @@ type ArcParserListener interface {
 	// EnterSequenceDeclaration is called when entering the sequenceDeclaration production.
 	EnterSequenceDeclaration(c *SequenceDeclarationContext)
 
-	// EnterSequenceChain is called when entering the sequenceChain production.
-	EnterSequenceChain(c *SequenceChainContext)
-
 	// EnterSequenceEntry is called when entering the sequenceEntry production.
 	EnterSequenceEntry(c *SequenceEntryContext)
 
@@ -276,9 +273,6 @@ type ArcParserListener interface {
 
 	// ExitSequenceDeclaration is called when exiting the sequenceDeclaration production.
 	ExitSequenceDeclaration(c *SequenceDeclarationContext)
-
-	// ExitSequenceChain is called when exiting the sequenceChain production.
-	ExitSequenceChain(c *SequenceChainContext)
 
 	// ExitSequenceEntry is called when exiting the sequenceEntry production.
 	ExitSequenceEntry(c *SequenceEntryContext)

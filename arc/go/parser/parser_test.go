@@ -1373,19 +1373,14 @@ sensor -> demux{threshold=100.0} -> {
 		Context("Sequence Declarations", func() {
 			It("Should parse a simple sequence with one stage", func() {
 				prog := mustParseProgram(`
-sequence main {
-    start_cmd => idle: stage {
-        1 -> output
-    }
+main: start_cmd => idle: stage {
+    1 -> output
 }`)
 				seq := prog.TopLevelItem(0).SequenceDeclaration()
 				Expect(seq).NotTo(BeNil())
-				Expect(seq.SEQUENCE()).NotTo(BeNil())
 				Expect(seq.IDENTIFIER().GetText()).To(Equal("main"))
-				Expect(seq.AllSequenceChain()).To(HaveLen(1))
 
-				chain := seq.SequenceChain(0)
-				entries := chain.AllSequenceEntry()
+				entries := seq.AllSequenceEntry()
 				Expect(entries).To(HaveLen(2))
 
 				// First entry: start_cmd (identifier)
@@ -1396,28 +1391,15 @@ sequence main {
 				Expect(entries[1].StageBody()).NotTo(BeNil())
 			})
 
-			It("Should parse a sequence with multiple chains", func() {
-				prog := mustParseProgram(`
-sequence main {
-    cmd_a => stage_a,
-    cmd_b => stage_b
-}`)
-				seq := prog.TopLevelItem(0).SequenceDeclaration()
-				Expect(seq.AllSequenceChain()).To(HaveLen(2))
-			})
-
 			It("Should parse anonymous inline stages", func() {
 				prog := mustParseProgram(`
-sequence abort {
-    stage {
-        0 -> valve_cmd
-    } => safing: stage {
-        1 -> vent_cmd
-    }
+abort: stage {
+    0 -> valve_cmd
+} => safing: stage {
+    1 -> vent_cmd
 }`)
 				seq := prog.TopLevelItem(0).SequenceDeclaration()
-				chain := seq.SequenceChain(0)
-				entries := chain.AllSequenceEntry()
+				entries := seq.AllSequenceEntry()
 				Expect(entries).To(HaveLen(2))
 
 				// First entry: anonymous stage
@@ -1434,7 +1416,7 @@ sequence abort {
 			It("Should parse standalone stage declaration", func() {
 				prog := mustParseProgram(`
 stage hold {
-    resume_btn => main
+    resume_btn => main,
     abort_btn => abort
 }`)
 				stage := prog.TopLevelItem(0).StageDeclaration()
@@ -1448,7 +1430,7 @@ stage hold {
 			It("Should parse stage with reactive flows", func() {
 				prog := mustParseProgram(`
 stage pressurization {
-    interval{100ms} -> ox_press_control{}
+    interval{100ms} -> ox_press_control{},
     interval{100ms} -> fuel_press_control{}
 }`)
 				stage := prog.TopLevelItem(0).StageDeclaration()
@@ -1474,7 +1456,9 @@ stage test {
 				trans := item.TransitionStatement()
 				Expect(trans).NotTo(BeNil())
 				Expect(trans.TRANSITION()).NotTo(BeNil())
-				Expect(trans.Expression()).NotTo(BeNil())
+				// condition is parsed as a function (IDENTIFIER with optional config/args)
+				Expect(trans.Function()).NotTo(BeNil())
+				Expect(trans.Function().IDENTIFIER().GetText()).To(Equal("condition"))
 				target := trans.TransitionTarget()
 				Expect(target.IDENTIFIER().GetText()).To(Equal("target"))
 			})
@@ -1502,6 +1486,26 @@ stage test {
 				logicalOr := trans.Expression().LogicalOrExpression()
 				logicalAnd := logicalOr.LogicalAndExpression(0)
 				Expect(logicalAnd.AllEqualityExpression()).To(HaveLen(2))
+			})
+
+			It("Should parse function call with config as transition condition", func() {
+				// Regression test: wait{30s} => abort was incorrectly parsed as stageFlow
+				prog := mustParseProgram(`
+stage test {
+    wait{30s} => abort
+}`)
+				stage := prog.TopLevelItem(0).StageDeclaration()
+				item := stage.StageBody().StageItem(0)
+				trans := item.TransitionStatement()
+				Expect(trans).NotTo(BeNil())
+				Expect(trans.TRANSITION()).NotTo(BeNil())
+				// wait{30s} is a function call
+				fn := trans.Function()
+				Expect(fn).NotTo(BeNil())
+				Expect(fn.IDENTIFIER().GetText()).To(Equal("wait"))
+				Expect(fn.ConfigValues()).NotTo(BeNil())
+				target := trans.TransitionTarget()
+				Expect(target.IDENTIFIER().GetText()).To(Equal("abort"))
 			})
 		})
 
@@ -1556,28 +1560,25 @@ stage precheck {
 		Context("Complex Sequences", func() {
 			It("Should parse hotfire-style sequence", func() {
 				prog := mustParseProgram(`
-sequence main {
-    start => precheck: stage {
-        sensor_ok => next
-        abort_btn => abort
-    } => pressurize: stage {
-        interval{100ms} -> press_control{}
-        pressure > target => next
-        timeout => abort
-    } => complete: stage {
-        1 -> done_flag
-    }
+main: start => precheck: stage {
+    sensor_ok => next,
+    abort_btn => abort
+} => pressurize: stage {
+    interval{100ms} -> press_control{},
+    pressure > target => next,
+    timeout => abort
+} => complete: stage {
+    1 -> done_flag
 }
 
 stage abort {
-    0 -> all_valves
+    0 -> all_valves,
     safe => next
 }`)
 				// Verify sequence
 				seq := prog.TopLevelItem(0).SequenceDeclaration()
 				Expect(seq.IDENTIFIER().GetText()).To(Equal("main"))
-				chain := seq.SequenceChain(0)
-				entries := chain.AllSequenceEntry()
+				entries := seq.AllSequenceEntry()
 				Expect(entries).To(HaveLen(4)) // start, precheck, pressurize, complete
 
 				// Verify standalone abort stage

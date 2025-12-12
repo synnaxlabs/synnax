@@ -61,14 +61,9 @@ config
 // Sequence and Stage Declarations
 // =============================================================================
 
-// sequence main { chain1, chain2, ... }
+// main: start_cmd => precheck: stage { } => next_stage
 sequenceDeclaration
-    : SEQUENCE IDENTIFIER LBRACE sequenceChain (COMMA sequenceChain)* RBRACE
-    ;
-
-// start_cmd => precheck: stage { } => next_stage
-sequenceChain
-    : sequenceEntry (TRANSITION sequenceEntry)*
+    : IDENTIFIER COLON sequenceEntry (TRANSITION sequenceEntry)*
     ;
 
 sequenceEntry
@@ -84,23 +79,24 @@ stageDeclaration
 
 // { reactive flows and transitions }
 stageBody
-    : LBRACE stageItem* RBRACE
+    : LBRACE (stageItem (COMMA stageItem)*)? RBRACE
     ;
 
 stageItem
-    : stageFlow                // sensor -> controller{}
+    : imperativeTransition     // { ... } => match { ... }
     | transitionStatement      // condition => target
-    | imperativeTransition     // { ... } => match { ... }
+    | stageFlow                // sensor -> controller{}
     ;
 
 // Reactive flow within a stage (runs continuously while in stage)
 stageFlow
-    : (routingTable | flowNode) (ARROW (routingTable | flowNode))+ SEMICOLON?
+    : (routingTable | flowNode) (ARROW (routingTable | flowNode))+
     ;
 
-// condition => target
+// condition => target (function allows wait{30s} => abort)
 transitionStatement
-    : expression TRANSITION transitionTarget
+    : function TRANSITION transitionTarget
+    | expression TRANSITION transitionTarget
     ;
 
 transitionTarget

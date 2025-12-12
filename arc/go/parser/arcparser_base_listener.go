@@ -86,12 +86,6 @@ func (s *BaseArcParserListener) EnterSequenceDeclaration(ctx *SequenceDeclaratio
 // ExitSequenceDeclaration is called when production sequenceDeclaration is exited.
 func (s *BaseArcParserListener) ExitSequenceDeclaration(ctx *SequenceDeclarationContext) {}
 
-// EnterSequenceChain is called when production sequenceChain is entered.
-func (s *BaseArcParserListener) EnterSequenceChain(ctx *SequenceChainContext) {}
-
-// ExitSequenceChain is called when production sequenceChain is exited.
-func (s *BaseArcParserListener) ExitSequenceChain(ctx *SequenceChainContext) {}
-
 // EnterSequenceEntry is called when production sequenceEntry is entered.
 func (s *BaseArcParserListener) EnterSequenceEntry(ctx *SequenceEntryContext) {}
 
