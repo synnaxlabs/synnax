@@ -12,9 +12,25 @@ message PBHandle {
     string param = 2;
 }
 
+enum PBEdgeKind {
+    CONTINUOUS = 0;
+    ONE_SHOT = 1;
+}
+
 message PBEdge {
     PBHandle source = 1;
     PBHandle target = 2;
+    PBEdgeKind kind = 3;
+}
+
+message PBStage {
+    string key = 1;
+    repeated string nodes = 2;
+}
+
+message PBSequence {
+    string key = 1;
+    repeated PBStage stages = 2;
 }
 
 message PBBody {

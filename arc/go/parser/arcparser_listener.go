@@ -40,9 +40,6 @@ type ArcParserListener interface {
 	// EnterSequenceDeclaration is called when entering the sequenceDeclaration production.
 	EnterSequenceDeclaration(c *SequenceDeclarationContext)
 
-	// EnterSequenceEntry is called when entering the sequenceEntry production.
-	EnterSequenceEntry(c *SequenceEntryContext)
-
 	// EnterStageDeclaration is called when entering the stageDeclaration production.
 	EnterStageDeclaration(c *StageDeclarationContext)
 
@@ -54,6 +51,15 @@ type ArcParserListener interface {
 
 	// EnterStageFlow is called when entering the stageFlow production.
 	EnterStageFlow(c *StageFlowContext)
+
+	// EnterStageFlowNode is called when entering the stageFlowNode production.
+	EnterStageFlowNode(c *StageFlowNodeContext)
+
+	// EnterTimerBuiltin is called when entering the timerBuiltin production.
+	EnterTimerBuiltin(c *TimerBuiltinContext)
+
+	// EnterLogBuiltin is called when entering the logBuiltin production.
+	EnterLogBuiltin(c *LogBuiltinContext)
 
 	// EnterTransitionStatement is called when entering the transitionStatement production.
 	EnterTransitionStatement(c *TransitionStatementContext)
@@ -69,6 +75,9 @@ type ArcParserListener interface {
 
 	// EnterImperativeTransition is called when entering the imperativeTransition production.
 	EnterImperativeTransition(c *ImperativeTransitionContext)
+
+	// EnterTopLevelTransition is called when entering the topLevelTransition production.
+	EnterTopLevelTransition(c *TopLevelTransitionContext)
 
 	// EnterFlowStatement is called when entering the flowStatement production.
 	EnterFlowStatement(c *FlowStatementContext)
@@ -274,9 +283,6 @@ type ArcParserListener interface {
 	// ExitSequenceDeclaration is called when exiting the sequenceDeclaration production.
 	ExitSequenceDeclaration(c *SequenceDeclarationContext)
 
-	// ExitSequenceEntry is called when exiting the sequenceEntry production.
-	ExitSequenceEntry(c *SequenceEntryContext)
-
 	// ExitStageDeclaration is called when exiting the stageDeclaration production.
 	ExitStageDeclaration(c *StageDeclarationContext)
 
@@ -288,6 +294,15 @@ type ArcParserListener interface {
 
 	// ExitStageFlow is called when exiting the stageFlow production.
 	ExitStageFlow(c *StageFlowContext)
+
+	// ExitStageFlowNode is called when exiting the stageFlowNode production.
+	ExitStageFlowNode(c *StageFlowNodeContext)
+
+	// ExitTimerBuiltin is called when exiting the timerBuiltin production.
+	ExitTimerBuiltin(c *TimerBuiltinContext)
+
+	// ExitLogBuiltin is called when exiting the logBuiltin production.
+	ExitLogBuiltin(c *LogBuiltinContext)
 
 	// ExitTransitionStatement is called when exiting the transitionStatement production.
 	ExitTransitionStatement(c *TransitionStatementContext)
@@ -303,6 +318,9 @@ type ArcParserListener interface {
 
 	// ExitImperativeTransition is called when exiting the imperativeTransition production.
 	ExitImperativeTransition(c *ImperativeTransitionContext)
+
+	// ExitTopLevelTransition is called when exiting the topLevelTransition production.
+	ExitTopLevelTransition(c *TopLevelTransitionContext)
 
 	// ExitFlowStatement is called when exiting the flowStatement production.
 	ExitFlowStatement(c *FlowStatementContext)

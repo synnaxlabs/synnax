@@ -78,6 +78,10 @@ const (
 	KindInput
 	// KindOutput represents an output parameter from a function or task.
 	KindOutput
+	// KindSequence represents a sequence (state machine) declaration.
+	KindSequence
+	// KindStage represents a stage within a sequence.
+	KindStage
 )
 
 // Symbol represents a named entity in an Arc program.

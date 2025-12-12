@@ -81,9 +81,13 @@ import (
 type IR struct {
 	// Functions contains all function and stage definitions in the program.
 	Functions Functions `json:"functions"`
+	// Sequences contains all sequence (state machine) definitions in the program.
+	// Each sequence contains its own stages with embedded node references.
+	Sequences Sequences `json:"sequences,omitempty"`
 	// Nodes contains all instantiated function instances in the dataflow graph.
 	Nodes Nodes `json:"nodes"`
 	// Edges contains all dataflow connections between node parameters.
+	// Edge.Kind distinguishes Continuous (-> reactive) from OneShot (=> transition) edges.
 	Edges Edges `json:"edges"`
 	// Strata contains the execution stratification for deterministic reactive execution.
 	Strata Strata `json:"strata"`
@@ -95,6 +99,7 @@ type IR struct {
 
 func (i *IR) IsZero() bool {
 	return len(i.Functions) == 0 &&
+		len(i.Sequences) == 0 &&
 		len(i.Nodes) == 0 &&
 		len(i.Edges) == 0 &&
 		len(i.Strata) == 0 &&

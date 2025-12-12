@@ -16,7 +16,7 @@ topLevelItem
     : functionDeclaration
     | flowStatement
     | sequenceDeclaration
-    | stageDeclaration
+    | topLevelTransition
     ;
 
 // =============================================================================
@@ -61,23 +61,17 @@ config
 // Sequence and Stage Declarations
 // =============================================================================
 
-// main: start_cmd => precheck: stage { } => next_stage
+// sequence main { stage precheck { } stage pressurization { } }
 sequenceDeclaration
-    : IDENTIFIER COLON sequenceEntry (TRANSITION sequenceEntry)*
+    : SEQUENCE IDENTIFIER LBRACE stageDeclaration* RBRACE
     ;
 
-sequenceEntry
-    : IDENTIFIER COLON STAGE stageBody    // Labeled inline stage: precheck: stage { }
-    | STAGE stageBody                      // Anonymous inline stage: stage { }
-    | IDENTIFIER                           // Reference to existing stage or trigger
-    ;
-
-// stage precheck_hold { }
+// stage precheck { items... }
 stageDeclaration
     : STAGE IDENTIFIER stageBody
     ;
 
-// { reactive flows and transitions }
+// { reactive flows and transitions, comma-separated }
 stageBody
     : LBRACE (stageItem (COMMA stageItem)*)? RBRACE
     ;
@@ -90,18 +84,40 @@ stageItem
 
 // Reactive flow within a stage (runs continuously while in stage)
 stageFlow
-    : (routingTable | flowNode) (ARROW (routingTable | flowNode))+
+    : stageFlowNode (ARROW stageFlowNode)+
+    ;
+
+stageFlowNode
+    : routingTable
+    | timerBuiltin             // wait{100ms}, interval{10ms}
+    | logBuiltin               // log{"message"}
+    | function
+    | expression
+    ;
+
+// Built-in timer functions
+timerBuiltin
+    : WAIT configValues        // wait{100ms} or wait{duration}
+    | INTERVAL configValues    // interval{10ms}
+    ;
+
+// Built-in log function
+logBuiltin
+    : LOG configValues         // log{"message"}
     ;
 
 // condition => target (function allows wait{30s} => abort)
 transitionStatement
-    : function TRANSITION transitionTarget
-    | expression TRANSITION transitionTarget
+    : timerBuiltin TRANSITION transitionTarget   // wait{30s} => abort
+    | logBuiltin TRANSITION transitionTarget     // log{} => next (unlikely but valid)
+    | function TRANSITION transitionTarget       // check_aborts{} => abort
+    | expression TRANSITION transitionTarget     // pressure > max => abort
     ;
 
 transitionTarget
     : NEXT                     // Continue to next stage in chain
     | matchBlock               // Pattern matching: match { ok => next, fail => abort }
+    | stageFlow                // wait{10ms} => 1 -> fuel_valve_cmd
     | IDENTIFIER               // Stage name reference
     ;
 
@@ -118,6 +134,11 @@ matchEntry
 // { imperative code } => match { ... }
 imperativeTransition
     : block TRANSITION matchBlock
+    ;
+
+// Top-level transition: start_cmd => main
+topLevelTransition
+    : IDENTIFIER TRANSITION IDENTIFIER
     ;
 
 // =============================================================================

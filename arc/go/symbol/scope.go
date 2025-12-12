@@ -165,7 +165,7 @@ func (s *Scope) Add(ctx context.Context, sym Symbol) (*Scope, error) {
 		}
 	}
 	child := &Scope{Parent: s, Symbol: sym}
-	if sym.Kind == KindFunction {
+	if sym.Kind == KindFunction || sym.Kind == KindSequence {
 		child.Counter = new(int)
 	}
 	if sym.Kind == KindVariable ||

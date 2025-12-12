@@ -62,7 +62,7 @@
         },
         {
           "name": "keyword.other.arc",
-          "match": "\\b(func|stage)\\b"
+          "match": "\\b(func|sequence|stage|match|next)\\b"
         },
         {
           "name": "constant.language.boolean.arc",
@@ -169,6 +169,10 @@
         {
           "name": "keyword.operator.channel.arc",
           "match": "<-"
+        },
+        {
+          "name": "keyword.operator.transition.arc",
+          "match": "=>"
         }
       ]
     },
@@ -213,6 +217,24 @@
     "tasks": {
       "patterns": [
         {
+          "name": "meta.sequence.definition.arc",
+          "begin": "\\b(sequence)\\s+(\\w+)\\s*\\{",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.other.arc"
+            },
+            "2": {
+              "name": "entity.name.type.sequence.arc"
+            }
+          },
+          "end": "\\}",
+          "patterns": [
+            {
+              "include": "$self"
+            }
+          ]
+        },
+        {
           "name": "meta.stage.definition.arc",
           "begin": "\\b(stage)\\s+(\\w+)\\s*\\{",
           "beginCaptures": {
@@ -241,7 +263,7 @@
         },
         {
           "name": "meta.stdlib.stage.arc",
-          "match": "\\b(interval|all|once|any|throttle|merge|tee)\\b(?=\\s*\\{)",
+          "match": "\\b(wait|interval|log|all|once|any|throttle|merge|tee)\\b(?=\\s*\\{)",
           "captures": {
             "1": {
               "name": "support.function.builtin.stage.arc"

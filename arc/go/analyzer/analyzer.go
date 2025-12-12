@@ -15,6 +15,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/flow"
+	"github.com/synnaxlabs/arc/analyzer/sequence"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
@@ -52,6 +53,7 @@ func substituteTypeMap(ctx acontext.Context[parser.IProgramContext]) {
 }
 
 func collectDeclarations(ctx acontext.Context[parser.IProgramContext]) bool {
+	// Collect function declarations
 	for _, item := range ctx.AST.AllTopLevelItem() {
 		if fn := item.FunctionDeclaration(); fn != nil {
 			name := fn.IDENTIFIER().GetText()
@@ -66,6 +68,12 @@ func collectDeclarations(ctx acontext.Context[parser.IProgramContext]) bool {
 			}
 		}
 	}
+
+	// Collect sequence and stage declarations
+	if !sequence.CollectDeclarations(ctx) {
+		return false
+	}
+
 	return true
 }
 
@@ -77,6 +85,14 @@ func analyzeDeclarations(ctx acontext.Context[parser.IProgramContext]) bool {
 			}
 		} else if flowStmt := item.FlowStatement(); flowStmt != nil {
 			if !flow.Analyze(acontext.Child(ctx, flowStmt)) {
+				return false
+			}
+		} else if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
+			if !sequence.Analyze(acontext.Child(ctx, seqDecl)) {
+				return false
+			}
+		} else if topTrans := item.TopLevelTransition(); topTrans != nil {
+			if !sequence.AnalyzeTopLevelTransition(acontext.Child(ctx, topTrans)) {
 				return false
 			}
 		}

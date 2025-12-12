@@ -86,12 +86,6 @@ func (s *BaseArcParserListener) EnterSequenceDeclaration(ctx *SequenceDeclaratio
 // ExitSequenceDeclaration is called when production sequenceDeclaration is exited.
 func (s *BaseArcParserListener) ExitSequenceDeclaration(ctx *SequenceDeclarationContext) {}
 
-// EnterSequenceEntry is called when production sequenceEntry is entered.
-func (s *BaseArcParserListener) EnterSequenceEntry(ctx *SequenceEntryContext) {}
-
-// ExitSequenceEntry is called when production sequenceEntry is exited.
-func (s *BaseArcParserListener) ExitSequenceEntry(ctx *SequenceEntryContext) {}
-
 // EnterStageDeclaration is called when production stageDeclaration is entered.
 func (s *BaseArcParserListener) EnterStageDeclaration(ctx *StageDeclarationContext) {}
 
@@ -115,6 +109,24 @@ func (s *BaseArcParserListener) EnterStageFlow(ctx *StageFlowContext) {}
 
 // ExitStageFlow is called when production stageFlow is exited.
 func (s *BaseArcParserListener) ExitStageFlow(ctx *StageFlowContext) {}
+
+// EnterStageFlowNode is called when production stageFlowNode is entered.
+func (s *BaseArcParserListener) EnterStageFlowNode(ctx *StageFlowNodeContext) {}
+
+// ExitStageFlowNode is called when production stageFlowNode is exited.
+func (s *BaseArcParserListener) ExitStageFlowNode(ctx *StageFlowNodeContext) {}
+
+// EnterTimerBuiltin is called when production timerBuiltin is entered.
+func (s *BaseArcParserListener) EnterTimerBuiltin(ctx *TimerBuiltinContext) {}
+
+// ExitTimerBuiltin is called when production timerBuiltin is exited.
+func (s *BaseArcParserListener) ExitTimerBuiltin(ctx *TimerBuiltinContext) {}
+
+// EnterLogBuiltin is called when production logBuiltin is entered.
+func (s *BaseArcParserListener) EnterLogBuiltin(ctx *LogBuiltinContext) {}
+
+// ExitLogBuiltin is called when production logBuiltin is exited.
+func (s *BaseArcParserListener) ExitLogBuiltin(ctx *LogBuiltinContext) {}
 
 // EnterTransitionStatement is called when production transitionStatement is entered.
 func (s *BaseArcParserListener) EnterTransitionStatement(ctx *TransitionStatementContext) {}
@@ -145,6 +157,12 @@ func (s *BaseArcParserListener) EnterImperativeTransition(ctx *ImperativeTransit
 
 // ExitImperativeTransition is called when production imperativeTransition is exited.
 func (s *BaseArcParserListener) ExitImperativeTransition(ctx *ImperativeTransitionContext) {}
+
+// EnterTopLevelTransition is called when production topLevelTransition is entered.
+func (s *BaseArcParserListener) EnterTopLevelTransition(ctx *TopLevelTransitionContext) {}
+
+// ExitTopLevelTransition is called when production topLevelTransition is exited.
+func (s *BaseArcParserListener) ExitTopLevelTransition(ctx *TopLevelTransitionContext) {}
 
 // EnterFlowStatement is called when production flowStatement is entered.
 func (s *BaseArcParserListener) EnterFlowStatement(ctx *FlowStatementContext) {}
