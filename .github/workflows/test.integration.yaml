@@ -65,7 +65,8 @@ on:
         default: ""
         type: string
       SEQUENCE:
-        description: "Test case sequence to run (optional - will auto-discover if empty)"
+        description:
+          "Test case sequence to run (optional - will auto-discover if empty)"
         required: false
         default: ""
         type: string
@@ -116,9 +117,11 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       VERSION: ${{ steps.version.outputs.VERSION }}
-      SKIP_BUILD: ${{ steps.update-outputs.outputs.SKIP_BUILD ||
+      SKIP_BUILD:
+        ${{ steps.update-outputs.outputs.SKIP_BUILD ||
         steps.set-outputs.outputs.SKIP_BUILD }}
-      REF_RUN_ID: ${{ steps.update-outputs.outputs.REF_RUN_ID ||
+      REF_RUN_ID:
+        ${{ steps.update-outputs.outputs.REF_RUN_ID ||
         steps.set-outputs.outputs.REF_RUN_ID }}
       SEQUENCE_ARG: ${{ steps.set-outputs.outputs.SEQUENCE_ARG }}
     steps:
@@ -228,7 +231,8 @@ jobs:
           repository-cache: false
 
       - name: Build Driver
-        if: matrix.os != 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
+        if:
+          matrix.os != 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
         run: |
           bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc \
             --disk_cache=~/.cache/bazel-disk \
@@ -236,17 +240,20 @@ jobs:
             //driver
 
       - name: Build Driver (Windows)
-        if: matrix.os == 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
+        if:
+          matrix.os == 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
         run: |
           bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt --announce_rc --disk_cache=C:/tmp/bazel-disk --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} //driver
 
       - name: Move Driver to Assets
-        if: matrix.os != 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
+        if:
+          matrix.os != 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
         run: |
           mv bazel-bin/driver/driver core/pkg/service/driver/assets/driver
 
       - name: Move Driver to Assets (Windows)
-        if: matrix.os == 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
+        if:
+          matrix.os == 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
         shell: powershell
         run: |
           Move-Item -Force bazel-bin/driver/driver.exe core/pkg/service/driver/assets/driver.exe
@@ -280,11 +287,13 @@ jobs:
         run: pnpm build:console-vite
 
       - name: Copy Console Assets to Server
-        if: matrix.os != 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
+        if:
+          matrix.os != 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
         run: cp -r console/dist/* core/pkg/service/console/dist/
 
       - name: Copy Console Assets to Server (Windows)
-        if: matrix.os == 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
+        if:
+          matrix.os == 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
         shell: powershell
         run: |
           Copy-Item -Recurse -Force console/dist/* core/pkg/service/console/dist/
@@ -300,7 +309,8 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.artifact-name }}
-          path: core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}
+          path:
+            core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}
           retention-days: 7
           if-no-files-found: error
 

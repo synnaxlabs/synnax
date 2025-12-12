@@ -474,7 +474,8 @@ jobs:
           cache-from: type=gha,scope=synnax-docker-cache
           cache-to: type=gha,mode=min,scope=synnax-docker-cache
           sbom: ${{ github.event_name != 'pull_request' }}
-          provenance: ${{ github.event_name != 'pull_request' && 'mode=max' || 'false' }}
+          provenance:
+            ${{ github.event_name != 'pull_request' && 'mode=max' || 'false' }}
           build-args: |
             DRIVER_ENABLED=true
             CONSOLE_ENABLED=true

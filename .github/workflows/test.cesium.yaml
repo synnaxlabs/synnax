@@ -65,7 +65,8 @@ jobs:
           working-directory: cesium
 
       - name: Test
-        run: go run github.com/onsi/ginkgo/v2/ginkgo -r -p --randomize-all
+        run:
+          go run github.com/onsi/ginkgo/v2/ginkgo -r -p --randomize-all
           --randomize-suites --fail-on-pending --fail-on-empty --keep-going --trace
           --github-output
         working-directory: cesium

@@ -215,7 +215,8 @@ jobs:
         run: scripts/check_clang_format.sh client/cpp
 
       - name: Test (Ubuntu)
-        run: bazel test --config=asan-leak --test_output=all //client/cpp/...
+        run:
+          bazel test --config=asan-leak --test_output=all //client/cpp/...
           --nocache_test_results
 
   py:

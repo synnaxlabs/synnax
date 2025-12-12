@@ -202,7 +202,8 @@ jobs:
 
       - name: Download relic for Windows signing
         if: matrix.os == 'windows-latest' && (github.event_name != 'pull_request')
-        run: curl -L -o relic.exe
+        run:
+          curl -L -o relic.exe
           https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
 
       - name: Add relic to PATH
@@ -252,7 +253,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    if: needs.create-release.outputs.release_id != '' && github.event_name !=
+    if:
+      needs.create-release.outputs.release_id != '' && github.event_name !=
       'pull_request'
     needs: [setup, create-release, build]
     env:

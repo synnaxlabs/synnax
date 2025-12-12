@@ -1,6 +1,7 @@
 name: Build - Binaries
 
-run-name: ${{ github.event.inputs.RUN_NAME || format('Build Binaries - {0}', github.ref_name) }}
+run-name:
+  ${{ github.event.inputs.RUN_NAME || format('Build Binaries - {0}', github.ref_name) }}
 
 on:
   workflow_dispatch:
@@ -238,7 +239,8 @@ jobs:
       - name: Build Core
         if: inputs.core
         working-directory: core
-        run: go build ${{ needs.setup.outputs.GO_BUILD_TAGS }} -o synnax-v${{
+        run:
+          go build ${{ needs.setup.outputs.GO_BUILD_TAGS }} -o synnax-v${{
           needs.setup.outputs.VERSION }}${{ matrix.executable }}
 
       - name: Upload Core Binary as Artifact
