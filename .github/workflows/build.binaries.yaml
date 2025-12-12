@@ -210,28 +210,37 @@ jobs:
         run: git submodule update --init --recursive
 
       - name: Install Deps On Ubuntu
+        # Dependencies should already be installed on the machine.
+        # This is nominally a no-op, but exists as a fallback and for documentation.
         if: matrix.os == 'ubuntu-build-bot' || matrix.os == 'ubuntu-2204-build-bot'
         run: |
           sudo apt-get update
           sudo apt-get install -y libsystemd-dev autoconf automake libtool
 
       - name: Install Deps on macOS
+        # Dependencies should already be installed on the machine.
+        # This is nominally a no-op, but exists as a fallback and for documentation.
         if: matrix.os == 'macos-build-bot'
         run: brew install autoconf automake libtool 2>/dev/null
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
+          # Use S3 cache instead of github cache.
           bazelisk-cache: false
           disk-cache: false
           repository-cache: false
 
       - name: Build Driver
-        if: inputs.driver && matrix.os != 'windows-build-bot'
+        if: inputs.driver
+        shell: bash
         run: |
           BAZEL_FLAGS=""
+          BAZEL_STARTUP_FLAGS=""
 
-          if [ "${{ matrix.os }}" = "ubuntu-2204-build-bot" ]; then
+          if [ "${{ matrix.os }}" = "windows-build-bot" ]; then
+            BAZEL_STARTUP_FLAGS="--output_user_root=C:/tmp"
+          elif [ "${{ matrix.os }}" = "ubuntu-2204-build-bot" ]; then
             export TMPDIR=/tmp
             BAZEL_FLAGS="--define=platform=nilinuxrt"
           else
@@ -243,13 +252,7 @@ jobs:
             BAZEL_FLAGS="$BAZEL_FLAGS --remote_cache=${{ env.BAZEL_REMOTE_CACHE }}"
           fi
 
-          bazel build --enable_platform_specific_config -c opt --announce_rc --verbose_failures $BAZEL_FLAGS //driver
-
-      - name: Build Driver (Windows)
-        if: inputs.driver && matrix.os == 'windows-build-bot'
-        run:
-          bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt
-          --announce_rc --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} //driver
+          bazel $BAZEL_STARTUP_FLAGS build --enable_platform_specific_config -c opt --announce_rc --verbose_failures $BAZEL_FLAGS //driver
 
       - name: Import Apple Developer Certificate
         if: inputs.sign_binaries && matrix.os == 'macos-build-bot'
@@ -428,6 +431,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.work
+          # Don't use github cache. Local cache is faster.
           cache: false
 
       - name: Build Core
