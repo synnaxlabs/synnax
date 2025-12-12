@@ -239,6 +239,8 @@ jobs:
           BAZEL_STARTUP_FLAGS=""
 
           if [ "${{ matrix.os }}" = "windows-build-bot" ]; then
+            # Disable Git Bash path conversion (// -> / mangling)
+            export MSYS_NO_PATHCONV=1
             BAZEL_STARTUP_FLAGS="--output_user_root=C:/tmp"
           elif [ "${{ matrix.os }}" = "ubuntu-2204-build-bot" ]; then
             export TMPDIR=/tmp
