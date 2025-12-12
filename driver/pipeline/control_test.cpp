@@ -14,6 +14,7 @@
 #include "driver/pipeline/control.h"
 #include "driver/pipeline/mock/pipeline.h"
 
+/// @brief it should read frames from streamer and write to sink.
 TEST(ControlPipeline, testHappyPath) {
     auto fr_1 = synnax::Frame(1);
     fr_1.emplace(1, telem::Series(1.0));
@@ -45,6 +46,7 @@ TEST(ControlPipeline, testHappyPath) {
     control.stop();
 }
 
+/// @brief it should stop and report error when streamer open fails with unknown error.
 TEST(ControlPipeline, testUnknownErrOnOpen) {
     const auto streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
         std::vector{xerrors::UNKNOWN},
@@ -60,9 +62,10 @@ TEST(ControlPipeline, testUnknownErrOnOpen) {
     control.start();
     ASSERT_EVENTUALLY_EQ(sink->writes->size(), 0);
     control.stop();
-    ASSERT_TRUE(sink->stop_err.matches(xerrors::UNKNOWN));
+    ASSERT_MATCHES(sink->stop_err, xerrors::UNKNOWN);
 }
 
+/// @brief it should retry opening streamer on unreachable error and succeed.
 TEST(ControlPipeline, testOpenRetrySuccessful) {
     auto fr_1 = synnax::Frame(1);
     fr_1.emplace(1, telem::Series(1.0));
