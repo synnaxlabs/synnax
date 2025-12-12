@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { type Channel } from "@synnaxlabs/pluto";
+import { type Channel, Status } from "@synnaxlabs/pluto";
 import { TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useStore } from "react-redux";
@@ -27,6 +27,7 @@ export interface DownloadAsCSVArgs {
 
 export const useDownloadAsCSV = (): ((args: DownloadAsCSVArgs) => void) => {
   const openDownloadCSVModal = CSV.useDownloadModal();
+  const handleError = Status.useErrorHandler();
   return useCallback(
     ({ timeRanges, lines, name }) => {
       const channels = unique.unique(
@@ -43,12 +44,19 @@ export const useDownloadAsCSV = (): ((args: DownloadAsCSVArgs) => void) => {
         return acc;
       }, {});
       const timeRange = TimeRange.merge(...timeRanges);
-      void openDownloadCSVModal({
-        timeRange: timeRange.numeric,
-        name,
-        channels,
-        channelNames,
-      });
+      handleError(
+        async () =>
+          openDownloadCSVModal(
+            {
+              timeRange: timeRange.numeric,
+              name,
+              channels,
+              channelNames,
+            },
+            { icon: "LinePlot" },
+          ),
+        `Failed to download CSV data for ${name}`,
+      );
     },
     [openDownloadCSVModal],
   );

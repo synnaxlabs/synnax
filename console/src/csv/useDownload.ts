@@ -46,7 +46,6 @@ const download = async ({
   onDownloadStart,
   ...readParams
 }: DownloadFnParams): Promise<void> => {
-  console.log("download", readParams);
   const stream = await client.read({ ...readParams, responseType: "csv" });
   await Runtime.downloadStream({
     stream,
