@@ -730,8 +730,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name:
-            ${{ matrix.os == 'macos-latest' && 'macos' || 'windows' }}-console-v${{
-            steps.console-version.outputs.VERSION }}
+            ${{ matrix.os == 'macos-latest' && 'macos' || 'windows' }}-console-desktop
           path: |
             ${{ matrix.os == 'macos-latest' && format('console/src-tauri/target/release/bundle/dmg/Synnax_{0}_aarch64.dmg', steps.console-version.outputs.CONSOLE_VERSION) || '' }}
             ${{ matrix.os == 'windows-latest' && format('console/src-tauri/target/release/bundle/msi/Synnax_{0}_x64_en-US.msi', steps.console-version.outputs.CONSOLE_VERSION) || '' }}
