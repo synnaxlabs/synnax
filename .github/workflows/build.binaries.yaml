@@ -356,8 +356,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name:
-            ${{ inputs.use_simple_artifact_names && format('{0}-synnax-driver',
-            matrix.binary-suffix) || format('{0}-synnax-driver-v{1}',
+            ${{ inputs.use_simple_artifact_names && format('{0}-driver',
+            matrix.binary-suffix) || format('{0}-driver-v{1}',
             matrix.binary-suffix, needs.setup.outputs.VERSION) }}
           path:
             bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{
@@ -406,8 +406,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name:
-            ${{ inputs.use_simple_artifact_names && format('{0}-synnax-console-assets',
-            matrix.binary-suffix) || format('{0}-synnax-console-assets-v{1}',
+            ${{ inputs.use_simple_artifact_names && format('{0}-console-assets',
+            matrix.binary-suffix) || format('{0}-console-assets-v{1}',
             matrix.binary-suffix, needs.setup.outputs.VERSION) }}
           path: console/dist/
           retention-days: 7
@@ -496,7 +496,7 @@ jobs:
         with:
           name:
             ${{ inputs.use_simple_artifact_names && matrix.artifact-name ||
-            format('{0}-synnax-v{1}', matrix.binary-suffix, needs.setup.outputs.VERSION)
+            format('{0}-v{1}', matrix.binary-suffix, needs.setup.outputs.VERSION)
             }}
           path: core/synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
           retention-days: 7
@@ -732,7 +732,7 @@ jobs:
         with:
           name:
             ${{ matrix.os == 'macos-latest' && 'macos' || 'windows'
-            }}-synnax-console-v${{ steps.console-version.outputs.VERSION }}
+            }}-console-v${{ steps.console-version.outputs.VERSION }}
           path: |
             ${{ matrix.os == 'macos-latest' && format('console/src-tauri/target/release/bundle/dmg/Synnax_{0}_aarch64.dmg', steps.console-version.outputs.CONSOLE_VERSION) || '' }}
             ${{ matrix.os == 'windows-latest' && format('console/src-tauri/target/release/bundle/msi/Synnax_{0}_x64_en-US.msi', steps.console-version.outputs.CONSOLE_VERSION) || '' }}
