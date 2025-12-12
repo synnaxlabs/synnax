@@ -80,6 +80,10 @@ on:
       - x/ts/**
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   setup:
     runs-on: ubuntu-latest
