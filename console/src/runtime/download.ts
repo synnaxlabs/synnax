@@ -51,6 +51,7 @@ export const downloadStream = async ({
   onDownloadStart,
   addStatus,
 }: DownloadStreamParams): Promise<void> => {
+  const nameWithExtension = `${name}.${extension}`;
   const addStartStatus = (location: string) => {
     onDownloadStart?.();
     addStatus({
@@ -72,7 +73,7 @@ export const downloadStream = async ({
     try {
       const fileHandle = await (
         window as WindowWithShowSaveFilePicker
-      ).showSaveFilePicker({ suggestedName: name });
+      ).showSaveFilePicker({ suggestedName: nameWithExtension });
       const writable = await fileHandle.createWritable();
       addStartStatus(fileHandle.name);
       await stream.pipeTo(writable);
@@ -90,7 +91,7 @@ export const downloadStream = async ({
   if (ENGINE === "tauri") {
     const savePath = await save({
       title: `Download ${name}`,
-      defaultPath: `${name}.${extension}`,
+      defaultPath: nameWithExtension,
     });
     if (savePath == null) {
       await stream.cancel();
@@ -104,6 +105,6 @@ export const downloadStream = async ({
   // Case 3: we load everything into memory and download it
   addStartStatus("Downloads");
   const blob = await new Response(stream).blob();
-  downloadFromBrowser(blob, name);
+  downloadFromBrowser(blob, nameWithExtension);
   addFinishStatus("Downloads");
 };
