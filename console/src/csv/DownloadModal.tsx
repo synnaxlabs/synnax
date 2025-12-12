@@ -71,10 +71,10 @@ export const [useDownloadModal, DownloadModal] = Modals.createBase<
     return (
       <Form.Form<typeof formSchema> {...form}>
         <Modals.ModalContentLayout footer={footer} gap="huge">
-          <Text.Text level="h4" weight={450}>
-            Export data for {name} to a CSV
+          <Text.Text level="h3" weight={450}>
+            Download data for {name} to a CSV
           </Text.Text>
-          <Flex.Box y full="x">
+          <Flex.Box y full="x" gap="large">
             <Flex.Box x gap="medium" align="center">
               <Form.Field<number>
                 path="timeRange.start"
@@ -108,6 +108,7 @@ export const [useDownloadModal, DownloadModal] = Modals.createBase<
       </Form.Form>
     );
   },
+  { window: { resizable: false, size: { height: 475, width: 700 }, navTop: true } },
 );
 
 interface DownloadButtonProps {
@@ -163,15 +164,13 @@ const ChannelsField = () => {
   );
 };
 
-const numericTimeRangeZ2 = numericTimeRangeZ.refine(({ start, end }) => end >= start, {
-  error: "End time must be after start time",
-  path: ["end"],
-});
-
 const formSchema = z.object({
   name: z.string(),
   channelNames: z.record(channel.keyZ, z.string()).optional(),
   channels: channel.keyZ.array(),
-  timeRange: numericTimeRangeZ2,
+  timeRange: numericTimeRangeZ.refine(({ start, end }) => end >= start, {
+    error: "End time must be after start time",
+    path: ["end"],
+  }),
   downsampleFactor: z.int().min(1).default(1),
 });

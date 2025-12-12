@@ -36,6 +36,7 @@ export const createBase = <R, A extends BaseArgs<R>>(
   name: string,
   type: string,
   Component: FC<BaseProps<R, A>>,
+  defaultLayoutOverrides?: LayoutOverrides,
 ): [() => Prompt<R, A>, Layout.Renderer] => {
   const configureLayout = (
     key: string,
@@ -45,7 +46,8 @@ export const createBase = <R, A extends BaseArgs<R>>(
     name,
     type,
     location: "modal",
-    window: { resizable: false, size: { height: 450, width: 700 }, navTop: true },
+    window: { resizable: false, size: { height: 250, width: 700 }, navTop: true },
+    ...defaultLayoutOverrides,
     ...layoutOverrides,
     key,
     args: { ...args, result: undefined },
@@ -55,7 +57,7 @@ export const createBase = <R, A extends BaseArgs<R>>(
     const store = useStore<Layout.StoreState>();
     return async (args: A, layoutOverrides?: LayoutOverrides) => {
       let unsubscribe: ReturnType<typeof store.subscribe> | null = null;
-      const key = layoutOverrides?.key ?? id.create();
+      const key = layoutOverrides?.key ?? defaultLayoutOverrides?.key ?? id.create();
       return await new Promise((resolve) => {
         const layout = configureLayout(key, args, layoutOverrides);
         placeLayout(layout);
