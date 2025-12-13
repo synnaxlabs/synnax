@@ -95,9 +95,13 @@ func Analyze(
 			if ok {
 				bodyAst = fnDecl.Block()
 			}
+			exprDecl, ok := c.AST.(parser.IExpressionContext)
+			if ok {
+				bodyAst = exprDecl
+			}
 			i.Functions = append(i.Functions, ir.Function{
 				Key:      c.Name,
-				Body:     ir.Body{Raw: "", AST: bodyAst},
+				Body:     ir.Body{Raw: bodyAst.GetText(), AST: bodyAst},
 				Config:   c.Type.Config,
 				Inputs:   c.Type.Inputs,
 				Outputs:  c.Type.Outputs,
@@ -197,8 +201,35 @@ func analyzeFlow(
 
 	if !hasRoutingTables {
 		// Simple flow chain without routing tables
-		for i, flowNode := range ctx.AST.AllFlowNode() {
-			node, inputHandle, outputHandle, ok := analyzeExpressionNode(acontext.Child(ctx, flowNode), generateKey)
+		flowNodes := ctx.AST.AllFlowNode()
+
+		// Validate that flow has at least 2 nodes
+		if len(flowNodes) < 2 {
+			ctx.Diagnostics.AddError(
+				fmt.Errorf("flow statement requires at least two nodes"),
+				ctx.AST,
+			)
+			return nil, nil, false
+		}
+
+		for i, flowNode := range flowNodes {
+			var node ir.Node
+			var inputHandle, outputHandle ir.Handle
+			var ok bool
+
+			// Check if this is the last node and it's a channel (sink position)
+			isLastNode := i == len(flowNodes)-1
+			isChannel := flowNode.ChannelIdentifier() != nil
+
+			if isLastNode && isChannel {
+				// Last channel in chain is a sink
+				node, inputHandle, outputHandle, ok = analyzeExpressionNodeAsSink(
+					acontext.Child(ctx, flowNode), generateKey)
+			} else {
+				node, inputHandle, outputHandle, ok = analyzeExpressionNode(
+					acontext.Child(ctx, flowNode), generateKey)
+			}
+
 			if !ok {
 				return nil, nil, false
 			}
@@ -293,6 +324,17 @@ func analyzeExpressionNode(
 	return ir.Node{}, ir.Handle{}, ir.Handle{}, true
 }
 
+func analyzeExpressionNodeAsSink(
+	ctx acontext.Context[parser.IFlowNodeContext],
+	generateKey generateKey,
+) (ir.Node, ir.Handle, ir.Handle, bool) {
+	if channel := ctx.AST.ChannelIdentifier(); channel != nil {
+		return analyzeChannelNodeAsSink(acontext.Child(ctx, channel), generateKey)
+	}
+	// For non-channel nodes, use normal analysis (functions can be sinks too)
+	return analyzeExpressionNode(ctx, generateKey)
+}
+
 func analyzeChannelNode(
 	ctx acontext.Context[parser.IChannelIdentifierContext],
 	generateKey generateKey,
@@ -314,10 +356,38 @@ func analyzeChannelNode(
 		Config:   types.Params{{Name: "channel", Type: sym.Type, Value: chKey}},
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 	}
-	n.Channels.Read.Add(chKey)
+	n.Channels.Read[chKey] = sym.Name
 	// Channel nodes have no inputs (they're sources), only outputs
 	inputHandle := ir.Handle{Node: nodeKey, Param: ""}
 	outputHandle := ir.Handle{Node: nodeKey, Param: ir.DefaultOutputParam}
+	return n, inputHandle, outputHandle, true
+}
+
+func analyzeChannelNodeAsSink(
+	ctx acontext.Context[parser.IChannelIdentifierContext],
+	generateKey generateKey,
+) (ir.Node, ir.Handle, ir.Handle, bool) {
+	name := ctx.AST.IDENTIFIER().GetText()
+	nodeKey := generateKey("write")
+	sym, err := ctx.Scope.Resolve(ctx, name)
+	if err != nil {
+		ctx.Diagnostics.AddError(err, ctx.AST)
+		return ir.Node{}, ir.Handle{}, ir.Handle{}, false
+	}
+	chKey := uint32(sym.ID)
+	// Channel sink nodes consume input of the channel's inner type (unwrap chan<T> to get T)
+	inputType := sym.Type.Unwrap()
+	n := ir.Node{
+		Key:      nodeKey,
+		Type:     "write",
+		Channels: symbol.NewChannels(),
+		Config:   types.Params{{Name: "channel", Type: sym.Type, Value: chKey}},
+		Inputs:   types.Params{{Name: ir.DefaultInputParam, Type: inputType}},
+	}
+	n.Channels.Write[chKey] = sym.Name
+	// Write nodes have inputs (sink), and no outputs
+	inputHandle := ir.Handle{Node: nodeKey, Param: ir.DefaultInputParam}
+	outputHandle := ir.Handle{Node: nodeKey, Param: ""}
 	return n, inputHandle, outputHandle, true
 }
 
@@ -349,7 +419,7 @@ func extractConfigValues(
 			}
 			channelKey := uint32(sym.ID)
 			config[i].Value = channelKey
-			node.Channels.Read.Add(channelKey)
+			node.Channels.Read[channelKey] = sym.Name
 		}
 	}
 	return config, true
@@ -471,7 +541,23 @@ func analyzeOutputRoutingTable(
 		// Analyze each flow node in the chain
 		var prevOutputHandle ir.Handle
 		for i, flowNode := range flowNodes {
-			node, inputHandle, outputHandle, ok := analyzeExpressionNode(acontext.Child(ctx, flowNode), generateKey)
+			var node ir.Node
+			var inputHandle, outputHandle ir.Handle
+			var ok bool
+
+			// Check if this is the last node and it's a channel (sink position)
+			isLastNode := i == len(flowNodes)-1
+			isChannel := flowNode.ChannelIdentifier() != nil
+
+			if isLastNode && isChannel {
+				// Last channel in routing chain is a sink
+				node, inputHandle, outputHandle, ok = analyzeExpressionNodeAsSink(
+					acontext.Child(ctx, flowNode), generateKey)
+			} else {
+				node, inputHandle, outputHandle, ok = analyzeExpressionNode(
+					acontext.Child(ctx, flowNode), generateKey)
+			}
+
 			if !ok {
 				return nil, nil, false
 			}
@@ -1068,7 +1154,7 @@ func analyzeTopLevelTransition(
 		Config:   types.Params{{Name: "channel", Type: sym.Type, Value: uint32(sym.ID)}},
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 	}
-	sourceNode.Channels.Read.Add(uint32(sym.ID))
+	sourceNode.Channels.Read[uint32(sym.ID)] = sym.Name
 	nodes = append(nodes, sourceNode)
 
 	// Find target sequence's entry stage

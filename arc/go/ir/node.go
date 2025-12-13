@@ -10,6 +10,9 @@
 package ir
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -43,3 +46,57 @@ func (n Nodes) Find(key string) (Node, bool) {
 
 // Get returns the node with the given key. Panics if not found.
 func (n Nodes) Get(key string) Node { return lo.Must(n.Find(key)) }
+
+// String returns the string representation of the node.
+func (n Node) String() string {
+	return n.stringWithPrefix("")
+}
+
+// stringWithPrefix returns the string representation with tree formatting.
+func (n Node) stringWithPrefix(prefix string) string {
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("%s (type: %s)\n", n.Key, n.Type))
+
+	hasConfig := len(n.Config) > 0
+	hasInputs := len(n.Inputs) > 0
+	hasOutputs := len(n.Outputs) > 0
+
+	// Channels
+	isLast := !hasConfig && !hasInputs && !hasOutputs
+	b.WriteString(prefix)
+	b.WriteString(treePrefix(isLast))
+	b.WriteString("channels: ")
+	b.WriteString(formatChannels(n.Channels))
+	b.WriteString("\n")
+
+	// Config (if any)
+	if hasConfig {
+		isLast = !hasInputs && !hasOutputs
+		b.WriteString(prefix)
+		b.WriteString(treePrefix(isLast))
+		b.WriteString("config: ")
+		b.WriteString(formatParams(n.Config))
+		b.WriteString("\n")
+	}
+
+	// Inputs
+	if hasInputs {
+		isLast = !hasOutputs
+		b.WriteString(prefix)
+		b.WriteString(treePrefix(isLast))
+		b.WriteString("inputs: ")
+		b.WriteString(formatParams(n.Inputs))
+		b.WriteString("\n")
+	}
+
+	// Outputs
+	if hasOutputs {
+		b.WriteString(prefix)
+		b.WriteString(treePrefix(true))
+		b.WriteString("outputs: ")
+		b.WriteString(formatParams(n.Outputs))
+		b.WriteString("\n")
+	}
+
+	return b.String()
+}

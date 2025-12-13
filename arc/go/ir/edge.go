@@ -10,6 +10,8 @@
 package ir
 
 import (
+	"fmt"
+
 	"github.com/samber/lo"
 )
 
@@ -129,4 +131,27 @@ func (e Edges) GetOutputs(nodeKey string) []Edge {
 // GetByKind returns all edges with the specified kind.
 func (e Edges) GetByKind(kind EdgeKind) Edges {
 	return lo.Filter(e, func(edge Edge, _ int) bool { return edge.Kind == kind })
+}
+
+// String returns the string representation of the handle as "node.param".
+func (h Handle) String() string {
+	return h.Node + "." + h.Param
+}
+
+// String returns the string representation of the edge kind.
+func (k EdgeKind) String() string {
+	if k == OneShot {
+		return "oneshot"
+	}
+	return "continuous"
+}
+
+// String returns the string representation of the edge.
+// Format: "source.param -> target.param (continuous)" or "source.param => target.param (oneshot)"
+func (e Edge) String() string {
+	arrow := "->"
+	if e.Kind == OneShot {
+		arrow = "=>"
+	}
+	return fmt.Sprintf("%s %s %s (%s)", e.Source, arrow, e.Target, e.Kind)
 }

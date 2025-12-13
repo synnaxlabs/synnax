@@ -194,6 +194,22 @@ public:
         );
     }
 
+    bool start(const std::string &cmd_key) {
+        const auto acq_started = this->acquisition->start();
+        if (acq_started)
+            this->control->start();
+        this->state.send_start(cmd_key);
+        return acq_started;
+    }
+
+    bool stop(const std::string &cmd_key, const bool propagate_state) {
+        const auto acq_stopped = this->acquisition->stop();
+        const auto control_stopped = this->control->stop();
+        const auto stopped = acq_stopped && control_stopped;
+        if (propagate_state) this->state.send_stop(cmd_key);
+        return stopped;
+    }
+
     /// @brief executes a command on the task.
     /// @param cmd the command to execute.
     void exec(task::Command &cmd) override {

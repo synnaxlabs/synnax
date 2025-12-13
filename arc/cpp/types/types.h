@@ -1,5 +1,7 @@
 #pragma once
 
+#include <ostream>
+
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xjson/xjson.h"
 
@@ -103,5 +105,35 @@ struct Type {
     [[nodiscard]] bool is_valid() const { return kind != Kind::Invalid; }
 
     [[nodiscard]] telem::DataType telem() const;
+
+    /// @brief Returns the string representation of the type.
+    [[nodiscard]] std::string to_string() const {
+        switch (kind) {
+            case Kind::U8: return "u8";
+            case Kind::U16: return "u16";
+            case Kind::U32: return "u32";
+            case Kind::U64: return "u64";
+            case Kind::I8: return "i8";
+            case Kind::I16: return "i16";
+            case Kind::I32: return "i32";
+            case Kind::I64: return "i64";
+            case Kind::F32: return "f32";
+            case Kind::F64: return "f64";
+            case Kind::String: return "str";
+            case Kind::TimeStamp: return "timestamp";
+            case Kind::TimeSpan: return "timespan";
+            case Kind::Chan:
+                if (elem) return "chan " + elem->to_string();
+                return "chan <invalid>";
+            case Kind::Series:
+                if (elem) return "series " + elem->to_string();
+                return "series <invalid>";
+            default: return "invalid";
+        }
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const Type &t) {
+        return os << t.to_string();
+    }
 };
 }

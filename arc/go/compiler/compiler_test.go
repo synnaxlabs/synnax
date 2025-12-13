@@ -48,6 +48,7 @@ var _ = Describe("Compiler", func() {
 	AfterEach(func() {
 		Expect(r.Close(ctx)).To(Succeed())
 	})
+
 	Describe("Function Execution", func() {
 		It("should execute a function with conditional returns", func() {
 			output := MustSucceed(compile(`

@@ -9,10 +9,13 @@
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/testutil/testutil.h"
 #include "x/cpp/xtest/xtest.h"
 
 #include "driver/arc/arc.h"
 
 /// @brief it should return a validation error when attempting to open a writer on
 /// a non-existent channel.
-TEST(WriterTests, testOpenWriterOnNonexistentChannel) {}
+TEST(WriterTests, testBasicArc) {
+    const auto client = new_test_client();
+}

@@ -619,6 +619,148 @@ var _ = Describe("Text", func() {
 				Expect(inter.Strata[1]).To(ContainElement("logger_2"))
 			})
 		})
+
+		Describe("Channel Sink Detection", func() {
+			It("Should create write node for channel at end of flow", func() {
+				resolver := symbol.MapResolver{
+					"input_chan": {
+						Name: "input_chan",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+						ID:   1,
+					},
+					"output_chan": {
+						Name: "output_chan",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+						ID:   2,
+					},
+				}
+				source := `
+				func double{} (x f32) f32 {
+					return x * 2
+				}
+
+				input_chan -> double{} -> output_chan
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				Expect(inter.Nodes).To(HaveLen(3))
+
+				// First node: source channel
+				inputNode := inter.Nodes[0]
+				Expect(inputNode.Type).To(Equal("on"))
+				Expect(inputNode.Channels.Read.Contains(uint32(1))).To(BeTrue())
+				Expect(inputNode.Outputs).To(HaveLen(1))
+
+				// Last node: sink channel
+				outputNode := inter.Nodes[2]
+				Expect(outputNode.Type).To(Equal("write"))
+				Expect(outputNode.Channels.Write.Contains(uint32(2))).To(BeTrue())
+				Expect(outputNode.Inputs).To(HaveLen(1))
+				Expect(outputNode.Inputs[0].Name).To(Equal("input"))
+				Expect(outputNode.Outputs).To(BeEmpty())
+			})
+
+			It("Should handle channel-to-channel flow", func() {
+				resolver := symbol.MapResolver{
+					"chan1": {
+						Name: "chan1",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   1,
+					},
+					"chan2": {
+						Name: "chan2",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   2,
+					},
+				}
+				source := `chan1 -> chan2`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				Expect(inter.Nodes).To(HaveLen(2))
+				Expect(inter.Nodes[0].Type).To(Equal("on"))
+				Expect(inter.Nodes[0].Channels.Read.Contains(uint32(1))).To(BeTrue())
+				Expect(inter.Nodes[1].Type).To(Equal("write"))
+				Expect(inter.Nodes[1].Channels.Write.Contains(uint32(2))).To(BeTrue())
+			})
+
+			It("Should handle channel sinks in routing tables", func() {
+				resolver := symbol.MapResolver{
+					"high_chan": {
+						Name: "high_chan",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   1,
+					},
+					"low_chan": {
+						Name: "low_chan",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   2,
+					},
+				}
+				source := `
+				func demux{threshold f64} (value f64) (high f64, low f64) {
+					if (value > threshold) {
+						high = value
+					} else {
+						low = value
+					}
+				}
+
+				demux{threshold=100.0} -> {
+					high: high_chan,
+					low: low_chan
+				}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Should have: demux, high_chan (write), low_chan (write)
+				Expect(inter.Nodes).To(HaveLen(3))
+
+				// Find channel nodes by type
+				var writeNodes []string
+				for _, node := range inter.Nodes {
+					if node.Type == "write" {
+						writeNodes = append(writeNodes, node.Key)
+						Expect(node.Inputs).To(HaveLen(1))
+					}
+				}
+				Expect(writeNodes).To(HaveLen(2))
+			})
+		})
+
+		Describe("Single Node Flow Validation", func() {
+			It("Should error on single-node flow at parse time", func() {
+				source := `
+				func print{} () {
+				}
+
+				print{}
+				`
+				// Single-node flows are rejected at parse time by the grammar
+				_, diagnostics := text.Parse(text.Text{Raw: source})
+				Expect(diagnostics).ToNot(BeNil())
+				Expect(diagnostics.Ok()).To(BeFalse())
+			})
+
+			It("Should error on single-channel flow at parse time", func() {
+				source := `sensor`
+				// Single-node flows are rejected at parse time by the grammar
+				_, diagnostics := text.Parse(text.Text{Raw: source})
+				Expect(diagnostics).ToNot(BeNil())
+				Expect(diagnostics.Ok()).To(BeFalse())
+			})
+		})
 	})
 
 })

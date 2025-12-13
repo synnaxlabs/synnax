@@ -11,11 +11,14 @@
 
 #include <algorithm>
 #include <map>
+#include <ostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
 #include "x/cpp/xjson/xjson.h"
 
+#include "arc/cpp/ir/format.h"
 #include "arc/cpp/proto/proto.h"
 #include "arc/cpp/types/types.h"
 #include "arc/go/ir/arc/go/ir/ir.pb.h"
@@ -66,6 +69,13 @@ struct Handle {
             return std::hash<std::string>()(handle.node + handle.param);
         }
     };
+
+    /// @brief Returns the string representation of the handle as "node.param".
+    [[nodiscard]] std::string to_string() const { return node + "." + param; }
+
+    friend std::ostream &operator<<(std::ostream &os, const Handle &h) {
+        return os << h.to_string();
+    }
 };
 
 struct Edge {
@@ -106,6 +116,17 @@ struct Edge {
     bool operator==(const Edge &other) const {
         return source == other.source && target == other.target && kind == other.kind;
     }
+
+    /// @brief Returns the string representation of the edge.
+    [[nodiscard]] std::string to_string() const {
+        std::string arrow = (kind == EdgeKind::OneShot) ? " => " : " -> ";
+        std::string kind_str = (kind == EdgeKind::OneShot) ? "oneshot" : "continuous";
+        return source.to_string() + arrow + target.to_string() + " (" + kind_str + ")";
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const Edge &e) {
+        return os << e.to_string();
+    }
 };
 
 struct Param {
@@ -140,6 +161,17 @@ struct Param {
     }
 
     Param() = default;
+
+    /// @brief Returns the string representation of the param.
+    [[nodiscard]] std::string to_string() const {
+        std::string result = name + " (" + type.to_string() + ")";
+        if (!value.is_null()) result += " = " + value.dump();
+        return result;
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const Param &p) {
+        return os << p.to_string();
+    }
 };
 
 struct Params {
@@ -195,6 +227,13 @@ struct Params {
     [[nodiscard]] const Param &operator[](const size_t index) const {
         return params.at(index);
     }
+
+    /// @brief Returns the string representation of the params.
+    [[nodiscard]] std::string to_string() const { return format_params(*this); }
+
+    friend std::ostream &operator<<(std::ostream &os, const Params &p) {
+        return os << p.to_string();
+    }
 };
 
 struct Channels {
@@ -236,6 +275,13 @@ struct Channels {
     }
 
     Channels() = default;
+
+    /// @brief Returns the string representation of the channels.
+    [[nodiscard]] std::string to_string() const { return format_channels(*this); }
+
+    friend std::ostream &operator<<(std::ostream &os, const Channels &c) {
+        return os << c.to_string();
+    }
 };
 
 struct Node {
@@ -284,6 +330,52 @@ struct Node {
 
     Node() = default;
     explicit Node(std::string k): key(std::move(k)) {}
+
+    /// @brief Returns the string representation of the node.
+    [[nodiscard]] std::string to_string() const {
+        return to_string_with_prefix("");
+    }
+
+    /// @brief Returns the string representation with tree formatting.
+    [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const {
+        std::ostringstream ss;
+        ss << key << " (type: " << type << ")\n";
+
+        const bool has_config = !config.empty();
+        const bool has_inputs = !inputs.empty();
+        const bool has_outputs = !outputs.empty();
+
+        // Channels
+        bool is_last = !has_config && !has_inputs && !has_outputs;
+        ss << prefix << tree_prefix(is_last) << "channels: " << channels.to_string()
+           << "\n";
+
+        // Config (if any)
+        if (has_config) {
+            is_last = !has_inputs && !has_outputs;
+            ss << prefix << tree_prefix(is_last) << "config: " << config.to_string()
+               << "\n";
+        }
+
+        // Inputs
+        if (has_inputs) {
+            is_last = !has_outputs;
+            ss << prefix << tree_prefix(is_last) << "inputs: " << inputs.to_string()
+               << "\n";
+        }
+
+        // Outputs
+        if (has_outputs) {
+            ss << prefix << tree_prefix(true) << "outputs: " << outputs.to_string()
+               << "\n";
+        }
+
+        return ss.str();
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const Node &n) {
+        return os << n.to_string();
+    }
 };
 
 struct Function {
@@ -328,6 +420,52 @@ struct Function {
 
     Function() = default;
     explicit Function(std::string k): key(std::move(k)) {}
+
+    /// @brief Returns the string representation of the function.
+    [[nodiscard]] std::string to_string() const {
+        return to_string_with_prefix("");
+    }
+
+    /// @brief Returns the string representation with tree formatting.
+    [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const {
+        std::ostringstream ss;
+        ss << key << "\n";
+
+        const bool has_config = !config.empty();
+        const bool has_inputs = !inputs.empty();
+        const bool has_outputs = !outputs.empty();
+
+        // Channels
+        bool is_last = !has_config && !has_inputs && !has_outputs;
+        ss << prefix << tree_prefix(is_last) << "channels: " << channels.to_string()
+           << "\n";
+
+        // Config (if any)
+        if (has_config) {
+            is_last = !has_inputs && !has_outputs;
+            ss << prefix << tree_prefix(is_last) << "config: " << config.to_string()
+               << "\n";
+        }
+
+        // Inputs
+        if (has_inputs) {
+            is_last = !has_outputs;
+            ss << prefix << tree_prefix(is_last) << "inputs: " << inputs.to_string()
+               << "\n";
+        }
+
+        // Outputs
+        if (has_outputs) {
+            ss << prefix << tree_prefix(true) << "outputs: " << outputs.to_string()
+               << "\n";
+        }
+
+        return ss.str();
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const Function &f) {
+        return os << f.to_string();
+    }
 };
 
 struct Strata {
@@ -363,6 +501,31 @@ struct Strata {
     }
 
     Strata() = default;
+
+    /// @brief Returns the string representation of the strata.
+    [[nodiscard]] std::string to_string() const {
+        return to_string_with_prefix("");
+    }
+
+    /// @brief Returns the string representation with tree formatting.
+    [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const {
+        if (strata.empty()) return "";
+        std::ostringstream ss;
+        for (size_t i = 0; i < strata.size(); ++i) {
+            bool is_last = i == strata.size() - 1;
+            ss << prefix << tree_prefix(is_last) << "[" << i << "]: ";
+            for (size_t j = 0; j < strata[i].size(); ++j) {
+                if (j > 0) ss << ", ";
+                ss << strata[i][j];
+            }
+            ss << "\n";
+        }
+        return ss.str();
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const Strata &s) {
+        return os << s.to_string();
+    }
 };
 
 struct Stage {
@@ -390,6 +553,22 @@ struct Stage {
         pb->set_key(key);
         for (const auto &node : nodes)
             pb->add_nodes(node);
+    }
+
+    /// @brief Returns the string representation of the stage.
+    [[nodiscard]] std::string to_string() const {
+        std::ostringstream ss;
+        ss << key << ": [";
+        for (size_t i = 0; i < nodes.size(); ++i) {
+            if (i > 0) ss << ", ";
+            ss << nodes[i];
+        }
+        ss << "]";
+        return ss.str();
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const Stage &s) {
+        return os << s.to_string();
     }
 };
 
@@ -427,6 +606,26 @@ struct Sequence {
         for (const auto &stage : stages)
             if (stage.key == stage_key) return &stage;
         return nullptr;
+    }
+
+    /// @brief Returns the string representation of the sequence.
+    [[nodiscard]] std::string to_string() const {
+        return to_string_with_prefix("");
+    }
+
+    /// @brief Returns the string representation with tree formatting.
+    [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const {
+        std::ostringstream ss;
+        ss << key << "\n";
+        for (size_t i = 0; i < stages.size(); ++i) {
+            bool is_last = i == stages.size() - 1;
+            ss << prefix << tree_prefix(is_last) << stages[i].to_string() << "\n";
+        }
+        return ss.str();
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const Sequence &s) {
+        return os << s.to_string();
     }
 };
 
@@ -555,6 +754,118 @@ struct IR {
         for (const auto &e: edges)
             if (e.target.node == node_key) result.push_back(e);
         return result;
+    }
+
+    /// @brief Returns the string representation of the IR.
+    [[nodiscard]] std::string to_string() const {
+        return to_string_with_prefix("");
+    }
+
+    /// @brief Returns the string representation with tree formatting.
+    [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const {
+        std::ostringstream ss;
+
+        const bool has_functions = !functions.empty();
+        const bool has_nodes = !nodes.empty();
+        const bool has_edges = !edges.empty();
+        const bool has_strata = !strata.strata.empty();
+        const bool has_sequences = !sequences.empty();
+
+        // Functions
+        if (has_functions) {
+            bool is_last = !has_nodes && !has_edges && !has_strata && !has_sequences;
+            write_functions(ss, prefix, is_last);
+        }
+
+        // Nodes
+        if (has_nodes) {
+            bool is_last = !has_edges && !has_strata && !has_sequences;
+            write_nodes(ss, prefix, is_last);
+        }
+
+        // Edges
+        if (has_edges) {
+            bool is_last = !has_strata && !has_sequences;
+            write_edges(ss, prefix, is_last);
+        }
+
+        // Strata
+        if (has_strata) {
+            bool is_last = !has_sequences;
+            write_strata(ss, prefix, is_last);
+        }
+
+        // Sequences
+        if (has_sequences) { write_sequences(ss, prefix, true); }
+
+        return ss.str();
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const IR &ir) {
+        return os << ir.to_string();
+    }
+
+private:
+    void write_functions(
+        std::ostringstream &ss,
+        const std::string &prefix,
+        bool last
+    ) const {
+        ss << prefix << tree_prefix(last) << "Functions (" << functions.size()
+           << ")\n";
+        std::string child_prefix = prefix + tree_indent(last);
+        for (size_t i = 0; i < functions.size(); ++i) {
+            bool is_last = i == functions.size() - 1;
+            ss << child_prefix << tree_prefix(is_last)
+               << functions[i].to_string_with_prefix(child_prefix + tree_indent(is_last)
+               );
+        }
+    }
+
+    void
+    write_nodes(std::ostringstream &ss, const std::string &prefix, bool last) const {
+        ss << prefix << tree_prefix(last) << "Nodes (" << nodes.size() << ")\n";
+        std::string child_prefix = prefix + tree_indent(last);
+        for (size_t i = 0; i < nodes.size(); ++i) {
+            bool is_last = i == nodes.size() - 1;
+            ss << child_prefix << tree_prefix(is_last)
+               << nodes[i].to_string_with_prefix(child_prefix + tree_indent(is_last));
+        }
+    }
+
+    void
+    write_edges(std::ostringstream &ss, const std::string &prefix, bool last) const {
+        ss << prefix << tree_prefix(last) << "Edges (" << edges.size() << ")\n";
+        std::string child_prefix = prefix + tree_indent(last);
+        for (size_t i = 0; i < edges.size(); ++i) {
+            bool is_last = i == edges.size() - 1;
+            ss << child_prefix << tree_prefix(is_last) << edges[i].to_string() << "\n";
+        }
+    }
+
+    void
+    write_strata(std::ostringstream &ss, const std::string &prefix, bool last) const {
+        ss << prefix << tree_prefix(last) << "Strata (" << strata.strata.size()
+           << " layers)\n";
+        std::string child_prefix = prefix + tree_indent(last);
+        ss << strata.to_string_with_prefix(child_prefix);
+    }
+
+    void write_sequences(
+        std::ostringstream &ss,
+        const std::string &prefix,
+        bool last
+    ) const {
+        ss << prefix << tree_prefix(last) << "Sequences (" << sequences.size()
+           << ")\n";
+        std::string child_prefix = prefix + tree_indent(last);
+        for (size_t i = 0; i < sequences.size(); ++i) {
+            bool is_last = i == sequences.size() - 1;
+            ss << child_prefix << tree_prefix(is_last)
+               << sequences[i].to_string_with_prefix(
+                      child_prefix + tree_indent(is_last)
+               );
+        }
     }
 };
 }

@@ -9,7 +9,12 @@
 
 package ir
 
-import "github.com/samber/lo"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/samber/lo"
+)
 
 // Stage represents a state within a sequence. Nodes listed in the stage are
 // active only when this stage is active. The runtime determines which nodes
@@ -85,4 +90,30 @@ func (s Sequences) FindStage(stageKey string) (Stage, Sequence, bool) {
 		}
 	}
 	return Stage{}, Sequence{}, false
+}
+
+// String returns the string representation of the stage.
+// Format: "key: [node1, node2, ...]"
+func (s Stage) String() string {
+	return fmt.Sprintf("%s: [%s]", s.Key, strings.Join(s.Nodes, ", "))
+}
+
+// String returns the string representation of the sequence.
+func (s Sequence) String() string {
+	return s.stringWithPrefix("")
+}
+
+// stringWithPrefix returns the string representation with tree formatting.
+func (s Sequence) stringWithPrefix(prefix string) string {
+	var b strings.Builder
+	b.WriteString(s.Key)
+	b.WriteString("\n")
+	for i, stage := range s.Stages {
+		isLast := i == len(s.Stages)-1
+		b.WriteString(prefix)
+		b.WriteString(treePrefix(isLast))
+		b.WriteString(stage.String())
+		b.WriteString("\n")
+	}
+	return b.String()
 }
