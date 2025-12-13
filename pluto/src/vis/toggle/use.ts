@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -19,19 +19,18 @@ export interface UseProps
   aetherKey: string;
 }
 
-export interface UseReturn
-  extends Pick<z.infer<typeof toggle.toggleStateZ>, "triggered" | "enabled"> {
+export interface UseReturn extends Pick<z.infer<typeof toggle.toggleStateZ>, "enabled"> {
   toggle: () => void;
 }
 
 export const use = ({ aetherKey, source, sink }: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqual({ source, sink });
-  const [, { triggered, enabled }, setState] = Aether.use({
+  const [, { enabled }, setState, methods] = Aether.use({
     aetherKey,
     type: toggle.Toggle.TYPE,
     schema: toggle.toggleStateZ,
+    methods: toggle.toggleMethodsZ,
     initialState: {
-      triggered: false,
       enabled: false,
       ...memoProps,
     },
@@ -41,18 +40,8 @@ export const use = ({ aetherKey, source, sink }: UseProps): UseReturn => {
     setState((state) => ({ ...state, ...memoProps }));
   }, [memoProps, setState]);
 
-  const handleToggle = useCallback(
-    () =>
-      setState((state) => ({
-        ...state,
-        triggered: !state.triggered,
-      })),
-    [setState],
-  );
-
   return {
-    toggle: handleToggle,
-    triggered,
+    toggle: () => void methods.toggle(),
     enabled,
   };
 };

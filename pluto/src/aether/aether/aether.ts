@@ -16,14 +16,11 @@ import {
   type Sender,
   type SenderHandler,
   shallow,
+  type zod,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import {
-  type AetherMessage,
-  type MainMessage,
-  type MainUpdateMessage,
-} from "@/aether/message";
+import { type AetherMessage, type MainMessage, type MainUpdateMessage } from "@/aether/message";
 import { state } from "@/state";
 import { prettyParse } from "@/util/zod";
 
@@ -91,10 +88,25 @@ export interface Component {
    * @param path - The path of the component to delete.
    */
   _delete: (path: string[]) => void;
+  /**
+   * Invokes an RPC method on this component. This is called by the Root when
+   * a MainRPCRequestMessage is received.
+   *
+   * @param requestId - The correlation ID for matching the response.
+   * @param method - The name of the method to invoke.
+   * @param args - The arguments to pass to the method.
+   * @param expectsResponse - Whether to send a response back to the caller.
+   */
+  _invokeMethod: (
+    requestId: string,
+    method: string,
+    args: unknown,
+    expectsResponse: boolean,
+  ) => void;
 }
 
 /** Constructor props that all aether components must accept. */
-interface ComponentConstructorProps {
+export interface ComponentConstructorProps {
   /** The key of the component. */
   key: string;
   /** The type of the component. */
@@ -161,6 +173,34 @@ export interface Context {
   wasSetPreviously(key: string): boolean;
 }
 
+/** A schema defining multiple RPC methods using zod.callable(). */
+export type MethodsSchema = Record<string, zod.Callable<z.ZodTypeAny, z.ZodTypeAny>>;
+
+/** Empty methods schema for components that don't use RPC. */
+export type EmptyMethodsSchema = Record<string, never>;
+
+/**
+ * Type helper to extract handler function signatures from a methods schema.
+ * Used for implementing method handlers in aether components.
+ */
+export type HandlersFromSchema<T extends MethodsSchema> = {
+  [K in keyof T]: T[K] extends zod.Callable<infer Args, infer Returns>
+    ? (args: z.infer<Args>) => z.infer<Returns> | Promise<z.infer<Returns>>
+    : never;
+};
+
+/**
+ * Type helper to extract caller function signatures from a methods schema.
+ * Void returns become fire-and-forget (returns void), non-void returns use Promise.
+ */
+export type CallersFromSchema<T extends MethodsSchema> = {
+  [K in keyof T]: T[K] extends zod.Callable<infer Args, infer Returns>
+    ? Returns extends z.ZodVoid
+      ? (args: z.infer<Args>) => void
+      : (args: z.infer<Args>) => Promise<z.infer<Returns>>
+    : never;
+};
+
 /**
  * Implements an AetherComponent that does not have any children, and servers as the base
  * class for the AetherComposite type. The corresponding react component should NOT have
@@ -174,7 +214,7 @@ export abstract class Leaf<
   readonly type: string;
   readonly key: string;
 
-  private readonly sender: Sender<AetherMessage>;
+  protected readonly sender: Sender<AetherMessage>;
 
   private readonly _internalState: InternalState;
   private _state: z.infer<StateSchema> | undefined;
@@ -186,6 +226,9 @@ export abstract class Leaf<
   readonly instrumentation: alamos.Instrumentation;
 
   schema: StateSchema | undefined = undefined;
+
+  private readonly rpcHandlers: Map<string, (args: unknown) => unknown | Promise<unknown>> =
+    new Map();
 
   constructor({
     key,
@@ -359,6 +402,97 @@ export abstract class Leaf<
         `[Leaf.setState] - ${this.toString()} received a key ${key} but expected ${this.key}`,
       );
   }
+
+  /**
+   * Bind methods that the main thread can call on this component.
+   * Call this in the constructor of your component to register RPC handlers.
+   *
+   * @param schema - The methods schema defining available methods.
+   * @param handlers - Implementation of the methods.
+   *
+   * @example
+   * ```typescript
+   * constructor(props: aether.ComponentConstructorProps) {
+   *   super(props);
+   *   this.bindMethods(buttonMethodsZ, {
+   *     onMouseDown: this.handleMouseDown.bind(this),
+   *     onMouseUp: this.handleMouseUp.bind(this),
+   *   });
+   * }
+   * ```
+   */
+  protected bindMethods<M extends MethodsSchema>(
+    _schema: M,
+    handlers: HandlersFromSchema<M>,
+  ): void {
+    Object.entries(handlers).forEach(([method, handler]) => {
+      this.rpcHandlers.set(method, handler as (args: unknown) => unknown);
+    });
+  }
+
+  _invokeMethod(
+    requestId: string,
+    method: string,
+    args: unknown,
+    expectsResponse: boolean,
+  ): void {
+    if (this.deleted) return;
+
+    const handler = this.rpcHandlers.get(method);
+    if (handler == null) {
+      if (expectsResponse) {
+        this.sender.send({
+          variant: "rpc-response",
+          requestId,
+          result: undefined,
+          error: {
+            name: "Error",
+            message: `No handler for method '${method}' on ${this.toString()}`,
+            stack: "",
+          },
+        });
+      }
+      return;
+    }
+
+    if (!expectsResponse) {
+      try {
+        handler(args);
+      } catch (e) {
+        console.error(`Error in fire-and-forget method '${method}':`, e);
+      }
+      return;
+    }
+
+    try {
+      const result = handler(args);
+      if (result instanceof Promise) {
+        result
+          .then((r) =>
+            this.sender.send({ variant: "rpc-response", requestId, result: r }),
+          )
+          .catch((e: unknown) => {
+            const err = e instanceof Error ? e : new Error(String(e));
+            this.sender.send({
+              variant: "rpc-response",
+              requestId,
+              result: undefined,
+              error: { name: err.name, message: err.message, stack: err.stack ?? "" },
+            });
+          });
+      } else {
+        this.sender.send({ variant: "rpc-response", requestId, result });
+      }
+    } catch (e) {
+      const err = e instanceof Error ? e : new Error(String(e));
+      this.sender.send({
+        variant: "rpc-response",
+        requestId,
+        result: undefined,
+        error: { name: err.name, message: err.message, stack: err.stack ?? "" },
+      });
+    }
+  }
 }
 
 /**
@@ -480,6 +614,23 @@ export abstract class Composite<
     child._delete(subPath);
   }
 
+  /**
+   * Find a child component at the given path for RPC invocation.
+   * @param path - The path to the child component (excluding this component's key).
+   * @returns The component at the path, or null if not found.
+   */
+  findChildAtPath(path: string[]): Component | null {
+    if (path.length === 0) return null;
+    const [key, ...rest] = path;
+    const child = this.getChild(key);
+    if (child == null) return null;
+    if (rest.length === 0) return child;
+    if ("findChildAtPath" in child && typeof child.findChildAtPath === "function") {
+      return child.findChildAtPath(rest);
+    }
+    return null;
+  }
+
   private parsePath(path: string[], type?: string): string[] {
     const [key, ...subPath] = path;
     if (key == null)
@@ -583,15 +734,24 @@ export class Root extends Composite<typeof aetherRootState> {
   }
 
   /**
-   * Handles messages from the worker thread and applies them as updates in the
+   * Handles messages from the main thread and applies them as updates in the
    * aether tree.
    */
   private handle(msg: MainMessage): void {
-    const { path, variant, type } = msg;
+    const { variant } = msg;
+
+    if (variant === "rpc-request") {
+      const { requestId, path, method, args, expectsResponse } = msg;
+      this.invokeMethodAtPath(requestId, path, method, args, expectsResponse);
+      return;
+    }
+
+    const { path, type } = msg;
     if (variant === "delete") {
       this._delete(path);
       return;
     }
+
     const { state } = msg;
     this._updateState({
       path,
@@ -602,6 +762,55 @@ export class Root extends Composite<typeof aetherRootState> {
         return this.create({ key, type, parentCtxValues });
       },
     });
+  }
+
+  private invokeMethodAtPath(
+    requestId: string,
+    path: string[],
+    method: string,
+    args: unknown,
+    expectsResponse: boolean,
+  ): void {
+    const [rootKey, ...childPath] = path;
+    if (rootKey !== Root.KEY) {
+      if (expectsResponse) {
+        this.comms.send({
+          variant: "rpc-response",
+          requestId,
+          result: undefined,
+          error: {
+            name: "Error",
+            message: `Invalid path: expected root key '${Root.KEY}', got '${rootKey}'`,
+            stack: "",
+          },
+        });
+      }
+      return;
+    }
+
+    if (childPath.length === 0) {
+      this._invokeMethod(requestId, method, args, expectsResponse);
+      return;
+    }
+
+    const component = this.findChildAtPath(childPath);
+    if (component == null) {
+      if (expectsResponse) {
+        this.comms.send({
+          variant: "rpc-response",
+          requestId,
+          result: undefined,
+          error: {
+            name: "Error",
+            message: `Component at path ${path.join(".")} not found`,
+            stack: "",
+          },
+        });
+      }
+      return;
+    }
+
+    component._invokeMethod(requestId, method, args, expectsResponse);
   }
 
   /** Creates a new component from the registry */

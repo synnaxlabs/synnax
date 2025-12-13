@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { compare, deep, type SenderHandler } from "@synnaxlabs/x";
+import { compare, deep, type SenderHandler, zod } from "@synnaxlabs/x";
 import {
   memo,
   type PropsWithChildren,
@@ -20,9 +20,16 @@ import {
   useRef,
   useState,
 } from "react";
-import { type z } from "zod";
+import { z } from "zod";
 
+import {
+  type CallersFromSchema,
+  type EmptyMethodsSchema,
+  type MethodsSchema,
+} from "@/aether/aether/aether";
 import { type AetherMessage, type MainMessage } from "@/aether/message";
+
+export type { CallersFromSchema, EmptyMethodsSchema, MethodsSchema };
 import { context } from "@/context";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useMemoCompare } from "@/memo";
@@ -33,6 +40,9 @@ import { Worker } from "@/worker";
 type RawSetArg<S extends z.ZodType<state.State>> =
   | (z.input<S> | z.infer<S>)
   | ((prev: z.infer<S>) => z.input<S> | z.infer<S>);
+
+/** RPC timeout in milliseconds (30 seconds) */
+const RPC_TIMEOUT = 30000;
 
 /**
  * return value of the create function in the Aether context.
@@ -51,6 +61,21 @@ export interface CreateReturn {
    * on the worker thread.
    */
   delete: () => void;
+
+  /**
+   * Invokes an RPC method on the worker component (fire-and-forget).
+   * @param method - The name of the method to invoke
+   * @param args - Optional arguments to pass to the method
+   */
+  invokeMethod: (method: string, args?: unknown) => void;
+
+  /**
+   * Invokes an RPC method on the worker component and waits for the response.
+   * @param method - The name of the method to invoke
+   * @param args - Optional arguments to pass to the method
+   * @returns A Promise that resolves with the method's return value
+   */
+  invokeMethodAsync: <R>(method: string, args?: unknown) => Promise<R>;
 }
 
 /**
@@ -71,7 +96,15 @@ export interface ContextValue {
 }
 
 const [Context, useContext] = context.create<ContextValue>({
-  defaultValue: { create: () => ({ setState: () => {}, delete: () => {} }), path: [] },
+  defaultValue: {
+    create: () => ({
+      setState: () => {},
+      delete: () => {},
+      invokeMethod: () => {},
+      invokeMethodAsync: () => Promise.reject(new Error("No Aether provider")),
+    }),
+    path: [],
+  },
   displayName: "Aether.Context",
 });
 
@@ -99,6 +132,15 @@ export const Provider = ({
     [propsWorker, contextWorker],
   );
 
+  const pendingRequests = useRef<Map<string, PendingRequest>>(new Map());
+  const rpcCounters = useRef<Map<string, number>>(new Map());
+
+  const nextRequestId = useCallback((key: string): string => {
+    const counter = rpcCounters.current.get(key) ?? 0;
+    rpcCounters.current.set(key, counter + 1);
+    return `${key}-${counter}`;
+  }, []);
+
   const create: ContextValue["create"] = useCallback(
     (type, path, handler) => {
       const key = path.at(-1);
@@ -120,9 +162,49 @@ export const Provider = ({
           if (worker == null) console.warn("aether - no worker");
           worker?.send({ variant: "delete", path, type });
         },
+        invokeMethod: (method: string, args: unknown = undefined): void => {
+          if (worker == null) {
+            console.warn("aether - no worker");
+            return;
+          }
+          worker.send({
+            variant: "rpc-request",
+            requestId: "",
+            path,
+            method,
+            args,
+            expectsResponse: false,
+          });
+        },
+        invokeMethodAsync: <R,>(method: string, args: unknown = undefined): Promise<R> =>
+          new Promise((resolve, reject) => {
+            if (worker == null) {
+              reject(new Error("aether - no worker"));
+              return;
+            }
+            const requestId = nextRequestId(key);
+            const timeout = setTimeout(() => {
+              pendingRequests.current.delete(requestId);
+              reject(new Error(`RPC timeout: ${method} on ${key}`));
+            }, RPC_TIMEOUT);
+
+            pendingRequests.current.set(requestId, {
+              resolve: resolve as (v: unknown) => void,
+              reject,
+              timeout,
+            });
+            worker.send({
+              variant: "rpc-request",
+              requestId,
+              path,
+              method,
+              args,
+              expectsResponse: true,
+            });
+          }),
       };
     },
-    [worker, registry],
+    [worker, registry, nextRequestId],
   );
 
   const [error, setError] = useState<Error | null>(null);
@@ -131,7 +213,8 @@ export const Provider = ({
   useEffect(() => {
     worker?.handle((msg) => {
       const { variant } = msg;
-      if (variant == "error") {
+
+      if (variant === "error") {
         const {
           error: { message, stack, name },
         } = msg;
@@ -151,6 +234,26 @@ export const Provider = ({
         });
         return;
       }
+
+      if (variant === "rpc-response") {
+        const { requestId, result, error: rpcError } = msg;
+        const pending = pendingRequests.current.get(requestId);
+        if (pending == null) return;
+
+        pendingRequests.current.delete(requestId);
+        clearTimeout(pending.timeout);
+
+        if (rpcError != null) {
+          const err = new Error(rpcError.message);
+          err.name = rpcError.name;
+          err.stack = rpcError.stack;
+          pending.reject(err);
+        } else {
+          pending.resolve(result);
+        }
+        return;
+      }
+
       const { key, state } = msg;
       const component = registry.current.get(key);
       if (component == null)
@@ -166,23 +269,41 @@ export const Provider = ({
     setReady(true);
   }, [worker]);
 
+  useEffect(
+    () => () => {
+      pendingRequests.current.forEach(({ reject, timeout }) => {
+        clearTimeout(timeout);
+        reject(new Error("Aether provider unmounted"));
+      });
+      pendingRequests.current.clear();
+    },
+    [],
+  );
+
   const value = useMemo<ContextValue>(() => ({ create, path: ["root"] }), [create]);
 
   return <Context value={value}>{ready && children}</Context>;
 };
 
-export interface UseLifecycleReturn<S extends z.ZodType<state.State>> {
+export interface UseLifecycleReturn<
+  S extends z.ZodType<state.State>,
+  M extends MethodsSchema = EmptyMethodsSchema,
+> {
   path: string[];
   setState: (state: RawSetArg<S>, transfer?: Transferable[]) => void;
+  /** Typed methods object for invoking RPC methods on the worker component */
+  methods: CallersFromSchema<M>;
 }
 
-interface UseLifecycleProps<S extends z.ZodType> {
+interface UseLifecycleProps<S extends z.ZodType, M extends MethodsSchema = EmptyMethodsSchema> {
   type: string;
   schema: S;
   aetherKey?: string;
   initialState: z.input<S>;
   initialTransfer?: Transferable[];
   onReceive?: StateHandler<z.infer<S>>;
+  /** Methods schema for Main → Worker RPC calls */
+  methods?: M;
 }
 
 /**
@@ -232,14 +353,18 @@ interface UseLifecycleProps<S extends z.ZodType> {
  * - Changes to initialState after the first render will not affect the component's state.
  *   Use setState to update the state instead.
  */
-export const useLifecycle = <S extends z.ZodType<state.State>>({
+export const useLifecycle = <
+  S extends z.ZodType<state.State>,
+  M extends MethodsSchema = EmptyMethodsSchema,
+>({
   type,
   aetherKey,
   initialState,
   schema,
   initialTransfer = [],
   onReceive,
-}: UseLifecycleProps<S>): UseLifecycleReturn<S> => {
+  methods: methodsSchema,
+}: UseLifecycleProps<S, M>): UseLifecycleReturn<S, M> => {
   const key = useUniqueKey(aetherKey);
   const comms = useRef<CreateReturn | null>(null);
   const ctx = useContext();
@@ -254,6 +379,23 @@ export const useLifecycle = <S extends z.ZodType<state.State>>({
       comms.current?.setState(prettyParse(schema, state), transfer),
     [schema],
   );
+
+  const methods = useMemo(() => {
+    if (methodsSchema == null) return {} as CallersFromSchema<M>;
+
+    const callers: Record<string, (args: unknown) => void | Promise<unknown>> = {};
+    for (const method of Object.keys(methodsSchema)) {
+      const methodDef = methodsSchema[method];
+      if (zod.isVoid(methodDef.returns)) {
+        callers[method] = (args: unknown) => comms.current?.invokeMethod(method, args);
+      } else {
+        callers[method] = (args: unknown) =>
+          comms.current?.invokeMethodAsync(method, args) ??
+          Promise.reject(new Error("No comms"));
+      }
+    }
+    return callers as CallersFromSchema<M>;
+  }, [methodsSchema]);
 
   // We run the first effect synchronously so that parent components are created
   // before their children. This is impossible to do with effect hooks.
@@ -293,9 +435,9 @@ export const useLifecycle = <S extends z.ZodType<state.State>>({
   );
 
   return useMemo(
-    () => ({ setState, path }),
-    [setState, key, path],
-  ) as UseLifecycleReturn<S>;
+    () => ({ setState, path, methods }),
+    [setState, path, methods],
+  ) as UseLifecycleReturn<S, M>;
 };
 
 /** Props for components that use Aether functionality */
@@ -305,8 +447,8 @@ export interface ComponentProps {
 }
 
 /** Props for the use hook that manages Aether component lifecycle */
-export interface UseProps<S extends z.ZodType>
-  extends Omit<UseLifecycleProps<S>, "onReceive"> {
+export interface UseProps<S extends z.ZodType, M extends MethodsSchema = EmptyMethodsSchema>
+  extends Omit<UseLifecycleProps<S, M>, "onReceive"> {
   /** Optional callback for handling state changes from the Aether component */
   onAetherChange?: (state: z.infer<S>) => void;
 }
@@ -316,12 +458,16 @@ interface ComponentContext {
 }
 
 /**
- * Return type for the use hook, providing access to component context, state, and state setter
+ * Return type for the use hook, providing access to component context, state, state setter, and methods
  */
-export type UseReturn<S extends z.ZodType<state.State>> = [
+export type UseReturn<
+  S extends z.ZodType<state.State>,
+  M extends MethodsSchema = EmptyMethodsSchema,
+> = [
   ComponentContext,
   z.infer<S>,
   (state: RawSetArg<S>, transfer?: Transferable[]) => void,
+  CallersFromSchema<M>,
 ];
 
 /**
@@ -378,9 +524,12 @@ export const useUnidirectional = <S extends z.ZodType<state.State>>({
  * the next state. This function is impure, and will update the component's state on the
  * worker thread.
  */
-export const use = <S extends z.ZodType<state.State>>(
-  props: UseProps<S>,
-): UseReturn<S> => {
+export const use = <
+  S extends z.ZodType<state.State>,
+  M extends MethodsSchema = EmptyMethodsSchema,
+>(
+  props: UseProps<S, M>,
+): UseReturn<S, M> => {
   const { type, schema, initialState, onAetherChange } = props;
   const [internalState, setInternalState] = useState<z.infer<S>>(() =>
     prettyParse(schema, initialState),
@@ -398,7 +547,7 @@ export const use = <S extends z.ZodType<state.State>>(
     [schema],
   );
 
-  const { path, setState: setAetherState } = useLifecycle({
+  const { path, setState: setAetherState, methods } = useLifecycle({
     ...props,
     onReceive: handleReceive,
   });
@@ -421,10 +570,16 @@ export const use = <S extends z.ZodType<state.State>>(
     [path, type, setInternalState],
   );
 
-  return [{ path }, internalState, setState];
+  return [{ path }, internalState, setState, methods];
 };
 
 type StateHandler<S = unknown> = (state: S) => void;
+
+interface PendingRequest {
+  resolve: (value: unknown) => void;
+  reject: (error: Error) => void;
+  timeout: ReturnType<typeof setTimeout>;
+}
 
 interface RegisteredComponent {
   path: string[];

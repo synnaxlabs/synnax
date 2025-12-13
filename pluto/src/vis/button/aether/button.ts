@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -18,39 +19,49 @@ export const modeZ = z.enum(MODES);
 export type Mode = z.infer<typeof modeZ>;
 
 export const buttonStateZ = z.object({
-  trigger: z.number(),
   sink: telem.booleanSinkSpecZ.default(telem.noopBooleanSinkSpec),
   mode: modeZ.default("fire"),
 });
 
+/** Methods schema for Button RPC */
+export const buttonMethodsZ = {
+  onMouseDown: zod.callable(),
+  onMouseUp: zod.callable(),
+};
+
 interface InternalState {
   sink: telem.BooleanSink;
-  prevTrigger: number;
 }
-
-export const MOUSE_DOWN_INCREMENT = 2;
-export const MOUSE_UP_INCREMENT = 1;
 
 export class Button extends aether.Leaf<typeof buttonStateZ, InternalState> {
   static readonly TYPE = "Button";
+  static readonly METHODS = buttonMethodsZ;
 
   schema = buttonStateZ;
 
+  constructor(props: aether.ComponentConstructorProps) {
+    super(props);
+    this.bindMethods(buttonMethodsZ, {
+      onMouseDown: this.handleMouseDown.bind(this),
+      onMouseUp: this.handleMouseUp.bind(this),
+    });
+  }
+
   afterUpdate(ctx: aether.Context): void {
-    const { sink: sinkProps, mode, trigger } = this.state;
-    const { internal: i } = this;
-    i.prevTrigger ??= trigger;
-    i.sink = telem.useSink(ctx, sinkProps, i.sink);
-    const prevTrigger = i.prevTrigger;
-    i.prevTrigger = trigger;
-    const isMouseDown = trigger === prevTrigger + MOUSE_DOWN_INCREMENT;
-    const isMouseUp = trigger === prevTrigger + MOUSE_UP_INCREMENT;
-    if (isMouseUp) {
-      if (mode == "fire") this.internal.sink.set(true);
-      else if (mode == "momentary") this.internal.sink.set(false);
-    } else if (isMouseDown)
-      if (mode == "momentary") this.internal.sink.set(true);
-      else if (mode == "pulse") this.internal.sink.set(true, false);
+    const { sink: sinkProps } = this.state;
+    this.internal.sink = telem.useSink(ctx, sinkProps, this.internal.sink);
+  }
+
+  private handleMouseDown(): void {
+    const { mode } = this.state;
+    if (mode === "momentary") this.internal.sink.set(true);
+    else if (mode === "pulse") this.internal.sink.set(true, false);
+  }
+
+  private handleMouseUp(): void {
+    const { mode } = this.state;
+    if (mode === "fire") this.internal.sink.set(true);
+    else if (mode === "momentary") this.internal.sink.set(false);
   }
 
   afterDelete(): void {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -17,7 +17,7 @@ import { button } from "@/vis/button/aether";
 export type Mode = button.Mode;
 export const MODES = button.MODES;
 
-export interface UseProps extends Omit<z.input<typeof button.buttonStateZ>, "trigger"> {
+export interface UseProps extends z.input<typeof button.buttonStateZ> {
   aetherKey: string;
 }
 
@@ -29,28 +29,21 @@ export interface UseReturn {
 
 export const use = ({ aetherKey, sink, mode }: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqual({ sink, mode });
-  const propsRef = useRef({ trigger: 0, ...memoProps });
-  const { setState } = Aether.useLifecycle({
+  const { setState, methods } = Aether.useLifecycle({
     aetherKey,
     type: button.Button.TYPE,
     schema: button.buttonStateZ,
-    initialState: propsRef.current,
+    methods: button.buttonMethodsZ,
+    initialState: memoProps,
   });
 
   useEffect(() => {
-    propsRef.current = { ...propsRef.current, ...memoProps };
-    setState(propsRef.current);
-  }, [memoProps, setState, aetherKey]);
+    setState(memoProps);
+  }, [memoProps, setState]);
 
-  const onMouseUp = useCallback(() => {
-    propsRef.current.trigger += button.MOUSE_UP_INCREMENT;
-    setState(propsRef.current);
-  }, [setState]);
-
-  const onMouseDown = useCallback(() => {
-    propsRef.current.trigger += button.MOUSE_DOWN_INCREMENT;
-    setState(propsRef.current);
-  }, [setState]);
-
-  return { onClick: onMouseUp, onMouseDown, onMouseUp };
+  return {
+    onClick: () => void methods.onMouseUp(),
+    onMouseDown: () => void methods.onMouseDown(),
+    onMouseUp: () => void methods.onMouseUp(),
+  };
 };

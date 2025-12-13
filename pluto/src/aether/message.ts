@@ -46,8 +46,34 @@ export interface AetherErrorMessage {
   error: errors.NativePayload;
 }
 
+/** A message from the main thread invoking a method on a worker component. */
+export interface MainRPCRequestMessage {
+  variant: "rpc-request";
+  /** Correlation ID for matching response. Format: `${componentKey}-${counter}` */
+  requestId: string;
+  /** The path of the component to invoke the method on. */
+  path: string[];
+  /** The method name to invoke. */
+  method: string;
+  /** The arguments to pass to the method. */
+  args: unknown;
+  /** Whether the caller expects a response. False for fire-and-forget void methods. */
+  expectsResponse: boolean;
+}
+
+/** A message from the worker thread responding to a main RPC request. */
+export interface AetherRPCResponseMessage {
+  variant: "rpc-response";
+  /** Correlation ID matching the original request. */
+  requestId: string;
+  /** The result of the method call. */
+  result: unknown;
+  /** Error information if the method threw. */
+  error?: errors.NativePayload;
+}
+
 /** A message from the aether thread to the main thread. */
-export type AetherMessage = AetherUpdateMessage | AetherErrorMessage;
+export type AetherMessage = AetherUpdateMessage | AetherErrorMessage | AetherRPCResponseMessage;
 
 /** A message from the main thread to the aether thread. */
-export type MainMessage = MainUpdateMessage | MainDeleteMessage;
+export type MainMessage = MainUpdateMessage | MainDeleteMessage | MainRPCRequestMessage;

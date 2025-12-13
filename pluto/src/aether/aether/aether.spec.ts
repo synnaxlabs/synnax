@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
+import { zod } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -175,6 +176,70 @@ class SecondaryContextSetter extends aether.Composite<
 const shouldNotCallCreate = () => {
   throw new Error("should not call create");
 };
+
+const rpcMethodsSchema = {
+  increment: zod.callable().args(z.number()).returns(z.number()),
+  greet: zod.callable().args(z.object({ name: z.string() })).returns(z.string()),
+  noArgs: zod.callable(),
+  asyncMethod: zod.callable().args(z.number()).returns(z.number()),
+  throwError: zod.callable(),
+} satisfies aether.MethodsSchema;
+
+class RPCLeaf extends aether.Leaf<typeof exampleProps, {}> {
+  schema = exampleProps;
+  incrementHandler = vi.fn((n: number) => n + 1);
+  greetHandler = vi.fn((args: { name: string }) => `Hello, ${args.name}!`);
+  noArgsHandler = vi.fn(() => {});
+  asyncHandler = vi.fn(async (n: number) => {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    return n * 2;
+  });
+  throwHandler = vi.fn(() => {
+    throw new Error("Test error");
+  });
+
+  constructor(props: aether.ComponentConstructorProps) {
+    super(props);
+    this.bindMethods(rpcMethodsSchema, {
+      increment: this.incrementHandler,
+      greet: this.greetHandler,
+      noArgs: this.noArgsHandler,
+      asyncMethod: this.asyncHandler,
+      throwError: this.throwHandler,
+    });
+  }
+
+  afterUpdate(): void {}
+  afterDelete(): void {}
+}
+
+const createRPCLeaf = (key: string, parentCtxValues: aether.ContextMap | null = null) =>
+  new RPCLeaf({
+    key,
+    type: "rpc-leaf",
+    sender: MockSender,
+    instrumentation: alamos.Instrumentation.NOOP,
+    parentCtxValues,
+  });
+
+class RPCComposite extends aether.Composite<typeof exampleProps, {}, RPCLeaf> {
+  schema = exampleProps;
+
+  afterUpdate(): void {}
+  afterDelete(): void {}
+}
+
+const createRPCComposite = (
+  key: string,
+  parentCtxValues: aether.ContextMap | null = null,
+) =>
+  new RPCComposite({
+    key,
+    type: "rpc-composite",
+    sender: MockSender,
+    instrumentation: alamos.Instrumentation.NOOP,
+    parentCtxValues,
+  });
 
 describe("Aether Worker", () => {
   describe("AetherLeaf", () => {
@@ -508,6 +573,157 @@ describe("Aether Worker", () => {
       expect(c2.testingChildCtxValues.size).toEqual(0);
       expect(c2.testingParentCtxValues.get("key")).toEqual(5);
       expect(c2.testingParentCtxValues.get("key2")).toEqual(6);
+    });
+  });
+
+  describe("RPC", () => {
+    let leaf: RPCLeaf;
+    beforeEach(() => {
+      MockSender.send.mockClear();
+      leaf = createRPCLeaf("rpc-test");
+      leaf._updateState({
+        path: ["rpc-test"],
+        state: { x: 1 },
+        type: "rpc-leaf",
+        create: shouldNotCallCreate,
+      });
+    });
+
+    describe("_invokeMethod", () => {
+      it("should invoke the handler with the provided args and send response", () => {
+        leaf._invokeMethod("req-1", "increment", 5, true);
+
+        expect(leaf.incrementHandler).toHaveBeenCalledWith(5);
+        expect(MockSender.send).toHaveBeenCalledWith({
+          variant: "rpc-response",
+          requestId: "req-1",
+          result: 6,
+        });
+      });
+
+      it("should handle methods with object args", () => {
+        leaf._invokeMethod("req-2", "greet", { name: "World" }, true);
+
+        expect(leaf.greetHandler).toHaveBeenCalledWith({ name: "World" });
+        expect(MockSender.send).toHaveBeenCalledWith({
+          variant: "rpc-response",
+          requestId: "req-2",
+          result: "Hello, World!",
+        });
+      });
+
+      it("should handle methods with no args (fire-and-forget)", () => {
+        leaf._invokeMethod("req-3", "noArgs", undefined, false);
+
+        expect(leaf.noArgsHandler).toHaveBeenCalled();
+        expect(MockSender.send).not.toHaveBeenCalled();
+      });
+
+      it("should handle async methods", async () => {
+        leaf._invokeMethod("req-4", "asyncMethod", 10, true);
+
+        await new Promise((resolve) => setTimeout(resolve, 20));
+
+        expect(leaf.asyncHandler).toHaveBeenCalledWith(10);
+        expect(MockSender.send).toHaveBeenCalledWith({
+          variant: "rpc-response",
+          requestId: "req-4",
+          result: 20,
+        });
+      });
+
+      it("should send error response when handler throws (expectsResponse=true)", () => {
+        leaf._invokeMethod("req-5", "throwError", undefined, true);
+
+        expect(leaf.throwHandler).toHaveBeenCalled();
+        expect(MockSender.send).toHaveBeenCalledWith({
+          variant: "rpc-response",
+          requestId: "req-5",
+          result: undefined,
+          error: expect.objectContaining({
+            name: "Error",
+            message: "Test error",
+          }),
+        });
+      });
+
+      it("should log error but not send response when handler throws (fire-and-forget)", () => {
+        const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+        leaf._invokeMethod("req-5b", "throwError", undefined, false);
+
+        expect(leaf.throwHandler).toHaveBeenCalled();
+        expect(MockSender.send).not.toHaveBeenCalled();
+        expect(consoleSpy).toHaveBeenCalled();
+        consoleSpy.mockRestore();
+      });
+
+      it("should send error response for unknown method when expectsResponse=true", () => {
+        leaf._invokeMethod("req-6", "unknownMethod", undefined, true);
+
+        expect(MockSender.send).toHaveBeenCalledWith({
+          variant: "rpc-response",
+          requestId: "req-6",
+          result: undefined,
+          error: expect.objectContaining({
+            message: expect.stringContaining("unknownMethod"),
+          }),
+        });
+      });
+
+      it("should silently ignore unknown method when fire-and-forget", () => {
+        leaf._invokeMethod("req-6b", "unknownMethod", undefined, false);
+
+        expect(MockSender.send).not.toHaveBeenCalled();
+      });
+
+      it("should not invoke method if component is deleted", () => {
+        leaf._delete(["rpc-test"]);
+        MockSender.send.mockClear();
+
+        leaf._invokeMethod("req-7", "increment", 5, true);
+
+        expect(leaf.incrementHandler).not.toHaveBeenCalled();
+        expect(MockSender.send).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("Composite RPC propagation", () => {
+      let composite: RPCComposite;
+      let childLeaf: RPCLeaf;
+
+      beforeEach(() => {
+        MockSender.send.mockClear();
+        composite = createRPCComposite("parent");
+        composite._updateState({
+          path: ["parent"],
+          state: { x: 1 },
+          type: "rpc-composite",
+          create: shouldNotCallCreate,
+        });
+        composite._updateState({
+          path: ["parent", "child"],
+          state: { x: 2 },
+          type: "rpc-leaf",
+          create: () => createRPCLeaf("child"),
+        });
+        childLeaf = composite.children[0];
+        MockSender.send.mockClear();
+      });
+
+      it("should find child at path using findChildAtPath", () => {
+        const found = composite.findChildAtPath(["child"]);
+        expect(found).toBe(childLeaf);
+      });
+
+      it("should return null for non-existent path", () => {
+        const found = composite.findChildAtPath(["non-existent"]);
+        expect(found).toBeNull();
+      });
+
+      it("should return null for empty path", () => {
+        const found = composite.findChildAtPath([]);
+        expect(found).toBeNull();
+      });
     });
   });
 });
