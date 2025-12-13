@@ -156,7 +156,7 @@ func (t arcRetrieveRequestTranslator) Forward(
 		SearchTerm:    msg.SearchTerm,
 		Limit:         int32(msg.Limit),
 		Offset:        int32(msg.Offset),
-		IncludeStatus: msg.IncludeStatus != nil && *msg.IncludeStatus,
+		IncludeStatus: msg.IncludeStatus,
 		Compile:       msg.Compile,
 	}, nil
 }
@@ -173,17 +173,13 @@ func (t arcRetrieveRequestTranslator) Backward(
 		}
 		keys = append(keys, key)
 	}
-	var includeStatus *bool
-	if msg.IncludeStatus {
-		includeStatus = &msg.IncludeStatus
-	}
 	return api.ArcRetrieveRequest{
 		Keys:          keys,
 		Names:         msg.Names,
 		SearchTerm:    msg.SearchTerm,
 		Limit:         int(msg.Limit),
 		Offset:        int(msg.Offset),
-		IncludeStatus: includeStatus,
+		IncludeStatus: msg.IncludeStatus,
 		Compile:       msg.Compile,
 	}, nil
 }
@@ -866,7 +862,7 @@ func translateEdgeFromPB(pb *arcir.PBEdge) arcir.Edge {
 	return arcir.Edge{Source: source, Target: target}
 }
 
-func newArc(a *api.Transport) []fgrpc.BindableTransport {
+func newArc(a *api.Transport) fgrpc.CompoundBindableTransport {
 	c := &arcCreateServer{
 		RequestTranslator:  arcCreateRequestTranslator{},
 		ResponseTranslator: arcCreateResponseTranslator{},

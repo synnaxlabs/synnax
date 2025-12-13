@@ -57,7 +57,7 @@ xerrors::Error ArcClient::create(Arc &arc) const {
     arc.to_proto(req.add_arcs());
     auto [res, err] = create_client->send(ARC_CREATE_ENDPOINT, req);
     if (err) return err;
-    if (res.arcs_size() == 0) return unexpected_missing("arc");
+    if (res.arcs_size() == 0) return unexpected_missing_error("arc");
 
     const auto &first = res.arcs(0);
     arc.key = first.key();
@@ -101,35 +101,41 @@ std::pair<Arc, xerrors::Error> ArcClient::create(const std::string &name) const 
 }
 
 std::pair<Arc, xerrors::Error>
-ArcClient::retrieve_by_name(const std::string &name) const {
+ArcClient::retrieve_by_name(const std::string &name, const RetrieveOptions &options) const {
     auto req = api::v1::ArcRetrieveRequest();
     req.add_names(name);
+    options.apply(req);
 
     auto [res, err] = retrieve_client->send(ARC_RETRIEVE_ENDPOINT, req);
     if (err) return {Arc(), err};
-    if (res.arcs_size() == 0) return {Arc(), unexpected_missing("arc")};
-    if (res.arcs_size() > 1) return {Arc(), multiple_results("arc", name)};
+    if (res.arcs_size() == 0) return {Arc(), unexpected_missing_error("arc")};
+    if (res.arcs_size() > 1) return {Arc(), multiple_found_error("arc", name)};
 
     return {Arc(res.arcs(0)), xerrors::NIL};
 }
 
 std::pair<Arc, xerrors::Error>
-ArcClient::retrieve_by_key(const std::string &key) const {
+ArcClient::retrieve_by_key(const std::string &key, const RetrieveOptions &options) const {
     auto req = api::v1::ArcRetrieveRequest();
     req.add_keys(key);
+    options.apply(req);
 
     auto [res, err] = retrieve_client->send(ARC_RETRIEVE_ENDPOINT, req);
     if (err) return {Arc(), err};
-    if (res.arcs_size() == 0) return {Arc(), unexpected_missing("arc")};
+    if (res.arcs_size() == 0) return {Arc(), unexpected_missing_error("arc")};
 
     return {Arc(res.arcs(0)), xerrors::NIL};
 }
 
 std::pair<std::vector<Arc>, xerrors::Error>
-ArcClient::retrieve(const std::vector<std::string> &names) const {
+ArcClient::retrieve(
+    const std::vector<std::string> &names,
+    const RetrieveOptions &options
+) const {
     auto req = api::v1::ArcRetrieveRequest();
     for (const auto &name: names)
         req.add_names(name);
+    options.apply(req);
 
     auto [res, err] = retrieve_client->send(ARC_RETRIEVE_ENDPOINT, req);
     if (err) return {std::vector<Arc>(), err};
@@ -143,10 +149,14 @@ ArcClient::retrieve(const std::vector<std::string> &names) const {
 }
 
 std::pair<std::vector<Arc>, xerrors::Error>
-ArcClient::retrieve_by_keys(const std::vector<std::string> &keys) const {
+ArcClient::retrieve_by_keys(
+    const std::vector<std::string> &keys,
+    const RetrieveOptions &options
+) const {
     auto req = api::v1::ArcRetrieveRequest();
     for (const auto &key: keys)
         req.add_keys(key);
+    options.apply(req);
 
     auto [res, err] = retrieve_client->send(ARC_RETRIEVE_ENDPOINT, req);
     if (err) return {std::vector<Arc>(), err};

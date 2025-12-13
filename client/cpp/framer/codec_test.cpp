@@ -147,7 +147,7 @@ void assert_frames_equal(const telem::Frame &expected, const telem::Frame &actua
 
 telem::Frame create_large_equal_frame() {
     constexpr size_t NUM_CHANNELS = 500;
-    auto frame = synnax::Frame(NUM_CHANNELS);
+    auto frame = telem::Frame(NUM_CHANNELS);
     const auto tr = telem::TimeRange{telem::TimeStamp(1000), telem::TimeStamp(2000)};
     for (size_t i = 0; i < NUM_CHANNELS; i++) {
         auto series = telem::Series(std::vector{1.0f, 2.0f, 3.0f});

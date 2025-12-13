@@ -38,6 +38,33 @@ using ArcDeleteClient = freighter::
 
 class ArcClient;
 
+/// @brief Options for retrieving Arc programs.
+struct RetrieveOptions {
+    /// @brief If true, compiles the Arc text to a module with IR and WASM bytecode.
+    bool compile = false;
+
+    /// @brief If true, includes the runtime status of the Arc program.
+    bool include_status = false;
+
+    /// @brief Maximum number of results to return (0 = unlimited).
+    int32_t limit = 0;
+
+    /// @brief Number of results to skip before returning.
+    int32_t offset = 0;
+
+    /// @brief Search term for filtering Arc programs by name.
+    std::string search_term;
+
+    /// @brief Applies these options to a protobuf retrieve request.
+    void apply(api::v1::ArcRetrieveRequest &req) const {
+        req.set_compile(compile);
+        req.set_include_status(include_status);
+        if (limit > 0) req.set_limit(limit);
+        if (offset > 0) req.set_offset(offset);
+        if (!search_term.empty()) req.set_search_term(search_term);
+    }
+};
+
 /// @brief Represents an Arc automation program.
 /// @details Arc is a domain-specific language for control systems. An Arc program
 /// contains both a visual graph representation and text-based source code.
@@ -123,33 +150,43 @@ public:
 
     /// @brief Retrieves an Arc program by its name.
     /// @param name The name of the Arc program to retrieve.
+    /// @param options Optional retrieve options (compile, include_status, etc.).
     /// @returns A pair containing the retrieved Arc program and an error.
     /// If the Arc program does not exist or multiple programs have the same name,
     /// an error is returned.
     [[nodiscard]] std::pair<Arc, xerrors::Error>
-    retrieve_by_name(const std::string &name) const;
+    retrieve_by_name(const std::string &name, const RetrieveOptions &options = {}) const;
 
     /// @brief Retrieves an Arc program by its key (UUID).
     /// @param key The key of the Arc program to retrieve.
+    /// @param options Optional retrieve options (compile, include_status, etc.).
     /// @returns A pair containing the retrieved Arc program and an error.
     /// If the Arc program does not exist, an error is returned.
     [[nodiscard]] std::pair<Arc, xerrors::Error>
-    retrieve_by_key(const std::string &key) const;
+    retrieve_by_key(const std::string &key, const RetrieveOptions &options = {}) const;
 
     /// @brief Retrieves Arc programs by their names.
     /// @param names Vector of names of Arc programs to retrieve.
+    /// @param options Optional retrieve options (compile, include_status, etc.).
     /// @returns A pair containing a vector of retrieved Arc programs and an error.
     /// If an Arc program with a given name does not exist, it will not be in the
     /// result.
     [[nodiscard]] std::pair<std::vector<Arc>, xerrors::Error>
-    retrieve(const std::vector<std::string> &names) const;
+    retrieve(
+        const std::vector<std::string> &names,
+        const RetrieveOptions &options = {}
+    ) const;
 
     /// @brief Retrieves Arc programs by their keys (UUIDs).
     /// @param keys Vector of keys of Arc programs to retrieve.
+    /// @param options Optional retrieve options (compile, include_status, etc.).
     /// @returns A pair containing a vector of retrieved Arc programs and an error.
     /// If an Arc program with a given key does not exist, it will not be in the result.
     [[nodiscard]] std::pair<std::vector<Arc>, xerrors::Error>
-    retrieve_by_keys(const std::vector<std::string> &keys) const;
+    retrieve_by_keys(
+        const std::vector<std::string> &keys,
+        const RetrieveOptions &options = {}
+    ) const;
 
     /// @brief Deletes an Arc program by its key.
     /// @param key The key of the Arc program to delete.

@@ -1,6 +1,9 @@
 cc_library(
     name = "ir",
-    hdrs = ["ir.h"],
+    hdrs = [
+        "ir.h",
+        "format.h"
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/proto",

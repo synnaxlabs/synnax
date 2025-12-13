@@ -348,7 +348,7 @@ class ChannelClient:
         if len(res) == 1:
             return sug[0]
         if len(res) > 1:
-            raise _multiple_results_error(channel, res)
+            raise _multiple_found_error(channel, res)
         raise NotFoundError(f"Channel matching '{channel}' not found.")
 
     @overload
@@ -386,7 +386,7 @@ class ChannelClient:
         ]
 
 
-def _multiple_results_error(
+def _multiple_found_error(
     channel: ChannelParams,
     results: list[ChannelPayload],
 ) -> MultipleFoundError:

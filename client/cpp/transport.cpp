@@ -132,8 +132,7 @@ synnax::Transport synnax::Transport::configure(
         .status_delete = std::make_shared<fgrpc::UnaryClient<
             api::v1::StatusDeleteRequest,
             google::protobuf::Empty,
-            api::v1::StatusDeleteService>>(pool, base_target)
-            api::v1::HardwareDeleteDeviceService>>(pool, base_target),
+            api::v1::StatusDeleteService>>(pool, base_target),
         .arc_create = std::make_shared<fgrpc::UnaryClient<
             api::v1::ArcCreateRequest,
             api::v1::ArcCreateResponse,

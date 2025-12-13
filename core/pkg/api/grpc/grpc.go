@@ -30,6 +30,7 @@ func New(channelSvc *channel.Service) (api.Transport, []fgrpc.BindableTransport)
 		newTask(&a),
 		newDevice(&a),
 		newStatus(&a),
+		newArc(&a),
 	}
 
 	// AUTH

@@ -254,7 +254,7 @@ def mock_client():
 ```cpp
 // Mock implementations
 class MockSource : public Source {
-    ReadResult read(breaker::Breaker& b, synnax::Frame& fr) override {
+    ReadResult read(breaker::Breaker& b, telem::Frame& fr) override {
         return {0, nil};
     }
 };

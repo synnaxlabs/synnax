@@ -28,7 +28,7 @@ std::string random_arc_name(const std::string &prefix) {
 TEST(TestArc, testCreate) {
     const auto client = new_test_client();
     auto arc = synnax::Arc("test_arc");
-    arc.text.set_raw("// Simple Arc program");
+    arc.text.raw = "// Simple Arc program";
 
     ASSERT_NIL(client.arcs.create(arc));
     ASSERT_EQ(arc.name, "test_arc");
@@ -159,7 +159,7 @@ TEST(TestArc, testDeleteMany) {
 TEST(TestArc, testModuleField) {
     const auto client = new_test_client();
     auto arc = synnax::Arc("module_test");
-    arc.text.set_raw("// Test program");
+    arc.text.raw = "// Test program";
 
     ASSERT_NIL(client.arcs.create(arc));
 
@@ -167,6 +167,74 @@ TEST(TestArc, testModuleField) {
 
     ASSERT_NIL(err);
     ASSERT_EQ(retrieved.key, arc.key);
-    // Module field should exist (even if empty initially)
-    ASSERT_TRUE(retrieved.module.IsInitialized());
+    // Module field exists but WASM is empty when not compiled
+    ASSERT_TRUE(retrieved.module.wasm.empty());
+}
+
+/// @brief it should compile an Arc program when retrieved with compile=true.
+/// This test mirrors the Go test in arc/go/go_test.go that verifies calc.arc compiles.
+TEST(TestArc, testRetrieveWithCompile) {
+    const auto client = new_test_client();
+
+    // Create the channels referenced in calc.arc
+    auto ox_pt_1 = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("ox_pt_1"),
+        telem::FLOAT32_T,
+        true
+    ));
+    auto ox_pt_doubled = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("ox_pt_doubled"),
+        telem::FLOAT32_T,
+        true
+    ));
+
+    // Create the Arc with calc.arc content
+    // This matches arc/go/testdata/calc.arc
+    auto arc = synnax::Arc(random_arc_name("compile_test"));
+    std::string calc_arc_text = R"(
+func calc(val f32) f32 {
+    return val * 2
+}
+
+)" + ox_pt_1.name + " -> calc{} -> " + ox_pt_doubled.name + R"(
+)";
+    arc.text.raw = calc_arc_text;
+
+    ASSERT_NIL(client.arcs.create(arc));
+
+    // Retrieve with compile=true
+    synnax::RetrieveOptions options;
+    options.compile = true;
+    auto [retrieved, err] = client.arcs.retrieve_by_key(arc.key, options);
+
+    ASSERT_NIL(err);
+    ASSERT_EQ(retrieved.key, arc.key);
+
+    // Verify the module was compiled - should have WASM bytes
+    ASSERT_FALSE(retrieved.module.wasm.empty())
+        << "Expected WASM bytecode to be present after compilation";
+
+    // Verify correct node structure (same as Go test expectations)
+    // 3 nodes: source (on), calc function, sink (write)
+    ASSERT_EQ(retrieved.module.nodes.size(), 3)
+        << "Expected 3 nodes: source, calc, sink";
+
+    // First node: source channel (on)
+    ASSERT_EQ(retrieved.module.nodes[0].type, "on");
+    ASSERT_GT(retrieved.module.nodes[0].channels.read.count(ox_pt_1.key), 0)
+        << "First node should read from ox_pt_1 channel";
+    ASSERT_EQ(retrieved.module.nodes[0].outputs.size(), 1);
+
+    // Second node: calc function
+    ASSERT_EQ(retrieved.module.nodes[1].type, "calc");
+
+    // Third node: sink channel (write)
+    ASSERT_EQ(retrieved.module.nodes[2].type, "write");
+    ASSERT_GT(retrieved.module.nodes[2].channels.write.count(ox_pt_doubled.key), 0)
+        << "Third node should write to ox_pt_doubled channel";
+    ASSERT_EQ(retrieved.module.nodes[2].inputs.size(), 1);
+
+    // Verify edges (2 edges connecting the 3 nodes)
+    ASSERT_EQ(retrieved.module.edges.size(), 2)
+        << "Expected 2 edges connecting the nodes";
 }

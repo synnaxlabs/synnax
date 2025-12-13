@@ -406,10 +406,10 @@ func (r *routine) goRun(f func(context.Context) error) {
 					recovered := false
 					func() {
 						defer func() {
-							if e := recover(); e != nil {
-								recovered = true
-								err = r.maybeRecover(e)
-							}
+							//if e := recover(); e != nil {
+							//	recovered = true
+							//	err = r.maybeRecover(e)
+							//}
 						}()
 						err = f(ctx)
 					}()

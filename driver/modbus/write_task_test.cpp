@@ -496,8 +496,8 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     cfg = std::make_unique<modbus::WriteTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
-    const auto reads = std::make_shared<std::vector<synnax::Frame>>();
-    synnax::Frame fr(3);
+    const auto reads = std::make_shared<std::vector<telem::Frame>>();
+    telem::Frame fr(3);
     fr.emplace(holding0.key, telem::Series(static_cast<uint8_t>(50)));
     fr.emplace(holding1.key, telem::Series(static_cast<uint8_t>(100)));
     fr.emplace(holding2.key, telem::Series(static_cast<uint8_t>(150)));
