@@ -151,8 +151,8 @@ if not exist ".\binaries" (
     exit /b 1
 )
 
-rem Check if any synnax executable was downloaded
-dir /b .\binaries\synnax-*-windows.exe >nul 2>nul
+rem Check if any synnax executable was downloaded (binary is named synnax-v{VERSION}.exe)
+dir /b .\binaries\synnax-v*.exe >nul 2>nul
 if %errorlevel% neq 0 (
     echo ❌ Error: No synnax executable found in binaries directory
     echo Available files in binaries directory:
@@ -166,9 +166,9 @@ rem Setup Binaries (Windows) - Easy access for RDP Session
 echo 📦 Setting up binaries...
 if not exist "%USERPROFILE%\Desktop" mkdir "%USERPROFILE%\Desktop"
 
-rem Copy the Synnax binary to desktop
+rem Copy the Synnax binary to desktop (binary is named synnax-v{VERSION}.exe)
 echo Copying Synnax binary to desktop...
-for %%f in (.\binaries\synnax-*-windows.exe) do (
+for %%f in (.\binaries\synnax-v*.exe) do (
     echo Found binary: %%f
     copy /Y "%%f" "%USERPROFILE%\Desktop\synnax.exe"
     if %errorlevel% neq 0 (
