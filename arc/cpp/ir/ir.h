@@ -110,8 +110,8 @@ struct Edge {
     }
 
     Edge() = default;
-    Edge(Handle src, Handle tgt, EdgeKind k = EdgeKind::Continuous)
-        : source(std::move(src)), target(std::move(tgt)), kind(k) {}
+    Edge(Handle src, Handle tgt, EdgeKind k = EdgeKind::Continuous):
+        source(std::move(src)), target(std::move(tgt)), kind(k) {}
 
     bool operator==(const Edge &other) const {
         return source == other.source && target == other.target && kind == other.kind;
@@ -332,9 +332,7 @@ struct Node {
     explicit Node(std::string k): key(std::move(k)) {}
 
     /// @brief Returns the string representation of the node.
-    [[nodiscard]] std::string to_string() const {
-        return to_string_with_prefix("");
-    }
+    [[nodiscard]] std::string to_string() const { return to_string_with_prefix(""); }
 
     /// @brief Returns the string representation with tree formatting.
     [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const {
@@ -422,9 +420,7 @@ struct Function {
     explicit Function(std::string k): key(std::move(k)) {}
 
     /// @brief Returns the string representation of the function.
-    [[nodiscard]] std::string to_string() const {
-        return to_string_with_prefix("");
-    }
+    [[nodiscard]] std::string to_string() const { return to_string_with_prefix(""); }
 
     /// @brief Returns the string representation with tree formatting.
     [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const {
@@ -503,9 +499,7 @@ struct Strata {
     Strata() = default;
 
     /// @brief Returns the string representation of the strata.
-    [[nodiscard]] std::string to_string() const {
-        return to_string_with_prefix("");
-    }
+    [[nodiscard]] std::string to_string() const { return to_string_with_prefix(""); }
 
     /// @brief Returns the string representation with tree formatting.
     [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const {
@@ -545,13 +539,13 @@ struct Stage {
 
     explicit Stage(const arc::v1::ir::PBStage &pb) {
         this->key = pb.key();
-        for (const auto &node : pb.nodes())
+        for (const auto &node: pb.nodes())
             this->nodes.push_back(node);
     }
 
     void to_proto(arc::v1::ir::PBStage *pb) const {
         pb->set_key(key);
-        for (const auto &node : nodes)
+        for (const auto &node: nodes)
             pb->add_nodes(node);
     }
 
@@ -585,33 +579,31 @@ struct Sequence {
 
     [[nodiscard]] nlohmann::json to_json() const {
         nlohmann::json stages_arr = nlohmann::json::array();
-        for (const auto &stage : stages)
+        for (const auto &stage: stages)
             stages_arr.push_back(stage.to_json());
         return {{"key", key}, {"stages", stages_arr}};
     }
 
     explicit Sequence(const arc::v1::ir::PBSequence &pb) {
         this->key = pb.key();
-        for (const auto &stage_pb : pb.stages())
+        for (const auto &stage_pb: pb.stages())
             this->stages.emplace_back(stage_pb);
     }
 
     void to_proto(arc::v1::ir::PBSequence *pb) const {
         pb->set_key(key);
-        for (const auto &stage : stages)
+        for (const auto &stage: stages)
             stage.to_proto(pb->add_stages());
     }
 
-    [[nodiscard]] const Stage* find_stage(const std::string &stage_key) const {
-        for (const auto &stage : stages)
+    [[nodiscard]] const Stage *find_stage(const std::string &stage_key) const {
+        for (const auto &stage: stages)
             if (stage.key == stage_key) return &stage;
         return nullptr;
     }
 
     /// @brief Returns the string representation of the sequence.
-    [[nodiscard]] std::string to_string() const {
-        return to_string_with_prefix("");
-    }
+    [[nodiscard]] std::string to_string() const { return to_string_with_prefix(""); }
 
     /// @brief Returns the string representation with tree formatting.
     [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const {
@@ -700,8 +692,8 @@ struct IR {
             seq.to_proto(pb->add_sequences());
     }
 
-    [[nodiscard]] const Sequence* find_sequence(const std::string &key) const {
-        for (const auto &seq : sequences)
+    [[nodiscard]] const Sequence *find_sequence(const std::string &key) const {
+        for (const auto &seq: sequences)
             if (seq.key == key) return &seq;
         return nullptr;
     }
@@ -757,9 +749,7 @@ struct IR {
     }
 
     /// @brief Returns the string representation of the IR.
-    [[nodiscard]] std::string to_string() const {
-        return to_string_with_prefix("");
-    }
+    [[nodiscard]] std::string to_string() const { return to_string_with_prefix(""); }
 
     /// @brief Returns the string representation with tree formatting.
     [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const {
@@ -811,14 +801,14 @@ private:
         const std::string &prefix,
         bool last
     ) const {
-        ss << prefix << tree_prefix(last) << "Functions (" << functions.size()
-           << ")\n";
+        ss << prefix << tree_prefix(last) << "Functions (" << functions.size() << ")\n";
         std::string child_prefix = prefix + tree_indent(last);
         for (size_t i = 0; i < functions.size(); ++i) {
             bool is_last = i == functions.size() - 1;
             ss << child_prefix << tree_prefix(is_last)
-               << functions[i].to_string_with_prefix(child_prefix + tree_indent(is_last)
-               );
+               << functions[i].to_string_with_prefix(
+                      child_prefix + tree_indent(is_last)
+                  );
         }
     }
 
@@ -856,15 +846,14 @@ private:
         const std::string &prefix,
         bool last
     ) const {
-        ss << prefix << tree_prefix(last) << "Sequences (" << sequences.size()
-           << ")\n";
+        ss << prefix << tree_prefix(last) << "Sequences (" << sequences.size() << ")\n";
         std::string child_prefix = prefix + tree_indent(last);
         for (size_t i = 0; i < sequences.size(); ++i) {
             bool is_last = i == sequences.size() - 1;
             ss << child_prefix << tree_prefix(is_last)
                << sequences[i].to_string_with_prefix(
                       child_prefix + tree_indent(is_last)
-               );
+                  );
         }
     }
 };

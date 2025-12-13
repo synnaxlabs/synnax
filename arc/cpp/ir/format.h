@@ -29,12 +29,12 @@ inline std::string tree_indent(bool last) {
 }
 
 /// @brief Formats parameters as "name (type), name (type), ..."
-template <typename Params>
+template<typename Params>
 std::string format_params(const Params &params) {
     if (params.empty()) return "(none)";
     std::ostringstream ss;
     bool first = true;
-    for (const auto &p : params) {
+    for (const auto &p: params) {
         if (!first) ss << ", ";
         first = false;
         ss << p.name << " (" << p.type.to_string() << ")";
@@ -44,7 +44,7 @@ std::string format_params(const Params &params) {
 }
 
 /// @brief Formats channels as "read [id: name, ...], write [id: name, ...]"
-template <typename Channels>
+template<typename Channels>
 std::string format_channels(const Channels &ch) {
     if (ch.read.empty() && ch.write.empty()) return "(none)";
 
@@ -56,11 +56,12 @@ std::string format_channels(const Channels &ch) {
         ss << "read [";
         // Sort keys for consistent output
         std::vector<std::pair<uint32_t, std::string>> read_pairs(
-            ch.read.begin(), ch.read.end()
+            ch.read.begin(),
+            ch.read.end()
         );
         std::sort(read_pairs.begin(), read_pairs.end());
         bool first = true;
-        for (const auto &[id, name] : read_pairs) {
+        for (const auto &[id, name]: read_pairs) {
             if (!first) ss << ", ";
             first = false;
             ss << id << ": " << name;
@@ -73,11 +74,12 @@ std::string format_channels(const Channels &ch) {
         ss << "write [";
         // Sort keys for consistent output
         std::vector<std::pair<uint32_t, std::string>> write_pairs(
-            ch.write.begin(), ch.write.end()
+            ch.write.begin(),
+            ch.write.end()
         );
         std::sort(write_pairs.begin(), write_pairs.end());
         bool first = true;
-        for (const auto &[id, name] : write_pairs) {
+        for (const auto &[id, name]: write_pairs) {
             if (!first) ss << ", ";
             first = false;
             ss << id << ": " << name;

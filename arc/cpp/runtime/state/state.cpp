@@ -132,7 +132,7 @@ std::pair<Node, xerrors::Error> State::node(const std::string &key) {
     std::vector<Series> aligned_data(num_inputs);
     std::vector<Series> aligned_time(num_inputs);
     std::vector<Node::InputEntry> accumulated(num_inputs);
-    std::vector<Value*> input_sources(num_inputs);
+    std::vector<Value *> input_sources(num_inputs);
 
     for (size_t i = 0; i < num_inputs; i++)
         aligned_time[i] = xmemory::make_local_shared<telem::Series>(
@@ -187,7 +187,7 @@ std::pair<Node, xerrors::Error> State::node(const std::string &key) {
 
     // Pre-cache output value pointers
     std::vector<ir::Handle> output_handles;
-    std::vector<Value*> output_cache;
+    std::vector<Value *> output_cache;
     for (const auto &output_param: ir_node.outputs) {
         ir::Handle handle(key, output_param.name);
         output_handles.push_back(handle);
@@ -273,8 +273,7 @@ bool Node::refresh_inputs() {
 
 std::pair<telem::MultiSeries, bool> State::read_channel(const types::ChannelKey key) {
     auto it = reads.find(key);
-    if (it == reads.end() || it->second.empty())
-        return {telem::MultiSeries{}, false};
+    if (it == reads.end() || it->second.empty()) return {telem::MultiSeries{}, false};
     telem::MultiSeries ms;
     for (auto &s: it->second)
         ms.series.push_back(std::move(*s));
@@ -291,7 +290,11 @@ Node::read_chan(const types::ChannelKey key) {
         return {std::move(data), telem::MultiSeries{}, !data.series.empty()};
     auto [time, time_ok] = state_ptr->read_channel(index_it->second);
     if (!time_ok) return {telem::MultiSeries{}, telem::MultiSeries{}, false};
-    return {std::move(data), std::move(time), !data.series.empty() && !time.series.empty()};
+    return {
+        std::move(data),
+        std::move(time),
+        !data.series.empty() && !time.series.empty()
+    };
 }
 
 void Node::write_chan(

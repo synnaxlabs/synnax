@@ -100,8 +100,10 @@ std::pair<Arc, xerrors::Error> ArcClient::create(const std::string &name) const 
     return {arc, err};
 }
 
-std::pair<Arc, xerrors::Error>
-ArcClient::retrieve_by_name(const std::string &name, const RetrieveOptions &options) const {
+std::pair<Arc, xerrors::Error> ArcClient::retrieve_by_name(
+    const std::string &name,
+    const RetrieveOptions &options
+) const {
     auto req = api::v1::ArcRetrieveRequest();
     req.add_names(name);
     options.apply(req);
@@ -114,8 +116,10 @@ ArcClient::retrieve_by_name(const std::string &name, const RetrieveOptions &opti
     return {Arc(res.arcs(0)), xerrors::NIL};
 }
 
-std::pair<Arc, xerrors::Error>
-ArcClient::retrieve_by_key(const std::string &key, const RetrieveOptions &options) const {
+std::pair<Arc, xerrors::Error> ArcClient::retrieve_by_key(
+    const std::string &key,
+    const RetrieveOptions &options
+) const {
     auto req = api::v1::ArcRetrieveRequest();
     req.add_keys(key);
     options.apply(req);
@@ -127,8 +131,7 @@ ArcClient::retrieve_by_key(const std::string &key, const RetrieveOptions &option
     return {Arc(res.arcs(0)), xerrors::NIL};
 }
 
-std::pair<std::vector<Arc>, xerrors::Error>
-ArcClient::retrieve(
+std::pair<std::vector<Arc>, xerrors::Error> ArcClient::retrieve(
     const std::vector<std::string> &names,
     const RetrieveOptions &options
 ) const {
@@ -148,8 +151,7 @@ ArcClient::retrieve(
     return {arcs, xerrors::NIL};
 }
 
-std::pair<std::vector<Arc>, xerrors::Error>
-ArcClient::retrieve_by_keys(
+std::pair<std::vector<Arc>, xerrors::Error> ArcClient::retrieve_by_keys(
     const std::vector<std::string> &keys,
     const RetrieveOptions &options
 ) const {

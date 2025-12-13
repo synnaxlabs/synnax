@@ -86,9 +86,7 @@ public:
         if (fired) return xerrors::NIL;
 
         // Initialize start time on first tick
-        if (start_time.nanoseconds() < 0) {
-            start_time = ctx.elapsed;
-        }
+        if (start_time.nanoseconds() < 0) { start_time = ctx.elapsed; }
 
         // Check if duration has elapsed
         if (ctx.elapsed - start_time < cfg.duration) return xerrors::NIL;

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include "gtest/gtest.h"
+
 #include "x/cpp/binary/base64.h"
 
 TEST(Base64Decode, testEmptyString) {
@@ -192,7 +193,9 @@ TEST(Base64Decode, testPlusAndSlash) {
 }
 
 TEST(Base64Decode, testSequentialBytes) {
-    const auto result = binary::decode_base64("AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=");
+    const auto result = binary::decode_base64(
+        "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
+    );
     ASSERT_EQ(result.size(), 32);
     for (size_t i = 0; i < 32; i++)
         ASSERT_EQ(result[i], static_cast<uint8_t>(i));

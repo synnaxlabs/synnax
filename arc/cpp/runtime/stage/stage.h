@@ -23,14 +23,14 @@ namespace arc::runtime::stage {
 
 /// ActivateCallback is called when a stage_entry node receives an activation signal.
 /// Parameters are (sequence_name, stage_name).
-using ActivateCallback = std::function<void(const std::string&, const std::string&)>;
+using ActivateCallback = std::function<void(const std::string &, const std::string &)>;
 
 /// SharedCallback allows callbacks to be set after node creation.
 /// The nodes store a shared_ptr to this, and the callback can be set later.
 struct SharedCallback {
     ActivateCallback callback;
 
-    void invoke(const std::string& seq, const std::string& stage) {
+    void invoke(const std::string &seq, const std::string &stage) {
         if (callback) callback(seq, stage);
     }
 };
@@ -77,7 +77,8 @@ public:
 class Factory : public node::Factory {
 public:
     /// Shared callback that can be set after node creation.
-    std::shared_ptr<SharedCallback> shared_callback = std::make_shared<SharedCallback>();
+    std::shared_ptr<SharedCallback>
+        shared_callback = std::make_shared<SharedCallback>();
 
     std::pair<std::unique_ptr<node::Node>, xerrors::Error>
     create(const node::Config &cfg) override {
@@ -87,7 +88,10 @@ public:
         auto stage_param = cfg.node.config.get("stage");
 
         if (sequence_param == nullptr || stage_param == nullptr) {
-            return {nullptr, xerrors::Error("stage_entry node missing sequence or stage config")};
+            return {
+                nullptr,
+                xerrors::Error("stage_entry node missing sequence or stage config")
+            };
         }
 
         auto sequence_name = sequence_param->value.get<std::string>();

@@ -1,6 +1,10 @@
 cc_library(
     name = "arc",
-    hdrs = ["arc.h"],
+    srcs = ["factory.cpp"],
+    hdrs = [
+        "arc.h",
+        "task.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/module",

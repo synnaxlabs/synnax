@@ -196,7 +196,8 @@ func calc(val f32) f32 {
     return val * 2
 }
 
-)" + ox_pt_1.name + " -> calc{} -> " + ox_pt_doubled.name + R"(
+)" + ox_pt_1.name + " -> calc{} -> " +
+                                ox_pt_doubled.name + R"(
 )";
     arc.text.raw = calc_arc_text;
 

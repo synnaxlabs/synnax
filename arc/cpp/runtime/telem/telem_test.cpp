@@ -36,10 +36,7 @@ TEST(TelemFactoryTest, CreateSourceNode) {
     arc::ir::IR ir;
     ir.nodes.push_back(ir_node);
 
-    state::Config cfg{
-        .ir = ir,
-        .channels = {{10, telem::FLOAT32_T, 11}}
-    };
+    state::Config cfg{.ir = ir, .channels = {{10, telem::FLOAT32_T, 11}}};
     state::State s(cfg);
 
     io::Factory factory;
@@ -152,10 +149,7 @@ TEST(OnNodeTest, ReadChannelData) {
     arc::ir::IR ir;
     ir.nodes.push_back(ir_node);
 
-    state::Config cfg{
-        .ir = ir,
-        .channels = {{10, telem::FLOAT32_T, 11}}
-    };
+    state::Config cfg{.ir = ir, .channels = {{10, telem::FLOAT32_T, 11}}};
     state::State s(cfg);
 
     auto [state_node, err] = s.node("source");
@@ -172,11 +166,15 @@ TEST(OnNodeTest, ReadChannelData) {
     frame.channels->push_back(10);
     frame.series->push_back(telem::Series(std::vector<float>{1.5f, 2.5f, 3.5f}));
     frame.channels->push_back(11);
-    frame.series->push_back(telem::Series(std::vector<telem::TimeStamp>{
-        telem::TimeStamp(100),
-        telem::TimeStamp(101),
-        telem::TimeStamp(102)
-    }));
+    frame.series->push_back(
+        telem::Series(
+            std::vector<telem::TimeStamp>{
+                telem::TimeStamp(100),
+                telem::TimeStamp(101),
+                telem::TimeStamp(102)
+            }
+        )
+    );
     s.ingest(std::move(frame));
 
     bool output_changed = false;
@@ -209,10 +207,7 @@ TEST(OnNodeTest, ChannelWithoutIndex) {
     arc::ir::IR ir;
     ir.nodes.push_back(ir_node);
 
-    state::Config cfg{
-        .ir = ir,
-        .channels = {{20, telem::INT32_T, 0}}
-    };
+    state::Config cfg{.ir = ir, .channels = {{20, telem::INT32_T, 0}}};
     state::State s(cfg);
 
     auto [state_node, err] = s.node("source");
@@ -260,10 +255,7 @@ TEST(OnNodeTest, EmptyChannel) {
     arc::ir::IR ir;
     ir.nodes.push_back(ir_node);
 
-    state::Config cfg{
-        .ir = ir,
-        .channels = {{999, telem::FLOAT32_T, 0}}
-    };
+    state::Config cfg{.ir = ir, .channels = {{999, telem::FLOAT32_T, 0}}};
     state::State s(cfg);
 
     auto [state_node, err] = s.node("source");
@@ -320,10 +312,7 @@ TEST(WriteNodeTest, WriteChannelData) {
     ir.nodes.push_back(sink);
     ir.edges.push_back(edge);
 
-    state::Config cfg{
-        .ir = ir,
-        .channels = {{100, telem::FLOAT32_T, 101}}
-    };
+    state::Config cfg{.ir = ir, .channels = {{100, telem::FLOAT32_T, 101}}};
     state::State s(cfg);
 
     auto [producer_node, err1] = s.node("producer");
@@ -377,10 +366,7 @@ TEST(WriteNodeTest, RefreshInputsGuard) {
     arc::ir::IR ir;
     ir.nodes.push_back(sink);
 
-    state::Config cfg{
-        .ir = ir,
-        .channels = {{100, telem::FLOAT32_T, 101}}
-    };
+    state::Config cfg{.ir = ir, .channels = {{100, telem::FLOAT32_T, 101}}};
     state::State s(cfg);
 
     auto [sink_node, err] = s.node("sink");
@@ -445,10 +431,7 @@ TEST(TelemIntegrationTest, SourceToSinkFlow) {
 
     state::Config cfg{
         .ir = ir,
-        .channels = {
-            {1, telem::INT32_T, 2},
-            {3, telem::INT32_T, 4}
-        }
+        .channels = {{1, telem::INT32_T, 2}, {3, telem::INT32_T, 4}}
     };
     state::State s(cfg);
 
@@ -472,10 +455,11 @@ TEST(TelemIntegrationTest, SourceToSinkFlow) {
     frame.channels->push_back(1);
     frame.series->push_back(telem::Series(std::vector<int32_t>{42, 99}));
     frame.channels->push_back(2);
-    frame.series->push_back(telem::Series(std::vector<telem::TimeStamp>{
-        telem::TimeStamp(10),
-        telem::TimeStamp(20)
-    }));
+    frame.series->push_back(
+        telem::Series(
+            std::vector<telem::TimeStamp>{telem::TimeStamp(10), telem::TimeStamp(20)}
+        )
+    );
     s.ingest(std::move(frame));
 
     node::Context ctx{

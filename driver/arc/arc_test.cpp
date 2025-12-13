@@ -8,13 +8,15 @@
 // included in the file licenses/APL.txt.
 
 #include "gtest/gtest.h"
+
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
+#include "x/cpp/xtest/xtest.h"
 
 #include "driver/arc/arc.h"
+#include "driver/arc/task.h"
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/task/task.h"
-#include "x/cpp/xtest/xtest.h"
 
 TEST(ArcTests, testCalcDoubling) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -30,7 +32,12 @@ TEST(ArcTests, testCalcDoubling) {
     ASSERT_NIL(client->channels.create(output_idx));
 
     auto input_ch = synnax::Channel(input_name, telem::FLOAT32_T, input_idx.key, false);
-    auto output_ch = synnax::Channel(output_name, telem::FLOAT32_T, output_idx.key, false);
+    auto output_ch = synnax::Channel(
+        output_name,
+        telem::FLOAT32_T,
+        output_idx.key,
+        false
+    );
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
@@ -43,7 +50,9 @@ TEST(ArcTests, testCalcDoubling) {
     );
     ASSERT_NIL(client->arcs.create(arc_prog));
 
-    auto rack = ASSERT_NIL_P(client->racks.create(make_unique_channel_name("arc_test_rack")));
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_test_rack"))
+    );
 
     synnax::Task task_meta(rack.key, "arc_calc_test", "arc_runtime", "");
     nlohmann::json cfg{{"arc_key", arc_prog.key}};
@@ -71,8 +80,12 @@ TEST(ArcTests, testCalcDoubling) {
     auto ctx = std::make_shared<task::MockContext>(client);
 
     auto task = std::make_unique<arc::Task>(
-        task_meta, ctx, runtime, task_cfg,
-        mock_writer, mock_streamer
+        task_meta,
+        ctx,
+        runtime,
+        task_cfg,
+        mock_writer,
+        mock_streamer
     );
 
     task->start("test_start");

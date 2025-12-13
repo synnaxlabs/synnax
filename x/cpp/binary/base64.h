@@ -32,7 +32,7 @@ static std::vector<uint8_t> decode_base64(const std::string &encoded) {
 
             i = 0;
         }
-            }
+    }
 
     if (i) {
         for (int j = i; j < 4; j++) {

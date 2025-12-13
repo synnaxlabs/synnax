@@ -10,6 +10,7 @@
 #pragma once
 
 #include "x/cpp/xjson/xjson.h"
+
 #include "x/go/spatial/x/go/spatial/spatial.pb.h"
 
 namespace spatial {
@@ -20,19 +21,12 @@ struct XY {
     XY() = default;
     XY(const float x, const float y): x(x), y(y) {}
 
-    explicit XY(xjson::Parser p):
-    x(p.field<float>("x")),
-    y(p.field<float>("y")) {
-    }
+    explicit XY(xjson::Parser p): x(p.field<float>("x")), y(p.field<float>("y")) {}
 
-    explicit XY(const x::v1::spatial::PBXY &pb): x(pb.x()), y(pb.y()) {
-    }
+    explicit XY(const x::v1::spatial::PBXY &pb): x(pb.x()), y(pb.y()) {}
 
     [[nodiscard]] nlohmann::json to_json() const {
-        return {
-            {"x", this->x},
-            {"y", this->y}
-        };
+        return {{"x", this->x}, {"y", this->y}};
     }
 
     void to_proto(x::v1::spatial::PBXY *pb) const {

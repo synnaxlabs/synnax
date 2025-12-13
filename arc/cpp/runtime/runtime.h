@@ -110,9 +110,7 @@ public:
     bool start() {
         if (this->breaker.running()) return false;
         this->breaker.start();
-        this->run_thread = std::thread([this]() {
-            this->run();
-        });
+        this->run_thread = std::thread([this]() { this->run(); });
         return true;
     }
 
@@ -130,14 +128,13 @@ public:
     }
 
     xerrors::Error write(telem::Frame frame) const {
-        if (!this->inputs->push(std::move(frame))) return xerrors::Error("runtime closed");
+        if (!this->inputs->push(std::move(frame)))
+            return xerrors::Error("runtime closed");
         this->loop->notify_data();
         return xerrors::NIL;
     }
 
-    bool read(telem::Frame &frame) const {
-        return this->outputs->pop(frame);
-    }
+    bool read(telem::Frame &frame) const { return this->outputs->pop(frame); }
 };
 
 inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cfg) {
@@ -222,8 +219,8 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
     // If no timing nodes exist, use EVENT_DRIVEN mode to block until data arrives.
     // Otherwise, use HIGH_RATE mode with the GCD of all timing intervals.
     auto timing_interval = time_factory->timing_base;
-    const bool has_intervals =
-        timing_interval.nanoseconds() != std::numeric_limits<int64_t>::max();
+    const bool has_intervals = timing_interval.nanoseconds() !=
+                               std::numeric_limits<int64_t>::max();
 
     auto [loop, err] = loop::create(
         loop::Config{

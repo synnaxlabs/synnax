@@ -28,18 +28,13 @@ struct Viewport {
     Viewport() = default;
 
     explicit Viewport(xjson::Parser p):
-        position(p.field<spatial::XY>("position")),
-        zoom(p.field<float>("position")) {}
+        position(p.field<spatial::XY>("position")), zoom(p.field<float>("position")) {}
 
     explicit Viewport(const v1::graph::PBViewport &pb):
-        position(pb.position()),
-        zoom(pb.zoom()) {}
+        position(pb.position()), zoom(pb.zoom()) {}
 
     [[nodiscard]] nlohmann::json to_json() const {
-        return {
-            {"position", this->position.to_json()},
-            {"zoom", this->zoom}
-        };
+        return {{"position", this->position.to_json()}, {"zoom", this->zoom}};
     }
 
     void to_proto(v1::graph::PBViewport *pb) const {
@@ -61,8 +56,7 @@ struct Node {
         key(p.field<std::string>("key")),
         type(p.field<std::string>("type")),
         config(p.field<std::map<std::string, nlohmann::json>>("config")),
-        position(p.field<spatial::XY>("position")) {
-    }
+        position(p.field<spatial::XY>("position")) {}
 
     explicit Node(const v1::graph::PBNode &pb): key(pb.key()), type(pb.type()) {
         for (const auto &[config_key, config_value]: pb.config())
@@ -101,11 +95,9 @@ struct Graph {
         viewport(p.field<Viewport>("viewport")),
         functions(p.field<std::vector<ir::Function>>("functions")),
         edges(p.field<std::vector<ir::Edge>>("edges")),
-        nodes(p.field<std::vector<Node>>("nodes")) {
-    }
+        nodes(p.field<std::vector<Node>>("nodes")) {}
 
-    explicit Graph(const v1::graph::PBGraph &pb):
-        viewport(pb.viewport()) {
+    explicit Graph(const v1::graph::PBGraph &pb): viewport(pb.viewport()) {
         this->functions.reserve(pb.functions_size());
         for (const auto &fn_pb: pb.functions())
             this->functions.emplace_back(fn_pb);

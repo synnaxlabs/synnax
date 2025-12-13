@@ -37,12 +37,8 @@ class Match : public node::Node {
     std::map<std::string, CaseMapping> case_map;
 
 public:
-    Match(
-        state::Node state,
-        std::map<std::string, CaseMapping> case_map
-    ):
-        state(std::move(state)),
-        case_map(std::move(case_map)) {}
+    Match(state::Node state, std::map<std::string, CaseMapping> case_map):
+        state(std::move(state)), case_map(std::move(case_map)) {}
 
     xerrors::Error next(node::Context &ctx) override {
         // Check if we have new input

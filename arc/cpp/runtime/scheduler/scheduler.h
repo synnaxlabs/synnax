@@ -94,13 +94,13 @@ public:
 
     /// Load sequence/stage information and build lookup maps.
     void load_sequences(const std::vector<ir::Sequence> &sequences) {
-        for (const auto &seq : sequences) {
-            for (const auto &stage : seq.stages) {
+        for (const auto &seq: sequences) {
+            for (const auto &stage: seq.stages) {
                 std::string key = stage_key(seq.key, stage.key);
                 stage_to_nodes[key] = stage.nodes;
 
                 // Track all nodes that belong to any stage
-                for (const auto &node_key : stage.nodes) {
+                for (const auto &node_key: stage.nodes) {
                     staged_nodes.insert(node_key);
                 }
             }
@@ -118,7 +118,7 @@ public:
         std::string key = stage_key(seq, stage);
         auto it = stage_to_nodes.find(key);
         if (it != stage_to_nodes.end()) {
-            for (const auto &node_key : it->second) {
+            for (const auto &node_key: it->second) {
                 active_node_keys.insert(node_key);
             }
         }
@@ -132,7 +132,7 @@ public:
         auto it = stage_to_nodes.find(key);
         if (it == stage_to_nodes.end()) return;
 
-        for (const auto &node_key : it->second) {
+        for (const auto &node_key: it->second) {
             auto node_it = nodes.find(node_key);
             if (node_it == nodes.end()) continue;
 
@@ -140,9 +140,7 @@ public:
             auto *resettable = dynamic_cast<time::Resettable *>(
                 node_it->second.node.get()
             );
-            if (resettable != nullptr) {
-                resettable->reset();
-            }
+            if (resettable != nullptr) { resettable->reset(); }
         }
     }
 
@@ -152,15 +150,13 @@ public:
     }
 
     /// Get the currently active stage name.
-    [[nodiscard]] const std::string &get_active_stage() const {
-        return active_stage;
-    }
+    [[nodiscard]] const std::string &get_active_stage() const { return active_stage; }
 
     void next(const telem::TimeSpan elapsed) {
         this->ctx.elapsed = elapsed;
         bool first = true;
-        for (const auto& stratum: this->strata.strata) {
-            for (const auto& node_key: stratum) {
+        for (const auto &stratum: this->strata.strata) {
+            for (const auto &node_key: stratum) {
                 // Skip nodes not in active stage
                 if (!should_execute_node(node_key)) continue;
 

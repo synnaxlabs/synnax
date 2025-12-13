@@ -32,8 +32,7 @@ class On : public node::Node {
 
 public:
     On(state::Node state, types::ChannelKey channel_key):
-        state(std::move(state)),
-        channel_key(channel_key) {}
+        state(std::move(state)), channel_key(channel_key) {}
 
     xerrors::Error next(node::Context &ctx) override {
         auto [data, index_data, ok] = state.read_chan(channel_key);
@@ -51,20 +50,29 @@ public:
                 return xerrors::NIL;
 
             telem::Series time_series = generate_synthetic
-                ? telem::Series(telem::TIMESTAMP_T, ser.size())
-                : std::move(index_data.series[i]);
+                                          ? telem::Series(
+                                                telem::TIMESTAMP_T,
+                                                ser.size()
+                                            )
+                                          : std::move(index_data.series[i]);
 
             if (generate_synthetic) {
                 auto now = telem::TimeStamp::now();
                 for (size_t j = 0; j < ser.size(); j++)
-                    time_series.write(telem::TimeStamp(now.nanoseconds() + static_cast<int64_t>(j)));
+                    time_series.write(
+                        telem::TimeStamp(now.nanoseconds() + static_cast<int64_t>(j))
+                    );
                 time_series.alignment = ser.alignment;
             } else if (time_series.alignment != ser.alignment) {
                 return xerrors::NIL;
             }
 
-            state.output(0) = xmemory::make_local_shared<telem::Series>(ser.deep_copy());
-            state.output_time(0) = xmemory::make_local_shared<telem::Series>(std::move(time_series));
+            state.output(0) = xmemory::make_local_shared<telem::Series>(
+                ser.deep_copy()
+            );
+            state.output_time(0) = xmemory::make_local_shared<telem::Series>(
+                std::move(time_series)
+            );
             high_water_mark = telem::Alignment(upper_val + 1);
             ctx.mark_changed(ir::default_output_param);
             return xerrors::NIL;
@@ -80,8 +88,7 @@ class Write : public node::Node {
 
 public:
     Write(state::Node state, types::ChannelKey channel_key):
-        state(std::move(state)),
-        channel_key(channel_key) {}
+        state(std::move(state)), channel_key(channel_key) {}
 
     xerrors::Error next(node::Context & /*ctx*/) override {
         if (!state.refresh_inputs()) return xerrors::NIL;

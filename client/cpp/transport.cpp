@@ -12,6 +12,8 @@
 #include "client/cpp/transport.h"
 #include "freighter/cpp/fgrpc/fgrpc.h"
 
+#include "core/pkg/api/grpc/v1/arc.grpc.pb.h"
+#include "core/pkg/api/grpc/v1/arc.pb.h"
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/auth.grpc.pb.h"
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/auth.pb.h"
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/channel.grpc.pb.h"
@@ -28,8 +30,6 @@
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/status.pb.h"
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/task.grpc.pb.h"
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/task.pb.h"
-#include "core/pkg/api/grpc/v1/arc.grpc.pb.h"
-#include "core/pkg/api/grpc/v1/arc.pb.h"
 
 synnax::Transport synnax::Transport::configure(
     const uint16_t port,

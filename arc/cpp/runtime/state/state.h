@@ -63,8 +63,8 @@ class Node {
     std::vector<InputEntry> accumulated;
     std::vector<Series> aligned_data;
     std::vector<Series> aligned_time;
-    std::vector<Value*> input_sources;
-    std::vector<Value*> output_cache;
+    std::vector<Value *> input_sources;
+    std::vector<Value *> output_cache;
     Node() = default;
 
     Node(
@@ -74,8 +74,8 @@ class Node {
         std::vector<InputEntry> accumulated,
         std::vector<Series> aligned_data,
         std::vector<Series> aligned_time,
-        std::vector<Value*> input_sources,
-        std::vector<Value*> output_cache
+        std::vector<Value *> input_sources,
+        std::vector<Value *> output_cache
     ):
         state_ptr(state_ptr),
         inputs(std::move(inputs)),
@@ -105,8 +105,8 @@ public:
         return this->output_cache[param_index]->time;
     }
 
-    /// Reads buffered data and time series from a channel. Returns (data, index_data, ok).
-    /// If the channel has an associated index, both data and time are returned.
+    /// Reads buffered data and time series from a channel. Returns (data, index_data,
+    /// ok). If the channel has an associated index, both data and time are returned.
     std::tuple<telem::MultiSeries, telem::MultiSeries, bool>
     read_chan(types::ChannelKey key);
 
