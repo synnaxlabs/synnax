@@ -55,8 +55,8 @@ export interface MainRPCRequestMessage {
   path: string[];
   /** The method name to invoke. */
   method: string;
-  /** The arguments to pass to the method. */
-  args: unknown;
+  /** The arguments to pass to the method (spread when calling handler). */
+  args: unknown[];
   /** Whether the caller expects a response. False for fire-and-forget void methods. */
   expectsResponse: boolean;
 }

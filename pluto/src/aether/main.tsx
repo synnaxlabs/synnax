@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { compare, deep, type SenderHandler, zod } from "@synnaxlabs/x";
+import { compare, deep, type SenderHandler } from "@synnaxlabs/x";
 import {
   memo,
   type PropsWithChildren,
@@ -41,8 +41,8 @@ type RawSetArg<S extends z.ZodType<state.State>> =
   | (z.input<S> | z.infer<S>)
   | ((prev: z.infer<S>) => z.input<S> | z.infer<S>);
 
-/** RPC timeout in milliseconds (30 seconds) */
-const RPC_TIMEOUT = 30000;
+/** Default RPC timeout in milliseconds */
+const DEFAULT_RPC_TIMEOUT = 1000;
 
 /**
  * return value of the create function in the Aether context.
@@ -65,17 +65,18 @@ export interface CreateReturn {
   /**
    * Invokes an RPC method on the worker component (fire-and-forget).
    * @param method - The name of the method to invoke
-   * @param args - Optional arguments to pass to the method
+   * @param args - Arguments to pass to the method (spread to handler)
    */
-  invokeMethod: (method: string, args?: unknown) => void;
+  invokeMethod: (method: string, args: unknown[]) => void;
 
   /**
    * Invokes an RPC method on the worker component and waits for the response.
    * @param method - The name of the method to invoke
-   * @param args - Optional arguments to pass to the method
+   * @param args - Arguments to pass to the method (spread to handler)
+   * @param timeout - Optional timeout in ms (default: 1000)
    * @returns A Promise that resolves with the method's return value
    */
-  invokeMethodAsync: <R>(method: string, args?: unknown) => Promise<R>;
+  invokeMethodAsync: <R>(method: string, args: unknown[], timeout?: number) => Promise<R>;
 }
 
 /**
@@ -162,7 +163,7 @@ export const Provider = ({
           if (worker == null) console.warn("aether - no worker");
           worker?.send({ variant: "delete", path, type });
         },
-        invokeMethod: (method: string, args: unknown = undefined): void => {
+        invokeMethod: (method: string, args: unknown[]): void => {
           if (worker == null) {
             console.warn("aether - no worker");
             return;
@@ -176,7 +177,11 @@ export const Provider = ({
             expectsResponse: false,
           });
         },
-        invokeMethodAsync: <R,>(method: string, args: unknown = undefined): Promise<R> =>
+        invokeMethodAsync: <R,>(
+          method: string,
+          args: unknown[],
+          timeoutMs: number = DEFAULT_RPC_TIMEOUT,
+        ): Promise<R> =>
           new Promise((resolve, reject) => {
             if (worker == null) {
               reject(new Error("aether - no worker"));
@@ -186,7 +191,7 @@ export const Provider = ({
             const timeout = setTimeout(() => {
               pendingRequests.current.delete(requestId);
               reject(new Error(`RPC timeout: ${method} on ${key}`));
-            }, RPC_TIMEOUT);
+            }, timeoutMs);
 
             pendingRequests.current.set(requestId, {
               resolve: resolve as (v: unknown) => void,
@@ -383,13 +388,16 @@ export const useLifecycle = <
   const methods = useMemo(() => {
     if (methodsSchema == null) return {} as CallersFromSchema<M>;
 
-    const callers: Record<string, (args: unknown) => void | Promise<unknown>> = {};
+    const callers: Record<string, (...args: unknown[]) => void | Promise<unknown>> = {};
     for (const method of Object.keys(methodsSchema)) {
       const methodDef = methodsSchema[method];
-      if (zod.isVoid(methodDef.returns)) {
-        callers[method] = (args: unknown) => comms.current?.invokeMethod(method, args);
+      const def = methodDef.def as { output?: { type?: string } };
+      const isVoid = def.output == null || def.output.type === "void";
+      if (isVoid) {
+        callers[method] = (...args: unknown[]) =>
+          comms.current?.invokeMethod(method, args);
       } else {
-        callers[method] = (args: unknown) =>
+        callers[method] = (...args: unknown[]) =>
           comms.current?.invokeMethodAsync(method, args) ??
           Promise.reject(new Error("No comms"));
       }

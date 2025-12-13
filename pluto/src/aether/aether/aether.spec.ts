@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { zod } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -178,35 +177,49 @@ const shouldNotCallCreate = () => {
 };
 
 const rpcMethodsSchema = {
-  increment: zod.callable().args(z.number()).returns(z.number()),
-  greet: zod.callable().args(z.object({ name: z.string() })).returns(z.string()),
-  noArgs: zod.callable(),
-  asyncMethod: zod.callable().args(z.number()).returns(z.number()),
-  throwError: zod.callable(),
+  increment: z.function({ input: z.tuple([z.number()]), output: z.number() }),
+  greet: z.function({ input: z.tuple([z.object({ name: z.string() })]), output: z.string() }),
+  noArgs: z.function(),
+  asyncMethod: z.function({ input: z.tuple([z.number()]), output: z.promise(z.number()) }),
+  throwError: z.function(),
 } satisfies aether.MethodsSchema;
 
-class RPCLeaf extends aether.Leaf<typeof exampleProps, {}> {
+class RPCLeaf extends aether.Leaf<typeof exampleProps, {}, typeof rpcMethodsSchema>
+  implements aether.HandlersFromSchema<typeof rpcMethodsSchema> {
   schema = exampleProps;
-  incrementHandler = vi.fn((n: number) => n + 1);
-  greetHandler = vi.fn((args: { name: string }) => `Hello, ${args.name}!`);
-  noArgsHandler = vi.fn(() => {});
-  asyncHandler = vi.fn(async (n: number) => {
+  methods = rpcMethodsSchema;
+
+  // Track calls for testing
+  incrementSpy = vi.fn((n: number) => n + 1);
+  greetSpy = vi.fn((args: { name: string }) => `Hello, ${args.name}!`);
+  noArgsSpy = vi.fn(() => {});
+  asyncMethodSpy = vi.fn(async (n: number) => {
     await new Promise((resolve) => setTimeout(resolve, 10));
     return n * 2;
   });
-  throwHandler = vi.fn(() => {
+  throwErrorSpy = vi.fn(() => {
     throw new Error("Test error");
   });
 
-  constructor(props: aether.ComponentConstructorProps) {
-    super(props);
-    this.bindMethods(rpcMethodsSchema, {
-      increment: this.incrementHandler,
-      greet: this.greetHandler,
-      noArgs: this.noArgsHandler,
-      asyncMethod: this.asyncHandler,
-      throwError: this.throwHandler,
-    });
+  // Methods matching the schema
+  increment(n: number): number {
+    return this.incrementSpy(n);
+  }
+
+  greet(args: { name: string }): string {
+    return this.greetSpy(args);
+  }
+
+  noArgs(): void {
+    this.noArgsSpy();
+  }
+
+  asyncMethod(n: number): Promise<number> {
+    return this.asyncMethodSpy(n);
+  }
+
+  throwError(): void {
+    this.throwErrorSpy();
   }
 
   afterUpdate(): void {}
@@ -222,8 +235,9 @@ const createRPCLeaf = (key: string, parentCtxValues: aether.ContextMap | null = 
     parentCtxValues,
   });
 
-class RPCComposite extends aether.Composite<typeof exampleProps, {}, RPCLeaf> {
+class RPCComposite extends aether.Composite<typeof exampleProps, {}, RPCLeaf, aether.EmptyMethodsSchema> {
   schema = exampleProps;
+  methods = undefined;
 
   afterUpdate(): void {}
   afterDelete(): void {}
@@ -591,9 +605,9 @@ describe("Aether Worker", () => {
 
     describe("_invokeMethod", () => {
       it("should invoke the handler with the provided args and send response", () => {
-        leaf._invokeMethod("req-1", "increment", 5, true);
+        leaf._invokeMethod("req-1", "increment", [5], true);
 
-        expect(leaf.incrementHandler).toHaveBeenCalledWith(5);
+        expect(leaf.incrementSpy).toHaveBeenCalledWith(5);
         expect(MockSender.send).toHaveBeenCalledWith({
           variant: "rpc-response",
           requestId: "req-1",
@@ -602,9 +616,9 @@ describe("Aether Worker", () => {
       });
 
       it("should handle methods with object args", () => {
-        leaf._invokeMethod("req-2", "greet", { name: "World" }, true);
+        leaf._invokeMethod("req-2", "greet", [{ name: "World" }], true);
 
-        expect(leaf.greetHandler).toHaveBeenCalledWith({ name: "World" });
+        expect(leaf.greetSpy).toHaveBeenCalledWith({ name: "World" });
         expect(MockSender.send).toHaveBeenCalledWith({
           variant: "rpc-response",
           requestId: "req-2",
@@ -613,18 +627,18 @@ describe("Aether Worker", () => {
       });
 
       it("should handle methods with no args (fire-and-forget)", () => {
-        leaf._invokeMethod("req-3", "noArgs", undefined, false);
+        leaf._invokeMethod("req-3", "noArgs", [], false);
 
-        expect(leaf.noArgsHandler).toHaveBeenCalled();
+        expect(leaf.noArgsSpy).toHaveBeenCalled();
         expect(MockSender.send).not.toHaveBeenCalled();
       });
 
       it("should handle async methods", async () => {
-        leaf._invokeMethod("req-4", "asyncMethod", 10, true);
+        leaf._invokeMethod("req-4", "asyncMethod", [10], true);
 
         await new Promise((resolve) => setTimeout(resolve, 20));
 
-        expect(leaf.asyncHandler).toHaveBeenCalledWith(10);
+        expect(leaf.asyncMethodSpy).toHaveBeenCalledWith(10);
         expect(MockSender.send).toHaveBeenCalledWith({
           variant: "rpc-response",
           requestId: "req-4",
@@ -633,9 +647,9 @@ describe("Aether Worker", () => {
       });
 
       it("should send error response when handler throws (expectsResponse=true)", () => {
-        leaf._invokeMethod("req-5", "throwError", undefined, true);
+        leaf._invokeMethod("req-5", "throwError", [], true);
 
-        expect(leaf.throwHandler).toHaveBeenCalled();
+        expect(leaf.throwErrorSpy).toHaveBeenCalled();
         expect(MockSender.send).toHaveBeenCalledWith({
           variant: "rpc-response",
           requestId: "req-5",
@@ -649,16 +663,16 @@ describe("Aether Worker", () => {
 
       it("should log error but not send response when handler throws (fire-and-forget)", () => {
         const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-        leaf._invokeMethod("req-5b", "throwError", undefined, false);
+        leaf._invokeMethod("req-5b", "throwError", [], false);
 
-        expect(leaf.throwHandler).toHaveBeenCalled();
+        expect(leaf.throwErrorSpy).toHaveBeenCalled();
         expect(MockSender.send).not.toHaveBeenCalled();
         expect(consoleSpy).toHaveBeenCalled();
         consoleSpy.mockRestore();
       });
 
       it("should send error response for unknown method when expectsResponse=true", () => {
-        leaf._invokeMethod("req-6", "unknownMethod", undefined, true);
+        leaf._invokeMethod("req-6", "unknownMethod", [], true);
 
         expect(MockSender.send).toHaveBeenCalledWith({
           variant: "rpc-response",
@@ -671,7 +685,7 @@ describe("Aether Worker", () => {
       });
 
       it("should silently ignore unknown method when fire-and-forget", () => {
-        leaf._invokeMethod("req-6b", "unknownMethod", undefined, false);
+        leaf._invokeMethod("req-6b", "unknownMethod", [], false);
 
         expect(MockSender.send).not.toHaveBeenCalled();
       });
@@ -680,9 +694,9 @@ describe("Aether Worker", () => {
         leaf._delete(["rpc-test"]);
         MockSender.send.mockClear();
 
-        leaf._invokeMethod("req-7", "increment", 5, true);
+        leaf._invokeMethod("req-7", "increment", [5], true);
 
-        expect(leaf.incrementHandler).not.toHaveBeenCalled();
+        expect(leaf.incrementSpy).not.toHaveBeenCalled();
         expect(MockSender.send).not.toHaveBeenCalled();
       });
     });

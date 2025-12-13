@@ -16,11 +16,14 @@ import {
   type Sender,
   type SenderHandler,
   shallow,
-  type zod,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type AetherMessage, type MainMessage, type MainUpdateMessage } from "@/aether/message";
+import {
+  type AetherMessage,
+  type MainMessage,
+  type MainUpdateMessage,
+} from "@/aether/message";
 import { state } from "@/state";
 import { prettyParse } from "@/util/zod";
 
@@ -94,13 +97,13 @@ export interface Component {
    *
    * @param requestId - The correlation ID for matching the response.
    * @param method - The name of the method to invoke.
-   * @param args - The arguments to pass to the method.
+   * @param args - The arguments to pass to the method (spread when calling handler).
    * @param expectsResponse - Whether to send a response back to the caller.
    */
   _invokeMethod: (
     requestId: string,
     method: string,
-    args: unknown,
+    args: unknown[],
     expectsResponse: boolean,
   ) => void;
 }
@@ -173,31 +176,49 @@ export interface Context {
   wasSetPreviously(key: string): boolean;
 }
 
-/** A schema defining multiple RPC methods using zod.callable(). */
-export type MethodsSchema = Record<string, zod.Callable<z.ZodTypeAny, z.ZodTypeAny>>;
+/**
+ * A schema defining multiple RPC methods using z.function().
+ * No constraint - the actual schema type flows through for proper inference.
+ */
+
+export type MethodsSchema = Record<string, z.ZodFunction>;
 
 /** Empty methods schema for components that don't use RPC. */
 export type EmptyMethodsSchema = Record<string, never>;
 
 /**
- * Type helper to extract handler function signatures from a methods schema.
- * Used for implementing method handlers in aether components.
+ * Unwraps Promise<T> to T, leaves non-Promise types unchanged.
+ * Used to prevent double-wrapping of Promise types.
  */
-export type HandlersFromSchema<T extends MethodsSchema> = {
-  [K in keyof T]: T[K] extends zod.Callable<infer Args, infer Returns>
-    ? (args: z.infer<Args>) => z.infer<Returns> | Promise<z.infer<Returns>>
+type Awaited<T> = T extends Promise<infer U> ? U : T;
+
+/**
+ * Type helper to extract handler function signatures from a methods schema.
+ * Uses z.infer to extract the function type, then allows async returns.
+ * If the schema output is already Promise<T>, handlers return Promise<T> (not Promise<Promise<T>>).
+ */
+export type HandlersFromSchema<T> = {
+  [K in keyof T]: T[K] extends z.ZodType<infer F>
+    ? F extends (...args: infer A) => infer R
+      ? R extends Promise<unknown>
+        ? (...args: A) => R // Schema already specifies async, don't allow double-wrap
+        : (...args: A) => R | Promise<R> // Schema is sync, allow async implementation
+      : never
     : never;
 };
 
 /**
  * Type helper to extract caller function signatures from a methods schema.
  * Void returns become fire-and-forget (returns void), non-void returns use Promise.
+ * If the schema output is already Promise<T>, callers return Promise<T> (not Promise<Promise<T>>).
  */
-export type CallersFromSchema<T extends MethodsSchema> = {
-  [K in keyof T]: T[K] extends zod.Callable<infer Args, infer Returns>
-    ? Returns extends z.ZodVoid
-      ? (args: z.infer<Args>) => void
-      : (args: z.infer<Args>) => Promise<z.infer<Returns>>
+export type CallersFromSchema<T> = {
+  [K in keyof T]: T[K] extends z.ZodType<infer F>
+    ? F extends (...args: infer A) => infer R
+      ? R extends void
+        ? (...args: A) => void
+        : (...args: A) => Promise<Awaited<R>> // Unwrap if already Promise to avoid double-wrap
+      : never
     : never;
 };
 
@@ -205,10 +226,35 @@ export type CallersFromSchema<T extends MethodsSchema> = {
  * Implements an AetherComponent that does not have any children, and servers as the base
  * class for the AetherComposite type. The corresponding react component should NOT have
  * any children that use Aether functionality; for those cases, use AetherComposite instead.
+ *
+ * For RPC methods:
+ * 1. Define a methods schema using `z.function()`
+ * 2. Add `implements HandlersFromSchema<typeof schema>` to get type checking
+ * 3. Set `methods = schema` on the class
+ * 4. Implement methods with matching names
+ *
+ * @example
+ * ```typescript
+ * const buttonMethodsZ = {
+ *   onMouseDown: z.function(),
+ *   onMouseUp: z.function().returns(z.number()),
+ * };
+ *
+ * class Button extends Leaf<typeof stateZ, {}, typeof buttonMethodsZ>
+ *   implements HandlersFromSchema<typeof buttonMethodsZ> {
+ *   schema = stateZ;
+ *   methods = buttonMethodsZ;
+ *
+ *   // TypeScript enforces these match the schema signatures
+ *   onMouseDown(): void { ... }
+ *   onMouseUp(): number { return 42; }
+ * }
+ * ```
  */
 export abstract class Leaf<
   StateSchema extends z.ZodType<state.State>,
   InternalState extends {} = {},
+  M extends MethodsSchema = EmptyMethodsSchema,
 > implements Component
 {
   readonly type: string;
@@ -227,8 +273,11 @@ export abstract class Leaf<
 
   schema: StateSchema | undefined = undefined;
 
-  private readonly rpcHandlers: Map<string, (args: unknown) => unknown | Promise<unknown>> =
-    new Map();
+  /**
+   * Methods schema for RPC. Define this to enable RPC methods.
+   * Method names in the schema must match method names on the class.
+   */
+  methods: M | undefined = undefined as M | undefined;
 
   constructor({
     key,
@@ -403,87 +452,15 @@ export abstract class Leaf<
       );
   }
 
-  /**
-   * Bind methods that the main thread can call on this component.
-   * Call this in the constructor of your component to register RPC handlers.
-   *
-   * @param schema - The methods schema defining available methods.
-   * @param handlers - Implementation of the methods.
-   *
-   * @example
-   * ```typescript
-   * constructor(props: aether.ComponentConstructorProps) {
-   *   super(props);
-   *   this.bindMethods(buttonMethodsZ, {
-   *     onMouseDown: this.handleMouseDown.bind(this),
-   *     onMouseUp: this.handleMouseUp.bind(this),
-   *   });
-   * }
-   * ```
-   */
-  protected bindMethods<M extends MethodsSchema>(
-    _schema: M,
-    handlers: HandlersFromSchema<M>,
-  ): void {
-    Object.entries(handlers).forEach(([method, handler]) => {
-      this.rpcHandlers.set(method, handler as (args: unknown) => unknown);
-    });
-  }
-
   _invokeMethod(
     requestId: string,
     method: string,
-    args: unknown,
+    args: unknown[],
     expectsResponse: boolean,
   ): void {
     if (this.deleted) return;
 
-    const handler = this.rpcHandlers.get(method);
-    if (handler == null) {
-      if (expectsResponse) {
-        this.sender.send({
-          variant: "rpc-response",
-          requestId,
-          result: undefined,
-          error: {
-            name: "Error",
-            message: `No handler for method '${method}' on ${this.toString()}`,
-            stack: "",
-          },
-        });
-      }
-      return;
-    }
-
-    if (!expectsResponse) {
-      try {
-        handler(args);
-      } catch (e) {
-        console.error(`Error in fire-and-forget method '${method}':`, e);
-      }
-      return;
-    }
-
-    try {
-      const result = handler(args);
-      if (result instanceof Promise) {
-        result
-          .then((r) =>
-            this.sender.send({ variant: "rpc-response", requestId, result: r }),
-          )
-          .catch((e: unknown) => {
-            const err = e instanceof Error ? e : new Error(String(e));
-            this.sender.send({
-              variant: "rpc-response",
-              requestId,
-              result: undefined,
-              error: { name: err.name, message: err.message, stack: err.stack ?? "" },
-            });
-          });
-      } else {
-        this.sender.send({ variant: "rpc-response", requestId, result });
-      }
-    } catch (e) {
+    const sendErr = (e: unknown): void => {
       const err = e instanceof Error ? e : new Error(String(e));
       this.sender.send({
         variant: "rpc-response",
@@ -491,6 +468,40 @@ export abstract class Leaf<
         result: undefined,
         error: { name: err.name, message: err.message, stack: err.stack ?? "" },
       });
+    };
+
+    const methodSchema = this.methods?.[method];
+    const methodFn = this[method as keyof this];
+    if (methodSchema == null || typeof methodFn !== "function") {
+      if (expectsResponse) sendErr(new Error(`Method '${method}' not found on ${this.toString()}`));
+      return;
+    }
+
+    // Type assertions needed: we're doing dynamic dispatch (string -> method lookup)
+    // which TypeScript can't track. The schema validates at runtime.
+    const isAsync = (methodSchema._def as { output?: { _zod?: { def?: { type?: string } } } }).output?._zod?.def?.type === "promise";
+    const invoke = isAsync
+      ? (methodSchema.implementAsync(methodFn.bind(this)) as (...a: unknown[]) => Promise<unknown>)
+      : (methodSchema.implement(methodFn.bind(this)) as (...a: unknown[]) => unknown);
+
+    if (!expectsResponse) {
+      try {
+        invoke(...args);
+      } catch (e) {
+        console.error(`Error in fire-and-forget method '${method}':`, e);
+      }
+      return;
+    }
+
+    try {
+      const result = invoke(...args);
+      if (result instanceof Promise)
+        result
+          .then((r) => this.sender.send({ variant: "rpc-response", requestId, result: r }))
+          .catch(sendErr);
+      else this.sender.send({ variant: "rpc-response", requestId, result });
+    } catch (e) {
+      sendErr(e);
     }
   }
 }
@@ -504,8 +515,9 @@ export abstract class Composite<
     StateSchema extends z.ZodType<state.State>,
     InternalState extends {} = {},
     ChildComponents extends Component = Component,
+    M extends MethodsSchema = EmptyMethodsSchema,
   >
-  extends Leaf<StateSchema, InternalState>
+  extends Leaf<StateSchema, InternalState, M>
   implements Component
 {
   private readonly _children: Map<string, ChildComponents> = new Map();
@@ -625,9 +637,9 @@ export abstract class Composite<
     const child = this.getChild(key);
     if (child == null) return null;
     if (rest.length === 0) return child;
-    if ("findChildAtPath" in child && typeof child.findChildAtPath === "function") {
+    if ("findChildAtPath" in child && typeof child.findChildAtPath === "function")
       return child.findChildAtPath(rest);
-    }
+
     return null;
   }
 
@@ -768,12 +780,12 @@ export class Root extends Composite<typeof aetherRootState> {
     requestId: string,
     path: string[],
     method: string,
-    args: unknown,
+    args: unknown[],
     expectsResponse: boolean,
   ): void {
     const [rootKey, ...childPath] = path;
     if (rootKey !== Root.KEY) {
-      if (expectsResponse) {
+      if (expectsResponse)
         this.comms.send({
           variant: "rpc-response",
           requestId,
@@ -784,7 +796,7 @@ export class Root extends Composite<typeof aetherRootState> {
             stack: "",
           },
         });
-      }
+
       return;
     }
 
@@ -795,7 +807,7 @@ export class Root extends Composite<typeof aetherRootState> {
 
     const component = this.findChildAtPath(childPath);
     if (component == null) {
-      if (expectsResponse) {
+      if (expectsResponse)
         this.comms.send({
           variant: "rpc-response",
           requestId,
@@ -806,7 +818,7 @@ export class Root extends Composite<typeof aetherRootState> {
             stack: "",
           },
         });
-      }
+
       return;
     }
 

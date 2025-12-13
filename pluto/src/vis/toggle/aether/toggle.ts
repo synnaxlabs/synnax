@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, zod } from "@synnaxlabs/x";
+import { type destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -25,7 +25,7 @@ export type ToggleState = z.input<typeof toggleStateZ>;
 
 /** Methods schema for Toggle RPC */
 export const toggleMethodsZ = {
-  toggle: zod.callable(),
+  toggle: z.function({ input: z.tuple([]), output: z.void() }),
 };
 
 interface InternalState {
@@ -39,20 +39,14 @@ interface InternalState {
 // change its value when clicked. It also listens to a boolean telemetry source to update
 // its toggled state.
 export class Toggle
-  extends aether.Leaf<typeof toggleStateZ, InternalState>
-  implements diagram.Element
+  extends aether.Leaf<typeof toggleStateZ, InternalState, typeof toggleMethodsZ>
+  implements diagram.Element, aether.HandlersFromSchema<typeof toggleMethodsZ>
 {
   static readonly TYPE = "Toggle";
   static readonly METHODS = toggleMethodsZ;
 
   schema = toggleStateZ;
-
-  constructor(props: aether.ComponentConstructorProps) {
-    super(props);
-    this.bindMethods(toggleMethodsZ, {
-      toggle: this.handleToggle.bind(this),
-    });
-  }
+  methods = toggleMethodsZ;
 
   afterUpdate(ctx: aether.Context): void {
     this.internal.addStatus = status.useOptionalAdder(ctx);
@@ -66,7 +60,7 @@ export class Toggle
     i.stopListening = i.source.onChange(() => this.updateEnabledState());
   }
 
-  private handleToggle(): void {
+  toggle(): void {
     const { enabled } = this.state;
     this.internal.sink.set(!enabled);
   }
