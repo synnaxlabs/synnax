@@ -3,7 +3,7 @@ name = "synnax-test-framework"
 version = "0.49.0"
 description = "Integration test framework for Synnax Labs"
 authors = [{ name = "Nico Alba", email = "nico@synnaxlabs.com" }]
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.12,<4"
 dynamic = ["dependencies"]
 
 [tool.poetry]
@@ -15,19 +15,19 @@ test-conductor = "framework.test_conductor:main"
 
 [tool.poetry.dependencies]
 synnax = { path = "../client/py", develop = true }
-matplotlib = "^3.10.7"
-numpy = "^2.3.4"
-playwright = "^1.55.0"
+matplotlib = "^3.10.8"
+numpy = "^2.3.5"
+playwright = "^1.57.0"
 # Simulator dependencies (for Modbus and OPC UA test servers)
-pymodbus = "^3.8.2"
-asyncua = "^1.1.5"
+pymodbus = "^3.11.4"
+asyncua = "^1.1.8"
 
 [tool.poetry.group.dev.dependencies]
-black = "^25.9.0"
+black = "^25.12.0"
 isort = "^7.0.0"
-mypy = "^1.18.2"
+mypy = "^1.19.0"
 poetry = "^2.2.1"
-vermin = "^1.7.0"
+vermin = "^1.8.0"
 
 [tool.poetry.scripts]
 tc = "framework.test_conductor:main"

@@ -35,7 +35,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Poetry
         run: pipx install poetry
@@ -50,17 +50,17 @@ jobs:
         run: poetry install
         working-directory: alamos/py
 
-      - name: isort
+      - name: Check Import Order
         if: matrix.format
         run: poetry run isort -c .
         working-directory: alamos/py
 
-      - name: Format
+      - name: Check Formatting
         if: matrix.format
         run: poetry run black --check --diff --color .
         working-directory: alamos/py
 
-      - name: Mypy
+      - name: Check Types
         if: matrix.format
         run: poetry run mypy .
         working-directory: alamos/py

@@ -117,7 +117,7 @@ jobs:
       GO_BUILD_TAGS: ${{ steps.go-tags.outputs.GO_BUILD_TAGS }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Get Version
         id: version
@@ -201,7 +201,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           clean: false
 
@@ -357,7 +357,7 @@ jobs:
 
       - name: Upload Driver Binary as Artifact
         if: inputs.driver
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-driver-{0}',
@@ -391,7 +391,7 @@ jobs:
 
       - name: Set up Node.js
         if: inputs.console
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version-file: package.json
 
@@ -407,7 +407,7 @@ jobs:
 
       - name: Upload Console Assets as Artifact
         if: inputs.console
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-console-assets-{0}',
@@ -497,7 +497,7 @@ jobs:
 
       - name: Upload Core Binary as Artifact
         if: inputs.core
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-core-{0}',
@@ -537,7 +537,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Update Submodules
         run: git submodule update --init --recursive
@@ -631,7 +631,7 @@ jobs:
           echo "Certificate imported."
 
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Get Console Version
         id: console-version
@@ -652,7 +652,7 @@ jobs:
         uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version-file: package.json
           cache: pnpm
@@ -733,7 +733,7 @@ jobs:
         run: pnpm build
 
       - name: Upload Console App as Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name:
             ${{ matrix.os == 'macos-latest' && format('synnax-console-v{0}-macos',
