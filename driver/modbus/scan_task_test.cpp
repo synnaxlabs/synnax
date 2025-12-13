@@ -18,6 +18,7 @@
 #include "driver/modbus/scan_task.h"
 #include "driver/task/common/scan_task.h"
 
+/// @brief it should successfully test connection to Modbus device.
 TEST(ScanTask, testConnection) {
     auto slave = modbus::mock::Slave(modbus::mock::SlaveConfig{});
     ASSERT_NIL(slave.start());

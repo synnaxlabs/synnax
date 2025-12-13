@@ -26,9 +26,19 @@ install_github_cli() {
     fi
 }
 
+# Detect OS and set artifact name
+get_artifact_name() {
+    if [[ "$(uname)" == "Darwin" ]]; then
+        echo "synnax-core-macos"
+    else
+        echo "synnax-core-linux"
+    fi
+}
+
 # Download artifacts from run
 download_artifacts() {
     local run_id=$1
+    local artifact_name=$(get_artifact_name)
     echo "Downloading artifacts from run: $run_id"
 
     # Verify the run exists
@@ -39,11 +49,11 @@ download_artifacts() {
     mkdir -p ./binaries
 
     # Download artifacts using GitHub CLI
-    echo "Downloading synnax-core-linux artifact..."
-    gh run download $run_id --name synnax-core-linux --dir ./binaries
+    echo "Downloading $artifact_name artifact..."
+    gh run download $run_id --name $artifact_name --dir ./binaries
 
-    # Verify artifacts were downloaded
-    if ! ls ./binaries/synnax-*-linux 1> /dev/null 2>&1; then
+    # Verify artifacts were downloaded (binary is named synnax-v{VERSION})
+    if ! ls ./binaries/synnax-v* 1> /dev/null 2>&1; then
         echo "❌ Error: No synnax executable found in binaries directory"
         echo "Available files in binaries directory:"
         ls -la ./binaries/ || echo "No ./binaries directory found"
@@ -64,12 +74,12 @@ setup_binaries() {
     echo "Contents of ./binaries directory:"
     ls -la ./binaries/ || echo "No ./binaries directory found"
 
-    # Copy the synnax binary
-    if ls ./binaries/synnax-*-linux 1> /dev/null 2>&1; then
-        cp ./binaries/synnax-*-linux $HOME/synnax-binaries/synnax
+    # Copy the synnax binary (binary is named synnax-v{VERSION})
+    if ls ./binaries/synnax-v* 1> /dev/null 2>&1; then
+        cp ./binaries/synnax-v* $HOME/synnax-binaries/synnax
         echo "✅ Server binary copied successfully"
     else
-        echo "❌ Error: Server binary (synnax-*-linux) not found in ./binaries/"
+        echo "❌ Error: Server binary (synnax-v*) not found in ./binaries/"
         exit 1
     fi
 
@@ -95,7 +105,11 @@ main() {
         echo "No existing binaries directory to clean"
     fi
 
-    echo "Starting Linux artifacts download and setup..."
+    local os_name="Linux"
+    if [[ "$(uname)" == "Darwin" ]]; then
+        os_name="macOS"
+    fi
+    echo "Starting $os_name artifacts download and setup..."
 
     install_github_cli
 
@@ -112,7 +126,7 @@ main() {
 
     setup_binaries
 
-    echo "✅ Linux artifacts setup completed successfully"
+    echo "✅ $os_name artifacts setup completed successfully"
 }
 
 # Run main function

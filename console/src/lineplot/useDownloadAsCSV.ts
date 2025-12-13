@@ -42,7 +42,7 @@ export const useDownloadAsCSV = (): ((args: DownloadAsCSVArgs) => void) => {
         if (typeof l.channels.x === "number") acc[l.channels.x] = l.label;
         return acc;
       }, {});
-      downloadCSV({ timeRanges, fileName: name, keys, keysToNames });
+      downloadCSV({ timeRanges, name, keys, keysToNames });
     },
     [downloadCSV],
   );

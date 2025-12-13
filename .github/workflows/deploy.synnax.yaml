@@ -1,0 +1,367 @@
+name: Deploy - Synnax
+
+on:
+  push:
+    branches:
+      - main
+      - rc
+    paths:
+      - .bazeliskrc
+      - .bazelrc
+      - .github/workflows/deploy.synnax.yaml
+      - .github/workflows/build.synnax.yaml
+      - alamos/go/**
+      - alamos/ts/**
+      - aspen/**
+      - cesium/**
+      - client/cpp/**
+      - client/ts/**
+      - configs/ts/**
+      - configs/vite/**
+      - console/**
+      - core/**
+      - drift/**
+      - driver/**
+      - Earthfile
+      - freighter/cpp/**
+      - freighter/go/**
+      - freighter/ts/**
+      - go.work
+      - go.work.sum
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - package.json
+      - pluto/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - relic.conf
+      - scripts/EnVar.dll
+      - turbo.json
+      - vendor/**
+      - vendor/lua-language-server/**
+      - x/cpp/**
+      - x/go/**
+      - x/media/**
+      - x/ts/**
+  pull_request:
+    paths:
+      - .bazeliskrc
+      - .bazelrc
+      - .github/workflows/deploy.synnax.yaml
+      - .github/workflows/build.synnax.yaml
+      - alamos/go/**
+      - alamos/ts/**
+      - aspen/**
+      - cesium/**
+      - client/cpp/**
+      - client/ts/**
+      - configs/ts/**
+      - configs/vite/**
+      - console/**
+      - core/**
+      - drift/**
+      - driver/**
+      - freighter/cpp/**
+      - freighter/go/**
+      - freighter/ts/**
+      - go.work
+      - go.work.sum
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - package.json
+      - pluto/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - turbo.json
+      - vendor/**
+      - vendor/lua-language-server/**
+      - x/cpp/**
+      - x/go/**
+      - x/ts/**
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      VERSION: ${{ steps.version.outputs.VERSION }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Get Version
+        id: version
+        working-directory: core
+        run: |
+          if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
+            echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
+          elif [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
+            echo "VERSION=$(cat pkg/version/VERSION)-rc" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=$(cat pkg/version/VERSION)-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
+          fi
+
+  create-release:
+    runs-on: ubuntu-latest
+    needs: setup
+    if: github.event_name == 'push'
+    permissions:
+      contents: write
+    outputs:
+      CONSOLE_VERSION: ${{ steps.console-version.outputs.VERSION }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Get Console Version
+        id: console-version
+        working-directory: console
+        run: |
+          CONSOLE_VERSION=$(node -p "require('./package.json').version")
+          if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
+            echo "VERSION=${CONSOLE_VERSION}" >> $GITHUB_OUTPUT
+          elif [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
+            echo "VERSION=${CONSOLE_VERSION}-rc" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${CONSOLE_VERSION}-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Releases
+        uses: actions/github-script@v8
+        env:
+          CONSOLE_VERSION: ${{ steps.console-version.outputs.VERSION }}
+        with:
+          script: |
+            const { data: releases } = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            })
+
+            // Create synnax-v* release
+            const synnaxTag = 'synnax-v${{ needs.setup.outputs.VERSION }}'
+            if (!releases.find(r => r.tag_name === synnaxTag)) {
+              await github.rest.repos.createRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag_name: synnaxTag,
+                name: 'Synnax v${{ needs.setup.outputs.VERSION }}',
+                draft: false,
+                prerelease: false
+              });
+            }
+
+            // Create console-v* release
+            const consoleTag = `console-v${process.env.CONSOLE_VERSION}`
+            if (!releases.find(r => r.tag_name === consoleTag)) {
+              await github.rest.repos.createRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag_name: consoleTag,
+                name: `Synnax Console v${process.env.CONSOLE_VERSION}`,
+                draft: false,
+                prerelease: false
+              });
+            }
+
+  build:
+    needs: [setup, create-release]
+    if: always() && needs.setup.result == 'success'
+    permissions:
+      contents: write
+      packages: write
+    uses: ./.github/workflows/build.synnax.yaml
+    with:
+      windows: true
+      macos: true
+      ubuntu: true
+      ubuntu_22_04: true
+      docker: true
+      driver: true
+      console: true
+      console_tauri: true
+      core: true
+      sign_binaries: ${{ github.event_name == 'push' }}
+      upload_to_release: ${{ github.event_name == 'push' }}
+      version: ${{ needs.setup.outputs.VERSION }}
+    secrets: inherit
+
+  windows-installer:
+    name: Build Windows Installer
+    runs-on: windows-latest
+    needs: [setup, build]
+    if: github.event_name == 'push'
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Download Core Binary
+        uses: actions/download-artifact@v4
+        with:
+          name: synnax-core-v${{ needs.setup.outputs.VERSION }}-windows
+          path: scripts/
+
+      - name: Rename Binary for Installer
+        shell: powershell
+        run: |
+          Move-Item -Force scripts/synnax-v${{ needs.setup.outputs.VERSION }}.exe scripts/synnax-server.exe
+
+      - name: Download relic for signing
+        run: |
+          curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
+
+      - name: Add relic to PATH
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path relic-bin
+          Move-Item -Force relic.exe relic-bin\
+          echo "${{ github.workspace }}\relic-bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Build Windows Installer
+        shell: powershell
+        run: |
+          choco install nsis -y --no-progress
+          $nsisDir = "${env:ProgramFiles(x86)}\NSIS"
+          $env:Path = "$nsisDir;$env:Path"
+          Copy-Item -Force .\scripts\EnVar.dll "$nsisDir\Plugins\x86-unicode\EnVar.dll"
+          makensis /DVERSION=${{ needs.setup.outputs.VERSION }} .\scripts\windows_installer.nsi
+
+      - name: Sign Windows Installer
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: |
+          relic sign --file .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe --key azure --config relic.conf
+
+      - name: Upload Windows Installer
+        run: |
+          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
+
+  ni-install-script:
+    name: Create NI Linux RT Install Script
+    runs-on: ubuntu-latest
+    needs: [setup, create-release, build]
+    if: github.event_name == 'push'
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Create Driver Install Script for NI Linux RT
+        run: |
+          cat > install-driver-nilinuxrt.sh << 'EOF'
+          #!/bin/bash
+          VERSION="${VERSION:-${{ needs.setup.outputs.VERSION }}}"
+          DRIVER_BINARY="synnax-driver-v${VERSION}-nilinuxrt"
+          curl -LO "https://github.com/synnaxlabs/synnax/releases/download/synnax-v${VERSION}/${DRIVER_BINARY}"
+          chmod +x $DRIVER_BINARY
+          ./$DRIVER_BINARY stop
+          sudo ./$DRIVER_BINARY install
+          ./$DRIVER_BINARY start
+          EOF
+
+      - name: Upload Install Script
+        run: |
+          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} install-driver-nilinuxrt.sh
+
+  publish-console-update:
+    name: Publish Console Auto-Update
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: github.event_name == 'push'
+    needs: [create-release, build]
+    env:
+      VERSION: ${{ needs.create-release.outputs.CONSOLE_VERSION }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Get Console Version
+        id: console-version
+        working-directory: console
+        run: |
+          CONSOLE_VERSION=$(node -p "require('./package.json').version")
+          echo "CONSOLE_VERSION=${CONSOLE_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        if: github.ref == 'refs/heads/main'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        if: github.ref == 'refs/heads/main'
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - name: Add Auto Update JSON File
+        uses: actions/github-script@v8
+        if: github.ref == 'refs/heads/main'
+        env:
+          CONSOLE_VERSION: ${{ steps.console-version.outputs.CONSOLE_VERSION }}
+        with:
+          script: |
+            const fs = await import("fs");
+
+            const consoleVersion = process.env.CONSOLE_VERSION;
+            const version = process.env.VERSION;
+            const {
+              repo: { repo, owner },
+            } = context;
+
+            const baseURL = `https://github.com/${owner}/${repo}/releases/download/console-v${version}/`;
+
+            const darwinURL = baseURL + "Synnax.app.tar.gz";
+            const darwinSig = await github.request(`GET ${darwinURL}.sig`);
+            const windowsURL = baseURL + `Synnax_${consoleVersion}_x64_en-US.msi`;
+            const windowsSig = await github.request(`GET ${windowsURL}.sig`);
+            const pub_date = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+            const ecd = new TextDecoder();
+
+            const data = {
+              version: `v${consoleVersion}`,
+              notes: "Synnax Update",
+              pub_date,
+              platforms: {
+                "darwin-x86_64": {
+                  signature: ecd.decode(darwinSig.data),
+                  url: darwinURL,
+                },
+                "darwin-aarch64": {
+                  signature: ecd.decode(darwinSig.data),
+                  url: darwinURL,
+                },
+                "linux-x86_64": {
+                  signature: "not_supported_and_tauri_requires_an_entry",
+                  url: darwinURL,
+                },
+                "windows-x86_64": {
+                  signature: ecd.decode(windowsSig.data),
+                  url: windowsURL,
+                },
+              },
+            };
+
+            fs.writeFileSync("console/release-spec.json", JSON.stringify(data, null, 2) + "\n");
+
+      - name: Commit & Push Auto Update JSON File on Main
+        if: github.ref == 'refs/heads/main'
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: "*"
+          default_author: github_actor
+          message: Auto Update JSON File
+          pull: --commit --no-edit
+          push: origin main --force
