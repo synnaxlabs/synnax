@@ -31,24 +31,24 @@ type Retrieve struct {
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
 // Limit limits the number of results that Retrieve will return.
-func (r Retrieve) Limit(limit int) Retrieve { r.gorp.Limit(limit); return r }
+func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
 // Offset marks the starting index of results that Retrieve will return.
-func (r Retrieve) Offset(offset int) Retrieve { r.gorp.Offset(offset); return r }
+func (r Retrieve) Offset(offset int) Retrieve { r.gorp = r.gorp.Offset(offset); return r }
 
 // Entry binds the Label that Retrieve will fill results into. If multiple results match
 // the query, only the first result will be filled into the provided Label.
-func (r Retrieve) Entry(label *Label) Retrieve { r.gorp.Entry(label); return r }
+func (r Retrieve) Entry(label *Label) Retrieve { r.gorp = r.gorp.Entry(label); return r }
 
 // Entries binds a slice that Retrieve will fill results into.
-func (r Retrieve) Entries(labels *[]Label) Retrieve { r.gorp.Entries(labels); return r }
+func (r Retrieve) Entries(labels *[]Label) Retrieve { r.gorp = r.gorp.Entries(labels); return r }
 
 // WhereKeys filters for labels whose Name attribute matches the provided key.
-func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve { r.gorp.WhereKeys(keys...); return r }
+func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve { r.gorp = r.gorp.WhereKeys(keys...); return r }
 
 // WhereNames filters for labels whose Name attribute matches the provided name.
 func (r Retrieve) WhereNames(names ...string) Retrieve {
-	r.gorp.Where(func(ctx gorp.Context, label *Label) (bool, error) {
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, label *Label) (bool, error) {
 		return lo.Contains(names, label.Name), nil
 	})
 	return r
@@ -72,7 +72,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		if err != nil {
 			return err
 		}
-		r.gorp.WhereKeys(keys...)
+		r.gorp = r.gorp.WhereKeys(keys...)
 	}
 	return r.gorp.Exec(ctx, tx)
 }

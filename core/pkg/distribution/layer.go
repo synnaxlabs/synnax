@@ -266,7 +266,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 
-	if l.Channel, err = channel.NewService(ctx, channel.Config{
+	if l.Channel, err = channel.OpenService(ctx, channel.Config{
 		HostResolver: l.Cluster,
 		ClusterDB:    l.DB,
 		TSChannel:    cfg.Storage.TS,

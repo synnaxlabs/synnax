@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -58,6 +59,7 @@ type Service struct {
 	Config
 	group           group.Group
 	shutdownSignals io.Closer
+	entryManager    *gorp.EntryManager[uuid.UUID, Workspace]
 }
 
 const groupName = "Workspaces"
@@ -67,11 +69,15 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	entryManager, err := gorp.OpenEntryManager[uuid.UUID, Workspace](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
 	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{Config: cfg, group: g}
+	s := &Service{Config: cfg, group: g, entryManager: entryManager}
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
@@ -84,7 +90,10 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 }
 
 func (s *Service) Close() error {
-	return s.shutdownSignals.Close()
+	if s.shutdownSignals != nil {
+		return errors.Combine(s.shutdownSignals.Close(), s.entryManager.Close())
+	}
+	return s.entryManager.Close()
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {

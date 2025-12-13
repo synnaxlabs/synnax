@@ -35,7 +35,7 @@ func (d dagWriter) DefineResource(ctx context.Context, tk ID) error {
 	if err := tk.Validate(); err != nil {
 		return err
 	}
-	return gorp.NewCreate[ID, Resource]().
+	return gorp.NewCreate[string, Resource]().
 		Entry(&Resource{ID: tk}).
 		Exec(ctx, d.tx)
 }
@@ -47,23 +47,23 @@ func (d dagWriter) DefineManyResources(ctx context.Context, ids []ID) error {
 		}
 	}
 	resources := lo.Map(ids, func(id ID, _ int) Resource { return Resource{ID: id} })
-	return gorp.NewCreate[ID, Resource]().Entries(&resources).Exec(ctx, d.tx)
+	return gorp.NewCreate[string, Resource]().Entries(&resources).Exec(ctx, d.tx)
 
 }
 
 // DeleteResource implements the Writer interface.
-func (d dagWriter) DeleteResource(ctx context.Context, key ID) error {
-	if err := d.deleteIncomingRelationships(ctx, key); err != nil {
+func (d dagWriter) DeleteResource(ctx context.Context, id ID) error {
+	if err := d.deleteIncomingRelationships(ctx, id); err != nil {
 		return err
 	}
-	if err := d.deleteOutgoingRelationships(ctx, key); err != nil {
+	if err := d.deleteOutgoingRelationships(ctx, id); err != nil {
 		return err
 	}
-	return gorp.NewDelete[ID, Resource]().WhereKeys(key).Exec(ctx, d.tx)
+	return gorp.NewDelete[string, Resource]().WhereKeys(id.String()).Exec(ctx, d.tx)
 }
 
-func (d dagWriter) HasResource(ctx context.Context, key ID) (bool, error) {
-	return gorp.NewRetrieve[ID, Resource]().WhereKeys(key).Exists(ctx, d.tx)
+func (d dagWriter) HasResource(ctx context.Context, id ID) (bool, error) {
+	return gorp.NewRetrieve[string, Resource]().WhereKeys(id.String()).Exists(ctx, d.tx)
 }
 
 func (d dagWriter) HasRelationship(ctx context.Context, from ID, t RelationshipType, to ID) (bool, error) {
@@ -83,7 +83,7 @@ func (d dagWriter) DeleteManyResources(ctx context.Context, ids []ID) error {
 			return err
 		}
 	}
-	return gorp.NewDelete[ID, Resource]().WhereKeys(ids...).Exec(ctx, d.tx)
+	return gorp.NewDelete[string, Resource]().WhereKeys(IDsToString(ids)...).Exec(ctx, d.tx)
 }
 
 // DefineRelationship implements the Writer interface.
@@ -159,10 +159,13 @@ func (d dagWriter) retrieveOutgoingRelationships(ctx context.Context, key ID) ([
 
 func (d dagWriter) retrieveResources(ctx context.Context, ids []ID) ([]Resource, error) {
 	var resources []Resource
-	return resources, gorp.NewRetrieve[ID, Resource]().
-		WhereKeys(ids...).
+	if err := gorp.NewRetrieve[string, Resource]().
+		WhereKeys(IDsToString(ids)...).
 		Entries(&resources).
-		Exec(ctx, d.tx)
+		Exec(ctx, d.tx); err != nil {
+		return nil, err
+	}
+	return resources, nil
 }
 
 func (d dagWriter) retrieveDescendants(ctx context.Context, id ID) (map[ID]Resource, error) {
@@ -230,5 +233,5 @@ func (d dagWriter) checkRelationshipExists(ctx context.Context, rel Relationship
 }
 
 func (d dagWriter) validateResourcesExist(ctx context.Context, ids ...ID) error {
-	return gorp.NewRetrieve[ID, Resource]().WhereKeys(ids...).Exec(ctx, d.tx)
+	return gorp.NewRetrieve[string, Resource]().WhereKeys(IDsToString(ids)...).Exec(ctx, d.tx)
 }

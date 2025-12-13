@@ -33,9 +33,10 @@ type Service struct {
 	cfg Config
 	db  *gorp.DB
 	Writer
-	proxy *leaseProxy
-	otg   *ontology.Ontology
-	group group.Group
+	proxy        *leaseProxy
+	otg          *ontology.Ontology
+	group        group.Group
+	entryManager *gorp.EntryManager[Key, Channel]
 }
 
 func (s *Service) SetCalculationAnalyzer(analyzer CalculationAnalyzer) {
@@ -98,8 +99,12 @@ func (c Config) Override(other Config) Config {
 
 var DefaultConfig = Config{ValidateNames: config.True(), ForceMigration: config.False()}
 
-func NewService(ctx context.Context, cfgs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	entryManager, err := gorp.OpenEntryManager[Key, Channel](ctx, cfg.ClusterDB)
 	if err != nil {
 		return nil, err
 	}
@@ -114,11 +119,12 @@ func NewService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{
-		cfg:   cfg,
-		db:    cfg.ClusterDB,
-		proxy: proxy,
-		otg:   cfg.Ontology,
-		group: g,
+		cfg:          cfg,
+		db:           cfg.ClusterDB,
+		proxy:        proxy,
+		otg:          cfg.Ontology,
+		group:        g,
+		entryManager: entryManager,
 	}
 	s.Writer = s.NewWriter(nil)
 	if cfg.Ontology != nil {
@@ -140,6 +146,10 @@ func (s *Service) NewRetrieve() Retrieve {
 		otg:                       s.otg,
 		validateRetrievedChannels: s.validateChannels,
 	}
+}
+
+func (s *Service) Close() error {
+	return s.entryManager.Close()
 }
 
 func (s *Service) validateChannels(channels []Channel) ([]Channel, error) {

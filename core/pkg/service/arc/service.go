@@ -106,6 +106,7 @@ func (c ServiceConfig) baseRuntimeConfig() runtime.Config {
 type Service struct {
 	cfg            ServiceConfig
 	symbolResolver arc.SymbolResolver
+	entryManager   *gorp.EntryManager[uuid.UUID, Arc]
 	mu             struct {
 		sync.Mutex
 		entries map[uuid.UUID]*entry
@@ -125,6 +126,7 @@ func (s *Service) Close() error {
 	for _, e := range s.mu.entries {
 		c.Exec(e.runtime.Close)
 	}
+	c.Exec(s.entryManager.Close)
 	return c.Error()
 }
 
@@ -171,9 +173,13 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
+	entryManager, err := gorp.OpenEntryManager[uuid.UUID, Arc](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
 	var (
 		closer xio.MultiCloser
-		s      = &Service{cfg: cfg}
+		s      = &Service{cfg: cfg, entryManager: entryManager}
 	)
 	s.symbolResolver, err = symbol.CreateResolver(cfg.baseRuntimeConfig())
 	if err != nil {

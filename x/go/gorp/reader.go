@@ -29,7 +29,7 @@ import (
 // reading entries from the DB. Readonly only accesses entries that match
 // its type arguments.
 type Reader[K Key, E Entry[K]] struct {
-	*lazyPrefix[K, E]
+	keyCodec keyCodec[K, E]
 	// BaseReader is the underlying key-value reader that the Reader is wrapping.
 	BaseReader
 }
@@ -46,22 +46,16 @@ type Reader[K Key, E Entry[K]] struct {
 //
 //	r := gor.WrapReader[MyKey, MyEntry](tx)
 func WrapReader[K Key, E Entry[K]](base BaseReader) *Reader[K, E] {
-	return &Reader[K, E]{
-		BaseReader: base,
-		lazyPrefix: &lazyPrefix[K, E]{Tools: base},
-	}
+	return &Reader[K, E]{BaseReader: base, keyCodec: newKeyCodec[K, E]()}
 }
 
 // Get retrieves a single entry from the database. If the entry does not exist,
 // query.NotFound is returned.
-func (r Reader[K, E]) Get(ctx context.Context, key K) (e E, err error) {
-	bKey, err := encodeKey(ctx, r, r.prefix(ctx), key)
+func (r Reader[K, E]) Get(ctx context.Context, key K) (E, error) {
+	var e E
+	b, closer, err := r.BaseReader.Get(ctx, r.keyCodec.encode(key))
 	if err != nil {
 		return e, err
-	}
-	b, closer, err := r.BaseReader.Get(ctx, bKey)
-	if err != nil {
-		return e, lo.Ternary(errors.Is(err, kv.NotFound), query.NotFound, err)
 	}
 	err = r.Decode(ctx, b, &e)
 	return e, errors.Combine(err, closer.Close())
@@ -105,7 +99,7 @@ type IterOptions struct {
 
 // OpenIterator opens a new Iterator over the entries in the Reader.
 func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err error) {
-	prefixedKey := append(r.prefix(context.TODO()), opts.prefix...)
+	prefixedKey := append(r.keyCodec.prefix, opts.prefix...)
 	base, err := r.BaseReader.OpenIterator(kv.IterPrefix(prefixedKey))
 	return WrapIterator[E](base, r), err
 }
@@ -181,24 +175,23 @@ type TxReader[K Key, E Entry[K]] = iter.Seq[change.Change[K, E]]
 //	    // process op
 //	}
 func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, tools Tools) TxReader[K, E] {
-	prefix := &lazyPrefix[K, E]{Tools: tools}
 	return func(yield func(change.Change[K, E]) bool) {
-		ctx := context.TODO()
-		pref := prefix.prefix(ctx)
+		var (
+			ctx    = context.TODO()
+			kCodec = newKeyCodec[K, E]()
+			op     change.Change[K, E]
+			err    error
+		)
 		for kvChange := range reader {
-			if !bytes.HasPrefix(kvChange.Key, pref) {
+			if !bytes.HasPrefix(kvChange.Key, kCodec.prefix) {
 				continue
 			}
-			var op change.Change[K, E]
-			var err error
-			if op.Key, err = decodeKey[K](ctx, tools, pref, kvChange.Key); err != nil {
-				panic(err)
-			}
+			op.Key = kCodec.decode(kvChange.Key)
 			op.Variant = kvChange.Variant
 			if op.Variant == change.Set {
 				// Panicking in development here right now. Don't want to extend the
 				// footprint of TxReader to NexterCloser.
-				if err := tools.Decode(ctx, kvChange.Value, &op.Value); err != nil {
+				if err = tools.Decode(ctx, kvChange.Value, &op.Value); err != nil {
 					panic(err)
 				}
 				op.Key = op.Value.GorpKey()
