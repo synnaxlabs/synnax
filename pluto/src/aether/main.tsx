@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { compare, deep, type SenderHandler } from "@synnaxlabs/x";
+import { compare, deep, type errors, type SenderHandler } from "@synnaxlabs/x";
 import {
   memo,
   type PropsWithChildren,
@@ -20,7 +20,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { z } from "zod";
+import { type z } from "zod";
 
 import {
   type CallersFromSchema,
@@ -28,8 +28,6 @@ import {
   type MethodsSchema,
 } from "@/aether/aether/aether";
 import { type AetherMessage, type MainMessage } from "@/aether/message";
-
-export type { CallersFromSchema, EmptyMethodsSchema, MethodsSchema };
 import { context } from "@/context";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useMemoCompare } from "@/memo";
@@ -37,12 +35,71 @@ import { type state } from "@/state";
 import { prettyParse } from "@/util/zod";
 import { Worker } from "@/worker";
 
+export type { CallersFromSchema, EmptyMethodsSchema, MethodsSchema };
+
 type RawSetArg<S extends z.ZodType<state.State>> =
   | (z.input<S> | z.infer<S>)
   | ((prev: z.infer<S>) => z.input<S> | z.infer<S>);
 
 /** Default RPC timeout in milliseconds */
-const DEFAULT_RPC_TIMEOUT = 1000;
+const DEFAULT_RPC_TIMEOUT = 5000;
+
+const reconstructError = (payload: errors.NativePayload): Error => {
+  const err = new Error(payload.message);
+  err.name = payload.name;
+  err.stack = payload.stack;
+  return err;
+};
+
+interface PendingRequest {
+  resolve: (value: unknown) => void;
+  reject: (error: Error) => void;
+  controller: AbortController;
+}
+
+/** Manages pending RPC requests with AbortController-based cancellation. */
+class RPCTracker {
+  private pending = new Map<string, PendingRequest>();
+  private counters = new Map<string, number>();
+
+  nextRequestId(key: string): string {
+    const counter = this.counters.get(key) ?? 0;
+    this.counters.set(key, counter + 1);
+    return `${key}-${counter}`;
+  }
+
+  track(
+    requestId: string,
+    resolve: (value: unknown) => void,
+    reject: (error: Error) => void,
+    signal: AbortSignal,
+  ): void {
+    const controller = new AbortController();
+    // Link the external signal to our internal controller
+    signal.addEventListener("abort", () => controller.abort(signal.reason), {
+      signal: controller.signal,
+    });
+    controller.signal.addEventListener("abort", () => {
+      this.pending.delete(requestId);
+      reject(controller.signal.reason);
+    });
+    this.pending.set(requestId, { resolve, reject, controller });
+  }
+
+  resolve(requestId: string, result: unknown, error?: errors.NativePayload): boolean {
+    const pending = this.pending.get(requestId);
+    if (pending == null) return false;
+    this.pending.delete(requestId);
+    if (error != null) pending.reject(reconstructError(error));
+    else pending.resolve(result);
+    return true;
+  }
+
+  abort(reason: Error): void {
+    this.pending.forEach(({ controller }) => controller.abort(reason));
+    this.pending.clear();
+  }
+}
 
 /**
  * return value of the create function in the Aether context.
@@ -73,10 +130,14 @@ export interface CreateReturn {
    * Invokes an RPC method on the worker component and waits for the response.
    * @param method - The name of the method to invoke
    * @param args - Arguments to pass to the method (spread to handler)
-   * @param timeout - Optional timeout in ms (default: 1000)
+   * @param signal - Optional AbortSignal for cancellation/timeout (default: 5s timeout)
    * @returns A Promise that resolves with the method's return value
    */
-  invokeMethodAsync: <R>(method: string, args: unknown[], timeout?: number) => Promise<R>;
+  invokeMethodAsync: <R>(
+    method: string,
+    args: unknown[],
+    signal?: AbortSignal,
+  ) => Promise<R>;
 }
 
 /**
@@ -132,15 +193,7 @@ export const Provider = ({
     () => propsWorker ?? contextWorker,
     [propsWorker, contextWorker],
   );
-
-  const pendingRequests = useRef<Map<string, PendingRequest>>(new Map());
-  const rpcCounters = useRef<Map<string, number>>(new Map());
-
-  const nextRequestId = useCallback((key: string): string => {
-    const counter = rpcCounters.current.get(key) ?? 0;
-    rpcCounters.current.set(key, counter + 1);
-    return `${key}-${counter}`;
-  }, []);
+  const rpcTracker = useRef(new RPCTracker());
 
   const create: ContextValue["create"] = useCallback(
     (type, path, handler) => {
@@ -154,21 +207,19 @@ export const Provider = ({
           `[Aether.Provider] - received zero length type when registering component at ${path.join(".")} This is probably a bad idea.`,
         );
       registry.current.set(key, { path, handler });
+      const controller = new AbortController();
       return {
         setState: (state: state.State, transfer: Transferable[] = []): void => {
           if (worker == null) console.warn("aether - no worker");
           worker?.send({ variant: "update", path, state, type }, transfer);
         },
         delete: () => {
+          controller.abort(new Error("Component deleted"));
           if (worker == null) console.warn("aether - no worker");
           worker?.send({ variant: "delete", path, type });
         },
         invokeMethod: (method: string, args: unknown[]): void => {
-          if (worker == null) {
-            console.warn("aether - no worker");
-            return;
-          }
-          worker.send({
+          worker?.send({
             variant: "rpc-request",
             requestId: "",
             path,
@@ -180,24 +231,19 @@ export const Provider = ({
         invokeMethodAsync: <R,>(
           method: string,
           args: unknown[],
-          timeoutMs: number = DEFAULT_RPC_TIMEOUT,
+          signal: AbortSignal = AbortSignal.timeout(DEFAULT_RPC_TIMEOUT),
         ): Promise<R> =>
           new Promise((resolve, reject) => {
-            if (worker == null) {
-              reject(new Error("aether - no worker"));
-              return;
-            }
-            const requestId = nextRequestId(key);
-            const timeout = setTimeout(() => {
-              pendingRequests.current.delete(requestId);
-              reject(new Error(`RPC timeout: ${method} on ${key}`));
-            }, timeoutMs);
-
-            pendingRequests.current.set(requestId, {
-              resolve: resolve as (v: unknown) => void,
+            if (worker == null) return reject(new Error("aether - no worker"));
+            if (controller.signal.aborted)
+              return reject(new Error("Component deleted"));
+            const requestId = rpcTracker.current.nextRequestId(key);
+            rpcTracker.current.track(
+              requestId,
+              resolve as (v: unknown) => void,
               reject,
-              timeout,
-            });
+              AbortSignal.any([signal, controller.signal]),
+            );
             worker.send({
               variant: "rpc-request",
               requestId,
@@ -209,7 +255,7 @@ export const Provider = ({
           }),
       };
     },
-    [worker, registry, nextRequestId],
+    [worker],
   );
 
   const [error, setError] = useState<Error | null>(null);
@@ -218,47 +264,23 @@ export const Provider = ({
   useEffect(() => {
     worker?.handle((msg) => {
       const { variant } = msg;
-
       if (variant === "error") {
-        const {
-          error: { message, stack, name },
-        } = msg;
-        const err = new Error(message);
-        err.stack = stack;
-        err.name = name;
+        const err = reconstructError(msg.error);
         setError((prev) => {
           if (prev != null) {
-            console.error(`
-              [aether] - received new error after error was already set, but before
-              previous error was thrown. This likely means that multiple errors occurred
-              in succession before react could throw the first one that occurred.
-            `);
+            console.error(
+              "[aether] - received new error after error was already set, but before previous error was thrown.",
+            );
             console.error(err);
           }
           return err;
         });
         return;
       }
-
       if (variant === "rpc-response") {
-        const { requestId, result, error: rpcError } = msg;
-        const pending = pendingRequests.current.get(requestId);
-        if (pending == null) return;
-
-        pendingRequests.current.delete(requestId);
-        clearTimeout(pending.timeout);
-
-        if (rpcError != null) {
-          const err = new Error(rpcError.message);
-          err.name = rpcError.name;
-          err.stack = rpcError.stack;
-          pending.reject(err);
-        } else {
-          pending.resolve(result);
-        }
+        rpcTracker.current.resolve(msg.requestId, msg.result, msg.error);
         return;
       }
-
       const { key, state } = msg;
       const component = registry.current.get(key);
       if (component == null)
@@ -273,17 +295,6 @@ export const Provider = ({
     });
     setReady(true);
   }, [worker]);
-
-  useEffect(
-    () => () => {
-      pendingRequests.current.forEach(({ reject, timeout }) => {
-        clearTimeout(timeout);
-        reject(new Error("Aether provider unmounted"));
-      });
-      pendingRequests.current.clear();
-    },
-    [],
-  );
 
   const value = useMemo<ContextValue>(() => ({ create, path: ["root"] }), [create]);
 
@@ -300,7 +311,10 @@ export interface UseLifecycleReturn<
   methods: CallersFromSchema<M>;
 }
 
-interface UseLifecycleProps<S extends z.ZodType, M extends MethodsSchema = EmptyMethodsSchema> {
+interface UseLifecycleProps<
+  S extends z.ZodType,
+  M extends MethodsSchema = EmptyMethodsSchema,
+> {
   type: string;
   schema: S;
   aetherKey?: string;
@@ -387,20 +401,18 @@ export const useLifecycle = <
 
   const methods = useMemo(() => {
     if (methodsSchema == null) return {} as CallersFromSchema<M>;
-
-    const callers: Record<string, (...args: unknown[]) => void | Promise<unknown>> = {};
+    const callers: Record<string, (...args: unknown[]) => unknown> = {};
     for (const method of Object.keys(methodsSchema)) {
-      const methodDef = methodsSchema[method];
-      const def = methodDef.def as { output?: { type?: string } };
-      const isVoid = def.output == null || def.output.type === "void";
-      if (isVoid) {
-        callers[method] = (...args: unknown[]) =>
-          comms.current?.invokeMethod(method, args);
-      } else {
-        callers[method] = (...args: unknown[]) =>
-          comms.current?.invokeMethodAsync(method, args) ??
-          Promise.reject(new Error("No comms"));
-      }
+      // In Zod 4, _def.output.def.type is "unknown" for z.function() (no output),
+      // "void" for z.function({ output: z.void() }), or the actual type name.
+      const def = methodsSchema[method]._def as {
+        output?: { def?: { type?: string } };
+      };
+      const outputType = def.output?.def?.type;
+      const isVoid = outputType === "void" || outputType === "unknown";
+      callers[method] = isVoid
+        ? (...args: unknown[]) => comms.current?.invokeMethod(method, args)
+        : (...args: unknown[]) => comms.current?.invokeMethodAsync(method, args);
     }
     return callers as CallersFromSchema<M>;
   }, [methodsSchema]);
@@ -455,8 +467,10 @@ export interface ComponentProps {
 }
 
 /** Props for the use hook that manages Aether component lifecycle */
-export interface UseProps<S extends z.ZodType, M extends MethodsSchema = EmptyMethodsSchema>
-  extends Omit<UseLifecycleProps<S, M>, "onReceive"> {
+export interface UseProps<
+  S extends z.ZodType,
+  M extends MethodsSchema = EmptyMethodsSchema,
+> extends Omit<UseLifecycleProps<S, M>, "onReceive"> {
   /** Optional callback for handling state changes from the Aether component */
   onAetherChange?: (state: z.infer<S>) => void;
 }
@@ -555,7 +569,11 @@ export const use = <
     [schema],
   );
 
-  const { path, setState: setAetherState, methods } = useLifecycle({
+  const {
+    path,
+    setState: setAetherState,
+    methods,
+  } = useLifecycle({
     ...props,
     onReceive: handleReceive,
   });
@@ -582,12 +600,6 @@ export const use = <
 };
 
 type StateHandler<S = unknown> = (state: S) => void;
-
-interface PendingRequest {
-  resolve: (value: unknown) => void;
-  reject: (error: Error) => void;
-  timeout: ReturnType<typeof setTimeout>;
-}
 
 interface RegisteredComponent {
   path: string[];

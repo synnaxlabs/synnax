@@ -487,12 +487,12 @@ export abstract class Leaf<
     // Always use implementAsync for simplicity; it wraps sync results in Promises,
     // which our response handling already supports.
     const invoke = methodSchema.implementAsync(methodFn.bind(this));
-    const promise = invoke(...args);
-    promise.catch(reportErr);
-    if (expectsResponse)
-      promise.then((r: unknown) =>
-        this.sender.send({ variant: "rpc-response", requestId, result: r }),
-      );
+    invoke(...args)
+      .then((r: unknown) => {
+        if (expectsResponse)
+          this.sender.send({ variant: "rpc-response", requestId, result: r });
+      })
+      .catch(reportErr);
   }
 }
 
