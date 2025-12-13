@@ -13,15 +13,14 @@ VERSION=$1
 PLATFORM_WINDOWS=$2
 PLATFORM_MACOS=$3
 PLATFORM_UBUNTU=$4
-PLATFORM_UBUNTU_22_04=$5
-PLATFORM_DOCKER=$6
-BUILD_DRIVER=$7
-BUILD_CONSOLE=$8
-BUILD_CONSOLE_TAURI=$9
-BUILD_CORE=${10}
+PLATFORM_DOCKER=$5
+BUILD_DRIVER=$6
+BUILD_CONSOLE=$7
+BUILD_CONSOLE_TAURI=$8
+BUILD_CORE=$9
 
 # Verify that at least one platform is selected
-if [ "$PLATFORM_WINDOWS" != "true" ] && [ "$PLATFORM_MACOS" != "true" ] && [ "$PLATFORM_UBUNTU" != "true" ] && [ "$PLATFORM_UBUNTU_22_04" != "true" ] && [ "$PLATFORM_DOCKER" != "true" ]; then
+if [ "$PLATFORM_WINDOWS" != "true" ] && [ "$PLATFORM_MACOS" != "true" ] && [ "$PLATFORM_UBUNTU" != "true" ] && [ "$PLATFORM_DOCKER" != "true" ]; then
     echo "Error: No platforms selected. Please select at least one platform to build for."
     exit 1
 fi
@@ -50,14 +49,9 @@ else
     echo "  X macOS"
 fi
 if [ "$PLATFORM_UBUNTU" = "true" ]; then
-    echo "  ✓ Ubuntu"
+    echo "  ✓ Ubuntu (includes NI Linux RT driver)"
 else
     echo "  X Ubuntu"
-fi
-if [ "$PLATFORM_UBUNTU_22_04" = "true" ]; then
-    echo "  ✓ Ubuntu 22.04 (NI Linux RT)"
-else
-    echo "  X Ubuntu 22.04 (NI Linux RT)"
 fi
 if [ "$PLATFORM_DOCKER" = "true" ]; then
     echo "  ✓ Docker"
