@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
 import { createTestClient } from "@/testutil/client";
+import { secondsLinspace } from "@/testutil/telem";
 
 const client = createTestClient();
 
@@ -75,11 +76,11 @@ describe("Reader", () => {
       const stream = await client.read({
         channels: [index.key, data1.key, data2.key],
         timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
-        channelNames: new Map([
-          [index.key, "Time"],
-          [data1.key, "Sensor1"],
-          [data2.key, "Sensor2"],
-        ]),
+        channelNames: {
+          [index.key]: "Time",
+          [data1.key]: "Sensor1",
+          [data2.key]: "Sensor2",
+        },
         responseType: "csv",
       });
       const records = await streamToRecords(stream);
@@ -145,12 +146,12 @@ describe("Reader", () => {
       const stream = await client.read({
         channels: [data1.key, data2.key], // Just data channels - indexes auto-included
         timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
-        channelNames: new Map([
-          [index1.key, "Time1"],
-          [data1.key, "Data1"],
-          [index2.key, "Time2"],
-          [data2.key, "Data2"],
-        ]),
+        channelNames: {
+          [index1.key]: "Time1",
+          [data1.key]: "Data1",
+          [index2.key]: "Time2",
+          [data2.key]: "Data2",
+        },
         responseType: "csv",
       });
       const records = await streamToRecords(stream);
@@ -162,6 +163,47 @@ describe("Reader", () => {
         ["", "", "4000000000", "400"],
         ["5000000000", "500", "", ""],
         ["", "", "6000000000", "600"],
+      ]);
+    });
+    it("should allow downsampling", async () => {
+      const index = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT64,
+        index: index.key,
+      });
+      const writer = await client.openWriter({
+        start: TimeStamp.seconds(1),
+        channels: [index.key, data.key],
+      });
+      await writer.write({
+        [index.key]: [
+          TimeStamp.seconds(1),
+          TimeStamp.seconds(2),
+          TimeStamp.seconds(3),
+          TimeStamp.seconds(4),
+          TimeStamp.seconds(5),
+        ],
+        [data.key]: [10, 20, 30, 40, 50],
+      });
+      await writer.commit();
+      await writer.close();
+      const stream = await client.read({
+        channels: [data.key],
+        timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
+        responseType: "csv",
+        iteratorConfig: { downsampleFactor: 2 },
+      });
+      const records = await streamToRecords(stream);
+      expect(records).toEqual([
+        [index.name, data.name],
+        ["1000000000", "10"],
+        ["3000000000", "30"],
+        ["5000000000", "50"],
       ]);
     });
     it("should handle channels at different uneven rates with correct row ordering", async () => {
@@ -380,7 +422,7 @@ describe("Reader", () => {
       await writer.close();
       const stream = await client.read({
         channels: [data.key],
-        timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(10) },
+        timeRange: { start: TimeStamp.seconds(0), end: TimeStamp.seconds(100000) },
         responseType: "csv",
       });
       const records = await streamToRecords(stream);
@@ -389,7 +431,133 @@ describe("Reader", () => {
         ["1", "42"],
       ]);
     });
-
+    it("should handle channels across domains with gaps in them", async () => {
+      const index = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT64,
+        index: index.key,
+      });
+      let writer = await client.openWriter({
+        start: TimeStamp.nanoseconds(101),
+        channels: [index.key, data.key],
+      });
+      await writer.write({
+        [index.key]: [
+          TimeStamp.nanoseconds(101),
+          TimeStamp.nanoseconds(102),
+          TimeStamp.nanoseconds(103),
+        ],
+        [data.key]: [10, 11, 12],
+      });
+      await writer.commit();
+      await writer.close();
+      writer = await client.openWriter({
+        start: TimeStamp.nanoseconds(1),
+        channels: [index.key, data.key],
+      });
+      await writer.write({
+        [index.key]: [
+          TimeStamp.nanoseconds(1),
+          TimeStamp.nanoseconds(2),
+          TimeStamp.nanoseconds(3),
+        ],
+        [data.key]: [1, 2, 3],
+      });
+      await writer.commit();
+      await writer.close();
+      const stream = await client.read({
+        channels: [data.key],
+        timeRange: { start: TimeStamp.nanoseconds(3), end: TimeStamp.nanoseconds(103) },
+        responseType: "csv",
+      });
+      const rows = await streamToRecords(stream);
+      expect(rows).toEqual([
+        [index.name, data.name],
+        ["3", "3"],
+        ["101", "10"],
+        ["102", "11"],
+      ]);
+    });
+    it("should handle non-overlapping data across domains", async () => {
+      // first index will get written from times 10-15, second index from times 13-18
+      const index1 = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const index2 = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const data1 = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT64,
+        index: index1.key,
+      });
+      const data2 = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT64,
+        index: index2.key,
+      });
+      const writer1 = await client.openWriter({
+        start: TimeStamp.nanoseconds(10),
+        channels: [index1.key, data1.key],
+      });
+      await writer1.write({
+        [index1.key]: [
+          TimeStamp.nanoseconds(10),
+          TimeStamp.nanoseconds(11),
+          TimeStamp.nanoseconds(12),
+          TimeStamp.nanoseconds(13),
+          TimeStamp.nanoseconds(14),
+          TimeStamp.nanoseconds(15),
+        ],
+        [data1.key]: [1, 2, 3, 4, 5, 6],
+      });
+      await writer1.commit();
+      await writer1.close();
+      const writer2 = await client.openWriter({
+        start: TimeStamp.nanoseconds(15),
+        channels: [index2.key, data2.key],
+      });
+      await writer2.write({
+        [index2.key]: [
+          TimeStamp.nanoseconds(13),
+          TimeStamp.nanoseconds(14),
+          TimeStamp.nanoseconds(15),
+          TimeStamp.nanoseconds(16),
+          TimeStamp.nanoseconds(17),
+          TimeStamp.nanoseconds(18),
+        ],
+        [data2.key]: [11, 12, 13, 14, 15, 16],
+      });
+      await writer2.commit();
+      await writer2.close();
+      const stream = await client.read({
+        channels: [data1.key, data2.key],
+        timeRange: { start: TimeStamp.nanoseconds(0), end: TimeStamp.nanoseconds(19) },
+        responseType: "csv",
+      });
+      const rows = await streamToRecords(stream);
+      expect(rows).toEqual([
+        [index1.name, data1.name, index2.name, data2.name],
+        ["10", "1", "", ""],
+        ["11", "2", "", ""],
+        ["12", "3", "", ""],
+        ["13", "4", "13", "11"],
+        ["14", "5", "14", "12"],
+        ["15", "6", "15", "13"],
+        ["", "", "16", "14"],
+        ["", "", "17", "15"],
+        ["", "", "18", "16"],
+      ]);
+    });
     it("should handle large dataset requiring multiple iterator calls", async () => {
       // Create 4 groups with different indexes at different rates
       const numGroups = 4;
@@ -558,7 +726,6 @@ describe("Reader", () => {
         const sparseStep = 1_000;
         const sparseSamples = denseSamples / sparseStep;
 
-        // Fast (dense) index + data
         const indexFast = await client.channels.create({
           name: `dense_index_${id.create()}`,
           dataType: DataType.TIMESTAMP,
@@ -570,7 +737,6 @@ describe("Reader", () => {
           index: indexFast.key,
         });
 
-        // Slow (sparse) index + data
         const indexSlow = await client.channels.create({
           name: `sparse_index_${id.create()}`,
           dataType: DataType.TIMESTAMP,
@@ -581,79 +747,59 @@ describe("Reader", () => {
           dataType: DataType.FLOAT64,
           index: indexSlow.key,
         });
-        const baseTime = TimeStamp.seconds(0);
+        const start = TimeStamp.seconds(0);
         const denseWriter = await client.openWriter({
-          start: baseTime,
+          start,
           channels: [indexFast.key, dataFast.key],
         });
 
-        const denseBatchSize = 10_000;
+        const maxBatchSize = 10_000;
         for (
           let batchStart = 1;
           batchStart <= denseSamples;
-          batchStart += denseBatchSize
+          batchStart += maxBatchSize
         ) {
-          const batchEnd = Math.min(batchStart + denseBatchSize - 1, denseSamples);
-          const tsBatch: TimeStamp[] = [];
-          const valBatch: number[] = [];
-
-          for (let i = batchStart; i <= batchEnd; i++) {
-            // baseTime + i ns => underlying raw timestamps ~ [1..1_000_000]
-            tsBatch.push(baseTime.add(TimeSpan.nanoseconds(i)));
-            valBatch.push(i); // arbitrary data value
-          }
-
-          await denseWriter.write({
-            [indexFast.key]: tsBatch,
-            [dataFast.key]: valBatch,
-          });
+          const batchEnd = Math.min(batchStart + maxBatchSize - 1, denseSamples);
+          const batchSize = batchEnd - batchStart + 1;
+          const times = secondsLinspace(batchStart, batchSize);
+          const data = Array.from({ length: batchSize }, (_, i) => i + batchStart);
+          await denseWriter.write({ [indexFast.key]: times, [dataFast.key]: data });
         }
         await denseWriter.commit();
         await denseWriter.close();
 
-        // ---- Write sparse channel: timestamps 1..1_000_000 every 1000 ----
         const sparseWriter = await client.openWriter({
-          start: baseTime,
+          start,
           channels: [indexSlow.key, dataSlow.key],
         });
 
-        const sparseBatchSize = 1000; // at most 1000 sparse points total anyway
         for (
-          let batchStart = 0;
+          let batchStart = 1;
           batchStart < sparseSamples;
-          batchStart += sparseBatchSize
+          batchStart += maxBatchSize
         ) {
-          const batchEnd = Math.min(batchStart + sparseBatchSize, sparseSamples);
-          const tsBatch: TimeStamp[] = [];
-          const valBatch: number[] = [];
+          const batchEnd = Math.min(
+            batchStart + (maxBatchSize - 1) * sparseStep,
+            batchStart + sparseSamples * sparseStep,
+          );
+          const times: TimeStamp[] = [];
+          const data: number[] = [];
 
-          for (let j = batchStart; j < batchEnd; j++) {
-            const logicalTs = (j + 1) * sparseStep; // 1000, 2000, ..., 1_000_000
-            tsBatch.push(baseTime.add(TimeSpan.nanoseconds(logicalTs)));
-            valBatch.push(logicalTs); // arbitrary data value
+          for (let j = batchStart; j < batchEnd; j += sparseStep) {
+            times.push(start.add(TimeSpan.seconds(j)));
+            data.push(j); // arbitrary data value
           }
-
-          await sparseWriter.write({
-            [indexSlow.key]: tsBatch,
-            [dataSlow.key]: valBatch,
-          });
+          await sparseWriter.write({ [indexSlow.key]: times, [dataSlow.key]: data });
         }
         await sparseWriter.commit();
         await sparseWriter.close();
 
-        // ---- Export CSV with explicit headers so we know column order ----
         const stream = await client.read({
           channels: [dataFast.key, dataSlow.key],
           timeRange: {
-            start: baseTime,
-            end: baseTime.add(TimeSpan.nanoseconds(denseSamples + 1)),
+            start: TimeStamp.seconds(0),
+            end: start.add(TimeSpan.seconds(denseSamples + 1)),
           },
-          channelNames: new Map([
-            [indexFast.key, "FastTime"],
-            [dataFast.key, "FastValue"],
-            [indexSlow.key, "SlowTime"],
-            [dataSlow.key, "SlowValue"],
-          ]),
           responseType: "csv",
         });
 
@@ -671,9 +817,7 @@ describe("Reader", () => {
           const { done, value } = await reader.read();
           if (done) break;
           chunkCount++;
-
           buffer += decoder.decode(value);
-
           while (true) {
             const idx = buffer.indexOf(delimiter);
             if (idx === -1) break;
@@ -683,26 +827,20 @@ describe("Reader", () => {
             if (isHeader) {
               const headerCols = line.split(",");
               expect(headerCols).toEqual([
-                "FastTime",
-                "FastValue",
-                "SlowTime",
-                "SlowValue",
+                indexFast.name,
+                dataFast.name,
+                indexSlow.name,
+                dataSlow.name,
               ]);
               isHeader = false;
               continue;
             }
 
             totalRows++;
-
             const cols = line.split(",");
             expect(cols).toHaveLength(4);
+            const [fastTsStr, fastValStr, slowTsStr, slowValStr] = cols;
 
-            const fastTsStr = cols[0];
-            const slowTsStr = cols[2];
-            const fastValStr = cols[1];
-            const slowValStr = cols[3];
-
-            // Dense channel should always have a timestamp and value
             expect(fastTsStr).not.toBe("");
             expect(fastValStr).not.toBe("");
 
@@ -710,25 +848,16 @@ describe("Reader", () => {
             if (lastTimestamp !== null) expect(ts).toBeGreaterThan(lastTimestamp);
             lastTimestamp = ts;
 
-            // Sparse channel only has data every 1000 "ticks"
             if (slowValStr !== "") {
               sparseRows++;
               // When sparse has data, its timestamp should match dense's timestamp
               expect(slowTsStr).toBe(fastTsStr);
+              expect(slowValStr).not.toBe("");
             }
           }
         }
-
-        // Handle any final line without trailing CRLF
-        if (buffer.trim().length > 0) if (!isHeader) totalRows++;
-
-        // We should have streamed multiple chunks (proves AUTO_SPAN / multi-frame)
         expect(chunkCount).toBeGreaterThan(1);
-
-        // One row per dense timestamp
         expect(totalRows).toBe(denseSamples);
-
-        // One row per sparse timestamp (merged into dense rows)
         expect(sparseRows).toBe(sparseSamples);
       },
     );
