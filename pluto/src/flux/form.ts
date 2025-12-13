@@ -161,6 +161,7 @@ export const createForm =
       schema,
       values: initialValues ?? baseInitialValues,
       onChange: ({ path }) => {
+        // Don't save if the path is empty to prevent infinite save loops.
         if (autoSave && path !== "") save();
       },
       sync,

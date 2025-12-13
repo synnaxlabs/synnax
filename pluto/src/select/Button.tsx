@@ -13,9 +13,11 @@ import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Button as CoreButton } from "@/button";
+import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { List } from "@/list";
-import { Frame, type FrameProps, useContext, useItemState } from "@/select/Frame";
+import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
+import { Frame, type FrameProps, useItemState } from "@/select/Frame";
 
 export interface ButtonsProps<
   K extends record.Key = record.Key,
@@ -55,19 +57,17 @@ export interface ButtonProps<K extends record.Key = record.Key>
 
 export const Button = <K extends record.Key = record.Key>({
   itemKey,
+  className,
   ...rest
 }: ButtonProps<K>): ReactElement | null => {
-  const { setSelected } = useContext();
   const { selected, onSelect } = useItemState<K>(itemKey);
   return (
     <CoreButton.Toggle
       {...rest}
+      id={itemKey.toString()}
       onChange={onSelect}
       value={selected}
-      onContextMenu={(e) => {
-        setSelected([itemKey]);
-        e.preventDefault();
-      }}
+      className={CSS(className, selected && CONTEXT_SELECTED, CONTEXT_TARGET)}
     />
   );
 };

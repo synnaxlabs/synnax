@@ -78,6 +78,9 @@
         padding: 0 1rem;
     }
     &.pluto-btn--filled {
+        .pluto-text {
+            color: var(--pluto-btn-text-color, var(--pluto-text-on-primary));
+        }
         color: var(--pluto-btn-text-color, var(--pluto-text-on-primary));
         &.pluto--status-success {
             color: var(--pluto-text-on-primary);
