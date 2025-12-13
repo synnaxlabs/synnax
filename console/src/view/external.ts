@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { useContext as useCtx } from "@/view/context";
+
 export const useContext = () => useCtx("View.useContext");
 
 export * from "@/view/FilterMenu";

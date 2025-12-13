@@ -24,7 +24,7 @@ export const Items = <K extends record.Key>(props: ItemsProps<K>): ReactElement 
 const DefaultEmptyContent = (): ReactElement => {
   const { resourceType } = useContext("View.Items");
   return (
-    <Flex.Box center grow>
+    <Flex.Box center>
       <Text.Text status="disabled">No {plural(resourceType)} found.</Text.Text>
     </Flex.Box>
   );

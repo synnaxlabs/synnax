@@ -207,15 +207,14 @@ const Selector = ({
 };
 
 const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement | null => {
-  const { selected, select, staticViews } = useContext("View.Selector");
+  const { selected, select, staticViews, resourceType } = useContext("View.Selector");
   const { getItem } = List.useUtilContext<view.Key, View>();
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const views = getItem(keys);
   const filteredViews = views.filter((v) => v.static !== true);
   const confirm = Ontology.useConfirmDelete({
-    //TODO: change this to view
-    icon: "Range",
-    type: "Delete",
+    icon: "View",
+    type: caseconv.capitalize(plural(resourceType)),
     description: "Deletion will permanently remove the view(s).",
   });
   const { update: del } = PView.useDelete({
