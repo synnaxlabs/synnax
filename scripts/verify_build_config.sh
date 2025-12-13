@@ -9,26 +9,26 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Verify and display build configuration
-
 VERSION=$1
-BUILD_WINDOWS=$2
-BUILD_MACOS=$3
-BUILD_UBUNTU=$4
-BUILD_UBUNTU_22_04=$5
-BUILD_DRIVER=$6
-BUILD_CONSOLE=$7
-BUILD_CORE=$8
+PLATFORM_WINDOWS=$2
+PLATFORM_MACOS=$3
+PLATFORM_UBUNTU=$4
+PLATFORM_UBUNTU_22_04=$5
+PLATFORM_DOCKER=$6
+BUILD_DRIVER=$7
+BUILD_CONSOLE=$8
+BUILD_CONSOLE_TAURI=$9
+BUILD_CORE=${10}
 
-# Verify that at least one OS is selected
-if [ "$BUILD_WINDOWS" != "true" ] && [ "$BUILD_MACOS" != "true" ] && [ "$BUILD_UBUNTU" != "true" ] && [ "$BUILD_UBUNTU_22_04" != "true" ]; then
-    echo "Error: No operating systems selected. Please select at least one OS to build for."
+# Verify that at least one platform is selected
+if [ "$PLATFORM_WINDOWS" != "true" ] && [ "$PLATFORM_MACOS" != "true" ] && [ "$PLATFORM_UBUNTU" != "true" ] && [ "$PLATFORM_UBUNTU_22_04" != "true" ] && [ "$PLATFORM_DOCKER" != "true" ]; then
+    echo "Error: No platforms selected. Please select at least one platform to build for."
     exit 1
 fi
 
-# Verify that at least one binary is selected
-if [ "$BUILD_DRIVER" != "true" ] && [ "$BUILD_CONSOLE" != "true" ] && [ "$BUILD_CORE" != "true" ]; then
-    echo "Error: No binaries selected. Please select at least one binary to build."
+# Verify that at least one build target is selected
+if [ "$BUILD_DRIVER" != "true" ] && [ "$BUILD_CONSOLE" != "true" ] && [ "$BUILD_CONSOLE_TAURI" != "true" ] && [ "$BUILD_CORE" != "true" ]; then
+    echo "Error: No build targets selected. Please select at least one target to build."
     exit 1
 fi
 
@@ -38,38 +38,48 @@ echo "╚═══════════════════════�
 echo ""
 echo "Version: $VERSION"
 echo ""
-echo "Operating Systems:"
-if [ "$BUILD_WINDOWS" = "true" ]; then
+echo "Platforms:"
+if [ "$PLATFORM_WINDOWS" = "true" ]; then
     echo "  ✓ Windows"
 else
     echo "  X Windows"
 fi
-if [ "$BUILD_MACOS" = "true" ]; then
+if [ "$PLATFORM_MACOS" = "true" ]; then
     echo "  ✓ macOS"
 else
     echo "  X macOS"
 fi
-if [ "$BUILD_UBUNTU" = "true" ]; then
+if [ "$PLATFORM_UBUNTU" = "true" ]; then
     echo "  ✓ Ubuntu"
 else
     echo "  X Ubuntu"
 fi
-if [ "$BUILD_UBUNTU_22_04" = "true" ]; then
+if [ "$PLATFORM_UBUNTU_22_04" = "true" ]; then
     echo "  ✓ Ubuntu 22.04 (NI Linux RT)"
 else
     echo "  X Ubuntu 22.04 (NI Linux RT)"
 fi
+if [ "$PLATFORM_DOCKER" = "true" ]; then
+    echo "  ✓ Docker"
+else
+    echo "  X Docker"
+fi
 echo ""
-echo "Binaries:"
+echo "Builds:"
 if [ "$BUILD_DRIVER" = "true" ]; then
     echo "  ✓ Driver"
 else
     echo "  X Driver"
 fi
 if [ "$BUILD_CONSOLE" = "true" ]; then
-    echo "  ✓ Console"
+    echo "  ✓ Console Web Assets"
 else
-    echo "  X Console"
+    echo "  X Console Web Assets"
+fi
+if [ "$BUILD_CONSOLE_TAURI" = "true" ]; then
+    echo "  ✓ Console Desktop App"
+else
+    echo "  X Console Desktop App"
 fi
 if [ "$BUILD_CORE" = "true" ]; then
     echo "  ✓ Core"
