@@ -354,37 +354,37 @@ jobs:
         if: inputs.driver
         shell: bash
         run: |
-          mv bazel-bin/driver/driver${{ matrix.executable }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}${{ matrix.executable }}
+          mv bazel-bin/driver/driver${{ matrix.executable }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
       - name: Upload Driver Binary as Artifact
         if: inputs.driver
         uses: actions/upload-artifact@v4
         with:
           name:
-            ${{ inputs.use_simple_artifact_names && format('{0}-driver',
-            matrix.binary-suffix) || format('{0}-driver-v{1}', matrix.binary-suffix,
-            needs.setup.outputs.VERSION) }}
+            ${{ inputs.use_simple_artifact_names && format('synnax-driver-{0}',
+            matrix.os-name) || format('synnax-driver-v{0}-{1}',
+            needs.setup.outputs.VERSION, matrix.os-name) }}
           path:
             bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{
-            matrix.binary-suffix }}${{ matrix.executable }}
+            matrix.os-name }}${{ matrix.executable }}
           retention-days: 7
           if-no-files-found: error
 
       - name: Upload Driver to Release
         if: inputs.driver && inputs.upload_to_release
         run: |
-          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}${{ matrix.executable }}
+          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
       - name: Copy Driver to Assets
         if: inputs.driver && inputs.core && matrix.os != 'windows-build-bot'
         run: |
-          cp bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}${{ matrix.executable }} core/pkg/service/driver/assets/driver${{ matrix.executable }}
+          cp bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }} core/pkg/service/driver/assets/driver${{ matrix.executable }}
 
       - name: Copy Driver to Assets (Windows)
         if: inputs.driver && inputs.core && matrix.os == 'windows-build-bot'
         shell: powershell
         run: |
-          Copy-Item -Force bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}.exe core/pkg/service/driver/assets/driver.exe
+          Copy-Item -Force bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}.exe core/pkg/service/driver/assets/driver.exe
 
       - name: Set up pnpm
         if: inputs.console
@@ -411,9 +411,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name:
-            ${{ inputs.use_simple_artifact_names && format('{0}-console-assets',
-            matrix.binary-suffix) || format('{0}-console-assets-v{1}',
-            matrix.binary-suffix, needs.setup.outputs.VERSION) }}
+            ${{ inputs.use_simple_artifact_names && format('synnax-console-assets-{0}',
+            matrix.os-name) || format('synnax-console-assets-v{0}-{1}',
+            needs.setup.outputs.VERSION, matrix.os-name) }}
           path: console/dist/
           retention-days: 7
           if-no-files-found: error
@@ -501,8 +501,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name:
-            ${{ inputs.use_simple_artifact_names && matrix.artifact-name ||
-            format('{0}-v{1}', matrix.binary-suffix, needs.setup.outputs.VERSION) }}
+            ${{ inputs.use_simple_artifact_names && format('synnax-core-{0}',
+            matrix.os-name) || format('synnax-core-v{0}-{1}',
+            needs.setup.outputs.VERSION, matrix.os-name) }}
           path: core/synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
           retention-days: 7
           if-no-files-found: error
@@ -511,12 +512,12 @@ jobs:
         if: inputs.core && inputs.upload_to_release
         working-directory: core
         run: |
-          cp synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }} synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}${{ matrix.executable }}
+          cp synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }} synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
       - name: Upload Core to Release
         if: inputs.core && inputs.upload_to_release
         run: |
-          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}${{ matrix.executable }}
+          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
       - name: Debug Build Environment
         if: failure() && matrix.os != 'windows-build-bot'
@@ -736,7 +737,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name:
-            ${{ matrix.os == 'macos-latest' && 'macos' || 'windows' }}-console-desktop
+            ${{ matrix.os == 'macos-latest' && 'synnax-console-macos' ||
+            'synnax-console-windows' }}
           path: |
             ${{ matrix.os == 'macos-latest' && format('console/src-tauri/target/release/bundle/dmg/Synnax_{0}_aarch64.dmg', steps.console-version.outputs.CONSOLE_VERSION) || '' }}
             ${{ matrix.os == 'windows-latest' && format('console/src-tauri/target/release/bundle/msi/Synnax_{0}_x64_en-US.msi', steps.console-version.outputs.CONSOLE_VERSION) || '' }}

@@ -29,9 +29,9 @@ install_github_cli() {
 # Detect OS and set artifact name
 get_artifact_name() {
     if [[ "$(uname)" == "Darwin" ]]; then
-        echo "macos-core"
+        echo "synnax-core-macos"
     else
-        echo "linux-core"
+        echo "synnax-core-linux"
     fi
 }
 
