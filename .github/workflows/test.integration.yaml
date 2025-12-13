@@ -193,7 +193,6 @@ jobs:
     with:
       windows: true
       ubuntu: true
-      ubuntu_22_04: false
       docker: false
       driver: true
       console: true

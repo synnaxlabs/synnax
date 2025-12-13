@@ -178,7 +178,6 @@ jobs:
       windows: true
       macos: true
       ubuntu: true
-      ubuntu_22_04: true
       docker: true
       driver: true
       console: true
