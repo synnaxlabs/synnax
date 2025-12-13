@@ -12,6 +12,23 @@ import { type z } from "zod";
 import { deep } from "@/deep";
 import { type record } from "@/record";
 
+/**
+ * Gets the output schema from a z.function() schema.
+ *
+ * @example
+ * functionOutput(z.function()) // z.ZodUnknown
+ * functionOutput(z.function({ output: z.void() })) // z.ZodVoid
+ * functionOutput(z.function({ output: z.number() })) // z.ZodNumber
+ */
+type FunctionOutput<T> = T extends z.ZodFunction<z.ZodTuple, infer O> ? O : z.ZodType;
+
+export const functionOutput = <T extends z.ZodFunction>(
+  schema: T,
+): FunctionOutput<T> => {
+  const def = schema._def as unknown as { output: FunctionOutput<T> };
+  return def.output;
+};
+
 export const getFieldSchemaPath = (path: string): string =>
   deep.transformPath(path, (part, index, parts) => {
     const isLast = index === parts.length - 1;

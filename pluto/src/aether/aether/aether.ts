@@ -16,6 +16,7 @@ import {
   type Sender,
   type SenderHandler,
   shallow,
+  zod,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -207,6 +208,15 @@ export type HandlersFromSchema<T> = {
     : never;
 };
 
+export const isFireAndForget = <F extends z.ZodFunction>(schema: F): boolean => {
+  const outputType = zod.functionOutput(schema);
+  return (
+    outputType instanceof z.ZodVoid ||
+    outputType instanceof z.ZodNever ||
+    outputType instanceof z.ZodUnknown
+  );
+};
+
 /**
  * Type helper to extract caller function signatures from a methods schema.
  * Void returns become fire-and-forget (returns void), non-void returns use Promise.
@@ -254,7 +264,7 @@ export type CallersFromSchema<T> = {
 export abstract class Leaf<
   StateSchema extends z.ZodType<state.State>,
   InternalState extends {} = {},
-  M extends MethodsSchema = EmptyMethodsSchema,
+  Methods extends MethodsSchema = EmptyMethodsSchema,
 > implements Component
 {
   readonly type: string;
@@ -277,7 +287,11 @@ export abstract class Leaf<
    * Methods schema for RPC. Define this to enable RPC methods.
    * Method names in the schema must match method names on the class.
    */
-  methods: M | undefined = undefined as M | undefined;
+  methods: Methods | undefined = undefined as Methods | undefined;
+  private _methodImplementations: Record<
+    string,
+    (...args: unknown[]) => Promise<unknown>
+  > | null = null;
 
   constructor({
     key,
@@ -295,6 +309,19 @@ export abstract class Leaf<
     parentCtxValues?.forEach((value, key) => this.parentCtxValues.set(key, value));
     this.childCtxValues = new Map();
     this.childCtxChangedKeys = new Set();
+  }
+
+  private initializeMethods() {
+    if (this.methods == null || this._methodImplementations != null) return;
+    this._methodImplementations = {};
+    for (const [name, schema] of Object.entries(this.methods)) {
+      const methodFn = this[name as keyof this];
+      if (typeof methodFn !== "function")
+        throw new Error(`Method ${name} is not a function`);
+      this._methodImplementations[name] = isFireAndForget(schema)
+        ? schema.implement(methodFn.bind(this))
+        : schema.implementAsync(methodFn.bind(this));
+    }
   }
 
   private get _schema(): StateSchema {
@@ -374,6 +401,7 @@ export abstract class Leaf<
   _updateState({ path, state }: UpdateStateArgs): void {
     if (this.deleted) return;
     try {
+      this.initializeMethods();
       const endSpan = this.instrumentation.T.debug(`${this.toString()}:updateState`);
       this.validatePath(path);
       const state_ = prettyParse(this._schema, state, `${this.toString()}`);
@@ -476,22 +504,22 @@ export abstract class Leaf<
       });
     };
 
-    const methodSchema = this.methods?.[method];
-    const methodFn = this[method as keyof this];
-    if (methodSchema == null || typeof methodFn !== "function") {
-      reportErr(new Error(`Method '${method}' not found on ${this.toString()}`));
-      return;
-    }
-
+    const methodFn = this._methodImplementations?.[method];
+    if (methodFn == null)
+      return reportErr(new Error(`Method ${method} not found on ${this.toString()}`));
     // Dynamic dispatch - TypeScript can't track string → method lookup.
     // implementAsync wraps sync results in Promises for uniform handling.
-    const invoke = methodSchema.implementAsync(methodFn.bind(this));
-    invoke(...args)
-      .then((r: unknown) => {
-        if (expectsResponse)
-          this.sender.send({ variant: "rpc-response", requestId, result: r });
-      })
-      .catch(reportErr);
+    try {
+      const res = methodFn(...args);
+      if (res instanceof Promise)
+        res
+          .then((r: unknown) =>
+            this.sender.send({ variant: "rpc-response", requestId, result: r }),
+          )
+          .catch(reportErr);
+    } catch (e) {
+      reportErr(e);
+    }
   }
 }
 

@@ -25,6 +25,7 @@ import { type z } from "zod";
 import {
   type CallersFromSchema,
   type EmptyMethodsSchema,
+  isFireAndForget,
   type MethodsSchema,
 } from "@/aether/aether/aether";
 import { type AetherMessage, type MainMessage } from "@/aether/message";
@@ -402,18 +403,11 @@ export const useLifecycle = <
   const methods = useMemo(() => {
     if (methodsSchema == null) return {} as CallersFromSchema<M>;
     const callers: Record<string, (...args: unknown[]) => unknown> = {};
-    for (const method of Object.keys(methodsSchema)) {
-      // In Zod 4, _def.output.def.type is "unknown" for z.function() (no output),
-      // "void" for z.function({ output: z.void() }), or the actual type name.
-      const def = methodsSchema[method]._def as {
-        output?: { def?: { type?: string } };
-      };
-      const outputType = def.output?.def?.type;
-      const isVoid = outputType === "void" || outputType === "unknown";
-      callers[method] = isVoid
+    for (const method of Object.keys(methodsSchema))
+      callers[method] = isFireAndForget(methodsSchema[method])
         ? (...args: unknown[]) => comms.current?.invokeMethod(method, args)
         : (...args: unknown[]) => comms.current?.invokeMethodAsync(method, args);
-    }
+
     return callers as CallersFromSchema<M>;
   }, [methodsSchema]);
 

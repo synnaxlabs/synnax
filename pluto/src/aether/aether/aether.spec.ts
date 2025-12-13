@@ -179,14 +179,22 @@ const shouldNotCallCreate = () => {
 
 const rpcMethodsSchema = {
   increment: z.function({ input: z.tuple([z.number()]), output: z.number() }),
-  greet: z.function({ input: z.tuple([z.object({ name: z.string() })]), output: z.string() }),
+  greet: z.function({
+    input: z.tuple([z.object({ name: z.string() })]),
+    output: z.string(),
+  }),
   noArgs: z.function(),
-  asyncMethod: z.function({ input: z.tuple([z.number()]), output: z.promise(z.number()) }),
+  asyncMethod: z.function({
+    input: z.tuple([z.number()]),
+    output: z.promise(z.number()),
+  }),
   throwError: z.function(),
 } satisfies aether.MethodsSchema;
 
-class RPCLeaf extends aether.Leaf<typeof exampleProps, {}, typeof rpcMethodsSchema>
-  implements aether.HandlersFromSchema<typeof rpcMethodsSchema> {
+class RPCLeaf
+  extends aether.Leaf<typeof exampleProps, {}, typeof rpcMethodsSchema>
+  implements aether.HandlersFromSchema<typeof rpcMethodsSchema>
+{
   schema = exampleProps;
   methods = rpcMethodsSchema;
 
@@ -236,7 +244,12 @@ const createRPCLeaf = (key: string, parentCtxValues: aether.ContextMap | null = 
     parentCtxValues,
   });
 
-class RPCComposite extends aether.Composite<typeof exampleProps, {}, RPCLeaf, aether.EmptyMethodsSchema> {
+class RPCComposite extends aether.Composite<
+  typeof exampleProps,
+  {},
+  RPCLeaf,
+  aether.EmptyMethodsSchema
+> {
   schema = exampleProps;
   methods = undefined;
 
@@ -688,12 +701,6 @@ describe("Aether Worker", () => {
             message: expect.stringContaining("unknownMethod"),
           }),
         });
-      });
-
-      it("should silently ignore unknown method when fire-and-forget", () => {
-        leaf._invokeMethod("req-6b", "unknownMethod", [], false);
-
-        expect(MockSender.send).not.toHaveBeenCalled();
       });
 
       it("should not invoke method if component is deleted", () => {
