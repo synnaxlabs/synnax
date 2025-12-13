@@ -28,22 +28,14 @@ export interface UseReturn {
 }
 
 export const use = ({ aetherKey, sink, mode }: UseProps): UseReturn => {
-  const memoProps = useMemoDeepEqual({ sink, mode });
-  const { setState, methods } = Aether.useLifecycle({
+  const {
+    methods: { onMouseDown, onMouseUp },
+  } = Aether.useUnidirectional({
     aetherKey,
     type: button.Button.TYPE,
     schema: button.buttonStateZ,
     methods: button.buttonMethodsZ,
-    initialState: memoProps,
+    state: { sink, mode },
   });
-
-  useEffect(() => {
-    setState(memoProps);
-  }, [memoProps, setState]);
-
-  return {
-    onClick: () => void methods.onMouseUp(),
-    onMouseDown: () => void methods.onMouseDown(),
-    onMouseUp: () => void methods.onMouseUp(),
-  };
+  return { onClick: onMouseUp, onMouseDown, onMouseUp };
 };

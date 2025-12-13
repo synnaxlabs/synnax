@@ -19,7 +19,8 @@ export interface UseProps
   aetherKey: string;
 }
 
-export interface UseReturn extends Pick<z.infer<typeof toggle.toggleStateZ>, "enabled"> {
+export interface UseReturn
+  extends Pick<z.infer<typeof toggle.toggleStateZ>, "enabled"> {
   toggle: () => void;
 }
 
@@ -30,18 +31,10 @@ export const use = ({ aetherKey, source, sink }: UseProps): UseReturn => {
     type: toggle.Toggle.TYPE,
     schema: toggle.toggleStateZ,
     methods: toggle.toggleMethodsZ,
-    initialState: {
-      enabled: false,
-      ...memoProps,
-    },
+    initialState: { enabled: false, ...memoProps },
   });
-
   useEffect(() => {
     setState((state) => ({ ...state, ...memoProps }));
   }, [memoProps, setState]);
-
-  return {
-    toggle: () => void methods.toggle(),
-    enabled,
-  };
+  return { ...methods, enabled };
 };

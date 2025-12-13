@@ -484,8 +484,7 @@ export abstract class Leaf<
     }
 
     // Dynamic dispatch - TypeScript can't track string → method lookup.
-    // Always use implementAsync for simplicity; it wraps sync results in Promises,
-    // which our response handling already supports.
+    // implementAsync wraps sync results in Promises for uniform handling.
     const invoke = methodSchema.implementAsync(methodFn.bind(this));
     invoke(...args)
       .then((r: unknown) => {
@@ -786,7 +785,6 @@ export class Root extends Composite<typeof aetherRootState> {
             stack: "",
           },
         });
-
       return;
     }
 
@@ -808,7 +806,6 @@ export class Root extends Composite<typeof aetherRootState> {
             stack: "",
           },
         });
-
       return;
     }
 

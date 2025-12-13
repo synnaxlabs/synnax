@@ -495,29 +495,42 @@ export type UseReturn<
 /**
  * Props for the useUnidirectional hook that only propagates state to the Aether component
  */
-export interface UseUnidirectionalProps<S extends z.ZodType>
-  extends Pick<UseLifecycleProps<S>, "schema" | "aetherKey"> {
+export interface UseUnidirectionalProps<
+  S extends z.ZodType,
+  M extends MethodsSchema = EmptyMethodsSchema,
+> extends Pick<UseLifecycleProps<S, M>, "schema" | "aetherKey" | "methods"> {
   /** The type identifier for the Aether component */
   type: string;
   /** The current state to propagate to the Aether component */
   state: z.input<S>;
 }
 
+export interface UseUnidirectionalReturn<M extends MethodsSchema = EmptyMethodsSchema>
+  extends ComponentContext {
+  methods: CallersFromSchema<M>;
+}
+
 /***
  * A simpler version of {@link use} that assumes the caller only wants to propagate
  * state to the aether component, and not receive state from the aether component.
  */
-export const useUnidirectional = <S extends z.ZodType<state.State>>({
+export const useUnidirectional = <
+  S extends z.ZodType<state.State>,
+  M extends MethodsSchema = EmptyMethodsSchema,
+>({
   state,
   ...rest
-}: UseUnidirectionalProps<S>): ComponentContext => {
-  const { path, setState } = useLifecycle<S>({ ...rest, initialState: state });
+}: UseUnidirectionalProps<S, M>): UseUnidirectionalReturn<M> => {
+  const { path, setState, methods } = useLifecycle<S, M>({
+    ...rest,
+    initialState: state,
+  });
   const ref = useRef<z.input<S> | z.infer<S> | null>(null);
   if (!deep.equal(ref.current, state)) {
     ref.current = state;
     setState(state);
   }
-  return { path };
+  return { path, methods };
 };
 
 /**
