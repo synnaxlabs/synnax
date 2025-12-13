@@ -38,11 +38,9 @@ class BadActor(ConsoleCase):
                 console.channels.delete(ch)
 
                 # Not getting an error immediately does not mean
-                # the channel was deleted. Query the core directly.
-                try:
-                    client.channels.retrieve(ch)
-                    self.log(f"'{ch}' still exists on core (delete was blocked)")
-                except Exception:
+                # the channel was deleted. Check the channels list.
+                exists, _ = console.channels.existing_channel(ch)
+                if not exists:
                     self.fail(f"Channel '{ch}' improperly deleted.")
 
             except RuntimeError as rte:
@@ -51,3 +49,6 @@ class BadActor(ConsoleCase):
 
             except Exception as e:
                 self.fail(f"Unexpected error while deleting '{ch}': {e}")
+
+            channel = client.channels.retrieve(ch)
+            self.log(f"{ch} still exists")

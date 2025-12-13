@@ -724,23 +724,14 @@ class TestConductor:
         This ensures proper cleanup and prevents premature termination.
         """
         self.state = STATE.SHUTDOWN
-        self.should_stop = True
 
         # Wait for client manager thread to finish
         if self.client_manager_thread and self.client_manager_thread.is_alive():
-            self.client_manager_thread.join(timeout=5.0)
-            if self.client_manager_thread.is_alive():
-                self.log_message(
-                    "Warning: client_manager_thread did not stop within timeout"
-                )
+            self.client_manager_thread.join()
 
         # Wait for timeout monitor to finish
         if self.timeout_monitor_thread and self.timeout_monitor_thread.is_alive():
-            self.timeout_monitor_thread.join(timeout=5.0)
-            if self.timeout_monitor_thread.is_alive():
-                self.log_message(
-                    "Warning: timeout_monitor_thread did not stop within timeout"
-                )
+            self.timeout_monitor_thread.join()
 
         self.state = STATE.COMPLETED
 
@@ -1358,15 +1349,15 @@ def main() -> None:
                 conductor.log_message(
                     f"\nExiting with failure code due to {stats['total_failed']}/{stats['total']} failed tests"
                 )
-                os._exit(1)
+                sys.exit(1)
             else:
                 conductor.log_message(
                     f"\nAll {stats['total']} tests passed successfully", False
                 )
-                os._exit(0)
+                sys.exit(0)
         else:
             conductor.log_message("\nNo test results available")
-            os._exit(1)
+            sys.exit(1)
 
 
 if __name__ == "__main__":

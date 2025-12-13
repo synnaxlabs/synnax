@@ -87,7 +87,6 @@ class ConsoleCase(TestCase):
 
     def teardown(self) -> None:
         self.browser.close()
-        self.playwright.stop()
 
     def determine_browser(self) -> BrowserType:
         """

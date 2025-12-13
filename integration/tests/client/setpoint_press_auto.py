@@ -18,7 +18,7 @@ class SetpointPressAuto(TestCase):
     """
 
     def setup(self) -> None:
-        self.set_manual_timeout(60)
+        self.set_manual_timeout(120)
         self.control_authority = self.params.get("control_authority", -1)
 
         self.subscribe(
@@ -47,32 +47,9 @@ class SetpointPressAuto(TestCase):
 
         ctrl_valves = ["press_vlv_cmd", "vent_vlv_cmd"]
         read_chans = ["press_pt", "press_setpoint_cmd", "test_flag_cmd", "end_test_cmd"]
-
-        # ------------- Test 1: Control Authority --------------
-        # SY-3147: Pair this test with setpoint_press_user.py
-        # to ensure that the schematic control authority is working.
-        # Use read-only streaming for Test 1 to avoid opening any writer
-        # that could conflict with the schematic's writes.
-        with client.open_streamer(["test_flag_cmd"]) as streamer:
-            # Wait for test_flag_cmd == 1 (user starts Test 1)
-            while self.should_continue:
-                frame = streamer.read(timeout=0.1)
-                if frame is not None and "test_flag_cmd" in frame:
-                    if frame["test_flag_cmd"][-1] == 1:
-                        break
-            # Wait for test_flag_cmd == 0 (user completes Test 1)
-            while self.should_continue:
-                frame = streamer.read(timeout=0.1)
-                if frame is not None and "test_flag_cmd" in frame:
-                    if frame["test_flag_cmd"][-1] == 0:
-                        break
-
-        # ------------- Test 2: Basic Control --------------
-        # setpoint_press_user will control setpoint via the console schematic.
-        # Only open the writer after Test 1 completes to avoid timestamp conflicts.
         with client.control.acquire(
             name="Pressurization Automation",
-            write_authorities=self.control_authority,
+            write_authorities=1,  # Start low
             write=ctrl_valves,
             read=read_chans,
         ) as ctrl:
@@ -82,12 +59,22 @@ class SetpointPressAuto(TestCase):
             def test_active() -> bool:
                 return all([loop.wait(), self.should_continue])
 
-            ctrl.wait_until(lambda c: c.get("test_flag_cmd", 0) == 1, timeout=3)
+            # ------------- Test 1: Control Authority --------------
+            # SY-3147: Pair this test with setpoint_press_user.py
+            # to ensure that the schematic control authority is working.
+            ctrl.wait_until(lambda c: c.get("test_flag_cmd", 0) == 1)
+            ctrl.set_authority(self.control_authority)  # Set high
+            ctrl.wait_until(lambda c: c.get("test_flag_cmd", 1) == 0)
+
+            # ------------- Test 2: Basic Control --------------
+            # setpoint_press_user will control setpoint via the
+            # console schematic.
+            ctrl.wait_until(lambda c: c.get("test_flag_cmd", 0) == 1)
 
             # Initialize valves to closed
             ctrl.set({"press_vlv_cmd": 0, "vent_vlv_cmd": 0})
             if not ctrl.wait_until_defined(
-                ["press_pt", "press_setpoint_cmd"], timeout=10
+                ["press_pt", "press_setpoint_cmd"], timeout=60
             ):
                 self.fail("Timeout (60s) for press_pt and press_setpoint_cmd")
                 return

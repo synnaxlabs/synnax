@@ -14,6 +14,29 @@
           }
         }
       ]
+    },
+    {
+      "sequence_name": "Expected_Failures",
+      "sequence_order": "sequential",
+      "tests": [
+        {
+          "case": "example_basic",
+          "name": "inject_timeout",
+          "parameters": {
+            "timeout": [1, 2, 3],
+            "wait_time": 4
+          },
+          "expect": "TIMEOUT"
+        },
+        {
+          "case": "example_basic",
+          "name": "inject_failure",
+          "parameters": {
+            "fail_test": true
+          },
+          "expect": "FAILED"
+        }
+      ]
     }
   ]
 }

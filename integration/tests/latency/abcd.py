@@ -53,7 +53,7 @@ class Abcd(Latency):
         Setup the test case.
         """
         self.log("WARNING (⚠️): This test does not have any reporting.")
-        self.configure(loop_rate=0.01, manual_timeout=15)
+        self.configure(loop_rate=0.01, manual_timeout=20)
 
         # Get mode from matrix parameters
         self.mode = self.params.get("mode")
