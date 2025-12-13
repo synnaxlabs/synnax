@@ -136,8 +136,7 @@ jobs:
             elif [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
               echo "VERSION=${BASE_VERSION}-rc" >> $GITHUB_OUTPUT
             else
-              BRANCH_NAME="${GITHUB_REF#refs/heads/}"
-              echo "VERSION=${BASE_VERSION}-${BRANCH_NAME}" >> $GITHUB_OUTPUT
+              echo "VERSION=${BASE_VERSION}-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
             fi
           fi
 
@@ -646,7 +645,7 @@ jobs:
           elif [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
             echo "VERSION=${CONSOLE_VERSION}-rc" >> $GITHUB_OUTPUT
           else
-            echo "VERSION=${CONSOLE_VERSION}-pr" >> $GITHUB_OUTPUT
+            echo "VERSION=${CONSOLE_VERSION}-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
           fi
 
       - name: Set up pnpm

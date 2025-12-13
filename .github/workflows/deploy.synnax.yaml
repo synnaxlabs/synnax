@@ -102,7 +102,7 @@ jobs:
           elif [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
             echo "VERSION=$(cat pkg/version/VERSION)-rc" >> $GITHUB_OUTPUT
           else
-            echo "VERSION=$(cat pkg/version/VERSION)-pr" >> $GITHUB_OUTPUT
+            echo "VERSION=$(cat pkg/version/VERSION)-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
           fi
 
   create-release:
@@ -127,7 +127,7 @@ jobs:
           elif [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
             echo "VERSION=${CONSOLE_VERSION}-rc" >> $GITHUB_OUTPUT
           else
-            echo "VERSION=${CONSOLE_VERSION}-pr" >> $GITHUB_OUTPUT
+            echo "VERSION=${CONSOLE_VERSION}-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
           fi
 
       - name: Create Releases
