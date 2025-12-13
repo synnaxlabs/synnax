@@ -64,7 +64,7 @@ public:
         if (input->size() == 0) return xerrors::NIL;
 
         // Activation signal is a u8 with value 1
-        auto signal = input->at(0).get<std::uint8_t>();
+        auto signal = std::get<std::uint8_t>(input->at(0));
         if (signal == 1 && shared_callback) {
             shared_callback->invoke(sequence_name, stage_name);
         }

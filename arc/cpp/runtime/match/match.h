@@ -52,7 +52,7 @@ public:
         if (input->size() == 0) return xerrors::NIL;
 
         // Get the input value as string
-        auto input_value = input->at(0).get<std::string>();
+        auto input_value = std::get<std::string>(input->at(0));
 
         // Find matching case
         auto it = case_map.find(input_value);

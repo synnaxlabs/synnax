@@ -9,6 +9,7 @@ cc_library(
         "//arc/cpp/runtime/scheduler",
         "//arc/cpp/runtime/stage",
         "//arc/cpp/runtime/state",
+        "//arc/cpp/runtime/telem",
         "//arc/cpp/runtime/time",
         "//arc/cpp/runtime/wasm",
     ],

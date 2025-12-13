@@ -463,10 +463,19 @@ func translateParamsToPB(p arctypes.Params) ([]*arctypes.PBParam, error) {
 		if err != nil {
 			return nil, err
 		}
-		params[i] = &arctypes.PBParam{
+		pbParam := &arctypes.PBParam{
 			Name: param.Name,
 			Type: typePb,
 		}
+		// Translate Value if present
+		if param.Value != nil {
+			val, err := structpb.NewValue(param.Value)
+			if err != nil {
+				return nil, err
+			}
+			pbParam.Value = val
+		}
+		params[i] = pbParam
 	}
 	return params, nil
 }
@@ -485,10 +494,15 @@ func translateParamsFromPB(pbParams []*arctypes.PBParam) (arctypes.Params, error
 		if err != nil {
 			return nil, err
 		}
-		params = append(params, arctypes.Param{
+		param := arctypes.Param{
 			Name: pbParam.Name,
 			Type: typ,
-		})
+		}
+		// Extract Value if present
+		if pbParam.Value != nil {
+			param.Value = pbParam.Value.AsInterface()
+		}
+		params = append(params, param)
 	}
 	return params, nil
 }

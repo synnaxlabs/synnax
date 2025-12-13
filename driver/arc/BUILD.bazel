@@ -20,7 +20,11 @@ cc_test(
     name = "arc_test",
     srcs = ["arc_test.cpp"],
     deps = [
+        "//client/cpp/testutil",
         "//driver/arc",
+        "//driver/pipeline/mock",
+        "//driver/task",
+        "//x/cpp/defer",
         "//x/cpp/xtest",
         "@googletest//:gtest_main",
     ],

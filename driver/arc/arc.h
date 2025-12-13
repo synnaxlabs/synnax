@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <thread>
 #include <vector>
 
 #include "client/cpp/arc/arc.h"
@@ -58,7 +59,10 @@ struct TaskConfig {
         cfg.arc_key = parser.field<std::string>("arc_key");
         if (!parser.ok()) return {std::move(cfg), parser.error()};
 
-        auto [arc_data, arc_err] = client->arcs.retrieve_by_key(cfg.arc_key);
+        auto [arc_data, arc_err] = client->arcs.retrieve_by_key(
+            cfg.arc_key,
+            synnax::RetrieveOptions{.compile = true}
+        );
         if (arc_err) return {std::move(cfg), arc_err};
 
         cfg.module = module::Module(arc_data.module);
@@ -135,7 +139,9 @@ public:
         runtime(runtime) {}
 
     xerrors::Error read(breaker::Breaker &breaker, telem::Frame &data) override {
-        return this->runtime->read(data);
+        const auto out = this->runtime->read(data);
+        LOG(INFO) << "reading from runtime " << data;
+        return out;
     }
 
     void stopped_with_err(const xerrors::Error &err) override {
@@ -151,33 +157,36 @@ public:
     explicit Sink(const std::shared_ptr<runtime::Runtime> &runtime): runtime(runtime) {}
 
     xerrors::Error write(telem::Frame &frame) override {
+        if (frame.empty()) return xerrors::NIL;
+        LOG(INFO) << "writing to runtime " << frame;
         return this->runtime->write(std::move(frame));
     }
 };
 
 /// @brief arc runtime task that manages both read and write pipelines.
 class Task final : public task::Task {
-    /// @brief the arc runtime instance.
     std::shared_ptr<runtime::Runtime> runtime;
-    /// @brief acquisition pipeline for reading runtime outputs.
     std::unique_ptr<pipeline::Acquisition> acquisition;
-    /// @brief control pipeline for writing runtime inputs.
     std::unique_ptr<pipeline::Control> control;
-    /// @brief status handler for reporting task status.
     common::StatusHandler state;
-
 public:
     explicit Task(
         const synnax::Task &task_meta,
         const std::shared_ptr<task::Context> &ctx,
         std::shared_ptr<runtime::Runtime> runtime,
-        const TaskConfig &cfg
-    ):
-        runtime(std::move(runtime)), state(ctx, task_meta) {
+        const TaskConfig &cfg,
+        std::shared_ptr<pipeline::WriterFactory> writer_factory = nullptr,
+        std::shared_ptr<pipeline::StreamerFactory> streamer_factory = nullptr
+    ): runtime(std::move(runtime)),
+       state(ctx, task_meta) {
         auto source = std::make_unique<Source>(this->runtime);
         auto sink = std::make_unique<Sink>(this->runtime);
+        if (!writer_factory)
+            writer_factory = std::make_shared<pipeline::SynnaxWriterFactory>(ctx->client);
+        if (!streamer_factory)
+            streamer_factory = std::make_shared<pipeline::SynnaxStreamerFactory>(ctx->client);
         this->acquisition = std::make_unique<pipeline::Acquisition>(
-            ctx->client,
+            writer_factory,
             synnax::WriterConfig{
                 .channels = this->runtime->write_channels,
                 .start = telem::TimeStamp::now(),
@@ -187,7 +196,7 @@ public:
             breaker::default_config("arc_acquisition")
         );
         this->control = std::make_unique<pipeline::Control>(
-            ctx->client,
+            streamer_factory,
             synnax::StreamerConfig{.channels = this->runtime->read_channels},
             std::move(sink),
             breaker::default_config("arc_control")
@@ -195,23 +204,27 @@ public:
     }
 
     bool start(const std::string &cmd_key) {
+        // Runtime
+        const auto runtime_started = this->runtime->start();
+        // Outgoing telemetry
         const auto acq_started = this->acquisition->start();
-        if (acq_started)
-            this->control->start();
+        // Incoming telemetry
+        const auto control_started = this->control->start();
         this->state.send_start(cmd_key);
-        return acq_started;
+        return acq_started && control_started && runtime_started;
     }
 
     bool stop(const std::string &cmd_key, const bool propagate_state) {
-        const auto acq_stopped = this->acquisition->stop();
+        // Incoming telemetry
         const auto control_stopped = this->control->stop();
-        const auto stopped = acq_stopped && control_stopped;
+        // Outgoing telemetry
+        const auto acq_stopped = this->acquisition->stop();
+        // Runtime
+        const auto runtime_stopped = this->runtime->stop();
         if (propagate_state) this->state.send_stop(cmd_key);
-        return stopped;
+        return control_stopped && acq_stopped && runtime_stopped;
     }
 
-    /// @brief executes a command on the task.
-    /// @param cmd the command to execute.
     void exec(task::Command &cmd) override {
         if (cmd.type == "stop")
             this->stop(false);
@@ -219,10 +232,8 @@ public:
             LOG(WARNING) << "[arc] unknown command type: " << cmd.type;
     }
 
-    /// @brief stops the task and cleans up resources.
-    void stop(bool will_reconfigure) override {
-        this->acquisition.reset();
-        this->control.reset();
+    void stop(const bool will_reconfigure) override {
+        this->stop("", !will_reconfigure);
     }
 
     /// @brief returns the name of the task.

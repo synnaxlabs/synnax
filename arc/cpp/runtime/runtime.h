@@ -23,6 +23,7 @@
 #include "arc/cpp/runtime/scheduler/scheduler.h"
 #include "arc/cpp/runtime/stage/stage.h"
 #include "arc/cpp/runtime/state/state.h"
+#include "arc/cpp/runtime/telem/telem.h"
 #include "arc/cpp/runtime/time/time.h"
 #include "arc/cpp/runtime/wasm/bindings.h"
 #include "arc/cpp/runtime/wasm/factory.h"
@@ -40,6 +41,8 @@ struct Config {
 
 class Runtime {
     breaker::Breaker breaker;
+    std::thread run_thread;
+
     std::shared_ptr<wasm::Module> mod;
     std::unique_ptr<wasm::Bindings> bindings_runtime;
     std::unique_ptr<state::State> state;
@@ -47,7 +50,7 @@ class Runtime {
     std::unique_ptr<loop::Loop> loop;
     std::unique_ptr<queue::SPSC<telem::Frame>> inputs;
     std::unique_ptr<queue::SPSC<telem::Frame>> outputs;
-    telem::TimeStamp start = telem::TimeStamp(0);
+    telem::TimeStamp start_time = telem::TimeStamp(0);
 
 public:
     std::vector<types::ChannelKey> read_channels;
@@ -74,33 +77,52 @@ public:
         write_channels(std::move(write_channels)) {}
 
     std::vector<telem::TimeSpan> run() {
-        this->start = telem::TimeStamp::now();
+        this->start_time = telem::TimeStamp::now();
         this->loop->start();
-        this->breaker.start();
         std::vector<telem::TimeSpan> results;
-        this->loop->wait(this->breaker);
-        telem::Frame frame;
-        while (this->inputs->try_pop(frame))
-            this->state->ingest(frame);
+        while (this->breaker.running()) {
+            LOG(INFO) << "next iter elapsed";
+            this->loop->wait(this->breaker);
+            telem::Frame frame;
+            while (this->inputs->try_pop(frame)) {
+                LOG(INFO) << "runtime received frame: " << frame;
+                this->state->ingest(frame);
+            }
 
-        const auto elapsed = telem::TimeStamp::now() - this->start;
-        this->scheduler->next(elapsed);
-        results.push_back(elapsed);
+            const auto elapsed = telem::TimeStamp::now() - this->start_time;
+            this->scheduler->next(elapsed);
+            results.push_back(elapsed);
 
-        if (auto writes = this->state->flush_writes(); !writes.empty()) {
-            telem::Frame out_frame(writes.size());
-            for (auto &[key, series]: writes)
-                out_frame.emplace(key, std::move(*series));
-            this->outputs->push(std::move(out_frame));
+            LOG(INFO) << "scheduler complete";
+
+            if (auto writes = this->state->flush_writes(); !writes.empty()) {
+                telem::Frame out_frame(writes.size());
+                for (auto &[key, series]: writes)
+                    out_frame.emplace(key, std::move(*series));
+                this->outputs->push(std::move(out_frame));
+            }
         }
-
-        this->state->clear_reads();
-        this->breaker.stop();
         return results;
+    }
+
+    bool start() {
+        if (this->breaker.running()) return false;
+        this->breaker.start();
+        this->run_thread = std::thread([this]() {
+            this->run();
+        });
+        return true;
+    }
+
+    bool stop() {
+        if (!this->breaker.stop()) return false;
+        this->run_thread.join();
+        return true;
     }
 
     xerrors::Error write(telem::Frame frame) const {
         this->inputs->push(std::move(frame));
+        this->loop->notify_data();
         return xerrors::NIL;
     }
 
@@ -150,12 +172,14 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
     auto time_factory = std::make_shared<time::Factory>();
     auto stage_factory = std::make_shared<stage::Factory>();
     auto match_factory = std::make_shared<match::Factory>();
+    auto io_factory = std::make_shared<io::Factory>();
     node::MultiFactory fact(
         std::vector<std::shared_ptr<node::Factory>>{
             wasm_factory,
             time_factory,
             stage_factory,
             match_factory,
+            io_factory,
         }
     );
 
@@ -187,10 +211,17 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
     );
 
     // Step 8: Construct Loop with Mach thread enhancements
+    // If no timing nodes exist, use EVENT_DRIVEN mode to block until data arrives.
+    // Otherwise, use HIGH_RATE mode with the GCD of all timing intervals.
+    auto timing_interval = time_factory->timing_base;
+    const bool has_intervals =
+        timing_interval.nanoseconds() != std::numeric_limits<int64_t>::max();
+
     auto [loop, err] = loop::create(
         loop::Config{
-            .mode = loop::ExecutionMode::HIGH_RATE,
-            .interval = time_factory->timing_base,
+            .mode = has_intervals ? loop::ExecutionMode::HIGH_RATE
+                                  : loop::ExecutionMode::EVENT_DRIVEN,
+            .interval = has_intervals ? timing_interval : telem::TimeSpan(0),
             .rt_priority = 47,
             .cpu_affinity = -1,
         }
