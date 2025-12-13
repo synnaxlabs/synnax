@@ -30,32 +30,38 @@ export const EXPLORER_LAYOUT: Layout.BaseState = {
 
 const item = Component.renderProp(Item);
 
-export const Explorer: Layout.Renderer = () => {
-  const listProps = Status.useList();
+export const Explorer: Layout.Renderer = () => (
+  <View.Provider resourceType="status">
+    <Internal />
+  </View.Provider>
+);
+
+const Internal = () => {
+  const listProps = Status.useList({
+    initialQuery: View.useContext().getInitialView().query,
+  });
   const placeLayout = Layout.usePlacer();
   const handleCreate = useCallback(() => placeLayout(CREATE_LAYOUT), [placeLayout]);
   const canCreate = Access.useCreateGranted(status.TYPE_ONTOLOGY_ID);
   return (
-    <View.Provider resourceType="status">
-      <View.Form {...listProps}>
-        <View.Toolbar>
-          <View.FilterMenu>
-            <Label.Filter.MenuItem />
-          </View.FilterMenu>
-          <View.Search />
-          <Label.Filter.Chips />
-          {canCreate && (
-            <Button.Button
-              onClick={handleCreate}
-              tooltipLocation={location.BOTTOM_LEFT}
-              tooltip="Create a status"
-            >
-              <Icon.Add />
-            </Button.Button>
-          )}
-        </View.Toolbar>
-        <View.Items>{item}</View.Items>
-      </View.Form>
-    </View.Provider>
+    <View.Form {...listProps}>
+      <View.Toolbar>
+        <View.FilterMenu>
+          <Label.Filter.MenuItem />
+        </View.FilterMenu>
+        <View.Search />
+        <Label.Filter.Chips />
+        {canCreate && (
+          <Button.Button
+            onClick={handleCreate}
+            tooltipLocation={location.BOTTOM_LEFT}
+            tooltip="Create a status"
+          >
+            <Icon.Add />
+          </Button.Button>
+        )}
+      </View.Toolbar>
+      <View.Items>{item}</View.Items>
+    </View.Form>
   );
 };

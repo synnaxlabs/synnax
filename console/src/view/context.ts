@@ -8,11 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, type view } from "@synnaxlabs/client";
-import { context, type Flux } from "@synnaxlabs/pluto";
+import { context } from "@synnaxlabs/pluto";
 
 export interface FormContextValue {
   search: (term: string) => void;
-  save: (opts?: Flux.FetchOptions) => void;
 }
 
 export const [FormContext, useFormContext] = context.create<FormContextValue>({
@@ -33,8 +32,8 @@ export interface ContextValue {
   selected: view.Key;
   select: (key: view.Key) => void;
   editable: boolean;
-  getView: (key: view.Key) => view.View | undefined;
-  staticViews: Set<view.Key>;
+  staticViews: view.Key[];
+  getInitialView: () => view.View;
 }
 
 export const [Context, useContext] = context.create<ContextValue>({

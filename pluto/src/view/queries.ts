@@ -9,6 +9,7 @@
 
 import { view } from "@synnaxlabs/client";
 import { array, type optional } from "@synnaxlabs/x";
+import { useEffect } from "react";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
@@ -178,3 +179,13 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     return data;
   },
 });
+
+export const useSetSynchronizer = (onSet: (view: view.View) => void): void => {
+  const store = Flux.useStore<FluxSubStore>();
+  useEffect(() => store.views.onSet(onSet), [store, onSet]);
+};
+
+export const useDeleteSynchronizer = (onDelete: (key: view.Key) => void): void => {
+  const store = Flux.useStore<FluxSubStore>();
+  useEffect(() => store.views.onDelete(onDelete), [store, onDelete]);
+};

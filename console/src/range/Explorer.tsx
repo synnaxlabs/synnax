@@ -33,18 +33,22 @@ export const EXPLORER_LAYOUT: Layout.State = {
 
 const item = Component.renderProp(Item);
 
-const INITIAL_QUERY = { hasLabels: [] };
+export const Explorer: Layout.Renderer = () => (
+  <View.Provider resourceType="range">
+    <Internal />
+  </View.Provider>
+);
 
-export const Explorer: Layout.Renderer = () => {
+const Internal = () => {
   const listProps = Ranger.useList({
+    initialQuery: View.useContext().getInitialView().query,
     sort: Ranger.sortByStage,
   });
   const placeLayout = Layout.usePlacer();
   const handleCreate = useCallback(() => placeLayout(CREATE_LAYOUT), [placeLayout]);
   const canCreate = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
-    <View.Frame {...listProps} resourceType="range" initialQuery={INITIAL_QUERY}>
-      <View.Views />
+    <View.Form {...listProps}>
       <View.Toolbar>
         <View.FilterMenu>
           <Label.Filter.MenuItem />
@@ -62,6 +66,6 @@ export const Explorer: Layout.Renderer = () => {
         )}
       </View.Toolbar>
       <View.Items>{item}</View.Items>
-    </View.Frame>
+    </View.Form>
   );
 };

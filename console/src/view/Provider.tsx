@@ -26,6 +26,7 @@ import {
 import { caseconv, location, uuid } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import {
+  Fragment,
   type PropsWithChildren,
   type ReactElement,
   useCallback,
@@ -37,7 +38,7 @@ import { Controls, Menu } from "@/components";
 import { CSS } from "@/css";
 import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
-import { Context, type StaticView, type View } from "@/view/context";
+import { Context, type StaticView, useContext, type View } from "@/view/context";
 
 export interface ProviderProps extends PropsWithChildren {
   resourceType: ontology.ResourceType;
@@ -64,15 +65,24 @@ export const Provider = ({ resourceType, children }: ProviderProps): ReactElemen
   const combinedProps = List.useCombinedData<view.Key, View>(staticProps, remoteProps);
   const { getItem } = combinedProps;
   if (getItem == null) throw new UnexpectedError("No item getter found");
-  const staticViewKeys = useMemo(
-    () => new Set(staticViews.map((v) => v.key)),
-    [staticViews],
-  );
+  const staticViewKeys = useMemo(() => staticViews.map((v) => v.key), [staticViews]);
   const [selected, setSelected] = useState(staticViews[0].key);
   const canUpdateView = Access.useUpdateGranted(view.ontologyID(selected));
   const [editable, setEditable] = useState(canUpdateView);
   if (getItem == null) throw new UnexpectedError("No item getter found");
-  const getView = useCallback((key: view.Key) => getItem(key), [getItem]);
+  const getInitialView = useCallback(() => {
+    const view = getItem(selected);
+    if (view == null) throw new UnexpectedError("No view found");
+    return view;
+  }, [getItem, selected]);
+  const deleteSynchronizer = useCallback(
+    (key: view.Key) => {
+      if (key !== selected) return;
+      setSelected(staticViews[0].key);
+    },
+    [selected, staticViews[0].key],
+  );
+  PView.useDeleteSynchronizer(deleteSynchronizer);
   const contextValue = useMemo(
     () => ({
       resourceType,
@@ -80,16 +90,15 @@ export const Provider = ({ resourceType, children }: ProviderProps): ReactElemen
       editable: editable && canUpdateView,
       staticViews: staticViewKeys,
       select: setSelected,
-      getView,
+      getInitialView,
     }),
-    [resourceType, selected, editable, canUpdateView, staticViewKeys, getView],
+    [resourceType, selected, editable, canUpdateView, staticViewKeys, getInitialView],
   );
 
   return (
-    <>
+    <Context value={contextValue}>
       <Selector
-        setSelected={setSelected}
-        showEditButton={staticViewKeys.has(selected) ? true : canUpdateView}
+        showEditButton={staticViewKeys.includes(selected) ? true : canUpdateView}
         editable={editable}
         onEditableClick={() => setEditable((prev) => !prev)}
         resourceType={resourceType}
@@ -99,8 +108,8 @@ export const Provider = ({ resourceType, children }: ProviderProps): ReactElemen
         listProps={combinedProps}
         selected={selected}
       />
-      <Context value={contextValue}>{children}</Context>
-    </>
+      <Fragment key={selected}>{children}</Fragment>
+    </Context>
   );
 };
 
@@ -114,7 +123,6 @@ interface SelectorProps {
   selected: view.Key;
   listProps: List.FrameProps<view.Key, View>;
   onFetchMore: () => void;
-  setSelected: (key: view.Key) => void;
 }
 
 const Selector = ({
@@ -126,7 +134,6 @@ const Selector = ({
   onSelect,
   listProps,
   selected,
-  setSelected,
 }: SelectorProps): ReactElement => {
   const { getItem } = listProps;
   if (getItem == null) throw new UnexpectedError("No item getter found");
@@ -142,12 +149,11 @@ const Selector = ({
       if (name == null) return false;
       const newKey = uuid.create();
       const previousSelected = selected;
-      onSelect(newKey);
       rollbacks.push(() => onSelect(previousSelected));
       return { ...data, name, key: newKey };
     },
     afterSuccess: ({ data }) => {
-      setSelected(data?.key ?? "");
+      onSelect(data?.key ?? "");
     },
   });
   const handleCreate = () => {
@@ -187,7 +193,6 @@ const Selector = ({
       </Controls>
       <PMenu.ContextMenu {...contextMenuProps} menu={contextMenu}>
         <List.Items
-          {...listProps}
           className={CSS.BE("view", "views")}
           x
           align="center"
@@ -202,12 +207,14 @@ const Selector = ({
 };
 
 const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement | null => {
+  const { selected, select, staticViews } = useContext("View.Selector");
   const { getItem } = List.useUtilContext<view.Key, View>();
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const views = getItem(keys);
   const filteredViews = views.filter((v) => v.static !== true);
   const confirm = Ontology.useConfirmDelete({
-    icon: "View",
+    //TODO: change this to view
+    icon: "Range",
     type: "Delete",
     description: "Deletion will permanently remove the view(s).",
   });
@@ -217,6 +224,7 @@ const ContextMenu = ({ keys }: PMenu.ContextMenuMenuProps): ReactElement | null 
         const views = getItem(keys);
         const confirmed = await confirm(views);
         if (!confirmed) return false;
+        if (keys.includes(selected)) select(staticViews[0]);
         return data;
       },
       [getItem, confirm],
