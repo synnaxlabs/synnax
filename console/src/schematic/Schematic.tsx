@@ -66,7 +66,6 @@ import {
   setViewport,
   setViewportMode,
   type State,
-  toggleControl,
   ZERO_STATE,
 } from "@/schematic/slice";
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
@@ -75,6 +74,29 @@ import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
 export const HAUL_TYPE = "schematic-element";
+
+interface ControlToggleButtonProps {
+  control: Control.Status;
+}
+
+const ControlToggleButton = ({ control }: ControlToggleButtonProps): ReactElement => {
+  const { acquire, release } = Control.useContext();
+  const handleChange = useCallback(
+    (v: boolean) => (v ? acquire() : release()),
+    [acquire, release],
+  );
+  return (
+    <Button.Toggle
+      value={control === "acquired"}
+      onChange={handleChange}
+      tooltipLocation={location.BOTTOM_LEFT}
+      size="small"
+      tooltip={`${control === "acquired" ? "Release" : "Acquire"} control`}
+    >
+      <Icon.Circle />
+    </Button.Toggle>
+  );
+};
 
 const useSyncComponent = Workspace.createSyncComponent(
   "Schematic",
@@ -229,14 +251,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [layoutKey, syncDispatch],
   );
 
-  const acquireControl = useCallback(
-    (v: boolean) =>
-      syncDispatch(
-        toggleControl({ key: layoutKey, status: v ? "acquired" : "released" }),
-      ),
-    [layoutKey, syncDispatch],
-  );
-
   const elRenderer = useCallback(
     (props: Diagram.SymbolProps) => (
       <SymbolRenderer layoutKey={layoutKey} dispatch={undoableDispatch} {...props} />
@@ -363,7 +377,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       <Control.Controller
         name={name}
         authority={state.authority}
-        acquireTrigger={state.controlAcquireTrigger}
         onStatusChange={handleControlStatusChange}
       >
         <Core.Schematic
@@ -396,17 +409,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
               {hasEditPermission && (
                 <Diagram.ToggleEditControl disabled={state.control === "acquired"} />
               )}
-              {!state.snapshot && (
-                <Button.Toggle
-                  value={state.control === "acquired"}
-                  onChange={acquireControl}
-                  tooltipLocation={location.BOTTOM_LEFT}
-                  size="small"
-                  tooltip={`${state.control === "acquired" ? "Release" : "Acquire"} control`}
-                >
-                  <Icon.Circle />
-                </Button.Toggle>
-              )}
+              {!state.snapshot && <ControlToggleButton control={state.control} />}
             </Flex.Box>
           </Controls>
         </Core.Schematic>

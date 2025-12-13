@@ -367,7 +367,14 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     layoutKey: string;
   }
 
-  const boundsQuerierRef = useRef<Core.GetBoundsFn>(null);
+  const boundsQuerierRef = useRef<Core.GetBoundsFn | null>(null);
+
+  // Captures getBounds from LinePlot context into a ref for use by the context menu
+  // (which renders outside the LinePlot context tree via portal)
+  const CaptureGetBounds = (): null => {
+    boundsQuerierRef.current = Core.useBoundQuerier();
+    return null;
+  };
 
   const ContextMenuContent = ({ layoutKey }: ContextMenuContentProps): ReactElement => {
     const { box: selection } = useSelectSelection(layoutKey);
@@ -492,7 +499,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           onMeasureModeChange={hasEditPermission ? handleMeasureModeChange : undefined}
         >
           {!focused && <Controls layoutKey={layoutKey} />}
-          <Core.BoundsQuerier ref={boundsQuerierRef} />
+          <CaptureGetBounds />
         </Channel.LinePlot>
       </PMenu.ContextMenu>
       {focused && <Controls layoutKey={layoutKey} />}

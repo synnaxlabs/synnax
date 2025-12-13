@@ -25,6 +25,7 @@ type FunctionOutput<T> = T extends z.ZodFunction<z.ZodTuple, infer O> ? O : z.Zo
 export const functionOutput = <T extends z.ZodFunction>(
   schema: T,
 ): FunctionOutput<T> => {
+  // eslint-disable-next-line @typescript-eslint/no-deprecated
   const def = schema._def as unknown as { output: FunctionOutput<T> };
   return def.output;
 };

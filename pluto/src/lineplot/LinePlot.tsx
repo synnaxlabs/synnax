@@ -54,6 +54,7 @@ export interface ContextValue {
   setViewport: (viewport: Viewport.UseEvent) => void;
   addViewportHandler: (handler: Viewport.UseHandler) => destructor.Destructor;
   setHold: (hold: boolean) => void;
+  getBounds: () => Promise<lineplot.AxesBounds>;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
@@ -126,7 +127,7 @@ export const LinePlot = ({
 
   const memoProps = useMemoDeepEqual({ clearOverScan, hold, visible });
 
-  const [{ path }, { grid }, setState] = Aether.use({
+  const [{ path }, { grid }, setState, methods] = Aether.use({
     aetherKey,
     type: lineplot.LinePlot.TYPE,
     schema: lineplot.linePlotStateZ,
@@ -136,6 +137,7 @@ export const LinePlot = ({
       grid: {},
       ...memoProps,
     },
+    methods: lineplot.linePlotMethodsZ,
   });
 
   // We use a single resize handler for both the container and plotting region because
@@ -230,6 +232,7 @@ export const LinePlot = ({
       addViewportHandler,
       setHold,
       id,
+      getBounds: methods.getBounds,
     }),
     [
       id,
@@ -241,6 +244,7 @@ export const LinePlot = ({
       setViewport,
       addViewportHandler,
       setHold,
+      methods.getBounds,
     ],
   );
 

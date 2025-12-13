@@ -8,12 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { box, xy } from "@synnaxlabs/x";
+import { box, type bounds, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
-import { type AxesBounds, BoundQuerier } from "@/lineplot/aether/BoundQuerier";
 import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { tooltip } from "@/lineplot/tooltip/aether";
@@ -22,6 +21,8 @@ import { grid } from "@/vis/grid";
 import { type FindResult } from "@/vis/line/aether/line";
 import { measure } from "@/vis/measure/aether";
 import { render } from "@/vis/render";
+
+export type AxesBounds = Record<string, bounds.Bounds>;
 
 export const linePlotStateZ = z.object({
   container: box.box,
@@ -32,13 +33,22 @@ export const linePlotStateZ = z.object({
   clearOverScan: xy.crudeZ.default(xy.ZERO),
 });
 
+const axesBoundsZ = z.record(
+  z.string(),
+  z.object({ lower: z.number(), upper: z.number() }),
+);
+
+export const linePlotMethodsZ = {
+  getBounds: z.function({ input: z.tuple([]), output: axesBoundsZ }),
+};
+
 interface InternalState {
   instrumentation: Instrumentation;
   handleError: status.ErrorHandler;
   renderCtx: render.Context;
 }
 
-type Children = XAxis | tooltip.Tooltip | measure.Measure | BoundQuerier;
+type Children = XAxis | tooltip.Tooltip | measure.Measure;
 
 const calculateExposure = (viewport: box.Box, region: box.Box): number => {
   const vpArea = box.width(viewport) * Math.sqrt(box.height(viewport));
@@ -49,14 +59,20 @@ const calculateExposure = (viewport: box.Box, region: box.Box): number => {
 const RENDER_CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d", "gl"] as const;
 const TOOL_RENDER_CANVASES: render.CanvasVariant[] = ["upper2d"];
 
-export class LinePlot extends aether.Composite<
-  typeof linePlotStateZ,
-  InternalState,
-  Children
-> {
+export class LinePlot
+  extends aether.Composite<
+    typeof linePlotStateZ,
+    InternalState,
+    Children,
+    typeof linePlotMethodsZ
+  >
+  implements aether.HandlersFromSchema<typeof linePlotMethodsZ>
+{
   static readonly TYPE: string = "LinePlot";
+  static readonly METHODS = linePlotMethodsZ;
 
   schema = linePlotStateZ;
+  methods = linePlotMethodsZ;
 
   afterUpdate(ctx: aether.Context): void {
     this.internal.instrumentation = alamos.useInstrumentation(ctx, "lineplot");
@@ -105,10 +121,6 @@ export class LinePlot extends aether.Composite<
     return this.childrenOfType<measure.Measure>(measure.Measure.TYPE);
   }
 
-  private get bounds(): readonly BoundQuerier[] {
-    return this.childrenOfType<BoundQuerier>(BoundQuerier.TYPE);
-  }
-
   private get exposure(): number {
     return calculateExposure(this.state.viewport, this.state.container);
   }
@@ -123,23 +135,17 @@ export class LinePlot extends aether.Composite<
     this.tooltips.forEach((t) => t.render(p));
   }
 
-  private renderBounds(): void {
-    this.bounds.forEach((b) =>
-      b.render({
-        getBounds: () => {
-          const bounds: AxesBounds = {};
-          this.axes.forEach((v) => {
-            const axisKey = v.state.axisKey ?? v.key;
-            bounds[axisKey] = v.bounds(this.state.hold);
-            v.yAxes.forEach((y) => {
-              const yAxisKey = y.state.axisKey ?? y.key;
-              bounds[yAxisKey] = y.bounds(this.state.hold);
-            });
-          });
-          return bounds;
-        },
-      }),
-    );
+  getBounds(): AxesBounds {
+    const bounds: AxesBounds = {};
+    this.axes.forEach((v) => {
+      const axisKey = v.state.axisKey ?? v.key;
+      bounds[axisKey] = v.bounds(this.state.hold);
+      v.yAxes.forEach((y) => {
+        const yAxisKey = y.state.axisKey ?? y.key;
+        bounds[yAxisKey] = y.bounds(this.state.hold);
+      });
+    });
+    return bounds;
   }
 
   private renderMeasures(region: box.Box): void {
@@ -195,7 +201,6 @@ export class LinePlot extends aether.Composite<
       this.renderAxes(plot, canvases);
       this.renderTooltips(plot, canvases);
       this.renderMeasures(plot);
-      this.renderBounds();
     } catch (e) {
       handleError(e, "failed to render line plot");
     } finally {
@@ -228,5 +233,4 @@ export const REGISTRY: aether.ComponentRegistry = {
   [LinePlot.TYPE]: LinePlot,
   [XAxis.TYPE]: XAxis,
   [YAxis.TYPE]: YAxis,
-  [BoundQuerier.TYPE]: BoundQuerier,
 };
