@@ -100,11 +100,11 @@ jobs:
           poetry install
         working-directory: integration
 
-      - name: isort
+      - name: Check Import Order
         run: poetry run isort -c .
         working-directory: integration
 
-      - name: Format (Black)
+      - name: Check Formatting (Black)
         run: poetry run black --check --diff --color .
         working-directory: integration
 

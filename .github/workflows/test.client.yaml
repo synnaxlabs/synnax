@@ -255,11 +255,11 @@ jobs:
         run: poetry install
         working-directory: client/py
 
-      - name: isort
+      - name: Check Import Order
         run: poetry run isort -c .
         working-directory: client/py
 
-      - name: Format
+      - name: Check Formatting
         run: poetry run black --check --diff --color .
         working-directory: client/py
 
