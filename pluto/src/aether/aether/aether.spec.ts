@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
+import { scheduler } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -604,8 +605,9 @@ describe("Aether Worker", () => {
     });
 
     describe("_invokeMethod", () => {
-      it("should invoke the handler with the provided args and send response", () => {
+      it("should invoke the handler with the provided args and send response", async () => {
         leaf._invokeMethod("req-1", "increment", [5], true);
+        await scheduler.flushTaskQueue();
 
         expect(leaf.incrementSpy).toHaveBeenCalledWith(5);
         expect(MockSender.send).toHaveBeenCalledWith({
@@ -615,8 +617,9 @@ describe("Aether Worker", () => {
         });
       });
 
-      it("should handle methods with object args", () => {
+      it("should handle methods with object args", async () => {
         leaf._invokeMethod("req-2", "greet", [{ name: "World" }], true);
+        await scheduler.flushTaskQueue();
 
         expect(leaf.greetSpy).toHaveBeenCalledWith({ name: "World" });
         expect(MockSender.send).toHaveBeenCalledWith({
@@ -626,8 +629,9 @@ describe("Aether Worker", () => {
         });
       });
 
-      it("should handle methods with no args (fire-and-forget)", () => {
+      it("should handle methods with no args (fire-and-forget)", async () => {
         leaf._invokeMethod("req-3", "noArgs", [], false);
+        await scheduler.flushTaskQueue();
 
         expect(leaf.noArgsSpy).toHaveBeenCalled();
         expect(MockSender.send).not.toHaveBeenCalled();
@@ -646,8 +650,9 @@ describe("Aether Worker", () => {
         });
       });
 
-      it("should send error response when handler throws (expectsResponse=true)", () => {
+      it("should send error response when handler throws (expectsResponse=true)", async () => {
         leaf._invokeMethod("req-5", "throwError", [], true);
+        await scheduler.flushTaskQueue();
 
         expect(leaf.throwErrorSpy).toHaveBeenCalled();
         expect(MockSender.send).toHaveBeenCalledWith({
@@ -661,9 +666,10 @@ describe("Aether Worker", () => {
         });
       });
 
-      it("should log error but not send response when handler throws (fire-and-forget)", () => {
+      it("should log error but not send response when handler throws (fire-and-forget)", async () => {
         const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
         leaf._invokeMethod("req-5b", "throwError", [], false);
+        await scheduler.flushTaskQueue();
 
         expect(leaf.throwErrorSpy).toHaveBeenCalled();
         expect(MockSender.send).not.toHaveBeenCalled();

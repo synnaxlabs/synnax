@@ -460,7 +460,13 @@ export abstract class Leaf<
   ): void {
     if (this.deleted) return;
 
-    const sendErr = (e: unknown): void => {
+    const reportErr = (e: unknown): void => {
+      if (!expectsResponse)
+        return console.error(
+          `Error in fire and forget method ${method} on ${this.toString()}`,
+          e,
+        );
+
       const err = e instanceof Error ? e : new Error(String(e));
       this.sender.send({
         variant: "rpc-response",
@@ -473,36 +479,20 @@ export abstract class Leaf<
     const methodSchema = this.methods?.[method];
     const methodFn = this[method as keyof this];
     if (methodSchema == null || typeof methodFn !== "function") {
-      if (expectsResponse) sendErr(new Error(`Method '${method}' not found on ${this.toString()}`));
+      reportErr(new Error(`Method '${method}' not found on ${this.toString()}`));
       return;
     }
 
-    // Type assertions needed: we're doing dynamic dispatch (string -> method lookup)
-    // which TypeScript can't track. The schema validates at runtime.
-    const isAsync = (methodSchema._def as { output?: { _zod?: { def?: { type?: string } } } }).output?._zod?.def?.type === "promise";
-    const invoke = isAsync
-      ? (methodSchema.implementAsync(methodFn.bind(this)) as (...a: unknown[]) => Promise<unknown>)
-      : (methodSchema.implement(methodFn.bind(this)) as (...a: unknown[]) => unknown);
-
-    if (!expectsResponse) {
-      try {
-        invoke(...args);
-      } catch (e) {
-        console.error(`Error in fire-and-forget method '${method}':`, e);
-      }
-      return;
-    }
-
-    try {
-      const result = invoke(...args);
-      if (result instanceof Promise)
-        result
-          .then((r) => this.sender.send({ variant: "rpc-response", requestId, result: r }))
-          .catch(sendErr);
-      else this.sender.send({ variant: "rpc-response", requestId, result });
-    } catch (e) {
-      sendErr(e);
-    }
+    // Dynamic dispatch - TypeScript can't track string → method lookup.
+    // Always use implementAsync for simplicity; it wraps sync results in Promises,
+    // which our response handling already supports.
+    const invoke = methodSchema.implementAsync(methodFn.bind(this));
+    const promise = invoke(...args);
+    promise.catch(reportErr);
+    if (expectsResponse)
+      promise.then((r: unknown) =>
+        this.sender.send({ variant: "rpc-response", requestId, result: r }),
+      );
   }
 }
 
