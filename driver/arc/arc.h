@@ -139,9 +139,8 @@ public:
         runtime(runtime) {}
 
     xerrors::Error read(breaker::Breaker &breaker, telem::Frame &data) override {
-        const auto out = this->runtime->read(data);
-        LOG(INFO) << "reading from runtime " << data;
-        return out;
+        this->runtime->read(data);
+        return xerrors::NIL;
     }
 
     void stopped_with_err(const xerrors::Error &err) override {
@@ -193,13 +192,15 @@ public:
                 .mode = synnax::WriterMode::PersistStream,
             },
             std::move(source),
-            breaker::default_config("arc_acquisition")
+            breaker::default_config("arc_acquisition"),
+            "arc_acquisition"
         );
         this->control = std::make_unique<pipeline::Control>(
             streamer_factory,
             synnax::StreamerConfig{.channels = this->runtime->read_channels},
             std::move(sink),
-            breaker::default_config("arc_control")
+            breaker::default_config("arc_control"),
+            "arc_control"
         );
     }
 
@@ -217,7 +218,9 @@ public:
     bool stop(const std::string &cmd_key, const bool propagate_state) {
         // Incoming telemetry
         const auto control_stopped = this->control->stop();
-        // Outgoing telemetry
+        // Close the output queue to unblock acquisition pipeline
+        this->runtime->close_outputs();
+        // Outgoing telemetry (now unblocked)
         const auto acq_stopped = this->acquisition->stop();
         // Runtime
         const auto runtime_stopped = this->runtime->stop();

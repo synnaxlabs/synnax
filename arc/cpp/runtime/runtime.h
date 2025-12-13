@@ -16,6 +16,7 @@
 
 #include "x/cpp/queue/spsc.h"
 #include "x/cpp/telem/frame.h"
+#include "x/cpp/xthread/xthread.h"
 
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/match/match.h"
@@ -78,6 +79,7 @@ public:
 
     std::vector<telem::TimeSpan> run() {
         this->start_time = telem::TimeStamp::now();
+        xthread::set_name("runtime");
         this->loop->start();
         std::vector<telem::TimeSpan> results;
         while (this->breaker.running()) {
@@ -114,21 +116,27 @@ public:
         return true;
     }
 
+    /// @brief closes the output queue, unblocking any pending read() calls.
+    /// Call this before stopping consumers of the output queue.
+    void close_outputs() const { this->outputs->close(); }
+
     bool stop() {
         if (!this->breaker.stop()) return false;
+        this->loop->stop();
         this->run_thread.join();
+        this->inputs->close();
+        this->outputs->close();
         return true;
     }
 
     xerrors::Error write(telem::Frame frame) const {
-        this->inputs->push(std::move(frame));
+        if (!this->inputs->push(std::move(frame))) return xerrors::Error("runtime closed");
         this->loop->notify_data();
         return xerrors::NIL;
     }
 
-    xerrors::Error read(telem::Frame &frame) const {
-        this->outputs->pop(frame);
-        return xerrors::NIL;
+    bool read(telem::Frame &frame) const {
+        return this->outputs->pop(frame);
     }
 };
 

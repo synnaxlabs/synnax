@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -44,7 +45,9 @@ class State;
 
 class Node {
     friend class State;
-
+    /// Non-owning reference to parent State for channel I/O. Always valid after
+    /// construction via State::node(). Null only in error-return case.
+    State *state_ptr = nullptr;
     std::vector<arc::ir::Edge> inputs;
     std::vector<arc::ir::Handle> outputs;
 
@@ -60,19 +63,21 @@ class Node {
     std::vector<InputEntry> accumulated;
     std::vector<Series> aligned_data;
     std::vector<Series> aligned_time;
-    std::vector<Value> input_sources;
-    std::vector<Value> output_cache;
+    std::vector<Value*> input_sources;
+    std::vector<Value*> output_cache;
     Node() = default;
 
     Node(
+        State *state_ptr,
         std::vector<arc::ir::Edge> inputs,
         std::vector<arc::ir::Handle> outputs,
         std::vector<InputEntry> accumulated,
         std::vector<Series> aligned_data,
         std::vector<Series> aligned_time,
-        std::vector<Value> input_sources,
-        std::vector<Value> output_cache
+        std::vector<Value*> input_sources,
+        std::vector<Value*> output_cache
     ):
+        state_ptr(state_ptr),
         inputs(std::move(inputs)),
         outputs(std::move(outputs)),
         accumulated(std::move(accumulated)),
@@ -93,12 +98,20 @@ public:
     }
 
     [[nodiscard]] Series &output(const size_t param_index) {
-        return this->output_cache[param_index].data;
+        return this->output_cache[param_index]->data;
     }
 
     [[nodiscard]] Series &output_time(const size_t param_index) {
-        return this->output_cache[param_index].time;
+        return this->output_cache[param_index]->time;
     }
+
+    /// Reads buffered data and time series from a channel. Returns (data, index_data, ok).
+    /// If the channel has an associated index, both data and time are returned.
+    std::tuple<telem::MultiSeries, telem::MultiSeries, bool>
+    read_chan(types::ChannelKey key);
+
+    /// Writes data and time series to a channel buffer.
+    void write_chan(types::ChannelKey key, const Series &data, const Series &time);
 };
 
 class State {
@@ -111,6 +124,7 @@ class State {
     std::unordered_map<types::ChannelKey, Series> writes;
 
     void write_channel(types::ChannelKey key, const Series &data, const Series &time);
+    std::pair<telem::MultiSeries, bool> read_channel(types::ChannelKey key);
 
 public:
     explicit State(const Config &cfg);

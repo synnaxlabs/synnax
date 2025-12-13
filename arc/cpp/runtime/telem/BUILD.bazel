@@ -5,6 +5,22 @@ cc_library(
     deps = [
         "//arc/cpp/ir",
         "//arc/cpp/runtime/node",
+        "//arc/cpp/runtime/state",
+        "//x/cpp/telem",
         "//x/cpp/xerrors",
+        "//x/cpp/xmemory",
+    ],
+)
+
+cc_test(
+    name = "telem_test",
+    srcs = ["telem_test.cpp"],
+    deps = [
+        ":telem",
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/state",
+        "//x/cpp/telem",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
     ],
 )

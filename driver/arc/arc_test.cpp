@@ -74,7 +74,6 @@ TEST(ArcTests, testCalcDoubling) {
         task_meta, ctx, runtime, task_cfg,
         mock_writer, mock_streamer
     );
-    x::defer d([&task] { task->stop(false); });
 
     task->start("test_start");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);

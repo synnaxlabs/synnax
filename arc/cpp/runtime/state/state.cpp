@@ -132,7 +132,7 @@ std::pair<Node, xerrors::Error> State::node(const std::string &key) {
     std::vector<Series> aligned_data(num_inputs);
     std::vector<Series> aligned_time(num_inputs);
     std::vector<Node::InputEntry> accumulated(num_inputs);
-    std::vector<Value> input_sources(num_inputs);
+    std::vector<Value*> input_sources(num_inputs);
 
     for (size_t i = 0; i < num_inputs; i++)
         aligned_time[i] = xmemory::make_local_shared<telem::Series>(
@@ -155,7 +155,7 @@ std::pair<Node, xerrors::Error> State::node(const std::string &key) {
                     source_output_iter->second.data->data_type(),
                     0
                 );
-                input_sources[i] = source_output_iter->second;
+                input_sources[i] = &source_output_iter->second;
                 accumulated[i].last_timestamp = telem::TimeStamp(0);
                 accumulated[i].consumed = true;
             }
@@ -176,26 +176,27 @@ std::pair<Node, xerrors::Error> State::node(const std::string &key) {
             accumulated[i].data = data_series;
             accumulated[i].time = time_series;
             accumulated[i].last_timestamp = telem::TimeStamp(0);
-            accumulated[i].consumed = false;
+            accumulated[i].consumed = true;
 
             if (!this->outputs.contains(synthetic_handle))
                 this->outputs[synthetic_handle] = Value{data_series, time_series};
 
-            input_sources[i] = this->outputs[synthetic_handle];
+            input_sources[i] = &this->outputs[synthetic_handle];
         }
     }
 
     // Pre-cache output value pointers
     std::vector<ir::Handle> output_handles;
-    std::vector<Value> output_cache;
+    std::vector<Value*> output_cache;
     for (const auto &output_param: ir_node.outputs) {
         ir::Handle handle(key, output_param.name);
         output_handles.push_back(handle);
-        output_cache.push_back(this->outputs[handle]);
+        output_cache.push_back(&this->outputs[handle]);
     }
 
     return {
-        {std::move(inputs),
+        {this,
+         std::move(inputs),
          std::move(output_handles),
          std::move(accumulated),
          std::move(aligned_data),
@@ -242,13 +243,12 @@ bool Node::refresh_inputs() {
 
     bool has_unconsumed = false;
     for (size_t i = 0; i < inputs.size(); i++) {
-
-        if (const auto src = this->input_sources[i];
-            src.time != nullptr && !src.time->empty()) {
-            if (auto ts = src.time->at<telem::TimeStamp>(-1);
+        const auto *src = this->input_sources[i];
+        if (src != nullptr && src->time != nullptr && !src->time->empty()) {
+            if (auto ts = src->time->at<telem::TimeStamp>(-1);
                 ts > this->accumulated[i].last_timestamp) {
-                this->accumulated[i].data = src.data;
-                this->accumulated[i].time = src.time;
+                this->accumulated[i].data = src->data;
+                this->accumulated[i].time = src->time;
                 this->accumulated[i].last_timestamp = ts;
                 this->accumulated[i].consumed = false;
             }
@@ -269,5 +269,36 @@ bool Node::refresh_inputs() {
     }
 
     return true;
+}
+
+std::pair<telem::MultiSeries, bool> State::read_channel(const types::ChannelKey key) {
+    auto it = reads.find(key);
+    if (it == reads.end() || it->second.empty())
+        return {telem::MultiSeries{}, false};
+    telem::MultiSeries ms;
+    for (auto &s: it->second)
+        ms.series.push_back(std::move(*s));
+    it->second.clear();
+    return {std::move(ms), true};
+}
+
+std::tuple<telem::MultiSeries, telem::MultiSeries, bool>
+Node::read_chan(const types::ChannelKey key) {
+    auto [data, ok] = state_ptr->read_channel(key);
+    if (!ok) return {telem::MultiSeries{}, telem::MultiSeries{}, false};
+    auto index_it = state_ptr->indexes.find(key);
+    if (index_it == state_ptr->indexes.end() || index_it->second == 0)
+        return {std::move(data), telem::MultiSeries{}, !data.series.empty()};
+    auto [time, time_ok] = state_ptr->read_channel(index_it->second);
+    if (!time_ok) return {telem::MultiSeries{}, telem::MultiSeries{}, false};
+    return {std::move(data), std::move(time), !data.series.empty() && !time.series.empty()};
+}
+
+void Node::write_chan(
+    const types::ChannelKey key,
+    const Series &data,
+    const Series &time
+) {
+    state_ptr->write_channel(key, data, time);
 }
 }
