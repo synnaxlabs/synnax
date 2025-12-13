@@ -83,7 +83,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Poetry
         run: pipx install poetry
@@ -100,11 +100,11 @@ jobs:
           poetry install
         working-directory: integration
 
-      - name: isort
+      - name: Check Import Order
         run: poetry run isort -c .
         working-directory: integration
 
-      - name: Format (Black)
+      - name: Check Formatting (Black)
         run: poetry run black --check --diff --color .
         working-directory: integration
 
@@ -125,7 +125,7 @@ jobs:
       SEQUENCE_ARG: ${{ steps.set-outputs.outputs.SEQUENCE_ARG }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Get Version
         id: version
@@ -216,7 +216,7 @@ jobs:
       needs.build.result == 'skipped')
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           clean: false
 
@@ -269,7 +269,7 @@ jobs:
           poetry run test-conductor --name tc_win ${{ needs.setup.outputs.SEQUENCE_ARG }}
 
       - name: Upload Test Results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: test-results-windows
@@ -293,7 +293,7 @@ jobs:
       needs.build.result == 'skipped')
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           clean: false
 
@@ -336,7 +336,7 @@ jobs:
           }}
 
       - name: Upload Test Results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: test-results-linux
