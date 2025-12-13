@@ -132,7 +132,7 @@ protected:
 };
 
 /// @brief Helper to wait for a task status matching specific criteria.
-synnax::TaskStatus wait_for_task_status_impl(
+synnax::TaskStatus wait_for_task_status(
     synnax::Streamer &streamer,
     const synnax::Task &task,
     const std::function<bool(const synnax::TaskStatus &)> &predicate,
@@ -165,7 +165,7 @@ synnax::TaskStatus wait_for_task_status_impl(
 }
 
 #define WAIT_FOR_TASK_STATUS(streamer, task, predicate, ...)                           \
-    wait_for_task_status_impl(                                                         \
+    wait_for_task_status(                                                              \
         streamer,                                                                      \
         task,                                                                          \
         predicate,                                                                     \
