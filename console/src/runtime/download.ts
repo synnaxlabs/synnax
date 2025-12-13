@@ -86,7 +86,7 @@ export const downloadStream = async ({
       }
       throw error;
     }
-  // Case 2: we use Tauri's stream writer, where are least we don't have to load
+  // Case 2: we use Tauri's stream writer, where at least we don't have to load
   // everything into memory.
   if (ENGINE === "tauri") {
     const savePath = await save({
