@@ -2,113 +2,114 @@
 # Synnax C++ Linting Configuration
 # This configuration enforces code quality, security, and performance standards
 # across all C++ codebases (driver, client/cpp, freighter/cpp, x/cpp)
+#
+# Disabled Checks Rationale:
+#   bugprone-easily-swappable-parameters: flags (int x, int y), too noisy
+#   bugprone-exception-escape: false positives with RAII wrappers
+#   cert-err58-cpp: too strict for static constants
+#   cert-dcl16-c: alias of uppercase-literal-suffix
+#   modernize-avoid-c-arrays: C API interop (Lua, NI-DAQmx, libmodbus)
+#   modernize-return-braced-init-list: style preference
+#   modernize-use-designated-initializers: not always clearer
+#   modernize-use-trailing-return-type: style preference
+#   readability-braces-around-statements: style preference
+#   readability-identifier-length: flags i/j/k loop counters
+#   readability-isolate-declaration: int x, y; is acceptable
+#   readability-magic-numbers: too noisy
+#   readability-math-missing-parentheses: precedence is well-known
+#   readability-redundant-member-init: default init can be intentional
+#   readability-uppercase-literal-suffix: style preference
+#   readability-use-anyofallof: not always more readable
+#   readability-namespace-comments: style preference
+#   google-readability-namespace-comments: style preference
+#   cppcoreguidelines-avoid-c-arrays: C API interop
+#   cppcoreguidelines-avoid-const-or-ref-data-members: immutable members are valid
+#   cppcoreguidelines-avoid-do-while: do-while is legitimate
+#   cppcoreguidelines-avoid-magic-numbers: alias of readability version
+#   cppcoreguidelines-avoid-non-const-global-variables: protobuf generated code
+#   cppcoreguidelines-macro-usage: C libraries use macros
+#   cppcoreguidelines-non-private-member-variables-in-classes: POD structs are valid
+#   cppcoreguidelines-pro-bounds-array-to-pointer-decay: C API interop
+#   cppcoreguidelines-pro-bounds-avoid-unchecked-container-access: validated bounds
+#   cppcoreguidelines-pro-bounds-pointer-arithmetic: C API interop
+#   cppcoreguidelines-pro-type-const-cast: C callbacks require const removal
+#   cppcoreguidelines-pro-type-reinterpret-cast: binary protocols
+#   cppcoreguidelines-special-member-functions: prefer Rule of 0
+#   cppcoreguidelines-owning-memory: NI-DAQmx C API requires raw pointer arrays
+#   misc-include-cleaner: experimental, many false positives
+#   misc-no-recursion: legitimate algorithms use recursion
+#   misc-non-private-member-variables-in-classes: POD structs are valid
+#   misc-use-internal-linkage: header-only utilities need external linkage
+#   portability-avoid-pragma-once: widely supported
+#   portability-template-virtual-member-function: MSVC extension used by deps
+#   hicpp-avoid-c-arrays: C API interop
+#   hicpp-braces-around-statements: style preference
+#   hicpp-no-array-decay: C API interop
+#   hicpp-signed-bitwise: hardware register manipulation
+#   hicpp-special-member-functions: alias of cppcoreguidelines version
+#   hicpp-uppercase-literal-suffix: style preference
+#   clang-diagnostic-pragma-once-outside-header: false positive in bazel sandbox
 
-Checks: |
-
+Checks: >-
     bugprone-*,
-    # flags (int x, int y), too noisy
     -bugprone-easily-swappable-parameters,
-    # false positives with RAII wrappers
     -bugprone-exception-escape,
     cert-*,
-    # too strict for static constants
     -cert-err58-cpp,
-    # alias of uppercase-literal-suffix
     -cert-dcl16-c,
     performance-*,
     modernize-*,
-    # C API interop (Lua, NI-DAQmx, libmodbus)
     -modernize-avoid-c-arrays,
-    # style preference
     -modernize-return-braced-init-list,
-    # not always clearer
     -modernize-use-designated-initializers,
-    # style preference
     -modernize-use-trailing-return-type,
     readability-*,
-    # style preference
     -readability-braces-around-statements,
-    # flags i/j/k loop counters
     -readability-identifier-length,
-    # int x, y; is acceptable
     -readability-isolate-declaration,
-    # too noisy
     -readability-magic-numbers,
-    # precedence is well-known
     -readability-math-missing-parentheses,
-    # default init can be intentional
     -readability-redundant-member-init,
-    # style preference
     -readability-uppercase-literal-suffix,
-    # not always more readable
     -readability-use-anyofallof,
-    # style preference - namespace closing comments
     -readability-namespace-comments,
+    -google-readability-namespace-comments,
     cppcoreguidelines-*,
-    # C API interop
     -cppcoreguidelines-avoid-c-arrays,
-    # immutable members are valid
     -cppcoreguidelines-avoid-const-or-ref-data-members,
-    # do-while is legitimate
     -cppcoreguidelines-avoid-do-while,
-    # alias of readability version
     -cppcoreguidelines-avoid-magic-numbers,
-    # protobuf generated code uses mutable globals
     -cppcoreguidelines-avoid-non-const-global-variables,
-    # C libraries use macros
     -cppcoreguidelines-macro-usage,
-    # POD structs are valid
     -cppcoreguidelines-non-private-member-variables-in-classes,
-    # C API interop
     -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
-    # performance-critical code; bounds already validated
     -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
-    # C API interop
     -cppcoreguidelines-pro-bounds-pointer-arithmetic,
-    # C callbacks require const removal
     -cppcoreguidelines-pro-type-const-cast,
-    # binary protocols
     -cppcoreguidelines-pro-type-reinterpret-cast,
-    # prefer Rule of 0; too noisy for virtual dtors
     -cppcoreguidelines-special-member-functions,
-    # NI-DAQmx C API requires raw pointer arrays
     -cppcoreguidelines-owning-memory,
     clang-analyzer-*,
     misc-*,
-    # experimental, many false positives
     -misc-include-cleaner,
-    # legitimate algorithms use recursion
     -misc-no-recursion,
-    # POD structs are valid
     -misc-non-private-member-variables-in-classes,
-    # header-only utilities need external linkage
     -misc-use-internal-linkage,
     portability-*,
-    # widely supported
     -portability-avoid-pragma-once,
-    # MSVC extension used by deps
     -portability-template-virtual-member-function,
     concurrency-*,
     hicpp-*,
-    # C API interop
     -hicpp-avoid-c-arrays,
-    # style preference
     -hicpp-braces-around-statements,
-    # C API interop
     -hicpp-no-array-decay,
-    # hardware register manipulation
     -hicpp-signed-bitwise,
-    # alias of cppcoreguidelines version
     -hicpp-special-member-functions,
-    # style preference
     -hicpp-uppercase-literal-suffix,
     google-build-namespaces,
     google-explicit-constructor,
     google-runtime-int,
     google-runtime-operator,
-    # style preference
-    -google-readability-namespace-comments,
-    # flakey
     -clang-diagnostic-pragma-once-outside-header
 
 # Treat warnings as errors in CI
