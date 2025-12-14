@@ -32,8 +32,7 @@ export type Variant =
   | "shadow";
 
 export interface ExtensionProps
-  extends Omit<Text.ExtensionProps, "variant">,
-    Tooltip.WrapProps {
+  extends Omit<Text.ExtensionProps, "variant">, Tooltip.WrapProps {
   variant?: Variant;
   trigger?: Triggers.Trigger;
   triggerIndicator?: boolean | Triggers.Trigger;

@@ -40,8 +40,10 @@ export type Variant = "connected" | "floating" | "modal";
 export type ModalPosition = "slammed" | "shifted" | "base";
 
 /** Props for the {@link Frame} component. */
-export interface FrameProps
-  extends Omit<Flex.BoxProps, "ref" | "reverse" | "size" | "empty"> {
+export interface FrameProps extends Omit<
+  Flex.BoxProps,
+  "ref" | "reverse" | "size" | "empty"
+> {
   initialVisible?: boolean;
   visible?: boolean;
   onVisibleChange?: state.Setter<boolean>;
@@ -88,8 +90,10 @@ const [Context, useContext] = context.create<ContextValue>({
 });
 export { useContext };
 
-interface InternalContextValue
-  extends Pick<State, "targetCorner" | "dialogCorner" | "style" | "modalPosition"> {
+interface InternalContextValue extends Pick<
+  State,
+  "targetCorner" | "dialogCorner" | "style" | "modalPosition"
+> {
   ref: RefCallback<HTMLDivElement>;
 }
 

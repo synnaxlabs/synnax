@@ -21,8 +21,7 @@ export const CACHE_BUFFER_SIZE: TimeSpan = TimeSpan.seconds(60);
 
 /** Props for instantiating an @link Cache */
 export interface CacheProps
-  extends StaticProps,
-    Partial<Pick<DynamicProps, "dynamicBufferSize">> {
+  extends StaticProps, Partial<Pick<DynamicProps, "dynamicBufferSize">> {
   /** Used to populate new cache entries with relevant info about the channel */
   channelRetriever: channel.Retriever;
   /**
