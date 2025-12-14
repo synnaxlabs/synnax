@@ -69,7 +69,6 @@ export const Provider = ({ resourceType, children }: ProviderProps): ReactElemen
   const [selected, setSelected] = useState(staticViews[0].key);
   const canUpdateView = Access.useUpdateGranted(view.ontologyID(selected));
   const [editable, setEditable] = useState(canUpdateView);
-  if (getItem == null) throw new UnexpectedError("No item getter found");
   const getInitialView = useCallback(() => {
     const view = getItem(selected);
     if (view == null) throw new UnexpectedError("No view found");

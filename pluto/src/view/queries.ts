@@ -48,13 +48,11 @@ export interface ListQuery extends view.RetrieveMultipleParams {}
 export const useList = Flux.createList<ListQuery, view.Key, view.View, FluxSubStore>({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query, store }) => {
-    console.log("retrieving from backend", query);
     const views = await client.views.retrieve(query);
     store.views.set(views);
     return views;
   },
   retrieveByKey: async ({ client, key, store }) => {
-    console.log("retrieving by key", key);
     let v = store.views.get(key);
     if (v == null) {
       v = await client.views.retrieve({ key });
