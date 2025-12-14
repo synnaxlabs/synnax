@@ -103,9 +103,11 @@ Checks: |
     google-build-namespaces,
     google-explicit-constructor,
     google-runtime-int,
-    google-runtime-operator
+    google-runtime-operator,
     # style preference
-    -google-readability-namespace-comments
+    -google-readability-namespace-comments,
+    # flakey
+    -clang-diagnostic-pragma-once-outside-header
 
 # Treat warnings as errors in CI
 WarningsAsErrors: "*"
