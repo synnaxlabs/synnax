@@ -100,6 +100,10 @@ class InvokeTracker {
     this.pending.forEach(({ controller }) => controller.abort(reason));
     this.pending.clear();
   }
+
+  clearCounter(key: string): void {
+    this.counters.delete(key);
+  }
 }
 
 /**
@@ -216,6 +220,7 @@ export const Provider = ({
         },
         delete: () => {
           controller.abort(new Error("Component deleted"));
+          invokeTracker.current.clearCounter(key);
           if (worker == null) console.warn("aether - no worker");
           worker?.send({ variant: "delete", path, type });
         },
