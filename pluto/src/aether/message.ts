@@ -61,7 +61,7 @@ export interface MainInvokeRequest {
   expectsResponse: boolean;
 }
 
-/** A message from the worker thread responding to a main RPC request. */
+/** A message from the worker thread responding to a main invoke request. */
 export interface AetherInvokeResponse {
   variant: "invoke_response";
   /** Correlation ID matching the original request. */

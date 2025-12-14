@@ -42,8 +42,8 @@ type RawSetArg<S extends z.ZodType<state.State>> =
   | (z.input<S> | z.infer<S>)
   | ((prev: z.infer<S>) => z.input<S> | z.infer<S>);
 
-/** Default RPC timeout in milliseconds */
-const DEFAULT_RPC_TIMEOUT = 5000;
+/** Default invoke timeout in milliseconds */
+const DEFAULT_INVOKE_TIMEOUT = 5000;
 
 const reconstructError = (payload: errors.NativePayload): Error => {
   const err = new Error(payload.message);
@@ -58,8 +58,8 @@ interface PendingRequest {
   controller: AbortController;
 }
 
-/** Manages pending RPC requests with AbortController-based cancellation. */
-class RPCTracker {
+/** Manages pending invoke requests with AbortController-based cancellation. */
+class InvokeTracker {
   private pending = new Map<string, PendingRequest>();
   private counters = new Map<string, number>();
 
@@ -121,14 +121,14 @@ export interface CreateReturn {
   delete: () => void;
 
   /**
-   * Invokes an RPC method on the worker component (fire-and-forget).
+   * Invokes a method on the worker component (fire-and-forget).
    * @param method - The name of the method to invoke
    * @param args - Arguments to pass to the method (spread to handler)
    */
   invokeMethod: (method: string, args: unknown[]) => void;
 
   /**
-   * Invokes an RPC method on the worker component and waits for the response.
+   * Invokes a method on the worker component and waits for the response.
    * @param method - The name of the method to invoke
    * @param args - Arguments to pass to the method (spread to handler)
    * @param signal - Optional AbortSignal for cancellation/timeout (default: 5s timeout)
@@ -194,7 +194,7 @@ export const Provider = ({
     () => propsWorker ?? contextWorker,
     [propsWorker, contextWorker],
   );
-  const rpcTracker = useRef(new RPCTracker());
+  const invokeTracker = useRef(new InvokeTracker());
 
   const create: ContextValue["create"] = useCallback(
     (type, path, handler) => {
@@ -232,14 +232,14 @@ export const Provider = ({
         invokeMethodAsync: <R,>(
           method: string,
           args: unknown[],
-          signal: AbortSignal = AbortSignal.timeout(DEFAULT_RPC_TIMEOUT),
+          signal: AbortSignal = AbortSignal.timeout(DEFAULT_INVOKE_TIMEOUT),
         ): Promise<R> =>
           new Promise((resolve, reject) => {
             if (worker == null) return reject(new Error("aether - no worker"));
             if (controller.signal.aborted)
               return reject(new Error("Component deleted"));
-            const invokeKey = rpcTracker.current.nextkey(key);
-            rpcTracker.current.track(
+            const invokeKey = invokeTracker.current.nextkey(key);
+            invokeTracker.current.track(
               invokeKey,
               resolve as (v: unknown) => void,
               reject,
@@ -279,7 +279,7 @@ export const Provider = ({
         return;
       }
       if (variant === "invoke_response") {
-        rpcTracker.current.resolve(msg.key, msg.result, msg.error);
+        invokeTracker.current.resolve(msg.key, msg.result, msg.error);
         return;
       }
       const { key, state } = msg;
@@ -308,7 +308,7 @@ export interface UseLifecycleReturn<
 > {
   path: string[];
   setState: (state: RawSetArg<S>, transfer?: Transferable[]) => void;
-  /** Typed methods object for invoking RPC methods on the worker component */
+  /** Typed methods object for invoking methods on the worker component */
   methods: CallersFromSchema<M>;
 }
 
@@ -322,7 +322,7 @@ interface UseLifecycleProps<
   initialState: z.input<S>;
   initialTransfer?: Transferable[];
   onReceive?: StateHandler<z.infer<S>>;
-  /** Methods schema for Main → Worker RPC calls */
+  /** Methods schema for Main → Worker invoke calls */
   methods?: M;
 }
 

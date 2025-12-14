@@ -54,7 +54,7 @@ class ExampleComposite extends aether.Composite<typeof exampleProps, ExampleLeaf
   }
 }
 
-const rpcMethodsSchema = {
+const invokeMethodsSchema = {
   fireAndForget: z.function({ output: z.void() }),
   getValue: z.function({ output: z.number() }),
   throwError: z.function({ output: z.number() }),
@@ -62,13 +62,13 @@ const rpcMethodsSchema = {
   updateState: z.function({ input: z.tuple([z.number()]), output: z.void() }),
 } satisfies aether.MethodsSchema;
 
-class RPCLeaf
-  extends aether.Leaf<typeof exampleProps, {}, typeof rpcMethodsSchema>
-  implements aether.HandlersFromSchema<typeof rpcMethodsSchema>
+class InvokeLeaf
+  extends aether.Leaf<typeof exampleProps, {}, typeof invokeMethodsSchema>
+  implements aether.HandlersFromSchema<typeof invokeMethodsSchema>
 {
-  static readonly TYPE = "RPCLeaf";
+  static readonly TYPE = "InvokeLeaf";
   schema = exampleProps;
-  methods = rpcMethodsSchema;
+  methods = invokeMethodsSchema;
   fireAndForgetSpy = vi.fn();
   getValueSpy = vi.fn(() => 42);
   throwErrorSpy = vi.fn(() => {
@@ -97,7 +97,7 @@ class RPCLeaf
 const REGISTRY: aether.ComponentRegistry = {
   [ExampleLeaf.TYPE]: ExampleLeaf,
   [ExampleComposite.TYPE]: ExampleComposite,
-  [RPCLeaf.TYPE]: RPCLeaf,
+  [InvokeLeaf.TYPE]: InvokeLeaf,
 };
 
 const newProvider = async (): Promise<[FC<PropsWithChildren>, aether.Root]> => {
@@ -181,15 +181,15 @@ describe("Aether Main", () => {
       await expect.poll(() => leaf.deletef.mock.calls.length > 0).toBe(true);
     });
   });
-  describe("RPC", () => {
+  describe("invoke", () => {
     it("should invoke fire-and-forget method on worker", async () => {
       const [Provider, root] = await newProvider();
-      const RPCLeafC = () => {
+      const InvokeLeafC = () => {
         const [, , , methods] = Aether.use({
-          type: RPCLeaf.TYPE,
+          type: InvokeLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
-          methods: rpcMethodsSchema,
+          methods: invokeMethodsSchema,
         });
         const called = useRef(false);
         if (!called.current) {
@@ -200,22 +200,22 @@ describe("Aether Main", () => {
       };
       render(
         <Provider>
-          <RPCLeafC />
+          <InvokeLeafC />
         </Provider>,
       );
       await expect.poll(() => root.children.length === 1).toBe(true);
-      const leaf = root.children[0] as RPCLeaf;
+      const leaf = root.children[0] as InvokeLeaf;
       await expect.poll(() => leaf.fireAndForgetSpy.mock.calls.length > 0).toBe(true);
     });
-    it("should resolve async RPC with worker return value", async () => {
+    it("should resolve async invoke with worker return value", async () => {
       const [Provider, root] = await newProvider();
       let result: number | null = null;
-      const RPCLeafC = () => {
+      const InvokeLeafC = () => {
         const [, , , methods] = Aether.use({
-          type: RPCLeaf.TYPE,
+          type: InvokeLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
-          methods: rpcMethodsSchema,
+          methods: invokeMethodsSchema,
         });
         const called = useRef(false);
         if (!called.current) {
@@ -228,22 +228,22 @@ describe("Aether Main", () => {
       };
       render(
         <Provider>
-          <RPCLeafC />
+          <InvokeLeafC />
         </Provider>,
       );
       await expect.poll(() => root.children.length === 1).toBe(true);
       await expect.poll(() => result !== null).toBe(true);
       expect(result).toBe(42);
     });
-    it("should reject async RPC when worker method throws", async () => {
+    it("should reject async invoke when worker method throws", async () => {
       const [Provider, root] = await newProvider();
       const captured: { error: Error | null } = { error: null };
-      const RPCLeafC = () => {
+      const InvokeLeafC = () => {
         const [, , , methods] = Aether.use({
-          type: RPCLeaf.TYPE,
+          type: InvokeLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
-          methods: rpcMethodsSchema,
+          methods: invokeMethodsSchema,
         });
         const called = useRef(false);
         if (!called.current) {
@@ -256,23 +256,23 @@ describe("Aether Main", () => {
       };
       render(
         <Provider>
-          <RPCLeafC />
+          <InvokeLeafC />
         </Provider>,
       );
       await expect.poll(() => root.children.length === 1).toBe(true);
       await expect.poll(() => captured.error !== null).toBe(true);
       expect(captured.error?.message).toContain("Test error");
     });
-    it("should reject async RPC on timeout", async () => {
+    it("should reject async invoke on timeout", async () => {
       vi.useFakeTimers();
       const [Provider, root] = await newProvider();
       const captured: { error: Error | null } = { error: null };
-      const RPCLeafC = () => {
+      const InvokeLeafC = () => {
         const [, , , methods] = Aether.use({
-          type: RPCLeaf.TYPE,
+          type: InvokeLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
-          methods: rpcMethodsSchema,
+          methods: invokeMethodsSchema,
         });
         const called = useRef(false);
         if (!called.current) {
@@ -285,7 +285,7 @@ describe("Aether Main", () => {
       };
       render(
         <Provider>
-          <RPCLeafC />
+          <InvokeLeafC />
         </Provider>,
       );
       await vi.waitFor(() => expect(root.children.length).toBe(1));
@@ -295,15 +295,15 @@ describe("Aether Main", () => {
       expect(captured.error?.name).toBe("TimeoutError");
       vi.useRealTimers();
     });
-    it("should abort pending RPC on component unmount", async () => {
+    it("should abort pending invoke on component unmount", async () => {
       const [Provider, root] = await newProvider();
       const captured: { error: Error | null } = { error: null };
-      const RPCLeafC = () => {
+      const InvokeLeafC = () => {
         const [, , , methods] = Aether.use({
-          type: RPCLeaf.TYPE,
+          type: InvokeLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
-          methods: rpcMethodsSchema,
+          methods: invokeMethodsSchema,
         });
         const called = useRef(false);
         if (!called.current) {
@@ -316,7 +316,7 @@ describe("Aether Main", () => {
       };
       const { unmount } = render(
         <Provider>
-          <RPCLeafC />
+          <InvokeLeafC />
         </Provider>,
       );
       await expect.poll(() => root.children.length === 1).toBe(true);
@@ -330,12 +330,12 @@ describe("Aether Main", () => {
     it("should call onAetherChange when worker updates state", async () => {
       const [Provider, root] = await newProvider();
       const onAetherChange = vi.fn();
-      const RPCLeafC = () => {
+      const InvokeLeafC = () => {
         const [, , , methods] = Aether.use({
-          type: RPCLeaf.TYPE,
+          type: InvokeLeaf.TYPE,
           schema: exampleProps,
           initialState: { x: 0 },
-          methods: rpcMethodsSchema,
+          methods: invokeMethodsSchema,
           onAetherChange,
         });
         const called = useRef(false);
@@ -347,7 +347,7 @@ describe("Aether Main", () => {
       };
       render(
         <Provider>
-          <RPCLeafC />
+          <InvokeLeafC />
         </Provider>,
       );
       await expect.poll(() => root.children.length === 1).toBe(true);

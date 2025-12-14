@@ -96,8 +96,8 @@ export interface Component {
    */
   _delete: (path: string[]) => void;
   /**
-   * Invokes an RPC method on this component. This is called by the Root when
-   * a MainRPCRequestMessage is received.
+   * Invokes a method on this component. This is called by the Root when
+   * a MainInvokeRequest is received.
    *
    * @param key - The correlation ID for matching the response.
    * @param method - The name of the method to invoke.
@@ -176,13 +176,13 @@ export interface Context {
 }
 
 /**
- * A schema defining multiple RPC methods using z.function().
+ * A schema defining multiple invokable methods using z.function().
  * No constraint - the actual schema type flows through for proper inference.
  */
 
 export type MethodsSchema = Record<string, z.ZodFunction>;
 
-/** Empty methods schema for components that don't use RPC. */
+/** Empty methods schema for components that don't use invoke. */
 export type EmptyMethodsSchema = Record<string, never>;
 
 /**
@@ -235,7 +235,7 @@ export type CallersFromSchema<T> = {
  * class for the AetherComposite type. The corresponding react component should NOT have
  * any children that use Aether functionality; for those cases, use AetherComposite instead.
  *
- * For RPC methods:
+ * For invokable methods:
  * 1. Define a methods schema using `z.function()`
  * 2. Add `implements HandlersFromSchema<typeof schema>` to get type checking
  * 3. Set `methods = schema` on the class
@@ -282,7 +282,7 @@ export abstract class Leaf<
   schema: StateSchema | undefined = undefined;
 
   /**
-   * Methods schema for RPC. Define this to enable RPC methods.
+   * Methods schema for invoke. Define this to enable invokable methods.
    * Method names in the schema must match method names on the class.
    */
   methods: Methods | undefined = undefined as Methods | undefined;
@@ -647,7 +647,7 @@ export abstract class Composite<
   }
 
   /**
-   * Find a child component at the given path for RPC invocation.
+   * Find a child component at the given path for method invocation.
    * @param path - The path to the child component (excluding this component's key).
    * @returns The component at the path, or null if not found.
    */

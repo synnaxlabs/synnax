@@ -177,7 +177,7 @@ const shouldNotCallCreate = () => {
   throw new Error("should not call create");
 };
 
-const rpcMethodsSchema = {
+const invokeMethodsSchema = {
   increment: z.function({ input: z.tuple([z.number()]), output: z.number() }),
   greet: z.function({
     input: z.tuple([z.object({ name: z.string() })]),
@@ -191,12 +191,12 @@ const rpcMethodsSchema = {
   throwError: z.function(),
 } satisfies aether.MethodsSchema;
 
-class RPCLeaf
-  extends aether.Leaf<typeof exampleProps, {}, typeof rpcMethodsSchema>
-  implements aether.HandlersFromSchema<typeof rpcMethodsSchema>
+class InvokeLeaf
+  extends aether.Leaf<typeof exampleProps, {}, typeof invokeMethodsSchema>
+  implements aether.HandlersFromSchema<typeof invokeMethodsSchema>
 {
   schema = exampleProps;
-  methods = rpcMethodsSchema;
+  methods = invokeMethodsSchema;
 
   // Track calls for testing
   incrementSpy = vi.fn((n: number) => n + 1);
@@ -235,19 +235,22 @@ class RPCLeaf
   afterDelete(): void {}
 }
 
-const createRPCLeaf = (key: string, parentCtxValues: aether.ContextMap | null = null) =>
-  new RPCLeaf({
+const createInvokeLeaf = (
+  key: string,
+  parentCtxValues: aether.ContextMap | null = null,
+) =>
+  new InvokeLeaf({
     key,
-    type: "rpc-leaf",
+    type: "invoke-leaf",
     sender: MockSender,
     instrumentation: alamos.Instrumentation.NOOP,
     parentCtxValues,
   });
 
-class RPCComposite extends aether.Composite<
+class InvokeComposite extends aether.Composite<
   typeof exampleProps,
   {},
-  RPCLeaf,
+  InvokeLeaf,
   aether.EmptyMethodsSchema
 > {
   schema = exampleProps;
@@ -257,13 +260,13 @@ class RPCComposite extends aether.Composite<
   afterDelete(): void {}
 }
 
-const createRPCComposite = (
+const createInvokeComposite = (
   key: string,
   parentCtxValues: aether.ContextMap | null = null,
 ) =>
-  new RPCComposite({
+  new InvokeComposite({
     key,
-    type: "rpc-composite",
+    type: "invoke-composite",
     sender: MockSender,
     instrumentation: alamos.Instrumentation.NOOP,
     parentCtxValues,
@@ -604,15 +607,15 @@ describe("Aether Worker", () => {
     });
   });
 
-  describe("RPC", () => {
-    let leaf: RPCLeaf;
+  describe("invoke", () => {
+    let leaf: InvokeLeaf;
     beforeEach(() => {
       MockSender.send.mockClear();
-      leaf = createRPCLeaf("rpc-test");
+      leaf = createInvokeLeaf("invoke-test");
       leaf._updateState({
-        path: ["rpc-test"],
+        path: ["invoke-test"],
         state: { x: 1 },
-        type: "rpc-leaf",
+        type: "invoke-leaf",
         create: shouldNotCallCreate,
       });
     });
@@ -706,7 +709,7 @@ describe("Aether Worker", () => {
           error: expect.objectContaining({
             name: "Error",
             message:
-              "Failed to execute throwError(req-5) with args [] on rpc-leaf(rpc-test): Test error",
+              "Failed to execute throwError(req-5) with args [] on invoke-leaf(invoke-test): Test error",
           }),
         });
       });
@@ -748,7 +751,7 @@ describe("Aether Worker", () => {
       });
 
       it("should not invoke method if component is deleted", () => {
-        leaf._delete(["rpc-test"]);
+        leaf._delete(["invoke-test"]);
         MockSender.send.mockClear();
 
         leaf._invokeMethod({
@@ -764,24 +767,24 @@ describe("Aether Worker", () => {
       });
     });
 
-    describe("Composite RPC propagation", () => {
-      let composite: RPCComposite;
-      let childLeaf: RPCLeaf;
+    describe("Composite invoke propagation", () => {
+      let composite: InvokeComposite;
+      let childLeaf: InvokeLeaf;
 
       beforeEach(() => {
         MockSender.send.mockClear();
-        composite = createRPCComposite("parent");
+        composite = createInvokeComposite("parent");
         composite._updateState({
           path: ["parent"],
           state: { x: 1 },
-          type: "rpc-composite",
+          type: "invoke-composite",
           create: shouldNotCallCreate,
         });
         composite._updateState({
           path: ["parent", "child"],
           state: { x: 2 },
-          type: "rpc-leaf",
-          create: () => createRPCLeaf("child"),
+          type: "invoke-leaf",
+          create: () => createInvokeLeaf("child"),
         });
         childLeaf = composite.children[0];
         MockSender.send.mockClear();
