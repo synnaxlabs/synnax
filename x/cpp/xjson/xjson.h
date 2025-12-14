@@ -28,7 +28,8 @@ namespace xjson {
 
 /// @brief Type trait to detect std::vector types
 template<typename T>
-// NOLINTNEXTLINE(readability-identifier-naming) - follows STL naming convention (std::is_same)
+// NOLINTNEXTLINE(readability-identifier-naming) - follows STL naming convention
+// (std::is_same)
 struct is_vector : std::false_type {
     using value_type = T;
 };
@@ -39,13 +40,15 @@ struct is_vector<std::vector<T>> : std::true_type {
 };
 
 template<typename T>
-// NOLINTNEXTLINE(readability-identifier-naming) - follows STL naming convention (std::is_same_v)
+// NOLINTNEXTLINE(readability-identifier-naming) - follows STL naming convention
+// (std::is_same_v)
 inline constexpr bool is_vector_v = is_vector<T>::value;
 
 /// @brief Type trait to detect std::map and std::unordered_map types with string or
 /// numeric keys
 template<typename T>
-// NOLINTNEXTLINE(readability-identifier-naming) - follows STL naming convention (std::is_same)
+// NOLINTNEXTLINE(readability-identifier-naming) - follows STL naming convention
+// (std::is_same)
 struct is_map : std::false_type {
     using key_type = void;
     using value_type = T;
@@ -72,7 +75,8 @@ struct is_map<std::unordered_map<K, V>>
 };
 
 template<typename T>
-// NOLINTNEXTLINE(readability-identifier-naming) - follows STL naming convention (std::is_same_v)
+// NOLINTNEXTLINE(readability-identifier-naming) - follows STL naming convention
+// (std::is_same_v)
 inline constexpr bool is_map_v = is_map<T>::value;
 
 /// @brief a utility class for improving the experience of parsing JSON-based
@@ -420,11 +424,10 @@ public:
 
 /// @brief Type trait to detect if a type can be constructed from a Parser
 template<typename T>
-inline constexpr bool is_parser_constructible_v =  // NOLINT(readability-identifier-naming) - follows STL naming convention
-    std::is_constructible_v<T, Parser> ||
-    std::is_constructible_v<T, Parser &> ||
-    std::is_constructible_v<T, const Parser &> ||
-    std::is_constructible_v<T, Parser &&>;
+inline constexpr bool is_parser_constructible_v = // NOLINT(readability-identifier-naming)
+                                                  // - follows STL naming convention
+    std::is_constructible_v<T, Parser> || std::is_constructible_v<T, Parser &> ||
+    std::is_constructible_v<T, const Parser &> || std::is_constructible_v<T, Parser &&>;
 
 // Implementation of parse_value - the single source of truth for all type conversions
 template<typename T>

@@ -115,8 +115,12 @@ struct ScanContext {
     std::shared_ptr<std::vector<Node>> channels;
 };
 
-static UA_StatusCode
-node_iter(UA_NodeId child_id, UA_Boolean is_inverse, [[maybe_unused]] UA_NodeId ref_type_id, void *raw_ctx) {
+static UA_StatusCode node_iter(
+    UA_NodeId child_id,
+    UA_Boolean is_inverse,
+    [[maybe_unused]] UA_NodeId ref_type_id,
+    void *raw_ctx
+) {
     if (is_inverse) return UA_STATUSCODE_GOOD;
     auto ctx = static_cast<ScanContext *>(raw_ctx);
     const auto ua_client = ctx->client.get();

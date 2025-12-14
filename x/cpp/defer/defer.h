@@ -47,9 +47,7 @@ public:
             fn();
         } catch (const std::exception &e) {
             std::cerr << "Exception in deferred function: " << e.what() << '\n';
-        } catch (...) {
-            std::cerr << "Unknown exception in deferred function\n";
-        }
+        } catch (...) { std::cerr << "Unknown exception in deferred function\n"; }
     }
 
     /**

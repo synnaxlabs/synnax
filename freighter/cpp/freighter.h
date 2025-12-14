@@ -47,10 +47,7 @@ public:
 
     /// @brief Constructs the context with an empty set of parameters.
     Context(std::string protocol, url::URL target, const TransportVariant variant):
-        protocol(std::move(protocol)),
-        target(std::move(target)),
-        variant(variant) {
-    }
+        protocol(std::move(protocol)), target(std::move(target)), variant(variant) {}
 
     /// @brief Copy constructor
     Context(const Context &other):
@@ -77,7 +74,9 @@ public:
     /// @brief Gets the parameter with the given key.
     std::string get(const std::string &key) { return params[key]; }
 
-    [[nodiscard]] bool has(const std::string &key) const { return params.contains(key); }
+    [[nodiscard]] bool has(const std::string &key) const {
+        return params.contains(key);
+    }
 
     /// @brief Sets the given parameter to the given value.
     void set(const std::string &key, const std::string &value) { params[key] = value; }
@@ -138,7 +137,8 @@ struct FinalizerReturn {
 template<typename RQ, typename RS>
 class Finalizer {
 public:
-    virtual FinalizerReturn<RS> operator()(const Context &context, [[maybe_unused]] RQ &req) {
+    virtual FinalizerReturn<RS>
+    operator()(const Context &context, [[maybe_unused]] RQ &req) {
         return {context, xerrors::NIL};
     }
 

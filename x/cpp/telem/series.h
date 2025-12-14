@@ -32,7 +32,8 @@ template<typename DestType, typename SrcType>
 static void cast_to_type(std::byte *dest, SrcType *src, const size_t count) {
     auto *typed_dest = reinterpret_cast<DestType *>(dest);
     for (size_t i = 0; i < count; i++)
-        // NOLINTNEXTLINE(bugprone-signed-char-misuse,cert-str34-c) - intentional type casting for telemetry data conversion
+        // NOLINTNEXTLINE(bugprone-signed-char-misuse,cert-str34-c) - intentional type
+        // casting for telemetry data conversion
         typed_dest[i] = static_cast<DestType>(src[i]);
 }
 
@@ -384,7 +385,8 @@ public:
         std::visit(
             [this]<typename IT>(const IT &arg) {
                 this->data_ = std::make_unique<std::byte[]>(this->byte_size());
-                // NOLINTNEXTLINE(bugprone-undefined-memory-manipulation) - string case handled above, only numeric types reach here
+                // NOLINTNEXTLINE(bugprone-undefined-memory-manipulation) - string case
+                // handled above, only numeric types reach here
                 memcpy(data_.get(), &arg, this->byte_size());
             },
             v
@@ -992,15 +994,21 @@ public:
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == UINT64_T) {
-            const auto *data_ptr = reinterpret_cast<const uint64_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const uint64_t *>(
+                this->data_.get()
+            );
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == UINT32_T) {
-            const auto *data_ptr = reinterpret_cast<const uint32_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const uint32_t *>(
+                this->data_.get()
+            );
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == UINT16_T) {
-            const auto *data_ptr = reinterpret_cast<const uint16_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const uint16_t *>(
+                this->data_.get()
+            );
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == UINT8_T) {

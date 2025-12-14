@@ -64,9 +64,7 @@ URL::URL(const std::string &address) {
         port = static_cast<uint16_t>(
             std::stoul(address.substr(colon + 1, path_start - colon - 1))
         );
-    } catch (const std::exception &) {
-        port = 0;
-    }
+    } catch (const std::exception &) { port = 0; }
     path = path_start != std::string::npos ? join_paths("", address.substr(path_start))
                                            : "";
 }

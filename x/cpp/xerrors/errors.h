@@ -55,7 +55,8 @@ public:
     }
 
     /// @brief constructs the error from its protobuf representation.
-    explicit Error(const errors::PBPayload &err) noexcept: type(err.type()), data(err.data()) {}
+    explicit Error(const errors::PBPayload &err) noexcept:
+        type(err.type()), data(err.data()) {}
 
     [[nodiscard]] xerrors::Error sub(const std::string &type_extension) const noexcept {
         return xerrors::Error(type + "." + type_extension);

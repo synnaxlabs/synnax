@@ -253,8 +253,10 @@ public:
         this->writes_done_called = true;
     }
 
-    freighter::FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS>>>
-    operator()(const freighter::Context &outbound, std::nullptr_t & /*unused*/) override {
+    freighter::FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS>>> operator()(
+        const freighter::Context &outbound,
+        std::nullptr_t & /*unused*/
+    ) override {
         if (this->closed) return {outbound, this->close_err};
         const grpc::Status status = this->stream->Finish();
         this->closed = true;
@@ -311,8 +313,10 @@ public:
     }
 
     /// @brief the finalizer that opens the stream.
-    freighter::FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS>>>
-    operator()(const freighter::Context &req_ctx, std::nullptr_t & /*unused*/) override {
+    freighter::FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS>>> operator()(
+        const freighter::Context &req_ctx,
+        std::nullptr_t & /*unused*/
+    ) override {
         auto channel = this->pool->get_channel(req_ctx.target);
         auto res_ctx = freighter::Context(
             req_ctx.protocol,

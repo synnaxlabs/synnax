@@ -327,8 +327,7 @@ TEST(TimeSpanTests, testScalarAssignments) {
 /// @brief it should convert a timespan to a human-readable string.
 TEST(TimeSpanTests, testToString) {
     const auto ts = TimeSpan(
-        DAY + HOUR + MINUTE + SECOND + MILLISECOND +
-        MICROSECOND + 1
+        DAY + HOUR + MINUTE + SECOND + MILLISECOND + MICROSECOND + 1
     ); // 1 day, 1 hour, 1 minute, 1 second, 1ms, 1us, 1ns
     const auto str = ts.to_string();
     ASSERT_EQ(str, "1d 1h 1m 1s 1ms 1us 1ns");

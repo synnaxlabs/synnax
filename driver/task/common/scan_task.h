@@ -466,6 +466,8 @@ public:
 
     using pipeline::Base::stop;
 
-    void stop([[maybe_unused]] bool will_reconfigure) override { pipeline::Base::stop(); }
+    void stop([[maybe_unused]] bool will_reconfigure) override {
+        pipeline::Base::stop();
+    }
 };
 }

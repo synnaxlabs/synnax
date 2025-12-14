@@ -241,8 +241,8 @@ public:
                              internal::SECOND;
         const auto milliseconds = (total_milliseconds.value - total_seconds.value) /
                                   internal::MILLISECOND;
-        const auto microseconds = (total_microseconds.value - total_milliseconds.value
-                                  ) /
+        const auto microseconds = (total_microseconds.value -
+                                   total_milliseconds.value) /
                                   internal::MICROSECOND;
         const auto nanoseconds = total_nanoseconds - total_microseconds.value;
 
@@ -292,10 +292,12 @@ public:
         // note that on some machines, hig-res clock refs system_clock and on others
         // it references steady_clock. This could create a problem so we should
         // probably use system_clock.
-        return TimeStamp(std::chrono::duration_cast<std::chrono::nanoseconds>(
-                             std::chrono::system_clock::now().time_since_epoch()
-        )
-                             .count());
+        return TimeStamp(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::system_clock::now().time_since_epoch()
+            )
+                .count()
+        );
     }
 
     TimeStamp static midpoint(const TimeStamp &start, const TimeStamp &end) {
@@ -577,7 +579,8 @@ template<typename T>
                     try {
                         return TimeStamp(std::stoll(std::forward<IT>(arg)));
                     } catch (...) {
-                        throw std::runtime_error("failed to convert string to TimeStamp"
+                        throw std::runtime_error(
+                            "failed to convert string to TimeStamp"
                         );
                     }
                 }
@@ -876,28 +879,36 @@ private:
         {std::type_index(typeid(double)), internal::FLOAT64_T},
         {std::type_index(typeid(char)), internal::INT8_T},
         {std::type_index(typeid(std::int8_t)), internal::INT8_T},
-        // NOLINTNEXTLINE(google-runtime-int) - need platform-native types for type_index mapping
+        // NOLINTNEXTLINE(google-runtime-int) - need platform-native types for
+        // type_index mapping
         {std::type_index(typeid(short)), internal::INT16_T},
         {std::type_index(typeid(std::int16_t)), internal::INT16_T},
         {std::type_index(typeid(int)), internal::INT32_T},
         {std::type_index(typeid(std::int32_t)), internal::INT32_T},
-        // NOLINTBEGIN(google-runtime-int) - need platform-native types for type_index mapping
-        {std::type_index(typeid(long)), sizeof(long) == 8 ? internal::INT64_T : internal::INT32_T},
+        // NOLINTBEGIN(google-runtime-int) - need platform-native types for type_index
+        // mapping
+        {std::type_index(typeid(long)),
+         sizeof(long) == 8 ? internal::INT64_T : internal::INT32_T},
         // NOLINTEND(google-runtime-int)
-        // NOLINTNEXTLINE(google-runtime-int) - need platform-native types for type_index mapping
+        // NOLINTNEXTLINE(google-runtime-int) - need platform-native types for
+        // type_index mapping
         {std::type_index(typeid(long long)), internal::INT64_T},
         {std::type_index(typeid(std::int64_t)), internal::INT64_T},
         {std::type_index(typeid(unsigned char)), internal::UINT8_T},
         {std::type_index(typeid(std::uint8_t)), internal::UINT8_T},
-        // NOLINTNEXTLINE(google-runtime-int) - need platform-native types for type_index mapping
+        // NOLINTNEXTLINE(google-runtime-int) - need platform-native types for
+        // type_index mapping
         {std::type_index(typeid(unsigned short)), internal::UINT16_T},
         {std::type_index(typeid(std::uint16_t)), internal::UINT16_T},
         {std::type_index(typeid(unsigned int)), internal::UINT32_T},
         {std::type_index(typeid(std::uint32_t)), internal::UINT32_T},
-        // NOLINTBEGIN(google-runtime-int) - need platform-native types for type_index mapping
-        {std::type_index(typeid(unsigned long)), sizeof(unsigned long) == 8 ? internal::UINT64_T : internal::UINT32_T},
+        // NOLINTBEGIN(google-runtime-int) - need platform-native types for type_index
+        // mapping
+        {std::type_index(typeid(unsigned long)),
+         sizeof(unsigned long) == 8 ? internal::UINT64_T : internal::UINT32_T},
         // NOLINTEND(google-runtime-int)
-        // NOLINTNEXTLINE(google-runtime-int) - need platform-native types for type_index mapping
+        // NOLINTNEXTLINE(google-runtime-int) - need platform-native types for
+        // type_index mapping
         {std::type_index(typeid(unsigned long long)), internal::UINT64_T},
         {std::type_index(typeid(std::uint64_t)), internal::UINT64_T},
         {std::type_index(typeid(std::string)), internal::STRING_T},

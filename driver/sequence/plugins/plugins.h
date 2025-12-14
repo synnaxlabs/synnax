@@ -36,14 +36,18 @@ public:
     ///
     /// In no scenario should the called store the provided lua_State for later use,
     /// as it is not guaranteed to remain valid after this method returns.
-    virtual xerrors::Error before_all([[maybe_unused]] lua_State *L) { return xerrors::NIL; }
+    virtual xerrors::Error before_all([[maybe_unused]] lua_State *L) {
+        return xerrors::NIL;
+    }
 
     /// @brief called after the sequence ends. The caller can optionally override
     /// this method to perform any cleanup that is required after the sequence ends.
     ///
     /// In no scenario should the called store the provided lua_State for later use,
     /// as it is not guaranteed to remain valid after this method returns.
-    virtual xerrors::Error after_all([[maybe_unused]] lua_State *L) { return xerrors::NIL; }
+    virtual xerrors::Error after_all([[maybe_unused]] lua_State *L) {
+        return xerrors::NIL;
+    }
 
     /// @brief called before each iteration of the sequence. The caller can
     /// optionally override this method to bind any variables or functions that must
@@ -51,7 +55,9 @@ public:
     ///
     /// In no scenario should the called store the provided lua_State for later use,
     /// as it is not guaranteed to remain valid after this method returns.
-    virtual xerrors::Error before_next([[maybe_unused]] lua_State *L) { return xerrors::NIL; }
+    virtual xerrors::Error before_next([[maybe_unused]] lua_State *L) {
+        return xerrors::NIL;
+    }
 
     /// @brief called after each iteration of the sequence. The caller can
     /// optionally override this method to perform any cleanup that is required
@@ -59,7 +65,9 @@ public:
     ///
     /// In no scenario should the called store the provided lua_State for later use,
     /// as it is not guaranteed to remain valid after this method returns.
-    virtual xerrors::Error after_next([[maybe_unused]] lua_State *L) { return xerrors::NIL; }
+    virtual xerrors::Error after_next([[maybe_unused]] lua_State *L) {
+        return xerrors::NIL;
+    }
 };
 
 /// @brief a Plugin implementation that wraps several plugins into a unified

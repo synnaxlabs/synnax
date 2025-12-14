@@ -11,6 +11,7 @@
 
 #include <fstream>
 #include <sstream>
+
 #include "x/cpp/xerrors/errors.h"
 
 namespace fs {
@@ -27,8 +28,7 @@ inline std::pair<std::string, xerrors::Error> read_file(const std::string &path)
         return {"", xerrors::Error(NOT_FOUND, "failed to open " + path)};
     std::stringstream buffer;
     buffer << file.rdbuf();
-    if (file.bad())
-        return {"", xerrors::Error(READ_ERROR, "failed to read " + path)};
+    if (file.bad()) return {"", xerrors::Error(READ_ERROR, "failed to read " + path)};
     return {buffer.str(), xerrors::NIL};
 }
 }

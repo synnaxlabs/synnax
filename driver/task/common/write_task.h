@@ -111,7 +111,8 @@ public:
         }
     }
 
-    xerrors::Error read([[maybe_unused]] breaker::Breaker &breaker, synnax::Frame &fr) override {
+    xerrors::Error
+    read([[maybe_unused]] breaker::Breaker &breaker, synnax::Frame &fr) override {
         std::unique_lock lock(chan_state_lock);
         this->chan_state_cv.wait_for(lock, this->state_rate.period().chrono());
         fr.clear();

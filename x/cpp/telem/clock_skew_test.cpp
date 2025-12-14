@@ -13,7 +13,8 @@
 
 namespace {
 // A mock global time variable to simulate custom time behavior.
-// NOLINTNEXTLINE(*-static-definition-in-anonymous-namespace, *-avoid-non-const-global-variables)
+// NOLINTNEXTLINE(*-static-definition-in-anonymous-namespace,
+// *-avoid-non-const-global-variables)
 static telem::TimeStamp mock_time(0);
 
 // Custom "now()" function that returns the current mock time.

@@ -110,7 +110,7 @@ prompt(const std::string &message, std::optional<T> default_value = std::nullopt
         "Template parameter T must be an arithmetic type"
     );
     while (true) {
-        const std::string& prompt_text = message;
+        const std::string &prompt_text = message;
         std::string default_str;
         if (default_value.has_value()) default_str = std::to_string(*default_value);
         std::string input = prompt(prompt_text, default_str);

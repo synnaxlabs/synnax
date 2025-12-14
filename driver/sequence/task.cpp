@@ -94,7 +94,10 @@ void sequence::Task::start(const std::string &key) {
     this->thread = std::thread([this] { this->run(); });
 }
 
-void sequence::Task::stop(const std::string &key, [[maybe_unused]] bool will_reconfigure) {
+void sequence::Task::stop(
+    const std::string &key,
+    [[maybe_unused]] bool will_reconfigure
+) {
     if (!this->breaker.running()) return;
     this->breaker.stop();
     this->breaker.reset();

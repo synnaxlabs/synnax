@@ -41,7 +41,11 @@ TEST(testFreighter, testMiddlewareCollector) {
     auto f = BasicFinalizer();
     collector.use(mw1);
     collector.use(mw2);
-    const auto ctx = freighter::Context("test", url::URL("1"), freighter::TransportVariant::UNARY);
+    const auto ctx = freighter::Context(
+        "test",
+        url::URL("1"),
+        freighter::TransportVariant::UNARY
+    );
     auto req = 1;
     const auto res = ASSERT_NIL_P(collector.exec(ctx, &f, req));
     ASSERT_EQ(res, 2);

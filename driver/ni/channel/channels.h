@@ -244,8 +244,7 @@ struct TwoPointLinConfig {
         electrical_units(UNITS_MAP.at(cfg.field<std::string>("electrical_units"))),
         first_physical_val(cfg.field<double>("first_physical_val")),
         second_physical_val(cfg.field<double>("second_physical_val")),
-        physical_units(UNITS_MAP.at(cfg.field<std::string>("physical_units"))) {
-    }
+        physical_units(UNITS_MAP.at(cfg.field<std::string>("physical_units"))) {}
 };
 
 inline std::string format_cfg_path(const std::string &path) {

@@ -160,7 +160,9 @@ TEST(DeviceTest, ReadHoldingRegistersWorks) {
     auto dev = ASSERT_NIL_P(manager.acquire(config));
 
     uint16_t regs[2];
-    ASSERT_NIL(dev->read_registers(modbus::device::RegisterType::HoldingRegister, 0, 2, regs));
+    ASSERT_NIL(
+        dev->read_registers(modbus::device::RegisterType::HoldingRegister, 0, 2, regs)
+    );
 
     EXPECT_EQ(regs[0], 0x1234);
     EXPECT_EQ(regs[1], 0x5678);
@@ -184,7 +186,9 @@ TEST(DeviceTest, ReadInputRegistersWorks) {
     auto dev = ASSERT_NIL_P(manager.acquire(config));
 
     uint16_t regs[2];
-    ASSERT_NIL(dev->read_registers(modbus::device::RegisterType::InputRegister, 0, 2, regs));
+    ASSERT_NIL(
+        dev->read_registers(modbus::device::RegisterType::InputRegister, 0, 2, regs)
+    );
 
     EXPECT_EQ(regs[0], 0xAAAA);
     EXPECT_EQ(regs[1], 0xBBBB);
@@ -238,7 +242,12 @@ TEST(DeviceTest, WriteRegistersWorks) {
     ASSERT_NIL(dev->write_registers(0, 2, regs_to_write));
 
     uint16_t regs_read[2];
-    ASSERT_NIL(dev->read_registers(modbus::device::RegisterType::HoldingRegister, 0, 2, regs_read));
+    ASSERT_NIL(dev->read_registers(
+        modbus::device::RegisterType::HoldingRegister,
+        0,
+        2,
+        regs_read
+    ));
 
     EXPECT_EQ(regs_read[0], 0xABCD);
     EXPECT_EQ(regs_read[1], 0xEF01);

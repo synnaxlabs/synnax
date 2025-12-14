@@ -228,7 +228,8 @@ public:
     /// @brief Constructs a parser from argc and argv
     /// @param argc The argument count
     /// @param argv The argument values array
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays) - standard main() signature
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays)
+    // - standard main() signature
     explicit Parser(const int argc, char *argv[]): argv_(argv, argv + argc) {}
 
     /// @brief Constructs a parser from a vector of strings

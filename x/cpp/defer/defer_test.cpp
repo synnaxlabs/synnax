@@ -69,7 +69,8 @@ TEST(DeferTests, ExceptionHandling) {
         throw std::runtime_error("Test exception");
         // NOLINTNEXTLINE(bugprone-empty-catch)
     } catch (const std::exception &) {
-        // Intentionally catch and ignore - testing defer executes during stack unwinding
+        // Intentionally catch and ignore - testing defer executes during stack
+        // unwinding
     }
     ASSERT_TRUE(called);
 }
