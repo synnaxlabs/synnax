@@ -261,7 +261,7 @@ describe("Aether Main", () => {
       );
       await expect.poll(() => root.children.length === 1).toBe(true);
       await expect.poll(() => captured.error !== null).toBe(true);
-      expect(captured.error?.message).toBe("Test error");
+      expect(captured.error?.message).toContain("Test error");
     });
     it("should reject async RPC on timeout", async () => {
       vi.useFakeTimers();

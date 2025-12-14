@@ -12,7 +12,7 @@ import { type errors } from "@synnaxlabs/x";
 import { type state } from "@/state";
 
 /** A message from the main thread to update or create an aether component. */
-export interface MainUpdateMessage {
+export interface MainUpdateRequest {
   variant: "update";
   /** The path of the component to update. */
   path: string[];
@@ -23,7 +23,7 @@ export interface MainUpdateMessage {
 }
 
 /** A message from the main thread to delete an aether component. */
-export interface MainDeleteMessage {
+export interface MainDeleteRequest {
   variant: "delete";
   /** The type of the component to delete. */
   type: string;
@@ -32,7 +32,7 @@ export interface MainDeleteMessage {
 }
 
 /** A message from the aether thread to update an aether component. */
-export interface AetherUpdateMessage {
+export interface AetherUpdateRequest {
   variant: "update";
   /** The key of the component to update. */
   key: string;
@@ -47,10 +47,10 @@ export interface AetherErrorMessage {
 }
 
 /** A message from the main thread invoking a method on a worker component. */
-export interface MainRPCRequestMessage {
-  variant: "rpc-request";
+export interface MainInvokeRequest {
+  variant: "invoke_request";
   /** Correlation ID for matching response. Format: `${componentKey}-${counter}` */
-  requestId: string;
+  key: string;
   /** The path of the component to invoke the method on. */
   path: string[];
   /** The method name to invoke. */
@@ -62,10 +62,10 @@ export interface MainRPCRequestMessage {
 }
 
 /** A message from the worker thread responding to a main RPC request. */
-export interface AetherRPCResponseMessage {
-  variant: "rpc-response";
+export interface AetherInvokeResponse {
+  variant: "invoke_response";
   /** Correlation ID matching the original request. */
-  requestId: string;
+  key: string;
   /** The result of the method call. */
   result: unknown;
   /** Error information if the method threw. */
@@ -73,7 +73,10 @@ export interface AetherRPCResponseMessage {
 }
 
 /** A message from the aether thread to the main thread. */
-export type AetherMessage = AetherUpdateMessage | AetherErrorMessage | AetherRPCResponseMessage;
+export type AetherMessage =
+  | AetherUpdateRequest
+  | AetherErrorMessage
+  | AetherInvokeResponse;
 
 /** A message from the main thread to the aether thread. */
-export type MainMessage = MainUpdateMessage | MainDeleteMessage | MainRPCRequestMessage;
+export type MainMessage = MainUpdateRequest | MainDeleteRequest | MainInvokeRequest;

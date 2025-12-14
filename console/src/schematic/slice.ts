@@ -114,7 +114,6 @@ export interface SetControlStatusPayload {
   control: Control.Status;
 }
 
-
 export interface SetActiveToolbarTabPayload {
   key: string;
   tab: ToolbarTab;

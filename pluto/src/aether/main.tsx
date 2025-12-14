@@ -63,14 +63,14 @@ class RPCTracker {
   private pending = new Map<string, PendingRequest>();
   private counters = new Map<string, number>();
 
-  nextRequestId(key: string): string {
+  nextkey(key: string): string {
     const counter = this.counters.get(key) ?? 0;
     this.counters.set(key, counter + 1);
     return `${key}-${counter}`;
   }
 
   track(
-    requestId: string,
+    key: string,
     resolve: (value: unknown) => void,
     reject: (error: Error) => void,
     signal: AbortSignal,
@@ -81,16 +81,16 @@ class RPCTracker {
       signal: controller.signal,
     });
     controller.signal.addEventListener("abort", () => {
-      this.pending.delete(requestId);
+      this.pending.delete(key);
       reject(controller.signal.reason);
     });
-    this.pending.set(requestId, { resolve, reject, controller });
+    this.pending.set(key, { resolve, reject, controller });
   }
 
-  resolve(requestId: string, result: unknown, error?: errors.NativePayload): boolean {
-    const pending = this.pending.get(requestId);
+  resolve(key: string, result: unknown, error?: errors.NativePayload): boolean {
+    const pending = this.pending.get(key);
     if (pending == null) return false;
-    this.pending.delete(requestId);
+    this.pending.delete(key);
     if (error != null) pending.reject(reconstructError(error));
     else pending.resolve(result);
     return true;
@@ -221,8 +221,8 @@ export const Provider = ({
         },
         invokeMethod: (method: string, args: unknown[]): void => {
           worker?.send({
-            variant: "rpc-request",
-            requestId: "",
+            variant: "invoke_request",
+            key: "",
             path,
             method,
             args,
@@ -238,16 +238,16 @@ export const Provider = ({
             if (worker == null) return reject(new Error("aether - no worker"));
             if (controller.signal.aborted)
               return reject(new Error("Component deleted"));
-            const requestId = rpcTracker.current.nextRequestId(key);
+            const invokeKey = rpcTracker.current.nextkey(key);
             rpcTracker.current.track(
-              requestId,
+              invokeKey,
               resolve as (v: unknown) => void,
               reject,
               AbortSignal.any([signal, controller.signal]),
             );
             worker.send({
-              variant: "rpc-request",
-              requestId,
+              variant: "invoke_request",
+              key: invokeKey,
               path,
               method,
               args,
@@ -278,8 +278,8 @@ export const Provider = ({
         });
         return;
       }
-      if (variant === "rpc-response") {
-        rpcTracker.current.resolve(msg.requestId, msg.result, msg.error);
+      if (variant === "invoke_response") {
+        rpcTracker.current.resolve(msg.key, msg.result, msg.error);
         return;
       }
       const { key, state } = msg;

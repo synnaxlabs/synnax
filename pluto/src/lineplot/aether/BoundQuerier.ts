@@ -18,7 +18,10 @@ export const boundQuerierStateZ = z.object({});
 
 export interface BoundQuerierState extends z.infer<typeof boundQuerierStateZ> {}
 
-const axesBoundsZ = z.record(z.string(), z.object({ lower: z.number(), upper: z.number() }));
+const axesBoundsZ = z.record(
+  z.string(),
+  z.object({ lower: z.number(), upper: z.number() }),
+);
 
 export const boundQuerierMethodsZ = {
   getBounds: z.function({ input: z.tuple([]), output: axesBoundsZ }),

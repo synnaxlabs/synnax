@@ -619,31 +619,49 @@ describe("Aether Worker", () => {
 
     describe("_invokeMethod", () => {
       it("should invoke the handler with the provided args and send response", async () => {
-        leaf._invokeMethod("req-1", "increment", [5], true);
+        leaf._invokeMethod({
+          key: "req-1",
+          path: [],
+          args: [5],
+          expectsResponse: true,
+          method: "increment",
+        });
         await scheduler.flushTaskQueue();
 
         expect(leaf.incrementSpy).toHaveBeenCalledWith(5);
         expect(MockSender.send).toHaveBeenCalledWith({
-          variant: "rpc-response",
-          requestId: "req-1",
+          variant: "invoke_response",
+          key: "req-1",
           result: 6,
         });
       });
 
       it("should handle methods with object args", async () => {
-        leaf._invokeMethod("req-2", "greet", [{ name: "World" }], true);
+        leaf._invokeMethod({
+          key: "req-2",
+          path: [],
+          args: [{ name: "World" }],
+          expectsResponse: true,
+          method: "greet",
+        });
         await scheduler.flushTaskQueue();
 
         expect(leaf.greetSpy).toHaveBeenCalledWith({ name: "World" });
         expect(MockSender.send).toHaveBeenCalledWith({
-          variant: "rpc-response",
-          requestId: "req-2",
+          variant: "invoke_response",
+          key: "req-2",
           result: "Hello, World!",
         });
       });
 
       it("should handle methods with no args (fire-and-forget)", async () => {
-        leaf._invokeMethod("req-3", "noArgs", [], false);
+        leaf._invokeMethod({
+          key: "req-3",
+          path: [],
+          args: [],
+          expectsResponse: false,
+          method: "noArgs",
+        });
         await scheduler.flushTaskQueue();
 
         expect(leaf.noArgsSpy).toHaveBeenCalled();
@@ -651,37 +669,57 @@ describe("Aether Worker", () => {
       });
 
       it("should handle async methods", async () => {
-        leaf._invokeMethod("req-4", "asyncMethod", [10], true);
+        leaf._invokeMethod({
+          key: "req-4",
+          path: [],
+          args: [10],
+          expectsResponse: true,
+          method: "asyncMethod",
+        });
 
         await new Promise((resolve) => setTimeout(resolve, 20));
 
         expect(leaf.asyncMethodSpy).toHaveBeenCalledWith(10);
         expect(MockSender.send).toHaveBeenCalledWith({
-          variant: "rpc-response",
-          requestId: "req-4",
+          variant: "invoke_response",
+          key: "req-4",
           result: 20,
         });
       });
 
       it("should send error response when handler throws (expectsResponse=true)", async () => {
-        leaf._invokeMethod("req-5", "throwError", [], true);
+        leaf._invokeMethod({
+          key: "req-5",
+          path: [],
+          args: [],
+          expectsResponse: true,
+          method: "throwError",
+        });
+
         await scheduler.flushTaskQueue();
 
         expect(leaf.throwErrorSpy).toHaveBeenCalled();
         expect(MockSender.send).toHaveBeenCalledWith({
-          variant: "rpc-response",
-          requestId: "req-5",
+          variant: "invoke_response",
+          key: "req-5",
           result: undefined,
           error: expect.objectContaining({
             name: "Error",
-            message: "Test error",
+            message:
+              "Failed to execute throwError(req-5) with args [] on rpc-leaf(rpc-test): Test error",
           }),
         });
       });
 
       it("should log error but not send response when handler throws (fire-and-forget)", async () => {
         const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-        leaf._invokeMethod("req-5b", "throwError", [], false);
+        leaf._invokeMethod({
+          key: "req-5b",
+          path: [],
+          args: [],
+          expectsResponse: false,
+          method: "throwError",
+        });
         await scheduler.flushTaskQueue();
 
         expect(leaf.throwErrorSpy).toHaveBeenCalled();
@@ -691,11 +729,17 @@ describe("Aether Worker", () => {
       });
 
       it("should send error response for unknown method when expectsResponse=true", () => {
-        leaf._invokeMethod("req-6", "unknownMethod", [], true);
+        leaf._invokeMethod({
+          key: "req-6",
+          path: [],
+          args: [],
+          expectsResponse: true,
+          method: "unknownMethod",
+        });
 
         expect(MockSender.send).toHaveBeenCalledWith({
-          variant: "rpc-response",
-          requestId: "req-6",
+          variant: "invoke_response",
+          key: "req-6",
           result: undefined,
           error: expect.objectContaining({
             message: expect.stringContaining("unknownMethod"),
@@ -707,7 +751,13 @@ describe("Aether Worker", () => {
         leaf._delete(["rpc-test"]);
         MockSender.send.mockClear();
 
-        leaf._invokeMethod("req-7", "increment", [5], true);
+        leaf._invokeMethod({
+          key: "req-7",
+          path: [],
+          args: [5],
+          expectsResponse: true,
+          method: "increment",
+        });
 
         expect(leaf.incrementSpy).not.toHaveBeenCalled();
         expect(MockSender.send).not.toHaveBeenCalled();

@@ -22,8 +22,9 @@ import { z } from "zod";
 
 import {
   type AetherMessage,
+  type MainInvokeRequest,
   type MainMessage,
-  type MainUpdateMessage,
+  type MainUpdateRequest,
 } from "@/aether/message";
 import { state } from "@/state";
 import { prettyParse } from "@/util/zod";
@@ -50,10 +51,12 @@ interface CreateComponent {
   (initialParentCtxValues: ContextMap): Component;
 }
 
-export interface UpdateStateArgs
-  extends Pick<MainUpdateMessage, "path" | "type" | "state"> {
+export interface UpdateStateParams
+  extends Pick<MainUpdateRequest, "path" | "type" | "state"> {
   create: CreateComponent;
 }
+
+export interface InvokeMethodParams extends Omit<MainInvokeRequest, "variant"> {}
 
 /**
  * A component in the Aether tree. Each component instance has a unique key identifying
@@ -79,7 +82,7 @@ export interface Component {
    * @param create - A function that creates a new component of the appropriate type if
    * it doesn't exist in the tree.
    */
-  _updateState: (args: UpdateStateArgs) => void;
+  _updateState: (args: UpdateStateParams) => void;
   /**
    * Propagates a context update to the children and all of its descendants.
    */
@@ -96,17 +99,12 @@ export interface Component {
    * Invokes an RPC method on this component. This is called by the Root when
    * a MainRPCRequestMessage is received.
    *
-   * @param requestId - The correlation ID for matching the response.
+   * @param key - The correlation ID for matching the response.
    * @param method - The name of the method to invoke.
    * @param args - The arguments to pass to the method (spread when calling handler).
    * @param expectsResponse - Whether to send a response back to the caller.
    */
-  _invokeMethod: (
-    requestId: string,
-    method: string,
-    args: unknown[],
-    expectsResponse: boolean,
-  ) => void;
+  _invokeMethod: (params: InvokeMethodParams) => void;
 }
 
 /** Constructor props that all aether components must accept. */
@@ -398,7 +396,7 @@ export abstract class Leaf<
    * @implements AetherComponent, and should NOT be called by a subclass other than
    * AetherComposite.
    */
-  _updateState({ path, state }: UpdateStateArgs): void {
+  _updateState({ path, state }: UpdateStateParams): void {
     if (this.deleted) return;
     try {
       this.initializeMethods();
@@ -480,45 +478,50 @@ export abstract class Leaf<
       );
   }
 
-  _invokeMethod(
-    requestId: string,
-    method: string,
-    args: unknown[],
-    expectsResponse: boolean,
-  ): void {
+  protected handleInvokeError(
+    { expectsResponse, method, key, args }: InvokeMethodParams,
+    error: unknown,
+  ) {
+    if (!expectsResponse)
+      return console.error(
+        `Error in fire and forget method ${method} on ${this.toString()}`,
+        error,
+      );
+
+    const err = error instanceof Error ? error : new Error(String(error));
+    this.sender.send({
+      variant: "invoke_response",
+      key,
+      result: undefined,
+      error: {
+        name: err.name,
+        message: `Failed to execute ${method}(${key}) with args ${JSON.stringify(args)} on ${this.toString()}: ${err.message}`,
+        stack: err.stack ?? "",
+      },
+    });
+  }
+
+  _invokeMethod(params: InvokeMethodParams): void {
     if (this.deleted) return;
-
-    const reportErr = (e: unknown): void => {
-      if (!expectsResponse)
-        return console.error(
-          `Error in fire and forget method ${method} on ${this.toString()}`,
-          e,
-        );
-
-      const err = e instanceof Error ? e : new Error(String(e));
-      this.sender.send({
-        variant: "rpc-response",
-        requestId,
-        result: undefined,
-        error: { name: err.name, message: err.message, stack: err.stack ?? "" },
-      });
-    };
-
+    const { method, key, args, expectsResponse } = params;
     const methodFn = this._methodImplementations?.[method];
     if (methodFn == null)
-      return reportErr(new Error(`Method ${method} not found on ${this.toString()}`));
+      return this.handleInvokeError(
+        params,
+        new Error(`Method ${method} not found on ${this.toString()}`),
+      );
     // Dynamic dispatch - TypeScript can't track string → method lookup.
-    // implementAsync wraps sync results in Promises for uniform handling.
     try {
       const res = methodFn(...args);
       if (res instanceof Promise)
         res
-          .then((r: unknown) =>
-            this.sender.send({ variant: "rpc-response", requestId, result: r }),
-          )
-          .catch(reportErr);
+          .then((r: unknown) => {
+            if (expectsResponse)
+              this.sender.send({ variant: "invoke_response", key, result: r });
+          })
+          .catch((e) => this.handleInvokeError(params, e));
     } catch (e) {
-      reportErr(e);
+      this.handleInvokeError(params, e);
     }
   }
 }
@@ -568,15 +571,15 @@ export abstract class Composite<
     ) as unknown as readonly T[];
   }
 
-  _updateState(args: UpdateStateArgs): void {
-    const { path, type, create } = args;
+  _updateState(params: UpdateStateParams): void {
+    const { path, type, create } = params;
     if (this.deleted) return;
     const subPath = this.parsePath(path);
 
     const isSelfUpdate = subPath.length === 0;
     if (isSelfUpdate) {
       this.childCtxChangedKeys.clear();
-      super._updateState(args);
+      super._updateState(params);
       if (this.childCtxChangedKeys.size == 0) return;
       this.updateChildContexts();
       return;
@@ -584,7 +587,7 @@ export abstract class Composite<
 
     const childKey = subPath[0];
     const child = this.getChild(childKey);
-    if (child != null) return child._updateState({ ...args, path: subPath });
+    if (child != null) return child._updateState({ ...params, path: subPath });
     if (subPath.length > 1) {
       const childPath = path.slice(0, path.indexOf(childKey) + 1).join(".");
       const fullPath = path.join(".");
@@ -600,7 +603,7 @@ export abstract class Composite<
       );
     }
     const newChild = create(this.childCtx());
-    newChild._updateState({ ...args, path: subPath });
+    newChild._updateState({ ...params, path: subPath });
     this._children.set(childKey, newChild as ChildComponents);
   }
 
@@ -769,9 +772,8 @@ export class Root extends Composite<typeof aetherRootState> {
   private handle(msg: MainMessage): void {
     const { variant } = msg;
 
-    if (variant === "rpc-request") {
-      const { requestId, path, method, args, expectsResponse } = msg;
-      this.invokeMethodAtPath(requestId, path, method, args, expectsResponse);
+    if (variant === "invoke_request") {
+      this.invokeAtPath(msg);
       return;
     }
 
@@ -793,51 +795,34 @@ export class Root extends Composite<typeof aetherRootState> {
     });
   }
 
-  private invokeMethodAtPath(
-    requestId: string,
-    path: string[],
-    method: string,
-    args: unknown[],
-    expectsResponse: boolean,
-  ): void {
+  private invokeAtPath(params: InvokeMethodParams): void {
+    const { path, expectsResponse } = params;
     const [rootKey, ...childPath] = path;
     if (rootKey !== Root.KEY) {
       if (expectsResponse)
-        this.comms.send({
-          variant: "rpc-response",
-          requestId,
-          result: undefined,
-          error: {
-            name: "Error",
-            message: `Invalid path: expected root key '${Root.KEY}', got '${rootKey}'`,
-            stack: "",
-          },
-        });
+        this.handleInvokeError(
+          params,
+          new Error(`Invalid path: expected root key '${Root.KEY}', got '${rootKey}'`),
+        );
       return;
     }
 
     if (childPath.length === 0) {
-      this._invokeMethod(requestId, method, args, expectsResponse);
+      this._invokeMethod(params);
       return;
     }
 
     const component = this.findChildAtPath(childPath);
     if (component == null) {
       if (expectsResponse)
-        this.comms.send({
-          variant: "rpc-response",
-          requestId,
-          result: undefined,
-          error: {
-            name: "Error",
-            message: `Component at path ${path.join(".")} not found`,
-            stack: "",
-          },
-        });
+        this.handleInvokeError(
+          params,
+          new NotFoundError(`Component at path ${path.join(".")} not found`),
+        );
       return;
     }
 
-    component._invokeMethod(requestId, method, args, expectsResponse);
+    component._invokeMethod(params);
   }
 
   /** Creates a new component from the registry */
