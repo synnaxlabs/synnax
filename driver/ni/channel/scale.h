@@ -35,7 +35,7 @@ struct Scale {
     /// @brief applies the scale to the DAQmx task, returning a key for the scale
     /// and any error that occurred during application.
     virtual std::pair<std::string, xerrors::Error>
-    apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) {
+    apply([[maybe_unused]] const std::shared_ptr<daqmx::SugaredAPI> &dmx) {
         return {"", xerrors::NIL};
     }
 };
@@ -154,10 +154,10 @@ struct PolynomialScale final : BaseScale {
         std::vector<double> reverse_coeffs(this->forward_coeffs.size());
         if (const auto err = dmx->CalculateReversePolyCoeff(
                 this->forward_coeffs.data(),
-                this->forward_coeffs.size(),
+                static_cast<uInt32>(this->forward_coeffs.size()),
                 this->min_x,
                 this->max_x,
-                this->num_points_to_compute,
+                static_cast<int32>(this->num_points_to_compute),
                 this->reverse_poly_order,
                 reverse_coeffs.data()
             ))
@@ -167,9 +167,9 @@ struct PolynomialScale final : BaseScale {
             dmx->CreatePolynomialScale(
                 key.c_str(),
                 this->forward_coeffs.data(),
-                this->forward_coeffs.size(),
+                static_cast<uInt32>(this->forward_coeffs.size()),
                 reverse_coeffs.data(),
-                reverse_coeffs.size(),
+                static_cast<uInt32>(reverse_coeffs.size()),
                 this->pre_scaled_units,
                 this->scaled_units.c_str()
             )
@@ -205,9 +205,9 @@ struct TableScale final : BaseScale {
             dmx->CreateTableScale(
                 key.c_str(),
                 this->pre_scaled.data(),
-                this->pre_scaled.size(),
+                static_cast<uInt32>(this->pre_scaled.size()),
                 this->scaled.data(),
-                this->pre_scaled.size(),
+                static_cast<uInt32>(this->pre_scaled.size()),
                 this->pre_scaled_units,
                 this->scaled_units.c_str()
             )

@@ -287,7 +287,7 @@ public:
     ):
         reads(std::move(reads)), read_errors(std::move(read_errors)) {}
 
-    xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+    xerrors::Error read([[maybe_unused]] breaker::Breaker &breaker, synnax::Frame &fr) override {
         read_count++;
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
 

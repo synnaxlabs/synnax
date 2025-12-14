@@ -99,7 +99,7 @@ public:
     /// @brief authenticates with the credentials provided when constructing the
     /// Synnax client.
     xerrors::Error authenticate() {
-        std::lock_guard lock(mu);
+        const std::scoped_lock lock(mu);
         api::v1::LoginRequest req;
         req.set_username(this->username);
         req.set_password(this->password);
@@ -112,8 +112,8 @@ public:
         skew_calc.end(this->cluster_info.node_time);
 
         if (skew_calc.exceeds(this->clock_skew_threshold)) {
-            auto [host, _] = xos::get_hostname();
-            auto direction = "ahead";
+            auto [host, host_err] = xos::get_hostname();
+            const char *direction = "ahead";
             if (skew_calc.skew() > 0) direction = "behind";
             LOG(WARNING) << "measured excessive clock skew between this host and the "
                             "Synnax cluster.";

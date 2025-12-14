@@ -45,7 +45,7 @@ public:
     [[nodiscard]] virtual xerrors::Error clean_interval(int interval_handle) const = 0;
 
     [[nodiscard]] virtual xerrors::Error
-    e_write_name(const char *Name, double value) const = 0;
+    e_write_name(const char *name, double value) const = 0;
 
     [[nodiscard]] virtual xerrors::Error e_write_names(
         size_t num_frames,
@@ -267,7 +267,7 @@ public:
         int *serial_numbers,
         int *ip_addresses
     ) {
-        std::lock_guard lock(this->mu);
+        const std::scoped_lock lock(this->mu);
         return parse_error(
             ljm,
             ljm->list_all(
@@ -284,7 +284,7 @@ public:
 
     std::pair<std::shared_ptr<Device>, xerrors::Error>
     acquire(const std::string &serial_number) {
-        std::lock_guard lock(mu);
+        const std::scoped_lock lock(mu);
 
         const auto it = this->handles.find(serial_number);
         if (it != handles.end()) {
@@ -293,7 +293,7 @@ public:
             this->handles.erase(it);
         }
 
-        int dev_handle;
+        int dev_handle = 0;
         const int
             err = ljm->open(LJM_dtANY, LJM_ctANY, serial_number.c_str(), &dev_handle);
         if (err != 0) return {nullptr, parse_error(ljm, err)};

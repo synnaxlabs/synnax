@@ -36,14 +36,14 @@ public:
     ///
     /// In no scenario should the called store the provided lua_State for later use,
     /// as it is not guaranteed to remain valid after this method returns.
-    virtual xerrors::Error before_all(lua_State *L) { return xerrors::NIL; }
+    virtual xerrors::Error before_all([[maybe_unused]] lua_State *L) { return xerrors::NIL; }
 
     /// @brief called after the sequence ends. The caller can optionally override
     /// this method to perform any cleanup that is required after the sequence ends.
     ///
     /// In no scenario should the called store the provided lua_State for later use,
     /// as it is not guaranteed to remain valid after this method returns.
-    virtual xerrors::Error after_all(lua_State *L) { return xerrors::NIL; }
+    virtual xerrors::Error after_all([[maybe_unused]] lua_State *L) { return xerrors::NIL; }
 
     /// @brief called before each iteration of the sequence. The caller can
     /// optionally override this method to bind any variables or functions that must
@@ -51,7 +51,7 @@ public:
     ///
     /// In no scenario should the called store the provided lua_State for later use,
     /// as it is not guaranteed to remain valid after this method returns.
-    virtual xerrors::Error before_next(lua_State *L) { return xerrors::NIL; }
+    virtual xerrors::Error before_next([[maybe_unused]] lua_State *L) { return xerrors::NIL; }
 
     /// @brief called after each iteration of the sequence. The caller can
     /// optionally override this method to perform any cleanup that is required
@@ -59,7 +59,7 @@ public:
     ///
     /// In no scenario should the called store the provided lua_State for later use,
     /// as it is not guaranteed to remain valid after this method returns.
-    virtual xerrors::Error after_next(lua_State *L) { return xerrors::NIL; }
+    virtual xerrors::Error after_next([[maybe_unused]] lua_State *L) { return xerrors::NIL; }
 };
 
 /// @brief a Plugin implementation that wraps several plugins into a unified
@@ -179,7 +179,7 @@ public:
 
 struct LatestValue {
     telem::SampleValue value;
-    bool changed;
+    bool changed{false};
 };
 
 /// @brief a plugin implementation that binds global variables containing channel
@@ -245,11 +245,11 @@ class Time final : public Plugin {
     telem::TimeSpan elapsed;
     /// @brief the current iteration of the sequence. We use an int64 as it's the
     /// highest precision integer lua supports.
-    int64_t iteration;
+    int64_t iteration{0};
 
 public:
     explicit Time(telem::NowFunc now = telem::TimeStamp::now):
-        now(std::move(now)), start_time(0), elapsed(0), iteration(0) {}
+        now(std::move(now)), start_time(0), elapsed(0) {}
 
     xerrors::Error before_all(lua_State *L) override;
 

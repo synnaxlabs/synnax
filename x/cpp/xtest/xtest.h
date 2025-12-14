@@ -430,7 +430,7 @@ auto assert_nil_p(Pair &&pair_result, const char *file, const int line) ->
         ADD_FAILURE_AT(file, line)
             << "Expected operation to succeed, but got error: " << pair_result.second;
     }
-    return std::move(pair_result.first);
+    return std::forward<Pair>(pair_result).first;
 }
 
 /// @brief macro for asserting that an operation returning a pair<T, xerrors::Error>
@@ -440,25 +440,25 @@ auto assert_nil_p(Pair &&pair_result, const char *file, const int line) ->
 #define ASSERT_NIL_P(pair_expr) xtest::assert_nil_p((pair_expr), __FILE__, __LINE__)
 
 /// @brief macro asserting that the provided xerrors::Error is NIL.
-#define ASSERT_NIL(expr) ASSERT_FALSE(expr) << expr;
+#define ASSERT_NIL(expr) ASSERT_FALSE((expr)) << (expr);
 
 /// @brief macro asserting that the provided xerrors::Error is the same as the provided
 /// error.
 #define ASSERT_OCCURRED_AS(expr, err)                                                  \
-    ASSERT_TRUE(expr) << expr;                                                         \
-    ASSERT_MATCHES(expr, err);
+    ASSERT_TRUE((expr)) << (expr);                                                     \
+    ASSERT_MATCHES((expr), (err));
 
 /// @brief macro asserting that the error return as the second item in the pair is the
 /// same as the provided error.
 #define ASSERT_OCCURRED_AS_P(expr, err)                                                \
-    ASSERT_TRUE(expr.second) << expr.second;                                           \
-    ASSERT_MATCHES(expr.second, err);
+    ASSERT_TRUE((expr).second) << (expr).second;                                       \
+    ASSERT_MATCHES((expr).second, (err));
 
 /// @brief macro asserting that the provided error matches the expeced err via a call
 /// to err.matches(expect).
 #define ASSERT_MATCHES(err, expected)                                                  \
-    ASSERT_TRUE(err.matches(expected))                                                 \
-        << "Expected error to match " << expected << ", but got " << err;
+    ASSERT_TRUE((err).matches((expected)))                                             \
+        << "Expected error to match " << (expected) << ", but got " << (err);
 
 /// @brief macro asserting that the provided error will eventually be NIL.
 /// @param expr The expression to evaluate
@@ -569,7 +569,7 @@ inline void eventually_false(
     const std::chrono::milliseconds timeout = std::chrono::seconds(1),
     const std::chrono::milliseconds interval = std::chrono::milliseconds(1)
 ) {
-    bool last_value;
+    bool last_value = false;
     eventually(
         [&]() {
             last_value = condition();
@@ -602,7 +602,7 @@ inline void eventually_true(
     const std::chrono::milliseconds timeout = std::chrono::seconds(1),
     const std::chrono::milliseconds interval = std::chrono::milliseconds(1)
 ) {
-    bool last_value;
+    bool last_value = false;
     eventually(
         [&]() {
             last_value = condition();

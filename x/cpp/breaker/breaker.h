@@ -14,6 +14,7 @@
 #include <condition_variable>
 #include <iomanip>
 #include <memory>
+#include <mutex>
 
 #include "glog/logging.h"
 
@@ -183,7 +184,7 @@ public:
     /// was already stopped.
     bool stop() {
         if (!this->mark_stopped()) return false;
-        std::scoped_lock lock(this->mu);
+        const std::scoped_lock lock(this->mu);
         this->shutdown_cv.notify_all();
         return true;
     }

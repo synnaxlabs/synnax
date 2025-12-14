@@ -81,9 +81,9 @@ struct Scanner {
 
     /// @brief Optional: Handle custom commands. Return true if handled.
     virtual bool exec(
-        task::Command &cmd,
-        const synnax::Task &task,
-        const std::shared_ptr<task::Context> &ctx
+        [[maybe_unused]] task::Command &cmd,
+        [[maybe_unused]] const synnax::Task &task,
+        [[maybe_unused]] const std::shared_ptr<task::Context> &ctx
     ) {
         return false;
     }
@@ -220,7 +220,7 @@ class ScanTask final : public task::Task, public pipeline::Base {
     /// @brief Stops signal monitoring thread.
     void stop_signal_monitoring() {
         {
-            std::lock_guard lock(this->mu);
+            const std::scoped_lock lock(this->mu);
             if (this->signal_streamer != nullptr) this->signal_streamer->close_send();
         }
         if (this->signal_thread.joinable()) this->signal_thread.join();
@@ -257,18 +257,18 @@ class ScanTask final : public task::Task, public pipeline::Base {
                             continue;
                         }
                         if (dev.make != make || dev.rack != rack_key) continue;
-                        std::lock_guard lock(this->mu);
+                        const std::scoped_lock lock(this->mu);
                         if (this->dev_states.find(dev.key) == this->dev_states.end())
                             this->dev_states[dev.key] = dev;
                     }
                 } else if (ch_key == this->device_delete_channel.key)
                     for (const auto &dev_key: series.strings()) {
-                        std::lock_guard lock(this->mu);
+                        const std::scoped_lock lock(this->mu);
                         this->dev_states.erase(dev_key);
                     }
             }
         } while (true);
-        std::lock_guard lock(this->mu);
+        const std::scoped_lock lock(this->mu);
         if (auto err = this->signal_streamer->close())
             LOG(ERROR) << this->log_prefix
                        << "failed to close signal streamer: " << err;
@@ -396,7 +396,7 @@ public:
         std::vector<synnax::Device> to_create;
         std::vector<synnax::DeviceStatus> statuses;
         {
-            std::lock_guard lock(this->mu);
+            const std::scoped_lock lock(this->mu);
 
             // Step 1: Scanner produces list of devices.
             this->scanner_ctx.devices = &this->dev_states;
@@ -432,7 +432,7 @@ public:
             }
 
             for (auto &[key, dev]: this->dev_states) {
-                if (present.find(key) != present.end()) continue;
+                if (present.contains(key)) continue;
                 dev.status.variant = status::variant::WARNING;
                 dev.status.message = "Device disconnected";
             }
@@ -466,6 +466,6 @@ public:
 
     using pipeline::Base::stop;
 
-    void stop(bool will_reconfigure) override { pipeline::Base::stop(); }
+    void stop([[maybe_unused]] bool will_reconfigure) override { pipeline::Base::stop(); }
 };
 }

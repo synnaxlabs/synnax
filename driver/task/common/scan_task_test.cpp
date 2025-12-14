@@ -162,7 +162,7 @@ public:
         const synnax::Task &,
         const std::shared_ptr<task::Context> &
     ) override {
-        std::lock_guard lock(mu);
+        const std::scoped_lock lock(mu);
         exec_commands.push_back(cmd);
         return exec_return_value;
     }
@@ -503,7 +503,7 @@ public:
 
     std::pair<std::vector<synnax::Device>, xerrors::Error>
     scan(const common::ScannerContext &ctx) override {
-        std::lock_guard lock(mu);
+        const std::scoped_lock lock(mu);
         if (ctx.devices != nullptr)
             captured_devices.push_back(*ctx.devices);
         else
@@ -517,13 +517,13 @@ public:
     }
 
     size_t device_count() {
-        std::lock_guard lock(mu);
+        const std::scoped_lock lock(mu);
         if (captured_devices.empty()) return 0;
         return captured_devices.back().size();
     }
 
     bool has_device(const std::string &key) {
-        std::lock_guard lock(mu);
+        const std::scoped_lock lock(mu);
         if (captured_devices.empty()) return false;
         return captured_devices.back().find(key) != captured_devices.back().end();
     }

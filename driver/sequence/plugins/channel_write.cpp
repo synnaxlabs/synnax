@@ -202,19 +202,19 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
 
 /// @brief implements plugins::Plugin to close the sink after the sequence
 /// is complete.
-xerrors::Error plugins::ChannelWrite::after_all(lua_State *L) {
+xerrors::Error plugins::ChannelWrite::after_all([[maybe_unused]] lua_State *L) {
     return this->sink->close();
 }
 
 /// @brief clears out the previous written frame before the next iteration.
-xerrors::Error plugins::ChannelWrite::before_next(lua_State *L) {
+xerrors::Error plugins::ChannelWrite::before_next([[maybe_unused]] lua_State *L) {
     this->frame.clear();
     this->frame.reserve(this->channels.size());
     return xerrors::NIL;
 }
 
 /// @brief writes the frame to the sink after the iteration.
-xerrors::Error plugins::ChannelWrite::after_next(lua_State *L) {
+xerrors::Error plugins::ChannelWrite::after_next([[maybe_unused]] lua_State *L) {
     if (this->frame.empty()) return xerrors::NIL;
     const auto now = telem::TimeStamp::now();
     std::vector<synnax::ChannelKey> index_keys;

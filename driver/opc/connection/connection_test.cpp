@@ -163,7 +163,7 @@ TEST(ConnectionTest, serverStopDuringConnection) {
 
     UA_ReadValueId ids[1];
     UA_ReadValueId_init(&ids[0]);
-    ids[0].nodeId = node_id; // Implicit conversion to const UA_NodeId&
+    UA_NodeId_copy(&node_id.get(), &ids[0].nodeId);
     ids[0].attributeId = UA_ATTRIBUTEID_VALUE;
 
     UA_ReadRequest req;

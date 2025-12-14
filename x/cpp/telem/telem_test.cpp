@@ -546,17 +546,17 @@ TEST(RateTests, testPeriodVariousFrequencies) {
 
 /// @brief Test that telem::Rate can be streamed with << operator
 TEST(RateTests, testRateStreamOperator) {
-    Rate rate_25(25.0);
+    const Rate rate_25(25.0);
     std::ostringstream oss;
     oss << rate_25;
     EXPECT_EQ(oss.str(), "25 Hz");
 
-    Rate rate_100(100.5);
+    const Rate rate_100(100.5);
     std::ostringstream oss2;
     oss2 << rate_100;
     EXPECT_EQ(oss2.str(), "100.5 Hz");
 
-    Rate rate_zero(0.0);
+    const Rate rate_zero(0.0);
     std::ostringstream oss3;
     oss3 << rate_zero;
     EXPECT_EQ(oss3.str(), "0 Hz");
@@ -564,7 +564,7 @@ TEST(RateTests, testRateStreamOperator) {
 
 /// @brief Test that Rate operator<< works in error messages
 TEST(RateTests, testRateInErrorMessage) {
-    Rate configured_rate(25.0);
+    const Rate configured_rate(25.0);
     std::ostringstream msg;
     msg << "configured sample rate (" << configured_rate << ") is below device minimum";
     EXPECT_TRUE(msg.str().find("25 Hz") != std::string::npos);
@@ -690,19 +690,19 @@ TEST(DataTypeTests, testStreamOperator) {
 
 /// @brief it should return the domain index from an alignment.
 TEST(AlignmentTests, testDomainIndex) {
-    telem::Alignment a(1, 0);
+    const telem::Alignment a(1, 0);
     ASSERT_EQ(a.domain_index(), 1);
 }
 
 /// @brief it should return the sample index from an alignment.
 TEST(AlignmentTests, testSampleIndex) {
-    telem::Alignment a(0, 1);
+    const telem::Alignment a(0, 1);
     ASSERT_EQ(a.sample_index(), 1);
 }
 
 /// @brief it should construct an alignment from a uint64.
 TEST(AlignmentTests, testConstructionFromUint64) {
-    telem::Alignment a(20);
+    const telem::Alignment a(20);
     ASSERT_EQ(a.domain_index(), 0);
     ASSERT_EQ(a.sample_index(), 20);
 }

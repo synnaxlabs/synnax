@@ -187,7 +187,7 @@ TEST(BinaryWriter, testRawWritePartial) {
 
 /// @brief it should correctly read multiple uint8 values from a buffer.
 TEST(BinaryReader, testUint8Read) {
-    std::vector<uint8_t> buffer = {0x12, 0x34, 0x56};
+    const std::vector<uint8_t> buffer = {0x12, 0x34, 0x56};
     binary::Reader reader(buffer);
 
     ASSERT_EQ(reader.uint8(), 0x12);
@@ -385,7 +385,7 @@ TEST(BinaryStressTest, testVariousBytePatterns) {
         writer.uint64(value);
 
         binary::Reader reader(buffer);
-        uint64_t decoded = reader.uint64();
+        const uint64_t decoded = reader.uint64();
 
         ASSERT_EQ(decoded, value) << "Failed for value 0x" << std::hex << value;
     }

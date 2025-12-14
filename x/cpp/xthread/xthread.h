@@ -33,7 +33,7 @@ inline void set_name(const char *name) {
     wchar_t wname[64];
     std::mbstowcs(wname, name, 64);
     SetThreadDescription(GetCurrentThread(), wname);
-#elif defined(__APPLE__)
+#elifdef __APPLE__
     pthread_setname_np(name);
 #else
     pthread_setname_np(pthread_self(), name);

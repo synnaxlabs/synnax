@@ -7,6 +7,7 @@ on:
       - .bazelrc
       - .clang-format
       - .clang-format-ignore
+      - .clang-tidy
       - .github/workflows/test.client.yaml
       - alamos/go/**
       - alamos/py/**
@@ -47,6 +48,7 @@ on:
       - .bazelrc
       - .clang-format
       - .clang-format-ignore
+      - .clang-tidy
       - .github/workflows/test.client.yaml
       - alamos/go/**
       - alamos/py/**
@@ -204,19 +206,21 @@ jobs:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}
           repository-cache: true
-      - name: Install Clang Format
+      - name: Install Clang Tools
         run: |
           sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
-          sudo apt-get install -y clang-format-20
+          sudo apt-get install -y clang-format-20 clang-tidy-20
           sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-20 100
           sudo update-alternatives --set clang-format /usr/bin/clang-format-20
+          sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-20 100
+          sudo update-alternatives --set clang-tidy /usr/bin/clang-tidy-20
 
       - name: Check Formatting
         run: scripts/check_clang_format.sh client/cpp
 
       - name: Test (Ubuntu)
         run:
-          bazel test --config=asan-leak --test_output=all //client/cpp/...
+          bazel test --config=clang-tidy --config=asan-leak --test_output=all //client/cpp/...
           --nocache_test_results
 
   py:

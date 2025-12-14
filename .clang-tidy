@@ -3,59 +3,114 @@
 # This configuration enforces code quality, security, and performance standards
 # across all C++ codebases (driver, client/cpp, freighter/cpp, x/cpp)
 
-Checks: >
+# YAML doesn't support inline comments, so we use a list format with comments above
+Checks: |
+
   bugprone-*,
+  # flags (int x, int y), too noisy
   -bugprone-easily-swappable-parameters,
+  # false positives with RAII wrappers
   -bugprone-exception-escape,
   cert-*,
+  # too strict for static constants
   -cert-err58-cpp,
+  # alias of uppercase-literal-suffix
+  -cert-dcl16-c,
   performance-*,
   modernize-*,
-  -modernize-use-designated-initializers,
-  -modernize-use-integer-sign-comparison,
-  -modernize-use-ranges,
-  -modernize-use-trailing-return-type,
+  # C API interop (Lua, NI-DAQmx, libmodbus)
+  -modernize-avoid-c-arrays,
+  # style preference
   -modernize-return-braced-init-list,
+  # C++17 aliases not always available
+  -modernize-type-traits,
+  # not always clearer
+  -modernize-use-designated-initializers,
+  # C++20, needs <utility>
+  -modernize-use-integer-sign-comparison,
+  # C++20 ranges not always clearer
+  -modernize-use-ranges,
+  # style preference
+  -modernize-use-trailing-return-type,
   readability-*,
+  # style preference
   -readability-braces-around-statements,
-  -readability-convert-member-functions-to-static,
+  # flags i/j/k loop counters
   -readability-identifier-length,
+  # int x, y; is acceptable
+  -readability-isolate-declaration,
+  # too noisy
   -readability-magic-numbers,
-  -readability-redundant-member-init,
-  -readability-uppercase-literal-suffix,
+  # precedence is well-known
   -readability-math-missing-parentheses,
+  # default init can be intentional
+  -readability-redundant-member-init,
+  # style preference
+  -readability-uppercase-literal-suffix,
+  # not always more readable
   -readability-use-anyofallof,
   cppcoreguidelines-*,
+  # C API interop
+  -cppcoreguidelines-avoid-c-arrays,
+  # immutable members are valid
   -cppcoreguidelines-avoid-const-or-ref-data-members,
-  -cppcoreguidelines-avoid-magic-numbers,
-  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
-  -cppcoreguidelines-pro-type-reinterpret-cast,
-  -cppcoreguidelines-special-member-functions,
-  -cppcoreguidelines-non-private-member-variables-in-classes,
+  # do-while is legitimate
   -cppcoreguidelines-avoid-do-while,
+  # alias of readability version
+  -cppcoreguidelines-avoid-magic-numbers,
+  # protobuf generated code uses mutable globals
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  # C libraries use macros
+  -cppcoreguidelines-macro-usage,
+  # POD structs are valid
+  -cppcoreguidelines-non-private-member-variables-in-classes,
+  # C API interop
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  # performance-critical code; bounds already validated
+  -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
+  # C API interop
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  # C callbacks require const removal
+  -cppcoreguidelines-pro-type-const-cast,
+  # binary protocols
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  # prefer Rule of 0; too noisy for virtual dtors
+  -cppcoreguidelines-special-member-functions,
+  # NI-DAQmx C API requires raw pointer arrays
+  -cppcoreguidelines-owning-memory,
   clang-analyzer-*,
   misc-*,
-  -misc-const-correctness,
+  # experimental, many false positives
   -misc-include-cleaner,
-  -misc-non-private-member-variables-in-classes,
-  -misc-use-internal-linkage,
+  # legitimate algorithms use recursion
   -misc-no-recursion,
+  # POD structs are valid
+  -misc-non-private-member-variables-in-classes,
+  # header-only utilities need external linkage
+  -misc-use-internal-linkage,
   portability-*,
+  # widely supported
   -portability-avoid-pragma-once,
+  # MSVC extension used by deps
+  -portability-template-virtual-member-function,
   concurrency-*,
   hicpp-*,
+  # C API interop
+  -hicpp-avoid-c-arrays,
+  # style preference
   -hicpp-braces-around-statements,
+  # C API interop
+  -hicpp-no-array-decay,
+  # hardware register manipulation
   -hicpp-signed-bitwise,
+  # alias of cppcoreguidelines version
   -hicpp-special-member-functions,
+  # style preference
   -hicpp-uppercase-literal-suffix,
   google-build-namespaces,
   google-explicit-constructor,
   google-runtime-int,
-  google-runtime-operator,
-  -bugprone-throwing-static-initialization,
-  -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
-  -readability-isolate-declaration,
-  -cert-dcl16-c
+  google-runtime-operator
 
 # Treat warnings as errors in CI
 WarningsAsErrors: '*'
@@ -88,6 +143,9 @@ CheckOptions:
     value: lower_case
   - key: readability-identifier-naming.ParameterCase
     value: lower_case
+  # Allow Lua state parameter 'L' - conventional in Lua C API
+  - key: readability-identifier-naming.ParameterIgnoredRegexp
+    value: '^L$'
   # Members: snake_case (trailing underscore allowed via regex for disambiguation)
   - key: readability-identifier-naming.MemberCase
     value: lower_case
@@ -103,12 +161,13 @@ CheckOptions:
   - key: readability-identifier-naming.ClassMemberIgnoredRegexp
     value: '[A-Z][A-Z_0-9]*|.*_'
 
-  # Constants: UPPER_CASE (scream case)
-  # Only constexpr enforced - regular const variables ignored if UPPER_CASE
-  - key: readability-identifier-naming.ConstexprVariableCase
+  # Constants: UPPER_CASE (SCREAM_CASE) for global/static constants
+  # Note: ConstexprVariableCase is omitted to allow local constexpr to use snake_case
+  # Global/static constexpr are still caught since constexpr implies const
+  - key: readability-identifier-naming.GlobalConstantCase
     value: UPPER_CASE
-  - key: readability-identifier-naming.ConstantIgnoredRegexp
-    value: '[A-Z][A-Z_0-9]*'
+  - key: readability-identifier-naming.StaticConstantCase
+    value: UPPER_CASE
 
   # Namespaces: lower_case
   - key: readability-identifier-naming.NamespaceCase
@@ -130,6 +189,10 @@ CheckOptions:
   - key: modernize-use-auto.RemoveStars
     value: false
 
+  # Ignore glog's verbose_level__ macro and parser false positives
+  - key: misc-const-correctness.AllowedTypes
+    value: 'google::int32;xjson::Parser'
+
   # Readability settings
   - key: readability-function-cognitive-complexity.Threshold
     value: 50
@@ -139,7 +202,11 @@ CheckOptions:
     value: 150
 
 # Only check our own headers, not vendor code or system headers
-HeaderFilterRegex: '(driver|client/cpp|freighter/cpp|x/cpp)/.*\.(h|hpp)$'
+# Excludes:
+#   - driver/labjack/ljm (LabJack SDK vendor code)
+#   - driver/ni/daqmx (NI-DAQmx API wrappers with NI naming conventions)
+#   - driver/ni/syscfg (NI System Configuration API wrappers)
+HeaderFilterRegex: '(driver/(cmd|daemon|errors|modbus|ni/channel|ni/hardware|opc|pipeline|rack|sequence|task|transform|labjack/device)/|driver/ni/[^/]+\.(h|hpp)$|client/cpp/|freighter/cpp/|x/cpp/)'
 
 # Use compilation database generated by Bazel
 UseColor: true

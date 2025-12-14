@@ -60,9 +60,13 @@ URL::URL(const std::string &address) {
 
     ip = address.substr(0, colon);
     const auto path_start = address.find('/', colon + 1);
-    port = static_cast<uint16_t>(
-        std::atol(address.substr(colon + 1, path_start - colon - 1).c_str())
-    );
+    try {
+        port = static_cast<uint16_t>(
+            std::stoul(address.substr(colon + 1, path_start - colon - 1))
+        );
+    } catch (const std::exception &) {
+        port = 0;
+    }
     path = path_start != std::string::npos ? join_paths("", address.substr(path_start))
                                            : "";
 }

@@ -373,7 +373,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             if (ch.index != 0) this->indexes.insert(ch.index);
             this->channels[i++]->ch = ch;
         }
-        const auto channel_map = map_channel_Keys(sy_channels);
+        const auto channel_map = map_channel_keys(sy_channels);
         auto scale_transform = std::make_unique<transform::Scale>(parser, channel_map);
         this->transform.add(std::move(scale_transform));
     }

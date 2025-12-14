@@ -26,7 +26,7 @@
 
 namespace opc::testutil {
 std::pair<::telem::Series, xerrors::Error>
-simple_read(std::shared_ptr<UA_Client> client, const std::string &node_id) {
+simple_read(const std::shared_ptr<UA_Client> &client, const std::string &node_id) {
     // Parse the node ID string - returns RAII-wrapped NodeId
     auto [node_id_wrapper, parse_err] = opc::NodeId::parse(node_id);
     if (parse_err) return {::telem::Series(0), parse_err};
@@ -34,10 +34,10 @@ simple_read(std::shared_ptr<UA_Client> client, const std::string &node_id) {
     // Read the value from the node - RAII wrapper handles cleanup
     opc::Variant value;
 
-    // Implicit conversion from NodeId to const UA_NodeId&
-    UA_StatusCode status = UA_Client_readValueAttribute(
+    // Get the underlying UA_NodeId from the wrapper
+    const UA_StatusCode status = UA_Client_readValueAttribute(
         client.get(),
-        node_id_wrapper, // Implicit conversion
+        node_id_wrapper.get(),
         value.ptr()
     );
 
@@ -46,7 +46,7 @@ simple_read(std::shared_ptr<UA_Client> client, const std::string &node_id) {
     }
 
     // Convert the value to a telemetry series
-    ::telem::DataType data_type = opc::telem::ua_to_data_type(value.get().type);
+    const ::telem::DataType data_type = opc::telem::ua_to_data_type(value.get().type);
     ::telem::Series series(data_type, 1);
 
     // Write the value to the series

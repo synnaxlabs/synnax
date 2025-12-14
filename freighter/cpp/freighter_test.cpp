@@ -28,7 +28,7 @@ public:
 class BasicFinalizer final : public freighter::Finalizer<int, int> {
 public:
     freighter::FinalizerReturn<int>
-    operator()(freighter::Context context, int &req) override {
+    operator()(const freighter::Context &context, int &req) override {
         return {context, xerrors::NIL, req + 1};
     }
 };
@@ -41,7 +41,7 @@ TEST(testFreighter, testMiddlewareCollector) {
     auto f = BasicFinalizer();
     collector.use(mw1);
     collector.use(mw2);
-    const auto ctx = freighter::Context("test", url::URL("1"), freighter::UNARY);
+    const auto ctx = freighter::Context("test", url::URL("1"), freighter::TransportVariant::UNARY);
     auto req = 1;
     const auto res = ASSERT_NIL_P(collector.exec(ctx, &f, req));
     ASSERT_EQ(res, 2);

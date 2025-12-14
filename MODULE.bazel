@@ -24,6 +24,14 @@ git_override(
     remote = "https://github.com/mikael-s-persson/bazel-compile-commands-extractor",
 )
 
+bazel_dep(name = "bazel_clang_tidy", dev_dependency = True)
+
+git_override(
+    module_name = "bazel_clang_tidy",
+    commit = "da986512bf1a46831d886fd090393b93b8967a5d",
+    remote = "https://github.com/erenon/bazel_clang_tidy.git",
+)
+
 bazel_dep(name = "apple_support", version = "1.24.3", dev_dependency = True)
 
 bazel_dep(name = "rules_cc", version = "0.2.14")

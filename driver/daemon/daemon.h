@@ -10,6 +10,7 @@
 #pragma once
 
 /// std.
+#include <cstdint>
 #include <functional>
 
 /// internal.
@@ -20,7 +21,7 @@ namespace daemond {
 using ApplicationCallback = std::function<void(int argc, char *argv[])>;
 
 // Status codes that can be reported to the system service manager
-enum class Status {
+enum class Status : std::uint8_t {
     INITIALIZING,
     READY,
     RUNNING,

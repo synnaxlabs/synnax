@@ -7,6 +7,7 @@ on:
       - .bazelrc
       - .clang-format
       - .clang-format-ignore
+      - .clang-tidy
       - .github/workflows/test.x.cpp.yaml
       - MODULE.bazel
       - MODULE.bazel.lock
@@ -23,6 +24,7 @@ on:
       - .bazelrc
       - .clang-format
       - .clang-format-ignore
+      - .clang-tidy
       - .github/workflows/test.x.cpp.yaml
       - MODULE.bazel
       - MODULE.bazel.lock
@@ -66,13 +68,15 @@ jobs:
           disk-cache: false
           repository-cache: false
 
-      - name: Install Clang Format
+      - name: Install Clang Tools
         if: matrix.format
         run: |
           sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
-          sudo apt-get install -y clang-format-20
+          sudo apt-get install -y clang-format-20 clang-tidy-20
           sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-20 100
           sudo update-alternatives --set clang-format /usr/bin/clang-format-20
+          sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-20 100
+          sudo update-alternatives --set clang-tidy /usr/bin/clang-tidy-20
 
       - name: Check Formatting
         if: matrix.format
@@ -90,7 +94,7 @@ jobs:
       - name: Test (Ubuntu)
         if: matrix.os == 'ubuntu-build-bot'
         run: |
-          bazel test --config=asan-leak --test_output=all //x/cpp/... \
+          bazel test --config=clang-tidy --config=asan-leak --test_output=all //x/cpp/... \
             --remote_cache=${{ env.BAZEL_REMOTE_CACHE }}
         shell: bash
 

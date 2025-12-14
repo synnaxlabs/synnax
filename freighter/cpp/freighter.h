@@ -27,14 +27,14 @@ const xerrors::Error STREAM_CLOSED = {
 const xerrors::Error EOF_ERR = {"freighter.eof", "EOF"};
 const xerrors::Error UNREACHABLE = {TYPE_UNREACHABLE, "Unreachable"};
 
-enum TransportVariant { UNARY, STREAM };
+enum class TransportVariant : uint8_t { UNARY, STREAM };
 
 /// @brief A Context object that can be used to inject metadata into an outbound
 /// request or process metadata from an inbound response.
 class Context {
 public:
     /// @brief unique hash used to retrieve sent data.
-    int id;
+    int id{0};
     /// @brief The protocol used to send the request. Should be set by the
     /// underlying transport implementation.
     std::string protocol;
@@ -47,11 +47,9 @@ public:
 
     /// @brief Constructs the context with an empty set of parameters.
     Context(std::string protocol, url::URL target, const TransportVariant variant):
-        id(0),
         protocol(std::move(protocol)),
         target(std::move(target)),
         variant(variant) {
-        params = std::unordered_map<std::string, std::string>();
     }
 
     /// @brief Copy constructor
@@ -66,11 +64,12 @@ public:
 
     /// @brief Copy assignment
     Context &operator=(const Context &other) {
+        if (this == &other) return *this;
         protocol = other.protocol;
         target = other.target;
         id = other.id;
         variant = other.variant;
-        for (auto &[k, v]: other.params)
+        for (const auto &[k, v]: other.params)
             params[k] = v;
         return *this;
     }
@@ -78,7 +77,7 @@ public:
     /// @brief Gets the parameter with the given key.
     std::string get(const std::string &key) { return params[key]; }
 
-    bool has(const std::string &key) { return params.find(key) != params.end(); }
+    [[nodiscard]] bool has(const std::string &key) const { return params.contains(key); }
 
     /// @brief Sets the given parameter to the given value.
     void set(const std::string &key, const std::string &value) { params[key] = value; }
@@ -139,7 +138,7 @@ struct FinalizerReturn {
 template<typename RQ, typename RS>
 class Finalizer {
 public:
-    virtual FinalizerReturn<RS> operator()(Context context, RQ &req) {
+    virtual FinalizerReturn<RS> operator()(const Context &context, [[maybe_unused]] RQ &req) {
         return {context, xerrors::NIL};
     }
 
@@ -181,7 +180,7 @@ public:
         RQ &req
     ) const {
         class NextImpl : public Next {
-            std::size_t index;
+            std::size_t index{0};
             const MiddlewareCollector &collector;
             RQ req;
             freighter::Finalizer<RQ, RS> *finalizer;
@@ -194,7 +193,7 @@ public:
                 freighter::Finalizer<RQ, RS> *finalizer,
                 RQ &req
             ):
-                index(0), collector(collector), req(req), finalizer(finalizer) {}
+                collector(collector), req(req), finalizer(finalizer) {}
 
             std::pair<Context, xerrors::Error>
             operator()(freighter::Context context) override {
@@ -203,7 +202,7 @@ public:
                     this->res = std::move(f_res.response);
                     return {f_res.context, f_res.error};
                 }
-                auto mw = this->collector.middlewares[this->index].get();
+                auto *mw = this->collector.middlewares[this->index].get();
                 ++this->index;
                 return mw->operator()(context, *this);
             }

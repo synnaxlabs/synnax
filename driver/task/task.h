@@ -131,8 +131,8 @@ class Factory {
 public:
     virtual std::vector<std::pair<synnax::Task, std::unique_ptr<Task>>>
     configure_initial_tasks(
-        const std::shared_ptr<Context> &ctx,
-        const synnax::Rack &rack
+        [[maybe_unused]] const std::shared_ptr<Context> &ctx,
+        [[maybe_unused]] const synnax::Rack &rack
     ) {
         return {};
     }

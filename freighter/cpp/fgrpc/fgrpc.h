@@ -47,7 +47,7 @@ public:
 
     /// @brief returns the number of channels in the pool.
     size_t size() {
-        std::lock_guard lock(this->mu);
+        const std::scoped_lock lock(this->mu);
         return this->channels.size();
     }
 
@@ -100,7 +100,7 @@ public:
     /// @param target The target to connect to.
     /// @returns A channel to the target.
     std::shared_ptr<grpc::Channel> get_channel(const url::URL &target) {
-        std::lock_guard lock(this->mu);
+        const std::scoped_lock lock(this->mu);
         const auto host_addr = target.host_address();
         const auto it = this->channels.find(host_addr);
         if (it != this->channels.end()) {
@@ -152,14 +152,14 @@ public:
         freighter::Context ctx(
             priv::PROTOCOL,
             this->base_target.child(target),
-            freighter::UNARY
+            freighter::TransportVariant::UNARY
         );
         return mw.exec(ctx, this, request);
     }
 
     /// @brief the finalizer that executes the request.
     freighter::FinalizerReturn<RS>
-    operator()(freighter::Context req_ctx, RQ &req) override {
+    operator()(const freighter::Context &req_ctx, RQ &req) override {
         // Set outbound metadata.
         grpc::ClientContext grpc_ctx;
         for (const auto &[k, v]: req_ctx.params)
@@ -174,7 +174,7 @@ public:
         auto res_ctx = freighter::Context(
             req_ctx.protocol,
             req_ctx.target,
-            freighter::UNARY
+            freighter::TransportVariant::UNARY
         );
         if (!stat.ok()) return {res_ctx, priv::err_from_status(stat), res};
 
@@ -210,11 +210,11 @@ class Stream final
 
 public:
     Stream(
-        std::shared_ptr<grpc::Channel> ch,
+        const std::shared_ptr<grpc::Channel> &ch,
         const freighter::MiddlewareCollector<
             std::nullptr_t,
             std::unique_ptr<freighter::Stream<RQ, RS>>> &mw,
-        freighter::Context &req_ctx,
+        const freighter::Context &req_ctx,
         freighter::Context &res_ctx
     ):
         mw(mw), stub(RPC::NewStub(ch)) {
@@ -239,7 +239,7 @@ public:
         const auto ctx = freighter::Context(
             priv::PROTOCOL,
             url::URL(),
-            freighter::STREAM
+            freighter::TransportVariant::STREAM
         );
         auto v = nullptr;
         const auto err = this->mw.exec(ctx, this, v).second;
@@ -254,7 +254,7 @@ public:
     }
 
     freighter::FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS>>>
-    operator()(freighter::Context outbound, std::nullptr_t &_) override {
+    operator()(const freighter::Context &outbound, std::nullptr_t & /*unused*/) override {
         if (this->closed) return {outbound, this->close_err};
         const grpc::Status status = this->stream->Finish();
         this->closed = true;
@@ -303,7 +303,7 @@ public:
         auto ctx = freighter::Context(
             priv::PROTOCOL,
             this->base_target.child(target),
-            freighter::STREAM
+            freighter::TransportVariant::STREAM
         );
         auto v = nullptr;
         auto [stream, err] = this->mw.exec(ctx, this, v);
@@ -312,12 +312,12 @@ public:
 
     /// @brief the finalizer that opens the stream.
     freighter::FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS>>>
-    operator()(freighter::Context req_ctx, std::nullptr_t &_) override {
+    operator()(const freighter::Context &req_ctx, std::nullptr_t & /*unused*/) override {
         auto channel = this->pool->get_channel(req_ctx.target);
         auto res_ctx = freighter::Context(
             req_ctx.protocol,
             req_ctx.target,
-            freighter::STREAM
+            freighter::TransportVariant::STREAM
         );
         auto stream = std::make_unique<Stream<RQ, RS, RPC>>(
             channel,

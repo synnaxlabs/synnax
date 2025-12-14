@@ -101,7 +101,7 @@ public:
     }
 
     void set_state(const synnax::Frame &frame) {
-        std::lock_guard lock{this->chan_state_lock};
+        const std::scoped_lock lock{this->chan_state_lock};
         this->chan_state_cv.notify_all();
         for (const auto &[cmd_key, s]: frame) {
             const auto it = this->state_channels.find(cmd_key);
@@ -111,7 +111,7 @@ public:
         }
     }
 
-    xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+    xerrors::Error read([[maybe_unused]] breaker::Breaker &breaker, synnax::Frame &fr) override {
         std::unique_lock lock(chan_state_lock);
         this->chan_state_cv.wait_for(lock, this->state_rate.period().chrono());
         fr.clear();

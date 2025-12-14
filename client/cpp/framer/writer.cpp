@@ -50,7 +50,7 @@ void WriterConfig::to_proto(api::v1::FrameWriterConfig *f) const {
     f->set_start(this->start.nanoseconds());
     f->mutable_authorities()->Add(this->authorities.begin(), this->authorities.end());
     f->mutable_keys()->Add(this->channels.begin(), this->channels.end());
-    f->set_mode(this->mode);
+    f->set_mode(static_cast<int32_t>(this->mode));
     f->set_enable_auto_commit(this->enable_auto_commit);
     f->set_auto_index_persist_interval(this->auto_index_persist_interval.nanoseconds());
     f->set_err_on_unauthorized(this->err_on_unauthorized);

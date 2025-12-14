@@ -109,7 +109,7 @@ TEST(DeviceTest, ReadCoilsWorks) {
     auto dev = ASSERT_NIL_P(manager.acquire(config));
 
     uint8_t bits[3];
-    ASSERT_NIL(dev->read_bits(modbus::device::Coil, 0, 3, bits));
+    ASSERT_NIL(dev->read_bits(modbus::device::BitType::Coil, 0, 3, bits));
 
     EXPECT_EQ(bits[0], 1);
     EXPECT_EQ(bits[1], 0);
@@ -135,7 +135,7 @@ TEST(DeviceTest, ReadDiscreteInputsWorks) {
     auto dev = ASSERT_NIL_P(manager.acquire(config));
 
     uint8_t bits[3];
-    ASSERT_NIL(dev->read_bits(modbus::device::DiscreteInput, 0, 3, bits));
+    ASSERT_NIL(dev->read_bits(modbus::device::BitType::DiscreteInput, 0, 3, bits));
 
     EXPECT_EQ(bits[0], 1);
     EXPECT_EQ(bits[1], 1);
@@ -160,7 +160,7 @@ TEST(DeviceTest, ReadHoldingRegistersWorks) {
     auto dev = ASSERT_NIL_P(manager.acquire(config));
 
     uint16_t regs[2];
-    ASSERT_NIL(dev->read_registers(modbus::device::HoldingRegister, 0, 2, regs));
+    ASSERT_NIL(dev->read_registers(modbus::device::RegisterType::HoldingRegister, 0, 2, regs));
 
     EXPECT_EQ(regs[0], 0x1234);
     EXPECT_EQ(regs[1], 0x5678);
@@ -184,7 +184,7 @@ TEST(DeviceTest, ReadInputRegistersWorks) {
     auto dev = ASSERT_NIL_P(manager.acquire(config));
 
     uint16_t regs[2];
-    ASSERT_NIL(dev->read_registers(modbus::device::InputRegister, 0, 2, regs));
+    ASSERT_NIL(dev->read_registers(modbus::device::RegisterType::InputRegister, 0, 2, regs));
 
     EXPECT_EQ(regs[0], 0xAAAA);
     EXPECT_EQ(regs[1], 0xBBBB);
@@ -211,7 +211,7 @@ TEST(DeviceTest, WriteBitsWorks) {
     ASSERT_NIL(dev->write_bits(0, 2, bits_to_write));
 
     uint8_t bits_read[2];
-    ASSERT_NIL(dev->read_bits(modbus::device::Coil, 0, 2, bits_read));
+    ASSERT_NIL(dev->read_bits(modbus::device::BitType::Coil, 0, 2, bits_read));
 
     EXPECT_EQ(bits_read[0], 1);
     EXPECT_EQ(bits_read[1], 1);
@@ -238,7 +238,7 @@ TEST(DeviceTest, WriteRegistersWorks) {
     ASSERT_NIL(dev->write_registers(0, 2, regs_to_write));
 
     uint16_t regs_read[2];
-    ASSERT_NIL(dev->read_registers(modbus::device::HoldingRegister, 0, 2, regs_read));
+    ASSERT_NIL(dev->read_registers(modbus::device::RegisterType::HoldingRegister, 0, 2, regs_read));
 
     EXPECT_EQ(regs_read[0], 0xABCD);
     EXPECT_EQ(regs_read[1], 0xEF01);
@@ -266,7 +266,7 @@ TEST(DeviceTest, ServerStopsWhileConnected) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     uint8_t bits[1];
-    auto read_err = dev->read_bits(modbus::device::Coil, 0, 1, bits);
+    auto read_err = dev->read_bits(modbus::device::BitType::Coil, 0, 1, bits);
     EXPECT_TRUE(read_err);
 }
 
@@ -287,7 +287,7 @@ TEST(DeviceTest, ReconnectAfterServerRestart) {
         auto dev = ASSERT_NIL_P(manager.acquire(config));
 
         uint8_t bits[1];
-        ASSERT_NIL(dev->read_bits(modbus::device::Coil, 0, 1, bits));
+        ASSERT_NIL(dev->read_bits(modbus::device::BitType::Coil, 0, 1, bits));
         EXPECT_EQ(bits[0], 1);
 
         slave.stop();
@@ -304,7 +304,7 @@ TEST(DeviceTest, ReconnectAfterServerRestart) {
         auto dev = ASSERT_NIL_P(manager.acquire(config));
 
         uint8_t bits[1];
-        ASSERT_NIL(dev->read_bits(modbus::device::Coil, 0, 1, bits));
+        ASSERT_NIL(dev->read_bits(modbus::device::BitType::Coil, 0, 1, bits));
         EXPECT_EQ(bits[0], 0);
 
         slave.stop();

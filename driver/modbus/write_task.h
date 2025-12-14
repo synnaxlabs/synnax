@@ -65,7 +65,7 @@ public:
         if (!this->state.empty()) return xerrors::NIL;
         state.resize(channels.back().address - channels.front().address + 1);
         return dev->read_bits(
-            device::Coil,
+            device::BitType::Coil,
             channels.front().address,
             state.size(),
             state.data()
@@ -106,7 +106,7 @@ public:
             (last_ch.value_type.density() + 1) / 2
         );
         return dev->read_registers(
-            device::HoldingRegister,
+            device::RegisterType::HoldingRegister,
             channels.front().address,
             state.size(),
             state.data()

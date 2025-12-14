@@ -109,7 +109,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             );
             return;
         }
-        auto remote_channels = map_channel_Keys(channel_vec);
+        auto remote_channels = map_channel_keys(channel_vec);
         std::unordered_map<std::string, synnax::Device> devices;
         if (this->device_key != "cross-device") {
             auto [device, err] = client->devices.retrieve(this->device_key);

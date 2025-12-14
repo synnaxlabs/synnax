@@ -101,7 +101,7 @@ public:
 
     /// @brief returns the sample for the given channel and index.
     template<typename NumericType>
-    NumericType at(const ChannelKey &key, const int &index) const {
+    [[nodiscard]] NumericType at(const ChannelKey &key, const int &index) const {
         for (size_t i = 0; i < channels->size(); i++)
             if (channels->at(i) == key) return series->at(i).at<NumericType>(index);
         throw std::runtime_error("channel not found");
@@ -364,7 +364,7 @@ private:
 };
 
 /// @brief sets the persistence and streaming mode for a writer.
-enum WriterMode : uint8_t {
+enum class WriterMode : uint8_t {
     /// @brief sets the writer so that it both persists and streams data.
     PersistStream = 1,
     /// @brief sets the writer so that it persists data, but does not stream it.
@@ -384,7 +384,7 @@ struct WriterConfig {
     /// @brief sets the starting timestamp for the first sample in the writer. If
     /// this timestamp overlaps with existing data for ANY of the provided channels,
     /// the writer will fail to open.
-    telem::TimeStamp start;
+    telem::TimeStamp start = telem::TimeStamp(0);
 
     /// @brief The control authority to set for each channel. If this vector is of
     /// length 1, then the same authority is set for all channels. Otherwise, the
@@ -401,7 +401,7 @@ struct WriterConfig {
     ///     - WriterPersistStream: persist data and stream it.
     ///     - WriterPersistOnly: persist data only.
     ///     - WriterStreamOnly: stream data only.
-    WriterMode mode;
+    WriterMode mode = WriterMode::PersistStream;
 
     /// @brief sets whether auto commit is enabled for the writer. If true, samples
     /// will be made immediately available for reads. If false, samples will be made

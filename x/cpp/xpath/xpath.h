@@ -10,8 +10,20 @@
 #pragma once
 
 #include <filesystem>
+#include <string>
+#include <vector>
 
 namespace xpath {
+/// @brief joins path segments with a separator, skipping empty segments.
+inline std::string join(const std::string &sep, const std::vector<std::string> &segments) {
+    std::string result;
+    for (const auto &seg : segments) {
+        if (seg.empty()) continue;
+        if (!result.empty()) result += sep;
+        result += seg;
+    }
+    return result;
+}
 /// @param returns the current working directory as a string.
 inline std::string cwd() {
     return std::filesystem::current_path().string();

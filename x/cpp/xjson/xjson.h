@@ -19,6 +19,7 @@
 #include "nlohmann/json.hpp"
 
 #include "x/cpp/xerrors/errors.h"
+#include "x/cpp/xpath/xpath.h"
 
 using json = nlohmann::json;
 
@@ -115,11 +116,6 @@ class Parser {
             }
         }
         return {K{}, false};
-    }
-
-    /// @brief Helper to join path segments for error reporting
-    [[nodiscard]] std::string join_path(const std::string &parent, const std::string &child) const {
-        return parent.empty() ? child : parent + "." + child;
     }
 
     /// @brief Wrapper for iterator-based access
@@ -442,7 +438,7 @@ T Parser::parse_value(const std::string &path, const json &j) {
         }
         T map_result;
         for (const auto &[json_key, value]: j.items()) {
-            const auto child_path = join_path(path, json_key);
+            const auto child_path = xpath::join(".", {path, json_key});
             auto [map_key, ok] = convert_key<K>(json_key, child_path);
             if (!ok) continue;
             map_result[map_key] = parse_value<V>(child_path, value);
@@ -457,7 +453,7 @@ T Parser::parse_value(const std::string &path, const json &j) {
         std::vector<U> values;
         values.reserve(j.size());
         for (size_t i = 0; i < j.size(); ++i) {
-            const auto child_path = join_path(path, std::to_string(i));
+            const auto child_path = xpath::join(".", {path, std::to_string(i)});
             values.push_back(parse_value<U>(child_path, j[i]));
         }
         return values;

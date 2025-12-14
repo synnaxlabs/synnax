@@ -180,3 +180,27 @@ build:sanitize --config=ubsan
 build:sanitize-ci --config=sanitize
 build:sanitize-ci --test_output=errors
 build:sanitize-ci --test_summary=detailed
+
+# ===== Clang-Tidy Static Analysis =====
+#
+# Usage: bazel build --config=clang-tidy //target/...
+#
+# This uses the bazel_clang_tidy aspect to run clang-tidy on C++ targets.
+# Results are cached via Bazel's action cache, so unchanged files won't be
+# re-analyzed on subsequent runs.
+#
+# Note: We intentionally don't inherit sanitizer flags here. Clang-tidy performs
+# static analysis and doesn't need runtime instrumentation. This also keeps the
+# lint cache separate from test cache, allowing lint results to be reused across
+# different build configurations.
+
+build:clang-tidy --aspects=@bazel_clang_tidy//clang_tidy:clang_tidy.bzl%clang_tidy_aspect
+build:clang-tidy --output_groups=report
+
+# Keep strict C++ standard for accurate analysis
+build:clang-tidy --cxxopt=-std=c++23
+build:clang-tidy --host_cxxopt=-std=c++23
+
+# Exclude external dependencies and vendor code from analysis
+build:clang-tidy --per_file_copt=external/.*@-w
+build:clang-tidy --per_file_copt=vendor/.*@-w

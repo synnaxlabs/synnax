@@ -24,7 +24,7 @@ plugins::ChannelReceive::ChannelReceive(
         breaker::default_config("sequence.plugins.channel_receive")
     ),
     latest_values(read_from.size()),
-    channels(synnax::map_channel_Keys(read_from)) {}
+    channels(synnax::map_channel_keys(read_from)) {}
 
 plugins::ChannelReceive::ChannelReceive(
     const std::shared_ptr<synnax::Synnax> &client,
@@ -36,13 +36,13 @@ plugins::ChannelReceive::ChannelReceive(
     ) {}
 
 /// @brief implements plugins::Plugin to start receiving values from the read pipeline.
-xerrors::Error plugins::ChannelReceive::before_all(lua_State *L) {
+xerrors::Error plugins::ChannelReceive::before_all([[maybe_unused]] lua_State *L) {
     this->pipe.start();
     return xerrors::NIL;
 }
 
 /// @brief implements plugins::Plugin to start receiving values from the write pipeline.
-xerrors::Error plugins::ChannelReceive::after_all(lua_State *L) {
+xerrors::Error plugins::ChannelReceive::after_all([[maybe_unused]] lua_State *L) {
     this->pipe.stop();
     return xerrors::NIL;
 }
@@ -50,7 +50,7 @@ xerrors::Error plugins::ChannelReceive::after_all(lua_State *L) {
 /// @brief implements pipeline::Sink to receive values from a streamer and bind them
 /// into the latest values state.
 xerrors::Error plugins::ChannelReceive::Sink::write(const synnax::Frame &frame) {
-    std::lock_guard lock(this->receiver.mu);
+    const std::scoped_lock lock(this->receiver.mu);
     for (size_t i = 0; i < frame.size(); i++) {
         const auto key = frame.channels->at(i);
         if (!frame.series->at(i).empty())
@@ -62,7 +62,7 @@ xerrors::Error plugins::ChannelReceive::Sink::write(const synnax::Frame &frame) 
 /// @brief implements plugins::Plugin to bind the latest values to the lua state
 /// on every sequence iteration.
 xerrors::Error plugins::ChannelReceive::before_next(lua_State *L) {
-    std::lock_guard lock(this->mu);
+    const std::scoped_lock lock(this->mu);
     for (const auto &[key, latest]: this->latest_values) {
         if (!latest.changed) continue;
         const auto res = this->channels.find(key);

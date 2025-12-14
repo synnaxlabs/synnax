@@ -63,7 +63,7 @@ class Factory final : public task::Factory {
     common::TimingConfig timing_cfg;
 
     /// @brief checks whether the factory is healthy and capable of creating tasks.
-    bool check_health() const;
+    [[nodiscard]] bool check_health() const;
 
     /// @brief checks whether the factory is healthy and capable of creating tasks.
     /// If not, the factory will automatically send an error back through the
@@ -105,7 +105,7 @@ public:
         common::ConfigureResult result;
         auto [cfg, cfg_err] = ConfigT::parse(ctx->client, task, this->timing_cfg);
         if (cfg_err) return {std::move(result), cfg_err};
-        TaskHandle handle;
+        TaskHandle handle = nullptr;
         const std::string dmx_task_name = task.name + " (" + std::to_string(task.key) +
                                           ")";
         if (const auto err = this->dmx->CreateTask(dmx_task_name.c_str(), &handle))

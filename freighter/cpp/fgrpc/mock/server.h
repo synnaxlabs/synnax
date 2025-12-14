@@ -29,7 +29,7 @@ inline std::condition_variable cond;
 inline bool end_session = false;
 
 /// @brief Implements .proto generated interface Unary.
-class unaryServiceImpl final : public test::UnaryMessageService::Service {
+class UnaryServiceImpl final : public test::UnaryMessageService::Service {
 public:
     /// @brief The implementation on the server side of unary communication.
     grpc::Status Exec(
@@ -51,7 +51,7 @@ public:
 private:
 };
 
-class myStreamServiceImpl final : public test::StreamMessageService::Service {
+class StreamServiceImpl final : public test::StreamMessageService::Service {
     /// @brief The implementation of the server side stream.
     grpc::Status Exec(
         grpc::ServerContext *context,
@@ -77,12 +77,11 @@ class myStreamServiceImpl final : public test::StreamMessageService::Service {
 /// GRPCUnaryClient server.
 inline void server(const std::string &target) {
     end_session = false;
-    const std::string server_address(target);
-    unaryServiceImpl u_service;
-    myStreamServiceImpl s_service;
+    UnaryServiceImpl u_service;
+    StreamServiceImpl s_service;
 
     grpc::ServerBuilder builder;
-    builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
+    builder.AddListeningPort(target, grpc::InsecureServerCredentials());
     builder.RegisterService(&u_service);
     builder.RegisterService(&s_service);
 

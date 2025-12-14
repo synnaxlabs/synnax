@@ -47,9 +47,9 @@ const std::string UNKNOWN_NAME = "unknown";
 inline std::string get() {
 #if defined(_WIN32) || defined(_WIN64)
     return WINDOWS_NAME;
-#elif defined(__APPLE__)
+#elifdef __APPLE__
     return MACOS_NAME;
-#elif defined(__linux__)
+#elifdef __linux__
     return LINUX_NAME;
 #else
     return UNKNOWN_NAME;
