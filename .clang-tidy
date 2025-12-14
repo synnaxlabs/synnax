@@ -20,7 +20,6 @@
 #   readability-redundant-member-init: default init can be intentional
 #   readability-uppercase-literal-suffix: style preference
 #   readability-use-anyofallof: not always more readable
-#   readability-namespace-comments: style preference
 #   google-readability-namespace-comments: style preference
 #   cppcoreguidelines-avoid-c-arrays: C API interop
 #   cppcoreguidelines-avoid-const-or-ref-data-members: immutable members are valid
@@ -30,7 +29,6 @@
 #   cppcoreguidelines-macro-usage: C libraries use macros
 #   cppcoreguidelines-non-private-member-variables-in-classes: POD structs are valid
 #   cppcoreguidelines-pro-bounds-array-to-pointer-decay: C API interop
-#   cppcoreguidelines-pro-bounds-avoid-unchecked-container-access: validated bounds
 #   cppcoreguidelines-pro-bounds-pointer-arithmetic: C API interop
 #   cppcoreguidelines-pro-type-const-cast: C callbacks require const removal
 #   cppcoreguidelines-pro-type-reinterpret-cast: binary protocols
@@ -40,7 +38,6 @@
 #   misc-no-recursion: legitimate algorithms use recursion
 #   misc-non-private-member-variables-in-classes: POD structs are valid
 #   misc-use-internal-linkage: header-only utilities need external linkage
-#   portability-avoid-pragma-once: widely supported
 #   portability-template-virtual-member-function: MSVC extension used by deps
 #   hicpp-avoid-c-arrays: C API interop
 #   hicpp-braces-around-statements: style preference
@@ -72,7 +69,6 @@ Checks: >-
     -readability-redundant-member-init,
     -readability-uppercase-literal-suffix,
     -readability-use-anyofallof,
-    -readability-namespace-comments,
     -google-readability-namespace-comments,
     cppcoreguidelines-*,
     -cppcoreguidelines-avoid-c-arrays,
@@ -83,7 +79,6 @@ Checks: >-
     -cppcoreguidelines-macro-usage,
     -cppcoreguidelines-non-private-member-variables-in-classes,
     -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
-    -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
     -cppcoreguidelines-pro-bounds-pointer-arithmetic,
     -cppcoreguidelines-pro-type-const-cast,
     -cppcoreguidelines-pro-type-reinterpret-cast,
@@ -96,7 +91,6 @@ Checks: >-
     -misc-non-private-member-variables-in-classes,
     -misc-use-internal-linkage,
     portability-*,
-    -portability-avoid-pragma-once,
     -portability-template-virtual-member-function,
     concurrency-*,
     hicpp-*,
@@ -192,10 +186,6 @@ CheckOptions:
       value: 5
     - key: modernize-use-auto.RemoveStars
       value: false
-
-    # Ignore glog's verbose_level__ macro and parser false positives
-    - key: misc-const-correctness.AllowedTypes
-      value: "google::int32;xjson::Parser"
 
     # Readability settings
     - key: readability-function-cognitive-complexity.Threshold
