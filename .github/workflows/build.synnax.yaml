@@ -18,10 +18,6 @@ on:
         description: "Platform: Ubuntu"
         type: boolean
         default: false
-      ubuntu_22_04:
-        description: "Platform: NI Linux RT (Ubuntu 22.04)"
-        type: boolean
-        default: false
       docker:
         description: "Platform: Docker"
         type: boolean
@@ -71,9 +67,6 @@ on:
       ubuntu:
         type: boolean
         default: false
-      ubuntu_22_04:
-        type: boolean
-        default: false
       docker:
         type: boolean
         default: false
@@ -103,9 +96,6 @@ on:
         required: false
         default: ""
 
-env:
-  BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
-
 jobs:
   setup:
     runs-on: ubuntu-latest
@@ -117,7 +107,7 @@ jobs:
       GO_BUILD_TAGS: ${{ steps.go-tags.outputs.GO_BUILD_TAGS }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Get Version
         id: version
@@ -143,7 +133,7 @@ jobs:
       - name: Generate OS Matrix
         id: set-matrix
         run: |
-          MATRIX=$(scripts/generate_os_matrix.sh "${{ inputs.windows }}" "${{ inputs.macos }}" "${{ inputs.ubuntu }}" "${{ inputs.ubuntu_22_04 }}")
+          MATRIX=$(scripts/generate_os_matrix.sh "${{ inputs.windows }}" "${{ inputs.macos }}" "${{ inputs.ubuntu }}")
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
       - name: Generate Console Tauri Matrix
@@ -166,7 +156,6 @@ jobs:
             "${{ inputs.windows }}" \
             "${{ inputs.macos }}" \
             "${{ inputs.ubuntu }}" \
-            "${{ inputs.ubuntu_22_04 }}" \
             "${{ inputs.docker }}" \
             "${{ inputs.driver }}" \
             "${{ inputs.console }}" \
@@ -194,6 +183,9 @@ jobs:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
       GH_TOKEN: ${{ github.token }}
+      BAZEL_BUILD_FLAGS:
+        --enable_platform_specific_config --config=opt --announce_rc --verbose_failures
+      BAZEL_REMOTE_CACHE_FLAGS: --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_URL }}
     strategy:
       fail-fast: false
       matrix:
@@ -201,7 +193,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           clean: false
 
@@ -211,7 +203,7 @@ jobs:
       - name: Install Deps On Ubuntu
         # Dependencies should already be installed on the machine.
         # This is nominally a no-op, but exists as a fallback and for documentation.
-        if: matrix.os == 'ubuntu-build-bot' || matrix.os == 'ubuntu-2204-build-bot'
+        if: matrix.os == 'ubuntu-build-bot'
         run: |
           sudo apt-get update
           sudo apt-get install -y libsystemd-dev autoconf automake libtool
@@ -230,30 +222,57 @@ jobs:
           disk-cache: false
           repository-cache: false
 
-      - name: Build Driver
-        if: inputs.driver
+      - name: Build Driver (Windows)
+        if: inputs.driver && matrix.os == 'windows-build-bot'
         shell: bash
         run: |
-          BAZEL_FLAGS=""
-          BAZEL_STARTUP_FLAGS=""
+          export MSYS_NO_PATHCONV=1
+          bazel --output_user_root=C:/tmp build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
+            --config=opt-windows //driver
 
-          if [ "${{ matrix.os }}" = "windows-build-bot" ]; then
-            # Disable Git Bash path conversion (// -> / mangling)
-            export MSYS_NO_PATHCONV=1
-            BAZEL_STARTUP_FLAGS="--output_user_root=C:/tmp"
-          elif [ "${{ matrix.os }}" = "ubuntu-2204-build-bot" ]; then
-            export TMPDIR=/tmp
-            BAZEL_FLAGS="--define=platform=nilinuxrt"
-          else
-            BAZEL_FLAGS="--config=hide_symbols"
-          fi
+      - name: Build Driver (macOS)
+        if: inputs.driver && matrix.os == 'macos-build-bot'
+        run: |
+          bazel build $BAZEL_BUILD_FLAGS \
+            --config=opt-unix --config=hide_symbols //driver
 
-          # macOS runners are not on AWS, so local cache is faster
-          if [ "${{ matrix.os }}" != "macos-build-bot" ]; then
-            BAZEL_FLAGS="$BAZEL_FLAGS --remote_cache=${{ env.BAZEL_REMOTE_CACHE }}"
-          fi
+      - name: Build Driver (NI Linux RT)
+        if: inputs.driver && matrix.os == 'ubuntu-build-bot'
+        run: |
+          bazel build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
+            --config=opt-unix --config=hide_symbols --define=platform=nilinuxrt //driver
+          mv bazel-bin/driver/driver bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt
 
-          bazel $BAZEL_STARTUP_FLAGS build --enable_platform_specific_config -c opt --announce_rc --verbose_failures $BAZEL_FLAGS //driver
+      - name: Upload NI Linux RT Driver as Artifact
+        if: inputs.driver && matrix.os == 'ubuntu-build-bot'
+        uses: actions/upload-artifact@v6
+        with:
+          name:
+            ${{ inputs.use_simple_artifact_names && 'synnax-driver-nilinuxrt' ||
+            format('synnax-driver-v{0}-nilinuxrt', needs.setup.outputs.VERSION) }}
+          path:
+            bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload NI Linux RT Driver to Release
+        if: inputs.driver && inputs.upload_to_release && matrix.os == 'ubuntu-build-bot'
+        run: |
+          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt
+
+      - name: Upload NI Linux RT Install Script to Release
+        if: inputs.driver && inputs.upload_to_release && matrix.os == 'ubuntu-build-bot'
+        run: |
+          # Update the install script with the current version
+          sed "s/VERSION=\"\${VERSION:-.*}\"/VERSION=\"\${VERSION:-${{ needs.setup.outputs.VERSION }}}\"/" \
+            driver/scripts/install_nilinuxrt.sh > install_nilinuxrt.sh
+          gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} install_nilinuxrt.sh
+
+      - name: Build Driver (Linux)
+        if: inputs.driver && matrix.os == 'ubuntu-build-bot'
+        run: |
+          bazel build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
+            --config=opt-unix --config=hide_symbols //driver
 
       - name: Import Apple Developer Certificate
         if: inputs.sign_binaries && matrix.os == 'macos-build-bot'
@@ -357,7 +376,7 @@ jobs:
 
       - name: Upload Driver Binary as Artifact
         if: inputs.driver
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-driver-{0}',
@@ -391,7 +410,7 @@ jobs:
 
       - name: Set up Node.js
         if: inputs.console
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version-file: package.json
 
@@ -407,7 +426,7 @@ jobs:
 
       - name: Upload Console Assets as Artifact
         if: inputs.console
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-console-assets-{0}',
@@ -497,7 +516,7 @@ jobs:
 
       - name: Upload Core Binary as Artifact
         if: inputs.core
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name:
             ${{ inputs.use_simple_artifact_names && format('synnax-core-{0}',
@@ -537,7 +556,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Update Submodules
         run: git submodule update --init --recursive
@@ -631,7 +650,7 @@ jobs:
           echo "Certificate imported."
 
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Get Console Version
         id: console-version
@@ -652,7 +671,7 @@ jobs:
         uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version-file: package.json
           cache: pnpm
@@ -733,7 +752,7 @@ jobs:
         run: pnpm build
 
       - name: Upload Console App as Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name:
             ${{ matrix.os == 'macos-latest' && format('synnax-console-v{0}-macos',

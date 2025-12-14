@@ -91,7 +91,7 @@ jobs:
       VERSION: ${{ steps.version.outputs.VERSION }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Get Version
         id: version
@@ -115,7 +115,7 @@ jobs:
       CONSOLE_VERSION: ${{ steps.console-version.outputs.VERSION }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Get Console Version
         id: console-version
@@ -178,7 +178,6 @@ jobs:
       windows: true
       macos: true
       ubuntu: true
-      ubuntu_22_04: true
       docker: true
       driver: true
       console: true
@@ -200,7 +199,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Download Core Binary
         uses: actions/download-artifact@v4
@@ -256,7 +255,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Create Driver Install Script for NI Linux RT
         run: |
@@ -286,7 +285,7 @@ jobs:
       VERSION: ${{ needs.create-release.outputs.CONSOLE_VERSION }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Get Console Version
         id: console-version
@@ -300,7 +299,7 @@ jobs:
         if: github.ref == 'refs/heads/main'
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         if: github.ref == 'refs/heads/main'
         with:
           node-version-file: package.json
