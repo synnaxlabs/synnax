@@ -139,8 +139,8 @@ const getOpenChannel = (channels: OutputChannel[]): OutputChannel => {
 
 const listItem = Component.renderProp(ChannelListItem);
 
-interface ContextMenuItemProps
-  extends Common.Task.ContextMenuItemProps<OutputChannel> {}
+interface ContextMenuItemProps extends Common.Task
+  .ContextMenuItemProps<OutputChannel> {}
 
 const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => {
   if (keys.length !== 1) return null;

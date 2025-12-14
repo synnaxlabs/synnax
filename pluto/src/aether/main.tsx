@@ -305,8 +305,10 @@ export interface ComponentProps {
 }
 
 /** Props for the use hook that manages Aether component lifecycle */
-export interface UseProps<S extends z.ZodType>
-  extends Omit<UseLifecycleProps<S>, "onReceive"> {
+export interface UseProps<S extends z.ZodType> extends Omit<
+  UseLifecycleProps<S>,
+  "onReceive"
+> {
   /** Optional callback for handling state changes from the Aether component */
   onAetherChange?: (state: z.infer<S>) => void;
 }
@@ -327,8 +329,10 @@ export type UseReturn<S extends z.ZodType<state.State>> = [
 /**
  * Props for the useUnidirectional hook that only propagates state to the Aether component
  */
-export interface UseUnidirectionalProps<S extends z.ZodType>
-  extends Pick<UseLifecycleProps<S>, "schema" | "aetherKey"> {
+export interface UseUnidirectionalProps<S extends z.ZodType> extends Pick<
+  UseLifecycleProps<S>,
+  "schema" | "aetherKey"
+> {
   /** The type identifier for the Aether component */
   type: string;
   /** The current state to propagate to the Aether component */

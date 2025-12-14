@@ -31,7 +31,8 @@ import { stopPropagation } from "@/util/event";
 import { Canvas } from "@/vis/canvas";
 
 export interface TableProps
-  extends ComponentPropsWithoutRef<"table">,
+  extends
+    ComponentPropsWithoutRef<"table">,
     Pick<z.infer<typeof table.Table.stateZ>, "visible"> {}
 
 export const Table = ({
@@ -73,8 +74,10 @@ export const Table = ({
   );
 };
 
-export interface RowProps
-  extends Omit<ComponentPropsWithoutRef<"tr">, "size" | "onResize" | "onSelect"> {
+export interface RowProps extends Omit<
+  ComponentPropsWithoutRef<"tr">,
+  "size" | "onResize" | "onSelect"
+> {
   index: number;
   size: number;
   position: number;

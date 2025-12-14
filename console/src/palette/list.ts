@@ -16,8 +16,10 @@ export interface RetrieveParams extends List.PagerParams {
   limit?: number;
 }
 
-export interface UseListReturn<E extends record.Keyed<string>>
-  extends Pick<List.FrameProps<string, E>, "getItem" | "subscribe"> {
+export interface UseListReturn<E extends record.Keyed<string>> extends Pick<
+  List.FrameProps<string, E>,
+  "getItem" | "subscribe"
+> {
   data: string[];
   handleSelect: (key: string) => void;
   listItem: Component.RenderProp<List.ItemProps<string>>;

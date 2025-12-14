@@ -38,8 +38,10 @@ export interface FluxSubStore extends Label.FluxSubStore, Ontology.FluxSubStore 
   [RANGE_ALIASES_FLUX_STORE_KEY]: AliasFluxStore;
 }
 
-export interface RetrieveQuery
-  extends Pick<ranger.RetrieveRequest, "includeLabels" | "includeParent"> {
+export interface RetrieveQuery extends Pick<
+  ranger.RetrieveRequest,
+  "includeLabels" | "includeParent"
+> {
   key: ranger.Key;
 }
 

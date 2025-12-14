@@ -135,8 +135,7 @@ const use = ({
   return editorContainerRef;
 };
 export interface EditorProps
-  extends Input.Control<string>,
-    Omit<Flex.BoxProps, "value" | "onChange"> {
+  extends Input.Control<string>, Omit<Flex.BoxProps, "value" | "onChange"> {
   language: string;
   isBlock?: boolean;
 }
