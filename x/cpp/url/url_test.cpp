@@ -11,6 +11,7 @@
 
 #include "x/cpp/url/url.h"
 
+/// @brief it should default construct a URL with empty fields.
 TEST(URLTest, DefaultConstruction) {
     const url::URL url;
     EXPECT_TRUE(url.ip.empty());
@@ -18,13 +19,15 @@ TEST(URLTest, DefaultConstruction) {
     EXPECT_TRUE(url.path.empty());
 }
 
+/// @brief it should construct a URL with explicit ip, port, and path.
 TEST(URLTest, ExplicitConstruction) {
-    url::URL url("127.0.0.1", 8080, "/api/v1");
+    const url::URL url("127.0.0.1", 8080, "/api/v1");
     EXPECT_EQ(url.ip, "127.0.0.1");
     EXPECT_EQ(url.port, 8080);
     EXPECT_EQ(url.path, "/api/v1/"); // Note: join_paths adds trailing slash
 }
 
+/// @brief it should parse a URL string into ip, port, and path components.
 TEST(URLTest, StringParsing) {
     url::URL url("localhost:8080/api/v1");
     EXPECT_EQ(url.ip, "localhost");
@@ -37,13 +40,15 @@ TEST(URLTest, StringParsing) {
     EXPECT_TRUE(simple.path.empty());
 }
 
+/// @brief it should handle parsing an empty string gracefully.
 TEST(URLTest, EmptyStringParsing) {
-    url::URL url("");
+    const url::URL url("");
     EXPECT_TRUE(url.ip.empty());
     EXPECT_EQ(url.port, 0);
     EXPECT_TRUE(url.path.empty());
 }
 
+/// @brief it should create child URLs by appending path segments.
 TEST(URLTest, ChildURLs) {
     url::URL parent("api.example.com", 443, "/v1");
 
@@ -67,19 +72,22 @@ TEST(URLTest, ChildURLs) {
     EXPECT_EQ(child4.path, "/v1/");
 }
 
+/// @brief it should convert a URL to its string representation.
 TEST(URLTest, ToString) {
-    url::URL url("example.com", 8080, "/api/v1");
+    const url::URL url("example.com", 8080, "/api/v1");
     EXPECT_EQ(url.to_string(), "example.com:8080/api/v1/");
 
-    url::URL simple("localhost", 80, "");
+    const url::URL simple("localhost", 80, "");
     EXPECT_EQ(simple.to_string(), "localhost:80/");
 }
 
+/// @brief it should return the host address as ip:port.
 TEST(URLTest, HostAddress) {
-    url::URL url("example.com", 8080, "/api/v1");
+    const url::URL url("example.com", 8080, "/api/v1");
     EXPECT_EQ(url.host_address(), "example.com:8080");
 }
 
+/// @brief it should normalize paths with leading and trailing slashes.
 TEST(URLTest, PathNormalization) {
     // Test that paths are properly normalized with slashes
     url::URL url1("localhost", 8080, "api/v1");
@@ -92,6 +100,7 @@ TEST(URLTest, PathNormalization) {
     EXPECT_EQ(url3.path, "/api/v1/");
 }
 
+/// @brief it should handle empty and invalid string construction gracefully.
 TEST(URLTest, EmptyAndInvalidStringConstruction) {
     url::URL empty("");
     EXPECT_TRUE(empty.ip.empty());

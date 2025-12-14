@@ -40,6 +40,8 @@ struct URL {
     /// @returns the URL as a string.
     [[nodiscard]] std::string to_string() const;
 
+    /// @returns returns the host:port portion of the address
+    /// @example localhost:9090/api/v1 would return localhost:9090
     [[nodiscard]] std::string host_address() const;
 };
 }

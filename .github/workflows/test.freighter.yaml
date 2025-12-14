@@ -62,7 +62,7 @@ jobs:
       ts: ${{ steps.filter.outputs.ts }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Diff Changes
         uses: dorny/paths-filter@v3
@@ -108,7 +108,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -138,7 +138,7 @@ jobs:
     if: needs.changes.outputs.integration == 'true'
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -152,7 +152,7 @@ jobs:
         run: scripts/check_gofmt.sh freighter/integration
 
       - name: Lint
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@v9
         with:
           working-directory: freighter/integration
 
@@ -171,7 +171,7 @@ jobs:
           - 8080:8080
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Poetry
         run: pipx install poetry
@@ -186,15 +186,15 @@ jobs:
         run: poetry install
         working-directory: freighter/py
 
-      - name: isort
+      - name: Check Import Order
         run: poetry run isort -c .
         working-directory: freighter/py
 
-      - name: Format
+      - name: Check Formatting
         run: poetry run black --check --diff --color .
         working-directory: freighter/py
 
-      - name: Mypy
+      - name: Check Types
         run: poetry run mypy .
         working-directory: freighter/py
 
@@ -220,13 +220,13 @@ jobs:
           - 8080:8080
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version-file: package.json
           cache: pnpm

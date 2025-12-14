@@ -417,7 +417,7 @@ TEST_F(TestWriteTask, testMultipleSequentialWrites) {
             this->uint32_cmd_channel.key,
             telem::Series(static_cast<uint32_t>(i * 1000), telem::UINT32_T)
         );
-        ASSERT_NIL(sink->write(fr)) << "Write " << i << " failed";
+        ASSERT_NIL(sink->write(fr));
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 

@@ -12,6 +12,8 @@ on:
     paths:
       - .bazeliskrc
       - .bazelrc
+      - .github/workflows/test.integration.yaml
+      - .github/workflows/build.synnax.yaml
       - alamos/go/**
       - alamos/py/**
       - alamos/ts/**
@@ -75,16 +77,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
-
 jobs:
   lint-python:
     name: Lint - Python
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Poetry
         run: pipx install poetry
@@ -101,11 +100,11 @@ jobs:
           poetry install
         working-directory: integration
 
-      - name: isort
+      - name: Check Import Order
         run: poetry run isort -c .
         working-directory: integration
 
-      - name: Format (Black)
+      - name: Check Formatting (Black)
         run: poetry run black --check --diff --color .
         working-directory: integration
 
@@ -126,7 +125,7 @@ jobs:
       SEQUENCE_ARG: ${{ steps.set-outputs.outputs.SEQUENCE_ARG }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Get Version
         id: version
@@ -134,8 +133,10 @@ jobs:
         run: |
           if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
             echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
-          else
+          elif [ "${GITHUB_REF}" == "refs/heads/rc" ]; then
             echo "VERSION=$(cat pkg/version/VERSION)-rc" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=$(cat pkg/version/VERSION)-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
           fi
 
       - name: Set outputs
@@ -183,144 +184,24 @@ jobs:
           fi
 
   build:
-    name: Build (${{ matrix.os }})
-    timeout-minutes: 30
-    env:
-      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-build-bot, windows-build-bot]
-        include:
-          - os: ubuntu-build-bot
-            artifact-name: synnax-core-linux
-            binary-suffix: linux
-          - os: windows-build-bot
-            artifact-name: synnax-core-windows
-            binary-suffix: windows.exe
-    runs-on: ${{ matrix.os }}
     needs: setup
-    steps:
-      - name: Skip Build
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'true' }}
-        run: echo "Build skipped - using reference artifacts"
-
-      - name: Checkout Repository
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/checkout@v5
-        with:
-          clean: false
-
-      - name: Update Submodules
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        run: git submodule update --init --recursive
-
-      - name: Install Deps On Ubuntu Latest
-        if: matrix.os == 'ubuntu-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libsystemd-dev
-
-      - name: Setup Bazel
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: bazel-contrib/setup-bazel@0.15.0
-        with:
-          bazelisk-cache: false
-          disk-cache: false
-          repository-cache: false
-
-      - name: Build Driver
-        if:
-          matrix.os != 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
-        run: |
-          bazel build --enable_platform_specific_config -c opt --config=hide_symbols --announce_rc \
-            --disk_cache=~/.cache/bazel-disk \
-            --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} \
-            //driver
-
-      - name: Build Driver (Windows)
-        if:
-          matrix.os == 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
-        run: |
-          bazel --output_user_root=C:/tmp build --enable_platform_specific_config -c opt --announce_rc --disk_cache=C:/tmp/bazel-disk --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} //driver
-
-      - name: Move Driver to Assets
-        if:
-          matrix.os != 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
-        run: |
-          mv bazel-bin/driver/driver core/pkg/service/driver/assets/driver
-
-      - name: Move Driver to Assets (Windows)
-        if:
-          matrix.os == 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
-        shell: powershell
-        run: |
-          Move-Item -Force bazel-bin/driver/driver.exe core/pkg/service/driver/assets/driver.exe
-
-      - name: Set up Go
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.work
-          cache: false
-
-      - name: Set up pnpm
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node.js
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: package.json
-
-      - name: Install Node Dependencies
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        run: pnpm install
-
-      - name: Build Console Web Assets
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        env:
-          NODE_OPTIONS: --max_old_space_size=8192
-        run: pnpm build:console-vite
-
-      - name: Copy Console Assets to Server
-        if:
-          matrix.os != 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
-        run: cp -r console/dist/* core/pkg/service/console/dist/
-
-      - name: Copy Console Assets to Server (Windows)
-        if:
-          matrix.os == 'windows-build-bot' && needs.setup.outputs.SKIP_BUILD == 'false'
-        shell: powershell
-        run: |
-          Copy-Item -Recurse -Force console/dist/* core/pkg/service/console/dist/
-
-      - name: Build
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        working-directory: core
-        run: |
-          go build -tags console,driver -o synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}
-
-      - name: Upload Core Binary as Artifact
-        if: ${{ needs.setup.outputs.SKIP_BUILD == 'false' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact-name }}
-          path:
-            core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.binary-suffix }}
-          retention-days: 7
-          if-no-files-found: error
-
-      - name: Debug Build Environment
-        if: failure() && matrix.os != 'windows-build-bot'
-        run: integration/scripts/debug_build_environment_unix.sh
-
-      - name: Debug Build Environment (Windows)
-        if: failure() && matrix.os == 'windows-build-bot'
-        shell: cmd
-        run: integration/scripts/DebugBuildEnvironmentWindows.cmd
+    if: needs.setup.outputs.SKIP_BUILD == 'false'
+    permissions:
+      contents: write
+      packages: write
+    uses: ./.github/workflows/build.synnax.yaml
+    with:
+      windows: true
+      ubuntu: true
+      docker: false
+      driver: true
+      console: true
+      core: true
+      sign_binaries: false
+      upload_to_release: false
+      use_simple_artifact_names: true
+      version: ${{ needs.setup.outputs.VERSION }}
+    secrets: inherit
 
   deploy-and-test-windows:
     name: Deploy and Test (windows)
@@ -329,9 +210,12 @@ jobs:
       - self-hosted
       - windows-latest
     needs: [setup, build]
+    if:
+      always() && needs.setup.result == 'success' && (needs.build.result == 'success' ||
+      needs.build.result == 'skipped')
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           clean: false
 
@@ -384,7 +268,7 @@ jobs:
           poetry run test-conductor --name tc_win ${{ needs.setup.outputs.SEQUENCE_ARG }}
 
       - name: Upload Test Results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: test-results-windows
@@ -396,69 +280,6 @@ jobs:
         shell: cmd
         run: integration/scripts/DebugTestEnvironmentWindows.cmd
 
-  deploy-and-test-macos:
-    name: Deploy and Test (macOS)
-    timeout-minutes: 30
-    runs-on:
-      - self-hosted
-      - macos-latest
-    if: false
-    needs: [setup, build]
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v5
-        with:
-          clean: false
-
-      - name: Force Quit Existing Synnax Processes
-        run: integration/scripts/kill_synnax_processes_unix.sh
-
-      - name: Download and Setup macOS Artifacts
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REF_RUN_ID: ${{ needs.setup.outputs.REF_RUN_ID }}
-        run: integration/scripts/download_artifacts_unix.sh
-
-      - name: Update Submodules
-        run: git submodule update --init --recursive
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version-file: integration/pyproject.toml
-
-      - name: Install Poetry & Dependencies
-        run: integration/scripts/install_poetry_deps_unix.sh
-
-      - name: Install Playwright
-        run: integration/scripts/install_playwright_unix.sh
-
-      - name: Start Core
-        timeout-minutes: 1
-        env:
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
-        run: integration/scripts/start_core_unix.sh
-
-      - name: Test Conductor
-        id: test-conductor
-        timeout-minutes: 20
-        working-directory: integration
-        run:
-          poetry run test-conductor --name tc_unix ${{ needs.setup.outputs.SEQUENCE_ARG
-          }}
-
-      - name: Upload Test Results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results-macos
-          path: integration/tests/results/*
-          retention-days: 7
-
-      - name: Debug Test Environment
-        if: failure()
-        run: integration/scripts/debug_test_environment_unix.sh
-
   deploy-and-test-ubuntu:
     name: Deploy and Test (ubuntu)
     timeout-minutes: 30
@@ -466,9 +287,12 @@ jobs:
       - self-hosted
       - ubuntu-latest
     needs: [setup, build]
+    if:
+      always() && needs.setup.result == 'success' && (needs.build.result == 'success' ||
+      needs.build.result == 'skipped')
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           clean: false
 
@@ -511,7 +335,7 @@ jobs:
           }}
 
       - name: Upload Test Results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: test-results-linux

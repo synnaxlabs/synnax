@@ -25,7 +25,13 @@ if %errorlevel% neq 0 (
     if %errorlevel% neq 0 exit /b %errorlevel%
 )
 
-poetry env use python
+rem Remove any existing virtualenvs that may be using an incompatible Python version
+rem We delete directly because poetry env remove fails if the Python version is no longer installed
+echo Removing existing virtualenvs...
+powershell -Command "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue '$env:LOCALAPPDATA\pypoetry\Cache\virtualenvs\synnax-test-framework-*'"
+
+rem Use the Python from actions/setup-python (pythonLocation env var)
+poetry env use "%pythonLocation%\python.exe"
 if %errorlevel% neq 0 exit /b %errorlevel%
 
 poetry install

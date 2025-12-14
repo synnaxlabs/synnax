@@ -72,16 +72,18 @@ TEST(TelemTest, testUAFloatArrayToSeries) {
     UA_Variant_setArray(&array_v, floats, 3, &UA_TYPES[UA_TYPES_FLOAT]);
 
     telem::Series series(telem::FLOAT32_T, 3);
-    auto [written, err] = opc::telem::ua_array_write_to_series(series, &array_v, 3);
-    ASSERT_NIL(err);
+    auto written = ASSERT_NIL_P(
+        opc::telem::ua_array_write_to_series(series, &array_v, 3)
+    );
+    EXPECT_EQ(written, 3);
     EXPECT_EQ(series.size(), 3);
     EXPECT_EQ(series.at<float>(0), 1.0f);
     EXPECT_EQ(series.at<float>(1), 2.0f);
     EXPECT_EQ(series.at<float>(2), 3.0f);
 
     telem::Series s2(telem::FLOAT64_T, 3);
-    auto [written2, err2] = opc::telem::ua_array_write_to_series(s2, &array_v, 3);
-    ASSERT_NIL(err2);
+    auto written2 = ASSERT_NIL_P(opc::telem::ua_array_write_to_series(s2, &array_v, 3));
+    EXPECT_EQ(written2, 3);
     EXPECT_EQ(s2.size(), 3);
     EXPECT_EQ(s2.at<double>(0), 1.0);
     EXPECT_EQ(s2.at<double>(1), 2.0);
@@ -97,8 +99,8 @@ TEST(TelemTest, testWriteToSeries) {
     UA_Float val = 42.0f;
     UA_Variant_setScalar(&v, &val, &UA_TYPES[UA_TYPES_FLOAT]);
 
-    auto [written, err] = opc::telem::write_to_series(series, v);
-    ASSERT_NIL(err);
+    const auto written = ASSERT_NIL_P(opc::telem::write_to_series(series, v));
+    EXPECT_EQ(written, 1);
     EXPECT_EQ(series.size(), 1);
     EXPECT_EQ(series.at<float>(0), 42.0f);
 
@@ -107,8 +109,8 @@ TEST(TelemTest, testWriteToSeries) {
     UA_Float v2v = 43.0f;
     UA_Variant_setScalar(&v2, &v2v, &UA_TYPES[UA_TYPES_FLOAT]);
 
-    auto [written2, err2] = opc::telem::write_to_series(series, v2);
-    ASSERT_NIL(err2);
+    const auto written2 = ASSERT_NIL_P(opc::telem::write_to_series(series, v2));
+    EXPECT_EQ(written2, 1);
     EXPECT_EQ(series.size(), 2);
     EXPECT_EQ(series.at<float>(1), 43.0f);
 }
@@ -119,8 +121,7 @@ TEST(TelemTest, testSeriesToVariant) {
     float val = 42.0f;
     series.write(val);
 
-    auto [variant, err] = opc::telem::series_to_variant(series);
-    ASSERT_NIL(err);
+    auto variant = ASSERT_NIL_P(opc::telem::series_to_variant(series));
     EXPECT_TRUE(UA_Variant_hasScalarType(&variant, &UA_TYPES[UA_TYPES_FLOAT]));
     EXPECT_EQ(*static_cast<float *>(variant.data), 42.0f);
 
