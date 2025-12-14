@@ -46,6 +46,7 @@
     "@testing-library/react": "catalog:",
     "@testing-library/user-event": "^14.6.1",
     "@types/d3-scale": "^4.0.9",
+    "@types/node": "catalog:",
     "@types/offscreencanvas": "catalog:",
     "@types/pluralize": "catalog:",
     "@types/react": "catalog:",
