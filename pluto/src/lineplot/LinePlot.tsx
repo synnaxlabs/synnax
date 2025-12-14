@@ -24,8 +24,10 @@ import {
   type HTMLAttributes,
   type PropsWithChildren,
   type ReactElement,
+  type Ref,
   useCallback,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
@@ -54,7 +56,6 @@ export interface ContextValue {
   setViewport: (viewport: Viewport.UseEvent) => void;
   addViewportHandler: (handler: Viewport.UseHandler) => destructor.Destructor;
   setHold: (hold: boolean) => void;
-  getBounds: () => Promise<lineplot.AxesBounds>;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
@@ -96,6 +97,12 @@ export interface LineSpec {
   visible: boolean;
 }
 
+/** Ref handle exposed by LinePlot for imperative access */
+export interface LinePlotRef {
+  /** Returns the current bounds for all axes */
+  getBounds: () => Promise<lineplot.AxesBounds>;
+}
+
 type LineState = LineSpec[];
 
 export interface LinePlotProps
@@ -106,10 +113,11 @@ export interface LinePlotProps
         "clearOverScan" | "hold" | "visible"
       >
     >,
-    HTMLDivProps,
+    Omit<HTMLDivProps, "ref">,
     Aether.ComponentProps {
   resizeDebounce?: number;
   onHold?: (hold: boolean) => void;
+  ref?: Ref<LinePlotRef>;
 }
 
 export const LinePlot = ({
@@ -121,6 +129,7 @@ export const LinePlot = ({
   hold = false,
   onHold,
   visible,
+  ref,
   ...rest
 }: LinePlotProps): ReactElement => {
   const [lines, setLines] = useState<LineState>([]);
@@ -150,7 +159,11 @@ export const LinePlot = ({
     [setState, visible],
   );
 
-  const ref = Canvas.useRegion(handleResize, { debounce });
+  const regionRef = Canvas.useRegion(handleResize, { debounce });
+
+  useImperativeHandle(ref, () => ({ getBounds: methods.getBounds }), [
+    methods.getBounds,
+  ]);
 
   useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
 
@@ -232,7 +245,6 @@ export const LinePlot = ({
       addViewportHandler,
       setHold,
       id,
-      getBounds: methods.getBounds,
     }),
     [
       id,
@@ -244,7 +256,6 @@ export const LinePlot = ({
       setViewport,
       addViewportHandler,
       setHold,
-      methods.getBounds,
     ],
   );
 
@@ -253,7 +264,7 @@ export const LinePlot = ({
       id={id}
       className={CSS.B("line-plot")}
       style={{ ...style, ...cssGrid }}
-      ref={ref}
+      ref={regionRef}
       {...rest}
     >
       <Context value={contextValue}>

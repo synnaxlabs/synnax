@@ -362,19 +362,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   );
 
   const props = PMenu.useContextMenu();
+  const linePlotRef = useRef<Core.LinePlotRef | null>(null);
 
   interface ContextMenuContentProps extends PMenu.ContextMenuMenuProps {
     layoutKey: string;
   }
-
-  const boundsQuerierRef = useRef<Core.GetBoundsFn | null>(null);
-
-  // Captures getBounds from LinePlot context into a ref for use by the context menu
-  // (which renders outside the LinePlot context tree via portal)
-  const CaptureGetBounds = (): null => {
-    boundsQuerierRef.current = Core.useBoundQuerier();
-    return null;
-  };
 
   const ContextMenuContent = ({ layoutKey }: ContextMenuContentProps): ReactElement => {
     const { box: selection } = useSelectSelection(layoutKey);
@@ -382,7 +374,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     const handleError = Status.useErrorHandler();
 
     const getTimeRange = useCallback(async () => {
-      const bounds = await boundsQuerierRef.current?.();
+      const bounds = await linePlotRef.current?.getBounds();
       if (bounds == null) return null;
       const s = scale.Scale.scale<number>(1).scale(bounds.x1);
       return new TimeRange(s.pos(box.left(selection)), s.pos(box.right(selection)));
@@ -464,6 +456,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
         menu={(props) => <ContextMenuContent {...props} layoutKey={layoutKey} />}
       >
         <Channel.LinePlot
+          ref={linePlotRef}
           aetherKey={layoutKey}
           hold={hold}
           onContextMenu={props.open}
@@ -499,7 +492,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           onMeasureModeChange={hasEditPermission ? handleMeasureModeChange : undefined}
         >
           {!focused && <Controls layoutKey={layoutKey} />}
-          <CaptureGetBounds />
         </Channel.LinePlot>
       </PMenu.ContextMenu>
       {focused && <Controls layoutKey={layoutKey} />}
