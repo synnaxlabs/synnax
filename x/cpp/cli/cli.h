@@ -123,8 +123,9 @@ prompt(const std::string &message, std::optional<T> default_value = std::nullopt
                 return std::stod(input);
             else if constexpr (std::is_same_v<T, std::int64_t>)
                 return std::stol(input);
-            else if constexpr (std::is_same_v<T, std::uint16_t>)
-                return static_cast<std::uint16_t>(std::stoul(input));
+            else if constexpr (std::is_same_v<T, std::uint16_t> ||
+                               std::is_same_v<T, unsigned short>)
+                return static_cast<T>(std::stoul(input));
             else
                 static_assert(sizeof(T) == 0, "Unsupported numeric type");
         } catch (const std::exception &) {

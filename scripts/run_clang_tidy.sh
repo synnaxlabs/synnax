@@ -50,12 +50,12 @@ echo "Running clang-tidy on $path..."
 
 # Find all .cpp, .hpp, .h, and .cc files in the directory
 # Exclude vendor directory and generated protobuf files
-files=$(git -C "$path" ls-files -- "*.cpp" "*.hpp" "*.h" "*.cc" | \
-    grep -v "vendor/" | \
-    grep -v "\.pb\.h$" | \
-    grep -v "\.pb\.cc$" | \
-    grep -v "\.grpc\.pb\.h$" | \
-    grep -v "\.grpc\.pb\.cc$")
+files=$(git -C "$path" ls-files -- "*.cpp" "*.hpp" "*.h" "*.cc" \
+    | grep -v "vendor/" \
+    | grep -v "\.pb\.h$" \
+    | grep -v "\.pb\.cc$" \
+    | grep -v "\.grpc\.pb\.h$" \
+    | grep -v "\.grpc\.pb\.cc$")
 
 # Exit successfully if no files were found
 if [ -z "$files" ]; then

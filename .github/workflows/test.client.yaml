@@ -220,8 +220,8 @@ jobs:
 
       - name: Test (Ubuntu)
         run:
-          bazel test --config=clang-tidy --config=asan-leak --test_output=all //client/cpp/...
-          --nocache_test_results
+          bazel test --config=clang-tidy --config=asan-leak --test_output=all
+          //client/cpp/... --nocache_test_results
 
   py:
     name: Test - Python
