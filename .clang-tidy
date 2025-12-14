@@ -22,14 +22,8 @@ Checks: |
     -modernize-avoid-c-arrays,
     # style preference
     -modernize-return-braced-init-list,
-    # C++17 aliases not always available
-    -modernize-type-traits,
     # not always clearer
     -modernize-use-designated-initializers,
-    # C++20, needs <utility>
-    -modernize-use-integer-sign-comparison,
-    # C++20 ranges not always clearer
-    -modernize-use-ranges,
     # style preference
     -modernize-use-trailing-return-type,
     readability-*,
@@ -119,7 +113,7 @@ WarningsAsErrors: "*"
 FormatStyle: file
 
 CheckOptions:
-    # Enforce C++17 standard (no C++20 features)
+    # C++23 standard is used across the codebase
     - key: modernize-replace-auto-ptr.IncludeStyle
       value: llvm
     - key: modernize-use-nullptr.NullMacros

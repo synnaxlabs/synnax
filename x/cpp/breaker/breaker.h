@@ -15,6 +15,7 @@
 #include <iomanip>
 #include <memory>
 #include <mutex>
+#include <utility>
 
 #include "glog/logging.h"
 
@@ -121,7 +122,7 @@ public:
         }
         this->retries++;
         if (this->config.max_retries != -1 &&
-            this->retries > static_cast<size_t>(this->config.max_retries)) {
+            std::cmp_greater(this->retries, this->config.max_retries)) {
             LOG(ERROR) << "[" << this->config.name
                        << "] exceeded the maximum retry count of "
                        << this->config.max_retries << ". Exiting."

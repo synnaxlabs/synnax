@@ -176,7 +176,7 @@ TEST(DeviceTests, testCreateDevices) {
 
     // Verify each device is in the retrieved set
     for (const auto &device: devices) {
-        ASSERT_TRUE(device_map.find(device.key) != device_map.end());
+        ASSERT_TRUE(device_map.contains(device.key));
         const auto &retrieved = device_map[device.key];
         ASSERT_EQ(retrieved.name, device.name);
         ASSERT_EQ(retrieved.rack, r.key);
@@ -364,8 +364,8 @@ TEST(DeviceTests, testRetrieveWithRequest) {
     const auto devices_keys = ASSERT_NIL_P(client.devices.retrieve(req_keys));
     ASSERT_EQ(devices_keys.size(), 2);
     auto dm = map_device_keys(devices_keys);
-    ASSERT_TRUE(dm.find(d1.key) != dm.end());
-    ASSERT_TRUE(dm.find(d3.key) != dm.end());
+    ASSERT_TRUE(dm.contains(d1.key));
+    ASSERT_TRUE(dm.contains(d3.key));
     DeviceRetrieveRequest req_names{};
     req_names.names = {d1.name, d2.name};
     const auto devices_names = ASSERT_NIL_P(client.devices.retrieve(req_names));

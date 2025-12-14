@@ -152,9 +152,9 @@ TEST(FrameTests, testIteration) {
     }
     ASSERT_EQ(count, 3);
     ASSERT_EQ(seen_keys.size(), 3);
-    ASSERT_TRUE(seen_keys.find(65537) != seen_keys.end());
-    ASSERT_TRUE(seen_keys.find(65538) != seen_keys.end());
-    ASSERT_TRUE(seen_keys.find(65539) != seen_keys.end());
+    ASSERT_TRUE(seen_keys.contains(65537));
+    ASSERT_TRUE(seen_keys.contains(65538));
+    ASSERT_TRUE(seen_keys.contains(65539));
 
     const auto &const_frame = frame;
     count = 0;
