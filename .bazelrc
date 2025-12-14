@@ -31,9 +31,10 @@ build:linux --copt=-Werror
 build:linux --copt=-Wno-error=deprecated-declarations
 
 # Windows (MSVC)
+# Note: MSVC uses /std:c++latest for C++23 features (not /std:c++23)
 build:windows --enable_runfiles
-build:windows --cxxopt=/std:c++23
-build:windows --host_cxxopt=/std:c++23
+build:windows --cxxopt=/std:c++latest
+build:windows --host_cxxopt=/std:c++latest
 build:windows --copt=/W3     # Use warning level 3 instead of -Wall (which is /W4 + extras on MSVC)
 build:windows --cxxopt=/W3   # Same for C++
 build:windows --copt=/WX     # Treat warnings as errors
