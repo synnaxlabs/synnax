@@ -19,6 +19,7 @@
 #include <unistd.h>
 #endif
 
+#include <cstdint>
 #include <iostream>
 #include <optional>
 #include <string>
