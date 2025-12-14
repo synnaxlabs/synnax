@@ -1,0 +1,5 @@
+# uv workspace configuration
+# See: https://docs.astral.sh/uv/reference/settings/
+
+# Use Python 3.12 as the default
+python-preference = "managed"
