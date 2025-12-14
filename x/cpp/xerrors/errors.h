@@ -41,7 +41,7 @@ public:
 
     /// @brief constructs the error from a particular string freighter:Error and
     /// data.
-    Error(const xerrors::Error &err, std::string data) noexcept:
+    Error(const Error &err, std::string data) noexcept:
         type(err.type), data(std::move(data)) {}
 
     /// @brief constructs the provided error from a string. If the string is of the
@@ -58,11 +58,11 @@ public:
     explicit Error(const errors::PBPayload &err) noexcept:
         type(err.type()), data(err.data()) {}
 
-    [[nodiscard]] xerrors::Error sub(const std::string &type_extension) const noexcept {
-        return xerrors::Error(type + "." + type_extension);
+    [[nodiscard]] Error sub(const std::string &type_extension) const noexcept {
+        return Error(type + "." + type_extension);
     }
 
-    [[nodiscard]] xerrors::Error reparent(const xerrors::Error &parent) const noexcept {
+    [[nodiscard]] Error reparent(const Error &parent) const noexcept {
         const auto pos = type.rfind('.');
         if (pos == std::string::npos) return *this;
         return {parent.type + type.substr(pos), this->data};

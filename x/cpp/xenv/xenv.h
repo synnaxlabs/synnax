@@ -24,7 +24,7 @@ class Parser {
     template<typename T>
     static T convert_value(const std::string &value, const T &default_value) {
         if constexpr (std::is_same_v<T, bool>) {
-            if (!default_value) return (value == "true" || value == "1");
+            if (!default_value) return value == "true" || value == "1";
             return !(value == "false" || value == "0");
         }
         if constexpr (std::is_same_v<T, std::string>) return value;

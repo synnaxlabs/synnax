@@ -750,7 +750,7 @@ TEST(ToStringTests, testInt64Conversion) {
 
 /// @brief it should convert an int32 to a string.
 TEST(ToStringTests, testInt32Conversion) {
-    constexpr SampleValue VALUE = static_cast<int32_t>(123456);
+    constexpr SampleValue VALUE = 123456;
     ASSERT_EQ(to_string(VALUE), "123456");
 }
 
@@ -807,7 +807,7 @@ TEST(ToStringTests, testNegativeNumbers) {
     constexpr SampleValue NEG_INT64 = static_cast<int64_t>(-123456789);
     ASSERT_EQ(to_string(NEG_INT64), "-123456789");
 
-    constexpr SampleValue NEG_INT32 = static_cast<int32_t>(-123456);
+    constexpr SampleValue NEG_INT32 = -123456;
     ASSERT_EQ(to_string(NEG_INT32), "-123456");
 
     constexpr SampleValue NEG_INT16 = static_cast<int16_t>(-12345);

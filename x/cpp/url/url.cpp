@@ -21,7 +21,7 @@ std::string join_paths(const std::string &a, const std::string &b) {
     if (a.empty()) {
         result = "/";
     } else {
-        result = (a[0] == '/') ? a : "/" + a;
+        result = a[0] == '/' ? a : "/" + a;
     }
 
     // If b is empty, just ensure trailing slash
@@ -32,7 +32,7 @@ std::string join_paths(const std::string &a, const std::string &b) {
 
     // Add b to result (ensuring single slash between a and b)
     if (result.back() != '/') result += '/';
-    result += (b[0] == '/') ? b.substr(1) : b;
+    result += b[0] == '/' ? b.substr(1) : b;
 
     // Ensure trailing slash
     if (result.back() != '/') result += '/';

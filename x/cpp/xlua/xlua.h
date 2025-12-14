@@ -35,7 +35,7 @@ inline xerrors::Error push_json_value(lua_State *L, const json &value) {
     if (value.is_null())
         lua_pushnil(L);
     else if (value.is_boolean())
-        lua_pushboolean(L, static_cast<int>(value.get<bool>()));
+        lua_pushboolean(L, value.get<bool>());
     else if (value.is_number_integer())
         lua_pushinteger(L, value.get<int64_t>());
     else if (value.is_number_float())
@@ -273,10 +273,7 @@ to_series(lua_State *L, const int index, const telem::DataType &data_type) {
             xerrors::NIL
         };
     if (data_type == telem::INT64_T)
-        return {
-            telem::Series(static_cast<int64_t>(get_integer_value(index)), data_type),
-            xerrors::NIL
-        };
+        return {telem::Series(get_integer_value(index), data_type), xerrors::NIL};
     if (data_type == telem::UINT8_T)
         return {
             telem::Series(static_cast<uint8_t>(get_numeric_value(index)), data_type),

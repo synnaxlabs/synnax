@@ -3,7 +3,6 @@
 # This configuration enforces code quality, security, and performance standards
 # across all C++ codebases (driver, client/cpp, freighter/cpp, x/cpp)
 
-# YAML doesn't support inline comments, so we use a list format with comments above
 Checks: |
 
     bugprone-*,
@@ -105,6 +104,8 @@ Checks: |
     google-explicit-constructor,
     google-runtime-int,
     google-runtime-operator
+    # style preference
+    -google-readability-namespace-comments
 
 # Treat warnings as errors in CI
 WarningsAsErrors: "*"
