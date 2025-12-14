@@ -475,8 +475,8 @@ importers:
         specifier: ^4.4.2
         version: 4.4.2(@types/node@25.0.2)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(jiti@2.6.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(terser@5.44.0)(tsx@4.20.5)(yaml@2.8.2)
       '@astrojs/vercel':
-        specifier: ^8.2.11
-        version: 8.2.11(astro@5.16.5(@types/node@25.0.2)(@vercel/functions@2.2.13)(jiti@2.6.1)(rollup@4.53.3)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.2))(react@19.2.3)(rollup@4.53.3)
+        specifier: ^9.0.2
+        version: 9.0.2(astro@5.16.5(@types/node@25.0.2)(@vercel/functions@2.2.13)(jiti@2.6.1)(rollup@4.53.3)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.2))(react@19.2.3)(rollup@4.53.3)
       '@fontsource/geist-mono':
         specifier: 'catalog:'
         version: 5.2.7
@@ -1012,9 +1012,6 @@ packages:
   '@astrojs/compiler@2.13.0':
     resolution: {integrity: sha512-mqVORhUJViA28fwHYaWmsXSzLO9osbdZ5ImUfxBarqsYdMlPbqAqGJCxsNzvppp1BEzc1mJNjOVvQqeDN8Vspw==}
 
-  '@astrojs/internal-helpers@0.7.4':
-    resolution: {integrity: sha512-lDA9MqE8WGi7T/t2BMi+EAXhs4Vcvr94Gqx3q15cFEz8oFZMO4/SFBqYr/UcmNlvW+35alowkVj+w9VhLvs5Cw==}
-
   '@astrojs/internal-helpers@0.7.5':
     resolution: {integrity: sha512-vreGnYSSKhAjFJCWAwe/CNhONvoc5lokxtRoZims+0wa3KbHBdPHSSthJsKxPd8d/aic6lWKpRTYGY/hsgK6EA==}
 
@@ -1056,8 +1053,8 @@ packages:
     resolution: {integrity: sha512-UFBgfeldP06qu6khs/yY+q1cDAaArM2/7AEIqQ9Cuvf7B1hNLq0xDrZkct+QoIGyjq56y8IaE2I3CTvG99mlhQ==}
     engines: {node: 18.20.8 || ^20.3.0 || >=22.0.0}
 
-  '@astrojs/vercel@8.2.11':
-    resolution: {integrity: sha512-PGtWHvHYMkT8ftSR3yuR7oyf/oPvOv8AfhCFlSQg318hfpalSEPND9mjbdQGpMeZz3KtvvOnHyYwqmu5V8MSHg==}
+  '@astrojs/vercel@9.0.2':
+    resolution: {integrity: sha512-L/pQal/5fity/rLmQ5KsqYaVphhNI+Eui+WnLbuqZ7Vf9ocmwX6v0pSDqSejgTQMoMQJq4FPWR8XAtsxMB4Yfw==}
     peerDependencies:
       astro: ^5.0.0
 
@@ -3115,8 +3112,8 @@ packages:
       '@aws-sdk/credential-provider-web-identity':
         optional: true
 
-  '@vercel/nft@0.30.3':
-    resolution: {integrity: sha512-UEq+eF0ocEf9WQCV1gktxKhha36KDs7jln5qii6UpPf5clMqDc0p3E7d9l2Smx0i9Pm1qpq4S4lLfNl97bbv6w==}
+  '@vercel/nft@0.30.4':
+    resolution: {integrity: sha512-wE6eAGSXScra60N2l6jWvNtVK0m+sh873CpfZW4KI2v8EHuUQp+mSEi4T+IcdPCSEDgCdAS/7bizbhQlkjzrSA==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -7241,8 +7238,6 @@ snapshots:
 
   '@astrojs/compiler@2.13.0': {}
 
-  '@astrojs/internal-helpers@0.7.4': {}
-
   '@astrojs/internal-helpers@0.7.5': {}
 
   '@astrojs/language-server@2.16.2(prettier-plugin-astro@0.14.1)(prettier@3.7.4)(typescript@5.9.3)':
@@ -7355,12 +7350,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@astrojs/vercel@8.2.11(astro@5.16.5(@types/node@25.0.2)(@vercel/functions@2.2.13)(jiti@2.6.1)(rollup@4.53.3)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.2))(react@19.2.3)(rollup@4.53.3)':
+  '@astrojs/vercel@9.0.2(astro@5.16.5(@types/node@25.0.2)(@vercel/functions@2.2.13)(jiti@2.6.1)(rollup@4.53.3)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.2))(react@19.2.3)(rollup@4.53.3)':
     dependencies:
-      '@astrojs/internal-helpers': 0.7.4
+      '@astrojs/internal-helpers': 0.7.5
       '@vercel/analytics': 1.6.1(react@19.2.3)
       '@vercel/functions': 2.2.13
-      '@vercel/nft': 0.30.3(rollup@4.53.3)
+      '@vercel/nft': 0.30.4(rollup@4.53.3)
       '@vercel/routing-utils': 5.3.1
       astro: 5.16.5(@types/node@25.0.2)(@vercel/functions@2.2.13)(jiti@2.6.1)(rollup@4.53.3)(terser@5.44.0)(tsx@4.20.5)(typescript@5.9.3)(yaml@2.8.2)
       esbuild: 0.25.12
@@ -9810,7 +9805,7 @@ snapshots:
     dependencies:
       '@vercel/oidc': 2.0.2
 
-  '@vercel/nft@0.30.3(rollup@4.53.3)':
+  '@vercel/nft@0.30.4(rollup@4.53.3)':
     dependencies:
       '@mapbox/node-pre-gyp': 2.0.3
       '@rollup/pluginutils': 5.3.0(rollup@4.53.3)
