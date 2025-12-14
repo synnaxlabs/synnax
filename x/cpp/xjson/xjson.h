@@ -424,8 +424,9 @@ public:
 
 /// @brief Type trait to detect if a type can be constructed from a Parser
 template<typename T>
-inline constexpr bool is_parser_constructible_v = // NOLINT(readability-identifier-naming)
-                                                  // - follows STL naming convention
+inline constexpr bool
+    is_parser_constructible_v = // NOLINT(readability-identifier-naming)
+                                // - follows STL naming convention
     std::is_constructible_v<T, Parser> || std::is_constructible_v<T, Parser &> ||
     std::is_constructible_v<T, const Parser &> || std::is_constructible_v<T, Parser &&>;
 

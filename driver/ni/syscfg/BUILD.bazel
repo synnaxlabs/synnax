@@ -26,5 +26,6 @@ cc_library(
         "nisyscfg_errors.h",
         "nisyscfg_wide.h",
     ],
+    tags = ["no-clang-tidy"],  # Exclude NI System Configuration SDK vendor headers
     deps = [],
 )

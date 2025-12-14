@@ -1,4 +1,0 @@
-# Disable all checks for NI System Configuration API wrappers
-# These files mirror the NI System Configuration C API naming conventions
-# (PascalCase methods, camelCase parameters) and cannot be changed.
-Checks: '-*'

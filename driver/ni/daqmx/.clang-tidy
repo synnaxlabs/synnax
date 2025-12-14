@@ -1,4 +1,0 @@
-# Disable all checks for NI-DAQmx API wrappers
-# These files mirror the NI-DAQmx C API naming conventions (PascalCase methods,
-# camelCase parameters) and cannot be changed without breaking API compatibility.
-Checks: '-*'

@@ -1,2 +1,0 @@
-# Disable all checks for LabJack SDK headers (vendor code)
-Checks: '-*'
