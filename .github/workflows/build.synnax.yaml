@@ -96,9 +96,6 @@ on:
         required: false
         default: ""
 
-env:
-  BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
-
 jobs:
   setup:
     runs-on: ubuntu-latest
@@ -186,12 +183,9 @@ jobs:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
       GH_TOKEN: ${{ github.token }}
-      # Common Bazel build flags (passed after 'bazel build')
       BAZEL_BUILD_FLAGS:
-        --enable_platform_specific_config --announce_rc --verbose_failures
-      BAZEL_REMOTE_CACHE: --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_URL }}
-      # Windows startup flags (passed before 'bazel build')
-      BAZEL_STARTUP_WINDOWS: --output_user_root=C:/tmp
+        --enable_platform_specific_config --config=opt --announce_rc --verbose_failures
+      BAZEL_REMOTE_CACHE_FLAGS: --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_URL }}
     strategy:
       fail-fast: false
       matrix:
@@ -233,21 +227,20 @@ jobs:
         shell: bash
         run: |
           export MSYS_NO_PATHCONV=1
-          bazel $BAZEL_STARTUP_WINDOWS build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE \
-            --config=opt --config=opt-windows //driver
+          bazel --output_user_root=C:/tmp build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
+            --config=opt-windows //driver
 
       - name: Build Driver (macOS)
         if: inputs.driver && matrix.os == 'macos-build-bot'
         run: |
           bazel build $BAZEL_BUILD_FLAGS \
-            --config=opt --config=opt-unix --config=hide_symbols //driver
+            --config=opt-unix --config=hide_symbols //driver
 
       - name: Build Driver (NI Linux RT)
         if: inputs.driver && matrix.os == 'ubuntu-build-bot'
         run: |
-          export TMPDIR=/tmp
-          bazel build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE \
-            --config=opt --config=opt-unix --define=platform=nilinuxrt //driver
+          bazel build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
+            --config=opt-unix --config=hide_symbols --define=platform=nilinuxrt //driver
           mv bazel-bin/driver/driver bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt
 
       - name: Upload NI Linux RT Driver as Artifact
@@ -278,8 +271,8 @@ jobs:
       - name: Build Driver (Linux)
         if: inputs.driver && matrix.os == 'ubuntu-build-bot'
         run: |
-          bazel build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE \
-            --config=opt --config=opt-unix --config=hide_symbols //driver
+          bazel build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
+            --config=opt-unix --config=hide_symbols //driver
 
       - name: Import Apple Developer Certificate
         if: inputs.sign_binaries && matrix.os == 'macos-build-bot'
