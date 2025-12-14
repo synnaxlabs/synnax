@@ -118,7 +118,7 @@ public:
     }
 
     [[nodiscard]] bool contains(const ChannelKey &key) const {
-        return std::find(channels->begin(), channels->end(), key) != channels->end();
+        return std::ranges::find(*channels, key) != channels->end();
     }
 
     /// @brief returns the number of channel-series pairs that the frame can hold

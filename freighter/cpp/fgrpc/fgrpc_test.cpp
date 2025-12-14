@@ -72,7 +72,7 @@ TEST(testGRPC, testMiddlewareInjection) {
     client.use(mw);
     auto mes = test::Message();
     mes.set_payload("Sending to Server");
-    auto res = ASSERT_NIL_P(client.send("", mes));
+    const auto res = ASSERT_NIL_P(client.send("", mes));
     ASSERT_EQ(res.payload(), "Read request: Sending to Server");
     stop_servers();
     s.join();

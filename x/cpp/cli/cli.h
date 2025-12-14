@@ -113,7 +113,7 @@ prompt(const std::string &message, std::optional<T> default_value = std::nullopt
         const std::string &prompt_text = message;
         std::string default_str;
         if (default_value.has_value()) default_str = std::to_string(*default_value);
-        std::string input = prompt(prompt_text, default_str);
+        const std::string input = prompt(prompt_text, default_str);
         try {
             if constexpr (std::is_same_v<T, int>)
                 return std::stoi(input);
@@ -124,7 +124,9 @@ prompt(const std::string &message, std::optional<T> default_value = std::nullopt
             else if constexpr (std::is_same_v<T, std::int64_t>)
                 return std::stol(input);
             else if constexpr (std::is_same_v<T, std::uint16_t> ||
-                               std::is_same_v<T, unsigned short>)
+                               std::is_same_v<
+                                   T,
+                                   unsigned short>) // NOLINT(*-runtime-int)
                 return static_cast<T>(std::stoul(input));
             else
                 static_assert(sizeof(T) == 0, "Unsupported numeric type");

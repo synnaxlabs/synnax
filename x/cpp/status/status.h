@@ -39,7 +39,9 @@ const std::string LOADING = "loading";
 struct DefaultDetails {
     static json to_json() { return json::object(); }
 
-    static DefaultDetails parse(xjson::Parser & /*unused*/) { return DefaultDetails{}; }
+    static DefaultDetails parse([[maybe_unused]] xjson::Parser &) {
+        return DefaultDetails{};
+    }
 };
 
 /// @brief a standardized type for communicating status information across a Synnax

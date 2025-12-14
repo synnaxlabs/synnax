@@ -15,7 +15,7 @@
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/framer.pb.h"
 
 /// @brief enumeration of possible writer commands.
-enum WriterCommand : uint32_t {
+enum class WriterCommand : int32_t {
     OPEN = 0,
     WRITE = 1,
     COMMIT = 2,
@@ -34,7 +34,7 @@ FrameClient::open_writer(const WriterConfig &cfg) const {
     auto [net_writer, err] = this->writer_client->stream("/frame/write");
     if (err) return {Writer(), err};
     api::v1::FrameWriterRequest req;
-    req.set_command(OPEN);
+    req.set_command(WriterCommand::OPEN);
     cfg.to_proto(req.mutable_config());
     if (!net_writer->send(req).ok()) net_writer->close_send();
     auto [_, res_exc] = net_writer->receive();
@@ -65,7 +65,7 @@ xerrors::Error Writer::write(const synnax::Frame &fr) {
 std::pair<telem::TimeStamp, xerrors::Error> Writer::commit() {
     if (this->close_err) return {telem::TimeStamp(0), this->close_err};
     api::v1::FrameWriterRequest req;
-    req.set_command(COMMIT);
+    req.set_command(WriterCommand::COMMIT);
     const auto [res, err] = this->exec(req, true);
     return {telem::TimeStamp(res.end()), err};
 }
@@ -86,7 +86,7 @@ xerrors::Error Writer::set_authority(
     if (this->close_err) return this->close_err;
     const WriterConfig config{.channels = keys, .authorities = authorities};
     api::v1::FrameWriterRequest req;
-    req.set_command(SET_AUTHORITY);
+    req.set_command(WriterCommand::SET_AUTHORITY);
     config.to_proto(req.mutable_config());
     return this->exec(req, true).second;
 }
@@ -99,7 +99,7 @@ xerrors::Error Writer::init_request(const Frame &fr) {
     if (this->cfg.enable_experimental_codec) {
         if (this->cached_write_req == nullptr)
             this->cached_write_req = std::make_unique<api::v1::FrameWriterRequest>();
-        this->cached_write_req->set_command(WRITE);
+        this->cached_write_req->set_command(WriterCommand::WRITE);
         if (const auto err = this->codec.encode(fr, this->codec_data)) return err;
         this->cached_write_req->set_buffer(
             this->codec_data.data(),
@@ -117,7 +117,7 @@ xerrors::Error Writer::init_request(const Frame &fr) {
     }
     this->cached_write_req = nullptr;
     this->cached_write_req = std::make_unique<api::v1::FrameWriterRequest>();
-    this->cached_write_req->set_command(WRITE);
+    this->cached_write_req->set_command(WriterCommand::WRITE);
     this->cached_frame = cached_write_req->mutable_frame();
     fr.to_proto(cached_frame);
     return xerrors::NIL;

@@ -255,7 +255,7 @@ public:
 
     freighter::FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS>>> operator()(
         const freighter::Context &outbound,
-        std::nullptr_t & /*unused*/
+        [[maybe_unused]] std::nullptr_t &
     ) override {
         if (this->closed) return {outbound, this->close_err};
         const grpc::Status status = this->stream->Finish();
@@ -315,7 +315,7 @@ public:
     /// @brief the finalizer that opens the stream.
     freighter::FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS>>> operator()(
         const freighter::Context &req_ctx,
-        std::nullptr_t & /*unused*/
+        [[maybe_unused]] std::nullptr_t &
     ) override {
         auto channel = this->pool->get_channel(req_ctx.target);
         auto res_ctx = freighter::Context(

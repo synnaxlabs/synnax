@@ -96,7 +96,7 @@ protected:
 
     void SetUp() override { res.set_token("abc"); }
 
-    void setupTest(xerrors::Error first_error) {
+    void setup_test(const xerrors::Error &first_error) {
         mock_login_client = std::make_unique<
             MockUnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>>(
             std::vector<api::v1::LoginResponse>{res, res},
@@ -115,7 +115,7 @@ protected:
 
 /// @brief it should retry authentication if the authentication token is invalid.
 TEST_F(TestAuthRetry, RetryOnInvalidToken) {
-    setupTest(xerrors::Error(INVALID_TOKEN, ""));
+    setup_test(xerrors::Error(INVALID_TOKEN, ""));
     auto v = 1;
     const auto r = ASSERT_NIL_P(mock_client.send("", v));
     ASSERT_EQ(r, 1);
@@ -123,7 +123,7 @@ TEST_F(TestAuthRetry, RetryOnInvalidToken) {
 
 /// @brief it should retry authentication if the authentication token is expired.
 TEST_F(TestAuthRetry, RetryOnExpiredToken) {
-    setupTest(xerrors::Error(EXPIRED_TOKEN, ""));
+    setup_test(xerrors::Error(EXPIRED_TOKEN, ""));
     auto v = 1;
     const auto r = ASSERT_NIL_P(mock_client.send("", v));
     ASSERT_EQ(r, 1);

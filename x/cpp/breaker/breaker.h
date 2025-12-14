@@ -44,9 +44,9 @@ struct Config {
     /// @brief the maximum amount of time to wait for a retry.
     telem::TimeSpan max_interval = 1 * telem::MINUTE;
 
-    [[nodiscard]] Config child(const std::string &name) const {
+    [[nodiscard]] Config child(const std::string &child_name) const {
         return Config{
-            this->name + "." + name,
+            this->name + "." + child_name,
             base_interval,
             max_retries,
             scale,

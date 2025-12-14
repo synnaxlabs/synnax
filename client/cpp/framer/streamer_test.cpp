@@ -27,7 +27,7 @@ TEST(StreamerTests, testStreamBasic) {
     auto data = create_virtual_channel(client);
     auto now = telem::TimeStamp::now();
 
-    std::vector channels = {data.key};
+    const std::vector channels = {data.key};
     auto [streamer, sErr] = client.telem.open_streamer(
         synnax::StreamerConfig{
             channels,
@@ -43,7 +43,7 @@ TEST(StreamerTests, testStreamBasic) {
     ));
 
     auto frame = synnax::Frame(1);
-    float v = 1.0;
+    const float v = 1.0;
     frame.emplace(data.key, telem::Series(v));
     ASSERT_NIL(writer.write(frame));
     ASSERT_NIL_P(writer.commit());
@@ -136,7 +136,7 @@ TEST(StreamerTests, TestStreamDownsample) {
 
 /// @brief it should return a validation error for negative downsample factor.
 TEST(StreamerTests, TestStreamDownsampleNegative) {
-    auto client = new_test_client();
+    const auto client = new_test_client();
     ASSERT_OCCURRED_AS_P(
         client.telem.open_streamer(synnax::StreamerConfig{.downsample_factor = -1}),
         xerrors::VALIDATION
@@ -152,7 +152,7 @@ TEST(StreamerTests, TestStreamVariableChannel) {
         true
     ));
     auto now = telem::TimeStamp::now();
-    std::vector channels = {data.key};
+    const std::vector channels = {data.key};
     auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
         synnax::StreamerConfig{
             .channels = {data.key},
@@ -187,7 +187,7 @@ void test_downsample(
     auto client = new_test_client();
     auto data = create_virtual_channel(client, telem::INT32_T);
     auto now = telem::TimeStamp::now();
-    std::vector channels = {data.key};
+    const std::vector channels = {data.key};
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::WriterConfig{
             channels,
@@ -231,7 +231,7 @@ void test_downsample_string(
     ASSERT_NIL(client.channels.create(virtual_channel));
 
     auto now = telem::TimeStamp::now();
-    std::vector channels = {virtual_channel.key};
+    const std::vector channels = {virtual_channel.key};
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::WriterConfig{
             channels,

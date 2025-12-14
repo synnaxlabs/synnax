@@ -20,7 +20,7 @@ synnax::Synnax new_test_client() {
 std::mt19937 random_generator(const std::string &suite_name) {
     std::random_device rd;
     const auto rand_seed = rd();
-    std::cout << "Random seed for " << suite_name << " - " << rand_seed << std::endl;
+    std::cout << "Random seed for " << suite_name << " - " << rand_seed << '\n';
     const std::mt19937 mt(rand_seed);
     return mt;
 }
