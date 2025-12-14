@@ -42,6 +42,8 @@ Checks: |
     -readability-uppercase-literal-suffix,
     # not always more readable
     -readability-use-anyofallof,
+    # style preference - namespace closing comments
+    -readability-namespace-comments,
     cppcoreguidelines-*,
     # C API interop
     -cppcoreguidelines-avoid-c-arrays,
@@ -111,6 +113,10 @@ Checks: |
 
 # Treat warnings as errors in CI
 WarningsAsErrors: "*"
+
+# Disable compiler diagnostics that can't be suppressed via Checks
+ExtraArgsBefore:
+  - -Wno-pragma-once-outside-header
 
 # Use .clang-format file for formatting
 FormatStyle: file

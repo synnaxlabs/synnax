@@ -50,8 +50,10 @@ public:
         return {res, err};
     }
 
-    freighter::FinalizerReturn<RS>
-    operator()(const freighter::Context &outbound_context, [[maybe_unused]] RQ &req) override {
+    freighter::FinalizerReturn<RS> operator()(
+        const freighter::Context &outbound_context,
+        [[maybe_unused]] RQ &req
+    ) override {
         auto response_error = response_errors.front();
         response_errors.erase(response_errors.begin());
         auto res = responses.front();
