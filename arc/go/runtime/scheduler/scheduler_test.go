@@ -40,6 +40,8 @@ func (m *mockNode) Next(ctx node.Context) {
 	}
 }
 
+func (m *mockNode) Reset() {}
+
 type mockErrorHandler struct {
 	errors []error
 	keys   []string
@@ -604,7 +606,7 @@ var _ = Describe("Scheduler", func() {
 		})
 		It("Should report active sequence and stage", func() {
 			prog = ir.IR{
-				Nodes: []ir.Node{{Key: "a"}},
+				Nodes:  []ir.Node{{Key: "a"}},
 				Strata: ir.Strata{{"a"}},
 				Sequences: ir.Sequences{
 					{
@@ -618,8 +620,8 @@ var _ = Describe("Scheduler", func() {
 			nodes["a"] = nodeA
 			s = scheduler.New(ctx, prog, nodes)
 			s.ActivateStage("myseq", "mystage")
-			Expect(s.ActiveSequence()).To(Equal("myseq"))
-			Expect(s.ActiveStage()).To(Equal("mystage"))
+			Expect(s.IsSequenceActive("myseq")).To(BeTrue())
+			Expect(s.ActiveStageFor("myseq")).To(Equal("mystage"))
 		})
 	})
 	Describe("Complex Graphs", func() {

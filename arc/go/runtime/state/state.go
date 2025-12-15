@@ -210,6 +210,12 @@ type Node struct {
 	outputCache  []*value // Cached pointers to output values (avoids map lookups)
 }
 
+// Reset is called by the scheduler when the stage containing this node is activated.
+// Nodes that embed *state.Node inherit this behavior and can override to add
+// custom reset logic (calling the embedded Reset() first).
+// One-shot edge tracking is handled at the scheduler level, not per-node.
+func (n *Node) Reset() {}
+
 // RefreshInputs performs temporal alignment of node inputs and returns whether the node should execute.
 //
 // Algorithm:

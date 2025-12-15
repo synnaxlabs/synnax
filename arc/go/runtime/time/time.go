@@ -26,10 +26,10 @@ import (
 )
 
 const (
-	intervalSymbolName   = "interval"
-	waitSymbolName       = "wait"
-	periodConfigParam    = "period"
-	durationConfigParam  = "duration"
+	intervalSymbolName  = "interval"
+	waitSymbolName      = "wait"
+	periodConfigParam   = "period"
+	durationConfigParam = "duration"
 )
 
 var (
@@ -56,17 +56,10 @@ var (
 	}
 )
 
-// Resettable is an interface for nodes that can be reset when a stage is entered.
-// The scheduler calls Reset() on all Resettable nodes in a stage when that stage
-// becomes active.
-type Resettable interface {
-	Reset()
-}
-
 // Interval is a node that fires repeatedly at a specified period.
 // Each time the period elapses, it outputs u8(1) and marks the output as changed.
 type Interval struct {
-	state     *state.Node
+	*state.Node
 	period    telem.TimeSpan
 	lastFired telem.TimeSpan
 }
@@ -81,8 +74,8 @@ func (i *Interval) Next(ctx node.Context) {
 	}
 	i.lastFired = ctx.Elapsed
 	ctx.MarkChanged(ir.DefaultOutputParam)
-	output := i.state.Output(0)
-	outputTime := i.state.OutputTime(0)
+	output := i.Output(0)
+	outputTime := i.OutputTime(0)
 	output.Resize(1)
 	outputTime.Resize(1)
 	telem.SetValueAt[uint8](*output, 0, uint8(1))
@@ -91,9 +84,8 @@ func (i *Interval) Next(ctx node.Context) {
 
 // Wait is a one-shot timer that fires once after a specified duration.
 // Unlike Interval, Wait only fires once and can be reset when a stage is entered.
-// It implements the Resettable interface.
 type Wait struct {
-	state     *state.Node
+	*state.Node
 	duration  telem.TimeSpan
 	startTime telem.TimeSpan
 	fired     bool
@@ -122,8 +114,8 @@ func (w *Wait) Next(ctx node.Context) {
 	// Fire!
 	w.fired = true
 	ctx.MarkChanged(ir.DefaultOutputParam)
-	output := w.state.Output(0)
-	outputTime := w.state.OutputTime(0)
+	output := w.Output(0)
+	outputTime := w.OutputTime(0)
 	output.Resize(1)
 	outputTime.Resize(1)
 	telem.SetValueAt[uint8](*output, 0, uint8(1))
@@ -132,7 +124,9 @@ func (w *Wait) Next(ctx node.Context) {
 
 // Reset resets the timer so it can fire again.
 // Called by the scheduler when a stage containing this node is entered.
+// Overrides the embedded state.Node.Reset() to also reset timer-specific state.
 func (w *Wait) Reset() {
+	w.Node.Reset() // Reset one-shot edge tracking
 	w.startTime = -1
 	w.fired = false
 }
@@ -160,7 +154,7 @@ func (f *Factory) Create(_ context.Context, cfg node.Config) (node.Node, error) 
 		period := telem.TimeSpan(toInt64(periodParam.Value))
 		f.updateTimingBase(period)
 		return &Interval{
-			state:     cfg.State,
+			Node:      cfg.State,
 			period:    period,
 			lastFired: -period, // Ensures first tick fires immediately
 		}, nil
@@ -173,7 +167,7 @@ func (f *Factory) Create(_ context.Context, cfg node.Config) (node.Node, error) 
 		duration := telem.TimeSpan(toInt64(durationParam.Value))
 		f.updateTimingBase(duration)
 		return &Wait{
-			state:     cfg.State,
+			Node:      cfg.State,
 			duration:  duration,
 			startTime: -1,
 			fired:     false,

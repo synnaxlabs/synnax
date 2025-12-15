@@ -628,6 +628,7 @@ func analyzeRoutingTargetWithParam(
 	}
 	return true
 }
+
 // analyzeMatchBlock validates a match block as a flow node.
 func analyzeMatchBlock(ctx context.Context[parser.IMatchBlockContext]) bool {
 	for _, entry := range ctx.AST.AllMatchEntry() {

@@ -21,13 +21,6 @@
 
 namespace arc::runtime::time {
 
-/// Resettable is an interface for nodes that can be reset when a stage is entered.
-class Resettable {
-public:
-    virtual ~Resettable() = default;
-    virtual void reset() = 0;
-};
-
 struct IntervalConfig {
     telem::TimeSpan interval;
 
@@ -71,7 +64,7 @@ struct WaitConfig {
 
 /// Wait is a one-shot timer that fires once after a specified duration.
 /// Unlike Interval, Wait only fires once and can be reset when a stage is entered.
-class Wait : public node::Node, public Resettable {
+class Wait : public node::Node {
     state::Node state;
     WaitConfig cfg;
     telem::TimeSpan start_time = telem::TimeSpan(-1);

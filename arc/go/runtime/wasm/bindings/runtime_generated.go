@@ -7,53 +7,53 @@ import (
 	"math"
 
 	"github.com/synnaxlabs/arc/runtime/state"
-	"github.com/synnaxlabs/x/telem"
 	xmath "github.com/synnaxlabs/x/math"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/tetratelabs/wazero/api"
 )
 
 // Runtime provides the actual implementation of Arc runtime functions.
 // This is the "business logic" layer that the bindings call.
 type Runtime struct {
-	state *state.State
-	memory api.Memory  // WASM memory for reading string literals
+	state  *state.State
+	memory api.Memory // WASM memory for reading string literals
 
 	// String storage - handle to string mapping
-	strings map[uint32]string
+	strings             map[uint32]string
 	stringHandleCounter uint32
 
 	// State storage for stateful variables
 	// Key: (funcID << 32) | varID
-	stateU8 map[uint64]uint8
-	stateU16 map[uint64]uint16
-	stateU32 map[uint64]uint32
-	stateU64 map[uint64]uint64
-	stateI8 map[uint64]int8
-	stateI16 map[uint64]int16
-	stateI32 map[uint64]int32
-	stateI64 map[uint64]int64
-	stateF32 map[uint64]float32
-	stateF64 map[uint64]float64
+	stateU8     map[uint64]uint8
+	stateU16    map[uint64]uint16
+	stateU32    map[uint64]uint32
+	stateU64    map[uint64]uint64
+	stateI8     map[uint64]int8
+	stateI16    map[uint64]int16
+	stateI32    map[uint64]int32
+	stateI64    map[uint64]int64
+	stateF32    map[uint64]float32
+	stateF64    map[uint64]float64
 	stateString map[uint64]string
 }
 
 func NewRuntime(state *state.State, memory api.Memory) *Runtime {
 	return &Runtime{
-		state: state,
-		memory: memory,
-		strings: make(map[uint32]string),
+		state:               state,
+		memory:              memory,
+		strings:             make(map[uint32]string),
 		stringHandleCounter: 1, // Start at 1, 0 is reserved for empty/null
-		stateU8: make(map[uint64]uint8),
-		stateU16: make(map[uint64]uint16),
-		stateU32: make(map[uint64]uint32),
-		stateU64: make(map[uint64]uint64),
-		stateI8: make(map[uint64]int8),
-		stateI16: make(map[uint64]int16),
-		stateI32: make(map[uint64]int32),
-		stateI64: make(map[uint64]int64),
-		stateF32: make(map[uint64]float32),
-		stateF64: make(map[uint64]float64),
-		stateString: make(map[uint64]string),
+		stateU8:             make(map[uint64]uint8),
+		stateU16:            make(map[uint64]uint16),
+		stateU32:            make(map[uint64]uint32),
+		stateU64:            make(map[uint64]uint64),
+		stateI8:             make(map[uint64]int8),
+		stateI16:            make(map[uint64]int16),
+		stateI32:            make(map[uint64]int32),
+		stateI64:            make(map[uint64]int64),
+		stateF32:            make(map[uint64]float32),
+		stateF64:            make(map[uint64]float64),
+		stateString:         make(map[uint64]string),
 	}
 }
 
@@ -68,7 +68,6 @@ func stateKey(funcID uint32, varID uint32) uint64 {
 }
 
 // ===== Channel Operations =====
-
 
 // ChannelReadU8 reads the latest value from a channel.
 func (r *Runtime) ChannelReadU8(ctx context.Context, channelID uint32) uint8 {
@@ -270,9 +269,7 @@ func (r *Runtime) ChannelWriteF64(ctx context.Context, channelID uint32, value f
 	r.state.WriteChannelValue(channelID, series)
 }
 
-
 // ===== State Operations =====
-
 
 // StateLoadU8 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadU8(ctx context.Context, funcID uint32, varID uint32, initValue uint8) uint8 {
@@ -444,7 +441,6 @@ func (r *Runtime) StateStoreF64(ctx context.Context, funcID uint32, varID uint32
 	r.stateF64[key] = value
 }
 
-
 // ===== Generic Operations =====
 
 // Now returns the current timestamp.
@@ -473,7 +469,6 @@ func (r *Runtime) MathPowF32(ctx context.Context, base float32, exponent float32
 func (r *Runtime) MathPowF64(ctx context.Context, base float64, exponent float64) float64 {
 	return math.Pow(base, exponent)
 }
-
 
 // MathPowU8 computes base^exponent for u8 using integer exponentiation.
 func (r *Runtime) MathPowU8(ctx context.Context, base uint8, exponent uint8) uint8 {
@@ -514,7 +509,6 @@ func (r *Runtime) MathPowI32(ctx context.Context, base int32, exponent int32) in
 func (r *Runtime) MathPowI64(ctx context.Context, base int64, exponent int64) int64 {
 	return xmath.IntPow(base, int(exponent))
 }
-
 
 // ===== String Operations =====
 

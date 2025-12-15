@@ -344,7 +344,7 @@ var _ = Describe("IR", func() {
 					{Key: "a_1", Type: "controller"},
 					{Key: "r_1", Type: "controller"},
 				},
-				Edges: ir.Edges{},
+				Edges:  ir.Edges{},
 				Strata: ir.Strata{},
 			}
 

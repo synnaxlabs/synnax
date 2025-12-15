@@ -57,7 +57,7 @@ type CaseMapping struct {
 // It receives a string input and fires a u8(1) signal on the output
 // that matches the input value.
 type Match struct {
-	state   *state.Node
+	*state.Node
 	caseMap map[string]CaseMapping
 }
 
@@ -67,11 +67,11 @@ func (m *Match) Init(_ node.Context) {}
 // Next checks the input value and routes it to the matching output.
 func (m *Match) Next(ctx node.Context) {
 	// Check if we have new input
-	if !m.state.RefreshInputs() {
+	if !m.RefreshInputs() {
 		return
 	}
 
-	input := m.state.Input(0)
+	input := m.Input(0)
 	if input.Len() == 0 {
 		return
 	}
@@ -85,7 +85,7 @@ func (m *Match) Next(ctx node.Context) {
 
 	// Find matching case
 	if mapping, ok := m.caseMap[inputValue]; ok {
-		output := m.state.Output(mapping.OutputIndex)
+		output := m.Output(mapping.OutputIndex)
 		output.Resize(1)
 		telem.SetValueAt[uint8](*output, 0, uint8(1))
 		// Mark the output as changed so edges propagate
@@ -142,7 +142,7 @@ func (f *Factory) Create(_ context.Context, cfg node.Config) (node.Node, error) 
 	}
 
 	return &Match{
-		state:   cfg.State,
+		Node:    cfg.State,
 		caseMap: caseMap,
 	}, nil
 }

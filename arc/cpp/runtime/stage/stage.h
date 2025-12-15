@@ -28,8 +28,8 @@ class StageEntry : public node::Node {
     state::Node state;
 
 public:
-    StageEntry(std::string node_key, state::Node state)
-        : node_key(std::move(node_key)), state(std::move(state)) {}
+    StageEntry(std::string node_key, state::Node state):
+        node_key(std::move(node_key)), state(std::move(state)) {}
 
     xerrors::Error next(node::Context &ctx) override {
         if (!state.refresh_inputs()) return xerrors::NIL;
@@ -38,9 +38,7 @@ public:
         if (input->size() == 0) return xerrors::NIL;
 
         // Activation signal is a u8 with value 1
-        if (input->at<std::uint8_t>(0) == 1) {
-            ctx.activate_stage(node_key);
-        }
+        if (input->at<std::uint8_t>(0) == 1) { ctx.activate_stage(node_key); }
         return xerrors::NIL;
     }
 };
@@ -51,10 +49,7 @@ public:
     std::pair<std::unique_ptr<node::Node>, xerrors::Error>
     create(const node::Config &cfg) override {
         if (cfg.node.type != "stage_entry") return {nullptr, xerrors::NOT_FOUND};
-        return {
-            std::make_unique<StageEntry>(cfg.node.key, cfg.state),
-            xerrors::NIL
-        };
+        return {std::make_unique<StageEntry>(cfg.node.key, cfg.state), xerrors::NIL};
     }
 };
 

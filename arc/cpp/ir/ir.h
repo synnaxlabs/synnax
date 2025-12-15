@@ -602,6 +602,19 @@ struct Sequence {
         return nullptr;
     }
 
+    /// @brief Returns the stage that follows the given stage in definition order.
+    /// @param stage_key The key of the current stage
+    /// @return Pointer to the next stage if found, nullptr if the given stage is
+    /// the last stage or not found.
+    [[nodiscard]] const Stage *next_stage(const std::string &stage_key) const {
+        for (size_t i = 0; i < stages.size(); ++i) {
+            if (stages[i].key == stage_key && i + 1 < stages.size()) {
+                return &stages[i + 1];
+            }
+        }
+        return nullptr;
+    }
+
     /// @brief Returns the string representation of the sequence.
     [[nodiscard]] std::string to_string() const { return to_string_with_prefix(""); }
 

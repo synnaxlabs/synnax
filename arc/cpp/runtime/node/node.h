@@ -29,5 +29,10 @@ public:
     virtual ~Node() = default;
 
     virtual xerrors::Error next(Context &ctx) = 0;
+
+    /// Reset is called when a stage containing this node is activated.
+    /// Nodes can override to reset their internal state (e.g., timers, counters).
+    /// Default implementation does nothing.
+    virtual void reset() {}
 };
 }

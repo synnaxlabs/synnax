@@ -534,7 +534,6 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				Expect(write.IDENTIFIER().GetText()).To(Equal("output"))
 			})
 
-
 			It("Should parse non-blocking channel read", func() {
 				stmt := mustParseStatement("current := sensor")
 

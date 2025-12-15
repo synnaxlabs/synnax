@@ -136,9 +136,9 @@ func compileAssignment(
 		// Push channel ID first, then value
 		// But value is already on stack, so store it temporarily using local index
 		// Use the variable's own index as temporary storage
-		ctx.Writer.WriteLocalTee(scope.ID) // [value] -> tee -> [value], value in local
+		ctx.Writer.WriteLocalTee(scope.ID)        // [value] -> tee -> [value], value in local
 		ctx.Writer.WriteI32Const(int32(scope.ID)) // Push channel ID
-		ctx.Writer.WriteLocalGet(scope.ID) // Push value back
+		ctx.Writer.WriteLocalGet(scope.ID)        // Push value back
 		// Stack is now: [channelID, value]
 
 		importIdx, err := ctx.Imports.GetChannelWrite(chanValueType)

@@ -379,10 +379,8 @@ var _ = Describe("Time", func() {
 			})
 			Expect(changedOutputs).To(HaveLen(1))
 
-			// Reset
-			resettable, ok := n.(arctime.Resettable)
-			Expect(ok).To(BeTrue())
-			resettable.Reset()
+			// Reset - all nodes now implement Reset() directly
+			n.Reset()
 
 			// Tick at 1.5s - should not fire (reset at 1s, duration is 1s)
 			changedOutputs = []string{}

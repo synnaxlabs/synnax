@@ -32,4 +32,10 @@ type Node interface {
 	// Next executes the node's computational logic.
 	// Called each cycle when the node is in stratum-0 or when marked as changed.
 	Next(ctx Context)
+	// Reset is called when a stage containing this node is activated.
+	// It resets internal state (e.g., timers) and one-shot edge tracking.
+	// Nodes that embed *state.Node get a default implementation that clears
+	// one-shot state. Nodes with custom state should override and call the
+	// embedded Reset() first.
+	Reset()
 }

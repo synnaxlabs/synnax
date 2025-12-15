@@ -41,8 +41,8 @@ var (
 // StageEntry is a node that triggers stage transitions when it receives
 // an activation signal (input value of u8(1)).
 type StageEntry struct {
+	*state.Node
 	nodeKey string
-	state   *state.Node
 }
 
 // Init performs one-time initialization (no-op for StageEntry).
@@ -50,11 +50,11 @@ func (s *StageEntry) Init(_ node.Context) {}
 
 // Next checks for activation signals and triggers stage transitions.
 func (s *StageEntry) Next(ctx node.Context) {
-	if !s.state.RefreshInputs() {
+	if !s.RefreshInputs() {
 		return
 	}
 
-	input := s.state.Input(0)
+	input := s.Input(0)
 	if input.Len() == 0 {
 		return
 	}
@@ -80,7 +80,7 @@ func (f *Factory) Create(_ context.Context, cfg node.Config) (node.Node, error) 
 		return nil, query.NotFound
 	}
 	return &StageEntry{
+		Node:    cfg.State,
 		nodeKey: cfg.Node.Key,
-		state:   cfg.State,
 	}, nil
 }
