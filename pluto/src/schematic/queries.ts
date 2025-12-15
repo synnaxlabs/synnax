@@ -14,7 +14,7 @@ import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "schematics";
-const RESOURCE_NAME = "Schematic";
+const RESOURCE_NAME = "schematic";
 
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
   FluxSubStore,

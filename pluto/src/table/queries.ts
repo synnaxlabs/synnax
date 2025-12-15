@@ -20,7 +20,7 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
 > = { listeners: [] };
 
 export const FLUX_STORE_KEY = "tables";
-const RESOURCE_NAME = "Table";
+const RESOURCE_NAME = "table";
 
 export interface FluxStore extends Flux.UnaryStore<table.Key, table.Table> {}
 

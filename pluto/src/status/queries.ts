@@ -68,11 +68,17 @@ export const useList = Flux.createList<
       ...query,
     }),
   retrieveByKey: async ({ client, key }) => await client.statuses.retrieve({ key }),
-  mountListeners: ({ store, onChange, onDelete, query: { keys } }) => {
+  mountListeners: ({ store, onChange, onDelete, query: { keys, hasLabels } }) => {
     const keysSet = keys ? new Set(keys) : undefined;
+    const hasLabelsSet = hasLabels != null ? new Set(hasLabels) : undefined;
     return [
       store.statuses.onSet(async (status) => {
         if (keysSet != null && !keysSet.has(status.key)) return;
+        if (
+          hasLabelsSet != null &&
+          (status.labels == null || !status.labels.some((l) => hasLabelsSet.has(l.key)))
+        )
+          return;
         onChange(status.key, status, { mode: "prepend" });
       }),
       store.statuses.onDelete(onDelete),

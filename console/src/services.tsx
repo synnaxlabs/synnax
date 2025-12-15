@@ -56,5 +56,6 @@ export const SERVICES: Ontology.Services = {
   table: TableServices.ONTOLOGY_SERVICE,
   status: createEmptyService("status", <Icon.Status />),
   arc: ArcServices.ONTOLOGY_SERVICE,
+  view: createEmptyService("view"),
   role: Access.Role.ONTOLOGY_SERVICE,
 };

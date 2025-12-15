@@ -25,12 +25,12 @@ export interface AliasFluxStore extends Flux.UnaryStore<ranger.Key, ranger.Alias
 export const RANGE_KV_FLUX_STORE_KEY = "rangeKV";
 export const RANGE_ALIASES_FLUX_STORE_KEY = "rangeAliases";
 
-const RESOURCE_NAME = "Range";
-const PLURAL_RESOURCE_NAME = "Ranges";
-const KV_RESOURCE_NAME = "Meta-Data Item";
-const PLURAL_KV_RESOURCE_NAME = "Meta-Data";
-const PLURAL_CHILDREN_RESOURCE_NAME = "Child Ranges";
-const PARENT_RESOURCE_NAME = "Parent Range";
+const RESOURCE_NAME = "range";
+const PLURAL_RESOURCE_NAME = "ranges";
+const KV_RESOURCE_NAME = "metadata";
+const PLURAL_KV_RESOURCE_NAME = "metadata";
+const PLURAL_CHILDREN_RESOURCE_NAME = "child ranges";
+const PARENT_RESOURCE_NAME = "parent range";
 
 export interface FluxSubStore extends Label.FluxSubStore, Ontology.FluxSubStore {
   [aetherRanger.FLUX_STORE_KEY]: aetherRanger.FluxStore;
@@ -628,12 +628,25 @@ export const useList = Flux.createList<
     await client.ranges.retrieve({ ...BASE_QUERY, ...query }),
   retrieveByKey: async ({ key, ...rest }) =>
     await retrieveSingle({ ...rest, query: { key } }),
-  mountListeners: ({ store, onChange, onDelete, client, query: { keys } }) => {
+  mountListeners: ({
+    store,
+    onChange,
+    onDelete,
+    client,
+    query: { keys, hasLabels },
+  }) => {
     const hasKeys = keys != null && keys.length > 0;
     const keysSet = new Set(keys);
+    const hasLabelsSet =
+      hasLabels && hasLabels.length > 0 ? new Set(hasLabels) : undefined;
     return [
       store.ranges.onSet((range) => {
         if (hasKeys && !keysSet.has(range.key)) return;
+        if (
+          hasLabelsSet != null &&
+          (range.labels == null || !range.labels.some((l) => hasLabelsSet.has(l.key)))
+        )
+          return;
         onChange(range.key, (prev) => {
           if (prev == null) return range;
           return client.ranges.sugarOne({

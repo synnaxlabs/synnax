@@ -122,8 +122,13 @@ func New(channelSvc *channel.Service) (api.Transport, []fgrpc.BindableTransport)
 	a.AccessAssignRole = fnoop.UnaryServer[api.AccessAssignRoleRequest, types.Nil]{}
 	a.AccessUnassignRole = fnoop.UnaryServer[api.AccessUnassignRoleRequest, types.Nil]{}
 
-	// arc LSP (streaming, not implemented via gRPC yet)
+	// ARC LSP (streaming, not implemented via gRPC yet)
 	a.ArcLSP = fnoop.StreamServer[api.ArcLSPMessage, api.ArcLSPMessage]{}
+
+	// VIEW
+	a.ViewCreate = fnoop.UnaryServer[api.ViewCreateRequest, api.ViewCreateResponse]{}
+	a.ViewRetrieve = fnoop.UnaryServer[api.ViewRetrieveRequest, api.ViewRetrieveResponse]{}
+	a.ViewDelete = fnoop.UnaryServer[api.ViewDeleteRequest, types.Nil]{}
 
 	return a, transports
 }
