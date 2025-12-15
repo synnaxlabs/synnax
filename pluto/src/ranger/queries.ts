@@ -628,12 +628,25 @@ export const useList = Flux.createList<
     await client.ranges.retrieve({ ...BASE_QUERY, ...query }),
   retrieveByKey: async ({ key, ...rest }) =>
     await retrieveSingle({ ...rest, query: { key } }),
-  mountListeners: ({ store, onChange, onDelete, client, query: { keys } }) => {
+  mountListeners: ({
+    store,
+    onChange,
+    onDelete,
+    client,
+    query: { keys, hasLabels },
+  }) => {
     const hasKeys = keys != null && keys.length > 0;
     const keysSet = new Set(keys);
+    const hasLabelsSet =
+      hasLabels && hasLabels.length > 0 ? new Set(hasLabels) : undefined;
     return [
       store.ranges.onSet((range) => {
         if (hasKeys && !keysSet.has(range.key)) return;
+        if (
+          hasLabelsSet != null &&
+          (range.labels == null || !range.labels.some((l) => hasLabelsSet.has(l.key)))
+        )
+          return;
         onChange(range.key, (prev) => {
           if (prev == null) return range;
           return client.ranges.sugarOne({

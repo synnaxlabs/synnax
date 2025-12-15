@@ -61,8 +61,8 @@ export const useList = Flux.createList<ListQuery, view.Key, view.View, FluxSubSt
     return v;
   },
   mountListeners: ({ store, onChange, onDelete, query: { keys, types } }) => {
-    const keysSet = keys ? new Set(keys) : undefined;
-    const typesSet = types ? new Set(types) : undefined;
+    const keysSet = keys != null ? new Set(keys) : undefined;
+    const typesSet = types != null ? new Set(types) : undefined;
     return [
       store.views.onSet((view) => {
         if (
@@ -115,18 +115,6 @@ const retrieveSingle = async ({
   store.views.set(v);
   return v;
 };
-
-export const { useRetrieve } = Flux.createRetrieve<
-  view.RetrieveSingleParams,
-  view.View,
-  FluxSubStore
->({
-  name: RESOURCE_NAME,
-  retrieve: retrieveSingle,
-  mountListeners: ({ store, query: { key }, onChange }) => [
-    store.views.onSet(onChange, key),
-  ],
-});
 
 const ZERO_VALUES = {
   name: "",

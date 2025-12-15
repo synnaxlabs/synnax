@@ -46,7 +46,6 @@ const createSubIcon = (
   Icon: FC | undefined,
 ): ReactElement | null => {
   if (Icon == null) return null;
-
   return (
     <g transform={`translate(${SUB_POSITIONS[key].x}, ${SUB_POSITIONS[key].y})`}>
       <circle
