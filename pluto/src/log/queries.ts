@@ -19,7 +19,7 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore, log.Key, log
   };
 
 export const FLUX_STORE_KEY = "logs";
-const RESOURCE_NAME = "Log";
+const RESOURCE_NAME = "log";
 
 export interface FluxStore extends Flux.UnaryStore<log.Key, log.Log> {}
 

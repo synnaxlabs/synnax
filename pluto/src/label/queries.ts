@@ -18,8 +18,8 @@ import { type Ontology } from "@/ontology";
 import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "labels";
-export const RESOURCE_NAME = "Label";
-export const PLURAL_RESOURCE_NAME = "Labels";
+export const RESOURCE_NAME = "label";
+export const PLURAL_RESOURCE_NAME = "labels";
 
 export interface FluxStore extends Flux.UnaryStore<label.Key, label.Label> {}
 
@@ -233,7 +233,7 @@ export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
   label.Label[],
   FluxSubStore
 >({
-  name: "Labels",
+  name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query: { keys }, store }) => {
     const cached = store.labels.get(keys);
     const missing = keys.filter((k) => !store.labels.has(k));

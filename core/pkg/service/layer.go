@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/log"
@@ -125,6 +126,8 @@ type Layer struct {
 	Metrics *metrics.Service
 	// Status is used for tracking the statuses
 	Status *status.Service
+	// View is used for managing views
+	View *view.Service
 	// closer is for properly shutting down the service layer.
 	closer xio.MultiCloser
 }
@@ -282,6 +285,18 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	); !ok(err, l.Arc) {
 		return nil, err
 	}
+	if l.View, err = view.OpenService(
+		ctx,
+		view.Config{
+			Instrumentation: cfg.Child("view"),
+			DB:              cfg.Distribution.DB,
+			Signals:         cfg.Distribution.Signals,
+			Ontology:        cfg.Distribution.Ontology,
+			Group:           cfg.Distribution.Group,
+		},
+	); !ok(err, l.View) {
+		return nil, err
+	}
 	cfg.Distribution.Channel.SetCalculationAnalyzer(l.Arc.AnalyzeCalculation)
 	if l.Framer, err = framer.OpenService(
 		ctx,
@@ -306,6 +321,5 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		}); !ok(err, l.Metrics) {
 		return nil, err
 	}
-
 	return l, nil
 }
