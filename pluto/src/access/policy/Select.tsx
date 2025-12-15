@@ -38,8 +38,7 @@ const listItemRenderProp = Component.renderProp(
 );
 
 export interface SelectMultipleProps
-  extends
-    Omit<
+  extends Omit<
       Select.MultipleProps<access.policy.Key, access.policy.Policy | undefined>,
       "resourceName" | "data" | "getItem" | "subscribe" | "children"
     >,
@@ -75,8 +74,7 @@ export const SelectMultiple = ({
 };
 
 export interface SelectSingleProps
-  extends
-    Omit<
+  extends Omit<
       Select.SingleProps<access.policy.Key, access.policy.Policy | undefined>,
       "data" | "getItem" | "subscribe" | "children" | "resourceName"
     >,

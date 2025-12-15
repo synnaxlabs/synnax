@@ -24,10 +24,8 @@ export const useSelectorVisible = () => {
 
 export const SELECTOR_LAYOUT_TYPE = "layoutSelector";
 
-export interface CreateSelectorLayoutArgs extends Omit<
-  Layout.BaseState,
-  "type" | "icon" | "location" | "name" | "key"
-> {}
+export interface CreateSelectorLayoutArgs
+  extends Omit<Layout.BaseState, "type" | "icon" | "location" | "name" | "key"> {}
 
 export const createSelectorLayout = (
   args: CreateSelectorLayoutArgs = {},

@@ -148,7 +148,8 @@ export interface ContextMenuMenuProps extends ContextMenuState {
 }
 
 export interface ContextMenuProps
-  extends Omit<UseContextMenuReturn, "className">, Omit<Flex.BoxProps, "ref"> {
+  extends Omit<UseContextMenuReturn, "className">,
+    Omit<Flex.BoxProps, "ref"> {
   menu?: RenderProp<ContextMenuMenuProps>;
 }
 

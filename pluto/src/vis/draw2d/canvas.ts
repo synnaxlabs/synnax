@@ -17,7 +17,9 @@ export interface FillTextOptions {
   useAtlas?: boolean;
 }
 
-export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvasRenderingContext2D {
+export class SugaredOffscreenCanvasRenderingContext2D
+  implements OffscreenCanvasRenderingContext2D
+{
   readonly scale_: scale.XY;
   readonly wrapped: OffscreenCanvasRenderingContext2D;
   readonly atlasRegistry: text.AtlasRegistry;

@@ -11,10 +11,8 @@ import { Button, Form, Status } from "@synnaxlabs/pluto";
 
 import { useIsSnapshot } from "@/hardware/common/task/Form";
 
-export interface EnableDisableButtonProps extends Omit<
-  Button.ToggleProps,
-  "onChange" | "value" | "children"
-> {
+export interface EnableDisableButtonProps
+  extends Omit<Button.ToggleProps, "onChange" | "value" | "children"> {
   path: string;
 }
 

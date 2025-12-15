@@ -212,10 +212,8 @@ export const useFieldListUtils = <K extends record.Key, E extends record.Keyed<K
   opts?: ContextOptions<z.ZodType>,
 ): FieldListUtils<K, E> => fieldListUtils<K, E>(useContext(opts?.ctx), path);
 
-export interface UseFieldListReturn<
-  K extends record.Key,
-  E extends record.Keyed<K>,
-> extends FieldListUtils<K, E> {
+export interface UseFieldListReturn<K extends record.Key, E extends record.Keyed<K>>
+  extends FieldListUtils<K, E> {
   data: K[];
 }
 

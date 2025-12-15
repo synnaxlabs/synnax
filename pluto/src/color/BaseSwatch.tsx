@@ -19,10 +19,8 @@ import { Theming } from "@/theming";
 
 const HAUL_TYPE = "color";
 
-export interface BaseSwatchProps extends Omit<
-  Button.ButtonProps,
-  "onChange" | "value" | "size"
-> {
+export interface BaseSwatchProps
+  extends Omit<Button.ButtonProps, "onChange" | "value" | "size"> {
   value: color.Crude;
   onChange?: (c: color.Color) => void;
   size?: Button.ButtonProps["size"] | "tiny";

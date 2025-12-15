@@ -13,10 +13,8 @@ import { CSS } from "@/css";
 import { ChannelName, type ChannelNameProps } from "@/hardware/common/task/ChannelName";
 import { getChannelNameID } from "@/hardware/common/task/getChannelNameID";
 
-export interface WriteChannelNamesProps extends Omit<
-  ChannelNameProps,
-  "channel" | "defaultName" | "id"
-> {
+export interface WriteChannelNamesProps
+  extends Omit<ChannelNameProps, "channel" | "defaultName" | "id"> {
   cmdChannel: channel.Key;
   stateChannel: channel.Key;
   itemKey: string;

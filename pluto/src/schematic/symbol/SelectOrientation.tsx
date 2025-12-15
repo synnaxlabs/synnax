@@ -23,7 +23,8 @@ export interface OrientationValue {
 }
 
 export interface SelectOrientationProps
-  extends Input.Control<OrientationValue>, Omit<Flex.BoxProps, "value" | "onChange"> {
+  extends Input.Control<OrientationValue>,
+    Omit<Flex.BoxProps, "value" | "onChange"> {
   hideOuter?: boolean;
   showOuterCenter?: boolean;
   hideInner?: boolean;

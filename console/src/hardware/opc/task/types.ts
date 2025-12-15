@@ -114,11 +114,8 @@ export const READ_TYPE = `${PREFIX}_read`;
 export const readTypeZ = z.literal(READ_TYPE);
 export type ReadType = typeof READ_TYPE;
 
-export interface ReadPayload extends task.Payload<
-  typeof readTypeZ,
-  typeof readConfigZ,
-  typeof readStatusDataZ
-> {}
+export interface ReadPayload
+  extends task.Payload<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ> {}
 export const ZERO_READ_PAYLOAD: ReadPayload = {
   key: "",
   type: READ_TYPE,
@@ -126,11 +123,8 @@ export const ZERO_READ_PAYLOAD: ReadPayload = {
   config: ZERO_READ_CONFIG,
 };
 
-export interface ReadTask extends task.Task<
-  typeof readTypeZ,
-  typeof readConfigZ,
-  typeof readStatusDataZ
-> {}
+export interface ReadTask
+  extends task.Task<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ> {}
 export interface NewReadTask extends task.New<typeof readTypeZ, typeof readConfigZ> {}
 
 export const READ_SCHEMAS: task.Schemas<
@@ -192,16 +186,10 @@ export const SCAN_SCHEMAS: task.Schemas<
   statusDataSchema: scanStatusDataZ,
 };
 
-export interface ScanPayload extends task.Payload<
-  typeof scanTypeZ,
-  typeof scanConfigZ,
-  typeof scanStatusDataZ
-> {}
-export interface ScanTask extends task.Task<
-  typeof scanTypeZ,
-  typeof scanConfigZ,
-  typeof scanStatusDataZ
-> {}
+export interface ScanPayload
+  extends task.Payload<typeof scanTypeZ, typeof scanConfigZ, typeof scanStatusDataZ> {}
+export interface ScanTask
+  extends task.Task<typeof scanTypeZ, typeof scanConfigZ, typeof scanStatusDataZ> {}
 export interface NewScanTask extends task.New<typeof scanTypeZ, typeof scanConfigZ> {}
 
 export const writeConfigZ = Common.Task.baseConfigZ.extend({
@@ -252,15 +240,10 @@ export const ZERO_WRITE_PAYLOAD: WritePayload = {
   config: ZERO_WRITE_CONFIG,
 };
 
-export interface WriteTask extends task.Task<
-  typeof writeTypeZ,
-  typeof writeConfigZ,
-  typeof writeStatusDataZ
-> {}
-export interface NewWriteTask extends task.New<
-  typeof writeTypeZ,
-  typeof writeConfigZ
-> {}
+export interface WriteTask
+  extends task.Task<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ> {}
+export interface NewWriteTask
+  extends task.New<typeof writeTypeZ, typeof writeConfigZ> {}
 
 export const WRITE_SCHEMAS: task.Schemas<
   typeof writeTypeZ,

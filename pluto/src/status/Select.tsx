@@ -18,8 +18,7 @@ import { type ListParams, useList } from "@/status/queries";
 import { Text } from "@/text";
 
 export interface SelectProps
-  extends
-    Omit<
+  extends Omit<
       Core.SingleProps<status.Key, status.Status>,
       | "data"
       | "getItem"

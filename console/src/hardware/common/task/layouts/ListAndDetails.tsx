@@ -35,10 +35,11 @@ export interface DetailsProps {
   path: string;
 }
 
-export interface ListAndDetailsProps<C extends Channel> extends Pick<
-  ChannelListProps<C>,
-  "onTare" | "allowTare" | "listItem" | "contextMenuItems"
-> {
+export interface ListAndDetailsProps<C extends Channel>
+  extends Pick<
+    ChannelListProps<C>,
+    "onTare" | "allowTare" | "listItem" | "contextMenuItems"
+  > {
   details: Component.RenderProp<DetailsProps>;
   createChannel: CreateChannel<C>;
 }

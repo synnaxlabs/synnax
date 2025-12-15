@@ -13,7 +13,8 @@ import { type ContextMenuItemProps } from "@/hardware/common/task/ChannelList";
 import { getChannelNameID } from "@/hardware/common/task/getChannelNameID";
 import { type ReadChannel } from "@/hardware/common/task/types";
 
-export interface ReadChannelContextMenuItemProps extends ContextMenuItemProps<ReadChannel> {}
+export interface ReadChannelContextMenuItemProps
+  extends ContextMenuItemProps<ReadChannel> {}
 
 export const ReadChannelContextMenuItem: React.FC<ReadChannelContextMenuItemProps> = ({
   channels,

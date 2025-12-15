@@ -23,8 +23,7 @@ interface MediaProps {
 }
 
 export interface VideoProps
-  extends
-    MediaProps,
+  extends MediaProps,
     Omit<
       DetailedHTMLProps<React.VideoHTMLAttributes<HTMLVideoElement>, HTMLVideoElement>,
       "id"
@@ -84,8 +83,7 @@ export const Video = ({ id, themed = true, ...rest }: VideoProps): ReactElement 
 };
 
 export interface ImageProps
-  extends
-    MediaProps,
+  extends MediaProps,
     Omit<
       DetailedHTMLProps<ImgHTMLAttributes<HTMLImageElement>, HTMLImageElement>,
       "id"

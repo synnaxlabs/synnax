@@ -22,10 +22,8 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
   schematic.Schematic
 > = { listeners: [] };
 
-export interface FluxStore extends Flux.UnaryStore<
-  schematic.Key,
-  schematic.Schematic
-> {}
+export interface FluxStore
+  extends Flux.UnaryStore<schematic.Key, schematic.Schematic> {}
 
 interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;

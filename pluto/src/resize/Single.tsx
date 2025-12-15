@@ -16,10 +16,8 @@ import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { Core, type CoreProps } from "@/resize/Core";
 
 /** Props for the {@link Single} component. */
-export interface SingleProps extends Omit<
-  CoreProps,
-  "showHandle" | "size" | "onResize" | "onDragStart" | "ref"
-> {
+export interface SingleProps
+  extends Omit<CoreProps, "showHandle" | "size" | "onResize" | "onDragStart" | "ref"> {
   initialSize?: number;
   minSize?: number;
   maxSize?: number;

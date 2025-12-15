@@ -23,9 +23,8 @@ export interface ListAndDetailsIconProps {
   name: string;
 }
 
-export interface ListAndDetailsChannelItemProps<
-  K extends record.Key,
-> extends List.ItemProps<K> {
+export interface ListAndDetailsChannelItemProps<K extends record.Key>
+  extends List.ItemProps<K> {
   port: string | number;
   portMaxChars: number;
   icon?: ListAndDetailsIconProps;

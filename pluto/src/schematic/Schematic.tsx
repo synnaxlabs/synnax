@@ -18,10 +18,8 @@ import { ConnectionLine, Edge, type EdgeData } from "@/schematic/edge";
 import { DRAG_HANDLE_CLASS } from "@/schematic/symbol/Grid";
 import { Diagram } from "@/vis/diagram";
 
-export interface SchematicProps extends Omit<
-  Diagram.DiagramProps,
-  "dragHandleSelector"
-> {}
+export interface SchematicProps
+  extends Omit<Diagram.DiagramProps, "dragHandleSelector"> {}
 
 const edgeRenderer = Component.renderProp(Edge);
 

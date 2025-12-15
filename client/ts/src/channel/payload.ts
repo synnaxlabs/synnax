@@ -86,10 +86,8 @@ export const newZ = payloadZ.extend({
   operations: array.nullableZ(operationZ).optional(),
 });
 
-export interface New extends Omit<
-  z.input<typeof newZ>,
-  "dataType" | "status" | "internal"
-> {
+export interface New
+  extends Omit<z.input<typeof newZ>, "dataType" | "status" | "internal"> {
   dataType: CrudeDataType;
 }
 

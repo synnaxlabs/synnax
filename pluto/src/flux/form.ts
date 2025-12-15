@@ -37,17 +37,15 @@ import { Synnax } from "@/synnax";
 export interface FormUpdateParams<
   Schema extends z.ZodType<core.Shape>,
   ScopedStore extends core.Store = {},
->
-  extends
-    Omit<UpdateParams<z.infer<Schema>, ScopedStore>, "data" | "onChange">,
+> extends Omit<UpdateParams<z.infer<Schema>, ScopedStore>, "data" | "onChange">,
     Omit<Form.UseReturn<Schema>, "setStatus"> {}
 
 export interface FormRetrieveParams<
   Query extends core.Shape,
   Schema extends z.ZodType<core.Shape>,
   Store extends core.Store = {},
->
-  extends Form.UseReturn<Schema>, RetrieveParams<Query, Store> {}
+> extends Form.UseReturn<Schema>,
+    RetrieveParams<Query, Store> {}
 
 export interface CreateFormParams<
   Query extends core.Shape,
@@ -76,16 +74,14 @@ export interface FormBeforeSaveParams<
   Query extends core.Shape,
   Schema extends z.ZodType<core.Shape>,
   Store extends core.Store,
->
-  extends Form.UseReturn<Schema>, RetrieveParams<Query, Store> {}
+> extends Form.UseReturn<Schema>,
+    RetrieveParams<Query, Store> {}
 
 interface FormMountListenersParams<
   Query extends core.Shape,
   Schema extends z.ZodType<core.Shape>,
   Store extends core.Store,
->
-  extends
-    Form.UseReturn<Schema>,
+> extends Form.UseReturn<Schema>,
     Omit<RetrieveMountListenersParams<Query, core.Shape, Store>, "onChange"> {}
 
 export interface AfterSaveParams<

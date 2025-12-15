@@ -29,10 +29,8 @@ export interface ContextMenuItemProps<C extends Channel> {
   channels: C[];
 }
 
-interface ContextMenuProps<C extends Channel> extends Pick<
-  Form.UseFieldListReturn<C["key"], C>,
-  "data" | "remove"
-> {
+interface ContextMenuProps<C extends Channel>
+  extends Pick<Form.UseFieldListReturn<C["key"], C>, "data" | "remove"> {
   keys: string[];
   allowTare?: (keys: string[], channels: C[]) => boolean;
   onDuplicate?: (channels: C[], keys: string[]) => void;
@@ -128,8 +126,7 @@ const ContextMenu = <C extends Channel>({
 export interface ChannelListItemProps extends List.ItemProps<string> {}
 
 export interface ChannelListProps<C extends Channel>
-  extends
-    Omit<ContextMenuProps<C>, "keys">,
+  extends Omit<ContextMenuProps<C>, "keys">,
     Pick<Flex.BoxProps, "onDragOver" | "onDrop" | "grow"> {
   emptyContent: ReactElement;
   header: ReactNode;

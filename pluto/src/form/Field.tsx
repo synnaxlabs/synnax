@@ -19,7 +19,8 @@ import { Input } from "@/input";
 import { Select } from "@/select";
 
 interface FieldChild<I, O>
-  extends Input.Control<I, O>, Pick<UseFieldReturn<I, O>, "variant"> {}
+  extends Input.Control<I, O>,
+    Pick<UseFieldReturn<I, O>, "variant"> {}
 
 export type FieldProps<I = string | number, O = I> = GetOptions<I> &
   UseFieldOptions<I, O> &

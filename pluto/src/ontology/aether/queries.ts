@@ -12,10 +12,8 @@ import { deep } from "@synnaxlabs/x";
 
 import { type flux } from "@/flux/aether";
 
-export interface RelationshipFluxStore extends flux.UnaryStore<
-  string,
-  ontology.Relationship
-> {}
+export interface RelationshipFluxStore
+  extends flux.UnaryStore<string, ontology.Relationship> {}
 
 export interface ResourceFluxStore extends flux.UnaryStore<string, ontology.Resource> {}
 

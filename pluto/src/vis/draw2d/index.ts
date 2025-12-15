@@ -75,10 +75,8 @@ export interface DrawTextProps extends FillTextOptions {
   color?: ColorSpec;
 }
 
-export interface DrawTextInCenterProps extends Omit<
-  DrawTextProps,
-  "position" | "direction"
-> {
+export interface DrawTextInCenterProps
+  extends Omit<DrawTextProps, "position" | "direction"> {
   box: box.Box;
 }
 
@@ -98,7 +96,8 @@ export interface Draw2DBorderProps {
 }
 
 export interface Draw2DTextContainerProps
-  extends Omit<Draw2DContainerProps, "region">, Draw2DMeasureTextContainerProps {
+  extends Omit<Draw2DContainerProps, "region">,
+    Draw2DMeasureTextContainerProps {
   position: xy.XY;
   offset?: xy.XY;
   root?: location.CornerXY;

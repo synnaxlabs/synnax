@@ -37,10 +37,11 @@ const retrieveReqZ = z.object({
 });
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
-export interface RetrieveOptions extends Pick<
-  RetrieveRequest,
-  "excludeFieldData" | "types" | "children" | "parents"
-> {}
+export interface RetrieveOptions
+  extends Pick<
+    RetrieveRequest,
+    "excludeFieldData" | "types" | "children" | "parents"
+  > {}
 
 const retrieveResZ = z.object({ resources: resourceZ.array() });
 

@@ -24,10 +24,8 @@ const PLURAL_RESOURCE_NAME = "Devices";
 
 // Explicitly omit 'status' from the device type to make sure we aren't storing two
 // copies of the statuses in the flux store.
-export interface FluxStore extends Flux.UnaryStore<
-  string,
-  Omit<device.Device, "status">
-> {}
+export interface FluxStore
+  extends Flux.UnaryStore<string, Omit<device.Device, "status">> {}
 
 export interface FluxSubStore extends Task.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;

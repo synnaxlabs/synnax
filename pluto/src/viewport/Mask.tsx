@@ -21,8 +21,7 @@ type DivProps = React.DetailedHTMLProps<
 >;
 
 export interface MaskProps
-  extends
-    Omit<UseReturn, "ref">,
+  extends Omit<UseReturn, "ref">,
     Omit<DivProps, "onDragStart" | "onDragEnd" | "onDrag" | "ref" | "onDoubleClick"> {}
 
 const MODE_CURSORS: Record<Mode, CSSProperties["cursor"]> = {

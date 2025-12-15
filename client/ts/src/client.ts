@@ -164,10 +164,8 @@ export default class Synnax extends framer.Client {
   }
 }
 
-export interface CheckConnectionParams extends Pick<
-  SynnaxParams,
-  "host" | "port" | "secure" | "retry" | "name"
-> {}
+export interface CheckConnectionParams
+  extends Pick<SynnaxParams, "host" | "port" | "secure" | "retry" | "name"> {}
 
 export const checkConnection = async (params: CheckConnectionParams) =>
   await newConnectionChecker(params).check();

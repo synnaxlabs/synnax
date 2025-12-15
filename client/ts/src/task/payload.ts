@@ -46,9 +46,8 @@ const newStatusDetailsZ = <DataSchema extends z.ZodType>(data: DataSchema) =>
 export const newStatusZ = <DataSchema extends z.ZodType>(data: DataSchema) =>
   status.statusZ(newStatusDetailsZ(data)).partial({ key: true, name: true });
 
-export interface NewStatus<DataSchema extends z.ZodType = z.ZodUnknown> extends z.infer<
-  ReturnType<typeof newStatusZ<DataSchema>>
-> {}
+export interface NewStatus<DataSchema extends z.ZodType = z.ZodUnknown>
+  extends z.infer<ReturnType<typeof newStatusZ<DataSchema>>> {}
 
 export const taskZ = <
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
@@ -139,9 +138,8 @@ export interface Command extends Omit<z.infer<typeof commandZ>, "args"> {
   args?: record.Unknown;
 }
 
-export interface StateObservable<
-  StatusData extends z.ZodType,
-> extends observe.ObservableAsyncCloseable<Status<StatusData>> {}
+export interface StateObservable<StatusData extends z.ZodType>
+  extends observe.ObservableAsyncCloseable<Status<StatusData>> {}
 
 export interface CommandObservable extends observe.ObservableAsyncCloseable<Command> {}
 

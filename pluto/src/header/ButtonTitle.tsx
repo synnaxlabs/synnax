@@ -14,10 +14,8 @@ import { CSS } from "@/css";
 import { useContext } from "@/header/Header";
 import { Text } from "@/text";
 
-export interface ButtonTitleProps extends Omit<
-  Button.ButtonProps,
-  "variant" | "size"
-> {}
+export interface ButtonTitleProps
+  extends Omit<Button.ButtonProps, "variant" | "size"> {}
 
 /**
  * Header.Title.Use renders a clickable header title.

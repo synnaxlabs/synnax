@@ -32,7 +32,8 @@ import { useCombinedRefs, usePrevious, useSyncedRef } from "@/hooks";
  * @template E The type of the entity (must be keyed by K)
  */
 export interface GetItem<K extends record.Key, E extends record.Keyed<K> | undefined>
-  extends GetSingleItem<K, E>, GetMultipleItems<K, E> {}
+  extends GetSingleItem<K, E>,
+    GetMultipleItems<K, E> {}
 
 export interface GetSingleItem<
   K extends record.Key,
@@ -103,8 +104,8 @@ export const useUtilContext = <
 export interface FrameProps<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
->
-  extends PropsWithChildren, Pick<UtilContextValue<K, E>, "getItem" | "subscribe"> {
+> extends PropsWithChildren,
+    Pick<UtilContextValue<K, E>, "getItem" | "subscribe"> {
   data: K[];
   virtual?: boolean;
   overscan?: number;

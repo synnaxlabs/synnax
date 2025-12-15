@@ -25,9 +25,7 @@ import {
 export interface MultipleProps<
   K extends record.Key,
   E extends record.Keyed<K> | undefined,
->
-  extends
-    Omit<MultipleFrameProps<K, E>, "multiple" | "children">,
+> extends Omit<MultipleFrameProps<K, E>, "multiple" | "children">,
     Pick<DialogProps<K>, "emptyContent" | "status" | "onSearch" | "actions">,
     Omit<CoreDialog.FrameProps, "onChange" | "children" | "variant">,
     Pick<MultipleTriggerProps<K>, "disabled" | "icon" | "haulType">,

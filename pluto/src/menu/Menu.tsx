@@ -29,7 +29,8 @@ const [Context, useContext] = context.create<ContextValue>({
 export { useContext };
 
 export interface MenuProps
-  extends PropsWithChildren, Pick<ContextValue, "level" | "gap" | "background"> {
+  extends PropsWithChildren,
+    Pick<ContextValue, "level" | "gap" | "background"> {
   value?: string;
   onChange?: ((key: string) => void) | Record<string, (key: string) => void>;
 }

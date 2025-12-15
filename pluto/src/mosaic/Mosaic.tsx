@@ -31,8 +31,7 @@ import { Tabs } from "@/tabs";
 
 /** Props for the {@link Mosaic} component */
 export interface MosaicProps
-  extends
-    Pick<
+  extends Pick<
       Tabs.TabsProps,
       | "onSelect"
       | "contextMenu"
@@ -165,10 +164,8 @@ export const Mosaic = memo(
 );
 Mosaic.displayName = "Mosaic";
 
-interface TabLeafProps extends Omit<
-  MosaicProps,
-  "onResize" | "onDragStart" | "onDragEnd"
-> {}
+interface TabLeafProps
+  extends Omit<MosaicProps, "onResize" | "onDragStart" | "onDragEnd"> {}
 
 /**
  * This type should be used when the user wants to drop a tab in the mosaic.
@@ -369,10 +366,8 @@ const insertLocation = ({ x: px, y: py }: xy.XY): location.Location => {
   throw new Error("[bug] - invalid insert position");
 };
 
-export interface UsePortalProps extends Pick<
-  MosaicProps,
-  "root" | "onSelect" | "children"
-> {}
+export interface UsePortalProps
+  extends Pick<MosaicProps, "root" | "onSelect" | "children"> {}
 
 export type UsePortalReturn = [RefObject<Map<string, Portal.Node>>, ReactElement[]];
 

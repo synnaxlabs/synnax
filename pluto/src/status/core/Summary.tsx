@@ -16,8 +16,7 @@ import { Icon } from "@/icon";
 import { Text as BaseText } from "@/text";
 
 export interface SummaryProps
-  extends
-    Omit<BaseText.TextProps, "wrap" | "variant" | "status">,
+  extends Omit<BaseText.TextProps, "wrap" | "variant" | "status">,
     Partial<Omit<status.Status, "key">> {
   hideIcon?: boolean;
   status?: status.Status;

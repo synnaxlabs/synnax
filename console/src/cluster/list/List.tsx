@@ -30,7 +30,8 @@ import { Layout } from "@/layout";
 import { Link } from "@/link";
 
 export interface ListProps
-  extends Input.Control<string | undefined>, Omit<Flex.BoxProps, "onChange"> {}
+  extends Input.Control<string | undefined>,
+    Omit<Flex.BoxProps, "onChange"> {}
 
 export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   const menuProps = PMenu.useContextMenu();

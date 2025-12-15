@@ -22,10 +22,8 @@ const DATA: SecurityMode[] = [
   SIGN_AND_ENCRYPT_SECURITY_MODE,
 ];
 
-export interface SelectSecurityModeProps extends Omit<
-  Select.ButtonsProps<SecurityMode>,
-  "keys"
-> {}
+export interface SelectSecurityModeProps
+  extends Omit<Select.ButtonsProps<SecurityMode>, "keys"> {}
 
 export const SelectSecurityMode = (props: SelectSecurityModeProps) => (
   <Select.Buttons {...props} keys={DATA}>

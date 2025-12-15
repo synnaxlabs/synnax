@@ -18,10 +18,8 @@ import { useSelect } from "@/range/selectors";
 import { add, remove } from "@/range/slice";
 import { fromClientRange } from "@/range/translate";
 
-export interface FavoriteButtonProps extends Omit<
-  CoreProps,
-  "isFavorite" | "onFavorite"
-> {
+export interface FavoriteButtonProps
+  extends Omit<CoreProps, "isFavorite" | "onFavorite"> {
   range: ranger.Range;
 }
 

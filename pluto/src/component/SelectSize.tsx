@@ -13,10 +13,8 @@ import { type Size, SIZES } from "@/component/size";
 import { type Select } from "@/select";
 import { Button, Buttons } from "@/select/Button";
 
-export interface SelectComponentSizeProps extends Omit<
-  Select.ButtonsProps<Size>,
-  "keys"
-> {}
+export interface SelectComponentSizeProps
+  extends Omit<Select.ButtonsProps<Size>, "keys"> {}
 
 export const SelectSize = (props: SelectComponentSizeProps): ReactElement => (
   <Buttons {...props} keys={SIZES}>

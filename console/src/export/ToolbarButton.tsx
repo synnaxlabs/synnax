@@ -9,10 +9,8 @@
 
 import { Button, Icon } from "@synnaxlabs/pluto";
 
-export interface ToolbarButtonProps extends Omit<
-  Button.ButtonProps,
-  "onClick" | "children"
-> {
+export interface ToolbarButtonProps
+  extends Omit<Button.ButtonProps, "onClick" | "children"> {
   onExport: NonNullable<Button.ButtonProps["onClick"]>;
 }
 

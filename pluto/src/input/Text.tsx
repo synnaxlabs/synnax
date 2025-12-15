@@ -22,8 +22,7 @@ import { Text as CoreText } from "@/text";
 import { type Tooltip } from "@/tooltip";
 
 export interface TextProps
-  extends
-    InputProps<string>,
+  extends InputProps<string>,
     Omit<Button.ExtensionProps, "variant">,
     Tooltip.WrapProps {
   selectOnFocus?: boolean;

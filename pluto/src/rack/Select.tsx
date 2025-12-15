@@ -21,8 +21,7 @@ import { Select } from "@/select";
 import { Text } from "@/text";
 
 export interface SelectSingleProps
-  extends
-    Omit<Select.SingleFrameProps<rack.Key, rack.Payload | undefined>, "data">,
+  extends Omit<Select.SingleFrameProps<rack.Key, rack.Payload | undefined>, "data">,
     Flux.UseListParams<ListQuery, rack.Key, rack.Payload>,
     Omit<Dialog.FrameProps, "onChange">,
     Pick<Select.DialogProps<rack.Key>, "emptyContent"> {}

@@ -24,9 +24,7 @@ import {
 export interface SingleProps<
   K extends record.Key,
   E extends record.Keyed<K> | undefined,
->
-  extends
-    Omit<SingleFrameProps<K, E>, "multiple" | "children">,
+> extends Omit<SingleFrameProps<K, E>, "multiple" | "children">,
     Pick<DialogProps<K>, "emptyContent" | "status" | "onSearch" | "actions">,
     Omit<Dialog.FrameProps, "onChange" | "children" | "variant">,
     Pick<SingleTriggerProps, "disabled" | "icon" | "haulType">,

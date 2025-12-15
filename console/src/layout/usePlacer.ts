@@ -23,7 +23,8 @@ export interface CreatorProps {
 }
 
 export interface BaseState<A = unknown>
-  extends Omit<State<A>, "windowKey" | "key">, Partial<Pick<State<A>, "key">> {}
+  extends Omit<State<A>, "windowKey" | "key">,
+    Partial<Pick<State<A>, "key">> {}
 
 /** A function that creates a layout given a set of utilities. */
 export interface Creator<A = unknown> {

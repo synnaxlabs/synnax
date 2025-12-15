@@ -77,10 +77,8 @@ const DOWNSAMPLE_BOUNDS: bounds.Bounds = { lower: 1, upper: 1001 };
 const STROKE_WIDTH_DRAG_SCALE: xy.XY = { x: 0.1, y: 0.1 };
 const DOWNSAMPLE_DRAG_SCALE: xy.XY = { x: 0.1, y: 0.1 };
 
-interface SelectDownsampleModeProps extends Omit<
-  Select.ButtonsProps<telem.DownsampleMode>,
-  "keys"
-> {}
+interface SelectDownsampleModeProps
+  extends Omit<Select.ButtonsProps<telem.DownsampleMode>, "keys"> {}
 
 const KEYS: telem.DownsampleMode[] = ["average", "decimate"];
 

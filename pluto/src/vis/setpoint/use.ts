@@ -14,10 +14,8 @@ import { Aether } from "@/aether";
 import { useMemoDeepEqual } from "@/memo";
 import { setpoint } from "@/vis/setpoint/aether";
 
-export interface UseProps extends Pick<
-  z.input<typeof setpoint.stateZ>,
-  "source" | "sink"
-> {
+export interface UseProps
+  extends Pick<z.input<typeof setpoint.stateZ>, "source" | "sink"> {
   aetherKey: string;
 }
 

@@ -59,10 +59,11 @@ const EmptyContent = ({ onAdd }: EmptyContentProps) => {
   );
 };
 
-export interface ChannelListProps<C extends Channel> extends Omit<
-  CoreProps<C>,
-  "data" | "header" | "emptyContent" | "path" | "remove" | "onDuplicate"
-> {
+export interface ChannelListProps<C extends Channel>
+  extends Omit<
+    CoreProps<C>,
+    "data" | "header" | "emptyContent" | "path" | "remove" | "onDuplicate"
+  > {
   createChannel: (channels: C[]) => C | null;
   createChannels?: (channels: C[], keys: string[]) => C[];
   path?: string;

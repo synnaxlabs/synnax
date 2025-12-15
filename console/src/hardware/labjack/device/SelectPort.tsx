@@ -18,8 +18,7 @@ import {
 } from "@/hardware/labjack/device/types";
 
 export interface SelectPortProps
-  extends
-    Omit<
+  extends Omit<
       Select.SingleProps<string, Port | undefined>,
       "resourceName" | "data" | "children"
     >,

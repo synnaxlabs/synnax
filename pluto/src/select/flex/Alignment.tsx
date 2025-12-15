@@ -14,10 +14,8 @@ import { Icon } from "@/icon";
 import { type Select } from "@/select";
 import { Button, Buttons } from "@/select/Button";
 
-export interface AlignmentProps extends Omit<
-  Select.ButtonsProps<Flex.Alignment>,
-  "keys"
-> {}
+export interface AlignmentProps
+  extends Omit<Select.ButtonsProps<Flex.Alignment>, "keys"> {}
 
 export const Alignment = ({ value, ...rest }: AlignmentProps): ReactElement => (
   <Buttons {...rest} value={value} keys={Flex.ALIGNMENTS}>

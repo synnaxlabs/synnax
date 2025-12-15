@@ -36,8 +36,7 @@ export interface UseDrawerReturn {
 }
 
 export interface DrawerProps
-  extends
-    Omit<BarProps, "onSelect" | "onResize">,
+  extends Omit<BarProps, "onSelect" | "onResize">,
     UseDrawerReturn,
     Partial<Pick<Resize.SingleProps, "onResize" | "collapseThreshold" | "onCollapse">> {
   eraseEnabled?: boolean;

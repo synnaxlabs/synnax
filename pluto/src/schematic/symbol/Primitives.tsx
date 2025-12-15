@@ -245,7 +245,8 @@ const Toggle = ({
 );
 
 interface DivProps
-  extends Omit<ComponentPropsWithRef<"div">, "color" | "onResize">, OrientableProps {}
+  extends Omit<ComponentPropsWithRef<"div">, "color" | "onResize">,
+    OrientableProps {}
 
 const Div = ({ className, ...rest }: DivProps): ReactElement => (
   <div className={CSS(CSS.B("symbol-primitive"), className)} {...rest} />
@@ -257,8 +258,7 @@ interface SVGBasedPrimitiveProps extends OrientableProps {
 }
 
 interface InternalSVGProps
-  extends
-    SVGBasedPrimitiveProps,
+  extends SVGBasedPrimitiveProps,
     Omit<
       ComponentPropsWithoutRef<"svg">,
       "direction" | "color" | "orientation" | "scale"
@@ -1985,8 +1985,7 @@ export const Switch = ({
 );
 
 export interface ButtonProps
-  extends
-    Omit<DivProps, "onClick" | "onMouseDown" | "onMouseUp">,
+  extends Omit<DivProps, "onClick" | "onMouseDown" | "onMouseUp">,
     Pick<CoreButton.ButtonProps, "color" | "size" | "level" | "onClickDelay"> {
   label?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
@@ -2029,8 +2028,7 @@ export const Button = ({
 );
 
 export interface TextBoxProps
-  extends
-    Omit<DivProps, "onChange">,
+  extends Omit<DivProps, "onChange">,
     optional.Optional<
       Pick<Text.EditableProps, "level" | "value" | "onChange">,
       "onChange"
@@ -2079,8 +2077,7 @@ export const TextBox = ({
 };
 
 export interface InputProps
-  extends
-    Omit<DivProps, "onClick" | "value" | "onChange">,
+  extends Omit<DivProps, "onClick" | "value" | "onChange">,
     Pick<CoreInput.TextProps, "size"> {
   dimensions?: dimensions.Dimensions;
   color?: color.Crude;
@@ -2133,8 +2130,7 @@ export const Input = ({
   </Div>
 );
 export interface SetpointProps
-  extends
-    Omit<DivProps, "onClick" | "value" | "onChange">,
+  extends Omit<DivProps, "onClick" | "value" | "onChange">,
     CoreInput.Control<number>,
     Pick<CoreInput.NumericProps, "size"> {
   dimensions?: dimensions.Dimensions;
@@ -2651,7 +2647,8 @@ export const ElectricRegulator = ({
 );
 
 export interface ElectricRegulatorMotorizedProps
-  extends DivProps, SVGBasedPrimitiveProps {}
+  extends DivProps,
+    SVGBasedPrimitiveProps {}
 
 export const ElectricRegulatorMotorized = ({
   className,
@@ -3205,7 +3202,8 @@ export const Cylinder = ({
 };
 
 export interface SpringLoadedReliefValveProps
-  extends ToggleProps, SVGBasedPrimitiveProps {}
+  extends ToggleProps,
+    SVGBasedPrimitiveProps {}
 
 export const SpringLoadedReliefValve = ({
   className,
@@ -3271,7 +3269,8 @@ export const SpringLoadedReliefValve = ({
 };
 
 export interface AngledSpringLoadedReliefValveProps
-  extends ToggleProps, SVGBasedPrimitiveProps {}
+  extends ToggleProps,
+    SVGBasedPrimitiveProps {}
 
 export const AngledSpringLoadedReliefValve = ({
   className,
@@ -3468,7 +3467,8 @@ export const FlowmeterGeneral = ({
 );
 
 export interface FlowmeterElectromagneticProps
-  extends DivProps, SVGBasedPrimitiveProps {}
+  extends DivProps,
+    SVGBasedPrimitiveProps {}
 
 export const FlowmeterElectromagnetic = ({
   id,
@@ -3697,7 +3697,8 @@ export const FlowmeterRingPiston = ({
 );
 
 export interface FlowmeterPositiveDisplacementProps
-  extends DivProps, SVGBasedPrimitiveProps {}
+  extends DivProps,
+    SVGBasedPrimitiveProps {}
 
 export const FlowmeterPositiveDisplacement = ({
   id,
@@ -3952,7 +3953,8 @@ export const HeatExchangerM = ({
 );
 
 export interface HeatExchangerStraightTubeProps
-  extends DivProps, SVGBasedPrimitiveProps {}
+  extends DivProps,
+    SVGBasedPrimitiveProps {}
 
 export const HeatExchangerStraightTube = ({
   id,
@@ -4170,7 +4172,8 @@ export const TurboCompressor = ({
 );
 
 export interface RollerVaneCompressorProps
-  extends ToggleProps, SVGBasedPrimitiveProps {}
+  extends ToggleProps,
+    SVGBasedPrimitiveProps {}
 
 export const RollerVaneCompressor = ({
   color,
@@ -4207,7 +4210,8 @@ export const RollerVaneCompressor = ({
 );
 
 export interface LiquidRingCompressorProps
-  extends ToggleProps, SVGBasedPrimitiveProps {}
+  extends ToggleProps,
+    SVGBasedPrimitiveProps {}
 
 export const LiquidRingCompressor = ({
   color,
@@ -4282,7 +4286,8 @@ export const EjectorCompressor = ({
 );
 
 export interface CentrifugalCompressorProps
-  extends ToggleProps, SVGBasedPrimitiveProps {}
+  extends ToggleProps,
+    SVGBasedPrimitiveProps {}
 
 export const CentrifugalCompressor = ({
   color,
@@ -4351,7 +4356,8 @@ export const FlameArrestor = ({
 );
 
 export interface FlameArrestorDetonationProps
-  extends DivProps, SVGBasedPrimitiveProps {}
+  extends DivProps,
+    SVGBasedPrimitiveProps {}
 
 export const FlameArrestorDetonation = ({
   color,
@@ -4466,7 +4472,8 @@ export const FlameArrestorFireRes = ({
 );
 
 export interface FlameArrestorFireResDetonationProps
-  extends DivProps, SVGBasedPrimitiveProps {}
+  extends DivProps,
+    SVGBasedPrimitiveProps {}
 
 export const FlameArrestorFireResDetonation = ({
   color,

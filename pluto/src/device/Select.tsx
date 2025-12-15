@@ -55,8 +55,7 @@ const listItemRenderProp = Component.renderProp(
 );
 
 export interface SelectSingleProps
-  extends
-    Omit<
+  extends Omit<
       Select.SingleProps<device.Key, device.Device | undefined>,
       "resourceName" | "data" | "getItem" | "subscribe" | "children"
     >,

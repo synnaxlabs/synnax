@@ -29,10 +29,8 @@ export interface MultipleEntry<K extends record.Key> extends record.KeyedNamed<K
   alias?: string;
 }
 
-export interface MultipleTagProps<K extends record.Key> extends Omit<
-  Tag.TagProps,
-  "onDragStart"
-> {
+export interface MultipleTagProps<K extends record.Key>
+  extends Omit<Tag.TagProps, "onDragStart"> {
   itemKey: K;
   onDragStart: (key: K) => void;
 }
@@ -64,10 +62,8 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
 
 const multipleTag = renderProp(MultipleTag);
 
-export interface MultipleTriggerProps<K extends record.Key> extends Pick<
-  Button.ButtonProps,
-  "variant" | "disabled"
-> {
+export interface MultipleTriggerProps<K extends record.Key>
+  extends Pick<Button.ButtonProps, "variant" | "disabled"> {
   haulType?: string;
   placeholder?: ReactNode;
   icon?: Icon.ReactElement;

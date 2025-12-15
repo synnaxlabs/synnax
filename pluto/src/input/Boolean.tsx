@@ -14,7 +14,8 @@ import { CSS } from "@/css";
 import { type InputProps } from "@/input/types";
 
 export interface BooleanProps
-  extends Omit<InputProps<boolean>, "onClick">, Omit<Button.ExtensionProps, "variant"> {
+  extends Omit<InputProps<boolean>, "onClick">,
+    Omit<Button.ExtensionProps, "variant"> {
   inputType: "switch" | "checkbox";
   onClick?: (e: React.MouseEvent<HTMLElement>) => void;
 }

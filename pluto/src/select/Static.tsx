@@ -22,9 +22,7 @@ export interface StaticEntry<K extends record.Key> extends record.KeyedNamed<K> 
 export interface StaticProps<
   K extends record.Key,
   E extends StaticEntry<K> = StaticEntry<K>,
->
-  extends
-    optional.Optional<
+> extends optional.Optional<
       Omit<SingleProps<K, E>, "data" | "getItem" | "subscribe">,
       "children"
     >,

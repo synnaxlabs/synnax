@@ -13,10 +13,8 @@ import { type ReactElement, useCallback } from "react";
 
 import { useCopyLinkToClipboard } from "@/cluster/useCopyLinkToClipboard";
 
-export interface CopyLinkToolbarButtonProps extends Omit<
-  Button.ButtonProps,
-  "children"
-> {
+export interface CopyLinkToolbarButtonProps
+  extends Omit<Button.ButtonProps, "children"> {
   name: string;
   ontologyID: ontology.ID;
 }

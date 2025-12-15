@@ -28,10 +28,11 @@ import { Item } from "@/status/list/Item";
 import { Filters, SelectFilters } from "@/status/list/SelectFilters";
 import { CreateButton } from "@/status/Select";
 
-export interface ListProps extends Pick<
-  Flux.UseListReturn<PList.PagerParams, status.Key, status.Status>,
-  "data" | "getItem" | "subscribe" | "retrieve"
-> {
+export interface ListProps
+  extends Pick<
+    Flux.UseListReturn<PList.PagerParams, status.Key, status.Status>,
+    "data" | "getItem" | "subscribe" | "retrieve"
+  > {
   enableSearch?: boolean;
   enableFilters?: boolean;
   initialRequest?: status.MultiRetrieveArgs;

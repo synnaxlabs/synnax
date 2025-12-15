@@ -17,8 +17,7 @@ import { useMemoDeepEqual } from "@/memo";
 import { control } from "@/telem/control/aether";
 
 export interface ControllerProps
-  extends
-    Omit<z.input<typeof control.controllerStateZ>, "needsControlOf">,
+  extends Omit<z.input<typeof control.controllerStateZ>, "needsControlOf">,
     PropsWithChildren {
   onStatusChange?: (status: control.Status) => void;
   name: string;

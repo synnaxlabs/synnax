@@ -17,10 +17,8 @@ import { Flex } from "@/flex";
 import { useData } from "@/list/Frame";
 import { type ItemRenderProp } from "@/list/Item";
 
-export interface ItemsProps<K extends record.Key = record.Key> extends Omit<
-  Flex.BoxProps,
-  "children" | "ref"
-> {
+export interface ItemsProps<K extends record.Key = record.Key>
+  extends Omit<Flex.BoxProps, "children" | "ref"> {
   children: ItemRenderProp<K>;
   emptyContent?: ReactNode;
   displayItems?: number;

@@ -21,8 +21,7 @@ import { control } from "@/telem/control/aether";
 import { Text } from "@/text";
 
 export interface ChipProps
-  extends
-    Pick<z.input<typeof control.chipStateZ>, "source" | "sink">,
+  extends Pick<z.input<typeof control.chipStateZ>, "source" | "sink">,
     Omit<Button.ButtonProps, "onClick" | "children"> {}
 
 interface ChipStyle {

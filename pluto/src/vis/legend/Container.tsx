@@ -21,7 +21,8 @@ import { state } from "@/state";
 import { preventDefault } from "@/util/event";
 
 export interface ContainerProps
-  extends Omit<Flex.BoxProps, "onChange">, Partial<OptionalControl<sticky.XY>> {
+  extends Omit<Flex.BoxProps, "onChange">,
+    Partial<OptionalControl<sticky.XY>> {
   dragEnabled?: boolean;
   initial?: sticky.XY;
 }

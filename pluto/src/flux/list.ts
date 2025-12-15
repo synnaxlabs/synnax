@@ -147,9 +147,9 @@ export interface ListMountListenersParams<
   Data extends record.Keyed<Key>,
   Store extends flux.Store,
 > extends Omit<
-  RetrieveMountListenersParams<Query, Data[], Store>,
-  "onChange" | "query"
-> {
+    RetrieveMountListenersParams<Query, Data[], Store>,
+    "onChange" | "query"
+  > {
   query: Partial<Query>;
   onChange: OnListChange<Key, Data>;
   onDelete: (key: Key) => void;
@@ -448,10 +448,8 @@ export const createList =
     };
   };
 
-export interface UseListItemArgs<
-  K extends record.Key,
-  E extends record.Keyed<K>,
-> extends Pick<UseListReturn<core.Shape, K, E>, "subscribe" | "getItem"> {
+export interface UseListItemArgs<K extends record.Key, E extends record.Keyed<K>>
+  extends Pick<UseListReturn<core.Shape, K, E>, "subscribe" | "getItem"> {
   key: K;
 }
 

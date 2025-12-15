@@ -20,7 +20,8 @@ import { CSS } from "@/css";
 import { Runtime } from "@/runtime";
 
 export interface InputFilePathProps
-  extends Input.Control<string>, Omit<Flex.BoxProps, "value" | "onChange"> {
+  extends Input.Control<string>,
+    Omit<Flex.BoxProps, "value" | "onChange"> {
   filters?: DialogFilter[];
 }
 
@@ -74,10 +75,8 @@ export const InputFilePath = ({
   );
 };
 
-export interface InputFileContentsProps<P extends z.ZodType = z.ZodString> extends Omit<
-  InputFilePathProps,
-  "value" | "onChange"
-> {
+export interface InputFileContentsProps<P extends z.ZodType = z.ZodString>
+  extends Omit<InputFilePathProps, "value" | "onChange"> {
   onChange: (value: z.infer<P>, path: string) => void;
   initialPath?: string;
   schema?: P;
