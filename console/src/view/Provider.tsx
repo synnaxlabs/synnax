@@ -95,20 +95,22 @@ export const Provider = ({ resourceType, children }: ProviderProps): ReactElemen
   );
 
   return (
-    <Context value={contextValue}>
-      <Selector
-        showEditButton={staticViewKeys.includes(selected) ? true : canUpdateView}
-        editable={editable}
-        onEditableClick={() => setEditable((prev) => !prev)}
-        resourceType={resourceType}
-        onFetchMore={handleFetchMore}
-        staticViews={staticViews}
-        onSelect={setSelected}
-        listProps={combinedProps}
-        selected={selected}
-      />
-      <Fragment key={selected}>{children}</Fragment>
-    </Context>
+    <Flex.Box full="y" empty>
+      <Context value={contextValue}>
+        <Selector
+          showEditButton={staticViewKeys.includes(selected) ? true : canUpdateView}
+          editable={editable}
+          onEditableClick={() => setEditable((prev) => !prev)}
+          resourceType={resourceType}
+          onFetchMore={handleFetchMore}
+          staticViews={staticViews}
+          onSelect={setSelected}
+          listProps={combinedProps}
+          selected={selected}
+        />
+        <Fragment key={selected}>{children}</Fragment>
+      </Context>
+    </Flex.Box>
   );
 };
 
