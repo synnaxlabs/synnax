@@ -14,8 +14,10 @@ import { Aether } from "@/aether";
 import { useMemoDeepEqual } from "@/memo";
 import { toggle } from "@/vis/toggle/aether";
 
-export interface UseProps
-  extends Pick<z.input<typeof toggle.toggleStateZ>, "source" | "sink"> {
+export interface UseProps extends Pick<
+  z.input<typeof toggle.toggleStateZ>,
+  "source" | "sink"
+> {
   aetherKey: string;
 }
 

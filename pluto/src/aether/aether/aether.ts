@@ -263,8 +263,7 @@ export abstract class Leaf<
   StateSchema extends z.ZodType<state.State>,
   InternalState extends {} = {},
   Methods extends MethodsSchema = EmptyMethodsSchema,
-> implements Component
-{
+> implements Component {
   readonly type: string;
   readonly key: string;
 

@@ -26,7 +26,8 @@ import { Text } from "@/text";
 import { rule } from "@/vis/rule/aether";
 
 export interface RuleProps
-  extends Omit<z.input<typeof rule.ruleStateZ>, "dragging" | "pixelPosition">,
+  extends
+    Omit<z.input<typeof rule.ruleStateZ>, "dragging" | "pixelPosition">,
     Omit<Flex.BoxProps, "color">,
     Aether.ComponentProps {
   label?: string;

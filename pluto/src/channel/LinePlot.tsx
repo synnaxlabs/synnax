@@ -205,16 +205,15 @@ export const LinePlot = ({
   );
 };
 
-interface XAxisProps
-  extends Pick<
-    LinePlotProps,
-    | "onRuleChange"
-    | "lines"
-    | "rules"
-    | "onAxisChannelDrop"
-    | "onAxisChange"
-    | "onSelectRule"
-  > {
+interface XAxisProps extends Pick<
+  LinePlotProps,
+  | "onRuleChange"
+  | "lines"
+  | "rules"
+  | "onAxisChannelDrop"
+  | "onAxisChange"
+  | "onSelectRule"
+> {
   axis: AxisProps;
   yAxes: AxisProps[];
   index: number;
@@ -296,16 +295,15 @@ const XAxis = ({
   );
 };
 
-interface YAxisProps
-  extends Pick<
-    LinePlotProps,
-    | "onRuleChange"
-    | "lines"
-    | "rules"
-    | "onAxisChannelDrop"
-    | "onAxisChange"
-    | "onSelectRule"
-  > {
+interface YAxisProps extends Pick<
+  LinePlotProps,
+  | "onRuleChange"
+  | "lines"
+  | "rules"
+  | "onAxisChannelDrop"
+  | "onAxisChange"
+  | "onSelectRule"
+> {
   axis: AxisProps;
 }
 
