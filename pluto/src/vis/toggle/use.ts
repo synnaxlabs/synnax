@@ -14,13 +14,17 @@ import { Aether } from "@/aether";
 import { useMemoDeepEqual } from "@/memo";
 import { toggle } from "@/vis/toggle/aether";
 
-export interface UseProps
-  extends Pick<z.input<typeof toggle.toggleStateZ>, "source" | "sink"> {
+export interface UseProps extends Pick<
+  z.input<typeof toggle.toggleStateZ>,
+  "source" | "sink"
+> {
   aetherKey: string;
 }
 
-export interface UseReturn
-  extends Pick<z.infer<typeof toggle.toggleStateZ>, "enabled"> {
+export interface UseReturn extends Pick<
+  z.infer<typeof toggle.toggleStateZ>,
+  "enabled"
+> {
   toggle: () => void;
 }
 

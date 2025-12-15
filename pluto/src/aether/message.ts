@@ -49,16 +49,17 @@ export interface AetherErrorMessage {
 /** A message from the main thread invoking a method on a worker component. */
 export interface MainInvokeRequest {
   variant: "invoke_request";
-  /** Correlation ID for matching response. Format: `${componentKey}-${counter}` */
-  key: string;
+  /**
+   * Correlation ID for matching response. Format: `${componentKey}-${counter}`.
+   * If undefined, this is a fire-and-forget call and no response will be sent.
+   */
+  key?: string;
   /** The path of the component to invoke the method on. */
   path: string[];
   /** The method name to invoke. */
   method: string;
   /** The arguments to pass to the method (spread when calling handler). */
   args: unknown[];
-  /** Whether the caller expects a response. False for fire-and-forget void methods. */
-  expectsResponse: boolean;
 }
 
 /** A message from the worker thread responding to a main invoke request. */

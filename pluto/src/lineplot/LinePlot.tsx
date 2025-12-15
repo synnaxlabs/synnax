@@ -106,7 +106,8 @@ export interface LinePlotRef {
 type LineState = LineSpec[];
 
 export interface LinePlotProps
-  extends PropsWithChildren,
+  extends
+    PropsWithChildren,
     Partial<
       Pick<
         z.input<typeof lineplot.linePlotStateZ>,

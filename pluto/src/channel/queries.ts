@@ -471,8 +471,10 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
 
 const ALIAS_RESOURCE_NAME = "channel alias";
 
-export interface UpdateAliasParams
-  extends optional.Optional<ranger.Alias, "range" | "channel"> {
+export interface UpdateAliasParams extends optional.Optional<
+  ranger.Alias,
+  "range" | "channel"
+> {
   alias: string;
 }
 

@@ -626,7 +626,6 @@ describe("Aether Worker", () => {
           key: "req-1",
           path: [],
           args: [5],
-          expectsResponse: true,
           method: "increment",
         });
         await scheduler.flushTaskQueue();
@@ -644,7 +643,6 @@ describe("Aether Worker", () => {
           key: "req-2",
           path: [],
           args: [{ name: "World" }],
-          expectsResponse: true,
           method: "greet",
         });
         await scheduler.flushTaskQueue();
@@ -659,10 +657,8 @@ describe("Aether Worker", () => {
 
       it("should handle methods with no args (fire-and-forget)", async () => {
         leaf._invokeMethod({
-          key: "req-3",
           path: [],
           args: [],
-          expectsResponse: false,
           method: "noArgs",
         });
         await scheduler.flushTaskQueue();
@@ -676,7 +672,6 @@ describe("Aether Worker", () => {
           key: "req-4",
           path: [],
           args: [10],
-          expectsResponse: true,
           method: "asyncMethod",
         });
 
@@ -690,12 +685,11 @@ describe("Aether Worker", () => {
         });
       });
 
-      it("should send error response when handler throws (expectsResponse=true)", async () => {
+      it("should send error response when handler throws (key defined)", async () => {
         leaf._invokeMethod({
           key: "req-5",
           path: [],
           args: [],
-          expectsResponse: true,
           method: "throwError",
         });
 
@@ -717,10 +711,8 @@ describe("Aether Worker", () => {
       it("should log error but not send response when handler throws (fire-and-forget)", async () => {
         const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
         leaf._invokeMethod({
-          key: "req-5b",
           path: [],
           args: [],
-          expectsResponse: false,
           method: "throwError",
         });
         await scheduler.flushTaskQueue();
@@ -731,12 +723,11 @@ describe("Aether Worker", () => {
         consoleSpy.mockRestore();
       });
 
-      it("should send error response for unknown method when expectsResponse=true", () => {
+      it("should send error response for unknown method when key defined", () => {
         leaf._invokeMethod({
           key: "req-6",
           path: [],
           args: [],
-          expectsResponse: true,
           method: "unknownMethod",
         });
 
@@ -758,7 +749,6 @@ describe("Aether Worker", () => {
           key: "req-7",
           path: [],
           args: [5],
-          expectsResponse: true,
           method: "increment",
         });
 

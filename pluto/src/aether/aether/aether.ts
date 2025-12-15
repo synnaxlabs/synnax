@@ -51,8 +51,10 @@ interface CreateComponent {
   (initialParentCtxValues: ContextMap): Component;
 }
 
-export interface UpdateStateParams
-  extends Pick<MainUpdateRequest, "path" | "type" | "state"> {
+export interface UpdateStateParams extends Pick<
+  MainUpdateRequest,
+  "path" | "type" | "state"
+> {
   create: CreateComponent;
 }
 
@@ -99,10 +101,10 @@ export interface Component {
    * Invokes a method on this component. This is called by the Root when
    * a MainInvokeRequest is received.
    *
-   * @param key - The correlation ID for matching the response.
+   * @param key - The correlation ID for matching the response. If undefined,
+   *              this is fire-and-forget and no response will be sent.
    * @param method - The name of the method to invoke.
    * @param args - The arguments to pass to the method (spread when calling handler).
-   * @param expectsResponse - Whether to send a response back to the caller.
    */
   _invokeMethod: (params: InvokeMethodParams) => void;
 }
@@ -263,8 +265,7 @@ export abstract class Leaf<
   StateSchema extends z.ZodType<state.State>,
   InternalState extends {} = {},
   Methods extends MethodsSchema = EmptyMethodsSchema,
-> implements Component
-{
+> implements Component {
   readonly type: string;
   readonly key: string;
 
@@ -479,9 +480,10 @@ export abstract class Leaf<
   }
 
   protected handleInvokeError(
-    { expectsResponse, method, key, args }: InvokeMethodParams,
+    { method, key, args }: InvokeMethodParams,
     error: unknown,
   ) {
+    const expectsResponse = key != null;
     if (!expectsResponse)
       return console.error(
         `Error in fire and forget method ${method} on ${this.toString()}`,
@@ -503,7 +505,8 @@ export abstract class Leaf<
 
   _invokeMethod(params: InvokeMethodParams): void {
     if (this.deleted) return;
-    const { method, key, args, expectsResponse } = params;
+    const { method, key, args } = params;
+    const expectsResponse = key != null;
     const methodFn = this._methodImplementations?.[method];
     if (methodFn == null)
       return this.handleInvokeError(
@@ -532,11 +535,11 @@ export abstract class Leaf<
  * be used directly.
  */
 export abstract class Composite<
-    StateSchema extends z.ZodType<state.State>,
-    InternalState extends {} = {},
-    ChildComponents extends Component = Component,
-    M extends MethodsSchema = EmptyMethodsSchema,
-  >
+  StateSchema extends z.ZodType<state.State>,
+  InternalState extends {} = {},
+  ChildComponents extends Component = Component,
+  M extends MethodsSchema = EmptyMethodsSchema,
+>
   extends Leaf<StateSchema, InternalState, M>
   implements Component
 {
@@ -796,14 +799,13 @@ export class Root extends Composite<typeof aetherRootState> {
   }
 
   private invokeAtPath(params: InvokeMethodParams): void {
-    const { path, expectsResponse } = params;
+    const { path } = params;
     const [rootKey, ...childPath] = path;
     if (rootKey !== Root.KEY) {
-      if (expectsResponse)
-        this.handleInvokeError(
-          params,
-          new Error(`Invalid path: expected root key '${Root.KEY}', got '${rootKey}'`),
-        );
+      this.handleInvokeError(
+        params,
+        new Error(`Invalid path: expected root key '${Root.KEY}', got '${rootKey}'`),
+      );
       return;
     }
 
@@ -814,11 +816,10 @@ export class Root extends Composite<typeof aetherRootState> {
 
     const component = this.findChildAtPath(childPath);
     if (component == null) {
-      if (expectsResponse)
-        this.handleInvokeError(
-          params,
-          new NotFoundError(`Component at path ${path.join(".")} not found`),
-        );
+      this.handleInvokeError(
+        params,
+        new NotFoundError(`Component at path ${path.join(".")} not found`),
+      );
       return;
     }
 

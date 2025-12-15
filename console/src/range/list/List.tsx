@@ -30,7 +30,8 @@ import { Item, type ItemProps } from "@/range/list/Item";
 import { Filters, SelectFilters } from "@/range/list/SelectFilters";
 
 export interface ListProps
-  extends Pick<
+  extends
+    Pick<
       Flux.UseListReturn<PList.PagerParams, ranger.Key, ranger.Range>,
       "data" | "getItem" | "subscribe" | "retrieve"
     >,

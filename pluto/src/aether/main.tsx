@@ -225,14 +225,7 @@ export const Provider = ({
           worker?.send({ variant: "delete", path, type });
         },
         invokeMethod: (method: string, args: unknown[]): void => {
-          worker?.send({
-            variant: "invoke_request",
-            key: "",
-            path,
-            method,
-            args,
-            expectsResponse: false,
-          });
+          worker?.send({ variant: "invoke_request", path, method, args });
         },
         invokeMethodAsync: <R,>(
           method: string,
@@ -256,7 +249,6 @@ export const Provider = ({
               path,
               method,
               args,
-              expectsResponse: true,
             });
           }),
       };
@@ -504,8 +496,9 @@ export interface UseUnidirectionalProps<
   state: z.input<S>;
 }
 
-export interface UseUnidirectionalReturn<M extends MethodsSchema = EmptyMethodsSchema>
-  extends ComponentContext {
+export interface UseUnidirectionalReturn<
+  M extends MethodsSchema = EmptyMethodsSchema,
+> extends ComponentContext {
   methods: CallersFromSchema<M>;
 }
 

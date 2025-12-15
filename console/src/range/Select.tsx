@@ -26,11 +26,10 @@ import { useSelect, useSelectMultiple } from "@/range/selectors";
 import { type Range } from "@/range/slice";
 import { type DynamicRange, type StaticRange } from "@/range/types";
 
-interface SelectMultipleRangesProps
-  extends Omit<
-    Select.MultipleProps<string, Range>,
-    "resourceName" | "data" | "children"
-  > {}
+interface SelectMultipleRangesProps extends Omit<
+  Select.MultipleProps<string, Range>,
+  "resourceName" | "data" | "children"
+> {}
 
 const dynamicIcon = (
   <Icon.Dynamic style={{ color: "var(--pluto-error-p1)", filter: "opacity(0.8)" }} />
@@ -119,7 +118,8 @@ const SelectMultipleRanges = (props: SelectMultipleRangesProps): ReactElement =>
 };
 
 export interface SelectMultipleInputItemProps
-  extends Omit<Input.ItemProps, "label" | "onChange" | "children">,
+  extends
+    Omit<Input.ItemProps, "label" | "onChange" | "children">,
     Omit<SelectMultipleRangesProps, "status"> {
   value: string[];
   onChange: (value: string[]) => void;
