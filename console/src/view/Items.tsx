@@ -19,7 +19,7 @@ export interface ItemsProps<
 > extends List.ItemsProps<K> {}
 
 export const Items = <K extends record.Key>(props: ItemsProps<K>): ReactElement => (
-  <List.Items<K> emptyContent={emptyContent} displayItems={Infinity} grow {...props} />
+  <List.Items<K> emptyContent={emptyContent} grow {...props} />
 );
 
 const DefaultEmptyContent = (): ReactElement => {
