@@ -21,6 +21,7 @@ import string
 import sys
 import threading
 import traceback
+from abc import ABC
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -69,7 +70,6 @@ class TestDefinition:
     case: str
     name: str | None = None  # Optional custom name for the test case
     parameters: dict[str, Any | list[Any]] = field(default_factory=dict)
-    expect: str = "PASSED"  # Expected test outcome, defaults to "PASSED"
     matrix: dict[str, list[Any]] | None = None  # Matrix of params to expand
 
     def __str__(self) -> str:
@@ -80,18 +80,18 @@ class TestDefinition:
 
 
 COLORS: list[str] = [
-    "#FF0000",  # Red (0°)
-    "#FF8000",  # Orange (30°)
-    "#FFFF00",  # Yellow (60°)
-    "#80FF80",  # Lime (90°)
-    "#AAFFAA",  # Green (120°)
-    "#00FF80",  # Spring Green (150°)
-    "#00FFFF",  # Cyan (180°)
-    "#0080FF",  # Sky Blue (210°)
-    "#0000FF",  # Blue (240°)
-    "#8000FF",  # Purple (270°)
-    "#FF00FF",  # Magenta (300°)
-    "#FF0080",  # Rose (330°)
+    "#001833",  # Dark Sky Blue (210°)
+    "#003333",  # Dark Cyan (180°)
+    "#003318",  # Dark Spring Green (150°)
+    "#223322",  # Dark Green (120°)
+    "#183318",  # Dark Lime (90°)
+    "#333300",  # Dark Yellow (60°)
+    "#331800",  # Dark Orange (30°)
+    "#330000",  # Dark Red (0°)
+    "#330018",  # Dark Rose (330°)
+    "#330033",  # Dark Magenta (300°)
+    "#180033",  # Dark Purple (270°)
+    "#000033",  # Dark Blue (240°)
 ]
 
 
@@ -416,11 +416,48 @@ class TestConductor:
                 case=test_def.case,
                 name=generated_name,
                 parameters=merged_params,  # Store as single values
-                expect=test_def.expect,
             )
             expanded_tests.append(expanded_test)
 
         return expanded_tests
+
+    def _expand_test_classes(self, test_def: TestDefinition) -> list[TestDefinition]:
+        """
+        Expand a test definition into multiple definitions if the file contains multiple TestCase classes.
+
+        If test_def.name is specified, only that specific class will be loaded.
+        Otherwise, all TestCase subclasses in the module will be loaded.
+
+        Returns:
+            List of TestDefinition objects, one per discovered class.
+        """
+        try:
+            test_classes = self._load_test_classes(test_def)
+
+            if len(test_classes) == 1:
+                # Single class - return as-is
+                return [test_def]
+
+            # Multiple classes found - create a TestDefinition for each
+            expanded_defs = []
+            for test_class in test_classes:
+                # Create new test definition with class name
+                expanded_def = TestDefinition(
+                    case=test_def.case,
+                    name=test_class.__name__,  # Use class name as identifier
+                    parameters=test_def.parameters.copy(),
+                    matrix=test_def.matrix,
+                )
+                expanded_defs.append(expanded_def)
+
+            return expanded_defs
+
+        except Exception as e:
+            self.log_message(
+                f"Warning: Failed to expand test classes for {test_def.case}: {e}"
+            )
+            # Return original definition as fallback
+            return [test_def]
 
     def _process_sequences(self, sequences_array: list[Any]) -> None:
         """Process a list of sequences and populate test_definitions and sequences."""
@@ -449,13 +486,18 @@ class TestConductor:
                     case=test["case"],
                     name=test.get("name", None),
                     parameters=test.get("parameters", {}),
-                    expect=test.get("expect", "PASSED"),
                     matrix=test.get("matrix", None),
                 )
-                expanded_tests = self._expand_parameters(test_def)
-                for expanded_test in expanded_tests:
-                    self.test_definitions.append(expanded_test)
-                    seq_obj["tests"].append(expanded_test)
+
+                # First expand by test classes (file may contain multiple classes)
+                class_expanded_tests = self._expand_test_classes(test_def)
+
+                # Then expand by parameters for each class
+                for class_test_def in class_expanded_tests:
+                    param_expanded_tests = self._expand_parameters(class_test_def)
+                    for expanded_test in param_expanded_tests:
+                        self.test_definitions.append(expanded_test)
+                        seq_obj["tests"].append(expanded_test)
 
             seq_obj["end_idx"] = len(self.test_definitions)
             self.sequences.append(seq_obj)
@@ -763,18 +805,20 @@ class TestConductor:
             except Exception as e:
                 self.log_message(f"Error in status callback: {e}")
 
-    def _load_test_class(self, test_def: TestDefinition) -> type[TestCase]:
-        """Dynamically load a test class from its case identifier."""
+    def _load_test_classes(self, test_def: TestDefinition) -> list[type[TestCase]]:
+        """
+        Dynamically load test class(es) from a case identifier.
+
+        Returns a list of TestCase classes that inherit from TestCase.
+        If a specific class is requested via test_def.name, only that class is returned.
+        Otherwise, all TestCase subclasses in the module are returned.
+        """
         try:
             # Parse the case string as a file path (e.g., "console/pages_open_close")
             case_path = f"tests/{test_def.case}"
 
             # Extract the module name from the path (last part before .py)
             module_name = case_path.split("/")[-1]
-
-            # Convert module_name to PascalCase class name
-            # "pages_open_close" -> "PagesOpenClose"
-            class_name = "".join(word.capitalize() for word in module_name.split("_"))
 
             # Try different possible file paths
             current_dir = os.getcwd()
@@ -800,7 +844,6 @@ class TestConductor:
                 Script directory: {os.path.dirname(os.path.abspath(__file__))}
                 Test case: {test_def.case}
                 Module name: {module_name}
-                Class name: {class_name}
                 Tried paths: {possible_paths}
                 """
                 raise FileNotFoundError(
@@ -825,35 +868,56 @@ class TestConductor:
                 if spec.loader is not None:
                     spec.loader.exec_module(module)
 
-            # Try to get the class by name
-            try:
-                test_class = getattr(module, class_name)
-            except AttributeError:
-                # If exact class name not found, try to find any TestCase subclass
-                # that is defined in this module (not imported from elsewhere)
-                test_classes = [
-                    getattr(module, name)
-                    for name in dir(module)
-                    if (
-                        not name.startswith("_")
-                        and isinstance(getattr(module, name), type)
-                        and issubclass(getattr(module, name), TestCase)
-                        and getattr(module, name) is not TestCase
-                        and getattr(module, name).__module__ == module.__name__
+            # Helper function to check if a class is a valid TestCase subclass
+            def is_valid_test_case(obj: Any) -> bool:
+                try:
+                    return (
+                        isinstance(obj, type)
+                        and not obj.__name__.startswith("_")
+                        and issubclass(obj, TestCase)
+                        and obj is not TestCase
+                        and obj.__module__ == module.__name__
+                        and ABC not in obj.__bases__  # Exclude abstract base classes
                     )
-                ]
-                if test_classes:
-                    test_class = test_classes[
-                        0
-                    ]  # Use the first TestCase subclass found
-                else:
-                    raise AttributeError(f"No TestCase subclass found in {file_path}")
+                except (AttributeError, TypeError):
+                    return False
 
-            if not issubclass(test_class, TestCase):
-                raise TypeError(f"{class_name} is not a subclass of TestCase")
-            return cast(type[TestCase], test_class)
+            # Find all TestCase subclasses in the module
+            test_classes = [
+                getattr(module, name)
+                for name in dir(module)
+                if is_valid_test_case(getattr(module, name))
+            ]
+
+            if not test_classes:
+                raise AttributeError(f"No TestCase subclass found in {file_path}")
+
+            # If a specific class name is provided, filter to that class
+            if test_def.name:
+                # Try to find class matching the provided name
+                matching_classes = [
+                    cls for cls in test_classes if cls.__name__ == test_def.name
+                ]
+                if matching_classes:
+                    return [matching_classes[0]]
+                # If no exact match, return all classes (name might be for display only)
+
+            return test_classes
+
         except Exception as e:
-            raise ImportError(f"Failed to load test class from {test_def.case}: {e}\n")
+            raise ImportError(
+                f"Failed to load test class(es) from {test_def.case}: {e}\n"
+            )
+
+    def _load_test_class(self, test_def: TestDefinition) -> type[TestCase]:
+        """
+        Dynamically load a single test class from its case identifier.
+
+        This method maintains backward compatibility by returning a single class.
+        If multiple classes are found, returns the first one.
+        """
+        classes = self._load_test_classes(test_def)
+        return classes[0]
 
     def _execute_single_test(self, test_def: TestDefinition) -> Test:
         """Execute a single test case."""
@@ -883,7 +947,6 @@ class TestConductor:
             test_instance = test_class(
                 synnax_connection=self.synnax_connection,
                 name=test_def.name or test_def.case.split("/")[-1],
-                expect=test_def.expect,
                 **test_def.parameters,
             )
 
@@ -1266,10 +1329,17 @@ def main() -> None:
         default=False,
         help="Run Playwright Console tests in headed mode (sets PLAYWRIGHT_CONSOLE_HEADED environment variable)",
     )
+    parser.add_argument(
+        "--driver",
+        "-d",
+        help="Driver rack name to use for driver tests (sets SYNNAX_DRIVER_RACK environment variable)",
+    )
 
     args = parser.parse_args()
 
     os.environ["PLAYWRIGHT_CONSOLE_HEADED"] = "1" if args.headed else "0"
+    if args.driver:
+        os.environ["SYNNAX_DRIVER_RACK"] = args.driver
 
     # Create connection object
     connection = SynnaxConnection(

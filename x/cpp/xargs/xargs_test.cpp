@@ -9,8 +9,8 @@
 
 #include "gtest/gtest.h"
 
-/// local
 #include "x/cpp/xargs/xargs.h"
+#include "x/cpp/xtest/xtest.h"
 
 class XArgsTest : public ::testing::Test {
 protected:
@@ -29,36 +29,40 @@ protected:
         delete[] argv;
     }
 
-    xargs::Parser parser{0, nullptr}; // Default initialized, will be replaced in tests
+    xargs::Parser parser{0, nullptr};
 };
 
+/// @brief it should correctly parse a required string argument.
 TEST_F(XArgsTest, TestRequiredStringHappyPath) {
     auto [argc, argv] = make_args({"program", "--name", "test"});
     parser = xargs::Parser(argc, argv);
     const auto name = parser.field<std::string>("--name");
-    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_NIL(parser.error());
     ASSERT_EQ(name, "test");
     cleanup(argc, argv);
 }
 
+/// @brief it should return an error when a required string argument is missing.
 TEST_F(XArgsTest, TestRequiredStringMissing) {
     auto [argc, argv] = make_args({"program"});
     parser = xargs::Parser(argc, argv);
     auto name = parser.field<std::string>("--name");
     EXPECT_FALSE(parser.errors.empty());
-    ASSERT_EQ(parser.errors.at(0).message(), "[--name] Required argument not found");
+    ASSERT_EQ(parser.errors.at(0).data, "--name: required argument not found");
     cleanup(argc, argv);
 }
 
+/// @brief it should correctly parse a required integer argument.
 TEST_F(XArgsTest, TestRequiredIntegerHappyPath) {
     auto [argc, argv] = make_args({"program", "--count", "42"});
     parser = xargs::Parser(argc, argv);
     const auto count = parser.field<int>("--count");
-    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_NIL(parser.error());
     ASSERT_EQ(count, 42);
     cleanup(argc, argv);
 }
 
+/// @brief it should return an error when an integer argument has an invalid format.
 TEST_F(XArgsTest, TestRequiredIntegerInvalidFormat) {
     auto [argc, argv] = make_args({"program", "--count", "not_a_number"});
     parser = xargs::Parser(argc, argv);
@@ -69,24 +73,27 @@ TEST_F(XArgsTest, TestRequiredIntegerInvalidFormat) {
     cleanup(argc, argv);
 }
 
+/// @brief it should return the default value when an optional argument is missing.
 TEST_F(XArgsTest, TestOptionalWithDefault) {
     auto [argc, argv] = make_args({"program"});
     parser = xargs::Parser(argc, argv);
     const auto count = parser.field<int>("--count", 100);
-    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_NIL(parser.error());
     ASSERT_EQ(count, 100);
     cleanup(argc, argv);
 }
 
+/// @brief it should use the provided value over the default for optional arguments.
 TEST_F(XArgsTest, TestOptionalWithValue) {
     auto [argc, argv] = make_args({"program", "--count", "42"});
     parser = xargs::Parser(argc, argv);
     const auto count = parser.field<int>("--count", 100);
-    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_NIL(parser.error());
     ASSERT_EQ(count, 42);
     cleanup(argc, argv);
 }
 
+/// @brief it should correctly parse boolean flags.
 TEST_F(XArgsTest, TestFlag) {
     auto [argc, argv] = make_args({"program", "--verbose"});
     parser = xargs::Parser(argc, argv);
@@ -95,6 +102,7 @@ TEST_F(XArgsTest, TestFlag) {
     cleanup(argc, argv);
 }
 
+/// @brief it should correctly parse multiple arguments of different types.
 TEST_F(XArgsTest, TestMultipleArguments) {
     auto [argc, argv] = make_args(
         {"program", "--name", "test", "--count", "42", "--verbose"}
@@ -103,22 +111,24 @@ TEST_F(XArgsTest, TestMultipleArguments) {
     const auto name = parser.field<std::string>("--name");
     const auto count = parser.field<int>("--count");
     const auto verbose = parser.flag("--verbose");
-    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_NIL(parser.error());
     ASSERT_EQ(name, "test");
     ASSERT_EQ(count, 42);
     ASSERT_TRUE(verbose);
     cleanup(argc, argv);
 }
 
+/// @brief it should return a validation error when a required argument is missing.
 TEST_F(XArgsTest, TestError) {
     auto [argc, argv] = make_args({"program"});
     parser = xargs::Parser(argc, argv);
-    ASSERT_EQ(parser.error(), xerrors::NIL);
+    ASSERT_NIL(parser.error());
     parser.field<std::string>("--name");
-    ASSERT_NE(parser.error(), xerrors::NIL);
+    ASSERT_OCCURRED_AS(parser.error(), xerrors::VALIDATION);
     cleanup(argc, argv);
 }
 
+/// @brief it should correctly parse file path arguments with dashes.
 TEST(XArgs, Regression) {
     auto parser = xargs::Parser(
         std::vector<std::string>{
@@ -131,33 +141,37 @@ TEST(XArgs, Regression) {
     ASSERT_EQ(value, "/tmp/rack-config-test/state.json");
 }
 
+/// @brief it should correctly parse string arguments using equals format.
 TEST_F(XArgsTest, TestEqualsFormatString) {
     auto [argc, argv] = make_args({"program", "--name=test"});
     parser = xargs::Parser(argc, argv);
     const auto name = parser.field<std::string>("--name");
-    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_NIL(parser.error());
     ASSERT_EQ(name, "test");
     cleanup(argc, argv);
 }
 
+/// @brief it should correctly parse integer arguments using equals format.
 TEST_F(XArgsTest, TestEqualsFormatInteger) {
     auto [argc, argv] = make_args({"program", "--count=42"});
     parser = xargs::Parser(argc, argv);
     const auto count = parser.field<int>("--count");
-    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_NIL(parser.error());
     ASSERT_EQ(count, 42);
     cleanup(argc, argv);
 }
 
+/// @brief it should correctly parse optional arguments using equals format.
 TEST_F(XArgsTest, TestEqualsFormatOptional) {
     auto [argc, argv] = make_args({"program", "--value=123"});
     parser = xargs::Parser(argc, argv);
     const auto value = parser.field<int>("--value", 100);
-    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_NIL(parser.error());
     ASSERT_EQ(value, 123);
     cleanup(argc, argv);
 }
 
+/// @brief it should return an error for invalid integer values in equals format.
 TEST_F(XArgsTest, TestEqualsFormatInvalid) {
     auto [argc, argv] = make_args({"program", "--count=not_a_number"});
     parser = xargs::Parser(argc, argv);
@@ -168,6 +182,7 @@ TEST_F(XArgsTest, TestEqualsFormatInvalid) {
     cleanup(argc, argv);
 }
 
+/// @brief it should correctly parse a mix of space and equals format arguments.
 TEST_F(XArgsTest, TestMixedFormatArguments) {
     auto [argc, argv] = make_args(
         {"program", "--name=test", "--count", "42", "--verbose", "--debug=true"}
@@ -178,7 +193,7 @@ TEST_F(XArgsTest, TestMixedFormatArguments) {
     const auto verbose = parser.flag("--verbose");
     const auto debug = parser.flag("--debug");
 
-    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_NIL(parser.error());
     ASSERT_EQ(name, "test");
     ASSERT_EQ(count, 42);
     ASSERT_TRUE(verbose);
@@ -186,6 +201,7 @@ TEST_F(XArgsTest, TestMixedFormatArguments) {
     cleanup(argc, argv);
 }
 
+/// @brief it should correctly handle different prefix styles for arguments.
 TEST_F(XArgsTest, TestPrefixHandling) {
     auto [argc, argv] = make_args(
         {"program", "--long-flag", "-v", "--unprefixed=value", "-f", "file.txt"}
@@ -200,10 +216,11 @@ TEST_F(XArgsTest, TestPrefixHandling) {
     ASSERT_EQ(parser.field<std::string>("-f"), "file.txt"); // Preserve single -
     ASSERT_EQ(parser.field<std::string>("unprefixed"), "value"); // Auto-add --
 
-    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_NIL(parser.error());
     cleanup(argc, argv);
 }
 
+/// @brief it should correctly parse single letter flags with various prefixes.
 TEST_F(XArgsTest, TestSingleLetterFlags) {
     auto [argc, argv] = make_args({"program", "-v", "--f", "-x=true"});
     parser = xargs::Parser(argc, argv);
@@ -217,21 +234,25 @@ TEST_F(XArgsTest, TestSingleLetterFlags) {
     ASSERT_TRUE(parser.flag("--f")); // Should match --f
     ASSERT_TRUE(parser.flag("x")); // Should match -x=true
 
-    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_NIL(parser.error());
     cleanup(argc, argv);
 }
 
+/// @brief it should handle null pointer arguments gracefully.
 TEST_F(XArgsTest, TestNullPointerHandling) {
     // Test with nullptr argv
     parser = xargs::Parser(0, nullptr);
     EXPECT_TRUE(parser.argv_.empty());
-    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_NIL(parser.error());
 
     // Verify behavior when trying to access values
     const auto required_str = parser.field<std::string>("test");
     EXPECT_TRUE(required_str.empty());
     EXPECT_FALSE(parser.errors.empty());
-    EXPECT_EQ(parser.errors[0].message(), "[test] Required argument not found");
+    EXPECT_EQ(
+        parser.errors[0].message(),
+        "[sy.validation] test: required argument not found"
+    );
 
     // Clear errors for next test
     parser.errors.clear();
@@ -239,19 +260,20 @@ TEST_F(XArgsTest, TestNullPointerHandling) {
     // Test optional values
     const auto optional_str = parser.field<std::string>("test", "default");
     EXPECT_EQ(optional_str, "default");
-    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_NIL(parser.error());
 
     // Test flags
     EXPECT_FALSE(parser.flag("test"));
-    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_NIL(parser.error());
 
     // Test with zero argc but non-null argv
     char *dummy_argv[] = {nullptr};
     parser = xargs::Parser(0, dummy_argv);
     EXPECT_TRUE(parser.argv_.empty());
-    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_NIL(parser.error());
 }
 
+/// @brief it should handle unusual argument names and edge cases.
 TEST_F(XArgsTest, TestWeirdArgumentNames) {
     auto [argc, argv] = make_args(
         {"program",
@@ -302,6 +324,7 @@ TEST_F(XArgsTest, TestWeirdArgumentNames) {
     cleanup(argc, argv);
 }
 
+/// @brief it should use the last value when duplicate arguments are provided.
 TEST_F(XArgsTest, TestDuplicateArguments) {
     auto [argc, argv] = make_args(
         {"program",
@@ -322,13 +345,14 @@ TEST_F(XArgsTest, TestDuplicateArguments) {
     const auto count = parser.field<int>("count");
     const auto verbose = parser.flag("verbose");
 
-    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_NIL(parser.error());
     ASSERT_EQ(name, "second");
     ASSERT_EQ(count, 20);
     ASSERT_TRUE(verbose); // Last --verbose flag wins
     cleanup(argc, argv);
 }
 
+/// @brief it should normalize dashes and underscores in argument names.
 TEST_F(XArgsTest, TestRegressionDash) {
     auto [argc, argv] = make_args({
         "program",
@@ -337,11 +361,12 @@ TEST_F(XArgsTest, TestRegressionDash) {
     parser = xargs::Parser(argc, argv);
 
     const auto correct_skew = parser.field<bool>("correct_skew");
-    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_NIL(parser.error());
     ASSERT_TRUE(correct_skew);
     cleanup(argc, argv);
 }
 
+/// @brief it should correctly parse comma-separated vector arguments.
 TEST_F(XArgsTest, TestVectorArguments) {
     auto [argc, argv] = make_args(
         {"program",
@@ -353,7 +378,7 @@ TEST_F(XArgsTest, TestVectorArguments) {
 
     // Test string vector
     auto strings = parser.field<std::vector<std::string>>("strings");
-    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_NIL(parser.error());
     ASSERT_EQ(strings.size(), 3);
     ASSERT_EQ(strings[0], "dog");
     ASSERT_EQ(strings[1], "cat");
@@ -361,14 +386,14 @@ TEST_F(XArgsTest, TestVectorArguments) {
 
     // Test integer vector
     auto numbers = parser.field<std::vector<int>>("numbers");
-    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_NIL(parser.error());
     ASSERT_EQ(numbers.size(), 5);
     ASSERT_EQ(numbers[0], 1);
     ASSERT_EQ(numbers[4], 5);
 
     // Test double vector
     auto doubles = parser.field<std::vector<double>>("doubles");
-    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_NIL(parser.error());
     ASSERT_EQ(doubles.size(), 3);
     ASSERT_DOUBLE_EQ(doubles[0], 1.5);
     ASSERT_DOUBLE_EQ(doubles[1], 2.7);
@@ -377,7 +402,7 @@ TEST_F(XArgsTest, TestVectorArguments) {
     // Test optional vector with default
     std::vector<int> default_vec = {1, 2, 3};
     auto optional_nums = parser.field<std::vector<int>>("missing", default_vec);
-    EXPECT_TRUE(parser.errors.empty());
+    ASSERT_NIL(parser.error());
     ASSERT_EQ(optional_nums, default_vec);
 
     cleanup(argc, argv);

@@ -25,8 +25,10 @@ export interface BaseProps<R, A extends BaseArgs<R>> {
   onFinish: (value: R | null) => void;
 }
 
-export interface LayoutOverrides
-  extends Omit<Partial<Layout.BaseState>, "type" | "location"> {}
+export interface LayoutOverrides extends Omit<
+  Partial<Layout.BaseState>,
+  "type" | "location"
+> {}
 
 export interface Prompt<R, A extends BaseArgs<R>> {
   (args: A, layoutOverrides?: LayoutOverrides): Promise<R | null>;

@@ -54,12 +54,6 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
       else onClose();
     },
   });
-  const requiresValue = Form.useFieldValue<
-    channel.Key[],
-    channel.Key[],
-    typeof Channel.calculatedFormSchema
-  >("requires", { ctx: form, optional: true });
-  const isLegacyCalculated = requiresValue != null && requiresValue.length > 0;
   const [createMore, setCreateMore] = useState(false);
   const initialLoaded = useRef(false);
   if (!initialLoaded.current && variant !== "loading") initialLoaded.current = true;
@@ -81,13 +75,6 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
                 />
               )}
             </Form.Field>
-          )}
-          {isLegacyCalculated && (
-            <Text.Text level="p" status="warning">
-              Legacy Calculated Channels are deprecated and will be removed in a future
-              release. Please edit this expression to match the new arc-based calculated
-              channel syntax.
-            </Text.Text>
           )}
           <Flex.Box x>
             <Form.Field<channel.OperationType>

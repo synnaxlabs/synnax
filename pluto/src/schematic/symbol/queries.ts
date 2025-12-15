@@ -17,6 +17,7 @@ export const FLUX_STORE_KEY = "schematicSymbols";
 
 const RESOURCE_NAME = "schematic symbol";
 const PLURAL_RESOURCE_NAME = "schematic symbols";
+
 export interface FluxStore
   extends Flux.UnaryStore<schematic.symbol.Key, schematic.symbol.Symbol> {}
 

@@ -17,9 +17,10 @@ import { MAIN_WINDOW, type WindowProps } from "@/window";
  * In certain environments (such as the web browser), it is not really possible to spawn
  * new windows. NoopRuntime is intended to stand in for drift in these environments.
  */
-export class NoopRuntime<S extends StoreState, A extends Action = UnknownAction>
-  implements Runtime<S, A>
-{
+export class NoopRuntime<
+  S extends StoreState,
+  A extends Action = UnknownAction,
+> implements Runtime<S, A> {
   async emit(): Promise<void> {}
 
   async subscribe(): Promise<void> {}

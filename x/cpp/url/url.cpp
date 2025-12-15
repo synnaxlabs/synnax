@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstdlib>
 #include <utility>
 
-#include "freighter/cpp/freighter.h"
+#include "x/cpp/url/url.h"
 
-namespace freighter {
+namespace url {
 /// @brief joins the two paths together to form a valid url with a trailing slash.
 std::string join_paths(const std::string &a, const std::string &b) {
     // Build result starting with "/" if a is empty, otherwise use a (adding "/" if

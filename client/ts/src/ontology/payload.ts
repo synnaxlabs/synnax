@@ -104,8 +104,10 @@ export const resourceZ = z
     data: record.unknownZ.optional().nullable(),
   })
   .transform((resource) => ({ key: idToString(resource.id), ...resource }));
-export interface Resource<T extends record.Unknown = record.Unknown>
-  extends Omit<z.infer<typeof resourceZ>, "data"> {
+export interface Resource<T extends record.Unknown = record.Unknown> extends Omit<
+  z.infer<typeof resourceZ>,
+  "data"
+> {
   data?: T | null;
 }
 

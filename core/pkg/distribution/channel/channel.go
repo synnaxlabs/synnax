@@ -200,10 +200,7 @@ type Channel struct {
 	// created by the user.
 	Internal   bool        `json:"internal" msgpack:"internal"`
 	Operations []Operation `json:"operations" msgpack:"operations"`
-	// Requires is only used for calculated channels, and specifies the channels that
-	// are required for the calculation.
-	Requires Keys `json:"requires" msgpack:"requires"`
-	// Expression is only used for calculated channels, and specifies the Lua expression
+	// Expression is only used for calculated channels, and specifies the Arc expression
 	// to evaluate the calculated value.
 	Expression string `json:"expression" msgpack:"expression"`
 }
@@ -212,13 +209,7 @@ func (c Channel) IsCalculated() bool {
 	return c.Expression != ""
 }
 
-func (c Channel) IsLegacyCalculated() bool {
-	return len(c.Requires) > 0
-}
-
-// Equals returns true if the two channels are meaningfully equal to each other. This
-// function should be used instead of a direct comparison, as it takes into account
-// the contents of the Requires field, ignoring the order of the keys.
+// Equals returns true if the two channels are meaningfully equal to each other.
 // If the exclude parameter is provided, the function will ignore the fields specified
 // in the exclude parameter.
 func (c Channel) Equals(other Channel, exclude ...string) bool {
@@ -246,14 +237,6 @@ func (c Channel) Equals(other Channel, exclude ...string) bool {
 
 	if !lo.Contains(exclude, "Operations") {
 		if !slices.Equal(c.Operations, other.Operations) {
-			return false
-		}
-	}
-
-	if !lo.Contains(exclude, "Requires") {
-		slices.Sort(c.Requires)
-		slices.Sort(other.Requires)
-		if !slices.Equal(c.Requires, other.Requires) {
 			return false
 		}
 	}

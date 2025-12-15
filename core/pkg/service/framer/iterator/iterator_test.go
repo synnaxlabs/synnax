@@ -186,29 +186,6 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(iter.Close()).To(Succeed())
 			})
 
-			Describe("Legacy Calculation", func() {
-				It("Should correctly calculate output values", func() {
-					legacyCalculation := &channel.Channel{
-						Name:       "legacy_calculation",
-						DataType:   telem.Float32T,
-						Expression: "return sensor_1",
-						Requires:   []channel.Key{dataCh1.Key()},
-					}
-					Expect(dist.Channel.Create(ctx, legacyCalculation)).To(Succeed())
-					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
-						Keys:   []channel.Key{legacyCalculation.Key()},
-						Bounds: telem.TimeRangeMax,
-					}))
-					Expect(iter.SeekFirst()).To(BeTrue())
-					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-					v := iter.Value().Get(legacyCalculation.Key())
-					Expect(v.Series).To(HaveLen(1))
-					Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](6, 7, 8, 9, 10))
-					Expect(v.Series[0].Alignment).To(Equal(telem.NewAlignment(1, 0)))
-					Expect(iter.Close()).To(Succeed())
-				})
-			})
-
 			Describe("Nested Calculations", func() {
 				It("Should correctly handle 2-level nesting (C → B → A)", func() {
 					// Create B: calculated channel that depends on concrete channel A (sensor_1)

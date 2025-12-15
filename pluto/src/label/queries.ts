@@ -75,17 +75,16 @@ export const retrieveCachedLabelsOf = (store: FluxSubStore, id: ontology.ID) => 
   return store.labels.get(keys);
 };
 
-interface SetLabelsForParams
-  extends Omit<
-    UpdateParams<
-      {
-        id: ontology.ID;
-        labels: label.Key[];
-      },
-      FluxSubStore
-    >,
-    "setStatus"
-  > {}
+interface SetLabelsForParams extends Omit<
+  UpdateParams<
+    {
+      id: ontology.ID;
+      labels: label.Key[];
+    },
+    FluxSubStore
+  >,
+  "setStatus"
+> {}
 
 export const setLabelsFor = async ({
   store,

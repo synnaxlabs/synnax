@@ -113,8 +113,9 @@ const BASE_QUERY: Pick<RetrieveQuery, "includeLabels"> = {
   includeLabels: true,
 };
 
-interface RetrieveSingleParams<DetailsSchema extends z.ZodType = z.ZodNever>
-  extends Flux.RetrieveParams<status.SingleRetrieveArgs, FluxSubStore> {
+interface RetrieveSingleParams<
+  DetailsSchema extends z.ZodType = z.ZodNever,
+> extends Flux.RetrieveParams<status.SingleRetrieveArgs, FluxSubStore> {
   detailsSchema?: DetailsSchema;
 }
 

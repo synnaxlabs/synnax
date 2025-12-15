@@ -22,7 +22,9 @@ import { Frame, type FrameProps, useItemState } from "@/select/Frame";
 export interface ButtonsProps<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K>,
-> extends Omit<Flex.BoxProps, "onSelect" | "onChange">,
+>
+  extends
+    Omit<Flex.BoxProps, "onSelect" | "onChange">,
     Omit<FrameProps<K, E>, "getItem" | "subscribe" | "data"> {
   keys: K[] | readonly K[];
 }
@@ -50,8 +52,10 @@ export const Buttons = <K extends record.Key = record.Key>({
   );
 };
 
-export interface ButtonProps<K extends record.Key = record.Key>
-  extends Omit<CoreButton.ToggleProps, "onChange" | "value"> {
+export interface ButtonProps<K extends record.Key = record.Key> extends Omit<
+  CoreButton.ToggleProps,
+  "onChange" | "value"
+> {
   itemKey: K;
 }
 
