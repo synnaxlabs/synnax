@@ -10,16 +10,26 @@
 import { z } from "zod";
 
 /**
- * Represents valid key types for record objects.
- * Can be either a string or number.
+ * Zod schema for validating record keys. Can be either a string or number.
  */
-export type Key = string | number;
+export const keyZ = z.union([z.string(), z.number()]);
+
+/**
+ * Represents valid key types for record objects. Can be either a string or number.
+ */
+export type Key = z.infer<typeof keyZ>;
+
+/**
+ * Zod schema for validating unknown records. Accepts objects with string or number keys
+ * and unknown values.
+ */
+export const unknownZ = z.record(keyZ, z.unknown());
 
 /**
  * Represents a record with unknown values and string/number keys.
  * This is a generic type for objects where the value types are not known.
  */
-export type Unknown = Record<Key, unknown>;
+export interface Unknown extends z.infer<typeof unknownZ> {}
 
 /**
  * Interface for objects that have a key property.
@@ -40,12 +50,6 @@ export interface KeyedNamed<K extends Key = string> {
   /** The display name for this object */
   name: string;
 }
-
-/**
- * Zod schema for validating unknown records.
- * Accepts objects with string, number, or symbol keys and unknown values.
- */
-export const unknownZ = z.record(z.union([z.number(), z.string()]), z.unknown());
 
 /**
  * Type representing the entries of a record as an array of key-value tuples.
