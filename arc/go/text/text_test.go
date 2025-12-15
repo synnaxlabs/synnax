@@ -12,6 +12,7 @@ package text_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
@@ -173,6 +174,65 @@ var _ = Describe("Text", func() {
 				// Edge should connect expression to print
 				edge := inter.Edges[0]
 				Expect(edge.Target.Node).To(Equal(printNode.Key))
+			})
+
+			It("Should generate constant node for integer literal", func() {
+				resolver := symbol.MapResolver{
+					"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 1},
+				}
+				source := `1 -> output`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Find the constant node
+				var constantNode *ir.Node
+				for i := range inter.Nodes {
+					if inter.Nodes[i].Type == "constant" {
+						constantNode = &inter.Nodes[i]
+						break
+					}
+				}
+				Expect(constantNode).ToNot(BeNil(), "expected constant node")
+				Expect(constantNode.Type).To(Equal("constant"))
+				Expect(constantNode.Config).To(HaveLen(1))
+				Expect(constantNode.Config[0].Name).To(Equal("value"))
+				Expect(constantNode.Config[0].Type).To(Equal(types.F32()))
+			})
+
+			It("Should generate constant node for float literal", func() {
+				resolver := symbol.MapResolver{
+					"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1},
+				}
+				source := `3.14 -> output`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				var constantNode *ir.Node
+				for i := range inter.Nodes {
+					if inter.Nodes[i].Type == "constant" {
+						constantNode = &inter.Nodes[i]
+						break
+					}
+				}
+				Expect(constantNode).ToNot(BeNil())
+				Expect(constantNode.Config[0].Type).To(Equal(types.F64()))
+			})
+
+			It("Should generate expr node for complex expression, not constant", func() {
+				resolver := symbol.MapResolver{
+					"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 1},
+				}
+				source := `1 + 2 -> output`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Should NOT have a constant node
+				for _, node := range inter.Nodes {
+					Expect(node.Type).ToNot(Equal("constant"), "complex expressions should use expression_ not constant")
+				}
 			})
 		})
 

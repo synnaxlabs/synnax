@@ -764,6 +764,35 @@ sensor_chan > threshold -> alarm{}
 		})
 	})
 
+	Describe("Literal Type Inference", func() {
+		It("Should infer integer literal as f32 when target channel is f32", func() {
+			literalResolver := symbol.MapResolver{
+				"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.F32())},
+			}
+			ast := MustSucceed(parser.Parse(`1 -> output`))
+			ctx := context.CreateRoot(bCtx, ast, literalResolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should infer integer literal as i32 when target channel is i32", func() {
+			literalResolver := symbol.MapResolver{
+				"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.I32())},
+			}
+			ast := MustSucceed(parser.Parse(`1 -> output`))
+			ctx := context.CreateRoot(bCtx, ast, literalResolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should infer float literal as f64 when target channel is f64", func() {
+			literalResolver := symbol.MapResolver{
+				"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
+			}
+			ast := MustSucceed(parser.Parse(`1.5 -> output`))
+			ctx := context.CreateRoot(bCtx, ast, literalResolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+	})
+
 	Describe("Sequence Stages and Flow Operators", func() {
 		It("Should compile sequences with stage targets and mixed flow operators", func() {
 			ast := MustSucceed(parser.Parse(`

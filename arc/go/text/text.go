@@ -28,9 +28,11 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/flow"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/module"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/stratifier"
@@ -533,6 +535,33 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) (ir.Node
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return ir.Node{}, ir.Handle{}, ir.Handle{}, false
 	}
+
+	// Constants (pure literals) become constant IR nodes
+	if sym.Kind == symbol.KindConstant {
+		// Get the resolved output type from the symbol (after type unification)
+		outputType := sym.Type.Outputs[0].Type
+		resolvedType := ctx.Constraints.ApplySubstitutions(outputType)
+
+		// Parse the literal value with the resolved type
+		literalCtx := flow.GetLiteralFromExpression(ctx.AST)
+		parsedValue, err := literal.Parse(literalCtx, resolvedType)
+		if err != nil {
+			ctx.Diagnostics.AddError(err, ctx.AST)
+			return ir.Node{}, ir.Handle{}, ir.Handle{}, false
+		}
+
+		n := ir.Node{
+			Key:      sym.Name,
+			Type:     "constant",
+			Channels: symbol.NewChannels(),
+			Config:   types.Params{{Name: "value", Type: resolvedType, Value: parsedValue.Value}},
+			Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: resolvedType}},
+		}
+		inputHandle := ir.Handle{Node: sym.Name, Param: ir.DefaultInputParam}
+		outputHandle := ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam}
+		return n, inputHandle, outputHandle, true
+	}
+
 	n := ir.Node{
 		Key:      sym.Name,
 		Type:     sym.Name,
@@ -734,10 +763,6 @@ func analyzeStage(
 		Key:      entryKey,
 		Type:     "stage_entry",
 		Channels: symbol.NewChannels(),
-		Config: types.Params{
-			{Name: "stage", Type: types.String(), Value: stageName},
-			{Name: "sequence", Type: types.String(), Value: seqName},
-		},
 		Inputs: types.Params{
 			{Name: "activate", Type: types.U8()},
 		},

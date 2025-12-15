@@ -37,10 +37,6 @@ var (
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
 			Inputs: types.Params{{Name: ir.DefaultInputParam, Type: types.U8()}},
-			Config: types.Params{
-				{Name: sequenceConfigParam, Type: types.String()},
-				{Name: stageConfigParam, Type: types.String()},
-			},
 		}),
 	}
 	// SymbolResolver provides the stage_entry symbol for the Arc analyzer.

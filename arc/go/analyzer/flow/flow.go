@@ -25,12 +25,14 @@ import (
 
 // Analyze validates a flow statement's node chain and routing tables.
 func Analyze(ctx context.Context[parser.IFlowStatementContext]) bool {
-	for i, node := range ctx.AST.AllFlowNode() {
+	nodes := ctx.AST.AllFlowNode()
+	for i, node := range nodes {
 		var prevNode parser.IFlowNodeContext
 		if i != 0 {
-			prevNode = ctx.AST.FlowNode(i - 1)
+			prevNode = nodes[i-1]
 		}
-		if !analyzeNode(context.Child(ctx, node), prevNode) {
+		isLastNode := i == len(nodes)-1
+		if !analyzeNode(context.Child(ctx, node), prevNode, isLastNode) {
 			return false
 		}
 	}
@@ -42,9 +44,9 @@ func Analyze(ctx context.Context[parser.IFlowStatementContext]) bool {
 	return true
 }
 
-func analyzeNode(ctx context.Context[parser.IFlowNodeContext], prevNode parser.IFlowNodeContext) bool {
+func analyzeNode(ctx context.Context[parser.IFlowNodeContext], prevNode parser.IFlowNodeContext, isLastNode bool) bool {
 	if id := ctx.AST.Identifier(); id != nil {
-		return analyzeIdentifier(context.Child(ctx, id))
+		return analyzeIdentifier(context.Child(ctx, id), prevNode, isLastNode)
 	}
 	if fn := ctx.AST.Function(); fn != nil {
 		return parseFunction(context.Child(ctx, fn), prevNode)
@@ -197,12 +199,34 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 	return true
 }
 
-func analyzeIdentifier(ctx context.Context[parser.IIdentifierContext]) bool {
+func analyzeIdentifier(ctx context.Context[parser.IIdentifierContext], prevNode parser.IFlowNodeContext, isLastNode bool) bool {
 	name := ctx.AST.IDENTIFIER().GetText()
-	_, err := ctx.Scope.Resolve(ctx, name)
+	sym, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
+	}
+
+	// When used as a sink (last node in chain) with a previous expression,
+	// add type constraint between the expression and channel value type
+	if isLastNode && prevNode != nil && sym.Kind == symbol.KindChannel {
+		if prevExpr := prevNode.Expression(); prevExpr != nil {
+			exprType := atypes.InferFromExpression(context.Child(ctx, prevExpr))
+			chanValueType := sym.Type.Unwrap()
+			if err := atypes.Check(
+				ctx.Constraints,
+				exprType,
+				chanValueType,
+				ctx.AST,
+				"expression to channel sink",
+			); err != nil {
+				ctx.Diagnostics.AddError(errors.Newf(
+					"expression type %s does not match channel %s value type %s",
+					exprType, name, chanValueType,
+				), ctx.AST)
+				return false
+			}
+		}
 	}
 	return true
 }
@@ -493,7 +517,7 @@ func analyzeInputRoutingTable(
 		_ = paramType
 
 		for i := 0; i < len(flowNodes)-1; i++ {
-			if !analyzeNode(context.Child(ctx, flowNodes[i]), nil) {
+			if !analyzeNode(context.Child(ctx, flowNodes[i]), nil, false) {
 				return false
 			}
 		}
@@ -609,7 +633,7 @@ func analyzeMatchBlock(ctx context.Context[parser.IMatchBlockContext]) bool {
 	for _, entry := range ctx.AST.AllMatchEntry() {
 		// Validate each match entry target
 		if targetNode := entry.FlowNode(); targetNode != nil {
-			if !analyzeNode(context.Child(ctx, targetNode), nil) {
+			if !analyzeNode(context.Child(ctx, targetNode), nil, false) {
 				return false
 			}
 		}

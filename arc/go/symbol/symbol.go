@@ -82,6 +82,8 @@ const (
 	KindSequence
 	// KindStage represents a stage within a sequence.
 	KindStage
+	// KindConstant represents a pure literal value in a flow statement.
+	KindConstant
 )
 
 // Symbol represents a named entity in an Arc program.
