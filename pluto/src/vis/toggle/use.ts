@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -40,5 +40,7 @@ export const use = ({ aetherKey, source, sink }: UseProps): UseReturn => {
   useEffect(() => {
     setState((state) => ({ ...state, ...memoProps }));
   }, [memoProps, setState]);
-  return { ...methods, enabled };
+  // Wrap to prevent React event from being passed as argument
+  const handleToggle = useCallback(() => methods.toggle(), [methods.toggle]);
+  return { toggle: handleToggle, enabled };
 };

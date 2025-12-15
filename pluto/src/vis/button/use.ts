@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect } from "react";
+import { useCallback } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { useMemoDeepEqual } from "@/memo";
 import { button } from "@/vis/button/aether";
 
 export type Mode = button.Mode;
@@ -29,7 +28,7 @@ export interface UseReturn {
 
 export const use = ({ aetherKey, sink, mode }: UseProps): UseReturn => {
   const {
-    methods: { onMouseDown, onMouseUp },
+    methods: { onMouseDown: mouseDown, onMouseUp: mouseUp },
   } = Aether.useUnidirectional({
     aetherKey,
     type: button.Button.TYPE,
@@ -37,5 +36,8 @@ export const use = ({ aetherKey, sink, mode }: UseProps): UseReturn => {
     methods: button.buttonMethodsZ,
     state: { sink, mode },
   });
+  // Wrap to prevent React event from being passed as argument
+  const onMouseDown = useCallback(() => mouseDown(), [mouseDown]);
+  const onMouseUp = useCallback(() => mouseUp(), [mouseUp]);
   return { onClick: onMouseUp, onMouseDown, onMouseUp };
 };
