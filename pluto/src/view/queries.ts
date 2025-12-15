@@ -133,8 +133,10 @@ const ZERO_VALUES = {
   type: "",
   query: {},
 };
-export interface FormQuery
-  extends optional.Optional<view.RetrieveSingleParams, "key"> {}
+export interface FormQuery extends optional.Optional<
+  view.RetrieveSingleParams,
+  "key"
+> {}
 
 export const useForm = Flux.createForm<FormQuery, typeof view.newZ, FluxSubStore>({
   name: RESOURCE_NAME,

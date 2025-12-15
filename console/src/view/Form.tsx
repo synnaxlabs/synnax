@@ -32,8 +32,8 @@ export interface FormProps<
   K extends record.Key,
   E extends record.Keyed<K>,
   Q extends Query,
-> extends PropsWithChildren,
-    Flux.UseListReturn<Q, K, E> {}
+>
+  extends PropsWithChildren, Flux.UseListReturn<Q, K, E> {}
 
 export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends Query>({
   children,
