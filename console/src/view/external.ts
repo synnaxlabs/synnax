@@ -13,7 +13,7 @@ export const useContext = () => useCtx("View.useContext");
 
 export * from "@/view/FilterMenu";
 export * from "@/view/Form";
+export * from "@/view/Frame";
 export * from "@/view/Items";
-export * from "@/view/Provider";
 export * from "@/view/Search";
 export * from "@/view/Toolbar";

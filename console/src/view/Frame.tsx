@@ -40,11 +40,11 @@ import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
 import { Context, type StaticView, useContext, type View } from "@/view/context";
 
-export interface ProviderProps extends PropsWithChildren {
+export interface FrameProps extends PropsWithChildren {
   resourceType: ontology.ResourceType;
 }
 
-export const Provider = ({ resourceType, children }: ProviderProps): ReactElement => {
+export const Frame = ({ resourceType, children }: FrameProps): ReactElement => {
   const staticViewKey = useMemo(() => uuid.create(), []);
   const staticViews = useMemo<StaticView[]>(
     () => [

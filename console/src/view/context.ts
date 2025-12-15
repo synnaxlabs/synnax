@@ -38,5 +38,5 @@ export interface ContextValue {
 
 export const [Context, useContext] = context.create<ContextValue>({
   displayName: "View.Context",
-  providerName: "View.Provider",
+  providerName: "View.Frame",
 });
