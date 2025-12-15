@@ -1,7 +1,6 @@
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
-
 import "github.com/antlr4-go/antlr/v4"
 
 type BaseArcParserVisitor struct {
@@ -61,14 +60,6 @@ func (v *BaseArcParserVisitor) VisitStageBody(ctx *StageBodyContext) interface{}
 }
 
 func (v *BaseArcParserVisitor) VisitStageItem(ctx *StageItemContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseArcParserVisitor) VisitTimerBuiltin(ctx *TimerBuiltinContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseArcParserVisitor) VisitLogBuiltin(ctx *LogBuiltinContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -277,10 +268,6 @@ func (v *BaseArcParserVisitor) VisitPrimaryExpression(ctx *PrimaryExpressionCont
 }
 
 func (v *BaseArcParserVisitor) VisitTypeCast(ctx *TypeCastContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseArcParserVisitor) VisitBuiltinFunction(ctx *BuiltinFunctionContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

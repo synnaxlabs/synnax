@@ -1,7 +1,6 @@
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
-
 import "github.com/antlr4-go/antlr/v4"
 
 // A complete Visitor for a parse tree produced by ArcParser.
@@ -49,12 +48,6 @@ type ArcParserVisitor interface {
 
 	// Visit a parse tree produced by ArcParser#stageItem.
 	VisitStageItem(ctx *StageItemContext) interface{}
-
-	// Visit a parse tree produced by ArcParser#timerBuiltin.
-	VisitTimerBuiltin(ctx *TimerBuiltinContext) interface{}
-
-	// Visit a parse tree produced by ArcParser#logBuiltin.
-	VisitLogBuiltin(ctx *LogBuiltinContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#matchBlock.
 	VisitMatchBlock(ctx *MatchBlockContext) interface{}
@@ -211,9 +204,6 @@ type ArcParserVisitor interface {
 
 	// Visit a parse tree produced by ArcParser#typeCast.
 	VisitTypeCast(ctx *TypeCastContext) interface{}
-
-	// Visit a parse tree produced by ArcParser#builtinFunction.
-	VisitBuiltinFunction(ctx *BuiltinFunctionContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#literal.
 	VisitLiteral(ctx *LiteralContext) interface{}

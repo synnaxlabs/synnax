@@ -16,6 +16,7 @@ struct Context {
     telem::TimeSpan elapsed;
     std::function<void(const std::string &output_param)> mark_changed;
     std::function<void(const xerrors::Error &)> report_error;
+    std::function<void(const std::string &stage_key)> activate;
 };
 class Node {
 public:

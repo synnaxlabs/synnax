@@ -86,12 +86,10 @@ func mapTokenType(antlrType int) *uint32 {
 	var tokenType uint32
 	switch antlrType {
 	case parser.ArcLexerFUNC, parser.ArcLexerIF,
-		parser.ArcLexerELSE, parser.ArcLexerRETURN, parser.ArcLexerNOW,
-		parser.ArcLexerLEN,
+		parser.ArcLexerELSE, parser.ArcLexerRETURN,
 		// Sequencing keywords
 		parser.ArcLexerSEQUENCE, parser.ArcLexerSTAGE, parser.ArcLexerMATCH,
-		parser.ArcLexerNEXT, parser.ArcLexerWAIT, parser.ArcLexerINTERVAL,
-		parser.ArcLexerLOG:
+		parser.ArcLexerNEXT:
 		tokenType = SemanticTokenTypeKeyword
 	case parser.ArcLexerI8, parser.ArcLexerI16, parser.ArcLexerI32, parser.ArcLexerI64,
 		parser.ArcLexerU8, parser.ArcLexerU16, parser.ArcLexerU32, parser.ArcLexerU64,

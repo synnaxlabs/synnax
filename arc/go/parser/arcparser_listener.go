@@ -1,7 +1,6 @@
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
-
 import "github.com/antlr4-go/antlr/v4"
 
 // ArcParserListener is a complete listener for a parse tree produced by ArcParser.
@@ -49,12 +48,6 @@ type ArcParserListener interface {
 
 	// EnterStageItem is called when entering the stageItem production.
 	EnterStageItem(c *StageItemContext)
-
-	// EnterTimerBuiltin is called when entering the timerBuiltin production.
-	EnterTimerBuiltin(c *TimerBuiltinContext)
-
-	// EnterLogBuiltin is called when entering the logBuiltin production.
-	EnterLogBuiltin(c *LogBuiltinContext)
 
 	// EnterMatchBlock is called when entering the matchBlock production.
 	EnterMatchBlock(c *MatchBlockContext)
@@ -212,9 +205,6 @@ type ArcParserListener interface {
 	// EnterTypeCast is called when entering the typeCast production.
 	EnterTypeCast(c *TypeCastContext)
 
-	// EnterBuiltinFunction is called when entering the builtinFunction production.
-	EnterBuiltinFunction(c *BuiltinFunctionContext)
-
 	// EnterLiteral is called when entering the literal production.
 	EnterLiteral(c *LiteralContext)
 
@@ -271,12 +261,6 @@ type ArcParserListener interface {
 
 	// ExitStageItem is called when exiting the stageItem production.
 	ExitStageItem(c *StageItemContext)
-
-	// ExitTimerBuiltin is called when exiting the timerBuiltin production.
-	ExitTimerBuiltin(c *TimerBuiltinContext)
-
-	// ExitLogBuiltin is called when exiting the logBuiltin production.
-	ExitLogBuiltin(c *LogBuiltinContext)
 
 	// ExitMatchBlock is called when exiting the matchBlock production.
 	ExitMatchBlock(c *MatchBlockContext)
@@ -433,9 +417,6 @@ type ArcParserListener interface {
 
 	// ExitTypeCast is called when exiting the typeCast production.
 	ExitTypeCast(c *TypeCastContext)
-
-	// ExitBuiltinFunction is called when exiting the builtinFunction production.
-	ExitBuiltinFunction(c *BuiltinFunctionContext)
 
 	// ExitLiteral is called when exiting the literal production.
 	ExitLiteral(c *LiteralContext)

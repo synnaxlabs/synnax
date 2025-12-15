@@ -141,19 +141,13 @@ Channel operations differ between **reactive context** (flow/stages) and **imper
 FlowStatement ::= ChannelRead '=>' Identifier     // Blocking read triggering state transition
                | ChannelWrite '->' Identifier     // Write to channel in reactive flow
                | Identifier '->' FunctionCall     // Connect channel to function
-
-ChannelRead ::= '<-' Identifier                   // Blocking read (waits for value)
-ChannelWrite ::= Expression '->' Identifier       // Write value to channel
 ```
-
-**Blocking read** (`<-channel`) in reactive context waits for next value and triggers
-reaction. Used in stages to create event-driven transitions:
 
 ```arc
 stage monitor {
-    <-sensor => process_reading{}   // Wait for sensor value, then trigger
-    process{} -> output             // Connect function output to channel
-    interval{100ms} -> tick_handler // Trigger on interval
+    sensor => process_reading{},     // Wait for sensor value, then trigger
+    process{} -> output,             // Connect function output to channel
+    interval{100ms} -> tick_handler, // Trigger on interval
 }
 ```
 
@@ -175,8 +169,7 @@ func process() bool {
 }
 ```
 
-**Channel write** (`channel = value`) enqueues value to channel. **Blocking reads are forbidden** —
-functions must execute instantly without waiting:
+**Channel write** (`channel = value`) enqueues value to channel.
 
 ```arc
 func initialize() true {
@@ -202,7 +195,6 @@ see the same channel state taken at invocation start.
 timestamp, (2) topological order, (3) channel identifier.
 
 **Syntax summary**:
-- **Blocking reads** (`<-channel`): Only in reactive context; trigger on value arrival
 - **Non-blocking reads** (`channel`): Only in imperative context; return current value
 - **Writes** (`channel = value`): Only in imperative context; enqueue to channel
 - **Reactive flow** (`channel -> function`): Only in reactive context; connect dataflow
@@ -360,7 +352,7 @@ func add(x f64, y f64) f64 {
 }
 
 func process(sensor <-chan f64, alarm ->chan u8) {
-    if (<-sensor) > 100 {
+    if (sensor) > 100 {
         1 -> alarm
     }
 }
@@ -378,7 +370,7 @@ func controller{
         return
     }
 
-    error := setpoint - (<-sensor)
+    error := setpoint - sensor
     integral = integral + error
     output := (error * 1.5) + (integral * 0.1)
     output -> actuator

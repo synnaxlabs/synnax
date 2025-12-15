@@ -79,17 +79,6 @@ stageItem
     : flowStatement
     ;
 
-// Built-in timer functions
-timerBuiltin
-    : WAIT configValues        // wait{100ms} or wait{duration}
-    | INTERVAL configValues    // interval{10ms}
-    ;
-
-// Built-in log function
-logBuiltin
-    : LOG configValues         // log{"message"}
-    ;
-
 // match { id1 => target1, id2 => target2, ... }
 matchBlock
     : MATCH LBRACE matchEntry (COMMA matchEntry)* RBRACE
@@ -127,8 +116,6 @@ flowNode
     | expression
     | NEXT              // Continue to next stage
     | matchBlock        // match { ... }
-    | timerBuiltin      // wait{...}, interval{...}
-    | logBuiltin        // log{...}
     ;
 
 identifier
@@ -343,16 +330,10 @@ primaryExpression
     | IDENTIFIER
     | LPAREN expression RPAREN
     | typeCast
-    | builtinFunction
     ;
 
 typeCast
     : type LPAREN expression RPAREN
-    ;
-
-builtinFunction
-    : LEN LPAREN expression RPAREN
-    | NOW LPAREN RPAREN
     ;
 
 // =============================================================================

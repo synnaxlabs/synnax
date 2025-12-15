@@ -1,7 +1,6 @@
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
-
 import "github.com/antlr4-go/antlr/v4"
 
 // BaseArcParserListener is a complete listener for a parse tree produced by ArcParser.
@@ -104,18 +103,6 @@ func (s *BaseArcParserListener) EnterStageItem(ctx *StageItemContext) {}
 
 // ExitStageItem is called when production stageItem is exited.
 func (s *BaseArcParserListener) ExitStageItem(ctx *StageItemContext) {}
-
-// EnterTimerBuiltin is called when production timerBuiltin is entered.
-func (s *BaseArcParserListener) EnterTimerBuiltin(ctx *TimerBuiltinContext) {}
-
-// ExitTimerBuiltin is called when production timerBuiltin is exited.
-func (s *BaseArcParserListener) ExitTimerBuiltin(ctx *TimerBuiltinContext) {}
-
-// EnterLogBuiltin is called when production logBuiltin is entered.
-func (s *BaseArcParserListener) EnterLogBuiltin(ctx *LogBuiltinContext) {}
-
-// ExitLogBuiltin is called when production logBuiltin is exited.
-func (s *BaseArcParserListener) ExitLogBuiltin(ctx *LogBuiltinContext) {}
 
 // EnterMatchBlock is called when production matchBlock is entered.
 func (s *BaseArcParserListener) EnterMatchBlock(ctx *MatchBlockContext) {}
@@ -428,12 +415,6 @@ func (s *BaseArcParserListener) EnterTypeCast(ctx *TypeCastContext) {}
 
 // ExitTypeCast is called when production typeCast is exited.
 func (s *BaseArcParserListener) ExitTypeCast(ctx *TypeCastContext) {}
-
-// EnterBuiltinFunction is called when production builtinFunction is entered.
-func (s *BaseArcParserListener) EnterBuiltinFunction(ctx *BuiltinFunctionContext) {}
-
-// ExitBuiltinFunction is called when production builtinFunction is exited.
-func (s *BaseArcParserListener) ExitBuiltinFunction(ctx *BuiltinFunctionContext) {}
 
 // EnterLiteral is called when production literal is entered.
 func (s *BaseArcParserListener) EnterLiteral(ctx *LiteralContext) {}

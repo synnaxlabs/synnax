@@ -59,14 +59,6 @@ func analyzeNode(ctx context.Context[parser.IFlowNodeContext], prevNode parser.I
 		// NEXT is always valid - it will be resolved during sequence analysis
 		return true
 	}
-	if timer := ctx.AST.TimerBuiltin(); timer != nil {
-		// Timer builtins are valid flow nodes
-		return true
-	}
-	if log := ctx.AST.LogBuiltin(); log != nil {
-		// Log builtins are valid flow nodes
-		return true
-	}
 	ctx.Diagnostics.AddError(errors.New("invalid flow source"), ctx.AST)
 	return true
 }

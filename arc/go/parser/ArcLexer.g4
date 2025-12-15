@@ -8,17 +8,12 @@ FUNC        : 'func';
 IF          : 'if';
 ELSE        : 'else';
 RETURN      : 'return';
-NOW         : 'now';
-LEN         : 'len';
 
 // Sequencing keywords
 SEQUENCE    : 'sequence';
 STAGE       : 'stage';
 MATCH       : 'match';
 NEXT        : 'next';
-WAIT        : 'wait';
-INTERVAL    : 'interval';
-LOG         : 'log';
 
 // Channel keywords
 CHAN        : 'chan';

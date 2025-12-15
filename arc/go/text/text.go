@@ -128,12 +128,7 @@ func Analyze(
 			}
 			i.Nodes = append(i.Nodes, nodes...)
 			i.Edges = append(i.Edges, edges...)
-		}
-	}
-
-	// Step 3.5: Process Sequences to Build Sequences/Stages/Nodes/Edges
-	for _, item := range t.AST.AllTopLevelItem() {
-		if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
+		} else if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
 			seq, nodes, edges, ok := analyzeSequence(acontext.Child(ctx, seqDecl), generateKey)
 			if !ok {
 				return i, ctx.Diagnostics
@@ -787,48 +782,4 @@ func analyzeStageItem(
 		return analyzeFlow(acontext.Child(ctx, flowStmt), generateKey)
 	}
 	return nil, nil, true
-}
-
-// analyzeStageFlow processes a reactive flow chain within a stage.
-// Creates Continuous edges for the -> operator.
-// analyzeTimerBuiltinNode creates a node for wait{} or interval{} builtins.
-func analyzeTimerBuiltinNode(
-	ctx acontext.Context[parser.ITimerBuiltinContext],
-	generateKey generateKey,
-) (ir.Node, ir.Handle, ir.Handle, bool) {
-	var timerType string
-	if ctx.AST.WAIT() != nil {
-		timerType = "wait"
-	} else {
-		timerType = "interval"
-	}
-
-	nodeKey := generateKey(timerType)
-	node := ir.Node{
-		Key:      nodeKey,
-		Type:     timerType,
-		Channels: symbol.NewChannels(),
-		Config:   types.Params{{Name: "duration", Type: types.TimeSpan()}},
-		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-	}
-
-	// Extract duration from config values
-	if configVals := ctx.AST.ConfigValues(); configVals != nil {
-		if anon := configVals.AnonymousConfigValues(); anon != nil {
-			exprs := anon.AllExpression()
-			if len(exprs) > 0 {
-				node.Config[0].Value = getExpressionText(exprs[0])
-			}
-		} else if named := configVals.NamedConfigValues(); named != nil {
-			for _, cv := range named.AllNamedConfigValue() {
-				if cv.IDENTIFIER().GetText() == "duration" {
-					node.Config[0].Value = getExpressionText(cv.Expression())
-				}
-			}
-		}
-	}
-
-	inputHandle := ir.Handle{Node: nodeKey, Param: ""}
-	outputHandle := ir.Handle{Node: nodeKey, Param: ir.DefaultOutputParam}
-	return node, inputHandle, outputHandle, true
 }

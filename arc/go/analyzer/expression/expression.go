@@ -314,10 +314,5 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) bool 
 			return Analyze(context.Child(ctx, expr))
 		}
 	}
-	if builtin := ctx.AST.BuiltinFunction(); builtin != nil {
-		if lenExpr := builtin.Expression(); lenExpr != nil {
-			return Analyze(context.Child(ctx, lenExpr))
-		}
-	}
 	return true
 }

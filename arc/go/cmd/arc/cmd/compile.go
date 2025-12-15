@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/module"
+	"github.com/synnaxlabs/arc/runtime/builtin"
 	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/op"
 	"github.com/synnaxlabs/arc/runtime/selector"
@@ -51,6 +52,7 @@ Output is in JSON format containing the module with IR and WASM bytecode.`,
 }
 
 var symbolResolver = symbol.CompoundResolver{
+	builtin.SymbolResolver,
 	constant.SymbolResolver,
 	op.SymbolResolver,
 	selector.SymbolResolver,
