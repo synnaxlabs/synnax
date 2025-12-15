@@ -113,7 +113,7 @@ var _ = Describe("Text", func() {
 
 				// First node should be "on" node for channel
 				channelNode := inter.Nodes[0]
-				Expect(channelNode.Key).To(Equal("on_0"))
+				Expect(channelNode.Key).To(Equal("on_sensor_0"))
 				Expect(channelNode.Type).To(Equal("on"))
 				Expect(channelNode.Config).To(HaveLen(1))
 				Expect(channelNode.Config[0].Name).To(Equal("channel"))
@@ -126,7 +126,7 @@ var _ = Describe("Text", func() {
 
 				// Edge should connect channel to print
 				edge := inter.Edges[0]
-				Expect(edge.Source.Node).To(Equal("on_0"))
+				Expect(edge.Source.Node).To(Equal("on_sensor_0"))
 				Expect(edge.Target.Node).To(Equal(printNode.Key))
 			})
 
@@ -335,13 +335,13 @@ var _ = Describe("Text", func() {
 				srcNode0, _ := inter.Nodes.Find(edge0.Source.Node)
 				tgtNode0, _ := inter.Nodes.Find(edge0.Target.Node)
 
-				Expect(srcNode0.Key).To(Equal("on_0"))
+				Expect(srcNode0.Key).To(Equal("on_sensor_0"))
 				Expect(edge0.Source.Param).To(Equal("output"))
 				Expect(srcNode0.Outputs.Has(edge0.Source.Param)).To(BeTrue(),
 					"Source param '%s' should exist in node '%s' outputs %v",
 					edge0.Source.Param, srcNode0.Key, srcNode0.Outputs)
 
-				Expect(tgtNode0.Key).To(Equal("filter_1"))
+				Expect(tgtNode0.Key).To(Equal("filter_0"))
 				Expect(edge0.Target.Param).To(Equal("data")) // Should match actual input name
 				Expect(tgtNode0.Inputs.Has(edge0.Target.Param)).To(BeTrue(),
 					"Target param '%s' should exist in node '%s' inputs %v",
@@ -352,13 +352,13 @@ var _ = Describe("Text", func() {
 				srcNode1, _ := inter.Nodes.Find(edge1.Source.Node)
 				tgtNode1, _ := inter.Nodes.Find(edge1.Target.Node)
 
-				Expect(srcNode1.Key).To(Equal("filter_1"))
+				Expect(srcNode1.Key).To(Equal("filter_0"))
 				Expect(edge1.Source.Param).To(Equal("output")) // filter returns i64 (default output name)
 				Expect(srcNode1.Outputs.Has(edge1.Source.Param)).To(BeTrue(),
 					"Source param '%s' should exist in node '%s' outputs %v",
 					edge1.Source.Param, srcNode1.Key, srcNode1.Outputs)
 
-				Expect(tgtNode1.Key).To(Equal("transform_2"))
+				Expect(tgtNode1.Key).To(Equal("transform_0"))
 				Expect(edge1.Target.Param).To(Equal("value")) // Should match actual input name
 				Expect(tgtNode1.Inputs.Has(edge1.Target.Param)).To(BeTrue(),
 					"Target param '%s' should exist in node '%s' inputs %v",
@@ -416,7 +416,7 @@ var _ = Describe("Text", func() {
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// Find channel node
-				channelNode, found := inter.Nodes.Find("on_0")
+				channelNode, found := inter.Nodes.Find("on_temp_0")
 				Expect(found).To(BeTrue())
 
 				// Verify channel node has outputs defined
@@ -496,10 +496,10 @@ var _ = Describe("Text", func() {
 				// Should have 2 edges: demux.high -> alarm, demux.low -> logger
 				Expect(inter.Edges).To(HaveLen(2))
 
-				// Find nodes (numbered sequentially: demux_0, alarm_1, logger_2)
+				// Find nodes (each function type has its own counter)
 				demuxNode, _ := inter.Nodes.Find("demux_0")
-				alarmNode, _ := inter.Nodes.Find("alarm_1")
-				loggerNode, _ := inter.Nodes.Find("logger_2")
+				alarmNode, _ := inter.Nodes.Find("alarm_0")
+				loggerNode, _ := inter.Nodes.Find("logger_0")
 
 				// Verify demux has both outputs
 				Expect(demuxNode.Outputs).To(HaveLen(2))
@@ -563,15 +563,15 @@ var _ = Describe("Text", func() {
 				// Should have 2 edges: demux.high -> amplify, amplify -> display
 				Expect(inter.Edges).To(HaveLen(2))
 
-				// Verify edge chain (numbered sequentially: demux_0, amplify_1, display_2)
+				// Verify edge chain (each function type has its own counter)
 				edge0 := inter.Edges[0]
 				Expect(edge0.Source.Node).To(Equal("demux_0"))
 				Expect(edge0.Source.Param).To(Equal("high"))
-				Expect(edge0.Target.Node).To(Equal("amplify_1"))
+				Expect(edge0.Target.Node).To(Equal("amplify_0"))
 
 				edge1 := inter.Edges[1]
-				Expect(edge1.Source.Node).To(Equal("amplify_1"))
-				Expect(edge1.Target.Node).To(Equal("display_2"))
+				Expect(edge1.Source.Node).To(Equal("amplify_0"))
+				Expect(edge1.Target.Node).To(Equal("display_0"))
 			})
 
 			It("Should report error for non-existent output parameter", func() {
@@ -632,13 +632,13 @@ var _ = Describe("Text", func() {
 				Expect(len(inter.Strata)).To(Equal(3))
 
 				// Verify sensor is in stratum 0
-				Expect(inter.Strata[0]).To(ContainElement("on_0"))
+				Expect(inter.Strata[0]).To(ContainElement("on_sensor_0"))
 
-				// Verify filter is in stratum 1 (numbered sequentially)
-				Expect(inter.Strata[1]).To(ContainElement("filter_1"))
+				// Verify filter is in stratum 1 (each function type has its own counter)
+				Expect(inter.Strata[1]).To(ContainElement("filter_0"))
 
-				// Verify transform is in stratum 2 (numbered sequentially)
-				Expect(inter.Strata[2]).To(ContainElement("transform_2"))
+				// Verify transform is in stratum 2 (each function type has its own counter)
+				Expect(inter.Strata[2]).To(ContainElement("transform_0"))
 			})
 
 			It("Should calculate strata for output routing tables", func() {
@@ -674,9 +674,9 @@ var _ = Describe("Text", func() {
 				Expect(inter.Strata[0]).To(ContainElement("demux_0"))
 
 				// Stratum 1: alarm and logger (both depend on demux, can execute in parallel)
-				// Nodes numbered sequentially: demux_0, alarm_1, logger_2
-				Expect(inter.Strata[1]).To(ContainElement("alarm_1"))
-				Expect(inter.Strata[1]).To(ContainElement("logger_2"))
+				// Each function type has its own counter
+				Expect(inter.Strata[1]).To(ContainElement("alarm_0"))
+				Expect(inter.Strata[1]).To(ContainElement("logger_0"))
 			})
 		})
 

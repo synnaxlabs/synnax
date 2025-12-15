@@ -27,6 +27,12 @@ inline std::string stage_key(const std::string &seq, const std::string &stage) {
     return seq + "_" + stage;
 }
 
+/// Identifies a stage within a sequence.
+struct StageRef {
+    std::string sequence;
+    std::string stage;
+};
+
 class Scheduler {
     ir::Strata strata;
     std::unordered_set<std::string> changed;
@@ -48,10 +54,19 @@ class Scheduler {
     std::unordered_set<std::string> active_node_keys;
     /// Set of all nodes that belong to any stage (for filtering)
     std::unordered_set<std::string> staged_nodes;
+    /// Maps node keys to their (sequence, stage) pair for reverse lookup.
+    std::unordered_map<std::string, StageRef> node_to_stage;
 
     void mark_changed(const std::string &param) {
         for (const auto &edge: current_state->output_edges)
             if (edge.source.param == param) this->changed.insert(edge.target.node);
+    }
+
+    /// Looks up the stage that a node belongs to and activates it.
+    void activate_stage_by_node(const std::string &node_key) {
+        auto it = node_to_stage.find(node_key);
+        if (it == node_to_stage.end()) return;
+        activate_stage(it->second.sequence, it->second.stage);
     }
 
     /// Check if a node should be executed based on stage filtering.
@@ -85,7 +100,9 @@ public:
         this->ctx = node::Context{
             .mark_changed =
                 [&](const std::string &param) { this->mark_changed(param); },
-            .report_error = [&](const xerrors::Error &err) {}
+            .report_error = [&](const xerrors::Error &err) {},
+            .activate_stage =
+                [&](const std::string &node_key) { this->activate_stage_by_node(node_key); }
         };
 
         // Build stage_to_nodes map from sequences
@@ -99,9 +116,10 @@ public:
                 std::string key = stage_key(seq.key, stage.key);
                 stage_to_nodes[key] = stage.nodes;
 
-                // Track all nodes that belong to any stage
+                // Track all nodes that belong to any stage and build reverse map
                 for (const auto &node_key: stage.nodes) {
                     staged_nodes.insert(node_key);
+                    node_to_stage[node_key] = StageRef{seq.key, stage.key};
                 }
             }
         }

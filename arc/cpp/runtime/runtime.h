@@ -204,18 +204,10 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
     }
 
     // Step 6: Construct scheduler.
+    // Stage activation is wired automatically via node::Context.activate_stage.
     auto sched = std::make_unique<scheduler::Scheduler>(cfg.mod, nodes);
 
-    // Step 7: Wire stage activation callback to scheduler.
-    // Get raw pointer before move - Runtime will keep scheduler alive.
-    auto *sched_ptr = sched.get();
-    stage_factory->set_activate_callback(
-        [sched_ptr](const std::string &seq, const std::string &stage_name) {
-            sched_ptr->activate_stage(seq, stage_name);
-        }
-    );
-
-    // Step 8: Construct Loop with Mach thread enhancements
+    // Step 7: Construct Loop with Mach thread enhancements
     // If no timing nodes exist, use EVENT_DRIVEN mode to block until data arrives.
     // Otherwise, use HIGH_RATE mode with the GCD of all timing intervals.
     auto timing_interval = time_factory->timing_base;

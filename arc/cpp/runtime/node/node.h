@@ -9,6 +9,10 @@
 
 #pragma once
 
+#include <functional>
+#include <string>
+
+#include "x/cpp/telem/telem.h"
 #include "x/cpp/xerrors/errors.h"
 
 namespace arc::runtime::node {
@@ -16,8 +20,10 @@ struct Context {
     telem::TimeSpan elapsed;
     std::function<void(const std::string &output_param)> mark_changed;
     std::function<void(const xerrors::Error &)> report_error;
-    std::function<void(const std::string &stage_key)> activate;
+    /// Activates the stage that the given node belongs to.
+    std::function<void(const std::string &node_key)> activate_stage;
 };
+
 class Node {
 public:
     virtual ~Node() = default;

@@ -78,6 +78,14 @@ type Scheduler struct {
 	activeNodeKeys set.Set[string]
 	// stagedNodes contains all nodes that belong to any stage (for filtering).
 	stagedNodes set.Set[string]
+	// nodeToStage maps node keys to their (sequence, stage) pair for reverse lookup.
+	nodeToStage map[string]stageRef
+}
+
+// stageRef identifies a stage within a sequence.
+type stageRef struct {
+	sequence string
+	stage    string
 }
 
 // ErrorHandler receives errors from node execution.
@@ -109,10 +117,12 @@ func New(
 		stageToNodes:   make(map[string][]string),
 		activeNodeKeys: make(set.Set[string]),
 		stagedNodes:    make(set.Set[string]),
+		nodeToStage:    make(map[string]stageRef),
 	}
 	s.nodeCtx = node.Context{
-		MarkChanged: s.markChanged,
-		ReportError: s.reportError,
+		MarkChanged:   s.markChanged,
+		ReportError:   s.reportError,
+		ActivateStage: s.activateStageByNode,
 	}
 
 	for _, n := range prog.Nodes {
@@ -136,16 +146,17 @@ func stageKey(seqName, stageName string) string {
 	return seqName + "_" + stageName
 }
 
-// loadSequences builds the stage-to-nodes mapping from the IR sequences.
+// loadSequences builds the stage-to-nodes and node-to-stage mappings from the IR sequences.
 func (s *Scheduler) loadSequences(sequences ir.Sequences) {
 	for _, seq := range sequences {
 		for _, stage := range seq.Stages {
 			key := stageKey(seq.Key, stage.Key)
 			s.stageToNodes[key] = stage.Nodes
 
-			// Track all nodes that belong to any stage
+			// Track all nodes that belong to any stage and build reverse map
 			for _, nodeKey := range stage.Nodes {
 				s.stagedNodes.Add(nodeKey)
+				s.nodeToStage[nodeKey] = stageRef{sequence: seq.Key, stage: stage.Key}
 			}
 		}
 	}
@@ -242,6 +253,16 @@ func (s *Scheduler) shouldExecuteNode(nodeKey string) bool {
 
 	// Otherwise, only run if in the active stage
 	return s.activeNodeKeys.Contains(nodeKey)
+}
+
+// activateStageByNode looks up the stage that a node belongs to and activates it.
+// This is the callback provided to nodes via the Context.
+func (s *Scheduler) activateStageByNode(nodeKey string) {
+	ref, ok := s.nodeToStage[nodeKey]
+	if !ok {
+		return
+	}
+	s.ActivateStage(ref.sequence, ref.stage)
 }
 
 // ActivateStage transitions to a new stage within a sequence.

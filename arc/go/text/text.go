@@ -46,8 +46,34 @@ type Text struct {
 	AST parser.IProgramContext `json:"-"`
 }
 
-// generateKey generates unique node keys for flow graph construction.
-type generateKey = func(name string) string
+// KeyGenerator creates unique, semantically meaningful node keys.
+// Keys follow the pattern: {role}_{name}_{occurrence} where name provides semantic context.
+type KeyGenerator struct {
+	occurrences map[string]int
+}
+
+// NewKeyGenerator creates a new KeyGenerator instance.
+func NewKeyGenerator() *KeyGenerator {
+	return &KeyGenerator{occurrences: make(map[string]int)}
+}
+
+// Generate creates a unique key for a node.
+// For nodes with semantic names (channels, functions): role_name_N
+// For anonymous nodes: role_N
+func (kg *KeyGenerator) Generate(role, name string) string {
+	base := role
+	if name != "" {
+		base = role + "_" + name
+	}
+	count := kg.occurrences[base]
+	kg.occurrences[base]++
+	return fmt.Sprintf("%s_%d", base, count)
+}
+
+// Entry creates a deterministic key for stage entries (no counter needed).
+func (kg *KeyGenerator) Entry(seqName, stageName string) string {
+	return fmt.Sprintf("entry_%s_%s", seqName, stageName)
+}
 
 // Parse parses Arc source code into an AST.
 //
@@ -112,26 +138,19 @@ func Analyze(
 		}
 	}
 
-	var (
-		counter     = 0
-		generateKey = func(name string) string {
-			key := fmt.Sprintf("%s_%d", name, counter)
-			counter++
-			return key
-		}
-	)
+	kg := NewKeyGenerator()
 
 	// Step 3: Process Flow Nodes and Statements to Build Nodes/Edges
 	for _, item := range t.AST.AllTopLevelItem() {
 		if flow := item.FlowStatement(); flow != nil {
-			nodes, edges, ok := analyzeFlow(acontext.Child(ctx, flow), generateKey)
+			nodes, edges, ok := analyzeFlow(acontext.Child(ctx, flow), kg)
 			if !ok {
 				return i, ctx.Diagnostics
 			}
 			i.Nodes = append(i.Nodes, nodes...)
 			i.Edges = append(i.Edges, edges...)
 		} else if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
-			seq, nodes, edges, ok := analyzeSequence(acontext.Child(ctx, seqDecl), generateKey)
+			seq, nodes, edges, ok := analyzeSequence(acontext.Child(ctx, seqDecl), kg)
 			if !ok {
 				return i, ctx.Diagnostics
 			}
@@ -189,7 +208,7 @@ func getFlowOperatorKind(ctx acontext.Context[parser.IFlowStatementContext], ope
 
 func analyzeFlow(
 	ctx acontext.Context[parser.IFlowStatementContext],
-	generateKey generateKey,
+	kg *KeyGenerator,
 ) ([]ir.Node, []ir.Edge, bool) {
 	var (
 		prevOutputHandle ir.Handle
@@ -230,10 +249,10 @@ func analyzeFlow(
 				if isLastNode && isChannel {
 					// Last channel in chain is a sink
 					node, inputHandle, outputHandle, ok = analyzeExpressionNodeAsSink(
-						acontext.Child(ctx, flowNode), generateKey)
+						acontext.Child(ctx, flowNode), kg)
 				} else {
 					node, inputHandle, outputHandle, ok = analyzeExpressionNode(
-						acontext.Child(ctx, flowNode), generateKey)
+						acontext.Child(ctx, flowNode), kg)
 				}
 
 				if !ok {
@@ -291,9 +310,9 @@ func analyzeFlow(
 
 			if isLastFlowNode && c.Identifier() != nil {
 				// Last flow node that is a channel - treat as sink
-				node, inputHandle, outputHandle, ok = analyzeExpressionNodeAsSink(acontext.Child(ctx, c), generateKey)
+				node, inputHandle, outputHandle, ok = analyzeExpressionNodeAsSink(acontext.Child(ctx, c), kg)
 			} else {
-				node, inputHandle, outputHandle, ok = analyzeExpressionNode(acontext.Child(ctx, c), generateKey)
+				node, inputHandle, outputHandle, ok = analyzeExpressionNode(acontext.Child(ctx, c), kg)
 			}
 			if !ok {
 				return nil, nil, false
@@ -318,7 +337,7 @@ func analyzeFlow(
 				// Input routing table: { param1: source1, param2: source2 } -> func
 				newNodes, newEdges, ok := analyzeInputRoutingTable(
 					acontext.Child(ctx, c),
-					generateKey,
+					kg,
 				)
 				if !ok {
 					return nil, nil, false
@@ -342,7 +361,7 @@ func analyzeFlow(
 					acontext.Child(ctx, c),
 					*prevNode,
 					prevOutputHandle,
-					generateKey,
+					kg,
 				)
 				if !ok {
 					return nil, nil, false
@@ -361,37 +380,37 @@ func analyzeFlow(
 
 func analyzeExpressionNode(
 	ctx acontext.Context[parser.IFlowNodeContext],
-	generateKey generateKey,
+	kg *KeyGenerator,
 ) (ir.Node, ir.Handle, ir.Handle, bool) {
 	if id := ctx.AST.Identifier(); id != nil {
-		return analyzeChannelNode(acontext.Child(ctx, id), generateKey)
+		return analyzeChannelNode(acontext.Child(ctx, id), kg)
 	}
 	if fn := ctx.AST.Function(); fn != nil {
-		return analyzeFunctionNode(acontext.Child(ctx, fn), generateKey)
+		return analyzeFunctionNode(acontext.Child(ctx, fn), kg)
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
-		return analyzeExpression(acontext.Child(ctx, expr))
+		return analyzeExpression(acontext.Child(ctx, expr), kg)
 	}
 	return ir.Node{}, ir.Handle{}, ir.Handle{}, true
 }
 
 func analyzeExpressionNodeAsSink(
 	ctx acontext.Context[parser.IFlowNodeContext],
-	generateKey generateKey,
+	kg *KeyGenerator,
 ) (ir.Node, ir.Handle, ir.Handle, bool) {
 	if id := ctx.AST.Identifier(); id != nil {
-		return analyzeChannelNodeAsSink(acontext.Child(ctx, id), generateKey)
+		return analyzeChannelNodeAsSink(acontext.Child(ctx, id), kg)
 	}
 	// For non-channel nodes, use normal analysis (functions can be sinks too)
-	return analyzeExpressionNode(ctx, generateKey)
+	return analyzeExpressionNode(ctx, kg)
 }
 
 func analyzeChannelNode(
 	ctx acontext.Context[parser.IIdentifierContext],
-	generateKey generateKey,
+	kg *KeyGenerator,
 ) (ir.Node, ir.Handle, ir.Handle, bool) {
 	name := ctx.AST.IDENTIFIER().GetText()
-	nodeKey := generateKey("on")
+	nodeKey := kg.Generate("on", name)
 	sym, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
@@ -416,10 +435,10 @@ func analyzeChannelNode(
 
 func analyzeChannelNodeAsSink(
 	ctx acontext.Context[parser.IIdentifierContext],
-	generateKey generateKey,
+	kg *KeyGenerator,
 ) (ir.Node, ir.Handle, ir.Handle, bool) {
 	name := ctx.AST.IDENTIFIER().GetText()
-	nodeKey := generateKey("write")
+	nodeKey := kg.Generate("write", name)
 	sym, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
@@ -478,11 +497,11 @@ func extractConfigValues(
 
 func analyzeFunctionNode(
 	ctx acontext.Context[parser.IFunctionContext],
-	generateKey generateKey,
+	kg *KeyGenerator,
 ) (ir.Node, ir.Handle, ir.Handle, bool) {
 	var (
 		name = ctx.AST.IDENTIFIER().GetText()
-		key  = generateKey(name)
+		key  = kg.Generate(name, "")
 	)
 	sym, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
@@ -529,7 +548,10 @@ func analyzeFunctionNode(
 	return n, inputHandle, outputHandle, true
 }
 
-func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) (ir.Node, ir.Handle, ir.Handle, bool) {
+func analyzeExpression(
+	ctx acontext.Context[parser.IExpressionContext],
+	kg *KeyGenerator,
+) (ir.Node, ir.Handle, ir.Handle, bool) {
 	sym, err := ctx.Scope.Root().GetChildByParserRule(ctx.AST)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
@@ -550,26 +572,29 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) (ir.Node
 			return ir.Node{}, ir.Handle{}, ir.Handle{}, false
 		}
 
+		key := kg.Generate("const", "")
 		n := ir.Node{
-			Key:      sym.Name,
+			Key:      key,
 			Type:     "constant",
 			Channels: symbol.NewChannels(),
 			Config:   types.Params{{Name: "value", Type: resolvedType, Value: parsedValue.Value}},
 			Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: resolvedType}},
 		}
-		inputHandle := ir.Handle{Node: sym.Name, Param: ir.DefaultInputParam}
-		outputHandle := ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam}
+		inputHandle := ir.Handle{Node: key, Param: ir.DefaultInputParam}
+		outputHandle := ir.Handle{Node: key, Param: ir.DefaultOutputParam}
 		return n, inputHandle, outputHandle, true
 	}
 
+	// Non-constant expressions (e.g., inline functions)
+	key := kg.Generate(sym.Name, "")
 	n := ir.Node{
-		Key:      sym.Name,
+		Key:      key,
 		Type:     sym.Name,
 		Channels: symbol.NewChannels(),
 	}
 	// Expression nodes use default parameters
-	inputHandle := ir.Handle{Node: sym.Name, Param: ir.DefaultInputParam}
-	outputHandle := ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam}
+	inputHandle := ir.Handle{Node: key, Param: ir.DefaultInputParam}
+	outputHandle := ir.Handle{Node: key, Param: ir.DefaultOutputParam}
 	return n, inputHandle, outputHandle, true
 }
 
@@ -577,7 +602,7 @@ func analyzeOutputRoutingTable(
 	ctx acontext.Context[parser.IRoutingTableContext],
 	sourceNode ir.Node,
 	sourceHandle ir.Handle,
-	generateKey generateKey,
+	kg *KeyGenerator,
 ) ([]ir.Node, []ir.Edge, bool) {
 	var (
 		nodes []ir.Node
@@ -623,10 +648,10 @@ func analyzeOutputRoutingTable(
 			if isLastNode && isChannel {
 				// Last channel in routing chain is a sink
 				node, inputHandle, outputHandle, ok = analyzeExpressionNodeAsSink(
-					acontext.Child(ctx, flowNode), generateKey)
+					acontext.Child(ctx, flowNode), kg)
 			} else {
 				node, inputHandle, outputHandle, ok = analyzeExpressionNode(
-					acontext.Child(ctx, flowNode), generateKey)
+					acontext.Child(ctx, flowNode), kg)
 			}
 
 			if !ok {
@@ -673,7 +698,7 @@ func analyzeOutputRoutingTable(
 
 func analyzeInputRoutingTable(
 	ctx acontext.Context[parser.IRoutingTableContext],
-	generateKey generateKey,
+	kg *KeyGenerator,
 ) ([]ir.Node, []ir.Edge, bool) {
 	// TODO: Implement input routing table
 	// Input routing tables map sources to named input parameters
@@ -708,7 +733,7 @@ func getExpressionText(expr parser.IExpressionContext) string {
 // It creates a Sequence with embedded Stages, stage entry nodes, and all edges.
 func analyzeSequence(
 	ctx acontext.Context[parser.ISequenceDeclarationContext],
-	generateKey generateKey,
+	kg *KeyGenerator,
 ) (ir.Sequence, []ir.Node, []ir.Edge, bool) {
 	seqName := ctx.AST.IDENTIFIER().GetText()
 	seq := ir.Sequence{Key: seqName}
@@ -716,20 +741,11 @@ func analyzeSequence(
 	var allNodes []ir.Node
 	var allEdges []ir.Edge
 
-	// Collect all stage declarations first so we can resolve "next" targets
-	stageDecls := ctx.AST.AllStageDeclaration()
-	stageNames := make([]string, len(stageDecls))
-	for i, stageDecl := range stageDecls {
-		stageNames[i] = stageDecl.IDENTIFIER().GetText()
-	}
-
-	for i, stageDecl := range stageDecls {
+	for _, stageDecl := range ctx.AST.AllStageDeclaration() {
 		stage, nodes, edges, ok := analyzeStage(
 			acontext.Child(ctx, stageDecl),
 			seqName,
-			stageNames,
-			i,
-			generateKey,
+			kg,
 		)
 		if !ok {
 			return ir.Sequence{}, nil, nil, false
@@ -743,13 +759,11 @@ func analyzeSequence(
 }
 
 // analyzeStage processes a stage declaration and builds nodes/edges for it.
-// Creates a stage entry node and processes all stage items (flows, transitions).
+// Creates a stage entry node and processes all stage items (flows).
 func analyzeStage(
 	ctx acontext.Context[parser.IStageDeclarationContext],
 	seqName string,
-	stageNames []string,
-	stageIndex int,
-	generateKey generateKey,
+	kg *KeyGenerator,
 ) (ir.Stage, []ir.Node, []ir.Edge, bool) {
 	stageName := ctx.AST.IDENTIFIER().GetText()
 	stage := ir.Stage{Key: stageName}
@@ -757,8 +771,8 @@ func analyzeStage(
 	var nodes []ir.Node
 	var edges []ir.Edge
 
-	// Create stage entry node
-	entryKey := fmt.Sprintf("%s_%s_entry", seqName, stageName)
+	// Create stage entry node (deterministic key, no counter)
+	entryKey := kg.Entry(seqName, stageName)
 	entryNode := ir.Node{
 		Key:      entryKey,
 		Type:     "stage_entry",
@@ -777,7 +791,11 @@ func analyzeStage(
 	}
 
 	for _, item := range stageBody.AllStageItem() {
-		itemNodes, itemEdges, ok := analyzeStageItem(ctx, item, seqName, stageNames, stageIndex, generateKey)
+		flowStmt := item.FlowStatement()
+		if flowStmt == nil {
+			continue
+		}
+		itemNodes, itemEdges, ok := analyzeFlow(acontext.Child(ctx, flowStmt), kg)
 		if !ok {
 			return ir.Stage{}, nil, nil, false
 		}
@@ -791,20 +809,4 @@ func analyzeStage(
 	}
 
 	return stage, nodes, edges, true
-}
-
-// analyzeStageItem dispatches to the appropriate handler for each type of stage item.
-func analyzeStageItem(
-	ctx acontext.Context[parser.IStageDeclarationContext],
-	item parser.IStageItemContext,
-	seqName string,
-	stageNames []string,
-	stageIndex int,
-	generateKey generateKey,
-) ([]ir.Node, []ir.Edge, bool) {
-	// Stage items are now just flow statements (after grammar unification)
-	if flowStmt := item.FlowStatement(); flowStmt != nil {
-		return analyzeFlow(acontext.Child(ctx, flowStmt), generateKey)
-	}
-	return nil, nil, true
 }
