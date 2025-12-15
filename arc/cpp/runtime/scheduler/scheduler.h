@@ -198,12 +198,12 @@ public:
         for (const auto &seq: seqs) {
             for (const auto &stage: seq.stages) {
                 std::string key = stage_key(seq.key, stage.key);
-                stage_to_nodes[key] = stage.nodes;
+                this->stage_to_nodes[key] = stage.nodes;
 
                 // Track all nodes that belong to any stage and build reverse map
                 for (const auto &node_key: stage.nodes) {
-                    staged_nodes.insert(node_key);
-                    node_to_stage[node_key] = StageRef{seq.key, stage.key};
+                    this->staged_nodes.insert(node_key);
+                    this->node_to_stage[node_key] = StageRef{seq.key, stage.key};
                 }
             }
         }
@@ -227,8 +227,8 @@ public:
         // Clear one-shot tracking for this sequence
         fired_one_shots.erase(seq_name);
 
-        std::string key = stage_key(seq_name, stage_name);
-        auto it = stage_to_nodes.find(key);
+        const std::string key = stage_key(seq_name, stage_name);
+        const auto it = stage_to_nodes.find(key);
         if (it == stage_to_nodes.end()) return;
 
         for (const auto &node_key: it->second) {
@@ -242,7 +242,7 @@ public:
     [[nodiscard]] std::vector<std::string> get_active_sequences() const {
         std::vector<std::string> seqs;
         seqs.reserve(active_stages.size());
-        for (const auto &[seq, _]: active_stages) {
+        for (const auto &seq: active_stages | std::views::keys) {
             seqs.push_back(seq);
         }
         return seqs;
@@ -251,7 +251,7 @@ public:
     /// Get the currently active stage for a given sequence.
     /// Returns empty string if the sequence is not active.
     [[nodiscard]] std::string get_active_stage_for(const std::string &seq_name) const {
-        auto it = active_stages.find(seq_name);
+        const auto it = active_stages.find(seq_name);
         if (it == active_stages.end()) return "";
         return it->second;
     }

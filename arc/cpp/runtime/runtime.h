@@ -18,6 +18,7 @@
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/xthread/xthread.h"
 
+#include "arc/cpp/runtime/constant/constant.h"
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/match/match.h"
 #include "arc/cpp/runtime/node/factory.h"
@@ -178,6 +179,7 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
     auto stage_factory = std::make_shared<stage::Factory>();
     auto match_factory = std::make_shared<match::Factory>();
     auto io_factory = std::make_shared<io::Factory>();
+    auto constant_factory = std::make_shared<constant::Factory>();
     node::MultiFactory fact(
         std::vector<std::shared_ptr<node::Factory>>{
             wasm_factory,
@@ -185,6 +187,7 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
             stage_factory,
             match_factory,
             io_factory,
+            constant_factory,
         }
     );
 

@@ -75,11 +75,8 @@ public:
         state(std::move(state)), cfg(cfg) {}
 
     xerrors::Error next(node::Context &ctx) override {
-        // One-shot: if already fired, do nothing
-        if (fired) return xerrors::NIL;
-
-        // Initialize start time on first tick
-        if (start_time.nanoseconds() < 0) { start_time = ctx.elapsed; }
+        if (this->fired) return xerrors::NIL;
+        if (this->start_time.nanoseconds() < 0) { start_time = ctx.elapsed; }
 
         // Check if duration has elapsed
         if (ctx.elapsed - start_time < cfg.duration) return xerrors::NIL;

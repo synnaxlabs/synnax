@@ -20,7 +20,6 @@ struct Context {
     telem::TimeSpan elapsed;
     std::function<void(const std::string &output_param)> mark_changed;
     std::function<void(const xerrors::Error &)> report_error;
-    /// Activates the stage that the given node belongs to.
     std::function<void(const std::string &node_key)> activate_stage;
 };
 
