@@ -23,11 +23,10 @@ const OUTPUT_CHANNEL_TYPES: OutputChannelTypeEntry[] = [
   { key: HOLDING_REGISTER_OUTPUT_TYPE, name: "Holding Register" },
 ];
 
-export interface SelectOutputChannelTypeFieldProps
-  extends Omit<
-    Form.SelectFieldProps<OutputChannelType, OutputChannelTypeEntry>,
-    "data" | "entryRenderKey" | "columns"
-  > {}
+export interface SelectOutputChannelTypeFieldProps extends Omit<
+  Form.SelectFieldProps<OutputChannelType, OutputChannelTypeEntry>,
+  "data" | "entryRenderKey" | "columns"
+> {}
 
 export const SelectOutputChannelTypeField = Form.buildSelectField<
   OutputChannelType,

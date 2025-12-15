@@ -21,8 +21,7 @@ export const combineDateAndTimeValue = (date: number, time: number): TimeStamp =
   new TimeStamp(date).add(time).sub(TimeStamp.utcOffset);
 
 export interface TimeProps
-  extends Omit<TextProps, "type" | "value" | "onChange">,
-    Control<number> {
+  extends Omit<TextProps, "type" | "value" | "onChange">, Control<number> {
   tzInfo?: TZInfo;
   showDragHandle?: boolean;
   dragDirection?: direction.Direction;

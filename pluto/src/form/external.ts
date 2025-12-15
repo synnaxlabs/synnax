@@ -10,6 +10,5 @@
 export * from "@/form/Context";
 export * from "@/form/Field";
 export * from "@/form/Form";
-export * from "@/form/synced";
 export * from "@/form/use";
 export * from "@/form/useField";

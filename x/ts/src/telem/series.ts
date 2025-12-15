@@ -1553,9 +1553,9 @@ class MultiSeriesIterator<T extends TelemValue = TelemValue> implements Iterator
   }
 }
 
-class MultiSubIterator<T extends TelemValue = TelemValue>
-  implements IterableIterator<T>
-{
+class MultiSubIterator<
+  T extends TelemValue = TelemValue,
+> implements IterableIterator<T> {
   private readonly series: MultiSeries<T>;
   private index: number;
   private end: number;

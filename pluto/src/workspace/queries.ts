@@ -21,8 +21,10 @@ export const FLUX_STORE_KEY = "workspaces";
 const RESOURCE_NAME = "Workspace";
 const PLURAL_RESOURCE_NAME = "Workspaces";
 
-export interface FluxStore
-  extends Flux.UnaryStore<workspace.Key, workspace.Workspace> {}
+export interface FluxStore extends Flux.UnaryStore<
+  workspace.Key,
+  workspace.Workspace
+> {}
 
 interface FluxSubStore extends Flux.Store, role.FluxSubStore, policy.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
