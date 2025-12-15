@@ -510,7 +510,10 @@ const GroupList = ({
     () => remoteData.retrieve({ parent: symbolGroupID }),
     [remoteData.retrieve, symbolGroupID],
   );
-  const data = List.useCombinedData(staticData, remoteData);
+  const data = List.useCombinedData<group.Key, group.Group>({
+    first: staticData,
+    second: remoteData,
+  });
   const menuProps = Menu.useContextMenu();
   return (
     <Select.Frame<group.Key, group.Group>
@@ -561,7 +564,7 @@ const SearchSymbolList = ({
   const { data, getItem, subscribe } = List.useCombinedData<
     string,
     Schematic.Symbol.Spec | schematic.symbol.Symbol
-  >(staticData, remote);
+  >({ first: staticData, second: remote });
   const { search } = List.usePager({
     retrieve: useCallback(
       (args) => {

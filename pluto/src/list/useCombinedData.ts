@@ -12,37 +12,46 @@ import { useCallback, useMemo } from "react";
 
 import { type FrameProps, type GetItem } from "@/list/Frame";
 
-export interface UseCombinedDataArg<
+export interface UseCombinedDataArgs<
   K extends record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
-> extends Pick<FrameProps<K, E>, "data" | "getItem" | "subscribe"> {}
+> {
+  first: Pick<FrameProps<K, E>, "data" | "getItem" | "subscribe">;
+  second: Pick<FrameProps<K, E>, "data" | "getItem" | "subscribe">;
+}
 
 export const useCombinedData = <
   K extends record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
->(
-  ...args: UseCombinedDataArg<K, E>[]
-): FrameProps<K, E> => {
-  const argsToData = useMemo(() => args.map(({ data }) => data), [args]);
-  const data = useMemo(() => argsToData.flat(), [...argsToData]);
-  const argsGetItem = useMemo(() => args.map(({ getItem }) => getItem), [args]);
+>({
+  first,
+  second,
+}: UseCombinedDataArgs<K, E>): FrameProps<K, E> => {
+  const data = useMemo(
+    () => [...first.data, ...second.data],
+    [first.data, second.data],
+  );
   const getItem = useCallback(
     (key: K | K[]) => {
-      if (Array.isArray(key))
-        return argsGetItem.map((getItem) => getItem?.(key) ?? []).flat();
-      return argsGetItem.find((getItem) => getItem?.(key) != null)?.(key);
+      if (Array.isArray(key)) {
+        const firstGotten = first.getItem?.(key) ?? [];
+        const secondGotten = second.getItem?.(key) ?? [];
+        return [...firstGotten, ...secondGotten];
+      }
+      return first.getItem?.(key) ?? second.getItem?.(key);
     },
-    [...argsGetItem],
+    [first.getItem, second.getItem],
   ) as GetItem<K, E>;
-  const argsSubscribe = useMemo(() => args.map(({ subscribe }) => subscribe), [args]);
   const subscribe = useCallback(
     (callback: () => void, key: K) => {
-      const unsubscribers = argsSubscribe.map((subscribe) =>
-        subscribe?.(callback, key),
-      );
-      return () => unsubscribers.forEach((unsubscribe) => unsubscribe?.());
+      const firstUnsub = first.subscribe?.(callback, key);
+      const secondUnsub = second.subscribe?.(callback, key);
+      return () => {
+        firstUnsub?.();
+        secondUnsub?.();
+      };
     },
-    [...argsSubscribe],
+    [first.subscribe, second.subscribe],
   );
   return useMemo(() => ({ data, getItem, subscribe }), [data, getItem, subscribe]);
 };

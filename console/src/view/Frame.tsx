@@ -62,7 +62,10 @@ export const Frame = ({ resourceType, children }: FrameProps): ReactElement => {
   const remoteProps = PView.useList({ initialQuery: { types: [resourceType] } });
   const { retrieve } = remoteProps;
   const handleFetchMore = useCallback(() => retrieve((p) => p), [retrieve]);
-  const combinedProps = List.useCombinedData<view.Key, View>(staticProps, remoteProps);
+  const combinedProps = List.useCombinedData<view.Key, View>({
+    first: staticProps,
+    second: remoteProps,
+  });
   const { getItem } = combinedProps;
   if (getItem == null) throw new UnexpectedError("No item getter found");
   const staticViewKeys = useMemo(() => staticViews.map((v) => v.key), [staticViews]);
