@@ -18,15 +18,16 @@ import { View } from "@/view";
 
 export const Chips = (): ReactElement | null => {
   const { editable } = View.useContext();
-  const { onChange } = Form.useField<label.Key[]>("query.hasLabels", {
-    defaultValue: [],
+  const field = Form.useField<label.Key[]>("query.hasLabels", {
+    optional: true,
   });
   const hasLabels = Form.useFieldValue<label.Key[]>("query.hasLabels", {
-    defaultValue: [],
+    optional: true,
   });
   const labels = Label.useRetrieveMultiple({ keys: hasLabels ?? [] }).data ?? [];
-  if (labels.length === 0) return null;
-  const handleClose = (key: label.Key) => onChange(hasLabels.filter((l) => l !== key));
+  if (labels.length === 0 || field == null || hasLabels == null) return null;
+  const handleClose = (key: label.Key) =>
+    field.onChange(hasLabels.filter((l) => l !== key));
   return (
     <Flex.Box x pack background={0}>
       <Text.Text
