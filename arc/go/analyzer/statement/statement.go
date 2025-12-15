@@ -469,21 +469,10 @@ func analyzeChannelWrite(ctx context.Context[parser.IChannelWriteContext]) bool 
 }
 
 func analyzeChannelRead(ctx context.Context[parser.IChannelReadContext]) bool {
-	if blocking := ctx.AST.BlockingRead(); blocking != nil {
-		return analyzeBlockingRead(context.Child(ctx, blocking))
-	}
 	if nonBlocking := ctx.AST.NonBlockingRead(); nonBlocking != nil {
 		return analyzeNonBlockingRead(context.Child(ctx, nonBlocking))
 	}
 	return true
-}
-
-func analyzeBlockingRead(ctx context.Context[parser.IBlockingReadContext]) bool {
-	ids := ctx.AST.AllIDENTIFIER()
-	if len(ids) != 2 {
-		return false
-	}
-	return createChannelReadVariable(ctx, ids[0].GetText(), ids[1].GetText())
 }
 
 func analyzeNonBlockingRead(ctx context.Context[parser.INonBlockingReadContext]) bool {
@@ -524,13 +513,79 @@ func createChannelReadVariable[T antlr.ParserRuleContext](
 	return true
 }
 
+func analyzeChannelAssignment(ctx context.Context[parser.IAssignmentContext], channelSym *symbol.Symbol) bool {
+	// Validate we're in a function context (channel writes only allowed in imperative context)
+	fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
+	if fnErr != nil || fn == nil {
+		ctx.Diagnostics.AddError(
+			errors.New("channel assignment only valid in function bodies"),
+			ctx.AST,
+		)
+		return false
+	}
+
+	// Track this as a channel write in the function
+	fn.Channels.Write.Add(uint32(channelSym.ID))
+
+	// Analyze and type-check the expression
+	expr := ctx.AST.Expression()
+	if expr == nil {
+		return true
+	}
+	if !expression.Analyze(context.Child(ctx, expr)) {
+		return false
+	}
+
+	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
+	chanValueType := channelSym.Type.Unwrap()
+
+	if !exprType.IsValid() || !chanValueType.IsValid() {
+		return true
+	}
+
+	// If either type is a type variable, add a constraint instead of checking directly
+	if exprType.Kind == types.KindVariable || chanValueType.Kind == types.KindVariable {
+		if err := atypes.Check(ctx.Constraints, chanValueType, exprType, ctx.AST, "channel write type compatibility"); err != nil {
+			ctx.Diagnostics.AddError(err, ctx.AST)
+			return false
+		}
+	} else {
+		isLiteral := isLiteralExpression(context.Child(ctx, expr))
+		if (isLiteral && !atypes.LiteralAssignmentCompatible(chanValueType, exprType)) || (!isLiteral && !atypes.Compatible(chanValueType, exprType)) {
+			ctx.Diagnostics.AddError(
+				errors.Newf("type mismatch: cannot write %s to channel of type %s", exprType, chanValueType),
+				ctx.AST,
+			)
+			return false
+		}
+	}
+
+	return true
+}
+
 func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) bool {
+	// Assignments are only allowed in function bodies (imperative context)
+	fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
+	if fnErr != nil || fn == nil {
+		ctx.Diagnostics.AddError(
+			errors.New("assignments only allowed in function bodies, not in reactive contexts"),
+			ctx.AST,
+		)
+		return false
+	}
+
 	name := ctx.AST.IDENTIFIER().GetText()
 	varScope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
+
+	// Check if this is a channel assignment (channel = value)
+	if varScope.Type.Kind == types.KindChan {
+		return analyzeChannelAssignment(ctx, &varScope.Symbol)
+	}
+
 	expr := ctx.AST.Expression()
 	if expr == nil {
 		return true

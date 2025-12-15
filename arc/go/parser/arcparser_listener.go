@@ -142,9 +142,6 @@ type ArcParserListener interface {
 	// EnterChannelRead is called when entering the channelRead production.
 	EnterChannelRead(c *ChannelReadContext)
 
-	// EnterBlockingRead is called when entering the blockingRead production.
-	EnterBlockingRead(c *BlockingReadContext)
-
 	// EnterNonBlockingRead is called when entering the nonBlockingRead production.
 	EnterNonBlockingRead(c *NonBlockingReadContext)
 
@@ -213,9 +210,6 @@ type ArcParserListener interface {
 
 	// EnterUnaryExpression is called when entering the unaryExpression production.
 	EnterUnaryExpression(c *UnaryExpressionContext)
-
-	// EnterBlockingReadExpr is called when entering the blockingReadExpr production.
-	EnterBlockingReadExpr(c *BlockingReadExprContext)
 
 	// EnterPostfixExpression is called when entering the postfixExpression production.
 	EnterPostfixExpression(c *PostfixExpressionContext)
@@ -385,9 +379,6 @@ type ArcParserListener interface {
 	// ExitChannelRead is called when exiting the channelRead production.
 	ExitChannelRead(c *ChannelReadContext)
 
-	// ExitBlockingRead is called when exiting the blockingRead production.
-	ExitBlockingRead(c *BlockingReadContext)
-
 	// ExitNonBlockingRead is called when exiting the nonBlockingRead production.
 	ExitNonBlockingRead(c *NonBlockingReadContext)
 
@@ -456,9 +447,6 @@ type ArcParserListener interface {
 
 	// ExitUnaryExpression is called when exiting the unaryExpression production.
 	ExitUnaryExpression(c *UnaryExpressionContext)
-
-	// ExitBlockingReadExpr is called when exiting the blockingReadExpr production.
-	ExitBlockingReadExpr(c *BlockingReadExprContext)
 
 	// ExitPostfixExpression is called when exiting the postfixExpression production.
 	ExitPostfixExpression(c *PostfixExpressionContext)

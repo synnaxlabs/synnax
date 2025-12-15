@@ -133,44 +133,88 @@ TypeCast ::= Type '(' Expression ')'
 
 ## Channel Operations
 
-### Operation Grammar
+Channel operations differ between **reactive context** (flow/stages) and **imperative context** (function bodies).
+
+### Reactive Context (Flow/Sequence Layer)
 
 ```
+FlowStatement ::= ChannelRead '=>' Identifier     // Blocking read triggering state transition
+               | ChannelWrite '->' Identifier     // Write to channel in reactive flow
+               | Identifier '->' FunctionCall     // Connect channel to function
 
-ChannelOperation ::= ChannelWrite | ChannelRead ChannelWrite ::= Expression '->'
-Identifier | Identifier '<-' Expression ChannelRead ::= Identifier ':=' '<-' Identifier
-// blocking | Identifier ':=' Identifier // non-blocking
+ChannelRead ::= '<-' Identifier                   // Blocking read (waits for value)
+ChannelWrite ::= Expression '->' Identifier       // Write value to channel
+```
 
-````
-
-**Blocking read** (`<-chan`) removes oldest value from queue and waits if empty.
-**Non-blocking read** (`chan`) returns newest value immediately (or zero if never
-written).
+**Blocking read** (`<-channel`) in reactive context waits for next value and triggers
+reaction. Used in stages to create event-driven transitions:
 
 ```arc
-value := <-sensor     // block until next value
-current := sensor     // get latest value now
-42 -> output          // write to channel
-````
+stage monitor {
+    <-sensor => process_reading{}   // Wait for sensor value, then trigger
+    process{} -> output             // Connect function output to channel
+    interval{100ms} -> tick_handler // Trigger on interval
+}
+```
+
+### Imperative Context (Function Bodies)
+
+```
+Statement ::= ChannelRead | ChannelWrite | ...
+
+ChannelRead ::= Identifier ':=' Identifier        // Non-blocking read
+ChannelWrite ::= Identifier '=' Expression        // Channel write (assignment)
+```
+
+**Non-blocking read** (`channel`) returns newest value immediately or zero if never written:
+
+```arc
+func process() bool {
+    current := sensor           // Get latest value (non-blocking)
+    return current > threshold
+}
+```
+
+**Channel write** (`channel = value`) enqueues value to channel. **Blocking reads are forbidden** —
+functions must execute instantly without waiting:
+
+```arc
+func initialize() true {
+    tpc_cmd = 0                // Enqueue value to channel
+    mpv_cmd = 0
+    vent_cmd = 1
+    return true
+}
+```
 
 ### Channel Semantics
 
 Channels are unbounded FIFO queues. All channels internally carry series; scalar
 operations are convenience wrappers:
 
-- Scalar write `42 -> ch` creates single-element series `[42]`
-- Scalar read `<-ch` returns first element of next series
+- Scalar write `ch = 42` creates single-element series `[42]` and enqueues it
+- Non-blocking scalar read `ch` returns first element of newest series (or zero)
 
-**Snapshot guarantee**: All non-blocking reads within a function invocation see the same
-channel state taken at invocation start.
+**Non-blocking snapshot guarantee**: All non-blocking reads within a function invocation
+see the same channel state taken at invocation start.
 
 **Event ordering**: Multiple writes in same tick are deterministically ordered by (1)
 timestamp, (2) topological order, (3) channel identifier.
 
-### Channel Piping
+**Syntax summary**:
+- **Blocking reads** (`<-channel`): Only in reactive context; trigger on value arrival
+- **Non-blocking reads** (`channel`): Only in imperative context; return current value
+- **Writes** (`channel = value`): Only in imperative context; enqueue to channel
+- **Reactive flow** (`channel -> function`): Only in reactive context; connect dataflow
+
+### Channel Piping in Reactive Context
 
 In flow layer, `sensor -> func{}` creates reactive connection triggering function
-execution. Inside function bodies, `sensor -> display` is a simple read-then-write.
+execution when sensor value changes. Multiple functions can be chained:
+
+```arc
+sensor -> transform{} -> filter{} -> output_channel
+```
 
 ## Variables
 

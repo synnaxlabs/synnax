@@ -2,7 +2,7 @@
 start_cmd => main
 
 func ox_press_control() {
-    1 -> valve_cmd_t
+    valve_cmd_t = 1
     if (pressure > 30) {
 
     }

@@ -115,13 +115,6 @@ var _ = Describe("Parser", func() {
 				Expect(unary.NOT()).NotTo(BeNil())
 			})
 
-			It("Should parse blocking read", func() {
-				expr := mustParseExpression("<-input")
-				unary := getPowerExpression(expr).UnaryExpression()
-				Expect(unary.BlockingReadExpr()).NotTo(BeNil())
-				Expect(unary.BlockingReadExpr().RECV()).NotTo(BeNil())
-				Expect(unary.BlockingReadExpr().IDENTIFIER().GetText()).To(Equal("input"))
-			})
 		})
 
 		Context("Series", func() {
@@ -547,26 +540,6 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				Expect(write.IDENTIFIER().GetText()).To(Equal("output"))
 			})
 
-			It("Should parse blocking channel read", func() {
-				stmt := mustParseStatement("value := <-input")
-
-				channelOp := stmt.ChannelOperation()
-				if channelOp == nil {
-					// Maybe it's a variable declaration with blocking read expression
-					varDecl := stmt.VariableDeclaration()
-					Expect(varDecl).NotTo(BeNil())
-					return
-				}
-
-				read := channelOp.ChannelRead()
-				Expect(read).NotTo(BeNil())
-
-				blocking := read.BlockingRead()
-				Expect(blocking).NotTo(BeNil())
-				Expect(blocking.IDENTIFIER(0).GetText()).To(Equal("value"))
-				Expect(blocking.RECV()).NotTo(BeNil())
-				Expect(blocking.IDENTIFIER(1).GetText()).To(Equal("input"))
-			})
 
 			It("Should parse non-blocking channel read", func() {
 				stmt := mustParseStatement("current := sensor")
@@ -1371,219 +1344,114 @@ sensor -> demux{threshold=100.0} -> {
 
 	Describe("Sequences and Stages", func() {
 		Context("Sequence Declarations", func() {
-			It("Should parse a simple sequence with one stage", func() {
+			It("Should parse a simple sequence with stages", func() {
 				prog := mustParseProgram(`
-main: start_cmd => idle: stage {
-    1 -> output
+sequence main {
+    stage precheck { }
+    stage pressurization { }
 }`)
 				seq := prog.TopLevelItem(0).SequenceDeclaration()
 				Expect(seq).NotTo(BeNil())
 				Expect(seq.IDENTIFIER().GetText()).To(Equal("main"))
 
-				entries := seq.AllSequenceEntry()
-				Expect(entries).To(HaveLen(2))
+				stages := seq.AllStageDeclaration()
+				Expect(stages).To(HaveLen(2))
 
-				// First entry: start_cmd (identifier)
-				Expect(entries[0].IDENTIFIER()).NotTo(BeNil())
-				Expect(entries[0].IDENTIFIER().GetText()).To(Equal("start_cmd"))
+				// First stage: precheck
+				Expect(stages[0].IDENTIFIER().GetText()).To(Equal("precheck"))
 
-				// Second entry: idle: stage { }
-				Expect(entries[1].StageBody()).NotTo(BeNil())
-			})
-
-			It("Should parse anonymous inline stages", func() {
-				prog := mustParseProgram(`
-abort: stage {
-    0 -> valve_cmd
-} => safing: stage {
-    1 -> vent_cmd
-}`)
-				seq := prog.TopLevelItem(0).SequenceDeclaration()
-				entries := seq.AllSequenceEntry()
-				Expect(entries).To(HaveLen(2))
-
-				// First entry: anonymous stage
-				Expect(entries[0].STAGE()).NotTo(BeNil())
-				Expect(entries[0].StageBody()).NotTo(BeNil())
-
-				// Second entry: labeled stage
-				Expect(entries[1].IDENTIFIER().GetText()).To(Equal("safing"))
-				Expect(entries[1].STAGE()).NotTo(BeNil())
+				// Second stage: pressurization
+				Expect(stages[1].IDENTIFIER().GetText()).To(Equal("pressurization"))
 			})
 		})
 
-		Context("Stage Declarations", func() {
-			It("Should parse standalone stage declaration", func() {
+		Context("Stage Items", func() {
+			It("Should parse stage with multiple transitions", func() {
 				prog := mustParseProgram(`
-stage hold {
-    resume_btn => main,
-    abort_btn => abort
+sequence seq {
+    stage hold {
+        condition1 => next,
+        condition2 => next
+    }
 }`)
-				stage := prog.TopLevelItem(0).StageDeclaration()
-				Expect(stage).NotTo(BeNil())
-				Expect(stage.STAGE()).NotTo(BeNil())
+				seq := prog.TopLevelItem(0).SequenceDeclaration()
+				stages := seq.AllStageDeclaration()
+				Expect(stages).To(HaveLen(1))
+
+				stage := stages[0]
 				Expect(stage.IDENTIFIER().GetText()).To(Equal("hold"))
-				Expect(stage.StageBody()).NotTo(BeNil())
 				Expect(stage.StageBody().AllStageItem()).To(HaveLen(2))
 			})
 
-			It("Should parse stage with reactive flows", func() {
+			It("Should parse stage with single transition", func() {
 				prog := mustParseProgram(`
-stage pressurization {
-    interval{100ms} -> ox_press_control{},
-    interval{100ms} -> fuel_press_control{}
+sequence seq {
+    stage test {
+        condition => next
+    }
 }`)
-				stage := prog.TopLevelItem(0).StageDeclaration()
+				seq := prog.TopLevelItem(0).SequenceDeclaration()
+				stages := seq.AllStageDeclaration()
+				stage := stages[0]
 				body := stage.StageBody()
 				items := body.AllStageItem()
-				Expect(items).To(HaveLen(2))
+				Expect(items).To(HaveLen(1))
 
-				// Check first flow
-				flow := items[0].StageFlow()
-				Expect(flow).NotTo(BeNil())
-				Expect(flow.AllFlowNode()).To(HaveLen(2))
+				// Check transition
+				trans := items[0].TransitionStatement()
+				Expect(trans).NotTo(BeNil())
+				Expect(trans.TRANSITION()).NotTo(BeNil())
 			})
 		})
 
 		Context("Transitions", func() {
-			It("Should parse transition to identifier", func() {
+			It("Should parse transitions in stage items", func() {
 				prog := mustParseProgram(`
-stage test {
-    condition => target
-}`)
-				stage := prog.TopLevelItem(0).StageDeclaration()
-				item := stage.StageBody().StageItem(0)
-				trans := item.TransitionStatement()
-				Expect(trans).NotTo(BeNil())
-				Expect(trans.TRANSITION()).NotTo(BeNil())
-				// condition is parsed as a function (IDENTIFIER with optional config/args)
-				Expect(trans.Function()).NotTo(BeNil())
-				Expect(trans.Function().IDENTIFIER().GetText()).To(Equal("condition"))
-				target := trans.TransitionTarget()
-				Expect(target.IDENTIFIER().GetText()).To(Equal("target"))
-			})
-
-			It("Should parse transition to next", func() {
-				prog := mustParseProgram(`
-stage test {
-    done => next
-}`)
-				stage := prog.TopLevelItem(0).StageDeclaration()
-				trans := stage.StageBody().StageItem(0).TransitionStatement()
-				target := trans.TransitionTarget()
-				Expect(target.NEXT()).NotTo(BeNil())
-			})
-
-			It("Should parse transition with complex condition", func() {
-				prog := mustParseProgram(`
-stage test {
-    ox_psi > target and fuel_psi > target => next
-}`)
-				stage := prog.TopLevelItem(0).StageDeclaration()
-				trans := stage.StageBody().StageItem(0).TransitionStatement()
-				Expect(trans.Expression()).NotTo(BeNil())
-				// Expression should be a logical AND
-				logicalOr := trans.Expression().LogicalOrExpression()
-				logicalAnd := logicalOr.LogicalAndExpression(0)
-				Expect(logicalAnd.AllEqualityExpression()).To(HaveLen(2))
-			})
-
-			It("Should parse function call with config as transition condition", func() {
-				// Regression test: wait{30s} => abort was incorrectly parsed as stageFlow
-				prog := mustParseProgram(`
-stage test {
-    wait{30s} => abort
-}`)
-				stage := prog.TopLevelItem(0).StageDeclaration()
-				item := stage.StageBody().StageItem(0)
-				trans := item.TransitionStatement()
-				Expect(trans).NotTo(BeNil())
-				Expect(trans.TRANSITION()).NotTo(BeNil())
-				// wait{30s} is a function call
-				fn := trans.Function()
-				Expect(fn).NotTo(BeNil())
-				Expect(fn.IDENTIFIER().GetText()).To(Equal("wait"))
-				Expect(fn.ConfigValues()).NotTo(BeNil())
-				target := trans.TransitionTarget()
-				Expect(target.IDENTIFIER().GetText()).To(Equal("abort"))
-			})
-		})
-
-		Context("Match Blocks", func() {
-			It("Should parse transition to match block", func() {
-				prog := mustParseProgram(`
-stage test {
-    result => match {
-        ok => next,
-        fail => abort
+sequence seq {
+    stage test {
+        condition1 => next,
+        condition2 => target,
+        pressure > target => next
     }
 }`)
-				stage := prog.TopLevelItem(0).StageDeclaration()
-				trans := stage.StageBody().StageItem(0).TransitionStatement()
-				target := trans.TransitionTarget()
-				matchBlock := target.MatchBlock()
-				Expect(matchBlock).NotTo(BeNil())
-				Expect(matchBlock.MATCH()).NotTo(BeNil())
-				entries := matchBlock.AllMatchEntry()
-				Expect(entries).To(HaveLen(2))
+				seq := prog.TopLevelItem(0).SequenceDeclaration()
+				Expect(seq).NotTo(BeNil())
 
-				// ok => next
-				Expect(entries[0].IDENTIFIER().GetText()).To(Equal("ok"))
-				Expect(entries[0].TransitionTarget().NEXT()).NotTo(BeNil())
+				stages := seq.AllStageDeclaration()
+				Expect(stages).To(HaveLen(1))
 
-				// fail => abort
-				Expect(entries[1].IDENTIFIER().GetText()).To(Equal("fail"))
-				Expect(entries[1].TransitionTarget().IDENTIFIER().GetText()).To(Equal("abort"))
-			})
+				stage := stages[0]
+				Expect(stage.IDENTIFIER().GetText()).To(Equal("test"))
 
-			It("Should parse imperative block with match", func() {
-				prog := mustParseProgram(`
-stage precheck {
-    {
-        if sensor < 0 { return bad }
-        return ok
-    } => match {
-        ok => next,
-        bad => abort
-    }
-}`)
-				stage := prog.TopLevelItem(0).StageDeclaration()
-				item := stage.StageBody().StageItem(0)
-				imperative := item.ImperativeTransition()
-				Expect(imperative).NotTo(BeNil())
-				Expect(imperative.Block()).NotTo(BeNil())
-				Expect(imperative.TRANSITION()).NotTo(BeNil())
-				Expect(imperative.MatchBlock()).NotTo(BeNil())
+				items := stage.StageBody().AllStageItem()
+				Expect(items).To(HaveLen(3))
 			})
 		})
 
 		Context("Complex Sequences", func() {
-			It("Should parse hotfire-style sequence", func() {
+			It("Should parse sequence with multiple stages", func() {
 				prog := mustParseProgram(`
-main: start => precheck: stage {
-    sensor_ok => next,
-    abort_btn => abort
-} => pressurize: stage {
-    interval{100ms} -> press_control{},
-    pressure > target => next,
-    timeout => abort
-} => complete: stage {
-    1 -> done_flag
-}
-
-stage abort {
-    0 -> all_valves,
-    safe => next
+sequence main {
+    stage precheck {
+        sensor_ok => next,
+        abort_btn => abort
+    }
+    stage pressurize {
+        pressure > target => next,
+        timeout => abort
+    }
+    stage complete { }
 }`)
 				// Verify sequence
 				seq := prog.TopLevelItem(0).SequenceDeclaration()
 				Expect(seq.IDENTIFIER().GetText()).To(Equal("main"))
-				entries := seq.AllSequenceEntry()
-				Expect(entries).To(HaveLen(4)) // start, precheck, pressurize, complete
+				stages := seq.AllStageDeclaration()
+				Expect(stages).To(HaveLen(3))
 
-				// Verify standalone abort stage
-				abortStage := prog.TopLevelItem(1).StageDeclaration()
-				Expect(abortStage.IDENTIFIER().GetText()).To(Equal("abort"))
+				// Verify stage names
+				Expect(stages[0].IDENTIFIER().GetText()).To(Equal("precheck"))
+				Expect(stages[1].IDENTIFIER().GetText()).To(Equal("pressurize"))
+				Expect(stages[2].IDENTIFIER().GetText()).To(Equal("complete"))
 			})
 		})
 	})

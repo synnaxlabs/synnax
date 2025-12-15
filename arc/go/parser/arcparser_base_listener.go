@@ -290,12 +290,6 @@ func (s *BaseArcParserListener) EnterChannelRead(ctx *ChannelReadContext) {}
 // ExitChannelRead is called when production channelRead is exited.
 func (s *BaseArcParserListener) ExitChannelRead(ctx *ChannelReadContext) {}
 
-// EnterBlockingRead is called when production blockingRead is entered.
-func (s *BaseArcParserListener) EnterBlockingRead(ctx *BlockingReadContext) {}
-
-// ExitBlockingRead is called when production blockingRead is exited.
-func (s *BaseArcParserListener) ExitBlockingRead(ctx *BlockingReadContext) {}
-
 // EnterNonBlockingRead is called when production nonBlockingRead is entered.
 func (s *BaseArcParserListener) EnterNonBlockingRead(ctx *NonBlockingReadContext) {}
 
@@ -433,12 +427,6 @@ func (s *BaseArcParserListener) EnterUnaryExpression(ctx *UnaryExpressionContext
 
 // ExitUnaryExpression is called when production unaryExpression is exited.
 func (s *BaseArcParserListener) ExitUnaryExpression(ctx *UnaryExpressionContext) {}
-
-// EnterBlockingReadExpr is called when production blockingReadExpr is entered.
-func (s *BaseArcParserListener) EnterBlockingReadExpr(ctx *BlockingReadExprContext) {}
-
-// ExitBlockingReadExpr is called when production blockingReadExpr is exited.
-func (s *BaseArcParserListener) ExitBlockingReadExpr(ctx *BlockingReadExprContext) {}
 
 // EnterPostfixExpression is called when production postfixExpression is entered.
 func (s *BaseArcParserListener) EnterPostfixExpression(ctx *PostfixExpressionContext) {}

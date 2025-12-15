@@ -245,12 +245,7 @@ channelWrite
     ;
 
 channelRead
-    : blockingRead
-    | nonBlockingRead
-    ;
-
-blockingRead
-    : IDENTIFIER DECLARE RECV IDENTIFIER
+    : nonBlockingRead
     ;
 
 nonBlockingRead
@@ -359,13 +354,7 @@ powerExpression
 unaryExpression
     : MINUS unaryExpression
     | NOT unaryExpression
-    | blockingReadExpr
     | postfixExpression
-    ;
-
-// Blocking read as a true unary operator
-blockingReadExpr
-    : RECV IDENTIFIER
     ;
 
 postfixExpression

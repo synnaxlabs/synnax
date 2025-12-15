@@ -264,16 +264,6 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) bool {
 		}
 		return true
 	}
-	if blockingRead := ctx.AST.BlockingReadExpr(); blockingRead != nil {
-		if id := blockingRead.IDENTIFIER(); id != nil {
-			name := id.GetText()
-			if _, err := ctx.Scope.Resolve(ctx, name); err != nil {
-				ctx.Diagnostics.AddError(err, blockingRead)
-				return false
-			}
-		}
-		return true
-	}
 	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
 		return analyzePostfix(context.Child(ctx, postfix))
 	}
