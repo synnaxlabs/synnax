@@ -16,7 +16,6 @@ topLevelItem
     : functionDeclaration
     | flowStatement
     | sequenceDeclaration
-    | topLevelTransition
     ;
 
 // =============================================================================
@@ -77,22 +76,7 @@ stageBody
     ;
 
 stageItem
-    : imperativeTransition     // { ... } => match { ... }
-    | transitionStatement      // condition => target
-    | stageFlow                // sensor -> controller{}
-    ;
-
-// Reactive flow within a stage (runs continuously while in stage)
-stageFlow
-    : stageFlowNode (ARROW stageFlowNode)+
-    ;
-
-stageFlowNode
-    : routingTable
-    | timerBuiltin             // wait{100ms}, interval{10ms}
-    | logBuiltin               // log{"message"}
-    | function
-    | expression
+    : flowStatement
     ;
 
 // Built-in timer functions
@@ -106,39 +90,14 @@ logBuiltin
     : LOG configValues         // log{"message"}
     ;
 
-// condition => target (function allows wait{30s} => abort)
-transitionStatement
-    : timerBuiltin TRANSITION transitionTarget   // wait{30s} => abort
-    | logBuiltin TRANSITION transitionTarget     // log{} => next (unlikely but valid)
-    | function TRANSITION transitionTarget       // check_aborts{} => abort
-    | expression TRANSITION transitionTarget     // pressure > max => abort
-    ;
-
-transitionTarget
-    : NEXT                     // Continue to next stage in chain
-    | matchBlock               // Pattern matching: match { ok => next, fail => abort }
-    | stageFlow                // wait{10ms} => 1 -> fuel_valve_cmd
-    | IDENTIFIER               // Stage name reference
-    ;
-
-// match { ok => next, fail => abort }
+// match { id1 => target1, id2 => target2, ... }
 matchBlock
     : MATCH LBRACE matchEntry (COMMA matchEntry)* RBRACE
     ;
 
-// ok => next
+// id => target
 matchEntry
-    : IDENTIFIER TRANSITION transitionTarget
-    ;
-
-// { imperative code } => match { ... }
-imperativeTransition
-    : block TRANSITION matchBlock
-    ;
-
-// Top-level transition: start_cmd => main
-topLevelTransition
-    : IDENTIFIER TRANSITION IDENTIFIER
+    : IDENTIFIER TRANSITION flowNode
     ;
 
 // =============================================================================
@@ -146,7 +105,12 @@ topLevelTransition
 // =============================================================================
 
 flowStatement
-    : (routingTable | flowNode) (ARROW (routingTable | flowNode))+ SEMICOLON?
+    : (routingTable | flowNode) (flowOperator (routingTable | flowNode))+ SEMICOLON?
+    ;
+
+flowOperator
+    : ARROW        // -> (continuous flow)
+    | TRANSITION   // => (one-shot flow)
     ;
 
 routingTable
@@ -158,17 +122,21 @@ routingEntry
     ;
 
 flowNode
-    : channelIdentifier
+    : identifier        // Channel, stage, or sequence name - resolved in analysis
     | function
     | expression
+    | NEXT              // Continue to next stage
+    | matchBlock        // match { ... }
+    | timerBuiltin      // wait{...}, interval{...}
+    | logBuiltin        // log{...}
     ;
 
-channelIdentifier
+identifier
     : IDENTIFIER
     ;
 
 function
-    : IDENTIFIER configValues? arguments?
+    : IDENTIFIER configValues
     ;
 
 configValues

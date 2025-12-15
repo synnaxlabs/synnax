@@ -144,18 +144,6 @@ func Analyze(
 		}
 	}
 
-	// Step 3.6: Process Top-Level Transitions
-	for _, item := range t.AST.AllTopLevelItem() {
-		if topTrans := item.TopLevelTransition(); topTrans != nil {
-			nodes, edges, ok := analyzeTopLevelTransition(acontext.Child(ctx, topTrans), i.Sequences, generateKey)
-			if !ok {
-				return i, ctx.Diagnostics
-			}
-			i.Nodes = append(i.Nodes, nodes...)
-			i.Edges = append(i.Edges, edges...)
-		}
-	}
-
 	// Step 4: Calculate execution stratification for deterministic reactive execution
 	if len(i.Nodes) > 0 {
 		strata, diag := stratifier.Stratify(ctx_, i.Nodes, i.Edges, ctx.Diagnostics)
@@ -185,6 +173,23 @@ func Compile(
 	return module.Module{IR: ir, Output: o}, nil
 }
 
+// getFlowOperatorKind determines EdgeKind by examining the operator token at the specified index.
+// Operators appear at odd indices when iterating through flow statement children:
+// [node0, op0, node1, op1, node2, ...]
+func getFlowOperatorKind(ctx acontext.Context[parser.IFlowStatementContext], operatorIndex int) ir.EdgeKind {
+	children := ctx.AST.GetChildren()
+	if operatorIndex < 0 || operatorIndex >= len(children) {
+		return ir.Continuous // Safe default
+	}
+
+	if opCtx, ok := children[operatorIndex].(parser.IFlowOperatorContext); ok {
+		if opCtx.TRANSITION() != nil {
+			return ir.OneShot
+		}
+	}
+	return ir.Continuous
+}
+
 func analyzeFlow(
 	ctx acontext.Context[parser.IFlowStatementContext],
 	generateKey generateKey,
@@ -201,66 +206,115 @@ func analyzeFlow(
 
 	if !hasRoutingTables {
 		// Simple flow chain without routing tables
-		flowNodes := ctx.AST.AllFlowNode()
+		// Iterate through children to preserve operator information
+		children := ctx.AST.GetChildren()
+		flowNodeIndex := 0
+		operatorIndex := 0
 
-		// Validate that flow has at least 2 nodes
-		if len(flowNodes) < 2 {
+		// Count total flow nodes to detect the last one
+		var totalFlowNodes int
+		for _, child := range children {
+			if _, ok := child.(parser.IFlowNodeContext); ok {
+				totalFlowNodes++
+			}
+		}
+
+		for _, child := range children {
+			if flowNode, ok := child.(parser.IFlowNodeContext); ok {
+				flowNodeIndex++
+				var node ir.Node
+				var inputHandle, outputHandle ir.Handle
+				var ok bool
+
+				// Analyze the flow node
+				isLastNode := flowNodeIndex == totalFlowNodes
+				isChannel := flowNode.Identifier() != nil
+
+				if isLastNode && isChannel {
+					// Last channel in chain is a sink
+					node, inputHandle, outputHandle, ok = analyzeExpressionNodeAsSink(
+						acontext.Child(ctx, flowNode), generateKey)
+				} else {
+					node, inputHandle, outputHandle, ok = analyzeExpressionNode(
+						acontext.Child(ctx, flowNode), generateKey)
+				}
+
+				if !ok {
+					return nil, nil, false
+				}
+
+				// Connect to previous node if exists
+				if flowNodeIndex > 1 && prevNode != nil {
+					// Get the operator kind from the position between previous and current node
+					edgeKind := getFlowOperatorKind(ctx, operatorIndex-1)
+					edges = append(edges, ir.Edge{Source: prevOutputHandle, Target: inputHandle, Kind: edgeKind})
+				}
+
+				prevOutputHandle = outputHandle
+				prevNode = &node
+				nodes = append(nodes, node)
+
+				// Next operator should be at current operatorIndex + 1
+				operatorIndex += 2
+			}
+		}
+
+		if len(nodes) < 2 {
 			ctx.Diagnostics.AddError(
 				fmt.Errorf("flow statement requires at least two nodes"),
 				ctx.AST,
 			)
 			return nil, nil, false
 		}
-
-		for i, flowNode := range flowNodes {
-			var node ir.Node
-			var inputHandle, outputHandle ir.Handle
-			var ok bool
-
-			// Check if this is the last node and it's a channel (sink position)
-			isLastNode := i == len(flowNodes)-1
-			isChannel := flowNode.ChannelIdentifier() != nil
-
-			if isLastNode && isChannel {
-				// Last channel in chain is a sink
-				node, inputHandle, outputHandle, ok = analyzeExpressionNodeAsSink(
-					acontext.Child(ctx, flowNode), generateKey)
-			} else {
-				node, inputHandle, outputHandle, ok = analyzeExpressionNode(
-					acontext.Child(ctx, flowNode), generateKey)
-			}
-
-			if !ok {
-				return nil, nil, false
-			}
-			if i > 0 {
-				// Connect previous node's output to current node's input
-				edges = append(edges, ir.Edge{Source: prevOutputHandle, Target: inputHandle, Kind: ir.Continuous})
-			}
-			// Store output handle for next iteration
-			prevOutputHandle = outputHandle
-			nodes = append(nodes, node)
-		}
 		return nodes, edges, true
 	}
 
 	// Flow chain with routing tables - iterate through children to maintain order
 	children := ctx.AST.GetChildren()
+	var lastOperatorIndex int
+
+	// Count total flow nodes to detect the last one
+	var totalFlowNodes int
+	var currentFlowNodeIndex int
 	for _, child := range children {
+		if _, ok := child.(parser.IFlowNodeContext); ok {
+			totalFlowNodes++
+		}
+	}
+
+	for i, child := range children {
 		switch c := child.(type) {
 		case parser.IFlowNodeContext:
-			node, inputHandle, outputHandle, ok := analyzeExpressionNode(acontext.Child(ctx, c), generateKey)
+			currentFlowNodeIndex++
+			isLastFlowNode := currentFlowNodeIndex == totalFlowNodes
+
+			var node ir.Node
+			var inputHandle, outputHandle ir.Handle
+			var ok bool
+
+			if isLastFlowNode && c.Identifier() != nil {
+				// Last flow node that is a channel - treat as sink
+				node, inputHandle, outputHandle, ok = analyzeExpressionNodeAsSink(acontext.Child(ctx, c), generateKey)
+			} else {
+				node, inputHandle, outputHandle, ok = analyzeExpressionNode(acontext.Child(ctx, c), generateKey)
+			}
 			if !ok {
 				return nil, nil, false
 			}
 			// Connect to previous node if exists
 			if prevNode != nil {
-				edges = append(edges, ir.Edge{Source: prevOutputHandle, Target: inputHandle, Kind: ir.Continuous})
+				// Get operator kind from the last position
+				edgeKind := getFlowOperatorKind(ctx, lastOperatorIndex)
+				edges = append(edges, ir.Edge{Source: prevOutputHandle, Target: inputHandle, Kind: edgeKind})
 			}
 			// Store for next iteration
 			prevOutputHandle = outputHandle
 			prevNode = &node
 			nodes = append(nodes, node)
+
+		case parser.IFlowOperatorContext:
+			// Track operator position for next edge creation
+			lastOperatorIndex = i
 
 		case parser.IRoutingTableContext:
 			if prevNode == nil {
@@ -312,8 +366,8 @@ func analyzeExpressionNode(
 	ctx acontext.Context[parser.IFlowNodeContext],
 	generateKey generateKey,
 ) (ir.Node, ir.Handle, ir.Handle, bool) {
-	if channel := ctx.AST.ChannelIdentifier(); channel != nil {
-		return analyzeChannelNode(acontext.Child(ctx, channel), generateKey)
+	if id := ctx.AST.Identifier(); id != nil {
+		return analyzeChannelNode(acontext.Child(ctx, id), generateKey)
 	}
 	if fn := ctx.AST.Function(); fn != nil {
 		return analyzeFunctionNode(acontext.Child(ctx, fn), generateKey)
@@ -328,15 +382,15 @@ func analyzeExpressionNodeAsSink(
 	ctx acontext.Context[parser.IFlowNodeContext],
 	generateKey generateKey,
 ) (ir.Node, ir.Handle, ir.Handle, bool) {
-	if channel := ctx.AST.ChannelIdentifier(); channel != nil {
-		return analyzeChannelNodeAsSink(acontext.Child(ctx, channel), generateKey)
+	if id := ctx.AST.Identifier(); id != nil {
+		return analyzeChannelNodeAsSink(acontext.Child(ctx, id), generateKey)
 	}
 	// For non-channel nodes, use normal analysis (functions can be sinks too)
 	return analyzeExpressionNode(ctx, generateKey)
 }
 
 func analyzeChannelNode(
-	ctx acontext.Context[parser.IChannelIdentifierContext],
+	ctx acontext.Context[parser.IIdentifierContext],
 	generateKey generateKey,
 ) (ir.Node, ir.Handle, ir.Handle, bool) {
 	name := ctx.AST.IDENTIFIER().GetText()
@@ -364,7 +418,7 @@ func analyzeChannelNode(
 }
 
 func analyzeChannelNodeAsSink(
-	ctx acontext.Context[parser.IChannelIdentifierContext],
+	ctx acontext.Context[parser.IIdentifierContext],
 	generateKey generateKey,
 ) (ir.Node, ir.Handle, ir.Handle, bool) {
 	name := ctx.AST.IDENTIFIER().GetText()
@@ -460,13 +514,6 @@ func analyzeFunctionNode(
 	if !ok {
 		return ir.Node{}, ir.Handle{}, ir.Handle{}, false
 	}
-	if args := ctx.AST.Arguments(); args != nil {
-		if argList := args.ArgumentList(); argList != nil {
-			for i, expr := range argList.AllExpression() {
-				fnType.Inputs[i].Value = getExpressionText(expr)
-			}
-		}
-	}
 
 	// Determine input handle - use first input parameter name or default
 	inputParam := ir.DefaultInputParam
@@ -545,9 +592,9 @@ func analyzeOutputRoutingTable(
 			var inputHandle, outputHandle ir.Handle
 			var ok bool
 
-			// Check if this is the last node and it's a channel (sink position)
+			// Check if this is the last node and it's an identifier (channel or stage/sequence - sink position)
 			isLastNode := i == len(flowNodes)-1
-			isChannel := flowNode.ChannelIdentifier() != nil
+			isChannel := flowNode.Identifier() != nil
 
 			if isLastNode && isChannel {
 				// Last channel in routing chain is a sink
@@ -735,349 +782,15 @@ func analyzeStageItem(
 	stageIndex int,
 	generateKey generateKey,
 ) ([]ir.Node, []ir.Edge, bool) {
-	if stageFlow := item.StageFlow(); stageFlow != nil {
-		return analyzeStageFlow(acontext.Child(ctx, stageFlow), generateKey)
-	}
-	if transition := item.TransitionStatement(); transition != nil {
-		return analyzeTransitionStatement(
-			acontext.Child(ctx, transition),
-			seqName,
-			stageNames,
-			stageIndex,
-			generateKey,
-		)
-	}
-	if imperative := item.ImperativeTransition(); imperative != nil {
-		return analyzeImperativeTransitionIR(
-			acontext.Child(ctx, imperative),
-			seqName,
-			stageNames,
-			stageIndex,
-			generateKey,
-		)
+	// Stage items are now just flow statements (after grammar unification)
+	if flowStmt := item.FlowStatement(); flowStmt != nil {
+		return analyzeFlow(acontext.Child(ctx, flowStmt), generateKey)
 	}
 	return nil, nil, true
 }
 
 // analyzeStageFlow processes a reactive flow chain within a stage.
 // Creates Continuous edges for the -> operator.
-func analyzeStageFlow(
-	ctx acontext.Context[parser.IStageFlowContext],
-	generateKey generateKey,
-) ([]ir.Node, []ir.Edge, bool) {
-	flowNodes := ctx.AST.AllStageFlowNode()
-	if len(flowNodes) == 0 {
-		return nil, nil, true
-	}
-
-	var nodes []ir.Node
-	var edges []ir.Edge
-	var prevOutputHandle ir.Handle
-
-	for i, flowNode := range flowNodes {
-		node, inputHandle, outputHandle, ok := analyzeStageFlowNode(
-			acontext.Child(ctx, flowNode),
-			generateKey,
-		)
-		if !ok {
-			return nil, nil, false
-		}
-		if i > 0 {
-			edges = append(edges, ir.Edge{
-				Source: prevOutputHandle,
-				Target: inputHandle,
-				Kind:   ir.Continuous,
-			})
-		}
-		prevOutputHandle = outputHandle
-		nodes = append(nodes, node)
-	}
-
-	return nodes, edges, true
-}
-
-// analyzeStageFlowNode processes a single node in a stage flow chain.
-func analyzeStageFlowNode(
-	ctx acontext.Context[parser.IStageFlowNodeContext],
-	generateKey generateKey,
-) (ir.Node, ir.Handle, ir.Handle, bool) {
-	if timer := ctx.AST.TimerBuiltin(); timer != nil {
-		return analyzeTimerBuiltinNode(acontext.Child(ctx, timer), generateKey)
-	}
-	if fn := ctx.AST.Function(); fn != nil {
-		return analyzeFunctionNode(acontext.Child(ctx, fn), generateKey)
-	}
-	if expr := ctx.AST.Expression(); expr != nil {
-		return analyzeExpression(acontext.Child(ctx, expr))
-	}
-	// TODO: Handle RoutingTable and LogBuiltin if needed
-	return ir.Node{}, ir.Handle{}, ir.Handle{}, true
-}
-
-// analyzeTransitionStatement processes a condition => target transition.
-// Creates OneShot edges for state transitions.
-func analyzeTransitionStatement(
-	ctx acontext.Context[parser.ITransitionStatementContext],
-	seqName string,
-	stageNames []string,
-	stageIndex int,
-	generateKey generateKey,
-) ([]ir.Node, []ir.Edge, bool) {
-	var nodes []ir.Node
-	var edges []ir.Edge
-	var conditionHandle ir.Handle
-
-	// Analyze condition (left side of =>)
-	if timer := ctx.AST.TimerBuiltin(); timer != nil {
-		node, _, outputHandle, ok := analyzeTimerBuiltinNode(
-			acontext.Child(ctx, timer),
-			generateKey,
-		)
-		if !ok {
-			return nil, nil, false
-		}
-		nodes = append(nodes, node)
-		conditionHandle = outputHandle
-	} else if logBuiltin := ctx.AST.LogBuiltin(); logBuiltin != nil {
-		// log{} doesn't produce output for transitions - skip
-		return nil, nil, true
-	} else if fn := ctx.AST.Function(); fn != nil {
-		node, _, outputHandle, ok := analyzeFunctionNode(
-			acontext.Child(ctx, fn),
-			generateKey,
-		)
-		if !ok {
-			return nil, nil, false
-		}
-		nodes = append(nodes, node)
-		conditionHandle = outputHandle
-	} else if expr := ctx.AST.Expression(); expr != nil {
-		node, _, outputHandle, ok := analyzeExpression(acontext.Child(ctx, expr))
-		if !ok {
-			return nil, nil, false
-		}
-		nodes = append(nodes, node)
-		conditionHandle = outputHandle
-	}
-
-	// Get target from transition
-	target := ctx.AST.TransitionTarget()
-	if target == nil {
-		return nodes, edges, true
-	}
-
-	// Handle stage flow target (one-shot action without stage transition)
-	if stageFlow := target.StageFlow(); stageFlow != nil {
-		flowNodes, flowEdges, ok := analyzeStageFlow(
-			acontext.Child(ctx, stageFlow),
-			generateKey,
-		)
-		if !ok {
-			return nil, nil, false
-		}
-		nodes = append(nodes, flowNodes...)
-
-		// Connect condition to first node of flow with OneShot edge
-		if len(flowNodes) > 0 {
-			firstNode := flowNodes[0]
-			inputParam := ir.DefaultInputParam
-			if len(firstNode.Inputs) > 0 {
-				inputParam = firstNode.Inputs[0].Name
-			}
-			edges = append(edges, ir.Edge{
-				Source: conditionHandle,
-				Target: ir.Handle{Node: firstNode.Key, Param: inputParam},
-				Kind:   ir.OneShot,
-			})
-		}
-
-		edges = append(edges, flowEdges...)
-		return nodes, edges, true
-	}
-
-	// Resolve target to entry node key
-	targetEntryKey := resolveTransitionTarget(ctx, target, seqName, stageNames, stageIndex)
-	if targetEntryKey == "" {
-		// No valid target (might be a match block handled elsewhere)
-		return nodes, edges, true
-	}
-
-	// Create OneShot edge to target's entry node
-	edges = append(edges, ir.Edge{
-		Source: conditionHandle,
-		Target: ir.Handle{Node: targetEntryKey, Param: "activate"},
-		Kind:   ir.OneShot,
-	})
-
-	return nodes, edges, true
-}
-
-// resolveTransitionTarget maps a transition target to its entry node key.
-func resolveTransitionTarget(
-	ctx acontext.Context[parser.ITransitionStatementContext],
-	target parser.ITransitionTargetContext,
-	seqName string,
-	stageNames []string,
-	stageIndex int,
-) string {
-	// Handle `next` keyword
-	if target.NEXT() != nil {
-		// Resolve to next stage in definition order
-		if stageIndex+1 < len(stageNames) {
-			nextStageName := stageNames[stageIndex+1]
-			return fmt.Sprintf("%s_%s_entry", seqName, nextStageName)
-		}
-		// No next stage - semantic analyzer should have caught this
-		return ""
-	}
-
-	// Handle identifier (stage or sequence name)
-	if id := target.IDENTIFIER(); id != nil {
-		targetName := id.GetText()
-		// Check if it's a stage in current sequence
-		for _, sn := range stageNames {
-			if sn == targetName {
-				return fmt.Sprintf("%s_%s_entry", seqName, targetName)
-			}
-		}
-		// Assume it's another sequence - target its entry stage
-		// The actual entry stage will be resolved when we have all sequences
-		return fmt.Sprintf("%s_entry", targetName)
-	}
-
-	// Match blocks are handled separately
-	if target.MatchBlock() != nil {
-		return ""
-	}
-
-	return ""
-}
-
-// analyzeImperativeTransitionIR processes an imperative block with match routing.
-// Creates a match node with OneShot edges to targets.
-func analyzeImperativeTransitionIR(
-	ctx acontext.Context[parser.IImperativeTransitionContext],
-	seqName string,
-	stageNames []string,
-	stageIndex int,
-	generateKey generateKey,
-) ([]ir.Node, []ir.Edge, bool) {
-	var nodes []ir.Node
-	var edges []ir.Edge
-
-	// Create anonymous function node for the imperative block
-	blockKey := generateKey("imperative")
-	blockNode := ir.Node{
-		Key:      blockKey,
-		Type:     "imperative",
-		Channels: symbol.NewChannels(),
-		// Block returns a value that the match node will evaluate
-		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-	}
-	nodes = append(nodes, blockNode)
-
-	// Process match block
-	matchBlock := ctx.AST.MatchBlock()
-	if matchBlock == nil {
-		return nodes, edges, true
-	}
-
-	// Create match node
-	matchKey := generateKey("match")
-	matchNode := ir.Node{
-		Key:      matchKey,
-		Type:     "match",
-		Channels: symbol.NewChannels(),
-		Inputs:   types.Params{{Name: "in", Type: types.String()}},
-		Outputs:  types.Params{},
-		Config:   types.Params{},
-	}
-
-	// Process each match entry to create outputs
-	var matchCases []map[string]string
-	for _, entry := range matchBlock.AllMatchEntry() {
-		// Get the case value (identifier before =>)
-		caseId := entry.IDENTIFIER()
-		if caseId == nil {
-			continue
-		}
-		caseValue := caseId.GetText()
-		outputName := caseValue // Use case value as output name
-
-		// Add output for this case
-		matchNode.Outputs = append(matchNode.Outputs, types.Param{
-			Name: outputName,
-			Type: types.U8(),
-		})
-
-		matchCases = append(matchCases, map[string]string{
-			"value":  caseValue,
-			"output": outputName,
-		})
-
-		// Get target and create OneShot edge
-		target := entry.TransitionTarget()
-		if target == nil {
-			continue
-		}
-
-		targetEntryKey := resolveTransitionTargetFromMatch(target, seqName, stageNames, stageIndex)
-		if targetEntryKey != "" {
-			edges = append(edges, ir.Edge{
-				Source: ir.Handle{Node: matchKey, Param: outputName},
-				Target: ir.Handle{Node: targetEntryKey, Param: "activate"},
-				Kind:   ir.OneShot,
-			})
-		}
-	}
-
-	// Store cases in config
-	matchNode.Config = append(matchNode.Config, types.Param{
-		Name:  "cases",
-		Type:  types.String(), // Simplified - actual type would be array
-		Value: matchCases,
-	})
-
-	nodes = append(nodes, matchNode)
-
-	// Connect imperative block to match node with Continuous edge
-	edges = append(edges, ir.Edge{
-		Source: ir.Handle{Node: blockKey, Param: ir.DefaultOutputParam},
-		Target: ir.Handle{Node: matchKey, Param: "in"},
-		Kind:   ir.Continuous,
-	})
-
-	return nodes, edges, true
-}
-
-// resolveTransitionTargetFromMatch resolves targets in match entries.
-func resolveTransitionTargetFromMatch(
-	target parser.ITransitionTargetContext,
-	seqName string,
-	stageNames []string,
-	stageIndex int,
-) string {
-	if target.NEXT() != nil {
-		if stageIndex+1 < len(stageNames) {
-			nextStageName := stageNames[stageIndex+1]
-			return fmt.Sprintf("%s_%s_entry", seqName, nextStageName)
-		}
-		return ""
-	}
-
-	if id := target.IDENTIFIER(); id != nil {
-		targetName := id.GetText()
-		for _, sn := range stageNames {
-			if sn == targetName {
-				return fmt.Sprintf("%s_%s_entry", seqName, targetName)
-			}
-		}
-		return fmt.Sprintf("%s_entry", targetName)
-	}
-
-	return ""
-}
-
 // analyzeTimerBuiltinNode creates a node for wait{} or interval{} builtins.
 func analyzeTimerBuiltinNode(
 	ctx acontext.Context[parser.ITimerBuiltinContext],
@@ -1118,68 +831,4 @@ func analyzeTimerBuiltinNode(
 	inputHandle := ir.Handle{Node: nodeKey, Param: ""}
 	outputHandle := ir.Handle{Node: nodeKey, Param: ir.DefaultOutputParam}
 	return node, inputHandle, outputHandle, true
-}
-
-// analyzeTopLevelTransition processes a source => sequence entry point.
-// Creates a channel node and OneShot edge to the sequence's entry stage.
-func analyzeTopLevelTransition(
-	ctx acontext.Context[parser.ITopLevelTransitionContext],
-	sequences ir.Sequences,
-	generateKey generateKey,
-) ([]ir.Node, []ir.Edge, bool) {
-	identifiers := ctx.AST.AllIDENTIFIER()
-	if len(identifiers) < 2 {
-		return nil, nil, true
-	}
-
-	sourceName := identifiers[0].GetText()
-	targetSeqName := identifiers[1].GetText()
-
-	var nodes []ir.Node
-	var edges []ir.Edge
-
-	// Create node for source channel
-	nodeKey := generateKey("on")
-	sym, err := ctx.Scope.Resolve(ctx, sourceName)
-	if err != nil {
-		ctx.Diagnostics.AddError(err, ctx.AST)
-		return nil, nil, false
-	}
-
-	outputType := sym.Type.Unwrap()
-	sourceNode := ir.Node{
-		Key:      nodeKey,
-		Type:     "on",
-		Channels: symbol.NewChannels(),
-		Config:   types.Params{{Name: "channel", Type: sym.Type, Value: uint32(sym.ID)}},
-		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
-	}
-	sourceNode.Channels.Read[uint32(sym.ID)] = sym.Name
-	nodes = append(nodes, sourceNode)
-
-	// Find target sequence's entry stage
-	targetSeq, ok := sequences.Find(targetSeqName)
-	if !ok {
-		// Sequence not found - might be defined later or external
-		// Create edge to a placeholder that will be resolved
-		targetEntryKey := fmt.Sprintf("%s_entry", targetSeqName)
-		edges = append(edges, ir.Edge{
-			Source: ir.Handle{Node: nodeKey, Param: ir.DefaultOutputParam},
-			Target: ir.Handle{Node: targetEntryKey, Param: "activate"},
-			Kind:   ir.OneShot,
-		})
-		return nodes, edges, true
-	}
-
-	entryStage := targetSeq.Entry()
-	targetEntryKey := fmt.Sprintf("%s_%s_entry", targetSeqName, entryStage.Key)
-
-	// Create OneShot edge from source to entry node
-	edges = append(edges, ir.Edge{
-		Source: ir.Handle{Node: nodeKey, Param: ir.DefaultOutputParam},
-		Target: ir.Handle{Node: targetEntryKey, Param: "activate"},
-		Kind:   ir.OneShot,
-	})
-
-	return nodes, edges, true
 }

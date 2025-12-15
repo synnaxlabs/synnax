@@ -110,7 +110,7 @@ var _ = Describe("Statement", func() {
 				Kind: symbol.KindFunction,
 			}))
 			fn := MustSucceed(ctx.Scope.Resolve(ctx, "testFunc"))
-			ctx.Scope = fn.Scope
+			ctx.Scope = fn
 			Expect(statement.AnalyzeBlock(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 			Expect(*ctx.Diagnostics).To(BeEmpty())
 		})
@@ -126,7 +126,7 @@ var _ = Describe("Statement", func() {
 				Kind: symbol.KindFunction,
 			}))
 			fn := MustSucceed(ctx.Scope.Resolve(ctx, "testFunc"))
-			ctx.Scope = fn.Scope
+			ctx.Scope = fn
 			Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined"))
 		})
@@ -143,7 +143,7 @@ var _ = Describe("Statement", func() {
 				Kind: symbol.KindFunction,
 			}))
 			fn := MustSucceed(ctx.Scope.Resolve(ctx, "testFunc"))
-			ctx.Scope = fn.Scope
+			ctx.Scope = fn
 			Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
 		})
@@ -280,20 +280,20 @@ var _ = Describe("Statement", func() {
 		})
 
 		Describe("Channel Assignment (Imperative Context)", func() {
-			helperSetupFunctionContext := func(ctx *context.Context) {
+			helperSetupFunctionContext := func(ctx context.Context[parser.IBlockContext]) {
 				MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 					Name: "testFunc",
 					Kind: symbol.KindFunction,
 				}))
 				fn := MustSucceed(ctx.Scope.Resolve(ctx, "testFunc"))
-				ctx.Scope = fn.Scope
+				ctx.Scope = fn
 			}
 
 			It("Should analyze channel assignment with assignment syntax", func() {
 				block := MustSucceed(parser.ParseBlock(`{
 					output = 42.0
 				}`))
-				ctx := context.CreateRoot(bCtx, block, channelResolver)
+				ctx := context.CreateRoot[parser.IBlockContext](bCtx, block, channelResolver)
 				helperSetupFunctionContext(ctx)
 				ok := statement.AnalyzeBlock(ctx)
 				Expect(ok).To(BeTrue(), ctx.Diagnostics.String())
@@ -371,7 +371,7 @@ var _ = Describe("Statement", func() {
 				Kind: symbol.KindFunction,
 			}))
 			fn := MustSucceed(ctx.Scope.Resolve(ctx, "testFunc"))
-			ctx.Scope = fn.Scope
+			ctx.Scope = fn
 			Expect(statement.AnalyzeBlock(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 			Expect(*ctx.Diagnostics).To(BeEmpty())
 		})

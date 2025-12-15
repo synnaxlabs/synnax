@@ -91,10 +91,6 @@ func analyzeDeclarations(ctx acontext.Context[parser.IProgramContext]) bool {
 			if !sequence.Analyze(acontext.Child(ctx, seqDecl)) {
 				return false
 			}
-		} else if topTrans := item.TopLevelTransition(); topTrans != nil {
-			if !sequence.AnalyzeTopLevelTransition(acontext.Child(ctx, topTrans)) {
-				return false
-			}
 		}
 	}
 	return true

@@ -1,6 +1,7 @@
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
+
 import "github.com/antlr4-go/antlr/v4"
 
 // BaseArcParserListener is a complete listener for a parse tree produced by ArcParser.
@@ -104,18 +105,6 @@ func (s *BaseArcParserListener) EnterStageItem(ctx *StageItemContext) {}
 // ExitStageItem is called when production stageItem is exited.
 func (s *BaseArcParserListener) ExitStageItem(ctx *StageItemContext) {}
 
-// EnterStageFlow is called when production stageFlow is entered.
-func (s *BaseArcParserListener) EnterStageFlow(ctx *StageFlowContext) {}
-
-// ExitStageFlow is called when production stageFlow is exited.
-func (s *BaseArcParserListener) ExitStageFlow(ctx *StageFlowContext) {}
-
-// EnterStageFlowNode is called when production stageFlowNode is entered.
-func (s *BaseArcParserListener) EnterStageFlowNode(ctx *StageFlowNodeContext) {}
-
-// ExitStageFlowNode is called when production stageFlowNode is exited.
-func (s *BaseArcParserListener) ExitStageFlowNode(ctx *StageFlowNodeContext) {}
-
 // EnterTimerBuiltin is called when production timerBuiltin is entered.
 func (s *BaseArcParserListener) EnterTimerBuiltin(ctx *TimerBuiltinContext) {}
 
@@ -127,18 +116,6 @@ func (s *BaseArcParserListener) EnterLogBuiltin(ctx *LogBuiltinContext) {}
 
 // ExitLogBuiltin is called when production logBuiltin is exited.
 func (s *BaseArcParserListener) ExitLogBuiltin(ctx *LogBuiltinContext) {}
-
-// EnterTransitionStatement is called when production transitionStatement is entered.
-func (s *BaseArcParserListener) EnterTransitionStatement(ctx *TransitionStatementContext) {}
-
-// ExitTransitionStatement is called when production transitionStatement is exited.
-func (s *BaseArcParserListener) ExitTransitionStatement(ctx *TransitionStatementContext) {}
-
-// EnterTransitionTarget is called when production transitionTarget is entered.
-func (s *BaseArcParserListener) EnterTransitionTarget(ctx *TransitionTargetContext) {}
-
-// ExitTransitionTarget is called when production transitionTarget is exited.
-func (s *BaseArcParserListener) ExitTransitionTarget(ctx *TransitionTargetContext) {}
 
 // EnterMatchBlock is called when production matchBlock is entered.
 func (s *BaseArcParserListener) EnterMatchBlock(ctx *MatchBlockContext) {}
@@ -152,23 +129,17 @@ func (s *BaseArcParserListener) EnterMatchEntry(ctx *MatchEntryContext) {}
 // ExitMatchEntry is called when production matchEntry is exited.
 func (s *BaseArcParserListener) ExitMatchEntry(ctx *MatchEntryContext) {}
 
-// EnterImperativeTransition is called when production imperativeTransition is entered.
-func (s *BaseArcParserListener) EnterImperativeTransition(ctx *ImperativeTransitionContext) {}
-
-// ExitImperativeTransition is called when production imperativeTransition is exited.
-func (s *BaseArcParserListener) ExitImperativeTransition(ctx *ImperativeTransitionContext) {}
-
-// EnterTopLevelTransition is called when production topLevelTransition is entered.
-func (s *BaseArcParserListener) EnterTopLevelTransition(ctx *TopLevelTransitionContext) {}
-
-// ExitTopLevelTransition is called when production topLevelTransition is exited.
-func (s *BaseArcParserListener) ExitTopLevelTransition(ctx *TopLevelTransitionContext) {}
-
 // EnterFlowStatement is called when production flowStatement is entered.
 func (s *BaseArcParserListener) EnterFlowStatement(ctx *FlowStatementContext) {}
 
 // ExitFlowStatement is called when production flowStatement is exited.
 func (s *BaseArcParserListener) ExitFlowStatement(ctx *FlowStatementContext) {}
+
+// EnterFlowOperator is called when production flowOperator is entered.
+func (s *BaseArcParserListener) EnterFlowOperator(ctx *FlowOperatorContext) {}
+
+// ExitFlowOperator is called when production flowOperator is exited.
+func (s *BaseArcParserListener) ExitFlowOperator(ctx *FlowOperatorContext) {}
 
 // EnterRoutingTable is called when production routingTable is entered.
 func (s *BaseArcParserListener) EnterRoutingTable(ctx *RoutingTableContext) {}
@@ -188,11 +159,11 @@ func (s *BaseArcParserListener) EnterFlowNode(ctx *FlowNodeContext) {}
 // ExitFlowNode is called when production flowNode is exited.
 func (s *BaseArcParserListener) ExitFlowNode(ctx *FlowNodeContext) {}
 
-// EnterChannelIdentifier is called when production channelIdentifier is entered.
-func (s *BaseArcParserListener) EnterChannelIdentifier(ctx *ChannelIdentifierContext) {}
+// EnterIdentifier is called when production identifier is entered.
+func (s *BaseArcParserListener) EnterIdentifier(ctx *IdentifierContext) {}
 
-// ExitChannelIdentifier is called when production channelIdentifier is exited.
-func (s *BaseArcParserListener) ExitChannelIdentifier(ctx *ChannelIdentifierContext) {}
+// ExitIdentifier is called when production identifier is exited.
+func (s *BaseArcParserListener) ExitIdentifier(ctx *IdentifierContext) {}
 
 // EnterFunction is called when production function is entered.
 func (s *BaseArcParserListener) EnterFunction(ctx *FunctionContext) {}

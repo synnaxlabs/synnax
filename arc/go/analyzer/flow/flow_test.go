@@ -70,6 +70,41 @@ var resolver = symbol.MapResolver{
 		Kind: symbol.KindChannel,
 		Type: types.Chan(types.F64()),
 	},
+	"main": symbol.Symbol{
+		Name: "main",
+		Kind: symbol.KindSequence,
+		Type: types.Sequence(),
+	},
+	"initialization": symbol.Symbol{
+		Name: "initialization",
+		Kind: symbol.KindStage,
+		Type: types.Stage(),
+	},
+	"pressurization": symbol.Symbol{
+		Name: "pressurization",
+		Kind: symbol.KindStage,
+		Type: types.Stage(),
+	},
+	"abort": symbol.Symbol{
+		Name: "abort",
+		Kind: symbol.KindStage,
+		Type: types.Stage(),
+	},
+	"sensor": symbol.Symbol{
+		Name: "sensor",
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.F32()),
+	},
+	"pressure": symbol.Symbol{
+		Name: "pressure",
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.F32()),
+	},
+	"start_cmd": symbol.Symbol{
+		Name: "start_cmd",
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.U8()),
+	},
 }
 
 var _ = Describe("Flow Statements", func() {
@@ -100,7 +135,7 @@ var _ = Describe("Flow Statements", func() {
 				input <-chan f64
 				output ->chan f64
 			} () {
-				value := <-input
+				value := input
 				if value > setpoint {
 					value -> output
 				}
@@ -124,7 +159,7 @@ var _ = Describe("Flow Statements", func() {
 				input <-chan f64
 				output ->chan f64
 			} () {
-				value := <-input
+				value := input
 				if value > threshold {
 					value -> output
 				}
@@ -150,7 +185,7 @@ var _ = Describe("Flow Statements", func() {
 			func simple{
 				input <-chan f64
 			} () {
-				value := <-input
+				value := input
 			}
 
 			// 'extra' is not a valid config parameter for 'simple'
@@ -173,7 +208,7 @@ var _ = Describe("Flow Statements", func() {
 				message str
 				input <-chan f64
 			} () {
-				value := <-input
+				value := input
 				if value > threshold {
 					// do something
 				}
@@ -213,7 +248,7 @@ var _ = Describe("Flow Statements", func() {
 				message str
 				input <-chan f64
 			} () {
-				value := <-input
+				value := input
 				if value > threshold {
 					// do something
 				}
@@ -237,7 +272,7 @@ var _ = Describe("Flow Statements", func() {
 				input <-chan f64
 				output ->chan f64
 			} () {
-				value := <-input
+				value := input
 				processed := value * 2.0
 				processed -> output
 			}
@@ -267,7 +302,7 @@ var _ = Describe("Flow Statements", func() {
 			func logger{
 				value <-chan f64
 			} () {
-				v := <-value
+				v := value
 				// Log the value
 			}
 
@@ -275,7 +310,7 @@ var _ = Describe("Flow Statements", func() {
 				temp <-chan f64
 				setpoint f64
 			} () {
-				current := <-temp
+				current := temp
 				if current > setpoint {
 					// Take action
 				}
@@ -301,7 +336,7 @@ var _ = Describe("Flow Statements", func() {
 			func display{
 				input <-chan f64
 			} () {
-				value := <-input
+				value := input
 				// Display the value
 			}
 
@@ -333,7 +368,7 @@ var _ = Describe("Flow Statements", func() {
 			func display{
 				input <-chan f64
 			} () {
-				value := <-input
+				value := input
 			}
 
 			// This should fail because "on" func is not available
@@ -726,6 +761,43 @@ sensor_chan > threshold -> alarm{}
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("parameter mapping requires a func after the routing table"))
+		})
+	})
+
+	Describe("Sequence Stages and Flow Operators", func() {
+		It("Should compile sequences with stage targets and mixed flow operators", func() {
+			ast := MustSucceed(parser.Parse(`
+			func threshold{} (val f32) u8 {
+				return val > 100
+			}
+
+			func prepare{} () u8 {
+				return 1
+			}
+
+			func recover{} () u8 {
+				return 1
+			}
+
+			sequence main {
+				stage initialization {
+					sensor -> prepare{} => next
+				}
+
+				stage pressurization {
+					sensor -> threshold{} => next,
+					pressure -> threshold{} => abort
+				}
+
+				stage abort {
+					recover{} => initialization
+				}
+			}
+
+			start_cmd => main
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 	})
 })

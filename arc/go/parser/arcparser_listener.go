@@ -1,6 +1,7 @@
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
+
 import "github.com/antlr4-go/antlr/v4"
 
 // ArcParserListener is a complete listener for a parse tree produced by ArcParser.
@@ -49,23 +50,11 @@ type ArcParserListener interface {
 	// EnterStageItem is called when entering the stageItem production.
 	EnterStageItem(c *StageItemContext)
 
-	// EnterStageFlow is called when entering the stageFlow production.
-	EnterStageFlow(c *StageFlowContext)
-
-	// EnterStageFlowNode is called when entering the stageFlowNode production.
-	EnterStageFlowNode(c *StageFlowNodeContext)
-
 	// EnterTimerBuiltin is called when entering the timerBuiltin production.
 	EnterTimerBuiltin(c *TimerBuiltinContext)
 
 	// EnterLogBuiltin is called when entering the logBuiltin production.
 	EnterLogBuiltin(c *LogBuiltinContext)
-
-	// EnterTransitionStatement is called when entering the transitionStatement production.
-	EnterTransitionStatement(c *TransitionStatementContext)
-
-	// EnterTransitionTarget is called when entering the transitionTarget production.
-	EnterTransitionTarget(c *TransitionTargetContext)
 
 	// EnterMatchBlock is called when entering the matchBlock production.
 	EnterMatchBlock(c *MatchBlockContext)
@@ -73,14 +62,11 @@ type ArcParserListener interface {
 	// EnterMatchEntry is called when entering the matchEntry production.
 	EnterMatchEntry(c *MatchEntryContext)
 
-	// EnterImperativeTransition is called when entering the imperativeTransition production.
-	EnterImperativeTransition(c *ImperativeTransitionContext)
-
-	// EnterTopLevelTransition is called when entering the topLevelTransition production.
-	EnterTopLevelTransition(c *TopLevelTransitionContext)
-
 	// EnterFlowStatement is called when entering the flowStatement production.
 	EnterFlowStatement(c *FlowStatementContext)
+
+	// EnterFlowOperator is called when entering the flowOperator production.
+	EnterFlowOperator(c *FlowOperatorContext)
 
 	// EnterRoutingTable is called when entering the routingTable production.
 	EnterRoutingTable(c *RoutingTableContext)
@@ -91,8 +77,8 @@ type ArcParserListener interface {
 	// EnterFlowNode is called when entering the flowNode production.
 	EnterFlowNode(c *FlowNodeContext)
 
-	// EnterChannelIdentifier is called when entering the channelIdentifier production.
-	EnterChannelIdentifier(c *ChannelIdentifierContext)
+	// EnterIdentifier is called when entering the identifier production.
+	EnterIdentifier(c *IdentifierContext)
 
 	// EnterFunction is called when entering the function production.
 	EnterFunction(c *FunctionContext)
@@ -286,23 +272,11 @@ type ArcParserListener interface {
 	// ExitStageItem is called when exiting the stageItem production.
 	ExitStageItem(c *StageItemContext)
 
-	// ExitStageFlow is called when exiting the stageFlow production.
-	ExitStageFlow(c *StageFlowContext)
-
-	// ExitStageFlowNode is called when exiting the stageFlowNode production.
-	ExitStageFlowNode(c *StageFlowNodeContext)
-
 	// ExitTimerBuiltin is called when exiting the timerBuiltin production.
 	ExitTimerBuiltin(c *TimerBuiltinContext)
 
 	// ExitLogBuiltin is called when exiting the logBuiltin production.
 	ExitLogBuiltin(c *LogBuiltinContext)
-
-	// ExitTransitionStatement is called when exiting the transitionStatement production.
-	ExitTransitionStatement(c *TransitionStatementContext)
-
-	// ExitTransitionTarget is called when exiting the transitionTarget production.
-	ExitTransitionTarget(c *TransitionTargetContext)
 
 	// ExitMatchBlock is called when exiting the matchBlock production.
 	ExitMatchBlock(c *MatchBlockContext)
@@ -310,14 +284,11 @@ type ArcParserListener interface {
 	// ExitMatchEntry is called when exiting the matchEntry production.
 	ExitMatchEntry(c *MatchEntryContext)
 
-	// ExitImperativeTransition is called when exiting the imperativeTransition production.
-	ExitImperativeTransition(c *ImperativeTransitionContext)
-
-	// ExitTopLevelTransition is called when exiting the topLevelTransition production.
-	ExitTopLevelTransition(c *TopLevelTransitionContext)
-
 	// ExitFlowStatement is called when exiting the flowStatement production.
 	ExitFlowStatement(c *FlowStatementContext)
+
+	// ExitFlowOperator is called when exiting the flowOperator production.
+	ExitFlowOperator(c *FlowOperatorContext)
 
 	// ExitRoutingTable is called when exiting the routingTable production.
 	ExitRoutingTable(c *RoutingTableContext)
@@ -328,8 +299,8 @@ type ArcParserListener interface {
 	// ExitFlowNode is called when exiting the flowNode production.
 	ExitFlowNode(c *FlowNodeContext)
 
-	// ExitChannelIdentifier is called when exiting the channelIdentifier production.
-	ExitChannelIdentifier(c *ChannelIdentifierContext)
+	// ExitIdentifier is called when exiting the identifier production.
+	ExitIdentifier(c *IdentifierContext)
 
 	// ExitFunction is called when exiting the function production.
 	ExitFunction(c *FunctionContext)

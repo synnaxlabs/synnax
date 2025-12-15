@@ -43,14 +43,29 @@ func Analyze(ctx context.Context[parser.IFlowStatementContext]) bool {
 }
 
 func analyzeNode(ctx context.Context[parser.IFlowNodeContext], prevNode parser.IFlowNodeContext) bool {
+	if id := ctx.AST.Identifier(); id != nil {
+		return analyzeIdentifier(context.Child(ctx, id))
+	}
 	if fn := ctx.AST.Function(); fn != nil {
 		return parseFunction(context.Child(ctx, fn), prevNode)
 	}
-	if channelID := ctx.AST.ChannelIdentifier(); channelID != nil {
-		return analyzeChannel(context.Child(ctx, channelID))
-	}
 	if expr := ctx.AST.Expression(); expr != nil {
 		return analyzeExpression(context.Child(ctx, expr))
+	}
+	if matchBlock := ctx.AST.MatchBlock(); matchBlock != nil {
+		return analyzeMatchBlock(context.Child(ctx, matchBlock))
+	}
+	if ctx.AST.NEXT() != nil {
+		// NEXT is always valid - it will be resolved during sequence analysis
+		return true
+	}
+	if timer := ctx.AST.TimerBuiltin(); timer != nil {
+		// Timer builtins are valid flow nodes
+		return true
+	}
+	if log := ctx.AST.LogBuiltin(); log != nil {
+		// Log builtins are valid flow nodes
+		return true
 	}
 	ctx.Diagnostics.AddError(errors.New("invalid flow source"), ctx.AST)
 	return true
@@ -76,30 +91,31 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 		return true
 	}
 
-	if prevChannelNode := prevNode.ChannelIdentifier(); prevChannelNode != nil {
-		channelName := prevChannelNode.IDENTIFIER().GetText()
-		channelSym, err := ctx.Scope.Resolve(ctx, channelName)
+	if prevIDNode := prevNode.Identifier(); prevIDNode != nil {
+		idName := prevIDNode.IDENTIFIER().GetText()
+		idSym, err := ctx.Scope.Resolve(ctx, idName)
 		if err != nil {
-			ctx.Diagnostics.AddError(err, prevChannelNode)
+			ctx.Diagnostics.AddError(err, prevIDNode)
 			return false
 		}
-		if channelSym.Kind != symbol.KindChannel {
+		// When used as a source, identifier must be a channel
+		if idSym.Kind != symbol.KindChannel {
 			ctx.Diagnostics.AddError(
-				errors.Newf("%s is not a channel", channelName),
-				prevChannelNode,
+				errors.Newf("%s is not a channel", idName),
+				prevIDNode,
 			)
 			return false
 		}
 		if len(funcType.Type.Inputs) > 0 {
 			param := funcType.Type.Inputs[0]
-			if channelSym.Type.Kind != types.KindChan {
+			if idSym.Type.Kind != types.KindChan {
 				ctx.Diagnostics.AddError(errors.Newf(
 					"%s is not a valid channel",
-					channelName,
+					idName,
 				), ctx.AST)
 				return false
 			}
-			chanValueType := channelSym.Type.Unwrap()
+			chanValueType := idSym.Type.Unwrap()
 			if err = atypes.Check(
 				ctx.Constraints,
 				chanValueType,
@@ -109,7 +125,7 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 			); err != nil {
 				ctx.Diagnostics.AddError(errors.Newf(
 					"channel %s value type %s does not match func %s parameter type %s",
-					channelName,
+					idName,
 					chanValueType,
 					name,
 					param,
@@ -189,7 +205,7 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 	return true
 }
 
-func analyzeChannel(ctx context.Context[parser.IChannelIdentifierContext]) bool {
+func analyzeIdentifier(ctx context.Context[parser.IIdentifierContext]) bool {
 	name := ctx.AST.IDENTIFIER().GetText()
 	_, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
@@ -459,7 +475,7 @@ func analyzeInputRoutingTable(
 		}
 
 		lastNode := flowNodes[len(flowNodes)-1]
-		if lastNode.ChannelIdentifier() == nil {
+		if lastNode.Identifier() == nil {
 			ctx.Diagnostics.AddError(
 				errors.New("last element in input routing entry must be a parameter name (identifier)"),
 				lastNode,
@@ -467,7 +483,7 @@ func analyzeInputRoutingTable(
 			return false
 		}
 
-		paramName := lastNode.ChannelIdentifier().IDENTIFIER().GetText()
+		paramName := lastNode.Identifier().IDENTIFIER().GetText()
 
 		paramType, exists := fnType.Type.Inputs.Get(paramName)
 		if !exists {
@@ -557,23 +573,23 @@ func analyzeRoutingTargetWithParam(
 				}
 			}
 		}
-	} else if channelID := ctx.AST.ChannelIdentifier(); channelID != nil {
-		channelName := channelID.IDENTIFIER().GetText()
-		channelSym, err := ctx.Scope.Resolve(ctx, channelName)
+	} else if idNode := ctx.AST.Identifier(); idNode != nil {
+		idName := idNode.IDENTIFIER().GetText()
+		idSym, err := ctx.Scope.Resolve(ctx, idName)
 		if err != nil {
 			ctx.Diagnostics.AddError(err, ctx.AST)
 			return false
 		}
 
-		if channelSym.Kind != symbol.KindChannel {
+		if idSym.Kind != symbol.KindChannel {
 			ctx.Diagnostics.AddError(
-				errors.Newf("%s is not a channel", channelName),
+				errors.Newf("%s is not a channel", idName),
 				ctx.AST,
 			)
 			return false
 		}
 
-		valueType := channelSym.Type.Unwrap()
+		valueType := idSym.Type.Unwrap()
 		if err = atypes.Check(
 			ctx.Constraints,
 			sourceType,
@@ -584,7 +600,7 @@ func analyzeRoutingTargetWithParam(
 			ctx.Diagnostics.AddError(errors.Newf(
 				"type mismatch: output type %s does not match channel %s value type %s",
 				sourceType,
-				channelName,
+				idName,
 				valueType,
 			), ctx.AST)
 			return false
@@ -592,6 +608,18 @@ func analyzeRoutingTargetWithParam(
 	} else if expr := ctx.AST.Expression(); expr != nil {
 		if !analyzeExpression(context.Child(ctx, expr)) {
 			return false
+		}
+	}
+	return true
+}
+// analyzeMatchBlock validates a match block as a flow node.
+func analyzeMatchBlock(ctx context.Context[parser.IMatchBlockContext]) bool {
+	for _, entry := range ctx.AST.AllMatchEntry() {
+		// Validate each match entry target
+		if targetNode := entry.FlowNode(); targetNode != nil {
+			if !analyzeNode(context.Child(ctx, targetNode), nil) {
+				return false
+			}
 		}
 	}
 	return true

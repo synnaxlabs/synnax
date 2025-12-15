@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 // AnalyzeBlock validates a block of statements in a new scope.
@@ -516,16 +517,15 @@ func createChannelReadVariable[T antlr.ParserRuleContext](
 func analyzeChannelAssignment(ctx context.Context[parser.IAssignmentContext], channelSym *symbol.Symbol) bool {
 	// Validate we're in a function context (channel writes only allowed in imperative context)
 	fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
-	if fnErr != nil || fn == nil {
-		ctx.Diagnostics.AddError(
-			errors.New("channel assignment only valid in function bodies"),
-			ctx.AST,
-		)
+	if errors.Skip(fnErr, query.NotFound) != nil {
+		ctx.Diagnostics.AddError(fnErr, ctx.AST)
 		return false
+	}
+	if fn != nil {
+		fn.Channels.Write.Add(uint32(channelSym.ID))
 	}
 
 	// Track this as a channel write in the function
-	fn.Channels.Write.Add(uint32(channelSym.ID))
 
 	// Analyze and type-check the expression
 	expr := ctx.AST.Expression()
@@ -564,16 +564,6 @@ func analyzeChannelAssignment(ctx context.Context[parser.IAssignmentContext], ch
 }
 
 func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) bool {
-	// Assignments are only allowed in function bodies (imperative context)
-	fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
-	if fnErr != nil || fn == nil {
-		ctx.Diagnostics.AddError(
-			errors.New("assignments only allowed in function bodies, not in reactive contexts"),
-			ctx.AST,
-		)
-		return false
-	}
-
 	name := ctx.AST.IDENTIFIER().GetText()
 	varScope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {

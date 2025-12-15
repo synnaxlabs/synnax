@@ -117,6 +117,11 @@ const (
 
 	// KindFunction is a function type (requires Inputs, Outputs, optional Config).
 	KindFunction
+
+	// KindSequence represents a sequence (state machine) declaration.
+	KindSequence
+	// KindStage represents a stage within a sequence.
+	KindStage
 )
 
 // NewFunctionProperties creates a new FunctionProperties with empty Inputs, Outputs, and Config.
@@ -327,6 +332,12 @@ func IntegerConstraint() Type { return Type{Kind: KindIntegerConstant} }
 
 // FloatConstraint returns a constraint accepting any floating-point type.
 func FloatConstraint() Type { return Type{Kind: KindFloatConstant} }
+
+// Sequence returns a sequence (state machine) type.
+func Sequence() Type { return Type{Kind: KindSequence} }
+
+// Stage returns a stage (within a sequence) type.
+func Stage() Type { return Type{Kind: KindStage} }
 
 // Function creates a function type with the given inputs, outputs, and optional config
 func Function(props FunctionProperties) Type {

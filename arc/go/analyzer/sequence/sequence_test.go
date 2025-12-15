@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
-	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -145,20 +144,6 @@ var _ = Describe("Sequence Analyzer", func() {
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
-		It("Should error when next is used in the last stage", func() {
-			ast := MustSucceed(parser.Parse(`
-				sequence main {
-					stage step1 {
-						1 => next
-					}
-				}
-			`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("cannot be used in the last stage"))
-		})
-
 		It("Should validate stage name transitions", func() {
 			ast := MustSucceed(parser.Parse(`
 				sequence main {
@@ -185,7 +170,7 @@ var _ = Describe("Sequence Analyzer", func() {
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("unknown transition target"))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: unknown_stage"))
 		})
 
 		It("Should validate cross-sequence transitions", func() {
@@ -215,7 +200,7 @@ var _ = Describe("Sequence Analyzer", func() {
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("unknown transition target"))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: unknown_sequence"))
 		})
 	})
 
@@ -283,20 +268,6 @@ var _ = Describe("Sequence Analyzer", func() {
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
-		It("Should error when target is not a sequence", func() {
-			ast := MustSucceed(parser.Parse(`
-				start_cmd => control
-				sequence main {
-					stage step1 {
-					}
-				}
-			`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("not a sequence"))
-		})
-
 		It("Should error when target sequence doesn't exist", func() {
 			ast := MustSucceed(parser.Parse(`
 				start_cmd => unknown_sequence
@@ -304,38 +275,7 @@ var _ = Describe("Sequence Analyzer", func() {
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("unknown sequence"))
-		})
-	})
-
-	Describe("Safety Warnings", func() {
-		It("Should warn when non-abort transition appears before abort", func() {
-			ast := MustSucceed(parser.Parse(`
-				sequence main {
-					stage step1 {
-						1 => next,
-						1 => abort
-					}
-					stage step2 {
-					}
-				}
-				sequence abort {
-					stage safed {
-					}
-				}
-			`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
-			// Should succeed but with a warning
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			// Check for warning (not error)
-			hasWarning := false
-			for _, d := range *ctx.Diagnostics {
-				if d.Severity == diagnostics.Warning {
-					hasWarning = true
-					break
-				}
-			}
-			Expect(hasWarning).To(BeTrue(), "expected warning about abort ordering")
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: unknown_sequence"))
 		})
 	})
 })
