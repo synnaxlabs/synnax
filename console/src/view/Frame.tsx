@@ -142,20 +142,26 @@ const Selector = ({
   const canCreate = Access.useCreateGranted(view.TYPE_ONTOLOGY_ID);
   const renameModal = Modals.useRename();
   const { update: create } = PView.useCreate({
-    beforeUpdate: async ({ data, rollbacks }) => {
-      const name = await renameModal(
-        { initialValue: `View for ${plural(resourceType)}` },
-        { name: "View.Create" },
-      );
-      if (name == null) return false;
-      const newKey = uuid.create();
-      const previousSelected = selected;
-      rollbacks.push(() => onSelect(previousSelected));
-      return { ...data, name, key: newKey };
-    },
-    afterSuccess: ({ data }) => {
-      onSelect(data?.key ?? "");
-    },
+    beforeUpdate: useCallback(
+      async ({ data, rollbacks }: Flux.BeforeUpdateParams<view.New>) => {
+        const name = await renameModal(
+          { initialValue: `View for ${plural(resourceType)}` },
+          { name: "View.Create" },
+        );
+        if (name == null) return false;
+        const newKey = uuid.create();
+        const previousSelected = selected;
+        rollbacks.push(() => onSelect(previousSelected));
+        return { ...data, name, key: newKey };
+      },
+      [renameModal, resourceType, selected],
+    ),
+    afterSuccess: useCallback(
+      ({ data }: Flux.AfterSuccessParams<view.New>) => {
+        onSelect(data?.key ?? "");
+      },
+      [onSelect],
+    ),
   });
   const handleCreate = () => {
     const currentQuery = getItem(selected)?.query;

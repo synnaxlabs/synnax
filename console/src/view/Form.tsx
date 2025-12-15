@@ -59,14 +59,23 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
     query: {},
     initialValues: getInitialView(),
     autoSave: true,
-    beforeSave: async ({ value }) => {
-      const { key, query } = value();
-      // if this is a static view we need to handle it here. Otherwise, the
-      // useSetSynchronizer will handle it as it also needs to handle remote updates.
-      if (key == null || !staticViews.includes(key)) return true;
-      updateQuery(query as Q);
-      return false;
-    },
+    beforeSave: useCallback(
+      async ({
+        value,
+      }: Flux.FormBeforeSaveParams<
+        PView.FormQuery,
+        typeof view.newZ,
+        PView.FluxSubStore
+      >) => {
+        const { key, query } = value();
+        // if this is a static view we need to handle it here. Otherwise, the
+        // useSetSynchronizer will handle it as it also needs to handle remote updates.
+        if (key == null || !staticViews.includes(key)) return true;
+        updateQuery(query as Q);
+        return false;
+      },
+      [staticViews, updateQuery],
+    ),
   });
   const handleSet = useCallback(
     (view: view.View) => {
