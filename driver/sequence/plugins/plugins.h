@@ -202,7 +202,7 @@ class ChannelReceive final : public Plugin {
     public:
         explicit Sink(ChannelReceive &receiver): receiver(receiver) {}
 
-        xerrors::Error write(const telem::Frame &frame) override;
+        xerrors::Error write(telem::Frame &frame) override;
     };
 
 public:

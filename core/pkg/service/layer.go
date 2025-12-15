@@ -278,6 +278,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			Channel:         cfg.Distribution.Channel,
 			Signals:         cfg.Distribution.Signals,
 			Status:          l.Status,
+			Task:            l.Task,
 		},
 	); !ok(err, l.Arc) {
 		return nil, err

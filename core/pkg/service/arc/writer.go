@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/core"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/gorp"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
@@ -31,39 +32,56 @@ type Writer struct {
 	tx     gorp.Tx
 	otg    ontology.Writer
 	status status.Writer[core.StatusDetails]
+	task   task.Writer
 }
 
 // Create creates the given Arc. If the Arc does not have a key,
 // a new key will be generated.
 func (w Writer) Create(
 	ctx context.Context,
-	c *Arc,
+	a *Arc,
 ) error {
 	var (
 		exists bool
 		err    error
 	)
-	if c.Key == uuid.Nil {
-		c.Key = uuid.New()
+	if a.Key == uuid.Nil {
+		a.Key = uuid.New()
 	} else {
-		exists, err = gorp.NewRetrieve[uuid.UUID, Arc]().WhereKeys(c.Key).Exists(ctx, w.tx)
+		exists, err = gorp.NewRetrieve[uuid.UUID, Arc]().WhereKeys(a.Key).Exists(ctx, w.tx)
 		if err != nil {
 			return err
 		}
 	}
-	if err = gorp.NewCreate[uuid.UUID, Arc]().Entry(c).Exec(ctx, w.tx); err != nil {
+	if err = gorp.NewCreate[uuid.UUID, Arc]().Entry(a).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := OntologyID(c.Key)
+	otgID := OntologyID(a.Key)
 	if !exists {
 		if err = w.otg.DefineResource(ctx, otgID); err != nil {
 			return err
 		}
+		//if len(a.Text.Raw) > 0 {
+		//	if err = w.task.Create(
+		//		ctx,
+		//		&task.Task{
+		//			Key:  task.NewKey(65538, 0),
+		//			Name: fmt.Sprintf("Task for %s", a.Name),
+		//			Type: "arc",
+		//			Config: string(lo.Must(json.Marshal(map[string]any{
+		//				"arc_key": a.Key,
+		//			}))),
+		//			Internal: true,
+		//		},
+		//	); err != nil {
+		//		return err
+		//	}
+		//}
 	}
 
 	return w.status.SetWithParent(ctx, &status.Status[core.StatusDetails]{
-		Name:    fmt.Sprintf("%s Status", c.Name),
-		Key:     c.Key.String(),
+		Name:    fmt.Sprintf("%s Status", a.Name),
+		Key:     a.Key.String(),
 		Variant: xstatus.LoadingVariant,
 		Message: "Deploying",
 		Time:    telem.Now(),

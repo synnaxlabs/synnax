@@ -29,6 +29,8 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     auto parser = xjson::Parser(task.config);
     auto [cfg, cfg_err] = TaskConfig::parse(ctx->client, parser);
     if (cfg_err) {
+        stat.message = "Failed to configure";
+        stat.description = cfg_err.message();
         ctx->set_status(stat);
         return {nullptr, true};
     }

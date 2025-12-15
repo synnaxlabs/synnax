@@ -149,7 +149,7 @@ class WriteTask final : public task::Task {
             return this->internal->read(breaker, fr);
         }
 
-        xerrors::Error write(const telem::Frame &frame) override {
+        xerrors::Error write(telem::Frame &frame) override {
             if (frame.empty()) return xerrors::NIL;
             auto err = this->internal->write(frame);
             if (!err)
