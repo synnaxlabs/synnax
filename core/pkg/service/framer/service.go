@@ -90,15 +90,15 @@ type Service struct {
 	closer   io.Closer
 }
 
-func (s *Service) OpenIterator(ctx context.Context, cfg framer.IteratorConfig) (*Iterator, error) {
+func (s *Service) OpenIterator(ctx context.Context, cfg IteratorConfig) (*Iterator, error) {
 	return s.Iterator.Open(ctx, cfg)
 }
 
-func (s *Service) NewStreamIterator(ctx context.Context, cfg framer.IteratorConfig) (StreamIterator, error) {
+func (s *Service) NewStreamIterator(ctx context.Context, cfg IteratorConfig) (StreamIterator, error) {
 	return s.Iterator.NewStream(ctx, cfg)
 }
 
-func (s *Service) NewStreamWriter(ctx context.Context, cfg framer.WriterConfig) (StreamWriter, error) {
+func (s *Service) NewStreamWriter(ctx context.Context, cfg WriterConfig) (StreamWriter, error) {
 	return s.Framer.NewStreamWriter(ctx, cfg)
 }
 

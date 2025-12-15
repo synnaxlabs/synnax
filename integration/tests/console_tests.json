@@ -13,9 +13,6 @@
           "case": "console/schematic/edit_props"
         },
         {
-          "case": "console/line-plot/download_csv"
-        },
-        {
           "case": "console/pages/open_close"
         }
       ]
