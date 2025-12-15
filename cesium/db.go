@@ -108,6 +108,18 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...core.Channel
 	return frame, err
 }
 
+// Size returns the total size of all channel data stored in the database by summing
+// the sizes of all unary databases.
+func (db *DB) Size() telem.Size {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	var total telem.Size
+	for _, u := range db.mu.unaryDBs {
+		total += u.Size()
+	}
+	return total
+}
+
 // Close closes the database.
 //
 // Close is not safe to call with any other DB methods concurrently.

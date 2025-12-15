@@ -105,6 +105,12 @@ type TxReader = iter.Seq[Change]
 // Observable allows the caller to observe changes to key-value pairs in the DB.
 type Observable = observe.Observable[TxReader]
 
+// Sizable is an optional interface for key-value stores that can report their size.
+type Sizable interface {
+	// Size returns the total disk space used by the key-value store in bytes.
+	Size() int64
+}
+
 // WithTx executes a function with a transaction on the given DB. If the function
 // returns an error, the transaction will be rolled back. If the function returns
 // nil, the transaction will be committed.

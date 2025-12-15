@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/security"
+	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -57,6 +58,10 @@ type Config struct {
 	//
 	// [REQUIRED]
 	Security security.Provider
+	// Storage is the storage layer used for disk usage metrics.
+	//
+	// [REQUIRED]
+	Storage *storage.Layer
 }
 
 var (
@@ -72,6 +77,7 @@ func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Distribution = override.Nil(c.Distribution, other.Distribution)
 	c.Security = override.Nil(c.Security, other.Security)
+	c.Storage = override.Nil(c.Storage, other.Storage)
 	return c
 }
 
@@ -303,6 +309,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			Framer:          l.Framer,
 			Channel:         cfg.Distribution.Channel,
 			HostProvider:    cfg.Distribution.Cluster,
+			Storage:         cfg.Storage,
 		}); !ok(err, l.Metrics) {
 		return nil, err
 	}

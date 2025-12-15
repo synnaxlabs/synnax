@@ -177,6 +177,9 @@ func (d db) Report() alamos.Report {
 	return alamos.Report{"engine": "pebble"}
 }
 
+// Size implements kv.Sizable.
+func (d db) Size() int64 { return int64(d.DB.Metrics().DiskSpaceUsage()) }
+
 // Close implement io.Closer.
 func (d db) Close() error { return d.DB.Close() }
 
