@@ -11,11 +11,10 @@ syntax = "proto3";
 
 package api.v1;
 
-import "google/protobuf/empty.proto";
-
 import "arc/go/graph/graph.proto";
-import "arc/go/text/text.proto";
 import "arc/go/module/module.proto";
+import "arc/go/text/text.proto";
+import "google/protobuf/empty.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/v1";
 
