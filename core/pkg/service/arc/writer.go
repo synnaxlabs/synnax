@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/core"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/gorp"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
@@ -32,7 +31,6 @@ type Writer struct {
 	tx     gorp.Tx
 	otg    ontology.Writer
 	status status.Writer[core.StatusDetails]
-	task   task.Writer
 }
 
 // Create creates the given Arc. If the Arc does not have a key,
@@ -61,22 +59,6 @@ func (w Writer) Create(
 		if err = w.otg.DefineResource(ctx, otgID); err != nil {
 			return err
 		}
-		//if len(a.Text.Raw) > 0 {
-		//	if err = w.task.Create(
-		//		ctx,
-		//		&task.Task{
-		//			Key:  task.NewKey(65538, 0),
-		//			Name: fmt.Sprintf("Task for %s", a.Name),
-		//			Type: "arc",
-		//			Config: string(lo.Must(json.Marshal(map[string]any{
-		//				"arc_key": a.Key,
-		//			}))),
-		//			Internal: true,
-		//		},
-		//	); err != nil {
-		//		return err
-		//	}
-		//}
 	}
 
 	return w.status.SetWithParent(ctx, &status.Status[core.StatusDetails]{
