@@ -57,6 +57,10 @@ func (s *setStatus) Init(node.Context) {}
 
 func (s *setStatus) Reset() {}
 
+func (s *setStatus) IsOutputTruthy(output string) bool {
+	return false
+}
+
 func (s *setStatus) Next(ctx node.Context) {
 	s.stat.Time = telem.Now()
 	if err := s.statusSvc.NewWriter(nil).Set(ctx, &s.stat); err != nil {

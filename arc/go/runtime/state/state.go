@@ -336,6 +336,57 @@ func (n *Node) WriteChan(key uint32, value, time telem.Series) {
 	n.state.writeChannel(key, value, time)
 }
 
+// IsOutputTruthy checks if the output at the given param name is truthy.
+// Returns false if the param doesn't exist, if the output is empty,
+// or if the last element is zero. Returns true otherwise.
+// Used by the scheduler to evaluate one-shot edges - edges only fire
+// when the source output is truthy.
+func (n *Node) IsOutputTruthy(paramName string) bool {
+	for i, h := range n.outputs {
+		if h.Param == paramName {
+			series := &n.outputCache[i].data
+			return isSeriesTruthy(*series)
+		}
+	}
+	return false
+}
+
+// isSeriesTruthy checks if a series is truthy by examining its last element.
+// Empty series are falsy. A series with a last element of zero is falsy.
+func isSeriesTruthy(s telem.Series) bool {
+	if s.Len() == 0 {
+		return false
+	}
+	dt := s.DataType
+	switch dt {
+	case telem.Float64T:
+		return telem.ValueAt[float64](s, -1) != 0
+	case telem.Float32T:
+		return telem.ValueAt[float32](s, -1) != 0
+	case telem.Int64T:
+		return telem.ValueAt[int64](s, -1) != 0
+	case telem.Int32T:
+		return telem.ValueAt[int32](s, -1) != 0
+	case telem.Int16T:
+		return telem.ValueAt[int16](s, -1) != 0
+	case telem.Int8T:
+		return telem.ValueAt[int8](s, -1) != 0
+	case telem.Uint64T:
+		return telem.ValueAt[uint64](s, -1) != 0
+	case telem.Uint32T:
+		return telem.ValueAt[uint32](s, -1) != 0
+	case telem.Uint16T:
+		return telem.ValueAt[uint16](s, -1) != 0
+	case telem.Uint8T:
+		return telem.ValueAt[uint8](s, -1) != 0
+	case telem.TimeStampT:
+		return telem.ValueAt[telem.TimeStamp](s, -1) != 0
+	default:
+		// StringT and other types default to falsy
+		return false
+	}
+}
+
 // ReadChannelValue reads a single value from a channel (for WASM runtime bindings).
 func (s *State) ReadChannelValue(key uint32) (telem.Series, bool) {
 	series, ok := s.channel.reads[key]

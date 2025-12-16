@@ -14,6 +14,8 @@
 #include <set>
 #include <utility>
 
+#include "glog/logging.h"
+
 #include "x/cpp/queue/spsc.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/xthread/xthread.h"
@@ -84,25 +86,26 @@ public:
         this->loop->start();
         std::vector<telem::TimeSpan> results;
         while (this->breaker.running()) {
-            LOG(INFO) << "next iter elapsed";
+            LOG(INFO) << "[runtime.run] next iter";
             this->loop->wait(this->breaker);
             telem::Frame frame;
             while (this->inputs->try_pop(frame)) {
-                LOG(INFO) << "runtime received frame: " << frame;
+                LOG(INFO) << "[runtime.run] received frame: " << frame;
                 this->state->ingest(frame);
-            }
 
-            const auto elapsed = telem::TimeStamp::now() - this->start_time;
-            this->scheduler->next(elapsed);
-            results.push_back(elapsed);
+                const auto elapsed = telem::TimeStamp::now() - this->start_time;
+                this->scheduler->next(elapsed);
+                this->state->clear_reads();
+                results.push_back(elapsed);
 
-            LOG(INFO) << "scheduler complete";
+                LOG(INFO) << "[runtime.run] scheduler complete";
 
-            if (auto writes = this->state->flush_writes(); !writes.empty()) {
-                telem::Frame out_frame(writes.size());
-                for (auto &[key, series]: writes)
-                    out_frame.emplace(key, std::move(*series));
-                this->outputs->push(std::move(out_frame));
+                if (auto writes = this->state->flush_writes(); !writes.empty()) {
+                    telem::Frame out_frame(writes.size());
+                    for (auto &[key, series]: writes)
+                        out_frame.emplace(key, std::move(*series));
+                    this->outputs->push(std::move(out_frame));
+                }
             }
         }
         return results;

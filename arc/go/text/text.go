@@ -162,7 +162,7 @@ func Analyze(
 
 	// Step 4: Calculate execution stratification for deterministic reactive execution
 	if len(i.Nodes) > 0 {
-		strata, diag := stratifier.Stratify(ctx_, i.Nodes, i.Edges, ctx.Diagnostics)
+		strata, diag := stratifier.Stratify(ctx_, i.Nodes, i.Edges, i.Sequences, ctx.Diagnostics)
 		if diag != nil && !diag.Ok() {
 			ctx.Diagnostics = diag
 			return i, ctx.Diagnostics
@@ -268,14 +268,19 @@ func analyzeFlow(
 
 				prevOutputHandle = outputHandle
 				prevNode = &node
-				nodes = append(nodes, node)
+				// Only append non-empty nodes (sequence sinks return empty nodes)
+				if node.Key != "" {
+					nodes = append(nodes, node)
+				}
 
 				// Next operator should be at current operatorIndex + 1
 				operatorIndex += 2
 			}
 		}
 
-		if len(nodes) < 2 {
+		// A valid flow statement needs at least one edge connecting nodes.
+		// With sequence targets, we may have only 1 new node but still a valid edge.
+		if len(edges) < 1 {
 			ctx.Diagnostics.AddError(
 				fmt.Errorf("flow statement requires at least two nodes"),
 				ctx.AST,
@@ -326,7 +331,10 @@ func analyzeFlow(
 			// Store for next iteration
 			prevOutputHandle = outputHandle
 			prevNode = &node
-			nodes = append(nodes, node)
+			// Only append non-empty nodes (sequence sinks return empty nodes)
+			if node.Key != "" {
+				nodes = append(nodes, node)
+			}
 
 		case parser.IFlowOperatorContext:
 			// Track operator position for next edge creation
@@ -399,7 +407,7 @@ func analyzeExpressionNodeAsSink(
 	kg *KeyGenerator,
 ) (ir.Node, ir.Handle, ir.Handle, bool) {
 	if id := ctx.AST.Identifier(); id != nil {
-		return analyzeChannelNodeAsSink(acontext.Child(ctx, id), kg)
+		return analyzeIdentifierAsSink(acontext.Child(ctx, id), kg)
 	}
 	// For non-channel nodes, use normal analysis (functions can be sinks too)
 	return analyzeExpressionNode(ctx, kg)
@@ -433,17 +441,27 @@ func analyzeChannelNode(
 	return n, inputHandle, outputHandle, true
 }
 
-func analyzeChannelNodeAsSink(
+// analyzeIdentifierAsSink handles identifiers in sink position (end of flow chain).
+// The identifier may resolve to a channel (creates a write node) or a sequence
+// (connects to the sequence's first stage entry node).
+func analyzeIdentifierAsSink(
 	ctx acontext.Context[parser.IIdentifierContext],
 	kg *KeyGenerator,
 ) (ir.Node, ir.Handle, ir.Handle, bool) {
 	name := ctx.AST.IDENTIFIER().GetText()
-	nodeKey := kg.Generate("write", name)
 	sym, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return ir.Node{}, ir.Handle{}, ir.Handle{}, false
 	}
+
+	// If the target is a sequence, connect to its first stage's entry node
+	if sym.Kind == symbol.KindSequence {
+		return analyzeSequenceNodeAsSink(ctx, sym, kg)
+	}
+
+	// Otherwise, treat as a channel write node
+	nodeKey := kg.Generate("write", name)
 	chKey := uint32(sym.ID)
 	// Channel sink nodes consume input of the channel's inner type (unwrap chan<T> to get T)
 	inputType := sym.Type.Unwrap()
@@ -459,6 +477,41 @@ func analyzeChannelNodeAsSink(
 	inputHandle := ir.Handle{Node: nodeKey, Param: ir.DefaultInputParam}
 	outputHandle := ir.Handle{Node: nodeKey, Param: ""}
 	return n, inputHandle, outputHandle, true
+}
+
+// analyzeSequenceNodeAsSink handles sequence identifiers in sink position.
+// Instead of creating a write node, it returns a handle to the sequence's
+// first stage entry node's "activate" input.
+func analyzeSequenceNodeAsSink(
+	ctx acontext.Context[parser.IIdentifierContext],
+	seqSym *symbol.Scope,
+	kg *KeyGenerator,
+) (ir.Node, ir.Handle, ir.Handle, bool) {
+	seqName := seqSym.Name
+
+	// Get the first stage from the sequence's children
+	firstStage, err := seqSym.FirstChildOfKind(symbol.KindStage)
+	if err != nil {
+		ctx.Diagnostics.AddError(
+			fmt.Errorf("sequence '%s' has no stages", seqName),
+			ctx.AST,
+		)
+		return ir.Node{}, ir.Handle{}, ir.Handle{}, false
+	}
+	stageName := firstStage.Name
+
+	// Build the entry node key using the same pattern as analyzeStage
+	entryKey := kg.Entry(seqName, stageName)
+
+	// Return a reference to the existing entry node (no new node created)
+	// The input handle points to the stage entry's "activate" input
+	inputHandle := ir.Handle{Node: entryKey, Param: "activate"}
+	// Sequence sinks have no meaningful output
+	outputHandle := ir.Handle{Node: entryKey, Param: ""}
+
+	// Return an empty node - we don't create a new node, just return the handle
+	// to the existing stage entry node that was already created by analyzeStage
+	return ir.Node{}, inputHandle, outputHandle, true
 }
 
 func extractConfigValues(
@@ -689,7 +742,10 @@ func analyzeOutputRoutingTable(
 			}
 
 			prevOutputHandle = outputHandle
-			nodes = append(nodes, node)
+			// Only append non-empty nodes (sequence sinks return empty nodes)
+			if node.Key != "" {
+				nodes = append(nodes, node)
+			}
 		}
 	}
 
@@ -772,6 +828,8 @@ func analyzeStage(
 	var edges []ir.Edge
 
 	// Create stage entry node (deterministic key, no counter)
+	// Note: Entry node is NOT added to stage.Nodes because it must be able to run
+	// before the stage is active - it's the mechanism by which the stage activates.
 	entryKey := kg.Entry(seqName, stageName)
 	entryNode := ir.Node{
 		Key:      entryKey,
@@ -782,7 +840,6 @@ func analyzeStage(
 		},
 	}
 	nodes = append(nodes, entryNode)
-	stage.Nodes = append(stage.Nodes, entryKey)
 
 	// Process stage body
 	stageBody := ctx.AST.StageBody()

@@ -15,6 +15,8 @@
 #include <unordered_set>
 #include <vector>
 
+#include "glog/logging.h"
+
 #include "x/cpp/xerrors/errors.h"
 
 #include "arc/cpp/runtime/node/node.h"
@@ -50,6 +52,8 @@ class Scheduler {
     /// Maps sequence name -> currently active stage name.
     /// Multiple sequences can be active concurrently.
     std::unordered_map<std::string, std::string> active_stages;
+    /// Tracks sequences that were activated this iteration (don't deactivate immediately).
+    std::unordered_set<std::string> just_activated;
     /// Maps "sequence_stage" -> list of node keys in that stage
     std::unordered_map<std::string, std::vector<std::string>> stage_to_nodes;
     /// Set of all nodes that belong to any stage (for filtering)
@@ -62,11 +66,25 @@ class Scheduler {
     std::unordered_map<std::string, std::unordered_set<std::string>> fired_one_shots;
 
     void mark_changed(const std::string &param) {
+        LOG(INFO) << "[scheduler.mark_changed] node=" << current_state->key << " param=" << param;
         for (const auto &edge: current_state->output_edges) {
             if (edge.source.param != param) continue;
 
-            // For one-shot edges, only propagate if not already fired
+            LOG(INFO) << "[scheduler.mark_changed] found edge: " << edge.source.to_string()
+                      << " -> " << edge.target.to_string()
+                      << " kind=" << static_cast<int>(edge.kind);
+
+            // For one-shot edges, only propagate if output is truthy and not already fired
             if (edge.kind == ir::EdgeKind::OneShot) {
+                LOG(INFO) << "[scheduler.mark_changed] one-shot edge, checking truthiness...";
+                // Check truthiness before marking as fired - falsy values don't fire
+                bool truthy = current_state->node->is_output_truthy(edge.source.param);
+                LOG(INFO) << "[scheduler.mark_changed] is_output_truthy returned: " << truthy;
+                if (!truthy) {
+                    LOG(INFO) << "[scheduler.mark_changed] SKIPPING one-shot edge (falsy value)";
+                    continue;
+                }
+
                 std::string edge_key = edge.source.to_string() + "=>" +
                                        edge.target.to_string();
                 // Determine which sequence this edge belongs to
@@ -75,15 +93,36 @@ class Scheduler {
                 if (it != node_to_stage.end()) { seq_name = it->second.sequence; }
                 // Check if already fired
                 auto &fired_set = fired_one_shots[seq_name];
-                if (fired_set.contains(edge_key)) continue;
+                if (fired_set.contains(edge_key)) {
+                    LOG(INFO) << "[scheduler.mark_changed] one-shot edge already fired, skipping";
+                    continue;
+                }
                 fired_set.insert(edge_key);
+                LOG(INFO) << "[scheduler.mark_changed] one-shot edge FIRED";
             }
+            LOG(INFO) << "[scheduler.mark_changed] marking target as changed: " << edge.target.node;
             this->changed.insert(edge.target.node);
         }
     }
 
     /// Looks up the stage that a node belongs to and activates it.
+    /// For stage entry nodes (key format: entry_{seq}_{stage}), parse the key directly.
     void activate_stage_by_node(const std::string &node_key) {
+        // Check if this is a stage entry node (format: entry_{seq}_{stage})
+        if (node_key.starts_with("entry_")) {
+            // Parse entry_seq_stage format
+            auto rest = node_key.substr(6); // Skip "entry_"
+            auto underscore_pos = rest.find('_');
+            if (underscore_pos != std::string::npos) {
+                auto seq_name = rest.substr(0, underscore_pos);
+                auto stage_name = rest.substr(underscore_pos + 1);
+                LOG(INFO) << "[scheduler.activate_stage_by_node] entry node detected, seq=" << seq_name << " stage=" << stage_name;
+                activate_stage(seq_name, stage_name);
+                return;
+            }
+        }
+
+        // Fallback: look up in node_to_stage map
         auto it = node_to_stage.find(node_key);
         if (it == node_to_stage.end()) return;
         activate_stage(it->second.sequence, it->second.stage);
@@ -113,6 +152,12 @@ class Scheduler {
         std::vector<std::string> to_deactivate;
 
         for (const auto &[seq_name, stage_name]: active_stages) {
+            // Skip sequences that were just activated this iteration
+            if (just_activated.contains(seq_name)) {
+                LOG(INFO) << "[scheduler.check_terminal_stages] skipping just-activated seq=" << seq_name;
+                continue;
+            }
+
             // Find the sequence
             const ir::Sequence *seq = nullptr;
             for (const auto &s: sequences) {
@@ -212,8 +257,24 @@ public:
     /// Activate a specific stage within a sequence.
     /// Multiple sequences can be active concurrently.
     void activate_stage(const std::string &seq, const std::string &stage) {
+        LOG(INFO) << "[scheduler.activate_stage] activating seq=" << seq << " stage=" << stage;
         active_stages[seq] = stage;
+        just_activated.insert(seq);
         reset_stage_nodes(seq, stage);
+        // Mark all nodes in the newly activated stage as changed so they execute
+        mark_stage_nodes_changed(seq, stage);
+    }
+
+    /// Mark all nodes in a stage as changed so they will execute.
+    void mark_stage_nodes_changed(const std::string &seq_name, const std::string &stage_name) {
+        const std::string key = stage_key(seq_name, stage_name);
+        const auto it = stage_to_nodes.find(key);
+        if (it == stage_to_nodes.end()) return;
+
+        for (const auto &node_key: it->second) {
+            LOG(INFO) << "[scheduler.mark_stage_nodes_changed] marking node as changed: " << node_key;
+            this->changed.insert(node_key);
+        }
     }
 
     /// Deactivate a sequence, removing it from active sequences.
@@ -263,19 +324,37 @@ public:
 
     void next(const telem::TimeSpan elapsed) {
         this->ctx.elapsed = elapsed;
+        // Clear just_activated from previous iteration
+        just_activated.clear();
         bool first = true;
+        LOG(INFO) << "[scheduler.next] changed set size: " << this->changed.size();
+        for (const auto &key : this->changed) {
+            LOG(INFO) << "[scheduler.next] changed contains: " << key;
+        }
+        int stratum_idx = 0;
         for (const auto &stratum: this->strata.strata) {
+            LOG(INFO) << "[scheduler.next] processing stratum " << stratum_idx << " with " << stratum.size() << " nodes";
             for (const auto &node_key: stratum) {
                 // Skip nodes not in active stage
-                if (!should_execute_node(node_key)) continue;
+                bool should_exec = should_execute_node(node_key);
+                bool in_changed = this->changed.contains(node_key);
+                bool in_staged = staged_nodes.contains(node_key);
+                LOG(INFO) << "[scheduler.next] node=" << node_key
+                          << " first=" << first
+                          << " in_changed=" << in_changed
+                          << " should_exec=" << should_exec
+                          << " in_staged=" << in_staged;
+                if (!should_exec) continue;
 
-                if (first || this->changed.contains(node_key)) {
+                if (first || in_changed) {
+                    LOG(INFO) << "[scheduler.next] EXECUTING node=" << node_key;
                     const auto n = &this->nodes[node_key];
                     this->current_state = n;
                     this->current_state->node->next(this->ctx);
                 }
             }
             first = false;
+            stratum_idx++;
         }
         this->changed.clear();
 

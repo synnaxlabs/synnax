@@ -496,6 +496,7 @@ TEST(TestSeries, testDeepCopy) {
     s1.write(1);
     s1.write(2);
     s1.write(3);
+    s1.alignment = telem::Alignment(5, 10);
 
     const telem::Series s2 = s1.deep_copy();
     ASSERT_EQ(s2.size(), 3);
@@ -505,11 +506,13 @@ TEST(TestSeries, testDeepCopy) {
     ASSERT_EQ(s2.data_type(), telem::UINT32_T);
     ASSERT_EQ(s2.byte_size(), s1.byte_size());
     ASSERT_EQ(s2.cap(), s1.cap());
+    ASSERT_EQ(s2.alignment.uint64(), s1.alignment.uint64());
 }
 
 /// @brief it should deep copy a variable data type series.
 TEST(TestSeries, testDeepCopyVariableDataType) {
-    const telem::Series s1{std::vector<std::string>{"hello", "world", "test"}};
+    telem::Series s1{std::vector<std::string>{"hello", "world", "test"}};
+    s1.alignment = telem::Alignment(7, 42);
     ASSERT_EQ(s1.size(), 3);
     const telem::Series s2 = s1.deep_copy();
     ASSERT_EQ(s2.size(), 3);
@@ -519,6 +522,24 @@ TEST(TestSeries, testDeepCopyVariableDataType) {
     ASSERT_EQ(s2.data_type(), telem::STRING_T);
     ASSERT_EQ(s2.byte_size(), s1.byte_size());
     ASSERT_EQ(s2.cap(), s1.cap());
+    ASSERT_EQ(s2.alignment.uint64(), s1.alignment.uint64());
+}
+
+/// @brief it should preserve alignment when moving a series.
+TEST(TestSeries, testMovePreservesAlignment) {
+    telem::Series s1{telem::UINT32_T, 3};
+    s1.write(1);
+    s1.write(2);
+    s1.write(3);
+    s1.alignment = telem::Alignment(5, 10);
+
+    telem::Series s2 = std::move(s1);
+    ASSERT_EQ(s2.size(), 3);
+    ASSERT_EQ(s2.at<std::uint32_t>(0), 1);
+    ASSERT_EQ(s2.at<std::uint32_t>(1), 2);
+    ASSERT_EQ(s2.at<std::uint32_t>(2), 3);
+    ASSERT_EQ(s2.data_type(), telem::UINT32_T);
+    ASSERT_EQ(s2.alignment.uint64(), telem::Alignment(5, 10).uint64());
 }
 
 /// @brief it should generate evenly spaced timestamps.

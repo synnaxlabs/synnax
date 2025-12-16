@@ -597,29 +597,33 @@ func analyzeRoutingTargetWithParam(
 			return false
 		}
 
-		if idSym.Kind != symbol.KindChannel {
+		// Allow both channels and sequences as routing targets
+		if idSym.Kind != symbol.KindChannel && idSym.Kind != symbol.KindSequence {
 			ctx.Diagnostics.AddError(
-				errors.Newf("%s is not a channel", idName),
+				errors.Newf("%s is not a channel or sequence", idName),
 				ctx.AST,
 			)
 			return false
 		}
 
-		valueType := idSym.Type.Unwrap()
-		if err = atypes.Check(
-			ctx.Constraints,
-			sourceType,
-			valueType,
-			ctx.AST,
-			"routing table output to channel",
-		); err != nil {
-			ctx.Diagnostics.AddError(errors.Newf(
-				"type mismatch: output type %s does not match channel %s value type %s",
+		// Only do type checking for channels (sequences accept any input for activation)
+		if idSym.Kind == symbol.KindChannel {
+			valueType := idSym.Type.Unwrap()
+			if err = atypes.Check(
+				ctx.Constraints,
 				sourceType,
-				idName,
 				valueType,
-			), ctx.AST)
-			return false
+				ctx.AST,
+				"routing table output to channel",
+			); err != nil {
+				ctx.Diagnostics.AddError(errors.Newf(
+					"type mismatch: output type %s does not match channel %s value type %s",
+					sourceType,
+					idName,
+					valueType,
+				), ctx.AST)
+				return false
+			}
 		}
 	} else if expr := ctx.AST.Expression(); expr != nil {
 		if !analyzeExpression(context.Child(ctx, expr)) {

@@ -36,7 +36,7 @@ protected:
     int kqueue_fd_ = -1;
     bool timer_enabled = false;
     std::atomic<bool> data_available{false};
-    bool running = false;
+    std::atomic<bool> running{false};
 
     explicit BaseDarwinLoop(const Config &config): cfg(config) {
         if (cfg.lock_memory)
@@ -141,6 +141,7 @@ public:
     ~BaseDarwinLoop() override { stop(); }
 
     void notify_data() override {
+        data_available.store(true, std::memory_order_release);
         if (!running) return;
 
         struct kevent kev;
@@ -149,8 +150,6 @@ public:
         if (kevent(kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1) {
             LOG(ERROR) << "[loop] Failed to trigger user event: " << strerror(errno);
         }
-
-        data_available.store(true, std::memory_order_release);
     }
 
     void stop() override {
@@ -187,7 +186,6 @@ public:
 
         apply_thread_config();
         running = true;
-        data_available.store(false, std::memory_order_release);
 
         return xerrors::NIL;
     }
@@ -225,7 +223,6 @@ public:
         if (auto err = this->setup_kqueue()) return err;
         this->apply_thread_config();
         running = true;
-        data_available.store(false, std::memory_order_release);
         return xerrors::NIL;
     }
 
@@ -266,7 +263,6 @@ public:
 
         apply_thread_config();
         running = true;
-        data_available.store(false, std::memory_order_release);
 
         return xerrors::NIL;
     }
@@ -327,13 +323,19 @@ public:
 
         apply_thread_config();
         running = true;
-        data_available.store(false, std::memory_order_release);
 
         return xerrors::NIL;
     }
 
     void wait(breaker::Breaker &breaker) override {
         if (!running) return;
+
+        // Check if data is already available (handles early notifications)
+        if (data_available.load(std::memory_order_acquire)) {
+            data_available.store(false, std::memory_order_release);
+            return;
+        }
+
         struct kevent events[2];
         const int n = kevent(kqueue_fd_, nullptr, 0, events, 2, nullptr);
         if (n > 0 || data_available.load(std::memory_order_acquire))
@@ -355,17 +357,24 @@ std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {
 
     switch (adjusted_cfg.mode) {
         case ExecutionMode::BUSY_WAIT:
+            LOG(INFO) << "[loop] creating BusyWaitLoop";
             return {std::make_unique<BusyWaitLoop>(adjusted_cfg), xerrors::NIL};
 
         case ExecutionMode::HIGH_RATE:
+            LOG(INFO) << "[loop] creating HighRateLoop";
             return {std::make_unique<HighRateLoop>(adjusted_cfg), xerrors::NIL};
 
         case ExecutionMode::HYBRID:
+            LOG(INFO) << "[loop] creating HybridLoop";
             return {std::make_unique<HybridLoop>(adjusted_cfg), xerrors::NIL};
 
         case ExecutionMode::EVENT_DRIVEN:
+            LOG(INFO) << "[loop] creating EventDrivenLoop";
+            return {std::make_unique<EventDrivenLoop>(adjusted_cfg), xerrors::NIL};
+
         case ExecutionMode::RT_EVENT:
         default:
+            LOG(INFO) << "[loop] creating EventDrivenLoop (default)";
             return {std::make_unique<EventDrivenLoop>(adjusted_cfg), xerrors::NIL};
     }
 }

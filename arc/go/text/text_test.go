@@ -821,6 +821,212 @@ var _ = Describe("Text", func() {
 				Expect(diagnostics.Ok()).To(BeFalse())
 			})
 		})
+
+		Describe("Sequence Targeting", func() {
+			It("Should connect one-shot edge to sequence's first stage entry node", func() {
+				resolver := symbol.MapResolver{
+					"trigger": {
+						Name: "trigger",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+						ID:   1,
+					},
+				}
+				source := `
+				sequence main {
+					stage run {
+					}
+				}
+
+				trigger => main
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Should have:
+				// - on_trigger_0 (channel source)
+				// - entry_main_run (stage entry from sequence)
+				// No write_main_0 should exist!
+				Expect(inter.Nodes).To(HaveLen(2))
+
+				// Verify nodes
+				triggerNode, found := inter.Nodes.Find("on_trigger_0")
+				Expect(found).To(BeTrue())
+				Expect(triggerNode.Type).To(Equal("on"))
+
+				entryNode, found := inter.Nodes.Find("entry_main_run")
+				Expect(found).To(BeTrue())
+				Expect(entryNode.Type).To(Equal("stage_entry"))
+				Expect(entryNode.Inputs).To(HaveLen(1))
+				Expect(entryNode.Inputs[0].Name).To(Equal("activate"))
+
+				// Verify no write node was created for sequence
+				for _, node := range inter.Nodes {
+					Expect(node.Key).ToNot(HavePrefix("write_main"))
+				}
+
+				// Should have exactly 1 edge
+				Expect(inter.Edges).To(HaveLen(1))
+
+				// Verify the edge connects trigger to entry node's activate input
+				edge := inter.Edges[0]
+				Expect(edge.Source.Node).To(Equal("on_trigger_0"))
+				Expect(edge.Source.Param).To(Equal("output"))
+				Expect(edge.Target.Node).To(Equal("entry_main_run"))
+				Expect(edge.Target.Param).To(Equal("activate"))
+				Expect(edge.Kind).To(Equal(ir.OneShot))
+			})
+
+			It("Should handle continuous flow to sequence", func() {
+				resolver := symbol.MapResolver{
+					"sensor": {
+						Name: "sensor",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+						ID:   1,
+					},
+				}
+				source := `
+				sequence main {
+					stage run {
+					}
+				}
+
+				sensor -> main
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Verify edge kind is Continuous for -> operator
+				Expect(inter.Edges).To(HaveLen(1))
+				edge := inter.Edges[0]
+				Expect(edge.Kind).To(Equal(ir.Continuous))
+				Expect(edge.Target.Node).To(Equal("entry_main_run"))
+				Expect(edge.Target.Param).To(Equal("activate"))
+			})
+
+			It("Should handle sequence with multiple stages - connects to first stage", func() {
+				resolver := symbol.MapResolver{
+					"trigger": {
+						Name: "trigger",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+						ID:   1,
+					},
+				}
+				source := `
+				sequence main {
+					stage first {
+					}
+					stage second {
+					}
+				}
+
+				trigger => main
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Should have: on_trigger_0, entry_main_first, entry_main_second
+				Expect(inter.Nodes).To(HaveLen(3))
+
+				// Verify edge targets the first stage
+				Expect(inter.Edges).To(HaveLen(1))
+				edge := inter.Edges[0]
+				Expect(edge.Target.Node).To(Equal("entry_main_first"))
+				Expect(edge.Target.Param).To(Equal("activate"))
+			})
+
+			It("Should error when targeting empty sequence (no stages)", func() {
+				resolver := symbol.MapResolver{
+					"trigger": {
+						Name: "trigger",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+						ID:   1,
+					},
+				}
+				source := `
+				sequence empty {
+				}
+
+				trigger => empty
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeFalse())
+				Expect(diagnostics.String()).To(ContainSubstring("no stages"))
+			})
+
+			It("Should handle sequence in routing table as sink", func() {
+				resolver := symbol.MapResolver{
+					"high_chan": {
+						Name: "high_chan",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   1,
+					},
+				}
+				source := `
+				sequence alarm {
+					stage active {
+					}
+				}
+
+				func demux{threshold f64} (value f64) (high f64, low f64) {
+					if (value > threshold) {
+						high = value
+					} else {
+						low = value
+					}
+				}
+
+				demux{threshold=100.0} -> {
+					high: alarm,
+					low: high_chan
+				}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Should have: demux_0, entry_alarm_active, write_high_chan_0
+				Expect(inter.Nodes).To(HaveLen(3))
+
+				// Verify alarm is an entry node, not a write node
+				entryNode, found := inter.Nodes.Find("entry_alarm_active")
+				Expect(found).To(BeTrue())
+				Expect(entryNode.Type).To(Equal("stage_entry"))
+
+				// Verify high_chan is a write node
+				var writeNode *ir.Node
+				for i := range inter.Nodes {
+					if inter.Nodes[i].Type == "write" {
+						writeNode = &inter.Nodes[i]
+						break
+					}
+				}
+				Expect(writeNode).ToNot(BeNil())
+				Expect(writeNode.Channels.Write.Contains(uint32(1))).To(BeTrue())
+
+				// Should have 2 edges
+				Expect(inter.Edges).To(HaveLen(2))
+
+				// Find edge to alarm
+				var alarmEdge *ir.Edge
+				for i := range inter.Edges {
+					if inter.Edges[i].Target.Node == "entry_alarm_active" {
+						alarmEdge = &inter.Edges[i]
+						break
+					}
+				}
+				Expect(alarmEdge).ToNot(BeNil())
+				Expect(alarmEdge.Target.Param).To(Equal("activate"))
+			})
+		})
 	})
 
 })

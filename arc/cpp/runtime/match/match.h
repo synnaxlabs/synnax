@@ -63,6 +63,10 @@ public:
 
         return xerrors::NIL;
     }
+
+    [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
+        return state.is_output_truthy(param_name);
+    }
 };
 
 /// Factory creates Match nodes for "match" type nodes in the IR.

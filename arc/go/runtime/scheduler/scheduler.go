@@ -183,8 +183,13 @@ func (s *Scheduler) markChanged(param string) {
 		if edge.Source.Param != param {
 			continue
 		}
-		// For one-shot edges, only propagate if not already fired in this sequence's stage
+		// For one-shot edges, only propagate if output is truthy and not already fired
 		if edge.Kind == ir.OneShot {
+			// Check truthiness before marking as fired - falsy values don't fire
+			if !s.currState.node.IsOutputTruthy(edge.Source.Param) {
+				continue
+			}
+
 			edgeKey := edge.Source.String() + "=>" + edge.Target.String()
 			// Determine which sequence this edge belongs to (use source node's sequence)
 			seqName := ""

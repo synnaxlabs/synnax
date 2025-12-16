@@ -9,5 +9,6 @@ cc_library(
         "//arc/cpp/runtime/state",
         "//arc/cpp/runtime/time",
         "//x/cpp/xerrors",
+        "@glog//:glog",
     ],
 )

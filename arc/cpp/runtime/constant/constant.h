@@ -73,6 +73,10 @@ public:
     }
 
     void reset() override { initialized = false; }
+
+    [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
+        return state.is_output_truthy(param_name);
+    }
 };
 
 /// Factory creates Constant nodes for "constant" type nodes in the IR.

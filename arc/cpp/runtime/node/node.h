@@ -33,5 +33,12 @@ public:
     /// Nodes can override to reset their internal state (e.g., timers, counters).
     /// Default implementation does nothing.
     virtual void reset() {}
+
+    /// @brief Checks if the output at the given param name is truthy.
+    /// Used by the scheduler to evaluate one-shot edges - edges only fire
+    /// when the source output is truthy.
+    /// @param param_name The name of the output parameter to check.
+    /// @returns true if the output exists and its last value is non-zero, false otherwise.
+    [[nodiscard]] virtual bool is_output_truthy(const std::string &param_name) const = 0;
 };
 }

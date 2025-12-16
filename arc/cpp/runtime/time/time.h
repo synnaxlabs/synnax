@@ -51,6 +51,10 @@ public:
         o_time->set(0, ctx.elapsed.nanoseconds());
         return xerrors::NIL;
     }
+
+    [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
+        return state.is_output_truthy(param_name);
+    }
 };
 
 struct WaitConfig {
@@ -97,6 +101,10 @@ public:
     void reset() override {
         start_time = telem::TimeSpan(-1);
         fired = false;
+    }
+
+    [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
+        return state.is_output_truthy(param_name);
     }
 };
 

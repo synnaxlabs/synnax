@@ -410,7 +410,8 @@ func Analyze(
 	}
 
 	// Step 8: Build Stratified Execution Plan
-	strata, err := stratifier.Stratify(ctx, irNodes, g.Edges, ctx.Diagnostics)
+	// Graph-based compilation doesn't support sequences, so pass nil
+	strata, err := stratifier.Stratify(ctx, irNodes, g.Edges, nil, ctx.Diagnostics)
 	if err != nil {
 		return ir.IR{}, ctx.Diagnostics
 	}

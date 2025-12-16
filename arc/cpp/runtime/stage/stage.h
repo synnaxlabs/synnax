@@ -12,6 +12,8 @@
 #include <memory>
 #include <string>
 
+#include "glog/logging.h"
+
 #include "x/cpp/xerrors/errors.h"
 
 #include "arc/cpp/ir/ir.h"
@@ -32,14 +34,27 @@ public:
         node_key(std::move(node_key)), state(std::move(state)) {}
 
     xerrors::Error next(node::Context &ctx) override {
-        if (!state.refresh_inputs()) return xerrors::NIL;
+        LOG(INFO) << "[stage_entry.next] node=" << node_key;
+        bool refreshed = state.refresh_inputs();
+        LOG(INFO) << "[stage_entry.next] refresh_inputs returned: " << refreshed;
+        if (!refreshed) return xerrors::NIL;
 
         auto &input = state.input(0);
+        LOG(INFO) << "[stage_entry.next] input size: " << input->size();
         if (input->size() == 0) return xerrors::NIL;
 
+        auto val = input->at<std::uint8_t>(0);
+        LOG(INFO) << "[stage_entry.next] activation value: " << (int)val;
         // Activation signal is a u8 with value 1
-        if (input->at<std::uint8_t>(0) == 1) { ctx.activate_stage(node_key); }
+        if (val == 1) {
+            LOG(INFO) << "[stage_entry.next] ACTIVATING stage via ctx.activate_stage(" << node_key << ")";
+            ctx.activate_stage(node_key);
+        }
         return xerrors::NIL;
+    }
+
+    [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
+        return state.is_output_truthy(param_name);
     }
 };
 

@@ -152,7 +152,7 @@ public:
 
     xerrors::Error write(telem::Frame &frame) override {
         if (frame.empty()) return xerrors::NIL;
-        LOG(INFO) << "writing to runtime " << frame;
+        // VLOG(1) << "[arc.sink] writing to runtime " << frame;
         return this->runtime->write(std::move(frame));
     }
 };

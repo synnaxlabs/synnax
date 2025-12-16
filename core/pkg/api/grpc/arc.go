@@ -750,11 +750,17 @@ func translateIRToPB(ir arcir.IR) (*arcir.PBIR, error) {
 		strataPb[i] = &arcir.PBStratum{Nodes: stratum}
 	}
 
+	sequencesPb := make([]*arcir.PBSequence, len(ir.Sequences))
+	for i, seq := range ir.Sequences {
+		sequencesPb[i] = translateSequenceToPB(seq)
+	}
+
 	return &arcir.PBIR{
 		Functions: functionsPb,
 		Nodes:     nodesPb,
 		Edges:     edgesPb,
 		Strata:    strataPb,
+		Sequences: sequencesPb,
 	}, nil
 }
 
@@ -792,11 +798,17 @@ func translateIRFromPB(pb *arcir.PBIR) (arcir.IR, error) {
 		strata[i] = stratumPb.Nodes
 	}
 
+	sequences := make(arcir.Sequences, len(pb.Sequences))
+	for i, seqPb := range pb.Sequences {
+		sequences[i] = translateSequenceFromPB(seqPb)
+	}
+
 	return arcir.IR{
 		Functions: functions,
 		Nodes:     nodes,
 		Edges:     edges,
 		Strata:    strata,
+		Sequences: sequences,
 	}, nil
 }
 
@@ -860,6 +872,7 @@ func translateEdgeToPB(e arcir.Edge) *arcir.PBEdge {
 	return &arcir.PBEdge{
 		Source: &arcir.PBHandle{Node: e.Source.Node, Param: e.Source.Param},
 		Target: &arcir.PBHandle{Node: e.Target.Node, Param: e.Target.Param},
+		Kind:   arcir.PBEdgeKind(e.Kind),
 	}
 }
 
@@ -873,7 +886,53 @@ func translateEdgeFromPB(pb *arcir.PBEdge) arcir.Edge {
 	if pb.Target != nil {
 		target = arcir.Handle{Node: pb.Target.Node, Param: pb.Target.Param}
 	}
-	return arcir.Edge{Source: source, Target: target}
+	return arcir.Edge{Source: source, Target: target, Kind: arcir.EdgeKind(pb.Kind)}
+}
+
+// translateSequenceToPB converts ir.Sequence to *arcir.PBSequence
+func translateSequenceToPB(s arcir.Sequence) *arcir.PBSequence {
+	stagesPb := make([]*arcir.PBStage, len(s.Stages))
+	for i, stage := range s.Stages {
+		stagesPb[i] = translateStageToPB(stage)
+	}
+	return &arcir.PBSequence{
+		Key:    s.Key,
+		Stages: stagesPb,
+	}
+}
+
+// translateSequenceFromPB converts *arcir.PBSequence to ir.Sequence
+func translateSequenceFromPB(pb *arcir.PBSequence) arcir.Sequence {
+	if pb == nil {
+		return arcir.Sequence{}
+	}
+	stages := make([]arcir.Stage, len(pb.Stages))
+	for i, stagePb := range pb.Stages {
+		stages[i] = translateStageFromPB(stagePb)
+	}
+	return arcir.Sequence{
+		Key:    pb.Key,
+		Stages: stages,
+	}
+}
+
+// translateStageToPB converts ir.Stage to *arcir.PBStage
+func translateStageToPB(s arcir.Stage) *arcir.PBStage {
+	return &arcir.PBStage{
+		Key:   s.Key,
+		Nodes: s.Nodes,
+	}
+}
+
+// translateStageFromPB converts *arcir.PBStage to ir.Stage
+func translateStageFromPB(pb *arcir.PBStage) arcir.Stage {
+	if pb == nil {
+		return arcir.Stage{}
+	}
+	return arcir.Stage{
+		Key:   pb.Key,
+		Nodes: pb.Nodes,
+	}
 }
 
 func newArc(a *api.Transport) fgrpc.CompoundBindableTransport {

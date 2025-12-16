@@ -11,6 +11,7 @@ cc_library(
         "//arc/cpp/ir",
         "//x/cpp/telem",
         "//x/cpp/xmemory",
+        "@glog//:glog",
     ],
 )
 

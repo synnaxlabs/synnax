@@ -275,9 +275,8 @@ std::pair<telem::MultiSeries, bool> State::read_channel(const types::ChannelKey 
     auto it = reads.find(key);
     if (it == reads.end() || it->second.empty()) return {telem::MultiSeries{}, false};
     telem::MultiSeries ms;
-    for (auto &s: it->second)
-        ms.series.push_back(std::move(*s));
-    it->second.clear();
+    for (const auto &s: it->second)
+        ms.series.push_back(s->deep_copy());
     return {std::move(ms), true};
 }
 

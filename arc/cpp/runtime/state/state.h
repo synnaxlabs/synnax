@@ -14,6 +14,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "glog/logging.h"
+
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
@@ -112,6 +114,59 @@ public:
 
     /// Writes data and time series to a channel buffer.
     void write_chan(types::ChannelKey key, const Series &data, const Series &time);
+
+    /// @brief Checks if the output at the given param name is truthy.
+    /// Returns false if the param doesn't exist, if the output is empty,
+    /// or if the last element is zero. Returns true otherwise.
+    [[nodiscard]] bool is_output_truthy(const std::string &param_name) const {
+        LOG(INFO) << "[state.is_output_truthy] checking param: " << param_name;
+        // Find output index by param name
+        for (size_t i = 0; i < outputs.size(); ++i) {
+            if (outputs[i].param == param_name) {
+                const auto *series = output_cache[i]->data.get();
+                if (series == nullptr) {
+                    LOG(INFO) << "[state.is_output_truthy] series is nullptr, returning false";
+                    return false;
+                }
+                bool result = is_series_truthy(*series);
+                LOG(INFO) << "[state.is_output_truthy] is_series_truthy returned: " << result;
+                return result;
+            }
+        }
+        LOG(INFO) << "[state.is_output_truthy] param not found, returning false";
+        return false;
+    }
+
+    /// @brief Checks if a series is truthy by examining its last element.
+    /// Empty series are falsy. A series with a last element of zero is falsy.
+    [[nodiscard]] static bool is_series_truthy(const telem::Series &series) {
+        LOG(INFO) << "[state.is_series_truthy] series size: " << series.size()
+                  << ", data_type: " << series.data_type().name();
+        if (series.empty()) {
+            LOG(INFO) << "[state.is_series_truthy] series is empty, returning false";
+            return false;
+        }
+        const auto last_value = series.at(-1);
+        LOG(INFO) << "[state.is_series_truthy] variant index: " << last_value.index();
+        bool result = std::visit(
+            [](const auto &v) -> bool {
+                using T = std::decay_t<decltype(v)>;
+                if constexpr (std::is_same_v<T, std::string>) {
+                    LOG(INFO) << "[state.is_series_truthy] string value, empty=" << v.empty();
+                    return !v.empty();
+                } else if constexpr (std::is_same_v<T, telem::TimeStamp>) {
+                    LOG(INFO) << "[state.is_series_truthy] timestamp value: " << v.nanoseconds();
+                    return v.nanoseconds() != 0;
+                } else {
+                    LOG(INFO) << "[state.is_series_truthy] numeric value: " << static_cast<int64_t>(v);
+                    return v != 0;
+                }
+            },
+            last_value
+        );
+        LOG(INFO) << "[state.is_series_truthy] returning: " << result;
+        return result;
+    }
 };
 
 class State {
