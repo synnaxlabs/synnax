@@ -218,30 +218,6 @@ func (s *BaseArcParserListener) EnterAssignment(ctx *AssignmentContext) {}
 // ExitAssignment is called when production assignment is exited.
 func (s *BaseArcParserListener) ExitAssignment(ctx *AssignmentContext) {}
 
-// EnterChannelOperation is called when production channelOperation is entered.
-func (s *BaseArcParserListener) EnterChannelOperation(ctx *ChannelOperationContext) {}
-
-// ExitChannelOperation is called when production channelOperation is exited.
-func (s *BaseArcParserListener) ExitChannelOperation(ctx *ChannelOperationContext) {}
-
-// EnterChannelWrite is called when production channelWrite is entered.
-func (s *BaseArcParserListener) EnterChannelWrite(ctx *ChannelWriteContext) {}
-
-// ExitChannelWrite is called when production channelWrite is exited.
-func (s *BaseArcParserListener) ExitChannelWrite(ctx *ChannelWriteContext) {}
-
-// EnterChannelRead is called when production channelRead is entered.
-func (s *BaseArcParserListener) EnterChannelRead(ctx *ChannelReadContext) {}
-
-// ExitChannelRead is called when production channelRead is exited.
-func (s *BaseArcParserListener) ExitChannelRead(ctx *ChannelReadContext) {}
-
-// EnterNonBlockingRead is called when production nonBlockingRead is entered.
-func (s *BaseArcParserListener) EnterNonBlockingRead(ctx *NonBlockingReadContext) {}
-
-// ExitNonBlockingRead is called when production nonBlockingRead is exited.
-func (s *BaseArcParserListener) ExitNonBlockingRead(ctx *NonBlockingReadContext) {}
-
 // EnterIfStatement is called when production ifStatement is entered.
 func (s *BaseArcParserListener) EnterIfStatement(ctx *IfStatementContext) {}
 

@@ -139,22 +139,6 @@ func (v *BaseArcParserVisitor) VisitAssignment(ctx *AssignmentContext) interface
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseArcParserVisitor) VisitChannelOperation(ctx *ChannelOperationContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseArcParserVisitor) VisitChannelWrite(ctx *ChannelWriteContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseArcParserVisitor) VisitChannelRead(ctx *ChannelReadContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseArcParserVisitor) VisitNonBlockingRead(ctx *NonBlockingReadContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
 func (v *BaseArcParserVisitor) VisitIfStatement(ctx *IfStatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }

@@ -137,7 +137,7 @@ var _ = Describe("Flow Statements", func() {
 			} () {
 				value := input
 				if value > setpoint {
-					value -> output
+					output = value
 				}
 			}
 
@@ -161,7 +161,7 @@ var _ = Describe("Flow Statements", func() {
 			} () {
 				value := input
 				if value > threshold {
-					value -> output
+					output = value
 				}
 			}
 
@@ -274,7 +274,7 @@ var _ = Describe("Flow Statements", func() {
 			} () {
 				value := input
 				processed := value * 2.0
-				processed -> output
+				output = processed
 			}
 
 			// Channel as source -> func -> channel as target

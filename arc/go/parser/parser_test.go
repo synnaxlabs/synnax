@@ -513,39 +513,6 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			})
 		})
 
-		Context("Channel Operations", func() {
-			It("Should parse channel write with arrow", func() {
-				stmt := mustParseStatement("42 -> output")
-
-				channelOp := stmt.ChannelOperation()
-				Expect(channelOp).NotTo(BeNil())
-
-				write := channelOp.ChannelWrite()
-				Expect(write).NotTo(BeNil())
-				Expect(write.ARROW()).NotTo(BeNil())
-				Expect(write.IDENTIFIER().GetText()).To(Equal("output"))
-			})
-
-			It("Should parse non-blocking channel read", func() {
-				stmt := mustParseStatement("current := sensor")
-
-				// This is likely parsed as a variable declaration
-				varDecl := stmt.VariableDeclaration()
-				if varDecl != nil {
-					local := varDecl.LocalVariable()
-					Expect(local).NotTo(BeNil())
-					Expect(local.IDENTIFIER().GetText()).To(Equal("current"))
-					return
-				}
-
-				channelOp := stmt.ChannelOperation()
-				Expect(channelOp).NotTo(BeNil())
-				nonBlocking := channelOp.ChannelRead().NonBlockingRead()
-				Expect(nonBlocking).NotTo(BeNil())
-				Expect(nonBlocking.IDENTIFIER(0).GetText()).To(Equal("current"))
-				Expect(nonBlocking.IDENTIFIER(1).GetText()).To(Equal("sensor"))
-			})
-		})
 
 		Context("Control Flow", func() {
 			It("Should parse if statement", func() {

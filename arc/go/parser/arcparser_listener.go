@@ -106,18 +106,6 @@ type ArcParserListener interface {
 	// EnterAssignment is called when entering the assignment production.
 	EnterAssignment(c *AssignmentContext)
 
-	// EnterChannelOperation is called when entering the channelOperation production.
-	EnterChannelOperation(c *ChannelOperationContext)
-
-	// EnterChannelWrite is called when entering the channelWrite production.
-	EnterChannelWrite(c *ChannelWriteContext)
-
-	// EnterChannelRead is called when entering the channelRead production.
-	EnterChannelRead(c *ChannelReadContext)
-
-	// EnterNonBlockingRead is called when entering the nonBlockingRead production.
-	EnterNonBlockingRead(c *NonBlockingReadContext)
-
 	// EnterIfStatement is called when entering the ifStatement production.
 	EnterIfStatement(c *IfStatementContext)
 
@@ -312,18 +300,6 @@ type ArcParserListener interface {
 
 	// ExitAssignment is called when exiting the assignment production.
 	ExitAssignment(c *AssignmentContext)
-
-	// ExitChannelOperation is called when exiting the channelOperation production.
-	ExitChannelOperation(c *ChannelOperationContext)
-
-	// ExitChannelWrite is called when exiting the channelWrite production.
-	ExitChannelWrite(c *ChannelWriteContext)
-
-	// ExitChannelRead is called when exiting the channelRead production.
-	ExitChannelRead(c *ChannelReadContext)
-
-	// ExitNonBlockingRead is called when exiting the nonBlockingRead production.
-	ExitNonBlockingRead(c *NonBlockingReadContext)
 
 	// ExitIfStatement is called when exiting the ifStatement production.
 	ExitIfStatement(c *IfStatementContext)

@@ -151,7 +151,6 @@ block
 
 statement
     : variableDeclaration
-    | channelOperation
     | assignment
     | ifStatement
     | returnStatement
@@ -176,23 +175,6 @@ statefulVariable
 
 assignment
     : IDENTIFIER ASSIGN expression
-    ;
-
-channelOperation
-    : channelWrite
-    | channelRead
-    ;
-
-channelWrite
-    : expression ARROW IDENTIFIER
-    ;
-
-channelRead
-    : nonBlockingRead
-    ;
-
-nonBlockingRead
-    : IDENTIFIER DECLARE IDENTIFIER
     ;
 
 ifStatement

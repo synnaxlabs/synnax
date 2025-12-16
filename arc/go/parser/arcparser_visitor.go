@@ -106,18 +106,6 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#assignment.
 	VisitAssignment(ctx *AssignmentContext) interface{}
 
-	// Visit a parse tree produced by ArcParser#channelOperation.
-	VisitChannelOperation(ctx *ChannelOperationContext) interface{}
-
-	// Visit a parse tree produced by ArcParser#channelWrite.
-	VisitChannelWrite(ctx *ChannelWriteContext) interface{}
-
-	// Visit a parse tree produced by ArcParser#channelRead.
-	VisitChannelRead(ctx *ChannelReadContext) interface{}
-
-	// Visit a parse tree produced by ArcParser#nonBlockingRead.
-	VisitNonBlockingRead(ctx *NonBlockingReadContext) interface{}
-
 	// Visit a parse tree produced by ArcParser#ifStatement.
 	VisitIfStatement(ctx *IfStatementContext) interface{}
 
