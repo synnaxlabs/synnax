@@ -154,7 +154,7 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
         if (writes.contains(d.key) && d.index != 0) writes.insert(d.index);
     }
 
-    state::Config state_cfg{.ir = cfg.mod, .channels = digests};
+    state::Config state_cfg{.ir = (static_cast<ir::IR>(cfg.mod)), .channels = digests};
     auto state = std::make_unique<state::State>(state_cfg);
 
     // Step 2: Create bindings runtime
