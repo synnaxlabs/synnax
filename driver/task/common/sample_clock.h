@@ -217,7 +217,7 @@ public:
 };
 
 inline void generate_index_data(
-    const synnax::Frame &f,
+    const telem::Frame &f,
     const std::set<synnax::ChannelKey> &index_keys,
     const telem::TimeStamp &start,
     const telem::TimeStamp &end,
