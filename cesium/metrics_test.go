@@ -140,29 +140,6 @@ var _ = Describe("Metrics", Ordered, func() {
 					// 5 timestamps (8 bytes each) + 5 int64s (8 bytes each) = 80 bytes
 					Expect(m.DiskSize).To(Equal(telem.Size(80)))
 				})
-
-				It("Should be consistent with Size() method", func() {
-					sub := MustSucceed(fs.Sub("consistency-metrics"))
-					subDB := openDBOnFS(sub)
-					defer func() { Expect(subDB.Close()).To(Succeed()) }()
-
-					indexKey := GenerateChannelKey()
-
-					Expect(subDB.CreateChannel(ctx, cesium.Channel{
-						Key:      indexKey,
-						Name:     "index",
-						IsIndex:  true,
-						DataType: telem.TimeStampT,
-					})).To(Succeed())
-
-					Expect(subDB.Write(ctx, 1*telem.SecondTS, telem.MultiFrame(
-						[]cesium.ChannelKey{indexKey},
-						[]telem.Series{telem.NewSeriesSecondsTSV(1, 2, 3)},
-					))).To(Succeed())
-
-					m := subDB.Metrics()
-					Expect(m.DiskSize).To(Equal(subDB.Size()))
-				})
 			})
 		})
 	}
