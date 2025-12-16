@@ -619,11 +619,21 @@ export const useList = Flux.createList<
   FluxSubStore
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieveCached: ({ store, query }) =>
-    store.ranges.get((r) => {
-      if (primitive.isNonZero(query.keys)) return query.keys.includes(r.key);
+  retrieveCached: ({ store, query }) => {
+    const keySet = primitive.isNonZero(query.keys) ? new Set(query.keys) : undefined;
+    const hasLabelsSet = primitive.isNonZero(query.hasLabels)
+      ? new Set(query.hasLabels)
+      : undefined;
+    return store.ranges.get((r) => {
+      if (keySet != null && !keySet.has(r.key)) return false;
+      if (
+        hasLabelsSet != null &&
+        (r.labels == null || !r.labels.some((l) => hasLabelsSet.has(l.key)))
+      )
+        return false;
       return true;
-    }),
+    });
+  },
   retrieve: async ({ client, query }) =>
     await client.ranges.retrieve({ ...BASE_QUERY, ...query }),
   retrieveByKey: async ({ key, ...rest }) =>
@@ -635,13 +645,12 @@ export const useList = Flux.createList<
     client,
     query: { keys, hasLabels },
   }) => {
-    const hasKeys = keys != null && keys.length > 0;
-    const keysSet = new Set(keys);
+    const keysSet = primitive.isNonZero(keys) ? new Set(keys) : undefined;
     const hasLabelsSet =
-      hasLabels && hasLabels.length > 0 ? new Set(hasLabels) : undefined;
+      hasLabels != null && hasLabels.length > 0 ? new Set(hasLabels) : undefined;
     return [
       store.ranges.onSet((range) => {
-        if (hasKeys && !keysSet.has(range.key)) return;
+        if (keysSet != null && !keysSet.has(range.key)) return;
         if (
           hasLabelsSet != null &&
           (range.labels == null || !range.labels.some((l) => hasLabelsSet.has(l.key)))
