@@ -245,7 +245,7 @@ func (s *Layer) KVSize() telem.Size {
 }
 
 // TSSize returns the disk space used by the time-series store in bytes.
-func (s *Layer) TSSize() telem.Size { return s.TS.Size() }
+func (s *Layer) TSSize() telem.Size { return s.TS.Metrics().DiskSize }
 
 // Size returns the total disk space used by the storage layer in bytes.
 func (s *Layer) Size() telem.Size { return s.KVSize() + s.TSSize() }

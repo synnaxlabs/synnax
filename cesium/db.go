@@ -35,6 +35,14 @@ var (
 	ZeroLeadingAlignment = core.ZeroLeadingAlignment
 )
 
+// Metrics contains statistics about the cesium database.
+type Metrics struct {
+	// DiskSize is the total disk space used by all channel data.
+	DiskSize telem.Size
+	// ChannelCount is the number of channels in the database.
+	ChannelCount int
+}
+
 // LeadingAlignment returns an Alignment whose array index is the maximum possible value
 // and whose sample index is the provided value.
 func LeadingAlignment(domainIdx, sampleIdx uint32) telem.Alignment {
@@ -108,17 +116,23 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...core.Channel
 	return frame, err
 }
 
-// Size returns the total size of all channel data stored in the database by summing
-// the sizes of all unary databases.
-func (db *DB) Size() telem.Size {
+// Metrics returns current metrics for the database.
+func (db *DB) Metrics() Metrics {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
-	var total telem.Size
+	var size telem.Size
 	for _, u := range db.mu.unaryDBs {
-		total += u.Size()
+		size += u.Size()
 	}
-	return total
+	return Metrics{
+		DiskSize:     size,
+		ChannelCount: len(db.mu.unaryDBs) + len(db.mu.virtualDBs),
+	}
 }
+
+// Size returns the total size of all channel data stored in the database by summing
+// the sizes of all unary databases.
+func (db *DB) Size() telem.Size { return db.Metrics().DiskSize }
 
 // Close closes the database.
 //

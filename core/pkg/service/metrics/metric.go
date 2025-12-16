@@ -81,5 +81,14 @@ func buildMetrics(s *storage.Layer) []metric {
 				return float32(s.KVSize()) / float32(telem.Gigabyte), nil
 			},
 		},
+		{
+			ch: channel.Channel{
+				Name:     "channel_count",
+				DataType: telem.Float32T,
+			},
+			collect: func() (float32, error) {
+				return float32(s.TS.Metrics().ChannelCount), nil
+			},
+		},
 	}
 }
