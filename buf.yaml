@@ -5,7 +5,6 @@ modules:
       - core
       - freighter/integration
       - x/go
-      - arc/go
 lint:
   use:
     - STANDARD
@@ -15,5 +14,3 @@ lint:
     - RPC_RESPONSE_STANDARD_NAME
     - PACKAGE_DIRECTORY_MATCH
     - PACKAGE_VERSION_SUFFIX
-    - ENUM_VALUE_PREFIX
-    - ENUM_ZERO_VALUE_SUFFIX
