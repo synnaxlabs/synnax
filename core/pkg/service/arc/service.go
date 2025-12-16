@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -68,6 +69,8 @@ type ServiceConfig struct {
 	// [OPTIONAL] - Defaults to nil. Signals will not be propagated if this service
 	// is nil.
 	Signals *signals.Provider
+	// Task is
+	Task *task.Service
 }
 
 var (
@@ -85,6 +88,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.Task = override.Nil(c.Task, other.Task)
 	return c
 }
 
@@ -95,6 +99,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "status", c.Status)
+	validate.NotNil(v, "task", c.Task)
 	return v.Error()
 }
 
@@ -202,6 +207,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:     gorp.OverrideTx(s.cfg.DB, tx),
 		otg:    s.cfg.Ontology.NewWriter(tx),
 		status: status.NewWriter[core.StatusDetails](s.cfg.Status, tx),
+		task:   s.cfg.Task.NewWriter(tx),
 	}
 }
 

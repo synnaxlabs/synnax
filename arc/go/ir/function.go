@@ -10,6 +10,8 @@
 package ir
 
 import (
+	"strings"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/symbol"
@@ -21,9 +23,9 @@ import (
 // syntax tree for code generation and analysis.
 type Body struct {
 	// Raw is the original source code as written by the user.
-	Raw string
+	Raw string `json:"raw" msgpack:"raw"`
 	// AST is the parsed abstract syntax tree from the parser.
-	AST antlr.ParserRuleContext
+	AST antlr.ParserRuleContext `json:"-" msgpack:"-"`
 }
 
 // Function represents a function or stage definition in the IR. Functions are
@@ -64,4 +66,59 @@ func (f Functions) Get(key string) Function {
 // or zero value and false otherwise.
 func (f Functions) Find(key string) (Function, bool) {
 	return lo.Find(f, func(fn Function) bool { return fn.Key == key })
+}
+
+// String returns the string representation of the function.
+func (f Function) String() string {
+	return f.stringWithPrefix("")
+}
+
+// stringWithPrefix returns the string representation with tree formatting.
+func (f Function) stringWithPrefix(prefix string) string {
+	var b strings.Builder
+	b.WriteString(f.Key)
+	b.WriteString("\n")
+
+	hasConfig := len(f.Config) > 0
+	hasInputs := len(f.Inputs) > 0
+	hasOutputs := len(f.Outputs) > 0
+
+	// Channels
+	isLast := !hasConfig && !hasInputs && !hasOutputs
+	b.WriteString(prefix)
+	b.WriteString(treePrefix(isLast))
+	b.WriteString("channels: ")
+	b.WriteString(formatChannels(f.Channels))
+	b.WriteString("\n")
+
+	// Config (if any)
+	if hasConfig {
+		isLast = !hasInputs && !hasOutputs
+		b.WriteString(prefix)
+		b.WriteString(treePrefix(isLast))
+		b.WriteString("config: ")
+		b.WriteString(formatParams(f.Config))
+		b.WriteString("\n")
+	}
+
+	// Inputs
+	if hasInputs {
+		isLast = !hasOutputs
+		b.WriteString(prefix)
+		b.WriteString(treePrefix(isLast))
+		b.WriteString("inputs: ")
+		b.WriteString(formatParams(f.Inputs))
+		b.WriteString("\n")
+	}
+
+	// Outputs
+	if hasOutputs {
+		b.WriteString(prefix)
+		b.WriteString(treePrefix(true))
+		b.WriteString("outputs: ")
+		b.WriteString(formatParams(f.Outputs))
+		b.WriteString("\n")
+	}
+
+	return b.String()
 }
