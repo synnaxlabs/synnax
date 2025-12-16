@@ -28,7 +28,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
-	"github.com/synnaxlabs/arc/analyzer/flow"
+	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
@@ -618,7 +618,7 @@ func analyzeExpression(
 		resolvedType := ctx.Constraints.ApplySubstitutions(outputType)
 
 		// Parse the literal value with the resolved type
-		literalCtx := flow.GetLiteralFromExpression(ctx.AST)
+		literalCtx := expression.GetLiteral(ctx.AST)
 		parsedValue, err := literal.Parse(literalCtx, resolvedType)
 		if err != nil {
 			ctx.Diagnostics.AddError(err, ctx.AST)

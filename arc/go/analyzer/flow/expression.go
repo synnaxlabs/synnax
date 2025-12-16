@@ -19,74 +19,6 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-// IsPureLiteral checks if an expression is a single literal value with no operators.
-func IsPureLiteral(expr parser.IExpressionContext) bool {
-	logicalOr := expr.LogicalOrExpression()
-	if logicalOr == nil {
-		return false
-	}
-	ands := logicalOr.AllLogicalAndExpression()
-	if len(ands) != 1 {
-		return false
-	}
-	equalities := ands[0].AllEqualityExpression()
-	if len(equalities) != 1 {
-		return false
-	}
-	relationals := equalities[0].AllRelationalExpression()
-	if len(relationals) != 1 {
-		return false
-	}
-	additives := relationals[0].AllAdditiveExpression()
-	if len(additives) != 1 {
-		return false
-	}
-	multiplicatives := additives[0].AllMultiplicativeExpression()
-	if len(multiplicatives) != 1 {
-		return false
-	}
-	powers := multiplicatives[0].AllPowerExpression()
-	if len(powers) != 1 {
-		return false
-	}
-	if powers[0].CARET() != nil {
-		return false // has power operator
-	}
-	unary := powers[0].UnaryExpression()
-	if unary == nil || unary.UnaryExpression() != nil {
-		return false // has unary operator (like -1)
-	}
-	postfix := unary.PostfixExpression()
-	if postfix == nil {
-		return false
-	}
-	// Check no function calls or indexing
-	if len(postfix.AllIndexOrSlice()) > 0 || len(postfix.AllFunctionCallSuffix()) > 0 {
-		return false
-	}
-	primary := postfix.PrimaryExpression()
-	if primary == nil {
-		return false
-	}
-	// Must be a literal, not an identifier or parenthesized expression
-	return primary.Literal() != nil && primary.IDENTIFIER() == nil && primary.Expression() == nil
-}
-
-// GetLiteralFromExpression extracts the literal node from a pure literal expression.
-func GetLiteralFromExpression(expr parser.IExpressionContext) parser.ILiteralContext {
-	return expr.LogicalOrExpression().
-		AllLogicalAndExpression()[0].
-		AllEqualityExpression()[0].
-		AllRelationalExpression()[0].
-		AllAdditiveExpression()[0].
-		AllMultiplicativeExpression()[0].
-		AllPowerExpression()[0].
-		UnaryExpression().
-		PostfixExpression().
-		PrimaryExpression().
-		Literal()
-}
-
 // analyzeExpression converts an inline expression into a synthetic function that
 // can be used as a node in a flow graph. Pure literals are registered as KindConstant
 // symbols and don't require code compilation.
@@ -96,7 +28,7 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 	t.Outputs = append(t.Outputs, types.Param{Name: ir.DefaultOutputParam, Type: exprType})
 
 	// Pure literals become constants - no code to compile
-	if IsPureLiteral(ctx.AST) {
+	if expression.IsPureLiteral(ctx.AST) {
 		t.Config = append(t.Config, types.Param{Name: "value", Type: exprType})
 		scope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
 			Name: "",
