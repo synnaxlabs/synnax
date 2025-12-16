@@ -62,9 +62,8 @@ export class WorkflowRunner {
       await this.runIteration();
       this.iterationsCompleted++;
 
-      if (this.running && this.iterationsCompleted < maxIterations) 
+      if (this.running && this.iterationsCompleted < maxIterations)
         await this.delay(this.config.delayBetweenIterationsMs);
-      
     }
 
     return this.results;
@@ -94,9 +93,7 @@ export class WorkflowRunner {
       this.results.push(result);
       this.callbacks.onWorkflowComplete?.(result);
 
-      if (this.running) 
-        await this.delay(this.config.delayBetweenWorkflowsMs);
-      
+      if (this.running) await this.delay(this.config.delayBetweenWorkflowsMs);
     }
   }
 
@@ -111,9 +108,8 @@ export class WorkflowRunner {
       for (const step of steps) {
         if (!this.running) break;
         await step.execute(this.context);
-        if (step.delayAfterMs != null && step.delayAfterMs > 0) 
+        if (step.delayAfterMs != null && step.delayAfterMs > 0)
           await this.delay(step.delayAfterMs);
-        
       }
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);

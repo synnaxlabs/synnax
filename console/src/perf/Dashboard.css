@@ -10,30 +10,29 @@
  */
 
 .console-perf-dashboard {
-  padding: 1.5rem;
-  height: 100%;
+    padding: 1.5rem;
+    height: 100%;
 }
 
 .console-perf-metric-card {
-  padding: 1rem;
-  background-color: var(--pluto-gray-l1);
-  border-radius: var(--pluto-border-radius);
-  min-width: 150px;
+    padding: 1rem;
+    background-color: var(--pluto-gray-l1);
+    border-radius: var(--pluto-border-radius);
+    min-width: 150px;
 }
 
 .console-perf-analysis-header {
-  margin-top: 1.5rem;
-  width: fit-content;
+    margin-top: 1.5rem;
 }
 
 .console-perf-analysis-header .pluto-header__actions {
-  margin-left: 1rem;
+    margin-right: auto;
 }
 
 .console-perf-metric-row {
-  margin-top: 0.5rem;
+    margin-top: 0.5rem;
 }
 
 .console-perf-error {
-  margin-top: 1rem;
+    margin-top: 1rem;
 }

@@ -10,72 +10,52 @@
 import { type HeapSnapshot, type MetricSample } from "@/perf/metrics/types";
 import { type WorkflowResult } from "@/perf/workflows/types";
 
-/** Trend direction for metrics over time. */
+export const COMPARISON_WINDOW_SIZE = 30;
+
 export type Trend = "increasing" | "stable" | "decreasing";
 
 /** Report on memory leak detection. */
 export interface LeakReport {
-  /** Whether a memory leak was detected. */
   detected: boolean;
-  /** Heap used at start of test in MB. */
   heapStartMB: number;
-  /** Heap used at end of test in MB. */
   heapEndMB: number;
-  /** Heap growth in MB from start to end. */
   heapGrowthMB: number;
-  /** Heap growth as a percentage. */
   heapGrowthPercent: number;
-  /** Trend of heap usage over time. */
   trend: Trend;
-  /** Number of heap snapshots analyzed. */
   snapshotCount: number;
 }
 
-/** Report on performance degradation. */
 export interface DegradationReport {
-  /** Whether performance degradation was detected. */
   detected: boolean;
-  /** Average frame rate in the first quarter of samples. */
   averageFrameRateStart: number;
-  /** Average frame rate in the last quarter of samples. */
   averageFrameRateEnd: number;
-  /** Percentage drop in frame rate. */
   frameRateDegradationPercent: number;
-  /** Trend of long task occurrences. */
-  longTaskTrend: Trend;
-  /** Total long task count. */
-  totalLongTasks: number;
-  /** Total long task duration in ms. */
-  totalLongTaskDurationMs: number;
+}
+
+export interface CpuReport {
+  detected: boolean;
+  avgPercent: number | null;
+  peakPercent: number | null;
+  startPercent: number | null;
+  endPercent: number | null;
 }
 
 /** Complete performance report. */
 export interface PerfReport {
-  /** Total duration of the harness run in ms. */
   durationMs: number;
-  /** Total number of metric samples collected. */
   totalSamples: number;
-  /** Average frame rate across all samples. */
   averageFrameRate: number;
-  /** Minimum frame rate observed. */
   minFrameRate: number;
-  /** Maximum frame rate observed. */
   maxFrameRate: number;
-  /** Average heap used in MB (null if not available). */
   averageHeapUsedMB: number | null;
-  /** Peak heap used in MB (null if not available). */
   peakHeapUsedMB: number | null;
-  /** Total network requests made. */
   totalNetworkRequests: number;
-  /** Memory leak analysis. */
   leakReport: LeakReport;
-  /** Performance degradation analysis. */
   degradationReport: DegradationReport;
-  /** Results from workflow executions. */
+  cpuReport: CpuReport;
   workflowResults: WorkflowResult[];
 }
 
-/** Default empty leak report. */
 export const ZERO_LEAK_REPORT: LeakReport = {
   detected: false,
   heapStartMB: 0,
@@ -86,18 +66,22 @@ export const ZERO_LEAK_REPORT: LeakReport = {
   snapshotCount: 0,
 };
 
-/** Default empty degradation report. */
 export const ZERO_DEGRADATION_REPORT: DegradationReport = {
   detected: false,
   averageFrameRateStart: 0,
   averageFrameRateEnd: 0,
   frameRateDegradationPercent: 0,
-  longTaskTrend: "stable",
-  totalLongTasks: 0,
-  totalLongTaskDurationMs: 0,
 };
 
-/** Generate a performance report from collected data. */
+export const ZERO_CPU_REPORT: CpuReport = {
+  detected: false,
+  avgPercent: null,
+  peakPercent: null,
+  startPercent: null,
+  endPercent: null,
+};
+
+/** Generate a performance report from collected data (stub for future export). */
 export const generateReport = (
   samples: MetricSample[],
   _heapSnapshots: HeapSnapshot[],
@@ -106,9 +90,12 @@ export const generateReport = (
   endTime: number,
   leakReport: LeakReport,
   degradationReport: DegradationReport,
+  cpuReport: CpuReport,
 ): PerfReport => {
   const frameRates = samples.map((s) => s.frameRate);
-  const heapValues = samples.map((s) => s.heapUsedMB).filter((h): h is number => h != null);
+  const heapValues = samples
+    .map((s) => s.heapUsedMB)
+    .filter((h): h is number => h != null);
 
   return {
     durationMs: endTime - startTime,
@@ -127,6 +114,7 @@ export const generateReport = (
     totalNetworkRequests: samples.reduce((sum, s) => sum + s.networkRequestCount, 0),
     leakReport,
     degradationReport,
+    cpuReport,
     workflowResults,
   };
 };

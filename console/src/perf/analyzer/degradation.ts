@@ -9,76 +9,31 @@
 
 import { math } from "@synnaxlabs/x";
 
-import {
-  type DegradationReport,
-  type Trend,
-  ZERO_DEGRADATION_REPORT,
-} from "@/perf/analyzer/types";
-import { type MetricSample } from "@/perf/metrics/types";
+import { type DegradationReport, ZERO_DEGRADATION_REPORT } from "@/perf/analyzer/types";
 
-/** Threshold for FPS drop percentage to consider as degradation. */
 const FPS_DEGRADATION_THRESHOLD_PERCENT = 15;
 
+export interface FPSContext {
+  startFPS: number;
+  endFPS: number;
+}
+
 /**
- * Analyzes metric samples to detect performance degradation.
- * Compares frame rates at the start vs end of the test run.
+ * Analyzes FPS degradation by comparing start vs end frame rates.
+ * Detects degradation when FPS drops more than 15% during the test.
  */
 export class DegradationDetector {
-  /**
-   * Analyze samples for performance degradation.
-   * @param samples Array of metric samples over time.
-   * @returns DegradationReport with analysis results.
-   */
-  analyze(samples: MetricSample[]): DegradationReport {
-    if (samples.length < 2) 
-      return ZERO_DEGRADATION_REPORT;
-    
-
-    const { first: avgFPSStart, last: avgFPSEnd } = math.compareQuarters(
-      samples,
-      (s) => s.frameRate,
-    );
-
-    const fpsDrop = avgFPSStart > 0 ? ((avgFPSStart - avgFPSEnd) / avgFPSStart) * 100 : 0;
-
-    // Calculate long task totals and trend
-    const totalLongTasks = samples.reduce((sum, s) => sum + s.longTaskCount, 0);
-    const totalLongTaskDurationMs = samples.reduce(
-      (sum, s) => sum + s.longTaskDurationMs,
-      0,
-    );
-    const longTaskTrend = this.calculateLongTaskTrend(samples);
-
-    // Degradation detected if FPS dropped by more than threshold
+  analyze(fps: FPSContext): DegradationReport {
+    const fpsDrop =
+      fps.startFPS > 0 ? ((fps.startFPS - fps.endFPS) / fps.startFPS) * 100 : 0;
     const detected = fpsDrop > FPS_DEGRADATION_THRESHOLD_PERCENT;
 
     return {
+      ...ZERO_DEGRADATION_REPORT,
       detected,
-      averageFrameRateStart: math.roundTo(avgFPSStart),
-      averageFrameRateEnd: math.roundTo(avgFPSEnd),
+      averageFrameRateStart: math.roundTo(fps.startFPS),
+      averageFrameRateEnd: math.roundTo(fps.endFPS),
       frameRateDegradationPercent: math.roundTo(fpsDrop, 2),
-      longTaskTrend,
-      totalLongTasks,
-      totalLongTaskDurationMs: Math.round(totalLongTaskDurationMs),
     };
-  }
-
-  /**
-   * Calculate the trend of long task occurrences.
-   */
-  private calculateLongTaskTrend(samples: MetricSample[]): Trend {
-    if (samples.length < 4) return "stable";
-
-    const { first: avgFirst, last: avgLast } = math.compareQuarters(
-      samples,
-      (s) => s.longTaskCount,
-    );
-
-    // Use a threshold relative to the average
-    const threshold = Math.max(0.5, (avgFirst + avgLast) / 4);
-
-    if (avgLast > avgFirst + threshold) return "increasing";
-    if (avgLast < avgFirst - threshold) return "decreasing";
-    return "stable";
   }
 }

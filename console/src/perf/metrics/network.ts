@@ -16,7 +16,6 @@ export class NetworkCollector {
   private countAtLastSample = 0;
   private observer: PerformanceObserver | null = null;
 
-  /** Start tracking network requests. */
   start(): void {
     if (this.observer != null) return;
     this.totalCount = 0;
@@ -28,21 +27,23 @@ export class NetworkCollector {
     this.observer.observe({ entryTypes: ["resource"] });
   }
 
-  /** Stop tracking network requests. */
   stop(): void {
     if (this.observer == null) return;
     this.observer.disconnect();
     this.observer = null;
   }
 
-  /** Get number of network requests since last sample call. */
+  reset(): void {
+    this.totalCount = 0;
+    this.countAtLastSample = 0;
+  }
+
   getCountSinceLastSample(): number {
     const count = this.totalCount - this.countAtLastSample;
     this.countAtLastSample = this.totalCount;
     return count;
   }
 
-  /** Get total count of all network requests. */
   getTotalCount(): number {
     return this.totalCount;
   }

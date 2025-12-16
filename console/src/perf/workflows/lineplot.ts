@@ -40,9 +40,7 @@ export const addChannelsToPlotWorkflow = (): WorkflowStep[] => [
     execute: async (ctx: WorkflowContext) => {
       // Find the most recently created plot
       const plotKey = ctx.createdLayoutKeys[ctx.createdLayoutKeys.length - 1];
-      if (plotKey == null) 
-        throw new Error("No plot available to add channels to");
-      
+      if (plotKey == null) throw new Error("No plot available to add channels to");
 
       // Check if we have channels available
       if (ctx.availableChannelKeys.length === 0 && ctx.client != null) {
@@ -51,10 +49,9 @@ export const addChannelsToPlotWorkflow = (): WorkflowStep[] => [
         ctx.availableChannelKeys = channels.map((ch) => ch.key);
       }
 
-      if (ctx.availableChannelKeys.length === 0) 
+      if (ctx.availableChannelKeys.length === 0)
         // No channels available, skip
         return;
-      
 
       // Find an index channel and data channels
       const channelKeys = ctx.availableChannelKeys;
@@ -71,7 +68,7 @@ export const addChannelsToPlotWorkflow = (): WorkflowStep[] => [
 
       // Add remaining channels as Y axis (up to 3)
       const yChannels = channelKeys.slice(1, 4);
-      if (yChannels.length > 0) 
+      if (yChannels.length > 0)
         ctx.dispatch(
           LinePlot.setYChannels({
             key: plotKey,
@@ -80,7 +77,6 @@ export const addChannelsToPlotWorkflow = (): WorkflowStep[] => [
             mode: "set",
           }),
         );
-      
     },
     delayAfterMs: 1000,
   },

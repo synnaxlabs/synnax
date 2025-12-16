@@ -22,9 +22,7 @@ export class LongTaskCollector {
   private totalDurationMs = 0;
   private countAtLastSample = 0;
   private durationAtLastSample = 0;
-  /** Rolling window of recent long tasks for windowed counts. */
   private recentTasks: LongTaskEntry[] = [];
-  /** Window size in milliseconds (default: 10 minutes). */
   private windowMs: number;
 
   constructor(windowMs = 600_000) {
@@ -35,7 +33,6 @@ export class LongTaskCollector {
   static isAvailable(): boolean {
     if (typeof PerformanceObserver === "undefined") return false;
     try {
-      // Check if 'longtask' is a supported entry type
       const supported = PerformanceObserver.supportedEntryTypes;
       return supported?.includes("longtask") ?? false;
     } catch {
@@ -43,7 +40,6 @@ export class LongTaskCollector {
     }
   }
 
-  /** Start observing long tasks. */
   start(): void {
     if (!LongTaskCollector.isAvailable()) return;
     if (this.observer != null) return;
@@ -71,7 +67,6 @@ export class LongTaskCollector {
     }
   }
 
-  /** Stop observing long tasks. */
   stop(): void {
     if (this.observer != null) {
       this.observer.disconnect();
@@ -79,31 +74,34 @@ export class LongTaskCollector {
     }
   }
 
-  /** Get number of long tasks since last sample call. */
+  reset(): void {
+    this.totalCount = 0;
+    this.totalDurationMs = 0;
+    this.countAtLastSample = 0;
+    this.durationAtLastSample = 0;
+    this.recentTasks = [];
+  }
+
   getCountSinceLastSample(): number {
     const count = this.totalCount - this.countAtLastSample;
     this.countAtLastSample = this.totalCount;
     return count;
   }
 
-  /** Get total duration of long tasks since last sample call. */
   getDurationSinceLastSample(): number {
     const duration = this.totalDurationMs - this.durationAtLastSample;
     this.durationAtLastSample = this.totalDurationMs;
     return duration;
   }
 
-  /** Get total count of all long tasks observed. */
   getTotalCount(): number {
     return this.totalCount;
   }
 
-  /** Get total duration of all long tasks observed. */
   getTotalDurationMs(): number {
     return this.totalDurationMs;
   }
 
-  /** Prune entries older than the window and return count within window. */
   getCountInWindow(): number {
     const now = performance.now();
     const cutoff = now - this.windowMs;
@@ -112,7 +110,6 @@ export class LongTaskCollector {
     return this.recentTasks.length;
   }
 
-  /** Get duration of long tasks within the rolling window. */
   getDurationInWindowMs(): number {
     const now = performance.now();
     const cutoff = now - this.windowMs;

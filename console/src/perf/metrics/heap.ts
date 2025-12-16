@@ -38,7 +38,6 @@ export class HeapCollector {
     this.useTauri = isTauri();
   }
 
-  /** Start the collector (fetches Tauri memory periodically). */
   start(): void {
     if (this.useTauri) {
       // Fetch immediately
@@ -50,7 +49,6 @@ export class HeapCollector {
     }
   }
 
-  /** Stop the collector. */
   stop(): void {
     if (this.updateInterval != null) {
       clearInterval(this.updateInterval);
@@ -58,7 +56,6 @@ export class HeapCollector {
     }
   }
 
-  /** Fetch memory from Tauri backend. */
   private async fetchTauriMemory(): Promise<void> {
     try {
       const bytes = await invoke<number>("get_memory_usage");
@@ -68,44 +65,36 @@ export class HeapCollector {
     }
   }
 
-  /** Check if heap metrics are available. */
   static isAvailable(): boolean {
     return isTauri() || "memory" in performance;
   }
 
-  /** Get current heap/process memory used in MB, or null if not available. */
   getHeapUsedMB(): number | null {
-    if (this.useTauri) 
-      return this.cachedMemoryMB;
-    
+    if (this.useTauri) return this.cachedMemoryMB;
+
     const perf = performance as PerformanceWithMemory;
     if (perf.memory == null) return null;
     return perf.memory.usedJSHeapSize / BYTES_TO_MB;
   }
 
-  /** Get current heap total in MB, or null if not available. */
   getHeapTotalMB(): number | null {
-    if (this.useTauri) 
+    if (this.useTauri)
       // Tauri returns process memory, not heap total - return same value
       return this.cachedMemoryMB;
-    
+
     const perf = performance as PerformanceWithMemory;
     if (perf.memory == null) return null;
     return perf.memory.totalJSHeapSize / BYTES_TO_MB;
   }
 
-  /** Get current heap limit in MB, or null if not available. */
   getHeapLimitMB(): number | null {
-    if (this.useTauri) 
-      // Not applicable for native process memory
-      return null;
-    
+    if (this.useTauri) return null;
+
     const perf = performance as PerformanceWithMemory;
     if (perf.memory == null) return null;
     return perf.memory.jsHeapSizeLimit / BYTES_TO_MB;
   }
 
-  /** Capture a heap snapshot. Returns null if not available. */
   captureSnapshot(): HeapSnapshot | null {
     const heapUsed = this.getHeapUsedMB();
     const heapTotal = this.getHeapTotalMB();
@@ -115,5 +104,9 @@ export class HeapCollector {
       heapUsedMB: heapUsed,
       heapTotalMB: heapTotal,
     };
+  }
+
+  reset(): void {
+    this.cachedMemoryMB = null;
   }
 }

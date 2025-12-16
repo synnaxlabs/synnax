@@ -22,7 +22,6 @@ export class CpuCollector {
     this.useTauri = isTauri();
   }
 
-  /** Start the collector (fetches Tauri CPU usage periodically). */
   start(): void {
     if (!this.useTauri) return;
 
@@ -34,7 +33,6 @@ export class CpuCollector {
     }, 1000);
   }
 
-  /** Stop the collector. */
   stop(): void {
     if (this.updateInterval != null) {
       clearInterval(this.updateInterval);
@@ -42,7 +40,6 @@ export class CpuCollector {
     }
   }
 
-  /** Fetch CPU usage from Tauri backend. */
   private async fetchTauriCpu(): Promise<void> {
     try {
       const percent = await invoke<number>("get_cpu_usage");
@@ -52,14 +49,16 @@ export class CpuCollector {
     }
   }
 
-  /** Check if CPU metrics are available. */
   static isAvailable(): boolean {
     return isTauri();
   }
 
-  /** Get current CPU usage as a percentage, or null if not available. */
   getCpuPercent(): number | null {
     if (!this.useTauri) return null;
     return this.cachedCpuPercent;
+  }
+
+  reset(): void {
+    this.cachedCpuPercent = null;
   }
 }

@@ -9,51 +9,46 @@
 
 import { math } from "@synnaxlabs/x";
 
-import { type LeakReport, type Trend, ZERO_LEAK_REPORT } from "@/perf/analyzer/types";
+import {
+  COMPARISON_WINDOW_SIZE,
+  type LeakReport,
+  type Trend,
+  ZERO_LEAK_REPORT,
+} from "@/perf/analyzer/types";
 import { type HeapSnapshot } from "@/perf/metrics/types";
 
-/** Threshold for heap growth percentage to consider as a leak. */
 const LEAK_THRESHOLD_PERCENT = 20;
-
-/** Threshold for slope to determine trend direction. */
 const SLOPE_THRESHOLD = 0.1;
 
 /**
  * Analyzes heap snapshots to detect memory leaks.
- * Uses linear regression to determine if heap usage is trending upward.
+ * Compares baseline (first N samples) vs recent (last N samples).
  */
 export class LeakDetector {
-  /**
-   * Analyze heap snapshots for memory leaks.
-   * @param snapshots Array of heap snapshots over time.
-   * @returns LeakReport with analysis results.
-   */
   analyze(snapshots: HeapSnapshot[]): LeakReport {
-    if (snapshots.length < 2) 
-      return {
-        ...ZERO_LEAK_REPORT,
-        snapshotCount: snapshots.length,
-      };
-    
+    if (snapshots.length < 2)
+      return { ...ZERO_LEAK_REPORT, snapshotCount: snapshots.length };
 
-    const { first: avgFirst, last: avgLast } = math.compareQuarters(
-      snapshots,
-      (s) => s.heapUsedMB,
+    const windowSize = Math.min(
+      COMPARISON_WINDOW_SIZE,
+      Math.floor(snapshots.length / 2),
     );
+    const baseline = snapshots.slice(0, windowSize);
+    const recent = snapshots.slice(-windowSize);
 
-    const growthMB = avgLast - avgFirst;
-    const growthPercent = avgFirst > 0 ? ((avgLast - avgFirst) / avgFirst) * 100 : 0;
+    const avgBaseline = math.average(baseline.map((s) => s.heapUsedMB));
+    const avgRecent = math.average(recent.map((s) => s.heapUsedMB));
 
-    // Determine trend using linear regression
+    const growthMB = avgRecent - avgBaseline;
+    const growthPercent = avgBaseline > 0 ? (growthMB / avgBaseline) * 100 : 0;
+
     const trend = this.calculateTrend(snapshots);
-
-    // Leak detected if heap grew by more than threshold and trend is increasing
     const detected = growthPercent > LEAK_THRESHOLD_PERCENT && trend === "increasing";
 
     return {
       detected,
-      heapStartMB: math.roundTo(avgFirst),
-      heapEndMB: math.roundTo(avgLast),
+      heapStartMB: math.roundTo(avgBaseline),
+      heapEndMB: math.roundTo(avgRecent),
       heapGrowthMB: math.roundTo(growthMB, 2),
       heapGrowthPercent: math.roundTo(growthPercent, 2),
       trend,
@@ -61,32 +56,26 @@ export class LeakDetector {
     };
   }
 
-  /**
-   * Calculate the trend of heap usage using linear regression.
-   */
   private calculateTrend(snapshots: HeapSnapshot[]): Trend {
     if (snapshots.length < 2) return "stable";
 
-    // Simple linear regression to calculate slope
     const n = snapshots.length;
-    let sumX = 0;
-    let sumY = 0;
-    let sumXY = 0;
-    let sumX2 = 0;
+    let sumX = 0,
+      sumY = 0,
+      sumXY = 0,
+      sumX2 = 0;
 
-    snapshots.forEach((s, i) => {
+    for (let i = 0; i < n; i++) {
       sumX += i;
-      sumY += s.heapUsedMB;
-      sumXY += i * s.heapUsedMB;
+      sumY += snapshots[i].heapUsedMB;
+      sumXY += i * snapshots[i].heapUsedMB;
       sumX2 += i * i;
-    });
+    }
 
     const denominator = n * sumX2 - sumX * sumX;
     if (denominator === 0) return "stable";
 
     const slope = (n * sumXY - sumX * sumY) / denominator;
-
-    // Normalize slope by the average heap size to make threshold meaningful
     const avgHeap = sumY / n;
     const normalizedSlope = avgHeap > 0 ? slope / avgHeap : slope;
 
@@ -94,5 +83,4 @@ export class LeakDetector {
     if (normalizedSlope < -SLOPE_THRESHOLD) return "decreasing";
     return "stable";
   }
-
 }
