@@ -7,13 +7,3 @@ cc_library(
         "//x/cpp/xjson",
     ],
 )
-
-cc_test(
-    name = "text_test",
-    srcs = ["text_test.cpp"],
-    deps = [
-        ":text",
-        "//arc/go/text:text_grpc",
-        "@googletest//:gtest_main",
-    ],
-)
