@@ -13,8 +13,6 @@
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 
-#include "core/pkg/api/grpc/v1/framer.pb.h"
-
 namespace telem {
 Frame::Frame(const size_t size):
     channels(std::make_unique<std::vector<uint32_t>>()),

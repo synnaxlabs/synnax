@@ -12,8 +12,6 @@
 
 #include "client/cpp/framer/framer.h"
 
-#include "core/pkg/api/grpc/v1/framer.pb.h"
-
 /// @brief enumeration of possible writer commands.
 enum WriterCommand : uint32_t {
     OPEN = 0,

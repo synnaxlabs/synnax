@@ -17,6 +17,6 @@ message PBSeries {
 }
 
 message PBFrame {
-    repeated uint32 keys = 1;
-    repeated telem.PBSeries series = 2;
+  repeated uint32 keys = 1;
+  repeated PBSeries series = 2;
 }

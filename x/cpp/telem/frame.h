@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #pragma once
+
 #include <memory>
 #include <vector>
 
