@@ -135,10 +135,12 @@ Channel operations differ between **reactive context** (flow/stages) and **imper
 ### Reactive Context (Flow/Sequence Layer)
 
 ```
-FlowStatement ::= ChannelRead '=>' Identifier     // Blocking read triggering state transition
-               | ChannelWrite '->' Identifier     // Write to channel in reactive flow
-               | Identifier '->' FunctionCall     // Connect channel to function
-```
+
+FlowStatement ::= ChannelRead '=>' Identifier // Blocking read triggering state
+transition | ChannelWrite '->' Identifier // Write to channel in reactive flow |
+Identifier '->' FunctionCall // Connect channel to function
+
+````
 
 ```arc
 stage monitor {
@@ -146,7 +148,7 @@ stage monitor {
     process{} -> output,             // Connect function output to channel
     interval{100ms} -> tick_handler, // Trigger on interval
 }
-```
+````
 
 ### Imperative Context (Function Bodies)
 
@@ -157,7 +159,8 @@ ChannelRead ::= Identifier ':=' Identifier        // Non-blocking read
 ChannelWrite ::= Identifier '=' Expression        // Channel write (assignment)
 ```
 
-**Non-blocking read** (`channel`) returns newest value immediately or zero if never written:
+**Non-blocking read** (`channel`) returns newest value immediately or zero if never
+written:
 
 ```arc
 func process() bool {
@@ -192,6 +195,7 @@ see the same channel state taken at invocation start.
 timestamp, (2) topological order, (3) channel identifier.
 
 **Syntax summary**:
+
 - **Non-blocking reads** (`channel`): Only in imperative context; return current value
 - **Writes** (`channel = value`): Only in imperative context; enqueue to channel
 - **Reactive flow** (`channel -> function`): Only in reactive context; connect dataflow
@@ -219,8 +223,8 @@ StatefulVariable ::= Identifier '$=' Expression
 Assignment ::= Identifier '=' Expression
 ```
 
-**Local variables** (`:=`) reset on each function invocation. **Stateful
-variables** (`$=`) persist across function invocations.
+**Local variables** (`:=`) reset on each function invocation. **Stateful variables**
+(`$=`) persist across function invocations.
 
 ```arc
 count := 0           // local
@@ -228,8 +232,8 @@ total $= 0           // stateful
 count = count + 1    // reassignment
 ```
 
-**Rules**: Variables are function scoped only. No shadowing of global names.
-Declaration once per scope. Type inference from initial value.
+**Rules**: Variables are function scoped only. No shadowing of global names. Declaration
+once per scope. Type inference from initial value.
 
 ## Operators
 
@@ -299,9 +303,9 @@ NamedOutput ::= Identifier Type
 
 ### Configuration Parameters
 
-Functions can have a **config block** containing parameters that are set at instantiation
-time (compile-time constants). Config parameters are enclosed in `{}` after the function
-name:
+Functions can have a **config block** containing parameters that are set at
+instantiation time (compile-time constants). Config parameters are enclosed in `{}`
+after the function name:
 
 ```arc
 func controller{
@@ -314,8 +318,11 @@ func controller{
 ```
 
 **Rules:**
-- Config parameters must be literals or channel identifiers (compile-time constants only)
-- Config values are provided at instantiation using `=` syntax: `controller{setpoint=100}`
+
+- Config parameters must be literals or channel identifiers (compile-time constants
+  only)
+- Config values are provided at instantiation using `=` syntax:
+  `controller{setpoint=100}`
 
 ### Optional Parameters
 
@@ -520,8 +527,8 @@ circular dependencies are forbidden.
 
 ## Sequences
 
-Sequences extend Arc's reactive model to support sequential automation workflows like test
-sequences, state machines, and ordered procedures.
+Sequences extend Arc's reactive model to support sequential automation workflows like
+test sequences, state machines, and ordered procedures.
 
 ### Core Concepts
 
@@ -622,11 +629,11 @@ Timers reset when their stage is entered (including re-entry from holds).
 
 ### Reactive vs One-Shot Semantics
 
-**Reactive flows (`->`)**: Execute every time the source produces a value while the stage
-is active.
+**Reactive flows (`->`)**: Execute every time the source produces a value while the
+stage is active.
 
-**One-shot transitions (`=>`)**: Execute once when the condition becomes true, then stop.
-The "one-shot" state resets when the stage is re-entered.
+**One-shot transitions (`=>`)**: Execute once when the condition becomes true, then
+stop. The "one-shot" state resets when the stage is re-entered.
 
 ```arc
 stage example {

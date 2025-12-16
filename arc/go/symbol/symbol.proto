@@ -14,6 +14,6 @@ package arc.v1.symbol;
 option go_package = "github.com/synnaxlabs/arc/symbol";
 
 message PBChannels {
-    map<uint32, string> read = 1;
-    map<uint32, string> write = 2;
+  map<uint32, string> read = 1;
+  map<uint32, string> write = 2;
 }

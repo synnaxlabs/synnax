@@ -383,36 +383,6 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	return true
 }
 
-func createChannelReadVariable[T antlr.ParserRuleContext](
-	ctx context.Context[T],
-	varName, channelName string,
-) bool {
-	channelSym, err := ctx.Scope.Resolve(ctx, channelName)
-	if err != nil {
-		ctx.Diagnostics.AddError(errors.Wrapf(err, "undefined channel: %s", channelName), ctx.AST)
-		return false
-	}
-	if channelSym.Kind != symbol.KindChannel && channelSym.Kind != symbol.KindConfig && channelSym.Kind != symbol.KindInput && channelSym.Kind != symbol.KindOutput {
-		ctx.Diagnostics.AddError(errors.Newf("%s is not a channel", channelName), ctx.AST)
-		return false
-	}
-	if channelSym.Type.Kind != types.KindChan {
-		ctx.Diagnostics.AddError(errors.Newf("%s is not a channel", channelName), ctx.AST)
-		return false
-	}
-	_, err = ctx.Scope.Add(ctx, symbol.Symbol{
-		Name: varName,
-		Kind: symbol.KindVariable,
-		Type: channelSym.Type,
-		AST:  ctx.AST,
-	})
-	if err != nil {
-		ctx.Diagnostics.AddError(err, ctx.AST)
-		return false
-	}
-	return true
-}
-
 func analyzeChannelAssignment(ctx context.Context[parser.IAssignmentContext], channelSym *symbol.Symbol) bool {
 	// Validate we're in a function context (channel writes only allowed in imperative context)
 	fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
