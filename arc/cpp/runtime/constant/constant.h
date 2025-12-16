@@ -31,17 +31,11 @@ class Constant : public node::Node {
     bool initialized = false;
 
 public:
-    Constant(
-        state::Node state,
-        nlohmann::json value,
-        const telem::DataType &data_type
-    ):
-        state(std::move(state)),
-        value(std::move(value)),
-        data_type(data_type) {}
+    Constant(state::Node state, nlohmann::json value, const telem::DataType &data_type):
+        state(std::move(state)), value(std::move(value)), data_type(data_type) {}
 
     xerrors::Error next(node::Context &ctx) override {
-        if (!this->initialized) return xerrors::NIL;
+        if (this->initialized) return xerrors::NIL;
         this->initialized = true;
         const auto &o = state.output(0);
         const auto &o_time = state.output_time(0);

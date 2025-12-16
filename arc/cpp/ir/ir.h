@@ -117,10 +117,20 @@ struct Edge {
         return source == other.source && target == other.target && kind == other.kind;
     }
 
+    struct Hasher {
+        size_t operator()(const Edge &edge) const {
+            const size_t h1 = Handle::Hasher()(edge.source);
+            const size_t h2 = Handle::Hasher()(edge.target);
+            const size_t h3 = std::hash<int>()(static_cast<int>(edge.kind));
+            return h1 ^ (h2 << 1) ^ (h3 << 2);
+        }
+    };
+
     /// @brief Returns the string representation of the edge.
     [[nodiscard]] std::string to_string() const {
-        std::string arrow = (kind == EdgeKind::OneShot) ? " => " : " -> ";
-        std::string kind_str = (kind == EdgeKind::OneShot) ? "oneshot" : "continuous";
+        const std::string arrow = (kind == EdgeKind::OneShot) ? " => " : " -> ";
+        const std::string kind_str = (kind == EdgeKind::OneShot) ? "oneshot"
+                                                                 : "continuous";
         return source.to_string() + arrow + target.to_string() + " (" + kind_str + ")";
     }
 

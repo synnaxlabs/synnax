@@ -12,8 +12,6 @@
 #include <memory>
 #include <string>
 
-#include "glog/logging.h"
-
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xmemory/local_shared.h"
@@ -38,8 +36,6 @@ public:
 
     xerrors::Error next(node::Context &ctx) override {
         auto [data, index_data, ok] = state.read_chan(channel_key);
-        LOG(INFO) << "[on.next] channel=" << channel_key << " ok=" << ok
-                  << " series_count=" << data.series.size();
         if (!ok) return xerrors::NIL;
 
         for (size_t i = 0; i < data.series.size(); i++) {
@@ -47,14 +43,7 @@ public:
             auto lower = ser.alignment;
             auto upper_val = lower.uint64() + (ser.size() > 0 ? ser.size() - 1 : 0);
 
-            LOG(INFO) << "[on.next] series " << i << ": alignment=" << lower.uint64()
-                      << " high_water_mark=" << high_water_mark.uint64()
-                      << " size=" << ser.size();
-
-            if (lower.uint64() < high_water_mark.uint64()) {
-                LOG(INFO) << "[on.next] SKIPPING series (below high water mark)";
-                continue;
-            }
+            if (lower.uint64() < high_water_mark.uint64()) continue;
 
             const bool generate_synthetic = index_data.empty();
             if (!generate_synthetic && i >= index_data.series.size())
