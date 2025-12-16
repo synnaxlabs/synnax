@@ -458,7 +458,7 @@ if pressure > 100 {
 ### Flow Grammar
 
 ```
-FlowStatement ::= (RoutingTable | FlowNode) (ARROW (RoutingTable | FlowNode))+ ';'?
+FlowStatement ::= (RoutingTable | FlowNode) (ARROW (RoutingTable | FlowNode))+
 
 RoutingTable ::= '{' RoutingEntry (',' RoutingEntry)* '}'
 

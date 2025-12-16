@@ -540,47 +540,47 @@ var _ = Describe("Expressions", func() {
 		}
 
 		It("Should return true for integer literals", func() {
-			expr := getExpr(`42 -> out;`)
+			expr := getExpr(`42 -> out`)
 			Expect(expression.IsPureLiteral(expr)).To(BeTrue())
 		})
 
 		It("Should return true for float literals", func() {
-			expr := getExpr(`3.14 -> out;`)
+			expr := getExpr(`3.14 -> out`)
 			Expect(expression.IsPureLiteral(expr)).To(BeTrue())
 		})
 
 		It("Should return true for string literals", func() {
-			expr := getExpr(`"hello" -> out;`)
+			expr := getExpr(`"hello" -> out`)
 			Expect(expression.IsPureLiteral(expr)).To(BeTrue())
 		})
 
 		It("Should return false for identifiers", func() {
-			expr := getExpr(`x -> out;`)
+			expr := getExpr(`x -> out`)
 			Expect(expr).To(BeNil()) // identifiers are parsed as flowNode.identifier, not expression
 		})
 
 		It("Should return false for binary expressions", func() {
-			expr := getExpr(`1 + 2 -> out;`)
+			expr := getExpr(`1 + 2 -> out`)
 			Expect(expression.IsPureLiteral(expr)).To(BeFalse())
 		})
 
 		It("Should return false for unary expressions", func() {
-			expr := getExpr(`-1 -> out;`)
+			expr := getExpr(`-1 -> out`)
 			Expect(expression.IsPureLiteral(expr)).To(BeFalse())
 		})
 
 		It("Should return false for parenthesized expressions", func() {
-			expr := getExpr(`(42) -> out;`)
+			expr := getExpr(`(42) -> out`)
 			Expect(expression.IsPureLiteral(expr)).To(BeFalse())
 		})
 
 		It("Should return false for comparison expressions", func() {
-			expr := getExpr(`1 > 0 -> out;`)
+			expr := getExpr(`1 > 0 -> out`)
 			Expect(expression.IsPureLiteral(expr)).To(BeFalse())
 		})
 
 		It("Should return false for logical expressions", func() {
-			expr := getExpr(`1 and 0 -> out;`)
+			expr := getExpr(`1 and 0 -> out`)
 			Expect(expression.IsPureLiteral(expr)).To(BeFalse())
 		})
 	})
@@ -592,21 +592,21 @@ var _ = Describe("Expressions", func() {
 		}
 
 		It("Should extract integer literal", func() {
-			expr := getExpr(`42 -> out;`)
+			expr := getExpr(`42 -> out`)
 			lit := expression.GetLiteral(expr)
 			Expect(lit).ToNot(BeNil())
 			Expect(lit.GetText()).To(Equal("42"))
 		})
 
 		It("Should extract float literal", func() {
-			expr := getExpr(`3.14 -> out;`)
+			expr := getExpr(`3.14 -> out`)
 			lit := expression.GetLiteral(expr)
 			Expect(lit).ToNot(BeNil())
 			Expect(lit.GetText()).To(Equal("3.14"))
 		})
 
 		It("Should extract string literal", func() {
-			expr := getExpr(`"hello" -> out;`)
+			expr := getExpr(`"hello" -> out`)
 			lit := expression.GetLiteral(expr)
 			Expect(lit).ToNot(BeNil())
 			Expect(lit.GetText()).To(Equal(`"hello"`))
