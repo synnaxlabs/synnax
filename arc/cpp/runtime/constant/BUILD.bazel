@@ -1,0 +1,13 @@
+cc_library(
+    name = "constant",
+    hdrs = ["constant.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/node",
+        "//arc/cpp/runtime/state",
+        "//x/cpp/telem",
+        "//x/cpp/xerrors",
+        "//x/cpp/xmemory",
+    ],
+)

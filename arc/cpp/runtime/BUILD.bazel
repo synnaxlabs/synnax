@@ -1,0 +1,27 @@
+cc_library(
+    name = "runtime",
+    hdrs = ["runtime.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/runtime/constant",
+        "//arc/cpp/runtime/loop",
+        "//arc/cpp/runtime/node",
+        "//arc/cpp/runtime/scheduler",
+        "//arc/cpp/runtime/stage",
+        "//arc/cpp/runtime/state",
+        "//arc/cpp/runtime/telem",
+        "//arc/cpp/runtime/time",
+        "//arc/cpp/runtime/wasm",
+        "//x/cpp/xthread",
+    ],
+)
+
+cc_test(
+    name = "runtime_test",
+    srcs = ["runtime_test.cpp"],
+    deps = [
+        ":runtime",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

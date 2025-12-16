@@ -1,0 +1,19 @@
+cc_library(
+    name = "wasm",
+    srcs = ["bindings.cpp"],
+    hdrs = [
+        "bindings.h",
+        "factory.h",
+        "module.h",
+        "node.h",
+    ],
+    visibility = ["//arc/cpp/runtime:__subpackages__"],
+    deps = [
+        "//arc/cpp/errors",
+        "//arc/cpp/ir",
+        "//arc/cpp/module",
+        "//arc/cpp/runtime/state",
+        "//vendor/wasmtime",  # Changed from WAMR to Wasmtime
+        "//x/cpp/xerrors",
+    ],
+)

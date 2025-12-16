@@ -1,0 +1,20 @@
+cc_library(
+    name = "module",
+    hdrs = ["module.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/ir",
+        "//arc/go/module:module_grpc",
+        "//x/cpp/xjson",
+    ],
+)
+
+cc_test(
+    name = "module_test",
+    srcs = ["module_test.cpp"],
+    deps = [
+        ":module",
+        "//arc/go/module:module_grpc",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -4,6 +4,10 @@
 [submodule "vendor/mbedtls/mbedtls"]
 	path = vendor/mbedtls/mbedtls
 	url = https://github.com/mbed-tls/mbedtls
+[submodule "vendor/wasmtime/wasmtime"]
+	path = vendor/wasmtime/wasmtime
+	url = https://github.com/bytecodealliance/wasmtime.git
+	branch = v38.0.1
 [submodule "vendor/libmodbus/libmodbus"]
 	path = vendor/libmodbus/libmodbus
 	url = https://github.com/stephane/libmodbus.git
