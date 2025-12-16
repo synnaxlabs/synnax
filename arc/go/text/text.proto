@@ -5,5 +5,5 @@ package arc.v1.text;
 option go_package = "github.com/synnaxlabs/arc/text";
 
 message PBText {
-    string raw = 1;
+  string raw = 1;
 }

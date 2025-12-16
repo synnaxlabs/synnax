@@ -212,7 +212,7 @@ var _ = Describe("Stage", func() {
 		})
 
 		It("Should have correct input type", func() {
-			sym, _ := stage.SymbolResolver["stage_entry"]
+			sym := stage.SymbolResolver["stage_entry"]
 			fnType := sym.Type
 			Expect(fnType.Kind).To(Equal(types.KindFunction))
 			Expect(fnType.Inputs).To(HaveLen(1))
