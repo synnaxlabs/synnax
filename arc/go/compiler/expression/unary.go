@@ -51,10 +51,6 @@ func compileUnary(ctx context.Context[parser.IUnaryExpressionContext]) (types.Ty
 		return types.U8(), nil
 	}
 
-	if blockRead := ctx.AST.BlockingReadExpr(); blockRead != nil {
-		// TODO: Implement blocking channel read
-		return types.F64(), nil // Placeholder
-	}
 	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
 		return compilePostfix(context.Child(ctx, postfix))
 	}

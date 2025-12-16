@@ -15,6 +15,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/flow"
+	"github.com/synnaxlabs/arc/analyzer/sequence"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
@@ -52,6 +53,7 @@ func substituteTypeMap(ctx acontext.Context[parser.IProgramContext]) {
 }
 
 func collectDeclarations(ctx acontext.Context[parser.IProgramContext]) bool {
+	// Collect function declarations
 	for _, item := range ctx.AST.AllTopLevelItem() {
 		if fn := item.FunctionDeclaration(); fn != nil {
 			name := fn.IDENTIFIER().GetText()
@@ -66,6 +68,12 @@ func collectDeclarations(ctx acontext.Context[parser.IProgramContext]) bool {
 			}
 		}
 	}
+
+	// Collect sequence and stage declarations
+	if !sequence.CollectDeclarations(ctx) {
+		return false
+	}
+
 	return true
 }
 
@@ -77,6 +85,10 @@ func analyzeDeclarations(ctx acontext.Context[parser.IProgramContext]) bool {
 			}
 		} else if flowStmt := item.FlowStatement(); flowStmt != nil {
 			if !flow.Analyze(acontext.Child(ctx, flowStmt)) {
+				return false
+			}
+		} else if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
+			if !sequence.Analyze(acontext.Child(ctx, seqDecl)) {
 				return false
 			}
 		}
@@ -173,11 +185,27 @@ func analyzeOutputs[T antlr.ParserRuleContext](
 	if outputType == nil {
 		return true
 	}
+
+	// Case 1: Single named output without parens (e.g., "result f64")
+	if identifier := outputType.IDENTIFIER(); identifier != nil && outputType.Type_() != nil {
+		outputName := identifier.GetText()
+		outputTypeVal, _ := atypes.InferFromTypeContext(outputType.Type_())
+		*outputs = append(*outputs, types.Param{Name: outputName, Type: outputTypeVal})
+		if _, err := scope.Add(ctx, symbol.Symbol{Name: outputName, Kind: symbol.KindOutput, Type: outputTypeVal, AST: outputType}); err != nil {
+			ctx.Diagnostics.AddError(err, outputType)
+			return false
+		}
+		return true
+	}
+
+	// Case 2: Unnamed single output (e.g., "f64")
 	if typeCtx := outputType.Type_(); typeCtx != nil {
 		outputTypeVal, _ := atypes.InferFromTypeContext(typeCtx)
 		*outputs = append(*outputs, types.Param{Name: ir.DefaultOutputParam, Type: outputTypeVal})
 		return true
 	}
+
+	// Case 3: Multiple or parenthesized outputs (e.g., "(result f64)" or "(a f64, b f64)")
 	if multiOutputBlock := outputType.MultiOutputBlock(); multiOutputBlock != nil {
 		for _, namedOutput := range multiOutputBlock.AllNamedOutput() {
 			outputName := namedOutput.IDENTIFIER().GetText()
