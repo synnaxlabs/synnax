@@ -237,12 +237,7 @@ func (s *Layer) Close() error {
 }
 
 // KVSize returns the disk space used by the key-value store in bytes.
-func (s *Layer) KVSize() telem.Size {
-	if sizable, ok := s.KV.(kv.Sizable); ok {
-		return telem.Size(sizable.Size())
-	}
-	return 0
-}
+func (s *Layer) KVSize() telem.Size { return s.KV.Size() }
 
 // TSSize returns the disk space used by the time-series store in bytes.
 func (s *Layer) TSSize() telem.Size { return s.TS.Metrics().DiskSize }

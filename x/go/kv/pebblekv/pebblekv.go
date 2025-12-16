@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
 
@@ -177,8 +178,8 @@ func (d db) Report() alamos.Report {
 	return alamos.Report{"engine": "pebble"}
 }
 
-// Size implements kv.Sizable.
-func (d db) Size() int64 { return int64(d.DB.Metrics().DiskSpaceUsage()) }
+// Size implements kv.DB.
+func (d db) Size() telem.Size { return telem.Size(d.DB.Metrics().DiskSpaceUsage()) }
 
 // Close implement io.Closer.
 func (d db) Close() error { return d.DB.Close() }

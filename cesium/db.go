@@ -130,10 +130,6 @@ func (db *DB) Metrics() Metrics {
 	}
 }
 
-// Size returns the total size of all channel data stored in the database by summing
-// the sizes of all unary databases.
-func (db *DB) Size() telem.Size { return db.Metrics().DiskSize }
-
 // Close closes the database.
 //
 // Close is not safe to call with any other DB methods concurrently.
