@@ -513,7 +513,6 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			})
 		})
 
-
 		Context("Control Flow", func() {
 			It("Should parse if statement", func() {
 				stmt := mustParseStatement(`if x > 10 {

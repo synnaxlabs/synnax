@@ -630,7 +630,7 @@ var File_arc_go_ir_ir_proto protoreflect.FileDescriptor
 
 const file_arc_go_ir_ir_proto_rawDesc = "" +
 	"\n" +
-	"\x12arc/go/ir/ir.proto\x12\tarc.v1.ir\x1a\x18arc/go/types/types.proto\x1a\x1aarc/go/symbol/symbol.proto\"4\n" +
+	"\x12arc/go/ir/ir.proto\x12\tarc.v1.ir\x1a\x1aarc/go/symbol/symbol.proto\x1a\x18arc/go/types/types.proto\"4\n" +
 	"\bPBHandle\x12\x12\n" +
 	"\x04node\x18\x01 \x01(\tR\x04node\x12\x14\n" +
 	"\x05param\x18\x02 \x01(\tR\x05param\"\x8d\x01\n" +
