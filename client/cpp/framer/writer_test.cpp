@@ -148,7 +148,7 @@ TEST(WriterTests, testWriteErrOnUnauthorized) {
         }
     );
     ASSERT_OCCURRED_AS(err, xerrors::UNAUTHORIZED);
-    ASSERT_TRUE(err.message().find("test_writer_1") != std::string::npos);
+    ASSERT_TRUE(err.message().contains("test_writer_1"));
 }
 
 /// @brief it should correctly change the authority of a writer.

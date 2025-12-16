@@ -61,7 +61,7 @@ class Tare final : public Transform {
 
 public:
     explicit Tare(const std::vector<synnax::Channel> &channels):
-        tare_channels(map_channel_Keys(channels)), tare_all(false) {}
+        tare_channels(map_channel_keys(channels)), tare_all(false) {}
 
     xerrors::Error tare(json &arg) {
         xjson::Parser parser(arg);
@@ -71,7 +71,7 @@ public:
         );
         if (parser.error()) return parser.error();
 
-        std::lock_guard lock(mutex);
+        const std::scoped_lock lock(mutex);
         if (channels.empty()) {
             tare_all = true;
             channels_to_tare.clear();
@@ -94,10 +94,10 @@ public:
     }
 
     xerrors::Error transform(synnax::Frame &frame) override {
-        std::lock_guard lock(mutex);
+        const std::scoped_lock lock(mutex);
         if (tare_all || !channels_to_tare.empty()) {
             for (const auto &[ch_key, series]: frame)
-                if (tare_all || channels_to_tare.find(ch_key) != channels_to_tare.end())
+                if (tare_all || channels_to_tare.contains(ch_key))
                     tare_values[ch_key] = series.avg<double>();
             tare_all = false;
             channels_to_tare.clear();

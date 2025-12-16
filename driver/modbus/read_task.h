@@ -253,25 +253,25 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         if (!holding_registers.empty())
             readers.push_back(
                 std::make_unique<RegisterReader>(
-                    device::HoldingRegister,
+                    device::RegisterType::HoldingRegister,
                     std::move(holding_registers)
                 )
             );
         if (!input_registers.empty())
             readers.push_back(
                 std::make_unique<RegisterReader>(
-                    device::InputRegister,
+                    device::RegisterType::InputRegister,
                     std::move(input_registers)
                 )
             );
         if (!coils.empty())
             readers.push_back(
-                std::make_unique<BitReader>(device::Coil, std::move(coils))
+                std::make_unique<BitReader>(device::BitType::Coil, std::move(coils))
             );
         if (!discrete_inputs.empty())
             readers.push_back(
                 std::make_unique<BitReader>(
-                    device::DiscreteInput,
+                    device::BitType::DiscreteInput,
                     std::move(discrete_inputs)
                 )
             );

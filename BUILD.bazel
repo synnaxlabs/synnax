@@ -1,0 +1,9 @@
+# Root BUILD file for Synnax monorepo
+
+# Clang-tidy configuration filegroup
+# Required by bazel_clang_tidy to locate the .clang-tidy config in sandbox
+filegroup(
+    name = "clang_tidy_config",
+    srcs = [".clang-tidy"],
+    visibility = ["//visibility:public"],
+)

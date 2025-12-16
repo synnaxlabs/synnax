@@ -14,6 +14,8 @@
 #include <condition_variable>
 #include <iomanip>
 #include <memory>
+#include <mutex>
+#include <utility>
 
 #include "glog/logging.h"
 
@@ -42,9 +44,9 @@ struct Config {
     /// @brief the maximum amount of time to wait for a retry.
     telem::TimeSpan max_interval = 1 * telem::MINUTE;
 
-    [[nodiscard]] Config child(const std::string &name) const {
+    [[nodiscard]] Config child(const std::string &child_name) const {
         return Config{
-            this->name + "." + name,
+            this->name + "." + child_name,
             base_interval,
             max_retries,
             scale,
@@ -91,7 +93,7 @@ public:
         // Very important that we do not use GLOG here, as it can cause problems
         // in destructors.
         std::cerr << "breaker " << this->config.name
-                  << " was not stopped before destruction" << std::endl;
+                  << " was not stopped before destruction" << '\n';
         assert(false && "breaker was not stopped before destruction");
     }
 
@@ -120,7 +122,7 @@ public:
         }
         this->retries++;
         if (this->config.max_retries != -1 &&
-            this->retries > static_cast<size_t>(this->config.max_retries)) {
+            std::cmp_greater(this->retries, this->config.max_retries)) {
             LOG(ERROR) << "[" << this->config.name
                        << "] exceeded the maximum retry count of "
                        << this->config.max_retries << ". Exiting."
@@ -183,7 +185,7 @@ public:
     /// was already stopped.
     bool stop() {
         if (!this->mark_stopped()) return false;
-        std::lock_guard lock(this->mu);
+        const std::scoped_lock lock(this->mu);
         this->shutdown_cv.notify_all();
         return true;
     }

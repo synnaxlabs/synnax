@@ -1,0 +1,206 @@
+---
+# Synnax C++ Linting Configuration
+# This configuration enforces code quality, security, and performance standards
+# across all C++ codebases (driver, client/cpp, freighter/cpp, x/cpp)
+#
+# Disabled Checks Rationale:
+#   bugprone-easily-swappable-parameters: flags (int x, int y), too noisy
+#   bugprone-exception-escape: false positives with RAII wrappers
+#   cert-err58-cpp: too strict for static constants
+#   cert-dcl16-c: alias of uppercase-literal-suffix
+#   modernize-avoid-c-arrays: C API interop (Lua, NI-DAQmx, libmodbus)
+#   modernize-return-braced-init-list: style preference
+#   modernize-use-designated-initializers: not always clearer
+#   modernize-use-trailing-return-type: style preference
+#   readability-braces-around-statements: style preference
+#   readability-identifier-length: flags i/j/k loop counters
+#   readability-isolate-declaration: int x, y; is acceptable
+#   readability-magic-numbers: too noisy
+#   readability-math-missing-parentheses: precedence is well-known
+#   readability-redundant-member-init: default init can be intentional
+#   readability-uppercase-literal-suffix: style preference
+#   readability-use-anyofallof: not always more readable
+#   google-readability-namespace-comments: style preference
+#   cppcoreguidelines-avoid-c-arrays: C API interop
+#   cppcoreguidelines-avoid-const-or-ref-data-members: immutable members are valid
+#   cppcoreguidelines-avoid-do-while: do-while is legitimate
+#   cppcoreguidelines-avoid-magic-numbers: alias of readability version
+#   cppcoreguidelines-avoid-non-const-global-variables: protobuf generated code
+#   cppcoreguidelines-macro-usage: C libraries use macros
+#   cppcoreguidelines-non-private-member-variables-in-classes: POD structs are valid
+#   cppcoreguidelines-pro-bounds-array-to-pointer-decay: C API interop
+#   cppcoreguidelines-pro-bounds-pointer-arithmetic: C API interop
+#   cppcoreguidelines-pro-type-const-cast: C callbacks require const removal
+#   cppcoreguidelines-pro-type-reinterpret-cast: binary protocols
+#   cppcoreguidelines-special-member-functions: prefer Rule of 0
+#   cppcoreguidelines-owning-memory: NI-DAQmx C API requires raw pointer arrays
+#   misc-include-cleaner: experimental, many false positives
+#   misc-no-recursion: legitimate algorithms use recursion
+#   misc-non-private-member-variables-in-classes: POD structs are valid
+#   misc-use-internal-linkage: header-only utilities need external linkage
+#   portability-template-virtual-member-function: MSVC extension used by deps
+#   hicpp-avoid-c-arrays: C API interop
+#   hicpp-braces-around-statements: style preference
+#   hicpp-no-array-decay: C API interop
+#   hicpp-signed-bitwise: hardware register manipulation
+#   hicpp-special-member-functions: alias of cppcoreguidelines version
+#   hicpp-uppercase-literal-suffix: style preference
+#   clang-diagnostic-pragma-once-outside-header: false positive in bazel sandbox
+
+Checks: >-
+    bugprone-*,
+    -bugprone-easily-swappable-parameters,
+    -bugprone-exception-escape,
+    cert-*,
+    -cert-err58-cpp,
+    -cert-dcl16-c,
+    performance-*,
+    modernize-*,
+    -modernize-avoid-c-arrays,
+    -modernize-return-braced-init-list,
+    -modernize-use-designated-initializers,
+    -modernize-use-trailing-return-type,
+    readability-*,
+    -readability-braces-around-statements,
+    -readability-identifier-length,
+    -readability-isolate-declaration,
+    -readability-magic-numbers,
+    -readability-math-missing-parentheses,
+    -readability-redundant-member-init,
+    -readability-uppercase-literal-suffix,
+    -readability-use-anyofallof,
+    -google-readability-namespace-comments,
+    cppcoreguidelines-*,
+    -cppcoreguidelines-avoid-c-arrays,
+    -cppcoreguidelines-avoid-const-or-ref-data-members,
+    -cppcoreguidelines-avoid-do-while,
+    -cppcoreguidelines-avoid-magic-numbers,
+    -cppcoreguidelines-avoid-non-const-global-variables,
+    -cppcoreguidelines-macro-usage,
+    -cppcoreguidelines-non-private-member-variables-in-classes,
+    -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+    -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+    -cppcoreguidelines-pro-type-const-cast,
+    -cppcoreguidelines-pro-type-reinterpret-cast,
+    -cppcoreguidelines-special-member-functions,
+    -cppcoreguidelines-owning-memory,
+    clang-analyzer-*,
+    misc-*,
+    -misc-include-cleaner,
+    -misc-no-recursion,
+    -misc-non-private-member-variables-in-classes,
+    -misc-use-internal-linkage,
+    portability-*,
+    -portability-template-virtual-member-function,
+    concurrency-*,
+    hicpp-*,
+    -hicpp-avoid-c-arrays,
+    -hicpp-braces-around-statements,
+    -hicpp-no-array-decay,
+    -hicpp-signed-bitwise,
+    -hicpp-special-member-functions,
+    -hicpp-uppercase-literal-suffix,
+    google-build-namespaces,
+    google-explicit-constructor,
+    google-runtime-int,
+    google-runtime-operator,
+    -clang-diagnostic-pragma-once-outside-header
+
+# Treat warnings as errors in CI
+WarningsAsErrors: "*"
+
+# Disable compiler diagnostics that can't be suppressed via Checks
+ExtraArgsBefore:
+  - -Wno-pragma-once-outside-header
+
+# Use .clang-format file for formatting
+FormatStyle: file
+
+CheckOptions:
+    # C++23 standard is used across the codebase
+    - key: modernize-replace-auto-ptr.IncludeStyle
+      value: llvm
+    - key: modernize-use-nullptr.NullMacros
+      value: "NULL"
+
+    # Naming conventions
+    # Classes/Structs: PascalCase
+    - key: readability-identifier-naming.ClassCase
+      value: CamelCase
+    - key: readability-identifier-naming.StructCase
+      value: CamelCase
+
+    # Functions/Methods: snake_case
+    - key: readability-identifier-naming.FunctionCase
+      value: lower_case
+    - key: readability-identifier-naming.MethodCase
+      value: lower_case
+
+    # Variables: snake_case
+    - key: readability-identifier-naming.VariableCase
+      value: lower_case
+    - key: readability-identifier-naming.ParameterCase
+      value: lower_case
+    # Allow Lua state parameter 'L' - conventional in Lua C API
+    - key: readability-identifier-naming.ParameterIgnoredRegexp
+      value: "^L$"
+    # Members: snake_case (trailing underscore allowed via regex for disambiguation)
+    - key: readability-identifier-naming.MemberCase
+      value: lower_case
+    - key: readability-identifier-naming.MemberIgnoredRegexp
+      value: ".*_"
+    # Static members: allow UPPER_CASE for constant-like static members (e.g., DENSITIES)
+    - key: readability-identifier-naming.StaticVariableCase
+      value: lower_case
+    - key: readability-identifier-naming.StaticVariableIgnoredRegexp
+      value: "[A-Z][A-Z_0-9]*"
+    - key: readability-identifier-naming.ClassMemberCase
+      value: lower_case
+    - key: readability-identifier-naming.ClassMemberIgnoredRegexp
+      value: "[A-Z][A-Z_0-9]*|.*_"
+
+    # Constants: UPPER_CASE (SCREAM_CASE) for global/static constants
+    # Note: ConstexprVariableCase is omitted to allow local constexpr to use snake_case
+    # Global/static constexpr are still caught since constexpr implies const
+    - key: readability-identifier-naming.GlobalConstantCase
+      value: UPPER_CASE
+    - key: readability-identifier-naming.StaticConstantCase
+      value: UPPER_CASE
+
+    # Namespaces: lower_case
+    - key: readability-identifier-naming.NamespaceCase
+      value: lower_case
+
+    # Allow single-letter variable names in limited scopes (loop counters, etc.)
+    - key: readability-identifier-naming.IgnoreFailedSplit
+      value: true
+
+    # Performance tuning
+    - key: performance-move-const-arg.CheckTriviallyCopyableMove
+      value: false
+    - key: performance-unnecessary-value-param.AllowedTypes
+      value: ""
+
+    # Modernize settings
+    - key: modernize-use-auto.MinTypeNameLength
+      value: 5
+    - key: modernize-use-auto.RemoveStars
+      value: false
+
+    # Readability settings
+    - key: readability-function-cognitive-complexity.Threshold
+      value: 50
+    - key: readability-function-size.LineThreshold
+      value: 200
+    - key: readability-function-size.StatementThreshold
+      value: 150
+
+# Only check our own headers, not vendor code or system headers
+# Excludes:
+#   - driver/labjack/ljm (LabJack SDK vendor code)
+#   - driver/ni/daqmx (NI-DAQmx API wrappers with NI naming conventions)
+#   - driver/ni/syscfg (NI System Configuration API wrappers)
+HeaderFilterRegex: '(driver/(cmd|daemon|errors|modbus|ni/channel|ni/hardware|opc|pipeline|rack|sequence|task|transform|labjack/device)/|driver/ni/[^/]+\.(h|hpp)$|client/cpp/|freighter/cpp/|x/cpp/)'
+
+# Use compilation database generated by Bazel
+UseColor: true

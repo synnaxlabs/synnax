@@ -144,13 +144,13 @@ TEST_F(XEnvTest, ParserWithPrefix) {
     xenv::set("APP_TEST_INT", "123");
 
     // Test with prefix without underscore
-    xenv::Parser parser("app");
+    const xenv::Parser parser("app");
     EXPECT_EQ(parser.field("test_string", std::string("default")), "prefixed");
     EXPECT_EQ(parser.field("test_int", 0), 123);
     EXPECT_EQ(parser.field("nonexistent", std::string("default")), "default");
 
     // Test with prefix with underscore
-    xenv::Parser parser2("app_");
+    const xenv::Parser parser2("app_");
     EXPECT_EQ(parser2.field("test_string", std::string("default")), "prefixed");
     EXPECT_EQ(parser2.field("test_int", 0), 123);
 

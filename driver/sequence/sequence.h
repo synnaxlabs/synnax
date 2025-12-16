@@ -155,7 +155,7 @@ public:
 
     /// @brief stops the task, using the provided key as the key of the command that
     /// was executed.
-    void stop(const std::string &key, bool will_reconfigure);
+    void stop(const std::string &key, [[maybe_unused]] bool will_reconfigure);
 
     /// @brief executes a command on the task, implementing task::Task.
     void exec(task::Command &cmd) override;

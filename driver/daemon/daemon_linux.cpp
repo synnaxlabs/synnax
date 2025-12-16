@@ -233,7 +233,7 @@ void run(const Config &config, int argc, char *argv[]) {
     // Cleanup
     update_status(Status::STOPPING, "Stopping daemon");
     {
-        std::lock_guard<std::mutex> lock(mtx);
+        const std::scoped_lock<std::mutex> lock(mtx);
         should_stop = true;
     }
     watchdog.join();

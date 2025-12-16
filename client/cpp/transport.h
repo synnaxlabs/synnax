@@ -27,7 +27,7 @@ struct Transport {
         const std::string &client_key_file
     );
 
-    void use(const std::shared_ptr<freighter::Middleware> &) const;
+    void use(const std::shared_ptr<freighter::Middleware> &mw) const;
 
     std::unique_ptr<AuthLoginClient> auth_login;
     std::unique_ptr<StreamerClient> frame_stream;

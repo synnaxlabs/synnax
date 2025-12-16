@@ -10,9 +10,11 @@
 /* This work is licensed under a Creative Commons CCZero 1.0 Universal License.
  * See http://creativecommons.org/publicdomain/zero/1.0/ for more information. */
 
+#include <cerrno>
+#include <cstdio>
+#include <cstdlib>
 #include <vector>
 
-#include <errno.h>
 #include <open62541/client_config_default.h>
 #include <open62541/client_highlevel.h>
 #include <open62541/plugin/log_stdout.h>
@@ -20,8 +22,6 @@
 #include <open62541/server.h>
 #include <open62541/server_config_default.h>
 #include <open62541/types.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 /* sleep_ms */
 #ifdef _WIN32
@@ -69,7 +69,7 @@ load_file(const char *const path) {
 
 #define MIN_ARGS 4
 
-int main(int argc, char *argv[]) {
+int main(const int argc, char *argv[]) {
     if (argc < MIN_ARGS) {
         UA_LOG_FATAL(
             UA_Log_Stdout,

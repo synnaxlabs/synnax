@@ -13,5 +13,5 @@
 
 namespace opc::testutil {
 std::pair<::telem::Series, xerrors::Error>
-simple_read(std::shared_ptr<UA_Client> client, const std::string &node_id);
+simple_read(const std::shared_ptr<UA_Client> &client, const std::string &node_id);
 }

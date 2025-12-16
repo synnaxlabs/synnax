@@ -109,7 +109,7 @@ struct Config {
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
         os << "configuration:\n"
            << cfg.connection << cfg.timing << "\n"
-           << "  " << xlog::SHALE() << "enabled integrations" << xlog::RESET() << ": ";
+           << "  " << xlog::shale() << "enabled integrations" << xlog::reset() << ": ";
         for (size_t i = 0; i < cfg.integrations.size(); ++i) {
             os << cfg.integrations[i];
             if (i < cfg.integrations.size() - 1) os << ", ";
@@ -140,13 +140,13 @@ struct Config {
         if (const auto err = cfg.load_args(parser)) return {cfg, err};
         if (breaker.retry_count() == 0) LOG(INFO) << cfg;
         if (const auto err = cfg.load_remote(breaker)) return {cfg, err};
-        LOG(INFO) << xlog::BLUE() << "successfully reached cluster at "
+        LOG(INFO) << xlog::blue() << "successfully reached cluster at "
                   << cfg.connection.address() << ". Continuing with driver startup"
-                  << xlog::RESET();
+                  << xlog::reset();
         LOG(INFO) << "remote info" << "\n"
-                  << xlog::SHALE() << "  rack: " << xlog::RESET() << cfg.rack.name
+                  << xlog::shale() << "  rack: " << xlog::reset() << cfg.rack.name
                   << " (" << cfg.remote_info.rack_key << ")\n"
-                  << xlog::SHALE() << "  cluster: " << xlog::RESET()
+                  << xlog::shale() << "  cluster: " << xlog::reset()
                   << cfg.remote_info.cluster_key;
         VLOG(1) << "saving remote info";
         const auto err = Config::save_remote_info(parser, cfg.remote_info);

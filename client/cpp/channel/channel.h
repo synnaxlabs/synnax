@@ -110,7 +110,7 @@ keys_from_channels(const std::vector<Channel> &channels) {
 }
 
 inline std::unordered_map<ChannelKey, Channel>
-map_channel_Keys(const std::vector<Channel> &channels) {
+map_channel_keys(const std::vector<Channel> &channels) {
     std::unordered_map<ChannelKey, Channel> map;
     map.reserve(channels.size());
     for (const auto &channel: channels)
@@ -121,7 +121,7 @@ map_channel_Keys(const std::vector<Channel> &channels) {
 /// @brief Converts a channel key to an ontology ID.
 /// @param key The channel key.
 /// @returns An ontology ID with type "channel" and the given key.
-inline ontology::ID ontology_id(ChannelKey key) {
+inline ontology::ID ontology_id(const ChannelKey key) {
     return ontology::ID("channel", std::to_string(key));
 }
 

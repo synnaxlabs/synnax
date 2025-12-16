@@ -127,7 +127,10 @@ ChannelClient::retrieve(const std::vector<ChannelKey> &keys) const {
     api::v1::ChannelRetrieveRequest req;
     req.mutable_keys()->Add(keys.begin(), keys.end());
     auto [res, exc] = this->retrieve_client->send("/channel/retrieve", req);
-    std::vector<Channel> channels = {res.channels().begin(), res.channels().end()};
+    const std::vector<Channel> channels = {
+        res.channels().begin(),
+        res.channels().end()
+    };
     return {channels, exc};
 }
 
@@ -136,7 +139,10 @@ ChannelClient::retrieve(const std::vector<std::string> &names) const {
     auto req = api::v1::ChannelRetrieveRequest();
     req.mutable_names()->Add(names.begin(), names.end());
     auto [res, err] = retrieve_client->send("/channel/retrieve", req);
-    std::vector<Channel> channels = {res.channels().begin(), res.channels().end()};
+    const std::vector<Channel> channels = {
+        res.channels().begin(),
+        res.channels().end()
+    };
     return {channels, err};
 }
 }

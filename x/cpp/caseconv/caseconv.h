@@ -10,6 +10,7 @@
 #pragma once
 
 #include <algorithm>
+#include <ranges>
 #include <string>
 
 namespace caseconv {
@@ -19,7 +20,7 @@ namespace caseconv {
 /// @example caseconv::snake_to_scream("hello_world") returns "HELLO_WORLD"
 inline std::string snake_to_scream(const std::string &input) {
     std::string result = input;
-    std::transform(result.begin(), result.end(), result.begin(), [](unsigned char c) {
+    std::ranges::transform(result, result.begin(), [](unsigned char c) {
         return static_cast<char>(std::toupper(c));
     });
     return result;
@@ -31,7 +32,7 @@ inline std::string snake_to_scream(const std::string &input) {
 /// @example caseconv::snake_to_kebab("hello_world") returns "hello-world"
 inline std::string snake_to_kebab(const std::string &input) {
     std::string result = input;
-    std::replace(result.begin(), result.end(), '_', '-');
+    std::ranges::replace(result, '_', '-');
     return result;
 }
 }

@@ -84,7 +84,7 @@ std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
+    if (!task.type.starts_with(INTEGRATION_NAME)) return {nullptr, false};
     std::pair<common::ConfigureResult, xerrors::Error> res;
     if (task.type == SCAN_TASK_TYPE)
         res = configure_scan(ctx, task, conn_pool_);

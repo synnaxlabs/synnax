@@ -30,7 +30,7 @@ namespace kv {
 namespace {
 xerrors::Error
 check_minimum_permissions(const std::filesystem::path &path, const char *context) {
-    auto perms = std::filesystem::status(path).permissions();
+    const auto perms = std::filesystem::status(path).permissions();
     if ((perms & std::filesystem::perms::owner_write) == std::filesystem::perms::none ||
         (perms & std::filesystem::perms::owner_read) == std::filesystem::perms::none) {
         return xerrors::Error("insufficient permissions on " + std::string(context));

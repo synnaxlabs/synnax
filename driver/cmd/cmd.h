@@ -29,7 +29,6 @@
 #include "x/cpp/xshutdown/xshutdown.h"
 
 #include "core/pkg/version/version.h"
-#include "driver/cmd/cmd.h"
 #include "driver/daemon/daemon.h"
 #include "driver/rack/rack.h"
 

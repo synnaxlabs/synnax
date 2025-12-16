@@ -26,7 +26,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
                             cfg.security_mode + "|" + cfg.security_policy;
 
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        const std::scoped_lock<std::mutex> lock(mutex_);
 
         auto it = connections_.find(key);
         if (it != connections_.end()) {
@@ -84,7 +84,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     }
 
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        const std::scoped_lock<std::mutex> lock(mutex_);
         connections_[key].push_back({client, true});
     }
 
@@ -93,7 +93,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
 }
 
 void Pool::release(const std::string &key, std::shared_ptr<UA_Client> client) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    const std::scoped_lock<std::mutex> lock(mutex_);
 
     auto it = connections_.find(key);
     if (it == connections_.end()) { return; }
@@ -127,7 +127,7 @@ void Pool::release(const std::string &key, std::shared_ptr<UA_Client> client) {
 }
 
 size_t Pool::size() const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    const std::scoped_lock<std::mutex> lock(mutex_);
     size_t total = 0;
     for (const auto &[_, entries]: connections_)
         total += entries.size();
@@ -135,7 +135,7 @@ size_t Pool::size() const {
 }
 
 size_t Pool::available_count(const std::string &endpoint) const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    const std::scoped_lock<std::mutex> lock(mutex_);
     size_t count = 0;
     for (const auto &[key, entries]: connections_)
         if (key.find(endpoint) == 0)

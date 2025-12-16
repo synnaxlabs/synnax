@@ -59,7 +59,7 @@ load_file(const char *const path) {
     fileContents.data = (UA_Byte *) UA_malloc(fileContents.length * sizeof(UA_Byte));
     if (fileContents.data) {
         fseek(fp, 0, SEEK_SET);
-        size_t
+        const size_t
             read = fread(fileContents.data, sizeof(UA_Byte), fileContents.length, fp);
         if (read != fileContents.length) UA_ByteString_clear(&fileContents);
     } else {
@@ -128,8 +128,8 @@ static UA_UsernamePasswordLogin userNamePW[2] = {
 
 static void setCustomAccessControl(UA_ServerConfig *config) {
     /* Use the default AccessControl plugin as the starting point */
-    UA_Boolean allowAnonymous = false;
-    UA_String encryptionPolicy = UA_STRING_STATIC(
+    const UA_Boolean allowAnonymous = false;
+    const UA_String encryptionPolicy = UA_STRING_STATIC(
         "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256"
     );
     // config->securityPolicies[config->securityPoliciesSize-1].policyUri;

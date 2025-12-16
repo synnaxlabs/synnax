@@ -42,7 +42,7 @@ xerrors::Error task::Manager::open_streamer() {
             this->channels.task_cmd = channel;
 
     if (this->exit_early) return xerrors::NIL;
-    std::lock_guard lock{this->mu};
+    const std::scoped_lock lock{this->mu};
     auto [s, open_err] = this->ctx->client->telem.open_streamer(
         synnax::StreamerConfig{
             .channels = {
@@ -88,7 +88,7 @@ xerrors::Error task::Manager::configure_initial_tasks() {
 
 void task::Manager::stop() {
     this->exit_early = true;
-    std::lock_guard lock{this->mu};
+    const std::scoped_lock lock{this->mu};
     // Very important that we do NOT set the streamer to a nullptr here, as the run()
     // method still needs access before shutting down.
     if (this->streamer != nullptr) this->streamer->close_send();
@@ -114,7 +114,7 @@ xerrors::Error task::Manager::run(std::function<void()> on_started) {
         return xerrors::NIL;
     }
     if (const auto err = this->open_streamer()) return err;
-    LOG(INFO) << xlog::GREEN() << "started successfully" << xlog::RESET();
+    LOG(INFO) << xlog::green() << "started successfully" << xlog::reset();
     if (on_started) on_started();
     do {
         // no need to lock the streamer here, as it's safe to call close_send()
@@ -133,7 +133,7 @@ xerrors::Error task::Manager::run(std::function<void()> on_started) {
         }
     } while (true);
     this->stop_all_tasks();
-    std::lock_guard lock{this->mu};
+    const std::scoped_lock lock{this->mu};
     const auto c_err = this->streamer->close();
     this->streamer = nullptr;
     return c_err;

@@ -22,4 +22,5 @@ cc_library(
         "LabJackM.h",
         "LabJackMModbusMap.h",
     ],
+    tags = ["no-clang-tidy"],  # Exclude LabJack SDK vendor headers
 )

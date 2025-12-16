@@ -244,9 +244,7 @@ struct TwoPointLinConfig {
         electrical_units(UNITS_MAP.at(cfg.field<std::string>("electrical_units"))),
         first_physical_val(cfg.field<double>("first_physical_val")),
         second_physical_val(cfg.field<double>("second_physical_val")),
-        physical_units(UNITS_MAP.at(cfg.field<std::string>("physical_units"))) {
-        const auto eu = cfg.field<std::string>("electrical_units");
-    }
+        physical_units(UNITS_MAP.at(cfg.field<std::string>("physical_units"))) {}
 };
 
 inline std::string format_cfg_path(const std::string &path) {
@@ -1677,7 +1675,7 @@ struct CILinearPosition final : CICustomScale {
             this->loc().c_str(),
             this->cfg_path.c_str(),
             this->decoding_type,
-            this->z_index_enable,
+            static_cast<bool32>(this->z_index_enable),
             this->z_index_val,
             this->z_index_phase,
             this->units,
@@ -1765,7 +1763,7 @@ struct CIAngularPosition final : CICustomScale {
             this->loc().c_str(),
             this->cfg_path.c_str(),
             this->decoding_type,
-            this->z_index_enable,
+            static_cast<bool32>(this->z_index_enable),
             this->z_index_val,
             this->z_index_phase,
             this->units,

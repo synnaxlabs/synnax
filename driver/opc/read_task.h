@@ -142,7 +142,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         }
         for (std::size_t i = 0; i < sy_channels.size(); i++) {
             auto ch = sy_channels[i];
-            if (ch.is_index && this->index_keys.find(ch.key) != this->index_keys.end())
+            if (ch.is_index && this->index_keys.contains(ch.key))
                 this->index_keys.erase(ch.key);
         }
     }

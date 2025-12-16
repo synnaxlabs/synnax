@@ -21,7 +21,7 @@ std::string join_paths(const std::string &a, const std::string &b) {
     if (a.empty()) {
         result = "/";
     } else {
-        result = (a[0] == '/') ? a : "/" + a;
+        result = a[0] == '/' ? a : "/" + a;
     }
 
     // If b is empty, just ensure trailing slash
@@ -32,7 +32,7 @@ std::string join_paths(const std::string &a, const std::string &b) {
 
     // Add b to result (ensuring single slash between a and b)
     if (result.back() != '/') result += '/';
-    result += (b[0] == '/') ? b.substr(1) : b;
+    result += b[0] == '/' ? b.substr(1) : b;
 
     // Ensure trailing slash
     if (result.back() != '/') result += '/';
@@ -60,9 +60,11 @@ URL::URL(const std::string &address) {
 
     ip = address.substr(0, colon);
     const auto path_start = address.find('/', colon + 1);
-    port = static_cast<uint16_t>(
-        std::atoi(address.substr(colon + 1, path_start - colon - 1).c_str())
-    );
+    try {
+        port = static_cast<uint16_t>(
+            std::stoul(address.substr(colon + 1, path_start - colon - 1))
+        );
+    } catch (const std::exception &) { port = 0; }
     path = path_start != std::string::npos ? join_paths("", address.substr(path_start))
                                            : "";
 }

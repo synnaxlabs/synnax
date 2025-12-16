@@ -256,6 +256,7 @@ cc_library(
         ":prepare_static_sources",
         ":generate_version_h",
     ],
+    tags = ["no-clang-tidy"],  # Exclude vendor code from static analysis
     copts = select({
         "@platforms//os:windows": [
             "/DHAVE_CONFIG_H",

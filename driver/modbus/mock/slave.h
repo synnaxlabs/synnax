@@ -243,7 +243,7 @@ class Slave {
                                 << ", length: " << rc << ", function code: 0x"
                                 << std::hex << static_cast<int>(function_code);
 
-                        std::lock_guard lock(mutex_);
+                        const std::scoped_lock lock(mutex_);
                         modbus_reply(ctx_, query, rc, mb_mapping_);
                         VLOG(1) << "Replied to request on socket " << master_socket;
 
@@ -333,12 +333,12 @@ public:
 
     // Add getters that read directly from the mapping
     uint8_t get_coil(int addr) const {
-        std::lock_guard lock(mutex_);
+        const std::scoped_lock lock(mutex_);
         return mb_mapping_->tab_bits[addr];
     }
 
     uint16_t get_holding_register(int addr) const {
-        std::lock_guard lock(mutex_);
+        const std::scoped_lock lock(mutex_);
         return mb_mapping_->tab_registers[addr];
     }
 };

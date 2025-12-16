@@ -24,5 +24,6 @@ cc_library(
     hdrs = [
         "nidaqmx.h",
     ],
+    tags = ["no-clang-tidy"],  # Exclude NI-DAQmx SDK vendor headers
     deps = [],
 )

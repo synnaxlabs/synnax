@@ -17,28 +17,28 @@ public:
     bool should_error = false;
     std::string error_on;
 
-    xerrors::Error before_all(lua_State *L) override {
+    xerrors::Error before_all([[maybe_unused]] lua_State *L) override {
         calls.emplace_back("before_all");
         if (should_error && error_on == "before_all")
             return xerrors::Error("mock error");
         return xerrors::NIL;
     }
 
-    xerrors::Error after_all(lua_State *L) override {
+    xerrors::Error after_all([[maybe_unused]] lua_State *L) override {
         calls.emplace_back("after_all");
         if (should_error && error_on == "after_all")
             return xerrors::Error("mock error");
         return xerrors::NIL;
     }
 
-    xerrors::Error before_next(lua_State *L) override {
+    xerrors::Error before_next([[maybe_unused]] lua_State *L) override {
         calls.emplace_back("before_next");
         if (should_error && error_on == "before_next")
             return xerrors::Error("mock error");
         return xerrors::NIL;
     }
 
-    xerrors::Error after_next(lua_State *L) override {
+    xerrors::Error after_next([[maybe_unused]] lua_State *L) override {
         calls.emplace_back("after_next");
         if (should_error && error_on == "after_next")
             return xerrors::Error("mock error");

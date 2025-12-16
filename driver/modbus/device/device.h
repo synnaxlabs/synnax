@@ -30,16 +30,16 @@ namespace modbus::device {
 /// @brief parses the xerrors compatible representation of the modbus error code.
 inline xerrors::Error parse_error(const int code) {
     if (code != -1) return xerrors::NIL;
-    const auto err = modbus_strerror(errno);
+    const auto *const err = modbus_strerror(errno);
     return xerrors::Error(CRITICAL_ERROR, err);
 }
 
-enum RegisterType {
+enum class RegisterType : uint8_t {
     InputRegister,
     HoldingRegister,
 };
 
-enum BitType { Coil, DiscreteInput };
+enum class BitType : uint8_t { Coil, DiscreteInput };
 
 struct Device {
     modbus_t *ctx;
@@ -67,7 +67,7 @@ struct Device {
         const size_t nb,
         uint8_t *dest
     ) const {
-        if (input_type == Coil)
+        if (input_type == BitType::Coil)
             return parse_error(modbus_read_bits(ctx, addr, static_cast<int>(nb), dest));
         return parse_error(
             modbus_read_input_bits(ctx, addr, static_cast<int>(nb), dest)
@@ -84,7 +84,7 @@ struct Device {
         const size_t nb,
         uint16_t *dest
     ) const {
-        if (t == HoldingRegister)
+        if (t == RegisterType::HoldingRegister)
             return parse_error(
                 modbus_read_registers(ctx, addr, static_cast<int>(nb), dest)
             );
@@ -167,9 +167,9 @@ public:
     /// @note Each call creates a fresh connection. Connections are not cached or shared
     /// to avoid thread-safety issues (libmodbus is not thread-safe) and stale
     /// connection problems when servers restart.
-    std::pair<std::shared_ptr<Device>, xerrors::Error>
+    static std::pair<std::shared_ptr<Device>, xerrors::Error>
     acquire(const ConnectionConfig &config) {
-        auto ctx = modbus_new_tcp(config.host.c_str(), config.port);
+        auto *ctx = modbus_new_tcp(config.host.c_str(), config.port);
         if (ctx == nullptr)
             return {nullptr, xerrors::Error(CRITICAL_ERROR, modbus_strerror(errno))};
 

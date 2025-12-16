@@ -195,5 +195,6 @@ cc_library(
     hdrs = [":build_mbedtls"],
     includes = ["include"],
     strip_include_prefix = "include",
+    tags = ["no-clang-tidy"],  # Exclude vendor code from static analysis
     visibility = ["//visibility:public"],
 )

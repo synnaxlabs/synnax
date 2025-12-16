@@ -46,7 +46,7 @@ struct TimingConfig {
     }
 
     friend std::ostream &operator<<(std::ostream &os, const TimingConfig &cfg) {
-        os << "  " << xlog::SHALE() << "clock skew correction" << xlog::RESET() << ": "
+        os << "  " << xlog::shale() << "clock skew correction" << xlog::reset() << ": "
            << (cfg.correct_skew ? "enabled" : "disabled");
         return os;
     }
@@ -169,7 +169,7 @@ public:
         this->prev_error = 0.0;
     }
 
-    telem::TimeStamp wait(breaker::Breaker &_) override {
+    telem::TimeStamp wait([[maybe_unused]] breaker::Breaker &brk) override {
         if (this->curr_start_sample_time == 0) {
             const auto now = this->cfg.now();
             this->curr_start_sample_time = now;

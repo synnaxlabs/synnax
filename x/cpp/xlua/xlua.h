@@ -192,9 +192,9 @@ to_series(lua_State *L, const int index, const telem::DataType &data_type) {
             xerrors::Error(xerrors::VALIDATION, "Expected value but received nil")
         };
 
-    const bool is_numeric = lua_isnumber(L, index) || lua_isinteger(L, index);
-    const bool is_boolean = lua_isboolean(L, index);
-    const bool is_string = lua_isstring(L, index);
+    const bool is_numeric = lua_isnumber(L, index) != 0 || lua_isinteger(L, index) != 0;
+    const bool is_boolean = lua_isboolean(L, index) != 0;
+    const bool is_string = lua_isstring(L, index) != 0;
 
     // Helper to get numeric value, handling both numbers and booleans
     auto get_numeric_value = [L, is_boolean](const int idx) -> lua_Number {
@@ -224,7 +224,7 @@ to_series(lua_State *L, const int index, const telem::DataType &data_type) {
 
     if (data_type == telem::STRING_T) {
         if (is_boolean) {
-            const auto val = lua_toboolean(L, index);
+            const auto val = lua_toboolean(L, index) != 0;
             const std::string value = val ? "true" : "false";
             return {telem::Series(value), xerrors::NIL};
         }
@@ -273,10 +273,7 @@ to_series(lua_State *L, const int index, const telem::DataType &data_type) {
             xerrors::NIL
         };
     if (data_type == telem::INT64_T)
-        return {
-            telem::Series(static_cast<int64_t>(get_integer_value(index)), data_type),
-            xerrors::NIL
-        };
+        return {telem::Series(get_integer_value(index), data_type), xerrors::NIL};
     if (data_type == telem::UINT8_T)
         return {
             telem::Series(static_cast<uint8_t>(get_numeric_value(index)), data_type),

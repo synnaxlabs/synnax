@@ -22,7 +22,7 @@
 
 namespace xthread {
 /// @brief max length for thread names on POSIX systems.
-constexpr size_t MAX_NAME_LEN = 16;
+[[maybe_unused]] constexpr size_t MAX_NAME_LEN = 16;
 
 /// @brief sets the name of the current thread. This name will be visible in debuggers
 /// (CLion, Visual Studio, lldb, gdb) and system tools. Thread names are limited to
@@ -33,7 +33,7 @@ inline void set_name(const char *name) {
     wchar_t wname[64];
     std::mbstowcs(wname, name, 64);
     SetThreadDescription(GetCurrentThread(), wname);
-#elif defined(__APPLE__)
+#elifdef __APPLE__
     pthread_setname_np(name);
 #else
     pthread_setname_np(pthread_self(), name);

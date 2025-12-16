@@ -27,7 +27,7 @@ namespace xos {
 /// returns an empty string and false.
 inline std::pair<std::string, bool> get_hostname() {
     std::array<char, 256> hostname{};
-    bool ok;
+    bool ok = false;
 #ifdef _WIN32
     DWORD size = hostname.size();
     ok = GetComputerNameA(hostname.data(), &size) == 0;
@@ -37,19 +37,19 @@ inline std::pair<std::string, bool> get_hostname() {
     return {hostname.data(), ok};
 }
 
-const std::string WINDOWS_NAME = "Windows";
-const std::string MACOS_NAME = "macOS";
-const std::string LINUX_NAME = "Linux";
-const std::string UNKNOWN_NAME = "unknown";
+[[maybe_unused]] const std::string WINDOWS_NAME = "Windows";
+[[maybe_unused]] const std::string MACOS_NAME = "macOS";
+[[maybe_unused]] const std::string LINUX_NAME = "Linux";
+[[maybe_unused]] const std::string UNKNOWN_NAME = "unknown";
 
 /// @brief returns the name of the operating system, if the operating system could
 /// not be determined, returns "unknown".
 inline std::string get() {
 #if defined(_WIN32) || defined(_WIN64)
     return WINDOWS_NAME;
-#elif defined(__APPLE__)
+#elifdef __APPLE__
     return MACOS_NAME;
-#elif defined(__linux__)
+#elifdef __linux__
     return LINUX_NAME;
 #else
     return UNKNOWN_NAME;

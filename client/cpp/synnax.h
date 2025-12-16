@@ -33,8 +33,7 @@ inline void check_little_endian() {
     int num = 1;
     if (*reinterpret_cast<char *>(&num) == 1) return;
     LOG(WARNING) << "Detected big endian system, which Synnax does not support. This "
-                    "may silently corrupt telemetry."
-                 << std::endl;
+                    "may silently corrupt telemetry.";
 }
 }
 
@@ -85,20 +84,20 @@ struct Config {
     }
 
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
-        os << xlog::SHALE() << "  " << "cluster address" << xlog::RESET() << ": "
+        os << xlog::shale() << "  " << "cluster address" << xlog::reset() << ": "
            << cfg.address() << "\n"
-           << "  " << xlog::SHALE() << "username" << xlog::RESET() << ": "
+           << "  " << xlog::shale() << "username" << xlog::reset() << ": "
            << cfg.username << "\n"
-           << "  " << xlog::SHALE() << "password" << xlog::RESET() << ": "
+           << "  " << xlog::shale() << "password" << xlog::reset() << ": "
            << xlog::sensitive_string(cfg.password) << "\n"
-           << "  " << xlog::SHALE() << "secure" << xlog::RESET() << ": "
+           << "  " << xlog::shale() << "secure" << xlog::reset() << ": "
            << xlog::bool_to_str(cfg.is_secure()) << "\n";
         if (!cfg.is_secure()) return os;
-        os << "  " << xlog::SHALE() << "ca_cert_file" << xlog::RESET() << ": "
+        os << "  " << xlog::shale() << "ca_cert_file" << xlog::reset() << ": "
            << xpath::resolve_relative(cfg.ca_cert_file) << "\n"
-           << "  " << xlog::SHALE() << "client_cert_file" << xlog::RESET() << ": "
+           << "  " << xlog::shale() << "client_cert_file" << xlog::reset() << ": "
            << xpath::resolve_relative(cfg.client_cert_file) << "\n"
-           << "  " << xlog::SHALE() << "client_key_file" << xlog::RESET() << ": "
+           << "  " << xlog::shale() << "client_key_file" << xlog::reset() << ": "
            << xpath::resolve_relative(cfg.client_key_file) << "\n";
         return os;
     }

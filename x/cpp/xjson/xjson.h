@@ -19,6 +19,7 @@
 #include "nlohmann/json.hpp"
 
 #include "x/cpp/xerrors/errors.h"
+#include "x/cpp/xpath/xpath.h"
 
 using json = nlohmann::json;
 
@@ -27,6 +28,8 @@ namespace xjson {
 
 /// @brief Type trait to detect std::vector types
 template<typename T>
+// (std::is_same)
+// NOLINTNEXTLINE(readability-identifier-naming) - follows STL naming convention
 struct is_vector : std::false_type {
     using value_type = T;
 };
@@ -37,11 +40,15 @@ struct is_vector<std::vector<T>> : std::true_type {
 };
 
 template<typename T>
+// (std::is_same_v)
+// NOLINTNEXTLINE(readability-identifier-naming) - follows STL naming convention
 inline constexpr bool is_vector_v = is_vector<T>::value;
 
 /// @brief Type trait to detect std::map and std::unordered_map types with string or
 /// numeric keys
 template<typename T>
+// (std::is_same)
+// NOLINTNEXTLINE(readability-identifier-naming) - follows STL naming convention
 struct is_map : std::false_type {
     using key_type = void;
     using value_type = T;
@@ -68,6 +75,8 @@ struct is_map<std::unordered_map<K, V>>
 };
 
 template<typename T>
+// (std::is_same_v)
+// NOLINTNEXTLINE(readability-identifier-naming) - follows STL naming convention
 inline constexpr bool is_map_v = is_map<T>::value;
 
 /// @brief a utility class for improving the experience of parsing JSON-based
@@ -111,11 +120,6 @@ class Parser {
             }
         }
         return {K{}, false};
-    }
-
-    /// @brief Helper to join path segments for error reporting
-    std::string join_path(const std::string &parent, const std::string &child) const {
-        return parent.empty() ? child : parent + "." + child;
     }
 
     /// @brief Wrapper for iterator-based access
@@ -306,13 +310,19 @@ public:
     void
     iter(const std::string &path, const std::function<void(Parser &)> &func) const {
         if (noop) return;
-        const auto iter = config.find(path);
-        if (iter == config.end()) return field_err(path, "this field is required");
-        if (!iter->is_array()) return field_err(path, "expected an array");
-        for (size_t i = 0; i < iter->size(); ++i) {
+        const auto it = config.find(path);
+        if (it == config.end()) {
+            field_err(path, "this field is required");
+            return;
+        }
+        if (!it->is_array()) {
+            field_err(path, "expected an array");
+            return;
+        }
+        for (size_t i = 0; i < it->size(); ++i) {
             const auto child_path = path_prefix + path + "." + std::to_string(i) + ".";
-            Parser childParser((*iter)[i], errors, child_path);
-            func(childParser);
+            Parser child_parser((*it)[i], errors, child_path);
+            func(child_parser);
         }
     }
 
@@ -341,8 +351,8 @@ public:
         results.reserve(iter->size());
         for (size_t i = 0; i < iter->size(); ++i) {
             const auto child_path = path_prefix + path + "." + std::to_string(i) + ".";
-            Parser childParser((*iter)[i], errors, child_path);
-            auto [res, ok] = func(childParser);
+            Parser child_parser((*iter)[i], errors, child_path);
+            auto [res, ok] = func(child_parser);
             if (ok) results.push_back(std::move(res));
         }
         return results;
@@ -415,16 +425,16 @@ public:
 /// @brief Type trait to detect if a type can be constructed from a Parser
 template<typename T>
 inline constexpr bool
-    is_parser_constructible_v = std::is_constructible_v<T, Parser> ||
-                                std::is_constructible_v<T, Parser &> ||
-                                std::is_constructible_v<T, const Parser &> ||
-                                std::is_constructible_v<T, Parser &&>;
+    is_parser_constructible_v = // NOLINT(readability-identifier-naming)
+                                // - follows STL naming convention
+    std::is_constructible_v<T, Parser> || std::is_constructible_v<T, Parser &> ||
+    std::is_constructible_v<T, const Parser &> || std::is_constructible_v<T, Parser &&>;
 
 // Implementation of parse_value - the single source of truth for all type conversions
 template<typename T>
 T Parser::parse_value(const std::string &path, const json &j) {
     if constexpr (is_map_v<T>) {
-        typedef typename is_map<T>::key_type K;
+        using K = typename is_map<T>::key_type;
         using V = typename is_map<T>::value_type;
         if (!j.is_object()) {
             field_err(path, "expected an object");
@@ -432,7 +442,7 @@ T Parser::parse_value(const std::string &path, const json &j) {
         }
         T map_result;
         for (const auto &[json_key, value]: j.items()) {
-            const auto child_path = join_path(path, json_key);
+            const auto child_path = xpath::join(".", {path, json_key});
             auto [map_key, ok] = convert_key<K>(json_key, child_path);
             if (!ok) continue;
             map_result[map_key] = parse_value<V>(child_path, value);
@@ -447,7 +457,7 @@ T Parser::parse_value(const std::string &path, const json &j) {
         std::vector<U> values;
         values.reserve(j.size());
         for (size_t i = 0; i < j.size(); ++i) {
-            const auto child_path = join_path(path, std::to_string(i));
+            const auto child_path = xpath::join(".", {path, std::to_string(i)});
             values.push_back(parse_value<U>(child_path, j[i]));
         }
         return values;
