@@ -365,4 +365,4 @@ private:
 std::unique_ptr<Loop> create() {
     return std::make_unique<WindowsLoop>();
 }
-} // namespace arc::runtime::loop
+}

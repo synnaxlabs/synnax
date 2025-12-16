@@ -89,4 +89,4 @@ std::string format_channels(const Channels &ch) {
 
     return ss.str();
 }
-} // namespace arc::ir
+}

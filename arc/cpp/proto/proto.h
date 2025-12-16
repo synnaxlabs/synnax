@@ -75,4 +75,4 @@ inline void json_to_pb_value(const nlohmann::json &j, google::protobuf::Value *v
     }
 }
 
-} // namespace arc::proto
+}

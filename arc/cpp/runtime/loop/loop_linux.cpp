@@ -358,4 +358,4 @@ private:
 std::unique_ptr<Loop> create() {
     return std::make_unique<LinuxLoop>();
 }
-} // namespace arc::runtime::loop
+}

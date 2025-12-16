@@ -161,4 +161,4 @@ private:
 std::unique_ptr<Loop> create() {
     return std::make_unique<PollingLoop>();
 }
-} // namespace arc::runtime::loop
+}
