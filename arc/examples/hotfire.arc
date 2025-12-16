@@ -19,11 +19,8 @@ func prechecks() {
 // Main sequence - happy path stages first, then holds
 sequence main {
     stage precheck {
-        prechecks{} => match {
-        }
-        status_checks{} => match {
-            true => abort
-        }
+        prechecks{} => next,
+        status_checks{} => abort,
         abort_btn => abort,
         hold_btn => precheck_hold
     }

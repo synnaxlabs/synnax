@@ -54,9 +54,6 @@ func analyzeNode(ctx context.Context[parser.IFlowNodeContext], prevNode parser.I
 	if expr := ctx.AST.Expression(); expr != nil {
 		return analyzeExpression(context.Child(ctx, expr))
 	}
-	if matchBlock := ctx.AST.MatchBlock(); matchBlock != nil {
-		return analyzeMatchBlock(context.Child(ctx, matchBlock))
-	}
 	if ctx.AST.NEXT() != nil {
 		// NEXT is always valid - it will be resolved during sequence analysis
 		return true
@@ -633,15 +630,3 @@ func analyzeRoutingTargetWithParam(
 	return true
 }
 
-// analyzeMatchBlock validates a match block as a flow node.
-func analyzeMatchBlock(ctx context.Context[parser.IMatchBlockContext]) bool {
-	for _, entry := range ctx.AST.AllMatchEntry() {
-		// Validate each match entry target
-		if targetNode := entry.FlowNode(); targetNode != nil {
-			if !analyzeNode(context.Child(ctx, targetNode), nil, false) {
-				return false
-			}
-		}
-	}
-	return true
-}

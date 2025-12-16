@@ -5,7 +5,6 @@ cc_library(
     deps = [
         "//arc/cpp/runtime/constant",
         "//arc/cpp/runtime/loop",
-        "//arc/cpp/runtime/match",
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/scheduler",
         "//arc/cpp/runtime/stage",

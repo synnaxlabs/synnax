@@ -12,7 +12,6 @@ RETURN      : 'return';
 // Sequencing keywords
 SEQUENCE    : 'sequence';
 STAGE       : 'stage';
-MATCH       : 'match';
 NEXT        : 'next';
 
 // Channel keywords

@@ -1,12 +1,3 @@
-// Copyright 2025 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
@@ -57,12 +48,6 @@ type ArcParserListener interface {
 
 	// EnterStageItem is called when entering the stageItem production.
 	EnterStageItem(c *StageItemContext)
-
-	// EnterMatchBlock is called when entering the matchBlock production.
-	EnterMatchBlock(c *MatchBlockContext)
-
-	// EnterMatchEntry is called when entering the matchEntry production.
-	EnterMatchEntry(c *MatchEntryContext)
 
 	// EnterFlowStatement is called when entering the flowStatement production.
 	EnterFlowStatement(c *FlowStatementContext)
@@ -270,12 +255,6 @@ type ArcParserListener interface {
 
 	// ExitStageItem is called when exiting the stageItem production.
 	ExitStageItem(c *StageItemContext)
-
-	// ExitMatchBlock is called when exiting the matchBlock production.
-	ExitMatchBlock(c *MatchBlockContext)
-
-	// ExitMatchEntry is called when exiting the matchEntry production.
-	ExitMatchEntry(c *MatchEntryContext)
 
 	// ExitFlowStatement is called when exiting the flowStatement production.
 	ExitFlowStatement(c *FlowStatementContext)

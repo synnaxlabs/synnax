@@ -79,16 +79,6 @@ stageItem
     : flowStatement
     ;
 
-// match { id1 => target1, id2 => target2, ... }
-matchBlock
-    : MATCH LBRACE matchEntry (COMMA matchEntry)* RBRACE
-    ;
-
-// id => target
-matchEntry
-    : IDENTIFIER TRANSITION flowNode
-    ;
-
 // =============================================================================
 // Inter-Stage Flow
 // =============================================================================
@@ -115,7 +105,6 @@ flowNode
     | function
     | expression
     | NEXT              // Continue to next stage
-    | matchBlock        // match { ... }
     ;
 
 identifier

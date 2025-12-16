@@ -20,7 +20,6 @@
 
 #include "arc/cpp/runtime/constant/constant.h"
 #include "arc/cpp/runtime/loop/loop.h"
-#include "arc/cpp/runtime/match/match.h"
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/scheduler/scheduler.h"
 #include "arc/cpp/runtime/stage/stage.h"
@@ -172,7 +171,6 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
     auto wasm_factory = std::make_shared<wasm::Factory>(mod);
     auto time_factory = std::make_shared<time::Factory>();
     auto stage_factory = std::make_shared<stage::Factory>();
-    auto match_factory = std::make_shared<match::Factory>();
     auto io_factory = std::make_shared<io::Factory>();
     auto constant_factory = std::make_shared<constant::Factory>();
     node::MultiFactory fact(
@@ -180,7 +178,6 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
             wasm_factory,
             time_factory,
             stage_factory,
-            match_factory,
             io_factory,
             constant_factory,
         }

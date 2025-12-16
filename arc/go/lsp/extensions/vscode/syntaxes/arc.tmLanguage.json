@@ -62,7 +62,7 @@
         },
         {
           "name": "keyword.other.arc",
-          "match": "\\b(func|sequence|stage|match|next)\\b"
+          "match": "\\b(func|sequence|stage|next)\\b"
         },
         {
           "name": "constant.language.boolean.arc",
