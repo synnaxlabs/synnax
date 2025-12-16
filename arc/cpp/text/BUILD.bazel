@@ -1,0 +1,19 @@
+cc_library(
+    name = "text",
+    hdrs = ["text.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/go/text:text_grpc",
+        "//x/cpp/xjson",
+    ],
+)
+
+cc_test(
+    name = "text_test",
+    srcs = ["text_test.cpp"],
+    deps = [
+        ":text",
+        "//arc/go/text:text_grpc",
+        "@googletest//:gtest_main",
+    ],
+)
