@@ -132,8 +132,8 @@ var _ = Describe("Flow Statements", func() {
 			ast := MustSucceed(parser.Parse(`
 			func controller{
 				setpoint f64
-				input <-chan f64
-				output ->chan f64
+				input chan f64
+				output chan f64
 			} () {
 				value := input
 				if value > setpoint {
@@ -156,8 +156,8 @@ var _ = Describe("Flow Statements", func() {
 			ast := MustSucceed(parser.Parse(`
 			func filter{
 				threshold f64
-				input <-chan f64
-				output ->chan f64
+				input chan f64
+				output chan f64
 			} () {
 				value := input
 				if value > threshold {
@@ -183,7 +183,7 @@ var _ = Describe("Flow Statements", func() {
 		It("Should detect when func is invoked with extra parameters not in signature", func() {
 			ast := MustSucceed(parser.Parse(`
 			func simple{
-				input <-chan f64
+				input chan f64
 			} () {
 				value := input
 			}
@@ -206,7 +206,7 @@ var _ = Describe("Flow Statements", func() {
 				threshold f64
 				count u32
 				message str
-				input <-chan f64
+				input chan f64
 			} () {
 				value := input
 				if value > threshold {
@@ -246,7 +246,7 @@ var _ = Describe("Flow Statements", func() {
 				threshold f64
 				count u32
 				message str
-				input <-chan f64
+				input chan f64
 			} () {
 				value := input
 				if value > threshold {
@@ -269,8 +269,8 @@ var _ = Describe("Flow Statements", func() {
 		It("Should allow channels as both sources and targets in flow statements", func() {
 			ast := MustSucceed(parser.Parse(`
 			func process{
-				input <-chan f64
-				output ->chan f64
+				input chan f64
+				output chan f64
 			} () {
 				value := input
 				processed := value * 2.0
@@ -300,14 +300,14 @@ var _ = Describe("Flow Statements", func() {
 		It("Should understand channel pass-through triggers tasks on new values", func() {
 			ast := MustSucceed(parser.Parse(`
 			func logger{
-				value <-chan f64
+				value chan f64
 			} () {
 				v := value
 				// Log the value
 			}
 
 			func controller{
-				temp <-chan f64
+				temp chan f64
 				setpoint f64
 			} () {
 				current := temp
@@ -334,7 +334,7 @@ var _ = Describe("Flow Statements", func() {
 		It("Should implicitly convert channel sources to on{channel} func invocations", func() {
 			ast := MustSucceed(parser.Parse(`
 			func display{
-				input <-chan f64
+				input chan f64
 			} () {
 				value := input
 				// Display the value
@@ -366,7 +366,7 @@ var _ = Describe("Flow Statements", func() {
 
 			ast := MustSucceed(parser.Parse(`
 			func display{
-				input <-chan f64
+				input chan f64
 			} () {
 				value := input
 			}

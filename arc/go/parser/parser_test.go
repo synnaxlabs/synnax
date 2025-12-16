@@ -198,7 +198,7 @@ func add(x f64, y f64) f64 {
 
 		It("Should parse function with channel parameters", func() {
 			prog := mustParseProgram(`
-func process(input <-chan f64, output ->chan f64) {
+func process(input chan f64, output chan f64) {
     value := input
     output = value
 }`)
@@ -206,16 +206,16 @@ func process(input <-chan f64, output ->chan f64) {
 			funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
 			params := funcDecl.InputList()
 
-			// First parameter: input <-chan f64
+			// First parameter: input chan f64
 			param1 := params.Input(0)
 			Expect(param1.IDENTIFIER().GetText()).To(Equal("input"))
-			Expect(param1.Type_().ChannelType().RECV_CHAN()).NotTo(BeNil())
+			Expect(param1.Type_().ChannelType().CHAN()).NotTo(BeNil())
 			Expect(param1.Type_().ChannelType().PrimitiveType().NumericType().FloatType().F64()).NotTo(BeNil())
 
-			// Second parameter: output ->chan f64
+			// Second parameter: output chan f64
 			param2 := params.Input(1)
 			Expect(param2.IDENTIFIER().GetText()).To(Equal("output"))
-			Expect(param2.Type_().ChannelType().SEND_CHAN()).NotTo(BeNil())
+			Expect(param2.Type_().ChannelType().CHAN()).NotTo(BeNil())
 		})
 	})
 
@@ -224,8 +224,8 @@ func process(input <-chan f64, output ->chan f64) {
 			prog := mustParseProgram(`
 func controller{
     setpoint f64
-    sensor <-chan f64
-    actuator ->chan f64
+    sensor chan f64
+    actuator chan f64
 } (enable u8) {
     error := setpoint - sensor
     actuator = error
@@ -257,7 +257,7 @@ func controller{
 		It("Should parse function with return type", func() {
 			prog := mustParseProgram(`
 func doubler{
-    input <-chan f64
+    input chan f64
 } () f64 {
     return (input) * 2
 }`)
@@ -523,14 +523,6 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				write := channelOp.ChannelWrite()
 				Expect(write).NotTo(BeNil())
 				Expect(write.ARROW()).NotTo(BeNil())
-				Expect(write.IDENTIFIER().GetText()).To(Equal("output"))
-			})
-
-			It("Should parse channel write with receive operator", func() {
-				stmt := mustParseStatement("output <- 42")
-
-				write := stmt.ChannelOperation().ChannelWrite()
-				Expect(write.RECV()).NotTo(BeNil())
 				Expect(write.IDENTIFIER().GetText()).To(Equal("output"))
 			})
 

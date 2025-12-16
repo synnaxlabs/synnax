@@ -261,8 +261,8 @@ var _ = Describe("Analyzer", func() {
 				prog := MustSucceed(parser.Parse(`
 				func controller{
 					setpoint f64
-					sensor <-chan f64
-					actuator ->chan f64
+					sensor chan f64
+					actuator chan f64
 				} (enable u8) f64 {
 					return 1.0
 				}

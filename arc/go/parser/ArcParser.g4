@@ -185,7 +185,6 @@ channelOperation
 
 channelWrite
     : expression ARROW IDENTIFIER
-    | IDENTIFIER RECV expression
     ;
 
 channelRead
@@ -251,7 +250,7 @@ temporalType
     ;
 
 channelType
-    : (CHAN | RECV_CHAN | SEND_CHAN) (primitiveType | seriesType)
+    : CHAN (primitiveType | seriesType)
     ;
 
 seriesType

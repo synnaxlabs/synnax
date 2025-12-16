@@ -36,11 +36,8 @@ StringLiteral ::= '"' UTF8Character* '"'
 ### Channel Types
 
 ```
-ChannelType ::= ('chan' | '<-chan' | '->chan') (PrimitiveType | SeriesType)
+ChannelType ::= 'chan' (PrimitiveType | SeriesType)
 ```
-
-Directional constraints (`<-chan` read-only, `->chan` write-only) can only be used in
-function parameters, not variable declarations.
 
 ### Series Types
 
@@ -309,8 +306,8 @@ name:
 ```arc
 func controller{
     setpoint f64              // config: static at instantiation
-    sensor <-chan f64         // config: input channel
-    actuator ->chan f64       // config: output channel
+    sensor chan f64         // config: input channel
+    actuator chan f64       // config: output channel
 } (enable u8) f64 {
     // function body
 }
@@ -351,7 +348,7 @@ func add(x f64, y f64) f64 {
     return x + y
 }
 
-func process(sensor <-chan f64, alarm ->chan u8) {
+func process(sensor chan f64, alarm chan u8) {
     if (sensor) > 100 {
         1 -> alarm
     }
@@ -360,8 +357,8 @@ func process(sensor <-chan f64, alarm ->chan u8) {
 // Function with config block
 func controller{
     setpoint f64
-    sensor <-chan f64
-    actuator ->chan f64
+    sensor chan f64
+    actuator chan f64
 } (enable u8) {
     integral $= 0.0           // stateful variable persists across invocations
 

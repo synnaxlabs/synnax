@@ -16,8 +16,6 @@ NEXT        : 'next';
 
 // Channel keywords
 CHAN        : 'chan';
-RECV_CHAN   : '<-chan';
-SEND_CHAN   : '->chan';
 
 // Primitive types
 I8          : 'i8';
@@ -39,9 +37,8 @@ SERIES      : 'series';
 // Operators
 // =============================================================================
 
-// Channel operators (order matters - longer tokens first)
+// Channel operators
 ARROW       : '->';
-RECV        : '<-';
 
 
 DECLARE     : ':=';  // Local variable declaration
