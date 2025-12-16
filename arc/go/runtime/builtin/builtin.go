@@ -20,11 +20,9 @@ import (
 const (
 	nowSymbolName = "now"
 	lenSymbolName = "len"
-	logSymbolName = "log"
 )
 
 var (
-	// nowSymbol returns the current timestamp.
 	nowSymbol = symbol.Symbol{
 		Name: nowSymbolName,
 		Kind: symbol.KindFunction,
@@ -32,7 +30,6 @@ var (
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},
 		}),
 	}
-	// lenSymbol returns the length of a series.
 	lenSymbol = symbol.Symbol{
 		Name: lenSymbolName,
 		Kind: symbol.KindFunction,
@@ -41,18 +38,8 @@ var (
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 		}),
 	}
-	// logSymbol logs a message.
-	logSymbol = symbol.Symbol{
-		Name: logSymbolName,
-		Kind: symbol.KindFunction,
-		Type: types.Function(types.FunctionProperties{
-			Config: types.Params{{Name: "message", Type: types.String()}},
-		}),
-	}
-	// SymbolResolver provides now, len, and log symbols for the Arc analyzer.
 	SymbolResolver = symbol.MapResolver{
 		nowSymbolName: nowSymbol,
 		lenSymbolName: lenSymbol,
-		logSymbolName: logSymbol,
 	}
 )

@@ -10,8 +10,6 @@
 package arc_test
 
 import (
-	"fmt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
@@ -75,7 +73,6 @@ var _ = Describe("Arc", func() {
 					ID:   1,
 				},
 			})
-		fmt.Println(mod)
 		Expect(mod.Nodes).To(HaveLen(3))
 	})
 })
