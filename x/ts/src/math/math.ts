@@ -77,3 +77,49 @@ export const mult = multiCoercedOp((a, b) => a * b);
 
 /** @returns the division of a and b, coercing b to the type of a if necessary. */
 export const div = multiCoercedOp((a, b) => a / b);
+
+/** @returns the average of an array of numbers. Returns 0 for empty arrays. */
+export const average = (values: number[]): number => {
+  if (values.length === 0) return 0;
+  return values.reduce((a, b) => a + b, 0) / values.length;
+};
+
+/**
+ * Rounds a number to a specified number of decimal places.
+ * @param value The number to round.
+ * @param decimals The number of decimal places (default: 1).
+ * @returns The rounded number.
+ * @example roundTo(1.234, 1) => 1.2
+ * @example roundTo(1.234, 2) => 1.23
+ */
+export const roundTo = (value: number, decimals = 1): number => {
+  const multiplier = 10 ** decimals;
+  return Math.round(value * multiplier) / multiplier;
+};
+
+/**
+ * Compares the average values of the first and last quarters of an array.
+ * Useful for detecting trends like degradation or growth over time.
+ *
+ * @param items Array of items to analyze.
+ * @param getValue Function to extract the numeric value from each item.
+ * @returns Object with first quarter average, last quarter average, and quarter size.
+ * @example
+ * const samples = [{ fps: 60 }, { fps: 58 }, { fps: 55 }, { fps: 50 }];
+ * const result = compareQuarters(samples, s => s.fps);
+ * // result: { first: 60, last: 50, quarterSize: 1 }
+ */
+export const compareQuarters = <T>(
+  items: T[],
+  getValue: (item: T) => number,
+): { first: number; last: number; quarterSize: number } => {
+  if (items.length < 2) return { first: 0, last: 0, quarterSize: 0 };
+  const quarterSize = Math.max(1, Math.floor(items.length / 4));
+  const firstQuarter = items.slice(0, quarterSize);
+  const lastQuarter = items.slice(-quarterSize);
+  return {
+    first: average(firstQuarter.map(getValue)),
+    last: average(lastQuarter.map(getValue)),
+    quarterSize,
+  };
+};

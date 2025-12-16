@@ -33,6 +33,7 @@ tauri-plugin-single-instance = { version = "2.3.6", features = ["deep-link"] }
 [dependencies]
 device_query = "2.1.0"
 serde = "1.0.228"
+sysinfo = "0.32"
 serde_json = "1.0.145"
 tauri = { version = "2.9.5", features = ["devtools"] }
 tauri-plugin-store = "2.4.1"

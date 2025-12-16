@@ -1,0 +1,39 @@
+/*
+ * Copyright 2025 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-perf-dashboard {
+  padding: 1.5rem;
+  height: 100%;
+}
+
+.console-perf-metric-card {
+  padding: 1rem;
+  background-color: var(--pluto-gray-l1);
+  border-radius: var(--pluto-border-radius);
+  min-width: 150px;
+}
+
+.console-perf-analysis-header {
+  margin-top: 1.5rem;
+  width: fit-content;
+}
+
+.console-perf-analysis-header .pluto-header__actions {
+  margin-left: 1rem;
+}
+
+.console-perf-metric-row {
+  margin-top: 0.5rem;
+}
+
+.console-perf-error {
+  margin-top: 1rem;
+}

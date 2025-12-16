@@ -24,6 +24,7 @@ import { Docs } from "@/docs";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
+import { Perf } from "@/perf";
 import { Persist } from "@/persist";
 import { Range } from "@/range";
 import { Runtime } from "@/runtime";
@@ -35,6 +36,7 @@ import { Workspace } from "@/workspace";
 
 const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootState)> = [
   ...Layout.PERSIST_EXCLUDE,
+  ...Perf.PERSIST_EXCLUDE,
   ...Schematic.PERSIST_EXCLUDE,
 ];
 
@@ -45,6 +47,7 @@ const ZERO_STATE: RootState = {
   [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
   [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
+  [Perf.SLICE_NAME]: Perf.ZERO_SLICE_STATE,
   [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
   [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
   [Status.SLICE_NAME]: Status.ZERO_SLICE_STATE,
@@ -61,6 +64,7 @@ const reducer = combineReducers({
   [Layout.SLICE_NAME]: Layout.reducer,
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
   [Log.SLICE_NAME]: Log.reducer,
+  [Perf.SLICE_NAME]: Perf.reducer,
   [Range.SLICE_NAME]: Range.reducer,
   [Schematic.SLICE_NAME]: Schematic.reducer,
   [Status.SLICE_NAME]: Status.reducer,
@@ -77,6 +81,7 @@ export interface RootState {
   [Layout.SLICE_NAME]: Layout.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
+  [Perf.SLICE_NAME]: Perf.SliceState;
   [Range.SLICE_NAME]: Range.SliceState;
   [Schematic.SLICE_NAME]: Schematic.SliceState;
   [Status.SLICE_NAME]: Status.SliceState;
@@ -93,6 +98,7 @@ export type RootAction =
   | Layout.Action
   | LinePlot.Action
   | Log.Action
+  | Perf.Action
   | Range.Action
   | Schematic.Action
   | Status.Action
