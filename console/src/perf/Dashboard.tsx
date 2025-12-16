@@ -297,12 +297,17 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
       );
     }
 
+    // Use last buffered sample to avoid capturing stop-logic overhead
     if (status === "completed" && prevStatus === "running") {
-      const finalFPS = frameRateRef.current?.getCurrentFPS() ?? 0;
-      finalFPSRef.current = finalFPS;
-
-      const finalCPU = cpuRef.current?.getCpuPercent() ?? null;
-      finalCPURef.current = finalCPU;
+      const samples = sampleBufferRef.current.getAllSamples();
+      const lastSample = samples.at(-1);
+      if (lastSample != null) {
+        finalFPSRef.current = lastSample.frameRate;
+        finalCPURef.current = lastSample.cpuPercent;
+      } else {
+        finalFPSRef.current = frameRateRef.current?.getCurrentFPS() ?? 0;
+        finalCPURef.current = cpuRef.current?.getCpuPercent() ?? null;
+      }
     }
 
     // Reset when test is reset to idle
