@@ -48,7 +48,7 @@ static std::vector<uint8_t> decode_base64(const std::string &encoded) {
             temp[j] = 0;
         }
 
-        for (int j = 0; j < 4; j++) {
+        for (int j = 0; j < i; j++) {
             temp[j] = base64_chars.find(temp[j]);
         }
 
