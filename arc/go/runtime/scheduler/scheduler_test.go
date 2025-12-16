@@ -40,6 +40,10 @@ func (m *mockNode) Next(ctx node.Context) {
 	}
 }
 
+func (m *mockNode) IsOutputTruthy(param string) bool {
+	return false
+}
+
 func (m *mockNode) Reset() {}
 
 type mockErrorHandler struct {
