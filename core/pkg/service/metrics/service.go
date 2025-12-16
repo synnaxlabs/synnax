@@ -112,7 +112,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	}
 	s := &Service{stopCollector: make(chan struct{})}
 	nameBase := fmt.Sprintf("sy_node_%s_metrics_", cfg.HostProvider.HostKey())
-	allMetrics := buildMetrics(cfg.Storage)
+	allMetrics := buildMetrics(cfg.Storage, cfg.Channel.CountExternalNonVirtual)
 	c := &collector{
 		ins:      cfg.Child("collector"),
 		interval: cfg.CollectionInterval,

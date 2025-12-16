@@ -385,6 +385,7 @@ var _ = Describe("Metrics", Ordered, func() {
 			Expect(channelCountSeries.Len()).To(Equal(int64(1)))
 			channelCount := telem.ValueAt[int32](channelCountSeries, 0)
 			Expect(channelCount).To(BeNumerically(">", 0))
+			Expect(channelCount).To(Equal(int32(dist.Channel.CountExternalNonVirtual())))
 
 			Eventually(responses.Outlet()).Should(Receive(&res))
 			Expect(res.Frame.Count()).To(Equal(7))

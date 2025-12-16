@@ -25,7 +25,7 @@ type metric struct {
 	collect func() (any, error)
 }
 
-func buildMetrics(s *storage.Layer) []metric {
+func buildMetrics(s *storage.Layer, channelCount func() int) []metric {
 	return []metric{
 		{
 			ch: channel.Channel{
@@ -89,7 +89,7 @@ func buildMetrics(s *storage.Layer) []metric {
 				DataType: telem.Int32T,
 			},
 			collect: func() (any, error) {
-				return int32(s.TS.Metrics().ChannelCount), nil
+				return int32(channelCount()), nil
 			},
 		},
 	}
