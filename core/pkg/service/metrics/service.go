@@ -79,11 +79,11 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("config")
-	validate.NotNil(v, "Channel", c.Channel)
-	validate.NotNil(v, "Framer", c.Framer)
-	validate.NotNil(v, "HostProvider", c.HostProvider)
-	validate.NotNil(v, "Storage", c.Storage)
-	validate.Positive(v, "CollectionInterval", c.CollectionInterval)
+	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "framer", c.Framer)
+	validate.NotNil(v, "host_provider", c.HostProvider)
+	validate.NotNil(v, "storage", c.Storage)
+	validate.Positive(v, "collection_interval", c.CollectionInterval)
 	return v.Error()
 }
 

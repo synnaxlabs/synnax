@@ -29,10 +29,8 @@ var _ = Describe("Service", Ordered, func() {
 
 	Describe("CountExternalNonVirtual", func() {
 		It("Should return zero for empty database", func() {
-			// The cluster may have some channels from setup, so we just verify
-			// the count is non-negative and the method works
 			count := mockCluster.Nodes[1].Channel.CountExternalNonVirtual()
-			Expect(count).To(BeNumerically(">=", 0))
+			Expect(count).To(Equal(0))
 		})
 
 		It("Should count external non-virtual channels", func() {
