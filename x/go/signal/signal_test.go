@@ -28,18 +28,9 @@ func immediatelyReturnError(ctx context.Context) error {
 	return errors.New("routine failed")
 }
 
-func immediatelyPanic(ctx context.Context) error {
-	panic("routine panicked")
-}
+func immediatelyPanic(ctx context.Context) error { panic("routine panicked") }
 
-func immediatelyReturnNil(ctx context.Context) error {
-	return nil
-}
-
-func returnErrAfterContextCancel(ctx context.Context) error {
-	<-ctx.Done()
-	return ctx.Err()
-}
+func immediatelyReturnNil(ctx context.Context) error { return nil }
 
 var _ = Describe("Signal", func() {
 
