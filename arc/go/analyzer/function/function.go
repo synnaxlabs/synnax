@@ -151,10 +151,6 @@ func analyzeOutputs[T antlr.ParserRuleContext](
 			if typeCtx := namedOutput.Type_(); typeCtx != nil {
 				outputTypeVal, _ = atypes.InferFromTypeContext(typeCtx)
 			}
-			if outputs.Has(outputName) {
-				ctx.Diagnostics.AddError(errors.Newf("duplicate output %s", outputName), namedOutput)
-				return false
-			}
 			*outputs = append(*outputs, types.Param{Name: outputName, Type: outputTypeVal})
 			if _, err := scope.Add(ctx, symbol.Symbol{Name: outputName, Kind: symbol.KindOutput, Type: outputTypeVal, AST: namedOutput}); err != nil {
 				ctx.Diagnostics.AddError(err, namedOutput)
@@ -237,10 +233,6 @@ func analyzeInputs(
 			return false
 		}
 
-		if inputTypes.Has(inputName) {
-			ctx.Diagnostics.AddError(errors.Newf("duplicate input %s", inputName), input)
-			return false
-		}
 		*inputTypes = append(*inputTypes, types.Param{
 			Name:  inputName,
 			Type:  inputType,
@@ -302,10 +294,6 @@ func analyzeConfig[T antlr.ParserRuleContext](
 		var configType types.Type
 		if typeCtx := cfg.Type_(); typeCtx != nil {
 			configType, _ = atypes.InferFromTypeContext(typeCtx)
-		}
-		if config.Has(configName) {
-			ctx.Diagnostics.AddError(errors.Newf("duplicate config %s", configName), cfg)
-			return false
 		}
 		*config = append(*config, types.Param{Name: configName, Type: configType})
 		if _, err := scope.Add(ctx, symbol.Symbol{
