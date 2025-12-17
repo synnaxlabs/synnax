@@ -6,8 +6,6 @@ cc_library(
     deps = [
         "//arc/go/types:types_grpc",
         "//x/cpp/telem",
-        "//x/cpp/xjson",
-        "@nlohmann_json//:json",
     ],
 )
 

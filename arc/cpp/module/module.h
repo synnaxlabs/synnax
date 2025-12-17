@@ -15,9 +15,6 @@
 #include <string>
 #include <vector>
 
-#include "x/cpp/binary/base64.h"
-#include "x/cpp/xjson/xjson.h"
-
 #include "arc/cpp/ir/ir.h"
 #include "arc/go/module/arc/go/module/module.pb.h"
 
@@ -25,21 +22,6 @@ namespace arc::module {
 struct Module : ir::IR {
     std::vector<uint8_t> wasm;
     std::map<std::string, uint32_t> output_memory_bases;
-
-    explicit Module(xjson::Parser p): IR(p) {
-        auto wasm_str = p.field<std::string>("wasm");
-        this->wasm = binary::decode_base64(wasm_str);
-        this->output_memory_bases = p.field<std::map<std::string, uint32_t>>(
-            "output_memory_bases"
-        );
-    }
-
-    [[nodiscard]] nlohmann::json to_json() const {
-        auto j = IR::to_json();
-        j["wasm"] = wasm;
-        j["output_memory_bases"] = output_memory_bases;
-        return j;
-    }
 
     explicit Module(const v1::module::PBModule &pb): IR(pb.ir()) {
         this->wasm.assign(pb.wasm().begin(), pb.wasm().end());
@@ -66,12 +48,8 @@ struct Module : ir::IR {
                                  !edges.empty() || !strata.strata.empty() ||
                                  !sequences.empty();
 
-        // WASM summary
         ss << ir::tree_prefix(!has_content) << wasm_summary() << "\n";
-
-        // Delegate to IR for remaining content
-        if (has_content) { ss << IR::to_string_with_prefix(""); }
-
+        if (has_content) ss << IR::to_string_with_prefix("");
         return ss.str();
     }
 
@@ -85,7 +63,6 @@ private:
         if (wasm.empty()) return "WASM: (none)";
         std::ostringstream ss;
         ss << "WASM: " << wasm.size() << " bytes (sha256: ";
-        // Simple hash preview using first 4 bytes as hex
         ss << std::hex << std::setfill('0');
         for (size_t i = 0; i < std::min(size_t(4), wasm.size()); ++i)
             ss << std::setw(2) << static_cast<int>(wasm[i]);

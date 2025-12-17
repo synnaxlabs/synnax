@@ -12,7 +12,6 @@
 #include <ostream>
 
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xjson/xjson.h"
 
 #include "arc/go/types/arc/go/types/types.pb.h"
 
@@ -41,19 +40,6 @@ enum class Kind : uint8_t {
 struct Type {
     Kind kind = Kind::Invalid;
     std::unique_ptr<Type> elem;
-
-    explicit Type(xjson::Parser parser) {
-        this->kind = parser.field<Kind>("kind");
-        const auto elem_parser = parser.optional_child("elem");
-        if (elem_parser.ok()) this->elem = std::make_unique<Type>(elem_parser);
-    }
-
-    [[nodiscard]] nlohmann::json to_json() const {
-        nlohmann::json j;
-        j["kind"] = static_cast<uint8_t>(kind);
-        if (elem) j["elem"] = elem->to_json();
-        return j;
-    }
 
     explicit Type(const arc::v1::types::PBType &pb) {
         this->kind = static_cast<Kind>(pb.kind());
