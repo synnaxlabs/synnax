@@ -1401,4 +1401,198 @@ var _ = Describe("State", func() {
 			Expect(generator.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[int64](7)))
 		})
 	})
+
+	Describe("IsOutputTruthy", func() {
+		// Use string literal "output" to avoid shadowing ir package constant
+		const outputParam = "output"
+
+		Describe("isSeriesTruthy helper", func() {
+			It("Should return false for empty series", func() {
+				g := graph.Graph{
+					Nodes: []graph.Node{{Key: "test", Type: "test"}},
+					Functions: []graph.Function{{
+						Key: "test",
+						Outputs: types.Params{
+							{Name: outputParam, Type: types.F32()},
+						},
+					}},
+				}
+				prog, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue())
+				s := state.New(state.Config{IR: prog})
+				n := s.Node("test")
+				// Output is initialized but empty
+				*n.Output(0) = telem.Series{DataType: telem.Float32T}
+				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
+			})
+
+			It("Should return false for series with last element 0 (float64)", func() {
+				g := graph.Graph{
+					Nodes: []graph.Node{{Key: "test", Type: "test"}},
+					Functions: []graph.Function{{
+						Key: "test",
+						Outputs: types.Params{
+							{Name: outputParam, Type: types.F64()},
+						},
+					}},
+				}
+				prog, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue())
+				s := state.New(state.Config{IR: prog})
+				n := s.Node("test")
+				*n.Output(0) = telem.NewSeriesV[float64](1.0, 2.0, 0.0)
+				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
+			})
+
+			It("Should return true for series with last element non-zero (float64)", func() {
+				g := graph.Graph{
+					Nodes: []graph.Node{{Key: "test", Type: "test"}},
+					Functions: []graph.Function{{
+						Key: "test",
+						Outputs: types.Params{
+							{Name: outputParam, Type: types.F64()},
+						},
+					}},
+				}
+				prog, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue())
+				s := state.New(state.Config{IR: prog})
+				n := s.Node("test")
+				*n.Output(0) = telem.NewSeriesV[float64](0.0, 0.0, 3.14)
+				Expect(n.IsOutputTruthy(outputParam)).To(BeTrue())
+			})
+
+			It("Should return false for series with last element 0 (uint8)", func() {
+				g := graph.Graph{
+					Nodes: []graph.Node{{Key: "test", Type: "test"}},
+					Functions: []graph.Function{{
+						Key: "test",
+						Outputs: types.Params{
+							{Name: outputParam, Type: types.U8()},
+						},
+					}},
+				}
+				prog, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue())
+				s := state.New(state.Config{IR: prog})
+				n := s.Node("test")
+				*n.Output(0) = telem.NewSeriesV[uint8](1, 1, 0)
+				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
+			})
+
+			It("Should return true for series with last element non-zero (uint8)", func() {
+				g := graph.Graph{
+					Nodes: []graph.Node{{Key: "test", Type: "test"}},
+					Functions: []graph.Function{{
+						Key: "test",
+						Outputs: types.Params{
+							{Name: outputParam, Type: types.U8()},
+						},
+					}},
+				}
+				prog, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue())
+				s := state.New(state.Config{IR: prog})
+				n := s.Node("test")
+				*n.Output(0) = telem.NewSeriesV[uint8](0, 0, 1)
+				Expect(n.IsOutputTruthy(outputParam)).To(BeTrue())
+			})
+
+			It("Should return false for series with last element 0 (int32)", func() {
+				g := graph.Graph{
+					Nodes: []graph.Node{{Key: "test", Type: "test"}},
+					Functions: []graph.Function{{
+						Key: "test",
+						Outputs: types.Params{
+							{Name: outputParam, Type: types.I32()},
+						},
+					}},
+				}
+				prog, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue())
+				s := state.New(state.Config{IR: prog})
+				n := s.Node("test")
+				*n.Output(0) = telem.NewSeriesV[int32](42, -10, 0)
+				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
+			})
+
+			It("Should return true for series with last element non-zero (int32)", func() {
+				g := graph.Graph{
+					Nodes: []graph.Node{{Key: "test", Type: "test"}},
+					Functions: []graph.Function{{
+						Key: "test",
+						Outputs: types.Params{
+							{Name: outputParam, Type: types.I32()},
+						},
+					}},
+				}
+				prog, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue())
+				s := state.New(state.Config{IR: prog})
+				n := s.Node("test")
+				*n.Output(0) = telem.NewSeriesV[int32](0, 0, -42)
+				Expect(n.IsOutputTruthy(outputParam)).To(BeTrue())
+			})
+
+			It("Should return false for non-existent param name", func() {
+				g := graph.Graph{
+					Nodes: []graph.Node{{Key: "test", Type: "test"}},
+					Functions: []graph.Function{{
+						Key: "test",
+						Outputs: types.Params{
+							{Name: outputParam, Type: types.F32()},
+						},
+					}},
+				}
+				prog, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue())
+				s := state.New(state.Config{IR: prog})
+				n := s.Node("test")
+				*n.Output(0) = telem.NewSeriesV[float32](1.0)
+				Expect(n.IsOutputTruthy("nonexistent")).To(BeFalse())
+			})
+
+			It("Should check the last element only", func() {
+				g := graph.Graph{
+					Nodes: []graph.Node{{Key: "test", Type: "test"}},
+					Functions: []graph.Function{{
+						Key: "test",
+						Outputs: types.Params{
+							{Name: outputParam, Type: types.I64()},
+						},
+					}},
+				}
+				prog, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue())
+				s := state.New(state.Config{IR: prog})
+				n := s.Node("test")
+				// Many truthy values followed by falsy
+				*n.Output(0) = telem.NewSeriesV[int64](100, 200, 300, 0)
+				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
+				// Many falsy values followed by truthy
+				*n.Output(0) = telem.NewSeriesV[int64](0, 0, 0, 42)
+				Expect(n.IsOutputTruthy(outputParam)).To(BeTrue())
+			})
+
+			It("Should handle timestamp type", func() {
+				g := graph.Graph{
+					Nodes: []graph.Node{{Key: "test", Type: "test"}},
+					Functions: []graph.Function{{
+						Key: "test",
+						Outputs: types.Params{
+							{Name: outputParam, Type: types.TimeStamp()},
+						},
+					}},
+				}
+				prog, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue())
+				s := state.New(state.Config{IR: prog})
+				n := s.Node("test")
+				*n.Output(0) = telem.NewSeriesV[telem.TimeStamp](0)
+				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
+				*n.Output(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
+				Expect(n.IsOutputTruthy(outputParam)).To(BeTrue())
+			})
+		})
+	})
 })

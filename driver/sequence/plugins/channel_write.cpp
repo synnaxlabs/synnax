@@ -26,7 +26,7 @@ xerrors::Error plugins::SynnaxFrameSink::open() {
     return xerrors::NIL;
 }
 
-xerrors::Error plugins::SynnaxFrameSink::write(const synnax::Frame &frame) {
+xerrors::Error plugins::SynnaxFrameSink::write(const telem::Frame &frame) {
     if (frame.empty()) return xerrors::NIL;
     return this->writer->write(frame);
 }
@@ -49,7 +49,7 @@ plugins::ChannelWrite::ChannelWrite(
     std::shared_ptr<plugins::FrameSink> sink,
     const std::vector<synnax::Channel> &channels
 ):
-    frame(synnax::Frame(channels.size())),
+    frame(telem::Frame(channels.size())),
     sink(std::move(sink)),
     channels(channels.size()),
     names_to_keys(channels.size()) {
