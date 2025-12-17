@@ -13,7 +13,6 @@ import (
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -25,7 +24,7 @@ type metric struct {
 	collect func() (any, error)
 }
 
-func buildMetrics(s *storage.Layer, channelCount func() int) []metric {
+func (svc *Service) buildMetrics() []metric {
 	return []metric{
 		{
 			ch: channel.Channel{
@@ -62,7 +61,7 @@ func buildMetrics(s *storage.Layer, channelCount func() int) []metric {
 				DataType: telem.Float32T,
 			},
 			collect: func() (any, error) {
-				return float32(s.Size()) / float32(telem.Gigabyte), nil
+				return float32(svc.cfg.Storage.Size()) / float32(telem.Gigabyte), nil
 			},
 		},
 		{
@@ -71,7 +70,7 @@ func buildMetrics(s *storage.Layer, channelCount func() int) []metric {
 				DataType: telem.Float32T,
 			},
 			collect: func() (any, error) {
-				return float32(s.TSSize()) / float32(telem.Gigabyte), nil
+				return float32(svc.cfg.Storage.TSSize()) / float32(telem.Gigabyte), nil
 			},
 		},
 		{
@@ -80,7 +79,7 @@ func buildMetrics(s *storage.Layer, channelCount func() int) []metric {
 				DataType: telem.Float32T,
 			},
 			collect: func() (any, error) {
-				return float32(s.KVSize()) / float32(telem.Gigabyte), nil
+				return float32(svc.cfg.Storage.KVSize()) / float32(telem.Gigabyte), nil
 			},
 		},
 		{
@@ -89,7 +88,7 @@ func buildMetrics(s *storage.Layer, channelCount func() int) []metric {
 				DataType: telem.Int32T,
 			},
 			collect: func() (any, error) {
-				return int32(channelCount()), nil
+				return int32(svc.cfg.Channel.CountExternalNonVirtual()), nil
 			},
 		},
 	}
