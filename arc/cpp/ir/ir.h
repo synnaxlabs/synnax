@@ -270,30 +270,25 @@ struct Node {
         const bool has_inputs = !inputs.empty();
         const bool has_outputs = !outputs.empty();
 
-        // Channels
         bool is_last = !has_config && !has_inputs && !has_outputs;
         ss << prefix << tree_prefix(is_last) << "channels: " << channels.to_string()
            << "\n";
 
-        // Config (if any)
         if (has_config) {
             is_last = !has_inputs && !has_outputs;
             ss << prefix << tree_prefix(is_last) << "config: " << config.to_string()
                << "\n";
         }
 
-        // Inputs
         if (has_inputs) {
             is_last = !has_outputs;
             ss << prefix << tree_prefix(is_last) << "inputs: " << inputs.to_string()
                << "\n";
         }
 
-        // Outputs
-        if (has_outputs) {
+        if (has_outputs)
             ss << prefix << tree_prefix(true) << "outputs: " << outputs.to_string()
                << "\n";
-        }
 
         return ss.str();
     }
@@ -356,10 +351,9 @@ struct Function {
                << "\n";
         }
 
-        if (has_outputs) {
+        if (has_outputs)
             ss << prefix << tree_prefix(true) << "outputs: " << outputs.to_string()
                << "\n";
-        }
 
         return ss.str();
     }
@@ -589,7 +583,7 @@ struct IR {
         });
     }
 
-    [[nodiscard]] const_edge_iterator find_edge_by_target(const Handle &handle) {
+    [[nodiscard]] const_edge_iterator find_edge_by_target(const Handle &handle) const {
         return std::ranges::find_if(edges, [&](const auto &edge) {
             return edge.target == handle;
         });
@@ -656,12 +650,12 @@ private:
     void write_functions(
         std::ostringstream &ss,
         const std::string &prefix,
-        bool last
+        const bool last
     ) const {
         ss << prefix << tree_prefix(last) << "Functions (" << functions.size() << ")\n";
-        std::string child_prefix = prefix + tree_indent(last);
+        const std::string child_prefix = prefix + tree_indent(last);
         for (size_t i = 0; i < functions.size(); ++i) {
-            bool is_last = i == functions.size() - 1;
+            const bool is_last = i == functions.size() - 1;
             ss << child_prefix << tree_prefix(is_last)
                << functions[i].to_string_with_prefix(
                       child_prefix + tree_indent(is_last)
@@ -672,9 +666,9 @@ private:
     void
     write_nodes(std::ostringstream &ss, const std::string &prefix, bool last) const {
         ss << prefix << tree_prefix(last) << "Nodes (" << nodes.size() << ")\n";
-        std::string child_prefix = prefix + tree_indent(last);
+        const std::string child_prefix = prefix + tree_indent(last);
         for (size_t i = 0; i < nodes.size(); ++i) {
-            bool is_last = i == nodes.size() - 1;
+            const bool is_last = i == nodes.size() - 1;
             ss << child_prefix << tree_prefix(is_last)
                << nodes[i].to_string_with_prefix(child_prefix + tree_indent(is_last));
         }
@@ -683,9 +677,9 @@ private:
     void
     write_edges(std::ostringstream &ss, const std::string &prefix, bool last) const {
         ss << prefix << tree_prefix(last) << "Edges (" << edges.size() << ")\n";
-        std::string child_prefix = prefix + tree_indent(last);
+        const std::string child_prefix = prefix + tree_indent(last);
         for (size_t i = 0; i < edges.size(); ++i) {
-            bool is_last = i == edges.size() - 1;
+            const bool is_last = i == edges.size() - 1;
             ss << child_prefix << tree_prefix(is_last) << edges[i].to_string() << "\n";
         }
     }
@@ -694,19 +688,19 @@ private:
     write_strata(std::ostringstream &ss, const std::string &prefix, bool last) const {
         ss << prefix << tree_prefix(last) << "Strata (" << strata.strata.size()
            << " layers)\n";
-        std::string child_prefix = prefix + tree_indent(last);
+        const std::string child_prefix = prefix + tree_indent(last);
         ss << strata.to_string_with_prefix(child_prefix);
     }
 
     void write_sequences(
         std::ostringstream &ss,
         const std::string &prefix,
-        bool last
+        const bool last
     ) const {
         ss << prefix << tree_prefix(last) << "Sequences (" << sequences.size() << ")\n";
-        std::string child_prefix = prefix + tree_indent(last);
+        const std::string child_prefix = prefix + tree_indent(last);
         for (size_t i = 0; i < sequences.size(); ++i) {
-            bool is_last = i == sequences.size() - 1;
+            const bool is_last = i == sequences.size() - 1;
             ss << child_prefix << tree_prefix(is_last)
                << sequences[i].to_string_with_prefix(
                       child_prefix + tree_indent(is_last)
