@@ -58,7 +58,7 @@ func (c *collector) Flow(sCtx signal.Context, opts ...confluence.Option) {
 						c.ins.L.Warn("failed to collect metric from host", zap.Error(err), zap.String("name", metric.ch.Name))
 						continue
 					}
-					frame = frame.Append(metric.ch.Key(), telem.NewSeriesV[float32](value))
+					frame = frame.Append(metric.ch.Key(), telem.NewSeriesFromAny(value, metric.ch.DataType))
 				}
 				if err := signal.SendUnderContext(ctx, c.Out.Inlet(), framer.WriterRequest{
 					Command: writer.Write,
