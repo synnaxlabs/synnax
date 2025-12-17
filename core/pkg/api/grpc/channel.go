@@ -19,7 +19,6 @@ import (
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -37,19 +36,7 @@ type (
 		api.ChannelCreateResponse,
 		*gapi.ChannelCreateResponse,
 	]
-	channelCreateClient = fgrpc.UnaryClient[
-		api.ChannelCreateRequest,
-		*gapi.ChannelCreateRequest,
-		api.ChannelCreateResponse,
-		*gapi.ChannelCreateResponse,
-	]
 	channelRetrieveServer = fgrpc.UnaryServer[
-		api.ChannelRetrieveRequest,
-		*gapi.ChannelRetrieveRequest,
-		api.ChannelRetrieveResponse,
-		*gapi.ChannelRetrieveResponse,
-	]
-	channelRetrieveClient = fgrpc.UnaryClient[
 		api.ChannelRetrieveRequest,
 		*gapi.ChannelRetrieveRequest,
 		api.ChannelRetrieveResponse,
