@@ -132,6 +132,12 @@ func (s *Service) NewRetrieve() Retrieve {
 	}
 }
 
+func (s *Service) CountExternalNonVirtual() int {
+	s.proxy.mu.RLock()
+	defer s.proxy.mu.RUnlock()
+	return int(s.proxy.mu.externalNonVirtualSet.Size())
+}
+
 func (s *Service) validateChannels(channels []Channel) ([]Channel, error) {
 	res := make([]Channel, 0, len(channels))
 	s.proxy.mu.RLock()
