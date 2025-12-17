@@ -254,7 +254,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     );
     cmd.key = "my_command";
     ASSERT_NIL(
-        writer.write(synnax::Frame(sy_task_cmd.key, telem::Series(cmd.to_json())))
+        writer.write(telem::Frame(sy_task_cmd.key, telem::Series(cmd.to_json())))
     );
     ASSERT_NIL(writer.close());
 

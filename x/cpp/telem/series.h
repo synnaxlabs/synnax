@@ -20,7 +20,7 @@
 #include "x/cpp/binary/binary.h"
 #include "x/cpp/telem/telem.h"
 
-#include "x/go/telem/x/go/telem/telem.pb.h"
+#include "x/go/telem/telem.pb.h"
 
 using json = nlohmann::json;
 
@@ -124,7 +124,8 @@ private:
         cached_byte_size(other.cached_byte_size),
         size_(other.size_),
         data_(std::make_unique<std::byte[]>(other.byte_size())),
-        time_range(other.time_range) {
+        time_range(other.time_range),
+        alignment(other.alignment) {
         memcpy(data_.get(), other.data_.get(), other.byte_size());
     }
 
@@ -197,7 +198,8 @@ public:
         cached_byte_size(other.cached_byte_size),
         size_(other.size_),
         data_(std::move(other.data_)),
-        time_range(other.time_range) {
+        time_range(other.time_range),
+        alignment(other.alignment) {
         other.data_ = nullptr;
     }
 

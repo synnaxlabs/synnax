@@ -547,8 +547,8 @@ TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
     signaled_dev.rack = 1;
 
     // Create the frame with device JSON on the device_set channel
-    auto reads = std::make_shared<std::vector<synnax::Frame>>();
-    synnax::Frame signal_frame(1);
+    auto reads = std::make_shared<std::vector<telem::Frame>>();
+    telem::Frame signal_frame(1);
     json dev_json = {{"key", signaled_dev.key}};
     signal_frame.emplace(device_set_ch.key, telem::Series(dev_json.dump()));
     reads->push_back(std::move(signal_frame));
@@ -610,8 +610,8 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
     device_delete_ch.name = synnax::DEVICE_DELETE_CHANNEL;
 
     // Create the frame with device key on the device_delete channel
-    auto reads = std::make_shared<std::vector<synnax::Frame>>();
-    synnax::Frame signal_frame(1);
+    auto reads = std::make_shared<std::vector<telem::Frame>>();
+    telem::Frame signal_frame(1);
     signal_frame.emplace(
         device_delete_ch.key,
         telem::Series(std::string("device-to-delete"))
@@ -687,8 +687,8 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
     wrong_make_dev.make = "other_make";
     wrong_make_dev.rack = 1;
 
-    auto reads = std::make_shared<std::vector<synnax::Frame>>();
-    synnax::Frame signal_frame(1);
+    auto reads = std::make_shared<std::vector<telem::Frame>>();
+    telem::Frame signal_frame(1);
     json dev_json = {{"key", wrong_make_dev.key}};
     signal_frame.emplace(device_set_ch.key, telem::Series(dev_json.dump()));
     reads->push_back(std::move(signal_frame));

@@ -2,7 +2,6 @@ cc_library(
     name = "framer",
     srcs = [
         "codec.cpp",
-        "frame.cpp",
         "streamer.cpp",
         "writer.cpp",
     ],
@@ -26,7 +25,6 @@ cc_test(
     name = "framer_test",
     srcs = [
         "codec_test.cpp",
-        "frame_test.cpp",
         "streamer_test.cpp",
         "writer_test.cpp",
     ],
