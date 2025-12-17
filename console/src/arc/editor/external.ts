@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/arc/editor/Editor";
+export * from "@/arc/editor/TextEditor";
 export { Toolbar } from "@/arc/editor/toolbar";

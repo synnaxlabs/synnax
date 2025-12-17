@@ -152,7 +152,7 @@ public:
 
     xerrors::Error write(telem::Frame &frame) override {
         if (frame.empty()) return xerrors::NIL;
-        // VLOG(1) << "[arc.sink] writing to runtime " << frame;
+        VLOG(1) << "[arc.sink] writing to runtime " << frame;
         return this->runtime->write(std::move(frame));
     }
 };
@@ -227,7 +227,9 @@ public:
     }
 
     void exec(task::Command &cmd) override {
-        if (cmd.type == "stop")
+        if (cmd.type == "start")
+            this->start(cmd.key);
+        else if (cmd.type == "stop")
             this->stop(false);
         else
             LOG(WARNING) << "[arc] unknown command type: " << cmd.type;
