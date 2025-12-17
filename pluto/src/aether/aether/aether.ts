@@ -286,7 +286,7 @@ export abstract class Leaf<
    * Methods schema for invoke. Define this to enable invokable methods.
    * Method names in the schema must match method names on the class.
    */
-  methods: Methods | undefined = undefined as Methods | undefined;
+  methods: Methods | undefined = undefined;
   private _methodImplementations: Record<
     string,
     (...args: unknown[]) => Promise<unknown>
