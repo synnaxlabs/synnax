@@ -7,22 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package sequence implements semantic analysis for Arc sequences and stages.
-//
-// Sequences are state machines with ordered stages. Each stage can contain reactive
-// flows (-> operator) that run continuously while the stage is active, and one-shot
-// transitions (=> operator) that fire when conditions become true.
-//
-// The analyzer validates:
-//   - Sequence and stage declarations are properly formed
-//   - Stage names are unique within their sequence
-//   - Stage names don't conflict with sequence names
-//   - Transition targets resolve to valid stages or sequences
-//   - The `next` keyword resolves to the next stage in definition order
-//   - Reactive flows and transition conditions are type-correct
-//
-// Safety warnings are emitted when:
-//   - Non-abort transitions appear before abort conditions (potential safety issue)
 package sequence
 
 import (
@@ -31,7 +15,6 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/errors"
 )
 
 // CollectDeclarations registers all sequences and their stages in the symbol table.
@@ -61,86 +44,48 @@ func CollectDeclarations(ctx context.Context[parser.IProgramContext]) bool {
 // collectSequenceName registers a sequence in the symbol table (first pass).
 func collectSequenceName(ctx context.Context[parser.ISequenceDeclarationContext]) bool {
 	name := ctx.AST.IDENTIFIER().GetText()
-
-	// Check for name collision with existing symbols
-	if existing, err := ctx.Scope.Resolve(ctx, name); err == nil && existing.AST != nil {
-		tok := existing.AST.GetStart()
-		ctx.Diagnostics.AddError(
-			errors.Newf("sequence name '%s' conflicts with existing symbol at line %d, col %d",
-				name, tok.GetLine(), tok.GetColumn()),
-			ctx.AST,
-		)
-		return false
-	}
-
-	// Add sequence to root scope
-	_, err := ctx.Scope.Add(ctx, symbol.Symbol{
+	if _, err := ctx.Scope.Add(ctx, symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindSequence,
 		Type: types.Sequence(),
 		AST:  ctx.AST,
-	})
-	if err != nil {
+	}); err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
-
 	return true
 }
 
-// collectSequenceStages registers all stages for a sequence (second pass).
 func collectSequenceStages(ctx context.Context[parser.ISequenceDeclarationContext]) bool {
 	name := ctx.AST.IDENTIFIER().GetText()
-
-	// Resolve the sequence scope we created in the first pass
 	seqScope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
-
-	// Collect all stages in definition order
 	stages := ctx.AST.AllStageDeclaration()
 	for _, stageDecl := range stages {
-		if !collectStage(context.Child(ctx, stageDecl).WithScope(seqScope), seqScope, name) {
+		if !collectStage(context.Child(ctx, stageDecl).WithScope(seqScope), seqScope) {
 			return false
 		}
 	}
-
 	return true
 }
 
-// collectStage registers a stage in the sequence scope.
 func collectStage(
 	ctx context.Context[parser.IStageDeclarationContext],
 	seqScope *symbol.Scope,
-	seqName string,
 ) bool {
 	stageName := ctx.AST.IDENTIFIER().GetText()
-
-	// Check that stage name doesn't conflict with any sequence name
-	if existing, err := ctx.Scope.Root().Resolve(ctx, stageName); err == nil {
-		if existing.Kind == symbol.KindSequence {
-			ctx.Diagnostics.AddError(
-				errors.Newf("stage name '%s' conflicts with sequence name", stageName),
-				ctx.AST,
-			)
-			return false
-		}
-	}
-
-	// Add stage to sequence scope
-	_, err := seqScope.Add(ctx, symbol.Symbol{
+	if _, err := seqScope.Add(ctx, symbol.Symbol{
 		Name: stageName,
 		Kind: symbol.KindStage,
 		Type: types.Stage(),
 		AST:  ctx.AST,
-	})
-	if err != nil {
+	}); err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
-
 	return true
 }
 
@@ -148,23 +93,16 @@ func collectStage(
 // This is called during the second pass after all declarations have been collected.
 func Analyze(ctx context.Context[parser.ISequenceDeclarationContext]) bool {
 	name := ctx.AST.IDENTIFIER().GetText()
-
-	// Resolve the sequence scope
 	seqScope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
-
-	// Analyze each stage
-	stages := ctx.AST.AllStageDeclaration()
-	for _, stageDecl := range stages {
-		stageCtx := context.Child(ctx, stageDecl).WithScope(seqScope)
-		if !analyzeStage(stageCtx, seqScope) {
+	for _, stageDecl := range ctx.AST.AllStageDeclaration() {
+		if !analyzeStage(context.Child(ctx, stageDecl).WithScope(seqScope)) {
 			return false
 		}
 	}
-
 	return true
 }
 
@@ -172,14 +110,11 @@ func Analyze(ctx context.Context[parser.ISequenceDeclarationContext]) bool {
 // With unified flow statements, stages now just contain flows (no special transitions).
 func analyzeStage(
 	ctx context.Context[parser.IStageDeclarationContext],
-	seqScope *symbol.Scope,
 ) bool {
 	stageBody := ctx.AST.StageBody()
 	if stageBody == nil {
-		return true // Empty stage body is valid
+		return true
 	}
-
-	// All stage items are now flow statements
 	for _, item := range stageBody.AllStageItem() {
 		if flowStmt := item.FlowStatement(); flowStmt != nil {
 			if !flow.Analyze(context.Child(ctx, flowStmt)) {
@@ -187,6 +122,5 @@ func analyzeStage(
 			}
 		}
 	}
-
 	return true
 }

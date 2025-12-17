@@ -74,6 +74,7 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
@@ -125,31 +126,26 @@ func (i *IR) stringWithPrefix(prefix string) string {
 	hasStrata := len(i.Strata) > 0
 	hasSequences := len(i.Sequences) > 0
 
-	// Functions
 	if hasFunctions {
 		isLast := !hasNodes && !hasEdges && !hasStrata && !hasSequences
 		i.writeFunctions(&b, prefix, isLast)
 	}
 
-	// Nodes
 	if hasNodes {
 		isLast := !hasEdges && !hasStrata && !hasSequences
 		i.writeNodes(&b, prefix, isLast)
 	}
 
-	// Edges
 	if hasEdges {
 		isLast := !hasStrata && !hasSequences
 		i.writeEdges(&b, prefix, isLast)
 	}
 
-	// Strata
 	if hasStrata {
 		isLast := !hasSequences
 		i.writeStrata(&b, prefix, isLast)
 	}
 
-	// Sequences
 	if hasSequences {
 		i.writeSequences(&b, prefix, true)
 	}
@@ -160,7 +156,7 @@ func (i *IR) stringWithPrefix(prefix string) string {
 func (i *IR) writeFunctions(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(prefix)
 	b.WriteString(treePrefix(last))
-	fmt.Fprintf(b, "Functions (%d)\n", len(i.Functions))
+	lo.Must(fmt.Fprintf(b, "Functions (%d)\n", len(i.Functions)))
 	childPrefix := prefix + treeIndent(last)
 	for j, f := range i.Functions {
 		isLast := j == len(i.Functions)-1
@@ -173,7 +169,7 @@ func (i *IR) writeFunctions(b *strings.Builder, prefix string, last bool) {
 func (i *IR) writeNodes(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(prefix)
 	b.WriteString(treePrefix(last))
-	fmt.Fprintf(b, "Nodes (%d)\n", len(i.Nodes))
+	lo.Must(fmt.Fprintf(b, "Nodes (%d)\n", len(i.Nodes)))
 	childPrefix := prefix + treeIndent(last)
 	for j, n := range i.Nodes {
 		isLast := j == len(i.Nodes)-1
@@ -186,7 +182,7 @@ func (i *IR) writeNodes(b *strings.Builder, prefix string, last bool) {
 func (i *IR) writeEdges(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(prefix)
 	b.WriteString(treePrefix(last))
-	fmt.Fprintf(b, "Edges (%d)\n", len(i.Edges))
+	lo.Must(fmt.Fprintf(b, "Edges (%d)\n", len(i.Edges)))
 	childPrefix := prefix + treeIndent(last)
 	for j, e := range i.Edges {
 		isLast := j == len(i.Edges)-1
@@ -200,7 +196,7 @@ func (i *IR) writeEdges(b *strings.Builder, prefix string, last bool) {
 func (i *IR) writeStrata(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(prefix)
 	b.WriteString(treePrefix(last))
-	fmt.Fprintf(b, "Strata (%d layers)\n", len(i.Strata))
+	lo.Must(fmt.Fprintf(b, "Strata (%d layers)\n", len(i.Strata)))
 	childPrefix := prefix + treeIndent(last)
 	b.WriteString(i.Strata.stringWithPrefix(childPrefix))
 }
@@ -208,7 +204,7 @@ func (i *IR) writeStrata(b *strings.Builder, prefix string, last bool) {
 func (i *IR) writeSequences(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(prefix)
 	b.WriteString(treePrefix(last))
-	fmt.Fprintf(b, "Sequences (%d)\n", len(i.Sequences))
+	lo.Must(fmt.Fprintf(b, "Sequences (%d)\n", len(i.Sequences)))
 	childPrefix := prefix + treeIndent(last)
 	for j, s := range i.Sequences {
 		isLast := j == len(i.Sequences)-1
