@@ -265,7 +265,7 @@ var _ = Describe("Expressions", func() {
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
-		It("Should correctly type boolean literals", func() {
+		It("Should correctly type u8 values used as booleans", func() {
 			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x := 1

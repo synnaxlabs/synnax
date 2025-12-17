@@ -91,7 +91,6 @@ func (f Function) stringWithPrefix(prefix string) string {
 	b.WriteString(formatChannels(f.Channels))
 	b.WriteString("\n")
 
-	// Config (if any)
 	if hasConfig {
 		isLast = !hasInputs && !hasOutputs
 		b.WriteString(prefix)
@@ -101,7 +100,6 @@ func (f Function) stringWithPrefix(prefix string) string {
 		b.WriteString("\n")
 	}
 
-	// Inputs
 	if hasInputs {
 		isLast = !hasOutputs
 		b.WriteString(prefix)
@@ -111,7 +109,6 @@ func (f Function) stringWithPrefix(prefix string) string {
 		b.WriteString("\n")
 	}
 
-	// Outputs
 	if hasOutputs {
 		b.WriteString(prefix)
 		b.WriteString(treePrefix(true))
