@@ -29,7 +29,8 @@ export interface DragButtonExtraProps {
 }
 
 export interface DragButtonProps
-  extends Omit<
+  extends
+    Omit<
       Button.ButtonProps,
       | "direction"
       | "onChange"

@@ -11,18 +11,22 @@ import { ontology, workspace } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
 import type z from "zod";
 
+import { type policy } from "@/access/policy/aether";
+import { type role } from "@/access/role/aether";
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "workspaces";
-const RESOURCE_NAME = "Workspace";
-const PLURAL_RESOURCE_NAME = "Workspaces";
+const RESOURCE_NAME = "workspace";
+const PLURAL_RESOURCE_NAME = "workspaces";
 
-export interface FluxStore
-  extends Flux.UnaryStore<workspace.Key, workspace.Workspace> {}
+export interface FluxStore extends Flux.UnaryStore<
+  workspace.Key,
+  workspace.Workspace
+> {}
 
-interface FluxSubStore extends Flux.Store {
+interface FluxSubStore extends Flux.Store, role.FluxSubStore, policy.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
@@ -34,9 +38,7 @@ const SET_WORKSPACE_LISTENER: Flux.ChannelListener<
 > = {
   channel: workspace.SET_CHANNEL_NAME,
   schema: workspace.workspaceZ,
-  onChange: ({ store, changed }) => {
-    store.workspaces.set(changed.key, changed);
-  },
+  onChange: ({ store, changed }) => store.workspaces.set(changed.key, changed),
 };
 
 const DELETE_WORKSPACE_LISTENER: Flux.ChannelListener<
@@ -73,7 +75,7 @@ export const { useRetrieve } = Flux.createRetrieve<
   workspace.Workspace,
   FluxSubStore
 >({
-  name: "Workspace",
+  name: RESOURCE_NAME,
   retrieve: retrieveSingle,
   mountListeners: ({ store, query: { key }, onChange }) => [
     store.workspaces.onSet(onChange, key),
@@ -109,7 +111,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const keys = array.toArray(data);
-    const ids = keys.map((key) => workspace.ontologyID(key));
+    const ids = workspace.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.resources.delete(keys));
@@ -201,7 +203,7 @@ export const { useUpdate: useSaveLayout } = Flux.createUpdate<
     rollbacks.push(
       store.workspaces.set(
         key,
-        state.skipNull((p) => ({ ...p, layout })),
+        state.skipUndefined((p) => ({ ...p, layout })),
       ),
     );
     await client.workspaces.setLayout(key, layout);

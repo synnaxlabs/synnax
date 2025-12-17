@@ -19,22 +19,25 @@ Control::Control(
     std::shared_ptr<synnax::Synnax> client,
     synnax::StreamerConfig streamer_config,
     std::shared_ptr<pipeline::Sink> sink,
-    const breaker::Config &breaker_config
+    const breaker::Config &breaker_config,
+    std::string thread_name
 ):
     Control(
         std::make_shared<SynnaxStreamerFactory>(std::move(client)),
         streamer_config,
         sink,
-        breaker_config
+        breaker_config,
+        std::move(thread_name)
     ) {}
 
 Control::Control(
     std::shared_ptr<StreamerFactory> streamer_factory,
     synnax::StreamerConfig streamer_config,
     std::shared_ptr<Sink> sink,
-    const breaker::Config &breaker_config
+    const breaker::Config &breaker_config,
+    std::string thread_name
 ):
-    Base(breaker_config),
+    Base(breaker_config, std::move(thread_name)),
     factory(std::move(streamer_factory)),
     config(std::move(streamer_config)),
     sink(std::move(sink)) {}
@@ -78,7 +81,7 @@ void Control::run() {
 SynnaxStreamer::SynnaxStreamer(synnax::Streamer internal):
     internal(std::move(internal)) {}
 
-std::pair<synnax::Frame, xerrors::Error> SynnaxStreamer::read() {
+std::pair<telem::Frame, xerrors::Error> SynnaxStreamer::read() {
     return this->internal.read();
 }
 

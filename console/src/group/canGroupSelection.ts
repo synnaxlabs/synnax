@@ -18,7 +18,7 @@ export const canGroupSelection = (
   const strIDs = selection.map((id) => ontology.idToString(id));
   const filteredShape = Tree.filterShape(shape, (key) => strIDs.includes(key));
   const nodeKeysOfMinDepth = Tree.getAllNodesOfMinDepth(filteredShape);
-  if (nodeKeysOfMinDepth.length < 2) return false;
+  if (nodeKeysOfMinDepth.length < 1) return false;
   const isZeroDepth =
     Tree.getDepth(nodeKeysOfMinDepth[0], shape) === 0 &&
     ontology.idsEqual(rootID, ontology.ROOT_ID);

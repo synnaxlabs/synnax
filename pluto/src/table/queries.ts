@@ -20,7 +20,7 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
 > = { listeners: [] };
 
 export const FLUX_STORE_KEY = "tables";
-const RESOURCE_NAME = "Table";
+const RESOURCE_NAME = "table";
 
 export interface FluxStore extends Flux.UnaryStore<table.Key, table.Table> {}
 
@@ -63,7 +63,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, rollbacks, store }) => {
     const keys = array.toArray(data);
-    const ids = keys.map((k) => table.ontologyID(k));
+    const ids = table.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     await client.workspaces.tables.delete(data);

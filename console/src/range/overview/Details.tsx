@@ -187,8 +187,9 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
                 handleError(async () => {
                   await promptDownloadCSVModal(
                     {
-                      timeRanges: [form.get<NumericTimeRange>("timeRange").value],
+                      timeRange: form.get<NumericTimeRange>("timeRange").value,
                       name,
+                      channels: [],
                     },
                     { icon: "Range" },
                   );

@@ -87,11 +87,11 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) api.Transpo
 		SchematicCopy:     fhttp.UnaryServer[api.SchematicCopyRequest, api.SchematicCopyResponse](router, "/api/v1/workspace/schematic/copy"),
 
 		// SCHEMATIC SYMBOL
-		SchematicSymbolCreate:        fhttp.UnaryServer[api.SymbolCreateRequest, api.SymbolCreateResponse](router, "/api/v1/workspace/schematic/symbol/create"),
-		SchematicSymbolRetrieve:      fhttp.UnaryServer[api.SymbolRetrieveRequest, api.SymbolRetrieveResponse](router, "/api/v1/workspace/schematic/symbol/retrieve"),
-		SchematicSymbolDelete:        fhttp.UnaryServer[api.SymbolDeleteRequest, types.Nil](router, "/api/v1/workspace/schematic/symbol/delete"),
-		SchematicSymbolRename:        fhttp.UnaryServer[api.SymbolRenameRequest, types.Nil](router, "/api/v1/workspace/schematic/symbol/rename"),
-		SchematicSymbolRetrieveGroup: fhttp.UnaryServer[api.SymbolRetrieveGroupRequest, api.SymbolRetrieveGroupResponse](router, "/api/v1/workspace/schematic/symbol/retrieve_group"),
+		SchematicCreateSymbol:        fhttp.UnaryServer[api.SchematicCreateSymbolRequest, api.SchematicCreateSymbolResponse](router, "/api/v1/workspace/schematic/symbol/create"),
+		SchematicRetrieveSymbol:      fhttp.UnaryServer[api.SchematicRetrieveSymbolRequest, api.SchematicRetrieveSymbolResponse](router, "/api/v1/workspace/schematic/symbol/retrieve"),
+		SchematicDeleteSymbol:        fhttp.UnaryServer[api.SchematicDeleteSymbolRequest, types.Nil](router, "/api/v1/workspace/schematic/symbol/delete"),
+		SchematicRenameSymbol:        fhttp.UnaryServer[api.SchematicRenameSymbolRequest, types.Nil](router, "/api/v1/workspace/schematic/symbol/rename"),
+		SchematicRetrieveSymbolGroup: fhttp.UnaryServer[api.SchematicRetrieveSymbolGroupRequest, api.SchematicRetrieveSymbolGroupResponse](router, "/api/v1/workspace/schematic/symbol/retrieve_group"),
 
 		// LINE PLOT
 		LinePlotCreate:   fhttp.UnaryServer[api.LinePlotCreateRequest, api.LinePlotCreateResponse](router, "/api/v1/workspace/lineplot/create"),
@@ -121,22 +121,31 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) api.Transpo
 		LabelAdd:      fhttp.UnaryServer[api.LabelAddRequest, types.Nil](router, "/api/v1/label/set"),
 		LabelRemove:   fhttp.UnaryServer[api.LabelRemoveRequest, types.Nil](router, "/api/v1/label/remove"),
 
-		// HARDWARE
-		HardwareCreateRack:     fhttp.UnaryServer[api.HardwareCreateRackRequest, api.HardwareCreateRackResponse](router, "/api/v1/hardware/rack/create"),
-		HardwareRetrieveRack:   fhttp.UnaryServer[api.HardwareRetrieveRackRequest, api.HardwareRetrieveRackResponse](router, "/api/v1/hardware/rack/retrieve"),
-		HardwareDeleteRack:     fhttp.UnaryServer[api.HardwareDeleteRackRequest, types.Nil](router, "/api/v1/hardware/rack/delete"),
-		HardwareCreateTask:     fhttp.UnaryServer[api.HardwareCreateTaskRequest, api.HardwareCreateTaskResponse](router, "/api/v1/hardware/task/create"),
-		HardwareRetrieveTask:   fhttp.UnaryServer[api.HardwareRetrieveTaskRequest, api.HardwareRetrieveTaskResponse](router, "/api/v1/hardware/task/retrieve"),
-		HardwareDeleteTask:     fhttp.UnaryServer[api.HardwareDeleteTaskRequest, types.Nil](router, "/api/v1/hardware/task/delete"),
-		HardwareCopyTask:       fhttp.UnaryServer[api.HardwareCopyTaskRequest, api.HardwareCopyTaskResponse](router, "/api/v1/hardware/task/copy"),
-		HardwareCreateDevice:   fhttp.UnaryServer[api.HardwareCreateDeviceRequest, api.HardwareCreateDeviceResponse](router, "/api/v1/hardware/device/create"),
-		HardwareRetrieveDevice: fhttp.UnaryServer[api.HardwareRetrieveDeviceRequest, api.HardwareRetrieveDeviceResponse](router, "/api/v1/hardware/device/retrieve"),
-		HardwareDeleteDevice:   fhttp.UnaryServer[api.HardwareDeleteDeviceRequest, types.Nil](router, "/api/v1/hardware/device/delete"),
+		// RACK
+		RackCreate:   fhttp.UnaryServer[api.RackCreateRequest, api.RackCreateResponse](router, "/api/v1/rack/create"),
+		RackRetrieve: fhttp.UnaryServer[api.RackRetrieveRequest, api.RackRetrieveResponse](router, "/api/v1/rack/retrieve"),
+		RackDelete:   fhttp.UnaryServer[api.RackDeleteRequest, types.Nil](router, "/api/v1/rack/delete"),
+
+		// TASK
+		TaskCreate:   fhttp.UnaryServer[api.TaskCreateRequest, api.TaskCreateResponse](router, "/api/v1/task/create"),
+		TaskRetrieve: fhttp.UnaryServer[api.TaskRetrieveRequest, api.TaskRetrieveResponse](router, "/api/v1/task/retrieve"),
+		TaskDelete:   fhttp.UnaryServer[api.TaskDeleteRequest, types.Nil](router, "/api/v1/task/delete"),
+		TaskCopy:     fhttp.UnaryServer[api.TaskCopyRequest, api.TaskCopyResponse](router, "/api/v1/task/copy"),
+
+		// DEVICE
+		DeviceCreate:   fhttp.UnaryServer[api.DeviceCreateRequest, api.DeviceCreateResponse](router, "/api/v1/device/create"),
+		DeviceRetrieve: fhttp.UnaryServer[api.DeviceRetrieveRequest, api.DeviceRetrieveResponse](router, "/api/v1/device/retrieve"),
+		DeviceDelete:   fhttp.UnaryServer[api.DeviceDeleteRequest, types.Nil](router, "/api/v1/device/delete"),
 
 		// ACCESS
 		AccessCreatePolicy:   fhttp.UnaryServer[api.AccessCreatePolicyRequest, api.AccessCreatePolicyResponse](router, "/api/v1/access/policy/create"),
 		AccessDeletePolicy:   fhttp.UnaryServer[api.AccessDeletePolicyRequest, types.Nil](router, "/api/v1/access/policy/delete"),
 		AccessRetrievePolicy: fhttp.UnaryServer[api.AccessRetrievePolicyRequest, api.AccessRetrievePolicyResponse](router, "/api/v1/access/policy/retrieve"),
+		AccessCreateRole:     fhttp.UnaryServer[api.AccessCreateRoleRequest, api.AccessCreateRoleResponse](router, "/api/v1/access/role/create"),
+		AccessDeleteRole:     fhttp.UnaryServer[api.AccessDeleteRoleRequest, types.Nil](router, "/api/v1/access/role/delete"),
+		AccessRetrieveRole:   fhttp.UnaryServer[api.AccessRetrieveRoleRequest, api.AccessRetrieveRoleResponse](router, "/api/v1/access/role/retrieve"),
+		AccessAssignRole:     fhttp.UnaryServer[api.AccessAssignRoleRequest, types.Nil](router, "/api/v1/access/role/assign"),
+		AccessUnassignRole:   fhttp.UnaryServer[api.AccessUnassignRoleRequest, types.Nil](router, "/api/v1/access/role/unassign"),
 
 		// ARC
 		ArcCreate:   fhttp.UnaryServer[api.ArcCreateRequest, api.ArcCreateResponse](router, "/api/v1/arc/create"),
@@ -148,5 +157,10 @@ func New(router *fhttp.Router, codecResolver httputil.CodecResolver) api.Transpo
 		StatusSet:      fhttp.UnaryServer[api.StatusSetRequest, api.StatusSetResponse](router, "/api/v1/status/set"),
 		StatusRetrieve: fhttp.UnaryServer[api.StatusRetrieveRequest, api.StatusRetrieveResponse](router, "/api/v1/status/retrieve"),
 		StatusDelete:   fhttp.UnaryServer[api.StatusDeleteRequest, types.Nil](router, "/api/v1/status/delete"),
+
+		// VIEW
+		ViewCreate:   fhttp.UnaryServer[api.ViewCreateRequest, api.ViewCreateResponse](router, "/api/v1/view/create"),
+		ViewRetrieve: fhttp.UnaryServer[api.ViewRetrieveRequest, api.ViewRetrieveResponse](router, "/api/v1/view/retrieve"),
+		ViewDelete:   fhttp.UnaryServer[api.ViewDeleteRequest, types.Nil](router, "/api/v1/view/delete"),
 	}
 }

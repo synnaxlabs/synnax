@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -36,7 +37,7 @@ type Config struct {
 	// Channel is used to create and retrieve metric collection channels.
 	//
 	// [REQUIRED]
-	Channel channel.Service
+	Channel *channel.Service
 	// Framer is used to write metrics to the metric channels.
 	//
 	// [REQUIRED}
@@ -50,6 +51,10 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to 2s
 	CollectionInterval time.Duration
+	// Storage is the storage layer used for disk usage metrics.
+	//
+	// [REQUIRED]
+	Storage *storage.Layer
 }
 
 var (
@@ -67,16 +72,18 @@ func (c Config) Override(other Config) Config {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.CollectionInterval = override.Numeric(c.CollectionInterval, other.CollectionInterval)
+	c.Storage = override.Nil(c.Storage, other.Storage)
 	return c
 }
 
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("config")
-	validate.NotNil(v, "Channel", c.Channel)
-	validate.NotNil(v, "Framer", c.Framer)
-	validate.NotNil(v, "HostProvider", c.HostProvider)
-	validate.Positive(v, "CollectionInterval", c.CollectionInterval)
+	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "framer", c.Framer)
+	validate.NotNil(v, "host_provider", c.HostProvider)
+	validate.NotNil(v, "storage", c.Storage)
+	validate.Positive(v, "collection_interval", c.CollectionInterval)
 	return v.Error()
 }
 
@@ -105,11 +112,12 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	}
 	s := &Service{stopCollector: make(chan struct{})}
 	nameBase := fmt.Sprintf("sy_node_%s_metrics_", cfg.HostProvider.HostKey())
+	allMetrics := buildMetrics(cfg.Storage, cfg.Channel.CountExternalNonVirtual)
 	c := &collector{
 		ins:      cfg.Child("collector"),
 		interval: cfg.CollectionInterval,
 		stop:     s.stopCollector,
-		metrics:  make([]metric, len(all)),
+		metrics:  make([]metric, len(allMetrics)),
 	}
 	c.idx = channel.Channel{
 		Name:     nameBase + "time",
@@ -119,12 +127,12 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err := cfg.Channel.Create(
 		ctx,
 		&c.idx,
-		channel.RetrieveIfNameExists(true),
+		channel.RetrieveIfNameExists(),
 	); err != nil {
 		return nil, err
 	}
-	metricChannels := make([]channel.Channel, len(all))
-	for i, metric := range all {
+	metricChannels := make([]channel.Channel, len(allMetrics))
+	for i, metric := range allMetrics {
 		metric.ch.Name = nameBase + metric.ch.Name
 		metric.ch.LocalIndex = c.idx.LocalKey
 		metricChannels[i] = metric.ch
@@ -132,12 +140,12 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err := cfg.Channel.CreateMany(
 		ctx,
 		&metricChannels,
-		channel.RetrieveIfNameExists(true),
+		channel.RetrieveIfNameExists(),
 	); err != nil {
 		return nil, err
 	}
 	for i, ch := range metricChannels {
-		c.metrics[i] = metric{ch: ch, collect: all[i].collect}
+		c.metrics[i] = metric{ch: ch, collect: allMetrics[i].collect}
 	}
 	w, err := cfg.Framer.NewStreamWriter(
 		ctx,

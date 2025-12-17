@@ -61,12 +61,13 @@ TEST(RangerTests, testRetrieveByName) {
     ASSERT_EQ(got.time_range.end, telem::TimeStamp(100));
 }
 
-/// @brief test retrieve by name not found
+/// @brief it should return a not found error when retrieving by non-existent name.
 TEST(RangerTests, testRetrieveByNameNotFound) {
-    auto client = new_test_client();
-    auto [got, err] = client.ranges.retrieve_by_name("not_found");
-    ASSERT_TRUE(err);
-    ASSERT_EQ(err, xerrors::NOT_FOUND);
+    const auto client = new_test_client();
+    ASSERT_OCCURRED_AS_P(
+        client.ranges.retrieve_by_name("not_found"),
+        xerrors::NOT_FOUND
+    );
 }
 
 /// @brief it should retrieve multiple ranges by their names.
@@ -120,7 +121,7 @@ TEST(RangerTests, testRetrieveMultipleByKey) {
 
 /// @brief it should set a key-value pair on the range.
 TEST(RangerTests, testSet) {
-    auto client = new_test_client();
+    const auto client = new_test_client();
     const auto range = ASSERT_NIL_P(client.ranges.create(
         "test",
         telem::TimeRange(telem::TimeStamp(30), telem::TimeStamp(100))
@@ -130,7 +131,7 @@ TEST(RangerTests, testSet) {
 
 /// @brief it should get a key-value pair on the range.
 TEST(RangerTests, testGet) {
-    auto client = new_test_client();
+    const auto client = new_test_client();
     const auto range = ASSERT_NIL_P(client.ranges.create(
         "test",
         telem::TimeRange(telem::TimeStamp(30), telem::TimeStamp(100))
@@ -163,4 +164,32 @@ TEST(RangerTests, testKVDelete) {
     ASSERT_NIL(range.kv.set("test", "test"));
     ASSERT_NIL(range.kv.del("test"));
     ASSERT_OCCURRED_AS_P(range.kv.get("test"), xerrors::NOT_FOUND);
+}
+
+/// @brief it should convert a range key to an ontology ID
+TEST(RangerTests, testRangeOntologyId) {
+    const std::string key = "748d31e2-5732-4cb5-8bc9-64d4ad51efe8";
+    const auto id = synnax::range_ontology_id(key);
+    ASSERT_EQ(id.type, "range");
+    ASSERT_EQ(id.key, key);
+}
+
+/// @brief it should convert multiple range keys to ontology IDs
+TEST(RangerTests, testRangeOntologyIds) {
+    const std::vector<std::string> keys = {"key1", "key2", "key3"};
+    const auto ids = synnax::range_ontology_ids(keys);
+    ASSERT_EQ(ids.size(), 3);
+    ASSERT_EQ(ids[0].type, "range");
+    ASSERT_EQ(ids[0].key, "key1");
+    ASSERT_EQ(ids[1].type, "range");
+    ASSERT_EQ(ids[1].key, "key2");
+    ASSERT_EQ(ids[2].type, "range");
+    ASSERT_EQ(ids[2].key, "key3");
+}
+
+/// @brief it should return empty vector for empty input
+TEST(RangerTests, testRangeOntologyIdsEmpty) {
+    const std::vector<std::string> keys;
+    const auto ids = synnax::range_ontology_ids(keys);
+    ASSERT_TRUE(ids.empty());
 }

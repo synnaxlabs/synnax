@@ -43,13 +43,14 @@ bool ni::Factory::check_health(
     const synnax::Task &task
 ) const {
     if (this->check_health()) return true;
-    ctx->set_status({
+    synnax::TaskStatus status{
+        .key = task.status_key(),
+        .name = task.name,
         .variant = status::variant::ERR,
         .message = NO_LIBS_MSG,
-        .details = synnax::TaskStatusDetails{
-            .task = task.key,
-        },
-    });
+        .details = synnax::TaskStatusDetails{.task = task.key, .running = false},
+    };
+    ctx->set_status(status);
     return false;
 }
 
@@ -114,7 +115,6 @@ ni::Factory::configure_initial_tasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ) {
-    if (!this->check_health()) return {};
     return common::configure_initial_factory_tasks(
         this,
         ctx,
@@ -138,7 +138,7 @@ std::pair<common::ConfigureResult, xerrors::Error> ni::Factory::configure_scan(
         ctx,
         task,
         breaker::default_config(task.name),
-        cfg.rate
+        cfg.scan_rate
     );
     res.auto_start = cfg.enabled;
     return {std::move(res), xerrors::NIL};

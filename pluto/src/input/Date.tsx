@@ -18,8 +18,7 @@ import { Text, type TextProps } from "@/input/Text";
 import { type Control } from "@/input/types";
 
 export interface DateProps
-  extends Omit<TextProps, "type" | "value" | "onChange">,
-    Control<number> {
+  extends Omit<TextProps, "type" | "value" | "onChange">, Control<number> {
   showDragHandle?: boolean;
 }
 

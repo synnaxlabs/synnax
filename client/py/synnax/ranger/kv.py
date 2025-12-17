@@ -12,7 +12,7 @@ from typing import overload
 
 from freighter import Payload, UnaryClient, send_required
 
-from synnax import ValidationError
+from synnax.exceptions import ValidationError
 from synnax.util.normalize import normalize
 from synnax.util.primitive import is_primitive
 

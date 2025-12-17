@@ -37,7 +37,7 @@ export const Dialog = ({
     dialogCorner,
     style: ctxStyle,
     modalPosition,
-  } = useInternalContext();
+  } = useInternalContext("Dialog.Dialog");
   const { visible, variant } = useContext();
   if (!visible && !passthrough) return null;
   const actuallyVisible =

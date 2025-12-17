@@ -22,7 +22,8 @@ import { Text as CoreText } from "@/text";
 import { type Tooltip } from "@/tooltip";
 
 export interface TextProps
-  extends InputProps<string>,
+  extends
+    InputProps<string>,
     Omit<Button.ExtensionProps, "variant">,
     Tooltip.WrapProps {
   selectOnFocus?: boolean;
@@ -99,6 +100,7 @@ export const Text = ({
   hideTooltip,
   ghost,
   area,
+  propagateClick,
   ...rest
 }: TextProps): ReactElement => {
   const cachedFocusRef = useRef(value);
@@ -198,6 +200,7 @@ export const Text = ({
       tooltipLocation={tooltipLocation}
       hideTooltip={hideTooltip}
       ghost={ghost}
+      propagateClick={propagateClick}
       {...restButtonProps}
     >
       {showPlaceholder && (

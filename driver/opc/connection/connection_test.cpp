@@ -13,9 +13,11 @@
 #include "x/cpp/xtest/xtest.h"
 
 #include "driver/opc/connection/connection.h"
+#include "driver/opc/errors/errors.h"
 #include "driver/opc/mock/server.h"
 #include "driver/opc/testutil/testutil.h"
 
+/// @brief it should establish basic connection and read node value.
 TEST(ConnectionTest, testBasicConn) {
     UA_Variant float_val;
     UA_Variant_init(&float_val);
@@ -53,61 +55,72 @@ TEST(ConnectionTest, testBasicConn) {
     UA_Variant_clear(&float_val);
 }
 
+/// @brief it should return unreachable error when connection is refused.
 TEST(ConnectionTest, connectionRefused) {
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:9999";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err] = opc::connection::connect(cfg, "test");
-    ASSERT_TRUE(err);
+    ASSERT_OCCURRED_AS_P(
+        opc::connection::connect(cfg, "test"),
+        opc::errors::UNREACHABLE
+    );
 }
 
+/// @brief it should return invalid endpoint error for malformed endpoint.
 TEST(ConnectionTest, invalidEndpointFormat) {
     opc::connection::Config cfg;
     cfg.endpoint = "not-a-valid-endpoint";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err] = opc::connection::connect(cfg, "test");
-    ASSERT_TRUE(err);
+    ASSERT_OCCURRED_AS_P(
+        opc::connection::connect(cfg, "test"),
+        opc::errors::INVALID_ENDPOINT
+    );
 }
 
+/// @brief it should return invalid endpoint error for empty endpoint.
 TEST(ConnectionTest, emptyEndpoint) {
     opc::connection::Config cfg;
     cfg.endpoint = "";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err] = opc::connection::connect(cfg, "test");
-    ASSERT_TRUE(err);
+    ASSERT_OCCURRED_AS_P(
+        opc::connection::connect(cfg, "test"),
+        opc::errors::INVALID_ENDPOINT
+    );
 }
 
+/// @brief it should return unreachable error for invalid hostname.
 TEST(ConnectionTest, invalidHostname) {
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://nonexistent.invalid.hostname:4840";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err] = opc::connection::connect(cfg, "test");
-    ASSERT_TRUE(err);
+    ASSERT_OCCURRED_AS_P(
+        opc::connection::connect(cfg, "test"),
+        opc::errors::UNREACHABLE
+    );
 }
 
+/// @brief it should reconnect successfully after disconnect.
 TEST(ConnectionTest, disconnectAndReconnect) {
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4841;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server.wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4841";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err1] = opc::connection::connect(cfg, "test");
-    ASSERT_FALSE(err1);
-    ASSERT_NE(client, nullptr);
+    auto client = ASSERT_NIL_P(opc::connection::connect(cfg, "test"));
 
     UA_SessionState session_state;
     UA_SecureChannelState channel_state;
@@ -119,8 +132,7 @@ TEST(ConnectionTest, disconnectAndReconnect) {
     UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
     EXPECT_NE(session_state, UA_SESSIONSTATE_ACTIVATED);
 
-    auto err2 = opc::connection::reconnect(client, cfg.endpoint);
-    ASSERT_FALSE(err2);
+    ASSERT_NIL(opc::connection::reconnect(client, cfg.endpoint));
 
     UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
     EXPECT_EQ(session_state, UA_SESSIONSTATE_ACTIVATED);
@@ -128,28 +140,26 @@ TEST(ConnectionTest, disconnectAndReconnect) {
     server.stop();
 }
 
+/// @brief it should handle server stop during active connection.
 TEST(ConnectionTest, serverStopDuringConnection) {
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4842;
     auto server = std::make_unique<mock::Server>(server_cfg);
     server->start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server->wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4842";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err1] = opc::connection::connect(cfg, "test");
-    ASSERT_FALSE(err1);
-    ASSERT_NE(client, nullptr);
+    auto client = ASSERT_NIL_P(opc::connection::connect(cfg, "test"));
 
     server->stop();
     server.reset();
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    auto [node_id, parse_err] = opc::NodeId::parse("NS=1;S=TestFloat");
-    ASSERT_FALSE(parse_err);
+    auto node_id = ASSERT_NIL_P(opc::NodeId::parse("NS=1;S=TestFloat"));
 
     UA_ReadValueId ids[1];
     UA_ReadValueId_init(&ids[0]);
@@ -166,55 +176,50 @@ TEST(ConnectionTest, serverStopDuringConnection) {
     UA_ReadResponse_clear(&res);
 }
 
+/// @brief it should connect successfully after server restart.
 TEST(ConnectionTest, connectionAfterServerRestart) {
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4844;
 
     auto server = std::make_unique<mock::Server>(server_cfg);
     server->start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server->wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4844";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client1, err1] = opc::connection::connect(cfg, "test");
-    ASSERT_FALSE(err1);
-    ASSERT_NE(client1, nullptr);
+    auto client1 = ASSERT_NIL_P(opc::connection::connect(cfg, "test"));
 
     server->stop();
     server.reset();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     server = std::make_unique<mock::Server>(server_cfg);
     server->start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server->wait_until_ready());
 
-    auto [client2, err2] = opc::connection::connect(cfg, "test");
-    ASSERT_FALSE(err2);
-    ASSERT_NE(client2, nullptr);
+    auto client2 = ASSERT_NIL_P(opc::connection::connect(cfg, "test"));
 
     server->stop();
 }
 
+/// @brief it should read successfully before disconnect changes session state.
 TEST(ConnectionTest, readAfterDisconnect) {
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4845;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server.wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4845";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err] = opc::connection::connect(cfg, "test");
-    ASSERT_FALSE(err);
+    auto client = ASSERT_NIL_P(opc::connection::connect(cfg, "test"));
 
-    auto [ser1, read_err1] = opc::testutil::simple_read(client, "NS=1;S=TestFloat");
-    ASSERT_FALSE(read_err1);
+    auto ser1 = ASSERT_NIL_P(opc::testutil::simple_read(client, "NS=1;S=TestFloat"));
 
     UA_Client_disconnect(client.get());
 
@@ -226,20 +231,20 @@ TEST(ConnectionTest, readAfterDisconnect) {
     server.stop();
 }
 
+/// @brief it should handle multiple consecutive disconnects gracefully.
 TEST(ConnectionTest, multipleDisconnects) {
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4846;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server.wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4846";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto [client, err] = opc::connection::connect(cfg, "test");
-    ASSERT_FALSE(err);
+    auto client = ASSERT_NIL_P(opc::connection::connect(cfg, "test"));
 
     UA_Client_disconnect(client.get());
     UA_Client_disconnect(client.get());
@@ -248,32 +253,41 @@ TEST(ConnectionTest, multipleDisconnects) {
     server.stop();
 }
 
-TEST(ConnectionTest, invalidUsernamePassword) {
+/// @brief it should reject username/password authentication without encryption.
+TEST(ConnectionTest, usernamePasswordWithoutEncryption) {
+    // Mock server rejects username/password without encryption to prevent
+    // credential leaks over the network
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4847;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server.wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4847";
     cfg.security_mode = "None";
     cfg.security_policy = "None";
-    cfg.username = "invalid_user";
-    cfg.password = "wrong_password";
+    cfg.username = "any_user";
+    cfg.password = "any_password";
 
-    auto [client, err] = opc::connection::connect(cfg, "test");
-    EXPECT_TRUE(err || client != nullptr);
+    ASSERT_OCCURRED_AS_P(
+        opc::connection::connect(cfg, "test"),
+        opc::errors::IDENTITY_TOKEN_REJECTED
+    );
 
     server.stop();
 }
 
-TEST(ConnectionTest, signModeWithNoEncryptionServer) {
+/// @brief it should reject sign mode connection with missing certificates.
+TEST(ConnectionTest, signModeWithMissingCertificates) {
+    // When security mode requires encryption but certificates are missing,
+    // the connection fails with identity token rejected because the server
+    // won't accept the connection without proper security
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4848;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server.wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4848";
@@ -282,18 +296,23 @@ TEST(ConnectionTest, signModeWithNoEncryptionServer) {
     cfg.client_cert = "/nonexistent/cert.pem";
     cfg.client_private_key = "/nonexistent/key.pem";
 
-    auto [client, err] = opc::connection::connect(cfg, "test");
-    EXPECT_TRUE(err);
+    ASSERT_OCCURRED_AS_P(
+        opc::connection::connect(cfg, "test"),
+        opc::errors::IDENTITY_TOKEN_REJECTED
+    );
 
     server.stop();
 }
 
-TEST(ConnectionTest, signAndEncryptModeWithNoEncryptionServer) {
+/// @brief it should reject sign and encrypt mode with missing certificates.
+TEST(ConnectionTest, signAndEncryptModeWithMissingCertificates) {
+    // When security mode requires encryption but certificates are missing,
+    // the connection fails with identity token rejected
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4849;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server.wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4849";
@@ -302,18 +321,23 @@ TEST(ConnectionTest, signAndEncryptModeWithNoEncryptionServer) {
     cfg.client_cert = "/nonexistent/cert.pem";
     cfg.client_private_key = "/nonexistent/key.pem";
 
-    auto [client, err] = opc::connection::connect(cfg, "test");
-    EXPECT_TRUE(err);
+    ASSERT_OCCURRED_AS_P(
+        opc::connection::connect(cfg, "test"),
+        opc::errors::IDENTITY_TOKEN_REJECTED
+    );
 
     server.stop();
 }
 
+/// @brief it should reject connection when client certificate is missing.
 TEST(ConnectionTest, missingClientCertificate) {
+    // Missing certificate files cause connection to fail with identity token
+    // rejected because the server won't accept unencrypted identity tokens
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4850;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server.wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4850";
@@ -322,18 +346,23 @@ TEST(ConnectionTest, missingClientCertificate) {
     cfg.client_cert = "/path/to/missing/cert.pem";
     cfg.client_private_key = "/path/to/missing/key.pem";
 
-    auto [client, err] = opc::connection::connect(cfg, "test");
-    EXPECT_TRUE(err);
+    ASSERT_OCCURRED_AS_P(
+        opc::connection::connect(cfg, "test"),
+        opc::errors::IDENTITY_TOKEN_REJECTED
+    );
 
     server.stop();
 }
 
+/// @brief it should reject empty username with password without encryption.
 TEST(ConnectionTest, emptyUsernameWithPassword) {
+    // When password is provided without encryption, the server rejects the
+    // identity token to prevent credential leaks
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4851;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server.wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4851";
@@ -342,18 +371,23 @@ TEST(ConnectionTest, emptyUsernameWithPassword) {
     cfg.username = "";
     cfg.password = "password";
 
-    auto [client, err] = opc::connection::connect(cfg, "test");
-    EXPECT_TRUE(err || client != nullptr);
+    ASSERT_OCCURRED_AS_P(
+        opc::connection::connect(cfg, "test"),
+        opc::errors::IDENTITY_TOKEN_REJECTED
+    );
 
     server.stop();
 }
 
+/// @brief it should reject username with empty password without encryption.
 TEST(ConnectionTest, usernameWithEmptyPassword) {
+    // When username is provided without encryption, the server rejects the
+    // identity token to prevent credential leaks
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4852;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server.wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4852";
@@ -362,18 +396,23 @@ TEST(ConnectionTest, usernameWithEmptyPassword) {
     cfg.username = "username";
     cfg.password = "";
 
-    auto [client, err] = opc::connection::connect(cfg, "test");
-    EXPECT_TRUE(err || client != nullptr);
+    ASSERT_OCCURRED_AS_P(
+        opc::connection::connect(cfg, "test"),
+        opc::errors::IDENTITY_TOKEN_REJECTED
+    );
 
     server.stop();
 }
 
+/// @brief it should reject invalid security policy with missing certificates.
 TEST(ConnectionTest, invalidSecurityPolicy) {
+    // Invalid security policy with missing certificates causes the server
+    // to reject the identity token
     mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
     server_cfg.port = 4853;
     mock::Server server(server_cfg);
     server.start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(server.wait_until_ready());
 
     opc::connection::Config cfg;
     cfg.endpoint = "opc.tcp://localhost:4853";
@@ -382,8 +421,10 @@ TEST(ConnectionTest, invalidSecurityPolicy) {
     cfg.client_cert = "/nonexistent/cert.pem";
     cfg.client_private_key = "/nonexistent/key.pem";
 
-    auto [client, err] = opc::connection::connect(cfg, "test");
-    EXPECT_TRUE(err);
+    ASSERT_OCCURRED_AS_P(
+        opc::connection::connect(cfg, "test"),
+        opc::errors::IDENTITY_TOKEN_REJECTED
+    );
 
     server.stop();
 }

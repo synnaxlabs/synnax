@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/console",
   "private": true,
-  "version": "0.48.4",
+  "version": "0.49.3",
   "type": "module",
   "scripts": {
     "check-types": "tsc --noEmit",
@@ -61,10 +61,10 @@
   },
   "devDependencies": {
     "@codingame/esbuild-import-meta-url-plugin": "^1.0.3",
-    "@eslint/compat": "catalog:",
     "@synnaxlabs/tsconfig": "workspace:^",
-    "@tauri-apps/cli": "^2.9.3",
+    "@tauri-apps/cli": "^2.9.6",
     "@testing-library/react": "catalog:",
+    "@types/node": "catalog:",
     "@types/pluralize": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",

@@ -9,8 +9,9 @@
 
 import "@/range/list/List.css";
 
-import { type ranger } from "@synnaxlabs/client";
+import { ranger } from "@synnaxlabs/client";
 import {
+  Access,
   Button,
   Flex,
   type Flux,
@@ -29,7 +30,8 @@ import { Item, type ItemProps } from "@/range/list/Item";
 import { Filters, SelectFilters } from "@/range/list/SelectFilters";
 
 export interface ListProps
-  extends Pick<
+  extends
+    Pick<
       Flux.UseListReturn<PList.PagerParams, ranger.Key, ranger.Range>,
       "data" | "getItem" | "subscribe" | "retrieve"
     >,
@@ -43,10 +45,11 @@ export interface ListProps
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
+  const canCreateRange = Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No ranges found."
-      action="Create a range"
+      action={canCreateRange ? "Create a range" : undefined}
       onClick={() => placeLayout(CREATE_LAYOUT)}
     />
   );
@@ -141,7 +144,7 @@ export const List = ({
             )}
           </Flex.Box>
         )}
-        <PList.Items<string> emptyContent={emptyContent} displayItems={Infinity} grow>
+        <PList.Items<string> emptyContent={emptyContent} grow>
           {({ key, ...rest }) => (
             <Item
               key={key}
@@ -158,8 +161,10 @@ export const List = ({
   );
 };
 
-const AddButton = (): ReactElement => {
+const AddButton = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
+  const canCreateRange = Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID);
+  if (!canCreateRange) return null;
   return (
     <Button.Button tooltip="Create Range" onClick={() => placeLayout(CREATE_LAYOUT)}>
       <Icon.Add />

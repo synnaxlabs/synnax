@@ -11,13 +11,15 @@ package status
 
 import (
 	"context"
+	"io"
+	"iter"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	changex "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/iter"
+	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/zyn"
 )
@@ -50,8 +52,8 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys []string) {
 }
 
 // OntologyIDsFromStatuses converts a slice of statuses to a slice of ontology IDs.
-func OntologyIDsFromStatuses(statuses []Status) (ids []ontology.ID) {
-	return lo.Map(statuses, func(s Status, _ int) ontology.ID {
+func OntologyIDsFromStatuses[D any](statuses []Status[D]) (ids []ontology.ID) {
+	return lo.Map(statuses, func(s Status[D], _ int) ontology.ID {
 		return OntologyID(s.Key)
 	})
 }
@@ -65,13 +67,13 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"time":        zyn.Int64().Coerce(),
 })
 
-func newResource(s Status) ontology.Resource {
+func newResource(s Status[any]) ontology.Resource {
 	return core.NewResource(schema, OntologyID(s.Key), s.Name, s)
 }
 
 var _ ontology.Service = (*Service)(nil)
 
-type change = changex.Change[string, Status]
+type change = changex.Change[string, Status[any]]
 
 func (s *Service) Type() ontology.Type { return OntologyType }
 
@@ -80,7 +82,7 @@ func (s *Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
-	var st Status
+	var st Status[any]
 	err := s.NewRetrieve().WhereKeys(key).Entry(&st).Exec(ctx, tx)
 	return newResource(st), err
 }
@@ -94,18 +96,15 @@ func translateChange(c change) ontology.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(ctx context.Context, nexter iter.Nexter[ontology.Change])) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[string, Status]) {
-		f(ctx, iter.NexterTranslator[change, ontology.Change]{Wrap: reader, Translate: translateChange})
+func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[string, Status[any]]) {
+		f(ctx, xiter.Map(reader, translateChange))
 	}
-	return gorp.Observe[string, Status](s.cfg.DB).OnChange(handleChange)
+	return gorp.Observe[string, Status[any]](s.cfg.DB).OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
-	n, err := gorp.WrapReader[string, Status](s.cfg.DB).OpenNexter()
-	return iter.NexterCloserTranslator[Status, ontology.Resource]{
-		Wrap:      n,
-		Translate: newResource,
-	}, err
+func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+	n, closer, err := gorp.WrapReader[string, Status[any]](s.cfg.DB).OpenNexter(ctx)
+	return xiter.Map(n, newResource), closer, err
 }

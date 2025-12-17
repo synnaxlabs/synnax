@@ -18,8 +18,8 @@ import { type Ontology } from "@/ontology";
 import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "labels";
-export const RESOURCE_NAME = "Label";
-export const PLURAL_RESOURCE_NAME = "Labels";
+export const RESOURCE_NAME = "label";
+export const PLURAL_RESOURCE_NAME = "labels";
 
 export interface FluxStore extends Flux.UnaryStore<label.Key, label.Label> {}
 
@@ -75,17 +75,16 @@ export const retrieveCachedLabelsOf = (store: FluxSubStore, id: ontology.ID) => 
   return store.labels.get(keys);
 };
 
-interface SetLabelsForParams
-  extends Omit<
-    UpdateParams<
-      {
-        id: ontology.ID;
-        labels: label.Key[];
-      },
-      FluxSubStore
-    >,
-    "setStatus"
-  > {}
+interface SetLabelsForParams extends Omit<
+  UpdateParams<
+    {
+      id: ontology.ID;
+      labels: label.Key[];
+    },
+    FluxSubStore
+  >,
+  "setStatus"
+> {}
 
 export const setLabelsFor = async ({
   store,
@@ -126,7 +125,7 @@ export const { useRetrieve: useRetrieveLabelsOf } = Flux.createRetrieve<
   mountListeners: ({ client, store, query: { id }, onChange }) => [
     store.labels.onSet((label) => {
       onChange(
-        state.skipNull((prev) => {
+        state.skipUndefined((prev) => {
           const filtered = prev.filter((l) => l.key !== label.key);
           if (filtered.length === prev.length) return prev;
           return [...filtered, label];
@@ -134,19 +133,21 @@ export const { useRetrieve: useRetrieveLabelsOf } = Flux.createRetrieve<
       );
     }),
     store.labels.onDelete((key) =>
-      onChange(state.skipNull((prev) => prev.filter((l) => l.key !== key))),
+      onChange(state.skipUndefined((prev) => prev.filter((l) => l.key !== key))),
     ),
     store.relationships.onSet(async (rel) => {
       if (!matchRelationship(rel, id)) return;
       const { key } = rel.to;
       const l = await client.labels.retrieve({ key });
       store.labels.set(key, l);
-      onChange(state.skipNull((prev) => [...prev.filter((l) => l.key !== key), l]));
+      onChange(
+        state.skipUndefined((prev) => [...prev.filter((l) => l.key !== key), l]),
+      );
     }),
     store.relationships.onDelete((relKey) => {
       const rel = ontology.relationshipZ.parse(relKey);
       if (!matchRelationship(rel, id)) return;
-      onChange(state.skipNull((prev) => prev.filter((l) => l.key !== rel.to.key)));
+      onChange(state.skipUndefined((prev) => prev.filter((l) => l.key !== rel.to.key)));
     }),
   ],
 });
@@ -232,7 +233,7 @@ export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
   label.Label[],
   FluxSubStore
 >({
-  name: "Labels",
+  name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query: { keys }, store }) => {
     const cached = store.labels.get(keys);
     const missing = keys.filter((k) => !store.labels.has(k));
@@ -253,7 +254,7 @@ export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
       }),
       store.labels.onDelete(async (key) => {
         keysSet.delete(key);
-        onChange(state.skipNull((prev) => prev.filter((l) => l.key !== key)));
+        onChange(state.skipUndefined((prev) => prev.filter((l) => l.key !== key)));
       }),
     ];
   },

@@ -13,6 +13,8 @@
 #include "open62541/client.h"
 #include "open62541/client_highlevel.h"
 
+#include "x/cpp/xtest/xtest.h"
+
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/mock/server.h"
 
@@ -25,7 +27,7 @@ protected:
         server_cfg_.port = 4847;
         server_ = std::make_unique<mock::Server>(server_cfg_);
         server_->start();
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        ASSERT_TRUE(server_->wait_until_ready());
 
         conn_cfg_.endpoint = "opc.tcp://localhost:4847";
         conn_cfg_.security_mode = "None";
@@ -41,16 +43,14 @@ protected:
     Config conn_cfg_;
 };
 
-// Test that connections remain healthy when repeatedly acquired/released
+/// @brief it should keep connection alive when repeatedly acquired and released.
 TEST_F(ConnectionPoolKeepAliveTest, RepeatedAcquireKeepsConnectionAlive) {
     Pool pool;
 
     // Acquire and release 100 times over ~10 seconds
     // This simulates normal task operation patterns
     for (int i = 0; i < 100; ++i) {
-        auto [connection, err] = pool.acquire(conn_cfg_, "[test] ");
-        ASSERT_FALSE(err) << "Iteration " << i << ": " << err.message();
-        ASSERT_TRUE(connection);
+        auto connection = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
         // Verify connection is actually functional
         UA_SessionState session_state;
@@ -71,21 +71,15 @@ TEST_F(ConnectionPoolKeepAliveTest, RepeatedAcquireKeepsConnectionAlive) {
     EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
 
     // Final acquire should succeed
-    auto [final_conn, final_err] = pool.acquire(conn_cfg_, "[test] ");
-    ASSERT_FALSE(final_err);
-    ASSERT_TRUE(final_conn);
+    auto final_conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 }
 
-// Test that connections stay alive during idle periods between acquisitions
+/// @brief it should survive idle periods between acquisitions.
 TEST_F(ConnectionPoolKeepAliveTest, ConnectionSurvivesIdlePeriods) {
     Pool pool;
 
     // Initial acquisition
-    {
-        auto [connection, err] = pool.acquire(conn_cfg_, "[test] ");
-        ASSERT_FALSE(err);
-        ASSERT_TRUE(connection);
-    }
+    { auto connection = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
 
     EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
 
@@ -93,9 +87,7 @@ TEST_F(ConnectionPoolKeepAliveTest, ConnectionSurvivesIdlePeriods) {
     std::this_thread::sleep_for(std::chrono::seconds(5));
 
     // Acquire again - should get same connection, still alive
-    auto [conn2, err2] = pool.acquire(conn_cfg_, "[test] ");
-    ASSERT_FALSE(err2) << err2.message();
-    ASSERT_TRUE(conn2);
+    auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
     UA_SessionState session_state;
     UA_SecureChannelState channel_state;
@@ -105,14 +97,14 @@ TEST_F(ConnectionPoolKeepAliveTest, ConnectionSurvivesIdlePeriods) {
     EXPECT_EQ(pool.size(), 1); // Same connection reused
 }
 
-// Test concurrent access with keep-alive
+/// @brief it should handle concurrent access with keep-alive enabled.
 TEST_F(ConnectionPoolKeepAliveTest, ConcurrentAccessWithKeepAlive) {
     Pool pool;
     std::atomic<int> success_count{0};
     std::atomic<int> failure_count{0};
 
-    const int num_threads = 5;
-    const int iterations_per_thread = 20;
+    constexpr int num_threads = 5;
+    constexpr int iterations_per_thread = 20;
 
     std::vector<std::thread> threads;
 
@@ -121,7 +113,7 @@ TEST_F(ConnectionPoolKeepAliveTest, ConcurrentAccessWithKeepAlive) {
             for (int j = 0; j < iterations_per_thread; ++j) {
                 auto [connection, err] = pool.acquire(conn_cfg_, "[test] ");
                 if (err || !connection) {
-                    failure_count++;
+                    ++failure_count;
                     continue;
                 }
 
@@ -134,11 +126,10 @@ TEST_F(ConnectionPoolKeepAliveTest, ConcurrentAccessWithKeepAlive) {
                     nullptr
                 );
 
-                if (session_state == UA_SESSIONSTATE_ACTIVATED) {
-                    success_count++;
-                } else {
-                    failure_count++;
-                }
+                if (session_state == UA_SESSIONSTATE_ACTIVATED)
+                    ++success_count;
+                else
+                    ++failure_count;
 
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
             }
@@ -153,14 +144,13 @@ TEST_F(ConnectionPoolKeepAliveTest, ConcurrentAccessWithKeepAlive) {
     EXPECT_EQ(failure_count, 0);
 }
 
-// Test that run_iterate doesn't break existing functionality
+/// @brief it should perform reads correctly after keep-alive iterations.
 TEST_F(ConnectionPoolKeepAliveTest, CanPerformReadAfterKeepAlive) {
     Pool pool;
 
     // Acquire connection multiple times to trigger keep-alive
     for (int i = 0; i < 10; ++i) {
-        auto [connection, err] = pool.acquire(conn_cfg_, "[test] ");
-        ASSERT_FALSE(err);
+        auto connection = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
         // Try to read a node to verify connection is functional
         UA_Variant value;
@@ -180,7 +170,7 @@ TEST_F(ConnectionPoolKeepAliveTest, CanPerformReadAfterKeepAlive) {
     }
 }
 
-// Test keep-alive with very short timeouts (for fast testing)
+/// @brief it should maintain connection alive with short timeout configuration.
 TEST_F(ConnectionPoolKeepAliveTest, ShortTimeoutKeepAlive) {
     Pool pool;
 
@@ -192,13 +182,11 @@ TEST_F(ConnectionPoolKeepAliveTest, ShortTimeoutKeepAlive) {
 
     // Keep acquiring at regular intervals to trigger keep-alive
     // Interval is less than half the lifetime to ensure renewal happens
-    const int num_iterations = 8;
-    const int interval_seconds = 4; // 4s interval < 15s/2 lifetime
+    constexpr int num_iterations = 8;
+    constexpr int interval_seconds = 4; // 4s interval < 15s/2 lifetime
 
     for (int i = 0; i < num_iterations; ++i) {
-        auto [connection, err] = pool.acquire(short_cfg, "[test] ");
-        ASSERT_FALSE(err) << "Iteration " << i << ": " << err.message();
-        ASSERT_TRUE(connection);
+        auto connection = ASSERT_NIL_P(pool.acquire(short_cfg, "[test] "));
 
         // Verify connection is active
         UA_SessionState session_state;
@@ -210,9 +198,8 @@ TEST_F(ConnectionPoolKeepAliveTest, ShortTimeoutKeepAlive) {
 
         // Wait before next iteration
         // Connection released when connection goes out of scope
-        if (i < num_iterations - 1) {
+        if (i < num_iterations - 1)
             std::this_thread::sleep_for(std::chrono::seconds(interval_seconds));
-        }
     }
 
     // Total time elapsed: 8 iterations * 4s = 32 seconds
@@ -223,7 +210,5 @@ TEST_F(ConnectionPoolKeepAliveTest, ShortTimeoutKeepAlive) {
     EXPECT_LE(pool.size(), 1);
 
     // Verify we can still acquire successfully
-    auto [final_conn, final_err] = pool.acquire(short_cfg, "[test] ");
-    ASSERT_FALSE(final_err);
-    ASSERT_TRUE(final_conn);
+    auto final_conn = ASSERT_NIL_P(pool.acquire(short_cfg, "[test] "));
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/stable"
 	"github.com/synnaxlabs/arc/runtime/stat"
 	"github.com/synnaxlabs/arc/runtime/telem"
+	"github.com/synnaxlabs/arc/runtime/time"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -29,9 +30,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 )
 
-type channelResolver struct {
-	channel.Readable
-}
+type channelResolver struct{ *channel.Service }
 
 var _ arc.SymbolResolver = (*channelResolver)(nil)
 
@@ -85,6 +84,7 @@ func CreateResolver(cfgs ...runtime.Config) (arc.SymbolResolver, error) {
 		status.SymbolResolver,
 		telem.SymbolResolver,
 		stat.SymbolResolver,
-		&channelResolver{Readable: cfg.Channel},
+		time.SymbolResolver,
+		&channelResolver{Service: cfg.Channel},
 	}, nil
 }

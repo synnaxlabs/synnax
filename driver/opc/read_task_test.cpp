@@ -42,51 +42,70 @@ protected:
         auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
         this->index_channel = ASSERT_NIL_P(
-            client->channels.create("index", telem::TIMESTAMP_T, 0, true)
-        );
-        this->bool_channel = ASSERT_NIL_P(
             client->channels
-                .create("bool_test", telem::UINT8_T, this->index_channel.key, false)
+                .create(make_unique_channel_name("index"), telem::TIMESTAMP_T, 0, true)
         );
-        this->uint16_channel = ASSERT_NIL_P(
-            client->channels
-                .create("uint16_test", telem::UINT16_T, this->index_channel.key, false)
-        );
-        this->uint32_channel = ASSERT_NIL_P(
-            client->channels
-                .create("uint32_test", telem::UINT32_T, this->index_channel.key, false)
-        );
-        this->uint64_channel = ASSERT_NIL_P(
-            client->channels
-                .create("uint64_test", telem::UINT64_T, this->index_channel.key, false)
-        );
-        this->int8_channel = ASSERT_NIL_P(
-            client->channels
-                .create("int8_test", telem::INT8_T, this->index_channel.key, false)
-        );
-        this->int16_channel = ASSERT_NIL_P(
-            client->channels
-                .create("int16_test", telem::INT16_T, this->index_channel.key, false)
-        );
-        this->int32_channel = ASSERT_NIL_P(
-            client->channels
-                .create("int32_test", telem::INT32_T, this->index_channel.key, false)
-        );
-        this->int64_channel = ASSERT_NIL_P(
-            client->channels
-                .create("int64_test", telem::INT64_T, this->index_channel.key, false)
-        );
-        this->float_channel = ASSERT_NIL_P(
-            client->channels
-                .create("float_test", telem::FLOAT32_T, this->index_channel.key, false)
-        );
-        this->double_channel = ASSERT_NIL_P(
-            client->channels
-                .create("double_test", telem::FLOAT64_T, this->index_channel.key, false)
-        );
-        auto rack = ASSERT_NIL_P(
-            client->hardware.create_rack("opc_read_task_test_rack")
-        );
+        this->bool_channel = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("bool_test"),
+            telem::UINT8_T,
+            this->index_channel.key,
+            false
+        ));
+        this->uint16_channel = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("uint16_test"),
+            telem::UINT16_T,
+            this->index_channel.key,
+            false
+        ));
+        this->uint32_channel = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("uint32_test"),
+            telem::UINT32_T,
+            this->index_channel.key,
+            false
+        ));
+        this->uint64_channel = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("uint64_test"),
+            telem::UINT64_T,
+            this->index_channel.key,
+            false
+        ));
+        this->int8_channel = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("int8_test"),
+            telem::INT8_T,
+            this->index_channel.key,
+            false
+        ));
+        this->int16_channel = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("int16_test"),
+            telem::INT16_T,
+            this->index_channel.key,
+            false
+        ));
+        this->int32_channel = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("int32_test"),
+            telem::INT32_T,
+            this->index_channel.key,
+            false
+        ));
+        this->int64_channel = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("int64_test"),
+            telem::INT64_T,
+            this->index_channel.key,
+            false
+        ));
+        this->float_channel = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("float_test"),
+            telem::FLOAT32_T,
+            this->index_channel.key,
+            false
+        ));
+        this->double_channel = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("double_test"),
+            telem::FLOAT64_T,
+            this->index_channel.key,
+            false
+        ));
+        auto rack = ASSERT_NIL_P(client->racks.create("opc_read_task_test_rack"));
 
         opc::connection::Config conn_cfg;
         conn_cfg.endpoint = "opc.tcp://localhost:4840";
@@ -102,7 +121,7 @@ protected:
             "OPC UA Server",
             nlohmann::to_string(json::object({{"connection", conn_cfg.to_json()}}))
         );
-        ASSERT_NIL(client->hardware.create_device(dev));
+        ASSERT_NIL(client->devices.create(dev));
 
         // Use the comprehensive default server configuration
         auto server_cfg = mock::ServerConfig::create_default();
@@ -236,21 +255,24 @@ protected:
     }
 };
 
+/// @brief it should read multiple data types from OPC UA server.
 TEST_F(TestReadTask, testBasicReadTask) {
     auto start = telem::TimeStamp::now();
     const auto rt = create_task();
     rt->start("start_cmd");
-    ASSERT_EVENTUALLY_GE(ctx->states.size(), 1);
-    const auto first_state = ctx->states[0];
-    EXPECT_EQ(first_state.key, "start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    const auto first_state = ctx->statuses[0];
+    EXPECT_EQ(first_state.key, task.status_key());
+    EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     rt->stop("stop_cmd", true);
-    const auto second_state = ctx->states[1];
-    EXPECT_EQ(second_state.key, "stop_cmd");
+    const auto second_state = ctx->statuses[1];
+    EXPECT_EQ(second_state.key, task.status_key());
+    EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
@@ -285,6 +307,7 @@ TEST_F(TestReadTask, testBasicReadTask) {
     ASSERT_GE(fr.at<telem::TimeStamp>(this->index_channel.key, 0), start);
 }
 
+/// @brief it should return error for non-existent OPC UA node.
 TEST_F(TestReadTask, testInvalidNodeId) {
     json bad_task_cfg{
         {"data_saving", true},
@@ -320,9 +343,9 @@ TEST_F(TestReadTask, testInvalidNodeId) {
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     rt->stop("stop_cmd", true);
 
-    ASSERT_GE(ctx->states.size(), 1);
+    ASSERT_GE(ctx->statuses.size(), 1);
     bool found_error = false;
-    for (const auto &state: ctx->states) {
+    for (const auto &state: ctx->statuses) {
         if (state.variant == status::variant::ERR) {
             found_error = true;
             break;
@@ -331,6 +354,7 @@ TEST_F(TestReadTask, testInvalidNodeId) {
     EXPECT_TRUE(found_error);
 }
 
+/// @brief it should handle server disconnect during read operation.
 TEST_F(TestReadTask, testServerDisconnectDuringRead) {
     const auto rt = create_task();
     rt->start("start_cmd");
@@ -344,7 +368,7 @@ TEST_F(TestReadTask, testServerDisconnectDuringRead) {
     rt->stop("stop_cmd", true);
 
     bool found_error = false;
-    for (const auto &state: ctx->states) {
+    for (const auto &state: ctx->statuses) {
         if (state.variant == status::variant::ERR) {
             found_error = true;
             break;
@@ -353,6 +377,7 @@ TEST_F(TestReadTask, testServerDisconnectDuringRead) {
     EXPECT_TRUE(found_error);
 }
 
+/// @brief it should return error for empty channel list.
 TEST_F(TestReadTask, testEmptyChannelList) {
     json empty_cfg{
         {"data_saving", true},
@@ -368,6 +393,7 @@ TEST_F(TestReadTask, testEmptyChannelList) {
     EXPECT_TRUE(p.error());
 }
 
+/// @brief it should return error when all channels are disabled.
 TEST_F(TestReadTask, testDisabledChannels) {
     json disabled_cfg{
         {"data_saving", true},
@@ -393,17 +419,19 @@ TEST_F(TestReadTask, testDisabledChannels) {
     EXPECT_TRUE(p.error());
 }
 
+/// @brief it should handle rapid start and stop cycles.
 TEST_F(TestReadTask, testRapidStartStop) {
     const auto rt = create_task();
     rt->start("start_cmd");
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     rt->stop("stop_cmd", true);
 
-    ASSERT_GE(ctx->states.size(), 2);
-    EXPECT_EQ(ctx->states[0].variant, status::variant::SUCCESS);
-    EXPECT_EQ(ctx->states[1].variant, status::variant::SUCCESS);
+    ASSERT_GE(ctx->statuses.size(), 2);
+    EXPECT_EQ(ctx->statuses[0].variant, status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].variant, status::variant::SUCCESS);
 }
 
+/// @brief it should reuse connections from pool across task starts.
 TEST_F(TestReadTask, testConnectionPoolReuse) {
     const std::string endpoint = "opc.tcp://localhost:4840";
     EXPECT_EQ(conn_pool->size(), 0);
@@ -434,6 +462,7 @@ TEST_F(TestReadTask, testConnectionPoolReuse) {
     EXPECT_EQ(conn_pool->available_count(endpoint), 1);
 }
 
+/// @brief it should create separate connections for concurrent tasks.
 TEST_F(TestReadTask, testConnectionPoolConcurrentTasks) {
     const std::string endpoint = "opc.tcp://localhost:4840";
     EXPECT_EQ(conn_pool->size(), 0);
@@ -458,6 +487,7 @@ TEST_F(TestReadTask, testConnectionPoolConcurrentTasks) {
     rt2->stop("stop2", true);
 }
 
+/// @brief it should handle invalid data in array mode read.
 TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
     // Test that ArrayReadTaskSource properly handles invalid data from OPC UA server
     // by clearing the frame and returning a warning
@@ -497,9 +527,10 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
     rt->stop("stop_cmd", true);
 
     // Check that the task started successfully despite potential data errors
-    ASSERT_GE(ctx->states.size(), 1);
+    ASSERT_GE(ctx->statuses.size(), 1);
 }
 
+/// @brief it should skip frames with invalid data in unary mode.
 TEST_F(TestReadTask, testInvalidDataSkipsFrameInUnaryMode) {
     // Test that UnaryReadTaskSource properly skips frames with invalid data
     // and returns a warning message
@@ -512,13 +543,14 @@ TEST_F(TestReadTask, testInvalidDataSkipsFrameInUnaryMode) {
     rt->stop("stop_cmd", true);
 
     // Verify task lifecycle worked correctly
-    ASSERT_GE(ctx->states.size(), 2);
-    EXPECT_EQ(ctx->states[0].variant, status::variant::SUCCESS);
-    EXPECT_EQ(ctx->states[0].message, "Task started successfully");
-    EXPECT_EQ(ctx->states[1].variant, status::variant::SUCCESS);
-    EXPECT_EQ(ctx->states[1].message, "Task stopped successfully");
+    ASSERT_GE(ctx->statuses.size(), 2);
+    EXPECT_EQ(ctx->statuses[0].variant, status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[0].message, "Task started successfully");
+    EXPECT_EQ(ctx->statuses[1].variant, status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].message, "Task stopped successfully");
 }
 
+/// @brief it should not write empty frames in unary mode.
 TEST_F(TestReadTask, testEmptyFramesNotWrittenInUnaryMode) {
     // Test that empty frames (with size 0) are not written to Synnax
     const auto rt = create_task();
@@ -537,6 +569,7 @@ TEST_F(TestReadTask, testEmptyFramesNotWrittenInUnaryMode) {
     }
 }
 
+/// @brief it should handle multiple channels with different data types.
 TEST_F(TestReadTask, testMultipleChannelsWithMixedData) {
     // Test that the read task handles multiple channels with different data types
     // This exercises the loop in UnaryReadTaskSource::read that processes all channels
@@ -555,6 +588,7 @@ TEST_F(TestReadTask, testMultipleChannelsWithMixedData) {
     }
 }
 
+/// @brief it should read boolean channel data as UINT8.
 TEST_F(TestReadTask, testBooleanChannelDataHandling) {
     // Test that boolean channels are properly read and converted to UINT8
     const auto rt = create_task();
@@ -570,6 +604,7 @@ TEST_F(TestReadTask, testBooleanChannelDataHandling) {
     EXPECT_GT(fr.length(), 0);
 }
 
+/// @brief it should read float channel data correctly.
 TEST_F(TestReadTask, testFloatChannelDataHandling) {
     // Test that float channels are properly read and written
     const auto rt = create_task();
@@ -585,6 +620,7 @@ TEST_F(TestReadTask, testFloatChannelDataHandling) {
     EXPECT_GT(fr.length(), 0);
 }
 
+/// @brief it should read double channel data correctly.
 TEST_F(TestReadTask, testDoubleChannelDataHandling) {
     // Test that double channels are properly read and written
     const auto rt = create_task();
@@ -600,6 +636,7 @@ TEST_F(TestReadTask, testDoubleChannelDataHandling) {
     EXPECT_GT(fr.length(), 0);
 }
 
+/// @brief it should read integer channel data with correct values.
 TEST_F(TestReadTask, testIntegerChannelDataHandling) {
     // Test that integer channels (int8, int16, int32, int64) are properly read
     const auto rt = create_task();
@@ -623,6 +660,7 @@ TEST_F(TestReadTask, testIntegerChannelDataHandling) {
     EXPECT_EQ(fr.at<std::int64_t>(this->int64_channel.key, 0), 12345);
 }
 
+/// @brief it should read unsigned integer channel data correctly.
 TEST_F(TestReadTask, testUnsignedIntegerChannelDataHandling) {
     // Test that unsigned integer channels (uint16, uint32, uint64) are properly read
     const auto rt = create_task();
@@ -639,6 +677,7 @@ TEST_F(TestReadTask, testUnsignedIntegerChannelDataHandling) {
     ASSERT_TRUE(fr.contains(this->uint64_channel.key));
 }
 
+/// @brief it should aggregate errors from multiple channels in array mode.
 TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
     // Test that ArrayReadTaskSource aggregates multiple errors from different channels
     json multi_channel_array_cfg{
@@ -685,9 +724,10 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
     rt->stop("stop_cmd", true);
 
     // Task should handle multiple channels without crashing
-    ASSERT_GE(ctx->states.size(), 1);
+    ASSERT_GE(ctx->statuses.size(), 1);
 }
 
+/// @brief it should include channel information in warning messages.
 TEST_F(TestReadTask, testWarningMessagesContainChannelInfo) {
     // Test that warning messages contain channel information for debugging
     // This tests the error message formatting in read_task.h lines 258-262 and 326-328
@@ -702,9 +742,10 @@ TEST_F(TestReadTask, testWarningMessagesContainChannelInfo) {
     // If any warnings were generated, they should be informative
     // We can't force an error in this test without a mock server that returns bad data,
     // but we verify the task runs successfully
-    ASSERT_GE(ctx->states.size(), 2);
+    ASSERT_GE(ctx->statuses.size(), 2);
 }
 
+/// @brief it should skip samples when write error occurs in unary mode.
 TEST_F(TestReadTask, testSkipSampleOnWriteErrorInUnaryMode) {
     // Test that UnaryReadTaskSource properly skips samples when write_to_series fails
     // This exercises the skip_sample logic in read_task.h lines 324-334
@@ -717,11 +758,12 @@ TEST_F(TestReadTask, testSkipSampleOnWriteErrorInUnaryMode) {
     rt->stop("stop_cmd", true);
 
     // Verify that task completed successfully
-    ASSERT_GE(ctx->states.size(), 2);
-    EXPECT_EQ(ctx->states[0].variant, status::variant::SUCCESS);
-    EXPECT_EQ(ctx->states[1].variant, status::variant::SUCCESS);
+    ASSERT_GE(ctx->statuses.size(), 2);
+    EXPECT_EQ(ctx->statuses[0].variant, status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].variant, status::variant::SUCCESS);
 }
 
+/// @brief it should clear frame when error occurs in array mode.
 TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
     // Test that ArrayReadTaskSource clears the frame when errors occur
     // This exercises the frame.clear() logic in read_task.h line 268
@@ -761,9 +803,10 @@ TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
     rt->stop("stop_cmd", true);
 
     // Verify task ran successfully
-    ASSERT_GE(ctx->states.size(), 1);
+    ASSERT_GE(ctx->statuses.size(), 1);
 }
 
+/// @brief it should clear frame when error occurs in unary mode.
 TEST_F(TestReadTask, testFrameClearedOnErrorInUnaryMode) {
     // Test that UnaryReadTaskSource clears the frame when errors occur
     // This exercises the frame.clear() logic in read_task.h line 333
@@ -781,6 +824,7 @@ TEST_F(TestReadTask, testFrameClearedOnErrorInUnaryMode) {
     }
 }
 
+/// @brief it should skip samples with invalid boolean data.
 TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
     // Test that UnaryReadTaskSource skips samples when boolean data is invalid
     // Uses a separate mock server on different port with invalid data
@@ -788,11 +832,11 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
     invalid_server_cfg.port = 4841; // Different port from main server
     auto invalid_server = std::make_unique<mock::Server>(invalid_server_cfg);
     invalid_server->start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(invalid_server->wait_until_ready());
 
     // Create a separate rack and device for the invalid data server
     auto invalid_rack = ASSERT_NIL_P(
-        ctx->client->hardware.create_rack("opc_invalid_bool_rack")
+        ctx->client->racks.create("opc_invalid_bool_rack")
     );
 
     opc::connection::Config invalid_conn_cfg;
@@ -809,7 +853,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
         "OPC UA Server",
         nlohmann::to_string(json::object({{"connection", invalid_conn_cfg.to_json()}}))
     );
-    ASSERT_NIL(ctx->client->hardware.create_device(invalid_dev));
+    ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     // Create a task that reads from the invalid boolean node
     json invalid_bool_cfg{
@@ -861,17 +905,18 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
     invalid_server->stop();
 }
 
+/// @brief it should skip samples with invalid float data.
 TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
     // Test that UnaryReadTaskSource skips samples when float data has null pointer
     auto invalid_server_cfg = mock::ServerConfig::create_with_invalid_data();
     invalid_server_cfg.port = 4842; // Different port
     auto invalid_server = std::make_unique<mock::Server>(invalid_server_cfg);
     invalid_server->start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(invalid_server->wait_until_ready());
 
     // Create a separate rack and device for the invalid data server
     auto invalid_rack = ASSERT_NIL_P(
-        ctx->client->hardware.create_rack("opc_invalid_float_rack")
+        ctx->client->racks.create("opc_invalid_float_rack")
     );
 
     opc::connection::Config invalid_conn_cfg;
@@ -888,7 +933,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
         "OPC UA Server",
         nlohmann::to_string(json::object({{"connection", invalid_conn_cfg.to_json()}}))
     );
-    ASSERT_NIL(ctx->client->hardware.create_device(invalid_dev));
+    ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     json invalid_float_cfg{
         {"data_saving", true},
@@ -939,17 +984,18 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
     invalid_server->stop();
 }
 
+/// @brief it should clear frame with invalid double array data.
 TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
     // Test that ArrayReadTaskSource clears frames with zero-length arrays
     auto invalid_server_cfg = mock::ServerConfig::create_with_invalid_data();
     invalid_server_cfg.port = 4843;
     auto invalid_server = std::make_unique<mock::Server>(invalid_server_cfg);
     invalid_server->start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    ASSERT_TRUE(invalid_server->wait_until_ready());
 
     // Create a separate rack and device for the invalid data server
     auto invalid_rack = ASSERT_NIL_P(
-        ctx->client->hardware.create_rack("opc_invalid_double_rack")
+        ctx->client->racks.create("opc_invalid_double_rack")
     );
 
     opc::connection::Config invalid_conn_cfg;
@@ -966,7 +1012,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
         "OPC UA Server",
         nlohmann::to_string(json::object({{"connection", invalid_conn_cfg.to_json()}}))
     );
-    ASSERT_NIL(ctx->client->hardware.create_device(invalid_dev));
+    ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     json invalid_double_cfg{
         {"data_saving", true},
@@ -1025,7 +1071,7 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     // Create rack and device
-    auto rack = ASSERT_NIL_P(client->hardware.create_rack("opc_test_rack"));
+    auto rack = ASSERT_NIL_P(client->racks.create("opc_test_rack"));
 
     opc::connection::Config conn_cfg;
     conn_cfg.endpoint = "opc.tcp://localhost:4840";
@@ -1041,15 +1087,21 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
         "OPC UA Server",
         nlohmann::to_string(json::object({{"connection", conn_cfg.to_json()}}))
     );
-    ASSERT_NIL(client->hardware.create_device(dev));
+    ASSERT_NIL(client->devices.create(dev));
 
     // Create index and data channels
-    auto index_ch = ASSERT_NIL_P(
-        client->channels.create("opc_test_index", telem::TIMESTAMP_T, 0, true)
-    );
-    auto ch = ASSERT_NIL_P(
-        client->channels.create("test_channel", telem::FLOAT32_T, index_ch.key, false)
-    );
+    auto index_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("opc_test_index"),
+        telem::TIMESTAMP_T,
+        0,
+        true
+    ));
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("opc_test_channel"),
+        telem::FLOAT32_T,
+        index_ch.key,
+        false
+    ));
 
     // Create task config
     json task_cfg{

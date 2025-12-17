@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError } from "@synnaxlabs/client";
+import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
@@ -103,7 +103,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.hardware.devices.retrieve<Device.Properties>({
+  const dev = await client.devices.retrieve<Device.Properties>({
     key: config.device,
   });
   Common.Device.checkConfigured(dev);
@@ -117,10 +117,11 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
       if (NotFoundError.matches(e)) shouldCreateIndex = true;
       else throw e;
     }
+  const identifier = channel.escapeInvalidName(dev.properties.identifier);
   if (shouldCreateIndex) {
     modified = true;
     const aiIndex = await client.channels.create({
-      name: `${dev.properties.identifier}_di_time`,
+      name: `${identifier}_di_time`,
       dataType: "timestamp",
       isIndex: true,
     });
@@ -145,7 +146,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
     modified = true;
     const channels = await client.channels.create(
       toCreate.map((c) => ({
-        name: `${dev.properties.identifier}_di_${c.port}_${c.line}`,
+        name: `${identifier}_di_${c.port}_${c.line}`,
         dataType: "uint8",
         index: dev.properties.digitalInput.index,
       })),
@@ -155,7 +156,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
       dev.properties.digitalInput.channels[key] = c.key;
     });
   }
-  if (modified) await client.hardware.devices.create(dev);
+  if (modified) await client.devices.create(dev);
   config.channels.forEach((c) => {
     const key = getDigitalChannelDeviceKey(c);
     c.channel = dev.properties.digitalInput.channels[key];

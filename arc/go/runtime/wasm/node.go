@@ -18,8 +18,8 @@ import (
 )
 
 type nodeImpl struct {
+	*state.Node
 	ir      ir.Node
-	state   *state.Node
 	wasm    *Function
 	inputs  []uint64
 	offsets []int
@@ -34,14 +34,14 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		}
 	}()
 
-	if !n.state.RefreshInputs() {
+	if !n.RefreshInputs() {
 		return
 	}
 
 	maxLength := int64(0)
 	longestInputIdx := 0
 	for i := range n.ir.Inputs {
-		dataLen := n.state.Input(i).Len()
+		dataLen := n.Input(i).Len()
 		if dataLen > maxLength {
 			maxLength = dataLen
 			longestInputIdx = i
@@ -58,17 +58,37 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		n.offsets[j] = 0
 	}
 	for i := range n.ir.Outputs {
-		n.state.Output(i).Resize(maxLength)
-		n.state.OutputTime(i).Resize(maxLength)
+		n.Output(i).Resize(maxLength)
+		n.OutputTime(i).Resize(maxLength)
+	}
+	// Copy alignment and time range from inputs to outputs.
+	// Alignments are summed to guarantee uniqueness across different input sources.
+	var alignmentSum telem.Alignment
+	var timeRange telem.TimeRange
+	for i := range n.ir.Inputs {
+		input := n.Input(i)
+		alignmentSum += input.Alignment
+		if timeRange.Start.IsZero() || input.TimeRange.Start < timeRange.Start {
+			timeRange.Start = input.TimeRange.Start
+		}
+		if input.TimeRange.End > timeRange.End {
+			timeRange.End = input.TimeRange.End
+		}
+	}
+	for i := range n.ir.Outputs {
+		n.Output(i).Alignment = alignmentSum
+		n.Output(i).TimeRange = timeRange
+		n.OutputTime(i).Alignment = alignmentSum
+		n.OutputTime(i).TimeRange = timeRange
 	}
 	var longestInputTime telem.Series
 	if len(n.ir.Inputs) > 0 {
-		longestInputTime = n.state.InputTime(longestInputIdx)
+		longestInputTime = n.InputTime(longestInputIdx)
 	}
 	for i := int64(0); i < maxLength; i++ {
 		for j := range n.ir.Inputs {
-			inputLen := n.state.Input(j).Len()
-			n.inputs[j] = valueAt(n.state.Input(j), int(i%inputLen))
+			inputLen := n.Input(j).Len()
+			n.inputs[j] = valueAt(n.Input(j), int(i%inputLen))
 		}
 		res, err := n.wasm.Call(ctx, n.inputs...)
 		if err != nil {
@@ -89,15 +109,15 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		}
 		for j, value := range res {
 			if value.changed {
-				setValueAt(*n.state.Output(j), n.offsets[j], value.value)
-				setValueAt(*n.state.OutputTime(j), n.offsets[j], ts)
+				setValueAt(*n.Output(j), n.offsets[j], value.value)
+				setValueAt(*n.OutputTime(j), n.offsets[j], ts)
 				n.offsets[j]++
 			}
 		}
 	}
 	for j := range n.ir.Outputs {
-		n.state.Output(j).Resize(int64(n.offsets[j]))
-		n.state.OutputTime(j).Resize(int64(n.offsets[j]))
+		n.Output(j).Resize(int64(n.offsets[j]))
+		n.OutputTime(j).Resize(int64(n.offsets[j]))
 		if n.offsets[j] > 0 {
 			ctx.MarkChanged(n.ir.Outputs[j].Name)
 		}

@@ -93,7 +93,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             parser.field_err("channels", "task must have at least one enabled channel");
             return;
         }
-        auto [dev, err] = client->hardware.retrieve_device(this->device_key);
+        auto [dev, err] = client->devices.retrieve(this->device_key);
         if (err) {
             parser.field_err("device", "failed to retrieve device: " + err.message());
             return;
@@ -211,7 +211,7 @@ public:
     }
 
     /// @brief implements pipeline::Sink to write to the LabJack device.
-    xerrors::Error write(const synnax::Frame &frame) override {
+    xerrors::Error write(const telem::Frame &frame) override {
         this->reset_buffer(this->cfg.channels.size());
         for (const auto &[cmd_key, s]: frame)
             if (const auto it = this->cfg.channels.find(cmd_key);

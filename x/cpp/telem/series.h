@@ -20,7 +20,7 @@
 #include "x/cpp/binary/binary.h"
 #include "x/cpp/telem/telem.h"
 
-#include "x/go/telem/x/go/telem/telem.pb.h"
+#include "x/go/telem/telem.pb.h"
 
 using json = nlohmann::json;
 
@@ -124,7 +124,8 @@ private:
         cached_byte_size(other.cached_byte_size),
         size_(other.size_),
         data_(std::make_unique<std::byte[]>(other.byte_size())),
-        time_range(other.time_range) {
+        time_range(other.time_range),
+        alignment(other.alignment) {
         memcpy(data_.get(), other.data_.get(), other.byte_size());
     }
 
@@ -197,7 +198,8 @@ public:
         cached_byte_size(other.cached_byte_size),
         size_(other.size_),
         data_(std::move(other.data_)),
-        time_range(other.time_range) {
+        time_range(other.time_range),
+        alignment(other.alignment) {
         other.data_ = nullptr;
     }
 
@@ -345,6 +347,8 @@ public:
         this->data_[byte_size() - 1] = NEWLINE_TERMINATOR;
     }
 
+    explicit Series(const char *data) {}
+
     /// @brief constructs the series from its protobuf representation.
     explicit Series(const PBSeries &s):
         data_type_(s.data_type()),
@@ -426,20 +430,20 @@ public:
     /// @param d the array of numeric data to be written.
     /// @param index the index to write the data at. If negative, the index is
     /// treated as an offset from the end of the series.
-    /// @param size_ the number of samples to write.
+    /// @param count the number of samples to write.
     /// @throws std::runtime_error if the index is out of bounds or the write would
     /// exceed the capacity of the series.
     template<typename NumericType>
-    void set(const NumericType *d, const int &index, const size_t size_) {
+    void set(const NumericType *d, const int &index, const size_t count) {
         static_assert(
             std::is_arithmetic_v<NumericType>,
             "NumericType must be a numeric type"
         );
-        const auto adjusted = this->validate_bounds(index, size_);
+        const auto adjusted = this->validate_bounds(index, count);
         memcpy(
             this->data_.get() + adjusted * this->data_type().density(),
             d,
-            size_ * this->data_type().density()
+            count * this->data_type().density()
         );
     }
 
@@ -559,19 +563,19 @@ public:
 
     /// @brief writes the given array of numeric data to the series.
     /// @param d the array of numeric data to be written.
-    /// @param size_ the number of samples to write.
+    /// @param count the number of samples to write.
     /// @returns the number of samples written. If the capacity of the series is
     /// exceeded, it will only write as many samples as it can hold.
     template<typename NumericType>
-    size_t write(const NumericType *d, const size_t size_) {
+    size_t write(const NumericType *d, const size_t count) {
         static_assert(
             std::is_arithmetic_v<NumericType>,
             "generic argument to write must be a numeric type"
         );
-        const size_t count = std::min(size_, this->cap() - this->size());
-        memcpy(this->data_.get(), d, count * this->data_type().density());
-        this->size_ += count;
-        return count;
+        const size_t capped_count = std::min(count, this->cap() - this->size());
+        memcpy(this->data_.get(), d, capped_count * this->data_type().density());
+        this->size_ += capped_count;
+        return capped_count;
     }
 
     /// @brief encodes the series' fields into the given protobuf message.

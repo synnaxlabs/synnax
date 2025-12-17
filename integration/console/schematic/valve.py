@@ -17,7 +17,59 @@ from .symbol import Symbol
 class Valve(Symbol):
     """Schematic valve symbol"""
 
-    def edit_properties(
+    def __init__(
+        self,
+        *,
+        label: str,
+        state_channel: str,
+        command_channel: str,
+        show_control_chip: bool = True,
+        symbol_type: str = "Valve",
+        rotatable: bool = True,
+    ):
+        """Initialize a valve symbol with configuration.
+
+        Args:
+            label: Display label for the symbol
+            state_channel: Channel name for valve state
+            command_channel: Channel name for valve commands
+            show_control_chip: Whether to show the control chip (optional)
+            symbol_type: The type of symbol (default: "Valve")
+            rotatable: Whether the symbol can be rotated (default: True)
+        """
+        super().__init__(label, symbol_type=symbol_type, rotatable=rotatable)
+        self.state_channel = state_channel
+        self.command_channel = command_channel
+        self.show_control_chip = show_control_chip
+
+    def _add_symbol_to_schematic(self, symbol_type: str) -> str:
+        """Add a valve symbol using the Valves menu."""
+        if self.page is None or self.console is None:
+            raise RuntimeError("Symbol not attached to schematic")
+
+        self.console.close_all_notifications()
+        self.console.click("Symbols")
+        initial_count = len(self.page.locator("[data-testid^='rf__node-']").all())
+
+        self.console.click("Valves")
+        self.console.click("Generic")
+
+        self.page.wait_for_function(
+            f"document.querySelectorAll('[data-testid^=\"rf__node-\"]').length > {initial_count}"
+        )
+
+        all_symbols = self.page.locator("[data-testid^='rf__node-']").all()
+        return all_symbols[-1].get_attribute("data-testid") or "unknown"
+
+    def _apply_properties(self) -> None:
+        """Apply valve configuration after being added to schematic."""
+        self.set_properties(
+            state_channel=self.state_channel,
+            command_channel=self.command_channel,
+            show_control_chip=self.show_control_chip,
+        )
+
+    def set_properties(
         self,
         channel_name: str | None = None,
         state_channel: str | None = None,
@@ -25,8 +77,8 @@ class Valve(Symbol):
         show_control_chip: bool | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        """Edit Setpoint properties including channel settings."""
-        self._click_symbol()
+        """Set Valve properties including channel settings."""
+        self.click()
 
         applied_properties: dict[str, Any] = {}
 
@@ -92,10 +144,15 @@ class Valve(Symbol):
 
         return props
 
-    def press(self) -> None:
-        """Press button"""
+    def press(self, sleep: int = 100) -> None:
+        """Press button
+
+        Args:
+            sleep: Time in milliseconds to wait after pressing. Buffer for network delays and slow animations.
+        """
+
         self._disable_edit_mode()
-        self._click_symbol()
+        self.click(sleep=sleep)
 
     def press_and_hold(self, delay: sy.TimeSpan = sy.TimeSpan.SECOND) -> None:
         """Click and hold the button for the specified duration."""

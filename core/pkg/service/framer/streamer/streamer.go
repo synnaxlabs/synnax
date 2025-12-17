@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -35,6 +36,7 @@ type Config struct {
 	Keys             channel.Keys `json:"keys" msgpack:"keys"`
 	SendOpenAck      bool         `json:"send_open_ack" msgpack:"send_open_ack"`
 	DownsampleFactor int          `json:"downsample_factor" msgpack:"downsample_factor"`
+	ThrottleRate     telem.Rate   `json:"throttle_rate" msgpack:"throttle_rate"`
 }
 
 var (
@@ -46,6 +48,7 @@ var (
 func (cfg Config) Validate() error {
 	v := validate.New("streamer.config")
 	validate.GreaterThanEq(v, "downsample_factor", cfg.DownsampleFactor, 0)
+	validate.GreaterThanEq(v, "throttle_rate", cfg.ThrottleRate, 0)
 	return v.Error()
 }
 
@@ -54,6 +57,7 @@ func (cfg Config) Override(other Config) Config {
 	cfg.Keys = override.Slice(cfg.Keys, other.Keys)
 	cfg.SendOpenAck = other.SendOpenAck
 	cfg.DownsampleFactor = override.Numeric(cfg.DownsampleFactor, other.DownsampleFactor)
+	cfg.ThrottleRate = override.Numeric(cfg.ThrottleRate, other.ThrottleRate)
 	return cfg
 }
 
@@ -65,7 +69,7 @@ func (cfg Config) distribution() framer.StreamerConfig {
 type ServiceConfig struct {
 	alamos.Instrumentation
 	Calculation *calculation.Service
-	Channel     channel.Readable
+	Channel     *channel.Service
 	DistFramer  *framer.Service
 }
 
@@ -106,6 +110,7 @@ var (
 	distAddr       address.Address = "distribution"
 	utAddr         address.Address = "updater_transform"
 	downsampleAddr address.Address = "downsample"
+	throttleAddr   address.Address = "throttle"
 )
 
 const (
@@ -136,6 +141,11 @@ func (s *Service) New(ctx context.Context, cfgs ...Config) (Streamer, error) {
 		plumber.MustConnect[Response](p, routeOutletFrom, downsampleAddr, responseBufferSize)
 		routeOutletFrom = downsampleAddr
 	}
+	if cfg.ThrottleRate > 0 {
+		plumber.SetSegment(p, throttleAddr, newThrottle(cfg))
+		plumber.MustConnect[Response](p, routeOutletFrom, throttleAddr, responseBufferSize)
+		routeOutletFrom = throttleAddr
+	}
 	return &plumber.Segment[Request, Response]{
 		Pipeline:         p,
 		RouteInletsTo:    []address.Address{utAddr},
@@ -150,7 +160,7 @@ func (s *Service) newCalculationUpdaterTransform(
 	ut := &calculationUpdaterTransform{
 		Instrumentation: s.cfg.Instrumentation,
 		calcManager:     s.cfg.Calculation.OpenRequestManager(),
-		readable:        s.cfg.Channel,
+		channelSvc:      s.cfg.Channel,
 	}
 	ut.Transform = ut.transform
 	return ut, ut.calcManager.Set(ctx, cfg.Keys)

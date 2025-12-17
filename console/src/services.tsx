@@ -10,6 +10,7 @@
 import { type ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 
+import { Access } from "@/access";
 import { ArcServices } from "@/arc/services";
 import { ChannelServices } from "@/channel/services";
 import { GroupServices } from "@/group/services";
@@ -50,10 +51,11 @@ export const SERVICES: Ontology.Services = {
   device: Hardware.Device.ONTOLOGY_SERVICE,
   channel: ChannelServices.ONTOLOGY_SERVICE,
   framer: createEmptyService("framer"),
-  policy: createEmptyService("policy", <Icon.Access />),
-  allow_all: createEmptyService("allow_all"),
+  policy: Access.Policy.ONTOLOGY_SERVICE,
   log: LogServices.ONTOLOGY_SERVICE,
   table: TableServices.ONTOLOGY_SERVICE,
   status: createEmptyService("status", <Icon.Status />),
   arc: ArcServices.ONTOLOGY_SERVICE,
+  view: createEmptyService("view"),
+  role: Access.Role.ONTOLOGY_SERVICE,
 };

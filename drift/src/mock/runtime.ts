@@ -14,9 +14,10 @@ import { type Event, type Runtime } from "@/runtime";
 import { type StoreState } from "@/state";
 import { type WindowProps } from "@/window";
 
-export class MockRuntime<S extends StoreState, A extends Action = UnknownAction>
-  implements Runtime<S, A>
-{
+export class MockRuntime<
+  S extends StoreState,
+  A extends Action = UnknownAction,
+> implements Runtime<S, A> {
   _isMain = false;
   _label = "mock";
   markedReady = false;

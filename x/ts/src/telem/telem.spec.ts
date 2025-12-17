@@ -11,7 +11,6 @@ import { describe, expect, it, test } from "vitest";
 
 import { binary } from "@/binary";
 import {
-  addSamples,
   type CrudeDataType,
   DataType,
   Density,
@@ -1479,7 +1478,7 @@ describe("TimeRange", () => {
     });
   });
 
-  describe("simplify", () => {
+  describe("merge", () => {
     it("should merge overlapping time ranges", () => {
       const trs = [
         new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(4)),
@@ -1487,45 +1486,33 @@ describe("TimeRange", () => {
         new TimeRange(TimeSpan.seconds(3), TimeSpan.seconds(5)),
         new TimeRange(TimeSpan.seconds(6), TimeSpan.seconds(7)),
       ];
-      const expected = [
-        new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(5)),
-        new TimeRange(TimeSpan.seconds(6), TimeSpan.seconds(7)),
-      ];
-      const simplified = TimeRange.simplify(trs);
-      expect(simplified).toEqual(expected);
+      const expected = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(7));
+      const merged = TimeRange.merge(...trs);
+      expect(merged).toEqual(expected);
     });
     it("should merge time ranges that are adjacent", () => {
       const trs = [
         new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(4)),
         new TimeRange(TimeSpan.seconds(4), TimeSpan.seconds(5)),
       ];
-      const expected = [new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(5))];
-      const simplified = TimeRange.simplify(trs);
-      expect(simplified).toEqual(expected);
-    });
-    it("should remove zero length time ranges", () => {
-      const trs = [
-        new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(4)),
-        new TimeRange(TimeSpan.seconds(5), TimeSpan.seconds(5)),
-      ];
-      const expected = [new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(4))];
-      const simplified = TimeRange.simplify(trs);
-      expect(simplified).toEqual(expected);
+      const expected = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(5));
+      const merged = TimeRange.merge(...trs);
+      expect(merged).toEqual(expected);
     });
     it("should make ranges valid by swapping start and end", () => {
       const trs = [
         new TimeRange(TimeSpan.seconds(4), TimeSpan.seconds(1)),
         new TimeRange(TimeSpan.seconds(2), TimeSpan.seconds(3)),
       ];
-      const expected = [new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(4))];
-      const simplified = TimeRange.simplify(trs);
-      expect(simplified).toEqual(expected);
+      const expected = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(4));
+      const merged = TimeRange.merge(...trs);
+      expect(merged).toEqual(expected);
     });
     it("should work with zero ranges", () => {
       const trs: TimeRange[] = [];
-      const expected: TimeRange[] = [];
-      const simplified = TimeRange.simplify(trs);
-      expect(simplified).toEqual(expected);
+      const expected = TimeRange.MAX.swap();
+      const merged = TimeRange.merge(...trs);
+      expect(merged).toEqual(expected);
     });
   });
   describe("numericBounds", () => {
@@ -2020,32 +2007,5 @@ describe("Size", () => {
       expect(result).toBeInstanceOf(Size);
       expect(result.valueOf()).toBe(10000);
     });
-  });
-});
-
-describe("addSamples", () => {
-  test("adds two numbers", () => {
-    expect(addSamples(1, 2)).toBe(3);
-    expect(addSamples(1.5, 2.5)).toBe(4);
-    expect(addSamples(-1, 1)).toBe(0);
-  });
-
-  test("adds two bigints", () => {
-    expect(addSamples(1n, 2n)).toBe(3n);
-    expect(addSamples(-1n, 1n)).toBe(0n);
-    expect(addSamples(9007199254740991n, 1n)).toBe(9007199254740992n);
-  });
-
-  test("handles mixed numeric types", () => {
-    expect(addSamples(1, 2n)).toBe(3);
-    expect(addSamples(2n, 1)).toBe(3);
-    expect(addSamples(1.5, 2n)).toBe(3.5);
-    expect(addSamples(2n, 1.5)).toBe(3.5);
-  });
-
-  test("handles edge cases", () => {
-    expect(addSamples(0, 0)).toBe(0);
-    expect(addSamples(Number.MAX_SAFE_INTEGER, 1)).toBe(Number.MAX_SAFE_INTEGER + 1);
-    expect(addSamples(Number.MIN_SAFE_INTEGER, -1)).toBe(Number.MIN_SAFE_INTEGER - 1);
   });
 });

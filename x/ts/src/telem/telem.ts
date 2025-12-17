@@ -1680,28 +1680,14 @@ export class TimeRange implements primitive.Stringer {
   }
 
   /**
-   * Simplify takes the list of `TimeRange`s, makes all of them valid, sorts them, and
-   * merges any overlapping ranges.
+   * Merges the given time ranges into a single time range.
    *
-   * @param ranges - The list of `TimeRange`s to simplify.
-   * @returns A list of simplified `TimeRange`s.
+   * @param ranges - The list of `CrudeTimeRange`s to merge.
+   * @returns A new `TimeRange` that is the union of the given time ranges - the start
+   * is the minimum of the start times and the end is the maximum of the end times.
    */
-  static simplify(ranges: TimeRange[]): TimeRange[] {
-    return ranges
-      .map((r) => r.makeValid())
-      .sort((a, b) => TimeRange.sort(a, b))
-      .reduce<TimeRange[]>((simplified, range) => {
-        if (range.span.isZero) return simplified;
-        if (simplified.length === 0) {
-          simplified.push(range);
-          return simplified;
-        }
-        const last = simplified[simplified.length - 1];
-        if (last.overlapsWith(range) || last.end.equals(range.start))
-          last.end = TimeStamp.max(last.end, range.end);
-        else simplified.push(range);
-        return simplified;
-      }, []);
+  static merge(...ranges: CrudeTimeRange[]): TimeRange {
+    return TimeRange.max(...ranges.map((r) => new TimeRange(r).makeValid()));
   }
 }
 
@@ -2298,13 +2284,5 @@ export const convertDataType = (
   if (source.usesBigInt && !target.usesBigInt) return Number(value) - Number(offset);
   if (!source.usesBigInt && target.usesBigInt)
     return BigInt(value.valueOf()) - BigInt(offset.valueOf());
-  return addSamples(value, -offset);
-};
-
-export const addSamples = (a: math.Numeric, b: math.Numeric): math.Numeric => {
-  if (b == 0) return a;
-  if (a == 0) return b;
-  if (typeof a === "bigint" && typeof b === "bigint") return a + b;
-  if (typeof a === "number" && typeof b === "number") return a + b;
-  return Number(a) + Number(b);
+  return math.sub(value, offset);
 };

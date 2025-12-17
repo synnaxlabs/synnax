@@ -4,3 +4,14 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = ["//x/cpp/xerrors"],
 )
+
+cc_test(
+    name = "errors_test",
+    srcs = ["errors_test.cpp"],
+    deps = [
+        "//client/cpp/errors",
+        "//x/cpp/xerrors",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

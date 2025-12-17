@@ -112,7 +112,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             parser.field_err("channels", "task must have at least one enabled channel");
             return;
         }
-        auto [dev, err] = client->hardware.retrieve_device(this->device_key);
+        auto [dev, err] = client->devices.retrieve(this->device_key);
         if (err) {
             parser.field_err("device", "failed to retrieve device: " + err.message());
             return;
@@ -238,7 +238,7 @@ public:
         return this->cfg.sy_channels();
     }
 
-    common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+    common::ReadResult read(breaker::Breaker &breaker, ::telem::Frame &fr) override {
         common::ReadResult res;
         this->timer.wait(breaker);
         opc::ReadResponse ua_res(UA_Client_Service_read(
@@ -309,7 +309,7 @@ public:
     ):
         BaseReadTaskSource(std::move(pool), std::move(cfg), cfg.sample_rate) {}
 
-    common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+    common::ReadResult read(breaker::Breaker &breaker, ::telem::Frame &fr) override {
         common::ReadResult res;
         common::initialize_frame(
             fr,

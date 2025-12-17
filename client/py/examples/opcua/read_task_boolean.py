@@ -15,7 +15,7 @@ Before running this example:
    poetry run python driver/opc/dev/server_extended.py
 
 2. Connect the OPC UA server device in Synnax:
-   - Endpoint: opc.tcp://localhost:4841/
+   - Endpoint: opc.tcp://127.0.0.1:4841/
    - Name the device "OPC UA Server" (or update line 27 below)
 
 3. The server creates boolean variables (my_bool_0, my_bool_1, etc.) that continuously
@@ -23,7 +23,6 @@ Before running this example:
 """
 
 import synnax as sy
-from synnax.hardware import opcua
 
 # We've logged in via the command-line interface, so there's no need to provide
 # credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
@@ -31,7 +30,7 @@ client = sy.Synnax()
 
 # Retrieve the OPC UA server from Synnax
 # Update this with the name you gave the device in the Synnax Console
-dev = client.hardware.devices.retrieve(name="OPC UA Server")
+dev = client.devices.retrieve(name="OPC UA Server")
 
 # Create an index channel that will be used to store the timestamps for the data.
 opcua_bool_time = client.channels.create(
@@ -59,7 +58,7 @@ my_bool_1 = client.channels.create(
 # Create the OPC UA Read Task
 # Using node IDs to reference the OPC UA boolean variables.
 # The server creates booleans with sequential square wave patterns offset by 0.2 seconds.
-tsk = opcua.ReadTask(
+tsk = sy.opcua.ReadTask(
     name="OPC UA Py - Read Task (Boolean)",
     device=dev.key,
     sample_rate=sy.Rate.HZ * 10,  # Sample at 10 Hz
@@ -68,17 +67,17 @@ tsk = opcua.ReadTask(
     channels=[
         # Bind the Synnax channels to the OPC UA node IDs
         # These IDs correspond to my_bool_0 and my_bool_1 in server_extended.py
-        opcua.ReadChannel(
+        sy.opcua.ReadChannel(
             channel=my_bool_0.key, node_id="NS=2;I=13", data_type="bool"  # my_bool_0
         ),
-        opcua.ReadChannel(
+        sy.opcua.ReadChannel(
             channel=my_bool_1.key, node_id="NS=2;I=14", data_type="bool"  # my_bool_1
         ),
     ],
 )
 
 # Configure the task with Synnax
-client.hardware.tasks.configure(tsk)
+client.tasks.configure(tsk)
 
 print("=" * 70)
 print("Starting OPC UA Boolean Read Task")

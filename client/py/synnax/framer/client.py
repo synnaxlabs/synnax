@@ -142,12 +142,17 @@ class Client:
         tr: TimeRange,
         channels: ChannelParams,
         chunk_size: int = 1e5,
+        downsample_factor: int = 1,
     ) -> Iterator:
         """Opens a new iterator over the given channels within the provided time range.
 
         :param channels: A list of channel keys to iterator over.
         :param tr: A time range to iterate over.
-        :param chunk_size: The number of samples to read in a chunk with AutoSpan. Defaults to 100000
+        :param chunk_size: The number of samples to read in a chunk with AutoSpan.
+            Defaults to 100000.
+        :param downsample_factor: The factor to downsample the data by. If
+            downsample_factor is less than or equal to 1, no downsampling will be
+            performed. Defaults to 1.
         :returns: An Iterator over the given channels within the provided time
         range. See the Iterator documentation for more.
         """
@@ -158,6 +163,7 @@ class Client:
             adapter=adapter,
             client=self.__stream_client,
             chunk_size=chunk_size,
+            downsample_factor=downsample_factor,
             instrumentation=self.instrumentation,
         )
 
@@ -305,6 +311,7 @@ class Client:
         self,
         channels: ChannelParams,
         downsample_factor: int = 1,
+        throttle_rate: float = 0,
         use_experimental_codec: bool = True,
     ) -> Streamer:
         """Opens a new streamer on the given channels. The streamer will immediately
@@ -314,6 +321,7 @@ class Client:
         a list of channel names, a single channel key, or a list of channel keys.
 
         :param downsample_factor: The downsample factor to use for the streamer.
+        :param throttle_rate: The throttle rate in Hz to limit the rate of frames sent to the client. Defaults to 0 (no throttling).
         """
         adapter = ReadFrameAdapter(self.__channels)
         adapter.update(channels)
@@ -321,11 +329,15 @@ class Client:
             adapter=adapter,
             client=self.__stream_client,
             downsample_factor=downsample_factor,
+            throttle_rate=throttle_rate,
             use_experimental_codec=use_experimental_codec,
         )
 
     async def open_async_streamer(
-        self, channels: ChannelParams, downsample_factor: int = 1
+        self,
+        channels: ChannelParams,
+        downsample_factor: int = 1,
+        throttle_rate: float = 0,
     ) -> AsyncStreamer:
         adapter = ReadFrameAdapter(self.__channels)
         adapter.update(channels)
@@ -333,6 +345,7 @@ class Client:
             adapter=adapter,
             client=self.__async_client,
             downsample_factor=downsample_factor,
+            throttle_rate=throttle_rate,
         )
         await s._open()
         return s

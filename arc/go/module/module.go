@@ -55,6 +55,11 @@
 package module
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"strings"
+
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
 )
@@ -95,3 +100,36 @@ type Module struct {
 //	    return errors.New("compilation produced empty module")
 //	}
 func (m Module) IsZero() bool { return len(m.WASM) == 0 && m.IR.IsZero() }
+
+// String returns a human-readable string representation of the module.
+// The output includes a summary of the WASM bytecode (size and SHA256 hash)
+// and the full IR tree structure with functions, nodes, edges, strata, and sequences.
+func (m Module) String() string {
+	var b strings.Builder
+	b.WriteString("Arc Module\n")
+
+	hasContent := len(m.Functions) > 0 || len(m.Nodes) > 0 ||
+		len(m.Edges) > 0 || len(m.Strata) > 0 || len(m.Sequences) > 0
+
+	// WASM summary
+	b.WriteString(ir.TreePrefix(!hasContent))
+	b.WriteString(m.wasmSummary())
+	b.WriteString("\n")
+
+	// Delegate to IR for remaining content
+	if hasContent {
+		b.WriteString(m.IR.String())
+	}
+
+	return b.String()
+}
+
+// wasmSummary returns a summary of the WASM bytecode.
+func (m Module) wasmSummary() string {
+	if len(m.WASM) == 0 {
+		return "WASM: (none)"
+	}
+	hash := sha256.Sum256(m.WASM)
+	shortHash := hex.EncodeToString(hash[:])[:8]
+	return fmt.Sprintf("WASM: %d bytes (sha256: %s...)", len(m.WASM), shortHash)
+}

@@ -19,7 +19,7 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore, log.Key, log
   };
 
 export const FLUX_STORE_KEY = "logs";
-const RESOURCE_NAME = "Log";
+const RESOURCE_NAME = "log";
 
 export interface FluxStore extends Flux.UnaryStore<log.Key, log.Log> {}
 
@@ -62,7 +62,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, rollbacks, store }) => {
     const keys = array.toArray(data);
-    const ids = keys.map((key) => log.ontologyID(key));
+    const ids = log.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     await client.workspaces.logs.delete(data);

@@ -29,7 +29,7 @@ TEST(WriterTests, testWriteBasic) {
         }
     ));
 
-    auto frame = synnax::Frame(2);
+    auto frame = telem::Frame(2);
     frame.emplace(
         time.key,
         telem::Series(
@@ -85,7 +85,7 @@ TEST(WriterTests, testWriteToUnspecifiedChannel) {
             telem::ControlSubject{"test_writer"},
         }
     ));
-    auto frame = synnax::Frame(1);
+    auto frame = telem::Frame(1);
     frame.emplace(1000, telem::Series(telem::TimeStamp::now()));
     ASSERT_OCCURRED_AS(writer.write(frame), xerrors::VALIDATION);
     ASSERT_OCCURRED_AS_P(writer.commit(), xerrors::VALIDATION);
@@ -105,7 +105,7 @@ TEST(WriterTests, testWriteSeriesWithMismatchedDataType) {
             telem::ControlSubject{"test_writer"},
         }
     ));
-    auto frame = synnax::Frame(2);
+    auto frame = telem::Frame(2);
     frame.emplace(time.key, telem::Series(telem::TimeStamp::now()));
     frame.emplace(data.key, telem::Series(std::vector<uint32_t>{1}));
     ASSERT_OCCURRED_AS(writer.write(frame), xerrors::VALIDATION);
@@ -117,12 +117,18 @@ TEST(WriterTests, testWriteSeriesWithMismatchedDataType) {
 /// are already being written to and err_on_unauthorized is true.
 TEST(WriterTests, testWriteErrOnUnauthorized) {
     auto client = new_test_client();
-    auto time = ASSERT_NIL_P(
-        client.channels.create("time", telem::TIMESTAMP_T, 0, true)
-    );
-    auto data = ASSERT_NIL_P(
-        client.channels.create("data", telem::UINT8_T, time.key, false)
-    );
+    auto time = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("err_on_unauthorized_time"),
+        telem::TIMESTAMP_T,
+        0,
+        true
+    ));
+    auto data = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("err_on_unauthorized_data"),
+        telem::UINT8_T,
+        time.key,
+        false
+    ));
     auto w1 = ASSERT_NIL_P(client.telem.open_writer(
         synnax::WriterConfig{
             .channels = std::vector{time.key, data.key},
@@ -148,15 +154,24 @@ TEST(WriterTests, testWriteErrOnUnauthorized) {
 /// @brief it should correctly change the authority of a writer.
 TEST(WriterTests, testSetAuthority) {
     auto client = new_test_client();
-    auto time = ASSERT_NIL_P(
-        client.channels.create("time", telem::TIMESTAMP_T, 0, true)
-    );
-    auto data1 = ASSERT_NIL_P(
-        client.channels.create("data1", telem::UINT8_T, time.key, false)
-    );
-    auto data2 = ASSERT_NIL_P(
-        client.channels.create("data2", telem::UINT8_T, time.key, false)
-    );
+    auto time = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("set_authority_time"),
+        telem::TIMESTAMP_T,
+        0,
+        true
+    ));
+    auto data1 = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("set_authority_data1"),
+        telem::UINT8_T,
+        time.key,
+        false
+    ));
+    auto data2 = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("set_authority_data2"),
+        telem::UINT8_T,
+        time.key,
+        false
+    ));
 
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::WriterConfig{
@@ -189,7 +204,7 @@ TEST(WriterTests, testSetAuthority) {
 }
 
 /// @brief close can be called as many times as desired and should not return an error
-/// when the writer has a nominaly shutdown.
+/// when the writer has a nominal shutdown.
 TEST(WriterTests, testCloseIdempotency) {
     auto client = new_test_client();
     auto [time, data] = create_indexed_pair(client);
@@ -203,7 +218,7 @@ TEST(WriterTests, testCloseIdempotency) {
         }
     ));
 
-    auto frame = synnax::Frame(2);
+    auto frame = telem::Frame(2);
     frame.emplace(time.key, telem::Series(now));
     frame.emplace(data.key, telem::Series(std::vector<float>{2}));
 
@@ -231,7 +246,7 @@ TEST(WriterTests, testErrorCommunication) {
             telem::ControlSubject{"test_writer"},
         }
     ));
-    auto frame = synnax::Frame(2);
+    auto frame = telem::Frame(2);
     frame.emplace(time.key, telem::Series(telem::TimeStamp::now()));
     frame.emplace(data.key, telem::Series(std::vector<uint32_t>{1}));
     ASSERT_OCCURRED_AS(writer.write(frame), xerrors::VALIDATION);

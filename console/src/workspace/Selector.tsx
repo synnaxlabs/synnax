@@ -9,8 +9,9 @@
 
 import "@/workspace/Selector.css";
 
-import { UnexpectedError, type workspace } from "@synnaxlabs/client";
+import { UnexpectedError, workspace } from "@synnaxlabs/client";
 import {
+  Access,
   Button,
   Component,
   Dialog,
@@ -47,7 +48,7 @@ const listItem = Component.renderProp(
 
 const DIALOG_STYLE = { minHeight: 200, minWidth: 400 };
 
-export const Selector = (): ReactElement => {
+export const Selector = (): ReactElement | null => {
   const client = Synnax.use();
   const dispatch = useDispatch();
   const active = useSelectActive();
@@ -72,6 +73,9 @@ export const Selector = (): ReactElement => {
     },
     [dispatch, getItem],
   );
+  const allowCreateWorkspace = Access.useUpdateGranted(workspace.TYPE_ONTOLOGY_ID);
+  const allowViewWorkspace = Access.useRetrieveGranted(workspace.TYPE_ONTOLOGY_ID);
+  if (!allowViewWorkspace) return null;
   return (
     <Dialog.Frame visible={dialogVisible} onVisibleChange={setDialogVisible}>
       <Select.Frame
@@ -90,7 +94,7 @@ export const Selector = (): ReactElement => {
           weight={400}
         >
           <Icon.Workspace key="workspace" />
-          {active?.name ?? "No Workspace"}
+          {active?.name ?? "No workspace"}
         </Dialog.Trigger>
         <Dialog.Dialog style={DIALOG_STYLE} bordered={client == null} borderColor={6}>
           <Flex.Box pack rounded>
@@ -127,21 +131,23 @@ export const Selector = (): ReactElement => {
               <Icon.Close />
               Clear
             </Button.Button>
-            <Button.Button
-              size="large"
-              variant="outlined"
-              onClick={() => {
-                setDialogVisible(false);
-                placeLayout(CREATE_LAYOUT);
-              }}
-              gap="small"
-              tooltip="Create a new workspace"
-              tooltipLocation={{ y: "bottom" }}
-              borderColor={6}
-            >
-              <Icon.Add />
-              New
-            </Button.Button>
+            {allowCreateWorkspace && (
+              <Button.Button
+                size="large"
+                variant="outlined"
+                onClick={() => {
+                  setDialogVisible(false);
+                  placeLayout(CREATE_LAYOUT);
+                }}
+                gap="small"
+                tooltip="Create a new workspace"
+                tooltipLocation={{ y: "bottom" }}
+                borderColor={6}
+              >
+                <Icon.Add />
+                New
+              </Button.Button>
+            )}
           </Flex.Box>
           <List.Items bordered borderColor={6} grow>
             {listItem}

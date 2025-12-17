@@ -25,7 +25,7 @@ public:
     /// acquisition pipeline will trigger a breaker (temporary backoff), and then
     /// retry the read operation. Any other error type will be considered a
     /// permanent error and the pipeline will exit.
-    virtual xerrors::Error write(const synnax::Frame &frame) = 0;
+    virtual xerrors::Error write(const telem::Frame &frame) = 0;
 
     /// @brief communicates an error encountered by the control pipeline that
     /// occurred during shut down or occurred during a commanded shutdown.
@@ -49,7 +49,7 @@ public:
     /// will trigger a breaker (temporary backoff), and then retry the read
     /// operation. Any other error type will be considered a permanent error and the
     /// pipeline will exit.
-    virtual std::pair<synnax::Frame, xerrors::Error> read() = 0;
+    virtual std::pair<telem::Frame, xerrors::Error> read() = 0;
 
     /// @brief closes the streamer, returning any error that occurred during normal
     /// operation. If the returned error is of type freighter::UNREACHABLE, the
@@ -96,7 +96,7 @@ public:
 
     /// @brief implements pipeline::Streamer to read the next frame from the
     /// streamer.
-    std::pair<synnax::Frame, xerrors::Error> read() override;
+    std::pair<telem::Frame, xerrors::Error> read() override;
 
     /// @brief implements pipeline::Streamer to close the streamer.
     xerrors::Error close() override;
@@ -147,11 +147,13 @@ public:
     /// @param breaker_config the configuration for the breaker used to manage the
     /// control thread lifecycle and retry requests on connection loss or temporary
     /// hardware errors.
+    /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     Control(
         std::shared_ptr<synnax::Synnax> client,
         synnax::StreamerConfig streamer_config,
         std::shared_ptr<Sink> sink,
-        const breaker::Config &breaker_config
+        const breaker::Config &breaker_config,
+        std::string thread_name = ""
     );
 
     //// @brief constructs a new control pipeline that opens streamers using the
@@ -164,11 +166,13 @@ public:
     /// @param breaker_config the configuration for the breaker used to manage the
     /// control thread lifecycle and retry requests on connection loss or temporary
     /// hardware errors.
+    /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     Control(
         std::shared_ptr<StreamerFactory> streamer_factory,
         synnax::StreamerConfig streamer_config,
         std::shared_ptr<Sink> sink,
-        const breaker::Config &breaker_config
+        const breaker::Config &breaker_config,
+        std::string thread_name = ""
     );
 
     /// @brief stops the control pipeline, blocking until the control thread has

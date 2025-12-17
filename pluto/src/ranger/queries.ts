@@ -25,12 +25,12 @@ export interface AliasFluxStore extends Flux.UnaryStore<ranger.Key, ranger.Alias
 export const RANGE_KV_FLUX_STORE_KEY = "rangeKV";
 export const RANGE_ALIASES_FLUX_STORE_KEY = "rangeAliases";
 
-const RESOURCE_NAME = "Range";
-const PLURAL_RESOURCE_NAME = "Ranges";
-const KV_RESOURCE_NAME = "Meta-Data Item";
-const PLURAL_KV_RESOURCE_NAME = "Meta-Data";
-const PLURAL_CHILDREN_RESOURCE_NAME = "Child Ranges";
-const PARENT_RESOURCE_NAME = "Parent Range";
+const RESOURCE_NAME = "range";
+const PLURAL_RESOURCE_NAME = "ranges";
+const KV_RESOURCE_NAME = "metadata";
+const PLURAL_KV_RESOURCE_NAME = "metadata";
+const PLURAL_CHILDREN_RESOURCE_NAME = "child ranges";
+const PARENT_RESOURCE_NAME = "parent range";
 
 export interface FluxSubStore extends Label.FluxSubStore, Ontology.FluxSubStore {
   [aetherRanger.FLUX_STORE_KEY]: aetherRanger.FluxStore;
@@ -38,8 +38,10 @@ export interface FluxSubStore extends Label.FluxSubStore, Ontology.FluxSubStore 
   [RANGE_ALIASES_FLUX_STORE_KEY]: AliasFluxStore;
 }
 
-export interface RetrieveQuery
-  extends Pick<ranger.RetrieveRequest, "includeLabels" | "includeParent"> {
+export interface RetrieveQuery extends Pick<
+  ranger.RetrieveRequest,
+  "includeLabels" | "includeParent"
+> {
   key: ranger.Key;
 }
 
@@ -345,7 +347,7 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
           client,
         });
         onChange(
-          state.skipNull((prev) =>
+          state.skipUndefined((prev) =>
             client.ranges.sugarOne({
               ...prev,
               labels: array.upsertKeyed(prev.labels, label),
@@ -372,7 +374,7 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
       const isLabelChange = Label.matchRelationship(rel, otgID);
       if (isLabelChange)
         return onChange(
-          state.skipNull((p) =>
+          state.skipUndefined((p) =>
             client.ranges.sugarOne({
               ...p,
               labels: array.removeKeyed(p.labels, rel.to.key),
@@ -385,7 +387,7 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
       });
       if (isParentChange)
         return onChange(
-          state.skipNull((p) => client.ranges.sugarOne({ ...p, parent: null })),
+          state.skipUndefined((p) => client.ranges.sugarOne({ ...p, parent: null })),
         );
     }),
   ],
@@ -407,12 +409,14 @@ export const {
       store.ranges.onSet(async (range) => {
         if (!keysSet.has(range.key)) return;
         onChange(
-          state.skipNull((prev) => prev.map((r) => (r.key === range.key ? range : r))),
+          state.skipUndefined((prev) =>
+            prev.map((r) => (r.key === range.key ? range : r)),
+          ),
         );
       }),
       store.ranges.onDelete(async (key) => {
         if (!keysSet.has(key)) return;
-        onChange(state.skipNull((prev) => prev.filter((r) => r.key !== key)));
+        onChange(state.skipUndefined((prev) => prev.filter((r) => r.key !== key)));
       }),
       store.relationships.onSet(async (relationship) => {
         for (const key of keys) {
@@ -424,7 +428,7 @@ export const {
             const label = await client.labels.retrieve({ key: relationship.to.key });
             store.labels.set(relationship.to.key, label);
             onChange(
-              state.skipNull((prev) =>
+              state.skipUndefined((prev) =>
                 prev.map((r) => {
                   if (r.key !== key) return r;
                   return client.ranges.sugarOne({
@@ -446,7 +450,7 @@ export const {
             const parent = await client.ranges.retrieve(relationship.from.key);
             store.ranges.set(relationship.from.key, parent);
             onChange(
-              state.skipNull((prev) =>
+              state.skipUndefined((prev) =>
                 prev.map((r) => {
                   if (r.key !== key) return r;
                   return client.ranges.sugarOne({ ...r, parent });
@@ -462,7 +466,7 @@ export const {
           const isLabelChange = Label.matchRelationship(rel, ranger.ontologyID(key));
           if (isLabelChange)
             onChange(
-              state.skipNull((prev) =>
+              state.skipUndefined((prev) =>
                 prev.map((r) => {
                   if (r.key !== key) return r;
                   return client.ranges.sugarOne({
@@ -479,7 +483,7 @@ export const {
           });
           if (isParentChange)
             onChange(
-              state.skipNull((prev) =>
+              state.skipUndefined((prev) =>
                 prev.map((r) => {
                   if (r.key !== key) return r;
                   return client.ranges.sugarOne({ ...r, parent: null });
@@ -615,21 +619,43 @@ export const useList = Flux.createList<
   FluxSubStore
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieveCached: ({ store, query }) =>
-    store.ranges.get((r) => {
-      if (primitive.isNonZero(query.keys)) return query.keys.includes(r.key);
+  retrieveCached: ({ store, query }) => {
+    const keySet = primitive.isNonZero(query.keys) ? new Set(query.keys) : undefined;
+    const hasLabelsSet = primitive.isNonZero(query.hasLabels)
+      ? new Set(query.hasLabels)
+      : undefined;
+    return store.ranges.get((r) => {
+      if (keySet != null && !keySet.has(r.key)) return false;
+      if (
+        hasLabelsSet != null &&
+        (r.labels == null || !r.labels.some((l) => hasLabelsSet.has(l.key)))
+      )
+        return false;
       return true;
-    }),
+    });
+  },
   retrieve: async ({ client, query }) =>
     await client.ranges.retrieve({ ...BASE_QUERY, ...query }),
   retrieveByKey: async ({ key, ...rest }) =>
     await retrieveSingle({ ...rest, query: { key } }),
-  mountListeners: ({ store, onChange, onDelete, client, query: { keys } }) => {
-    const hasKeys = keys != null && keys.length > 0;
-    const keysSet = new Set(keys);
+  mountListeners: ({
+    store,
+    onChange,
+    onDelete,
+    client,
+    query: { keys, hasLabels },
+  }) => {
+    const keysSet = primitive.isNonZero(keys) ? new Set(keys) : undefined;
+    const hasLabelsSet =
+      hasLabels != null && hasLabels.length > 0 ? new Set(hasLabels) : undefined;
     return [
       store.ranges.onSet((range) => {
-        if (hasKeys && !keysSet.has(range.key)) return;
+        if (keysSet != null && !keysSet.has(range.key)) return;
+        if (
+          hasLabelsSet != null &&
+          (range.labels == null || !range.labels.some((l) => hasLabelsSet.has(l.key)))
+        )
+          return;
         onChange(range.key, (prev) => {
           if (prev == null) return range;
           return client.ranges.sugarOne({
@@ -827,7 +853,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     rollbacks.push(
       store.ranges.set(
         key,
-        state.skipNull((p) => client.ranges.sugarOne({ ...p, name })),
+        state.skipUndefined((p) => client.ranges.sugarOne({ ...p, name })),
       ),
     );
     rollbacks.push(Ontology.renameFluxResource(store, ranger.ontologyID(key), name));

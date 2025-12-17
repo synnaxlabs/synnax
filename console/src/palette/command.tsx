@@ -10,23 +10,19 @@
 import { type Synnax as Client } from "@synnaxlabs/client";
 import {
   Component,
+  context,
   Flex,
+  Flux,
   type Icon,
   List,
+  type Pluto,
   Select,
   Status,
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
 import { type compare } from "@synnaxlabs/x";
-import {
-  createContext,
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-  useContext,
-  useMemo,
-} from "react";
+import { type PropsWithChildren, type ReactElement, useCallback, useMemo } from "react";
 import { useStore } from "react-redux";
 
 import { type Export } from "@/export";
@@ -44,7 +40,11 @@ interface ContextValue {
   commands: Command[];
 }
 
-const CommandContext = createContext<ContextValue>({ commands: [] });
+const [CommandContext, useCommandContext] = context.create<ContextValue>({
+  defaultValue: { commands: [] },
+  displayName: "Palette.CommandContext",
+});
+export { useCommandContext };
 
 export interface CommandProviderProps extends PropsWithChildren {
   commands: Command[];
@@ -52,10 +52,8 @@ export interface CommandProviderProps extends PropsWithChildren {
 
 export const CommandProvider = ({ commands, children }: CommandProviderProps) => {
   const ctxValue = useMemo(() => ({ commands }), [commands]);
-  return <CommandContext.Provider value={ctxValue}>{children}</CommandContext.Provider>;
+  return <CommandContext value={ctxValue}>{children}</CommandContext>;
 };
-
-export const useCommandContext = (): ContextValue => useContext(CommandContext);
 
 export const listItem = Component.renderProp(
   (props: CommandListItemProps): ReactElement | null => {
@@ -84,11 +82,15 @@ const sort: compare.Comparator<Command> = (a, b) => {
 
 export const useCommandList = (): UseListReturn<Command> => {
   const store = useStore<RootState, RootAction>();
+  const client = Synnax.use();
+  const fluxStore = Flux.useStore<Pluto.FluxStore>();
   const { commands } = useCommandContext();
-  const data = commands.filter(({ visible }) => visible?.(store.getState()) ?? true);
+  const data = commands.filter(
+    ({ visible }) =>
+      visible?.({ state: store.getState(), store: fluxStore, client }) ?? true,
+  );
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
   const confirm = Modals.useConfirm();
   const rename = Modals.useRename();
@@ -106,6 +108,7 @@ export const useCommandList = (): UseListReturn<Command> => {
         placeLayout,
         rename,
         store,
+        fluxStore,
       });
     },
     [addStatus, client, confirm, handleError, placeLayout, rename, store],
@@ -116,6 +119,7 @@ export const useCommandList = (): UseListReturn<Command> => {
 
 export interface CommandSelectionContext {
   store: RootStore;
+  fluxStore: Pluto.FluxStore;
   client: Client | null;
   placeLayout: Layout.Placer;
   confirm: Modals.PromptConfirm;
@@ -126,12 +130,18 @@ export interface CommandSelectionContext {
   extractors: Export.Extractors;
 }
 
+export interface CommandVisibleContext {
+  state: RootState;
+  store: Pluto.FluxStore;
+  client: Client | null;
+}
+
 export interface Command {
   key: string;
   name: ReactElement | string;
   sortOrder?: number;
   icon?: Icon.ReactElement;
-  visible?: (state: RootState) => boolean;
   onSelect: (ctx: CommandSelectionContext) => void;
   endContent?: ReactElement[];
+  visible?: (ctx: CommandVisibleContext) => boolean;
 }

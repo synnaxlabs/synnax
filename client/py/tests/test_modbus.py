@@ -7,22 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from random import randint
+
 import pytest
 from pydantic import ValidationError
 
 import synnax as sy
-from synnax.hardware.modbus import (
-    CoilInputChan,
-    CoilOutputChan,
-    DiscreteInputChan,
-    HoldingRegisterInputChan,
-    HoldingRegisterOutputChan,
-    InputRegisterChan,
-    ReadTask,
-    ReadTaskConfig,
-    WriteTask,
-    WriteTaskConfig,
-)
 
 
 @pytest.mark.modbus
@@ -169,19 +159,19 @@ class TestModbusReadTask:
     def test_parse_modbus_read_task(self, test_data):
         """Test that ReadTaskConfig can parse various channel configurations."""
         input_data = test_data["data"]
-        ReadTaskConfig.model_validate(input_data)
+        sy.modbus.ReadTaskConfig.model_validate(input_data)
 
     def test_read_task_stream_rate_validation(self):
         """Test that stream_rate cannot exceed sample_rate."""
         with pytest.raises(ValidationError) as exc_info:
-            ReadTaskConfig(
+            sy.modbus.ReadTaskConfig(
                 device="test-device",
                 sample_rate=10,
                 stream_rate=20,  # Invalid: greater than sample_rate
                 data_saving=False,
                 auto_start=False,
                 channels=[
-                    HoldingRegisterInputChan(
+                    sy.modbus.HoldingRegisterInputChan(
                         address=0,
                         channel=1234,
                         data_type="float32",
@@ -193,7 +183,7 @@ class TestModbusReadTask:
     def test_read_task_empty_channels(self):
         """Test that empty channel list raises validation error."""
         with pytest.raises(ValidationError) as exc_info:
-            ReadTaskConfig(
+            sy.modbus.ReadTaskConfig(
                 device="test-device",
                 sample_rate=10,
                 stream_rate=5,
@@ -205,7 +195,7 @@ class TestModbusReadTask:
 
     def test_read_task_auto_key_generation(self):
         """Test that channels auto-generate keys if not provided."""
-        channel = HoldingRegisterInputChan(
+        channel = sy.modbus.HoldingRegisterInputChan(
             address=0,
             channel=1234,
             data_type="float32",
@@ -216,18 +206,24 @@ class TestModbusReadTask:
     def test_read_task_address_bounds(self):
         """Test that address validation works (0-65535)."""
         # Valid address
-        HoldingRegisterInputChan(address=0, channel=1234, data_type="float32")
-        HoldingRegisterInputChan(address=65535, channel=1234, data_type="float32")
+        sy.modbus.HoldingRegisterInputChan(address=0, channel=1234, data_type="float32")
+        sy.modbus.HoldingRegisterInputChan(
+            address=65535, channel=1234, data_type="float32"
+        )
 
         # Invalid addresses
         with pytest.raises(ValidationError):
-            HoldingRegisterInputChan(address=-1, channel=1234, data_type="float32")
+            sy.modbus.HoldingRegisterInputChan(
+                address=-1, channel=1234, data_type="float32"
+            )
         with pytest.raises(ValidationError):
-            HoldingRegisterInputChan(address=65536, channel=1234, data_type="float32")
+            sy.modbus.HoldingRegisterInputChan(
+                address=65536, channel=1234, data_type="float32"
+            )
 
     def test_create_and_retrieve_read_task(self, client: sy.Synnax):
         """Test that ReadTask can be created and retrieved from the database."""
-        task = ReadTask(
+        task = sy.modbus.ReadTask(
             name="test-modbus-read-task",
             device="some-device-key",
             sample_rate=10,
@@ -235,25 +231,25 @@ class TestModbusReadTask:
             data_saving=False,
             auto_start=False,
             channels=[
-                HoldingRegisterInputChan(
+                sy.modbus.HoldingRegisterInputChan(
                     key="holding-reg-1",
                     address=0,
                     channel=1234,
                     data_type="float32",
                 ),
-                CoilInputChan(
+                sy.modbus.CoilInputChan(
                     key="coil-1",
                     address=0,
                     channel=5678,
                 ),
             ],
         )
-        created_task = client.hardware.tasks.create(
+        created_task = client.tasks.create(
             name="test-modbus-read-task",
             type="modbus_read",
             config=task.config.model_dump_json(),
         )
-        ReadTask(created_task)
+        sy.modbus.ReadTask(created_task)
 
 
 @pytest.mark.modbus
@@ -349,12 +345,12 @@ class TestModbusWriteTask:
     def test_parse_modbus_write_task(self, test_data):
         """Test that WriteTaskConfig can parse various channel configurations."""
         input_data = test_data["data"]
-        WriteTaskConfig.model_validate(input_data)
+        sy.modbus.WriteTaskConfig.model_validate(input_data)
 
     def test_write_task_empty_channels(self):
         """Test that empty channel list raises validation error."""
         with pytest.raises(ValidationError) as exc_info:
-            WriteTaskConfig(
+            sy.modbus.WriteTaskConfig(
                 device="test-device",
                 data_saving=False,
                 auto_start=False,
@@ -364,18 +360,18 @@ class TestModbusWriteTask:
 
     def test_write_task_disabled_channels(self):
         """Test that disabled channels are handled correctly."""
-        config = WriteTaskConfig(
+        config = sy.modbus.WriteTaskConfig(
             device="test-device",
             data_saving=False,
             auto_start=False,
             channels=[
-                CoilOutputChan(
+                sy.modbus.CoilOutputChan(
                     key="coil-1",
                     address=0,
                     channel=1234,
                     enabled=True,
                 ),
-                CoilOutputChan(
+                sy.modbus.CoilOutputChan(
                     key="coil-2",
                     address=1,
                     channel=5678,
@@ -389,7 +385,7 @@ class TestModbusWriteTask:
 
     def test_write_channel_auto_key_generation(self):
         """Test that WriteChannel auto-generates a key if not provided."""
-        channel = CoilOutputChan(
+        channel = sy.modbus.CoilOutputChan(
             address=0,
             channel=1234,
         )
@@ -398,17 +394,17 @@ class TestModbusWriteTask:
 
     def test_create_and_retrieve_write_task(self, client: sy.Synnax):
         """Test that WriteTask can be created and retrieved from the database."""
-        task = WriteTask(
+        task = sy.modbus.WriteTask(
             name="test-modbus-write-task",
             device="some-device-key",
             auto_start=False,
             channels=[
-                CoilOutputChan(
+                sy.modbus.CoilOutputChan(
                     key="coil-cmd-1",
                     address=0,
                     channel=1234,
                 ),
-                HoldingRegisterOutputChan(
+                sy.modbus.HoldingRegisterOutputChan(
                     key="hold-cmd-1",
                     address=0,
                     channel=5678,
@@ -416,27 +412,27 @@ class TestModbusWriteTask:
                 ),
             ],
         )
-        created_task = client.hardware.tasks.create(
+        created_task = client.tasks.create(
             name="test-modbus-write-task",
             type="modbus_write",
             config=task.config.model_dump_json(),
         )
-        WriteTask(created_task)
+        sy.modbus.WriteTask(created_task)
 
     def test_write_task_serialization_round_trip(self, client: sy.Synnax):
         """Test that task can be serialized and deserialized correctly."""
-        original_task = WriteTask(
+        original_task = sy.modbus.WriteTask(
             name="test-round-trip",
             device="some-device-key",
             auto_start=False,
             channels=[
-                CoilOutputChan(
+                sy.modbus.CoilOutputChan(
                     key="coil-cmd-1",
                     address=0,
                     channel=1234,
                     enabled=True,
                 ),
-                HoldingRegisterOutputChan(
+                sy.modbus.HoldingRegisterOutputChan(
                     key="hold-cmd-1",
                     address=10,
                     channel=5678,
@@ -452,14 +448,14 @@ class TestModbusWriteTask:
         config_json = original_task.config.model_dump_json()
 
         # Create task in database
-        created_task = client.hardware.tasks.create(
+        created_task = client.tasks.create(
             name="test-round-trip",
             type="modbus_write",
             config=config_json,
         )
 
         # Deserialize from database
-        retrieved_task = WriteTask(created_task)
+        retrieved_task = sy.modbus.WriteTask(created_task)
 
         # Verify all fields match
         assert retrieved_task.config.device == original_task.config.device
@@ -473,8 +469,8 @@ class TestModbusWriteTask:
             assert retr_ch.address == orig_ch.address
             assert retr_ch.channel == orig_ch.channel
             assert retr_ch.enabled == orig_ch.enabled
-            if isinstance(orig_ch, HoldingRegisterOutputChan):
-                assert isinstance(retr_ch, HoldingRegisterOutputChan)
+            if isinstance(orig_ch, sy.modbus.HoldingRegisterOutputChan):
+                assert isinstance(retr_ch, sy.modbus.HoldingRegisterOutputChan)
                 assert retr_ch.data_type == orig_ch.data_type
                 assert retr_ch.swap_bytes == orig_ch.swap_bytes
                 assert retr_ch.swap_words == orig_ch.swap_words
@@ -488,13 +484,11 @@ class TestModbusDevicePropertyUpdates:
         """Test that configuring a ReadTask updates device properties with channel mappings."""
         import json
 
-        from synnax.hardware import modbus
-
         # Create a rack
-        rack = client.hardware.racks.retrieve_embedded_rack()
+        rack = client.racks.retrieve_embedded_rack()
 
         # Create a device
-        device = modbus.Device(
+        device = sy.modbus.Device(
             host="127.0.0.1",
             port=502,
             name="Test Modbus Device",
@@ -504,41 +498,42 @@ class TestModbusDevicePropertyUpdates:
             swap_words=False,
         )
 
-        device = client.hardware.devices.create(device)
+        device = client.devices.create(device)
 
         # Create channels
+        suffix = randint(0, 100000)
         time_ch = client.channels.create(
-            name="modbus_time",
+            name=f"modbus_time_{suffix}",
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
 
         ch1 = client.channels.create(
-            name="register_0",
+            name=f"register_0_{suffix}",
             data_type=sy.DataType.UINT8,
             index=time_ch.key,
         )
 
         ch2 = client.channels.create(
-            name="register_1",
+            name=f"register_1_{suffix}",
             data_type=sy.DataType.UINT16,
             index=time_ch.key,
         )
 
         # Create task with multiple channel types
-        task = modbus.ReadTask(
+        task = sy.modbus.ReadTask(
             name="Test Read Task",
             device=device.key,
             sample_rate=10,
             stream_rate=10,
             data_saving=True,
             channels=[
-                modbus.InputRegisterChan(
+                sy.modbus.InputRegisterChan(
                     channel=ch1.key,
                     address=0,
                     data_type="uint8",
                 ),
-                modbus.HoldingRegisterInputChan(
+                sy.modbus.HoldingRegisterInputChan(
                     channel=ch2.key,
                     address=5,
                     data_type="uint16",
@@ -547,10 +542,10 @@ class TestModbusDevicePropertyUpdates:
         )
 
         # Trigger device property update
-        task.update_device_properties(client.hardware.devices)
+        task.update_device_properties(client.devices)
 
         # Retrieve device and check properties
-        updated_device = client.hardware.devices.retrieve(key=device.key)
+        updated_device = client.devices.retrieve(key=device.key)
         props = json.loads(updated_device.properties)
 
         # Verify read.channels mapping exists
@@ -574,13 +569,11 @@ class TestModbusDevicePropertyUpdates:
         """Test that configuring a WriteTask updates device properties with channel mappings."""
         import json
 
-        from synnax.hardware import modbus
-
         # Create a rack
-        rack = client.hardware.racks.retrieve_embedded_rack()
+        rack = client.racks.retrieve_embedded_rack()
 
         # Create a device
-        device = modbus.Device(
+        device = sy.modbus.Device(
             host="127.0.0.1",
             port=502,
             name="Test Modbus Write Device",
@@ -590,37 +583,38 @@ class TestModbusDevicePropertyUpdates:
             swap_words=False,
         )
 
-        device = client.hardware.devices.create(device)
+        device = client.devices.create(device)
 
         # Create command channels
+        random_id = randint(0, 100000)
         cmd_time = client.channels.create(
-            name="cmd_time",
+            name=f"cmd_time_{random_id}",
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
 
         coil_cmd = client.channels.create(
-            name="coil_command",
+            name=f"coil_command_{random_id}",
             data_type=sy.DataType.UINT8,
             index=cmd_time.key,
         )
 
         holding_cmd = client.channels.create(
-            name="holding_command",
+            name=f"holding_command_{random_id}",
             data_type=sy.DataType.FLOAT32,
             index=cmd_time.key,
         )
 
         # Create write task
-        task = modbus.WriteTask(
+        task = sy.modbus.WriteTask(
             name="Test Write Task",
             device=device.key,
             channels=[
-                modbus.CoilOutputChan(
+                sy.modbus.CoilOutputChan(
                     channel=coil_cmd.key,
                     address=10,
                 ),
-                modbus.HoldingRegisterOutputChan(
+                sy.modbus.HoldingRegisterOutputChan(
                     channel=holding_cmd.key,
                     address=20,
                     data_type="float32",
@@ -629,10 +623,10 @@ class TestModbusDevicePropertyUpdates:
         )
 
         # Trigger device property update
-        task.update_device_properties(client.hardware.devices)
+        task.update_device_properties(client.devices)
 
         # Retrieve device and check properties
-        updated_device = client.hardware.devices.retrieve(key=device.key)
+        updated_device = client.devices.retrieve(key=device.key)
         props = json.loads(updated_device.properties)
 
         # Verify write.channels mapping exists
@@ -652,14 +646,8 @@ class TestModbusDevicePropertyUpdates:
 
     def test_device_property_key_format(self):
         """Test that the key format matches Console expectations."""
-        from synnax.hardware.modbus import (
-            CoilOutputChan,
-            HoldingRegisterInputChan,
-            InputRegisterChan,
-        )
-
         # Test InputRegisterChan key format
-        ch = InputRegisterChan(
+        ch = sy.modbus.InputRegisterChan(
             channel=123,
             address=5,
             data_type="uint8",
@@ -672,7 +660,7 @@ class TestModbusDevicePropertyUpdates:
         assert key == expected_key
 
         # Test HoldingRegisterInputChan key format
-        ch2 = HoldingRegisterInputChan(
+        ch2 = sy.modbus.HoldingRegisterInputChan(
             channel=456,
             address=10,
             data_type="float32",
@@ -685,7 +673,7 @@ class TestModbusDevicePropertyUpdates:
         assert key2 == expected_key2
 
         # Test CoilOutputChan key format (no dataType)
-        ch3 = CoilOutputChan(
+        ch3 = sy.modbus.CoilOutputChan(
             channel=789,
             address=15,
         )

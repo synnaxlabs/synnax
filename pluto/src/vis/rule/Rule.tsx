@@ -26,7 +26,8 @@ import { Text } from "@/text";
 import { rule } from "@/vis/rule/aether";
 
 export interface RuleProps
-  extends Omit<z.input<typeof rule.ruleStateZ>, "dragging" | "pixelPosition">,
+  extends
+    Omit<z.input<typeof rule.ruleStateZ>, "dragging" | "pixelPosition">,
     Omit<Flex.BoxProps, "color">,
     Aether.ComponentProps {
   label?: string;
@@ -84,7 +85,7 @@ export const Rule = ({
   const pixelPosRef = useRef(pixelPosition);
   if (pixelPosition !== pixelPosRef.current) pixelPosRef.current = pixelPosition;
 
-  const { id } = LinePlot.useContext("Rule");
+  const { id } = LinePlot.useContext("Rule.Rule");
 
   const plotEl = document.getElementById(id);
   const viewportEl = plotEl?.querySelector(".pluto-line-plot__viewport");

@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "driver/ni/errors.h"
 #include "driver/ni/syscfg/sugared.h"
 
 namespace syscfg {
 xerrors::Error SugaredAPI::process_error(NISysCfgStatus status) const {
     wchar_t *error_buf = nullptr;
     if (status == NISysCfg_OK) return xerrors::NIL;
+    if (status == NISysCfg_EndOfEnum) return ni::END_OF_ENUM;
     const auto desc_status = this->syscfg
                                  ->GetStatusDescriptionW(nullptr, status, &error_buf);
     if (desc_status != NISysCfg_OK || error_buf == nullptr)

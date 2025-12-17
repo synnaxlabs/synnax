@@ -177,9 +177,9 @@ export const createToggle = <P extends object = record.Unknown>(
         symbolKey={symbolKey}
         items={gridItems}
         onRotate={() =>
-          onChange({ orientation: location.rotate90(orientation) } as Partial<
-            ToggleProps<P>
-          >)
+          onChange({
+            orientation: location.rotate(orientation, "clockwise"),
+          } as Partial<ToggleProps<P>>)
         }
         onLocationChange={(key, loc) => {
           if (key === "label")
@@ -241,9 +241,9 @@ export const createLabeled = <P extends object = record.Unknown>(
         editable={selected}
         symbolKey={symbolKey}
         onRotate={() =>
-          onChange({ orientation: location.rotate90(orientation) } as Partial<
-            LabeledProps<P>
-          >)
+          onChange({
+            orientation: location.rotate(orientation, "clockwise"),
+          } as Partial<LabeledProps<P>>)
         }
         onLocationChange={(key, loc) => {
           if (key === "label")
@@ -294,9 +294,9 @@ export const createDummyToggle = <P extends object = record.Unknown>(
         editable={selected}
         symbolKey={symbolKey}
         onRotate={() =>
-          onChange({ orientation: location.rotate90(orientation) } as Partial<
-            LabeledProps<P>
-          >)
+          onChange({
+            orientation: location.rotate(orientation, "clockwise"),
+          } as Partial<LabeledProps<P>>)
         }
         onLocationChange={(key, loc) => {
           if (key === "label")
@@ -663,7 +663,8 @@ export const BoxPreview = (props: BoxProps): ReactElement => (
 );
 
 export interface InputProps
-  extends Omit<Primitives.InputProps, "value" | "onChange">,
+  extends
+    Omit<Primitives.InputProps, "value" | "onChange">,
     Omit<CoreInput.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
   control?: ControlStateProps;
@@ -724,7 +725,8 @@ export const InputPreview = ({ color, className }: InputProps): ReactElement => 
 );
 
 export interface SetpointProps
-  extends Omit<Primitives.SetpointProps, "value" | "onChange">,
+  extends
+    Omit<Primitives.SetpointProps, "value" | "onChange">,
     Omit<CoreSetpoint.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
   control?: ControlStateProps;
@@ -793,8 +795,7 @@ export const SetpointPreview = ({
 );
 
 export interface ValueProps
-  extends Omit<CoreValue.UseProps, "box" | "aetherKey">,
-    Primitives.ValueProps {
+  extends Omit<CoreValue.UseProps, "box" | "aetherKey">, Primitives.ValueProps {
   position?: xy.XY;
   label?: LabelExtensionProps;
   color?: color.Crude;
@@ -1031,7 +1032,8 @@ export const GaugePreview = ({ color: c }: GaugeProps): ReactElement => {
 };
 
 export interface ButtonProps
-  extends Omit<Primitives.ButtonProps, "label" | "onClick">,
+  extends
+    Omit<Primitives.ButtonProps, "label" | "onClick">,
     Omit<CoreButton.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
   control?: ControlStateProps;
@@ -1061,7 +1063,7 @@ export const Button = ({
     <Grid
       onRotate={() =>
         onChange({
-          orientation: location.rotate90(orientation),
+          orientation: location.rotate(orientation, "clockwise"),
         } as Partial<ButtonProps>)
       }
       allowRotate={false}
@@ -1089,8 +1091,7 @@ export const ButtonPreview = ({ label: _, ...rest }: ButtonProps): ReactElement 
 );
 
 export interface LightProps
-  extends Primitives.LightProps,
-    Omit<CoreLight.UseProps, "aetherKey"> {
+  extends Primitives.LightProps, Omit<CoreLight.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
 }
 
@@ -1122,8 +1123,10 @@ export const Light = ({
   );
 };
 
-export interface OffPageReferenceProps
-  extends Omit<Primitives.OffPageReferenceProps, "label"> {
+export interface OffPageReferenceProps extends Omit<
+  Primitives.OffPageReferenceProps,
+  "label"
+> {
   label: LabelExtensionProps;
 }
 

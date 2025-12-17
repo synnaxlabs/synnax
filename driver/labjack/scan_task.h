@@ -21,25 +21,19 @@
 #include "ljm/LJM_Utilities.h"
 
 namespace labjack {
-/// @brief the default rate for scanning devices
-const auto DEFAULT_SCAN_RATE = telem::Rate(0.5);
+const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task] ";
 
 const std::vector SCAN_SKIP_ERRORS = {
     ljm::LJME_AUTO_IPS_FILE_NOT_FOUND,
 };
 
 /// @brief configuration for the scan task
-struct ScanTaskConfig {
-    /// @brief the rate at which to scan for devices
-    const telem::Rate rate;
-    /// @brief whether the scan task is enabled
-    const bool enabled;
+struct ScanTaskConfig : common::ScanTaskConfig {
     /// @brief how often to scan TCP devices relative to USB devices
     const int tcp_scan_multiplier;
 
     explicit ScanTaskConfig(xjson::Parser &cfg):
-        rate(telem::Rate(cfg.field<double>("rate", DEFAULT_SCAN_RATE.hz()))),
-        enabled(cfg.field<bool>("enabled", true)),
+        common::ScanTaskConfig(cfg),
         tcp_scan_multiplier(cfg.field<int>("tcp_scan_multiplier", 10)) {}
 };
 
@@ -50,6 +44,10 @@ class Scanner final : public common::Scanner {
     const ScanTaskConfig cfg;
     /// @brief the device manager for handling LabJack connections
     std::shared_ptr<device::Manager> device_manager;
+
+    common::ScannerConfig config() const override {
+        return common::ScannerConfig{.make = MAKE, .log_prefix = SCAN_LOG_PREFIX};
+    }
 
     /// @brief scans for devices with the given type and connection
     xerrors::Error
@@ -96,9 +94,11 @@ class Scanner final : public common::Scanner {
                 "" // Properties will be set in Device constructor
             );
             sy_dev.status = synnax::DeviceStatus{
-                .key = sy_dev.key,
+                .key = sy_dev.status_key(),
+                .name = name,
                 .variant = status::variant::SUCCESS,
                 .message = "Device present",
+                .time = telem::TimeStamp::now(),
                 .details = synnax::DeviceStatusDetails{
                     .rack = rack,
                     .device = sy_dev.key,

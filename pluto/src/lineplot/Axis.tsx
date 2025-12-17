@@ -35,7 +35,8 @@ import { Text } from "@/text";
 import { Theming } from "@/theming";
 
 export interface AxisProps
-  extends PropsWithChildren,
+  extends
+    PropsWithChildren,
     Omit<z.input<typeof lineplot.xAxisStateZ>, "position" | "size">,
     Omit<Flex.BoxProps, "color">,
     Aether.ComponentProps {
@@ -108,7 +109,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
 
     const gridStyle = useGridEntry(
       { loc: location, key: `${aetherType}-${cKey}`, size: size + labelSize, order: 1 },
-      `${dir.toUpperCase()}Axis`,
+      `LinePlot.${dir.toUpperCase()}Axis`,
     );
 
     const font = Theming.useTypography(labelLevel).toString();

@@ -20,7 +20,7 @@ struct StreamerConfig {
     // A sequence of frames that the Streamer will return on each read() call.
     // When all frames are consumed, the Streamer will block briefly and return
     // empty frames.
-    std::shared_ptr<std::vector<synnax::Frame>> reads;
+    std::shared_ptr<std::vector<telem::Frame>> reads;
 
     // A sequence of errors to return alongside frames during read() calls.
     // If provided, each read will return the corresponding error at the same index.
@@ -42,11 +42,14 @@ public:
 
     explicit Streamer(StreamerConfig config): config(std::move(config)) {}
 
-    std::pair<synnax::Frame, xerrors::Error> read() override {
+    std::pair<telem::Frame, xerrors::Error> read() override {
         if (current_read >= config.reads->size()) {
             // block "indefinitely"
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
-            return {synnax::Frame(0), xerrors::NIL};
+            if (this->config.read_errors != nullptr &&
+                !this->config.read_errors->empty())
+                return {telem::Frame{}, this->config.read_errors->at(0)};
+            return {telem::Frame(0), xerrors::NIL};
         }
         auto fr = std::move(config.reads->at(current_read));
         auto err = xerrors::NIL;
@@ -58,7 +61,11 @@ public:
 
     xerrors::Error close() override { return config.close_err; }
 
-    void close_send() override {}
+    void close_send() override {
+        if (this->config.read_errors == nullptr)
+            this->config.read_errors = std::make_shared<std::vector<xerrors::Error>>();
+        this->config.read_errors->push_back(freighter::STREAM_CLOSED);
+    }
 };
 
 // Factory for creating mock Streamers with configurable behavior.
@@ -103,7 +110,7 @@ public:
 
 inline std::shared_ptr<pipeline::mock::StreamerFactory> simple_streamer_factory(
     const std::vector<synnax::ChannelKey> &keys,
-    const std::shared_ptr<std::vector<synnax::Frame>> &reads
+    const std::shared_ptr<std::vector<telem::Frame>> &reads
 ) {
     const auto cfg = synnax::StreamerConfig{.channels = keys};
     const auto factory = std::make_shared<pipeline::mock::StreamerFactory>(
@@ -119,7 +126,7 @@ inline std::shared_ptr<pipeline::mock::StreamerFactory> simple_streamer_factory(
 class Writer final : public pipeline::Writer {
 public:
     // Stores all frames written through this writer
-    std::shared_ptr<std::vector<synnax::Frame>> writes;
+    std::shared_ptr<std::vector<telem::Frame>> writes;
 
     // Error to return when close() is called
     xerrors::Error close_err;
@@ -129,7 +136,7 @@ public:
     int return_false_ok_on;
 
     explicit Writer(
-        std::shared_ptr<std::vector<synnax::Frame>> writes,
+        std::shared_ptr<std::vector<telem::Frame>> writes,
         const xerrors::Error &close_err = xerrors::NIL,
         const int return_false_ok_on = -1
     ):
@@ -137,7 +144,7 @@ public:
         close_err(close_err),
         return_false_ok_on(return_false_ok_on) {}
 
-    xerrors::Error write(const synnax::Frame &fr) override {
+    xerrors::Error write(const telem::Frame &fr) override {
         if (this->return_false_ok_on != -1 &&
             this->writes->size() == static_cast<size_t>(this->return_false_ok_on))
             return xerrors::VALIDATION;
@@ -152,7 +159,7 @@ class WriterFactory final : public pipeline::WriterFactory {
 public:
     // Stores all frames written through this factory's writers. Shared across all
     // writers created by this factory to allow test verification of written data.
-    std::shared_ptr<std::vector<synnax::Frame>> writes;
+    std::shared_ptr<std::vector<telem::Frame>> writes;
 
     // A queue of errors to return when opening writers. Each call to open_writer
     // will consume and return the next error in this vector. Empty vector means no
@@ -177,8 +184,8 @@ public:
     size_t writer_opens;
 
     explicit WriterFactory(
-        std::shared_ptr<std::vector<synnax::Frame>> writes =
-            std::make_shared<std::vector<synnax::Frame>>(),
+        std::shared_ptr<std::vector<telem::Frame>> writes =
+            std::make_shared<std::vector<telem::Frame>>(),
         std::vector<xerrors::Error> open_errors = {},
         std::vector<xerrors::Error> close_errors = {},
         std::vector<int> return_false_ok_on = {}
@@ -219,7 +226,7 @@ public:
 class Sink : public pipeline::Sink {
 public:
     // Stores all frames written through this sink
-    std::shared_ptr<std::vector<synnax::Frame>> writes;
+    std::shared_ptr<std::vector<telem::Frame>> writes;
 
     // Sequence of errors to return for write operations
     // Each write consumes the next error in the sequence
@@ -229,16 +236,16 @@ public:
     xerrors::Error stop_err;
 
     Sink():
-        writes(std::make_shared<std::vector<synnax::Frame>>()),
+        writes(std::make_shared<std::vector<telem::Frame>>()),
         write_errors(std::make_shared<std::vector<xerrors::Error>>()) {}
 
     Sink(
-        const std::shared_ptr<std::vector<synnax::Frame>> &writes,
+        const std::shared_ptr<std::vector<telem::Frame>> &writes,
         const std::shared_ptr<std::vector<xerrors::Error>> &write_errors
     ):
         writes(writes), write_errors(write_errors) {}
 
-    xerrors::Error write(const synnax::Frame &frame) override {
+    xerrors::Error write(const telem::Frame &frame) override {
         if (frame.empty()) return xerrors::NIL;
         this->writes->emplace_back(frame.deep_copy());
         // try to grab and remove the first error. if not, freighter nil
@@ -257,7 +264,7 @@ public:
     // A sequence of frames that the Source will return on each read() call.
     // When all frames are consumed, the Source will block briefly and return empty
     // frames.
-    std::shared_ptr<std::vector<synnax::Frame>> reads;
+    std::shared_ptr<std::vector<telem::Frame>> reads;
 
     // A sequence of errors to return alongside frames during read() calls.
     // If provided, each read will return the corresponding error at the same index.
@@ -274,13 +281,13 @@ public:
     size_t read_count = 0;
 
     explicit Source(
-        std::shared_ptr<std::vector<synnax::Frame>> reads =
-            std::make_shared<std::vector<synnax::Frame>>(),
+        std::shared_ptr<std::vector<telem::Frame>> reads =
+            std::make_shared<std::vector<telem::Frame>>(),
         std::shared_ptr<std::vector<xerrors::Error>> read_errors = nullptr
     ):
         reads(std::move(reads)), read_errors(std::move(read_errors)) {}
 
-    xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
         read_count++;
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
@@ -305,7 +312,7 @@ public:
 
 // Helper function to create a simple Source with predefined frames
 inline std::shared_ptr<pipeline::mock::Source>
-simple_source(const std::shared_ptr<std::vector<synnax::Frame>> &reads) {
+simple_source(const std::shared_ptr<std::vector<telem::Frame>> &reads) {
     return std::make_shared<pipeline::mock::Source>(reads);
 }
 }

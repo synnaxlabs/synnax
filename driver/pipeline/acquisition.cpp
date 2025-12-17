@@ -21,7 +21,7 @@ using json = nlohmann::json;
 namespace pipeline {
 SynnaxWriter::SynnaxWriter(synnax::Writer internal): internal(std::move(internal)) {}
 
-xerrors::Error SynnaxWriter::write(const synnax::Frame &fr) {
+xerrors::Error SynnaxWriter::write(const telem::Frame &fr) {
     return this->internal.write(fr);
 }
 
@@ -43,22 +43,25 @@ Acquisition::Acquisition(
     std::shared_ptr<synnax::Synnax> client,
     synnax::WriterConfig writer_config,
     std::shared_ptr<Source> source,
-    const breaker::Config &breaker_config
+    const breaker::Config &breaker_config,
+    std::string thread_name
 ):
     Acquisition(
         std::make_shared<SynnaxWriterFactory>(std::move(client)),
         std::move(writer_config),
         std::move(source),
-        breaker_config
+        breaker_config,
+        std::move(thread_name)
     ) {}
 
 Acquisition::Acquisition(
     std::shared_ptr<WriterFactory> factory,
     synnax::WriterConfig writer_config,
     std::shared_ptr<Source> source,
-    const breaker::Config &breaker_config
+    const breaker::Config &breaker_config,
+    std::string thread_name
 ):
-    Base(breaker_config),
+    Base(breaker_config, std::move(thread_name)),
     factory(std::move(factory)),
     source(std::move(source)),
     writer_config(std::move(writer_config)) {}
@@ -66,7 +69,7 @@ Acquisition::Acquisition(
 /// @brief attempts to resolve the start timestamp for the writer from a series in
 /// the frame with a timestamp data type. If that can't be found, resolveStart falls
 /// back to the
-telem::TimeStamp resolve_start(const synnax::Frame &frame) {
+telem::TimeStamp resolve_start(const telem::Frame &frame) {
     for (size_t i = 0; i < frame.size(); i++)
         if (frame.series->at(i).data_type() == telem::TIMESTAMP_T) {
             const auto ts = frame.series->at(i).at<int64_t>(0);
@@ -81,7 +84,7 @@ void Acquisition::run() {
     xerrors::Error writer_err;
     xerrors::Error source_err;
     // A running breaker means the pipeline user has not called stop.
-    synnax::Frame frame(0);
+    telem::Frame frame(0);
     while (this->breaker.running()) {
 
         if (auto source_err_i = this->source->read(this->breaker, frame)) {

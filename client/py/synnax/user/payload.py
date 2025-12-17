@@ -27,11 +27,25 @@ class User(Payload):
     username: str
     first_name: str
     last_name: str
-    root_user: bool
 
+    @property
     def ontology_id(self) -> ID:
         return ID(key=self.key, type="user")
 
 
-ontology_type = "user"
+USER_ONTOLOGY_TYPE = ID(type="user")
+
+
+def ontology_id(key: UUID) -> ID:
+    """Create an ontology ID for a user.
+
+    Args:
+        key: The user key.
+
+    Returns:
+        An ontology ID dictionary with type "user" and the given key.
+    """
+    return ID(type=USER_ONTOLOGY_TYPE.type, key=str(key))
+
+
 change_username_action = "change_username"

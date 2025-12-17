@@ -61,18 +61,37 @@ export const useList = Flux.createList<
   FluxSubStore
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieveCached: ({ store }) => store.statuses.list(),
+  retrieveCached: ({ store, query }) => {
+    const keySet = primitive.isNonZero(query.keys) ? new Set(query.keys) : undefined;
+    const hasLabelsSet = primitive.isNonZero(query.hasLabels)
+      ? new Set(query.hasLabels)
+      : undefined;
+    return store.statuses.get((s) => {
+      if (keySet != null && !keySet.has(s.key)) return false;
+      if (
+        hasLabelsSet != null &&
+        (s.labels == null || !s.labels.some((l) => hasLabelsSet.has(l.key)))
+      )
+        return false;
+      return true;
+    });
+  },
   retrieve: async ({ client, query }) =>
-    await client.statuses.retrieve({
-      ...BASE_QUERY,
-      ...query,
-    }),
+    await client.statuses.retrieve({ ...BASE_QUERY, ...query }),
   retrieveByKey: async ({ client, key }) => await client.statuses.retrieve({ key }),
-  mountListeners: ({ store, onChange, onDelete, query: { keys } }) => {
-    const keysSet = keys ? new Set(keys) : undefined;
+  mountListeners: ({ store, onChange, onDelete, query: { keys, hasLabels } }) => {
+    const keysSet = primitive.isNonZero(keys) ? new Set(keys) : undefined;
+    const hasLabelsSet = primitive.isNonZero(hasLabels)
+      ? new Set(hasLabels)
+      : undefined;
     return [
       store.statuses.onSet(async (status) => {
         if (keysSet != null && !keysSet.has(status.key)) return;
+        if (
+          hasLabelsSet != null &&
+          (status.labels == null || !status.labels.some((l) => hasLabelsSet.has(l.key)))
+        )
+          return;
         onChange(status.key, status, { mode: "prepend" });
       }),
       store.statuses.onDelete(onDelete),
@@ -113,8 +132,9 @@ const BASE_QUERY: Pick<RetrieveQuery, "includeLabels"> = {
   includeLabels: true,
 };
 
-interface RetrieveSingleParams<DetailsSchema extends z.ZodType = z.ZodNever>
-  extends Flux.RetrieveParams<status.SingleRetrieveArgs, FluxSubStore> {
+interface RetrieveSingleParams<
+  DetailsSchema extends z.ZodType = z.ZodNever,
+> extends Flux.RetrieveParams<status.SingleRetrieveArgs, FluxSubStore> {
   detailsSchema?: DetailsSchema;
 }
 
@@ -169,7 +189,7 @@ export const createRetrieve = <DetailsSchema extends z.ZodType = z.ZodNever>(
           client,
         });
         onChange(
-          state.skipNull((p) => ({
+          state.skipUndefined((p) => ({
             ...p,
             labels: array.upsertKeyed(p.labels, l),
           })),
@@ -181,7 +201,7 @@ export const createRetrieve = <DetailsSchema extends z.ZodType = z.ZodNever>(
         const isLabelChange = Label.matchRelationship(rel, otgID);
         if (!isLabelChange) return;
         onChange(
-          state.skipNull((p) => ({
+          state.skipUndefined((p) => ({
             ...p,
             labels: array.removeKeyed(p.labels, rel.to.key),
           })),
@@ -228,7 +248,7 @@ export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
             client,
           });
           onChange(
-            state.skipNull((prev) =>
+            state.skipUndefined((prev) =>
               prev.map((s) => {
                 if (s.key !== key) return s;
                 return {
@@ -246,7 +266,7 @@ export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
           const isLabelChange = Label.matchRelationship(rel, status.ontologyID(key));
           if (!isLabelChange) return;
           onChange(
-            state.skipNull((prev) =>
+            state.skipUndefined((prev) =>
               prev.map((s) => {
                 if (s.key !== key) return s;
                 return {

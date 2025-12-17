@@ -14,6 +14,7 @@ import pandas as pd
 import pytest
 
 import synnax as sy
+from synnax.util.random import random_name
 from tests.telem import seconds_linspace
 
 
@@ -211,12 +212,12 @@ class TestWriter:
     def test_write_persist_stream_regression(self, client: sy.Synnax):
         """Should work"""
         idx = client.channels.create(
-            name="idx",
+            name=random_name(),
             is_index=True,
             data_type="timestamp",
         )
         data = client.channels.create(
-            name="data",
+            name=random_name(),
             data_type="float64",
             index=idx.key,
         )
@@ -233,12 +234,12 @@ class TestWriter:
         assert len(f) == 1
 
         data_2 = client.channels.create(
-            name="data_2",
+            name=random_name(),
             data_type="float64",
             index=idx.key,
         )
         data_3 = client.channels.create(
-            name="data_3",
+            name=random_name(),
             data_type="float64",
             index=idx.key,
         )
@@ -260,7 +261,7 @@ class TestWriter:
         assert len(f2[data_2.key]) == 1
         assert len(f2[data_3.key]) == 1
 
-    def test_set_authority(self, client: sy.Synnax, indexed_pair: list[sy.channel]):
+    def test_set_authority(self, client: sy.Synnax, indexed_pair: list[sy.Channel]):
         start = sy.TimeSpan.SECOND * 1
         idx_ch, data_ch = indexed_pair
         w1 = client.open_writer(start=start, channels=indexed_pair, authorities=100)
@@ -292,7 +293,7 @@ class TestWriter:
             w2.close()
 
     def test_set_authority_by_name(
-        self, client: sy.Synnax, indexed_pair: list[sy.channel]
+        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
     ):
         start = sy.TimeSpan.SECOND * 1
         idx_ch, data_ch = indexed_pair
@@ -325,7 +326,7 @@ class TestWriter:
             w2.close()
 
     def test_set_authority_by_name_value(
-        self, client: sy.Synnax, indexed_pair: list[sy.channel]
+        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
     ):
         start = sy.TimeSpan.SECOND * 1
         idx_ch, data_ch = indexed_pair
@@ -361,7 +362,7 @@ class TestWriter:
     def test_writer_overlap_err(
         self,
         client: sy.Synnax,
-        indexed_pair: list[sy.channel],
+        indexed_pair: list[sy.Channel],
     ):
         idx_ch, data_ch = indexed_pair
         start = sy.TimeSpan.SECOND * 30
@@ -380,7 +381,7 @@ class TestWriter:
                 ...
 
     def test_set_authority_on_all_channels(
-        self, client: sy.Synnax, indexed_pair: list[sy.channel]
+        self, client: sy.Synnax, indexed_pair: list[sy.Channel]
     ):
         start = sy.TimeSpan.SECOND * 1
         idx_ch, data_ch = indexed_pair

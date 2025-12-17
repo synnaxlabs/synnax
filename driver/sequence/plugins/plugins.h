@@ -108,7 +108,7 @@ public:
     virtual ~FrameSink() = default;
 
     /// @brief writes the frame to the sink.
-    virtual xerrors::Error write(const synnax::Frame &frame) = 0;
+    virtual xerrors::Error write(const telem::Frame &frame) = 0;
 
     /// @brief sets the authority of the channels being written to.
     virtual xerrors::Error set_authority(
@@ -136,7 +136,7 @@ public:
         synnax::WriterConfig cfg
     );
 
-    xerrors::Error write(const synnax::Frame &frame) override;
+    xerrors::Error write(const telem::Frame &frame) override;
 
     xerrors::Error set_authority(
         const std::vector<synnax::ChannelKey> &keys,
@@ -151,7 +151,7 @@ public:
 /// @brief a plugin implementation that lets the sequence write to Synnax channels.
 class ChannelWrite final : public Plugin {
     /// @brief the current output frame to write.
-    synnax::Frame frame;
+    telem::Frame frame;
     /// @brief the sink to write the frame to. This is typically backed by a Synnax
     /// writer.
     std::shared_ptr<FrameSink> sink;
@@ -202,7 +202,7 @@ class ChannelReceive final : public Plugin {
     public:
         explicit Sink(ChannelReceive &receiver): receiver(receiver) {}
 
-        xerrors::Error write(const synnax::Frame &frame) override;
+        xerrors::Error write(const telem::Frame &frame) override;
     };
 
 public:

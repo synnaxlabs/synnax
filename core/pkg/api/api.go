@@ -115,11 +115,11 @@ type Transport struct {
 	SchematicSetData  freighter.UnaryServer[SchematicSetDataRequest, types.Nil]
 	SchematicCopy     freighter.UnaryServer[SchematicCopyRequest, SchematicCopyResponse]
 	// SCHEMATIC SYMBOL
-	SchematicSymbolCreate        freighter.UnaryServer[SymbolCreateRequest, SymbolCreateResponse]
-	SchematicSymbolRetrieve      freighter.UnaryServer[SymbolRetrieveRequest, SymbolRetrieveResponse]
-	SchematicSymbolDelete        freighter.UnaryServer[SymbolDeleteRequest, types.Nil]
-	SchematicSymbolRename        freighter.UnaryServer[SymbolRenameRequest, types.Nil]
-	SchematicSymbolRetrieveGroup freighter.UnaryServer[SymbolRetrieveGroupRequest, SymbolRetrieveGroupResponse]
+	SchematicCreateSymbol        freighter.UnaryServer[SchematicCreateSymbolRequest, SchematicCreateSymbolResponse]
+	SchematicRetrieveSymbol      freighter.UnaryServer[SchematicRetrieveSymbolRequest, SchematicRetrieveSymbolResponse]
+	SchematicDeleteSymbol        freighter.UnaryServer[SchematicDeleteSymbolRequest, types.Nil]
+	SchematicRenameSymbol        freighter.UnaryServer[SchematicRenameSymbolRequest, types.Nil]
+	SchematicRetrieveSymbolGroup freighter.UnaryServer[SchematicRetrieveSymbolGroupRequest, SchematicRetrieveSymbolGroupResponse]
 	// LOG
 	LogCreate   freighter.UnaryServer[LogCreateRequest, LogCreateResponse]
 	LogRetrieve freighter.UnaryServer[LogRetrieveRequest, LogRetrieveResponse]
@@ -144,30 +144,40 @@ type Transport struct {
 	LabelDelete   freighter.UnaryServer[LabelDeleteRequest, types.Nil]
 	LabelAdd      freighter.UnaryServer[LabelAddRequest, types.Nil]
 	LabelRemove   freighter.UnaryServer[LabelRemoveRequest, types.Nil]
+	RackCreate    freighter.UnaryServer[RackCreateRequest, RackCreateResponse]
+	RackRetrieve  freighter.UnaryServer[RackRetrieveRequest, RackRetrieveResponse]
+	RackDelete    freighter.UnaryServer[RackDeleteRequest, types.Nil]
+	// TASK
+	TaskCreate   freighter.UnaryServer[TaskCreateRequest, TaskCreateResponse]
+	TaskRetrieve freighter.UnaryServer[TaskRetrieveRequest, TaskRetrieveResponse]
+	TaskDelete   freighter.UnaryServer[TaskDeleteRequest, types.Nil]
+	TaskCopy     freighter.UnaryServer[TaskCopyRequest, TaskCopyResponse]
 	// DEVICE
-	HardwareCreateRack     freighter.UnaryServer[HardwareCreateRackRequest, HardwareCreateRackResponse]
-	HardwareRetrieveRack   freighter.UnaryServer[HardwareRetrieveRackRequest, HardwareRetrieveRackResponse]
-	HardwareDeleteRack     freighter.UnaryServer[HardwareDeleteRackRequest, types.Nil]
-	HardwareCreateTask     freighter.UnaryServer[HardwareCreateTaskRequest, HardwareCreateTaskResponse]
-	HardwareRetrieveTask   freighter.UnaryServer[HardwareRetrieveTaskRequest, HardwareRetrieveTaskResponse]
-	HardwareCopyTask       freighter.UnaryServer[HardwareCopyTaskRequest, HardwareCopyTaskResponse]
-	HardwareDeleteTask     freighter.UnaryServer[HardwareDeleteTaskRequest, types.Nil]
-	HardwareCreateDevice   freighter.UnaryServer[HardwareCreateDeviceRequest, HardwareCreateDeviceResponse]
-	HardwareRetrieveDevice freighter.UnaryServer[HardwareRetrieveDeviceRequest, HardwareRetrieveDeviceResponse]
-	HardwareDeleteDevice   freighter.UnaryServer[HardwareDeleteDeviceRequest, types.Nil]
+	DeviceCreate   freighter.UnaryServer[DeviceCreateRequest, DeviceCreateResponse]
+	DeviceRetrieve freighter.UnaryServer[DeviceRetrieveRequest, DeviceRetrieveResponse]
+	DeviceDelete   freighter.UnaryServer[DeviceDeleteRequest, types.Nil]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[AccessCreatePolicyRequest, AccessCreatePolicyResponse]
 	AccessDeletePolicy   freighter.UnaryServer[AccessDeletePolicyRequest, types.Nil]
 	AccessRetrievePolicy freighter.UnaryServer[AccessRetrievePolicyRequest, AccessRetrievePolicyResponse]
+	AccessCreateRole     freighter.UnaryServer[AccessCreateRoleRequest, AccessCreateRoleResponse]
+	AccessDeleteRole     freighter.UnaryServer[AccessDeleteRoleRequest, types.Nil]
+	AccessRetrieveRole   freighter.UnaryServer[AccessRetrieveRoleRequest, AccessRetrieveRoleResponse]
+	AccessAssignRole     freighter.UnaryServer[AccessAssignRoleRequest, types.Nil]
+	AccessUnassignRole   freighter.UnaryServer[AccessUnassignRoleRequest, types.Nil]
 	// STATUS
 	StatusSet      freighter.UnaryServer[StatusSetRequest, StatusSetResponse]
 	StatusRetrieve freighter.UnaryServer[StatusRetrieveRequest, StatusRetrieveResponse]
 	StatusDelete   freighter.UnaryServer[StatusDeleteRequest, types.Nil]
-	// Arc
+	// ARC
 	ArcCreate   freighter.UnaryServer[ArcCreateRequest, ArcCreateResponse]
 	ArcDelete   freighter.UnaryServer[ArcDeleteRequest, types.Nil]
 	ArcRetrieve freighter.UnaryServer[ArcRetrieveRequest, ArcRetrieveResponse]
 	ArcLSP      freighter.StreamServer[ArcLSPMessage, ArcLSPMessage]
+	// VIEW
+	ViewCreate   freighter.UnaryServer[ViewCreateRequest, ViewCreateResponse]
+	ViewRetrieve freighter.UnaryServer[ViewRetrieveRequest, ViewRetrieveResponse]
+	ViewDelete   freighter.UnaryServer[ViewDeleteRequest, types.Nil]
 }
 
 // Layer wraps all implemented API services into a single container. Protocol-specific Layer
@@ -189,10 +199,13 @@ type Layer struct {
 	Log          *LogService
 	Table        *TableService
 	Label        *LabelService
-	Hardware     *HardwareService
+	Rack         *RackService
+	Task         *TaskService
+	Device       *DeviceService
 	Access       *AccessService
 	Arc          *ArcService
 	Status       *StatusService
+	View         *ViewService
 }
 
 // BindTo binds the API layer to the provided Transport implementation.
@@ -279,11 +292,11 @@ func (a *Layer) BindTo(t Transport) {
 		t.SchematicCopy,
 
 		// SCHEMATIC SYMBOL
-		t.SchematicSymbolCreate,
-		t.SchematicSymbolRetrieve,
-		t.SchematicSymbolDelete,
-		t.SchematicSymbolRename,
-		t.SchematicSymbolRetrieveGroup,
+		t.SchematicCreateSymbol,
+		t.SchematicRetrieveSymbol,
+		t.SchematicDeleteSymbol,
+		t.SchematicRenameSymbol,
+		t.SchematicRetrieveSymbolGroup,
 
 		// LINE PLOT
 		t.LinePlotCreate,
@@ -313,28 +326,41 @@ func (a *Layer) BindTo(t Transport) {
 		t.LabelAdd,
 		t.LabelRemove,
 
-		// HARDWARE
-		t.HardwareCreateRack,
-		t.HardwareDeleteRack,
-		t.HardwareRetrieveRack,
-		t.HardwareDeleteTask,
-		t.HardwareCreateTask,
-		t.HardwareRetrieveTask,
-		t.HardwareDeleteTask,
-		t.HardwareCopyTask,
-		t.HardwareCreateDevice,
-		t.HardwareRetrieveDevice,
-		t.HardwareDeleteDevice,
+		// RACK
+		t.RackCreate,
+		t.RackRetrieve,
+		t.RackDelete,
+
+		// TASK
+		t.TaskCreate,
+		t.TaskRetrieve,
+		t.TaskDelete,
+		t.TaskCopy,
+
+		// DEVICE
+		t.DeviceCreate,
+		t.DeviceRetrieve,
+		t.DeviceDelete,
 
 		// ACCESS
 		t.AccessCreatePolicy,
 		t.AccessDeletePolicy,
 		t.AccessRetrievePolicy,
+		t.AccessCreateRole,
+		t.AccessDeleteRole,
+		t.AccessRetrieveRole,
+		t.AccessAssignRole,
+		t.AccessUnassignRole,
 
 		// STATUS
 		t.StatusSet,
 		t.StatusRetrieve,
 		t.StatusDelete,
+
+		// VIEW
+		t.ViewCreate,
+		t.ViewRetrieve,
+		t.ViewDelete,
 
 		// ARC
 		t.ArcCreate,
@@ -408,11 +434,11 @@ func (a *Layer) BindTo(t Transport) {
 	t.SchematicCopy.BindHandler(a.Schematic.Copy)
 
 	// SCHEMATIC SYMBOL
-	t.SchematicSymbolCreate.BindHandler(a.Schematic.CreateSymbol)
-	t.SchematicSymbolRetrieve.BindHandler(a.Schematic.RetrieveSymbol)
-	t.SchematicSymbolDelete.BindHandler(a.Schematic.DeleteSymbol)
-	t.SchematicSymbolRename.BindHandler(a.Schematic.RenameSymbol)
-	t.SchematicSymbolRetrieveGroup.BindHandler(a.Schematic.RetrieveSymbolGroup)
+	t.SchematicCreateSymbol.BindHandler(a.Schematic.CreateSymbol)
+	t.SchematicRetrieveSymbol.BindHandler(a.Schematic.RetrieveSymbol)
+	t.SchematicDeleteSymbol.BindHandler(a.Schematic.DeleteSymbol)
+	t.SchematicRenameSymbol.BindHandler(a.Schematic.RenameSymbol)
+	t.SchematicRetrieveSymbolGroup.BindHandler(a.Schematic.RetrieveSymbolGroup)
 
 	// LINE PLOT
 	t.LinePlotCreate.BindHandler(a.LinePlot.Create)
@@ -442,29 +468,43 @@ func (a *Layer) BindTo(t Transport) {
 	t.LabelAdd.BindHandler(a.Label.Add)
 	t.LabelRemove.BindHandler(a.Label.Remove)
 
-	// HARDWARE
-	t.HardwareCreateRack.BindHandler(a.Hardware.CreateRack)
-	t.HardwareRetrieveRack.BindHandler(a.Hardware.RetrieveRack)
-	t.HardwareDeleteRack.BindHandler(a.Hardware.DeleteRack)
-	t.HardwareCreateTask.BindHandler(a.Hardware.CreateTask)
-	t.HardwareRetrieveTask.BindHandler(a.Hardware.RetrieveTask)
-	t.HardwareDeleteTask.BindHandler(a.Hardware.DeleteTask)
-	t.HardwareCreateDevice.BindHandler(a.Hardware.CreateDevice)
-	t.HardwareRetrieveDevice.BindHandler(a.Hardware.RetrieveDevice)
-	t.HardwareDeleteDevice.BindHandler(a.Hardware.DeleteDevice)
-	t.HardwareCopyTask.BindHandler(a.Hardware.CopyTask)
+	// RACK
+	t.RackCreate.BindHandler(a.Rack.Create)
+	t.RackRetrieve.BindHandler(a.Rack.Retrieve)
+	t.RackDelete.BindHandler(a.Rack.Delete)
+
+	// TASK
+	t.TaskCreate.BindHandler(a.Task.Create)
+	t.TaskRetrieve.BindHandler(a.Task.Retrieve)
+	t.TaskDelete.BindHandler(a.Task.Delete)
+	t.TaskCopy.BindHandler(a.Task.Copy)
+
+	// DEVICE
+	t.DeviceCreate.BindHandler(a.Device.Create)
+	t.DeviceRetrieve.BindHandler(a.Device.Retrieve)
+	t.DeviceDelete.BindHandler(a.Device.Delete)
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(a.Access.CreatePolicy)
 	t.AccessDeletePolicy.BindHandler(a.Access.DeletePolicy)
 	t.AccessRetrievePolicy.BindHandler(a.Access.RetrievePolicy)
+	t.AccessCreateRole.BindHandler(a.Access.CreateRole)
+	t.AccessDeleteRole.BindHandler(a.Access.DeleteRole)
+	t.AccessRetrieveRole.BindHandler(a.Access.RetrieveRole)
+	t.AccessAssignRole.BindHandler(a.Access.AssignRole)
+	t.AccessUnassignRole.BindHandler(a.Access.UnassignRole)
 
 	// STATUS
 	t.StatusSet.BindHandler(a.Status.Set)
 	t.StatusRetrieve.BindHandler(a.Status.Retrieve)
 	t.StatusDelete.BindHandler(a.Status.Delete)
 
-	// Arc
+	// VIEW
+	t.ViewCreate.BindHandler(a.View.Create)
+	t.ViewRetrieve.BindHandler(a.View.Retrieve)
+	t.ViewDelete.BindHandler(a.View.Delete)
+
+	// ARC
 	t.ArcCreate.BindHandler(a.Arc.Create)
 	t.ArcDelete.BindHandler(a.Arc.Delete)
 	t.ArcRetrieve.BindHandler(a.Arc.Retrieve)
@@ -495,10 +535,13 @@ func New(cfgs ...Config) (*Layer, error) {
 		Schematic:    NewSchematicService(provider),
 		LinePlot:     NewLinePlotService(provider),
 		Label:        NewLabelService(provider),
-		Hardware:     NewHardwareService(provider),
+		Rack:         NewRackService(provider),
+		Task:         NewTaskService(provider),
+		Device:       NewDeviceService(provider),
 		Log:          NewLogService(provider),
 		Table:        NewTableService(provider),
 		Status:       NewStatusService(provider),
 		Arc:          NewArcService(provider),
+		View:         NewViewService(provider),
 	}, nil
 }

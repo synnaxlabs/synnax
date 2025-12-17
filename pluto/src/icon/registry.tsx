@@ -72,6 +72,7 @@ import {
   IoShapes,
   IoTerminal,
   IoTime,
+  IoTvOutline,
 } from "react-icons/io5";
 import {
   MdAlignHorizontalCenter,
@@ -100,6 +101,7 @@ import {
   MdFilterCenterFocus,
   MdHardware,
   MdHive,
+  MdHorizontalDistribute,
   MdInsights,
   MdKeyboardAlt,
   MdKeyboardArrowDown,
@@ -135,16 +137,23 @@ import {
   MdOutlineVisibilityOff,
   MdOutlineWebAsset,
   MdPause,
+  MdPeople,
   MdPerson,
   MdPictureInPicture,
   MdPlayArrow,
+  MdPolicy,
   MdQuestionMark,
+  MdRotate90DegreesCcw,
+  MdRotate90DegreesCw,
+  MdRotateLeft,
+  MdRotateRight,
   MdSaveAlt,
   MdSensors,
   MdShield,
   MdSquareFoot,
   MdTextFields,
   MdTypeSpecimen,
+  MdVerticalDistribute,
   MdWorkspacesFilled,
 } from "react-icons/md";
 import {
@@ -233,6 +242,7 @@ export const Info = wrapSVGIcon(BsFillInfoSquareFill, "info");
 export const Warning = wrapSVGIcon(AiFillWarning, "warning");
 export const Check = wrapSVGIcon(AiOutlineCheck, "check");
 export const Refresh = wrapSVGIcon(IoMdRefresh, "refresh");
+export const View = wrapSVGIcon(IoTvOutline, "view");
 export const Delete = wrapSVGIcon(AiFillDelete, "delete");
 export const Time = wrapSVGIcon(IoTime, "time");
 export const Acquire = wrapSVGIcon(FaStream, "acquire");
@@ -321,6 +331,8 @@ export const Selection = wrapSVGIcon(PiSelectionPlusBold, "selection");
 export const Pan = wrapSVGIcon(GrPan, "pan");
 export const Rule = wrapSVGIcon(MdSquareFoot, "rule");
 export const User = wrapSVGIcon(MdPerson, "user");
+export const Role = wrapSVGIcon(MdPeople, "role");
+export const Policy = wrapSVGIcon(MdPolicy, "policy");
 export const Rename = wrapSVGIcon(BiRename, "rename");
 export const Snapshot = wrapSVGIcon(MdPictureInPicture, "snapshot");
 export const Sync = wrapSVGIcon(AiOutlineSync, "sync");
@@ -340,6 +352,10 @@ export const Align = {
   YCenter: wrapSVGIcon(MdAlignVerticalCenter, "align-y-center"),
   Top: wrapSVGIcon(MdAlignVerticalTop, "align-top"),
   Bottom: wrapSVGIcon(MdAlignVerticalBottom, "align-bottom"),
+};
+export const Distribute = {
+  X: wrapSVGIcon(MdHorizontalDistribute, "distribute-x"),
+  Y: wrapSVGIcon(MdVerticalDistribute, "distribute-y"),
 };
 export const TextAlign = {
   Center: wrapSVGIcon(FaAlignCenter, "text-align-center"),
@@ -378,6 +394,14 @@ export const Snooze = wrapSVGIcon(IoNotificationsOff, "snooze");
 export const Log = wrapSVGIcon(FaStream, "log");
 export const Tare = wrapSVGIcon(FaCreativeCommonsZero, "tare");
 export const Rotate = wrapSVGIcon(GrRotateRight, "rotate");
+export const RotateGroup = {
+  CW: wrapSVGIcon(MdRotateRight, "rotate-group-cw"),
+  CCW: wrapSVGIcon(MdRotateLeft, "rotate-group-ccw"),
+};
+export const RotateAroundCenter = {
+  CW: wrapSVGIcon(MdRotate90DegreesCw, "rotate-around-center-cw"),
+  CCW: wrapSVGIcon(MdRotate90DegreesCcw, "rotate-around-center-ccw"),
+};
 export const Text = wrapSVGIcon(MdTextFields, "text");
 export const Value = wrapSVGIcon(GoNumber, "value");
 export const Calendar = wrapSVGIcon(MdCalendarToday, "calendar");
@@ -508,6 +532,8 @@ const icons = {
   Pan,
   Rule,
   User,
+  Role,
+  Policy,
   Rename,
   Snapshot,
   Sync,
@@ -540,6 +566,7 @@ const icons = {
   Guide,
   Focus,
   OpenInNewWindow,
+  View,
   MoveToMainWindow,
   SplitX,
   SplitY,

@@ -18,6 +18,8 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { ontology } from "@/ontology";
+
 const errorMessage = "Channel key must be a valid uint32.";
 export const keyZ = z.uint32().or(
   z
@@ -28,7 +30,14 @@ export const keyZ = z.uint32().or(
 );
 export type Key = z.infer<typeof keyZ>;
 export type Keys = Key[];
-export const nameZ = z.string();
+const VALID_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+export const nameZ = z
+  .string()
+  .min(1, "Name must not be empty")
+  .regex(
+    VALID_NAME_PATTERN,
+    "Name can only contain letters, digits, and underscores, and cannot start with a digit",
+  );
 export type Name = z.infer<typeof nameZ>;
 export type Names = Name[];
 export type KeyOrName = Key | Name;
@@ -50,7 +59,7 @@ export type Operation = z.infer<typeof operationZ>;
 export const statusZ = status.statusZ();
 export type Status = z.infer<typeof statusZ>;
 export const payloadZ = z.object({
-  name: nameZ,
+  name: z.string(),
   key: keyZ,
   dataType: DataType.z,
   leaseholder: zod.uint12,
@@ -62,12 +71,12 @@ export const payloadZ = z.object({
   expression: z.string().default(""),
   status: statusZ.optional(),
   operations: array.nullableZ(operationZ),
-  requires: array.nullableZ(keyZ),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
 export const newZ = payloadZ.extend({
   key: keyZ.optional(),
+  name: nameZ,
   leaseholder: zod.uint12.optional(),
   index: keyZ.optional(),
   isIndex: z.boolean().optional(),
@@ -75,11 +84,12 @@ export const newZ = payloadZ.extend({
   virtual: z.boolean().default(false),
   expression: z.string().default(""),
   operations: array.nullableZ(operationZ).optional(),
-  requires: array.nullableZ(keyZ).optional(),
 });
 
-export interface New
-  extends Omit<z.input<typeof newZ>, "dataType" | "status" | "internal"> {
+export interface New extends Omit<
+  z.input<typeof newZ>,
+  "dataType" | "status" | "internal"
+> {
   dataType: CrudeDataType;
 }
 
@@ -89,3 +99,21 @@ export const paramsZ = z.union([
   zod.toArray(payloadZ).transform((p) => p.map((c) => c.key)),
 ]);
 export type Params = Key | Name | Keys | Names | Payload | Payload[];
+
+export const ontologyID = ontology.createIDFactory<Key>("channel");
+export const TYPE_ONTOLOGY_ID = ontologyID(0);
+
+const CHAR_REGEX = /[a-zA-Z0-9_]/;
+
+export const escapeInvalidName = (name: string, changeEmptyToUnderscore = false) => {
+  if (name === "") return changeEmptyToUnderscore ? "_" : "";
+  if (name.match(VALID_NAME_PATTERN)) return name;
+  // if it doesn't match, convert non-alphanumeric characters to underscores and prepend
+  // an underscore if the first character is a digit
+  let result = "";
+  for (const char of name)
+    if (char.match(CHAR_REGEX)) result += char;
+    else result += "_";
+  if (result[0].match(/^\d/)) result = `_${result}`;
+  return result;
+};

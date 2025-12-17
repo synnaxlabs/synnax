@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
+import z from "zod";
 
 import { record } from "@/record";
 
@@ -62,7 +63,28 @@ describe("record", () => {
       expect(keyedNamedNumber.name).toBe("Number Item");
     });
   });
-
+  describe("keyZ", () => {
+    it("should accept string keys", () => {
+      const stringKey = "test";
+      expect(record.keyZ.parse(stringKey)).toBe(stringKey);
+    });
+    it("should accept number keys", () => {
+      const numberKey = 123;
+      expect(record.keyZ.parse(numberKey)).toBe(numberKey);
+    });
+    it("should reject symbol keys", () => {
+      const symbolKey = Symbol("test");
+      expect(() => record.keyZ.parse(symbolKey)).toThrowError(z.ZodError);
+    });
+    it("should reject undefined keys", () => {
+      const undefinedKey = undefined;
+      expect(() => record.keyZ.parse(undefinedKey)).toThrowError(z.ZodError);
+    });
+    it("should reject null keys", () => {
+      const nullKey = null;
+      expect(() => record.keyZ.parse(nullKey)).toThrowError(z.ZodError);
+    });
+  });
   describe("unknownZ", () => {
     it("should validate valid records", () => {
       const validRecord = {
@@ -70,26 +92,19 @@ describe("record", () => {
         number: 42,
         symbol: Symbol("test"),
         nested: { key: "value" },
-        array: [1, 2, 3],
+        2: [1, 2, 3],
+        function: () => {},
       };
-
-      const result = record.unknownZ.safeParse(validRecord);
-      expect(result.success).toBe(true);
+      expect(record.unknownZ.parse(validRecord)).toEqual(validRecord);
     });
-
-    it("should not reject invalid keys", () => {
-      const invalidRecord = {
-        [Symbol("test")]: "value", // Symbol keys are not allowed in the schema
-      };
-
-      const result = record.unknownZ.safeParse(invalidRecord);
-      expect(result.success).toBe(true);
+    it("should reject symbol keys", () => {
+      const invalidRecord = { [Symbol("test")]: "value" };
+      expect(() => record.unknownZ.parse(invalidRecord)).toThrowError(z.ZodError);
     });
 
     it("should accept empty objects", () => {
       const emptyRecord = {};
-      const result = record.unknownZ.safeParse(emptyRecord);
-      expect(result.success).toBe(true);
+      expect(record.unknownZ.parse(emptyRecord)).toEqual(emptyRecord);
     });
 
     it("should accept null and undefined values", () => {
@@ -99,8 +114,7 @@ describe("record", () => {
         string: "value",
       };
 
-      const result = record.unknownZ.safeParse(recordWithNulls);
-      expect(result.success).toBe(true);
+      expect(record.unknownZ.parse(recordWithNulls)).toEqual(recordWithNulls);
     });
   });
 

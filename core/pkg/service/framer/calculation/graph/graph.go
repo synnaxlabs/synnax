@@ -30,7 +30,7 @@ import (
 
 type Config struct {
 	alamos.Instrumentation
-	Channels       channel.Readable
+	Channel        *channel.Service
 	SymbolResolver arc.SymbolResolver
 }
 
@@ -41,14 +41,14 @@ var (
 
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.Channels = override.Nil(c.Channels, other.Channels)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.SymbolResolver = override.Nil(c.SymbolResolver, other.SymbolResolver)
 	return c
 }
 
 func (c Config) Validate() error {
 	v := validate.New("calculation.graph")
-	validate.NotNil(v, "channels", c.Channels)
+	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "symbol_resolver", c.SymbolResolver)
 	return v.Error()
 }
@@ -127,7 +127,7 @@ func (g *Graph) Update(ctx context.Context, ch channel.Channel) error {
 
 	// Recompile with new expression
 	mod, err := compiler.Compile(ctx, compiler.Config{
-		Channels:       g.cfg.Channels,
+		ChannelService: g.cfg.Channel,
 		Channel:        ch,
 		SymbolResolver: g.cfg.SymbolResolver,
 	})
@@ -147,7 +147,7 @@ func (g *Graph) Update(ctx context.Context, ch channel.Channel) error {
 		}
 
 		for _, depCh := range depChannels {
-			if depCh.IsCalculated() && !depCh.IsLegacyCalculated() {
+			if depCh.IsCalculated() {
 				// Check for circular dependencies before adding
 				if err := g.checkCircularDependency(ch.Key(), depCh.Key()); err != nil {
 					return err
@@ -373,7 +373,7 @@ func (g *Graph) addInternal(ctx context.Context, ch channel.Channel, explicit bo
 	defer func() { info.processing = false }()
 
 	mod, err := compiler.Compile(ctx, compiler.Config{
-		Channels:       g.cfg.Channels,
+		ChannelService: g.cfg.Channel,
 		Channel:        ch,
 		SymbolResolver: g.cfg.SymbolResolver,
 	})
@@ -395,7 +395,7 @@ func (g *Graph) addInternal(ctx context.Context, ch channel.Channel, explicit bo
 		}
 
 		for _, depCh := range depChannels {
-			if depCh.IsCalculated() && !depCh.IsLegacyCalculated() {
+			if depCh.IsCalculated() {
 				if err := g.addInternal(ctx, depCh, false); err != nil {
 					delete(g.channels, ch.Key())
 					return errors.Wrapf(err, "failed to add calculated dependency %v", depCh.Key())
@@ -446,7 +446,7 @@ func (g *Graph) addInternal(ctx context.Context, ch channel.Channel, explicit bo
 // fetchChannels retrieves channels by their keys.
 func (g *Graph) fetchChannels(ctx context.Context, keys []channel.Key) ([]channel.Channel, error) {
 	var channels []channel.Channel
-	if err := g.cfg.Channels.NewRetrieve().
+	if err := g.cfg.Channel.NewRetrieve().
 		Entries(&channels).
 		WhereKeys(keys...).
 		Exec(ctx, nil); err != nil {
@@ -469,7 +469,7 @@ func (g *Graph) resolveBaseDependencies(
 	}
 
 	for _, depCh := range depChannels {
-		if depCh.IsCalculated() && !depCh.IsLegacyCalculated() {
+		if depCh.IsCalculated() {
 			info, err := g.getChannelInfo(depCh.Key())
 			if err != nil {
 				return nil, err

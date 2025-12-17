@@ -12,7 +12,7 @@ import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { MultipleFoundError, NotFoundError } from "@/errors";
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
 import { type Key, keyZ, type New, newZ, type User, userZ } from "@/user/payload";
 
 const retrieveRequestZ = z.object({
@@ -67,6 +67,9 @@ const renameReqZ = z.object({
 const renameResZ = z.object({});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
+
+export const SET_CHANNEL_NAME = "sy_user_set";
+export const DELETE_CHANNEL_NAME = "sy_user_delete";
 
 export class Client {
   private readonly client: UnaryClient;
@@ -150,4 +153,5 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: "user", key });
+export const ontologyID = ontology.createIDFactory<Key>("user");
+export const TYPE_ONTOLOGY_ID = ontologyID("");

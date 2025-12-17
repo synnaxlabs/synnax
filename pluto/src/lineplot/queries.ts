@@ -20,7 +20,7 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
 > = { listeners: [] };
 
 export const FLUX_STORE_KEY = "lineplots";
-const RESOURCE_NAME = "Line Plot";
+const RESOURCE_NAME = "line plot";
 
 export interface FluxStore extends Flux.UnaryStore<lineplot.Key, lineplot.LinePlot> {}
 
@@ -63,7 +63,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, rollbacks, store }) => {
     const keys = array.toArray(data);
-    const ids = keys.map((k) => lineplot.ontologyID(k));
+    const ids = lineplot.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     await client.workspaces.lineplots.delete(data);
