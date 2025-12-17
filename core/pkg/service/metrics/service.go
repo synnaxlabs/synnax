@@ -90,6 +90,7 @@ func (c Config) Validate() error {
 // Service is used to collect metrics from the host machine (cpu, memory, disk) and
 // write them to channels.
 type Service struct {
+	cfg           Config
 	stopCollector chan struct{}
 	shutdown      io.Closer
 }
@@ -110,9 +111,9 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{stopCollector: make(chan struct{})}
+	s := &Service{cfg: cfg, stopCollector: make(chan struct{})}
 	nameBase := fmt.Sprintf("sy_node_%s_metrics_", cfg.HostProvider.HostKey())
-	allMetrics := buildMetrics(cfg.Storage, cfg.Channel.CountExternalNonVirtual)
+	allMetrics := s.buildMetrics()
 	c := &collector{
 		ins:      cfg.Child("collector"),
 		interval: cfg.CollectionInterval,
