@@ -11,8 +11,6 @@
 
 #include <string>
 
-#include "x/cpp/xjson/xjson.h"
-
 #include "arc/go/text/arc/go/text/text.pb.h"
 
 namespace arc::text {
@@ -29,17 +27,9 @@ struct Text {
     /// @param raw_text The raw source code text
     explicit Text(std::string raw_text): raw(std::move(raw_text)) {}
 
-    /// @brief Constructs a Text from a JSON parser
-    /// @param p The JSON parser
-    explicit Text(xjson::Parser p): raw(p.field<std::string>("raw")) {}
-
     /// @brief Constructs a Text from its protobuf representation
     /// @param pb The protobuf message
     explicit Text(const v1::text::PBText &pb): raw(pb.raw()) {}
-
-    /// @brief Converts the Text to JSON
-    /// @return JSON representation
-    [[nodiscard]] nlohmann::json to_json() const { return {{"raw", raw}}; }
 
     /// @brief Converts the Text to its protobuf representation
     /// @param pb Pointer to protobuf message to populate

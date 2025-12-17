@@ -7,16 +7,6 @@ cc_library(
         "//arc/cpp/proto",
         "//arc/go/graph:graph_grpc",
         "//x/cpp/spatial",
-        "//x/cpp/xjson",
-    ],
-)
-
-cc_test(
-    name = "graph_test",
-    srcs = ["graph_test.cpp"],
-    deps = [
-        ":graph",
-        "//arc/go/graph:graph_grpc",
-        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
     ],
 )

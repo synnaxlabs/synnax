@@ -1,19 +1,13 @@
 cc_library(
     name = "binary",
-    hdrs = [
-        "base64.h",
-        "binary.h",
-    ],
+    hdrs = ["binary.h"],
     visibility = ["//visibility:public"],
     deps = [],
 )
 
 cc_test(
     name = "binary_test",
-    srcs = [
-        "base64_test.cpp",
-        "binary_test.cpp",
-    ],
+    srcs = ["binary_test.cpp"],
     deps = [
         "//x/cpp/binary",
         "@googletest//:gtest_main",
