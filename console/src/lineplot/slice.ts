@@ -65,8 +65,9 @@ export interface RemovePayload {
   keys: string[];
 }
 
-export interface SetViewportPayload
-  extends Partial<Omit<ViewportState, "renderTrigger">> {
+export interface SetViewportPayload extends Partial<
+  Omit<ViewportState, "renderTrigger">
+> {
   key: string;
 }
 

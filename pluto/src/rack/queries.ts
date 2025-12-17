@@ -13,20 +13,20 @@ import { array } from "@synnaxlabs/x";
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 import { state } from "@/state";
-import { type Status } from "@/status";
+import { Status } from "@/status";
 
 export const FLUX_STORE_KEY = "racks";
-const RESOURCE_NAME = "Rack";
-const PLURAL_RESOURCE_NAME = "Racks";
+const RESOURCE_NAME = "rack";
+const PLURAL_RESOURCE_NAME = "racks";
 
-export interface FluxStore
-  extends Flux.UnaryStore<rack.Key, Omit<rack.Payload, "status">> {}
+export interface FluxStore extends Flux.UnaryStore<
+  rack.Key,
+  Omit<rack.Payload, "status">
+> {}
 
-interface FluxSubStore extends Flux.Store {
+export interface FluxSubStore
+  extends Flux.Store, Status.FluxSubStore, Ontology.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
-  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
-  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
-  [Status.FLUX_STORE_KEY]: Status.FluxStore;
 }
 
 const SET_RACK_LISTENER: Flux.ChannelListener<FluxSubStore, typeof rack.rackZ> = {
@@ -57,14 +57,20 @@ const retrieveSingle = async ({
   query,
   store,
 }: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
-  let rack = store.racks.get(query.key);
-  if (rack == null) {
-    const res = await client.racks.retrieve({ ...BASE_QUERY, ...query });
-    store.racks.set(res.key, res);
-    if (res.status != null) store.statuses.set(res.status);
-    rack = res;
+  const cached = store.racks.get(query.key);
+  if (cached != null) {
+    const status = await Status.retrieveSingle<typeof rack.statusDetailsZ>({
+      store,
+      client,
+      query: { key: rack.statusKey(query.key) },
+      detailsSchema: rack.statusDetailsZ,
+    });
+    return { ...cached, status };
   }
-  return rack;
+  const res = await client.racks.retrieve({ ...BASE_QUERY, ...query });
+  store.racks.set(res.key, res);
+  if (res.status != null) store.statuses.set(res.status);
+  return res;
 };
 
 export interface ListQuery extends rack.RetrieveMultipleParams {}
@@ -105,7 +111,10 @@ export const { useRetrieve, useRetrieveStateful } = Flux.createRetrieve<
   name: RESOURCE_NAME,
   retrieve: retrieveSingle,
   mountListeners: ({ store, onChange, query: { key } }) => [
-    store.racks.onSet(onChange, key),
+    store.racks.onSet(
+      (changed) => onChange((p) => ({ ...changed, status: p?.status })),
+      key,
+    ),
     store.statuses.onSet((status) => {
       const parsed = rack.statusZ.parse(status);
       onChange(state.skipUndefined((p) => ({ ...p, status: parsed })));

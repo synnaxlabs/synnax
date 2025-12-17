@@ -27,6 +27,7 @@ import { status } from "@/status";
 import { task } from "@/task";
 import { Transport } from "@/transport";
 import { user } from "@/user";
+import { view } from "@/view";
 import { workspace } from "@/workspace";
 
 export const synnaxParamsZ = z.object({
@@ -71,6 +72,7 @@ export default class Synnax extends framer.Client {
   readonly devices: device.Client;
   readonly control: control.Client;
   readonly arcs: arc.Client;
+  readonly views: view.Client;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
@@ -153,6 +155,7 @@ export default class Synnax extends framer.Client {
     this.racks = new rack.Client(this.transport.unary, this.tasks);
     this.devices = new device.Client(this.transport.unary);
     this.arcs = new arc.Client(this.transport.unary, this.transport.stream);
+    this.views = new view.Client(this.transport.unary);
   }
 
   get key(): string {
@@ -164,8 +167,10 @@ export default class Synnax extends framer.Client {
   }
 }
 
-export interface CheckConnectionParams
-  extends Pick<SynnaxParams, "host" | "port" | "secure" | "retry" | "name"> {}
+export interface CheckConnectionParams extends Pick<
+  SynnaxParams,
+  "host" | "port" | "secure" | "retry" | "name"
+> {}
 
 export const checkConnection = async (params: CheckConnectionParams) =>
   await newConnectionChecker(params).check();

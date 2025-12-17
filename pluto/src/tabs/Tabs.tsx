@@ -105,7 +105,8 @@ export const useStatic = ({
 
 /** Props for the {@link Tabs} component. */
 export interface TabsProps
-  extends Omit<
+  extends
+    Omit<
       Flex.BoxProps,
       | "children"
       | "onSelect"

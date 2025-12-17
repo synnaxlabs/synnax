@@ -83,11 +83,6 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
             form="create-workspace"
             status={status.keepVariants(variant, "loading")}
             disabled={client == null}
-            tooltip={
-              client == null
-                ? "No Core Connected"
-                : `Save to ${client.params.name ?? "Synnax"}`
-            }
             onClick={() => save()}
             trigger={Triggers.SAVE}
           >

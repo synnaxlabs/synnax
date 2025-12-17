@@ -19,8 +19,8 @@ import { type Ranger } from "@/ranger";
 import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "channels";
-const RESOURCE_NAME = "Channel";
-const PLURAL_RESOURCE_NAME = "Channels";
+const RESOURCE_NAME = "channel";
+const PLURAL_RESOURCE_NAME = "channels";
 
 export interface FluxStore extends Flux.UnaryStore<channel.Key, channel.Channel> {}
 
@@ -91,7 +91,7 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
 
 export const formSchema = channel.newZ
   .extend({
-    name: z.string().min(1, "Name must not be empty"),
+    name: channel.nameZ,
     dataType: DataType.z.transform((v) => v.toString()),
     requires: channel.keyZ.array().optional(),
   })
@@ -375,7 +375,7 @@ export const useCalculatedForm = Flux.createForm<
   typeof calculatedFormSchema,
   FluxSubStore
 >({
-  name: "Calculated Channel",
+  name: "calculated channel",
   schema: calculatedFormSchema,
   initialValues: ZERO_FORM_VALUES,
   retrieve: retrieveInitialFormValues,
@@ -471,8 +471,10 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
 
 const ALIAS_RESOURCE_NAME = "channel alias";
 
-export interface UpdateAliasParams
-  extends optional.Optional<ranger.Alias, "range" | "channel"> {
+export interface UpdateAliasParams extends optional.Optional<
+  ranger.Alias,
+  "range" | "channel"
+> {
   alias: string;
 }
 
@@ -543,7 +545,7 @@ export const { useRetrieve: useRetrieveGroup } = Flux.createRetrieve<
   group.Group,
   FluxSubStore
 >({
-  name: RESOURCE_NAME,
+  name: "Channel Group",
   retrieve: async ({ client, store }) => {
     const g = await client.channels.retrieveGroup();
     store.groups.set(g.key, g);

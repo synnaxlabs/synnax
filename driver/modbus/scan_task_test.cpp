@@ -18,6 +18,7 @@
 #include "driver/modbus/scan_task.h"
 #include "driver/task/common/scan_task.h"
 
+/// @brief it should successfully test connection to Modbus device.
 TEST(ScanTask, testConnection) {
     auto slave = modbus::mock::Slave(modbus::mock::SlaveConfig{});
     ASSERT_NIL(slave.start());
@@ -30,7 +31,7 @@ TEST(ScanTask, testConnection) {
 
     auto dev_manager = std::make_shared<modbus::device::Manager>();
 
-    const auto cfg = modbus::ScannerConfig{};
+    const auto cfg = modbus::ScanTaskConfig{};
     auto scan_task = std::make_unique<common::ScanTask>(
         std::make_unique<modbus::Scanner>(ctx, t, dev_manager),
         ctx,

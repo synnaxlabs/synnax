@@ -120,12 +120,6 @@ export const Register: Layout.Renderer = ({ onClose }) => {
             onClick={() => save()}
             status={status.keepVariants(variant, "loading")}
             disabled={client == null}
-            tooltip={
-              client == null
-                ? "No Core Connected"
-                : `Save to ${client.params.name ?? "Synnax"}`
-            }
-            tooltipLocation="bottom"
             trigger={Triggers.SAVE}
             variant="filled"
           >

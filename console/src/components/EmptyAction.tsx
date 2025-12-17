@@ -10,8 +10,7 @@
 import { Flex, Text } from "@synnaxlabs/pluto";
 
 export interface EmptyActionProps
-  extends Omit<Flex.BoxProps<"div">, "onClick">,
-    Pick<Text.TextProps, "onClick"> {
+  extends Omit<Flex.BoxProps<"div">, "onClick">, Pick<Text.TextProps, "onClick"> {
   message: string;
   action?: string;
 }

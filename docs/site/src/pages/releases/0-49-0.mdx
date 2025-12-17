@@ -1,0 +1,124 @@
+---
+title: "Version 0.49 Release Notes"
+---
+
+import Release from "@/components/releases/Release.astro";
+import { Image } from "@/components/Media";
+import { Divider, Flex } from "@synnaxlabs/pluto";
+import Diagram from "@/components/Diagram.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+<Release
+    version="0.49.0"
+    date="Dec 9, 2025"
+    title="Role-Based Access Control"
+    breakingChanges
+>
+
+<Image client:only="react" id="releases/0-49-0/thumbnail" themed={false} />
+
+### Role-Based Access Control
+
+Instead of setting individual permissions for each user, you can now assign users to one
+of four built-in roles: Owner, Engineer, Operator, and Viewer. Each role has a set of
+permissions that determine what actions the user can perform. For more information, see
+the [Users](/reference/console/users) page.
+
+<Divider.Divider x />
+
+### Improved Status Handling for Drivers, Devices, and Tasks
+
+Statuses for all Drivers, devices, and tasks are now displayed in the Status Explorer,
+providing a unified view of your entire system's health.
+
+<Diagram
+  preview
+  style="height: 300px; width: 600px; padding: 0rem 9rem; margin-left: auto; margin-right: auto"
+>
+  <Image
+    client:only="react"
+    id="releases/0-49-0/status-handling"
+    style={{
+      borderTopLeftRadius: "1rem",
+      position: "absolute",
+      width: 500,
+      bottom: "-35rem",
+      right: "-10rem",
+      border: "0.5px solid var(--pluto-gray-l5)",
+    }}
+    themed={false}
+  />
+</Diagram>
+
+#### OPC UA and Modbus Status Checking
+
+Our OPC UA and Modbus integrations now periodically check the connection status of every
+configured server, displaying results in the Status Explorer and Devices Toolbar.
+
+<Divider.Divider x />
+
+### Channel Naming Conventions and Uniqueness
+
+Channel names are now validated to ensure they only contain letters, digits, and
+underscores, and cannot start with a digit. This ensures channels can be used as
+variables in Arc programs without errors.
+
+Channel names must also be unique, preventing potential mistakes when writing
+automations or analyzing data.
+
+Existing channels that do not conform to the new naming conventions will not be changed
+automatically, so we recommend updating your channels to the new conventions to avoid
+potential issues in the future.
+
+<Divider.Divider x />
+
+### Improved Schematic Editor Tools
+
+The schematic editor toolbar now includes buttons for aligning, distributing, and
+rotating selected elements.
+
+<Flex.Box x justify="center">
+  <Image
+    style={{ width: 400 }}
+    client:only="react"
+    id="releases/0-49-0/spacing"
+    themed={false}
+  />
+</Flex.Box>
+
+<Divider.Divider x />
+
+### Minor Improvements and Bug Fixes
+
+#### Console
+
+- Added the ability to hide the schematic legend.
+- Long notifications are now truncated to prevent overflow.
+- Console updates can now be checked without being connected to a cluster.
+- Fixed the "Add to new plot" button not working for ranges.
+- Fixed the CSV data exporting not working for long time ranges.
+- Fixed links on range metadata not opening correctly.
+- Fixed tags with long text overflowing their containers.
+- Fixed lists not paginating correctly.
+
+#### Streaming
+
+- Added a throttle rate parameter to streamers for limiting the rate at which telemetry
+  is received. This reduces network traffic when streaming high-frequency data.
+
+#### Core
+
+- Fixed deeply nested calculated channels not retrieving historical data correctly.
+- Fixed Arc automation statuses not being deleted when automations were removed.
+
+#### Driver
+
+- Fixed LabJack device scanning failing to detect connected devices.
+
+#### Documentation
+
+- Fixed inconsistencies in the Python client writer documentation.
+
+</Release>

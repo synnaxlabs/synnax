@@ -46,6 +46,7 @@ class _Request(Payload):
     stamp: TimeStamp | None = None
     keys: ChannelKeys | None = None
     chunk_size: int | None = None
+    downsample_factor: int | None = None
 
 
 class _Response(Payload):
@@ -73,6 +74,7 @@ class Iterator:
     instrumentation: Instrumentation
     value: Frame
     _chunk_size: int
+    _downsample_factor: int
 
     def __init__(
         self,
@@ -80,6 +82,7 @@ class Iterator:
         client: StreamClient,
         adapter: ReadFrameAdapter,
         chunk_size: int = 1e5,
+        downsample_factor: int = 1,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self.tr = tr
@@ -87,6 +90,7 @@ class Iterator:
         self.__adapter = adapter
         self.__stream = client.stream("/frame/iterate", _Request, _Response)
         self._chunk_size = chunk_size
+        self._downsample_factor = downsample_factor
         self.__open()
 
     def __open(self):
@@ -101,6 +105,7 @@ class Iterator:
             bounds=self.tr,
             keys=self.__adapter.keys,
             chunk_size=self._chunk_size,
+            downsample_factor=self._downsample_factor,
         )
         self.value = Frame()
 
