@@ -11,6 +11,7 @@ package clustermock
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
@@ -45,20 +46,21 @@ func (b *Builder) New(ctx context.Context, cfgs ...cluster.Config) (*cluster.Clu
 		Pledge: pledge.Config{
 			TransportClient: b.PledgeNet.UnaryClient(),
 			TransportServer: pledgeServer,
-			Peers:           b.MemberAddresses(),
+			Peers:           b.memberAddresses(),
 		},
 	})
-	clust, err := cluster.Open(ctx, cfgs...)
+	c, err := cluster.Open(ctx, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	b.ClusterAPIs[clust.Host().Key] = clust
-	return clust, err
+	b.ClusterAPIs[c.Host().Key] = c
+	return c, nil
 }
 
-func (b *Builder) MemberAddresses() (memberAddresses []address.Address) {
-	for _, api := range b.ClusterAPIs {
-		memberAddresses = append(memberAddresses, api.Host().Address)
+func (b *Builder) memberAddresses() []address.Address {
+	memberAddresses := make([]address.Address, len(b.ClusterAPIs))
+	for i, api := range b.ClusterAPIs {
+		memberAddresses[i] = api.Host().Address
 	}
 	return memberAddresses
 }
