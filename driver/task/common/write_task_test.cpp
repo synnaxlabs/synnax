@@ -22,7 +22,7 @@ public:
         const std::vector<synnax::Channel> &state_channels,
         const std::vector<synnax::ChannelKey> &cmd_channels,
         const bool data_saving,
-        const std::shared_ptr<std::vector<synnax::Frame>> &writes,
+        const std::shared_ptr<std::vector<telem::Frame>> &writes,
         const std::shared_ptr<std::vector<xerrors::Error>> &errors
     ):
         common::Sink(
@@ -34,7 +34,7 @@ public:
         ),
         pipeline::mock::Sink(writes, errors) {}
 
-    xerrors::Error write(const synnax::Frame &frame) override {
+    xerrors::Error write(const telem::Frame &frame) override {
         auto err = pipeline::mock::Sink::write(frame);
         this->set_state(frame);
         return err;
@@ -44,9 +44,9 @@ public:
 /// @brief it should process command frames and write state updates.
 TEST(TestCommonWriteTask, testBasicOperation) {
     auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    const auto cmd_reads = std::make_shared<std::vector<synnax::Frame>>();
+    const auto cmd_reads = std::make_shared<std::vector<telem::Frame>>();
     const auto s = telem::Series(static_cast<uint8_t>(1), telem::UINT8_T);
-    cmd_reads->emplace_back(synnax::Frame(1, s.deep_copy()));
+    cmd_reads->emplace_back(telem::Frame(1, s.deep_copy()));
     auto mock_streamer_factory = pipeline::mock::simple_streamer_factory(
         std::vector<synnax::ChannelKey>{1},
         cmd_reads
@@ -66,7 +66,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     state.data_type = telem::UINT8_T;
     state.index = 2;
 
-    auto writes = std::make_shared<std::vector<synnax::Frame>>();
+    auto writes = std::make_shared<std::vector<telem::Frame>>();
     auto errors = std::make_shared<std::vector<xerrors::Error>>();
 
     auto sink = std::make_unique<MockSink>(

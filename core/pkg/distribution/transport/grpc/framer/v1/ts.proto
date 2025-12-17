@@ -26,7 +26,7 @@ message IteratorRequest {
 message IteratorResponse {
   int32 variant = 1;
   int32 command = 2;
-  Frame frame = 3;
+  telem.PBFrame frame = 3;
   int32 node_key = 4;
   bool ack = 5;
   int32 seq_num = 6;
@@ -42,13 +42,8 @@ message RelayRequest {
 }
 
 message RelayResponse {
-  Frame frame = 1;
+  telem.PBFrame frame = 1;
   errors.PBPayload error = 2;
-}
-
-message Frame {
-  repeated uint32 keys = 1;
-  repeated telem.PBSeries series = 2;
 }
 
 service WriterService {
@@ -58,7 +53,7 @@ service WriterService {
 message WriterRequest {
   int32 command = 1;
   WriterConfig config = 2;
-  Frame frame = 3;
+  telem.PBFrame frame = 3;
 }
 
 message WriterConfig {

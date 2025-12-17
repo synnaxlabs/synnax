@@ -16,8 +16,8 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/xtest/xtest.h"
 
-synnax::Frame create_test_frame() {
-    auto frame = synnax::Frame(3);
+telem::Frame create_test_frame() {
+    auto frame = telem::Frame(3);
     auto s1 = telem::Series(std::vector{1.0f, 2.0f, 3.0f});
     s1.alignment = telem::Alignment(10);
     s1.time_range = {telem::TimeStamp(1000), telem::TimeStamp(2000)};
@@ -36,8 +36,8 @@ synnax::Frame create_test_frame() {
     return frame;
 }
 
-synnax::Frame create_equal_properties_frame() {
-    auto frame = synnax::Frame(3);
+telem::Frame create_equal_properties_frame() {
+    auto frame = telem::Frame(3);
 
     auto tr = telem::TimeRange{telem::TimeStamp(1000), telem::TimeStamp(2000)};
     telem::Alignment alignment(10);
@@ -60,8 +60,8 @@ synnax::Frame create_equal_properties_frame() {
     return frame;
 }
 
-synnax::Frame create_zero_properties_frame() {
-    auto frame = synnax::Frame(3);
+telem::Frame create_zero_properties_frame() {
+    auto frame = telem::Frame(3);
 
     auto tr = telem::TimeRange{telem::TimeStamp(0), telem::TimeStamp(0)};
     telem::Alignment alignment(0);
@@ -84,8 +84,8 @@ synnax::Frame create_zero_properties_frame() {
     return frame;
 }
 
-synnax::Frame create_diff_lengths_frame() {
-    auto frame = synnax::Frame(3);
+telem::Frame create_diff_lengths_frame() {
+    auto frame = telem::Frame(3);
 
     auto tr = telem::TimeRange{telem::TimeStamp(1000), telem::TimeStamp(2000)};
     telem::Alignment alignment(10);
@@ -109,7 +109,7 @@ synnax::Frame create_diff_lengths_frame() {
 }
 
 // Helper function to verify that two frames are equal
-void assert_frames_equal(const synnax::Frame &expected, const synnax::Frame &actual) {
+void assert_frames_equal(const telem::Frame &expected, const telem::Frame &actual) {
     ASSERT_EQ(expected.size(), actual.size());
 
     for (size_t i = 0; i < expected.channels->size(); i++) {
@@ -145,9 +145,9 @@ void assert_frames_equal(const synnax::Frame &expected, const synnax::Frame &act
     }
 }
 
-synnax::Frame create_large_equal_frame() {
+telem::Frame create_large_equal_frame() {
     constexpr size_t NUM_CHANNELS = 500;
-    auto frame = synnax::Frame(NUM_CHANNELS);
+    auto frame = telem::Frame(NUM_CHANNELS);
     const auto tr = telem::TimeRange{telem::TimeStamp(1000), telem::TimeStamp(2000)};
     for (size_t i = 0; i < NUM_CHANNELS; i++) {
         auto series = telem::Series(std::vector{1.0f, 2.0f, 3.0f});
@@ -187,7 +187,7 @@ TEST(CodecTests, EncodeDecodeVariedFrame) {
     synnax::Codec codec(channels, data_types);
     std::vector<uint8_t> encoded;
     codec.encode(original_frame, encoded);
-    const synnax::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
+    const telem::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
     assert_frames_equal(original_frame, decoded_frame);
 }
 
@@ -201,14 +201,14 @@ TEST(CodecTests, OnlyOneChannelPresent) {
         telem::UINT8_T,
         telem::UINT8_T
     };
-    const auto frame = synnax::Frame(
+    const auto frame = telem::Frame(
         3,
         telem::Series(std::vector<uint8_t>{1, 2, 3, 4, 5})
     );
     std::vector<uint8_t> encoded;
     synnax::Codec codec(channels, data_types);
     codec.encode(frame, encoded);
-    const synnax::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
+    const telem::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
     assert_frames_equal(frame, decoded_frame);
 }
 
@@ -224,7 +224,7 @@ TEST(CodecTests, EncodeDecodeEqualPropertiesFrame) {
     synnax::Codec codec(channels, data_types);
     std::vector<uint8_t> encoded;
     codec.encode(original_frame, encoded);
-    const synnax::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
+    const telem::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
     assert_frames_equal(original_frame, decoded_frame);
 }
 
@@ -241,7 +241,7 @@ TEST(CodecTests, EncodeDecodeZeroPropertiesFrame) {
     synnax::Codec codec(channels, data_types);
     std::vector<uint8_t> encoded;
     codec.encode(original_frame, encoded);
-    const synnax::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
+    const telem::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
     assert_frames_equal(original_frame, decoded_frame);
 }
 
@@ -257,7 +257,7 @@ TEST(CodecTests, EncodeDecodeDifferentLengthsFrame) {
     synnax::Codec codec(channels, data_types);
     std::vector<uint8_t> encoded;
     codec.encode(original_frame, encoded);
-    const synnax::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
+    const telem::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
     assert_frames_equal(original_frame, decoded_frame);
 }
 
@@ -270,13 +270,13 @@ TEST(CodecTests, EncodeDecodeChannelSubset) {
     synnax::Codec codec(channels, data_types);
     std::vector<uint8_t> encoded;
     codec.encode(original_frame, encoded);
-    const synnax::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
+    const telem::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
     assert_frames_equal(original_frame, decoded_frame);
 }
 
 /// @brief it should handle a large frame to ensure robustness.
 TEST(CodecTests, LargeFrame) {
-    const auto frame = synnax::Frame(1);
+    const auto frame = telem::Frame(1);
     std::vector large_data(100000, 3.14159f);
     auto large_series = telem::Series(large_data);
     large_series.time_range = {telem::TimeStamp(1000), telem::TimeStamp(2000)};
@@ -287,7 +287,7 @@ TEST(CodecTests, LargeFrame) {
     synnax::Codec codec(channels, data_types);
     std::vector<uint8_t> encoded;
     codec.encode(frame, encoded);
-    const synnax::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
+    const telem::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
     assert_frames_equal(frame, decoded_frame);
 }
 
@@ -300,7 +300,7 @@ TEST(CodecTests, DynamicCodecUpdate) {
 
     codec.update(std::vector{idx_ch.key});
 
-    auto frame = synnax::Frame(
+    auto frame = telem::Frame(
         idx_ch.key,
         telem::Series(telem::TimeStamp(telem::SECOND))
     );
@@ -311,7 +311,7 @@ TEST(CodecTests, DynamicCodecUpdate) {
     assert_frames_equal(frame, decoded_frame);
 
     codec.update(std::vector{data_ch.key});
-    auto frame2 = synnax::Frame(data_ch.key, telem::Series(1.0f));
+    auto frame2 = telem::Frame(data_ch.key, telem::Series(1.0f));
     ASSERT_NIL(codec.encode(frame2, encoded));
     auto decoded_frame2 = ASSERT_NIL_P(codec.decode(encoded));
     assert_frames_equal(frame2, decoded_frame2);
@@ -323,7 +323,7 @@ TEST(CodecTests, UninitializedCodec) {
     synnax::Codec codec(client.channels);
 
     auto [idx_ch, _] = create_indexed_pair(client);
-    auto frame = synnax::Frame(
+    auto frame = telem::Frame(
         idx_ch.key,
         telem::Series(telem::TimeStamp(telem::SECOND))
     );
@@ -345,7 +345,7 @@ TEST(CodecTests, OutOfSyncCodecs) {
     ASSERT_NIL(encoder.update(std::vector{idx_ch.key}));
     ASSERT_NIL(decoder.update(std::vector{idx_ch.key}));
 
-    auto frame = synnax::Frame(
+    auto frame = telem::Frame(
         idx_ch.key,
         telem::Series(telem::TimeStamp(telem::SECOND))
     );
@@ -366,7 +366,7 @@ TEST(CodecTests, OutOfSyncCodecs) {
     ASSERT_OCCURRED_AS(encoder.encode(frame, encoded), xerrors::VALIDATION);
 
     // New frame with updated channel should work
-    auto frame2 = synnax::Frame(data_ch.key, telem::Series(1.0f));
+    auto frame2 = telem::Frame(data_ch.key, telem::Series(1.0f));
     ASSERT_NIL(encoder.encode(frame2, encoded));
     auto decoded_frame3 = ASSERT_NIL_P(decoder.decode(encoded));
     assert_frames_equal(frame2, decoded_frame3);
@@ -380,7 +380,7 @@ TEST(CodecTests, EncodeMismatchedDataType) {
     synnax::Codec codec(channels, data_types);
 
     // Create a frame with mismatched data types
-    auto frame = synnax::Frame(1);
+    auto frame = telem::Frame(1);
     // Using INT32_T instead of FLOAT32_T for channel 65537
     auto series = telem::Series(std::vector{1, 2, 3});
     series.time_range = {telem::TimeStamp(1000), telem::TimeStamp(2000)};
@@ -401,7 +401,7 @@ TEST(CodecTests, EncodeFrameUnknownKey) {
     synnax::Codec codec(channels, data_types);
 
     // Create a frame with an unknown key
-    auto frame = synnax::Frame(1);
+    auto frame = telem::Frame(1);
     auto series = telem::Series(std::vector{7, 8, 9});
     series.time_range = {telem::TimeStamp(1500), telem::TimeStamp(2500)};
     series.alignment = telem::Alignment(30);
