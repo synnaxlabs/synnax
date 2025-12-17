@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("KV", Ordered, Serial, func() {
@@ -28,7 +29,7 @@ var _ = Describe("KV", Ordered, Serial, func() {
 	)
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
-		authenticator = auth.MultiAuthenticator{&auth.KV{DB: db}}
+		authenticator = auth.MultiAuthenticator{MustSucceed(auth.OpenKV(ctx, db))}
 		creds = auth.InsecureCredentials{Username: "username", Password: "password"}
 		invalPassCreds = auth.InsecureCredentials{Username: creds.Username, Password: "invalid"}
 		invalUserCreds = auth.InsecureCredentials{Username: "invalid", Password: creds.Password}

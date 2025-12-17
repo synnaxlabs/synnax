@@ -12,8 +12,10 @@ package kv
 import (
 	"context"
 	"encoding/binary"
+
 	atomicx "github.com/synnaxlabs/x/atomic"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 // AtomicInt64Counter implements a simple int64 counter that writes its value to a
@@ -36,7 +38,7 @@ func OpenCounter(ctx context.Context, db ReadWriter, key []byte) (*AtomicInt64Co
 	if err == nil {
 		c.Int64Counter.Add(int64(binary.LittleEndian.Uint64(b)))
 		err = closer.Close()
-	} else if errors.Is(err, NotFound) {
+	} else if errors.Is(err, query.NotFound) {
 		err = nil
 	}
 	return c, err

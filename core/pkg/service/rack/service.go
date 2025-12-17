@@ -110,6 +110,7 @@ type Service struct {
 	shutdownSignals io.Closer
 	group           group.Group
 	monitor         *monitor
+	entryManager    *gorp.EntryManager[Key, Rack]
 }
 
 const localKeyCounterSuffix = ".rack.counter"
@@ -118,6 +119,10 @@ const groupName = "Devices"
 
 func OpenService(ctx context.Context, configs ...Config) (s *Service, err error) {
 	cfg, err := config.New(DefaultConfig, configs...)
+	if err != nil {
+		return nil, err
+	}
+	entryManager, err := gorp.OpenEntryManager[Key, Rack](ctx, cfg.DB)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +135,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{Config: cfg, localKeyCounter: c, group: g, keyMu: &sync.Mutex{}}
+	s = &Service{Config: cfg, localKeyCounter: c, group: g, keyMu: &sync.Mutex{}, entryManager: entryManager}
 	if err = s.loadEmbeddedRack(ctx); err != nil {
 		return nil, err
 	}
@@ -236,10 +241,10 @@ func (s *Service) migrateStatusesForExistingRacks(ctx context.Context) error {
 func (s *Service) Close() error {
 	c := errors.NewCatcher(errors.WithAggregation())
 	c.Exec(s.monitor.Close)
-	if s.shutdownSignals == nil {
-		return nil
+	if s.shutdownSignals != nil {
+		c.Exec(s.shutdownSignals.Close)
 	}
-	c.Exec(s.shutdownSignals.Close)
+	c.Exec(s.entryManager.Close)
 	return c.Error()
 }
 

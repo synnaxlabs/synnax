@@ -95,6 +95,7 @@ type Service struct {
 	shutdownSignals               io.Closer
 	group                         group.Group
 	disconnectSuspectRackObserver observe.Disconnect
+	entryManager                  *gorp.EntryManager[Key, Task]
 }
 
 const groupName = "Tasks"
@@ -104,11 +105,15 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	if err != nil {
 		return
 	}
+	entryManager, err := gorp.OpenEntryManager[Key, Task](ctx, cfg.DB)
+	if err != nil {
+		return
+	}
 	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
 	if err != nil {
 		return
 	}
-	s = &Service{cfg: cfg, group: g}
+	s = &Service{cfg: cfg, group: g, entryManager: entryManager}
 	cfg.Ontology.RegisterService(s)
 	s.cleanupInternalOntologyResources(ctx)
 	if err := s.migrateStatusesForExistingTasks(ctx); err != nil {
@@ -159,9 +164,9 @@ func (s *Service) cleanupInternalOntologyResources(ctx context.Context) {
 func (s *Service) Close() error {
 	s.disconnectSuspectRackObserver()
 	if s.shutdownSignals != nil {
-		return s.shutdownSignals.Close()
+		return errors.Combine(s.shutdownSignals.Close(), s.entryManager.Close())
 	}
-	return nil
+	return s.entryManager.Close()
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {

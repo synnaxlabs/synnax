@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
@@ -129,7 +130,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 
 	if cfg.Verifier == "" {
 		if err = service.loadCache(ctx); err != nil {
-			if !errors.Is(err, kv.NotFound) {
+			if !errors.Is(err, query.NotFound) {
 				return nil, err
 			}
 			cfg.L.Info(useFreeLog)

@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	xkv "github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/version"
 	"go.uber.org/zap"
 )
@@ -66,7 +67,7 @@ func (vc *versionFilter) filter(ctx context.Context, op Operation) bool {
 	if err != nil {
 		dig, err = getDigestFromKV(ctx, vc.Engine, op.Key)
 		if err != nil {
-			return errors.Is(err, xkv.NotFound)
+			return errors.Is(err, query.NotFound)
 		}
 	}
 	// If the versions of the operation are equal, we select a winning operation
