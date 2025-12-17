@@ -58,9 +58,9 @@ func (b *Builder) New(ctx context.Context, cfgs ...cluster.Config) (*cluster.Clu
 }
 
 func (b *Builder) memberAddresses() []address.Address {
-	memberAddresses := make([]address.Address, len(b.ClusterAPIs))
-	for i, api := range b.ClusterAPIs {
-		memberAddresses[i] = api.Host().Address
+	memberAddresses := make([]address.Address, 0, len(b.ClusterAPIs))
+	for _, api := range b.ClusterAPIs {
+		memberAddresses = append(memberAddresses, api.Host().Address)
 	}
 	return memberAddresses
 }
