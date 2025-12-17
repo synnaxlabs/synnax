@@ -77,11 +77,11 @@ var _ = BeforeSuite(func() {
 
 var (
 	_ = AfterSuite(func() {
-		//Expect(svc.Close()).To(Succeed())
-		//Expect(labelSvc.Close()).To(Succeed())
-		//Expect(dist.Close()).To(Succeed())
-		//Expect(otg.Close()).To(Succeed())
-		//Expect(db.Close()).To(Succeed())
+		Expect(svc.Close()).To(Succeed())
+		Expect(labelSvc.Close()).To(Succeed())
+		Expect(dist.Close()).To(Succeed())
+		Expect(otg.Close()).To(Succeed())
+		Expect(db.Close()).To(Succeed())
 	})
 	_ = BeforeEach(func() { tx = db.OpenTx() })
 	_ = AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
