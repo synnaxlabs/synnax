@@ -61,7 +61,6 @@ func (n Node) stringWithPrefix(prefix string) string {
 	hasInputs := len(n.Inputs) > 0
 	hasOutputs := len(n.Outputs) > 0
 
-	// Channels
 	isLast := !hasConfig && !hasInputs && !hasOutputs
 	b.WriteString(prefix)
 	b.WriteString(treePrefix(isLast))
@@ -69,7 +68,6 @@ func (n Node) stringWithPrefix(prefix string) string {
 	b.WriteString(formatChannels(n.Channels))
 	b.WriteString("\n")
 
-	// Config (if any)
 	if hasConfig {
 		isLast = !hasInputs && !hasOutputs
 		b.WriteString(prefix)
@@ -79,7 +77,6 @@ func (n Node) stringWithPrefix(prefix string) string {
 		b.WriteString("\n")
 	}
 
-	// Inputs
 	if hasInputs {
 		isLast = !hasOutputs
 		b.WriteString(prefix)
@@ -89,7 +86,6 @@ func (n Node) stringWithPrefix(prefix string) string {
 		b.WriteString("\n")
 	}
 
-	// Outputs
 	if hasOutputs {
 		b.WriteString(prefix)
 		b.WriteString(treePrefix(true))

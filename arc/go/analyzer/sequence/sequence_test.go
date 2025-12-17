@@ -219,7 +219,7 @@ var _ = Describe("Sequence Analyzer", func() {
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("conflicts with sequence name"))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("conflicts with existing symbol"))
 		})
 
 		It("Should error on duplicate sequence names", func() {

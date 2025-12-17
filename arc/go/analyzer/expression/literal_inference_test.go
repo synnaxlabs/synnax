@@ -135,7 +135,7 @@ func test{} () f32 {
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
-		It("Should infer the correct type for channel and several literal operations", func() {
+		It("Should reject float literal with incompatible integer channel type", func() {
 			program := MustSucceed(parser.Parse(`
 			func cat() f64 {
 				return 2.2 * integer_sensor

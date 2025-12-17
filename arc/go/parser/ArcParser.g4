@@ -84,7 +84,7 @@ stageItem
 // =============================================================================
 
 flowStatement
-    : (routingTable | flowNode) (flowOperator (routingTable | flowNode))+ SEMICOLON?
+    : (routingTable | flowNode) (flowOperator (routingTable | flowNode))+
     ;
 
 flowOperator

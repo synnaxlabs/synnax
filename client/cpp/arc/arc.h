@@ -209,4 +209,4 @@ private:
     std::shared_ptr<ArcDeleteClient> delete_client;
 };
 
-} // namespace synnax
+}
