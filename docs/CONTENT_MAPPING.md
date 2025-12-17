@@ -1,131 +1,207 @@
 # Client Documentation Content Mapping
 
 This document maps existing Python/TypeScript client documentation sections to the new
-Progressive Disclosure structure.
+unified client documentation structure.
 
 ## Navigation Structure
 
 ```
 /reference/client/
-├── quick-start.mdx                     📝 Shell
-├── complete-setup.mdx                  📝 Shell
+├── quick-start.mdx                     ✅ Complete
+├── authentication.mdx                  ✅ Complete
 ├── fundamentals/
-│   ├── channels.mdx                    📝 Shell
-│   ├── read-data.mdx                   📝 Shell
-│   └── write-data.mdx                  📝 Shell
+│   ├── channels.mdx                    ✅ Complete
+│   ├── read-data.mdx                   ✅ Complete
+│   └── write-data.mdx                  ✅ Complete
 ├── working-with-data/
-│   ├── series-and-frames.mdx           📝 Shell
-│   ├── ranges.mdx                      📝 Shell
-│   ├── streaming-data.mdx              📝 Shell
-│   └── iterators.mdx                   📝 Shell
+│   ├── series-and-frames.mdx           📝 10 sections
+│   ├── ranges.mdx                      📝 20 sections
+│   ├── streaming-data.mdx              📝 11 sections
+│   └── iterators.mdx                   📝 4 sections
 ├── advanced/
-│   ├── writers.mdx                     📝 Shell
-│   ├── delete-data.mdx                 📝 Shell
-│   └── timestamps.mdx (TS only)        📝 Shell
+│   ├── writers.mdx                     📝 7 sections
+│   ├── delete-data.mdx                 📝 4 sections
+│   └── timestamps.mdx                  📝 5 sections (TS only)
 └── resources/
-    └── build-device-driver.mdx (Python only) 📝 Shell
+    ├── examples.mdx                    📝 TBD
+    └── build-device-driver.mdx         📝 6 sections (Python only)
 ```
+
+## Sections Remaining to Transfer
+
+Legend: ✅ = transferred | 📝 = remaining
+
+### Remaining Python Client (`/reference/python-client/`)
+
+```
+python-client/
+├── read-data.mdx
+│   ├── Reading Channel Data from Range 📝 → working-with-data/ranges
+│   ├── Reading with Iterators          📝 → working-with-data/iterators
+│   └── Examples                        📝 → resources/examples
+│
+├── write-data.mdx
+│   ├── Writing to a Range              📝 → working-with-data/ranges
+│   ├── Using a Writer                  📝 → advanced/writers
+│   └── Common Pitfalls                 📝 → advanced/writers
+│
+├── series-and-frames.mdx
+│   ├── Series                          📝 → working-with-data/series-and-frames
+│   └── Frames                          📝 → working-with-data/series-and-frames
+│
+├── ranges.mdx
+│   ├── Range Configuration Reference   📝 → working-with-data/ranges
+│   ├── Creating Ranges                 📝 → working-with-data/ranges
+│   ├── Creating Child Ranges           📝 → working-with-data/ranges
+│   ├── Retrieving Ranges               📝 → working-with-data/ranges
+│   ├── Updating a Range                📝 → working-with-data/ranges
+│   ├── Working with Channels           📝 → working-with-data/ranges
+│   ├── Attaching Metadata              📝 → working-with-data/ranges
+│   └── Deleting Ranges                 📝 → working-with-data/ranges
+│
+├── stream-data.mdx
+│   ├── Opening a Streamer              📝 → working-with-data/streaming-data
+│   ├── Reading Frames                  📝 → working-with-data/streaming-data
+│   ├── Updating the Channel List       📝 → working-with-data/streaming-data
+│   ├── Closing the Streamer            📝 → working-with-data/streaming-data
+│   └── Using an Async Streamer         📝 → working-with-data/streaming-data
+│
+├── delete-data.mdx
+│   ├── Deleting Data From a Channel    📝 → advanced/delete-data
+│   └── Limitations of Deletions        📝 → advanced/delete-data
+│
+├── device-driver.mdx
+│   ├── Setup and Installation          📝 → resources/build-device-driver
+│   ├── Read-Only Driver                📝 → resources/build-device-driver
+│   ├── Write-Only Driver               📝 → resources/build-device-driver
+│   └── Read-Write Driver               📝 → resources/build-device-driver
+│
+├── examples.mdx
+│   └── Examples                        📝 → resources/examples
+│
+└── troubleshooting.mdx                 📝 → TBD (migration strategy needed)
+    ├── Installing Python
+    ├── Incorrect Python Version
+    └── Synnax Command Not Found
+```
+
+### Remaining TypeScript Client (`/reference/typescript-client/`)
+
+```
+typescript-client/
+├── read-data.mdx
+│   └── Using Iterators                 📝 → working-with-data/iterators
+│
+├── write-data.mdx
+│   ├── Using a Writer                  📝 → advanced/writers
+│   └── Common Pitfalls                 📝 → advanced/writers
+│
+├── series-and-frames.mdx
+│   ├── Series                          📝 → working-with-data/series-and-frames
+│   └── Frames                          📝 → working-with-data/series-and-frames
+│
+├── ranges.mdx
+│   ├── Range Configuration Reference   📝 → working-with-data/ranges
+│   ├── Creating Ranges                 📝 → working-with-data/ranges
+│   ├── Retrieving Ranges               📝 → working-with-data/ranges
+│   ├── Updating a Range                📝 → working-with-data/ranges
+│   ├── Metadata                        📝 → working-with-data/ranges
+│   └── Deleting Ranges                 📝 → working-with-data/ranges
+│
+├── stream-data.mdx
+│   ├── Open a Streamer                 📝 → working-with-data/streaming-data
+│   ├── Reading Frames                  📝 → working-with-data/streaming-data
+│   ├── Updating the Channel List       📝 → working-with-data/streaming-data
+│   └── Closing the Streamer            📝 → working-with-data/streaming-data
+│
+├── delete-data.mdx
+│   ├── Deleting Data From a Channel    📝 → advanced/delete-data
+│   └── Limitations of Deletions        📝 → advanced/delete-data
+│
+├── timestamps.mdx
+│   ├── JavaScript's Limitations        📝 → advanced/timestamps
+│   ├── TimeStamp                       📝 → advanced/timestamps
+│   ├── TimeSpan                        📝 → advanced/timestamps
+│   └── TimeRange                       📝 → advanced/timestamps
+│
+├── examples.mdx
+│   └── Examples                        📝 → resources/examples
+│
+└── troubleshooting.mdx                 📝 → TBD (migration strategy needed)
+    ├── Old Core Version
+    └── Old Client Version
+```
+
+## Summary
+
+| Source            | Remaining |
+| ----------------- | --------- |
+| Python Client     | 31        |
+| TypeScript Client | 24        |
+
+**Breakdown:**
+- Shared sections (in both): ~18 (series/frames, ranges, streaming, delete-data, writers, examples)
+- Python-only: ~13 (device-driver, range reads/writes, async streamer, troubleshooting)
+- TypeScript-only: ~6 (timestamps, troubleshooting)
 
 ## Implementation Checklist
 
-### Phase 1: Get Started (📝 SHELLS COMPLETE)
+### Phase 1: Get Started (✅ COMPLETE)
 
-- [x] Create Quick Start shell with tracking notes
-- [x] Create Complete Setup shell with tracking notes
+- [x] Create Quick Start with actual content
+- [x] Create Authentication page with actual content
 - [x] Update navigation structure
-- [x] Remove old get-started.mdx placeholder
-- [ ] Populate Quick Start with actual content
-- [ ] Populate Complete Setup with actual content
 
-### Phase 2: Fundamentals (📝 SHELLS COMPLETE)
+### Phase 2: Fundamentals (✅ COMPLETE)
 
-- [x] Create Channels shell with tracking notes
-- [x] Create Read Data shell with tracking notes
-- [x] Create Write Data shell with tracking notes
-- [ ] Populate Channels with actual content
-- [ ] Populate Read Data with actual content
-- [ ] Populate Write Data with actual content
+- [x] Create Channels with actual content
+- [x] Create Read Data with actual content
+- [x] Create Write Data with actual content
 
 ### Phase 3: Working with Data (📝 SHELLS COMPLETE)
 
-- [x] Create Series & Frames shell with detailed subsections
-- [x] Create Ranges shell with detailed subsections
-- [x] Create Streaming Data shell with detailed subsections
-- [x] Create Iterators shell
-- [ ] Populate all Working with Data pages
+- [x] Create all shell pages
+- [ ] Populate Series & Frames
+- [ ] Populate Ranges
+- [ ] Populate Streaming Data
+- [ ] Populate Iterators
 
 ### Phase 4: Advanced Topics (📝 SHELLS COMPLETE)
 
-- [x] Create Writers shell with detailed subsections
-- [x] Create Delete Data shell
-- [x] Create Timestamps shell (TypeScript only)
-- [ ] Populate all Advanced pages
+- [x] Create all shell pages
+- [ ] Populate Writers
+- [ ] Populate Delete Data
+- [ ] Populate Timestamps
 
 ### Phase 5: Resources (📝 SHELLS COMPLETE)
 
-- [x] Create Build Device Driver shell with detailed subsections (Python only)
-- [x] Add cross-reference to C++ Driver documentation
-- [ ] Add cross-references from new pages to Examples
-- [ ] Update Troubleshooting references (keep on language-specific pages)
+- [x] Create all shell pages
+- [ ] Populate Examples page
+- [ ] Populate Build Device Driver
 
-### Phase 6: Cleanup (🔄 IN PROGRESS)
+### Phase 6: Cleanup
 
-- [x] Review all exclusion notes for accuracy
-- [x] Ensure all hyperlinks work
-- [ ] Add console tab content (deferred to end)
+- [ ] Add console tab content
 - [ ] Final navigation review
-
-## Content Coverage Summary
-
-### Get Started Section
-
-- **Quick Start**: 6 sections (5 tracked from existing + 1 new)
-- **Complete Setup**: 7 sections (5 tracked from existing + 2 new)
-
-### Fundamentals Section
-
-- **Channels**: 10 sections (all tracked from existing)
-- **Read Data**: 3 sections (all tracked from existing)
-- **Write Data**: 3 sections (2 tracked + 1 extracted)
-
-### Working with Data Section
-
-- **Series & Frames**: ~6 sections (from existing Series/Frames pages)
-- **Ranges**: ~9 sections (full Ranges page + deferred content from Channels/Read/Write)
-- **Streaming Data**: ~5 sections (from existing Stream Data pages)
-- **Iterators**: ~4 sections (deferred from Read Data pages)
-
-### Advanced Topics Section
-
-- **Writers**: ~6 sections (deferred from Write Data pages)
-- **Delete Data**: ~4 sections (from existing Delete Data pages + new safety section)
-- **Timestamps**: ~5 sections (TypeScript only)
-
-### Resources Section
-
-- **Build Device Driver**: 7 sections (Setup, Arduino IDE, Synnax Install, Read-Only,
-  Write-Only, Read-Write, Production Drivers)
-- **Examples**: Keep on language-specific pages (well-organized by use case)
-- **Troubleshooting**: Keep detailed version on language-specific pages (basic
-  troubleshooting in Complete Setup)
+- [ ] Remove/redirect old python-client and typescript-client pages
 
 ## Total Section Count
 
-| Category          | Sections | Status                    |
-| ----------------- | -------- | ------------------------- |
-| Get Started       | 13       | ✅ Shells created         |
-| Fundamentals      | 16       | ✅ Shells created         |
-| Working with Data | 47       | ✅ Shells created         |
-| Advanced Topics   | 15       | ✅ Shells created         |
-| Resources         | 7        | ✅ Shells created         |
-| **TOTAL**         | **98**   | **98 created, 0 pending** |
+| Category          | Sections | Status            |
+| ----------------- | -------- | ----------------- |
+| Get Started       | 2        | ✅ Complete       |
+| Fundamentals      | 3        | ✅ Complete       |
+| Working with Data | 4        | 📝 Shells created |
+| Advanced Topics   | 3        | 📝 Shells created |
+| Resources         | 2        | 📝 Shells created |
+| **TOTAL**         | **14**   | **5 complete**    |
 
 ## Notes
 
 1. **Language Parity**: TypeScript is missing some Python features (rename, regex,
-   conditional creation)
+   conditional creation, range-based reads/writes)
 2. **TypeScript-Specific**: Timestamps page addresses JavaScript precision issues
-3. **Python-Specific**: Build Device Driver for hardware integration
-4. **Examples Strategy**: Keep on language-specific pages, well-organized by use case
+3. **Python-Specific**: Build Device Driver for hardware integration, async streamers
+4. **Troubleshooting**: Migration strategy TBD - content is language-specific but needs
+   a home in the new structure
 5. **Console Tabs**: All console fragments currently empty, to be filled after refactor
-   complete
