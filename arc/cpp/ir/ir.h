@@ -16,7 +16,7 @@
 #include <string>
 #include <vector>
 
-#include "x/cpp/xjson/xjson.h"
+#include "nlohmann/json.hpp"
 
 #include "arc/cpp/ir/format.h"
 #include "arc/cpp/proto/proto.h"
@@ -38,15 +38,6 @@ struct Handle {
     Handle() = default;
     Handle(std::string node, std::string param):
         node(std::move(node)), param(std::move(param)) {}
-
-    explicit Handle(xjson::Parser parser) {
-        this->node = parser.field<std::string>("node");
-        this->param = parser.field<std::string>("param");
-    }
-
-    [[nodiscard]] nlohmann::json to_json() const {
-        return {{"node", node}, {"param", param}};
-    }
 
     explicit Handle(const v1::ir::PBHandle &pb) {
         this->node = pb.node();
@@ -81,21 +72,6 @@ struct Handle {
 struct Edge {
     Handle source, target;
     EdgeKind kind = EdgeKind::Continuous;
-
-    explicit Edge(xjson::Parser parser) {
-        this->source = parser.field<Handle>("source");
-        this->target = parser.field<Handle>("target");
-        auto kind_val = parser.field<int>("kind", 0);
-        this->kind = static_cast<EdgeKind>(kind_val);
-    }
-
-    [[nodiscard]] nlohmann::json to_json() const {
-        return {
-            {"source", source.to_json()},
-            {"target", target.to_json()},
-            {"kind", static_cast<int>(kind)},
-        };
-    }
 
     explicit Edge(const arc::v1::ir::PBEdge &pb) {
         if (pb.has_source()) this->source = Handle(pb.source());
@@ -143,20 +119,6 @@ struct Param {
     std::string name;
     types::Type type;
     nlohmann::json value;
-
-    explicit Param(xjson::Parser parser) {
-        this->name = parser.field<std::string>("name");
-        this->type = parser.field<types::Type>("type");
-        this->value = parser.field<nlohmann::json>("value", nlohmann::json(nullptr));
-    }
-
-    [[nodiscard]] nlohmann::json to_json() const {
-        nlohmann::json j;
-        j["name"] = name;
-        j["type"] = type.to_json();
-        if (!value.is_null()) j["value"] = value;
-        return j;
-    }
 
     explicit Param(const arc::v1::types::PBParam &pb) {
         this->name = pb.name();
@@ -219,13 +181,6 @@ struct Params {
         return result;
     }
 
-    [[nodiscard]] nlohmann::json to_json() const {
-        nlohmann::json arr = nlohmann::json::array();
-        for (const auto &p: this->params)
-            arr.push_back(p.to_json());
-        return arr;
-    }
-
     auto begin() { return this->params.begin(); }
     auto end() { return this->params.end(); }
     [[nodiscard]] auto begin() const { return this->params.begin(); }
@@ -249,24 +204,6 @@ struct Params {
 struct Channels {
     std::map<types::ChannelKey, std::string> read;
     std::map<types::ChannelKey, std::string> write;
-
-    explicit Channels(xjson::Parser parser) {
-        this->read = parser.field<std::map<types::ChannelKey, std::string>>("read", {});
-        this->write = parser.field<std::map<types::ChannelKey, std::string>>(
-            "write",
-            {}
-        );
-    }
-
-    [[nodiscard]] nlohmann::json to_json() const {
-        nlohmann::json read_obj = nlohmann::json::object();
-        for (const auto &[key, value]: read)
-            read_obj[std::to_string(key)] = value;
-        nlohmann::json write_obj = nlohmann::json::object();
-        for (const auto &[key, value]: write)
-            write_obj[std::to_string(key)] = value;
-        return {{"read", read_obj}, {"write", write_obj}};
-    }
 
     explicit Channels(const arc::v1::symbol::PBChannels &pb) {
         for (const auto &[key, value]: pb.read())
@@ -299,26 +236,6 @@ struct Node {
     std::string type;
     Channels channels;
     Params config, inputs, outputs;
-
-    explicit Node(xjson::Parser parser) {
-        this->key = parser.field<std::string>("key");
-        this->type = parser.field<std::string>("type");
-        this->channels = parser.field<Channels>("channels");
-        this->config = Params(parser.field<std::vector<Param>>("config", {}));
-        this->inputs = Params(parser.field<std::vector<Param>>("inputs", {}));
-        this->outputs = Params(parser.field<std::vector<Param>>("outputs", {}));
-    }
-
-    [[nodiscard]] nlohmann::json to_json() const {
-        return {
-            {"key", key},
-            {"type", type},
-            {"channels", channels.to_json()},
-            {"config", config.to_json()},
-            {"inputs", inputs.to_json()},
-            {"outputs", outputs.to_json()}
-        };
-    }
 
     explicit Node(const arc::v1::ir::PBNode &pb) {
         this->key = pb.key();
@@ -391,24 +308,6 @@ struct Function {
     Channels channels;
     Params config, inputs, outputs;
 
-    explicit Function(xjson::Parser parser) {
-        this->key = parser.field<std::string>("key");
-        this->channels = parser.field<Channels>("channels");
-        this->config = Params(parser.field<std::vector<Param>>("config", {}));
-        this->inputs = Params(parser.field<std::vector<Param>>("inputs", {}));
-        this->outputs = Params(parser.field<std::vector<Param>>("outputs", {}));
-    }
-
-    [[nodiscard]] nlohmann::json to_json() const {
-        return {
-            {"key", key},
-            {"channels", channels.to_json()},
-            {"config", config.to_json()},
-            {"inputs", inputs.to_json()},
-            {"outputs", outputs.to_json()}
-        };
-    }
-
     explicit Function(const arc::v1::ir::PBFunction &pb) {
         this->key = pb.key();
         if (pb.has_channels()) this->channels = Channels(pb.channels());
@@ -441,26 +340,22 @@ struct Function {
         const bool has_inputs = !inputs.empty();
         const bool has_outputs = !outputs.empty();
 
-        // Channels
         bool is_last = !has_config && !has_inputs && !has_outputs;
         ss << prefix << tree_prefix(is_last) << "channels: " << channels.to_string()
            << "\n";
 
-        // Config (if any)
         if (has_config) {
             is_last = !has_inputs && !has_outputs;
             ss << prefix << tree_prefix(is_last) << "config: " << config.to_string()
                << "\n";
         }
 
-        // Inputs
         if (has_inputs) {
             is_last = !has_outputs;
             ss << prefix << tree_prefix(is_last) << "inputs: " << inputs.to_string()
                << "\n";
         }
 
-        // Outputs
         if (has_outputs) {
             ss << prefix << tree_prefix(true) << "outputs: " << outputs.to_string()
                << "\n";
@@ -476,12 +371,6 @@ struct Function {
 
 struct Strata {
     std::vector<std::vector<std::string>> strata;
-
-    explicit Strata(xjson::Parser parser) {
-        this->strata = parser.field<std::vector<std::vector<std::string>>>("");
-    }
-
-    [[nodiscard]] nlohmann::json to_json() const { return strata; }
 
     template<typename PBStrataContainer>
     explicit Strata(const PBStrataContainer &pb_strata) {
@@ -538,15 +427,6 @@ struct Stage {
 
     Stage() = default;
 
-    explicit Stage(xjson::Parser parser) {
-        this->key = parser.field<std::string>("key");
-        this->nodes = parser.field<std::vector<std::string>>("nodes", {});
-    }
-
-    [[nodiscard]] nlohmann::json to_json() const {
-        return {{"key", key}, {"nodes", nodes}};
-    }
-
     explicit Stage(const arc::v1::ir::PBStage &pb) {
         this->key = pb.key();
         for (const auto &node: pb.nodes())
@@ -581,18 +461,6 @@ struct Sequence {
     std::vector<Stage> stages;
 
     Sequence() = default;
-
-    explicit Sequence(xjson::Parser parser) {
-        this->key = parser.field<std::string>("key");
-        this->stages = parser.field<std::vector<Stage>>("stages", {});
-    }
-
-    [[nodiscard]] nlohmann::json to_json() const {
-        nlohmann::json stages_arr = nlohmann::json::array();
-        for (const auto &stage: stages)
-            stages_arr.push_back(stage.to_json());
-        return {{"key", key}, {"stages", stages_arr}};
-    }
 
     explicit Sequence(const arc::v1::ir::PBSequence &pb) {
         this->key = pb.key();
@@ -652,36 +520,6 @@ struct IR {
     std::vector<Sequence> sequences;
 
     IR() = default;
-
-    explicit IR(xjson::Parser parser) {
-        this->functions = parser.field<std::vector<Function>>("functions");
-        this->nodes = parser.field<std::vector<Node>>("nodes");
-        this->edges = parser.field<std::vector<Edge>>("edges");
-        this->strata = parser.field<Strata>("strata");
-        this->sequences = parser.field<std::vector<Sequence>>("sequences", {});
-    }
-
-    [[nodiscard]] nlohmann::json to_json() const {
-        nlohmann::json functions_arr = nlohmann::json::array();
-        for (const auto &fn: functions)
-            functions_arr.push_back(fn.to_json());
-        nlohmann::json nodes_arr = nlohmann::json::array();
-        for (const auto &node: nodes)
-            nodes_arr.push_back(node.to_json());
-        nlohmann::json edges_arr = nlohmann::json::array();
-        for (const auto &edge: edges)
-            edges_arr.push_back(edge.to_json());
-        nlohmann::json sequences_arr = nlohmann::json::array();
-        for (const auto &seq: sequences)
-            sequences_arr.push_back(seq.to_json());
-        return {
-            {"functions", functions_arr},
-            {"nodes", nodes_arr},
-            {"edges", edges_arr},
-            {"strata", strata.to_json()},
-            {"sequences", sequences_arr}
-        };
-    }
 
     explicit IR(const v1::ir::PBIR &pb) {
         functions.reserve(pb.functions_size());
@@ -784,32 +622,28 @@ struct IR {
         const bool has_strata = !strata.strata.empty();
         const bool has_sequences = !sequences.empty();
 
-        // Functions
         if (has_functions) {
-            bool is_last = !has_nodes && !has_edges && !has_strata && !has_sequences;
+            const bool is_last = !has_nodes && !has_edges && !has_strata &&
+                                 !has_sequences;
             write_functions(ss, prefix, is_last);
         }
 
-        // Nodes
         if (has_nodes) {
-            bool is_last = !has_edges && !has_strata && !has_sequences;
+            const bool is_last = !has_edges && !has_strata && !has_sequences;
             write_nodes(ss, prefix, is_last);
         }
 
-        // Edges
         if (has_edges) {
-            bool is_last = !has_strata && !has_sequences;
+            const bool is_last = !has_strata && !has_sequences;
             write_edges(ss, prefix, is_last);
         }
 
-        // Strata
         if (has_strata) {
-            bool is_last = !has_sequences;
+            const bool is_last = !has_sequences;
             write_strata(ss, prefix, is_last);
         }
 
-        // Sequences
-        if (has_sequences) { write_sequences(ss, prefix, true); }
+        if (has_sequences) write_sequences(ss, prefix, true);
 
         return ss.str();
     }

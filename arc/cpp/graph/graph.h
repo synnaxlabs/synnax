@@ -13,8 +13,9 @@
 #include <string>
 #include <vector>
 
+#include "nlohmann/json.hpp"
+
 #include "x/cpp/spatial/spatial.h"
-#include "x/cpp/xjson/xjson.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/proto/proto.h"
@@ -27,15 +28,8 @@ struct Viewport {
 
     Viewport() = default;
 
-    explicit Viewport(xjson::Parser p):
-        position(p.field<spatial::XY>("position")), zoom(p.field<float>("position")) {}
-
     explicit Viewport(const v1::graph::PBViewport &pb):
         position(pb.position()), zoom(pb.zoom()) {}
-
-    [[nodiscard]] nlohmann::json to_json() const {
-        return {{"position", this->position.to_json()}, {"zoom", this->zoom}};
-    }
 
     void to_proto(v1::graph::PBViewport *pb) const {
         this->position.to_proto(pb->mutable_position());
@@ -52,25 +46,10 @@ struct Node {
 
     Node() = default;
 
-    explicit Node(xjson::Parser p):
-        key(p.field<std::string>("key")),
-        type(p.field<std::string>("type")),
-        config(p.field<std::map<std::string, nlohmann::json>>("config")),
-        position(p.field<spatial::XY>("position")) {}
-
     explicit Node(const v1::graph::PBNode &pb): key(pb.key()), type(pb.type()) {
         for (const auto &[config_key, config_value]: pb.config())
             this->config[config_key] = proto::pb_value_to_json(config_value);
         if (pb.has_position()) this->position = spatial::XY(pb.position());
-    }
-
-    [[nodiscard]] nlohmann::json to_json() const {
-        return {
-            {"key", this->key},
-            {"type", this->type},
-            {"config", this->config},
-            {"position", this->position.to_json()}
-        };
     }
 
     void to_proto(v1::graph::PBNode *pb) const {
@@ -91,12 +70,6 @@ struct Graph {
 
     Graph() = default;
 
-    explicit Graph(xjson::Parser p):
-        viewport(p.field<Viewport>("viewport")),
-        functions(p.field<std::vector<ir::Function>>("functions")),
-        edges(p.field<std::vector<ir::Edge>>("edges")),
-        nodes(p.field<std::vector<Node>>("nodes")) {}
-
     explicit Graph(const v1::graph::PBGraph &pb): viewport(pb.viewport()) {
         this->functions.reserve(pb.functions_size());
         for (const auto &fn_pb: pb.functions())
@@ -107,24 +80,6 @@ struct Graph {
         this->nodes.reserve(pb.nodes_size());
         for (const auto &node_pb: pb.nodes())
             this->nodes.emplace_back(node_pb);
-    }
-
-    [[nodiscard]] nlohmann::json to_json() const {
-        nlohmann::json functions_json = nlohmann::json::array();
-        for (const auto &fn: this->functions)
-            functions_json.push_back(fn.to_json());
-        nlohmann::json edges_json = nlohmann::json::array();
-        for (const auto &edge: this->edges)
-            edges_json.push_back(edge.to_json());
-        nlohmann::json nodes_json = nlohmann::json::array();
-        for (const auto &node: this->nodes)
-            nodes_json.push_back(node.to_json());
-        return {
-            {"viewport", this->viewport.to_json()},
-            {"functions", functions_json},
-            {"edges", edges_json},
-            {"nodes", nodes_json}
-        };
     }
 
     void to_proto(v1::graph::PBGraph *pb) const {

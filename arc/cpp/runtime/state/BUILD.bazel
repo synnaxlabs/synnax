@@ -10,8 +10,9 @@ cc_library(
     deps = [
         "//arc/cpp/ir",
         "//x/cpp/telem",
+        "//x/cpp/xerrors",
         "//x/cpp/xmemory",
-        "@glog//:glog",
+        "@glog",
     ],
 )
 
