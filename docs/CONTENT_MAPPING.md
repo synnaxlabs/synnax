@@ -21,7 +21,7 @@ unified client documentation structure.
 ├── advanced/
 │   ├── writers.mdx                     🔄 In Progress
 │   ├── delete-data.mdx                 🔄 In Progress
-│   └── timestamps.mdx                  📝 5 sections (TS only)
+│   └── timestamps.mdx                  🔄 In Progress (TS only)
 └── resources/
     ├── examples.mdx                    🔄 In Progress
     └── build-device-driver.mdx         📝 6 sections (Python only)
@@ -53,13 +53,6 @@ python-client/
 
 ```
 typescript-client/
-├── timestamps.mdx
-│   ├── JavaScript's Limitations        📝 → advanced/timestamps
-│   ├── TimeStamp                       📝 → advanced/timestamps
-│   ├── TimeSpan                        📝 → advanced/timestamps
-│   └── TimeRange                       📝 → advanced/timestamps
-│
-│
 └── troubleshooting.mdx                 📝 → TBD (migration strategy needed)
     ├── Old Core Version
     └── Old Client Version
@@ -70,12 +63,12 @@ typescript-client/
 | Source            | Remaining |
 | ----------------- | --------- |
 | Python Client     | 7         |
-| TypeScript Client | 6         |
+| TypeScript Client | 2         |
 
 **Breakdown:**
 - Shared sections (in both): ~14 (~~series/frames~~, ~~ranges~~, ~~streaming~~, ~~delete-data~~, ~~writers~~, ~~examples~~)
 - Python-only: ~13 (device-driver, ~~range reads/writes~~, ~~async streamer~~, troubleshooting)
-- TypeScript-only: ~6 (timestamps, troubleshooting)
+- TypeScript-only: ~6 (~~timestamps~~, troubleshooting)
 
 ## Implementation Checklist
 
@@ -104,7 +97,7 @@ typescript-client/
 - [x] Create all shell pages
 - [🔄] Populate Writers (content transferred, needs cleanup)
 - [🔄] Populate Delete Data (content transferred, needs cleanup)
-- [ ] Populate Timestamps
+- [🔄] Populate Timestamps (content transferred, needs cleanup)
 
 ### Phase 5: Resources (🔄 IN PROGRESS)
 
@@ -125,9 +118,9 @@ typescript-client/
 | Get Started       | 2        | ✅ Complete       |
 | Fundamentals      | 3        | ✅ Complete       |
 | Working with Data | 4        | 🔄 4 in progress  |
-| Advanced Topics   | 3        | 🔄 2 in progress  |
+| Advanced Topics   | 3        | 🔄 3 in progress  |
 | Resources         | 2        | 🔄 1 in progress  |
-| **TOTAL**         | **14**   | **5 complete, 7 in progress** |
+| **TOTAL**         | **14**   | **5 complete, 8 in progress** |
 
 ## Notes
 
