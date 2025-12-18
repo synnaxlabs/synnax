@@ -40,6 +40,14 @@ export interface CpuReport {
   endPercent: number | null;
 }
 
+export interface GpuReport {
+  detected: boolean;
+  avgPercent: number | null;
+  peakPercent: number | null;
+  startPercent: number | null;
+  endPercent: number | null;
+}
+
 /** Complete performance report. */
 export interface PerfReport {
   durationMs: number;
@@ -53,6 +61,7 @@ export interface PerfReport {
   leakReport: LeakReport;
   degradationReport: DegradationReport;
   cpuReport: CpuReport;
+  gpuReport: GpuReport;
   workflowResults: WorkflowResult[];
 }
 
@@ -81,6 +90,14 @@ export const ZERO_CPU_REPORT: CpuReport = {
   endPercent: null,
 };
 
+export const ZERO_GPU_REPORT: GpuReport = {
+  detected: false,
+  avgPercent: null,
+  peakPercent: null,
+  startPercent: null,
+  endPercent: null,
+};
+
 /** Generate a performance report from collected data (stub for future export). */
 export const generateReport = (
   samples: MetricSample[],
@@ -91,6 +108,7 @@ export const generateReport = (
   leakReport: LeakReport,
   degradationReport: DegradationReport,
   cpuReport: CpuReport,
+  gpuReport: GpuReport,
 ): PerfReport => {
   const frameRates = samples.map((s) => s.frameRate);
   const heapValues = samples
@@ -115,6 +133,7 @@ export const generateReport = (
     leakReport,
     degradationReport,
     cpuReport,
+    gpuReport,
     workflowResults,
   };
 };

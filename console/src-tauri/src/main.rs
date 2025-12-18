@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -8,6 +17,8 @@ extern crate objc2_app_kit;
 #[cfg(target_os = "macos")]
 extern crate objc2_foundation;
 
+mod perf;
+
 #[cfg(target_os = "macos")]
 use device_query::{DeviceEvents, DeviceQuery, DeviceState, MouseState};
 #[cfg(target_os = "macos")]
@@ -17,54 +28,9 @@ use std::time::Duration;
 #[cfg(target_os = "macos")]
 use tauri::Emitter;
 
-use sysinfo::{Pid, ProcessRefreshKind, System};
-use std::sync::Mutex;
 use tauri::Window;
-
 use tauri_plugin_prevent_default::KeyboardShortcut;
 use tauri_plugin_prevent_default::ModifierKey::MetaKey;
-
-/// Shared system state for CPU tracking (requires persistent state between calls).
-static SYSTEM: Mutex<Option<System>> = Mutex::new(None);
-
-/// Returns the current process memory usage in bytes.
-/// Used by the performance profiling dashboard.
-#[tauri::command]
-fn get_memory_usage() -> Result<u64, String> {
-    let pid = Pid::from_u32(std::process::id());
-    let mut sys = System::new();
-    sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
-
-    if let Some(process) = sys.process(pid) {
-        Ok(process.memory())
-    } else {
-        Err("Could not find current process".to_string())
-    }
-}
-
-/// Returns the current process CPU usage as a percentage.
-/// Used by the performance profiling dashboard.
-#[tauri::command]
-fn get_cpu_usage() -> Result<f32, String> {
-    let pid = Pid::from_u32(std::process::id());
-    let mut guard = SYSTEM.lock().map_err(|e| e.to_string())?;
-
-    // Initialize system if not already done
-    let sys = guard.get_or_insert_with(System::new);
-
-    // Refresh CPU info for our process
-    sys.refresh_processes_specifics(
-        sysinfo::ProcessesToUpdate::Some(&[pid]),
-        true,
-        ProcessRefreshKind::new().with_cpu(),
-    );
-
-    if let Some(process) = sys.process(pid) {
-        Ok(process.cpu_usage())
-    } else {
-        Err("Could not find current process".to_string())
-    }
-}
 
 #[cfg(target_os = "macos")]
 fn set_transparent_titlebar(win: &Window, transparent: bool) {
@@ -110,8 +76,13 @@ fn main() {
     let prevent = tauri_plugin_prevent_default::Builder::new()
         .shortcut(KeyboardShortcut::with_modifiers("W", &[MetaKey]))
         .build();
+
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![get_memory_usage, get_cpu_usage])
+        .invoke_handler(tauri::generate_handler![
+            perf::get_memory_usage,
+            perf::get_cpu_usage,
+            perf::get_gpu_usage,
+        ])
         .on_page_load(|window, _| {
             set_transparent_titlebar(&window.window(), true);
         })
@@ -148,22 +119,24 @@ fn main() {
             #[cfg(desktop)]
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
+
             #[cfg(target_os = "macos")]
-            let app_handle = app.handle().clone();
-            #[cfg(target_os = "macos")]
-            thread::spawn(move || {
-                let app_handle = app_handle.clone();
-                let device_state = DeviceState::new();
-                let _guard = device_state.on_mouse_up(move |_pos| {
-                    let state: MouseState = DeviceState::new().get_mouse();
-                    app_handle
-                        .emit("mouse_up", state.coords)
-                        .expect("Failed to emit event");
+            {
+                let app_handle = app.handle().clone();
+                thread::spawn(move || {
+                    let device_state = DeviceState::new();
+                    let _guard = device_state.on_mouse_up(move |_pos| {
+                        let state: MouseState = DeviceState::new().get_mouse();
+                        app_handle
+                            .emit("mouse_up", state.coords)
+                            .expect("Failed to emit event");
+                    });
+                    loop {
+                        thread::sleep(Duration::from_secs(1));
+                    }
                 });
-                loop {
-                    thread::sleep(Duration::from_secs(1));
-                }
-            });
+            }
+
             Ok(())
         })
         .run(tauri::generate_context!())

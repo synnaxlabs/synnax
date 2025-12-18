@@ -12,6 +12,7 @@ import { useSelector } from "react-redux";
 import {
   type CpuReport,
   type DegradationReport,
+  type GpuReport,
   type LeakReport,
 } from "@/perf/analyzer/types";
 import { type HarnessStatus, SLICE_NAME, type SliceState } from "@/perf/slice";
@@ -38,6 +39,9 @@ export const selectDegradationReport = (state: RootState): DegradationReport =>
 export const selectCpuReport = (state: RootState): CpuReport =>
   selectSlice(state).cpuReport;
 
+export const selectGpuReport = (state: RootState): GpuReport =>
+  selectSlice(state).gpuReport;
+
 export const selectError = (state: RootState): string | null =>
   selectSlice(state).error;
 
@@ -57,5 +61,6 @@ export const useSelectLeakReport = (): LeakReport => useSelector(selectLeakRepor
 export const useSelectDegradationReport = (): DegradationReport =>
   useSelector(selectDegradationReport);
 export const useSelectCpuReport = (): CpuReport => useSelector(selectCpuReport);
+export const useSelectGpuReport = (): GpuReport => useSelector(selectGpuReport);
 export const useSelectError = (): string | null => useSelector(selectError);
 export const useSelectElapsedSeconds = (): number => useSelector(selectElapsedSeconds);

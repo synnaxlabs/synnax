@@ -13,6 +13,8 @@ export interface MetricSample {
   timestamp: number;
   /** CPU usage percentage (Tauri only, null in browser) */
   cpuPercent: number | null;
+  /** GPU usage percentage (Tauri only, Windows/Linux with NVIDIA, null otherwise) */
+  gpuPercent: number | null;
   /** JS heap used in MB (Chrome/Chromium only, null otherwise) */
   heapUsedMB: number | null;
   /** JS heap total in MB (Chrome/Chromium only, null otherwise) */

@@ -14,7 +14,12 @@ rust-version = "1.91"
 [build-dependencies]
 tauri-build = { version = "2.5.3", features = [] }
 
+[target.'cfg(any(target_os = "windows", target_os = "linux"))'.dependencies]
+nvml-wrapper = "0.10"
+
 [target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.10"
+io-kit-sys = "0.4"
 objc2 = "0.6.3"
 objc2-app-kit = { version = "0.3.2", features = [
     "NSApplication",

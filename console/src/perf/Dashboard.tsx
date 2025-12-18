@@ -17,15 +17,18 @@ import { useDispatch } from "react-redux";
 import { type Layout } from "@/layout";
 import { CpuAnalyzer } from "@/perf/analyzer/cpu-analyzer";
 import { DegradationDetector, type FPSContext } from "@/perf/analyzer/degradation";
+import { GpuAnalyzer } from "@/perf/analyzer/gpu-analyzer";
 import { LeakDetector } from "@/perf/analyzer/leak-detector";
 import {
   ZERO_CPU_REPORT,
   ZERO_DEGRADATION_REPORT,
+  ZERO_GPU_REPORT,
   ZERO_LEAK_REPORT,
 } from "@/perf/analyzer/types";
 import { SampleBuffer } from "@/perf/metrics/buffer";
 import { CpuCollector } from "@/perf/metrics/cpu";
 import { FrameRateCollector } from "@/perf/metrics/framerate";
+import { GpuCollector } from "@/perf/metrics/gpu";
 import { HeapCollector } from "@/perf/metrics/heap";
 import { LongTaskCollector } from "@/perf/metrics/longtasks";
 import { NetworkCollector } from "@/perf/metrics/network";
@@ -34,6 +37,7 @@ import {
   useSelectCpuReport,
   useSelectDegradationReport,
   useSelectElapsedSeconds,
+  useSelectGpuReport,
   useSelectLeakReport,
   useSelectStatus,
 } from "@/perf/selectors";
@@ -42,12 +46,13 @@ import * as Perf from "@/perf/slice";
 interface LiveMetrics {
   frameRate: number;
   cpuPercent: number | null;
+  gpuPercent: number | null;
   heapUsedMB: number | null;
   heapTotalMB: number | null;
-  longTaskCount: number | null;
 }
 
 const ZERO_PERCENT_DEFAULT = "0.0%";
+const NA = "N/A";
 
 /** Format seconds as MM:SS. */
 const formatTime = (seconds: number): string => {
@@ -56,10 +61,60 @@ const formatTime = (seconds: number): string => {
   return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 };
 
+const formatPercent = (value: number | null): string =>
+  value != null ? `${value.toFixed(1)}%` : NA;
+
+const formatMB = (value: number | null): string =>
+  value != null ? `${value.toFixed(1)} MB` : NA;
+
+type Status = "success" | "warning" | "error" | "info" | undefined;
+
+const getThresholdStatus = (
+  value: number | null,
+  warningThreshold: number,
+  errorThreshold: number,
+): Status => {
+  if (value == null) return undefined;
+  if (value > errorThreshold) return "error";
+  if (value > warningThreshold) return "warning";
+  return undefined;
+};
+
+const getLowThresholdStatus = (
+  value: number,
+  warningThreshold: number,
+  errorThreshold: number,
+): Status => {
+  if (value < errorThreshold) return "error";
+  if (value < warningThreshold) return "warning";
+  return undefined;
+};
+
+const getWarningStatus = (value: number, threshold: number): Status =>
+  value > threshold ? "warning" : undefined;
+
+const getAvgPeakStatus = (
+  avg: number | null,
+  peak: number | null,
+  avgThreshold: number,
+  peakThreshold: number,
+): Status =>
+  (avg ?? 0) > avgThreshold || (peak ?? 0) > peakThreshold ? "warning" : undefined;
+
+const formatStartEnd = (
+  start: number,
+  end: number,
+  suffix: string = "",
+): string => {
+  if (start === 0 && end === 0) return `— / —${suffix}`;
+  const endStr = end === 0 ? "—" : end.toFixed(1);
+  return `${start.toFixed(1)} / ${endStr}${suffix}`;
+};
+
 interface MetricCardProps {
   label: string;
   value: string;
-  status?: "success" | "warning" | "error" | "info";
+  status?: Status;
   tooltip?: string;
 }
 
@@ -101,6 +156,50 @@ const MetricCard = ({
   );
 };
 
+/** Props for detection status cards (Degradation, Memory Leak, High CPU, High GPU). */
+interface DetectionCardProps {
+  label: string;
+  detected: boolean;
+  isIdle: boolean;
+  tooltip: string;
+}
+
+/** Card that shows detection status with consistent formatting. */
+const DetectionCard = ({
+  label,
+  detected,
+  isIdle,
+  tooltip,
+}: DetectionCardProps): ReactElement => (
+  <MetricCard
+    label={label}
+    value={isIdle ? "—" : detected ? "DETECTED" : "None"}
+    status={isIdle ? undefined : detected ? "error" : "success"}
+    tooltip={tooltip}
+  />
+);
+
+/** Format a start/end percent pair for display. */
+const formatStartEndPercent = (
+  start: number | null,
+  end: number | null,
+): string => {
+  if (start != null && end != null)
+    return `${start.toFixed(1)} / ${end.toFixed(1)}%`;
+  if (start != null) return `${start.toFixed(1)} / —%`;
+  return "— / —%";
+};
+
+/** Format avg/peak percent pair for display. */
+const formatAvgPeakPercent = (
+  avg: number | null,
+  peak: number | null,
+): string => {
+  if (avg != null && peak != null)
+    return `${avg.toFixed(1)} / ${peak.toFixed(1)}%`;
+  return ZERO_PERCENT_DEFAULT;
+};
+
 export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElement => {
   const dispatch = useDispatch();
   const status = useSelectStatus();
@@ -108,14 +207,17 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
   const leakReport = useSelectLeakReport();
   const degradationReport = useSelectDegradationReport();
   const cpuReport = useSelectCpuReport();
+  const gpuReport = useSelectGpuReport();
+
+  const isIdle = status === "idle";
 
   // Live metrics state (updated while dashboard is open)
   const [liveMetrics, setLiveMetrics] = useState<LiveMetrics>({
     frameRate: 0,
     cpuPercent: null,
+    gpuPercent: null,
     heapUsedMB: null,
     heapTotalMB: null,
-    longTaskCount: null,
   });
 
   // Pre-allocated sample buffer (memory allocated on mount, not during test)
@@ -126,6 +228,7 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
 
   // Single set of collectors - shared between live display and test recording
   const cpuRef = useRef<CpuCollector | null>(null);
+  const gpuRef = useRef<GpuCollector | null>(null);
   const frameRateRef = useRef<FrameRateCollector | null>(null);
   const heapRef = useRef<HeapCollector | null>(null);
   const longTaskRef = useRef<LongTaskCollector | null>(null);
@@ -135,6 +238,7 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
   const leakDetectorRef = useRef(new LeakDetector());
   const degradationDetectorRef = useRef(new DegradationDetector());
   const cpuAnalyzerRef = useRef(new CpuAnalyzer());
+  const gpuAnalyzerRef = useRef(new GpuAnalyzer());
 
   // Sample collection interval ref (only active during test)
   const sampleIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -144,11 +248,13 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
   const finalFPSRef = useRef<number>(0);
   const initialCPURef = useRef<number | null>(null);
   const finalCPURef = useRef<number | null>(null);
+  const initialGPURef = useRef<number | null>(null);
+  const finalGPURef = useRef<number | null>(null);
   const prevStatusRef = useRef<string>(status);
 
   // Helper to run analysis and dispatch results (used by both periodic and final effects)
   const runAnalysis = useCallback(
-    (endFPS: number, endCPU: number | null) => {
+    (endFPS: number, endCPU: number | null, endGPU: number | null) => {
       const buffer = sampleBufferRef.current;
       const allSamples = buffer.getAllSamples();
       if (allSamples.length < 2) return;
@@ -174,9 +280,17 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
         peakPercent: aggregates.peakCpu,
       });
 
+      const gpuResult = gpuAnalyzerRef.current.analyze({
+        startPercent: initialGPURef.current,
+        endPercent: endGPU,
+        avgPercent: aggregates.avgGpu,
+        peakPercent: aggregates.peakGpu,
+      });
+
       dispatch(Perf.setLeakReport(leakResult));
       dispatch(Perf.setDegradationReport(degradationResult));
       dispatch(Perf.setCpuReport(cpuResult));
+      dispatch(Perf.setGpuReport(gpuResult));
     },
     [dispatch],
   );
@@ -186,6 +300,7 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
     (): MetricSample => ({
       timestamp: performance.now(),
       cpuPercent: cpuRef.current?.getCpuPercent() ?? null,
+      gpuPercent: gpuRef.current?.getGpuPercent() ?? null,
       heapUsedMB: heapRef.current?.getHeapUsedMB() ?? null,
       heapTotalMB: heapRef.current?.getHeapTotalMB() ?? null,
       frameRate: frameRateRef.current?.getCurrentFPS() ?? 0,
@@ -199,35 +314,32 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
   // Start collectors on mount (live metrics always available while dashboard is open)
   useEffect(() => {
     cpuRef.current = new CpuCollector();
+    gpuRef.current = new GpuCollector();
     frameRateRef.current = new FrameRateCollector();
     heapRef.current = new HeapCollector();
     longTaskRef.current = new LongTaskCollector();
     networkRef.current = new NetworkCollector();
 
     cpuRef.current.start();
+    gpuRef.current.start();
     frameRateRef.current.start();
     heapRef.current.start();
-    longTaskRef.current.start();
-
-    // Not available on macOS/Linux WebKit.
-    const longTasksSupported = LongTaskCollector.isAvailable();
 
     // Update live metrics display every 500ms
     const liveInterval = setInterval(() => {
       setLiveMetrics({
         frameRate: frameRateRef.current?.getCurrentFPS() ?? 0,
         cpuPercent: cpuRef.current?.getCpuPercent() ?? null,
+        gpuPercent: gpuRef.current?.getGpuPercent() ?? null,
         heapUsedMB: heapRef.current?.getHeapUsedMB() ?? null,
         heapTotalMB: heapRef.current?.getHeapTotalMB() ?? null,
-        longTaskCount: longTasksSupported
-          ? (longTaskRef.current?.getCountInWindow() ?? 0)
-          : null,
       });
     }, 500);
 
     return () => {
       clearInterval(liveInterval);
       cpuRef.current?.stop();
+      gpuRef.current?.stop();
       frameRateRef.current?.stop();
       heapRef.current?.stop();
       longTaskRef.current?.stop();
@@ -235,22 +347,24 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
     };
   }, []);
 
-  // Start/stop sample recording based on test status
+  // Start/stop analysis
   useEffect(() => {
     if (status === "running") {
       networkRef.current?.start();
+      longTaskRef.current?.start();
 
-      // Start recording samples to pre-allocated buffer
       sampleIntervalRef.current = setInterval(() => {
         const sample = collectSample();
         sampleBufferRef.current.push(sample);
         setLatestSample(sample);
+        runAnalysis(sample.frameRate, sample.cpuPercent, sample.gpuPercent);
       }, 1000);
     } else if (sampleIntervalRef.current != null) {
       // Stop recording
       clearInterval(sampleIntervalRef.current);
       sampleIntervalRef.current = null;
       networkRef.current?.stop();
+      longTaskRef.current?.stop();
     }
 
     return () => {
@@ -259,7 +373,7 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
         sampleIntervalRef.current = null;
       }
     };
-  }, [status, collectSample]);
+  }, [status, collectSample, runAnalysis]);
 
   // Capture initial FPS/heap/CPU when test starts, final values when test stops
   useEffect(() => {
@@ -295,6 +409,16 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
           startPercent: initialCPU != null ? math.roundTo(initialCPU) : null,
         }),
       );
+
+      const initialGPU = gpuRef.current?.getGpuPercent() ?? null;
+      initialGPURef.current = initialGPU;
+      finalGPURef.current = null;
+      dispatch(
+        Perf.setGpuReport({
+          ...ZERO_GPU_REPORT,
+          startPercent: initialGPU != null ? math.roundTo(initialGPU) : null,
+        }),
+      );
     }
 
     // Use last buffered sample to avoid capturing stop-logic overhead
@@ -304,9 +428,11 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
       if (lastSample != null) {
         finalFPSRef.current = lastSample.frameRate;
         finalCPURef.current = lastSample.cpuPercent;
+        finalGPURef.current = lastSample.gpuPercent;
       } else {
         finalFPSRef.current = frameRateRef.current?.getCurrentFPS() ?? 0;
         finalCPURef.current = cpuRef.current?.getCpuPercent() ?? null;
+        finalGPURef.current = gpuRef.current?.getGpuPercent() ?? null;
       }
     }
 
@@ -314,11 +440,14 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
     if (status === "idle" && prevStatus !== "idle") {
       initialCPURef.current = null;
       finalCPURef.current = null;
+      initialGPURef.current = null;
+      finalGPURef.current = null;
       initialFPSRef.current = 0;
       finalFPSRef.current = 0;
       setLatestSample(null);
 
       cpuRef.current?.reset();
+      gpuRef.current?.reset();
       frameRateRef.current?.reset();
       heapRef.current?.reset();
       longTaskRef.current?.reset();
@@ -327,23 +456,10 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
     }
   }, [status, dispatch]);
 
-  // Update analysis reports periodically during test
-  useEffect(() => {
-    if (status !== "running") return;
-
-    const interval = setInterval(() => {
-      const currentFPS = frameRateRef.current?.getCurrentFPS() ?? 0;
-      const currentCPU = cpuRef.current?.getCpuPercent() ?? null;
-      runAnalysis(currentFPS, currentCPU);
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [status, runAnalysis]);
-
   // Run final analysis when test completes
   useEffect(() => {
     if (status !== "completed") return;
-    runAnalysis(finalFPSRef.current, finalCPURef.current);
+    runAnalysis(finalFPSRef.current, finalCPURef.current, finalGPURef.current);
   }, [status, runAnalysis]);
 
   const handleStart = () => dispatch(Perf.start(undefined));
@@ -360,57 +476,25 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
         <MetricCard
           label="Frame Rate"
           value={`${liveMetrics.frameRate.toFixed(1)} FPS`}
-          status={
-            liveMetrics.frameRate < 15
-              ? "error"
-              : liveMetrics.frameRate < 30
-                ? "warning"
-                : undefined
-          }
+          status={getLowThresholdStatus(liveMetrics.frameRate, 30, 15)}
           tooltip="Current frames per second measured via requestAnimationFrame. Target is 60 FPS. Warning below 30, error below 15."
         />
         <MetricCard
           label="Memory"
-          value={
-            liveMetrics.heapUsedMB != null
-              ? `${liveMetrics.heapUsedMB.toFixed(1)} MB`
-              : "N/A"
-          }
+          value={formatMB(liveMetrics.heapUsedMB)}
           tooltip="Current process memory usage."
         />
         <MetricCard
           label="CPU"
-          value={
-            liveMetrics.cpuPercent != null
-              ? `${liveMetrics.cpuPercent.toFixed(1)}%`
-              : "N/A"
-          }
-          status={
-            liveMetrics.cpuPercent != null && liveMetrics.cpuPercent > 80
-              ? "error"
-              : liveMetrics.cpuPercent != null && liveMetrics.cpuPercent > 50
-                ? "warning"
-                : undefined
-          }
+          value={formatPercent(liveMetrics.cpuPercent)}
+          status={getThresholdStatus(liveMetrics.cpuPercent, 50, 80)}
           tooltip="Current process CPU usage percentage. Warning above 50%, error above 80%. Not available in browser."
         />
         <MetricCard
-          label="Long Tasks"
-          value={
-            liveMetrics.longTaskCount != null
-              ? liveMetrics.longTaskCount.toString()
-              : "—"
-          }
-          status={
-            liveMetrics.longTaskCount != null && liveMetrics.longTaskCount > 10
-              ? "warning"
-              : undefined
-          }
-          tooltip={
-            liveMetrics.longTaskCount != null
-              ? "JavaScript tasks blocking the main thread for >50ms in the last 10 minutes. High counts indicate UI jank."
-              : "Long Tasks API not supported on this platform (WebKit/Safari)."
-          }
+          label="GPU"
+          value={formatPercent(liveMetrics.gpuPercent)}
+          status={getThresholdStatus(liveMetrics.gpuPercent, 80, 95)}
+          tooltip="Current GPU utilization percentage. Warning above 80%, error above 95%. Available on macOS (via IOKit) and Windows/Linux (via NVML for NVIDIA GPUs)."
         />
       </Flex.Box>
 
@@ -435,33 +519,36 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
             ) : (
               <Icon.Refresh />
             )}
+            {status === "idle" ? "Start" : formatTime(elapsedSeconds)}
           </Button.Button>
         </Header.Actions>
       </Header.Header>
 
       {/* Row 1: Status indicators */}
       <Flex.Box x wrap>
-        <MetricCard
+        <DetectionCard
           label="Degradation"
-          value={degradationReport.detected ? "DETECTED" : "None"}
-          status={degradationReport.detected ? "error" : "success"}
+          detected={degradationReport.detected}
+          isIdle={isIdle}
           tooltip="Frame rate degradation over time. Detected when FPS drops >15% from start to end of test."
         />
-        <MetricCard
+        <DetectionCard
           label="Memory Leak"
-          value={leakReport.detected ? "DETECTED" : "None"}
-          status={leakReport.detected ? "error" : "success"}
+          detected={leakReport.detected}
+          isIdle={isIdle}
           tooltip="Potential memory leak detected via linear regression on heap samples. Detected when heap grows >20% with consistent upward trend."
         />
-        <MetricCard
+        <DetectionCard
           label="High CPU"
-          value={cpuReport.detected ? "DETECTED" : "None"}
-          status={cpuReport.detected ? "error" : "success"}
+          detected={cpuReport.detected}
+          isIdle={isIdle}
           tooltip="High CPU usage. Detected when average CPU >50% or peak CPU >80%."
         />
-        <MetricCard
-          label="Status"
-          value={status.charAt(0).toUpperCase() + status.slice(1)}
+        <DetectionCard
+          label="High GPU"
+          detected={gpuReport.detected}
+          isIdle={isIdle}
+          tooltip="High GPU usage. Detected when average GPU >80% or peak GPU >95%."
         />
       </Flex.Box>
 
@@ -470,75 +557,65 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
         <MetricCard
           label="FPS Drop"
           value={`${degradationReport.frameRateDegradationPercent.toFixed(1)}%`}
-          status={
-            degradationReport.frameRateDegradationPercent > 15
-              ? "error"
-              : degradationReport.frameRateDegradationPercent > 10
-                ? "warning"
-                : undefined
-          }
+          status={getThresholdStatus(degradationReport.frameRateDegradationPercent, 10, 15)}
           tooltip="Percentage decrease in frame rate. Warning at >10%, error at >15%."
         />
         <MetricCard
           label="Heap Growth"
           value={`${leakReport.heapGrowthPercent.toFixed(1)}%`}
-          status={leakReport.heapGrowthPercent > 20 ? "warning" : undefined}
+          status={getWarningStatus(leakReport.heapGrowthPercent, 20)}
           tooltip="Percentage change in heap memory from start to end of test. Warning at >20%."
         />
         <MetricCard
           label="Avg / Peak CPU"
-          value={
-            cpuReport.avgPercent != null && cpuReport.peakPercent != null
-              ? `${cpuReport.avgPercent.toFixed(1)} / ${cpuReport.peakPercent.toFixed(1)}%`
-              : ZERO_PERCENT_DEFAULT
-          }
-          status={
-            cpuReport.avgPercent != null && cpuReport.avgPercent > 50
-              ? "warning"
-              : cpuReport.peakPercent != null && cpuReport.peakPercent > 80
-                ? "warning"
-                : undefined
-          }
+          value={formatAvgPeakPercent(cpuReport.avgPercent, cpuReport.peakPercent)}
+          status={getAvgPeakStatus(cpuReport.avgPercent, cpuReport.peakPercent, 50, 80)}
           tooltip="Average and peak CPU usage during the test. Warning if avg >50% or peak >80%."
         />
-        <MetricCard label="Elapsed Time" value={formatTime(elapsedSeconds)} />
+        <MetricCard
+          label="Avg / Peak GPU"
+          value={formatAvgPeakPercent(gpuReport.avgPercent, gpuReport.peakPercent)}
+          status={getAvgPeakStatus(gpuReport.avgPercent, gpuReport.peakPercent, 80, 95)}
+          tooltip="Average and peak GPU usage during the test. Warning if avg >80% or peak >95%."
+        />
       </Flex.Box>
 
       {/* Row 3: Supporting details */}
       <Flex.Box x wrap className="console-perf-metric-row">
         <MetricCard
           label="FPS Start / End"
-          value={
-            degradationReport.averageFrameRateStart === 0 &&
-            degradationReport.averageFrameRateEnd === 0
-              ? "— / —"
-              : `${degradationReport.averageFrameRateStart.toFixed(1)} / ${degradationReport.averageFrameRateEnd === 0 ? "—" : degradationReport.averageFrameRateEnd.toFixed(1)}`
-          }
-          status={
-            degradationReport.frameRateDegradationPercent > 15 ? "warning" : undefined
-          }
+          value={formatStartEnd(
+            degradationReport.averageFrameRateStart,
+            degradationReport.averageFrameRateEnd,
+          )}
+          status={getWarningStatus(degradationReport.frameRateDegradationPercent, 15)}
           tooltip="Frame rate at the start vs end of the test."
         />
         <MetricCard
           label="Heap Start / End"
-          value={
-            leakReport.heapStartMB === 0 && leakReport.heapEndMB === 0
-              ? "— / — MB"
-              : `${leakReport.heapStartMB.toFixed(1)} / ${leakReport.heapEndMB === 0 ? "—" : leakReport.heapEndMB.toFixed(1)} MB`
-          }
-          status={leakReport.heapGrowthPercent > 20 ? "warning" : undefined}
+          value={formatStartEnd(leakReport.heapStartMB, leakReport.heapEndMB, " MB")}
+          status={getWarningStatus(leakReport.heapGrowthPercent, 20)}
           tooltip="Heap memory usage at start vs end of test. Warning at >20% growth."
         />
         <MetricCard
           label="CPU Start / End"
-          value={
-            cpuReport.startPercent != null && cpuReport.endPercent != null
-              ? `${cpuReport.startPercent.toFixed(1)} / ${cpuReport.endPercent.toFixed(1)}%`
-              : cpuReport.startPercent != null
-                ? `${cpuReport.startPercent.toFixed(1)} / —%`
-                : "— / —%"
-          }
+          value={formatStartEndPercent(cpuReport.startPercent, cpuReport.endPercent)}
           tooltip="CPU usage at start vs end of test."
+        />
+        <MetricCard
+          label="GPU Start / End"
+          value={formatStartEndPercent(gpuReport.startPercent, gpuReport.endPercent)}
+          tooltip="GPU usage at start vs end of test."
+        />
+      </Flex.Box>
+
+      {/* Row 4: Task metrics */}
+      <Flex.Box x wrap className="console-perf-metric-row">
+        <MetricCard
+          label="Long Tasks"
+          value={latestSample?.longTaskCount.toString() ?? "—"}
+          status={latestSample != null && latestSample.longTaskCount > 5 ? "warning" : undefined}
+          tooltip="JavaScript tasks blocking the main thread for >50ms since last sample. High counts indicate UI jank."
         />
         <MetricCard
           label="Network Requests"

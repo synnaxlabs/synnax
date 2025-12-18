@@ -13,9 +13,11 @@ import { type deep } from "@synnaxlabs/x";
 import {
   type CpuReport,
   type DegradationReport,
+  type GpuReport,
   type LeakReport,
   ZERO_CPU_REPORT,
   ZERO_DEGRADATION_REPORT,
+  ZERO_GPU_REPORT,
   ZERO_LEAK_REPORT,
 } from "@/perf/analyzer/types";
 import { DEFAULT_METRICS_CONFIG, type MetricsConfig } from "@/perf/metrics/types";
@@ -53,6 +55,7 @@ export interface SliceState {
   leakReport: LeakReport;
   degradationReport: DegradationReport;
   cpuReport: CpuReport;
+  gpuReport: GpuReport;
 }
 
 export const ZERO_SLICE_STATE: SliceState = {
@@ -65,6 +68,7 @@ export const ZERO_SLICE_STATE: SliceState = {
   leakReport: ZERO_LEAK_REPORT,
   degradationReport: ZERO_DEGRADATION_REPORT,
   cpuReport: ZERO_CPU_REPORT,
+  gpuReport: ZERO_GPU_REPORT,
 };
 
 /** Store state shape for the perf slice. */
@@ -84,6 +88,7 @@ export const PERSIST_EXCLUDE = [
   "leakReport",
   "degradationReport",
   "cpuReport",
+  "gpuReport",
   "status",
   "error",
 ].map((key) => `${SLICE_NAME}.${key}`) as Array<deep.Key<StoreState>>;
@@ -108,6 +113,7 @@ export const { actions, reducer } = createSlice({
       state.leakReport = ZERO_LEAK_REPORT;
       state.degradationReport = ZERO_DEGRADATION_REPORT;
       state.cpuReport = ZERO_CPU_REPORT;
+      state.gpuReport = ZERO_GPU_REPORT;
     },
 
     stop: (state) => {
@@ -139,6 +145,10 @@ export const { actions, reducer } = createSlice({
       state.cpuReport = payload;
     },
 
+    setGpuReport: (state, { payload }: PayloadAction<GpuReport>) => {
+      state.gpuReport = payload;
+    },
+
     setError: (state, { payload }: PayloadAction<string>) => {
       state.status = "error";
       state.error = payload;
@@ -167,6 +177,7 @@ export const {
   setLeakReport,
   setDegradationReport,
   setCpuReport,
+  setGpuReport,
   setError,
   reset,
   setConfig,

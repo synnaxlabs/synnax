@@ -14,6 +14,7 @@ import { type MetricSample } from "@/perf/metrics/types";
 const ZERO_SAMPLE: MetricSample = {
   timestamp: 0,
   cpuPercent: null,
+  gpuPercent: null,
   heapUsedMB: null,
   heapTotalMB: null,
   frameRate: 0,
@@ -80,14 +81,16 @@ export class SampleBuffer {
   getAggregates(): {
     avgCpu: number | null;
     peakCpu: number | null;
+    avgGpu: number | null;
+    peakGpu: number | null;
     avgHeap: number | null;
-    totalLongTasks: number;
-    totalLongTaskDurationMs: number;
-    totalNetworkRequests: number;
   } {
     const samples = this.getAllSamples();
     const cpuValues = samples
       .map((s) => s.cpuPercent)
+      .filter((v): v is number => v != null);
+    const gpuValues = samples
+      .map((s) => s.gpuPercent)
       .filter((v): v is number => v != null);
     const heapValues = samples
       .map((s) => s.heapUsedMB)
@@ -96,13 +99,9 @@ export class SampleBuffer {
     return {
       avgCpu: cpuValues.length > 0 ? math.average(cpuValues) : null,
       peakCpu: cpuValues.length > 0 ? Math.max(...cpuValues) : null,
+      avgGpu: gpuValues.length > 0 ? math.average(gpuValues) : null,
+      peakGpu: gpuValues.length > 0 ? Math.max(...gpuValues) : null,
       avgHeap: heapValues.length > 0 ? math.average(heapValues) : null,
-      totalLongTasks: samples.reduce((sum, s) => sum + s.longTaskCount, 0),
-      totalLongTaskDurationMs: samples.reduce(
-        (sum, s) => sum + s.longTaskDurationMs,
-        0,
-      ),
-      totalNetworkRequests: samples.reduce((sum, s) => sum + s.networkRequestCount, 0),
     };
   }
 
