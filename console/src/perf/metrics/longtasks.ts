@@ -8,6 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type MetricTableColumn } from "@/perf/components/MetricTable";
+import {
+  EVENT_CORRELATION_WINDOW_MS,
+  LONG_TASK_THRESHOLD_MS,
+  LONG_TASK_WINDOW_MS,
+  MAX_TRACKED_EVENTS,
+  TEXT_ROW_COLOR,
+  TRACKED_EVENT_TYPES,
+} from "@/perf/constants";
+import { formatAge, formatDuration } from "@/perf/utils/formatting";
 
 interface LongTaskEntry {
   timestamp: number;
@@ -21,7 +30,6 @@ interface UserEvent {
   target?: string;
 }
 
-
 export interface LongTaskStats {
   name: string;
   duration: number;
@@ -29,16 +37,10 @@ export interface LongTaskStats {
   age: number;
 }
 
-const formatAge = (ageMs: number): string => {
-  if (ageMs < 1000) return `${Math.floor(ageMs) }ms ago`;
-  if (ageMs < 60000) return `${Math.floor(ageMs / 1000)}s ago`;
-  return `${Math.floor(ageMs / 60000)} m ago`;
-};
-
 export const LONG_TASK_TABLE_COLUMNS: MetricTableColumn<LongTaskStats>[] = [
-  { getValue: (task, _) => task.name, color: 7 },
-  { getValue: (task, _) => formatAge(task.age) },
-  { getValue: (task, _) => `${task.duration.toFixed(0)} ms` },
+  { getValue: (task) => task.name, color: TEXT_ROW_COLOR },
+  { getValue: (task) => formatAge(task.age), color: TEXT_ROW_COLOR },
+  { getValue: (task) => formatDuration(task.duration), color: TEXT_ROW_COLOR },
 ];
 
 export const getLongTaskTableKey = (task: LongTaskStats, index: number): string =>
@@ -62,15 +64,12 @@ export class LongTaskCollector {
   private rafId: number | null = null;
   private lastRafTime: number | null = null;
   private useRafFallback = false;
-  private readonly LONG_TASK_THRESHOLD_MS = 50;
 
   // Event tracking for task attribution
   private recentEvents: UserEvent[] = [];
-  private readonly EVENT_CORRELATION_WINDOW_MS = 1000;
-  private readonly MAX_TRACKED_EVENTS = 50;
   private eventListeners: Array<{ type: string; handler: EventListener }> = [];
 
-  constructor(windowMs = 600_000) {
+  constructor(windowMs = LONG_TASK_WINDOW_MS) {
     this.windowMs = windowMs;
   }
 
@@ -94,19 +93,19 @@ export class LongTaskCollector {
       target,
     });
 
-    if (this.recentEvents.length > this.MAX_TRACKED_EVENTS) {
+    if (this.recentEvents.length > MAX_TRACKED_EVENTS) 
       this.recentEvents.shift();
-    }
+    
   }
 
   private findEventForTask(taskTimestamp: number): string {
-    const correlationStart = taskTimestamp - this.EVENT_CORRELATION_WINDOW_MS;
+    const correlationStart = taskTimestamp - EVENT_CORRELATION_WINDOW_MS;
 
     for (let i = this.recentEvents.length - 1; i >= 0; i--) {
       const event = this.recentEvents[i];
-      if (event.timestamp <= taskTimestamp && event.timestamp >= correlationStart) {
+      if (event.timestamp <= taskTimestamp && event.timestamp >= correlationStart) 
         return event.target ? `${event.type} (${event.target})` : event.type;
-      }
+      
     }
 
     return "Unknown";
@@ -115,27 +114,7 @@ export class LongTaskCollector {
   private setupEventTracking(): void {
     if (typeof window === "undefined") return;
 
-    const eventTypes = [
-      "click",
-      "keydown",
-      "input",
-      "submit",
-      "dragstart",
-      "dragend",
-      "focus",
-      "blur",
-      "change",
-      "paste",
-      "scroll",
-      "resize",
-      "wheel",
-      "touchstart",
-      "touchend",
-      "popstate",
-      "contextmenu",
-    ];
-
-    for (const type of eventTypes) {
+    for (const type of TRACKED_EVENT_TYPES) {
       const handler = (e: Event) => this.trackEvent(type, e);
       window.addEventListener(type, handler, { capture: true, passive: true });
       this.eventListeners.push({ type, handler });
@@ -145,9 +124,9 @@ export class LongTaskCollector {
   private cleanupEventTracking(): void {
     if (typeof window === "undefined") return;
 
-    for (const { type, handler } of this.eventListeners) {
+    for (const { type, handler } of this.eventListeners) 
       window.removeEventListener(type, handler, { capture: true });
-    }
+    
     this.eventListeners = [];
     this.recentEvents = [];
   }
@@ -195,7 +174,7 @@ export class LongTaskCollector {
       if (this.lastRafTime !== null) {
         const delta = currentTime - this.lastRafTime;
 
-        if (delta > this.LONG_TASK_THRESHOLD_MS) {
+        if (delta > LONG_TASK_THRESHOLD_MS) {
           const taskDuration = delta;
           const now = performance.now();
           this.totalCount++;

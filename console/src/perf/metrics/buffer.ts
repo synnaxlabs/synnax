@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { WARMUP_SAMPLES } from "@/perf/constants";
 import { type MetricSample } from "@/perf/metrics/types";
 
 const ZERO_SAMPLE: MetricSample = {
@@ -15,7 +16,7 @@ const ZERO_SAMPLE: MetricSample = {
   gpuPercent: null,
   heapUsedMB: null,
   heapTotalMB: null,
-  frameRate: 0,
+  frameRate: null,
   longTaskCount: 0,
   longTaskDurationMs: 0,
   networkRequestCount: 0,
@@ -54,11 +55,13 @@ interface RunningAggregate {
 
 const ZERO_AGGREGATE: RunningAggregate = { avg: 0, min: Infinity, max: -Infinity, count: 0 };
 
-const updateAggregate = (agg: RunningAggregate, value: number): void => {
+const updateAggregate = (agg: RunningAggregate, value: number, skipMax = false): void => {
   agg.count++;
   agg.avg += (value - agg.avg) / agg.count;
   agg.min = Math.min(agg.min, value);
-  agg.max = Math.max(agg.max, value);
+  if (!skipMax) {
+    agg.max = Math.max(agg.max, value);
+  }
 };
 
 /** Pre-allocated buffer: baseline (first N) + recent (circular, last N). */
@@ -85,10 +88,11 @@ export class SampleBuffer {
 
   push(sample: MetricSample): void {
     this.totalPushCount++;
+    const inWarmup = this.totalPushCount <= WARMUP_SAMPLES;
 
-    if (sample.frameRate > 0) updateAggregate(this.fpsAgg, sample.frameRate);
-    if (sample.cpuPercent != null) updateAggregate(this.cpuAgg, sample.cpuPercent);
-    if (sample.gpuPercent != null) updateAggregate(this.gpuAgg, sample.gpuPercent);
+    if (sample.frameRate != null) updateAggregate(this.fpsAgg, sample.frameRate, inWarmup);
+    if (sample.cpuPercent != null) updateAggregate(this.cpuAgg, sample.cpuPercent, inWarmup);
+    if (sample.gpuPercent != null) updateAggregate(this.gpuAgg, sample.gpuPercent, inWarmup);
     if (sample.heapUsedMB != null) updateAggregate(this.heapAgg, sample.heapUsedMB);
 
     // Fill baseline first, then switch to recent (no overlap)
@@ -126,16 +130,23 @@ export class SampleBuffer {
 
   /** Get true total averages computed via running aggregates (O(1) memory). */
   getAggregates(): Aggregates {
+    const getMax = (agg: RunningAggregate) =>
+      agg.count > 0 && agg.max !== -Infinity ? agg.max : null;
+    const getMin = (agg: RunningAggregate) =>
+      agg.count > 0 && agg.min !== Infinity ? agg.min : null;
+    const getAvg = (agg: RunningAggregate) =>
+      agg.count > 0 ? agg.avg : null;
+
     return {
-      avgFps: this.fpsAgg.count > 0 ? this.fpsAgg.avg : null,
-      peakFps: this.fpsAgg.count > 0 ? this.fpsAgg.max : null,
-      minFps: this.fpsAgg.count > 0 ? this.fpsAgg.min : null,
-      avgCpu: this.cpuAgg.count > 0 ? this.cpuAgg.avg : null,
-      peakCpu: this.cpuAgg.count > 0 ? this.cpuAgg.max : null,
-      avgGpu: this.gpuAgg.count > 0 ? this.gpuAgg.avg : null,
-      peakGpu: this.gpuAgg.count > 0 ? this.gpuAgg.max : null,
-      avgHeap: this.heapAgg.count > 0 ? this.heapAgg.avg : null,
-      peakHeap: this.heapAgg.count > 0 ? this.heapAgg.max : null,
+      avgFps: getAvg(this.fpsAgg),
+      peakFps: getMax(this.fpsAgg),
+      minFps: getMin(this.fpsAgg),
+      avgCpu: getAvg(this.cpuAgg),
+      peakCpu: getMax(this.cpuAgg),
+      avgGpu: getAvg(this.gpuAgg),
+      peakGpu: getMax(this.gpuAgg),
+      avgHeap: getAvg(this.heapAgg),
+      peakHeap: getMax(this.heapAgg),
     };
   }
 

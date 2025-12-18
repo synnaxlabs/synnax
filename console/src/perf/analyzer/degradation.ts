@@ -14,8 +14,8 @@ import { type DegradationReport, ZERO_DEGRADATION_REPORT } from "@/perf/analyzer
 const FPS_DEGRADATION_THRESHOLD_PERCENT = 15;
 
 export interface FPSContext {
-  startFPS: number;
-  endFPS: number;
+  startFPS: number | null;
+  endFPS: number | null;
 }
 
 /**
@@ -24,6 +24,10 @@ export interface FPSContext {
  */
 export class DegradationDetector {
   analyze(fps: FPSContext): DegradationReport {
+    if (fps.startFPS == null || fps.endFPS == null) 
+      return ZERO_DEGRADATION_REPORT;
+    
+
     const fpsDrop =
       fps.startFPS > 0 ? ((fps.startFPS - fps.endFPS) / fps.startFPS) * 100 : 0;
     const detected = fpsDrop > FPS_DEGRADATION_THRESHOLD_PERCENT;

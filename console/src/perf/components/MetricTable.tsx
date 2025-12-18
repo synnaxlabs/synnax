@@ -8,10 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Text } from "@synnaxlabs/pluto";
-import { type ReactElement, memo } from "react";
+import { memo,type ReactElement } from "react";
 
-/** Maximum number of rows to display in the table */
-const DISPLAY_LIMIT = 25;
+import { DISPLAY_LIMIT, TEXT_ROW_COLOR } from "@/perf/constants";
 
 /** Data structure returned by collectors with truncation metadata */
 export interface MetricTableData<T> {
@@ -49,16 +48,20 @@ function DataTableImpl<T>({
             const tooltip = getTooltip?.(item);
             return (
               <tr key={key} title={tooltip}>
-                {columns.map((col, colIndex) => (
-                  <td
-                    key={`${key}-${colIndex}`}
-                    style={colIndex === 0 ? { width: "60%" } : undefined}
-                  >
-                    <Text.Text level="small" color={col.color ?? 9} shade={6}>
-                      {col.getValue(item, index)}
-                    </Text.Text>
-                  </td>
-                ))}
+                {columns.map((col, colIndex) => {
+                  const textProps: any = { level: "small" };
+                  if (col.color != null) textProps.color = col.color;
+                  return (
+                    <td
+                      key={`${key}-${colIndex}`}
+                      style={colIndex === 0 ? { width: "60%" } : undefined}
+                    >
+                      <Text.Text {...textProps}>
+                        {col.getValue(item, index)}
+                      </Text.Text>
+                    </td>
+                  );
+                })}
               </tr>
             );
           })}
@@ -98,7 +101,7 @@ function MetricTableImpl<T>({
       {isTruncated && (
         <Text.Text
           level="small"
-          color={6}
+          color={TEXT_ROW_COLOR}
           style={{ paddingLeft: "0.5rem", paddingTop: "0.25rem" }}
         >
           Showing {displayData.length} of {result.total}

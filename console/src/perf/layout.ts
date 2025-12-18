@@ -9,16 +9,15 @@
 
 import { type Layout } from "@/layout";
 
-/** Layout type identifier for the performance dashboard. */
 export const LAYOUT_TYPE = "perfDashboard";
 
-/** Create a layout state for the performance dashboard. */
 export const create = (
   overrides: Partial<Layout.BaseState> = {},
 ): Layout.BaseState => ({
   key: LAYOUT_TYPE,
   type: LAYOUT_TYPE,
-  name: "Performance Dashboard",
+  name: "Console Monitor",
+  icon: "Units.Pressure",
   location: "mosaic",
   ...overrides,
 });

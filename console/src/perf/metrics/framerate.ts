@@ -41,8 +41,9 @@ export class FrameRateCollector {
     this.currentFPS = 0;
   }
 
-  getCurrentFPS(): number {
-    return Math.round(this.currentFPS * 10) / 10;
+  getCurrentFPS(): number | null {
+    const fps = Math.round(this.currentFPS * 10) / 10;
+    return fps > 0 ? fps : null;
   }
 
   private measureFrame = (): void => {

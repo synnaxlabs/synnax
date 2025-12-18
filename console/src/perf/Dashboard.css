@@ -74,7 +74,6 @@
     margin-top: 1rem;
 }
 
-
 .console-perf-data-table-wrapper {
     max-height: calc(6 * 2em);
     overflow-y: auto;
@@ -83,6 +82,7 @@
 
 .console-perf-data-table {
     width: 100%;
+    border-collapse: collapse;
 }
 
 .console-perf-data-table tr {
@@ -94,9 +94,6 @@
     background-color: var(--pluto-gray-l2);
 }
 
-.console-perf-data-table td {
-    padding: 0.25rem 0.5rem;
-}
 
 .console-perf-data-table td:nth-child(2) {
     text-align: left;

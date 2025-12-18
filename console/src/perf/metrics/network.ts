@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type MetricTableColumn } from "@/perf/components/MetricTable";
+import { MAX_STORED_ENDPOINTS, TEXT_ROW_COLOR } from "@/perf/constants";
+import { formatDuration, truncateEndpoint } from "@/perf/utils/formatting";
 
 export interface EndpointStats {
   endpoint: string;
@@ -17,22 +19,10 @@ export interface EndpointStats {
   lastSeenMs: number;
 }
 
-const truncateEndpoint = (endpoint: string): string => {
-  const parts = endpoint.split("/").filter((p) => p.length > 0);
-  if (parts.length <= 2) return endpoint;
-  // Keep last 2 path segments
-  return `/${parts.slice(-2).join("/")}`;
-};
-
-const formatDuration = (durationMs: number): string => {
-  if (durationMs < 1000) return `${durationMs.toFixed(1)} ms`;
-  return `${(durationMs / 1000).toFixed(1)} s`;
-};
-
 export const NETWORK_TABLE_COLUMNS: MetricTableColumn<EndpointStats>[] = [
-  { getValue: (ep, _) => truncateEndpoint(ep.endpoint), color: 7 },
-  { getValue: (ep, _) => formatDuration(ep.avgDurationMs) },
-  { getValue: (ep, _) => ep.count },
+  { getValue: (ep) => truncateEndpoint(ep.endpoint), color: TEXT_ROW_COLOR },
+  { getValue: (ep) => formatDuration(ep.avgDurationMs), color: TEXT_ROW_COLOR },
+  { getValue: (ep) => ep.count, color: TEXT_ROW_COLOR },
 ];
 
 export const getNetworkTableKey = (ep: EndpointStats): string => ep.endpoint;
@@ -67,9 +57,6 @@ export class NetworkCollector {
   private endpointCounts = new Map<string, number>();
   private endpointDurations = new Map<string, number>();
   private endpointLastSeen = new Map<string, number>();
-
-  // Configuration: Cleanup threshold to prevent memory leaks
-  private static readonly MAX_STORED_ENDPOINTS = 100;
 
   start(): void {
     if (this.observer != null) return;
@@ -128,9 +115,9 @@ export class NetworkCollector {
    */
   getTopEndpoints(): { data: EndpointStats[]; total: number; truncated: boolean } {
     // Clean up low-count endpoints if we have too many stored
-    if (this.endpointCounts.size > NetworkCollector.MAX_STORED_ENDPOINTS) {
-      this.cleanupEndpoints(NetworkCollector.MAX_STORED_ENDPOINTS);
-    }
+    if (this.endpointCounts.size > MAX_STORED_ENDPOINTS) 
+      this.cleanupEndpoints(MAX_STORED_ENDPOINTS);
+    
 
     const stats: EndpointStats[] = [];
 
@@ -174,13 +161,13 @@ export class NetworkCollector {
     );
 
     // Remove endpoints not in the top set
-    for (const endpoint of this.endpointCounts.keys()) {
+    for (const endpoint of this.endpointCounts.keys()) 
       if (!toKeep.has(endpoint)) {
         this.endpointCounts.delete(endpoint);
         this.endpointDurations.delete(endpoint);
         this.endpointLastSeen.delete(endpoint);
       }
-    }
+    
   }
 
   getEndpointCount(): number {

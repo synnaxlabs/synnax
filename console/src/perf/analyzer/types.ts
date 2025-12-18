@@ -110,7 +110,9 @@ export const generateReport = (
   cpuReport: CpuReport,
   gpuReport: GpuReport,
 ): PerfReport => {
-  const frameRates = samples.map((s) => s.frameRate);
+  const frameRates = samples
+    .map((s) => s.frameRate)
+    .filter((f): f is number => f != null);
   const heapValues = samples
     .map((s) => s.heapUsedMB)
     .filter((h): h is number => h != null);

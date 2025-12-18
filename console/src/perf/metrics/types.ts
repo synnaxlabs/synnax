@@ -20,7 +20,7 @@ export interface MetricSample {
   /** JS heap total in MB (Chrome/Chromium only, null otherwise) */
   heapTotalMB: number | null;
   /** Measured frames per second */
-  frameRate: number;
+  frameRate: number | null;
   /** Number of long tasks (>50ms) since last sample */
   longTaskCount: number;
   /** Total duration of long tasks in ms since last sample */

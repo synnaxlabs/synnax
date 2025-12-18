@@ -15,20 +15,27 @@ import * as Perf from "@/perf/slice";
 
 const START_HARNESS_COMMAND: Palette.Command = {
   key: "start-perf-harness",
-  name: "Start Performance Analysis",
+  name: "Start Console Profiling",
   icon: <Icon.Play />,
-  visible: ({ state }) => state.perf?.status !== "running",
+  visible: ({ state }) => state.perf?.status === "idle",
   onSelect: ({ store, placeLayout }) => {
-    // Open dashboard first
     placeLayout(createDashboard());
-    // Then start the harness
     store.dispatch(Perf.start(undefined));
+  },
+};
+
+const OPEN_DASHBOARD_COMMAND: Palette.Command = {
+  key: "open-perf-dashboard",
+  name: "Open Console Profiling Monitor",
+  icon: <Icon.Units.Pressure />,
+  onSelect: ({ placeLayout }) => {
+    placeLayout(createDashboard());
   },
 };
 
 const STOP_HARNESS_COMMAND: Palette.Command = {
   key: "stop-perf-harness",
-  name: "Stop Performance Analysis",
+  name: "Stop Console Profiling",
   icon: <Icon.Pause />,
   visible: ({ state }) => state.perf?.status === "running",
   onSelect: ({ store }) => {
@@ -36,18 +43,9 @@ const STOP_HARNESS_COMMAND: Palette.Command = {
   },
 };
 
-const OPEN_DASHBOARD_COMMAND: Palette.Command = {
-  key: "open-perf-dashboard",
-  name: "Open Performance Dashboard",
-  icon: <Icon.Visualize />,
-  onSelect: ({ placeLayout }) => {
-    placeLayout(createDashboard());
-  },
-};
-
 const RESET_HARNESS_COMMAND: Palette.Command = {
   key: "reset-perf-harness",
-  name: "Reset Performance Analysis",
+  name: "Reset Console Profiling",
   icon: <Icon.Refresh />,
   visible: ({ state }) =>
     state.perf?.status === "completed" || state.perf?.status === "error",
@@ -56,10 +54,9 @@ const RESET_HARNESS_COMMAND: Palette.Command = {
   },
 };
 
-/** Command palette commands for the performance harness. */
 export const COMMANDS: Palette.Command[] = [
   START_HARNESS_COMMAND,
-  STOP_HARNESS_COMMAND,
   OPEN_DASHBOARD_COMMAND,
+  STOP_HARNESS_COMMAND,
   RESET_HARNESS_COMMAND,
 ];
