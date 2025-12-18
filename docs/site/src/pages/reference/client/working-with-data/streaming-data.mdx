@@ -14,30 +14,42 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-This guide covers real-time data streaming for consuming live telemetry as it's written
-to Synnax.
+Streaming data is useful for real-time processing, visualization, and monitoring. This
+guide covers using the Synnax client to stream data from a Synnax cluster. If you'd like
+a conceptual overview of how streaming works in Synnax, check out the
+[streams](/reference/concepts/streams) page.
 
 <Divider.Divider x />
 
 ## Opening a Streamer
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs client:load exclude={["cpp","console"]}>
   <Fragment slot="console">
   </Fragment>
 
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/stream-data#opening-a-streamer">
-      Python Stream Data - Opening a Streamer
-    </a>
-  </Note.Note>
-</Fragment>
+  <Fragment slot="python">
+    <Note.Note variant="warning">
+
+To start streaming data, call the `open_streamer` method on the client and provide a
+list of channels to stream:
+
+```python
+streamer = client.open_streamer(["channel1", "channel2"])
+```
+
+    </Note.Note>
+  </Fragment>
 
   <Fragment slot="typescript">
     <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/stream-data#open-a-streamer">TypeScript Stream Data - Opening a Streamer</a>
+
+To start streaming data, call the `openStreamer` method on the client and provide a list
+of channels to stream:
+
+```typescript
+const streamer = await client.openStreamer(["temperature1", "temperature2"]);
+```
+
     </Note.Note>
   </Fragment>
 </Client.Tabs>
@@ -46,134 +58,271 @@ to Synnax.
 
 ## Reading Frames
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs client:load exclude={["cpp","console"]}>
   <Fragment slot="console">
   </Fragment>
 
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/stream-data#reading-frames">
-      Python Stream Data - Reading Frames
-    </a>
-  </Note.Note>
-</Fragment>
+  <Fragment slot="python">
+    <Note.Note variant="warning">
+
+To read the next incoming frame, call the `read` method on the streamer:
+
+```python
+frame = streamer.read()
+```
+
+This call will block until a new frame is available.
+
+    </Note.Note>
+  </Fragment>
 
   <Fragment slot="typescript">
     <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/stream-data#reading-frames">TypeScript Stream Data - Reading Frames</a>
+
+Then, to read the next incoming data frame, call the `read` method on the streamer:
+
+```typescript
+const frame = await streamer.read();
+```
+
+This call will block until a new frame is available. **This frame may not contain data
+for every channel specified**. For example, if we're reading from two sensors that are
+being sampled by different devices at different rates, we may receive a frame containing
+data only for the first channel, followed by a frame containing data only for the second
+channel.
+
+For more details on how to work with the returned frames, see the
+[Series and Frames](/reference/client/working-with-data/series-and-frames) page.
+
     </Note.Note>
   </Fragment>
 </Client.Tabs>
 
 ### Specifying a Timeout
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs client:load exclude={["cpp","console","typescript"]}>
   <Fragment slot="console">
   </Fragment>
 
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/stream-data#specifying-a-timeout">
-      Python Stream Data - Specifying a Timeout
-    </a>
-  </Note.Note>
-</Fragment>
-
-  <Fragment slot="typescript">
+  <Fragment slot="python">
     <Note.Note variant="warning">
-      <span style={{ color: "red" }}>No corresponding section - TypeScript streamer doesn't have timeout configuration</span>{" "}
+
+It's also possible to add a `timeout` parameter to the `read` method. If the timeout is
+reached before a new frame is available, the method will return `None` instead of a
+frame:
+
+```python
+frame = streamer.read(timeout=5) # Wait for 5 seconds
+if frame is None:
+    print("Timed out waiting for a frame")
+```
+
+You can also provide a `TimeSpan` object as the `timeout` parameter:
+
+```python
+import synnax as sy
+
+frame = streamer.read(timeout=5 * sy.TimeSpan.SECOND)
+if frame is None:
+    print("Timed out waiting for a frame")
+```
+
     </Note.Note>
   </Fragment>
 </Client.Tabs>
 
+<Note.Note variant="info">
+  **Python-specific feature**: TypeScript streamer doesn't support timeout configuration.
+</Note.Note>
+
 ### Downsampling
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs client:load exclude={["cpp","console"]}>
   <Fragment slot="console">
   </Fragment>
 
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/stream-data#downsampling">
-      Python Stream Data - Downsampling
-    </a>
-  </Note.Note>
-</Fragment>
+  <Fragment slot="python">
+    <Note.Note variant="warning">
+
+If you are interested in streaming data at a lower rate, you can use the optional
+`downsample_factor` parameter. This parameter will cause the streamer to skip the
+specified number of samples in each series before returning the next frame. Note that
+this parameter does not average values, and will skip samples instead.
+
+For example, if you set the downsample factor to 2, every 2nd sample will be retained.
+
+```python
+stream = client.open_streamer(
+    channels=["temperature", "pressure"],
+    downsample_factor=2
+)
+```
+
+    </Note.Note>
+  </Fragment>
 
   <Fragment slot="typescript">
     <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/stream-data#downsampling">TypeScript Stream Data - Downsampling</a>
+
+If you are interested in streaming data at a lower rate, you can use the optional
+`downsampleFactor` parameter. This parameter will cause the streamer to skip the
+specified number of samples in each series before returning the next frame. Note that
+this parameter does not average values, and will skip samples instead.
+
+For example, if you set the downsample factor to 2, every 2nd sample will be retained.
+
+```typescript
+const streamer = await client.openStreamer({
+  channels: ["temperature1", "temperature2"],
+  downsampleFactor: 2,
+});
+```
+
     </Note.Note>
   </Fragment>
 </Client.Tabs>
 
 ### Handling Partial Frames
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs client:load exclude={["cpp","console"]}>
   <Fragment slot="console">
   </Fragment>
 
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/stream-data#handling-partial-frames">
-      Python Stream Data - Handling Partial Frames
-    </a>
-  </Note.Note>
-</Fragment>
+  <Fragment slot="python">
+    <Note.Note variant="warning">
+
+When reading frames from a streamer, it's important to note that a frame may not contain
+data for every channel specified when opening the streamer. For example, if we're
+reading from two sensors, `temperature` and `pressure`, that are being sampled by
+different devices at different rates, we may receive a frame containing data only for
+the first channel, followed by a frame containing only data for the second channel.
+
+```python
+stream = client.open_streamer(["temperature", "pressure"])
+frame = streamer.read()
+print(frame[-1]) # Print only the last sample(s) in the frame
+# Output: {"temperature": 25.0}
+frame = streamer.read()
+print(frame[-1])
+# Output: {"pressure": 1013.25}
+frame = streamer.read()
+print(frame[-1])
+# Output: {"temperature": 25.1, "pressure": 1013.25}
+```
+
+    </Note.Note>
+  </Fragment>
 
   <Fragment slot="typescript">
     <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/stream-data#handling-partial-frames">TypeScript Stream Data - Handling Partial Frames</a>
+
+When reading frames from a streamer, it's important to note that a frame may not contain
+data for every channel specified when opening the streamer. For example, if we're
+reading from two sensors, `temperature` and `pressure`, that are being sampled by
+different devices at different rates, we may receive a frame containing data only for
+the first channel, followed by a frame containing only data for the second channel.
+
+```typescript
+const frame = await streamer.read();
+console.log(frame.at(-1));
+// Output: { temperature: 25.0 }
+const frame2 = await streamer.read();
+console.log(frame2.at(-1));
+// Output: { pressure: 1000.0 }
+const frame3 = await streamer.read();
+console.log(frame3.at(-1));
+// Output: { temperature: 25.0, pressure: 1000.0 }
+```
+
+To check if a frame contains data for a specific channel, you can use the `has` method:
+
+```typescript
+const frame = await streamer.read();
+if (frame.has("temperature")) console.log(frame.get("temperature"));
+```
+
     </Note.Note>
   </Fragment>
 </Client.Tabs>
 
 ### Using a For Loop
 
-<Client.Tabs client:load exclude={["cpp", "typescript"]}>
+<Client.Tabs client:load exclude={["cpp","console"]}>
   <Fragment slot="console">
   </Fragment>
 
   <Fragment slot="python">
+    <Note.Note variant="warning">
+
+The streamer object is an iterator, so you can use it in a for loop to iterate over
+incoming frames, blocking on each iteration until a new frame is received:
+
+```python
+for frame in streamer:
+    print(frame)
+```
+
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
     <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/python-client/stream-data#using-a-for-loop">Python Stream Data - Using a For Loop</a>
+
+The streamer implements an async iterator, which can be useful for continuously
+processing incoming frames of data:
+
+```typescript
+for await (const frame of streamer) {
+  // Process the frame
+  const latestSamples = frame.at(-1);
+}
+```
+
     </Note.Note>
   </Fragment>
 </Client.Tabs>
-
-<Note.Note variant="info">
-  **Python-specific pattern**: Python supports iterator protocol for streamers.
-</Note.Note>
 
 <Divider.Divider x />
 
 ## Updating the Channel List
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs client:load exclude={["cpp","console"]}>
   <Fragment slot="console">
   </Fragment>
 
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/stream-data#updating-the-channel-list">
-      Python Stream Data - Updating the Channel List
-    </a>
-  </Note.Note>
-</Fragment>
+  <Fragment slot="python">
+    <Note.Note variant="warning">
+
+If you want to update the list of channels being streamed, you can call the
+`update_channels` method on the streamer:
+
+```python
+streamer.update_channels(["channel3", "channel4"])
+```
+
+<Note.Note variant="info">
+  This method will *replace* the current list of channels with the new list, not add to
+  it.
+</Note.Note>
+
+    </Note.Note>
+  </Fragment>
 
   <Fragment slot="typescript">
     <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/stream-data#updating-the-channel-list">TypeScript Stream Data - Updating the Channel List</a>
+
+If you need to update the list of channels being streamed, you can call the `update`
+method on the streamer:
+
+```typescript
+await streamer.update(["temperature1", "temperature2", "pressure"]);
+```
+
+<Note.Note variant="warning">
+  This method will *replace* the current list of channels with the new list, not add to
+  it.
+</Note.Note>
+
     </Note.Note>
   </Fragment>
 </Client.Tabs>
@@ -182,58 +331,83 @@ to Synnax.
 
 ## Closing the Streamer
 
-<Client.Tabs client:load exclude={["cpp"]}>
-  <Fragment slot="console">
-  </Fragment>
-
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/stream-data#closing-the-streamer">
-      Python Stream Data - Closing the Streamer
-    </a>
-  </Note.Note>
-</Fragment>
-
-  <Fragment slot="typescript">
-    <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/stream-data#closing-the-streamer">TypeScript Stream Data - Closing the Streamer</a>
-    </Note.Note>
-  </Fragment>
-</Client.Tabs>
-
-### Using a Context Manager
-
-<Client.Tabs client:load exclude={["cpp", "typescript"]}>
+<Client.Tabs client:load exclude={["cpp","console"]}>
   <Fragment slot="console">
   </Fragment>
 
   <Fragment slot="python">
+    <Note.Note variant="warning">
+
+After you're done streaming, it's essential that you call the `close` method on the
+streamer to release the network connection and other related resources:
+
+```python
+streamer.close()
+```
+
+### Using a Context Manager
+
+We recommend using the streamer as a context manager where possible, as this makes it
+easy to ensure that the streamer is closed correctly:
+
+```python
+with client.open_streamer(["channel1", "channel2"]) as streamer:
+    for frame in streamer:
+        print(frame)
+```
+
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
     <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/python-client/stream-data#using-a-context-manager">Python Stream Data - Using a Context Manager</a>
+
+After you're done streaming, it's essential that you call the `close` method on the
+streamer to release the network connection and other related resources:
+
+```typescript
+streamer.close();
+```
+
+We recommend using the `streamer` object within a `try-finally` block when possible.
+This ensures that the streamer is always closed, even if an exception is thrown:
+
+```typescript
+const streamer = await client.openStreamer(["temperature1", "temperature2"]);
+try {
+  for await (const frame of streamer) {
+    // Process the frame
+  }
+} finally {
+  streamer.close();
+}
+```
+
     </Note.Note>
   </Fragment>
 </Client.Tabs>
-
-<Note.Note variant="info">
-  **Python-specific pattern**: Python supports context managers (`with` statement) for
-  automatic cleanup.
-</Note.Note>
 
 <Divider.Divider x />
 
 ## Using an Async Streamer
 
-<Client.Tabs client:load exclude={["cpp", "typescript"]}>
+<Client.Tabs client:load exclude={["cpp","console","typescript"]}>
   <Fragment slot="console">
   </Fragment>
 
   <Fragment slot="python">
-    <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/python-client/stream-data#using-an-async-streamer">Python Stream Data - Using an Async Streamer</a>
+    <Note.Note variant="warning">
+
+If you're interested in using `asyncio` to stream data, you can use the
+`open_async_streamer` method on the client. This streamer implements an identical
+interface to a synchronous streamer, but all methods are asynchronous:
+
+```python
+async with await client.open_async_streamer(["channel1", "channel2"]) as streamer:
+    async for frame in streamer:
+        print(frame)
+```
+
     </Note.Note>
   </Fragment>
 </Client.Tabs>

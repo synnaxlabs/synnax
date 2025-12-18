@@ -16,7 +16,7 @@ unified client documentation structure.
 ├── working-with-data/
 │   ├── series-and-frames.mdx           🔄 In Progress
 │   ├── ranges.mdx                      🔄 In Progress
-│   ├── streaming-data.mdx              📝 11 sections
+│   ├── streaming-data.mdx              🔄 In Progress
 │   └── iterators.mdx                   🔄 In Progress
 ├── advanced/
 │   ├── writers.mdx                     🔄 In Progress
@@ -42,13 +42,6 @@ python-client/
 │
 │
 ├── ranges.mdx
-│
-├── stream-data.mdx
-│   ├── Opening a Streamer              📝 → working-with-data/streaming-data
-│   ├── Reading Frames                  📝 → working-with-data/streaming-data
-│   ├── Updating the Channel List       📝 → working-with-data/streaming-data
-│   ├── Closing the Streamer            📝 → working-with-data/streaming-data
-│   └── Using an Async Streamer         📝 → working-with-data/streaming-data
 │
 ├── delete-data.mdx
 │   ├── Deleting Data From a Channel    📝 → advanced/delete-data
@@ -80,11 +73,6 @@ typescript-client/
 │
 ├── ranges.mdx
 │
-├── stream-data.mdx
-│   ├── Open a Streamer                 📝 → working-with-data/streaming-data
-│   ├── Reading Frames                  📝 → working-with-data/streaming-data
-│   ├── Updating the Channel List       📝 → working-with-data/streaming-data
-│   └── Closing the Streamer            📝 → working-with-data/streaming-data
 │
 ├── delete-data.mdx
 │   ├── Deleting Data From a Channel    📝 → advanced/delete-data
@@ -108,12 +96,12 @@ typescript-client/
 
 | Source            | Remaining |
 | ----------------- | --------- |
-| Python Client     | 16        |
-| TypeScript Client | 13        |
+| Python Client     | 11        |
+| TypeScript Client | 9         |
 
 **Breakdown:**
-- Shared sections (in both): ~14 (~~series/frames~~, ~~ranges~~, streaming, delete-data, ~~writers~~, examples)
-- Python-only: ~13 (device-driver, ~~range reads/writes~~, async streamer, troubleshooting)
+- Shared sections (in both): ~14 (~~series/frames~~, ~~ranges~~, ~~streaming~~, delete-data, ~~writers~~, examples)
+- Python-only: ~13 (device-driver, ~~range reads/writes~~, ~~async streamer~~, troubleshooting)
 - TypeScript-only: ~6 (timestamps, troubleshooting)
 
 ## Implementation Checklist
@@ -135,7 +123,7 @@ typescript-client/
 - [x] Create all shell pages
 - [🔄] Populate Series & Frames (content transferred, needs cleanup)
 - [🔄] Populate Ranges (content transferred, needs cleanup)
-- [ ] Populate Streaming Data
+- [🔄] Populate Streaming Data (content transferred, needs cleanup)
 - [🔄] Populate Iterators (content transferred, needs cleanup)
 
 ### Phase 4: Advanced Topics (🔄 IN PROGRESS)
@@ -163,10 +151,10 @@ typescript-client/
 | ----------------- | -------- | ----------------- |
 | Get Started       | 2        | ✅ Complete       |
 | Fundamentals      | 3        | ✅ Complete       |
-| Working with Data | 4        | 🔄 3 in progress  |
+| Working with Data | 4        | 🔄 4 in progress  |
 | Advanced Topics   | 3        | 🔄 1 in progress  |
 | Resources         | 2        | 📝 Shells created |
-| **TOTAL**         | **14**   | **5 complete, 4 in progress** |
+| **TOTAL**         | **14**   | **5 complete, 5 in progress** |
 
 ## Notes
 
