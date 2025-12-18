@@ -85,11 +85,11 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const THRESHOLDS = {
-  fps: { warn: 30, error: 15, inverted: true },
+  fps: { warn: 50, error: 28, inverted: true },
   fpsDegradation: { warn: 10, error: 15 },
-  cpu: { warn: 50, error: 80 },
+  cpu: { warn: 25, error: 50 },
   cpuChange: { warn: 20, error: 40 },
-  gpu: { warn: 80, error: 95 },
+  gpu: { warn: 25, error: 50 },
   gpuChange: { warn: 20, error: 40 },
   heapGrowth: { warn: 5, error: 10 },
   longTasks: { warn: 5, error: 10 },
@@ -378,6 +378,7 @@ MetricRow.displayName = "MetricRow";
 interface SectionProps {
   title: string;
   secondaryText?: ReactNode;
+  secondaryStatus?: Status;
   defaultOpen?: boolean;
   children: ReactNode;
 }
@@ -385,6 +386,7 @@ interface SectionProps {
 const Section = memo(({
   title,
   secondaryText,
+  secondaryStatus,
   defaultOpen = true,
   children,
 }: SectionProps): ReactElement => {
@@ -414,7 +416,11 @@ const Section = memo(({
           {title}
         </Text.Text>
         {secondaryText != null && (
-          <Text.Text level="small" color={6} grow style={{ textAlign: "right" }}>
+          <Text.Text
+            level="small"
+            className="console-perf-section-header-value"
+            color={secondaryStatus != null ? STATUS_COLORS[secondaryStatus] : 9}
+          >
             {secondaryText}
           </Text.Text>
         )}
@@ -537,22 +543,35 @@ const MetricSections = memo(
       [getLabel],
     );
 
-    const taskMetrics = metrics.filter((m) => m.type === "tasks");
-    const nonTaskMetrics = metrics.filter((m) => m.type !== "tasks");
-
     if (groupByType) {
       const grouped = groupMetrics(metrics, (m) => m.type, TYPE_ORDER);
       return (
         <>
-          {Array.from(grouped.entries()).map(([type, typeMetrics]) => (
-            <Section key={type} title={TYPE_LABELS[type]}>
-              {renderMetricRows(typeMetrics)}
-            </Section>
-          ))}
+          {Array.from(grouped.entries()).map(([type, typeMetrics]) => {
+            const isTaskType = type === "tasks";
+            const liveMetric = isTaskType
+              ? null
+              : typeMetrics.find((m) => m.category === "live");
+            const rowMetrics = isTaskType
+              ? typeMetrics
+              : typeMetrics.filter((m) => m.category !== "live");
+            return (
+              <Section
+                key={type}
+                title={TYPE_LABELS[type]}
+                secondaryText={liveMetric?.getValue()}
+                secondaryStatus={liveMetric?.getStatus?.()}
+              >
+                {renderMetricRows(rowMetrics)}
+              </Section>
+            );
+          })}
         </>
       );
     }
 
+    const taskMetrics = metrics.filter((m) => m.type === "tasks");
+    const nonTaskMetrics = metrics.filter((m) => m.type !== "tasks");
     const grouped = groupMetrics(nonTaskMetrics, (m) => m.category, CATEGORY_ORDER);
 
     return (

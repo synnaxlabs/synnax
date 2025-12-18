@@ -64,6 +64,10 @@
     transform: rotate(90deg);
 }
 
+.console-perf-section-header-value {
+    margin-left: auto;
+}
+
 .console-perf-error {
     margin-top: 1rem;
 }
