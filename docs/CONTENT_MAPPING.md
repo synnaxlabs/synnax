@@ -14,7 +14,7 @@ unified client documentation structure.
 │   ├── read-data.mdx                   ✅ Complete
 │   └── write-data.mdx                  ✅ Complete
 ├── working-with-data/
-│   ├── series-and-frames.mdx           📝 10 sections
+│   ├── series-and-frames.mdx           🔄 In Progress
 │   ├── ranges.mdx                      🔄 In Progress
 │   ├── streaming-data.mdx              📝 11 sections
 │   └── iterators.mdx                   🔄 In Progress
@@ -40,9 +40,6 @@ python-client/
 │
 ├── write-data.mdx
 │
-├── series-and-frames.mdx
-│   ├── Series                          📝 → working-with-data/series-and-frames
-│   └── Frames                          📝 → working-with-data/series-and-frames
 │
 ├── ranges.mdx
 │
@@ -80,9 +77,6 @@ typescript-client/
 │
 ├── write-data.mdx
 │
-├── series-and-frames.mdx
-│   ├── Series                          📝 → working-with-data/series-and-frames
-│   └── Frames                          📝 → working-with-data/series-and-frames
 │
 ├── ranges.mdx
 │
@@ -114,11 +108,11 @@ typescript-client/
 
 | Source            | Remaining |
 | ----------------- | --------- |
-| Python Client     | 18        |
-| TypeScript Client | 15        |
+| Python Client     | 16        |
+| TypeScript Client | 13        |
 
 **Breakdown:**
-- Shared sections (in both): ~16 (series/frames, ~~ranges~~, streaming, delete-data, ~~writers~~, examples)
+- Shared sections (in both): ~14 (~~series/frames~~, ~~ranges~~, streaming, delete-data, ~~writers~~, examples)
 - Python-only: ~13 (device-driver, ~~range reads/writes~~, async streamer, troubleshooting)
 - TypeScript-only: ~6 (timestamps, troubleshooting)
 
@@ -139,7 +133,7 @@ typescript-client/
 ### Phase 3: Working with Data (🔄 IN PROGRESS)
 
 - [x] Create all shell pages
-- [ ] Populate Series & Frames
+- [🔄] Populate Series & Frames (content transferred, needs cleanup)
 - [🔄] Populate Ranges (content transferred, needs cleanup)
 - [ ] Populate Streaming Data
 - [🔄] Populate Iterators (content transferred, needs cleanup)
@@ -169,10 +163,10 @@ typescript-client/
 | ----------------- | -------- | ----------------- |
 | Get Started       | 2        | ✅ Complete       |
 | Fundamentals      | 3        | ✅ Complete       |
-| Working with Data | 4        | 🔄 2 in progress  |
+| Working with Data | 4        | 🔄 3 in progress  |
 | Advanced Topics   | 3        | 🔄 1 in progress  |
 | Resources         | 2        | 📝 Shells created |
-| **TOTAL**         | **14**   | **5 complete, 3 in progress** |
+| **TOTAL**         | **14**   | **5 complete, 4 in progress** |
 
 ## Notes
 

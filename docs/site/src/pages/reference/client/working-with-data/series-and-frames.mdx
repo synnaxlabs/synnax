@@ -23,60 +23,170 @@ operations and used for write operations.
 
 ## Series
 
-<Client.Tabs client:load exclude={["cpp"]}>
-  <Fragment slot="console">
-  </Fragment>
-
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/series-and-frames#series">
-      Python Series and Frames - Series
-    </a>
-  </Note.Note>
-</Fragment>
-
-  <Fragment slot="typescript">
-    <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/series-and-frames#series">TypeScript Series and Frames - Series</a>
-    </Note.Note>
-  </Fragment>
-</Client.Tabs>
-
-### Constructing a Series
-
-<Client.Tabs client:load exclude={["cpp"]}>
-  <Fragment slot="console">
-  </Fragment>
-
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/series-and-frames#constructing-a-series">
-      Python Series and Frames - Constructing a Series
-    </a>
-  </Note.Note>
-</Fragment>
-
-  <Fragment slot="typescript">
-    <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/series-and-frames#constructing-a-series">TypeScript Series and Frames - Constructing a Series</a>
-    </Note.Note>
-  </Fragment>
-</Client.Tabs>
-
-### Interop with Numpy
-
-<Client.Tabs client:load exclude={["cpp", "typescript"]}>
+<Client.Tabs client:load exclude={["cpp","console"]}>
   <Fragment slot="console">
   </Fragment>
 
   <Fragment slot="python">
+    <Note.Note variant="warning">
+
+A series is a strongly typed array of data samples. It can contain any data you want it
+to, but in the context of Synnax it almost always represents a set of contiguous samples
+from a single channel.
+
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
     <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/python-client/series-and-frames#interop-with-numpy">Python Series and Frames - Interop with Numpy</a>
+
+A series is a strongly typed array of samples. A series can contain any data you want it
+to, but in the context of Synnax it almost always represents a set of contiguous samples
+from a single channel.
+
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+### Constructing a Series
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="warning">
+
+There are many ways to construct a series:
+
+```python
+import synnax as sy
+import numpy as np
+
+# Construct a series from a list of samples. In this case, the series
+# will automatically be assumed to be of type int64.
+series = sy.Series([1, 2, 3, 4, 5])
+
+# We can also manually specify the type of the series
+series = sy.Series([1, 2, 3, 4, 5], data_type=sy.DataType.INT32)
+
+# Construct a series from a numpy array. The type of the series
+# will be inferred from the numpy array.
+series = sy.Series(np.array([1, 2, 3, 4, 5], dtype=np.int64))
+
+# Construct a series from a list of strings. In this case,
+# the series will automatically be assumed to be of type string.
+series = sy.Series(["apple", "banana", "cherry"])
+
+# Construct a series from dictionaries. In this case, the series
+# will automatically be assumed to be of type json.
+series = sy.Series([{"a": 1}, {"b": 2}, {"c": 3}])
+```
+
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+
+Here are a few simple ways to construct a series:
+
+```typescript
+import { Series } from "@synnaxlabs/client";
+
+// Construct a series from an array of numbers. In this case, the series will
+// automatically be of type float64.
+const series = new Series([1, 2, 3, 4, 5]);
+
+// Construct a series from an array of numbers, but this time we specify the type
+// explicitly.
+const series = new Series({ data: [1, 2, 3, 4, 5], dataType: "float32" });
+
+// Construct a series from an array of strings. In this case, the series will
+// automatically be of type string.
+const series = new Series(["apple", "banana", "cherry"]);
+
+// Construct a series from a Float32Array. This is the most efficient way to
+// construct a series from a large amount of data.
+const series = new Series(new Float32Array([1, 2, 3, 4, 5]));
+
+// Construct a series from a JSON object. This is useful when you have a series
+// that has been serialized to JSON.
+const series = new Series([
+  { red: "cherry" },
+  { yellow: "banana" },
+  { orange: "orange" },
+]);
+```
+
+The values passed to a series cannot have different data types. The constructor will not
+throw an error, as validating data types is an expensive operation, but the series will
+not behave as expected:
+
+```typescript
+const series = new Series([1, "a", 3, "b", 5]);
+```
+
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+### <span style={{ color: "red" }}>Interop with Numpy</span>
+
+<Client.Tabs client:load exclude={["cpp","console","typescript"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="warning">
+
+The `Series` class is designed to be directly compatible with numpy, and supports all of
+the operations possible on a numpy array without needing to convert back and forth.
+Here's a simple example:
+
+```python
+import synnax as sy
+import numpy as np
+
+series = sy.Series([1, 2, 3, 4, 5])
+
+# You can use numpy functions directly on a series
+print(np.mean(series))
+```
+
+This means that it's also possible to pass a series directly into libraries like
+`matplotlib`:
+
+```python
+import synnax as sy
+import matplotlib.pyplot as plt
+
+x_data = sy.Series([1, 2, 3, 4, 5])
+y_data = sy.Series([1, 4, 9, 16, 25])
+
+plt.plot(x_data, y_data)
+plt.show()
+```
+
+If you'd like to convert a series to a numpy array, you can do so with the `to_numpy`
+function or by simply passing the series to `np.array`:
+
+```python
+import synnax as sy
+
+series = sy.Series([1, 2, 3, 4, 5])
+
+# Convert the series to a numpy array
+numpy_array = series.to_numpy()
+
+# Convert the series to a numpy array using np.array
+numpy_array = np.array(series)
+```
+
     </Note.Note>
   </Fragment>
 </Client.Tabs>
@@ -85,16 +195,68 @@ operations and used for write operations.
   **Python-specific feature**: TypeScript uses TypedArrays instead of numpy.
 </Note.Note>
 
-### Accessing Data
+<Divider.Divider x />
 
-<Client.Tabs client:load exclude={["cpp", "python"]}>
+### <span style={{ color: "red" }}>Accessing Data</span>
+
+<Client.Tabs client:load exclude={["cpp","console","python"]}>
   <Fragment slot="console">
   </Fragment>
 
   <Fragment slot="typescript">
     <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/series-and-frames#accessing-data">TypeScript Series and Frames - Accessing Data (at, as, TypedArray methods)</a>
+
+#### The at method
+
+The easiest way to access data from a series is to use the `at` method. This method
+behaves the same as the `at` method on a Javascript array, and allows for negative
+indexing:
+
+```typescript
+const series = new Series([1, 2, 3, 4, 5]);
+
+console.log(series.at(0)); // 1
+console.log(series.at(-1)); // 5
+```
+
+#### The as method
+
+An important caveat of `at` is that its return type will be a Synnax `TelemValue` type,
+which is a union of all the possible data types that a series can contain:
+
+```typescript
+import { TelemValue } from "@synnaxlabs/client";
+
+const series = new Series([1, 2, 3, 4, 5]);
+// Is it a number? Is it a string? Who knows?
+const v: TelemValue = series.at(0);
+```
+
+This can make it difficult to write type-safe code when working with a series. If you
+know that a series should be of a certain JavaScript type (`number`, `string`, `object`,
+`bigint`), you can use the `as` method to validate the data type and return a
+`Series<T>` of that type:
+
+```typescript
+const series = new Series([1, 2, 3, 4, 5]);
+const easierSeries: Series<number> = series.as("number");
+// Now we have a guarantee that this is a series of numbers.
+const v: number = easierSeries.at(0);
+```
+
+#### Accessing a TypedArray
+
+You use the `data` attribute to get the a `TypedArray` representation of the series:
+
+```typescript
+const series = new Series({ data: [1, 2, 3, 4, 5], dataType: "int8" });
+const ta = series.data;
+console.log(ta); // Int8Array [ 1, 2, 3, 4, 5 ]
+```
+
+Note that while this method will work for `string` and `json` series, the returned typed
+array will be a `Uint8Array` representing the encoded data.
+
     </Note.Note>
   </Fragment>
 </Client.Tabs>
@@ -104,124 +266,389 @@ operations and used for write operations.
   access patterns.
 </Note.Note>
 
-### Converting to Javascript Array
+<Divider.Divider x />
 
-<Client.Tabs client:load exclude={["cpp", "python"]}>
+### <span style={{ color: "red" }}>Converting to Javascript Array</span>
+
+<Client.Tabs client:load exclude={["cpp","console","python"]}>
   <Fragment slot="console">
   </Fragment>
 
   <Fragment slot="typescript">
     <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/series-and-frames#converting-to-a-javascript-array">TypeScript Series and Frames - Converting to a JavaScript Array</a>
-    </Note.Note>
-  </Fragment>
-</Client.Tabs>
 
-### The Time Range Property
+Series implement the `Iterable` interface, so you can use the spread operator to convert
+a series to a Javascript array, or use the `Array.from` method:
 
-<Client.Tabs client:load exclude={["cpp"]}>
-  <Fragment slot="console">
-  </Fragment>
+```typescript
+const series = new Series([1, 2, 3, 4, 5]);
+const jsArray = [...series];
+console.log(jsArray); // [ 1, 2, 3, 4, 5 ]
+const jsArray2 = Array.from(series);
+console.log(jsArray2); // [ 1, 2, 3, 4, 5 ]
+```
 
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/series-and-frames#the-time-range-property">
-      Python Series and Frames - The Time Range Property
-    </a>
-  </Note.Note>
-</Fragment>
+This method will also work for `json` and `string` encoded series:
 
-  <Fragment slot="typescript">
-    <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/series-and-frames#the-time-range-property">TypeScript Series and Frames - The Time Range Property</a>
-    </Note.Note>
-  </Fragment>
-</Client.Tabs>
+```typescript
+const series = new Series([{ red: "cherry", yellow: "banana", orange: "orange" }]);
+const jsArray = [...series];
+console.log(jsArray); // [ { red: 'cherry', yellow: 'banana', orange: 'orange' } ]
+```
 
-### Other Useful Properties
-
-<Client.Tabs client:load exclude={["cpp", "python"]}>
-  <Fragment slot="console">
-  </Fragment>
-
-  <Fragment slot="typescript">
-    <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/series-and-frames#other-useful-properties">TypeScript Series and Frames - Other Useful Properties (length, data type, max, min, bounds)</a>
     </Note.Note>
   </Fragment>
 </Client.Tabs>
 
 <Divider.Divider x />
 
-## Frames
+### The Time Range Property
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs client:load exclude={["cpp","console"]}>
   <Fragment slot="console">
   </Fragment>
 
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/series-and-frames#frames">
-      Python Series and Frames - Frames
-    </a>
-  </Note.Note>
-</Fragment>
+  <Fragment slot="python">
+    <Note.Note variant="warning">
+
+Whenever you read a series from Synnax, it will have a `time_range` property that
+represents the time range occupied by the samples in the Series. This method can be
+useful for getting a high-level understanding of when the samples were recorded without
+needing to query an index channel.
+
+The `start` field represents the timestamp for the first sample, and the `end` field
+represents a timestamp just after the last sample (start-inclusive, end-exclusive).
+
+It's also easy to define a time range when constructing your own series:
+
+```python
+import synnax as sy
+
+start = sy.TimeStamp.now()
+
+series = sy.Series(
+    [1, 2, 3, 4, 5],
+    time_range=sy.TimeRange(
+        start=start,
+        end=start + sy.TimeSpan.SECOND * 6,
+    )
+)
+```
+
+    </Note.Note>
+  </Fragment>
 
   <Fragment slot="typescript">
     <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/series-and-frames#frames">TypeScript Series and Frames - Frames</a>
+
+Whenever you read a series from Synnax, it will have a `timeRange` property that
+represents the time range occupied by the samples in the Series. This method can be
+useful for getting a high-level understanding of when the samples were recorded without
+needing to query an index channel.
+
+The `start` field represents the timestamp for the first sample, and the `end` field
+represents a timestamp just after the last sample (start-inclusive, end-exclusive).
+
+We can also define a time range when constructing the series:
+
+```typescript
+import { TimeRange, TimeStamp, TimeSpan } from "@synnaxlabs/client";
+
+const start = TimeStamp.now();
+
+const series = new Series({
+  data: [1, 2, 3, 4, 5],
+  dataType: "float64",
+  timeRange: new TimeRange({ start, end: start.add(TimeSpan.seconds(6)) }),
+});
+```
+
     </Note.Note>
   </Fragment>
 </Client.Tabs>
+
+<Divider.Divider x />
+
+### <span style={{ color: "red" }}>Other Useful Properties</span>
+
+<Client.Tabs client:load exclude={["cpp","console","python"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+
+#### Length
+
+The `length` property returns the number of samples in the series:
+
+```typescript
+const series = new Series([1, 2, 3, 4, 5]);
+console.log(series.length); // 5
+
+const stringSeries = new Series(["apple", "banana", "cherry"]);
+console.log(stringSeries.length); // 3
+```
+
+#### Data type
+
+The `dataType` property returns the data type of the series:
+
+```typescript
+import { DataType } from "@synnaxlabs/client";
+
+const series = new Series([1, 2, 3, 4, 5]);
+console.log(series.dataType.toString()); // "float64"
+console.log(series.dataType.equals(DataType.STRING)); // true
+```
+
+#### Max, min, and bounds
+
+The `max`, `min`, and `bounds` properties are intelligently cached properties that
+return the maximum, minimum, or both values of the series. These properties only work
+with numeric series:
+
+```typescript
+const series = new Series([1, 2, 3, 4, 5]);
+console.log(series.max); // 5
+console.log(series.min); // 1
+console.log(series.bounds); // { lower: 1, upper: 5 }
+```
+
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Note.Note variant="info">
+  **TypeScript-specific section**: Includes `length`, `dataType`, `max`, `min`, and
+  `bounds` properties.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Frames
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="warning">
+
+A frame is a collection of series from multiple channels. Frames are returned by the
+`read` method on the client (`client.read`), the `read` method of a `Streamer` instance
+(`client.open_streamer`), and the `value` property of an `Iterator` instance
+(`client.open_iterator`).
+
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+
+A frame is a collection of series from multiple channels. Frames are returned by the
+`read` method of the Synnax data client (`client.read`), the `read` method of a
+`Streamer` instance (`client.openStreamer`), and the `value` property of an `Iterator`
+instance (`client.openIterator`).
+
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
 
 ### Constructing a Frame
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs client:load exclude={["cpp","console"]}>
   <Fragment slot="console">
   </Fragment>
 
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/series-and-frames#constructing-a-frame">
-      Python Series and Frames - Constructing a Frame
-    </a>
-  </Note.Note>
-</Fragment>
+  <Fragment slot="python">
+    <Note.Note variant="warning">
+
+A frame maps the key or name of a channel to one or more series. Here are a few examples
+of how to construct a frame:
+
+```python
+import synnax as sy
+
+# Construct a frame for the given channel names.
+frame = sy.Frame({
+    "channel1": sy.Series([1, 2, 3, 4, 5]),
+    "channel2": sy.Series([5, 4, 3, 2, 1]),
+    "channel3": sy.Series([1, 1, 1, 1, 1]),
+})
+
+# Construct a frame from individual samples.
+frame = sy.Frame({
+    "channel1": 1,
+    "channel2": 2,
+    "channel3": 3,
+})
+```
+
+    </Note.Note>
+  </Fragment>
 
   <Fragment slot="typescript">
     <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/series-and-frames#constructing-a-frame">TypeScript Series and Frames - Constructing a Frame</a>
+
+A frame maps the key or name of a channel to one or more series. Here are a few examples
+of how to construct a frame:
+
+```typescript
+import { Frame } from "@synnaxlabs/client";
+
+// Construct a frame for the given channel names.
+const frame = new Frame({
+  channel1: new Series([1, 2, 3, 4, 5]),
+  channel2: new Series([5, 4, 3, 2, 1]),
+  channel3: new Series([1, 1, 1, 1, 1]),
+});
+
+// Construct a frame for the given channel keys
+const frame = new Frame({
+  1: new Series([1, 2, 3, 4, 5]),
+  2: new Series([5, 4, 3, 2, 1]),
+  // Notice that series do not need to be the same length.
+  3: new Series([1, 1, 1]),
+});
+
+// Construct a frame from a map
+const frame = new Frame(
+  new Map([
+    ["channel1", new Series([1, 2, 3, 4, 5])],
+    ["channel2", new Series([5, 4, 3, 2, 1])],
+    ["channel3", new Series([1, 1, 1, 1, 1])],
+  ]),
+);
+
+// Or from an array of keys and series
+const frame = new Frame(
+  ["channel1", "channel2", "channel3"],
+  [
+    new Series([1, 2, 3, 4, 5]),
+    new Series([5, 4, 3, 2, 1]),
+    new Series([1, 1, 1, 1, 1]),
+  ],
+);
+
+// Or construct a frame with multiple series for a single channel
+const frame = new Frame({
+  channel1: [
+    new Series([1, 2, 3, 4, 5]),
+    new Series([5, 4, 3, 2, 1]),
+    new Series([1, 1, 1, 1, 1]),
+  ],
+  channel2: [new Series([1, 2, 3, 4, 5])],
+});
+```
+
     </Note.Note>
   </Fragment>
 </Client.Tabs>
 
+<Divider.Divider x />
+
 ### Accessing Frame Data
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs client:load exclude={["cpp","console"]}>
   <Fragment slot="console">
   </Fragment>
 
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/series-and-frames#accessing-frame-data">
-      Python Series and Frames - Accessing Frame Data (dictionary interface)
-    </a>
-  </Note.Note>
-</Fragment>
+  <Fragment slot="python">
+    <Note.Note variant="warning">
+
+#### Using the dictionary interface
+
+Frames can be accessed like dictionaries:
+
+```python
+import synnax as sy
+
+data = frame["channel1"]
+```
+
+The `data` variable will be an instance of a `MultiSeries` object, which is a special
+type of series that wraps multiple `Series` instances, but behaves pretty much exactly
+like a single series:
+
+```python
+import synnax as sy
+
+frame = sy.Frame({
+    "channel1": [sy.Series([1, 2, 3, 4, 5]), sy.Series([6, 7, 8, 9, 10])]
+    "channel2": sy.Series([1, 2, 3]),
+})
+
+# Access the first series in the "channel1" key
+data: sy.MultiSeries = frame["channel1"]
+print(data[0]) # 1
+print(data[-1]) # 10
+```
+
+    </Note.Note>
+  </Fragment>
 
   <Fragment slot="typescript">
     <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/series-and-frames#accessing-frame-data">TypeScript Series and Frames - Accessing Frame Data (get, at methods)</a>
+
+#### The get method
+
+The easiest way to access data from a frame is to use the `get` method. This method
+return an instance of a `MultiSeries` class, which is a special type of series that
+wraps multiple `Series` instances, but behaves much like a `Series` instance:
+
+```typescript
+import { MultiSeries } from "@synnaxlabs/client";
+
+const frame = new Frame({
+  channel1: [new Series([1, 2]), new Series([3, 4, 5])],
+  channel2: new Series([5, 4, 3, 2, 1]),
+  channel3: new Series([1, 1, 1, 1, 1]),
+});
+
+const multiSeries: MultiSeries = frame.get("channel1");
+// Access a value
+console.log(multiSeries.at(0)); // 1
+
+// Access a value from a specific series
+console.log(multiSeries.series[0].at(0)); // 1
+
+// Construct a Javascript array from the MultiSeries
+const jsArray = [...multiSeries];
+console.log(jsArray); // [ 1, 2, 3, 4, 5 ]
+```
+
+#### The at method
+
+The `at` method can be used to access a JavaScript object containing a single value for
+each channel in the frame:
+
+```typescript
+const frame = new Frame({
+  channel1: new Series([1, 2, 3, 4, 5]),
+  channel2: new Series([5, 4, 3, 2, 1]),
+  channel3: new Series([1, 1]),
+});
+
+const obj = frame.at(3);
+console.log(obj); // { channel1: 1, channel2: 5, channel3: undefined }
+```
+
+If you set the `required` parameter to `true`, the method will throw an error if any of
+the channels are missing:
+
+```typescript
+const frame = new Frame({
+  channel1: new Series([1, 2, 3, 4, 5]),
+  channel2: new Series([5, 4, 3, 2, 1]),
+  channel3: new Series([1, 1]),
+});
+
+const obj = frame.at(3, true); // Throws an error
+```
+
     </Note.Note>
   </Fragment>
 </Client.Tabs>
