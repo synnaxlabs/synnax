@@ -24,45 +24,10 @@ unified client documentation structure.
 │   └── timestamps.mdx                  🔄 In Progress (TS only)
 └── resources/
     ├── examples.mdx                    🔄 In Progress
-    └── build-device-driver.mdx         🔄 In Progress (Python only)
+    ├── build-device-driver.mdx         🔄 In Progress (Python only)
+    └── troubleshooting.mdx             🔄 In Progress
 ```
 
-## Sections Remaining to Transfer
-
-Legend: 🔄 = in progress | 📝 = remaining
-
-### Remaining Python Client (`/reference/python-client/`)
-
-```
-python-client/
-│
-│
-└── troubleshooting.mdx                 📝 → TBD (migration strategy needed)
-    ├── Installing Python
-    ├── Incorrect Python Version
-    └── Synnax Command Not Found
-```
-
-### Remaining TypeScript Client (`/reference/typescript-client/`)
-
-```
-typescript-client/
-└── troubleshooting.mdx                 📝 → TBD (migration strategy needed)
-    ├── Old Core Version
-    └── Old Client Version
-```
-
-## Summary
-
-| Source            | Remaining |
-| ----------------- | --------- |
-| Python Client     | 3         |
-| TypeScript Client | 2         |
-
-**Breakdown:**
-- Shared sections (in both): ~14 (~~series/frames~~, ~~ranges~~, ~~streaming~~, ~~delete-data~~, ~~writers~~, ~~examples~~)
-- Python-only: ~13 (~~device-driver~~, ~~range reads/writes~~, ~~async streamer~~, troubleshooting)
-- TypeScript-only: ~6 (~~timestamps~~, troubleshooting)
 
 ## Implementation Checklist
 
@@ -98,6 +63,7 @@ typescript-client/
 - [x] Create all shell pages
 - [🔄] Populate Examples page (content transferred, needs cleanup)
 - [🔄] Populate Build Device Driver (content transferred, needs cleanup)
+- [🔄] Populate Troubleshooting (content transferred, needs cleanup)
 
 ### Phase 6: Cleanup
 
@@ -113,8 +79,8 @@ typescript-client/
 | Fundamentals      | 3        | ✅ Complete       |
 | Working with Data | 4        | 🔄 4 in progress  |
 | Advanced Topics   | 3        | 🔄 3 in progress  |
-| Resources         | 2        | 🔄 2 in progress  |
-| **TOTAL**         | **14**   | **5 complete, 9 in progress** |
+| Resources         | 3        | 🔄 3 in progress  |
+| **TOTAL**         | **15**   | **5 complete, 10 in progress** |
 
 ## Notes
 
@@ -122,6 +88,6 @@ typescript-client/
    conditional creation, range-based reads/writes)
 2. **TypeScript-Specific**: Timestamps page addresses JavaScript precision issues
 3. **Python-Specific**: Build Device Driver for hardware integration, async streamers
-4. **Troubleshooting**: Migration strategy TBD - content is language-specific but needs
-   a home in the new structure
+4. **Troubleshooting**: Combined Python and TypeScript troubleshooting into unified page
+   with language tabs. Some sections are Python-only or TypeScript-only.
 5. **Console Tabs**: All console fragments currently empty, to be filled after refactor

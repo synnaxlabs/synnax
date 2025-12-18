@@ -105,6 +105,11 @@ export const CLIENT_NAV: PageNavNode = {
           href: "/reference/client/resources/build-device-driver",
           name: "Build a Device Driver",
         },
+        {
+          key: "/reference/client/resources/troubleshooting",
+          href: "/reference/client/resources/troubleshooting",
+          name: "Troubleshooting",
+        },
       ],
     },
   ],
