@@ -11,7 +11,15 @@ import "@/perf/Dashboard.css";
 
 import { Button, Flex, Header, Icon, Text, Tooltip } from "@synnaxlabs/pluto";
 import { math } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
+import {
+  memo,
+  type ReactElement,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useDispatch } from "react-redux";
 
 import { type Layout } from "@/layout";
@@ -49,13 +57,6 @@ interface LiveMetrics {
   gpuPercent: number | null;
   heapUsedMB: number | null;
   heapTotalMB: number | null;
-}
-
-interface MetricConfig<T> {
-  label: string;
-  getValue: (data: T) => string;
-  getStatus?: (data: T) => Status;
-  tooltip: string;
 }
 
 const NA = "N/A";
@@ -108,82 +109,112 @@ const getAvgPeakStatus = (
 ): Status =>
   (avg ?? 0) > avgThreshold || (peak ?? 0) > peakThreshold ? "warning" : undefined;
 
-/** Format a pair of nullable numbers as "a / b" with optional suffix. Use zeroAsNull for metrics where 0 means "not set". */
-const formatPair = (
-  a: number | null,
-  b: number | null,
-  suffix: string = "",
+const formatStartEnd = (
+  start: number | null,
+  end: number | null,
   zeroAsNull: boolean = false,
 ): string => {
-  const aVal = zeroAsNull && a === 0 ? null : a;
-  const bVal = zeroAsNull && b === 0 ? null : b;
-  const aStr = aVal != null ? aVal.toFixed(1) : "—";
-  const bStr = bVal != null ? bVal.toFixed(1) : "—";
-  return `${aStr} / ${bStr}${suffix}`;
+  const startVal = zeroAsNull && start === 0 ? null : start;
+  const endVal = zeroAsNull && end === 0 ? null : end;
+  const startStr = startVal != null ? startVal.toFixed(1) : "—";
+  const endStr = endVal != null ? endVal.toFixed(1) : "—";
+  return `${startStr} → ${endStr}`;
 };
 
-interface MetricCardProps {
+const formatAvgPeak = (avg: number | null, peak: number | null): string => {
+  const avgStr = avg != null ? avg.toFixed(1) : "—";
+  const peakStr = peak != null ? peak.toFixed(1) : "—";
+  return `${avgStr} / ${peakStr}%`;
+};
+
+interface MetricRowProps {
   label: string;
   value: string;
   status?: Status;
   tooltip?: string;
 }
 
-const MetricCard = ({
-  label,
-  value,
-  status,
-  tooltip,
-}: MetricCardProps): ReactElement => {
-  const card = (
-    <Flex.Box y className="console-perf-metric-card">
+const MetricRow = memo(({ label, value, status, tooltip }: MetricRowProps): ReactElement => {
+  const row = (
+    <Flex.Box
+      x
+      justify="between"
+      align="center"
+      className="console-perf-row"
+      tabIndex={0}
+    >
       <Text.Text level="small" color={7}>
         {label}
       </Text.Text>
-      <Text.Text level="h4" color={status != null ? STATUS_COLORS[status] : undefined}>
+      <Text.Text
+        level="small"
+        color={status != null ? STATUS_COLORS[status] : 9}
+      >
         {value}
       </Text.Text>
     </Flex.Box>
   );
 
-  if (tooltip == null) return card;
+  if (tooltip == null) return row;
 
   return (
-    <Tooltip.Dialog location={{ x: "right", y: "bottom" }}>
+    <Tooltip.Dialog location={{ x: "right", y: "center" }}>
       {tooltip}
-      {card}
+      {row}
     </Tooltip.Dialog>
   );
-};
+});
+MetricRow.displayName = "MetricRow";
 
-const LIVE_METRICS_CONFIG: MetricConfig<LiveMetrics>[] = [
-  {
-    label: "Frame Rate",
-    getValue: (m) => `${m.frameRate.toFixed(1)} FPS`,
-    getStatus: (m) => getThresholdStatus(m.frameRate, 30, 15, true),
-    tooltip:
-      "Current frames per second measured via requestAnimationFrame. Target is 60 FPS. Warning below 30, error below 15.",
-  },
-  {
-    label: "Memory",
-    getValue: (m) => formatMB(m.heapUsedMB),
-    tooltip: "Current process memory usage.",
-  },
-  {
-    label: "CPU",
-    getValue: (m) => formatPercent(m.cpuPercent),
-    getStatus: (m) => getThresholdStatus(m.cpuPercent, 50, 80),
-    tooltip:
-      "Current process CPU usage percentage. Warning above 50%, error above 80%. Not available in browser.",
-  },
-  {
-    label: "GPU",
-    getValue: (m) => formatPercent(m.gpuPercent),
-    getStatus: (m) => getThresholdStatus(m.gpuPercent, 80, 95),
-    tooltip:
-      "Current GPU utilization percentage. Warning above 80%, error above 95%. Available on macOS (via IOKit) and Windows/Linux (via NVML for NVIDIA GPUs).",
-  },
-];
+interface SectionProps {
+  title: string;
+  secondaryText?: ReactNode;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}
+
+const Section = memo(({
+  title,
+  secondaryText,
+  defaultOpen = true,
+  children,
+}: SectionProps): ReactElement => {
+  const [open, setOpen] = useState(defaultOpen);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setOpen(!open);
+    }
+  };
+
+  return (
+    <Flex.Box y className="console-perf-section">
+      <Flex.Box
+        x
+        className="console-perf-section-header"
+        onClick={() => setOpen(!open)}
+        onKeyDown={handleKeyDown}
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        data-open={open}
+      >
+        <Icon.Caret.Right />
+        <Text.Text level="small" color={8} weight={500}>
+          {title}
+        </Text.Text>
+        {secondaryText != null && (
+          <Text.Text level="small" color={6} grow style={{ textAlign: "right" }}>
+            {secondaryText}
+          </Text.Text>
+        )}
+      </Flex.Box>
+      {open && children}
+    </Flex.Box>
+  );
+});
+Section.displayName = "Section";
 
 export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElement => {
   const dispatch = useDispatch();
@@ -441,10 +472,6 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
       captured.finalFPS = 0;
       setLatestSample(null);
 
-      c.cpu?.reset();
-      c.gpu?.reset();
-      c.frameRate?.reset();
-      c.heap?.reset();
       c.longTask?.reset();
       c.network?.reset();
       sampleBufferRef.current.reset();
@@ -464,35 +491,44 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
 
   const buttonConfigs: Record<
     string,
-    { icon: ReactElement; text: string; handler: () => void; variant: "filled" | "outlined" }
+    {
+      icon: ReactElement;
+      text: string;
+      handler: () => void;
+      variant: "filled" | "outlined";
+    }
   > = {
-    idle: { icon: <Icon.Play />, text: "Start", handler: handleStart, variant: "filled" },
-    running: { icon: <Icon.Pause />, text: formatTime(elapsedSeconds), handler: handleStop, variant: "outlined" },
-    completed: { icon: <Icon.Refresh />, text: formatTime(elapsedSeconds), handler: handleReset, variant: "outlined" },
-    error: { icon: <Icon.Refresh />, text: "Reset", handler: handleReset, variant: "outlined" },
+    idle: {
+      icon: <Icon.Play />,
+      text: "Start",
+      handler: handleStart,
+      variant: "filled",
+    },
+    running: {
+      icon: <Icon.Pause />,
+      text: formatTime(elapsedSeconds),
+      handler: handleStop,
+      variant: "outlined",
+    },
+    completed: {
+      icon: <Icon.Refresh />,
+      text: formatTime(elapsedSeconds),
+      handler: handleReset,
+      variant: "outlined",
+    },
+    error: {
+      icon: <Icon.Refresh />,
+      text: "Reset",
+      handler: handleReset,
+      variant: "outlined",
+    },
   };
   const btn = buttonConfigs[status] ?? buttonConfigs.idle;
 
   return (
     <Flex.Box y className="console-perf-dashboard" grow>
       <Header.Header level="h4">
-        <Header.Title>Live Metrics</Header.Title>
-      </Header.Header>
-
-      <Flex.Box x wrap>
-        {LIVE_METRICS_CONFIG.map(({ label, getValue, getStatus, tooltip }) => (
-          <MetricCard
-            key={label}
-            label={label}
-            value={getValue(liveMetrics)}
-            status={getStatus?.(liveMetrics)}
-            tooltip={tooltip}
-          />
-        ))}
-      </Flex.Box>
-
-      <Header.Header level="h4" className="console-perf-analysis-header">
-        <Header.Title>Analysis</Header.Title>
+        <Header.Title>Performance</Header.Title>
         <Header.Actions>
           <Button.Button variant={btn.variant} size="tiny" onClick={btn.handler}>
             {btn.icon}
@@ -501,79 +537,116 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
         </Header.Actions>
       </Header.Header>
 
-      {/* Row 1: Quantitative changes */}
-      <Flex.Box x wrap className="console-perf-metric-row">
-        <MetricCard
+      {/* Live Metrics Section */}
+      <Section title="Live">
+        <MetricRow
+          label="Frame Rate"
+          value={`${liveMetrics.frameRate.toFixed(1)} FPS`}
+          status={getThresholdStatus(liveMetrics.frameRate, 30, 15, true)}
+          tooltip="Current frames per second. Target is 60 FPS. Warning below 30, error below 15."
+        />
+        <MetricRow
+          label="Memory"
+          value={formatMB(liveMetrics.heapUsedMB)}
+          tooltip="Current process memory usage."
+        />
+        <MetricRow
+          label="CPU"
+          value={formatPercent(liveMetrics.cpuPercent)}
+          status={getThresholdStatus(liveMetrics.cpuPercent, 50, 80)}
+          tooltip="Current CPU usage. Warning above 50%, error above 80%."
+        />
+        <MetricRow
+          label="GPU"
+          value={formatPercent(liveMetrics.gpuPercent)}
+          status={getThresholdStatus(liveMetrics.gpuPercent, 80, 95)}
+          tooltip="Current GPU utilization. Warning above 80%, error above 95%."
+        />
+      </Section>
+
+      {/* Changes Section */}
+      <Section
+        title="Changes"
+        secondaryText={status !== "idle" ? formatTime(elapsedSeconds) : undefined}
+      >
+        <MetricRow
           label="FPS Drop"
           value={`${degradationReport.frameRateDegradationPercent.toFixed(1)}%`}
-          status={getThresholdStatus(degradationReport.frameRateDegradationPercent, 10, 15)}
+          status={getThresholdStatus(
+            degradationReport.frameRateDegradationPercent,
+            10,
+            15,
+          )}
           tooltip="Percentage decrease in frame rate. Warning at >10%, error at >15%."
         />
-        <MetricCard
+        <MetricRow
           label="Heap Growth"
           value={`${leakReport.heapGrowthPercent.toFixed(1)}%`}
           status={getWarningStatus(leakReport.heapGrowthPercent, 20)}
-          tooltip="Percentage change in heap memory from start to end of test. Warning at >20%."
+          tooltip="Percentage change in heap memory. Warning at >20%."
         />
-        <MetricCard
+        <MetricRow
           label="Avg / Peak CPU"
-          value={formatPair(cpuReport.avgPercent, cpuReport.peakPercent, "%")}
+          value={formatAvgPeak(cpuReport.avgPercent, cpuReport.peakPercent)}
           status={getAvgPeakStatus(cpuReport.avgPercent, cpuReport.peakPercent, 50, 80)}
-          tooltip="Average and peak CPU usage during the test. Warning if avg >50% or peak >80%."
+          tooltip="Average and peak CPU usage. Warning if avg >50% or peak >80%."
         />
-        <MetricCard
+        <MetricRow
           label="Avg / Peak GPU"
-          value={formatPair(gpuReport.avgPercent, gpuReport.peakPercent, "%")}
+          value={formatAvgPeak(gpuReport.avgPercent, gpuReport.peakPercent)}
           status={getAvgPeakStatus(gpuReport.avgPercent, gpuReport.peakPercent, 80, 95)}
-          tooltip="Average and peak GPU usage during the test. Warning if avg >80% or peak >95%."
+          tooltip="Average and peak GPU usage. Warning if avg >80% or peak >95%."
         />
-      </Flex.Box>
+      </Section>
 
-      {/* Row 2: Supporting details */}
-      <Flex.Box x wrap className="console-perf-metric-row">
-        <MetricCard
-          label="FPS Start / End"
-          value={formatPair(
+      {/* Start/End Section */}
+      <Section title="Start / End">
+        <MetricRow
+          label="FPS"
+          value={formatStartEnd(
             degradationReport.averageFrameRateStart,
             degradationReport.averageFrameRateEnd,
-            "",
             true,
           )}
           status={getWarningStatus(degradationReport.frameRateDegradationPercent, 15)}
           tooltip="Frame rate at the start vs end of the test."
         />
-        <MetricCard
-          label="Heap Start / End"
-          value={formatPair(leakReport.heapStartMB, leakReport.heapEndMB, " MB", true)}
+        <MetricRow
+          label="Heap (MB)"
+          value={formatStartEnd(leakReport.heapStartMB, leakReport.heapEndMB, true)}
           status={getWarningStatus(leakReport.heapGrowthPercent, 20)}
-          tooltip="Heap memory usage at start vs end of test. Warning at >20% growth."
+          tooltip="Heap memory usage at start vs end of test."
         />
-        <MetricCard
-          label="CPU Start / End"
-          value={formatPair(cpuReport.startPercent, cpuReport.endPercent, "%")}
+        <MetricRow
+          label="CPU (%)"
+          value={formatStartEnd(cpuReport.startPercent, cpuReport.endPercent)}
           tooltip="CPU usage at start vs end of test."
         />
-        <MetricCard
-          label="GPU Start / End"
-          value={formatPair(gpuReport.startPercent, gpuReport.endPercent, "%")}
+        <MetricRow
+          label="GPU (%)"
+          value={formatStartEnd(gpuReport.startPercent, gpuReport.endPercent)}
           tooltip="GPU usage at start vs end of test."
         />
-      </Flex.Box>
+      </Section>
 
-      {/* Row 3: Task metrics */}
-      <Flex.Box x wrap className="console-perf-metric-row">
-        <MetricCard
+      {/* Tasks Section */}
+      <Section title="Tasks">
+        <MetricRow
           label="Long Tasks"
           value={latestSample?.longTaskCount.toString() ?? "—"}
-          status={latestSample != null && latestSample.longTaskCount > 5 ? "warning" : undefined}
-          tooltip="JavaScript tasks blocking the main thread for >50ms since last sample. High counts indicate UI jank."
+          status={
+            latestSample != null && latestSample.longTaskCount > 5
+              ? "warning"
+              : undefined
+          }
+          tooltip="JavaScript tasks blocking the main thread for >50ms. High counts indicate UI jank."
         />
-        <MetricCard
+        <MetricRow
           label="Network Requests"
           value={latestSample?.networkRequestCount.toString() ?? "—"}
-          tooltip="Number of fetch/XHR requests made since last sample. High counts may indicate excessive API polling."
+          tooltip="Fetch/XHR requests made since last sample."
         />
-      </Flex.Box>
+      </Section>
 
       {status === "error" && (
         <Text.Text status="error" className="console-perf-error">
