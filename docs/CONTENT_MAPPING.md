@@ -20,7 +20,7 @@ unified client documentation structure.
 │   └── iterators.mdx                   🔄 In Progress
 ├── advanced/
 │   ├── writers.mdx                     🔄 In Progress
-│   ├── delete-data.mdx                 📝 4 sections
+│   ├── delete-data.mdx                 🔄 In Progress
 │   └── timestamps.mdx                  📝 5 sections (TS only)
 └── resources/
     ├── examples.mdx                    📝 TBD
@@ -43,9 +43,6 @@ python-client/
 │
 ├── ranges.mdx
 │
-├── delete-data.mdx
-│   ├── Deleting Data From a Channel    📝 → advanced/delete-data
-│   └── Limitations of Deletions        📝 → advanced/delete-data
 │
 ├── device-driver.mdx
 │   ├── Setup and Installation          📝 → resources/build-device-driver
@@ -74,10 +71,6 @@ typescript-client/
 ├── ranges.mdx
 │
 │
-├── delete-data.mdx
-│   ├── Deleting Data From a Channel    📝 → advanced/delete-data
-│   └── Limitations of Deletions        📝 → advanced/delete-data
-│
 ├── timestamps.mdx
 │   ├── JavaScript's Limitations        📝 → advanced/timestamps
 │   ├── TimeStamp                       📝 → advanced/timestamps
@@ -96,11 +89,11 @@ typescript-client/
 
 | Source            | Remaining |
 | ----------------- | --------- |
-| Python Client     | 11        |
-| TypeScript Client | 9         |
+| Python Client     | 9         |
+| TypeScript Client | 7         |
 
 **Breakdown:**
-- Shared sections (in both): ~14 (~~series/frames~~, ~~ranges~~, ~~streaming~~, delete-data, ~~writers~~, examples)
+- Shared sections (in both): ~14 (~~series/frames~~, ~~ranges~~, ~~streaming~~, ~~delete-data~~, ~~writers~~, examples)
 - Python-only: ~13 (device-driver, ~~range reads/writes~~, ~~async streamer~~, troubleshooting)
 - TypeScript-only: ~6 (timestamps, troubleshooting)
 
@@ -130,7 +123,7 @@ typescript-client/
 
 - [x] Create all shell pages
 - [🔄] Populate Writers (content transferred, needs cleanup)
-- [ ] Populate Delete Data
+- [🔄] Populate Delete Data (content transferred, needs cleanup)
 - [ ] Populate Timestamps
 
 ### Phase 5: Resources (📝 SHELLS COMPLETE)
@@ -152,9 +145,9 @@ typescript-client/
 | Get Started       | 2        | ✅ Complete       |
 | Fundamentals      | 3        | ✅ Complete       |
 | Working with Data | 4        | 🔄 4 in progress  |
-| Advanced Topics   | 3        | 🔄 1 in progress  |
+| Advanced Topics   | 3        | 🔄 2 in progress  |
 | Resources         | 2        | 📝 Shells created |
-| **TOTAL**         | **14**   | **5 complete, 5 in progress** |
+| **TOTAL**         | **14**   | **5 complete, 6 in progress** |
 
 ## Notes
 
