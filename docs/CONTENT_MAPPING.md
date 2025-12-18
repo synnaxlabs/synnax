@@ -23,7 +23,7 @@ unified client documentation structure.
 │   ├── delete-data.mdx                 🔄 In Progress
 │   └── timestamps.mdx                  📝 5 sections (TS only)
 └── resources/
-    ├── examples.mdx                    📝 TBD
+    ├── examples.mdx                    🔄 In Progress
     └── build-device-driver.mdx         📝 6 sections (Python only)
 ```
 
@@ -35,14 +35,6 @@ Legend: 🔄 = in progress | 📝 = remaining
 
 ```
 python-client/
-├── read-data.mdx
-│   └── Examples                        📝 → resources/examples
-│
-├── write-data.mdx
-│
-│
-├── ranges.mdx
-│
 │
 ├── device-driver.mdx
 │   ├── Setup and Installation          📝 → resources/build-device-driver
@@ -50,8 +42,6 @@ python-client/
 │   ├── Write-Only Driver               📝 → resources/build-device-driver
 │   └── Read-Write Driver               📝 → resources/build-device-driver
 │
-├── examples.mdx
-│   └── Examples                        📝 → resources/examples
 │
 └── troubleshooting.mdx                 📝 → TBD (migration strategy needed)
     ├── Installing Python
@@ -63,22 +53,12 @@ python-client/
 
 ```
 typescript-client/
-├── read-data.mdx
-│
-├── write-data.mdx
-│
-│
-├── ranges.mdx
-│
-│
 ├── timestamps.mdx
 │   ├── JavaScript's Limitations        📝 → advanced/timestamps
 │   ├── TimeStamp                       📝 → advanced/timestamps
 │   ├── TimeSpan                        📝 → advanced/timestamps
 │   └── TimeRange                       📝 → advanced/timestamps
 │
-├── examples.mdx
-│   └── Examples                        📝 → resources/examples
 │
 └── troubleshooting.mdx                 📝 → TBD (migration strategy needed)
     ├── Old Core Version
@@ -89,11 +69,11 @@ typescript-client/
 
 | Source            | Remaining |
 | ----------------- | --------- |
-| Python Client     | 9         |
-| TypeScript Client | 7         |
+| Python Client     | 7         |
+| TypeScript Client | 6         |
 
 **Breakdown:**
-- Shared sections (in both): ~14 (~~series/frames~~, ~~ranges~~, ~~streaming~~, ~~delete-data~~, ~~writers~~, examples)
+- Shared sections (in both): ~14 (~~series/frames~~, ~~ranges~~, ~~streaming~~, ~~delete-data~~, ~~writers~~, ~~examples~~)
 - Python-only: ~13 (device-driver, ~~range reads/writes~~, ~~async streamer~~, troubleshooting)
 - TypeScript-only: ~6 (timestamps, troubleshooting)
 
@@ -126,10 +106,10 @@ typescript-client/
 - [🔄] Populate Delete Data (content transferred, needs cleanup)
 - [ ] Populate Timestamps
 
-### Phase 5: Resources (📝 SHELLS COMPLETE)
+### Phase 5: Resources (🔄 IN PROGRESS)
 
 - [x] Create all shell pages
-- [ ] Populate Examples page
+- [🔄] Populate Examples page (content transferred, needs cleanup)
 - [ ] Populate Build Device Driver
 
 ### Phase 6: Cleanup
@@ -146,8 +126,8 @@ typescript-client/
 | Fundamentals      | 3        | ✅ Complete       |
 | Working with Data | 4        | 🔄 4 in progress  |
 | Advanced Topics   | 3        | 🔄 2 in progress  |
-| Resources         | 2        | 📝 Shells created |
-| **TOTAL**         | **14**   | **5 complete, 6 in progress** |
+| Resources         | 2        | 🔄 1 in progress  |
+| **TOTAL**         | **14**   | **5 complete, 7 in progress** |
 
 ## Notes
 
