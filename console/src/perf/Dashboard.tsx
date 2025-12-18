@@ -528,7 +528,6 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
   return (
     <Flex.Box y className="console-perf-dashboard" grow>
       <Header.Header level="h4">
-        <Header.Title>Performance</Header.Title>
         <Header.Actions>
           <Button.Button variant={btn.variant} size="tiny" onClick={btn.handler}>
             {btn.icon}
@@ -565,10 +564,7 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
       </Section>
 
       {/* Changes Section */}
-      <Section
-        title="Changes"
-        secondaryText={status !== "idle" ? formatTime(elapsedSeconds) : undefined}
-      >
+      <Section title="Changes">
         <MetricRow
           label="FPS Drop"
           value={`${degradationReport.frameRateDegradationPercent.toFixed(1)}%`}

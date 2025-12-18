@@ -17,6 +17,10 @@
     margin-right: auto;
 }
 
+.console-perf-dashboard > .pluto-header {
+    padding-bottom: 1rem;
+}
+
 .console-perf-row {
     padding: 0.25rem 0.5rem;
     border-radius: var(--pluto-border-radius);
@@ -39,7 +43,7 @@
 }
 
 .console-perf-section-header {
-    padding: 0.5rem;
+    padding: 0.2rem;
     cursor: pointer;
     gap: 0.5rem;
     align-items: center;
