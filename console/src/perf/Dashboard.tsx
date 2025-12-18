@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "@/perf/Dashboard.css";
+import "@/perf/test-utils"; // Dev-only performance testing utilities
 
 import { Button, Flex, Header, Icon, Text, Tooltip } from "@synnaxlabs/pluto";
 import { math } from "@synnaxlabs/x";
@@ -35,13 +36,28 @@ import {
   ZERO_GPU_REPORT,
   ZERO_LEAK_REPORT,
 } from "@/perf/analyzer/types";
+import {
+  MetricTable,
+  type MetricTableData,
+} from "@/perf/components/MetricTable";
 import { type Aggregates, SampleBuffer, ZERO_AGGREGATES } from "@/perf/metrics/buffer";
 import { CpuCollector } from "@/perf/metrics/cpu";
 import { FrameRateCollector } from "@/perf/metrics/framerate";
 import { GpuCollector } from "@/perf/metrics/gpu";
 import { HeapCollector } from "@/perf/metrics/heap";
-import { LongTaskCollector } from "@/perf/metrics/longtasks";
-import { NetworkCollector } from "@/perf/metrics/network";
+import {
+  getLongTaskTableKey,
+  LongTaskCollector,
+  LONG_TASK_TABLE_COLUMNS,
+  type LongTaskStats,
+} from "@/perf/metrics/longtasks";
+import {
+  type EndpointStats,
+  getNetworkTableKey,
+  getNetworkTableTooltip,
+  NetworkCollector,
+  NETWORK_TABLE_COLUMNS,
+} from "@/perf/metrics/network";
 import { type MetricSample } from "@/perf/metrics/types";
 import {
   useSelectCpuReport,
@@ -59,6 +75,10 @@ interface LiveMetrics {
   gpuPercent: number | null;
   heapUsedMB: number | null;
   heapTotalMB: number | null;
+  networkRequestCount: number;
+  longTaskCount: number;
+  totalNetworkRequests: number;
+  totalLongTasks: number;
 }
 
 const NA = "N/A";
@@ -152,6 +172,22 @@ const formatPercentChange = (percent: number | null, invertSign = false): string
   return `${sign}${value.toFixed(1)}%`;
 };
 
+interface WithTooltipProps {
+  tooltip?: string;
+  children: ReactElement;
+}
+
+const WithTooltip = ({ tooltip, children }: WithTooltipProps): ReactElement => {
+  if (tooltip == null) return children;
+
+  return (
+    <Tooltip.Dialog>
+      {tooltip}
+      {children as any}
+    </Tooltip.Dialog>
+  );
+};
+
 type MetricType = "fps" | "memory" | "cpu" | "gpu" | "tasks";
 type MetricCategory = "live" | "change" | "stats";
 
@@ -169,7 +205,7 @@ const TYPE_LABELS: Record<MetricType, string> = {
   memory: "Memory",
   cpu: "CPU",
   gpu: "GPU",
-  tasks: "Tasks",
+  tasks: "Long Tasks",
 };
 
 const CATEGORY_LABELS: Record<MetricCategory, string> = {
@@ -338,13 +374,13 @@ const createResourceMetrics = (
 
 interface MetricRowProps {
   label: string;
-  value: string;
+  value: string | ReactNode;
   status?: Status;
   tooltip?: string;
 }
 
-const MetricRow = memo(({ label, value, status, tooltip }: MetricRowProps): ReactElement => {
-  const row = (
+const MetricRow = memo(({ label, value, status, tooltip }: MetricRowProps): ReactElement => (
+  <WithTooltip tooltip={tooltip}>
     <Flex.Box
       x
       justify="between"
@@ -362,31 +398,24 @@ const MetricRow = memo(({ label, value, status, tooltip }: MetricRowProps): Reac
         {value}
       </Text.Text>
     </Flex.Box>
-  );
-
-  if (tooltip == null) return row;
-
-  return (
-    <Tooltip.Dialog location={{ x: "right", y: "center" }}>
-      {tooltip}
-      {row}
-    </Tooltip.Dialog>
-  );
-});
+  </WithTooltip>
+));
 MetricRow.displayName = "MetricRow";
 
 interface SectionProps {
   title: string;
   secondaryText?: ReactNode;
   secondaryStatus?: Status;
+  secondaryTooltip?: string;
   defaultOpen?: boolean;
-  children: ReactNode;
+  children?: ReactNode;
 }
 
 const Section = memo(({
   title,
   secondaryText,
   secondaryStatus,
+  secondaryTooltip,
   defaultOpen = true,
   children,
 }: SectionProps): ReactElement => {
@@ -399,32 +428,38 @@ const Section = memo(({
     }
   };
 
+  const header = (
+    <Flex.Box
+      x
+      className="console-perf-section-header"
+      onClick={() => setOpen(!open)}
+      onKeyDown={handleKeyDown}
+      role="button"
+      tabIndex={0}
+      aria-expanded={open}
+      data-open={open}
+    >
+      <Icon.Caret.Right />
+      <Text.Text level="small" color={8} weight={500}>
+        {title}
+      </Text.Text>
+      {secondaryText != null && (
+        <Text.Text
+          level="small"
+          className="console-perf-section-header-value"
+          color={secondaryStatus != null ? STATUS_COLORS[secondaryStatus] : 9}
+        >
+          {secondaryText}
+        </Text.Text>
+      )}
+    </Flex.Box>
+  );
+
   return (
     <Flex.Box y className="console-perf-section">
-      <Flex.Box
-        x
-        className="console-perf-section-header"
-        onClick={() => setOpen(!open)}
-        onKeyDown={handleKeyDown}
-        role="button"
-        tabIndex={0}
-        aria-expanded={open}
-        data-open={open}
-      >
-        <Icon.Caret.Right />
-        <Text.Text level="small" color={8} weight={500}>
-          {title}
-        </Text.Text>
-        {secondaryText != null && (
-          <Text.Text
-            level="small"
-            className="console-perf-section-header-value"
-            color={secondaryStatus != null ? STATUS_COLORS[secondaryStatus] : 9}
-          >
-            {secondaryText}
-          </Text.Text>
-        )}
-      </Flex.Box>
+      <WithTooltip tooltip={secondaryTooltip}>
+        {header}
+      </WithTooltip>
       {open && children}
     </Flex.Box>
   );
@@ -436,10 +471,22 @@ interface MetricSectionsProps {
   liveMetrics: LiveMetrics;
   aggregates: Aggregates;
   latestSample: MetricSample | null;
+  topEndpoints: MetricTableData<EndpointStats>;
+  topLongTasks: MetricTableData<LongTaskStats>;
   degradationReport: ReturnType<typeof useSelectDegradationReport>;
   leakReport: ReturnType<typeof useSelectLeakReport>;
   cpuReport: ReturnType<typeof useSelectCpuReport>;
   gpuReport: ReturnType<typeof useSelectGpuReport>;
+  status: string;
+}
+
+interface SectionConfig {
+  key: string;
+  title: string;
+  secondaryText?: ReactNode;
+  secondaryStatus?: Status;
+  secondaryTooltip?: string;
+  content: ReactNode;
 }
 
 const MetricSections = memo(
@@ -448,13 +495,15 @@ const MetricSections = memo(
     liveMetrics,
     aggregates,
     latestSample,
+    topEndpoints,
+    topLongTasks,
     degradationReport,
     leakReport,
     cpuReport,
     gpuReport,
+    status,
   }: MetricSectionsProps): ReactElement => {
-    // Build metric definitions on each render. Memoization would be ineffective here
-    // because props update every LIVE_DISPLAY_INTERVAL_MS, invalidating any cache.
+
     const metrics: MetricDef[] = [
       ...createFpsMetrics(
         () => liveMetrics.frameRate,
@@ -501,34 +550,29 @@ const MetricSections = memo(
           ),
         tooltip: `Tasks blocking main thread >50ms (warn >${THRESHOLDS.longTasks.warn}, error >${THRESHOLDS.longTasks.error})`,
       },
-      {
-        key: "tasks-network",
-        type: "tasks",
-        category: "live",
-        getValue: () => latestSample?.networkRequestCount.toString() ?? "—",
-        getStatus: () =>
-          getThresholdStatus(
-            latestSample?.networkRequestCount ?? null,
-            THRESHOLDS.networkRequests.warn,
-            THRESHOLDS.networkRequests.error,
-          ),
-        tooltip: `Network requests (warn >${THRESHOLDS.networkRequests.warn}, error >${THRESHOLDS.networkRequests.error})`,
-      },
     ];
+
+    const networkTooltip = `Requests per second (warn >${THRESHOLDS.networkRequests.warn}, error >${THRESHOLDS.networkRequests.error})`;
+    const networkStatus = getThresholdStatus(
+      liveMetrics.networkRequestCount,
+      THRESHOLDS.networkRequests.warn,
+      THRESHOLDS.networkRequests.error,
+    );
+    const longTasksTooltip = `Tasks blocking main thread >50ms (warn >${THRESHOLDS.longTasks.warn}, error >${THRESHOLDS.longTasks.error})`;
+    const longTasksStatus = getThresholdStatus(
+      liveMetrics.longTaskCount,
+      THRESHOLDS.longTasks.warn,
+      THRESHOLDS.longTasks.error,
+    );
 
     const getLabel = useCallback(
       (metric: MetricDef): string => {
-        if (metric.type === "tasks")
-          return metric.key === "tasks-long" ? "Long Tasks" : "Network";
-        // Grouped by type (FPS, Memory, etc.) - show category as label
         if (groupByType) return TYPE_MODE_LABELS[metric.category];
-        // Grouped by category (Live, Change, Stats) - show type as label
         return TYPE_LABELS[metric.type];
       },
       [groupByType],
     );
 
-    // Helper to render metric rows
     const renderMetricRows = useCallback(
       (metricsToRender: MetricDef[]) =>
         metricsToRender.map((metric) => (
@@ -543,45 +587,113 @@ const MetricSections = memo(
       [getLabel],
     );
 
-    if (groupByType) {
-      const grouped = groupMetrics(metrics, (m) => m.type, TYPE_ORDER);
-      return (
-        <>
-          {Array.from(grouped.entries()).map(([type, typeMetrics]) => {
-            const isTaskType = type === "tasks";
-            const liveMetric = isTaskType
-              ? null
-              : typeMetrics.find((m) => m.category === "live");
-            const rowMetrics = isTaskType
-              ? typeMetrics
-              : typeMetrics.filter((m) => m.category !== "live");
-            return (
-              <Section
-                key={type}
-                title={TYPE_LABELS[type]}
-                secondaryText={liveMetric?.getValue()}
-                secondaryStatus={liveMetric?.getStatus?.()}
-              >
-                {renderMetricRows(rowMetrics)}
-              </Section>
-            );
-          })}
-        </>
-      );
-    }
+    // Build unified section configurations
+    const sections = useMemo((): SectionConfig[] => {
+      const result: SectionConfig[] = [];
+      const isProfilingActive = status === "running" || status === "paused";
 
-    const taskMetrics = metrics.filter((m) => m.type === "tasks");
-    const nonTaskMetrics = metrics.filter((m) => m.type !== "tasks");
-    const grouped = groupMetrics(nonTaskMetrics, (m) => m.category, CATEGORY_ORDER);
+      if (groupByType) {
+        // Type-grouped sections (FPS, Memory, CPU, GPU)
+        const grouped = groupMetrics(metrics, (m) => m.type, TYPE_ORDER);
+        Array.from(grouped.entries())
+          .filter(([type]) => type !== "tasks")
+          .forEach(([type, typeMetrics]) => {
+            const liveMetric = typeMetrics.find((m) => m.category === "live");
+            const rowMetrics = typeMetrics.filter((m) => m.category !== "live");
+            result.push({
+              key: type,
+              title: TYPE_LABELS[type],
+              secondaryText: liveMetric?.getValue(),
+              secondaryStatus: liveMetric?.getStatus?.(),
+              secondaryTooltip: liveMetric?.tooltip,
+              content: <>{renderMetricRows(rowMetrics)}</>,
+            });
+          });
+      } else {
+        // Category-grouped sections (Live, Change, Stats)
+        const nonTaskMetrics = metrics.filter((m) => m.type !== "tasks");
+        const grouped = groupMetrics(nonTaskMetrics, (m) => m.category, CATEGORY_ORDER);
+        Array.from(grouped.entries()).forEach(([category, catMetrics]) => {
+          result.push({
+            key: category,
+            title: CATEGORY_LABELS[category],
+            content: <>{renderMetricRows(catMetrics)}</>,
+          });
+        });
+      }
+
+      // Network section
+      const networkSecondaryText = isProfilingActive
+        ? `${liveMetrics.networkRequestCount} / ${liveMetrics.totalNetworkRequests}`
+        : liveMetrics.networkRequestCount;
+
+      result.push({
+        key: "network",
+        title: "Network",
+        secondaryText: networkSecondaryText,
+        secondaryStatus: networkStatus,
+        secondaryTooltip: networkTooltip,
+        content: isProfilingActive ? (
+          <MetricTable
+            result={topEndpoints}
+            columns={NETWORK_TABLE_COLUMNS}
+            getKey={getNetworkTableKey}
+            getTooltip={getNetworkTableTooltip}
+          />
+        ) : undefined,
+      });
+
+      // Long Tasks section
+      const longTaskSecondaryText = isProfilingActive
+        ? `${liveMetrics.longTaskCount} / ${liveMetrics.totalLongTasks}`
+        : liveMetrics.longTaskCount;
+
+      result.push({
+        key: "long-tasks",
+        title: "Long Tasks",
+        secondaryText: longTaskSecondaryText,
+        secondaryStatus: longTasksStatus,
+        secondaryTooltip: longTasksTooltip,
+        content: isProfilingActive ? (
+          <MetricTable
+            result={topLongTasks}
+            columns={LONG_TASK_TABLE_COLUMNS}
+            getKey={getLongTaskTableKey}
+          />
+        ) : undefined,
+      });
+
+      return result;
+    }, [
+      groupByType,
+      metrics,
+      renderMetricRows,
+      liveMetrics.networkRequestCount,
+      liveMetrics.longTaskCount,
+      liveMetrics.totalNetworkRequests,
+      liveMetrics.totalLongTasks,
+      networkTooltip,
+      networkStatus,
+      longTasksTooltip,
+      longTasksStatus,
+      topEndpoints,
+      topLongTasks,
+      status,
+    ]);
 
     return (
       <>
-        {Array.from(grouped.entries()).map(([category, catMetrics]) => (
-          <Section key={category} title={CATEGORY_LABELS[category]}>
-            {renderMetricRows(catMetrics)}
+        {sections.map((section) => (
+          <Section
+            key={section.key}
+            title={section.title}
+            secondaryText={section.secondaryText}
+            secondaryStatus={section.secondaryStatus}
+            secondaryTooltip={section.secondaryTooltip}
+          >
+            {section.content}
           </Section>
         ))}
-        <Section title="Tasks">{renderMetricRows(taskMetrics)}</Section>
       </>
     );
   },
@@ -604,6 +716,10 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
     gpuPercent: null,
     heapUsedMB: null,
     heapTotalMB: null,
+    networkRequestCount: 0,
+    longTaskCount: 0,
+    totalNetworkRequests: 0,
+    totalLongTasks: 0,
   });
 
   // Pre-allocated sample buffer (memory allocated on mount, not during test)
@@ -614,6 +730,12 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
 
   // Track aggregates from buffer for stats display
   const [aggregates, setAggregates] = useState<Aggregates>(ZERO_AGGREGATES);
+
+  // Track top endpoints for profiling display
+  const [topEndpoints, setTopEndpoints] = useState<MetricTableData<EndpointStats>>({ data: [], total: 0, truncated: false });
+
+  // Track top long tasks for profiling display
+  const [topLongTasks, setTopLongTasks] = useState<MetricTableData<LongTaskStats>>({ data: [], total: 0, truncated: false });
 
   // Grouping mode: "time" (Live, Changes) or "type" (Live, Delta, Stats)
   const [groupByType, setGroupByType] = useState(false);
@@ -649,7 +771,6 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
   const sampleIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevStatusRef = useRef<string>(status);
 
-  // Helper to run analysis and dispatch results (used by both periodic and final effects)
   const runAnalysis = useCallback(
     (endFPS: number, endCPU: number | null, endGPU: number | null) => {
       const captured = capturedRef.current;
@@ -745,6 +866,8 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
     c.gpu.start();
     c.frameRate.start();
     c.heap.start();
+    c.longTask.start();
+    c.network.start();
 
     // Update live metrics display every 500ms
     const liveInterval = setInterval(() => {
@@ -754,7 +877,14 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
         gpuPercent: c.gpu?.getGpuPercent() ?? null,
         heapUsedMB: c.heap?.getHeapUsedMB() ?? null,
         heapTotalMB: c.heap?.getHeapTotalMB() ?? null,
+        networkRequestCount: c.network?.getCountSinceLastSample() ?? 0,
+        longTaskCount: c.longTask?.getCountSinceLastSample() ?? 0,
+        totalNetworkRequests: c.network?.getTotalCount() ?? 0,
+        totalLongTasks: c.longTask?.getTotalCount() ?? 0,
       });
+      // Update endpoint and long task tables for live display
+      setTopEndpoints(c.network?.getTopEndpoints() ?? { data: [], total: 0, truncated: false });
+      setTopLongTasks(c.longTask?.getTopLongTasks() ?? { data: [], total: 0, truncated: false });
     }, LIVE_DISPLAY_INTERVAL_MS);
 
     return () => {
@@ -771,23 +901,20 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
   // Start/stop analysis
   useEffect(() => {
     const c = collectorsRef.current;
-    if (status === "running") {
-      c.network?.start();
-      c.longTask?.start();
-
+    if (status === "running") 
       sampleIntervalRef.current = setInterval(() => {
         const sample = collectSample();
         sampleBufferRef.current.push(sample);
         setLatestSample(sample);
         setAggregates(sampleBufferRef.current.getAggregates());
+        setTopEndpoints(c.network?.getTopEndpoints() ?? { data: [], total: 0, truncated: false });
+        setTopLongTasks(c.longTask?.getTopLongTasks() ?? { data: [], total: 0, truncated: false });
         runAnalysis(sample.frameRate, sample.cpuPercent, sample.gpuPercent);
       }, SAMPLE_INTERVAL_MS);
-    } else if (sampleIntervalRef.current != null) {
+     else if (sampleIntervalRef.current != null) {
       // Stop recording
       clearInterval(sampleIntervalRef.current);
       sampleIntervalRef.current = null;
-      c.network?.stop();
-      c.longTask?.stop();
     }
 
     return () => {
@@ -871,6 +998,8 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
       captured.finalFPS = 0;
       setLatestSample(null);
       setAggregates(ZERO_AGGREGATES);
+      setTopEndpoints({ data: [], total: 0, truncated: false });
+      setTopLongTasks({ data: [], total: 0, truncated: false });
 
       c.longTask?.reset();
       c.network?.reset();
@@ -960,10 +1089,13 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
         liveMetrics={liveMetrics}
         aggregates={aggregates}
         latestSample={latestSample}
+        topEndpoints={topEndpoints}
+        topLongTasks={topLongTasks}
         degradationReport={degradationReport}
         leakReport={leakReport}
         cpuReport={cpuReport}
         gpuReport={gpuReport}
+        status={status}
       />
 
       {status === "error" && (

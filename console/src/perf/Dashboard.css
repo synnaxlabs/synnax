@@ -24,6 +24,8 @@
 .console-perf-row {
     padding: 0.25rem 0.5rem;
     border-radius: var(--pluto-border-radius);
+    cursor: help;
+    transition: background-color 0.15s ease;
 }
 
 .console-perf-row:hover,
@@ -70,4 +72,37 @@
 
 .console-perf-error {
     margin-top: 1rem;
+}
+
+
+.console-perf-data-table-wrapper {
+    max-height: calc(6 * 2em);
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.console-perf-data-table {
+    width: 100%;
+}
+
+.console-perf-data-table tr {
+    cursor: help;
+    transition: background-color 0.15s ease;
+}
+
+.console-perf-data-table tr:hover {
+    background-color: var(--pluto-gray-l2);
+}
+
+.console-perf-data-table td {
+    padding: 0.25rem 0.5rem;
+}
+
+.console-perf-data-table td:nth-child(2) {
+    text-align: left;
+}
+
+.console-perf-data-table td:nth-child(3) > * {
+    display: block;
+    text-align: right;
 }
