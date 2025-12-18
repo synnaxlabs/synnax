@@ -16,42 +16,6 @@ export const components = mdxOverrides;
 
 ## Reading from Multiple Channels
 
-## Reading Channel Data from a Range
-
-While the above methods are useful for executing precise reads, they require us to know
-the exact range of time we're interested in reading.
-[Ranges](/reference/python-client/ranges) are a useful way of categorizing important
-time ranges in Synnax. We can read directly from these ranges.
-
-We can access channels on a `Range` object and call `read` on them to access their data:
-
-```python
-rng = client.ranges.retrieve("My Interesting Test")
-
-# Read the data from the channel
-data = rng.my_precise_tc.read()
-
-data = data - 273.15
-```
-
-It turns out that we don't even need to call the `read` method at all. We can just use
-the channel name directly to perform operations on the data:
-
-```python
-data = rng.my_precise_tc - 273.15
-```
-
-We can also plot the data just as easily:
-
-```python
-import matplotlib.pyplot as plt
-
-# Plot time on the x-axis and temperature on the y-axis
-plt.plot(rng.time, rng.my_precise_tc)
-```
-
-<Divider.Divider x />
-
 ## Reading the Latest Data
 
 <Divider.Divider x />

@@ -15,7 +15,7 @@ unified client documentation structure.
 │   └── write-data.mdx                  ✅ Complete
 ├── working-with-data/
 │   ├── series-and-frames.mdx           📝 10 sections
-│   ├── ranges.mdx                      📝 20 sections
+│   ├── ranges.mdx                      🔄 In Progress
 │   ├── streaming-data.mdx              📝 11 sections
 │   └── iterators.mdx                   📝 4 sections
 ├── advanced/
@@ -29,19 +29,17 @@ unified client documentation structure.
 
 ## Sections Remaining to Transfer
 
-Legend: ✅ = transferred | 📝 = remaining
+Legend: 🔄 = in progress | 📝 = remaining
 
 ### Remaining Python Client (`/reference/python-client/`)
 
 ```
 python-client/
 ├── read-data.mdx
-│   ├── Reading Channel Data from Range 📝 → working-with-data/ranges
 │   ├── Reading with Iterators          📝 → working-with-data/iterators
 │   └── Examples                        📝 → resources/examples
 │
 ├── write-data.mdx
-│   ├── Writing to a Range              📝 → working-with-data/ranges
 │   ├── Using a Writer                  📝 → advanced/writers
 │   └── Common Pitfalls                 📝 → advanced/writers
 │
@@ -50,14 +48,6 @@ python-client/
 │   └── Frames                          📝 → working-with-data/series-and-frames
 │
 ├── ranges.mdx
-│   ├── Range Configuration Reference   📝 → working-with-data/ranges
-│   ├── Creating Ranges                 📝 → working-with-data/ranges
-│   ├── Creating Child Ranges           📝 → working-with-data/ranges
-│   ├── Retrieving Ranges               📝 → working-with-data/ranges
-│   ├── Updating a Range                📝 → working-with-data/ranges
-│   ├── Working with Channels           📝 → working-with-data/ranges
-│   ├── Attaching Metadata              📝 → working-with-data/ranges
-│   └── Deleting Ranges                 📝 → working-with-data/ranges
 │
 ├── stream-data.mdx
 │   ├── Opening a Streamer              📝 → working-with-data/streaming-data
@@ -101,12 +91,6 @@ typescript-client/
 │   └── Frames                          📝 → working-with-data/series-and-frames
 │
 ├── ranges.mdx
-│   ├── Range Configuration Reference   📝 → working-with-data/ranges
-│   ├── Creating Ranges                 📝 → working-with-data/ranges
-│   ├── Retrieving Ranges               📝 → working-with-data/ranges
-│   ├── Updating a Range                📝 → working-with-data/ranges
-│   ├── Metadata                        📝 → working-with-data/ranges
-│   └── Deleting Ranges                 📝 → working-with-data/ranges
 │
 ├── stream-data.mdx
 │   ├── Open a Streamer                 📝 → working-with-data/streaming-data
@@ -136,12 +120,12 @@ typescript-client/
 
 | Source            | Remaining |
 | ----------------- | --------- |
-| Python Client     | 31        |
-| TypeScript Client | 24        |
+| Python Client     | 21        |
+| TypeScript Client | 18        |
 
 **Breakdown:**
-- Shared sections (in both): ~18 (series/frames, ranges, streaming, delete-data, writers, examples)
-- Python-only: ~13 (device-driver, range reads/writes, async streamer, troubleshooting)
+- Shared sections (in both): ~18 (series/frames, ~~ranges~~, streaming, delete-data, writers, examples)
+- Python-only: ~13 (device-driver, ~~range reads/writes~~, async streamer, troubleshooting)
 - TypeScript-only: ~6 (timestamps, troubleshooting)
 
 ## Implementation Checklist
@@ -158,11 +142,11 @@ typescript-client/
 - [x] Create Read Data with actual content
 - [x] Create Write Data with actual content
 
-### Phase 3: Working with Data (📝 SHELLS COMPLETE)
+### Phase 3: Working with Data (🔄 IN PROGRESS)
 
 - [x] Create all shell pages
 - [ ] Populate Series & Frames
-- [ ] Populate Ranges
+- [🔄] Populate Ranges (content transferred, needs cleanup)
 - [ ] Populate Streaming Data
 - [ ] Populate Iterators
 
@@ -191,10 +175,10 @@ typescript-client/
 | ----------------- | -------- | ----------------- |
 | Get Started       | 2        | ✅ Complete       |
 | Fundamentals      | 3        | ✅ Complete       |
-| Working with Data | 4        | 📝 Shells created |
+| Working with Data | 4        | 🔄 1 in progress  |
 | Advanced Topics   | 3        | 📝 Shells created |
 | Resources         | 2        | 📝 Shells created |
-| **TOTAL**         | **14**   | **5 complete**    |
+| **TOTAL**         | **14**   | **5 complete, 1 in progress** |
 
 ## Notes
 

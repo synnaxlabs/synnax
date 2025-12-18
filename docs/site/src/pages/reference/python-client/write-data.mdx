@@ -18,42 +18,6 @@ export const components = mdxOverrides;
 
 <Divider.Divider x />
 
-## Writing to a Range
-
-Writing to a range takes away the burden of needing to correctly align the data from
-different channels.
-
-We'll create the following range as an example:
-
-```python
-import synnax as sy
-
-# Create the range
-burst_test = client.ranges.create(
-    name="burst_test",
-    time_range=sy.TimeRange(
-        start=sy.TimeStamp.now(),
-        end=sy.TimeStamp.now() + 1 * sy.TimeSpan.HOUR
-    )
-)
-```
-
-Then, we'll write to the range using the `write` method:
-
-```python
-temperatures = [55, 55.1, 55.7, 57.2, 58.1, 58.9, 59.1, 59.2, 59.3]
-pressures = [100, 100.1, 100.7, 102.2, 103.1, 103.9, 104.1, 104.2, 104.3]
-
-# This call to write will assume that the timestamp of the first sample is
-# the start of the range.
-burst_test.write({
-    "my_precise_tc": temperatures,
-    "my_precise_pt": pressures,
-})
-```
-
-<Divider.Divider x />
-
 ## Using a Writer
 
 While the above methods are great for writing static, existing data, it's common to
