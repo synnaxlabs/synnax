@@ -25,104 +25,146 @@ If you're looking for simple writes, check out the
 
 ## Opening a Writer
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs client:load exclude={["cpp","console"]}>
   <Fragment slot="console">
   </Fragment>
 
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/write-data#using-a-writer">
-      Python Write Data - Using a Writer
-    </a>
-  </Note.Note>
-</Fragment>
+  <Fragment slot="python">
+    <Note.Note variant="warning">
 
-  <Fragment slot="typescript">
-    <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/write-data#using-a-writer">TypeScript Write Data - Using a Writer</a>
+While the above methods are great for writing static, existing data, it's common to
+write data in a streaming fashion as it's acquired. This is especially useful for use in
+control sequences and live data processing. The `Writer` class is designed for this use
+case (and is actually used under the hood by the other methods).
+
+To keep things intuitive, the writer maintains a file-like interface that is similar to
+Python's built-in file objects. There are a few key differences, the most important
+being that writers are governed by a transaction. If you'd like to learn more about
+transactions and how writes work in Synnax, check out the
+[concepts](/reference/concepts/writes) page.
+
+We'll create the following channels to use as examples:
+
+```python
+import synnax as sy
+
+# Create the index
+timestamps = client.channels.create(
+    name="timestamps",
+    data_type=sy.DataType.TIMESTAMP,
+    is_index=True
+)
+
+# Create the temperature channel
+my_precise_tc = client.channels.create(
+    name="my_precise_tc",
+    data_type=sy.DataType.FLOAT32,
+    index=timestamps
+)
+```
+
+To open the writer, we use the `open_writer` method on the client and provide a starting
+timestamp for the first sample and a list of channels we'd like to write to:
+
+```python
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["timestamps", "my_precise_tc"],
+) as writer:
+    for i in range(100):
+        writer.write({
+            "timestamps": sy.TimeStamp.now(),
+            "my_precise_tc": i,
+        })
+        sy.sleep(0.1)
+    writer.commit()
+```
+
+This example will write 100 samples to the `my_precise_tc` channel, each spaced roughly
+0.1 seconds apart, and will commit all writes when finished.
+
+It's typical to write and commit millions of samples over the course of hours or days,
+intermittently calling commit to ensure that the data is persisted to the Core.
+
+We recommend using writers within a context manager. This ensures that a writer is
+properly closed after use, ensuring that resources have been freed and sockets are
+closed.
+
+If you can't use a context manager, make sure you call `writer.close()` when you're done
+using it.
+
     </Note.Note>
   </Fragment>
-</Client.Tabs>
-
-<Note.Note variant="info">
-  **Note**: This content was deferred from{" "}
-  <a href="/reference/client/fundamentals/write-data">Fundamentals - Writing Data</a> as
-  an advanced topic.
-</Note.Note>
-
-<Divider.Divider x />
-
-## Auto-Commit
-
-<Client.Tabs client:load exclude={["cpp"]}>
-  <Fragment slot="console">
-  </Fragment>
-
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/write-data#auto-commit">
-      Python Write Data - Auto-Commit
-    </a>
-  </Note.Note>
-</Fragment>
 
   <Fragment slot="typescript">
     <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/write-data#auto-commit">TypeScript Write Data - Auto-Commit</a>
-    </Note.Note>
-  </Fragment>
-</Client.Tabs>
 
-<Divider.Divider x />
+While the above methods are great for writing static, existing data, it's common to want
+to write data in a streaming fashion as it's acquired. This is useful for for use in
+control sequences and live data processing. The `Writer` class is designed to handle
+this use case (and is actually used under the hood by the above methods).
 
-## Write Authorities
+To keep things intuitive, we've designed the writer API around a file-like interface.
+There are a few key differences, the most important being that writers are governed by a
+transaction. If you'd like to learn more about transactions, see the
+[concepts](/reference/concepts/writes) page.
 
-<Client.Tabs client:load exclude={["cpp"]}>
-  <Fragment slot="console">
-  </Fragment>
+We'll create the following channels to use as examples:
 
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/write-data#write-authorities">
-      Python Write Data - Write Authorities
-    </a>
-  </Note.Note>
-</Fragment>
+```typescript
+import { DataType } from "@synnaxlabs/client";
 
-  <Fragment slot="typescript">
-    <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/write-data#write-authorities">TypeScript Write Data - Write Authorities</a>
-    </Note.Note>
-  </Fragment>
-</Client.Tabs>
+const timeChannel = await client.channels.create({
+  name: "time",
+  dataType: DataType.TIMESTAMP,
+  isIndex: true,
+});
 
-<Divider.Divider x />
+const temperatureChannel = await client.channels.create({
+  name: "temperature",
+  dataType: DataType.FLOAT32,
+  index: timeChannel.key,
+});
+```
 
-## Persistence/Streaming Mode
+To open the writer, we'll use the `openWriter` method on the client:
 
-<Client.Tabs client:load exclude={["cpp"]}>
-  <Fragment slot="console">
-  </Fragment>
+```typescript
+import { TimeStamp, Series, Frame } from "@synnaxlabs/client";
 
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/write-data#persistencestreaming-mode">
-      Python Write Data - Persistence/Streaming Mode
-    </a>
-  </Note.Note>
-</Fragment>
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+});
 
-  <Fragment slot="typescript">
-    <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/write-data#persistencestreaming-mode">TypeScript Write Data - Persistence/Streaming Mode</a>
+try {
+  for (let i = 0; i < 100; i++) {
+    const start = TimeStamp.now();
+    const timeSeries = BigInt64Array.from({ length: 10 }, (_, i) =>
+      start.add(TimeSpan.milliseconds(i)).valueOf(),
+    );
+    const dataSeries = Float32Array.from({ length: 10 }, (_, i) => Math.sin(i / 100));
+
+    await writer.write(
+      new Frame({
+        [timeChannel.key]: new Series(timeSeries),
+        [temperatureChannel.key]: new Series(dataSeries),
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  await writer.commit();
+} finally {
+  await writer.close();
+}
+```
+
+This example will write 100 batches of 10 samples to the `temperature` channel, each
+roughly 100ms apart, and will commit all writes when finished.
+
+It's typical to write and commit millions of samples over the course of hours or days,
+intermittently calling commit to ensure that the data is safely stored in the Core.
+
     </Note.Note>
   </Fragment>
 </Client.Tabs>
@@ -131,47 +173,456 @@ If you're looking for simple writes, check out the
 
 ## Closing a Writer
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs client:load exclude={["cpp","console"]}>
   <Fragment slot="console">
   </Fragment>
 
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/write-data#using-a-writer">
-      Python Write Data - Using a Writer (closing section)
-    </a>
-  </Note.Note>
-</Fragment>
+  <Fragment slot="python">
+    <Note.Note variant="warning">
+
+We recommend using writers within a context manager (the `with` statement). This ensures
+that a writer is properly closed after use, ensuring that resources have been freed and
+sockets are closed.
+
+```python
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["timestamps", "my_precise_tc"],
+) as writer:
+    # Write data here
+    pass
+# Writer is automatically closed when exiting the context
+```
+
+If you can't use a context manager, make sure you call `writer.close()` when you're done
+using it:
+
+```python
+writer = client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["timestamps", "my_precise_tc"],
+)
+try:
+    # Write data here
+    pass
+finally:
+    writer.close()
+```
+
+    </Note.Note>
+  </Fragment>
 
   <Fragment slot="typescript">
     <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/write-data#using-a-writer">TypeScript Write Data - Using a Writer (closing section)</a>
+
+It's very important to free the writer resources when finished by calling the `close`
+method. If `close` is not called at the end of the writer, other writers may not be able
+to write to the same channels. We typically recommend placing the writer operations
+inside a try-finally block to ensure that the writer is always closed.
+
+```typescript
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+});
+
+try {
+  // Write data here
+} finally {
+  await writer.close();
+}
+```
+
     </Note.Note>
   </Fragment>
 </Client.Tabs>
 
 <Divider.Divider x />
 
-## Different Writing Methods
+## <span style={{ color: "red" }}>Different Writing Methods</span>
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs client:load exclude={["cpp","console"]}>
   <Fragment slot="console">
   </Fragment>
 
-<Fragment slot="python">
-  <Note.Note variant="warning">
-    <span style={{ color: "red" }}>
-      No corresponding section - content integrated into Using a Writer section
-    </span>{" "}
-  </Note.Note>
-</Fragment>
+  <Fragment slot="python">
+    <Note.Note variant="warning">
+
+Python's `writer.write()` method accepts a dictionary mapping channel names to values:
+
+```python
+writer.write({
+    "timestamps": sy.TimeStamp.now(),
+    "my_precise_tc": 25.5,
+})
+```
+
+You can also write multiple samples at once using lists or numpy arrays:
+
+```python
+import numpy as np
+
+writer.write({
+    "timestamps": [sy.TimeStamp.now(), sy.TimeStamp.now() + sy.TimeSpan.SECOND],
+    "my_precise_tc": np.array([25.5, 26.0], dtype=np.float32),
+})
+```
+
+    </Note.Note>
+  </Fragment>
 
   <Fragment slot="typescript">
     <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/write-data#different-ways-of-writing-data">TypeScript Write Data - Different Ways of Writing Data</a>
+
+There are a number of argument formats that the `write` method accepts. Use the one that
+best fits your use case.
+
+```typescript
+// Write a single sample for a channel
+await writer.write("temperature", 20.0);
+
+// Write multiple samples for a channel
+await writer.write("temperature", [20.0, 20.1, 20.2, 20.3, 20.4]);
+
+// Write a single sample for several channels
+await writer.write({
+  time: TimeStamp.now(),
+  temperature: 20.0,
+});
+
+// Write multiple samples for several channels
+const start = TimeStamp.now();
+await writer.write({
+  time: [start, start.add(TimeSpan.seconds(1))],
+  temperature: [20.0, 20.1],
+});
+
+// Write typed arrays for several channels
+await writer.write(
+  new Frame({
+    [timeChannel.key]: new BigInt64Array([
+      start.valueOf(),
+      start.add(TimeSpan.seconds(1)).valueOf(),
+    ]),
+    [temperatureChannel.key]: new Float32Array([20.0, 20.1]),
+  }),
+);
+```
+
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Auto-Commit
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="warning">
+
+By default, writers are configured with auto-commit enabled, meaning each write is
+immediately committed and available for read access. This is ideal for real-time data
+acquisition where you want data to be immediately available for monitoring and analysis.
+
+### When to Disable Auto-Commit
+
+You may want to disable auto-commit in the following scenarios:
+
+- **Chunk-based file ingestion**: When loading historical data from files, you may want
+  to commit data in logical chunks (e.g., after processing each file) to ensure atomic
+  visibility of complete datasets.
+- **Batch processing**: When ingesting large volumes of historical data where real-time
+  visibility is not required and you want to optimize performance by reducing commit
+  overhead.
+- **Atomic transactions**: When you need multiple writes to appear together atomically
+  to maintain data consistency across channels.
+
+To disable auto-commit, set the `enable_auto_commit` argument to `False` when opening
+the writer:
+
+```python
+import time
+
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["timestamps", "my_precise_tc"],
+    enable_auto_commit=False,  # Disable auto-commit for manual control
+) as writer:
+    # Write data in chunks
+    for chunk in range(10):
+        for i in range(1000):
+            writer.write({
+                "timestamps": sy.TimeStamp.now(),
+                "my_precise_tc": i,
+            })
+        # Commit after each chunk of 1000 samples
+        writer.commit()
+```
+
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+
+By default, writers are configured with auto-commit enabled, meaning each write is
+immediately committed and available for read access. This is ideal for real-time data
+acquisition where you want data to be immediately available for monitoring and analysis.
+
+### When to Disable Auto-Commit
+
+You may want to disable auto-commit in the following scenarios:
+
+- **Chunk-based file ingestion**: When loading historical data from files, you may want
+  to commit data in logical chunks (e.g., after processing each file) to ensure atomic
+  visibility of complete datasets.
+- **Batch processing**: When ingesting large volumes of historical data where real-time
+  visibility is not required and you want to optimize performance by reducing commit
+  overhead.
+- **Atomic transactions**: When you need multiple writes to appear together atomically
+  to maintain data consistency across channels.
+
+To disable auto-commit, set the `enableAutoCommit` option to `false` when opening the
+writer:
+
+```typescript
+import { TimeStamp, Series, Frame } from "@synnaxlabs/client";
+
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+  enableAutoCommit: false, // Disable auto-commit for manual control
+});
+
+try {
+  // Write data in chunks
+  for (let chunk = 0; chunk < 10; chunk++) {
+    for (let i = 0; i < 1000; i++) {
+      const start = TimeStamp.now();
+      await writer.write({
+        time: start,
+        temperature: Math.sin(i / 100),
+      });
+    }
+    // Commit after each chunk of 1000 samples
+    await writer.commit();
+  }
+} finally {
+  await writer.close();
+}
+```
+
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Write Authorities
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="warning">
+
+Writers support dynamic control handoff. Multiple writers can be opened on a channel at
+the same time, but only one writer is allowed to write to the channel. To determine
+which writer has control, an authority from 0 to 255 is assigned to each writer (or,
+optionally, each channel in the writer). The writer with the highest authority will be
+allowed to write. If two writers have the same authority, the writer that opened first
+will be allowed to write. For more information, see the
+[concepts](/reference/concepts/writes#dynamic-control---write-authorities) page on
+writers.
+
+By default, writers are opened with an authority of `ABSOLUTE` i.e. 255. This means that
+no other writers can write to the channel as long as the writer is open.
+
+### Opening a writer with the same authority on all channels
+
+To open a writer with the same authority on all channels, you can pass the `authority`
+argument with an integer.
+
+```python
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["timestamps", "my_precise_tc"],
+    authority=100,
+) as writer:
+    for i in range(100):
+        writer.write({
+            "timestamps": sy.TimeStamp.now(),
+            "my_precise_tc": i,
+        })
+        sy.sleep(0.1)
+```
+
+### Opening a writer with different authorities on each channel
+
+To open a writer with different authorities on each channel, you can pass the
+`authority` argument with a list of integers. This list must be the same length as the
+number of channels in the writer.
+
+```python
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["timestamps", "my_precise_tc"],
+    authority=[100, 200],
+) as writer:
+    for i in range(100):
+        writer.write({
+            "timestamps": sy.TimeStamp.now(),
+            "my_precise_tc": i,
+        })
+        sy.sleep(0.1)
+```
+
+### Adjusting write authorities after open
+
+To change the authority of a writer during operation, just call `set_authority`. This
+method accepts a dictionary with the channel name as the key and the new authority as
+the value.
+
+```python
+# Set the authority on all channels
+writer.set_authority(200)
+# Set the authority on just a few channels
+writer.set_authority({
+    "timestamps": 150,
+    "my_precise_tc": 250,
+})
+```
+
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+
+Writers support dynamic control handoff. Multiple writers can be opened on a channel at
+the same time, but only one writer is allowed to write to the channel. To determine
+which writer has control, an authority from 0 to 255 is assigned to each writer (or,
+optionally, each channel in the writer). The writer with the highest authority will be
+allowed to write. If two writers have the same authority, the writer that opened first
+will be allowed to write. For more information, see the
+[concepts](/reference/concepts/writes#dynamic-control---write-authorities) page on
+writers.
+
+By default, writers are opened with an authority of `ABSOLUTE` i.e. 255. This means that
+no other writers can write to the channel as long as the writer is open.
+
+### Opening a writer with the same authority on all channels
+
+To open a writer with the same authority on all channels, you can pass the `authority`
+argument with an integer.
+
+```typescript
+import { TimeStamp, Series, Frame } from "@synnaxlabs/client";
+
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+  authority: 100,
+});
+```
+
+### Opening a writer with different authorities on each channel
+
+To open a writer with different authorities on each channel, you can pass the
+`authority` argument with a list of integers. This list must be the same length as the
+number of channels in the writer.
+
+```typescript
+import { TimeStamp, Series, Frame } from "@synnaxlabs/client";
+
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+  authority: [100, 200],
+});
+```
+
+### Adjusting write authorities after open
+
+To change the authority of a writer during operation, you can use the `setAuthority`
+method:
+
+```typescript
+// Set the authority on all channels
+await writer.setAuthority(200);
+// Set the authority on just a few channels
+await writer.setAuthority({
+  time: 200,
+  temperature: 100,
+});
+```
+
+    </Note.Note>
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Persistence/Streaming Mode
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+  <Fragment slot="console">
+  </Fragment>
+
+  <Fragment slot="python">
+    <Note.Note variant="warning">
+
+By default, writers are opened in stream + persist
+[mode](/reference/concepts/writes#persistencestreaming-modes). To change the mode of a
+writer, specify the enum value of the `mode` argument when opening the writer. This can
+be `persist`, `stream`, or `persist_stream`.
+
+For example, to open a writer that only persists data:
+
+```python
+import synnax as sy
+
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["timestamps", "my_precise_tc"],
+    mode="persist"
+) as writer:
+    for i in range(100):
+        writer.write({
+            "timestamps": sy.TimeStamp.now(),
+            "my_precise_tc": i,
+        })
+        sy.sleep(0.1)
+```
+
+    </Note.Note>
+  </Fragment>
+
+  <Fragment slot="typescript">
+    <Note.Note variant="info">
+
+By default, writers are opened in stream + persist
+[mode](/reference/concepts/writes#persistencestreaming-modes). To change the mode of a
+writer, specify the value of the `mode` argument when opening the writer. This can be
+`persist`, `stream`, or `persistStream`.
+
+For example, to open a writer that only persists data:
+
+```typescript
+import { TimeStamp, Series, Frame, WriterMode } from "@synnaxlabs/client";
+
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+  mode: "persist",
+});
+```
+
     </Note.Note>
   </Fragment>
 </Client.Tabs>
@@ -180,32 +631,214 @@ If you're looking for simple writes, check out the
 
 ## Common Pitfalls
 
-<Client.Tabs client:load exclude={["cpp"]}>
+<Client.Tabs client:load exclude={["cpp","console"]}>
   <Fragment slot="console">
   </Fragment>
 
-<Fragment slot="python">
-  <Note.Note variant="info">
-    <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-    <a href="/reference/python-client/write-data#common-pitfalls">
-      Python Write Data - Common Pitfalls (complete section)
-    </a>
-  </Note.Note>
-</Fragment>
+  <Fragment slot="python">
+    <Note.Note variant="warning">
+
+There are several common pitfalls to avoid when writing data to a Synnax Core. These are
+important to avoid as they can lead to performance degradation and/or control issues.
+
+### Using Many Individual Write Calls Instead of a Writer
+
+When writing large volumes of data in a streaming fashion (or in batches), it's
+important to use a writer instead of making individual write calls to a channel. Calls
+to `write` on a channel use an entirely new transaction for each call - constantly
+creating, committing, and closing transactions has a dramatic impact on performance. So,
+don't do this:
+
+```python
+time = client.channels.retrieve("timestamps")
+my_tc = client.channels.retrieve("my_precise_tc")
+for i in range(100):
+    # This is a very bad idea
+    ts = sy.TimeStamp.now()
+    time.write(ts, ts)
+    my_tc.write(ts, i)
+```
+
+This is also a bad idea:
+
+```python
+# open and close a transaction for every write
+for i in range(100):
+    with client.open_writer(
+        start=sy.TimeStamp.now(),
+        channels=["timestamps", "my_precise_tc"],
+    ) as writer:
+        writer.write({
+            "timestamps": sy.TimeStamp.now(),
+            "my_precise_tc": i,
+        })
+```
+
+Instead, repeatedly call `write` on a single writer:
+
+```python
+# This is dramatically more efficient
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["timestamps", "my_precise_tc"],
+) as writer:
+    for i in range(100):
+        writer.write({
+            "timestamps": sy.TimeStamp.now(),
+            "my_precise_tc": i,
+        })
+```
+
+### Calling Commit on Every Write
+
+If you've disabled auto-commit, it's important to call `commit` on the writer
+periodically to ensure that the data is persisted to the cluster. However, calling
+`commit` on every write is a bad idea. This is because `commit` requires a round-trip to
+the core to ensure that the data is persisted. This can be very slow if you're writing a
+lot of data. If you're writing a lot of data, commit every few seconds or use
+auto-commit (which is enabled by default).
+
+This is a bad idea:
+
+```python
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["timestamps", "my_precise_tc"],
+) as writer:
+    for i in range(100):
+        writer.write({
+            "timestamps": sy.TimeStamp.now(),
+            "my_precise_tc": i,
+        })
+        writer.commit()
+```
+
+Instead, use auto-commit (which is enabled by default):
+
+```python
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["timestamps", "my_precise_tc"],
+    # Auto-commit is enabled by default
+) as writer:
+    for i in range(100):
+        writer.write({
+            "timestamps": sy.TimeStamp.now(),
+            "my_precise_tc": i,
+        })
+```
+
+    </Note.Note>
+  </Fragment>
 
   <Fragment slot="typescript">
     <Note.Note variant="info">
-      <span style={{ color: "green" }}>Present in corresponding page:</span>{" "}
-        <a href="/reference/typescript-client/write-data#common-pitfalls">TypeScript Write Data - Common Pitfalls (complete section)</a>
+
+There are several common pitfalls to avoid when writing data to a Synnax Core. These are
+important to avoid as they can lead to performance degradation and/or control issues.
+
+### Using Many Individual Write Calls Instead of a Writer
+
+When writing large volumes of data in a streaming fashion (or in batches), it's
+important to use a writer instead of making individual write calls to a channel. Calls
+to `write` on a channel use an entirely new transaction for each call - constantly
+creating, committing, and closing transactions has a dramatic impact on performance. So,
+don't do this:
+
+```typescript
+const time = await client.channels.retrieve("timestamps");
+const my_tc = await client.channels.retrieve("my_precise_tc");
+// This is a very bad idea
+for (let i = 0; i < 100; i++) {
+  const ts = TimeStamp.now();
+  await time.write(ts, ts);
+  await my_tc.write(ts, i);
+}
+```
+
+This is also a bad idea:
+
+```typescript
+for (let i = 0; i < 100; i++) {
+  const writer = await client.openWriter({
+    start: TimeStamp.now(),
+    channels: ["time", "temperature"],
+  });
+  await writer.write({
+    time: TimeStamp.now(),
+    temperature: Math.sin(i / 100),
+  });
+  await writer.close();
+}
+```
+
+Instead, repeatedly call `write` on a single writer:
+
+```typescript
+// This is dramatically more efficient
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+});
+try {
+  for (let i = 0; i < 100; i++)
+    await writer.write({
+      time: TimeStamp.now(),
+      temperature: Math.sin(i / 100),
+    });
+} finally {
+  await writer.close();
+}
+```
+
+### Calling Commit on Every Write
+
+If you've disabled auto-commit, it's important to call `commit` on the writer
+periodically to ensure that the data is persisted to the cluster. However, calling
+`commit` on every write is a bad idea. This is because `commit` requires a round-trip to
+the core to ensure that the data is persisted. This can be very slow if you're writing a
+lot of data. If you're writing a lot of data, commit every few seconds or use
+auto-commit (which is enabled by default).
+
+This is a bad idea:
+
+```typescript
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+});
+try {
+  for (let i = 0; i < 100; i++) {
+    await writer.write({
+      time: TimeStamp.now(),
+      temperature: Math.sin(i / 100),
+    });
+    await writer.commit();
+  }
+} finally {
+  await writer.close();
+}
+```
+
+Instead, use auto-commit (which is enabled by default):
+
+```typescript
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+  // Auto-commit is enabled by default
+});
+try {
+  for (let i = 0; i < 100; i++)
+    await writer.write({
+      time: TimeStamp.now(),
+      temperature: Math.sin(i / 100),
+    });
+} finally {
+  await writer.close();
+}
+```
+
     </Note.Note>
   </Fragment>
 </Client.Tabs>
-
-<Note.Note variant="info">
-  **Note**: This is the complete Common Pitfalls section. A simplified "Common Mistakes"
-  version is in{" "}
-  <a href="/reference/client/fundamentals/write-data#common-mistakes">
-    Fundamentals - Writing Data
-  </a>{" "}
-  for beginners.
-</Note.Note>

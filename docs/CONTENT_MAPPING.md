@@ -19,7 +19,7 @@ unified client documentation structure.
 │   ├── streaming-data.mdx              📝 11 sections
 │   └── iterators.mdx                   🔄 In Progress
 ├── advanced/
-│   ├── writers.mdx                     📝 7 sections
+│   ├── writers.mdx                     🔄 In Progress
 │   ├── delete-data.mdx                 📝 4 sections
 │   └── timestamps.mdx                  📝 5 sections (TS only)
 └── resources/
@@ -39,8 +39,6 @@ python-client/
 │   └── Examples                        📝 → resources/examples
 │
 ├── write-data.mdx
-│   ├── Using a Writer                  📝 → advanced/writers
-│   └── Common Pitfalls                 📝 → advanced/writers
 │
 ├── series-and-frames.mdx
 │   ├── Series                          📝 → working-with-data/series-and-frames
@@ -81,8 +79,6 @@ typescript-client/
 ├── read-data.mdx
 │
 ├── write-data.mdx
-│   ├── Using a Writer                  📝 → advanced/writers
-│   └── Common Pitfalls                 📝 → advanced/writers
 │
 ├── series-and-frames.mdx
 │   ├── Series                          📝 → working-with-data/series-and-frames
@@ -118,11 +114,11 @@ typescript-client/
 
 | Source            | Remaining |
 | ----------------- | --------- |
-| Python Client     | 20        |
-| TypeScript Client | 17        |
+| Python Client     | 18        |
+| TypeScript Client | 15        |
 
 **Breakdown:**
-- Shared sections (in both): ~18 (series/frames, ~~ranges~~, streaming, delete-data, writers, examples)
+- Shared sections (in both): ~16 (series/frames, ~~ranges~~, streaming, delete-data, ~~writers~~, examples)
 - Python-only: ~13 (device-driver, ~~range reads/writes~~, async streamer, troubleshooting)
 - TypeScript-only: ~6 (timestamps, troubleshooting)
 
@@ -148,10 +144,10 @@ typescript-client/
 - [ ] Populate Streaming Data
 - [🔄] Populate Iterators (content transferred, needs cleanup)
 
-### Phase 4: Advanced Topics (📝 SHELLS COMPLETE)
+### Phase 4: Advanced Topics (🔄 IN PROGRESS)
 
 - [x] Create all shell pages
-- [ ] Populate Writers
+- [🔄] Populate Writers (content transferred, needs cleanup)
 - [ ] Populate Delete Data
 - [ ] Populate Timestamps
 
@@ -174,9 +170,9 @@ typescript-client/
 | Get Started       | 2        | ✅ Complete       |
 | Fundamentals      | 3        | ✅ Complete       |
 | Working with Data | 4        | 🔄 2 in progress  |
-| Advanced Topics   | 3        | 📝 Shells created |
+| Advanced Topics   | 3        | 🔄 1 in progress  |
 | Resources         | 2        | 📝 Shells created |
-| **TOTAL**         | **14**   | **5 complete, 2 in progress** |
+| **TOTAL**         | **14**   | **5 complete, 3 in progress** |
 
 ## Notes
 
