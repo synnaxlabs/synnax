@@ -20,16 +20,12 @@ import { CONTROL_NAV } from "@/pages/reference/control/_nav";
 import { CORE_NAV } from "@/pages/reference/core/_nav";
 import { DRIVER_NAV } from "@/pages/reference/driver/_nav";
 import { PLUTO_NAV } from "@/pages/reference/pluto/_nav";
-import { PYTHON_CLIENT_NAV } from "@/pages/reference/python-client/_nav";
-import { TYPESCRIPT_CLIENT_NAV } from "@/pages/reference/typescript-client/_nav";
 
 export const REFERENCE_PAGES: PageNavNode[] = [
   { name: "Get Started", key: "/reference/", href: "/reference/" },
   CONCEPTS_NAV,
   CORE_NAV,
   CLIENT_NAV,
-  TYPESCRIPT_CLIENT_NAV,
-  PYTHON_CLIENT_NAV,
   CONTROL_NAV,
   CONSOLE_NAV,
   DRIVER_NAV,
