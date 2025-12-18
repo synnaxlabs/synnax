@@ -20,39 +20,3 @@ export const components = mdxOverrides;
 
 ## Reading the Latest Data
 
-<Divider.Divider x />
-
-## Using Iterators
-
-While the above methods will cover most use cases, there are situations where it's
-necessary to query large volumes of data. Iterators provide a way to efficiently process
-data in chunks to avoid keeping large amounts of data in memory. By default, Synnax uses
-a chunk size of 100,000 samples. To configure a custom chunk size, set the `chunk_size`
-field in the options argument to the `open_iterator` method with the desired number of
-samples per iteration.
-
-```typescript
-const start = TimeStamp.now();
-const end = start.add(TimeStamp.seconds(10));
-
-const iterator = await client.openIterator(
-  { start, end },
-  ["temperature", "humidity"],
-  {
-    chunkSize: 100,
-  },
-);
-try {
-  for await (const frame of iterator) {
-    const temperature = frame.get("temperature");
-    const humidity = frame.get("humidity");
-    // Process the data
-  }
-} finally {
-  iterator.close();
-}
-```
-
-It's very important to `close` the iterator when you're done with it to free up network
-resources. We highly recommend wrapping the iterator in a `try...finally` block to
-ensure that it's closed properly in the event of an error.

@@ -17,7 +17,7 @@ unified client documentation structure.
 │   ├── series-and-frames.mdx           📝 10 sections
 │   ├── ranges.mdx                      🔄 In Progress
 │   ├── streaming-data.mdx              📝 11 sections
-│   └── iterators.mdx                   📝 4 sections
+│   └── iterators.mdx                   🔄 In Progress
 ├── advanced/
 │   ├── writers.mdx                     📝 7 sections
 │   ├── delete-data.mdx                 📝 4 sections
@@ -36,7 +36,6 @@ Legend: 🔄 = in progress | 📝 = remaining
 ```
 python-client/
 ├── read-data.mdx
-│   ├── Reading with Iterators          📝 → working-with-data/iterators
 │   └── Examples                        📝 → resources/examples
 │
 ├── write-data.mdx
@@ -80,7 +79,6 @@ python-client/
 ```
 typescript-client/
 ├── read-data.mdx
-│   └── Using Iterators                 📝 → working-with-data/iterators
 │
 ├── write-data.mdx
 │   ├── Using a Writer                  📝 → advanced/writers
@@ -120,8 +118,8 @@ typescript-client/
 
 | Source            | Remaining |
 | ----------------- | --------- |
-| Python Client     | 21        |
-| TypeScript Client | 18        |
+| Python Client     | 20        |
+| TypeScript Client | 17        |
 
 **Breakdown:**
 - Shared sections (in both): ~18 (series/frames, ~~ranges~~, streaming, delete-data, writers, examples)
@@ -148,7 +146,7 @@ typescript-client/
 - [ ] Populate Series & Frames
 - [🔄] Populate Ranges (content transferred, needs cleanup)
 - [ ] Populate Streaming Data
-- [ ] Populate Iterators
+- [🔄] Populate Iterators (content transferred, needs cleanup)
 
 ### Phase 4: Advanced Topics (📝 SHELLS COMPLETE)
 
@@ -175,10 +173,10 @@ typescript-client/
 | ----------------- | -------- | ----------------- |
 | Get Started       | 2        | ✅ Complete       |
 | Fundamentals      | 3        | ✅ Complete       |
-| Working with Data | 4        | 🔄 1 in progress  |
+| Working with Data | 4        | 🔄 2 in progress  |
 | Advanced Topics   | 3        | 📝 Shells created |
 | Resources         | 2        | 📝 Shells created |
-| **TOTAL**         | **14**   | **5 complete, 1 in progress** |
+| **TOTAL**         | **14**   | **5 complete, 2 in progress** |
 
 ## Notes
 

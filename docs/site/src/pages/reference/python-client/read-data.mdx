@@ -20,24 +20,6 @@ export const components = mdxOverrides;
 
 <Divider.Divider x />
 
-## Reading with Iterators
-
-Single, multiple, and named reads will cover most use cases, but there are situations
-where it's necessary to process more data than can be stored in memory.
-
-Synnax supports server-side iterators that allow us to process large queries in
-consistently sized chunks. By default, Synnax uses a chunk size of 100,000. To configure
-a custom chunk size, pass in the `chunk_size` argument to the `open_iterator` method
-with the desired number of samples per iteration.
-
-```python
-with client.open_iterator(start, end, "my_precise_tc", chunk_size=100) as it:
-    for frame in it:
-        # Do something with the frame
-```
-
-<Divider.Divider x />
-
 ## Examples
 
 Many of [our examples](/reference/python-client/examples) show how to effectively read
