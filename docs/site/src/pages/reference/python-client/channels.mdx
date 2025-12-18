@@ -24,28 +24,6 @@ export const components = mdxOverrides;
 
 ### Retrieving Multiple Channels
 
-### Retrieving a Channel Using a Range
-
-If you've queried a [range](/reference/python-client/ranges), you can access channels as
-properties. If the channel name is not a valid Python identifier, you can use the
-dictionary accessor instead:
-
-```python
-# Retrieve the range
-test_one = client.ranges.retrieve("02/22/23 Testing")
-
-# Grab a channel like this
-ch = test_one["sensor_one"]
-
-# Or like this
-ch = test_one.sensor_one
-```
-
-<Note.Note variant="info">
-  When using a range, it's possible to retrieve a channel by it's
-  [alias](/reference/python-client/ranges#aliasing-channels) instead of its name.
-</Note.Note>
-
 ### Retrieving Channels Using Regular Expressions
 
 ## Renaming Channels
