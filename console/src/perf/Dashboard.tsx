@@ -17,6 +17,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -28,12 +29,13 @@ import { DegradationDetector, type FPSContext } from "@/perf/analyzer/degradatio
 import { GpuAnalyzer } from "@/perf/analyzer/gpu-analyzer";
 import { LeakDetector } from "@/perf/analyzer/leak-detector";
 import {
+  type CpuReport,
   ZERO_CPU_REPORT,
   ZERO_DEGRADATION_REPORT,
   ZERO_GPU_REPORT,
   ZERO_LEAK_REPORT,
 } from "@/perf/analyzer/types";
-import { SampleBuffer } from "@/perf/metrics/buffer";
+import { type Aggregates, SampleBuffer, ZERO_AGGREGATES } from "@/perf/metrics/buffer";
 import { CpuCollector } from "@/perf/metrics/cpu";
 import { FrameRateCollector } from "@/perf/metrics/framerate";
 import { GpuCollector } from "@/perf/metrics/gpu";
@@ -82,6 +84,21 @@ const STATUS_COLORS: Record<string, string> = {
   success: "var(--pluto-success-z)",
 };
 
+const THRESHOLDS = {
+  fps: { warn: 30, error: 15, inverted: true },
+  fpsDegradation: { warn: 10, error: 15 },
+  cpu: { warn: 50, error: 80 },
+  cpuChange: { warn: 20, error: 40 },
+  gpu: { warn: 80, error: 95 },
+  gpuChange: { warn: 20, error: 40 },
+  heapGrowth: { warn: 5, error: 10 },
+  longTasks: { warn: 5, error: 10 },
+  networkRequests: { warn: 5, error: 10 },
+} as const;
+
+const LIVE_DISPLAY_INTERVAL_MS = 1000;
+const SAMPLE_INTERVAL_MS = 1000;
+
 /** Get status based on threshold. Use inverted=true when lower values are worse (e.g., FPS). */
 const getThresholdStatus = (
   value: number | null,
@@ -98,9 +115,6 @@ const getThresholdStatus = (
   return undefined;
 };
 
-const getWarningStatus = (value: number, threshold: number): Status =>
-  value > threshold ? "warning" : undefined;
-
 const getAvgPeakStatus = (
   avg: number | null,
   peak: number | null,
@@ -109,22 +123,217 @@ const getAvgPeakStatus = (
 ): Status =>
   (avg ?? 0) > avgThreshold || (peak ?? 0) > peakThreshold ? "warning" : undefined;
 
-const formatStartEnd = (
-  start: number | null,
-  end: number | null,
-  zeroAsNull: boolean = false,
+const formatPair = (
+  first: number | null,
+  second: number | null,
+  suffix = "",
 ): string => {
-  const startVal = zeroAsNull && start === 0 ? null : start;
-  const endVal = zeroAsNull && end === 0 ? null : end;
-  const startStr = startVal != null ? startVal.toFixed(1) : "—";
-  const endStr = endVal != null ? endVal.toFixed(1) : "—";
-  return `${startStr} → ${endStr}`;
+  if (first == null && second == null) return "—";
+  const firstStr = first != null ? first.toFixed(1) : "—";
+  const secondStr = second != null ? second.toFixed(1) : "—";
+  return `${firstStr} / ${secondStr}${suffix}`;
 };
 
-const formatAvgPeak = (avg: number | null, peak: number | null): string => {
-  const avgStr = avg != null ? avg.toFixed(1) : "—";
-  const peakStr = peak != null ? peak.toFixed(1) : "—";
-  return `${avgStr} / ${peakStr}%`;
+const formatDelta = (
+  start: number | null,
+  end: number | null,
+  suffix = "",
+): string => {
+  if (start == null || end == null) return "—";
+  const delta = end - start;
+  const sign = delta >= 0 ? "+" : "";
+  return `${sign}${delta.toFixed(1)}${suffix}`;
+};
+
+const formatPercentChange = (percent: number | null, invertSign = false): string => {
+  if (percent == null) return "—";
+  const value = invertSign ? -percent : percent;
+  const sign = value >= 0 ? "+" : "";
+  return `${sign}${value.toFixed(1)}%`;
+};
+
+type MetricType = "fps" | "memory" | "cpu" | "gpu" | "tasks";
+type MetricCategory = "live" | "change" | "stats";
+
+interface MetricDef {
+  key: string;
+  type: MetricType;
+  category: MetricCategory;
+  getValue: () => string;
+  getStatus?: () => Status;
+  tooltip: string;
+}
+
+const TYPE_LABELS: Record<MetricType, string> = {
+  fps: "FPS",
+  memory: "Memory",
+  cpu: "CPU",
+  gpu: "GPU",
+  tasks: "Tasks",
+};
+
+const CATEGORY_LABELS: Record<MetricCategory, string> = {
+  live: "Live",
+  change: "Change",
+  stats: "Stats",
+};
+
+const TYPE_MODE_LABELS: Record<MetricCategory, string> = {
+  live: "Live",
+  change: "Change",
+  stats: "Avg / Min",
+};
+
+const TYPE_ORDER: MetricType[] = ["fps", "memory", "cpu", "gpu", "tasks"];
+const CATEGORY_ORDER: MetricCategory[] = ["live", "change", "stats"];
+
+const groupMetrics = <K extends string>(
+  metrics: MetricDef[],
+  getKey: (m: MetricDef) => K,
+  order: K[],
+): Map<K, MetricDef[]> => {
+  const groups = new Map<K, MetricDef[]>();
+  for (const key of order) groups.set(key, []);
+  for (const metric of metrics) {
+    const key = getKey(metric);
+    groups.get(key)?.push(metric);
+  }
+  return groups;
+};
+
+type ResourceReport = Omit<CpuReport, "detected">;
+
+const createFpsMetrics = (
+  liveValue: () => number,
+  degradationPercent: () => number | null,
+  hasData: () => boolean,
+  avgFps: () => number | null,
+  minFps: () => number | null,
+): MetricDef[] => [
+  {
+    key: "fps-live",
+    type: "fps",
+    category: "live",
+    getValue: () => liveValue().toFixed(1),
+    getStatus: () =>
+      getThresholdStatus(
+        liveValue(),
+        THRESHOLDS.fps.warn,
+        THRESHOLDS.fps.error,
+        THRESHOLDS.fps.inverted,
+      ),
+    tooltip: `Current FPS (warn <${THRESHOLDS.fps.warn}, error <${THRESHOLDS.fps.error})`,
+  },
+  {
+    key: "fps-change",
+    type: "fps",
+    category: "change",
+    getValue: () => formatPercentChange(hasData() ? degradationPercent() : null, true),
+    getStatus: () =>
+      getThresholdStatus(
+        degradationPercent(),
+        THRESHOLDS.fpsDegradation.warn,
+        THRESHOLDS.fpsDegradation.error,
+      ),
+    tooltip: `FPS change during session (warn >${THRESHOLDS.fpsDegradation.warn}%, error >${THRESHOLDS.fpsDegradation.error}%)`,
+  },
+  {
+    key: "fps-stats",
+    type: "fps",
+    category: "stats",
+    getValue: () => formatPair(avgFps(), minFps()),
+    getStatus: () =>
+      getThresholdStatus(
+        minFps(),
+        THRESHOLDS.fps.warn,
+        THRESHOLDS.fps.error,
+        THRESHOLDS.fps.inverted,
+      ),
+    tooltip: `Average and minimum FPS (warn <${THRESHOLDS.fps.warn}, error <${THRESHOLDS.fps.error})`,
+  },
+];
+
+/** Factory to create Memory metric definitions */
+const createMemoryMetrics = (
+  liveHeap: () => number | null,
+  growthPercent: () => number | null,
+  hasData: () => boolean,
+  avgHeap: () => number | null,
+  peakHeap: () => number | null,
+): MetricDef[] => [
+  {
+    key: "memory-live",
+    type: "memory",
+    category: "live",
+    getValue: () => formatMB(liveHeap()),
+    tooltip: "Current heap usage",
+  },
+  {
+    key: "memory-change",
+    type: "memory",
+    category: "change",
+    getValue: () => formatPercentChange(hasData() ? growthPercent() : null),
+    getStatus: () =>
+      getThresholdStatus(
+        growthPercent(),
+        THRESHOLDS.heapGrowth.warn,
+        THRESHOLDS.heapGrowth.error,
+      ),
+    tooltip: `Heap change during session (warn >${THRESHOLDS.heapGrowth.warn}%, error >${THRESHOLDS.heapGrowth.error}%)`,
+  },
+  {
+    key: "memory-stats",
+    type: "memory",
+    category: "stats",
+    getValue: () => formatPair(avgHeap(), peakHeap(), " MB"),
+    tooltip: "Average and peak heap usage",
+  },
+];
+
+const createResourceMetrics = (
+  type: "cpu" | "gpu",
+  liveValue: () => number | null,
+  report: ResourceReport,
+  thresholds: { warn: number; error: number },
+  changeThresholds: { warn: number; error: number },
+): MetricDef[] => {
+  const label = type.toUpperCase();
+  return [
+    {
+      key: `${type}-live`,
+      type,
+      category: "live",
+      getValue: () => formatPercent(liveValue()),
+      getStatus: () => getThresholdStatus(liveValue(), thresholds.warn, thresholds.error),
+      tooltip: `Current ${label} (warn >${thresholds.warn}%, error >${thresholds.error}%)`,
+    },
+    {
+      key: `${type}-change`,
+      type,
+      category: "change",
+      getValue: () => formatDelta(report.startPercent, report.endPercent, "%"),
+      getStatus: () => {
+        if (report.startPercent == null || report.endPercent == null) return undefined;
+        const delta = Math.abs(report.endPercent - report.startPercent);
+        return getThresholdStatus(delta, changeThresholds.warn, changeThresholds.error);
+      },
+      tooltip: `${label} change during session (warn >${changeThresholds.warn}%, error >${changeThresholds.error}%)`,
+    },
+    {
+      key: `${type}-stats`,
+      type,
+      category: "stats",
+      getValue: () => formatPair(report.avgPercent, report.peakPercent, "%"),
+      getStatus: () =>
+        getAvgPeakStatus(
+          report.avgPercent,
+          report.peakPercent,
+          thresholds.warn,
+          thresholds.error,
+        ),
+      tooltip: `Average and peak ${label} (warn >${thresholds.warn}%, error >${thresholds.error}%)`,
+    },
+  ];
 };
 
 interface MetricRowProps {
@@ -216,6 +425,150 @@ const Section = memo(({
 });
 Section.displayName = "Section";
 
+interface MetricSectionsProps {
+  groupByType: boolean;
+  liveMetrics: LiveMetrics;
+  aggregates: Aggregates;
+  latestSample: MetricSample | null;
+  degradationReport: ReturnType<typeof useSelectDegradationReport>;
+  leakReport: ReturnType<typeof useSelectLeakReport>;
+  cpuReport: ReturnType<typeof useSelectCpuReport>;
+  gpuReport: ReturnType<typeof useSelectGpuReport>;
+}
+
+const MetricSections = memo(
+  ({
+    groupByType,
+    liveMetrics,
+    aggregates,
+    latestSample,
+    degradationReport,
+    leakReport,
+    cpuReport,
+    gpuReport,
+  }: MetricSectionsProps): ReactElement => {
+    // Build metric definitions on each render. Memoization would be ineffective here
+    // because props update every LIVE_DISPLAY_INTERVAL_MS, invalidating any cache.
+    const metrics: MetricDef[] = [
+      ...createFpsMetrics(
+        () => liveMetrics.frameRate,
+        () => degradationReport.frameRateDegradationPercent,
+        () => latestSample != null,
+        () => aggregates.avgFps,
+        () => aggregates.minFps,
+      ),
+
+      ...createMemoryMetrics(
+        () => liveMetrics.heapUsedMB,
+        () => leakReport.heapGrowthPercent,
+        () => latestSample != null,
+        () => aggregates.avgHeap,
+        () => aggregates.peakHeap,
+      ),
+
+      ...createResourceMetrics(
+        "cpu",
+        () => liveMetrics.cpuPercent,
+        cpuReport,
+        THRESHOLDS.cpu,
+        THRESHOLDS.cpuChange,
+      ),
+
+      ...createResourceMetrics(
+        "gpu",
+        () => liveMetrics.gpuPercent,
+        gpuReport,
+        THRESHOLDS.gpu,
+        THRESHOLDS.gpuChange,
+      ),
+
+      {
+        key: "tasks-long",
+        type: "tasks",
+        category: "live",
+        getValue: () => latestSample?.longTaskCount.toString() ?? "—",
+        getStatus: () =>
+          getThresholdStatus(
+            latestSample?.longTaskCount ?? null,
+            THRESHOLDS.longTasks.warn,
+            THRESHOLDS.longTasks.error,
+          ),
+        tooltip: `Tasks blocking main thread >50ms (warn >${THRESHOLDS.longTasks.warn}, error >${THRESHOLDS.longTasks.error})`,
+      },
+      {
+        key: "tasks-network",
+        type: "tasks",
+        category: "live",
+        getValue: () => latestSample?.networkRequestCount.toString() ?? "—",
+        getStatus: () =>
+          getThresholdStatus(
+            latestSample?.networkRequestCount ?? null,
+            THRESHOLDS.networkRequests.warn,
+            THRESHOLDS.networkRequests.error,
+          ),
+        tooltip: `Network requests (warn >${THRESHOLDS.networkRequests.warn}, error >${THRESHOLDS.networkRequests.error})`,
+      },
+    ];
+
+    const getLabel = useCallback(
+      (metric: MetricDef): string => {
+        if (metric.type === "tasks")
+          return metric.key === "tasks-long" ? "Long Tasks" : "Network";
+        // Grouped by type (FPS, Memory, etc.) - show category as label
+        if (groupByType) return TYPE_MODE_LABELS[metric.category];
+        // Grouped by category (Live, Change, Stats) - show type as label
+        return TYPE_LABELS[metric.type];
+      },
+      [groupByType],
+    );
+
+    // Helper to render metric rows
+    const renderMetricRows = useCallback(
+      (metricsToRender: MetricDef[]) =>
+        metricsToRender.map((metric) => (
+          <MetricRow
+            key={metric.key}
+            label={getLabel(metric)}
+            value={metric.getValue()}
+            status={metric.getStatus?.()}
+            tooltip={metric.tooltip}
+          />
+        )),
+      [getLabel],
+    );
+
+    const taskMetrics = metrics.filter((m) => m.type === "tasks");
+    const nonTaskMetrics = metrics.filter((m) => m.type !== "tasks");
+
+    if (groupByType) {
+      const grouped = groupMetrics(metrics, (m) => m.type, TYPE_ORDER);
+      return (
+        <>
+          {Array.from(grouped.entries()).map(([type, typeMetrics]) => (
+            <Section key={type} title={TYPE_LABELS[type]}>
+              {renderMetricRows(typeMetrics)}
+            </Section>
+          ))}
+        </>
+      );
+    }
+
+    const grouped = groupMetrics(nonTaskMetrics, (m) => m.category, CATEGORY_ORDER);
+
+    return (
+      <>
+        {Array.from(grouped.entries()).map(([category, catMetrics]) => (
+          <Section key={category} title={CATEGORY_LABELS[category]}>
+            {renderMetricRows(catMetrics)}
+          </Section>
+        ))}
+        <Section title="Tasks">{renderMetricRows(taskMetrics)}</Section>
+      </>
+    );
+  },
+);
+MetricSections.displayName = "MetricSections";
+
 export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElement => {
   const dispatch = useDispatch();
   const status = useSelectStatus();
@@ -239,6 +592,12 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
 
   // Track latest sample for network requests display
   const [latestSample, setLatestSample] = useState<MetricSample | null>(null);
+
+  // Track aggregates from buffer for stats display
+  const [aggregates, setAggregates] = useState<Aggregates>(ZERO_AGGREGATES);
+
+  // Grouping mode: "time" (Live, Changes) or "type" (Live, Delta, Stats)
+  const [groupByType, setGroupByType] = useState(false);
 
   // Collectors - shared between live display and test recording
   const collectorsRef = useRef({
@@ -274,12 +633,32 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
   // Helper to run analysis and dispatch results (used by both periodic and final effects)
   const runAnalysis = useCallback(
     (endFPS: number, endCPU: number | null, endGPU: number | null) => {
+      const captured = capturedRef.current;
+
+      if (captured.initialCPU == null && endCPU != null) {
+        captured.initialCPU = endCPU;
+        dispatch(
+          Perf.setCpuReport({
+            ...ZERO_CPU_REPORT,
+            startPercent: math.roundTo(endCPU),
+          }),
+        );
+      }
+      if (captured.initialGPU == null && endGPU != null) {
+        captured.initialGPU = endGPU;
+        dispatch(
+          Perf.setGpuReport({
+            ...ZERO_GPU_REPORT,
+            startPercent: math.roundTo(endGPU),
+          }),
+        );
+      }
+
       const buffer = sampleBufferRef.current;
       const allSamples = buffer.getAllSamples();
       if (allSamples.length < 2) return;
 
       const analyzers = analyzersRef.current;
-      const captured = capturedRef.current;
 
       const leakResult = analyzers.leak.analyze(
         allSamples
@@ -357,7 +736,7 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
         heapUsedMB: c.heap?.getHeapUsedMB() ?? null,
         heapTotalMB: c.heap?.getHeapTotalMB() ?? null,
       });
-    }, 500);
+    }, LIVE_DISPLAY_INTERVAL_MS);
 
     return () => {
       clearInterval(liveInterval);
@@ -381,8 +760,9 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
         const sample = collectSample();
         sampleBufferRef.current.push(sample);
         setLatestSample(sample);
+        setAggregates(sampleBufferRef.current.getAggregates());
         runAnalysis(sample.frameRate, sample.cpuPercent, sample.gpuPercent);
-      }, 1000);
+      }, SAMPLE_INTERVAL_MS);
     } else if (sampleIntervalRef.current != null) {
       // Stop recording
       clearInterval(sampleIntervalRef.current);
@@ -471,6 +851,7 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
       captured.initialFPS = 0;
       captured.finalFPS = 0;
       setLatestSample(null);
+      setAggregates(ZERO_AGGREGATES);
 
       c.longTask?.reset();
       c.network?.reset();
@@ -485,50 +866,69 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
     runAnalysis(captured.finalFPS, captured.finalCPU, captured.finalGPU);
   }, [status, runAnalysis]);
 
-  const handleStart = () => dispatch(Perf.start(undefined));
-  const handleStop = () => dispatch(Perf.stop());
-  const handleReset = () => dispatch(Perf.reset());
+  const handleStart = useCallback(() => dispatch(Perf.start(undefined)), [dispatch]);
+  const handleStop = useCallback(() => dispatch(Perf.stop()), [dispatch]);
+  const handleReset = useCallback(() => dispatch(Perf.reset()), [dispatch]);
 
-  const buttonConfigs: Record<
-    string,
-    {
-      icon: ReactElement;
-      text: string;
-      handler: () => void;
-      variant: "filled" | "outlined";
+  // Auto-start profiling when dashboard opens
+  const hasAutoStarted = useRef(false);
+  useEffect(() => {
+    if (!hasAutoStarted.current && status === "idle") {
+      hasAutoStarted.current = true;
+      dispatch(Perf.start(undefined));
     }
-  > = {
-    idle: {
-      icon: <Icon.Play />,
-      text: "Start",
-      handler: handleStart,
-      variant: "filled",
-    },
-    running: {
-      icon: <Icon.Pause />,
-      text: formatTime(elapsedSeconds),
-      handler: handleStop,
-      variant: "outlined",
-    },
-    completed: {
-      icon: <Icon.Refresh />,
-      text: formatTime(elapsedSeconds),
-      handler: handleReset,
-      variant: "outlined",
-    },
-    error: {
-      icon: <Icon.Refresh />,
-      text: "Reset",
-      handler: handleReset,
-      variant: "outlined",
-    },
-  };
-  const btn = buttonConfigs[status] ?? buttonConfigs.idle;
+  }, [status, dispatch]);
+
+  const buttonConfigs = useMemo(
+    () => ({
+      idle: {
+        icon: <Icon.Play />,
+        text: "Start",
+        handler: handleStart,
+        variant: "filled" as const,
+      },
+      running: {
+        icon: <Icon.Pause />,
+        text: formatTime(elapsedSeconds),
+        handler: handleStop,
+        variant: "outlined" as const,
+      },
+      paused: {
+        icon: <Icon.Play />,
+        text: formatTime(elapsedSeconds),
+        handler: handleStart,
+        variant: "outlined" as const,
+      },
+      completed: {
+        icon: <Icon.Refresh />,
+        text: formatTime(elapsedSeconds),
+        handler: handleReset,
+        variant: "outlined" as const,
+      },
+      error: {
+        icon: <Icon.Refresh />,
+        text: "Reset",
+        handler: handleReset,
+        variant: "outlined" as const,
+      },
+    }),
+    [elapsedSeconds, handleStart, handleStop, handleReset],
+  );
+  const btn = buttonConfigs[status];
 
   return (
     <Flex.Box y className="console-perf-dashboard" grow>
       <Header.Header level="h4">
-        <Header.Actions>
+        <Header.Actions grow>
+          <Button.Button
+            variant="text"
+            size="tiny"
+            onClick={() => setGroupByType(!groupByType)}
+          >
+            <Icon.Filter />
+            {groupByType ? "By Resource" : "By Category"}
+          </Button.Button>
+          <Flex.Box grow />
           <Button.Button variant={btn.variant} size="tiny" onClick={btn.handler}>
             {btn.icon}
             {btn.text}
@@ -536,113 +936,16 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
         </Header.Actions>
       </Header.Header>
 
-      {/* Live Metrics Section */}
-      <Section title="Live">
-        <MetricRow
-          label="Frame Rate"
-          value={`${liveMetrics.frameRate.toFixed(1)} FPS`}
-          status={getThresholdStatus(liveMetrics.frameRate, 30, 15, true)}
-          tooltip="Current frames per second. Target is 60 FPS. Warning below 30, error below 15."
-        />
-        <MetricRow
-          label="Memory"
-          value={formatMB(liveMetrics.heapUsedMB)}
-          tooltip="Current process memory usage."
-        />
-        <MetricRow
-          label="CPU"
-          value={formatPercent(liveMetrics.cpuPercent)}
-          status={getThresholdStatus(liveMetrics.cpuPercent, 50, 80)}
-          tooltip="Current CPU usage. Warning above 50%, error above 80%."
-        />
-        <MetricRow
-          label="GPU"
-          value={formatPercent(liveMetrics.gpuPercent)}
-          status={getThresholdStatus(liveMetrics.gpuPercent, 80, 95)}
-          tooltip="Current GPU utilization. Warning above 80%, error above 95%."
-        />
-      </Section>
-
-      {/* Changes Section */}
-      <Section title="Changes">
-        <MetricRow
-          label="FPS Drop"
-          value={`${degradationReport.frameRateDegradationPercent.toFixed(1)}%`}
-          status={getThresholdStatus(
-            degradationReport.frameRateDegradationPercent,
-            10,
-            15,
-          )}
-          tooltip="Percentage decrease in frame rate. Warning at >10%, error at >15%."
-        />
-        <MetricRow
-          label="Heap Growth"
-          value={`${leakReport.heapGrowthPercent.toFixed(1)}%`}
-          status={getWarningStatus(leakReport.heapGrowthPercent, 20)}
-          tooltip="Percentage change in heap memory. Warning at >20%."
-        />
-        <MetricRow
-          label="Avg / Peak CPU"
-          value={formatAvgPeak(cpuReport.avgPercent, cpuReport.peakPercent)}
-          status={getAvgPeakStatus(cpuReport.avgPercent, cpuReport.peakPercent, 50, 80)}
-          tooltip="Average and peak CPU usage. Warning if avg >50% or peak >80%."
-        />
-        <MetricRow
-          label="Avg / Peak GPU"
-          value={formatAvgPeak(gpuReport.avgPercent, gpuReport.peakPercent)}
-          status={getAvgPeakStatus(gpuReport.avgPercent, gpuReport.peakPercent, 80, 95)}
-          tooltip="Average and peak GPU usage. Warning if avg >80% or peak >95%."
-        />
-      </Section>
-
-      {/* Start/End Section */}
-      <Section title="Start / End">
-        <MetricRow
-          label="FPS"
-          value={formatStartEnd(
-            degradationReport.averageFrameRateStart,
-            degradationReport.averageFrameRateEnd,
-            true,
-          )}
-          status={getWarningStatus(degradationReport.frameRateDegradationPercent, 15)}
-          tooltip="Frame rate at the start vs end of the test."
-        />
-        <MetricRow
-          label="Heap (MB)"
-          value={formatStartEnd(leakReport.heapStartMB, leakReport.heapEndMB, true)}
-          status={getWarningStatus(leakReport.heapGrowthPercent, 20)}
-          tooltip="Heap memory usage at start vs end of test."
-        />
-        <MetricRow
-          label="CPU (%)"
-          value={formatStartEnd(cpuReport.startPercent, cpuReport.endPercent)}
-          tooltip="CPU usage at start vs end of test."
-        />
-        <MetricRow
-          label="GPU (%)"
-          value={formatStartEnd(gpuReport.startPercent, gpuReport.endPercent)}
-          tooltip="GPU usage at start vs end of test."
-        />
-      </Section>
-
-      {/* Tasks Section */}
-      <Section title="Tasks">
-        <MetricRow
-          label="Long Tasks"
-          value={latestSample?.longTaskCount.toString() ?? "—"}
-          status={
-            latestSample != null && latestSample.longTaskCount > 5
-              ? "warning"
-              : undefined
-          }
-          tooltip="JavaScript tasks blocking the main thread for >50ms. High counts indicate UI jank."
-        />
-        <MetricRow
-          label="Network Requests"
-          value={latestSample?.networkRequestCount.toString() ?? "—"}
-          tooltip="Fetch/XHR requests made since last sample."
-        />
-      </Section>
+      <MetricSections
+        groupByType={groupByType}
+        liveMetrics={liveMetrics}
+        aggregates={aggregates}
+        latestSample={latestSample}
+        degradationReport={degradationReport}
+        leakReport={leakReport}
+        cpuReport={cpuReport}
+        gpuReport={gpuReport}
+      />
 
       {status === "error" && (
         <Text.Text status="error" className="console-perf-error">
