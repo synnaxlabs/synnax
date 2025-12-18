@@ -24,7 +24,7 @@ unified client documentation structure.
 │   └── timestamps.mdx                  🔄 In Progress (TS only)
 └── resources/
     ├── examples.mdx                    🔄 In Progress
-    └── build-device-driver.mdx         📝 6 sections (Python only)
+    └── build-device-driver.mdx         🔄 In Progress (Python only)
 ```
 
 ## Sections Remaining to Transfer
@@ -35,12 +35,6 @@ Legend: 🔄 = in progress | 📝 = remaining
 
 ```
 python-client/
-│
-├── device-driver.mdx
-│   ├── Setup and Installation          📝 → resources/build-device-driver
-│   ├── Read-Only Driver                📝 → resources/build-device-driver
-│   ├── Write-Only Driver               📝 → resources/build-device-driver
-│   └── Read-Write Driver               📝 → resources/build-device-driver
 │
 │
 └── troubleshooting.mdx                 📝 → TBD (migration strategy needed)
@@ -62,12 +56,12 @@ typescript-client/
 
 | Source            | Remaining |
 | ----------------- | --------- |
-| Python Client     | 7         |
+| Python Client     | 3         |
 | TypeScript Client | 2         |
 
 **Breakdown:**
 - Shared sections (in both): ~14 (~~series/frames~~, ~~ranges~~, ~~streaming~~, ~~delete-data~~, ~~writers~~, ~~examples~~)
-- Python-only: ~13 (device-driver, ~~range reads/writes~~, ~~async streamer~~, troubleshooting)
+- Python-only: ~13 (~~device-driver~~, ~~range reads/writes~~, ~~async streamer~~, troubleshooting)
 - TypeScript-only: ~6 (~~timestamps~~, troubleshooting)
 
 ## Implementation Checklist
@@ -103,7 +97,7 @@ typescript-client/
 
 - [x] Create all shell pages
 - [🔄] Populate Examples page (content transferred, needs cleanup)
-- [ ] Populate Build Device Driver
+- [🔄] Populate Build Device Driver (content transferred, needs cleanup)
 
 ### Phase 6: Cleanup
 
@@ -119,8 +113,8 @@ typescript-client/
 | Fundamentals      | 3        | ✅ Complete       |
 | Working with Data | 4        | 🔄 4 in progress  |
 | Advanced Topics   | 3        | 🔄 3 in progress  |
-| Resources         | 2        | 🔄 1 in progress  |
-| **TOTAL**         | **14**   | **5 complete, 8 in progress** |
+| Resources         | 2        | 🔄 2 in progress  |
+| **TOTAL**         | **14**   | **5 complete, 9 in progress** |
 
 ## Notes
 

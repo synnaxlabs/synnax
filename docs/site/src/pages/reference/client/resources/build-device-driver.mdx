@@ -12,6 +12,10 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
+<Note.Note variant="error">
+  TODO: Refactor page
+</Note.Note>
+
 This guide covers building custom device drivers in Python to integrate hardware that
 isn't natively supported by Synnax's built-in drivers. This is useful for prototyping or
 integrating specialized hardware.
@@ -141,3 +145,808 @@ C++ drivers offer better performance, built-in device pooling, cross-platform su
 and integration with the Synnax task system.
 
 </Note.Note>
+
+<Divider.Divider x />
+
+<Note.Note variant="error">
+  TODO: Refactor Below into the above sections
+</Note.Note>
+
+{/* ============ MIGRATED CONTENT FROM python-client/device-driver.mdx ============ */}
+
+import { Image, Video } from "@/components/Media";
+import StepText from "@/components/StepText.astro";
+import Code from "@/components/code/Code.astro";
+import Details from "@/components/details/Details.astro";
+
+While the [Synnax Driver](/reference/driver) is great for the devices we support, you
+may need (or want) to integrate your own devices with Synnax. This guide will walk you
+through the process of building a reliable, performant driver using the Synnax Python
+client. We'll use an Arduino as an example device, but the process is very similar for
+other devices.
+
+### Outline
+
+We'll split this guide into four sections:
+
+1. [Setup and Installation](#setup-and-installation)
+2. [Making a Read-Only Driver](#read-only-driver)
+3. [Making a Write-Only Driver](#write-only-driver)
+4. [Making a Read-Write Driver](#read-write-driver)
+
+<Divider.Divider x />
+
+## <StepText step={1} level="h2">Setup and Installation</StepText>
+
+We'll kick things off by downloading the Arduino IDE, starting a Synnax Core, and
+installing the relevant Python packages to communicate with both the Arduino and Synnax.
+
+### <StepText step="1.1" level="h3">Downloading the Arduino IDE</StepText>
+
+The best way to get started with the Arduino is to download and run the
+[Arduino IDE](https://www.arduino.cc/en/software).
+
+We'll be using an
+[Arduino Mega 2560](https://store.arduino.cc/products/arduino-mega-2560-rev3) for this
+guide, but any Arduino board will work.
+
+After you open the Arduino IDE, you'll see a splash screen like this:
+
+<Image
+  client:only="react"
+  id="guides/software/arduino-splashscreen"
+  themed={false}
+  style={{ maxWidth: 500 }}
+/>
+
+This is where we'll add our Arduino code to communicate with Python, and, ultimately,
+Synnax.
+
+### <StepText step="1.2" level="h3">Installing Synnax</StepText>
+
+There are two components we need to install to get started with Synnax: the
+[Core](/reference/core/quick-start) and the [Console](/reference/console/get-started).
+The Core is the central Synnax database that streams and permanently stores all of the
+data we collect from the Arduino. The Console is a graphical interface for interacting
+with the Core. It can be used to both visualize incoming data and send commands to the
+Arduino.
+
+#### <StepText step="1.2.1" level="h4">The Core</StepText>
+
+The easiest way to install the Core is using
+[Docker](https://www.docker.com/get-started). To run the latest version, you can use the
+following command:
+
+```bash
+docker run -d --name synnax -p 9090:9090 synnaxlabs/synnax:latest -i
+```
+
+The `-d` flag tells Docker to run the container in the background. The `-p 9090:9090`
+tells Docker to map port 9090 of the container to port 9090 on the host machine, and the
+`-i` flag tells the container to run without encryption enabled. If you don't completely
+understand what this means, that's totally ok.
+
+To check that the container is running, you can use the following command:
+
+```bash
+docker ps
+```
+
+This should return something like the following:
+
+```
+CONTAINER ID   IMAGE                      COMMAND                  CREATED              STATUS              PORTS                    NAMES
+6f9dc7d9b2ad   synnaxlabs/synnax:latest   "/synnax/synnax star…"   About a minute ago   Up About a minute   0.0.0.0:9090->9090/tcp   synnax
+```
+
+#### <StepText step="1.2.2" level="h4"> The Console</StepText>
+
+Now that we have the Core running, it's time to download and run the
+[Synnax Console](https://docs.synnaxlabs.com/reference/console/get-started).
+
+Once you've downloaded the Console, you can run it by finding the "Synnax" app in your
+start menu or launch pad. After it boots up, you'll see a screen like this:
+
+<Image id="console/get-started/window" client:only="react" />
+
+The next step is to connect the Console to the Core we just started. To do this,
+navigate to the Core Selector in the top-right corner of the Console, and click on the
+pre-populated "Local" option. You'll see the chip switch to "Connected" once the Console
+has successfully connected to the Core.
+
+<Video client:only="react" id="console/clusters/switch" />
+
+### <StepText step="1.2.3" level="h4">Installing the Python Packages</StepText>
+
+There are two Python packages we need to install to get started with our custom driver:
+the Synnax Python client, and the `pyserial` package.
+
+To install the Synnax Python client, run:
+
+```bash
+pip install synnax
+```
+
+To install the `pyserial` package, run:
+
+```bash
+pip install pyserial
+```
+
+We're going to be installing these packages without a virtual environment, although you
+are free to use one if you'd like. We'll also be working in a file called `driver.py`
+that we'll put in a `arduino-synnax` folder within our `Desktop` directory. This
+location is arbitrary, so you're free to put it wherever you'd like.
+
+<Divider.Divider x />
+
+## <StepText step={2} level="h2">Read-Only Driver</StepText>
+
+Now that the setup is out of the way, it's time to get started on the read-only driver.
+We'll set up the Arduino to continuously read from an analog input and send the value
+over serial. Our Python script will capture each incoming value and write it to a
+[channel](/reference/concepts/channels) in Synnax. This may sound complicated, but it's
+actually going to total around 50 lines of code.
+
+### <StepText step="2.1" level="h3">Arduino Code</StepText>
+
+The first thing we need to do is get the Arduino prepped and ready to communicate over
+serial with our Python driver. Here's the code we'll write in the Arduino IDE:
+
+```cpp
+// Analog pin to read the value
+const int analogPin = A0;
+
+void setup() {
+// Set the baud rate to 9600 bps
+  Serial.begin(9600);
+}
+
+void loop() {
+  // Read from the analog pin
+  float analogValue = analogRead(analogPin);
+  // Write to the serial bus
+  Serial.println(analogValue);
+  // Delay by 100ms, which means we'll roughly take measurements at 10Hz
+  delay(100);
+}
+```
+
+This code will continuously read from the analog pin at 10Hz and send the value over
+serial. To start running the code, you can upload it to the Arduino by hitting the
+"upload" button in the top-right corner of the Arduino IDE.
+
+### <StepText step="2.2" level="h3">Setting up the Serial Connection in Python</StepText>
+
+In our `driver.py` script, we'll import the `serial` package and set up the serial
+connection to the Arduino. To do this, we'll need to know the port we're using to
+connect to the Arduino. You can find that in the top-right corner of the Arduino IDE
+when the Arduino is connected to your computer over USB. We'll also need the baud rate,
+which we set to 9600 in the Arduino code.
+
+```python
+import serial
+
+PORT = "/dev/ttyACM0"
+BAUD_RATE = 9600
+
+ser = serial.Serial(PORT, BAUD_RATE)
+if ser.is_open:
+    print("Serial connection established")
+else:
+    print("Failed to establish serial connection")
+```
+
+To verify that everything works, we'll run the script and see if the output indicates
+that the serial connection was established successfully.
+
+```shell
+python driver.py
+# Output
+Serial connection established
+```
+
+### <StepText step="2.3" level="h3">Reading from the Arduino</StepText>
+
+To read from the Arduino, we'll use the `ser.readline()` method, which will read a line
+from the serial port and return it as a string. We'll then convert the string to a float
+and store it in the `value` variable.
+
+```python
+value = float(ser.readline().decode("utf-8").rstrip())
+```
+
+To repeat this process continuously, we'll modify our existing script to run in a loop.
+
+```python
+import serial
+
+PORT = "/dev/ttyACM0"
+BAUD_RATE = 9600
+
+ser = serial.Serial(PORT, BAUD_RATE)
+
+while True:
+    value = float(ser.readline().decode("utf-8").rstrip())
+    print(value)
+```
+
+This loop will continuously read from the Arduino and print the value to the console.
+That's all we need to do for the Arduino, now it's time to integrate it with Synnax.
+
+### <StepText step="2.4" level="h3">Setting up the Synnax Client</StepText>
+
+The next step to tackle is setting up the Synnax client to communicate with the Core.
+First, we'll add an import for the `synnax` package at the top of our file:
+
+```python
+import synnax as sy
+import serial
+
+# ... rest of driver.py
+```
+
+Then, we'll create a `Client` instance to interact with the Synnax Core.
+
+```python
+# ..imports
+
+client = sy.Synnax(
+    host="localhost",
+    port=9090,
+    username="synnax",
+    password="seldon",
+)
+
+# ... rest of driver.py
+```
+
+Next, we need to create **two** channels in Synnax. Why two? For storing data, Synnax
+requires us to create an _index_ channel. An index channel stores timestamps for the
+samples that we collect, and is used so that synnax can look up the samples in our data
+channels at a later time.
+
+The second channel, a _data_ channel, is used to store the samples themselves. This data
+channel will be _indexed_ by the timestamps stored in the first channel. We'll name the
+channels `arduino_time` and `arduino_value`.
+
+```python
+# ... imports
+
+client = sy.Synnax(
+    # ... connection parameters
+)
+
+index_channel = client.channels.create(
+    name="arduino_time",
+    # Set is_index to True to create an index channel
+    is_index=True,
+    # Tell Synnax that we'll be storing timestamps in this channel
+    data_type="timestamp",
+    # If a channel with this name already exists, Synnax will return it instead of
+    # creating a new one. This is useful if we restart the driver and want to keep the
+    # existing channels.
+    retrieve_if_name_exists=True,
+)
+
+data_channel = client.channels.create(
+    name="arduino_value",
+    # Set the index to the key of the index channel, so that "arduino_value" is indexed
+    # by "arduino_time"
+    index=index_channel.key,
+    # Tell Synnax that we'll be storing float32s in this channel
+    data_type="float32",
+    # If a channel with this name already exists, Synnax will return it instead of
+    # creating a new one. This is useful if we restart the driver and want to keep the
+    # existing channels.
+    retrieve_if_name_exists=True,
+)
+
+# ... rest of driver.py
+```
+
+### <StepText step="2.5" level="h3">Modifying the Loop to Write to Synnax</StepText>
+
+Now that we have our Synnax client and the relevant channels created, it's time to
+adjust our current loop to write to Synnax. The first thing we'll do is open a new
+writer to the `arduino_time` and `arduino_value` channels. Writers are the primary
+method for writing data to Synnax, and are created by calling the `open_writer` method
+on the client we created.
+
+```python
+# ... imports, client, channel creation, and serial connection
+
+with client.open_writer(
+    # We need to provide a start time for the writer, which tells
+    # Synnax where to begin writing data. We'll use the current time.
+    start=sy.TimeStamp.now(),
+    # The list of channels we'll be writing to.
+    channels=["arduino_time", "arduino_value"]
+) as writer:
+    while True:
+        # Read from the serial connection
+        value = float(ser.readline().decode("utf-8").rstrip())
+        print(value)
+        writer.write({
+            # The timestamp of when the data was read
+            "arduino_time": sy.TimeStamp.now(),
+            # The value read from the serial connection
+            "arduino_value": value,
+        })
+```
+
+Once we've finished these modifications, we can run the script and see the values
+pouring in from the Arduino. Here's the entire script for reference:
+
+<Details>
+<span slot="summary">`driver.py`</span>
+
+```python
+import synnax as sy
+import serial
+
+PORT = "/dev/ttyACM0"
+BAUD_RATE = 9600
+
+# Create the Synnax client
+client = sy.Synnax(
+    host="localhost",
+    port=9090,
+    username="synnax",
+    password="seldon",
+)
+
+# Create the index channel
+index_channel = client.channels.create(
+    name="arduino_time",
+    is_index=True,
+    data_type="timestamp",
+    retrieve_if_name_exists=True,
+)
+
+# Create the data channel
+data_channel = client.channels.create(
+    name="arduino_value",
+    index=index_channel.key,
+    data_type="float32",
+    retrieve_if_name_exists=True,
+)
+
+# Set up the serial connection
+ser = serial.Serial(PORT, BAUD_RATE)
+if ser.is_open:
+    print("Serial connection established")
+else:
+    print("Failed to establish serial connection")
+
+# Open a writer and continuously read from the Arduino
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["arduino_time", "arduino_value"],
+) as writer:
+    while True:
+        # Read from the serial connection
+        value = float(ser.readline().decode("utf-8").rstrip())
+        print(value)
+        writer.write({
+            "arduino_time": sy.TimeStamp.now(),
+            "arduino_value": value,
+        })
+```
+
+</Details>
+
+### <StepText step="2.6" level="h3">Visualizing the Data</StepText>
+
+While the script is still running, we can switch back to the Synnax Console and set up a
+line plot to visualize the incoming data. To do this, we'll:
+
+1. Hit the `+` button in the top-right corner of the Console's central mosaic.
+2. Select the "Line Plot" component.
+3. In visualization controls, choose the "Y1" axis and set the "Channel" to
+   `arduino_value`.
+4. In the "Ranges" section, choose the "Rolling 30s" range.
+
+Here's a video demonstrating the process:
+
+<Video
+  client:only="react"
+  id="guides/software/arduino/arduino-read-driver"
+  themed={false}
+/>
+
+<Divider.Divider x />
+
+## <StepText step={3} level="h2">Write-Only Driver</StepText>
+
+Now that we've successfully read data from an analog input on the Arduino and written it
+to Synnax, we'll go the other way and receive commands from Synnax to control the
+digital outputs on the Arduino. We'll create this new driver in a file called
+`driver_write.py`, although you're free to write over the previous file if you'd like.
+
+### <StepText step="3.1" level="h3">Arduino Code</StepText>
+
+We'll need to make new arduino code to receive commands over serial instead of sending
+data. Here's the code we'll write:
+
+```cpp
+// Digital pin to control. We'll use the built in LED on pin 13, so that we can see the
+// state of the pin without having to add an external component.
+const int digitalPin = 13;
+
+void setup() {
+  // Set the baud rate to 9600 bps
+  Serial.begin(9600);
+  // Set the digital pin as an output
+  pinMode(digitalPin, OUTPUT);
+}
+
+void loop() {
+  // Check if data is available to read
+  if (Serial.available() > 0) {
+    // Read the incoming byte
+    char command = Serial.read();
+
+    // If the command is '1', turn the pin on
+    if (command == '1') {
+      digitalWrite(digitalPin, HIGH);
+      Serial.println("ON");
+    }
+    // If the command is '0', turn the pin off
+    else if (command == '0') {
+      digitalWrite(digitalPin, LOW);
+      Serial.println("OFF");
+    }
+  }
+  // Small delay to prevent overwhelming the serial connection
+  delay(10);
+}
+```
+
+As with the previous driver, we'll need to upload this code to the Arduino and verify
+that it works.
+
+### <StepText step="3.2" level="h3">Setting up the Serial Connection in Python</StepText>
+
+We'll follow a very similar process to the previous driver to set up the serial
+connection in Python. The only real difference is that we'll be reading from the serial
+connection instead of writing to it.
+
+```python
+import synnax as sy
+import serial
+
+PORT = "/dev/ttyACM0"
+BAUD_RATE = 9600
+
+ser = serial.Serial(PORT, BAUD_RATE)
+```
+
+### <StepText step="3.3" level="h3">Creating the Relevant Synnax Channels</StepText>
+
+In the previous driver, we created two channels: `arduino_time` and `arduino_value`. In
+this command scenario, we'll only need to create one new channel: `arduino_command`.
+This channel will be used to send commands from Synnax to the Arduino.
+
+```python
+# ... imports, client, and serial connection
+
+# Create the command channel
+command_channel = client.channels.create(
+    name="arduino_command",
+    data_type="uint8",
+    virtual=True,
+    retrieve_if_name_exists=True,
+)
+```
+
+### <StepText step="3.4" level="h3">Modifying the Loop to Write to Synnax</StepText>
+
+Our run loop in this scenario will be the exact opposite of the previous driver. Instead
+of reading from the serial connection, we'll be reading from the `arduino_command`
+channel. Instead of writing to Synnax, we'll be writing to the serial connection.
+
+```python
+# ... imports, client, serial connection, and channel creation
+
+with client.open_streamer(["arduino_command"]) as streamer:
+    for frame in streamer:
+        # Read from the command channel
+        command = str(frame["arduino_command"][0])
+        # Write to the serial connection
+        ser.write(command.encode("utf-8"))
+```
+
+And that's it! We've now successfully created a write-only driver that can receive
+commands from Synnax to control the digital output on the Arduino. We'll run our updated
+script before we move into setting up the Console. Here's the entire `driver_write.py`
+script for reference:
+
+<Details>
+<span slot="summary">`driver_write.py`</span>
+
+```python
+import synnax as sy
+import serial
+
+PORT = "/dev/ttyACM0"
+BAUD_RATE = 9600
+
+ser = serial.Serial(PORT, BAUD_RATE)
+
+client = sy.Synnax(
+    host="localhost",
+    port=9090,
+    username="synnax",
+    password="seldon",
+)
+
+command_channel = client.channels.create(
+    name="arduino_command",
+    data_type="uint8",
+    virtual=True,
+    retrieve_if_name_exists=True,
+)
+
+with client.open_streamer(["arduino_command"]) as streamer:
+    for frame in streamer:
+        command = str(frame["arduino_command"][0])
+        ser.write(command.encode("utf-8"))
+```
+
+</Details>
+
+### <StepText step="3.5" level="h3">Controlling the Arduino from the Console</StepText>
+
+Now that we've uploaded the arduino code and started the Python script, we'll set up the
+Console with a switch on a [schematic](/reference/console/schematics) to control the
+digital output on the Arduino:
+
+1. Hit the `+` button in the top-right corner of the Console's central mosaic.
+2. Select the "Schematic" component.
+3. In the symbols library, we'll drag a switch onto the schematic.
+4. In the "Properties" section, we'll go to the "Telemetry" tab.
+5. We'll set both the "State" and "Command" channels to `arduino_command`.
+6. We'll acquire control by hitting the "Acquire" button in the top-right corner of the
+   schematic.
+7. We'll click the switch to turn the Arduino's LED on and off, and see the state
+   updated in the Console.
+
+<Video
+  client:only="react"
+  id="guides/software/arduino/arduino-writer-driver"
+  themed={false}
+/>
+
+<Divider.Divider x />
+
+## <StepText step={4} level="h2">Read-Write Driver</StepText>
+
+You may have found it strange that we set the "State" and "Command" fields on the switch
+to the same channel. If that's the case, then why are there two separate fields? That's
+because there's a more reliable way to set up command systems.
+
+The **command** channel is what we send the enable/disable signal down when we click on
+the switch, while the **state** channel is what we actually use to determine whether the
+switch is on or off. For the sake of simplicity, we used the same channel for both.
+
+The problem is that if we stop our driver and then click the switch, it will still turn
+on and off as if everything was ok. So we think we're toggling on and off the switch,
+but we're actually doing nothing.
+
+The way to fix this is to create a new channel, called a **state channel** that will
+reflect the actual value of the switch. We'll then use this state channel to toggle the
+switch in the Console.
+
+In this section, we'll create a new driver that does three things:
+
+1. Receives commands from Synnax to control the digital output on the Arduino.
+2. Sends the state of the digital output back to Synnax.
+3. Sends data from an analog input on the Arduino to Synnax.
+
+### <StepText step="4.1" level="h3">Arduino Code</StepText>
+
+We'll modify our previous Arduino code to both read and write over serial.
+
+```cpp
+const int digitalPin = 13;
+const int analogPin = A0;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(digitalPin, OUTPUT);
+}
+
+int state = 0;
+
+void loop() {
+    // Check if we've received a command over serial
+    if (Serial.available() > 0) {
+        // Read the incoming byte
+        char command = Serial.read();
+        // If the command is '1', turn the pin on
+        if (command == '1') {
+            digitalWrite(digitalPin, HIGH);
+            state = 1;
+        }
+        // If the command is '0', turn the pin off
+        else if (command == '0') {
+            digitalWrite(digitalPin, LOW);
+            state = 0;
+        }
+    }
+    float analogValue = analogRead(analogPin);
+    // Concatenate the state and analog value with a comma
+    String output = String(state) + "," + String(analogValue);
+    Serial.println(output);
+    // Delay by 100ms, which means we'll roughly take measurements at 10Hz
+    delay(10);
+}
+```
+
+### <StepText step="4.2" level="h3">Modifying our Python Code</StepText>
+
+To incorporate the new functionality, we'll need to modify our Python code to create
+four channels: `arduino_command`, `arduino_state`, `arduino_time`, and `arduino_value`.
+
+Both the `arduino_state` and `arduino_value` channels will be indexed by the
+`arduino_time` channel, which we'll use to timestamp both the states and values.
+
+```python
+import synnax as sy
+import serial
+
+PORT = "/dev/ttyACM0"
+BAUD_RATE = 9600
+
+ser = serial.Serial(PORT, BAUD_RATE)
+
+client = sy.Synnax(
+    host="localhost",
+    port=9090,
+    username="synnax",
+    password="seldon",
+)
+
+arduino_command = client.channels.create(
+    name="arduino_command",
+    data_type="uint8",
+    virtual=True,
+    retrieve_if_name_exists=True,
+)
+
+arduino_time = client.channels.create(
+    name="arduino_time",
+    is_index=True,
+    data_type="timestamp",
+    retrieve_if_name_exists=True,
+)
+
+arduino_state = client.channels.create(
+    name="arduino_state",
+    index=arduino_time.key,
+    data_type="uint8",
+    retrieve_if_name_exists=True,
+)
+
+arduino_value = client.channels.create(
+    name="arduino_value",
+    index=arduino_time.key,
+    data_type="float32",
+    retrieve_if_name_exists=True,
+)
+```
+
+### <StepText step="4.3" level="h3">Modifying the Loop to Write to Synnax</StepText>
+
+We'll need to modify our loop to read and write from both Synnax and the serial
+connection. To kick things off, we'll open a streamer on the arduino command and a
+writer on the remaining three channels.
+
+```python
+# ... imports, client, and channel creation
+
+with client.open_streamer(["arduino_command"]) as streamer:
+    with client.open_writer(
+        start=sy.TimeStamp.now(),
+        channels=["arduino_time", "arduino_state", "arduino_value"],
+    ) as writer:
+        while True:
+            fr = streamer.read(timeout=0)
+            if fr is not None:
+                command = str(fr["arduino_command"][0])
+                ser.write(command.encode("utf-8"))
+            data = ser.readline().decode("utf-8").rstrip()
+            if data:
+                split = data.split(",")
+                writer.write({
+                    "arduino_time": sy.TimeStamp.now(),
+                    "arduino_state": int(split[0]),
+                    "arduino_value": float(split[1]),
+                })
+```
+
+And that's it! We've now successfully created a read-write driver that can both control
+the digital output on the Arduino and read the analog input. We'll run our updated
+script before we move into setting up the Console. Here's the entire
+`driver_readwrite.py` script for reference:
+
+<Details>
+<span slot="summary">`driver_readwrite.py`</span>
+
+```python
+import synnax as sy
+import serial
+
+PORT = "/dev/ttyACM0"
+BAUD_RATE = 9600
+
+ser = serial.Serial(PORT, BAUD_RATE)
+
+client = sy.Synnax(
+    host="localhost",
+    port=9090,
+    username="synnax",
+    password="seldon",
+)
+
+arduino_command = client.channels.create(
+    name="arduino_command",
+    data_type="uint8",
+    virtual=True,
+    retrieve_if_name_exists=True,
+)
+
+arduino_time = client.channels.create(
+    name="arduino_time",
+    is_index=True,
+    data_type="timestamp",
+    retrieve_if_name_exists=True,
+)
+
+arduino_state = client.channels.create(
+    name="arduino_state",
+    index=arduino_time.key,
+    data_type="uint8",
+    retrieve_if_name_exists=True,
+)
+
+arduino_value = client.channels.create(
+    name="arduino_value",
+    index=arduino_time.key,
+    data_type="float32",
+    retrieve_if_name_exists=True,
+)
+
+with client.open_streamer(["arduino_command"]) as streamer:
+    with client.open_writer(
+        start=sy.TimeStamp.now(),
+        channels=["arduino_time", "arduino_state", "arduino_value"],
+    ) as writer:
+        while True:
+            fr = streamer.read(timeout=0)
+            if fr is not None:
+                command = str(fr["arduino_command"][0])
+                ser.write(command.encode("utf-8"))
+            data = ser.readline().decode("utf-8").rstrip()
+            if data:
+                split = data.split(",")
+                writer.write({
+                    "arduino_time": sy.TimeStamp.now(),
+                    "arduino_state": int(split[0]),
+                    "arduino_value": float(split[1]),
+                })
+```
+
+</Details>
+
+### <StepText step="4.4" level="h3">Controlling the Arduino from the Console</StepText>
+
+As a final step, we'll set up the Console with both a switch to control the digital
+output and a plot to visualize the analog input.
+
+<Video
+  client:only="react"
+  id="guides/software/arduino/arduino-read-write-driver"
+  themed={false}
+/>
