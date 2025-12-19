@@ -10,7 +10,7 @@
 import { WARMUP_SAMPLES } from "@/perf/constants";
 import { type MetricSample } from "@/perf/metrics/types";
 
-const ZERO_SAMPLE: MetricSample = {
+export const ZERO_SAMPLE: MetricSample = {
   timestamp: 0,
   cpuPercent: null,
   gpuPercent: null,
@@ -55,6 +55,8 @@ interface RunningAggregate {
 
 const ZERO_AGGREGATE: RunningAggregate = { avg: 0, min: Infinity, max: -Infinity, count: 0 };
 
+type AggregateKey = "fps" | "cpu" | "gpu" | "heap";
+
 const updateAggregate = (
   agg: RunningAggregate,
   value: number,
@@ -81,10 +83,12 @@ export class SampleBuffer {
   private recentIndex = 0;
   private recentCount = 0;
   private totalPushCount = 0;
-  private fpsAgg: RunningAggregate = { ...ZERO_AGGREGATE };
-  private cpuAgg: RunningAggregate = { ...ZERO_AGGREGATE };
-  private gpuAgg: RunningAggregate = { ...ZERO_AGGREGATE };
-  private heapAgg: RunningAggregate = { ...ZERO_AGGREGATE };
+  private agg: Record<AggregateKey, RunningAggregate> = {
+    fps: { ...ZERO_AGGREGATE },
+    cpu: { ...ZERO_AGGREGATE },
+    gpu: { ...ZERO_AGGREGATE },
+    heap: { ...ZERO_AGGREGATE },
+  };
 
   constructor(baselineSize = 60, recentSize = 60) {
     this.baselineSize = baselineSize;
@@ -97,10 +101,10 @@ export class SampleBuffer {
     this.totalPushCount++;
     const inWarmup = this.totalPushCount <= WARMUP_SAMPLES;
 
-    if (sample.frameRate != null) updateAggregate(this.fpsAgg, sample.frameRate, false, inWarmup);
-    if (sample.cpuPercent != null) updateAggregate(this.cpuAgg, sample.cpuPercent, inWarmup);
-    if (sample.gpuPercent != null) updateAggregate(this.gpuAgg, sample.gpuPercent, inWarmup);
-    if (sample.heapUsedMB != null) updateAggregate(this.heapAgg, sample.heapUsedMB, inWarmup);
+    if (sample.frameRate != null) updateAggregate(this.agg.fps, sample.frameRate, false, inWarmup);
+    if (sample.cpuPercent != null) updateAggregate(this.agg.cpu, sample.cpuPercent, inWarmup);
+    if (sample.gpuPercent != null) updateAggregate(this.agg.gpu, sample.gpuPercent, inWarmup);
+    if (sample.heapUsedMB != null) updateAggregate(this.agg.heap, sample.heapUsedMB, inWarmup);
 
     // Fill baseline first, then switch to recent (no overlap)
     if (this.baselineCount < this.baselineSize) {
@@ -144,17 +148,16 @@ export class SampleBuffer {
     const getAvg = (agg: RunningAggregate) =>
       agg.count > 0 ? agg.avg : null;
 
-
     return {
-      avgFps: getAvg(this.fpsAgg),
-      maxFps: getMax(this.fpsAgg),
-      minFps: getMin(this.fpsAgg),
-      avgCpu: getAvg(this.cpuAgg),
-      maxCpu: getMax(this.cpuAgg),
-      avgGpu: getAvg(this.gpuAgg),
-      maxGpu: getMax(this.gpuAgg),
-      minHeap: getMin(this.heapAgg),
-      maxHeap: getMax(this.heapAgg),
+      avgFps: getAvg(this.agg.fps),
+      maxFps: getMax(this.agg.fps),
+      minFps: getMin(this.agg.fps),
+      avgCpu: getAvg(this.agg.cpu),
+      maxCpu: getMax(this.agg.cpu),
+      avgGpu: getAvg(this.agg.gpu),
+      maxGpu: getMax(this.agg.gpu),
+      minHeap: getMin(this.agg.heap),
+      maxHeap: getMax(this.agg.heap),
     };
   }
 
@@ -163,9 +166,11 @@ export class SampleBuffer {
     this.recentIndex = 0;
     this.recentCount = 0;
     this.totalPushCount = 0;
-    this.fpsAgg = { ...ZERO_AGGREGATE };
-    this.cpuAgg = { ...ZERO_AGGREGATE };
-    this.gpuAgg = { ...ZERO_AGGREGATE };
-    this.heapAgg = { ...ZERO_AGGREGATE };
+    this.agg = {
+      fps: { ...ZERO_AGGREGATE },
+      cpu: { ...ZERO_AGGREGATE },
+      gpu: { ...ZERO_AGGREGATE },
+      heap: { ...ZERO_AGGREGATE },
+    };
   }
 }
