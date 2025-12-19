@@ -30,11 +30,7 @@ export interface ListAndDetailsChannelItemProps<K extends record.Key>
   icon?: ListAndDetailsIconProps;
   canTare: boolean;
   channel: channel.Key;
-  channelName?: string;
-  onChannelNameChange?: (name: string) => void;
   stateChannel?: channel.Key;
-  stateChannelName?: string;
-  onStateChannelNameChange?: (name: string) => void;
   onTare?: (channel: channel.Key) => void;
   path: string;
   hasTareButton: boolean;
@@ -61,12 +57,8 @@ export const ListAndDetailsChannelItem = <K extends string>({
   path,
   hasTareButton,
   channel,
-  channelName,
-  onChannelNameChange,
   icon,
   stateChannel,
-  stateChannelName,
-  onStateChannelNameChange,
   ...rest
 }: ListAndDetailsChannelItemProps<K>) => {
   const { itemKey } = rest;
@@ -114,7 +106,6 @@ export const ListAndDetailsChannelItem = <K extends string>({
           <ChannelName
             {...channelNameProps}
             channel={channel}
-            defaultName={channelName}
             namePath={`${path}.name`}
             id={getChannelNameID(itemKey)}
           />

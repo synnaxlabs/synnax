@@ -9,7 +9,7 @@
 
 import { type channel, NotFoundError } from "@synnaxlabs/client";
 import { Channel, Flex, Form, Text, Tooltip } from "@synnaxlabs/pluto";
-import { location, type optional, primitive, status } from "@synnaxlabs/x";
+import { location, type optional, status } from "@synnaxlabs/x";
 import { useCallback, useEffect, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -34,11 +34,11 @@ export const ChannelName = ({
   const range = useSelectActiveRangeKey();
   const { data, retrieve, ...restResult } = Channel.useRetrieveStateful();
   useEffect(() => {
-    if (primitive.isZero(channel)) return;
+    if (channel === 0) return;
     retrieve({ key: channel, rangeKey: range ?? undefined });
   }, [channel, range]);
   const { update } = Channel.useRename();
-  const name = data?.name ?? (primitive.isNonZero(formName) ? formName : defaultName);
+  const name = data?.name ?? (formName !== "" ? formName : defaultName);
   const handleRename = useCallback(
     (name: string) => {
       if (channel === 0) {
@@ -53,8 +53,7 @@ export const ChannelName = ({
     status.Status,
     "variant" | "message" | "description"
   > => {
-    if (primitive.isZero(channel))
-      return { variant: "warning", message: "No channel selected" };
+    if (channel === 0) return { variant: "warning", message: "No channel selected" };
     if (
       restResult.status.variant === "error" &&
       NotFoundError.matches(restResult.status.details.error) &&

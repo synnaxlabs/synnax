@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  channel,
-  NotFoundError,
-  type Synnax,
-  ValidationError,
-} from "@synnaxlabs/client";
+import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, type Haul, Icon } from "@synnaxlabs/pluto";
 import { caseconv, DataType, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
@@ -214,24 +209,13 @@ const determineIndexChannel = async ({
   }
 
   // there is not an index channel in the task config, so just create a new channel
-  let idx: channel.Key;
-  let name = `${channel.escapeInvalidName(device.name)}_time_for_${channel.escapeInvalidName(taskName)}`;
-  while (true)
-    try {
-      const idxCh = await client.channels.create({
-        name,
-        dataType: "timestamp",
-        isIndex: true,
-      });
-      idx = idxCh.key;
-      device.properties.read.indexes.push(idx);
-      return idx;
-    } catch (e) {
-      if (ValidationError.matches(e)) {
-        name += "_1";
-        continue;
-      } else throw e;
-    }
+  const idxCh = await client.channels.create({
+    name: `${channel.escapeInvalidName(device.name)}_time_for_${channel.escapeInvalidName(taskName)}`,
+    dataType: "timestamp",
+    isIndex: true,
+  });
+  device.properties.read.indexes.push(idxCh.key);
+  return idxCh.key;
 };
 
 const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
@@ -247,54 +231,50 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     properties: Device.migrateProperties(previous.properties),
   });
 
-  try {
-    const index = await determineIndexChannel({
-      client,
-      device,
-      config,
-      taskName: name,
-    });
+  const index = await determineIndexChannel({
+    client,
+    device,
+    config,
+    taskName: name,
+  });
 
-    const toCreate: ReadChannel[] = [];
-    for (const ch of config.channels) {
-      const exKey = getChannelByNodeID(device.properties, ch.nodeId);
-      if (!exKey) {
-        toCreate.push(ch);
-        continue;
-      }
-      try {
-        const rCh = await client.channels.retrieve(exKey);
-        if (rCh.index !== index)
-          throw new Error(
-            `Channel ${ch.nodeName} already exists as ${rCh.name}. Please move all channels from ${name} to the OPC UA Read Task that reads for ${rCh.name}.`,
-          );
-      } catch (e) {
-        if (NotFoundError.matches(e)) toCreate.push(ch);
-        else throw e;
-      }
+  const toCreate: ReadChannel[] = [];
+  for (const ch of config.channels) {
+    const exKey = getChannelByNodeID(device.properties, ch.nodeId);
+    if (!exKey) {
+      toCreate.push(ch);
+      continue;
     }
-    if (toCreate.length > 0) {
-      const channels = await client.channels.create(
-        toCreate.map(({ name, nodeName, dataType }) => ({
-          dataType,
-          name: primitive.isNonZero(name)
-            ? name
-            : channel.escapeInvalidName(nodeName, true),
-          index,
-        })),
-      );
-      channels.forEach(
-        ({ key }, i) => (device.properties.read.channels[toCreate[i].nodeId] = key),
-      );
+    try {
+      const rCh = await client.channels.retrieve(exKey);
+      if (rCh.index !== index)
+        throw new Error(
+          `Channel ${ch.nodeName} already exists as ${rCh.name}. Please move all channels from ${name} to the OPC UA Read Task that reads for ${rCh.name}.`,
+        );
+    } catch (e) {
+      if (NotFoundError.matches(e)) toCreate.push(ch);
+      else throw e;
     }
-    config.channels = config.channels.map((c) => ({
-      ...c,
-      channel: getChannelByNodeID(device.properties, c.nodeId),
-    }));
-  } finally {
-    console.log("creating device", device);
-    await client.devices.create(device);
   }
+  if (toCreate.length > 0) {
+    const channels = await client.channels.create(
+      toCreate.map(({ name, nodeName, dataType }) => ({
+        dataType,
+        name: primitive.isNonZero(name)
+          ? name
+          : channel.escapeInvalidName(nodeName, true),
+        index,
+      })),
+    );
+    channels.forEach(
+      ({ key }, i) => (device.properties.read.channels[toCreate[i].nodeId] = key),
+    );
+  }
+  config.channels = config.channels.map((c) => ({
+    ...c,
+    channel: getChannelByNodeID(device.properties, c.nodeId),
+  }));
+  await client.devices.create(device);
   return [config, device.rack];
 };
 
