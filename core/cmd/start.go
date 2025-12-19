@@ -77,11 +77,50 @@ will bootstrap a new cluster.
 	Run:     func(cmd *cobra.Command, _ []string) { start(cmd) },
 }
 
-// start a Synnax node using the configuration specified by the command line flags,
-// environment variables, and configuration files.
+// start is the console-mode entrypoint for starting a Synnax node.
+// It handles signal interrupts and delegates to startServer for the actual startup.
 func start(cmd *cobra.Command) {
+	ctx := cmd.Context()
+	ins := configureInstrumentation()
+	defer cleanupInstrumentation(ctx, ins)
+
+	interruptC := make(chan os.Signal, 1)
+	signal.Notify(interruptC, os.Interrupt)
+
+	sCtx, cancel := xsignal.WithCancel(ctx, xsignal.WithInstrumentation(ins))
+	defer cancel()
+
+	// Listen for a custom stop keyword that can be used in place of a Ctrl+C signal.
+	// It's fine to let this get garbage collected.
+	go scanForStopKeyword(interruptC)
+
+	// Start the server in a goroutine
+	sCtx.Go(func(ctx context.Context) error {
+		return startServer(ctx)
+	},
+		xsignal.WithKey("start"),
+		xsignal.RecoverWithErrOnPanic(),
+	)
+
+	select {
+	case <-interruptC:
+		ins.L.Info("\033[33mSynnax is shutting down. This can take up to 5 seconds. Please be patient\033[0m")
+		cancel()
+	case <-sCtx.Stopped():
+	}
+
+	if err := sCtx.Wait(); err != nil && !errors.Is(err, context.Canceled) {
+		ins.L.Zap().Sugar().Errorf("\033[31mSynnax has encountered an error and is shutting down: %v\033[0m", err)
+		ins.L.Fatal("synnax failed", zap.Error(err))
+	}
+	ins.L.Info("\033[34mSynnax has shut down\033[0m")
+}
+
+// startServer contains the core server startup logic, shared between console mode
+// and Windows Service mode. It reads configuration from viper and starts all
+// server components.
+func startServer(ctx context.Context) error {
 	var (
-		ctx                 = cmd.Context()
 		vers                = version.Get()
 		verifierFlag        = lo.Must(base64.StdEncoding.DecodeString("bGljZW5zZS1rZXk="))
 		insecure            = viper.GetBool(insecureFlag)
@@ -106,15 +145,12 @@ func start(cmd *cobra.Command) {
 
 	if autoCert {
 		if err := generateAutoCerts(ins); err != nil {
-			ins.L.Fatal("failed to generate auto certs", zap.Error(err))
+			return errors.Wrap(err, "failed to generate auto certs")
 		}
 	}
 
 	ins.L.Zap().Sugar().Infof("\033[34mSynnax version %s starting\033[0m", vers)
 	ins.L.Info("starting synnax node", zap.String("version", vers), zap.String("commit", version.Commit()), zap.Time("build", version.Time()))
-
-	interruptC := make(chan os.Signal, 1)
-	signal.Notify(interruptC, os.Interrupt)
 
 	// Any data stored on the node is considered sensitive, so we need to set the
 	// permission mask for all files appropriately.
@@ -123,13 +159,7 @@ func start(cmd *cobra.Command) {
 	sCtx, cancel := xsignal.WithCancel(ctx, xsignal.WithInstrumentation(ins))
 	defer cancel()
 
-	// Listen for a custom stop keyword that can be used in place of a Ctrl+C signal.
-	// It's fine to let this get garbage collected.
-	go scanForStopKeyword(interruptC)
-
-	// Perform the rest of the startup within a separate goroutine, so we can properly
-	// handle signal interrupts. We'll also repeatedly check for context cancellations
-	// at each step in the process to ensure we can shut down early if necessary.
+	var serverErr error
 	sCtx.Go(func(ctx context.Context) error {
 		var (
 			err               error
@@ -305,18 +335,12 @@ func start(cmd *cobra.Command) {
 		xsignal.RecoverWithErrOnPanic(),
 	)
 
-	select {
-	case <-interruptC:
-		ins.L.Info("\033[33mSynnax is shutting down. This can take up to 5 seconds. Please be patient\033[0m")
-		cancel()
-	case <-sCtx.Stopped():
-	}
-
-	if err := sCtx.Wait(); err != nil && !errors.Is(err, context.Canceled) {
-		ins.L.Zap().Sugar().Errorf("\033[31mSynnax has encountered an error and is shutting down: %v\033[0m", err)
-		ins.L.Fatal("synnax failed", zap.Error(err))
+	serverErr = sCtx.Wait()
+	if serverErr != nil && !errors.Is(serverErr, context.Canceled) {
+		ins.L.Error("server error", zap.Error(serverErr))
 	}
 	ins.L.Info("\033[34mSynnax has shut down\033[0m")
+	return serverErr
 }
 
 func init() {
