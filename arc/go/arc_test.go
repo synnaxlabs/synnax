@@ -10,6 +10,8 @@
 package arc_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
@@ -74,5 +76,47 @@ var _ = Describe("Arc", func() {
 				},
 			})
 		Expect(mod.Nodes).To(HaveLen(3))
+	})
+
+	It("Should compile a three stage sequence", func() {
+		mod := compile(`
+start_seq_cmd => main
+
+sequence main {
+    stage press {
+        1 -> press_vlv_cmd,
+        press_pt -> press_pt > 50 => next
+    }
+    stage stop {
+        0 -> press_vlv_cmd
+    }
+}
+`, symbol.MapResolver{
+			"press_vlv_cmd": arc.Symbol{
+				Name: "press_vlv_cmd",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+				ID:   1,
+			},
+			"vent_vlv_cmd": arc.Symbol{
+				Name: "vent_vlv_cmd",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+				ID:   1,
+			},
+			"press_pt": arc.Symbol{
+				Name: "press_pt",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+				ID:   2,
+			},
+			"start_seq_cmd": arc.Symbol{
+				Name: "start_seq_cmd",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+				ID:   3,
+			},
+		})
+		fmt.Println(mod)
 	})
 })

@@ -15,6 +15,8 @@
 #include <unordered_set>
 #include <vector>
 
+#include <glog/logging.h>
+
 #include "x/cpp/xerrors/errors.h"
 
 #include "arc/cpp/runtime/node/node.h"
@@ -41,6 +43,7 @@ struct StageRef {
 class Scheduler {
     ir::Strata strata;
     std::unordered_set<std::string> changed;
+    std::unordered_map<std::string, size_t> node_to_stratum;
 
     struct NodeState {
         std::string key;
@@ -60,6 +63,9 @@ class Scheduler {
     std::unordered_map<std::string, StageRef> entry_node_targets;
     std::unordered_map<std::string, std::unordered_set<ir::Edge, ir::Edge::Hasher>>
         fired_one_shots;
+    // For each stage, the nodes at stratum N+1 (where N is entry stratum)
+    std::unordered_map<StageRef, std::vector<std::string>, StageRef::Hasher>
+        stage_root_nodes;
 
     void mark_changed(const std::string &param) {
         for (const auto &edge: this->current_state->output_edges) {
@@ -150,6 +156,11 @@ public:
                 .output_edges = prog.outgoing_edges(key)
             };
 
+        // Build node -> stratum index map
+        for (size_t i = 0; i < prog.strata.strata.size(); i++)
+            for (const auto &node_key: prog.strata.strata[i])
+                this->node_to_stratum[node_key] = i;
+
         this->ctx = node::Context{
             .mark_changed =
                 [&](const std::string &param) { this->mark_changed(param); },
@@ -170,12 +181,27 @@ public:
                 this->stage_to_nodes[ref] = stage.nodes;
                 for (const auto &node_key: stage.nodes)
                     this->node_to_stage[node_key] = ref;
-                this->entry_node_targets["entry_" + seq.key + "_" + stage.key] = ref;
+
+                // Entry node is at stratum N, stage root nodes are at stratum N+1
+                const std::string entry_key = "entry_" + seq.key + "_" + stage.key;
+                this->entry_node_targets[entry_key] = ref;
+
+                auto entry_it = this->node_to_stratum.find(entry_key);
+                if (entry_it == this->node_to_stratum.end()) continue;
+                const size_t root_stratum = entry_it->second + 1;
+
+                for (const auto &node_key: stage.nodes) {
+                    auto node_it = this->node_to_stratum.find(node_key);
+                    if (node_it != this->node_to_stratum.end() &&
+                        node_it->second == root_stratum)
+                        this->stage_root_nodes[ref].push_back(node_key);
+                }
             }
         }
     }
 
     void activate_stage(const std::string &seq, const std::string &stage) {
+        LOG(INFO) << "[arc] stage " << seq << ":" << stage;
         this->active_stages[seq] = stage;
         this->just_activated.insert(seq);
         reset_stage_nodes(seq, stage);
@@ -193,7 +219,19 @@ public:
             this->changed.insert(node_key);
     }
 
+    void mark_stage_root_nodes_changed(
+        const std::string &seq_name,
+        const std::string &stage_name
+    ) {
+        const StageRef ref{seq_name, stage_name};
+        const auto it = this->stage_root_nodes.find(ref);
+        if (it == this->stage_root_nodes.end()) return;
+        for (const auto &node_key: it->second)
+            this->changed.insert(node_key);
+    }
+
     void deactivate_sequence(const std::string &seq_name) {
+        LOG(INFO) << "[arc] deactivate " << seq_name;
         this->active_stages.erase(seq_name);
         this->fired_one_shots.erase(seq_name);
     }
@@ -230,6 +268,12 @@ public:
         this->ctx.elapsed = elapsed;
         this->just_activated.clear();
 
+        // While a stage is active, mark only the root nodes (stratum N+1 where
+        // N is the entry stratum) as changed. Downstream nodes propagate via
+        // normal mark_changed calls when their inputs produce output.
+        for (const auto &[seq_name, stage_name]: this->active_stages)
+            mark_stage_root_nodes_changed(seq_name, stage_name);
+
         bool first = true;
         for (const auto &stratum: this->strata.strata) {
             for (const auto &node_key: stratum) {
@@ -238,6 +282,7 @@ public:
                     auto it = this->nodes.find(node_key);
                     if (it == this->nodes.end()) continue;
                     this->current_state = &it->second;
+                    LOG(INFO) << "[arc] fire " << node_key;
                     this->current_state->node->next(this->ctx);
                 }
             }

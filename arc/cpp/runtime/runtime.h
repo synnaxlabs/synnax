@@ -14,6 +14,8 @@
 #include <set>
 #include <utility>
 
+#include <glog/logging.h>
+
 #include "x/cpp/queue/spsc.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/xthread/xthread.h"
@@ -80,6 +82,7 @@ public:
     std::vector<telem::TimeSpan> run() {
         this->start_time = telem::TimeStamp::now();
         xthread::set_name("runtime");
+        LOG(INFO) << "[arc] runtime started";
         this->loop->start();
         std::vector<telem::TimeSpan> results;
         while (this->breaker.running()) {
@@ -89,12 +92,14 @@ public:
                 this->state->ingest(frame);
                 const auto elapsed = telem::TimeStamp::now() - this->start_time;
                 this->scheduler->next(elapsed);
+                LOG(INFO) << "[arc] cycle t=" << elapsed.nanoseconds() / 1000000 << "ms";
                 this->state->clear_reads();
                 results.push_back(elapsed);
                 if (auto writes = this->state->flush_writes(); !writes.empty()) {
                     telem::Frame out_frame(writes.size());
                     for (auto &[key, series]: writes)
                         out_frame.emplace(key, std::move(*series));
+                    LOG(INFO) << "[arc] wrote " << out_frame.size() << " channels";
                     this->outputs->push(std::move(out_frame));
                 }
             }
@@ -117,8 +122,8 @@ public:
         if (!this->breaker.stop()) return false;
         this->loop->stop();
         this->run_thread.join();
-        this->inputs->close();
-        this->outputs->close();
+        // this->inputs->close();
+        // this->outputs->close();
         return true;
     }
 

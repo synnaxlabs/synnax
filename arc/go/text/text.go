@@ -38,6 +38,7 @@ import (
 	"github.com/synnaxlabs/arc/stratifier"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // Text represents Arc source code with its parsed AST.
@@ -49,12 +50,27 @@ type Text struct {
 // KeyGenerator creates unique, semantically meaningful node keys.
 // Keys follow the pattern: {role}_{name}_{occurrence} where name provides semantic context.
 type KeyGenerator struct {
-	occurrences map[string]int
+	occurrences   map[string]int
+	seqName       string
+	stageName     string
+	nextStageName string
 }
 
 // NewKeyGenerator creates a new KeyGenerator instance.
 func NewKeyGenerator() *KeyGenerator {
 	return &KeyGenerator{occurrences: make(map[string]int)}
+}
+
+func (kg *KeyGenerator) SetStageContext(seqName, stageName, nextStageName string) {
+	kg.seqName = seqName
+	kg.stageName = stageName
+	kg.nextStageName = nextStageName
+}
+
+func (kg *KeyGenerator) ClearStageContext() {
+	kg.seqName = ""
+	kg.stageName = ""
+	kg.nextStageName = ""
 }
 
 // Generate creates a unique key for a node.
@@ -399,7 +415,30 @@ func analyzeExpressionNode(
 	if expr := ctx.AST.Expression(); expr != nil {
 		return analyzeExpression(acontext.Child(ctx, expr), kg)
 	}
+	if ctx.AST.NEXT() != nil {
+		return analyzeNextToken(ctx, kg)
+	}
 	return ir.Node{}, ir.Handle{}, ir.Handle{}, true
+}
+
+func analyzeNextToken(
+	ctx acontext.Context[parser.IFlowNodeContext],
+	kg *KeyGenerator,
+) (ir.Node, ir.Handle, ir.Handle, bool) {
+	if kg.seqName == "" {
+		ctx.Diagnostics.AddError(errors.New("'next' used outside of a sequence"), ctx.AST)
+		return ir.Node{}, ir.Handle{}, ir.Handle{}, false
+	}
+	if kg.nextStageName == "" {
+		ctx.Diagnostics.AddError(
+			errors.Newf("'next' in last stage '%s' has no next stage", kg.stageName),
+			ctx.AST,
+		)
+		return ir.Node{}, ir.Handle{}, ir.Handle{}, false
+	}
+	entryKey := kg.Entry(kg.seqName, kg.nextStageName)
+	inputHandle := ir.Handle{Node: entryKey, Param: "activate"}
+	return ir.Node{}, inputHandle, ir.Handle{}, true
 }
 
 func analyzeExpressionNodeAsSink(
@@ -640,12 +679,13 @@ func analyzeExpression(
 
 	// Non-constant expressions (e.g., inline functions)
 	key := kg.Generate(sym.Name, "")
+	outputType := ctx.Constraints.ApplySubstitutions(sym.Type.Outputs[0].Type)
 	n := ir.Node{
 		Key:      key,
 		Type:     sym.Name,
 		Channels: symbol.NewChannels(),
+		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 	}
-	// Expression nodes use default parameters
 	inputHandle := ir.Handle{Node: key, Param: ir.DefaultInputParam}
 	outputHandle := ir.Handle{Node: key, Param: ir.DefaultOutputParam}
 	return n, inputHandle, outputHandle, true
@@ -797,12 +837,20 @@ func analyzeSequence(
 	var allNodes []ir.Node
 	var allEdges []ir.Edge
 
-	for _, stageDecl := range ctx.AST.AllStageDeclaration() {
+	stageDecls := ctx.AST.AllStageDeclaration()
+	for i, stageDecl := range stageDecls {
+		stageName := stageDecl.IDENTIFIER().GetText()
+		nextStageName := ""
+		if i+1 < len(stageDecls) {
+			nextStageName = stageDecls[i+1].IDENTIFIER().GetText()
+		}
+		kg.SetStageContext(seqName, stageName, nextStageName)
 		stage, nodes, edges, ok := analyzeStage(
 			acontext.Child(ctx, stageDecl),
 			seqName,
 			kg,
 		)
+		kg.ClearStageContext()
 		if !ok {
 			return ir.Sequence{}, nil, nil, false
 		}
