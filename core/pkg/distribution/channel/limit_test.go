@@ -16,9 +16,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/types"
 )
 
@@ -153,5 +155,32 @@ var _ = Describe("Limit", Ordered, func() {
 		err = retrieve.WhereKeys(createdChannels[0].Key()).Entry(&singleChannel).Exec(ctx, nil)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(singleChannel.Name).To(Equal(createdChannels[0].Name))
+	})
+	It("Should not edit the channel limit if a deletion fails in TS", func() {
+		createdChannels := make([]channel.Channel, int(limit))
+		for i := range limit {
+			ch := channel.Channel{
+				IsIndex:     true,
+				DataType:    telem.TimeStampT,
+				Name:        fmt.Sprintf("LimitTest%d", i),
+				Leaseholder: 1,
+			}
+			Expect(dist.Channel.Create(ctx, &ch)).To(Succeed())
+			createdChannels[i] = ch
+		}
+		writer := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+			Keys: []channel.Key{createdChannels[0].Key()},
+		}))
+		Expect(dist.Channel.Delete(ctx, createdChannels[0].Key(), false)).
+			To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
+		newCh := channel.Channel{
+			IsIndex:     true,
+			DataType:    telem.TimeStampT,
+			Name:        "NewAfterDelete",
+			Leaseholder: 1,
+		}
+		Expect(dist.Channel.Create(ctx, &newCh)).
+			To(MatchError(ContainSubstring("channel limit exceeded")))
+		Expect(writer.Close()).To(Succeed())
 	})
 })
