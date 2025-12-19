@@ -16,7 +16,6 @@ import {
   type Sender,
   type SenderHandler,
   shallow,
-  zod,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -188,12 +187,6 @@ export type MethodsSchema = Record<string, z.ZodFunction>;
 export type EmptyMethodsSchema = Record<string, never>;
 
 /**
- * Unwraps Promise<T> to T, leaves non-Promise types unchanged.
- * Used to prevent double-wrapping of Promise types.
- */
-type Awaited<T> = T extends Promise<infer U> ? U : T;
-
-/**
  * Type helper to extract handler function signatures from a methods schema.
  * Uses z.infer to extract the function type, then allows async returns.
  * If the schema output is already Promise<T>, handlers return Promise<T> (not Promise<Promise<T>>).
@@ -209,7 +202,7 @@ export type HandlersFromSchema<T> = {
 };
 
 export const isFireAndForget = <F extends z.ZodFunction>(schema: F): boolean => {
-  const outputType = zod.functionOutput(schema);
+  const outputType = schema._zod.def.output;
   return (
     outputType instanceof z.ZodVoid ||
     outputType instanceof z.ZodNever ||

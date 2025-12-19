@@ -41,7 +41,7 @@ export interface AetherUpdateRequest {
 }
 
 /** A message from the aether thread to send an error to the main thread. */
-export interface AetherErrorMessage {
+export interface AetherNotifyErrorRequest {
   variant: "error";
   error: errors.NativePayload;
 }
@@ -76,7 +76,7 @@ export interface AetherInvokeResponse {
 /** A message from the aether thread to the main thread. */
 export type AetherMessage =
   | AetherUpdateRequest
-  | AetherErrorMessage
+  | AetherNotifyErrorRequest
   | AetherInvokeResponse;
 
 /** A message from the main thread to the aether thread. */

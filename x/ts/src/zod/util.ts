@@ -8,27 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import { type z } from "zod";
+import {
+  type $ZodFunction,
+  type $ZodFunctionIn,
+  type $ZodFunctionOut,
+} from "zod/v4/core";
 
 import { deep } from "@/deep";
 import { type record } from "@/record";
 
-/**
- * Gets the output schema from a z.function() schema.
- *
- * @example
- * functionOutput(z.function()) // z.ZodUnknown
- * functionOutput(z.function({ output: z.void() })) // z.ZodVoid
- * functionOutput(z.function({ output: z.number() })) // z.ZodNumber
- */
-type FunctionOutput<T> = T extends z.ZodFunction<z.ZodTuple, infer O> ? O : z.ZodType;
-
-export const functionOutput = <T extends z.ZodFunction>(
-  schema: T,
-): FunctionOutput<T> => {
-  // eslint-disable-next-line @typescript-eslint/no-deprecated
-  const def = schema._def as unknown as { output: FunctionOutput<T> };
-  return def.output;
-};
+export const functionOutput = <
+  In extends $ZodFunctionIn,
+  Out extends $ZodFunctionOut,
+  Func extends $ZodFunction<In, Out>,
+>(
+  schema: $ZodFunction<In, Out>,
+): Func["_zod"]["def"]["output"] => schema._zod.def.output;
 
 export const getFieldSchemaPath = (path: string): string =>
   deep.transformPath(path, (part, index, parts) => {
