@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
+import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, type Haul, Icon, Menu, Text } from "@synnaxlabs/pluto";
 import { caseconv, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
@@ -127,51 +127,40 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
     key: config.device,
   });
   dev.properties = Device.migrateProperties(dev.properties);
-
-  // Collect and validate channel names
-  const { toCreate: commandsToCreate, namesToValidate: cmdNames } =
-    await Common.Task.collectDataChannelsForValidation(
-      client,
-      config.channels,
-      (ch) => getChannelByNodeID(dev.properties, ch.nodeId),
-      (ch) => ({
-        prename: ch.name,
-        defaultName: `${channel.escapeInvalidName(ch.nodeName)}_cmd`,
-      }),
-    );
-
+  const commandsToCreate: WriteChannel[] = [];
+  for (const channel of config.channels) {
+    const key = getChannelByNodeID(dev.properties, channel.nodeId);
+    if (!key) {
+      commandsToCreate.push(channel);
+      continue;
+    }
+    try {
+      await client.channels.retrieve(key);
+    } catch (e) {
+      if (NotFoundError.matches(e)) commandsToCreate.push(channel);
+      else throw e;
+    }
+  }
   if (commandsToCreate.length > 0) {
-    const cmdIndexNames = commandsToCreate.map(({ name, nodeName }) =>
-      Common.Task.getChannelNameToCreate(
-        primitive.isNonZero(name) ? `${name}_time` : undefined,
-        `${channel.escapeInvalidName(nodeName)}_cmd_time`,
-      ),
-    );
-
-    await Common.Task.validateChannelNames(client, [...cmdIndexNames, ...cmdNames]);
-
     if (
       dev.properties.write.channels == null ||
       Array.isArray(dev.properties.write.channels)
     )
       dev.properties.write.channels = {};
-
     const commandIndexes = await client.channels.create(
       commandsToCreate.map(({ name, nodeName }) => ({
-        name: Common.Task.getChannelNameToCreate(
-          primitive.isNonZero(name) ? `${name}_time` : undefined,
-          `${channel.escapeInvalidName(nodeName)}_cmd_time`,
-        ),
+        name: primitive.isNonZero(name)
+          ? `${name}_time`
+          : `${channel.escapeInvalidName(nodeName)}_cmd_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commands = await client.channels.create(
       commandsToCreate.map(({ dataType, name, nodeName }, i) => ({
-        name: Common.Task.getChannelNameToCreate(
-          name,
-          `${channel.escapeInvalidName(nodeName)}_cmd`,
-        ),
+        name: primitive.isNonZero(name)
+          ? name
+          : `${channel.escapeInvalidName(nodeName)}_cmd`,
         dataType,
         index: commandIndexes[i].key,
       })),

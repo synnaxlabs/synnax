@@ -9,7 +9,7 @@
 
 import "@/hardware/modbus/task/Task.css";
 
-import { channel } from "@synnaxlabs/client";
+import { channel, NotFoundError } from "@synnaxlabs/client";
 import {
   Component,
   Flex,
@@ -196,53 +196,40 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   const dev = await client.devices.retrieve<Device.Properties>({
     key: config.device,
   });
+  const commandsToCreate: OutputChannel[] = [];
+  for (const channel of config.channels) {
+    const key = writeMapKey(channel);
+    const existing =
+      dev.properties.write.channels[key] ??
+      dev.properties.write.channels[caseconv.snakeToCamel(key)];
+    if (existing == null) {
+      commandsToCreate.push(channel);
+      continue;
+    }
+    try {
+      await client.channels.retrieve(existing);
+    } catch (e) {
+      if (NotFoundError.matches(e)) commandsToCreate.push(channel);
+      else throw e;
+    }
+  }
 
   const safeName = channel.escapeInvalidName(dev.name);
-
-  // Collect and validate
-  const { toCreate: commandsToCreate, namesToValidate: cmdNames } =
-    await Common.Task.collectDataChannelsForValidation(
-      client,
-      config.channels,
-      (ch) => {
-        const key = writeMapKey(ch);
-        return (
-          dev.properties.write.channels[key] ??
-          dev.properties.write.channels[caseconv.snakeToCamel(key)]
-        );
-      },
-      (c) => ({
-        prename: c.name,
-        defaultName: `${safeName}_${c.type}_${c.address}_cmd`,
-      }),
-    );
-
-  const cmdIndexNames = commandsToCreate.map((c) =>
-    Common.Task.getChannelNameToCreate(
-      primitive.isNonZero(c.name) ? `${c.name}_time` : undefined,
-      `${safeName}_${c.type}_${c.address}_cmd_time`,
-    ),
-  );
-
-  await Common.Task.validateChannelNames(client, [...cmdIndexNames, ...cmdNames]);
-
   if (commandsToCreate.length > 0) {
     const commandIndexes = await client.channels.create(
       commandsToCreate.map((c) => ({
-        name: Common.Task.getChannelNameToCreate(
-          primitive.isNonZero(c.name) ? `${c.name}_time` : undefined,
-          `${safeName}_${c.type}_${c.address}_cmd_time`,
-        ),
+        name: primitive.isNonZero(c.name)
+          ? `${c.name}_time`
+          : `${safeName}_${c.type}_${c.address}_cmd_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commands = await client.channels.create(
       commandsToCreate.map((c, i) => ({
-        name: Common.Task.getChannelNameToCreate(
-          c.name,
-          `${safeName}_${c.type}_${c.address}_cmd`,
-        ),
+        name: primitive.isNonZero(c.name)
+          ? c.name
+          : `${safeName}_${c.type}_${c.address}_cmd`,
         dataType: c.type === "holding_register_output" ? c.dataType : "uint8",
         index: commandIndexes[i].key,
       })),

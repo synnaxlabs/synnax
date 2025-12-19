@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
+import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Icon } from "@synnaxlabs/pluto";
+import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
@@ -108,35 +109,16 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
   });
   Common.Device.checkConfigured(dev);
   dev.properties = Device.enrich(dev.model, dev.properties);
-
-  const identifier = channel.escapeInvalidName(dev.properties.identifier);
-
-  // Collect and validate
-  const { shouldCreate: shouldCreateIndex, nameToValidate: indexName } =
-    await Common.Task.collectIndexChannelForValidation(
-      client,
-      dev.properties.digitalInput.index,
-      `${identifier}_di_time`,
-    );
-
-  const { toCreate, namesToValidate } =
-    await Common.Task.collectDataChannelsForValidation(
-      client,
-      config.channels,
-      (ch) => dev.properties.digitalInput.channels[getDigitalChannelDeviceKey(ch)],
-      (ch) => ({
-        prename: ch.name,
-        defaultName: `${identifier}_di_${ch.port}_${ch.line}`,
-      }),
-    );
-
-  const allNamesToValidate = indexName
-    ? [indexName, ...namesToValidate]
-    : namesToValidate;
-  await Common.Task.validateChannelNames(client, allNamesToValidate);
-
   let modified = false;
-
+  let shouldCreateIndex = primitive.isZero(dev.properties.digitalInput.index);
+  if (!shouldCreateIndex)
+    try {
+      await client.channels.retrieve(dev.properties.digitalInput.index);
+    } catch (e) {
+      if (NotFoundError.matches(e)) shouldCreateIndex = true;
+      else throw e;
+    }
+  const identifier = channel.escapeInvalidName(dev.properties.identifier);
   if (shouldCreateIndex) {
     modified = true;
     const aiIndex = await client.channels.create({
@@ -147,15 +129,27 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
     dev.properties.digitalInput.index = aiIndex.key;
     dev.properties.digitalInput.channels = {};
   }
-
+  const toCreate: DIChannel[] = [];
+  for (const channel of config.channels) {
+    const key = getDigitalChannelDeviceKey(channel);
+    // check if the channel is in properties
+    const exKey = dev.properties.digitalInput.channels[key];
+    if (primitive.isZero(exKey)) toCreate.push(channel);
+    else
+      try {
+        await client.channels.retrieve(exKey.toString());
+      } catch (e) {
+        if (NotFoundError.matches(e)) toCreate.push(channel);
+        else throw e;
+      }
+  }
   if (toCreate.length > 0) {
     modified = true;
     const channels = await client.channels.create(
       toCreate.map((c) => ({
-        name: Common.Task.getChannelNameToCreate(
-          c.name,
-          `${identifier}_di_${c.port}_${c.line}`,
-        ),
+        name: primitive.isNonZero(c.name)
+          ? c.name
+          : `${identifier}_di_${c.port}_${c.line}`,
         dataType: "uint8",
         index: dev.properties.digitalInput.index,
       })),
@@ -165,7 +159,6 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
       dev.properties.digitalInput.channels[key] = c.key;
     });
   }
-
   if (modified) await client.devices.create(dev);
   config.channels.forEach((c) => {
     const key = getDigitalChannelDeviceKey(c);

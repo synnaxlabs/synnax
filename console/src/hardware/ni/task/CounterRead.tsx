@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type rack } from "@synnaxlabs/client";
+import { channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
-import { id, unique } from "@synnaxlabs/x";
+import { id, primitive, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
@@ -159,48 +159,21 @@ const onConfigure: Common.Task.OnConfigure<typeof counterReadConfigZ> = async (
     throw new Error("Cannot create task with channels from multiple racks");
   const rackKey: rack.Key = allDevices[0].rack;
 
-  const creationPlans: Array<{
-    dev: (typeof allDevices)[number];
-    identifier: string;
-    shouldCreateIndex: boolean;
-    toCreate: CIChannel[];
-  }> = [];
-  const namesToValidate: string[] = [];
-
   for (const dev of allDevices) {
     Common.Device.checkConfigured(dev);
     dev.properties = Device.enrich(dev.model, dev.properties);
-
-    const identifier = channel.escapeInvalidName(dev.properties.identifier);
-
-    // Collect and validate
-    const { shouldCreate: shouldCreateIndex, nameToValidate: indexName } =
-      await Common.Task.collectIndexChannelForValidation(
-        client,
-        dev.properties.counterInput.index,
-        `${identifier}_ctr_time`,
-      );
-
-    if (indexName) namesToValidate.push(indexName);
-
-    const deviceChannels = config.channels.filter((c) => c.device === dev.key);
-    const { toCreate, namesToValidate: channelNames } =
-      await Common.Task.collectDataChannelsForValidation(
-        client,
-        deviceChannels,
-        (ch) => dev.properties.counterInput.channels[ch.port.toString()],
-        (ch) => ({ prename: ch.name, defaultName: `${identifier}_ctr_${ch.port}` }),
-      );
-
-    namesToValidate.push(...channelNames);
-    creationPlans.push({ dev, identifier, shouldCreateIndex, toCreate });
-  }
-
-  await Common.Task.validateChannelNames(client, namesToValidate);
-
-  for (const { dev, identifier, shouldCreateIndex, toCreate } of creationPlans) {
     let devModified = false;
 
+    // Initialize index for counter channels
+    let shouldCreateIndex = primitive.isZero(dev.properties.counterInput.index);
+    if (!shouldCreateIndex)
+      try {
+        await client.channels.retrieve(dev.properties.counterInput.index);
+      } catch (e) {
+        if (NotFoundError.matches(e)) shouldCreateIndex = true;
+        else throw e;
+      }
+    const identifier = channel.escapeInvalidName(dev.properties.identifier);
     if (shouldCreateIndex) {
       devModified = true;
       const ciIndex = await client.channels.create({
@@ -212,14 +185,26 @@ const onConfigure: Common.Task.OnConfigure<typeof counterReadConfigZ> = async (
       dev.properties.counterInput.channels = {};
     }
 
+    // Create counter channels for this device
+    const deviceChannels = config.channels.filter((c) => c.device === dev.key);
+    const toCreate: CIChannel[] = [];
+    for (const channel of deviceChannels) {
+      const exKey = dev.properties.counterInput.channels[channel.port.toString()];
+      if (primitive.isZero(exKey)) toCreate.push(channel);
+      else
+        try {
+          await client.channels.retrieve(exKey.toString());
+        } catch (e) {
+          if (QueryError.matches(e)) toCreate.push(channel);
+          else throw e;
+        }
+    }
+
     if (toCreate.length > 0) {
       devModified = true;
       const channels = await client.channels.create(
         toCreate.map((c) => ({
-          name: Common.Task.getChannelNameToCreate(
-            c.name,
-            `${identifier}_ctr_${c.port}`,
-          ),
+          name: primitive.isNonZero(c.name) ? c.name : `${identifier}_ctr_${c.port}`,
           dataType: "float64",
           index: dev.properties.counterInput.index,
         })),
@@ -232,7 +217,7 @@ const onConfigure: Common.Task.OnConfigure<typeof counterReadConfigZ> = async (
 
     if (devModified) await client.devices.create(dev);
 
-    const deviceChannels = config.channels.filter((c) => c.device === dev.key);
+    // Map config channels to their Synnax channel keys
     deviceChannels.forEach((c) => {
       c.channel = dev.properties.counterInput.channels[c.port.toString()];
     });

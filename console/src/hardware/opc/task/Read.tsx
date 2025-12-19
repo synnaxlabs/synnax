@@ -9,7 +9,7 @@
 
 import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, type Haul, Icon } from "@synnaxlabs/pluto";
-import { caseconv, DataType } from "@synnaxlabs/x";
+import { caseconv, DataType, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 import { type z } from "zod";
 
@@ -231,48 +231,6 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     properties: Device.migrateProperties(previous.properties),
   });
 
-  const namesToValidate: string[] = [];
-
-  const indexChannelInTaskConfig = config.channels.find(({ useAsIndex }) => useAsIndex);
-  if (indexChannelInTaskConfig) {
-    const existingIndex = getChannelByNodeID(
-      device.properties,
-      indexChannelInTaskConfig.nodeId,
-    );
-    if (await Common.Task.shouldCreateChannel(client, existingIndex))
-      namesToValidate.push(
-        channel.escapeInvalidName(indexChannelInTaskConfig.nodeName, true),
-      );
-  } else {
-    let needsNewIndex = true;
-    for (const { nodeId } of config.channels) {
-      const existingChannelKey = getChannelByNodeID(device.properties, nodeId);
-      if (!(await Common.Task.shouldCreateChannel(client, existingChannelKey))) {
-        needsNewIndex = false;
-        break;
-      }
-    }
-    if (needsNewIndex)
-      namesToValidate.push(
-        `${channel.escapeInvalidName(device.name)}_time_for_${channel.escapeInvalidName(name)}`,
-      );
-  }
-
-  const { toCreate, namesToValidate: dataChannelNames } =
-    await Common.Task.collectDataChannelsForValidation(
-      client,
-      config.channels,
-      (ch) => getChannelByNodeID(device.properties, ch.nodeId),
-      (ch) => ({
-        prename: ch.name,
-        defaultName: channel.escapeInvalidName(ch.nodeName, true),
-      }),
-    );
-
-  namesToValidate.push(...dataChannelNames);
-
-  await Common.Task.validateChannelNames(client, namesToValidate);
-
   const index = await determineIndexChannel({
     client,
     device,
@@ -280,14 +238,31 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     taskName: name,
   });
 
+  const toCreate: ReadChannel[] = [];
+  for (const ch of config.channels) {
+    const exKey = getChannelByNodeID(device.properties, ch.nodeId);
+    if (!exKey) {
+      toCreate.push(ch);
+      continue;
+    }
+    try {
+      const rCh = await client.channels.retrieve(exKey);
+      if (rCh.index !== index)
+        throw new Error(
+          `Channel ${ch.nodeName} already exists as ${rCh.name}. Please move all channels from ${name} to the OPC UA Read Task that reads for ${rCh.name}.`,
+        );
+    } catch (e) {
+      if (NotFoundError.matches(e)) toCreate.push(ch);
+      else throw e;
+    }
+  }
   if (toCreate.length > 0) {
     const channels = await client.channels.create(
       toCreate.map(({ name, nodeName, dataType }) => ({
         dataType,
-        name: Common.Task.getChannelNameToCreate(
-          name,
-          channel.escapeInvalidName(nodeName, true),
-        ),
+        name: primitive.isNonZero(name)
+          ? name
+          : channel.escapeInvalidName(nodeName, true),
         index,
       })),
     );
