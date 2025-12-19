@@ -10,7 +10,11 @@
 import { memo, type ReactElement, useCallback, useMemo } from "react";
 
 import { MetricRow } from "@/perf/components/MetricRow";
-import { MetricTable, type MetricTableData } from "@/perf/components/MetricTable";
+import {
+  MetricTable,
+  type MetricTableColumn,
+  type MetricTableData,
+} from "@/perf/components/MetricTable";
 import { Section } from "@/perf/components/Section";
 import {
   CATEGORY_LABELS,
@@ -41,11 +45,7 @@ import {
 } from "@/perf/metrics/console";
 import { type Aggregates } from "@/perf/metrics/buffer";
 import { type MetricSample } from "@/perf/metrics/types";
-import {
-  type LiveMetrics,
-  type MetricDef,
-  type SectionConfig,
-} from "@/perf/types";
+import { type LiveMetrics, type MetricDef, type Status } from "@/perf/types";
 import { formatCount } from "@/perf/utils/formatting";
 import {
   createFpsMetrics,
@@ -74,6 +74,35 @@ const groupMetrics = <K extends string>(
 const NETWORK_TOOLTIP = `Requests per second (warn >${THRESHOLDS.networkRequests.warn}, error >${THRESHOLDS.networkRequests.error})`;
 const LONG_TASKS_TOOLTIP = `Tasks blocking main thread >50ms (warn >${THRESHOLDS.longTasks.warn}, error >${THRESHOLDS.longTasks.error})`;
 const CONSOLE_LOGS_TOOLTIP = `Console messages per second (warn >${THRESHOLDS.consoleLogs.warn}, error >${THRESHOLDS.consoleLogs.error})`;
+
+/** Metrics section data */
+interface MetricSectionData {
+  type: "metrics";
+  key: string;
+  title: string;
+  secondaryText?: string;
+  secondaryStatus?: Status;
+  secondaryTooltip?: string;
+  metrics: MetricDef[];
+}
+
+/**  Tables section data */
+interface EventSectionData {
+  type: "event";
+  key: string;
+  title: string;
+  secondaryText: string;
+  secondaryStatus: Status;
+  secondaryTooltip: string;
+  // Using any for mixed table types - type safety is maintained at the definition site
+  tableData: MetricTableData<any>;
+  columns: MetricTableColumn<any>[];
+  getKey: (item: any, index: number) => string;
+  getTooltip?: (item: any) => string;
+  showTable: boolean;
+}
+
+type SectionData = MetricSectionData | EventSectionData;
 
 export interface MetricSectionsProps {
   groupByType: boolean;
@@ -183,33 +212,18 @@ const MetricSectionsImpl = ({
     [liveMetrics.consoleLogCount],
   );
 
+  const isProfilingActive = status === "running" || status === "paused";
+
   const getLabel = useCallback(
     (metric: MetricDef): string => {
-      if (groupByType) 
-        return metric.label ?? TYPE_MODE_LABELS[metric.category];
-      
+      if (groupByType) return metric.label ?? TYPE_MODE_LABELS[metric.category];
       return TYPE_LABELS[metric.type];
     },
     [groupByType],
   );
 
-  const renderMetricRows = useCallback(
-    (metricsToRender: MetricDef[]) =>
-      metricsToRender.map((metric) => (
-        <MetricRow
-          key={metric.key}
-          label={getLabel(metric)}
-          value={metric.getValue()}
-          status={metric.getStatus?.()}
-          tooltip={metric.tooltip}
-        />
-      )),
-    [getLabel],
-  );
-
-  const sections = useMemo((): SectionConfig[] => {
-    const result: SectionConfig[] = [];
-    const isProfilingActive = status === "running" || status === "paused";
+  const sections = useMemo((): SectionData[] => {
+    const result: SectionData[] = [];
 
     if (groupByType) {
       const grouped = groupMetrics(metrics, (m) => m.type, TYPE_ORDER);
@@ -217,83 +231,79 @@ const MetricSectionsImpl = ({
         const liveMetric = typeMetrics.find((m) => m.category === "live");
         const rowMetrics = typeMetrics.filter((m) => m.category !== "live");
         result.push({
+          type: "metrics",
           key: type,
           title: TYPE_LABELS[type as MetricType],
           secondaryText: liveMetric?.getValue(),
           secondaryStatus: liveMetric?.getStatus?.(),
           secondaryTooltip: liveMetric?.tooltip,
-          content: <>{renderMetricRows(rowMetrics)}</>,
+          metrics: rowMetrics,
         });
       });
     } else {
       const grouped = groupMetrics(metrics, (m) => m.category, CATEGORY_ORDER);
       Object.entries(grouped).forEach(([category, catMetrics]) => {
         result.push({
+          type: "metrics",
           key: category,
           title: CATEGORY_LABELS[category as MetricCategory],
-          content: <>{renderMetricRows(catMetrics)}</>,
+          metrics: catMetrics,
         });
       });
     }
 
-    result.push({
-      key: "network",
-      title: "Network",
-      secondaryText: isProfilingActive
-        ? `${formatCount(liveMetrics.networkRequestCount)} / ${formatCount(liveMetrics.totalNetworkRequests)}`
-        : formatCount(liveMetrics.networkRequestCount),
-      secondaryStatus: networkStatus,
-      secondaryTooltip: NETWORK_TOOLTIP,
-      content: isProfilingActive ? (
-        <MetricTable
-          result={topEndpoints}
-          columns={NETWORK_TABLE_COLUMNS}
-          getKey={getNetworkTableKey}
-          getTooltip={getNetworkTableTooltip}
-        />
-      ) : undefined,
-    });
-
-    result.push({
-      key: "long-tasks",
-      title: "Long Tasks",
-      secondaryText: isProfilingActive
-        ? `${formatCount(liveMetrics.longTaskCount)} / ${formatCount(liveMetrics.totalLongTasks)}`
-        : formatCount(liveMetrics.longTaskCount),
-      secondaryStatus: longTasksStatus,
-      secondaryTooltip: LONG_TASKS_TOOLTIP,
-      content: isProfilingActive ? (
-        <MetricTable
-          result={topLongTasks}
-          columns={LONG_TASK_TABLE_COLUMNS}
-          getKey={getLongTaskTableKey}
-        />
-      ) : undefined,
-    });
-
-    result.push({
-      key: "console-logs",
-      title: "Console Logs",
-      secondaryText: isProfilingActive
-        ? `${formatCount(liveMetrics.consoleLogCount)} / ${formatCount(liveMetrics.totalConsoleLogs)}`
-        : formatCount(liveMetrics.consoleLogCount),
-      secondaryStatus: consoleLogsStatus,
-      secondaryTooltip: CONSOLE_LOGS_TOOLTIP,
-      content: isProfilingActive ? (
-        <MetricTable
-          result={topConsoleLogs}
-          columns={CONSOLE_LOG_TABLE_COLUMNS}
-          getKey={getConsoleLogTableKey}
-          getTooltip={getConsoleLogTableTooltip}
-        />
-      ) : undefined,
-    });
+    result.push(
+      {
+        type: "event",
+        key: "network",
+        title: "Network",
+        secondaryText: isProfilingActive
+          ? `${formatCount(liveMetrics.networkRequestCount)} / ${formatCount(liveMetrics.totalNetworkRequests)}`
+          : formatCount(liveMetrics.networkRequestCount),
+        secondaryStatus: networkStatus,
+        secondaryTooltip: NETWORK_TOOLTIP,
+        tableData: topEndpoints,
+        columns: NETWORK_TABLE_COLUMNS,
+        getKey: getNetworkTableKey,
+        getTooltip: getNetworkTableTooltip,
+        showTable: isProfilingActive,
+      },
+      {
+        type: "event",
+        key: "long-tasks",
+        title: "Long Tasks",
+        secondaryText: isProfilingActive
+          ? `${formatCount(liveMetrics.longTaskCount)} / ${formatCount(liveMetrics.totalLongTasks)}`
+          : formatCount(liveMetrics.longTaskCount),
+        secondaryStatus: longTasksStatus,
+        secondaryTooltip: LONG_TASKS_TOOLTIP,
+        tableData: topLongTasks,
+        columns: LONG_TASK_TABLE_COLUMNS,
+        getKey: getLongTaskTableKey,
+        showTable: isProfilingActive,
+      },
+      {
+        type: "event",
+        key: "console-logs",
+        title: "Console Logs",
+        secondaryText: isProfilingActive
+          ? `${formatCount(liveMetrics.consoleLogCount)} / ${formatCount(liveMetrics.totalConsoleLogs)}`
+          : formatCount(liveMetrics.consoleLogCount),
+        secondaryStatus: consoleLogsStatus,
+        secondaryTooltip: CONSOLE_LOGS_TOOLTIP,
+        tableData: topConsoleLogs,
+        columns: CONSOLE_LOG_TABLE_COLUMNS,
+        getKey: getConsoleLogTableKey,
+        getTooltip: getConsoleLogTableTooltip,
+        showTable: isProfilingActive,
+      },
+    );
 
     return result;
   }, [
     groupByType,
     metrics,
-    renderMetricRows,
+    isProfilingActive,
     liveMetrics.networkRequestCount,
     liveMetrics.longTaskCount,
     liveMetrics.consoleLogCount,
@@ -306,7 +316,6 @@ const MetricSectionsImpl = ({
     topEndpoints,
     topLongTasks,
     topConsoleLogs,
-    status,
   ]);
 
   return (
@@ -319,7 +328,24 @@ const MetricSectionsImpl = ({
           secondaryStatus={section.secondaryStatus}
           secondaryTooltip={section.secondaryTooltip}
         >
-          {section.content}
+          {section.type === "metrics" ? (
+            section.metrics.map((metric) => (
+              <MetricRow
+                key={metric.key}
+                label={getLabel(metric)}
+                value={metric.getValue()}
+                status={metric.getStatus?.()}
+                tooltip={metric.tooltip}
+              />
+            ))
+          ) : section.showTable ? (
+            <MetricTable
+              result={section.tableData}
+              columns={section.columns}
+              getKey={section.getKey}
+              getTooltip={section.getTooltip}
+            />
+          ) : null}
         </Section>
       ))}
     </>

@@ -89,6 +89,7 @@ export class ConsoleCollector {
   private messages: CapturedMessage[] = [];
   private totalCount = 0;
   private countAtLastSample = 0;
+  private captureFailures = 0;
   private windowMs: number;
   private isActive = false;
 
@@ -175,8 +176,10 @@ export class ConsoleCollector {
       if (this.messages.length > MAX_STORED_MESSAGES) {
         this.messages = this.messages.slice(-MAX_STORED_MESSAGES);
       }
-    } catch (error) {
-      // Silently fail to avoid breaking console
+    } catch {
+      // Track failures without breaking console - useful for debugging the profiler itself.
+      // Can do more with this later.
+      this.captureFailures++;
     }
   }
 
@@ -186,6 +189,7 @@ export class ConsoleCollector {
 
     this.totalCount = 0;
     this.countAtLastSample = 0;
+    this.captureFailures = 0;
     this.messages = [];
 
     const self = this;
@@ -224,6 +228,7 @@ export class ConsoleCollector {
   reset(): void {
     this.totalCount = 0;
     this.countAtLastSample = 0;
+    this.captureFailures = 0;
     this.messages = [];
   }
 
@@ -235,6 +240,10 @@ export class ConsoleCollector {
 
   getTotalCount(): number {
     return this.totalCount;
+  }
+
+  getCaptureFailures(): number {
+    return this.captureFailures;
   }
 
   /**

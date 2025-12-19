@@ -12,14 +12,7 @@ import "@/perf/Dashboard.css";
 import { TimeStamp } from "@synnaxlabs/client";
 import { Button, Flex, Header, Icon, Synnax, Text } from "@synnaxlabs/pluto";
 import { math, TimeRange } from "@synnaxlabs/x";
-import {
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { type Layout } from "@/layout";
@@ -34,22 +27,8 @@ import {
   ZERO_LEAK_REPORT,
 } from "@/perf/analyzer/types";
 import { MetricSections } from "@/perf/components/MetricSections";
-import { type MetricTableData } from "@/perf/components/MetricTable";
-import { SAMPLE_INTERVAL_MS } from "@/perf/constants";
-import { type Aggregates, SampleBuffer, ZERO_AGGREGATES } from "@/perf/metrics/buffer";
-import { ConsoleCollector, type ConsoleLogEntry } from "@/perf/metrics/console";
-import { CpuCollector } from "@/perf/metrics/cpu";
-import { FrameRateCollector } from "@/perf/metrics/framerate";
-import { GpuCollector } from "@/perf/metrics/gpu";
-import { HeapCollector } from "@/perf/metrics/heap";
-import {
-  LongTaskCollector,
-  type LongTaskStats,
-} from "@/perf/metrics/longtasks";
-import {
-  type EndpointStats,
-  NetworkCollector,
-} from "@/perf/metrics/network";
+import { useCollectors } from "@/perf/hooks/useCollectors";
+import { type SampleBuffer } from "@/perf/metrics/buffer";
 import { type MetricSample } from "@/perf/metrics/types";
 import {
   useSelectCpuReport,
@@ -62,7 +41,6 @@ import {
   useSelectStatus,
 } from "@/perf/selectors";
 import * as Perf from "@/perf/slice";
-import { type LiveMetrics } from "@/perf/types";
 import { formatTime } from "@/perf/utils/formatting";
 
 export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElement => {
@@ -79,53 +57,8 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
   // Synnax client for range creation
   const client = Synnax.use();
 
-  // Live metrics state (updated while dashboard is open)
-  const [liveMetrics, setLiveMetrics] = useState<LiveMetrics>({
-    frameRate: null,
-    cpuPercent: null,
-    gpuPercent: null,
-    heapUsedMB: null,
-    heapTotalMB: null,
-    networkRequestCount: null,
-    longTaskCount: null,
-    totalNetworkRequests: null,
-    totalLongTasks: null,
-    consoleLogCount: null,
-    totalConsoleLogs: null,
-  });
-
-  // Pre-allocated sample buffer (memory allocated on mount, not during test)
-  const sampleBufferRef = useRef(new SampleBuffer());
-
-  // Track latest sample for network requests display
-  const [latestSample, setLatestSample] = useState<MetricSample | null>(null);
-  const latestSampleRef = useRef<MetricSample | null>(null);
-
-  // Track aggregates from buffer for stats display
-  const [aggregates, setAggregates] = useState<Aggregates>(ZERO_AGGREGATES);
-
-  // Track top endpoints for profiling display
-  const [topEndpoints, setTopEndpoints] = useState<MetricTableData<EndpointStats>>({ data: [], total: 0, truncated: false });
-
-  // Track top long tasks for profiling display
-  const [topLongTasks, setTopLongTasks] = useState<MetricTableData<LongTaskStats>>({ data: [], total: 0, truncated: false });
-
-  // Track top console logs for profiling display
-  const [topConsoleLogs, setTopConsoleLogs] = useState<MetricTableData<ConsoleLogEntry>>({ data: [], total: 0, truncated: false });
-
   // Grouping mode: "time" (Live, Changes) or "type" (Live, Delta, Stats)
   const [groupByType, setGroupByType] = useState(true);
-
-  // Collectors - shared between live display and test recording
-  const collectorsRef = useRef({
-    cpu: null as CpuCollector | null,
-    gpu: null as GpuCollector | null,
-    frameRate: null as FrameRateCollector | null,
-    heap: null as HeapCollector | null,
-    longTask: null as LongTaskCollector | null,
-    network: null as NetworkCollector | null,
-    console: null as ConsoleCollector | null,
-  });
 
   // Analyzers for detecting performance issues
   const analyzersRef = useRef({
@@ -147,6 +80,85 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
 
   const prevStatusRef = useRef<string>(status);
   const currentStatusRef = useRef<string>(status);
+
+  const handleSample = useCallback(
+    (sample: MetricSample, buffer: SampleBuffer) => {
+      const captured = capturedRef.current;
+
+      if (captured.initialCPU == null && sample.cpuPercent != null) {
+        captured.initialCPU = sample.cpuPercent;
+        dispatch(
+          Perf.setCpuReport({
+            ...ZERO_CPU_REPORT,
+            startPercent: math.roundTo(sample.cpuPercent),
+          }),
+        );
+      }
+      if (captured.initialGPU == null && sample.gpuPercent != null) {
+        captured.initialGPU = sample.gpuPercent;
+        dispatch(
+          Perf.setGpuReport({
+            ...ZERO_GPU_REPORT,
+            startPercent: math.roundTo(sample.gpuPercent),
+          }),
+        );
+      }
+
+      const allSamples = buffer.getAllSamples();
+      if (allSamples.length < 2) return;
+
+      const analyzers = analyzersRef.current;
+
+      const leakResult = analyzers.leak.analyze(
+        allSamples
+          .filter((s) => s.heapUsedMB != null)
+          .map((s) => ({
+            timestamp: s.timestamp,
+            heapUsedMB: s.heapUsedMB!,
+            heapTotalMB: s.heapTotalMB!,
+          })),
+      );
+
+      const fpsContext: FPSContext = {
+        startFPS: captured.initialFPS,
+        endFPS: sample.frameRate,
+      };
+      const degradationResult = analyzers.degradation.analyze(fpsContext);
+
+      const agg = buffer.getAggregates();
+      const cpuResult = analyzers.cpu.analyze({
+        startPercent: captured.initialCPU,
+        endPercent: sample.cpuPercent,
+        avgPercent: agg.avgCpu,
+        maxPercent: agg.maxCpu,
+      });
+
+      const gpuResult = analyzers.gpu.analyze({
+        startPercent: captured.initialGPU,
+        endPercent: sample.gpuPercent,
+        avgPercent: agg.avgGpu,
+        maxPercent: agg.maxGpu,
+      });
+
+      dispatch(Perf.setLeakReport(leakResult));
+      dispatch(Perf.setDegradationReport(degradationResult));
+      dispatch(Perf.setCpuReport(cpuResult));
+      dispatch(Perf.setGpuReport(gpuResult));
+    },
+    [dispatch],
+  );
+
+  const {
+    liveMetrics,
+    tableData,
+    aggregates,
+    latestSample,
+    collectors,
+    sampleBuffer,
+    resetEventCollectors,
+    resetTableData,
+    resetBuffer,
+  } = useCollectors({ status, onSample: handleSample });
 
   // Create a new profiling range with MAX end time (indicates ongoing session)
   const createProfilingRange = useCallback(() => {
@@ -188,165 +200,17 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
     [client, rangeKey, rangeStartTime],
   );
 
-  const runAnalysis = useCallback(
-    (endFPS: number | null, endCPU: number | null, endGPU: number | null) => {
-      const captured = capturedRef.current;
-
-      if (captured.initialCPU == null && endCPU != null) {
-        captured.initialCPU = endCPU;
-        dispatch(
-          Perf.setCpuReport({
-            ...ZERO_CPU_REPORT,
-            startPercent: math.roundTo(endCPU),
-          }),
-        );
-      }
-      if (captured.initialGPU == null && endGPU != null) {
-        captured.initialGPU = endGPU;
-        dispatch(
-          Perf.setGpuReport({
-            ...ZERO_GPU_REPORT,
-            startPercent: math.roundTo(endGPU),
-          }),
-        );
-      }
-
-      const buffer = sampleBufferRef.current;
-      const allSamples = buffer.getAllSamples();
-      if (allSamples.length < 2) return;
-
-      const analyzers = analyzersRef.current;
-
-      const leakResult = analyzers.leak.analyze(
-        allSamples
-          .filter((s) => s.heapUsedMB != null)
-          .map((s) => ({
-            timestamp: s.timestamp,
-            heapUsedMB: s.heapUsedMB!,
-            heapTotalMB: s.heapTotalMB!,
-          })),
-      );
-
-      const fpsContext: FPSContext = { startFPS: captured.initialFPS, endFPS };
-      const degradationResult = analyzers.degradation.analyze(fpsContext);
-
-      const aggregates = buffer.getAggregates();
-      const cpuResult = analyzers.cpu.analyze({
-        startPercent: captured.initialCPU,
-        endPercent: endCPU,
-        avgPercent: aggregates.avgCpu,
-        maxPercent: aggregates.maxCpu,
-      });
-
-      const gpuResult = analyzers.gpu.analyze({
-        startPercent: captured.initialGPU,
-        endPercent: endGPU,
-        avgPercent: aggregates.avgGpu,
-        maxPercent: aggregates.maxGpu,
-      });
-
-      dispatch(Perf.setLeakReport(leakResult));
-      dispatch(Perf.setDegradationReport(degradationResult));
-      dispatch(Perf.setCpuReport(cpuResult));
-      dispatch(Perf.setGpuReport(gpuResult));
-    },
-    [dispatch],
-  );
-
-  // Collect a sample from the shared collectors
-  const collectSample = useCallback((): MetricSample => {
-    const c = collectorsRef.current;
-    return {
-      timestamp: performance.now(),
-      cpuPercent: c.cpu?.getCpuPercent() ?? null,
-      gpuPercent: c.gpu?.getGpuPercent() ?? null,
-      heapUsedMB: c.heap?.getHeapUsedMB() ?? null,
-      heapTotalMB: c.heap?.getHeapTotalMB() ?? null,
-      frameRate: c.frameRate?.getCurrentFPS() ?? null,
-      longTaskCount: c.longTask?.getCountSinceLastSample() ?? 0,
-      longTaskDurationMs: c.longTask?.getDurationSinceLastSample() ?? 0,
-      networkRequestCount: c.network?.getCountSinceLastSample() ?? 0,
-      consoleLogCount: c.console?.getCountSinceLastSample() ?? 0,
-    };
-  }, []);
-
-  // Start collectors and unified update loop on mount
-  useEffect(() => {
-    const c = collectorsRef.current;
-    c.cpu = new CpuCollector();
-    c.gpu = new GpuCollector();
-    c.frameRate = new FrameRateCollector();
-    c.heap = new HeapCollector();
-    c.longTask = new LongTaskCollector();
-    c.network = new NetworkCollector();
-    c.console = new ConsoleCollector();
-
-    c.cpu.start();
-    c.gpu.start();
-    c.frameRate.start();
-    c.heap.start();
-    c.longTask.start();
-    c.network.start();
-    c.console.start();
-
-    // Update everything together
-    const updateInterval = setInterval(() => {
-
-      const sample = collectSample();
-      latestSampleRef.current = sample;
-
-      setLatestSample(sample);
-      setLiveMetrics({
-        frameRate: c.frameRate?.getCurrentFPS() ?? null,
-        cpuPercent: c.cpu?.getCpuPercent() ?? null,
-        gpuPercent: c.gpu?.getGpuPercent() ?? null,
-        heapUsedMB: c.heap?.getHeapUsedMB() ?? null,
-        heapTotalMB: c.heap?.getHeapTotalMB() ?? null,
-        networkRequestCount: sample.networkRequestCount,
-        longTaskCount: sample.longTaskCount,
-        totalNetworkRequests: c.network?.getTotalCount() ?? null,
-        totalLongTasks: c.longTask?.getTotalCount() ?? null,
-        consoleLogCount: sample.consoleLogCount,
-        totalConsoleLogs: c.console?.getTotalCount() ?? null,
-      });
-
-      if (status === "running") {
-        sampleBufferRef.current.push(sample);
-        setAggregates(sampleBufferRef.current.getAggregates());
-        setTopEndpoints(c.network?.getTopEndpoints() ?? { data: [], total: 0, truncated: false });
-        setTopLongTasks(c.longTask?.getTopLongTasks() ?? { data: [], total: 0, truncated: false });
-        setTopConsoleLogs(c.console?.getTopLogs() ?? { data: [], total: 0, truncated: false });
-        runAnalysis(sample.frameRate, sample.cpuPercent, sample.gpuPercent);
-      }
-    }, SAMPLE_INTERVAL_MS);
-
-    return () => {
-      clearInterval(updateInterval);
-      c.cpu?.stop();
-      c.gpu?.stop();
-      c.frameRate?.stop();
-      c.heap?.stop();
-      c.longTask?.stop();
-      c.network?.stop();
-      c.console?.stop();
-    };
-  }, [collectSample, status, runAnalysis]);
-
-  // Capture initial FPS/heap/CPU when test starts, final values when test stops
+  // Handle status transitions: capture initial/final values, manage ranges
   useEffect(() => {
     const prevStatus = prevStatusRef.current;
     prevStatusRef.current = status;
-    const c = collectorsRef.current;
+    const c = collectors.current;
     const captured = capturedRef.current;
 
     // Capture initial FPS, heap, and CPU when test starts fresh (not when resuming)
     if (status === "running" && prevStatus === "idle") {
-      c.longTask?.reset();
-      c.network?.reset();
-      c.console?.reset();
-      setTopEndpoints({ data: [], total: 0, truncated: false });
-      setTopLongTasks({ data: [], total: 0, truncated: false });
-      setTopConsoleLogs({ data: [], total: 0, truncated: false });
+      resetEventCollectors();
+      resetTableData();
 
       const initialFPS = c.frameRate?.getCurrentFPS() ?? null;
       captured.initialFPS = initialFPS;
@@ -396,7 +260,7 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
 
     // Capture final values when pausing
     if (status === "paused" && prevStatus === "running") {
-      const samples = sampleBufferRef.current.getAllSamples();
+      const samples = sampleBuffer.current.getAllSamples();
       const lastSample = samples.at(-1);
       if (lastSample != null) {
         captured.finalFPS = lastSample.frameRate;
@@ -430,19 +294,23 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
       captured.finalGPU = null;
       captured.initialFPS = null;
       captured.finalFPS = null;
-      latestSampleRef.current = null;
-      setLatestSample(null);
-      setAggregates(ZERO_AGGREGATES);
-      setTopEndpoints({ data: [], total: 0, truncated: false });
-      setTopLongTasks({ data: [], total: 0, truncated: false });
-      setTopConsoleLogs({ data: [], total: 0, truncated: false });
 
-      c.longTask?.reset();
-      c.network?.reset();
-      c.console?.reset();
-      sampleBufferRef.current.reset();
+      resetEventCollectors();
+      resetTableData();
+      resetBuffer();
     }
-  }, [status, dispatch, rangeKey, createProfilingRange, updateRangeEndTime]);
+  }, [
+    status,
+    dispatch,
+    rangeKey,
+    createProfilingRange,
+    updateRangeEndTime,
+    collectors,
+    sampleBuffer,
+    resetEventCollectors,
+    resetTableData,
+    resetBuffer,
+  ]);
 
   useEffect(() => {
     currentStatusRef.current = status;
@@ -533,9 +401,9 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
         liveMetrics={liveMetrics}
         aggregates={aggregates}
         latestSample={latestSample}
-        topEndpoints={topEndpoints}
-        topLongTasks={topLongTasks}
-        topConsoleLogs={topConsoleLogs}
+        topEndpoints={tableData.endpoints}
+        topLongTasks={tableData.longTasks}
+        topConsoleLogs={tableData.consoleLogs}
         degradationReport={degradationReport}
         leakReport={leakReport}
         cpuReport={cpuReport}
