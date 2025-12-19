@@ -175,5 +175,32 @@ describe("Toggle", () => {
       expect(sink.lastValue).toBe(false);
       expect(sink.values).toEqual([true, false]);
     });
+
+    it("should alternate values on sequential toggles with feedback", () => {
+      const { result } = renderHook(
+        () =>
+          Toggle.use({
+            aetherKey: "test-toggle-sequential",
+            source: telemTest.booleanSourceSpec(source),
+            sink: telemTest.booleanSinkSpec(sink),
+          }),
+        { wrapper: TestWrapper },
+      );
+
+      act(() => {
+        result.current.toggle();
+        source.setValue(true);
+      });
+      act(() => {
+        result.current.toggle();
+        source.setValue(false);
+      });
+      act(() => {
+        result.current.toggle();
+        source.setValue(true);
+      });
+
+      expect(sink.values).toEqual([true, false, true]);
+    });
   });
 });

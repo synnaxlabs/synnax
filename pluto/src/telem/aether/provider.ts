@@ -65,3 +65,7 @@ export const createProvider = (
 };
 
 export const Provider = createProvider(createFactory);
+
+export const REGISTRY: aether.ComponentRegistry = {
+  [PROVIDER_TYPE]: Provider,
+};

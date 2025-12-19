@@ -127,5 +127,40 @@ describe("Button", () => {
       expect(sink.lastValue).toBe(false);
       expect(sink.values).toEqual([true, false]);
     });
+
+    it("should call sink with true on mouseUp in fire mode", () => {
+      const { result } = renderHook(
+        () =>
+          Button.use({
+            aetherKey: "test-button-fire",
+            sink: telemTest.booleanSinkSpec(sink),
+            mode: "fire",
+          }),
+        { wrapper: TestWrapper },
+      );
+
+      result.current.onMouseDown();
+      expect(sink.values).toEqual([]);
+
+      result.current.onMouseUp();
+      expect(sink.lastValue).toBe(true);
+      expect(sink.values).toEqual([true]);
+    });
+
+    it("should call sink with true then false on mouseDown in pulse mode", () => {
+      const { result } = renderHook(
+        () =>
+          Button.use({
+            aetherKey: "test-button-pulse",
+            sink: telemTest.booleanSinkSpec(sink),
+            mode: "pulse",
+          }),
+        { wrapper: TestWrapper },
+      );
+
+      result.current.onMouseDown();
+
+      expect(sink.values).toEqual([true, false]);
+    });
   });
 });
