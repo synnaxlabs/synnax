@@ -206,46 +206,48 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   else shouldCreateIndex = true;
   let modified = false;
   const safeName = channel.escapeInvalidName(dev.name);
-  if (shouldCreateIndex) {
-    modified = true;
-    const index = await client.channels.create({
-      name: `${safeName}_time`,
-      dataType: "timestamp",
-      isIndex: true,
-    });
-    dev.properties.read.index = index.key;
-  }
+  try {
+    if (shouldCreateIndex) {
+      modified = true;
+      const index = await client.channels.create({
+        name: `${safeName}_time`,
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      dev.properties.read.index = index.key;
+    }
 
-  const toCreate: InputChannel[] = [];
-  for (const c of config.channels) {
-    const key = readMapKey(c);
-    const existing = dev.properties.read.channels[key];
-    if (existing == null) toCreate.push(c);
-    else
-      try {
-        await client.channels.retrieve(existing.toString());
-      } catch (e) {
-        if (NotFoundError.matches(e)) toCreate.push(c);
-        else throw e;
-      }
-  }
-  if (toCreate.length > 0) {
-    modified = true;
-    const channels = await client.channels.create(
-      toCreate.map((c) => ({
-        name: primitive.isNonZero(c.name) ? c.name : channelName(safeName, c),
-        dataType: (c as TypedInput).dataType ?? DataType.UINT8.toString(),
-        index: dev.properties.read.index,
-      })),
-    );
+    const toCreate: InputChannel[] = [];
+    for (const c of config.channels) {
+      const key = readMapKey(c);
+      const existing = dev.properties.read.channels[key];
+      if (existing == null) toCreate.push(c);
+      else
+        try {
+          await client.channels.retrieve(existing.toString());
+        } catch (e) {
+          if (NotFoundError.matches(e)) toCreate.push(c);
+          else throw e;
+        }
+    }
+    if (toCreate.length > 0) {
+      modified = true;
+      const channels = await client.channels.create(
+        toCreate.map((c) => ({
+          name: primitive.isNonZero(c.name) ? c.name : channelName(safeName, c),
+          dataType: (c as TypedInput).dataType ?? DataType.UINT8.toString(),
+          index: dev.properties.read.index,
+        })),
+      );
 
-    channels.forEach((c, i) => {
-      const channel = toCreate[i];
-      dev.properties.read.channels[readMapKey(channel)] = c.key;
-    });
+      channels.forEach((c, i) => {
+        const channel = toCreate[i];
+        dev.properties.read.channels[readMapKey(channel)] = c.key;
+      });
+    }
+  } finally {
+    if (modified) await client.devices.create(dev);
   }
-
-  if (modified) await client.devices.create(dev);
 
   config.channels.forEach((c) => {
     c.channel = dev.properties.read.channels[readMapKey(c)];

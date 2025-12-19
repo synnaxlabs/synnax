@@ -231,50 +231,53 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     properties: Device.migrateProperties(previous.properties),
   });
 
-  const index = await determineIndexChannel({
-    client,
-    device,
-    config,
-    taskName: name,
-  });
+  try {
+    const index = await determineIndexChannel({
+      client,
+      device,
+      config,
+      taskName: name,
+    });
 
-  const toCreate: ReadChannel[] = [];
-  for (const ch of config.channels) {
-    const exKey = getChannelByNodeID(device.properties, ch.nodeId);
-    if (!exKey) {
-      toCreate.push(ch);
-      continue;
+    const toCreate: ReadChannel[] = [];
+    for (const ch of config.channels) {
+      const exKey = getChannelByNodeID(device.properties, ch.nodeId);
+      if (!exKey) {
+        toCreate.push(ch);
+        continue;
+      }
+      try {
+        const rCh = await client.channels.retrieve(exKey);
+        if (rCh.index !== index)
+          throw new Error(
+            `Channel ${ch.nodeName} already exists as ${rCh.name}. Please move all channels from ${name} to the OPC UA Read Task that reads for ${rCh.name}.`,
+          );
+      } catch (e) {
+        if (NotFoundError.matches(e)) toCreate.push(ch);
+        else throw e;
+      }
     }
-    try {
-      const rCh = await client.channels.retrieve(exKey);
-      if (rCh.index !== index)
-        throw new Error(
-          `Channel ${ch.nodeName} already exists as ${rCh.name}. Please move all channels from ${name} to the OPC UA Read Task that reads for ${rCh.name}.`,
-        );
-    } catch (e) {
-      if (NotFoundError.matches(e)) toCreate.push(ch);
-      else throw e;
+    if (toCreate.length > 0) {
+      const channels = await client.channels.create(
+        toCreate.map(({ name, nodeName, dataType }) => ({
+          dataType,
+          name: primitive.isNonZero(name)
+            ? name
+            : channel.escapeInvalidName(nodeName, true),
+          index,
+        })),
+      );
+      channels.forEach(
+        ({ key }, i) => (device.properties.read.channels[toCreate[i].nodeId] = key),
+      );
     }
+    config.channels = config.channels.map((c) => ({
+      ...c,
+      channel: getChannelByNodeID(device.properties, c.nodeId),
+    }));
+  } finally {
+    await client.devices.create(device);
   }
-  if (toCreate.length > 0) {
-    const channels = await client.channels.create(
-      toCreate.map(({ name, nodeName, dataType }) => ({
-        dataType,
-        name: primitive.isNonZero(name)
-          ? name
-          : channel.escapeInvalidName(nodeName, true),
-        index,
-      })),
-    );
-    channels.forEach(
-      ({ key }, i) => (device.properties.read.channels[toCreate[i].nodeId] = key),
-    );
-  }
-  config.channels = config.channels.map((c) => ({
-    ...c,
-    channel: getChannelByNodeID(device.properties, c.nodeId),
-  }));
-  await client.devices.create(device);
   return [config, device.rack];
 };
 

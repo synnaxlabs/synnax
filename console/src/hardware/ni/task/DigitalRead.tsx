@@ -119,47 +119,50 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
       else throw e;
     }
   const identifier = channel.escapeInvalidName(dev.properties.identifier);
-  if (shouldCreateIndex) {
-    modified = true;
-    const aiIndex = await client.channels.create({
-      name: `${identifier}_di_time`,
-      dataType: "timestamp",
-      isIndex: true,
-    });
-    dev.properties.digitalInput.index = aiIndex.key;
-    dev.properties.digitalInput.channels = {};
+  try {
+    if (shouldCreateIndex) {
+      modified = true;
+      const aiIndex = await client.channels.create({
+        name: `${identifier}_di_time`,
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      dev.properties.digitalInput.index = aiIndex.key;
+      dev.properties.digitalInput.channels = {};
+    }
+    const toCreate: DIChannel[] = [];
+    for (const channel of config.channels) {
+      const key = getDigitalChannelDeviceKey(channel);
+      // check if the channel is in properties
+      const exKey = dev.properties.digitalInput.channels[key];
+      if (primitive.isZero(exKey)) toCreate.push(channel);
+      else
+        try {
+          await client.channels.retrieve(exKey.toString());
+        } catch (e) {
+          if (NotFoundError.matches(e)) toCreate.push(channel);
+          else throw e;
+        }
+    }
+    if (toCreate.length > 0) {
+      modified = true;
+      const channels = await client.channels.create(
+        toCreate.map((c) => ({
+          name: primitive.isNonZero(c.name)
+            ? c.name
+            : `${identifier}_di_${c.port}_${c.line}`,
+          dataType: "uint8",
+          index: dev.properties.digitalInput.index,
+        })),
+      );
+      channels.forEach((c, i) => {
+        const key = getDigitalChannelDeviceKey(toCreate[i]);
+        dev.properties.digitalInput.channels[key] = c.key;
+      });
+    }
+  } finally {
+    if (modified) await client.devices.create(dev);
   }
-  const toCreate: DIChannel[] = [];
-  for (const channel of config.channels) {
-    const key = getDigitalChannelDeviceKey(channel);
-    // check if the channel is in properties
-    const exKey = dev.properties.digitalInput.channels[key];
-    if (primitive.isZero(exKey)) toCreate.push(channel);
-    else
-      try {
-        await client.channels.retrieve(exKey.toString());
-      } catch (e) {
-        if (NotFoundError.matches(e)) toCreate.push(channel);
-        else throw e;
-      }
-  }
-  if (toCreate.length > 0) {
-    modified = true;
-    const channels = await client.channels.create(
-      toCreate.map((c) => ({
-        name: primitive.isNonZero(c.name)
-          ? c.name
-          : `${identifier}_di_${c.port}_${c.line}`,
-        dataType: "uint8",
-        index: dev.properties.digitalInput.index,
-      })),
-    );
-    channels.forEach((c, i) => {
-      const key = getDigitalChannelDeviceKey(toCreate[i]);
-      dev.properties.digitalInput.channels[key] = c.key;
-    });
-  }
-  if (modified) await client.devices.create(dev);
   config.channels.forEach((c) => {
     const key = getDigitalChannelDeviceKey(c);
     c.channel = dev.properties.digitalInput.channels[key];
