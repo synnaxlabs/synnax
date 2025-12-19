@@ -35,10 +35,7 @@ import {
 } from "@/perf/analyzer/types";
 import { MetricSections } from "@/perf/components/MetricSections";
 import { type MetricTableData } from "@/perf/components/MetricTable";
-import {
-  LIVE_DISPLAY_INTERVAL_MS,
-  SAMPLE_INTERVAL_MS,
-} from "@/perf/constants";
+import { SAMPLE_INTERVAL_MS } from "@/perf/constants";
 import { type Aggregates, SampleBuffer, ZERO_AGGREGATES } from "@/perf/metrics/buffer";
 import { CpuCollector } from "@/perf/metrics/cpu";
 import { FrameRateCollector } from "@/perf/metrics/framerate";
@@ -134,8 +131,8 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
     finalGPU: null as number | null,
   });
 
-  const sampleIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevStatusRef = useRef<string>(status);
+  const currentStatusRef = useRef<string>(status);
 
   const runAnalysis = useCallback(
     (endFPS: number | null, endCPU: number | null, endGPU: number | null) => {
@@ -218,7 +215,7 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
     };
   }, []);
 
-  // Start collectors on mount (live metrics always available while dashboard is open)
+  // Start collectors and unified update loop on mount
   useEffect(() => {
     const c = collectorsRef.current;
     c.cpu = new CpuCollector();
@@ -235,30 +232,36 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
     c.longTask.start();
     c.network.start();
 
-    const sampleInterval = setInterval(() => {
+    // Update everything together
+    const updateInterval = setInterval(() => {
+
       const sample = collectSample();
       latestSampleRef.current = sample;
-      setLatestSample(sample);
-    }, SAMPLE_INTERVAL_MS);
 
-    const liveInterval = setInterval(() => {
-      const sample = latestSampleRef.current;
+      setLatestSample(sample);
       setLiveMetrics({
         frameRate: c.frameRate?.getCurrentFPS() ?? null,
         cpuPercent: c.cpu?.getCpuPercent() ?? null,
         gpuPercent: c.gpu?.getGpuPercent() ?? null,
         heapUsedMB: c.heap?.getHeapUsedMB() ?? null,
         heapTotalMB: c.heap?.getHeapTotalMB() ?? null,
-        networkRequestCount: sample?.networkRequestCount ?? 0,
-        longTaskCount: sample?.longTaskCount ?? 0,
+        networkRequestCount: sample.networkRequestCount,
+        longTaskCount: sample.longTaskCount,
         totalNetworkRequests: c.network?.getTotalCount() ?? null,
         totalLongTasks: c.longTask?.getTotalCount() ?? null,
       });
-    }, LIVE_DISPLAY_INTERVAL_MS);
+
+      if (status === "running") {
+        sampleBufferRef.current.push(sample);
+        setAggregates(sampleBufferRef.current.getAggregates());
+        setTopEndpoints(c.network?.getTopEndpoints() ?? { data: [], total: 0, truncated: false });
+        setTopLongTasks(c.longTask?.getTopLongTasks() ?? { data: [], total: 0, truncated: false });
+        runAnalysis(sample.frameRate, sample.cpuPercent, sample.gpuPercent);
+      }
+    }, SAMPLE_INTERVAL_MS);
 
     return () => {
-      clearInterval(sampleInterval);
-      clearInterval(liveInterval);
+      clearInterval(updateInterval);
       c.cpu?.stop();
       c.gpu?.stop();
       c.frameRate?.stop();
@@ -266,35 +269,7 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
       c.longTask?.stop();
       c.network?.stop();
     };
-  }, [collectSample]);
-
-  // Record samples to buffer during profiling
-  useEffect(() => {
-    const c = collectorsRef.current;
-    if (status === "running") 
-      sampleIntervalRef.current = setInterval(() => {
-        const sample = latestSampleRef.current;
-        if (sample != null) {
-          sampleBufferRef.current.push(sample);
-          setAggregates(sampleBufferRef.current.getAggregates());
-          setTopEndpoints(c.network?.getTopEndpoints() ?? { data: [], total: 0, truncated: false });
-          setTopLongTasks(c.longTask?.getTopLongTasks() ?? { data: [], total: 0, truncated: false });
-          runAnalysis(sample.frameRate, sample.cpuPercent, sample.gpuPercent);
-        }
-      }, SAMPLE_INTERVAL_MS);
-     else if (sampleIntervalRef.current != null) {
-      // Stop recording
-      clearInterval(sampleIntervalRef.current);
-      sampleIntervalRef.current = null;
-    }
-
-    return () => {
-      if (sampleIntervalRef.current != null) {
-        clearInterval(sampleIntervalRef.current);
-        sampleIntervalRef.current = null;
-      }
-    };
-  }, [status, collectSample, runAnalysis]);
+  }, [collectSample, status, runAnalysis]);
 
   // Capture initial FPS/heap/CPU when test starts, final values when test stops
   useEffect(() => {
@@ -303,8 +278,8 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
     const c = collectorsRef.current;
     const captured = capturedRef.current;
 
-    // Capture initial FPS, heap, and CPU when test starts
-    if (status === "running" && prevStatus !== "running") {
+    // Capture initial FPS, heap, and CPU when test starts fresh (not when resuming)
+    if (status === "running" && prevStatus === "idle") {
       c.longTask?.reset();
       c.network?.reset();
       setTopEndpoints({ data: [], total: 0, truncated: false });
@@ -349,8 +324,8 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
       );
     }
 
-    // Use last buffered sample to avoid capturing stop-logic overhead
-    if (status === "completed" && prevStatus === "running") {
+    // Capture final values when pausing
+    if (status === "paused" && prevStatus === "running") {
       const samples = sampleBufferRef.current.getAllSamples();
       const lastSample = samples.at(-1);
       if (lastSample != null) {
@@ -384,15 +359,22 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
     }
   }, [status, dispatch]);
 
-  // Run final analysis when test completes
   useEffect(() => {
-    if (status !== "completed") return;
-    const captured = capturedRef.current;
-    runAnalysis(captured.finalFPS, captured.finalCPU, captured.finalGPU);
-  }, [status, runAnalysis]);
+    currentStatusRef.current = status;
+  }, [status]);
+
+  useEffect(() => {
+    return () => {
+      const currentStatus = currentStatusRef.current;
+      if (currentStatus !== "idle") {
+        dispatch(Perf.reset());
+      }
+    };
+  }, [dispatch]);
 
   const handleStart = useCallback(() => dispatch(Perf.start(undefined)), [dispatch]);
-  const handleStop = useCallback(() => dispatch(Perf.stop()), [dispatch]);
+  const handlePause = useCallback(() => dispatch(Perf.pause()), [dispatch]);
+  const handleResume = useCallback(() => dispatch(Perf.resume()), [dispatch]);
   const handleReset = useCallback(() => dispatch(Perf.reset()), [dispatch]);
 
   const btn = useMemo(() => {
@@ -408,21 +390,14 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
         return {
           icon: <Icon.Pause />,
           text: formatTime(elapsedSeconds),
-          handler: handleStop,
+          handler: handlePause,
           variant: "outlined" as const,
         };
       case "paused":
         return {
           icon: <Icon.Play />,
           text: formatTime(elapsedSeconds),
-          handler: handleStart,
-          variant: "outlined" as const,
-        };
-      case "completed":
-        return {
-          icon: <Icon.Refresh />,
-          text: formatTime(elapsedSeconds),
-          handler: handleReset,
+          handler: handleResume,
           variant: "outlined" as const,
         };
       case "error":
@@ -434,7 +409,9 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
           variant: "outlined" as const,
         };
     }
-  }, [status, elapsedSeconds, handleStart, handleStop, handleReset]);
+  }, [status, elapsedSeconds, handleStart, handlePause, handleResume, handleReset]);
+
+  const showResetButton = status === "paused";
 
   return (
     <Flex.Box y className="console-perf-dashboard" grow>
@@ -449,6 +426,16 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
             {groupByType ? "By Resource" : "By Category"}
           </Button.Button>
           <Flex.Box grow />
+          {showResetButton && (
+            <Button.Button
+              variant="text"
+              size="tiny"
+              onClick={handleReset}
+              className="console-perf-reset-button"
+            >
+              <Icon.Refresh />
+            </Button.Button>
+          )}
           <Button.Button variant={btn.variant} size="tiny" onClick={btn.handler}>
             {btn.icon}
             {btn.text}

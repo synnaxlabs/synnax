@@ -29,7 +29,7 @@ import {
 
 export const SLICE_NAME = "perf";
 
-export type HarnessStatus = "idle" | "running" | "paused" | "completed" | "error";
+export type HarnessStatus = "idle" | "running" | "paused" | "error";
 
 /** Configuration for the performance harness. */
 export interface HarnessConfig {
@@ -117,8 +117,8 @@ export const { actions, reducer } = createSlice({
     },
 
     stop: (state) => {
-      state.status = "completed";
-      state.endTime = performance.now();
+      // Stop now behaves the same as pause - we no longer have a "completed" state
+      if (state.status === "running") state.status = "paused";
     },
 
     pause: (state) => {

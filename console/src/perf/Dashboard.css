@@ -103,3 +103,7 @@
     display: block;
     text-align: right;
 }
+
+.console-perf-reset-button {
+    color: var(--pluto-primary-z);
+}

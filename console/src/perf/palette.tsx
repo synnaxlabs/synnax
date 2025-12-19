@@ -33,13 +33,23 @@ const OPEN_DASHBOARD_COMMAND: Palette.Command = {
   },
 };
 
-const STOP_HARNESS_COMMAND: Palette.Command = {
-  key: "stop-perf-harness",
-  name: "Stop Console Profiling",
+const PAUSE_HARNESS_COMMAND: Palette.Command = {
+  key: "pause-perf-harness",
+  name: "Pause Console Profiling",
   icon: <Icon.Pause />,
   visible: ({ state }) => state.perf?.status === "running",
   onSelect: ({ store }) => {
-    store.dispatch(Perf.stop());
+    store.dispatch(Perf.pause());
+  },
+};
+
+const RESUME_HARNESS_COMMAND: Palette.Command = {
+  key: "resume-perf-harness",
+  name: "Resume Console Profiling",
+  icon: <Icon.Play />,
+  visible: ({ state }) => state.perf?.status === "paused",
+  onSelect: ({ store }) => {
+    store.dispatch(Perf.resume());
   },
 };
 
@@ -48,7 +58,7 @@ const RESET_HARNESS_COMMAND: Palette.Command = {
   name: "Reset Console Profiling",
   icon: <Icon.Refresh />,
   visible: ({ state }) =>
-    state.perf?.status === "completed" || state.perf?.status === "error",
+    state.perf?.status === "paused" || state.perf?.status === "error",
   onSelect: ({ store }) => {
     store.dispatch(Perf.reset());
   },
@@ -57,6 +67,7 @@ const RESET_HARNESS_COMMAND: Palette.Command = {
 export const COMMANDS: Palette.Command[] = [
   START_HARNESS_COMMAND,
   OPEN_DASHBOARD_COMMAND,
-  STOP_HARNESS_COMMAND,
+  PAUSE_HARNESS_COMMAND,
+  RESUME_HARNESS_COMMAND,
   RESET_HARNESS_COMMAND,
 ];
