@@ -18,6 +18,9 @@ export const EVENT_CORRELATION_WINDOW_MS = 1000;
 export const LONG_TASK_WINDOW_MS = 600_000;
 export const MAX_STORED_ENDPOINTS = 100;
 export const MAX_TRACKED_EVENTS = 50;
+export const CONSOLE_LOG_WINDOW_MS = 600_000;
+export const MAX_STORED_MESSAGES = 1000;
+export const MAX_MESSAGE_LENGTH = 500;
 
 export const THRESHOLDS = {
   fps: { warn: 50, error: 28, inverted: true },
@@ -29,6 +32,7 @@ export const THRESHOLDS = {
   heapGrowth: { warn: 5, error: 10 },
   longTasks: { warn: 5, error: 10 },
   networkRequests: { warn: 5, error: 10 },
+  consoleLogs: { warn: 5, error: 10 },
 } as const;
 
 export const STATUS_COLORS: Record<string, string> = {

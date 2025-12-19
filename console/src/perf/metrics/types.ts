@@ -27,6 +27,8 @@ export interface MetricSample {
   longTaskDurationMs: number;
   /** Number of network requests since last sample */
   networkRequestCount: number;
+  /** Number of console log messages since last sample */
+  consoleLogCount: number;
 }
 
 /** A heap snapshot for memory leak detection. */

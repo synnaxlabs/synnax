@@ -33,6 +33,12 @@ import {
   getNetworkTableTooltip,
   NETWORK_TABLE_COLUMNS,
 } from "@/perf/metrics/network";
+import {
+  type ConsoleLogEntry,
+  getConsoleLogTableKey,
+  getConsoleLogTableTooltip,
+  CONSOLE_LOG_TABLE_COLUMNS,
+} from "@/perf/metrics/console";
 import { type Aggregates } from "@/perf/metrics/buffer";
 import { type MetricSample } from "@/perf/metrics/types";
 import {
@@ -67,6 +73,7 @@ const groupMetrics = <K extends string>(
 
 const NETWORK_TOOLTIP = `Requests per second (warn >${THRESHOLDS.networkRequests.warn}, error >${THRESHOLDS.networkRequests.error})`;
 const LONG_TASKS_TOOLTIP = `Tasks blocking main thread >50ms (warn >${THRESHOLDS.longTasks.warn}, error >${THRESHOLDS.longTasks.error})`;
+const CONSOLE_LOGS_TOOLTIP = `Console messages per second (warn >${THRESHOLDS.consoleLogs.warn}, error >${THRESHOLDS.consoleLogs.error})`;
 
 export interface MetricSectionsProps {
   groupByType: boolean;
@@ -75,6 +82,7 @@ export interface MetricSectionsProps {
   latestSample: MetricSample | null;
   topEndpoints: MetricTableData<EndpointStats>;
   topLongTasks: MetricTableData<LongTaskStats>;
+  topConsoleLogs: MetricTableData<ConsoleLogEntry>;
   degradationReport: {
     frameRateDegradationPercent: number | null;
   };
@@ -93,6 +101,7 @@ const MetricSectionsImpl = ({
   latestSample,
   topEndpoints,
   topLongTasks,
+  topConsoleLogs,
   degradationReport,
   leakReport,
   cpuReport,
@@ -162,6 +171,16 @@ const MetricSectionsImpl = ({
         THRESHOLDS.longTasks.error,
       ),
     [liveMetrics.longTaskCount],
+  );
+
+  const consoleLogsStatus = useMemo(
+    () =>
+      getThresholdStatus(
+        liveMetrics.consoleLogCount,
+        THRESHOLDS.consoleLogs.warn,
+        THRESHOLDS.consoleLogs.error,
+      ),
+    [liveMetrics.consoleLogCount],
   );
 
   const getLabel = useCallback(
@@ -252,6 +271,24 @@ const MetricSectionsImpl = ({
       ) : undefined,
     });
 
+    result.push({
+      key: "console-logs",
+      title: "Console Logs",
+      secondaryText: isProfilingActive
+        ? `${formatCount(liveMetrics.consoleLogCount)} / ${formatCount(liveMetrics.totalConsoleLogs)}`
+        : formatCount(liveMetrics.consoleLogCount),
+      secondaryStatus: consoleLogsStatus,
+      secondaryTooltip: CONSOLE_LOGS_TOOLTIP,
+      content: isProfilingActive ? (
+        <MetricTable
+          result={topConsoleLogs}
+          columns={CONSOLE_LOG_TABLE_COLUMNS}
+          getKey={getConsoleLogTableKey}
+          getTooltip={getConsoleLogTableTooltip}
+        />
+      ) : undefined,
+    });
+
     return result;
   }, [
     groupByType,
@@ -259,12 +296,16 @@ const MetricSectionsImpl = ({
     renderMetricRows,
     liveMetrics.networkRequestCount,
     liveMetrics.longTaskCount,
+    liveMetrics.consoleLogCount,
     liveMetrics.totalNetworkRequests,
     liveMetrics.totalLongTasks,
+    liveMetrics.totalConsoleLogs,
     networkStatus,
     longTasksStatus,
+    consoleLogsStatus,
     topEndpoints,
     topLongTasks,
+    topConsoleLogs,
     status,
   ]);
 

@@ -20,6 +20,7 @@ export const ZERO_SAMPLE: MetricSample = {
   longTaskCount: 0,
   longTaskDurationMs: 0,
   networkRequestCount: 0,
+  consoleLogCount: 0,
 };
 
 export interface Aggregates {

@@ -37,6 +37,7 @@ import { MetricSections } from "@/perf/components/MetricSections";
 import { type MetricTableData } from "@/perf/components/MetricTable";
 import { SAMPLE_INTERVAL_MS } from "@/perf/constants";
 import { type Aggregates, SampleBuffer, ZERO_AGGREGATES } from "@/perf/metrics/buffer";
+import { ConsoleCollector, type ConsoleLogEntry } from "@/perf/metrics/console";
 import { CpuCollector } from "@/perf/metrics/cpu";
 import { FrameRateCollector } from "@/perf/metrics/framerate";
 import { GpuCollector } from "@/perf/metrics/gpu";
@@ -89,6 +90,8 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
     longTaskCount: null,
     totalNetworkRequests: null,
     totalLongTasks: null,
+    consoleLogCount: null,
+    totalConsoleLogs: null,
   });
 
   // Pre-allocated sample buffer (memory allocated on mount, not during test)
@@ -107,6 +110,9 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
   // Track top long tasks for profiling display
   const [topLongTasks, setTopLongTasks] = useState<MetricTableData<LongTaskStats>>({ data: [], total: 0, truncated: false });
 
+  // Track top console logs for profiling display
+  const [topConsoleLogs, setTopConsoleLogs] = useState<MetricTableData<ConsoleLogEntry>>({ data: [], total: 0, truncated: false });
+
   // Grouping mode: "time" (Live, Changes) or "type" (Live, Delta, Stats)
   const [groupByType, setGroupByType] = useState(true);
 
@@ -118,6 +124,7 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
     heap: null as HeapCollector | null,
     longTask: null as LongTaskCollector | null,
     network: null as NetworkCollector | null,
+    console: null as ConsoleCollector | null,
   });
 
   // Analyzers for detecting performance issues
@@ -259,6 +266,7 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
       longTaskCount: c.longTask?.getCountSinceLastSample() ?? 0,
       longTaskDurationMs: c.longTask?.getDurationSinceLastSample() ?? 0,
       networkRequestCount: c.network?.getCountSinceLastSample() ?? 0,
+      consoleLogCount: c.console?.getCountSinceLastSample() ?? 0,
     };
   }, []);
 
@@ -271,6 +279,7 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
     c.heap = new HeapCollector();
     c.longTask = new LongTaskCollector();
     c.network = new NetworkCollector();
+    c.console = new ConsoleCollector();
 
     c.cpu.start();
     c.gpu.start();
@@ -278,6 +287,7 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
     c.heap.start();
     c.longTask.start();
     c.network.start();
+    c.console.start();
 
     // Update everything together
     const updateInterval = setInterval(() => {
@@ -296,6 +306,8 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
         longTaskCount: sample.longTaskCount,
         totalNetworkRequests: c.network?.getTotalCount() ?? null,
         totalLongTasks: c.longTask?.getTotalCount() ?? null,
+        consoleLogCount: sample.consoleLogCount,
+        totalConsoleLogs: c.console?.getTotalCount() ?? null,
       });
 
       if (status === "running") {
@@ -303,6 +315,7 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
         setAggregates(sampleBufferRef.current.getAggregates());
         setTopEndpoints(c.network?.getTopEndpoints() ?? { data: [], total: 0, truncated: false });
         setTopLongTasks(c.longTask?.getTopLongTasks() ?? { data: [], total: 0, truncated: false });
+        setTopConsoleLogs(c.console?.getTopLogs() ?? { data: [], total: 0, truncated: false });
         runAnalysis(sample.frameRate, sample.cpuPercent, sample.gpuPercent);
       }
     }, SAMPLE_INTERVAL_MS);
@@ -315,6 +328,7 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
       c.heap?.stop();
       c.longTask?.stop();
       c.network?.stop();
+      c.console?.stop();
     };
   }, [collectSample, status, runAnalysis]);
 
@@ -329,8 +343,10 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
     if (status === "running" && prevStatus === "idle") {
       c.longTask?.reset();
       c.network?.reset();
+      c.console?.reset();
       setTopEndpoints({ data: [], total: 0, truncated: false });
       setTopLongTasks({ data: [], total: 0, truncated: false });
+      setTopConsoleLogs({ data: [], total: 0, truncated: false });
 
       const initialFPS = c.frameRate?.getCurrentFPS() ?? null;
       captured.initialFPS = initialFPS;
@@ -419,9 +435,11 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
       setAggregates(ZERO_AGGREGATES);
       setTopEndpoints({ data: [], total: 0, truncated: false });
       setTopLongTasks({ data: [], total: 0, truncated: false });
+      setTopConsoleLogs({ data: [], total: 0, truncated: false });
 
       c.longTask?.reset();
       c.network?.reset();
+      c.console?.reset();
       sampleBufferRef.current.reset();
     }
   }, [status, dispatch, rangeKey, createProfilingRange, updateRangeEndTime]);
@@ -517,6 +535,7 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
         latestSample={latestSample}
         topEndpoints={topEndpoints}
         topLongTasks={topLongTasks}
+        topConsoleLogs={topConsoleLogs}
         degradationReport={degradationReport}
         leakReport={leakReport}
         cpuReport={cpuReport}

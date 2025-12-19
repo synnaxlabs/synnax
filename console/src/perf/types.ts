@@ -23,6 +23,8 @@ export interface LiveMetrics {
   longTaskCount: number | null;
   totalNetworkRequests: number | null;
   totalLongTasks: number | null;
+  consoleLogCount: number | null;
+  totalConsoleLogs: number | null;
 }
 
 export interface MetricDef {
