@@ -196,6 +196,7 @@ func start(cmd *cobra.Command) {
 			Instrumentation: ins.Child("service"),
 			Distribution:    distributionLayer,
 			Security:        securityProvider,
+			Storage:         storageLayer,
 		}); !ok(err, serviceLayer) {
 			return err
 		}
