@@ -119,4 +119,27 @@ sequence main {
 		})
 		fmt.Println(mod)
 	})
+
+	It("Should correctly generate strata for a loop", func() {
+		src := `
+		// Strata 0: Always fires
+		start_seq_cmd =>
+		main
+
+		sequence main {
+			stage first {
+				0 -> press_vlv_cmd -> second,
+			}
+			stage second {
+				1 -> press_vlv_cmd -> first,
+			}
+		}
+		`
+		// Question: what's the evaluation order:
+		// 1. Execute root strata
+		// Execution limit loop: 'convergence'
+		// 	2. Execute strata for active stages
+		// 	3. Execute strata for any newly active stages
+		// How do we tolerate nested sequences in this case.
+	})
 })

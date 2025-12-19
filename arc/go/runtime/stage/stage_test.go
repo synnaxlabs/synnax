@@ -89,7 +89,7 @@ var _ = Describe("Stage", func() {
 		})
 	})
 
-	Describe("StageEntry.Next", func() {
+	Describe("entry.Next", func() {
 		var factory *stage.Factory
 		var s *state.State
 		var activatedNodes []string

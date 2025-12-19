@@ -38,10 +38,17 @@ var (
 
 type constant struct {
 	*state.Node
-	value any
+	value       any
+	initialized bool
 }
 
-func (c constant) Init(ctx node.Context) {
+var _ node.Node = (*constant)(nil)
+
+func (c constant) Next(ctx node.Context) {
+	if c.initialized {
+		return
+	}
+	c.initialized = true
 	d := c.Output(0)
 	*d = telem.NewSeriesFromAny(c.value, d.DataType)
 	t := c.OutputTime(0)
@@ -49,7 +56,9 @@ func (c constant) Init(ctx node.Context) {
 	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 
-func (c constant) Next(node.Context) {}
+func (c constant) Reset() {
+	c.initialized = false
+}
 
 type constantFactory struct{}
 

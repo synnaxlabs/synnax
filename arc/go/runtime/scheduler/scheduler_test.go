@@ -82,7 +82,7 @@ var _ = Describe("Scheduler", func() {
 				Strata: ir.Strata{{"a"}},
 			}
 			nodes["a"] = nodeA
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			Expect(s).ToNot(BeNil())
 		})
 		It("Should create scheduler with multiple strata", func() {
@@ -97,7 +97,7 @@ var _ = Describe("Scheduler", func() {
 			nodes["a"] = nodeA
 			nodes["b"] = nodeB
 			nodes["c"] = nodeC
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			Expect(s).ToNot(BeNil())
 		})
 	})
@@ -112,7 +112,7 @@ var _ = Describe("Scheduler", func() {
 			}
 			nodes["a"] = nodeA
 			nodes["b"] = nodeB
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			s.Init(ctx)
 			Expect(nodeA.initCalled).To(BeTrue())
 			Expect(nodeB.initCalled).To(BeTrue())
@@ -127,7 +127,7 @@ var _ = Describe("Scheduler", func() {
 			}
 			nodes["a"] = nodeA
 			nodes["b"] = nodeB
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			s.Init(ctx)
 			Expect(nodeA.initCalled).To(BeTrue())
 			Expect(nodeB.initCalled).To(BeTrue())
@@ -148,7 +148,7 @@ var _ = Describe("Scheduler", func() {
 				Strata: ir.Strata{{"a"}},
 			}
 			nodes["a"] = nodeA
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			s.Init(ctx)
 			nodeA.onInit = func(ctx node.Context) {
 				markedParams = append(markedParams, "output")
@@ -164,7 +164,7 @@ var _ = Describe("Scheduler", func() {
 				Strata: ir.Strata{{"a"}},
 			}
 			nodes["a"] = nodeA
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			s.Next(ctx)
 			Expect(nodeA.nextCalled).To(Equal(1))
 			s.Next(ctx)
@@ -191,7 +191,7 @@ var _ = Describe("Scheduler", func() {
 			}
 			nodes["a"] = nodeA
 			nodes["b"] = nodeB
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			s.Next(ctx)
 			Expect(nodeB.nextCalled).To(Equal(1))
 		})
@@ -211,7 +211,7 @@ var _ = Describe("Scheduler", func() {
 			}
 			nodes["a"] = nodeA
 			nodes["b"] = nodeB
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			s.Next(ctx)
 			Expect(nodeB.nextCalled).To(Equal(0))
 		})
@@ -234,7 +234,7 @@ var _ = Describe("Scheduler", func() {
 			}
 			nodes["a"] = nodeA
 			nodes["b"] = nodeB
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			s.Next(ctx)
 			Expect(nodeB.nextCalled).To(Equal(1))
 			nodeA.onNext = nil
@@ -269,7 +269,7 @@ var _ = Describe("Scheduler", func() {
 			nodes["a"] = nodeA
 			nodes["b"] = nodeB
 			nodes["c"] = nodeC
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			s.Next(ctx)
 			Expect(nodeA.nextCalled).To(Equal(1))
 			Expect(nodeB.nextCalled).To(Equal(1))
@@ -301,7 +301,7 @@ var _ = Describe("Scheduler", func() {
 			nodes["a"] = nodeA
 			nodes["b"] = nodeB
 			nodes["c"] = nodeC
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			s.Next(ctx)
 			Expect(nodeB.nextCalled).To(Equal(1))
 			Expect(nodeC.nextCalled).To(Equal(1))
@@ -334,7 +334,7 @@ var _ = Describe("Scheduler", func() {
 			nodes["a"] = nodeA
 			nodes["b"] = nodeB
 			nodes["c"] = nodeC
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			s.Next(ctx)
 			Expect(nodeC.nextCalled).To(Equal(1))
 		})
@@ -363,7 +363,7 @@ var _ = Describe("Scheduler", func() {
 			nodes["a"] = nodeA
 			nodes["b"] = nodeB
 			nodes["c"] = nodeC
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			s.Next(ctx)
 			Expect(nodeB.nextCalled).To(Equal(1))
 			Expect(nodeC.nextCalled).To(Equal(0))
@@ -380,7 +380,7 @@ var _ = Describe("Scheduler", func() {
 			}
 			nodes["a"] = nodeA
 			nodes["b"] = nodeB
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			s.MarkNodeChanged("b")
 			s.Next(ctx)
 			Expect(nodeB.nextCalled).To(Equal(1))
@@ -391,7 +391,7 @@ var _ = Describe("Scheduler", func() {
 				Strata: ir.Strata{{"a"}},
 			}
 			nodes["a"] = nodeA
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			s.MarkNodeChanged("a")
 			s.Next(ctx)
 			Expect(nodeA.nextCalled).To(Equal(1))
@@ -413,7 +413,7 @@ var _ = Describe("Scheduler", func() {
 				Strata: ir.Strata{{"a"}},
 			}
 			nodes["a"] = nodeA
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			s.SetErrorHandler(handler)
 			s.Next(ctx)
 			Expect(handler.errors).To(HaveLen(1))
@@ -429,7 +429,7 @@ var _ = Describe("Scheduler", func() {
 				Strata: ir.Strata{{"a"}},
 			}
 			nodes["a"] = nodeA
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			Expect(func() {
 				s.Next(ctx)
 			}).ToNot(Panic())
@@ -444,7 +444,7 @@ var _ = Describe("Scheduler", func() {
 				Strata: ir.Strata{{"a"}},
 			}
 			nodes["a"] = nodeA
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			s.SetErrorHandler(handler)
 			s.Next(ctx)
 			Expect(handler.errors).To(HaveLen(2))
@@ -466,7 +466,7 @@ var _ = Describe("Scheduler", func() {
 			}
 			nodes["a"] = nodeA
 			nodes["b"] = nodeB
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			s.SetErrorHandler(handler)
 			s.Next(ctx)
 			Expect(handler.errors).To(HaveLen(2))
@@ -485,7 +485,7 @@ var _ = Describe("Scheduler", func() {
 			}
 			nodes["a"] = nodeA
 			nodes["b"] = nodeB
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			s.Next(ctx)
 			Expect(nodeA.nextCalled).To(Equal(1))
 			Expect(nodeB.nextCalled).To(Equal(1))
@@ -509,7 +509,7 @@ var _ = Describe("Scheduler", func() {
 			}
 			nodes["a"] = nodeA
 			nodes["b"] = nodeB
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			s.Next(ctx)
 			// No stage is active, so staged nodes should not execute
 			Expect(nodeA.nextCalled).To(Equal(0))
@@ -534,7 +534,7 @@ var _ = Describe("Scheduler", func() {
 			}
 			nodes["a"] = nodeA
 			nodes["b"] = nodeB
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			s.ActivateStage("seq1", "stage1")
 			s.Next(ctx)
 			Expect(nodeA.nextCalled).To(Equal(1))
@@ -559,7 +559,7 @@ var _ = Describe("Scheduler", func() {
 			}
 			nodes["a"] = nodeA
 			nodes["b"] = nodeB
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 
 			// Activate stage1
 			s.ActivateStage("seq1", "stage1")
@@ -595,7 +595,7 @@ var _ = Describe("Scheduler", func() {
 			nodes["a"] = nodeA
 			nodes["b"] = nodeB
 			nodes["c"] = nodeC
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 
 			// Activate stage1 - "c" should still execute
 			s.ActivateStage("seq1", "stage1")
@@ -622,7 +622,7 @@ var _ = Describe("Scheduler", func() {
 				},
 			}
 			nodes["a"] = nodeA
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			s.ActivateStage("myseq", "mystage")
 			Expect(s.IsSequenceActive("myseq")).To(BeTrue())
 			Expect(s.ActiveStageFor("myseq")).To(Equal("mystage"))
@@ -670,7 +670,7 @@ var _ = Describe("Scheduler", func() {
 			nodes["b"] = nodeB
 			nodes["c"] = nodeC
 			nodes["d"] = nodeD
-			s = scheduler.New(ctx, prog, nodes)
+			s = scheduler.New(prog, nodes)
 			s.Next(ctx)
 			Expect(nodeA.nextCalled).To(Equal(1))
 			Expect(nodeB.nextCalled).To(Equal(1))
@@ -689,7 +689,7 @@ var _ = Describe("Scheduler", func() {
 				},
 				Strata: ir.Strata{{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"}},
 			}
-			s = scheduler.New(ctx, prog, wideNodes)
+			s = scheduler.New(prog, wideNodes)
 			s.Next(ctx)
 			for _, n := range wideNodes {
 				Expect(n.(*mockNode).nextCalled).To(Equal(1))
@@ -721,7 +721,7 @@ var _ = Describe("Scheduler", func() {
 				Edges:  edges,
 				Strata: strata,
 			}
-			s = scheduler.New(ctx, prog, deepNodes)
+			s = scheduler.New(prog, deepNodes)
 			s.Next(ctx)
 			for _, n := range deepNodes {
 				Expect(n.(*mockNode).nextCalled).To(Equal(1))

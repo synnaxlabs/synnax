@@ -108,7 +108,6 @@ type ErrorHandler interface {
 //
 // Returns a new Scheduler ready for Init and Next execution.
 func New(
-	ctx context.Context,
 	prog ir.IR,
 	nodes map[string]node.Node,
 ) *Scheduler {
@@ -229,12 +228,6 @@ func (s *Scheduler) Init(ctx context.Context) {
 	s.startTime = telem.Now()
 	s.nodeCtx.Context = ctx
 	s.nodeCtx.Elapsed = 0
-	for _, stratum := range s.strata {
-		for _, nodeKey := range stratum {
-			s.currState = s.nodes[nodeKey]
-			s.currState.node.Init(s.nodeCtx)
-		}
-	}
 }
 
 // Next executes one cycle of the reactive computation.
