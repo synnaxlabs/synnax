@@ -35,7 +35,7 @@ export interface DegradationReport {
 export interface CpuReport {
   detected: boolean;
   avgPercent: number | null;
-  peakPercent: number | null;
+  maxPercent: number | null;
   startPercent: number | null;
   endPercent: number | null;
 }
@@ -43,7 +43,7 @@ export interface CpuReport {
 export interface GpuReport {
   detected: boolean;
   avgPercent: number | null;
-  peakPercent: number | null;
+  maxPercent: number | null;
   startPercent: number | null;
   endPercent: number | null;
 }
@@ -56,7 +56,7 @@ export interface PerfReport {
   minFrameRate: number;
   maxFrameRate: number;
   averageHeapUsedMB: number | null;
-  peakHeapUsedMB: number | null;
+  maxHeapUsedMB: number | null;
   totalNetworkRequests: number;
   leakReport: LeakReport;
   degradationReport: DegradationReport;
@@ -85,7 +85,7 @@ export const ZERO_DEGRADATION_REPORT: DegradationReport = {
 export const ZERO_CPU_REPORT: CpuReport = {
   detected: false,
   avgPercent: null,
-  peakPercent: null,
+  maxPercent: null,
   startPercent: null,
   endPercent: null,
 };
@@ -93,7 +93,7 @@ export const ZERO_CPU_REPORT: CpuReport = {
 export const ZERO_GPU_REPORT: GpuReport = {
   detected: false,
   avgPercent: null,
-  peakPercent: null,
+  maxPercent: null,
   startPercent: null,
   endPercent: null,
 };
@@ -130,7 +130,7 @@ export const generateReport = (
       heapValues.length > 0
         ? heapValues.reduce((a, b) => a + b, 0) / heapValues.length
         : null,
-    peakHeapUsedMB: heapValues.length > 0 ? Math.max(...heapValues) : null,
+    maxHeapUsedMB: heapValues.length > 0 ? Math.max(...heapValues) : null,
     totalNetworkRequests: samples.reduce((sum, s) => sum + s.networkRequestCount, 0),
     leakReport,
     degradationReport,

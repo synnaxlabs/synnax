@@ -76,8 +76,8 @@ export const createMemoryMetrics = (
   liveHeap: number | null,
   growthPercent: number | null,
   hasData: boolean,
-  avgHeap: number | null,
-  peakHeap: number | null,
+  minHeap: number | null,
+  maxHeap: number | null,
 ): MetricDef[] => [
   {
     key: "memory-live",
@@ -103,9 +103,9 @@ export const createMemoryMetrics = (
     key: "memory-stats",
     type: "memory",
     category: "stats",
-    getValue: () => formatPair(avgHeap, peakHeap, " MB"),
-    tooltip: "Average and max heap usage",
-    label: "Avg / Max",
+    getValue: () => formatPair(minHeap, maxHeap, " MB"),
+    tooltip: "Min and max heap usage",
+    label: "Min / Max",
   },
 ];
 
@@ -143,11 +143,11 @@ export const createResourceMetrics = (
       key: `${type}-stats`,
       type,
       category: "stats",
-      getValue: () => formatPair(report.avgPercent, report.peakPercent, "%"),
+      getValue: () => formatPair(report.avgPercent, report.maxPercent, "%"),
       getStatus: () =>
         getAvgPeakStatus(
           report.avgPercent,
-          report.peakPercent,
+          report.maxPercent,
           thresholds.warn,
           thresholds.error,
         ),

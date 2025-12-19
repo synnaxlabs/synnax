@@ -184,14 +184,14 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
         startPercent: captured.initialCPU,
         endPercent: endCPU,
         avgPercent: aggregates.avgCpu,
-        peakPercent: aggregates.peakCpu,
+        maxPercent: aggregates.maxCpu,
       });
 
       const gpuResult = analyzers.gpu.analyze({
         startPercent: captured.initialGPU,
         endPercent: endGPU,
         avgPercent: aggregates.avgGpu,
-        peakPercent: aggregates.peakGpu,
+        maxPercent: aggregates.maxGpu,
       });
 
       dispatch(Perf.setLeakReport(leakResult));

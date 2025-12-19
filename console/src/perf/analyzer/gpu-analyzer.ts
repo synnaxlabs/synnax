@@ -18,7 +18,7 @@ export interface GpuContext {
   startPercent: number | null;
   endPercent: number | null;
   avgPercent: number | null;
-  peakPercent: number | null;
+  maxPercent: number | null;
 }
 
 /**
@@ -29,13 +29,13 @@ export class GpuAnalyzer {
   analyze(ctx: GpuContext): GpuReport {
     const detected =
       (ctx.avgPercent != null && ctx.avgPercent > HIGH_GPU_AVG_THRESHOLD) ||
-      (ctx.peakPercent != null && ctx.peakPercent > HIGH_GPU_PEAK_THRESHOLD);
+      (ctx.maxPercent != null && ctx.maxPercent > HIGH_GPU_PEAK_THRESHOLD);
 
     return {
       ...ZERO_GPU_REPORT,
       detected,
       avgPercent: ctx.avgPercent != null ? math.roundTo(ctx.avgPercent) : null,
-      peakPercent: ctx.peakPercent != null ? math.roundTo(ctx.peakPercent) : null,
+      maxPercent: ctx.maxPercent != null ? math.roundTo(ctx.maxPercent) : null,
       startPercent: ctx.startPercent != null ? math.roundTo(ctx.startPercent) : null,
       endPercent: ctx.endPercent != null ? math.roundTo(ctx.endPercent) : null,
     };

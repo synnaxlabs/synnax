@@ -18,7 +18,7 @@ export interface CpuContext {
   startPercent: number | null;
   endPercent: number | null;
   avgPercent: number | null;
-  peakPercent: number | null;
+  maxPercent: number | null;
 }
 
 /**
@@ -29,13 +29,13 @@ export class CpuAnalyzer {
   analyze(ctx: CpuContext): CpuReport {
     const detected =
       (ctx.avgPercent != null && ctx.avgPercent > HIGH_CPU_AVG_THRESHOLD) ||
-      (ctx.peakPercent != null && ctx.peakPercent > HIGH_CPU_PEAK_THRESHOLD);
+      (ctx.maxPercent != null && ctx.maxPercent > HIGH_CPU_PEAK_THRESHOLD);
 
     return {
       ...ZERO_CPU_REPORT,
       detected,
       avgPercent: ctx.avgPercent != null ? math.roundTo(ctx.avgPercent) : null,
-      peakPercent: ctx.peakPercent != null ? math.roundTo(ctx.peakPercent) : null,
+      maxPercent: ctx.maxPercent != null ? math.roundTo(ctx.maxPercent) : null,
       startPercent: ctx.startPercent != null ? math.roundTo(ctx.startPercent) : null,
       endPercent: ctx.endPercent != null ? math.roundTo(ctx.endPercent) : null,
     };

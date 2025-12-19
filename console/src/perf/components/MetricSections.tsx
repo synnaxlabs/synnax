@@ -33,6 +33,7 @@ import {
   getNetworkTableTooltip,
   NETWORK_TABLE_COLUMNS,
 } from "@/perf/metrics/network";
+import { type Aggregates } from "@/perf/metrics/buffer";
 import { type MetricSample } from "@/perf/metrics/types";
 import {
   type LiveMetrics,
@@ -48,12 +49,6 @@ import {
 } from "@/perf/utils/metrics-factory";
 import { getThresholdStatus } from "@/perf/utils/status";
 
-interface Aggregates {
-  avgFps: number | null;
-  minFps: number | null;
-  avgHeap: number | null;
-  peakHeap: number | null;
-}
 
 const groupMetrics = <K extends string>(
   metrics: MetricDef[],
@@ -109,7 +104,7 @@ const MetricSectionsImpl = ({
       ...createFpsMetrics(
         liveMetrics.frameRate,
         degradationReport.frameRateDegradationPercent,
-        latestSample != null,
+        aggregates.avgFps != null,
         aggregates.avgFps,
         aggregates.minFps,
       ),
@@ -117,9 +112,9 @@ const MetricSectionsImpl = ({
       ...createMemoryMetrics(
         liveMetrics.heapUsedMB,
         leakReport.heapGrowthPercent,
-        latestSample != null,
-        aggregates.avgHeap,
-        aggregates.peakHeap,
+        aggregates.minHeap != null,
+        aggregates.minHeap,
+        aggregates.maxHeap,
       ),
 
       ...createResourceMetrics(
