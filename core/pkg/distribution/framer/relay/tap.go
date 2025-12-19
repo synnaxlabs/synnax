@@ -210,8 +210,8 @@ func (t *tapper) tapIntoPeer(ctx context.Context, nodeKey cluster.NodeKey) (tap,
 	receiver := &freightfluence.Receiver[Response]{Receiver: stream}
 	sender := &freightfluence.Sender[Request]{Sender: stream}
 	p := plumber.New()
-	plumber.SetSink(p, "sender", sender)
-	plumber.SetSource(p, "receiver", receiver)
+	plumber.SetSink[Request](p, "sender", sender)
+	plumber.SetSource[Response](p, "receiver", receiver)
 	seg := &plumber.Segment[Request, Response]{Pipeline: p}
 	lo.Must0(seg.RouteOutletFrom("receiver"))
 	lo.Must0(seg.RouteInletTo("sender"))

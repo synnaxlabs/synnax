@@ -28,7 +28,7 @@ var _ = Describe("Pipeline", func() {
 	Describe("Basic Usage", func() {
 		It("Should set and get a source", func() {
 			emitter := &confluence.Emitter[int]{}
-			SetSource(pipe, "source", emitter)
+			SetSource[int](pipe, "source", emitter)
 			source, err := GetSource[int](pipe, "source")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(source).To(Equal(emitter))
@@ -36,7 +36,7 @@ var _ = Describe("Pipeline", func() {
 
 		It("Should set and get a sink", func() {
 			unarySink := &confluence.UnarySink[int]{}
-			SetSink(pipe, "sink", unarySink)
+			SetSink[int](pipe, "sink", unarySink)
 			sink, err := GetSink[int](pipe, "sink")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sink).To(Equal(unarySink))
@@ -51,13 +51,13 @@ var _ = Describe("Pipeline", func() {
 			t1.Transform = func(ctx context.Context, v int) (int, bool, error) {
 				return v * 2, true, nil
 			}
-			SetSegment(pipe, "t1", t1, confluence.CloseOutputInletsOnExit())
+			SetSegment[int, int](pipe, "t1", t1, confluence.CloseOutputInletsOnExit())
 
 			t2 := &confluence.LinearTransform[int, int]{}
 			t2.Transform = func(ctx context.Context, v int) (int, bool, error) {
 				return v * 2, true, nil
 			}
-			SetSegment(pipe, "t2", t2, confluence.CloseOutputInletsOnExit())
+			SetSegment[int, int](pipe, "t2", t2, confluence.CloseOutputInletsOnExit())
 
 			Expect(UnaryRouter[int]{
 				SourceTarget: "t1",
@@ -94,7 +94,7 @@ var _ = Describe("Pipeline", func() {
 			Expect(err).To(HaveOccurred())
 		})
 		It("Should return an error if the sink is of the wrong type", func() {
-			SetSink(pipe, "sink", &confluence.UnarySink[int]{})
+			SetSink[int](pipe, "sink", &confluence.UnarySink[int]{})
 			_, err := GetSink[[]int](pipe, "sink")
 			Expect(err).To(HaveOccurred())
 		})
@@ -105,7 +105,7 @@ var _ = Describe("Pipeline", func() {
 			Expect(err).To(HaveOccurred())
 		})
 		It("Should return an error if the sink is of the wrong type", func() {
-			SetSource(pipe, "sink", &confluence.Emitter[int]{})
+			SetSource[int](pipe, "sink", &confluence.Emitter[int]{})
 			_, err := GetSink[[]int](pipe, "sink")
 			Expect(err).To(HaveOccurred())
 		})
@@ -123,7 +123,7 @@ var _ = Describe("Pipeline", func() {
 				}
 				return c1, nil
 			}
-			SetSource(pipe, "emitterOne", emitterOne)
+			SetSource[int](pipe, "emitterOne", emitterOne)
 
 			emitterTwo := &confluence.Emitter[int]{Interval: 1 * time.Millisecond}
 			c2 := 0
@@ -134,19 +134,19 @@ var _ = Describe("Pipeline", func() {
 				}
 				return c2, nil
 			}
-			SetSource(pipe, "emitterTwo", emitterTwo)
+			SetSource[int](pipe, "emitterTwo", emitterTwo)
 
 			t1 := &confluence.LinearTransform[int, int]{}
 			t1.Transform = func(ctx context.Context, v int) (int, bool, error) {
 				return v * 2, true, nil
 			}
-			SetSegment(pipe, "t1", t1)
+			SetSegment[int, int](pipe, "t1", t1)
 
 			t2 := &confluence.LinearTransform[int, int]{}
 			t2.Transform = func(ctx context.Context, v int) (int, bool, error) {
 				return v * 3, true, nil
 			}
-			SetSegment(pipe, "t2", t2)
+			SetSegment[int, int](pipe, "t2", t2)
 
 			var (
 				evens []int
@@ -158,14 +158,14 @@ var _ = Describe("Pipeline", func() {
 				evens = append(evens, v)
 				return nil
 			}
-			SetSink(pipe, "even", evenSink)
+			SetSink[int](pipe, "even", evenSink)
 
 			oddSink := &confluence.UnarySink[int]{}
 			oddSink.Sink = func(ctx context.Context, v int) error {
 				odds = append(odds, v)
 				return nil
 			}
-			SetSink(pipe, "odd", oddSink)
+			SetSink[int](pipe, "odd", oddSink)
 
 			sw := &confluence.Switch[int]{}
 			sw.Switch = func(ctx context.Context, v int) (address.Address, bool, error) {
@@ -174,7 +174,7 @@ var _ = Describe("Pipeline", func() {
 				}
 				return "odd", true, nil
 			}
-			SetSegment(pipe, "switch", sw)
+			SetSegment[int, int](pipe, "switch", sw)
 
 			MultiRouter[int]{
 				SourceTargets: []address.Address{"emitterOne", "emitterTwo"},

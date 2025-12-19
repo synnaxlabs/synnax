@@ -25,8 +25,8 @@ var _ = Describe("Router", func() {
 		It("Should establish a channel between two addresses", func() {
 			source := &confluence.Emitter[int]{}
 			sink := &confluence.UnarySink[int]{}
-			SetSource(p, "source", source)
-			SetSink(p, "sink", sink)
+			SetSource[int](p, "source", source)
+			SetSink[int](p, "sink", sink)
 			router := &UnaryRouter[int]{
 				SourceTarget: "source",
 				SinkTarget:   "sink",
@@ -46,7 +46,7 @@ var _ = Describe("Router", func() {
 		})
 		It("Should return an error if sink is not found", func() {
 			source := &confluence.Emitter[int]{}
-			SetSource(p, "source", source)
+			SetSource[int](p, "source", source)
 			router := &UnaryRouter[int]{
 				SourceTarget: "source",
 				SinkTarget:   "sink",
@@ -63,10 +63,10 @@ var _ = Describe("Router", func() {
 				sourceTwo := &confluence.Emitter[int]{}
 				sinkOne := &confluence.UnarySink[int]{}
 				sinkTwo := &confluence.UnarySink[int]{}
-				SetSource(p, "sourceOne", sourceOne)
-				SetSource(p, "sourceTwo", sourceTwo)
-				SetSink(p, "sinkOne", sinkOne)
-				SetSink(p, "sinkTwo", sinkTwo)
+				SetSource[int](p, "sourceOne", sourceOne)
+				SetSource[int](p, "sourceTwo", sourceTwo)
+				SetSink[int](p, "sinkOne", sinkOne)
+				SetSink[int](p, "sinkTwo", sinkTwo)
 				router := &MultiRouter[int]{
 					SourceTargets: []address.Address{"sourceOne", "sourceTwo"},
 					SinkTargets:   []address.Address{"sinkOne", "sinkTwo"},
@@ -84,10 +84,10 @@ var _ = Describe("Router", func() {
 				sourceTwo := &confluence.Emitter[int]{}
 				sinkOne := &confluence.UnarySink[int]{}
 				sinkTwo := &confluence.UnarySink[int]{}
-				SetSource(p, "sourceOne", sourceOne)
-				SetSource(p, "sourceTwo", sourceTwo)
-				SetSink(p, "sinkOne", sinkOne)
-				SetSink(p, "sinkTwo", sinkTwo)
+				SetSource[int](p, "sourceOne", sourceOne)
+				SetSource[int](p, "sourceTwo", sourceTwo)
+				SetSink[int](p, "sinkOne", sinkOne)
+				SetSink[int](p, "sinkTwo", sinkTwo)
 				router := &MultiRouter[int]{
 					SourceTargets: []address.Address{"sourceOne", "sourceTwo"},
 					SinkTargets:   []address.Address{"sinkOne", "sinkTwo"},
@@ -107,9 +107,9 @@ var _ = Describe("Router", func() {
 				source := &confluence.Switch[int]{}
 				sinkOne := &confluence.UnarySink[int]{}
 				sinkTwo := &confluence.UnarySink[int]{}
-				SetSource(p, "source", source)
-				SetSink(p, "sinkOne", sinkOne)
-				SetSink(p, "sinkTwo", sinkTwo)
+				SetSource[int](p, "source", source)
+				SetSink[int](p, "sinkOne", sinkOne)
+				SetSink[int](p, "sinkTwo", sinkTwo)
 				router := &MultiRouter[int]{
 					SourceTargets: []address.Address{"source"},
 					SinkTargets:   []address.Address{"sinkOne", "sinkTwo"},
@@ -130,10 +130,10 @@ var _ = Describe("Router", func() {
 				sourceTwo := &confluence.Switch[int]{}
 				sinkOne := &confluence.UnarySink[int]{}
 				sinkTwo := &confluence.UnarySink[int]{}
-				SetSource(p, "sourceOne", sourceOne)
-				SetSource(p, "sourceTwo", sourceTwo)
-				SetSink(p, "sinkOne", sinkOne)
-				SetSink(p, "sinkTwo", sinkTwo)
+				SetSource[int](p, "sourceOne", sourceOne)
+				SetSource[int](p, "sourceTwo", sourceTwo)
+				SetSink[int](p, "sinkOne", sinkOne)
+				SetSink[int](p, "sinkTwo", sinkTwo)
 				router := &MultiRouter[int]{
 					SourceTargets: []address.Address{"sourceOne", "sourceTwo"},
 					SinkTargets:   []address.Address{"sinkOne", "sinkTwo"},

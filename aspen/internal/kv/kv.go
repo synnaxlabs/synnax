@@ -139,39 +139,51 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 	st := newStore()
 
 	pipe := plumber.New()
-	plumber.SetSource(pipe, executorAddr, &db_.source)
-	plumber.SetSource(pipe, leaseReceiverAddr, newLeaseReceiver(cfg))
-	plumber.SetSegment(
+	plumber.SetSource[TxRequest](pipe, executorAddr, &db_.source)
+	plumber.SetSource[TxRequest](pipe, leaseReceiverAddr, newLeaseReceiver(cfg))
+	plumber.SetSegment[TxRequest, TxRequest](
 		pipe,
 		leaseProxyAddr,
 		newLeaseProxy(cfg, versionAssignerAddr, leaseSenderAddr),
 	)
-	plumber.SetSource(pipe, operationReceiverAddr, newOperationServer(cfg, st))
-	plumber.SetSegment(
+	plumber.SetSource[TxRequest](pipe, operationReceiverAddr, newOperationServer(cfg, st))
+	plumber.SetSegment[TxRequest](
 		pipe,
 		versionFilterAddr,
 		newVersionFilter(cfg, persistAddr, feedbackSenderAddr),
 	)
-	plumber.SetSegment(pipe, versionAssignerAddr, va)
-	plumber.SetSink(pipe, leaseSenderAddr, newLeaseSender(cfg))
-	plumber.SetSegment(pipe, persistAddr, newPersist(cfg.Engine))
-	plumber.SetSource(pipe, storeEmitterAddr, newStoreEmitter(st, cfg))
-	plumber.SetSink(pipe, storeSinkAddr, newStoreSink(st))
-	plumber.SetSegment(pipe, operationSenderAddr, newOperationClient(cfg))
-	plumber.SetSink(pipe, feedbackSenderAddr, newFeedbackSender(cfg))
-	plumber.SetSource(pipe, feedbackReceiverAddr, newFeedbackReceiver(cfg))
-	plumber.SetSegment(pipe, recoveryTransformAddr, newGossipRecoveryTransform(cfg))
+	plumber.SetSegment[TxRequest](pipe, versionAssignerAddr, va)
+	plumber.SetSink[TxRequest](pipe, leaseSenderAddr, newLeaseSender(cfg))
+	plumber.SetSegment[TxRequest, TxRequest](pipe, persistAddr, newPersist(cfg.Engine))
+	plumber.SetSource[TxRequest](pipe, storeEmitterAddr, newStoreEmitter(st, cfg))
+	plumber.SetSink[TxRequest](pipe, storeSinkAddr, newStoreSink(st))
+	plumber.SetSegment[TxRequest, TxRequest](
+		pipe,
+		operationSenderAddr,
+		newOperationClient(cfg),
+	)
+	plumber.SetSink[TxRequest](pipe, feedbackSenderAddr, newFeedbackSender(cfg))
+	plumber.SetSource[TxRequest](pipe, feedbackReceiverAddr, newFeedbackReceiver(cfg))
+	plumber.SetSegment[TxRequest, TxRequest](
+		pipe,
+		recoveryTransformAddr,
+		newGossipRecoveryTransform(cfg),
+	)
 
-	plumber.SetSegment(pipe, persistDeltaAddr, &confluence.DeltaMultiplier[TxRequest]{})
+	plumber.SetSegment[TxRequest, TxRequest](
+		pipe,
+		persistDeltaAddr,
+		&confluence.DeltaMultiplier[TxRequest]{},
+	)
 
 	// We use a generator observable to generate a unique transaction reader for
 	// each handler in the observable chain. This is necessary because the transaction
 	// reader can be exhausted.
-	observable := confluence.NewGeneratorTransformObservable(
+	observable := confluence.NewGeneratorTransformObservable[TxRequest, xkv.TxReader](
 		func(_ context.Context, tx TxRequest) (func() xkv.TxReader, bool, error) {
 			return func() xkv.TxReader { return tx.reader() }, true, nil
 		})
-	plumber.SetSink(pipe, observableAddr, observable)
+	plumber.SetSink[TxRequest](pipe, observableAddr, observable)
 	db_.Observable = observable
 
 	plumber.MultiRouter[TxRequest]{
