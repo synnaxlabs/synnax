@@ -38,7 +38,7 @@ const axesBoundsZ = z.record(
   z.object({ lower: z.number(), upper: z.number() }),
 );
 
-export const methodsZ = {
+export const linePlotMethodsZ = {
   getBounds: z.function({ input: z.tuple([]), output: axesBoundsZ }),
 };
 
@@ -64,14 +64,14 @@ export class LinePlot
     typeof linePlotStateZ,
     InternalState,
     Children,
-    typeof methodsZ
+    typeof linePlotMethodsZ
   >
-  implements aether.HandlersFromSchema<typeof methodsZ>
+  implements aether.HandlersFromSchema<typeof linePlotMethodsZ>
 {
   static readonly TYPE: string = "LinePlot";
 
   schema = linePlotStateZ;
-  methods = methodsZ;
+  methods = linePlotMethodsZ;
 
   afterUpdate(ctx: aether.Context): void {
     this.internal.instrumentation = alamos.useInstrumentation(ctx, "lineplot");
