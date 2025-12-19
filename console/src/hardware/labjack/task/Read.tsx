@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, NotFoundError } from "@synnaxlabs/client";
+import { channel } from "@synnaxlabs/client";
 import { Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
-import { deep, id, primitive } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
@@ -260,17 +260,35 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     key: config.device,
   });
   Common.Device.checkConfigured(dev);
-  let shouldCreateIndex = false;
-  if (dev.properties.readIndex)
-    try {
-      await client.channels.retrieve(dev.properties.readIndex);
-    } catch (e) {
-      if (NotFoundError.matches(e)) shouldCreateIndex = true;
-      else throw e;
-    }
-  else shouldCreateIndex = true;
-  let modified = false;
+
   const identifier = channel.escapeInvalidName(dev.properties.identifier);
+
+  // Collect and validate
+  const { shouldCreate: shouldCreateIndex, nameToValidate: indexName } =
+    await Common.Task.collectIndexChannelForValidation(
+      client,
+      dev.properties.readIndex,
+      `${identifier}_time`,
+    );
+
+  const { toCreate, namesToValidate } =
+    await Common.Task.collectDataChannelsForValidation(
+      client,
+      config.channels,
+      (c) => {
+        const type = convertChannelTypeToPortType(c.type);
+        return dev.properties[type].channels[c.port];
+      },
+      (c) => ({ prename: c.name, defaultName: `${identifier}_${c.port}` }),
+    );
+
+  const allNamesToValidate = indexName
+    ? [indexName, ...namesToValidate]
+    : namesToValidate;
+  await Common.Task.validateChannelNames(client, allNamesToValidate);
+
+  let modified = false;
+
   if (shouldCreateIndex) {
     modified = true;
     const index = await client.channels.create({
@@ -280,25 +298,12 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     });
     dev.properties.readIndex = index.key;
   }
-  const toCreate: InputChannel[] = [];
-  for (const c of config.channels) {
-    const type = convertChannelTypeToPortType(c.type);
-    const existing = dev.properties[type].channels[c.port];
-    // check if the channel is in properties
-    if (primitive.isZero(existing)) toCreate.push(c);
-    else
-      try {
-        await client.channels.retrieve(existing.toString());
-      } catch (e) {
-        if (NotFoundError.matches(e)) toCreate.push(c);
-        else throw e;
-      }
-  }
+
   if (toCreate.length > 0) {
     modified = true;
     const channels = await client.channels.create(
       toCreate.map((c) => ({
-        name: primitive.isNonZero(c.name) ? c.name : `${identifier}_${c.port}`,
+        name: Common.Task.getChannelNameToCreate(c.name, `${identifier}_${c.port}`),
         dataType: c.type === DI_CHANNEL_TYPE ? "uint8" : "float32",
         index: dev.properties.readIndex,
       })),
@@ -309,6 +314,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
       dev.properties[type].channels[toCreateC.port] = c.key;
     });
   }
+
   if (modified) await client.devices.create(dev);
   config.channels.forEach(
     (c) =>

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
+import { channel, type rack } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
-import { id, primitive, strings, unique } from "@synnaxlabs/x";
+import { id, strings, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
@@ -161,20 +161,50 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
       `All devices must be on the same driver: ${first.name} and ${strings.naturalLanguageJoin(mismatched.map((d) => d.name))} are on different racks`,
     );
   }
+
+  const creationPlans: Array<{
+    dev: (typeof allDevices)[number];
+    identifier: string;
+    shouldCreateIndex: boolean;
+    toCreate: AIChannel[];
+  }> = [];
+  const namesToValidate: string[] = [];
+
   for (const dev of allDevices) {
     Common.Device.checkConfigured(dev);
     dev.properties = Device.enrich(dev.model, dev.properties);
     rackKey = dev.rack;
-    let modified = false;
-    let shouldCreateIndex = primitive.isZero(dev.properties.analogInput.index);
-    if (!shouldCreateIndex)
-      try {
-        await client.channels.retrieve(dev.properties.analogInput.index);
-      } catch (e) {
-        if (NotFoundError.matches(e)) shouldCreateIndex = true;
-        else throw e;
-      }
+
     const identifier = channel.escapeInvalidName(dev.properties.identifier);
+
+    // Collect and validate
+    const { shouldCreate: shouldCreateIndex, nameToValidate: indexName } =
+      await Common.Task.collectIndexChannelForValidation(
+        client,
+        dev.properties.analogInput.index,
+        `${identifier}_ai_time`,
+      );
+
+    if (indexName) namesToValidate.push(indexName);
+
+    const deviceChannels = config.channels.filter((ch) => ch.device === dev.key);
+    const { toCreate, namesToValidate: channelNames } =
+      await Common.Task.collectDataChannelsForValidation(
+        client,
+        deviceChannels,
+        (ch) => dev.properties.analogInput.channels[ch.port.toString()],
+        (ch) => ({ prename: ch.name, defaultName: `${identifier}_ai_${ch.port}` }),
+      );
+
+    namesToValidate.push(...channelNames);
+    creationPlans.push({ dev, identifier, shouldCreateIndex, toCreate });
+  }
+
+  await Common.Task.validateChannelNames(client, namesToValidate);
+
+  for (const { dev, identifier, shouldCreateIndex, toCreate } of creationPlans) {
+    let modified = false;
+
     if (shouldCreateIndex) {
       modified = true;
       const aiIndex = await client.channels.create({
@@ -185,25 +215,15 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
       dev.properties.analogInput.index = aiIndex.key;
       dev.properties.analogInput.channels = {};
     }
-    const toCreate: AIChannel[] = [];
-    for (const channel of config.channels) {
-      if (channel.device !== dev.key) continue;
-      // check if the channel is in properties
-      const exKey = dev.properties.analogInput.channels[channel.port.toString()];
-      if (primitive.isZero(exKey)) toCreate.push(channel);
-      else
-        try {
-          await client.channels.retrieve(exKey.toString());
-        } catch (e) {
-          if (QueryError.matches(e)) toCreate.push(channel);
-          else throw e;
-        }
-    }
+
     if (toCreate.length > 0) {
       modified = true;
       const channels = await client.channels.create(
         toCreate.map((c) => ({
-          name: primitive.isNonZero(c.name) ? c.name : `${identifier}_ai_${c.port}`,
+          name: Common.Task.getChannelNameToCreate(
+            c.name,
+            `${identifier}_ai_${c.port}`,
+          ),
           dataType: "float32",
           index: dev.properties.analogInput.index,
         })),
@@ -213,12 +233,15 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
           (dev.properties.analogInput.channels[toCreate[i].port.toString()] = c.key),
       );
     }
+
     if (modified) await client.devices.create(dev);
+
     config.channels.forEach((c) => {
       if (c.device !== dev.key) return;
       c.channel = dev.properties.analogInput.channels[c.port.toString()];
     });
   }
+
   if (rackKey == null) throw new Error("No devices selected in task configuration");
   return [config, rackKey];
 };

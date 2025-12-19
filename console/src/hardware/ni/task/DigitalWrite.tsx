@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, NotFoundError } from "@synnaxlabs/client";
+import { channel } from "@synnaxlabs/client";
 import { Component, Flex, Icon } from "@synnaxlabs/pluto";
 import { type optional, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
@@ -115,18 +115,38 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
   });
   Common.Device.checkConfigured(dev);
   dev.properties = Device.enrich(dev.model, dev.properties);
-  let modified = false;
-  let shouldCreateStateIndex = primitive.isZero(
-    dev.properties.digitalOutput.stateIndex,
-  );
-  if (!shouldCreateStateIndex)
-    try {
-      await client.channels.retrieve(dev.properties.digitalOutput.stateIndex);
-    } catch (e) {
-      if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
-      else throw e;
-    }
+
   const identifier = channel.escapeInvalidName(dev.properties.identifier);
+
+  // Collect and validate
+  const { shouldCreate: shouldCreateStateIndex, nameToValidate: stateIndexName } =
+    await Common.Task.collectIndexChannelForValidation(
+      client,
+      dev.properties.digitalOutput.stateIndex,
+      `${identifier}_do_state_time`,
+    );
+
+  const { commandsToCreate, statesToCreate, namesToValidate } =
+    await Common.Task.collectWriteChannelsForValidation(
+      client,
+      config.channels,
+      (ch) => dev.properties.digitalOutput.channels[getDigitalChannelDeviceKey(ch)],
+      (ch) => ({
+        cmdPrename: ch.cmdChannelName,
+        cmdDefault: `${identifier}_do_${ch.port}_${ch.line}_cmd`,
+        cmdIndexDefault: `${identifier}_do_${ch.port}_${ch.line}_cmd_time`,
+        statePrename: ch.stateChannelName,
+        stateDefault: `${identifier}_do_${ch.port}_${ch.line}_state`,
+      }),
+    );
+
+  const allNamesToValidate = stateIndexName
+    ? [stateIndexName, ...namesToValidate]
+    : namesToValidate;
+  await Common.Task.validateChannelNames(client, allNamesToValidate);
+
+  let modified = false;
+
   if (shouldCreateStateIndex) {
     modified = true;
     const stateIndex = await client.channels.create({
@@ -137,37 +157,15 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
     dev.properties.digitalOutput.stateIndex = stateIndex.key;
     dev.properties.digitalOutput.channels = {};
   }
-  const commandsToCreate: DOChannel[] = [];
-  const statesToCreate: DOChannel[] = [];
-  for (const channel of config.channels) {
-    const key = getDigitalChannelDeviceKey(channel);
-    const exPair = dev.properties.digitalOutput.channels[key];
-    if (exPair == null) {
-      commandsToCreate.push(channel);
-      statesToCreate.push(channel);
-    } else {
-      const { state, command } = exPair;
-      try {
-        await client.channels.retrieve(state);
-      } catch (e) {
-        if (NotFoundError.matches(e)) statesToCreate.push(channel);
-        else throw e;
-      }
-      try {
-        await client.channels.retrieve(command);
-      } catch (e) {
-        if (NotFoundError.matches(e)) commandsToCreate.push(channel);
-        else throw e;
-      }
-    }
-  }
+
   if (statesToCreate.length > 0) {
     modified = true;
     const states = await client.channels.create(
       statesToCreate.map((c) => ({
-        name: primitive.isNonZero(c.stateChannelName)
-          ? c.stateChannelName
-          : `${identifier}_do_${c.port}_${c.line}_state`,
+        name: Common.Task.getChannelNameToCreate(
+          c.stateChannelName,
+          `${identifier}_do_${c.port}_${c.line}_state`,
+        ),
         index: dev.properties.digitalOutput.stateIndex,
         dataType: "uint8",
       })),
@@ -179,22 +177,27 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
       else dev.properties.digitalOutput.channels[key].state = s.key;
     });
   }
+
   if (commandsToCreate.length > 0) {
     modified = true;
     const commandIndexes = await client.channels.create(
       commandsToCreate.map((c) => ({
-        name: primitive.isNonZero(c.cmdChannelName)
-          ? `${c.cmdChannelName}_time`
-          : `${identifier}_do_${c.port}_${c.line}_cmd_time`,
+        name: Common.Task.getChannelNameToCreate(
+          primitive.isNonZero(c.cmdChannelName)
+            ? `${c.cmdChannelName}_time`
+            : undefined,
+          `${identifier}_do_${c.port}_${c.line}_cmd_time`,
+        ),
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commands = await client.channels.create(
       commandsToCreate.map((c, i) => ({
-        name: primitive.isNonZero(c.cmdChannelName)
-          ? c.cmdChannelName
-          : `${identifier}_do_${c.port}_${c.line}_cmd`,
+        name: Common.Task.getChannelNameToCreate(
+          c.cmdChannelName,
+          `${identifier}_do_${c.port}_${c.line}_cmd`,
+        ),
         index: commandIndexes[i].key,
         dataType: "uint8",
       })),
@@ -206,6 +209,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
       else dev.properties.digitalOutput.channels[key].command = s.key;
     });
   }
+
   if (modified) await client.devices.create(dev);
   config.channels = config.channels.map((c) => {
     const key = getDigitalChannelDeviceKey(c);

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, NotFoundError } from "@synnaxlabs/client";
+import { channel } from "@synnaxlabs/client";
 import { Flex, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
@@ -216,16 +216,41 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
     key: config.device,
   });
   Common.Device.checkConfigured(dev);
-  let modified = false;
-  let shouldCreateStateIndex = primitive.isZero(dev.properties.writeStateIndex);
-  if (!shouldCreateStateIndex)
-    try {
-      await client.channels.retrieve(dev.properties.writeStateIndex);
-    } catch (e) {
-      if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
-      else throw e;
-    }
+
   const identifier = channel.escapeInvalidName(dev.properties.identifier);
+
+  // Collect and validate
+  const { shouldCreate: shouldCreateStateIndex, nameToValidate: stateIndexName } =
+    await Common.Task.collectIndexChannelForValidation(
+      client,
+      dev.properties.writeStateIndex,
+      `${identifier}_write_state_time`,
+    );
+
+  const {
+    commandsToCreate: commandChannelsToCreate,
+    statesToCreate: stateChannelsToCreate,
+    namesToValidate,
+  } = await Common.Task.collectWriteChannelsForValidation(
+    client,
+    config.channels,
+    (ch) => dev.properties[ch.type].channels[ch.port],
+    (ch) => ({
+      cmdPrename: ch.cmdChannelName,
+      cmdDefault: `${identifier}_${ch.port}_cmd`,
+      cmdIndexDefault: `${identifier}_${ch.port}_cmd_time`,
+      statePrename: ch.stateChannelName,
+      stateDefault: `${identifier}_${ch.port}_state`,
+    }),
+  );
+
+  const allNamesToValidate = stateIndexName
+    ? [stateIndexName, ...namesToValidate]
+    : namesToValidate;
+  await Common.Task.validateChannelNames(client, allNamesToValidate);
+
+  let modified = false;
+
   if (shouldCreateStateIndex) {
     modified = true;
     const stateIndex = await client.channels.create({
@@ -237,37 +262,15 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
     dev.properties.DO.channels = {};
     dev.properties.AO.channels = {};
   }
-  const commandChannelsToCreate: OutputChannel[] = [];
-  const stateChannelsToCreate: OutputChannel[] = [];
-  for (const channel of config.channels) {
-    const key = channel.port;
-    const existingPair = dev.properties[channel.type].channels[key];
-    if (existingPair == null) {
-      commandChannelsToCreate.push(channel);
-      stateChannelsToCreate.push(channel);
-    } else {
-      const { state, command } = existingPair;
-      try {
-        await client.channels.retrieve(state);
-      } catch (e) {
-        if (NotFoundError.matches(e)) stateChannelsToCreate.push(channel);
-        else throw e;
-      }
-      try {
-        await client.channels.retrieve(command);
-      } catch (e) {
-        if (NotFoundError.matches(e)) commandChannelsToCreate.push(channel);
-        else throw e;
-      }
-    }
-  }
+
   if (stateChannelsToCreate.length > 0) {
     modified = true;
     const stateChannels = await client.channels.create(
       stateChannelsToCreate.map(({ port, type, stateChannelName }) => ({
-        name: primitive.isNonZero(stateChannelName)
-          ? stateChannelName
-          : `${identifier}_${port}_state`,
+        name: Common.Task.getChannelNameToCreate(
+          stateChannelName,
+          `${identifier}_${port}_state`,
+        ),
         index: dev.properties.writeStateIndex,
         dataType: type === "AO" ? "float32" : "uint8",
       })),
@@ -283,22 +286,27 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
       else dev.properties[statesToCreateC.type].channels[port].state = c.key;
     });
   }
+
   if (commandChannelsToCreate.length > 0) {
     modified = true;
     const commandIndexes = await client.channels.create(
       commandChannelsToCreate.map(({ port, cmdChannelName }) => ({
-        name: primitive.isNonZero(cmdChannelName)
-          ? `${cmdChannelName}_time`
-          : `${identifier}_${port}_cmd_time`,
+        name: Common.Task.getChannelNameToCreate(
+          primitive.isNonZero(cmdChannelName)
+            ? `${cmdChannelName}_time`
+            : undefined,
+          `${identifier}_${port}_cmd_time`,
+        ),
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commandChannels = await client.channels.create(
       commandChannelsToCreate.map(({ cmdChannelName, port, type }, i) => ({
-        name: primitive.isNonZero(cmdChannelName)
-          ? cmdChannelName
-          : `${identifier}_${port}_cmd`,
+        name: Common.Task.getChannelNameToCreate(
+          cmdChannelName,
+          `${identifier}_${port}_cmd`,
+        ),
         index: commandIndexes[i].key,
         dataType: type === "AO" ? "float32" : "uint8",
       })),
@@ -314,6 +322,7 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
       else dev.properties[cmdToCreate.type].channels[port].command = c.key;
     });
   }
+
   if (modified) await client.devices.create(dev);
   config.channels = config.channels.map((c) => {
     const pair = dev.properties[c.type].channels[c.port];

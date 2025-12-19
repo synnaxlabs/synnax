@@ -22,5 +22,6 @@ export * from "@/hardware/common/task/ReadChannelContextMenuItem";
 export * from "@/hardware/common/task/TareButton";
 export * from "@/hardware/common/task/types";
 export * from "@/hardware/common/task/useTare";
+export * from "@/hardware/common/task/validateChannelNames";
 export * from "@/hardware/common/task/WriteChannelContextMenuItems";
 export * from "@/hardware/common/task/WriteChannelNames";

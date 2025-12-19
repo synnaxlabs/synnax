@@ -9,9 +9,9 @@
 
 import "@/hardware/modbus/task/Task.css";
 
-import { channel, NotFoundError } from "@synnaxlabs/client";
+import { channel } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon, Select, Telem } from "@synnaxlabs/pluto";
-import { DataType, deep, id, primitive } from "@synnaxlabs/x";
+import { DataType, deep, id } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { CSS } from "@/css";
@@ -195,17 +195,32 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   >({
     key: config.device,
   });
-  let shouldCreateIndex = false;
-  if (dev.properties.read.index)
-    try {
-      await client.channels.retrieve(dev.properties.read.index);
-    } catch (e) {
-      if (NotFoundError.matches(e)) shouldCreateIndex = true;
-      else throw e;
-    }
-  else shouldCreateIndex = true;
-  let modified = false;
+
   const safeName = channel.escapeInvalidName(dev.name);
+
+  // Collect and validate
+  const { shouldCreate: shouldCreateIndex, nameToValidate: indexName } =
+    await Common.Task.collectIndexChannelForValidation(
+      client,
+      dev.properties.read.index,
+      `${safeName}_time`,
+    );
+
+  const { toCreate, namesToValidate } =
+    await Common.Task.collectDataChannelsForValidation(
+      client,
+      config.channels,
+      (c) => dev.properties.read.channels[readMapKey(c)],
+      (c) => ({ prename: c.name, defaultName: channelName(safeName, c) }),
+    );
+
+  const allNamesToValidate = indexName
+    ? [indexName, ...namesToValidate]
+    : namesToValidate;
+  await Common.Task.validateChannelNames(client, allNamesToValidate);
+
+  let modified = false;
+
   if (shouldCreateIndex) {
     modified = true;
     const index = await client.channels.create({
@@ -216,24 +231,11 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     dev.properties.read.index = index.key;
   }
 
-  const toCreate: InputChannel[] = [];
-  for (const c of config.channels) {
-    const key = readMapKey(c);
-    const existing = dev.properties.read.channels[key];
-    if (existing == null) toCreate.push(c);
-    else
-      try {
-        await client.channels.retrieve(existing.toString());
-      } catch (e) {
-        if (NotFoundError.matches(e)) toCreate.push(c);
-        else throw e;
-      }
-  }
   if (toCreate.length > 0) {
     modified = true;
     const channels = await client.channels.create(
       toCreate.map((c) => ({
-        name: primitive.isNonZero(c.name) ? c.name : channelName(safeName, c),
+        name: Common.Task.getChannelNameToCreate(c.name, channelName(safeName, c)),
         dataType: (c as TypedInput).dataType ?? DataType.UINT8.toString(),
         index: dev.properties.read.index,
       })),
