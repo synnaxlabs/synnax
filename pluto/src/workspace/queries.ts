@@ -18,8 +18,8 @@ import { Ontology } from "@/ontology";
 import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "workspaces";
-const RESOURCE_NAME = "Workspace";
-const PLURAL_RESOURCE_NAME = "Workspaces";
+const RESOURCE_NAME = "workspace";
+const PLURAL_RESOURCE_NAME = "workspaces";
 
 export interface FluxStore extends Flux.UnaryStore<
   workspace.Key,

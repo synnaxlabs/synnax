@@ -73,6 +73,7 @@ export { Triggers } from "@/triggers";
 export { User } from "@/user";
 export * from "@/util/event";
 export { Video } from "@/video";
+export { View } from "@/view";
 export { Viewport } from "@/viewport";
 export { axis } from "@/vis/axis";
 export { Canvas } from "@/vis/canvas";

@@ -196,7 +196,7 @@ func validateEdge(
 // Parse parses the raw function bodies in the graph into AST representations.
 // It skips functions with empty bodies and returns an error if parsing fails.
 // This is typically the first step before calling Analyze.
-func Parse(g Graph) (Graph, error) {
+func Parse(g Graph) (Graph, *diagnostics.Diagnostics) {
 	for i, function := range g.Functions {
 		if function.Body.Raw == "" {
 			continue
@@ -410,7 +410,8 @@ func Analyze(
 	}
 
 	// Step 8: Build Stratified Execution Plan
-	strata, err := stratifier.Stratify(ctx, irNodes, g.Edges, ctx.Diagnostics)
+	// Graph-based compilation doesn't support sequences, so pass nil
+	strata, err := stratifier.Stratify(ctx, irNodes, g.Edges, nil, ctx.Diagnostics)
 	if err != nil {
 		return ir.IR{}, ctx.Diagnostics
 	}

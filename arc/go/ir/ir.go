@@ -70,7 +70,11 @@
 package ir
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
@@ -81,9 +85,13 @@ import (
 type IR struct {
 	// Functions contains all function and stage definitions in the program.
 	Functions Functions `json:"functions"`
+	// Sequences contains all sequence (state machine) definitions in the program.
+	// Each sequence contains its own stages with embedded node references.
+	Sequences Sequences `json:"sequences,omitempty"`
 	// Nodes contains all instantiated function instances in the dataflow graph.
 	Nodes Nodes `json:"nodes"`
 	// Edges contains all dataflow connections between node parameters.
+	// Edge.Kind distinguishes Continuous (-> reactive) from OneShot (=> transition) edges.
 	Edges Edges `json:"edges"`
 	// Strata contains the execution stratification for deterministic reactive execution.
 	Strata Strata `json:"strata"`
@@ -95,9 +103,113 @@ type IR struct {
 
 func (i *IR) IsZero() bool {
 	return len(i.Functions) == 0 &&
+		len(i.Sequences) == 0 &&
 		len(i.Nodes) == 0 &&
 		len(i.Edges) == 0 &&
 		len(i.Strata) == 0 &&
 		i.Symbols == nil &&
 		i.TypeMap == nil
+}
+
+// String returns the string representation of the IR.
+func (i *IR) String() string {
+	return i.stringWithPrefix("")
+}
+
+// stringWithPrefix returns the string representation with tree formatting.
+func (i *IR) stringWithPrefix(prefix string) string {
+	var b strings.Builder
+
+	hasFunctions := len(i.Functions) > 0
+	hasNodes := len(i.Nodes) > 0
+	hasEdges := len(i.Edges) > 0
+	hasStrata := len(i.Strata) > 0
+	hasSequences := len(i.Sequences) > 0
+
+	if hasFunctions {
+		isLast := !hasNodes && !hasEdges && !hasStrata && !hasSequences
+		i.writeFunctions(&b, prefix, isLast)
+	}
+
+	if hasNodes {
+		isLast := !hasEdges && !hasStrata && !hasSequences
+		i.writeNodes(&b, prefix, isLast)
+	}
+
+	if hasEdges {
+		isLast := !hasStrata && !hasSequences
+		i.writeEdges(&b, prefix, isLast)
+	}
+
+	if hasStrata {
+		isLast := !hasSequences
+		i.writeStrata(&b, prefix, isLast)
+	}
+
+	if hasSequences {
+		i.writeSequences(&b, prefix, true)
+	}
+
+	return b.String()
+}
+
+func (i *IR) writeFunctions(b *strings.Builder, prefix string, last bool) {
+	b.WriteString(prefix)
+	b.WriteString(treePrefix(last))
+	lo.Must(fmt.Fprintf(b, "Functions (%d)\n", len(i.Functions)))
+	childPrefix := prefix + treeIndent(last)
+	for j, f := range i.Functions {
+		isLast := j == len(i.Functions)-1
+		b.WriteString(childPrefix)
+		b.WriteString(treePrefix(isLast))
+		b.WriteString(f.stringWithPrefix(childPrefix + treeIndent(isLast)))
+	}
+}
+
+func (i *IR) writeNodes(b *strings.Builder, prefix string, last bool) {
+	b.WriteString(prefix)
+	b.WriteString(treePrefix(last))
+	lo.Must(fmt.Fprintf(b, "Nodes (%d)\n", len(i.Nodes)))
+	childPrefix := prefix + treeIndent(last)
+	for j, n := range i.Nodes {
+		isLast := j == len(i.Nodes)-1
+		b.WriteString(childPrefix)
+		b.WriteString(treePrefix(isLast))
+		b.WriteString(n.stringWithPrefix(childPrefix + treeIndent(isLast)))
+	}
+}
+
+func (i *IR) writeEdges(b *strings.Builder, prefix string, last bool) {
+	b.WriteString(prefix)
+	b.WriteString(treePrefix(last))
+	lo.Must(fmt.Fprintf(b, "Edges (%d)\n", len(i.Edges)))
+	childPrefix := prefix + treeIndent(last)
+	for j, e := range i.Edges {
+		isLast := j == len(i.Edges)-1
+		b.WriteString(childPrefix)
+		b.WriteString(treePrefix(isLast))
+		b.WriteString(e.String())
+		b.WriteString("\n")
+	}
+}
+
+func (i *IR) writeStrata(b *strings.Builder, prefix string, last bool) {
+	b.WriteString(prefix)
+	b.WriteString(treePrefix(last))
+	lo.Must(fmt.Fprintf(b, "Strata (%d layers)\n", len(i.Strata)))
+	childPrefix := prefix + treeIndent(last)
+	b.WriteString(i.Strata.stringWithPrefix(childPrefix))
+}
+
+func (i *IR) writeSequences(b *strings.Builder, prefix string, last bool) {
+	b.WriteString(prefix)
+	b.WriteString(treePrefix(last))
+	lo.Must(fmt.Fprintf(b, "Sequences (%d)\n", len(i.Sequences)))
+	childPrefix := prefix + treeIndent(last)
+	for j, s := range i.Sequences {
+		isLast := j == len(i.Sequences)-1
+		b.WriteString(childPrefix)
+		b.WriteString(treePrefix(isLast))
+		b.WriteString(s.stringWithPrefix(childPrefix + treeIndent(isLast)))
+	}
 }

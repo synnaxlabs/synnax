@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/log"
@@ -59,6 +60,7 @@ var allObjects = []ontology.ID{
 	{Type: role.OntologyType},
 	{Type: policy.OntologyType},
 	{Type: ontology.BuiltInType},
+	{Type: view.OntologyType},
 }
 
 // Owner role - Full control of deployment, including user registration and security.
@@ -108,6 +110,7 @@ var (
 				{Type: arc.OntologyType},
 				{Type: symbol.OntologyType},
 				{Type: status.OntologyType},
+				{Type: view.OntologyType},
 			},
 			Actions:  access.AllActions,
 			Internal: true,

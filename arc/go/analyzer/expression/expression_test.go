@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -264,7 +265,7 @@ var _ = Describe("Expressions", func() {
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
-		It("Should correctly type boolean literals", func() {
+		It("Should correctly type u8 values used as booleans", func() {
 			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
 						x := 1
@@ -529,6 +530,86 @@ var _ = Describe("Expressions", func() {
 			}
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+	})
+
+	Describe("IsPureLiteral", func() {
+		getExpr := func(code string) parser.IExpressionContext {
+			ast := MustSucceed(parser.Parse(code))
+			return ast.AllTopLevelItem()[0].FlowStatement().AllFlowNode()[0].Expression()
+		}
+
+		It("Should return true for integer literals", func() {
+			expr := getExpr(`42 -> out`)
+			Expect(expression.IsPureLiteral(expr)).To(BeTrue())
+		})
+
+		It("Should return true for float literals", func() {
+			expr := getExpr(`3.14 -> out`)
+			Expect(expression.IsPureLiteral(expr)).To(BeTrue())
+		})
+
+		It("Should return true for string literals", func() {
+			expr := getExpr(`"hello" -> out`)
+			Expect(expression.IsPureLiteral(expr)).To(BeTrue())
+		})
+
+		It("Should return false for identifiers", func() {
+			expr := getExpr(`x -> out`)
+			Expect(expr).To(BeNil()) // identifiers are parsed as flowNode.identifier, not expression
+		})
+
+		It("Should return false for binary expressions", func() {
+			expr := getExpr(`1 + 2 -> out`)
+			Expect(expression.IsPureLiteral(expr)).To(BeFalse())
+		})
+
+		It("Should return false for unary expressions", func() {
+			expr := getExpr(`-1 -> out`)
+			Expect(expression.IsPureLiteral(expr)).To(BeFalse())
+		})
+
+		It("Should return false for parenthesized expressions", func() {
+			expr := getExpr(`(42) -> out`)
+			Expect(expression.IsPureLiteral(expr)).To(BeFalse())
+		})
+
+		It("Should return false for comparison expressions", func() {
+			expr := getExpr(`1 > 0 -> out`)
+			Expect(expression.IsPureLiteral(expr)).To(BeFalse())
+		})
+
+		It("Should return false for logical expressions", func() {
+			expr := getExpr(`1 and 0 -> out`)
+			Expect(expression.IsPureLiteral(expr)).To(BeFalse())
+		})
+	})
+
+	Describe("GetLiteral", func() {
+		getExpr := func(code string) parser.IExpressionContext {
+			ast := MustSucceed(parser.Parse(code))
+			return ast.AllTopLevelItem()[0].FlowStatement().AllFlowNode()[0].Expression()
+		}
+
+		It("Should extract integer literal", func() {
+			expr := getExpr(`42 -> out`)
+			lit := expression.GetLiteral(expr)
+			Expect(lit).ToNot(BeNil())
+			Expect(lit.GetText()).To(Equal("42"))
+		})
+
+		It("Should extract float literal", func() {
+			expr := getExpr(`3.14 -> out`)
+			lit := expression.GetLiteral(expr)
+			Expect(lit).ToNot(BeNil())
+			Expect(lit.GetText()).To(Equal("3.14"))
+		})
+
+		It("Should extract string literal", func() {
+			expr := getExpr(`"hello" -> out`)
+			lit := expression.GetLiteral(expr)
+			Expect(lit).ToNot(BeNil())
+			Expect(lit.GetText()).To(Equal(`"hello"`))
 		})
 	})
 })

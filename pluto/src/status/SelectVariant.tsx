@@ -42,5 +42,5 @@ export interface SelectVariantProps extends Omit<
 > {}
 
 export const SelectVariant = (props: SelectVariantProps): ReactElement => (
-  <Core.Static {...props} data={DATA} resourceName="variant" />
+  <Core.Static {...props} data={DATA} resourceName="status variant" />
 );

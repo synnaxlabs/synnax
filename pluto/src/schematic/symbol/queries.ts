@@ -15,7 +15,8 @@ import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "schematicSymbols";
 
-const RESOURCE_NAME = "Schematic Symbol";
+const RESOURCE_NAME = "schematic symbol";
+const PLURAL_RESOURCE_NAME = "schematic symbols";
 
 export interface FluxStore extends Flux.UnaryStore<
   schematic.symbol.Key,
@@ -109,7 +110,7 @@ export const useList = Flux.createList<
     );
     return store.schematicSymbols.get(keys.map((k) => k.to.key));
   },
-  name: "Schematic Symbols",
+  name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, store, query: { parent, ...rest } }) => {
     if (parent != null) {
       const children = await client.ontology.retrieveChildren(parent);

@@ -15,3 +15,8 @@ message PBSeries {
   bytes data = 3;
   uint64 alignment = 4;
 }
+
+message PBFrame {
+  repeated uint32 keys = 1;
+  repeated PBSeries series = 2;
+}

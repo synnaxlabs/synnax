@@ -204,7 +204,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 			Expect(inferredType).To(Equal(types.F32()))
 		})
 
-		It("Should infer the correct type for channel and literal operations in power expressiosn", func() {
+		It("Should infer the correct type for channel and literal operations in power expressions", func() {
 			block := MustSucceed(parser.ParseBlock(`{
 				return f32_chan ^ 2
 			}`))
