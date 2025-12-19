@@ -292,7 +292,9 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
     const commandIndexes = await client.channels.create(
       commandChannelsToCreate.map(({ port, cmdChannelName }) => ({
         name: Common.Task.getChannelNameToCreate(
-          primitive.isNonZero(cmdChannelName) ? `${cmdChannelName}_time` : undefined,
+          primitive.isNonZero(cmdChannelName)
+            ? `${cmdChannelName}_time`
+            : undefined,
           `${identifier}_${port}_cmd_time`,
         ),
         dataType: "timestamp",
