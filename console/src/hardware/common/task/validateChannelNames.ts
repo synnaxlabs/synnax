@@ -236,9 +236,7 @@ export const collectWriteChannelsForValidation = async <TChannel>(
     const names = getChannelNames(c);
     namesToValidate.push(
       getChannelNameToCreate(
-        primitive.isNonZero(names.cmdPrename)
-          ? `${names.cmdPrename}_time`
-          : undefined,
+        primitive.isNonZero(names.cmdPrename) ? `${names.cmdPrename}_time` : undefined,
         names.cmdIndexDefault,
       ),
     );
