@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, observe } from "@synnaxlabs/x";
+import { type destructor, id, observe } from "@synnaxlabs/x";
 
 import {
   type BooleanSourceSpec,
@@ -16,22 +16,19 @@ import {
   type StringSourceSpec,
   type Telem,
 } from "@/telem/aether/telem";
-import {
-  registerTestInstance,
-  TEST_SOURCE_TYPE,
-  unregisterTestInstance,
-} from "@/telem/aether/test/factory";
+import { registerInstance, TEST_SOURCE_TYPE } from "@/telem/aether/test/factory";
 
 export class TestSource<V> extends observe.Observer<void> implements Source<V>, Telem {
   static readonly TYPE = TEST_SOURCE_TYPE;
   readonly id: string;
   private _value: V;
+  private _destructor: destructor.Destructor;
 
   constructor(initialValue: V) {
     super();
     this.id = id.create();
     this._value = initialValue;
-    registerTestInstance(this.id, this);
+    this._destructor = registerInstance(this.id, this);
   }
 
   value(): V {
@@ -44,7 +41,7 @@ export class TestSource<V> extends observe.Observer<void> implements Source<V>, 
   }
 
   cleanup(): void {
-    unregisterTestInstance(this.id);
+    this._destructor();
   }
 }
 

@@ -7,18 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type destructor } from "@synnaxlabs/x";
+
 import { type CreateOptions, type Factory } from "@/telem/aether/factory";
 import { type Spec, type Telem } from "@/telem/aether/telem";
 
-// Global registry for test instances - allows specs to reference pre-created instances
 const instances = new Map<string, Telem>();
 
-export const registerTestInstance = (id: string, instance: Telem): void => {
-  instances.set(id, instance);
-};
-
-export const unregisterTestInstance = (id: string): void => {
-  instances.delete(id);
+export const registerInstance = (
+  key: string,
+  instance: Telem,
+): destructor.Destructor => {
+  instances.set(key, instance);
+  return () => instances.delete(key);
 };
 
 export const TEST_SINK_TYPE = "test-sink";
@@ -28,7 +29,8 @@ export class TestFactory implements Factory {
   type = "test";
 
   create(spec: Spec, _options?: CreateOptions): Telem | null {
-    if (spec.props?.testId) {
+    if (spec.type !== TEST_SINK_TYPE && spec.type !== TEST_SOURCE_TYPE) return null;
+    if (spec.props?.testId != null) {
       const instance = instances.get(spec.props.testId);
       if (instance) return instance;
     }

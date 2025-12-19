@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, observe } from "@synnaxlabs/x";
+import { type destructor, id, observe } from "@synnaxlabs/x";
 
 import {
   type BooleanSinkSpec,
@@ -16,21 +16,18 @@ import {
   type StringSinkSpec,
   type Telem,
 } from "@/telem/aether/telem";
-import {
-  registerTestInstance,
-  TEST_SINK_TYPE,
-  unregisterTestInstance,
-} from "@/telem/aether/test/factory";
+import { registerInstance, TEST_SINK_TYPE } from "@/telem/aether/test/factory";
 
 export class TestSink<V> extends observe.Observer<void> implements Sink<V>, Telem {
   static readonly TYPE = TEST_SINK_TYPE;
   readonly id: string;
   values: V[] = [];
+  private _destructor: destructor.Destructor;
 
   constructor() {
     super();
     this.id = id.create();
-    registerTestInstance(this.id, this);
+    this._destructor = registerInstance(this.id, this);
   }
 
   get lastValue(): V | undefined {
@@ -47,7 +44,7 @@ export class TestSink<V> extends observe.Observer<void> implements Sink<V>, Tele
   }
 
   cleanup(): void {
-    unregisterTestInstance(this.id);
+    this._destructor();
   }
 }
 

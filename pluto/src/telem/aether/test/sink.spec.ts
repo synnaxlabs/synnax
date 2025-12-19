@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it, afterEach, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { TestFactory, TEST_SINK_TYPE } from "@/telem/aether/test/factory";
+import { TEST_SINK_TYPE, TestFactory } from "@/telem/aether/test/factory";
 import {
   booleanSinkSpec,
   numberSinkSpec,
@@ -50,7 +50,12 @@ describe("TestSink", () => {
       const s = createSink<number>();
       const factory = new TestFactory();
 
-      const result = factory.create({ type: "any", props: { testId: s.id } });
+      const result = factory.create({
+        type: "test-sink",
+        valueType: "any",
+        variant: "sink",
+        props: { testId: s.id },
+      });
 
       expect(result).toBe(s);
     });
@@ -142,11 +147,25 @@ describe("TestSink", () => {
       const s = sink<number>();
       const factory = new TestFactory();
 
-      expect(factory.create({ type: "any", props: { testId: s.id } })).toBe(s);
+      expect(
+        factory.create({
+          type: "test-sink",
+          valueType: "any",
+          variant: "sink",
+          props: { testId: s.id },
+        }),
+      ).toBe(s);
 
       s.cleanup();
 
-      expect(factory.create({ type: "any", props: { testId: s.id } })).toBeNull();
+      expect(
+        factory.create({
+          type: "test-sink",
+          valueType: "any",
+          variant: "sink",
+          props: { testId: s.id },
+        }),
+      ).toBeNull();
     });
   });
 
