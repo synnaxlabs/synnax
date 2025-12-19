@@ -201,10 +201,7 @@ TEST(CodecTests, OnlyOneChannelPresent) {
         telem::UINT8_T,
         telem::UINT8_T
     };
-    const auto frame = telem::Frame(
-        3,
-        telem::Series(std::vector<uint8_t>{1, 2, 3, 4, 5})
-    );
+    auto frame = telem::Frame(3, telem::Series(std::vector<uint8_t>{1, 2, 3, 4, 5}));
     std::vector<uint8_t> encoded;
     synnax::Codec codec(channels, data_types);
     codec.encode(frame, encoded);
