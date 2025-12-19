@@ -30,7 +30,7 @@ constexpr std::string default_input_param = "input";
 constexpr std::string lhs_input_param = "lhs_input";
 constexpr std::string rhs_input_param = "rhs_input";
 
-enum class EdgeKind { Continuous = 0, OneShot = 1 };
+enum class EdgeKind { Unspecified = 0, Continuous = 1, OneShot = 2 };
 
 struct Handle {
     std::string node, param;

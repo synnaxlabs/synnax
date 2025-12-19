@@ -16,22 +16,22 @@ import "google/protobuf/struct.proto";
 option go_package = "github.com/synnaxlabs/arc/types";
 
 enum PBKind {
-  INVALID = 0;
-  U8 = 1;
-  U16 = 2;
-  U32 = 3;
-  U64 = 4;
-  I8 = 5;
-  I16 = 6;
-  I32 = 7;
-  I64 = 8;
-  F32 = 9;
-  F64 = 10;
-  STRING = 11;
-  TIMESTAMP = 12;
-  TIMESPAN = 13;
-  CHAN = 14;
-  SERIES = 15;
+  PB_KIND_UNSPECIFIED = 0;
+  PB_KIND_U8 = 1;
+  PB_KIND_U16 = 2;
+  PB_KIND_U32 = 3;
+  PB_KIND_U64 = 4;
+  PB_KIND_I8 = 5;
+  PB_KIND_I16 = 6;
+  PB_KIND_I32 = 7;
+  PB_KIND_I64 = 8;
+  PB_KIND_F32 = 9;
+  PB_KIND_F64 = 10;
+  PB_KIND_STRING = 11;
+  PB_KIND_TIMESTAMP = 12;
+  PB_KIND_TIMESPAN = 13;
+  PB_KIND_CHAN = 14;
+  PB_KIND_SERIES = 15;
 }
 
 message PBType {
