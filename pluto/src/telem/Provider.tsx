@@ -16,7 +16,7 @@ export interface ProviderProps extends PropsWithChildren<any> {}
 
 export const Provider = ({ children }: ProviderProps): ReactElement => {
   const { path } = Aether.useUnidirectional({
-    type: telem.BaseProvider.TYPE,
+    type: telem.PROVIDER_TYPE,
     schema: telem.providerStateZ,
     state: {},
   });
