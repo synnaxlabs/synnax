@@ -9,7 +9,7 @@
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Icon } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { type optional, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
@@ -58,9 +58,21 @@ const Properties = () => (
 
 interface NameComponentProps extends DigitalNameComponentProps<DOChannel> {}
 
-const NameComponent = (props: NameComponentProps) => (
-  <Common.Task.WriteChannelNames {...props} />
-);
+const NameComponent = ({ path, ...rest }: NameComponentProps) => {
+  const filteredRest: optional.Optional<
+    typeof rest,
+    "cmdChannelName" | "stateChannelName"
+  > = rest;
+  delete filteredRest.cmdChannelName;
+  delete filteredRest.stateChannelName;
+  return (
+    <Common.Task.WriteChannelNames
+      {...rest}
+      cmdNamePath={`${path}.cmdChannelName`}
+      stateNamePath={`${path}.stateChannelName`}
+    />
+  );
+};
 
 const name = Component.renderProp(NameComponent);
 
@@ -153,7 +165,9 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
     modified = true;
     const states = await client.channels.create(
       statesToCreate.map((c) => ({
-        name: `${identifier}_do_${c.port}_${c.line}_state`,
+        name: primitive.isNonZero(c.stateChannelName)
+          ? c.stateChannelName
+          : `${identifier}_do_${c.port}_${c.line}_state`,
         index: dev.properties.digitalOutput.stateIndex,
         dataType: "uint8",
       })),
@@ -169,14 +183,18 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
     modified = true;
     const commandIndexes = await client.channels.create(
       commandsToCreate.map((c) => ({
-        name: `${identifier}_do_${c.port}_${c.line}_cmd_time`,
+        name: primitive.isNonZero(c.cmdChannelName)
+          ? `${c.cmdChannelName}_time`
+          : `${identifier}_do_${c.port}_${c.line}_cmd_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commands = await client.channels.create(
       commandsToCreate.map((c, i) => ({
-        name: `${identifier}_do_${c.port}_${c.line}_cmd`,
+        name: primitive.isNonZero(c.cmdChannelName)
+          ? c.cmdChannelName
+          : `${identifier}_do_${c.port}_${c.line}_cmd`,
         index: commandIndexes[i].key,
         dataType: "uint8",
       })),

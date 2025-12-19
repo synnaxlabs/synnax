@@ -59,11 +59,12 @@ const Properties = () => (
 
 interface NameComponentProps extends DigitalNameComponentProps<DIChannel> {}
 
-const NameComponent = ({ channel, itemKey }: NameComponentProps) => (
+const NameComponent = ({ channel, itemKey, path }: NameComponentProps) => (
   <Common.Task.ChannelName
     channel={channel}
     id={Common.Task.getChannelNameID(itemKey)}
     level="p"
+    namePath={`${path}.name`}
   />
 );
 
@@ -146,7 +147,9 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
     modified = true;
     const channels = await client.channels.create(
       toCreate.map((c) => ({
-        name: `${identifier}_di_${c.port}_${c.line}`,
+        name: primitive.isNonZero(c.name)
+          ? c.name
+          : `${identifier}_di_${c.port}_${c.line}`,
         dataType: "uint8",
         index: dev.properties.digitalInput.index,
       })),

@@ -72,7 +72,7 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
       stateChannel={stateChannel}
       portMaxChars={2}
       canTare={false}
-      path={itemKey}
+      path={path}
       icon={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[type] }}
     />
   );
@@ -177,7 +177,9 @@ const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
     modified = true;
     const states = await client.channels.create(
       statesToCreate.map((c) => ({
-        name: `${identifier}_ao_${c.port}_state`,
+        name: primitive.isNonZero(c.stateChannelName)
+          ? c.stateChannelName
+          : `${identifier}_ao_${c.port}_state`,
         index: dev.properties.analogOutput.stateIndex,
         dataType: "float32",
       })),
@@ -193,14 +195,18 @@ const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
     modified = true;
     const commandIndexes = await client.channels.create(
       commandsToCreate.map((c) => ({
-        name: `${identifier}_ao_${c.port}_cmd_time`,
+        name: primitive.isNonZero(c.cmdChannelName)
+          ? `${c.cmdChannelName}_time`
+          : `${identifier}_ao_${c.port}_cmd_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commands = await client.channels.create(
       commandsToCreate.map((c, i) => ({
-        name: `${identifier}_ao_${c.port}_cmd`,
+        name: primitive.isNonZero(c.cmdChannelName)
+          ? c.cmdChannelName
+          : `${identifier}_ao_${c.port}_cmd`,
         index: commandIndexes[i].key,
         dataType: "float32",
       })),

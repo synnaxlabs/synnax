@@ -9,7 +9,7 @@
 
 import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, type Haul, Icon } from "@synnaxlabs/pluto";
-import { caseconv, DataType } from "@synnaxlabs/x";
+import { caseconv, DataType, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 import { type z } from "zod";
 
@@ -118,6 +118,7 @@ const convertHaulItemToChannel = ({ data }: Haul.Item): ReadChannel => {
     enabled: true,
     useAsIndex: false,
     dataType,
+    name: "",
   };
 };
 
@@ -257,9 +258,11 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   }
   if (toCreate.length > 0) {
     const channels = await client.channels.create(
-      toCreate.map(({ nodeName, dataType }) => ({
+      toCreate.map(({ name, nodeName, dataType }) => ({
         dataType,
-        name: channel.escapeInvalidName(nodeName, true),
+        name: primitive.isNonZero(name)
+          ? name
+          : channel.escapeInvalidName(nodeName, true),
         index,
       })),
     );

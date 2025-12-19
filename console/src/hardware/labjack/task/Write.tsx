@@ -127,6 +127,8 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
           cmdChannel={cmdChannel}
           itemKey={item.key}
           stateChannel={stateChannel}
+          cmdNamePath={`${path}.cmdChannelName`}
+          stateNamePath={`${path}.stateChannelName`}
         />
         <Common.Task.EnableDisableButton path={`${path}.enabled`} />
       </Flex.Box>
@@ -147,6 +149,7 @@ const getOpenChannel = (channels: OutputChannel[], device: Device.Device) => {
     Common.Device.ZERO_COMMAND_STATE_PAIR;
   return {
     ...deep.copy(last),
+    ...Common.Task.WRITE_CHANNEL_OVERRIDE,
     type: port.type,
     key: id.create(),
     port: port.key,
@@ -261,8 +264,10 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   if (stateChannelsToCreate.length > 0) {
     modified = true;
     const stateChannels = await client.channels.create(
-      stateChannelsToCreate.map(({ port, type }) => ({
-        name: `${identifier}_${port}_state`,
+      stateChannelsToCreate.map(({ port, type, stateChannelName }) => ({
+        name: primitive.isNonZero(stateChannelName)
+          ? stateChannelName
+          : `${identifier}_${port}_state`,
         index: dev.properties.writeStateIndex,
         dataType: type === "AO" ? "float32" : "uint8",
       })),
@@ -281,15 +286,19 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   if (commandChannelsToCreate.length > 0) {
     modified = true;
     const commandIndexes = await client.channels.create(
-      commandChannelsToCreate.map(({ port }) => ({
-        name: `${identifier}_${port}_cmd_time`,
+      commandChannelsToCreate.map(({ port, cmdChannelName }) => ({
+        name: primitive.isNonZero(cmdChannelName)
+          ? `${cmdChannelName}_time`
+          : `${identifier}_${port}_cmd_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commandChannels = await client.channels.create(
-      commandChannelsToCreate.map(({ port, type }, i) => ({
-        name: `${identifier}_${port}_cmd`,
+      commandChannelsToCreate.map(({ cmdChannelName, port, type }, i) => ({
+        name: primitive.isNonZero(cmdChannelName)
+          ? cmdChannelName
+          : `${identifier}_${port}_cmd`,
         index: commandIndexes[i].key,
         dataType: type === "AO" ? "float32" : "uint8",
       })),

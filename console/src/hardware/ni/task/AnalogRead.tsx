@@ -105,8 +105,8 @@ const Form: FC<
 > = () => {
   const [tare, allowTare, handleTare] = Common.Task.useTare<AIChannel>();
   const listItem = useCallback(
-    ({ key, itemKey, ...rest }: Common.Task.ChannelListItemProps) => (
-      <ChannelListItem key={key} itemKey={itemKey} {...rest} onTare={tare} />
+    ({ key, ...rest }: Common.Task.ChannelListItemProps) => (
+      <ChannelListItem key={key} {...rest} onTare={tare} />
     ),
     [tare],
   );
@@ -203,7 +203,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
       modified = true;
       const channels = await client.channels.create(
         toCreate.map((c) => ({
-          name: `${identifier}_ai_${c.port}`,
+          name: primitive.isNonZero(c.name) ? c.name : `${identifier}_ai_${c.port}`,
           dataType: "float32",
           index: dev.properties.analogInput.index,
         })),

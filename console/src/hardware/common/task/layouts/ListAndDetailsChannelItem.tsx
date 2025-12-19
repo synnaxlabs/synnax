@@ -30,13 +30,19 @@ export interface ListAndDetailsChannelItemProps<K extends record.Key>
   icon?: ListAndDetailsIconProps;
   canTare: boolean;
   channel: channel.Key;
+  channelName?: string;
+  onChannelNameChange?: (name: string) => void;
   stateChannel?: channel.Key;
+  stateChannelName?: string;
+  onStateChannelNameChange?: (name: string) => void;
   onTare?: (channel: channel.Key) => void;
   path: string;
   hasTareButton: boolean;
 }
 
-const getChannelNameProps = (hasIcon: boolean): Omit<ChannelNameProps, "channel"> => ({
+const getChannelNameProps = (
+  hasIcon: boolean,
+): Omit<ChannelNameProps, "channel" | "namePath"> => ({
   level: "p",
   color: 9,
   weight: 450,
@@ -55,8 +61,12 @@ export const ListAndDetailsChannelItem = <K extends string>({
   path,
   hasTareButton,
   channel,
+  channelName,
+  onChannelNameChange,
   icon,
   stateChannel,
+  stateChannelName,
+  onStateChannelNameChange,
   ...rest
 }: ListAndDetailsChannelItemProps<K>) => {
   const { itemKey } = rest;
@@ -93,6 +103,8 @@ export const ListAndDetailsChannelItem = <K extends string>({
         {hasStateChannel ? (
           <Flex.Box direction="y" gap="small">
             <WriteChannelNames
+              stateNamePath={`${path}.stateChannelName`}
+              cmdNamePath={`${path}.cmdChannelName`}
               cmdChannel={channel}
               stateChannel={stateChannel}
               itemKey={itemKey}
@@ -102,6 +114,8 @@ export const ListAndDetailsChannelItem = <K extends string>({
           <ChannelName
             {...channelNameProps}
             channel={channel}
+            defaultName={channelName}
+            namePath={`${path}.name`}
             id={getChannelNameID(itemKey)}
           />
         )}

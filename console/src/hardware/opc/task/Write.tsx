@@ -9,7 +9,7 @@
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, type Haul, Icon, Menu, Text } from "@synnaxlabs/pluto";
-import { caseconv } from "@synnaxlabs/x";
+import { caseconv, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
@@ -58,6 +58,7 @@ const convertHaulItemToChannel = ({ data }: Haul.Item): WriteChannel => {
     key: nodeId,
     nodeName,
     nodeId,
+    name: "",
     cmdChannel: 0,
     enabled: true,
     dataType,
@@ -78,7 +79,7 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
   if (keys.length !== 1) return null;
   const key = keys[0];
   const cmdChannel = channels.find((ch) => ch.key === key)?.cmdChannel;
-  if (cmdChannel == null || cmdChannel == 0) return null;
+  if (cmdChannel == null) return null;
   const handleRename = () => Text.edit(Common.Task.getChannelNameID(key, "cmd"));
   return (
     <>
@@ -147,15 +148,19 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
     )
       dev.properties.write.channels = {};
     const commandIndexes = await client.channels.create(
-      commandsToCreate.map(({ nodeName }) => ({
-        name: `${channel.escapeInvalidName(nodeName)}_cmd_time`,
+      commandsToCreate.map(({ name, nodeName }) => ({
+        name: primitive.isNonZero(name)
+          ? `${name}_time`
+          : `${channel.escapeInvalidName(nodeName)}_cmd_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commands = await client.channels.create(
-      commandsToCreate.map(({ dataType, nodeName }, i) => ({
-        name: `${channel.escapeInvalidName(nodeName)}_cmd`,
+      commandsToCreate.map(({ dataType, name, nodeName }, i) => ({
+        name: primitive.isNonZero(name)
+          ? name
+          : `${channel.escapeInvalidName(nodeName)}_cmd`,
         dataType,
         index: commandIndexes[i].key,
       })),

@@ -204,7 +204,7 @@ const onConfigure: Common.Task.OnConfigure<typeof counterReadConfigZ> = async (
       devModified = true;
       const channels = await client.channels.create(
         toCreate.map((c) => ({
-          name: `${identifier}_ctr_${c.port}`,
+          name: primitive.isNonZero(c.name) ? c.name : `${identifier}_ctr_${c.port}`,
           dataType: "float64",
           index: dev.properties.counterInput.index,
         })),

@@ -179,6 +179,7 @@ const getOpenChannel = (
       channelToCopy,
       INPUT_CHANNEL_SCHEMAS[channelTypeUsed],
     ),
+    ...Common.Task.READ_CHANNEL_OVERRIDE,
     key: id.create(),
     port: port.key,
     channel: device.properties[port.type].channels[port.key] ?? 0,
@@ -297,7 +298,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     modified = true;
     const channels = await client.channels.create(
       toCreate.map((c) => ({
-        name: `${identifier}_${c.port}`,
+        name: primitive.isNonZero(c.name) ? c.name : `${identifier}_${c.port}`,
         dataType: c.type === DI_CHANNEL_TYPE ? "uint8" : "float32",
         index: dev.properties.readIndex,
       })),

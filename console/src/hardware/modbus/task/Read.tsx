@@ -11,7 +11,7 @@ import "@/hardware/modbus/task/Task.css";
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon, Select, Telem } from "@synnaxlabs/pluto";
-import { DataType, deep, id } from "@synnaxlabs/x";
+import { DataType, deep, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { CSS } from "@/css";
@@ -119,6 +119,7 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
       <Flex.Box x align="center" grow justify="end">
         <Common.Task.ChannelName
           channel={channel}
+          namePath={`${path}.name`}
           id={Common.Task.getChannelNameID(itemKey)}
         />
         <Common.Task.EnableDisableButton path={`${path}.enabled`} />
@@ -135,10 +136,12 @@ const getOpenChannel = (channels: InputChannel[]): InputChannel => {
       channel: 0,
       key: id.create(),
       enabled: true,
+      name: "",
     };
   const channelToCopy = channels[channels.length - 1];
   return {
     ...channelToCopy,
+    ...Common.Task.READ_CHANNEL_OVERRIDE,
     key: id.create(),
     address: channelToCopy.address + 1,
   };
@@ -230,7 +233,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     modified = true;
     const channels = await client.channels.create(
       toCreate.map((c) => ({
-        name: channelName(safeName, c),
+        name: primitive.isNonZero(c.name) ? c.name : channelName(safeName, c),
         dataType: (c as TypedInput).dataType ?? DataType.UINT8.toString(),
         index: dev.properties.read.index,
       })),
