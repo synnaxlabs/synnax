@@ -52,6 +52,8 @@ export interface SliceState {
   error: string | null;
   startTime: number | null;
   endTime: number | null;
+  rangeKey: string | null;
+  rangeStartTime: number | null;
   leakReport: LeakReport;
   degradationReport: DegradationReport;
   cpuReport: CpuReport;
@@ -65,6 +67,8 @@ export const ZERO_SLICE_STATE: SliceState = {
   error: null,
   startTime: null,
   endTime: null,
+  rangeKey: null,
+  rangeStartTime: null,
   leakReport: ZERO_LEAK_REPORT,
   degradationReport: ZERO_DEGRADATION_REPORT,
   cpuReport: ZERO_CPU_REPORT,
@@ -85,6 +89,8 @@ export const PERSIST_EXCLUDE = [
   "workflowResults",
   "startTime",
   "endTime",
+  "rangeKey",
+  "rangeStartTime",
   "leakReport",
   "degradationReport",
   "cpuReport",
@@ -108,6 +114,8 @@ export const { actions, reducer } = createSlice({
         };
       state.startTime = performance.now();
       state.endTime = null;
+      state.rangeKey = null;
+      state.rangeStartTime = null;
       state.workflowResults = [];
       state.error = null;
       state.leakReport = ZERO_LEAK_REPORT;
@@ -149,6 +157,14 @@ export const { actions, reducer } = createSlice({
       state.gpuReport = payload;
     },
 
+    setRangeKey: (state, { payload }: PayloadAction<string | null>) => {
+      state.rangeKey = payload;
+    },
+
+    setRangeStartTime: (state, { payload }: PayloadAction<number | null>) => {
+      state.rangeStartTime = payload;
+    },
+
     setError: (state, { payload }: PayloadAction<string>) => {
       state.status = "error";
       state.error = payload;
@@ -178,6 +194,8 @@ export const {
   setDegradationReport,
   setCpuReport,
   setGpuReport,
+  setRangeKey,
+  setRangeStartTime,
   setError,
   reset,
   setConfig,

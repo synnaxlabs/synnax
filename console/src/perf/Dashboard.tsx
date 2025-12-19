@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import "@/perf/Dashboard.css";
-import "@/perf/utils/test-utils"; // Dev-only performance testing utilities
 
-import { Button, Flex, Header, Icon, Text } from "@synnaxlabs/pluto";
-import { math } from "@synnaxlabs/x";
+import { TimeStamp } from "@synnaxlabs/client";
+import { Button, Flex, Header, Icon, Synnax, Text } from "@synnaxlabs/pluto";
+import { math, TimeRange } from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -56,6 +56,8 @@ import {
   useSelectElapsedSeconds,
   useSelectGpuReport,
   useSelectLeakReport,
+  useSelectRangeKey,
+  useSelectRangeStartTime,
   useSelectStatus,
 } from "@/perf/selectors";
 import * as Perf from "@/perf/slice";
@@ -70,6 +72,11 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
   const degradationReport = useSelectDegradationReport();
   const cpuReport = useSelectCpuReport();
   const gpuReport = useSelectGpuReport();
+  const rangeKey = useSelectRangeKey();
+  const rangeStartTime = useSelectRangeStartTime();
+
+  // Synnax client for range creation
+  const client = Synnax.use();
 
   // Live metrics state (updated while dashboard is open)
   const [liveMetrics, setLiveMetrics] = useState<LiveMetrics>({
@@ -133,6 +140,46 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
 
   const prevStatusRef = useRef<string>(status);
   const currentStatusRef = useRef<string>(status);
+
+  // Create a new profiling range with MAX end time (indicates ongoing session)
+  const createProfilingRange = useCallback(() => {
+    if (client == null) return;
+
+    const now = TimeStamp.now();
+    const maxTimestamp = TimeStamp.MAX;
+    client.ranges
+      .create({
+        name: `Console Profiling - ${now.toLocaleString()}`,
+        timeRange: new TimeRange(now, maxTimestamp).numeric,
+      })
+      .then((range) => {
+        dispatch(Perf.setRangeKey(range.key));
+        dispatch(Perf.setRangeStartTime(Number(now.valueOf())));
+      })
+      .catch((error: Error) => {
+        console.error("Failed to create profiling range:", error);
+      });
+  }, [client, dispatch]);
+
+  // Update the end time of the current profiling range
+  const updateRangeEndTime = useCallback(
+    (newEndTime: TimeStamp) => {
+      if (client == null || rangeKey == null || rangeStartTime == null) return;
+
+      const rangeName = `Console Profiling - ${new TimeStamp(rangeStartTime).toLocaleString()}`;
+      // Note: Synnax uses create() with existing key to update ranges
+      client.ranges
+        .create({
+          key: rangeKey,
+          name: rangeName,
+          timeRange: new TimeRange(new TimeStamp(rangeStartTime), newEndTime).numeric,
+        })
+        .catch((error: Error) => {
+          console.error("Failed to update profiling range:", error);
+        });
+    },
+    [client, rangeKey, rangeStartTime],
+  );
 
   const runAnalysis = useCallback(
     (endFPS: number | null, endCPU: number | null, endGPU: number | null) => {
@@ -322,6 +369,13 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
           startPercent: initialGPU != null ? math.roundTo(initialGPU) : null,
         }),
       );
+
+      // Create a new range when profiling starts
+      createProfilingRange();
+    }
+
+    if (status === "running" && prevStatus === "running" && rangeKey == null) {
+      createProfilingRange();
     }
 
     // Capture final values when pausing
@@ -337,10 +391,23 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
         captured.finalCPU = c.cpu?.getCpuPercent() ?? null;
         captured.finalGPU = c.gpu?.getGpuPercent() ?? null;
       }
+
+      // Pause
+      updateRangeEndTime(TimeStamp.now());
+    }
+
+    // Resume
+    if (status === "running" && prevStatus === "paused") {
+      updateRangeEndTime(TimeStamp.MAX);
     }
 
     // Reset when test is reset to idle
     if (status === "idle" && prevStatus !== "idle") {
+      // Finalize the range with current timestamp before resetting
+      if (prevStatus === "running" || prevStatus === "paused") {
+        updateRangeEndTime(TimeStamp.now());
+      }
+
       captured.initialCPU = null;
       captured.finalCPU = null;
       captured.initialGPU = null;
@@ -357,7 +424,7 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
       c.network?.reset();
       sampleBufferRef.current.reset();
     }
-  }, [status, dispatch]);
+  }, [status, dispatch, rangeKey, createProfilingRange, updateRangeEndTime]);
 
   useEffect(() => {
     currentStatusRef.current = status;

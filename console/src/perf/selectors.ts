@@ -52,6 +52,12 @@ export const selectElapsedSeconds = (state: RootState): number => {
   return (endTime - slice.startTime) / 1000;
 };
 
+export const selectRangeKey = (state: RootState): string | null =>
+  selectSlice(state).rangeKey;
+
+export const selectRangeStartTime = (state: RootState): number | null =>
+  selectSlice(state).rangeStartTime;
+
 export const useSelectSlice = (): SliceState => useSelector(selectSlice);
 export const useSelectStatus = (): HarnessStatus => useSelector(selectStatus);
 export const useSelectIsRunning = (): boolean => useSelector(selectIsRunning);
@@ -64,3 +70,6 @@ export const useSelectCpuReport = (): CpuReport => useSelector(selectCpuReport);
 export const useSelectGpuReport = (): GpuReport => useSelector(selectGpuReport);
 export const useSelectError = (): string | null => useSelector(selectError);
 export const useSelectElapsedSeconds = (): number => useSelector(selectElapsedSeconds);
+export const useSelectRangeKey = (): string | null => useSelector(selectRangeKey);
+export const useSelectRangeStartTime = (): number | null =>
+  useSelector(selectRangeStartTime);
