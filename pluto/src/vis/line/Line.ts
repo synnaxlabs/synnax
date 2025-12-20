@@ -14,7 +14,8 @@ import { Aether } from "@/aether";
 import { line } from "@/vis/line/aether";
 
 export interface LineProps
-  extends optional.Optional<Omit<line.State, "key">, "strokeWidth">,
+  extends
+    optional.Optional<Omit<line.State, "key">, "strokeWidth">,
     Aether.ComponentProps {}
 
 export const Line = memo(({ aetherKey, ...rest }: LineProps): ReactElement | null => {

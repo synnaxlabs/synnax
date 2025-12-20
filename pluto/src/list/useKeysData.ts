@@ -13,8 +13,9 @@ import { useCallback, useMemo } from "react";
 import { type List } from "@/list";
 import { type GetItem } from "@/list/Frame";
 
-export interface UseKeysDataReturn<K extends record.Key = record.Key>
-  extends Required<Pick<List.FrameProps<K, record.Keyed<K>>, "getItem">> {
+export interface UseKeysDataReturn<K extends record.Key = record.Key> extends Required<
+  Pick<List.FrameProps<K, record.Keyed<K>>, "getItem">
+> {
   data: K[];
 }
 

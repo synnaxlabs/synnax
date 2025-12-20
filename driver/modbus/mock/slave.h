@@ -342,4 +342,4 @@ public:
         return mb_mapping_->tab_registers[addr];
     }
 };
-} // namespace modbus::mock
+}

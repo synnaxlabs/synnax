@@ -47,10 +47,6 @@ func (ts TimeStamp) MarshalJSON() ([]byte, error) {
 // Now returns the current time as a TimeStamp.
 func Now() TimeStamp { return NewTimeStamp(time.Now()) }
 
-// Since returns a TimeSpan representing the amount of time between the given
-// timestamp and the current time.
-func Since(ts TimeStamp) TimeSpan { return ts.Span(Now()) }
-
 // NewTimeStamp creates a new TimeStamp from a time.Time.
 func NewTimeStamp(t time.Time) TimeStamp { return TimeStamp(t.UnixNano()) }
 

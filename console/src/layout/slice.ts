@@ -491,7 +491,6 @@ export const { actions, reducer } = createSlice({
         location: "mosaic",
         type: GET_STARTED_TYPE,
         windowKey: MAIN_WINDOW,
-        beta: false,
       };
     },
     setWorkspace: (

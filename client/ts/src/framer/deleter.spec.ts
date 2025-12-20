@@ -58,7 +58,7 @@ describe("Deleter", () => {
     });
 
     await expect(
-      client.delete(["billy bob", dataCh.name], TimeRange.MAX),
+      client.delete(["nonexistent_channel_name", dataCh.name], TimeRange.MAX),
     ).rejects.toThrow(NotFoundError);
 
     const res = await client.read(TimeRange.MAX, dataCh.key);

@@ -31,21 +31,10 @@ using json = nlohmann::json;
 
 namespace opc {
 inline const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task] ";
-inline const ::telem::Rate DEFAULT_SCAN_RATE = ::telem::HERTZ * 0.2;
 /// @brief Configuration for the OPC UA scanner.
-struct ScannerConfig {
-    /// @brief Rate at which to check device status.
-    ::telem::Rate scan_rate = DEFAULT_SCAN_RATE;
-    /// @brief Whether scanning is enabled.
-    bool enabled = true;
-
-    ScannerConfig() = default;
-
-    explicit ScannerConfig(xjson::Parser &cfg):
-        scan_rate(
-            ::telem::Rate(cfg.field<double>("scan_rate", DEFAULT_SCAN_RATE.hz()))
-        ),
-        enabled(cfg.field<bool>("enabled", true)) {}
+struct ScanTaskConfig : common::ScanTaskConfig {
+    ScanTaskConfig() = default;
+    explicit ScanTaskConfig(xjson::Parser &cfg): common::ScanTaskConfig(cfg) {}
 };
 
 ///@brief The parameters for connecting to and iterating through nodes in the OPC UA
@@ -96,7 +85,7 @@ private:
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;
     std::shared_ptr<connection::Pool> conn_pool;
-    ScannerConfig cfg;
+    ScanTaskConfig cfg;
 
     /// @brief Browse child nodes of a given OPC UA node.
     void browse_nodes(const task::Command &cmd) const;

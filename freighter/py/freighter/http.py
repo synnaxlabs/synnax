@@ -106,7 +106,7 @@ class HTTPClient(MiddlewareCollector):
                     method=method, url=url, headers=head, body=data
                 )
             except MaxRetryError as e:
-                return out_meta_data, Unreachable(url, e.url)
+                return out_meta_data, Unreachable(url, e.url or "Unreachable")
             except HTTPError as e:
                 return out_meta_data, e
 

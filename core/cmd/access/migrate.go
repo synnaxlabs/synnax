@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -49,6 +50,7 @@ func (p LegacyPolicy) CustomTypeName() string { return "Policy" }
 
 // MigratePermissions migrates users from the legacy permission system to role-based
 // access control. This migration:
+//   - Removes old UsersGroup -> ParentOf -> User relationships
 //   - Assigns Owner role to users with RootUser=true or admin-like policies
 //   - Assigns Engineer role to users with schematic policies
 //   - Assigns Operator role to all other users
@@ -58,6 +60,7 @@ func (p LegacyPolicy) CustomTypeName() string { return "Policy" }
 func MigratePermissions(
 	ctx context.Context,
 	tx gorp.Tx,
+	dist *distribution.Layer,
 	svc *service.Layer,
 	roles ProvisionResult,
 ) error {
@@ -103,6 +106,7 @@ func MigratePermissions(
 	}
 
 	roleWriter := svc.RBAC.Role.NewWriter(tx, true)
+	otgWriter := dist.Ontology.NewWriter(tx)
 
 	// Migrate each user
 	for _, u := range users {
@@ -112,8 +116,20 @@ func MigratePermissions(
 		// Determine the appropriate role
 		roleKey := determineRole(u, policies, roles)
 
-		// Assign the role
-		if err := roleWriter.AssignRole(ctx, userOntologyID, roleKey); err != nil {
+		// Remove the old UsersGroup -> ParentOf -> User relationship.
+		// This cleans up the legacy ontology structure where users were
+		// direct children of the Users group.
+		if err = otgWriter.DeleteRelationship(
+			ctx,
+			svc.RBAC.Role.UsersGroup().OntologyID(),
+			ontology.ParentOf,
+			userOntologyID,
+		); err != nil {
+			return err
+		}
+
+		// Create the new Role -> ParentOf -> User relationship
+		if err = roleWriter.AssignRole(ctx, userOntologyID, roleKey); err != nil {
 			return err
 		}
 	}

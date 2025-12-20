@@ -18,11 +18,13 @@ import { Ontology } from "@/ontology";
 import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "workspaces";
-const RESOURCE_NAME = "Workspace";
-const PLURAL_RESOURCE_NAME = "Workspaces";
+const RESOURCE_NAME = "workspace";
+const PLURAL_RESOURCE_NAME = "workspaces";
 
-export interface FluxStore
-  extends Flux.UnaryStore<workspace.Key, workspace.Workspace> {}
+export interface FluxStore extends Flux.UnaryStore<
+  workspace.Key,
+  workspace.Workspace
+> {}
 
 interface FluxSubStore extends Flux.Store, role.FluxSubStore, policy.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
@@ -36,9 +38,7 @@ const SET_WORKSPACE_LISTENER: Flux.ChannelListener<
 > = {
   channel: workspace.SET_CHANNEL_NAME,
   schema: workspace.workspaceZ,
-  onChange: ({ store, changed }) => {
-    store.workspaces.set(changed.key, changed);
-  },
+  onChange: ({ store, changed }) => store.workspaces.set(changed.key, changed),
 };
 
 const DELETE_WORKSPACE_LISTENER: Flux.ChannelListener<
@@ -75,7 +75,7 @@ export const { useRetrieve } = Flux.createRetrieve<
   workspace.Workspace,
   FluxSubStore
 >({
-  name: "Workspace",
+  name: RESOURCE_NAME,
   retrieve: retrieveSingle,
   mountListeners: ({ store, query: { key }, onChange }) => [
     store.workspaces.onSet(onChange, key),

@@ -29,8 +29,6 @@ export const useAddToNewPlot = (): ((keys: string[]) => void) => {
           if (variant === "error") addStatus(status);
           return;
         }
-        const active = Layout.selectActiveMosaicLayout(store.getState());
-        if (active == null) return;
         store.dispatch(add({ ranges: fromClientRange(data) }));
         const names = data.map(({ name }) => name);
         const keys = data.map(({ key }) => key);

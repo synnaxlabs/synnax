@@ -49,8 +49,10 @@ interface CreateComponent {
   (initialParentCtxValues: ContextMap): Component;
 }
 
-export interface UpdateStateArgs
-  extends Pick<MainUpdateMessage, "path" | "type" | "state"> {
+export interface UpdateStateArgs extends Pick<
+  MainUpdateMessage,
+  "path" | "type" | "state"
+> {
   create: CreateComponent;
 }
 
@@ -169,8 +171,7 @@ export interface Context {
 export abstract class Leaf<
   StateSchema extends z.ZodType<state.State>,
   InternalState extends {} = {},
-> implements Component
-{
+> implements Component {
   readonly type: string;
   readonly key: string;
 
@@ -367,10 +368,10 @@ export abstract class Leaf<
  * be used directly.
  */
 export abstract class Composite<
-    StateSchema extends z.ZodType<state.State>,
-    InternalState extends {} = {},
-    ChildComponents extends Component = Component,
-  >
+  StateSchema extends z.ZodType<state.State>,
+  InternalState extends {} = {},
+  ChildComponents extends Component = Component,
+>
   extends Leaf<StateSchema, InternalState>
   implements Component
 {

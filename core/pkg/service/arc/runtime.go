@@ -37,26 +37,29 @@ func (s *Service) handleChange(
 	for e := range reader {
 		a := e.Value
 		existing, found := s.mu.entries[e.Key]
+		isDelete := e.Variant == changex.Delete
 		if found {
 			if err := existing.runtime.Close(); err != nil {
 				s.cfg.L.Error("arc shut down with error", zap.Error(err))
 			}
-			if err := status.NewWriter[core.StatusDetails](s.cfg.Status, nil).SetWithParent(
-				ctx,
-				&status.Status[core.StatusDetails]{
-					Name:    existing.arc.Name,
-					Key:     a.Key.String(),
-					Variant: xstatus.DisabledVariant,
-					Message: "Stopped",
-					Time:    telem.Now(),
-					Details: core.StatusDetails{Running: false},
-				},
-				OntologyID(a.Key),
-			); err != nil {
-				s.cfg.L.Error("failed to set arc status", zap.Error(err))
+			if !isDelete {
+				if err := status.NewWriter[core.StatusDetails](s.cfg.Status, nil).SetWithParent(
+					ctx,
+					&status.Status[core.StatusDetails]{
+						Name:    existing.arc.Name,
+						Key:     a.Key.String(),
+						Variant: xstatus.DisabledVariant,
+						Message: "Stopped",
+						Time:    telem.Now(),
+						Details: core.StatusDetails{Running: false},
+					},
+					OntologyID(a.Key),
+				); err != nil {
+					s.cfg.L.Error("failed to set arc status", zap.Error(err))
+				}
 			}
 		}
-		if e.Variant == changex.Delete || !a.Deploy {
+		if isDelete || !a.Deploy {
 			return
 		}
 		mod, err := arc.CompileGraph(ctx, e.Value.Graph, arc.WithResolver(s.symbolResolver))

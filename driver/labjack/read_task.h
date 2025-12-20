@@ -461,7 +461,7 @@ public:
         return this->dev->clean_interval(this->interval_handle);
     }
 
-    common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &data) override {
+    common::ReadResult read(breaker::Breaker &breaker, telem::Frame &data) override {
         common::ReadResult res;
         common::initialize_frame(data, this->cfg.channels, this->cfg.indexes, 1);
         int err_addr;
@@ -594,7 +594,7 @@ public:
 
     xerrors::Error stop() override { return this->dev->e_stream_stop(); }
 
-    common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+    common::ReadResult read(breaker::Breaker &breaker, telem::Frame &fr) override {
         common::ReadResult res;
         const auto n_channels = this->cfg.channels.size();
         const auto n_samples = this->cfg.samples_per_chan;

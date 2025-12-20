@@ -21,6 +21,12 @@ if ! command -v poetry &> /dev/null; then
 fi
 
 export PATH="$HOME/.local/bin:$PATH"
+
+# Remove any existing virtualenvs that may be using an incompatible Python version
+# We delete directly because poetry env remove fails if the Python version is no longer installed
+echo "Removing existing virtualenvs..."
+rm -rf "$HOME/.cache/pypoetry/virtualenvs/synnax-test-framework-"* 2> /dev/null || true
+
 poetry env use python3
 poetry install
 

@@ -24,7 +24,8 @@ import { Status } from "@/status/core";
 import { Canvas } from "@/vis/canvas";
 
 export interface LogProps
-  extends optional.Optional<
+  extends
+    optional.Optional<
       Omit<
         z.input<typeof log.logState>,
         "region" | "scrollPosition" | "scrollback" | "empty" | "scrolling" | "wheelPos"

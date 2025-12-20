@@ -81,7 +81,7 @@ void Control::run() {
 SynnaxStreamer::SynnaxStreamer(synnax::Streamer internal):
     internal(std::move(internal)) {}
 
-std::pair<synnax::Frame, xerrors::Error> SynnaxStreamer::read() {
+std::pair<telem::Frame, xerrors::Error> SynnaxStreamer::read() {
     return this->internal.read();
 }
 

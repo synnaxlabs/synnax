@@ -386,6 +386,14 @@ export class Frame {
     });
   }
 
+  /**
+   * Iterates over all unique columns in the frame.
+   * @param fn a function that takes a channel key, multi-series, and index.
+   */
+  forEachUnique(fn: (k: channel.KeyOrName, ms: MultiSeries, i: number) => void): void {
+    this.uniqueColumns.forEach((k, i) => fn(k, this.get(k), i));
+  }
+
   at(index: number, required: true): Record<channel.KeyOrName, TelemValue>;
 
   at(

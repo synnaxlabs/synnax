@@ -126,6 +126,10 @@ interface EdgePropertiesProps {
   edgeKey: string;
 }
 
+const SELECT_EDGE_TYPE_STYLE: React.CSSProperties = {
+  width: "25rem",
+};
+
 const EdgeProperties = ({
   layoutKey,
   edgeKey,
@@ -149,6 +153,7 @@ const EdgeProperties = ({
         <Schematic.SelectEdgeType
           value={edge.data?.variant as Schematic.EdgeType}
           onChange={(variant: Schematic.EdgeType) => onChange(edge.key, { variant })}
+          style={SELECT_EDGE_TYPE_STYLE}
         />
       </Input.Item>
     </Flex.Box>

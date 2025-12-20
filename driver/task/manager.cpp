@@ -78,9 +78,7 @@ xerrors::Error task::Manager::configure_initial_tasks() {
     auto initial_tasks = this->factory->configure_initial_tasks(this->ctx, this->rack);
     for (auto &[sy_task, driver_task]: initial_tasks) {
         if (driver_task == nullptr)
-            LOG(WARNING) << "unexpected nullptr returned by factory for "
-                            "initial task"
-                         << sy_task;
+            LOG(ERROR) << "failed to configure task: " << sy_task;
         else
             this->tasks[sy_task.key] = std::move(driver_task);
     }

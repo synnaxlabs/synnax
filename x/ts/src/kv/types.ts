@@ -46,9 +46,7 @@ export interface AsyncDeleter {
 
 /** A read-writable key-value store. */
 export interface Async<R = unknown, W = R>
-  extends AsyncReader<R>,
-    AsyncWriter<W>,
-    AsyncDeleter {}
+  extends AsyncReader<R>, AsyncWriter<W>, AsyncDeleter {}
 
 export const stringPairZ = z.object({ key: z.string(), value: z.string() });
 

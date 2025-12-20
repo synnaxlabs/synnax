@@ -73,12 +73,14 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const dispatch = useDispatch();
   const { name } = Layout.useSelectRequired(layoutKey);
   const toolbar = useSelectToolbar();
-  const editable = useSelectEditable(layoutKey);
+  const editMode = useSelectEditable(layoutKey);
   const handleExport = useExport();
   const selectedNames = useSelectSelectedElementNames(layoutKey);
+  const hasEditPermission = Access.useUpdateGranted(arc.ontologyID(layoutKey));
+  const canEdit = hasEditPermission && editMode;
   const content = useCallback(
     ({ tabKey }: Tabs.Tab) => {
-      if (!editable) return <NotEditableContent layoutKey={layoutKey} name={name} />;
+      if (!canEdit) return <NotEditableContent layoutKey={layoutKey} name={name} />;
       switch (tabKey) {
         case "stages":
           return <Stages layoutKey={layoutKey} />;
@@ -86,7 +88,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           return <PropertiesControls layoutKey={layoutKey} />;
       }
     },
-    [layoutKey, editable],
+    [layoutKey, canEdit, name],
   );
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
@@ -94,7 +96,6 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     },
     [dispatch],
   );
-  const canEdit = Access.useUpdateGranted(arc.ontologyID(layoutKey));
   const contextValue = useMemo(
     () => ({
       tabs: TABS,
@@ -126,7 +127,9 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
               ontologyID={arc.ontologyID(layoutKey)}
             />
           </Flex.Box>
-          {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 180 }} />}
+          {hasEditPermission && (
+            <Tabs.Selector style={{ borderBottom: "none", width: 180 }} />
+          )}
         </Flex.Box>
       </Core.Header>
       <Tabs.Content />

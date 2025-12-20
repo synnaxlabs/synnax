@@ -42,8 +42,8 @@ describe("Writer", () => {
       const channels = await newIndexedPair(client);
       const writer = await client.openWriter({ start: TimeStamp.now(), channels });
       await expect(
-        writer.write("billy bob", randomSeries(10, DataType.FLOAT64)),
-      ).rejects.toThrow('Channel "billy bob" not found');
+        writer.write("nonexistent_channel", randomSeries(10, DataType.FLOAT64)),
+      ).rejects.toThrow('Channel "nonexistent_channel" not found');
       await writer.close();
     });
 

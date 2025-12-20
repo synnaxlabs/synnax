@@ -32,8 +32,7 @@ export type Variant =
   | "shadow";
 
 export interface ExtensionProps
-  extends Omit<Text.ExtensionProps, "variant">,
-    Tooltip.WrapProps {
+  extends Omit<Text.ExtensionProps, "variant">, Tooltip.WrapProps {
   variant?: Variant;
   trigger?: Triggers.Trigger;
   triggerIndicator?: boolean | Triggers.Trigger;
@@ -109,6 +108,7 @@ const Core = <E extends ElementType = "button">({
   el,
   ghost,
   propagateClick = false,
+  href,
   ...rest
 }: ButtonProps<E>): ReactElement => {
   const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
@@ -126,7 +126,7 @@ const Core = <E extends ElementType = "button">({
     if (parsedDelay.isZero) return onClick?.(e);
   };
 
-  const toRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleMouseDown = (e: any) => {
     if (tabIndex == -1) e.preventDefault();
@@ -134,11 +134,11 @@ const Core = <E extends ElementType = "button">({
     if (isDisabled || variant === "preview" || parsedDelay.isZero) return;
     document.addEventListener(
       "mouseup",
-      () => toRef.current != null && clearTimeout(toRef.current),
+      () => timeoutRef.current != null && clearTimeout(timeoutRef.current),
     );
-    toRef.current = setTimeout(() => {
+    timeoutRef.current = setTimeout(() => {
       onClick?.(e);
-      toRef.current = null;
+      timeoutRef.current = null;
     }, parsedDelay.milliseconds);
   };
 
@@ -214,6 +214,7 @@ const Core = <E extends ElementType = "button">({
       square={square}
       overflow="nowrap"
       status={status}
+      href={href}
       {...(record.purgeUndefined(rest) as Text.TextProps<E>)}
     >
       {(!isLoading || !square) && children}

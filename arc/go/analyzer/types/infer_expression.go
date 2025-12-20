@@ -133,14 +133,6 @@ func InferFromUnaryExpression(ctx context.Context[parser.IUnaryExpressionContext
 	if ctx.AST.UnaryExpression() != nil {
 		return InferFromUnaryExpression(context.Child(ctx, ctx.AST.UnaryExpression()))
 	}
-	if blockingRead := ctx.AST.BlockingReadExpr(); blockingRead != nil {
-		if id := blockingRead.IDENTIFIER(); id != nil {
-			if chanScope, err := ctx.Scope.Resolve(ctx, id.GetText()); err == nil {
-				return chanScope.Type.Unwrap()
-			}
-		}
-		return types.Type{}
-	}
 	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
 		return inferPostfixType(context.Child(ctx, postfix))
 	}

@@ -21,7 +21,8 @@ import { Text } from "@/text";
 import { Tooltip } from "@/tooltip";
 
 export interface IndicatorProps
-  extends Omit<z.input<typeof control.indicatorStateZ>, "status" | "color">,
+  extends
+    Omit<z.input<typeof control.indicatorStateZ>, "status" | "color">,
     PropsWithChildren {}
 
 export interface StatusDetails {

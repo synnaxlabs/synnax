@@ -217,10 +217,7 @@ func pipeOutputToLogger(
 		if len(split) >= 3 {
 			callerSplit := strings.Split(split[0], " ")
 			caller = callerSplit[len(callerSplit)-1]
-			first := split[1]
-			if len(first) >= 2 {
-				first = first[2:]
-			}
+			first := strings.TrimSpace(split[1])
 			namedLogger = logger.Named(first)
 			message = split[2]
 			if len(message) > 1 {

@@ -19,7 +19,8 @@ import { state } from "@/state";
 import { Text } from "@/text";
 
 export interface SwatchProps
-  extends BaseSwatchProps,
+  extends
+    BaseSwatchProps,
     Pick<Dialog.FrameProps, "visible" | "onVisibleChange" | "initialVisible">,
     Pick<PickerProps, "onDelete" | "position"> {
   allowChange?: boolean;

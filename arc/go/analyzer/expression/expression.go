@@ -23,6 +23,64 @@ func isBool(t basetypes.Type) bool    { return t.IsBool() }
 func isNumeric(t basetypes.Type) bool { return t.IsNumeric() }
 func isAny(basetypes.Type) bool       { return true }
 
+// IsPureLiteral checks if an expression is a single literal value with no operators.
+func IsPureLiteral(expr parser.IExpressionContext) bool {
+	return isPureLiteralNode(expr.LogicalOrExpression())
+}
+
+func isPureLiteralNode(node antlr.ParserRuleContext) bool {
+	if node == nil {
+		return false
+	}
+	switch ctx := node.(type) {
+	case parser.ILogicalOrExpressionContext:
+		ands := ctx.AllLogicalAndExpression()
+		return len(ands) == 1 && isPureLiteralNode(ands[0])
+	case parser.ILogicalAndExpressionContext:
+		eqs := ctx.AllEqualityExpression()
+		return len(eqs) == 1 && isPureLiteralNode(eqs[0])
+	case parser.IEqualityExpressionContext:
+		rels := ctx.AllRelationalExpression()
+		return len(rels) == 1 && isPureLiteralNode(rels[0])
+	case parser.IRelationalExpressionContext:
+		adds := ctx.AllAdditiveExpression()
+		return len(adds) == 1 && isPureLiteralNode(adds[0])
+	case parser.IAdditiveExpressionContext:
+		muls := ctx.AllMultiplicativeExpression()
+		return len(muls) == 1 && isPureLiteralNode(muls[0])
+	case parser.IMultiplicativeExpressionContext:
+		pows := ctx.AllPowerExpression()
+		return len(pows) == 1 && isPureLiteralNode(pows[0])
+	case parser.IPowerExpressionContext:
+		return ctx.CARET() == nil && isPureLiteralNode(ctx.UnaryExpression())
+	case parser.IUnaryExpressionContext:
+		return ctx.UnaryExpression() == nil && isPureLiteralNode(ctx.PostfixExpression())
+	case parser.IPostfixExpressionContext:
+		return len(ctx.AllIndexOrSlice()) == 0 &&
+			len(ctx.AllFunctionCallSuffix()) == 0 &&
+			isPureLiteralNode(ctx.PrimaryExpression())
+	case parser.IPrimaryExpressionContext:
+		return ctx.Literal() != nil
+	}
+	return false
+}
+
+// GetLiteral extracts the literal node from a pure literal expression.
+// Callers should first verify IsPureLiteral returns true.
+func GetLiteral(expr parser.IExpressionContext) parser.ILiteralContext {
+	return expr.LogicalOrExpression().
+		AllLogicalAndExpression()[0].
+		AllEqualityExpression()[0].
+		AllRelationalExpression()[0].
+		AllAdditiveExpression()[0].
+		AllMultiplicativeExpression()[0].
+		AllPowerExpression()[0].
+		UnaryExpression().
+		PostfixExpression().
+		PrimaryExpression().
+		Literal()
+}
+
 // Analyze validates type correctness of an expression and accumulates constraints.
 func Analyze(ctx context.Context[parser.IExpressionContext]) bool {
 	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
@@ -264,16 +322,6 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) bool {
 		}
 		return true
 	}
-	if blockingRead := ctx.AST.BlockingReadExpr(); blockingRead != nil {
-		if id := blockingRead.IDENTIFIER(); id != nil {
-			name := id.GetText()
-			if _, err := ctx.Scope.Resolve(ctx, name); err != nil {
-				ctx.Diagnostics.AddError(err, blockingRead)
-				return false
-			}
-		}
-		return true
-	}
 	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
 		return analyzePostfix(context.Child(ctx, postfix))
 	}
@@ -322,11 +370,6 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) bool 
 	if typeCast := ctx.AST.TypeCast(); typeCast != nil {
 		if expr := typeCast.Expression(); expr != nil {
 			return Analyze(context.Child(ctx, expr))
-		}
-	}
-	if builtin := ctx.AST.BuiltinFunction(); builtin != nil {
-		if lenExpr := builtin.Expression(); lenExpr != nil {
-			return Analyze(context.Child(ctx, lenExpr))
 		}
 	}
 	return true

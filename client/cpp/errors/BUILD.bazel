@@ -9,8 +9,9 @@ cc_test(
     name = "errors_test",
     srcs = ["errors_test.cpp"],
     deps = [
-        ":errors",
+        "//client/cpp/errors",
         "//x/cpp/xerrors",
+        "//x/cpp/xtest",
         "@googletest//:gtest_main",
     ],
 )

@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -26,11 +27,12 @@ import (
 )
 
 var (
-	ctx = context.Background()
-	db  *gorp.DB
-	otg *ontology.Ontology
-	g   *group.Service
-	svc *service.Layer
+	ctx  = context.Background()
+	db   *gorp.DB
+	otg  *ontology.Ontology
+	g    *group.Service
+	dist *distribution.Layer
+	svc  *service.Layer
 )
 
 func TestAccess(t *testing.T) {
@@ -42,6 +44,11 @@ var _ = BeforeSuite(func() {
 	db = gorp.Wrap(memkv.New())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 	g = MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
+	dist = &distribution.Layer{
+		DB:       db,
+		Ontology: otg,
+		Group:    g,
+	}
 	userSvc := MustSucceed(user.OpenService(ctx, user.Config{
 		DB:       db,
 		Ontology: otg,

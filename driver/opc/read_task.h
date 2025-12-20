@@ -238,7 +238,7 @@ public:
         return this->cfg.sy_channels();
     }
 
-    common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+    common::ReadResult read(breaker::Breaker &breaker, ::telem::Frame &fr) override {
         common::ReadResult res;
         this->timer.wait(breaker);
         opc::ReadResponse ua_res(UA_Client_Service_read(
@@ -309,7 +309,7 @@ public:
     ):
         BaseReadTaskSource(std::move(pool), std::move(cfg), cfg.sample_rate) {}
 
-    common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+    common::ReadResult read(breaker::Breaker &breaker, ::telem::Frame &fr) override {
         common::ReadResult res;
         common::initialize_frame(
             fr,

@@ -110,6 +110,59 @@ describe("Status queries", () => {
       expect(result.current.data).not.toContain(keys[2]);
     });
 
+    it("should filter statuses by labels", async () => {
+      const label = await client.labels.create({
+        name: "Filter Label",
+        color: "#000000",
+      });
+      await client.statuses.set({
+        name: "Filter Status",
+        key: "filter-label-test",
+        variant: "info",
+        message: "Filter label test",
+        time: TimeStamp.now(),
+      });
+      await client.labels.label(status.ontologyID("filter-label-test"), [label.key]);
+
+      const { result } = renderHook(
+        () => Status.useList({ initialQuery: { hasLabels: [label.key] } }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.retrieve({ hasLabels: [label.key] });
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).toHaveLength(1);
+      expect(result.current.data).toContain("filter-label-test");
+      //set another status without the label
+      await client.statuses.set({
+        name: "Unlabeled Status",
+        key: "unlabeled-status-test",
+        variant: "info",
+        message: "Unlabeled status test",
+        time: TimeStamp.now(),
+      });
+      act(() => {
+        result.current.retrieve({ hasLabels: [label.key] });
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).not.toContain("unlabeled-status-test");
+      //set a status with the label
+      await client.statuses.set({
+        name: "Labeled Status",
+        key: "labeled-status-test",
+        variant: "info",
+        message: "Labeled status test",
+        time: TimeStamp.now(),
+      });
+      await client.labels.label(status.ontologyID("labeled-status-test"), [label.key]);
+      act(() => {
+        result.current.retrieve({ hasLabels: [label.key] });
+      });
+      await waitFor(() => expect(result.current.data.length).toEqual(2));
+      expect(result.current.data).toContain("labeled-status-test");
+    });
+
     it("should handle pagination with limit and offset", async () => {
       await Promise.all(
         Array.from({ length: 5 }).map((_, i) =>

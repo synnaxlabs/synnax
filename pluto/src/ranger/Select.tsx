@@ -25,7 +25,8 @@ import { Tag } from "@/tag";
 import { Telem } from "@/telem";
 
 export interface SelectProps
-  extends Omit<
+  extends
+    Omit<
       Core.SingleProps<ranger.Key, ranger.Payload | undefined>,
       | "data"
       | "getItem"

@@ -31,6 +31,7 @@ protected:
 
 // Telemetry Value Tests
 
+/// @brief it should set a global float64 telemetry value in Lua.
 TEST_F(XLuaTest, SetGlobalTelemFloat64) {
     const auto err = xlua::set_global_sample_value(L, "val", telem::FLOAT64_T, 3.14159);
     ASSERT_FALSE(err) << err;
@@ -40,6 +41,7 @@ TEST_F(XLuaTest, SetGlobalTelemFloat64) {
     lua_pop(L, 1);
 }
 
+/// @brief it should set a global float32 telemetry value in Lua.
 TEST_F(XLuaTest, SetGlobalTelemFloat32) {
     const auto err = xlua::set_global_sample_value(L, "val", telem::FLOAT32_T, 3.14f);
     ASSERT_FALSE(err) << err;
@@ -48,6 +50,7 @@ TEST_F(XLuaTest, SetGlobalTelemFloat32) {
     lua_pop(L, 1);
 }
 
+/// @brief it should set a global int64 telemetry value in Lua.
 TEST_F(XLuaTest, SetGlobalTelemInt64) {
     const auto
         err = xlua::set_global_sample_value(L, "val", telem::INT64_T, int64_t{42});
@@ -59,6 +62,7 @@ TEST_F(XLuaTest, SetGlobalTelemInt64) {
     lua_pop(L, 1);
 }
 
+/// @brief it should set a global int32 telemetry value in Lua.
 TEST_F(XLuaTest, SetGlobalTelemInt32) {
     const auto err = xlua::set_global_sample_value(
         L,
@@ -72,6 +76,7 @@ TEST_F(XLuaTest, SetGlobalTelemInt32) {
     lua_pop(L, 1);
 }
 
+/// @brief it should set a global int16 telemetry value in Lua.
 TEST_F(XLuaTest, SetGlobalTelemInt16) {
     const auto
         err = xlua::set_global_sample_value(L, "val", telem::INT16_T, int16_t{32767});
@@ -81,6 +86,7 @@ TEST_F(XLuaTest, SetGlobalTelemInt16) {
     lua_pop(L, 1);
 }
 
+/// @brief it should set a global int8 telemetry value in Lua.
 TEST_F(XLuaTest, SetGlobalTelemInt8) {
     const auto
         err = xlua::set_global_sample_value(L, "val", telem::INT8_T, int8_t{127});
@@ -90,6 +96,7 @@ TEST_F(XLuaTest, SetGlobalTelemInt8) {
     lua_pop(L, 1);
 }
 
+/// @brief it should set a global uint32 telemetry value in Lua.
 TEST_F(XLuaTest, SetGlobalTelemUInt32) {
     const auto err = xlua::set_global_sample_value(
         L,
@@ -103,6 +110,7 @@ TEST_F(XLuaTest, SetGlobalTelemUInt32) {
     lua_pop(L, 1);
 }
 
+/// @brief it should set a global uint16 telemetry value in Lua.
 TEST_F(XLuaTest, SetGlobalTelemUInt16) {
     const auto
         err = xlua::set_global_sample_value(L, "val", telem::UINT16_T, uint16_t{65535});
@@ -112,6 +120,7 @@ TEST_F(XLuaTest, SetGlobalTelemUInt16) {
     lua_pop(L, 1);
 }
 
+/// @brief it should set a global uint8 telemetry value in Lua.
 TEST_F(XLuaTest, SetGlobalTelemUInt8) {
     const auto
         err = xlua::set_global_sample_value(L, "val", telem::UINT8_T, uint8_t{255});
@@ -121,6 +130,7 @@ TEST_F(XLuaTest, SetGlobalTelemUInt8) {
     lua_pop(L, 1);
 }
 
+/// @brief it should set a global string telemetry value in Lua.
 TEST_F(XLuaTest, SetGlobalTelemString) {
     const auto err = xlua::set_global_sample_value(
         L,
@@ -135,6 +145,7 @@ TEST_F(XLuaTest, SetGlobalTelemString) {
     lua_pop(L, 1);
 }
 
+/// @brief it should set a global uint64 telemetry value within normal range.
 TEST_F(XLuaTest, SetGlobalTelemUInt64Normal) {
     uint64_t val = 1000;
     const auto err = xlua::set_global_sample_value(L, "val", telem::UINT64_T, val);
@@ -145,6 +156,7 @@ TEST_F(XLuaTest, SetGlobalTelemUInt64Normal) {
     lua_pop(L, 1);
 }
 
+/// @brief it should handle uint64 overflow by converting to double.
 TEST_F(XLuaTest, SetGlobalTelemUInt64Overflow) {
     // Value that exceeds lua_Integer's max value
     uint64_t val = std::numeric_limits<uint64_t>::max();
@@ -156,6 +168,7 @@ TEST_F(XLuaTest, SetGlobalTelemUInt64Overflow) {
     lua_pop(L, 1);
 }
 
+/// @brief it should return validation error for float64 type mismatch.
 TEST_F(XLuaTest, SetGlobalTelemTypeMismatchFloat64) {
     const auto err = xlua::set_global_sample_value(
         L,
@@ -170,6 +183,7 @@ TEST_F(XLuaTest, SetGlobalTelemTypeMismatchFloat64) {
     lua_pop(L, 1);
 }
 
+/// @brief it should return validation error for int64 type mismatch.
 TEST_F(XLuaTest, SetGlobalTelemTypeMismatchInt64) {
     const auto err = xlua::set_global_sample_value(L, "val", telem::INT64_T, 3.14159);
     EXPECT_TRUE(err);
@@ -179,6 +193,7 @@ TEST_F(XLuaTest, SetGlobalTelemTypeMismatchInt64) {
     lua_pop(L, 1);
 }
 
+/// @brief it should set a global JSON null value as Lua nil.
 TEST_F(XLuaTest, SetGlobalJsonNull) {
     const json j_null;
     const auto err = xlua::set_global_json_value(L, "val", j_null);
@@ -188,6 +203,7 @@ TEST_F(XLuaTest, SetGlobalJsonNull) {
     lua_pop(L, 1);
 }
 
+/// @brief it should set a global JSON boolean value in Lua.
 TEST_F(XLuaTest, SetGlobalJsonBoolean) {
     const json j_bool = true;
     const auto err = xlua::set_global_json_value(L, "val", j_bool);
@@ -198,6 +214,7 @@ TEST_F(XLuaTest, SetGlobalJsonBoolean) {
     lua_pop(L, 1);
 }
 
+/// @brief it should set a global JSON integer value in Lua.
 TEST_F(XLuaTest, SetGlobalJsonInteger) {
     const json j_int = 42;
     const auto err = xlua::set_global_json_value(L, "val", j_int);
@@ -208,6 +225,7 @@ TEST_F(XLuaTest, SetGlobalJsonInteger) {
     lua_pop(L, 1);
 }
 
+/// @brief it should set a global JSON float value in Lua.
 TEST_F(XLuaTest, SetGlobalJsonFloat) {
     const json j_float = 3.14159;
     const auto err = xlua::set_global_json_value(L, "val", j_float);
@@ -218,6 +236,7 @@ TEST_F(XLuaTest, SetGlobalJsonFloat) {
     lua_pop(L, 1);
 }
 
+/// @brief it should set a global JSON string value in Lua.
 TEST_F(XLuaTest, SetGlobalJsonString) {
     const json j_string = "test string";
     const auto err = xlua::set_global_json_value(L, "val", j_string);
@@ -228,6 +247,7 @@ TEST_F(XLuaTest, SetGlobalJsonString) {
     lua_pop(L, 1);
 }
 
+/// @brief it should set a global JSON array as a Lua table.
 TEST_F(XLuaTest, SetGlobalJsonArray) {
     const json j_array = {1, "two", 3.0};
     const auto err = xlua::set_global_json_value(L, "val", j_array);
@@ -249,6 +269,7 @@ TEST_F(XLuaTest, SetGlobalJsonArray) {
     lua_pop(L, 2);
 }
 
+/// @brief it should set a global JSON object as a Lua table.
 TEST_F(XLuaTest, SetGlobalJsonObject) {
     const json j_object = {{"string", "value"}, {"number", 42}, {"boolean", true}};
     const auto err = xlua::set_global_json_value(L, "val", j_object);
@@ -269,6 +290,7 @@ TEST_F(XLuaTest, SetGlobalJsonObject) {
     lua_pop(L, 2);
 }
 
+/// @brief it should set a global nested JSON structure as Lua tables.
 TEST_F(XLuaTest, SetGlobalJsonNestedStructure) {
     const json j_nested = {
         {"array", {1, 2, 3}},
@@ -291,6 +313,7 @@ TEST_F(XLuaTest, SetGlobalJsonNestedStructure) {
     lua_pop(L, 3);
 }
 
+/// @brief it should set multiple globals from a simple JSON object.
 TEST_F(XLuaTest, SetGlobalsFromJsonObjectSimple) {
     const json globals = {
         {"string_val", "test string"},
@@ -326,6 +349,7 @@ TEST_F(XLuaTest, SetGlobalsFromJsonObjectSimple) {
     lua_pop(L, 1);
 }
 
+/// @brief it should set multiple globals from a complex nested JSON object.
 TEST_F(XLuaTest, SetGlobalsFromJsonObjectComplex) {
     const json globals = {
         {"array", {1, "two", 3.0}},
@@ -373,12 +397,14 @@ TEST_F(XLuaTest, SetGlobalsFromJsonObjectComplex) {
     lua_pop(L, 3);
 }
 
+/// @brief it should fail when setting globals from non-object JSON.
 TEST_F(XLuaTest, SetGlobalsFromJsonObjectInvalid) {
     // Test with non-object JSON
     const json invalid_json = json::array({1, 2, 3});
     EXPECT_FALSE(xlua::set_globals_from_json_object(L, invalid_json).ok());
 }
 
+/// @brief it should set a simple JSON telemetry value as a Lua table.
 TEST_F(XLuaTest, SetGlobalTelemJsonSimple) {
     const json j = {{"key", "value"}, {"number", 42}};
     const auto err = xlua::set_global_sample_value(
@@ -400,6 +426,7 @@ TEST_F(XLuaTest, SetGlobalTelemJsonSimple) {
     lua_pop(L, 2);
 }
 
+/// @brief it should set a complex nested JSON telemetry value as Lua tables.
 TEST_F(XLuaTest, SetGlobalTelemJsonComplex) {
     const json j = {
         {"array", {1, 2, 3}},
@@ -435,6 +462,7 @@ TEST_F(XLuaTest, SetGlobalTelemJsonComplex) {
     lua_pop(L, 3); // pop null, object, and main table
 }
 
+/// @brief it should return validation error for invalid JSON telemetry value.
 TEST_F(XLuaTest, SetGlobalTelemJsonInvalid) {
     const auto
         err = xlua::set_global_sample_value(L, "val", telem::JSON_T, "invalid json");
@@ -445,6 +473,7 @@ TEST_F(XLuaTest, SetGlobalTelemJsonInvalid) {
     lua_pop(L, 1);
 }
 
+/// @brief it should coerce Lua boolean values to numeric series types.
 TEST_F(XLuaTest, ToSeriesBooleanCoercion) {
     // Set up a boolean value in Lua
     lua_pushboolean(L, true);
@@ -542,6 +571,7 @@ TEST_F(XLuaTest, ToSeriesBooleanCoercion) {
     lua_pop(L, 1);
 }
 
+/// @brief it should coerce Lua number values to various series types.
 TEST_F(XLuaTest, ToSeriesNumberCoercion) {
     // Test integer to various numeric types
     lua_pushinteger(L, 42);
@@ -582,6 +612,7 @@ TEST_F(XLuaTest, ToSeriesNumberCoercion) {
     lua_pop(L, 1);
 }
 
+/// @brief it should convert Lua strings to string series type.
 TEST_F(XLuaTest, ToSeriesStringHandling) {
     // Test string to string type
     lua_pushstring(L, "test string");
@@ -608,6 +639,7 @@ TEST_F(XLuaTest, ToSeriesStringHandling) {
     lua_pop(L, 1);
 }
 
+/// @brief it should convert Lua boolean values to string series.
 TEST_F(XLuaTest, booleanToString) {
     // Test true
     lua_pushboolean(L, true);
@@ -626,6 +658,7 @@ TEST_F(XLuaTest, booleanToString) {
     lua_pop(L, 1);
 }
 
+/// @brief it should return validation error for incompatible type conversions.
 TEST_F(XLuaTest, ToSeriesTypeMismatch) {
     // Test string to numeric type
     lua_pushstring(L, "not a number");
@@ -639,6 +672,7 @@ TEST_F(XLuaTest, ToSeriesTypeMismatch) {
     EXPECT_TRUE(err2) << err2;
 }
 
+/// @brief it should return validation error when converting nil to series.
 TEST_F(XLuaTest, ToSeriesNilHandling) {
     lua_pushnil(L);
 
@@ -656,6 +690,7 @@ TEST_F(XLuaTest, ToSeriesNilHandling) {
     lua_pop(L, 1);
 }
 
+/// @brief it should handle numeric boundary values and special floating point values.
 TEST_F(XLuaTest, ToSeriesNumericRanges) {
     // Test integer bounds
     {
@@ -701,12 +736,14 @@ TEST_F(XLuaTest, ToSeriesNumericRanges) {
     }
 }
 
+/// @brief it should return validation error for invalid stack index.
 TEST_F(XLuaTest, ToSeriesInvalidIndex) {
     auto [series1, err1] = xlua::to_series(L, 999, telem::FLOAT64_T);
     EXPECT_TRUE(err1);
     EXPECT_EQ(err1, xerrors::VALIDATION);
 }
 
+/// @brief it should return validation error for unsupported Lua types.
 TEST_F(XLuaTest, ToSeriesUnsupportedTypes) {
     // Test with table
     lua_newtable(L);
@@ -730,6 +767,7 @@ TEST_F(XLuaTest, ToSeriesUnsupportedTypes) {
     lua_pop(L, 1);
 }
 
+/// @brief it should handle maximum int64 value correctly.
 TEST_F(XLuaTest, Int64Max) {
     lua_pushinteger(L, 9223372036854775807);
     auto [series1, err1] = xlua::to_series(L, -1, telem::INT64_T);

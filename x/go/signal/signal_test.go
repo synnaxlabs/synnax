@@ -28,34 +28,13 @@ func immediatelyReturnError(ctx context.Context) error {
 	return errors.New("routine failed")
 }
 
-func immediatelyPanic(ctx context.Context) error {
-	panic("routine panicked")
-}
+func immediatelyPanic(ctx context.Context) error { panic("routine panicked") }
 
-func immediatelyReturnNil(ctx context.Context) error {
-	return nil
-}
-
-func returnErrAfterContextCancel(ctx context.Context) error {
-	<-ctx.Done()
-	return ctx.Err()
-}
+func immediatelyReturnNil(ctx context.Context) error { return nil }
 
 var _ = Describe("Signal", func() {
 
 	Describe("Coordination", func() {
-
-		Describe("CancelOnExit", func() {
-			It("Should cancel the context when the first routine exits", func() {
-				ctx, cancel := signal.Isolated()
-				ctx.Go(immediatelyReturnNil, signal.CancelOnExit())
-				ctx.Go(returnErrAfterContextCancel)
-				cancel()
-				Expect(ctx.Wait()).To(HaveOccurredAs(context.Canceled))
-				Eventually(ctx.Stopped()).Should(BeClosed())
-			})
-		})
-
 		Describe("CancelOnFail", func() {
 			It("Should cancel the context when the first routine exits with an error", func() {
 				ctx, cancel := signal.Isolated()

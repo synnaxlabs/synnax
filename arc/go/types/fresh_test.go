@@ -37,9 +37,9 @@ var _ = Describe("Freshen", func() {
 		chanType := types.Chan(tv)
 		fresh := types.Freshen(chanType, "node3")
 		Expect(fresh.Kind).To(Equal(types.KindChan))
-		Expect(fresh.ValueType).ToNot(BeNil())
-		Expect(fresh.ValueType.Kind).To(Equal(types.KindVariable))
-		Expect(fresh.ValueType.Name).To(Equal("node3_T"))
+		Expect(fresh.Elem).ToNot(BeNil())
+		Expect(fresh.Elem.Kind).To(Equal(types.KindVariable))
+		Expect(fresh.Elem.Name).To(Equal("node3_T"))
 	})
 
 	It("Should freshen series types recursively", func() {
@@ -47,9 +47,9 @@ var _ = Describe("Freshen", func() {
 		seriesType := types.Series(tv)
 		fresh := types.Freshen(seriesType, "node4")
 		Expect(fresh.Kind).To(Equal(types.KindSeries))
-		Expect(fresh.ValueType).ToNot(BeNil())
-		Expect(fresh.ValueType.Kind).To(Equal(types.KindVariable))
-		Expect(fresh.ValueType.Name).To(Equal("node4_T"))
+		Expect(fresh.Elem).ToNot(BeNil())
+		Expect(fresh.Elem.Kind).To(Equal(types.KindVariable))
+		Expect(fresh.Elem.Name).To(Equal("node4_T"))
 	})
 
 	It("Should copy function types", func() {
@@ -82,9 +82,9 @@ var _ = Describe("Freshen", func() {
 		tv := types.Variable("T", &constraint)
 		chanType := types.Chan(tv)
 		fresh := types.Freshen(chanType, "test")
-		Expect(fresh.ValueType.Name).To(Equal("test_T"))
-		Expect(fresh.ValueType.Constraint).ToNot(BeNil())
-		Expect(fresh.ValueType.Constraint.Kind).To(Equal(types.KindI64))
+		Expect(fresh.Elem.Name).To(Equal("test_T"))
+		Expect(fresh.Elem.Constraint).ToNot(BeNil())
+		Expect(fresh.Elem.Constraint.Kind).To(Equal(types.KindI64))
 	})
 
 	It("Should maintain consistent mapping for repeated type variables", func() {
@@ -128,9 +128,9 @@ var _ = Describe("Freshen", func() {
 		)
 		fresh := types.Freshen(seriesType, "prefix")
 		Expect(fresh.Kind).To(Equal(types.KindSeries))
-		Expect(fresh.ValueType.Kind).To(Equal(types.KindChan))
-		Expect(fresh.ValueType.ValueType.Kind).To(Equal(types.KindVariable))
-		Expect(fresh.ValueType.ValueType.Name).To(Equal("prefix_T"))
+		Expect(fresh.Elem.Kind).To(Equal(types.KindChan))
+		Expect(fresh.Elem.Elem.Kind).To(Equal(types.KindVariable))
+		Expect(fresh.Elem.Elem.Name).To(Equal("prefix_T"))
 	})
 
 	It("Should handle function with mixed generic and concrete parameters", func() {
