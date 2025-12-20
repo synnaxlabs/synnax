@@ -399,7 +399,7 @@ var File_core_pkg_api_grpc_v1_arc_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_v1_arc_proto_rawDesc = "" +
 	"\n" +
-	"\x1ecore/pkg/api/grpc/v1/arc.proto\x12\x06api.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18arc/go/graph/graph.proto\x1a\x16arc/go/text/text.proto\x1a\x1aarc/go/module/module.proto\"\xe4\x01\n" +
+	"\x1ecore/pkg/api/grpc/v1/arc.proto\x12\x06api.v1\x1a\x18arc/go/graph/graph.proto\x1a\x1aarc/go/module/module.proto\x1a\x16arc/go/text/text.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xe4\x01\n" +
 	"\x03Arc\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12+\n" +

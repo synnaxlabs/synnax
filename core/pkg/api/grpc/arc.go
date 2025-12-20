@@ -540,76 +540,76 @@ func translateTypeFromPB(pb *arctypes.PBType) (arctypes.Type, error) {
 func translateTypeKindToPB(k arctypes.TypeKind) arctypes.PBKind {
 	switch k {
 	case arctypes.KindInvalid:
-		return arctypes.PBKind_INVALID
+		return arctypes.PBKind_PB_KIND_UNSPECIFIED
 	case arctypes.KindU8:
-		return arctypes.PBKind_U8
+		return arctypes.PBKind_PB_KIND_U8
 	case arctypes.KindU16:
-		return arctypes.PBKind_U16
+		return arctypes.PBKind_PB_KIND_U16
 	case arctypes.KindU32:
-		return arctypes.PBKind_U32
+		return arctypes.PBKind_PB_KIND_U32
 	case arctypes.KindU64:
-		return arctypes.PBKind_U64
+		return arctypes.PBKind_PB_KIND_U64
 	case arctypes.KindI8:
-		return arctypes.PBKind_I8
+		return arctypes.PBKind_PB_KIND_I8
 	case arctypes.KindI16:
-		return arctypes.PBKind_I16
+		return arctypes.PBKind_PB_KIND_I16
 	case arctypes.KindI32:
-		return arctypes.PBKind_I32
+		return arctypes.PBKind_PB_KIND_I32
 	case arctypes.KindI64:
-		return arctypes.PBKind_I64
+		return arctypes.PBKind_PB_KIND_I64
 	case arctypes.KindF32:
-		return arctypes.PBKind_F32
+		return arctypes.PBKind_PB_KIND_F32
 	case arctypes.KindF64:
-		return arctypes.PBKind_F64
+		return arctypes.PBKind_PB_KIND_F64
 	case arctypes.KindString:
-		return arctypes.PBKind_STRING
+		return arctypes.PBKind_PB_KIND_STRING
 	case arctypes.KindTimeStamp:
-		return arctypes.PBKind_TIMESTAMP
+		return arctypes.PBKind_PB_KIND_TIMESTAMP
 	case arctypes.KindTimeSpan:
-		return arctypes.PBKind_TIMESPAN
+		return arctypes.PBKind_PB_KIND_TIMESPAN
 	case arctypes.KindChan:
-		return arctypes.PBKind_CHAN
+		return arctypes.PBKind_PB_KIND_CHAN
 	case arctypes.KindSeries:
-		return arctypes.PBKind_SERIES
+		return arctypes.PBKind_PB_KIND_SERIES
 	default:
-		return arctypes.PBKind_INVALID
+		return arctypes.PBKind_PB_KIND_UNSPECIFIED
 	}
 }
 
 // translateTypeKindFromPB converts arctypes.PBKind to arctypes.TypeKind
 func translateTypeKindFromPB(k arctypes.PBKind) arctypes.TypeKind {
 	switch k {
-	case arctypes.PBKind_INVALID:
+	case arctypes.PBKind_PB_KIND_UNSPECIFIED:
 		return arctypes.KindInvalid
-	case arctypes.PBKind_U8:
+	case arctypes.PBKind_PB_KIND_U8:
 		return arctypes.KindU8
-	case arctypes.PBKind_U16:
+	case arctypes.PBKind_PB_KIND_U16:
 		return arctypes.KindU16
-	case arctypes.PBKind_U32:
+	case arctypes.PBKind_PB_KIND_U32:
 		return arctypes.KindU32
-	case arctypes.PBKind_U64:
+	case arctypes.PBKind_PB_KIND_U64:
 		return arctypes.KindU64
-	case arctypes.PBKind_I8:
+	case arctypes.PBKind_PB_KIND_I8:
 		return arctypes.KindI8
-	case arctypes.PBKind_I16:
+	case arctypes.PBKind_PB_KIND_I16:
 		return arctypes.KindI16
-	case arctypes.PBKind_I32:
+	case arctypes.PBKind_PB_KIND_I32:
 		return arctypes.KindI32
-	case arctypes.PBKind_I64:
+	case arctypes.PBKind_PB_KIND_I64:
 		return arctypes.KindI64
-	case arctypes.PBKind_F32:
+	case arctypes.PBKind_PB_KIND_F32:
 		return arctypes.KindF32
-	case arctypes.PBKind_F64:
+	case arctypes.PBKind_PB_KIND_F64:
 		return arctypes.KindF64
-	case arctypes.PBKind_STRING:
+	case arctypes.PBKind_PB_KIND_STRING:
 		return arctypes.KindString
-	case arctypes.PBKind_TIMESTAMP:
+	case arctypes.PBKind_PB_KIND_TIMESTAMP:
 		return arctypes.KindTimeStamp
-	case arctypes.PBKind_TIMESPAN:
+	case arctypes.PBKind_PB_KIND_TIMESPAN:
 		return arctypes.KindTimeSpan
-	case arctypes.PBKind_CHAN:
+	case arctypes.PBKind_PB_KIND_CHAN:
 		return arctypes.KindChan
-	case arctypes.PBKind_SERIES:
+	case arctypes.PBKind_PB_KIND_SERIES:
 		return arctypes.KindSeries
 	default:
 		return arctypes.KindInvalid

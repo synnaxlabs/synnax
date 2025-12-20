@@ -51,8 +51,8 @@ func TestTranslateEdgeFromPB_PreservesKind(t *testing.T) {
 		name string
 		kind arcir.PBEdgeKind
 	}{
-		{"Continuous edge", arcir.PBEdgeKind_CONTINUOUS},
-		{"OneShot edge", arcir.PBEdgeKind_ONE_SHOT},
+		{"Continuous edge", arcir.PBEdgeKind_PB_EDGE_KIND_CONTINUOUS},
+		{"OneShot edge", arcir.PBEdgeKind_PB_EDGE_KIND_ONE_SHOT},
 	}
 
 	for _, tt := range tests {
