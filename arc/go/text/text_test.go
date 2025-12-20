@@ -507,7 +507,7 @@ var _ = Describe("Text", func() {
 				Expect(demuxNode.Outputs.Has("low")).To(BeTrue())
 
 				// Find edges by source parameter
-				var highEdge, lowEdge = -1, -1
+				highEdge, lowEdge := -1, -1
 				for i := range inter.Edges {
 					switch inter.Edges[i].Source.Param {
 					case "high":

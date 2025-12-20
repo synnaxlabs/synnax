@@ -94,7 +94,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	})
 	Describe("Key msgpack decoding", func() {
-		var codec = &binary.MsgPackCodec{}
+		codec := &binary.MsgPackCodec{}
 		DescribeTable("Should decode task.Key from various types",
 			func(value any, expected task.Key) {
 				data := MustSucceed(codec.Encode(ctx, value))

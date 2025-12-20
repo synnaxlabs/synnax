@@ -376,7 +376,7 @@ var _ = Describe("Status", Ordered, func() {
 			Expect(svc.NewRetrieve().WhereKeys("typed-string-status").Entry(&retrieved).Exec(ctx, tx)).To(Succeed())
 			Expect(retrieved.Key).To(Equal("typed-string-status"))
 			// Details will be decoded as map[string]interface{} when using any
-			details, ok := retrieved.Details.(map[string]interface{})
+			details, ok := retrieved.Details.(map[string]any)
 			Expect(ok).To(BeTrue())
 			Expect(details["Message"]).To(Equal("hello"))
 		})

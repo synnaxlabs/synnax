@@ -20,7 +20,6 @@ import (
 )
 
 var _ = Describe("Diagnostic Locations", func() {
-
 	Describe("Undefined Symbol Errors", func() {
 		It("Should report correct location for undefined variable in assignment", func() {
 			prog := MustSucceed(parser.Parse(`

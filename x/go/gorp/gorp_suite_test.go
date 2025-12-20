@@ -23,6 +23,7 @@ var (
 	kvDB kv.DB
 	db   *gorp.DB
 )
+
 var _ = BeforeSuite(func() {
 	kvDB = memkv.New()
 	db = gorp.Wrap(kvDB)

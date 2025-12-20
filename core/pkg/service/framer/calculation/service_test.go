@@ -133,7 +133,6 @@ var _ = Describe("Calculation", Ordered, func() {
 	})
 
 	Describe("Calculation Patterns", func() {
-
 		Specify("Single Virtual Channel as Base", func() {
 			bases := []channel.Channel{{
 				Name:     channel.NewRandomName(),

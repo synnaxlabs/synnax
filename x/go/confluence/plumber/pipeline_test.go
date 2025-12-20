@@ -41,7 +41,6 @@ var _ = Describe("Pipeline", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sink).To(Equal(unarySink))
 		})
-
 	})
 
 	Describe("NewHardShutdown Chain", func() {

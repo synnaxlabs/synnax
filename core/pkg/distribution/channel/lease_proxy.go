@@ -538,7 +538,6 @@ func (lp *leaseProxy) createGateway(
 	}
 	lp.mu.externalNonVirtualSet.Insert(externalCreatedKeys...)
 	return nil
-
 }
 
 func (lp *leaseProxy) maybeSetResources(

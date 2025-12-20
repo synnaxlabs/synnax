@@ -738,7 +738,6 @@ var _ = Describe("Calculator", Ordered, func() {
 	})
 
 	Describe("Group", func() {
-
 		It("Should aggregate ReadFrom keys from all calculators", func() {
 			idx := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true}}
 			b1 := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T}}

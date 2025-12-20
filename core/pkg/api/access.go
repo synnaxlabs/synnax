@@ -131,7 +131,6 @@ func (s *AccessService) DeletePolicy(ctx context.Context, req AccessDeletePolicy
 		}
 		return s.internal.Policy.NewWriter(tx, allowInternal).Delete(ctx, req.Keys...)
 	})
-
 }
 
 type (

@@ -44,7 +44,8 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 					Name:     channel.NewRandomName(),
-				}}
+				},
+			}
 			Expect(mockCluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
 
 			var resChannels []channel.Channel

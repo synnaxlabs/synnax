@@ -25,9 +25,7 @@ import (
 )
 
 var _ = Describe("Stat", func() {
-
 	Describe("avg", func() {
-
 		It("Should compute running average with count-based reset", func() {
 			g := graph.Graph{
 				Nodes: []graph.Node{

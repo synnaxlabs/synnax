@@ -531,20 +531,28 @@ var _ = Describe("Telem", func() {
 						{Key: "write2", Type: "write2"},
 					},
 					Edges: []graph.Edge{
-						{Source: ir.Handle{Node: "read1", Param: ir.DefaultOutputParam},
-							Target: ir.Handle{Node: "write1", Param: ir.DefaultInputParam}},
-						{Source: ir.Handle{Node: "read2", Param: ir.DefaultOutputParam},
-							Target: ir.Handle{Node: "write2", Param: ir.DefaultInputParam}},
+						{
+							Source: ir.Handle{Node: "read1", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "write1", Param: ir.DefaultInputParam},
+						},
+						{
+							Source: ir.Handle{Node: "read2", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "write2", Param: ir.DefaultInputParam},
+						},
 					},
 					Functions: []graph.Function{
 						{Key: "on", Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.F32()}}},
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
+						}},
 						{Key: "on2", Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.F64()}}},
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						}},
 						{Key: "write", Inputs: types.Params{
-							{Name: ir.DefaultInputParam, Type: types.F32()}}},
+							{Name: ir.DefaultInputParam, Type: types.F32()},
+						}},
 						{Key: "write2", Inputs: types.Params{
-							{Name: ir.DefaultInputParam, Type: types.F64()}}},
+							{Name: ir.DefaultInputParam, Type: types.F64()},
+						}},
 					},
 				}
 				analyzed, diagnostics := graph.Analyze(ctx, g, rtelem.SymbolResolver)

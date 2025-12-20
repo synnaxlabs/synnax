@@ -1015,7 +1015,6 @@ var _ = Describe("State", func() {
 				Expect(combiner.RefreshInputs()).To(BeFalse())
 			})
 		})
-
 	})
 
 	Describe("Optional Input Parameters", func() {

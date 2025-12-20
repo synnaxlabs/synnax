@@ -21,7 +21,6 @@ import (
 )
 
 var _ = Describe("Analyzer Integration", func() {
-
 	Describe("Cross-Scope Symbol Resolution", func() {
 		It("Should diagnose a variable declaration that shadows a function name", func() {
 			prog := MustSucceed(parser.Parse(`

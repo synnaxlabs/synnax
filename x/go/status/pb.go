@@ -29,7 +29,6 @@ func TranslateToPB[D any](status Status[D]) (*PBStatus, error) {
 		Time:        int64(status.Time),
 		Details:     string(encodedDetails),
 	}, nil
-
 }
 
 func TranslateFromPB[D any](pbStatus *PBStatus) (Status[D], error) {

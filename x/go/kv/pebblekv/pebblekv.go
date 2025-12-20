@@ -95,6 +95,7 @@ func NewNoopLogger() pebble.Logger {
 func (l logger) Infof(format string, args ...any) {
 	l.L.Infof(format, args...)
 }
+
 func (l logger) Errorf(format string, args ...any) {
 	l.L.Zap().Sugar().Errorf(format, args...)
 }

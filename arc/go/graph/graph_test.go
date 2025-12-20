@@ -921,7 +921,6 @@ var _ = Describe("Graph", func() {
 					_, diagnostics := graph.Analyze(ctx, g, nil)
 					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				})
-
 			})
 		})
 

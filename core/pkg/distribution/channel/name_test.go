@@ -30,7 +30,7 @@ var _ = Describe("Name Validation", func() {
 			Entry("names with letters and underscores", "Sensor_temp"),
 			Entry("names with letters and digits and underscores", "temp123_sensor_temp"),
 		)
-		DescribeTable("invalid names", func(name string, errorMessage string) {
+		DescribeTable("invalid names", func(name, errorMessage string) {
 			err := channel.ValidateName(name)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(validate.Error))

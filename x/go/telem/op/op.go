@@ -3726,7 +3726,6 @@ func AvgF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func MinF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -3762,7 +3761,6 @@ func MinF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func MaxF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -3797,7 +3795,6 @@ func MaxF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func AvgF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -3831,7 +3828,6 @@ func AvgF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func MinF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -3867,7 +3863,6 @@ func MinF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func MaxF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -3902,7 +3897,6 @@ func MaxF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func AvgI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -3936,7 +3930,6 @@ func AvgI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func MinI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -3972,7 +3965,6 @@ func MinI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func MaxI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4007,7 +3999,6 @@ func MaxI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func AvgI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4041,7 +4032,6 @@ func AvgI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func MinI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4077,7 +4067,6 @@ func MinI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func MaxI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4112,7 +4101,6 @@ func MaxI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func AvgI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4146,7 +4134,6 @@ func AvgI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func MinI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4182,7 +4169,6 @@ func MinI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func MaxI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4217,7 +4203,6 @@ func MaxI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func AvgI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4251,7 +4236,6 @@ func AvgI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func MinI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4287,7 +4271,6 @@ func MinI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func MaxI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4322,7 +4305,6 @@ func MaxI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func AvgU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4356,7 +4338,6 @@ func AvgU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func MinU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4392,7 +4373,6 @@ func MinU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func MaxU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4427,7 +4407,6 @@ func MaxU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func AvgU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4461,7 +4440,6 @@ func AvgU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func MinU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4497,7 +4475,6 @@ func MinU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func MaxU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4532,7 +4509,6 @@ func MaxU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func AvgU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4566,7 +4542,6 @@ func AvgU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func MinU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4602,7 +4577,6 @@ func MinU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func MaxU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4637,7 +4611,6 @@ func MaxU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func AvgU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4671,7 +4644,6 @@ func AvgU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func MinU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4707,7 +4679,6 @@ func MinU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }
 
 func MaxU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4742,5 +4713,4 @@ func MaxU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
 }

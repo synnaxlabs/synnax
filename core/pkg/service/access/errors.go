@@ -14,6 +14,4 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-var (
-	ErrDenied = errors.Wrap(base.AuthError, "access denied")
-)
+var ErrDenied = errors.Wrap(base.AuthError, "access denied")

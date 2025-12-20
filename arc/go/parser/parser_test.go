@@ -114,7 +114,6 @@ var _ = Describe("Parser", func() {
 				unary := getPowerExpression(expr).UnaryExpression()
 				Expect(unary.NOT()).NotTo(BeNil())
 			})
-
 		})
 
 		Context("Series", func() {
