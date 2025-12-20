@@ -20,7 +20,6 @@ export interface CalculatedLayoutArgs {
 export interface CalculatedLayout extends Layout.BaseState<CalculatedLayoutArgs> {}
 
 export const CALCULATED_LAYOUT: CalculatedLayout = {
-  beta: true,
   name: "Channel.Create.Calculated",
   icon: "Channel",
   location: "modal",

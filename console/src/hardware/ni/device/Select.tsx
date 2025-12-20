@@ -13,11 +13,10 @@ import { Common } from "@/hardware/common";
 import { CONFIGURE_LAYOUT } from "@/hardware/ni/device/Configure";
 import { MAKE } from "@/hardware/ni/device/types";
 
-export interface SelectProps
-  extends Omit<
-    Common.Device.SelectProps,
-    "configureLayout" | "emptyContent" | "make"
-  > {}
+export interface SelectProps extends Omit<
+  Common.Device.SelectProps,
+  "configureLayout" | "emptyContent" | "make"
+> {}
 
 export const Select = (props: SelectProps) => (
   <Common.Device.Select

@@ -46,6 +46,7 @@ public:
     }
 };
 
+/// @brief it should call plugin methods in correct order across all plugins.
 TEST(MultiPlugin, testCallOrder) {
     auto plugin1 = std::make_shared<MockPlugin>();
     auto plugin2 = std::make_shared<MockPlugin>();
@@ -64,6 +65,7 @@ TEST(MultiPlugin, testCallOrder) {
     ASSERT_EQ(plugin2->calls, expected);
 }
 
+/// @brief it should propagate errors from before_all.
 TEST(MultiPlugin, testErrorPropagationBeforeAll) {
     auto plugin1 = std::make_shared<MockPlugin>();
     auto plugin2 = std::make_shared<MockPlugin>();
@@ -79,6 +81,7 @@ TEST(MultiPlugin, testErrorPropagationBeforeAll) {
     ASSERT_EQ(plugin2->calls.size(), 1);
 }
 
+/// @brief it should propagate errors from after_all.
 TEST(MultiPlugin, testErrorPropagationAfterAll) {
     auto plugin1 = std::make_shared<MockPlugin>();
     auto plugin2 = std::make_shared<MockPlugin>();
@@ -94,6 +97,7 @@ TEST(MultiPlugin, testErrorPropagationAfterAll) {
     ASSERT_EQ(plugin2->calls.size(), 1);
 }
 
+/// @brief it should propagate errors from before_next.
 TEST(MultiPlugin, testErrorPropagationBeforeNext) {
     auto plugin1 = std::make_shared<MockPlugin>();
     auto plugin2 = std::make_shared<MockPlugin>();
@@ -109,6 +113,7 @@ TEST(MultiPlugin, testErrorPropagationBeforeNext) {
     ASSERT_EQ(plugin2->calls.size(), 1);
 }
 
+/// @brief it should propagate errors from after_next.
 TEST(MultiPlugin, testErrorPropagationAfterNext) {
     auto plugin1 = std::make_shared<MockPlugin>();
     auto plugin2 = std::make_shared<MockPlugin>();

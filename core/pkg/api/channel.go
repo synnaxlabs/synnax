@@ -42,7 +42,6 @@ type Channel struct {
 	Alias       string              `json:"alias" msgpack:"alias"`
 	Virtual     bool                `json:"virtual" msgpack:"virtual"`
 	Internal    bool                `json:"internal" msgpack:"internal"`
-	Requires    channel.Keys        `json:"requires" msgpack:"requires"`
 	Expression  string              `json:"expression" msgpack:"expression"`
 	Operations  []channel.Operation `json:"operations" msgpack:"operations"`
 }
@@ -140,8 +139,7 @@ type ChannelRetrieveRequest struct {
 	// IsIndex filters for channels that are indexes if true, or are not indexes if false.
 	IsIndex *bool `json:"is_index" msgpack:"is_index"`
 	// Internal filters for channels that are internal if true, or are not internal if false.
-	Internal         *bool `json:"internal" msgpack:"internal"`
-	LegacyCalculated *bool `json:"legacy_calculated" msgpack:"legacy_calculated"`
+	Internal *bool `json:"internal" msgpack:"internal"`
 }
 
 // ChannelRetrieveResponse is the response for a ChannelRetrieveRequest.
@@ -220,9 +218,6 @@ func (s *ChannelService) Retrieve(
 	if req.Internal != nil {
 		q = q.WhereInternal(*req.Internal)
 	}
-	if req.LegacyCalculated != nil {
-		q = q.WhereLegacyCalculated(*req.LegacyCalculated)
-	}
 	if err := q.Exec(ctx, nil); err != nil {
 		return ChannelRetrieveResponse{}, err
 	}
@@ -265,7 +260,6 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 			Virtual:     ch.Virtual,
 			Internal:    ch.Internal,
 			Expression:  ch.Expression,
-			Requires:    ch.Requires,
 			Operations:  ch.Operations,
 		}
 	}
@@ -287,7 +281,6 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 			Virtual:     ch.Virtual,
 			Internal:    ch.Internal,
 			Expression:  ch.Expression,
-			Requires:    ch.Requires,
 			Operations:  ch.Operations,
 		}
 		if ch.IsIndex {

@@ -30,6 +30,7 @@
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:^",
     "@synnaxlabs/vite-plugin": "workspace:^",
+    "@types/node": "catalog:",
     "eslint": "catalog:",
     "eslint-config-synnaxlabs": "workspace:^",
     "madge": "catalog:",

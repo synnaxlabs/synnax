@@ -16,8 +16,10 @@ import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { type DigitalChannel } from "@/hardware/ni/task/types";
 
-interface ListItemProps<C extends DigitalChannel>
-  extends Omit<Common.Task.ChannelListItemProps, "name"> {
+interface ListItemProps<C extends DigitalChannel> extends Omit<
+  Common.Task.ChannelListItemProps,
+  "name"
+> {
   name: Component.RenderProp<DigitalNameComponentProps<C>>;
 }
 
@@ -74,7 +76,8 @@ const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>)
 };
 
 export interface DigitalChannelListProps<C extends DigitalChannel>
-  extends Omit<Common.Task.Layouts.ListProps<C>, "listItem">,
+  extends
+    Omit<Common.Task.Layouts.ListProps<C>, "listItem">,
     Pick<ListItemProps<C>, "name"> {}
 
 export const DigitalChannelList = <C extends DigitalChannel>({

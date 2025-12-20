@@ -10,8 +10,10 @@
 import { type Cluster } from "@/cluster/slice";
 import { Runtime } from "@/runtime";
 
-export interface ConnectionParams
-  extends Pick<Cluster, "name" | "host" | "port" | "secure"> {}
+export interface ConnectionParams extends Pick<
+  Cluster,
+  "name" | "host" | "port" | "secure"
+> {}
 
 const DEV_CONNECTION: ConnectionParams = {
   name: "Core",

@@ -15,6 +15,7 @@ program
 topLevelItem
     : functionDeclaration
     | flowStatement
+    | sequenceDeclaration
     ;
 
 // =============================================================================
@@ -34,12 +35,13 @@ input
     ;
 
 outputType
-    : type                      // Single output (existing)
-    | multiOutputBlock          // Multiple named outputs
+    : type                                          // Unnamed single output: f64
+    | IDENTIFIER type                               // Named single output without parens: result f64
+    | multiOutputBlock                              // Multiple or single named outputs with parens
     ;
 
 multiOutputBlock
-    : LBRACE namedOutput* RBRACE
+    : LPAREN namedOutput (COMMA namedOutput)* RPAREN
     ;
 
 namedOutput
@@ -55,11 +57,39 @@ config
     ;
 
 // =============================================================================
+// Sequence and Stage Declarations
+// =============================================================================
+
+// sequence main { stage precheck { } stage pressurization { } }
+sequenceDeclaration
+    : SEQUENCE IDENTIFIER LBRACE stageDeclaration* RBRACE
+    ;
+
+// stage precheck { items... }
+stageDeclaration
+    : STAGE IDENTIFIER stageBody
+    ;
+
+// { reactive flows and transitions, comma-separated }
+stageBody
+    : LBRACE (stageItem (COMMA stageItem)*)? RBRACE
+    ;
+
+stageItem
+    : flowStatement
+    ;
+
+// =============================================================================
 // Inter-Stage Flow
 // =============================================================================
 
 flowStatement
-    : (routingTable | flowNode) (ARROW (routingTable | flowNode))+ SEMICOLON?
+    : (routingTable | flowNode) (flowOperator (routingTable | flowNode))+
+    ;
+
+flowOperator
+    : ARROW        // -> (continuous flow)
+    | TRANSITION   // => (one-shot flow)
     ;
 
 routingTable
@@ -71,17 +101,18 @@ routingEntry
     ;
 
 flowNode
-    : channelIdentifier
+    : identifier        // Channel, stage, or sequence name - resolved in analysis
     | function
     | expression
+    | NEXT              // Continue to next stage
     ;
 
-channelIdentifier
+identifier
     : IDENTIFIER
     ;
 
 function
-    : IDENTIFIER configValues? arguments?
+    : IDENTIFIER configValues
     ;
 
 configValues
@@ -120,7 +151,6 @@ block
 
 statement
     : variableDeclaration
-    | channelOperation
     | assignment
     | ifStatement
     | returnStatement
@@ -145,29 +175,6 @@ statefulVariable
 
 assignment
     : IDENTIFIER ASSIGN expression
-    ;
-
-channelOperation
-    : channelWrite
-    | channelRead
-    ;
-
-channelWrite
-    : expression ARROW IDENTIFIER
-    | IDENTIFIER RECV expression
-    ;
-
-channelRead
-    : blockingRead
-    | nonBlockingRead
-    ;
-
-blockingRead
-    : IDENTIFIER DECLARE RECV IDENTIFIER
-    ;
-
-nonBlockingRead
-    : IDENTIFIER DECLARE IDENTIFIER
     ;
 
 ifStatement
@@ -225,7 +232,7 @@ temporalType
     ;
 
 channelType
-    : (CHAN | RECV_CHAN | SEND_CHAN) (primitiveType | seriesType)
+    : CHAN (primitiveType | seriesType)
     ;
 
 seriesType
@@ -272,13 +279,7 @@ powerExpression
 unaryExpression
     : MINUS unaryExpression
     | NOT unaryExpression
-    | blockingReadExpr
     | postfixExpression
-    ;
-
-// Blocking read as a true unary operator
-blockingReadExpr
-    : RECV IDENTIFIER
     ;
 
 postfixExpression
@@ -299,16 +300,10 @@ primaryExpression
     | IDENTIFIER
     | LPAREN expression RPAREN
     | typeCast
-    | builtinFunction
     ;
 
 typeCast
     : type LPAREN expression RPAREN
-    ;
-
-builtinFunction
-    : LEN LPAREN expression RPAREN
-    | NOW LPAREN RPAREN
     ;
 
 // =============================================================================

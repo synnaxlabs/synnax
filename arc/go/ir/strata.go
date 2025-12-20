@@ -9,6 +9,11 @@
 
 package ir
 
+import (
+	"fmt"
+	"strings"
+)
+
 // Strata represents the execution stratification of a dataflow graph. Each stratum
 // is a slice of node keys that can execute in parallel. Nodes in stratum N depend
 // only on nodes in strata 0 to N-1. Stratification enables single-pass, glitch-free
@@ -37,4 +42,23 @@ func (s Strata) NodeCount() int {
 		count += len(nodes)
 	}
 	return count
+}
+
+// String returns the string representation of the strata.
+func (s Strata) String() string {
+	return s.stringWithPrefix("")
+}
+
+// stringWithPrefix returns the string representation with tree formatting.
+func (s Strata) stringWithPrefix(prefix string) string {
+	if len(s) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for i, nodes := range s {
+		isLast := i == len(s)-1
+		nodeList := strings.Join(nodes, ", ")
+		b.WriteString(fmt.Sprintf("%s%s[%d]: %s\n", prefix, treePrefix(isLast), i, nodeList))
+	}
+	return b.String()
 }

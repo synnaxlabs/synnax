@@ -24,9 +24,9 @@
 
 /// @brief Used to awake main thread when we are
 /// done processing messages.
-std::mutex mut;
-std::condition_variable cond;
-bool end_session = false;
+inline std::mutex mut;
+inline std::condition_variable cond;
+inline bool end_session = false;
 
 /// @brief Implements .proto generated interface Unary.
 class unaryServiceImpl final : public test::UnaryMessageService::Service {
@@ -38,8 +38,8 @@ public:
         test::Message *reply
     ) override {
         // get the key 'test' from metadata
-        auto test = context->client_metadata().find("test");
-        std::string rep("Read request: ");
+        const auto test = context->client_metadata().find("test");
+        const std::string rep("Read request: ");
         // if the test value exists, set the reply key back to the same value.
         if (test != context->client_metadata().end()) {
             context->AddInitialMetadata("test", "dog");
@@ -75,9 +75,9 @@ class myStreamServiceImpl final : public test::StreamMessageService::Service {
 
 /// @brief Meant to be call within a thread. Simple
 /// GRPCUnaryClient server.
-void server(std::string target) {
+inline void server(const std::string &target) {
     end_session = false;
-    std::string server_address(target);
+    const std::string server_address(target);
     unaryServiceImpl u_service;
     myStreamServiceImpl s_service;
 
@@ -98,7 +98,7 @@ void server(std::string target) {
 }
 
 /// @brief Abstraction of stopping servers.
-void stopServers() {
+inline void stop_servers() {
     end_session = true;
     cond.notify_all();
 }

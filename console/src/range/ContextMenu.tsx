@@ -286,7 +286,7 @@ export const ContextMenu = ({ keys: [key] }: PMenu.ContextMenuMenuProps) => {
                 <PMenu.Divider />
                 <PMenu.Item itemKey="save">
                   <Icon.Save />
-                  {`Save to ${client.params.name ?? "Synnax"}`}
+                  Save to Synnax
                 </PMenu.Item>
               </>
             )

@@ -211,7 +211,7 @@ public:
     }
 
     /// @brief implements pipeline::Sink to write to the LabJack device.
-    xerrors::Error write(const synnax::Frame &frame) override {
+    xerrors::Error write(const telem::Frame &frame) override {
         this->reset_buffer(this->cfg.channels.size());
         for (const auto &[cmd_key, s]: frame)
             if (const auto it = this->cfg.channels.find(cmd_key);

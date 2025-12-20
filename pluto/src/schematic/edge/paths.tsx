@@ -266,8 +266,10 @@ const DATA: record.KeyedNamed<EdgeType>[] = [
   { key: "data", name: "Data" },
 ];
 
-export interface SelectEdgeTypeProps
-  extends Omit<Select.StaticProps<EdgeType>, "data" | "resourceName"> {}
+export interface SelectEdgeTypeProps extends Omit<
+  Select.StaticProps<EdgeType>,
+  "data" | "resourceName"
+> {}
 
 export const SelectEdgeType = (props: SelectEdgeTypeProps): ReactElement => (
   <Select.Static {...props} data={DATA} resourceName="path type" />

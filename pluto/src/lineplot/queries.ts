@@ -20,7 +20,7 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
 > = { listeners: [] };
 
 export const FLUX_STORE_KEY = "lineplots";
-const RESOURCE_NAME = "Line Plot";
+const RESOURCE_NAME = "line plot";
 
 export interface FluxStore extends Flux.UnaryStore<lineplot.Key, lineplot.LinePlot> {}
 

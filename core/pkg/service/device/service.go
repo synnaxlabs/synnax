@@ -11,6 +11,7 @@ package device
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/synnaxlabs/alamos"
@@ -20,9 +21,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
+	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -105,6 +109,9 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{cfg: cfg, group: g}
+	if err := s.migrateStatusesForExistingDevices(ctx); err != nil {
+		return nil, err
+	}
 	cfg.Ontology.RegisterService(s)
 	s.disconnectSuspectRackObserver = cfg.Rack.OnSuspect(s.onSuspectRack)
 	if cfg.Signals != nil {
@@ -153,6 +160,50 @@ func (s *Service) NewRetrieve() Retrieve {
 		baseTX: s.cfg.DB,
 		gorp:   gorp.NewRetrieve[string, Device](),
 	}
+}
+
+func (s *Service) migrateStatusesForExistingDevices(ctx context.Context) error {
+	var devices []Device
+	if err := s.NewRetrieve().Entries(&devices).Exec(ctx, nil); err != nil {
+		return err
+	}
+	if len(devices) == 0 {
+		return nil
+	}
+	statusKeys := make([]string, len(devices))
+	for i, d := range devices {
+		statusKeys[i] = OntologyID(d.Key).String()
+	}
+	var existingStatuses []Status
+	if err := status.NewRetrieve[StatusDetails](s.cfg.Status).
+		WhereKeys(statusKeys...).
+		Entries(&existingStatuses).
+		Exec(ctx, nil); err != nil && !errors.Is(err, query.NotFound) {
+		return err
+	}
+	existingKeys := make(map[string]bool)
+	for _, stat := range existingStatuses {
+		existingKeys[stat.Key] = true
+	}
+	var missingStatuses []Status
+	for _, d := range devices {
+		key := OntologyID(d.Key).String()
+		if !existingKeys[key] {
+			missingStatuses = append(missingStatuses, Status{
+				Key:     key,
+				Name:    d.Name,
+				Time:    telem.Now(),
+				Variant: xstatus.WarningVariant,
+				Message: fmt.Sprintf("%s state unknown", d.Name),
+				Details: StatusDetails{Rack: d.Rack, Device: d.Key},
+			})
+		}
+	}
+	if len(missingStatuses) == 0 {
+		return nil
+	}
+	s.cfg.L.Info("creating unknown statuses for existing devices", zap.Int("count", len(missingStatuses)))
+	return status.NewWriter[StatusDetails](s.cfg.Status, nil).SetMany(ctx, &missingStatuses)
 }
 
 func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {

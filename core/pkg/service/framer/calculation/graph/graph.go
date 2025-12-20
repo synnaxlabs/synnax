@@ -147,7 +147,7 @@ func (g *Graph) Update(ctx context.Context, ch channel.Channel) error {
 		}
 
 		for _, depCh := range depChannels {
-			if depCh.IsCalculated() && !depCh.IsLegacyCalculated() {
+			if depCh.IsCalculated() {
 				// Check for circular dependencies before adding
 				if err := g.checkCircularDependency(ch.Key(), depCh.Key()); err != nil {
 					return err
@@ -395,7 +395,7 @@ func (g *Graph) addInternal(ctx context.Context, ch channel.Channel, explicit bo
 		}
 
 		for _, depCh := range depChannels {
-			if depCh.IsCalculated() && !depCh.IsLegacyCalculated() {
+			if depCh.IsCalculated() {
 				if err := g.addInternal(ctx, depCh, false); err != nil {
 					delete(g.channels, ch.Key())
 					return errors.Wrapf(err, "failed to add calculated dependency %v", depCh.Key())
@@ -469,7 +469,7 @@ func (g *Graph) resolveBaseDependencies(
 	}
 
 	for _, depCh := range depChannels {
-		if depCh.IsCalculated() && !depCh.IsLegacyCalculated() {
+		if depCh.IsCalculated() {
 			info, err := g.getChannelInfo(depCh.Key())
 			if err != nil {
 				return nil, err

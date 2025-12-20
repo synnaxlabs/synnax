@@ -28,8 +28,10 @@ const DATA: SecurityPolicy[] = [
   AES256_SHA256_RSAPSS_SECURITY_POLICY,
 ];
 
-export interface SelectSecurityPolicyProps
-  extends Omit<Select.ButtonsProps<SecurityPolicy>, "keys"> {}
+export interface SelectSecurityPolicyProps extends Omit<
+  Select.ButtonsProps<SecurityPolicy>,
+  "keys"
+> {}
 
 export const SelectSecurityPolicy = (props: SelectSecurityPolicyProps) => (
   <Select.Buttons {...props} keys={DATA}>

@@ -22,6 +22,7 @@ from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum, auto
+from pathlib import Path
 from typing import Any, Literal, overload
 
 import synnax as sy
@@ -63,10 +64,10 @@ class STATUS(Enum):
 
 
 class SYMBOLS(Enum):
-    PASSED = "✅"  # Green check mark
-    FAILED = "❌"  # Red X
-    KILLED = "💀"  # Skull
-    TIMEOUT = "⏰"  # Alarm clock
+    PASSED = "✅"
+    FAILED = "❌"
+    KILLED = "💀"
+    TIMEOUT = "⏰"
 
     @classmethod
     def get_symbol(cls, status: STATUS) -> str:
@@ -74,7 +75,7 @@ class SYMBOLS(Enum):
         try:
             return cls[status.name].value
         except (KeyError, AttributeError):
-            return "❓"  # Question mark emoji
+            return "❓"
 
 
 class TestCase(ABC):
@@ -106,23 +107,12 @@ class TestCase(ABC):
 
     def __init__(
         self,
-        synnax_connection: SynnaxConnection,
+        synnax_connection: SynnaxConnection = SynnaxConnection(),
+        *,
         name: str,
-        expect: str = "PASSED",
         **params: Any,
     ) -> None:
         self.synnax_connection = synnax_connection
-
-        if expect in ["FAILED", "TIMEOUT", "KILLED"]:
-            # Use this wisely!
-            if expect == "FAILED":
-                self.expected_outcome = STATUS.FAILED
-            elif expect == "TIMEOUT":
-                self.expected_outcome = STATUS.TIMEOUT
-            elif expect == "KILLED":
-                self.expected_outcome = STATUS.KILLED
-        else:
-            self.expected_outcome = STATUS.PASSED
 
         """Initialize test case with Synnax server connection."""
         self.params = params
@@ -255,7 +245,6 @@ class TestCase(ABC):
                     client.write(self.tlm)
                 except:
                     pass
-            self.log("Writer thread shutting down")
 
         except Exception as e:
             if is_websocket_error(e):
@@ -304,8 +293,6 @@ class TestCase(ABC):
                         self.log(f"Streamer error: {e}")
                         break
 
-            self.log("Streamer thread shutting down")
-
         except Exception as e:
             if is_websocket_error(e):
                 pass
@@ -344,7 +331,6 @@ class TestCase(ABC):
         # Start streamer thread (reads data on demand)
         self.streamer_thread = threading.Thread(target=self._streamer_loop, daemon=True)
         self.streamer_thread.start()
-        self.log("Streamer and Writer threads started")
 
     def _stop_client(self) -> None:
         """Stop client threads and wait for completion."""
@@ -368,15 +354,23 @@ class TestCase(ABC):
         if self._status == STATUS.PENDING:
             self.STATUS = STATUS.PASSED
 
-    def _wait_for_client_completion(self, timeout: float | None = None) -> None:
+    def _wait_for_client_completion(self, timeout: float = 5.0) -> None:
         """Wait for client threads to complete."""
         # Wait for streamer thread
         if self.streamer_thread.is_alive():
             self.streamer_thread.join(timeout=timeout)
+            if self.streamer_thread.is_alive():
+                self.log(
+                    "Warning: streamer thread still alive after wait_for_client_completion"
+                )
 
         # Wait for writer thread
         if self.writer_thread.is_alive():
             self.writer_thread.join(timeout=timeout)
+            if self.writer_thread.is_alive():
+                self.log(
+                    "Warning: writer thread still alive after wait_for_client_completion"
+                )
 
     def _check_expectation(self) -> None:
         """Check if test met expected outcome and handle failures gracefully."""
@@ -385,22 +379,9 @@ class TestCase(ABC):
             self.STATUS = STATUS.PASSED
 
         status_symbol = SYMBOLS.get_symbol(self._status)
-        expected_symbol = SYMBOLS.get_symbol(self.expected_outcome)
 
-        # Handle expected outcome logic
         if self._status == STATUS.PASSED:
-            if self.expected_outcome == STATUS.PASSED:
-                self.log(f"PASSED ({status_symbol})")
-            else:
-                self.STATUS = STATUS.FAILED
-                self.log(
-                    f"FAILED (❌): Expected {expected_symbol}, got {status_symbol}"
-                )
-
-        elif self._status == self.expected_outcome:
-            self.log(f"PASSED (✅): Expected outcome achieved ({status_symbol})")
-            # Set _status directly. Setter protects against lower-value statuses. (PASSED)
-            self._status = STATUS.PASSED
+            self.log(f"PASSED ({status_symbol})")
         elif self._status == STATUS.FAILED:
             self.log(f"FAILED ({status_symbol})")
         elif self._status == STATUS.TIMEOUT:
@@ -772,8 +753,6 @@ class TestCase(ABC):
             if self._status not in [STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED]:
                 self.STATUS = STATUS.PENDING
 
-            self.teardown()
-
             # PASSED set in _check_expectation()
 
         except Exception as e:
@@ -783,6 +762,10 @@ class TestCase(ABC):
                 self.STATUS = STATUS.FAILED
                 self.log(f"EXCEPTION: {e}\n{traceback.format_exc()}")
         finally:
+            try:
+                self.teardown()
+            except Exception as teardown_error:
+                self.log(f"Teardown error: {teardown_error}")
             self._check_expectation()
             self._stop_client()
             self._wait_for_client_completion()

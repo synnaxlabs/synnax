@@ -19,6 +19,7 @@
 #include "driver/modbus/read_task.h"
 #include "driver/pipeline/mock/pipeline.h"
 
+/// @brief Test fixture for Modbus read task tests.
 class ModbusReadTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
@@ -94,6 +95,7 @@ protected:
     }
 };
 
+/// @brief it should return validation error for non-existent device.
 TEST_F(ModbusReadTest, testInvalidDeviceConfig) {
     auto cfg = create_base_config();
     cfg["device"] = "non_existent_device";
@@ -108,6 +110,7 @@ TEST_F(ModbusReadTest, testInvalidDeviceConfig) {
     ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
 }
 
+/// @brief it should return validation error for non-existent channel.
 TEST_F(ModbusReadTest, testInvalidChannelConfig) {
     auto cfg = create_base_config();
     synnax::Channel ch;
@@ -118,6 +121,7 @@ TEST_F(ModbusReadTest, testInvalidChannelConfig) {
     ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
 }
 
+/// @brief it should return validation error for invalid channel type.
 TEST_F(ModbusReadTest, testInvalidChannelType) {
     auto cfg = create_base_config();
 
@@ -136,6 +140,7 @@ TEST_F(ModbusReadTest, testInvalidChannelType) {
     ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
 }
 
+/// @brief it should parse configuration with multiple channel types.
 TEST_F(ModbusReadTest, testMultiChannelConfig) {
     auto cfg = create_base_config();
 
@@ -172,6 +177,7 @@ TEST_F(ModbusReadTest, testMultiChannelConfig) {
     ASSERT_NIL(p.error());
 }
 
+/// @brief it should read coil values from Modbus device.
 TEST(ReadTask, testBasicReadTask) {
     modbus::mock::SlaveConfig slave_cfg;
     // Set up coil at address 0 with value 1 and ensure we have at least 1 coil mapped
@@ -284,6 +290,7 @@ TEST(ReadTask, testBasicReadTask) {
     ASSERT_GE(fr.at<uint64_t>(index_channel.key, 0), 0);
 }
 
+/// @brief it should read discrete input values from Modbus device.
 TEST_F(ModbusReadTest, testDiscreteInputRead) {
     // Set up mock slave with discrete input values
     modbus::mock::SlaveConfig slave_cfg;
@@ -335,6 +342,7 @@ TEST_F(ModbusReadTest, testDiscreteInputRead) {
     ASSERT_EQ(fr.at<uint8_t>(data_channel.key, 0), 1);
 }
 
+/// @brief it should read holding register values from Modbus device.
 TEST_F(ModbusReadTest, testHoldingRegisterRead) {
     // Set up mock slave with holding register values
     modbus::mock::SlaveConfig slave_cfg;
@@ -388,6 +396,7 @@ TEST_F(ModbusReadTest, testHoldingRegisterRead) {
     ASSERT_EQ(fr.at<uint16_t>(data_channel.key, 0), 12345);
 }
 
+/// @brief it should read multiple channel types simultaneously.
 TEST_F(ModbusReadTest, testMultiChannelRead) {
     // Set up mock slave with various register values
     modbus::mock::SlaveConfig slave_cfg;

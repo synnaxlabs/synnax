@@ -544,6 +544,137 @@ describe("framer.Frame", () => {
     });
   });
 
+  describe("forEachUnique", () => {
+    it("should iterate over all unique columns in the frame", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(1, 2),
+              }),
+            ],
+          ],
+          [
+            13,
+            [
+              new Series({
+                data: new Float32Array([4, 5, 6]),
+                timeRange: new TimeRange(4, 6),
+              }),
+            ],
+          ],
+          [
+            14,
+            [
+              new Series({
+                data: new Float32Array([7, 8, 9]),
+                timeRange: new TimeRange(7, 9),
+              }),
+            ],
+          ],
+        ]),
+      );
+      f.push(
+        12,
+        new Series({
+          data: new Float32Array([10, 11, 12]),
+          timeRange: new TimeRange(10, 12),
+        }),
+      );
+      f.push(
+        13,
+        new Series({
+          data: new Float32Array([13, 14, 15]),
+          timeRange: new TimeRange(13, 15),
+        }),
+      );
+      f.push(
+        14,
+        new Series({
+          data: new Float32Array([7, 8, 9]),
+          timeRange: new TimeRange(7, 9),
+        }),
+      );
+      const firstValues = new Set<number>();
+      f.forEachUnique((_, ms) => {
+        firstValues.add(ms.at(0) as number);
+      });
+      expect(firstValues).toEqual(new Set([1, 4, 7]));
+    });
+    it("should get all data from the frame", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(1, 2),
+              }),
+            ],
+          ],
+        ]),
+      );
+      f.push(
+        12,
+        new Series({
+          data: new Float32Array([10, 11, 12]),
+          timeRange: new TimeRange(10, 12),
+        }),
+      );
+      f.push(
+        13,
+        new Series({
+          data: new Float32Array([13, 14, 15]),
+          timeRange: new TimeRange(13, 15),
+        }),
+      );
+      const data: number[] = [];
+      f.forEachUnique((key, ms) => {
+        if (key !== 12) return;
+        for (let i = 0; i < ms.length; i++) data.push(ms.at(i, true) as number);
+      });
+      expect(data).toEqual([1, 2, 3, 10, 11, 12]);
+    });
+    it("should allow use of an index parameter", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(1, 2),
+              }),
+            ],
+          ],
+        ]),
+      );
+      f.push(
+        12,
+        new Series({
+          data: new Float32Array([10, 11, 12]),
+          timeRange: new TimeRange(10, 12),
+        }),
+      );
+      f.push(
+        13,
+        new Series({
+          data: new Float32Array([13, 14, 15]),
+          timeRange: new TimeRange(13, 15),
+        }),
+      );
+      let currentIndex = 0;
+      f.forEachUnique((_, __, i) => {
+        expect(i).toEqual(currentIndex);
+        currentIndex++;
+      });
+      expect(currentIndex).toEqual(2);
+    });
+  });
   describe("mapFilter", () => {
     it("should filter out items based on the keep boolean", () => {
       const f = new framer.Frame(

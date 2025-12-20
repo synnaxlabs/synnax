@@ -18,11 +18,10 @@ import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
 
-export interface TagProps
-  extends optional.Optional<
-    Omit<Button.ButtonProps<"div">, "size" | "wrap" | "color">,
-    "level"
-  > {
+export interface TagProps extends optional.Optional<
+  Omit<Button.ButtonProps<"div">, "size" | "wrap" | "color">,
+  "level"
+> {
   icon?: Icon.ReactElement;
   onClose?: () => void;
   color?: color.Crude;

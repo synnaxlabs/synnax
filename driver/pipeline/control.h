@@ -25,7 +25,7 @@ public:
     /// acquisition pipeline will trigger a breaker (temporary backoff), and then
     /// retry the read operation. Any other error type will be considered a
     /// permanent error and the pipeline will exit.
-    virtual xerrors::Error write(const synnax::Frame &frame) = 0;
+    virtual xerrors::Error write(const telem::Frame &frame) = 0;
 
     /// @brief communicates an error encountered by the control pipeline that
     /// occurred during shut down or occurred during a commanded shutdown.
@@ -49,7 +49,7 @@ public:
     /// will trigger a breaker (temporary backoff), and then retry the read
     /// operation. Any other error type will be considered a permanent error and the
     /// pipeline will exit.
-    virtual std::pair<synnax::Frame, xerrors::Error> read() = 0;
+    virtual std::pair<telem::Frame, xerrors::Error> read() = 0;
 
     /// @brief closes the streamer, returning any error that occurred during normal
     /// operation. If the returned error is of type freighter::UNREACHABLE, the
@@ -96,7 +96,7 @@ public:
 
     /// @brief implements pipeline::Streamer to read the next frame from the
     /// streamer.
-    std::pair<synnax::Frame, xerrors::Error> read() override;
+    std::pair<telem::Frame, xerrors::Error> read() override;
 
     /// @brief implements pipeline::Streamer to close the streamer.
     xerrors::Error close() override;

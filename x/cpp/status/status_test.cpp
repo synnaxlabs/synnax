@@ -10,10 +10,11 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/status/status.h"
+#include "x/cpp/xtest/xtest.h"
 
 /// @brief it should correctly convert a status to its JSON representation.
 TEST(StatusTest, TestToJSON) {
-    status::Status<> stat{
+    const status::Status<> stat{
         .key = "dog",
         .variant = status::variant::SUCCESS,
         .message = "the dog is happy",
@@ -38,7 +39,7 @@ TEST(StatusTest, TestParse) {
         {"time", telem::TimeStamp(telem::SECOND).nanoseconds()}
     };
     xjson::Parser p(j);
-    auto stat = status::Status<>::parse(p);
+    const auto stat = status::Status<>::parse(p);
     ASSERT_EQ(stat.key, "cat");
     ASSERT_EQ(stat.variant, status::variant::ERR);
     ASSERT_EQ(stat.message, "the cat is angry");
@@ -48,10 +49,12 @@ TEST(StatusTest, TestParse) {
 
 /// @brief custom details type for testing protobuf serialization.
 struct TestDetails {
-    std::string field1 = "";
+    std::string field1;
     int field2 = 0;
 
-    json to_json() const { return json{{"field1", field1}, {"field2", field2}}; }
+    [[nodiscard]] json to_json() const {
+        return json{{"field1", field1}, {"field2", field2}};
+    }
 
     static TestDetails parse(xjson::Parser &parser) {
         return TestDetails{
@@ -84,8 +87,7 @@ TEST(StatusTest, TestProtobufDetailsRoundTrip) {
     ASSERT_EQ(details_json["field2"], 42);
 
     // Convert back from protobuf
-    auto [recovered, err] = status::Status<TestDetails>::from_proto(pb);
-    ASSERT_FALSE(err) << err.message();
+    auto recovered = ASSERT_NIL_P(status::Status<TestDetails>::from_proto(pb));
 
     // Verify all fields match
     ASSERT_EQ(recovered.key, original.key);
@@ -101,30 +103,30 @@ TEST(StatusTest, TestProtobufDetailsRoundTrip) {
 /// @brief it should correctly identify a zero/default status.
 TEST(StatusTest, TestIsZero) {
     // Default-constructed status should be zero
-    status::Status<> zero_status{};
+    const status::Status<> zero_status{};
     ASSERT_TRUE(zero_status.is_zero());
 
     // Status with any non-default field should not be zero
-    status::Status<> with_key{.key = "test"};
+    const status::Status<> with_key{.key = "test"};
     ASSERT_FALSE(with_key.is_zero());
 
-    status::Status<> with_name{.name = "Test"};
+    const status::Status<> with_name{.name = "Test"};
     ASSERT_FALSE(with_name.is_zero());
 
-    status::Status<> with_variant{.variant = status::variant::SUCCESS};
+    const status::Status<> with_variant{.variant = status::variant::SUCCESS};
     ASSERT_FALSE(with_variant.is_zero());
 
-    status::Status<> with_message{.message = "hello"};
+    const status::Status<> with_message{.message = "hello"};
     ASSERT_FALSE(with_message.is_zero());
 
-    status::Status<> with_description{.description = "desc"};
+    const status::Status<> with_description{.description = "desc"};
     ASSERT_FALSE(with_description.is_zero());
 
-    status::Status<> with_time{.time = telem::TimeStamp(1)};
+    const status::Status<> with_time{.time = telem::TimeStamp(1)};
     ASSERT_FALSE(with_time.is_zero());
 
     // Fully populated status should not be zero
-    status::Status<> full_status{
+    const status::Status<> full_status{
         .key = "key",
         .name = "name",
         .variant = status::variant::INFO,

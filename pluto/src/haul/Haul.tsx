@@ -282,7 +282,8 @@ export const useDrop = ({
 // |||||| DRAG AND DROP ||||||
 
 export interface UseDragAndDropProps
-  extends Omit<UseDragProps, "source">,
+  extends
+    Omit<UseDragProps, "source">,
     Omit<UseDropProps, "target">,
     optional.Optional<Item, "key"> {}
 

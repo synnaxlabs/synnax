@@ -14,6 +14,7 @@ conjunction with the `interpolation.py` example or the `simple_average.py` examp
 demonstrate how to calculate derived values from these channels with different rates.
 """
 
+import random
 import time
 
 import numpy as np
@@ -71,21 +72,25 @@ with client.open_writer(
     i = 0
     while rough_rate.wait():
         time = sy.TimeStamp.now()
-        time_2 = time + sy.TimeSpan.MILLISECOND * 3
+        time_2 = time + sy.TimeSpan.MICROSECOND * 3
         # Generate data to write to the first channel.
         data_to_write = {
             time_ch_1.key: [time, time_2],
             data_ch_1.key: [np.sin(i / 10), np.sin((i + 1) / 10)],
         }
 
-        # Only write to the second channel every third iteration, so its rate is 10Hz
-        # instead of 30Hz.
+        # Only write to the second channel every third iteration, so its rate is 10 Hz
+        # instead of 30 Hz.
         if i % 3 == 0:
-            # Generate timestamps at a different time to introduce intentional
-            # misalignment.
-            time = sy.TimeStamp.now()
-            time_2 = time + sy.TimeSpan.MILLISECOND
-            data_to_write[time_ch_2.key] = [time, time_2]
+            # Generate timestamps at a random time that is off by between -5 and +5
+            # nanoseconds using random.randint
+            second_time = time + sy.TimeSpan.NANOSECOND * random.randint(-5, 5)
+            second_time_2 = (
+                second_time
+                + sy.TimeSpan.MICROSECOND * 3
+                + sy.TimeSpan.NANOSECOND * random.randint(-5, 5)
+            )
+            data_to_write[time_ch_2.key] = [second_time, second_time_2]
             data_to_write[data_ch_2.key] = [np.sin(i / 100), np.sin((i + 1) / 100)]
 
         writer.write(data_to_write)

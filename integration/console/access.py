@@ -163,6 +163,9 @@ class AccessClient:
         :param role_name: Role to assign to the user (required).
         :returns: True if the user was created successfully.
         """
+        # Clear any existing notifications to avoid false positives
+        self.console.close_all_notifications()
+
         # Open command palette and register user
         self.console.command_palette("Register a User")
 

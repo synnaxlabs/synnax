@@ -18,6 +18,7 @@ cc_test(
     deps = [
         "//freighter/cpp/fgrpc/mock:server",
         "//freighter/cpp/fgrpc/mock:service_grpc",
+        "//x/cpp/xtest",
         "@googletest//:gtest_main",
     ],
 )

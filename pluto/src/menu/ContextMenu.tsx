@@ -34,11 +34,9 @@ export type ContextMenuEvent = xy.Client & {
   target: Element;
 };
 
-/** Opens the context menu. See {@link Menu.useContextMenu} for more details. */
-export type ContextMenuOpen = (
-  pos: xy.Crude | ContextMenuEvent,
-  keys?: string[],
-) => void;
+export interface ContextMenuOpen {
+  (e: xy.Crude | ContextMenuEvent): void;
+}
 
 /** Return value for the {@Menu.useContextMenu} hook. */
 export interface UseContextMenuReturn extends ContextMenuState {
@@ -65,7 +63,6 @@ const findTarget = (target: HTMLElement): HTMLElement | null => {
     if (candidate.parentElement == null) return target;
     candidate = candidate.parentElement;
   }
-  if (!candidate.classList.contains(CONTEXT_TARGET)) return target;
   return candidate;
 };
 
@@ -101,15 +98,16 @@ export const useContextMenu = (): UseContextMenuReturn => {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [state, setMenuState] = useState<ContextMenuState>(INITIAL_STATE);
 
-  const handleOpen: ContextMenuOpen = useCallback((e, keys) => {
+  const handleOpen: ContextMenuOpen = useCallback((e) => {
     const p = xy.construct(e);
+    let keys: string[] = [];
     if (typeof e === "object" && "preventDefault" in e) {
       e.preventDefault();
       // Prevent parent context menus from opening.
       e.stopPropagation();
       const selected = findSelected(e.target as HTMLElement);
-      keys ??= unique.unique(selected.map((el) => el.id).filter((id) => id.length > 0));
-    } else keys = [];
+      keys = unique.unique(selected.map((el) => el.id).filter((id) => id.length > 0));
+    }
     setMenuState({ visible: true, keys, position: p, cursor: p });
   }, []);
 
@@ -148,8 +146,7 @@ export interface ContextMenuMenuProps extends ContextMenuState {
 }
 
 export interface ContextMenuProps
-  extends Omit<UseContextMenuReturn, "className">,
-    Omit<Flex.BoxProps, "ref"> {
+  extends Omit<UseContextMenuReturn, "className">, Omit<Flex.BoxProps, "ref"> {
   menu?: RenderProp<ContextMenuMenuProps>;
 }
 

@@ -20,4 +20,6 @@ const driver::LibraryInfo NI_SYSCFG = {
     "National Instruments System Configuration",
     "https://www.ni.com/en/support/downloads/drivers/download.system-configuration.html"
 };
+
+const xerrors::Error END_OF_ENUM("ni.end_of_enum");
 }
