@@ -70,3 +70,6 @@ linters:
       default-rpc-path: true
       sql-isolation-level: true
       tls-signature-scheme: true
+run:
+  build-tags:
+    - driver
