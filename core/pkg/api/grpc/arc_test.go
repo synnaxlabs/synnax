@@ -37,8 +37,8 @@ func TestTranslateEdgeToPB_PreservesKind(t *testing.T) {
 
 			pb := translateEdgeToPB(edge)
 
-			if arcir.PBEdgeKind(pb.Kind) != arcir.PBEdgeKind(tt.kind) {
-				t.Errorf("translateEdgeToPB: expected Kind=%v, got %v", tt.kind, pb.Kind)
+			if pb.GetKind() != arcir.PBEdgeKind(tt.kind) {
+				t.Errorf("translateEdgeToPB: expected Kind=%v, got %v", tt.kind, pb.GetKind())
 			}
 		})
 	}
@@ -121,21 +121,21 @@ func TestTranslateIRToPB_IncludesSequences(t *testing.T) {
 		t.Fatalf("translateIRToPB failed: %v", err)
 	}
 
-	if len(pb.Sequences) != 2 {
-		t.Errorf("Expected 2 sequences, got %d", len(pb.Sequences))
+	if len(pb.GetSequences()) != 2 {
+		t.Errorf("Expected 2 sequences, got %d", len(pb.GetSequences()))
 	}
 
 	// Verify first sequence
-	if pb.Sequences[0].Key != "main" {
-		t.Errorf("Expected sequence key 'main', got '%s'", pb.Sequences[0].Key)
+	if pb.GetSequences()[0].GetKey() != "main" {
+		t.Errorf("Expected sequence key 'main', got '%s'", pb.GetSequences()[0].GetKey())
 	}
-	if len(pb.Sequences[0].Stages) != 2 {
-		t.Errorf("Expected 2 stages in 'main', got %d", len(pb.Sequences[0].Stages))
+	if len(pb.GetSequences()[0].GetStages()) != 2 {
+		t.Errorf("Expected 2 stages in 'main', got %d", len(pb.GetSequences()[0].GetStages()))
 	}
 
 	// Verify second sequence
-	if pb.Sequences[1].Key != "abort" {
-		t.Errorf("Expected sequence key 'abort', got '%s'", pb.Sequences[1].Key)
+	if pb.GetSequences()[1].GetKey() != "abort" {
+		t.Errorf("Expected sequence key 'abort', got '%s'", pb.GetSequences()[1].GetKey())
 	}
 }
 
