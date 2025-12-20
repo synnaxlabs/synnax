@@ -18,7 +18,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// Helper to extract literal from expression text
+// Helper to extract literal from expression text.
 func getLiteral(text string) parser.ILiteralContext {
 	expr := MustSucceed(parser.ParseExpression(text))
 	logicalOr := expr.LogicalOrExpression()
@@ -34,7 +34,7 @@ func getLiteral(text string) parser.ILiteralContext {
 	return primary.Literal()
 }
 
-// Helper to parse a numeric literal from text
+// Helper to parse a numeric literal from text.
 func parseNumeric(text string, targetType types.Type) (literal.ParsedValue, error) {
 	lit := getLiteral(text)
 	numLit := lit.NumericLiteral()

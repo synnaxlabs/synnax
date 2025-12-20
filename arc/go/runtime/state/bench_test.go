@@ -57,10 +57,10 @@ func BenchmarkRefreshInputsSingleInput(b *testing.B) {
 	*sourceNode.Output(0) = telem.NewSeriesV[float32](0)
 	*sourceNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		telem.SetValueAt[float32](*sourceNode.Output(0), 0, float32(i))
-		telem.SetValueAt[telem.TimeStamp](
+
+	for i := 0; b.Loop(); i++ {
+		telem.SetValueAt(*sourceNode.Output(0), 0, float32(i))
+		telem.SetValueAt(
 			*sourceNode.OutputTime(0),
 			0,
 			telem.TimeStamp(i+1)*telem.SecondTS,

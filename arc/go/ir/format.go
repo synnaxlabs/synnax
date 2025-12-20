@@ -46,7 +46,7 @@ func treeIndent(last bool) string {
 	return TreeIndent(last)
 }
 
-// formatParams formats a slice of Params as "name (type), name (type), ..."
+// formatParams formats a slice of Params as "name (type), name (type), ...".
 func formatParams(params types.Params) string {
 	if len(params) == 0 {
 		return "(none)"
@@ -62,7 +62,7 @@ func formatParams(params types.Params) string {
 	return strings.Join(parts, ", ")
 }
 
-// formatChannels formats Channels as "read [id: name, ...], write [id: name, ...]"
+// formatChannels formats Channels as "read [id: name, ...], write [id: name, ...]".
 func formatChannels(ch symbol.Channels) string {
 	if len(ch.Read) == 0 && len(ch.Write) == 0 {
 		return "(none)"

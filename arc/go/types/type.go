@@ -339,7 +339,7 @@ func Sequence() Type { return Type{Kind: KindSequence} }
 // Stage returns a stage (within a sequence) type.
 func Stage() Type { return Type{Kind: KindStage} }
 
-// Function creates a function type with the given inputs, outputs, and optional config
+// Function creates a function type with the given inputs, outputs, and optional config.
 func Function(props FunctionProperties) Type {
 	return Type{Kind: KindFunction, FunctionProperties: props}
 }

@@ -147,7 +147,7 @@ func (k EdgeKind) String() string {
 }
 
 // String returns the string representation of the edge.
-// Format: "source.param -> target.param (continuous)" or "source.param => target.param (oneshot)"
+// Format: "source.param -> target.param (continuous)" or "source.param => target.param (oneshot)".
 func (e Edge) String() string {
 	arrow := "->"
 	if e.Kind == OneShot {

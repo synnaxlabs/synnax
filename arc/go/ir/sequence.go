@@ -93,7 +93,7 @@ func (s Sequences) FindStage(stageKey string) (Stage, Sequence, bool) {
 }
 
 // String returns the string representation of the stage.
-// Format: "key: [node1, node2, ...]"
+// Format: "key: [node1, node2, ...]".
 func (s Stage) String() string {
 	return fmt.Sprintf("%s: [%s]", s.Key, strings.Join(s.Nodes, ", "))
 }

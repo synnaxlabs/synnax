@@ -60,7 +60,7 @@ func NewKeyGenerator() *KeyGenerator {
 
 // Generate creates a unique key for a node.
 // For nodes with semantic names (channels, functions): role_name_N
-// For anonymous nodes: role_N
+// For anonymous nodes: role_N.
 func (kg *KeyGenerator) Generate(role, name string) string {
 	base := role
 	if name != "" {
@@ -192,7 +192,7 @@ func Compile(
 
 // getFlowOperatorKind determines EdgeKind by examining the operator token at the specified index.
 // Operators appear at odd indices when iterating through flow statement children:
-// [node0, op0, node1, op1, node2, ...]
+// [node0, op0, node1, op1, node2, ...].
 func getFlowOperatorKind(ctx acontext.Context[parser.IFlowStatementContext], operatorIndex int) ir.EdgeKind {
 	children := ctx.AST.GetChildren()
 	if operatorIndex < 0 || operatorIndex >= len(children) {
@@ -344,26 +344,15 @@ func analyzeFlow(
 		case parser.IRoutingTableContext:
 			if prevNode == nil {
 				// Input routing table: { param1: source1, param2: source2 } -> func
-				newNodes, newEdges, ok := analyzeInputRoutingTable(
-					acontext.Child(ctx, c),
-					kg,
+				// TODO: Implement input routing table
+				// Input routing tables map sources to named input parameters
+				// Example: { param1: source1, param2: source2 } -> func{}
+				// This is more complex and less commonly used, so implementing as Phase 2.5
+				ctx.Diagnostics.AddError(
+					errors.Newf("input routing tables not yet implemented in text compiler"),
+					ctx.AST,
 				)
-				if !ok {
-					return nil, nil, false
-				}
-				nodes = append(nodes, newNodes...)
-				edges = append(edges, newEdges...)
-				// Find the last node to connect to next flow node
-				if len(newNodes) > 0 {
-					lastNode := newNodes[len(newNodes)-1]
-					prevNode = &lastNode
-					// Output handle depends on what follows the routing table
-					outputParam := ir.DefaultOutputParam
-					if len(lastNode.Outputs) > 0 {
-						outputParam = lastNode.Outputs[0].Name
-					}
-					prevOutputHandle = ir.Handle{Node: lastNode.Key, Param: outputParam}
-				}
+				return nil, nil, false
 			} else {
 				// Output routing table: func -> { output1: target1, output2: target2 }
 				newNodes, newEdges, ok := analyzeOutputRoutingTable(
@@ -655,7 +644,7 @@ func analyzeExpression(
 func analyzeOutputRoutingTable(
 	ctx acontext.Context[parser.IRoutingTableContext],
 	sourceNode ir.Node,
-	sourceHandle ir.Handle,
+	_ ir.Handle,
 	kg *KeyGenerator,
 ) ([]ir.Node, []ir.Edge, bool) {
 	var (
@@ -751,22 +740,6 @@ func analyzeOutputRoutingTable(
 	}
 
 	return nodes, edges, true
-}
-
-func analyzeInputRoutingTable(
-	ctx acontext.Context[parser.IRoutingTableContext],
-	kg *KeyGenerator,
-) ([]ir.Node, []ir.Edge, bool) {
-	// TODO: Implement input routing table
-	// Input routing tables map sources to named input parameters
-	// Example: { param1: source1, param2: source2 } -> func{}
-	// This is more complex and less commonly used, so implementing as Phase 2.5
-
-	ctx.Diagnostics.AddError(
-		errors.Newf("input routing tables not yet implemented in text compiler"),
-		ctx.AST,
-	)
-	return nil, nil, false
 }
 
 // getExpressionText extracts the text representation of an expression

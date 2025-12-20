@@ -243,7 +243,7 @@ func (e *Writer) Reset() {
 
 // === Block Types ===
 
-// BlockType represents the type signature of a block
+// BlockType represents the type signature of a block.
 type BlockType struct {
 	empty     bool
 	valueType ValueType
