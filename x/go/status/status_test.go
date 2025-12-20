@@ -210,12 +210,12 @@ var _ = Describe("Status", func() {
 				}
 				pb, err := status.TranslateToPB(s)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(pb.Key).To(Equal("test-key"))
-				Expect(pb.Name).To(Equal("Test Status"))
-				Expect(pb.Variant).To(Equal("info"))
-				Expect(pb.Message).To(Equal("Test message"))
-				Expect(pb.Description).To(Equal("Test description"))
-				Expect(pb.Time).To(Equal(int64(1609459200000000000)))
+				Expect(pb.GetKey()).To(Equal("test-key"))
+				Expect(pb.GetName()).To(Equal("Test Status"))
+				Expect(pb.GetVariant()).To(Equal("info"))
+				Expect(pb.GetMessage()).To(Equal("Test message"))
+				Expect(pb.GetDescription()).To(Equal("Test description"))
+				Expect(pb.GetTime()).To(Equal(int64(1609459200000000000)))
 			})
 
 			It("Should marshal struct details to JSON", func() {
@@ -227,7 +227,7 @@ var _ = Describe("Status", func() {
 				}
 				pb, err := status.TranslateToPB(s)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(pb.Details).To(Equal(`{"Code":500,"Context":"server error"}`))
+				Expect(pb.GetDetails()).To(Equal(`{"Code":500,"Context":"server error"}`))
 			})
 
 			It("Should marshal primitive details to JSON", func() {
@@ -238,7 +238,7 @@ var _ = Describe("Status", func() {
 				}
 				pb, err := status.TranslateToPB(s)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(pb.Details).To(Equal("42"))
+				Expect(pb.GetDetails()).To(Equal("42"))
 			})
 		})
 

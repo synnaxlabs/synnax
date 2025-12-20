@@ -18,14 +18,9 @@ import (
 	"github.com/synnaxlabs/x/types"
 )
 
-type Validator struct {
-	scope string
-	errors.Catcher
-}
+type Validator struct{ errors.Catcher }
 
-func New(scope string) *Validator {
-	return &Validator{scope: scope, Catcher: *errors.NewCatcher()}
-}
+func New(string) *Validator { return &Validator{Catcher: *errors.NewCatcher()} }
 
 // Ternary adds the error with the given message to the validator if the condition is
 // true.

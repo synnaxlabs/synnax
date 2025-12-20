@@ -33,16 +33,16 @@ func TranslateToPB[D any](status Status[D]) (*PBStatus, error) {
 
 func TranslateFromPB[D any](pbStatus *PBStatus) (Status[D], error) {
 	var details D
-	if err := json.Unmarshal([]byte(pbStatus.Details), &details); err != nil {
+	if err := json.Unmarshal([]byte(pbStatus.GetDetails()), &details); err != nil {
 		return Status[D]{}, err
 	}
 	return Status[D]{
-		Key:         pbStatus.Key,
-		Name:        pbStatus.Name,
-		Variant:     Variant(pbStatus.Variant),
-		Message:     pbStatus.Message,
-		Description: pbStatus.Description,
-		Time:        telem.TimeStamp(pbStatus.Time),
+		Key:         pbStatus.GetKey(),
+		Name:        pbStatus.GetName(),
+		Variant:     Variant(pbStatus.GetVariant()),
+		Message:     pbStatus.GetMessage(),
+		Description: pbStatus.GetDescription(),
+		Time:        telem.TimeStamp(pbStatus.GetTime()),
 		Details:     details,
 	}, nil
 }

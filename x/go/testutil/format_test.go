@@ -10,19 +10,21 @@
 package testutil_test
 
 import (
-	stderrors "errors"
+	"errors"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
-	"github.com/synnaxlabs/x/errors"
+	xerrors "github.com/synnaxlabs/x/errors"
 	_ "github.com/synnaxlabs/x/testutil" // registers the custom formatter
 )
+
+var errStd = errors.New("standard error")
 
 var _ = Describe("Format", func() {
 	Describe("formatErrorWithStack", func() {
 		It("should include stack trace when formatting errors created with errors.New", func() {
-			err := errors.New("test error")
+			err := xerrors.New("test error")
 			formatted := format.Object(err, 1)
 			Expect(formatted).To(ContainSubstring("test error"))
 			Expect(formatted).To(ContainSubstring("Error Origin Stack Trace:"))
@@ -30,15 +32,15 @@ var _ = Describe("Format", func() {
 		})
 
 		It("should include stack trace when formatting wrapped errors", func() {
-			baseErr := errors.New("base error")
-			wrappedErr := errors.Wrap(baseErr, "wrapped")
+			baseErr := xerrors.New("base error")
+			wrappedErr := xerrors.Wrap(baseErr, "wrapped")
 			formatted := format.Object(wrappedErr, 1)
 			Expect(formatted).To(ContainSubstring("wrapped: base error"))
 			Expect(formatted).To(ContainSubstring("Error Origin Stack Trace:"))
 		})
 
 		It("should handle errors without stack traces gracefully", func() {
-			err := stderrors.New("standard error")
+			err := errStd
 			formatted := format.Object(err, 1)
 			Expect(formatted).To(ContainSubstring("standard error"))
 			// Should not contain stack trace header since std errors don't have stack traces

@@ -1078,7 +1078,7 @@ var _ = Describe("Frame", func() {
 			series := make([]telem.Series, 256)
 			for i := range int32(256) {
 				keys[i] = i
-				series[i] = telem.NewSeriesV(int32(i), int32(i+1), int32(i+2))
+				series[i] = telem.NewSeriesV(i, i+1, i+2)
 			}
 			fr := telem.MultiFrame(keys, series)
 
@@ -1292,7 +1292,7 @@ var _ = Describe("Frame", func() {
 			series := make([]telem.Series, 256)
 			for i := range int32(256) {
 				keys[i] = i
-				series[i] = telem.NewSeriesV(int32(i), int32(i+1), int32(i+2))
+				series[i] = telem.NewSeriesV(i, i+1, i+2)
 			}
 			fr := telem.MultiFrame(keys, series)
 
@@ -1506,7 +1506,7 @@ var _ = Describe("Frame", func() {
 			series := make([]telem.Series, 256)
 			for i := range int32(256) {
 				keys[i] = i
-				series[i] = telem.NewSeriesV(int32(i), int32(i+1), int32(i+2))
+				series[i] = telem.NewSeriesV(i, i+1, i+2)
 			}
 			fr := telem.MultiFrame(keys, series)
 
@@ -1720,7 +1720,7 @@ var _ = Describe("Frame", func() {
 			series := make([]telem.Series, 256)
 			for i := range int32(256) {
 				keys[i] = i
-				series[i] = telem.NewSeriesV(int32(i), int32(i+1), int32(i+2))
+				series[i] = telem.NewSeriesV(i, i+1, i+2)
 			}
 			fr := telem.MultiFrame(keys, series)
 
@@ -1934,7 +1934,7 @@ var _ = Describe("Frame", func() {
 			series := make([]telem.Series, 256)
 			for i := range int32(256) {
 				keys[i] = i
-				series[i] = telem.NewSeriesV(int32(i), int32(i+1), int32(i+2))
+				series[i] = telem.NewSeriesV(i, i+1, i+2)
 			}
 			fr := telem.MultiFrame(keys, series)
 
@@ -2148,7 +2148,7 @@ var _ = Describe("Frame", func() {
 			series := make([]telem.Series, 256)
 			for i := range int32(256) {
 				keys[i] = i
-				series[i] = telem.NewSeriesV(int32(i), int32(i+1), int32(i+2))
+				series[i] = telem.NewSeriesV(i, i+1, i+2)
 			}
 			fr := telem.MultiFrame(keys, series)
 
@@ -2362,7 +2362,7 @@ var _ = Describe("Frame", func() {
 			series := make([]telem.Series, 256)
 			for i := range int32(256) {
 				keys[i] = i
-				series[i] = telem.NewSeriesV(int32(i), int32(i+1), int32(i+2))
+				series[i] = telem.NewSeriesV(i, i+1, i+2)
 			}
 			fr := telem.MultiFrame(keys, series)
 
@@ -2576,7 +2576,7 @@ var _ = Describe("Frame", func() {
 			series := make([]telem.Series, 256)
 			for i := range int32(256) {
 				keys[i] = i
-				series[i] = telem.NewSeriesV(int32(i), int32(i+1), int32(i+2))
+				series[i] = telem.NewSeriesV(i, i+1, i+2)
 			}
 			fr := telem.MultiFrame(keys, series)
 
@@ -2790,7 +2790,7 @@ var _ = Describe("Frame", func() {
 			series := make([]telem.Series, 256)
 			for i := range int32(256) {
 				keys[i] = i
-				series[i] = telem.NewSeriesV(int32(i), int32(i+1), int32(i+2))
+				series[i] = telem.NewSeriesV(i, i+1, i+2)
 			}
 			fr := telem.MultiFrame(keys, series)
 
@@ -3004,7 +3004,7 @@ var _ = Describe("Frame", func() {
 			series := make([]telem.Series, 256)
 			for i := range int32(256) {
 				keys[i] = i
-				series[i] = telem.NewSeriesV(int32(i), int32(i+1), int32(i+2))
+				series[i] = telem.NewSeriesV(i, i+1, i+2)
 			}
 			fr := telem.MultiFrame(keys, series)
 
