@@ -105,6 +105,7 @@ public:
 };
 
 class Factory : public node::Factory {
+public:
     telem::TimeSpan timing_base = telem::TimeSpan(std::numeric_limits<int64_t>::max());
 
     std::pair<std::unique_ptr<node::Node>, xerrors::Error>

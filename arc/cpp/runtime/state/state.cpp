@@ -244,8 +244,13 @@ bool Node::refresh_inputs() {
     bool has_unconsumed = false;
     for (size_t i = 0; i < inputs.size(); i++) {
         const auto *src = this->input_sources[i];
-        if (src != nullptr && src->time != nullptr && !src->time->empty()) {
-            if (auto ts = src->time->at<telem::TimeStamp>(-1);
+        // Defensive null checks: verify both smart pointer and underlying raw pointer
+        if (src == nullptr) continue;
+        const auto *time_ptr = src->time.get();
+        const auto *data_ptr = src->data.get();
+        if (time_ptr != nullptr && data_ptr != nullptr && time_ptr->size() > 0 &&
+            data_ptr->size() > 0) {
+            if (auto ts = time_ptr->at<telem::TimeStamp>(-1);
                 ts > this->accumulated[i].last_timestamp) {
                 this->accumulated[i].data = src->data;
                 this->accumulated[i].time = src->time;

@@ -244,6 +244,7 @@ public:
 
 class HybridLoop final : public BaseDarwinLoop {
     std::unique_ptr<::loop::Timer> timer;
+
 public:
     explicit HybridLoop(const Config &config): BaseDarwinLoop(config) {}
 

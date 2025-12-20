@@ -16,8 +16,8 @@
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xmemory/local_shared.h"
 #include "x/cpp/xerrors/errors.h"
+#include "x/cpp/xmemory/local_shared.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/types/types.h"
@@ -130,7 +130,7 @@ public:
     /// @brief Checks if a series is truthy by examining its last element.
     /// Empty series are falsy. A series with a last element of zero is falsy.
     [[nodiscard]] static bool is_series_truthy(const telem::Series &series) {
-        if (series.empty()) return false;
+        if (series.size() == 0) return false;
         const auto last_value = series.at(-1);
         return std::visit(
             [](const auto &v) -> bool {
@@ -145,13 +145,25 @@ public:
             last_value
         );
     }
+
+    /// @brief Checks if an input source is truthy by directly reading the source
+    /// output. This bypasses the watermark-based input system and reads the current
+    /// source value. Used by entry nodes that need to check if they should activate.
+    [[nodiscard]] bool is_input_source_truthy(size_t param_index) const {
+        if (param_index >= input_sources.size()) return false;
+        const auto *src = input_sources[param_index];
+        if (src == nullptr) return false;
+        const auto *data_ptr = src->data.get();
+        if (data_ptr == nullptr) return false;
+        return is_series_truthy(*data_ptr);
+    }
 };
 
 class State {
     friend class Node;
 
     Config cfg;
-    std::unordered_map<ir::Handle, Value, ir::Handle::Hasher> outputs;
+    std::unordered_map<ir::Handle, Value> outputs;
     std::unordered_map<types::ChannelKey, types::ChannelKey> indexes;
     std::unordered_map<types::ChannelKey, std::vector<Series>> reads;
     std::unordered_map<types::ChannelKey, Series> writes;

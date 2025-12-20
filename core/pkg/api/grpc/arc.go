@@ -918,9 +918,14 @@ func translateSequenceFromPB(pb *arcir.PBSequence) arcir.Sequence {
 
 // translateStageToPB converts ir.Stage to *arcir.PBStage
 func translateStageToPB(s arcir.Stage) *arcir.PBStage {
+	strataPb := make([]*arcir.PBStratum, len(s.Strata))
+	for i, stratum := range s.Strata {
+		strataPb[i] = &arcir.PBStratum{Nodes: stratum}
+	}
 	return &arcir.PBStage{
-		Key:   s.Key,
-		Nodes: s.Nodes,
+		Key:    s.Key,
+		Nodes:  s.Nodes,
+		Strata: strataPb,
 	}
 }
 
@@ -929,9 +934,14 @@ func translateStageFromPB(pb *arcir.PBStage) arcir.Stage {
 	if pb == nil {
 		return arcir.Stage{}
 	}
+	strata := make(arcir.Strata, len(pb.Strata))
+	for i, stratumPb := range pb.Strata {
+		strata[i] = stratumPb.Nodes
+	}
 	return arcir.Stage{
-		Key:   pb.Key,
-		Nodes: pb.Nodes,
+		Key:    pb.Key,
+		Nodes:  pb.Nodes,
+		Strata: strata,
 	}
 }
 

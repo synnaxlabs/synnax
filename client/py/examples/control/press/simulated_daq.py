@@ -85,7 +85,7 @@ start_seq_cmd = client.channels.create(
     virtual=True,
 )
 
-loop = sy.Loop(sy.Rate.HZ * 100)
+loop = sy.Loop(sy.Rate.HZ * 3)
 
 state = {
     "daq_time": sy.TimeStamp.now(),

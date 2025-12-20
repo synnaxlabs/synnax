@@ -55,12 +55,6 @@ struct Handle {
 
     bool operator!=(const Handle &other) const { return !(*this == other); }
 
-    struct Hasher {
-        size_t operator()(const Handle &handle) const {
-            return std::hash<std::string>()(handle.node + handle.param);
-        }
-    };
-
     /// @brief Returns the string representation of the handle as "node.param".
     [[nodiscard]] std::string to_string() const { return node + "." + param; }
 
@@ -68,7 +62,16 @@ struct Handle {
         return os << h.to_string();
     }
 };
+}
 
+template <>
+struct std::hash<arc::ir::Handle> {
+    size_t operator()(const arc::ir::Handle &h) const noexcept {
+        return std::hash<std::string>{}(h.node + h.param);
+    }
+};
+
+namespace arc::ir {
 struct Edge {
     Handle source, target;
     EdgeKind kind = EdgeKind::Continuous;
@@ -93,15 +96,6 @@ struct Edge {
         return source == other.source && target == other.target && kind == other.kind;
     }
 
-    struct Hasher {
-        size_t operator()(const Edge &edge) const {
-            const size_t h1 = Handle::Hasher()(edge.source);
-            const size_t h2 = Handle::Hasher()(edge.target);
-            const size_t h3 = std::hash<int>()(static_cast<int>(edge.kind));
-            return h1 ^ (h2 << 1) ^ (h3 << 2);
-        }
-    };
-
     /// @brief Returns the string representation of the edge.
     [[nodiscard]] std::string to_string() const {
         const std::string arrow = (kind == EdgeKind::OneShot) ? " => " : " -> ";
@@ -114,7 +108,18 @@ struct Edge {
         return os << e.to_string();
     }
 };
+}
 
+template <>
+struct std::hash<arc::ir::Edge> {
+    size_t operator()(const arc::ir::Edge &e) const noexcept {
+        return std::hash<arc::ir::Handle>{}(e.source) ^
+               (std::hash<arc::ir::Handle>{}(e.target) << 1) ^
+               (std::hash<int>{}(static_cast<int>(e.kind)) << 2);
+    }
+};
+
+namespace arc::ir {
 struct Param {
     std::string name;
     types::Type type;

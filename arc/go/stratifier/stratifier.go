@@ -72,37 +72,60 @@ func Stratify(
 	}
 
 	// Step 1: Stratify global nodes (nodes not in any stage)
-	// Entry nodes are included in global strata when they receive activation from
-	// global sources (e.g., start_cmd => main)
+	// Entry nodes are only included in global strata if they receive activation from
+	// global sources (e.g., start_cmd => main). Entry nodes with no global incoming
+	// edges are excluded to prevent them from being placed at stratum 0 and firing
+	// every cycle.
+
+	// First, collect all non-staged nodes
 	var globalNodes []ir.Node
+	globalNodeSet := make(set.Set[string])
 	for _, node := range nodes {
 		if !stagedNodes.Contains(node.Key) {
 			globalNodes = append(globalNodes, node)
+			globalNodeSet.Add(node.Key)
 		}
+	}
+
+	// Build set of entry nodes that have incoming edges from global sources
+	entryNodesWithGlobalInput := make(set.Set[string])
+	for _, edge := range edges {
+		if globalNodeSet.Contains(edge.Source.Node) && entryNodes.Contains(edge.Target.Node) {
+			entryNodesWithGlobalInput.Add(edge.Target.Node)
+		}
+	}
+
+	// Filter global nodes: exclude entry nodes that don't have global incoming edges
+	var filteredGlobalNodes []ir.Node
+	filteredGlobalNodeSet := make(set.Set[string])
+	for _, node := range globalNodes {
+		if entryNodes.Contains(node.Key) && !entryNodesWithGlobalInput.Contains(node.Key) {
+			// Entry node with no global incoming edges - exclude from global strata
+			continue
+		}
+		filteredGlobalNodes = append(filteredGlobalNodes, node)
+		filteredGlobalNodeSet.Add(node.Key)
 	}
 
 	// Filter edges for global subgraph: edges where source is a global node
 	// (target can be global node or entry node of a stage)
-	globalNodeSet := make(set.Set[string])
-	for _, node := range globalNodes {
-		globalNodeSet.Add(node.Key)
-	}
-
 	var globalEdges []ir.Edge
 	for _, edge := range edges {
-		if globalNodeSet.Contains(edge.Source.Node) {
+		if filteredGlobalNodeSet.Contains(edge.Source.Node) {
 			// Source is global - include this edge
 			// Target can be global or an entry node
 			globalEdges = append(globalEdges, edge)
 		}
 	}
 
-	globalStrata, cycleDiag := stratifySubgraph(globalNodes, globalEdges, diag)
+	globalStrata, cycleDiag := stratifySubgraph(filteredGlobalNodes, globalEdges, diag)
 	if cycleDiag != nil && !cycleDiag.Ok() {
 		return ir.Strata{}, cycleDiag
 	}
 
 	// Step 2: Stratify each stage independently
+	// Entry nodes that receive edges from a stage are included in that stage's
+	// stratification so they fire after their source nodes within the stage.
 	for i, seq := range sequences {
 		for j, stage := range seq.Stages {
 			stageNodeSet := make(set.Set[string])
@@ -110,17 +133,37 @@ func Stratify(
 				stageNodeSet.Add(nodeKey)
 			}
 
-			// Collect nodes for this stage
+			// Find entry nodes that receive edges from this stage
+			// These need to be included in the stage's strata so they can fire
+			// when their source nodes output truthy values
+			entryNodesForStage := make(set.Set[string])
+			for _, edge := range edges {
+				if stageNodeSet.Contains(edge.Source.Node) && entryNodes.Contains(edge.Target.Node) {
+					entryNodesForStage.Add(edge.Target.Node)
+				}
+			}
+
+			// Add entry nodes to stage node set for stratification
+			for entryKey := range entryNodesForStage {
+				stageNodeSet.Add(entryKey)
+			}
+
+			// Collect nodes for this stage (including entry nodes that receive edges)
 			var stageNodes []ir.Node
 			for _, nodeKey := range stage.Nodes {
 				if node, ok := nodeByKey[nodeKey]; ok {
 					stageNodes = append(stageNodes, node)
 				}
 			}
+			for entryKey := range entryNodesForStage {
+				if node, ok := nodeByKey[entryKey]; ok {
+					stageNodes = append(stageNodes, node)
+				}
+			}
 
 			// Filter edges for this stage:
-			// - Edges where source is in this stage
-			// - Target can be in this stage OR an entry node of another stage (sink)
+			// - Edges where source is in this stage (including edges to entry nodes)
+			// - Target can be in this stage OR an entry node of another stage
 			var stageEdges []ir.Edge
 			for _, edge := range edges {
 				if stageNodeSet.Contains(edge.Source.Node) {

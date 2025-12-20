@@ -32,10 +32,15 @@ public:
         node_key(std::move(node_key)), state(std::move(state)) {}
 
     xerrors::Error next(node::Context &ctx) override {
-        if (!state.refresh_inputs()) return xerrors::NIL;
-        auto &input = state.input(0);
-        if (input->size() == 0) return xerrors::NIL;
-        if (input->at<std::uint8_t>(0) == 1) ctx.activate_stage(node_key);
+        // Entry nodes check their input source directly, bypassing watermark tracking.
+        // This is necessary because:
+        // 1. Entry nodes are executed when a one-shot edge fires (source is truthy)
+        // 2. The watermark system may not see "new" data if timestamps didn't change
+        // 3. The truthiness check was already done by mark_changed() before firing
+        //
+        // By reading the source directly, we correctly detect when the upstream
+        // condition is met, regardless of timestamp changes.
+        if (state.is_input_source_truthy(0)) { ctx.activate_stage(node_key); }
         return xerrors::NIL;
     }
 

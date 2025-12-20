@@ -121,20 +121,56 @@ sequence main {
 	})
 
 	It("Should correctly generate strata for a loop", func() {
-		_ = `
-		// Strata 0: Always fires
-		start_seq_cmd =>
-		main
+		mod := compile(`
+		start_seq_cmd => main
+
+		func expr(in f32) u8 {
+			return in > 2
+		}
+
+		func expr2(in f32) u8 {
+			return in < 0.3
+		}
 
 		sequence main {
-			stage first {
-				0 -> press_vlv_cmd -> second,
+			stage press {
+				1 -> press_vlv_cmd,
+				press_pt -> expr{} => next
 			}
-			stage second {
-				1 -> press_vlv_cmd -> first,
+			stage vent {
+				1 -> vent_vlv_cmd,
+				0 -> press_vlv_cmd,
+				press_pt -> expr2{} => press
 			}
 		}
-		`
+		`,
+			symbol.MapResolver{
+				"press_vlv_cmd": arc.Symbol{
+					Name: "press_vlv_cmd",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   1,
+				},
+				"vent_vlv_cmd": arc.Symbol{
+					Name: "vent_vlv_cmd",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   1,
+				},
+				"press_pt": arc.Symbol{
+					Name: "press_pt",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   2,
+				},
+				"start_seq_cmd": arc.Symbol{
+					Name: "start_seq_cmd",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   3,
+				},
+			})
+		fmt.Println(mod)
 		// Question: what's the evaluation order:
 		// 1. Execute root strata
 		// Execution limit loop: 'convergence'

@@ -295,7 +295,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	}
 
 	// Create scheduler with time wheel
-	sched := scheduler.New(ctx, cfg.Module.IR, nodes)
+	sched := scheduler.New(cfg.Module.IR, nodes)
 	r := &Runtime{
 		scheduler: sched,
 		state:     progState,
