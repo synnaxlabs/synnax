@@ -33,11 +33,11 @@ type Runtime struct {
 
 	// State storage for stateful variables
 	// Key: (funcID << 32) | varID
-	stateU8     map[uint64]uint8
+	stateU8    map[uint64]uint8
 	stateU16    map[uint64]uint16
 	stateU32    map[uint64]uint32
 	stateU64    map[uint64]uint64
-	stateI8     map[uint64]int8
+	stateI8    map[uint64]int8
 	stateI16    map[uint64]int16
 	stateI32    map[uint64]int32
 	stateI64    map[uint64]int64
@@ -52,11 +52,11 @@ func NewRuntime(state *state.State, memory api.Memory) *Runtime {
 		memory:              memory,
 		strings:             make(map[uint32]string),
 		stringHandleCounter: 1, // Start at 1, 0 is reserved for empty/null
-		stateU8:             make(map[uint64]uint8),
+		stateU8:            make(map[uint64]uint8),
 		stateU16:            make(map[uint64]uint16),
 		stateU32:            make(map[uint64]uint32),
 		stateU64:            make(map[uint64]uint64),
-		stateI8:             make(map[uint64]int8),
+		stateI8:            make(map[uint64]int8),
 		stateI16:            make(map[uint64]int16),
 		stateI32:            make(map[uint64]int32),
 		stateI64:            make(map[uint64]int64),

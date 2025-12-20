@@ -49,35 +49,35 @@ import (
 	"math"
 
 	"github.com/synnaxlabs/arc/runtime/state"
-	"github.com/synnaxlabs/x/telem"
 	xmath "github.com/synnaxlabs/x/math"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/tetratelabs/wazero/api"
 )
 
 // Runtime provides the actual implementation of Arc runtime functions.
 // This is the "business logic" layer that the bindings call.
 type Runtime struct {
-	state *state.State
-	memory api.Memory  // WASM memory for reading string literals
+	state  *state.State
+	memory api.Memory // WASM memory for reading string literals
 
 	// String storage - handle to string mapping
-	strings map[uint32]string
+	strings             map[uint32]string
 	stringHandleCounter uint32
 
 	// State storage for stateful variables
 	// Key: (funcID << 32) | varID
-{{range .NumericTypes}}	state{{.IRType | title}} map[uint64]{{.GoType}}
+{{range .NumericTypes}}	state{{.IRType | title}}    map[uint64]{{.GoType}}
 {{end}}	stateString map[uint64]string
 }
 
 func NewRuntime(state *state.State, memory api.Memory) *Runtime {
 	return &Runtime{
-		state: state,
-		memory: memory,
-		strings: make(map[uint32]string),
+		state:               state,
+		memory:              memory,
+		strings:             make(map[uint32]string),
 		stringHandleCounter: 1, // Start at 1, 0 is reserved for empty/null
-{{range .NumericTypes}}		state{{.IRType | title}}: make(map[uint64]{{.GoType}}),
-{{end}}		stateString: make(map[uint64]string),
+{{range .NumericTypes}}		state{{.IRType | title}}:            make(map[uint64]{{.GoType}}),
+{{end}}		stateString:         make(map[uint64]string),
 	}
 }
 
@@ -92,7 +92,6 @@ func stateKey(funcID uint32, varID uint32) uint64 {
 }
 
 // ===== Channel Operations =====
-
 {{range .Types}}{{if ne .IRType "str"}}
 // ChannelRead{{.IRType | title}} reads the latest value from a channel.
 func (r *Runtime) ChannelRead{{.IRType | title}}(ctx context.Context, channelID uint32) {{.GoType}} {
@@ -114,9 +113,7 @@ func (r *Runtime) ChannelWrite{{.IRType | title}}(ctx context.Context, channelID
 	r.state.WriteChannelValue(channelID, series)
 }
 {{end}}{{end}}
-
 // ===== State Operations =====
-
 {{range .Types}}{{if ne .IRType "str"}}
 // StateLoad{{.IRType | title}} loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoad{{.IRType | title}}(ctx context.Context, funcID uint32, varID uint32, initValue {{.GoType}}) {{.GoType}} {
@@ -135,7 +132,6 @@ func (r *Runtime) StateStore{{.IRType | title}}(ctx context.Context, funcID uint
 	r.state{{.IRType | title}}[key] = value
 }
 {{end}}{{end}}
-
 // ===== Generic Operations =====
 
 // Now returns the current timestamp.
@@ -164,14 +160,12 @@ func (r *Runtime) MathPowF32(ctx context.Context, base float32, exponent float32
 func (r *Runtime) MathPowF64(ctx context.Context, base float64, exponent float64) float64 {
 	return math.Pow(base, exponent)
 }
-
 {{range .IntegerTypes}}
 // MathPow{{.IRType | title}} computes base^exponent for {{.IRType}} using integer exponentiation.
 func (r *Runtime) MathPow{{.IRType | title}}(ctx context.Context, base {{.GoType}}, exponent {{.GoType}}) {{.GoType}} {
 	return xmath.IntPow(base, int(exponent))
 }
 {{end}}
-
 // ===== String Operations =====
 
 // StringFromLiteral creates a string from WASM memory and returns a handle.
