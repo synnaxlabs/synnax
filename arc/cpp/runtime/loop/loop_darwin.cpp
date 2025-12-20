@@ -242,24 +242,17 @@ public:
     }
 };
 
-// ============================================================================
-// HYBRID Implementation
-// ============================================================================
 class HybridLoop final : public BaseDarwinLoop {
     std::unique_ptr<::loop::Timer> timer;
-
 public:
     explicit HybridLoop(const Config &config): BaseDarwinLoop(config) {}
 
     xerrors::Error start() override {
         if (running) return xerrors::NIL;
+        if (auto err = setup_kqueue()) return err;
 
-        auto err = setup_kqueue();
-        if (err) return err;
-
-        if (cfg.interval.nanoseconds() > 0) {
+        if (cfg.interval.nanoseconds() > 0)
             timer = std::make_unique<::loop::Timer>(cfg.interval);
-        }
 
         apply_thread_config();
         running = true;
@@ -287,9 +280,8 @@ public:
             }
         }
 
-        // Block phase - wait on kqueue with timeout
         timeout.tv_sec = 0;
-        timeout.tv_nsec = 10'000'000; // 10ms max block
+        timeout.tv_nsec = 10'000'000;
 
         const int n = kevent(kqueue_fd_, nullptr, 0, events, 2, &timeout);
         if (n > 0 || data_available.load(std::memory_order_acquire)) {
