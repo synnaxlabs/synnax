@@ -100,7 +100,13 @@ public:
         if (data->empty()) return xerrors::NIL;
         // TODO: Fix this hacky code
         const auto start = telem::TimeStamp::now();
-        const auto time = xmemory::local_shared(telem::Series::linspace(start, start + 100 * telem::MICROSECOND, data->size()));
+        const auto time = xmemory::local_shared(
+            telem::Series::linspace(
+                start,
+                start + 100 * telem::MICROSECOND,
+                data->size()
+            )
+        );
         state.write_chan(channel_key, data, time);
         return xerrors::NIL;
     }

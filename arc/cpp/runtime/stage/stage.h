@@ -35,7 +35,7 @@ public:
         // Entry nodes only execute when the scheduler's mark_changed() adds them
         // to the changed set. mark_changed() already validates is_output_truthy()
         // on the upstream node for one-shot edges, so no input check is needed here.
-        ctx.activate_stage(node_key);
+        ctx.activate_stage();
         return xerrors::NIL;
     }
 

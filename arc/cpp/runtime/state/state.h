@@ -145,7 +145,6 @@ public:
             last_value
         );
     }
-
 };
 
 class State {

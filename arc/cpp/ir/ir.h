@@ -609,10 +609,10 @@ struct IR {
         });
     }
 
-    [[nodiscard]] std::vector<Edge> outgoing_edges(const std::string &node_key) const {
-        std::vector<Edge> result;
+    [[nodiscard]] std::unordered_map<std::string, std::vector<Edge>> outgoing_edges(const std::string &node_key) const {
+        std::unordered_map<std::string, std::vector<Edge>> result;
         for (const auto &e: edges)
-            if (e.source.node == node_key) result.push_back(e);
+            if (e.source.node == node_key) result[e.source.param].push_back(e);
         return result;
     }
 
