@@ -22,13 +22,11 @@ import (
 	arcsymbol "github.com/synnaxlabs/arc/symbol"
 	arctext "github.com/synnaxlabs/arc/text"
 	arctypes "github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/x/spatial"
-	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -955,46 +953,4 @@ func newArc(a *api.Transport) fgrpc.CompoundBindableTransport {
 	a.ArcRetrieve = r
 	a.ArcDelete = d
 	return []fgrpc.BindableTransport{c, r, d}
-}
-
-func NewArcCreateClient(
-	pool *fgrpc.Pool,
-) freighter.UnaryClient[api.ArcCreateRequest, api.ArcCreateResponse] {
-	return &arcCreateClient{
-		RequestTranslator:  arcCreateRequestTranslator{},
-		ResponseTranslator: arcCreateResponseTranslator{},
-		Pool:               pool,
-		ServiceDesc:        &gapi.ArcCreateService_ServiceDesc,
-		Exec: func(ctx context.Context, connInterface grpc.ClientConnInterface, request *gapi.ArcCreateRequest) (*gapi.ArcCreateResponse, error) {
-			return gapi.NewArcCreateServiceClient(connInterface).Exec(ctx, request)
-		},
-	}
-}
-
-func NewArcRetrieveClient(
-	pool *fgrpc.Pool,
-) freighter.UnaryClient[api.ArcRetrieveRequest, api.ArcRetrieveResponse] {
-	return &arcRetrieveClient{
-		RequestTranslator:  arcRetrieveRequestTranslator{},
-		ResponseTranslator: arcRetrieveResponseTranslator{},
-		Pool:               pool,
-		ServiceDesc:        &gapi.ArcRetrieveService_ServiceDesc,
-		Exec: func(ctx context.Context, connInterface grpc.ClientConnInterface, request *gapi.ArcRetrieveRequest) (*gapi.ArcRetrieveResponse, error) {
-			return gapi.NewArcRetrieveServiceClient(connInterface).Exec(ctx, request)
-		},
-	}
-}
-
-func NewArcDeleteClient(
-	pool *fgrpc.Pool,
-) freighter.UnaryClient[api.ArcDeleteRequest, types.Nil] {
-	return &arcDeleteClient{
-		RequestTranslator:  arcDeleteRequestTranslator{},
-		ResponseTranslator: fgrpc.EmptyTranslator{},
-		Pool:               pool,
-		ServiceDesc:        &gapi.ArcDeleteService_ServiceDesc,
-		Exec: func(ctx context.Context, connInterface grpc.ClientConnInterface, request *gapi.ArcDeleteRequest) (*emptypb.Empty, error) {
-			return gapi.NewArcDeleteServiceClient(connInterface).Exec(ctx, request)
-		},
-	}
 }
