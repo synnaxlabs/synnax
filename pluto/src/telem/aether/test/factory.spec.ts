@@ -19,7 +19,7 @@ const createMockTelem = (): Telem => ({
 
 describe("TestFactory", () => {
   describe("registerTestInstance and unregisterTestInstance", () => {
-    it.only("should register an instance that can be retrieved by factory", () => {
+    it("should register an instance that can be retrieved by factory", () => {
       const instance = createMockTelem();
       const id = "test-id-1";
 
