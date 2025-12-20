@@ -9,7 +9,7 @@
 
 import "@/hardware/modbus/task/Task.css";
 
-import { NotFoundError } from "@synnaxlabs/client";
+import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon, Select, Telem } from "@synnaxlabs/pluto";
 import { DataType, deep, id } from "@synnaxlabs/x";
 import { type FC } from "react";
@@ -162,8 +162,8 @@ const readMapKey = (channel: InputChannel) => {
   return s.replaceAll("_", "-");
 };
 
-const channelName = (device: Device.Device, channel: InputChannel) => {
-  let s = `${device.name}_${channel.type}_${channel.address}`;
+const channelName = (deviceName: string, channel: InputChannel) => {
+  let s = `${deviceName}_${channel.type}_${channel.address}`;
   if (isVariableDensityInputChannel(channel))
     s += `_${new DataType(channel.dataType).toString(true)}`;
   return s;
@@ -202,10 +202,11 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     }
   else shouldCreateIndex = true;
   let modified = false;
+  const safeName = channel.escapeInvalidName(dev.name);
   if (shouldCreateIndex) {
     modified = true;
     const index = await client.channels.create({
-      name: `${dev.name}_time`,
+      name: `${safeName}_time`,
       dataType: "timestamp",
       isIndex: true,
     });
@@ -229,7 +230,7 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     modified = true;
     const channels = await client.channels.create(
       toCreate.map((c) => ({
-        name: channelName(dev, c),
+        name: channelName(safeName, c),
         dataType: (c as TypedInput).dataType ?? DataType.UINT8.toString(),
         index: dev.properties.read.index,
       })),

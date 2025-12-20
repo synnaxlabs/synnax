@@ -29,8 +29,7 @@ export type Variant = "prose" | "code" | "keyboard" | "link";
 export type Overflow = "ellipsis" | "clip" | "nowrap" | "wrap";
 
 export interface ExtensionProps
-  extends Flex.BoxExtensionProps,
-    Pick<AnchorProps, "href" | "target" | "rel"> {
+  extends Flex.BoxExtensionProps, Pick<AnchorProps, "href" | "target" | "rel"> {
   /* The level of text to display i.e. p, h1, h2 */
   level?: text.Level;
   /* The text to display */
@@ -48,6 +47,8 @@ export interface ExtensionProps
   overflow?: Overflow;
   /* Status sets the status of the text */
   status?: status.Variant;
+  /* LineClamp sets the maximum number of lines before truncating with ellipsis */
+  lineClamp?: number;
 }
 
 export type TextProps<E extends Generic.ElementType = "p"> = Omit<
@@ -104,6 +105,19 @@ const parseElement = <E extends Generic.ElementType = "p">(
   return "p" as E;
 };
 
+const formatStyle = (
+  base: React.CSSProperties | undefined,
+  weight: text.Weight | undefined,
+  lineClamp: number | undefined,
+): React.CSSProperties => {
+  const style: React.CSSProperties = {
+    ...base,
+    fontWeight: weight,
+  };
+  if (lineClamp != null) style.WebkitLineClamp = lineClamp;
+  return style;
+};
+
 export const Text = <E extends Generic.ElementType = "p">({
   level = "p",
   className,
@@ -116,17 +130,19 @@ export const Text = <E extends Generic.ElementType = "p">({
   href,
   autoFormatHref,
   status,
+  lineClamp,
   ...rest
 }: TextProps<E>): ReactElement => (
   <Flex.Box<E>
     direction="x"
     el={parseElement<E>(level, el, defaultEl, variant, href)}
-    style={{ fontWeight: weight, ...style }}
+    style={formatStyle(style, weight, lineClamp)}
     className={CSS(
       CSS.B("text"),
       variant != null && CSS.BM("text", variant),
       CSS.BM("text", level),
       overflow != null && CSS.BM("text", "overflow", overflow),
+      lineClamp != null && CSS.BM("text", "line-clamp"),
       status != null && CSS.M("status", status),
       className,
     )}

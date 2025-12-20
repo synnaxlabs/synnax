@@ -24,7 +24,8 @@ import { type Input } from "@/input";
 import { Text } from "@/text";
 
 export interface PickerProps
-  extends Input.Control<color.Crude, color.Color>,
+  extends
+    Input.Control<color.Crude, color.Color>,
     Omit<ComponentPropsWithoutRef<"div">, "onChange"> {
   onDelete?: () => void;
   position?: number;

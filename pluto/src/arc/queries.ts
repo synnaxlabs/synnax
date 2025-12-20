@@ -206,7 +206,7 @@ export interface RenameParams extends Pick<arc.Arc, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,
-  verbs: Flux.UPDATE_VERBS,
+  verbs: Flux.RENAME_VERBS,
   update: async ({ client, store, data: { key, name }, rollbacks }) => {
     const arc = await retrieveSingle({ client, store, query: { key } });
     rollbacks.push(

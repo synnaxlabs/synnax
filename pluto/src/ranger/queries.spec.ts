@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type ranger } from "@synnaxlabs/client";
+import { createTestClient, ranger } from "@synnaxlabs/client";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -251,6 +251,58 @@ describe("queries", () => {
       await waitFor(() => {
         expect(result.current.data).not.toContain(testRange.key);
       });
+    });
+
+    it("should filter ranges by labels", async () => {
+      const label = await client.labels.create({
+        name: "Filter Label",
+        color: "#000000",
+      });
+      const r = await client.ranges.create({
+        name: "Filter Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      await client.labels.label(ranger.ontologyID(r.key), [label.key]);
+      const { result } = renderHook(
+        () => Ranger.useList({ initialQuery: { hasLabels: [label.key] } }),
+        { wrapper },
+      );
+      act(() => {
+        result.current.retrieve(
+          { hasLabels: [label.key] },
+          { signal: controller.signal },
+        );
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).toHaveLength(1);
+      expect(result.current.data).toContain(r.key);
+      // add a new range without the label
+      const r2 = await client.ranges.create({
+        name: "Unlabeled Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      act(() => {
+        result.current.retrieve(
+          { hasLabels: [label.key] },
+          { signal: controller.signal },
+        );
+      });
+      await waitFor(() => expect(result.current.data).toHaveLength(1));
+      expect(result.current.data).not.toContain(r2.key);
+      // add a new range with the label
+      const r3 = await client.ranges.create({
+        name: "Labeled Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      await client.labels.label(ranger.ontologyID(r3.key), [label.key]);
+      act(() => {
+        result.current.retrieve(
+          { hasLabels: [label.key] },
+          { signal: controller.signal },
+        );
+      });
+      await waitFor(() => expect(result.current.data).toHaveLength(2));
+      expect(result.current.data).toContain(r3.key);
     });
 
     it("should handle ranges with custom colors", async () => {

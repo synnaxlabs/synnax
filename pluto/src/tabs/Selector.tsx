@@ -27,8 +27,10 @@ import { type Spec } from "@/tabs/types";
 import { useContext } from "@/tabs/useContext";
 import { Text } from "@/text";
 
-export interface SelectorProps
-  extends Omit<Flex.BoxProps, "children" | "contextMenu" | "onDrop"> {
+export interface SelectorProps extends Omit<
+  Flex.BoxProps,
+  "children" | "contextMenu" | "onDrop"
+> {
   size?: Component.Size;
   altColor?: boolean;
   contextMenu?: Menu.ContextMenuProps["menu"];
@@ -166,8 +168,7 @@ const calculateDragOverPosition = (e: React.DragEvent<HTMLElement>): location.X 
 };
 
 interface StartIconProps
-  extends Icon.IconProps,
-    Pick<SelectorButtonProps, "icon" | "loading"> {
+  extends Icon.IconProps, Pick<SelectorButtonProps, "icon" | "loading"> {
   level: Text.Level;
 }
 

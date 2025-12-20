@@ -21,7 +21,8 @@ import { Status } from "@/status/core";
 import { Text } from "@/text";
 
 export interface DialogProps<K extends record.Key>
-  extends Omit<CoreDialog.DialogProps, "children">,
+  extends
+    Omit<CoreDialog.DialogProps, "children">,
     Omit<SearchInputProps, "searchPlaceholder">,
     Pick<List.ItemsProps<K>, "emptyContent" | "children"> {
   status?: status.Status;

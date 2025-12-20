@@ -28,7 +28,7 @@ const useAdd = (): (() => void) => {
 const SelectEmptyContent = (): ReactElement => {
   const add = useAdd();
   return (
-    <EmptyAction message="No labels created." action="Create a Label" onClick={add} />
+    <EmptyAction message="No labels created." action="Create a label" onClick={add} />
   );
 };
 

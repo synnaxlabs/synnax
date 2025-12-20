@@ -31,8 +31,7 @@ import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 
 export interface DateTimeProps
-  extends Omit<TextProps, "type" | "value" | "onChange">,
-    Control<number> {}
+  extends Omit<TextProps, "type" | "value" | "onChange">, Control<number> {}
 
 export const DateTime = ({
   value,

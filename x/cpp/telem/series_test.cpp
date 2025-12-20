@@ -15,7 +15,7 @@
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
-#include "x/go/telem/x/go/telem/telem.pb.h"
+#include "x/go/telem/telem.pb.h"
 
 template<typename T>
 class NumericSeriesTest : public ::testing::Test {
@@ -65,7 +65,7 @@ using NumericTypes = ::testing::Types<
 
 TYPED_TEST_SUITE(NumericSeriesTest, NumericTypes);
 
-/// @brief it should correctly construct the series from a ve
+/// @brief it should correctly construct the series from a vector.
 TYPED_TEST(NumericSeriesTest, testNumericVectorConstruction) {
     std::vector<TypeParam> vals;
     if constexpr (std::is_floating_point_v<TypeParam>)
@@ -162,7 +162,7 @@ TEST(TestSeries, testTimestampNowConstruction) {
     ASSERT_EQ(v[0], now.nanoseconds());
 }
 
-// Special cases that can't be handled by the typed test
+/// @brief it should correctly construct the series from a timestamp sample value.
 TEST(TestSeries, testSampleValueConstructionTimeStamp) {
     telem::TimeStamp ts(1000);
     telem::SampleValue val = ts;
@@ -192,7 +192,7 @@ TEST(TestSeries, testInlineVectorConstruction) {
     ASSERT_EQ(s.at<float>(2), 3);
 }
 
-//// @brief it should correctly serialize and deserialize the series from protoubuf.
+/// @brief it should correctly serialize and deserialize the series from protobuf.
 TEST(TestSeries, testProto) {
     const std::vector<uint16_t> vals = {1, 2, 3, 4, 5};
     const telem::Series s{vals};
@@ -400,48 +400,56 @@ protected:
     }
 };
 
+/// @brief it should retrieve uint8 values at specific indices.
 TEST_F(SeriesAtTest, testAtUInt8) {
     const std::vector<uint8_t> vals = {1, 2, 3, 4, 5};
     const telem::Series s{vals};
     validateAt(s, vals, telem::UINT8_T);
 }
 
+/// @brief it should retrieve uint32 values at specific indices.
 TEST_F(SeriesAtTest, testAtUInt32) {
     const std::vector<uint32_t> vals = {100000, 200000, 300000};
     const telem::Series s{vals};
     validateAt(s, vals, telem::UINT32_T);
 }
 
+/// @brief it should retrieve uint64 values at specific indices.
 TEST_F(SeriesAtTest, testAtUInt64) {
     const std::vector<uint64_t> vals = {1000000000ULL, 2000000000ULL, 3000000000ULL};
     const telem::Series s{vals};
     validateAt(s, vals, telem::UINT64_T);
 }
 
+/// @brief it should retrieve int32 values at specific indices.
 TEST_F(SeriesAtTest, testAtInt32) {
     const std::vector<int32_t> vals = {-100000, 0, 100000};
     const telem::Series s{vals};
     validateAt(s, vals, telem::INT32_T);
 }
 
+/// @brief it should retrieve int64 values at specific indices.
 TEST_F(SeriesAtTest, testAtInt64) {
     const std::vector<int64_t> vals = {-1000000000LL, 0, 1000000000LL};
     const telem::Series s{vals};
     validateAt(s, vals, telem::INT64_T);
 }
 
+/// @brief it should retrieve float32 values at specific indices.
 TEST_F(SeriesAtTest, testAtFloat32) {
     const std::vector vals = {-1.5f, 0.0f, 1.5f};
     const telem::Series s{vals};
     validateAt(s, vals, telem::FLOAT32_T);
 }
 
+/// @brief it should retrieve float64 values at specific indices.
 TEST_F(SeriesAtTest, testAtFloat64) {
     const std::vector vals = {-1.5, 0.0, 1.5};
     const telem::Series s{vals};
     validateAt(s, vals, telem::FLOAT64_T);
 }
 
+/// @brief it should retrieve timestamp values at specific indices.
 TEST_F(SeriesAtTest, testAtTimestamp) {
     const std::vector vals = {
         telem::TimeStamp(1000),
@@ -453,6 +461,7 @@ TEST_F(SeriesAtTest, testAtTimestamp) {
     ASSERT_EQ(std::get<telem::TimeStamp>(sample).nanoseconds(), 1000);
 }
 
+/// @brief it should construct a series from JSON values.
 TEST(TestSeries, testJSONValueConstruction) {
     json obj = {{"key", "value"}};
     telem::Series s1(obj);
@@ -481,11 +490,13 @@ TEST(TestSeries, testJSONValueConstruction) {
     ASSERT_EQ(v3[0], arr.dump());
 }
 
+/// @brief it should deep copy a fixed data type series.
 TEST(TestSeries, testDeepCopy) {
     telem::Series s1{telem::UINT32_T, 3};
     s1.write(1);
     s1.write(2);
     s1.write(3);
+    s1.alignment = telem::Alignment(5, 10);
 
     const telem::Series s2 = s1.deep_copy();
     ASSERT_EQ(s2.size(), 3);
@@ -495,10 +506,13 @@ TEST(TestSeries, testDeepCopy) {
     ASSERT_EQ(s2.data_type(), telem::UINT32_T);
     ASSERT_EQ(s2.byte_size(), s1.byte_size());
     ASSERT_EQ(s2.cap(), s1.cap());
+    ASSERT_EQ(s2.alignment.uint64(), s1.alignment.uint64());
 }
 
+/// @brief it should deep copy a variable data type series.
 TEST(TestSeries, testDeepCopyVariableDataType) {
-    const telem::Series s1{std::vector<std::string>{"hello", "world", "test"}};
+    telem::Series s1{std::vector<std::string>{"hello", "world", "test"}};
+    s1.alignment = telem::Alignment(7, 42);
     ASSERT_EQ(s1.size(), 3);
     const telem::Series s2 = s1.deep_copy();
     ASSERT_EQ(s2.size(), 3);
@@ -508,8 +522,27 @@ TEST(TestSeries, testDeepCopyVariableDataType) {
     ASSERT_EQ(s2.data_type(), telem::STRING_T);
     ASSERT_EQ(s2.byte_size(), s1.byte_size());
     ASSERT_EQ(s2.cap(), s1.cap());
+    ASSERT_EQ(s2.alignment.uint64(), s1.alignment.uint64());
 }
 
+/// @brief it should preserve alignment when moving a series.
+TEST(TestSeries, testMovePreservesAlignment) {
+    telem::Series s1{telem::UINT32_T, 3};
+    s1.write(1);
+    s1.write(2);
+    s1.write(3);
+    s1.alignment = telem::Alignment(5, 10);
+
+    telem::Series s2 = std::move(s1);
+    ASSERT_EQ(s2.size(), 3);
+    ASSERT_EQ(s2.at<std::uint32_t>(0), 1);
+    ASSERT_EQ(s2.at<std::uint32_t>(1), 2);
+    ASSERT_EQ(s2.at<std::uint32_t>(2), 3);
+    ASSERT_EQ(s2.data_type(), telem::UINT32_T);
+    ASSERT_EQ(s2.alignment.uint64(), telem::Alignment(5, 10).uint64());
+}
+
+/// @brief it should generate evenly spaced timestamps.
 TEST(TestSeriesLinspace, BasicEvenSpacing) {
     const auto start = telem::TimeStamp(100);
     const auto end = telem::TimeStamp(500);
@@ -525,6 +558,7 @@ TEST(TestSeriesLinspace, BasicEvenSpacing) {
     ASSERT_EQ(values[4], 420);
 }
 
+/// @brief it should generate a single point linspace series.
 TEST(TestSeriesLinspace, SinglePoint) {
     const auto start = telem::TimeStamp(100);
     const auto end = telem::TimeStamp(500);
@@ -533,6 +567,7 @@ TEST(TestSeriesLinspace, SinglePoint) {
     ASSERT_EQ(s.at<uint64_t>(0), 100); // Should be starting value
 }
 
+/// @brief it should generate linspace with large timestamps.
 TEST(TestSeriesLinspace, LargeTimestamps) {
     const auto start = telem::TimeStamp(1000000000000ULL);
     const auto end = telem::TimeStamp(1000000001000ULL);
@@ -544,6 +579,7 @@ TEST(TestSeriesLinspace, LargeTimestamps) {
     ASSERT_EQ(values[2], 1000000000666ULL);
 }
 
+/// @brief it should generate constant values when start equals end.
 TEST(TestSeriesLinspace, EqualStartEnd) {
     const auto timestamp = telem::TimeStamp(100);
     const auto s = telem::Series::linspace(timestamp, timestamp, 5);
@@ -552,6 +588,7 @@ TEST(TestSeriesLinspace, EqualStartEnd) {
         ASSERT_EQ(values[i], 100);
 }
 
+/// @brief it should generate an empty series with zero count.
 TEST(TestSeriesLinspace, ZeroCount) {
     const auto start = telem::TimeStamp(100);
     const auto end = telem::TimeStamp(500);
@@ -624,6 +661,7 @@ const std::vector<double> FLOAT64_DATA = {1.0, 2.0, 3.0, 4.0, 5.0};
         FLOAT64_DATA                                                                   \
     )
 
+/// @brief it should cast series data between all numeric types.
 TEST(TestSeries, testCast) {
     TEST_ALL_CASTS_FROM_SOURCE(uint8_t, UINT8_DATA);
     TEST_ALL_CASTS_FROM_SOURCE(uint16_t, UINT16_DATA);
@@ -743,6 +781,7 @@ TEST(TestSeries, testCast) {
         );                                                                             \
     } while (0)
 
+/// @brief it should cast series data from void pointer with source type.
 TEST(TestSeries, testCastVoidPointer) {
     TEST_CAST_FROM_VOID_POINTER(uint8_t, UINT8_DATA);
     TEST_CAST_FROM_VOID_POINTER(uint16_t, UINT16_DATA);
@@ -756,6 +795,7 @@ TEST(TestSeries, testCastVoidPointer) {
     TEST_CAST_FROM_VOID_POINTER(double, FLOAT64_DATA);
 }
 
+/// @brief it should add a scalar value inplace to all series elements.
 TEST(TestSeriesInplace, testAddInplace) {
     std::vector int_data = {1, 2, 3, 4, 5};
     telem::Series int_series(int_data);
@@ -772,6 +812,7 @@ TEST(TestSeriesInplace, testAddInplace) {
     ASSERT_EQ(float_result, expected_float);
 }
 
+/// @brief it should subtract a scalar value inplace from all series elements.
 TEST(TestSeriesInplace, testSubInplace) {
     std::vector int_data = {5, 6, 7, 8, 9};
     telem::Series int_series(int_data);
@@ -788,6 +829,7 @@ TEST(TestSeriesInplace, testSubInplace) {
     ASSERT_EQ(float_result, expected_float);
 }
 
+/// @brief it should multiply a scalar value inplace to all series elements.
 TEST(TestSeriesInplace, testMultiplyInplace) {
     std::vector int_data = {1, 2, 3, 4, 5};
     telem::Series int_series(int_data);
@@ -804,6 +846,7 @@ TEST(TestSeriesInplace, testMultiplyInplace) {
     ASSERT_EQ(float_result, expected_float);
 }
 
+/// @brief it should divide all series elements inplace by a scalar value.
 TEST(TestSeriesInplace, testDivideInplace) {
     std::vector int_data = {2, 4, 6, 8, 10};
     telem::Series int_series(int_data);
@@ -823,7 +866,7 @@ TEST(TestSeriesInplace, testDivideInplace) {
     ASSERT_THROW(zero_test.divide_inplace(0), std::runtime_error);
 }
 
-// Test all operations with different numeric types
+/// @brief it should perform inplace operations on different numeric types.
 TEST(TestSeriesInplace, testMultipleTypes) {
     std::vector<uint8_t> uint8_data = {1, 2, 3, 4, 5};
     telem::Series uint8_series(uint8_data);
@@ -846,6 +889,7 @@ TEST(TestSeriesInplace, testMultipleTypes) {
     ASSERT_EQ(double_result, expected_double);
 }
 
+/// @brief it should construct a series from a vector of JSON values.
 TEST(TestSeries, testJSONVectorConstruction) {
     std::vector<json> simple_values = {
         json{{"key1", "value1"}},
@@ -886,6 +930,7 @@ TEST(TestSeries, testJSONVectorConstruction) {
     ASSERT_EQ(s3.byte_size(), 0);
 }
 
+/// @brief it should retrieve JSON values from a series.
 TEST(TestSeries, testJSONValuesBasic) {
     std::vector<json> input_values = {
         json{{"key1", "value1"}},
@@ -905,17 +950,20 @@ TEST(TestSeries, testJSONValuesBasic) {
         ASSERT_EQ(output_values[i], input_values[i]);
 }
 
+/// @brief it should return empty vector for empty JSON series.
 TEST(TestSeries, testJSONValuesEmpty) {
     const telem::Series empty_series(std::vector<json>{});
     auto empty_values = empty_series.json_values();
     ASSERT_TRUE(empty_values.empty());
 }
 
+/// @brief it should throw error when getting JSON values from non-JSON series.
 TEST(TestSeries, testJSONValuesErrorOnNonJSON) {
     const telem::Series non_json_series(std::vector<int>{1, 2, 3});
     ASSERT_THROW((void) non_json_series.json_values(), std::runtime_error);
 }
 
+/// @brief it should fill series from binary reader with fixed size data.
 TEST(TestSeries, testFillFromFixedSize) {
     std::vector<uint32_t> source_data = {1, 2, 3, 4, 5};
     std::vector<uint8_t> binary_data;
@@ -933,6 +981,7 @@ TEST(TestSeries, testFillFromFixedSize) {
     ASSERT_EQ(values, source_data);
 }
 
+/// @brief it should fill series from binary reader with string data.
 TEST(TestSeries, testFillFromString) {
     std::vector<std::string> source_strings = {"hello", "world", "test"};
     std::vector<uint8_t> binary_data;
@@ -957,6 +1006,7 @@ TEST(TestSeries, testFillFromString) {
     ASSERT_EQ(values, source_strings);
 }
 
+/// @brief it should fill series partially when capacity is less than data.
 TEST(TestSeries, testFillFromPartial) {
     std::vector<uint16_t> source_data = {1, 2, 3, 4, 5};
     std::vector<uint8_t> binary_data;
@@ -976,6 +1026,7 @@ TEST(TestSeries, testFillFromPartial) {
         ASSERT_EQ(values[i], source_data[i]);
 }
 
+/// @brief it should handle empty binary reader for fill_from.
 TEST(TestSeries, testFillFromEmpty) {
     std::vector<uint8_t> empty_data;
     binary::Reader reader(empty_data);
@@ -987,6 +1038,7 @@ TEST(TestSeries, testFillFromEmpty) {
     ASSERT_EQ(series.size(), 0);
 }
 
+/// @brief it should fill series from multiple binary reader reads.
 TEST(TestSeries, testFillFromMultipleReads) {
     std::vector source_data1 = {1.0f, 2.0f, 3.0f};
     std::vector source_data2 = {4.0f, 5.0f};
@@ -1015,4 +1067,171 @@ TEST(TestSeries, testFillFromMultipleReads) {
     expected.insert(expected.end(), source_data1.begin(), source_data1.end());
     expected.insert(expected.end(), source_data2.begin(), source_data2.end());
     ASSERT_EQ(values, expected);
+}
+
+TEST(TestSeries, testResizeGrow) {
+    telem::Series s(telem::FLOAT32_T, 10);
+    s.write(1.0f);
+    s.write(2.0f);
+    ASSERT_EQ(s.size(), 2);
+
+    s.resize(5);
+    ASSERT_EQ(s.size(), 5);
+    ASSERT_EQ(s.cap(), 10);
+    ASSERT_EQ(s.at<float>(0), 1.0f);
+    ASSERT_EQ(s.at<float>(1), 2.0f);
+}
+
+TEST(TestSeries, testResizeShrink) {
+    telem::Series s(telem::INT32_T, 10);
+    for (int i = 0; i < 5; i++) {
+        s.write(i);
+    }
+    ASSERT_EQ(s.size(), 5);
+
+    s.resize(2);
+    ASSERT_EQ(s.size(), 2);
+    ASSERT_EQ(s.cap(), 10);
+    ASSERT_EQ(s.at<int32_t>(0), 0);
+    ASSERT_EQ(s.at<int32_t>(1), 1);
+}
+
+TEST(TestSeries, testResizeNoOp) {
+    telem::Series s(telem::UINT64_T, 10);
+    for (int i = 0; i < 5; i++) {
+        s.write(static_cast<uint64_t>(i));
+    }
+
+    s.resize(5);
+    ASSERT_EQ(s.size(), 5);
+    ASSERT_EQ(s.cap(), 10);
+}
+
+TEST(TestSeries, testResizeExceedsCapacity) {
+    telem::Series s(telem::FLOAT64_T, 5);
+    s.write(1.0);
+    s.write(2.0);
+    ASSERT_EQ(s.size(), 2);
+    ASSERT_EQ(s.cap(), 5);
+
+    s.resize(10);
+    ASSERT_EQ(s.size(), 10);
+    ASSERT_EQ(s.cap(), 10);
+    ASSERT_EQ(s.at<double>(0), 1.0);
+    ASSERT_EQ(s.at<double>(1), 2.0);
+}
+
+TEST(TestSeries, testResizeVariableType) {
+    telem::Series s(std::vector<std::string>{"hello", "world"});
+
+    ASSERT_THROW(s.resize(1), std::runtime_error);
+}
+
+TEST(TestSeries, testResizeToZero) {
+    telem::Series s(telem::INT16_T, 10);
+    s.write(static_cast<int16_t>(1));
+    s.write(static_cast<int16_t>(2));
+
+    s.resize(0);
+    ASSERT_EQ(s.size(), 0);
+    ASSERT_TRUE(s.empty());
+}
+
+/// @brief it should correctly set a SampleValue at an index for numeric types
+TEST(TestSeries, testSetSampleValueF32) {
+    telem::Series s(telem::FLOAT32_T, 5);
+    s.write(1.0f);
+    s.write(2.0f);
+    s.write(3.0f);
+    s.write(4.0f);
+    s.write(5.0f);
+
+    // Test setting with different numeric types in SampleValue
+    telem::SampleValue val_double = 42.5f;
+    s.set(0, val_double);
+    ASSERT_EQ(s.at<float>(0), 42.5f);
+}
+
+/// @brief it should correctly set a SampleValue at a negative index
+TEST(TestSeries, testSetSampleValueNegativeIndex) {
+    telem::Series s(telem::INT32_T, 5);
+    for (int i = 1; i <= 5; i++)
+        s.write(i);
+
+    telem::SampleValue val = 999;
+    s.set(-1, val);
+    ASSERT_EQ(s.at<int32_t>(4), 999);
+
+    s.set(-3, val);
+    ASSERT_EQ(s.at<int32_t>(2), 999);
+}
+
+/// @brief it should correctly set a TimeStamp SampleValue
+TEST(TestSeries, testSetSampleValueTimestamp) {
+    telem::Series s(telem::TIMESTAMP_T, 3);
+    s.write(telem::TimeStamp(100));
+    s.write(telem::TimeStamp(200));
+    s.write(telem::TimeStamp(300));
+
+    telem::SampleValue val = telem::TimeStamp(9999);
+    s.set(1, val);
+    ASSERT_EQ(s.at<telem::TimeStamp>(1).nanoseconds(), 9999);
+}
+
+/// @brief it should throw an error when setting SampleValue on variable-size series
+TEST(TestSeries, testSetSampleValueVariableError) {
+    telem::Series s(std::vector<std::string>{"hello", "world"});
+
+    telem::SampleValue val = std::string("test");
+    ASSERT_THROW(s.set(0, val), std::runtime_error);
+}
+
+/// @brief it should throw an error when setting string SampleValue on non-string series
+TEST(TestSeries, testSetSampleValueStringError) {
+    telem::Series s(telem::INT32_T, 3);
+    s.write(1);
+    s.write(2);
+    s.write(3);
+
+    telem::SampleValue val = std::string("test");
+    ASSERT_THROW(s.set(0, val), std::runtime_error);
+}
+
+/// @brief it should throw an error when index is out of bounds
+TEST(TestSeries, testSetSampleValueOutOfBounds) {
+    telem::Series s(telem::UINT32_T, 3);
+    s.write(1u);
+    s.write(2u);
+    s.write(3u);
+
+    telem::SampleValue val = 999u;
+    ASSERT_THROW(s.set(5, val), std::runtime_error);
+    ASSERT_THROW(s.set(-10, val), std::runtime_error);
+}
+
+/// @brief it should work with all numeric data types
+TEST(TestSeries, testSetSampleValueAllNumericTypes) {
+    // Test uint8_t
+    telem::Series s_uint8(telem::UINT8_T, 3);
+    for (uint8_t i = 1; i <= 3; i++)
+        s_uint8.write(i);
+    telem::SampleValue val_uint8 = static_cast<uint8_t>(99);
+    s_uint8.set(1, val_uint8);
+    ASSERT_EQ(s_uint8.at<uint8_t>(1), 99);
+
+    // Test int64_t
+    telem::Series s_int64(telem::INT64_T, 3);
+    for (int64_t i = 1; i <= 3; i++)
+        s_int64.write(i);
+    telem::SampleValue val_int64 = static_cast<int64_t>(123456789);
+    s_int64.set(2, val_int64);
+    ASSERT_EQ(s_int64.at<int64_t>(2), 123456789);
+
+    // Test float64
+    telem::Series s_float64(telem::FLOAT64_T, 3);
+    for (int i = 1; i <= 3; i++)
+        s_float64.write(static_cast<double>(i));
+    telem::SampleValue val_float64 = 3.14159;
+    s_float64.set(0, val_float64);
+    ASSERT_DOUBLE_EQ(s_float64.at<double>(0), 3.14159);
 }

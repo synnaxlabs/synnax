@@ -51,6 +51,7 @@ const reqZ = z.object({
   stamp: TimeStamp.z.optional(),
   keys: channel.keyZ.array().optional(),
   chunkSize: z.number().optional(),
+  downsampleFactor: z.int().optional(),
 });
 interface Request extends z.infer<typeof reqZ> {}
 
@@ -67,6 +68,11 @@ export interface IteratorConfig {
    * resulting from a call to next with {@link AUTO_SPAN}.
    */
   chunkSize?: number;
+  /**
+   * downsampleFactor is the factor to downsample the data by. If downsampleFactor is
+   * less than or equal to 1, no downsampling will be performed.
+   */
+  downsampleFactor?: number;
 }
 
 /**
@@ -114,6 +120,7 @@ export class Iterator {
       keys: Array.from(adapter.keys),
       bounds: new TimeRange(tr),
       chunkSize: opts.chunkSize ?? 1e5,
+      downsampleFactor: opts.downsampleFactor ?? 1,
     });
     return iter;
   }

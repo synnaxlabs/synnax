@@ -15,7 +15,6 @@ import (
 	"iter"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	xchange "github.com/synnaxlabs/x/change"
@@ -30,29 +29,6 @@ const OntologyType ontology.Type = "role"
 // OntologyID constructs a unique ontology.ID for the Role with the given key.
 func OntologyID(k uuid.UUID) ontology.ID {
 	return ontology.ID{Type: OntologyType, Key: k.String()}
-}
-
-// OntologyIDs constructs a slice of unique ontology.IDs for the Roles with the given
-// keys.
-func OntologyIDs(keys []uuid.UUID) []ontology.ID {
-	return lo.Map(keys, func(k uuid.UUID, _ int) ontology.ID { return OntologyID(k) })
-}
-
-// OntologyIDsFromPolicies constructs a slice of unique ontology.IDs for the given Roles.
-func OntologyIDsFromPolicies(policies []Role) []ontology.ID {
-	return lo.Map(policies, func(l Role, _ int) ontology.ID { return OntologyID(l.Key) })
-}
-
-// KeysFromOntologyIDs extracts the Role keys from the given ontology.IDs.
-func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
-	keys = make([]uuid.UUID, len(ids))
-	for i, id := range ids {
-		keys[i], err = uuid.Parse(id.Key)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return keys, nil
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
@@ -102,11 +78,11 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Role]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
-	return gorp.Observe[uuid.UUID, Role](s.DB).OnChange(handleChange)
+	return gorp.Observe[uuid.UUID, Role](s.cfg.DB).OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
-	n, closer, err := gorp.WrapReader[uuid.UUID, Role](s.DB).OpenNexter(ctx)
+	n, closer, err := gorp.WrapReader[uuid.UUID, Role](s.cfg.DB).OpenNexter(ctx)
 	return xiter.Map(n, newResource), closer, err
 }

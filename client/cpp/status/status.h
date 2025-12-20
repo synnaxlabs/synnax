@@ -170,4 +170,4 @@ private:
     std::shared_ptr<StatusDeleteClient> delete_client;
 };
 
-} // namespace synnax
+}

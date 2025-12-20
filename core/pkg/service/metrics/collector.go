@@ -62,7 +62,7 @@ func (c *collector) Flow(sCtx signal.Context, opts ...confluence.Option) {
 						)
 						continue
 					}
-					frame = frame.Append(metric.ch.Key(), telem.NewSeriesV(value))
+					frame = frame.Append(metric.ch.Key(), telem.NewSeriesFromAny(value, metric.ch.DataType))
 				}
 				if err := signal.SendUnderContext(
 					ctx,

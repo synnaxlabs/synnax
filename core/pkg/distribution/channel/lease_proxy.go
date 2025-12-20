@@ -160,10 +160,9 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	}
 
 	// Auto-create index channels for calculated channels (only for new calculated channels)
-	// Skip channels with non-empty Requires field (legacy channels not yet migrated)
 	indexChannels := make([]Channel, 0, len(channels))
 	for _, ch := range channels {
-		if ch.IsCalculated() && ch.LocalKey == 0 && !ch.IsLegacyCalculated() {
+		if ch.IsCalculated() && ch.LocalKey == 0 {
 			indexCh := Channel{
 				Name:        ch.Name + calculatedIndexNameSuffix,
 				DataType:    telem.TimeStampT,
@@ -246,7 +245,6 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 					if c.IsCalculated() && ic.IsCalculated() {
 						c.Expression = ic.Expression
 						c.Operations = ic.Operations
-						c.Requires = ic.Requires
 						c.LocalIndex = ic.LocalIndex
 					}
 					return c, nil
@@ -263,11 +261,10 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	}
 
 	// Check for existing calculated channels that need index channels created
-	// This handles legacy channels that were migrated but don't have indexes yet
 	indexChannelsForExisting := make([]Channel, 0)
 	existingCalcChannelIndices := make([]int, 0) // Track which channels need linking
 	for i, ch := range *channels {
-		if ch.LocalKey != 0 && ch.IsCalculated() && ch.LocalIndex == 0 && len(ch.Requires) == 0 {
+		if ch.LocalKey != 0 && ch.IsCalculated() && ch.LocalIndex == 0 {
 			indexCh := Channel{
 				Name:        ch.Name + calculatedIndexNameSuffix,
 				DataType:    telem.TimeStampT,
@@ -524,19 +521,24 @@ func (lp *leaseProxy) createGateway(
 		}
 	}
 	lp.mu.Lock()
+	defer lp.mu.Unlock()
 	count := lp.mu.externalNonVirtualSet.Size()
 	if err = lp.IntOverflowCheck(xtypes.Uint20(int(count) + len(externalCreatedKeys))); err != nil {
-		lp.mu.Unlock()
 		return err
 	}
-	lp.mu.externalNonVirtualSet.Insert(externalCreatedKeys...)
-	lp.mu.Unlock()
-
 	storageChannels := toStorage(toCreate)
 	if err = lp.TSChannel.CreateChannel(ctx, storageChannels...); err != nil {
 		return err
 	}
-	return gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx, tx)
+	if err = gorp.
+		NewCreate[Key, Channel]().
+		Entries(&toCreate).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	lp.mu.externalNonVirtualSet.Insert(externalCreatedKeys...)
+	return nil
+
 }
 
 func (lp *leaseProxy) maybeSetResources(
@@ -643,12 +645,15 @@ func (lp *leaseProxy) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) 
 	if err := lp.maybeDeleteResources(ctx, tx, keys); err != nil {
 		return err
 	}
+	// It's very important that this goes last, as it's the only operation that can fail
+	// without an atomic guarantee.
+	if err := lp.TSChannel.DeleteChannels(keys.Storage()); err != nil {
+		return err
+	}
 	lp.mu.Lock()
 	lp.mu.externalNonVirtualSet.Remove(keys...)
 	lp.mu.Unlock()
-	// It's very important that this goes last, as it's the only operation that can fail
-	// without an atomic guarantee.
-	return lp.TSChannel.DeleteChannels(keys.Storage())
+	return nil
 }
 
 func (lp *leaseProxy) maybeDeleteResources(

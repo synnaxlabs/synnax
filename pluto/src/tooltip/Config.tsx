@@ -25,8 +25,7 @@ export interface ContextValue {
 }
 
 export interface ConfigProps
-  extends PropsWithChildren,
-    Partial<Omit<ContextValue, "startAccelerating">> {
+  extends PropsWithChildren, Partial<Omit<ContextValue, "startAccelerating">> {
   accelerate?: boolean;
   acceleratedDelay?: CrudeTimeSpan;
   accelerationDelay?: CrudeTimeSpan;

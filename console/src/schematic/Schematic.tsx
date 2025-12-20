@@ -43,7 +43,6 @@ import { Layout } from "@/layout";
 import {
   selectOptional,
   selectRequired,
-  useSelectEditable,
   useSelectLegendVisible,
   useSelectNodeProps,
   useSelectRequired,
@@ -185,12 +184,9 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
   }, [name, prevName, layoutKey, syncDispatch]);
 
-  const isEditable = useSelectEditable(layoutKey);
-  const hasEditPermission = Access.useUpdateGranted(schematic.ontologyID(layoutKey));
-  useEffect(() => {
-    if (!hasEditPermission && isEditable)
-      syncDispatch(setEditable({ key: layoutKey, editable: false }));
-  }, [hasEditPermission, isEditable, layoutKey, syncDispatch]);
+  const hasEditPermission =
+    Access.useUpdateGranted(schematic.ontologyID(layoutKey)) && !state.snapshot;
+  const canEdit = hasEditPermission && state.editable;
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
     (edges) => undoableDispatch(setEdges({ key: layoutKey, edges })),
@@ -316,8 +312,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [storeLegendPosition, setLegendPosition],
   );
 
-  const canEdit = hasEditPermission && !state.snapshot;
-
   const handleViewportModeChange = useCallback(
     (mode: Viewport.Mode) => dispatch(setViewportMode({ key: layoutKey, mode })),
     [dispatch, layoutKey],
@@ -385,7 +379,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           onEdgesChange={handleEdgesChange}
           onNodesChange={handleNodesChange}
           onEditableChange={handleEditableChange}
-          editable={state.editable}
+          editable={canEdit}
           triggers={triggers}
           onDoubleClick={handleDoubleClick}
           fitViewOnResize={state.fitViewOnResize}
@@ -399,7 +393,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
             <Diagram.SelectViewportModeControl />
             <Diagram.FitViewControl />
             <Flex.Box x pack>
-              {canEdit && (
+              {hasEditPermission && (
                 <Diagram.ToggleEditControl disabled={state.control === "acquired"} />
               )}
               {!state.snapshot && (

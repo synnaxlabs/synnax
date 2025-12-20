@@ -53,17 +53,14 @@ type Config struct {
 	alamos.Instrumentation
 	DB *gorp.DB
 	//  Distribution layer framer service.
-	Framer                   *framer.Service
-	Channel                  *channel.Service
-	Arc                      *arc.Service
-	EnableLegacyCalculations *bool
+	Framer  *framer.Service
+	Channel *channel.Service
+	Arc     *arc.Service
 }
 
 var (
 	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{
-		EnableLegacyCalculations: config.False(),
-	}
+	DefaultConfig                       = Config{}
 )
 
 // Validate implements config.Config.
@@ -72,7 +69,6 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "arc", c.Arc)
-	validate.NotNil(v, "enable_legacy_calculations", c.EnableLegacyCalculations)
 	validate.NotNil(v, "db", c.DB)
 	return v.Error()
 }
@@ -83,7 +79,6 @@ func (c Config) Override(other Config) Config {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Arc = override.Nil(c.Arc, other.Arc)
-	c.EnableLegacyCalculations = override.Nil(c.EnableLegacyCalculations, other.EnableLegacyCalculations)
 	c.DB = override.Nil(c.DB, other.DB)
 	return c
 }
@@ -95,15 +90,15 @@ type Service struct {
 	closer   io.Closer
 }
 
-func (s *Service) OpenIterator(ctx context.Context, cfg framer.IteratorConfig) (*Iterator, error) {
+func (s *Service) OpenIterator(ctx context.Context, cfg IteratorConfig) (*Iterator, error) {
 	return s.Iterator.Open(ctx, cfg)
 }
 
-func (s *Service) NewStreamIterator(ctx context.Context, cfg framer.IteratorConfig) (StreamIterator, error) {
+func (s *Service) NewStreamIterator(ctx context.Context, cfg IteratorConfig) (StreamIterator, error) {
 	return s.Iterator.NewStream(ctx, cfg)
 }
 
-func (s *Service) NewStreamWriter(ctx context.Context, cfg framer.WriterConfig) (StreamWriter, error) {
+func (s *Service) NewStreamWriter(ctx context.Context, cfg WriterConfig) (StreamWriter, error) {
 	return s.Framer.NewStreamWriter(ctx, cfg)
 }
 
@@ -130,13 +125,12 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	}
 
 	calcSvc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
-		Instrumentation:          cfg.Child("calculation"),
-		DB:                       cfg.DB,
-		Channel:                  cfg.Channel,
-		Framer:                   cfg.Framer,
-		Arc:                      cfg.Arc,
-		ChannelObservable:        cfg.Channel.NewObservable(),
-		EnableLegacyCalculations: cfg.EnableLegacyCalculations,
+		Instrumentation:   cfg.Child("calculation"),
+		DB:                cfg.DB,
+		Channel:           cfg.Channel,
+		Framer:            cfg.Framer,
+		Arc:               cfg.Arc,
+		ChannelObservable: cfg.Channel.NewObservable(),
 	})
 	if err != nil {
 		return nil, err

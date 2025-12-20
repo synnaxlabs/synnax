@@ -16,8 +16,8 @@ import { decodeJSONString } from "@/util/decodeJSONString";
 export const keyZ = z.string();
 export type Key = z.infer<typeof keyZ>;
 
-export const statusDetailsSchema = z.object({ rack: rackKeyZ, device: keyZ });
-export const statusZ = status.statusZ(statusDetailsSchema);
+export const statusDetailsZ = z.object({ rack: rackKeyZ, device: keyZ });
+export const statusZ = status.statusZ(statusDetailsZ);
 
 export interface Status extends z.infer<typeof statusZ> {}
 

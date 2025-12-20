@@ -17,6 +17,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	distFramer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
 	"github.com/synnaxlabs/x/confluence"
@@ -37,6 +39,7 @@ var _ = Describe("Metrics", func() {
 				Channel:            dist.Channel,
 				Framer:             svcFramer,
 				HostProvider:       dist.Cluster,
+				Storage:            dist.Storage,
 				CollectionInterval: 5 * time.Second,
 			}))
 			Expect(svc).ToNot(BeNil())
@@ -46,26 +49,36 @@ var _ = Describe("Metrics", func() {
 			Expect(metrics.OpenService(ctx, metrics.Config{
 				Framer:       svcFramer,
 				HostProvider: dist.Cluster,
+				Storage:      dist.Storage,
 			})).Error().To(MatchError(ContainSubstring("channel: must be non-nil")))
 		})
 		It("Should fail with missing Framer service", func() {
 			Expect(metrics.OpenService(ctx, metrics.Config{
 				Channel:      dist.Channel,
 				HostProvider: dist.Cluster,
+				Storage:      dist.Storage,
 			})).Error().To(MatchError(ContainSubstring("framer: must be non-nil")))
 		})
 		It("Should fail with missing HostProvider", func() {
 			Expect(metrics.OpenService(ctx, metrics.Config{
 				Channel: dist.Channel,
 				Framer:  svcFramer,
-			})).Error().
-				To(MatchError(ContainSubstring("host_provider: must be non-nil")))
+				Storage: dist.Storage,
+			})).Error().To(MatchError(ContainSubstring("host_provider: must be non-nil")))
+		})
+		It("Should fail with missing Storage", func() {
+			Expect(metrics.OpenService(ctx, metrics.Config{
+				Channel:      dist.Channel,
+				Framer:       svcFramer,
+				HostProvider: dist.Cluster,
+			})).Error().To(MatchError(ContainSubstring("storage: must be non-nil")))
 		})
 		It("Should apply default collection interval", func() {
 			cfg := metrics.DefaultConfig.Override(metrics.Config{
 				Channel:      dist.Channel,
 				Framer:       svcFramer,
 				HostProvider: dist.Cluster,
+				Storage:      dist.Storage,
 			})
 			Expect(cfg.CollectionInterval).To(Equal(2 * time.Second))
 		})
@@ -77,6 +90,7 @@ var _ = Describe("Metrics", func() {
 				Channel:            dist.Channel,
 				Framer:             svcFramer,
 				HostProvider:       dist.Cluster,
+				Storage:            dist.Storage,
 				CollectionInterval: 100 * time.Millisecond,
 			}))
 		})
@@ -130,11 +144,68 @@ var _ = Describe("Metrics", func() {
 				g.Expect(ch.LocalIndex).ToNot(BeZero())
 			}).Should(Succeed())
 		})
+		It("Should create total disk size metric channel", func() {
+			hostKey := dist.Cluster.HostKey()
+			expectedName := "sy_node_" + hostKey.String() + "_metrics_total_size_gb"
+			Eventually(func(g Gomega) {
+				var ch channel.Channel
+				g.Expect(dist.Channel.NewRetrieve().
+					WhereNames(expectedName).
+					Entry(&ch).
+					Exec(ctx, nil),
+				).To(Succeed())
+				g.Expect(ch.DataType).To(Equal(telem.Float32T))
+				g.Expect(ch.LocalIndex).ToNot(BeZero())
+			}).Should(Succeed())
+		})
+		It("Should create ts (cesium) size metric channel", func() {
+			hostKey := dist.Cluster.HostKey()
+			expectedName := "sy_node_" + hostKey.String() + "_metrics_ts_size_gb"
+			Eventually(func(g Gomega) {
+				var ch channel.Channel
+				g.Expect(dist.Channel.NewRetrieve().
+					WhereNames(expectedName).
+					Entry(&ch).
+					Exec(ctx, nil),
+				).To(Succeed())
+				g.Expect(ch.DataType).To(Equal(telem.Float32T))
+				g.Expect(ch.LocalIndex).ToNot(BeZero())
+			}).Should(Succeed())
+		})
+		It("Should create kv (pebble) size metric channel", func() {
+			hostKey := dist.Cluster.HostKey()
+			expectedName := "sy_node_" + hostKey.String() + "_metrics_kv_size_gb"
+			Eventually(func(g Gomega) {
+				var ch channel.Channel
+				g.Expect(dist.Channel.NewRetrieve().
+					WhereNames(expectedName).
+					Entry(&ch).
+					Exec(ctx, nil),
+				).To(Succeed())
+				g.Expect(ch.DataType).To(Equal(telem.Float32T))
+				g.Expect(ch.LocalIndex).ToNot(BeZero())
+			}).Should(Succeed())
+		})
+		It("Should create channel count metric channel", func() {
+			hostKey := dist.Cluster.HostKey()
+			expectedName := "sy_node_" + hostKey.String() + "_metrics_channel_count"
+			Eventually(func(g Gomega) {
+				var ch channel.Channel
+				g.Expect(dist.Channel.NewRetrieve().
+					WhereNames(expectedName).
+					Entry(&ch).
+					Exec(ctx, nil),
+				).To(Succeed())
+				g.Expect(ch.DataType).To(Equal(telem.Int32T))
+				g.Expect(ch.LocalIndex).ToNot(BeZero())
+			}).Should(Succeed())
+		})
 		It("Should reuse existing channels", func() {
 			svc2 := MustSucceed(metrics.OpenService(ctx, metrics.Config{
 				Channel:            dist.Channel,
 				Framer:             svcFramer,
 				HostProvider:       dist.Cluster,
+				Storage:            dist.Storage,
 				CollectionInterval: 100 * time.Millisecond,
 			}))
 			hostKey := dist.Cluster.HostKey()
@@ -146,7 +217,7 @@ var _ = Describe("Metrics", func() {
 				Entries(&channels).
 				Exec(ctx, nil),
 			).To(Succeed())
-			Expect(channels).To(HaveLen(3))
+			Expect(channels).To(HaveLen(7))
 			Expect(svc2.Close()).To(Succeed())
 		})
 	})
@@ -205,10 +276,34 @@ var _ = Describe("Metrics", func() {
 			responses confluence.Outlet[framer.StreamerResponse]
 		)
 		BeforeEach(func() {
+			// Write some data to cesium so disk size metrics are non-zero
+			indexCh := &channel.Channel{
+				Name:     "metrics_test_index",
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			}
+			Expect(dist.Channel.Create(ctx, indexCh, channel.RetrieveIfNameExists())).To(Succeed())
+			dataCh := &channel.Channel{
+				Name:       "metrics_test_data",
+				DataType:   telem.Float32T,
+				LocalIndex: indexCh.LocalKey,
+			}
+			Expect(dist.Channel.Create(ctx, dataCh, channel.RetrieveIfNameExists())).To(Succeed())
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, distFramer.WriterConfig{
+				Start: telem.Now(),
+				Keys:  []channel.Key{indexCh.Key(), dataCh.Key()},
+			}))
+			now := telem.Now()
+			fr := core.UnaryFrame(indexCh.Key(), telem.NewSeriesV[telem.TimeStamp](now, now+telem.MillisecondTS, now+2*telem.MillisecondTS)).
+				Append(dataCh.Key(), telem.NewSeriesV[float32](1.0, 2.0, 3.0))
+			MustSucceed(w.Write(fr))
+			Expect(w.Close()).To(Succeed())
+
 			svc = MustSucceed(metrics.OpenService(ctx, metrics.Config{
 				Channel:            dist.Channel,
 				Framer:             svcFramer,
 				HostProvider:       dist.Cluster,
+				Storage:            dist.Storage,
 				CollectionInterval: 50 * time.Millisecond,
 			}))
 			channels := []channel.Channel{}
@@ -218,6 +313,7 @@ var _ = Describe("Metrics", func() {
 					Entries(&channels).
 					Exec(ctx, nil),
 				).To(Succeed())
+				g.Expect(channels).To(HaveLen(7))
 			}).Should(Succeed())
 			streamer = MustSucceed(svcFramer.NewStreamer(ctx, framer.StreamerConfig{
 				Keys: channel.KeysFromChannels(channels),
@@ -234,7 +330,7 @@ var _ = Describe("Metrics", func() {
 		It("Should write metrics at configured interval", func() {
 			var res framer.StreamerResponse
 			Eventually(responses.Outlet()).Should(Receive(&res))
-			Expect(res.Frame.Count()).To(Equal(3))
+			Expect(res.Frame.Count()).To(Equal(7))
 
 			timeSeries := res.Frame.SeriesAt(0)
 			Expect(timeSeries.DataType).To(Equal(telem.TimeStampT))
@@ -255,8 +351,36 @@ var _ = Describe("Metrics", func() {
 			Expect(memVal).To(BeNumerically(">=", 0))
 			Expect(memVal).To(BeNumerically("<=", 100))
 
+			totalSizeSeries := res.Frame.SeriesAt(3)
+			Expect(totalSizeSeries.DataType).To(Equal(telem.Float32T))
+			Expect(totalSizeSeries.Len()).To(Equal(int64(1)))
+			totalSize := telem.ValueAt[float32](totalSizeSeries, 0)
+			Expect(totalSize).To(BeNumerically(">", 0))
+
+			tsSizeSeries := res.Frame.SeriesAt(4)
+			Expect(tsSizeSeries.DataType).To(Equal(telem.Float32T))
+			Expect(tsSizeSeries.Len()).To(Equal(int64(1)))
+			tsSize := telem.ValueAt[float32](tsSizeSeries, 0)
+			Expect(tsSize).To(BeNumerically(">", 0))
+
+			kvSizeSeries := res.Frame.SeriesAt(5)
+			Expect(kvSizeSeries.DataType).To(Equal(telem.Float32T))
+			Expect(kvSizeSeries.Len()).To(Equal(int64(1)))
+			kvSize := telem.ValueAt[float32](kvSizeSeries, 0)
+			Expect(kvSize).To(BeNumerically(">", 0))
+
+			Expect(totalSize).To(BeNumerically("~", tsSize+kvSize, 0.0001))
+
+			// Verify channel count metric (index 6)
+			channelCountSeries := res.Frame.SeriesAt(6)
+			Expect(channelCountSeries.DataType).To(Equal(telem.Int32T))
+			Expect(channelCountSeries.Len()).To(Equal(int64(1)))
+			channelCount := telem.ValueAt[int32](channelCountSeries, 0)
+			Expect(channelCount).To(BeNumerically(">", 0))
+			Expect(channelCount).To(Equal(int32(dist.Channel.CountExternalNonVirtual())))
+
 			Eventually(responses.Outlet()).Should(Receive(&res))
-			Expect(res.Frame.Count()).To(Equal(3))
+			Expect(res.Frame.Count()).To(Equal(7))
 			timeSeries = res.Frame.SeriesAt(0)
 			Expect(timeSeries.DataType).To(Equal(telem.TimeStampT))
 			Expect(timeSeries.Len()).To(Equal(int64(1)))
@@ -271,5 +395,9 @@ func getNames(hostKey cluster.NodeKey) []string {
 		"sy_node_" + hostKey.String() + "_metrics_time",
 		"sy_node_" + hostKey.String() + "_metrics_cpu_percentage",
 		"sy_node_" + hostKey.String() + "_metrics_mem_percentage",
+		"sy_node_" + hostKey.String() + "_metrics_total_size_gb",
+		"sy_node_" + hostKey.String() + "_metrics_ts_size_gb",
+		"sy_node_" + hostKey.String() + "_metrics_kv_size_gb",
+		"sy_node_" + hostKey.String() + "_metrics_channel_count",
 	}
 }

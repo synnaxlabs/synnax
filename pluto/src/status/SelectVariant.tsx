@@ -36,9 +36,11 @@ const DATA: Core.StaticEntry<status.Variant>[] = [
   },
 ];
 
-export interface SelectVariantProps
-  extends Omit<Core.StaticProps<status.Variant>, "data" | "resourceName"> {}
+export interface SelectVariantProps extends Omit<
+  Core.StaticProps<status.Variant>,
+  "data" | "resourceName"
+> {}
 
 export const SelectVariant = (props: SelectVariantProps): ReactElement => (
-  <Core.Static {...props} data={DATA} resourceName="variant" />
+  <Core.Static {...props} data={DATA} resourceName="status variant" />
 );

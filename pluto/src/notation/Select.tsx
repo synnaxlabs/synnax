@@ -12,8 +12,10 @@ import { type ReactElement } from "react";
 
 import { Select as CoreSelect } from "@/select";
 
-export interface SelectNotationProps
-  extends Omit<CoreSelect.ButtonsProps<notation.Notation>, "keys"> {}
+export interface SelectNotationProps extends Omit<
+  CoreSelect.ButtonsProps<notation.Notation>,
+  "keys"
+> {}
 
 export const Select = (props: SelectNotationProps): ReactElement => (
   <CoreSelect.Buttons {...props} keys={notation.NOTATIONS}>
