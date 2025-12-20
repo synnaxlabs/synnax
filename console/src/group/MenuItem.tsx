@@ -30,7 +30,7 @@ export const MenuItem = ({
     <>
       <PMenu.Item itemKey="group">
         <Icon.Group />
-        Group
+        Group Selection
       </PMenu.Item>
       {showBottomDivider && <PMenu.Divider />}
     </>

@@ -46,8 +46,7 @@ export const use = (extract: Extractor, type: string): ((key: string) => void) =
             return;
           }
           Runtime.downloadFromBrowser(
-            extractorReturn.data,
-            "application/json",
+            new Blob([extractorReturn.data], { type: "application/json" }),
             `${name}.json`,
           );
         },

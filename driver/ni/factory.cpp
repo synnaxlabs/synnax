@@ -138,7 +138,7 @@ std::pair<common::ConfigureResult, xerrors::Error> ni::Factory::configure_scan(
         ctx,
         task,
         breaker::default_config(task.name),
-        cfg.rate
+        cfg.scan_rate
     );
     res.auto_start = cfg.enabled;
     return {std::move(res), xerrors::NIL};

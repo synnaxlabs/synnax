@@ -196,11 +196,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 
 	if needPeerRouting && needGatewayRouting {
 		routeInletTo = broadcasterAddr
-		plumber.SetSegment(
-			pipe,
-			broadcasterAddr,
-			newBroadcaster(),
-		)
+		plumber.SetSegment[Request, Request](pipe, broadcasterAddr, newBroadcaster())
 		plumber.MultiRouter[Request]{
 			SourceTargets: []address.Address{broadcasterAddr},
 			SinkTargets:   []address.Address{peerSenderAddr, gatewayIterAddr},

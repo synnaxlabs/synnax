@@ -13,6 +13,8 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/xtest/xtest.h"
 
+std::mt19937 gen_rand = random_generator(std::move("Ranger Tests"));
+
 namespace synnax {
 /// @brief it should correctly create a rack in the cluster.
 TEST(RackTests, testCreateRack) {
@@ -43,10 +45,12 @@ TEST(RackTests, testDeleteRack) {
 /// @brief it should retrieve a rack by its name.
 TEST(RackTests, testRetrieveRackByName) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack_by_name_unique");
+
+    const auto unique_name = "test_rack_by_name_unique" + std::to_string(rand());
+    auto r = Rack(unique_name);
     ASSERT_NIL(client.racks.create(r));
-    const auto r2 = ASSERT_NIL_P(client.racks.retrieve("test_rack_by_name_unique"));
-    ASSERT_EQ(r2.name, "test_rack_by_name_unique");
+    const auto r2 = ASSERT_NIL_P(client.racks.retrieve(unique_name));
+    ASSERT_EQ(r2.name, unique_name);
     ASSERT_EQ(r.key, r2.key);
 }
 
@@ -71,25 +75,25 @@ TEST(RackTests, testCreateRackWithStatus) {
 /// @brief it should correctly parse RackStatusDetails from JSON.
 TEST(RackStatusDetailsTests, testParseFromJSON) {
     json j = {{"rack", 54321}};
-    xjson::Parser parser(j);
-    auto details = RackStatusDetails::parse(parser);
+    const xjson::Parser parser(j);
+    const auto details = RackStatusDetails::parse(parser);
     ASSERT_NIL(parser.error());
     ASSERT_EQ(details.rack, 54321);
 }
 
 /// @brief it should correctly serialize RackStatusDetails to JSON.
 TEST(RackStatusDetailsTests, testToJSON) {
-    RackStatusDetails details{.rack = 98765};
+    constexpr RackStatusDetails details{.rack = 98765};
     const auto j = details.to_json();
     ASSERT_EQ(j["rack"], 98765);
 }
 
 /// @brief it should round-trip RackStatusDetails through JSON.
 TEST(RackStatusDetailsTests, testRoundTrip) {
-    RackStatusDetails original{.rack = 11223};
+    constexpr RackStatusDetails original{.rack = 11223};
     const auto j = original.to_json();
-    xjson::Parser parser(j);
-    auto recovered = RackStatusDetails::parse(parser);
+    const xjson::Parser parser(j);
+    const auto recovered = RackStatusDetails::parse(parser);
     ASSERT_NIL(parser.error());
     ASSERT_EQ(recovered.rack, original.rack);
 }

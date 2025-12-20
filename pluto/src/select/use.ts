@@ -52,8 +52,10 @@ export type UseSingleProps<K extends record.Key> = optional.Optional<
 > &
   Pick<UseHoverProps<K>, "initialHover">;
 
-export interface UseMultipleProps<K extends record.Key>
-  extends Pick<UseHoverProps<K>, "initialHover"> {
+export interface UseMultipleProps<K extends record.Key> extends Pick<
+  UseHoverProps<K>,
+  "initialHover"
+> {
   allowNone?: boolean;
   value: K[];
   onChange: (next: K[], extra: UseOnChangeExtra<K>) => void;

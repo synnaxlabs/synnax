@@ -23,7 +23,9 @@ std::mt19937 gen_rand = random_generator(std::move("Channel Tests"));
 TEST(TestChannel, testCreate) {
     const auto client = new_test_client();
     const auto name = make_unique_channel_name("test");
-    auto channel = ASSERT_NIL_P(client.channels.create(name, telem::FLOAT64_T, true));
+    const auto channel = ASSERT_NIL_P(
+        client.channels.create(name, telem::FLOAT64_T, true)
+    );
     ASSERT_EQ(channel.name, name);
     ASSERT_FALSE(channel.key == 0);
 }
@@ -57,6 +59,7 @@ TEST(TestChannel, testCreateIndex) {
     ASSERT_EQ(indexed.index, index.key);
 }
 
+/// @brief it should create a virtual channel and assign it a non-zero key.
 TEST(TestChannel, testCreateVirtual) {
     const auto name = make_unique_channel_name("virtual");
     auto ch = synnax::Channel(name, telem::FLOAT64_T, true);
@@ -189,7 +192,7 @@ TEST(TestChannel, testRetrieveManyNotFound) {
 
 /// @brief it should convert a channel key to an ontology ID
 TEST(TestChannel, testOntologyId) {
-    const synnax::ChannelKey key = 42;
+    constexpr synnax::ChannelKey key = 42;
     const auto id = synnax::ontology_id(key);
     ASSERT_EQ(id.type, "channel");
     ASSERT_EQ(id.key, "42");

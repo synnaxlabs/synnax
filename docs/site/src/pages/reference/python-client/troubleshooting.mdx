@@ -41,14 +41,14 @@ installed and plan to use Synnax inside WSL, follow the instructions for Linux i
 
 ## Incorrect Python Version or Command Not Found
 
-Synnax requires Python 3.11 or higher to work correctly. You can check your Python
+Synnax requires Python 3.12 or higher to work correctly. You can check your Python
 version by running:
 
 ```powershell
 python --version
 ```
 
-If you get an output saying `Python 3.11.x` or higher, you're good to go! If the output
+If you get an output saying `Python 3.12.x` or higher, you're good to go! If the output
 is a different version, or just says `command not found`, keep reading.
 
 ### Python Command Is Under a Different Name
@@ -59,12 +59,12 @@ commands to see if you have a newer version of Python installed under a differen
 
 ```powershell
 python3 --version
-python3.11 --version
 python3.12 --version
 python3.13 --version
+python3.14 --version
 ```
 
-If any of these commands output a version number at or above `3.11`, you can use that
+If any of these commands output a version number at or above `3.12`, you can use that
 command instead of `python` to work with Synnax.
 
 ### Python Is Not Available on Your PATH
@@ -124,14 +124,14 @@ brew install python
 
 ## Incorrect Python Version or Command Not Found
 
-Synnax requires Python 3.11 or higher to work correctly. You can check your Python
+Synnax requires Python 3.12 or higher to work correctly. You can check your Python
 version by running:
 
 ```bash
 python --version
 ```
 
-If you get an output saying `Python 3.11.x` or higher, you're good to go! If the output
+If you get an output saying `Python 3.12.x` or higher, you're good to go! If the output
 is a different version, or just says `command not found`, keep reading.
 
 ### Python Version Is Out of Date
@@ -153,12 +153,12 @@ commands to see if you have a newer version of Python installed under a differen
 
 ```bash
 python3 --version
-python3.11 --version
 python3.12 --version
 python3.13 --version
+python3.14 --version
 ```
 
-If any of these commands output a version number at or above `3.11`, you can use that
+If any of these commands output a version number at or above `3.12`, you can use that
 command instead of `python` to work with Synnax.
 
 ### Python Is Not Available on Your PATH
@@ -227,8 +227,8 @@ command:
 pip --version
 ```
 
-At the end of the output, you should see `(python3.11)` or higher in parenthesis. If you
-have Python 3.11 or higher installed, but the version in parenthesis is lower, your
+At the end of the output, you should see `(python3.12)` or higher in parenthesis. If you
+have Python 3.12 or higher installed, but the version in parenthesis is lower, your
 `PATH` variable may be pointing to the wrong version of `pip`.
 
 If you installed Python using homebrew, `pip` should be installed in
@@ -259,7 +259,7 @@ If you're using Amazon Linux on an EC2 instance or another Red hat-based distrib
 then you may install python using `yum`.
 
 ```bash
-sudo yum install python3.11.x86_64 python3.11-devel.x86_64 python3.11-pip.noarch
+sudo yum install python3.12.x86_64 python3.12-devel.x86_64 python3.12-pip.noarch
 ```
 
 If you are using Ubuntu, Ubuntu 24.04 comes with Python 3.12 pre-installed. If you're
@@ -290,16 +290,16 @@ Then we need to update the local package index again:
 sudo apt update
 ```
 
-Finally, we can install Python 3.11:
+Finally, we can install Python 3.12:
 
 ```bash
-sudo apt install python3.11 -y
+sudo apt install python3.12 -y
 ```
 
-We can check that Python 3.11 is installed by running:
+We can check that Python 3.12 is installed by running:
 
 ```bash
-python3.11 --version
+python3.12 --version
 ```
 
 <Note.Note variant="info">
@@ -311,14 +311,14 @@ python3.11 --version
 
 ## Incorrect Python Version or Command Not Found
 
-Synnax requires Python 3.11 or higher to work correctly. You can check your Python
+Synnax requires Python 3.12 or higher to work correctly. You can check your Python
 version by running:
 
 ```bash
 python --version
 ```
 
-If you get an output saying `Python 3.11.x` or higher, you're good to go! If the output
+If you get an output saying `Python 3.12.x` or higher, you're good to go! If the output
 is a different version, or just says `command not found`, keep reading.
 
 ### Python Command Is Under a Different Name
@@ -329,12 +329,12 @@ commands to see if you have a newer version of Python installed under a differen
 
 ```bash
 python3 --version
-python3.11 --version
 python3.12 --version
 python3.13 --version
+python3.14 --version
 ```
 
-If any of these commands output a version number at or above `3.11`, you can use that
+If any of these commands output a version number at or above `3.12`, you can use that
 command instead of `python` to work with Synnax.
 
 ### Python Is Not Available on Your PATH

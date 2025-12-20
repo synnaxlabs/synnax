@@ -54,16 +54,19 @@ const isSelected = <K extends record.Key>(
   return value === key;
 };
 
-interface ContextValue<K extends record.Key = record.Key>
-  extends Pick<Store.UseKeyedListenersReturn<K>, "subscribe"> {
+interface ContextValue<K extends record.Key = record.Key> extends Pick<
+  Store.UseKeyedListenersReturn<K>,
+  "subscribe"
+> {
   onSelect: (key: K) => void;
   setSelected: (keys: K[]) => void;
   clear: () => void;
   getState: () => SelectionState<K>;
 }
 
-interface MultipleProviderProps<K extends record.Key = record.Key>
-  extends PropsWithChildren<UseMultipleProps<K>> {}
+interface MultipleProviderProps<
+  K extends record.Key = record.Key,
+> extends PropsWithChildren<UseMultipleProps<K>> {}
 
 const MultipleProvider = <K extends record.Key = record.Key>({
   children,
@@ -78,8 +81,9 @@ const MultipleProvider = <K extends record.Key = record.Key>({
   );
 };
 
-interface SingleProviderProps<K extends record.Key = record.Key>
-  extends PropsWithChildren<UseSingleProps<K>> {}
+interface SingleProviderProps<
+  K extends record.Key = record.Key,
+> extends PropsWithChildren<UseSingleProps<K>> {}
 
 const SingleProvider = <K extends record.Key = record.Key>({
   children,
@@ -95,8 +99,7 @@ const SingleProvider = <K extends record.Key = record.Key>({
 };
 
 interface ProviderProps<K extends record.Key = record.Key>
-  extends Omit<ContextValue<K>, "getState" | "subscribe">,
-    PropsWithChildren {
+  extends Omit<ContextValue<K>, "getState" | "subscribe">, PropsWithChildren {
   value: K | K[] | null | undefined;
   hover?: K;
 }
@@ -198,22 +201,24 @@ export interface TriggerProps<
   onClick: () => void;
 }
 
-interface BaseFrameProps<K extends record.Key, E extends record.Keyed<K> | undefined>
-  extends Omit<List.FrameProps<K, E>, "onChange"> {}
+interface BaseFrameProps<
+  K extends record.Key,
+  E extends record.Keyed<K> | undefined,
+> extends Omit<List.FrameProps<K, E>, "onChange"> {}
 
 export interface MultipleFrameProps<
   K extends record.Key,
   E extends record.Keyed<K> | undefined,
-> extends BaseFrameProps<K, E>,
-    UseMultipleProps<K> {
+>
+  extends BaseFrameProps<K, E>, UseMultipleProps<K> {
   multiple: true;
 }
 
 export interface SingleFrameProps<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
-> extends BaseFrameProps<K, E>,
-    UseSingleProps<K> {
+>
+  extends BaseFrameProps<K, E>, UseSingleProps<K> {
   multiple?: false;
 }
 

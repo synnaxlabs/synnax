@@ -169,10 +169,3 @@ The expression field is only used for
 [calculated channels](/reference/console/calculated-channels). This expression is an Arc
 string that calculates what value should be written to the channel and returns it with
 `return`. Channel dependencies are automatically detected from the expression.
-
-### Requires
-
-The `requires` field was used by legacy Lua-based calculated channels to specify
-dependencies. Modern Arc-based calculated channels automatically detect dependencies
-from the expression, making this field obsolete. It is maintained for backward
-compatibility with legacy channels.

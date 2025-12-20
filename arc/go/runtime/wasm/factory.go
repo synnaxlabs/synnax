@@ -29,8 +29,8 @@ func (w *factory) Create(_ context.Context, cfg node2.Config) (node2.Node, error
 	}
 	wasmFn := w.wasm.ExportedFunction(cfg.Node.Type)
 	n := &nodeImpl{
-		ir:    cfg.Node,
-		state: cfg.State,
+		Node: cfg.State,
+		ir:   cfg.Node,
 		wasm: WrapFunction(
 			wasmFn,
 			w.wasm.Memory(),

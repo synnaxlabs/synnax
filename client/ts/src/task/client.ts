@@ -66,11 +66,15 @@ export interface TaskExecuteCommandSyncParams extends TaskExecuteCommandParams {
   timeout?: CrudeTimeSpan;
 }
 
-export interface ExecuteCommandsSyncParams<StatusData extends z.ZodType>
-  extends Omit<ExecuteCommandsSyncInternalParams<StatusData>, "frameClient" | "name"> {}
+export interface ExecuteCommandsSyncParams<StatusData extends z.ZodType> extends Omit<
+  ExecuteCommandsSyncInternalParams<StatusData>,
+  "frameClient" | "name"
+> {}
 
-export interface ExecuteCommandSyncParams<StatusData extends z.ZodType>
-  extends Omit<ExecuteCommandSyncInternalParams<StatusData>, "frameClient" | "name"> {}
+export interface ExecuteCommandSyncParams<StatusData extends z.ZodType> extends Omit<
+  ExecuteCommandSyncInternalParams<StatusData>,
+  "frameClient" | "name"
+> {}
 
 export class Task<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
@@ -558,7 +562,8 @@ const executeCommands = async ({
 };
 
 interface ExecuteCommandSyncInternalParams<StatusData extends z.ZodType = z.ZodType>
-  extends Omit<ExecuteCommandsSyncInternalParams<StatusData>, "commands">,
+  extends
+    Omit<ExecuteCommandsSyncInternalParams<StatusData>, "commands">,
     TaskExecuteCommandSyncParams {
   task: Key;
 }

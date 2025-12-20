@@ -52,10 +52,10 @@ const resolveSubjectAsync = async (
   return user.ontologyID(u.key);
 };
 
-const resolveSubject = (client: Synnax, subject?: ontology.ID): ontology.ID => {
+const resolveSubject = (client: Synnax, subject?: ontology.ID): ontology.ID | null => {
   if (subject != null) return subject;
   const u = client?.auth?.user;
-  if (u == null) throw new UnexpectedError("User not found");
+  if (u == null) return null;
   return user.ontologyID(u.key);
 };
 
@@ -72,6 +72,7 @@ export const isGranted = ({
 }: IsGrantedParams): boolean => {
   if (client == null) return false;
   const sub = resolveSubject(client, subject);
+  if (sub == null) return false;
   const policies = policy.cachedRetrieveForSubject(store, sub);
   return access.allowRequest({ subject: sub, objects, action }, policies);
 };

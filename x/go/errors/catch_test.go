@@ -63,12 +63,6 @@ var _ = Describe("Catcher", func() {
 			It("Should contain a non-nil error", func() {
 				Expect(catcher.Error()).ToNot(Succeed())
 			})
-			Describe("Reset", func() {
-				It("Should reset the catcher", func() {
-					catcher.Reset()
-					Expect(catcher.Error()).To(Succeed())
-				})
-			})
 		})
 		Context("Aggregation", func() {
 			catcher := errors.NewCatcher(errors.WithAggregation())

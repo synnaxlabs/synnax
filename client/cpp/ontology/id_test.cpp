@@ -55,9 +55,7 @@ TEST(OntologyID, testParseOnlyColon) {
 
 /// @brief it should fail to parse an synnax::ontology::ID with empty type.
 TEST(OntologyID, testParseEmptyType) {
-    auto [id, err] = synnax::ontology::ID::parse(":42");
-    EXPECT_TRUE(err);
-    EXPECT_TRUE(err.matches(xerrors::VALIDATION));
+    ASSERT_OCCURRED_AS_P(synnax::ontology::ID::parse(":42"), xerrors::VALIDATION);
 }
 
 /// @brief it should support round-trip string conversion: parse(id.string()) == id.
@@ -96,7 +94,7 @@ TEST(OntologyID, testParseIDs) {
         "group:748d31e2-5732-4cb5-8bc9-64d4ad51efe8",
         "user:admin"
     };
-    auto ids = ASSERT_NIL_P(synnax::ontology::parse_ids(strs));
+    const auto ids = ASSERT_NIL_P(synnax::ontology::parse_ids(strs));
     EXPECT_EQ(ids.size(), 3);
     EXPECT_EQ(ids[0].type, "channel");
     EXPECT_EQ(ids[0].key, "42");
@@ -109,9 +107,7 @@ TEST(OntologyID, testParseIDs) {
 /// @brief it should fail to parse a vector with an invalid synnax::ontology::ID.
 TEST(OntologyID, testParseIDsWithInvalid) {
     const std::vector<std::string> strs = {"channel:42", "malformed", "user:admin"};
-    auto [ids, err] = synnax::ontology::parse_ids(strs);
-    EXPECT_TRUE(err);
-    EXPECT_TRUE(err.matches(xerrors::VALIDATION));
+    ASSERT_OCCURRED_AS_P(synnax::ontology::parse_ids(strs), xerrors::VALIDATION);
 }
 
 /// @brief it should convert a vector of IDs to strings.

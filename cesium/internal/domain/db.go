@@ -158,6 +158,18 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 	return i.SeekLE(ctx, tr.End) && i.TimeRange().OverlapsWith(tr), i.Close()
 }
 
+// Size returns the total size of all data stored in the database by summing the sizes
+// of all pointers in the index.
+func (db *DB) Size() telem.Size {
+	db.idx.mu.RLock()
+	defer db.idx.mu.RUnlock()
+	var total telem.Size
+	for _, p := range db.idx.mu.pointers {
+		total += telem.Size(p.size)
+	}
+	return total
+}
+
 // Close closes the DB. Close should not be called concurrently with any other DB
 // methods. If close fails for a reason other than unclosed writers/readers, the
 // database will still be marked closed and no read/write operations are allowed on it

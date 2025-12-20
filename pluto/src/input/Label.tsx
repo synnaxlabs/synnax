@@ -14,8 +14,10 @@ import { type DetailedHTMLProps, type HTMLAttributes, type ReactElement } from "
 import { CSS } from "@/css";
 
 /** Props for the {@link Label} component. */
-export interface LabelProps
-  extends DetailedHTMLProps<HTMLAttributes<HTMLLabelElement>, HTMLLabelElement> {
+export interface LabelProps extends DetailedHTMLProps<
+  HTMLAttributes<HTMLLabelElement>,
+  HTMLLabelElement
+> {
   required?: boolean;
 }
 

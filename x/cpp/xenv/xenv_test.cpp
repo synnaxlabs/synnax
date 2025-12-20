@@ -30,41 +30,57 @@ protected:
     }
 };
 
+/// @brief it should load string values from environment variables.
 TEST_F(XEnvTest, LoadString) {
     EXPECT_EQ(xenv::load("TEST_STRING", std::string("default")), "hello");
     EXPECT_EQ(xenv::load("NONEXISTENT_VAR", std::string("default")), "default");
 }
 
+/// @brief it should load integer values from environment variables.
 TEST_F(XEnvTest, LoadInt) {
     EXPECT_EQ(xenv::load("TEST_INT", 0), 42);
     EXPECT_EQ(xenv::load("NONEXISTENT_VAR", 100), 100);
     EXPECT_EQ(xenv::load("TEST_INVALID_NUM", 100), 100);
 }
 
+/// @brief it should load float values from environment variables.
 TEST_F(XEnvTest, LoadFloat) {
     EXPECT_FLOAT_EQ(xenv::load("TEST_FLOAT", 0.0f), 3.14f);
     EXPECT_FLOAT_EQ(xenv::load("NONEXISTENT_VAR", 1.5f), 1.5f);
     EXPECT_FLOAT_EQ(xenv::load("TEST_INVALID_NUM", 1.5f), 1.5f);
 }
 
+/// @brief it should load double values from environment variables.
 TEST_F(XEnvTest, LoadDouble) {
     EXPECT_DOUBLE_EQ(xenv::load("TEST_FLOAT", 0.0), 3.14);
     EXPECT_DOUBLE_EQ(xenv::load("NONEXISTENT_VAR", 1.5), 1.5);
     EXPECT_DOUBLE_EQ(xenv::load("TEST_INVALID_NUM", 1.5), 1.5);
 }
 
+/// @brief it should load long values from environment variables.
 TEST_F(XEnvTest, LoadLong) {
     EXPECT_EQ(xenv::load("TEST_INT", 0L), 42L);
     EXPECT_EQ(xenv::load("NONEXISTENT_VAR", 100L), 100L);
     EXPECT_EQ(xenv::load("TEST_INVALID_NUM", 100L), 100L);
 }
 
+/// @brief it should load uint16 values from environment variables.
 TEST_F(XEnvTest, LoadUInt16) {
-    EXPECT_EQ(xenv::load("TEST_UINT16", uint16_t(0)), uint16_t(65000));
-    EXPECT_EQ(xenv::load("NONEXISTENT_VAR", uint16_t(100)), uint16_t(100));
-    EXPECT_EQ(xenv::load("TEST_INVALID_NUM", uint16_t(100)), uint16_t(100));
+    EXPECT_EQ(
+        xenv::load("TEST_UINT16", static_cast<uint16_t>(0)),
+        static_cast<uint16_t>(65000)
+    );
+    EXPECT_EQ(
+        xenv::load("NONEXISTENT_VAR", static_cast<uint16_t>(100)),
+        static_cast<uint16_t>(100)
+    );
+    EXPECT_EQ(
+        xenv::load("TEST_INVALID_NUM", static_cast<uint16_t>(100)),
+        static_cast<uint16_t>(100)
+    );
 }
 
+/// @brief it should load boolean values with true as default.
 TEST_F(XEnvTest, LoadBooleanTrueDefault) {
     xenv::set("TEST_BOOL_TRUE", "true");
     EXPECT_EQ(xenv::load("TEST_BOOL_TRUE", false), true);
@@ -79,6 +95,7 @@ TEST_F(XEnvTest, LoadBooleanTrueDefault) {
     EXPECT_EQ(xenv::load("TEST_BOOL_FALSE", true), false);
 }
 
+/// @brief it should load boolean values with false as default.
 TEST_F(XEnvTest, LoadBooleanFalseDefault) {
     xenv::set("TEST_BOOL_TRUE", "true");
     EXPECT_EQ(xenv::load("TEST_BOOL_TRUE", true), true);
@@ -93,6 +110,7 @@ TEST_F(XEnvTest, LoadBooleanFalseDefault) {
     EXPECT_EQ(xenv::load("TEST_BOOL_FALSE", false), false);
 }
 
+/// @brief it should automatically convert variable names to screaming case.
 TEST_F(XEnvTest, AutomaticCaseConversion) {
     xenv::set("HELLO_WORLD", "test_value");
     xenv::set("ANOTHER_TEST_VAR", "42");
@@ -109,6 +127,7 @@ TEST_F(XEnvTest, AutomaticCaseConversion) {
     xenv::unset("ANOTHER_TEST_VAR");
 }
 
+/// @brief it should handle mixed case variable names correctly.
 TEST_F(XEnvTest, CaseConversionWithMixedCase) {
     xenv::set("MIXED_CASE_VALUE", "success");
 
@@ -119,6 +138,7 @@ TEST_F(XEnvTest, CaseConversionWithMixedCase) {
     xenv::unset("MIXED_CASE_VALUE");
 }
 
+/// @brief it should support prefixed environment variable loading.
 TEST_F(XEnvTest, ParserWithPrefix) {
     xenv::set("APP_TEST_STRING", "prefixed");
     xenv::set("APP_TEST_INT", "123");
@@ -138,13 +158,14 @@ TEST_F(XEnvTest, ParserWithPrefix) {
     xenv::unset("APP_TEST_INT");
 }
 
+/// @brief it should handle mixed case prefixes correctly.
 TEST_F(XEnvTest, ParserWithMixedCasePrefix) {
     xenv::set("MY_APP_TEST_VALUE", "mixed_case_prefix");
 
     // Test different prefix case styles - all should access the same env var
-    xenv::Parser parser1("my_app");
-    xenv::Parser parser2("MY_APP");
-    xenv::Parser parser3("My_App");
+    const xenv::Parser parser1("my_app");
+    const xenv::Parser parser2("MY_APP");
+    const xenv::Parser parser3("My_App");
 
     EXPECT_EQ(parser1.field("test_value", std::string("default")), "mixed_case_prefix");
     EXPECT_EQ(parser2.field("test_value", std::string("default")), "mixed_case_prefix");
@@ -153,20 +174,22 @@ TEST_F(XEnvTest, ParserWithMixedCasePrefix) {
     xenv::unset("MY_APP_TEST_VALUE");
 }
 
+/// @brief it should work correctly with an empty prefix.
 TEST_F(XEnvTest, EmptyPrefix) {
     // Ensure empty prefix works the same as the global load function
-    xenv::Parser parser("");
+    const xenv::Parser parser("");
     EXPECT_EQ(parser.field("TEST_STRING", std::string("default")), "hello");
     EXPECT_EQ(parser.field("TEST_INT", 0), 42);
     EXPECT_EQ(parser.field("NONEXISTENT_VAR", std::string("default")), "default");
 }
 
+/// @brief it should support multiple parser instances with different prefixes.
 TEST_F(XEnvTest, MultipleParserInstances) {
     xenv::set("APP1_VALUE", "first");
     xenv::set("APP2_VALUE", "second");
 
-    xenv::Parser parser1("app1");
-    xenv::Parser parser2("app2");
+    const xenv::Parser parser1("app1");
+    const xenv::Parser parser2("app2");
 
     EXPECT_EQ(parser1.field("value", std::string("default")), "first");
     EXPECT_EQ(parser2.field("value", std::string("default")), "second");

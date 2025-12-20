@@ -67,12 +67,6 @@ func IterPrefix(prefix []byte) IteratorOptions {
 	return IteratorOptions{LowerBound: prefix, UpperBound: prefixUpperBound(prefix)}
 }
 
-// IterRange returns IteratorOptions, that when passed to writer.NewStreamIterator, will
-// iterator through the range of keys between start and end.
-func IterRange(start, end []byte) IteratorOptions {
-	return IteratorOptions{LowerBound: start, UpperBound: end}
-}
-
 func prefixUpperBound(lower []byte) []byte {
 	upper := binary.MakeCopy(lower)
 	for i := len(upper) - 1; i >= 0; i-- {

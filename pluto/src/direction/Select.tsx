@@ -13,8 +13,10 @@ import { type ReactElement } from "react";
 import { Icon } from "@/icon";
 import { Select as CoreSelect } from "@/select";
 
-export interface SelectProps
-  extends Omit<CoreSelect.ButtonsProps<direction.Direction>, "keys"> {
+export interface SelectProps extends Omit<
+  CoreSelect.ButtonsProps<direction.Direction>,
+  "keys"
+> {
   yDirection?: "up" | "down";
 }
 

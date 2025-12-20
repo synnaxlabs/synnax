@@ -14,7 +14,7 @@ import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "schematics";
-const RESOURCE_NAME = "Schematic";
+const RESOURCE_NAME = "schematic";
 
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
   FluxSubStore,
@@ -22,8 +22,10 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
   schematic.Schematic
 > = { listeners: [] };
 
-export interface FluxStore
-  extends Flux.UnaryStore<schematic.Key, schematic.Schematic> {}
+export interface FluxStore extends Flux.UnaryStore<
+  schematic.Key,
+  schematic.Schematic
+> {}
 
 interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;

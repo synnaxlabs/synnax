@@ -15,8 +15,10 @@ import { useCallback, useEffect, useMemo } from "react";
 import { CSS } from "@/css";
 import { useSelectActiveKey as useSelectActiveRangeKey } from "@/range/selectors";
 
-export interface ChannelNameProps
-  extends optional.Optional<Omit<Text.MaybeEditableProps, "value">, "level"> {
+export interface ChannelNameProps extends optional.Optional<
+  Omit<Text.MaybeEditableProps, "value">,
+  "level"
+> {
   channel: channel.Key;
   defaultName?: string;
 }

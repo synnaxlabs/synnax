@@ -27,11 +27,10 @@ const DATA: InputChannelTypeEntry[] = [
   { key: REGISTER_INPUT_TYPE, name: "Register" },
 ];
 
-export interface SelectInputChannelTypeFieldProps
-  extends Omit<
-    Form.SelectFieldProps<InputChannelType, InputChannelTypeEntry>,
-    "data" | "entryRenderKey" | "columns"
-  > {}
+export interface SelectInputChannelTypeFieldProps extends Omit<
+  Form.SelectFieldProps<InputChannelType, InputChannelTypeEntry>,
+  "data" | "entryRenderKey" | "columns"
+> {}
 
 export const SelectInputChannelTypeField = Form.buildSelectField<
   InputChannelType,

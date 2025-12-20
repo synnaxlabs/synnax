@@ -8,13 +8,14 @@ FUNC        : 'func';
 IF          : 'if';
 ELSE        : 'else';
 RETURN      : 'return';
-NOW         : 'now';
-LEN         : 'len';
+
+// Sequencing keywords
+SEQUENCE    : 'sequence';
+STAGE       : 'stage';
+NEXT        : 'next';
 
 // Channel keywords
 CHAN        : 'chan';
-RECV_CHAN   : '<-chan';
-SEND_CHAN   : '->chan';
 
 // Primitive types
 I8          : 'i8';
@@ -36,13 +37,13 @@ SERIES      : 'series';
 // Operators
 // =============================================================================
 
-// Channel operators (order matters - longer tokens first)
+// Channel operators
 ARROW       : '->';
-RECV        : '<-';
 
 
 DECLARE     : ':=';  // Local variable declaration
 STATE_DECLARE: '$='; // Stateful variable declaration
+TRANSITION  : '=>';  // Stage transition operator
 ASSIGN      : '=';   // Assignment to existing variable
 
 // Arithmetic
@@ -78,7 +79,6 @@ LBRACKET    : '[';
 RBRACKET    : ']';
 COMMA       : ',';
 COLON       : ':';
-SEMICOLON   : ';';
 
 // =============================================================================
 // Literals

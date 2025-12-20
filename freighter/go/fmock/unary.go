@@ -22,14 +22,6 @@ var (
 	_ freighter.UnaryServer[types.Nil, any] = (*UnaryServer[types.Nil, any])(nil)
 )
 
-// NewUnaryPair creates a new unary client and server pair that are directly linked to
-// one another i.e. dialing any target on the client will call the server's handler.
-func NewUnaryPair[RQ, RS freighter.Payload]() (*UnaryServer[RQ, RS], *UnaryClient[RQ, RS]) {
-	us := &UnaryServer[RQ, RS]{}
-	uc := &UnaryClient[RQ, RS]{server: us}
-	return us, uc
-}
-
 // UnaryServer implements the freighter.UnaryServer interface using go channels as
 // the transport.
 type UnaryServer[RQ, RS freighter.Payload] struct {

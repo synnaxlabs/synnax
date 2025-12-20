@@ -19,8 +19,10 @@ export interface TaskContextMenuItemConfig {
   layout: Task.Layout;
 }
 
-export interface ContextMenuItemsProps
-  extends Pick<Ontology.TreeContextMenuProps, "selection" | "state"> {
+export interface ContextMenuItemsProps extends Pick<
+  Ontology.TreeContextMenuProps,
+  "selection" | "state"
+> {
   children?: ReactElement;
   configureLayout: Layout.BaseState;
   taskContextMenuItemConfigs: TaskContextMenuItemConfig[];

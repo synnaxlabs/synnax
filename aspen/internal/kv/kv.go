@@ -167,9 +167,9 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 	// We use a generator observable to generate a unique transaction reader for
 	// each handler in the observable chain. This is necessary because the transaction
 	// reader can be exhausted.
-	observable := confluence.NewGeneratorTransformObservable(
+	observable := confluence.NewGeneratorTransformObservable[TxRequest, kv.TxReader](
 		func(_ context.Context, tx TxRequest) (func() kv.TxReader, bool, error) {
-			return tx.reader, true, nil
+			return func() kv.TxReader { return tx.reader() }, true, nil
 		})
 	plumber.SetSink(pipe, observableAddr, observable)
 	db_.Observable = observable

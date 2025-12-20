@@ -91,4 +91,11 @@ span.pluto-text {
     &.pluto-text--overflow-wrap {
         white-space: wrap;
     }
+
+    &.pluto-text--line-clamp {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 }

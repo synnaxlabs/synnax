@@ -1,4 +1,4 @@
-go 1.25.4
+go 1.25.5
 
 use (
 	./alamos/go
@@ -11,4 +11,4 @@ use (
 	./x/go
 )
 
-replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20251002232023-7c0ddcbb5797
+replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20251202230838-ff82c1b0f217

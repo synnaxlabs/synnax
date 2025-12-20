@@ -13,8 +13,8 @@ import { z } from "zod";
 export const keyZ = z.uint32();
 export type Key = z.infer<typeof keyZ>;
 
-export const statusDetailsSchema = z.object({ rack: keyZ });
-export const statusZ = status.statusZ(statusDetailsSchema);
+export const statusDetailsZ = z.object({ rack: keyZ });
+export const statusZ = status.statusZ(statusDetailsZ);
 
 export interface Status extends z.infer<typeof statusZ> {}
 

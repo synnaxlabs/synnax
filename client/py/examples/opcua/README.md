@@ -33,7 +33,7 @@ This server simulates:
 - **Boolean variables** (my_bool_0, my_bool_1): Square wave patterns
 - **Command variables** (command_0, command_1, command_2): Writable float values
 
-The server runs on `opc.tcp://localhost:4841/` by default and prints node IDs on
+The server runs on `opc.tcp://127.0.0.1:4841/` by default and prints node IDs on
 startup.
 
 ### 2. Connect Your OPC UA Server
@@ -54,7 +54,7 @@ This script will:
 server:
 
 - `DEVICE_NAME`: A friendly name for your OPC UA server
-- `ENDPOINT`: OPC UA endpoint URL (e.g., `opc.tcp://localhost:4841/`)
+- `ENDPOINT`: OPC UA endpoint URL (e.g., `opc.tcp://127.0.0.1:4841/`)
 
 ### 3. Read Float Data from OPC UA Nodes
 

@@ -5,6 +5,7 @@ modules:
       - core
       - freighter/integration
       - x/go
+      - arc/go
 lint:
   use:
     - STANDARD

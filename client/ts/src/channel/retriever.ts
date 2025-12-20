@@ -48,8 +48,10 @@ const reqZ = z.object({
 });
 export interface RetrieveRequest extends z.input<typeof reqZ> {}
 
-export interface RetrieveOptions
-  extends Omit<RetrieveRequest, "keys" | "names" | "search"> {}
+export interface RetrieveOptions extends Omit<
+  RetrieveRequest,
+  "keys" | "names" | "search"
+> {}
 export interface PageOptions extends Omit<RetrieveOptions, "offset" | "limit"> {}
 
 const resZ = z.object({ channels: array.nullableZ(payloadZ) });

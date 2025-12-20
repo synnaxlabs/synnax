@@ -9,7 +9,7 @@
 
 import "@/hardware/modbus/task/Task.css";
 
-import { NotFoundError } from "@synnaxlabs/client";
+import { channel, NotFoundError } from "@synnaxlabs/client";
 import {
   Component,
   Flex,
@@ -139,8 +139,8 @@ const getOpenChannel = (channels: OutputChannel[]): OutputChannel => {
 
 const listItem = Component.renderProp(ChannelListItem);
 
-interface ContextMenuItemProps
-  extends Common.Task.ContextMenuItemProps<OutputChannel> {}
+interface ContextMenuItemProps extends Common.Task
+  .ContextMenuItemProps<OutputChannel> {}
 
 const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => {
   if (keys.length !== 1) return null;
@@ -211,17 +211,18 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
     }
   }
 
+  const safeName = channel.escapeInvalidName(dev.name);
   if (commandsToCreate.length > 0) {
     const commandIndexes = await client.channels.create(
       commandsToCreate.map((c) => ({
-        name: `${dev.name}_${c.type}_${c.address}_cmd_time`,
+        name: `${safeName}_${c.type}_${c.address}_cmd_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commands = await client.channels.create(
       commandsToCreate.map((c, i) => ({
-        name: `${dev.name}_${c.type}_${c.address}_cmd`,
+        name: `${safeName}_${c.type}_${c.address}_cmd`,
         dataType: c.type === "holding_register_output" ? c.dataType : "uint8",
         index: commandIndexes[i].key,
       })),

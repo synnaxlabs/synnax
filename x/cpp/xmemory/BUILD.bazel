@@ -1,0 +1,16 @@
+cc_library(
+    name = "xmemory",
+    hdrs = ["local_shared.h"],
+    visibility = ["//visibility:public"],
+)
+
+cc_test(
+    name = "xmemory_test",
+    size = "small",
+    srcs = ["local_shared_test.cpp"],
+    deps = [
+        "//x/cpp/xmemory",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

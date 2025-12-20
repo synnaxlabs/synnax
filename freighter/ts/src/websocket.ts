@@ -33,9 +33,10 @@ type ReceiveCallbacksQueue = Array<{
 }>;
 
 /** WebSocketStream is an implementation of Stream that is backed by a websocket. */
-class WebSocketStream<RQ extends z.ZodType, RS extends z.ZodType = RQ>
-  implements Stream<RQ, RS>
-{
+class WebSocketStream<
+  RQ extends z.ZodType,
+  RS extends z.ZodType = RQ,
+> implements Stream<RQ, RS> {
   private readonly codec: binary.Codec;
   private readonly reqSchema: RQ;
   private readonly resSchema: RS;

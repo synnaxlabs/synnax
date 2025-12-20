@@ -14,6 +14,7 @@ cc_test(
     srcs = ["status_test.cpp"],
     deps = [
         "//x/cpp/status",
+        "//x/cpp/xtest",
         "@googletest//:gtest_main",
     ],
 )

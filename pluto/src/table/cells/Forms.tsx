@@ -133,8 +133,10 @@ const VARIANT_DATA: Select.StaticEntry<Variant>[] = [
   { key: "value", name: "Value", icon: <Icon.Channel /> },
 ];
 
-export interface SelectVariantProps
-  extends Omit<Select.StaticProps<Variant>, "data" | "resourceName"> {}
+export interface SelectVariantProps extends Omit<
+  Select.StaticProps<Variant>,
+  "data" | "resourceName"
+> {}
 
 export const SelectVariant = (props: SelectVariantProps) => (
   <Select.Static {...props} data={VARIANT_DATA} resourceName="variant" />

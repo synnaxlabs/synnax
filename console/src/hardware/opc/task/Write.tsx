@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError } from "@synnaxlabs/client";
+import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, type Haul, Icon, Menu, Text } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { type FC } from "react";
@@ -148,14 +148,14 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
       dev.properties.write.channels = {};
     const commandIndexes = await client.channels.create(
       commandsToCreate.map(({ nodeName }) => ({
-        name: `${nodeName}_cmd_time`,
+        name: `${channel.escapeInvalidName(nodeName)}_cmd_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commands = await client.channels.create(
       commandsToCreate.map(({ dataType, nodeName }, i) => ({
-        name: `${nodeName}_cmd`,
+        name: `${channel.escapeInvalidName(nodeName)}_cmd`,
         dataType,
         index: commandIndexes[i].key,
       })),

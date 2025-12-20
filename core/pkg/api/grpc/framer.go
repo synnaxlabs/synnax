@@ -79,14 +79,14 @@ var (
 	_ fgrpc.Translator[api.FrameDeleteRequest, *gapi.FrameDeleteRequest]       = (*FrameDeleteRequestTranslator)(nil)
 )
 
-func translateFrameForward(f api.Frame) *gapi.Frame {
-	return &gapi.Frame{
+func translateFrameForward(f api.Frame) *telem.PBFrame {
+	return &telem.PBFrame{
 		Keys:   translateChannelKeysForward(f.KeysSlice()),
 		Series: telem.TranslateManySeriesForward(f.SeriesSlice()),
 	}
 }
 
-func translateFrameBackward(f *gapi.Frame) api.Frame {
+func translateFrameBackward(f *telem.PBFrame) api.Frame {
 	if f == nil {
 		return api.Frame{}
 	}

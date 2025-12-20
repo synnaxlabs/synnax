@@ -3611,39 +3611,6 @@ func OrU8(lhs, rhs telem.Series, output *telem.Series) {
 	}
 }
 
-func XorU8(lhs, rhs telem.Series, output *telem.Series) {
-	lhsLen := lhs.Len()
-	rhsLen := rhs.Len()
-	maxLen := max(lhsLen, rhsLen)
-	output.Resize(maxLen)
-
-	lhsData := unsafe.CastSlice[uint8, uint8](lhs.Data)
-	rhsData := unsafe.CastSlice[uint8, uint8](rhs.Data)
-	outData := unsafe.CastSlice[uint8, uint8](output.Data)
-
-	var lhsLast, rhsLast uint8
-	if lhsLen > 0 {
-		lhsLast = lhsData[lhsLen-1]
-	}
-	if rhsLen > 0 {
-		rhsLast = rhsData[rhsLen-1]
-	}
-
-	for i := range maxLen {
-		lhsVal := lhsLast
-		if i < lhsLen {
-			lhsVal = lhsData[i]
-			lhsLast = lhsVal
-		}
-		rhsVal := rhsLast
-		if i < rhsLen {
-			rhsVal = rhsData[i]
-			rhsLast = rhsVal
-		}
-		outData[i] = lhsVal ^ rhsVal
-	}
-}
-
 func NotU8(input telem.Series, output *telem.Series) {
 	inputLen := input.Len()
 	output.Resize(inputLen)
@@ -3736,7 +3703,6 @@ func AvgF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, float64](input.Data)
 
-	
 	// Compute sum of new input samples
 	var newSum float64
 	for i := range inputLen {
@@ -3771,7 +3737,6 @@ func MinF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, float64](input.Data)
 
-	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -3808,7 +3773,6 @@ func MaxF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, float64](input.Data)
 
-	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -3833,7 +3797,7 @@ func MaxF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-	
+
 }
 
 func AvgF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -3844,7 +3808,6 @@ func AvgF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, float32](input.Data)
 
-	
 	// Compute sum of new input samples
 	var newSum float32
 	for i := range inputLen {
@@ -3879,7 +3842,6 @@ func MinF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, float32](input.Data)
 
-	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -3916,7 +3878,6 @@ func MaxF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, float32](input.Data)
 
-	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -3941,7 +3902,7 @@ func MaxF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-	
+
 }
 
 func AvgI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -3952,7 +3913,6 @@ func AvgI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, int64](input.Data)
 
-	
 	// Compute sum of new input samples
 	var newSum int64
 	for i := range inputLen {
@@ -3987,7 +3947,6 @@ func MinI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, int64](input.Data)
 
-	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4024,7 +3983,6 @@ func MaxI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, int64](input.Data)
 
-	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4049,7 +4007,7 @@ func MaxI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-	
+
 }
 
 func AvgI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4060,7 +4018,6 @@ func AvgI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, int32](input.Data)
 
-	
 	// Compute sum of new input samples
 	var newSum int32
 	for i := range inputLen {
@@ -4095,7 +4052,6 @@ func MinI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, int32](input.Data)
 
-	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4132,7 +4088,6 @@ func MaxI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, int32](input.Data)
 
-	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4157,7 +4112,7 @@ func MaxI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-	
+
 }
 
 func AvgI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4168,7 +4123,6 @@ func AvgI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, int16](input.Data)
 
-	
 	// Compute sum of new input samples
 	var newSum int16
 	for i := range inputLen {
@@ -4203,7 +4157,6 @@ func MinI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, int16](input.Data)
 
-	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4240,7 +4193,6 @@ func MaxI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, int16](input.Data)
 
-	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4265,7 +4217,7 @@ func MaxI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-	
+
 }
 
 func AvgI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4276,7 +4228,6 @@ func AvgI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, int8](input.Data)
 
-	
 	// Compute sum of new input samples
 	var newSum int8
 	for i := range inputLen {
@@ -4311,7 +4262,6 @@ func MinI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, int8](input.Data)
 
-	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4348,7 +4298,6 @@ func MaxI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, int8](input.Data)
 
-	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4373,7 +4322,7 @@ func MaxI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-	
+
 }
 
 func AvgU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4384,7 +4333,6 @@ func AvgU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, uint64](input.Data)
 
-	
 	// Compute sum of new input samples
 	var newSum uint64
 	for i := range inputLen {
@@ -4419,7 +4367,6 @@ func MinU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, uint64](input.Data)
 
-	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4456,7 +4403,6 @@ func MaxU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, uint64](input.Data)
 
-	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4481,7 +4427,7 @@ func MaxU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-	
+
 }
 
 func AvgU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4492,7 +4438,6 @@ func AvgU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, uint32](input.Data)
 
-	
 	// Compute sum of new input samples
 	var newSum uint32
 	for i := range inputLen {
@@ -4527,7 +4472,6 @@ func MinU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, uint32](input.Data)
 
-	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4564,7 +4508,6 @@ func MaxU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, uint32](input.Data)
 
-	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4589,7 +4532,7 @@ func MaxU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-	
+
 }
 
 func AvgU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4600,7 +4543,6 @@ func AvgU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, uint16](input.Data)
 
-	
 	// Compute sum of new input samples
 	var newSum uint16
 	for i := range inputLen {
@@ -4635,7 +4577,6 @@ func MinU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, uint16](input.Data)
 
-	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4672,7 +4613,6 @@ func MaxU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, uint16](input.Data)
 
-	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4697,7 +4637,7 @@ func MaxU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-	
+
 }
 
 func AvgU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4708,7 +4648,6 @@ func AvgU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, uint8](input.Data)
 
-	
 	// Compute sum of new input samples
 	var newSum uint8
 	for i := range inputLen {
@@ -4743,7 +4682,6 @@ func MinU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, uint8](input.Data)
 
-	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4780,7 +4718,6 @@ func MaxU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := unsafe.CastSlice[uint8, uint8](input.Data)
 
-	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4805,442 +4742,5 @@ func MaxU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-	
-}
 
-func DerivativeF64(data, time telem.Series, output *telem.Series) {
-	dataLen := data.Len()
-	timeLen := time.Len()
-
-	if dataLen == 0 || timeLen == 0 {
-		output.Resize(0)
-		return
-	}
-
-	minLen := min(dataLen, timeLen)
-
-	// Set DataType BEFORE Resize so it can calculate the correct buffer size
-
-	
-	output.DataType = telem.Float64T
-	
-
-	output.Resize(minLen)
-
-	dataVals := unsafe.CastSlice[uint8, float64](data.Data)
-	timeVals := unsafe.CastSlice[uint8, int64](time.Data)
-	outData := unsafe.CastSlice[uint8, float64](output.Data)
-
-
-	// First element derivative is 0 (no previous point for backward difference)
-	outData[0] = 0.0
-
-	// Calculate backward differences: dy/dt = (y[i] - y[i-1]) / (t[i] - t[i-1])
-	for i := int64(1); i < minLen; i++ {
-
-		dy := dataVals[i] - dataVals[i-1]
-
-		dt := float64(timeVals[i]-timeVals[i-1]) / 1e9 // Convert nanoseconds to seconds
-
-		if dt == 0 {
-			outData[i] = 0.0
-		} else {
-
-			outData[i] = dy / float64(dt)
-
-		}
-	}
-}
-
-func DerivativeF32(data, time telem.Series, output *telem.Series) {
-	dataLen := data.Len()
-	timeLen := time.Len()
-
-	if dataLen == 0 || timeLen == 0 {
-		output.Resize(0)
-		return
-	}
-
-	minLen := min(dataLen, timeLen)
-
-	// Set DataType BEFORE Resize so it can calculate the correct buffer size
-
-	
-	output.DataType = telem.Float32T
-	
-	
-
-	output.Resize(minLen)
-
-	dataVals := unsafe.CastSlice[uint8, float32](data.Data)
-	timeVals := unsafe.CastSlice[uint8, int64](time.Data)
-	outData := unsafe.CastSlice[uint8, float32](output.Data)
-
-
-	// First element derivative is 0 (no previous point for backward difference)
-	outData[0] = 0.0
-
-	// Calculate backward differences: dy/dt = (y[i] - y[i-1]) / (t[i] - t[i-1])
-	for i := int64(1); i < minLen; i++ {
-
-		dy := dataVals[i] - dataVals[i-1]
-
-		dt := float64(timeVals[i]-timeVals[i-1]) / 1e9 // Convert nanoseconds to seconds
-
-		if dt == 0 {
-			outData[i] = 0.0
-		} else {
-
-			outData[i] = dy / float32(dt)
-
-		}
-	}
-}
-
-func DerivativeI64(data, time telem.Series, output *telem.Series) {
-	dataLen := data.Len()
-	timeLen := time.Len()
-
-	if dataLen == 0 || timeLen == 0 {
-		output.Resize(0)
-		return
-	}
-
-	minLen := min(dataLen, timeLen)
-
-	// Set DataType BEFORE Resize so it can calculate the correct buffer size
-
-	output.DataType = telem.Float64T
-	
-
-	output.Resize(minLen)
-
-	dataVals := unsafe.CastSlice[uint8, int64](data.Data)
-	timeVals := unsafe.CastSlice[uint8, int64](time.Data)
-	outData := unsafe.CastSlice[uint8, float64](output.Data)
-
-
-	// First element derivative is 0 (no previous point for backward difference)
-	outData[0] = 0.0
-
-	// Calculate backward differences: dy/dt = (y[i] - y[i-1]) / (t[i] - t[i-1])
-	for i := int64(1); i < minLen; i++ {
-
-		dy := float64(dataVals[i] - dataVals[i-1])
-
-		dt := float64(timeVals[i]-timeVals[i-1]) / 1e9 // Convert nanoseconds to seconds
-
-		if dt == 0 {
-			outData[i] = 0.0
-		} else {
-			outData[i] = dy / dt
-		}
-	}
-}
-
-func DerivativeI32(data, time telem.Series, output *telem.Series) {
-	dataLen := data.Len()
-	timeLen := time.Len()
-
-	if dataLen == 0 || timeLen == 0 {
-		output.Resize(0)
-		return
-	}
-
-	minLen := min(dataLen, timeLen)
-
-	// Set DataType BEFORE Resize so it can calculate the correct buffer size
-
-	output.DataType = telem.Float64T
-	
-
-	output.Resize(minLen)
-
-	dataVals := unsafe.CastSlice[uint8, int32](data.Data)
-	timeVals := unsafe.CastSlice[uint8, int64](time.Data)
-	outData := unsafe.CastSlice[uint8, float64](output.Data)
-
-
-	// First element derivative is 0 (no previous point for backward difference)
-	outData[0] = 0.0
-
-	// Calculate backward differences: dy/dt = (y[i] - y[i-1]) / (t[i] - t[i-1])
-	for i := int64(1); i < minLen; i++ {
-
-		dy := float64(dataVals[i] - dataVals[i-1])
-
-		dt := float64(timeVals[i]-timeVals[i-1]) / 1e9 // Convert nanoseconds to seconds
-
-		if dt == 0 {
-			outData[i] = 0.0
-		} else {
-			outData[i] = dy / dt
-		}
-	}
-}
-
-func DerivativeI16(data, time telem.Series, output *telem.Series) {
-	dataLen := data.Len()
-	timeLen := time.Len()
-
-	if dataLen == 0 || timeLen == 0 {
-		output.Resize(0)
-		return
-	}
-
-	minLen := min(dataLen, timeLen)
-
-	// Set DataType BEFORE Resize so it can calculate the correct buffer size
-
-	output.DataType = telem.Float64T
-	
-
-	output.Resize(minLen)
-
-	dataVals := unsafe.CastSlice[uint8, int16](data.Data)
-	timeVals := unsafe.CastSlice[uint8, int64](time.Data)
-	outData := unsafe.CastSlice[uint8, float64](output.Data)
-
-
-	// First element derivative is 0 (no previous point for backward difference)
-	outData[0] = 0.0
-
-	// Calculate backward differences: dy/dt = (y[i] - y[i-1]) / (t[i] - t[i-1])
-	for i := int64(1); i < minLen; i++ {
-
-		dy := float64(dataVals[i] - dataVals[i-1])
-
-		dt := float64(timeVals[i]-timeVals[i-1]) / 1e9 // Convert nanoseconds to seconds
-
-		if dt == 0 {
-			outData[i] = 0.0
-		} else {
-			outData[i] = dy / dt
-		}
-	}
-}
-
-func DerivativeI8(data, time telem.Series, output *telem.Series) {
-	dataLen := data.Len()
-	timeLen := time.Len()
-
-	if dataLen == 0 || timeLen == 0 {
-		output.Resize(0)
-		return
-	}
-
-	minLen := min(dataLen, timeLen)
-
-	// Set DataType BEFORE Resize so it can calculate the correct buffer size
-
-	output.DataType = telem.Float64T
-	
-
-	output.Resize(minLen)
-
-	dataVals := unsafe.CastSlice[uint8, int8](data.Data)
-	timeVals := unsafe.CastSlice[uint8, int64](time.Data)
-	outData := unsafe.CastSlice[uint8, float64](output.Data)
-
-
-	// First element derivative is 0 (no previous point for backward difference)
-	outData[0] = 0.0
-
-	// Calculate backward differences: dy/dt = (y[i] - y[i-1]) / (t[i] - t[i-1])
-	for i := int64(1); i < minLen; i++ {
-
-		dy := float64(dataVals[i] - dataVals[i-1])
-
-		dt := float64(timeVals[i]-timeVals[i-1]) / 1e9 // Convert nanoseconds to seconds
-
-		if dt == 0 {
-			outData[i] = 0.0
-		} else {
-			outData[i] = dy / dt
-		}
-	}
-}
-
-func DerivativeU64(data, time telem.Series, output *telem.Series) {
-	dataLen := data.Len()
-	timeLen := time.Len()
-
-	if dataLen == 0 || timeLen == 0 {
-		output.Resize(0)
-		return
-	}
-
-	minLen := min(dataLen, timeLen)
-
-	// Set DataType BEFORE Resize so it can calculate the correct buffer size
-
-	output.DataType = telem.Float64T
-	
-
-	output.Resize(minLen)
-
-	dataVals := unsafe.CastSlice[uint8, uint64](data.Data)
-	timeVals := unsafe.CastSlice[uint8, int64](time.Data)
-	outData := unsafe.CastSlice[uint8, float64](output.Data)
-
-
-	// First element derivative is 0 (no previous point for backward difference)
-	outData[0] = 0.0
-
-	// Calculate backward differences: dy/dt = (y[i] - y[i-1]) / (t[i] - t[i-1])
-	for i := int64(1); i < minLen; i++ {
-		// Handle unsigned types carefully to avoid underflow
-		var dy float64
-		if dataVals[i] >= dataVals[i-1] {
-			dy = float64(dataVals[i] - dataVals[i-1])
-		} else {
-			dy = -float64(dataVals[i-1] - dataVals[i])
-		}
-
-		dt := float64(timeVals[i]-timeVals[i-1]) / 1e9 // Convert nanoseconds to seconds
-
-		if dt == 0 {
-			outData[i] = 0.0
-		} else {
-			outData[i] = dy / dt
-		}
-	}
-}
-
-func DerivativeU32(data, time telem.Series, output *telem.Series) {
-	dataLen := data.Len()
-	timeLen := time.Len()
-
-	if dataLen == 0 || timeLen == 0 {
-		output.Resize(0)
-		return
-	}
-
-	minLen := min(dataLen, timeLen)
-
-	// Set DataType BEFORE Resize so it can calculate the correct buffer size
-
-	output.DataType = telem.Float64T
-	
-
-	output.Resize(minLen)
-
-	dataVals := unsafe.CastSlice[uint8, uint32](data.Data)
-	timeVals := unsafe.CastSlice[uint8, int64](time.Data)
-	outData := unsafe.CastSlice[uint8, float64](output.Data)
-
-
-	// First element derivative is 0 (no previous point for backward difference)
-	outData[0] = 0.0
-
-	// Calculate backward differences: dy/dt = (y[i] - y[i-1]) / (t[i] - t[i-1])
-	for i := int64(1); i < minLen; i++ {
-		// Handle unsigned types carefully to avoid underflow
-		var dy float64
-		if dataVals[i] >= dataVals[i-1] {
-			dy = float64(dataVals[i] - dataVals[i-1])
-		} else {
-			dy = -float64(dataVals[i-1] - dataVals[i])
-		}
-
-		dt := float64(timeVals[i]-timeVals[i-1]) / 1e9 // Convert nanoseconds to seconds
-
-		if dt == 0 {
-			outData[i] = 0.0
-		} else {
-			outData[i] = dy / dt
-		}
-	}
-}
-
-func DerivativeU16(data, time telem.Series, output *telem.Series) {
-	dataLen := data.Len()
-	timeLen := time.Len()
-
-	if dataLen == 0 || timeLen == 0 {
-		output.Resize(0)
-		return
-	}
-
-	minLen := min(dataLen, timeLen)
-
-	// Set DataType BEFORE Resize so it can calculate the correct buffer size
-
-	output.DataType = telem.Float64T
-	
-
-	output.Resize(minLen)
-
-	dataVals := unsafe.CastSlice[uint8, uint16](data.Data)
-	timeVals := unsafe.CastSlice[uint8, int64](time.Data)
-	outData := unsafe.CastSlice[uint8, float64](output.Data)
-
-
-	// First element derivative is 0 (no previous point for backward difference)
-	outData[0] = 0.0
-
-	// Calculate backward differences: dy/dt = (y[i] - y[i-1]) / (t[i] - t[i-1])
-	for i := int64(1); i < minLen; i++ {
-		// Handle unsigned types carefully to avoid underflow
-		var dy float64
-		if dataVals[i] >= dataVals[i-1] {
-			dy = float64(dataVals[i] - dataVals[i-1])
-		} else {
-			dy = -float64(dataVals[i-1] - dataVals[i])
-		}
-
-		dt := float64(timeVals[i]-timeVals[i-1]) / 1e9 // Convert nanoseconds to seconds
-
-		if dt == 0 {
-			outData[i] = 0.0
-		} else {
-			outData[i] = dy / dt
-		}
-	}
-}
-
-func DerivativeU8(data, time telem.Series, output *telem.Series) {
-	dataLen := data.Len()
-	timeLen := time.Len()
-
-	if dataLen == 0 || timeLen == 0 {
-		output.Resize(0)
-		return
-	}
-
-	minLen := min(dataLen, timeLen)
-
-	// Set DataType BEFORE Resize so it can calculate the correct buffer size
-
-	output.DataType = telem.Float64T
-	
-
-	output.Resize(minLen)
-
-	dataVals := unsafe.CastSlice[uint8, uint8](data.Data)
-	timeVals := unsafe.CastSlice[uint8, int64](time.Data)
-	outData := unsafe.CastSlice[uint8, float64](output.Data)
-
-
-	// First element derivative is 0 (no previous point for backward difference)
-	outData[0] = 0.0
-
-	// Calculate backward differences: dy/dt = (y[i] - y[i-1]) / (t[i] - t[i-1])
-	for i := int64(1); i < minLen; i++ {
-		// Handle unsigned types carefully to avoid underflow
-		var dy float64
-		if dataVals[i] >= dataVals[i-1] {
-			dy = float64(dataVals[i] - dataVals[i-1])
-		} else {
-			dy = -float64(dataVals[i-1] - dataVals[i])
-		}
-
-		dt := float64(timeVals[i]-timeVals[i-1]) / 1e9 // Convert nanoseconds to seconds
-
-		if dt == 0 {
-			outData[i] = 0.0
-		} else {
-			outData[i] = dy / dt
-		}
-	}
 }

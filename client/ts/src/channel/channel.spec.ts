@@ -11,7 +11,7 @@ import { DataType, id } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { Channel } from "@/channel/client";
-import { NotFoundError, PathError } from "@/errors";
+import { NotFoundError } from "@/errors";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -51,24 +51,17 @@ describe("Channel", () => {
       expect(calculatedCH.expression).toEqual(`return ${chOneName} * 2`);
     });
 
-    test("create calculated, missing required channel", async () => {
-      try {
-        await client.channels.create({
-          name: id.create(),
-          virtual: true,
-          dataType: DataType.FLOAT32,
-          expression: `return 2`,
-        });
-      } catch (e) {
-        expect((e as Error).message).toContain(
-          "calculated channels must require at least one channel",
-        );
-        expect(PathError.matches(e)).toBe(true);
-        expect((e as PathError).path).toEqual(["requires"]);
-        expect((e as PathError).error.message).contain(
-          "calculated channels must require at least one channel",
-        );
-      }
+    test("create calculated channel with constant expression", async () => {
+      // Calculated channels can now have constant expressions that don't
+      // reference other channels
+      const calculatedCH = await client.channels.create({
+        name: id.create(),
+        virtual: true,
+        dataType: DataType.FLOAT32,
+        expression: `return 2`,
+      });
+      expect(calculatedCH.virtual).toEqual(true);
+      expect(calculatedCH.expression).toEqual(`return 2`);
     });
 
     test("create index and indexed pair", async () => {

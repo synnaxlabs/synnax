@@ -299,7 +299,7 @@ private:
         return this->cfg.writer();
     }
 
-    common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+    common::ReadResult read(breaker::Breaker &breaker, telem::Frame &fr) override {
         common::ReadResult res;
         const auto n_channels = this->cfg.channels.size();
         const auto n_samples = this->cfg.samples_per_chan;

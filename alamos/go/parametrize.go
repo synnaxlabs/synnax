@@ -9,9 +9,7 @@
 
 package alamos
 
-import (
-	"io"
-)
+import "io"
 
 type ParametrizeConfig[V ParametrizeVars] interface {
 	Next() (V, error)

@@ -156,8 +156,3 @@ func EncodeControlUpdate(ctx context.Context, u ControlUpdate) (s telem.Series, 
 	s.Data = append(s.Data, '\n')
 	return s, err
 }
-
-func DecodeControlUpdate(ctx context.Context, s telem.Series) (ControlUpdate, error) {
-	var u ControlUpdate
-	return u, (&binary.JSONCodec{}).Decode(ctx, s.Data, &u)
-}

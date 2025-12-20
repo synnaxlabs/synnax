@@ -35,7 +35,8 @@ import { Text } from "@/text";
 import { Theming } from "@/theming";
 
 export interface AxisProps
-  extends PropsWithChildren,
+  extends
+    PropsWithChildren,
     Omit<z.input<typeof lineplot.xAxisStateZ>, "position" | "size">,
     Omit<Flex.BoxProps, "color">,
     Aether.ComponentProps {

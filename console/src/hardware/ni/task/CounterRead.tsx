@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
+import { channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { id, primitive, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
@@ -173,11 +173,11 @@ const onConfigure: Common.Task.OnConfigure<typeof counterReadConfigZ> = async (
         if (NotFoundError.matches(e)) shouldCreateIndex = true;
         else throw e;
       }
-
+    const identifier = channel.escapeInvalidName(dev.properties.identifier);
     if (shouldCreateIndex) {
       devModified = true;
       const ciIndex = await client.channels.create({
-        name: `${dev.properties.identifier}_ctr_time`,
+        name: `${identifier}_ctr_time`,
         dataType: "timestamp",
         isIndex: true,
       });
@@ -204,7 +204,7 @@ const onConfigure: Common.Task.OnConfigure<typeof counterReadConfigZ> = async (
       devModified = true;
       const channels = await client.channels.create(
         toCreate.map((c) => ({
-          name: `${dev.properties.identifier}_ctr_${c.port}`,
+          name: `${identifier}_ctr_${c.port}`,
           dataType: "float64",
           index: dev.properties.counterInput.index,
         })),

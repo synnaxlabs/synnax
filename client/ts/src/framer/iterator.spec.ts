@@ -99,4 +99,71 @@ describe("Iterator", () => {
       await iter.close();
     }
   });
+  test("downsample factor 2", async () => {
+    const channels = await newIndexedPair(client);
+    const [idx_ch, data_ch] = channels;
+    const writer = await client.openWriter({ start: TimeStamp.SECOND, channels });
+    await writer.write({
+      [idx_ch.key]: secondsLinspace(1, 8),
+      [data_ch.key]: new Float64Array([1, 2, 3, 4, 5, 6, 7, 8]),
+    });
+    await writer.close();
+    const iter = await client.openIterator(TimeRange.MAX, channels, {
+      downsampleFactor: 2,
+    });
+
+    try {
+      expect(await iter.seekFirst()).toBe(true);
+      expect(await iter.next(AUTO_SPAN)).toBe(true);
+      // [1, 2, 3, 4, 5, 6, 7, 8] downsampled by 2 = [1, 3, 5, 7]
+      expect(iter.value.get(data_ch.key).data).toEqual(new Float64Array([1, 3, 5, 7]));
+      expect(await iter.next(AUTO_SPAN)).toBe(false);
+    } finally {
+      await iter.close();
+    }
+  });
+  test("downsample factor 3", async () => {
+    const channels = await newIndexedPair(client);
+    const [idx_ch, data_ch] = channels;
+    const writer = await client.openWriter({ start: TimeStamp.SECOND, channels });
+    await writer.write({
+      [idx_ch.key]: secondsLinspace(1, 9),
+      [data_ch.key]: new Float64Array([1, 2, 3, 4, 5, 6, 7, 8, 9]),
+    });
+    await writer.close();
+    const iter = await client.openIterator(TimeRange.MAX, channels, {
+      downsampleFactor: 3,
+    });
+
+    try {
+      expect(await iter.seekFirst()).toBe(true);
+      expect(await iter.next(AUTO_SPAN)).toBe(true);
+      // [1, 2, 3, 4, 5, 6, 7, 8, 9] downsampled by 3 = [1, 4, 7]
+      expect(iter.value.get(data_ch.key).data).toEqual(new Float64Array([1, 4, 7]));
+      expect(await iter.next(AUTO_SPAN)).toBe(false);
+    } finally {
+      await iter.close();
+    }
+  });
+  test("no downsample when factor is 1", async () => {
+    const channels = await newIndexedPair(client);
+    const [idx_ch, data_ch] = channels;
+    const writer = await client.openWriter({ start: TimeStamp.SECOND, channels });
+    await writer.write({
+      [idx_ch.key]: secondsLinspace(1, 4),
+      [data_ch.key]: new Float64Array([1, 2, 3, 4]),
+    });
+    await writer.close();
+    const iter = await client.openIterator(TimeRange.MAX, channels, {
+      downsampleFactor: 1,
+    });
+    try {
+      expect(await iter.seekFirst()).toBe(true);
+      expect(await iter.next(AUTO_SPAN)).toBe(true);
+      expect(iter.value.get(data_ch.key).data).toEqual(new Float64Array([1, 2, 3, 4]));
+      expect(await iter.next(AUTO_SPAN)).toBe(false);
+    } finally {
+      await iter.close();
+    }
+  });
 });

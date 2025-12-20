@@ -179,7 +179,9 @@ export interface ConfigureProps<
   Properties extends record.Unknown,
   Make extends string,
   Model extends string,
-> extends Layout.RendererProps,
+>
+  extends
+    Layout.RendererProps,
     Pick<InternalProps<Properties, Make, Model>, "initialProperties"> {}
 
 export const Configure = <

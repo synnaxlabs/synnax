@@ -136,6 +136,8 @@ synnax::TaskStatus wait_for_task_status(
     synnax::Streamer &streamer,
     const synnax::Task &task,
     const std::function<bool(const synnax::TaskStatus &)> &predicate,
+    const char *file,
+    const int line,
     const std::chrono::milliseconds timeout = std::chrono::seconds(5)
 ) {
     synnax::TaskStatus result;
@@ -155,10 +157,21 @@ synnax::TaskStatus wait_for_task_status(
             return false;
         },
         [&]() { return "Timed out waiting for task status"; },
+        file,
+        line,
         timeout
     );
     return result;
 }
+
+#define WAIT_FOR_TASK_STATUS(streamer, task, predicate, ...)                           \
+    wait_for_task_status(                                                              \
+        streamer,                                                                      \
+        task,                                                                          \
+        predicate,                                                                     \
+        __FILE__,                                                                      \
+        __LINE__ __VA_OPT__(, ) __VA_ARGS__                                            \
+    )
 
 /// @brief it should correctly configure an echo task.
 TEST_F(TaskManagerTestFixture, testEchoTask) {
@@ -166,7 +179,7 @@ TEST_F(TaskManagerTestFixture, testEchoTask) {
     ASSERT_NIL(rack.tasks.create(echo_task));
 
     // Wait for the successful configuration status
-    auto status = wait_for_task_status(
+    auto status = WAIT_FOR_TASK_STATUS(
         this->status_streamer,
         echo_task,
         [](const synnax::TaskStatus &s) {
@@ -185,7 +198,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskDelete) {
     ASSERT_NIL(rack.tasks.create(echo_task));
 
     // Wait for task to be configured
-    wait_for_task_status(
+    WAIT_FOR_TASK_STATUS(
         this->status_streamer,
         echo_task,
         [](const synnax::TaskStatus &s) {
@@ -198,7 +211,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskDelete) {
     ASSERT_NIL(rack.tasks.del(echo_task.key));
 
     // Wait for the stop status
-    auto state = wait_for_task_status(
+    auto state = WAIT_FOR_TASK_STATUS(
         this->status_streamer,
         echo_task,
         [](const synnax::TaskStatus &s) {
@@ -224,7 +237,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     ASSERT_NIL(rack.tasks.create(echo_task));
 
     // Wait for task to be configured
-    wait_for_task_status(
+    WAIT_FOR_TASK_STATUS(
         this->status_streamer,
         echo_task,
         [](const synnax::TaskStatus &s) {
@@ -241,12 +254,12 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     );
     cmd.key = "my_command";
     ASSERT_NIL(
-        writer.write(synnax::Frame(sy_task_cmd.key, telem::Series(cmd.to_json())))
+        writer.write(telem::Frame(sy_task_cmd.key, telem::Series(cmd.to_json())))
     );
     ASSERT_NIL(writer.close());
 
     // Wait for command execution status
-    auto status = wait_for_task_status(
+    auto status = WAIT_FOR_TASK_STATUS(
         this->status_streamer,
         echo_task,
         [&cmd](const synnax::TaskStatus &s) { return s.details.cmd == cmd.key; }
@@ -296,7 +309,7 @@ TEST_F(TaskManagerTestFixture, testStopTaskOnShutdown) {
     ASSERT_NIL(rack.tasks.create(echo_task));
 
     // Wait for task to be configured
-    wait_for_task_status(
+    WAIT_FOR_TASK_STATUS(
         this->status_streamer,
         echo_task,
         [](const synnax::TaskStatus &s) {
@@ -310,7 +323,7 @@ TEST_F(TaskManagerTestFixture, testStopTaskOnShutdown) {
     task_thread.join();
 
     // Wait for the stop status
-    auto state = wait_for_task_status(
+    auto state = WAIT_FOR_TASK_STATUS(
         this->status_streamer,
         echo_task,
         [](const synnax::TaskStatus &s) {

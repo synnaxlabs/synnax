@@ -47,7 +47,8 @@ const listItemRenderProp = Component.renderProp(
 );
 
 export interface SelectProps
-  extends Omit<
+  extends
+    Omit<
       Core.SingleProps<access.role.Key, access.role.Role | undefined>,
       "resourceName" | "data" | "getItem" | "subscribe" | "children"
     >,

@@ -18,38 +18,78 @@ import (
 )
 
 type metric struct {
-	ch      channel.Channel
-	collect func() (float32, error)
+	ch channel.Channel
+	// Go does not allow unions, so we use an any type here.
+	// Data types for the channels are float32 and int32.
+	collect func() (any, error)
 }
 
-var all = []metric{
-	{
-		ch: channel.Channel{
-			Name:     "mem_percentage",
-			DataType: telem.Float32T,
+func (svc *Service) buildMetrics() []metric {
+	return []metric{
+		{
+			ch: channel.Channel{
+				Name:     "mem_percentage",
+				DataType: telem.Float32T,
+			},
+			collect: func() (any, error) {
+				vm, err := mem.VirtualMemory()
+				if err != nil {
+					return float32(0), err
+				}
+				return float32(vm.UsedPercent), err
+			},
 		},
-		collect: func() (float32, error) {
-			vm, err := mem.VirtualMemory()
-			if err != nil {
-				return 0, err
-			}
-			return float32(vm.UsedPercent), err
+		{
+			ch: channel.Channel{
+				Name:     "cpu_percentage",
+				DataType: telem.Float32T,
+			},
+			collect: func() (any, error) {
+				cpuUsage, err := cpu.Percent(0, false)
+				if err != nil {
+					return float32(0), err
+				}
+				if len(cpuUsage) < 1 {
+					return float32(0), errors.New("no cpu usage metric found")
+				}
+				return float32(cpuUsage[0]), err
+			},
 		},
-	},
-	{
-		ch: channel.Channel{
-			Name:     "cpu_percentage",
-			DataType: telem.Float32T,
+		{
+			ch: channel.Channel{
+				Name:     "total_size_gb",
+				DataType: telem.Float32T,
+			},
+			collect: func() (any, error) {
+				return float32(svc.cfg.Storage.Size()) / float32(telem.Gigabyte), nil
+			},
 		},
-		collect: func() (float32, error) {
-			cpuUsage, err := cpu.Percent(0, false)
-			if err != nil {
-				return 0, err
-			}
-			if len(cpuUsage) < 1 {
-				return 0, errors.New("no cpu usage metric found")
-			}
-			return float32(cpuUsage[0]), err
+		{
+			ch: channel.Channel{
+				Name:     "ts_size_gb",
+				DataType: telem.Float32T,
+			},
+			collect: func() (any, error) {
+				return float32(svc.cfg.Storage.TSSize()) / float32(telem.Gigabyte), nil
+			},
 		},
-	},
+		{
+			ch: channel.Channel{
+				Name:     "kv_size_gb",
+				DataType: telem.Float32T,
+			},
+			collect: func() (any, error) {
+				return float32(svc.cfg.Storage.KVSize()) / float32(telem.Gigabyte), nil
+			},
+		},
+		{
+			ch: channel.Channel{
+				Name:     "channel_count",
+				DataType: telem.Int32T,
+			},
+			collect: func() (any, error) {
+				return int32(svc.cfg.Channel.CountExternalNonVirtual()), nil
+			},
+		},
+	}
 }
