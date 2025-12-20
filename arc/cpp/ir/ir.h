@@ -418,6 +418,10 @@ struct Strata {
 struct Stage {
     std::string key;
     std::vector<std::string> nodes;
+    /// @brief Per-stage stratification. Stage-local source nodes (constants, channel
+    /// reads) are at stratum 0, and downstream nodes are in higher strata. This enables
+    /// independent execution ordering within each stage.
+    Strata strata;
 
     Stage() = default;
 
@@ -425,16 +429,21 @@ struct Stage {
         this->key = pb.key();
         for (const auto &node: pb.nodes())
             this->nodes.push_back(node);
+        this->strata = Strata(pb.strata());
     }
 
     void to_proto(arc::v1::ir::PBStage *pb) const {
         pb->set_key(key);
         for (const auto &node: nodes)
             pb->add_nodes(node);
+        strata.to_proto(pb->mutable_strata());
     }
 
     /// @brief Returns the string representation of the stage.
-    [[nodiscard]] std::string to_string() const {
+    [[nodiscard]] std::string to_string() const { return to_string_with_prefix(""); }
+
+    /// @brief Returns the string representation with tree formatting.
+    [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const {
         std::ostringstream ss;
         ss << key << ": [";
         for (size_t i = 0; i < nodes.size(); ++i) {
@@ -442,6 +451,9 @@ struct Stage {
             ss << nodes[i];
         }
         ss << "]";
+        if (!strata.strata.empty()) {
+            ss << "\n" << strata.to_string_with_prefix(prefix);
+        }
         return ss.str();
     }
 
@@ -496,7 +508,10 @@ struct Sequence {
         ss << key << "\n";
         for (size_t i = 0; i < stages.size(); ++i) {
             bool is_last = i == stages.size() - 1;
-            ss << prefix << tree_prefix(is_last) << stages[i].to_string() << "\n";
+            std::string stage_child_prefix = prefix + tree_indent(is_last);
+            ss << prefix << tree_prefix(is_last)
+               << stages[i].to_string_with_prefix(stage_child_prefix);
+            if (stages[i].strata.strata.empty()) ss << "\n";
         }
         return ss.str();
     }

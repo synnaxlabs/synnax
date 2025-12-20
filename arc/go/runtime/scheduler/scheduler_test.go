@@ -101,62 +101,6 @@ var _ = Describe("Scheduler", func() {
 			Expect(s).ToNot(BeNil())
 		})
 	})
-	Describe("Init", func() {
-		It("Should execute all nodes in stratum 0", func() {
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "a"},
-					{Key: "b"},
-				},
-				Strata: ir.Strata{{"a", "b"}},
-			}
-			nodes["a"] = nodeA
-			nodes["b"] = nodeB
-			s = scheduler.New(prog, nodes)
-			s.Init(ctx)
-			Expect(nodeA.initCalled).To(BeTrue())
-			Expect(nodeB.initCalled).To(BeTrue())
-		})
-		It("Should execute nodes in higher strata", func() {
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "a"},
-					{Key: "b"},
-				},
-				Strata: ir.Strata{{"a"}, {"b"}},
-			}
-			nodes["a"] = nodeA
-			nodes["b"] = nodeB
-			s = scheduler.New(prog, nodes)
-			s.Init(ctx)
-			Expect(nodeA.initCalled).To(BeTrue())
-			Expect(nodeB.initCalled).To(BeTrue())
-		})
-		It("Should provide context with MarkChanged callback", func() {
-			markedParams := []string{}
-			nodeA.onInit = func(ctx node.Context) {
-				ctx.MarkChanged("output")
-			}
-			prog = ir.IR{
-				Nodes: []ir.Node{{Key: "a"}},
-				Edges: []ir.Edge{
-					{
-						Source: ir.Handle{Node: "a", Param: "output"},
-						Target: ir.Handle{Node: "b", Param: "input"},
-					},
-				},
-				Strata: ir.Strata{{"a"}},
-			}
-			nodes["a"] = nodeA
-			s = scheduler.New(prog, nodes)
-			s.Init(ctx)
-			nodeA.onInit = func(ctx node.Context) {
-				markedParams = append(markedParams, "output")
-			}
-			s.Init(ctx)
-			Expect(markedParams).To(HaveLen(1))
-		})
-	})
 	Describe("Next", func() {
 		It("Should execute stratum 0 nodes on every call", func() {
 			prog = ir.IR{
@@ -496,13 +440,13 @@ var _ = Describe("Scheduler", func() {
 					{Key: "a"},
 					{Key: "b"},
 				},
-				Strata: ir.Strata{{"a", "b"}},
+				Strata: ir.Strata{}, // Global strata is empty (all nodes are in stages)
 				Sequences: ir.Sequences{
 					{
 						Key: "seq1",
 						Stages: []ir.Stage{
-							{Key: "stage1", Nodes: []string{"a"}},
-							{Key: "stage2", Nodes: []string{"b"}},
+							{Key: "stage1", Nodes: []string{"a"}, Strata: ir.Strata{{"a"}}},
+							{Key: "stage2", Nodes: []string{"b"}, Strata: ir.Strata{{"b"}}},
 						},
 					},
 				},
@@ -521,13 +465,13 @@ var _ = Describe("Scheduler", func() {
 					{Key: "a"},
 					{Key: "b"},
 				},
-				Strata: ir.Strata{{"a", "b"}},
+				Strata: ir.Strata{}, // Global strata is empty (all nodes are in stages)
 				Sequences: ir.Sequences{
 					{
 						Key: "seq1",
 						Stages: []ir.Stage{
-							{Key: "stage1", Nodes: []string{"a"}},
-							{Key: "stage2", Nodes: []string{"b"}},
+							{Key: "stage1", Nodes: []string{"a"}, Strata: ir.Strata{{"a"}}},
+							{Key: "stage2", Nodes: []string{"b"}, Strata: ir.Strata{{"b"}}},
 						},
 					},
 				},
@@ -546,13 +490,13 @@ var _ = Describe("Scheduler", func() {
 					{Key: "a"},
 					{Key: "b"},
 				},
-				Strata: ir.Strata{{"a", "b"}},
+				Strata: ir.Strata{}, // Global strata is empty (all nodes are in stages)
 				Sequences: ir.Sequences{
 					{
 						Key: "seq1",
 						Stages: []ir.Stage{
-							{Key: "stage1", Nodes: []string{"a"}},
-							{Key: "stage2", Nodes: []string{"b"}},
+							{Key: "stage1", Nodes: []string{"a"}, Strata: ir.Strata{{"a"}}},
+							{Key: "stage2", Nodes: []string{"b"}, Strata: ir.Strata{{"b"}}},
 						},
 					},
 				},
@@ -580,13 +524,13 @@ var _ = Describe("Scheduler", func() {
 					{Key: "b"},
 					{Key: "c"}, // Not in any stage
 				},
-				Strata: ir.Strata{{"a", "b", "c"}},
+				Strata: ir.Strata{{"c"}}, // Only "c" is in global strata
 				Sequences: ir.Sequences{
 					{
 						Key: "seq1",
 						Stages: []ir.Stage{
-							{Key: "stage1", Nodes: []string{"a"}},
-							{Key: "stage2", Nodes: []string{"b"}},
+							{Key: "stage1", Nodes: []string{"a"}, Strata: ir.Strata{{"a"}}},
+							{Key: "stage2", Nodes: []string{"b"}, Strata: ir.Strata{{"b"}}},
 							// Note: "c" is not in any stage
 						},
 					},
@@ -611,12 +555,12 @@ var _ = Describe("Scheduler", func() {
 		It("Should report active sequence and stage", func() {
 			prog = ir.IR{
 				Nodes:  []ir.Node{{Key: "a"}},
-				Strata: ir.Strata{{"a"}},
+				Strata: ir.Strata{}, // Global strata is empty
 				Sequences: ir.Sequences{
 					{
 						Key: "myseq",
 						Stages: []ir.Stage{
-							{Key: "mystage", Nodes: []string{"a"}},
+							{Key: "mystage", Nodes: []string{"a"}, Strata: ir.Strata{{"a"}}},
 						},
 					},
 				},

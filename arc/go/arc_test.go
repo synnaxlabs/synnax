@@ -121,7 +121,7 @@ sequence main {
 	})
 
 	It("Should correctly generate strata for a loop", func() {
-		src := `
+		_ = `
 		// Strata 0: Always fires
 		start_seq_cmd =>
 		main

@@ -48,9 +48,12 @@ type nodeState struct {
 // It maintains the execution graph, tracks changed nodes, and propagates changes
 // through the dependency graph. It also supports stage-based filtering for sequences.
 type Scheduler struct {
-	// strata defines the topological execution order.
-	// Each stratum contains nodes at the same dependency level.
+	// strata defines the topological execution order for global nodes
+	// (nodes not in any sequence stage).
 	strata ir.Strata
+	// stageStrata stores per-stage stratification for independent execution
+	// within each stage. Stage-local sources are at stratum 0.
+	stageStrata map[stageRef]ir.Strata
 	// changed tracks which nodes need execution in the next cycle.
 	changed set.Set[string]
 	// nodes maps node keys to their runtime state.
@@ -72,6 +75,8 @@ type Scheduler struct {
 	// activeStages maps sequence names to their currently active stage.
 	// Multiple sequences can run concurrently.
 	activeStages map[string]string
+	// pendingTransitions holds stage transitions to process in convergence loop.
+	pendingTransitions []stageRef
 	// stageToNodes maps "sequence_stage" keys to lists of node keys in that stage.
 	stageToNodes map[string][]string
 	// stagedNodes contains all nodes that belong to any stage (for filtering).
@@ -114,6 +119,7 @@ func New(
 	s := &Scheduler{
 		nodes:         make(map[string]*nodeState, len(prog.Nodes)),
 		strata:        prog.Strata,
+		stageStrata:   make(map[stageRef]ir.Strata),
 		changed:       make(set.Set[string], len(prog.Nodes)),
 		sequences:     prog.Sequences,
 		activeStages:  make(map[string]string),
@@ -155,11 +161,14 @@ func (s *Scheduler) loadSequences(sequences ir.Sequences) {
 		for _, stage := range seq.Stages {
 			key := stageKey(seq.Key, stage.Key)
 			s.stageToNodes[key] = stage.Nodes
+			// Store per-stage strata for two-tier execution
+			ref := stageRef{sequence: seq.Key, stage: stage.Key}
+			s.stageStrata[ref] = stage.Strata
 
 			// Track all nodes that belong to any stage and build reverse map
 			for _, nodeKey := range stage.Nodes {
 				s.stagedNodes.Add(nodeKey)
-				s.nodeToStage[nodeKey] = stageRef{sequence: seq.Key, stage: stage.Key}
+				s.nodeToStage[nodeKey] = ref
 			}
 		}
 	}
@@ -230,34 +239,98 @@ func (s *Scheduler) Init(ctx context.Context) {
 	s.nodeCtx.Elapsed = 0
 }
 
-// Next executes one cycle of the reactive computation.
-// Nodes are executed in topological order (stratum by stratum). Within each cycle:
-//   - Stratum-0 nodes always execute (they are source nodes)
-//   - Other nodes only execute if marked as changed
-//   - Nodes in stages only execute if their stage is active
+// Next executes one cycle of the reactive computation using two-tier stratification.
+// Execution proceeds in three phases:
+//  1. Global strata: Execute nodes not in any stage (stratum 0 always, higher if changed)
+//  2. Per-stage strata: For each active stage, execute its strata (stratum 0 always, higher if changed)
+//  3. Convergence loop: Process any stage transitions that occurred during execution
 //
 // After execution, the changed set is cleared for the next cycle.
-// Nodes can mark their outputs as changed during execution via MarkChanged callbacks,
-// which will schedule downstream nodes for the next cycle.
 func (s *Scheduler) Next(ctx context.Context) {
 	s.nodeCtx.Context = ctx
 	s.nodeCtx.Elapsed = telem.TimeSpan(telem.Now() - s.startTime)
-	for i, stratum := range s.strata {
-		for _, nodeKey := range stratum {
-			// Apply stage filtering
-			if !s.shouldExecuteNode(nodeKey) {
-				continue
-			}
-			if i == 0 || s.changed.Contains(nodeKey) {
-				s.currState = s.nodes[nodeKey]
-				s.currState.node.Next(s.nodeCtx)
-			}
-		}
+	s.pendingTransitions = s.pendingTransitions[:0]
+
+	// Step 1: Execute global strata (nodes not in any stage)
+	s.executeGlobalStrata()
+
+	// Step 2: For each active stage, execute its per-stage strata
+	for seqName, stageName := range s.activeStages {
+		s.executeStageStrata(seqName, stageName)
 	}
+
+	// Step 3: Convergence loop for immediate stage transitions
+	s.convergenceLoop()
+
 	clear(s.changed)
 
 	// Auto-deactivate sequences in terminal stages that have completed
 	s.checkTerminalStages()
+}
+
+// executeGlobalStrata executes nodes not in any stage using global strata.
+func (s *Scheduler) executeGlobalStrata() {
+	for i, stratum := range s.strata {
+		for _, nodeKey := range stratum {
+			// Skip nodes that belong to a stage (they're executed per-stage)
+			if s.stagedNodes.Contains(nodeKey) {
+				continue
+			}
+			// Stratum 0 always executes, higher strata only if changed
+			if i == 0 || s.changed.Contains(nodeKey) {
+				s.executeNode(nodeKey)
+			}
+		}
+	}
+}
+
+// executeStageStrata executes nodes in the given stage using per-stage strata.
+func (s *Scheduler) executeStageStrata(seqName, stageName string) {
+	ref := stageRef{sequence: seqName, stage: stageName}
+	stageStrata, ok := s.stageStrata[ref]
+	if !ok {
+		return
+	}
+	for i, stratum := range stageStrata {
+		for _, nodeKey := range stratum {
+			// Stratum 0 always executes (stage-local sources),
+			// higher strata only if inputs changed
+			if i == 0 || s.changed.Contains(nodeKey) {
+				s.executeNode(nodeKey)
+			}
+		}
+	}
+}
+
+// executeNode executes a single node.
+func (s *Scheduler) executeNode(nodeKey string) {
+	state, ok := s.nodes[nodeKey]
+	if !ok {
+		return
+	}
+	s.currState = state
+	s.currState.node.Next(s.nodeCtx)
+}
+
+// convergenceLoop processes pending stage transitions until no more occur.
+func (s *Scheduler) convergenceLoop() {
+	// Calculate total stages for iteration limit
+	totalStages := 0
+	for _, seq := range s.sequences {
+		totalStages += len(seq.Stages)
+	}
+	maxIterations := totalStages + 1
+
+	for i := 0; i < maxIterations && len(s.pendingTransitions) > 0; i++ {
+		// Copy and clear pending transitions
+		transitions := s.pendingTransitions
+		s.pendingTransitions = nil
+
+		for _, ref := range transitions {
+			s.ActivateStage(ref.sequence, ref.stage)
+			s.executeStageStrata(ref.sequence, ref.stage)
+		}
+	}
 }
 
 // checkTerminalStages deactivates sequences that have reached terminal stages
@@ -339,14 +412,15 @@ func (s *Scheduler) shouldExecuteNode(nodeKey string) bool {
 	return seqActive && activeStage == ref.stage
 }
 
-// activateStageByNode looks up the stage that a node belongs to and activates it.
-// This is the callback provided to nodes via the Context.
+// activateStageByNode looks up the stage that a node belongs to and queues it
+// for activation in the convergence loop.
 func (s *Scheduler) activateStageByNode(nodeKey string) {
 	ref, ok := s.nodeToStage[nodeKey]
 	if !ok {
 		return
 	}
-	s.ActivateStage(ref.sequence, ref.stage)
+	// Queue transition for convergence loop processing
+	s.pendingTransitions = append(s.pendingTransitions, ref)
 }
 
 // ActivateStage transitions to a new stage within a sequence.

@@ -41,9 +41,11 @@ struct StageRef {
 };
 
 class Scheduler {
+    /// @brief Global strata for nodes not in any sequence stage.
     ir::Strata strata;
+    /// @brief Per-stage strata for independent execution within each stage.
+    std::unordered_map<StageRef, ir::Strata, StageRef::Hasher> stage_strata;
     std::unordered_set<std::string> changed;
-    std::unordered_map<std::string, size_t> node_to_stratum;
 
     struct NodeState {
         std::string key;
@@ -57,15 +59,14 @@ class Scheduler {
     std::unordered_map<std::string, ir::Sequence> sequences_by_key;
     std::unordered_map<std::string, std::string> active_stages;
     std::unordered_set<std::string> just_activated;
+    /// @brief Pending stage transitions to process in convergence loop.
+    std::vector<std::pair<std::string, std::string>> pending_transitions;
     std::unordered_map<StageRef, std::vector<std::string>, StageRef::Hasher>
         stage_to_nodes;
     std::unordered_map<std::string, StageRef> node_to_stage;
     std::unordered_map<std::string, StageRef> entry_node_targets;
     std::unordered_map<std::string, std::unordered_set<ir::Edge, ir::Edge::Hasher>>
         fired_one_shots;
-    // For each stage, the nodes at stratum N+1 (where N is entry stratum)
-    std::unordered_map<StageRef, std::vector<std::string>, StageRef::Hasher>
-        stage_root_nodes;
 
     void mark_changed(const std::string &param) {
         for (const auto &edge: this->current_state->output_edges) {
@@ -88,12 +89,17 @@ class Scheduler {
     void activate_stage_by_node(const std::string &node_key) {
         if (const auto it = this->entry_node_targets.find(node_key);
             it != this->entry_node_targets.end()) {
-            activate_stage(it->second.sequence, it->second.stage);
+            // Queue transition for convergence loop processing
+            this->pending_transitions.emplace_back(it->second.sequence, it->second.stage);
             return;
         }
         if (const auto it = this->node_to_stage.find(node_key);
             it != this->node_to_stage.end())
-            activate_stage(it->second.sequence, it->second.stage);
+            // Queue transition for convergence loop processing
+            this->pending_transitions.emplace_back(
+                it->second.sequence,
+                it->second.stage
+            );
     }
 
     [[nodiscard]] bool should_execute_node(const std::string &node_key) const {
@@ -156,11 +162,6 @@ public:
                 .output_edges = prog.outgoing_edges(key)
             };
 
-        // Build node -> stratum index map
-        for (size_t i = 0; i < prog.strata.strata.size(); i++)
-            for (const auto &node_key: prog.strata.strata[i])
-                this->node_to_stratum[node_key] = i;
-
         this->ctx = node::Context{
             .mark_changed =
                 [&](const std::string &param) { this->mark_changed(param); },
@@ -179,23 +180,14 @@ public:
             for (const auto &stage: seq.stages) {
                 const StageRef ref{seq.key, stage.key};
                 this->stage_to_nodes[ref] = stage.nodes;
+                // Store per-stage strata for two-tier execution
+                this->stage_strata[ref] = stage.strata;
                 for (const auto &node_key: stage.nodes)
                     this->node_to_stage[node_key] = ref;
 
-                // Entry node is at stratum N, stage root nodes are at stratum N+1
+                // Map entry node to target stage
                 const std::string entry_key = "entry_" + seq.key + "_" + stage.key;
                 this->entry_node_targets[entry_key] = ref;
-
-                auto entry_it = this->node_to_stratum.find(entry_key);
-                if (entry_it == this->node_to_stratum.end()) continue;
-                const size_t root_stratum = entry_it->second + 1;
-
-                for (const auto &node_key: stage.nodes) {
-                    auto node_it = this->node_to_stratum.find(node_key);
-                    if (node_it != this->node_to_stratum.end() &&
-                        node_it->second == root_stratum)
-                        this->stage_root_nodes[ref].push_back(node_key);
-                }
             }
         }
     }
@@ -205,29 +197,8 @@ public:
         this->active_stages[seq] = stage;
         this->just_activated.insert(seq);
         reset_stage_nodes(seq, stage);
-        mark_stage_nodes_changed(seq, stage);
-    }
-
-    void mark_stage_nodes_changed(
-        const std::string &seq_name,
-        const std::string &stage_name
-    ) {
-        const StageRef ref{seq_name, stage_name};
-        const auto it = this->stage_to_nodes.find(ref);
-        if (it == this->stage_to_nodes.end()) return;
-        for (const auto &node_key: it->second)
-            this->changed.insert(node_key);
-    }
-
-    void mark_stage_root_nodes_changed(
-        const std::string &seq_name,
-        const std::string &stage_name
-    ) {
-        const StageRef ref{seq_name, stage_name};
-        const auto it = this->stage_root_nodes.find(ref);
-        if (it == this->stage_root_nodes.end()) return;
-        for (const auto &node_key: it->second)
-            this->changed.insert(node_key);
+        // No longer need to mark nodes as changed - stage-local sources are at
+        // stratum 0 within their stage and execute automatically
     }
 
     void deactivate_sequence(const std::string &seq_name) {
@@ -267,29 +238,91 @@ public:
     void next(const telem::TimeSpan elapsed) {
         this->ctx.elapsed = elapsed;
         this->just_activated.clear();
+        this->pending_transitions.clear();
 
-        // While a stage is active, mark only the root nodes (stratum N+1 where
-        // N is the entry stratum) as changed. Downstream nodes propagate via
-        // normal mark_changed calls when their inputs produce output.
+        // Step 1: Execute global strata (nodes not in any stage)
+        // Stratum 0 always executes, higher strata only if changed
+        execute_global_strata();
+
+        // Step 2: For each active stage, execute its per-stage strata
+        // Stage-local sources (constants, channel reads) are at stratum 0 and
+        // execute every cycle. Higher strata only execute if inputs changed.
         for (const auto &[seq_name, stage_name]: this->active_stages)
-            mark_stage_root_nodes_changed(seq_name, stage_name);
+            execute_stage_strata(seq_name, stage_name);
 
-        bool first = true;
-        for (const auto &stratum: this->strata.strata) {
-            for (const auto &node_key: stratum) {
-                if (!should_execute_node(node_key)) continue;
-                if (first || this->changed.contains(node_key)) {
-                    auto it = this->nodes.find(node_key);
-                    if (it == this->nodes.end()) continue;
-                    this->current_state = &it->second;
-                    LOG(INFO) << "[arc] fire " << node_key;
-                    this->current_state->node->next(this->ctx);
-                }
-            }
-            first = false;
-        }
+        // Step 3: Convergence loop for immediate stage transitions
+        // When a transition fires during execution, the new stage executes
+        // immediately within the same cycle
+        convergence_loop();
+
         this->changed.clear();
         check_terminal_stages();
+    }
+
+private:
+    void execute_global_strata() {
+        bool first_stratum = true;
+        for (const auto &stratum: this->strata.strata) {
+            for (const auto &node_key: stratum) {
+                // Skip nodes that belong to a stage (they're executed per-stage)
+                if (this->node_to_stage.contains(node_key)) continue;
+                // Stratum 0 always executes, higher strata only if changed
+                if (first_stratum || this->changed.contains(node_key))
+                    execute_node(node_key);
+            }
+            first_stratum = false;
+        }
+    }
+
+    void execute_stage_strata(
+        const std::string &seq_name,
+        const std::string &stage_name
+    ) {
+        const StageRef ref{seq_name, stage_name};
+        const auto it = this->stage_strata.find(ref);
+        if (it == this->stage_strata.end()) return;
+
+        bool first_stratum = true;
+        for (const auto &stratum: it->second.strata) {
+            for (const auto &node_key: stratum) {
+                // Stratum 0 always executes (stage-local sources),
+                // higher strata only if inputs changed
+                if (first_stratum || this->changed.contains(node_key))
+                    execute_node(node_key);
+            }
+            first_stratum = false;
+        }
+    }
+
+    void execute_node(const std::string &node_key) {
+        auto it = this->nodes.find(node_key);
+        if (it == this->nodes.end()) return;
+        this->current_state = &it->second;
+        LOG(INFO) << "[arc] fire " << node_key;
+        this->current_state->node->next(this->ctx);
+    }
+
+    void convergence_loop() {
+        // Maximum iterations = total number of stages + 1 (safety bound)
+        size_t total_stages = 0;
+        for (const auto &seq: this->sequences_by_key)
+            total_stages += seq.second.stages.size();
+        const size_t max_iterations = total_stages + 1;
+
+        for (size_t i = 0; i < max_iterations && !this->pending_transitions.empty();
+             ++i) {
+            // Copy and clear pending transitions
+            auto transitions = std::move(this->pending_transitions);
+            this->pending_transitions.clear();
+
+            for (const auto &[seq_name, stage_name]: transitions) {
+                activate_stage(seq_name, stage_name);
+                execute_stage_strata(seq_name, stage_name);
+            }
+        }
+
+        if (!this->pending_transitions.empty())
+            LOG(ERROR) << "[arc] convergence loop exceeded max iterations";
     }
 };
 }
