@@ -50,12 +50,12 @@ type (
 )
 
 type Config struct {
-	alamos.Instrumentation
 	DB *gorp.DB
 	//  Distribution layer framer service.
 	Framer  *framer.Service
 	Channel *channel.Service
 	Arc     *arc.Service
+	alamos.Instrumentation
 }
 
 var (
@@ -84,10 +84,10 @@ func (c Config) Override(other Config) Config {
 }
 
 type Service struct {
-	Config
+	closer   io.Closer
 	Streamer *streamer.Service
 	Iterator *iterator.Service
-	closer   io.Closer
+	Config
 }
 
 func (s *Service) OpenIterator(ctx context.Context, cfg IteratorConfig) (*Iterator, error) {

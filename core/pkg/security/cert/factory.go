@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	xpem "github.com/synnaxlabs/x/pem"
 	"github.com/synnaxlabs/x/validate"
@@ -30,12 +30,12 @@ import (
 // FactoryConfig is the configuration for creating a new Factory.
 type FactoryConfig struct {
 	LoaderConfig
-	// KeySize is the size of the private key to generate.
-	KeySize int
-	// Hosts is the list of hosts to use for the node certificate.
-	Hosts []address.Address
 	// AllowKeyReuse allows the CA key to be reused if it already exists.
 	AllowKeyReuse *bool
+	// Hosts is the list of hosts to use for the node certificate.
+	Hosts []address.Address
+	// KeySize is the size of the private key to generate.
+	KeySize int
 }
 
 var (
@@ -68,8 +68,8 @@ func (f FactoryConfig) Validate() error {
 
 // Factory generates self-signed certificates.
 type Factory struct {
-	FactoryConfig
 	Loader Loader
+	FactoryConfig
 }
 
 // NewFactory creates a new Factory.
@@ -206,14 +206,14 @@ func (c *Factory) CreateNodePair() error {
 }
 
 func (c *Factory) readPEM(p string) (b *pem.Block, err error) {
-	return b, c.withFile(p, c.readFlag(), func(f xfs.File) error {
+	return b, c.withFile(p, c.readFlag(), func(f fs.File) error {
 		b, err = xpem.Read(f)
 		return err
 	})
 }
 
 func (c *Factory) writePEM(p string, block *pem.Block, multi bool) error {
-	return c.withFile(p, c.writeFlag(), func(f xfs.File) error {
+	return c.withFile(p, c.writeFlag(), func(f fs.File) error {
 		blocks, err := xpem.ReadMany(f)
 		if len(blocks) > 0 && !multi {
 			return errors.Newf("file %s already contains a PEM block, and multi is false", p)
@@ -226,7 +226,7 @@ func (c *Factory) writePEM(p string, block *pem.Block, multi bool) error {
 	})
 }
 
-func (c *Factory) withFile(p string, flag int, fn func(fs xfs.File) error) (err error) {
+func (c *Factory) withFile(p string, flag int, fn func(fs fs.File) error) error {
 	f, err := c.FS.Open(p, flag)
 	if err != nil {
 		return err

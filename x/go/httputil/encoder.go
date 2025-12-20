@@ -22,8 +22,8 @@ type Codec interface {
 }
 
 type typedCodec struct {
-	ct string
 	binary.Codec
+	ct string
 }
 
 func (t typedCodec) ContentType() string { return t.ct }

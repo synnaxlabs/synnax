@@ -410,8 +410,8 @@ var _ = Describe("Status", Ordered, func() {
 		It("Should decode mismatched types with zero values for missing fields", func() {
 			// Store a status with TypeA details
 			type TypeA struct {
-				FieldA int
 				FieldB string
+				FieldA int
 			}
 			writerA := status.NewWriter[TypeA](svc, tx)
 			Expect(writerA.Set(ctx, &status.Status[TypeA]{

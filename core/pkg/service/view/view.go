@@ -17,10 +17,10 @@ import (
 )
 
 type View struct {
-	Key   uuid.UUID      `json:"key" msgpack:"key"`
+	Query map[string]any `json:"query" msgpack:"query"`
 	Name  string         `json:"name" msgpack:"name"`
 	Type  string         `json:"type" msgpack:"type"`
-	Query map[string]any `json:"query" msgpack:"query"`
+	Key   uuid.UUID      `json:"key" msgpack:"key"`
 }
 
 var _ gorp.Entry[uuid.UUID] = (*View)(nil)

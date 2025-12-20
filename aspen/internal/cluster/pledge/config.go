@@ -35,20 +35,20 @@ type (
 // Config is used for configuring a pledge based membership network. It implements
 // the config.ServiceConfig interface.
 type Config struct {
-	alamos.Instrumentation
-	// Candidates is a group of nodes to contact as candidates for the formation
-	// of a jury.
-	// [Required]
-	Candidates func() node.Group
-	// Peers is a set of addresses a pledge can contact.
-	// [Required]
-	Peers []address.Address
 	// TransportClient is used for sending pledge information over the network.
 	// [Required]
 	TransportClient TransportClient
 	// TransportServer is used for receiving pledge information over the network.
 	// [Required]
 	TransportServer TransportServer
+	// Candidates is a group of nodes to contact as candidates for the formation
+	// of a jury.
+	// [Required]
+	Candidates func() node.Group
+	alamos.Instrumentation
+	// Peers is a set of addresses a pledge can contact.
+	// [Required]
+	Peers []address.Address
 	// ClusterKey is a unique key for the cluster. This value is consistent across
 	// all nodes in the cluster.
 	// [Required]

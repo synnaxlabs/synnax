@@ -45,8 +45,8 @@ func newStore() store {
 }
 
 type storeEmitter struct {
-	confluence.Emitter[TxRequest]
 	store store
+	confluence.Emitter[TxRequest]
 }
 
 func newStoreEmitter(s store, cfg Config) source {

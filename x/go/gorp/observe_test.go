@@ -20,10 +20,8 @@ import (
 )
 
 var _ = Describe("Observe", Ordered, func() {
-	var (
-		db  *gorp.DB
-		ctx context.Context
-	)
+	var ctx context.Context
+
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
 	})

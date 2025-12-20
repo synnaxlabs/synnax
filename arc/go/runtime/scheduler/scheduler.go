@@ -48,40 +48,40 @@ type nodeState struct {
 // It maintains the execution graph, tracks changed nodes, and propagates changes
 // through the dependency graph. It also supports stage-based filtering for sequences.
 type Scheduler struct {
-	// strata defines the topological execution order.
-	// Each stratum contains nodes at the same dependency level.
-	strata ir.Strata
+	// errorHandler receives errors from node execution.
+	errorHandler ErrorHandler
+	// nodeToStage maps node keys to their (sequence, stage) pair for reverse lookup.
+	nodeToStage map[string]stageRef
 	// changed tracks which nodes need execution in the next cycle.
 	changed set.Set[string]
 	// nodes maps node keys to their runtime state.
 	nodes map[string]*nodeState
+	// stageToNodes maps "sequence_stage" keys to lists of node keys in that stage.
+	stageToNodes map[string][]string
 	// currState points to the currently executing node.
 	// Used for routing MarkChanged callbacks to the correct outgoing edges.
 	currState *nodeState
-	// errorHandler receives errors from node execution.
-	errorHandler ErrorHandler
-	// nodeCtx is a reusable context struct passed to nodes during execution.
-	// This eliminates allocations by reusing the same struct across all executions.
-	nodeCtx node.Context
-	// startTime tracks when the scheduler was initialized for elapsed time calculation.
-	startTime telem.TimeStamp
+	// stagedNodes contains all nodes that belong to any stage (for filtering).
+	stagedNodes set.Set[string]
 
-	// Stage management
-	// sequences stores the IR sequence definitions for terminal detection.
-	sequences ir.Sequences
 	// activeStages maps sequence names to their currently active stage.
 	// Multiple sequences can run concurrently.
 	activeStages map[string]string
-	// stageToNodes maps "sequence_stage" keys to lists of node keys in that stage.
-	stageToNodes map[string][]string
-	// stagedNodes contains all nodes that belong to any stage (for filtering).
-	stagedNodes set.Set[string]
-	// nodeToStage maps node keys to their (sequence, stage) pair for reverse lookup.
-	nodeToStage map[string]stageRef
 	// firedOneShots tracks which one-shot edges have fired, keyed by sequence.
 	// Each sequence has its own set of fired edges, cleared when that sequence's stage changes.
 	// Edge keys are strings like "nodeA.output=>nodeB.input".
 	firedOneShots map[string]set.Set[string]
+	// nodeCtx is a reusable context struct passed to nodes during execution.
+	// This eliminates allocations by reusing the same struct across all executions.
+	nodeCtx node.Context
+	// strata defines the topological execution order.
+	// Each stratum contains nodes at the same dependency level.
+	strata ir.Strata
+	// Stage management
+	// sequences stores the IR sequence definitions for terminal detection.
+	sequences ir.Sequences
+	// startTime tracks when the scheduler was initialized for elapsed time calculation.
+	startTime telem.TimeStamp
 }
 
 // stageRef identifies a stage within a sequence.

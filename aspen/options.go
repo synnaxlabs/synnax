@@ -33,23 +33,10 @@ import (
 type Option func(*options)
 
 type options struct {
-	alamos.Instrumentation
-	// dirname is the directory where aspen will store its data.
-	// this option is ignored if a custom kv.ServiceConfig.Engine is set.
-	dirname string
-	// addr sets the address for the host node.
-	addr address.Address
-	// peerAddresses sets the addresses for the peers of the host node.
-	peerAddresses []address.Address
-	// cluster gives the configuration for gossiping cluster state.
-	cluster cluster.Config
-	// kv gives the configuration for KV options.
-	kv kv.Config
 	// fs sets the filesystem to be used for storing data. This option is ignored
 	// if a custom kv.ServiceConfig.Engine is set.
 	fs vfs.FS
-	// bootstrap is a boolean used to indicate whether to bootstrap a new cluster.
-	bootstrap bool
+	alamos.Instrumentation
 	// transport is the transport package for the messages that aspen exchanges.
 	// this setting overrides all other transport settings in sub-configs.
 	transport struct {
@@ -58,6 +45,19 @@ type options struct {
 		// external transport they control themselves.
 		external bool
 	}
+	// dirname is the directory where aspen will store its data.
+	// this option is ignored if a custom kv.ServiceConfig.Engine is set.
+	dirname string
+	// addr sets the address for the host node.
+	addr address.Address
+	// kv gives the configuration for KV options.
+	kv kv.Config
+	// peerAddresses sets the addresses for the peers of the host node.
+	peerAddresses []address.Address
+	// cluster gives the configuration for gossiping cluster state.
+	cluster cluster.Config
+	// bootstrap is a boolean used to indicate whether to bootstrap a new cluster.
+	bootstrap bool
 }
 
 func (o *options) Report() alamos.Report {

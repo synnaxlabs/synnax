@@ -76,6 +76,10 @@ var tsEngines = []TSEngine{CesiumTS}
 // Config is used to configure the Synnax storage layer. See fields for details on
 // defining the configuration.
 type Config struct {
+	// InMemory defines whether the node should use a memory-backed file system.
+	//
+	// [OPTIONAL] - Defaults to false.
+	InMemory *bool
 	// Instrumentation is for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -89,10 +93,6 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to OS_USER_RWX
 	Perm fs.FileMode
-	// InMemory defines whether the node should use a memory-backed file system.
-	//
-	// [OPTIONAL] - Defaults to false.
-	InMemory *bool
 	// KVEngine is the key-value engine storage will use.
 	//
 	// [OPTIONAL] - Defaults to PebbleKV.

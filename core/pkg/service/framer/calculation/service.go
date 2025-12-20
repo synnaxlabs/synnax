@@ -39,7 +39,6 @@ import (
 
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
-	alamos.Instrumentation
 	DB *gorp.DB
 	// Framer is the underlying frame service to stream cache channel values and write
 	// calculated samples.
@@ -56,6 +55,7 @@ type ServiceConfig struct {
 	// Arc is used for compiling arc programs used for executing calculations.
 	// [REQUIRED]
 	Arc *arc.Service
+	alamos.Instrumentation
 }
 
 var (
@@ -87,16 +87,16 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 }
 
 type Service struct {
-	cfg ServiceConfig
-	mu  struct {
-		sync.Mutex
+	cfg                          ServiceConfig
+	disconnectFromChannelChanges observe.Disconnect
+	writer                       *framer.Writer
+	mu                           struct {
 		graph       *graph.Graph
 		calculators map[channel.Key]*calculator.Calculator
 		groups      map[int]*group
+		sync.Mutex
 	}
-	disconnectFromChannelChanges observe.Disconnect
-	stateKey                     channel.Key
-	writer                       *framer.Writer
+	stateKey channel.Key
 }
 
 const StatusChannelName = "sy_calculation_status"

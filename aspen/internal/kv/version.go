@@ -21,11 +21,11 @@ import (
 )
 
 type versionFilter struct {
-	Config
-	memKV      xkv.DB
+	memKV xkv.DB
+	confluence.BatchSwitch[TxRequest, TxRequest]
 	acceptedTo address.Address
 	rejectedTo address.Address
-	confluence.BatchSwitch[TxRequest, TxRequest]
+	Config
 }
 
 func newVersionFilter(cfg Config, acceptedTo, rejectedTo address.Address) segment {
@@ -95,9 +95,9 @@ func getDigestFromKV(ctx context.Context, kve xkv.DB, key []byte) (Digest, error
 const versionCounterKey = "ver"
 
 type versionAssigner struct {
-	Config
-	counter *xkv.AtomicInt64Counter
 	confluence.LinearTransform[TxRequest, TxRequest]
+	counter *xkv.AtomicInt64Counter
+	Config
 }
 
 func newVersionAssigner(ctx context.Context, cfg Config) (segment, error) {

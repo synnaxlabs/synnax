@@ -31,9 +31,9 @@ func New[K comparable, A Adapter](factory Factory[K, A]) Pool[K, A] {
 }
 
 type core[K comparable, A Adapter] struct {
-	mu      sync.RWMutex
 	factory Factory[K, A]
 	pool    map[K][]A
+	mu      sync.RWMutex
 }
 
 func (p *core[K, A]) Acquire(key K) (A, error) {

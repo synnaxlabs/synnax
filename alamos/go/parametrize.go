@@ -43,8 +43,8 @@ func (p *Parametrize[V]) Construct() {
 }
 
 type iterVars[T ParametrizeVars] struct {
-	i    int
 	vars []T
+	i    int
 }
 
 func (iv *iterVars[T]) Next() (T, error) {

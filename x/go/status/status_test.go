@@ -17,8 +17,8 @@ import (
 )
 
 type CustomDetails struct {
-	Code    int
 	Context string
+	Code    int
 }
 
 var _ = Describe("Status", func() {

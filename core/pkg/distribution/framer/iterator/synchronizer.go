@@ -18,13 +18,13 @@ import (
 )
 
 type synchronizer struct {
-	ins alamos.Instrumentation
 	confluence.LinearTransform[Response, Response]
-	nodeCount int
-	cycle     struct {
-		counter int
+	ins   alamos.Instrumentation
+	cycle struct {
 		res     Response
+		counter int
 	}
+	nodeCount int
 }
 
 func newSynchronizer(nodeCount int, ins alamos.Instrumentation) confluence.Segment[Response, Response] {

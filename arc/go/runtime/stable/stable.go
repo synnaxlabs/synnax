@@ -44,11 +44,11 @@ var (
 
 type stableFor struct {
 	*state.Node
-	duration    telem.TimeSpan
 	value       *uint8
 	lastSent    *uint8
-	lastChanged telem.TimeStamp
 	now         func() telem.TimeStamp
+	duration    telem.TimeSpan
+	lastChanged telem.TimeStamp
 }
 
 func (s *stableFor) Init(ctx node.Context) {}

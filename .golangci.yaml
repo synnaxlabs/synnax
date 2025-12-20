@@ -35,6 +35,7 @@ linters:
     - errorlint
     - exptostd
     - gocheckcompilerdirectives
+
     - godot
     - goprintffuncname
     - iotamixing
@@ -54,6 +55,10 @@ linters:
     - unqueryvet
     - usestdlibvars
   settings:
+    govet:
+      enable-all: true
+      disable:
+        - shadow
     staticcheck:
       checks:
         - all
@@ -72,4 +77,5 @@ linters:
       tls-signature-scheme: true
 run:
   build-tags:
+    - console
     - driver

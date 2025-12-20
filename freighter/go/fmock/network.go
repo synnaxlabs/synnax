@@ -24,19 +24,19 @@ type Network[RQ, RS freighter.Payload] struct {
 	// unary entries.
 	Entries []NetworkEntry[RQ, RS]
 	mu      struct {
-		sync.RWMutex
 		unaryRoutes  map[address.Address]*UnaryServer[RQ, RS]
 		streamRoutes map[address.Address]*StreamServer[RQ, RS]
+		sync.RWMutex
 	}
 }
 
 // NetworkEntry is a single entry in the network's history.
 type NetworkEntry[RQ, RS freighter.Payload] struct {
-	Host     address.Address
-	Target   address.Address
 	Request  RQ
 	Response RS
 	Error    error
+	Host     address.Address
+	Target   address.Address
 }
 
 // UnaryServer returns a new freighter.Unary hosted at the given address. This transport

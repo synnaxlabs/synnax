@@ -31,22 +31,22 @@ const FreeCount = 50
 
 // Config is the configuration for a verification service.
 type Config struct {
-	// Instrumentation is for logging, tracing, and metrics.
-	//
-	// [OPTIONAL]
-	alamos.Instrumentation
 	// DB is the database used for storing the verifier.
 	//
 	// [REQUIRED]
 	kv.DB
-	// CheckInterval is the interval at which verification will be performed.
+	// Instrumentation is for logging, tracing, and metrics.
 	//
-	// [OPTIONAL] - Defaults to 24 hours
-	CheckInterval time.Duration
+	// [OPTIONAL]
+	alamos.Instrumentation
 	// Verifier is the verifier used for verifying things that need to be verified.
 	//
 	// [OPTIONAL] - Defaults to ""
 	Verifier string
+	// CheckInterval is the interval at which verification will be performed.
+	//
+	// [OPTIONAL] - Defaults to 24 hours
+	CheckInterval time.Duration
 	// WarningTime is the period given to start warning before verification will fail.
 	//
 	// [OPTIONAL] - Defaults to 1 week
@@ -87,8 +87,8 @@ var DefaultConfig = Config{
 // Service provides a service for verifying channels.
 type Service struct {
 	info
-	cfg      Config
 	shutdown io.Closer
+	cfg      Config
 }
 
 var _ io.Closer = &Service{}

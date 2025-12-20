@@ -56,16 +56,16 @@ func IterRange(tr telem.TimeRange) IteratorConfig {
 var errIteratorClosed = core.NewErrResourceClosed("unary.iterator")
 
 type Iterator struct {
-	alamos.Instrumentation
-	IteratorConfig
-	Channel  core.Channel
-	internal *domain.Iterator
-	view     telem.TimeRange
-	frame    core.Frame
-	idx      *index.Domain
-	bounds   telem.TimeRange
 	err      error
-	closed   bool
+	internal *domain.Iterator
+	idx      *index.Domain
+	alamos.Instrumentation
+	Channel core.Channel
+	frame   core.Frame
+	IteratorConfig
+	view   telem.TimeRange
+	bounds telem.TimeRange
+	closed bool
 }
 
 func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {

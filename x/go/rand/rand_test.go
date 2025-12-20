@@ -56,7 +56,7 @@ var _ = Describe("Rand", func() {
 		})
 		Describe("SubMap", func() {
 			It("Should return a random sub map of the provided size", func() {
-				m := rand.SubMap(m, 2)
+				m = rand.SubMap(m, 2)
 				Expect(m).To(HaveLen(2))
 			})
 		})

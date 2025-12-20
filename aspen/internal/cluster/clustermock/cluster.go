@@ -21,10 +21,10 @@ import (
 )
 
 type Builder struct {
-	Configs     []cluster.Config
 	GossipNet   *fmock.Network[gossip.Message, gossip.Message]
 	PledgeNet   *fmock.Network[pledge.Request, pledge.Response]
 	ClusterAPIs map[node.Key]*cluster.Cluster
+	Configs     []cluster.Config
 }
 
 func NewBuilder(cfgs ...cluster.Config) *Builder {

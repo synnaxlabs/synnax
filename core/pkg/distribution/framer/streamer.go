@@ -23,10 +23,10 @@ import (
 )
 
 type controlStateSender struct {
+	confluence.LinearTransform[StreamerRequest, StreamerResponse]
 	db                                 *ts.DB
 	controlStateKey                    channel.Key
 	previouslyContainedControlStateKey bool
-	confluence.LinearTransform[StreamerRequest, StreamerResponse]
 }
 
 func newControlStateSender(

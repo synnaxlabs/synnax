@@ -78,9 +78,9 @@ type Ontology struct {
 }
 
 type Config struct {
-	alamos.Instrumentation
 	DB           *gorp.DB
 	EnableSearch *bool
+	alamos.Instrumentation
 }
 
 var (

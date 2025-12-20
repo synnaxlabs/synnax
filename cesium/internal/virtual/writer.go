@@ -25,11 +25,11 @@ import (
 var errWriterClosed = core.NewErrResourceClosed("virtual.writer")
 
 type WriterConfig struct {
+	ErrOnUnauthorizedOpen *bool
 	Subject               xcontrol.Subject
 	Start                 telem.TimeStamp
 	End                   telem.TimeStamp
 	Authority             xcontrol.Authority
-	ErrOnUnauthorizedOpen *bool
 }
 
 var (
@@ -60,10 +60,6 @@ func (cfg WriterConfig) domain() telem.TimeRange {
 }
 
 type Writer struct {
-	WriterConfig
-	// Channel stores information about the channel being written to, most importantly
-	// the density and index.
-	Channel core.Channel
 	// onClose is called when the writer is closed.
 	onClose func()
 	// control stores the control gate held by the virtual writer, and used to track control
@@ -72,6 +68,10 @@ type Writer struct {
 	// wrapError is a function that wraps any error originating from this writer to
 	// provide context including the writer's channel key and name.
 	wrapError func(error) error
+	// Channel stores information about the channel being written to, most importantly
+	// the density and index.
+	Channel core.Channel
+	WriterConfig
 	// closed stores whether the writer is closed. Operations like Write and Commit do
 	// not succeed on closed writers.
 	closed bool

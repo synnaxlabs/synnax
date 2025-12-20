@@ -67,10 +67,10 @@ func (cfg Config) distribution() framer.StreamerConfig {
 
 // ServiceConfig is the configuration for opening a new streamer service.
 type ServiceConfig struct {
-	alamos.Instrumentation
 	Calculation *calculation.Service
 	Channel     *channel.Service
 	DistFramer  *framer.Service
+	alamos.Instrumentation
 }
 
 var (

@@ -118,13 +118,13 @@ func IDsToString(ids []ID) []string {
 
 // Resource represents an instance matching a [Schema] (think class and object in OOP).
 type Resource struct {
-	ID ID `json:"id" msgpack:"id"`
-	// Name is a human-readable name for the entity.
-	Name string `json:"name" msgpack:"name"`
 	// Data is the data for the entity. Data must match [Schema.Fields].
 	Data any `json:"data" msgpack:"data"`
 	// schema is the schema that this entity matches.
 	schema zyn.Schema
+	ID     ID `json:"id" msgpack:"id"`
+	// Name is a human-readable name for the entity.
+	Name string `json:"name" msgpack:"name"`
 }
 
 // Parse parses the Resource's Data field into the provided destination using the

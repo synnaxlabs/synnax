@@ -234,7 +234,7 @@ var _ = Describe("Retrieve", func() {
 		Describe("Limit", func() {
 			It("Should limit the number of entries returned", func() {
 				toCreate := 100
-				entries := make([]entry, toCreate)
+				entries = make([]entry, toCreate)
 				for i := range toCreate {
 					entries[i] = entry{ID: i, Data: "data"}
 				}
@@ -251,7 +251,7 @@ var _ = Describe("Retrieve", func() {
 		Describe("Offset", func() {
 			It("Should offset the entries returned", func() {
 				toCreate := 100
-				entries := make([]entry, toCreate)
+				entries = make([]entry, toCreate)
 				for i := range toCreate {
 					entries[i] = entry{ID: i, Data: "data"}
 				}
@@ -268,7 +268,7 @@ var _ = Describe("Retrieve", func() {
 		Describe("Limit + Offset", func() {
 			It("Should limit and offset the entries returned", func() {
 				toCreate := 100
-				entries := make([]entry, toCreate)
+				entries = make([]entry, toCreate)
 				for i := range toCreate {
 					entries[i] = entry{ID: i, Data: "data"}
 				}

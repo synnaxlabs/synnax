@@ -29,8 +29,8 @@ import (
 )
 
 type state struct {
-	keys                 channel.Keys
 	keyDataTypes         map[channel.Key]telem.DataType
+	keys                 channel.Keys
 	hasVariableDataTypes bool
 }
 
@@ -90,6 +90,16 @@ func (s *sorter) Swap(i, j int) {
 // encoding and decoding sides must agree on the set of channels and their order
 // before any encoding or decoding can occur.
 type Codec struct {
+	// buf is reused for each encode operation.
+	buf *xbinary.Writer
+	// reader is reused for each decode operation. Unlike the standard library
+	// binary.Read, this avoids reflection overhead.
+	reader *xbinary.Reader
+	// channels used in dynamic codecs to retrieve information about channels
+	// when Update is called.
+	channels *channel.Service
+	// opts holds configuration options for the codec.
+	opts *options
 	// mu is non-routine safe structures that must be used carefully.
 	mu struct {
 		// states is the current backlog of encoding states. We keep multiple states
@@ -100,6 +110,9 @@ type Codec struct {
 		// to the previous state. seqNum and the states backlog are used to keep the
 		// two in sync.
 		states map[uint32]state
+		// updates is a channel that the routine in Update pushes a new state down
+		// for processing within Encode/Decode.
+		updates chan state
 		// seqNum corresponds to the most recent update in states. This is incremented
 		// and communicated each time a state is added.
 		seqNum uint32
@@ -108,26 +121,13 @@ type Codec struct {
 		// boolean is more performant than using a non-blocking select on every
 		// encode/decode operation.
 		updateAvailable atomic.Bool
-		// updates is a channel that the routine in Update pushes a new state down
-		// for processing within Encode/Decode.
-		updates chan state
 	}
-	// buf is reused for each encode operation.
-	buf *xbinary.Writer
-	// reader is reused for each decode operation. Unlike the standard library
-	// binary.Read, this avoids reflection overhead.
-	reader *xbinary.Reader
-	// channels used in dynamic codecs to retrieve information about channels
-	// when Update is called.
-	channels *channel.Service
-	// encodeSorter is used to sort source frames that are being encoded. Used instead
-	// of sorting the frame directly in order to avoid excess heap allocations
-	encodeSorter sorter
 	// mergedSeriesResult is a reusable slice for storing merged series info, avoiding
 	// allocations on each encode operation
 	mergedSeriesResult []mergedSeriesInfo
-	// opts holds configuration options for the codec.
-	opts *options
+	// encodeSorter is used to sort source frames that are being encoded. Used instead
+	// of sorting the frame directly in order to avoid excess heap allocations
+	encodeSorter sorter
 }
 
 type options struct {

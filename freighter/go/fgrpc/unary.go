@@ -51,9 +51,6 @@ type UnaryClient[RQ, RQT, RS, RST freighter.Payload] struct {
 }
 
 type UnaryServer[RQ, RQT, RS, RST freighter.Payload] struct {
-	// Internal indicates whether the service is for go-to-go communication only, allowing
-	// for more advanced error encoding that propagates stack traces, causes, etc.
-	Internal bool
 	// RequestTranslator translates the given GRPC request into a go type.
 	// See Translator for more information.
 	RequestTranslator Translator[RQ, RQT]
@@ -66,6 +63,9 @@ type UnaryServer[RQ, RQT, RS, RST freighter.Payload] struct {
 	// handler is the handler that will be called when a request is received.
 	handler func(context.Context, RQ) (RS, error)
 	freighter.MiddlewareCollector
+	// Internal indicates whether the service is for go-to-go communication only, allowing
+	// for more advanced error encoding that propagates stack traces, causes, etc.
+	Internal bool
 }
 
 func (u *UnaryClient[RQ, RQT, RS, RST]) Report() alamos.Report {

@@ -21,9 +21,9 @@ import (
 )
 
 type calculationUpdaterTransform struct {
-	alamos.Instrumentation
-	calcManager *calculation.RequestManager
 	confluence.LinearTransform[Request, framer.StreamerRequest]
+	calcManager *calculation.RequestManager
+	alamos.Instrumentation
 }
 
 var _ confluence.Segment[Request, framer.StreamerRequest] = &calculationUpdaterTransform{}

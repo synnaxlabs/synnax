@@ -36,7 +36,6 @@ import (
 
 // Config is the configuration for creating a Service.
 type Config struct {
-	alamos.Instrumentation
 	// DB is the gorp database that racks will be stored in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -57,6 +56,7 @@ type Config struct {
 	// communication mechanism.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	alamos.Instrumentation
 	// HealthCheckInterval specifies the interval at which the rack service will check
 	// that it has received a status update from a rack.
 	// [OPTIONAL]
@@ -103,13 +103,13 @@ func (c Config) Validate() error {
 }
 
 type Service struct {
-	Config
-	EmbeddedKey     Key
+	shutdownSignals io.Closer
 	keyMu           *sync.Mutex
 	localKeyCounter *kv.AtomicInt64Counter
-	shutdownSignals io.Closer
-	group           group.Group
 	monitor         *monitor
+	group           group.Group
+	Config
+	EmbeddedKey Key
 }
 
 const localKeyCounterSuffix = ".rack.counter"

@@ -201,9 +201,9 @@ var _ = Describe("Writer", func() {
 })
 
 type scenario struct {
-	keys   channel.Keys
 	dist   mock.Node
 	closer io.Closer
+	keys   channel.Keys
 }
 
 func newChannelSet() []channel.Channel {

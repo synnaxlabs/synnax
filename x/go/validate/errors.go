@@ -29,8 +29,8 @@ var (
 )
 
 type PathError struct {
-	Path []string `json:"path"`
 	Err  error    `json:"error"`
+	Path []string `json:"path"`
 }
 
 func (p PathError) joinPath() string {
@@ -38,8 +38,8 @@ func (p PathError) joinPath() string {
 }
 
 type encodedPathError struct {
-	Path  []string       `json:"path"`
 	Error errors.Payload `json:"error"`
+	Path  []string       `json:"path"`
 }
 
 func pathToSegments(segments ...string) []string {

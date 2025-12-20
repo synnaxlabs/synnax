@@ -43,8 +43,8 @@ import (
 
 // Text represents Arc source code with its parsed AST.
 type Text struct {
-	Raw string                 `json:"raw" msgpack:"raw"`
 	AST parser.IProgramContext `json:"-"`
+	Raw string                 `json:"raw" msgpack:"raw"`
 }
 
 // KeyGenerator creates unique, semantically meaningful node keys.

@@ -37,9 +37,9 @@ type StreamServerCore[RQ, RQT, RS, RST freighter.Payload] struct {
 	ResponseTranslator Translator[RS, RST]
 	CreateTranslators  func() (Translator[RQ, RQT], Translator[RS, RST])
 	ServiceDesc        *grpc.ServiceDesc
-	Internal           bool
 	handler            func(context.Context, freighter.ServerStream[RQ, RS]) error
 	freighter.MiddlewareCollector
+	Internal bool
 }
 
 func (s *StreamClient[RQ, RQT, RS, RST]) Report() alamos.Report {

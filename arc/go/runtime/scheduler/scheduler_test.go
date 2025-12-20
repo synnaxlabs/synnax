@@ -20,10 +20,10 @@ import (
 )
 
 type mockNode struct {
-	initCalled bool
+	onInit     func(node.Context)
+	onNext     func(node.Context)
 	nextCalled int
-	onInit     func(ctx node.Context)
-	onNext     func(ctx node.Context)
+	initCalled bool
 }
 
 func (m *mockNode) Init(ctx node.Context) {

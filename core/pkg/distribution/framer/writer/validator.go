@@ -21,12 +21,12 @@ import (
 )
 
 type validator struct {
-	keys      channel.Keys
-	responses struct {
-		confluence.AbstractUnarySource[Response]
-		confluence.NopFlow
-	}
 	confluence.AbstractLinear[Request, Request]
+	responses struct {
+		confluence.NopFlow
+		confluence.AbstractUnarySource[Response]
+	}
+	keys   channel.Keys
 	seqNum int
 }
 

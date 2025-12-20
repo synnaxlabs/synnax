@@ -56,8 +56,8 @@ func (c Config) Validate() error {
 
 type Service struct {
 	Config
-	group           group.Group
 	shutdownSignals io.Closer
+	group           group.Group
 }
 
 const groupName = "Workspaces"

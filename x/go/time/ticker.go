@@ -17,9 +17,9 @@ import (
 // It provides an identical interface to a time.Ticker.
 type ScaledTicker struct {
 	C     <-chan time.Duration
+	stop  chan struct{}
 	Scale float64
 	dur   time.Duration
-	stop  chan struct{}
 }
 
 // NewScaledTicker returns a new ScaledTicker that ticks at the given duration and scale.

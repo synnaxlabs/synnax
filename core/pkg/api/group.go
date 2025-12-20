@@ -36,9 +36,9 @@ func NewGroupService(p Provider) *GroupService {
 
 type (
 	GroupCreateRequest struct {
+		Parent ontology.ID `json:"parent" msgpack:"parent"`
 		Name   string      `json:"name" msgpack:"name" validate:"required"`
 		Key    uuid.UUID   `json:"key" msgpack:"key"`
-		Parent ontology.ID `json:"parent" msgpack:"parent"`
 	}
 	GroupCreateResponse struct {
 		Group group.Group `json:"group" msgpack:"group"`
@@ -92,8 +92,8 @@ func (s *GroupService) Delete(
 }
 
 type GroupRenameRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key" validate:"required"`
 	Name string    `json:"name" msgpack:"name" validate:"required"`
+	Key  uuid.UUID `json:"key" msgpack:"key" validate:"required"`
 }
 
 func (s *GroupService) Rename(

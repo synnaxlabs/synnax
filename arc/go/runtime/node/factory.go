@@ -22,13 +22,13 @@ import (
 
 // Config provides dependencies and context for creating node instances.
 type Config struct {
-	alamos.Instrumentation
-	// Node is the IR definition for this node.
-	Node ir.Node
 	// State provides access to input/output data and channel I/O.
 	State *state.Node
+	alamos.Instrumentation
 	// Module contains the arc module for accessing global state and functions.
 	Module module.Module
+	// Node is the IR definition for this node.
+	Node ir.Node
 }
 
 // Factory creates node instances from IR definitions.

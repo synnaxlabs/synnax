@@ -56,9 +56,9 @@ func (o Operation) apply(ctx context.Context, b xkv.Writer) error {
 
 type Digest struct {
 	Key         []byte
-	Variant     change.Variant
 	Version     version.Counter
 	Leaseholder node.Key
+	Variant     change.Variant
 }
 
 func (d Digest) apply(ctx context.Context, w xkv.Writer) error {

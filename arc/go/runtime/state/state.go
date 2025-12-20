@@ -35,26 +35,26 @@ type value struct {
 // State manages runtime data for an arc program.
 // It stores node outputs, channel I/O buffers, and index relationships.
 type State struct {
-	cfg     Config
-	outputs map[ir.Handle]*value
-	indexes map[uint32]uint32
 	channel struct {
 		reads  map[uint32]telem.MultiSeries
 		writes map[uint32]telem.Series
 	}
+	outputs map[ir.Handle]*value
+	indexes map[uint32]uint32
+	cfg     Config
 }
 
 // ChannelDigest provides metadata about a channel for state initialization.
 type ChannelDigest struct {
-	Key      uint32
 	DataType telem.DataType
+	Key      uint32
 	Index    uint32
 }
 
 // Config provides dependencies for creating a State instance.
 type Config struct {
-	ChannelDigests []ChannelDigest
 	IR             ir.IR
+	ChannelDigests []ChannelDigest
 }
 
 // New creates a state manager from the given configuration.

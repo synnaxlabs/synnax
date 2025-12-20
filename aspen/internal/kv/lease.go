@@ -64,10 +64,10 @@ func (la *leaseAllocator) getLease(ctx context.Context, key []byte) (node.Key, e
 }
 
 type leaseProxy struct {
-	Config
+	confluence.Switch[TxRequest]
 	localTo  address.Address
 	remoteTo address.Address
-	confluence.Switch[TxRequest]
+	Config
 }
 
 func newLeaseProxy(cfg Config, localTo, remoteTo address.Address) segment {
@@ -90,8 +90,8 @@ type (
 )
 
 type leaseSender struct {
-	Config
 	confluence.UnarySink[TxRequest]
+	Config
 }
 
 func newLeaseSender(cfg Config) sink {
@@ -111,9 +111,9 @@ func (lf *leaseSender) send(_ context.Context, br TxRequest) error {
 }
 
 type leaseReceiver struct {
-	Config
-	confluence.AbstractUnarySource[TxRequest]
 	confluence.NopFlow
+	confluence.AbstractUnarySource[TxRequest]
+	Config
 }
 
 func newLeaseReceiver(cfg Config) source {

@@ -20,11 +20,11 @@ import (
 )
 
 type Writer struct {
-	cfg       WriterConfig
 	requests  confluence.Inlet[WriterRequest]
 	responses confluence.Outlet[WriterResponse]
 	shutdown  io.Closer
 	closeErr  error
+	cfg       WriterConfig
 }
 
 const unexpectedSteamClosure = "unexpected early closure of response stream"

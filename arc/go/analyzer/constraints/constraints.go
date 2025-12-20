@@ -27,18 +27,18 @@ const (
 
 // Constraint represents a type relationship that must hold for successful type checking.
 type Constraint struct {
-	Kind   Kind
-	Left   types.Type
-	Right  types.Type
 	Source antlr.ParserRuleContext
 	Reason string
+	Left   types.Type
+	Right  types.Type
+	Kind   Kind
 }
 
 // System accumulates type constraints and computes substitutions via unification.
 type System struct {
-	Constraints   []Constraint
 	Substitutions map[string]types.Type
 	TypeVars      map[string]types.Type
+	Constraints   []Constraint
 }
 
 // New creates an empty constraint system.

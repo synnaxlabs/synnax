@@ -23,11 +23,11 @@ type StreamWriter = confluence.Segment[Request, Response]
 var ErrClosed = errors.New("writer closed")
 
 type Writer struct {
-	cfg       Config
 	requests  confluence.Inlet[Request]
 	responses confluence.Outlet[Response]
 	shutdown  io.Closer
 	closeErr  error
+	cfg       Config
 }
 
 // Write implements Writer.

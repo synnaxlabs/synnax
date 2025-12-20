@@ -21,13 +21,13 @@ import (
 // Synchronizer assumes that a request sent to multiple nodes contains a sequence number
 // incremented with every request.
 type synchronizer struct {
-	alamos.Instrumentation
 	confluence.LinearTransform[Response, Response]
-	nodeCount int
-	cycle     struct {
-		counter int
+	alamos.Instrumentation
+	cycle struct {
 		res     Response
+		counter int
 	}
+	nodeCount int
 }
 
 func newSynchronizer(nodeCount int, ins alamos.Instrumentation) confluence.Segment[Response, Response] {

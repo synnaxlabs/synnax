@@ -27,13 +27,13 @@ import (
 type DB struct {
 	kv.DB
 	kv.Observable
-	config     Config
-	leaseAlloc *leaseAllocator
-	source     struct {
-		confluence.AbstractUnarySource[TxRequest]
+	source struct {
 		confluence.NopFlow
+		confluence.AbstractUnarySource[TxRequest]
 	}
-	shutdown io.Closer
+	shutdown   io.Closer
+	leaseAlloc *leaseAllocator
+	config     Config
 }
 
 var _ kv.DB = (*DB)(nil)

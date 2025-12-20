@@ -18,12 +18,12 @@ import (
 
 // Emitter is a Source that emits values to an Inlet at a regular interval.
 type Emitter[V Value] struct {
+	AbstractUnarySource[V]
 	// Emitter is called on each tick. If it returns an error, the Emitter closes and
 	// returns a fatal error to the context.
 	Emit func(context.Context) (V, error)
 	// Interval is the duration between ticks.
 	Interval time.Duration
-	AbstractUnarySource[V]
 }
 
 // Flow implements the Flow interface.

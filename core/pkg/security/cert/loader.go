@@ -29,6 +29,8 @@ import (
 
 // LoaderConfig is the configuration for creating a new Loader.
 type LoaderConfig struct {
+	// FS is the filesystem to use.
+	FS xfs.FS
 	alamos.Instrumentation
 	// CertsDir is the directory where the certificates are stored.
 	CertsDir string
@@ -40,8 +42,6 @@ type LoaderConfig struct {
 	NodeKeyPath string
 	// NodeCertPath is the path to the node certificate. This is relative to CertsDir.
 	NodeCertPath string
-	// FS is the filesystem to use.
-	FS xfs.FS
 }
 
 var (

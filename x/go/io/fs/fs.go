@@ -61,8 +61,8 @@ type FS interface {
 }
 
 type subFS struct {
-	dir string
 	FS
+	dir string
 }
 
 func (s *subFS) Open(name string, flag int) (File, error) {

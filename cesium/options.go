@@ -20,12 +20,12 @@ import (
 type Option func(*options)
 
 type options struct {
+	fs        xfs.FS
+	metaCodec binary.Codec
 	alamos.Instrumentation
 	dirname         string
-	fs              xfs.FS
-	metaCodec       binary.Codec
-	streamingConfig DBStreamingConfig
 	gcCfg           GCConfig
+	streamingConfig DBStreamingConfig
 	fileSize        telem.Size
 }
 

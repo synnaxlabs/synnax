@@ -158,8 +158,8 @@ var _ = Describe("Object", func() {
 	Describe("Optional Fields", func() {
 		Specify("optional field with nil value", func() {
 			type TestStruct struct {
-				Name  string
 				Email *string
+				Name  string
 			}
 			schema := zyn.Object(map[string]zyn.Schema{
 				"Name":  zyn.String(),
@@ -225,8 +225,8 @@ var _ = Describe("Object", func() {
 		})
 		Specify("optional fields", func() {
 			type TestStruct struct {
-				Name  string
 				Email *string
+				Name  string
 			}
 			schema := zyn.Object(map[string]zyn.Schema{
 				"Name":  zyn.String(),

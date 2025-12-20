@@ -47,9 +47,9 @@ var (
 )
 
 type setStatus struct {
-	stat      status.Status[any]
 	statusSvc *status.Service
 	ins       alamos.Instrumentation
+	stat      status.Status[any]
 }
 
 func (s *setStatus) Init(node.Context) {}

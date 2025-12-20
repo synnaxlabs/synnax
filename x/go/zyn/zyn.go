@@ -132,10 +132,10 @@ type Shape interface {
 
 // baseZ provides the base implementation for all schema types.
 type baseZ struct {
-	optional     bool
-	dataType     DataType
 	expectedType reflect.Type
 	wrapper      Schema
+	dataType     DataType
+	optional     bool
 }
 
 // Shape returns the base shape of the schema.

@@ -11,10 +11,10 @@ package compiler
 
 // Output represents the result of compiling an Arc program to WebAssembly.
 type Output struct {
-	// WASM contains the compiled WebAssembly bytecode.
-	WASM []byte `json:"wasm"`
 	// OutputMemoryBases maps function/func names to their output memory base addresses.
 	// Only includes functions with multi-output (named outputs).
 	// The runtime uses this to read outputs from linear memory after execution.
 	OutputMemoryBases map[string]uint32 `json:"output_memory_bases"`
+	// WASM contains the compiled WebAssembly bytecode.
+	WASM []byte `json:"wasm"`
 }

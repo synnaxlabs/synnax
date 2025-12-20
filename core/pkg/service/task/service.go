@@ -34,7 +34,6 @@ import (
 
 // Config is the configuration for creating a Service.
 type Config struct {
-	alamos.Instrumentation
 	// DB is the gorp database that tasks will be stored in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -58,6 +57,7 @@ type Config struct {
 	// Channel is used to create channels related to task operations.
 	// [OPTIONAL]
 	Channel *channel.Service
+	alamos.Instrumentation
 }
 
 var (
@@ -92,8 +92,8 @@ func (c Config) Validate() error {
 type Service struct {
 	cfg                           Config
 	shutdownSignals               io.Closer
-	group                         group.Group
 	disconnectSuspectRackObserver observe.Disconnect
+	group                         group.Group
 }
 
 const groupName = "Tasks"

@@ -69,8 +69,8 @@ func (s *WorkspaceService) Create(ctx context.Context, req WorkspaceCreateReques
 }
 
 type WorkspaceRenameRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
 	Name string    `json:"name" msgpack:"name"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *WorkspaceService) Rename(ctx context.Context, req WorkspaceRenameRequest) (res types.Nil, err error) {
@@ -87,8 +87,8 @@ func (s *WorkspaceService) Rename(ctx context.Context, req WorkspaceRenameReques
 }
 
 type WorkspaceSetLayoutRequest struct {
-	Key    uuid.UUID `json:"key" msgpack:"key"`
 	Layout string    `json:"layout" msgpack:"layout"`
+	Key    uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *WorkspaceService) SetLayout(ctx context.Context, req WorkspaceSetLayoutRequest) (res types.Nil, err error) {
@@ -106,11 +106,11 @@ func (s *WorkspaceService) SetLayout(ctx context.Context, req WorkspaceSetLayout
 
 type (
 	WorkspaceRetrieveRequest struct {
-		Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
 		SearchTerm string      `json:"search_term" msgpack:"search_term"`
-		Author     uuid.UUID   `json:"author" msgpack:"author"`
+		Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
 		Limit      int         `json:"limit" msgpack:"limit"`
 		Offset     int         `json:"offset" msgpack:"offset"`
+		Author     uuid.UUID   `json:"author" msgpack:"author"`
 	}
 	WorkspaceRetrieveResponse struct {
 		Workspaces []workspace.Workspace `json:"workspaces" msgpack:"workspaces"`

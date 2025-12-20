@@ -35,12 +35,12 @@ type controlResource struct {
 func (r *controlResource) ChannelKey() core.ChannelKey { return r.ck }
 
 type DB struct {
-	cfg              Config
 	controller       *control.Controller[*controlResource]
 	wrapError        func(error) error
 	closed           *atomic.Bool
 	leadingAlignment *atomic.Uint32
 	openWriters      *atomic.Int32
+	cfg              Config
 }
 
 var (
@@ -52,17 +52,17 @@ var (
 
 // Config is the configuration for opening a DB.
 type Config struct {
-	alamos.Instrumentation
-	// Channel that the database will operate on. This only needs to be set when creating
-	// a new database. If the database already exists, this field will be read from the
-	// DB's meta file.
-	Channel core.Channel
 	// MetaCodec is used to encode and decode the channel metadata.
 	// [REQUIRED]
 	MetaCodec binary.Codec
 	// FS is the filesystem that the DB will use to store metadata about the channel.
 	// [REQUIRED]
 	FS xfs.FS
+	alamos.Instrumentation
+	// Channel that the database will operate on. This only needs to be set when creating
+	// a new database. If the database already exists, this field will be read from the
+	// DB's meta file.
+	Channel core.Channel
 }
 
 var (

@@ -28,7 +28,6 @@ import (
 )
 
 type ServiceConfig struct {
-	alamos.Instrumentation
 	// DB is the underlying database that the service will use to store Statuses.
 	DB *gorp.DB
 	// Ontology will be used to create relationships between statuses (parent-child) and
@@ -40,6 +39,7 @@ type ServiceConfig struct {
 	// Signals is used to publish signals when statuses are created, updated, or deleted.
 	Signals *signals.Provider
 	Label   *label.Service
+	alamos.Instrumentation
 }
 
 var (
@@ -75,8 +75,8 @@ type Service struct {
 	group           group.Group
 	shutdownSignals io.Closer
 	mu              struct {
-		sync.RWMutex
 		statuses map[string]status.Status[any]
+		sync.RWMutex
 	}
 }
 

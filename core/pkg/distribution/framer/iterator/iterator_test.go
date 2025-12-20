@@ -136,9 +136,9 @@ var _ = Describe("Iterator", func() {
 })
 
 type scenario struct {
-	keys  channel.Keys
 	dist  mock.Node
 	close io.Closer
+	keys  channel.Keys
 }
 
 func newChannelSet() []channel.Channel {

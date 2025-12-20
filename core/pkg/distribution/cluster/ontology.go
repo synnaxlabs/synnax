@@ -57,9 +57,9 @@ var (
 // NodeOntologyService implements the ontology.Service interface to provide resource access
 // to a cluster's nodes.
 type NodeOntologyService struct {
-	alamos.Instrumentation
-	Ontology *ontology.Ontology
 	Cluster  Cluster
+	Ontology *ontology.Ontology
+	alamos.Instrumentation
 }
 
 var _ ontology.Service = (*NodeOntologyService)(nil)
@@ -126,9 +126,9 @@ func newNodeResource(n Node) ontology.Resource {
 // OntologyService implements the ontology.Service to provide resource access
 // to metadata about a Cluster.
 type OntologyService struct {
-	Cluster Cluster
 	// Nothing will ever change about the cluster.
 	observe.Noop[iter.Seq[ontology.Change]]
+	Cluster Cluster
 }
 
 var _ ontology.Service = (*OntologyService)(nil)

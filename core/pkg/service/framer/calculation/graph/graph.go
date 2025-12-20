@@ -29,9 +29,9 @@ import (
 )
 
 type Config struct {
-	alamos.Instrumentation
-	Channel        *channel.Service
 	SymbolResolver arc.SymbolResolver
+	Channel        *channel.Service
+	alamos.Instrumentation
 }
 
 var (
@@ -54,11 +54,11 @@ func (c Config) Validate() error {
 }
 
 type channelInfo struct {
+	calcDeps      []channel.Key
 	module        compiler.Module
 	groupID       int
 	explicitCount int
 	depCount      int
-	calcDeps      []channel.Key
 	processing    bool
 }
 
@@ -68,10 +68,10 @@ type groupInfo struct {
 }
 
 type Graph struct {
+	cfg      Config
+	channels map[channel.Key]*channelInfo
+	groups   map[int]*groupInfo
 	alamos.Instrumentation
-	cfg         Config
-	channels    map[channel.Key]*channelInfo
-	groups      map[int]*groupInfo
 	nextGroupID int
 }
 

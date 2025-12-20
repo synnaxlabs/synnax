@@ -39,14 +39,14 @@ type rackState struct {
 
 type monitor struct {
 	observe.Observer[Status]
-	alamos.Instrumentation
-	svc *Service
-	mu  struct {
-		sync.Mutex
-		racks map[Key]rackState
-	}
-	disconnectStatusObserver observe.Disconnect
 	shutdownRoutines         io.Closer
+	svc                      *Service
+	disconnectStatusObserver observe.Disconnect
+	alamos.Instrumentation
+	mu struct {
+		racks map[Key]rackState
+		sync.Mutex
+	}
 }
 
 func (m *monitor) Close() error {

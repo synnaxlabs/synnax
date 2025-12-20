@@ -30,6 +30,8 @@ const (
 
 // Status is a standardized payload used across Synnax.
 type Status[D any] struct {
+	// Details are customizable details for component specific statuses.
+	Details D `json:"details" msgpack:"details"`
 	// Key is a unique key for the status.
 	Key string `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the status.
@@ -42,8 +44,6 @@ type Status[D any] struct {
 	Description string `json:"description" msgpack:"description"`
 	// Time is the time the status was created.
 	Time telem.TimeStamp `json:"time" msgpack:"time"`
-	// Details are customizable details for component specific statuses.
-	Details D `json:"details" msgpack:"details"`
 }
 
 // String returns a formatted string representation of the Status.

@@ -26,9 +26,9 @@ type Function struct {
 	fn           api.Function
 	mem          api.Memory
 	outputs      types.Params
-	base         uint32
 	offsets      []uint32
 	outputValues []result
+	base         uint32
 }
 
 func (f *Function) Call(ctx context.Context, params ...uint64) ([]result, error) {

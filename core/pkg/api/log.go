@@ -36,8 +36,8 @@ func NewLogService(p Provider) *LogService {
 
 type (
 	LogCreateRequest struct {
-		Workspace uuid.UUID `json:"workspace" msgpack:"workspace"`
 		Logs      []log.Log `json:"logs" msgpack:"logs"`
+		Workspace uuid.UUID `json:"workspace" msgpack:"workspace"`
 	}
 	LogCreateResponse struct {
 		Logs []log.Log `json:"logs" msgpack:"logs"`
@@ -65,8 +65,8 @@ func (s *LogService) Create(ctx context.Context, req LogCreateRequest) (res LogC
 }
 
 type LogRenameRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
 	Name string    `json:"name" msgpack:"name"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *LogService) Rename(ctx context.Context, req LogRenameRequest) (res types.Nil, err error) {
@@ -83,8 +83,8 @@ func (s *LogService) Rename(ctx context.Context, req LogRenameRequest) (res type
 }
 
 type LogSetDataRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
 	Data string    `json:"data" msgpack:"data"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *LogService) SetData(ctx context.Context, req LogSetDataRequest) (res types.Nil, err error) {

@@ -50,9 +50,9 @@ type Store[S any] interface {
 }
 
 type core[S any] struct {
+	state S
 	copy  func(S) S
 	mu    sync.RWMutex
-	state S
 }
 
 // New opens a new Store. copy is a function that copies the state.

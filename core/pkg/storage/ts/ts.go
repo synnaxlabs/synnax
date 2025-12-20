@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/x/config"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -52,6 +52,10 @@ const (
 )
 
 type Config struct {
+	// FS is the file system interface that the DB will use to read and write data.
+	//
+	// [REQUIRED]
+	FS fs.FS
 	alamos.Instrumentation
 	// Dirname is the directory in which the DB will store its files. DB should have
 	// exclusive access to this directory, and sharing with another process/component
@@ -59,17 +63,13 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to an empty string.
 	Dirname string
-	// FS is the file system interface that the DB will use to read and write data.
-	//
-	// [REQUIRED]
-	FS xfs.FS
 }
 
 var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default configuration for a DB.
 	DefaultConfig = Config{
-		FS: xfs.Default,
+		FS: fs.Default,
 	}
 	ErrChannelNotfound = cesium.ErrChannelNotFound
 )

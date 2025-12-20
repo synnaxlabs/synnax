@@ -25,7 +25,6 @@ import (
 )
 
 type Config struct {
-	alamos.Instrumentation
 	// DB is the underlying database that the service will use to store Views.
 	DB *gorp.DB
 	// Ontology will be used to create relationships between views (parent-child) and
@@ -36,6 +35,7 @@ type Config struct {
 	Group *group.Service
 	// Signals is used to publish signals when views are created, updated, or deleted.
 	Signals *signals.Provider
+	alamos.Instrumentation
 }
 
 var (
@@ -66,8 +66,8 @@ func (c Config) Validate() error {
 // mechanisms for listening to changes in views.
 type Service struct {
 	cfg             Config
-	group           group.Group
 	shutdownSignals io.Closer
+	group           group.Group
 }
 
 // OpenService opens a new Service with the provided configuration. If error is nil, the

@@ -34,9 +34,6 @@ type Provider struct{ Config }
 
 // Config is the configuration for opening the core Signals Provider.
 type Config struct {
-	// Instrumentation is used for logging, tracing, and metrics.
-	// [OPTIONAL]
-	alamos.Instrumentation
 	// Channel is the service used for retrieving and creating free channels.
 	//
 	// [REQUIRED]
@@ -45,6 +42,9 @@ type Config struct {
 	// telemetry pipeline.
 	// [REQUIRED]
 	Framer *framer.Service
+	// Instrumentation is used for logging, tracing, and metrics.
+	// [OPTIONAL]
+	alamos.Instrumentation
 }
 
 var (

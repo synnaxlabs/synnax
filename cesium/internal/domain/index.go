@@ -20,14 +20,14 @@ import (
 )
 
 type index struct {
+	indexPersist *indexPersist
 	alamos.Instrumentation
 	mu struct {
-		sync.RWMutex
 		pointers []pointer
+		sync.RWMutex
 	}
-	deleteLock   sync.RWMutex
-	indexPersist *indexPersist
-	persistHead  int
+	persistHead int
+	deleteLock  sync.RWMutex
 }
 
 // insert adds a new pointer to the index.

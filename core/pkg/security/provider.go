@@ -45,9 +45,9 @@ type Provider interface {
 
 // ProviderConfig is the configuration for creating a new Provider.
 type ProviderConfig struct {
-	cert.LoaderConfig
 	// Insecure indicates whether the node should run in insecure mode.
 	Insecure *bool
+	cert.LoaderConfig
 	// KeySize is the size of private key to use in case key generation is required.
 	KeySize int
 }

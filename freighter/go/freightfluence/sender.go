@@ -176,9 +176,9 @@ o:
 // compatible interface for sending transformed messages over a network freighter.
 // MultiTransformSender transforms each input message and sends a copy to each sender.
 type MultiTransformSender[I confluence.Value, M freighter.Payload] struct {
-	Senders   []freighter.StreamSenderCloser[M]
-	Transform confluence.TransformFunc[I, M]
 	confluence.UnarySink[I]
+	Transform confluence.TransformFunc[I, M]
+	Senders   []freighter.StreamSenderCloser[M]
 }
 
 // Flow implements the Flow interface.

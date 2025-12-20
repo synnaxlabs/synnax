@@ -38,8 +38,8 @@ func (m *Module) Close() error {
 }
 
 type ModuleConfig struct {
-	Module module.Module
 	State  *state.State
+	Module module.Module
 }
 
 func OpenModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
@@ -55,8 +55,5 @@ func OpenModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
 		return nil, err
 	}
 	arcRuntime.SetMemory(wasmModule.Memory())
-	if err != nil {
-		return nil, err
-	}
 	return &Module{module: wasmModule, runtime: runtime}, nil
 }

@@ -27,23 +27,23 @@ type Streamer = confluence.Segment[Request, Response]
 
 type streamer struct {
 	confluence.AbstractLinear[Request, Response]
-	addr    address.Address
 	demands confluence.Inlet[demand]
 	relay   *Relay
+	addr    address.Address
 	cfg     StreamerConfig
 }
 
 // StreamerConfig is the configuration for creating a new streamer.
 type StreamerConfig struct {
+	// SendOpenAck sets whether to send an acknowledgement when the streamer has
+	// successfully connected to the relay and is ready to start streaming data.
+	// [OPTIONAL] - defaults to false
+	SendOpenAck *bool `json:"send_open_ack" msgpack:"send_open_ack"`
 	// Keys are the list of channels to read from. This slice may be empty, in
 	// which case no data will be streamed until a new configuration is provided
 	// as a request to the streamer.
 	// [OPTIONAL]
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
-	// SendOpenAck sets whether to send an acknowledgement when the streamer has
-	// successfully connected to the relay and is ready to start streaming data.
-	// [OPTIONAL] - defaults to false
-	SendOpenAck *bool `json:"send_open_ack" msgpack:"send_open_ack"`
 }
 
 var (

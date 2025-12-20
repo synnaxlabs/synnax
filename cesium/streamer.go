@@ -93,11 +93,11 @@ func NewTranslatedStreamer[I, O any](
 }
 
 type streamer[I any, O any] struct {
-	StreamerConfig
 	confluence.AbstractLinear[I, O]
 	relay             *relay
 	translateRequest  func(I) StreamerRequest
 	translateResponse func(StreamerResponse) O
+	StreamerConfig
 }
 
 var _ Streamer[StreamerRequest, StreamerResponse] = (*streamer[StreamerRequest, StreamerResponse])(nil)

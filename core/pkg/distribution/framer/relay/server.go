@@ -20,8 +20,8 @@ import (
 )
 
 type server struct {
-	Config
 	newStreamer func(context.Context, ...StreamerConfig) (confluence.Segment[Request, Response], error)
+	Config
 }
 
 func startServer(

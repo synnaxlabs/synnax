@@ -21,9 +21,9 @@ import (
 
 // secureProvider implements the Provider interface for use in a secure cluster.
 type secureProvider struct {
-	ProviderConfig
 	tls      *tls.Certificate
 	certPool *x509.CertPool
+	ProviderConfig
 }
 
 func newSecureProvider(cfg ProviderConfig) (Provider, error) {
