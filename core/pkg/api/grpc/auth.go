@@ -12,28 +12,19 @@ package grpc
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-	"github.com/synnaxlabs/x/telem"
-
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"google.golang.org/grpc"
+	"github.com/synnaxlabs/x/telem"
 )
 
 type (
 	authLoginServer = fgrpc.UnaryServer[
-		api.AuthLoginRequest,
-		*gapi.LoginRequest,
-		api.AuthLoginResponse,
-		*gapi.LoginResponse,
-	]
-	authLoginClient = fgrpc.UnaryClient[
 		api.AuthLoginRequest,
 		*gapi.LoginRequest,
 		api.AuthLoginResponse,
@@ -113,16 +104,4 @@ func newAuth(a *api.Transport) fgrpc.BindableTransport {
 	}
 	a.AuthLogin = s
 	return s
-}
-
-func NewAuthLoginClient(pool *fgrpc.Pool) freighter.UnaryClient[api.AuthLoginRequest, api.AuthLoginResponse] {
-	return &authLoginClient{
-		Pool:               pool,
-		RequestTranslator:  loginRequestTranslator{},
-		ResponseTranslator: loginResponseTranslator{},
-		ServiceDesc:        &gapi.AuthLoginService_ServiceDesc,
-		Exec: func(ctx context.Context, connInterface grpc.ClientConnInterface, request *gapi.LoginRequest) (*gapi.LoginResponse, error) {
-			return gapi.NewAuthLoginServiceClient(connInterface).Exec(ctx, request)
-		},
-	}
 }

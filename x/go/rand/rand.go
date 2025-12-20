@@ -32,11 +32,11 @@ func MapKey[K comparable, V any](m map[K]V) (key K) {
 }
 
 func MapValue[K comparable, V any](m map[K]V) V {
-	return m[MapKey[K, V](m)]
+	return m[MapKey(m)]
 }
 
 func MapElem[K comparable, V any](m map[K]V) (K, V) {
-	k := MapKey[K, V](m)
+	k := MapKey(m)
 	return k, m[k]
 }
 
@@ -44,7 +44,7 @@ func SubMap[K comparable, V any](m map[K]V, n int) map[K]V {
 	om := make(map[K]V)
 	i := 0
 	for {
-		k, v := MapElem[K, V](m)
+		k, v := MapElem(m)
 		_, ok := om[k]
 		if !ok {
 			om[k] = v
@@ -55,14 +55,6 @@ func SubMap[K comparable, V any](m map[K]V, n int) map[K]V {
 		}
 	}
 	return om
-}
-
-func Elem[V any](options ...V) V {
-	return Slice[V](options)
-}
-
-func Slice[V any](slice []V) V {
-	return slice[rand.Intn(len(slice))]
 }
 
 func SubSlice[V comparable](slice []V, n int) []V {

@@ -10,8 +10,6 @@
 package confluence
 
 import (
-	"time"
-
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
 )
@@ -81,23 +79,6 @@ func RecoverWithoutErrOnPanic() Option {
 func WithRetryOnPanic(maxRetries ...int) Option {
 	return func(fo *Options) {
 		fo.Signal = append(fo.Signal, signal.WithRetryOnPanic(maxRetries...))
-	}
-}
-
-// WithBaseRetryInterval sets the base interval for the breaker used to restart the
-// segment. The base retry interval is how much time the breaker waits before trying
-// to restart for the first time. (Default: 1 second)
-func WithBaseRetryInterval(retryInterval time.Duration) Option {
-	return func(fo *Options) {
-		fo.Signal = append(fo.Signal, signal.WithBaseRetryInterval(retryInterval))
-	}
-}
-
-// WithRetryScale sets the scale on the breaker used to restart the scale. The scale
-// defines the rate by which the interval between two retries grow. (Default: 1)
-func WithRetryScale(scale float32) Option {
-	return func(fo *Options) {
-		fo.Signal = append(fo.Signal, signal.WithRetryScale(scale))
 	}
 }
 

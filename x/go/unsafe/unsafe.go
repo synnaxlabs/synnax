@@ -118,16 +118,6 @@ func CastToBytes[T types.Sized](in T) []byte {
 	return out
 }
 
-// ReinterpretMap re-interprets a map of one type as a map of another type. Note that the input
-// and output maps must have compatible memory layouts in order for this to work. IF
-// YOU DON'T KNOW WHAT YOU'RE DOING, DON'T USE THIS.
-func ReinterpretMap[A, B, C, D types.Sized](in map[A]B) map[C]D {
-	if len(in) == 0 {
-		return nil
-	}
-	return *(*map[C]D)(unsafe.Pointer(&in))
-}
-
 // ReinterpretMapKeys re-interprets a map's keys from one type to another while preserving
 // values of any type. A and B must have the same memory layout (e.g., uint32 -> type alias).
 //

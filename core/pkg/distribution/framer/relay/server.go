@@ -21,12 +21,12 @@ import (
 
 type server struct {
 	Config
-	newStreamer func(ctx context.Context, cfgs ...StreamerConfig) (confluence.Segment[Request, Response], error)
+	newStreamer func(context.Context, ...StreamerConfig) (confluence.Segment[Request, Response], error)
 }
 
 func startServer(
 	cfg Config,
-	newStreamer func(ctx context.Context, cfgs ...StreamerConfig) (confluence.Segment[Request, Response], error),
+	newStreamer func(context.Context, ...StreamerConfig) (confluence.Segment[Request, Response], error),
 ) *server {
 	s := &server{Config: cfg, newStreamer: newStreamer}
 	cfg.Transport.Server().BindHandler(s.handle)

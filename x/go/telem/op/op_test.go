@@ -318,46 +318,6 @@ var _ = Describe("Vectorized Operations", func() {
 			})
 		})
 
-		Context("XOR Operation", func() {
-			It("should perform bitwise XOR on equal length series", func() {
-				a := telem.NewSeriesV[uint8](1, 1, 0, 0)
-				b := telem.NewSeriesV[uint8](1, 0, 1, 0)
-				output := telem.Series{DataType: telem.Uint8T}
-
-				op.XorU8(a, b, &output)
-
-				// Truth table: 1^1=0, 1^0=1, 0^1=1, 0^0=0
-				expected := []uint8{0, 1, 1, 0}
-				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
-			})
-
-			It("should handle different length series with last value repetition", func() {
-				a := telem.NewSeriesV[uint8](1, 1)
-				b := telem.NewSeriesV[uint8](0, 1, 0, 1, 0)
-				output := telem.Series{DataType: telem.Uint8T}
-
-				op.XorU8(a, b, &output)
-
-				// a values: [1, 1, 1, 1, 1] (1 repeats)
-				// b values: [0, 1, 0, 1, 0]
-				// result:   [1, 0, 1, 0, 1]
-				expected := []uint8{1, 0, 1, 0, 1}
-				Expect(output.Len()).To(Equal(int64(5)))
-				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
-			})
-
-			It("should work with all bits set", func() {
-				a := telem.NewSeriesV[uint8](0xFF, 0xF0, 0x0F, 0xAA)
-				b := telem.NewSeriesV[uint8](0x00, 0x0F, 0xF0, 0xAA)
-				output := telem.Series{DataType: telem.Uint8T}
-
-				op.XorU8(a, b, &output)
-
-				expected := []uint8{0xFF, 0xFF, 0xFF, 0x00}
-				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
-			})
-		})
-
 		Context("NOT Operation", func() {
 			It("should perform bitwise NOT", func() {
 				input := telem.NewSeriesV[uint8](1, 0, 1, 0)

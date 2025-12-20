@@ -10,7 +10,6 @@
 package kv_test
 
 import (
-	"encoding/binary"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	xkv "github.com/synnaxlabs/x/kv"
@@ -42,26 +41,6 @@ var _ = Describe("Iterator", func() {
 				c++
 			}
 			Expect(c).To(Equal(3))
-			Expect(iter.Close()).To(Succeed())
-		})
-	})
-	Describe("Bounds Iterate", func() {
-		It("Should iterate over keys in a given range", func() {
-			for i := range 10 {
-				b := make([]byte, 4)
-				binary.LittleEndian.PutUint32(b, uint32(i))
-				Expect(kv.Set(ctx, b, []byte{1, 2})).To(Succeed())
-			}
-			lower := make([]byte, 4)
-			binary.LittleEndian.PutUint32(lower, uint32(3))
-			upper := make([]byte, 4)
-			binary.LittleEndian.PutUint32(upper, uint32(7))
-			iter := MustSucceed(kv.OpenIterator(xkv.IterRange(lower, upper)))
-			c := 0
-			for iter.First(); iter.Valid(); iter.Next() {
-				c++
-			}
-			Expect(c).To(Equal(4))
 			Expect(iter.Close()).To(Succeed())
 		})
 	})

@@ -177,15 +177,11 @@ func (e *Writer) WriteMemoryOp(op Opcode, align, offset uint32) {
 
 // writeBlockType writes a block type (for if/block/loop)
 func (e *Writer) writeBlockType(bt BlockType) {
-	switch bt := bt.(type) {
-	case EmptyBlockType:
-		e.buf.WriteByte(0x40) // empty type
-	case ValueBlockType:
-		e.buf.WriteByte(byte(bt.Type))
-	default:
-		// For more complex block types (multi-value), we'd need type indices
-		e.buf.WriteByte(0x40) // default to empty
+	if bt.empty {
+		e.buf.WriteByte(0x40)
+		return
 	}
+	e.buf.WriteByte(byte(bt.valueType))
 }
 
 // === LEB128 Encoding ===
@@ -248,27 +244,15 @@ func (e *Writer) Reset() {
 // === Block Types ===
 
 // BlockType represents the type signature of a block
-type BlockType interface {
-	isBlockType()
+type BlockType struct {
+	empty     bool
+	valueType ValueType
 }
 
-// EmptyBlockType represents a block with no result
-type EmptyBlockType struct{}
-
-func (EmptyBlockType) isBlockType() {}
-
-// ValueBlockType represents a block with a single result type
-type ValueBlockType struct {
-	Type ValueType
-}
-
-func (ValueBlockType) isBlockType() {}
-
-// Helper constructors for block types
 var (
-	BlockTypeEmpty = EmptyBlockType{}
-	BlockTypeI32   = ValueBlockType{I32}
-	BlockTypeI64   = ValueBlockType{I64}
-	BlockTypeF32   = ValueBlockType{F32}
-	BlockTypeF64   = ValueBlockType{F64}
+	BlockTypeEmpty = BlockType{empty: true}
+	BlockTypeI32   = BlockType{valueType: I32}
+	BlockTypeI64   = BlockType{valueType: I64}
+	BlockTypeF32   = BlockType{valueType: F32}
+	BlockTypeF64   = BlockType{valueType: F64}
 )

@@ -41,14 +41,6 @@ func entryKeys[K Key, E Entry[K]](entries []E) []K {
 	return keys
 }
 
-type nopEntry []struct{}
-
-var _ Entry[string] = nopEntry{}
-
-func (nopEntry) GorpKey() string { return "" }
-
-func (nopEntry) SetOptions() []any { return nil }
-
 const entriesOptKey query.Parameter = "entries"
 
 // Entries is a query option used to bind entities from a retrieve query or

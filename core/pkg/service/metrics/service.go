@@ -104,8 +104,8 @@ const (
 
 // OpenService opens a new metric.Service using the provided configuration. See the
 // Config struct for details on the required configuration values. If OpenService
-// returns an error, the service is not safe to use. If OpenService succeeds, it must
-// be shut down by calling Close after use.
+// returns an error, the service is not safe to use. If OpenService succeeds, it must be
+// shut down by calling Close after use.
 func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
@@ -165,7 +165,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	plumber.SetSegment[framer.WriterRequest, framer.WriterResponse](p, writerAddr, w)
 	plumber.SetSource[framer.WriterRequest](p, collectorAddr, c)
 	o := confluence.NewObservableSubscriber[framer.WriterResponse]()
-	o.OnChange(func(ctx context.Context, response framer.WriterResponse) {
+	o.OnChange(func(_ context.Context, response framer.WriterResponse) {
 		if response.Err != nil {
 			cfg.L.Error("failed to write metrics to node", zap.Error(response.Err))
 		}

@@ -31,7 +31,6 @@ var unaryReporter = freighter.Reporter{
 }
 
 type serverOptions struct {
-	internal      bool
 	codecResolver httputil.CodecResolver
 }
 
@@ -40,12 +39,6 @@ type ServerOption func(*serverOptions)
 func WithCodecResolver(r httputil.CodecResolver) ServerOption {
 	return func(o *serverOptions) {
 		o.codecResolver = r
-	}
-}
-
-func InternalRoute() ServerOption {
-	return func(o *serverOptions) {
-		o.internal = true
 	}
 }
 

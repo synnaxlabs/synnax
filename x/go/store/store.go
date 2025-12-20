@@ -100,9 +100,9 @@ type ObservableConfig[S, O any] struct {
 	// Store is the store to wrap.
 	// [REQUIRED]
 	Store Store[S]
-	// Transform is a function that receives the previous and new state and returns
-	// the object that should be sent to observers. If the retruned boolean is false,
-	// the observer will not be triggered, and noone will be notified. If this value is
+	// Transform is a function that receives the previous and new state and returns the
+	// object that should be sent to observers. If the returned boolean is false, the
+	// observer will not be triggered, and no one will be notified. If this value is
 	// [REQUIRED]
 	Transform func(prev, next S) (O, bool)
 	// GoNotify is a boolean indicating whether to notify subscribers in a goroutine.
@@ -110,11 +110,7 @@ type ObservableConfig[S, O any] struct {
 	GoNotify *bool
 }
 
-var (
-	_ config.Config[ObservableConfig[any, any]] = ObservableConfig[any, any]{}
-)
-
-func PassthroughTransform[S any](prev, next S) (S, bool) { return next, true }
+var _ config.Config[ObservableConfig[any, any]] = ObservableConfig[any, any]{}
 
 func (o ObservableConfig[S, O]) Override(
 	other ObservableConfig[S, O],
