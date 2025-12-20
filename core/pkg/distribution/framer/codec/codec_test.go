@@ -716,20 +716,20 @@ var _ = Describe("Codec", func() {
 			codec := codec.NewStatic(keys, dataTypes)
 
 			// Channel 1: two contiguous series
-			s1_ch1 := telem.NewSeriesV[int32](1, 2)
-			s1_ch1.Alignment = 0
-			s2_ch1 := telem.NewSeriesV[int32](3, 4)
-			s2_ch1.Alignment = 2
+			s1Ch1 := telem.NewSeriesV[int32](1, 2)
+			s1Ch1.Alignment = 0
+			s2Ch1 := telem.NewSeriesV[int32](3, 4)
+			s2Ch1.Alignment = 2
 
 			// Channel 2: two contiguous series
-			s1_ch2 := telem.NewSeriesV[float32](1.1, 2.2, 3.3)
-			s1_ch2.Alignment = 5
-			s2_ch2 := telem.NewSeriesV[float32](4.4)
-			s2_ch2.Alignment = 8
+			s1Ch2 := telem.NewSeriesV[float32](1.1, 2.2, 3.3)
+			s1Ch2.Alignment = 5
+			s2Ch2 := telem.NewSeriesV[float32](4.4)
+			s2Ch2.Alignment = 8
 
 			frame := core.MultiFrame(
 				channel.Keys{1, 1, 2, 2},
-				[]telem.Series{s1_ch1, s2_ch1, s1_ch2, s2_ch2},
+				[]telem.Series{s1Ch1, s2Ch1, s1Ch2, s2Ch2},
 			)
 
 			encoded := MustSucceed(codec.Encode(ctx, frame))
@@ -915,7 +915,7 @@ func BenchmarkJSONDecode(b *testing.B) {
 	}
 }
 
-// Benchmark alignment compression with single series (no benefit expected)
+// Benchmark alignment compression with single series (no benefit expected).
 func BenchmarkAlignmentCompression_SingleSeries(b *testing.B) {
 	keys := channel.Keys{1}
 	dataTypes := []telem.DataType{telem.Int32T}
@@ -940,7 +940,7 @@ func BenchmarkAlignmentCompression_SingleSeries(b *testing.B) {
 	})
 }
 
-// Benchmark alignment compression with two contiguous series
+// Benchmark alignment compression with two contiguous series.
 func BenchmarkAlignmentCompression_TwoContiguous(b *testing.B) {
 	keys := channel.Keys{1}
 	dataTypes := []telem.DataType{telem.Int32T}
@@ -971,7 +971,7 @@ func BenchmarkAlignmentCompression_TwoContiguous(b *testing.B) {
 	})
 }
 
-// Benchmark alignment compression with many contiguous series (best case)
+// Benchmark alignment compression with many contiguous series (best case).
 func BenchmarkAlignmentCompression_ManyContiguous(b *testing.B) {
 	keys := channel.Keys{1}
 	dataTypes := []telem.DataType{telem.Int32T}
@@ -979,9 +979,9 @@ func BenchmarkAlignmentCompression_ManyContiguous(b *testing.B) {
 	// Create 100 small contiguous series
 	seriesKeys := make(channel.Keys, 100)
 	seriesList := make([]telem.Series, 100)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		seriesKeys[i] = 1
-		s := telem.NewSeriesV[int32](int32(i*10), int32(i*10+1), int32(i*10+2))
+		s := telem.NewSeriesV(int32(i*10), int32(i*10+1), int32(i*10+2))
 		s.Alignment = telem.Alignment(i * 3)
 		seriesList[i] = s
 	}
@@ -1007,7 +1007,7 @@ func BenchmarkAlignmentCompression_ManyContiguous(b *testing.B) {
 	})
 }
 
-// Benchmark alignment compression with mixed contiguous/non-contiguous
+// Benchmark alignment compression with mixed contiguous/non-contiguous.
 func BenchmarkAlignmentCompression_MixedContiguity(b *testing.B) {
 	keys := channel.Keys{1}
 	dataTypes := []telem.DataType{telem.Int32T}
@@ -1016,9 +1016,9 @@ func BenchmarkAlignmentCompression_MixedContiguity(b *testing.B) {
 	seriesKeys := make(channel.Keys, 50)
 	seriesList := make([]telem.Series, 50)
 	alignment := telem.Alignment(0)
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		seriesKeys[i] = 1
-		s := telem.NewSeriesV[int32](int32(i*10), int32(i*10+1))
+		s := telem.NewSeriesV(int32(i*10), int32(i*10+1))
 		s.Alignment = alignment
 		seriesList[i] = s
 
@@ -1051,7 +1051,7 @@ func BenchmarkAlignmentCompression_MixedContiguity(b *testing.B) {
 	})
 }
 
-// Benchmark alignment compression with multiple channels
+// Benchmark alignment compression with multiple channels.
 func BenchmarkAlignmentCompression_MultiChannel(b *testing.B) {
 	keys := channel.Keys{1, 2, 3}
 	dataTypes := []telem.DataType{telem.Int32T, telem.Float32T, telem.Uint8T}
@@ -1060,20 +1060,20 @@ func BenchmarkAlignmentCompression_MultiChannel(b *testing.B) {
 	seriesKeys := make(channel.Keys, 60) // 20 series per channel
 	seriesList := make([]telem.Series, 60)
 
-	for ch := 0; ch < 3; ch++ {
+	for ch := range 3 {
 		alignment := telem.Alignment(ch * 100)
-		for i := 0; i < 20; i++ {
+		for i := range 20 {
 			idx := ch*20 + i
 			seriesKeys[idx] = channel.Key(ch + 1)
 
 			var s telem.Series
 			switch ch {
 			case 0:
-				s = telem.NewSeriesV[int32](int32(i), int32(i+1))
+				s = telem.NewSeriesV(int32(i), int32(i+1))
 			case 1:
-				s = telem.NewSeriesV[float32](float32(i), float32(i+1))
+				s = telem.NewSeriesV(float32(i), float32(i+1))
 			case 2:
-				s = telem.NewSeriesV[uint8](uint8(i), uint8(i+1))
+				s = telem.NewSeriesV(uint8(i), uint8(i+1))
 			}
 			s.Alignment = alignment
 			alignment += 2
@@ -1102,7 +1102,7 @@ func BenchmarkAlignmentCompression_MultiChannel(b *testing.B) {
 	})
 }
 
-// Benchmark bandwidth savings - measure encoded size
+// Benchmark bandwidth savings - measure encoded size.
 func BenchmarkAlignmentCompression_BandwidthSavings(b *testing.B) {
 	keys := channel.Keys{1}
 	dataTypes := []telem.DataType{telem.Int32T}
@@ -1110,9 +1110,9 @@ func BenchmarkAlignmentCompression_BandwidthSavings(b *testing.B) {
 	// Create 100 small contiguous series
 	seriesKeys := make(channel.Keys, 100)
 	seriesList := make([]telem.Series, 100)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		seriesKeys[i] = 1
-		s := telem.NewSeriesV[int32](int32(i*10), int32(i*10+1), int32(i*10+2))
+		s := telem.NewSeriesV(int32(i*10), int32(i*10+1), int32(i*10+2))
 		s.Alignment = telem.Alignment(i * 3)
 		seriesList[i] = s
 	}

@@ -83,17 +83,17 @@ func translateDeviceForward(d *api.Device) (*gapi.Device, error) {
 
 func translateDeviceBackward(d *gapi.Device) (*api.Device, error) {
 	ad := &api.Device{
-		Key:        d.Key,
-		Name:       d.Name,
-		Rack:       rack.Key(d.Rack),
-		Location:   d.Location,
-		Make:       d.Make,
-		Model:      d.Model,
-		Properties: d.Properties,
-		Configured: d.Configured,
+		Key:        d.GetKey(),
+		Name:       d.GetName(),
+		Rack:       rack.Key(d.GetRack()),
+		Location:   d.GetLocation(),
+		Make:       d.GetMake(),
+		Model:      d.GetModel(),
+		Properties: d.GetProperties(),
+		Configured: d.GetConfigured(),
 	}
-	if d.Status != nil {
-		s, err := status.TranslateFromPB[device.StatusDetails](d.Status)
+	if d.GetStatus() != nil {
+		s, err := status.TranslateFromPB[device.StatusDetails](d.GetStatus())
 		if err != nil {
 			return nil, err
 		}
@@ -136,7 +136,7 @@ func (deviceCreateRequestTranslator) Forward(_ context.Context, req api.DeviceCr
 }
 
 func (deviceCreateRequestTranslator) Backward(_ context.Context, req *gapi.DeviceCreateRequest) (api.DeviceCreateRequest, error) {
-	devices, err := translateDevicesBackward(req.Devices)
+	devices, err := translateDevicesBackward(req.GetDevices())
 	if err != nil {
 		return api.DeviceCreateRequest{}, err
 	}
@@ -152,7 +152,7 @@ func (deviceCreateResponseTranslator) Forward(_ context.Context, res api.DeviceC
 }
 
 func (deviceCreateResponseTranslator) Backward(_ context.Context, res *gapi.DeviceCreateResponse) (api.DeviceCreateResponse, error) {
-	devices, err := translateDevicesBackward(res.Devices)
+	devices, err := translateDevicesBackward(res.GetDevices())
 	if err != nil {
 		return api.DeviceCreateResponse{}, err
 	}
@@ -177,17 +177,17 @@ func (deviceRetrieveRequestTranslator) Forward(_ context.Context, req api.Device
 
 func (deviceRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.DeviceRetrieveRequest) (api.DeviceRetrieveRequest, error) {
 	return api.DeviceRetrieveRequest{
-		Keys:           req.Keys,
-		Names:          req.Names,
-		Makes:          req.Makes,
-		Models:         req.Models,
-		Locations:      req.Locations,
-		SearchTerm:     req.Search,
-		Limit:          int(req.Limit),
-		Racks:          unsafe.ReinterpretSlice[uint32, rack.Key](req.Racks),
-		Offset:         int(req.Offset),
-		IgnoreNotFound: req.IgnoreNotFound,
-		IncludeStatus:  req.IncludeStatus,
+		Keys:           req.GetKeys(),
+		Names:          req.GetNames(),
+		Makes:          req.GetMakes(),
+		Models:         req.GetModels(),
+		Locations:      req.GetLocations(),
+		SearchTerm:     req.GetSearch(),
+		Limit:          int(req.GetLimit()),
+		Racks:          unsafe.ReinterpretSlice[uint32, rack.Key](req.GetRacks()),
+		Offset:         int(req.GetOffset()),
+		IgnoreNotFound: req.GetIgnoreNotFound(),
+		IncludeStatus:  req.GetIncludeStatus(),
 	}, nil
 }
 
@@ -200,7 +200,7 @@ func (deviceRetrieveResponseTranslator) Forward(_ context.Context, res api.Devic
 }
 
 func (deviceRetrieveResponseTranslator) Backward(_ context.Context, res *gapi.DeviceRetrieveResponse) (api.DeviceRetrieveResponse, error) {
-	devices, err := translateDevicesBackward(res.Devices)
+	devices, err := translateDevicesBackward(res.GetDevices())
 	if err != nil {
 		return api.DeviceRetrieveResponse{}, err
 	}
@@ -212,7 +212,7 @@ func (deviceDeleteRequestTranslator) Forward(_ context.Context, req api.DeviceDe
 }
 
 func (deviceDeleteRequestTranslator) Backward(_ context.Context, req *gapi.DeviceDeleteRequest) (api.DeviceDeleteRequest, error) {
-	return api.DeviceDeleteRequest{Keys: req.Keys}, nil
+	return api.DeviceDeleteRequest{Keys: req.GetKeys()}, nil
 }
 
 func newDevice(a *api.Transport) fgrpc.BindableTransport {

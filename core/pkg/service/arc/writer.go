@@ -11,7 +11,6 @@ package arc
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -62,7 +61,7 @@ func (w Writer) Create(
 	}
 
 	return w.status.SetWithParent(ctx, &status.Status[core.StatusDetails]{
-		Name:    fmt.Sprintf("%s Status", a.Name),
+		Name:    a.Name + " Status",
 		Key:     a.Key.String(),
 		Variant: xstatus.LoadingVariant,
 		Message: "Deploying",

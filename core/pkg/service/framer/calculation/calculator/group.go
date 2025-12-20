@@ -58,7 +58,7 @@ func (g Group) Next(
 			statuses = append(statuses, Status{
 				Key:         c.Channel().Key().String(),
 				Variant:     status.ErrorVariant,
-				Message:     fmt.Sprintf("calcualtion for %s failed", c.Channel()),
+				Message:     fmt.Sprintf("calculations for %s failed", c.Channel()),
 				Description: err.Error(),
 			})
 			continue

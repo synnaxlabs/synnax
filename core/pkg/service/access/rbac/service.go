@@ -132,16 +132,12 @@ func (e *Enforcer) retrievePolicies(
 
 type Enforcer struct {
 	policy *policy.Service
-	role   *role.Service
-	cfg    ServiceConfig
 	tx     gorp.Tx
 }
 
 func (s *Service) NewEnforcer(tx gorp.Tx) *Enforcer {
 	return &Enforcer{
-		role:   s.Role,
 		policy: s.Policy,
-		cfg:    s.cfg,
 		tx:     gorp.OverrideTx(s.cfg.DB, tx),
 	}
 }

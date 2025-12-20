@@ -149,7 +149,7 @@ func parseKeyFromOntologyIDString(s string) (Key, error) {
 func openMonitor(
 	ins alamos.Instrumentation,
 	svc *Service,
-) (*monitor, error) {
+) *monitor {
 	obs := gorp.Observe[string, status.Status[any]](svc.DB)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(ins))
 	s := &monitor{
@@ -160,11 +160,11 @@ func openMonitor(
 	}
 	s.mu.racks = make(map[Key]rackState)
 	s.disconnectStatusObserver = obs.OnChange(s.handleChange)
-	signal.GoTick(sCtx, svc.HealthCheckInterval.Duration(), func(ctx context.Context, t time.Time) error {
+	signal.GoTick(sCtx, svc.HealthCheckInterval.Duration(), func(ctx context.Context, _ time.Time) error {
 		if err := s.checkAlive(ctx); err != nil {
 			s.L.Error("failed to check alive status", zap.Error(err))
 		}
 		return nil
 	})
-	return s, nil
+	return s
 }

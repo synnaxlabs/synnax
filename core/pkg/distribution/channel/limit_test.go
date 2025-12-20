@@ -161,7 +161,7 @@ var _ = Describe("Limit", Ordered, func() {
 		Expect(singleChannel.Name).To(Equal(createdChannels[0].Name))
 	})
 	It("Should not edit the channel limit if a deletion fails in TS", func() {
-		createdChannels := make([]channel.Channel, int(limit))
+		createdChannels := make([]channel.Channel, limit)
 		for i := range limit {
 			ch := channel.Channel{
 				IsIndex:     true,

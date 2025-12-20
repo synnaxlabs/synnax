@@ -117,13 +117,13 @@ func (c *Cluster) WaitForTopologyToStabilize() {
 	}
 }
 
-func (b *Cluster) Close() error {
-	c := errors.NewCatcher(errors.WithAggregation())
-	for _, node := range b.Nodes {
-		c.Exec(node.Close)
+func (c *Cluster) Close() error {
+	ca := errors.NewCatcher(errors.WithAggregation())
+	for _, node := range c.Nodes {
+		ca.Exec(node.Close)
 	}
-	c.Exec(b.storage.Close)
-	return c.Error()
+	ca.Exec(c.storage.Close)
+	return ca.Error()
 }
 
 type mockFramerTransport struct {

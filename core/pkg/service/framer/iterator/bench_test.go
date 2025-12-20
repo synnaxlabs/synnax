@@ -32,7 +32,6 @@ type benchIterEnv struct {
 	builder     *mock.Cluster
 	dist        mock.Node
 	iteratorSvc *iterator.Service
-	arcSvc      *arc.Service
 }
 
 func newBenchIterEnv(b *testing.B) *benchIterEnv {
@@ -87,7 +86,6 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 		builder:     builder,
 		dist:        dist,
 		iteratorSvc: iteratorSvc,
-		arcSvc:      arcSvc,
 	}
 }
 
@@ -111,7 +109,7 @@ func (e *benchIterEnv) createChannels(
 		b.Fatalf("failed to create index channel: %v", err)
 	}
 	dataChannels := make([]*channel.Channel, numDataChannels)
-	for i := 0; i < numDataChannels; i++ {
+	for i := range numDataChannels {
 		dataChannels[i] = &channel.Channel{
 			Name:       fmt.Sprintf("%s_sensor_%d", prefix, i),
 			DataType:   telem.Float32T,
@@ -144,7 +142,7 @@ func (e *benchIterEnv) writeData(
 		b.Fatalf("failed to open writer: %v", err)
 	}
 	timestamps := make([]telem.TimeStamp, samplesPerChannel)
-	for i := 0; i < samplesPerChannel; i++ {
+	for i := range samplesPerChannel {
 		timestamps[i] = telem.TimeStamp(i+1) * telem.SecondTS
 	}
 	idxSeries := telem.NewSeriesV(timestamps...)
@@ -152,7 +150,7 @@ func (e *benchIterEnv) writeData(
 	series[0] = idxSeries
 	for i := range dataChannels {
 		data := make([]float32, samplesPerChannel)
-		for j := 0; j < samplesPerChannel; j++ {
+		for j := range samplesPerChannel {
 			data[j] = float32(i*100 + j)
 		}
 		series[i+1] = telem.NewSeriesV(data...)
@@ -311,7 +309,7 @@ func BenchmarkIteratorCalc_CalculatorChain(b *testing.B) {
 
 			var finalCalc *channel.Channel
 			prevName := prefix + "_sensor_0"
-			for i := 0; i < length; i++ {
+			for i := range length {
 				name := fmt.Sprintf("%s_calc_%d", prefix, i)
 				finalCalc = env.createCalculation(b, name, fmt.Sprintf("return %s + 1", prevName))
 				prevName = name
@@ -372,7 +370,7 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 			}
 
 			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
-			for d := 0; d < numDomains; d++ {
+			for d := range numDomains {
 				startTS := telem.TimeStamp(d*1000+1) * telem.SecondTS
 				w, err := env.dist.Framer.OpenWriter(env.ctx, framer.WriterConfig{
 					Start:            startTS,
@@ -384,7 +382,7 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 				}
 				timestamps := make([]telem.TimeStamp, 50)
 				data := make([]float32, 50)
-				for i := 0; i < 50; i++ {
+				for i := range 50 {
 					timestamps[i] = telem.TimeStamp(d*1000+i+1) * telem.SecondTS
 					data[i] = float32(d*100 + i)
 				}

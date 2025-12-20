@@ -12,7 +12,6 @@ package codec
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"slices"
 	"sort"
@@ -326,7 +325,7 @@ func (c *Codec) Encode(ctx context.Context, src framer.Frame) ([]byte, error) {
 
 func (c *Codec) panicIfNotUpdated(opName string) {
 	if c.mu.seqNum < 1 {
-		panic(fmt.Sprintf("[framer.codec] - dynamic codec was not updated for first call to %s", opName))
+		panic("[framer.codec] - dynamic codec was not updated for first call to " + opName)
 	}
 }
 
@@ -534,7 +533,7 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) (err error
 			c.mergedSeriesResult = make([]mergedSeriesInfo, 0, count)
 		}
 		c.mergedSeriesResult = c.mergedSeriesResult[:0]
-		for i := 0; i < count; i++ {
+		for i := range count {
 			rawIdx := c.encodeSorter.rawIndices[i]
 			c.mergedSeriesResult = append(c.mergedSeriesResult, mergedSeriesInfo{
 				series: src.RawSeriesAt(rawIdx),

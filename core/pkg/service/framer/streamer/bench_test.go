@@ -24,7 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -53,7 +53,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		b.Fatalf("failed to open label service: %v", err)
 	}
 
-	statusSvc, err := svcstatus.OpenService(ctx, svcstatus.ServiceConfig{
+	statusSvc, err := status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
 		Label:    labelSvc,
 		Ontology: dist.Ontology,
@@ -136,7 +136,7 @@ func (e *benchStreamerEnv) createIndexedChannels(
 		b.Fatalf("failed to create index channel: %v", err)
 	}
 	dataChannels := make([]*channel.Channel, numDataChannels)
-	for i := 0; i < numDataChannels; i++ {
+	for i := range numDataChannels {
 		dataChannels[i] = &channel.Channel{
 			Name:       fmt.Sprintf("%s_sensor_%d", prefix, i),
 			DataType:   telem.Float32T,
@@ -197,7 +197,7 @@ func BenchmarkStreamerCalc_Throughput(b *testing.B) {
 	time.Sleep(5 * time.Millisecond)
 
 	data := make([]float32, 100)
-	for j := 0; j < 100; j++ {
+	for j := range 100 {
 		data[j] = float32(j)
 	}
 	fr := core.UnaryFrame(ch.Key(), telem.NewSeriesV(data...))
@@ -254,7 +254,7 @@ func BenchmarkStreamerCalc_WithDownsample(b *testing.B) {
 			time.Sleep(5 * time.Millisecond)
 
 			data := make([]float32, 1000)
-			for j := 0; j < 1000; j++ {
+			for j := range 1000 {
 				data[j] = float32(j)
 			}
 			fr := core.UnaryFrame(ch.Key(), telem.NewSeriesV(data...))
@@ -319,7 +319,7 @@ func BenchmarkStreamerCalc_WithCalculation(b *testing.B) {
 		timestamps := make([]telem.TimeStamp, samplesPerFrame)
 		data1 := make([]float32, samplesPerFrame)
 		data2 := make([]float32, samplesPerFrame)
-		for j := 0; j < samplesPerFrame; j++ {
+		for j := range samplesPerFrame {
 			timestamps[j] = baseTS + telem.TimeStamp(j)*telem.SecondTS
 			data1[j] = float32(j)
 			data2[j] = float32(j * 2)
@@ -381,7 +381,7 @@ func BenchmarkStreamerCalc_FrameSize(b *testing.B) {
 			time.Sleep(5 * time.Millisecond)
 
 			data := make([]float32, size)
-			for j := 0; j < size; j++ {
+			for j := range size {
 				data[j] = float32(j)
 			}
 			fr := core.UnaryFrame(ch.Key(), telem.NewSeriesV(data...))
@@ -411,7 +411,7 @@ func BenchmarkStreamerCalc_CalculationChain(b *testing.B) {
 
 			var finalCalc *channel.Channel
 			prevName := fmt.Sprintf("chain%d_sensor_0", length)
-			for i := 0; i < length; i++ {
+			for i := range length {
 				name := fmt.Sprintf("chain%d_calc_%d", length, i)
 				finalCalc = env.createCalculation(b, name, fmt.Sprintf("return %s + 1", prevName))
 				prevName = name
@@ -455,7 +455,7 @@ func BenchmarkStreamerCalc_CalculationChain(b *testing.B) {
 				baseTS := telem.TimeStamp(i*samplesPerFrame+1) * telem.SecondTS
 				timestamps := make([]telem.TimeStamp, samplesPerFrame)
 				data := make([]float32, samplesPerFrame)
-				for j := 0; j < samplesPerFrame; j++ {
+				for j := range samplesPerFrame {
 					timestamps[j] = baseTS + telem.TimeStamp(j)*telem.SecondTS
 					data[j] = float32(j)
 				}

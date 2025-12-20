@@ -24,7 +24,7 @@ type metric struct {
 	collect func() (any, error)
 }
 
-func (svc *Service) buildMetrics() []metric {
+func (s *Service) buildMetrics() []metric {
 	return []metric{
 		{
 			ch: channel.Channel{
@@ -61,7 +61,7 @@ func (svc *Service) buildMetrics() []metric {
 				DataType: telem.Float32T,
 			},
 			collect: func() (any, error) {
-				return float32(svc.cfg.Storage.Size()) / float32(telem.Gigabyte), nil
+				return float32(s.cfg.Storage.Size()) / float32(telem.Gigabyte), nil
 			},
 		},
 		{
@@ -70,7 +70,7 @@ func (svc *Service) buildMetrics() []metric {
 				DataType: telem.Float32T,
 			},
 			collect: func() (any, error) {
-				return float32(svc.cfg.Storage.TSSize()) / float32(telem.Gigabyte), nil
+				return float32(s.cfg.Storage.TSSize()) / float32(telem.Gigabyte), nil
 			},
 		},
 		{
@@ -79,7 +79,7 @@ func (svc *Service) buildMetrics() []metric {
 				DataType: telem.Float32T,
 			},
 			collect: func() (any, error) {
-				return float32(svc.cfg.Storage.KVSize()) / float32(telem.Gigabyte), nil
+				return float32(s.cfg.Storage.KVSize()) / float32(telem.Gigabyte), nil
 			},
 		},
 		{
@@ -88,7 +88,7 @@ func (svc *Service) buildMetrics() []metric {
 				DataType: telem.Int32T,
 			},
 			collect: func() (any, error) {
-				return int32(svc.cfg.Channel.CountExternalNonVirtual()), nil
+				return int32(s.cfg.Channel.CountExternalNonVirtual()), nil
 			},
 		},
 	}

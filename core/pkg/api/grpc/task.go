@@ -91,15 +91,15 @@ func translateTaskForward(m *api.Task) (*gapi.Task, error) {
 
 func translateTaskBackward(m *gapi.Task) (*api.Task, error) {
 	at := &api.Task{
-		Key:      task.Key(m.Key),
-		Name:     m.Name,
-		Type:     m.Type,
-		Config:   m.Config,
-		Internal: m.Internal,
-		Snapshot: m.Snapshot,
+		Key:      task.Key(m.GetKey()),
+		Name:     m.GetName(),
+		Type:     m.GetType(),
+		Config:   m.GetConfig(),
+		Internal: m.GetInternal(),
+		Snapshot: m.GetSnapshot(),
 	}
-	if m.Status != nil {
-		s, err := status.TranslateFromPB[task.StatusDetails](m.Status)
+	if m.GetStatus() != nil {
+		s, err := status.TranslateFromPB[task.StatusDetails](m.GetStatus())
 		if err != nil {
 			return nil, err
 		}
@@ -142,7 +142,7 @@ func (taskCreateRequestTranslator) Forward(_ context.Context, req api.TaskCreate
 }
 
 func (taskCreateRequestTranslator) Backward(_ context.Context, req *gapi.TaskCreateRequest) (api.TaskCreateRequest, error) {
-	tasks, err := translateTasksBackward(req.Tasks)
+	tasks, err := translateTasksBackward(req.GetTasks())
 	if err != nil {
 		return api.TaskCreateRequest{}, err
 	}
@@ -158,7 +158,7 @@ func (taskCreateResponseTranslator) Forward(_ context.Context, res api.TaskCreat
 }
 
 func (taskCreateResponseTranslator) Backward(_ context.Context, res *gapi.TaskCreateResponse) (api.TaskCreateResponse, error) {
-	tasks, err := translateTasksBackward(res.Tasks)
+	tasks, err := translateTasksBackward(res.GetTasks())
 	if err != nil {
 		return api.TaskCreateResponse{}, err
 	}
@@ -177,11 +177,11 @@ func (taskRetrieveRequestTranslator) Forward(_ context.Context, req api.TaskRetr
 
 func (taskRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.TaskRetrieveRequest) (api.TaskRetrieveRequest, error) {
 	return api.TaskRetrieveRequest{
-		Rack:          rack.Key(req.Rack),
-		Keys:          unsafe.ReinterpretSlice[uint64, task.Key](req.Keys),
-		Names:         req.Names,
-		Types:         req.Types,
-		IncludeStatus: req.IncludeStatus,
+		Rack:          rack.Key(req.GetRack()),
+		Keys:          unsafe.ReinterpretSlice[uint64, task.Key](req.GetKeys()),
+		Names:         req.GetNames(),
+		Types:         req.GetTypes(),
+		IncludeStatus: req.GetIncludeStatus(),
 	}, nil
 }
 
@@ -194,7 +194,7 @@ func (taskRetrieveResponseTranslator) Forward(_ context.Context, res api.TaskRet
 }
 
 func (taskRetrieveResponseTranslator) Backward(_ context.Context, res *gapi.TaskRetrieveResponse) (api.TaskRetrieveResponse, error) {
-	tasks, err := translateTasksBackward(res.Tasks)
+	tasks, err := translateTasksBackward(res.GetTasks())
 	if err != nil {
 		return api.TaskRetrieveResponse{}, err
 	}
@@ -206,7 +206,7 @@ func (taskDeleteRequestTranslator) Forward(_ context.Context, req api.TaskDelete
 }
 
 func (taskDeleteRequestTranslator) Backward(_ context.Context, req *gapi.TaskDeleteRequest) (api.TaskDeleteRequest, error) {
-	return api.TaskDeleteRequest{Keys: unsafe.ReinterpretSlice[uint64, task.Key](req.Keys)}, nil
+	return api.TaskDeleteRequest{Keys: unsafe.ReinterpretSlice[uint64, task.Key](req.GetKeys())}, nil
 }
 
 func (taskCopyRequestTranslator) Forward(_ context.Context, req api.TaskCopyRequest) (*gapi.TaskCopyRequest, error) {
@@ -219,9 +219,9 @@ func (taskCopyRequestTranslator) Forward(_ context.Context, req api.TaskCopyRequ
 
 func (taskCopyRequestTranslator) Backward(_ context.Context, req *gapi.TaskCopyRequest) (api.TaskCopyRequest, error) {
 	return api.TaskCopyRequest{
-		Key:      task.Key(req.Key),
-		Name:     req.Name,
-		Snapshot: req.Snapshot,
+		Key:      task.Key(req.GetKey()),
+		Name:     req.GetName(),
+		Snapshot: req.GetSnapshot(),
 	}, nil
 }
 
@@ -234,7 +234,7 @@ func (taskCopyResponseTranslator) Forward(_ context.Context, res api.TaskCopyRes
 }
 
 func (taskCopyResponseTranslator) Backward(_ context.Context, res *gapi.TaskCopyResponse) (api.TaskCopyResponse, error) {
-	t, err := translateTaskBackward(res.Task)
+	t, err := translateTaskBackward(res.GetTask())
 	if err != nil {
 		return api.TaskCopyResponse{}, err
 	}

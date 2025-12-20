@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/x/confluence"
@@ -23,7 +22,6 @@ import (
 
 type calculationUpdaterTransform struct {
 	alamos.Instrumentation
-	channelSvc  *channel.Service
 	calcManager *calculation.RequestManager
 	confluence.LinearTransform[Request, framer.StreamerRequest]
 }

@@ -111,11 +111,7 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 
 	streamerRequests := confluence.NewStream[framer.StreamerRequest](10)
 	strm.InFrom(streamerRequests)
-	c := &transform{
-		streamerRequests: streamerRequests,
-		calculators:      cfg.Calculators,
-		onStatusChange:   cfg.OnStatusChange,
-	}
+	c := &transform{calculators: cfg.Calculators, onStatusChange: cfg.OnStatusChange}
 
 	plumber.SetSegment[framer.StreamerResponse, framer.WriterRequest](
 		p,

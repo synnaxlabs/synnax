@@ -11,7 +11,6 @@ package device
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/synnaxlabs/alamos"
@@ -148,7 +147,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:     tx,
 		otg:    s.cfg.Ontology.NewWriter(tx),
-		group:  s.group,
 		status: status.NewWriter[StatusDetails](s.cfg.Status, tx),
 	}
 }
@@ -194,7 +192,7 @@ func (s *Service) migrateStatusesForExistingDevices(ctx context.Context) error {
 				Name:    d.Name,
 				Time:    telem.Now(),
 				Variant: xstatus.WarningVariant,
-				Message: fmt.Sprintf("%s state unknown", d.Name),
+				Message: d.Name + " state unknown",
 				Details: StatusDetails{Rack: d.Rack, Device: d.Key},
 			})
 		}

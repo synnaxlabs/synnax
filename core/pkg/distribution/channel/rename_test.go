@@ -10,8 +10,6 @@
 package channel_test
 
 import (
-	"fmt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -121,17 +119,17 @@ var _ = Describe("Rename", Ordered, func() {
 		It("Should rename channels using a map of old names to new names", func() {
 			id := channel.NewRandomName()
 			ch1 := channel.Channel{
-				Name:     fmt.Sprintf("young_fermat_%s", id),
+				Name:     "young_fermat_" + id,
 				Virtual:  true,
 				DataType: telem.Int64T,
 			}
 			ch2 := channel.Channel{
-				Name:     fmt.Sprintf("young_laplace_%s", id),
+				Name:     "young_laplace_" + id,
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
 			ch3 := channel.Channel{
-				Name:        fmt.Sprintf("young_newton_%s", id),
+				Name:        "young_newton_" + id,
 				DataType:    telem.StringT,
 				Leaseholder: cluster.Free,
 				Virtual:     true,
@@ -139,9 +137,9 @@ var _ = Describe("Rename", Ordered, func() {
 			channels := []channel.Channel{ch1, ch2, ch3}
 			Expect(mockCluster.Nodes[1].Channel.CreateMany(ctx, &channels)).To(Succeed())
 			nameMap := map[string]string{
-				ch1.Name: fmt.Sprintf("old_fermat_%s", id),
-				ch2.Name: fmt.Sprintf("old_laplace_%s", id),
-				ch3.Name: fmt.Sprintf("old_newton_%s", id),
+				ch1.Name: "old_fermat_" + id,
+				ch2.Name: "old_laplace_" + id,
+				ch3.Name: "old_newton_" + id,
 			}
 			Expect(mockCluster.Nodes[1].Channel.MapRename(ctx, nameMap, false)).To(Succeed())
 			var resChannels []channel.Channel

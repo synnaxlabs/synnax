@@ -138,12 +138,9 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
-	s.monitor, err = openMonitor(s.Child("monitor"), s)
-	if err != nil {
-		return nil, err
-	}
+	s.monitor = openMonitor(s.Child("monitor"), s)
 	if cfg.Signals != nil {
-		s.shutdownSignals, err = signals.PublishFromGorp[Key](
+		s.shutdownSignals, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
 			signals.GorpPublisherConfigNumeric[Key, Rack](cfg.DB, telem.Uint32T),

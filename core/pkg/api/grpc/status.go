@@ -97,14 +97,14 @@ func (t statusSetRequestTranslator) Backward(
 	msg *gapi.StatusSetRequest,
 ) (api.StatusSetRequest, error) {
 	var parent ontology.ID
-	if msg.Parent != "" {
+	if msg.GetParent() != "" {
 		var err error
-		parent, err = ontology.ParseID(msg.Parent)
+		parent, err = ontology.ParseID(msg.GetParent())
 		if err != nil {
 			return api.StatusSetRequest{}, err
 		}
 	}
-	statuses, err := translateStatusesBackward(msg.Statuses)
+	statuses, err := translateStatusesBackward(msg.GetStatuses())
 	if err != nil {
 		return api.StatusSetRequest{}, err
 	}
@@ -126,7 +126,7 @@ func (t statusSetResponseTranslator) Backward(
 	_ context.Context,
 	msg *gapi.StatusSetResponse,
 ) (api.StatusSetResponse, error) {
-	statuses, err := translateStatusesBackward(msg.Statuses)
+	statuses, err := translateStatusesBackward(msg.GetStatuses())
 	if err != nil {
 		return api.StatusSetResponse{}, err
 	}
@@ -157,21 +157,21 @@ func (t statusRetrieveRequestTranslator) Backward(
 ) (api.StatusRetrieveRequest, error) {
 	var (
 		err          error
-		hasLabelKeys = make([]uuid.UUID, len(msg.HasLabels))
+		hasLabelKeys = make([]uuid.UUID, len(msg.GetHasLabels()))
 	)
-	for i, label := range msg.HasLabels {
+	for i, label := range msg.GetHasLabels() {
 		hasLabelKeys[i], err = uuid.Parse(label)
 		if err != nil {
 			return api.StatusRetrieveRequest{}, err
 		}
 	}
 	return api.StatusRetrieveRequest{
-		Keys:          msg.Keys,
-		SearchTerm:    msg.SearchTerm,
-		Offset:        int(msg.Offset),
-		Limit:         int(msg.Limit),
+		Keys:          msg.GetKeys(),
+		SearchTerm:    msg.GetSearchTerm(),
+		Offset:        int(msg.GetOffset()),
+		Limit:         int(msg.GetLimit()),
 		HasLabels:     hasLabelKeys,
-		IncludeLabels: msg.IncludeLabels,
+		IncludeLabels: msg.GetIncludeLabels(),
 	}, nil
 }
 
@@ -190,7 +190,7 @@ func (t statusRetrieveResponseTranslator) Backward(
 	_ context.Context,
 	msg *gapi.StatusRetrieveResponse,
 ) (api.StatusRetrieveResponse, error) {
-	statuses, err := translateStatusesBackward(msg.Statuses)
+	statuses, err := translateStatusesBackward(msg.GetStatuses())
 	if err != nil {
 		return api.StatusRetrieveResponse{}, err
 	}
@@ -208,7 +208,7 @@ func (t statusDeleteRequestTranslator) Backward(
 	_ context.Context,
 	msg *gapi.StatusDeleteRequest,
 ) (api.StatusDeleteRequest, error) {
-	return api.StatusDeleteRequest{Keys: msg.Keys}, nil
+	return api.StatusDeleteRequest{Keys: msg.GetKeys()}, nil
 }
 
 func newStatus(a *api.Transport) fgrpc.BindableTransport {

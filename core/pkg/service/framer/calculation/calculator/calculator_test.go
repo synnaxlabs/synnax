@@ -699,7 +699,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Name:       channel.NewRandomName(),
 			DataType:   telem.Int64T,
 			Virtual:    true,
-			Expression: fmt.Sprintf("return %s", base[0].Name),
+			Expression: "return " + base[0].Name,
 			Operations: []channel.Operation{
 				{
 					Type:     "avg",
@@ -803,13 +803,13 @@ var _ = Describe("Calculator", Ordered, func() {
 				Name:       channel.NewRandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
-				Expression: fmt.Sprintf("return %s", b1[0].Name),
+				Expression: "return " + b1[0].Name,
 			}
 			c2 := channel.Channel{
 				Name:       channel.NewRandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
-				Expression: fmt.Sprintf("return %s", b2[0].Name),
+				Expression: "return " + b2[0].Name,
 			}
 			calc1 := open(&idx, &b1, &c1)
 			calc2 := open(&idx, &b2, &c2)
@@ -838,7 +838,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			calc1 := open(nil, &b1, &c1)
 			calc2 := open(nil, nil, &c2)
 			g := calculator.Group{calc1, calc2}
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				d1 := telem.NewSeriesV[int64](10, 20)
 				d1.Alignment = telem.NewAlignment(0, uint32(i*2))
 				fr := core.MultiFrame([]channel.Key{b1[0].Key()}, []telem.Series{d1})

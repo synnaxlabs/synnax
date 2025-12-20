@@ -750,7 +750,7 @@ func (g *Graph) getChannelInfo(key channel.Key) (*channelInfo, error) {
 }
 
 // formatDependencyTree builds a string representation of the full dependency tree for a channel.
-// Returns a string like: "ch1 → [calculated: ch2, ch3] → [base: ch4, ch5, ch6]"
+// Returns a string like: "ch1 → [calculated: ch2, ch3] → [base: ch4, ch5, ch6]".
 func (g *Graph) formatDependencyTree(ctx context.Context, key channel.Key) string {
 	info := g.channels[key]
 	if info == nil {

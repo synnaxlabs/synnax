@@ -98,7 +98,7 @@ func ParseIDs(s []string) ([]ID, error) {
 	return ids, nil
 }
 
-// IDs extracts the IDs from a slice of Resources.
+// ResourceIDs extracts the IDs from a slice of Resources.
 func ResourceIDs(resources []Resource) []ID {
 	ids := make([]ID, 0, len(resources))
 	for _, r := range resources {

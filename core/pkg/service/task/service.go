@@ -11,7 +11,6 @@ package task
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/synnaxlabs/alamos"
@@ -215,7 +214,7 @@ func (s *Service) migrateStatusesForExistingTasks(ctx context.Context) error {
 				Name:    t.Name,
 				Time:    telem.Now(),
 				Variant: xstatus.WarningVariant,
-				Message: fmt.Sprintf("%s status unknown", t.Name),
+				Message: t.Name + " status unknown",
 				Details: StatusDetails{Task: t.Key},
 			})
 		}

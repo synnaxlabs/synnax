@@ -11,9 +11,7 @@ package device
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
@@ -30,7 +28,6 @@ import (
 type Writer struct {
 	tx     gorp.Tx
 	otg    ontology.Writer
-	group  group.Group
 	status status.Writer[StatusDetails]
 }
 
@@ -41,7 +38,7 @@ func resolveStatus(d *Device, provided *Status) *Status {
 			Name:    d.Name,
 			Time:    telem.Now(),
 			Variant: xstatus.WarningVariant,
-			Message: fmt.Sprintf("%s state unknown", d.Name),
+			Message: d.Name + " state unknown",
 			Details: StatusDetails{Rack: d.Rack, Device: d.Key},
 		}
 	}

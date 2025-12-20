@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -48,7 +48,7 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		b.Fatalf("failed to open label service: %v", err)
 	}
 
-	statusSvc, err := svcstatus.OpenService(ctx, svcstatus.ServiceConfig{
+	statusSvc, err := status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
 		Label:    labelSvc,
 		Ontology: dist.Ontology,
@@ -82,24 +82,14 @@ func (e *benchEnv) close(b *testing.B) {
 
 func (e *benchEnv) openCalculator(
 	b *testing.B,
-	indexes, bases []channel.Channel,
+	bases []channel.Channel,
 	calc *channel.Channel,
 ) *calculator.Calculator {
-	if len(indexes) > 0 {
-		if err := e.dist.Channel.CreateMany(e.ctx, &indexes); err != nil {
-			b.Fatalf("failed to create index channels: %v", err)
-		}
-	}
 	if len(bases) > 0 {
 		for i, ch := range bases {
 			if ch.Virtual {
 				continue
 			}
-			toGet := i
-			if len(indexes) == 1 {
-				toGet = 0
-			}
-			ch.LocalIndex = indexes[toGet].LocalKey
 			bases[i] = ch
 		}
 		if err := e.dist.Channel.CreateMany(e.ctx, &bases); err != nil {
@@ -136,7 +126,7 @@ func BenchmarkCalculator_SingleInput(b *testing.B) {
 		Expression: "return input",
 	}
 
-	c := env.openCalculator(b, nil, base, &calc)
+	c := env.openCalculator(b, base, &calc)
 	defer func() {
 		if err := c.Close(); err != nil {
 			b.Errorf("failed to close calculator: %v", err)
@@ -170,7 +160,7 @@ func BenchmarkCalculator_TwoInputs_Add(b *testing.B) {
 		Expression: "return a + b",
 	}
 
-	c := env.openCalculator(b, nil, bases, &calc)
+	c := env.openCalculator(b, bases, &calc)
 	defer func() {
 		if err := c.Close(); err != nil {
 			b.Errorf("failed to close calculator: %v", err)
@@ -212,7 +202,7 @@ func BenchmarkCalculator_MultipleInputs(b *testing.B) {
 		Expression: "return w + x + y + z",
 	}
 
-	c := env.openCalculator(b, nil, bases, &calc)
+	c := env.openCalculator(b, bases, &calc)
 	defer func() {
 		if err := c.Close(); err != nil {
 			b.Errorf("failed to close calculator: %v", err)
@@ -222,10 +212,10 @@ func BenchmarkCalculator_MultipleInputs(b *testing.B) {
 	inputFrame := core.MultiFrame(
 		[]channel.Key{bases[0].Key(), bases[1].Key(), bases[2].Key(), bases[3].Key()},
 		[]telem.Series{
-			telem.NewSeriesV[float64](1.0, 2.0, 3.0),
-			telem.NewSeriesV[float64](4.0, 5.0, 6.0),
-			telem.NewSeriesV[float64](7.0, 8.0, 9.0),
-			telem.NewSeriesV[float64](10.0, 11.0, 12.0),
+			telem.NewSeriesV(1.0, 2.0, 3.0),
+			telem.NewSeriesV(4.0, 5.0, 6.0),
+			telem.NewSeriesV(7.0, 8.0, 9.0),
+			telem.NewSeriesV(10.0, 11.0, 12.0),
 		},
 	)
 	outputFrame := core.Frame{}
@@ -250,7 +240,7 @@ func BenchmarkCalculator_NestedTwoLevel(b *testing.B) {
 		Virtual:    true,
 		Expression: "return base + 1",
 	}
-	c1 := env.openCalculator(b, nil, base, &calc1)
+	c1 := env.openCalculator(b, base, &calc1)
 
 	calc2 := channel.Channel{
 		Name:       "calc2",
@@ -258,7 +248,7 @@ func BenchmarkCalculator_NestedTwoLevel(b *testing.B) {
 		Virtual:    true,
 		Expression: "return calc1 * 2",
 	}
-	c2 := env.openCalculator(b, nil, nil, &calc2)
+	c2 := env.openCalculator(b, nil, &calc2)
 
 	group := calculator.Group{c1, c2}
 	defer func() {
@@ -295,7 +285,7 @@ func BenchmarkCalculator_SampleCount(b *testing.B) {
 				Expression: "return a * b",
 			}
 
-			c := env.openCalculator(b, nil, bases, &calc)
+			c := env.openCalculator(b, bases, &calc)
 			defer func() {
 				if err := c.Close(); err != nil {
 					b.Errorf("failed to close calculator: %v", err)
@@ -304,7 +294,7 @@ func BenchmarkCalculator_SampleCount(b *testing.B) {
 
 			aData := make([]float64, count)
 			bData := make([]float64, count)
-			for i := 0; i < count; i++ {
+			for i := range count {
 				aData[i] = float64(i)
 				bData[i] = float64(i + 1)
 			}
@@ -341,7 +331,7 @@ func BenchmarkCalculator_ComplexExpression(b *testing.B) {
 		Expression: "if a > b { return a * 2 } else { return b * 3 }",
 	}
 
-	c := env.openCalculator(b, nil, bases, &calc)
+	c := env.openCalculator(b, bases, &calc)
 	defer func() {
 		if err := c.Close(); err != nil {
 			b.Errorf("failed to close calculator: %v", err)
@@ -351,8 +341,8 @@ func BenchmarkCalculator_ComplexExpression(b *testing.B) {
 	inputFrame := core.MultiFrame(
 		[]channel.Key{bases[0].Key(), bases[1].Key()},
 		[]telem.Series{
-			telem.NewSeriesV[float64](10.0, 5.0, 15.0),
-			telem.NewSeriesV[float64](5.0, 10.0, 10.0),
+			telem.NewSeriesV(10.0, 5.0, 15.0),
+			telem.NewSeriesV(5.0, 10.0, 10.0),
 		},
 	)
 	outputFrame := core.Frame{}
@@ -376,7 +366,7 @@ func BenchmarkCalculator_GroupScaling(b *testing.B) {
 
 			var group calculator.Group
 			prevName := "base"
-			for i := 0; i < size; i++ {
+			for i := range size {
 				calcCh := channel.Channel{
 					Name:       fmt.Sprintf("calc_%d", i),
 					DataType:   telem.Int64T,
@@ -387,7 +377,7 @@ func BenchmarkCalculator_GroupScaling(b *testing.B) {
 				if i == 0 {
 					bases = base
 				}
-				c := env.openCalculator(b, nil, bases, &calcCh)
+				c := env.openCalculator(b, bases, &calcCh)
 				group = append(group, c)
 				prevName = calcCh.Name
 			}

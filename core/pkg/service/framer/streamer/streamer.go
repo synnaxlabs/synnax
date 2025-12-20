@@ -160,7 +160,6 @@ func (s *Service) newCalculationUpdaterTransform(
 	ut := &calculationUpdaterTransform{
 		Instrumentation: s.cfg.Instrumentation,
 		calcManager:     s.cfg.Calculation.OpenRequestManager(),
-		channelSvc:      s.cfg.Channel,
 	}
 	ut.Transform = ut.transform
 	return ut, ut.calcManager.Set(ctx, cfg.Keys)

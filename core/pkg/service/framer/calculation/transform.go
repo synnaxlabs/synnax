@@ -21,9 +21,8 @@ import (
 
 type transform struct {
 	confluence.AbstractLinear[framer.StreamerResponse, framer.WriterRequest]
-	streamerRequests confluence.Inlet[framer.StreamerRequest]
-	calculators      calculator.Group
-	onStatusChange   OnStatusChange
+	calculators    calculator.Group
+	onStatusChange OnStatusChange
 }
 
 var _ confluence.Segment[framer.StreamerResponse, framer.WriterRequest] = (*transform)(nil)

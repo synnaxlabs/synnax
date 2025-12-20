@@ -65,7 +65,6 @@ type benchEnv struct {
 	ctx context.Context
 	db  *gorp.DB
 	otg *ontology.Ontology
-	svc *benchService
 }
 
 func newBenchEnv(b *testing.B, enableSearch bool) *benchEnv {
@@ -86,7 +85,7 @@ func newBenchEnv(b *testing.B, enableSearch bool) *benchEnv {
 		b.Fatalf("failed to open ontology: %v", err)
 	}
 	otg.RegisterService(svc)
-	return &benchEnv{ctx: ctx, db: db, otg: otg, svc: svc}
+	return &benchEnv{ctx: ctx, db: db, otg: otg}
 }
 
 func (e *benchEnv) close(b *testing.B) {

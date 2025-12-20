@@ -20,14 +20,14 @@ import (
 
 var ErrInvalidName = errors.Wrap(validate.Error, "invalid channel name")
 
-// validNamePattern matches valid channel names: letters, digits, and underscores only
+// validNamePattern matches valid channel names: letters, digits, and underscores only.
 var validNamePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
 // ValidateName validates a channel name according to the following rules:
 // 1. Only letters, digits, and underscores are allowed
 // 2. Cannot start with a digit
 // 3. Cannot be a reserved Arc keyword
-// 4. Cannot be empty
+// 4. Cannot be empty.
 func ValidateName(name string) error {
 	if name == "" {
 		return errors.Wrap(ErrInvalidName, "name cannot be empty")

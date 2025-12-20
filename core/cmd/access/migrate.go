@@ -11,6 +11,7 @@ package access
 
 import (
 	"context"
+	"slices"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -163,17 +164,13 @@ func determineRole(u user.User, policies []LegacyPolicy, roles ProvisionResult) 
 	}
 
 	// Check for admin-like policy
-	for _, p := range policies {
-		if isAdminPolicy(p) {
-			return roles.OwnerKey
-		}
+	if slices.ContainsFunc(policies, isAdminPolicy) {
+		return roles.OwnerKey
 	}
 
 	// Check for schematic policy
-	for _, p := range policies {
-		if isSchematicPolicy(p) {
-			return roles.EngineerKey
-		}
+	if slices.ContainsFunc(policies, isSchematicPolicy) {
+		return roles.EngineerKey
 	}
 
 	// Default to Operator

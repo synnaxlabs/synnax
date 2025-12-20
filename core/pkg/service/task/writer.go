@@ -11,7 +11,6 @@ package task
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -36,7 +35,7 @@ func resolveStatus(t *Task, provided *Status) *Status {
 			Key:     OntologyID(t.Key).String(),
 			Time:    telem.Now(),
 			Name:    t.Name,
-			Message: fmt.Sprintf("%s status unknown", t.Name),
+			Message: t.Name + " status unknown",
 			Variant: xstatus.WarningVariant,
 			Details: StatusDetails{Task: t.Key},
 		}

@@ -311,7 +311,7 @@ func (t rangeAliasSetRequestTranslator) Backward(
 	key, err := uuid.Parse(r.GetRange())
 	return api.RangeAliasSetRequest{
 		Range:   key,
-		Aliases: unsafe.ReinterpretMapKeys[uint32, channel.Key, string](r.Aliases),
+		Aliases: unsafe.ReinterpretMapKeys[uint32, channel.Key, string](r.GetAliases()),
 	}, err
 }
 
@@ -390,7 +390,7 @@ func (t rangeAliasResolveResponseTranslator) Backward(
 	r *gapi.RangeAliasResolveResponse,
 ) (api.RangeAliasResolveResponse, error) {
 	return api.RangeAliasResolveResponse{
-		Aliases: unsafe.ReinterpretMapValues[string, uint32, channel.Key](r.Aliases),
+		Aliases: unsafe.ReinterpretMapValues[string, uint32, channel.Key](r.GetAliases()),
 	}, nil
 }
 
@@ -408,7 +408,7 @@ func (t rangeAliasListResponseTranslator) Backward(
 	r *gapi.RangeAliasListResponse,
 ) (api.RangeAliasListResponse, error) {
 	return api.RangeAliasListResponse{
-		Aliases: unsafe.ReinterpretMapKeys[uint32, channel.Key, string](r.Aliases),
+		Aliases: unsafe.ReinterpretMapKeys[uint32, channel.Key, string](r.GetAliases()),
 	}, nil
 }
 

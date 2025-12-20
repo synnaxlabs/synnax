@@ -29,8 +29,7 @@ type CalculationAnalyzer = func(ctx context.Context, expr string) (telem.DataTyp
 // Service is the central entity for managing channels within Synnax's distribution
 // layer. It provides facilities for creating and retrieving channels.
 type Service struct {
-	cfg Config
-	db  *gorp.DB
+	db *gorp.DB
 	Writer
 	proxy *leaseProxy
 	otg   *ontology.Ontology
@@ -104,7 +103,6 @@ func NewService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{
-		cfg:   cfg,
 		db:    cfg.ClusterDB,
 		proxy: proxy,
 		otg:   cfg.Ontology,
