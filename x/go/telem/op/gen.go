@@ -116,8 +116,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 	}
 
 	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
-
-	{{if eq .Name "Avg"}}
+{{if eq .Name "Avg"}}
 	// Compute sum of new input samples
 	var newSum {{$.Type.GoType}}
 	for i := range inputLen {
@@ -140,8 +139,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 		outData[0] = (prevAvg*{{$.Type.GoType}}(prevCount) + newSum) / {{$.Type.GoType}}(totalCount)
 	}
 
-	return prevCount + inputLen
-{{else if eq .Name "Min"}}
+	return prevCount + inputLen{{else if eq .Name "Min"}}
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -166,8 +164,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 		}
 	}
 
-	return prevCount + inputLen
-{{else if eq .Name "Max"}}
+	return prevCount + inputLen{{else if eq .Name "Max"}}
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -191,8 +188,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 		outData[0] = newMax
 	}
 
-	return prevCount + inputLen
-	{{end}}
+	return prevCount + inputLen{{end}}
 }
 {{end}}`
 
