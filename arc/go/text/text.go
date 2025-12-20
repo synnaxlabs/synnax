@@ -29,11 +29,9 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
-	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
-	"github.com/synnaxlabs/arc/module"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/stratifier"
 	"github.com/synnaxlabs/arc/symbol"
@@ -172,22 +170,6 @@ func Analyze(
 	}
 
 	return i, ctx.Diagnostics
-}
-
-// Compile generates WebAssembly bytecode from the provided IR.
-//
-// Returns a Module containing both the IR and the compiled WebAssembly output.
-// Compiler options can be provided to customize the compilation process.
-func Compile(
-	ctx_ context.Context,
-	ir ir.IR,
-	opts ...compiler.Option,
-) (module.Module, error) {
-	o, err := compiler.Compile(ctx_, ir, opts...)
-	if err != nil {
-		return module.Module{}, err
-	}
-	return module.Module{IR: ir, Output: o}, nil
 }
 
 // getFlowOperatorKind determines EdgeKind by examining the operator token at the specified index.

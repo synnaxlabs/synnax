@@ -167,8 +167,3 @@ func WithReporter(r *Reporter) Option { return func(ins *Instrumentation) { ins.
 
 // WithLogger configures the instrumentation to use the given Logger.
 func WithLogger(l *Logger) Option { return func(ins *Instrumentation) { ins.L = l } }
-
-// WithServiceName configures the instrumentation to use the given service name.
-func WithServiceName(sn string) Option {
-	return func(ins *Instrumentation) { ins.Meta.ServiceName = sn }
-}
