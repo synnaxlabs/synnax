@@ -52,10 +52,14 @@ namespace arc::runtime::scheduler {
 class Scheduler {
     /// @brief internal state for a node including its outgoing edges.
     struct NodeState {
+        /// @brief the node key
         std::string key;
+        /// @brief the runtime node implementation.
         std::unique_ptr<node::Node> node;
+        /// @brief cached output edges for the node.
         std::vector<ir::Edge> output_edges;
-        std::optional<StageRef> stage;  // nullopt for global nodes
+        /// @brief ref for the stage that the node belongs to. null for global nodes.
+        std::optional<StageRef> stage;
     };
 
     ///////////////////// Constant (set only during construction) /////////////////////
@@ -91,6 +95,8 @@ class Scheduler {
     std::unordered_set<StageRef> stage_diff;
     /// @brief one-shot edges that have fired, keyed by stage.
     std::unordered_map<StageRef, std::unordered_set<ir::Edge>> fired_one_shots;
+    /// @brief tracks the currently active stage for each sequence.
+    std::unordered_map<std::string, StageRef> active_stage_per_sequence;
 
 public:
     /// @brief constructs a scheduler from IR and node implementations.
@@ -204,10 +210,12 @@ private:
 
     /// @brief queues a stage transition when a node triggers activation.
     void transition_stage(const std::string &node_key) {
-        const auto &node_state = this->nodes[node_key];
-        if (node_state.stage.has_value())
-            this->active_stages.erase(*node_state.stage);
-        this->active_stages.insert(this->entry_node_targets[node_key]);
+        const auto next = this->entry_node_targets[node_key];
+        if (const auto it = this->active_stage_per_sequence.find(next.sequence);
+            it != this->active_stage_per_sequence.end())
+            this->active_stages.erase(it->second);
+        this->active_stages.insert(next);
+        this->active_stage_per_sequence[next.sequence] = next;
     }
 
     /// @brief resets all nodes in a stage and clears fired one-shots.

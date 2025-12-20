@@ -97,8 +97,10 @@ public:
     xerrors::Error next(node::Context & /*ctx*/) override {
         if (!state.refresh_inputs()) return xerrors::NIL;
         const auto &data = state.input(0);
-        const auto &time = state.input_time(0);
         if (data->empty()) return xerrors::NIL;
+        // TODO: Fix this hacky code
+        const auto start = telem::TimeStamp::now();
+        const auto time = xmemory::local_shared(telem::Series::linspace(start, start + 100 * telem::MICROSECOND, data->size()));
         state.write_chan(channel_key, data, time);
         return xerrors::NIL;
     }
