@@ -146,17 +146,6 @@ public:
         );
     }
 
-    /// @brief Checks if an input source is truthy by directly reading the source
-    /// output. This bypasses the watermark-based input system and reads the current
-    /// source value. Used by entry nodes that need to check if they should activate.
-    [[nodiscard]] bool is_input_source_truthy(size_t param_index) const {
-        if (param_index >= input_sources.size()) return false;
-        const auto *src = input_sources[param_index];
-        if (src == nullptr) return false;
-        const auto *data_ptr = src->data.get();
-        if (data_ptr == nullptr) return false;
-        return is_series_truthy(*data_ptr);
-    }
 };
 
 class State {
