@@ -54,7 +54,7 @@ function DataTableImpl<T>({
                   return (
                     <td
                       key={`${key}-${colIndex}`}
-                      style={colIndex === 0 ? { width: "60%" } : undefined}
+                      style={colIndex === 0 ? { width: "55%" } : undefined}
                     >
                       <Text.Text {...textProps}>
                         {col.getValue(item, index)}

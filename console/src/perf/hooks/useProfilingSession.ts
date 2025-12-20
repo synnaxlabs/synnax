@@ -77,10 +77,14 @@ export const useProfilingSession = ({
   const dispatch = useDispatch();
   const prevStatusRef = useRef<HarnessStatus>(status);
 
+  // Store range data in refs so it survives the idle transition
+  const rangeDataRef = useRef<{ key: string; startTime: number } | null>(null);
+
   // Compose child hooks
   const { captured, captureInitial, captureFinal, reset: resetCaptured } = useCapturedValues();
   const { analyze } = useProfilingAnalyzers();
-  const { rangeKey, createRange, updateEndTime } = useProfilingRange({
+  const { rangeKey, rangeStartTime, createRange, updateEndTime, finalizeRange } =
+    useProfilingRange({
     status,
     getMetadata: useCallback(() => {
       const agg = getAggregates();
@@ -182,6 +186,11 @@ export const useProfilingSession = ({
       console.warn("[useProfilingSession] Range creation failed, retrying...");
       createRange();
     }
+
+    // Capture range data into ref when it becomes available
+    if (status === "running" && rangeKey != null && rangeStartTime != null) {
+      rangeDataRef.current = { key: rangeKey, startTime: rangeStartTime };
+    }
     
 
     if (status === "paused" && prevStatus === "running") {
@@ -206,9 +215,22 @@ export const useProfilingSession = ({
     
 
     if (status === "idle" && prevStatus !== "idle") {
-      if (prevStatus === "running" || prevStatus === "paused") 
-        updateEndTime(TimeStamp.now());
-      
+      const rangeData = rangeDataRef.current;
+      if ((prevStatus === "running" || prevStatus === "paused") && rangeData != null) {
+        const agg = getAggregates();
+        finalizeRange({
+          rangeKey: rangeData.key,
+          startTime: rangeData.startTime,
+          aggregates: {
+            avgFps: agg.avgFps,
+            avgCpu: agg.avgCpu,
+            avgGpu: agg.avgGpu,
+            avgHeap: agg.maxHeap,
+          },
+        });
+      }
+
+      rangeDataRef.current = null;
 
       resetCaptured();
       resetEventCollectors();
@@ -221,14 +243,18 @@ export const useProfilingSession = ({
     collectors,
     sampleBuffer,
     rangeKey,
+    rangeStartTime,
     captureInitial,
     captureFinal,
     resetCaptured,
     createRange,
     updateEndTime,
+    finalizeRange,
+    getAggregates,
     resetEventCollectors,
     resetTableData,
     resetBuffer,
+    // Note: rangeDataRef is intentionally NOT in deps - it's a ref that persists
   ]);
 
   return { handleSample };
