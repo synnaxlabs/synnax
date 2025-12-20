@@ -85,8 +85,7 @@ var reductionOperations = []ReductionOperation{
 	{Name: "Max", FuncName: "Max"},
 }
 
-const headerTemplate = `
-package op
+const headerTemplate = `package op
 
 import (
 	"github.com/synnaxlabs/x/telem"
