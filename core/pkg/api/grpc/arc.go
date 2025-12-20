@@ -43,31 +43,13 @@ type (
 		api.ArcCreateResponse,
 		*gapi.ArcCreateResponse,
 	]
-	arcCreateClient = fgrpc.UnaryClient[
-		api.ArcCreateRequest,
-		*gapi.ArcCreateRequest,
-		api.ArcCreateResponse,
-		*gapi.ArcCreateResponse,
-	]
 	arcRetrieveServer = fgrpc.UnaryServer[
 		api.ArcRetrieveRequest,
 		*gapi.ArcRetrieveRequest,
 		api.ArcRetrieveResponse,
 		*gapi.ArcRetrieveResponse,
 	]
-	arcRetrieveClient = fgrpc.UnaryClient[
-		api.ArcRetrieveRequest,
-		*gapi.ArcRetrieveRequest,
-		api.ArcRetrieveResponse,
-		*gapi.ArcRetrieveResponse,
-	]
 	arcDeleteServer = fgrpc.UnaryServer[
-		api.ArcDeleteRequest,
-		*gapi.ArcDeleteRequest,
-		types.Nil,
-		*emptypb.Empty,
-	]
-	arcDeleteClient = fgrpc.UnaryClient[
 		api.ArcDeleteRequest,
 		*gapi.ArcDeleteRequest,
 		types.Nil,
