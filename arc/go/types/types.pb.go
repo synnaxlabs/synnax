@@ -34,61 +34,61 @@ const (
 type PBKind int32
 
 const (
-	PBKind_INVALID   PBKind = 0
-	PBKind_U8        PBKind = 1
-	PBKind_U16       PBKind = 2
-	PBKind_U32       PBKind = 3
-	PBKind_U64       PBKind = 4
-	PBKind_I8        PBKind = 5
-	PBKind_I16       PBKind = 6
-	PBKind_I32       PBKind = 7
-	PBKind_I64       PBKind = 8
-	PBKind_F32       PBKind = 9
-	PBKind_F64       PBKind = 10
-	PBKind_STRING    PBKind = 11
-	PBKind_TIMESTAMP PBKind = 12
-	PBKind_TIMESPAN  PBKind = 13
-	PBKind_CHAN      PBKind = 14
-	PBKind_SERIES    PBKind = 15
+	PBKind_PB_KIND_UNSPECIFIED PBKind = 0
+	PBKind_PB_KIND_U8          PBKind = 1
+	PBKind_PB_KIND_U16         PBKind = 2
+	PBKind_PB_KIND_U32         PBKind = 3
+	PBKind_PB_KIND_U64         PBKind = 4
+	PBKind_PB_KIND_I8          PBKind = 5
+	PBKind_PB_KIND_I16         PBKind = 6
+	PBKind_PB_KIND_I32         PBKind = 7
+	PBKind_PB_KIND_I64         PBKind = 8
+	PBKind_PB_KIND_F32         PBKind = 9
+	PBKind_PB_KIND_F64         PBKind = 10
+	PBKind_PB_KIND_STRING      PBKind = 11
+	PBKind_PB_KIND_TIMESTAMP   PBKind = 12
+	PBKind_PB_KIND_TIMESPAN    PBKind = 13
+	PBKind_PB_KIND_CHAN        PBKind = 14
+	PBKind_PB_KIND_SERIES      PBKind = 15
 )
 
 // Enum value maps for PBKind.
 var (
 	PBKind_name = map[int32]string{
-		0:  "INVALID",
-		1:  "U8",
-		2:  "U16",
-		3:  "U32",
-		4:  "U64",
-		5:  "I8",
-		6:  "I16",
-		7:  "I32",
-		8:  "I64",
-		9:  "F32",
-		10: "F64",
-		11: "STRING",
-		12: "TIMESTAMP",
-		13: "TIMESPAN",
-		14: "CHAN",
-		15: "SERIES",
+		0:  "PB_KIND_UNSPECIFIED",
+		1:  "PB_KIND_U8",
+		2:  "PB_KIND_U16",
+		3:  "PB_KIND_U32",
+		4:  "PB_KIND_U64",
+		5:  "PB_KIND_I8",
+		6:  "PB_KIND_I16",
+		7:  "PB_KIND_I32",
+		8:  "PB_KIND_I64",
+		9:  "PB_KIND_F32",
+		10: "PB_KIND_F64",
+		11: "PB_KIND_STRING",
+		12: "PB_KIND_TIMESTAMP",
+		13: "PB_KIND_TIMESPAN",
+		14: "PB_KIND_CHAN",
+		15: "PB_KIND_SERIES",
 	}
 	PBKind_value = map[string]int32{
-		"INVALID":   0,
-		"U8":        1,
-		"U16":       2,
-		"U32":       3,
-		"U64":       4,
-		"I8":        5,
-		"I16":       6,
-		"I32":       7,
-		"I64":       8,
-		"F32":       9,
-		"F64":       10,
-		"STRING":    11,
-		"TIMESTAMP": 12,
-		"TIMESPAN":  13,
-		"CHAN":      14,
-		"SERIES":    15,
+		"PB_KIND_UNSPECIFIED": 0,
+		"PB_KIND_U8":          1,
+		"PB_KIND_U16":         2,
+		"PB_KIND_U32":         3,
+		"PB_KIND_U64":         4,
+		"PB_KIND_I8":          5,
+		"PB_KIND_I16":         6,
+		"PB_KIND_I32":         7,
+		"PB_KIND_I64":         8,
+		"PB_KIND_F32":         9,
+		"PB_KIND_F64":         10,
+		"PB_KIND_STRING":      11,
+		"PB_KIND_TIMESTAMP":   12,
+		"PB_KIND_TIMESPAN":    13,
+		"PB_KIND_CHAN":        14,
+		"PB_KIND_SERIES":      15,
 	}
 )
 
@@ -161,7 +161,7 @@ func (x *PBType) GetKind() PBKind {
 	if x != nil {
 		return x.Kind
 	}
-	return PBKind_INVALID
+	return PBKind_PB_KIND_UNSPECIFIED
 }
 
 func (x *PBType) GetElem() *PBType {
@@ -242,27 +242,27 @@ const file_arc_go_types_types_proto_rawDesc = "" +
 	"\aPBParam\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12(\n" +
 	"\x04type\x18\x02 \x01(\v2\x14.arc.v1.types.PBTypeR\x04type\x12,\n" +
-	"\x05value\x18\x03 \x01(\v2\x16.google.protobuf.ValueR\x05value*\xac\x01\n" +
-	"\x06PBKind\x12\v\n" +
-	"\aINVALID\x10\x00\x12\x06\n" +
-	"\x02U8\x10\x01\x12\a\n" +
-	"\x03U16\x10\x02\x12\a\n" +
-	"\x03U32\x10\x03\x12\a\n" +
-	"\x03U64\x10\x04\x12\x06\n" +
-	"\x02I8\x10\x05\x12\a\n" +
-	"\x03I16\x10\x06\x12\a\n" +
-	"\x03I32\x10\a\x12\a\n" +
-	"\x03I64\x10\b\x12\a\n" +
-	"\x03F32\x10\t\x12\a\n" +
-	"\x03F64\x10\n" +
-	"\x12\n" +
+	"\x05value\x18\x03 \x01(\v2\x16.google.protobuf.ValueR\x05value*\xb0\x02\n" +
+	"\x06PBKind\x12\x17\n" +
+	"\x13PB_KIND_UNSPECIFIED\x10\x00\x12\x0e\n" +
 	"\n" +
-	"\x06STRING\x10\v\x12\r\n" +
-	"\tTIMESTAMP\x10\f\x12\f\n" +
-	"\bTIMESPAN\x10\r\x12\b\n" +
-	"\x04CHAN\x10\x0e\x12\n" +
+	"PB_KIND_U8\x10\x01\x12\x0f\n" +
+	"\vPB_KIND_U16\x10\x02\x12\x0f\n" +
+	"\vPB_KIND_U32\x10\x03\x12\x0f\n" +
+	"\vPB_KIND_U64\x10\x04\x12\x0e\n" +
 	"\n" +
-	"\x06SERIES\x10\x0fB\x91\x01\n" +
+	"PB_KIND_I8\x10\x05\x12\x0f\n" +
+	"\vPB_KIND_I16\x10\x06\x12\x0f\n" +
+	"\vPB_KIND_I32\x10\a\x12\x0f\n" +
+	"\vPB_KIND_I64\x10\b\x12\x0f\n" +
+	"\vPB_KIND_F32\x10\t\x12\x0f\n" +
+	"\vPB_KIND_F64\x10\n" +
+	"\x12\x12\n" +
+	"\x0ePB_KIND_STRING\x10\v\x12\x15\n" +
+	"\x11PB_KIND_TIMESTAMP\x10\f\x12\x14\n" +
+	"\x10PB_KIND_TIMESPAN\x10\r\x12\x10\n" +
+	"\fPB_KIND_CHAN\x10\x0e\x12\x12\n" +
+	"\x0ePB_KIND_SERIES\x10\x0fB\x91\x01\n" +
 	"\x10com.arc.v1.typesB\n" +
 	"TypesProtoP\x01Z\x1fgithub.com/synnaxlabs/arc/types\xa2\x02\x03AVT\xaa\x02\fArc.V1.Types\xca\x02\fArc\\V1\\Types\xe2\x02\x18Arc\\V1\\Types\\GPBMetadata\xea\x02\x0eArc::V1::Typesb\x06proto3"
 

@@ -13,8 +13,9 @@ message PBHandle {
 }
 
 enum PBEdgeKind {
-  CONTINUOUS = 0;
-  ONE_SHOT = 1;
+  PB_EDGE_KIND_UNSPECIFIED = 0;
+  PB_EDGE_KIND_CONTINUOUS = 1;
+  PB_EDGE_KIND_ONE_SHOT = 2;
 }
 
 message PBEdge {

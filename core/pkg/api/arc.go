@@ -11,7 +11,6 @@ package api
 
 import (
 	"context"
-	"fmt"
 	"go/types"
 
 	"github.com/google/uuid"
@@ -24,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -206,19 +206,19 @@ func (s *ArcService) compileArc(ctx context.Context, arc *Arc) error {
 	// Step 1: Parse the Arc text
 	parsed, diag := arctext.Parse(arc.Text)
 	if diag != nil && !diag.Ok() {
-		return fmt.Errorf("parse failed for arc %s: %w", arc.Key, diag)
+		return errors.Newf("parse failed for arc %s: %w", arc.Key, diag)
 	}
 
 	// Step 2: Analyze the parsed text to produce IR
 	ir, diag := arctext.Analyze(ctx, parsed, s.internal.SymbolResolver())
 	if diag != nil && !diag.Ok() {
-		return fmt.Errorf("analysis failed for arc %s: %w", arc.Key, diag)
+		return errors.Newf("analysis failed for arc %s: %w", arc.Key, diag)
 	}
 
 	// Step 3: Compile IR to WebAssembly module
 	mod, err := arctext.Compile(ctx, ir)
 	if err != nil {
-		return fmt.Errorf("compilation failed for arc %s: %w", arc.Key, err)
+		return errors.Newf("compilation failed for arc %s: %w", arc.Key, err)
 	}
 
 	// Step 4: Attach compiled module to Arc

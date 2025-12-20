@@ -80,16 +80,12 @@ public:
 
     xerrors::Error next(node::Context &ctx) override {
         if (this->fired) return xerrors::NIL;
-        if (this->start_time.nanoseconds() < 0) { start_time = ctx.elapsed; }
-
-        // Check if duration has elapsed
+        if (this->start_time.nanoseconds() < 0) this->start_time = ctx.elapsed;
         if (ctx.elapsed - start_time < cfg.duration) return xerrors::NIL;
-
-        // Fire!
-        fired = true;
+        this->fired = true;
         ctx.mark_changed(ir::default_output_param);
-        auto &o = state.output(0);
-        auto &o_time = state.output_time(0);
+        const auto &o = state.output(0);
+        const auto &o_time = state.output_time(0);
         o->resize(1);
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));

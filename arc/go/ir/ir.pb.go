@@ -35,19 +35,22 @@ const (
 type PBEdgeKind int32
 
 const (
-	PBEdgeKind_CONTINUOUS PBEdgeKind = 0
-	PBEdgeKind_ONE_SHOT   PBEdgeKind = 1
+	PBEdgeKind_PB_EDGE_KIND_UNSPECIFIED PBEdgeKind = 0
+	PBEdgeKind_PB_EDGE_KIND_CONTINUOUS  PBEdgeKind = 1
+	PBEdgeKind_PB_EDGE_KIND_ONE_SHOT    PBEdgeKind = 2
 )
 
 // Enum value maps for PBEdgeKind.
 var (
 	PBEdgeKind_name = map[int32]string{
-		0: "CONTINUOUS",
-		1: "ONE_SHOT",
+		0: "PB_EDGE_KIND_UNSPECIFIED",
+		1: "PB_EDGE_KIND_CONTINUOUS",
+		2: "PB_EDGE_KIND_ONE_SHOT",
 	}
 	PBEdgeKind_value = map[string]int32{
-		"CONTINUOUS": 0,
-		"ONE_SHOT":   1,
+		"PB_EDGE_KIND_UNSPECIFIED": 0,
+		"PB_EDGE_KIND_CONTINUOUS":  1,
+		"PB_EDGE_KIND_ONE_SHOT":    2,
 	}
 )
 
@@ -187,7 +190,7 @@ func (x *PBEdge) GetKind() PBEdgeKind {
 	if x != nil {
 		return x.Kind
 	}
-	return PBEdgeKind_CONTINUOUS
+	return PBEdgeKind_PB_EDGE_KIND_UNSPECIFIED
 }
 
 type PBStage struct {
@@ -669,12 +672,12 @@ const file_arc_go_ir_ir_proto_rawDesc = "" +
 	"\x05nodes\x18\x02 \x03(\v2\x11.arc.v1.ir.PBNodeR\x05nodes\x12'\n" +
 	"\x05edges\x18\x03 \x03(\v2\x11.arc.v1.ir.PBEdgeR\x05edges\x12,\n" +
 	"\x06strata\x18\x04 \x03(\v2\x14.arc.v1.ir.PBStratumR\x06strata\x123\n" +
-	"\tsequences\x18\x05 \x03(\v2\x15.arc.v1.ir.PBSequenceR\tsequences**\n" +
+	"\tsequences\x18\x05 \x03(\v2\x15.arc.v1.ir.PBSequenceR\tsequences*b\n" +
 	"\n" +
-	"PBEdgeKind\x12\x0e\n" +
-	"\n" +
-	"CONTINUOUS\x10\x00\x12\f\n" +
-	"\bONE_SHOT\x10\x01B|\n" +
+	"PBEdgeKind\x12\x1c\n" +
+	"\x18PB_EDGE_KIND_UNSPECIFIED\x10\x00\x12\x1b\n" +
+	"\x17PB_EDGE_KIND_CONTINUOUS\x10\x01\x12\x19\n" +
+	"\x15PB_EDGE_KIND_ONE_SHOT\x10\x02B|\n" +
 	"\rcom.arc.v1.irB\aIrProtoP\x01Z\x1cgithub.com/synnaxlabs/arc/ir\xa2\x02\x03AVI\xaa\x02\tArc.V1.Ir\xca\x02\tArc\\V1\\Ir\xe2\x02\x15Arc\\V1\\Ir\\GPBMetadata\xea\x02\vArc::V1::Irb\x06proto3"
 
 var (
