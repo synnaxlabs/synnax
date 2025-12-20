@@ -40,12 +40,10 @@ TEST(TelemFactoryTest, CreateSourceNode) {
     state::State s(cfg);
 
     io::Factory factory;
-    auto [state_node, err] = s.node("source");
-    ASSERT_NIL(err);
+    const auto state_node = ASSERT_NIL_P(s.node("source"));
 
     node::Config node_cfg{.node = ir_node, .state = state_node};
-    auto [node, create_err] = factory.create(node_cfg);
-    ASSERT_NIL(create_err);
+    const auto node = ASSERT_NIL_P(factory.create(node_cfg));
     EXPECT_NE(node, nullptr);
 }
 
@@ -72,12 +70,10 @@ TEST(TelemFactoryTest, CreateSinkNode) {
     state::State s(cfg);
 
     io::Factory factory;
-    auto [state_node, err] = s.node("sink");
-    ASSERT_NIL(err);
+    auto state_node = ASSERT_NIL_P(s.node("sink"));
 
     node::Config node_cfg{.node = ir_node, .state = state_node};
-    auto [node, create_err] = factory.create(node_cfg);
-    ASSERT_NIL(create_err);
+    auto node = ASSERT_NIL_P(factory.create(node_cfg));
     EXPECT_NE(node, nullptr);
 }
 
@@ -99,9 +95,7 @@ TEST(TelemFactoryTest, UnknownNodeType) {
     state::State s(cfg);
 
     io::Factory factory;
-    auto [state_node, err] = s.node("unknown");
-    ASSERT_NIL(err);
-
+    auto state_node = ASSERT_NIL_P(s.node("unknown"));
     node::Config node_cfg{.node = ir_node, .state = state_node};
     auto [node, create_err] = factory.create(node_cfg);
     ASSERT_OCCURRED_AS(create_err, xerrors::NOT_FOUND);
@@ -121,8 +115,7 @@ TEST(TelemFactoryTest, MissingChannelConfig) {
     state::State s(cfg);
 
     io::Factory factory;
-    auto [state_node, err] = s.node("source");
-    ASSERT_NIL(err);
+    auto state_node = ASSERT_NIL_P(s.node("source"));
 
     node::Config node_cfg{.node = ir_node, .state = state_node};
     auto [node, create_err] = factory.create(node_cfg);
@@ -152,13 +145,11 @@ TEST(OnNodeTest, ReadChannelData) {
     state::Config cfg{.ir = ir, .channels = {{10, telem::FLOAT32_T, 11}}};
     state::State s(cfg);
 
-    auto [state_node, err] = s.node("source");
-    ASSERT_NIL(err);
+    auto state_node = ASSERT_NIL_P(s.node("source"));
 
     io::Factory factory;
     node::Config node_cfg{.node = ir_node, .state = state_node};
-    auto [node, create_err] = factory.create(node_cfg);
-    ASSERT_NIL(create_err);
+    auto node = ASSERT_NIL_P(factory.create(node_cfg));
 
     telem::Frame frame;
     frame.channels = std::make_unique<std::vector<uint32_t>>();
@@ -183,8 +174,7 @@ TEST(OnNodeTest, ReadChannelData) {
         .mark_changed = [&](const std::string &) { output_changed = true; },
         .report_error = [](const xerrors::Error &) {}
     };
-    auto next_err = node->next(ctx);
-    ASSERT_NIL(next_err);
+    ASSERT_NIL(node->next(ctx));
     EXPECT_TRUE(output_changed);
 }
 
@@ -210,13 +200,11 @@ TEST(OnNodeTest, ChannelWithoutIndex) {
     state::Config cfg{.ir = ir, .channels = {{20, telem::INT32_T, 0}}};
     state::State s(cfg);
 
-    auto [state_node, err] = s.node("source");
-    ASSERT_NIL(err);
+    auto state_node = ASSERT_NIL_P(s.node("source"));
 
     io::Factory factory;
     node::Config node_cfg{.node = ir_node, .state = state_node};
-    auto [node, create_err] = factory.create(node_cfg);
-    ASSERT_NIL(create_err);
+    auto node = ASSERT_NIL_P(factory.create(node_cfg));
 
     telem::Frame frame;
     frame.channels = std::make_unique<std::vector<uint32_t>>();
@@ -231,8 +219,7 @@ TEST(OnNodeTest, ChannelWithoutIndex) {
         .mark_changed = [&](const std::string &) { output_changed = true; },
         .report_error = [](const xerrors::Error &) {}
     };
-    auto next_err = node->next(ctx);
-    ASSERT_NIL(next_err);
+    ASSERT_NIL(node->next(ctx));
     EXPECT_TRUE(output_changed);
 }
 
@@ -258,13 +245,11 @@ TEST(OnNodeTest, EmptyChannel) {
     state::Config cfg{.ir = ir, .channels = {{999, telem::FLOAT32_T, 0}}};
     state::State s(cfg);
 
-    auto [state_node, err] = s.node("source");
-    ASSERT_NIL(err);
+    auto state_node = ASSERT_NIL_P(s.node("source"));
 
     io::Factory factory;
     node::Config node_cfg{.node = ir_node, .state = state_node};
-    auto [node, create_err] = factory.create(node_cfg);
-    ASSERT_NIL(create_err);
+    auto node = ASSERT_NIL_P(factory.create(node_cfg));
 
     bool output_changed = false;
     node::Context ctx{
@@ -272,8 +257,7 @@ TEST(OnNodeTest, EmptyChannel) {
         .mark_changed = [&](const std::string &) { output_changed = true; },
         .report_error = [](const xerrors::Error &) {}
     };
-    auto next_err = node->next(ctx);
-    ASSERT_NIL(next_err);
+    ASSERT_NIL(node->next(ctx));
     EXPECT_FALSE(output_changed);
 }
 
@@ -315,10 +299,8 @@ TEST(WriteNodeTest, WriteChannelData) {
     state::Config cfg{.ir = ir, .channels = {{100, telem::FLOAT32_T, 101}}};
     state::State s(cfg);
 
-    auto [producer_node, err1] = s.node("producer");
-    ASSERT_NIL(err1);
-    auto [sink_node, err2] = s.node("sink");
-    ASSERT_NIL(err2);
+    auto producer_node = ASSERT_NIL_P(s.node("producer"));
+    auto sink_node = ASSERT_NIL_P(s.node("sink"));
 
     auto &output = producer_node.output(0);
     output->resize(2);
@@ -332,16 +314,14 @@ TEST(WriteNodeTest, WriteChannelData) {
 
     io::Factory factory;
     node::Config node_cfg{.node = sink, .state = sink_node};
-    auto [node, create_err] = factory.create(node_cfg);
-    ASSERT_NIL(create_err);
+    auto node = ASSERT_NIL_P(factory.create(node_cfg));
 
     node::Context ctx{
         .elapsed = telem::TimeSpan(0),
         .mark_changed = [](const std::string &) {},
         .report_error = [](const xerrors::Error &) {}
     };
-    auto next_err = node->next(ctx);
-    ASSERT_NIL(next_err);
+    ASSERT_NIL(node->next(ctx));
 
     auto writes = s.flush_writes();
     EXPECT_FALSE(writes.empty());
@@ -369,21 +349,18 @@ TEST(WriteNodeTest, RefreshInputsGuard) {
     state::Config cfg{.ir = ir, .channels = {{100, telem::FLOAT32_T, 101}}};
     state::State s(cfg);
 
-    auto [sink_node, err] = s.node("sink");
-    ASSERT_NIL(err);
+    auto sink_node = ASSERT_NIL_P(s.node("sink"));
 
     io::Factory factory;
     node::Config node_cfg{.node = sink, .state = sink_node};
-    auto [node, create_err] = factory.create(node_cfg);
-    ASSERT_NIL(create_err);
+    auto node = ASSERT_NIL_P(factory.create(node_cfg));
 
     node::Context ctx{
         .elapsed = telem::TimeSpan(0),
         .mark_changed = [](const std::string &) {},
         .report_error = [](const xerrors::Error &) {}
     };
-    auto next_err = node->next(ctx);
-    ASSERT_NIL(next_err);
+    ASSERT_NIL(node->next(ctx));
 
     auto writes = s.flush_writes();
     EXPECT_TRUE(writes.empty());
@@ -437,17 +414,13 @@ TEST(TelemIntegrationTest, SourceToSinkFlow) {
 
     io::Factory factory;
 
-    auto [source_state, err1] = s.node("read");
-    ASSERT_NIL(err1);
+    auto source_state = ASSERT_NIL_P(s.node("read"));
     node::Config source_cfg{.node = source, .state = source_state};
-    auto [source_node, err2] = factory.create(source_cfg);
-    ASSERT_NIL(err2);
+    auto source_node = ASSERT_NIL_P(factory.create(source_cfg));
 
-    auto [sink_state, err3] = s.node("write");
-    ASSERT_NIL(err3);
+    auto sink_state = ASSERT_NIL_P(s.node("write"));
     node::Config sink_cfg{.node = sink, .state = sink_state};
-    auto [sink_node, err4] = factory.create(sink_cfg);
-    ASSERT_NIL(err4);
+    auto sink_node = ASSERT_NIL_P(factory.create(sink_cfg));
 
     telem::Frame frame;
     frame.channels = std::make_unique<std::vector<uint32_t>>();
@@ -468,12 +441,10 @@ TEST(TelemIntegrationTest, SourceToSinkFlow) {
         .report_error = [](const xerrors::Error &) {}
     };
 
-    auto source_err = source_node->next(ctx);
-    ASSERT_NIL(source_err);
+    ASSERT_NIL(source_node->next(ctx));
 
     EXPECT_TRUE(sink_state.refresh_inputs());
-    auto sink_err = sink_node->next(ctx);
-    ASSERT_NIL(sink_err);
+    ASSERT_NIL(sink_node->next(ctx));
 
     auto writes = s.flush_writes();
     EXPECT_FALSE(writes.empty());
