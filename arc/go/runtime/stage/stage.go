@@ -42,7 +42,6 @@ var (
 // an activation signal (input value of u8(1)).
 type entry struct {
 	*state.Node
-	nodeKey string
 }
 
 var _ node.Node = (*entry)(nil)
@@ -59,7 +58,7 @@ func (s *entry) Next(ctx node.Context) {
 
 	// Activation signal is a u8 with value 1
 	if telem.ValueAt[uint8](input, 0) == 1 {
-		ctx.ActivateStage(s.nodeKey)
+		ctx.ActivateStage()
 	}
 }
 
@@ -73,5 +72,5 @@ func (f *Factory) Create(_ context.Context, cfg node.Config) (node.Node, error) 
 	if cfg.Node.Type != symName {
 		return nil, query.NotFound
 	}
-	return &entry{Node: cfg.State, nodeKey: cfg.Node.Key}, nil
+	return &entry{Node: cfg.State}, nil
 }

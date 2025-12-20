@@ -27,8 +27,6 @@ namespace arc::runtime::scheduler {
 class Scheduler {
     /// @brief State for a single node including its implementation and edges.
     struct NodeState {
-        /// @brief Unique identifier for the node.
-        std::string key;
         /// @brief Outgoing edges keyed by output parameter name.
         std::unordered_map<std::string, std::vector<ir::Edge>> output_edges;
         /// @brief The node implementation.
@@ -37,8 +35,6 @@ class Scheduler {
 
     /// @brief State for a single stage within a sequence.
     struct StageState {
-        /// @brief Unique identifier for the stage.
-        std::string key;
         /// @brief Stratified node keys defining execution order.
         ir::Strata strata;
         /// @brief One-shot edges that have already fired in this stage activation.
@@ -47,16 +43,13 @@ class Scheduler {
 
     /// @brief State for a sequence of stages.
     struct SequenceState {
-        /// @brief Unique identifier for the sequence.
-        std::string key;
         /// @brief Ordered list of stages in this sequence.
         std::vector<StageState> stages;
         /// @brief Index of the currently active stage, or npos if none.
         size_t active_stage_idx = std::string::npos;
     };
 
-    // ───────────────── Graph structure (immutable after construction)
-    // ─────────────────
+    // Graph structure (immutable after construction)
 
     /// @brief All nodes keyed by their unique identifier.
     std::unordered_map<std::string, NodeState> nodes;
@@ -69,7 +62,7 @@ class Scheduler {
     /// @brief Maximum iterations for stage convergence loop.
     size_t max_convergence_iterations = 0;
 
-    // ───────────────── Execution state (changes during next()) ─────────────────
+    // Execution state (changes during next()) ─────────────────
 
     /// @brief Context passed to nodes during execution.
     node::Context ctx = node::Context{
@@ -94,7 +87,6 @@ public:
     ) {
         for (auto &[key, node]: node_impls)
             this->nodes[key] = NodeState{
-                .key = key,
                 .output_edges = prog.outgoing_edges(key),
                 .node = std::move(node),
             };
@@ -103,13 +95,11 @@ public:
         for (size_t i = 0; i < prog.sequences.size(); i++) {
             const auto &seq = prog.sequences[i];
             auto &seq_state = this->sequences[i];
-            seq_state.key = seq.key;
             seq_state.stages.resize(seq.stages.size());
             this->max_convergence_iterations += seq.stages.size();
             for (size_t j = 0; j < seq.stages.size(); j++) {
                 const auto &stage = seq.stages[j];
                 auto &stage_state = seq_state.stages[j];
-                stage_state.key = stage.key;
                 stage_state.strata = stage.strata;
                 const auto entry_key = "entry_" + seq.key + "_" + stage.key;
                 this->transitions[entry_key] = {i, j};

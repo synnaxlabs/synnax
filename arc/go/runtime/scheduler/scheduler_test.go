@@ -24,6 +24,7 @@ type mockNode struct {
 	nextCalled int
 	onInit     func(ctx node.Context)
 	onNext     func(ctx node.Context)
+	truthy     bool
 }
 
 func (m *mockNode) Init(ctx node.Context) {
@@ -41,7 +42,7 @@ func (m *mockNode) Next(ctx node.Context) {
 }
 
 func (m *mockNode) IsOutputTruthy(param string) bool {
-	return false
+	return m.truthy
 }
 
 func (m *mockNode) Reset() {}
@@ -159,7 +160,7 @@ var _ = Describe("Scheduler", func() {
 			s.Next(ctx)
 			Expect(nodeB.nextCalled).To(Equal(0))
 		})
-		It("Should clear changed set after execution", func() {
+		It("Should clear changed set at start of each strata execution", func() {
 			nodeA.onNext = func(ctx node.Context) {
 				ctx.MarkChanged("out")
 			}
@@ -459,13 +460,20 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeA.nextCalled).To(Equal(0))
 			Expect(nodeB.nextCalled).To(Equal(0))
 		})
-		It("Should execute nodes in active stage only", func() {
+		It("Should execute nodes in active stage via entry node", func() {
+			// Create an entry node that triggers stage activation
+			entryNode := &mockNode{
+				onNext: func(ctx node.Context) {
+					ctx.ActivateStage()
+				},
+			}
 			prog = ir.IR{
 				Nodes: []ir.Node{
+					{Key: "entry_seq1_stage1"}, // Entry node in global strata
 					{Key: "a"},
 					{Key: "b"},
 				},
-				Strata: ir.Strata{}, // Global strata is empty (all nodes are in stages)
+				Strata: ir.Strata{{"entry_seq1_stage1"}}, // Entry node executes globally
 				Sequences: ir.Sequences{
 					{
 						Key: "seq1",
@@ -476,21 +484,39 @@ var _ = Describe("Scheduler", func() {
 					},
 				},
 			}
+			nodes["entry_seq1_stage1"] = entryNode
 			nodes["a"] = nodeA
 			nodes["b"] = nodeB
 			s = scheduler.New(prog, nodes)
-			s.ActivateStage("seq1", "stage1")
 			s.Next(ctx)
+			// Entry node triggered stage1 activation
 			Expect(nodeA.nextCalled).To(Equal(1))
 			Expect(nodeB.nextCalled).To(Equal(0))
 		})
-		It("Should switch active stage", func() {
+		It("Should switch active stage via entry node", func() {
+			// Entry node for stage1 always activates
+			entryStage1 := &mockNode{
+				onNext: func(ctx node.Context) {
+					ctx.ActivateStage()
+				},
+			}
+			// Entry node for stage2 - initially does nothing, then activates
+			activateStage2 := false
+			entryStage2 := &mockNode{
+				onNext: func(ctx node.Context) {
+					if activateStage2 {
+						ctx.ActivateStage()
+					}
+				},
+			}
 			prog = ir.IR{
 				Nodes: []ir.Node{
+					{Key: "entry_seq1_stage1"},
+					{Key: "entry_seq1_stage2"},
 					{Key: "a"},
 					{Key: "b"},
 				},
-				Strata: ir.Strata{}, // Global strata is empty (all nodes are in stages)
+				Strata: ir.Strata{{"entry_seq1_stage1", "entry_seq1_stage2"}},
 				Sequences: ir.Sequences{
 					{
 						Key: "seq1",
@@ -501,48 +527,55 @@ var _ = Describe("Scheduler", func() {
 					},
 				},
 			}
+			nodes["entry_seq1_stage1"] = entryStage1
+			nodes["entry_seq1_stage2"] = entryStage2
 			nodes["a"] = nodeA
 			nodes["b"] = nodeB
 			s = scheduler.New(prog, nodes)
 
-			// Activate stage1
-			s.ActivateStage("seq1", "stage1")
+			// First Next: stage1 activates
 			s.Next(ctx)
 			Expect(nodeA.nextCalled).To(Equal(1))
 			Expect(nodeB.nextCalled).To(Equal(0))
 
-			// Switch to stage2
-			s.ActivateStage("seq1", "stage2")
+			// Disable stage1 entry, enable stage2 entry
+			entryStage1.onNext = nil
+			activateStage2 = true
 			s.Next(ctx)
 			Expect(nodeA.nextCalled).To(Equal(1)) // Still 1 (not in stage2)
 			Expect(nodeB.nextCalled).To(Equal(1)) // Now executes
 		})
-		It("Should always execute nodes not in any stage", func() {
+		It("Should always execute nodes in global strata", func() {
+			entryNode := &mockNode{
+				onNext: func(ctx node.Context) {
+					ctx.ActivateStage()
+				},
+			}
 			prog = ir.IR{
 				Nodes: []ir.Node{
+					{Key: "entry_seq1_stage1"},
 					{Key: "a"},
 					{Key: "b"},
-					{Key: "c"}, // Not in any stage
+					{Key: "c"}, // Not in any stage - in global strata
 				},
-				Strata: ir.Strata{{"c"}}, // Only "c" is in global strata
+				Strata: ir.Strata{{"entry_seq1_stage1", "c"}}, // c is in global strata
 				Sequences: ir.Sequences{
 					{
 						Key: "seq1",
 						Stages: []ir.Stage{
 							{Key: "stage1", Nodes: []string{"a"}, Strata: ir.Strata{{"a"}}},
 							{Key: "stage2", Nodes: []string{"b"}, Strata: ir.Strata{{"b"}}},
-							// Note: "c" is not in any stage
 						},
 					},
 				},
 			}
+			nodes["entry_seq1_stage1"] = entryNode
 			nodes["a"] = nodeA
 			nodes["b"] = nodeB
 			nodes["c"] = nodeC
 			s = scheduler.New(prog, nodes)
 
 			// Activate stage1 - "c" should still execute
-			s.ActivateStage("seq1", "stage1")
 			s.Next(ctx)
 			Expect(nodeA.nextCalled).To(Equal(1))
 			Expect(nodeB.nextCalled).To(Equal(0))
@@ -552,24 +585,140 @@ var _ = Describe("Scheduler", func() {
 			s.Next(ctx)
 			Expect(nodeC.nextCalled).To(Equal(2)) // Still runs
 		})
-		It("Should report active sequence and stage", func() {
+	})
+	Describe("One-Shot Edges", func() {
+		It("Should fire one-shot edge when output is truthy", func() {
+			nodeA.truthy = true
+			nodeA.onNext = func(ctx node.Context) {
+				ctx.MarkChanged("out")
+			}
 			prog = ir.IR{
-				Nodes:  []ir.Node{{Key: "a"}},
-				Strata: ir.Strata{}, // Global strata is empty
+				Nodes: []ir.Node{
+					{Key: "a"},
+					{Key: "b"},
+				},
+				Edges: []ir.Edge{
+					{
+						Source: ir.Handle{Node: "a", Param: "out"},
+						Target: ir.Handle{Node: "b", Param: "in"},
+						Kind:   ir.OneShot,
+					},
+				},
+				Strata: ir.Strata{{"a"}, {"b"}},
+			}
+			nodes["a"] = nodeA
+			nodes["b"] = nodeB
+			s = scheduler.New(prog, nodes)
+			s.Next(ctx)
+			Expect(nodeB.nextCalled).To(Equal(1))
+		})
+		It("Should not fire one-shot edge when output is not truthy", func() {
+			nodeA.truthy = false
+			nodeA.onNext = func(ctx node.Context) {
+				ctx.MarkChanged("out")
+			}
+			prog = ir.IR{
+				Nodes: []ir.Node{
+					{Key: "a"},
+					{Key: "b"},
+				},
+				Edges: []ir.Edge{
+					{
+						Source: ir.Handle{Node: "a", Param: "out"},
+						Target: ir.Handle{Node: "b", Param: "in"},
+						Kind:   ir.OneShot,
+					},
+				},
+				Strata: ir.Strata{{"a"}, {"b"}},
+			}
+			nodes["a"] = nodeA
+			nodes["b"] = nodeB
+			s = scheduler.New(prog, nodes)
+			s.Next(ctx)
+			Expect(nodeB.nextCalled).To(Equal(0))
+		})
+		It("Should only fire one-shot once per stage activation", func() {
+			entryNode := &mockNode{
+				onNext: func(ctx node.Context) {
+					ctx.ActivateStage()
+				},
+			}
+			nodeA.truthy = true
+			nodeA.onNext = func(ctx node.Context) {
+				ctx.MarkChanged("out")
+			}
+			prog = ir.IR{
+				Nodes: []ir.Node{
+					{Key: "entry_seq1_stage1"},
+					{Key: "a"},
+					{Key: "b"},
+				},
+				Strata: ir.Strata{{"entry_seq1_stage1"}},
+				Edges: []ir.Edge{
+					{
+						Source: ir.Handle{Node: "a", Param: "out"},
+						Target: ir.Handle{Node: "b", Param: "in"},
+						Kind:   ir.OneShot,
+					},
+				},
 				Sequences: ir.Sequences{
 					{
-						Key: "myseq",
+						Key: "seq1",
 						Stages: []ir.Stage{
-							{Key: "mystage", Nodes: []string{"a"}, Strata: ir.Strata{{"a"}}},
+							{
+								Key:    "stage1",
+								Nodes:  []string{"a", "b"},
+								Strata: ir.Strata{{"a"}, {"b"}},
+							},
 						},
 					},
 				},
 			}
+			nodes["entry_seq1_stage1"] = entryNode
 			nodes["a"] = nodeA
+			nodes["b"] = nodeB
 			s = scheduler.New(prog, nodes)
-			s.ActivateStage("myseq", "mystage")
-			Expect(s.IsSequenceActive("myseq")).To(BeTrue())
-			Expect(s.ActiveStageFor("myseq")).To(Equal("mystage"))
+
+			// First Next: stage activates, a runs, one-shot fires to b
+			s.Next(ctx)
+			Expect(nodeB.nextCalled).To(Equal(1))
+
+			// Second Next: a runs again, but one-shot already fired
+			entryNode.onNext = nil // Don't re-activate
+			s.Next(ctx)
+			Expect(nodeB.nextCalled).To(Equal(1)) // Still 1, one-shot already fired
+		})
+		It("Should always fire one-shot for global nodes (not in stage)", func() {
+			nodeA.truthy = true
+			nodeA.onNext = func(ctx node.Context) {
+				ctx.MarkChanged("out")
+			}
+			prog = ir.IR{
+				Nodes: []ir.Node{
+					{Key: "a"},
+					{Key: "b"},
+				},
+				Edges: []ir.Edge{
+					{
+						Source: ir.Handle{Node: "a", Param: "out"},
+						Target: ir.Handle{Node: "b", Param: "in"},
+						Kind:   ir.OneShot,
+					},
+				},
+				Strata: ir.Strata{{"a"}, {"b"}},
+				// No sequences - nodes are global
+			}
+			nodes["a"] = nodeA
+			nodes["b"] = nodeB
+			s = scheduler.New(prog, nodes)
+
+			// First Next: one-shot fires
+			s.Next(ctx)
+			Expect(nodeB.nextCalled).To(Equal(1))
+
+			// Second Next: one-shot fires again (no tracking for global nodes)
+			s.Next(ctx)
+			Expect(nodeB.nextCalled).To(Equal(2))
 		})
 	})
 	Describe("Complex Graphs", func() {
@@ -670,6 +819,83 @@ var _ = Describe("Scheduler", func() {
 			for _, n := range deepNodes {
 				Expect(n.(*mockNode).nextCalled).To(Equal(1))
 			}
+		})
+	})
+	Describe("Stage Convergence", func() {
+		It("Should detect stage transition and continue until stable", func() {
+			// Entry node for stage1 activates once then stops
+			stage1Activated := false
+			entryStage1 := &mockNode{
+				onNext: func(ctx node.Context) {
+					if !stage1Activated {
+						stage1Activated = true
+						ctx.ActivateStage()
+					}
+				},
+			}
+			// Stage1 node triggers entry to stage2 on first execution
+			stage2Triggered := false
+			stageANode := &mockNode{
+				onNext: func(ctx node.Context) {
+					if !stage2Triggered {
+						stage2Triggered = true
+						ctx.MarkChanged("out")
+					}
+				},
+				truthy: true,
+			}
+			entryStage2 := &mockNode{
+				onNext: func(ctx node.Context) {
+					ctx.ActivateStage()
+				},
+			}
+			prog = ir.IR{
+				Nodes: []ir.Node{
+					{Key: "entry_seq1_stage1"},
+					{Key: "a"},
+					{Key: "entry_seq1_stage2"},
+					{Key: "b"},
+				},
+				Strata: ir.Strata{{"entry_seq1_stage1"}},
+				Edges: []ir.Edge{
+					{
+						Source: ir.Handle{Node: "a", Param: "out"},
+						Target: ir.Handle{Node: "entry_seq1_stage2", Param: "in"},
+						Kind:   ir.OneShot,
+					},
+				},
+				Sequences: ir.Sequences{
+					{
+						Key: "seq1",
+						Stages: []ir.Stage{
+							{
+								Key:    "stage1",
+								Nodes:  []string{"a", "entry_seq1_stage2"},
+								Strata: ir.Strata{{"a"}, {"entry_seq1_stage2"}},
+							},
+							{
+								Key:    "stage2",
+								Nodes:  []string{"b"},
+								Strata: ir.Strata{{"b"}},
+							},
+						},
+					},
+				},
+			}
+			nodes["entry_seq1_stage1"] = entryStage1
+			nodes["a"] = stageANode
+			nodes["entry_seq1_stage2"] = entryStage2
+			nodes["b"] = nodeB
+			s = scheduler.New(prog, nodes)
+
+			// Single Next call should:
+			// 1. Execute entry_seq1_stage1 -> activates stage1
+			// 2. Execute stage1 strata -> a runs, triggers entry_seq1_stage2
+			// 3. Convergence loop detects transition to stage2
+			// 4. Execute stage2 strata -> b runs
+			s.Next(ctx)
+			Expect(stageANode.nextCalled).To(Equal(1))
+			Expect(nodeB.nextCalled).To(Equal(1)) // Stage2 executed via convergence
 		})
 	})
 })
