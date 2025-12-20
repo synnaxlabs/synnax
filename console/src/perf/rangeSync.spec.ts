@@ -276,10 +276,10 @@ describe("Range Synchronization", () => {
       const rangeStartTime = 1640000000000;
 
       // This simulates the guard clause in updateRangeEndTime
-      if (client == null || rangeKey == null || rangeStartTime == null) {
+      if (client == null || rangeKey == null || rangeStartTime == null) 
         // Should return early without error
         expect(true).toBe(true);
-      }
+      
     });
 
     it("should handle missing rangeKey gracefully", () => {
@@ -287,9 +287,9 @@ describe("Range Synchronization", () => {
       const rangeKey = null;
       const rangeStartTime = 1640000000000;
 
-      if (client == null || rangeKey == null || rangeStartTime == null) {
+      if (client == null || rangeKey == null || rangeStartTime == null) 
         expect(true).toBe(true);
-      }
+      
     });
 
     it("should handle missing rangeStartTime gracefully", () => {
@@ -297,9 +297,9 @@ describe("Range Synchronization", () => {
       const rangeKey = "test-key";
       const rangeStartTime = null;
 
-      if (client == null || rangeKey == null || rangeStartTime == null) {
+      if (client == null || rangeKey == null || rangeStartTime == null) 
         expect(true).toBe(true);
-      }
+      
     });
 
     it("should create range when Dashboard mounts with profiling already running", () => {

@@ -124,6 +124,9 @@ export const useCollectors = ({
 }: UseCollectorsOptions): UseCollectorsResult => {
   const [liveMetrics, setLiveMetrics] = useState<LiveMetrics>(ZERO_LIVE_METRICS);
 
+  const onSampleRef = useRef(onSample);
+  onSampleRef.current = onSample;
+
   const sampleBufferRef = useRef(new SampleBuffer());
 
   const [latestSample, setLatestSample] = useState<MetricSample | null>(null);
@@ -214,7 +217,7 @@ export const useCollectors = ({
           longTasks: c.longTask?.getTopLongTasks() ?? emptyTableData(),
           consoleLogs: c.console?.getTopLogs() ?? emptyTableData(),
         });
-        onSample?.(sample, sampleBufferRef.current);
+        onSampleRef.current?.(sample, sampleBufferRef.current);
       }
     }, SAMPLE_INTERVAL_MS);
 
@@ -222,7 +225,7 @@ export const useCollectors = ({
       clearInterval(updateInterval);
       getAllCollectors(c).forEach((col) => col?.stop());
     };
-  }, [collectSample, status, onSample]);
+  }, [collectSample, status]);
 
   return {
     liveMetrics,

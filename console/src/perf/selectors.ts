@@ -11,7 +11,7 @@ import { useSelector } from "react-redux";
 
 import {
   type CpuReport,
-  type DegradationReport,
+  type FpsReport,
   type GpuReport,
   type LeakReport,
 } from "@/perf/analyzer/types";
@@ -33,8 +33,8 @@ export const selectWorkflowResults = (state: RootState): WorkflowResult[] =>
 export const selectLeakReport = (state: RootState): LeakReport =>
   selectSlice(state).leakReport;
 
-export const selectDegradationReport = (state: RootState): DegradationReport =>
-  selectSlice(state).degradationReport;
+export const selectFpsReport = (state: RootState): FpsReport =>
+  selectSlice(state).fpsReport;
 
 export const selectCpuReport = (state: RootState): CpuReport =>
   selectSlice(state).cpuReport;
@@ -64,8 +64,7 @@ export const useSelectIsRunning = (): boolean => useSelector(selectIsRunning);
 export const useSelectWorkflowResults = (): WorkflowResult[] =>
   useSelector(selectWorkflowResults);
 export const useSelectLeakReport = (): LeakReport => useSelector(selectLeakReport);
-export const useSelectDegradationReport = (): DegradationReport =>
-  useSelector(selectDegradationReport);
+export const useSelectFpsReport = (): FpsReport => useSelector(selectFpsReport);
 export const useSelectCpuReport = (): CpuReport => useSelector(selectCpuReport);
 export const useSelectGpuReport = (): GpuReport => useSelector(selectGpuReport);
 export const useSelectError = (): string | null => useSelector(selectError);

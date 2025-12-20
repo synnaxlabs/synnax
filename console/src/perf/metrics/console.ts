@@ -61,7 +61,7 @@ export const CONSOLE_LOG_TABLE_COLUMNS: MetricTableColumn<ConsoleLogEntry>[] = [
     getValue: (entry) => {
       const maxLength = 60;
       return entry.message.length > maxLength
-        ? entry.message.slice(0, maxLength) + "..."
+        ? `${entry.message.slice(0, maxLength)  }...`
         : entry.message;
     },
     color: TEXT_ROW_COLOR,
@@ -75,9 +75,9 @@ export const getConsoleLogTableKey = (
 
 export const getConsoleLogTableTooltip = (entry: ConsoleLogEntry): string => {
   let tooltip = entry.message;
-  if (entry.stack != null) {
-    tooltip += "\n\nStack trace:\n" + entry.stack;
-  }
+  if (entry.stack != null) 
+    tooltip += `\n\nStack trace:\n${  entry.stack}`;
+  
   return tooltip;
 };
 
@@ -117,33 +117,33 @@ export class ConsoleCollector {
   private formatMessage(args: any[]): string {
     const parts: string[] = [];
 
-    for (const arg of args) {
-      if (arg == null) {
+    for (const arg of args) 
+      if (arg == null) 
         parts.push(String(arg));
-      } else if (typeof arg === "string") {
+       else if (typeof arg === "string") 
         parts.push(arg);
-      } else if (arg instanceof Error) {
+       else if (arg instanceof Error) 
         parts.push(arg.message);
-      } else if (typeof arg === "object") {
+       else if (typeof arg === "object") 
         try {
           const json = JSON.stringify(arg);
           const maxObjectLength = 100;
           parts.push(
             json.length > maxObjectLength
-              ? json.slice(0, maxObjectLength) + "..."
+              ? `${json.slice(0, maxObjectLength)  }...`
               : json,
           );
         } catch {
           parts.push("[Object]");
         }
-      } else {
+       else 
         parts.push(String(arg));
-      }
-    }
+      
+    
 
     const message = parts.join(" ");
     return message.length > MAX_MESSAGE_LENGTH
-      ? message.slice(0, MAX_MESSAGE_LENGTH) + "..."
+      ? `${message.slice(0, MAX_MESSAGE_LENGTH)  }...`
       : message;
   }
 
@@ -173,9 +173,9 @@ export class ConsoleCollector {
 
       this.totalCount++;
 
-      if (this.messages.length > MAX_STORED_MESSAGES) {
+      if (this.messages.length > MAX_STORED_MESSAGES) 
         this.messages = this.messages.slice(-MAX_STORED_MESSAGES);
-      }
+      
     } catch {
       // Track failures without breaking console - useful for debugging the profiler itself.
       // Can do more with this later.

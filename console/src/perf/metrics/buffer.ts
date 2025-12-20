@@ -66,12 +66,12 @@ const updateAggregate = (
 ): void => {
   agg.count++;
   agg.avg += (value - agg.avg) / agg.count;
-  if (!skipMin) {
+  if (!skipMin) 
     agg.min = Math.min(agg.min, value);
-  }
-  if (!skipMax) {
+  
+  if (!skipMax) 
     agg.max = Math.max(agg.max, value);
-  }
+  
 };
 
 /** Pre-allocated buffer: baseline (first N) + recent (circular, last N). */

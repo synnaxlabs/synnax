@@ -9,35 +9,21 @@
 
 import "@/perf/Dashboard.css";
 
-import { TimeStamp } from "@synnaxlabs/client";
-import { Button, Flex, Header, Icon, Synnax, Text } from "@synnaxlabs/pluto";
-import { math, TimeRange } from "@synnaxlabs/x";
+import { Button, Flex, Header, Icon, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { type Layout } from "@/layout";
-import { CpuAnalyzer } from "@/perf/analyzer/cpu-analyzer";
-import { DegradationDetector, type FPSContext } from "@/perf/analyzer/degradation";
-import { GpuAnalyzer } from "@/perf/analyzer/gpu-analyzer";
-import { LeakDetector } from "@/perf/analyzer/leak-detector";
-import {
-  ZERO_CPU_REPORT,
-  ZERO_DEGRADATION_REPORT,
-  ZERO_GPU_REPORT,
-  ZERO_LEAK_REPORT,
-} from "@/perf/analyzer/types";
 import { MetricSections } from "@/perf/components/MetricSections";
 import { useCollectors } from "@/perf/hooks/useCollectors";
-import { type SampleBuffer } from "@/perf/metrics/buffer";
-import { type MetricSample } from "@/perf/metrics/types";
+import { ZERO_AGGREGATES } from "@/perf/metrics/buffer";
+import { useProfilingSession } from "@/perf/hooks/useProfilingSession";
 import {
   useSelectCpuReport,
-  useSelectDegradationReport,
   useSelectElapsedSeconds,
+  useSelectFpsReport,
   useSelectGpuReport,
   useSelectLeakReport,
-  useSelectRangeKey,
-  useSelectRangeStartTime,
   useSelectStatus,
 } from "@/perf/selectors";
 import * as Perf from "@/perf/slice";
@@ -48,106 +34,32 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
   const status = useSelectStatus();
   const elapsedSeconds = useSelectElapsedSeconds();
   const leakReport = useSelectLeakReport();
-  const degradationReport = useSelectDegradationReport();
+  const fpsReport = useSelectFpsReport();
   const cpuReport = useSelectCpuReport();
   const gpuReport = useSelectGpuReport();
-  const rangeKey = useSelectRangeKey();
-  const rangeStartTime = useSelectRangeStartTime();
-
-  // Synnax client for range creation
-  const client = Synnax.use();
 
   // Grouping mode: "time" (Live, Changes) or "type" (Live, Delta, Stats)
   const [groupByType, setGroupByType] = useState(true);
 
-  // Analyzers for detecting performance issues
-  const analyzersRef = useRef({
-    leak: new LeakDetector(),
-    degradation: new DegradationDetector(),
-    cpu: new CpuAnalyzer(),
-    gpu: new GpuAnalyzer(),
-  });
-
-  // Captured values when test starts/stops
-  const capturedRef = useRef({
-    initialFPS: null as number | null,
-    finalFPS: null as number | null,
-    initialCPU: null as number | null,
-    finalCPU: null as number | null,
-    initialGPU: null as number | null,
-    finalGPU: null as number | null,
-  });
-
-  const prevStatusRef = useRef<string>(status);
+  // Track current status for cleanup on unmount
   const currentStatusRef = useRef<string>(status);
 
-  const handleSample = useCallback(
-    (sample: MetricSample, buffer: SampleBuffer) => {
-      const captured = capturedRef.current;
+  // Store handleSample in a ref to break circular dependency:
+  // - useCollectors needs onSample (handleSample)
+  // - useProfilingSession needs collectors/sampleBuffer from useCollectors
+  // - useProfilingSession returns handleSample
+  // The ref allows useCollectors to use the latest handleSample via onSampleRef pattern
+  const handleSampleRef = useRef<
+    ReturnType<typeof useProfilingSession>["handleSample"] | undefined
+  >(undefined);
 
-      if (captured.initialCPU == null && sample.cpuPercent != null) {
-        captured.initialCPU = sample.cpuPercent;
-        dispatch(
-          Perf.setCpuReport({
-            ...ZERO_CPU_REPORT,
-            startPercent: math.roundTo(sample.cpuPercent),
-          }),
-        );
-      }
-      if (captured.initialGPU == null && sample.gpuPercent != null) {
-        captured.initialGPU = sample.gpuPercent;
-        dispatch(
-          Perf.setGpuReport({
-            ...ZERO_GPU_REPORT,
-            startPercent: math.roundTo(sample.gpuPercent),
-          }),
-        );
-      }
-
-      const allSamples = buffer.getAllSamples();
-      if (allSamples.length < 2) return;
-
-      const analyzers = analyzersRef.current;
-
-      const leakResult = analyzers.leak.analyze(
-        allSamples
-          .filter((s) => s.heapUsedMB != null)
-          .map((s) => ({
-            timestamp: s.timestamp,
-            heapUsedMB: s.heapUsedMB!,
-            heapTotalMB: s.heapTotalMB!,
-          })),
-      );
-
-      const fpsContext: FPSContext = {
-        startFPS: captured.initialFPS,
-        endFPS: sample.frameRate,
-      };
-      const degradationResult = analyzers.degradation.analyze(fpsContext);
-
-      const agg = buffer.getAggregates();
-      const cpuResult = analyzers.cpu.analyze({
-        startPercent: captured.initialCPU,
-        endPercent: sample.cpuPercent,
-        avgPercent: agg.avgCpu,
-        maxPercent: agg.maxCpu,
-      });
-
-      const gpuResult = analyzers.gpu.analyze({
-        startPercent: captured.initialGPU,
-        endPercent: sample.gpuPercent,
-        avgPercent: agg.avgGpu,
-        maxPercent: agg.maxGpu,
-      });
-
-      dispatch(Perf.setLeakReport(leakResult));
-      dispatch(Perf.setDegradationReport(degradationResult));
-      dispatch(Perf.setCpuReport(cpuResult));
-      dispatch(Perf.setGpuReport(gpuResult));
-    },
-    [dispatch],
+  // Wrapper that delegates to handleSampleRef
+  const onSample = useCallback<NonNullable<typeof handleSampleRef.current>>(
+    (sample, buffer) => handleSampleRef.current?.(sample, buffer),
+    [],
   );
 
+  // Get collector data and refs
   const {
     liveMetrics,
     tableData,
@@ -158,172 +70,38 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
     resetEventCollectors,
     resetTableData,
     resetBuffer,
-  } = useCollectors({ status, onSample: handleSample });
+  } = useCollectors({ status, onSample });
 
-  // Create a new profiling range with MAX end time (indicates ongoing session)
-  const createProfilingRange = useCallback(() => {
-    if (client == null) return;
-
-    const now = TimeStamp.now();
-    const maxTimestamp = TimeStamp.MAX;
-    client.ranges
-      .create({
-        name: `Console Profiling - ${now.toLocaleString()}`,
-        timeRange: new TimeRange(now, maxTimestamp).numeric,
-      })
-      .then((range) => {
-        dispatch(Perf.setRangeKey(range.key));
-        dispatch(Perf.setRangeStartTime(Number(now.valueOf())));
-      })
-      .catch((error: Error) => {
-        console.error("Failed to create profiling range:", error);
-      });
-  }, [client, dispatch]);
-
-  // Update the end time of the current profiling range
-  const updateRangeEndTime = useCallback(
-    (newEndTime: TimeStamp) => {
-      if (client == null || rangeKey == null || rangeStartTime == null) return;
-
-      const rangeName = `Console Profiling - ${new TimeStamp(rangeStartTime).toLocaleString()}`;
-      // Note: Synnax uses create() with existing key to update ranges
-      client.ranges
-        .create({
-          key: rangeKey,
-          name: rangeName,
-          timeRange: new TimeRange(new TimeStamp(rangeStartTime), newEndTime).numeric,
-        })
-        .catch((error: Error) => {
-          console.error("Failed to update profiling range:", error);
-        });
-    },
-    [client, rangeKey, rangeStartTime],
+  const getAggregates = useCallback(
+    () => sampleBuffer.current?.getAggregates() ?? ZERO_AGGREGATES,
+    [],
   );
 
-  // Handle status transitions: capture initial/final values, manage ranges
-  useEffect(() => {
-    const prevStatus = prevStatusRef.current;
-    prevStatusRef.current = status;
-    const c = collectors.current;
-    const captured = capturedRef.current;
-
-    // Capture initial FPS, heap, and CPU when test starts fresh (not when resuming)
-    if (status === "running" && prevStatus === "idle") {
-      resetEventCollectors();
-      resetTableData();
-
-      const initialFPS = c.frameRate?.getCurrentFPS() ?? null;
-      captured.initialFPS = initialFPS;
-      captured.finalFPS = null;
-      dispatch(
-        Perf.setDegradationReport({
-          ...ZERO_DEGRADATION_REPORT,
-          averageFrameRateStart: initialFPS ?? 0,
-        }),
-      );
-
-      const initialHeap = c.heap?.getHeapUsedMB() ?? 0;
-      dispatch(
-        Perf.setLeakReport({
-          ...ZERO_LEAK_REPORT,
-          heapStartMB: math.roundTo(initialHeap),
-        }),
-      );
-
-      const initialCPU = c.cpu?.getCpuPercent() ?? null;
-      captured.initialCPU = initialCPU;
-      captured.finalCPU = null;
-      dispatch(
-        Perf.setCpuReport({
-          ...ZERO_CPU_REPORT,
-          startPercent: initialCPU != null ? math.roundTo(initialCPU) : null,
-        }),
-      );
-
-      const initialGPU = c.gpu?.getGpuPercent() ?? null;
-      captured.initialGPU = initialGPU;
-      captured.finalGPU = null;
-      dispatch(
-        Perf.setGpuReport({
-          ...ZERO_GPU_REPORT,
-          startPercent: initialGPU != null ? math.roundTo(initialGPU) : null,
-        }),
-      );
-
-      // Create a new range when profiling starts
-      createProfilingRange();
-    }
-
-    if (status === "running" && prevStatus === "running" && rangeKey == null) {
-      createProfilingRange();
-    }
-
-    // Capture final values when pausing
-    if (status === "paused" && prevStatus === "running") {
-      const samples = sampleBuffer.current.getAllSamples();
-      const lastSample = samples.at(-1);
-      if (lastSample != null) {
-        captured.finalFPS = lastSample.frameRate;
-        captured.finalCPU = lastSample.cpuPercent;
-        captured.finalGPU = lastSample.gpuPercent;
-      } else {
-        captured.finalFPS = c.frameRate?.getCurrentFPS() ?? null;
-        captured.finalCPU = c.cpu?.getCpuPercent() ?? null;
-        captured.finalGPU = c.gpu?.getGpuPercent() ?? null;
-      }
-
-      // Pause
-      updateRangeEndTime(TimeStamp.now());
-    }
-
-    // Resume
-    if (status === "running" && prevStatus === "paused") {
-      updateRangeEndTime(TimeStamp.MAX);
-    }
-
-    // Reset when test is reset to idle
-    if (status === "idle" && prevStatus !== "idle") {
-      // Finalize the range with current timestamp before resetting
-      if (prevStatus === "running" || prevStatus === "paused") {
-        updateRangeEndTime(TimeStamp.now());
-      }
-
-      captured.initialCPU = null;
-      captured.finalCPU = null;
-      captured.initialGPU = null;
-      captured.finalGPU = null;
-      captured.initialFPS = null;
-      captured.finalFPS = null;
-
-      resetEventCollectors();
-      resetTableData();
-      resetBuffer();
-    }
-  }, [
+  // Use the profiling session hook to orchestrate everything
+  const { handleSample } = useProfilingSession({
     status,
-    dispatch,
-    rangeKey,
-    createProfilingRange,
-    updateRangeEndTime,
     collectors,
     sampleBuffer,
+    getAggregates,
     resetEventCollectors,
     resetTableData,
     resetBuffer,
-  ]);
+  });
+
+  // Update the ref so onSample can delegate to the real handleSample
+  handleSampleRef.current = handleSample;
 
   useEffect(() => {
     currentStatusRef.current = status;
   }, [status]);
 
-  useEffect(() => {
-    return () => {
+  // Cleanup on unmount: reset if still profiling
+  useEffect(() => () => {
       const currentStatus = currentStatusRef.current;
-      if (currentStatus !== "idle") {
+      if (currentStatus !== "idle") 
         dispatch(Perf.reset());
-      }
-    };
-  }, [dispatch]);
+      
+    }, [dispatch]);
 
   const handleStart = useCallback(() => dispatch(Perf.start(undefined)), [dispatch]);
   const handlePause = useCallback(() => dispatch(Perf.pause()), [dispatch]);
@@ -404,7 +182,7 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
         topEndpoints={tableData.endpoints}
         topLongTasks={tableData.longTasks}
         topConsoleLogs={tableData.consoleLogs}
-        degradationReport={degradationReport}
+        fpsReport={fpsReport}
         leakReport={leakReport}
         cpuReport={cpuReport}
         gpuReport={gpuReport}

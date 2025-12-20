@@ -12,11 +12,11 @@ import { type deep } from "@synnaxlabs/x";
 
 import {
   type CpuReport,
-  type DegradationReport,
+  type FpsReport,
   type GpuReport,
   type LeakReport,
   ZERO_CPU_REPORT,
-  ZERO_DEGRADATION_REPORT,
+  ZERO_FPS_REPORT,
   ZERO_GPU_REPORT,
   ZERO_LEAK_REPORT,
 } from "@/perf/analyzer/types";
@@ -55,7 +55,7 @@ export interface SliceState {
   rangeKey: string | null;
   rangeStartTime: number | null;
   leakReport: LeakReport;
-  degradationReport: DegradationReport;
+  fpsReport: FpsReport;
   cpuReport: CpuReport;
   gpuReport: GpuReport;
 }
@@ -70,7 +70,7 @@ export const ZERO_SLICE_STATE: SliceState = {
   rangeKey: null,
   rangeStartTime: null,
   leakReport: ZERO_LEAK_REPORT,
-  degradationReport: ZERO_DEGRADATION_REPORT,
+  fpsReport: ZERO_FPS_REPORT,
   cpuReport: ZERO_CPU_REPORT,
   gpuReport: ZERO_GPU_REPORT,
 };
@@ -92,7 +92,7 @@ export const PERSIST_EXCLUDE = [
   "rangeKey",
   "rangeStartTime",
   "leakReport",
-  "degradationReport",
+  "fpsReport",
   "cpuReport",
   "gpuReport",
   "status",
@@ -119,7 +119,7 @@ export const { actions, reducer } = createSlice({
       state.workflowResults = [];
       state.error = null;
       state.leakReport = ZERO_LEAK_REPORT;
-      state.degradationReport = ZERO_DEGRADATION_REPORT;
+      state.fpsReport = ZERO_FPS_REPORT;
       state.cpuReport = ZERO_CPU_REPORT;
       state.gpuReport = ZERO_GPU_REPORT;
     },
@@ -145,8 +145,8 @@ export const { actions, reducer } = createSlice({
       state.leakReport = payload;
     },
 
-    setDegradationReport: (state, { payload }: PayloadAction<DegradationReport>) => {
-      state.degradationReport = payload;
+    setFpsReport: (state, { payload }: PayloadAction<FpsReport>) => {
+      state.fpsReport = payload;
     },
 
     setCpuReport: (state, { payload }: PayloadAction<CpuReport>) => {
@@ -191,7 +191,7 @@ export const {
   resume,
   addWorkflowResult,
   setLeakReport,
-  setDegradationReport,
+  setFpsReport,
   setCpuReport,
   setGpuReport,
   setRangeKey,

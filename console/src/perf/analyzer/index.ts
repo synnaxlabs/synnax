@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export { CpuAnalyzer, type CpuContext } from "@/perf/analyzer/cpu-analyzer";
-export { DegradationDetector, type FPSContext } from "@/perf/analyzer/degradation";
+export { FpsAnalyzer, type FpsContext } from "@/perf/analyzer/fps";
+export { GpuAnalyzer, type GpuContext } from "@/perf/analyzer/gpu-analyzer";
 export { LeakDetector } from "@/perf/analyzer/leak-detector";
 export * from "@/perf/analyzer/types";

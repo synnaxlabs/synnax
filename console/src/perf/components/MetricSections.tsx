@@ -26,6 +26,13 @@ import {
   TYPE_MODE_LABELS,
   TYPE_ORDER,
 } from "@/perf/constants";
+import { type Aggregates } from "@/perf/metrics/buffer";
+import {
+  CONSOLE_LOG_TABLE_COLUMNS,
+  type ConsoleLogEntry,
+  getConsoleLogTableKey,
+  getConsoleLogTableTooltip,
+} from "@/perf/metrics/console";
 import {
   getLongTaskTableKey,
   LONG_TASK_TABLE_COLUMNS,
@@ -37,13 +44,6 @@ import {
   getNetworkTableTooltip,
   NETWORK_TABLE_COLUMNS,
 } from "@/perf/metrics/network";
-import {
-  type ConsoleLogEntry,
-  getConsoleLogTableKey,
-  getConsoleLogTableTooltip,
-  CONSOLE_LOG_TABLE_COLUMNS,
-} from "@/perf/metrics/console";
-import { type Aggregates } from "@/perf/metrics/buffer";
 import { type MetricSample } from "@/perf/metrics/types";
 import { type LiveMetrics, type MetricDef, type Status } from "@/perf/types";
 import { formatCount } from "@/perf/utils/formatting";
@@ -112,8 +112,8 @@ export interface MetricSectionsProps {
   topEndpoints: MetricTableData<EndpointStats>;
   topLongTasks: MetricTableData<LongTaskStats>;
   topConsoleLogs: MetricTableData<ConsoleLogEntry>;
-  degradationReport: {
-    frameRateDegradationPercent: number | null;
+  fpsReport: {
+    changePercent: number | null;
   };
   leakReport: {
     heapGrowthPercent: number | null;
@@ -131,7 +131,7 @@ const MetricSectionsImpl = ({
   topEndpoints,
   topLongTasks,
   topConsoleLogs,
-  degradationReport,
+  fpsReport,
   leakReport,
   cpuReport,
   gpuReport,
@@ -141,7 +141,7 @@ const MetricSectionsImpl = ({
     (): MetricDef[] => [
       ...createFpsMetrics(
         liveMetrics.frameRate,
-        degradationReport.frameRateDegradationPercent,
+        fpsReport.changePercent,
         aggregates.avgFps != null,
         aggregates.avgFps,
         aggregates.minFps,
@@ -173,7 +173,7 @@ const MetricSectionsImpl = ({
     ],
     [
       liveMetrics,
-      degradationReport,
+      fpsReport,
       latestSample,
       aggregates,
       leakReport,

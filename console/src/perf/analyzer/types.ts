@@ -25,11 +25,11 @@ export interface LeakReport {
   snapshotCount: number;
 }
 
-export interface DegradationReport {
+export interface FpsReport {
   detected: boolean;
-  averageFrameRateStart: number;
-  averageFrameRateEnd: number;
-  frameRateDegradationPercent: number;
+  startFps: number;
+  endFps: number;
+  changePercent: number;
 }
 
 export interface CpuReport {
@@ -59,7 +59,7 @@ export interface PerfReport {
   maxHeapUsedMB: number | null;
   totalNetworkRequests: number;
   leakReport: LeakReport;
-  degradationReport: DegradationReport;
+  fpsReport: FpsReport;
   cpuReport: CpuReport;
   gpuReport: GpuReport;
   workflowResults: WorkflowResult[];
@@ -75,11 +75,11 @@ export const ZERO_LEAK_REPORT: LeakReport = {
   snapshotCount: 0,
 };
 
-export const ZERO_DEGRADATION_REPORT: DegradationReport = {
+export const ZERO_FPS_REPORT: FpsReport = {
   detected: false,
-  averageFrameRateStart: 0,
-  averageFrameRateEnd: 0,
-  frameRateDegradationPercent: 0,
+  startFps: 0,
+  endFps: 0,
+  changePercent: 0,
 };
 
 export const ZERO_CPU_REPORT: CpuReport = {
@@ -106,7 +106,7 @@ export const generateReport = (
   startTime: number,
   endTime: number,
   leakReport: LeakReport,
-  degradationReport: DegradationReport,
+  fpsReport: FpsReport,
   cpuReport: CpuReport,
   gpuReport: GpuReport,
 ): PerfReport => {
@@ -133,7 +133,7 @@ export const generateReport = (
     maxHeapUsedMB: heapValues.length > 0 ? Math.max(...heapValues) : null,
     totalNetworkRequests: samples.reduce((sum, s) => sum + s.networkRequestCount, 0),
     leakReport,
-    degradationReport,
+    fpsReport,
     cpuReport,
     gpuReport,
     workflowResults,
