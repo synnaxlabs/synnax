@@ -14,13 +14,13 @@ import "github.com/synnaxlabs/arc/types"
 // Registry maps unit names to their definitions.
 // Each entry defines the dimensions, scale factor (to SI base unit), and display name.
 var Registry = map[string]types.Unit{
-	// Time units (base: seconds)
-	"ns": {Dimensions: types.DimTime, Scale: 1e-9, Name: "ns"},
-	"us": {Dimensions: types.DimTime, Scale: 1e-6, Name: "us"},
-	"ms": {Dimensions: types.DimTime, Scale: 1e-3, Name: "ms"},
-	"s":  {Dimensions: types.DimTime, Scale: 1, Name: "s"},
-	"m":  {Dimensions: types.DimTime, Scale: 60, Name: "m"},
-	"h":  {Dimensions: types.DimTime, Scale: 3600, Name: "h"},
+	// Time units (base: nanoseconds - matches Synnax's canonical representation)
+	"ns": {Dimensions: types.DimTime, Scale: 1, Name: "ns"},
+	"us": {Dimensions: types.DimTime, Scale: 1e3, Name: "us"},
+	"ms": {Dimensions: types.DimTime, Scale: 1e6, Name: "ms"},
+	"s":  {Dimensions: types.DimTime, Scale: 1e9, Name: "s"},
+	"m":  {Dimensions: types.DimTime, Scale: 60e9, Name: "m"},
+	"h":  {Dimensions: types.DimTime, Scale: 3600e9, Name: "h"},
 
 	// Length units (base: meters)
 	"nm":   {Dimensions: types.DimLength, Scale: 1e-9, Name: "nm"},

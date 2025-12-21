@@ -10,15 +10,41 @@
 package arc_test
 
 import (
-	"fmt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/arc/runtime/time"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+var pressResolver = symbol.MapResolver{
+	"press_vlv_cmd": arc.Symbol{
+		Name: "press_vlv_cmd",
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.U8()),
+		ID:   1,
+	},
+	"vent_vlv_cmd": arc.Symbol{
+		Name: "vent_vlv_cmd",
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.U8()),
+		ID:   1,
+	},
+	"press_pt": arc.Symbol{
+		Name: "press_pt",
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.F32()),
+		ID:   2,
+	},
+	"start_seq_cmd": arc.Symbol{
+		Name: "start_seq_cmd",
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.U8()),
+		ID:   3,
+	},
+}
 
 var _ = Describe("Arc", func() {
 	compile := func(code string, resolver arc.SymbolResolver) arc.Module {
@@ -117,7 +143,7 @@ sequence main {
 				ID:   3,
 			},
 		})
-		fmt.Println(mod)
+		Expect(mod.Functions).To(HaveLen(1))
 	})
 
 	It("Should correctly generate strata for a loop", func() {
@@ -143,39 +169,21 @@ sequence main {
 				press_pt -> expr2{} => press
 			}
 		}
-		`,
-			symbol.MapResolver{
-				"press_vlv_cmd": arc.Symbol{
-					Name: "press_vlv_cmd",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   1,
-				},
-				"vent_vlv_cmd": arc.Symbol{
-					Name: "vent_vlv_cmd",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   1,
-				},
-				"press_pt": arc.Symbol{
-					Name: "press_pt",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   2,
-				},
-				"start_seq_cmd": arc.Symbol{
-					Name: "start_seq_cmd",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   3,
-				},
-			})
-		fmt.Println(mod)
-		// Question: what's the evaluation order:
-		// 1. Execute root strata
-		// Execution limit loop: 'convergence'
-		// 	2. Execute strata for active stages
-		// 	3. Execute strata for any newly active stages
-		// How do we tolerate nested sequences in this case.
+		`, pressResolver)
+		Expect(mod.Functions).To(HaveLen(2))
+		Expect(mod.Nodes).To(HaveLen(13))
+	})
+
+	It("Should correctly compile a node with a unit literal", func() {
+		mod := compile(`
+			sequence main {
+				stage initial {
+					wait{duration=5s} => next
+				}
+				stage end {
+				}
+			}
+		`, time.SymbolResolver)
+		Expect(mod.Nodes).To(HaveLen(3))
 	})
 })

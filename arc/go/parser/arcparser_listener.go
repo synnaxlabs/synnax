@@ -1,7 +1,6 @@
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
-
 import "github.com/antlr4-go/antlr/v4"
 
 // ArcParserListener is a complete listener for a parse tree produced by ArcParser.
@@ -197,9 +196,6 @@ type ArcParserListener interface {
 	// EnterNumericLiteral is called when entering the numericLiteral production.
 	EnterNumericLiteral(c *NumericLiteralContext)
 
-	// EnterUnitLiteral is called when entering the unitLiteral production.
-	EnterUnitLiteral(c *UnitLiteralContext)
-
 	// EnterSeriesLiteral is called when entering the seriesLiteral production.
 	EnterSeriesLiteral(c *SeriesLiteralContext)
 
@@ -394,9 +390,6 @@ type ArcParserListener interface {
 
 	// ExitNumericLiteral is called when exiting the numericLiteral production.
 	ExitNumericLiteral(c *NumericLiteralContext)
-
-	// ExitUnitLiteral is called when exiting the unitLiteral production.
-	ExitUnitLiteral(c *UnitLiteralContext)
 
 	// ExitSeriesLiteral is called when exiting the seriesLiteral production.
 	ExitSeriesLiteral(c *SeriesLiteralContext)

@@ -89,12 +89,6 @@ fragment DIGITS : DIGIT+ ;
 
 fragment DIGIT: [0-9];
 
-// Unit literals: numeric value followed by unit suffix (e.g., 100psi, 5s, 300ms, 2.5km)
-// Must be checked before plain numeric literals
-UNIT_LITERAL
-    : (DIGITS | (DIGITS '.' DIGITS?) | ('.' DIGITS)) [a-zA-Z_][a-zA-Z0-9_]*
-    ;
-
 // Simple numeric literals without suffixes or special formats
 INTEGER_LITERAL
     : DIGITS
@@ -131,5 +125,5 @@ SINGLE_LINE_COMMENT: '//' ~[\r\n]* -> skip;
 // Multi-line comment
 MULTI_LINE_COMMENT: '/*' .*? '*/' -> skip;
 
-// Whitespace
-WS          : [ \t\r\n]+ -> skip;
+// Whitespace - on hidden channel to preserve position info for adjacency checks
+WS          : [ \t\r\n]+ -> channel(HIDDEN);

@@ -592,29 +592,65 @@ func extractConfigValues(
 	if ctx.AST == nil {
 		return config, true
 	}
+
+	// parseConfigExpr parses a configuration value expression.
+	// For channels, it resolves to a uint32 channel ID.
+	// For other types, it parses the literal value.
+	parseConfigExpr := func(expr parser.IExpressionContext, paramType types.Type, paramName string) (any, bool) {
+		// Channel types: resolve to uint32 ID
+		if paramType.Kind == types.KindChan {
+			channelName := getExpressionText(expr)
+			sym, err := ctx.Scope.Resolve(ctx, channelName)
+			if err != nil {
+				ctx.Diagnostics.AddError(err, expr)
+				return nil, false
+			}
+			channelKey := uint32(sym.ID)
+			node.Channels.Read[channelKey] = sym.Name
+			return channelKey, true
+		}
+
+		// Must be a pure literal (no operators, function calls, etc.)
+		if !expression.IsPureLiteral(expr) {
+			ctx.Diagnostics.AddError(
+				fmt.Errorf("config value for '%s' must be a literal", paramName),
+				expr,
+			)
+			return nil, false
+		}
+
+		// Parse the literal with the expected parameter type
+		literalCtx := expression.GetLiteral(expr)
+		parsedValue, err := literal.Parse(literalCtx, paramType)
+		if err != nil {
+			ctx.Diagnostics.AddError(err, expr)
+			return nil, false
+		}
+		return parsedValue.Value, true
+	}
+
 	if named := ctx.AST.NamedConfigValues(); named != nil {
 		for _, cv := range named.AllNamedConfigValue() {
 			key := cv.IDENTIFIER().GetText()
 			idx := config.GetIndex(key)
-			config[idx].Value = getExpressionText(cv.Expression())
+			if expr := cv.Expression(); expr != nil {
+				value, ok := parseConfigExpr(expr, config[idx].Type, key)
+				if !ok {
+					return nil, false
+				}
+				config[idx].Value = value
+			}
 		}
 	} else if anon := ctx.AST.AnonymousConfigValues(); anon != nil {
 		for i, expr := range anon.AllExpression() {
-			config[i].Value = getExpressionText(expr)
-		}
-	}
-	for i, p := range config {
-		if p.Type.Kind == types.KindChan {
-			sym, err := ctx.Scope.Resolve(ctx, p.Value.(string))
-			if err != nil {
-				ctx.Diagnostics.AddError(err, nil)
+			value, ok := parseConfigExpr(expr, config[i].Type, fmt.Sprintf("position %d", i))
+			if !ok {
 				return nil, false
 			}
-			channelKey := uint32(sym.ID)
-			config[i].Value = channelKey
-			node.Channels.Read[channelKey] = sym.Name
+			config[i].Value = value
 		}
 	}
+
 	return config, true
 }
 

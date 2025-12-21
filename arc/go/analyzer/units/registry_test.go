@@ -23,7 +23,7 @@ var _ = Describe("Registry", func() {
 				u, ok := units.Lookup("ns")
 				Expect(ok).To(BeTrue())
 				Expect(u.Name).To(Equal("ns"))
-				Expect(u.Scale).To(Equal(1e-9))
+				Expect(u.Scale).To(Equal(1.0)) // ns is the base unit for time
 				Expect(u.Dimensions).To(Equal(types.DimTime))
 			})
 
@@ -31,7 +31,7 @@ var _ = Describe("Registry", func() {
 				u, ok := units.Lookup("ms")
 				Expect(ok).To(BeTrue())
 				Expect(u.Name).To(Equal("ms"))
-				Expect(u.Scale).To(Equal(1e-3))
+				Expect(u.Scale).To(Equal(1e6)) // 1ms = 1 million ns
 				Expect(u.Dimensions).To(Equal(types.DimTime))
 			})
 
@@ -39,7 +39,7 @@ var _ = Describe("Registry", func() {
 				u, ok := units.Lookup("s")
 				Expect(ok).To(BeTrue())
 				Expect(u.Name).To(Equal("s"))
-				Expect(u.Scale).To(Equal(1.0))
+				Expect(u.Scale).To(Equal(1e9)) // 1s = 1 billion ns
 				Expect(u.Dimensions).To(Equal(types.DimTime))
 			})
 
@@ -47,7 +47,7 @@ var _ = Describe("Registry", func() {
 				u, ok := units.Lookup("h")
 				Expect(ok).To(BeTrue())
 				Expect(u.Name).To(Equal("h"))
-				Expect(u.Scale).To(Equal(3600.0))
+				Expect(u.Scale).To(Equal(3600e9)) // 1h = 3600 billion ns
 				Expect(u.Dimensions).To(Equal(types.DimTime))
 			})
 		})

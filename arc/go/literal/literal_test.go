@@ -113,42 +113,166 @@ var _ = Describe("Literal Parser", func() {
 	)
 
 	Describe("Unit literals", func() {
-		It("Should parse time unit literals", func() {
-			lit := getLiteral("10s")
-			parsed, err := literal.Parse(lit, types.Type{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(parsed.Value).To(Equal(10.0))
-			Expect(parsed.Type.Kind).To(Equal(types.KindF64))
-			Expect(parsed.Type.Unit).ToNot(BeNil())
-			Expect(parsed.Type.Unit.Dimensions).To(Equal(types.DimTime))
+		Context("Type inference (no target type)", func() {
+			It("Should infer int64 for exact integer result from integer literal", func() {
+				lit := getLiteral("10s")
+				parsed, err := literal.Parse(lit, types.Type{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(parsed.Value).To(Equal(int64(10000000000))) // 10s = 10 billion ns
+				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
+				Expect(parsed.Type.Unit).ToNot(BeNil())
+				Expect(parsed.Type.Unit.Dimensions).To(Equal(types.DimTime))
+			})
+
+			It("Should infer int64 for 100kg (SI value 100 is exact int)", func() {
+				lit := getLiteral("100kg")
+				parsed, err := literal.Parse(lit, types.Type{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(parsed.Value).To(Equal(int64(100)))
+				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
+			})
+
+			It("Should infer int64 for 100psi (SI value ~689476 is exact int)", func() {
+				lit := getLiteral("100psi")
+				parsed, err := literal.Parse(lit, types.Type{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(parsed.Value).To(BeNumerically("~", int64(689476), 1))
+				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
+			})
+
+			It("Should infer int64 for 5km (SI value 5000 is exact int)", func() {
+				lit := getLiteral("5km")
+				parsed, err := literal.Parse(lit, types.Type{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(parsed.Value).To(Equal(int64(5000)))
+				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
+			})
+
+			It("Should infer float64 for float literal even if SI value is exact int", func() {
+				lit := getLiteral("5.0km")
+				parsed, err := literal.Parse(lit, types.Type{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(parsed.Value).To(Equal(5000.0))
+				Expect(parsed.Type.Kind).To(Equal(types.KindF64))
+			})
+
+			It("Should infer int64 for 300ms (300 million ns is exact int)", func() {
+				lit := getLiteral("300ms")
+				parsed, err := literal.Parse(lit, types.Type{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(parsed.Value).To(Equal(int64(300000000))) // 300ms = 300 million ns
+				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
+			})
+
+			It("Should infer float64 for float literal", func() {
+				lit := getLiteral("100.5kg")
+				parsed, err := literal.Parse(lit, types.Type{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(parsed.Value).To(Equal(100.5))
+				Expect(parsed.Type.Kind).To(Equal(types.KindF64))
+			})
 		})
 
-		It("Should convert milliseconds to SI base (seconds)", func() {
-			lit := getLiteral("300ms")
-			parsed, err := literal.Parse(lit, types.Type{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(parsed.Value).To(BeNumerically("~", 0.3, 0.0001))
+		Context("With target type having a unit (scale conversion)", func() {
+			It("Should convert 300ms to TimeSpan (nanoseconds)", func() {
+				lit := getLiteral("300ms")
+				parsed, err := literal.Parse(lit, types.TimeSpan())
+				Expect(err).ToNot(HaveOccurred())
+				// 300ms = 300 * (1e-3 / 1e-9) = 300,000,000 ns
+				Expect(parsed.Value).To(Equal(int64(300000000)))
+				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
+			})
+
+			It("Should convert 5s to TimeSpan (nanoseconds)", func() {
+				lit := getLiteral("5s")
+				parsed, err := literal.Parse(lit, types.TimeSpan())
+				Expect(err).ToNot(HaveOccurred())
+				// 5s = 5 * (1 / 1e-9) = 5,000,000,000 ns
+				Expect(parsed.Value).To(Equal(int64(5000000000)))
+				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
+			})
+
+			It("Should convert 1us to TimeSpan (nanoseconds)", func() {
+				lit := getLiteral("1us")
+				parsed, err := literal.Parse(lit, types.TimeSpan())
+				Expect(err).ToNot(HaveOccurred())
+				// 1us = 1 * (1e-6 / 1e-9) = 1000 ns
+				Expect(parsed.Value).To(Equal(int64(1000)))
+				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
+			})
 		})
 
-		It("Should convert kilometers to SI base (meters)", func() {
-			lit := getLiteral("5km")
-			parsed, err := literal.Parse(lit, types.Type{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(parsed.Value).To(Equal(5000.0))
+		Context("With target type kind (no unit)", func() {
+			It("Should convert to i32 when SI value is exact integer", func() {
+				lit := getLiteral("100psi")
+				parsed, err := literal.Parse(lit, types.I32())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(parsed.Value).To(BeNumerically("~", int32(689476), 1))
+				Expect(parsed.Type.Kind).To(Equal(types.KindI32))
+			})
+
+			It("Should convert to i64 when SI value is exact integer", func() {
+				lit := getLiteral("5km")
+				parsed, err := literal.Parse(lit, types.I64())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(parsed.Value).To(Equal(int64(5000)))
+				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
+			})
+
+			It("Should convert to f64", func() {
+				lit := getLiteral("5km")
+				parsed, err := literal.Parse(lit, types.F64())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(parsed.Value).To(Equal(5000.0))
+				Expect(parsed.Type.Kind).To(Equal(types.KindF64))
+			})
+
+			It("Should convert to f32", func() {
+				lit := getLiteral("5km")
+				parsed, err := literal.Parse(lit, types.F32())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(parsed.Value).To(Equal(float32(5000)))
+				Expect(parsed.Type.Kind).To(Equal(types.KindF32))
+			})
 		})
 
-		It("Should convert psi to SI base (Pascals)", func() {
-			lit := getLiteral("100psi")
-			parsed, err := literal.Parse(lit, types.Type{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(parsed.Value).To(BeNumerically("~", 689476.0, 1.0))
+		Context("Go-like constant semantics (error on fractional)", func() {
+			It("Should error when converting non-exact value to i32", func() {
+				lit := getLiteral("1psi") // 1 psi = 6894.76 Pa (fractional)
+				_, err := literal.Parse(lit, types.I32())
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("fractional part"))
+			})
+
+			It("Should error when converting non-exact value to i64", func() {
+				lit := getLiteral("100.5kg")
+				_, err := literal.Parse(lit, types.I64())
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("fractional part"))
+			})
+
+			It("Should succeed when converting exact float literal to i32", func() {
+				lit := getLiteral("1.0km")
+				parsed, err := literal.Parse(lit, types.I32())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(parsed.Value).To(Equal(int32(1000)))
+			})
 		})
 
-		It("Should return error for unknown units", func() {
-			lit := getLiteral("5foobar")
-			_, err := literal.Parse(lit, types.Type{})
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("unknown unit"))
+		Context("Error cases", func() {
+			It("Should return error for unknown units", func() {
+				lit := getLiteral("5foobar")
+				_, err := literal.Parse(lit, types.Type{})
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("unknown unit"))
+			})
+
+			It("Should return error for range overflow", func() {
+				lit := getLiteral("300psi")
+				_, err := literal.Parse(lit, types.I8())
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("out of range"))
+			})
 		})
 	})
 

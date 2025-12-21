@@ -53,22 +53,37 @@ var _ = Describe("Parser", func() {
 			It("Should parse millisecond literals", func() {
 				expr := mustParseExpression("100ms")
 				literal := getPrimaryLiteral(expr)
-				Expect(literal.UnitLiteral()).NotTo(BeNil())
-				Expect(literal.UnitLiteral().UNIT_LITERAL().GetText()).To(Equal("100ms"))
+				numLit := literal.NumericLiteral()
+				Expect(numLit).NotTo(BeNil())
+				Expect(numLit.INTEGER_LITERAL().GetText()).To(Equal("100"))
+				Expect(numLit.IDENTIFIER().GetText()).To(Equal("ms"))
 			})
 
 			It("Should parse frequency literals", func() {
 				expr := mustParseExpression("10hz")
 				literal := getPrimaryLiteral(expr)
-				Expect(literal.UnitLiteral()).NotTo(BeNil())
-				Expect(literal.UnitLiteral().UNIT_LITERAL().GetText()).To(Equal("10hz"))
+				numLit := literal.NumericLiteral()
+				Expect(numLit).NotTo(BeNil())
+				Expect(numLit.INTEGER_LITERAL().GetText()).To(Equal("10"))
+				Expect(numLit.IDENTIFIER().GetText()).To(Equal("hz"))
 			})
 
 			It("Should parse pressure literals", func() {
 				expr := mustParseExpression("100psi")
 				literal := getPrimaryLiteral(expr)
-				Expect(literal.UnitLiteral()).NotTo(BeNil())
-				Expect(literal.UnitLiteral().UNIT_LITERAL().GetText()).To(Equal("100psi"))
+				numLit := literal.NumericLiteral()
+				Expect(numLit).NotTo(BeNil())
+				Expect(numLit.INTEGER_LITERAL().GetText()).To(Equal("100"))
+				Expect(numLit.IDENTIFIER().GetText()).To(Equal("psi"))
+			})
+
+			It("Should NOT parse unit when separated by space", func() {
+				expr := mustParseExpression("100")
+				literal := getPrimaryLiteral(expr)
+				numLit := literal.NumericLiteral()
+				Expect(numLit).NotTo(BeNil())
+				Expect(numLit.INTEGER_LITERAL().GetText()).To(Equal("100"))
+				Expect(numLit.IDENTIFIER()).To(BeNil())
 			})
 		})
 

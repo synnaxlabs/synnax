@@ -1427,7 +1427,7 @@ var _ = Describe("Compiler", func() {
 			results := MustSucceed(getMs.Call(ctx))
 			Expect(results).To(HaveLen(1))
 			result := math.Float64frombits(results[0])
-			Expect(result).To(BeNumerically("~", 0.3, 0.0001))
+			Expect(result).To(BeNumerically("~", 300000000.0, 1)) // 300ms = 300 million ns
 		})
 
 		It("Should compile kilometer literal", func() {

@@ -1,7 +1,6 @@
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
-
 import "github.com/antlr4-go/antlr/v4"
 
 // BaseArcParserListener is a complete listener for a parse tree produced by ArcParser.
@@ -398,12 +397,6 @@ func (s *BaseArcParserListener) EnterNumericLiteral(ctx *NumericLiteralContext) 
 
 // ExitNumericLiteral is called when production numericLiteral is exited.
 func (s *BaseArcParserListener) ExitNumericLiteral(ctx *NumericLiteralContext) {}
-
-// EnterUnitLiteral is called when production unitLiteral is entered.
-func (s *BaseArcParserListener) EnterUnitLiteral(ctx *UnitLiteralContext) {}
-
-// ExitUnitLiteral is called when production unitLiteral is exited.
-func (s *BaseArcParserListener) ExitUnitLiteral(ctx *UnitLiteralContext) {}
 
 // EnterSeriesLiteral is called when production seriesLiteral is entered.
 func (s *BaseArcParserListener) EnterSeriesLiteral(ctx *SeriesLiteralContext) {}

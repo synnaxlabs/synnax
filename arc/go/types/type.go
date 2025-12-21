@@ -325,7 +325,7 @@ func TimeStamp() Type {
 		Kind: KindI64,
 		Unit: &Unit{
 			Dimensions: DimTime,
-			Scale:      1e-9, // nanoseconds
+			Scale:      1, // nanoseconds (base unit for time)
 			Name:       "ns",
 		},
 	}
@@ -338,7 +338,7 @@ func TimeSpan() Type {
 		Kind: KindI64,
 		Unit: &Unit{
 			Dimensions: DimTime,
-			Scale:      1e-9, // nanoseconds
+			Scale:      1, // nanoseconds (base unit for time)
 			Name:       "ns",
 		},
 	}
@@ -605,15 +605,7 @@ func FromTelem(t telem.DataType) Type {
 	case telem.StringT, telem.JSONT, telem.UUIDT:
 		return String()
 	case telem.TimeStampT:
-		// Timestamps are i64 nanoseconds with time dimensions
-		return Type{
-			Kind: KindI64,
-			Unit: &Unit{
-				Dimensions: DimTime,
-				Scale:      1e-9, // nanoseconds
-				Name:       "ns",
-			},
-		}
+		return TimeStamp()
 	default:
 		return Type{Kind: KindInvalid}
 	}
