@@ -186,8 +186,8 @@ var _ = Describe("Scheduler", func() {
 			s := build(prog)
 
 			s.Next(ctx, telem.Microsecond)
-			s.Next(ctx, 2 * telem.Microsecond)
-			s.Next(ctx, 3 * telem.Microsecond)
+			s.Next(ctx, 2*telem.Microsecond)
+			s.Next(ctx, 3*telem.Microsecond)
 
 			Expect(nodeA.NextCalled).To(Equal(3))
 		})
@@ -220,8 +220,8 @@ var _ = Describe("Scheduler", func() {
 
 			s := build(prog)
 
-			s.Next(ctx, 5 * telem.Microsecond)
-			s.Next(ctx, 10 * telem.Microsecond)
+			s.Next(ctx, 5*telem.Microsecond)
+			s.Next(ctx, 10*telem.Microsecond)
 
 			Expect(nodeA.ElapsedValues).To(HaveLen(2))
 			Expect(nodeA.ElapsedValues[0]).To(Equal(5 * telem.Microsecond))
@@ -239,7 +239,7 @@ var _ = Describe("Scheduler", func() {
 			s := build(prog)
 
 			for i := 0; i < 100; i++ {
-				s.Next(ctx, telem.TimeSpan(i) * telem.Microsecond)
+				s.Next(ctx, telem.TimeSpan(i)*telem.Microsecond)
 			}
 
 			Expect(nodeA.NextCalled).To(Equal(100))
@@ -288,7 +288,7 @@ var _ = Describe("Scheduler", func() {
 			s.Next(ctx, telem.Microsecond)
 			Expect(nodeB.NextCalled).To(Equal(1))
 
-			s.Next(ctx, 2 * telem.Microsecond)
+			s.Next(ctx, 2*telem.Microsecond)
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
 	})
@@ -559,7 +559,7 @@ var _ = Describe("Scheduler", func() {
 			s.Next(ctx, telem.Microsecond)
 			Expect(nodeB.NextCalled).To(Equal(1))
 
-			s.Next(ctx, 2 * telem.Microsecond)
+			s.Next(ctx, 2*telem.Microsecond)
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
 
@@ -582,10 +582,10 @@ var _ = Describe("Scheduler", func() {
 			s.Next(ctx, telem.Microsecond)
 			Expect(nodeB.NextCalled).To(Equal(1))
 
-			s.Next(ctx, 2 * telem.Microsecond)
+			s.Next(ctx, 2*telem.Microsecond)
 			Expect(nodeB.NextCalled).To(Equal(1))
 
-			s.Next(ctx, 3 * telem.Microsecond)
+			s.Next(ctx, 3*telem.Microsecond)
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
 
@@ -623,7 +623,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeA.ResetCalled).To(Equal(1))
 
 			// Stage re-activates via continuous edge, clearing fired_one_shots
-			s.Next(ctx, 2 * telem.Microsecond)
+			s.Next(ctx, 2*telem.Microsecond)
 			Expect(nodeB.NextCalled).To(Equal(2))
 			Expect(nodeA.ResetCalled).To(Equal(2))
 		})
@@ -790,7 +790,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(1))
 
 			// Stage_b remains active, stage_a deactivated
-			s.Next(ctx, 2 * telem.Microsecond)
+			s.Next(ctx, 2*telem.Microsecond)
 			Expect(nodeA.NextCalled).To(Equal(1))
 			Expect(nodeB.NextCalled).To(Equal(2))
 		})
@@ -1006,7 +1006,7 @@ var _ = Describe("Scheduler", func() {
 
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond)
-			s.Next(ctx, 2 * telem.Microsecond)
+			s.Next(ctx, 2*telem.Microsecond)
 			Expect(nodeA.NextCalled).To(Equal(2))
 		})
 

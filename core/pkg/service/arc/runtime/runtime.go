@@ -150,7 +150,6 @@ func (r *Runtime) Close() error {
 
 func (r *Runtime) processFrame(ctx context.Context, res framer.StreamerResponse) error {
 	r.state.Ingest(res.Frame.ToStorage())
-	r.scheduler.Next(ctx)
 	fr, changed := r.state.FlushWrites(telem.Frame[uint32]{})
 	if !changed {
 		return nil
@@ -328,7 +327,6 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	}
 
 	sCtx, cancel := signal.Isolated()
-	r.scheduler.Init(ctx)
 	streamPipeline.Flow(
 		sCtx,
 		confluence.CloseOutputInletsOnExit(),
