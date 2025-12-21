@@ -53,7 +53,7 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey,
 	}
 
 	if ch.DataType != telem.StringT || !ch.Virtual {
-		return errors.New("control update channel must be a string virtual channel.")
+		return errors.New("control update channel must be a string virtual channel")
 	}
 
 	w, err := db.newStreamWriter(ctx, WriterConfig{

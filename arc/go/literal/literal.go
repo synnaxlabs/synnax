@@ -96,8 +96,6 @@ func parseIntegerLiteral(text string, targetType types.Type) (ParsedValue, error
 			return ParsedValue{}, errors.Newf("value %d out of range for i32 (must be in [%d, %d])", value, math.MinInt32, math.MaxInt32)
 		}
 		return ParsedValue{Value: int32(value), Type: types.I32()}, nil
-	case types.KindI64:
-		return ParsedValue{Value: value, Type: types.I64()}, nil
 	case types.KindU8:
 		if value < 0 || value > math.MaxUint8 {
 			return ParsedValue{}, errors.Newf("value %d out of range for u8 (must be in [0, %d])", value, math.MaxUint8)
@@ -123,7 +121,7 @@ func parseIntegerLiteral(text string, targetType types.Type) (ParsedValue, error
 	case types.KindF64:
 		return ParsedValue{Value: float64(value), Type: types.F64()}, nil
 	default:
-		// Value to i64 if type not recognized
+		// Value to i64 if type not recognized or type is i64
 		return ParsedValue{Value: value, Type: types.I64()}, nil
 	}
 }
@@ -147,8 +145,6 @@ func parseFloatLiteral(text string, targetType types.Type) (ParsedValue, error) 
 			return ParsedValue{}, errors.Newf("value %f out of range for f32", value)
 		}
 		return ParsedValue{Value: float32(value), Type: types.F32()}, nil
-	case types.KindF64:
-		return ParsedValue{Value: value, Type: types.F64()}, nil
 	case types.KindI8:
 		if value != math.Trunc(value) {
 			return ParsedValue{}, errors.Newf("cannot convert non-integer float %f to i8", value)
@@ -217,7 +213,7 @@ func parseFloatLiteral(text string, targetType types.Type) (ParsedValue, error) 
 		}
 		return ParsedValue{Value: uint64(value), Type: types.U64()}, nil
 	default:
-		// Value to f64 if type not recognized
+		// Value to f64 if type not recognized or type is f64
 		return ParsedValue{Value: value, Type: types.F64()}, nil
 	}
 }

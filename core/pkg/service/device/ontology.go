@@ -71,10 +71,10 @@ var _ ontology.Service = (*Service)(nil)
 type change = xchange.Change[string, Device]
 
 // Type returns the type of the device ontology service.
-func (s *Service) Type() ontology.Type { return OntologyType }
+func (*Service) Type() ontology.Type { return OntologyType }
 
 // Schema returns the schema for the device ontology service.
-func (s *Service) Schema() zyn.Schema { return schema }
+func (*Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource allows for retrieving a device with a given key from the ontology.
 func (s *Service) RetrieveResource(

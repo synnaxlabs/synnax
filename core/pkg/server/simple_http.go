@@ -37,7 +37,7 @@ func NewSimpleHTTPBranch(
 }
 
 // Key implements Branch.
-func (h *SimpleHTTPBranch) Key() string { return "http_redirect" }
+func (*SimpleHTTPBranch) Key() string { return "http_redirect" }
 
 // Routing implements Branch.
 func (h *SimpleHTTPBranch) Routing() (i BranchRouting) {

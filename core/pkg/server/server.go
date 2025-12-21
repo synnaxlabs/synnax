@@ -152,8 +152,8 @@ func (s *Server) serveSecure(sCtx signal.Context, root cmux.CMux) error {
 		secure   = cmux.New(tls.NewListener(root.Match(cmux.Any()), s.Security.TLS))
 	)
 
-	s.startBranches(sCtx, secure /*insecureMux*/, false)
-	s.startBranches(sCtx, insecure /*insecureMux*/, true)
+	s.startBranches(sCtx, secure /* insecureMux */, false)
+	s.startBranches(sCtx, insecure /* insecureMux */, true)
 
 	sCtx.Go(func(context.Context) error {
 		return filterCloserError(secure.Serve())
@@ -167,7 +167,7 @@ func (s *Server) serveSecure(sCtx signal.Context, root cmux.CMux) error {
 }
 
 func (s *Server) serveInsecure(sCtx signal.Context, root cmux.CMux) error {
-	s.startBranches(sCtx, root /*insecureMux*/, true)
+	s.startBranches(sCtx, root /* insecureMux */, true)
 	return filterCloserError(root.Serve())
 }
 

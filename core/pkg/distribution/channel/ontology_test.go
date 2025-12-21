@@ -51,7 +51,7 @@ var _ = Describe("Ontology", Ordered, func() {
 		Context("Create", func() {
 			It("Should correctly propagate a create change", func() {
 				changes := make(chan []ontology.Change, 5)
-				dc := mockCluster.Nodes[1].Channel.OnChange(func(ctx context.Context, nexter iter.Seq[ontology.Change]) {
+				dc := mockCluster.Nodes[1].Channel.OnChange(func(_ context.Context, nexter iter.Seq[ontology.Change]) {
 					changesSlice := make([]ontology.Change, 0)
 					for ch := range nexter {
 						changesSlice = append(changesSlice, ch)

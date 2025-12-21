@@ -114,7 +114,7 @@ func (i *Domain) Distance(
 
 	var startApprox, endApprox Approximation[int64]
 
-	startApprox, err = i.search(tr.Start, r)
+	startApprox, err = search(tr.Start, r)
 	if err != nil {
 		return approx, alignment, err
 	}
@@ -123,7 +123,7 @@ func (i *Domain) Distance(
 	if iter.TimeRange().ContainsStamp(tr.End) || tr.End == iter.TimeRange().End {
 		// If the current domain contains the end of the time range, then everything
 		// is continuous and within the current domain.
-		endApprox, err = i.search(tr.End, r)
+		endApprox, err = search(tr.End, r)
 		approx.Approximation = Between(
 			endApprox.Lower-startApprox.Upper,
 			endApprox.Upper-startApprox.Lower,
@@ -145,7 +145,7 @@ func (i *Domain) Distance(
 		// Length of the current domain
 		domainLen = sampleCount(r.Size())
 		// the total number of samples traversed as we move through domains
-		totalTraversed int64 = 0
+		totalTraversed int64
 		// Distance from the end of the domain to the start approximation.
 		startToFirstEnd = Between(domainLen-startApprox.Upper, domainLen-startApprox.Lower)
 	)
@@ -170,7 +170,7 @@ func (i *Domain) Distance(
 			if r, err = iter.OpenReader(ctx); err != nil {
 				return approx, alignment, err
 			}
-			if endApprox, err = i.search(tr.End, r); err != nil {
+			if endApprox, err = search(tr.End, r); err != nil {
 				return approx, alignment, err
 			}
 			approx.EndExact = endApprox.Exact()
@@ -225,7 +225,7 @@ func (i *Domain) zeroStamp(
 		return approx, err
 	}
 	defer func() { err = errors.Combine(err, r.Close()) }()
-	startApprox, err := i.search(ref, r)
+	startApprox, err := search(ref, r)
 	readStamp := newStampReader()
 	if !startApprox.Exact() {
 		approx.Upper, err = readStamp(r, byteSize(startApprox.Upper))
@@ -269,7 +269,7 @@ func (i *Domain) forwardStamp(
 	}
 	defer func() { err = errors.Combine(err, r.Close()) }()
 
-	startApprox, err := i.search(ref, r)
+	startApprox, err := search(ref, r)
 	if err != nil {
 		return approx, err
 	}
@@ -390,7 +390,7 @@ func (i *Domain) backwardStamp(
 	effectiveDomainBounds, effectiveDomainLen := resolveBackwardEffectiveDomainTR(iter)
 
 	if ref == effectiveDomainBounds.End {
-		ref -= 1
+		ref--
 	}
 
 	if (!effectiveDomainBounds.ContainsStamp(ref)) ||
@@ -410,7 +410,7 @@ func (i *Domain) backwardStamp(
 	}
 	defer func() { err = errors.Combine(err, r.Close()) }()
 
-	startApprox, err := i.search(ref, r)
+	startApprox, err := search(ref, r)
 	if err != nil {
 		return approx, err
 	}
@@ -512,13 +512,13 @@ func resolveBackwardEffectiveDomainTR(i *domain.Iterator) (effectiveDomainBounds
 	}
 }
 
-// search returns an approximation for the number of samples before a given timestamp. If the
-// timestamp exists in the underlying index, the approximation will be exact.
-func (i *Domain) search(ts telem.TimeStamp, r *domain.Reader) (Approximation[int64], error) {
+// search returns an approximation for the number of samples before a given timestamp.
+// If the timestamp exists in the underlying index, the approximation will be exact.
+func search(ts telem.TimeStamp, r *domain.Reader) (Approximation[int64], error) {
 	var (
-		start int64 = 0
-		end         = sampleCount(r.Size()) - 1
-		read        = newStampReader()
+		start int64
+		end   = sampleCount(r.Size()) - 1
+		read  = newStampReader()
 		midTS telem.TimeStamp
 		err   error
 	)

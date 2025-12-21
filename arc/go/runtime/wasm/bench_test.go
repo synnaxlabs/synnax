@@ -148,7 +148,7 @@ func BenchmarkWASMNodeSimpleArithmetic(b *testing.B) {
 
 	nodeCtx := node.Context{
 		Context:     ctx,
-		MarkChanged: func(output string) {},
+		MarkChanged: func(string) {},
 	}
 
 	b.ReportAllocs()

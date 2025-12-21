@@ -81,7 +81,7 @@ func translateStatusesBackward(s []*xstatus.PBStatus) ([]api.Status, error) {
 	return out, nil
 }
 
-func (t statusSetRequestTranslator) Forward(
+func (statusSetRequestTranslator) Forward(
 	_ context.Context,
 	msg api.StatusSetRequest,
 ) (*gapi.StatusSetRequest, error) {
@@ -92,7 +92,7 @@ func (t statusSetRequestTranslator) Forward(
 	return &gapi.StatusSetRequest{Parent: msg.Parent.String(), Statuses: statuses}, nil
 }
 
-func (t statusSetRequestTranslator) Backward(
+func (statusSetRequestTranslator) Backward(
 	_ context.Context,
 	msg *gapi.StatusSetRequest,
 ) (api.StatusSetRequest, error) {
@@ -111,7 +111,7 @@ func (t statusSetRequestTranslator) Backward(
 	return api.StatusSetRequest{Parent: parent, Statuses: statuses}, nil
 }
 
-func (t statusSetResponseTranslator) Forward(
+func (statusSetResponseTranslator) Forward(
 	_ context.Context,
 	msg api.StatusSetResponse,
 ) (*gapi.StatusSetResponse, error) {
@@ -122,7 +122,7 @@ func (t statusSetResponseTranslator) Forward(
 	return &gapi.StatusSetResponse{Statuses: statuses}, nil
 }
 
-func (t statusSetResponseTranslator) Backward(
+func (statusSetResponseTranslator) Backward(
 	_ context.Context,
 	msg *gapi.StatusSetResponse,
 ) (api.StatusSetResponse, error) {
@@ -133,7 +133,7 @@ func (t statusSetResponseTranslator) Backward(
 	return api.StatusSetResponse{Statuses: statuses}, nil
 }
 
-func (t statusRetrieveRequestTranslator) Forward(
+func (statusRetrieveRequestTranslator) Forward(
 	_ context.Context,
 	msg api.StatusRetrieveRequest,
 ) (*gapi.StatusRetrieveRequest, error) {
@@ -151,7 +151,7 @@ func (t statusRetrieveRequestTranslator) Forward(
 	}, nil
 }
 
-func (t statusRetrieveRequestTranslator) Backward(
+func (statusRetrieveRequestTranslator) Backward(
 	_ context.Context,
 	msg *gapi.StatusRetrieveRequest,
 ) (api.StatusRetrieveRequest, error) {
@@ -175,7 +175,7 @@ func (t statusRetrieveRequestTranslator) Backward(
 	}, nil
 }
 
-func (t statusRetrieveResponseTranslator) Forward(
+func (statusRetrieveResponseTranslator) Forward(
 	_ context.Context,
 	msg api.StatusRetrieveResponse,
 ) (*gapi.StatusRetrieveResponse, error) {
@@ -186,7 +186,7 @@ func (t statusRetrieveResponseTranslator) Forward(
 	return &gapi.StatusRetrieveResponse{Statuses: statuses}, nil
 }
 
-func (t statusRetrieveResponseTranslator) Backward(
+func (statusRetrieveResponseTranslator) Backward(
 	_ context.Context,
 	msg *gapi.StatusRetrieveResponse,
 ) (api.StatusRetrieveResponse, error) {
@@ -197,14 +197,14 @@ func (t statusRetrieveResponseTranslator) Backward(
 	return api.StatusRetrieveResponse{Statuses: statuses}, nil
 }
 
-func (t statusDeleteRequestTranslator) Forward(
+func (statusDeleteRequestTranslator) Forward(
 	_ context.Context,
 	msg api.StatusDeleteRequest,
 ) (*gapi.StatusDeleteRequest, error) {
 	return &gapi.StatusDeleteRequest{Keys: msg.Keys}, nil
 }
 
-func (t statusDeleteRequestTranslator) Backward(
+func (statusDeleteRequestTranslator) Backward(
 	_ context.Context,
 	msg *gapi.StatusDeleteRequest,
 ) (api.StatusDeleteRequest, error) {

@@ -130,21 +130,12 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	plumber.SetSegment(p, "distribution", dist)
 	var routeOutletFrom address.Address = "distribution"
 	if calcTransform != nil {
-		plumber.SetSegment(
-			p,
-			"calculation",
-			calcTransform,
-			confluence.DeferErr(calcTransform.close),
-		)
+		plumber.SetSegment(p, "calculation", calcTransform)
 		plumber.MustConnect[Response](p, routeOutletFrom, "calculation", 25)
 		routeOutletFrom = "calculation"
 	}
 	if cfg.DownsampleFactor > 1 {
-		plumber.SetSegment(
-			p,
-			"downsampler",
-			newDownsampler(cfg),
-		)
+		plumber.SetSegment(p, "downsampler", newDownsampler(cfg))
 		plumber.MustConnect[Response](p, routeOutletFrom, "downsampler", 25)
 		routeOutletFrom = "downsampler"
 	}
@@ -214,7 +205,7 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 	// Open calculators from modules
 	calculators := make([]*calculator.Calculator, 0, len(modules))
 	for _, mod := range modules {
-		calc, err := calculator.Open(ctx, calculator.Config{Module: mod})
+		calc, err := calculator.New(ctx, calculator.Config{Module: mod})
 		if err != nil {
 			return nil, err
 		}
@@ -239,13 +230,13 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 	cfg.Keys = lo.Uniq(append(cfg.Keys, concreteBaseKeys.Keys()...))
 	cfg.Keys = lo.Uniq(append(cfg.Keys, lo.FilterMap(
 		concreteBaseChannels,
-		func(item channel.Channel, index int) (channel.Key, bool) {
+		func(item channel.Channel, _ int) (channel.Key, bool) {
 			return item.Index(), !item.Virtual
 		})...,
 	))
 
 	// Remove ALL calculated keys (including nested ones) from cfg.Keys
-	cfg.Keys = lo.Filter(cfg.Keys, func(item channel.Key, index int) bool {
+	cfg.Keys = lo.Filter(cfg.Keys, func(item channel.Key, _ int) bool {
 		return !calculatedKeys.Contains(item) && !item.Free()
 	})
 

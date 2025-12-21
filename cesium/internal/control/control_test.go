@@ -22,13 +22,11 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-type testResource struct {
-	value int
-}
+type testResource struct{ value int }
 
 var _ control.Resource = (*testResource)(nil)
 
-func (t testResource) ChannelKey() core.ChannelKey { return core.ChannelKey(0) }
+func (testResource) ChannelKey() core.ChannelKey { return core.ChannelKey(0) }
 
 func createResourceNoErr(value int) (func() (t testResource, err error), func() int) {
 	var count int

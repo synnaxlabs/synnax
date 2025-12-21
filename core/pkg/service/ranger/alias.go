@@ -63,7 +63,7 @@ var _ gorp.Entry[string] = Alias{}
 func (a Alias) GorpKey() string { return aliasKey(a.Range, a.Channel) }
 
 // SetOptions implements gorp.Entry.
-func (a Alias) SetOptions() []any { return nil }
+func (Alias) SetOptions() []any { return nil }
 
 const AliasOntologyType ontology.Type = "range-alias"
 
@@ -100,13 +100,13 @@ type (
 
 var _ ontology.Service = (*aliasOntologyService)(nil)
 
-func (s *aliasOntologyService) Type() ontology.Type { return AliasOntologyType }
+func (*aliasOntologyService) Type() ontology.Type { return AliasOntologyType }
 
 // Schema implements ontology.Service.
-func (s *aliasOntologyService) Schema() zyn.Schema { return aliasSchema }
+func (*aliasOntologyService) Schema() zyn.Schema { return aliasSchema }
 
 // RetrieveResource implements ontology.Service.
-func (s *aliasOntologyService) RetrieveResource(
+func (*aliasOntologyService) RetrieveResource(
 	ctx context.Context,
 	key string,
 	tx gorp.Tx,

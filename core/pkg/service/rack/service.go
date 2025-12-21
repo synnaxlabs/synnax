@@ -272,7 +272,7 @@ func (s *Service) newTaskKey(ctx context.Context, rackKey Key) (next uint32, err
 	s.keyMu.Lock()
 	defer s.keyMu.Unlock()
 	return next, gorp.NewUpdate[Key, Rack]().WhereKeys(rackKey).Change(func(_ gorp.Context, r Rack) Rack {
-		r.TaskCounter += 1
+		r.TaskCounter++
 		next = r.TaskCounter
 		return r
 	}).Exec(ctx, s.DB)

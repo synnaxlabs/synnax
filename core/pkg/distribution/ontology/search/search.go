@@ -36,7 +36,7 @@ type Config struct{ alamos.Instrumentation }
 
 var _ config.Config[Config] = Config{}
 
-func (c Config) Validate() error { return nil }
+func (Config) Validate() error { return nil }
 
 func (c Config) Override(Config) Config { return c }
 

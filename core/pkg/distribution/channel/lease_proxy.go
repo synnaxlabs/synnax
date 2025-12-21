@@ -128,7 +128,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	if *lp.ValidateNames {
 		keys := KeysFromChannels(channels)
 		names := Names(channels)
-		if err := lp.validateChannelNames(ctx, tx, keys, names, opts.RetrieveIfNameExists || opts.OverwriteIfNameExistsAndDifferentProperties); err != nil {
+		if err := validateChannelNames(ctx, tx, keys, names, opts.RetrieveIfNameExists || opts.OverwriteIfNameExistsAndDifferentProperties); err != nil {
 			return err
 		}
 	}
@@ -218,7 +218,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	if lp.freeCounter == nil {
 		panic("[leaseProxy] - tried to assign virtual keys on non-bootstrapper")
 	}
-	if err := lp.validateFreeVirtual(channels); err != nil {
+	if err := validateFreeVirtual(channels); err != nil {
 		return err
 	}
 
@@ -280,7 +280,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	// Add these index channels to the list to be created
 	*channels = append(*channels, indexChannelsForExisting...)
 
-	toCreate, err := lp.retrieveExistingAndAssignKeys(
+	toCreate, err := retrieveExistingAndAssignKeys(
 		ctx,
 		tx,
 		channels,
@@ -354,7 +354,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	return lp.maybeSetResources(ctx, tx, toCreate)
 }
 
-func (lp *leaseProxy) validateChannelNames(
+func validateChannelNames(
 	ctx context.Context,
 	tx gorp.Tx,
 	keys Keys,
@@ -408,7 +408,7 @@ func (lp *leaseProxy) validateChannelNames(
 	return nil
 }
 
-func (lp *leaseProxy) validateFreeVirtual(channels *[]Channel) error {
+func validateFreeVirtual(channels *[]Channel) error {
 	for _, ch := range *channels {
 		if len(ch.Name) == 0 {
 			return validate.PathedError(validate.ErrRequired, "name")
@@ -417,7 +417,7 @@ func (lp *leaseProxy) validateFreeVirtual(channels *[]Channel) error {
 	return nil
 }
 
-func (lp *leaseProxy) retrieveExistingAndAssignKeys(
+func retrieveExistingAndAssignKeys(
 	ctx context.Context,
 	tx gorp.Tx,
 	channels *[]Channel,
@@ -505,11 +505,11 @@ func (lp *leaseProxy) createGateway(
 		}
 	}
 
-	if err := lp.validateFreeVirtual(channels); err != nil {
+	if err := validateFreeVirtual(channels); err != nil {
 		return err
 	}
 
-	toCreate, err := lp.retrieveExistingAndAssignKeys(ctx, tx, channels, lp.leasedCounter, opts.RetrieveIfNameExists)
+	toCreate, err := retrieveExistingAndAssignKeys(ctx, tx, channels, lp.leasedCounter, opts.RetrieveIfNameExists)
 	if err != nil {
 		return err
 	}
@@ -583,7 +583,7 @@ func (lp *leaseProxy) createRemote(
 
 func (lp *leaseProxy) deleteByName(ctx context.Context, tx gorp.Tx, names []string, allowInternal bool) error {
 	var res []Channel
-	if err := gorp.NewRetrieve[Key, Channel]().Entries(&res).Where(func(ctx gorp.Context, c *Channel) (bool, error) {
+	if err := gorp.NewRetrieve[Key, Channel]().Entries(&res).Where(func(_ gorp.Context, c *Channel) (bool, error) {
 		return lo.Contains(names, c.Name), nil
 	}).Exec(ctx, tx); err != nil {
 		return err
@@ -598,7 +598,7 @@ func (lp *leaseProxy) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowIn
 		if err := gorp.
 			NewRetrieve[Key, Channel]().
 			WhereKeys(keys...).
-			Where(func(ctx gorp.Context, c *Channel) (bool, error) {
+			Where(func(_ gorp.Context, c *Channel) (bool, error) {
 				return c.Internal, nil
 			}).
 			Entries(&internalChannels).
@@ -622,8 +622,7 @@ func (lp *leaseProxy) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowIn
 		}
 	}
 	if len(batch.Free) > 0 {
-		err := lp.deleteFreeVirtual(ctx, tx, batch.Free)
-		if err != nil {
+		if err := deleteFreeVirtual(ctx, tx, batch.Free); err != nil {
 			return err
 		}
 	}
@@ -633,7 +632,7 @@ func (lp *leaseProxy) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowIn
 	return lp.maybeDeleteResources(ctx, tx, keys)
 }
 
-func (lp *leaseProxy) deleteFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys) error {
+func deleteFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys) error {
 	return gorp.NewDelete[Key, Channel]().WhereKeys(channels...).Exec(ctx, tx)
 }
 
@@ -709,7 +708,7 @@ func (lp *leaseProxy) rename(
 		return errors.Wrap(validate.Err, "keys and names must be the same length")
 	}
 	if *lp.ValidateNames {
-		if err := lp.validateChannelNames(ctx, tx, keys, names, false); err != nil {
+		if err := validateChannelNames(ctx, tx, keys, names, false); err != nil {
 			return err
 		}
 	}
@@ -723,7 +722,7 @@ func (lp *leaseProxy) rename(
 	}
 	if len(batch.Free) > 0 {
 		keys, names := unzipRenameBatch(batch.Free)
-		if err := lp.renameFreeVirtual(ctx, tx, keys, names, allowInternal); err != nil {
+		if err := renameFreeVirtual(ctx, tx, keys, names, allowInternal); err != nil {
 			return err
 		}
 	}
@@ -753,7 +752,7 @@ func channelNameUpdater(allowInternal bool, keys Keys, names []string) gorp.Chan
 	}
 }
 
-func (lp *leaseProxy) renameFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys, names []string, allowInternal bool) error {
+func renameFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys, names []string, allowInternal bool) error {
 	return gorp.NewUpdate[Key, Channel]().
 		WhereKeys(channels...).
 		ChangeErr(channelNameUpdater(allowInternal, channels, names)).

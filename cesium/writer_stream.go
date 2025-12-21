@@ -169,7 +169,7 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 	}
 	var (
 		u       = ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
-		getAuth = func(ch ChannelKey) (xcontrol.Authority, bool) {
+		getAuth = func(ChannelKey) (xcontrol.Authority, bool) {
 			return cfg.Authorities[0], true
 		}
 	)
@@ -183,7 +183,6 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 			v, ok := values[ch]
 			return v, ok
 		}
-
 	}
 	for _, chW := range w.virtual.internal {
 		if auth, ok := getAuth(chW.Channel.Key); ok {

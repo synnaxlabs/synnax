@@ -52,11 +52,11 @@ type setStatus struct {
 	stat      status.Status[any]
 }
 
-func (s *setStatus) Init(node.Context) {}
+func (*setStatus) Init(node.Context) {}
 
-func (s *setStatus) Reset() {}
+func (*setStatus) Reset() {}
 
-func (s *setStatus) IsOutputTruthy(output string) bool {
+func (*setStatus) IsOutputTruthy(string) bool {
 	return false
 }
 

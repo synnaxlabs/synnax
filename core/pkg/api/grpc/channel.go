@@ -66,7 +66,7 @@ func translateChannelKeysBackward(keys []uint32) []channel.Key {
 	return unsafe.ReinterpretSlice[uint32, channel.Key](keys)
 }
 
-func (t channelCreateRequestTranslator) Forward(
+func (channelCreateRequestTranslator) Forward(
 	_ context.Context,
 	msg api.ChannelCreateRequest,
 ) (*gapi.ChannelCreateRequest, error) {
@@ -76,7 +76,7 @@ func (t channelCreateRequestTranslator) Forward(
 	}, nil
 }
 
-func (t channelCreateRequestTranslator) Backward(
+func (channelCreateRequestTranslator) Backward(
 	_ context.Context,
 	msg *gapi.ChannelCreateRequest,
 ) (api.ChannelCreateRequest, error) {
@@ -86,7 +86,7 @@ func (t channelCreateRequestTranslator) Backward(
 	}, nil
 }
 
-func (t channelCreateResponseTranslator) Forward(
+func (channelCreateResponseTranslator) Forward(
 	_ context.Context,
 	msg api.ChannelCreateResponse,
 ) (*gapi.ChannelCreateResponse, error) {
@@ -95,14 +95,14 @@ func (t channelCreateResponseTranslator) Forward(
 	}, nil
 }
 
-func (t channelCreateResponseTranslator) Backward(
+func (channelCreateResponseTranslator) Backward(
 	_ context.Context,
 	msg *gapi.ChannelCreateResponse,
 ) (api.ChannelCreateResponse, error) {
 	return api.ChannelCreateResponse{Channels: lo.Map(msg.GetChannels(), translateChannelBackward)}, nil
 }
 
-func (t channelRetrieveRequestTranslator) Forward(
+func (channelRetrieveRequestTranslator) Forward(
 	_ context.Context,
 	msg api.ChannelRetrieveRequest,
 ) (*gapi.ChannelRetrieveRequest, error) {
@@ -114,7 +114,7 @@ func (t channelRetrieveRequestTranslator) Forward(
 	}, nil
 }
 
-func (t channelRetrieveRequestTranslator) Backward(
+func (channelRetrieveRequestTranslator) Backward(
 	_ context.Context,
 	msg *gapi.ChannelRetrieveRequest,
 ) (api.ChannelRetrieveRequest, error) {
@@ -126,21 +126,21 @@ func (t channelRetrieveRequestTranslator) Backward(
 	}, nil
 }
 
-func (t channelRetrieveResponseTranslator) Forward(
+func (channelRetrieveResponseTranslator) Forward(
 	_ context.Context,
 	msg api.ChannelRetrieveResponse,
 ) (*gapi.ChannelRetrieveResponse, error) {
 	return &gapi.ChannelRetrieveResponse{Channels: lo.Map(msg.Channels, translateChannelForward)}, nil
 }
 
-func (t channelRetrieveResponseTranslator) Backward(
+func (channelRetrieveResponseTranslator) Backward(
 	_ context.Context,
 	msg *gapi.ChannelRetrieveResponse,
 ) (api.ChannelRetrieveResponse, error) {
 	return api.ChannelRetrieveResponse{Channels: lo.Map(msg.GetChannels(), translateChannelBackward)}, nil
 }
 
-func (t channelDeleteRequestTranslator) Forward(
+func (channelDeleteRequestTranslator) Forward(
 	_ context.Context,
 	msg api.ChannelDeleteRequest,
 ) (*gapi.ChannelDeleteRequest, error) {
@@ -150,7 +150,7 @@ func (t channelDeleteRequestTranslator) Forward(
 	}, nil
 }
 
-func (t channelDeleteRequestTranslator) Backward(
+func (channelDeleteRequestTranslator) Backward(
 	_ context.Context,
 	msg *gapi.ChannelDeleteRequest,
 ) (api.ChannelDeleteRequest, error) {

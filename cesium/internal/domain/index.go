@@ -174,7 +174,7 @@ func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp) (i int) {
 			if i == len(idx.mu.pointers) {
 				i = -1
 			} else {
-				i += 1
+				i++
 			}
 		}
 	})
@@ -194,9 +194,8 @@ func (idx *index) getGE(ctx context.Context, ts telem.TimeStamp) (ptr pointer, o
 	if !exact {
 		if i == len(idx.mu.pointers) {
 			return pointer{}, false
-		} else {
-			i += 1
 		}
+		i++
 	}
 
 	if i < 0 || i >= len(idx.mu.pointers) {

@@ -50,9 +50,9 @@ var _ = Describe("Migration Test", func() {
 					if ch.Key == testdata.LegacyRate {
 						Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 						continue
-					} else {
-						Expect(err).ToNot(HaveOccurred())
 					}
+					Expect(err).ToNot(HaveOccurred())
+
 					Expect(chInDB.Version).To(Equal(uint8(2)))
 
 					var (
@@ -70,7 +70,6 @@ var _ = Describe("Migration Test", func() {
 					err = jsonCodec.Decode(ctx, buf, &chInMeta)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(chInMeta).To(Equal(chInDB))
-
 				}
 
 				Expect(db.Close()).To(Succeed())

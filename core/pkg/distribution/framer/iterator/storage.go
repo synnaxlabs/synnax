@@ -15,11 +15,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/x/confluence"
 )
 
 func newStorageResponseTranslator(
 	host cluster.NodeKey,
-) func(context.Context, ts.IteratorResponse) (Response, bool, error) {
+) confluence.TransformFunc[ts.IteratorResponse, Response] {
 	return func(_ context.Context, res ts.IteratorResponse) (Response, bool, error) {
 		return Response{
 			Ack:     res.Ack,
@@ -33,9 +34,9 @@ func newStorageResponseTranslator(
 	}
 }
 
-func newStorageRequestTranslator(generateSeqNums bool) func(ctx context.Context, in Request) (ts.IteratorRequest, bool, error) {
+func newStorageRequestTranslator(generateSeqNums bool) confluence.TransformFunc[Request, ts.IteratorRequest] {
 	seqNum := 0
-	return func(ctx context.Context, req Request) (ts.IteratorRequest, bool, error) {
+	return func(_ context.Context, req Request) (ts.IteratorRequest, bool, error) {
 		oReq := ts.IteratorRequest{
 			Command: ts.IteratorCommand(req.Command),
 			Span:    req.Span,

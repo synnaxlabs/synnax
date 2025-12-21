@@ -28,7 +28,6 @@ type transform struct {
 var _ confluence.Segment[framer.StreamerResponse, framer.WriterRequest] = (*transform)(nil)
 
 func (g *transform) Flow(sCtx signal.Context, opts ...confluence.Option) {
-	opts = append(opts, confluence.DeferErr(g.calculators.Close))
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(g.Out)
 	writeTo := g.calculators.WriteTo()

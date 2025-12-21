@@ -140,7 +140,7 @@ var _ = Describe("Scope", func() {
 			rootScope := symbol.CreateRootScope(nil)
 			rule := antlr.NewBaseParserRuleContext(nil, 0)
 			MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32(), AST: rule}))
-			rootScope.OnResolve = func(_ context.Context, s *symbol.Scope) error {
+			rootScope.OnResolve = func(context.Context, *symbol.Scope) error {
 				return errors.New("resolve failed")
 			}
 			_, err := rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I64()})
@@ -334,7 +334,7 @@ var _ = Describe("Scope", func() {
 		It("Should propagate OnResolve callback error", func() {
 			rootScope := symbol.CreateRootScope(nil)
 			MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
-			rootScope.OnResolve = func(_ context.Context, s *symbol.Scope) error {
+			rootScope.OnResolve = func(context.Context, *symbol.Scope) error {
 				return errors.New("callback error")
 			}
 			_, err := rootScope.Resolve(bCtx, "x")

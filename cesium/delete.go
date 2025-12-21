@@ -304,7 +304,7 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine uint) error {
 }
 
 func (db *DB) startGC(sCtx signal.Context, opts *options) {
-	signal.GoTick(sCtx, opts.gcCfg.TryInterval, func(ctx context.Context, time time.Time) error {
+	signal.GoTick(sCtx, opts.gcCfg.TryInterval, func(ctx context.Context, _ time.Time) error {
 		err := db.garbageCollect(ctx, opts.gcCfg.MaxGoroutine)
 		if err != nil {
 			db.L.Error("garbage collection error", zap.Error(err))

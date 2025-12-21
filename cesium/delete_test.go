@@ -107,7 +107,7 @@ var _ = Describe("Delete", func() {
 							By("Creating a channel")
 							Expect(db.CreateChannel(ctx, vChannel)).To(Succeed())
 							By("Opening a streamer on the channel")
-							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{Channels: []cesium.ChannelKey{vChannelKey}}))
+							s := MustSucceed(db.NewStreamer(cesium.StreamerConfig{Channels: []cesium.ChannelKey{vChannelKey}}))
 							sCtx, cancel := signal.WithCancel(ctx)
 
 							By("Start streaming")
@@ -127,7 +127,7 @@ var _ = Describe("Delete", func() {
 							By("Creating a channel")
 							Expect(db.CreateChannel(ctx, uChannel)).To(Succeed())
 							By("Opening a streamer on the channel")
-							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{Channels: []cesium.ChannelKey{uChannelKey}}))
+							s := MustSucceed(db.NewStreamer(cesium.StreamerConfig{Channels: []cesium.ChannelKey{uChannelKey}}))
 							sCtx, cancel := signal.WithCancel(ctx)
 
 							By("Start streaming")

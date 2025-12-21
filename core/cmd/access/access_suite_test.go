@@ -43,7 +43,7 @@ func TestAccess(t *testing.T) {
 var _ = BeforeSuite(func() {
 	db = gorp.Wrap(memkv.New())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-	g = MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
+	g = MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
 	dist = &distribution.Layer{
 		DB:       db,
 		Ontology: otg,

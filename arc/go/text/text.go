@@ -353,23 +353,22 @@ func analyzeFlow(
 					ctx.AST,
 				)
 				return nil, nil, false
-			} else {
-				// Output routing table: func -> { output1: target1, output2: target2 }
-				newNodes, newEdges, ok := analyzeOutputRoutingTable(
-					acontext.Child(ctx, c),
-					*prevNode,
-					prevOutputHandle,
-					kg,
-				)
-				if !ok {
-					return nil, nil, false
-				}
-				nodes = append(nodes, newNodes...)
-				edges = append(edges, newEdges...)
-				// After output routing, we may have multiple branches
-				// The prevNode becomes nil since we can't chain directly after routing
-				prevNode = nil
 			}
+			// Output routing table: func -> { output1: target1, output2: target2 }
+			newNodes, newEdges, ok := analyzeOutputRoutingTable(
+				acontext.Child(ctx, c),
+				*prevNode,
+				prevOutputHandle,
+				kg,
+			)
+			if !ok {
+				return nil, nil, false
+			}
+			nodes = append(nodes, newNodes...)
+			edges = append(edges, newEdges...)
+			// After output routing, we may have multiple branches
+			// The prevNode becomes nil since we can't chain directly after routing
+			prevNode = nil
 		}
 	}
 

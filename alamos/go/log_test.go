@@ -43,7 +43,7 @@ var _ = Describe("Log", func() {
 			logger, err = alamos.NewLogger(alamos.LoggerConfig{ZapConfig: config})
 			Expect(err).ToNot(HaveOccurred())
 			buffer = &bytes.Buffer{}
-			zapLogger := logger.Zap().WithOptions(zap.WrapCore(func(core zapcore.Core) zapcore.Core {
+			zapLogger := logger.Zap().WithOptions(zap.WrapCore(func(zapcore.Core) zapcore.Core {
 				return zapcore.NewCore(
 					zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig()),
 					zapcore.AddSync(buffer),

@@ -32,7 +32,7 @@ func (r Retriever) WhereKeys(keys ...uuid.UUID) Retriever {
 }
 
 func (r Retriever) WhereNames(names ...string) Retriever {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, e *Policy) (bool, error) {
+	r.gorp = r.gorp.Where(func(_ gorp.Context, e *Policy) (bool, error) {
 		return lo.Contains(names, e.Name), nil
 	})
 	return r

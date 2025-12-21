@@ -42,14 +42,14 @@ var (
 	_ fgrpc.Translator[api.AuthLoginResponse, *gapi.LoginResponse] = (*loginResponseTranslator)(nil)
 )
 
-func (l loginRequestTranslator) Forward(
+func (loginRequestTranslator) Forward(
 	_ context.Context,
 	req api.AuthLoginRequest,
 ) (*gapi.LoginRequest, error) {
 	return &gapi.LoginRequest{Username: req.Username, Password: string(req.Password)}, nil
 }
 
-func (l loginRequestTranslator) Backward(
+func (loginRequestTranslator) Backward(
 	_ context.Context,
 	req *gapi.LoginRequest,
 ) (api.AuthLoginRequest, error) {
@@ -57,7 +57,7 @@ func (l loginRequestTranslator) Backward(
 	return api.AuthLoginRequest{InsecureCredentials: creds}, nil
 }
 
-func (l loginResponseTranslator) Forward(
+func (loginResponseTranslator) Forward(
 	_ context.Context,
 	r api.AuthLoginResponse,
 ) (*gapi.LoginResponse, error) {
@@ -76,7 +76,7 @@ func (l loginResponseTranslator) Forward(
 	}, nil
 }
 
-func (l loginResponseTranslator) Backward(
+func (loginResponseTranslator) Backward(
 	_ context.Context,
 	r *gapi.LoginResponse,
 ) (api.AuthLoginResponse, error) {

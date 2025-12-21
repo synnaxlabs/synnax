@@ -344,12 +344,12 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) bool 
 
 	if len(nodesBefore) == 0 && len(nodesAfter) > 0 {
 		return analyzeInputRoutingTable(ctx, nodesAfter)
-	} else if len(nodesBefore) > 0 {
-		return analyzeOutputRoutingTable(ctx, nodesBefore, nodesAfter)
-	} else {
-		ctx.Diagnostics.AddError(errors.New("routing table must have associated flow nodes"), ctx.AST)
-		return false
 	}
+	if len(nodesBefore) > 0 {
+		return analyzeOutputRoutingTable(ctx, nodesBefore, nodesAfter)
+	}
+	ctx.Diagnostics.AddError(errors.New("routing table must have associated flow nodes"), ctx.AST)
+	return false
 }
 
 func analyzeOutputRoutingTable(
@@ -357,20 +357,20 @@ func analyzeOutputRoutingTable(
 	nodesBefore []parser.IFlowNodeContext,
 	nodesAfter []parser.IFlowNodeContext,
 ) bool {
-	var PrevFunc parser.IFunctionContext
+	var prevFunc parser.IFunctionContext
 	for i := len(nodesBefore) - 1; i >= 0; i-- {
 		if fn := nodesBefore[i].Function(); fn != nil {
-			PrevFunc = fn
+			prevFunc = fn
 			break
 		}
 	}
 
-	if PrevFunc == nil {
+	if prevFunc == nil {
 		ctx.Diagnostics.AddError(errors.New("output routing table must follow a func invocation"), ctx.AST)
 		return false
 	}
 
-	fnName := PrevFunc.IDENTIFIER().GetText()
+	fnName := prevFunc.IDENTIFIER().GetText()
 	fnType, ok := resolveFunc(ctx, fnName)
 	if !ok {
 		return false

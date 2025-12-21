@@ -75,7 +75,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Keys:  writerKeys,
 			},
 		))
-		filtered := lo.Filter(*calculations, func(item channel.Channel, index int) bool {
+		filtered := lo.Filter(*calculations, func(item channel.Channel, _ int) bool {
 			return !item.IsIndex
 		})
 		streamer := MustSucceed(

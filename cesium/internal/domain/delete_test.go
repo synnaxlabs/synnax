@@ -23,7 +23,7 @@ import (
 
 func fixedOffset(offset telem.Size) domain.OffsetResolver {
 	return func(
-		ctx context.Context,
+		_ context.Context,
 		_ telem.TimeStamp,
 		ts telem.TimeStamp,
 	) (telem.Size, telem.TimeStamp, error) {

@@ -67,16 +67,12 @@ func emitZeroValue[ASTNode antlr.ParserRuleContext](
 	t types.Type,
 ) {
 	switch t.Kind {
-	case types.KindI8, types.KindI16, types.KindI32, types.KindU8, types.KindU16, types.KindU32:
-		ctx.Writer.WriteI32Const(0)
 	case types.KindI64, types.KindU64, types.KindTimeStamp, types.KindTimeSpan:
 		ctx.Writer.WriteI64Const(0)
 	case types.KindF32:
 		ctx.Writer.WriteF32Const(0.0)
 	case types.KindF64:
 		ctx.Writer.WriteF64Const(0.0)
-	case types.KindString:
-		ctx.Writer.WriteI32Const(0) // null string handle
 	default:
 		ctx.Writer.WriteI32Const(0)
 	}

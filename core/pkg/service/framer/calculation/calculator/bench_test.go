@@ -80,7 +80,7 @@ func (e *benchEnv) close(b *testing.B) {
 	}
 }
 
-func (e *benchEnv) openCalculator(
+func (e *benchEnv) newCalculator(
 	b *testing.B,
 	bases []channel.Channel,
 	calc *channel.Channel,
@@ -107,7 +107,7 @@ func (e *benchEnv) openCalculator(
 	if err != nil {
 		b.Fatalf("failed to compile calculator: %v", err)
 	}
-	c, err := calculator.Open(e.ctx, calculator.Config{Module: mod})
+	c, err := calculator.New(e.ctx, calculator.Config{Module: mod})
 	if err != nil {
 		b.Fatalf("failed to open calculator: %v", err)
 	}
@@ -126,12 +126,7 @@ func BenchmarkCalculator_SingleInput(b *testing.B) {
 		Expression: "return input",
 	}
 
-	c := env.openCalculator(b, base, &calc)
-	defer func() {
-		if err := c.Close(); err != nil {
-			b.Errorf("failed to close calculator: %v", err)
-		}
-	}()
+	c := env.newCalculator(b, base, &calc)
 
 	inputFrame := core.UnaryFrame(base[0].Key(), telem.NewSeriesV[int64](10, 20, 30))
 	outputFrame := core.Frame{}
@@ -160,12 +155,7 @@ func BenchmarkCalculator_TwoInputs_Add(b *testing.B) {
 		Expression: "return a + b",
 	}
 
-	c := env.openCalculator(b, bases, &calc)
-	defer func() {
-		if err := c.Close(); err != nil {
-			b.Errorf("failed to close calculator: %v", err)
-		}
-	}()
+	c := env.newCalculator(b, bases, &calc)
 
 	inputFrame := core.MultiFrame(
 		[]channel.Key{bases[0].Key(), bases[1].Key()},
@@ -202,12 +192,7 @@ func BenchmarkCalculator_MultipleInputs(b *testing.B) {
 		Expression: "return w + x + y + z",
 	}
 
-	c := env.openCalculator(b, bases, &calc)
-	defer func() {
-		if err := c.Close(); err != nil {
-			b.Errorf("failed to close calculator: %v", err)
-		}
-	}()
+	c := env.newCalculator(b, bases, &calc)
 
 	inputFrame := core.MultiFrame(
 		[]channel.Key{bases[0].Key(), bases[1].Key(), bases[2].Key(), bases[3].Key()},
@@ -240,7 +225,7 @@ func BenchmarkCalculator_NestedTwoLevel(b *testing.B) {
 		Virtual:    true,
 		Expression: "return base + 1",
 	}
-	c1 := env.openCalculator(b, base, &calc1)
+	c1 := env.newCalculator(b, base, &calc1)
 
 	calc2 := channel.Channel{
 		Name:       "calc2",
@@ -248,14 +233,9 @@ func BenchmarkCalculator_NestedTwoLevel(b *testing.B) {
 		Virtual:    true,
 		Expression: "return calc1 * 2",
 	}
-	c2 := env.openCalculator(b, nil, &calc2)
+	c2 := env.newCalculator(b, nil, &calc2)
 
 	group := calculator.Group{c1, c2}
-	defer func() {
-		if err := group.Close(); err != nil {
-			b.Errorf("failed to close calculator group: %v", err)
-		}
-	}()
 
 	inputFrame := core.UnaryFrame(base[0].Key(), telem.NewSeriesV[int64](10, 20, 30))
 
@@ -285,12 +265,7 @@ func BenchmarkCalculator_SampleCount(b *testing.B) {
 				Expression: "return a * b",
 			}
 
-			c := env.openCalculator(b, bases, &calc)
-			defer func() {
-				if err := c.Close(); err != nil {
-					b.Errorf("failed to close calculator: %v", err)
-				}
-			}()
+			c := env.newCalculator(b, bases, &calc)
 
 			aData := make([]float64, count)
 			bData := make([]float64, count)
@@ -331,12 +306,7 @@ func BenchmarkCalculator_ComplexExpression(b *testing.B) {
 		Expression: "if a > b { return a * 2 } else { return b * 3 }",
 	}
 
-	c := env.openCalculator(b, bases, &calc)
-	defer func() {
-		if err := c.Close(); err != nil {
-			b.Errorf("failed to close calculator: %v", err)
-		}
-	}()
+	c := env.newCalculator(b, bases, &calc)
 
 	inputFrame := core.MultiFrame(
 		[]channel.Key{bases[0].Key(), bases[1].Key()},
@@ -377,15 +347,10 @@ func BenchmarkCalculator_GroupScaling(b *testing.B) {
 				if i == 0 {
 					bases = base
 				}
-				c := env.openCalculator(b, bases, &calcCh)
+				c := env.newCalculator(b, bases, &calcCh)
 				group = append(group, c)
 				prevName = calcCh.Name
 			}
-			defer func() {
-				if err := group.Close(); err != nil {
-					b.Errorf("failed to close calculator group: %v", err)
-				}
-			}()
 
 			inputFrame := core.UnaryFrame(base[0].Key(), telem.NewSeriesV[int64](10, 20, 30))
 

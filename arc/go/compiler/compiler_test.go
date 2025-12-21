@@ -316,7 +316,7 @@ var _ = Describe("Compiler", func() {
 			channelData := map[uint32]int32{0: 42}
 
 			// Define channel read implementation
-			mockRuntime.ChannelReadI32 = func(ctx context.Context, channelID uint32) int32 {
+			mockRuntime.ChannelReadI32 = func(_ context.Context, channelID uint32) int32 {
 				if val, ok := channelData[channelID]; ok {
 					return val
 				}

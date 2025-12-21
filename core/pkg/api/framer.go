@@ -71,9 +71,9 @@ func NewFrameService(p Provider) *FrameService {
 }
 
 type FrameDeleteRequest struct {
-	Keys   channel.Keys    `json:"keys" msgpack:"keys" validate:"required"`
-	Names  []string        `json:"names" msgpack:"names" validate:"names"`
-	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds" validate:"bounds"`
+	Keys   channel.Keys    `json:"keys" msgpack:"keys"`
+	Names  []string        `json:"names" msgpack:"names"`
+	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds"`
 }
 
 func (s *FrameService) FrameDelete(
@@ -507,7 +507,7 @@ func (c *WSFramerCodec) lowPerfEncode(
 	return err
 }
 
-func (c *WSFramerCodec) decodeIsLowPerf(r io.Reader) (bool, error) {
+func isLowPerf(r io.Reader) (bool, error) {
 	var sc uint8
 	if err := binary.Read(r, binary.LittleEndian, &sc); err != nil {
 		return false, err
@@ -520,7 +520,7 @@ func (c *WSFramerCodec) decodeWriteResponse(
 	r io.Reader,
 	v *fhttp.WSMessage[FrameWriterResponse],
 ) error {
-	isLowPerf, err := c.decodeIsLowPerf(r)
+	isLowPerf, err := isLowPerf(r)
 	if err != nil {
 		return err
 	}
@@ -539,7 +539,7 @@ func (c *WSFramerCodec) decodeWriteRequest(
 	r io.Reader,
 	v *fhttp.WSMessage[FrameWriterRequest],
 ) error {
-	isLowPerf, err := c.decodeIsLowPerf(r)
+	isLowPerf, err := isLowPerf(r)
 	if err != nil {
 		return err
 	}
@@ -584,7 +584,7 @@ func (c *WSFramerCodec) decodeStreamResponse(
 	r io.Reader,
 	v *fhttp.WSMessage[FrameStreamerResponse],
 ) error {
-	isLowPerf, err := c.decodeIsLowPerf(r)
+	isLowPerf, err := isLowPerf(r)
 	if err != nil {
 		return err
 	}
@@ -628,9 +628,7 @@ func (c *WSFramerCodec) decodeStreamRequest(
 	return c.Update(ctx, v.Payload.Keys)
 }
 
-func (c *WSFramerCodec) ContentType() string {
-	return framerContentType
-}
+func (*WSFramerCodec) ContentType() string { return framerContentType }
 
 const framerContentType = "application/sy-framer"
 

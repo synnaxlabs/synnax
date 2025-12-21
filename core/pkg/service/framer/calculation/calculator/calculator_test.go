@@ -61,7 +61,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		Expect(dist.Close()).To(Succeed())
 	})
 
-	open := func(
+	new := func(
 		indexes, bases *[]channel.Channel,
 		calc *channel.Channel,
 	) *calculator.Calculator {
@@ -69,7 +69,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(dist.Channel.CreateMany(ctx, indexes)).To(Succeed())
 		}
 		if bases != nil {
-
 			for i, channel := range *bases {
 				if channel.Virtual {
 					continue
@@ -89,7 +88,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Channel:        *calc,
 			SymbolResolver: arcSvc.SymbolResolver(),
 		}))
-		return MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
+		return MustSucceed(calculator.New(ctx, calculator.Config{Module: mod}))
 	}
 
 	Describe("Alignment", func() {
@@ -105,7 +104,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * 2", base[0].Name),
 			}
-			c := open(nil, &base, &calc)
+			c := new(nil, &base, &calc)
 			d := telem.NewSeriesV[int64](10, 20, 30)
 			d.Alignment = telem.NewAlignment(100, 50)
 			fr := core.UnaryFrame(base[0].Key(), d)
@@ -114,7 +113,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			od := of.Get(calc.Key()).Series[0]
 			Expect(od).To(telem.MatchSeriesDataV[int64](20, 40, 60))
 			Expect(od.Alignment).To(Equal(telem.NewAlignment(100, 50)))
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Multiple alignments accumulation", func() {
@@ -136,7 +134,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
 			}
-			c := open(nil, &bases, &calc)
+			c := new(nil, &bases, &calc)
 			d1 := telem.NewSeriesV[int64](1, 2)
 			d1.Alignment = telem.NewAlignment(10, 5)
 			d2 := telem.NewSeriesV[int64](3, 4)
@@ -150,7 +148,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			od := of.Get(calc.Key()).Series[0]
 			Expect(od).To(telem.MatchSeriesDataV[int64](4, 6))
 			Expect(od.Alignment).To(Equal(telem.NewAlignment(30, 8)))
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Alignment persistence across calls", func() {
@@ -165,7 +162,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + 5", base[0].Name),
 			}
-			c := open(nil, &base, &calc)
+			c := new(nil, &base, &calc)
 			d1 := telem.NewSeriesV[int64](1)
 			d1.Alignment = telem.NewAlignment(15, 2)
 			fr1 := core.UnaryFrame(base[0].Key(), d1)
@@ -182,7 +179,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			od = of.Get(calc.Key()).Series[0]
 			Expect(od).To(telem.MatchSeriesDataV[int64](7))
 			Expect(od.Alignment).To(Equal(telem.NewAlignment(25, 7)))
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Mixed alignment sources", func() {
@@ -209,7 +205,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + %s + %s", bases[0].Name, bases[1].Name, bases[2].Name),
 			}
-			c := open(nil, &bases, &calc)
+			c := new(nil, &bases, &calc)
 			d1 := telem.NewSeriesV[int64](1)
 			d1.Alignment = telem.NewAlignment(10, 3)
 			d2 := telem.NewSeriesV[int64](2)
@@ -224,7 +220,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			od := of.Get(calc.Key()).Series[0]
 			Expect(od).To(telem.MatchSeriesDataV[int64](6))
 			Expect(od.Alignment).To(Equal(telem.NewAlignment(15, 4)))
-			Expect(c.Close()).To(Succeed())
 		})
 	})
 
@@ -248,7 +243,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s - %s", bases[0].Name, bases[1].Name),
 			}
-			c := open(nil, &bases, &calc)
+			c := new(nil, &bases, &calc)
 			fr := core.MultiFrame(
 				[]channel.Key{bases[0].Key(), bases[1].Key()},
 				[]telem.Series{
@@ -259,7 +254,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](10.0, 19.0, 28.0))
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Three virtual channels", func() {
@@ -286,7 +280,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * %s + %s", bases[0].Name, bases[1].Name, bases[2].Name),
 			}
-			c := open(nil, &bases, &calc)
+			c := new(nil, &bases, &calc)
 			fr := core.MultiFrame(
 				[]channel.Key{bases[0].Key(), bases[1].Key(), bases[2].Key()},
 				[]telem.Series{
@@ -298,7 +292,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int32](9, 17))
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Single persisted channel", func() {
@@ -317,7 +310,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s / 2", bases[0].Name),
 			}
-			c := open(&indexes, &bases, &calc)
+			c := new(&indexes, &bases, &calc)
 			idxData := telem.NewSeriesSecondsTSV(1, 2, 3)
 			idxData.Alignment = telem.NewAlignment(10, 5)
 			valData := telem.NewSeriesV(100.0, 200.0, 300.0)
@@ -333,7 +326,6 @@ var _ = Describe("Calculator", Ordered, func() {
 				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
 			))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(10, 5)))
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Two persisted channels shared index", func() {
@@ -358,7 +350,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
 			}
-			c := open(&indexes, &bases, &calc)
+			c := new(&indexes, &bases, &calc)
 			idxData := telem.NewSeriesSecondsTSV(10, 20, 30)
 			idxData.Alignment = telem.NewAlignment(5, 2)
 			tempData := telem.NewSeriesV[int64](15, 25, 35)
@@ -377,7 +369,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			))
 			// Alignment is summed: (5,2) + (5,2) = (10,4)
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(10, 4)))
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Two persisted channels unique indexes", func() {
@@ -409,7 +400,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 			}
-			c := open(&indexes, &bases, &calc)
+			c := new(&indexes, &bases, &calc)
 			idx1Data := telem.NewSeriesSecondsTSV(1, 2)
 			idx1Data.Alignment = telem.NewAlignment(3, 1)
 			voltageData := telem.NewSeriesV[float32](2.0, 4.0)
@@ -426,7 +417,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](6.0, 20.0))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(10, 4)))
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Mixed virtual and persisted", func() {
@@ -452,7 +442,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s - %s", bases[0].Name, bases[1].Name),
 			}
-			c := open(&indexes, &bases, &calc)
+			c := new(&indexes, &bases, &calc)
 			idxData := telem.NewSeriesSecondsTSV(5, 10)
 			idxData.Alignment = telem.NewAlignment(8, 4)
 			persistedData := telem.NewSeriesV[int64](100, 200)
@@ -467,7 +457,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](70, 150))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(20, 6)))
-			Expect(c.Close()).To(Succeed())
 		})
 	})
 
@@ -491,7 +480,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s / %s", bases[0].Name, bases[1].Name),
 			}
-			c := open(nil, &bases, &calc)
+			c := new(nil, &bases, &calc)
 			fr := core.MultiFrame(
 				[]channel.Key{bases[0].Key(), bases[1].Key()},
 				[]telem.Series{
@@ -502,7 +491,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](5.0, 5.0, 6.0))
-			Expect(c.Close()).To(Succeed())
 		})
 	})
 
@@ -523,7 +511,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * 3", bases[0].Name),
 			}
-			c := open(&indexes, &bases, &calc)
+			c := new(&indexes, &bases, &calc)
 			dataOnly := telem.NewSeriesV[int64](10, 20, 30)
 			dataOnly.Alignment = telem.NewAlignment(5, 2)
 			fr1 := core.UnaryFrame(bases[0].Key(), dataOnly)
@@ -539,7 +527,6 @@ var _ = Describe("Calculator", Ordered, func() {
 				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
 			))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(5, 2)))
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Data after index", func() {
@@ -558,7 +545,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * 2", bases[0].Name),
 			}
-			c := open(&indexes, &bases, &calc)
+			c := new(&indexes, &bases, &calc)
 			idxData := telem.NewSeriesSecondsTSV(1, 2, 3)
 			idxData.Alignment = telem.NewAlignment(3, 1)
 			fr1 := core.UnaryFrame(indexes[0].Key(), idxData)
@@ -574,7 +561,6 @@ var _ = Describe("Calculator", Ordered, func() {
 				1*telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
 			))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(3, 1)))
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Interleaved", func() {
@@ -593,7 +579,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + 10", bases[0].Name),
 			}
-			c := open(&indexes, &bases, &calc)
+			c := new(&indexes, &bases, &calc)
 
 			// First write: Data Series 1. Should not Calculate
 			data1 := telem.NewSeriesV[int64](5, 15)
@@ -631,8 +617,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](35))
 			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(3 * telem.SecondTS))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(3, 2)))
-
-			Expect(c.Close()).To(Succeed())
 		})
 
 		Specify("Sequential channel arrivals", func() {
@@ -657,7 +641,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s + %s", bases[0].Name, bases[1].Name),
 			}
-			c := open(&indexes, &bases, &calc)
+			c := new(&indexes, &bases, &calc)
 			idx := telem.NewSeriesSecondsTSV(1, 2, 3)
 			idx.Alignment = telem.NewAlignment(5, 1)
 			fr1 := core.UnaryFrame(indexes[0].Key(), idx)
@@ -681,7 +665,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			))
 			// Alignment is summed: (5,1) + (5,1) = (10,2)
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(10, 2)))
-			Expect(c.Close()).To(Succeed())
 		})
 	})
 
@@ -707,7 +690,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				},
 			},
 		}
-		c := open(&idx, &base, &calc)
+		c := new(&idx, &base, &calc)
 		d := telem.NewSeriesV[int64](10, 20, 30)
 		i := telem.NewSeriesSecondsTSV(1, 2, 3)
 		d.Alignment = telem.NewAlignment(1, 0)
@@ -754,8 +737,8 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * 2", b2[0].Name),
 			}
-			calc1 := open(&idx, &b1, &c1)
-			calc2 := open(nil, &b2, &c2)
+			calc1 := new(&idx, &b1, &c1)
+			calc2 := new(nil, &b2, &c2)
 			g := calculator.Group{calc1, calc2}
 			keys := g.ReadFrom()
 			Expect(keys).To(HaveLen(3))
@@ -778,8 +761,8 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * 2", b2[0].Name),
 			}
-			calc1 := open(&idx, &b1, &c1)
-			calc2 := open(nil, &b2, &c2)
+			calc1 := new(&idx, &b1, &c1)
+			calc2 := new(nil, &b2, &c2)
 			g := calculator.Group{calc1, calc2}
 			d1 := telem.NewSeriesV[int64](10, 20)
 			d2 := telem.NewSeriesV[int64](5, 10)
@@ -793,28 +776,6 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(output.Get(c2.Key()).Series).ToNot(BeEmpty())
 			Expect(output.Get(c1.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](11, 21))
 			Expect(output.Get(c2.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](10, 20))
-		})
-
-		It("Should close all calculators", func() {
-			idx := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true}}
-			b1 := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T}}
-			b2 := []channel.Channel{{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}}
-			c1 := channel.Channel{
-				Name:       channel.NewRandomName(),
-				DataType:   telem.Int64T,
-				Virtual:    true,
-				Expression: "return " + b1[0].Name,
-			}
-			c2 := channel.Channel{
-				Name:       channel.NewRandomName(),
-				DataType:   telem.Int64T,
-				Virtual:    true,
-				Expression: "return " + b2[0].Name,
-			}
-			calc1 := open(&idx, &b1, &c1)
-			calc2 := open(&idx, &b2, &c2)
-			g := calculator.Group{calc1, calc2}
-			Expect(g.Close()).To(Succeed())
 		})
 
 		It("Should execute nested calculators", func() {
@@ -835,8 +796,8 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return %s * 2", c1.Name),
 			}
-			calc1 := open(nil, &b1, &c1)
-			calc2 := open(nil, nil, &c2)
+			calc1 := new(nil, &b1, &c1)
+			calc2 := new(nil, nil, &c2)
 			g := calculator.Group{calc1, calc2}
 			for i := range 10 {
 				d1 := telem.NewSeriesV[int64](10, 20)

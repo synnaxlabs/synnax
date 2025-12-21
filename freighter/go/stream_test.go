@@ -65,7 +65,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				It("Should exchange messages between a client and a server", func() {
 					closed := make(chan struct{})
 
-					server.BindHandler(func(ctx context.Context, server serverStream) error {
+					server.BindHandler(func(_ context.Context, server serverStream) error {
 						defer GinkgoRecover()
 						defer close(closed)
 						for {
@@ -108,7 +108,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 
 				It("Should allow the server to continue sending messages after CloseSend is called", func() {
 					serverClosed := make(chan struct{})
-					server.BindHandler(func(ctx context.Context, server serverStream) error {
+					server.BindHandler(func(_ context.Context, server serverStream) error {
 						defer GinkgoRecover()
 						defer close(serverClosed)
 						_, err := server.Receive()
@@ -129,7 +129,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 
 				It("Should exchange messages in excess of the write deadline", func() {
 					serverClosed := make(chan struct{})
-					server.BindHandler(func(ctx context.Context, server serverStream) error {
+					server.BindHandler(func(_ context.Context, server serverStream) error {
 						defer GinkgoRecover()
 						defer close(serverClosed)
 						for {
@@ -164,37 +164,37 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				Describe("Stream returns a non-nil error", func() {
 					It("Should send the error to the client", func() {
 						serverClosed := make(chan struct{})
-						server.BindHandler(func(ctx context.Context, server serverStream) error {
+						server.BindHandler(func(_ context.Context, server serverStream) error {
 							defer GinkgoRecover()
 							defer close(serverClosed)
 							_, err := server.Receive()
 							Expect(err).ToNot(HaveOccurred())
-							return errors.New("zero is not allowed!")
+							return errors.New("zero is not allowed")
 						})
 						client, err := client.Stream(context.TODO(), addr)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(client.Send(request{ID: 0, Message: "Hello"})).To(Succeed())
 						_, err = client.Receive()
-						Expect(err).To(HaveOccurredAs(errors.New("zero is not allowed!")))
+						Expect(err).To(HaveOccurredAs(errors.New("zero is not allowed")))
 						Eventually(serverClosed).Should(BeClosed())
 					})
 
 					Specify("If the client calls Send, if should return an EOF error", func() {
 						serverClosed := make(chan struct{})
-						server.BindHandler(func(ctx context.Context, server serverStream) error {
+						server.BindHandler(func(_ context.Context, server serverStream) error {
 							defer GinkgoRecover()
 							defer close(serverClosed)
 							_, err := server.Receive()
 							if err != nil {
 								Fail(err.Error())
 							}
-							return errors.New("zero is not allowed!")
+							return errors.New("zero is not allowed")
 						})
 						client, err := client.Stream(context.TODO(), addr)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(client.Send(request{ID: 0, Message: "Hello"})).To(Succeed())
 						_, err = client.Receive()
-						Expect(err).To(HaveOccurredAs(errors.New("zero is not allowed!")))
+						Expect(err).To(HaveOccurredAs(errors.New("zero is not allowed")))
 						err = client.Send(request{ID: 0, Message: "Hello"})
 						Expect(err).To(HaveOccurredAs(freighter.EOF))
 						Eventually(serverClosed).Should(BeClosed())
@@ -204,7 +204,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				Describe("StreamClient cancels the context", func() {
 					It("Should propagate the context cancellation to both the server and the client", func() {
 						serverClosed := make(chan struct{})
-						server.BindHandler(func(ctx context.Context, server serverStream) error {
+						server.BindHandler(func(_ context.Context, server serverStream) error {
 							defer close(serverClosed)
 							defer GinkgoRecover()
 							_, err := server.Receive()
@@ -224,7 +224,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				Describe("StreamClient attempts to send a message after calling close send", func() {
 					It("Should return a StreamClosed error", func() {
 						serverClosed := make(chan struct{})
-						server.BindHandler(func(ctx context.Context, server serverStream) error {
+						server.BindHandler(func(_ context.Context, server serverStream) error {
 							defer close(serverClosed)
 							defer GinkgoRecover()
 							_, err := server.Receive()
@@ -250,7 +250,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				Describe("StreamClient attempts to send a message after the server closes", func() {
 					It("Should return a EOF error", func() {
 						serverClosed := make(chan struct{})
-						server.BindHandler(func(ctx context.Context, server serverStream) error {
+						server.BindHandler(func(_ context.Context, server serverStream) error {
 							defer close(serverClosed)
 							for i := range 10 {
 								req, err := server.Receive()
@@ -276,7 +276,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			Describe("Middleware", func() {
 				It("Should correctly execute a middleware in the chain", func() {
 					serverClosed := make(chan struct{})
-					server.BindHandler(func(ctx context.Context, server serverStream) error {
+					server.BindHandler(func(_ context.Context, server serverStream) error {
 						defer close(serverClosed)
 						defer GinkgoRecover()
 						_, err := server.Receive()
@@ -305,7 +305,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				})
 				It("Should correctly propagate an error that arises in a middleware", func() {
 					serverClosed := make(chan struct{})
-					server.BindHandler(func(ctx context.Context, server serverStream) error {
+					server.BindHandler(func(_ context.Context, server serverStream) error {
 						defer close(serverClosed)
 						defer GinkgoRecover()
 						_, err := server.Receive()
@@ -314,7 +314,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 					})
 					server.Use(freighter.MiddlewareFunc(func(
 						ctx freighter.Context,
-						next freighter.Next,
+						_ freighter.Next,
 					) (freighter.Context, error) {
 						return ctx, errors.New("middleware error")
 					}))
@@ -339,7 +339,7 @@ type httpStreamImplementation struct {
 	app *fiber.App
 }
 
-func (impl *httpStreamImplementation) name() string { return "HTTP" }
+func (*httpStreamImplementation) name() string { return "HTTP" }
 
 func (impl *httpStreamImplementation) start(
 	host address.Address,
@@ -369,19 +369,20 @@ func (impl *httpStreamImplementation) start(
 	return server, fhttp.StreamClient[request, response](client)
 }
 
-func (impl *httpStreamImplementation) stop() error {
-	return impl.app.Shutdown()
-}
+func (impl *httpStreamImplementation) stop() error { return impl.app.Shutdown() }
 
 type mockStreamImplementation struct{}
 
-func (impl *mockStreamImplementation) name() string { return "Mock" }
+func (*mockStreamImplementation) name() string { return "Mock" }
 
-func (impl *mockStreamImplementation) start(
-	host address.Address,
-	ins alamos.Instrumentation,
+func (*mockStreamImplementation) start(
+	address.Address,
+	alamos.Instrumentation,
 ) (streamServer, streamClient) {
-	return fmock.NewStreamPair[request, response]( /*request buffer */ 11 /* response buffer */, 11)
+	return fmock.NewStreamPair[request, response](
+		/* request buffer */ 11,
+		/* response buffer */ 11,
+	)
 }
 
-func (impl *mockStreamImplementation) stop() error { return nil }
+func (*mockStreamImplementation) stop() error { return nil }

@@ -168,18 +168,16 @@ var _ binary.Codec = (*brokenCodec)(nil)
 
 var errEncoding = errors.New("broken codec")
 
-func (b *brokenCodec) Encode(context.Context, any) ([]byte, error) {
+func (*brokenCodec) Encode(context.Context, any) ([]byte, error) {
 	return nil, errEncoding
 }
 
-func (b *brokenCodec) EncodeStream(context.Context, io.Writer, any) error {
+func (*brokenCodec) EncodeStream(context.Context, io.Writer, any) error {
 	return errEncoding
 }
 
-func (b *brokenCodec) Decode(context.Context, []byte, any) error {
-	return errEncoding
-}
+func (*brokenCodec) Decode(context.Context, []byte, any) error { return errEncoding }
 
-func (b *brokenCodec) DecodeStream(context.Context, io.Reader, any) error {
+func (*brokenCodec) DecodeStream(context.Context, io.Reader, any) error {
 	return errEncoding
 }

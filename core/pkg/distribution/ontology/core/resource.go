@@ -146,7 +146,7 @@ var _ gorp.Entry[ID] = Resource{}
 func (r Resource) GorpKey() ID { return r.ID }
 
 // SetOptions implements gorp.Entry.
-func (r Resource) SetOptions() []any { return nil }
+func (Resource) SetOptions() []any { return nil }
 
 // NewResource creates a new entity with the given schema and name and an empty set of
 // field data. NewResource panics if the provided data value does not fit the ontology

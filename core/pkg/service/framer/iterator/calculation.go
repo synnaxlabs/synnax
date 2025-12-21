@@ -41,14 +41,6 @@ func newCalculationTransform(
 	}
 }
 
-func (t *calculationTransform) close() error {
-	c := errors.NewCatcher(errors.WithAggregation())
-	for _, calc := range t.calculators {
-		c.Exec(calc.Close)
-	}
-	return c.Error()
-}
-
 func (t *calculationTransform) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(t.Out)

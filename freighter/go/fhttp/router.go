@@ -38,7 +38,7 @@ type RouterConfig struct {
 var _ config.Config[RouterConfig] = RouterConfig{}
 
 // Validate implements config.Config.
-func (r RouterConfig) Validate() error { return nil }
+func (RouterConfig) Validate() error { return nil }
 
 // Override implements config.Config.
 func (r RouterConfig) Override(other RouterConfig) RouterConfig {
@@ -95,9 +95,7 @@ func (r *Router) BindTo(app *fiber.App) {
 	}
 }
 
-func (r *Router) Report() alamos.Report {
-	return alamos.Report{}
-}
+func (*Router) Report() alamos.Report { return alamos.Report{} }
 
 func (r *Router) Use(middleware ...freighter.Middleware) {
 	for _, route := range r.routes {

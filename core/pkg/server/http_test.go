@@ -21,9 +21,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-type integerServer struct{}
-
-func (b integerServer) BindTo(router *fhttp.Router) {
+func BindTo(router *fhttp.Router) {
 	g := fhttp.UnaryServer[int, int](router, "/basic")
 	g.BindHandler(func(_ context.Context, req int) (int, error) {
 		req++
@@ -34,7 +32,7 @@ func (b integerServer) BindTo(router *fhttp.Router) {
 var _ = Describe("HTTP", func() {
 	It("Should serve http requests", func() {
 		r := fhttp.NewRouter()
-		integerServer{}.BindTo(r)
+		BindTo(r)
 		b := MustSucceed(server.Serve(server.Config{
 			ListenAddress: "localhost:26260",
 			Security: server.SecurityConfig{

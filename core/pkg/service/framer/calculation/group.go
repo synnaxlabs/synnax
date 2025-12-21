@@ -119,7 +119,7 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 		c,
 	)
 	o := confluence.NewObservableSubscriber[framer.WriterResponse]()
-	o.OnChange(func(ctx context.Context, res framer.WriterResponse) {
+	o.OnChange(func(_ context.Context, res framer.WriterResponse) {
 		cfg.L.DPanic("write of calculated channel value failed", zap.Error(res.Err))
 	})
 	plumber.SetSink[framer.WriterResponse](p, writerObserverAddr, o)

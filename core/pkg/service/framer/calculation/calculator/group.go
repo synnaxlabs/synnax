@@ -16,7 +16,6 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/status"
 )
@@ -68,12 +67,4 @@ func (g Group) Next(
 		}
 	}
 	return output, changed, statuses
-}
-
-func (g Group) Close() error {
-	c := errors.NewCatcher(errors.WithAggregation())
-	for _, calc := range g {
-		c.Exec(calc.Close)
-	}
-	return c.Error()
 }

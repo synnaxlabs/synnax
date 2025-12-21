@@ -66,7 +66,7 @@ var _ = Describe("Streamer Behavior", func() {
 						Channels: []cesium.ChannelKey{basic1},
 						Start:    10 * telem.SecondTS,
 					}))
-					r := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+					r := MustSucceed(db.NewStreamer(cesium.StreamerConfig{
 						Channels: []cesium.ChannelKey{basic1},
 					}))
 					i, o := confluence.Attach(r, 1)
@@ -103,7 +103,7 @@ var _ = Describe("Streamer Behavior", func() {
 						Start:    10 * telem.SecondTS,
 						Mode:     cesium.WriterPersistOnly,
 					}))
-					r := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+					r := MustSucceed(db.NewStreamer(cesium.StreamerConfig{
 						Channels: []cesium.ChannelKey{basic2},
 					}))
 					i, o := confluence.Attach(r, 1)
@@ -136,7 +136,7 @@ var _ = Describe("Streamer Behavior", func() {
 						Channels: []cesium.ChannelKey{basic2},
 						Start:    10 * telem.SecondTS,
 					}))
-					r := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+					r := MustSucceed(db.NewStreamer(cesium.StreamerConfig{
 						Channels: []cesium.ChannelKey{basic2},
 					}))
 					i, o := confluence.Attach(r, 1)
@@ -167,7 +167,7 @@ var _ = Describe("Streamer Behavior", func() {
 						ctx,
 						cesium.Channel{Key: basic3, Name: "Schrodinger", DataType: telem.TimeStampT, IsIndex: true},
 					)).To(Succeed())
-					streamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+					streamer := MustSucceed(db.NewStreamer(cesium.StreamerConfig{
 						Channels:    []cesium.ChannelKey{controlKey},
 						SendOpenAck: true,
 					}))
@@ -218,7 +218,9 @@ var _ = Describe("Streamer Behavior", func() {
 						IsIndex:  true,
 					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
-					_, err := subDB.NewStreamer(ctx, cesium.StreamerConfig{Channels: []cesium.ChannelKey{key}})
+					_, err := subDB.NewStreamer(cesium.StreamerConfig{
+						Channels: []cesium.ChannelKey{key}},
+					)
 					Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("cesium.db")))
 
 					Expect(fs.Remove("closed-fs")).To(Succeed())

@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	svcAccess "github.com/synnaxlabs/synnax/pkg/service/access"
+	svcaccess "github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
@@ -102,7 +102,7 @@ var _ = Describe("Access", Ordered, func() {
 						{Type: user.OntologyType},
 						{Type: "policy"},
 					},
-					Actions: []svcAccess.Action{"all"},
+					Actions: []svcaccess.Action{"all"},
 				}
 				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy]().
 					Entry(&adminPolicy).
@@ -121,7 +121,7 @@ var _ = Describe("Access", Ordered, func() {
 					Objects: []ontology.ID{
 						{Type: "schematic"},
 					},
-					Actions: []svcAccess.Action{"all"},
+					Actions: []svcaccess.Action{"all"},
 				}
 				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy]().
 					Entry(&schematicPolicy).
@@ -146,7 +146,7 @@ var _ = Describe("Access", Ordered, func() {
 					Key:      uuid.New(),
 					Subjects: []ontology.ID{user.OntologyID(u.Key)},
 					Objects:  []ontology.ID{{Type: "schematic"}},
-					Actions:  []svcAccess.Action{"all"},
+					Actions:  []svcaccess.Action{"all"},
 				}
 				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy]().
 					Entry(&schematicPolicy).
@@ -210,7 +210,7 @@ var _ = Describe("Access", Ordered, func() {
 					Key:      uuid.New(),
 					Subjects: []ontology.ID{user.OntologyID(u.Key)},
 					Objects:  []ontology.ID{{Type: "schematic"}},
-					Actions:  []svcAccess.Action{"all"},
+					Actions:  []svcaccess.Action{"all"},
 				}
 				Expect(gorp.NewCreate[uuid.UUID, access.LegacyPolicy]().
 					Entry(&legacyPolicy).

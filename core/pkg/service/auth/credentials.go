@@ -41,4 +41,4 @@ type SecureCredentials struct {
 func (s SecureCredentials) GorpKey() string { return s.Username }
 
 // SetOptions implements the gorp.Entry interface.
-func (s SecureCredentials) SetOptions() []any { return nil }
+func (SecureCredentials) SetOptions() []any { return nil }

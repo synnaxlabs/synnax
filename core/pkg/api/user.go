@@ -86,7 +86,6 @@ func (s *UserService) Create(ctx context.Context, req UserCreateRequest) (UserCr
 			if err := w.Create(ctx, &newUsers[i]); err != nil {
 				return err
 			}
-
 		}
 		res.Users = newUsers
 		return nil

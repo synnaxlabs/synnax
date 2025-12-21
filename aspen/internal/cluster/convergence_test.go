@@ -61,7 +61,7 @@ var _ = Describe("Convergence", func() {
 
 	Context("Serial PledgeServer", func() {
 		p := alamos.NewParametrize(alamos.IterVars(progressiveNewConvergence))
-		p.Template(func(i int, values newConvergenceVars) {
+		p.Template(func(_ int, values newConvergenceVars) {
 			It(fmt.Sprintf("Should converge a Cluster size of %v in %v "+
 				"at an interval of %v seconds and a peer address count of %v",
 				values.clusterSize, values.convergenceThreshold,

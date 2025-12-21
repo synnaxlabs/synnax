@@ -30,4 +30,4 @@ var _ gorp.Entry[uuid.UUID] = Symbol{}
 func (s Symbol) GorpKey() uuid.UUID { return s.Key }
 
 // SetOptions implements gorp.Entry.
-func (s Symbol) SetOptions() []any { return nil }
+func (Symbol) SetOptions() []any { return nil }

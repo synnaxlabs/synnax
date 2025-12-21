@@ -236,7 +236,7 @@ func (o *Ontology) InitializeSearchIndex(ctx context.Context) error {
 		if !*o.EnableSearch {
 			continue
 		}
-		disconnect := svc.OnChange(func(ctx context.Context, i iter.Seq[Change]) {
+		disconnect := svc.OnChange(func(_ context.Context, i iter.Seq[Change]) {
 			err := o.search.WithTx(func(tx search.Tx) error {
 				for ch := range i {
 					o.L.Debug(

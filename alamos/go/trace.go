@@ -145,7 +145,7 @@ func (t *Tracer) otelTracer() oteltrace.Tracer {
 //		// Will never return.
 //		<-ctx.Done()
 //	}
-func (t *Tracer) Transfer(source, target context.Context) context.Context {
+func (Tracer) Transfer(source, target context.Context) context.Context {
 	return oteltrace.ContextWithSpan(target, oteltrace.SpanFromContext(source))
 }
 
@@ -200,16 +200,16 @@ type nopSpan struct{}
 
 var nopSpanV Span = nopSpan{}
 
-func (s nopSpan) Key() string { return "" }
+func (nopSpan) Key() string { return "" }
 
 // Error implements Span.
-func (s nopSpan) Error(err error, _ ...error) error { return err }
+func (nopSpan) Error(err error, _ ...error) error { return err }
 
 // Status implements Span.
-func (s nopSpan) Status(_ Status) {}
+func (nopSpan) Status(Status) {}
 
 // End implements Span.
-func (s nopSpan) End() {}
+func (nopSpan) End() {}
 
 // EndWith implements Span.
-func (s nopSpan) EndWith(err error, _ ...error) error { return err }
+func (nopSpan) EndWith(err error, _ ...error) error { return err }

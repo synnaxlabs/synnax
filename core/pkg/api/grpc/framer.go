@@ -169,8 +169,8 @@ func (t frameWriterRequestTranslator) Backward(
 	return r, err
 }
 
-func (t frameWriterResponseTranslator) Forward(
-	ctx context.Context,
+func (frameWriterResponseTranslator) Forward(
+	_ context.Context,
 	msg api.FrameWriterResponse,
 ) (*gapi.FrameWriterResponse, error) {
 	return &gapi.FrameWriterResponse{
@@ -180,8 +180,8 @@ func (t frameWriterResponseTranslator) Forward(
 	}, nil
 }
 
-func (t frameWriterResponseTranslator) Backward(
-	ctx context.Context,
+func (frameWriterResponseTranslator) Backward(
+	_ context.Context,
 	msg *gapi.FrameWriterResponse,
 ) (api.FrameWriterResponse, error) {
 	return api.FrameWriterResponse{
@@ -191,8 +191,8 @@ func (t frameWriterResponseTranslator) Backward(
 	}, nil
 }
 
-func (t frameIteratorRequestTranslator) Forward(
-	ctx context.Context,
+func (frameIteratorRequestTranslator) Forward(
+	_ context.Context,
 	msg api.FrameIteratorRequest,
 ) (*gapi.FrameIteratorRequest, error) {
 	return &gapi.FrameIteratorRequest{
@@ -205,8 +205,8 @@ func (t frameIteratorRequestTranslator) Forward(
 	}, nil
 }
 
-func (t frameIteratorRequestTranslator) Backward(
-	ctx context.Context,
+func (frameIteratorRequestTranslator) Backward(
+	_ context.Context,
 	msg *gapi.FrameIteratorRequest,
 ) (api.FrameIteratorRequest, error) {
 	return api.FrameIteratorRequest{
@@ -219,7 +219,7 @@ func (t frameIteratorRequestTranslator) Backward(
 	}, nil
 }
 
-func (t frameIteratorResponseTranslator) Forward(
+func (frameIteratorResponseTranslator) Forward(
 	ctx context.Context,
 	msg api.FrameIteratorResponse,
 ) (*gapi.FrameIteratorResponse, error) {
@@ -234,7 +234,7 @@ func (t frameIteratorResponseTranslator) Forward(
 	}, nil
 }
 
-func (t frameIteratorResponseTranslator) Backward(
+func (frameIteratorResponseTranslator) Backward(
 	ctx context.Context,
 	msg *gapi.FrameIteratorResponse,
 ) (api.FrameIteratorResponse, error) {
@@ -249,8 +249,8 @@ func (t frameIteratorResponseTranslator) Backward(
 	}, nil
 }
 
-func (t frameStreamerRequestTranslator) Forward(
-	ctx context.Context,
+func (frameStreamerRequestTranslator) Forward(
+	_ context.Context,
 	msg api.FrameStreamerRequest,
 ) (*gapi.FrameStreamerRequest, error) {
 	return &gapi.FrameStreamerRequest{
@@ -288,14 +288,14 @@ func (t frameStreamerResponseTranslator) Forward(
 	return res, err
 }
 
-func (t frameStreamerResponseTranslator) Backward(
+func (frameStreamerResponseTranslator) Backward(
 	_ context.Context,
 	msg *gapi.FrameStreamerResponse,
 ) (api.FrameStreamerResponse, error) {
 	return api.FrameStreamerResponse{Frame: translateFrameBackward(msg.GetFrame())}, nil
 }
 
-func (t FrameDeleteRequestTranslator) Forward(
+func (FrameDeleteRequestTranslator) Forward(
 	_ context.Context,
 	msg api.FrameDeleteRequest,
 ) (*gapi.FrameDeleteRequest, error) {
@@ -306,7 +306,7 @@ func (t FrameDeleteRequestTranslator) Forward(
 	}, nil
 }
 
-func (t FrameDeleteRequestTranslator) Backward(
+func (FrameDeleteRequestTranslator) Backward(
 	_ context.Context,
 	msg *gapi.FrameDeleteRequest,
 ) (api.FrameDeleteRequest, error) {

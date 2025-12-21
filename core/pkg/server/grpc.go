@@ -26,7 +26,7 @@ type GRPCBranch struct {
 var _ Branch = (*GRPCBranch)(nil)
 
 // Routing implements Branch.
-func (g *GRPCBranch) Routing() BranchRouting {
+func (*GRPCBranch) Routing() BranchRouting {
 	return BranchRouting{
 		Policy:   ServeAlwaysPreferSecure,
 		Matchers: []cmux.Matcher{cmux.Any()},
@@ -34,11 +34,11 @@ func (g *GRPCBranch) Routing() BranchRouting {
 }
 
 // Key implements Branch.
-func (g *GRPCBranch) Key() string { return "grpc" }
+func (*GRPCBranch) Key() string { return "grpc" }
 
 // Serve implements Branch.
 func (g *GRPCBranch) Serve(ctx BranchContext) error {
-	opts := []grpc.ServerOption{g.credentials(ctx)}
+	opts := []grpc.ServerOption{credentials(ctx)}
 	g.server = grpc.NewServer(opts...)
 	for _, t := range g.Transports {
 		t.BindTo(g.server)
@@ -49,7 +49,7 @@ func (g *GRPCBranch) Serve(ctx BranchContext) error {
 // Stop implements Branch. Stop is safe to call even if Serve has not been called.
 func (g *GRPCBranch) Stop() { g.server.Stop() }
 
-func (g *GRPCBranch) credentials(ctx BranchContext) grpc.ServerOption {
+func credentials(ctx BranchContext) grpc.ServerOption {
 	if *ctx.Security.Insecure {
 		return grpc.Creds(insecure.NewCredentials())
 	}

@@ -132,7 +132,7 @@ var _ = Describe("Writer Behavior", func() {
 								Channels: []cesium.ChannelKey{basic1, basic1Index},
 								Start:    14 * telem.SecondTS,
 							}))
-							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+							s := MustSucceed(db.NewStreamer(cesium.StreamerConfig{
 								Channels: []cesium.ChannelKey{basic1, basic1Index},
 							}))
 							i, o := confluence.Attach(s, 1)

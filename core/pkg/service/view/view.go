@@ -29,4 +29,4 @@ var _ gorp.Entry[uuid.UUID] = (*View)(nil)
 func (v View) GorpKey() uuid.UUID { return v.Key }
 
 // SetOptions returns a slice of options passed to kv.db.set.
-func (v View) SetOptions() []any { return nil }
+func (View) SetOptions() []any { return nil }

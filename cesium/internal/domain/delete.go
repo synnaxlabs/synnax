@@ -94,7 +94,7 @@ func (db *DB) Delete(
 	} else {
 		// Non-exact: tr.Start is not contained within any domain.
 		// Add 1 since we want the first domain greater than tr.Start.
-		startDomain += 1
+		startDomain++
 
 		if startDomain == len(db.idx.mu.pointers) {
 			// delete nothing
@@ -142,7 +142,7 @@ func (db *DB) Delete(
 		// handled before: a time range that existed in the domain before must not cease
 		// to exist.
 		if !exact {
-			startDomain += 1
+			startDomain++
 		}
 	}
 	if db.idx.mu.pointers[endDomain] != end {
@@ -257,10 +257,10 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 
 func (db *DB) garbageCollectFile(key uint16, size int64) error {
 	var (
-		name                 = fileKeyToName(key)
-		copyName             = name + "_gc"
-		newOffset     uint32 = 0
-		tombstoneSize        = size
+		name          = fileKeyToName(key)
+		copyName      = name + "_gc"
+		newOffset     uint32
+		tombstoneSize = size
 		ptrs          []pointer
 		// offsetDeltaMap maps each pointer (identified by the time range) to the difference
 		// between its new offset and its old offset. Note that time ranges are

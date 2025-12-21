@@ -26,11 +26,6 @@ const (
 	Free             = Key(math.MaxUint12)
 )
 
-func (k Key) Parse(str string) (Key, error) {
-	key, err := strconv.Atoi(str)
-	return Key(key), err
-}
-
 func (k Key) IsFree() bool { return k == Free }
 
 func (k Key) IsBootstrapper() bool { return k == Bootstrapper }

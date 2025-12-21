@@ -163,9 +163,9 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 					sem.Release(1)
 				}()
 				var (
-					commitCount                   = 0
-					highWaterMark telem.TimeStamp = 0
-					indexData                     = make([]telem.TimeStamp, cfg.samplesPerDomain)
+					commitCount   = 0
+					highWaterMark telem.TimeStamp
+					indexData     = make([]telem.TimeStamp, cfg.samplesPerDomain)
 					frame         cesium.Frame
 				)
 
@@ -220,7 +220,7 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 					}
 
 					if cfg.commitInterval != -1 {
-						commitCount += 1
+						commitCount++
 						if commitCount >= cfg.commitInterval {
 							if _, err = w.Commit(); err != nil {
 								b.Error(err)
@@ -273,8 +273,8 @@ func BenchRead(
 		db            *cesium.DB
 		err           error
 		frame         cesium.Frame
-		indexData                     = make([]telem.TimeStamp, cfg.samplesPerDomain)
-		highWaterMark telem.TimeStamp = 0
+		indexData     = make([]telem.TimeStamp, cfg.samplesPerDomain)
+		highWaterMark telem.TimeStamp
 	)
 
 	db, err = cesium.Open(ctx, "benchmark_read_test", cesium.WithFS(fs))
@@ -434,9 +434,9 @@ func BenchStream(
 					sem.Release(1)
 				}()
 				var (
-					commitCount                   = 0
-					highWaterMark telem.TimeStamp = 0
-					indexData                     = make([]telem.TimeStamp, cfg.samplesPerDomain)
+					commitCount   int
+					highWaterMark telem.TimeStamp
+					indexData     = make([]telem.TimeStamp, cfg.samplesPerDomain)
 					frame         cesium.Frame
 					w             *cesium.Writer
 					s             cesium.Streamer[cesium.StreamerRequest, cesium.StreamerResponse]
@@ -452,9 +452,9 @@ func BenchStream(
 					return
 				}
 
-				s, err = db.NewStreamer(ctx, cesium.StreamerConfig{Channels: writerChannels})
+				s, err = db.NewStreamer(cesium.StreamerConfig{Channels: writerChannels})
 				if err != nil {
-					b.Errorf("Streamer open error")
+					b.Error("Streamer open error")
 				}
 
 				iStream, oStream := confluence.Attach(s, 1)
@@ -501,7 +501,7 @@ func BenchStream(
 					}
 
 					if cfg.commitInterval != -1 {
-						commitCount += 1
+						commitCount++
 						if commitCount >= cfg.commitInterval {
 							if _, err = w.Commit(); err != nil {
 								b.Error(err)

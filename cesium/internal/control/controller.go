@@ -53,7 +53,7 @@ var (
 )
 
 // Validate implements config.Config.
-func (c Config) Validate() error { return nil }
+func (Config) Validate() error { return nil }
 
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {

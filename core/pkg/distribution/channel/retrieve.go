@@ -49,7 +49,7 @@ func (r Retrieve) Entries(ch *[]Channel) Retrieve { r.gorp.Entries(ch); return r
 // WhereNodeKey filters for channels whose Leaseholder attribute matches the provided
 // leaseholder node Key.
 func (r Retrieve) WhereNodeKey(nodeKey cluster.NodeKey) Retrieve {
-	r.gorp.Where(func(ctx gorp.Context, ch *Channel) (bool, error) {
+	r.gorp.Where(func(_ gorp.Context, ch *Channel) (bool, error) {
 		return ch.Leaseholder == nodeKey, nil
 	})
 	return r

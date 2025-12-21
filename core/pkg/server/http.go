@@ -34,7 +34,7 @@ type SecureHTTPBranch struct {
 var _ Branch = (*SecureHTTPBranch)(nil)
 
 // Routing implements Branch.
-func (b *SecureHTTPBranch) Routing() BranchRouting {
+func (*SecureHTTPBranch) Routing() BranchRouting {
 	return BranchRouting{
 		Policy:   ServeAlwaysPreferSecure,
 		Matchers: []cmux.Matcher{cmux.HTTP1Fast()},
@@ -42,11 +42,11 @@ func (b *SecureHTTPBranch) Routing() BranchRouting {
 }
 
 // Key implements Branch.
-func (b *SecureHTTPBranch) Key() string { return "http" }
+func (*SecureHTTPBranch) Key() string { return "http" }
 
 // Serve implements Branch.
 func (b *SecureHTTPBranch) Serve(ctx BranchContext) error {
-	b.internal = fiber.New(b.getConfig(ctx))
+	b.internal = fiber.New(getConfig(ctx))
 	b.maybeRouteDebugUtil(ctx)
 	b.internal.Use(cors.New(cors.Config{AllowOrigins: "*"}))
 	for _, t := range b.Transports {
@@ -76,7 +76,7 @@ var baseFiberConfig = fiber.Config{
 	ReadTimeout:           5 * time.Second,
 }
 
-func (b *SecureHTTPBranch) getConfig(ctx BranchContext) fiber.Config {
+func getConfig(ctx BranchContext) fiber.Config {
 	baseFiberConfig.AppName = ctx.ServerName
 	return baseFiberConfig
 }

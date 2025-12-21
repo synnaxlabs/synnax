@@ -83,7 +83,7 @@ var _ = Describe("PledgeServer", func() {
 				var (
 					peers         []address.Address
 					numTransports = 4
-					handler       = func(ctx context.Context, req pledge.Request) (pledge.Response, error) {
+					handler       = func(_ context.Context, req pledge.Request) (pledge.Response, error) {
 						return req, errors.New("pledge failed")
 					}
 				)

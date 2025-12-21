@@ -45,7 +45,7 @@ var _ = Describe("Rack", Ordered, func() {
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
 		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
+		g := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
 		label := MustSucceed(label.OpenService(ctx, label.Config{
 			DB:       db,
 			Ontology: otg,
@@ -390,7 +390,7 @@ var _ = Describe("Migration", func() {
 	It("Should create unknown statuses for racks missing them", func() {
 		db := gorp.Wrap(memkv.New())
 		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
+		g := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
 		labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
 			DB:       db,
 			Ontology: otg,
@@ -443,7 +443,7 @@ var _ = Describe("Migration", func() {
 	It("Should correctly migrate a v1 rack to a v2 rack", func() {
 		db := gorp.Wrap(memkv.New())
 		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
+		g := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
 		label := MustSucceed(label.OpenService(ctx, label.Config{
 			DB:       db,
 			Ontology: otg,

@@ -32,8 +32,8 @@ type (
 
 var _ fgrpc.Translator[api.ConnectivityCheckResponse, *gapi.ConnectivityCheckResponse] = (*connectivityResponseTranslator)(nil)
 
-func (c connectivityResponseTranslator) Forward(
-	ctx context.Context,
+func (connectivityResponseTranslator) Forward(
+	_ context.Context,
 	r api.ConnectivityCheckResponse,
 ) (*gapi.ConnectivityCheckResponse, error) {
 	return &gapi.ConnectivityCheckResponse{
@@ -42,8 +42,8 @@ func (c connectivityResponseTranslator) Forward(
 	}, nil
 }
 
-func (c connectivityResponseTranslator) Backward(
-	ctx context.Context,
+func (connectivityResponseTranslator) Backward(
+	_ context.Context,
 	r *gapi.ConnectivityCheckResponse,
 ) (api.ConnectivityCheckResponse, error) {
 	return api.ConnectivityCheckResponse{

@@ -64,7 +64,7 @@ type NodeOntologyService struct {
 
 var _ ontology.Service = (*NodeOntologyService)(nil)
 
-func (s *NodeOntologyService) Type() ontology.Type { return NodeOntologyType }
+func (*NodeOntologyService) Type() ontology.Type { return NodeOntologyType }
 
 // ListenForChanges starts listening for changes to the cluster topology (nodes leaving,
 // joining, changing state, etc.) and updates the ontology accordingly.
@@ -98,7 +98,7 @@ func (s *NodeOntologyService) OpenNexter(context.Context) (iter.Seq[ontology.Res
 }
 
 // Schema implements ontology.Service.
-func (s *NodeOntologyService) Schema() zyn.Schema { return nodeSchema }
+func (*NodeOntologyService) Schema() zyn.Schema { return nodeSchema }
 
 // RetrieveResource implements ontology.Service.
 func (s *NodeOntologyService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (ontology.Resource, error) {
@@ -133,10 +133,10 @@ type OntologyService struct {
 
 var _ ontology.Service = (*OntologyService)(nil)
 
-func (s *OntologyService) Type() ontology.Type { return OntologyType }
+func (*OntologyService) Type() ontology.Type { return OntologyType }
 
 // Schema implements ontology.Service.
-func (s *OntologyService) Schema() zyn.Schema { return schema }
+func (*OntologyService) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *OntologyService) RetrieveResource(context.Context, string, gorp.Tx) (ontology.Resource, error) {
@@ -144,7 +144,7 @@ func (s *OntologyService) RetrieveResource(context.Context, string, gorp.Tx) (on
 }
 
 // OpenNexter implements ontology.Service.
-func (s *OntologyService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (*OntologyService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	return slices.Values([]ontology.Resource{}), xio.NopCloser, nil
 }
 

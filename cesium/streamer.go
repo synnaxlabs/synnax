@@ -66,7 +66,7 @@ func passThroughStreamerResponseTranslator(res StreamerResponse) StreamerRespons
 // NewStreamer opens a new Streamer using the given configuration. To start receiving
 // frames, call Streamer.Flow. The provided context is only used for opening the
 // streamer, and canceling it has no implications after NewStreamer returns.
-func (db *DB) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer[StreamerRequest, StreamerResponse], error) {
+func (db *DB) NewStreamer(cfg StreamerConfig) (Streamer[StreamerRequest, StreamerResponse], error) {
 	return NewTranslatedStreamer(
 		db,
 		cfg,

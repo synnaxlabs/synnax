@@ -51,7 +51,7 @@ func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve {
 
 // WhereTypes filters for views whose Type attribute matches the provided type.
 func (r Retrieve) WhereTypes(types ...string) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, v *View) (bool, error) {
+	r.gorp = r.gorp.Where(func(_ gorp.Context, v *View) (bool, error) {
 		return slices.Contains(types, v.Type), nil
 	})
 	return r

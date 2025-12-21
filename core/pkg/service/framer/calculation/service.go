@@ -213,16 +213,16 @@ func (s *Service) updateCalculation(ctx context.Context, ch channel.Channel) err
 	return s.rebuildGroups(ctx)
 }
 
-func (s *Service) openOrGetCalculator(
+func (s *Service) createOrGetCalculator(
 	ctx context.Context,
 	mod compiler.Module,
 ) (*calculator.Calculator, error) {
-	calc, err := calculator.Open(ctx, calculator.Config{Module: mod})
+	calc, err := calculator.New(ctx, calculator.Config{Module: mod})
 	if err != nil {
 		return nil, err
 	}
 	s.mu.calculators[calc.Channel().Key()] = calc
-	return calc, err
+	return calc, nil
 }
 
 func groupEquals(
@@ -259,7 +259,7 @@ func (s *Service) updateGroup(ctx context.Context, key int, mods []compiler.Modu
 	}
 	calculators := make([]*calculator.Calculator, len(mods))
 	for i, m := range mods {
-		calc, err := s.openOrGetCalculator(ctx, m)
+		calc, err := s.createOrGetCalculator(ctx, m)
 		if err != nil {
 			return err
 		}

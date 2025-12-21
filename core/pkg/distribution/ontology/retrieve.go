@@ -53,7 +53,7 @@ func (r Retrieve) Where(filter gorp.FilterFunc[ID, Resource]) Retrieve {
 }
 
 func (r Retrieve) WhereTypes(types ...Type) Retrieve {
-	r.query.Current().Where(func(ctx gorp.Context, r *Resource) (bool, error) {
+	r.query.Current().Where(func(_ gorp.Context, r *Resource) (bool, error) {
 		return lo.Contains(types, r.ID.Type), nil
 	})
 	return r
@@ -178,7 +178,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 				}
 				nextIDs = ResourceIDs(resources)
 			} else {
-				ids := r.extractIDs(clause)
+				ids := extractIDs(clause)
 				if cErr != nil || len(ids) == 0 {
 					return cErr
 				}
@@ -186,7 +186,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 			}
 		}
 		var err error
-		if nextIDs, err = r.traverse(
+		if nextIDs, err = traverse(
 			ctx,
 			tx,
 			getTraverser(clause.Params),
@@ -271,7 +271,7 @@ func (r Retrieve) retrieveEntities(
 	return entries.All(), err
 }
 
-func (r Retrieve) extractIDs(clause gorp.Retrieve[ID, Resource]) []ID {
+func extractIDs(clause gorp.Retrieve[ID, Resource]) []ID {
 	entries := gorp.GetEntries[ID, Resource](clause.Params)
 	resources := entries.All()
 	ids := make([]ID, 0, len(resources))
@@ -283,19 +283,19 @@ func (r Retrieve) extractIDs(clause gorp.Retrieve[ID, Resource]) []ID {
 	return ids
 }
 
-func (r Retrieve) traverse(
+func traverse(
 	ctx context.Context,
 	tx gorp.Tx,
 	traverse Traverser,
 	ids []ID,
 ) ([]ID, error) {
 	if traverse.Prefix != nil {
-		return r.traverseByPrefix(ctx, tx, traverse, ids)
+		return traverseByPrefix(ctx, tx, traverse, ids)
 	}
-	return r.traverseByScan(ctx, tx, traverse, ids)
+	return traverseByScan(ctx, tx, traverse, ids)
 }
 
-func (r Retrieve) traverseByPrefix(
+func traverseByPrefix(
 	ctx context.Context,
 	tx gorp.Tx,
 	traverse Traverser,
@@ -318,7 +318,7 @@ func (r Retrieve) traverseByPrefix(
 	return nextIDs, nil
 }
 
-func (r Retrieve) traverseByScan(
+func traverseByScan(
 	ctx context.Context,
 	tx gorp.Tx,
 	traverse Traverser,

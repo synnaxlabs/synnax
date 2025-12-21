@@ -47,7 +47,7 @@ func (w Writer[D]) SetWithParent(
 	if !hasParent {
 		parent = w.group.OntologyID()
 	}
-	if err := w.validate(*s); err != nil {
+	if err := validateStatus(*s); err != nil {
 		return err
 	}
 	exists, err := gorp.NewRetrieve[string, Status[D]]().WhereKeys(s.Key).Exists(ctx, w.tx)
@@ -140,7 +140,7 @@ func (w Writer[D]) DeleteMany(ctx context.Context, keys ...string) error {
 	return nil
 }
 
-func (w Writer[D]) validate(s Status[D]) error {
+func validateStatus[D any](s Status[D]) error {
 	v := validate.New("status.Status")
 	validate.NotEmptyString(v, "Key", s.Key)
 	validate.Positive(v, "Time", s.Time)

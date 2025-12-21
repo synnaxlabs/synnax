@@ -65,10 +65,10 @@ func newResource(ws Workspace) ontology.Resource {
 
 type change = changex.Change[uuid.UUID, Workspace]
 
-func (s *Service) Type() ontology.Type { return OntologyType }
+func (*Service) Type() ontology.Type { return OntologyType }
 
 // Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Schema { return schema }
+func (*Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {

@@ -41,9 +41,9 @@ func newResource(g Group) ontology.Resource {
 
 type change = xchange.Change[uuid.UUID, Group]
 
-func (s *Service) Type() ontology.Type { return OntologyType }
+func (*Service) Type() ontology.Type { return OntologyType }
 
-func (s *Service) Schema() zyn.Schema { return schema }
+func (*Service) Schema() zyn.Schema { return schema }
 
 func (s *Service) RetrieveResource(
 	ctx context.Context,

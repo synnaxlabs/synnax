@@ -22,7 +22,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
-	pledge_ "github.com/synnaxlabs/aspen/internal/cluster/pledge"
+	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/cluster/store"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/address"
@@ -31,7 +31,7 @@ import (
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
-	xslices "github.com/synnaxlabs/x/slices"
+	"github.com/synnaxlabs/x/slices"
 	"go.uber.org/zap"
 )
 
@@ -94,14 +94,14 @@ func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
 		host.Heartbeat = host.Heartbeat.Restart()
 		c.SetNode(ctx, host)
 		c.Pledge.ClusterKey = c.Key()
-		if err := pledge_.Arbitrate(c.Pledge); err != nil {
+		if err := pledge.Arbitrate(c.Pledge); err != nil {
 			return nil, err
 		}
 	case len(c.Pledge.Peers) > 0:
 		// If our store is empty or invalid and peers were provided, attempt to join
 		// the Cluster.
 		c.L.Info("no cluster found in storage. pledging to Cluster instead")
-		pledgeRes, err := pledge_.Pledge(ctx, c.Pledge)
+		pledgeRes, err := pledge.Pledge(ctx, c.Pledge)
 		if err != nil {
 			return nil, err
 		}
@@ -121,7 +121,7 @@ func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
 		c.SetClusterKey(ctx, clusterKey)
 		c.L.Info("no peers provided, bootstrapping new cluster", zap.Stringer("cluster_key", clusterKey))
 		c.Pledge.ClusterKey = c.Key()
-		if err = pledge_.Arbitrate(c.Pledge); err != nil {
+		if err = pledge.Arbitrate(c.Pledge); err != nil {
 			return c, err
 		}
 	}
@@ -186,7 +186,7 @@ func (c *Cluster) Resolve(key node.Key) (address.Address, error) {
 func (c *Cluster) Close() error { return c.shutdown.Close() }
 
 func (c *Cluster) gossipInitialState(ctx context.Context) error {
-	for peer := range xslices.IterEndlessly(c.Pledge.Peers) {
+	for peer := range slices.IterEndlessly(c.Pledge.Peers) {
 		if err := c.gossip.GossipOnceWith(ctx, peer); err != nil {
 			if ctx.Err() != nil {
 				return ctx.Err()

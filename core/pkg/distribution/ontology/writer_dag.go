@@ -185,7 +185,7 @@ func (d dagWriter) retrieveDescendants(ctx context.Context, id ID) (map[ID]Resou
 }
 
 func (d dagWriter) deleteIncomingRelationships(ctx context.Context, id ID) error {
-	return gorp.NewDelete[[]byte, Relationship]().Where(func(ctx gorp.Context, rel *Relationship) (bool, error) {
+	return gorp.NewDelete[[]byte, Relationship]().Where(func(_ gorp.Context, rel *Relationship) (bool, error) {
 		return rel.To == id, nil
 	}).Exec(ctx, d.tx)
 }
@@ -197,7 +197,7 @@ func (d dagWriter) deleteOutgoingRelationships(ctx context.Context, from ID) err
 }
 
 func (d dagWriter) DeleteOutgoingRelationshipsOfType(ctx context.Context, from ID, t RelationshipType) error {
-	return gorp.NewDelete[[]byte, Relationship]().Where(func(ctx gorp.Context, rel *Relationship) (bool, error) {
+	return gorp.NewDelete[[]byte, Relationship]().Where(func(_ gorp.Context, rel *Relationship) (bool, error) {
 		return rel.From == from && rel.Type == t, nil
 	}).Exec(ctx, d.tx)
 }

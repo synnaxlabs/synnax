@@ -30,7 +30,7 @@ func newRetrieve(tx gorp.Tx) Retrieve {
 }
 
 func (r Retrieve) WhereNames(names ...string) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, grp *Group) (bool, error) {
+	r.gorp = r.gorp.Where(func(_ gorp.Context, grp *Group) (bool, error) {
 		return lo.Contains(names, grp.Name), nil
 	})
 	return r
@@ -46,8 +46,8 @@ func (r Retrieve) Entry(grp *Group) Retrieve {
 	return r
 }
 
-func (r Retrieve) Entries(grps *[]Group) Retrieve {
-	r.gorp = r.gorp.Entries(grps)
+func (r Retrieve) Entries(groups *[]Group) Retrieve {
+	r.gorp = r.gorp.Entries(groups)
 	return r
 }
 

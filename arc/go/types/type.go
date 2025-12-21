@@ -494,7 +494,6 @@ func paramsEqual(a, b Params) bool {
 		if !Equal(pA.Type, pB.Type) {
 			return false
 		}
-
 	}
 	return true
 }
@@ -582,9 +581,7 @@ func ToTelem(t Type) telem.DataType {
 		return telem.Uint32T
 	case KindU64:
 		return telem.Uint64T
-	case KindTimeStamp:
-		return telem.TimeStampT
-	case KindTimeSpan:
+	case KindTimeStamp, KindTimeSpan:
 		return telem.TimeStampT
 	case KindF32:
 		return telem.Float32T

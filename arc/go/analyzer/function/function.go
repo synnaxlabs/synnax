@@ -83,7 +83,7 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) bool {
 	}
 	if block := ctx.AST.Block(); block != nil {
 		fn.Channels = symbol.NewChannels()
-		fn.OnResolve = func(ctx context.Context, s *symbol.Scope) error {
+		fn.OnResolve = func(_ context.Context, s *symbol.Scope) error {
 			if s.Kind == symbol.KindChannel || s.Type.Kind == types.KindChan {
 				fn.Channels.Read[uint32(s.ID)] = s.Name
 			}

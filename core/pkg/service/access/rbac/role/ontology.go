@@ -43,10 +43,10 @@ func newResource(l Role) ontology.Resource {
 
 type change = xchange.Change[uuid.UUID, Role]
 
-func (s *Service) Type() ontology.Type { return OntologyType }
+func (*Service) Type() ontology.Type { return OntologyType }
 
 // Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Schema { return schema }
+func (*Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(

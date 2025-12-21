@@ -54,7 +54,7 @@ func (r Relationship) GorpKey() []byte {
 }
 
 // SetOptions implements the gorp.Entry interface.
-func (r Relationship) SetOptions() []any { return nil }
+func (Relationship) SetOptions() []any { return nil }
 
 func ParseRelationship(key []byte) (Relationship, error) {
 	split := strings.Split(string(key), "->")

@@ -42,16 +42,16 @@ type StreamServerCore[RQ, RQT, RS, RST freighter.Payload] struct {
 	Internal bool
 }
 
-func (s *StreamClient[RQ, RQT, RS, RST]) Report() alamos.Report {
+func (*StreamClient[RQ, RQT, RS, RST]) Report() alamos.Report {
 	return Reporter.Report()
 }
 
-func (s *StreamServerCore[RQ, RQT, RS, RST]) Report() alamos.Report {
+func (*StreamServerCore[RQ, RQT, RS, RST]) Report() alamos.Report {
 	return Reporter.Report()
 }
 
 func (s *StreamServerCore[RQ, RQT, RS, RST]) BindHandler(
-	handler func(ctx context.Context, stream freighter.ServerStream[RQ, RS]) error,
+	handler func(context.Context, freighter.ServerStream[RQ, RS]) error,
 ) {
 	s.handler = handler
 }

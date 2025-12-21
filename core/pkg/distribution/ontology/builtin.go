@@ -40,13 +40,13 @@ type builtinService struct {
 
 var _ Service = (*builtinService)(nil)
 
-func (b *builtinService) Type() core.Type { return BuiltInType }
+func (*builtinService) Type() core.Type { return BuiltInType }
 
 // Schema implements Service.
-func (b *builtinService) Schema() zyn.Schema { return zyn.Object(nil) }
+func (*builtinService) Schema() zyn.Schema { return zyn.Object(nil) }
 
 // RetrieveResource implements Service.
-func (b *builtinService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (Resource, error) {
+func (*builtinService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (Resource, error) {
 	switch key {
 	case "root":
 		return rootResource, nil
@@ -56,6 +56,6 @@ func (b *builtinService) RetrieveResource(_ context.Context, key string, _ gorp.
 }
 
 // OpenNexter implements Service.
-func (b *builtinService) OpenNexter(context.Context) (iter.Seq[Resource], io.Closer, error) {
+func (*builtinService) OpenNexter(context.Context) (iter.Seq[Resource], io.Closer, error) {
 	return slices.Values([]Resource{rootResource}), xio.NopCloser, nil
 }

@@ -54,9 +54,9 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"key": zyn.String(),
 })
 
-func (s *sampleService) Type() ontology.Type { return sampleType }
+func (*sampleService) Type() ontology.Type { return sampleType }
 
-func (s *sampleService) Schema() zyn.Schema { return schema }
+func (*sampleService) Schema() zyn.Schema { return schema }
 
 func (s *sampleService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (ontology.Resource, error) {
 	return core.NewResource(s.Schema(), newSampleType(key), "empty", Sample{Key: key}), nil

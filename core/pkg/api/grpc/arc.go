@@ -66,7 +66,7 @@ var (
 	_ fgrpc.Translator[api.ArcDeleteRequest, *gapi.ArcDeleteRequest]       = (*arcDeleteRequestTranslator)(nil)
 )
 
-func (t arcCreateRequestTranslator) Forward(
+func (arcCreateRequestTranslator) Forward(
 	_ context.Context,
 	msg api.ArcCreateRequest,
 ) (*gapi.ArcCreateRequest, error) {
@@ -81,7 +81,7 @@ func (t arcCreateRequestTranslator) Forward(
 	return &gapi.ArcCreateRequest{Arcs: arcs}, nil
 }
 
-func (t arcCreateRequestTranslator) Backward(
+func (arcCreateRequestTranslator) Backward(
 	_ context.Context,
 	msg *gapi.ArcCreateRequest,
 ) (api.ArcCreateRequest, error) {
@@ -96,7 +96,7 @@ func (t arcCreateRequestTranslator) Backward(
 	return api.ArcCreateRequest{Arcs: arcs}, nil
 }
 
-func (t arcCreateResponseTranslator) Forward(
+func (arcCreateResponseTranslator) Forward(
 	_ context.Context,
 	msg api.ArcCreateResponse,
 ) (*gapi.ArcCreateResponse, error) {
@@ -111,7 +111,7 @@ func (t arcCreateResponseTranslator) Forward(
 	return &gapi.ArcCreateResponse{Arcs: arcs}, nil
 }
 
-func (t arcCreateResponseTranslator) Backward(
+func (arcCreateResponseTranslator) Backward(
 	_ context.Context,
 	msg *gapi.ArcCreateResponse,
 ) (api.ArcCreateResponse, error) {
@@ -126,7 +126,7 @@ func (t arcCreateResponseTranslator) Backward(
 	return api.ArcCreateResponse{Arcs: arcs}, nil
 }
 
-func (t arcRetrieveRequestTranslator) Forward(
+func (arcRetrieveRequestTranslator) Forward(
 	_ context.Context,
 	msg api.ArcRetrieveRequest,
 ) (*gapi.ArcRetrieveRequest, error) {
@@ -142,7 +142,7 @@ func (t arcRetrieveRequestTranslator) Forward(
 	}, nil
 }
 
-func (t arcRetrieveRequestTranslator) Backward(
+func (arcRetrieveRequestTranslator) Backward(
 	_ context.Context,
 	msg *gapi.ArcRetrieveRequest,
 ) (api.ArcRetrieveRequest, error) {
@@ -165,7 +165,7 @@ func (t arcRetrieveRequestTranslator) Backward(
 	}, nil
 }
 
-func (t arcRetrieveResponseTranslator) Forward(
+func (arcRetrieveResponseTranslator) Forward(
 	_ context.Context,
 	msg api.ArcRetrieveResponse,
 ) (*gapi.ArcRetrieveResponse, error) {
@@ -180,7 +180,7 @@ func (t arcRetrieveResponseTranslator) Forward(
 	return &gapi.ArcRetrieveResponse{Arcs: arcs}, nil
 }
 
-func (t arcRetrieveResponseTranslator) Backward(
+func (arcRetrieveResponseTranslator) Backward(
 	_ context.Context,
 	msg *gapi.ArcRetrieveResponse,
 ) (api.ArcRetrieveResponse, error) {
@@ -195,7 +195,7 @@ func (t arcRetrieveResponseTranslator) Backward(
 	return api.ArcRetrieveResponse{Arcs: arcs}, nil
 }
 
-func (t arcDeleteRequestTranslator) Forward(
+func (arcDeleteRequestTranslator) Forward(
 	_ context.Context,
 	msg api.ArcDeleteRequest,
 ) (*gapi.ArcDeleteRequest, error) {
@@ -203,7 +203,7 @@ func (t arcDeleteRequestTranslator) Forward(
 	return &gapi.ArcDeleteRequest{Keys: keys}, nil
 }
 
-func (t arcDeleteRequestTranslator) Backward(
+func (arcDeleteRequestTranslator) Backward(
 	_ context.Context,
 	msg *gapi.ArcDeleteRequest,
 ) (api.ArcDeleteRequest, error) {
@@ -517,8 +517,6 @@ func translateTypeFromPB(pb *arctypes.PBType) (arctypes.Type, error) {
 // translateTypeKindToPB converts arctypes.TypeKind to arctypes.PBKind.
 func translateTypeKindToPB(k arctypes.TypeKind) arctypes.PBKind {
 	switch k {
-	case arctypes.KindInvalid:
-		return arctypes.PBKind_PB_KIND_UNSPECIFIED
 	case arctypes.KindU8:
 		return arctypes.PBKind_PB_KIND_U8
 	case arctypes.KindU16:
@@ -557,8 +555,6 @@ func translateTypeKindToPB(k arctypes.TypeKind) arctypes.PBKind {
 // translateTypeKindFromPB converts arctypes.PBKind to arctypes.TypeKind.
 func translateTypeKindFromPB(k arctypes.PBKind) arctypes.TypeKind {
 	switch k {
-	case arctypes.PBKind_PB_KIND_UNSPECIFIED:
-		return arctypes.KindInvalid
 	case arctypes.PBKind_PB_KIND_U8:
 		return arctypes.KindU8
 	case arctypes.PBKind_PB_KIND_U16:

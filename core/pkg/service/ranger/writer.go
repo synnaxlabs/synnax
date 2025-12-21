@@ -50,7 +50,7 @@ func (w Writer) CreateWithParent(
 	if r.Key == uuid.Nil {
 		r.Key = uuid.New()
 	}
-	if err := w.validate(*r); err != nil {
+	if err := validateRange(*r); err != nil {
 		return err
 	}
 	exists, err := gorp.
@@ -199,7 +199,7 @@ func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 	return w.otgWriter.DeleteResource(ctx, OntologyID(key))
 }
 
-func (w Writer) validate(r Range) error {
+func validateRange(r Range) error {
 	v := validate.New("ranger.Range")
 	validate.NotNil(v, "key", r.Key)
 	validate.NotEmptyString(v, "name", r.Name)

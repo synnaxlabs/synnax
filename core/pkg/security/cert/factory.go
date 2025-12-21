@@ -133,7 +133,7 @@ func (c *Factory) CreateCAPair() error {
 	if err != nil {
 		return err
 	}
-	return c.writePEM(c.CACertPath, xpem.FromCertBytes(b) /*multi */, true)
+	return c.writePEM(c.CACertPath, xpem.FromCertBytes(b) /* multi */, true)
 }
 
 func (c *Factory) CreateCAPairIfMissing() error {
@@ -206,7 +206,7 @@ func (c *Factory) CreateNodePair() error {
 }
 
 func (c *Factory) readPEM(p string) (b *pem.Block, err error) {
-	return b, c.withFile(p, c.readFlag(), func(f fs.File) error {
+	return b, c.withFile(p, os.O_RDONLY, func(f fs.File) error {
 		b, err = xpem.Read(f)
 		return err
 	})
@@ -244,5 +244,3 @@ func (c *Factory) writeFlag() int {
 	}
 	return os.O_CREATE | os.O_RDWR | os.O_EXCL
 }
-
-func (c *Factory) readFlag() int { return os.O_RDONLY }

@@ -45,7 +45,7 @@ var _ = Describe("Migrate", func() {
 			DB:           db,
 			EnableSearch: config.True(),
 		}))
-		gSvc = MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
+		gSvc = MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
 		lab = MustSucceed(label.OpenService(ctx, label.Config{
 			DB:       db,
 			Ontology: otg,

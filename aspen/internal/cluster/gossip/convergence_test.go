@@ -59,7 +59,7 @@ var _ = Describe("Convergence", func() {
 		net = fmock.NewNetwork[gossip.Message, gossip.Message]()
 	})
 	p := alamos.NewParametrize(alamos.IterVars(progressiveConvergence))
-	p.Template(func(i int, values convergenceVars) {
+	p.Template(func(_ int, values convergenceVars) {
 		It(fmt.Sprintf("Should converge store across %v nodes in %v cycles",
 			values.nodeCount,
 			values.convergenceThreshold,

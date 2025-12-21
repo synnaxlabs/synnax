@@ -27,7 +27,7 @@ func newInsecureProvider(cfg ProviderConfig) (Provider, error) {
 }
 
 // TLS implements TLSProvider.
-func (p *insecureProvider) TLS() *tls.Config { return nil }
+func (*insecureProvider) TLS() *tls.Config { return nil }
 
 // NodePrivate implements KeyProvider.
 func (p *insecureProvider) NodePrivate() crypto.PrivateKey { return p.nodeSecret }

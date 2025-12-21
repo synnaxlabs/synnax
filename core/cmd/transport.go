@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	insecureGRPC "google.golang.org/grpc/credentials/insecure"
+	insecurecredentials "google.golang.org/grpc/credentials/insecure"
 )
 
 func configureClientGRPC(
@@ -29,5 +29,5 @@ func configureClientGRPC(
 }
 
 func getClientGRPCTransportCredentials(sec security.Provider, insecure bool) credentials.TransportCredentials {
-	return lo.Ternary(insecure, insecureGRPC.NewCredentials(), credentials.NewTLS(sec.TLS()))
+	return lo.Ternary(insecure, insecurecredentials.NewCredentials(), credentials.NewTLS(sec.TLS()))
 }

@@ -114,7 +114,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 	return nil
 }
 
-func (m *monitor) handleChange(ctx context.Context, t gorp.TxReader[string, status.Status[any]]) {
+func (m *monitor) handleChange(_ context.Context, t gorp.TxReader[string, status.Status[any]]) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for ch := range t {

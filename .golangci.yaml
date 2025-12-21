@@ -35,10 +35,10 @@ linters:
     - errorlint
     - exptostd
     - gocheckcompilerdirectives
-
     - godot
     - goprintffuncname
     - iotamixing
+    - mirror
     - misspell
     - modernize
     - nilnesserr
@@ -48,7 +48,7 @@ linters:
     - promlinter
     - protogetter
     - reassign
-    - testpackage
+    - revive
     - tparallel
     - unconvert
     - unparam
@@ -59,10 +59,81 @@ linters:
       enable-all: true
       disable:
         - shadow
+    ineffassign:
+      check-escaping-errors: true
+    misspell:
+      locale: US
+    revive:
+      enable-all-rules: true
+      rules:
+        - name: add-constant
+          disabled: true
+        - name: cognitive-complexity
+          disabled: true
+        - name: confusing-naming
+          disabled: true
+        - name: confusing-results
+          disabled: true
+        - name: cyclomatic
+          disabled: true
+        - name: deep-exit
+          disabled: true
+        - name: dot-imports
+          arguments:
+            - allowed-packages:
+                [
+                  "github.com/onsi/ginkgo/v2",
+                  "github.com/onsi/gomega",
+                  "github.com/synnaxlabs/arc/compiler/testutil",
+                  "github.com/synnaxlabs/cesium/internal/testutil",
+                  "github.com/synnaxlabs/x/testutil",
+                ]
+        - name: empty-block
+          disabled: true
+        - name: enforce-switch-style
+          arguments: ["allowNoDefault"]
+        - name: error-return
+          disabled: true
+        - name: exported
+          disabled: true
+        - name: flag-parameter
+          disabled: true
+        - name: function-length
+          disabled: true
+        - name: function-result-limit
+          arguments:
+            - 4
+        - name: import-shadowing
+          disabled: true
+        - name: line-length-limit
+          disabled: true
+        - name: max-control-nesting
+          arguments:
+            - 6
+        - name: max-public-structs
+          disabled: true
+        - name: modifies-value-receiver
+          disabled: true
+        - name: nested-structs
+          disabled: true
+        - name: package-comments
+          disabled: true
+        - name: redefines-builtin-id
+          disabled: true
+        - name: unchecked-type-assertion
+          disabled: true
+        - name: var-naming
+          arguments:
+            - - "ID"
+            - []
+            - - skip-package-name-checks: true
+                skip-package-name-collision-with-go-std: true
+
     staticcheck:
       checks:
         - all
         - -ST1000
+
     unused:
       field-writes-are-uses: false
       local-variables-are-used: false

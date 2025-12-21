@@ -110,9 +110,7 @@ type writerSeg struct {
 	confluence.AbstractUnarySource[framer.WriterRequest]
 }
 
-func (w *writerSeg) sink(_ context.Context, res framer.WriterResponse) error {
-	return nil
-}
+func (*writerSeg) sink(context.Context, framer.WriterResponse) error { return nil }
 
 func (w *writerSeg) Write(ctx context.Context, fr framer.Frame) error {
 	return signal.SendUnderContext(

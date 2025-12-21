@@ -239,11 +239,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}
 
 	if l.Group, err = group.OpenService(
-		ctx,
-		group.Config{
-			DB:       l.DB,
-			Ontology: l.Ontology,
-		},
+		group.Config{DB: l.DB, Ontology: l.Ontology},
 	); !ok(err, l.Group) {
 		return nil, err
 	}

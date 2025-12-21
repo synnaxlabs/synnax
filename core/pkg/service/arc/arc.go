@@ -46,7 +46,7 @@ type Arc struct {
 var _ gorp.Entry[uuid.UUID] = Arc{}
 
 // GorpKey implements gorp.Entry.
-func (s Arc) GorpKey() uuid.UUID { return s.Key }
+func (a Arc) GorpKey() uuid.UUID { return a.Key }
 
 // SetOptions implements gorp.Entry.
-func (s Arc) SetOptions() []any { return nil }
+func (Arc) SetOptions() []any { return nil }

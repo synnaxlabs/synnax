@@ -92,7 +92,7 @@ var _ = Describe("Receiver", func() {
 				receiver := &freightfluence.TransformReceiver[int, int]{}
 				receiver.Receiver = server
 				receiver.OutTo(receiverStream)
-				receiver.Transform = func(ctx context.Context, v int) (int, bool, error) {
+				receiver.Transform = func(_ context.Context, v int) (int, bool, error) {
 					return v * 2, true, nil
 				}
 				receiver.Flow(sCtx, confluence.CloseOutputInletsOnExit())

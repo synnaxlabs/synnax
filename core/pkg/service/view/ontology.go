@@ -68,9 +68,9 @@ var _ ontology.Service = (*Service)(nil)
 
 type change = xchange.Change[uuid.UUID, View]
 
-func (s *Service) Type() ontology.Type { return OntologyType }
+func (*Service) Type() ontology.Type { return OntologyType }
 
-func (s *Service) Schema() zyn.Schema { return schema }
+func (*Service) Schema() zyn.Schema { return schema }
 
 func (s *Service) RetrieveResource(
 	ctx context.Context,

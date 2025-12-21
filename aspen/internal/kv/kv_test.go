@@ -232,7 +232,7 @@ var _ = Describe("txn", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kv).ToNot(BeNil())
 			var accumulated []xkv.Change
-			kv.OnChange(func(ctx context.Context, r xkv.TxReader) {
+			kv.OnChange(func(_ context.Context, r xkv.TxReader) {
 				accumulated = slices.Collect(r)
 			})
 			Expect(kv.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())

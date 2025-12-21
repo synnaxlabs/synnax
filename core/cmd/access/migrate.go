@@ -43,11 +43,11 @@ type LegacyPolicy struct {
 var _ gorp.Entry[uuid.UUID] = LegacyPolicy{}
 
 func (p LegacyPolicy) GorpKey() uuid.UUID { return p.Key }
-func (p LegacyPolicy) SetOptions() []any  { return nil }
+func (LegacyPolicy) SetOptions() []any    { return nil }
 
 // CustomTypeName makes LegacyPolicy read from the same gorp table as policy.Policy.
 // This is necessary because the old policies were stored with type name "Policy".
-func (p LegacyPolicy) CustomTypeName() string { return "Policy" }
+func (LegacyPolicy) CustomTypeName() string { return "Policy" }
 
 // MigratePermissions migrates users from the legacy permission system to role-based
 // access control. This migration:

@@ -14,10 +14,11 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
+	"github.com/synnaxlabs/x/confluence"
 )
 
-func newRequestTranslator() func(context.Context, Request) (ts.WriterRequest, bool, error) {
-	return func(ctx context.Context, in Request) (ts.WriterRequest, bool, error) {
+func newRequestTranslator() confluence.TransformFunc[Request, ts.WriterRequest] {
+	return func(_ context.Context, in Request) (ts.WriterRequest, bool, error) {
 		return ts.WriterRequest{
 			Command: ts.WriterCommand(in.Command),
 			Frame:   in.Frame.ToStorage(),
@@ -27,8 +28,8 @@ func newRequestTranslator() func(context.Context, Request) (ts.WriterRequest, bo
 	}
 }
 
-func newResponseTranslator(host cluster.NodeKey) func(ctx context.Context, in ts.WriterResponse) (Response, bool, error) {
-	return func(ctx context.Context, in ts.WriterResponse) (Response, bool, error) {
+func newResponseTranslator(host cluster.NodeKey) confluence.TransformFunc[ts.WriterResponse, Response] {
+	return func(_ context.Context, in ts.WriterResponse) (Response, bool, error) {
 		return Response{
 			Command:    Command(in.Command),
 			SeqNum:     in.SeqNum,

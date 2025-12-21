@@ -43,9 +43,7 @@ var _ = Describe("Device", func() {
 	BeforeEach(func() {
 		ctx := context.Background()
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		groupSvc = MustSucceed(
-			group.OpenService(ctx, group.Config{DB: db, Ontology: otg}),
-		)
+		groupSvc = MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
 		label := MustSucceed(label.OpenService(ctx, label.Config{
 			DB:       db,
 			Ontology: otg,
@@ -402,7 +400,7 @@ var _ = Describe("Device", func() {
 			ctx := context.Background()
 			db := gorp.Wrap(memkv.New())
 			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-			groupSvc := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
+			groupSvc := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
 			labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
 				DB:       db,
 				Ontology: otg,
@@ -468,7 +466,7 @@ var _ = Describe("Device", func() {
 			ctx := context.Background()
 			db := gorp.Wrap(memkv.New())
 			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-			groupSvc := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
+			groupSvc := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
 			labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
 				DB:       db,
 				Ontology: otg,

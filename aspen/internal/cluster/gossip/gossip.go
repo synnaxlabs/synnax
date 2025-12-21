@@ -43,7 +43,7 @@ func (g *Gossip) GoGossip(ctx signal.Context) {
 	signal.GoTick(
 		ctx,
 		g.Interval,
-		func(ctx context.Context, t time.Time) error {
+		func(ctx context.Context, _ time.Time) error {
 			if err := g.GossipOnce(ctx); err != nil {
 				g.L.Error("gossip failed", zap.Error(err))
 			}

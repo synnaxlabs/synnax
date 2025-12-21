@@ -31,7 +31,7 @@ type Writer struct {
 // Create creates or updates a view within the DB. If the view already has a key and an
 // existing view already exists with that key, the existing view will be updated.
 func (w Writer) Create(ctx context.Context, view *View) error {
-	if err := w.validate(*view); err != nil {
+	if err := validateView(*view); err != nil {
 		return err
 	}
 	if view.Key == uuid.Nil {
@@ -88,7 +88,7 @@ func (w Writer) DeleteMany(ctx context.Context, keys ...uuid.UUID) error {
 	return nil
 }
 
-func (w Writer) validate(v View) error {
+func validateView(v View) error {
 	vld := validate.New("view.View")
 	validate.NotEmptyString(vld, "name", v.Name)
 	validate.NotEmptyString(vld, "type", v.Type)

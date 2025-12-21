@@ -55,11 +55,10 @@ func (s *System) Unify() error {
 	// Resolve remaining unresolved type variables with defaults
 	for name, tv := range s.TypeVars {
 		if _, resolved := s.Substitutions[name]; !resolved {
-			if tv.Constraint != nil {
-				s.Substitutions[name] = defaultTypeForConstraint(*tv.Constraint)
-			} else {
+			if tv.Constraint == nil {
 				return errors.Newf("type variable %s could not be resolved", name)
 			}
+			s.Substitutions[name] = defaultTypeForConstraint(*tv.Constraint)
 		}
 	}
 	return nil
@@ -139,10 +138,12 @@ func (s *System) unifyTypeVariableWithVisited(tv, other types.Type, source Const
 		if tv.Constraint != nil && other.Constraint == nil {
 			s.Substitutions[other.Name] = tv
 			return nil
-		} else if other.Constraint != nil && tv.Constraint == nil {
+		}
+		if other.Constraint != nil && tv.Constraint == nil {
 			s.Substitutions[tv.Name] = other
 			return nil
-		} else if tv.Name != other.Name {
+		}
+		if tv.Name != other.Name {
 			s.Substitutions[tv.Name] = other
 			return nil
 		}
@@ -187,26 +188,25 @@ func (s *System) unifyTypeVariableWithVisited(tv, other types.Type, source Const
 		tv.Constraint.Kind == types.KindNumericConstant)
 
 	if !isConstraintKind && tv.Constraint != nil && !types.Equal(*tv.Constraint, other) {
-		if source.Kind == KindCompatible && tv.Constraint.IsNumeric() && other.IsNumeric() {
-			if tv.Constraint.IsFloat() || other.IsFloat() {
-				if tv.Constraint.Is64Bit() || other.Is64Bit() {
-					other = types.F64()
-				} else {
-					other = types.F32()
-				}
-			} else if tv.Constraint.Is64Bit() || other.Is64Bit() {
-				if tv.Constraint.IsSignedInteger() || other.IsSignedInteger() {
-					other = types.F64()
-				} else {
-					other = types.U64()
-				}
-			} else if tv.Constraint.IsSignedInteger() || other.IsSignedInteger() {
-				other = types.I32()
-			} else {
-				other = types.U32()
-			}
-		} else {
+		if (source.Kind != KindCompatible) || (!tv.Constraint.IsNumeric()) || (!other.IsNumeric()) {
 			return errors.Newf("type %v does not match constraint %v", other, tv.Constraint)
+		}
+		if tv.Constraint.IsFloat() || other.IsFloat() {
+			if tv.Constraint.Is64Bit() || other.Is64Bit() {
+				other = types.F64()
+			} else {
+				other = types.F32()
+			}
+		} else if tv.Constraint.Is64Bit() || other.Is64Bit() {
+			if tv.Constraint.IsSignedInteger() || other.IsSignedInteger() {
+				other = types.F64()
+			} else {
+				other = types.U64()
+			}
+		} else if tv.Constraint.IsSignedInteger() || other.IsSignedInteger() {
+			other = types.I32()
+		} else {
+			other = types.U32()
 		}
 	}
 	s.Substitutions[tv.Name] = other
@@ -225,12 +225,10 @@ func occursIn(lhs, rhs types.Type) bool {
 
 func defaultTypeForConstraint(constraint types.Type) types.Type {
 	switch constraint.Kind {
-	case types.KindNumericConstant:
+	case types.KindNumericConstant, types.KindFloatConstant:
 		return types.F64()
 	case types.KindIntegerConstant:
 		return types.I64()
-	case types.KindFloatConstant:
-		return types.F64()
 	default:
 		return constraint
 	}

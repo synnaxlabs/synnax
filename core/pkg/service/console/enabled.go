@@ -55,7 +55,7 @@ func (s *Service) BindTo(app *fiber.App) {
 	}))
 }
 
-func (s *Service) Use(...freighter.Middleware) {}
+func (*Service) Use(...freighter.Middleware) {}
 
 // Report implements alamos.ReportProvider.
-func (s *Service) Report() alamos.Report { return alamos.Report{"console": "enabled"} }
+func (*Service) Report() alamos.Report { return alamos.Report{"console": "enabled"} }

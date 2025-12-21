@@ -38,7 +38,7 @@ func (ip *indexPersist) load() ([]pointer, error) {
 }
 
 func (ip *indexPersist) prepare(start int) func() error {
-	pointerEncoded := ip.p.encode(start, ip.idx.mu.pointers)
+	pointerEncoded := encode(start, ip.idx.mu.pointers)
 	lenOfPointers := len(ip.idx.mu.pointers)
 
 	return func() error {
@@ -59,7 +59,6 @@ func (ip *indexPersist) Close() error {
 }
 
 type pointerPersist struct {
-	pointerCodec
 	fs.File
 	sync.Mutex
 }
@@ -82,14 +81,12 @@ func (p *pointerPersist) load() ([]pointer, error) {
 			return nil, err
 		}
 	}
-	return p.decode(b), nil
+	return decode(b), nil
 }
 
 var byteOrder = binary.LittleEndian
 
-type pointerCodec struct{}
-
-func (f *pointerCodec) encode(start int, ptrs []pointer) []byte {
+func encode(start int, ptrs []pointer) []byte {
 	b := make([]byte, (len(ptrs)-start)*pointerByteSize)
 	for i := start; i < len(ptrs); i++ {
 		ptr := ptrs[i]
@@ -104,7 +101,7 @@ func (f *pointerCodec) encode(start int, ptrs []pointer) []byte {
 	return b
 }
 
-func (f *pointerCodec) decode(b []byte) []pointer {
+func decode(b []byte) []pointer {
 	if len(b) == 0 {
 		return []pointer{}
 	}

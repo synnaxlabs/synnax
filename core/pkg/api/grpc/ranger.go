@@ -146,14 +146,14 @@ func translatePairsBackward(p []*gapi.KVPair) []api.RangeKVPair {
 	return pairs
 }
 
-func (t rangeCreateRequestTranslator) Forward(
+func (rangeCreateRequestTranslator) Forward(
 	_ context.Context,
 	r api.RangeCreateRequest,
 ) (*gapi.RangeCreateRequest, error) {
 	return &gapi.RangeCreateRequest{Ranges: translateRangesForward(r.Ranges)}, nil
 }
 
-func (t rangeCreateRequestTranslator) Backward(
+func (rangeCreateRequestTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeCreateRequest,
 ) (api.RangeCreateRequest, error) {
@@ -161,14 +161,14 @@ func (t rangeCreateRequestTranslator) Backward(
 	return api.RangeCreateRequest{Ranges: ranges}, err
 }
 
-func (t rangeCreateResponseTranslator) Forward(
+func (rangeCreateResponseTranslator) Forward(
 	_ context.Context,
 	r api.RangeCreateResponse,
 ) (*gapi.RangeCreateResponse, error) {
 	return &gapi.RangeCreateResponse{Ranges: translateRangesForward(r.Ranges)}, nil
 }
 
-func (t rangeCreateResponseTranslator) Backward(
+func (rangeCreateResponseTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeCreateResponse,
 ) (api.RangeCreateResponse, error) {
@@ -176,7 +176,7 @@ func (t rangeCreateResponseTranslator) Backward(
 	return api.RangeCreateResponse{Ranges: ranges}, err
 }
 
-func (t rangeRetrieveRequestTranslator) Forward(
+func (rangeRetrieveRequestTranslator) Forward(
 	_ context.Context,
 	r api.RangeRetrieveRequest,
 ) (*gapi.RangeRetrieveRequest, error) {
@@ -187,7 +187,7 @@ func (t rangeRetrieveRequestTranslator) Forward(
 	return &gapi.RangeRetrieveRequest{Keys: keys, Names: r.Names}, nil
 }
 
-func (t rangeRetrieveRequestTranslator) Backward(
+func (rangeRetrieveRequestTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeRetrieveRequest,
 ) (api.RangeRetrieveRequest, error) {
@@ -202,14 +202,14 @@ func (t rangeRetrieveRequestTranslator) Backward(
 	return api.RangeRetrieveRequest{Keys: keys, Names: r.GetNames()}, nil
 }
 
-func (t rangeRetrieveResponseTranslator) Forward(
+func (rangeRetrieveResponseTranslator) Forward(
 	_ context.Context,
 	r api.RangeRetrieveResponse,
 ) (*gapi.RangeRetrieveResponse, error) {
 	return &gapi.RangeRetrieveResponse{Ranges: translateRangesForward(r.Ranges)}, nil
 }
 
-func (t rangeRetrieveResponseTranslator) Backward(
+func (rangeRetrieveResponseTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeRetrieveResponse,
 ) (api.RangeRetrieveResponse, error) {
@@ -217,7 +217,7 @@ func (t rangeRetrieveResponseTranslator) Backward(
 	return api.RangeRetrieveResponse{Ranges: ranges}, err
 }
 
-func (t rangeKVGetRequestTranslator) Forward(
+func (rangeKVGetRequestTranslator) Forward(
 	_ context.Context,
 	r api.RangeKVGetRequest,
 ) (*gapi.RangeKVGetRequest, error) {
@@ -227,7 +227,7 @@ func (t rangeKVGetRequestTranslator) Forward(
 	}, nil
 }
 
-func (t rangeKVGetRequestTranslator) Backward(
+func (rangeKVGetRequestTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeKVGetRequest,
 ) (api.RangeKVGetRequest, error) {
@@ -238,21 +238,21 @@ func (t rangeKVGetRequestTranslator) Backward(
 	}, err
 }
 
-func (t rangeKVGetResponseTranslator) Forward(
+func (rangeKVGetResponseTranslator) Forward(
 	_ context.Context,
 	r api.RangeKVGetResponse,
 ) (*gapi.RangeKVGetResponse, error) {
 	return &gapi.RangeKVGetResponse{Pairs: translatePairsForward(r.Pairs)}, nil
 }
 
-func (t rangeKVGetResponseTranslator) Backward(
+func (rangeKVGetResponseTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeKVGetResponse,
 ) (api.RangeKVGetResponse, error) {
 	return api.RangeKVGetResponse{Pairs: translatePairsBackward(r.GetPairs())}, nil
 }
 
-func (t rangeKVSetRequestTranslator) Forward(
+func (rangeKVSetRequestTranslator) Forward(
 	_ context.Context,
 	r api.RangeKVSetRequest,
 ) (*gapi.RangeKVSetRequest, error) {
@@ -262,7 +262,7 @@ func (t rangeKVSetRequestTranslator) Forward(
 	}, nil
 }
 
-func (t rangeKVSetRequestTranslator) Backward(
+func (rangeKVSetRequestTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeKVSetRequest,
 ) (api.RangeKVSetRequest, error) {
@@ -273,7 +273,7 @@ func (t rangeKVSetRequestTranslator) Backward(
 	}, err
 }
 
-func (t rangeKVDeleteRequestTranslator) Forward(
+func (rangeKVDeleteRequestTranslator) Forward(
 	_ context.Context,
 	r api.RangeKVDeleteRequest,
 ) (*gapi.RangeKVDeleteRequest, error) {
@@ -283,7 +283,7 @@ func (t rangeKVDeleteRequestTranslator) Forward(
 	}, nil
 }
 
-func (t rangeKVDeleteRequestTranslator) Backward(
+func (rangeKVDeleteRequestTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeKVDeleteRequest,
 ) (api.RangeKVDeleteRequest, error) {
@@ -294,7 +294,7 @@ func (t rangeKVDeleteRequestTranslator) Backward(
 	}, err
 }
 
-func (t rangeAliasSetRequestTranslator) Forward(
+func (rangeAliasSetRequestTranslator) Forward(
 	_ context.Context,
 	r api.RangeAliasSetRequest,
 ) (*gapi.RangeAliasSetRequest, error) {
@@ -304,7 +304,7 @@ func (t rangeAliasSetRequestTranslator) Forward(
 	}, nil
 }
 
-func (t rangeAliasSetRequestTranslator) Backward(
+func (rangeAliasSetRequestTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeAliasSetRequest,
 ) (api.RangeAliasSetRequest, error) {
@@ -315,7 +315,7 @@ func (t rangeAliasSetRequestTranslator) Backward(
 	}, err
 }
 
-func (t rangeAliasDeleteRequestTranslator) Forward(
+func (rangeAliasDeleteRequestTranslator) Forward(
 	_ context.Context,
 	r api.RangeAliasDeleteRequest,
 ) (*gapi.RangeAliasDeleteRequest, error) {
@@ -325,7 +325,7 @@ func (t rangeAliasDeleteRequestTranslator) Forward(
 	}, nil
 }
 
-func (t rangeAliasDeleteRequestTranslator) Backward(
+func (rangeAliasDeleteRequestTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeAliasDeleteRequest,
 ) (api.RangeAliasDeleteRequest, error) {
@@ -336,7 +336,7 @@ func (t rangeAliasDeleteRequestTranslator) Backward(
 	}, err
 }
 
-func (t rangeAliasResolveRequestTranslator) Forward(
+func (rangeAliasResolveRequestTranslator) Forward(
 	_ context.Context,
 	r api.RangeAliasResolveRequest,
 ) (*gapi.RangeAliasResolveRequest, error) {
@@ -346,7 +346,7 @@ func (t rangeAliasResolveRequestTranslator) Forward(
 	}, nil
 }
 
-func (t rangeAliasResolveRequestTranslator) Backward(
+func (rangeAliasResolveRequestTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeAliasResolveRequest,
 ) (api.RangeAliasResolveRequest, error) {
@@ -357,7 +357,7 @@ func (t rangeAliasResolveRequestTranslator) Backward(
 	}, err
 }
 
-func (t rangeAliasListRequestTranslator) Forward(
+func (rangeAliasListRequestTranslator) Forward(
 	_ context.Context,
 	r api.RangeAliasListRequest,
 ) (*gapi.RangeAliasListRequest, error) {
@@ -366,7 +366,7 @@ func (t rangeAliasListRequestTranslator) Forward(
 	}, nil
 }
 
-func (t rangeAliasListRequestTranslator) Backward(
+func (rangeAliasListRequestTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeAliasListRequest,
 ) (api.RangeAliasListRequest, error) {
@@ -376,7 +376,7 @@ func (t rangeAliasListRequestTranslator) Backward(
 	}, err
 }
 
-func (t rangeAliasResolveResponseTranslator) Forward(
+func (rangeAliasResolveResponseTranslator) Forward(
 	_ context.Context,
 	r api.RangeAliasResolveResponse,
 ) (*gapi.RangeAliasResolveResponse, error) {
@@ -385,7 +385,7 @@ func (t rangeAliasResolveResponseTranslator) Forward(
 	}, nil
 }
 
-func (t rangeAliasResolveResponseTranslator) Backward(
+func (rangeAliasResolveResponseTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeAliasResolveResponse,
 ) (api.RangeAliasResolveResponse, error) {
@@ -394,7 +394,7 @@ func (t rangeAliasResolveResponseTranslator) Backward(
 	}, nil
 }
 
-func (t rangeAliasListResponseTranslator) Forward(
+func (rangeAliasListResponseTranslator) Forward(
 	_ context.Context,
 	r api.RangeAliasListResponse,
 ) (*gapi.RangeAliasListResponse, error) {
@@ -403,7 +403,7 @@ func (t rangeAliasListResponseTranslator) Forward(
 	}, nil
 }
 
-func (t rangeAliasListResponseTranslator) Backward(
+func (rangeAliasListResponseTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeAliasListResponse,
 ) (api.RangeAliasListResponse, error) {
@@ -412,7 +412,7 @@ func (t rangeAliasListResponseTranslator) Backward(
 	}, nil
 }
 
-func (t rangeDeleteRequestTranslator) Forward(
+func (rangeDeleteRequestTranslator) Forward(
 	_ context.Context,
 	r api.RangeDeleteRequest,
 ) (*gapi.RangeDeleteRequest, error) {
@@ -423,7 +423,7 @@ func (t rangeDeleteRequestTranslator) Forward(
 	return &gapi.RangeDeleteRequest{Keys: keys}, nil
 }
 
-func (t rangeDeleteRequestTranslator) Backward(
+func (rangeDeleteRequestTranslator) Backward(
 	_ context.Context,
 	r *gapi.RangeDeleteRequest,
 ) (api.RangeDeleteRequest, error) {

@@ -43,13 +43,11 @@ func newMockIndexingService(schema zyn.Schema, resources []ontology.Resource) *m
 
 const testType ontology.Type = "test-type"
 
-func (s *mockIndexingService) Type() ontology.Type { return testType }
+func (*mockIndexingService) Type() ontology.Type { return testType }
 
-func (s *mockIndexingService) Schema() zyn.Schema {
-	return s.schema
-}
+func (s *mockIndexingService) Schema() zyn.Schema { return s.schema }
 
-func (s *mockIndexingService) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (s *mockIndexingService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	return slices.Values(s.resources), xio.NopCloser, nil
 }
 

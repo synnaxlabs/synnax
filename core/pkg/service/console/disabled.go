@@ -33,7 +33,7 @@ func NewService() *Service { return &Service{} }
 
 // BindTo binds the console UI service to the provided Fiber app. In the non-ui build,
 // it serves a fallback page indicating the Console is not available.
-func (s *Service) BindTo(app *fiber.App) {
+func (*Service) BindTo(app *fiber.App) {
 	app.Get("/", func(c *fiber.Ctx) error {
 		c.Set("Content-Type", "text/html")
 		return c.Send(fallbackHTML)
@@ -41,7 +41,7 @@ func (s *Service) BindTo(app *fiber.App) {
 }
 
 // Use implements freighter.Transport.
-func (s *Service) Use(...freighter.Middleware) {}
+func (*Service) Use(...freighter.Middleware) {}
 
 // Report implements alamos.ReportProvider.
-func (s *Service) Report() alamos.Report { return alamos.Report{"console": "disabled"} }
+func (*Service) Report() alamos.Report { return alamos.Report{"console": "disabled"} }

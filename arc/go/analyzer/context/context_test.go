@@ -14,7 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	analyzerContext "github.com/synnaxlabs/arc/analyzer/context"
+	analyzercontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -33,7 +33,7 @@ var _ = Describe("Context", func() {
 	Describe("CreateRoot", func() {
 		It("Should initialize all fields correctly", func() {
 			ast := testutil.NewMockAST(1)
-			ctx := analyzerContext.CreateRoot(bCtx, ast, nil)
+			ctx := analyzercontext.CreateRoot(bCtx, ast, nil)
 			Expect(ctx.Context).To(Equal(bCtx))
 			Expect(ctx.Scope).ToNot(BeNil())
 			Expect(ctx.Diagnostics).To(HaveOccurred())
@@ -52,8 +52,8 @@ var _ = Describe("Context", func() {
 			var (
 				parentAST = testutil.NewMockAST(1)
 				childAST  = testutil.NewMockAST(2)
-				parent    = analyzerContext.CreateRoot(bCtx, parentAST, nil)
-				child     = analyzerContext.Child(parent, childAST)
+				parent    = analyzercontext.CreateRoot(bCtx, parentAST, nil)
+				child     = analyzercontext.Child(parent, childAST)
 			)
 			Expect(child.AST).To(Equal(childAST))
 			Expect(child.AST).ToNot(Equal(parent.AST))
@@ -69,8 +69,8 @@ var _ = Describe("Context", func() {
 			var (
 				parentAST = testutil.NewMockAST(1)
 				childAST  = testutil.NewMockAST(2)
-				parent    = analyzerContext.CreateRoot(bCtx, parentAST, nil)
-				child     = analyzerContext.Child(parent, childAST)
+				parent    = analyzercontext.CreateRoot(bCtx, parentAST, nil)
+				child     = analyzercontext.Child(parent, childAST)
 			)
 			child.Diagnostics.AddInfo(errors.New("test diagnostic"), childAST)
 			Expect(*parent.Diagnostics).To(HaveLen(1))
@@ -82,10 +82,10 @@ var _ = Describe("Context", func() {
 		It("Should preserve parent's TypeHint and InTypeInferenceMode", func() {
 			parentAST := testutil.NewMockAST(1)
 			childAST := testutil.NewMockAST(2)
-			parent := analyzerContext.CreateRoot(bCtx, parentAST, nil)
+			parent := analyzercontext.CreateRoot(bCtx, parentAST, nil)
 			parent.TypeHint = types.F64()
 			parent.InTypeInferenceMode = true
-			child := analyzerContext.Child(parent, childAST)
+			child := analyzercontext.Child(parent, childAST)
 			Expect(child.TypeHint).To(Equal(types.F64()))
 			Expect(child.InTypeInferenceMode).To(BeTrue())
 		})
@@ -95,7 +95,7 @@ var _ = Describe("Context", func() {
 		It("Should return new context with updated scope", func() {
 			var (
 				ast           = testutil.NewMockAST(1)
-				ctx           = analyzerContext.CreateRoot(bCtx, ast, nil)
+				ctx           = analyzercontext.CreateRoot(bCtx, ast, nil)
 				originalScope = ctx.Scope
 				newScope      = MustSucceed(ctx.Scope.Add(bCtx, symbol.Symbol{
 					Name: "test",
@@ -120,7 +120,7 @@ var _ = Describe("Context", func() {
 		It("Should return new context with updated type hint", func() {
 			var (
 				ast    = testutil.NewMockAST(1)
-				ctx    = analyzerContext.CreateRoot(bCtx, ast, nil)
+				ctx    = analyzercontext.CreateRoot(bCtx, ast, nil)
 				newCtx = ctx.WithTypeHint(types.F64())
 			)
 			Expect(newCtx.TypeHint).To(Equal(types.F64()))
@@ -136,7 +136,7 @@ var _ = Describe("Context", func() {
 		It("Should allow chaining with WithScope", func() {
 			var (
 				ast      = testutil.NewMockAST(1)
-				ctx      = analyzerContext.CreateRoot(bCtx, ast, nil)
+				ctx      = analyzercontext.CreateRoot(bCtx, ast, nil)
 				newScope = MustSucceed(ctx.Scope.Add(bCtx, symbol.Symbol{
 					Name: "test",
 					Kind: symbol.KindFunction,
@@ -153,14 +153,14 @@ var _ = Describe("Context", func() {
 		It("Should support realistic workflow with one parsed AST", func() {
 			var (
 				prog     = MustSucceed(parser.Parse(`func test() {}`))
-				rootCtx  = analyzerContext.CreateRoot(bCtx, prog, nil)
+				rootCtx  = analyzercontext.CreateRoot(bCtx, prog, nil)
 				newScope = MustSucceed(rootCtx.Scope.Add(bCtx, symbol.Symbol{
 					Name: "x",
 					Kind: symbol.KindVariable,
 					Type: types.I32(),
 				}))
 				mockChild = testutil.NewMockAST(99)
-				finalCtx  = analyzerContext.Child(rootCtx, mockChild).
+				finalCtx  = analyzercontext.Child(rootCtx, mockChild).
 						WithScope(newScope).
 						WithTypeHint(types.String())
 			)

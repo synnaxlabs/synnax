@@ -150,7 +150,7 @@ var _ = Describe("Scheduler", func() {
 			nodes["a"] = nodeA
 			s = scheduler.New(ctx, prog, nodes)
 			s.Init(ctx)
-			nodeA.onInit = func(ctx node.Context) {
+			nodeA.onInit = func(node.Context) {
 				markedParams = append(markedParams, "output")
 			}
 			s.Init(ctx)

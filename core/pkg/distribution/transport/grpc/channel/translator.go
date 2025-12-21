@@ -46,7 +46,7 @@ func translateOptionsBackward(opts *channelv1.CreateOptions) channel.CreateOptio
 	}
 }
 
-func (c createMessageTranslator) Forward(
+func (createMessageTranslator) Forward(
 	_ context.Context,
 	msg channel.CreateMessage,
 ) (*channelv1.CreateMessage, error) {
@@ -67,7 +67,7 @@ func (c createMessageTranslator) Forward(
 	return tr, nil
 }
 
-func (c createMessageTranslator) Backward(
+func (createMessageTranslator) Backward(
 	_ context.Context,
 	msg *channelv1.CreateMessage,
 ) (channel.CreateMessage, error) {
@@ -88,21 +88,21 @@ func (c createMessageTranslator) Backward(
 	return tr, nil
 }
 
-func (d deleteRequestTranslator) Forward(
+func (deleteRequestTranslator) Forward(
 	_ context.Context,
 	msg channel.DeleteRequest,
 ) (*channelv1.DeleteRequest, error) {
 	return &channelv1.DeleteRequest{Keys: msg.Keys.Uint32()}, nil
 }
 
-func (d deleteRequestTranslator) Backward(
+func (deleteRequestTranslator) Backward(
 	_ context.Context,
 	msg *channelv1.DeleteRequest,
 ) (channel.DeleteRequest, error) {
 	return channel.DeleteRequest{Keys: channel.KeysFromUint32(msg.GetKeys())}, nil
 }
 
-func (r renameMessageTranslator) Forward(
+func (renameMessageTranslator) Forward(
 	_ context.Context,
 	msg channel.RenameRequest,
 ) (*channelv1.RenameRequest, error) {
@@ -112,7 +112,7 @@ func (r renameMessageTranslator) Forward(
 	}, nil
 }
 
-func (r renameMessageTranslator) Backward(
+func (renameMessageTranslator) Backward(
 	_ context.Context,
 	msg *channelv1.RenameRequest,
 ) (channel.RenameRequest, error) {
