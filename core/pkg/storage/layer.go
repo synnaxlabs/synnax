@@ -254,9 +254,8 @@ const (
 func openFileSystems(cfg Config) (vfs.FS, xfs.FS) {
 	if *cfg.InMemory {
 		return vfs.NewMem(), xfs.NewMem()
-	} else {
-		return vfs.Default, xfs.Default
 	}
+	return vfs.Default, xfs.Default
 }
 
 func configureStorageDir(cfg Config, vfs vfs.FS) error {

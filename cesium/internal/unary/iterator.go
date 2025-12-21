@@ -167,26 +167,26 @@ func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 // [start, end), after Next(span) is called, the view becomes [end, end + span). After
 // the view changes, the internal iterator moves forward and accumulates data until the
 // entire view is contained in the iterator's frame.
-func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
+func (i *Iterator) Next(ctx context.Context, timeSpan telem.TimeSpan) (ok bool) {
 	if i.closed {
 		i.err = errIteratorClosed
 		return false
 	}
-	ctx, span_ := i.T.Bench(ctx, "Next")
+	ctx, span := i.T.Bench(ctx, "Next")
 	defer func() {
 		ok = i.Valid()
-		span_.End()
+		span.End()
 	}()
 	if i.atEnd() {
 		i.reset(i.bounds.End.SpanRange(0))
 		return ok
 	}
 
-	if span == AutoSpan {
+	if timeSpan == AutoSpan {
 		return i.autoNext(ctx)
 	}
 
-	i.reset(i.view.End.SpanRange(span).BoundBy(i.bounds))
+	i.reset(i.view.End.SpanRange(timeSpan).BoundBy(i.bounds))
 
 	if i.view.Span().IsZero() || i.view.End.BeforeEq(i.internal.TimeRange().Start) {
 		return ok
@@ -321,15 +321,15 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 // [start, end), after Next(span) is called, the view becomes [start - span, start).
 // After the view changes, the internal iterator moves backward and accumulates data
 // until the entire view is contained in the iterator's frame.
-func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
+func (i *Iterator) Prev(ctx context.Context, timeSpan telem.TimeSpan) (ok bool) {
 	if i.closed {
 		i.err = errIteratorClosed
 		return false
 	}
-	ctx, span_ := i.T.Bench(ctx, "Prev")
+	ctx, span := i.T.Bench(ctx, "Prev")
 	defer func() {
 		ok = i.Valid()
-		span_.End()
+		span.End()
 	}()
 
 	if i.atStart() {
@@ -337,11 +337,11 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 		return ok
 	}
 
-	if span == AutoSpan {
+	if timeSpan == AutoSpan {
 		return i.autoPrev(ctx)
 	}
 
-	i.reset(i.view.Start.SpanRange(-1 * span).BoundBy(i.bounds))
+	i.reset(i.view.Start.SpanRange(-1 * timeSpan).BoundBy(i.bounds))
 
 	if i.view.Span().IsZero() || i.view.Start.AfterEq(i.internal.TimeRange().End) {
 		return ok

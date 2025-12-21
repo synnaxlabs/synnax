@@ -32,9 +32,9 @@ const (
 // -X github.com/synnaxlabs/synnax/pkg/version.GitCommit=abc123
 // -X github.com/synnaxlabs/synnax/pkg/version.BuildDate=2025-01-01T00:00:00Z.
 var (
-	Version   string = ""
-	GitCommit string = ""
-	BuildDate string = ""
+	Version   string
+	GitCommit string
+	BuildDate string
 )
 
 // Prod returns the production version of Synnax.

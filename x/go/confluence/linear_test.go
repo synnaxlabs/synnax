@@ -14,16 +14,16 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 )
 
 var _ = Describe("Linear", func() {
 	It("Should transform values from inlet to outlet", func() {
-		i := NewStream[int](1)
-		o := NewStream[int](1)
-		s := LinearTransform[int, int]{}
-		s.Transform = func(ctx context.Context, i int) (int, bool, error) {
+		i := confluence.NewStream[int](1)
+		o := confluence.NewStream[int](1)
+		s := confluence.LinearTransform[int, int]{}
+		s.Transform = func(_ context.Context, i int) (int, bool, error) {
 			return i * i, true, nil
 		}
 		s.InFrom(i)
@@ -35,17 +35,17 @@ var _ = Describe("Linear", func() {
 		Expect(<-o.Outlet()).To(Equal(9))
 	})
 	It("Should not send a value if the transform returns false", func() {
-		i := NewStream[int](1)
-		o := NewStream[int](1)
-		s := LinearTransform[int, int]{}
-		s.Transform = func(ctx context.Context, i int) (int, bool, error) {
+		i := confluence.NewStream[int](1)
+		o := confluence.NewStream[int](1)
+		s := confluence.LinearTransform[int, int]{}
+		s.Transform = func(context.Context, int) (int, bool, error) {
 			return 0, false, nil
 		}
 		s.InFrom(i)
 		s.OutTo(o)
 		ctx, cancel := signal.Isolated()
 		defer cancel()
-		s.Flow(ctx, CloseOutputInletsOnExit())
+		s.Flow(ctx, confluence.CloseOutputInletsOnExit())
 		i.Inlet() <- 3
 		i.Close()
 		_, ok := <-o.Outlet()

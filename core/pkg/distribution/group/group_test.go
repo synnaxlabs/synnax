@@ -129,7 +129,7 @@ var _ = Describe("Group", Ordered, func() {
 
 			err = w.Delete(ctx, parent.Key)
 			Expect(err).To(HaveOccurred())
-			Expect(errors.Is(err, validate.Error)).To(BeTrue())
+			Expect(errors.Is(err, validate.Err)).To(BeTrue())
 		})
 
 		It("Should delete a group without children", func() {
@@ -173,7 +173,7 @@ var _ = Describe("Group", Ordered, func() {
 			var groups []group.Group
 			Expect(svc.NewRetrieve().WhereKeys(child1.Key, child2.Key, parent.Key).
 				Entries(&groups).Exec(ctx, nil)).
-				To(HaveOccurredAs(query.NotFound))
+				To(HaveOccurredAs(query.ErrNotFound))
 			Expect(groups).To(BeEmpty())
 		})
 

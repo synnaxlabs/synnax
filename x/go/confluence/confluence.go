@@ -94,14 +94,14 @@ type Segment[I, O Value] interface {
 	Source[O]
 }
 
-// Flow is an entity that starts goroutines that process a stream of values.
-// All processing goroutines should be started when Flow is called, and should stop
-// when the provided context is cancelled. Any options defined or provided should
-// not affect the algorithmic structure of the Flow, and should instead modify
-// runtime context or behavior.
+// Flow is an entity that starts goroutines that process a stream of values. All
+// processing goroutines should be started when Flow is called, and should stop when the
+// provided context is canceled. Any options defined or provided should not affect the
+// algorithmic structure of the Flow, and should instead modify runtime context or
+// behavior.
 type Flow interface {
 	// Flow starts the Flow process under the provided signal.Context.
-	Flow(ctx signal.Context, opts ...Option)
+	Flow(signal.Context, ...Option)
 }
 
 // Sink is an interface that accepts values from a set of Outlet(sink). The user of a Sink

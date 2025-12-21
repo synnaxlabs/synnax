@@ -47,9 +47,8 @@ var _ = Describe("Relay", func() {
 			freeScenario,
 		}
 		for i, sF := range scenarios {
-			_sF := sF
 			var s scenario
-			BeforeAll(func() { s = _sF() })
+			BeforeAll(func() { s = sF() })
 			AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func() {
 				keys := channel.KeysFromChannels(s.channels)
@@ -111,7 +110,7 @@ var _ = Describe("Relay", func() {
 			_, err := svc.Framer.Relay.NewStreamer(ctx, relay.StreamerConfig{
 				Keys: []channel.Key{12345},
 			})
-			Expect(err).To(HaveOccurredAs(query.NotFound))
+			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 		})
 	})
 })
@@ -174,8 +173,8 @@ func peerOnlyScenario() scenario {
 
 func mixedScenario() scenario {
 	channels := newChannelSet()
-	cluster_ := mock.ProvisionCluster(ctx, 3)
-	node := cluster_.Nodes[1]
+	clstr := mock.ProvisionCluster(ctx, 3)
+	node := clstr.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = cluster.NodeKey(i + 1)
 		channels[i] = ch
@@ -191,7 +190,7 @@ func mixedScenario() scenario {
 		resCount: 3,
 		channels: channels,
 		dist:     node,
-		close:    cluster_,
+		close:    clstr,
 	}
 }
 

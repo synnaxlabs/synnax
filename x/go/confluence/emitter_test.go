@@ -16,7 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
@@ -24,15 +24,15 @@ import (
 
 var _ = Describe("Emitter", func() {
 	It("Should emit values at regular intervals", func() {
-		e := &Emitter[int]{
+		e := &confluence.Emitter[int]{
 			Interval: 1 * time.Millisecond,
 			Emit:     func(context.Context) (int, error) { return 1, nil },
 		}
 		ctx, cancel := signal.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
-		stream := NewStream[int](0)
+		stream := confluence.NewStream[int](0)
 		e.OutTo(stream)
-		e.Flow(ctx, CloseOutputInletsOnExit())
+		e.Flow(ctx, confluence.CloseOutputInletsOnExit())
 		var received []int
 		for v := range stream.Outlet() {
 			received = append(received, v)
@@ -41,7 +41,7 @@ var _ = Describe("Emitter", func() {
 		Expect(received).ToNot(BeEmpty())
 	})
 	It("Should exit if the emitter returns an error", func() {
-		e := &Emitter[int]{
+		e := &confluence.Emitter[int]{
 			Interval: 1 * time.Millisecond,
 			Emit: func(context.Context) (int, error) {
 				return 1, errors.New("exited")
@@ -49,9 +49,9 @@ var _ = Describe("Emitter", func() {
 		}
 		ctx, cancel := signal.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
-		stream := NewStream[int](0)
+		stream := confluence.NewStream[int](0)
 		e.OutTo(stream)
-		e.Flow(ctx, CloseOutputInletsOnExit())
+		e.Flow(ctx, confluence.CloseOutputInletsOnExit())
 		Expect(ctx.Wait()).To(HaveOccurredAs(errors.New("exited")))
 		_, ok := <-stream.Outlet()
 		Expect(ok).To(BeFalse())

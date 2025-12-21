@@ -34,11 +34,10 @@ var _ = Describe("Iterator", func() {
 			peerOnlyScenario,
 		}
 		for i, sF := range scenarios {
-			_sF := sF
 			var s scenario
 			Describe(fmt.Sprintf("Scenario: %v - Iteration", i), func() {
 				BeforeAll(func() {
-					s = _sF()
+					s = sF()
 					writer := MustSucceed(s.dist.Framer.OpenWriter(context.TODO(), writer.Config{
 						Keys:  s.keys,
 						Start: 10 * telem.SecondTS,

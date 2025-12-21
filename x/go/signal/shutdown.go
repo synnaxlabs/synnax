@@ -38,7 +38,7 @@ func NewHardShutdown(
 // NewGracefulShutdown extends a signal WaitGroup and its corresponding cancellation
 // function to implement an io.Closer that (1) waits for all routines to exit and (2)
 // cancels the context. This order is reversed when compared to NewHardShutdown, as it
-// waits for all routines to gracefully exit before cancelling the context.
+// waits for all routines to gracefully exit before canceling the context.
 func NewGracefulShutdown(
 	wg WaitGroup,
 	cancel context.CancelFunc,

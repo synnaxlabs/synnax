@@ -26,8 +26,8 @@ import (
 )
 
 var (
-	DecodeError = errors.New("failed to decode")
-	EncodeError = errors.New("failed to encode")
+	ErrDecode = errors.New("failed to decode")
+	ErrEncode = errors.New("failed to encode")
 )
 
 // sugarEncodingErr adds additional context to encoding errors.
@@ -36,7 +36,7 @@ func sugarEncodingErr(value any, base error) error {
 		return nil
 	}
 	val := reflect.ValueOf(value)
-	main := errors.Wrapf(EncodeError, "failed to encode value: kind=%s, type=%s, value=%+v", val.Kind(), val.Type(), value)
+	main := errors.Wrapf(ErrEncode, "failed to encode value: kind=%s, type=%s, value=%+v", val.Kind(), val.Type(), value)
 	return errors.Combine(main, base)
 }
 
@@ -46,7 +46,7 @@ func sugarDecodingErr(data []byte, value any, base error) error {
 		return nil
 	}
 	val := reflect.ValueOf(value)
-	main := errors.Wrapf(DecodeError, "kind=%s, type=%s, data=%x", val.Kind(), val.Type(), data)
+	main := errors.Wrapf(ErrDecode, "kind=%s, type=%s, data=%x", val.Kind(), val.Type(), data)
 	return errors.Combine(main, base)
 }
 
@@ -84,7 +84,7 @@ var (
 type GobCodec struct{}
 
 // Encode implements the Encoder interface.
-func (e *GobCodec) Encode(_ context.Context, value any) ([]byte, error) {
+func (*GobCodec) Encode(_ context.Context, value any) ([]byte, error) {
 	var (
 		buff bytes.Buffer
 		err  = gob.NewEncoder(&buff).Encode(value)
@@ -97,7 +97,7 @@ func (e *GobCodec) Encode(_ context.Context, value any) ([]byte, error) {
 }
 
 // EncodeStream implements the Encoder interface.
-func (e *GobCodec) EncodeStream(_ context.Context, w io.Writer, value any) error {
+func (*GobCodec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	err := gob.NewEncoder(w).Encode(value)
 	if err != nil {
 		return sugarEncodingErr(value, err)
@@ -115,7 +115,7 @@ func (e *GobCodec) Decode(ctx context.Context, data []byte, value any) error {
 }
 
 // DecodeStream implements the Decoder interface.
-func (e *GobCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+func (*GobCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	if err := gob.NewDecoder(r).Decode(value); err != nil {
 		data, _ := io.ReadAll(r)
 		return sugarDecodingErr(data, value, err)
@@ -127,13 +127,13 @@ func (e *GobCodec) DecodeStream(_ context.Context, r io.Reader, value any) error
 type JSONCodec struct{}
 
 // Encode implements the Encoder interface.
-func (j *JSONCodec) Encode(_ context.Context, value any) ([]byte, error) {
+func (*JSONCodec) Encode(_ context.Context, value any) ([]byte, error) {
 	b, err := json.Marshal(value)
 	return b, sugarEncodingErr(value, err)
 }
 
 // Decode implements the Decoder interface.
-func (j *JSONCodec) Decode(_ context.Context, data []byte, value any) error {
+func (*JSONCodec) Decode(_ context.Context, data []byte, value any) error {
 	if err := json.Unmarshal(data, value); err != nil {
 		return sugarDecodingErr(data, value, err)
 	}
@@ -141,7 +141,7 @@ func (j *JSONCodec) Decode(_ context.Context, data []byte, value any) error {
 }
 
 // DecodeStream implements the Decoder interface.
-func (j *JSONCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+func (*JSONCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	if err := json.NewDecoder(r).Decode(value); err != nil {
 		data, _ := io.ReadAll(r)
 		return sugarDecodingErr(data, value, err)
@@ -163,7 +163,7 @@ func (j *JSONCodec) EncodeStream(ctx context.Context, w io.Writer, value any) er
 type MsgPackCodec struct{}
 
 // Encode implements the Encoder interface.
-func (m *MsgPackCodec) Encode(_ context.Context, value any) ([]byte, error) {
+func (*MsgPackCodec) Encode(_ context.Context, value any) ([]byte, error) {
 	b, err := msgpack.Marshal(value)
 	return b, sugarEncodingErr(value, err)
 }
@@ -175,7 +175,7 @@ func (m *MsgPackCodec) Decode(ctx context.Context, data []byte, value any) error
 }
 
 // DecodeStream implements the Decoder interface.
-func (m *MsgPackCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+func (*MsgPackCodec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	if err := msgpack.NewDecoder(r).Decode(value); err != nil {
 		data, _ := io.ReadAll(r)
 		return sugarDecodingErr(data, value, err)

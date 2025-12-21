@@ -104,7 +104,7 @@ var _ = Describe("Telem", func() {
 					State: s.Node("test"),
 				}
 				node, err := factory.Create(ctx, cfg)
-				Expect(err).To(Equal(query.NotFound))
+				Expect(err).To(Equal(query.ErrNotFound))
 				Expect(node).To(BeNil())
 			})
 			It("Should return error for invalid config", func() {

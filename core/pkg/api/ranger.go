@@ -179,7 +179,7 @@ func (s *RangeService) Retrieve(
 	if req.IncludeParent {
 		for i, rng := range apiRanges {
 			parent, err := rng.RetrieveParent(ctx)
-			if errors.Is(err, query.NotFound) {
+			if errors.Is(err, query.ErrNotFound) {
 				continue
 			}
 			if err != nil {
@@ -426,7 +426,7 @@ func (s *RangeService) AliasResolve(
 
 	for _, alias := range req.Aliases {
 		ch, err := r.ResolveAlias(ctx, alias)
-		if err != nil && !errors.Is(err, query.NotFound) {
+		if err != nil && !errors.Is(err, query.ErrNotFound) {
 			return RangeAliasResolveResponse{}, err
 		}
 		if ch != 0 {
@@ -555,7 +555,7 @@ func (s *RangeService) AliasRetrieve(
 	aliases := make(map[channel.Key]string)
 	for _, ch := range req.Channels {
 		alias, err := r.RetrieveAlias(ctx, ch)
-		if err != nil && !errors.Is(err, query.NotFound) {
+		if err != nil && !errors.Is(err, query.ErrNotFound) {
 			return RangeAliasRetrieveResponse{}, err
 		}
 		if alias != "" {

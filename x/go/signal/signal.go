@@ -55,7 +55,7 @@ func Isolated(opts ...Option) (Context, context.CancelFunc) {
 }
 
 // Wrap uses the context as the underlying context for the returned signal Context. When
-// the passed in context is cancelled, the signal context will be cancelled.
+// the passed in context is canceled, the signal context will be canceled.
 func Wrap(ctx context.Context, opts ...Option) Context {
 	return newCore(ctx, func() {}, opts...)
 }

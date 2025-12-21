@@ -37,7 +37,7 @@ var _ = Describe("TimeRange", func() {
 				"2024-03-15T10:30:45.000100Z - .000500 (400µs)"),
 			Entry("milliseconds differ",
 				time.Date(2024, time.March, 15, 10, 30, 45, 0, time.UTC),
-				time.Date(2024, time.March, 15, 10, 30, 45, 500e6, time.UTC),
+				time.Date(2024, time.March, 15, 10, 30, 45, 500000000, time.UTC),
 				"2024-03-15T10:30:45Z - .500 (500ms)"),
 			Entry("seconds differ",
 				time.Date(2024, time.March, 15, 10, 30, 45, 0, time.UTC),

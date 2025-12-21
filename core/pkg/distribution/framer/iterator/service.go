@@ -228,7 +228,7 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) er
 	}
 	for _, k := range keys {
 		if k.Free() {
-			return errors.Wrapf(validate.Error, "cannot read from free channel %v", k)
+			return errors.Wrapf(validate.Err, "cannot read from free channel %v", k)
 		}
 	}
 	q := s.cfg.Channel.NewRetrieve().WhereKeys(keys...)
@@ -237,7 +237,7 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) er
 		return err
 	}
 	if !exists {
-		return errors.Wrapf(query.NotFound, "some channel keys %v not found", keys)
+		return errors.Wrapf(query.ErrNotFound, "some channel keys %v not found", keys)
 	}
 	return nil
 }

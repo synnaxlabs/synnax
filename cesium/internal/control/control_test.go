@@ -137,10 +137,10 @@ var _ = Describe("Control", func() {
 			It("Should return an error if the controlled resource cannot be created", func() {
 				cfg, _ := baseConfig(1)
 				cfg.OpenResource = func() (testResource, error) {
-					return testResource{value: 11}, errors.Wrapf(validate.Error, "could not great gate")
+					return testResource{value: 11}, errors.Wrapf(validate.Err, "could not great gate")
 				}
 				g, t, err := c.OpenGate(cfg)
-				Expect(err).To(HaveOccurredAs(validate.Error))
+				Expect(err).To(HaveOccurredAs(validate.Err))
 				Expect(t.Occurred()).To(BeFalse())
 				Expect(g).To(BeNil())
 			})
@@ -151,7 +151,7 @@ var _ = Describe("Control", func() {
 				Expect(t.Occurred()).To(BeTrue())
 				Expect(g).ToNot(BeNil())
 				g, t, err := c.OpenGate(cfg)
-				Expect(err).To(HaveOccurredAs(validate.Error))
+				Expect(err).To(HaveOccurredAs(validate.Err))
 				Expect(err).To(MatchError(ContainSubstring("control subject [test]<test> is already registered in the region")))
 				Expect(t.Occurred()).To(BeFalse())
 				Expect(g).To(BeNil())

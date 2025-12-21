@@ -18,24 +18,20 @@ import (
 )
 
 // Test types to simulate migrations.
-type ResourceV0 struct {
-	Name string
-}
+type ResourceV0 struct{ Name string }
 
-func (e ResourceV0) GetVersion() version.Counter { return 0 }
+func (ResourceV0) GetVersion() version.Counter { return 0 }
 
-type ResourceV1 struct {
-	Title string
-}
+type ResourceV1 struct{ Title string }
 
-func (e ResourceV1) GetVersion() version.Counter { return 1 }
+func (ResourceV1) GetVersion() version.Counter { return 1 }
 
 type ResourceV2 struct {
 	Title       string
 	Description string
 }
 
-func (e ResourceV2) GetVersion() version.Counter { return 2 }
+func (ResourceV2) GetVersion() version.Counter { return 2 }
 
 var _ = Describe("Migrate", func() {
 	Describe("NewMigrator", func() {
@@ -48,21 +44,16 @@ var _ = Describe("Migrate", func() {
 			// Create V0 to V1 migration
 			migrateV0toV1 := migrate.CreateMigration(migrate.MigrationConfig[ResourceV0, ResourceV1]{
 				Name: "resource",
-				Migrate: func(ctx migrate.Context, v0 ResourceV0) (ResourceV1, error) {
-					return ResourceV1{
-						Title: v0.Name,
-					}, nil
+				Migrate: func(_ migrate.Context, v0 ResourceV0) (ResourceV1, error) {
+					return ResourceV1{Title: v0.Name}, nil
 				},
 			})
 
 			// Create V1 to V2 migration
 			migrateV1toV2 := migrate.CreateMigration(migrate.MigrationConfig[ResourceV1, ResourceV2]{
 				Name: "resource",
-				Migrate: func(ctx migrate.Context, v1 ResourceV1) (ResourceV2, error) {
-					return ResourceV2{
-						Title:       v1.Title,
-						Description: "",
-					}, nil
+				Migrate: func(_ migrate.Context, v1 ResourceV1) (ResourceV2, error) {
+					return ResourceV2{Title: v1.Title, Description: ""}, nil
 				},
 			})
 
@@ -138,7 +129,7 @@ var _ = Describe("Migrate", func() {
 			// Create a migration that always fails
 			failingMigration := migrate.CreateMigration(migrate.MigrationConfig[ResourceV0, ResourceV1]{
 				Name: "resource",
-				Migrate: func(ctx migrate.Context, v0 ResourceV0) (ResourceV1, error) {
+				Migrate: func(migrate.Context, ResourceV0) (ResourceV1, error) {
 					return ResourceV1{}, errors.Newf("intentional migration failure")
 				},
 			})

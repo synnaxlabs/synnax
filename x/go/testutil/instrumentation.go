@@ -34,7 +34,7 @@ type InstrumentationConfig struct {
 
 var _ config.Config[InstrumentationConfig] = InstrumentationConfig{}
 
-func (c InstrumentationConfig) Validate() error { return nil }
+func (InstrumentationConfig) Validate() error { return nil }
 
 func (c InstrumentationConfig) Override(
 	other InstrumentationConfig,

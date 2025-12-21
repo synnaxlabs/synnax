@@ -17,7 +17,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var testErr = errors.New("config is invalid")
+var errTest = errors.New("config is invalid")
 
 type testConfig struct {
 	name           string
@@ -36,7 +36,7 @@ func (c testConfig) Override(other testConfig) testConfig {
 
 func (c testConfig) Validate() error {
 	if c.name == "error" {
-		return testErr
+		return errTest
 	}
 	return nil
 }
@@ -54,19 +54,19 @@ var _ = Describe("Config", func() {
 			Expect(config.New(defaultConfig)).To(Equal(defaultConfig))
 		})
 		It("Should fail if the initial configuration is invalid", func() {
-			Expect(config.New(errorConfig)).Error().To(MatchError(testErr))
+			Expect(config.New(errorConfig)).Error().To(MatchError(errTest))
 		})
 		It("Should succeed if the initial configuration is valid and the override is valid", func() {
 			Expect(config.New(defaultConfig, successConfig)).To(Equal(successConfig))
 		})
 		It("Should fail if the initial configuration is valid and the override is invalid", func() {
-			Expect(config.New(defaultConfig, errorConfig)).Error().To(MatchError(testErr))
+			Expect(config.New(defaultConfig, errorConfig)).Error().To(MatchError(errTest))
 		})
 		It("Should succeed if the initial configuration is invalid and the override is valid", func() {
 			Expect(config.New(errorConfig, successConfig)).To(Equal(successConfig))
 		})
 		It("Should fail if the initial configuration is invalid and the override is invalid", func() {
-			Expect(config.New(errorConfig, errorConfig)).Error().To(MatchError(testErr))
+			Expect(config.New(errorConfig, errorConfig)).Error().To(MatchError(errTest))
 		})
 		It("Should succeed with multiple overrides", func() {
 			c := MustSucceed(config.New(defaultConfig, secondaryConfig, successConfig))

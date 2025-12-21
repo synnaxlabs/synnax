@@ -75,7 +75,7 @@ func (c Channel) ValidateSeries(series telem.Series) error {
 	isEquivalent := (sDt == telem.Int64T || sDt == telem.TimeStampT) && (cDt == telem.Int64T || cDt == telem.TimeStampT)
 	if cDt != sDt && !isEquivalent {
 		return errors.Wrapf(
-			validate.Error,
+			validate.Err,
 			"invalid data type for channel %v, expected %s, got %s",
 			c,
 			cDt,

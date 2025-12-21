@@ -15,8 +15,8 @@ import (
 )
 
 var (
-	Invalid     = errors.Wrap(base.AuthError, "invalid credentials")
-	InvalidHash = errors.Wrap(base.AuthError, "invalid hash")
+	ErrInvalid     = errors.Wrap(base.ErrAuth, "invalid credentials")
+	ErrInvalidHash = errors.Wrap(base.ErrAuth, "invalid hash")
 )
 
 // Raw represents a raw password. It is not safe to store the raw password on disk.
@@ -31,7 +31,7 @@ func (r Raw) Hash() (h Hashed, err error) {
 			return h, nil
 		}
 	}
-	return h, errors.Combine(InvalidHash, err)
+	return h, errors.Combine(ErrInvalidHash, err)
 }
 
 // Hashed represents an encrypted hash of a password. It is safe to store the hash on disk.
@@ -46,5 +46,5 @@ func (h Hashed) Validate(r Raw) (err error) {
 			return nil
 		}
 	}
-	return errors.Combine(Invalid, err)
+	return errors.Combine(ErrInvalid, err)
 }

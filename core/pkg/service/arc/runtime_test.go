@@ -57,7 +57,7 @@ var _ = Describe("Runtime", func() {
 				return status.NewRetrieve[arc.StatusDetails](statusSvc).
 					WhereKeys(a.Key.String()).
 					Exec(ctx, db)
-			}).Should(HaveOccurredAs(query.NotFound))
+			}).Should(HaveOccurredAs(query.ErrNotFound))
 		})
 
 		It("Should properly clean up status when deployed arc is deleted", func() {
@@ -94,7 +94,7 @@ var _ = Describe("Runtime", func() {
 				return status.NewRetrieve[arc.StatusDetails](statusSvc).
 					WhereKeys(a.Key.String()).
 					Exec(ctx, db)
-			}).Should(HaveOccurredAs(query.NotFound))
+			}).Should(HaveOccurredAs(query.ErrNotFound))
 		})
 
 		It("Should write Stopped status when arc is updated not deleted", func() {

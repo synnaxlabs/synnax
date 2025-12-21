@@ -43,7 +43,7 @@ func OntologyIDsFromWorkspaces(workspaces []Workspace) (ids []ontology.ID) {
 	})
 }
 
-func KeysFromOntologyIds(ids []ontology.ID) (keys []uuid.UUID, err error) {
+func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 	keys = make([]uuid.UUID, len(ids))
 	for i, id := range ids {
 		keys[i], err = uuid.Parse(id.Key)

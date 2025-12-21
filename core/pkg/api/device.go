@@ -152,7 +152,7 @@ func (svc *DeviceService) Retrieve(ctx context.Context, req DeviceRetrieveReques
 		return DeviceRetrieveResponse{}, err
 	}
 	if retErr != nil && req.IgnoreNotFound {
-		retErr = errors.Skip(retErr, query.NotFound)
+		retErr = errors.Skip(retErr, query.ErrNotFound)
 	}
 	return res, retErr
 }

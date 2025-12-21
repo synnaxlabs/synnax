@@ -82,7 +82,7 @@ var _ = Describe("Time", func() {
 				State: s.Node("interval_1"),
 			}
 			_, err := factory.Create(ctx, cfg)
-			Expect(err).To(Equal(query.NotFound))
+			Expect(err).To(Equal(query.ErrNotFound))
 		})
 		It("Should fire immediately on first tick", func() {
 			cfg := node.Config{

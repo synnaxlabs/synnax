@@ -28,7 +28,7 @@ type response struct {
 	ID      int    `json:"id" msgpack:"id"`
 }
 
-var myCustomError = errors.New("my custom error")
+var errMyCustom = errors.New("my custom error")
 
 func TestGo(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -38,7 +38,7 @@ func TestGo(t *testing.T) {
 var _ = BeforeSuite(func() {
 	errors.Register(
 		func(_ context.Context, err error) (errors.Payload, bool) {
-			if errors.Is(err, myCustomError) {
+			if errors.Is(err, errMyCustom) {
 				return errors.Payload{
 					Type: "myCustomError",
 					Data: err.Error(),
@@ -46,11 +46,11 @@ var _ = BeforeSuite(func() {
 			}
 			return errors.Payload{}, false
 		},
-		func(ctx context.Context, f errors.Payload) (error, bool) {
+		func(_ context.Context, f errors.Payload) (error, bool) {
 			if f.Type != "myCustomError" {
 				return nil, false
 			}
-			return myCustomError, true
+			return errMyCustom, true
 		},
 	)
 })

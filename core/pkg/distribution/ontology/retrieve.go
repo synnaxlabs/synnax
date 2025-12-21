@@ -252,7 +252,7 @@ func (r Retrieve) retrieveEntities(
 	err := entries.MapInPlace(func(res Resource) (Resource, bool, error) {
 		if res.ID.IsZero() {
 			if !entries.IsMultiple() {
-				return res, false, query.NotFound
+				return res, false, query.ErrNotFound
 			}
 			return res, false, nil
 		}
@@ -260,7 +260,7 @@ func (r Retrieve) retrieveEntities(
 			return res, true, nil
 		}
 		res, err := r.registrar.retrieveResource(ctx, res.ID, tx)
-		if errors.Is(err, query.NotFound) && entries.IsMultiple() {
+		if errors.Is(err, query.ErrNotFound) && entries.IsMultiple() {
 			return res, false, nil
 		}
 		if excludeFieldData {

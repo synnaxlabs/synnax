@@ -64,9 +64,9 @@ func NewRouter(configs ...RouterConfig) *Router {
 type Router struct {
 	RouterConfig
 	// fiber doesn't manage the lifecycle of websocket connections (streams), so we need
-	// to manage them ourselves. We'll pass in a context object that gets cancelled when
+	// to manage them ourselves. We'll pass in a context object that gets canceled when
 	// the app is shut down, and we'll use a WaitGroup to wait for all streams to close.
-	// streamCtx is the context object that gets cancelled when the app is shut down.
+	// streamCtx is the context object that gets canceled when the app is shut down.
 	streamCtx context.Context
 	// cancelStreams cancels the streamCtx.
 	cancelStreams context.CancelFunc

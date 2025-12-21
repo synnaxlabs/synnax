@@ -55,10 +55,10 @@ func GoRange[V any](
 	}, opts...)
 }
 
-// GoTick starts a new goroutine controlled by the provided Go that
-// ticks at the provided interval. The goroutine will exit when the context
-// is cancelled. Additional parameters can be passed to the goroutine to
-// modify its behavior. See the RoutineOption documentation for more.
+// GoTick starts a new goroutine controlled by the provided Go that ticks at the
+// provided interval. The goroutine will exit when the context is canceled. Additional
+// parameters can be passed to the goroutine to modify its behavior. See the
+// RoutineOption documentation for more.
 func GoTick(
 	g Go,
 	interval time.Duration,

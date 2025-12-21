@@ -50,13 +50,13 @@ const tokenParamPrefix = "Bearer "
 
 var (
 	errInvalidAuthenticationParam = errors.Wrapf(
-		auth.Error,
+		auth.Err,
 		`invalid authorization token. Format should be
 		'Authorization: %s <token>'`,
 		tokenParamPrefix,
 	)
 	errNoAuthenticationParam = errors.Wrapf(
-		auth.Error,
+		auth.Err,
 		"no authentication token provided",
 	)
 )

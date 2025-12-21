@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/address"
-	. "github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/confluence"
 )
 
 var _ = Describe("Stream", func() {
@@ -22,19 +22,19 @@ var _ = Describe("Stream", func() {
 		Describe("Address", func() {
 			Context("Stream", func() {
 				It("Should set the inlet address properly", func() {
-					stream := NewStream[int](0)
+					stream := confluence.NewStream[int](0)
 					stream.SetInletAddress(addr)
 					Expect(stream.InletAddress()).To(Equal(addr))
 				})
 				It("Should set the outlet address properly", func() {
-					stream := NewStream[int](0)
+					stream := confluence.NewStream[int](0)
 					stream.SetOutletAddress(addr)
 					Expect(stream.OutletAddress()).To(Equal(addr))
 				})
 			})
 		})
 		Describe("Communication", func() {
-			stream := NewStream[int](1)
+			stream := confluence.NewStream[int](1)
 			It("Should return the correct channel when calling Inlet", func() {
 				stream.Inlet() <- 1
 				Expect(<-stream.Outlet()).To(Equal(1))

@@ -103,7 +103,7 @@ func parseWithContext[T any](source string, parseFn func(*ArcParser) T) (T, *dia
 		stream = antlr.NewCommonTokenStream(lexer, 0)
 		parser = NewArcParser(stream)
 		diag   = &diagnostics.Diagnostics{}
-		errLis = &errorListener{Diagnostics: diag}
+		errLis = &listenerError{Diagnostics: diag}
 	)
 	lexer.RemoveErrorListeners()
 	lexer.AddErrorListener(errLis)
@@ -117,17 +117,16 @@ func parseWithContext[T any](source string, parseFn func(*ArcParser) T) (T, *dia
 	return result, nil
 }
 
-// errorListener collects syntax errors encountered during parsing.
-// It implements antlr.ErrorListener to capture all parse errors with
-// position information.
-type errorListener struct {
+// listenerError collects syntax errors encountered during parsing. It implements
+// antlr.ErrorListener to capture all parse errors with position information.
+type listenerError struct {
 	*antlr.DefaultErrorListener
 	*diagnostics.Diagnostics
 }
 
 // SyntaxError is called by ANTLR when a syntax error is encountered.
 // It records the error along with its position in the source code.
-func (e *errorListener) SyntaxError(
+func (e *listenerError) SyntaxError(
 	_ antlr.Recognizer,
 	_ any,
 	line,

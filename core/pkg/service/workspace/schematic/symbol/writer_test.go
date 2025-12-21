@@ -171,7 +171,7 @@ var _ = Describe("Writer", func() {
 
 			var res symbol.Symbol
 			err := svc.NewRetrieve().WhereKeys(sym.Key).Entry(&res).Exec(ctx, tx)
-			Expect(err).To(MatchError(query.NotFound))
+			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should delete multiple Symbols", func() {
@@ -198,7 +198,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewRetrieve().
 				WhereKeys(sym1.Key, sym2.Key, sym3.Key).
 				Entries(&res).
-				Exec(ctx, tx)).To(HaveOccurredAs(query.NotFound))
+				Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
 			Expect(res).To(HaveLen(1))
 			Expect(res[0].Key).To(Equal(sym3.Key))
 		})

@@ -283,21 +283,21 @@ func (w *streamWriter) close(ctx context.Context) error {
 	u := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
 	for _, idx := range w.internal {
 		c.Exec(func() error {
-			u_, err := idx.Close()
+			closeUpdate, err := idx.Close()
 			if err != nil {
 				return err
 			}
-			u.Transfers = append(u.Transfers, u_.Transfers...)
+			u.Transfers = append(u.Transfers, closeUpdate.Transfers...)
 			return nil
 		})
 	}
 	if w.virtual.internal != nil {
 		c.Exec(func() error {
-			u_, err := w.virtual.Close()
+			closeUpdate, err := w.virtual.Close()
 			if err != nil {
 				return err
 			}
-			u.Transfers = append(u.Transfers, u_.Transfers...)
+			u.Transfers = append(u.Transfers, closeUpdate.Transfers...)
 			return nil
 		})
 	}
@@ -432,7 +432,7 @@ func (w *idxWriter) Close() (ControlUpdate, error) {
 
 func invalidDataTypeError(expectedCh Channel, received telem.DataType) error {
 	return errors.Wrapf(
-		validate.Error,
+		validate.Err,
 		`invalid data type for channel %v, expected %s, got %s`,
 		expectedCh,
 		expectedCh.DataType,
@@ -442,7 +442,7 @@ func invalidDataTypeError(expectedCh Channel, received telem.DataType) error {
 
 func oneSeriesPerChannelError(expected Channel) error {
 	return errors.Wrapf(
-		validate.Error,
+		validate.Err,
 		`frame must have exactly one series per channel, found more than one for channel %v`,
 		expected,
 	)
@@ -454,7 +454,7 @@ func sameLengthForAllSeriesError(
 	series telem.Series,
 ) error {
 	return errors.Wrapf(
-		validate.Error,
+		validate.Err,
 		`
 frame must have the same length for all series. Rest of the series in the frame have
 length %d, while series for channel %v has length %d. See https://docs.synnaxlabs.com/reference/concepts/writes#rule-1
@@ -472,14 +472,14 @@ func missingChannelError(
 ) error {
 	if index.Key == missing.Key {
 		return errors.Wrapf(
-			validate.Error,
+			validate.Err,
 			`received no data for index channel %v that must be provided when writing to related data channels %v`,
 			missing,
 			stringer.TruncateAndFormatSlice(dataChannels, 8),
 		)
 	}
 	return errors.Wrapf(
-		validate.Error,
+		validate.Err,
 		`frame must have exactly one series for each data channel associated with index %v, but is missing a series for channel %v`,
 		index,
 		missing,
@@ -491,7 +491,7 @@ func incorrectNumberOfSeriesError(
 	received int,
 ) error {
 	return errors.Wrapf(
-		validate.Error,
+		validate.Err,
 		`frame must have exactly one series for each data channel associated with an index. Expected
 			%d series, got %d.
 			See https://docs.synnaxlabs.com/reference/concepts/writes#the-rules-of-writes

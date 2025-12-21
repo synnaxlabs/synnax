@@ -30,14 +30,14 @@ type StreamClient[RQ, RS Payload] interface {
 // a series of requests and responses between a client and server.
 type StreamServer[RQ, RS Payload] interface {
 	Transport
-	// BindHandler is called by the server to handle a request from the client. If
-	// the context is cancelled, the server is expected to discard unprocessed
-	// requests, free resources related to the stream, and return an error to
-	// the caller (ideally this error should wrap a context error in some form).
+	// BindHandler is called by the server to handle a request from the client. If the
+	// context is canceled, the server is expected to discard unprocessed requests, free
+	// resources related to the stream, and return an error to the caller (ideally this
+	// error should wrap a context error in some form).
 	//
 	// Transient errors (errors that may be fatal to a request, but not to the stream)
-	// should be returned as part of the response itself. This is typically in the
-	// form of an 'Details' struct field in the response type RS.
+	// should be returned as part of the response itself. This is typically in the form
+	// of an 'Details' struct field in the response type RS.
 	//
 	// Fatal errors (errors that prevent the server from processing any future requests)
 	// should be returned from the handle function itself (f). If the handle function
@@ -47,7 +47,7 @@ type StreamServer[RQ, RS Payload] interface {
 	//
 	// For details on the semantics of the handle function, see the ServerStream
 	// interface.
-	BindHandler(handler func(ctx context.Context, server ServerStream[RQ, RS]) error)
+	BindHandler(func(context.Context, ServerStream[RQ, RS]) error)
 }
 
 // ClientStream is a client side stream. ClientStream differs from ServerStream in that
@@ -65,7 +65,7 @@ type ClientStream[RQ, RS Payload] interface {
 	//
 	// 2. If the client called CloseSend -> Has no effect on the behavior of Receive.
 	//
-	// 3. If the context is cancelled by either the client or server -> Returns
+	// 3. If the context is canceled by either the client or server -> Returns
 	// the context error.
 	//
 	// 4. If the transport fails -> Returns the error that caused the transport
@@ -164,4 +164,4 @@ type StreamSenderCloser[P Payload] interface {
 type SenderNopCloser[P Payload] struct{ StreamSender[P] }
 
 // CloseSend implements the StreamCloser interface.
-func (c SenderNopCloser[P]) CloseSend() error { return nil }
+func (SenderNopCloser[P]) CloseSend() error { return nil }

@@ -33,18 +33,18 @@ var _ = Describe("Alignment", func() {
 	Describe("MarshalJSON", func() {
 		It("Should marshal the alignment as a JSON string", func() {
 			align := telem.NewAlignment(2, 1)
-			marshalled := MustSucceed(align.MarshalJSON())
-			Expect(string(marshalled)).To(Equal(fmt.Sprintf(`"%v"`, uint64(align))))
+			marshaled := MustSucceed(align.MarshalJSON())
+			Expect(string(marshaled)).To(Equal(fmt.Sprintf(`"%v"`, uint64(align))))
 		})
 	})
 
 	Describe("UnmarshalJSON", func() {
 		It("Should unmarshal the alignment from a JSON string", func() {
 			align := telem.NewAlignment(2, 1)
-			marshalled := MustSucceed(align.MarshalJSON())
-			var unmarshalled telem.Alignment
-			Expect(unmarshalled.UnmarshalJSON(marshalled)).To(Succeed())
-			Expect(unmarshalled).To(Equal(align))
+			marshaled := MustSucceed(align.MarshalJSON())
+			var unmarshaled telem.Alignment
+			Expect(unmarshaled.UnmarshalJSON(marshaled)).To(Succeed())
+			Expect(unmarshaled).To(Equal(align))
 		})
 	})
 

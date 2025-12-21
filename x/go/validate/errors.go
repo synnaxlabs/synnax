@@ -19,13 +19,14 @@ import (
 )
 
 var (
-	// Error is a base class for all validation errors. Validation errors should be returned
-	// when caller provided data (whether user or internal) fails to meet specific rules
-	// or criteria defined to ensure its correctness, completeness, or format.
-	Error            = errors.New("validation error")
-	InvalidTypeError = errors.Wrapf(Error, "invalid type")
-	ConversionError  = errors.Wrap(Error, "conversion error")
-	RequiredError    = errors.Wrap(Error, "required")
+	// Err is a base class for all validation errors. Validation errors should be
+	// returned when caller provided data (whether user or internal) fails to meet
+	// specific rules or criteria defined to ensure its correctness, completeness, or
+	// format.
+	Err            = errors.New("validation error")
+	ErrInvalidType = errors.Wrapf(Err, "invalid type")
+	ErrConversion  = errors.Wrap(Err, "conversion error")
+	ErrRequired    = errors.Wrap(Err, "required")
 )
 
 type PathError struct {
@@ -68,7 +69,7 @@ func PathedError(err error, path ...string) error {
 func (p PathError) Error() string { return p.joinPath() + ": " + p.Err.Error() }
 
 func NewInvalidTypeError(expected, received string) error {
-	return errors.Wrapf(InvalidTypeError, "expected %s but received %s", expected, received)
+	return errors.Wrapf(ErrInvalidType, "expected %s but received %s", expected, received)
 }
 
 const (
@@ -88,7 +89,7 @@ func encode(ctx context.Context, err error) (errors.Payload, bool) {
 			}))),
 		}, true
 	}
-	if errors.Is(err, Error) {
+	if errors.Is(err, Err) {
 		return errors.Payload{Type: "sy.validation", Data: err.Error()}, true
 	}
 	return errors.Payload{}, false
@@ -108,7 +109,7 @@ func decode(ctx context.Context, p errors.Payload) (error, bool) {
 			Err:  errors.Decode(ctx, decodedPathError.Error),
 		}, true
 	}
-	return errors.Wrapf(Error, p.Data), true
+	return errors.Wrapf(Err, p.Data), true
 }
 
 func init() { errors.Register(encode, decode) }

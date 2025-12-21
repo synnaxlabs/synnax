@@ -43,7 +43,7 @@ func (w Writer) Create(ctx context.Context, u *User) error {
 		return err
 	}
 	if exists {
-		return auth.RepeatedUsername
+		return auth.ErrRepeatedUsername
 	}
 	if err := gorp.NewCreate[uuid.UUID, User]().Entry(u).Exec(ctx, w.tx); err != nil {
 		return err
@@ -60,7 +60,7 @@ func (w Writer) ChangeUsername(ctx context.Context, key uuid.UUID, newUsername s
 		return err
 	}
 	if usernameExists {
-		return auth.RepeatedUsername
+		return auth.ErrRepeatedUsername
 	}
 	return gorp.NewUpdate[uuid.UUID, User]().WhereKeys(key).Change(func(_ gorp.Context, u User) User {
 		u.Username = newUsername

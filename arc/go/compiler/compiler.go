@@ -63,12 +63,12 @@ import (
 //
 // The compiler maintains type safety by propagating type hints through expression compilation
 // and emitting type conversions when necessary.
-func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error) {
+func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error) {
 	o := &options{}
 	for _, opt := range opts {
 		opt(o)
 	}
-	ctx := ccontext.CreateRoot(ctx_, program.Symbols, program.TypeMap, o.disableHostImports)
+	compilerCtx := ccontext.CreateRoot(ctx, program.Symbols, program.TypeMap, o.disableHostImports)
 
 	outputMemoryCounter := uint32(0x1000)
 	outputMemoryBases := make(map[string]uint32)
@@ -93,15 +93,15 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error
 			outputMemoryCounter += size
 		}
 
-		if err := compileItem(ctx, i.Key, i.Body.AST, params, returnType, i.Outputs, outputMemoryBase); err != nil {
+		if err := compileItem(compilerCtx, i.Key, i.Body.AST, params, returnType, i.Outputs, outputMemoryBase); err != nil {
 			return Output{}, err
 		}
 	}
 
-	ctx.Module.EnableMemory()
-	ctx.Module.AddExport("memory", wasm.ExportMemory, 0)
+	compilerCtx.Module.EnableMemory()
+	compilerCtx.Module.AddExport("memory", wasm.ExportMemory, 0)
 
-	return Output{WASM: ctx.Module.Generate(), OutputMemoryBases: outputMemoryBases}, nil
+	return Output{WASM: compilerCtx.Module.Generate(), OutputMemoryBases: outputMemoryBases}, nil
 }
 
 func compileItem(

@@ -40,9 +40,8 @@ var _ = Describe("Writer", func() {
 			freeWriterScenario,
 		}
 		for i, sF := range scenarios {
-			_sF := sF
 			var s scenario
-			BeforeAll(func() { s = _sF() })
+			BeforeAll(func() { s = sF() })
 			AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func() {
 				writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
@@ -94,7 +93,7 @@ var _ = Describe("Writer", func() {
 				Start: 10 * telem.SecondTS,
 				Sync:  config.True(),
 			})
-			Expect(err).To(HaveOccurredAs(query.NotFound))
+			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 			Expect(err.Error()).To(ContainSubstring("Channel"))
 			Expect(err.Error()).To(ContainSubstring("22"))
 			Expect(err.Error()).ToNot(ContainSubstring("1"))
@@ -120,8 +119,8 @@ var _ = Describe("Writer", func() {
 					telem.NewSeriesV[int64](5, 6, 7),
 				},
 			))
-			Expect(err).To(HaveOccurredAs(validate.Error))
-			Expect(writer.Close()).To(HaveOccurredAs(validate.Error))
+			Expect(err).To(HaveOccurredAs(validate.Err))
+			Expect(writer.Close()).To(HaveOccurredAs(validate.Err))
 		})
 	})
 

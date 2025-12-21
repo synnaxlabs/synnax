@@ -68,11 +68,11 @@ type UnaryServer[RQ, RQT, RS, RST freighter.Payload] struct {
 	Internal bool
 }
 
-func (u *UnaryClient[RQ, RQT, RS, RST]) Report() alamos.Report {
+func (*UnaryClient[RQ, RQT, RS, RST]) Report() alamos.Report {
 	return Reporter.Report()
 }
 
-func (u *UnaryServer[RQ, RQT, RS, RST]) Report() alamos.Report {
+func (*UnaryServer[RQ, RQT, RS, RST]) Report() alamos.Report {
 	return Reporter.Report()
 }
 

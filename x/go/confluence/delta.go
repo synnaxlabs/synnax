@@ -151,7 +151,7 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 					err = d.Source.SendToEach(ctx, res)
 				}
 				if err != nil {
-					if !errors.Is(err, timeout.Timeout) {
+					if !errors.Is(err, timeout.ErrTimeout) {
 						return err
 					}
 					d.L.Warn(fmt.Sprintf("delta: %s", err))

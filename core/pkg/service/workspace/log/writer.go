@@ -83,10 +83,8 @@ func (w Writer) SetData(
 ) error {
 	return gorp.NewUpdate[uuid.UUID, Log]().
 		WhereKeys(key).
-		Change(func(ctx gorp.Context, l Log) Log {
-			l.Data = data
-			return l
-		}).Exec(ctx, w.tx)
+		Change(func(_ gorp.Context, l Log) Log { l.Data = data; return l }).
+		Exec(ctx, w.tx)
 }
 
 // Delete deletes the logs with the given keys.

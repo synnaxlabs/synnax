@@ -46,7 +46,7 @@ func (u Update[K, E]) Exec(ctx context.Context, tx Tx) (err error) {
 	}
 	c := getChanges[K, E](u.retrieve.Params)
 	if len(c) == 0 {
-		return errors.Wrap(query.InvalidParameters, "[gorp] - update query must specify at least one change function")
+		return errors.Wrap(query.ErrInvalidParameters, "[gorp] - update query must specify at least one change function")
 	}
 	for i, e := range entries {
 		if entries[i], err = c.exec(Context{Context: ctx, Tx: tx}, e); err != nil {

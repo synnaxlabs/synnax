@@ -27,7 +27,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.GreaterThanF32(a, b, &output)
 
 				expected := []uint8{0, 1, 0, 1, 0}
-				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[uint8](output.Data)).To(Equal(expected))
 			})
 
 			It("should perform LessThanF64", func() {
@@ -38,7 +38,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.LessThanF64(a, b, &output)
 
 				expected := []uint8{1, 0, 1}
-				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[uint8](output.Data)).To(Equal(expected))
 			})
 
 			It("should perform EqualI32", func() {
@@ -49,7 +49,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.EqualI32(a, b, &output)
 
 				expected := []uint8{1, 0, 1, 0}
-				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[uint8](output.Data)).To(Equal(expected))
 			})
 		})
 
@@ -66,7 +66,7 @@ var _ = Describe("Vectorized Operations", func() {
 				// result:   [0,   1,   1,   1,   1]
 				expected := []uint8{0, 1, 1, 1, 1}
 				Expect(output.Len()).To(Equal(int64(5)))
-				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[uint8](output.Data)).To(Equal(expected))
 			})
 
 			It("should repeat last value of shorter 'b' series", func() {
@@ -81,7 +81,7 @@ var _ = Describe("Vectorized Operations", func() {
 				// result:   [1,  1,  0,  0,  0]
 				expected := []uint8{1, 1, 0, 0, 0}
 				Expect(output.Len()).To(Equal(int64(5)))
-				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[uint8](output.Data)).To(Equal(expected))
 			})
 
 			It("should handle single element series", func() {
@@ -96,7 +96,7 @@ var _ = Describe("Vectorized Operations", func() {
 				// result:   [1,   1,   0,   0]
 				expected := []uint8{1, 1, 0, 0}
 				Expect(output.Len()).To(Equal(int64(4)))
-				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[uint8](output.Data)).To(Equal(expected))
 			})
 		})
 	})
@@ -111,7 +111,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.AddF32(a, b, &output)
 
 				expected := []float32{1.5, 3.5, 5.5, 7.5}
-				Expect(telem.UnmarshalSlice[float32](output.Data, telem.Float32T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[float32](output.Data)).To(Equal(expected))
 			})
 
 			It("should perform SubtractF64", func() {
@@ -122,7 +122,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.SubtractF64(a, b, &output)
 
 				expected := []float64{7.0, 15.0, 23.0}
-				Expect(telem.UnmarshalSlice[float64](output.Data, telem.Float64T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[float64](output.Data)).To(Equal(expected))
 			})
 
 			It("should perform MultiplyI32", func() {
@@ -133,7 +133,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.MultiplyI32(a, b, &output)
 
 				expected := []int32{6, 12, 20, 30}
-				Expect(telem.UnmarshalSlice[int32](output.Data, telem.Int32T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[int32](output.Data)).To(Equal(expected))
 			})
 
 			It("should perform DivideI64", func() {
@@ -144,7 +144,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.DivideI64(a, b, &output)
 
 				expected := []int64{10, 10, 10, 10}
-				Expect(telem.UnmarshalSlice[int64](output.Data, telem.Int64T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[int64](output.Data)).To(Equal(expected))
 			})
 		})
 
@@ -161,7 +161,7 @@ var _ = Describe("Vectorized Operations", func() {
 				// result:   [11.0, 22.0, 32.0, 42.0, 52.0]
 				expected := []float64{11.0, 22.0, 32.0, 42.0, 52.0}
 				Expect(output.Len()).To(Equal(int64(5)))
-				Expect(telem.UnmarshalSlice[float64](output.Data, telem.Float64T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[float64](output.Data)).To(Equal(expected))
 			})
 
 			It("should repeat last value of shorter 'b' series for subtraction", func() {
@@ -176,7 +176,7 @@ var _ = Describe("Vectorized Operations", func() {
 				// result:   [90,  180, 280, 380]
 				expected := []int64{90, 180, 280, 380}
 				Expect(output.Len()).To(Equal(int64(4)))
-				Expect(telem.UnmarshalSlice[int64](output.Data, telem.Int64T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[int64](output.Data)).To(Equal(expected))
 			})
 
 			It("should repeat last value for multiplication", func() {
@@ -191,7 +191,7 @@ var _ = Describe("Vectorized Operations", func() {
 				// result:   [10.0, 15.0, 20.0]
 				expected := []float32{10.0, 15.0, 20.0}
 				Expect(output.Len()).To(Equal(int64(3)))
-				Expect(telem.UnmarshalSlice[float32](output.Data, telem.Float32T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[float32](output.Data)).To(Equal(expected))
 			})
 
 			It("should repeat last value for division", func() {
@@ -206,7 +206,7 @@ var _ = Describe("Vectorized Operations", func() {
 				// result:   [10,  40,  60,  80,  100]
 				expected := []int32{10, 40, 60, 80, 100}
 				Expect(output.Len()).To(Equal(int64(5)))
-				Expect(telem.UnmarshalSlice[int32](output.Data, telem.Int32T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[int32](output.Data)).To(Equal(expected))
 			})
 		})
 
@@ -220,7 +220,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 				expected := []uint64{50}
 				Expect(output.Len()).To(Equal(int64(1)))
-				Expect(telem.UnmarshalSlice[uint64](output.Data, telem.Uint64T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[uint64](output.Data)).To(Equal(expected))
 			})
 
 			It("should resize output correctly when initially empty", func() {
@@ -232,7 +232,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 				expected := []uint16{4, 10, 18}
 				Expect(output.Len()).To(Equal(int64(3)))
-				Expect(telem.UnmarshalSlice[uint16](output.Data, telem.Uint16T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[uint16](output.Data)).To(Equal(expected))
 			})
 		})
 	})
@@ -248,7 +248,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 				// Truth table: 1&1=1, 1&0=0, 0&1=0, 0&0=0
 				expected := []uint8{1, 0, 0, 0}
-				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[uint8](output.Data)).To(Equal(expected))
 			})
 
 			It("should handle different length series with last value repetition", func() {
@@ -263,7 +263,7 @@ var _ = Describe("Vectorized Operations", func() {
 				// result:   [1, 0, 0, 0, 0]
 				expected := []uint8{1, 0, 0, 0, 0}
 				Expect(output.Len()).To(Equal(int64(5)))
-				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[uint8](output.Data)).To(Equal(expected))
 			})
 
 			It("should work with all bits set", func() {
@@ -274,7 +274,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.AndU8(a, b, &output)
 
 				expected := []uint8{0xFF, 0x00, 0x00}
-				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[uint8](output.Data)).To(Equal(expected))
 			})
 		})
 
@@ -288,7 +288,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 				// Truth table: 1|1=1, 1|0=1, 0|1=1, 0|0=0
 				expected := []uint8{1, 1, 1, 0}
-				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[uint8](output.Data)).To(Equal(expected))
 			})
 
 			It("should handle different length series with last value repetition", func() {
@@ -303,7 +303,7 @@ var _ = Describe("Vectorized Operations", func() {
 				// result:   [1, 0, 0, 0, 0]
 				expected := []uint8{1, 0, 0, 0, 0}
 				Expect(output.Len()).To(Equal(int64(5)))
-				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[uint8](output.Data)).To(Equal(expected))
 			})
 
 			It("should work with all bits set", func() {
@@ -314,7 +314,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.OrU8(a, b, &output)
 
 				expected := []uint8{0xFF, 0xFF, 0xFF}
-				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[uint8](output.Data)).To(Equal(expected))
 			})
 		})
 
@@ -327,7 +327,7 @@ var _ = Describe("Vectorized Operations", func() {
 
 				// NOT inverts all bits: ^1 = 0xFE, ^0 = 0xFF
 				expected := []uint8{0xFE, 0xFF, 0xFE, 0xFF}
-				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[uint8](output.Data)).To(Equal(expected))
 			})
 
 			It("should handle empty series", func() {
@@ -346,7 +346,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.NotU8(input, &output)
 
 				expected := []uint8{0x55}
-				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[uint8](output.Data)).To(Equal(expected))
 			})
 
 			It("should work with all bits combinations", func() {
@@ -356,7 +356,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.NotU8(input, &output)
 
 				expected := []uint8{0x00, 0xFF, 0x0F, 0xF0, 0x55, 0xAA}
-				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[uint8](output.Data)).To(Equal(expected))
 			})
 		})
 
@@ -374,7 +374,7 @@ var _ = Describe("Vectorized Operations", func() {
 				op.OrU8(andResult, c, &orResult)
 
 				expected := []uint8{1, 1, 1, 1}
-				Expect(telem.UnmarshalSlice[uint8](orResult.Data, telem.Uint8T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[uint8](orResult.Data)).To(Equal(expected))
 			})
 
 			It("should allow NOT of AND result", func() {
@@ -390,7 +390,7 @@ var _ = Describe("Vectorized Operations", func() {
 				// AND: [1, 0, 0, 0]
 				// NOT: [0xFE, 0xFF, 0xFF, 0xFF]
 				expected := []uint8{0xFE, 0xFF, 0xFF, 0xFF}
-				Expect(telem.UnmarshalSlice[uint8](notResult.Data, telem.Uint8T)).To(Equal(expected))
+				Expect(telem.UnmarshalSlice[uint8](notResult.Data)).To(Equal(expected))
 			})
 		})
 	})

@@ -68,9 +68,9 @@ var _ = Describe("Delete", func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(gorp.NewDelete[int, entry]().
 				WhereKeys(1).
-				Guard(func(_ gorp.Context, e entry) error {
-					return validate.Error
-				}).Exec(ctx, tx)).To(HaveOccurredAs(validate.Error))
+				Guard(func(gorp.Context, entry) error {
+					return validate.Err
+				}).Exec(ctx, tx)).To(HaveOccurredAs(validate.Err))
 			Expect(gorp.NewRetrieve[int, entry]().WhereKeys(1).Exists(ctx, tx)).To(BeTrue())
 		})
 
@@ -83,8 +83,8 @@ var _ = Describe("Delete", func() {
 				Guard(func(gCtx gorp.Context, _ entry) error {
 					Expect(gCtx.Tx).To(BeIdenticalTo(tx))
 					Expect(gCtx.Context).To(BeIdenticalTo(ctx))
-					return validate.Error
-				}).Exec(ctx, tx)).To(HaveOccurredAs(validate.Error))
+					return validate.Err
+				}).Exec(ctx, tx)).To(HaveOccurredAs(validate.Err))
 			Expect(gorp.NewRetrieve[int, entry]().WhereKeys(22).Exists(ctx, tx)).To(BeTrue())
 		})
 	})

@@ -237,7 +237,7 @@ const (
 
 // Open a new writer using the given configuration. The provided context is used to
 // control the lifetime of goroutines spawned by the writer. If the given context is
-// cancelled, the writer will immediately abort all pending writes and return an error.
+// canceled, the writer will immediately abort all pending writes and return an error.
 func (s *Service) Open(ctx context.Context, cfgs ...Config) (*Writer, error) {
 	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation))
 	cfg, err := config.New(DefaultConfig(), cfgs...)
@@ -383,7 +383,7 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) ([
 	}
 	if len(channels) != len(keys) {
 		missing, _ := lo.Difference(keys, channel.KeysFromChannels(channels))
-		return nil, errors.Wrapf(validate.Error, "missing channels: %v", missing)
+		return nil, errors.Wrapf(validate.Err, "missing channels: %v", missing)
 	}
 	return channels, nil
 }

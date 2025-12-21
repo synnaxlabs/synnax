@@ -101,19 +101,19 @@ func Parse(t Text) (Text, *diagnostics.Diagnostics) {
 // Returns a partially complete IR even if diagnostics contain errors, enabling
 // tools like LSPs to provide the most complete understanding of the document.
 func Analyze(
-	ctx_ context.Context,
+	ctx context.Context,
 	t Text,
 	resolver symbol.Resolver,
 ) (ir.IR, *diagnostics.Diagnostics) {
 	var (
-		ctx = acontext.CreateRoot(ctx_, t.AST, resolver)
+		arcCtx = acontext.CreateRoot(ctx, t.AST, resolver)
 		// We always return a partially complete IR to ensure that tools such as LSP's
 		// have the most complete understanding of the document.
-		i = ir.IR{Symbols: ctx.Scope, TypeMap: ctx.TypeMap}
+		i = ir.IR{Symbols: arcCtx.Scope, TypeMap: arcCtx.TypeMap}
 	)
 	// Step 1: Analyze the Program
-	if !analyzer.AnalyzeProgram(ctx) {
-		return i, ctx.Diagnostics
+	if !analyzer.AnalyzeProgram(arcCtx) {
+		return i, arcCtx.Diagnostics
 	}
 
 	// Step 2: Iterate through the root scope children to assemble functions
@@ -144,16 +144,16 @@ func Analyze(
 	// Step 3: Process Flow Nodes and Statements to Build Nodes/Edges
 	for _, item := range t.AST.AllTopLevelItem() {
 		if flow := item.FlowStatement(); flow != nil {
-			nodes, edges, ok := analyzeFlow(acontext.Child(ctx, flow), kg)
+			nodes, edges, ok := analyzeFlow(acontext.Child(arcCtx, flow), kg)
 			if !ok {
-				return i, ctx.Diagnostics
+				return i, arcCtx.Diagnostics
 			}
 			i.Nodes = append(i.Nodes, nodes...)
 			i.Edges = append(i.Edges, edges...)
 		} else if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
-			seq, nodes, edges, ok := analyzeSequence(acontext.Child(ctx, seqDecl), kg)
+			seq, nodes, edges, ok := analyzeSequence(acontext.Child(arcCtx, seqDecl), kg)
 			if !ok {
-				return i, ctx.Diagnostics
+				return i, arcCtx.Diagnostics
 			}
 			i.Sequences = append(i.Sequences, seq)
 			i.Nodes = append(i.Nodes, nodes...)
@@ -163,15 +163,15 @@ func Analyze(
 
 	// Step 4: Calculate execution stratification for deterministic reactive execution
 	if len(i.Nodes) > 0 {
-		strata, diag := stratifier.Stratify(ctx_, i.Nodes, i.Edges, i.Sequences, ctx.Diagnostics)
+		strata, diag := stratifier.Stratify(ctx, i.Nodes, i.Edges, i.Sequences, arcCtx.Diagnostics)
 		if diag != nil && !diag.Ok() {
-			ctx.Diagnostics = diag
-			return i, ctx.Diagnostics
+			arcCtx.Diagnostics = diag
+			return i, arcCtx.Diagnostics
 		}
 		i.Strata = strata
 	}
 
-	return i, ctx.Diagnostics
+	return i, arcCtx.Diagnostics
 }
 
 // Compile generates WebAssembly bytecode from the provided IR.
@@ -179,11 +179,11 @@ func Analyze(
 // Returns a Module containing both the IR and the compiled WebAssembly output.
 // Compiler options can be provided to customize the compilation process.
 func Compile(
-	ctx_ context.Context,
+	ctx context.Context,
 	ir ir.IR,
 	opts ...compiler.Option,
 ) (module.Module, error) {
-	o, err := compiler.Compile(ctx_, ir, opts...)
+	o, err := compiler.Compile(ctx, ir, opts...)
 	if err != nil {
 		return module.Module{}, err
 	}

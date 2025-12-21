@@ -78,12 +78,12 @@ func Middleware(configs ...Config) (freighter.Middleware, error) {
 		next freighter.Next,
 	) (freighter.Context, error) {
 		var (
-			span     alamos.Span
-			carrier_ = carrier{Context: ctx}
+			span    alamos.Span
+			carrier = carrier{Context: ctx}
 		)
 
 		if *cfg.EnablePropagation && ctx.Role == freighter.Server {
-			ctx.Context = cfg.T.Depropagate(ctx, carrier_)
+			ctx.Context = cfg.T.Depropagate(ctx, carrier)
 		}
 
 		if *cfg.EnableTracing {
@@ -91,7 +91,7 @@ func Middleware(configs ...Config) (freighter.Middleware, error) {
 		}
 
 		if *cfg.EnablePropagation && ctx.Role == freighter.Client {
-			cfg.T.Propagate(ctx, carrier_)
+			cfg.T.Propagate(ctx, carrier)
 		}
 
 		oCtx, err := next(ctx)

@@ -15,19 +15,19 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/atomic"
-	. "github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 )
 
 type seg struct {
-	UnarySink[int]
-	AbstractUnarySource[int]
+	confluence.UnarySink[int]
+	confluence.AbstractUnarySource[int]
 }
 
-func (s seg) Flow(sCtx signal.Context, opts ...Option) {
-	o := NewOptions(opts)
+func (s seg) Flow(sCtx signal.Context, opts ...confluence.Option) {
+	o := confluence.NewOptions(opts)
 	o.AttachClosables(s.Out)
-	sCtx.Go(func(context.Context) error {
+	sCtx.Go(func(_ context.Context) error {
 		for v := range s.In.Outlet() {
 			if v == 1 {
 				panic("got 1")
@@ -42,18 +42,18 @@ var _ = Describe("Confluence", func() {
 		It("Should do nothing", func() {
 			ctx, cancel := signal.Isolated()
 			defer cancel()
-			Expect(func() { NopFlow{}.Flow(ctx) }).ToNot(Panic())
+			Expect(func() { confluence.NopFlow{}.Flow(ctx) }).ToNot(Panic())
 		})
 	})
 	Describe("Options", func() {
 		It("Should not close inlet on panic", func() {
 			ctx, _ := signal.Isolated()
-			i := NewStream[int]()
-			o := NewStream[int]()
+			i := confluence.NewStream[int]()
+			o := confluence.NewStream[int]()
 			var s seg
 			s.InFrom(i)
 			s.OutTo(o)
-			s.Flow(ctx, CloseOutputInletsOnExit(), WithRetryOnPanic(1))
+			s.Flow(ctx, confluence.CloseOutputInletsOnExit(), confluence.WithRetryOnPanic(1))
 			// this panics
 			i.Inlet() <- 1
 			// this does not panic
@@ -66,29 +66,29 @@ var _ = Describe("Confluence", func() {
 		})
 		It("Should close inlet on a panic-recovered error", func() {
 			ctx, _ := signal.Isolated()
-			i := NewStream[int]()
-			o := NewStream[int]()
+			i := confluence.NewStream[int]()
+			o := confluence.NewStream[int]()
 			var s seg
 			s.InFrom(i)
 			s.OutTo(o)
-			s.Flow(ctx, CloseOutputInletsOnExit(), RecoverWithErrOnPanic())
+			s.Flow(ctx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic())
 			i.Inlet() <- 1
 			_, ok := <-o.Outlet()
 			Expect(ok).To(BeFalse())
 		})
 		It("Should still run deferred methods after panic", func() {
 			ctx, _ := signal.Isolated()
-			i := NewStream[int]()
-			o := NewStream[int]()
+			i := confluence.NewStream[int]()
+			o := confluence.NewStream[int]()
 			var s seg
 			s.InFrom(i)
 			s.OutTo(o)
 			a := atomic.Int32Counter{}
 			s.Flow(
 				ctx,
-				CloseOutputInletsOnExit(),
-				RecoverWithErrOnPanic(),
-				Defer(func() { a.Add(10) }),
+				confluence.CloseOutputInletsOnExit(),
+				confluence.RecoverWithErrOnPanic(),
+				confluence.Defer(func() { a.Add(10) }),
 			)
 			i.Inlet() <- 1
 			_, ok := <-o.Outlet()
@@ -98,14 +98,14 @@ var _ = Describe("Confluence", func() {
 	})
 	Describe("Drain", func() {
 		It("Should drain an outlet of values until it is closed", func() {
-			c := NewStream[int](10)
+			c := confluence.NewStream[int](10)
 			go func() {
 				for range 10 {
 					c.Inlet() <- 1
 				}
 				c.Close()
 			}()
-			Drain(c)
+			confluence.Drain(c)
 			Expect(c.Outlet()).To(BeClosed())
 		})
 	})

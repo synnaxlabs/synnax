@@ -61,7 +61,7 @@ func (r Reader[K, E]) Get(ctx context.Context, key K) (e E, err error) {
 	}
 	b, closer, err := r.BaseReader.Get(ctx, bKey)
 	if err != nil {
-		return e, lo.Ternary(errors.Is(err, kv.NotFound), query.NotFound, err)
+		return e, lo.Ternary(errors.Is(err, kv.ErrNotFound), query.ErrNotFound, err)
 	}
 	err = r.Decode(ctx, b, &e)
 	return e, errors.Combine(err, closer.Close())
@@ -79,20 +79,18 @@ func (r Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
 		if err != nil {
 			// We keep iterating here to ensure that we return all entries that
 			// can be found.
-			if errors.Is(err, query.NotFound) {
+			if errors.Is(err, query.ErrNotFound) {
 				notFound = append(notFound, keys[i])
 				continue
-			} else {
-				// All other errors are considered no-ops.
-				return entries, err
 			}
-		} else {
-			entries = append(entries, e)
+			// All other errors are considered no-ops.
+			return entries, err
 		}
+		entries = append(entries, e)
 	}
 	if len(notFound) > 0 {
 		return entries, errors.Wrapf(
-			query.NotFound,
+			query.ErrNotFound,
 			fmt.Sprintf("%s with keys %v not found", types.PluralName[E](), notFound),
 		)
 	}

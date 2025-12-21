@@ -129,8 +129,8 @@ func (t *tapper) updateTaps(
 	// Open any new taps we may need
 	for node, keys := range nodeDemands {
 		if _, ok := t.taps[node]; !ok && !node.IsFree() {
-			tc, err_ := t.tapInto(ctx, node, keys)
-			if err_ != nil {
+			tc, err := t.tapInto(ctx, node, keys)
+			if err != nil {
 				t.L.Error("failed to open new tap", zap.Uint16("node", uint16(node)))
 			} else {
 				t.taps[node] = tc
@@ -144,7 +144,7 @@ func (t *tapper) updateTaps(
 			// If we still need the tap, send the updated key set
 			tc.Inlet.Inlet() <- Request{Keys: keys}
 		} else if !nk.IsFree() {
-			// This does a hard shutdown on the tap, cancelling its context and causing
+			// This does a hard shutdown on the tap, canceling its context and causing
 			// it to immediately exit.
 			if err := tc.closer.Close(); err != nil {
 				t.L.Error("tap failed to close", zap.Error(err))

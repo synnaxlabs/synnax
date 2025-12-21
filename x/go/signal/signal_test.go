@@ -24,13 +24,13 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func immediatelyReturnError(ctx context.Context) error {
+func immediatelyReturnError(context.Context) error {
 	return errors.New("routine failed")
 }
 
-func immediatelyPanic(ctx context.Context) error { panic("routine panicked") }
+func immediatelyPanic(context.Context) error { panic("routine panicked") }
 
-func immediatelyReturnNil(ctx context.Context) error { return nil }
+func immediatelyReturnNil(context.Context) error { return nil }
 
 var _ = Describe("Signal", func() {
 	Describe("Coordination", func() {
@@ -46,15 +46,12 @@ var _ = Describe("Signal", func() {
 			})
 		})
 
-		Context("Context already cancelled", func() {
+		Context("Context already canceled", func() {
 			It("Shouldn't start a new routine", func() {
 				ctx, cancel := signal.Isolated()
 				cancel()
 				c := 0
-				ctx.Go(func(ctx context.Context) error {
-					c++
-					return nil
-				})
+				ctx.Go(func(context.Context) error { c++; return nil })
 				Expect(ctx.Wait()).To(Succeed())
 				Expect(c).To(Equal(0))
 			})
@@ -63,11 +60,11 @@ var _ = Describe("Signal", func() {
 
 	Describe("Go Utilities", func() {
 		Describe("GoRange", func() {
-			It("Should range over a channel until the context is cancelled", func() {
+			It("Should range over a channel until the context is canceled", func() {
 				v := make(chan int, 3)
 				ctx, cancel := signal.Isolated()
 				c := 0
-				signal.GoRange(ctx, v, func(ctx context.Context, v int) error {
+				signal.GoRange(ctx, v, func(context.Context, int) error {
 					c++
 					return nil
 				})
@@ -85,7 +82,7 @@ var _ = Describe("Signal", func() {
 				ctx, cancel := signal.Isolated()
 				defer cancel()
 				c := 0
-				signal.GoRange(ctx, v, func(ctx context.Context, v int) error {
+				signal.GoRange(ctx, v, func(context.Context, int) error {
 					c++
 					return nil
 				})
@@ -102,7 +99,7 @@ var _ = Describe("Signal", func() {
 				ctx, cancel := signal.Isolated()
 				defer cancel()
 				c := 0
-				signal.GoRange(ctx, v, func(ctx context.Context, v int) error {
+				signal.GoRange(ctx, v, func(context.Context, int) error {
 					c++
 					return errors.New("routine failed")
 				})
@@ -115,11 +112,11 @@ var _ = Describe("Signal", func() {
 		})
 
 		Describe("GoTick", func() {
-			It("Should tick until the context is cancelled", func() {
+			It("Should tick until the context is canceled", func() {
 				ctx, cancel := signal.Isolated()
 				defer cancel()
 				c := 0
-				signal.GoTick(ctx, 500*time.Microsecond, func(ctx context.Context, t time.Time) error {
+				signal.GoTick(ctx, 500*time.Microsecond, func(context.Context, time.Time) error {
 					c++
 					return nil
 				})
@@ -179,7 +176,7 @@ var _ = Describe("Signal", func() {
 			Expect(<-v).To(Equal(1))
 		})
 
-		It("Should not send a value to the channel if the context is cancelled", func() {
+		It("Should not send a value to the channel if the context is canceled", func() {
 			ctx, cancel := signal.WithTimeout(context.TODO(), 500*time.Microsecond)
 			v := make(chan int)
 			_ = signal.SendUnderContext(ctx, v, 1)
@@ -197,7 +194,7 @@ var _ = Describe("Signal", func() {
 			Expect(val).To(Equal(1))
 		})
 
-		It("Should return context error if context is cancelled before receive", func() {
+		It("Should return context error if context is canceled before receive", func() {
 			ctx, cancel := signal.WithTimeout(context.TODO(), 500*time.Microsecond)
 			v := make(chan int)
 			cancel()
@@ -206,7 +203,7 @@ var _ = Describe("Signal", func() {
 			Expect(val).To(Equal(0))
 		})
 
-		It("Should receive value even if context is cancelled after value is available", func() {
+		It("Should receive value even if context is canceled after value is available", func() {
 			ctx, cancel := signal.WithTimeout(context.TODO(), 500*time.Microsecond)
 			v := make(chan int, 1)
 			v <- 1
@@ -242,7 +239,7 @@ var _ = Describe("Signal", func() {
 			ctx, _ := signal.Isolated()
 			originalErr := errors.New("original panic error")
 
-			ctx.Go(func(ctx context.Context) error {
+			ctx.Go(func(context.Context) error {
 				panic(originalErr)
 			}, signal.RecoverWithErrOnPanic(), signal.WithKey("test-routine"))
 
@@ -256,8 +253,8 @@ var _ = Describe("Signal", func() {
 		It("Should try to restart when instructed to", func() {
 			var (
 				counter = 0
-				inc1    = func(ctx context.Context) error {
-					counter += 1
+				inc1    = func(context.Context) error {
+					counter++
 					panic("panicking once")
 				}
 			)
@@ -272,8 +269,8 @@ var _ = Describe("Signal", func() {
 		It("Should try to restart when instructed to and follow the panic policy", func() {
 			var (
 				counter = 0
-				inc1    = func(ctx context.Context) error {
-					counter += 1
+				inc1    = func(context.Context) error {
+					counter++
 					panic("panicking once")
 				}
 			)
@@ -317,7 +314,7 @@ var _ = Describe("Signal", func() {
 			var (
 				done         = make(chan struct{})
 				counter      = atomic.Int64Counter{}
-				succeedInTen = func(ctx context.Context) error {
+				succeedInTen = func(context.Context) error {
 					if counter.Add(1) < 10 {
 						panic("panicking")
 					}
@@ -349,13 +346,8 @@ var _ = Describe("Signal", func() {
 		// This is not the desired behavior since a goroutine should not attempt to
 		// restart if it did not panic.
 		It("Should NOT restart if there was not a panic - definite restart", func() {
-			var (
-				counter = 0
-				f       = func(ctx context.Context) error {
-					counter += 1
-					return nil
-				}
-			)
+			var counter int
+			f := func(context.Context) error { counter++; return nil }
 
 			ctx, _ := signal.Isolated()
 			ctx.Go(f, signal.WithRetryOnPanic(100))
@@ -365,13 +357,8 @@ var _ = Describe("Signal", func() {
 		})
 
 		It("Should NOT restart if there was not a panic - infinite restart", func() {
-			var (
-				counter = 0
-				f       = func(ctx context.Context) error {
-					counter += 1
-					return nil
-				}
-			)
+			var counter int
+			f := func(context.Context) error { counter++; return nil }
 
 			ctx, _ := signal.Isolated()
 			ctx.Go(f, signal.WithRetryOnPanic())

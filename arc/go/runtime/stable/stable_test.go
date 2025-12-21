@@ -100,7 +100,7 @@ var _ = Describe("StableFor", func() {
 				State: s.Node("stable"),
 			}
 			_, err := factory.Create(ctx, cfg)
-			Expect(err).To(HaveOccurredAs(query.NotFound))
+			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 		})
 	})
 

@@ -337,7 +337,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Start: 10 * telem.SecondTS,
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-						Expect(w.Commit(ctx, 10*telem.SecondTS)).To(HaveOccurredAs(validate.Error))
+						Expect(w.Commit(ctx, 10*telem.SecondTS)).To(HaveOccurredAs(validate.Err))
 						Expect(w.Close()).To(Succeed())
 					})
 					It("Should not fail to commit if no data was written", func() {
@@ -354,7 +354,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Start: 10 * telem.SecondTS,
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-						Expect(w.Commit(ctx, 5*telem.SecondTS)).To(HaveOccurredAs(validate.Error))
+						Expect(w.Commit(ctx, 5*telem.SecondTS)).To(HaveOccurredAs(validate.Err))
 						Expect(w.Close()).To(Succeed())
 					})
 				})
@@ -392,7 +392,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							}))
 							MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
 							Expect(w.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
-							Expect(w.Commit(ctx, 14*telem.SecondTS)).To(HaveOccurredAs(validate.Error))
+							Expect(w.Commit(ctx, 14*telem.SecondTS)).To(HaveOccurredAs(validate.Err))
 							Expect(w.Close()).To(Succeed())
 						})
 					})

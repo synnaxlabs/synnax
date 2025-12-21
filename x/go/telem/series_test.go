@@ -28,10 +28,10 @@ func marshalSeriesTest[T telem.Sample](data []T, dt telem.DataType) func() {
 	}
 }
 
-func marshalUnmarshalSliceTest[T telem.Sample](data []T, dt telem.DataType) func() {
+func marshalUnmarshalSliceTest[T telem.Sample](data []T) func() {
 	return func() {
 		s := telem.MarshalSlice(data)
-		Expect(telem.UnmarshalSlice[T](s, dt)).To(Equal(data))
+		Expect(telem.UnmarshalSlice[T](s)).To(Equal(data))
 	}
 }
 
@@ -77,17 +77,17 @@ var _ = Describe("Series", func() {
 		})
 
 		Describe("MarshalSlice", func() {
-			Specify("float64", marshalUnmarshalSliceTest([]float64{1.0, 2.0, 3.0}, telem.Float64T))
-			Specify("float32", marshalUnmarshalSliceTest([]float32{1.0, 2.0, 3.0}, telem.Float32T))
-			Specify("int64", marshalUnmarshalSliceTest([]int64{1, 2, 3}, telem.Int64T))
-			Specify("int32", marshalUnmarshalSliceTest([]int32{1, 2, 3}, telem.Int32T))
-			Specify("int16", marshalUnmarshalSliceTest([]int16{1, 2, 3}, telem.Int16T))
-			Specify("int8", marshalUnmarshalSliceTest([]int8{1, 2, 3}, telem.Int8T))
-			Specify("uint64", marshalUnmarshalSliceTest([]uint64{1, 2, 3}, telem.Uint64T))
-			Specify("uint32", marshalUnmarshalSliceTest([]uint32{1, 2, 3}, telem.Uint32T))
-			Specify("uint16", marshalUnmarshalSliceTest([]uint16{1, 2, 3}, telem.Uint16T))
-			Specify("uint8", marshalUnmarshalSliceTest([]uint8{1, 2, 3}, telem.Uint8T))
-			Specify("timestamp", marshalUnmarshalSliceTest([]telem.TimeStamp{1, 2, 3}, telem.TimeStampT))
+			Specify("float64", marshalUnmarshalSliceTest([]float64{1.0, 2.0, 3.0}))
+			Specify("float32", marshalUnmarshalSliceTest([]float32{1.0, 2.0, 3.0}))
+			Specify("int64", marshalUnmarshalSliceTest([]int64{1, 2, 3}))
+			Specify("int32", marshalUnmarshalSliceTest([]int32{1, 2, 3}))
+			Specify("int16", marshalUnmarshalSliceTest([]int16{1, 2, 3}))
+			Specify("int8", marshalUnmarshalSliceTest([]int8{1, 2, 3}))
+			Specify("uint64", marshalUnmarshalSliceTest([]uint64{1, 2, 3}))
+			Specify("uint32", marshalUnmarshalSliceTest([]uint32{1, 2, 3}))
+			Specify("uint16", marshalUnmarshalSliceTest([]uint16{1, 2, 3}))
+			Specify("uint8", marshalUnmarshalSliceTest([]uint8{1, 2, 3}))
+			Specify("timestamp", marshalUnmarshalSliceTest([]telem.TimeStamp{1, 2, 3}))
 			Specify("bad data type", func() {
 				type BadType uint32
 				Expect(func() {
@@ -878,10 +878,7 @@ var _ = Describe("Series", func() {
 		It("handles empty series", func() {
 			s := telem.Series{DataType: telem.Int64T}
 			count := 0
-			s.Samples()(func(sample []byte) bool {
-				count++
-				return true
-			})
+			s.Samples()(func([]byte) bool { count++; return true })
 			Expect(count).To(Equal(0))
 		})
 	})

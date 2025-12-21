@@ -43,8 +43,8 @@ func (db *KV) authenticate(
 	var secureCreds SecureCredentials
 	err := db.retrieve(ctx, tx, creds.Username, &secureCreds)
 	if err != nil {
-		if errors.Is(err, query.NotFound) {
-			err = InvalidCredentials
+		if errors.Is(err, query.ErrNotFound) {
+			err = ErrInvalidCredentials
 		}
 		return SecureCredentials{}, err
 	}
@@ -140,7 +140,7 @@ func (w *kvWriter) checkUsernameExists(ctx context.Context, user string) error {
 		return err
 	}
 	if exists {
-		return errors.Wrap(RepeatedUsername, fmt.Sprintf("A user with the username %s already exists", user))
+		return errors.Wrap(ErrRepeatedUsername, fmt.Sprintf("A user with the username %s already exists", user))
 	}
 	return err
 }

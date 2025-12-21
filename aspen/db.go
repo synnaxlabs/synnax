@@ -77,7 +77,7 @@ const (
 	Suspect      = node.StateSuspect
 )
 
-var NodeNotfound = cluster.NodeNotFound
+var ErrNodeNotfound = cluster.ErrNodeNotFound
 
 type DB struct {
 	Cluster *cluster.Cluster

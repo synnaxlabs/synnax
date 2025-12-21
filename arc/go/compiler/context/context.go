@@ -65,20 +65,20 @@ func (c Context[ASTNode]) WithNewWriter() Context[ASTNode] {
 }
 
 func CreateRoot(
-	ctx_ context.Context,
+	ctx context.Context,
 	symbols *symbol.Scope,
 	typeMap map[antlr.ParserRuleContext]types.Type,
 	disableHostImports bool,
 ) Context[antlr.ParserRuleContext] {
-	ctx := Context[antlr.ParserRuleContext]{
-		Context: ctx_,
+	rootCtx := Context[antlr.ParserRuleContext]{
+		Context: ctx,
 		Module:  wasm.NewModule(),
 		Scope:   symbols,
 		TypeMap: typeMap,
 		Writer:  wasm.NewWriter(),
 	}
 	if !disableHostImports {
-		ctx.Imports = bindings.SetupImports(ctx.Module)
+		rootCtx.Imports = bindings.SetupImports(rootCtx.Module)
 	}
-	return ctx
+	return rootCtx
 }

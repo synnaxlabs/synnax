@@ -138,6 +138,8 @@ type baseZ struct {
 	optional     bool
 }
 
+var _ Shape = (*baseZ)(nil)
+
 // Shape returns the base shape of the schema.
 func (b baseZ) Shape() Shape { return b }
 
@@ -148,7 +150,7 @@ func (b baseZ) Optional() bool { return b.optional }
 func (b baseZ) DataType() DataType { return b.dataType }
 
 // Fields returns nil as baseZ is not an object schema.
-func (b baseZ) Fields() map[string]Shape { return nil }
+func (baseZ) Fields() map[string]Shape { return nil }
 
 func (b baseZ) ReflectType() reflect.Type { return b.expectedType }
 

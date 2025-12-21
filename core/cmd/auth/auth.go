@@ -34,7 +34,7 @@ func ProvisionRootUser(
 		if err := svc.User.NewRetrieve().
 			WhereUsernames(creds.Username).
 			Entry(&rootUser).
-			Exec(ctx, tx); errors.Skip(err, query.NotFound) != nil {
+			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 			return err
 		}
 		if rootUser.Key == uuid.Nil {

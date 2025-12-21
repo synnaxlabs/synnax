@@ -208,7 +208,7 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	// data since the new pointers no longer correspond to the old file.
 	//
 	// WE ARE BLOCKING ALL READ OPERATIONS ON THE FILE DURING THE ENTIRE DURATION OF GC:
-	// this is a behaviour that we ideally change in the future to reduce downtime, but
+	// this is a behavior that we ideally change in the future to reduce downtime, but
 	// for now, this is what we implemented. The challenge is with the two files during
 	// GC: one copy file is made and an original file is made. However, existing file
 	// handles will point to the original file instead of the new file, even after the

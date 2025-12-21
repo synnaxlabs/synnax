@@ -107,7 +107,7 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 		op := dig.Operation()
 		if op.Variant == change.Set {
 			v, closer, err := b.Get(ctx, dig.Key)
-			if errors.Is(err, kv.NotFound) {
+			if errors.Is(err, kv.ErrNotFound) {
 				zap.S().Error("[aspen] - operation not found when batching tx", zap.String("key", string(dig.Key)))
 				continue
 			}

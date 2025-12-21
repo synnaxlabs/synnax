@@ -96,7 +96,7 @@ var _ = Describe("Write", func() {
 				}))
 				Expect(t.Occurred()).To(BeTrue())
 				_, err := w.Write(telem.NewSeriesV[uint8](1, 2, 3))
-				Expect(err).To(HaveOccurredAs(validate.Error))
+				Expect(err).To(HaveOccurredAs(validate.Err))
 				t = MustSucceed(w.Close())
 				Expect(t.Occurred()).To(BeTrue())
 			})

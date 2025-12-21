@@ -66,7 +66,7 @@ var _ = Describe("Constant", func() {
 				State: s.Node("const"),
 			}
 			_, err := factory.Create(ctx, cfg)
-			Expect(err).To(Equal(query.NotFound))
+			Expect(err).To(Equal(query.ErrNotFound))
 		})
 		It("Should handle float64 value", func() {
 			cfg := node.Config{

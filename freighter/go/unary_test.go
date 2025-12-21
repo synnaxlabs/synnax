@@ -55,7 +55,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 			})
 			Describe("Normal Operation", func() {
 				It("should send a request", func() {
-					server.BindHandler(func(ctx context.Context, req request) (response, error) {
+					server.BindHandler(func(_ context.Context, req request) (response, error) {
 						return response(req), nil
 					})
 					req := request{ID: 1, Message: "hello"}
@@ -66,12 +66,12 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 			})
 			Describe("Details Handling", func() {
 				It("Should correctly return a custom error to the client", func() {
-					server.BindHandler(func(ctx context.Context, req request) (response, error) {
-						return response{}, myCustomError
+					server.BindHandler(func(context.Context, request) (response, error) {
+						return response{}, errMyCustom
 					})
 					req := request{ID: 1, Message: "hello"}
 					_, err := client.Send(context.TODO(), addr, req)
-					Expect(err).To(Equal(myCustomError))
+					Expect(err).To(Equal(errMyCustom))
 				})
 			})
 			Describe("Middleware", func() {
@@ -83,7 +83,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 						c++
 						return oMd, err
 					}))
-					server.BindHandler(func(ctx context.Context, req request) (response, error) {
+					server.BindHandler(func(context.Context, request) (response, error) {
 						return response{}, nil
 					})
 					req := request{ID: 1, Message: "hello"}

@@ -43,8 +43,8 @@ func OntologyIDsFromTasks(ts []Task) []ontology.ID {
 	})
 }
 
-func KeysFromOntologyIds(ids []ontology.ID) (keys []Key, err error) {
-	keys = make([]Key, len(ids))
+func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
+	keys := make([]Key, len(ids))
 	for i, id := range ids {
 		k, err := strconv.Atoi(id.Key)
 		if err != nil {

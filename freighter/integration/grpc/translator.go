@@ -21,14 +21,14 @@ type echoMessageTranslator struct{}
 
 var _ fgrpc.Translator[http.Message, *echov1.Message] = (*echoMessageTranslator)(nil)
 
-func (e echoMessageTranslator) Forward(ctx context.Context, msg http.Message) (*echov1.Message, error) {
+func (echoMessageTranslator) Forward(_ context.Context, msg http.Message) (*echov1.Message, error) {
 	return &echov1.Message{
 		Id:      uint32(msg.ID),
 		Message: msg.Message,
 	}, nil
 }
 
-func (e echoMessageTranslator) Backward(ctx context.Context, msg *echov1.Message) (http.Message, error) {
+func (echoMessageTranslator) Backward(_ context.Context, msg *echov1.Message) (http.Message, error) {
 	return http.Message{
 		ID:      int(msg.GetId()),
 		Message: msg.GetMessage(),

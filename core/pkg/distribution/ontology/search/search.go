@@ -151,12 +151,12 @@ func assembleWordQuery(word string, _ int) query.Query {
 }
 
 func (s *Index) execQuery(ctx context.Context, q query.Query) (*bleve.SearchResult, error) {
-	search_ := bleve.NewSearchRequest(q)
-	search_.Fields = []string{"name"}
+	req := bleve.NewSearchRequest(q)
+	req.Fields = []string{"name"}
 	// Limit search results to 100
-	search_.Size = 100
-	search_.SortBy([]string{"-_score"})
-	return s.idx.SearchInContext(ctx, search_)
+	req.Size = 100
+	req.SortBy([]string{"-_score"})
+	return s.idx.SearchInContext(ctx, req)
 }
 
 func (s *Index) Search(ctx context.Context, req Request) ([]core.ID, error) {

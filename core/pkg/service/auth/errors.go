@@ -19,16 +19,16 @@ import (
 )
 
 var (
-	// InvalidCredentials is returned when the credentials for a particular entity
+	// ErrInvalidCredentials is returned when the credentials for a particular entity
 	// are invalid.
-	InvalidCredentials = password.Invalid
+	ErrInvalidCredentials = password.ErrInvalid
 
-	RepeatedUsername = errors.Wrap(base.AuthError, "username already exists")
+	ErrRepeatedUsername = errors.Wrap(base.ErrAuth, "username already exists")
 
-	// Error is the base error for all authentication related errors.
-	Error        = base.AuthError
-	InvalidToken = errors.Wrap(base.AuthError, "invalid token")
-	ExpiredToken = errors.Wrap(base.AuthError, "expired token")
+	// Err is the base error for all authentication related errors.
+	Err             = base.ErrAuth
+	ErrInvalidToken = errors.Wrap(base.ErrAuth, "invalid token")
+	ErrExpiredToken = errors.Wrap(base.ErrAuth, "expired token")
 )
 
 const (
@@ -40,19 +40,19 @@ const (
 )
 
 func encode(_ context.Context, err error) (errors.Payload, bool) {
-	if errors.Is(err, InvalidToken) {
+	if errors.Is(err, ErrInvalidToken) {
 		return errors.Payload{Type: invalidTokenType, Data: err.Error()}, true
 	}
-	if errors.Is(err, InvalidCredentials) {
+	if errors.Is(err, ErrInvalidCredentials) {
 		return errors.Payload{Type: invalidCredentialsType, Data: err.Error()}, true
 	}
-	if errors.Is(err, ExpiredToken) {
+	if errors.Is(err, ErrExpiredToken) {
 		return errors.Payload{Type: expiredTokenType, Data: err.Error()}, true
 	}
-	if errors.Is(err, RepeatedUsername) {
+	if errors.Is(err, ErrRepeatedUsername) {
 		return errors.Payload{Type: repeatedUsernameType, Data: err.Error()}, true
 	}
-	if errors.Is(err, Error) {
+	if errors.Is(err, Err) {
 		return errors.Payload{Type: errorType, Data: err.Error()}, true
 	}
 	return errors.Payload{}, false
@@ -61,16 +61,16 @@ func encode(_ context.Context, err error) (errors.Payload, bool) {
 func decode(_ context.Context, p errors.Payload) (error, bool) {
 	switch p.Type {
 	case invalidCredentialsType:
-		return errors.Wrap(InvalidCredentials, p.Data), true
+		return errors.Wrap(ErrInvalidCredentials, p.Data), true
 	case invalidTokenType:
-		return errors.Wrap(InvalidToken, p.Data), true
+		return errors.Wrap(ErrInvalidToken, p.Data), true
 	case repeatedUsernameType:
-		return errors.Wrap(RepeatedUsername, p.Data), true
+		return errors.Wrap(ErrRepeatedUsername, p.Data), true
 	case expiredTokenType:
-		return errors.Wrap(ExpiredToken, p.Data), true
+		return errors.Wrap(ErrExpiredToken, p.Data), true
 	}
 	if strings.HasPrefix(p.Type, errorType) {
-		return errors.Wrap(base.AuthError, p.Data), true
+		return errors.Wrap(base.ErrAuth, p.Data), true
 	}
 	return nil, false
 }

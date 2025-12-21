@@ -113,7 +113,7 @@ var configSchema = zyn.Object(map[string]zyn.Schema{
 
 func (f *stableFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
-		return nil, query.NotFound
+		return nil, query.ErrNotFound
 	}
 	var configVals config
 	if err := configSchema.Parse(cfg.Node.Config.ValueMap(), &configVals); err != nil {

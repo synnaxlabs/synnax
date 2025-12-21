@@ -18,7 +18,7 @@ import (
 
 var (
 	// ErrChannelNotFound is returned when a particular channel cannot be found in the DB.
-	ErrChannelNotFound = errors.Wrap(query.NotFound, "channel not found")
+	ErrChannelNotFound = errors.Wrap(query.ErrNotFound, "channel not found")
 	// ErrOpenResource is returned when a resource cannot be closed because there are still
 	// open resources on it (readers, writers, etc.).
 	ErrOpenResource = errors.New("cannot close database because there are open resources on it")

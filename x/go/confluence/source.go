@@ -66,7 +66,7 @@ func (ams *AbstractMultiSource[V]) SendToEachWithTimeout(
 		}
 	}
 	if timedOutInlet >= 0 {
-		return errors.Wrapf(timeout.Timeout, "timed out sending to inlet %s", ams.Out[timedOutInlet].InletAddress())
+		return errors.Wrapf(timeout.ErrTimeout, "timed out sending to inlet %s", ams.Out[timedOutInlet].InletAddress())
 	}
 	return nil
 }

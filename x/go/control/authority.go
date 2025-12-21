@@ -31,11 +31,11 @@ const (
 )
 
 var (
-	// Error is a general classification of control error.
-	Error = errors.New("control")
+	// Err is a general classification of control error.
+	Err = errors.New("control")
 	// ErrUnauthorized is returned when a subject does not have authority to perform
 	// actions on a resource.
-	ErrUnauthorized = errors.Wrap(Error, "unauthorized")
+	ErrUnauthorized = errors.Wrap(Err, "unauthorized")
 )
 
 // Concurrency defines whether a resource can have multiple subjects acting on it at once.
@@ -62,7 +62,7 @@ func decode(_ context.Context, p errors.Payload) (error, bool) {
 	if p.Type == unauthorized {
 		return errors.Wrap(ErrUnauthorized, p.Data), true
 	}
-	return errors.Wrap(Error, p.Data), true
+	return errors.Wrap(Err, p.Data), true
 }
 
 func init() {

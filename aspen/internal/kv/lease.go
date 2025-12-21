@@ -46,7 +46,7 @@ func (la *leaseAllocator) allocate(ctx context.Context, op Operation) (Operation
 		}
 	// If we get a NotFound error, and the op is a Set operation, we assign the
 	// leaseAlloc to the cluster host.
-	case errors.Is(err, kv.NotFound) && op.Variant == change.Set:
+	case errors.Is(err, kv.ErrNotFound) && op.Variant == change.Set:
 		if op.Leaseholder == DefaultLeaseholder {
 			// If we can't find the Leaseholder, and the op doesn't have a Leaseholder
 			// assigned, we assign the leaseAlloc to the cluster host.

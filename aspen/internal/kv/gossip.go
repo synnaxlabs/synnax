@@ -73,7 +73,7 @@ func newOperationServer(cfg Config, s store) source {
 }
 
 func (g *operationServer) handle(ctx context.Context, req TxRequest) (TxRequest, error) {
-	// The handler context is cancelled after it returns, so we need to use a separate
+	// The handler context is canceled after it returns, so we need to use a separate
 	// context for executing the tx.
 	req.Context = context.TODO()
 	select {
@@ -131,7 +131,7 @@ func newFeedbackReceiver(cfg Config) source {
 }
 
 func (f *feedbackReceiver) handle(ctx context.Context, msg FeedbackMessage) (types.Nil, error) {
-	// The handler context is cancelled after it returns, so we need to use a separate
+	// The handler context is canceled after it returns, so we need to use a separate
 	// context for passing the feedback to the pipeline.
 	return types.Nil{}, signal.SendUnderContext(ctx, f.Out.Inlet(), msg.Digests.toRequest(context.TODO()))
 }

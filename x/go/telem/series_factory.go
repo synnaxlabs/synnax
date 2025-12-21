@@ -124,9 +124,7 @@ func MarshalSlice[T Sample](data []T) []byte {
 
 // UnmarshalSlice converts a byte slice back into a slice of numeric values according to
 // the specified DataType.
-func UnmarshalSlice[T Sample](b []byte, dt DataType) []T {
-	return unsafe.CastSlice[byte, T](b)
-}
+func UnmarshalSlice[T Sample](b []byte) []T { return unsafe.CastSlice[byte, T](b) }
 
 // UnmarshalSeries converts a Series' data back into a slice of the original type.
 func UnmarshalSeries[T Sample](series Series) []T {

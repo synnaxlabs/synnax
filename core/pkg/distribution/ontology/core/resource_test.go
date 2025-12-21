@@ -33,12 +33,12 @@ var _ = Describe("Resource", func() {
 			It("Should return an error if the resource ID does not have a key", func() {
 				id := core.ID{Type: "foo"}
 				err := id.Validate()
-				Expect(err).To(HaveOccurredAs(validate.Error))
+				Expect(err).To(HaveOccurredAs(validate.Err))
 			})
 			It("Should return an error if the resource ID does not have a type", func() {
 				id := ontology.ID{Key: "foo"}
 				err := id.Validate()
-				Expect(err).To(HaveOccurredAs(validate.Error))
+				Expect(err).To(HaveOccurredAs(validate.Err))
 			})
 			It("Should return nil if the resource ID is valid", func() {
 				id := core.ID{Type: "foo", Key: "bar"}
@@ -83,23 +83,23 @@ var _ = Describe("Resource", func() {
 				})
 
 				It("Should return an error if the ID has an invalid structure", func() {
-					Expect(core.ParseID("foo")).Error().To(HaveOccurredAs(validate.Error))
+					Expect(core.ParseID("foo")).Error().To(HaveOccurredAs(validate.Err))
 				})
 
 				It("Should return an error if the ID is an empty string", func() {
-					Expect(core.ParseID("")).Error().To(HaveOccurredAs(validate.Error))
+					Expect(core.ParseID("")).Error().To(HaveOccurredAs(validate.Err))
 				})
 
 				It("Should return an error if the ID has an empty type (leading colon)", func() {
-					Expect(core.ParseID(":bar")).Error().To(HaveOccurredAs(validate.Error))
+					Expect(core.ParseID(":bar")).Error().To(HaveOccurredAs(validate.Err))
 				})
 
 				It("Should return an error if the ID has an empty type with colons in key", func() {
-					Expect(core.ParseID(":word1:word2")).Error().To(HaveOccurredAs(validate.Error))
+					Expect(core.ParseID(":word1:word2")).Error().To(HaveOccurredAs(validate.Err))
 				})
 
 				It("Should return an error if the ID has an empty type and key starts with colon", func() {
-					Expect(core.ParseID("::word1")).Error().To(HaveOccurredAs(validate.Error))
+					Expect(core.ParseID("::word1")).Error().To(HaveOccurredAs(validate.Err))
 				})
 
 				It("Should parse an ID with empty key (trailing colon)", func() {
@@ -124,7 +124,7 @@ var _ = Describe("Resource", func() {
 					})
 					It("Should return an error if any of the IDs have an invalid structure", func() {
 						_, err := core.ParseIDs([]string{"foo:bar", "foo"})
-						Expect(err).To(HaveOccurredAs(validate.Error))
+						Expect(err).To(HaveOccurredAs(validate.Err))
 					})
 					It("Should return an empty slice when given an empty slice", func() {
 						ids, err := core.ParseIDs([]string{})

@@ -48,7 +48,7 @@ func (w *Writer) Uint8(value uint8) int {
 		return 0
 	}
 	w.buf[w.offset] = value
-	w.offset += 1
+	w.offset++
 	return 1
 }
 

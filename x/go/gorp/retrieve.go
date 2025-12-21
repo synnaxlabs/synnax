@@ -116,7 +116,7 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (int, error) {
 		// For key-based queries, we can optimize by only retrieving the keys
 		entries := make([]E, 0, len(keys))
 		SetEntries(r.Params, &entries)
-		if err := keysRetrieve[K, E](ctx, r.Params, tx); err != nil && !errors.Is(err, query.NotFound) {
+		if err := keysRetrieve[K, E](ctx, r.Params, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 			return 0, err
 		}
 		return len(entries), nil
@@ -287,14 +287,14 @@ func checkExists[K Key, E Entry[K]](ctx context.Context, q query.Parameters, rea
 	if keys, ok := getWhereKeys[K](q); ok {
 		entries := make([]E, 0, len(keys))
 		SetEntries(q, &entries)
-		if err := keysRetrieve[K, E](ctx, q, reader); errors.Skip(err, query.NotFound) != nil {
+		if err := keysRetrieve[K, E](ctx, q, reader); errors.Skip(err, query.ErrNotFound) != nil {
 			return false, err
 		}
 		return len(entries) == len(keys), nil
 	}
 	entries := make([]E, 0, 1)
 	SetEntries(q, &entries)
-	if err := filterRetrieve[K, E](ctx, q, reader); errors.Skip(err, query.NotFound) != nil {
+	if err := filterRetrieve[K, E](ctx, q, reader); errors.Skip(err, query.ErrNotFound) != nil {
 		return false, err
 	}
 	return len(entries) > 0, nil
@@ -321,7 +321,7 @@ func keysRetrieve[K Key, E Entry[K]](
 			return err
 		}
 		if match {
-			validCount += 1
+			validCount++
 			if (validCount > offset) && (!limitOk || validCount <= limit+offset) {
 				toReplace = append(toReplace, e)
 			}
@@ -362,7 +362,7 @@ func filterRetrieve[K Key, E Entry[K]](
 			return err
 		}
 		if match {
-			validCount += 1
+			validCount++
 			if (validCount > offset) && (!limitOk || validCount <= limit+offset) {
 				entries.Add(*v)
 			}
@@ -373,7 +373,7 @@ func filterRetrieve[K Key, E Entry[K]](
 	}
 	if entries.changes == 0 {
 		return errors.Wrapf(
-			query.NotFound,
+			query.ErrNotFound,
 			fmt.Sprintf("no %s found matching query", types.PluralName[E]()),
 		)
 	}

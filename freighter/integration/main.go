@@ -38,17 +38,13 @@ func main() {
 
 	err := func() error {
 		sCtx, cancel := xsig.Isolated()
-		sCtx.Go(func(ctx context.Context) error {
-			return app.Listen(":8080")
-		})
+		sCtx.Go(func(context.Context) error { return app.Listen(":8080") })
 
 		lis, err := net.Listen("tcp", ":8081")
 		if err != nil {
 			return err
 		}
-		sCtx.Go(func(ctx context.Context) error {
-			return g.Serve(lis)
-		})
+		sCtx.Go(func(context.Context) error { return g.Serve(lis) })
 		<-interruptC
 		g.Stop()
 		if err := app.Shutdown(); err != nil {

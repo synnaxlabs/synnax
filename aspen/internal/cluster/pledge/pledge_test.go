@@ -208,7 +208,7 @@ var _ = Describe("PledgeServer", func() {
 				Expect(err).To(HaveOccurredAs(context.DeadlineExceeded))
 			})
 		})
-		Describe("Cancelling a pledge", func() {
+		Describe("Canceling a pledge", func() {
 			It("Should stop all operations and return a cancellation error", func() {
 				nodes := make(node.Group)
 				provisionCandidates(net, nodes, nil, nil)

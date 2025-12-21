@@ -51,7 +51,7 @@ func KeyFromOntologyID(id ontology.ID) (Key, error) {
 	return Key(k), nil
 }
 
-func KeysFromOntologyIds(ids []ontology.ID) (keys []Key, err error) {
+func KeysFromOntologyIDs(ids []ontology.ID) (keys []Key, err error) {
 	keys = make([]Key, len(ids))
 	for i, id := range ids {
 		keys[i], err = KeyFromOntologyID(id)

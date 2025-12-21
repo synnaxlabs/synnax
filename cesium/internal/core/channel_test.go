@@ -36,7 +36,7 @@ var _ = Describe("Channel", func() {
 			c := core.Channel{Key: 1, DataType: telem.Int64T, Name: "cat"}
 			s := telem.NewSeriesV[float64](1, 2, 3)
 			err := c.ValidateSeries(s)
-			Expect(err).To(HaveOccurredAs(validate.Error))
+			Expect(err).To(HaveOccurredAs(validate.Err))
 			Expect(err).To(MatchError(ContainSubstring("invalid data type for channel [cat]<1>, expected int64, got float64")))
 		})
 		It("Should allow int64 series to pass as timestamps", func() {

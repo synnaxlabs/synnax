@@ -16,28 +16,28 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/config"
-	. "github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Delta", func() {
 	var (
-		inputOne  *Stream[int]
-		outputOne *Stream[int]
-		outputTwo *Stream[int]
+		inputOne  *confluence.Stream[int]
+		outputOne *confluence.Stream[int]
+		outputTwo *confluence.Stream[int]
 	)
 	BeforeEach(func() {
-		inputOne = NewStream[int](1)
-		outputOne = NewStream[int](0)
+		inputOne = confluence.NewStream[int](1)
+		outputOne = confluence.NewStream[int](0)
 		outputOne.SetInletAddress("outputOne")
-		outputTwo = NewStream[int](0)
+		outputTwo = confluence.NewStream[int](0)
 		outputTwo.SetInletAddress("outputTwo")
 	})
 
 	Describe("DeltaMultiplier", func() {
 		It("Should multiply input values to outputs", func() {
-			delta := &DeltaMultiplier[int]{}
+			delta := &confluence.DeltaMultiplier[int]{}
 			delta.OutTo(outputOne, outputTwo)
 			delta.InFrom(inputOne)
 			ctx, cancel := signal.Isolated()
@@ -50,12 +50,12 @@ var _ = Describe("Delta", func() {
 			Expect(v2).To(Equal(1))
 		})
 		It("Should close inlets when the delta is closed", func() {
-			delta := &DeltaMultiplier[int]{}
+			delta := &confluence.DeltaMultiplier[int]{}
 			delta.OutTo(outputOne)
 			delta.InFrom(inputOne)
 			ctx, cancel := signal.Isolated()
 			defer cancel()
-			delta.Flow(ctx, CloseOutputInletsOnExit())
+			delta.Flow(ctx, confluence.CloseOutputInletsOnExit())
 			inputOne.Inlet() <- 1
 			inputOne.Close()
 			v1 := <-outputOne.Outlet()
@@ -67,8 +67,8 @@ var _ = Describe("Delta", func() {
 
 	Describe("DeltaTransformMultiplier", func() {
 		It("Should multiply input values to outputs", func() {
-			delta := &DeltaTransformMultiplier[int, int]{}
-			delta.Transform = func(ctx context.Context, v int) (int, bool, error) {
+			delta := &confluence.DeltaTransformMultiplier[int, int]{}
+			delta.Transform = func(_ context.Context, v int) (int, bool, error) {
 				return v * 2, true, nil
 			}
 			delta.OutTo(outputOne, outputTwo)
@@ -83,15 +83,15 @@ var _ = Describe("Delta", func() {
 			Expect(v2).To(Equal(2))
 		})
 		It("Should close inlets when the delta is closed", func() {
-			delta := &DeltaTransformMultiplier[int, int]{}
-			delta.Transform = func(ctx context.Context, v int) (int, bool, error) {
+			delta := &confluence.DeltaTransformMultiplier[int, int]{}
+			delta.Transform = func(_ context.Context, v int) (int, bool, error) {
 				return v * 2, true, nil
 			}
 			delta.OutTo(outputOne)
 			delta.InFrom(inputOne)
 			ctx, cancel := signal.Isolated()
 			defer cancel()
-			delta.Flow(ctx, CloseOutputInletsOnExit())
+			delta.Flow(ctx, confluence.CloseOutputInletsOnExit())
 			inputOne.Inlet() <- 1
 			inputOne.Close()
 			v1 := <-outputOne.Outlet()
@@ -100,15 +100,15 @@ var _ = Describe("Delta", func() {
 			Expect(ok).To(BeFalse())
 		})
 		It("Should not send a value when the transform returns false", func() {
-			delta := &DeltaTransformMultiplier[int, int]{}
-			delta.Transform = func(ctx context.Context, v int) (int, bool, error) {
+			delta := &confluence.DeltaTransformMultiplier[int, int]{}
+			delta.Transform = func(_ context.Context, v int) (int, bool, error) {
 				return v * 2, v != 1, nil
 			}
 			delta.OutTo(outputOne)
 			delta.InFrom(inputOne)
 			ctx, cancel := signal.Isolated()
 			defer cancel()
-			delta.Flow(ctx, CloseOutputInletsOnExit())
+			delta.Flow(ctx, confluence.CloseOutputInletsOnExit())
 			inputOne.Inlet() <- 1
 			inputOne.Close()
 			_, ok := <-outputOne.Outlet()
@@ -118,11 +118,11 @@ var _ = Describe("Delta", func() {
 
 	Describe("DynamicDeltaMultiplier", func() {
 		It("Should allow the caller to add and remove outlets dynamically", func() {
-			delta := NewDynamicDeltaMultiplier[int](0, Instrumentation("dev"))
+			delta := confluence.NewDynamicDeltaMultiplier[int](0, Instrumentation("dev"))
 			delta.InFrom(inputOne)
 			ctx, cancel := signal.Isolated()
 			defer cancel()
-			delta.Flow(ctx, CloseOutputInletsOnExit())
+			delta.Flow(ctx, confluence.CloseOutputInletsOnExit())
 			delta.Connect(outputOne)
 			delta.Connect(outputTwo)
 			Eventually(inputOne.Inlet()).Should(BeSent(1))
@@ -136,14 +136,14 @@ var _ = Describe("Delta", func() {
 
 		Describe("Timeout", func() {
 			It("Should allow the delta to operate normally if a consumer receives within the timeout", func() {
-				delta := NewDynamicDeltaMultiplier[int](
+				delta := confluence.NewDynamicDeltaMultiplier[int](
 					10*time.Millisecond,
 					Instrumentation("dev", InstrumentationConfig{Log: config.True()}),
 				)
 				delta.InFrom(inputOne)
 				ctx, cancel := signal.Isolated()
 				defer cancel()
-				delta.Flow(ctx, CloseOutputInletsOnExit())
+				delta.Flow(ctx, confluence.CloseOutputInletsOnExit())
 				delta.Connect(outputOne)
 				delta.Connect(outputTwo)
 				Eventually(inputOne.Inlet()).Should(BeSent(1))
@@ -156,14 +156,14 @@ var _ = Describe("Delta", func() {
 			})
 
 			It("Should allow other outlets to receive values even if one consumer times out", func() {
-				delta := NewDynamicDeltaMultiplier[int](
+				delta := confluence.NewDynamicDeltaMultiplier[int](
 					10*time.Millisecond,
 					Instrumentation("dev", InstrumentationConfig{Log: config.False()}),
 				)
 				delta.InFrom(inputOne)
 				ctx, cancel := signal.Isolated()
 				defer cancel()
-				delta.Flow(ctx, CloseOutputInletsOnExit())
+				delta.Flow(ctx, confluence.CloseOutputInletsOnExit())
 				delta.Connect(outputOne)
 				delta.Connect(outputTwo)
 				Eventually(inputOne.Inlet()).Should(BeSent(1))

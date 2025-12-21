@@ -67,11 +67,11 @@ func (s *ArcService) Create(ctx context.Context, req ArcCreateRequest) (res ArcC
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.internal.NewWriter(tx)
-		for i, arc_ := range req.Arcs {
-			if err = w.Create(ctx, &arc_.Arc); err != nil {
+		for i, a := range req.Arcs {
+			if err = w.Create(ctx, &a.Arc); err != nil {
 				return err
 			}
-			req.Arcs[i] = arc_
+			req.Arcs[i] = a
 		}
 		res.Arcs = req.Arcs
 		return nil

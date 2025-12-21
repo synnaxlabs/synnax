@@ -108,7 +108,7 @@ func (l logger) Fatalf(format string, args ...any) {
 func (d db) OpenTx() kv.Tx { return &tx{Batch: d.NewIndexedBatch(), db: d} }
 
 // Commit implements kv.DB.
-func (d db) Commit(context.Context, ...any) error { return nil }
+func (db) Commit(context.Context, ...any) error { return nil }
 
 // NewReader implement kv.DB.
 func (d db) NewReader() kv.TxReader { return d.OpenTx().NewReader() }
@@ -176,9 +176,7 @@ func (d db) apply(ctx context.Context, txn *tx) error {
 }
 
 // Report implement alamos.ReportProvider.
-func (d db) Report() alamos.Report {
-	return alamos.Report{"engine": "pebble"}
-}
+func (db) Report() alamos.Report { return alamos.Report{"engine": "pebble"} }
 
 // Size implements kv.DB.
 func (d db) Size() telem.Size { return telem.Size(d.DB.Metrics().DiskSpaceUsage()) }
@@ -224,7 +222,7 @@ func (txn *tx) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 }
 
 // Commit implements kv.Writer.
-func (txn *tx) Commit(ctx context.Context, opts ...any) error {
+func (txn *tx) Commit(ctx context.Context, _ ...any) error {
 	txn.committed = true
 	return txn.db.apply(ctx, txn)
 }
@@ -283,7 +281,7 @@ func parseIterOpts(opts kv.IteratorOptions) *pebble.IterOptions {
 
 func translateError(err error) error {
 	if errors.Is(err, pebble.ErrNotFound) {
-		return kv.NotFound
+		return kv.ErrNotFound
 	}
 	return err
 }

@@ -744,7 +744,7 @@ func (g *Graph) topologicalSortGroup(groupKey int, modules []compiler.Module) ([
 func (g *Graph) getChannelInfo(key channel.Key) (*channelInfo, error) {
 	info := g.channels[key]
 	if info == nil {
-		return nil, errors.Wrapf(query.NotFound, "channel %v not found in allocator", key)
+		return nil, errors.Wrapf(query.ErrNotFound, "channel %v not found in allocator", key)
 	}
 	return info, nil
 }

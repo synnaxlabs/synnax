@@ -78,7 +78,7 @@ var _ = Describe("User", Ordered, func() {
 		})
 		It("Should return an error if the user with the username already exists", func() {
 			u := &user.User{Username: "test1"}
-			Expect(errors.Is(w.Create(ctx, u), auth.RepeatedUsername)).To(BeTrue())
+			Expect(errors.Is(w.Create(ctx, u), auth.ErrRepeatedUsername)).To(BeTrue())
 		})
 	})
 	Describe("Retrieve", func() {
@@ -133,7 +133,7 @@ var _ = Describe("User", Ordered, func() {
 			users[0].Username = newUsername
 		})
 		It("Should return an error if the username already exists", func() {
-			Expect(errors.Is(w.ChangeUsername(ctx, users[0].Key, users[1].Username), auth.RepeatedUsername)).To(BeTrue())
+			Expect(errors.Is(w.ChangeUsername(ctx, users[0].Key, users[1].Username), auth.ErrRepeatedUsername)).To(BeTrue())
 		})
 	})
 	Describe("ChangeName", func() {

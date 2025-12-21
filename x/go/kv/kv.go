@@ -27,8 +27,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// NotFound is returned when a key is not found in the DB.
-var NotFound = errors.New("[kv] - not found")
+// ErrNotFound is returned when a key is not found in the DB.
+var ErrNotFound = errors.New("[kv] - not found")
 
 // Reader is a readable key-value store.
 type Reader interface {

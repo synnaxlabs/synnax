@@ -11,4 +11,4 @@ package timeout
 
 import "github.com/synnaxlabs/x/errors"
 
-var Timeout = errors.New("timeout")
+var ErrTimeout = errors.New("timeout")

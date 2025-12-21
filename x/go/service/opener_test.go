@@ -72,7 +72,7 @@ var _ = Describe("Opener", Ordered, func() {
 		Expect(open(ctx)).To(HaveOccurred())
 		Expect(multiCloserCalls).To(Equal(1))
 	})
-	It("Should call the closer if the context is cancelled", func() {
+	It("Should call the closer if the context is canceled", func() {
 		open := func(context.Context) error {
 			defer func() {
 				err = cleanup(err)
