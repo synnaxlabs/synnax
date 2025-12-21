@@ -57,7 +57,8 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) BindHandler(
 }
 
 func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
-	ctx context.Context, stream grpcServerStream[RQT, RST],
+	ctx context.Context,
+	stream grpcServerStream[RQT, RST],
 ) error {
 	attachedInitialMetaData := false
 	oCtx, err := s.Exec(
