@@ -148,9 +148,6 @@ type ArcParserListener interface {
 	// EnterFloatType is called when entering the floatType production.
 	EnterFloatType(c *FloatTypeContext)
 
-	// EnterTemporalType is called when entering the temporalType production.
-	EnterTemporalType(c *TemporalTypeContext)
-
 	// EnterChannelType is called when entering the channelType production.
 	EnterChannelType(c *ChannelTypeContext)
 
@@ -342,9 +339,6 @@ type ArcParserListener interface {
 
 	// ExitFloatType is called when exiting the floatType production.
 	ExitFloatType(c *FloatTypeContext)
-
-	// ExitTemporalType is called when exiting the temporalType production.
-	ExitTemporalType(c *TemporalTypeContext)
 
 	// ExitChannelType is called when exiting the channelType production.
 	ExitChannelType(c *ChannelTypeContext)

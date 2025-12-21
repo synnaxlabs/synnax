@@ -293,12 +293,6 @@ func (s *BaseArcParserListener) EnterFloatType(ctx *FloatTypeContext) {}
 // ExitFloatType is called when production floatType is exited.
 func (s *BaseArcParserListener) ExitFloatType(ctx *FloatTypeContext) {}
 
-// EnterTemporalType is called when production temporalType is entered.
-func (s *BaseArcParserListener) EnterTemporalType(ctx *TemporalTypeContext) {}
-
-// ExitTemporalType is called when production temporalType is exited.
-func (s *BaseArcParserListener) ExitTemporalType(ctx *TemporalTypeContext) {}
-
 // EnterChannelType is called when production channelType is entered.
 func (s *BaseArcParserListener) EnterChannelType(ctx *ChannelTypeContext) {}
 

@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -179,7 +180,7 @@ var _ = Describe("Literal Parser", func() {
 				parsed, err := literal.Parse(lit, types.TimeSpan())
 				Expect(err).ToNot(HaveOccurred())
 				// 300ms = 300 * (1e-3 / 1e-9) = 300,000,000 ns
-				Expect(parsed.Value).To(Equal(int64(300000000)))
+				Expect(parsed.Value).To(Equal(telem.Millisecond * 300))
 				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
 			})
 
@@ -188,7 +189,7 @@ var _ = Describe("Literal Parser", func() {
 				parsed, err := literal.Parse(lit, types.TimeSpan())
 				Expect(err).ToNot(HaveOccurred())
 				// 5s = 5 * (1 / 1e-9) = 5,000,000,000 ns
-				Expect(parsed.Value).To(Equal(int64(5000000000)))
+				Expect(parsed.Value).To(Equal(telem.Second * 5))
 				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
 			})
 
@@ -197,7 +198,7 @@ var _ = Describe("Literal Parser", func() {
 				parsed, err := literal.Parse(lit, types.TimeSpan())
 				Expect(err).ToNot(HaveOccurred())
 				// 1us = 1 * (1e-6 / 1e-9) = 1000 ns
-				Expect(parsed.Value).To(Equal(int64(1000)))
+				Expect(parsed.Value).To(Equal(telem.Microsecond))
 				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
 			})
 		})

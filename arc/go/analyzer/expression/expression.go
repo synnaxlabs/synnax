@@ -175,13 +175,17 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 	for i := 1; i < len(items); i++ {
 		nextType := infer(context.Child(ctx, items[i]).WithTypeHint(firstType)).Unwrap()
 
-		if firstType.Kind == basetypes.KindVariable || nextType.Kind == basetypes.KindVariable {
-			ctx.Constraints.AddCompatible(firstType, nextType, items[i], opName+" operands must be compatible")
-		} else if firstType.Unit != nil || nextType.Unit != nil {
+		// Check dimensional compatibility first if either operand has units
+		// This must be checked even for type variables since the unit is known at parse time
+		if firstType.Unit != nil || nextType.Unit != nil {
 			if _, err := units.CheckBinaryOp(opName, firstType, nextType); err != nil {
 				ctx.Diagnostics.AddError(err, ctx.AST)
 				return false
 			}
+		}
+
+		if firstType.Kind == basetypes.KindVariable || nextType.Kind == basetypes.KindVariable {
+			ctx.Constraints.AddCompatible(firstType, nextType, items[i], opName+" operands must be compatible")
 		} else if !types.Compatible(firstType, nextType) {
 			ctx.Diagnostics.AddError(
 				errors.Newf("type mismatch: cannot use %s and %s in %s operation", firstType, nextType, opName),

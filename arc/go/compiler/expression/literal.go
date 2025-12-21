@@ -52,6 +52,11 @@ func compileNumericLiteral(
 		}
 	}
 
+	// Clear the unit from target type - unit literals should always convert to SI base units.
+	// The unit is preserved in the TypeMap for dimensional analysis but should not affect
+	// the numeric value emitted (which is always in SI base units).
+	targetType.Unit = nil
+
 	// Use shared literal parser to parse and validate the value
 	// This enforces Go-like semantics: no truncation for literal constants
 	parsed, err := literal.ParseNumeric(ctx.AST, targetType)

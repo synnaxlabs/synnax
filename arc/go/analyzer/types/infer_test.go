@@ -356,17 +356,5 @@ var _ = Describe("Type Inference", func() {
 			Expect(t.Kind).To(Equal(types.KindSeries))
 			Expect(t.Unwrap().Kind).To(Equal(types.KindI64))
 		})
-
-		It("should infer temporal types", func() {
-			stmt := MustSucceed(parser.ParseStatement("t timestamp := 0"))
-			varDecl := stmt.VariableDeclaration().LocalVariable()
-			typeCtx := varDecl.Type_()
-			t, err := atypes.InferFromTypeContext(typeCtx)
-			Expect(err).ToNot(HaveOccurred())
-			// Temporal types are now i64 with nanosecond time units
-			Expect(t.Kind).To(Equal(types.KindI64))
-			Expect(t.Unit).ToNot(BeNil())
-			Expect(t.Unit.Dimensions).To(Equal(types.DimTime))
-		})
 	})
 })

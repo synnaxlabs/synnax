@@ -70,28 +70,7 @@ func inferNumericType(ctx parser.INumericTypeContext) (types.Type, error) {
 	if float := ctx.FloatType(); float != nil {
 		return inferFloatType(float)
 	}
-	if temporal := ctx.TemporalType(); temporal != nil {
-		return inferTemporalType(temporal)
-	}
 	return types.Type{}, errors.New("unknown numeric type")
-}
-
-func inferTemporalType(ctx parser.ITemporalTypeContext) (types.Type, error) {
-	text := ctx.GetText()
-	// Temporal types are now represented as i64 with nanosecond time units
-	switch text {
-	case "timestamp", "timespan":
-		return types.Type{
-			Kind: types.KindI64,
-			Unit: &types.Unit{
-				Dimensions: types.DimTime,
-				Scale:      1e-9, // nanoseconds
-				Name:       "ns",
-			},
-		}, nil
-	default:
-		return types.Type{}, errors.New("unknown temporal type")
-	}
 }
 
 func inferIntegerType(ctx parser.IIntegerTypeContext) (types.Type, error) {

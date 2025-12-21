@@ -219,7 +219,6 @@ primitiveType
 numericType
     : integerType
     | floatType
-    | temporalType
     ;
 
 integerType
@@ -229,10 +228,6 @@ integerType
 
 floatType
     : F32 | F64
-    ;
-
-temporalType
-    : TIMESTAMP | TIMESPAN
     ;
 
 channelType
