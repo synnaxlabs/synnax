@@ -69,7 +69,7 @@ describe("TestFactory", () => {
       destructors.forEach((destructor) => destructor());
     });
 
-    const registerInstance = (id: string, instance: Telem): destructor.Destructor => {
+    const registerAndTrack = (id: string, instance: Telem): destructor.Destructor => {
       const unregister = registerInstance(id, instance);
       destructors.push(unregister);
       return unregister;
@@ -107,7 +107,7 @@ describe("TestFactory", () => {
 
     it("should return registered instance for valid testId", () => {
       const instance = createMockTelem();
-      const unregister = registerInstance("valid-id", instance);
+      const unregister = registerAndTrack("valid-id", instance);
 
       const result = factory.create({
         type: "test-sink",
@@ -123,8 +123,8 @@ describe("TestFactory", () => {
     it("should handle multiple instances independently", () => {
       const instance1 = createMockTelem();
       const instance2 = createMockTelem();
-      const unregister1 = registerInstance("id-1", instance1);
-      const unregister2 = registerInstance("id-2", instance2);
+      const unregister1 = registerAndTrack("id-1", instance1);
+      const unregister2 = registerAndTrack("id-2", instance2);
 
       const result1 = factory.create({
         type: "test-sink",
