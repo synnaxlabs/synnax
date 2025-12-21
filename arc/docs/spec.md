@@ -121,6 +121,8 @@ Explicit casting between numeric types:
 
 ```
 TypeCast ::= Type '(' Expression ')'
+```
+
 **Rules**:
 - Widening (e.g., `i16(i8_val)`) is safe (sign/zero extend)
 - Narrowing (e.g., `i8(i64_val)`) truncates
@@ -172,11 +174,11 @@ func process() bool {
 **Channel write** (`channel = value`) enqueues value to channel.
 
 ```arc
-func initialize() true {
+func initialize() u8 {
     tpc_cmd = 0                // Enqueue value to channel
     mpv_cmd = 0
     vent_cmd = 1
-    return true
+    return 1
 }
 ```
 

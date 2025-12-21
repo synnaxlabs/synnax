@@ -44,7 +44,7 @@ type constant struct {
 
 var _ node.Node = (*constant)(nil)
 
-func (c constant) Next(ctx node.Context) {
+func (c *constant) Next(ctx node.Context) {
 	if c.initialized {
 		return
 	}
@@ -56,7 +56,7 @@ func (c constant) Next(ctx node.Context) {
 	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 
-func (c constant) Reset() {
+func (c *constant) Reset() {
 	c.initialized = false
 }
 
@@ -66,7 +66,7 @@ func (c *constantFactory) Create(_ context.Context, cfg node.Config) (node.Node,
 	if cfg.Node.Type != symName {
 		return nil, query.NotFound
 	}
-	return constant{Node: cfg.State, value: cfg.Node.Config[0].Value}, nil
+	return &constant{Node: cfg.State, value: cfg.Node.Config[0].Value}, nil
 }
 
 func NewFactory() node.Factory { return &constantFactory{} }

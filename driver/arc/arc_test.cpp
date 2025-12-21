@@ -68,8 +68,12 @@ TEST(ArcTests, testCalcDoubling) {
     auto input_frames = std::make_shared<std::vector<telem::Frame>>();
     telem::Frame input_fr(2);
     auto now = telem::TimeStamp::now();
-    input_fr.emplace(input_idx.key, telem::Series(std::vector<telem::TimeStamp>{now}));
-    input_fr.emplace(input_ch.key, telem::Series(std::vector<float>{5.0f}));
+    auto input_idx_series = telem::Series(now);
+    input_idx_series.alignment = telem::Alignment(1, 0);
+    auto input_val_series = telem::Series(5.0f);
+    input_val_series.alignment = telem::Alignment(1, 0);
+    input_fr.emplace(input_idx.key, std::move(input_idx_series));
+    input_fr.emplace(input_ch.key, std::move(input_val_series));
     input_frames->push_back(std::move(input_fr));
 
     auto mock_streamer = pipeline::mock::simple_streamer_factory(
@@ -165,8 +169,12 @@ TEST(ArcTests, testBasicSequence) {
     auto input_frames = std::make_shared<std::vector<telem::Frame>>();
     telem::Frame trigger_fr(2);
     auto now = telem::TimeStamp::now();
-    trigger_fr.emplace(start_cmd_idx.key, telem::Series(std::vector<telem::TimeStamp>{now}));
-    trigger_fr.emplace(start_cmd_ch.key, telem::Series(std::vector<uint8_t>{1}));
+    auto trigger_idx_series = telem::Series(now);
+    trigger_idx_series.alignment = telem::Alignment(1, 0);
+    auto trigger_val_series = telem::Series(static_cast<uint8_t>(1));
+    trigger_val_series.alignment = telem::Alignment(1, 0);
+    trigger_fr.emplace(start_cmd_idx.key, std::move(trigger_idx_series));
+    trigger_fr.emplace(start_cmd_ch.key, std::move(trigger_val_series));
     input_frames->push_back(std::move(trigger_fr));
 
     auto mock_streamer = pipeline::mock::simple_streamer_factory(
@@ -276,9 +284,9 @@ TEST(ArcTests, testOneShotTruthiness) {
     // Frame 1: falsy trigger (0) - should NOT trigger the sequence
     telem::Frame falsy_trigger_fr(2);
     auto now = telem::TimeStamp::now();
-    auto falsy_idx_series = telem::Series(std::vector<telem::TimeStamp>{now});
+    auto falsy_idx_series = telem::Series(now);
     falsy_idx_series.alignment = telem::Alignment(1, 0);
-    auto falsy_val_series = telem::Series(std::vector<uint8_t>{0});
+    auto falsy_val_series = telem::Series(static_cast<uint8_t>(0));
     falsy_val_series.alignment = telem::Alignment(1, 0);
     falsy_trigger_fr.emplace(start_cmd_idx.key, std::move(falsy_idx_series));
     falsy_trigger_fr.emplace(start_cmd_ch.key, std::move(falsy_val_series));
@@ -287,9 +295,9 @@ TEST(ArcTests, testOneShotTruthiness) {
     // Frame 2: truthy trigger (1) - should trigger the sequence
     telem::Frame truthy_trigger_fr(2);
     auto later = telem::TimeStamp::now() + telem::SECOND;
-    auto truthy_idx_series = telem::Series(std::vector<telem::TimeStamp>{later});
+    auto truthy_idx_series = telem::Series(later);
     truthy_idx_series.alignment = telem::Alignment(1, 1);
-    auto truthy_val_series = telem::Series(std::vector<uint8_t>{1});
+    auto truthy_val_series = telem::Series(static_cast<uint8_t>(1));
     truthy_val_series.alignment = telem::Alignment(1, 1);
     truthy_trigger_fr.emplace(start_cmd_idx.key, std::move(truthy_idx_series));
     truthy_trigger_fr.emplace(start_cmd_ch.key, std::move(truthy_val_series));
@@ -433,18 +441,26 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     // Frame 1: Trigger the sequence
     telem::Frame trigger_fr(4);
     auto now = telem::TimeStamp::now();
-    trigger_fr.emplace(start_cmd_idx.key, telem::Series(std::vector<telem::TimeStamp>{now}));
-    trigger_fr.emplace(start_cmd_ch.key, telem::Series(std::vector<uint8_t>{1}));
-    trigger_fr.emplace(pressure_idx.key, telem::Series(std::vector<telem::TimeStamp>{now}));
-    trigger_fr.emplace(pressure_ch.key, telem::Series(std::vector<float>{10.0f}));
+    auto sequence_trigger_idx = telem::Series(now);
+    sequence_trigger_idx.alignment = telem::Alignment(1, 0);
+    trigger_fr.emplace(start_cmd_idx.key, std::move(sequence_trigger_idx));
+    auto sequence_trigger_data = telem::Series(static_cast<std::uint8_t>(1));
+    sequence_trigger_data.alignment = telem::Alignment(1, 0);
+    trigger_fr.emplace(start_cmd_ch.key, std::move(sequence_trigger_data));
+    auto pressure_idx_series = telem::Series(now);
+    pressure_idx_series.alignment = telem::Alignment(1, 0);
+    trigger_fr.emplace(pressure_idx.key, std::move(pressure_idx_series));
+    auto pressure_val_series = telem::Series(10.0f);
+    pressure_val_series.alignment = telem::Alignment(1, 0);
+    trigger_fr.emplace(pressure_ch.key, std::move(pressure_val_series));
     input_frames->push_back(std::move(trigger_fr));
 
     // Frame 2: Pressure still low - should stay in pressurize, output 1
     telem::Frame low_pressure_fr(2);
     auto t2 = now + telem::MILLISECOND * 100;
-    auto low_pressure_idx_series = telem::Series(std::vector<telem::TimeStamp>{t2});
+    auto low_pressure_idx_series = telem::Series(t2);
     low_pressure_idx_series.alignment = telem::Alignment(1, 1);
-    auto low_pressure_val_series = telem::Series(std::vector<float>{30.0f});
+    auto low_pressure_val_series = telem::Series(30.0f);
     low_pressure_val_series.alignment = telem::Alignment(1, 1);
     low_pressure_fr.emplace(pressure_idx.key, std::move(low_pressure_idx_series));
     low_pressure_fr.emplace(pressure_ch.key, std::move(low_pressure_val_series));
@@ -453,9 +469,9 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     // Frame 3: Pressure exceeds threshold - should transition to idle, output 0
     telem::Frame high_pressure_fr(2);
     auto t3 = now + telem::MILLISECOND * 200;
-    auto high_pressure_idx_series = telem::Series(std::vector<telem::TimeStamp>{t3});
+    auto high_pressure_idx_series = telem::Series(t3);
     high_pressure_idx_series.alignment = telem::Alignment(1, 2);
-    auto high_pressure_val_series = telem::Series(std::vector<float>{60.0f});
+    auto high_pressure_val_series = telem::Series(60.0f);
     high_pressure_val_series.alignment = telem::Alignment(1, 2);
     high_pressure_fr.emplace(pressure_idx.key, std::move(high_pressure_idx_series));
     high_pressure_fr.emplace(pressure_ch.key, std::move(high_pressure_val_series));
