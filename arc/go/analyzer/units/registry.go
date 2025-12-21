@@ -23,17 +23,17 @@ var Registry = map[string]types.Unit{
 	"h":  {Dimensions: types.DimTime, Scale: 3600e9, Name: "h"},
 
 	// Length units (base: meters)
-	"nm":   {Dimensions: types.DimLength, Scale: 1e-9, Name: "nm"},
-	"um":   {Dimensions: types.DimLength, Scale: 1e-6, Name: "um"},
-	"mm":   {Dimensions: types.DimLength, Scale: 1e-3, Name: "mm"},
-	"cm":   {Dimensions: types.DimLength, Scale: 1e-2, Name: "cm"},
-	"dm":   {Dimensions: types.DimLength, Scale: 1e-1, Name: "dm"},
-	"km":   {Dimensions: types.DimLength, Scale: 1e3, Name: "km"},
-	"in":   {Dimensions: types.DimLength, Scale: 0.0254, Name: "in"},
-	"ft":   {Dimensions: types.DimLength, Scale: 0.3048, Name: "ft"},
-	"yd":   {Dimensions: types.DimLength, Scale: 0.9144, Name: "yd"},
-	"mi":   {Dimensions: types.DimLength, Scale: 1609.344, Name: "mi"},
-	"nmi":  {Dimensions: types.DimLength, Scale: 1852, Name: "nmi"},
+	"nm":    {Dimensions: types.DimLength, Scale: 1e-9, Name: "nm"},
+	"um":    {Dimensions: types.DimLength, Scale: 1e-6, Name: "um"},
+	"mm":    {Dimensions: types.DimLength, Scale: 1e-3, Name: "mm"},
+	"cm":    {Dimensions: types.DimLength, Scale: 1e-2, Name: "cm"},
+	"dm":    {Dimensions: types.DimLength, Scale: 1e-1, Name: "dm"},
+	"km":    {Dimensions: types.DimLength, Scale: 1e3, Name: "km"},
+	"in":    {Dimensions: types.DimLength, Scale: 0.0254, Name: "in"},
+	"ft":    {Dimensions: types.DimLength, Scale: 0.3048, Name: "ft"},
+	"yd":    {Dimensions: types.DimLength, Scale: 0.9144, Name: "yd"},
+	"mi":    {Dimensions: types.DimLength, Scale: 1609.344, Name: "mi"},
+	"nmi":   {Dimensions: types.DimLength, Scale: 1852, Name: "nmi"},
 	"meter": {Dimensions: types.DimLength, Scale: 1, Name: "meter"},
 
 	// Mass units (base: kilograms)

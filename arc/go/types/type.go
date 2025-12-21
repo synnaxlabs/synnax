@@ -77,6 +77,7 @@ import (
 // It is used as a discriminator in the Type tagged union.
 type TypeKind int
 
+//go:generate stringer -type=TypeKind
 const (
 	// KindInvalid represents an invalid or uninitialized type.
 	KindInvalid TypeKind = iota

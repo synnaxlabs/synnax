@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // ParsedValue represents a parsed literal value with its type.
@@ -56,35 +57,33 @@ func ParseNumeric(
 	numLit parser.INumericLiteralContext,
 	targetType types.Type,
 ) (ParsedValue, error) {
-	// Parse the numeric value
-	var numericValue float64
-	var isIntLiteral bool
-
+	var (
+		numericValue float64
+		isInt        bool
+	)
 	if intLit := numLit.INTEGER_LITERAL(); intLit != nil {
 		v, err := strconv.ParseInt(intLit.GetText(), 10, 64)
 		if err != nil {
 			return ParsedValue{}, errors.Wrapf(err, "invalid integer literal: %s", intLit.GetText())
 		}
 		numericValue = float64(v)
-		isIntLiteral = true
+		isInt = true
 	} else if floatLit := numLit.FLOAT_LITERAL(); floatLit != nil {
 		v, err := strconv.ParseFloat(floatLit.GetText(), 64)
 		if err != nil {
 			return ParsedValue{}, errors.Wrapf(err, "invalid float literal: %s", floatLit.GetText())
 		}
 		numericValue = v
-		isIntLiteral = false
+		isInt = false
 	} else {
 		return ParsedValue{}, errors.New("unknown numeric literal")
 	}
 
-	// Check for unit suffix (IDENTIFIER token following the number)
 	if unitID := numLit.IDENTIFIER(); unitID != nil {
-		return parseNumericWithUnit(numericValue, isIntLiteral, unitID.GetText(), targetType)
+		return parseNumericWithUnit(numericValue, isInt, unitID.GetText(), targetType)
 	}
 
-	// No unit suffix - parse as plain numeric literal
-	if isIntLiteral {
+	if isInt {
 		return parseIntegerLiteral(numericValue, targetType)
 	}
 	return parseFloatLiteral(numericValue, targetType)
@@ -317,6 +316,9 @@ func convertToTargetKind(value float64, targetType types.Type, sourceUnit types.
 		}
 		return ParsedValue{Value: int32(intVal), Type: resultType}, nil
 	case types.KindI64:
+		if resultType.Unit.Dimensions.Equal(types.TimeSpan().Unit.Dimensions) {
+			return ParsedValue{Value: telem.TimeSpan(value), Type: resultType}, nil
+		}
 		return ParsedValue{Value: int64(value), Type: resultType}, nil
 	case types.KindU8:
 		intVal := int64(value)
@@ -349,7 +351,6 @@ func convertToTargetKind(value float64, targetType types.Type, sourceUnit types.
 	case types.KindF64:
 		return ParsedValue{Value: value, Type: resultType}, nil
 	default:
-		// Fallback to f64
 		resultType.Kind = types.KindF64
 		return ParsedValue{Value: value, Type: resultType}, nil
 	}
