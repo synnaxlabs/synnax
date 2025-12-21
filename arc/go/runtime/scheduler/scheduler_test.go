@@ -100,14 +100,10 @@ var _ = Describe("Scheduler", func() {
 	}
 
 	BeforeEach(func() {
-		ctx = ctx
+		ctx = context.Background()
 		nodes = make(map[string]node.Node)
 		mocks = make(map[string]*MockNode)
 	})
-
-	// ═══════════════════════════════════════════════════════════════════════════
-	// 1. Construction & Initialization Tests
-	// ═══════════════════════════════════════════════════════════════════════════
 
 	Describe("Construction & Initialization", func() {
 		It("Should construct with empty program", func() {
@@ -169,10 +165,6 @@ var _ = Describe("Scheduler", func() {
 			Expect(mocks["A"].NextCalled).To(Equal(1))
 		})
 	})
-
-	// ═══════════════════════════════════════════════════════════════════════════
-	// 2. Basic next() Execution Tests
-	// ═══════════════════════════════════════════════════════════════════════════
 
 	Describe("Basic Execution", func() {
 		It("Should always execute stratum 0", func() {
@@ -292,10 +284,6 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
 	})
-
-	// ═══════════════════════════════════════════════════════════════════════════
-	// 3. Change Propagation Tests
-	// ═══════════════════════════════════════════════════════════════════════════
 
 	Describe("Change Propagation", func() {
 		It("Should propagate changes via continuous edge", func() {
@@ -484,10 +472,6 @@ var _ = Describe("Scheduler", func() {
 		})
 	})
 
-	// ═══════════════════════════════════════════════════════════════════════════
-	// 4. One-Shot Edge Semantics Tests
-	// ═══════════════════════════════════════════════════════════════════════════
-
 	Describe("One-Shot Edge Semantics", func() {
 		It("Should fire one-shot when truthy", func() {
 			nodeA := mock("A")
@@ -648,10 +632,6 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
 	})
-
-	// ═══════════════════════════════════════════════════════════════════════════
-	// 5. Stage Filtering & Transitions Tests
-	// ═══════════════════════════════════════════════════════════════════════════
 
 	Describe("Stage Filtering & Transitions", func() {
 		It("Should not execute when no stage is active", func() {
@@ -910,10 +890,6 @@ var _ = Describe("Scheduler", func() {
 		})
 	})
 
-	// ═══════════════════════════════════════════════════════════════════════════
-	// 6. Convergence Loop Tests
-	// ═══════════════════════════════════════════════════════════════════════════
-
 	Describe("Convergence Loop", func() {
 		It("Should converge single transition", func() {
 			trigger := mock("trigger")
@@ -1075,10 +1051,6 @@ var _ = Describe("Scheduler", func() {
 		})
 	})
 
-	// ═══════════════════════════════════════════════════════════════════════════
-	// 7. Error Handling Tests
-	// ═══════════════════════════════════════════════════════════════════════════
-
 	Describe("Error Handling", func() {
 		It("Should pass errors to error handler", func() {
 			nodeA := mock("A")
@@ -1136,10 +1108,6 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeA.NextCalled).To(Equal(1))
 		})
 	})
-
-	// ═══════════════════════════════════════════════════════════════════════════
-	// 8. Complex Graph Structures Tests
-	// ═══════════════════════════════════════════════════════════════════════════
 
 	Describe("Complex Graph Structures", func() {
 		It("Should handle deep strata chain", func() {
@@ -1276,10 +1244,6 @@ var _ = Describe("Scheduler", func() {
 			Expect(staged2.NextCalled).To(Equal(1))
 		})
 	})
-
-	// ═══════════════════════════════════════════════════════════════════════════
-	// 9. Edge Cases & Boundary Conditions Tests
-	// ═══════════════════════════════════════════════════════════════════════════
 
 	Describe("Edge Cases", func() {
 		It("Should handle zero elapsed time", func() {

@@ -124,6 +124,7 @@ TypeCast ::= Type '(' Expression ')'
 ```
 
 **Rules**:
+
 - Widening (e.g., `i16(i8_val)`) is safe (sign/zero extend)
 - Narrowing (e.g., `i8(i64_val)`) truncates
 - Signed ↔ Unsigned saturates at bounds
@@ -132,7 +133,8 @@ TypeCast ::= Type '(' Expression ')'
 
 ## Channel Operations
 
-Channel operations differ between **reactive context** (flow/stages) and **imperative context** (function bodies).
+Channel operations differ between **reactive context** (flow/stages) and **imperative
+context** (function bodies).
 
 ### Reactive Context (Flow/Sequence Layer)
 
@@ -142,7 +144,7 @@ FlowStatement ::= ChannelRead '=>' Identifier // Blocking read triggering state
 transition | ChannelWrite '->' Identifier // Write to channel in reactive flow |
 Identifier '->' FunctionCall // Connect channel to function
 
-````
+```
 
 ```arc
 stage monitor {
@@ -150,7 +152,7 @@ stage monitor {
     process{} -> output,             // Connect function output to channel
     interval{100ms} -> tick_handler, // Trigger on interval
 }
-````
+```
 
 ### Imperative Context (Function Bodies)
 

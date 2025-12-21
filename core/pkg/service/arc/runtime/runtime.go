@@ -136,6 +136,7 @@ type Runtime struct {
 	writer    *writerSeg
 	state     *state.State
 	closer    io.Closer
+	start     telem.TimeStamp
 }
 
 func (r *Runtime) Close() error {
@@ -150,6 +151,7 @@ func (r *Runtime) Close() error {
 
 func (r *Runtime) processFrame(ctx context.Context, res framer.StreamerResponse) error {
 	r.state.Ingest(res.Frame.ToStorage())
+	r.scheduler.Next(ctx, telem.Since(r.start))
 	fr, changed := r.state.FlushWrites(telem.Frame[uint32]{})
 	if !changed {
 		return nil
@@ -300,6 +302,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 		state:     progState,
 		streamer:  &streamerSeg{},
 		writer:    &writerSeg{},
+		start:     telem.Now(),
 	}
 
 	streamPipeline, requests, err := createStreamPipeline(
