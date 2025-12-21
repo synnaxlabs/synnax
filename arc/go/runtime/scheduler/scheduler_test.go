@@ -11,891 +11,1319 @@ package scheduler_test
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/ir/testutil"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
+	"github.com/synnaxlabs/x/telem"
 )
 
-type mockNode struct {
-	initCalled bool
-	nextCalled int
-	onInit     func(ctx node.Context)
-	onNext     func(ctx node.Context)
-	truthy     bool
+// MockNode is a configurable mock for testing scheduler behavior.
+type MockNode struct {
+	NextCalled    int
+	ResetCalled   int
+	ElapsedValues []telem.TimeSpan
+	ParamTruthy   map[string]bool
+	OnNext        func(node.Context)
 }
 
-func (m *mockNode) Init(ctx node.Context) {
-	m.initCalled = true
-	if m.onInit != nil {
-		m.onInit(ctx)
+func NewMockNode() *MockNode {
+	return &MockNode{ParamTruthy: make(map[string]bool)}
+}
+
+func (m *MockNode) Next(ctx node.Context) {
+	m.NextCalled++
+	m.ElapsedValues = append(m.ElapsedValues, ctx.Elapsed)
+	if m.OnNext != nil {
+		m.OnNext(ctx)
 	}
 }
 
-func (m *mockNode) Next(ctx node.Context) {
-	m.nextCalled++
-	if m.onNext != nil {
-		m.onNext(ctx)
+func (m *MockNode) Reset() {
+	m.ResetCalled++
+}
+
+func (m *MockNode) IsOutputTruthy(param string) bool {
+	return m.ParamTruthy[param]
+}
+
+// MarkOnNext configures the node to mark a parameter as changed when Next() is called.
+func (m *MockNode) MarkOnNext(param string) {
+	m.OnNext = func(ctx node.Context) { ctx.MarkChanged(param) }
+}
+
+// ActivateOnNext configures the node to activate stage when Next() is called.
+func (m *MockNode) ActivateOnNext() {
+	m.OnNext = func(ctx node.Context) { ctx.ActivateStage() }
+}
+
+// ErrorOnNext configures the node to report an error when Next() is called.
+func (m *MockNode) ErrorOnNext(err error) {
+	m.OnNext = func(ctx node.Context) { ctx.ReportError(err) }
+}
+
+// MockErrorHandler collects errors for testing.
+type MockErrorHandler struct {
+	Errors []struct {
+		NodeKey string
+		Err     error
 	}
 }
 
-func (m *mockNode) IsOutputTruthy(param string) bool {
-	return m.truthy
-}
-
-func (m *mockNode) Reset() {}
-
-type mockErrorHandler struct {
-	errors []error
-	keys   []string
-}
-
-func (m *mockErrorHandler) HandleError(nodeKey string, err error) {
-	m.keys = append(m.keys, nodeKey)
-	m.errors = append(m.errors, err)
+func (h *MockErrorHandler) HandleError(nodeKey string, err error) {
+	h.Errors = append(h.Errors, struct {
+		NodeKey string
+		Err     error
+	}{nodeKey, err})
 }
 
 var _ = Describe("Scheduler", func() {
 	var (
-		prog  ir.IR
+		ctx   context.Context
 		nodes map[string]node.Node
-		s     *scheduler.Scheduler
-		nodeA *mockNode
-		nodeB *mockNode
-		nodeC *mockNode
-		nodeD *mockNode
+		mocks map[string]*MockNode
 	)
 
+	mock := func(key string) *MockNode {
+		m := NewMockNode()
+		nodes[key] = m
+		mocks[key] = m
+		return m
+	}
+
+	build := func(prog ir.IR) *scheduler.Scheduler {
+		return scheduler.New(prog, nodes)
+	}
+
 	BeforeEach(func() {
+		ctx = ctx
 		nodes = make(map[string]node.Node)
-		nodeA = &mockNode{}
-		nodeB = &mockNode{}
-		nodeC = &mockNode{}
-		nodeD = &mockNode{}
+		mocks = make(map[string]*MockNode)
 	})
 
-	Describe("New", func() {
-		It("Should create scheduler with single stratum", func() {
-			prog = ir.IR{
-				Nodes:  []ir.Node{{Key: "a"}},
-				Strata: ir.Strata{{"a"}},
-			}
-			nodes["a"] = nodeA
-			s = scheduler.New(prog, nodes)
-			Expect(s).ToNot(BeNil())
+	// ═══════════════════════════════════════════════════════════════════════════
+	// 1. Construction & Initialization Tests
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	Describe("Construction & Initialization", func() {
+		It("Should construct with empty program", func() {
+			prog := ir.IR{}
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
 		})
-		It("Should create scheduler with multiple strata", func() {
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "a"},
-					{Key: "b"},
-					{Key: "c"},
-				},
-				Strata: ir.Strata{{"a"}, {"b"}, {"c"}},
-			}
-			nodes["a"] = nodeA
-			nodes["b"] = nodeB
-			nodes["c"] = nodeC
-			s = scheduler.New(prog, nodes)
-			Expect(s).ToNot(BeNil())
+
+		It("Should construct with single stratum", func() {
+			mock("A")
+			mock("B")
+			mock("C")
+
+			prog := testutil.NewIRBuilder().
+				Node("A").Node("B").Node("C").
+				Strata([][]string{{"A", "B", "C"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(mocks["A"].NextCalled).To(Equal(1))
+			Expect(mocks["B"].NextCalled).To(Equal(1))
+			Expect(mocks["C"].NextCalled).To(Equal(1))
+		})
+
+		It("Should build transition table", func() {
+			triggerA := mock("trigger_a")
+			mock("trigger_b")
+			entryA := mock("entry_seq_stage_a")
+			mock("entry_seq_stage_b")
+			mock("A")
+			mock("B")
+
+			triggerA.MarkOnNext("activate")
+			triggerA.ParamTruthy["activate"] = true
+			entryA.ActivateOnNext()
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger_a").
+				Node("trigger_b").
+				Node("entry_seq_stage_a").
+				Node("entry_seq_stage_b").
+				Node("A").
+				Node("B").
+				OneShot("trigger_a", "activate", "entry_seq_stage_a", "input").
+				OneShot("trigger_b", "activate", "entry_seq_stage_b", "input").
+				Strata([][]string{{"trigger_a", "trigger_b"}, {"entry_seq_stage_a", "entry_seq_stage_b"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage_a", Strata: [][]string{{"A"}}},
+					{Key: "stage_b", Strata: [][]string{{"B"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			// If transition table built correctly, stage_a should be active
+			Expect(mocks["A"].NextCalled).To(Equal(1))
 		})
 	})
-	Describe("Next", func() {
-		It("Should execute stratum 0 nodes on every call", func() {
-			prog = ir.IR{
-				Nodes:  []ir.Node{{Key: "a"}},
-				Strata: ir.Strata{{"a"}},
-			}
-			nodes["a"] = nodeA
-			s = scheduler.New(prog, nodes)
-			s.Next(ctx)
-			Expect(nodeA.nextCalled).To(Equal(1))
-			s.Next(ctx)
-			Expect(nodeA.nextCalled).To(Equal(2))
-			s.Next(ctx)
-			Expect(nodeA.nextCalled).To(Equal(3))
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// 2. Basic next() Execution Tests
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	Describe("Basic Execution", func() {
+		It("Should always execute stratum 0", func() {
+			nodeA := mock("A")
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Strata([][]string{{"A"}}).
+				Build()
+
+			s := build(prog)
+
+			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, 2 * telem.Microsecond)
+			s.Next(ctx, 3 * telem.Microsecond)
+
+			Expect(nodeA.NextCalled).To(Equal(3))
 		})
-		It("Should execute downstream node when marked changed", func() {
-			nodeA.onNext = func(ctx node.Context) {
-				ctx.MarkChanged("out")
-			}
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "a"},
-					{Key: "b"},
-				},
-				Edges: []ir.Edge{
-					{
-						Source: ir.Handle{Node: "a", Param: "out"},
-						Target: ir.Handle{Node: "b", Param: "in"},
-					},
-				},
-				Strata: ir.Strata{{"a"}, {"b"}},
-			}
-			nodes["a"] = nodeA
-			nodes["b"] = nodeB
-			s = scheduler.New(prog, nodes)
-			s.Next(ctx)
-			Expect(nodeB.nextCalled).To(Equal(1))
+
+		It("Should skip higher strata without changes", func() {
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				Edge("A", "output", "B", "input").
+				Strata([][]string{{"A"}, {"B"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(nodeA.NextCalled).To(Equal(1))
+			Expect(nodeB.NextCalled).To(Equal(0))
 		})
-		It("Should not execute downstream node when not marked changed", func() {
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "a"},
-					{Key: "b"},
-				},
-				Edges: []ir.Edge{
-					{
-						Source: ir.Handle{Node: "a", Param: "out"},
-						Target: ir.Handle{Node: "b", Param: "in"},
-					},
-				},
-				Strata: ir.Strata{{"a"}, {"b"}},
-			}
-			nodes["a"] = nodeA
-			nodes["b"] = nodeB
-			s = scheduler.New(prog, nodes)
-			s.Next(ctx)
-			Expect(nodeB.nextCalled).To(Equal(0))
+
+		It("Should pass elapsed time to context", func() {
+			nodeA := mock("A")
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Strata([][]string{{"A"}}).
+				Build()
+
+			s := build(prog)
+
+			s.Next(ctx, 5 * telem.Microsecond)
+			s.Next(ctx, 10 * telem.Microsecond)
+
+			Expect(nodeA.ElapsedValues).To(HaveLen(2))
+			Expect(nodeA.ElapsedValues[0]).To(Equal(5 * telem.Microsecond))
+			Expect(nodeA.ElapsedValues[1]).To(Equal(10 * telem.Microsecond))
 		})
-		It("Should clear changed set at start of each strata execution", func() {
-			nodeA.onNext = func(ctx node.Context) {
-				ctx.MarkChanged("out")
+
+		It("Should accumulate multiple next() calls", func() {
+			nodeA := mock("A")
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Strata([][]string{{"A"}}).
+				Build()
+
+			s := build(prog)
+
+			for i := 0; i < 100; i++ {
+				s.Next(ctx, telem.TimeSpan(i) * telem.Microsecond)
 			}
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "a"},
-					{Key: "b"},
-				},
-				Edges: []ir.Edge{
-					{
-						Source: ir.Handle{Node: "a", Param: "out"},
-						Target: ir.Handle{Node: "b", Param: "in"},
-					},
-				},
-				Strata: ir.Strata{{"a"}, {"b"}},
-			}
-			nodes["a"] = nodeA
-			nodes["b"] = nodeB
-			s = scheduler.New(prog, nodes)
-			s.Next(ctx)
-			Expect(nodeB.nextCalled).To(Equal(1))
-			nodeA.onNext = nil
-			s.Next(ctx)
-			Expect(nodeB.nextCalled).To(Equal(1))
+
+			Expect(nodeA.NextCalled).To(Equal(100))
 		})
-		It("Should propagate changes through multiple strata", func() {
-			nodeA.onNext = func(ctx node.Context) {
-				ctx.MarkChanged("out")
-			}
-			nodeB.onNext = func(ctx node.Context) {
-				ctx.MarkChanged("out")
-			}
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "a"},
-					{Key: "b"},
-					{Key: "c"},
-				},
-				Edges: []ir.Edge{
-					{
-						Source: ir.Handle{Node: "a", Param: "out"},
-						Target: ir.Handle{Node: "b", Param: "in"},
-					},
-					{
-						Source: ir.Handle{Node: "b", Param: "out"},
-						Target: ir.Handle{Node: "c", Param: "in"},
-					},
-				},
-				Strata: ir.Strata{{"a"}, {"b"}, {"c"}},
-			}
-			nodes["a"] = nodeA
-			nodes["b"] = nodeB
-			nodes["c"] = nodeC
-			s = scheduler.New(prog, nodes)
-			s.Next(ctx)
-			Expect(nodeA.nextCalled).To(Equal(1))
-			Expect(nodeB.nextCalled).To(Equal(1))
-			Expect(nodeC.nextCalled).To(Equal(1))
+
+		It("Should handle empty strata without crashing", func() {
+			mock("A")
+			mock("B")
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				Strata([][]string{{"A"}, {}, {"B"}}). // Empty middle stratum
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(mocks["A"].NextCalled).To(Equal(1))
+			Expect(mocks["B"].NextCalled).To(Equal(0))
 		})
+
+		It("Should clear changed set per strata execution", func() {
+			nodeA := mock("A")
+			nodeB := mock("B")
+			mock("C")
+
+			firstCall := true
+			nodeA.OnNext = func(ctx node.Context) {
+				if firstCall {
+					ctx.MarkChanged("output")
+					firstCall = false
+				}
+			}
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				Node("C").
+				Edge("A", "output", "B", "input").
+				Strata([][]string{{"A"}, {"B"}, {"C"}}).
+				Build()
+
+			s := build(prog)
+
+			s.Next(ctx, telem.Microsecond)
+			Expect(nodeB.NextCalled).To(Equal(1))
+
+			s.Next(ctx, 2 * telem.Microsecond)
+			Expect(nodeB.NextCalled).To(Equal(1))
+		})
+	})
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// 3. Change Propagation Tests
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	Describe("Change Propagation", func() {
+		It("Should propagate changes via continuous edge", func() {
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			nodeA.MarkOnNext("output")
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				Edge("A", "output", "B", "input").
+				Strata([][]string{{"A"}, {"B"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(nodeA.NextCalled).To(Equal(1))
+			Expect(nodeB.NextCalled).To(Equal(1))
+		})
+
+		It("Should not propagate without edge", func() {
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			nodeA.MarkOnNext("output")
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				Strata([][]string{{"A"}, {"B"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(nodeA.NextCalled).To(Equal(1))
+			Expect(nodeB.NextCalled).To(Equal(0))
+		})
+
 		It("Should handle multiple outputs from single node", func() {
-			nodeA.onNext = func(ctx node.Context) {
-				ctx.MarkChanged("out1")
-				ctx.MarkChanged("out2")
-			}
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "a"},
-					{Key: "b"},
-					{Key: "c"},
-				},
-				Edges: []ir.Edge{
-					{
-						Source: ir.Handle{Node: "a", Param: "out1"},
-						Target: ir.Handle{Node: "b", Param: "in"},
-					},
-					{
-						Source: ir.Handle{Node: "a", Param: "out2"},
-						Target: ir.Handle{Node: "c", Param: "in"},
-					},
-				},
-				Strata: ir.Strata{{"a"}, {"b", "c"}},
-			}
-			nodes["a"] = nodeA
-			nodes["b"] = nodeB
-			nodes["c"] = nodeC
-			s = scheduler.New(prog, nodes)
-			s.Next(ctx)
-			Expect(nodeB.nextCalled).To(Equal(1))
-			Expect(nodeC.nextCalled).To(Equal(1))
+			nodeA := mock("A")
+			nodeB := mock("B")
+			nodeC := mock("C")
+
+			nodeA.MarkOnNext("output_x")
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				Node("C").
+				Edge("A", "output_x", "B", "input").
+				Edge("A", "output_y", "C", "input").
+				Strata([][]string{{"A"}, {"B", "C"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(nodeB.NextCalled).To(Equal(1))
+			Expect(nodeC.NextCalled).To(Equal(0))
 		})
+
 		It("Should handle multiple inputs to single node", func() {
-			nodeA.onNext = func(ctx node.Context) {
-				ctx.MarkChanged("out")
-			}
-			nodeB.onNext = func(ctx node.Context) {
-				ctx.MarkChanged("out")
-			}
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "a"},
-					{Key: "b"},
-					{Key: "c"},
-				},
-				Edges: []ir.Edge{
-					{
-						Source: ir.Handle{Node: "a", Param: "out"},
-						Target: ir.Handle{Node: "c", Param: "in1"},
-					},
-					{
-						Source: ir.Handle{Node: "b", Param: "out"},
-						Target: ir.Handle{Node: "c", Param: "in2"},
-					},
-				},
-				Strata: ir.Strata{{"a", "b"}, {"c"}},
-			}
-			nodes["a"] = nodeA
-			nodes["b"] = nodeB
-			nodes["c"] = nodeC
-			s = scheduler.New(prog, nodes)
-			s.Next(ctx)
-			Expect(nodeC.nextCalled).To(Equal(1))
-		})
-		It("Should only mark changed when specific param changes", func() {
-			nodeA.onNext = func(ctx node.Context) {
-				ctx.MarkChanged("out1")
-			}
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "a"},
-					{Key: "b"},
-					{Key: "c"},
-				},
-				Edges: []ir.Edge{
-					{
-						Source: ir.Handle{Node: "a", Param: "out1"},
-						Target: ir.Handle{Node: "b", Param: "in"},
-					},
-					{
-						Source: ir.Handle{Node: "a", Param: "out2"},
-						Target: ir.Handle{Node: "c", Param: "in"},
-					},
-				},
-				Strata: ir.Strata{{"a"}, {"b", "c"}},
-			}
-			nodes["a"] = nodeA
-			nodes["b"] = nodeB
-			nodes["c"] = nodeC
-			s = scheduler.New(prog, nodes)
-			s.Next(ctx)
-			Expect(nodeB.nextCalled).To(Equal(1))
-			Expect(nodeC.nextCalled).To(Equal(0))
-		})
-	})
-	Describe("MarkNodeChanged", func() {
-		It("Should mark node as changed", func() {
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "a"},
-					{Key: "b"},
-				},
-				Strata: ir.Strata{{"a"}, {"b"}},
-			}
-			nodes["a"] = nodeA
-			nodes["b"] = nodeB
-			s = scheduler.New(prog, nodes)
-			s.MarkNodeChanged("b")
-			s.Next(ctx)
-			Expect(nodeB.nextCalled).To(Equal(1))
-		})
-		It("Should allow external marking of stratum 0 nodes", func() {
-			prog = ir.IR{
-				Nodes:  []ir.Node{{Key: "a"}},
-				Strata: ir.Strata{{"a"}},
-			}
-			nodes["a"] = nodeA
-			s = scheduler.New(prog, nodes)
-			s.MarkNodeChanged("a")
-			s.Next(ctx)
-			Expect(nodeA.nextCalled).To(Equal(1))
-		})
-	})
-	Describe("ErrorHandler", func() {
-		var handler *mockErrorHandler
+			nodeA := mock("A")
+			nodeB := mock("B")
+			nodeC := mock("C")
 
-		BeforeEach(func() {
-			handler = &mockErrorHandler{}
+			nodeA.MarkOnNext("output")
+			nodeB.MarkOnNext("output")
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				Node("C").
+				Edge("A", "output", "C", "input_a").
+				Edge("B", "output", "C", "input_b").
+				Strata([][]string{{"A", "B"}, {"C"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(nodeC.NextCalled).To(Equal(1))
 		})
 
-		It("Should call error handler when error reported", func() {
-			nodeA.onNext = func(ctx node.Context) {
-				ctx.ReportError(context.Canceled)
-			}
-			prog = ir.IR{
-				Nodes:  []ir.Node{{Key: "a"}},
-				Strata: ir.Strata{{"a"}},
-			}
-			nodes["a"] = nodeA
-			s = scheduler.New(prog, nodes)
-			s.SetErrorHandler(handler)
-			s.Next(ctx)
-			Expect(handler.errors).To(HaveLen(1))
-			Expect(handler.errors[0]).To(Equal(context.Canceled))
-			Expect(handler.keys[0]).To(Equal("a"))
-		})
-		It("Should not panic when error handler is nil", func() {
-			nodeA.onNext = func(ctx node.Context) {
-				ctx.ReportError(context.Canceled)
-			}
-			prog = ir.IR{
-				Nodes:  []ir.Node{{Key: "a"}},
-				Strata: ir.Strata{{"a"}},
-			}
-			nodes["a"] = nodeA
-			s = scheduler.New(prog, nodes)
-			Expect(func() {
-				s.Next(ctx)
-			}).ToNot(Panic())
-		})
-		It("Should report multiple errors from same node", func() {
-			nodeA.onNext = func(ctx node.Context) {
-				ctx.ReportError(context.Canceled)
-				ctx.ReportError(context.DeadlineExceeded)
-			}
-			prog = ir.IR{
-				Nodes:  []ir.Node{{Key: "a"}},
-				Strata: ir.Strata{{"a"}},
-			}
-			nodes["a"] = nodeA
-			s = scheduler.New(prog, nodes)
-			s.SetErrorHandler(handler)
-			s.Next(ctx)
-			Expect(handler.errors).To(HaveLen(2))
-			Expect(handler.keys).To(HaveLen(2))
-		})
-		It("Should report errors from different nodes", func() {
-			nodeA.onNext = func(ctx node.Context) {
-				ctx.ReportError(context.Canceled)
-			}
-			nodeB.onNext = func(ctx node.Context) {
-				ctx.ReportError(context.DeadlineExceeded)
-			}
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "a"},
-					{Key: "b"},
-				},
-				Strata: ir.Strata{{"a", "b"}},
-			}
-			nodes["a"] = nodeA
-			nodes["b"] = nodeB
-			s = scheduler.New(prog, nodes)
-			s.SetErrorHandler(handler)
-			s.Next(ctx)
-			Expect(handler.errors).To(HaveLen(2))
-			Expect(handler.keys).To(ConsistOf("a", "b"))
-		})
-	})
-	Describe("Stage Filtering", func() {
-		It("Should execute all nodes when no sequences defined", func() {
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "a"},
-					{Key: "b"},
-				},
-				Strata: ir.Strata{{"a", "b"}},
-				// No sequences
-			}
-			nodes["a"] = nodeA
-			nodes["b"] = nodeB
-			s = scheduler.New(prog, nodes)
-			s.Next(ctx)
-			Expect(nodeA.nextCalled).To(Equal(1))
-			Expect(nodeB.nextCalled).To(Equal(1))
-		})
-		It("Should not execute staged nodes when no stage is active", func() {
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "a"},
-					{Key: "b"},
-				},
-				Strata: ir.Strata{}, // Global strata is empty (all nodes are in stages)
-				Sequences: ir.Sequences{
-					{
-						Key: "seq1",
-						Stages: []ir.Stage{
-							{Key: "stage1", Nodes: []string{"a"}, Strata: ir.Strata{{"a"}}},
-							{Key: "stage2", Nodes: []string{"b"}, Strata: ir.Strata{{"b"}}},
-						},
-					},
-				},
-			}
-			nodes["a"] = nodeA
-			nodes["b"] = nodeB
-			s = scheduler.New(prog, nodes)
-			s.Next(ctx)
-			// No stage is active, so staged nodes should not execute
-			Expect(nodeA.nextCalled).To(Equal(0))
-			Expect(nodeB.nextCalled).To(Equal(0))
-		})
-		It("Should execute nodes in active stage via entry node", func() {
-			// Create an entry node that triggers stage activation
-			entryNode := &mockNode{
-				onNext: func(ctx node.Context) {
-					ctx.ActivateStage()
-				},
-			}
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "entry_seq1_stage1"}, // Entry node in global strata
-					{Key: "a"},
-					{Key: "b"},
-				},
-				Strata: ir.Strata{{"entry_seq1_stage1"}}, // Entry node executes globally
-				Sequences: ir.Sequences{
-					{
-						Key: "seq1",
-						Stages: []ir.Stage{
-							{Key: "stage1", Nodes: []string{"a"}, Strata: ir.Strata{{"a"}}},
-							{Key: "stage2", Nodes: []string{"b"}, Strata: ir.Strata{{"b"}}},
-						},
-					},
-				},
-			}
-			nodes["entry_seq1_stage1"] = entryNode
-			nodes["a"] = nodeA
-			nodes["b"] = nodeB
-			s = scheduler.New(prog, nodes)
-			s.Next(ctx)
-			// Entry node triggered stage1 activation
-			Expect(nodeA.nextCalled).To(Equal(1))
-			Expect(nodeB.nextCalled).To(Equal(0))
-		})
-		It("Should switch active stage via entry node", func() {
-			// Entry node for stage1 always activates
-			entryStage1 := &mockNode{
-				onNext: func(ctx node.Context) {
-					ctx.ActivateStage()
-				},
-			}
-			// Entry node for stage2 - initially does nothing, then activates
-			activateStage2 := false
-			entryStage2 := &mockNode{
-				onNext: func(ctx node.Context) {
-					if activateStage2 {
-						ctx.ActivateStage()
-					}
-				},
-			}
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "entry_seq1_stage1"},
-					{Key: "entry_seq1_stage2"},
-					{Key: "a"},
-					{Key: "b"},
-				},
-				Strata: ir.Strata{{"entry_seq1_stage1", "entry_seq1_stage2"}},
-				Sequences: ir.Sequences{
-					{
-						Key: "seq1",
-						Stages: []ir.Stage{
-							{Key: "stage1", Nodes: []string{"a"}, Strata: ir.Strata{{"a"}}},
-							{Key: "stage2", Nodes: []string{"b"}, Strata: ir.Strata{{"b"}}},
-						},
-					},
-				},
-			}
-			nodes["entry_seq1_stage1"] = entryStage1
-			nodes["entry_seq1_stage2"] = entryStage2
-			nodes["a"] = nodeA
-			nodes["b"] = nodeB
-			s = scheduler.New(prog, nodes)
+		It("Should respect parameter-specific edges", func() {
+			nodeA := mock("A")
+			nodeB := mock("B")
+			nodeC := mock("C")
 
-			// First Next: stage1 activates
-			s.Next(ctx)
-			Expect(nodeA.nextCalled).To(Equal(1))
-			Expect(nodeB.nextCalled).To(Equal(0))
+			nodeA.MarkOnNext("param_a")
 
-			// Disable stage1 entry, enable stage2 entry
-			entryStage1.onNext = nil
-			activateStage2 = true
-			s.Next(ctx)
-			Expect(nodeA.nextCalled).To(Equal(1)) // Still 1 (not in stage2)
-			Expect(nodeB.nextCalled).To(Equal(1)) // Now executes
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				Node("C").
+				Edge("A", "param_a", "B", "input").
+				Edge("A", "param_b", "C", "input").
+				Strata([][]string{{"A"}, {"B", "C"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(nodeB.NextCalled).To(Equal(1))
+			Expect(nodeC.NextCalled).To(Equal(0))
 		})
-		It("Should always execute nodes in global strata", func() {
-			entryNode := &mockNode{
-				onNext: func(ctx node.Context) {
-					ctx.ActivateStage()
-				},
-			}
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "entry_seq1_stage1"},
-					{Key: "a"},
-					{Key: "b"},
-					{Key: "c"}, // Not in any stage - in global strata
-				},
-				Strata: ir.Strata{{"entry_seq1_stage1", "c"}}, // c is in global strata
-				Sequences: ir.Sequences{
-					{
-						Key: "seq1",
-						Stages: []ir.Stage{
-							{Key: "stage1", Nodes: []string{"a"}, Strata: ir.Strata{{"a"}}},
-							{Key: "stage2", Nodes: []string{"b"}, Strata: ir.Strata{{"b"}}},
-						},
-					},
-				},
-			}
-			nodes["entry_seq1_stage1"] = entryNode
-			nodes["a"] = nodeA
-			nodes["b"] = nodeB
-			nodes["c"] = nodeC
-			s = scheduler.New(prog, nodes)
 
-			// Activate stage1 - "c" should still execute
-			s.Next(ctx)
-			Expect(nodeA.nextCalled).To(Equal(1))
-			Expect(nodeB.nextCalled).To(Equal(0))
-			Expect(nodeC.nextCalled).To(Equal(1)) // Always runs
+		It("Should handle chained propagation", func() {
+			nodeA := mock("A")
+			nodeB := mock("B")
+			nodeC := mock("C")
 
-			// Next cycle
-			s.Next(ctx)
-			Expect(nodeC.nextCalled).To(Equal(2)) // Still runs
+			nodeA.MarkOnNext("output")
+			nodeB.MarkOnNext("output")
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				Node("C").
+				Edge("A", "output", "B", "input").
+				Edge("B", "output", "C", "input").
+				Strata([][]string{{"A"}, {"B"}, {"C"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(nodeA.NextCalled).To(Equal(1))
+			Expect(nodeB.NextCalled).To(Equal(1))
+			Expect(nodeC.NextCalled).To(Equal(1))
 		})
-	})
-	Describe("One-Shot Edges", func() {
-		It("Should fire one-shot edge when output is truthy", func() {
-			nodeA.truthy = true
-			nodeA.onNext = func(ctx node.Context) {
-				ctx.MarkChanged("out")
-			}
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "a"},
-					{Key: "b"},
-				},
-				Edges: []ir.Edge{
-					{
-						Source: ir.Handle{Node: "a", Param: "out"},
-						Target: ir.Handle{Node: "b", Param: "in"},
-						Kind:   ir.OneShot,
-					},
-				},
-				Strata: ir.Strata{{"a"}, {"b"}},
-			}
-			nodes["a"] = nodeA
-			nodes["b"] = nodeB
-			s = scheduler.New(prog, nodes)
-			s.Next(ctx)
-			Expect(nodeB.nextCalled).To(Equal(1))
-		})
-		It("Should not fire one-shot edge when output is not truthy", func() {
-			nodeA.truthy = false
-			nodeA.onNext = func(ctx node.Context) {
-				ctx.MarkChanged("out")
-			}
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "a"},
-					{Key: "b"},
-				},
-				Edges: []ir.Edge{
-					{
-						Source: ir.Handle{Node: "a", Param: "out"},
-						Target: ir.Handle{Node: "b", Param: "in"},
-						Kind:   ir.OneShot,
-					},
-				},
-				Strata: ir.Strata{{"a"}, {"b"}},
-			}
-			nodes["a"] = nodeA
-			nodes["b"] = nodeB
-			s = scheduler.New(prog, nodes)
-			s.Next(ctx)
-			Expect(nodeB.nextCalled).To(Equal(0))
-		})
-		It("Should only fire one-shot once per stage activation", func() {
-			entryNode := &mockNode{
-				onNext: func(ctx node.Context) {
-					ctx.ActivateStage()
-				},
-			}
-			nodeA.truthy = true
-			nodeA.onNext = func(ctx node.Context) {
-				ctx.MarkChanged("out")
-			}
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "entry_seq1_stage1"},
-					{Key: "a"},
-					{Key: "b"},
-				},
-				Strata: ir.Strata{{"entry_seq1_stage1"}},
-				Edges: []ir.Edge{
-					{
-						Source: ir.Handle{Node: "a", Param: "out"},
-						Target: ir.Handle{Node: "b", Param: "in"},
-						Kind:   ir.OneShot,
-					},
-				},
-				Sequences: ir.Sequences{
-					{
-						Key: "seq1",
-						Stages: []ir.Stage{
-							{
-								Key:    "stage1",
-								Nodes:  []string{"a", "b"},
-								Strata: ir.Strata{{"a"}, {"b"}},
-							},
-						},
-					},
-				},
-			}
-			nodes["entry_seq1_stage1"] = entryNode
-			nodes["a"] = nodeA
-			nodes["b"] = nodeB
-			s = scheduler.New(prog, nodes)
 
-			// First Next: stage activates, a runs, one-shot fires to b
-			s.Next(ctx)
-			Expect(nodeB.nextCalled).To(Equal(1))
-
-			// Second Next: a runs again, but one-shot already fired
-			entryNode.onNext = nil // Don't re-activate
-			s.Next(ctx)
-			Expect(nodeB.nextCalled).To(Equal(1)) // Still 1, one-shot already fired
-		})
-		It("Should always fire one-shot for global nodes (not in stage)", func() {
-			nodeA.truthy = true
-			nodeA.onNext = func(ctx node.Context) {
-				ctx.MarkChanged("out")
-			}
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "a"},
-					{Key: "b"},
-				},
-				Edges: []ir.Edge{
-					{
-						Source: ir.Handle{Node: "a", Param: "out"},
-						Target: ir.Handle{Node: "b", Param: "in"},
-						Kind:   ir.OneShot,
-					},
-				},
-				Strata: ir.Strata{{"a"}, {"b"}},
-				// No sequences - nodes are global
-			}
-			nodes["a"] = nodeA
-			nodes["b"] = nodeB
-			s = scheduler.New(prog, nodes)
-
-			// First Next: one-shot fires
-			s.Next(ctx)
-			Expect(nodeB.nextCalled).To(Equal(1))
-
-			// Second Next: one-shot fires again (no tracking for global nodes)
-			s.Next(ctx)
-			Expect(nodeB.nextCalled).To(Equal(2))
-		})
-	})
-	Describe("Complex Graphs", func() {
 		It("Should handle diamond dependency", func() {
-			nodeA.onNext = func(ctx node.Context) {
-				ctx.MarkChanged("out")
-			}
-			nodeB.onNext = func(ctx node.Context) {
-				ctx.MarkChanged("out")
-			}
-			nodeC.onNext = func(ctx node.Context) {
-				ctx.MarkChanged("out")
-			}
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "a"},
-					{Key: "b"},
-					{Key: "c"},
-					{Key: "d"},
-				},
-				Edges: []ir.Edge{
-					{
-						Source: ir.Handle{Node: "a", Param: "out"},
-						Target: ir.Handle{Node: "b", Param: "in"},
-					},
-					{
-						Source: ir.Handle{Node: "a", Param: "out"},
-						Target: ir.Handle{Node: "c", Param: "in"},
-					},
-					{
-						Source: ir.Handle{Node: "b", Param: "out"},
-						Target: ir.Handle{Node: "d", Param: "in1"},
-					},
-					{
-						Source: ir.Handle{Node: "c", Param: "out"},
-						Target: ir.Handle{Node: "d", Param: "in2"},
-					},
-				},
-				Strata: ir.Strata{{"a"}, {"b", "c"}, {"d"}},
-			}
-			nodes["a"] = nodeA
-			nodes["b"] = nodeB
-			nodes["c"] = nodeC
-			nodes["d"] = nodeD
-			s = scheduler.New(prog, nodes)
-			s.Next(ctx)
-			Expect(nodeA.nextCalled).To(Equal(1))
-			Expect(nodeB.nextCalled).To(Equal(1))
-			Expect(nodeC.nextCalled).To(Equal(1))
-			Expect(nodeD.nextCalled).To(Equal(1))
+			nodeA := mock("A")
+			nodeB := mock("B")
+			nodeC := mock("C")
+			nodeD := mock("D")
+
+			nodeA.MarkOnNext("output")
+			nodeB.MarkOnNext("output")
+			nodeC.MarkOnNext("output")
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				Node("C").
+				Node("D").
+				Edge("A", "output", "B", "input").
+				Edge("A", "output", "C", "input").
+				Edge("B", "output", "D", "input_b").
+				Edge("C", "output", "D", "input_c").
+				Strata([][]string{{"A"}, {"B", "C"}, {"D"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(nodeD.NextCalled).To(Equal(1))
 		})
-		It("Should handle wide graph with many nodes per stratum", func() {
-			wideNodes := make(map[string]node.Node)
+
+		It("Should handle wide graph", func() {
 			for i := 0; i < 10; i++ {
-				wideNodes[string(rune('a'+i))] = &mockNode{}
+				mock(fmt.Sprintf("N%d", i))
 			}
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "a"}, {Key: "b"}, {Key: "c"}, {Key: "d"}, {Key: "e"},
-					{Key: "f"}, {Key: "g"}, {Key: "h"}, {Key: "i"}, {Key: "j"},
-				},
-				Strata: ir.Strata{{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"}},
-			}
-			s = scheduler.New(prog, wideNodes)
-			s.Next(ctx)
-			for _, n := range wideNodes {
-				Expect(n.(*mockNode).nextCalled).To(Equal(1))
-			}
-		})
-		It("Should handle deep graph with many strata", func() {
-			deepNodes := make(map[string]node.Node)
-			strata := make(ir.Strata, 10)
-			irNodes := make([]ir.Node, 10)
-			edges := make([]ir.Edge, 9)
+
+			stratum0 := make([]string, 10)
 			for i := 0; i < 10; i++ {
-				key := string(rune('a' + i))
-				deepNodes[key] = &mockNode{
-					onNext: func(ctx node.Context) {
-						ctx.MarkChanged("out")
-					},
-				}
-				strata[i] = []string{key}
-				irNodes[i] = ir.Node{Key: key}
-				if i > 0 {
-					edges[i-1] = ir.Edge{
-						Source: ir.Handle{Node: string(rune('a' + i - 1)), Param: "out"},
-						Target: ir.Handle{Node: key, Param: "in"},
-					}
-				}
+				stratum0[i] = fmt.Sprintf("N%d", i)
 			}
-			prog = ir.IR{
-				Nodes:  irNodes,
-				Edges:  edges,
-				Strata: strata,
+
+			builder := testutil.NewIRBuilder()
+			for i := 0; i < 10; i++ {
+				builder.Node(fmt.Sprintf("N%d", i))
 			}
-			s = scheduler.New(prog, deepNodes)
-			s.Next(ctx)
-			for _, n := range deepNodes {
-				Expect(n.(*mockNode).nextCalled).To(Equal(1))
+			prog := builder.Strata([][]string{stratum0}).Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			for i := 0; i < 10; i++ {
+				Expect(mocks[fmt.Sprintf("N%d", i)].NextCalled).To(Equal(1))
 			}
 		})
 	})
-	Describe("Stage Convergence", func() {
-		It("Should detect stage transition and continue until stable", func() {
-			// Entry node for stage1 activates once then stops
-			stage1Activated := false
-			entryStage1 := &mockNode{
-				onNext: func(ctx node.Context) {
-					if !stage1Activated {
-						stage1Activated = true
-						ctx.ActivateStage()
-					}
-				},
-			}
-			// Stage1 node triggers entry to stage2 on first execution
-			stage2Triggered := false
-			stageANode := &mockNode{
-				onNext: func(ctx node.Context) {
-					if !stage2Triggered {
-						stage2Triggered = true
-						ctx.MarkChanged("out")
-					}
-				},
-				truthy: true,
-			}
-			entryStage2 := &mockNode{
-				onNext: func(ctx node.Context) {
-					ctx.ActivateStage()
-				},
-			}
-			prog = ir.IR{
-				Nodes: []ir.Node{
-					{Key: "entry_seq1_stage1"},
-					{Key: "a"},
-					{Key: "entry_seq1_stage2"},
-					{Key: "b"},
-				},
-				Strata: ir.Strata{{"entry_seq1_stage1"}},
-				Edges: []ir.Edge{
-					{
-						Source: ir.Handle{Node: "a", Param: "out"},
-						Target: ir.Handle{Node: "entry_seq1_stage2", Param: "in"},
-						Kind:   ir.OneShot,
-					},
-				},
-				Sequences: ir.Sequences{
-					{
-						Key: "seq1",
-						Stages: []ir.Stage{
-							{
-								Key:    "stage1",
-								Nodes:  []string{"a", "entry_seq1_stage2"},
-								Strata: ir.Strata{{"a"}, {"entry_seq1_stage2"}},
-							},
-							{
-								Key:    "stage2",
-								Nodes:  []string{"b"},
-								Strata: ir.Strata{{"b"}},
-							},
-						},
-					},
-				},
-			}
-			nodes["entry_seq1_stage1"] = entryStage1
-			nodes["a"] = stageANode
-			nodes["entry_seq1_stage2"] = entryStage2
-			nodes["b"] = nodeB
-			s = scheduler.New(prog, nodes)
 
-			// Single Next call should:
-			// 1. Execute entry_seq1_stage1 -> activates stage1
-			// 2. Execute stage1 strata -> a runs, triggers entry_seq1_stage2
-			// 3. Convergence loop detects transition to stage2
-			// 4. Execute stage2 strata -> b runs
-			s.Next(ctx)
-			Expect(stageANode.nextCalled).To(Equal(1))
-			Expect(nodeB.nextCalled).To(Equal(1)) // Stage2 executed via convergence
+	// ═══════════════════════════════════════════════════════════════════════════
+	// 4. One-Shot Edge Semantics Tests
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	Describe("One-Shot Edge Semantics", func() {
+		It("Should fire one-shot when truthy", func() {
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			nodeA.MarkOnNext("output")
+			nodeA.ParamTruthy["output"] = true
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				OneShot("A", "output", "B", "input").
+				Strata([][]string{{"A"}, {"B"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(nodeB.NextCalled).To(Equal(1))
+		})
+
+		It("Should not fire one-shot when falsy", func() {
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			nodeA.MarkOnNext("output")
+			nodeA.ParamTruthy["output"] = false
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				OneShot("A", "output", "B", "input").
+				Strata([][]string{{"A"}, {"B"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(nodeB.NextCalled).To(Equal(0))
+		})
+
+		It("Should fire one-shot only once per stage", func() {
+			trigger := mock("trigger")
+			entry := mock("entry_seq_stage")
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entry.ActivateOnNext()
+			nodeA.MarkOnNext("output")
+			nodeA.ParamTruthy["output"] = true
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_stage").
+				Node("A").
+				Node("B").
+				OneShot("trigger", "activate", "entry_seq_stage", "input").
+				OneShot("A", "output", "B", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_stage"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage", Strata: [][]string{{"A"}, {"B"}}},
+				}).
+				Build()
+
+			s := build(prog)
+
+			s.Next(ctx, telem.Microsecond)
+			Expect(nodeB.NextCalled).To(Equal(1))
+
+			s.Next(ctx, 2 * telem.Microsecond)
+			Expect(nodeB.NextCalled).To(Equal(1))
+		})
+
+		It("Should fire one-shot once ever in global strata", func() {
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			nodeA.MarkOnNext("output")
+			nodeA.ParamTruthy["output"] = true
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				OneShot("A", "output", "B", "input").
+				Strata([][]string{{"A"}, {"B"}}).
+				Build()
+
+			s := build(prog)
+
+			s.Next(ctx, telem.Microsecond)
+			Expect(nodeB.NextCalled).To(Equal(1))
+
+			s.Next(ctx, 2 * telem.Microsecond)
+			Expect(nodeB.NextCalled).To(Equal(1))
+
+			s.Next(ctx, 3 * telem.Microsecond)
+			Expect(nodeB.NextCalled).To(Equal(1))
+		})
+
+		It("Should reset one-shot on stage entry", func() {
+			trigger := mock("trigger")
+			entry := mock("entry_seq_stage")
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entry.ActivateOnNext()
+			nodeA.MarkOnNext("output")
+			nodeA.ParamTruthy["output"] = true
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_stage").
+				Node("A").
+				Node("B").
+				// Global: continuous edge so it triggers every time
+				Edge("trigger", "activate", "entry_seq_stage", "input").
+				// Stage: A→B one-shot
+				OneShot("A", "output", "B", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_stage"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage", Strata: [][]string{{"A"}, {"B"}}},
+				}).
+				Build()
+
+			s := build(prog)
+
+			s.Next(ctx, telem.Microsecond)
+			Expect(nodeB.NextCalled).To(Equal(1))
+			Expect(nodeA.ResetCalled).To(Equal(1))
+
+			// Stage re-activates via continuous edge, clearing fired_one_shots
+			s.Next(ctx, 2 * telem.Microsecond)
+			Expect(nodeB.NextCalled).To(Equal(2))
+			Expect(nodeA.ResetCalled).To(Equal(2))
+		})
+
+		It("Should not affect continuous edge by truthiness", func() {
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			nodeA.MarkOnNext("output")
+			nodeA.ParamTruthy["output"] = false // Falsy, but continuous edge
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				Edge("A", "output", "B", "input").
+				Strata([][]string{{"A"}, {"B"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(nodeB.NextCalled).To(Equal(1))
+		})
+	})
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// 5. Stage Filtering & Transitions Tests
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	Describe("Stage Filtering & Transitions", func() {
+		It("Should not execute when no stage is active", func() {
+			mock("A")
+			nodeB := mock("B")
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				Strata([][]string{{"A"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage", Strata: [][]string{{"B"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(nodeB.NextCalled).To(Equal(0))
+		})
+
+		It("Should execute staged nodes when active", func() {
+			trigger := mock("trigger")
+			entry := mock("entry_seq_stage")
+			nodeA := mock("A")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entry.ActivateOnNext()
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_stage").
+				Node("A").
+				OneShot("trigger", "activate", "entry_seq_stage", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_stage"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage", Strata: [][]string{{"A"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(nodeA.NextCalled).To(Equal(1))
+		})
+
+		It("Should always execute global strata", func() {
+			trigger := mock("trigger")
+			entry := mock("entry_seq_stage")
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entry.ActivateOnNext()
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_stage").
+				Node("A").
+				Node("B").
+				OneShot("trigger", "activate", "entry_seq_stage", "input").
+				Strata([][]string{{"trigger", "A"}, {"entry_seq_stage"}}). // A is global at stratum 0
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage", Strata: [][]string{{"B"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(nodeA.NextCalled).To(Equal(1)) // Global
+			Expect(nodeB.NextCalled).To(Equal(1)) // Stage
+		})
+
+		It("Should activate stage via entry node", func() {
+			trigger := mock("trigger")
+			entry := mock("entry_seq_stage")
+			nodeA := mock("A")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entry.ActivateOnNext()
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_stage").
+				Node("A").
+				OneShot("trigger", "activate", "entry_seq_stage", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_stage"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage", Strata: [][]string{{"A"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			Expect(nodeA.NextCalled).To(Equal(0))
+			s.Next(ctx, telem.Microsecond)
+			Expect(nodeA.NextCalled).To(Equal(1))
+		})
+
+		It("Should deactivate previous stage on transition", func() {
+			trigger := mock("trigger")
+			entryA := mock("entry_seq_stage_a")
+			entryB := mock("entry_seq_stage_b")
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryA.ActivateOnNext()
+			entryB.ActivateOnNext()
+			nodeA.MarkOnNext("to_b")
+			nodeA.ParamTruthy["to_b"] = true
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_stage_a").
+				Node("entry_seq_stage_b").
+				Node("A").
+				Node("B").
+				OneShot("trigger", "activate", "entry_seq_stage_a", "input").
+				OneShot("A", "to_b", "entry_seq_stage_b", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_stage_a", "entry_seq_stage_b"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage_a", Strata: [][]string{{"A"}, {"entry_seq_stage_b"}}},
+					{Key: "stage_b", Strata: [][]string{{"B"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(nodeA.NextCalled).To(Equal(1))
+			Expect(nodeB.NextCalled).To(Equal(1))
+
+			// Stage_b remains active, stage_a deactivated
+			s.Next(ctx, 2 * telem.Microsecond)
+			Expect(nodeA.NextCalled).To(Equal(1))
+			Expect(nodeB.NextCalled).To(Equal(2))
+		})
+
+		It("Should reset nodes on stage transition", func() {
+			trigger := mock("trigger")
+			entry := mock("entry_seq_stage")
+			nodeA := mock("A")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entry.ActivateOnNext()
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_stage").
+				Node("A").
+				OneShot("trigger", "activate", "entry_seq_stage", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_stage"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage", Strata: [][]string{{"A"}}},
+				}).
+				Build()
+
+			s := build(prog)
+
+			Expect(nodeA.ResetCalled).To(Equal(0))
+			s.Next(ctx, telem.Microsecond)
+			Expect(nodeA.ResetCalled).To(Equal(1))
+		})
+
+		It("Should maintain cross-sequence independence", func() {
+			trigger1 := mock("trigger1")
+			trigger2 := mock("trigger2")
+			entry1 := mock("entry_seq1_stage")
+			entry2 := mock("entry_seq2_stage")
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			trigger1.MarkOnNext("activate")
+			trigger1.ParamTruthy["activate"] = true
+			trigger2.MarkOnNext("activate")
+			trigger2.ParamTruthy["activate"] = true
+			entry1.ActivateOnNext()
+			entry2.ActivateOnNext()
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger1").
+				Node("trigger2").
+				Node("entry_seq1_stage").
+				Node("entry_seq2_stage").
+				Node("A").
+				Node("B").
+				OneShot("trigger1", "activate", "entry_seq1_stage", "input").
+				OneShot("trigger2", "activate", "entry_seq2_stage", "input").
+				Strata([][]string{{"trigger1", "trigger2"}, {"entry_seq1_stage", "entry_seq2_stage"}}).
+				Sequence("seq1", []testutil.StageSpec{
+					{Key: "stage", Strata: [][]string{{"A"}}},
+				}).
+				Sequence("seq2", []testutil.StageSpec{
+					{Key: "stage", Strata: [][]string{{"B"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(nodeA.NextCalled).To(Equal(1))
+			Expect(nodeB.NextCalled).To(Equal(1))
+		})
+
+		It("Should handle multiple stages in sequence", func() {
+			trigger := mock("trigger")
+			entryA := mock("entry_seq_stage_a")
+			entryB := mock("entry_seq_stage_b")
+			entryC := mock("entry_seq_stage_c")
+			nodeA := mock("A")
+			nodeB := mock("B")
+			nodeC := mock("C")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryA.ActivateOnNext()
+			entryB.ActivateOnNext()
+			entryC.ActivateOnNext()
+			nodeA.MarkOnNext("to_b")
+			nodeA.ParamTruthy["to_b"] = true
+			nodeB.MarkOnNext("to_c")
+			nodeB.ParamTruthy["to_c"] = true
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_stage_a").
+				Node("entry_seq_stage_b").
+				Node("entry_seq_stage_c").
+				Node("A").
+				Node("B").
+				Node("C").
+				OneShot("trigger", "activate", "entry_seq_stage_a", "input").
+				OneShot("A", "to_b", "entry_seq_stage_b", "input").
+				OneShot("B", "to_c", "entry_seq_stage_c", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_stage_a", "entry_seq_stage_b", "entry_seq_stage_c"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage_a", Strata: [][]string{{"A"}, {"entry_seq_stage_b"}}},
+					{Key: "stage_b", Strata: [][]string{{"B"}, {"entry_seq_stage_c"}}},
+					{Key: "stage_c", Strata: [][]string{{"C"}}},
+				}).
+				Build()
+
+			s := build(prog)
+
+			// Single next() cascades through all stages: A→B→C
+			s.Next(ctx, telem.Microsecond)
+			Expect(nodeA.NextCalled).To(Equal(1))
+			Expect(nodeB.NextCalled).To(Equal(1))
+			Expect(nodeC.NextCalled).To(Equal(1))
+		})
+	})
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// 6. Convergence Loop Tests
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	Describe("Convergence Loop", func() {
+		It("Should converge single transition", func() {
+			trigger := mock("trigger")
+			entry := mock("entry_seq_stage")
+			nodeA := mock("A")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entry.ActivateOnNext()
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_stage").
+				Node("A").
+				OneShot("trigger", "activate", "entry_seq_stage", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_stage"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage", Strata: [][]string{{"A"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+			Expect(nodeA.NextCalled).To(Equal(1))
+		})
+
+		It("Should complete cascading transitions", func() {
+			trigger := mock("trigger")
+			entryA := mock("entry_seq_stage_a")
+			entryB := mock("entry_seq_stage_b")
+			entryC := mock("entry_seq_stage_c")
+			nodeA := mock("A")
+			nodeB := mock("B")
+			nodeC := mock("C")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryA.ActivateOnNext()
+			entryB.ActivateOnNext()
+			entryC.ActivateOnNext()
+			nodeA.MarkOnNext("output")
+			nodeB.MarkOnNext("output")
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_stage_a").
+				Node("entry_seq_stage_b").
+				Node("entry_seq_stage_c").
+				Node("A").
+				Node("B").
+				Node("C").
+				OneShot("trigger", "activate", "entry_seq_stage_a", "input").
+				Edge("A", "output", "entry_seq_stage_b", "input").
+				Edge("B", "output", "entry_seq_stage_c", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_stage_a"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage_a", Strata: [][]string{{"A"}, {"entry_seq_stage_b"}}},
+					{Key: "stage_b", Strata: [][]string{{"B"}, {"entry_seq_stage_c"}}},
+					{Key: "stage_c", Strata: [][]string{{"C"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(nodeA.NextCalled).To(Equal(1))
+			Expect(nodeB.NextCalled).To(Equal(1))
+			Expect(nodeC.NextCalled).To(Equal(1))
+		})
+
+		It("Should stop when stable", func() {
+			trigger := mock("trigger")
+			entry := mock("entry_seq_stage")
+			nodeA := mock("A")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entry.ActivateOnNext()
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_stage").
+				Node("A").
+				OneShot("trigger", "activate", "entry_seq_stage", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_stage"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage", Strata: [][]string{{"A"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+			s.Next(ctx, 2 * telem.Microsecond)
+			Expect(nodeA.NextCalled).To(Equal(2))
+		})
+
+		It("Should prevent infinite loop with max iterations", func() {
+			trigger := mock("trigger")
+			entry := mock("entry_seq_stage")
+			nodeA := mock("A")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entry.ActivateOnNext()
+			// A triggers entry which re-activates the stage (infinite loop attempt)
+			nodeA.MarkOnNext("reenter")
+			nodeA.ParamTruthy["reenter"] = true
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_stage").
+				Node("A").
+				OneShot("trigger", "activate", "entry_seq_stage", "input").
+				OneShot("A", "reenter", "entry_seq_stage", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_stage"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage", Strata: [][]string{{"A"}, {"entry_seq_stage"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			// Should not hang
+			s.Next(ctx, telem.Microsecond)
+			Expect(true).To(BeTrue())
+		})
+
+		It("Should detect transition during execution", func() {
+			trigger := mock("trigger")
+			entryA := mock("entry_seq_stage_a")
+			entryB := mock("entry_seq_stage_b")
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entryA.ActivateOnNext()
+			entryB.ActivateOnNext()
+			nodeA.MarkOnNext("output")
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_stage_a").
+				Node("entry_seq_stage_b").
+				Node("A").
+				Node("B").
+				OneShot("trigger", "activate", "entry_seq_stage_a", "input").
+				Edge("A", "output", "entry_seq_stage_b", "input").
+				Strata([][]string{{"trigger"}, {"entry_seq_stage_a"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage_a", Strata: [][]string{{"A"}, {"entry_seq_stage_b"}}},
+					{Key: "stage_b", Strata: [][]string{{"B"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+			Expect(nodeA.NextCalled).To(Equal(1))
+			Expect(nodeB.NextCalled).To(Equal(1))
+		})
+	})
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// 7. Error Handling Tests
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	Describe("Error Handling", func() {
+		It("Should pass errors to error handler", func() {
+			nodeA := mock("A")
+			testErr := fmt.Errorf("test error")
+			nodeA.ErrorOnNext(testErr)
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Strata([][]string{{"A"}}).
+				Build()
+
+			s := build(prog)
+			handler := &MockErrorHandler{}
+			s.SetErrorHandler(handler)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(handler.Errors).To(HaveLen(1))
+			Expect(handler.Errors[0].NodeKey).To(Equal("A"))
+			Expect(handler.Errors[0].Err).To(Equal(testErr))
+		})
+
+		It("Should continue execution after error", func() {
+			nodeA := mock("A")
+			nodeB := mock("B")
+
+			nodeA.OnNext = func(ctx node.Context) {
+				ctx.ReportError(fmt.Errorf("error from A"))
+				ctx.MarkChanged("output")
+			}
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				Edge("A", "output", "B", "input").
+				Strata([][]string{{"A"}, {"B"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+			Expect(nodeB.NextCalled).To(Equal(1))
+		})
+
+		It("Should return normally after error", func() {
+			nodeA := mock("A")
+			nodeA.ErrorOnNext(fmt.Errorf("node error"))
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Strata([][]string{{"A"}}).
+				Build()
+
+			s := build(prog)
+			// Should not panic
+			s.Next(ctx, telem.Microsecond)
+			Expect(nodeA.NextCalled).To(Equal(1))
+		})
+	})
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// 8. Complex Graph Structures Tests
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	Describe("Complex Graph Structures", func() {
+		It("Should handle deep strata chain", func() {
+			for i := 0; i < 10; i++ {
+				m := mock(fmt.Sprintf("N%d", i))
+				if i < 9 {
+					m.MarkOnNext("output")
+				}
+			}
+
+			builder := testutil.NewIRBuilder()
+			for i := 0; i < 10; i++ {
+				builder.Node(fmt.Sprintf("N%d", i))
+			}
+
+			for i := 0; i < 9; i++ {
+				builder.Edge(fmt.Sprintf("N%d", i), "output", fmt.Sprintf("N%d", i+1), "input")
+			}
+
+			strata := make([][]string, 10)
+			for i := 0; i < 10; i++ {
+				strata[i] = []string{fmt.Sprintf("N%d", i)}
+			}
+
+			prog := builder.Strata(strata).Build()
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			for i := 0; i < 10; i++ {
+				Expect(mocks[fmt.Sprintf("N%d", i)].NextCalled).To(Equal(1))
+			}
+		})
+
+		It("Should handle mixed continuous and one-shot", func() {
+			nodeA := mock("A")
+			nodeB := mock("B")
+			nodeC := mock("C")
+
+			nodeA.MarkOnNext("output")
+			nodeB.MarkOnNext("output")
+			nodeB.ParamTruthy["output"] = true
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				Node("C").
+				Edge("A", "output", "B", "input").
+				OneShot("B", "output", "C", "input").
+				Strata([][]string{{"A"}, {"B"}, {"C"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(nodeA.NextCalled).To(Equal(1))
+			Expect(nodeB.NextCalled).To(Equal(1))
+			Expect(nodeC.NextCalled).To(Equal(1))
+		})
+
+		It("Should handle global and staged mixed", func() {
+			trigger := mock("trigger")
+			entry := mock("entry_seq_stage")
+			globalNode := mock("G")
+			stagedNode := mock("S")
+
+			trigger.MarkOnNext("activate")
+			trigger.ParamTruthy["activate"] = true
+			entry.ActivateOnNext()
+			globalNode.MarkOnNext("output")
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger").
+				Node("entry_seq_stage").
+				Node("G").
+				Node("S").
+				OneShot("trigger", "activate", "entry_seq_stage", "input").
+				Edge("G", "output", "S", "input").
+				Strata([][]string{{"trigger", "G"}, {"entry_seq_stage"}}).
+				Sequence("seq", []testutil.StageSpec{
+					{Key: "stage", Strata: [][]string{{"S"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(globalNode.NextCalled).To(Equal(1))
+			Expect(stagedNode.NextCalled).To(Equal(1))
+		})
+
+		It("Should handle multi-sequence with shared global", func() {
+			trigger1 := mock("trigger1")
+			trigger2 := mock("trigger2")
+			entry1 := mock("entry_seq1_stage")
+			entry2 := mock("entry_seq2_stage")
+			globalNode := mock("G")
+			staged1 := mock("S1")
+			staged2 := mock("S2")
+
+			trigger1.MarkOnNext("activate")
+			trigger1.ParamTruthy["activate"] = true
+			trigger2.MarkOnNext("activate")
+			trigger2.ParamTruthy["activate"] = true
+			entry1.ActivateOnNext()
+			entry2.ActivateOnNext()
+			globalNode.MarkOnNext("output")
+
+			prog := testutil.NewIRBuilder().
+				Node("trigger1").
+				Node("trigger2").
+				Node("entry_seq1_stage").
+				Node("entry_seq2_stage").
+				Node("G").
+				Node("S1").
+				Node("S2").
+				OneShot("trigger1", "activate", "entry_seq1_stage", "input").
+				OneShot("trigger2", "activate", "entry_seq2_stage", "input").
+				Edge("G", "output", "S1", "input").
+				Edge("G", "output", "S2", "input").
+				Strata([][]string{{"trigger1", "trigger2", "G"}, {"entry_seq1_stage", "entry_seq2_stage"}}).
+				Sequence("seq1", []testutil.StageSpec{
+					{Key: "stage", Strata: [][]string{{"S1"}}},
+				}).
+				Sequence("seq2", []testutil.StageSpec{
+					{Key: "stage", Strata: [][]string{{"S2"}}},
+				}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+
+			Expect(globalNode.NextCalled).To(Equal(1))
+			Expect(staged1.NextCalled).To(Equal(1))
+			Expect(staged2.NextCalled).To(Equal(1))
+		})
+	})
+
+	// ═══════════════════════════════════════════════════════════════════════════
+	// 9. Edge Cases & Boundary Conditions Tests
+	// ═══════════════════════════════════════════════════════════════════════════
+
+	Describe("Edge Cases", func() {
+		It("Should handle zero elapsed time", func() {
+			nodeA := mock("A")
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Strata([][]string{{"A"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, 0)
+
+			Expect(nodeA.NextCalled).To(Equal(1))
+			Expect(nodeA.ElapsedValues[0]).To(Equal(telem.TimeSpan(0)))
+		})
+
+		It("Should handle self-loop", func() {
+			nodeA := mock("A")
+			nodeA.MarkOnNext("output")
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Edge("A", "output", "A", "input").
+				Strata([][]string{{"A"}}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+			Expect(nodeA.NextCalled).To(Equal(1))
+		})
+
+		It("Should handle empty sequence", func() {
+			mock("A")
+
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Strata([][]string{{"A"}}).
+				Sequence("empty_seq", []testutil.StageSpec{}).
+				Build()
+
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond)
+			Expect(mocks["A"].NextCalled).To(Equal(1))
 		})
 	})
 })

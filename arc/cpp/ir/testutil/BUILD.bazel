@@ -1,0 +1,6 @@
+cc_library(
+    name = "testutil",
+    hdrs = ["testutil.h"],
+    visibility = ["//arc/cpp:__subpackages__"],
+    deps = ["//arc/cpp/ir"],
+)

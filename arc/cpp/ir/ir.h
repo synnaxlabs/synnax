@@ -64,7 +64,7 @@ struct Handle {
 };
 }
 
-template <>
+template<>
 struct std::hash<arc::ir::Handle> {
     size_t operator()(const arc::ir::Handle &h) const noexcept {
         return std::hash<std::string>{}(h.node + h.param);
@@ -110,7 +110,7 @@ struct Edge {
 };
 }
 
-template <>
+template<>
 struct std::hash<arc::ir::Edge> {
     size_t operator()(const arc::ir::Edge &e) const noexcept {
         return std::hash<arc::ir::Handle>{}(e.source) ^
@@ -609,7 +609,8 @@ struct IR {
         });
     }
 
-    [[nodiscard]] std::unordered_map<std::string, std::vector<Edge>> outgoing_edges(const std::string &node_key) const {
+    [[nodiscard]] std::unordered_map<std::string, std::vector<Edge>>
+    outgoing_edges(const std::string &node_key) const {
         std::unordered_map<std::string, std::vector<Edge>> result;
         for (const auto &e: edges)
             if (e.source.node == node_key) result[e.source.param].push_back(e);
