@@ -76,30 +76,29 @@ struct Edge {
     Handle source, target;
     EdgeKind kind = EdgeKind::Continuous;
 
-    explicit Edge(const arc::v1::ir::PBEdge &pb) {
+    explicit Edge(const v1::ir::PBEdge &pb) {
         if (pb.has_source()) this->source = Handle(pb.source());
         if (pb.has_target()) this->target = Handle(pb.target());
         this->kind = static_cast<EdgeKind>(pb.kind());
     }
 
-    void to_proto(arc::v1::ir::PBEdge *pb) const {
+    void to_proto(v1::ir::PBEdge *pb) const {
         source.to_proto(pb->mutable_source());
         target.to_proto(pb->mutable_target());
-        pb->set_kind(static_cast<arc::v1::ir::PBEdgeKind>(kind));
+        pb->set_kind(static_cast<v1::ir::PBEdgeKind>(kind));
     }
 
     Edge() = default;
-    Edge(Handle src, Handle tgt, EdgeKind k = EdgeKind::Continuous):
+    Edge(Handle src, Handle tgt, const EdgeKind k = EdgeKind::Continuous):
         source(std::move(src)), target(std::move(tgt)), kind(k) {}
 
     bool operator==(const Edge &other) const {
         return source == other.source && target == other.target && kind == other.kind;
     }
 
-    /// @brief Returns the string representation of the edge.
     [[nodiscard]] std::string to_string() const {
-        const std::string arrow = (kind == EdgeKind::OneShot) ? " => " : " -> ";
-        const std::string kind_str = (kind == EdgeKind::OneShot) ? "oneshot"
+        const std::string arrow = kind == EdgeKind::OneShot ? " => " : " -> ";
+        const std::string kind_str = kind == EdgeKind::OneShot ? "oneshot"
                                                                  : "continuous";
         return source.to_string() + arrow + target.to_string() + " (" + kind_str + ")";
     }
@@ -114,8 +113,8 @@ template<>
 struct std::hash<arc::ir::Edge> {
     size_t operator()(const arc::ir::Edge &e) const noexcept {
         return std::hash<arc::ir::Handle>{}(e.source) ^
-               (std::hash<arc::ir::Handle>{}(e.target) << 1) ^
-               (std::hash<int>{}(static_cast<int>(e.kind)) << 2);
+               std::hash<arc::ir::Handle>{}(e.target) << 1 ^
+               std::hash<int>{}(static_cast<int>(e.kind)) << 2;
     }
 };
 
@@ -125,21 +124,21 @@ struct Param {
     types::Type type;
     nlohmann::json value;
 
-    explicit Param(const arc::v1::types::PBParam &pb) {
+    explicit Param(const v1::types::PBParam &pb) {
         this->name = pb.name();
         if (pb.has_type()) this->type = types::Type(pb.type());
         if (pb.has_value()) this->value = arc::proto::pb_value_to_json(pb.value());
     }
 
-    void to_proto(arc::v1::types::PBParam *pb) const {
+    Param() = default;
+
+    void to_proto(v1::types::PBParam *pb) const {
         pb->set_name(name);
         type.to_proto(pb->mutable_type());
         if (!value.is_null()) arc::proto::json_to_pb_value(value, pb->mutable_value());
     }
 
-    Param() = default;
 
-    /// @brief Returns the string representation of the param.
     [[nodiscard]] std::string to_string() const {
         std::string result = name + " (" + type.to_string() + ")";
         if (!value.is_null()) result += " = " + value.dump();
@@ -172,9 +171,8 @@ struct Params {
     }
 
     [[nodiscard]] const Param *get(const std::string &name) const {
-        for (const auto &p: this->params) {
+        for (const auto &p: this->params)
             if (p.name == name) return &p;
-        }
         return nullptr;
     }
 
@@ -210,14 +208,14 @@ struct Channels {
     std::map<types::ChannelKey, std::string> read;
     std::map<types::ChannelKey, std::string> write;
 
-    explicit Channels(const arc::v1::symbol::PBChannels &pb) {
+    explicit Channels(const v1::symbol::PBChannels &pb) {
         for (const auto &[key, value]: pb.read())
             read[key] = value;
         for (const auto &[key, value]: pb.write())
             write[key] = value;
     }
 
-    void to_proto(arc::v1::symbol::PBChannels *pb) const {
+    void to_proto(v1::symbol::PBChannels *pb) const {
         auto *read_map = pb->mutable_read();
         for (const auto &[key, value]: read)
             (*read_map)[key] = value;
@@ -228,7 +226,6 @@ struct Channels {
 
     Channels() = default;
 
-    /// @brief Returns the string representation of the channels.
     [[nodiscard]] std::string to_string() const { return format_channels(*this); }
 
     friend std::ostream &operator<<(std::ostream &os, const Channels &c) {
@@ -242,7 +239,7 @@ struct Node {
     Channels channels;
     Params config, inputs, outputs;
 
-    explicit Node(const arc::v1::ir::PBNode &pb) {
+    explicit Node(const v1::ir::PBNode &pb) {
         this->key = pb.key();
         this->type = pb.type();
         if (pb.has_channels()) this->channels = Channels(pb.channels());
@@ -251,7 +248,7 @@ struct Node {
         this->outputs = Params(pb.outputs());
     }
 
-    void to_proto(arc::v1::ir::PBNode *pb) const {
+    void to_proto(v1::ir::PBNode *pb) const {
         pb->set_key(key);
         pb->set_type(type);
         channels.to_proto(pb->mutable_channels());
@@ -263,10 +260,8 @@ struct Node {
     Node() = default;
     explicit Node(std::string k): key(std::move(k)) {}
 
-    /// @brief Returns the string representation of the node.
     [[nodiscard]] std::string to_string() const { return to_string_with_prefix(""); }
 
-    /// @brief Returns the string representation with tree formatting.
     [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const {
         std::ostringstream ss;
         ss << key << " (type: " << type << ")\n";
@@ -308,7 +303,7 @@ struct Function {
     Channels channels;
     Params config, inputs, outputs;
 
-    explicit Function(const arc::v1::ir::PBFunction &pb) {
+    explicit Function(const v1::ir::PBFunction &pb) {
         this->key = pb.key();
         if (pb.has_channels()) this->channels = Channels(pb.channels());
         this->config = Params(pb.config());
@@ -316,13 +311,12 @@ struct Function {
         this->outputs = Params(pb.outputs());
     }
 
-    void to_proto(arc::v1::ir::PBFunction *pb) const {
+    void to_proto(v1::ir::PBFunction *pb) const {
         pb->set_key(key);
         channels.to_proto(pb->mutable_channels());
         config.to_proto(pb->mutable_config());
         inputs.to_proto(pb->mutable_inputs());
         outputs.to_proto(pb->mutable_outputs());
-        // Note: body field is not in C++ Function struct
     }
 
     Function() = default;
@@ -371,6 +365,8 @@ struct Function {
 struct Strata {
     std::vector<std::vector<std::string>> strata;
 
+    Strata() = default;
+
     template<typename PBStrataContainer>
     explicit Strata(const PBStrataContainer &pb_strata) {
         strata.reserve(pb_strata.size());
@@ -394,7 +390,6 @@ struct Strata {
         }
     }
 
-    Strata() = default;
 
     /// @brief Returns the string representation of the strata.
     [[nodiscard]] std::string to_string() const { return to_string_with_prefix(""); }
@@ -404,7 +399,7 @@ struct Strata {
         if (strata.empty()) return "";
         std::ostringstream ss;
         for (size_t i = 0; i < strata.size(); ++i) {
-            bool is_last = i == strata.size() - 1;
+            const bool is_last = i == strata.size() - 1;
             ss << prefix << tree_prefix(is_last) << "[" << i << "]: ";
             for (size_t j = 0; j < strata[i].size(); ++j) {
                 if (j > 0) ss << ", ";
@@ -423,21 +418,18 @@ struct Strata {
 struct Stage {
     std::string key;
     std::vector<std::string> nodes;
-    /// @brief Per-stage stratification. Stage-local source nodes (constants, channel
-    /// reads) are at stratum 0, and downstream nodes are in higher strata. This enables
-    /// independent execution ordering within each stage.
     Strata strata;
 
     Stage() = default;
 
-    explicit Stage(const arc::v1::ir::PBStage &pb) {
+    explicit Stage(const v1::ir::PBStage &pb) {
         this->key = pb.key();
         for (const auto &node: pb.nodes())
             this->nodes.push_back(node);
         this->strata = Strata(pb.strata());
     }
 
-    void to_proto(arc::v1::ir::PBStage *pb) const {
+    void to_proto(v1::ir::PBStage *pb) const {
         pb->set_key(key);
         for (const auto &node: nodes)
             pb->add_nodes(node);
@@ -456,9 +448,8 @@ struct Stage {
             ss << nodes[i];
         }
         ss << "]";
-        if (!strata.strata.empty()) {
+        if (!strata.strata.empty())
             ss << "\n" << strata.to_string_with_prefix(prefix);
-        }
         return ss.str();
     }
 
@@ -473,13 +464,13 @@ struct Sequence {
 
     Sequence() = default;
 
-    explicit Sequence(const arc::v1::ir::PBSequence &pb) {
+    explicit Sequence(const v1::ir::PBSequence &pb) {
         this->key = pb.key();
         for (const auto &stage_pb: pb.stages())
             this->stages.emplace_back(stage_pb);
     }
 
-    void to_proto(arc::v1::ir::PBSequence *pb) const {
+    void to_proto(v1::ir::PBSequence *pb) const {
         pb->set_key(key);
         for (const auto &stage: stages)
             stage.to_proto(pb->add_stages());
@@ -496,11 +487,9 @@ struct Sequence {
     /// @return Pointer to the next stage if found, nullptr if the given stage is
     /// the last stage or not found.
     [[nodiscard]] const Stage *next_stage(const std::string &stage_key) const {
-        for (size_t i = 0; i < stages.size(); ++i) {
-            if (stages[i].key == stage_key && i + 1 < stages.size()) {
+        for (size_t i = 0; i < stages.size(); ++i)
+            if (stages[i].key == stage_key && i + 1 < stages.size())
                 return &stages[i + 1];
-            }
-        }
         return nullptr;
     }
 
@@ -512,7 +501,7 @@ struct Sequence {
         std::ostringstream ss;
         ss << key << "\n";
         for (size_t i = 0; i < stages.size(); ++i) {
-            bool is_last = i == stages.size() - 1;
+            const bool is_last = i == stages.size() - 1;
             std::string stage_child_prefix = prefix + tree_indent(is_last);
             ss << prefix << tree_prefix(is_last)
                << stages[i].to_string_with_prefix(stage_child_prefix);
@@ -685,7 +674,7 @@ private:
     }
 
     void
-    write_nodes(std::ostringstream &ss, const std::string &prefix, bool last) const {
+    write_nodes(std::ostringstream &ss, const std::string &prefix, const bool last) const {
         ss << prefix << tree_prefix(last) << "Nodes (" << nodes.size() << ")\n";
         const std::string child_prefix = prefix + tree_indent(last);
         for (size_t i = 0; i < nodes.size(); ++i) {
@@ -696,7 +685,7 @@ private:
     }
 
     void
-    write_edges(std::ostringstream &ss, const std::string &prefix, bool last) const {
+    write_edges(std::ostringstream &ss, const std::string &prefix, const bool last) const {
         ss << prefix << tree_prefix(last) << "Edges (" << edges.size() << ")\n";
         const std::string child_prefix = prefix + tree_indent(last);
         for (size_t i = 0; i < edges.size(); ++i) {
@@ -706,7 +695,7 @@ private:
     }
 
     void
-    write_strata(std::ostringstream &ss, const std::string &prefix, bool last) const {
+    write_strata(std::ostringstream &ss, const std::string &prefix, const bool last) const {
         ss << prefix << tree_prefix(last) << "Strata (" << strata.strata.size()
            << " layers)\n";
         const std::string child_prefix = prefix + tree_indent(last);

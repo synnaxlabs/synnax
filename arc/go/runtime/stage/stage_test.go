@@ -92,9 +92,11 @@ var _ = Describe("Stage", func() {
 	Describe("entry.Next", func() {
 		var factory *stage.Factory
 		var s *state.State
+		var activationCount int
 
 		BeforeEach(func() {
 			factory = stage.NewFactory()
+			activationCount = 0
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "source", Type: "source"},
@@ -147,6 +149,7 @@ var _ = Describe("Stage", func() {
 			}
 			n.Next(nodeCtx)
 
+			// Should have called ActivateStage
 			Expect(activationCount).To(Equal(1))
 		})
 
@@ -173,6 +176,7 @@ var _ = Describe("Stage", func() {
 			}
 			n.Next(nodeCtx)
 
+			// Should not have called ActivateStage
 			Expect(activationCount).To(Equal(0))
 		})
 
@@ -183,17 +187,12 @@ var _ = Describe("Stage", func() {
 			}
 			n, err := factory.Create(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
-
-			activationCount := 0
 			nodeCtx := node.Context{
-				Context:     ctx,
-				MarkChanged: func(string) {},
-				ActivateStage: func() {
-					activationCount++
-				},
+				Context:       ctx,
+				MarkChanged:   func(string) {},
+				ActivateStage: func() { activationCount++ },
 			}
 			n.Next(nodeCtx)
-
 			Expect(activationCount).To(Equal(0))
 		})
 	})

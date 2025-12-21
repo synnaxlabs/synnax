@@ -15,7 +15,7 @@
 
 #include "arc/cpp/ir/ir.h"
 
-namespace arc::ir::testutil {
+namespace arc::ir {
 
 /// @brief Fluent builder for constructing IR in tests.
 /// Avoids verbose protobuf construction for simple test graphs.
@@ -29,13 +29,13 @@ namespace arc::ir::testutil {
 ///     .strata({{"A"}, {"B"}})
 ///     .build();
 /// @endcode
-class IRBuilder {
+class Builder {
     IR ir_;
 
 public:
     /// @brief Add a node with given key.
     /// Creates a minimal node with just the key set.
-    IRBuilder &node(const std::string &key) {
+    Builder &node(const std::string &key) {
         Node n;
         n.key = key;
         ir_.nodes.push_back(std::move(n));
@@ -44,7 +44,7 @@ public:
 
     /// @brief Add a continuous edge: source.param -> target.param
     /// Continuous edges propagate changes every time the source output changes.
-    IRBuilder &edge(
+    Builder &edge(
         const std::string &source_node,
         const std::string &source_param,
         const std::string &target_node,
@@ -61,7 +61,7 @@ public:
     /// @brief Add a one-shot edge: source.param => target.param
     /// One-shot edges only fire when the source output is truthy,
     /// and only once per stage activation.
-    IRBuilder &oneshot(
+    Builder &oneshot(
         const std::string &source_node,
         const std::string &source_param,
         const std::string &target_node,
@@ -77,7 +77,7 @@ public:
 
     /// @brief Set global strata (topological execution order for non-staged nodes).
     /// Each inner vector is a stratum; nodes in the same stratum are independent.
-    IRBuilder &strata(std::vector<std::vector<std::string>> s) {
+    Builder &strata(std::vector<std::vector<std::string>> s) {
         ir_.strata.strata = std::move(s);
         return *this;
     }
@@ -93,7 +93,7 @@ public:
     ///     {"stage_b", {{"C"}}}           // stage_b has just C
     /// })
     /// @endcode
-    IRBuilder &sequence(
+    Builder &sequence(
         const std::string &key,
         std::vector<std::pair<std::string, std::vector<std::vector<std::string>>>>
             stages
@@ -117,5 +117,4 @@ public:
     /// @brief Build and return the IR (moves ownership).
     IR build() { return std::move(ir_); }
 };
-
-} // namespace arc::ir::testutil
+}

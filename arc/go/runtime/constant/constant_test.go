@@ -288,6 +288,43 @@ var _ = Describe("Constant", func() {
 			vals := telem.UnmarshalSeries[int64](*out)
 			Expect(vals[0]).To(Equal(int64(-42)))
 		})
+
+		It("Should only emit once across multiple Next calls", func() {
+			cfg := node.Config{
+				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(42)}}},
+				State: s.Node("const"),
+			}
+			constNode := s.Node("const")
+			*constNode.Output(0) = telem.NewSeriesV[int64](0)
+			n, _ := factory.Create(ctx, cfg)
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) {
+				outputs = append(outputs, output)
+			}})
+			Expect(outputs).To(HaveLen(1))
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) {
+				outputs = append(outputs, output)
+			}})
+			Expect(outputs).To(HaveLen(1))
+		})
+
+		It("Should emit again after Reset is called", func() {
+			cfg := node.Config{
+				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(42)}}},
+				State: s.Node("const"),
+			}
+			constNode := s.Node("const")
+			*constNode.Output(0) = telem.NewSeriesV[int64](0)
+			n, _ := factory.Create(ctx, cfg)
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) {
+				outputs = append(outputs, output)
+			}})
+			Expect(outputs).To(HaveLen(1))
+			n.Reset()
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) {
+				outputs = append(outputs, output)
+			}})
+			Expect(outputs).To(HaveLen(2))
+		})
 	})
 
 	Describe("SymbolResolver", func() {
