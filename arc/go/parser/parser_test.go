@@ -49,19 +49,26 @@ var _ = Describe("Parser", func() {
 			})
 		})
 
-		Context("Temporal Literals", func() {
+		Context("Unit Literals", func() {
 			It("Should parse millisecond literals", func() {
 				expr := mustParseExpression("100ms")
 				literal := getPrimaryLiteral(expr)
-				Expect(literal.TemporalLiteral()).NotTo(BeNil())
-				Expect(literal.TemporalLiteral().TEMPORAL_LITERAL().GetText()).To(Equal("100ms"))
+				Expect(literal.UnitLiteral()).NotTo(BeNil())
+				Expect(literal.UnitLiteral().UNIT_LITERAL().GetText()).To(Equal("100ms"))
 			})
 
 			It("Should parse frequency literals", func() {
 				expr := mustParseExpression("10hz")
 				literal := getPrimaryLiteral(expr)
-				Expect(literal.TemporalLiteral()).NotTo(BeNil())
-				Expect(literal.TemporalLiteral().FREQUENCY_LITERAL().GetText()).To(Equal("10hz"))
+				Expect(literal.UnitLiteral()).NotTo(BeNil())
+				Expect(literal.UnitLiteral().UNIT_LITERAL().GetText()).To(Equal("10hz"))
+			})
+
+			It("Should parse pressure literals", func() {
+				expr := mustParseExpression("100psi")
+				literal := getPrimaryLiteral(expr)
+				Expect(literal.UnitLiteral()).NotTo(BeNil())
+				Expect(literal.UnitLiteral().UNIT_LITERAL().GetText()).To(Equal("100psi"))
 			})
 		})
 

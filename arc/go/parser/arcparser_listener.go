@@ -1,15 +1,7 @@
-// Copyright 2025 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
+
 import "github.com/antlr4-go/antlr/v4"
 
 // ArcParserListener is a complete listener for a parse tree produced by ArcParser.
@@ -133,6 +125,9 @@ type ArcParserListener interface {
 	// EnterType is called when entering the type production.
 	EnterType(c *TypeContext)
 
+	// EnterUnitSuffix is called when entering the unitSuffix production.
+	EnterUnitSuffix(c *UnitSuffixContext)
+
 	// EnterPrimitiveType is called when entering the primitiveType production.
 	EnterPrimitiveType(c *PrimitiveTypeContext)
 
@@ -202,8 +197,8 @@ type ArcParserListener interface {
 	// EnterNumericLiteral is called when entering the numericLiteral production.
 	EnterNumericLiteral(c *NumericLiteralContext)
 
-	// EnterTemporalLiteral is called when entering the temporalLiteral production.
-	EnterTemporalLiteral(c *TemporalLiteralContext)
+	// EnterUnitLiteral is called when entering the unitLiteral production.
+	EnterUnitLiteral(c *UnitLiteralContext)
 
 	// EnterSeriesLiteral is called when entering the seriesLiteral production.
 	EnterSeriesLiteral(c *SeriesLiteralContext)
@@ -328,6 +323,9 @@ type ArcParserListener interface {
 	// ExitType is called when exiting the type production.
 	ExitType(c *TypeContext)
 
+	// ExitUnitSuffix is called when exiting the unitSuffix production.
+	ExitUnitSuffix(c *UnitSuffixContext)
+
 	// ExitPrimitiveType is called when exiting the primitiveType production.
 	ExitPrimitiveType(c *PrimitiveTypeContext)
 
@@ -397,8 +395,8 @@ type ArcParserListener interface {
 	// ExitNumericLiteral is called when exiting the numericLiteral production.
 	ExitNumericLiteral(c *NumericLiteralContext)
 
-	// ExitTemporalLiteral is called when exiting the temporalLiteral production.
-	ExitTemporalLiteral(c *TemporalLiteralContext)
+	// ExitUnitLiteral is called when exiting the unitLiteral production.
+	ExitUnitLiteral(c *UnitLiteralContext)
 
 	// ExitSeriesLiteral is called when exiting the seriesLiteral production.
 	ExitSeriesLiteral(c *SeriesLiteralContext)

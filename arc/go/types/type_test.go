@@ -181,8 +181,7 @@ var _ = Describe("Types", func() {
 					Expect(t.IsNumeric()).To(BeFalse())
 				},
 				Entry("String", types.String()),
-				Entry("TimeStamp", types.TimeStamp()),
-				Entry("TimeSpan", types.TimeSpan()),
+				// Note: TimeStamp() and TimeSpan() are now i64 with units, so they ARE numeric
 			)
 
 			It("Should check value type for channels", func() {
@@ -528,8 +527,8 @@ var _ = Describe("Types", func() {
 			Entry("F32", types.F32(), "f32"),
 			Entry("F64", types.F64(), "f64"),
 			Entry("String", types.String(), "str"),
-			Entry("TimeStamp", types.TimeStamp(), "timestamp"),
-			Entry("TimeSpan", types.TimeSpan(), "timespan"),
+			Entry("TimeStamp", types.TimeStamp(), "i64 ns"),
+			Entry("TimeSpan", types.TimeSpan(), "i64 ns"),
 		)
 
 		DescribeTable("Should return correct strings for compound types",
@@ -752,6 +751,85 @@ var _ = Describe("Types", func() {
 				Expect(valueMap["a"]).To(BeNil())
 				Expect(valueMap["b"]).To(Equal(1.5))
 			})
+		})
+	})
+
+	Describe("Dimensions", func() {
+		Describe("Mul", func() {
+			It("Should add exponents (m * m = m^2)", func() {
+				result := types.DimLength.Mul(types.DimLength)
+				Expect(result.Length).To(Equal(int8(2)))
+			})
+
+			It("Should produce velocity (m * s^-1)", func() {
+				result := types.DimLength.Mul(types.DimFrequency)
+				Expect(result).To(Equal(types.DimVelocity))
+			})
+
+			It("Should handle dimensionless", func() {
+				result := types.DimNone.Mul(types.DimLength)
+				Expect(result).To(Equal(types.DimLength))
+			})
+		})
+
+		Describe("Div", func() {
+			It("Should subtract exponents (m / s = velocity)", func() {
+				result := types.DimLength.Div(types.DimTime)
+				Expect(result).To(Equal(types.DimVelocity))
+			})
+
+			It("Should cancel dimensions (m / m = dimensionless)", func() {
+				result := types.DimLength.Div(types.DimLength)
+				Expect(result.IsZero()).To(BeTrue())
+			})
+
+			It("Should produce frequency (1 / s)", func() {
+				result := types.DimNone.Div(types.DimTime)
+				Expect(result).To(Equal(types.DimFrequency))
+			})
+		})
+
+		Describe("IsZero", func() {
+			It("Should return true for dimensionless", func() {
+				Expect(types.DimNone.IsZero()).To(BeTrue())
+			})
+
+			It("Should return false for dimensioned", func() {
+				Expect(types.DimLength.IsZero()).To(BeFalse())
+				Expect(types.DimPressure.IsZero()).To(BeFalse())
+			})
+		})
+
+		Describe("String", func() {
+			It("Should format velocity", func() {
+				s := types.DimVelocity.String()
+				Expect(s).To(ContainSubstring("length^1"))
+				Expect(s).To(ContainSubstring("time^-1"))
+			})
+
+			It("Should return dimensionless for zero", func() {
+				Expect(types.DimNone.String()).To(Equal("dimensionless"))
+			})
+		})
+	})
+
+	Describe("Unit", func() {
+		It("Should compare equal units", func() {
+			u1 := types.Unit{Dimensions: types.DimLength, Scale: 1000, Name: "km"}
+			u2 := types.Unit{Dimensions: types.DimLength, Scale: 1000, Name: "km"}
+			Expect(u1.Equal(u2)).To(BeTrue())
+		})
+
+		It("Should detect different scales", func() {
+			u1 := types.Unit{Dimensions: types.DimLength, Scale: 1000, Name: "km"}
+			u2 := types.Unit{Dimensions: types.DimLength, Scale: 1, Name: "m"}
+			Expect(u1.Equal(u2)).To(BeFalse())
+		})
+
+		It("Should detect different dimensions", func() {
+			u1 := types.Unit{Dimensions: types.DimLength, Scale: 1, Name: "m"}
+			u2 := types.Unit{Dimensions: types.DimTime, Scale: 1, Name: "s"}
+			Expect(u1.Equal(u2)).To(BeFalse())
 		})
 	})
 })

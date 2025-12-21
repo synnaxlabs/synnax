@@ -89,13 +89,10 @@ fragment DIGITS : DIGIT+ ;
 
 fragment DIGIT: [0-9];
 
-// Temporal and frequency literals must be checked before plain numeric literals
-TEMPORAL_LITERAL
-    : (DIGITS | (DIGITS '.' DIGITS?) | ('.' DIGITS)) ('ns' | 'us' | 'ms' | 's' | 'm' | 'h')
-    ;
-
-FREQUENCY_LITERAL
-    : (DIGITS | (DIGITS '.' DIGITS?) | ('.' DIGITS)) ([hH][zZ] | [kK][hH][zZ] | [mM][hH][zZ])
+// Unit literals: numeric value followed by unit suffix (e.g., 100psi, 5s, 300ms, 2.5km)
+// Must be checked before plain numeric literals
+UNIT_LITERAL
+    : (DIGITS | (DIGITS '.' DIGITS?) | ('.' DIGITS)) [a-zA-Z_][a-zA-Z0-9_]*
     ;
 
 // Simple numeric literals without suffixes or special formats

@@ -14,6 +14,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
+	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/parser"
 	basetypes "github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -163,7 +164,6 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 	firstType := infer(context.Child(ctx, items[0])).Unwrap()
 	opName := getOperator(ctx.AST)
 
-	// If first type is a type variable, we can't check it yet - will be validated during unification
 	if firstType.Kind != basetypes.KindVariable && !check(firstType) {
 		ctx.Diagnostics.AddError(
 			errors.Newf("cannot use %s in %s operation", firstType, opName),
@@ -175,9 +175,13 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 	for i := 1; i < len(items); i++ {
 		nextType := infer(context.Child(ctx, items[i]).WithTypeHint(firstType)).Unwrap()
 
-		// If either type is a type variable, add a constraint instead of checking directly
 		if firstType.Kind == basetypes.KindVariable || nextType.Kind == basetypes.KindVariable {
 			ctx.Constraints.AddCompatible(firstType, nextType, items[i], opName+" operands must be compatible")
+		} else if firstType.Unit != nil || nextType.Unit != nil {
+			if _, err := units.CheckBinaryOp(opName, firstType, nextType); err != nil {
+				ctx.Diagnostics.AddError(err, ctx.AST)
+				return false
+			}
 		} else if !types.Compatible(firstType, nextType) {
 			ctx.Diagnostics.AddError(
 				errors.Newf("type mismatch: cannot use %s and %s in %s operation", firstType, nextType, opName),

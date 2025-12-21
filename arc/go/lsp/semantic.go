@@ -107,7 +107,7 @@ func mapTokenType(antlrType int) *uint32 {
 	case parser.ArcLexerSTR_LITERAL:
 		tokenType = SemanticTokenTypeString
 	case parser.ArcLexerINTEGER_LITERAL, parser.ArcLexerFLOAT_LITERAL,
-		parser.ArcLexerTEMPORAL_LITERAL, parser.ArcLexerFREQUENCY_LITERAL:
+		parser.ArcLexerUNIT_LITERAL:
 		tokenType = SemanticTokenTypeNumber
 	case parser.ArcLexerSINGLE_LINE_COMMENT, parser.ArcLexerMULTI_LINE_COMMENT:
 		tokenType = SemanticTokenTypeComment

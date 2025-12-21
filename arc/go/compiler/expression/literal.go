@@ -23,8 +23,8 @@ func compileLiteral(
 	if num := ctx.AST.NumericLiteral(); num != nil {
 		return compileNumericLiteral(context.Child(ctx, num))
 	}
-	if temp := ctx.AST.TemporalLiteral(); temp != nil {
-		return types.TimeSpan(), nil
+	if unit := ctx.AST.UnitLiteral(); unit != nil {
+		return compileUnitLiteral(context.Child(ctx, unit))
 	}
 	if str := ctx.AST.STR_LITERAL(); str != nil {
 		return types.Type{}, errors.New("str literals are not yet supported")
@@ -33,6 +33,15 @@ func compileLiteral(
 		return types.Type{}, errors.New("series literals not yet implemented")
 	}
 	return types.Type{}, errors.New("unknown literal type")
+}
+
+func compileUnitLiteral(ctx context.Context[parser.IUnitLiteralContext]) (types.Type, error) {
+	parsed, err := literal.ParseUnit(ctx.AST, types.Type{})
+	if err != nil {
+		return types.Type{}, err
+	}
+	ctx.Writer.WriteF64Const(parsed.Value.(float64))
+	return parsed.Type, nil
 }
 
 func compileNumericLiteral(

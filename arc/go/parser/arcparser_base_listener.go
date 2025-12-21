@@ -1,15 +1,7 @@
-// Copyright 2025 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
+
 import "github.com/antlr4-go/antlr/v4"
 
 // BaseArcParserListener is a complete listener for a parse tree produced by ArcParser.
@@ -263,6 +255,12 @@ func (s *BaseArcParserListener) EnterType(ctx *TypeContext) {}
 // ExitType is called when production type is exited.
 func (s *BaseArcParserListener) ExitType(ctx *TypeContext) {}
 
+// EnterUnitSuffix is called when production unitSuffix is entered.
+func (s *BaseArcParserListener) EnterUnitSuffix(ctx *UnitSuffixContext) {}
+
+// ExitUnitSuffix is called when production unitSuffix is exited.
+func (s *BaseArcParserListener) ExitUnitSuffix(ctx *UnitSuffixContext) {}
+
 // EnterPrimitiveType is called when production primitiveType is entered.
 func (s *BaseArcParserListener) EnterPrimitiveType(ctx *PrimitiveTypeContext) {}
 
@@ -401,11 +399,11 @@ func (s *BaseArcParserListener) EnterNumericLiteral(ctx *NumericLiteralContext) 
 // ExitNumericLiteral is called when production numericLiteral is exited.
 func (s *BaseArcParserListener) ExitNumericLiteral(ctx *NumericLiteralContext) {}
 
-// EnterTemporalLiteral is called when production temporalLiteral is entered.
-func (s *BaseArcParserListener) EnterTemporalLiteral(ctx *TemporalLiteralContext) {}
+// EnterUnitLiteral is called when production unitLiteral is entered.
+func (s *BaseArcParserListener) EnterUnitLiteral(ctx *UnitLiteralContext) {}
 
-// ExitTemporalLiteral is called when production temporalLiteral is exited.
-func (s *BaseArcParserListener) ExitTemporalLiteral(ctx *TemporalLiteralContext) {}
+// ExitUnitLiteral is called when production unitLiteral is exited.
+func (s *BaseArcParserListener) ExitUnitLiteral(ctx *UnitLiteralContext) {}
 
 // EnterSeriesLiteral is called when production seriesLiteral is entered.
 func (s *BaseArcParserListener) EnterSeriesLiteral(ctx *SeriesLiteralContext) {}

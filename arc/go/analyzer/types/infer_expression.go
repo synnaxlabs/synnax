@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 )
@@ -173,6 +174,9 @@ func inferPrimaryType(ctx context.Context[parser.IPrimaryExpressionContext]) typ
 }
 
 func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
+	if unitLit := ctx.AST.UnitLiteral(); unitLit != nil {
+		return inferUnitLiteralType(ctx, unitLit)
+	}
 	text := ctx.AST.GetText()
 	if len(text) > 0 && (text[0] == '"' || text[0] == '\'') {
 		t := types.String()
@@ -222,6 +226,30 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 	t := types.I64()
 	ctx.TypeMap[ctx.AST] = t
 	return t
+}
+
+func inferUnitLiteralType(
+	ctx context.Context[parser.ILiteralContext],
+	unitLit parser.IUnitLiteralContext,
+) types.Type {
+	text := unitLit.UNIT_LITERAL().GetText()
+	_, unitName := parseUnitLiteral(text)
+	unit, ok := units.Lookup(unitName)
+	if !ok {
+		return types.Type{}
+	}
+	t := types.Type{Kind: types.KindF64, Unit: &unit}
+	ctx.TypeMap[ctx.AST] = t
+	return t
+}
+
+func parseUnitLiteral(text string) (value string, unitName string) {
+	for i, c := range text {
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' {
+			return text[:i], text[i:]
+		}
+	}
+	return text, ""
 }
 
 func isIntegerLiteral(text string) bool {

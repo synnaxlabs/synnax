@@ -202,9 +202,13 @@ functionCall
 // =============================================================================
 
 type
-    : primitiveType
+    : primitiveType unitSuffix?
     | channelType
     | seriesType
+    ;
+
+unitSuffix
+    : IDENTIFIER
     ;
 
 primitiveType
@@ -232,11 +236,12 @@ temporalType
     ;
 
 channelType
-    : CHAN (primitiveType | seriesType)
+    : CHAN primitiveType unitSuffix?
+    | CHAN seriesType
     ;
 
 seriesType
-    : SERIES primitiveType
+    : SERIES primitiveType unitSuffix?
     ;
 
 // =============================================================================
@@ -312,7 +317,7 @@ typeCast
 
 literal
     : numericLiteral
-    | temporalLiteral
+    | unitLiteral
     | STR_LITERAL
     | seriesLiteral
     ;
@@ -322,9 +327,8 @@ numericLiteral
     | FLOAT_LITERAL
     ;
 
-temporalLiteral
-    : TEMPORAL_LITERAL
-    | FREQUENCY_LITERAL
+unitLiteral
+    : UNIT_LITERAL
     ;
 
 seriesLiteral

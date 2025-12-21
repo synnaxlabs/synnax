@@ -112,12 +112,43 @@ var _ = Describe("Literal Parser", func() {
 		Entry("int to f64", "42", types.F64(), true, float64(42), types.F64(), ""),
 	)
 
-	Describe("Temporal literals", func() {
-		It("Should return error for temporal literals (not yet supported)", func() {
+	Describe("Unit literals", func() {
+		It("Should parse time unit literals", func() {
 			lit := getLiteral("10s")
-			_, err := literal.Parse(lit, types.TimeSpan())
+			parsed, err := literal.Parse(lit, types.Type{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(parsed.Value).To(Equal(10.0))
+			Expect(parsed.Type.Kind).To(Equal(types.KindF64))
+			Expect(parsed.Type.Unit).ToNot(BeNil())
+			Expect(parsed.Type.Unit.Dimensions).To(Equal(types.DimTime))
+		})
+
+		It("Should convert milliseconds to SI base (seconds)", func() {
+			lit := getLiteral("300ms")
+			parsed, err := literal.Parse(lit, types.Type{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(parsed.Value).To(BeNumerically("~", 0.3, 0.0001))
+		})
+
+		It("Should convert kilometers to SI base (meters)", func() {
+			lit := getLiteral("5km")
+			parsed, err := literal.Parse(lit, types.Type{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(parsed.Value).To(Equal(5000.0))
+		})
+
+		It("Should convert psi to SI base (Pascals)", func() {
+			lit := getLiteral("100psi")
+			parsed, err := literal.Parse(lit, types.Type{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(parsed.Value).To(BeNumerically("~", 689476.0, 1.0))
+		})
+
+		It("Should return error for unknown units", func() {
+			lit := getLiteral("5foobar")
+			_, err := literal.Parse(lit, types.Type{})
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("temporal literals not yet supported"))
+			Expect(err.Error()).To(ContainSubstring("unknown unit"))
 		})
 	})
 

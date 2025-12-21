@@ -363,7 +363,10 @@ var _ = Describe("Type Inference", func() {
 			typeCtx := varDecl.Type_()
 			t, err := atypes.InferFromTypeContext(typeCtx)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(t.Kind).To(Equal(types.KindTimeStamp))
+			// Temporal types are now i64 with nanosecond time units
+			Expect(t.Kind).To(Equal(types.KindI64))
+			Expect(t.Unit).ToNot(BeNil())
+			Expect(t.Unit.Dimensions).To(Equal(types.DimTime))
 		})
 	})
 })

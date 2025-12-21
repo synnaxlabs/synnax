@@ -13,6 +13,7 @@ import (
 	"math"
 	"strconv"
 
+	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -37,10 +38,8 @@ func Parse(
 	if num := literal.NumericLiteral(); num != nil {
 		return ParseNumeric(num, targetType)
 	}
-	if temp := literal.TemporalLiteral(); temp != nil {
-		// TODO: Parse temporal literals when needed
-		// https://linear.app/synnax/issue/SY-3241/implement-temporal-literal-parsing-in-arc
-		return ParsedValue{}, errors.New("temporal literals not yet supported")
+	if unit := literal.UnitLiteral(); unit != nil {
+		return ParseUnit(unit, targetType)
 	}
 	if str := literal.STR_LITERAL(); str != nil {
 		// TODO: Parse string literals when needed
@@ -134,15 +133,12 @@ func parseFloatLiteral(text string, targetType types.Type) (ParsedValue, error) 
 		return ParsedValue{}, errors.Wrapf(err, "invalid float literal: %s", text)
 	}
 
-	// If no target type specified, default to f64
 	if !targetType.IsValid() {
 		return ParsedValue{Value: value, Type: types.F64()}, nil
 	}
 
-	// Convert to appropriate type
 	switch targetType.Kind {
 	case types.KindF32:
-		// Check if value is representable as f32
 		if math.Abs(value) > math.MaxFloat32 {
 			return ParsedValue{}, errors.Newf("value %f out of range for f32", value)
 		}
@@ -217,7 +213,31 @@ func parseFloatLiteral(text string, targetType types.Type) (ParsedValue, error) 
 		}
 		return ParsedValue{Value: uint64(value), Type: types.U64()}, nil
 	default:
-		// Value to f64 if type not recognized
 		return ParsedValue{Value: value, Type: types.F64()}, nil
 	}
+}
+
+func ParseUnit(unitLit parser.IUnitLiteralContext, _ types.Type) (ParsedValue, error) {
+	text := unitLit.UNIT_LITERAL().GetText()
+	valueStr, unitName := splitUnitLiteral(text)
+	unit, ok := units.Lookup(unitName)
+	if !ok {
+		return ParsedValue{}, errors.Newf("unknown unit: %s", unitName)
+	}
+	numericValue, err := strconv.ParseFloat(valueStr, 64)
+	if err != nil {
+		return ParsedValue{}, errors.Wrapf(err, "invalid numeric value in unit literal: %s", valueStr)
+	}
+	siValue := numericValue * unit.Scale
+	resultType := types.Type{Kind: types.KindF64, Unit: &unit}
+	return ParsedValue{Value: siValue, Type: resultType}, nil
+}
+
+func splitUnitLiteral(text string) (value string, unitName string) {
+	for i, c := range text {
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' {
+			return text[:i], text[i:]
+		}
+	}
+	return text, ""
 }

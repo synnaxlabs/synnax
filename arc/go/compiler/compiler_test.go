@@ -1411,4 +1411,51 @@ var _ = Describe("Compiler", func() {
 			Expect(result).To(BeNumerically("~", 256.0, 0.0001))
 		})
 	})
+
+	Describe("Unit Literals", func() {
+		It("Should compile unit literal with scale conversion", func() {
+			output := MustSucceed(compile(`
+			func getMs() f64 {
+				return 300ms
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			getMs := mod.ExportedFunction("getMs")
+			Expect(getMs).ToNot(BeNil())
+
+			results := MustSucceed(getMs.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			result := math.Float64frombits(results[0])
+			Expect(result).To(BeNumerically("~", 0.3, 0.0001))
+		})
+
+		It("Should compile kilometer literal", func() {
+			output := MustSucceed(compile(`
+			func getKm() f64 {
+				return 5km
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			getKm := mod.ExportedFunction("getKm")
+			results := MustSucceed(getKm.Call(ctx))
+			result := math.Float64frombits(results[0])
+			Expect(result).To(Equal(5000.0))
+		})
+
+		It("Should compile psi literal", func() {
+			output := MustSucceed(compile(`
+			func getPsi() f64 {
+				return 100psi
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			getPsi := mod.ExportedFunction("getPsi")
+			results := MustSucceed(getPsi.Call(ctx))
+			result := math.Float64frombits(results[0])
+			Expect(result).To(BeNumerically("~", 689476.0, 1.0))
+		})
+	})
 })

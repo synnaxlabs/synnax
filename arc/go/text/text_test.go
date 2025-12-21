@@ -1097,4 +1097,48 @@ var _ = Describe("Text", func() {
 		})
 	})
 
+	Describe("Unit Dimensional Analysis", func() {
+		It("Should error when adding incompatible dimensions", func() {
+			source := `
+			func bad() f64 {
+				return 5psi + 3s
+			}
+			`
+			_, diag := text.Analyze(
+				ctx,
+				MustSucceed(text.Parse(text.Text{Raw: source})),
+				nil,
+			)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("incompatible dimensions"))
+		})
+
+		It("Should allow adding same dimensions", func() {
+			source := `
+			func good() f64 {
+				return 100psi + 50psi
+			}
+			`
+			_, diag := text.Analyze(
+				ctx,
+				MustSucceed(text.Parse(text.Text{Raw: source})),
+				nil,
+			)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		It("Should allow multiplying different dimensions", func() {
+			source := `
+			func velocity() f64 {
+				return 100m / 10s
+			}
+			`
+			_, diag := text.Analyze(
+				ctx,
+				MustSucceed(text.Parse(text.Text{Raw: source})),
+				nil,
+			)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+	})
 })

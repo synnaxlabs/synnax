@@ -15,12 +15,16 @@
 // Primitive Types:
 //   - Integer types: u8, u16, u32, u64, i8, i16, i32, i64
 //   - Floating-point types: f32, f64
-//   - Temporal types: timestamp, timespan
 //   - String type: str
 //
 // Compound Types:
 //   - chan T: Channel type wrapping value type T
 //   - series T: Series type wrapping value type T
+//
+// Unit Types:
+//   - Any numeric type can have unit metadata attached (e.g., f64 psi, i64 ns)
+//   - Units include dimensions (length, mass, time, etc.) and scale factors
+//   - Dimensional analysis is performed at compile time
 //
 // Generic Types:
 //   - Type variables with optional constraints (numeric, integer, float)
@@ -34,7 +38,15 @@
 //
 //	i32Type := types.I32()
 //	chanType := types.Chan(types.F64())
-//	seriesType := types.Series(types.TimeStamp())
+//	seriesType := types.Series(types.I32())
+//
+// Creating unit types:
+//
+//	pressureType := types.Type{Kind: types.KindF64, Unit: &types.Unit{
+//		Dimensions: types.DimPressure,
+//		Scale:      6894.76,
+//		Name:       "psi",
+//	}}
 //
 // Type checking:
 //
@@ -94,11 +106,6 @@ const (
 
 	// KindString is a UTF-8 string type.
 	KindString
-
-	// KindTimeStamp represents an absolute point in time.
-	KindTimeStamp
-	// KindTimeSpan represents a duration or time difference.
-	KindTimeSpan
 
 	// KindChan is a channel type (requires Elem).
 	KindChan
@@ -211,39 +218,39 @@ type Type struct {
 	Name string `json:"name,omitempty" msgpack:"name"`
 	// Constraint is the optional constraint for type variables.
 	Constraint *Type `json:"constraint,omitempty" msgpack:"constraint"`
+	// Unit holds optional unit metadata for numeric types.
+	// When non-nil, this type represents a quantity with physical dimensions.
+	Unit *Unit `json:"unit,omitempty" msgpack:"unit"`
 	// FunctionProperties contains inputs, outputs, and config for function types.
 	FunctionProperties
 }
 
 // String returns the string representation of the type
 func (t Type) String() string {
+	var base string
 	switch t.Kind {
 	case KindU8:
-		return "u8"
+		base = "u8"
 	case KindU16:
-		return "u16"
+		base = "u16"
 	case KindU32:
-		return "u32"
+		base = "u32"
 	case KindU64:
-		return "u64"
+		base = "u64"
 	case KindI8:
-		return "i8"
+		base = "i8"
 	case KindI16:
-		return "i16"
+		base = "i16"
 	case KindI32:
-		return "i32"
+		base = "i32"
 	case KindI64:
-		return "i64"
+		base = "i64"
 	case KindF32:
-		return "f32"
+		base = "f32"
 	case KindF64:
-		return "f64"
+		base = "f64"
 	case KindString:
 		return "str"
-	case KindTimeStamp:
-		return "timestamp"
-	case KindTimeSpan:
-		return "timespan"
 	case KindChan:
 		if t.Elem != nil {
 			return "chan " + t.Elem.String()
@@ -270,6 +277,12 @@ func (t Type) String() string {
 	default:
 		return "invalid"
 	}
+
+	// For numeric types, append unit name if present
+	if t.Unit != nil && t.Unit.Name != "" {
+		return base + " " + t.Unit.Name
+	}
+	return base
 }
 
 // U8 returns an 8-bit unsigned integer type.
@@ -305,11 +318,31 @@ func F64() Type { return Type{Kind: KindF64} }
 // String returns a UTF-8 string type.
 func String() Type { return Type{Kind: KindString} }
 
-// TimeStamp returns an absolute point in time type.
-func TimeStamp() Type { return Type{Kind: KindTimeStamp} }
+// TimeStamp returns an i64 type with nanosecond time units.
+// This represents an absolute point in time (nanoseconds since epoch).
+func TimeStamp() Type {
+	return Type{
+		Kind: KindI64,
+		Unit: &Unit{
+			Dimensions: DimTime,
+			Scale:      1e-9, // nanoseconds
+			Name:       "ns",
+		},
+	}
+}
 
-// TimeSpan returns a duration or time difference type.
-func TimeSpan() Type { return Type{Kind: KindTimeSpan} }
+// TimeSpan returns an i64 type with nanosecond time units.
+// This represents a duration (nanoseconds).
+func TimeSpan() Type {
+	return Type{
+		Kind: KindI64,
+		Unit: &Unit{
+			Dimensions: DimTime,
+			Scale:      1e-9, // nanoseconds
+			Name:       "ns",
+		},
+	}
+}
 
 // Chan returns a channel type wrapping the given value type.
 func Chan(valueType Type) Type {
@@ -476,7 +509,14 @@ func Equal(t Type, v Type) bool {
 		return paramsEqual(t.Config, v.Config)
 	}
 
-	return true
+	// Compare unit metadata for numeric types
+	if t.Unit == nil && v.Unit == nil {
+		return true
+	}
+	if t.Unit == nil || v.Unit == nil {
+		return false
+	}
+	return t.Unit.Equal(*v.Unit)
 }
 
 func paramsEqual(a, b Params) bool {
@@ -502,7 +542,7 @@ func paramsEqual(a, b Params) bool {
 // Is64Bit returns true if the type uses 64-bit representation.
 func (t Type) Is64Bit() bool {
 	switch t.Kind {
-	case KindI64, KindU64, KindTimeStamp, KindTimeSpan, KindF64:
+	case KindI64, KindU64, KindF64:
 		return true
 	default:
 		return false
@@ -519,7 +559,7 @@ func (t Type) Density() int {
 		return 2
 	case KindU32, KindI32, KindF32:
 		return 4
-	case KindU64, KindI64, KindF64, KindTimeStamp, KindTimeSpan:
+	case KindU64, KindI64, KindF64:
 		return 8
 	default:
 		panic("Density: type is not a fixed-size primitive: " + t.String())
@@ -539,6 +579,7 @@ var (
 
 // FromTelem converts a telemetry data type to an Arc type.
 // Returns an invalid type for unknown telemetry types.
+// Note: TimeStampT maps to i64 with nanosecond time units.
 func FromTelem(t telem.DataType) Type {
 	switch t {
 	case telem.Uint8T:
@@ -564,7 +605,15 @@ func FromTelem(t telem.DataType) Type {
 	case telem.StringT, telem.JSONT, telem.UUIDT:
 		return String()
 	case telem.TimeStampT:
-		return TimeStamp()
+		// Timestamps are i64 nanoseconds with time dimensions
+		return Type{
+			Kind: KindI64,
+			Unit: &Unit{
+				Dimensions: DimTime,
+				Scale:      1e-9, // nanoseconds
+				Name:       "ns",
+			},
+		}
 	default:
 		return Type{Kind: KindInvalid}
 	}
@@ -572,7 +621,14 @@ func FromTelem(t telem.DataType) Type {
 
 // ToTelem converts an Arc type to a telemetry data type.
 // Returns telem.UnknownT for Arc types that don't have a telemetry equivalent.
+// Note: i64 with time dimensions (ns) maps to TimeStampT.
 func ToTelem(t Type) telem.DataType {
+	// Check for timestamp (i64 with nanosecond time units)
+	if t.Kind == KindI64 && t.Unit != nil &&
+		t.Unit.Dimensions.Equal(DimTime) && t.Unit.Name == "ns" {
+		return telem.TimeStampT
+	}
+
 	switch t.Kind {
 	case KindU8:
 		return telem.Uint8T
@@ -582,10 +638,6 @@ func ToTelem(t Type) telem.DataType {
 		return telem.Uint32T
 	case KindU64:
 		return telem.Uint64T
-	case KindTimeStamp:
-		return telem.TimeStampT
-	case KindTimeSpan:
-		return telem.TimeStampT
 	case KindF32:
 		return telem.Float32T
 	case KindF64:
