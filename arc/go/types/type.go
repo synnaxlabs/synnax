@@ -132,11 +132,6 @@ const (
 	KindStage
 )
 
-// NewFunctionProperties creates a new FunctionProperties with empty Inputs, Outputs, and Config.
-func NewFunctionProperties() FunctionProperties {
-	return FunctionProperties{}
-}
-
 // Params are named, ordered parameters for a function.
 type Params []Param
 
@@ -198,15 +193,6 @@ type FunctionProperties struct {
 	Outputs Params `json:"outputs,omitempty" msgpack:"outputs,omitempty"`
 	// Config are the configuration parameters for the function.
 	Config Params `json:"config,omitempty" msgpack:"config,omitempty"`
-}
-
-// Copy creates a deep copy of the function properties.
-func (f FunctionProperties) Copy() FunctionProperties {
-	return FunctionProperties{
-		Inputs:  slices.Clone(f.Inputs),
-		Outputs: slices.Clone(f.Outputs),
-		Config:  slices.Clone(f.Config),
-	}
 }
 
 // Type represents a type in the Arc type system using a tagged union.

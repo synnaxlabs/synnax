@@ -134,7 +134,11 @@ func (s *System) unifyTypesWithVisited(t1, t2 types.Type, source Constraint, vis
 }
 
 // unifyTypeVariableWithVisited is the internal recursive function with cycle detection
-func (s *System) unifyTypeVariableWithVisited(tv, other types.Type, source Constraint, visiting map[string]bool) error {
+func (s *System) unifyTypeVariableWithVisited(
+	tv, other types.Type,
+	source Constraint,
+	visiting map[string]bool,
+) error {
 	if existing, exists := s.Substitutions[tv.Name]; exists {
 		// Type variable already has a substitution
 		// If we're in a compatible context with numeric types, we may need to promote
@@ -179,24 +183,40 @@ func (s *System) unifyTypeVariableWithVisited(tv, other types.Type, source Const
 		}
 	} else if tv.Constraint.Kind == types.KindNumericConstant {
 		if !checkType.IsNumeric() {
-			return errors.Wrapf(ErrConstraintViolation, "%v does not satisfy numeric constraint", other)
+			return errors.Wrapf(
+				ErrConstraintViolation,
+				"%v does not satisfy numeric constraint",
+				other,
+			)
 		}
 	} else if tv.Constraint.Kind == types.KindIntegerConstant {
 		// Integer constraint: accepts any numeric type (for literal coercion)
 		// Integer literals can be coerced to floats: `x f32 := 42` is valid
 		if !checkType.IsNumeric() {
-			return errors.Wrapf(ErrConstraintViolation, "%v does not satisfy integer constraint", other)
+			return errors.Wrapf(
+				ErrConstraintViolation,
+				"%v does not satisfy integer constraint",
+				other,
+			)
 		}
 	} else if tv.Constraint.Kind == types.KindFloatConstant {
 		// Float constraint: accepts float types, or any numeric if compatible context
 		if source.Kind == KindCompatible {
 			if !checkType.IsNumeric() {
-				return errors.Wrapf(ErrConstraintViolation, "%v does not satisfy float constraint", other)
+				return errors.Wrapf(
+					ErrConstraintViolation,
+					"%v does not satisfy float constraint",
+					other,
+				)
 			}
 		} else {
 			// In equality/assignment context, only accept floats
 			if !checkType.IsFloat() {
-				return errors.Wrapf(ErrConstraintViolation, "%v does not satisfy float constraint", other)
+				return errors.Wrapf(
+					ErrConstraintViolation,
+					"%v does not satisfy float constraint",
+					other,
+				)
 			}
 		}
 	}
@@ -241,11 +261,10 @@ func defaultTypeForConstraint(constraint types.Type) types.Type {
 	}
 }
 
-// promoteNumericTypes returns the promoted type when unifying two numeric types
-// Implements the promotion rules from promotion_test.go:
-// Rule 1: Float promotion (if either is float)
-// Rule 2: 64-bit integer promotion (if either is 64-bit)
-// Rule 3: 32-bit promotion (for smaller types)
+// promoteNumericTypes returns the promoted type when unifying two numeric types.
+// Rule 1: Float promotion - if either is float, result is f32 or f64.
+// Rule 2: 64-bit integer promotion - mixed signedness promotes to f64.
+// Rule 3: 32-bit promotion - smaller types widen to i32 or u32.
 func promoteNumericTypes(t1, t2 types.Type) types.Type {
 	// Rule 1: Float Promotion
 	if t1.IsFloat() || t2.IsFloat() {
