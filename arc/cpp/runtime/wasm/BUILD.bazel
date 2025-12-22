@@ -9,7 +9,7 @@ cc_library(
     ],
     visibility = ["//arc/cpp/runtime:__subpackages__"],
     deps = [
-        "//arc/cpp/errors",
+        "//arc/cpp/runtime/errors",
         "//arc/cpp/ir",
         "//arc/cpp/module",
         "//arc/cpp/runtime/state",

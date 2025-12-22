@@ -15,8 +15,8 @@
 
 #include "x/cpp/xerrors/errors.h"
 
-#include "arc/cpp/errors/errors.h"
 #include "arc/cpp/module/module.h"
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/wasm/bindings.h"
 #include "arc/cpp/types/types.h"
 #include "wasmtime.hh"
@@ -54,6 +54,9 @@ inline wasmtime::Val sample_to_wasm(const telem::SampleValue &val) {
 /// Convert wasmtime::Val to SampleValue after WASM function returns
 inline telem::SampleValue
 sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
+    // Check for timestamp (i64 with nanosecond time units)
+    if (type.is_timestamp()) return telem::SampleValue(telem::TimeStamp(val.i64()));
+
     switch (type.kind) {
         case types::Kind::U8:
             return telem::SampleValue(static_cast<uint8_t>(val.i32()));
@@ -75,8 +78,6 @@ sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
             return telem::SampleValue(val.f32());
         case types::Kind::F64:
             return telem::SampleValue(val.f64());
-        case types::Kind::TimeStamp:
-            return telem::SampleValue(telem::TimeStamp(val.i64()));
         default:
             return telem::SampleValue(static_cast<int32_t>(0));
     }
@@ -85,6 +86,9 @@ sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
 /// Convert raw memory bits to SampleValue based on Arc type
 inline telem::SampleValue
 sample_from_bits(const uint64_t bits, const types::Type &type) {
+    // Check for timestamp (i64 with nanosecond time units)
+    if (type.is_timestamp()) return telem::SampleValue(telem::TimeStamp(bits));
+
     switch (type.kind) {
         case types::Kind::U8:
             return telem::SampleValue(static_cast<uint8_t>(bits));
@@ -113,14 +117,12 @@ sample_from_bits(const uint64_t bits, const types::Type &type) {
             memcpy(&d, &bits, sizeof(double));
             return telem::SampleValue(d);
         }
-        case types::Kind::TimeStamp:
-            return telem::SampleValue(telem::TimeStamp(bits));
         default:
             return telem::SampleValue(static_cast<int32_t>(0));
     }
 }
 
-const auto BASE_ERROR = errors::RUNTIME.sub("wasm");
+const auto BASE_ERROR = runtime::errors::BASE.sub("wasm");
 const auto INITIALIZATION_ERROR = BASE_ERROR.sub("initialization");
 
 struct ModuleConfig {

@@ -517,6 +517,9 @@ func translateTypeToPB(t arctypes.Type) (*arctypes.PBType, error) {
 		}
 		typePb.Elem = elemPb
 	}
+	if t.Unit != nil {
+		typePb.Unit = translateUnitToPB(*t.Unit)
+	}
 	return typePb, nil
 }
 
@@ -532,6 +535,9 @@ func translateTypeFromPB(pb *arctypes.PBType) (arctypes.Type, error) {
 			return arctypes.Type{}, err
 		}
 		typ.Elem = &elem
+	}
+	if pb.Unit != nil {
+		typ.Unit = translateUnitFromPB(pb.Unit)
 	}
 	return typ, nil
 }
@@ -563,10 +569,6 @@ func translateTypeKindToPB(k arctypes.TypeKind) arctypes.PBKind {
 		return arctypes.PBKind_PB_KIND_F64
 	case arctypes.KindString:
 		return arctypes.PBKind_PB_KIND_STRING
-	case arctypes.KindTimeStamp:
-		return arctypes.PBKind_PB_KIND_TIMESTAMP
-	case arctypes.KindTimeSpan:
-		return arctypes.PBKind_PB_KIND_TIMESPAN
 	case arctypes.KindChan:
 		return arctypes.PBKind_PB_KIND_CHAN
 	case arctypes.KindSeries:
@@ -603,16 +605,64 @@ func translateTypeKindFromPB(k arctypes.PBKind) arctypes.TypeKind {
 		return arctypes.KindF64
 	case arctypes.PBKind_PB_KIND_STRING:
 		return arctypes.KindString
-	case arctypes.PBKind_PB_KIND_TIMESTAMP:
-		return arctypes.KindTimeStamp
-	case arctypes.PBKind_PB_KIND_TIMESPAN:
-		return arctypes.KindTimeSpan
 	case arctypes.PBKind_PB_KIND_CHAN:
 		return arctypes.KindChan
 	case arctypes.PBKind_PB_KIND_SERIES:
 		return arctypes.KindSeries
 	default:
 		return arctypes.KindInvalid
+	}
+}
+
+// translateUnitToPB converts arctypes.Unit to *arctypes.PBUnit
+func translateUnitToPB(u arctypes.Unit) *arctypes.PBUnit {
+	return &arctypes.PBUnit{
+		Dimensions: translateDimensionsToPB(u.Dimensions),
+		Scale:      u.Scale,
+		Name:       u.Name,
+	}
+}
+
+// translateUnitFromPB converts *arctypes.PBUnit to *arctypes.Unit
+func translateUnitFromPB(pb *arctypes.PBUnit) *arctypes.Unit {
+	if pb == nil {
+		return nil
+	}
+	return &arctypes.Unit{
+		Dimensions: translateDimensionsFromPB(pb.Dimensions),
+		Scale:      pb.Scale,
+		Name:       pb.Name,
+	}
+}
+
+// translateDimensionsToPB converts arctypes.Dimensions to *arctypes.PBDimensions
+func translateDimensionsToPB(d arctypes.Dimensions) *arctypes.PBDimensions {
+	return &arctypes.PBDimensions{
+		Length:      int32(d.Length),
+		Mass:        int32(d.Mass),
+		Time:        int32(d.Time),
+		Current:     int32(d.Current),
+		Temperature: int32(d.Temperature),
+		Angle:       int32(d.Angle),
+		Count:       int32(d.Count),
+		Data:        int32(d.Data),
+	}
+}
+
+// translateDimensionsFromPB converts *arctypes.PBDimensions to arctypes.Dimensions
+func translateDimensionsFromPB(pb *arctypes.PBDimensions) arctypes.Dimensions {
+	if pb == nil {
+		return arctypes.Dimensions{}
+	}
+	return arctypes.Dimensions{
+		Length:      int8(pb.Length),
+		Mass:        int8(pb.Mass),
+		Time:        int8(pb.Time),
+		Current:     int8(pb.Current),
+		Temperature: int8(pb.Temperature),
+		Angle:       int8(pb.Angle),
+		Count:       int8(pb.Count),
+		Data:        int8(pb.Data),
 	}
 }
 

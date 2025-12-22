@@ -99,7 +99,7 @@ struct Edge {
     [[nodiscard]] std::string to_string() const {
         const std::string arrow = kind == EdgeKind::OneShot ? " => " : " -> ";
         const std::string kind_str = kind == EdgeKind::OneShot ? "oneshot"
-                                                                 : "continuous";
+                                                               : "continuous";
         return source.to_string() + arrow + target.to_string() + " (" + kind_str + ")";
     }
 
@@ -137,7 +137,6 @@ struct Param {
         type.to_proto(pb->mutable_type());
         if (!value.is_null()) arc::proto::json_to_pb_value(value, pb->mutable_value());
     }
-
 
     [[nodiscard]] std::string to_string() const {
         std::string result = name + " (" + type.to_string() + ")";
@@ -390,7 +389,6 @@ struct Strata {
         }
     }
 
-
     /// @brief Returns the string representation of the strata.
     [[nodiscard]] std::string to_string() const { return to_string_with_prefix(""); }
 
@@ -448,8 +446,7 @@ struct Stage {
             ss << nodes[i];
         }
         ss << "]";
-        if (!strata.strata.empty())
-            ss << "\n" << strata.to_string_with_prefix(prefix);
+        if (!strata.strata.empty()) ss << "\n" << strata.to_string_with_prefix(prefix);
         return ss.str();
     }
 
@@ -673,8 +670,11 @@ private:
         }
     }
 
-    void
-    write_nodes(std::ostringstream &ss, const std::string &prefix, const bool last) const {
+    void write_nodes(
+        std::ostringstream &ss,
+        const std::string &prefix,
+        const bool last
+    ) const {
         ss << prefix << tree_prefix(last) << "Nodes (" << nodes.size() << ")\n";
         const std::string child_prefix = prefix + tree_indent(last);
         for (size_t i = 0; i < nodes.size(); ++i) {
@@ -684,8 +684,11 @@ private:
         }
     }
 
-    void
-    write_edges(std::ostringstream &ss, const std::string &prefix, const bool last) const {
+    void write_edges(
+        std::ostringstream &ss,
+        const std::string &prefix,
+        const bool last
+    ) const {
         ss << prefix << tree_prefix(last) << "Edges (" << edges.size() << ")\n";
         const std::string child_prefix = prefix + tree_indent(last);
         for (size_t i = 0; i < edges.size(); ++i) {
@@ -694,8 +697,11 @@ private:
         }
     }
 
-    void
-    write_strata(std::ostringstream &ss, const std::string &prefix, const bool last) const {
+    void write_strata(
+        std::ostringstream &ss,
+        const std::string &prefix,
+        const bool last
+    ) const {
         ss << prefix << tree_prefix(last) << "Strata (" << strata.strata.size()
            << " layers)\n";
         const std::string child_prefix = prefix + tree_indent(last);
