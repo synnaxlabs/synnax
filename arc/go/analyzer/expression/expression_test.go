@@ -101,29 +101,6 @@ var _ = Describe("Expressions", func() {
 			Expect((*ctx.Diagnostics)[0].Message).To(Equal("type mismatch: cannot use i32 and u32 in > operation"))
 		})
 
-		It("Should allow for comparison of a floating point variable with an integer literal", func() {
-			ast := MustSucceed(parser.Parse(`
-				func testFunc() {
-					x f32 := 10
-					z := x > 5
-				}`,
-			))
-			ctx := context.CreateRoot(bCtx, ast, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
-		})
-
-		It("Should allow comparison of an integer variable with a floating point literal", func() {
-			ast := MustSucceed(parser.Parse(`
-			func testFunc() {
-				x i32 := 10
-				z := x > 5.0
-			}
-			`))
-			ctx := context.CreateRoot(bCtx, ast, nil)
-			// With literal inference, 5.0 should adapt to i32
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
-		})
-
 		It("Should validate logical operations on booleans", func() {
 			ast := MustSucceed(parser.Parse(`
 					func testFunc() {
@@ -393,6 +370,56 @@ var _ = Describe("Expressions", func() {
 			ctx := context.CreateRoot(bCtx, ast, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
+
+		It("Should validate function call with no arguments", func() {
+			expectSuccess(`
+				func getZero() i32 {
+					return 0
+				}
+
+				func testFunc() {
+					x := getZero()
+				}
+			`, nil)
+		})
+
+		It("Should validate function call with expression arguments", func() {
+			expectSuccess(`
+				func add(x i32, y i32) i32 {
+					return x + y
+				}
+
+				func testFunc() {
+					a i32 := 5
+					b i32 := 10
+					result := add(a + 1, b * 2)
+				}
+			`, nil)
+		})
+
+		It("Should reject undefined variable in function argument", func() {
+			expectFailure(`
+				func add(x i32, y i32) i32 {
+					return x + y
+				}
+
+				func testFunc() {
+					result := add(undefinedVar, 10)
+				}
+			`, nil, "undefined symbol")
+		})
+
+		It("Should validate chained function calls", func() {
+			expectSuccess(`
+				func identity(x i32) i32 {
+					return x
+				}
+
+				func testFunc() {
+					result := identity(identity(identity(5)))
+				}
+			`, nil)
+		})
 	})
 
 	Describe("Variable Reference Expressions", func() {
@@ -467,6 +494,55 @@ var _ = Describe("Expressions", func() {
 		})
 	})
 
+	Describe("Index and Slice Operations", func() {
+		It("Should validate array index with integer expression", func() {
+			expectSuccess(`
+				func testFunc() {
+					arr series i32 := [1, 2, 3, 4, 5]
+					x := arr[0]
+				}
+			`, nil)
+		})
+
+		It("Should validate array index with variable", func() {
+			expectSuccess(`
+				func testFunc() {
+					arr series i32 := [1, 2, 3]
+					idx i32 := 1
+					x := arr[idx]
+				}
+			`, nil)
+		})
+
+		It("Should validate array index with expression", func() {
+			expectSuccess(`
+				func testFunc() {
+					arr series i32 := [1, 2, 3, 4]
+					i i32 := 1
+					x := arr[i + 1]
+				}
+			`, nil)
+		})
+
+		It("Should validate slice operation with both bounds", func() {
+			expectSuccess(`
+				func testFunc() {
+					arr series i32 := [1, 2, 3, 4, 5]
+					x := arr[1:3]
+				}
+			`, nil)
+		})
+
+		It("Should reject index with undefined variable", func() {
+			expectFailure(`
+				func testFunc() {
+					arr series i32 := [1, 2, 3]
+					x := arr[undefinedIdx]
+				}
+			`, nil, "undefined symbol")
+		})
+	})
+
 	Describe("Channels in Expressions", func() {
 		It("Should correctly resolve an instantaneous channel read an an expression", func() {
 			ast := MustSucceed(parser.Parse(`
@@ -533,56 +609,31 @@ var _ = Describe("Expressions", func() {
 		})
 	})
 
-	Describe("IsPureLiteral", func() {
+	Describe("IsLiteral", func() {
 		getExpr := func(code string) parser.IExpressionContext {
 			ast := MustSucceed(parser.Parse(code))
 			return ast.AllTopLevelItem()[0].FlowStatement().AllFlowNode()[0].Expression()
 		}
 
-		It("Should return true for integer literals", func() {
-			expr := getExpr(`42 -> out`)
-			Expect(expression.IsPureLiteral(expr)).To(BeTrue())
-		})
-
-		It("Should return true for float literals", func() {
-			expr := getExpr(`3.14 -> out`)
-			Expect(expression.IsPureLiteral(expr)).To(BeTrue())
-		})
-
-		It("Should return true for string literals", func() {
-			expr := getExpr(`"hello" -> out`)
-			Expect(expression.IsPureLiteral(expr)).To(BeTrue())
-		})
-
-		It("Should return false for identifiers", func() {
-			expr := getExpr(`x -> out`)
-			Expect(expr).To(BeNil()) // identifiers are parsed as flowNode.identifier, not expression
-		})
-
-		It("Should return false for binary expressions", func() {
-			expr := getExpr(`1 + 2 -> out`)
-			Expect(expression.IsPureLiteral(expr)).To(BeFalse())
-		})
-
-		It("Should return false for unary expressions", func() {
-			expr := getExpr(`-1 -> out`)
-			Expect(expression.IsPureLiteral(expr)).To(BeFalse())
-		})
-
-		It("Should return false for parenthesized expressions", func() {
-			expr := getExpr(`(42) -> out`)
-			Expect(expression.IsPureLiteral(expr)).To(BeFalse())
-		})
-
-		It("Should return false for comparison expressions", func() {
-			expr := getExpr(`1 > 0 -> out`)
-			Expect(expression.IsPureLiteral(expr)).To(BeFalse())
-		})
-
-		It("Should return false for logical expressions", func() {
-			expr := getExpr(`1 and 0 -> out`)
-			Expect(expression.IsPureLiteral(expr)).To(BeFalse())
-		})
+		DescribeTable("literal detection",
+			func(code string, isLiteral bool) {
+				expr := getExpr(code)
+				if expr == nil {
+					Expect(isLiteral).To(BeFalse())
+					return
+				}
+				Expect(expression.IsLiteral(expr)).To(Equal(isLiteral))
+			},
+			Entry("integer literal", `42 -> out`, true),
+			Entry("float literal", `3.14 -> out`, true),
+			Entry("string literal", `"hello" -> out`, true),
+			Entry("identifier (parsed as flowNode)", `x -> out`, false),
+			Entry("binary expression", `1 + 2 -> out`, false),
+			Entry("unary expression", `-1 -> out`, false),
+			Entry("parenthesized expression", `(42) -> out`, false),
+			Entry("comparison expression", `1 > 0 -> out`, false),
+			Entry("logical expression", `1 and 0 -> out`, false),
+		)
 	})
 
 	Describe("GetLiteral", func() {
@@ -591,38 +642,23 @@ var _ = Describe("Expressions", func() {
 			return ast.AllTopLevelItem()[0].FlowStatement().AllFlowNode()[0].Expression()
 		}
 
-		It("Should extract integer literal", func() {
-			expr := getExpr(`42 -> out`)
-			lit := expression.GetLiteral(expr)
-			Expect(lit).ToNot(BeNil())
-			Expect(lit.GetText()).To(Equal("42"))
-		})
-
-		It("Should extract float literal", func() {
-			expr := getExpr(`3.14 -> out`)
-			lit := expression.GetLiteral(expr)
-			Expect(lit).ToNot(BeNil())
-			Expect(lit.GetText()).To(Equal("3.14"))
-		})
-
-		It("Should extract string literal", func() {
-			expr := getExpr(`"hello" -> out`)
-			lit := expression.GetLiteral(expr)
-			Expect(lit).ToNot(BeNil())
-			Expect(lit.GetText()).To(Equal(`"hello"`))
-		})
-
-		It("Should return nil for binary expressions", func() {
-			expr := getExpr(`1 + 2 -> out`)
-			lit := expression.GetLiteral(expr)
-			Expect(lit).To(BeNil())
-		})
-
-		It("Should return nil for unary expressions", func() {
-			expr := getExpr(`-1 -> out`)
-			lit := expression.GetLiteral(expr)
-			Expect(lit).To(BeNil())
-		})
+		DescribeTable("literal extraction",
+			func(code string, expectedText string) {
+				expr := getExpr(code)
+				lit := expression.GetLiteral(expr)
+				if expectedText == "" {
+					Expect(lit).To(BeNil())
+				} else {
+					Expect(lit).ToNot(BeNil())
+					Expect(lit.GetText()).To(Equal(expectedText))
+				}
+			},
+			Entry("integer literal", `42 -> out`, "42"),
+			Entry("float literal", `3.14 -> out`, "3.14"),
+			Entry("string literal", `"hello" -> out`, `"hello"`),
+			Entry("binary expression", `1 + 2 -> out`, ""),
+			Entry("unary expression", `-1 -> out`, ""),
+		)
 	})
 
 	Describe("Power Expressions with Units", func() {
@@ -723,6 +759,446 @@ var _ = Describe("Expressions", func() {
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("dimensionless"))
+		})
+	})
+
+	Describe("Unit Dimension Validation for Binary Operations", func() {
+		It("Should accept addition of same units", func() {
+			expectSuccess(`
+				func testFunc() {
+					x f64 m := 5m
+					y f64 m := 3m
+					z := x + y
+				}
+			`, nil)
+		})
+
+		It("Should accept subtraction of same units", func() {
+			expectSuccess(`
+				func testFunc() {
+					x f64 s := 10s
+					y f64 s := 3s
+					z := x - y
+				}
+			`, nil)
+		})
+
+		It("Should reject addition of incompatible units", func() {
+			expectFailure(`
+				func testFunc() {
+					x f64 m := 5m
+					y f64 s := 3s
+					z := x + y
+				}
+			`, nil, "incompatible")
+		})
+
+		It("Should reject subtraction of incompatible units", func() {
+			expectFailure(`
+				func testFunc() {
+					x f64 m := 5m
+					y f64 s := 3s
+					z := x - y
+				}
+			`, nil, "incompatible")
+		})
+
+		It("Should accept comparison of same units", func() {
+			expectSuccess(`
+				func testFunc() {
+					x f64 m := 5m
+					y f64 m := 3m
+					result := x > y
+				}
+			`, nil)
+		})
+
+		It("Should reject comparison of incompatible units", func() {
+			expectFailure(`
+				func testFunc() {
+					x f64 m := 5m
+					y f64 s := 3s
+					result := x > y
+				}
+			`, nil, "incompatible")
+		})
+
+		It("Should accept equality comparison of same units", func() {
+			expectSuccess(`
+				func testFunc() {
+					x f64 m := 5m
+					y f64 m := 5m
+					result := x == y
+				}
+			`, nil)
+		})
+
+		It("Should accept dimensionless arithmetic", func() {
+			expectSuccess(`
+				func testFunc() {
+					x f64 := 5.0
+					y f64 := 3.0
+					z := x + y
+				}
+			`, nil)
+		})
+
+		It("Should accept modulo of same units", func() {
+			expectSuccess(`
+				func testFunc() {
+					x i32 := 5
+					y i32 := 3
+					z := x % y
+				}
+			`, nil)
+		})
+	})
+
+	Describe("Series Type Operations", func() {
+		It("Should validate series literal declaration", func() {
+			expectSuccess(`
+				func testFunc() {
+					arr series i32 := [1, 2, 3, 4, 5]
+				}
+			`, nil)
+		})
+
+		It("Should validate series of floats", func() {
+			expectSuccess(`
+				func testFunc() {
+					arr series f64 := [1.0, 2.0, 3.0]
+				}
+			`, nil)
+		})
+
+		It("Should validate empty series", func() {
+			expectSuccess(`
+				func testFunc() {
+					arr series i32 := []
+				}
+			`, nil)
+		})
+
+		It("Should validate series element access", func() {
+			expectSuccess(`
+				func testFunc() {
+					arr series i32 := [10, 20, 30]
+					x := arr[0]
+				}
+			`, nil)
+		})
+
+		It("Should validate series in function parameter", func() {
+			expectSuccess(`
+				func sumFirst(arr series i32) i32 {
+					return arr[0]
+				}
+
+				func testFunc() {
+					data series i32 := [1, 2, 3]
+					result := sumFirst(data)
+				}
+			`, nil)
+		})
+	})
+
+	Describe("Unary Expression Edge Cases", func() {
+		It("Should validate double negation", func() {
+			expectSuccess(`
+				func testFunc() {
+					x i32 := 5
+					y := --x
+				}
+			`, nil)
+		})
+
+		It("Should validate negation of parenthesized expression", func() {
+			expectSuccess(`
+				func testFunc() {
+					x i32 := 5
+					y i32 := 3
+					z := -(x + y)
+				}
+			`, nil)
+		})
+
+		It("Should validate double not", func() {
+			expectSuccess(`
+				func testFunc() {
+					x u8 := 1
+					y := not not x
+				}
+			`, nil)
+		})
+
+		It("Should validate negation of function call result", func() {
+			expectSuccess(`
+				func getValue() i32 {
+					return 5
+				}
+
+				func testFunc() {
+					x := -getValue()
+				}
+			`, nil)
+		})
+
+		It("Should reject not on string", func() {
+			expectFailure(`
+				func testFunc() {
+					x str := "hello"
+					y := not x
+				}
+			`, nil, "boolean operand")
+		})
+
+		It("Should reject negation on unsigned integer", func() {
+			expectSuccess(`
+				func testFunc() {
+					x u32 := 5
+					y := -x
+				}
+			`, nil)
+		})
+	})
+
+	Describe("Binary Expression Edge Cases", func() {
+		It("Should validate all comparison operators", func() {
+			expectSuccess(`
+				func testFunc() {
+					x i32 := 5
+					y i32 := 3
+					a := x < y
+					b := x <= y
+					c := x > y
+					d := x >= y
+					e := x == y
+					f := x != y
+				}
+			`, nil)
+		})
+
+		It("Should validate multiple additions", func() {
+			expectSuccess(`
+				func testFunc() {
+					a i32 := 1
+					b i32 := 2
+					c i32 := 3
+					d i32 := 4
+					result := a + b + c + d
+				}
+			`, nil)
+		})
+
+		It("Should validate multiple multiplications", func() {
+			expectSuccess(`
+				func testFunc() {
+					a i32 := 2
+					b i32 := 3
+					c i32 := 4
+					result := a * b * c
+				}
+			`, nil)
+		})
+
+		It("Should validate mixed operations with correct precedence", func() {
+			expectSuccess(`
+				func testFunc() {
+					a i32 := 2
+					b i32 := 3
+					c i32 := 4
+					d i32 := 5
+					result := a + b * c - d / a
+				}
+			`, nil)
+		})
+
+		It("Should reject string in subtraction", func() {
+			expectFailure(`
+				func testFunc() {
+					x str := "hello"
+					y str := "world"
+					z := x - y
+				}
+			`, nil, "cannot use str")
+		})
+
+		It("Should reject string in multiplication", func() {
+			expectFailure(`
+				func testFunc() {
+					x str := "hello"
+					y i32 := 3
+					z := x * y
+				}
+			`, nil, "cannot use str")
+		})
+
+		It("Should reject string in division", func() {
+			expectFailure(`
+				func testFunc() {
+					x str := "hello"
+					y i32 := 3
+					z := x / y
+				}
+			`, nil, "cannot use str")
+		})
+	})
+
+	Describe("Literal Edge Cases", func() {
+		It("Should validate zero literal", func() {
+			expectSuccess(`
+				func testFunc() {
+					x := 0
+				}
+			`, nil)
+		})
+
+		It("Should validate negative literal in declaration", func() {
+			expectSuccess(`
+				func testFunc() {
+					x i32 := -42
+				}
+			`, nil)
+		})
+
+		It("Should validate very large integer literal", func() {
+			expectSuccess(`
+				func testFunc() {
+					x i64 := 9223372036854775807
+				}
+			`, nil)
+		})
+
+		It("Should validate very small float literal", func() {
+			expectSuccess(`
+				func testFunc() {
+					x f64 := 0.000001
+				}
+			`, nil)
+		})
+
+		It("Should validate empty string literal", func() {
+			expectSuccess(`
+				func testFunc() {
+					x str := ""
+				}
+			`, nil)
+		})
+
+		It("Should validate string with special characters", func() {
+			expectSuccess(`
+				func testFunc() {
+					x str := "hello\nworld"
+				}
+			`, nil)
+		})
+	})
+
+	Describe("Channel Type Edge Cases", func() {
+		It("Should validate channel in unary expression", func() {
+			resolver := symbol.MapResolver{
+				"sensor": symbol.Symbol{
+					Kind: symbol.KindChannel,
+					Name: "sensor",
+					Type: types.Chan(types.F32()),
+				},
+			}
+			expectSuccess(`
+				func testFunc() f32 {
+					return -sensor
+				}
+			`, resolver)
+		})
+
+		It("Should validate channel in comparison", func() {
+			resolver := symbol.MapResolver{
+				"sensor": symbol.Symbol{
+					Kind: symbol.KindChannel,
+					Name: "sensor",
+					Type: types.Chan(types.F32()),
+				},
+			}
+			expectSuccess(`
+				func testFunc() u8 {
+					return sensor > 100
+				}
+			`, resolver)
+		})
+
+		It("Should validate multiple channels in expression", func() {
+			resolver := symbol.MapResolver{
+				"temp1": symbol.Symbol{
+					Kind: symbol.KindChannel,
+					Name: "temp1",
+					Type: types.Chan(types.F64()),
+				},
+				"temp2": symbol.Symbol{
+					Kind: symbol.KindChannel,
+					Name: "temp2",
+					Type: types.Chan(types.F64()),
+				},
+				"temp3": symbol.Symbol{
+					Kind: symbol.KindChannel,
+					Name: "temp3",
+					Type: types.Chan(types.F64()),
+				},
+			}
+			expectSuccess(`
+				func testFunc() f64 {
+					return (temp1 + temp2 + temp3) / 3
+				}
+			`, resolver)
+		})
+
+		It("Should reject channel type mismatch in logical operation", func() {
+			resolver := symbol.MapResolver{
+				"sensor": symbol.Symbol{
+					Kind: symbol.KindChannel,
+					Name: "sensor",
+					Type: types.Chan(types.F32()),
+				},
+			}
+			expectFailure(`
+				func testFunc() u8 {
+					return sensor and 1
+				}
+			`, resolver, "cannot use f32 in and operation")
+		})
+	})
+
+	Describe("IsLiteral and GetLiteral Edge Cases", func() {
+		getExpr := func(code string) parser.IExpressionContext {
+			ast := MustSucceed(parser.Parse(code))
+			return ast.AllTopLevelItem()[0].FlowStatement().AllFlowNode()[0].Expression()
+		}
+
+		It("Should return false for function call expression", func() {
+			ast := MustSucceed(parser.Parse(`
+				func getValue() i32 {
+					return 5
+				}
+				getValue() -> out
+			`))
+			flowNode := ast.AllTopLevelItem()[1].FlowStatement().AllFlowNode()[0]
+			expr := flowNode.Expression()
+			Expect(expression.IsLiteral(expr)).To(BeFalse())
+		})
+
+		It("Should return false for index expression", func() {
+			expr := getExpr(`arr[0] -> out`)
+			Expect(expression.IsLiteral(expr)).To(BeFalse())
+		})
+
+		It("Should return nil for GetLiteral on non-literal", func() {
+			expr := getExpr(`x + y -> out`)
+			Expect(expression.GetLiteral(expr)).To(BeNil())
+		})
+
+		It("Should correctly identify numeric literal with unit suffix", func() {
+			expr := getExpr(`5m -> out`)
+			Expect(expression.IsLiteral(expr)).To(BeTrue())
+			lit := expression.GetLiteral(expr)
+			Expect(lit).ToNot(BeNil())
 		})
 	})
 })

@@ -142,9 +142,28 @@ func InferFromUnaryExpression(ctx context.Context[parser.IUnaryExpressionContext
 
 func inferPostfixType(ctx context.Context[parser.IPostfixExpressionContext]) types.Type {
 	if primary := ctx.AST.PrimaryExpression(); primary != nil {
-		// TODO: Handle function calls and indexing which might change the type
-		// See https://linear.app/synnax/issue/SY-3177/handle-function-calls-in-arc
-		return inferPrimaryType(context.Child(ctx, primary))
+		primaryType := inferPrimaryType(context.Child(ctx, primary))
+
+		// Handle function call suffixes - return the function's return type
+		funcCalls := ctx.AST.AllFunctionCallSuffix()
+		if len(funcCalls) > 0 && primaryType.Kind == types.KindFunction {
+			// Get the return type of the function
+			if len(primaryType.Outputs) > 0 {
+				return primaryType.Outputs[0].Type
+			}
+			// Function with no return type
+			return types.Type{}
+		}
+
+		// Handle index/slice operations - return the element type for series
+		indexOps := ctx.AST.AllIndexOrSlice()
+		if len(indexOps) > 0 && primaryType.Kind == types.KindSeries {
+			if primaryType.Elem != nil {
+				return *primaryType.Elem
+			}
+		}
+
+		return primaryType
 	}
 	return types.Type{}
 }

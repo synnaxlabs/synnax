@@ -451,10 +451,11 @@ func (t Type) Unwrap() Type {
 // IsValid returns true if the type is not invalid or uninitialized.
 func (t *Type) IsValid() bool { return t.Kind != KindInvalid }
 
-// Equal compares two types for structural equality.
+// Equal compares two types for strict structural equality, including units.
 // For compound types (chan, series), it recursively compares value types.
 // For type variables, it compares names and constraints.
 // For function types, it compares inputs, outputs, and config parameters.
+// For numeric types with units, units must match exactly.
 func Equal(t Type, v Type) bool {
 	if t.Kind != v.Kind {
 		return false

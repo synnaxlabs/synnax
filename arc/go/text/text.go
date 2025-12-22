@@ -611,7 +611,7 @@ func extractConfigValues(
 		}
 
 		// Must be a pure literal (no operators, function calls, etc.)
-		if !expression.IsPureLiteral(expr) {
+		if !expression.IsLiteral(expr) {
 			ctx.Diagnostics.AddError(
 				fmt.Errorf("config value for '%s' must be a literal", paramName),
 				expr,
