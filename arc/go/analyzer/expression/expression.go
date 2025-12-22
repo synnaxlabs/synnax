@@ -517,13 +517,6 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) bool 
 	return true
 }
 
-// isValidCast checks if a type cast from source to target is allowed.
-// Valid casts include:
-// - Any numeric type to any other numeric type (including u8/bool)
-// - Same type to same type
-// Invalid casts include:
-// - String to numeric types
-// - Numeric types to string
 func isValidCast(source, target basetypes.Type) bool {
 	// Constraint unification will handle type variables
 	if source.Kind == basetypes.KindVariable || target.Kind == basetypes.KindVariable {
@@ -535,6 +528,5 @@ func isValidCast(source, target basetypes.Type) bool {
 	if source.Kind == basetypes.KindString || target.Kind == basetypes.KindString {
 		return false
 	}
-	// All numeric types (including u8/bool) can be cast to each other
 	return source.IsNumeric() && target.IsNumeric()
 }
