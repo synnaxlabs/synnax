@@ -20,33 +20,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var pressResolver = symbol.MapResolver{
-	"press_vlv_cmd": arc.Symbol{
-		Name: "press_vlv_cmd",
-		Kind: symbol.KindChannel,
-		Type: types.Chan(types.U8()),
-		ID:   1,
-	},
-	"vent_vlv_cmd": arc.Symbol{
-		Name: "vent_vlv_cmd",
-		Kind: symbol.KindChannel,
-		Type: types.Chan(types.U8()),
-		ID:   1,
-	},
-	"press_pt": arc.Symbol{
-		Name: "press_pt",
-		Kind: symbol.KindChannel,
-		Type: types.Chan(types.F32()),
-		ID:   2,
-	},
-	"start_seq_cmd": arc.Symbol{
-		Name: "start_seq_cmd",
-		Kind: symbol.KindChannel,
-		Type: types.Chan(types.U8()),
-		ID:   3,
-	},
-}
-
 var _ = Describe("Arc", func() {
 	compile := func(code string, resolver arc.SymbolResolver) arc.Module {
 		t := arc.Text{Raw: code}
