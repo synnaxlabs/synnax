@@ -41,7 +41,7 @@ var _ = Describe("Analysis", func() {
 				left := types.Type{Kind: types.KindF64, Unit: psiUnit}
 				right := types.Type{Kind: types.KindF64, Unit: paUnit}
 
-				result, err := units.CheckBinaryOp("+", left, right)
+				result, err := units.CheckBinaryOp("+", left, right, nil)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result.Kind).To(Equal(types.KindF64))
 				Expect(result.Unit).ToNot(BeNil())
@@ -52,7 +52,7 @@ var _ = Describe("Analysis", func() {
 				left := types.Type{Kind: types.KindF64, Unit: psiUnit}
 				right := types.Type{Kind: types.KindF64, Unit: secondUnit}
 
-				_, err := units.CheckBinaryOp("+", left, right)
+				_, err := units.CheckBinaryOp("+", left, right, nil)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("incompatible dimensions"))
 			})
@@ -61,7 +61,7 @@ var _ = Describe("Analysis", func() {
 				left := types.Type{Kind: types.KindF64} // dimensionless
 				right := types.Type{Kind: types.KindF64, Unit: psiUnit}
 
-				result, err := units.CheckBinaryOp("+", left, right)
+				result, err := units.CheckBinaryOp("+", left, right, nil)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result.Unit).To(Equal(psiUnit))
 			})
@@ -70,7 +70,7 @@ var _ = Describe("Analysis", func() {
 				left := types.Type{Kind: types.KindF64, Unit: psiUnit}
 				right := types.Type{Kind: types.KindF64, Unit: paUnit}
 
-				result, err := units.CheckBinaryOp("-", left, right)
+				result, err := units.CheckBinaryOp("-", left, right, nil)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result.Unit.Dimensions).To(Equal(types.DimPressure))
 			})
@@ -81,7 +81,7 @@ var _ = Describe("Analysis", func() {
 				left := types.Type{Kind: types.KindF64, Unit: meterUnit}
 				right := types.Type{Kind: types.KindF64, Unit: meterUnit}
 
-				result, err := units.CheckBinaryOp("*", left, right)
+				result, err := units.CheckBinaryOp("*", left, right, nil)
 				Expect(err).ToNot(HaveOccurred())
 				// m * m = m^2
 				Expect(result.Unit.Dimensions.Length).To(Equal(int8(2)))
@@ -91,7 +91,7 @@ var _ = Describe("Analysis", func() {
 				left := types.Type{Kind: types.KindF64, Unit: meterUnit}
 				right := types.Type{Kind: types.KindF64, Unit: secondUnit}
 
-				result, err := units.CheckBinaryOp("/", left, right)
+				result, err := units.CheckBinaryOp("/", left, right, nil)
 				Expect(err).ToNot(HaveOccurred())
 				// m / s = velocity
 				Expect(result.Unit.Dimensions).To(Equal(types.DimVelocity))
@@ -101,7 +101,7 @@ var _ = Describe("Analysis", func() {
 				left := types.Type{Kind: types.KindF64, Unit: meterUnit}
 				right := types.Type{Kind: types.KindF64, Unit: meterUnit}
 
-				result, err := units.CheckBinaryOp("/", left, right)
+				result, err := units.CheckBinaryOp("/", left, right, nil)
 				Expect(err).ToNot(HaveOccurred())
 				// m / m = dimensionless
 				Expect(result.Unit).To(BeNil())
@@ -111,7 +111,7 @@ var _ = Describe("Analysis", func() {
 				left := types.Type{Kind: types.KindF64}
 				right := types.Type{Kind: types.KindF64}
 
-				result, err := units.CheckBinaryOp("*", left, right)
+				result, err := units.CheckBinaryOp("*", left, right, nil)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result.Unit).To(BeNil())
 			})
@@ -120,7 +120,7 @@ var _ = Describe("Analysis", func() {
 				left := types.Type{Kind: types.KindF64, Unit: meterUnit}
 				right := types.Type{Kind: types.KindF64} // dimensionless
 
-				result, err := units.CheckBinaryOp("*", left, right)
+				result, err := units.CheckBinaryOp("*", left, right, nil)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result.Unit.Dimensions).To(Equal(types.DimLength))
 			})
@@ -131,7 +131,7 @@ var _ = Describe("Analysis", func() {
 				left := types.Type{Kind: types.KindF64, Unit: meterUnit}
 				right := types.Type{Kind: types.KindF64, Unit: secondUnit}
 
-				result, err := units.CheckBinaryOp("/", left, right)
+				result, err := units.CheckBinaryOp("/", left, right, nil)
 				Expect(err).ToNot(HaveOccurred())
 				// m / s = m*s^-1
 				Expect(result.Unit.Dimensions.Length).To(Equal(int8(1)))
@@ -142,7 +142,7 @@ var _ = Describe("Analysis", func() {
 				left := types.Type{Kind: types.KindF64} // dimensionless (1)
 				right := types.Type{Kind: types.KindF64, Unit: secondUnit}
 
-				result, err := units.CheckBinaryOp("/", left, right)
+				result, err := units.CheckBinaryOp("/", left, right, nil)
 				Expect(err).ToNot(HaveOccurred())
 				// 1 / s = Hz
 				Expect(result.Unit.Dimensions).To(Equal(types.DimFrequency))
@@ -154,25 +154,58 @@ var _ = Describe("Analysis", func() {
 				left := types.Type{Kind: types.KindF64, Unit: meterUnit}
 				right := types.Type{Kind: types.KindF64, Unit: secondUnit}
 
-				_, err := units.CheckBinaryOp("^", left, right)
+				_, err := units.CheckBinaryOp("^", left, right, nil)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("dimensionless"))
 			})
 
-			It("Should allow dimensionless exponent", func() {
+			It("Should reject non-literal exponent with dimensioned base", func() {
 				left := types.Type{Kind: types.KindF64, Unit: meterUnit}
-				right := types.Type{Kind: types.KindF64} // dimensionless
+				right := types.Type{Kind: types.KindF64} // dimensionless but not literal
 
-				result, err := units.CheckBinaryOp("^", left, right)
+				_, err := units.CheckBinaryOp("^", left, right, nil)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("literal integer exponent"))
+			})
+
+			It("Should scale dimensions with literal exponent", func() {
+				left := types.Type{Kind: types.KindF64, Unit: meterUnit}
+				right := types.Type{Kind: types.KindF64}
+				exp := 2
+
+				result, err := units.CheckBinaryOp("^", left, right, &exp)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(result.Unit.Dimensions).To(Equal(types.DimLength))
+				// m^2 = length^2
+				Expect(result.Unit.Dimensions.Length).To(Equal(int8(2)))
+			})
+
+			It("Should handle negative exponents", func() {
+				left := types.Type{Kind: types.KindF64, Unit: secondUnit}
+				right := types.Type{Kind: types.KindF64}
+				exp := -2
+
+				result, err := units.CheckBinaryOp("^", left, right, &exp)
+				Expect(err).ToNot(HaveOccurred())
+				// s^-2 = time^-2
+				Expect(result.Unit.Dimensions.Time).To(Equal(int8(-2)))
+			})
+
+			It("Should return dimensionless for exponent 0", func() {
+				left := types.Type{Kind: types.KindF64, Unit: meterUnit}
+				right := types.Type{Kind: types.KindF64}
+				exp := 0
+
+				result, err := units.CheckBinaryOp("^", left, right, &exp)
+				Expect(err).ToNot(HaveOccurred())
+				// m^0 = dimensionless
+				Expect(result.Unit).To(BeNil())
 			})
 
 			It("Should allow dimensionless base and exponent", func() {
 				left := types.Type{Kind: types.KindF64}
 				right := types.Type{Kind: types.KindF64}
 
-				result, err := units.CheckBinaryOp("^", left, right)
+				result, err := units.CheckBinaryOp("^", left, right, nil)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result.Unit).To(BeNil())
 			})
@@ -183,7 +216,7 @@ var _ = Describe("Analysis", func() {
 				left := types.Type{Kind: types.KindF64, Unit: psiUnit}
 				right := types.Type{Kind: types.KindF64, Unit: paUnit}
 
-				result, err := units.CheckBinaryOp(">", left, right)
+				result, err := units.CheckBinaryOp(">", left, right, nil)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result.Kind).To(Equal(types.KindU8)) // boolean
 				Expect(result.Unit).To(BeNil())
@@ -193,7 +226,7 @@ var _ = Describe("Analysis", func() {
 				left := types.Type{Kind: types.KindF64, Unit: psiUnit}
 				right := types.Type{Kind: types.KindF64, Unit: secondUnit}
 
-				_, err := units.CheckBinaryOp("<", left, right)
+				_, err := units.CheckBinaryOp("<", left, right, nil)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("incompatible dimensions"))
 			})
@@ -202,7 +235,7 @@ var _ = Describe("Analysis", func() {
 				left := types.Type{Kind: types.KindF64}
 				right := types.Type{Kind: types.KindF64}
 
-				result, err := units.CheckBinaryOp("==", left, right)
+				result, err := units.CheckBinaryOp("==", left, right, nil)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result.Kind).To(Equal(types.KindU8))
 			})
@@ -211,21 +244,31 @@ var _ = Describe("Analysis", func() {
 				left := types.Type{Kind: types.KindF64, Unit: psiUnit}
 				right := types.Type{Kind: types.KindF64}
 
-				result, err := units.CheckBinaryOp(">=", left, right)
+				result, err := units.CheckBinaryOp(">=", left, right, nil)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result.Kind).To(Equal(types.KindU8))
 			})
 		})
 
 		Context("Modulo", func() {
-			It("Should follow division rules", func() {
+			It("Should follow additive rules - keep dimensions", func() {
 				left := types.Type{Kind: types.KindF64, Unit: meterUnit}
 				right := types.Type{Kind: types.KindF64, Unit: meterUnit}
 
-				result, err := units.CheckBinaryOp("%", left, right)
+				result, err := units.CheckBinaryOp("%", left, right, nil)
 				Expect(err).ToNot(HaveOccurred())
-				// m % m = dimensionless (same as m / m)
-				Expect(result.Unit).To(BeNil())
+				// m % m = m (remainder of length is still length)
+				Expect(result.Unit).ToNot(BeNil())
+				Expect(result.Unit.Dimensions).To(Equal(types.DimLength))
+			})
+
+			It("Should reject incompatible dimensions", func() {
+				left := types.Type{Kind: types.KindF64, Unit: meterUnit}
+				right := types.Type{Kind: types.KindF64, Unit: secondUnit}
+
+				_, err := units.CheckBinaryOp("%", left, right, nil)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("incompatible dimensions"))
 			})
 		})
 	})

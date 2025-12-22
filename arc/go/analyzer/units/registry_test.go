@@ -43,6 +43,14 @@ var _ = Describe("Registry", func() {
 				Expect(u.Dimensions).To(Equal(types.DimTime))
 			})
 
+			It("Should find minutes", func() {
+				u, ok := units.Lookup("min")
+				Expect(ok).To(BeTrue())
+				Expect(u.Name).To(Equal("min"))
+				Expect(u.Scale).To(Equal(60e9)) // 1min = 60 billion ns
+				Expect(u.Dimensions).To(Equal(types.DimTime))
+			})
+
 			It("Should find hours", func() {
 				u, ok := units.Lookup("h")
 				Expect(ok).To(BeTrue())
@@ -105,6 +113,14 @@ var _ = Describe("Registry", func() {
 		})
 
 		Context("Length units", func() {
+			It("Should find m (meters)", func() {
+				u, ok := units.Lookup("m")
+				Expect(ok).To(BeTrue())
+				Expect(u.Name).To(Equal("m"))
+				Expect(u.Scale).To(Equal(1.0))
+				Expect(u.Dimensions).To(Equal(types.DimLength))
+			})
+
 			It("Should find km", func() {
 				u, ok := units.Lookup("km")
 				Expect(ok).To(BeTrue())

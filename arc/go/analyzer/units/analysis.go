@@ -18,6 +18,11 @@ import (
 // It returns the resulting type with appropriate unit metadata, or an error
 // if the operation is dimensionally invalid.
 //
+// The literalExp parameter is only used for power operations (^). When the
+// exponent is a compile-time integer literal, pass its value here to enable
+// proper dimensional scaling (e.g., m^2 → length²). Pass nil for non-literal
+// exponents or non-power operations.
+//
 // Rules:
 //   - Addition/Subtraction (+, -): Operands must have matching dimensions.
 //     Result has the same dimensions, normalized to SI base units.
@@ -26,13 +31,15 @@ import (
 //   - Division (/): Dimension exponents are subtracted.
 //     Result dimensions = left.dimensions / right.dimensions
 //   - Power (^): Only allowed with dimensionless exponent.
-//     Result dimensions = left.dimensions * exponent (if integer)
+//     If exponent is a literal integer, dimensions are scaled by that value.
+//     If exponent is not a literal, base must be dimensionless.
 //   - Comparison (==, !=, <, >, <=, >=): Operands must have matching dimensions.
 //     Result is always u8 (boolean), no units.
-//   - Modulo (%): Same as multiplication/division - dimension arithmetic.
+//   - Modulo (%): Same as addition/subtraction - dimensions must match,
+//     result keeps those dimensions. (10m % 3m = 1m)
 //
 // If both operands are dimensionless (no units), the result is also dimensionless.
-func CheckBinaryOp(op string, left, right types.Type) (types.Type, error) {
+func CheckBinaryOp(op string, left, right types.Type, literalExp *int) (types.Type, error) {
 	leftUnit := left.Unit
 	rightUnit := right.Unit
 
@@ -55,10 +62,11 @@ func CheckBinaryOp(op string, left, right types.Type) (types.Type, error) {
 	case "/":
 		return checkDivision(left, right, leftUnit, rightUnit)
 	case "%":
-		// Modulo follows same rules as division
-		return checkDivision(left, right, leftUnit, rightUnit)
+		// Modulo follows same rules as addition/subtraction:
+		// dimensions must match, result keeps those dimensions (10m % 3m = 1m)
+		return checkAdditive(left, right, leftUnit, rightUnit)
 	case "^":
-		return checkPower(left, right, leftUnit, rightUnit)
+		return checkPower(left, right, leftUnit, rightUnit, literalExp)
 	default:
 		return types.Type{}, errors.Newf("unknown binary operator: %s", op)
 	}
@@ -167,8 +175,10 @@ func checkDivision(left, right types.Type, leftUnit, rightUnit *types.Unit) (typ
 }
 
 // checkPower handles ^ operations.
-// Exponent must be dimensionless. Result dimensions = base dimensions * exponent.
-func checkPower(left, right types.Type, leftUnit, rightUnit *types.Unit) (types.Type, error) {
+// Exponent must be dimensionless. If literalExp is provided and the base has
+// dimensions, the result dimensions are scaled by the exponent value.
+// If literalExp is nil and the base has dimensions, an error is returned.
+func checkPower(left, right types.Type, leftUnit, rightUnit *types.Unit, literalExp *int) (types.Type, error) {
 	result := PromoteNumeric(left, right)
 
 	// Exponent must be dimensionless
@@ -184,11 +194,25 @@ func checkPower(left, right types.Type, leftUnit, rightUnit *types.Unit) (types.
 		return result, nil
 	}
 
-	// For now, we only support integer exponents for dimensional analysis
-	// Complex exponents like x^0.5 require special handling
-	// Just pass through the base dimensions for now (this is conservative)
+	// Base has dimensions - we need to know the exponent value
+	if literalExp == nil {
+		return types.Type{}, errors.New(
+			"power operation with dimensioned base requires a literal integer exponent",
+		)
+	}
+
+	// Scale dimensions by the exponent
+	// e.g., length^2 → {Length: 2}, time^-1 → {Time: -1}
+	scaledDim := leftUnit.Dimensions.Scale(int8(*literalExp))
+
+	// If result is dimensionless (e.g., m^0), no unit needed
+	if scaledDim.IsZero() {
+		result.Unit = nil
+		return result, nil
+	}
+
 	result.Unit = &types.Unit{
-		Dimensions: leftUnit.Dimensions,
+		Dimensions: scaledDim,
 		Scale:      1.0,
 		Name:       "",
 	}

@@ -84,6 +84,21 @@ func (d Dimensions) Div(other Dimensions) Dimensions {
 	}
 }
 
+// Scale multiplies all dimension exponents by n (for power operations).
+// For example, length.Scale(2) = length^2 (area).
+func (d Dimensions) Scale(n int8) Dimensions {
+	return Dimensions{
+		Length:      d.Length * n,
+		Mass:        d.Mass * n,
+		Time:        d.Time * n,
+		Current:     d.Current * n,
+		Temperature: d.Temperature * n,
+		Angle:       d.Angle * n,
+		Count:       d.Count * n,
+		Data:        d.Data * n,
+	}
+}
+
 // Equal checks if two dimensions are identical.
 func (d Dimensions) Equal(other Dimensions) bool {
 	return d == other

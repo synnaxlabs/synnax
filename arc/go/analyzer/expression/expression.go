@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/analyzer/units"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	basetypes "github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -177,8 +178,9 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 
 		// Check dimensional compatibility first if either operand has units
 		// This must be checked even for type variables since the unit is known at parse time
+		// Note: Power operations (^) are handled separately in analyzePower, not here.
 		if firstType.Unit != nil || nextType.Unit != nil {
-			if _, err := units.CheckBinaryOp(opName, firstType, nextType); err != nil {
+			if _, err := units.CheckBinaryOp(opName, firstType, nextType, nil); err != nil {
 				ctx.Diagnostics.AddError(err, ctx.AST)
 				return false
 			}
@@ -293,11 +295,42 @@ func analyzePower(ctx context.Context[parser.IPowerExpressionContext]) bool {
 			return false
 		}
 	}
-	if power := ctx.AST.PowerExpression(); power != nil {
+	power := ctx.AST.PowerExpression()
+	if power != nil {
 		if !analyzePower(context.Child(ctx, power)) {
 			return false
 		}
 	}
+
+	// Dimensional analysis for power expressions
+	if ctx.AST.CARET() != nil && power != nil {
+		baseType := types.InferFromUnaryExpression(context.Child(ctx, ctx.AST.UnaryExpression())).Unwrap()
+		expType := types.InferPower(context.Child(ctx, power)).Unwrap()
+
+		// Check if either operand has units - exponent must always be dimensionless
+		if baseType.Unit != nil || expType.Unit != nil {
+			var literalExp *int
+			// Check if exponent is a pure integer literal (needed for dimensional scaling)
+			if isPureLiteralNode(power) {
+				lit := power.UnaryExpression().PostfixExpression().PrimaryExpression().Literal()
+				if numLit := lit.NumericLiteral(); numLit != nil {
+					parsed, err := literal.ParseNumeric(numLit, basetypes.I64())
+					if err == nil && parsed.Type.Unit == nil {
+						if intVal, ok := parsed.Value.(int64); ok {
+							exp := int(intVal)
+							literalExp = &exp
+						}
+					}
+				}
+			}
+
+			if _, err := units.CheckBinaryOp("^", baseType, expType, literalExp); err != nil {
+				ctx.Diagnostics.AddError(err, ctx.AST)
+				return false
+			}
+		}
+	}
+
 	return true
 }
 

@@ -15,12 +15,12 @@ import "github.com/synnaxlabs/arc/types"
 // Each entry defines the dimensions, scale factor (to SI base unit), and display name.
 var Registry = map[string]types.Unit{
 	// Time units (base: nanoseconds - matches Synnax's canonical representation)
-	"ns": {Dimensions: types.DimTime, Scale: 1, Name: "ns"},
-	"us": {Dimensions: types.DimTime, Scale: 1e3, Name: "us"},
-	"ms": {Dimensions: types.DimTime, Scale: 1e6, Name: "ms"},
-	"s":  {Dimensions: types.DimTime, Scale: 1e9, Name: "s"},
-	"m":  {Dimensions: types.DimTime, Scale: 60e9, Name: "m"},
-	"h":  {Dimensions: types.DimTime, Scale: 3600e9, Name: "h"},
+	"ns":  {Dimensions: types.DimTime, Scale: 1, Name: "ns"},
+	"us":  {Dimensions: types.DimTime, Scale: 1e3, Name: "us"},
+	"ms":  {Dimensions: types.DimTime, Scale: 1e6, Name: "ms"},
+	"s":   {Dimensions: types.DimTime, Scale: 1e9, Name: "s"},
+	"min": {Dimensions: types.DimTime, Scale: 60e9, Name: "min"},
+	"h":   {Dimensions: types.DimTime, Scale: 3600e9, Name: "h"},
 
 	// Length units (base: meters)
 	"nm":    {Dimensions: types.DimLength, Scale: 1e-9, Name: "nm"},
@@ -28,6 +28,7 @@ var Registry = map[string]types.Unit{
 	"mm":    {Dimensions: types.DimLength, Scale: 1e-3, Name: "mm"},
 	"cm":    {Dimensions: types.DimLength, Scale: 1e-2, Name: "cm"},
 	"dm":    {Dimensions: types.DimLength, Scale: 1e-1, Name: "dm"},
+	"m":     {Dimensions: types.DimLength, Scale: 1, Name: "m"},
 	"km":    {Dimensions: types.DimLength, Scale: 1e3, Name: "km"},
 	"in":    {Dimensions: types.DimLength, Scale: 0.0254, Name: "in"},
 	"ft":    {Dimensions: types.DimLength, Scale: 0.3048, Name: "ft"},
@@ -76,12 +77,11 @@ var Registry = map[string]types.Unit{
 	"A":  {Dimensions: types.DimCurrent, Scale: 1, Name: "A"},
 	"kA": {Dimensions: types.DimCurrent, Scale: 1e3, Name: "kA"},
 
-	// Temperature units (treated as incompatible in Phase 1)
-	// Using Temperature dimension with different "base" scales
-	// C, F, K cannot be mixed - offset conversions not yet supported
-	"C": {Dimensions: types.DimTemperature, Scale: 1, Name: "C"},
+	// Temperature units (base: Kelvin)
+	// Only Kelvin is supported - it's the SI unit and has a true zero (absolute zero).
+	// Celsius and Fahrenheit require affine conversions (offset + scale) which
+	// are not yet supported. Users needing C/F should convert externally.
 	"K": {Dimensions: types.DimTemperature, Scale: 1, Name: "K"},
-	"F": {Dimensions: types.DimTemperature, Scale: 1, Name: "F"},
 
 	// Angle units (base: radians)
 	"rad": {Dimensions: types.DimAngle, Scale: 1, Name: "rad"},
