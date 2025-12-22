@@ -611,6 +611,97 @@ var _ = Describe("Expressions", func() {
 			Expect(lit).ToNot(BeNil())
 			Expect(lit.GetText()).To(Equal(`"hello"`))
 		})
+
+		It("Should return nil for binary expressions", func() {
+			expr := getExpr(`1 + 2 -> out`)
+			lit := expression.GetLiteral(expr)
+			Expect(lit).To(BeNil())
+		})
+
+		It("Should return nil for unary expressions", func() {
+			expr := getExpr(`-1 -> out`)
+			lit := expression.GetLiteral(expr)
+			Expect(lit).To(BeNil())
+		})
+	})
+
+	Describe("GetSignedIntegerLiteral", func() {
+		// Helper to get the exponent PowerExpression from x^<exponent>
+		getPowerExponent := func(code string) parser.IPowerExpressionContext {
+			ast := MustSucceed(parser.Parse(code))
+			funcDecl := ast.AllTopLevelItem()[0].FunctionDeclaration()
+			stmt := funcDecl.Block().AllStatement()[1]
+			varDecl := stmt.VariableDeclaration().LocalVariable()
+			expr := varDecl.Expression()
+			// Navigate to the power expression
+			logicalOr := expr.LogicalOrExpression()
+			logicalAnd := logicalOr.AllLogicalAndExpression()[0]
+			equality := logicalAnd.AllEqualityExpression()[0]
+			relational := equality.AllRelationalExpression()[0]
+			additive := relational.AllAdditiveExpression()[0]
+			mult := additive.AllMultiplicativeExpression()[0]
+			power := mult.AllPowerExpression()[0]
+			// The exponent is the nested PowerExpression
+			return power.PowerExpression()
+		}
+
+		It("Should extract positive integer literal", func() {
+			exp := getPowerExponent(`
+				func testFunc() {
+					x f64 := 5.0
+					y := x^2
+				}
+			`)
+			val, ok := expression.GetSignedIntegerLiteral(exp)
+			Expect(ok).To(BeTrue())
+			Expect(val).To(Equal(2))
+		})
+
+		It("Should extract negative integer literal", func() {
+			exp := getPowerExponent(`
+				func testFunc() {
+					x f64 := 5.0
+					y := x^-2
+				}
+			`)
+			val, ok := expression.GetSignedIntegerLiteral(exp)
+			Expect(ok).To(BeTrue())
+			Expect(val).To(Equal(-2))
+		})
+
+		It("Should extract zero literal", func() {
+			exp := getPowerExponent(`
+				func testFunc() {
+					x f64 := 5.0
+					y := x^0
+				}
+			`)
+			val, ok := expression.GetSignedIntegerLiteral(exp)
+			Expect(ok).To(BeTrue())
+			Expect(val).To(Equal(0))
+		})
+
+		It("Should reject float literal", func() {
+			exp := getPowerExponent(`
+				func testFunc() {
+					x f64 := 5.0
+					y := x^2.0
+				}
+			`)
+			_, ok := expression.GetSignedIntegerLiteral(exp)
+			Expect(ok).To(BeFalse())
+		})
+
+		It("Should reject integer literal with unit suffix", func() {
+			exp := getPowerExponent(`
+				func testFunc() {
+					x f64 := 5.0
+					y := x^2s
+				}
+			`)
+			_, ok := expression.GetSignedIntegerLiteral(exp)
+			Expect(ok).To(BeFalse())
+		})
 	})
 
 	Describe("Power Expressions with Units", func() {
@@ -619,6 +710,28 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					x f64 m := 5m
 					y := x^2
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should accept power expression with negative literal integer exponent", func() {
+			ast := MustSucceed(parser.Parse(`
+				func testFunc() {
+					x f64 m := 5m
+					y := x^-2
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should accept power expression with zero exponent", func() {
+			ast := MustSucceed(parser.Parse(`
+				func testFunc() {
+					x f64 m := 5m
+					y := x^0
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
@@ -663,6 +776,19 @@ var _ = Describe("Expressions", func() {
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("dimensionless"))
+		})
+
+		It("Should reject dimensioned base with float literal exponent", func() {
+			ast := MustSucceed(parser.Parse(`
+				func testFunc() {
+					x f64 m := 5m
+					y := x^2.0
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("literal integer exponent"))
 		})
 	})
 })
