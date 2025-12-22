@@ -19,7 +19,7 @@ import (
 )
 
 // stageEntryKey computes the entry node key for a stage using the established
-// naming convention. This must match the key generation in text.KeyGenerator.entry.
+// naming convention. This must match the key generation in text.KeyGenerator.Entry.
 func stageEntryKey(seqName, stageName string) string {
 	return "entry_" + seqName + "_" + stageName
 }
@@ -72,8 +72,8 @@ func Stratify(
 	}
 
 	// Step 1: Stratify global nodes (nodes not in any stage)
-	// entry nodes are only included in global strata if they receive activation from
-	// global sources (e.g., start_cmd => main). entry nodes with no global incoming
+	// Entry nodes are only included in global strata if they receive activation from
+	// global sources (e.g., start_cmd => main). Entry nodes with no global incoming
 	// edges are excluded to prevent them from being placed at stratum 0 and firing
 	// every cycle.
 
@@ -100,7 +100,7 @@ func Stratify(
 	filteredGlobalNodeSet := make(set.Set[string])
 	for _, node := range globalNodes {
 		if entryNodes.Contains(node.Key) && !entryNodesWithGlobalInput.Contains(node.Key) {
-			// entry node with no global incoming edges - exclude from global strata
+			// Entry node with no global incoming edges - exclude from global strata
 			continue
 		}
 		filteredGlobalNodes = append(filteredGlobalNodes, node)
@@ -124,7 +124,7 @@ func Stratify(
 	}
 
 	// Step 2: Stratify each stage independently
-	// entry nodes that receive edges from a stage are included in that stage's
+	// Entry nodes that receive edges from a stage are included in that stage's
 	// stratification so they fire after their source nodes within the stage.
 	for i, seq := range sequences {
 		for j, stage := range seq.Stages {

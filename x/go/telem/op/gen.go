@@ -366,7 +366,7 @@ func main() {
 	var buf strings.Builder
 	buf.WriteString(headerTemplate)
 
-	// generate regular operations for all types
+	// Generate regular operations for all types
 	for _, typ := range types {
 		err := tmpl.Execute(&buf, map[string]interface{}{
 			"Type":       typ,
@@ -377,7 +377,7 @@ func main() {
 		}
 	}
 
-	// generate logical operations for uint8 only
+	// Generate logical operations for uint8 only
 	uint8Type := TypeInfo{Name: "U8", GoType: "uint8", Size: 1, IsUnsigned: true}
 	err := tmpl.Execute(&buf, map[string]interface{}{
 		"Type":       uint8Type,
@@ -387,7 +387,7 @@ func main() {
 		panic(err)
 	}
 
-	// generate Not operation for uint8 only
+	// Generate Not operation for uint8 only
 	notOp := []UnaryOperation{{Name: "Not", FuncName: "Not", Op: "^"}}
 	err = unaryTmpl.Execute(&buf, map[string]interface{}{
 		"Type":     uint8Type,
@@ -397,7 +397,7 @@ func main() {
 		panic(err)
 	}
 
-	// generate Negate operation for signed and float types only
+	// Generate Negate operation for signed and float types only
 	negateOp := []UnaryOperation{{Name: "Negate", FuncName: "Neg", Op: "-"}}
 	for _, typ := range types {
 		if typ.IsSigned || typ.IsFloat {
@@ -411,7 +411,7 @@ func main() {
 		}
 	}
 
-	// generate reduction operations for all types
+	// Generate reduction operations for all types
 	for _, typ := range types {
 		err := reductionTmpl.Execute(&buf, map[string]interface{}{
 			"Type":       typ,
@@ -422,7 +422,7 @@ func main() {
 		}
 	}
 
-	// generate derivative operations for all types
+	// Generate derivative operations for all types
 	for _, typ := range types {
 		err := derivativeTmpl.Execute(&buf, map[string]interface{}{
 			"Type":        typ,

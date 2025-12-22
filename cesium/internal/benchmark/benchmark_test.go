@@ -193,7 +193,7 @@ func BenchWrite(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series,
 				}
 
 				for k := range cfg.domainsPerChannel {
-					// generate the index data for this frame.
+					// Generate the index data for this frame.
 					for l := range cfg.samplesPerDomain {
 						if l == 0 && k == 0 {
 							indexData[l] = 0
@@ -311,7 +311,7 @@ func BenchRead(
 	}
 
 	for k := range cfg.domainsPerChannel {
-		// generate the index data for this frame.
+		// Generate the index data for this frame.
 		for l := range cfg.samplesPerDomain {
 			if l == 0 && k == 0 {
 				indexData[l] = 0
@@ -478,7 +478,7 @@ func BenchStream(
 				}
 
 				for k := range cfg.domainsPerChannel {
-					// generate the index data for this frame.
+					// Generate the index data for this frame.
 					for l := range cfg.samplesPerDomain {
 						if l == 0 && k == 0 {
 							indexData[l] = 0

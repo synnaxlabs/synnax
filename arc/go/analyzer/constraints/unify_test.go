@@ -236,9 +236,9 @@ var _ = Describe("Type Unification", func() {
 
 		It("should fail when constraint doesn't match and not compatible", func() {
 			var (
-				system       = constraints.New()
+				system        = constraints.New()
 				f32Constraint = types.F32()
-				tv           = types.Variable("T", &f32Constraint)
+				tv            = types.Variable("T", &f32Constraint)
 			)
 			system.AddEquality(tv, types.I32(), nil, "T = i32")
 			Expect(system.Unify()).To(MatchError(ContainSubstring("constraint violation")))
@@ -376,8 +376,8 @@ var _ = Describe("Type Unification", func() {
 			constraint := types.NumericConstraint()
 			for _, firstType := range []types.Type{types.I32(), types.F32()} {
 				var (
-					system    = constraints.New()
-					tv        = types.Variable("T", &constraint)
+					system     = constraints.New()
+					tv         = types.Variable("T", &constraint)
 					secondType = types.F32()
 				)
 				if firstType.Kind == types.KindF32 {
