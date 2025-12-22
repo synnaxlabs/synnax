@@ -12,6 +12,7 @@ on:
       - .github/workflows/build.synnax.yaml
       - alamos/go/**
       - alamos/ts/**
+      - arc/cpp/**
       - aspen/**
       - cesium/**
       - client/cpp/**
@@ -51,6 +52,7 @@ on:
       - .github/workflows/build.synnax.yaml
       - alamos/go/**
       - alamos/ts/**
+      - arc/cpp/**
       - aspen/**
       - cesium/**
       - client/cpp/**
