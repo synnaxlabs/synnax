@@ -107,14 +107,6 @@ func WithKeyf(format string, args ...any) RoutineOption {
 	}
 }
 
-// AddCallerSkip sets the callerSkip on the routine. The callerSkip is the number of
-// stacks to skip when logging.
-func AddCallerSkip(skip int) RoutineOption {
-	return func(r *routineOptions) {
-		r.callerSkip = skip
-	}
-}
-
 type deferral struct {
 	key string
 	f   func() error
@@ -183,15 +175,6 @@ func WithRetryScale(scale float32) RoutineOption {
 	return func(r *routineOptions) {
 		r.breakerCfg.Scale = scale
 		r.useBreaker = true
-	}
-}
-
-// CancelOnExit instructs the goroutine to cancel upon exiting (error or no error)
-// If CancelOnFail or CancelOnExit is already called, this overrides the previous
-// configuration.
-func CancelOnExit() RoutineOption {
-	return func(r *routineOptions) {
-		r.contextPolicy = cancelOnExit
 	}
 }
 
