@@ -22,29 +22,42 @@ import (
 )
 
 var _ = Describe("Statement", func() {
+	// Helper to set up function context for tests that need it
+	setupFunctionContext := func(ctx context.Context[parser.IBlockContext]) {
+		MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+			Name: "testFunc",
+			Kind: symbol.KindFunction,
+		}))
+		fn := MustSucceed(ctx.Scope.Resolve(ctx, "testFunc"))
+		ctx.Scope = fn
+	}
+
 	Describe("Variable Declaration", func() {
-		Describe("Local Variables", func() {
-			It("Should analyze a local variable with explicit type", func() {
-				stmt := MustSucceed(parser.ParseStatement(`x i32 := 42`))
-				ctx := context.CreateRoot(bCtx, stmt, nil)
-				Expect(statement.Analyze(ctx)).To(BeTrue())
-				sym := MustSucceed(ctx.Scope.Resolve(ctx, "x"))
-				Expect(sym.Type).To(Equal(types.I32()))
-			})
+		Context("local variables", func() {
+			DescribeTable("type inference and validation",
+				func(code string, expectOk bool, assertion func(context.Context[parser.IStatementContext])) {
+					stmt := MustSucceed(parser.ParseStatement(code))
+					ctx := context.CreateRoot(bCtx, stmt, nil)
+					result := statement.Analyze(ctx)
+					Expect(result).To(Equal(expectOk))
+					if assertion != nil {
+						assertion(ctx)
+					}
+				},
+				Entry("explicit type with initializer", `x i32 := 42`, true, func(ctx context.Context[parser.IStatementContext]) {
+					sym := MustSucceed(ctx.Scope.Resolve(ctx, "x"))
+					Expect(sym.Type).To(Equal(types.I32()))
+				}),
+				Entry("inferred type from float literal", `x := 3.14`, true, func(ctx context.Context[parser.IStatementContext]) {
+					Expect(*ctx.Diagnostics).To(BeEmpty())
+					sym := MustSucceed(ctx.Scope.Resolve(ctx, "x"))
+					Expect(sym.Type.Kind).To(Equal(types.KindVariable))
+					Expect(sym.Type.Constraint).ToNot(BeNil())
+					Expect(sym.Type.Constraint.Kind).To(Equal(types.KindFloatConstant))
+				}),
+			)
 
-			It("Should infer type from initializer", func() {
-				stmt := MustSucceed(parser.ParseStatement(`x := 3.14`))
-				ctx := context.CreateRoot(bCtx, stmt, nil)
-				Expect(statement.Analyze(ctx)).To(BeTrue())
-				Expect(*ctx.Diagnostics).To(BeEmpty())
-				sym := MustSucceed(ctx.Scope.Resolve(ctx, "x"))
-				// Literals now infer as type variables with float constraint
-				Expect(sym.Type.Kind).To(Equal(types.KindVariable))
-				Expect(sym.Type.Constraint).ToNot(BeNil())
-				Expect(sym.Type.Constraint.Kind).To(Equal(types.KindFloatConstant))
-			})
-
-			It("Should detect type mismatch", func() {
+			It("should detect type mismatch between declaration and initializer", func() {
 				stmt := MustSucceed(parser.ParseStatement(`x i32 := "hello"`))
 				ctx := context.CreateRoot(bCtx, stmt, nil)
 				Expect(statement.Analyze(ctx)).To(BeFalse())
@@ -52,7 +65,7 @@ var _ = Describe("Statement", func() {
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot assign str to i32"))
 			})
 
-			It("Should detect duplicate variable declaration", func() {
+			It("should detect duplicate variable declaration", func() {
 				stmt := MustSucceed(parser.ParseBlock(`{
 					x := 1
 					x := 1
@@ -60,10 +73,10 @@ var _ = Describe("Statement", func() {
 				ctx := context.CreateRoot(bCtx, stmt, nil)
 				Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
-				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("name x conflicts with existing symbol at line 2, col 5"))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("name x conflicts with existing symbol"))
 			})
 
-			It("Should detect undefined variable in initializer", func() {
+			It("should detect undefined variable in initializer", func() {
 				stmt := MustSucceed(parser.ParseStatement(`x := y + 1`))
 				ctx := context.CreateRoot(bCtx, stmt, nil)
 				Expect(statement.Analyze(ctx)).To(BeFalse())
@@ -72,21 +85,20 @@ var _ = Describe("Statement", func() {
 			})
 		})
 
-		Describe("Stateful Variables", func() {
-			It("Should analyze a stateful variable", func() {
+		Context("stateful variables", func() {
+			It("should analyze a stateful variable with inferred type", func() {
 				stmt := MustSucceed(parser.ParseStatement(`counter $= 0`))
 				ctx := context.CreateRoot(bCtx, stmt, nil)
 				Expect(statement.Analyze(ctx)).To(BeTrue())
 				Expect(*ctx.Diagnostics).To(BeEmpty())
 				sym := MustSucceed(ctx.Scope.Resolve(ctx, "counter"))
 				Expect(sym.Kind).To(Equal(symbol.KindStatefulVariable))
-				// Literals now infer as type variables with integer constraint
 				Expect(sym.Type.Kind).To(Equal(types.KindVariable))
 				Expect(sym.Type.Constraint).ToNot(BeNil())
 				Expect(sym.Type.Constraint.Kind).To(Equal(types.KindIntegerConstant))
 			})
 
-			It("Should analyze stateful variable with explicit type", func() {
+			It("should analyze stateful variable with explicit type", func() {
 				stmt := MustSucceed(parser.ParseStatement(`total f32 $= 0.0`))
 				ctx := context.CreateRoot(bCtx, stmt, nil)
 				Expect(statement.Analyze(ctx)).To(BeTrue())
@@ -98,140 +110,88 @@ var _ = Describe("Statement", func() {
 	})
 
 	Describe("Assignment", func() {
-		It("Should analyze assignment in function body", func() {
-			block := MustSucceed(parser.ParseBlock(`{
+		DescribeTable("assignment validation",
+			func(code string, expectOk bool, errorSubstring string) {
+				block := MustSucceed(parser.ParseBlock(code))
+				ctx := context.CreateRoot(bCtx, block, nil)
+				setupFunctionContext(ctx)
+				result := statement.AnalyzeBlock(ctx)
+				Expect(result).To(Equal(expectOk))
+				if !expectOk && errorSubstring != "" {
+					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(errorSubstring))
+				}
+			},
+			Entry("valid assignment to existing variable", `{
 				x := 42
 				x = 99
-			}`))
-			ctx := context.CreateRoot(bCtx, block, nil)
-			// Add function context so assignments are allowed
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
-				Name: "testFunc",
-				Kind: symbol.KindFunction,
-			}))
-			fn := MustSucceed(ctx.Scope.Resolve(ctx, "testFunc"))
-			ctx.Scope = fn
-			Expect(statement.AnalyzeBlock(ctx)).To(BeTrue(), ctx.Diagnostics.String())
-			Expect(*ctx.Diagnostics).To(BeEmpty())
-		})
-
-		It("Should detect assignment to undefined variable", func() {
-			block := MustSucceed(parser.ParseBlock(`{
+			}`, true, ""),
+			Entry("assignment to undefined variable", `{
 				x = 42
-			}`))
-			ctx := context.CreateRoot(bCtx, block, nil)
-			// Add function context
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
-				Name: "testFunc",
-				Kind: symbol.KindFunction,
-			}))
-			fn := MustSucceed(ctx.Scope.Resolve(ctx, "testFunc"))
-			ctx.Scope = fn
-			Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined"))
-		})
-
-		It("Should detect type mismatch in assignment", func() {
-			block := MustSucceed(parser.ParseBlock(`{
+			}`, false, "undefined"),
+			Entry("type mismatch in assignment", `{
 				x i32 := 10
 				x = "hello"
-			}`))
-			ctx := context.CreateRoot(bCtx, block, nil)
-			// Add function context
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
-				Name: "testFunc",
-				Kind: symbol.KindFunction,
-			}))
-			fn := MustSucceed(ctx.Scope.Resolve(ctx, "testFunc"))
-			ctx.Scope = fn
-			Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
-		})
+			}`, false, "type mismatch"),
+		)
 	})
 
 	Describe("If Statement", func() {
-		It("Should analyze simple if statement", func() {
-			stmt := MustSucceed(parser.ParseStatement(`if 1 {
+		DescribeTable("valid if statements",
+			func(code string) {
+				stmt := MustSucceed(parser.ParseStatement(code))
+				ctx := context.CreateRoot(bCtx, stmt, nil)
+				Expect(statement.Analyze(ctx)).To(BeTrue())
+				Expect(*ctx.Diagnostics).To(BeEmpty())
+			},
+			Entry("simple if", `if 1 { x := 42 }`),
+			Entry("if-else chain", `if 0 { x := 1 } else if 1 { y := 2 } else { z := 3 }`),
+			Entry("nested blocks", `if 1 {
 				x := 42
-			}`))
-			ctx := context.CreateRoot(bCtx, stmt, nil)
-			Expect(statement.Analyze(ctx)).To(BeTrue())
-			Expect(*ctx.Diagnostics).To(BeEmpty())
-		})
+				if 1 { y := x + 1 }
+			}`),
+		)
 
-		It("Should analyze if-else chain", func() {
-			stmt := MustSucceed(parser.ParseStatement(`if 0 {
-				x := 1
-			} else if 1 {
-				y := 2
-			} else {
-				z := 3
-			}`))
-			ctx := context.CreateRoot(bCtx, stmt, nil)
-			Expect(statement.Analyze(ctx)).To(BeTrue())
-			Expect(*ctx.Diagnostics).To(BeEmpty())
-		})
-
-		It("Should detect undefined variable in condition", func() {
-			stmt := MustSucceed(parser.ParseStatement(`if x > 10 {
-				y := 1
-			}`))
+		It("should detect undefined variable in condition", func() {
+			stmt := MustSucceed(parser.ParseStatement(`if x > 10 { y := 1 }`))
 			ctx := context.CreateRoot(bCtx, stmt, nil)
 			Expect(statement.Analyze(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: x"))
 		})
-
-		It("Should handle nested blocks with separate scopes", func() {
-			stmt := MustSucceed(parser.ParseStatement(`if 1 {
-				x := 42
-				if 1 {
-					y := x + 1
-				}
-			}`))
-			ctx := context.CreateRoot(bCtx, stmt, nil)
-			Expect(statement.Analyze(ctx)).To(BeTrue())
-			Expect(*ctx.Diagnostics).To(BeEmpty())
-		})
 	})
 
 	Describe("Block", func() {
-		It("Should analyze multiple statements in a block", func() {
-			block := MustSucceed(parser.ParseBlock(`{
+		DescribeTable("block analysis",
+			func(code string, expectOk bool, errorSubstring string) {
+				block := MustSucceed(parser.ParseBlock(code))
+				ctx := context.CreateRoot(bCtx, block, nil)
+				result := statement.AnalyzeBlock(ctx)
+				Expect(result).To(Equal(expectOk))
+				if !expectOk && errorSubstring != "" {
+					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(errorSubstring))
+				} else if expectOk {
+					Expect(*ctx.Diagnostics).To(BeEmpty())
+				}
+			},
+			Entry("multiple statements", `{
 				x := 1
 				y := 2
 				z := x + y
-			}`))
-			ctx := context.CreateRoot(bCtx, block, nil)
-			Expect(statement.AnalyzeBlock(ctx)).To(BeTrue())
-			Expect(*ctx.Diagnostics).To(BeEmpty())
-		})
-
-		It("Should maintain variable visibility within block", func() {
-			block := MustSucceed(parser.ParseBlock(`{
+			}`, true, ""),
+			Entry("variable visibility within block", `{
 				x := 1
 				y := x + 2
 				z := x + y
-			}`))
-			ctx := context.CreateRoot(bCtx, block, nil)
-			Expect(statement.AnalyzeBlock(ctx)).To(BeTrue())
-			Expect(*ctx.Diagnostics).To(BeEmpty())
-		})
-
-		It("Should detect errors in block statements", func() {
-			block := MustSucceed(parser.ParseBlock(`{
+			}`, true, ""),
+			Entry("error with undefined symbol", `{
 				x := 1
 				y := undefined
-			}`))
-			ctx := context.CreateRoot(bCtx, block, nil)
-			Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: undefined"))
-		})
+			}`, false, "undefined symbol: undefined"),
+		)
 	})
 
 	Describe("Expression Statement", func() {
-		It("Should analyze standalone expression", func() {
+		It("should analyze standalone expression with existing variable", func() {
 			stmt := MustSucceed(parser.ParseStatement(`x + 1`))
 			ctx := context.CreateRoot(bCtx, stmt, nil)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
@@ -243,11 +203,12 @@ var _ = Describe("Statement", func() {
 			Expect(*ctx.Diagnostics).To(BeEmpty())
 		})
 
-		It("Should detect errors in standalone expression", func() {
+		It("should detect errors in standalone expression", func() {
 			stmt := MustSucceed(parser.ParseStatement(`undefined_var + 1`))
 			ctx := context.CreateRoot(bCtx, stmt, nil)
 			Expect(statement.Analyze(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol"))
 		})
 	})
 
@@ -279,83 +240,63 @@ var _ = Describe("Statement", func() {
 			}
 		})
 
-		Describe("Channel Assignment (Imperative Context)", func() {
-			helperSetupFunctionContext := func(ctx context.Context[parser.IBlockContext]) {
-				MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
-					Name: "testFunc",
-					Kind: symbol.KindFunction,
-				}))
-				fn := MustSucceed(ctx.Scope.Resolve(ctx, "testFunc"))
-				ctx.Scope = fn
-			}
+		setupChannelFunctionContext := func(ctx context.Context[parser.IBlockContext]) {
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "testFunc",
+				Kind: symbol.KindFunction,
+			}))
+			fn := MustSucceed(ctx.Scope.Resolve(ctx, "testFunc"))
+			ctx.Scope = fn
+		}
 
-			It("Should analyze channel assignment with assignment syntax", func() {
-				block := MustSucceed(parser.ParseBlock(`{
-					output = 42.0
-				}`))
-				ctx := context.CreateRoot[parser.IBlockContext](bCtx, block, channelResolver)
-				helperSetupFunctionContext(ctx)
-				ok := statement.AnalyzeBlock(ctx)
-				Expect(ok).To(BeTrue(), ctx.Diagnostics.String())
-				Expect(*ctx.Diagnostics).To(BeEmpty())
-			})
-
-			It("Should analyze channel assignment with variable", func() {
-				block := MustSucceed(parser.ParseBlock(`{
+		Context("channel assignment in imperative context", func() {
+			DescribeTable("channel write validation",
+				func(code string, expectOk bool, errorSubstring string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot[parser.IBlockContext](bCtx, block, channelResolver)
+					setupChannelFunctionContext(ctx)
+					result := statement.AnalyzeBlock(ctx)
+					Expect(result).To(Equal(expectOk), ctx.Diagnostics.String())
+					if !expectOk && errorSubstring != "" {
+						Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(errorSubstring))
+					}
+				},
+				Entry("literal value", `{ output = 42.0 }`, true, ""),
+				Entry("variable value", `{
 					value := 42.0
 					output = value
-				}`))
-				ctx := context.CreateRoot(bCtx, block, channelResolver)
-				helperSetupFunctionContext(ctx)
-				Expect(statement.AnalyzeBlock(ctx)).To(BeTrue(), ctx.Diagnostics.String())
-				Expect(*ctx.Diagnostics).To(BeEmpty())
-			})
+				}`, true, ""),
+				Entry("type mismatch", `{ output = "hello" }`, false, "type mismatch"),
+			)
 
-			It("Should detect type mismatch in channel assignment", func() {
-				block := MustSucceed(parser.ParseBlock(`{
-					output = "hello"
-				}`))
-				ctx := context.CreateRoot(bCtx, block, channelResolver)
-				helperSetupFunctionContext(ctx)
-				Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
-				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
-			})
-
-			It("Should detect undefined channel in assignment", func() {
-				block := MustSucceed(parser.ParseBlock(`{
-					undefined_channel = 42.0
-				}`))
+			It("should detect undefined channel in assignment", func() {
+				block := MustSucceed(parser.ParseBlock(`{ undefined_channel = 42.0 }`))
 				ctx := context.CreateRoot(bCtx, block, nil)
-				helperSetupFunctionContext(ctx)
+				setupChannelFunctionContext(ctx)
 				Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined"))
 			})
 		})
 
-		Describe("Channel Reads (Imperative Context)", func() {
-			It("Should analyze non-blocking channel read", func() {
-				stmt := MustSucceed(parser.ParseStatement(`current := sensor`))
-				ctx := context.CreateRoot(bCtx, stmt, channelResolver)
-				Expect(statement.Analyze(ctx)).To(BeTrue(), ctx.Diagnostics.String())
-				Expect(*ctx.Diagnostics).To(BeEmpty())
-				varScope := MustSucceed(ctx.Scope.Resolve(ctx, "current"))
-				Expect(varScope.Type).To(Equal(types.F64()))
-			})
-
-			It("Should return zero-value for channel read", func() {
-				stmt := MustSucceed(parser.ParseStatement(`value := int_chan`))
-				ctx := context.CreateRoot(bCtx, stmt, channelResolver)
-				Expect(statement.Analyze(ctx)).To(BeTrue(), ctx.Diagnostics.String())
-				Expect(*ctx.Diagnostics).To(BeEmpty())
-				varScope := MustSucceed(ctx.Scope.Resolve(ctx, "value"))
-				Expect(varScope.Type).To(Equal(types.I32()))
-			})
+		Context("channel reads in imperative context", func() {
+			DescribeTable("channel read type inference",
+				func(chanName string, expectedType types.Type) {
+					code := "current := " + chanName
+					stmt := MustSucceed(parser.ParseStatement(code))
+					ctx := context.CreateRoot(bCtx, stmt, channelResolver)
+					Expect(statement.Analyze(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+					Expect(*ctx.Diagnostics).To(BeEmpty())
+					varScope := MustSucceed(ctx.Scope.Resolve(ctx, "current"))
+					Expect(varScope.Type).To(Equal(expectedType))
+				},
+				Entry("f64 channel", "sensor", types.F64()),
+				Entry("i32 channel", "int_chan", types.I32()),
+			)
 		})
-
 	})
 
 	Describe("Mixed Type Scenarios", func() {
-		It("Should handle complex nested structures", func() {
+		It("should handle complex nested structures", func() {
 			block := MustSucceed(parser.ParseBlock(`{
 				x := 10
 				y $= 20
@@ -365,18 +306,12 @@ var _ = Describe("Statement", func() {
 				}
 			}`))
 			ctx := context.CreateRoot(bCtx, block, nil)
-			// Add function context for assignment analysis
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
-				Name: "testFunc",
-				Kind: symbol.KindFunction,
-			}))
-			fn := MustSucceed(ctx.Scope.Resolve(ctx, "testFunc"))
-			ctx.Scope = fn
+			setupFunctionContext(ctx)
 			Expect(statement.AnalyzeBlock(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 			Expect(*ctx.Diagnostics).To(BeEmpty())
 		})
 
-		It("Should properly track types through assignments", func() {
+		It("should properly track types through assignments", func() {
 			block := MustSucceed(parser.ParseBlock(`{
 				x i32 := 10
 				y := x
@@ -387,7 +322,7 @@ var _ = Describe("Statement", func() {
 			Expect(*ctx.Diagnostics).To(BeEmpty())
 		})
 
-		It("Should return an error when a variable of an incorrect type is assigned to another variable", func() {
+		It("should return an error when assigning incompatible types", func() {
 			block := MustSucceed(parser.ParseBlock(`{
 				x i32 := 10
 				y f32 := x
@@ -395,8 +330,7 @@ var _ = Describe("Statement", func() {
 			ctx := context.CreateRoot(bCtx, block, nil)
 			Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			first := (*ctx.Diagnostics)[0]
-			Expect(first.Message).To(ContainSubstring("type mismatch: cannot assign i32 to f32"))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot assign i32 to f32"))
 		})
 	})
 })

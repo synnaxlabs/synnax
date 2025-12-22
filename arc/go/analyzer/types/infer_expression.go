@@ -123,16 +123,17 @@ func InferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type 
 		// Recursively infer exponent type (right-associative)
 		_ = InferPower(context.Child(ctx, ctx.AST.PowerExpression()))
 
-		// Power operation returns the base type
-		// (e.g., i32 ^ i32 = i32, f64 ^ f64 = f64)
-		return baseType
+		// Power operation returns the unwrapped base type
+		// (e.g., chan f32 ^ i32 = f32, f64 ^ f64 = f64)
+		return baseType.Unwrap()
 	}
 	return types.Type{}
 }
 
 func InferFromUnaryExpression(ctx context.Context[parser.IUnaryExpressionContext]) types.Type {
 	if ctx.AST.UnaryExpression() != nil {
-		return InferFromUnaryExpression(context.Child(ctx, ctx.AST.UnaryExpression()))
+		// Unary operator (- or not) - unwrap channels in the operand
+		return InferFromUnaryExpression(context.Child(ctx, ctx.AST.UnaryExpression())).Unwrap()
 	}
 	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
 		return inferPostfixType(context.Child(ctx, postfix))
@@ -170,7 +171,12 @@ func inferPostfixType(ctx context.Context[parser.IPostfixExpressionContext]) typ
 
 func inferPrimaryType(ctx context.Context[parser.IPrimaryExpressionContext]) types.Type {
 	if id := ctx.AST.IDENTIFIER(); id != nil {
-		if varScope, err := ctx.Scope.Resolve(ctx, id.GetText()); err == nil {
+		text := id.GetText()
+		// Handle boolean literals (parsed as identifiers in the grammar)
+		if text == "true" || text == "false" {
+			return types.U8()
+		}
+		if varScope, err := ctx.Scope.Resolve(ctx, text); err == nil {
 			if varScope.Type.Kind != types.KindInvalid {
 				return varScope.Type
 			}
@@ -199,11 +205,6 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 	text := ctx.AST.GetText()
 	if len(text) > 0 && (text[0] == '"' || text[0] == '\'') {
 		t := types.String()
-		ctx.TypeMap[ctx.AST] = t
-		return t
-	}
-	if text == "true" || text == "false" {
-		t := types.U8()
 		ctx.TypeMap[ctx.AST] = t
 		return t
 	}

@@ -17,173 +17,142 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// makeType is a helper to create a types.Type with an optional unit.
+func makeType(unitName string) types.Type {
+	if unitName == "" {
+		return types.Type{Kind: types.KindF64}
+	}
+	return types.Type{Kind: types.KindF64, Unit: units.MustResolve(unitName)}
+}
+
 var _ = Describe("Analysis", func() {
 	Describe("ValidateBinaryOp", func() {
-		Context("Addition and Subtraction", func() {
-			It("Should allow adding same dimensions", func() {
-				left := types.Type{Kind: types.KindF64, Unit: units.MustResolve("psi")}
-				right := types.Type{Kind: types.KindF64, Unit: units.MustResolve("Pa")}
-				Expect(units.ValidateBinaryOp("+", left, right)).To(Succeed())
-			})
-
-			It("Should reject adding incompatible dimensions", func() {
-				left := types.Type{Kind: types.KindF64, Unit: units.MustResolve("psi")}
-				right := types.Type{Kind: types.KindF64, Unit: units.MustResolve("s")}
-				Expect(units.ValidateBinaryOp("+", left, right)).Error().To(MatchError(units.IncompatibleDimensionsError))
-			})
-
-			It("Should allow adding dimensionless to dimensioned", func() {
-				left := types.Type{Kind: types.KindF64}
-				right := types.Type{Kind: types.KindF64, Unit: units.MustResolve("psi")}
-				Expect(units.ValidateBinaryOp("+", left, right)).To(Succeed())
-			})
-
-			It("Should allow subtracting same dimensions", func() {
-				left := types.Type{Kind: types.KindF64, Unit: units.MustResolve("psi")}
-				right := types.Type{Kind: types.KindF64, Unit: units.MustResolve("Pa")}
-				Expect(units.ValidateBinaryOp("-", left, right)).To(Succeed())
-			})
+		// Multiplication and division are always dimensionally valid
+		Context("Multiplication and Division", func() {
+			DescribeTable("should allow any dimension combinations",
+				func(op, leftUnit, rightUnit string) {
+					left, right := makeType(leftUnit), makeType(rightUnit)
+					Expect(units.ValidateBinaryOp(op, left, right)).To(Succeed())
+				},
+				Entry("multiply same dimensions", "*", "m", "m"),
+				Entry("multiply different dimensions", "*", "m", "s"),
+				Entry("multiply dimensionless values", "*", "", ""),
+				Entry("multiply unit by dimensionless", "*", "m", ""),
+				Entry("divide same dimensions", "/", "m", "m"),
+				Entry("divide different dimensions", "/", "m", "s"),
+				Entry("divide dimensionless values", "/", "", ""),
+				Entry("divide unit by dimensionless", "/", "m", ""),
+			)
 		})
 
-		Context("Multiplication and Division", func() {
-			It("Should allow multiplying any dimensions", func() {
-				left := types.Type{Kind: types.KindF64, Unit: units.MustResolve("m")}
-				right := types.Type{Kind: types.KindF64, Unit: units.MustResolve("m")}
-				Expect(units.ValidateBinaryOp("*", left, right)).To(Succeed())
-			})
+		// Addition, subtraction, modulo, and comparisons require matching dimensions
+		Context("Dimension-Matching Operations", func() {
+			DescribeTable("should allow matching or dimensionless operands",
+				func(op, leftUnit, rightUnit string) {
+					left, right := makeType(leftUnit), makeType(rightUnit)
+					Expect(units.ValidateBinaryOp(op, left, right)).To(Succeed())
+				},
+				// Addition
+				Entry("add same dimensions (pressure)", "+", "psi", "Pa"),
+				Entry("add dimensionless to dimensioned", "+", "", "psi"),
+				Entry("add dimensionless values", "+", "", ""),
+				// Subtraction
+				Entry("subtract same dimensions", "-", "psi", "Pa"),
+				Entry("subtract dimensionless values", "-", "", ""),
+				// Modulo
+				Entry("modulo same dimensions", "%", "m", "m"),
+				Entry("modulo dimensionless values", "%", "", ""),
+				// Comparisons
+				Entry("greater than same dimensions", ">", "psi", "Pa"),
+				Entry("less than dimensionless", "<", "", ""),
+				Entry("equals dimensionless", "==", "", ""),
+				Entry("greater than or equal with unit to dimensionless", ">=", "psi", ""),
+				Entry("not equals same dimensions", "!=", "m", "m"),
+				Entry("less than or equal same dimensions", "<=", "s", "ms"),
+			)
 
-			It("Should allow dividing any dimensions", func() {
-				left := types.Type{Kind: types.KindF64, Unit: units.MustResolve("m")}
-				right := types.Type{Kind: types.KindF64, Unit: units.MustResolve("s")}
-				Expect(units.ValidateBinaryOp("/", left, right)).To(Succeed())
-			})
-
-			It("Should allow multiplying dimensionless values", func() {
-				left := types.Type{Kind: types.KindF64}
-				right := types.Type{Kind: types.KindF64}
-				Expect(units.ValidateBinaryOp("*", left, right)).To(Succeed())
-			})
-
-			It("Should allow multiplying unit by dimensionless", func() {
-				left := types.Type{Kind: types.KindF64, Unit: units.MustResolve("m")}
-				right := types.Type{Kind: types.KindF64}
-				Expect(units.ValidateBinaryOp("*", left, right)).To(Succeed())
-			})
+			DescribeTable("should reject incompatible dimensions",
+				func(op, leftUnit, rightUnit string) {
+					left, right := makeType(leftUnit), makeType(rightUnit)
+					Expect(units.ValidateBinaryOp(op, left, right)).To(
+						MatchError(units.IncompatibleDimensionsError),
+					)
+				},
+				Entry("add pressure and time", "+", "psi", "s"),
+				Entry("subtract length and time", "-", "m", "s"),
+				Entry("modulo length and time", "%", "m", "s"),
+				Entry("compare pressure and time", "<", "psi", "s"),
+				Entry("compare length and frequency", ">", "m", "Hz"),
+				Entry("equals pressure and voltage", "==", "psi", "V"),
+			)
 		})
 	})
 
 	Describe("ValidatePowerOp", func() {
-		It("Should reject dimensioned exponent", func() {
-			base := types.Type{Kind: types.KindF64, Unit: units.MustResolve("m")}
-			exp := types.Type{Kind: types.KindF64, Unit: units.MustResolve("s")}
-			err := units.ValidatePowerOp(base, exp, false)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("dimensionless"))
-		})
+		DescribeTable("valid power operations",
+			func(baseUnit, expUnit string, isLiteral bool) {
+				base, exp := makeType(baseUnit), makeType(expUnit)
+				Expect(units.ValidatePowerOp(base, exp, isLiteral)).To(Succeed())
+			},
+			Entry("dimensionless base and exponent", "", "", false),
+			Entry("dimensioned base with literal exponent", "m", "", true),
+			Entry("dimensionless base with dimensionless exponent", "", "", true),
+		)
 
-		It("Should reject non-literal exponent with dimensioned base", func() {
-			base := types.Type{Kind: types.KindF64, Unit: units.MustResolve("m")}
-			exp := types.Type{Kind: types.KindF64}
-			err := units.ValidatePowerOp(base, exp, false)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("literal integer exponent"))
-		})
-
-		It("Should allow literal exponent with dimensioned base", func() {
-			base := types.Type{Kind: types.KindF64, Unit: units.MustResolve("m")}
-			exp := types.Type{Kind: types.KindF64}
-			Expect(units.ValidatePowerOp(base, exp, true)).To(Succeed())
-		})
-
-		It("Should allow dimensionless base and exponent", func() {
-			base := types.Type{Kind: types.KindF64}
-			exp := types.Type{Kind: types.KindF64}
-			Expect(units.ValidatePowerOp(base, exp, false)).To(Succeed())
-		})
-	})
-
-	Describe("ValidateBinaryOp - Comparisons", func() {
-		It("Should allow comparing same dimensions", func() {
-			left := types.Type{Kind: types.KindF64, Unit: units.MustResolve("psi")}
-			right := types.Type{Kind: types.KindF64, Unit: units.MustResolve("Pa")}
-			Expect(units.ValidateBinaryOp(">", left, right)).To(Succeed())
-		})
-
-		It("Should reject comparing incompatible dimensions", func() {
-			left := types.Type{Kind: types.KindF64, Unit: units.MustResolve("psi")}
-			right := types.Type{Kind: types.KindF64, Unit: units.MustResolve("s")}
-			Expect(units.ValidateBinaryOp("<", left, right)).To(MatchError(units.IncompatibleDimensionsError))
-		})
-
-		It("Should allow comparing dimensionless values", func() {
-			left := types.Type{Kind: types.KindF64}
-			right := types.Type{Kind: types.KindF64}
-			Expect(units.ValidateBinaryOp("==", left, right)).To(Succeed())
-		})
-
-		It("Should allow comparing unit to dimensionless", func() {
-			left := types.Type{Kind: types.KindF64, Unit: units.MustResolve("psi")}
-			right := types.Type{Kind: types.KindF64}
-			Expect(units.ValidateBinaryOp(">=", left, right)).To(Succeed())
-		})
-	})
-
-	Describe("ValidateBinaryOp - Modulo", func() {
-		It("Should allow modulo with same dimensions", func() {
-			left := types.Type{Kind: types.KindF64, Unit: units.MustResolve("m")}
-			right := types.Type{Kind: types.KindF64, Unit: units.MustResolve("m")}
-			Expect(units.ValidateBinaryOp("%", left, right)).To(Succeed())
-		})
-
-		It("Should reject modulo with incompatible dimensions", func() {
-			left := types.Type{Kind: types.KindF64, Unit: units.MustResolve("m")}
-			right := types.Type{Kind: types.KindF64, Unit: units.MustResolve("s")}
-			Expect(units.ValidateBinaryOp("%", left, right)).To(MatchError(units.IncompatibleDimensionsError))
-		})
+		DescribeTable("invalid power operations",
+			func(baseUnit, expUnit string, isLiteral bool, expectedErr error, msgSubstring string) {
+				base, exp := makeType(baseUnit), makeType(expUnit)
+				err := units.ValidatePowerOp(base, exp, isLiteral)
+				Expect(err).To(MatchError(expectedErr))
+				Expect(err.Error()).To(ContainSubstring(msgSubstring))
+			},
+			Entry("dimensioned exponent",
+				"m", "s", false,
+				units.DimensionsError, "dimensionless"),
+			Entry("non-literal exponent with dimensioned base",
+				"m", "", false,
+				units.DimensionsError, "literal integer exponent"),
+		)
 	})
 
 	Describe("ScaleFactor", func() {
-		It("Should calculate km to m conversion", func() {
-			km := MustBeOk(units.Resolve("km"))
-			m := MustBeOk(units.Resolve("meter"))
-			factor := MustSucceed(units.ScaleFactor(km, m))
-			Expect(factor).To(Equal(1000.0)) // 1 km = 1000 m
-		})
+		DescribeTable("valid conversions",
+			func(fromUnit, toUnit string, expected float64, approx bool) {
+				from := MustBeOk(units.Resolve(fromUnit))
+				to := MustBeOk(units.Resolve(toUnit))
+				factor := MustSucceed(units.ScaleFactor(from, to))
+				if approx {
+					Expect(factor).To(BeNumerically("~", expected, 0.01))
+				} else {
+					Expect(factor).To(Equal(expected))
+				}
+			},
+			Entry("km to m", "km", "meter", 1000.0, false),
+			Entry("ms to s", "ms", "s", 1e-3, false),
+			Entry("psi to Pa", "psi", "Pa", 6894.76, true),
+			Entry("same unit returns 1.0", "psi", "psi", 1.0, false),
+		)
 
-		It("Should calculate ms to s conversion", func() {
-			ms := MustBeOk(units.Resolve("ms"))
-			s := MustBeOk(units.Resolve("s"))
-			factor := MustSucceed(units.ScaleFactor(ms, s))
-			Expect(factor).To(Equal(1e-3)) // 1 ms = 0.001 s
-		})
-
-		It("Should calculate psi to Pa conversion", func() {
-			psi := MustBeOk(units.Resolve("psi"))
-			pa := MustBeOk(units.Resolve("Pa"))
-			factor := MustSucceed(units.ScaleFactor(psi, pa))
-			Expect(factor).To(BeNumerically("~", 6894.76, 0.01))
-		})
-
-		It("Should return 1.0 for same unit", func() {
-			psi := MustBeOk(units.Resolve("psi"))
-			factor := MustSucceed(units.ScaleFactor(psi, psi))
-			Expect(factor).To(Equal(1.0))
-		})
-
-		It("Should return 1.0 for both nil", func() {
+		It("should return 1.0 for both nil", func() {
 			factor := MustSucceed(units.ScaleFactor(nil, nil))
 			Expect(factor).To(Equal(1.0))
 		})
 
-		It("Should error for incompatible dimensions", func() {
-			psi := MustBeOk(units.Resolve("psi"))
-			s := MustBeOk(units.Resolve("s"))
-			Expect(units.ScaleFactor(psi, s)).Error().To(MatchError(units.IncompatibleDimensionsError))
-		})
-
-		It("Should error for nil to dimensioned", func() {
-			psi := MustBeOk(units.Resolve("psi"))
-			Expect(units.ScaleFactor(nil, psi)).Error().To(MatchError(ContainSubstring("cannot convert between dimensioned and dimensionless values")))
-		})
+		DescribeTable("invalid conversions",
+			func(from, to *types.Unit, expectedErr error, msgSubstring string) {
+				_, err := units.ScaleFactor(from, to)
+				Expect(err).To(MatchError(expectedErr))
+				Expect(err.Error()).To(ContainSubstring(msgSubstring))
+			},
+			Entry("incompatible dimensions",
+				MustBeOk(units.Resolve("psi")), MustBeOk(units.Resolve("s")),
+				units.IncompatibleDimensionsError, "cannot convert"),
+			Entry("nil to dimensioned",
+				nil, MustBeOk(units.Resolve("psi")),
+				units.DimensionsError, "cannot convert between dimensioned and dimensionless"),
+			Entry("dimensioned to nil",
+				MustBeOk(units.Resolve("psi")), nil,
+				units.DimensionsError, "cannot convert between dimensioned and dimensionless"),
+		)
 	})
 })
