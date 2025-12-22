@@ -12,7 +12,6 @@
 .console-perf-row {
     padding: 0.25rem 0.5rem;
     border-radius: var(--pluto-border-radius);
-    cursor: help;
     transition: background-color 0.15s ease;
 }
 

@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Tooltip } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { cloneElement, type ReactElement } from "react";
 
 interface WithTooltipProps {
   tooltip?: string;
@@ -17,11 +16,5 @@ interface WithTooltipProps {
 
 export const WithTooltip = ({ tooltip, children }: WithTooltipProps): ReactElement => {
   if (tooltip == null) return children;
-
-  return (
-    <Tooltip.Dialog>
-      {tooltip}
-      {children as any}
-    </Tooltip.Dialog>
-  );
+  return cloneElement(children as ReactElement<{ title?: string }>, { title: tooltip });
 };
