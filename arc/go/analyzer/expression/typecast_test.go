@@ -166,6 +166,71 @@ var _ = Describe("Type Casts", func() {
 		`),
 	)
 
+	DescribeTable("Boolean/Numeric Conversions",
+		func(code string) { expectSuccess(code, nil) },
+		Entry("u8 (bool) to i32", `
+			func testFunc() {
+				x u8 := 1
+				y := i32(x)
+			}
+		`),
+		Entry("u8 (bool) to f32", `
+			func testFunc() {
+				x u8 := 1
+				y := f32(x)
+			}
+		`),
+		Entry("i32 to u8 (bool)", `
+			func testFunc() {
+				x i32 := 1
+				y := u8(x)
+			}
+		`),
+		Entry("f32 to u8 (bool)", `
+			func testFunc() {
+				x f32 := 1.0
+				y := u8(x)
+			}
+		`),
+	)
+
+	DescribeTable("Same Type Casts",
+		func(code string) { expectSuccess(code, nil) },
+		Entry("i32 to i32", `
+			func testFunc() {
+				x i32 := 42
+				y := i32(x)
+			}
+		`),
+		Entry("f64 to f64", `
+			func testFunc() {
+				x f64 := 3.14
+				y := f64(x)
+			}
+		`),
+		Entry("str to str", `
+			func testFunc() {
+				x str := "hello"
+				y := str(x)
+			}
+		`),
+		Entry("string literal to str", `
+			func testFunc() {
+				y := str("hello")
+			}
+		`),
+		Entry("integer literal to i32", `
+			func testFunc() {
+				y := i32(42)
+			}
+		`),
+		Entry("float literal to f64", `
+			func testFunc() {
+				y := f64(3.14)
+			}
+		`),
+	)
+
 	Describe("Type Cast Failures", func() {
 		It("Should reject casting string to numeric type", func() {
 			expectFailure(`

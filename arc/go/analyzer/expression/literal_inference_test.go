@@ -20,8 +20,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// Note: expectSuccess and expectFailure helpers are in expression_suite_test.go
-
 var _ = Describe("Literal Type Inference", func() {
 	var testResolver symbol.MapResolver
 

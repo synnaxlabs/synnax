@@ -93,8 +93,8 @@ var _ = Describe("Types", func() {
 		Describe("Function types", func() {
 			It("should return function type unchanged", func() {
 				props := types.FunctionProperties{
-					Inputs:  []types.Param{{Name: "x", Type: types.I32()}},
-					Outputs: []types.Param{{Name: "result", Type: types.I32()}},
+					Inputs:  types.Params{{Name: "x", Type: types.I32()}},
+					Outputs: types.Params{{Name: "result", Type: types.I32()}},
 				}
 				fnType := types.Function(props)
 				Expect(fnType.Unwrap()).To(Equal(fnType))
@@ -414,65 +414,65 @@ var _ = Describe("Types", func() {
 
 		It("Should compare function types", func() {
 			props1 := types.FunctionProperties{
-				Inputs:  []types.Param{{Name: "x", Type: types.I32()}},
-				Outputs: []types.Param{{Name: "y", Type: types.I32()}},
+				Inputs:  types.Params{{Name: "x", Type: types.I32()}},
+				Outputs: types.Params{{Name: "y", Type: types.I32()}},
 			}
 			props2 := types.FunctionProperties{
-				Inputs:  []types.Param{{Name: "x", Type: types.I32()}},
-				Outputs: []types.Param{{Name: "y", Type: types.I32()}},
+				Inputs:  types.Params{{Name: "x", Type: types.I32()}},
+				Outputs: types.Params{{Name: "y", Type: types.I32()}},
 			}
 			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeTrue())
 		})
 
 		It("Should return false for function types with different inputs", func() {
 			props1 := types.FunctionProperties{
-				Inputs: []types.Param{{Name: "x", Type: types.I32()}},
+				Inputs: types.Params{{Name: "x", Type: types.I32()}},
 			}
 			props2 := types.FunctionProperties{
-				Inputs: []types.Param{{Name: "y", Type: types.I32()}},
+				Inputs: types.Params{{Name: "y", Type: types.I32()}},
 			}
 			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
 		})
 
 		It("Should return false for function types with different input types", func() {
 			props1 := types.FunctionProperties{
-				Inputs: []types.Param{{Name: "x", Type: types.I32()}},
+				Inputs: types.Params{{Name: "x", Type: types.I32()}},
 			}
 			props2 := types.FunctionProperties{
-				Inputs: []types.Param{{Name: "x", Type: types.F64()}},
+				Inputs: types.Params{{Name: "x", Type: types.F64()}},
 			}
 			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
 		})
 
 		It("Should return false for function types with different input counts", func() {
 			props1 := types.FunctionProperties{
-				Inputs: []types.Param{
+				Inputs: types.Params{
 					{Name: "x", Type: types.I32()},
 					{Name: "y", Type: types.I32()},
 				},
 			}
 			props2 := types.FunctionProperties{
-				Inputs: []types.Param{{Name: "x", Type: types.I32()}},
+				Inputs: types.Params{{Name: "x", Type: types.I32()}},
 			}
 			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
 		})
 
 		It("Should return false for function types with different outputs", func() {
 			props1 := types.FunctionProperties{
-				Outputs: []types.Param{{Name: "result", Type: types.I32()}},
+				Outputs: types.Params{{Name: "result", Type: types.I32()}},
 			}
 			props2 := types.FunctionProperties{
-				Outputs: []types.Param{{Name: "result", Type: types.F64()}},
+				Outputs: types.Params{{Name: "result", Type: types.F64()}},
 			}
 			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
 		})
 
 		It("Should return false for function types with different config", func() {
 			props1 := types.FunctionProperties{
-				Config: []types.Param{{Name: "option", Type: types.I32()}},
+				Config: types.Params{{Name: "option", Type: types.I32()}},
 			}
 			props2 := types.FunctionProperties{
-				Config: []types.Param{{Name: "option", Type: types.F64()}},
+				Config: types.Params{{Name: "option", Type: types.F64()}},
 			}
 			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
 		})
@@ -490,7 +490,7 @@ var _ = Describe("Types", func() {
 
 		It("Should preserve provided inputs/outputs/config", func() {
 			props := types.FunctionProperties{
-				Inputs: []types.Param{{Name: "x", Type: types.I32()}},
+				Inputs: types.Params{{Name: "x", Type: types.I32()}},
 			}
 			fn := types.Function(props)
 			Expect(len(fn.Inputs)).To(Equal(1))

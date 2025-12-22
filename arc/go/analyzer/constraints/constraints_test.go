@@ -111,7 +111,7 @@ var _ = Describe("Constraint System", func() {
 			system.Substitutions["T"] = types.F32()
 			var (
 				tv         = types.Variable("T", nil)
-				props      = types.FunctionProperties{Inputs: []types.Param{{Name: "x", Type: tv}}}
+				props      = types.FunctionProperties{Inputs: types.Params{{Name: "x", Type: tv}}}
 				fnType     = types.Function(props)
 				result     = system.ApplySubstitutions(fnType)
 				inputParam = MustBeOk(result.Inputs.Get("x"))
@@ -122,7 +122,7 @@ var _ = Describe("Constraint System", func() {
 		It("should apply substitutions to function output types", func() {
 			var (
 				tv     = types.Variable("T", nil)
-				props  = types.FunctionProperties{Outputs: []types.Param{{Name: "result", Type: tv}}}
+				props  = types.FunctionProperties{Outputs: types.Params{{Name: "result", Type: tv}}}
 				fnType = types.Function(props)
 			)
 			system.Substitutions["T"] = types.I64()
@@ -136,7 +136,7 @@ var _ = Describe("Constraint System", func() {
 		It("should apply substitutions to function config types", func() {
 			var (
 				tv     = types.Variable("T", nil)
-				props  = types.FunctionProperties{Config: []types.Param{{Name: "threshold", Type: tv}}}
+				props  = types.FunctionProperties{Config: types.Params{{Name: "threshold", Type: tv}}}
 				fnType = types.Function(props)
 			)
 			system.Substitutions["T"] = types.F64()
@@ -153,9 +153,9 @@ var _ = Describe("Constraint System", func() {
 				tv2   = types.Variable("T2", nil)
 				tv3   = types.Variable("T3", nil)
 				props = types.FunctionProperties{
-					Inputs:  []types.Param{{Name: "x", Type: tv1}},
-					Outputs: []types.Param{{Name: "y", Type: tv2}},
-					Config:  []types.Param{{Name: "z", Type: tv3}},
+					Inputs:  types.Params{{Name: "x", Type: tv1}},
+					Outputs: types.Params{{Name: "y", Type: tv2}},
+					Config:  types.Params{{Name: "z", Type: tv3}},
 				}
 				fnType = types.Function(props)
 			)
