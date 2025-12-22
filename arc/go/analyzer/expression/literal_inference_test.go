@@ -146,8 +146,8 @@ func test{} () f32 {
 			// Accept either "f64 and i8" or "i8 and f64" (order may vary)
 			errorMsg := ctx.Diagnostics.Error()
 			Expect(errorMsg).To(Or(
-				ContainSubstring("types f64 and i8 are not unifiable"),
-				ContainSubstring("types i8 and f64 are not unifiable"),
+				ContainSubstring("f64 and i8"),
+				ContainSubstring("i8 and f64"),
 			))
 		})
 

@@ -44,7 +44,7 @@ var _ = Describe("Type Unification", func() {
 			constraint := types.NumericConstraint()
 			tv := types.Variable("T", &constraint)
 			system.AddEquality(tv, types.String(), nil, "T = string")
-			Expect(system.Unify()).To(MatchError(ContainSubstring("does not satisfy constraint")))
+			Expect(system.Unify()).To(MatchError(ContainSubstring("constraint violation")))
 		})
 	})
 
@@ -128,7 +128,7 @@ var _ = Describe("Type Unification", func() {
 			It("should report unresolved type variables with no constraints", func() {
 				tv := types.Variable("T", nil)
 				system.AddEquality(tv, tv, nil, "T = T") // Self-equality doesn't help
-				Expect(system.Unify()).To(MatchError(ContainSubstring("could not be resolved")))
+				Expect(system.Unify()).To(MatchError(ContainSubstring("unresolved type variable")))
 			})
 
 			It("should use default for constrained but unresolved variables", func() {
@@ -144,20 +144,28 @@ var _ = Describe("Type Unification", func() {
 			It("should fail when unifying channel with non-channel type", func() {
 				chanF32 := types.Chan(types.F32())
 				system.AddEquality(chanF32, types.I32(), nil, "chan f32 = i32")
-				Expect(system.Unify()).To(MatchError(ContainSubstring("cannot unify channel")))
+				Expect(system.Unify()).To(MatchError(ContainSubstring("types are not unifiable")))
 			})
 
 			It("should fail when unifying series with non-series type", func() {
 				seriesF32 := types.Series(types.F32())
 				system.AddEquality(seriesF32, types.String(), nil, "series f32 = string")
-				Expect(system.Unify()).To(MatchError(ContainSubstring("cannot unify channel")))
+				Expect(system.Unify()).To(MatchError(ContainSubstring("types are not unifiable")))
+			})
+
+			It("should fail when unifying channel with series of same element type", func() {
+				// Regression test: chan and series are different compound types
+				chanF32 := types.Chan(types.F32())
+				seriesF32 := types.Series(types.F32())
+				system.AddEquality(chanF32, seriesF32, nil, "chan f32 = series f32")
+				Expect(system.Unify()).To(MatchError(ContainSubstring("types are not unifiable")))
 			})
 
 			It("should fail when constraint doesn't match and not compatible", func() {
 				f32Constraint := types.F32()
 				tv := types.Variable("T", &f32Constraint)
 				system.AddEquality(tv, types.I32(), nil, "T = i32")
-				Expect(system.Unify()).To(MatchError(ContainSubstring("does not match constraint")))
+				Expect(system.Unify()).To(MatchError(ContainSubstring("constraint violation")))
 			})
 		})
 
