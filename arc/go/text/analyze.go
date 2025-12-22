@@ -273,7 +273,7 @@ func analyzeExpression(
 	n := ir.Node{
 		Key:      key,
 		Type:     sym.Name,
-		Channels: symbol.NewChannels(),
+		Channels: sym.Channels.Copy(),
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 	}
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
@@ -349,15 +349,16 @@ func Analyze(
 }
 
 type flowChainProcessor struct {
-	ctx            acontext.Context[parser.IFlowStatementContext]
-	kg             *keyGenerator
-	totalFlowNodes int
-	currentIndex   int
-	prevOutput     ir.Handle
-	prevNode       *ir.Node
-	lastOpIndex    int
-	nodes          []ir.Node
-	edges          []ir.Edge
+	ctx                acontext.Context[parser.IFlowStatementContext]
+	kg                 *keyGenerator
+	totalFlowNodes     int
+	currentIndex       int
+	prevOutput         ir.Handle
+	prevNode           *ir.Node
+	lastOpIndex        int
+	nodes              []ir.Node
+	edges              []ir.Edge
+	additionalTriggers []nodeResult
 }
 
 func newFlowChainProcessor(ctx acontext.Context[parser.IFlowStatementContext], kg *keyGenerator) *flowChainProcessor {
@@ -381,10 +382,55 @@ func (p *flowChainProcessor) edgeKind() ir.EdgeKind {
 	return ir.Continuous
 }
 
+// injectImplicitTriggers creates channel read nodes for all channels referenced
+// in an expression when that expression is the first node in a flow statement.
+// This enables the shorthand syntax: `ox_pt_1 > 20 => do_something{}`
+// which expands to: `ox_pt_1 -> ox_pt_1 > 20 => do_something{}`
+func (p *flowChainProcessor) injectImplicitTriggers(expr parser.IExpressionContext) bool {
+	sym, err := p.ctx.Scope.Root().GetChildByParserRule(expr)
+	if err != nil || sym.Kind == symbol.KindConstant {
+		return true // Constants don't need triggers
+	}
+
+	if len(sym.Channels.Read) == 0 {
+		return true // No channels referenced
+	}
+
+	// Create trigger node for each channel
+	for _, chName := range sym.Channels.Read {
+		chanSym, err := p.ctx.Scope.Resolve(p.ctx, chName)
+		if err != nil {
+			continue
+		}
+		result, ok := buildChannelReadNode(chName, chanSym, p.kg)
+		if !ok {
+			return false
+		}
+		p.nodes = append(p.nodes, result.node)
+
+		if p.prevNode == nil {
+			p.prevOutput = result.output
+			p.prevNode = &result.node
+		} else {
+			p.additionalTriggers = append(p.additionalTriggers, result)
+		}
+	}
+	return true
+}
+
 func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) bool {
 	p.currentIndex++
 	isLast := p.currentIndex == p.totalFlowNodes
 	isSink := isLast && flowNode.Identifier() != nil
+
+	// Inject implicit triggers for expression as first node
+	if p.currentIndex == 1 && p.prevNode == nil {
+		if expr := flowNode.Expression(); expr != nil {
+			if !p.injectImplicitTriggers(expr) {
+				return false
+			}
+		}
+	}
 
 	result, ok := analyzeFlowNode(acontext.Child(p.ctx, flowNode), p.kg, isSink)
 	if !ok {
@@ -393,6 +439,19 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 	if p.prevNode != nil {
 		p.edges = append(p.edges, ir.Edge{Source: p.prevOutput, Target: result.input, Kind: p.edgeKind()})
 	}
+
+	// Handle additional triggers (for expressions with multiple channel references)
+	if len(p.additionalTriggers) > 0 {
+		for _, trigger := range p.additionalTriggers {
+			p.edges = append(p.edges, ir.Edge{
+				Source: trigger.output,
+				Target: result.input,
+				Kind:   ir.Continuous,
+			})
+		}
+		p.additionalTriggers = nil
+	}
+
 	p.prevOutput = result.output
 	p.prevNode = &result.node
 	if result.node.Key != "" {

@@ -25,8 +25,6 @@
 package function
 
 import (
-	"context"
-
 	"github.com/antlr4-go/antlr/v4"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
@@ -82,13 +80,7 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) bool {
 		return false
 	}
 	if block := ctx.AST.Block(); block != nil {
-		fn.Channels = symbol.NewChannels()
-		fn.OnResolve = func(ctx context.Context, s *symbol.Scope) error {
-			if s.Kind == symbol.KindChannel || s.Type.Kind == types.KindChan {
-				fn.Channels.Read[uint32(s.ID)] = s.Name
-			}
-			return nil
-		}
+		fn.AccumulateReadChannels()
 		if !statement.AnalyzeBlock(acontext.Child(ctx, block).WithScope(fn)) {
 			return false
 		}

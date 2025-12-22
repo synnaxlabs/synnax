@@ -944,6 +944,166 @@ var _ = Describe("Text", func() {
 				),
 			)
 		})
+
+		Context("Implicit Expression Triggers", func() {
+			It("Should inject implicit trigger for expression as first flow node", func() {
+				resolver := symbol.MapResolver{
+					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 42},
+				}
+				source := `
+				func alarm{} (value u8) {
+				}
+
+				sensor > 20 => alarm{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Should have 3 nodes: on_sensor (injected trigger), expression, alarm
+				Expect(inter.Nodes).To(HaveLen(3))
+
+				// Verify trigger node was created
+				triggerNode := findNodeByKey(inter.Nodes, "on_sensor_0")
+				Expect(triggerNode.Type).To(Equal("on"))
+				Expect(triggerNode.Channels.Read.Contains(uint32(42))).To(BeTrue())
+
+				// Verify expression node exists and tracks channel dependency
+				exprNode := inter.Nodes[1]
+				Expect(exprNode.Type).To(HavePrefix("expression_"))
+				Expect(exprNode.Channels.Read.Contains(uint32(42))).To(BeTrue())
+
+				// Verify edges: trigger -> expression -> alarm
+				Expect(inter.Edges).To(HaveLen(2))
+
+				// First edge: trigger -> expression (Continuous)
+				edge0 := inter.Edges[0]
+				Expect(edge0.Source.Node).To(Equal("on_sensor_0"))
+				Expect(edge0.Target.Node).To(Equal(exprNode.Key))
+				Expect(edge0.Kind).To(Equal(ir.Continuous))
+
+				// Second edge: expression -> alarm (OneShot from =>)
+				edge1 := inter.Edges[1]
+				Expect(edge1.Source.Node).To(Equal(exprNode.Key))
+				Expect(edge1.Target.Node).To(Equal("alarm_0"))
+				Expect(edge1.Kind).To(Equal(ir.OneShot))
+			})
+
+			It("Should inject multiple triggers for multi-channel expression", func() {
+				resolver := symbol.MapResolver{
+					"temp":     {Name: "temp", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 1},
+					"pressure": {Name: "pressure", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 2},
+				}
+				source := `
+				func alarm{} (value u8) {
+				}
+
+				temp + pressure > 100 => alarm{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Should have 4 nodes: 2 trigger nodes + expression + alarm
+				Expect(inter.Nodes).To(HaveLen(4))
+
+				// Count trigger nodes
+				triggerCount := countNodesByType(inter.Nodes, "on")
+				Expect(triggerCount).To(Equal(2))
+
+				// Verify expression node tracks both channel dependencies
+				var exprNode ir.Node
+				for _, n := range inter.Nodes {
+					if n.Type != "on" && n.Type != "alarm" {
+						exprNode = n
+						break
+					}
+				}
+				Expect(exprNode.Channels.Read).To(HaveLen(2))
+				Expect(exprNode.Channels.Read.Contains(uint32(1))).To(BeTrue())
+				Expect(exprNode.Channels.Read.Contains(uint32(2))).To(BeTrue())
+
+				// Should have 3 edges: 2 triggers -> expression, expression -> alarm
+				Expect(inter.Edges).To(HaveLen(3))
+
+				// Count edges targeting expression node
+				exprEdgeCount := 0
+				for _, edge := range inter.Edges {
+					if edge.Target.Node == exprNode.Key {
+						exprEdgeCount++
+						Expect(edge.Kind).To(Equal(ir.Continuous))
+					}
+				}
+				Expect(exprEdgeCount).To(Equal(2))
+			})
+
+			It("Should not inject trigger for constant expressions", func() {
+				resolver := symbol.MapResolver{
+					"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 1},
+				}
+				source := `1 + 2 -> output`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Should have 2 nodes: expression + write (no trigger injected)
+				Expect(inter.Nodes).To(HaveLen(2))
+
+				// Verify no trigger nodes were created
+				triggerCount := countNodesByType(inter.Nodes, "on")
+				Expect(triggerCount).To(Equal(0))
+			})
+
+			It("Should not inject trigger when expression is not first node", func() {
+				resolver := symbol.MapResolver{
+					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 42},
+				}
+				source := `
+				func alarm{} (value u8) {
+				}
+
+				sensor -> sensor > 20 => alarm{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Should have 3 nodes: explicit trigger, expression, alarm
+				Expect(inter.Nodes).To(HaveLen(3))
+
+				// Only one trigger node (the explicit one)
+				triggerCount := countNodesByType(inter.Nodes, "on")
+				Expect(triggerCount).To(Equal(1))
+
+				// Verify edges: trigger -> expression -> alarm (2 edges total)
+				Expect(inter.Edges).To(HaveLen(2))
+			})
+
+			It("Should inject trigger for expression in sequence stage", func() {
+				resolver := symbol.MapResolver{
+					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 42},
+				}
+				source := `
+				sequence main {
+					stage monitoring {
+						sensor > 100 => next
+					}
+					stage alarm {
+					}
+				}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Verify trigger node was created
+				triggerCount := countNodesByType(inter.Nodes, "on")
+				Expect(triggerCount).To(Equal(1))
+
+				triggerNode := findNodeByType(inter.Nodes, "on")
+				Expect(triggerNode.Channels.Read.Contains(uint32(42))).To(BeTrue())
+			})
+		})
 	})
 
 	Describe("Unit Dimensional Analysis", func() {

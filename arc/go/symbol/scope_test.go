@@ -514,5 +514,81 @@ var _ = Describe("Scope", func() {
 				Expect(copied.Read).ToNot(HaveKey(uint32(3)))
 			})
 		})
+		Describe("AccumulateReadChannels", func() {
+			It("Should initialize Channels and set up OnResolve callback", func() {
+				rootScope := symbol.CreateRootScope(nil)
+				funcScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
+
+				funcScope.AccumulateReadChannels()
+
+				Expect(funcScope.Channels).ToNot(BeNil())
+				Expect(funcScope.Channels.Read).ToNot(BeNil())
+				Expect(funcScope.Channels.Write).ToNot(BeNil())
+				Expect(funcScope.OnResolve).ToNot(BeNil())
+			})
+
+			It("Should track channel references via OnResolve callback", func() {
+				globalResolver := symbol.MapResolver{
+					"sensor": symbol.Symbol{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 42},
+				}
+				rootScope := symbol.CreateRootScope(globalResolver)
+				funcScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
+
+				funcScope.AccumulateReadChannels()
+
+				MustSucceed(funcScope.Resolve(bCtx, "sensor"))
+
+				Expect(funcScope.Channels.Read).To(HaveLen(1))
+				Expect(funcScope.Channels.Read).To(HaveKey(uint32(42)))
+				Expect(funcScope.Channels.Read[42]).To(Equal("sensor"))
+			})
+
+			It("Should track multiple channel references", func() {
+				globalResolver := symbol.MapResolver{
+					"temp":     symbol.Symbol{Name: "temp", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 1},
+					"pressure": symbol.Symbol{Name: "pressure", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
+				}
+				rootScope := symbol.CreateRootScope(globalResolver)
+				funcScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
+
+				funcScope.AccumulateReadChannels()
+
+				MustSucceed(funcScope.Resolve(bCtx, "temp"))
+				MustSucceed(funcScope.Resolve(bCtx, "pressure"))
+
+				Expect(funcScope.Channels.Read).To(HaveLen(2))
+				Expect(funcScope.Channels.Read[1]).To(Equal("temp"))
+				Expect(funcScope.Channels.Read[2]).To(Equal("pressure"))
+			})
+
+			It("Should not track non-channel symbols", func() {
+				rootScope := symbol.CreateRootScope(nil)
+				MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
+				funcScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
+
+				funcScope.AccumulateReadChannels()
+
+				MustSucceed(funcScope.Resolve(bCtx, "x"))
+
+				Expect(funcScope.Channels.Read).To(HaveLen(0))
+			})
+
+			It("Should track symbols with chan type kind", func() {
+				rootScope := symbol.CreateRootScope(nil)
+				chanVarScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
+					Name: "chanVar",
+					Kind: symbol.KindVariable,
+					Type: types.Chan(types.I32()),
+				}))
+				funcScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
+
+				funcScope.AccumulateReadChannels()
+
+				MustSucceed(funcScope.Resolve(bCtx, "chanVar"))
+
+				Expect(funcScope.Channels.Read).To(HaveLen(1))
+				Expect(funcScope.Channels.Read[uint32(chanVarScope.ID)]).To(Equal("chanVar"))
+			})
+		})
 	})
 })
