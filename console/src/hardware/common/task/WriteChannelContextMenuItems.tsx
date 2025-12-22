@@ -19,29 +19,21 @@ export interface WriteChannelContextMenuItemsProps
 export const WriteChannelContextMenuItems: React.FC<
   WriteChannelContextMenuItemsProps
 > = ({ channels, keys }) => {
-  if (keys.length !== 1) return null;
   const key = keys[0];
   const channel = channels.find((ch) => ch.key === key);
   if (channel == null) return null;
-  const canRenameCmdChannel = channel.cmdChannel !== 0;
-  const canRenameStateChannel = channel.stateChannel !== 0;
-  if (!canRenameCmdChannel && !canRenameStateChannel) return null;
   const handleRename = (type: WriteChannelType) =>
     Text.edit(getChannelNameID(key, type));
   return (
     <>
-      {canRenameCmdChannel && (
-        <Menu.Item itemKey="renameCmd" onClick={() => handleRename("cmd")}>
-          <Icon.Rename />
-          Rename command channel
-        </Menu.Item>
-      )}
-      {canRenameStateChannel && (
-        <Menu.Item itemKey="renameState" onClick={() => handleRename("state")}>
-          <Icon.Rename />
-          Rename state channel
-        </Menu.Item>
-      )}
+      <Menu.Item itemKey="renameCmd" onClick={() => handleRename("cmd")}>
+        <Icon.Rename />
+        Rename command channel
+      </Menu.Item>
+      <Menu.Item itemKey="renameState" onClick={() => handleRename("state")}>
+        <Icon.Rename />
+        Rename state channel
+      </Menu.Item>
       <Menu.Divider />
     </>
   );

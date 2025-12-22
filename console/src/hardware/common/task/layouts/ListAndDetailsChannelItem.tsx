@@ -36,7 +36,9 @@ export interface ListAndDetailsChannelItemProps<K extends record.Key>
   hasTareButton: boolean;
 }
 
-const getChannelNameProps = (hasIcon: boolean): Omit<ChannelNameProps, "channel"> => ({
+const getChannelNameProps = (
+  hasIcon: boolean,
+): Omit<ChannelNameProps, "channel" | "namePath"> => ({
   level: "p",
   color: 9,
   weight: 450,
@@ -93,6 +95,8 @@ export const ListAndDetailsChannelItem = <K extends string>({
         {hasStateChannel ? (
           <Flex.Box direction="y" gap="small">
             <WriteChannelNames
+              stateNamePath={`${path}.stateChannelName`}
+              cmdNamePath={`${path}.cmdChannelName`}
               cmdChannel={channel}
               stateChannel={stateChannel}
               itemKey={itemKey}
@@ -102,6 +106,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
           <ChannelName
             {...channelNameProps}
             channel={channel}
+            namePath={`${path}.name`}
             id={getChannelNameID(itemKey)}
           />
         )}

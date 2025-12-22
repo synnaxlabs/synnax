@@ -306,6 +306,8 @@ export const writeConfigZ = Common.Task.baseConfigZ.extend({
       channels.map<OutputChannel>(({ cmdKey, stateKey, ...rest }) => ({
         cmdChannel: cmdKey,
         stateChannel: stateKey,
+        cmdChannelName: "",
+        stateChannelName: "",
         ...rest,
       })),
     )
