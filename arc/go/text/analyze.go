@@ -403,26 +403,19 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 
 func (p *flowChainProcessor) processRoutingTable(rt parser.IRoutingTableContext) bool {
 	if p.prevNode == nil {
-		newNodes, newEdges, ok := analyzeInputRoutingTable(acontext.Child(p.ctx, rt), p.kg)
-		if !ok {
-			return false
-		}
-		p.nodes = append(p.nodes, newNodes...)
-		p.edges = append(p.edges, newEdges...)
-		if len(newNodes) > 0 {
-			lastNode := newNodes[len(newNodes)-1]
-			p.prevNode = &lastNode
-			p.prevOutput = ir.Handle{Node: lastNode.Key, Param: firstOutputParam(lastNode.Outputs)}
-		}
-	} else {
-		newNodes, newEdges, ok := analyzeOutputRoutingTable(acontext.Child(p.ctx, rt), *p.prevNode, p.prevOutput, p.kg)
-		if !ok {
-			return false
-		}
-		p.nodes = append(p.nodes, newNodes...)
-		p.edges = append(p.edges, newEdges...)
-		p.prevNode = nil
+		p.ctx.Diagnostics.AddError(
+			errors.Newf("input routing tables not yet implemented in text compiler"),
+			p.ctx.AST,
+		)
+		return false
 	}
+	newNodes, newEdges, ok := analyzeOutputRoutingTable(acontext.Child(p.ctx, rt), *p.prevNode, p.prevOutput, p.kg)
+	if !ok {
+		return false
+	}
+	p.nodes = append(p.nodes, newNodes...)
+	p.edges = append(p.edges, newEdges...)
+	p.prevNode = nil
 	return true
 }
 
@@ -583,17 +576,6 @@ func analyzeOutputRoutingTable(
 	}
 
 	return nodes, edges, true
-}
-
-func analyzeInputRoutingTable(
-	ctx acontext.Context[parser.IRoutingTableContext],
-	kg *keyGenerator,
-) ([]ir.Node, []ir.Edge, bool) {
-	ctx.Diagnostics.AddError(
-		errors.Newf("input routing tables not yet implemented in text compiler"),
-		ctx.AST,
-	)
-	return nil, nil, false
 }
 
 func getExpressionText(expr parser.IExpressionContext) string {
