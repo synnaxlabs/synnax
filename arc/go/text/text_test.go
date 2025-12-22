@@ -70,8 +70,6 @@ func countNodesByType(nodes ir.Nodes, nodeType string) int {
 	return count
 }
 
-// ==================== Tests ====================
-
 var _ = Describe("Text", func() {
 	Describe("Parse", func() {
 		It("Should correctly parse a text-based arc program", func() {
