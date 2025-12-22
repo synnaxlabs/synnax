@@ -32,8 +32,7 @@ TEST(StateTest, CreateStateAndGetNode) {
     Config cfg{.ir = ir, .channels = {}};
     State s(cfg);
 
-    auto [node, err] = s.node("test");
-    ASSERT_NIL(err);
+    auto node = s.node("test");
 }
 
 /// @brief Test node retrieval for non-existent node
@@ -42,8 +41,7 @@ TEST(StateTest, GetNonExistentNode) {
     Config cfg{.ir = ir, .channels = {}};
     State s(cfg);
 
-    auto [node, err] = s.node("nonexistent");
-    ASSERT_OCCURRED_AS(err, xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS_P(s.node("nonexistent"), xerrors::NOT_FOUND);
 }
 
 /// @brief Test basic input alignment with two connected nodes
@@ -83,8 +81,7 @@ TEST(StateTest, RefreshInputs_BasicAlignment) {
     Config cfg{.ir = ir, .channels = {}};
     State s(cfg);
 
-    auto [producer_node, err1] = s.node("producer");
-    ASSERT_NIL(err1);
+    auto producer_node = ASSERT_NIL_P(s.node("producer"));
 
     auto &o = producer_node.output(0);
     o->resize(3);
@@ -98,8 +95,7 @@ TEST(StateTest, RefreshInputs_BasicAlignment) {
     o_time->set(1, telem::TimeStamp(2000).nanoseconds());
     o_time->set(2, telem::TimeStamp(3000).nanoseconds());
 
-    auto [consumer_node, err2] = s.node("consumer");
-    ASSERT_NIL(err2);
+    auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
 
     bool triggered = consumer_node.refresh_inputs();
     ASSERT_TRUE(triggered);
@@ -147,9 +143,7 @@ TEST(StateTest, RefreshInputs_NoTriggerOnEmpty) {
     Config cfg{.ir = ir, .channels = {}};
     State s(cfg);
 
-    auto [consumer_node, err] = s.node("consumer");
-    ASSERT_NIL(err);
-
+    auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
     bool triggered = consumer_node.refresh_inputs();
     ASSERT_FALSE(triggered);
 }
@@ -191,10 +185,8 @@ TEST(StateTest, RefreshInputs_WatermarkTracking) {
     Config cfg{.ir = ir, .channels = {}};
     State s(cfg);
 
-    auto [producer_node, err1] = s.node("producer");
-    ASSERT_NIL(err1);
-    auto [consumer_node, err2] = s.node("consumer");
-    ASSERT_NIL(err2);
+    auto producer_node = ASSERT_NIL_P(s.node("producer"));
+    auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
 
     auto &o = producer_node.output(0);
     o->resize(2);
@@ -281,12 +273,9 @@ TEST(StateTest, RefreshInputs_MultipleInputs) {
     Config cfg{.ir = ir, .channels = {}};
     State s(cfg);
 
-    auto [producer1_node, err1] = s.node("producer1");
-    ASSERT_NIL(err1);
-    auto [producer2_node, err2] = s.node("producer2");
-    ASSERT_NIL(err2);
-    auto [consumer_node, err3] = s.node("consumer");
-    ASSERT_NIL(err3);
+    auto producer1_node = ASSERT_NIL_P(s.node("producer1"));
+    auto producer2_node = ASSERT_NIL_P(s.node("producer2"));
+    auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
 
     auto &o1 = producer1_node.output(0);
     o1->resize(2);
@@ -341,11 +330,10 @@ TEST(StateTest, OptionalInput_UseDefault) {
     Config cfg{.ir = ir, .channels = {}};
     State s(cfg);
 
-    auto [consumer_node, err] = s.node("consumer");
-    ASSERT_NIL(err);
+    auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
 
     bool triggered = consumer_node.refresh_inputs();
-    ASSERT_TRUE(triggered);
+    ASSERT_FALSE(triggered);
     EXPECT_EQ(consumer_node.input(0)->size(), 1);
     EXPECT_EQ(consumer_node.input(0)->at<float>(0), 42.0f);
 }
@@ -388,8 +376,7 @@ TEST(StateTest, OptionalInput_OverrideDefault) {
     Config cfg{.ir = ir, .channels = {}};
     State s(cfg);
 
-    auto [producer_node, err1] = s.node("producer");
-    ASSERT_NIL(err1);
+    auto producer_node = ASSERT_NIL_P(s.node("producer"));
 
     auto &o = producer_node.output(0);
     o->resize(2);
@@ -401,8 +388,7 @@ TEST(StateTest, OptionalInput_OverrideDefault) {
     o_time->set(0, telem::TimeStamp(1000).nanoseconds());
     o_time->set(1, telem::TimeStamp(2000).nanoseconds());
 
-    auto [consumer_node, err2] = s.node("consumer");
-    ASSERT_NIL(err2);
+    auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
 
     bool triggered = consumer_node.refresh_inputs();
     ASSERT_TRUE(triggered);

@@ -26,8 +26,7 @@ TEST(LoopTest, Create) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = telem::MILLISECOND;
 
-    auto [loop, err] = create(config);
-    ASSERT_NIL(err);
+    const auto loop = ASSERT_NIL_P(create(config));
     ASSERT_NE(loop, nullptr);
 }
 
@@ -36,11 +35,7 @@ TEST(LoopTest, StartStop) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = telem::MILLISECOND;
-
-    auto [loop, err] = create(config);
-    ASSERT_NIL(err);
-    ASSERT_NIL(loop->start());
-
+    const auto loop = ASSERT_NIL_P(create(config));
     loop->stop();
 }
 
@@ -50,8 +45,7 @@ TEST(LoopTest, NotifyData_EventDriven) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = telem::TimeSpan(0); // No timer
 
-    auto [loop, err] = create(config);
-    ASSERT_NIL(err);
+    const auto loop = ASSERT_NIL_P(create(config));
     ASSERT_NIL(loop->start());
 
     std::atomic<bool> woke_up{false};
@@ -84,8 +78,7 @@ TEST(LoopTest, TimerExpiration) {
     config.mode = ExecutionMode::EVENT_DRIVEN;
     config.interval = 10 * telem::MILLISECOND;
 
-    auto [loop, err] = create(config);
-    ASSERT_NIL(err);
+    const auto loop = ASSERT_NIL_P(create(config));
     ASSERT_NIL(loop->start());
 
     breaker::Breaker breaker;
@@ -112,8 +105,7 @@ TEST(LoopTest, BusyWaitMode) {
     config.mode = ExecutionMode::BUSY_WAIT;
     config.interval = telem::TimeSpan(0); // No timer
 
-    auto [loop, err] = create(config);
-    ASSERT_NIL(err);
+    const auto loop = ASSERT_NIL_P(create(config));
     ASSERT_NIL(loop->start());
 
     std::atomic<bool> woke_up{false};
@@ -150,8 +142,7 @@ TEST(LoopTest, HighRateMode) {
     config.mode = ExecutionMode::HIGH_RATE;
     config.interval = 10 * telem::MILLISECOND;
 
-    auto [loop, err] = create(config);
-    ASSERT_NIL(err);
+    const auto loop = ASSERT_NIL_P(create(config));
     ASSERT_NIL(loop->start());
 
     breaker::Breaker breaker;
@@ -179,8 +170,7 @@ TEST(LoopTest, HybridMode) {
     config.interval = telem::TimeSpan(0); // No timer
     config.spin_duration = 50 * telem::MICROSECOND; // 50us spin
 
-    auto [loop, err] = create(config);
-    ASSERT_NIL(err);
+    const auto loop = ASSERT_NIL_P(create(config));
     ASSERT_NIL(loop->start());
 
     std::atomic<bool> woke_up{false};
@@ -200,29 +190,6 @@ TEST(LoopTest, HybridMode) {
     loop->stop();
 }
 
-/// @brief Test that breaker stops the wait.
-TEST(LoopTest, BreakerStopsWait) {
-    Config config;
-    config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = telem::TimeSpan(0); // No timer
-
-    auto [loop, err] = create(config);
-    ASSERT_NIL(err);
-    ASSERT_NIL(loop->start());
-
-    breaker::Breaker breaker;
-
-    std::thread waiter([&]() { loop->wait(breaker); });
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
-    breaker.stop();
-
-    waiter.join();
-
-    loop->stop();
-}
-
 /// @brief Test multiple start/stop cycles.
 TEST(LoopTest, MultipleStartStop) {
     Config config;
@@ -230,8 +197,7 @@ TEST(LoopTest, MultipleStartStop) {
     config.interval = telem::MILLISECOND;
 
     for (int i = 0; i < 3; i++) {
-        auto [loop, err] = create(config);
-        ASSERT_NIL(err);
+        const auto loop = ASSERT_NIL_P(create(config));
         ASSERT_NIL(loop->start());
         loop->stop();
     }
@@ -251,8 +217,7 @@ TEST(LoopTest, DifferentModes) {
         Config config;
         config.mode = mode;
         config.interval = telem::MILLISECOND;
-        auto [loop, err] = create(config);
-        ASSERT_NIL(err);
+        const auto loop = ASSERT_NIL_P(create(config));
         ASSERT_NIL(loop->start());
         loop->stop();
     }

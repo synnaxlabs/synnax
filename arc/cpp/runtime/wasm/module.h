@@ -15,8 +15,8 @@
 
 #include "x/cpp/xerrors/errors.h"
 
-#include "arc/cpp/errors/errors.h"
 #include "arc/cpp/module/module.h"
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/wasm/bindings.h"
 #include "arc/cpp/types/types.h"
 #include "wasmtime.hh"
@@ -122,7 +122,7 @@ sample_from_bits(const uint64_t bits, const types::Type &type) {
     }
 }
 
-const auto BASE_ERROR = errors::RUNTIME.sub("wasm");
+const auto BASE_ERROR = runtime::errors::BASE.sub("wasm");
 const auto INITIALIZATION_ERROR = BASE_ERROR.sub("initialization");
 
 struct ModuleConfig {
