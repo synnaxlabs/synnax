@@ -193,7 +193,7 @@ describe("Range Synchronization", () => {
           name: "Test Range",
           timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX).numeric,
         });
-      } catch (error) {
+      } catch {
         // Error is expected
       }
 

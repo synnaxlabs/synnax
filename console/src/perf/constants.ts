@@ -76,8 +76,8 @@ export const THRESHOLDS = {
   cpuAvg: { warn: 50, error: 75 },
   gpuAvg: { warn: 50, error: 75 },  
   fps: { warn: 10, error: 5, inverted: true },
-  cpu: { warn: 80, error: 90 },
-  gpu: { warn: 80, error: 90 },
+  cpu: { warn: 85, error: 95 },
+  gpu: { warn: 85, error: 95 },
   fpsChange: { warn: 20, error: 40, inverted: true },
   cpuChange: { warn: 20, error: 40 },
   gpuChange: { warn: 20, error: 40 },
@@ -89,6 +89,8 @@ export const LABEL_COLORS = {
   warning: "#c29d0a", // --pluto-warning-m1
   error: "#f5242e", // --pluto-error-z
 } as const;
+
+export const NOMINAL_LABEL_NAME = "Nominal";
 
 export interface LabelConfig {
   name: string;
@@ -104,7 +106,9 @@ export const getMetricLabelName = (
 };
 
 export const getProfilingLabelConfigs = (): LabelConfig[] => {
-  const labels: LabelConfig[] = [{ name: "Nominal", color: LABEL_COLORS.nominal }];
+  const labels: LabelConfig[] = [
+    { name: NOMINAL_LABEL_NAME, color: LABEL_COLORS.nominal },
+  ];
   for (const metric of METRIC_ORDER) {
     labels.push({
       name: getMetricLabelName(metric, "warning"),

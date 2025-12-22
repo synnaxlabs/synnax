@@ -33,10 +33,10 @@ export class GpuAnalyzer {
 
     // Avg severity: based on average GPU usage
     let avgSeverity: Severity = "none";
-    if (ctx.avgPercent != null) {
+    if (ctx.avgPercent != null) 
       if (ctx.avgPercent > THRESHOLDS.gpuAvg.error) avgSeverity = "error";
       else if (ctx.avgPercent > THRESHOLDS.gpuAvg.warn) avgSeverity = "warning";
-    }
+    
 
     return {
       ...ZERO_GPU_REPORT,

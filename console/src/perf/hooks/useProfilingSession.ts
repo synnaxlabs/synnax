@@ -164,17 +164,18 @@ export const useProfilingSession = ({
         }
 
         // Peak not triggered - check avg (transient, can be removed)
-        if (report.avgSeverity !== "none") {
+        if (report.avgSeverity !== "none") 
           addMetricLabel({ metric, severity: report.avgSeverity, latched: false });
-        } else {
+         else 
           // Avg is now "none" - remove transient label if it exists
           removeTransientLabel({ metric });
-        }
+        
       }
 
       // Heap uses single severity (no peak/avg distinction)
-      if (!isMetricLatched("heap") && results.leak.severity !== "none")
+      if (!isMetricLatched("heap") && results.leak.severity !== "none") 
         addMetricLabel({ metric: "heap", severity: results.leak.severity, latched: true });
+      
       
     },
     [dispatch, captured, analyze, addMetricLabel, removeTransientLabel, isMetricLatched],
@@ -232,7 +233,6 @@ export const useProfilingSession = ({
     // Capture range data into ref when it becomes available
     if (status === "running" && rangeKey != null && rangeStartTime != null) 
       rangeDataRef.current = { key: rangeKey, startTime: rangeStartTime };
-    
     
 
     if (status === "paused" && prevStatus === "running") {

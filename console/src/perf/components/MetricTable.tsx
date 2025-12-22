@@ -9,8 +9,8 @@
 
 import "@/perf/components/MetricTable.css";
 
-import { Text } from "@synnaxlabs/pluto";
-import { memo,type ReactElement } from "react";
+import { Text, type Theming } from "@synnaxlabs/pluto";
+import { memo, type ReactElement } from "react";
 
 import { DISPLAY_LIMIT, RESIZE_THRESHOLD } from "@/perf/constants";
 
@@ -24,7 +24,7 @@ export interface MetricTableData<T> {
 /** Column definition for metric table display */
 export interface MetricTableColumn<T> {
   getValue: (item: T, index: number) => string | number;
-  color?: number;
+  color?: Theming.Shade;
 }
 
 /** Props for the data table component */
@@ -51,17 +51,13 @@ function DataTableImpl<T>({
             const tooltip = getTooltip?.(item);
             return (
               <tr key={key} title={tooltip}>
-                {columns.map((col, colIndex) => {
-                  const textProps: any = { level: "small" };
-                  if (col.color != null) textProps.color = col.color;
-                  return (
-                    <td key={`${key}-${colIndex}`}>
-                      <Text.Text {...textProps}>
-                        {col.getValue(item, index)}
-                      </Text.Text>
-                    </td>
-                  );
-                })}
+                {columns.map((col, colIndex) => (
+                  <td key={`${key}-${colIndex}`}>
+                    <Text.Text level="small" color={col.color}>
+                      {col.getValue(item, index)}
+                    </Text.Text>
+                  </td>
+                ))}
               </tr>
             );
           })}

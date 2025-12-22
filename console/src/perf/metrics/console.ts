@@ -187,26 +187,24 @@ export class ConsoleCollector {
     this.captureFailures = 0;
     this.messages = [];
 
-    const self = this;
-
-    console.log = function (...args: any[]) {
-      self.originalConsole.log(...args);
-      self.captureMessage("log", args);
+    console.log = (...args: any[]) => {
+      this.originalConsole.log(...args);
+      this.captureMessage("log", args);
     };
 
-    console.warn = function (...args: any[]) {
-      self.originalConsole.warn(...args);
-      self.captureMessage("warn", args);
+    console.warn = (...args: any[]) => {
+      this.originalConsole.warn(...args);
+      this.captureMessage("warn", args);
     };
 
-    console.error = function (...args: any[]) {
-      self.originalConsole.error(...args);
-      self.captureMessage("error", args);
+    console.error = (...args: any[]) => {
+      this.originalConsole.error(...args);
+      this.captureMessage("error", args);
     };
 
-    console.info = function (...args: any[]) {
-      self.originalConsole.info(...args);
-      self.captureMessage("info", args);
+    console.info = (...args: any[]) => {
+      this.originalConsole.info(...args);
+      this.captureMessage("info", args);
     };
   }
 

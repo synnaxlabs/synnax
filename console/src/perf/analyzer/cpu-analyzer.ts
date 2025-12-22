@@ -34,10 +34,10 @@ export class CpuAnalyzer {
 
     // Avg severity: based on average CPU usage
     let avgSeverity: Severity = "none";
-    if (ctx.avgPercent != null) {
+    if (ctx.avgPercent != null) 
       if (ctx.avgPercent > THRESHOLDS.cpuAvg.error) avgSeverity = "error";
       else if (ctx.avgPercent > THRESHOLDS.cpuAvg.warn) avgSeverity = "warning";
-    }
+    
 
     return {
       ...ZERO_CPU_REPORT,

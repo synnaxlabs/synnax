@@ -41,10 +41,10 @@ export class FpsAnalyzer {
 
     // Avg severity: based on average FPS (inverted - lower is worse)
     let avgSeverity: Severity = "none";
-    if (ctx.avgFps != null) {
+    if (ctx.avgFps != null) 
       if (ctx.avgFps < THRESHOLDS.fpsAvg.error) avgSeverity = "error";
       else if (ctx.avgFps < THRESHOLDS.fpsAvg.warn) avgSeverity = "warning";
-    }
+    
 
     return {
       ...ZERO_FPS_REPORT,

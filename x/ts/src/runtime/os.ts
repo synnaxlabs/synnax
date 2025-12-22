@@ -96,23 +96,18 @@ export const initOSInfo = async (): Promise<OSInfo> => {
   osInfoInitPromise = (async () => {
     try {
       const { isTauri } = await import("@tauri-apps/api/core");
-      const inTauri = isTauri();
-      console.log("[runtime/os] isTauri() returned:", inTauri);
-      if (!inTauri) {
+      if (!isTauri()) {
         cachedOSInfo = BROWSER_OS_INFO;
         return cachedOSInfo;
       }
 
-      console.log("[runtime/os] Attempting to load OS plugin...");
       const osPlugin = await import("@tauri-apps/plugin-os");
-      console.log("[runtime/os] OS plugin loaded, calling functions...");
       const [hostname, platform, arch, version] = await Promise.all([
         osPlugin.hostname(),
         osPlugin.platform(),
         osPlugin.arch(),
         osPlugin.version(),
       ]);
-      console.log("[runtime/os] OS info retrieved:", { hostname, platform, arch, version });
 
       cachedOSInfo = {
         hostname: hostname ?? "Unknown",
@@ -120,9 +115,8 @@ export const initOSInfo = async (): Promise<OSInfo> => {
         arch,
         version,
       };
-    } catch (error) {
+    } catch {
       // Not in Tauri or plugin not available - use browser fallback
-      console.error("[runtime/os] Failed to get OS info:", error);
       cachedOSInfo = BROWSER_OS_INFO;
     }
 

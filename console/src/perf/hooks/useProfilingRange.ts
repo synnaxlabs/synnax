@@ -21,6 +21,7 @@ import {
   LABEL_COLORS,
   METRIC_ORDER,
   type MetricType,
+  NOMINAL_LABEL_NAME,
 } from "@/perf/constants";
 import { useSelectRangeKey, useSelectRangeStartTime } from "@/perf/selectors";
 import * as Perf from "@/perf/slice";
@@ -49,6 +50,43 @@ const getOrCreateLabel = async (
 const ensureProfilingLabelsExist = async (client: SynnaxClient): Promise<void> => {
   const configs = getProfilingLabelConfigs();
   await Promise.all(configs.map(({ name, color }) => getOrCreateLabel(client, name, color)));
+};
+
+interface RangeWithLabels {
+  addLabel: (key: string) => Promise<void>;
+  removeLabel: (key: string) => Promise<void>;
+}
+
+/**
+ * Removes the nominal label from a range if it hasn't been removed yet.
+ * Updates the ref to track removal state.
+ */
+const removeNominalLabelIfNeeded = async (
+  client: SynnaxClient,
+  range: RangeWithLabels,
+  nominalRemovedRef: { current: boolean },
+): Promise<void> => {
+  if (nominalRemovedRef.current) return;
+  const nominalLabels = await client.labels.retrieve({ names: [NOMINAL_LABEL_NAME] });
+  if (nominalLabels.length > 0) {
+    await range.removeLabel(nominalLabels[0].key);
+    nominalRemovedRef.current = true;
+  }
+};
+
+/**
+ * Removes a warning label when upgrading to error (error supersedes warning).
+ */
+const removeSupersededWarningLabel = async (
+  client: SynnaxClient,
+  range: RangeWithLabels,
+  metric: MetricType,
+  currentSeverity: "warning" | "error" | undefined,
+): Promise<void> => {
+  if (currentSeverity !== "warning") return;
+  const warnLabelName = getMetricLabelName(metric, "warning");
+  const warnLabels = await client.labels.retrieve({ names: [warnLabelName] });
+  if (warnLabels.length > 0) await range.removeLabel(warnLabels[0].key);
 };
 
 export interface AverageMetrics {
@@ -169,7 +207,7 @@ export const useProfilingRange = ({
       const [osInfo, nominalLabel] = await Promise.all([
         runtime.getOSInfoAsync(),
         ensureProfilingLabelsExist(client).then(() =>
-          getOrCreateLabel(client, "Nominal", LABEL_COLORS.nominal),
+          getOrCreateLabel(client, NOMINAL_LABEL_NAME, LABEL_COLORS.nominal),
         ),
       ]);
 
@@ -245,8 +283,9 @@ export const useProfilingRange = ({
 
       // Skip write if nothing changed
       const last = lastWrittenRef.current;
-      if (last != null && last.averages === averagesJson && last.peaks === peaksJson)
+      if (last != null && last.averages === averagesJson && last.peaks === peaksJson) 
         return;
+      
 
       try {
         const range = await client.ranges.retrieve(rangeKey);
@@ -299,19 +338,15 @@ export const useProfilingRange = ({
         });
 
         // Remove nominal label if any issues were detected
-        if (hasIssues && !nominalRemovedRef.current) {
-          const nominalLabels = await client.labels.retrieve({ names: ["Nominal"] });
-          if (nominalLabels.length > 0) {
-            await range.removeLabel(nominalLabels[0].key);
-            nominalRemovedRef.current = true;
-          }
-        }
+        if (hasIssues) 
+          await removeNominalLabelIfNeeded(client, range, nominalRemovedRef);
+        
 
         for (const metric of METRIC_ORDER) {
           let severity: Severity;
-          if (metric === "heap") {
+          if (metric === "heap") 
             severity = severities.heap;
-          } else {
+           else {
             const ms = severities[metric];
             if (ms.peak === "error" || ms.avg === "error") severity = "error";
             else if (ms.peak === "warning" || ms.avg === "warning")
@@ -324,11 +359,12 @@ export const useProfilingRange = ({
           // Label replacement: error supersedes warning
           if (severity === "error") {
             const currentState = labelStatesRef.current.get(metric);
-            if (currentState?.severity === "warning") {
-              const warnLabelName = getMetricLabelName(metric, "warning");
-              const warnLabels = await client.labels.retrieve({ names: [warnLabelName] });
-              if (warnLabels.length > 0) await range.removeLabel(warnLabels[0].key);
-            }
+            await removeSupersededWarningLabel(
+              client,
+              range,
+              metric,
+              currentState?.severity,
+            );
           }
 
           const labelName = getMetricLabelName(metric, severity);
@@ -381,20 +417,17 @@ export const useProfilingRange = ({
         const range = await client.ranges.retrieve(rangeKey);
 
         // Remove nominal label on first warning/error
-        if (!nominalRemovedRef.current) {
-          const nominalLabels = await client.labels.retrieve({ names: ["Nominal"] });
-          if (nominalLabels.length > 0) {
-            await range.removeLabel(nominalLabels[0].key);
-            nominalRemovedRef.current = true;
-          }
-        }
+        await removeNominalLabelIfNeeded(client, range, nominalRemovedRef);
 
         // Label replacement: error supersedes warning
-        if (severity === "error" && previousState?.severity === "warning") {
-          const warnLabelName = getMetricLabelName(metric, "warning");
-          const warnLabels = await client.labels.retrieve({ names: [warnLabelName] });
-          if (warnLabels.length > 0) await range.removeLabel(warnLabels[0].key);
-        }
+        if (severity === "error") 
+          await removeSupersededWarningLabel(
+            client,
+            range,
+            metric,
+            previousState?.severity,
+          );
+        
 
         await range.addLabel(label.key);
       };
@@ -434,7 +467,7 @@ export const useProfilingRange = ({
         if (labelStatesRef.current.size === 0 && nominalRemovedRef.current) {
           const nominalLabel = await getOrCreateLabel(
             client,
-            "Nominal",
+            NOMINAL_LABEL_NAME,
             LABEL_COLORS.nominal,
           );
           await range.addLabel(nominalLabel.key);
