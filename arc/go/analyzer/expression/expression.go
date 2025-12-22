@@ -128,33 +128,23 @@ func getLiteralNode(node antlr.ParserRuleContext) parser.ILiteralContext {
 	return nil
 }
 
-// IsSignedIntegerLiteral checks if a node is an integer literal, optionally with a unary minus.
-// This is used for power exponents where we need to support expressions like x^-2.
-func IsSignedIntegerLiteral(node antlr.ParserRuleContext) bool {
-	_, ok := GetSignedIntegerLiteral(node)
-	return ok
-}
-
-// GetSignedIntegerLiteral extracts a signed integer value from a node.
+// getSignedIntegerLiteral extracts a signed integer value from a node.
 // Supports both plain integer literals (2) and negated ones (-2).
 // Returns (value, true) if successful, (0, false) otherwise.
-func GetSignedIntegerLiteral(node antlr.ParserRuleContext) (int, bool) {
+func getSignedIntegerLiteral(node antlr.ParserRuleContext) (int, bool) {
 	if node == nil {
 		return 0, false
 	}
-
-	sign := 1
-	current := node
-
-	// Handle power expression wrapper
+	var (
+		sign    = 1
+		current = node
+	)
 	if power, ok := current.(parser.IPowerExpressionContext); ok {
 		if power.CARET() != nil {
 			return 0, false
 		}
 		current = power.UnaryExpression()
 	}
-
-	// Handle unary minus
 	if unary, ok := current.(parser.IUnaryExpressionContext); ok {
 		if unary.MINUS() != nil {
 			sign = -1
@@ -164,42 +154,32 @@ func GetSignedIntegerLiteral(node antlr.ParserRuleContext) (int, bool) {
 			return 0, false
 		}
 	}
-
-	// Now get the literal
 	lit := getLiteralNode(current)
 	if lit == nil {
 		return 0, false
 	}
-
 	numLit := lit.NumericLiteral()
 	if numLit == nil {
 		return 0, false
 	}
-
-	// Must be an integer literal without unit suffix
 	intLit := numLit.INTEGER_LITERAL()
 	if intLit == nil {
 		return 0, false
 	}
-
 	if numLit.IDENTIFIER() != nil {
-		return 0, false // Has unit suffix
+		return 0, false
 	}
-
 	parsed, err := literal.ParseNumeric(numLit, basetypes.I64())
 	if err != nil {
 		return 0, false
 	}
-
 	if parsed.Type.Unit != nil {
 		return 0, false
 	}
-
 	intVal, ok := parsed.Value.(int64)
 	if !ok {
 		return 0, false
 	}
-
 	return sign * int(intVal), true
 }
 
@@ -431,7 +411,7 @@ func analyzePower(ctx context.Context[parser.IPowerExpressionContext]) bool {
 		if baseType.Unit != nil || expType.Unit != nil {
 			var literalExp *int
 			// Check if exponent is a signed integer literal (supports both 2 and -2)
-			if exp, ok := GetSignedIntegerLiteral(power); ok {
+			if exp, ok := getSignedIntegerLiteral(power); ok {
 				literalExp = &exp
 			}
 
