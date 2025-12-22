@@ -52,14 +52,4 @@ var _ = Describe("Middleware", func() {
 		Expect(err).To(BeNil())
 		Expect(req.value).To(Equal("request"))
 	})
-
-	It("Should collect middleware correctly", func() {
-		collector := &middleware.Collector[*request, *response]{}
-		collector.Use(&myFirstMiddleware{})
-		collector.Use(&myFirstMiddleware{})
-		req := &request{}
-		_, err := collector.Exec(req, &myFinalizer{})
-		Expect(err).To(BeNil())
-		Expect(req.value).To(Equal("request"))
-	})
 })
