@@ -65,10 +65,6 @@ var _ = Describe("Rand", func() {
 	})
 
 	Describe("Slice", func() {
-		It("Should return a random element in the slice", func() {
-			value := rand.Slice([]int{1, 2, 3, 4, 5, 6})
-			Expect(value > 0).To(BeTrue())
-		})
 		Describe("sub Slice", func() {
 			It("Should return random sub-slice", func() {
 				value := rand.SubSlice([]int{1, 2, 3, 4, 5, 6}, 2)
@@ -85,10 +81,6 @@ var _ = Describe("Rand", func() {
 	})
 
 	Describe("Element", func() {
-		It("Should return a random element", func() {
-			value := rand.Elem(1, 2, 3)
-			Expect(value > 0).To(BeTrue())
-		})
 		It("Should not introduce any duplicate indexes", func() {
 			slc := make([]int, 1000)
 			for i := range 1000 {

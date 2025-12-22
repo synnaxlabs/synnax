@@ -18,9 +18,20 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/types"
 )
+
+func fixedOverflowChecker(limit int) channel.IntOverflowChecker {
+	return func(count types.Uint20) error {
+		if count > types.Uint20(limit) {
+			return errors.New("channel limit exceeded")
+		}
+		return nil
+	}
+}
 
 var _ = Describe("Limit", Ordered, func() {
 	var (
@@ -31,7 +42,7 @@ var _ = Describe("Limit", Ordered, func() {
 	BeforeEach(func() {
 		mockCluster = mock.NewCluster()
 		dist = mockCluster.Provision(ctx, distribution.Config{
-			TestingIntOverflowCheck: channel.FixedOverflowChecker(limit),
+			TestingIntOverflowCheck: fixedOverflowChecker(limit),
 		})
 	})
 	AfterEach(func() {

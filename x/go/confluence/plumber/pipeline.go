@@ -152,18 +152,6 @@ func GetSink[V cfs.Value](p *Pipeline, addr address.Address) (cfs.Sink[V], error
 	return s, nil
 }
 
-func GetSegment[I, O cfs.Value](p *Pipeline, addr address.Address) (cfs.Segment[I, O], error) {
-	rs, err := GetSource[I](p, addr)
-	if err != nil {
-		return nil, err
-	}
-	s, ok := rs.(cfs.Segment[I, O])
-	if !ok {
-		return nil, wrongType[I, O](addr, rs)
-	}
-	return s, nil
-}
-
 func notFound(addr address.Address) error {
 	return errors.Newf(
 		"[plumber] - entity (segment, source, sink) at address %s not found",

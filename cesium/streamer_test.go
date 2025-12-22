@@ -10,19 +10,29 @@
 package cesium_test
 
 import (
+	"context"
 	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+func decodeControlUpdate(ctx context.Context, s telem.Series) (cesium.ControlUpdate, error) {
+	var u cesium.ControlUpdate
+	if err := (&binary.JSONCodec{}).Decode(ctx, s.Data, &u); err != nil {
+		return cesium.ControlUpdate{}, err
+	}
+	return u, nil
+}
 
 var _ = Describe("Streamer Behavior", func() {
 	for fsName, makeFS := range fileSystems {
@@ -30,7 +40,7 @@ var _ = Describe("Streamer Behavior", func() {
 		Context("FS: "+fsName, Ordered, func() {
 			var (
 				db         *cesium.DB
-				fs         xfs.FS
+				fs         fs.FS
 				cleanUp    func() error
 				controlKey cesium.ChannelKey = 5
 			)
@@ -180,7 +190,7 @@ var _ = Describe("Streamer Behavior", func() {
 					Eventually(func(g Gomega) {
 						g.Eventually(o.Outlet()).Should(Receive(&r))
 						g.Expect(r.Frame.Count()).To(Equal(1))
-						u, err := cesium.DecodeControlUpdate(ctx, r.Frame.SeriesAt(0))
+						u, err := decodeControlUpdate(ctx, r.Frame.SeriesAt(0))
 						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(u.Transfers).To(HaveLen(1))
 						first := u.Transfers[0]

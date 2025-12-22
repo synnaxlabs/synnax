@@ -19,17 +19,6 @@ const (
 
 type EnvironmentFilter func(env Environment, key string) bool
 
-func CompoundEnvFilter(filters ...EnvironmentFilter) EnvironmentFilter {
-	return func(level Environment, key string) bool {
-		for _, f := range filters {
-			if f(level, key) {
-				return true
-			}
-		}
-		return false
-	}
-}
-
 func ThresholdEnvFilter(level Environment) EnvironmentFilter {
 	return func(l Environment, _ string) bool {
 		return l >= level

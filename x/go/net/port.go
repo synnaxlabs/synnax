@@ -13,7 +13,6 @@ import "net"
 
 // FindOpenPort finds an open port on the local machine.
 func FindOpenPort() (int, error) {
-	var a *net.TCPAddr
 	a, err := net.ResolveTCPAddr("tcp", "localhost:0")
 	if err != nil {
 		return 0, err
