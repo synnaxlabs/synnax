@@ -25,7 +25,7 @@ var _ = Describe("Entries", func() {
 	})
 
 	Describe("Get + Set", func() {
-		Context("Single Entry", func() {
+		Context("Single entry", func() {
 			It("Should return the entry that was set", func() {
 				q := gorp.NewRetrieve[int, entry]()
 				gorp.SetEntry(q.Params, &entry{ID: 1})

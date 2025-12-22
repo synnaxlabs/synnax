@@ -71,7 +71,7 @@ var _ = Describe("Registry", func() {
 		)
 	})
 
-	Specify("Mutating a Unit Entry Should not Modify Value in Registry", func() {
+	Specify("Mutating a Unit entry Should not Modify Value in Registry", func() {
 		u := units.MustResolve("m")
 		u.Scale = 12
 		u2 := units.MustResolve("m")

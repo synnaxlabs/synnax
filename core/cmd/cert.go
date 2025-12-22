@@ -20,13 +20,13 @@ import (
 
 var certCmd = &cobra.Command{
 	Use:   "cert",
-	Short: "Generate self-signed certificates for securing a Synnax cluster.",
+	Short: "generate self-signed certificates for securing a Synnax cluster.",
 	Args:  cobra.NoArgs,
 }
 
 var certCA = &cobra.Command{
 	Use:   "ca",
-	Short: "Generate a self-signed CA certificate.",
+	Short: "generate a self-signed CA certificate.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		ins := configureInstrumentation()
@@ -41,7 +41,7 @@ var certCA = &cobra.Command{
 
 var certNode = &cobra.Command{
 	Use:   "node",
-	Short: "Generate a self-signed node certificate.",
+	Short: "generate a self-signed node certificate.",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, hosts []string) error {
 		ins := configureInstrumentation()

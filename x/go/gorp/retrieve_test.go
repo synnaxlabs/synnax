@@ -77,7 +77,7 @@ var _ = Describe("Retrieve", func() {
 				})
 			})
 		})
-		Context("Single Entry", func() {
+		Context("Single entry", func() {
 			It("Should retrieve the entry by key", func() {
 				res := &entry{}
 				Expect(gorp.NewRetrieve[int, entry]().
