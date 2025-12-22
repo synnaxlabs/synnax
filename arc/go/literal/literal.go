@@ -97,7 +97,7 @@ func parseNumericWithUnit(
 	unitName string,
 	targetType types.Type,
 ) (ParsedValue, error) {
-	unit, ok := units.Lookup(unitName)
+	unit, ok := units.Resolve(unitName)
 	if !ok {
 		return ParsedValue{}, errors.Newf("unknown unit: %s", unitName)
 	}
@@ -105,7 +105,7 @@ func parseNumericWithUnit(
 	// If target type has a unit, convert to target unit's scale
 	// Example: 300ms with target TimeSpan() (ns) → 300 * (1e-3 / 1e-9) = 300,000,000
 	if targetType.Unit != nil {
-		factor, err := units.ScaleConversionFactor(&unit, targetType.Unit)
+		factor, err := units.ScaleFactor(unit, targetType.Unit)
 		if err != nil {
 			return ParsedValue{}, err
 		}
@@ -123,7 +123,7 @@ func parseNumericWithUnit(
 	// int64 if scaled result is exact integer AND original literal was integer, else f64
 	siValue := numericValue * unit.Scale
 
-	resultType := types.Type{Unit: &unit}
+	resultType := types.Type{Unit: unit}
 	if isIntLiteral && isExactInteger(siValue) {
 		resultType.Kind = types.KindI64
 		return ParsedValue{Value: int64(math.Round(siValue)), Type: resultType}, nil
@@ -278,8 +278,8 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 
 // convertToTargetKind converts a float64 value to the target type's kind.
 // Uses Go-like constant conversion semantics: errors on fractional parts for integer types.
-func convertToTargetKind(value float64, targetType types.Type, sourceUnit types.Unit) (ParsedValue, error) {
-	resultType := types.Type{Kind: targetType.Kind, Unit: &sourceUnit}
+func convertToTargetKind(value float64, targetType types.Type, sourceUnit *types.Unit) (ParsedValue, error) {
+	resultType := types.Type{Kind: targetType.Kind, Unit: sourceUnit}
 
 	// For integer target types, check for fractional part (Go-like constant semantics)
 	// Use a small epsilon for floating-point comparison to handle precision issues

@@ -9,11 +9,15 @@
 
 package units
 
-import "github.com/synnaxlabs/arc/types"
+import (
+	"fmt"
+
+	"github.com/synnaxlabs/arc/types"
+)
 
 // Registry maps unit names to their definitions.
 // Each entry defines the dimensions, scale factor (to SI base unit), and display name.
-var Registry = map[string]types.Unit{
+var registry = map[string]types.Unit{
 	// Time units (base: nanoseconds - matches Synnax's canonical representation)
 	"ns":  {Dimensions: types.DimTime, Scale: 1, Name: "ns"},
 	"us":  {Dimensions: types.DimTime, Scale: 1e3, Name: "us"},
@@ -105,15 +109,23 @@ var Registry = map[string]types.Unit{
 	"percent": {Dimensions: types.DimNone, Scale: 0.01, Name: "percent"},
 }
 
-// Lookup finds a unit by name. Returns the unit and true if found,
+// Resolve finds a unit by name. Returns the unit and true if found,
 // or a zero Unit and false if not found.
-func Lookup(name string) (types.Unit, bool) {
-	u, ok := Registry[name]
-	return u, ok
+func Resolve(name string) (*types.Unit, bool) {
+	u, ok := registry[name]
+	return &u, ok
 }
 
-// IsValidUnit returns true if the given name is a valid unit.
-func IsValidUnit(name string) bool {
-	_, ok := Registry[name]
+func MustResolve(name string) *types.Unit {
+	u, ok := Resolve(name)
+	if !ok {
+		panic(fmt.Sprintf("units: failed to resolve %s", name))
+	}
+	return u
+}
+
+// IsValid returns true if the given name is a valid unit.
+func IsValid(name string) bool {
+	_, ok := registry[name]
 	return ok
 }

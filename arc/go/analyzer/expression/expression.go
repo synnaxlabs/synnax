@@ -278,9 +278,9 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 
 		// Check dimensional compatibility first if either operand has units
 		// This must be checked even for type variables since the unit is known at parse time
-		// Note: Power operations (^) are handled separately in analyzePower, not here.
+		// Note: Power operations (^) are handled separately in analyzePower via ValidatePowerOp.
 		if firstType.Unit != nil || nextType.Unit != nil {
-			if _, err := units.CheckBinaryOp(opName, firstType, nextType, nil); err != nil {
+			if err := units.ValidateBinaryOp(opName, firstType, nextType); err != nil {
 				ctx.Diagnostics.AddError(err, ctx.AST)
 				return false
 			}
@@ -402,20 +402,13 @@ func analyzePower(ctx context.Context[parser.IPowerExpressionContext]) bool {
 		}
 	}
 
-	// Dimensional analysis for power expressions
 	if ctx.AST.CARET() != nil && power != nil {
 		baseType := types.InferFromUnaryExpression(context.Child(ctx, ctx.AST.UnaryExpression())).Unwrap()
 		expType := types.InferPower(context.Child(ctx, power)).Unwrap()
 
-		// Check if either operand has units - exponent must always be dimensionless
 		if baseType.Unit != nil || expType.Unit != nil {
-			var literalExp *int
-			// Check if exponent is a signed integer literal (supports both 2 and -2)
-			if exp, ok := getSignedIntegerLiteral(power); ok {
-				literalExp = &exp
-			}
-
-			if _, err := units.CheckBinaryOp("^", baseType, expType, literalExp); err != nil {
+			_, isLiteral := getSignedIntegerLiteral(power)
+			if err := units.ValidatePowerOp(baseType, expType, isLiteral); err != nil {
 				ctx.Diagnostics.AddError(err, ctx.AST)
 				return false
 			}

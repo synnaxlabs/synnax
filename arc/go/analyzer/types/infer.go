@@ -45,11 +45,11 @@ func InferFromTypeContext(ctx parser.ITypeContext) (types.Type, error) {
 
 func applyUnitSuffix(t types.Type, ctx parser.IUnitSuffixContext) (types.Type, error) {
 	unitName := ctx.IDENTIFIER().GetText()
-	unit, ok := units.Lookup(unitName)
+	unit, ok := units.Resolve(unitName)
 	if !ok {
 		return types.Type{}, errors.Newf("unknown unit: %s", unitName)
 	}
-	t.Unit = &unit
+	t.Unit = unit
 	return t, nil
 }
 

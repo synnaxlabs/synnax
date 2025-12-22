@@ -17,163 +17,83 @@ import (
 )
 
 var _ = Describe("Registry", func() {
-	Describe("Lookup", func() {
-		Context("Time units", func() {
-			It("Should find nanoseconds", func() {
-				u, ok := units.Lookup("ns")
-				Expect(ok).To(BeTrue())
-				Expect(u.Name).To(Equal("ns"))
-				Expect(u.Scale).To(Equal(1.0)) // ns is the base unit for time
-				Expect(u.Dimensions).To(Equal(types.DimTime))
-			})
+	Describe("Resolve", func() {
+		type validEntry struct {
+			name       string
+			scale      float64
+			approx     bool
+			dimensions types.Dimensions
+		}
 
-			It("Should find milliseconds", func() {
-				u, ok := units.Lookup("ms")
+		DescribeTable("Valid units",
+			func(unitName string, expected validEntry) {
+				u, ok := units.Resolve(unitName)
 				Expect(ok).To(BeTrue())
-				Expect(u.Name).To(Equal("ms"))
-				Expect(u.Scale).To(Equal(1e6)) // 1ms = 1 million ns
-				Expect(u.Dimensions).To(Equal(types.DimTime))
-			})
+				Expect(u.Name).To(Equal(expected.name))
+				if expected.approx {
+					Expect(u.Scale).To(BeNumerically("~", expected.scale, 0.01))
+				} else {
+					Expect(u.Scale).To(Equal(expected.scale))
+				}
+				Expect(u.Dimensions).To(Equal(expected.dimensions))
+			},
+			// Time units
+			Entry("nanoseconds", "ns", validEntry{"ns", 1.0, false, types.DimTime}),
+			Entry("milliseconds", "ms", validEntry{"ms", 1e6, false, types.DimTime}),
+			Entry("seconds", "s", validEntry{"s", 1e9, false, types.DimTime}),
+			Entry("minutes", "min", validEntry{"min", 60e9, false, types.DimTime}),
+			Entry("hours", "h", validEntry{"h", 3600e9, false, types.DimTime}),
+			// Pressure units
+			Entry("psi", "psi", validEntry{"psi", 6894.76, true, types.DimPressure}),
+			Entry("Pa", "Pa", validEntry{"Pa", 1.0, false, types.DimPressure}),
+			Entry("bar", "bar", validEntry{"bar", 1e5, false, types.DimPressure}),
+			// Frequency units
+			Entry("Hz (uppercase)", "Hz", validEntry{"Hz", 1.0, false, types.DimFrequency}),
+			Entry("hz (lowercase)", "hz", validEntry{"hz", 1.0, false, types.DimFrequency}),
+			Entry("kHz", "kHz", validEntry{"kHz", 1e3, false, types.DimFrequency}),
+			Entry("MHz", "MHz", validEntry{"MHz", 1e6, false, types.DimFrequency}),
+			// Length units
+			Entry("m (meters)", "m", validEntry{"m", 1.0, false, types.DimLength}),
+			Entry("km", "km", validEntry{"km", 1e3, false, types.DimLength}),
+			Entry("ft", "ft", validEntry{"ft", 0.3048, true, types.DimLength}),
+			// Voltage units
+			Entry("V", "V", validEntry{"V", 1.0, false, types.DimVoltage}),
+			Entry("mV", "mV", validEntry{"mV", 1e-3, false, types.DimVoltage}),
+		)
 
-			It("Should find seconds", func() {
-				u, ok := units.Lookup("s")
-				Expect(ok).To(BeTrue())
-				Expect(u.Name).To(Equal("s"))
-				Expect(u.Scale).To(Equal(1e9)) // 1s = 1 billion ns
-				Expect(u.Dimensions).To(Equal(types.DimTime))
-			})
-
-			It("Should find minutes", func() {
-				u, ok := units.Lookup("min")
-				Expect(ok).To(BeTrue())
-				Expect(u.Name).To(Equal("min"))
-				Expect(u.Scale).To(Equal(60e9)) // 1min = 60 billion ns
-				Expect(u.Dimensions).To(Equal(types.DimTime))
-			})
-
-			It("Should find hours", func() {
-				u, ok := units.Lookup("h")
-				Expect(ok).To(BeTrue())
-				Expect(u.Name).To(Equal("h"))
-				Expect(u.Scale).To(Equal(3600e9)) // 1h = 3600 billion ns
-				Expect(u.Dimensions).To(Equal(types.DimTime))
-			})
-		})
-
-		Context("Pressure units", func() {
-			It("Should find psi", func() {
-				u, ok := units.Lookup("psi")
-				Expect(ok).To(BeTrue())
-				Expect(u.Name).To(Equal("psi"))
-				Expect(u.Scale).To(BeNumerically("~", 6894.76, 0.01))
-				Expect(u.Dimensions).To(Equal(types.DimPressure))
-			})
-
-			It("Should find Pa", func() {
-				u, ok := units.Lookup("Pa")
-				Expect(ok).To(BeTrue())
-				Expect(u.Name).To(Equal("Pa"))
-				Expect(u.Scale).To(Equal(1.0))
-				Expect(u.Dimensions).To(Equal(types.DimPressure))
-			})
-
-			It("Should find bar", func() {
-				u, ok := units.Lookup("bar")
-				Expect(ok).To(BeTrue())
-				Expect(u.Name).To(Equal("bar"))
-				Expect(u.Scale).To(Equal(1e5))
-				Expect(u.Dimensions).To(Equal(types.DimPressure))
-			})
-		})
-
-		Context("Frequency units", func() {
-			It("Should find Hz (uppercase)", func() {
-				u, ok := units.Lookup("Hz")
-				Expect(ok).To(BeTrue())
-				Expect(u.Dimensions).To(Equal(types.DimFrequency))
-			})
-
-			It("Should find hz (lowercase)", func() {
-				u, ok := units.Lookup("hz")
-				Expect(ok).To(BeTrue())
-				Expect(u.Dimensions).To(Equal(types.DimFrequency))
-			})
-
-			It("Should find kHz", func() {
-				u, ok := units.Lookup("kHz")
-				Expect(ok).To(BeTrue())
-				Expect(u.Scale).To(Equal(1e3))
-			})
-
-			It("Should find MHz", func() {
-				u, ok := units.Lookup("MHz")
-				Expect(ok).To(BeTrue())
-				Expect(u.Scale).To(Equal(1e6))
-			})
-		})
-
-		Context("Length units", func() {
-			It("Should find m (meters)", func() {
-				u, ok := units.Lookup("m")
-				Expect(ok).To(BeTrue())
-				Expect(u.Name).To(Equal("m"))
-				Expect(u.Scale).To(Equal(1.0))
-				Expect(u.Dimensions).To(Equal(types.DimLength))
-			})
-
-			It("Should find km", func() {
-				u, ok := units.Lookup("km")
-				Expect(ok).To(BeTrue())
-				Expect(u.Scale).To(Equal(1e3))
-				Expect(u.Dimensions).To(Equal(types.DimLength))
-			})
-
-			It("Should find ft", func() {
-				u, ok := units.Lookup("ft")
-				Expect(ok).To(BeTrue())
-				Expect(u.Scale).To(BeNumerically("~", 0.3048, 0.0001))
-				Expect(u.Dimensions).To(Equal(types.DimLength))
-			})
-		})
-
-		Context("Voltage units", func() {
-			It("Should find V", func() {
-				u, ok := units.Lookup("V")
-				Expect(ok).To(BeTrue())
-				Expect(u.Scale).To(Equal(1.0))
-				Expect(u.Dimensions).To(Equal(types.DimVoltage))
-			})
-
-			It("Should find mV", func() {
-				u, ok := units.Lookup("mV")
-				Expect(ok).To(BeTrue())
-				Expect(u.Scale).To(Equal(1e-3))
-			})
-		})
-
-		Context("Invalid units", func() {
-			It("Should not find unknown unit", func() {
-				_, ok := units.Lookup("foobar")
+		DescribeTable("Invalid units",
+			func(unitName string) {
+				_, ok := units.Resolve(unitName)
 				Expect(ok).To(BeFalse())
-			})
-
-			It("Should not find empty string", func() {
-				_, ok := units.Lookup("")
-				Expect(ok).To(BeFalse())
-			})
-		})
+			},
+			Entry("unknown unit", "foobar"),
+			Entry("empty string", ""),
+		)
 	})
 
-	Describe("IsValidUnit", func() {
-		It("Should return true for valid units", func() {
-			Expect(units.IsValidUnit("psi")).To(BeTrue())
-			Expect(units.IsValidUnit("ms")).To(BeTrue())
-			Expect(units.IsValidUnit("Hz")).To(BeTrue())
-		})
+	Specify("Mutating a Unit Entry Should not Modify Value in Registry", func() {
+		u := units.MustResolve("m")
+		u.Scale = 12
+		u2 := units.MustResolve("m")
+		Expect(u2.Scale).To(Equal(1.0))
+	})
 
-		It("Should return false for invalid units", func() {
-			Expect(units.IsValidUnit("invalid")).To(BeFalse())
-			Expect(units.IsValidUnit("")).To(BeFalse())
-		})
+	Describe("IsValid", func() {
+		DescribeTable("Valid units",
+			func(unitName string) {
+				Expect(units.IsValid(unitName)).To(BeTrue())
+			},
+			Entry("psi", "psi"),
+			Entry("ms", "ms"),
+			Entry("Hz", "Hz"),
+		)
+
+		DescribeTable("Invalid units",
+			func(unitName string) {
+				Expect(units.IsValid(unitName)).To(BeFalse())
+			},
+			Entry("invalid", "invalid"),
+			Entry("empty", ""),
+		)
 	})
 })

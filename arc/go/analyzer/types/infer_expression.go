@@ -212,8 +212,8 @@ func inferNumericLiteralType(
 	// Check for unit suffix (e.g., 5psi, 3s, 100Hz)
 	if unitID := numLit.IDENTIFIER(); unitID != nil {
 		unitName := unitID.GetText()
-		if unit, ok := units.Lookup(unitName); ok {
-			tv.Unit = &unit
+		if unit, ok := units.Resolve(unitName); ok {
+			tv.Unit = unit
 		}
 	}
 

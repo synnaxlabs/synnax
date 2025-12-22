@@ -1110,7 +1110,7 @@ var _ = Describe("Text", func() {
 				nil,
 			)
 			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.String()).To(ContainSubstring("incompatible dimensions"))
+			Expect(diag.String()).To(ContainSubstring("incompatible: dimensions"))
 		})
 
 		It("Should allow adding same dimensions", func() {
