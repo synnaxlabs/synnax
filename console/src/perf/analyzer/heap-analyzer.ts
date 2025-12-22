@@ -10,27 +10,30 @@
 import { math } from "@synnaxlabs/x";
 
 import {
-  COMPARISON_WINDOW_SIZE,
   type LeakReport,
+  type Severity,
   type Trend,
   ZERO_LEAK_REPORT,
 } from "@/perf/analyzer/types";
+import {
+  HEAP_COMPARISON_WINDOW_SIZE,
+  HEAP_SLOPE_THRESHOLD,
+  THRESHOLDS,
+} from "@/perf/constants";
 import { type HeapSnapshot } from "@/perf/metrics/types";
-
-const LEAK_THRESHOLD_PERCENT = 20;
-const SLOPE_THRESHOLD = 0.1;
 
 /**
  * Analyzes heap snapshots to detect memory leaks.
  * Compares baseline (first N samples) vs recent (last N samples).
+ * Severity is determined by growth percent with an increasing trend.
  */
-export class LeakDetector {
+export class HeapAnalyzer {
   analyze(snapshots: HeapSnapshot[]): LeakReport {
     if (snapshots.length < 2)
       return { ...ZERO_LEAK_REPORT, snapshotCount: snapshots.length };
 
     const windowSize = Math.min(
-      COMPARISON_WINDOW_SIZE,
+      HEAP_COMPARISON_WINDOW_SIZE,
       Math.floor(snapshots.length / 2),
     );
     const baseline = snapshots.slice(0, windowSize);
@@ -43,10 +46,16 @@ export class LeakDetector {
     const growthPercent = avgBaseline > 0 ? (growthMB / avgBaseline) * 100 : 0;
 
     const trend = this.calculateTrend(snapshots);
-    const detected = growthPercent > LEAK_THRESHOLD_PERCENT && trend === "increasing";
+
+    let severity: Severity = "none";
+    if (trend === "increasing")
+      if (growthPercent > THRESHOLDS.heapGrowth.error) severity = "error";
+      else if (growthPercent > THRESHOLDS.heapGrowth.warn)
+        severity = "warning";
+    
 
     return {
-      detected,
+      severity,
       heapStartMB: math.roundTo(avgBaseline),
       heapEndMB: math.roundTo(avgRecent),
       heapGrowthMB: math.roundTo(growthMB, 2),
@@ -79,8 +88,8 @@ export class LeakDetector {
     const avgHeap = sumY / n;
     const normalizedSlope = avgHeap > 0 ? slope / avgHeap : slope;
 
-    if (normalizedSlope > SLOPE_THRESHOLD) return "increasing";
-    if (normalizedSlope < -SLOPE_THRESHOLD) return "decreasing";
+    if (normalizedSlope > HEAP_SLOPE_THRESHOLD) return "increasing";
+    if (normalizedSlope < -HEAP_SLOPE_THRESHOLD) return "decreasing";
     return "stable";
   }
 }

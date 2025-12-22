@@ -10,13 +10,14 @@
 import { type HeapSnapshot, type MetricSample } from "@/perf/metrics/types";
 import { type WorkflowResult } from "@/perf/workflows/types";
 
-export const COMPARISON_WINDOW_SIZE = 30;
-
 export type Trend = "increasing" | "stable" | "decreasing";
+
+/** Severity level for analyzer reports. */
+export type Severity = "none" | "warning" | "error";
 
 /** Report on memory leak detection. */
 export interface LeakReport {
-  detected: boolean;
+  severity: Severity;
   heapStartMB: number;
   heapEndMB: number;
   heapGrowthMB: number;
@@ -26,14 +27,16 @@ export interface LeakReport {
 }
 
 export interface FpsReport {
-  detected: boolean;
+  peakSeverity: Severity;
+  avgSeverity: Severity;
   startFps: number;
   endFps: number;
   changePercent: number;
 }
 
 export interface CpuReport {
-  detected: boolean;
+  peakSeverity: Severity;
+  avgSeverity: Severity;
   avgPercent: number | null;
   maxPercent: number | null;
   startPercent: number | null;
@@ -41,7 +44,8 @@ export interface CpuReport {
 }
 
 export interface GpuReport {
-  detected: boolean;
+  peakSeverity: Severity;
+  avgSeverity: Severity;
   avgPercent: number | null;
   maxPercent: number | null;
   startPercent: number | null;
@@ -66,7 +70,7 @@ export interface PerfReport {
 }
 
 export const ZERO_LEAK_REPORT: LeakReport = {
-  detected: false,
+  severity: "none",
   heapStartMB: 0,
   heapEndMB: 0,
   heapGrowthMB: 0,
@@ -76,14 +80,16 @@ export const ZERO_LEAK_REPORT: LeakReport = {
 };
 
 export const ZERO_FPS_REPORT: FpsReport = {
-  detected: false,
+  peakSeverity: "none",
+  avgSeverity: "none",
   startFps: 0,
   endFps: 0,
   changePercent: 0,
 };
 
 export const ZERO_CPU_REPORT: CpuReport = {
-  detected: false,
+  peakSeverity: "none",
+  avgSeverity: "none",
   avgPercent: null,
   maxPercent: null,
   startPercent: null,
@@ -91,7 +97,8 @@ export const ZERO_CPU_REPORT: CpuReport = {
 };
 
 export const ZERO_GPU_REPORT: GpuReport = {
-  detected: false,
+  peakSeverity: "none",
+  avgSeverity: "none",
   avgPercent: null,
   maxPercent: null,
   startPercent: null,

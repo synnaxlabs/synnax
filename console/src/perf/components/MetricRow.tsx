@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/perf/components/MetricRow.css";
+
 import { Flex, Text } from "@synnaxlabs/pluto";
 import { memo,type ReactElement, type ReactNode } from "react";
 
 import { WithTooltip } from "@/perf/components/WithTooltip";
-import { STATUS_COLORS, TEXT_ROW_COLOR } from "@/perf/constants";
 import { type Status } from "@/perf/types";
 
 interface MetricRowProps {
@@ -30,12 +31,13 @@ const MetricRowImpl = ({ label, value, status, tooltip }: MetricRowProps): React
       className="console-perf-row"
       tabIndex={0}
     >
-      <Text.Text level="small" color={TEXT_ROW_COLOR}>
+      <Text.Text level="small" className="console-perf-row-label">
         {label}
       </Text.Text>
       <Text.Text
         level="small"
-        color={status != null ? STATUS_COLORS[status] : TEXT_ROW_COLOR}
+        className="console-perf-row-value"
+        data-status={status}
       >
         {value}
       </Text.Text>

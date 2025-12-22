@@ -1,0 +1,63 @@
+/*
+ * Copyright 2025 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-perf-section {
+    border-bottom: 1px solid var(--pluto-gray-l3);
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.console-perf-section:last-child {
+    border-bottom: none;
+}
+
+.console-perf-section-header {
+    padding: 0.2rem;
+    cursor: pointer;
+    gap: 0.5rem;
+    align-items: center;
+    border-radius: var(--pluto-border-radius);
+    user-select: none;
+}
+
+.console-perf-section-header:hover {
+    background: var(--pluto-gray-l1);
+}
+
+.console-perf-section-header .pluto-icon {
+    font-size: 0.75rem;
+    transition: transform 0.15s ease;
+}
+
+.console-perf-section-header[data-open="true"] .pluto-icon {
+    transform: rotate(90deg);
+}
+
+.console-perf-section-title {
+    color: var(--pluto-gray-l9);
+}
+
+.console-perf-section-header-value {
+    margin-left: auto;
+    color: var(--pluto-gray-l9);
+}
+
+.console-perf-section-header-value[data-status="success"] {
+    color: var(--pluto-success-z);
+}
+
+.console-perf-section-header-value[data-status="warning"] {
+    color: var(--pluto-warning-z);
+}
+
+.console-perf-section-header-value[data-status="error"] {
+    color: var(--pluto-error-z);
+}

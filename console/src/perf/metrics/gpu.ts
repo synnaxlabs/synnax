@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { runtime } from "@synnaxlabs/x";
+import { invoke } from "@tauri-apps/api/core";
 
 /**
  * Collects GPU usage metrics via Tauri's NVML integration.
@@ -16,15 +17,10 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
  */
 export class GpuCollector {
   private cachedGpuPercent: number | null = null;
-  private useTauri: boolean;
   private updateInterval: ReturnType<typeof setInterval> | null = null;
 
-  constructor() {
-    this.useTauri = isTauri();
-  }
-
   start(): void {
-    if (!this.useTauri) return;
+    if (!runtime.IS_TAURI) return;
 
     // Fetch immediately
     void this.fetchTauriGpu();
@@ -51,11 +47,11 @@ export class GpuCollector {
   }
 
   static isAvailable(): boolean {
-    return isTauri();
+    return runtime.IS_TAURI;
   }
 
   getGpuPercent(): number | null {
-    if (!this.useTauri) return null;
+    if (!runtime.IS_TAURI) return null;
     return this.cachedGpuPercent;
   }
 

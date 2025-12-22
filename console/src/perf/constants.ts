@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/** Performance profiling dashboard constants */
-
 export const DISPLAY_LIMIT = 25;
+export const RESIZE_THRESHOLD = 6;
 export const LIVE_DISPLAY_INTERVAL_MS = 1000;
 export const SAMPLE_INTERVAL_MS = 1000;
 export const WARMUP_SAMPLES = 5;
+export const TEXT_ROW_COLOR = 7 as const;
+
 export const LONG_TASK_THRESHOLD_MS = 50;
 export const EVENT_CORRELATION_WINDOW_MS = 1000;
 export const LONG_TASK_WINDOW_MS = 600_000;
@@ -21,54 +22,6 @@ export const MAX_TRACKED_EVENTS = 50;
 export const CONSOLE_LOG_WINDOW_MS = 600_000;
 export const MAX_STORED_MESSAGES = 1000;
 export const MAX_MESSAGE_LENGTH = 500;
-
-export const THRESHOLDS = {
-  fps: { warn: 50, error: 28, inverted: true },
-  fpsDegradation: { warn: 10, error: 15 },
-  cpu: { warn: 25, error: 50 },
-  cpuChange: { warn: 20, error: 40 },
-  gpu: { warn: 25, error: 50 },
-  gpuChange: { warn: 20, error: 40 },
-  heapGrowth: { warn: 5, error: 10 },
-  longTasks: { warn: 5, error: 10 },
-  networkRequests: { warn: 5, error: 10 },
-  consoleLogs: { warn: 5, error: 10 },
-} as const;
-
-export const STATUS_COLORS: Record<string, string> = {
-  error: "var(--pluto-error-z)",
-  warning: "var(--pluto-warning-z)",
-  success: "var(--pluto-success-z)",
-};
-
-export const TEXT_ROW_COLOR = 7 as const;
-export const TEXT_HEADER_COLOR = 9 as const;
-
-
-export type MetricType = "fps" | "memory" | "cpu" | "gpu";
-export type MetricCategory = "live" | "change" | "stats";
-
-export const TYPE_LABELS: Record<MetricType, string> = {
-  fps: "FPS",
-  memory: "Memory",
-  cpu: "CPU",
-  gpu: "GPU",
-};
-
-export const CATEGORY_LABELS: Record<MetricCategory, string> = {
-  live: "Live",
-  change: "Change",
-  stats: "Stats",
-};
-
-export const TYPE_MODE_LABELS: Record<MetricCategory, string> = {
-  live: "Live",
-  change: "Change",
-  stats: "Avg / Min",
-};
-
-export const TYPE_ORDER: MetricType[] = ["fps", "memory", "cpu", "gpu"];
-export const CATEGORY_ORDER: MetricCategory[] = ["live", "change", "stats"];
 
 export const TRACKED_EVENT_TYPES = [
   "click",
@@ -89,3 +42,78 @@ export const TRACKED_EVENT_TYPES = [
   "popstate",
   "contextmenu",
 ] as const;
+
+export type MetricType = "fps" | "heap" | "cpu" | "gpu";
+export type MetricCategory = "live" | "change" | "stats";
+
+export const METRIC_NAMES: Record<MetricType, string> = {
+  fps: "FPS",
+  heap: "Heap",
+  cpu: "CPU",
+  gpu: "GPU",
+};
+
+export const CATEGORY_LABELS: Record<MetricCategory, string> = {
+  live: "Live",
+  change: "Change",
+  stats: "Stats",
+};
+
+export const TYPE_MODE_LABELS: Record<MetricCategory, string> = {
+  live: "Live",
+  change: "Change",
+  stats: "Avg / Min",
+};
+
+export const METRIC_ORDER: MetricType[] = ["fps", "heap", "cpu", "gpu"];
+export const CATEGORY_ORDER: MetricCategory[] = ["live", "change", "stats"];
+
+export const HEAP_COMPARISON_WINDOW_SIZE = 30;
+export const HEAP_SLOPE_THRESHOLD = 0.1;
+
+export const THRESHOLDS = {
+  fpsAvg: { warn: 25, error: 10, inverted: true },
+  cpuAvg: { warn: 50, error: 75 },
+  gpuAvg: { warn: 50, error: 75 },  
+  fps: { warn: 10, error: 5, inverted: true },
+  cpu: { warn: 80, error: 90 },
+  gpu: { warn: 80, error: 90 },
+  fpsChange: { warn: 20, error: 40, inverted: true },
+  cpuChange: { warn: 20, error: 40 },
+  gpuChange: { warn: 20, error: 40 },
+  heapGrowth: { warn: 20, error: 40 },
+} as const;
+
+export const LABEL_COLORS = {
+  nominal: "#3774d0", // --pluto-primary-z
+  warning: "#c29d0a", // --pluto-warning-m1
+  error: "#f5242e", // --pluto-error-z
+} as const;
+
+export interface LabelConfig {
+  name: string;
+  color: string;
+}
+
+export const getMetricLabelName = (
+  metric: MetricType,
+  severity: "warning" | "error",
+): string => {
+  const suffix = severity === "error" ? "Error" : "Warn";
+  return `${METRIC_NAMES[metric]} ${suffix}`;
+};
+
+export const getProfilingLabelConfigs = (): LabelConfig[] => {
+  const labels: LabelConfig[] = [{ name: "Nominal", color: LABEL_COLORS.nominal }];
+  for (const metric of METRIC_ORDER) {
+    labels.push({
+      name: getMetricLabelName(metric, "warning"),
+      color: LABEL_COLORS.warning,
+    });
+    labels.push({
+      name: getMetricLabelName(metric, "error"),
+      color: LABEL_COLORS.error,
+    });
+  }
+  return labels;
+};

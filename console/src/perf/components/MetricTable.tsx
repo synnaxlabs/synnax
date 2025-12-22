@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/perf/components/MetricTable.css";
+
 import { Text } from "@synnaxlabs/pluto";
 import { memo,type ReactElement } from "react";
 
-import { DISPLAY_LIMIT, TEXT_ROW_COLOR } from "@/perf/constants";
+import { DISPLAY_LIMIT, RESIZE_THRESHOLD } from "@/perf/constants";
 
 /** Data structure returned by collectors with truncation metadata */
 export interface MetricTableData<T> {
@@ -39,8 +41,9 @@ function DataTableImpl<T>({
   getKey,
   getTooltip,
 }: DataTableProps<T>): ReactElement {
+  const isResizable = data.length >= RESIZE_THRESHOLD;
   return (
-    <div className="console-perf-data-table-wrapper">
+    <div className="console-perf-data-table-wrapper" data-resizable={isResizable}>
       <table className="console-perf-data-table">
         <tbody>
           {data.map((item, index) => {
@@ -52,10 +55,7 @@ function DataTableImpl<T>({
                   const textProps: any = { level: "small" };
                   if (col.color != null) textProps.color = col.color;
                   return (
-                    <td
-                      key={`${key}-${colIndex}`}
-                      style={colIndex === 0 ? { width: "55%" } : undefined}
-                    >
+                    <td key={`${key}-${colIndex}`}>
                       <Text.Text {...textProps}>
                         {col.getValue(item, index)}
                       </Text.Text>
@@ -99,11 +99,7 @@ function MetricTableImpl<T>({
         getTooltip={getTooltip}
       />
       {isTruncated && (
-        <Text.Text
-          level="small"
-          color={TEXT_ROW_COLOR}
-          style={{ paddingLeft: "0.5rem", paddingTop: "0.25rem" }}
-        >
+        <Text.Text level="small" className="console-perf-truncation-text">
           Showing {displayData.length} of {result.total}
         </Text.Text>
       )}

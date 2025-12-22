@@ -21,6 +21,8 @@
     "madge": "madge --circular src"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.5.0",
+    "@tauri-apps/plugin-os": "^2.2.0",
     "async-mutex": "catalog:",
     "nanoid": "^5.1.6",
     "uuid": "^13.0.0",

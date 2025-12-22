@@ -25,10 +25,40 @@ export const getThresholdStatus = (
   return undefined;
 };
 
+export interface AvgPeakThresholds {
+  avgWarn: number;
+  avgError: number;
+  peakWarn: number;
+  peakError: number;
+}
+
+/**
+ * Get status based on both avg and peak values against their respective thresholds.
+ * Use inverted=true when lower values are worse (e.g., FPS).
+ * Returns the worst status between avg and peak.
+ */
 export const getAvgPeakStatus = (
   avg: number | null,
   peak: number | null,
-  avgThreshold: number,
-  peakThreshold: number,
-): Status =>
-  (avg ?? 0) > avgThreshold || (peak ?? 0) > peakThreshold ? "warning" : undefined;
+  thresholds: AvgPeakThresholds,
+  inverted = false,
+): Status => {
+  const compare = inverted
+    ? (v: number, t: number) => v < t
+    : (v: number, t: number) => v > t;
+
+  let status: Status = undefined;
+
+  if (peak != null) {
+    if (compare(peak, thresholds.peakError)) status = "error";
+    else if (compare(peak, thresholds.peakWarn)) status = "warning";
+  }
+
+  if (avg != null && status !== "error") {
+    if (compare(avg, thresholds.avgError)) status = "error";
+    else if (status !== "warning" && compare(avg, thresholds.avgWarn))
+      status = "warning";
+  }
+
+  return status;
+};

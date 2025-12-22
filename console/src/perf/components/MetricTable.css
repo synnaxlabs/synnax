@@ -1,0 +1,76 @@
+/*
+ * Copyright 2025 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-perf-data-table-wrapper {
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.console-perf-data-table-wrapper[data-resizable="true"] {
+    height: calc(6 * 2em);
+    min-height: calc(4 * 2em);
+    max-height: calc(25 * 2em);
+    resize: vertical;
+}
+
+.console-perf-data-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.console-perf-data-table tr {
+    transition: background-color 0.15s ease;
+}
+
+.console-perf-data-table td {
+    white-space: nowrap;
+}
+
+.console-perf-data-table tr:hover {
+    background-color: var(--pluto-gray-l2);
+}
+
+.console-perf-data-table td:first-child {
+    width: 70%;
+    overflow: hidden;
+}
+
+.console-perf-data-table td:first-child > * {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.console-perf-data-table td:nth-child(2),
+.console-perf-data-table td:nth-child(3) {
+    width: 20%;
+}
+
+.console-perf-data-table td:nth-child(2) > *,
+.console-perf-data-table td:nth-child(3) > * {
+    display: block;
+    text-align: right;
+}
+
+.console-perf-data-table td:nth-child(3) {
+    padding-right: 1rem;
+}
+
+.console-perf-truncation-text {
+    padding-left: 0.5rem;
+    padding-top: 0.25rem;
+    color: var(--pluto-gray-l7);
+}
+
+.console-perf-data-table-cell {
+    color: var(--pluto-gray-l7);
+}

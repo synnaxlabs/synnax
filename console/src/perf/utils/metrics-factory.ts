@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CpuReport } from "@/perf/analyzer/types";
+import { type CpuReport, type Severity } from "@/perf/analyzer/types";
 import { THRESHOLDS } from "@/perf/constants";
-import { type MetricDef } from "@/perf/types";
+import { type MetricDef, type Status } from "@/perf/types";
 import {
   formatDelta,
   formatFps,
@@ -18,9 +18,22 @@ import {
   formatPercent,
   formatPercentChange,
 } from "@/perf/utils/formatting";
-import { getAvgPeakStatus, getThresholdStatus } from "@/perf/utils/status";
+import { getThresholdStatus } from "@/perf/utils/status";
 
 export type ResourceReport = Omit<CpuReport, "detected">;
+
+export interface MetricSeverities {
+  peakSeverity: Severity;
+  avgSeverity: Severity;
+}
+
+const severityToStatus = (severities: MetricSeverities): Status => {
+  if (severities.peakSeverity === "error" || severities.avgSeverity === "error")
+    return "error";
+  if (severities.peakSeverity === "warning" || severities.avgSeverity === "warning")
+    return "warning";
+  return undefined;
+};
 
 export const createFpsMetrics = (
   liveValue: number | null,
@@ -28,6 +41,7 @@ export const createFpsMetrics = (
   hasData: boolean,
   avgFps: number | null,
   minFps: number | null,
+  severities: MetricSeverities,
 ): MetricDef[] => [
   {
     key: "fps-live",
@@ -51,26 +65,27 @@ export const createFpsMetrics = (
     getStatus: () =>
       getThresholdStatus(
         degradationPercent,
-        THRESHOLDS.fpsDegradation.warn,
-        THRESHOLDS.fpsDegradation.error,
+        THRESHOLDS.fpsChange.warn,
+        THRESHOLDS.fpsChange.error,
       ),
-    tooltip: `FPS change during session (warn >${THRESHOLDS.fpsDegradation.warn}%, error >${THRESHOLDS.fpsDegradation.error}%)`,
+    tooltip: `FPS change during session (warn >${THRESHOLDS.fpsChange.warn}%, error >${THRESHOLDS.fpsChange.error}%)`,
   },
   {
     key: "fps-stats",
     type: "fps",
     category: "stats",
     getValue: () => formatPair(avgFps, minFps),
-    getStatus: () =>
-      getThresholdStatus(
-        minFps,
-        THRESHOLDS.fps.warn,
-        THRESHOLDS.fps.error,
-        THRESHOLDS.fps.inverted,
-      ),
-    tooltip: `Average and minimum FPS (warn <${THRESHOLDS.fps.warn}, error <${THRESHOLDS.fps.error})`,
+    getStatus: () => severityToStatus(severities),
+    tooltip: `Average (warn <${THRESHOLDS.fpsAvg.warn}, error <${THRESHOLDS.fpsAvg.error}) and minimum FPS (warn <${THRESHOLDS.fps.warn}, error <${THRESHOLDS.fps.error})`,
   },
 ];
+
+/** Convert single severity to UI Status */
+const singleSeverityToStatus = (severity: Severity): Status => {
+  if (severity === "error") return "error";
+  if (severity === "warning") return "warning";
+  return undefined;
+};
 
 export const createMemoryMetrics = (
   liveHeap: number | null,
@@ -78,30 +93,26 @@ export const createMemoryMetrics = (
   hasData: boolean,
   minHeap: number | null,
   maxHeap: number | null,
+  severity: Severity,
 ): MetricDef[] => [
   {
-    key: "memory-live",
-    type: "memory",
+    key: "heap-live",
+    type: "heap",
     category: "live",
     getValue: () => formatMB(liveHeap),
     tooltip: "Current heap usage",
   },
   {
-    key: "memory-change",
-    type: "memory",
+    key: "heap-change",
+    type: "heap",
     category: "change",
     getValue: () => formatPercentChange(hasData ? growthPercent : null),
-    getStatus: () =>
-      getThresholdStatus(
-        growthPercent,
-        THRESHOLDS.heapGrowth.warn,
-        THRESHOLDS.heapGrowth.error,
-      ),
+    getStatus: () => singleSeverityToStatus(severity),
     tooltip: `Heap change during session (warn >${THRESHOLDS.heapGrowth.warn}%, error >${THRESHOLDS.heapGrowth.error}%)`,
   },
   {
-    key: "memory-stats",
-    type: "memory",
+    key: "heap-stats",
+    type: "heap",
     category: "stats",
     getValue: () => formatPair(minHeap, maxHeap, " MB"),
     tooltip: "Min and max heap usage",
@@ -115,6 +126,7 @@ export const createResourceMetrics = (
   report: ResourceReport,
   thresholds: { warn: number; error: number },
   changeThresholds: { warn: number; error: number },
+  severities: MetricSeverities,
 ): MetricDef[] => {
   const label = type.toUpperCase();
   return [
@@ -144,14 +156,8 @@ export const createResourceMetrics = (
       type,
       category: "stats",
       getValue: () => formatPair(report.avgPercent, report.maxPercent, "%"),
-      getStatus: () =>
-        getAvgPeakStatus(
-          report.avgPercent,
-          report.maxPercent,
-          thresholds.warn,
-          thresholds.error,
-        ),
-      tooltip: `Average and max ${label} (warn >${thresholds.warn}%, error >${thresholds.error}%)`,
+      getStatus: () => severityToStatus(severities),
+      tooltip: `Average (warn >${type === "cpu" ? THRESHOLDS.cpuAvg.warn : THRESHOLDS.gpuAvg.warn}%, error >${type === "cpu" ? THRESHOLDS.cpuAvg.error : THRESHOLDS.gpuAvg.error}%) and max ${label} (warn >${thresholds.warn}%, error >${thresholds.error}%)`,
       label: "Avg / Max",
     },
   ];

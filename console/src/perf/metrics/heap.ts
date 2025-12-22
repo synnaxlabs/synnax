@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { runtime } from "@synnaxlabs/x";
+import { invoke } from "@tauri-apps/api/core";
 
 import { type HeapSnapshot } from "@/perf/metrics/types";
 
@@ -31,15 +32,10 @@ const BYTES_TO_MB = 1024 * 1024;
  */
 export class HeapCollector {
   private cachedMemoryMB: number | null = null;
-  private useTauri: boolean;
   private updateInterval: ReturnType<typeof setInterval> | null = null;
 
-  constructor() {
-    this.useTauri = isTauri();
-  }
-
   start(): void {
-    if (this.useTauri) {
+    if (runtime.IS_TAURI) {
       // Fetch immediately
       void this.fetchTauriMemory();
       // Then poll every second
@@ -66,11 +62,11 @@ export class HeapCollector {
   }
 
   static isAvailable(): boolean {
-    return isTauri() || "memory" in performance;
+    return runtime.IS_TAURI || "memory" in performance;
   }
 
   getHeapUsedMB(): number | null {
-    if (this.useTauri) return this.cachedMemoryMB;
+    if (runtime.IS_TAURI) return this.cachedMemoryMB;
 
     const perf = performance as PerformanceWithMemory;
     if (perf.memory == null) return null;
@@ -78,7 +74,7 @@ export class HeapCollector {
   }
 
   getHeapTotalMB(): number | null {
-    if (this.useTauri)
+    if (runtime.IS_TAURI)
       // Tauri returns process memory, not heap total - return same value
       return this.cachedMemoryMB;
 
@@ -88,7 +84,7 @@ export class HeapCollector {
   }
 
   getHeapLimitMB(): number | null {
-    if (this.useTauri) return null;
+    if (runtime.IS_TAURI) return null;
 
     const perf = performance as PerformanceWithMemory;
     if (perf.memory == null) return null;

@@ -16,8 +16,8 @@ import { useDispatch } from "react-redux";
 import { type Layout } from "@/layout";
 import { MetricSections } from "@/perf/components/MetricSections";
 import { useCollectors } from "@/perf/hooks/useCollectors";
-import { ZERO_AGGREGATES } from "@/perf/metrics/buffer";
 import { useProfilingSession } from "@/perf/hooks/useProfilingSession";
+import { ZERO_AGGREGATES } from "@/perf/metrics/buffer";
 import {
   useSelectCpuReport,
   useSelectElapsedSeconds,
@@ -186,6 +186,21 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
         leakReport={leakReport}
         cpuReport={cpuReport}
         gpuReport={gpuReport}
+        severities={{
+          fps: {
+            peakSeverity: fpsReport.peakSeverity,
+            avgSeverity: fpsReport.avgSeverity,
+          },
+          cpu: {
+            peakSeverity: cpuReport.peakSeverity,
+            avgSeverity: cpuReport.avgSeverity,
+          },
+          gpu: {
+            peakSeverity: gpuReport.peakSeverity,
+            avgSeverity: gpuReport.avgSeverity,
+          },
+          heap: leakReport.severity,
+        }}
         status={status}
       />
 

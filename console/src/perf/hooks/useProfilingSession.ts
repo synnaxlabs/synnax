@@ -83,16 +83,27 @@ export const useProfilingSession = ({
   // Compose child hooks
   const { captured, captureInitial, captureFinal, reset: resetCaptured } = useCapturedValues();
   const { analyze } = useProfilingAnalyzers();
-  const { rangeKey, rangeStartTime, createRange, updateEndTime, finalizeRange } =
-    useProfilingRange({
+  const {
+    rangeKey,
+    rangeStartTime,
+    createRange,
+    updateEndTime,
+    finalizeRange,
+    addMetricLabel,
+    removeTransientLabel,
+    isMetricLatched,
+  } = useProfilingRange({
     status,
-    getMetadata: useCallback(() => {
+    getMetrics: useCallback(() => {
       const agg = getAggregates();
       return {
-        avgFps: agg.avgFps,
-        avgCpu: agg.avgCpu,
-        avgGpu: agg.avgGpu,
-        avgHeap: agg.maxHeap,
+        averages: { cpu: agg.avgCpu, fps: agg.avgFps, gpu: agg.avgGpu },
+        peaks: {
+          cpu: agg.maxCpu,
+          fps: agg.minFps, // Min FPS is worst performance
+          gpu: agg.maxGpu,
+          heap: agg.maxHeap,
+        },
       };
     }, [getAggregates]),
   });
@@ -134,8 +145,39 @@ export const useProfilingSession = ({
       dispatch(Perf.setFpsReport(results.fps));
       dispatch(Perf.setCpuReport(results.cpu));
       dispatch(Perf.setGpuReport(results.gpu));
+
+      // Add real-time labels with latching behavior:
+      // - Peak-triggered labels are latched (permanent)
+      // - Avg-triggered labels are transient (can be removed if avg improves)
+      // - Once latched, skip further calculations for that metric
+      for (const metric of ["fps", "cpu", "gpu"] as const) {
+        // Skip if already latched
+        if (isMetricLatched(metric)) continue;
+
+        const report =
+          metric === "fps" ? results.fps : metric === "cpu" ? results.cpu : results.gpu;
+
+        // First check peak - if triggered, latch and skip avg check
+        if (report.peakSeverity !== "none") {
+          addMetricLabel({ metric, severity: report.peakSeverity, latched: true });
+          continue;
+        }
+
+        // Peak not triggered - check avg (transient, can be removed)
+        if (report.avgSeverity !== "none") {
+          addMetricLabel({ metric, severity: report.avgSeverity, latched: false });
+        } else {
+          // Avg is now "none" - remove transient label if it exists
+          removeTransientLabel({ metric });
+        }
+      }
+
+      // Heap uses single severity (no peak/avg distinction)
+      if (!isMetricLatched("heap") && results.leak.severity !== "none")
+        addMetricLabel({ metric: "heap", severity: results.leak.severity, latched: true });
+      
     },
-    [dispatch, captured, analyze],
+    [dispatch, captured, analyze, addMetricLabel, removeTransientLabel, isMetricLatched],
   );
 
   useEffect(() => {
@@ -188,9 +230,9 @@ export const useProfilingSession = ({
     }
 
     // Capture range data into ref when it becomes available
-    if (status === "running" && rangeKey != null && rangeStartTime != null) {
+    if (status === "running" && rangeKey != null && rangeStartTime != null) 
       rangeDataRef.current = { key: rangeKey, startTime: rangeStartTime };
-    }
+    
     
 
     if (status === "paused" && prevStatus === "running") {
@@ -218,14 +260,46 @@ export const useProfilingSession = ({
       const rangeData = rangeDataRef.current;
       if ((prevStatus === "running" || prevStatus === "paused") && rangeData != null) {
         const agg = getAggregates();
+        const samples = sampleBuffer.current?.getAllSamples() ?? [];
+        const lastSample = samples.at(-1) ?? null;
+        const cap = captured.current;
+
+        // Run final analysis to get severities
+        const results = analyze({
+          samples,
+          currentSample: lastSample ?? {
+            timestamp: 0,
+            cpuPercent: null,
+            gpuPercent: null,
+            heapUsedMB: null,
+            heapTotalMB: null,
+            frameRate: null,
+            longTaskCount: 0,
+            longTaskDurationMs: 0,
+            networkRequestCount: 0,
+            consoleLogCount: 0,
+          },
+          captured: cap,
+          aggregates: agg,
+        });
+
         finalizeRange({
           rangeKey: rangeData.key,
           startTime: rangeData.startTime,
-          aggregates: {
-            avgFps: agg.avgFps,
-            avgCpu: agg.avgCpu,
-            avgGpu: agg.avgGpu,
-            avgHeap: agg.maxHeap,
+          metrics: {
+            averages: { cpu: agg.avgCpu, fps: agg.avgFps, gpu: agg.avgGpu },
+            peaks: {
+              cpu: agg.maxCpu,
+              fps: agg.minFps,
+              gpu: agg.maxGpu,
+              heap: agg.maxHeap,
+            },
+          },
+          severities: {
+            fps: { peak: results.fps.peakSeverity, avg: results.fps.avgSeverity },
+            cpu: { peak: results.cpu.peakSeverity, avg: results.cpu.avgSeverity },
+            gpu: { peak: results.gpu.peakSeverity, avg: results.gpu.avgSeverity },
+            heap: results.leak.severity,
           },
         });
       }
@@ -254,6 +328,8 @@ export const useProfilingSession = ({
     resetEventCollectors,
     resetTableData,
     resetBuffer,
+    analyze,
+    captured,
     // Note: rangeDataRef is intentionally NOT in deps - it's a ref that persists
   ]);
 

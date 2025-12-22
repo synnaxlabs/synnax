@@ -55,29 +55,70 @@ describe("status", () => {
   });
 
   describe("getAvgPeakStatus", () => {
-    it("should return warning when avg exceeds threshold", () => {
-      expect(getAvgPeakStatus(60, 40, 50, 80)).toBe("warning");
-      expect(getAvgPeakStatus(51, 40, 50, 80)).toBe("warning");
+    const thresholds = { avgWarn: 50, avgError: 70, peakWarn: 80, peakError: 95 };
+
+    it("should return warning when avg exceeds warning threshold", () => {
+      expect(getAvgPeakStatus(60, 40, thresholds)).toBe("warning");
+      expect(getAvgPeakStatus(51, 40, thresholds)).toBe("warning");
     });
 
-    it("should return warning when peak exceeds threshold", () => {
-      expect(getAvgPeakStatus(40, 90, 50, 80)).toBe("warning");
-      expect(getAvgPeakStatus(40, 81, 50, 80)).toBe("warning");
+    it("should return error when avg exceeds error threshold", () => {
+      expect(getAvgPeakStatus(75, 40, thresholds)).toBe("error");
+      expect(getAvgPeakStatus(71, 40, thresholds)).toBe("error");
     });
 
-    it("should return warning when both exceed thresholds", () => {
-      expect(getAvgPeakStatus(60, 90, 50, 80)).toBe("warning");
+    it("should return warning when peak exceeds warning threshold", () => {
+      expect(getAvgPeakStatus(40, 90, thresholds)).toBe("warning");
+      expect(getAvgPeakStatus(40, 81, thresholds)).toBe("warning");
+    });
+
+    it("should return error when peak exceeds error threshold", () => {
+      expect(getAvgPeakStatus(40, 100, thresholds)).toBe("error");
+      expect(getAvgPeakStatus(40, 96, thresholds)).toBe("error");
+    });
+
+    it("should return error when both exceed error thresholds", () => {
+      expect(getAvgPeakStatus(75, 100, thresholds)).toBe("error");
     });
 
     it("should return undefined when both are below thresholds", () => {
-      expect(getAvgPeakStatus(40, 70, 50, 80)).toBeUndefined();
-      expect(getAvgPeakStatus(0, 0, 50, 80)).toBeUndefined();
+      expect(getAvgPeakStatus(40, 70, thresholds)).toBeUndefined();
+      expect(getAvgPeakStatus(0, 0, thresholds)).toBeUndefined();
     });
 
-    it("should handle null values as zero", () => {
-      expect(getAvgPeakStatus(null, null, 50, 80)).toBeUndefined();
-      expect(getAvgPeakStatus(null, 90, 50, 80)).toBe("warning");
-      expect(getAvgPeakStatus(60, null, 50, 80)).toBe("warning");
+    it("should handle null values", () => {
+      expect(getAvgPeakStatus(null, null, thresholds)).toBeUndefined();
+      expect(getAvgPeakStatus(null, 90, thresholds)).toBe("warning");
+      expect(getAvgPeakStatus(60, null, thresholds)).toBe("warning");
+    });
+
+    describe("inverted mode (FPS-like)", () => {
+      const fpsThresholds = {
+        avgWarn: 30,
+        avgError: 20,
+        peakWarn: 25,
+        peakError: 10,
+      };
+
+      it("should return warning when avg is below warning threshold", () => {
+        expect(getAvgPeakStatus(25, 60, fpsThresholds, true)).toBe("warning");
+      });
+
+      it("should return error when avg is below error threshold", () => {
+        expect(getAvgPeakStatus(15, 60, fpsThresholds, true)).toBe("error");
+      });
+
+      it("should return warning when peak is below warning threshold", () => {
+        expect(getAvgPeakStatus(60, 20, fpsThresholds, true)).toBe("warning");
+      });
+
+      it("should return error when peak is below error threshold", () => {
+        expect(getAvgPeakStatus(60, 5, fpsThresholds, true)).toBe("error");
+      });
+
+      it("should return undefined when both are above thresholds", () => {
+        expect(getAvgPeakStatus(60, 60, fpsThresholds, true)).toBeUndefined();
+      });
     });
   });
 });

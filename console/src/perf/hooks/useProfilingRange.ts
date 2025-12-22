@@ -9,23 +9,26 @@
 
 import { type label, type Synnax as SynnaxClient, TimeStamp } from "@synnaxlabs/client";
 import { Synnax } from "@synnaxlabs/pluto";
-import { math, TimeRange } from "@synnaxlabs/x";
+import { math, runtime, TimeRange } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
 
+import { useSelect as useSelectCluster } from "@/cluster/selectors";
+import { type Severity } from "@/perf/analyzer/types";
+import {
+  getMetricLabelName,
+  getProfilingLabelConfigs,
+  LABEL_COLORS,
+  METRIC_ORDER,
+  type MetricType,
+} from "@/perf/constants";
 import { useSelectRangeKey, useSelectRangeStartTime } from "@/perf/selectors";
 import * as Perf from "@/perf/slice";
 import { type HarnessStatus } from "@/perf/slice";
 
-// This is where we want to brainstorm
-
-
 /**
  * Retrieves an existing label by name, or creates it if it doesn't exist.
- *
- * This is a console-specific helper (not in x/) because it requires a Synnax client.
- * The pattern differs from the Label modal which uses client.labels.create() directly -
- * we need check-by-name to reuse existing system labels for profiling sessions.
+ * Handles race conditions where another call may create the label concurrently.
  */
 const getOrCreateLabel = async (
   client: SynnaxClient,
@@ -37,18 +40,38 @@ const getOrCreateLabel = async (
   try {
     return await client.labels.create({ name, color });
   } catch {
-    // Handle race condition: another call may have created it between retrieve and create
     const retryExisting = await client.labels.retrieve({ names: [name] });
     if (retryExisting.length > 0) return retryExisting[0];
     throw new Error(`Failed to get or create label: ${name}`);
   }
 };
 
-export interface RangeMetadata {
-  avgFps: number | null;
-  avgCpu: number | null;
-  avgGpu: number | null;
-  avgHeap: number | null;
+const ensureProfilingLabelsExist = async (client: SynnaxClient): Promise<void> => {
+  const configs = getProfilingLabelConfigs();
+  await Promise.all(configs.map(({ name, color }) => getOrCreateLabel(client, name, color)));
+};
+
+export interface AverageMetrics {
+  cpu: number | null;
+  fps: number | null;
+  gpu: number | null;
+}
+
+export interface PeakMetrics {
+  cpu: number | null;
+  fps: number | null;
+  gpu: number | null;
+  heap: number | null;
+}
+
+/**
+ * Structured metrics for range metadata.
+ * - averages: Running averages during the session
+ * - peaks: Worst-case values (max for cpu/gpu/heap, min for fps)
+ */
+export interface RangeMetrics {
+  averages: AverageMetrics;
+  peaks: PeakMetrics;
 }
 
 // Temporary value. Don't know what strategy I want to use yet.
@@ -56,15 +79,41 @@ const METADATA_WRITE_INTERVAL_MS = 5_000;
 
 export interface UseProfilingRangeOptions {
   status: HarnessStatus;
-  getMetadata: () => RangeMetadata | null;
+  getMetrics: () => RangeMetrics | null;
 }
 
-export type Verdict = "Passed" | "Failed";
+export interface MetricSeverities {
+  peak: Severity;
+  avg: Severity;
+}
+
+export interface AnalysisSeverities {
+  fps: MetricSeverities;
+  cpu: MetricSeverities;
+  gpu: MetricSeverities;
+  heap: Severity;
+}
 
 export interface FinalizeRangeInput {
   rangeKey: string;
   startTime: number;
-  aggregates: RangeMetadata;
+  metrics: RangeMetrics;
+  severities: AnalysisSeverities;
+}
+
+export interface AddMetricLabelInput {
+  metric: MetricType;
+  severity: "warning" | "error";
+  latched: boolean;
+}
+
+export interface RemoveTransientLabelInput {
+  metric: MetricType;
+}
+
+interface LabelState {
+  severity: "warning" | "error";
+  latched: boolean;
 }
 
 export interface UseProfilingRangeResult {
@@ -73,6 +122,9 @@ export interface UseProfilingRangeResult {
   createRange: () => void;
   updateEndTime: (endTime: TimeStamp) => void;
   finalizeRange: (input: FinalizeRangeInput) => void;
+  addMetricLabel: (input: AddMetricLabelInput) => void;
+  removeTransientLabel: (input: RemoveTransientLabelInput) => void;
+  isMetricLatched: (metric: MetricType) => boolean;
 }
 
 /**
@@ -85,50 +137,78 @@ export interface UseProfilingRangeResult {
  */
 export const useProfilingRange = ({
   status,
-  getMetadata,
+  getMetrics,
 }: UseProfilingRangeOptions): UseProfilingRangeResult => {
   const dispatch = useDispatch();
   const client = Synnax.use();
   const rangeKey = useSelectRangeKey();
   const rangeStartTime = useSelectRangeStartTime();
+  const activeCluster = useSelectCluster();
+  const username = activeCluster?.username ?? "Unknown";
 
-  const getMetadataRef = useRef(getMetadata);
-  getMetadataRef.current = getMetadata;
+  const getMetricsRef = useRef(getMetrics);
+  getMetricsRef.current = getMetrics;
+
+  const rangeNameRef = useRef<string | null>(null);
+
+  const labelStatesRef = useRef<Map<MetricType, LabelState>>(new Map());
+  const nominalRemovedRef = useRef(false);
+
+  const getRangeName = useCallback(
+    (hostname: string): string => `Console Profiling (${username}@${hostname})`,
+    [username],
+  );
 
   const createRange = useCallback(() => {
     if (client == null) return;
 
-    const now = TimeStamp.now();
-    client.ranges
-      .create({
-        name: "Console Profiling",
+    labelStatesRef.current.clear();
+    nominalRemovedRef.current = false;
+
+    const create = async () => {
+      const [osInfo, nominalLabel] = await Promise.all([
+        runtime.getOSInfoAsync(),
+        ensureProfilingLabelsExist(client).then(() =>
+          getOrCreateLabel(client, "Nominal", LABEL_COLORS.nominal),
+        ),
+      ]);
+
+      const rangeName = getRangeName(osInfo.hostname);
+      rangeNameRef.current = rangeName;
+
+      const now = TimeStamp.now();
+      const range = await client.ranges.create({
+        name: rangeName,
         timeRange: new TimeRange(now, TimeStamp.MAX).numeric,
-      })
-      .then(async (range) => {
-        dispatch(Perf.setRangeKey(range.key));
-        dispatch(Perf.setRangeStartTime(Number(now.valueOf())));
-
-        const [nominalLabel] = await Promise.all([
-          getOrCreateLabel(client, "Nominal", "#3B82F6"), // Blue
-          getOrCreateLabel(client, "Passed", "#16A34A"), // Green
-          getOrCreateLabel(client, "Failed", "#DC2626"), // Red
-        ]);
-
-        await range.addLabel(nominalLabel.key);
-      })
-      .catch((error: Error) => {
-        console.error("Failed to create profiling range:", error);
       });
-  }, [client, dispatch]);
+
+      dispatch(Perf.setRangeKey(range.key));
+      dispatch(Perf.setRangeStartTime(Number(now.valueOf())));
+
+      await range.addLabel(nominalLabel.key);
+
+      const kv = range.kv;
+      await Promise.all([
+        kv.set("hostname", osInfo.hostname),
+        kv.set("platform", osInfo.platform),
+        kv.set("osVersion", osInfo.version),
+      ]);
+    };
+
+    create().catch((error: Error) => {
+      console.error("Failed to create profiling range:", error);
+    });
+  }, [client, dispatch, getRangeName]);
 
   const updateEndTime = useCallback(
     (endTime: TimeStamp) => {
       if (client == null || rangeKey == null || rangeStartTime == null) return;
+      if (rangeNameRef.current == null) return;
 
       client.ranges
         .create({
           key: rangeKey,
-          name: "Console Profiling",
+          name: rangeNameRef.current,
           timeRange: new TimeRange(new TimeStamp(rangeStartTime), endTime).numeric,
         })
         .catch((error: Error) => {
@@ -138,97 +218,247 @@ export const useProfilingRange = ({
     [client, rangeKey, rangeStartTime],
   );
 
+  const lastWrittenRef = useRef<{ averages: string; peaks: string } | null>(null);
+
   useEffect(() => {
     if (status !== "running" || client == null || rangeKey == null) return;
 
-    const writeMetadata = async () => {
-      const metadata = getMetadataRef.current();
-      if (metadata == null) return;
+    const roundAverages = (values: AverageMetrics): AverageMetrics => ({
+      cpu: values.cpu != null ? math.roundTo(values.cpu, 1) : null,
+      fps: values.fps != null ? math.roundTo(values.fps, 1) : null,
+      gpu: values.gpu != null ? math.roundTo(values.gpu, 1) : null,
+    });
+
+    const roundPeaks = (values: PeakMetrics): PeakMetrics => ({
+      cpu: values.cpu != null ? math.roundTo(values.cpu, 1) : null,
+      fps: values.fps != null ? math.roundTo(values.fps, 1) : null,
+      gpu: values.gpu != null ? math.roundTo(values.gpu, 1) : null,
+      heap: values.heap != null ? math.roundTo(values.heap, 1) : null,
+    });
+
+    const writeMetrics = async () => {
+      const metrics = getMetricsRef.current();
+      if (metrics == null) return;
+
+      const averagesJson = JSON.stringify(roundAverages(metrics.averages));
+      const peaksJson = JSON.stringify(roundPeaks(metrics.peaks));
+
+      // Skip write if nothing changed
+      const last = lastWrittenRef.current;
+      if (last != null && last.averages === averagesJson && last.peaks === peaksJson)
+        return;
 
       try {
         const range = await client.ranges.retrieve(rangeKey);
         const kv = range.kv;
 
-        const writes: Promise<void>[] = [];
-        if (metadata.avgFps != null)
-          writes.push(kv.set("avgFps", String(math.roundTo(metadata.avgFps, 1))));
-        if (metadata.avgCpu != null)
-          writes.push(kv.set("avgCpu", String(math.roundTo(metadata.avgCpu, 1))));
-        if (metadata.avgGpu != null)
-          writes.push(kv.set("avgGpu", String(math.roundTo(metadata.avgGpu, 1))));
-        if (metadata.avgHeap != null)
-          writes.push(kv.set("avgHeap", String(math.roundTo(metadata.avgHeap, 1))));
+        await Promise.all([
+          kv.set("averages", averagesJson),
+          kv.set("peaks", peaksJson),
+        ]);
 
-        await Promise.all(writes);
+        lastWrittenRef.current = { averages: averagesJson, peaks: peaksJson };
       } catch (error) {
-        console.error("Failed to write range metadata:", error);
+        console.error("Failed to write range metrics:", error);
       }
     };
 
-    void writeMetadata();
-    const intervalId = setInterval(() => void writeMetadata(), METADATA_WRITE_INTERVAL_MS);
+    void writeMetrics();
+    const intervalId = setInterval(() => void writeMetrics(), METADATA_WRITE_INTERVAL_MS);
 
     return () => clearInterval(intervalId);
   }, [status, client, rangeKey]);
 
   /**
-   * Stub analyzer that "analyzes" the aggregates and returns a verdict.
-   * For now, always returns PASS.
-   */
-  const analyzeSession = useCallback((aggregates: RangeMetadata): Verdict => {
-    console.log("[useProfilingRange] Analyzing session:", aggregates);
-    // TODO: Implement actual analysis logic
-    return "Passed";
-  }, []);
-
-  /**
    * Finalizes the profiling range by:
    * 1. Updating end time
-   * 2. Running analysis
-   * 3. Adding verdict label (keeps "nominal" label)
+   * 2. Adding warning/error labels for each metric with issues
+   * 3. Removing superseded labels (warning removed when error is added)
    */
   const finalizeRange = useCallback(
     (input: FinalizeRangeInput) => {
-      const { rangeKey: key, startTime, aggregates } = input;
-      console.log("[useProfilingRange] finalizeRange called", {
-        hasClient: client != null,
-        rangeKey: key,
-        startTime,
-      });
+      const { rangeKey: key, startTime, severities } = input;
       if (client == null) return;
 
       const finalize = async () => {
         const endTime = TimeStamp.now();
+        if (rangeNameRef.current == null) return;
 
-        // Update the range end time (no update() available)
         await client.ranges.create({
           key,
-          name: "Console Profiling",
+          name: rangeNameRef.current,
           timeRange: new TimeRange(new TimeStamp(startTime), endTime).numeric,
         });
 
-        // Retrieve the range and add verdict label
-        console.log("[useProfilingRange] Retrieving range for verdict label");
         const range = await client.ranges.retrieve(key);
-        const verdict = analyzeSession(aggregates);
 
-        console.log("[useProfilingRange] Getting/creating verdict label:", verdict);
-        const verdictLabel = await getOrCreateLabel(
-          client,
-          verdict,
-          verdict === "Passed" ? "#16A34A" : "#DC2626",
-        );
-        console.log("[useProfilingRange] Adding label to range:", verdictLabel);
-        await range.addLabel(verdictLabel.key);
-        console.log("[useProfilingRange] Label added successfully");
+        const hasIssues = METRIC_ORDER.some((m) => {
+          if (m === "heap") return severities.heap !== "none";
+          const ms = severities[m];
+          return ms.peak !== "none" || ms.avg !== "none";
+        });
+
+        // Remove nominal label if any issues were detected
+        if (hasIssues && !nominalRemovedRef.current) {
+          const nominalLabels = await client.labels.retrieve({ names: ["Nominal"] });
+          if (nominalLabels.length > 0) {
+            await range.removeLabel(nominalLabels[0].key);
+            nominalRemovedRef.current = true;
+          }
+        }
+
+        for (const metric of METRIC_ORDER) {
+          let severity: Severity;
+          if (metric === "heap") {
+            severity = severities.heap;
+          } else {
+            const ms = severities[metric];
+            if (ms.peak === "error" || ms.avg === "error") severity = "error";
+            else if (ms.peak === "warning" || ms.avg === "warning")
+              severity = "warning";
+            else severity = "none";
+          }
+
+          if (severity === "none") continue;
+
+          // Label replacement: error supersedes warning
+          if (severity === "error") {
+            const currentState = labelStatesRef.current.get(metric);
+            if (currentState?.severity === "warning") {
+              const warnLabelName = getMetricLabelName(metric, "warning");
+              const warnLabels = await client.labels.retrieve({ names: [warnLabelName] });
+              if (warnLabels.length > 0) await range.removeLabel(warnLabels[0].key);
+            }
+          }
+
+          const labelName = getMetricLabelName(metric, severity);
+          const color =
+            severity === "error" ? LABEL_COLORS.error : LABEL_COLORS.warning;
+          const label = await getOrCreateLabel(client, labelName, color);
+          await range.addLabel(label.key);
+        }
       };
 
       finalize().catch((error: Error) => {
         console.error("Failed to finalize profiling range:", error);
       });
     },
-    [client, analyzeSession],
+    [client],
   );
+
+  /**
+   * Adds a warning/error label for a metric in real-time.
+   *
+   * Latching behavior:
+   * - Latched labels (peak-triggered) are permanent and cannot be removed
+   * - Transient labels (avg-triggered) can be removed if avg improves
+   * - Once latched, any further changes for this metric are ignored
+   *
+   * Implements label replacement: error supersedes warning.
+   */
+  const addMetricLabel = useCallback(
+    ({ metric, severity, latched }: AddMetricLabelInput) => {
+      if (client == null || rangeKey == null) return;
+
+      const currentState = labelStatesRef.current.get(metric);
+
+      // If already latched, no changes allowed
+      if (currentState?.latched) return;
+
+      // Skip if same severity already set
+      if (currentState?.severity === severity) return;
+
+      // Skip adding warning if error already exists
+      if (severity === "warning" && currentState?.severity === "error") return;
+
+      const labelName = getMetricLabelName(metric, severity);
+      const previousState = currentState;
+      labelStatesRef.current.set(metric, { severity, latched });
+
+      const add = async () => {
+        const color = severity === "error" ? LABEL_COLORS.error : LABEL_COLORS.warning;
+        const label = await getOrCreateLabel(client, labelName, color);
+        const range = await client.ranges.retrieve(rangeKey);
+
+        // Remove nominal label on first warning/error
+        if (!nominalRemovedRef.current) {
+          const nominalLabels = await client.labels.retrieve({ names: ["Nominal"] });
+          if (nominalLabels.length > 0) {
+            await range.removeLabel(nominalLabels[0].key);
+            nominalRemovedRef.current = true;
+          }
+        }
+
+        // Label replacement: error supersedes warning
+        if (severity === "error" && previousState?.severity === "warning") {
+          const warnLabelName = getMetricLabelName(metric, "warning");
+          const warnLabels = await client.labels.retrieve({ names: [warnLabelName] });
+          if (warnLabels.length > 0) await range.removeLabel(warnLabels[0].key);
+        }
+
+        await range.addLabel(label.key);
+      };
+
+      add().catch((error: Error) => {
+        console.error(`Failed to add label ${labelName}:`, error);
+        // Rollback state on failure
+        if (previousState != null) labelStatesRef.current.set(metric, previousState);
+        else labelStatesRef.current.delete(metric);
+      });
+    },
+    [client, rangeKey],
+  );
+
+  /**
+   * Removes a transient (avg-triggered) label for a metric.
+   * Only removes if the label is not latched (peak-triggered).
+   */
+  const removeTransientLabel = useCallback(
+    ({ metric }: RemoveTransientLabelInput) => {
+      if (client == null || rangeKey == null) return;
+
+      const currentState = labelStatesRef.current.get(metric);
+
+      // Only remove if transient (not latched)
+      if (currentState == null || currentState.latched) return;
+
+      const labelName = getMetricLabelName(metric, currentState.severity);
+      labelStatesRef.current.delete(metric);
+
+      const remove = async () => {
+        const range = await client.ranges.retrieve(rangeKey);
+        const labels = await client.labels.retrieve({ names: [labelName] });
+        if (labels.length > 0) await range.removeLabel(labels[0].key);
+
+        // Restore nominal label if no other issues remain
+        if (labelStatesRef.current.size === 0 && nominalRemovedRef.current) {
+          const nominalLabel = await getOrCreateLabel(
+            client,
+            "Nominal",
+            LABEL_COLORS.nominal,
+          );
+          await range.addLabel(nominalLabel.key);
+          nominalRemovedRef.current = false;
+        }
+      };
+
+      remove().catch((error: Error) => {
+        console.error(`Failed to remove label ${labelName}:`, error);
+        // Rollback state on failure
+        labelStatesRef.current.set(metric, currentState);
+      });
+    },
+    [client, rangeKey],
+  );
+
+  /**
+   * Checks if a metric has a latched (peak-triggered) label.
+   * Used to skip further calculations for that metric.
+   */
+  const isMetricLatched = useCallback((metric: MetricType): boolean => {
+    const state = labelStatesRef.current.get(metric);
+    return state?.latched === true;
+  }, []);
 
   return {
     rangeKey,
@@ -236,5 +466,8 @@ export const useProfilingRange = ({
     createRange,
     updateEndTime,
     finalizeRange,
+    addMetricLabel,
+    removeTransientLabel,
+    isMetricLatched,
   };
 };

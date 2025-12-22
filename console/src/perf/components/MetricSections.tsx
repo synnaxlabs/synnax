@@ -19,12 +19,12 @@ import { Section } from "@/perf/components/Section";
 import {
   CATEGORY_LABELS,
   CATEGORY_ORDER,
+  METRIC_NAMES,
+  METRIC_ORDER,
   type MetricCategory,
   type MetricType,
   THRESHOLDS,
-  TYPE_LABELS,
   TYPE_MODE_LABELS,
-  TYPE_ORDER,
 } from "@/perf/constants";
 import { type Aggregates } from "@/perf/metrics/buffer";
 import {
@@ -51,9 +51,9 @@ import {
   createFpsMetrics,
   createMemoryMetrics,
   createResourceMetrics,
+  type MetricSeverities,
   type ResourceReport,
 } from "@/perf/utils/metrics-factory";
-import { getThresholdStatus } from "@/perf/utils/status";
 
 
 const groupMetrics = <K extends string>(
@@ -71,9 +71,9 @@ const groupMetrics = <K extends string>(
   return groups;
 };
 
-const NETWORK_TOOLTIP = `Requests per second (warn >${THRESHOLDS.networkRequests.warn}, error >${THRESHOLDS.networkRequests.error})`;
-const LONG_TASKS_TOOLTIP = `Tasks blocking main thread >50ms (warn >${THRESHOLDS.longTasks.warn}, error >${THRESHOLDS.longTasks.error})`;
-const CONSOLE_LOGS_TOOLTIP = `Console messages per second (warn >${THRESHOLDS.consoleLogs.warn}, error >${THRESHOLDS.consoleLogs.error})`;
+const NETWORK_TOOLTIP = "Requests per second";
+const LONG_TASKS_TOOLTIP = "Tasks blocking main thread >50ms";
+const CONSOLE_LOGS_TOOLTIP = "Console messages per second";
 
 /** Metrics section data */
 interface MetricSectionData {
@@ -120,6 +120,13 @@ export interface MetricSectionsProps {
   };
   cpuReport: ResourceReport;
   gpuReport: ResourceReport;
+
+  severities: {
+    fps: MetricSeverities;
+    cpu: MetricSeverities;
+    gpu: MetricSeverities;
+    heap: "none" | "warning" | "error";
+  };
   status: string;
 }
 
@@ -135,6 +142,7 @@ const MetricSectionsImpl = ({
   leakReport,
   cpuReport,
   gpuReport,
+  severities,
   status,
 }: MetricSectionsProps): ReactElement => {
   const metrics = useMemo(
@@ -145,6 +153,7 @@ const MetricSectionsImpl = ({
         aggregates.avgFps != null,
         aggregates.avgFps,
         aggregates.minFps,
+        severities.fps,
       ),
 
       ...createMemoryMetrics(
@@ -153,6 +162,7 @@ const MetricSectionsImpl = ({
         aggregates.minHeap != null,
         aggregates.minHeap,
         aggregates.maxHeap,
+        severities.heap,
       ),
 
       ...createResourceMetrics(
@@ -161,6 +171,7 @@ const MetricSectionsImpl = ({
         cpuReport,
         THRESHOLDS.cpu,
         THRESHOLDS.cpuChange,
+        severities.cpu,
       ),
 
       ...createResourceMetrics(
@@ -169,6 +180,7 @@ const MetricSectionsImpl = ({
         gpuReport,
         THRESHOLDS.gpu,
         THRESHOLDS.gpuChange,
+        severities.gpu,
       ),
     ],
     [
@@ -179,45 +191,20 @@ const MetricSectionsImpl = ({
       leakReport,
       cpuReport,
       gpuReport,
+      severities,
     ],
   );
 
-  const networkStatus = useMemo(
-    () =>
-      getThresholdStatus(
-        liveMetrics.networkRequestCount,
-        THRESHOLDS.networkRequests.warn,
-        THRESHOLDS.networkRequests.error,
-      ),
-    [liveMetrics.networkRequestCount],
-  );
-
-  const longTasksStatus = useMemo(
-    () =>
-      getThresholdStatus(
-        liveMetrics.longTaskCount,
-        THRESHOLDS.longTasks.warn,
-        THRESHOLDS.longTasks.error,
-      ),
-    [liveMetrics.longTaskCount],
-  );
-
-  const consoleLogsStatus = useMemo(
-    () =>
-      getThresholdStatus(
-        liveMetrics.consoleLogCount,
-        THRESHOLDS.consoleLogs.warn,
-        THRESHOLDS.consoleLogs.error,
-      ),
-    [liveMetrics.consoleLogCount],
-  );
+  const networkStatus: Status = undefined;
+  const longTasksStatus: Status = undefined;
+  const consoleLogsStatus: Status = undefined;
 
   const isProfilingActive = status === "running" || status === "paused";
 
   const getLabel = useCallback(
     (metric: MetricDef): string => {
       if (groupByType) return metric.label ?? TYPE_MODE_LABELS[metric.category];
-      return TYPE_LABELS[metric.type];
+      return METRIC_NAMES[metric.type];
     },
     [groupByType],
   );
@@ -226,14 +213,14 @@ const MetricSectionsImpl = ({
     const result: SectionData[] = [];
 
     if (groupByType) {
-      const grouped = groupMetrics(metrics, (m) => m.type, TYPE_ORDER);
+      const grouped = groupMetrics(metrics, (m) => m.type, METRIC_ORDER);
       Object.entries(grouped).forEach(([type, typeMetrics]) => {
         const liveMetric = typeMetrics.find((m) => m.category === "live");
         const rowMetrics = typeMetrics.filter((m) => m.category !== "live");
         result.push({
           type: "metrics",
           key: type,
-          title: TYPE_LABELS[type as MetricType],
+          title: METRIC_NAMES[type as MetricType],
           secondaryText: liveMetric?.getValue(),
           secondaryStatus: liveMetric?.getStatus?.(),
           secondaryTooltip: liveMetric?.tooltip,

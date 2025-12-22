@@ -7,4 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Side-effect import: registers __perfTest global in dev mode
+import "@/perf/utils/test-utils";
+
 export * as Perf from "@/perf/external";

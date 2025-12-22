@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { runtime } from "@synnaxlabs/x";
+import { invoke } from "@tauri-apps/api/core";
 
 /**
  * Collects CPU usage metrics via Tauri's sysinfo.
@@ -15,15 +16,10 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
  */
 export class CpuCollector {
   private cachedCpuPercent: number | null = null;
-  private useTauri: boolean;
   private updateInterval: ReturnType<typeof setInterval> | null = null;
 
-  constructor() {
-    this.useTauri = isTauri();
-  }
-
   start(): void {
-    if (!this.useTauri) return;
+    if (!runtime.IS_TAURI) return;
 
     // Fetch immediately
     void this.fetchTauriCpu();
@@ -50,11 +46,11 @@ export class CpuCollector {
   }
 
   static isAvailable(): boolean {
-    return isTauri();
+    return runtime.IS_TAURI;
   }
 
   getCpuPercent(): number | null {
-    if (!this.useTauri) return null;
+    if (!runtime.IS_TAURI) return null;
     return this.cachedCpuPercent;
   }
 

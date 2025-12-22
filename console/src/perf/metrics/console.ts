@@ -50,7 +50,7 @@ export interface ConsoleLogEntry {
 
 export const CONSOLE_LOG_TABLE_COLUMNS: MetricTableColumn<ConsoleLogEntry>[] = [
   {
-    getValue: (entry) => entry.level.toUpperCase(),
+    getValue: (entry) => entry.message,
     color: TEXT_ROW_COLOR,
   },
   {
@@ -58,12 +58,7 @@ export const CONSOLE_LOG_TABLE_COLUMNS: MetricTableColumn<ConsoleLogEntry>[] = [
     color: TEXT_ROW_COLOR,
   },
   {
-    getValue: (entry) => {
-      const maxLength = 60;
-      return entry.message.length > maxLength
-        ? `${entry.message.slice(0, maxLength)  }...`
-        : entry.message;
-    },
+    getValue: (entry) => entry.level.toUpperCase(),
     color: TEXT_ROW_COLOR,
   },
 ];

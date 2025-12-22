@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/perf/components/Section.css";
+
 import { Flex, Icon, Text } from "@synnaxlabs/pluto";
 import { memo, type ReactElement, type ReactNode, useState } from "react";
 
 import { WithTooltip } from "@/perf/components/WithTooltip";
-import { STATUS_COLORS, TEXT_HEADER_COLOR } from "@/perf/constants";
 import { type Status } from "@/perf/types";
 
 interface SectionProps {
@@ -52,14 +53,14 @@ const SectionImpl = ({
       data-open={open}
     >
       <Icon.Caret.Right />
-      <Text.Text level="small" color={TEXT_HEADER_COLOR} weight={500}>
+      <Text.Text level="small" className="console-perf-section-title" weight={500}>
         {title}
       </Text.Text>
       {secondaryText != null && (
         <Text.Text
           level="small"
           className="console-perf-section-header-value"
-          color={secondaryStatus != null ? STATUS_COLORS[secondaryStatus] : TEXT_HEADER_COLOR}
+          data-status={secondaryStatus}
         >
           {secondaryText}
         </Text.Text>

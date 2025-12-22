@@ -124,6 +124,11 @@
     },
     "deep-link:default",
     "store:default",
-    "shell:default"
+    "shell:default",
+    "os:default",
+    "os:allow-hostname",
+    "os:allow-platform",
+    "os:allow-arch",
+    "os:allow-version"
   ]
 }

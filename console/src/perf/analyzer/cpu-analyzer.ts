@@ -9,10 +9,8 @@
 
 import { math } from "@synnaxlabs/x";
 
-import { type CpuReport, ZERO_CPU_REPORT } from "@/perf/analyzer/types";
-
-const HIGH_CPU_AVG_THRESHOLD = 50;
-const HIGH_CPU_PEAK_THRESHOLD = 80;
+import { type CpuReport, type Severity, ZERO_CPU_REPORT } from "@/perf/analyzer/types";
+import { THRESHOLDS } from "@/perf/constants";
 
 export interface CpuContext {
   startPercent: number | null;
@@ -23,17 +21,28 @@ export interface CpuContext {
 
 /**
  * Analyzes CPU usage during performance tests.
- * Detects high CPU when average >50% or peak >80%.
+ * Severity is determined by current sample's value and average and peak CPU percent.
  */
 export class CpuAnalyzer {
   analyze(ctx: CpuContext): CpuReport {
-    const detected =
-      (ctx.avgPercent != null && ctx.avgPercent > HIGH_CPU_AVG_THRESHOLD) ||
-      (ctx.maxPercent != null && ctx.maxPercent > HIGH_CPU_PEAK_THRESHOLD);
+    const effectiveMax = Math.max(ctx.maxPercent ?? 0, ctx.endPercent ?? 0);
+
+    // Peak severity: based on maximum CPU usage
+    let peakSeverity: Severity = "none";
+    if (effectiveMax > THRESHOLDS.cpu.error) peakSeverity = "error";
+    else if (effectiveMax > THRESHOLDS.cpu.warn) peakSeverity = "warning";
+
+    // Avg severity: based on average CPU usage
+    let avgSeverity: Severity = "none";
+    if (ctx.avgPercent != null) {
+      if (ctx.avgPercent > THRESHOLDS.cpuAvg.error) avgSeverity = "error";
+      else if (ctx.avgPercent > THRESHOLDS.cpuAvg.warn) avgSeverity = "warning";
+    }
 
     return {
       ...ZERO_CPU_REPORT,
-      detected,
+      peakSeverity,
+      avgSeverity,
       avgPercent: ctx.avgPercent != null ? math.roundTo(ctx.avgPercent) : null,
       maxPercent: ctx.maxPercent != null ? math.roundTo(ctx.maxPercent) : null,
       startPercent: ctx.startPercent != null ? math.roundTo(ctx.startPercent) : null,

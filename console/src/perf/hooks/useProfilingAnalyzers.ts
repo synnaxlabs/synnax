@@ -10,9 +10,9 @@
 import { useCallback, useRef } from "react";
 
 import { CpuAnalyzer } from "@/perf/analyzer/cpu-analyzer";
-import { FpsAnalyzer } from "@/perf/analyzer/fps";
+import { FpsAnalyzer } from "@/perf/analyzer/fps-analyzer";
 import { GpuAnalyzer } from "@/perf/analyzer/gpu-analyzer";
-import { LeakDetector } from "@/perf/analyzer/leak-detector";
+import { HeapAnalyzer } from "@/perf/analyzer/heap-analyzer";
 import {
   type CpuReport,
   type FpsReport,
@@ -50,7 +50,7 @@ export interface UseProfilingAnalyzersResult {
  */
 export const useProfilingAnalyzers = (): UseProfilingAnalyzersResult => {
   const analyzersRef = useRef({
-    leak: new LeakDetector(),
+    heap: new HeapAnalyzer(),
     fps: new FpsAnalyzer(),
     cpu: new CpuAnalyzer(),
     gpu: new GpuAnalyzer(),
@@ -67,11 +67,13 @@ export const useProfilingAnalyzers = (): UseProfilingAnalyzersResult => {
         heapUsedMB: s.heapUsedMB!,
         heapTotalMB: s.heapTotalMB!,
       }));
-    const leak = analyzers.leak.analyze(heapSnapshots);
+    const leak = analyzers.heap.analyze(heapSnapshots);
 
     const fps = analyzers.fps.analyze({
       startFps: captured.initialFPS,
       endFps: currentSample.frameRate,
+      minFps: aggregates.minFps,
+      avgFps: aggregates.avgFps,
     });
 
     const cpu = analyzers.cpu.analyze({

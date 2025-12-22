@@ -9,10 +9,8 @@
 
 import { math } from "@synnaxlabs/x";
 
-import { type GpuReport, ZERO_GPU_REPORT } from "@/perf/analyzer/types";
-
-const HIGH_GPU_AVG_THRESHOLD = 80;
-const HIGH_GPU_PEAK_THRESHOLD = 95;
+import { type GpuReport, type Severity, ZERO_GPU_REPORT } from "@/perf/analyzer/types";
+import { THRESHOLDS } from "@/perf/constants";
 
 export interface GpuContext {
   startPercent: number | null;
@@ -23,17 +21,27 @@ export interface GpuContext {
 
 /**
  * Analyzes GPU usage during performance tests.
- * Detects high GPU when average >80% or peak >95%.
  */
 export class GpuAnalyzer {
   analyze(ctx: GpuContext): GpuReport {
-    const detected =
-      (ctx.avgPercent != null && ctx.avgPercent > HIGH_GPU_AVG_THRESHOLD) ||
-      (ctx.maxPercent != null && ctx.maxPercent > HIGH_GPU_PEAK_THRESHOLD);
+    const effectiveMax = Math.max(ctx.maxPercent ?? 0, ctx.endPercent ?? 0);
+
+    // Peak severity: based on maximum GPU usage
+    let peakSeverity: Severity = "none";
+    if (effectiveMax > THRESHOLDS.gpu.error) peakSeverity = "error";
+    else if (effectiveMax > THRESHOLDS.gpu.warn) peakSeverity = "warning";
+
+    // Avg severity: based on average GPU usage
+    let avgSeverity: Severity = "none";
+    if (ctx.avgPercent != null) {
+      if (ctx.avgPercent > THRESHOLDS.gpuAvg.error) avgSeverity = "error";
+      else if (ctx.avgPercent > THRESHOLDS.gpuAvg.warn) avgSeverity = "warning";
+    }
 
     return {
       ...ZERO_GPU_REPORT,
-      detected,
+      peakSeverity,
+      avgSeverity,
       avgPercent: ctx.avgPercent != null ? math.roundTo(ctx.avgPercent) : null,
       maxPercent: ctx.maxPercent != null ? math.roundTo(ctx.maxPercent) : null,
       startPercent: ctx.startPercent != null ? math.roundTo(ctx.startPercent) : null,
