@@ -39,18 +39,6 @@ func OntologyIDs(keys []uuid.UUID) []ontology.ID {
 	})
 }
 
-// KeysFromOntologyIDs extracts the keys of the logs from the ontology IDs.
-func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
-	keys = make([]uuid.UUID, len(ids))
-	for i, id := range ids {
-		keys[i], err = uuid.Parse(id.Key)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return keys, nil
-}
-
 // OntologyIDsFromLogs returns the ontology IDs of the logs.
 func OntologyIDsFromLogs(logs []Log) []ontology.ID {
 	return lo.Map(logs, func(l Log, _ int) ontology.ID {

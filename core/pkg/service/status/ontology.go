@@ -51,13 +51,6 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys []string) {
 	return keys
 }
 
-// OntologyIDsFromStatuses converts a slice of statuses to a slice of ontology IDs.
-func OntologyIDsFromStatuses[D any](statuses []Status[D]) (ids []ontology.ID) {
-	return lo.Map(statuses, func(s Status[D], _ int) ontology.ID {
-		return OntologyID(s.Key)
-	})
-}
-
 var schema = zyn.Object(map[string]zyn.Schema{
 	"key":         zyn.String(),
 	"name":        zyn.String(),
