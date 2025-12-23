@@ -14,7 +14,7 @@ import * as v0 from "@/perf/types/v0";
 export type HarnessStatus = v0.HarnessStatus;
 export type HarnessConfig = v0.HarnessConfig;
 export type MetricsConfig = v0.MetricsConfig;
-export type WorkflowConfig = v0.WorkflowConfig;
+export type MacroConfig = v0.MacroConfig;
 export type SliceState = v0.SliceState;
 export type CpuReport = v0.CpuReport;
 export type FpsReport = v0.FpsReport;

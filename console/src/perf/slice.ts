@@ -20,8 +20,8 @@ import {
   ZERO_GPU_REPORT,
   ZERO_LEAK_REPORT,
 } from "@/perf/analyzer/types";
+import { type MacroResult } from "@/perf/macros/types";
 import * as latest from "@/perf/types";
-import { type WorkflowResult } from "@/perf/workflows/types";
 
 export const SLICE_NAME = "perf";
 
@@ -33,7 +33,7 @@ export const DEFAULT_HARNESS_CONFIG = latest.DEFAULT_HARNESS_CONFIG;
 export const ZERO_SLICE_STATE: SliceState = {
   status: latest.ZERO_SLICE_STATE.status,
   config: latest.ZERO_SLICE_STATE.config,
-  workflowResults: latest.ZERO_SLICE_STATE.workflowResults,
+  macroResults: latest.ZERO_SLICE_STATE.macroResults,
   error: latest.ZERO_SLICE_STATE.error,
   startTime: latest.ZERO_SLICE_STATE.startTime,
   endTime: latest.ZERO_SLICE_STATE.endTime,
@@ -56,7 +56,7 @@ export interface StoreState {
  */
 export const PERSIST_EXCLUDE = [
   "config",
-  "workflowResults",
+  "macroResults",
   "startTime",
   "endTime",
   "rangeKey",
@@ -70,14 +70,14 @@ export const PERSIST_EXCLUDE = [
 ].map((key) => `${SLICE_NAME}.${key}`) as Array<deep.Key<StoreState>>;
 
 export type PartialHarnessConfig = Partial<
-  Omit<HarnessConfig, "metricsConfig" | "workflowConfig">
+  Omit<HarnessConfig, "metricsConfig" | "macroConfig">
 > & {
   metricsConfig?: Partial<latest.MetricsConfig>;
-  workflowConfig?: Partial<latest.WorkflowConfig>;
+  macroConfig?: Partial<latest.MacroConfig>;
 };
 
 export type StartPayload = PartialHarnessConfig | undefined;
-export type AddWorkflowResultPayload = WorkflowResult;
+export type AddMacroResultPayload = MacroResult;
 export type SetLeakReportPayload = LeakReport;
 export type SetFpsReportPayload = FpsReport;
 export type SetCpuReportPayload = CpuReport;
@@ -98,13 +98,13 @@ export const { actions, reducer } = createSlice({
           ...state.config,
           ...payload,
           metricsConfig: { ...state.config.metricsConfig, ...payload.metricsConfig },
-          workflowConfig: { ...state.config.workflowConfig, ...payload.workflowConfig },
+          macroConfig: { ...state.config.macroConfig, ...payload.macroConfig },
         };
       state.startTime = performance.now();
       state.endTime = null;
       state.rangeKey = null;
       state.rangeStartTime = null;
-      state.workflowResults = [];
+      state.macroResults = [];
       state.error = null;
       state.leakReport = ZERO_LEAK_REPORT;
       state.fpsReport = ZERO_FPS_REPORT;
@@ -133,8 +133,8 @@ export const { actions, reducer } = createSlice({
       }
     },
 
-    addWorkflowResult: (state, { payload }: PayloadAction<AddWorkflowResultPayload>) => {
-      state.workflowResults.push(payload);
+    addMacroResult: (state, { payload }: PayloadAction<AddMacroResultPayload>) => {
+      state.macroResults.push(payload);
     },
 
     setLeakReport: (state, { payload }: PayloadAction<SetLeakReportPayload>) => {
@@ -174,7 +174,7 @@ export const { actions, reducer } = createSlice({
         ...state.config,
         ...payload,
         metricsConfig: { ...state.config.metricsConfig, ...payload.metricsConfig },
-        workflowConfig: { ...state.config.workflowConfig, ...payload.workflowConfig },
+        macroConfig: { ...state.config.macroConfig, ...payload.macroConfig },
       };
     },
   },
@@ -185,7 +185,7 @@ export const {
   stop,
   pause,
   resume,
-  addWorkflowResult,
+  addMacroResult,
   setLeakReport,
   setFpsReport,
   setCpuReport,

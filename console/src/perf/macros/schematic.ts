@@ -13,8 +13,8 @@ import { box, id } from "@synnaxlabs/x";
 
 import { Layout } from "@/layout";
 import { moveMosaicTab } from "@/layout/slice";
-import { registerWorkflow } from "@/perf/workflows/registry";
-import { type WorkflowContext, type WorkflowStep } from "@/perf/workflows/types";
+import { registerMacro } from "@/perf/macros/registry";
+import { type MacroContext, type MacroStep } from "@/perf/macros/types";
 import { Schematic } from "@/schematic";
 import { selectRequired } from "@/schematic/selectors";
 import { addElement, selectAll, setNodePositions } from "@/schematic/slice";
@@ -23,10 +23,10 @@ const ESTIMATED_NODE_SIZE = { width: 60, height: 60 };
 
 const SYMBOLS = ["valve", "pump", "tank", "light", "switch", "button"] as const;
 
-export const schematicWorkflow: WorkflowStep[] = [
+export const schematicMacro: MacroStep[] = [
   {
     name: "Create Schematic",
-    execute: async (ctx: WorkflowContext) => {
+    execute: async (ctx: MacroContext) => {
       const { key } = ctx.placer(
         Schematic.create({
           name: `Perf Test Schematic ${Date.now()}`,
@@ -38,7 +38,7 @@ export const schematicWorkflow: WorkflowStep[] = [
   },
   {
     name: "Snap to Right",
-    execute: async (ctx: WorkflowContext) => {
+    execute: async (ctx: MacroContext) => {
       const schematicKey = ctx.createdLayoutKeys[ctx.createdLayoutKeys.length - 1];
       if (schematicKey == null) return;
       ctx.dispatch(
@@ -53,7 +53,7 @@ export const schematicWorkflow: WorkflowStep[] = [
   },
   {
     name: "Add Symbols",
-    execute: async (ctx: WorkflowContext) => {
+    execute: async (ctx: MacroContext) => {
       const schematicKey = ctx.createdLayoutKeys[ctx.createdLayoutKeys.length - 1];
       if (schematicKey == null) return;
 
@@ -71,7 +71,7 @@ export const schematicWorkflow: WorkflowStep[] = [
   },
   {
     name: "Select All Symbols",
-    execute: async (ctx: WorkflowContext) => {
+    execute: async (ctx: MacroContext) => {
       const schematicKey = ctx.createdLayoutKeys[ctx.createdLayoutKeys.length - 1];
       if (schematicKey == null) return;
       ctx.dispatch(selectAll({ key: schematicKey }));
@@ -79,7 +79,7 @@ export const schematicWorkflow: WorkflowStep[] = [
   },
   {
     name: "Align Center & Distribute",
-    execute: async (ctx: WorkflowContext) => {
+    execute: async (ctx: MacroContext) => {
       const schematicKey = ctx.createdLayoutKeys[ctx.createdLayoutKeys.length - 1];
       if (schematicKey == null) return;
 
@@ -110,7 +110,7 @@ export const schematicWorkflow: WorkflowStep[] = [
   },
   {
     name: "Close Schematic",
-    execute: async (ctx: WorkflowContext) => {
+    execute: async (ctx: MacroContext) => {
       const schematicKey = ctx.createdLayoutKeys.pop();
       if (schematicKey == null) return;
       ctx.dispatch(Layout.remove({ keys: [schematicKey] }));
@@ -118,11 +118,11 @@ export const schematicWorkflow: WorkflowStep[] = [
   },
 ];
 
-registerWorkflow({
+registerMacro({
   type: "schematic",
   name: "Schematic",
   description:
     "Creates a schematic, snaps to right, adds symbols, aligns and distributes, then closes",
   category: "schematic",
-  factory: () => schematicWorkflow,
+  factory: () => schematicMacro,
 });

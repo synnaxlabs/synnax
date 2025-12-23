@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { afterEach,beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   ZERO_CPU_REPORT,
@@ -15,8 +15,9 @@ import {
   ZERO_GPU_REPORT,
   ZERO_LEAK_REPORT,
 } from "@/perf/analyzer/types";
+import { type MacroResult } from "@/perf/macros/types";
 import {
-  addWorkflowResult,
+  addMacroResult,
   pause,
   reducer,
   reset,
@@ -34,8 +35,7 @@ import {
   stop,
   ZERO_SLICE_STATE,
 } from "@/perf/slice";
-import { type FpsReport,type LeakReport } from "@/perf/types";
-import { type WorkflowResult } from "@/perf/workflows/types";
+import { type FpsReport, type LeakReport } from "@/perf/types";
 
 describe("perf slice", () => {
   const mockNow = 1000;
@@ -63,14 +63,14 @@ describe("perf slice", () => {
         ...ZERO_SLICE_STATE,
         endTime: 500,
         rangeKey: "old-key",
-        workflowResults: [{ workflowType: "test", startTime: 0, endTime: 0, durationMs: 0 }],
+        macroResults: [{ macroType: "test", startTime: 0, endTime: 0, durationMs: 0 }],
       };
       const state = reducer(initialState, start(undefined));
 
       expect(state.endTime).toBeNull();
       expect(state.rangeKey).toBeNull();
       expect(state.rangeStartTime).toBeNull();
-      expect(state.workflowResults).toEqual([]);
+      expect(state.macroResults).toEqual([]);
     });
 
     it("should reset all reports", () => {
@@ -106,11 +106,11 @@ describe("perf slice", () => {
         ZERO_SLICE_STATE,
         start({
           metricsConfig: { sampleIntervalMs: 500 },
-          workflowConfig: { iterations: 5 },
+          macroConfig: { iterations: 5 },
         }),
       );
       expect(state.config.metricsConfig.sampleIntervalMs).toBe(500);
-      expect(state.config.workflowConfig.iterations).toBe(5);
+      expect(state.config.macroConfig.iterations).toBe(5);
     });
   });
 
@@ -160,38 +160,38 @@ describe("perf slice", () => {
     });
   });
 
-  describe("addWorkflowResult action", () => {
-    it("should add workflow result to array", () => {
-      const result: WorkflowResult = {
-        workflowType: "createLinePlot",
+  describe("addMacroResult action", () => {
+    it("should add macro result to array", () => {
+      const result: MacroResult = {
+        macroType: "createLinePlot",
         startTime: 100,
         endTime: 200,
         durationMs: 100,
       };
-      const state = reducer(ZERO_SLICE_STATE, addWorkflowResult(result));
-      expect(state.workflowResults).toHaveLength(1);
-      expect(state.workflowResults[0]).toEqual(result);
+      const state = reducer(ZERO_SLICE_STATE, addMacroResult(result));
+      expect(state.macroResults).toHaveLength(1);
+      expect(state.macroResults[0]).toEqual(result);
     });
 
     it("should append to existing results", () => {
-      const firstResult: WorkflowResult = {
-        workflowType: "createLinePlot",
+      const firstResult: MacroResult = {
+        macroType: "createLinePlot",
         startTime: 100,
         endTime: 200,
         durationMs: 100,
       };
-      const secondResult: WorkflowResult = {
-        workflowType: "panZoomPlot",
+      const secondResult: MacroResult = {
+        macroType: "panZoomPlot",
         startTime: 300,
         endTime: 400,
         durationMs: 100,
       };
 
-      let state = reducer(ZERO_SLICE_STATE, addWorkflowResult(firstResult));
-      state = reducer(state, addWorkflowResult(secondResult));
+      let state = reducer(ZERO_SLICE_STATE, addMacroResult(firstResult));
+      state = reducer(state, addMacroResult(secondResult));
 
-      expect(state.workflowResults).toHaveLength(2);
-      expect(state.workflowResults[1]).toEqual(secondResult);
+      expect(state.macroResults).toHaveLength(2);
+      expect(state.macroResults[1]).toEqual(secondResult);
     });
   });
 
@@ -293,7 +293,7 @@ describe("perf slice", () => {
         status: "running",
         startTime: 1000,
         error: "Error",
-        workflowResults: [{ workflowType: "test", startTime: 0, endTime: 0, durationMs: 0 }],
+        macroResults: [{ macroType: "test", startTime: 0, endTime: 0, durationMs: 0 }],
       };
       const state = reducer(initialState, reset());
       expect(state).toEqual(ZERO_SLICE_STATE);
@@ -318,16 +318,16 @@ describe("perf slice", () => {
       expect(state.config.metricsConfig.enableLongTaskObserver).toBeDefined();
     });
 
-    it("should merge nested workflowConfig", () => {
+    it("should merge nested macroConfig", () => {
       const state = reducer(
         ZERO_SLICE_STATE,
         setConfig({
-          workflowConfig: { iterations: 10 },
+          macroConfig: { iterations: 10 },
         }),
       );
-      expect(state.config.workflowConfig.iterations).toBe(10);
-      // Other workflowConfig properties should be preserved
-      expect(state.config.workflowConfig.delayBetweenIterationsMs).toBeDefined();
+      expect(state.config.macroConfig.iterations).toBe(10);
+      // Other macroConfig properties should be preserved
+      expect(state.config.macroConfig.delayBetweenIterationsMs).toBeDefined();
     });
   });
 });

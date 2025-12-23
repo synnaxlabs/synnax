@@ -7,29 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/perf/components/WorkflowSelect.css";
+import "@/perf/components/MacroSelect.css";
 
 import { Dialog, Flex, Input, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 
-import { getAllWorkflowDefinitions } from "@/perf/workflows/registry";
-import { type WorkflowType } from "@/perf/workflows/types";
+import { getAllMacroDefinitions } from "@/perf/macros/registry";
+import { type MacroType } from "@/perf/macros/types";
 
-export interface WorkflowSelectProps {
-  value: WorkflowType[];
-  onChange: (value: WorkflowType[]) => void;
+export interface MacroSelectProps {
+  value: MacroType[];
+  onChange: (value: MacroType[]) => void;
   disabled?: boolean;
 }
 
-export const WorkflowSelect = ({
+export const MacroSelect = ({
   value,
   onChange,
   disabled,
-}: WorkflowSelectProps): ReactElement => {
-  const definitions = useMemo(() => getAllWorkflowDefinitions(), []);
+}: MacroSelectProps): ReactElement => {
+  const definitions = useMemo(() => getAllMacroDefinitions(), []);
 
   const handleToggle = useCallback(
-    (type: WorkflowType) => {
+    (type: MacroType) => {
       if (value.includes(type)) {
         onChange(value.filter((v) => v !== type));
       } else {
@@ -52,8 +52,8 @@ export const WorkflowSelect = ({
       <Dialog.Trigger variant="outlined" size="small" disabled={disabled}>
         {label}
       </Dialog.Trigger>
-      <Dialog.Dialog bordered rounded className="console-perf-workflow-select-dialog">
-        <Flex.Box y >
+      <Dialog.Dialog bordered rounded className="console-perf-macro-select-dialog">
+        <Flex.Box y>
           {definitions.map((def) => (
             <Flex.Box key={def.type} x align="center">
               <Input.Checkbox
@@ -66,7 +66,7 @@ export const WorkflowSelect = ({
             </Flex.Box>
           ))}
           {definitions.length === 0 && (
-            <Text.Text level="small">No workflows available</Text.Text>
+            <Text.Text level="small">No macros available</Text.Text>
           )}
         </Flex.Box>
       </Dialog.Dialog>

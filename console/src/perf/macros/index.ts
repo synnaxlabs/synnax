@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/perf/workflows/lineplot";
-export * from "@/perf/workflows/registry";
-export * from "@/perf/workflows/runner";
-export * from "@/perf/workflows/schematic";
-export * from "@/perf/workflows/types";
+export * from "@/perf/macros/lineplot";
+export * from "@/perf/macros/registry";
+export * from "@/perf/macros/runner";
+export * from "@/perf/macros/schematic";
+export * from "@/perf/macros/types";

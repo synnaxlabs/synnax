@@ -7,20 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/perf/components/WorkflowPanel.css";
+import "@/perf/components/MacroPanel.css";
 
 import { Button, Flex, Icon, Progress, Text } from "@synnaxlabs/pluto";
 import { memo, type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
-import { WorkflowConfigInputs } from "@/perf/components/WorkflowConfigInputs";
-import { WorkflowSelect } from "@/perf/components/WorkflowSelect";
-import { useWorkflowExecution } from "@/perf/hooks/useWorkflowExecution";
+import { MacroConfigInputs } from "@/perf/components/MacroConfigInputs";
+import { MacroSelect } from "@/perf/components/MacroSelect";
+import { useMacroExecution } from "@/perf/hooks/useMacroExecution";
+import { DEFAULT_MACRO_CONFIG, type MacroConfig } from "@/perf/macros/types";
 import { formatTime } from "@/perf/utils/formatting";
-import { DEFAULT_WORKFLOW_CONFIG, type WorkflowConfig } from "@/perf/workflows/types";
 
-const WorkflowPanelImpl = (): ReactElement => {
-  const { state, start, cancel } = useWorkflowExecution();
-  const [config, setConfig] = useState<WorkflowConfig>(DEFAULT_WORKFLOW_CONFIG);
+const MacroPanelImpl = (): ReactElement => {
+  const { state, start, cancel } = useMacroExecution();
+  const [config, setConfig] = useState<MacroConfig>(DEFAULT_MACRO_CONFIG);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -41,17 +41,17 @@ const WorkflowPanelImpl = (): ReactElement => {
     };
   }, [isRunning]);
 
-  const handleWorkflowsChange = useCallback((workflows: string[]) => {
-    setConfig((prev) => ({ ...prev, workflows }));
+  const handleMacrosChange = useCallback((macros: string[]) => {
+    setConfig((prev) => ({ ...prev, macros }));
   }, []);
 
   const handleRun = useCallback(() => {
-    if (config.workflows.length === 0) return;
+    if (config.macros.length === 0) return;
     start(config);
   }, [config, start]);
 
   const isCancelled = state.status === "cancelled";
-  const canRun = config.workflows.length > 0 && !isRunning;
+  const canRun = config.macros.length > 0 && !isRunning;
 
   const progressPercent =
     state.progress.totalIterations > 0
@@ -59,18 +59,18 @@ const WorkflowPanelImpl = (): ReactElement => {
       : 0;
 
   return (
-    <Flex.Box y className="console-perf-workflow-panel">
+    <Flex.Box y className="console-perf-macro-panel">
       <Text.Text level="small" weight={500}>
         Macros
       </Text.Text>
 
-      <WorkflowSelect
-        value={config.workflows}
-        onChange={handleWorkflowsChange}
+      <MacroSelect
+        value={config.macros}
+        onChange={handleMacrosChange}
         disabled={isRunning}
       />
 
-      <WorkflowConfigInputs config={config} onChange={setConfig} disabled={isRunning} />
+      <MacroConfigInputs config={config} onChange={setConfig} disabled={isRunning} />
 
       <Flex.Box x gap="small">
         {isRunning ? (
@@ -108,4 +108,4 @@ const WorkflowPanelImpl = (): ReactElement => {
   );
 };
 
-export const WorkflowPanel = memo(WorkflowPanelImpl);
+export const MacroPanel = memo(MacroPanelImpl);

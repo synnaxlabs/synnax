@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type MacroResult } from "@/perf/macros/types";
 import { type HeapSnapshot, type MetricSample } from "@/perf/metrics/types";
-import { type WorkflowResult } from "@/perf/workflows/types";
 
 export type Trend = "increasing" | "stable" | "decreasing";
 
@@ -71,7 +71,7 @@ export interface PerfReport {
   fpsReport: FpsReport;
   cpuReport: CpuReport;
   gpuReport: GpuReport;
-  workflowResults: WorkflowResult[];
+  macroResults: MacroResult[];
 }
 
 export const ZERO_LEAK_REPORT: LeakReport = {
@@ -114,7 +114,7 @@ export const ZERO_GPU_REPORT: GpuReport = {
 export const generateReport = (
   samples: MetricSample[],
   _heapSnapshots: HeapSnapshot[],
-  workflowResults: WorkflowResult[],
+  macroResults: MacroResult[],
   startTime: number,
   endTime: number,
   leakReport: LeakReport,
@@ -148,6 +148,6 @@ export const generateReport = (
     fpsReport,
     cpuReport,
     gpuReport,
-    workflowResults,
+    macroResults,
   };
 };

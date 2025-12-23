@@ -14,8 +14,8 @@ import {
   type GpuReport,
   type LeakReport,
 } from "@/perf/analyzer/types";
+import { type MacroResult } from "@/perf/macros/types";
 import { type HarnessStatus, SLICE_NAME, type SliceState } from "@/perf/slice";
-import { type WorkflowResult } from "@/perf/workflows/types";
 import { type RootState } from "@/store";
 
 export const selectSlice = (state: RootState): SliceState => state[SLICE_NAME];
@@ -26,8 +26,8 @@ export const selectStatus = (state: RootState): HarnessStatus =>
 export const selectIsRunning = (state: RootState): boolean =>
   selectSlice(state).status === "running";
 
-export const selectWorkflowResults = (state: RootState): WorkflowResult[] =>
-  selectSlice(state).workflowResults;
+export const selectMacroResults = (state: RootState): MacroResult[] =>
+  selectSlice(state).macroResults;
 
 export const selectLeakReport = (state: RootState): LeakReport =>
   selectSlice(state).leakReport;
@@ -60,8 +60,8 @@ export const selectRangeStartTime = (state: RootState): number | null =>
 export const useSelectSlice = (): SliceState => useMemoSelect(selectSlice, []);
 export const useSelectStatus = (): HarnessStatus => useMemoSelect(selectStatus, []);
 export const useSelectIsRunning = (): boolean => useMemoSelect(selectIsRunning, []);
-export const useSelectWorkflowResults = (): WorkflowResult[] =>
-  useMemoSelect(selectWorkflowResults, []);
+export const useSelectMacroResults = (): MacroResult[] =>
+  useMemoSelect(selectMacroResults, []);
 export const useSelectLeakReport = (): LeakReport => useMemoSelect(selectLeakReport, []);
 export const useSelectFpsReport = (): FpsReport => useMemoSelect(selectFpsReport, []);
 export const useSelectCpuReport = (): CpuReport => useMemoSelect(selectCpuReport, []);

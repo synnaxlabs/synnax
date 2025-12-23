@@ -12,18 +12,18 @@ import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Layout } from "@/layout";
 import { moveMosaicTab } from "@/layout/slice";
 import { LinePlot } from "@/lineplot";
-import { registerWorkflow } from "@/perf/workflows/registry";
-import { type WorkflowContext, type WorkflowStep } from "@/perf/workflows/types";
+import { registerMacro } from "@/perf/macros/registry";
+import { type MacroContext, type MacroStep } from "@/perf/macros/types";
 
 const PERF_CHANNELS = [
   "sy_node_1_metrics_mem_percentage",
   "sy_node_1_metrics_cpu_percentage",
 ];
 
-export const linePlotWorkflow: WorkflowStep[] = [
+export const linePlotMacro: MacroStep[] = [
   {
     name: "Create Line Plot",
-    execute: async (ctx: WorkflowContext) => {
+    execute: async (ctx: MacroContext) => {
       const { key } = ctx.placer(
         LinePlot.create({ name: `Perf Test Plot ${Date.now()}`, location: "mosaic" }),
       );
@@ -32,7 +32,7 @@ export const linePlotWorkflow: WorkflowStep[] = [
   },
   {
     name: "Snap to Right",
-    execute: async (ctx: WorkflowContext) => {
+    execute: async (ctx: MacroContext) => {
       const plotKey = ctx.createdLayoutKeys[ctx.createdLayoutKeys.length - 1];
       if (plotKey == null) return;
       ctx.dispatch(
@@ -42,7 +42,7 @@ export const linePlotWorkflow: WorkflowStep[] = [
   },
   {
     name: "Add Channels",
-    execute: async (ctx: WorkflowContext) => {
+    execute: async (ctx: MacroContext) => {
       const plotKey = ctx.createdLayoutKeys[ctx.createdLayoutKeys.length - 1];
       if (plotKey == null || ctx.client == null) return;
 
@@ -68,7 +68,7 @@ export const linePlotWorkflow: WorkflowStep[] = [
   },
   {
     name: "Close Plot",
-    execute: async (ctx: WorkflowContext) => {
+    execute: async (ctx: MacroContext) => {
       const plotKey = ctx.createdLayoutKeys.pop();
       if (plotKey == null) return;
       ctx.dispatch(Layout.remove({ keys: [plotKey] }));
@@ -76,10 +76,10 @@ export const linePlotWorkflow: WorkflowStep[] = [
   },
 ];
 
-registerWorkflow({
+registerMacro({
   type: "linePlot",
   name: "Line Plot",
   description: "Creates a line plot, snaps to right, adds channels, then closes",
   category: "lineplot",
-  factory: () => linePlotWorkflow,
+  factory: () => linePlotMacro,
 });

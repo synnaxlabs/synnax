@@ -1,21 +1,21 @@
-# Performance Profiling Dashboard & Automated Workflows
+# Performance Profiling Dashboard & Automated Macros
 
 ## Overview
 
-The Console app (`/console/`) includes a performance profiling dashboard (`/console/src/perf/`) that monitors real-time metrics during user interactions. It tracks CPU, GPU, FPS, and heap memory usage, runs automated "workflows" (scripted UI interactions), and generates reports with severity labels (nominal/warning/error) that are saved to Synnax ranges.
+The Console app (`/console/`) includes a performance profiling dashboard (`/console/src/perf/`) that monitors real-time metrics during user interactions. It tracks CPU, GPU, FPS, and heap memory usage, runs automated "macros" (scripted UI interactions), and generates reports with severity labels (nominal/warning/error) that are saved to Synnax ranges.
 
-The "automated workflow" provide way to create automated console actions to test specific components and enable us to establish known profiling metrics for the console. This differs from playwright integration tests, where the objective there is to test the console as if we are a real user.
+The "automated macros" provide a way to create automated console actions to test specific components and enable us to establish known profiling metrics for the console. This differs from playwright integration tests, where the objective there is to test the console as if we are a real user.
 
-A con of the playwright testing is that it uses the browser, so there is no access to resource use for CPU, GPU, and heap. It's also VERY slow. That fundementally limits what we can actually test for. Conversely, we cannot use playwright to test the desktop app (which means no DevTools available).
+A con of the playwright testing is that it uses the browser, so there is no access to resource use for CPU, GPU, and heap. It's also VERY slow. That fundamentally limits what we can actually test for. Conversely, we cannot use playwright to test the desktop app (which means no DevTools available).
 
-Saving profiling metrics to synnax (either as KV metadata or independent channels) allows us to store all metrics for the desktop app, which is the primary use-case of the console. The workflow/macros feature will allow us to test multiple different vectors and enhanced integration testing. Examples:
+Saving profiling metrics to synnax (either as KV metadata or independent channels) allows us to store all metrics for the desktop app, which is the primary use-case of the console. The macros feature will allow us to test multiple different vectors and enhanced integration testing. Examples:
 
 - Start the profiler in the setup() for each existing playwright integration test
-- Playwright integration tests can trigger existing workflows/macros
+- Playwright integration tests can trigger existing macros
 - Run long-duration testing that is not suitable for integration testing
   - Repetitions of a single action (drop down components, new pages, etc)
-  - Run workflows/actions in random order to test for unknown impacts
-- There is likely a way to fully automate the workflows in CI. I have not explored this yet.
+  - Run macros/actions in random order to test for unknown impacts
+- There is likely a way to fully automate the macros in CI. I have not explored this yet.
 
 
 
@@ -24,13 +24,13 @@ Saving profiling metrics to synnax (either as KV metadata or independent channel
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Dashboard.tsx                           │
-│  (Main UI: Start/Stop/Pause, MetricSections, WorkflowPanel)     │
+│  (Main UI: Start/Stop/Pause, MetricSections, MacroPanel)        │
 └─────────────────────────────────────────────────────────────────┘
                                 │
          ┌──────────────────────┼──────────────────────┐
          ▼                      ▼                      ▼
 ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────────┐
-│   Collectors    │   │    Analyzers    │   │  useWorkflowExec    │
+│   Collectors    │   │    Analyzers    │   │  useMacroExecution  │
 │ CPU, GPU, FPS,  │   │ FPS, CPU, GPU,  │   │ (Executes scripted  │
 │ Heap, Network,  │   │ Heap (leak)     │   │  UI interactions)   │
 │ LongTasks, Logs │   │                 │   │                     │
@@ -47,7 +47,7 @@ Saving profiling metrics to synnax (either as KV metadata or independent channel
                     ▼                                  ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Redux Slice (perf/slice.ts)                  │
-│  status, config, reports, workflowResults, rangeKey             │
+│  status, config, reports, macroResults, rangeKey                │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -68,7 +68,7 @@ Saving profiling metrics to synnax (either as KV metadata or independent channel
 
 **Core Infrastructure:**
 - `slice.ts` - Redux state: status (idle/running/paused/error), config, reports
-- `types/v0.ts` - Versioned types for HarnessConfig, SliceState, MetricsConfig, WorkflowConfig
+- `types/v0.ts` - Versioned types for HarnessConfig, SliceState, MetricsConfig, MacroConfig
 - `constants.ts` - Thresholds, metric names, label colors, buffer sizes
 
 **Metrics Collection:**
@@ -89,19 +89,19 @@ Saving profiling metrics to synnax (either as KV metadata or independent channel
 - `report/types.ts` - FinalReport, DetectedIssue, Verdict, MetricsReport types
 - `report/compiler.ts` - Compiles samples + analysis results into final report
 
-**Workflows:**
-- `workflows/types.ts` - WorkflowType (branded string), WorkflowConfig, WorkflowResult, WorkflowContext
-- `workflows/registry.ts` - WorkflowRegistry pattern for registering/retrieving workflows
-- `workflows/runner.ts` - Executes workflows in configurable iterations
-- `workflows/execution.ts` - WorkflowExecutionState, progress tracking types
-- `workflows/lineplot.ts` - LinePlot workflow: create plot, snap to right, add channels, close
-- `workflows/schematic.ts` - Schematic workflow: create schematic, add symbols, align/distribute, close
+**Macros:**
+- `macros/types.ts` - MacroType (branded string), MacroConfig, MacroResult, MacroContext
+- `macros/registry.ts` - MacroRegistry pattern for registering/retrieving macros
+- `macros/runner.ts` - Executes macros in configurable iterations
+- `macros/execution.ts` - MacroExecutionState, progress tracking types
+- `macros/lineplot.ts` - LinePlot macro: create plot, snap to right, add channels, close
+- `macros/schematic.ts` - Schematic macro: create schematic, add symbols, align/distribute, close
 
 **Hooks:**
 - `hooks/useCollectors.ts` - Manages all metric collectors, sampling interval
 - `hooks/useProfilingSession.ts` - Orchestrates session lifecycle (start/pause/resume/stop)
 - `hooks/useProfilingRange.ts` - Creates Synnax ranges, adds labels based on severity
-- `hooks/useWorkflowExecution.ts` - Manages workflow execution state and runner lifecycle
+- `hooks/useMacroExecution.ts` - Manages macro execution state and runner lifecycle
 
 ## Command Palette Integration
 
@@ -134,7 +134,7 @@ When profiling starts, a Synnax range is created to track the session. Labels ar
 - Once a metric is latched, further changes for that metric are ignored
 
 **Range Metadata (KV store):**
-- Only tracking basic matrics for now
+- Only tracking basic metrics for now
 - `hostname`, `platform`, `osVersion` - System info at session start
 - `averages` - JSON object with running averages (`{cpu, fps, gpu}`)
 - `peaks` - JSON object with worst-case values (`{cpu, fps, gpu, heap}`)
@@ -182,47 +182,47 @@ interface FinalReport {
 - Severity levels: `warning` (threshold exceeded) or `critical` (error threshold exceeded)
 - Verdict is `Failed` if any critical issue exists, otherwise `Passed`
 
-## Workflow System (Dev only)
+## Macro System (Dev only)
 This tool should be hidden in production.
-- Enables rapid testing of Console actions 
+- Enables rapid testing of Console actions
   - Faster than playwright integration tests
-- Registry pattern for extensible workflow definitions
-- WorkflowRunner executes steps with configurable delays
-- WorkflowPanel UI for selecting and running workflows
-- LinePlot and Schematic workflows are example implementations demonstrating the pattern
+- Registry pattern for extensible macro definitions
+- MacroRunner executes steps with configurable delays
+- MacroPanel UI for selecting and running macros
+- LinePlot and Schematic macros are example implementations demonstrating the pattern
 - Context provides: store, dispatch, placer, client, createdLayoutKeys
 
-**WorkflowConfig:**
+**MacroConfig:**
 ```typescript
-interface WorkflowConfig {
-  workflows: WorkflowType[];           // Which workflows to run
+interface MacroConfig {
+  macros: MacroType[];                 // Which macros to run
   iterations: number;                   // How many times to run each (-1 for unlimited)
   delayBetweenIterationsMs: number;    // Delay between iteration loops
-  delayBetweenWorkflowsMs: number;     // Delay between individual workflows
+  delayBetweenMacrosMs: number;        // Delay between individual macros
 }
 ```
 
-**WorkflowDefinition:**
+**MacroDefinition:**
 ```typescript
-interface WorkflowDefinition {
-  type: WorkflowType;
+interface MacroDefinition {
+  type: MacroType;
   name: string;
   description: string;
-  category: WorkflowCategory;
-  factory: () => WorkflowStep[];
+  category: MacroCategory;
+  factory: () => MacroStep[];
 }
 ```
 
-**WorkflowStep:**
+**MacroStep:**
 ```typescript
-interface WorkflowStep {
+interface MacroStep {
   name: string;
-  execute: (context: WorkflowContext) => Promise<void>;
+  execute: (context: MacroContext) => Promise<void>;
   delayAfterMs?: number;  // Optional delay after step completes
 }
 ```
 
-**WorkflowContext** provides:
+**MacroContext** provides:
 - `store` - Redux store
 - `dispatch` - Redux dispatch
 - `placer` - Layout.Placer for creating visualizations
@@ -230,19 +230,19 @@ interface WorkflowStep {
 - `createdLayoutKeys` - Track layouts for cleanup
 - `availableChannelKeys` - Channels to use
 
-## Example Workflows
+## Example Macros
 
-1. **linePlot** (`workflows/lineplot.ts`) - Creates a line plot, snaps to right, adds channels, then closes.
-2. **schematic** (`workflows/schematic.ts`) - Creates a schematic, snaps to right, adds symbols, aligns/distributes, then closes.
+1. **linePlot** (`macros/lineplot.ts`) - Creates a line plot, snaps to right, adds channels, then closes.
+2. **schematic** (`macros/schematic.ts`) - Creates a schematic, snaps to right, adds symbols, aligns/distributes, then closes.
 
-## Adding New Workflows
+## Adding New Macros
 
-Register workflows in their own file using `registerWorkflow()`:
+Register macros in their own file using `registerMacro()`:
 
 ```typescript
-registerWorkflow({
-  type: "myWorkflow",
-  name: "My Workflow",
+registerMacro({
+  type: "myMacro",
+  name: "My Macro",
   description: "Does something",
   category: "general",
   factory: () => [
@@ -258,30 +258,30 @@ registerWorkflow({
 ```
 
 
-## Workflow Execution Flow
+## Macro Execution Flow
 
 ```
 Dashboard.tsx
-    └── WorkflowPanel (Dev mode only)
-            ├── WorkflowSelect (multi-select from registry)
-            ├── WorkflowConfigInputs (iterations, delays)
+    └── MacroPanel (Dev mode only)
+            ├── MacroSelect (multi-select from registry)
+            ├── MacroConfigInputs (iterations, delays)
             └── Run/Cancel button
                     │
                     ▼
-            useWorkflowExecution.ts
+            useMacroExecution.ts
                     │
                     ▼
-            WorkflowRunner.run()
+            MacroRunner.run()
                     │
                     ├── For each iteration:
-                    │   └── For each workflow:
+                    │   └── For each macro:
                     │       └── For each step:
                     │           └── step.execute(context)
                     │
-                    └── Progress updates via onWorkflowComplete callback
+                    └── Progress updates via onMacroComplete callback
 ```
 
-- **Registry pattern**: Workflows self-register via `registerWorkflow()`
-- **Defined workflows**: `linePlot`, `schematic` (example implementations)
-- **WorkflowContext**: Provides `store`, `dispatch`, `placer`, `client`
-- **Future work**: Add more workflow examples for other Console features
+- **Registry pattern**: Macros self-register via `registerMacro()`
+- **Defined macros**: `linePlot`, `schematic` (example implementations)
+- **MacroContext**: Provides `store`, `dispatch`, `placer`, `client`
+- **Future work**: Add more macro examples for other Console features

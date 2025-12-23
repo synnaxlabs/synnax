@@ -13,15 +13,15 @@ import { type Synnax } from "@synnaxlabs/client";
 import { type Layout } from "@/layout";
 import { type RootStore } from "@/store";
 
-export type WorkflowType = string & { readonly __brand?: "WorkflowType" };
+export type MacroType = string & { readonly __brand?: "MacroType" };
 
-export const BUILTIN_WORKFLOW_TYPES = {
-  linePlot: "linePlot" as WorkflowType,
-  schematic: "schematic" as WorkflowType,
+export const BUILTIN_MACRO_TYPES = {
+  linePlot: "linePlot" as MacroType,
+  schematic: "schematic" as MacroType,
 } as const;
 
-/** Context provided to workflow steps for execution. */
-export interface WorkflowContext {
+/** Context provided to macro steps for execution. */
+export interface MacroContext {
   /** Redux store for state access */
   store: RootStore;
   /** Redux dispatch function */
@@ -36,45 +36,45 @@ export interface WorkflowContext {
   availableChannelKeys: number[];
 }
 
-/** A single step in a workflow. */
-export interface WorkflowStep {
+/** A single step in a macro. */
+export interface MacroStep {
   /** Human-readable name of the step */
   name: string;
   /** Execute the step */
-  execute: (context: WorkflowContext) => Promise<void>;
+  execute: (context: MacroContext) => Promise<void>;
   /** Optional delay in ms after this step completes */
   delayAfterMs?: number;
 }
 
-/** Configuration for the workflow runner. */
-export interface WorkflowConfig {
-  /** Workflows to execute in each iteration */
-  workflows: WorkflowType[];
+/** Configuration for the macro runner. */
+export interface MacroConfig {
+  /** Macros to execute in each iteration */
+  macros: MacroType[];
   /** Number of iterations (-1 for unlimited) */
   iterations: number;
-  /** Delay between workflow iterations in ms */
+  /** Delay between macro iterations in ms */
   delayBetweenIterationsMs: number;
-  /** Delay between individual workflows in ms */
-  delayBetweenWorkflowsMs: number;
+  /** Delay between individual macros in ms */
+  delayBetweenMacrosMs: number;
 }
 
-export const DEFAULT_WORKFLOW_CONFIG: WorkflowConfig = {
-  workflows: [BUILTIN_WORKFLOW_TYPES.linePlot, BUILTIN_WORKFLOW_TYPES.schematic],
+export const DEFAULT_MACRO_CONFIG: MacroConfig = {
+  macros: [BUILTIN_MACRO_TYPES.linePlot, BUILTIN_MACRO_TYPES.schematic],
   iterations: 1,
   delayBetweenIterationsMs: 2000,
-  delayBetweenWorkflowsMs: 1000,
+  delayBetweenMacrosMs: 1000,
 };
 
-/** Result of executing a single workflow. */
-export interface WorkflowResult {
-  /** Type of workflow executed */
-  workflowType: WorkflowType;
+/** Result of executing a single macro. */
+export interface MacroResult {
+  /** Type of macro executed */
+  macroType: MacroType;
   /** Start timestamp (performance.now()) */
   startTime: number;
   /** End timestamp (performance.now()) */
   endTime: number;
   /** Duration in milliseconds */
   durationMs: number;
-  /** Error message if the workflow failed */
+  /** Error message if the macro failed */
   error?: string;
 }

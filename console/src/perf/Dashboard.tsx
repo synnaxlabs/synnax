@@ -14,8 +14,8 @@ import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } 
 import { useDispatch } from "react-redux";
 
 import { type Layout } from "@/layout";
+import { MacroPanel } from "@/perf/components/MacroPanel";
 import { MetricSections } from "@/perf/components/MetricSections";
-import { WorkflowPanel } from "@/perf/components/WorkflowPanel";
 import { useCollectors } from "@/perf/hooks/useCollectors";
 import { useElapsedSeconds } from "@/perf/hooks/useElapsedSeconds";
 import { useProfilingSession } from "@/perf/hooks/useProfilingSession";
@@ -205,7 +205,7 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
         status={status}
       />
 
-      <WorkflowPanel />
+      <MacroPanel />
 
       {status === "error" && (
         <Text.Text status="error" className="console-perf-error">

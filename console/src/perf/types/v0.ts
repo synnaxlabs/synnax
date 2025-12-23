@@ -19,12 +19,12 @@ import {
   ZERO_GPU_REPORT,
   ZERO_LEAK_REPORT,
 } from "@/perf/analyzer/types";
-import { DEFAULT_METRICS_CONFIG, type MetricsConfig } from "@/perf/metrics/types";
 import {
-  DEFAULT_WORKFLOW_CONFIG,
-  type WorkflowConfig,
-  type WorkflowResult,
-} from "@/perf/workflows/types";
+  DEFAULT_MACRO_CONFIG,
+  type MacroConfig,
+  type MacroResult,
+} from "@/perf/macros/types";
+import { DEFAULT_METRICS_CONFIG, type MetricsConfig } from "@/perf/metrics/types";
 
 export const VERSION = "0.0.0";
 
@@ -34,20 +34,20 @@ export type HarnessStatus = z.infer<typeof harnessStatusZ>;
 export interface HarnessConfig {
   durationMinutes: number;
   metricsConfig: MetricsConfig;
-  workflowConfig: WorkflowConfig;
+  macroConfig: MacroConfig;
 }
 
 export const DEFAULT_HARNESS_CONFIG: HarnessConfig = {
   durationMinutes: 30,
   metricsConfig: DEFAULT_METRICS_CONFIG,
-  workflowConfig: DEFAULT_WORKFLOW_CONFIG,
+  macroConfig: DEFAULT_MACRO_CONFIG,
 };
 
 export interface SliceState {
   version: typeof VERSION;
   status: HarnessStatus;
   config: HarnessConfig;
-  workflowResults: WorkflowResult[];
+  macroResults: MacroResult[];
   error: string | null;
   startTime: number | null;
   endTime: number | null;
@@ -63,7 +63,7 @@ export const ZERO_SLICE_STATE: SliceState = {
   version: VERSION,
   status: "idle",
   config: DEFAULT_HARNESS_CONFIG,
-  workflowResults: [],
+  macroResults: [],
   error: null,
   startTime: null,
   endTime: null,
@@ -75,4 +75,4 @@ export const ZERO_SLICE_STATE: SliceState = {
   gpuReport: ZERO_GPU_REPORT,
 };
 
-export type { CpuReport, FpsReport, GpuReport, LeakReport, MetricsConfig, WorkflowConfig };
+export type { CpuReport, FpsReport, GpuReport, LeakReport, MacroConfig, MetricsConfig };

@@ -11,22 +11,22 @@ import { Flex, Input } from "@synnaxlabs/pluto";
 import { type bounds } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 
-import { type WorkflowConfig } from "@/perf/workflows/types";
+import { type MacroConfig } from "@/perf/macros/types";
 
 const ITERATIONS_BOUNDS: bounds.Bounds = { lower: 1, upper: Infinity };
 const DELAY_BOUNDS: bounds.Bounds = { lower: 0, upper: 10000 };
 
-export interface WorkflowConfigInputsProps {
-  config: WorkflowConfig;
-  onChange: (config: WorkflowConfig) => void;
+export interface MacroConfigInputsProps {
+  config: MacroConfig;
+  onChange: (config: MacroConfig) => void;
   disabled?: boolean;
 }
 
-const WorkflowConfigInputsImpl = ({
+const MacroConfigInputsImpl = ({
   config,
   onChange,
   disabled,
-}: WorkflowConfigInputsProps): ReactElement => {
+}: MacroConfigInputsProps): ReactElement => {
   const handleIterationsChange = (iterations: number) => {
     onChange({ ...config, iterations });
   };
@@ -35,8 +35,8 @@ const WorkflowConfigInputsImpl = ({
     onChange({ ...config, delayBetweenIterationsMs });
   };
 
-  const handleDelayBetweenWorkflowsChange = (delayBetweenWorkflowsMs: number) => {
-    onChange({ ...config, delayBetweenWorkflowsMs });
+  const handleDelayBetweenMacrosChange = (delayBetweenMacrosMs: number) => {
+    onChange({ ...config, delayBetweenMacrosMs });
   };
 
   return (
@@ -59,8 +59,8 @@ const WorkflowConfigInputsImpl = ({
       </Input.Item>
       <Input.Item label="Delay Between Macros (ms)">
         <Input.Numeric
-          value={config.delayBetweenWorkflowsMs}
-          onChange={handleDelayBetweenWorkflowsChange}
+          value={config.delayBetweenMacrosMs}
+          onChange={handleDelayBetweenMacrosChange}
           bounds={DELAY_BOUNDS}
           disabled={disabled}
         />
@@ -69,4 +69,4 @@ const WorkflowConfigInputsImpl = ({
   );
 };
 
-export const WorkflowConfigInputs = memo(WorkflowConfigInputsImpl);
+export const MacroConfigInputs = memo(MacroConfigInputsImpl);

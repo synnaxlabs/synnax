@@ -9,8 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-perf-workflow-panel {
-    border-top: 1px solid var(--pluto-gray-l3);
-    padding-top: 0.75rem;
-    margin-top: 0.5rem;
+.console-perf-macro-select-dialog {
+    padding: 0.75rem;
 }
