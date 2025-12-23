@@ -13,7 +13,7 @@ cc_library(
         "//arc/cpp/ir",
         "//arc/cpp/module",
         "//arc/cpp/runtime/state",
-        "//vendor/wasmtime",  # Changed from WAMR to Wasmtime
+        "//vendor/wasmtime",
         "//x/cpp/xerrors",
     ],
 )
