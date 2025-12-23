@@ -8,47 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { act, renderHook } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { aetherTest } from "@/aether/test";
-import { Alamos } from "@/alamos";
-import { alamos } from "@/alamos/aether";
-import { Status } from "@/status";
-import { status } from "@/status/aether";
-import { Synnax } from "@/synnax";
-import { synnax } from "@/synnax/aether";
-import { Telem } from "@/telem";
-import { telem } from "@/telem/aether";
 import { noopBooleanSinkSpec, noopBooleanSourceSpec } from "@/telem/aether/noop";
 import { telemTest } from "@/telem/aether/test";
+import { TelemTest } from "@/telem/test";
 import { Toggle } from "@/vis/toggle";
 import { toggle } from "@/vis/toggle/aether";
 
-const TelemProvider = telem.createProvider(
-  () =>
-    new telem.CompoundFactory([new telemTest.TestFactory(), new telem.NoopFactory()]),
-);
-
-const AetherProvider = aetherTest.createProvider({
-  [toggle.Toggle.TYPE]: toggle.Toggle,
-  [telem.PROVIDER_TYPE]: TelemProvider,
-  ...synnax.REGISTRY,
-  ...status.REGISTRY,
-  ...alamos.REGISTRY,
-});
-
-const TestWrapper: FC<PropsWithChildren> = ({ children }) => (
-  <AetherProvider>
-    <Status.Aggregator>
-      <Alamos.Provider>
-        <Synnax.TestProvider client={null}>
-          <Telem.Provider>{children}</Telem.Provider>
-        </Synnax.TestProvider>
-      </Alamos.Provider>
-    </Status.Aggregator>
-  </AetherProvider>
-);
+const TestWrapper = TelemTest.createTestWrapper({ registry: toggle.REGISTRY });
 
 describe("Toggle", () => {
   it("should return toggle function and enabled state", () => {

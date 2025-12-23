@@ -8,47 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { renderHook } from "@testing-library/react";
-import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { aetherTest } from "@/aether/test";
-import { Alamos } from "@/alamos";
-import { alamos } from "@/alamos/aether";
-import { Status } from "@/status";
-import { status } from "@/status/aether";
-import { Synnax } from "@/synnax";
-import { synnax } from "@/synnax/aether";
-import { Telem } from "@/telem";
-import { telem } from "@/telem/aether";
 import { noopBooleanSinkSpec } from "@/telem/aether/noop";
 import { telemTest } from "@/telem/aether/test";
+import { TelemTest } from "@/telem/test";
 import { Button } from "@/vis/button";
 import { button } from "@/vis/button/aether";
 
-const TelemProvider = telem.createProvider(
-  () =>
-    new telem.CompoundFactory([new telemTest.TestFactory(), new telem.NoopFactory()]),
-);
-
-const AetherProvider = aetherTest.createProvider({
-  [button.Button.TYPE]: button.Button,
-  [telem.PROVIDER_TYPE]: TelemProvider,
-  ...synnax.REGISTRY,
-  ...status.REGISTRY,
-  ...alamos.REGISTRY,
-});
-
-const TestWrapper: FC<PropsWithChildren> = ({ children }) => (
-  <AetherProvider>
-    <Status.Aggregator>
-      <Alamos.Provider>
-        <Synnax.TestProvider client={null}>
-          <Telem.Provider>{children}</Telem.Provider>
-        </Synnax.TestProvider>
-      </Alamos.Provider>
-    </Status.Aggregator>
-  </AetherProvider>
-);
+const TestWrapper = TelemTest.createTestWrapper({ registry: button.REGISTRY });
 
 describe("Button", () => {
   it("should return onMouseDown and onMouseUp handlers", () => {
