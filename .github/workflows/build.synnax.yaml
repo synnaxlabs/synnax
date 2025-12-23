@@ -222,6 +222,10 @@ jobs:
           disk-cache: false
           repository-cache: false
 
+      - name: Install Rust
+        if: inputs.driver
+        run: rustup update
+
       - name: Build Driver (Windows)
         if: inputs.driver && matrix.os == 'windows-build-bot'
         shell: bash

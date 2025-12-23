@@ -9,6 +9,7 @@ on:
       - .clang-format-ignore
       - .github/workflows/test.driver.yaml
       - alamos/go/**
+      - arc/cpp/**
       - aspen/**
       - cesium/**
       - client/cpp/**
@@ -23,7 +24,7 @@ on:
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
       - scripts/sanitizers/**
-      - vendor
+      - vendor/**
       - x/cpp/**
       - x/go/**
   push:
@@ -37,6 +38,7 @@ on:
       - .clang-format-ignore
       - .github/workflows/test.driver.yaml
       - alamos/go/**
+      - arc/cpp/**
       - aspen/**
       - cesium/**
       - client/cpp/**
@@ -51,7 +53,7 @@ on:
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
       - scripts/sanitizers/**
-      - vendor
+      - vendor/**
       - x/cpp/**
       - x/go/**
   workflow_dispatch:
@@ -120,6 +122,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libsystemd-dev
+
+      - name: Install Rust
+        run: rustup update
 
       - name: Update Submodules
         run: git submodule update --init --recursive
