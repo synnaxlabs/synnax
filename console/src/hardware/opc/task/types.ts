@@ -19,6 +19,7 @@ const baseChannelZ = Common.Task.channelZ.extend({
   channel: channel.keyZ,
   nodeId: z.string(),
   nodeName: z.string(),
+  name: Common.Task.nameZ,
   dataType: z.string().default("float32"),
 });
 

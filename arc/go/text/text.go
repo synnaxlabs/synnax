@@ -38,6 +38,7 @@ import (
 	"github.com/synnaxlabs/arc/stratifier"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // Text represents Arc source code with its parsed AST.
@@ -282,7 +283,7 @@ func analyzeFlow(
 		// With sequence targets, we may have only 1 new node but still a valid edge.
 		if len(edges) < 1 {
 			ctx.Diagnostics.AddError(
-				fmt.Errorf("flow statement requires at least two nodes"),
+				errors.Newf("flow statement requires at least two nodes"),
 				ctx.AST,
 			)
 			return nil, nil, false
@@ -493,7 +494,7 @@ func analyzeSequenceNodeAsSink(
 	firstStage, err := seqSym.FirstChildOfKind(symbol.KindStage)
 	if err != nil {
 		ctx.Diagnostics.AddError(
-			fmt.Errorf("sequence '%s' has no stages", seqName),
+			errors.Newf("sequence '%s' has no stages", seqName),
 			ctx.AST,
 		)
 		return ir.Node{}, ir.Handle{}, ir.Handle{}, false
@@ -563,7 +564,7 @@ func analyzeFunctionNode(
 	}
 	fnType := sym.Type
 	if fnType.Kind != types.KindFunction {
-		ctx.Diagnostics.AddError(fmt.Errorf("expected function type, got %s", fnType), nil)
+		ctx.Diagnostics.AddError(errors.Newf("expected function type, got %s", fnType), nil)
 		return ir.Node{}, ir.Handle{}, ir.Handle{}, false
 	}
 	n := ir.Node{
@@ -669,7 +670,7 @@ func analyzeOutputRoutingTable(
 		// Validate that the source node has this output parameter
 		if !sourceNode.Outputs.Has(outputName) {
 			ctx.Diagnostics.AddError(
-				fmt.Errorf("node '%s' does not have output '%s'", sourceNode.Key, outputName),
+				errors.Newf("node '%s' does not have output '%s'", sourceNode.Key, outputName),
 				entry,
 			)
 			return nil, nil, false
@@ -732,7 +733,7 @@ func analyzeOutputRoutingTable(
 				// Validate target parameter exists
 				if !node.Inputs.Has(targetParamName) {
 					ctx.Diagnostics.AddError(
-						fmt.Errorf("node '%s' does not have input '%s'", node.Key, targetParamName),
+						errors.Newf("node '%s' does not have input '%s'", node.Key, targetParamName),
 						entry,
 					)
 					return nil, nil, false
@@ -762,7 +763,7 @@ func analyzeInputRoutingTable(
 	// This is more complex and less commonly used, so implementing as Phase 2.5
 
 	ctx.Diagnostics.AddError(
-		fmt.Errorf("input routing tables not yet implemented in text compiler"),
+		errors.Newf("input routing tables not yet implemented in text compiler"),
 		ctx.AST,
 	)
 	return nil, nil, false

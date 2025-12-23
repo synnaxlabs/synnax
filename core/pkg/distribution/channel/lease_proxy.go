@@ -521,19 +521,24 @@ func (lp *leaseProxy) createGateway(
 		}
 	}
 	lp.mu.Lock()
+	defer lp.mu.Unlock()
 	count := lp.mu.externalNonVirtualSet.Size()
 	if err = lp.IntOverflowCheck(xtypes.Uint20(int(count) + len(externalCreatedKeys))); err != nil {
-		lp.mu.Unlock()
 		return err
 	}
-	lp.mu.externalNonVirtualSet.Insert(externalCreatedKeys...)
-	lp.mu.Unlock()
-
 	storageChannels := toStorage(toCreate)
 	if err = lp.TSChannel.CreateChannel(ctx, storageChannels...); err != nil {
 		return err
 	}
-	return gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx, tx)
+	if err = gorp.
+		NewCreate[Key, Channel]().
+		Entries(&toCreate).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	lp.mu.externalNonVirtualSet.Insert(externalCreatedKeys...)
+	return nil
+
 }
 
 func (lp *leaseProxy) maybeSetResources(
@@ -640,12 +645,15 @@ func (lp *leaseProxy) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) 
 	if err := lp.maybeDeleteResources(ctx, tx, keys); err != nil {
 		return err
 	}
+	// It's very important that this goes last, as it's the only operation that can fail
+	// without an atomic guarantee.
+	if err := lp.TSChannel.DeleteChannels(keys.Storage()); err != nil {
+		return err
+	}
 	lp.mu.Lock()
 	lp.mu.externalNonVirtualSet.Remove(keys...)
 	lp.mu.Unlock()
-	// It's very important that this goes last, as it's the only operation that can fail
-	// without an atomic guarantee.
-	return lp.TSChannel.DeleteChannels(keys.Storage())
+	return nil
 }
 
 func (lp *leaseProxy) maybeDeleteResources(

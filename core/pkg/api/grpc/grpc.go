@@ -30,6 +30,7 @@ func New(channelSvc *channel.Service) (api.Transport, []fgrpc.BindableTransport)
 		newTask(&a),
 		newDevice(&a),
 		newStatus(&a),
+		newArc(&a),
 	}
 
 	// AUTH
@@ -121,10 +122,7 @@ func New(channelSvc *channel.Service) (api.Transport, []fgrpc.BindableTransport)
 	a.AccessAssignRole = fnoop.UnaryServer[api.AccessAssignRoleRequest, types.Nil]{}
 	a.AccessUnassignRole = fnoop.UnaryServer[api.AccessUnassignRoleRequest, types.Nil]{}
 
-	// ARC
-	a.ArcCreate = fnoop.UnaryServer[api.ArcCreateRequest, api.ArcCreateResponse]{}
-	a.ArcDelete = fnoop.UnaryServer[api.ArcDeleteRequest, types.Nil]{}
-	a.ArcRetrieve = fnoop.UnaryServer[api.ArcRetrieveRequest, api.ArcRetrieveResponse]{}
+	// ARC LSP (streaming, not implemented via gRPC yet)
 	a.ArcLSP = fnoop.StreamServer[api.ArcLSPMessage, api.ArcLSPMessage]{}
 
 	// VIEW
