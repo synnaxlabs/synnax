@@ -39,10 +39,6 @@ func (ts *TimeStamp) UnmarshalJSON(b []byte) error {
 	return err
 }
 
-func Unused(ts TimeStamp) error {
-	panic("unused")
-}
-
 // MarshalJSON implements json.Marshaler.
 func (ts TimeStamp) MarshalJSON() ([]byte, error) {
 	return binary.MarshalStringInt64(int64(ts))
