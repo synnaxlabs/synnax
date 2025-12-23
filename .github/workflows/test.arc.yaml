@@ -96,10 +96,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            format: true
+        os: [macos-latest, windows-latest]
         exclude:
           - os:
               ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
@@ -125,18 +122,6 @@ jobs:
           disk-cache: ${{ github.workflow }}-${{ matrix.os }}
           repository-cache: true
 
-      - name: Install Clang Format
-        if: matrix.format
-        run: |
-          sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
-          sudo apt-get install -y clang-format-20
-          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-20 100
-          sudo update-alternatives --set clang-format /usr/bin/clang-format-20
-
-      - name: Check Formatting
-        if: matrix.format
-        run: scripts/check_clang_format.sh arc/cpp
-
       - name: Test (macOS)
         if: matrix.os == 'macos-latest'
         run:
@@ -144,12 +129,41 @@ jobs:
           --test_tag_filters=-no-asan
         shell: bash
 
-      - name: Test (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
-        run: bazel test --config=asan-leak --test_output=all //arc/cpp/...
-        shell: bash
-
       - name: Test (Windows)
         if: matrix.os == 'windows-latest'
         run: bazel test --test_output=all //arc/cpp/...
+        shell: bash
+
+  test-cpp-ubuntu:
+    name: Test C++ (ubuntu-build-bot)
+    runs-on: ubuntu-build-bot
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Install Rust
+        run: rustup update
+
+      - name: Update Submodules
+        run: git submodule update --init --recursive
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: false
+          disk-cache: false
+          repository-cache: false
+
+      - name: Install Clang Format
+        run: |
+          sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+          sudo apt-get install -y clang-format-20
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-20 100
+          sudo update-alternatives --set clang-format /usr/bin/clang-format-20
+
+      - name: Check Formatting
+        run: scripts/check_clang_format.sh arc/cpp
+
+      - name: Test
+        run: bazel test --config=asan-leak --test_output=all //arc/cpp/...
         shell: bash
