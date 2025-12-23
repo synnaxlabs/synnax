@@ -30,11 +30,11 @@ export const MacroSelect = ({
 
   const handleToggle = useCallback(
     (type: MacroType) => {
-      if (value.includes(type)) {
+      if (value.includes(type)) 
         onChange(value.filter((v) => v !== type));
-      } else {
+       else 
         onChange([...value, type]);
-      }
+      
     },
     [value, onChange],
   );

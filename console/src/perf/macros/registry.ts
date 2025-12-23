@@ -61,4 +61,5 @@ export const isMacroRegistered = (type: MacroType): boolean => registry.has(type
  *   ...
  * });
  */
-export const createMacroType = (type: string): MacroType => type;
+export const createMacroType = <T extends string>(type: T): MacroType & T =>
+  type as MacroType & T;

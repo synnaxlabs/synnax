@@ -133,14 +133,15 @@ export class SampleBuffer {
     if (this.recentCount === 0) return [];
     if (this.recentCount < this.recentSize)
       return this.recent.slice(0, this.recentCount);
-    return [
-      ...this.recent.slice(this.recentIndex),
-      ...this.recent.slice(0, this.recentIndex),
-    ];
+    // Avoid spread operators - use concat for better performance
+    const tail = this.recent.slice(this.recentIndex);
+    const head = this.recent.slice(0, this.recentIndex);
+    return tail.concat(head);
   }
 
   getAllSamples(): MetricSample[] {
-    return [...this.getBaselineSamples(), ...this.getRecentSamples()];
+    // Avoid spread operators - use concat for better performance
+    return this.getBaselineSamples().concat(this.getRecentSamples());
   }
 
   getTotalSampleCount(): number {

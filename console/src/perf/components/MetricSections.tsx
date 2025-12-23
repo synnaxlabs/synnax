@@ -44,7 +44,6 @@ import {
   getNetworkTableTooltip,
   NETWORK_TABLE_COLUMNS,
 } from "@/perf/metrics/network";
-import { type MetricSample } from "@/perf/metrics/types";
 import { type DisplayStatus, type LiveMetrics, type MetricDef } from "@/perf/ui-types";
 import { formatCount } from "@/perf/utils/formatting";
 import {
@@ -158,7 +157,6 @@ export interface MetricSectionsProps {
   groupByType: boolean;
   liveMetrics: LiveMetrics;
   aggregates: Aggregates;
-  latestSample: MetricSample | null;
   topEndpoints: MetricTableData<EndpointStats>;
   topLongTasks: MetricTableData<LongTaskStats>;
   topConsoleLogs: MetricTableData<ConsoleLogEntry>;
@@ -184,7 +182,6 @@ const MetricSectionsImpl = ({
   groupByType,
   liveMetrics,
   aggregates,
-  latestSample,
   topEndpoints,
   topLongTasks,
   topConsoleLogs,
@@ -236,7 +233,6 @@ const MetricSectionsImpl = ({
     [
       liveMetrics,
       fpsReport,
-      latestSample,
       aggregates,
       leakReport,
       cpuReport,
@@ -244,10 +240,6 @@ const MetricSectionsImpl = ({
       severities,
     ],
   );
-
-  const networkStatus: DisplayStatus = undefined;
-  const longTasksStatus: DisplayStatus = undefined;
-  const consoleLogsStatus: DisplayStatus = undefined;
 
   const isProfilingActive = status === "running" || status === "paused";
 
@@ -297,7 +289,7 @@ const MetricSectionsImpl = ({
         secondaryText: isProfilingActive
           ? `${formatCount(liveMetrics.networkRequestCount)} / ${formatCount(liveMetrics.totalNetworkRequests)}`
           : formatCount(liveMetrics.networkRequestCount),
-        secondaryStatus: networkStatus,
+        secondaryStatus: undefined,
         secondaryTooltip: NETWORK_TOOLTIP,
         tableData: topEndpoints,
         columns: NETWORK_TABLE_COLUMNS,
@@ -312,7 +304,7 @@ const MetricSectionsImpl = ({
         secondaryText: isProfilingActive
           ? `${formatCount(liveMetrics.longTaskCount)} / ${formatCount(liveMetrics.totalLongTasks)}`
           : formatCount(liveMetrics.longTaskCount),
-        secondaryStatus: longTasksStatus,
+        secondaryStatus: undefined,
         secondaryTooltip: LONG_TASKS_TOOLTIP,
         tableData: topLongTasks,
         columns: LONG_TASK_TABLE_COLUMNS,
@@ -326,7 +318,7 @@ const MetricSectionsImpl = ({
         secondaryText: isProfilingActive
           ? `${formatCount(liveMetrics.consoleLogCount)} / ${formatCount(liveMetrics.totalConsoleLogs)}`
           : formatCount(liveMetrics.consoleLogCount),
-        secondaryStatus: consoleLogsStatus,
+        secondaryStatus: undefined,
         secondaryTooltip: CONSOLE_LOGS_TOOLTIP,
         tableData: topConsoleLogs,
         columns: CONSOLE_LOG_TABLE_COLUMNS,
@@ -347,9 +339,6 @@ const MetricSectionsImpl = ({
     liveMetrics.totalNetworkRequests,
     liveMetrics.totalLongTasks,
     liveMetrics.totalConsoleLogs,
-    networkStatus,
-    longTasksStatus,
-    consoleLogsStatus,
     topEndpoints,
     topLongTasks,
     topConsoleLogs,

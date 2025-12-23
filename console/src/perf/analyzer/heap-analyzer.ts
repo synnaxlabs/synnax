@@ -48,10 +48,9 @@ export class HeapAnalyzer {
     const trend = this.calculateTrend(snapshots);
 
     let severity: Severity = "none";
-    if (trend === "increasing")
+    if (trend === "increasing") 
       if (growthPercent > THRESHOLDS.heapGrowth.error) severity = "error";
-      else if (growthPercent > THRESHOLDS.heapGrowth.warn)
-        severity = "warning";
+      else if (growthPercent > THRESHOLDS.heapGrowth.warn) severity = "warning";
     
 
     return {

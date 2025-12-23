@@ -87,6 +87,7 @@ export class ConsoleCollector {
   private captureFailures = 0;
   private windowMs: number;
   private isActive = false;
+  private capturing = false;
 
   private originalConsole: {
     log: typeof console.log;
@@ -144,9 +145,10 @@ export class ConsoleCollector {
 
   /**
    * Capture a console message with timestamp and optional stack trace.
+   * Only captures when both isActive (interceptors installed) and capturing (profiling running).
    */
   private captureMessage(level: "log" | "warn" | "error" | "info", args: any[]): void {
-    if (!this.isActive) return;
+    if (!this.capturing) return;
 
     try {
       const timestamp = performance.now();
@@ -211,11 +213,16 @@ export class ConsoleCollector {
   stop(): void {
     if (!this.isActive) return;
     this.isActive = false;
+    this.capturing = false;
 
     console.log = this.originalConsole.log;
     console.warn = this.originalConsole.warn;
     console.error = this.originalConsole.error;
     console.info = this.originalConsole.info;
+  }
+
+  setCapturing(capturing: boolean): void {
+    this.capturing = capturing;
   }
 
   reset(): void {

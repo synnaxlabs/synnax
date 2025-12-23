@@ -130,10 +130,15 @@ export const useProfilingSession = ({
         aggregates: buffer.getAggregates(),
       });
 
-      dispatch(Perf.setLeakReport(results.leak));
-      dispatch(Perf.setFpsReport(results.fps));
-      dispatch(Perf.setCpuReport(results.cpu));
-      dispatch(Perf.setGpuReport(results.gpu));
+      // Batch update reports to minimize redux action dispatching
+      dispatch(
+        Perf.setReports({
+          leak: results.leak,
+          fps: results.fps,
+          cpu: results.cpu,
+          gpu: results.gpu,
+        }),
+      );
 
       // Add real-time labels with latching behavior:
       // - Peak-triggered labels are latched (permanent)
@@ -156,7 +161,6 @@ export const useProfilingSession = ({
         if (report.avgSeverity !== "none") 
           addMetricLabel({ metric, severity: report.avgSeverity, latched: false });
          else 
-          // Avg is now "none" - remove transient label if it exists
           removeTransientLabel({ metric });
         
       }
@@ -165,7 +169,7 @@ export const useProfilingSession = ({
       if (!isMetricLatched("heap") && results.leak.severity !== "none") 
         addMetricLabel({ metric: "heap", severity: results.leak.severity, latched: true });
       
-      
+
     },
     [dispatch, captured, analyze, addMetricLabel, removeTransientLabel, isMetricLatched],
   );
@@ -186,28 +190,25 @@ export const useProfilingSession = ({
 
       captureInitial({ fps: initialFPS, cpu: initialCPU, gpu: initialGPU, heap: initialHeap });
 
+      // Batch initial reports
       dispatch(
-        Perf.setFpsReport({
-          ...ZERO_FPS_REPORT,
-          startFps: initialFPS ?? 0,
-        }),
-      );
-      dispatch(
-        Perf.setLeakReport({
-          ...ZERO_LEAK_REPORT,
-          heapStartMB: math.roundTo(initialHeap ?? 0),
-        }),
-      );
-      dispatch(
-        Perf.setCpuReport({
-          ...ZERO_CPU_REPORT,
-          startPercent: initialCPU != null ? math.roundTo(initialCPU) : null,
-        }),
-      );
-      dispatch(
-        Perf.setGpuReport({
-          ...ZERO_GPU_REPORT,
-          startPercent: initialGPU != null ? math.roundTo(initialGPU) : null,
+        Perf.setReports({
+          fps: {
+            ...ZERO_FPS_REPORT,
+            startFps: initialFPS != null ? math.roundTo(initialFPS) : null,
+          },
+          leak: {
+            ...ZERO_LEAK_REPORT,
+            heapStartMB: initialHeap != null ? math.roundTo(initialHeap) : null,
+          },
+          cpu: {
+            ...ZERO_CPU_REPORT,
+            startPercent: initialCPU != null ? math.roundTo(initialCPU) : null,
+          },
+          gpu: {
+            ...ZERO_GPU_REPORT,
+            startPercent: initialGPU != null ? math.roundTo(initialGPU) : null,
+          },
         }),
       );
 

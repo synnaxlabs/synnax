@@ -47,22 +47,26 @@ const detectIssues = (input: CompileInput): DetectedIssue[] => {
     analysisResults.fps.peakSeverity !== "none" ||
     analysisResults.fps.avgSeverity !== "none";
 
-  if (hasFpsIssue && analysisResults.fps.changePercent > THRESHOLDS.fpsChange.error)
-    issues.push({
-      category: "fps",
-      severity: "critical",
-      message: `FPS dropped ${math.roundTo(analysisResults.fps.changePercent, 1)}% during session`,
-      value: analysisResults.fps.changePercent,
-      threshold: THRESHOLDS.fpsChange.error,
-    });
-  else if (hasFpsIssue && analysisResults.fps.changePercent > THRESHOLDS.fpsChange.warn)
-    issues.push({
-      category: "fps",
-      severity: "warning",
-      message: `FPS dropped ${math.roundTo(analysisResults.fps.changePercent, 1)}% during session`,
-      value: analysisResults.fps.changePercent,
-      threshold: THRESHOLDS.fpsChange.warn,
-    });
+  const fpsChangePercent = analysisResults.fps.changePercent;
+  if (hasFpsIssue && fpsChangePercent != null) 
+    if (fpsChangePercent > THRESHOLDS.fpsChange.error) 
+      issues.push({
+        category: "fps",
+        severity: "critical",
+        message: `FPS dropped ${math.roundTo(fpsChangePercent, 1)}% during session`,
+        value: fpsChangePercent,
+        threshold: THRESHOLDS.fpsChange.error,
+      });
+     else if (fpsChangePercent > THRESHOLDS.fpsChange.warn) 
+      issues.push({
+        category: "fps",
+        severity: "warning",
+        message: `FPS dropped ${math.roundTo(fpsChangePercent, 1)}% during session`,
+        value: fpsChangePercent,
+        threshold: THRESHOLDS.fpsChange.warn,
+      });
+    
+  
   
 
   if (aggregates.avgCpu != null) 
@@ -105,26 +109,26 @@ const detectIssues = (input: CompileInput): DetectedIssue[] => {
     
   
 
-  if (analysisResults.leak.severity !== "none") {
-    const growth = analysisResults.leak.heapGrowthPercent;
-    if (growth > THRESHOLDS.heapGrowth.error) 
+  const heapGrowth = analysisResults.leak.heapGrowthPercent;
+  if (analysisResults.leak.severity !== "none" && heapGrowth != null) 
+    if (heapGrowth > THRESHOLDS.heapGrowth.error) 
       issues.push({
         category: "memory",
         severity: "critical",
-        message: `Memory grew ${math.roundTo(growth, 1)}% - potential leak detected`,
-        value: growth,
+        message: `Memory grew ${math.roundTo(heapGrowth, 1)}% - potential leak detected`,
+        value: heapGrowth,
         threshold: THRESHOLDS.heapGrowth.error,
       });
-     else if (growth > THRESHOLDS.heapGrowth.warn) 
+     else if (heapGrowth > THRESHOLDS.heapGrowth.warn) 
       issues.push({
         category: "memory",
         severity: "warning",
-        message: `Memory grew ${math.roundTo(growth, 1)}%`,
-        value: growth,
+        message: `Memory grew ${math.roundTo(heapGrowth, 1)}%`,
+        value: heapGrowth,
         threshold: THRESHOLDS.heapGrowth.warn,
       });
     
-  }
+  
 
   return issues;
 };

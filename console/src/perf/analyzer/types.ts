@@ -23,10 +23,10 @@ export interface MetricSeverities {
 /** Report on memory leak detection. */
 export interface LeakReport {
   severity: Severity;
-  heapStartMB: number;
-  heapEndMB: number;
-  heapGrowthMB: number;
-  heapGrowthPercent: number;
+  heapStartMB: number | null;
+  heapEndMB: number | null;
+  heapGrowthMB: number | null;
+  heapGrowthPercent: number | null;
   trend: Trend;
   snapshotCount: number;
 }
@@ -34,9 +34,9 @@ export interface LeakReport {
 export interface FpsReport {
   peakSeverity: Severity;
   avgSeverity: Severity;
-  startFps: number;
-  endFps: number;
-  changePercent: number;
+  startFps: number | null;
+  endFps: number | null;
+  changePercent: number | null;
 }
 
 export interface CpuReport {
@@ -76,10 +76,10 @@ export interface PerfReport {
 
 export const ZERO_LEAK_REPORT: LeakReport = {
   severity: "none",
-  heapStartMB: 0,
-  heapEndMB: 0,
-  heapGrowthMB: 0,
-  heapGrowthPercent: 0,
+  heapStartMB: null,
+  heapEndMB: null,
+  heapGrowthMB: null,
+  heapGrowthPercent: null,
   trend: "stable",
   snapshotCount: 0,
 };
@@ -87,9 +87,9 @@ export const ZERO_LEAK_REPORT: LeakReport = {
 export const ZERO_FPS_REPORT: FpsReport = {
   peakSeverity: "none",
   avgSeverity: "none",
-  startFps: 0,
-  endFps: 0,
-  changePercent: 0,
+  startFps: null,
+  endFps: null,
+  changePercent: null,
 };
 
 export const ZERO_CPU_REPORT: CpuReport = {

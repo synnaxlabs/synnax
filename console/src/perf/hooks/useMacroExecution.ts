@@ -63,9 +63,9 @@ export const useMacroExecution = (): UseMacroExecutionReturn => {
 
             if (isLastMacro) {
               const nextIteration = prev.progress.currentIteration + 1;
-              if (nextIteration > config.iterations) {
+              if (nextIteration >= config.iterations)
                 return { ...prev, status: "idle", progress: ZERO_EXECUTION_STATE.progress };
-              }
+              
               return {
                 ...prev,
                 progress: {
@@ -90,14 +90,17 @@ export const useMacroExecution = (): UseMacroExecutionReturn => {
       });
 
       runnerRef.current = runner;
-      runner.run().finally(() => {
-        setState((prev) =>
-          prev.status === "running"
-            ? { ...prev, status: "idle", progress: ZERO_EXECUTION_STATE.progress }
-            : prev,
-        );
-        runnerRef.current = null;
-      });
+      void runner
+        .run()
+        .catch((e) => console.error("Macro runner error:", e))
+        .finally(() => {
+          setState((prev) =>
+            prev.status === "running"
+              ? { ...prev, status: "idle", progress: ZERO_EXECUTION_STATE.progress }
+              : prev,
+          );
+          runnerRef.current = null;
+        });
     },
     [state.status, store, dispatch, placer, client],
   );

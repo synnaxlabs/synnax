@@ -86,6 +86,12 @@ export type SetRangeKeyPayload = string | null;
 export type SetRangeStartTimePayload = number | null;
 export type SetErrorPayload = string;
 export type SetConfigPayload = PartialHarnessConfig;
+export interface SetReportsPayload {
+  leak: LeakReport;
+  fps: FpsReport;
+  cpu: CpuReport;
+  gpu: GpuReport;
+}
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
@@ -153,6 +159,14 @@ export const { actions, reducer } = createSlice({
       state.gpuReport = payload;
     },
 
+    /** Batch update all reports in a single action to reduce re-renders. */
+    setReports: (state, { payload }: PayloadAction<SetReportsPayload>) => {
+      state.leakReport = payload.leak;
+      state.fpsReport = payload.fps;
+      state.cpuReport = payload.cpu;
+      state.gpuReport = payload.gpu;
+    },
+
     setRangeKey: (state, { payload }: PayloadAction<SetRangeKeyPayload>) => {
       state.rangeKey = payload;
     },
@@ -190,6 +204,7 @@ export const {
   setFpsReport,
   setCpuReport,
   setGpuReport,
+  setReports,
   setRangeKey,
   setRangeStartTime,
   setError,

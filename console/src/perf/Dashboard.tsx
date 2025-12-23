@@ -30,8 +30,7 @@ import {
 import * as Perf from "@/perf/slice";
 import { formatTime } from "@/perf/utils/formatting";
 
-// layoutKey is required by Layout.Renderer interface but not used by this component
-export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElement => {
+export const Dashboard: Layout.Renderer = (): ReactElement => {
   const dispatch = useDispatch();
   const status = useSelectStatus();
   const elapsedSeconds = useElapsedSeconds();
@@ -45,16 +44,31 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
   // Track current status for cleanup on unmount
   const currentStatusRef = useRef<string>(status);
 
-  // Store handleSample in a ref to break circular dependency:
-  // - useCollectors needs onSample (handleSample)
-  // - useProfilingSession needs collectors/sampleBuffer from useCollectors
-  // - useProfilingSession returns handleSample
-  // The ref allows useCollectors to use the latest handleSample via onSampleRef pattern
+  /**
+   * CIRCULAR DEPENDENCY RESOLUTION PATTERN
+   *
+   * Problem: We have a circular dependency between two hooks:
+   *   1. useCollectors needs `onSample` callback to report collected samples
+   *   2. useProfilingSession needs `collectors` and `sampleBuffer` from useCollectors
+   *   3. useProfilingSession returns `handleSample` which IS the onSample callback
+   *
+   * Solution: Use a ref + stable wrapper pattern:
+   *   1. Create a ref (handleSampleRef) to hold the eventual handleSample function
+   *   2. Create a stable wrapper (onSample) that delegates to handleSampleRef.current
+   *   3. Pass the stable wrapper to useCollectors (it never changes identity)
+   *   4. Call useProfilingSession to get the real handleSample
+   *   5. Update handleSampleRef.current with the real function
+   *
+   * This works because:
+   *   - The wrapper's identity is stable (empty deps), so useCollectors doesn't re-run
+   *   - The ref is updated synchronously during render, before any effects run
+   *   - When useCollectors calls onSample, it will use the latest handleSample
+   */
   const handleSampleRef = useRef<
     ReturnType<typeof useProfilingSession>["handleSample"] | undefined
   >(undefined);
 
-  // Wrapper that delegates to handleSampleRef
+  // Stable wrapper that delegates to handleSampleRef - identity never changes
   const onSample = useCallback<NonNullable<typeof handleSampleRef.current>>(
     (sample, buffer) => handleSampleRef.current?.(sample, buffer),
     [],
@@ -65,7 +79,6 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
     liveMetrics,
     tableData,
     aggregates,
-    latestSample,
     collectors,
     sampleBuffer,
     resetEventCollectors,
@@ -108,6 +121,7 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
   const handlePause = useCallback(() => dispatch(Perf.pause()), [dispatch]);
   const handleResume = useCallback(() => dispatch(Perf.resume()), [dispatch]);
   const handleReset = useCallback(() => dispatch(Perf.reset()), [dispatch]);
+  const toggleGroupByType = useCallback(() => setGroupByType((prev) => !prev), []);
 
   const btn = useMemo(() => {
     switch (status) {
@@ -152,7 +166,7 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
           <Button.Button
             variant="text"
             size="tiny"
-            onClick={() => setGroupByType(!groupByType)}
+            onClick={toggleGroupByType}
           >
             <Icon.Filter />
             {groupByType ? "By Resource" : "By Category"}
@@ -179,7 +193,6 @@ export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElem
         groupByType={groupByType}
         liveMetrics={liveMetrics}
         aggregates={aggregates}
-        latestSample={latestSample}
         topEndpoints={tableData.endpoints}
         topLongTasks={tableData.longTasks}
         topConsoleLogs={tableData.consoleLogs}

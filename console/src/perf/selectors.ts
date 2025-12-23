@@ -44,13 +44,6 @@ export const selectGpuReport = (state: RootState): GpuReport =>
 export const selectError = (state: RootState): string | null =>
   selectSlice(state).error;
 
-export const selectElapsedSeconds = (state: RootState): number => {
-  const slice = selectSlice(state);
-  if (slice.startTime == null) return 0;
-  const endTime = slice.endTime ?? performance.now();
-  return (endTime - slice.startTime) / 1000;
-};
-
 export const selectRangeKey = (state: RootState): string | null =>
   selectSlice(state).rangeKey;
 
@@ -67,8 +60,6 @@ export const useSelectFpsReport = (): FpsReport => useMemoSelect(selectFpsReport
 export const useSelectCpuReport = (): CpuReport => useMemoSelect(selectCpuReport, []);
 export const useSelectGpuReport = (): GpuReport => useMemoSelect(selectGpuReport, []);
 export const useSelectError = (): string | null => useMemoSelect(selectError, []);
-export const useSelectElapsedSeconds = (): number =>
-  useMemoSelect(selectElapsedSeconds, []);
 export const useSelectRangeKey = (): string | null => useMemoSelect(selectRangeKey, []);
 export const useSelectRangeStartTime = (): number | null =>
   useMemoSelect(selectRangeStartTime, []);

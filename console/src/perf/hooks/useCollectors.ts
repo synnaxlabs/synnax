@@ -90,6 +90,21 @@ const ZERO_LIVE_METRICS: LiveMetrics = {
   totalConsoleLogs: null,
 };
 
+/** Combined state to enable single setState call per interval tick. */
+interface CollectorDataState {
+  liveMetrics: LiveMetrics;
+  latestSample: MetricSample | null;
+  aggregates: Aggregates;
+  tableData: TableDataState;
+}
+
+const ZERO_COLLECTOR_DATA: CollectorDataState = {
+  liveMetrics: ZERO_LIVE_METRICS,
+  latestSample: null,
+  aggregates: ZERO_AGGREGATES,
+  tableData: ZERO_TABLE_DATA,
+};
+
 export interface UseCollectorsOptions {
   status: HarnessStatus;
   onSample?: (sample: MetricSample, sampleBuffer: SampleBuffer) => void;
@@ -120,19 +135,18 @@ export const useCollectors = ({
   status,
   onSample,
 }: UseCollectorsOptions): UseCollectorsResult => {
-  const [liveMetrics, setLiveMetrics] = useState<LiveMetrics>(ZERO_LIVE_METRICS);
+  const [data, setData] = useState<CollectorDataState>(ZERO_COLLECTOR_DATA);
 
   const onSampleRef = useRef(onSample);
   onSampleRef.current = onSample;
 
+  // Use ref for status to avoid recreating collectors on status changes.
+  // The interval callback reads from this ref instead of closing over status.
+  const statusRef = useRef(status);
+  statusRef.current = status;
+
   const sampleBufferRef = useRef(new SampleBuffer());
-
-  const [latestSample, setLatestSample] = useState<MetricSample | null>(null);
   const latestSampleRef = useRef<MetricSample | null>(null);
-
-  const [aggregates, setAggregates] = useState<Aggregates>(ZERO_AGGREGATES);
-
-  const [tableData, setTableData] = useState<TableDataState>(ZERO_TABLE_DATA);
 
   const collectorsRef = useRef<CollectorsState>({
     cpu: null,
@@ -165,13 +179,16 @@ export const useCollectors = ({
   }, []);
 
   const resetTableData = useCallback(() => {
-    setTableData(ZERO_TABLE_DATA);
+    setData((prev) => ({ ...prev, tableData: ZERO_TABLE_DATA }));
   }, []);
 
   const resetBuffer = useCallback(() => {
     latestSampleRef.current = null;
-    setLatestSample(null);
-    setAggregates(ZERO_AGGREGATES);
+    setData((prev) => ({
+      ...prev,
+      latestSample: null,
+      aggregates: ZERO_AGGREGATES,
+    }));
     sampleBufferRef.current.reset();
   }, []);
 
@@ -187,13 +204,11 @@ export const useCollectors = ({
 
     getAllCollectors(c).forEach((col) => col?.start());
 
-    // Update everything together
     const updateInterval = setInterval(() => {
       const sample = collectSample();
       latestSampleRef.current = sample;
 
-      setLatestSample(sample);
-      setLiveMetrics({
+      const liveMetrics: LiveMetrics = {
         frameRate: c.fps?.getCurrentFPS() ?? null,
         cpuPercent: c.cpu?.getCpuPercent() ?? null,
         gpuPercent: c.gpu?.getGpuPercent() ?? null,
@@ -205,31 +220,43 @@ export const useCollectors = ({
         totalLongTasks: c.longTask?.getTotalCount() ?? null,
         consoleLogCount: sample.consoleLogCount,
         totalConsoleLogs: c.console?.getTotalCount() ?? null,
-      });
+      };
 
-      if (status === "running") {
+      if (statusRef.current === "running") {
         sampleBufferRef.current.push(sample);
-        setAggregates(sampleBufferRef.current.getAggregates());
-        setTableData({
-          endpoints: c.network?.getTopEndpoints() ?? emptyTableData(),
-          longTasks: c.longTask?.getTopLongTasks() ?? emptyTableData(),
-          consoleLogs: c.console?.getTopLogs() ?? emptyTableData(),
+        setData({
+          latestSample: sample,
+          liveMetrics,
+          aggregates: sampleBufferRef.current.getAggregates(),
+          tableData: {
+            endpoints: c.network?.getTopEndpoints() ?? emptyTableData(),
+            longTasks: c.longTask?.getTopLongTasks() ?? emptyTableData(),
+            consoleLogs: c.console?.getTopLogs() ?? emptyTableData(),
+          },
         });
         onSampleRef.current?.(sample, sampleBufferRef.current);
-      }
+      } else 
+        setData((prev) => ({ ...prev, latestSample: sample, liveMetrics }));
+      
     }, SAMPLE_INTERVAL_MS);
 
     return () => {
       clearInterval(updateInterval);
       getAllCollectors(c).forEach((col) => col?.stop());
     };
-  }, [collectSample, status]);
+  }, [collectSample]);
+
+  // Update console collector's capturing state based on profiling status.
+  // This minimizes overhead when profiler panel is open but not actively profiling.
+  useEffect(() => {
+    collectorsRef.current.console?.setCapturing(status === "running");
+  }, [status]);
 
   return {
-    liveMetrics,
-    tableData,
-    aggregates,
-    latestSample,
+    liveMetrics: data.liveMetrics,
+    tableData: data.tableData,
+    aggregates: data.aggregates,
+    latestSample: data.latestSample,
     collectors: collectorsRef,
     sampleBuffer: sampleBufferRef,
     resetEventCollectors,

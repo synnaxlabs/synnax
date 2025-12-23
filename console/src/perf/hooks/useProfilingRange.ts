@@ -187,6 +187,15 @@ export const useProfilingRange = ({
   const getMetricsRef = useRef(getMetrics);
   getMetricsRef.current = getMetrics;
 
+  // AbortController for cancelling pending async operations on unmount.
+  // Prevents state updates and API calls after the component is destroyed.
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    abortRef.current = new AbortController();
+    return () => abortRef.current?.abort();
+  }, []);
+
   const rangeNameRef = useRef<string | null>(null);
 
   const labelStatesRef = useRef<Map<MetricType, LabelState>>(new Map());
@@ -234,6 +243,7 @@ export const useProfilingRange = ({
     };
 
     create().catch((error: Error) => {
+      if (abortRef.current?.signal.aborted) return;
       console.error("Failed to create profiling range:", error);
     });
   }, [client, dispatch, getRangeName]);
@@ -250,6 +260,7 @@ export const useProfilingRange = ({
           timeRange: new TimeRange(new TimeStamp(rangeStartTime), endTime).numeric,
         })
         .catch((error: Error) => {
+          if (abortRef.current?.signal.aborted) return;
           console.error("Failed to update profiling range:", error);
         });
     },
@@ -283,9 +294,8 @@ export const useProfilingRange = ({
 
       // Skip write if nothing changed
       const last = lastWrittenRef.current;
-      if (last != null && last.averages === averagesJson && last.peaks === peaksJson) 
+      if (last != null && last.averages === averagesJson && last.peaks === peaksJson)
         return;
-      
 
       try {
         const range = await client.ranges.retrieve(rangeKey);
@@ -298,6 +308,7 @@ export const useProfilingRange = ({
 
         lastWrittenRef.current = { averages: averagesJson, peaks: peaksJson };
       } catch (error) {
+        if (abortRef.current?.signal.aborted) return;
         console.error("Failed to write range metrics:", error);
       }
     };
@@ -338,9 +349,8 @@ export const useProfilingRange = ({
         });
 
         // Remove nominal label if any issues were detected
-        if (hasIssues) 
+        if (hasIssues)
           await removeNominalLabelIfNeeded(client, range, nominalRemovedRef);
-        
 
         for (const metric of METRIC_ORDER) {
           let severity: Severity;
@@ -376,6 +386,7 @@ export const useProfilingRange = ({
       };
 
       finalize().catch((error: Error) => {
+        if (abortRef.current?.signal.aborted) return;
         console.error("Failed to finalize profiling range:", error);
       });
     },
@@ -420,14 +431,13 @@ export const useProfilingRange = ({
         await removeNominalLabelIfNeeded(client, range, nominalRemovedRef);
 
         // Label replacement: error supersedes warning
-        if (severity === "error") 
+        if (severity === "error")
           await removeSupersededWarningLabel(
             client,
             range,
             metric,
             previousState?.severity,
           );
-        
 
         await range.addLabel(label.key);
       };
@@ -461,6 +471,7 @@ export const useProfilingRange = ({
       const remove = async () => {
         const range = await client.ranges.retrieve(rangeKey);
         const labels = await client.labels.retrieve({ names: [labelName] });
+
         if (labels.length > 0) await range.removeLabel(labels[0].key);
 
         // Restore nominal label if no other issues remain
@@ -476,6 +487,7 @@ export const useProfilingRange = ({
       };
 
       remove().catch((error: Error) => {
+        if (abortRef.current?.signal.aborted) return;
         console.error(`Failed to remove label ${labelName}:`, error);
         // Rollback state on failure
         labelStatesRef.current.set(metric, currentState);
