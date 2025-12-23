@@ -9,11 +9,11 @@ cc_library(
     ],
     visibility = ["//arc/cpp/runtime:__subpackages__"],
     deps = [
-        "//arc/cpp/runtime/errors",
         "//arc/cpp/ir",
         "//arc/cpp/module",
+        "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/state",
-        "//vendor/wasmtime",  # Changed from WAMR to Wasmtime
+        "//vendor/wasmtime",
         "//x/cpp/xerrors",
     ],
 )

@@ -122,8 +122,8 @@ public:
         if (!this->breaker.stop()) return false;
         this->loop->stop();
         this->run_thread.join();
-        // this->inputs->close();
-        // this->outputs->close();
+        this->inputs->close();
+        this->outputs->close();
         return true;
     }
 
