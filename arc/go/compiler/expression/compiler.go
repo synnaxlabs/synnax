@@ -187,11 +187,110 @@ func getIntPowImport(imports *bindings.ImportIndex, t types.Type) (uint32, error
 
 func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (types.Type, error) {
 	primary := ctx.AST.PrimaryExpression()
-	primaryType, err := compilePrimary(context.Child(ctx, primary))
+	currentType, err := compilePrimary(context.Child(ctx, primary))
 	if err != nil {
 		return types.Type{}, err
 	}
-	return primaryType, nil
+
+	// Handle any indexOrSlice operations
+	for _, indexOrSlice := range ctx.AST.AllIndexOrSlice() {
+		currentType, err = compileIndexOrSlice(ctx, indexOrSlice, currentType)
+		if err != nil {
+			return types.Type{}, err
+		}
+	}
+
+	// TODO: Handle functionCallSuffix when function calls are implemented
+
+	return currentType, nil
+}
+
+func compileIndexOrSlice(
+	ctx context.Context[parser.IPostfixExpressionContext],
+	indexOrSlice parser.IIndexOrSliceContext,
+	operandType types.Type,
+) (types.Type, error) {
+	exprs := indexOrSlice.AllExpression()
+	hasColon := indexOrSlice.COLON() != nil
+
+	if !hasColon {
+		// Index operation: series[i]
+		if operandType.Kind != types.KindSeries {
+			return types.Type{}, errors.New("indexing is only supported on series types")
+		}
+
+		// Compile the index expression (should be an integer)
+		_, err := Compile(context.Child(ctx, exprs[0]).WithHint(types.I32()))
+		if err != nil {
+			return types.Type{}, err
+		}
+
+		// Call SeriesIndex to get the element
+		elemType := *operandType.Elem
+		funcIdx, err := ctx.Imports.GetSeriesIndex(elemType)
+		if err != nil {
+			return types.Type{}, err
+		}
+		ctx.Writer.WriteCall(funcIdx)
+
+		return elemType, nil
+	}
+
+	// Slice operation: series[start:end]
+	if operandType.Kind != types.KindSeries {
+		return types.Type{}, errors.New("slicing is only supported on series types")
+	}
+
+	// Determine start and end expressions
+	// Grammar: LBRACKET expression? COLON expression? RBRACKET
+	var startExpr, endExpr parser.IExpressionContext
+	switch len(exprs) {
+	case 0:
+		// s[:] - full slice
+		startExpr = nil
+		endExpr = nil
+	case 1:
+		// Either s[start:] or s[:end]
+		// The expression position tells us which one
+		if indexOrSlice.GetChild(1) == exprs[0] {
+			// Expression is before colon: s[start:]
+			startExpr = exprs[0]
+			endExpr = nil
+		} else {
+			// Expression is after colon: s[:end]
+			startExpr = nil
+			endExpr = exprs[0]
+		}
+	case 2:
+		// s[start:end]
+		startExpr = exprs[0]
+		endExpr = exprs[1]
+	}
+
+	// Compile start index (or push 0 if not specified)
+	if startExpr != nil {
+		_, err := Compile(context.Child(ctx, startExpr).WithHint(types.I32()))
+		if err != nil {
+			return types.Type{}, err
+		}
+	} else {
+		ctx.Writer.WriteI32Const(0)
+	}
+
+	// Compile end index (or push -1 to indicate "to end")
+	if endExpr != nil {
+		_, err := Compile(context.Child(ctx, endExpr).WithHint(types.I32()))
+		if err != nil {
+			return types.Type{}, err
+		}
+	} else {
+		ctx.Writer.WriteI32Const(-1)
+	}
+
+	// Call SeriesSlice(handle, start, end) → new handle
+	ctx.Writer.WriteCall(ctx.Imports.SeriesSlice)
+
+	return operandType, nil
 }
 
 func compilePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) (types.Type, error) {

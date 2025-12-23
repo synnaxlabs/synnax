@@ -79,6 +79,8 @@ type Scheduler struct {
 
 	// errorHandler receives errors from node execution.
 	errorHandler ErrorHandler
+	// cycleCallback is called at the end of each Next() cycle for cleanup.
+	cycleCallback CycleCallback
 	// nodeCtx is a reusable context struct passed to nodes during execution.
 	nodeCtx rnode.Context
 }
@@ -88,6 +90,13 @@ type Scheduler struct {
 type ErrorHandler interface {
 	// HandleError is called when a node reports an error during execution.
 	HandleError(nodeKey string, err error)
+}
+
+// CycleCallback is called at the end of each scheduler cycle.
+// Used for cleanup operations like clearing temporary series handles.
+type CycleCallback interface {
+	// OnCycleEnd is called after all nodes have executed in a cycle.
+	OnCycleEnd()
 }
 
 // New creates a scheduler from an IR program and node instances.
@@ -151,6 +160,12 @@ func (s *Scheduler) SetErrorHandler(handler ErrorHandler) {
 	s.errorHandler = handler
 }
 
+// SetCycleCallback sets a callback to be invoked at the end of each scheduler cycle.
+// Used for cleanup operations like clearing temporary series handles.
+func (s *Scheduler) SetCycleCallback(cb CycleCallback) {
+	s.cycleCallback = cb
+}
+
 // MarkNodeChanged marks a node as changed, scheduling it for execution in the next cycle.
 // This is used externally to trigger execution based on external events or inputs.
 func (s *Scheduler) MarkNodeChanged(nodeKey string) {
@@ -211,6 +226,10 @@ func (s *Scheduler) Next(ctx context.Context, elapsed telem.TimeSpan) {
 	s.execStrata(s.globalStrata)
 	s.execStages()
 	clear(s.changed)
+	// Call cleanup callback if set (e.g., to clear temporary series handles)
+	if s.cycleCallback != nil {
+		s.cycleCallback.OnCycleEnd()
+	}
 }
 
 // execStrata executes nodes in a stage strata, propagating changes between layers.

@@ -58,6 +58,11 @@ func (idx *ImportIndex) GetSeriesIndex(t types.Type) (uint32, error) {
 	return idx.lookupImport(idx.SeriesIndex, t, "series index")
 }
 
+// GetSeriesSetElement returns the import index for setting a series element
+func (idx *ImportIndex) GetSeriesSetElement(t types.Type) (uint32, error) {
+	return idx.lookupImport(idx.SeriesSetElement, t, "series set element")
+}
+
 // GetSeriesArithmetic returns the import index for series arithmetic operations
 func (idx *ImportIndex) GetSeriesArithmetic(op string, t types.Type, isScalar bool) (uint32, error) {
 	suffix := t.Unwrap().String()
@@ -133,4 +138,26 @@ func (idx *ImportIndex) GetStateLoad(t types.Type) (uint32, error) {
 // GetStateStore returns the import index for a state store function
 func (idx *ImportIndex) GetStateStore(t types.Type) (uint32, error) {
 	return idx.lookupImport(idx.StateStore, t, "state store")
+}
+
+// GetStateLoadSeries returns the import index for loading a series from state.
+// Unlike GetStateLoad, this takes the element type directly since series state
+// operations are keyed by element type (e.g., "f64" not "series f64").
+func (idx *ImportIndex) GetStateLoadSeries(elemType types.Type) (uint32, error) {
+	suffix := elemType.String()
+	if funcIdx, ok := idx.StateLoadSeries[suffix]; ok {
+		return funcIdx, nil
+	}
+	return 0, errors.Newf("no series state load function for element type %v", elemType)
+}
+
+// GetStateStoreSeries returns the import index for storing a series to state.
+// Unlike GetStateStore, this takes the element type directly since series state
+// operations are keyed by element type (e.g., "f64" not "series f64").
+func (idx *ImportIndex) GetStateStoreSeries(elemType types.Type) (uint32, error) {
+	suffix := elemType.String()
+	if funcIdx, ok := idx.StateStoreSeries[suffix]; ok {
+		return funcIdx, nil
+	}
+	return 0, errors.Newf("no series state store function for element type %v", elemType)
 }

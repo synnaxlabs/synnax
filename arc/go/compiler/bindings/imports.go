@@ -55,6 +55,10 @@ type ImportIndex struct {
 	StateLoad  map[string]uint32
 	StateStore map[string]uint32
 
+	// State persistence for series - uses handles (i32) instead of actual values
+	StateLoadSeries  map[string]uint32
+	StateStoreSeries map[string]uint32
+
 	// String operations
 	StringFromLiteral uint32
 	StringLen         uint32
@@ -106,6 +110,8 @@ func NewImportIndex() *ImportIndex {
 		SeriesCompareNE:     make(map[string]uint32),
 		StateLoad:           make(map[string]uint32),
 		StateStore:          make(map[string]uint32),
+		StateLoadSeries:     make(map[string]uint32),
+		StateStoreSeries:    make(map[string]uint32),
 	}
 }
 
@@ -182,6 +188,9 @@ func setupSeriesOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
 
 	// Comparison operations (only for numeric types)
 	setupSeriesComparison(m, idx, t)
+
+	// Series state operations (must come after comparison for index alignment)
+	setupSeriesStateOps(m, idx, t)
 }
 
 // setupSeriesArithmetic registers arithmetic operations for series
@@ -263,6 +272,24 @@ func setupStateOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
 	funcName = fmt.Sprintf("state_store_%s", t)
 	idx.StateStore[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
 		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasmType}, // func ID, var ID, value
+		Results: []wasm.ValueType{},
+	})
+}
+
+// setupSeriesStateOps registers state persistence operations for series types.
+// Series state uses handles (i32) for both input and output, not actual values.
+func setupSeriesStateOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
+	// Load series state (with initialization handle)
+	funcName := fmt.Sprintf("state_load_series_%s", t)
+	idx.StateLoadSeries[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasm.I32}, // func ID, var ID, init handle
+		Results: []wasm.ValueType{wasm.I32},                     // result handle
+	})
+
+	// Store series state
+	funcName = fmt.Sprintf("state_store_series_%s", t)
+	idx.StateStoreSeries[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasm.I32}, // func ID, var ID, handle
 		Results: []wasm.ValueType{},
 	})
 }

@@ -54,7 +54,15 @@ func emitStatefulLoad[ASTNode antlr.ParserRuleContext](
 	ctx.Writer.WriteI32Const(0)
 	ctx.Writer.WriteI32Const(int32(idx))
 	emitZeroValue(ctx, t)
-	importIdx, err := ctx.Imports.GetStateLoad(t)
+
+	// Series types use handle-based state operations
+	var importIdx uint32
+	var err error
+	if t.Kind == types.KindSeries {
+		importIdx, err = ctx.Imports.GetStateLoadSeries(*t.Elem)
+	} else {
+		importIdx, err = ctx.Imports.GetStateLoad(t)
+	}
 	if err != nil {
 		return err
 	}

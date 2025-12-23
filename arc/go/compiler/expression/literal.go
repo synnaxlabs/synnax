@@ -27,9 +27,90 @@ func compileLiteral(
 		return types.Type{}, errors.New("str literals are not yet supported")
 	}
 	if series := ctx.AST.SeriesLiteral(); series != nil {
-		return types.Type{}, errors.New("series literals not yet implemented")
+		return compileSeriesLiteral(context.Child(ctx, series))
 	}
 	return types.Type{}, errors.New("unknown literal type")
+}
+
+func compileSeriesLiteral(
+	ctx context.Context[parser.ISeriesLiteralContext],
+) (types.Type, error) {
+	// Get the series type from the hint or TypeMap
+	seriesType := ctx.Hint
+	if !seriesType.IsValid() {
+		if parent := ctx.AST.GetParent(); parent != nil {
+			if litCtx, ok := parent.(parser.ILiteralContext); ok {
+				if inferredType, ok := ctx.TypeMap[litCtx]; ok {
+					seriesType = inferredType
+				}
+			}
+		}
+	}
+
+	if seriesType.Kind != types.KindSeries {
+		return types.Type{}, errors.New("series literal requires series type hint")
+	}
+
+	elemType := seriesType.Elem
+	if elemType == nil {
+		return types.Type{}, errors.New("series type missing element type")
+	}
+
+	// Get expressions from the list
+	var exprs []parser.IExpressionContext
+	if exprList := ctx.AST.ExpressionList(); exprList != nil {
+		exprs = exprList.AllExpression()
+	}
+	length := len(exprs)
+
+	// Create the series: push length and call series_create_empty_<type>
+	ctx.Writer.WriteI32Const(int32(length))
+	createIdx, err := ctx.Imports.GetSeriesCreateEmpty(*elemType)
+	if err != nil {
+		return types.Type{}, err
+	}
+	ctx.Writer.WriteCall(createIdx)
+
+	// For non-empty series, we need temporary storage for the handle.
+	// Use the target local (set by variable declaration) for this.
+	if length > 0 {
+		tempLocal := ctx.TargetLocal
+		if tempLocal < 0 {
+			return types.Type{}, errors.New("series literal requires target local for temporary storage")
+		}
+
+		// For each element, use local.tee/local.get pattern to preserve handle
+		// across SetElement calls (which return void)
+		for i, expr := range exprs {
+			if i == 0 {
+				// Store handle in target local, keep on stack for first SetElement
+				// LocalTee keeps the value on stack, so we don't need LocalGet here
+				ctx.Writer.WriteLocalTee(tempLocal)
+			} else {
+				// For subsequent elements, load handle from local
+				ctx.Writer.WriteLocalGet(tempLocal)
+			}
+
+			// Push index, compile value, call SetElement
+			ctx.Writer.WriteI32Const(int32(i))
+			_, err := Compile(context.Child(ctx, expr).WithHint(*elemType))
+			if err != nil {
+				return types.Type{}, err
+			}
+
+			setIdx, err := ctx.Imports.GetSeriesSetElement(*elemType)
+			if err != nil {
+				return types.Type{}, err
+			}
+			ctx.Writer.WriteCall(setIdx)
+		}
+
+		// Put handle back on stack as the expression result
+		ctx.Writer.WriteLocalGet(tempLocal)
+	}
+	// If length == 0, handle is still on stack from CreateEmpty
+
+	return seriesType, nil
 }
 
 func compileNumericLiteral(

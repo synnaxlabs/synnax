@@ -36,7 +36,9 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 		return err
 	}
 	varType := varScope.Type
-	exprType, err := expression.Compile(context.Child(ctx, ctx.AST.Expression()).WithHint(varType))
+	// Set TargetLocal so series literals can use it for temporary storage
+	exprCtx := context.Child(ctx, ctx.AST.Expression()).WithHint(varType).WithTargetLocal(varScope.ID)
+	exprType, err := expression.Compile(exprCtx)
 	if err != nil {
 		return errors.Wrapf(err, "failed to compile initialization expression for '%s'", name)
 	}
@@ -59,24 +61,40 @@ func compileStatefulVariable(
 		return err
 	}
 	varType := scope.Type
+
 	// Emit state load-or-initialize operation
 	// Push func ID (0 for now - runtime will provide actual ID)
 	ctx.Writer.WriteI32Const(0)
 	// Push state key
 	ctx.Writer.WriteI32Const(int32(scope.ID))
+
 	// Compile the initialization expression (analyzer guarantees type correctness)
-	_, err = expression.Compile(context.Child(ctx, ctx.AST.Expression()).WithHint(varType))
+	// For series types, set TargetLocal so series literals can use temporary storage
+	exprCtx := context.Child(ctx, ctx.AST.Expression()).WithHint(varType)
+	if varType.Kind == types.KindSeries {
+		exprCtx = exprCtx.WithTargetLocal(scope.ID)
+	}
+	_, err = expression.Compile(exprCtx)
 	if err != nil {
 		return errors.Wrapf(err, "failed to compile initialization for stateful variable '%s'", name)
 	}
-	// Stack is now: [funcID, varID, initValue]
-	// Call state load function (runtime implements load-or-initialize logic)
-	importIdx, err := ctx.Imports.GetStateLoad(varType)
+
+	// Stack is now: [funcID, varID, initValue/initHandle]
+	// Call appropriate state load function based on type
+	var importIdx uint32
+	if varType.Kind == types.KindSeries {
+		// Series types use handle-based state operations
+		importIdx, err = ctx.Imports.GetStateLoadSeries(*varType.Elem)
+	} else {
+		// Primitive types use value-based state operations
+		importIdx, err = ctx.Imports.GetStateLoad(varType)
+	}
 	if err != nil {
 		return err
 	}
 	ctx.Writer.WriteCall(importIdx)
-	// Stack is now: [value]
+
+	// Stack is now: [value/handle]
 	// Store in local variable
 	ctx.Writer.WriteLocalSet(scope.ID)
 	return nil
@@ -111,8 +129,8 @@ func compileAssignment(
 		// Regular local variable or input
 		ctx.Writer.WriteLocalSet(scope.ID)
 	case symbol.KindStatefulVariable:
-		// Value is on stack from expression compilation
-		// Need to rearrange to: [funcID, varID, value]
+		// Value/handle is on stack from expression compilation
+		// Need to rearrange to: [funcID, varID, value/handle]
 		// First store value temporarily in local
 		ctx.Writer.WriteLocalSet(scope.ID)
 		// Push funcID and varID
@@ -120,8 +138,15 @@ func compileAssignment(
 		ctx.Writer.WriteI32Const(int32(scope.ID))
 		// Push value back from local
 		ctx.Writer.WriteLocalGet(scope.ID)
-		// Stack is now: [funcID, varID, value]
-		importIdx, err := ctx.Imports.GetStateStore(varType)
+		// Stack is now: [funcID, varID, value/handle]
+		var importIdx uint32
+		if varType.Kind == types.KindSeries {
+			// Series types use handle-based state operations
+			importIdx, err = ctx.Imports.GetStateStoreSeries(*varType.Elem)
+		} else {
+			// Primitive types use value-based state operations
+			importIdx, err = ctx.Imports.GetStateStore(varType)
+		}
 		if err != nil {
 			return err
 		}

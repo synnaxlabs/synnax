@@ -32,6 +32,10 @@ type Context[ASTNode antlr.ParserRuleContext] struct {
 	// Outputs and OutputMemoryBase are set for multi-output functions
 	Outputs          types.Params
 	OutputMemoryBase uint32
+	// TargetLocal is the local variable index for the expression result.
+	// Used by series literals to store the handle temporarily during construction.
+	// A value of -1 indicates no target local is set.
+	TargetLocal int
 }
 
 func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Context[ASTNode] {
@@ -46,10 +50,16 @@ func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Con
 		Hint:             ctx.Hint,
 		Outputs:          ctx.Outputs,
 		OutputMemoryBase: ctx.OutputMemoryBase,
+		TargetLocal:      ctx.TargetLocal,
 	}
 }
 func (c Context[AstNode]) WithHint(hint types.Type) Context[AstNode] {
 	c.Hint = hint
+	return c
+}
+
+func (c Context[AstNode]) WithTargetLocal(local int) Context[AstNode] {
+	c.TargetLocal = local
 	return c
 }
 
@@ -70,11 +80,12 @@ func CreateRoot(
 	disableHostImports bool,
 ) Context[antlr.ParserRuleContext] {
 	ctx := Context[antlr.ParserRuleContext]{
-		Context: ctx_,
-		Module:  wasm.NewModule(),
-		Scope:   symbols,
-		TypeMap: typeMap,
-		Writer:  wasm.NewWriter(),
+		Context:     ctx_,
+		Module:      wasm.NewModule(),
+		Scope:       symbols,
+		TypeMap:     typeMap,
+		Writer:      wasm.NewWriter(),
+		TargetLocal: -1,
 	}
 	if !disableHostImports {
 		ctx.Imports = bindings.SetupImports(ctx.Module)

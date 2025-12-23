@@ -1009,4 +1009,334 @@ var _ = Describe("Wasm", func() {
 			Expect(productTime.TimeRange).To(Equal(expectedTimeRange))
 		})
 	})
+
+	Describe("Series Operations", func() {
+		It("Should create and index a series literal", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "series_index",
+						Inputs: types.Params{},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+						Body: ir.Body{Raw: `{
+							s series f64 := [1.0, 2.0, 3.0, 4.0, 5.0]
+							return s[2]
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "series_index", Type: "series_index"},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("series_index"),
+				State:  s.Node("series_index"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("series_index").Output(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			vals := telem.UnmarshalSeries[float64](result)
+			Expect(vals[0]).To(Equal(float64(3.0))) // s[2] = 3.0
+		})
+
+		It("Should perform series-scalar arithmetic", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "series_scalar_add",
+						Inputs: types.Params{},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+						Body: ir.Body{Raw: `{
+							s series f64 := [10.0, 20.0, 30.0]
+							t series f64 := s + 5.0
+							return t[1]
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "series_scalar_add", Type: "series_scalar_add"},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("series_scalar_add"),
+				State:  s.Node("series_scalar_add"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("series_scalar_add").Output(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			vals := telem.UnmarshalSeries[float64](result)
+			Expect(vals[0]).To(Equal(float64(25.0))) // t[1] = 20.0 + 5.0 = 25.0
+		})
+
+		It("Should perform series-series arithmetic", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "series_series_add",
+						Inputs: types.Params{},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+						Body: ir.Body{Raw: `{
+							a series f64 := [1.0, 2.0, 3.0]
+							b series f64 := [10.0, 20.0, 30.0]
+							c series f64 := a + b
+							return c[2]
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "series_series_add", Type: "series_series_add"},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("series_series_add"),
+				State:  s.Node("series_series_add"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("series_series_add").Output(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			vals := telem.UnmarshalSeries[float64](result)
+			Expect(vals[0]).To(Equal(float64(33.0))) // c[2] = 3.0 + 30.0 = 33.0
+		})
+
+		It("Should perform series multiplication", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "series_mul",
+						Inputs: types.Params{},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+						Body: ir.Body{Raw: `{
+							s series f64 := [2.0, 3.0, 4.0]
+							t series f64 := s * 10.0
+							return t[0]
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "series_mul", Type: "series_mul"},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("series_mul"),
+				State:  s.Node("series_mul"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("series_mul").Output(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			vals := telem.UnmarshalSeries[float64](result)
+			Expect(vals[0]).To(Equal(float64(20.0))) // t[0] = 2.0 * 10.0 = 20.0
+		})
+
+		It("Should perform series division", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "series_div",
+						Inputs: types.Params{},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+						Body: ir.Body{Raw: `{
+							s series f64 := [100.0, 200.0, 300.0]
+							t series f64 := s / 10.0
+							return t[2]
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "series_div", Type: "series_div"},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("series_div"),
+				State:  s.Node("series_div"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("series_div").Output(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			vals := telem.UnmarshalSeries[float64](result)
+			Expect(vals[0]).To(Equal(float64(30.0))) // t[2] = 300.0 / 10.0 = 30.0
+		})
+
+		It("Should handle integer series", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "int_series",
+						Inputs: types.Params{},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
+						},
+						Body: ir.Body{Raw: `{
+							s series i32 := [i32(10), i32(20), i32(30)]
+							t series i32 := s + i32(5)
+							return t[1]
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "int_series", Type: "int_series"},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("int_series"),
+				State:  s.Node("int_series"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("int_series").Output(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			vals := telem.UnmarshalSeries[int32](result)
+			Expect(vals[0]).To(Equal(int32(25))) // t[1] = 20 + 5 = 25
+		})
+
+		It("Should persist stateful series variables across calls", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "series_state",
+						Inputs: types.Params{},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+						Body: ir.Body{Raw: `{
+							history series f64 $= [0.0]
+							return history[0]
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "series_state", Type: "series_state"},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("series_state"),
+				State:  s.Node("series_state"),
+				Module: mod,
+			}))
+
+			// First call - should return 0.0 (initial value)
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			result := *s.Node("series_state").Output(0)
+			vals := telem.UnmarshalSeries[float64](result)
+			Expect(vals[0]).To(Equal(float64(0.0)))
+
+			// Second call - state should persist, still return 0.0
+			changed = make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			result = *s.Node("series_state").Output(0)
+			vals = telem.UnmarshalSeries[float64](result)
+			Expect(vals[0]).To(Equal(float64(0.0)))
+		})
+	})
 })
