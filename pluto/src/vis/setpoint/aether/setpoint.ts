@@ -15,8 +15,6 @@ import { telem } from "@/telem/aether";
 import { type diagram } from "@/vis/diagram/aether";
 
 export const stateZ = z.object({
-  trigger: z.number(),
-  command: z.number().optional(),
   value: z.number(),
   sink: telem.numberSinkSpecZ.default(telem.noopNumericSinkSpec),
   source: telem.numberSourceSpecZ.default(telem.noopNumericSourceSpec),
@@ -24,45 +22,47 @@ export const stateZ = z.object({
 
 export type SetpointState = z.input<typeof stateZ>;
 
+export const methodsZ = {
+  set: z.function({ input: z.tuple([z.number()]), output: z.void() }),
+};
+
 interface InternalState {
   source: telem.NumberSource;
   sink: telem.NumberSink;
   stopListening: destructor.Destructor;
-  prevTrigger: number;
 }
 
-// Setpoint is a component that acts as a switch, commanding a boolean telemetry sink to
-// change its value when clicked. It also listens to a boolean telemetry source to
+// Setpoint is a component that acts as a switch, commanding a numeric telemetry sink to
+// change its value when triggered. It also listens to a numeric telemetry source to
 // update its setpoint state.
 export class Setpoint
-  extends aether.Leaf<typeof stateZ, InternalState>
-  implements diagram.Element
+  extends aether.Leaf<typeof stateZ, InternalState, typeof methodsZ>
+  implements diagram.Element, aether.HandlersFromSchema<typeof methodsZ>
 {
   static readonly TYPE = "Setpoint";
+  static readonly METHODS = methodsZ;
 
   schema = stateZ;
+  methods = methodsZ;
 
   afterUpdate(ctx: aether.Context): void {
-    const { sink: sinkProps, source: sourceProps, trigger, command } = this.state;
+    const { sink: sinkProps, source: sourceProps } = this.state;
     const { internal: i } = this;
-    i.prevTrigger ??= trigger;
-    this.internal.source = telem.useSource(ctx, sourceProps, this.internal.source);
+    i.source = telem.useSource(ctx, sourceProps, i.source);
     i.sink = telem.useSink(ctx, sinkProps, i.sink);
-
-    const prevTrigger = i.prevTrigger;
-    i.prevTrigger = trigger;
-
-    if (trigger > prevTrigger && command != null) this.internal.sink.set(command);
-
     this.updateValue();
     i.stopListening?.();
     i.stopListening = i.source.onChange(() => this.updateValue());
   }
 
+  set(value: number): void {
+    this.internal.sink.set(value);
+  }
+
   private updateValue(): void {
     const nextValue = this.internal.source.value();
     if (nextValue === this.state.value || isNaN(nextValue)) return;
-    this.setState((p) => ({ ...p, value: nextValue, triggered: false }));
+    this.setState((p) => ({ ...p, value: nextValue }));
   }
 
   afterDelete(): void {
