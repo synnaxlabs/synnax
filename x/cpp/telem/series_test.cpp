@@ -15,7 +15,7 @@
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
-#include "x/go/telem/x/go/telem/telem.pb.h"
+#include "x/go/telem/telem.pb.h"
 
 template<typename T>
 class NumericSeriesTest : public ::testing::Test {
@@ -496,6 +496,7 @@ TEST(TestSeries, testDeepCopy) {
     s1.write(1);
     s1.write(2);
     s1.write(3);
+    s1.alignment = telem::Alignment(5, 10);
 
     const telem::Series s2 = s1.deep_copy();
     ASSERT_EQ(s2.size(), 3);
@@ -505,11 +506,13 @@ TEST(TestSeries, testDeepCopy) {
     ASSERT_EQ(s2.data_type(), telem::UINT32_T);
     ASSERT_EQ(s2.byte_size(), s1.byte_size());
     ASSERT_EQ(s2.cap(), s1.cap());
+    ASSERT_EQ(s2.alignment.uint64(), s1.alignment.uint64());
 }
 
 /// @brief it should deep copy a variable data type series.
 TEST(TestSeries, testDeepCopyVariableDataType) {
-    const telem::Series s1{std::vector<std::string>{"hello", "world", "test"}};
+    telem::Series s1{std::vector<std::string>{"hello", "world", "test"}};
+    s1.alignment = telem::Alignment(7, 42);
     ASSERT_EQ(s1.size(), 3);
     const telem::Series s2 = s1.deep_copy();
     ASSERT_EQ(s2.size(), 3);
@@ -519,6 +522,24 @@ TEST(TestSeries, testDeepCopyVariableDataType) {
     ASSERT_EQ(s2.data_type(), telem::STRING_T);
     ASSERT_EQ(s2.byte_size(), s1.byte_size());
     ASSERT_EQ(s2.cap(), s1.cap());
+    ASSERT_EQ(s2.alignment.uint64(), s1.alignment.uint64());
+}
+
+/// @brief it should preserve alignment when moving a series.
+TEST(TestSeries, testMovePreservesAlignment) {
+    telem::Series s1{telem::UINT32_T, 3};
+    s1.write(1);
+    s1.write(2);
+    s1.write(3);
+    s1.alignment = telem::Alignment(5, 10);
+
+    telem::Series s2 = std::move(s1);
+    ASSERT_EQ(s2.size(), 3);
+    ASSERT_EQ(s2.at<std::uint32_t>(0), 1);
+    ASSERT_EQ(s2.at<std::uint32_t>(1), 2);
+    ASSERT_EQ(s2.at<std::uint32_t>(2), 3);
+    ASSERT_EQ(s2.data_type(), telem::UINT32_T);
+    ASSERT_EQ(s2.alignment.uint64(), telem::Alignment(5, 10).uint64());
 }
 
 /// @brief it should generate evenly spaced timestamps.
@@ -1046,4 +1067,171 @@ TEST(TestSeries, testFillFromMultipleReads) {
     expected.insert(expected.end(), source_data1.begin(), source_data1.end());
     expected.insert(expected.end(), source_data2.begin(), source_data2.end());
     ASSERT_EQ(values, expected);
+}
+
+TEST(TestSeries, testResizeGrow) {
+    telem::Series s(telem::FLOAT32_T, 10);
+    s.write(1.0f);
+    s.write(2.0f);
+    ASSERT_EQ(s.size(), 2);
+
+    s.resize(5);
+    ASSERT_EQ(s.size(), 5);
+    ASSERT_EQ(s.cap(), 10);
+    ASSERT_EQ(s.at<float>(0), 1.0f);
+    ASSERT_EQ(s.at<float>(1), 2.0f);
+}
+
+TEST(TestSeries, testResizeShrink) {
+    telem::Series s(telem::INT32_T, 10);
+    for (int i = 0; i < 5; i++) {
+        s.write(i);
+    }
+    ASSERT_EQ(s.size(), 5);
+
+    s.resize(2);
+    ASSERT_EQ(s.size(), 2);
+    ASSERT_EQ(s.cap(), 10);
+    ASSERT_EQ(s.at<int32_t>(0), 0);
+    ASSERT_EQ(s.at<int32_t>(1), 1);
+}
+
+TEST(TestSeries, testResizeNoOp) {
+    telem::Series s(telem::UINT64_T, 10);
+    for (int i = 0; i < 5; i++) {
+        s.write(static_cast<uint64_t>(i));
+    }
+
+    s.resize(5);
+    ASSERT_EQ(s.size(), 5);
+    ASSERT_EQ(s.cap(), 10);
+}
+
+TEST(TestSeries, testResizeExceedsCapacity) {
+    telem::Series s(telem::FLOAT64_T, 5);
+    s.write(1.0);
+    s.write(2.0);
+    ASSERT_EQ(s.size(), 2);
+    ASSERT_EQ(s.cap(), 5);
+
+    s.resize(10);
+    ASSERT_EQ(s.size(), 10);
+    ASSERT_EQ(s.cap(), 10);
+    ASSERT_EQ(s.at<double>(0), 1.0);
+    ASSERT_EQ(s.at<double>(1), 2.0);
+}
+
+TEST(TestSeries, testResizeVariableType) {
+    telem::Series s(std::vector<std::string>{"hello", "world"});
+
+    ASSERT_THROW(s.resize(1), std::runtime_error);
+}
+
+TEST(TestSeries, testResizeToZero) {
+    telem::Series s(telem::INT16_T, 10);
+    s.write(static_cast<int16_t>(1));
+    s.write(static_cast<int16_t>(2));
+
+    s.resize(0);
+    ASSERT_EQ(s.size(), 0);
+    ASSERT_TRUE(s.empty());
+}
+
+/// @brief it should correctly set a SampleValue at an index for numeric types
+TEST(TestSeries, testSetSampleValueF32) {
+    telem::Series s(telem::FLOAT32_T, 5);
+    s.write(1.0f);
+    s.write(2.0f);
+    s.write(3.0f);
+    s.write(4.0f);
+    s.write(5.0f);
+
+    // Test setting with different numeric types in SampleValue
+    telem::SampleValue val_double = 42.5f;
+    s.set(0, val_double);
+    ASSERT_EQ(s.at<float>(0), 42.5f);
+}
+
+/// @brief it should correctly set a SampleValue at a negative index
+TEST(TestSeries, testSetSampleValueNegativeIndex) {
+    telem::Series s(telem::INT32_T, 5);
+    for (int i = 1; i <= 5; i++)
+        s.write(i);
+
+    telem::SampleValue val = 999;
+    s.set(-1, val);
+    ASSERT_EQ(s.at<int32_t>(4), 999);
+
+    s.set(-3, val);
+    ASSERT_EQ(s.at<int32_t>(2), 999);
+}
+
+/// @brief it should correctly set a TimeStamp SampleValue
+TEST(TestSeries, testSetSampleValueTimestamp) {
+    telem::Series s(telem::TIMESTAMP_T, 3);
+    s.write(telem::TimeStamp(100));
+    s.write(telem::TimeStamp(200));
+    s.write(telem::TimeStamp(300));
+
+    telem::SampleValue val = telem::TimeStamp(9999);
+    s.set(1, val);
+    ASSERT_EQ(s.at<telem::TimeStamp>(1).nanoseconds(), 9999);
+}
+
+/// @brief it should throw an error when setting SampleValue on variable-size series
+TEST(TestSeries, testSetSampleValueVariableError) {
+    telem::Series s(std::vector<std::string>{"hello", "world"});
+
+    telem::SampleValue val = std::string("test");
+    ASSERT_THROW(s.set(0, val), std::runtime_error);
+}
+
+/// @brief it should throw an error when setting string SampleValue on non-string series
+TEST(TestSeries, testSetSampleValueStringError) {
+    telem::Series s(telem::INT32_T, 3);
+    s.write(1);
+    s.write(2);
+    s.write(3);
+
+    telem::SampleValue val = std::string("test");
+    ASSERT_THROW(s.set(0, val), std::runtime_error);
+}
+
+/// @brief it should throw an error when index is out of bounds
+TEST(TestSeries, testSetSampleValueOutOfBounds) {
+    telem::Series s(telem::UINT32_T, 3);
+    s.write(1u);
+    s.write(2u);
+    s.write(3u);
+
+    telem::SampleValue val = 999u;
+    ASSERT_THROW(s.set(5, val), std::runtime_error);
+    ASSERT_THROW(s.set(-10, val), std::runtime_error);
+}
+
+/// @brief it should work with all numeric data types
+TEST(TestSeries, testSetSampleValueAllNumericTypes) {
+    // Test uint8_t
+    telem::Series s_uint8(telem::UINT8_T, 3);
+    for (uint8_t i = 1; i <= 3; i++)
+        s_uint8.write(i);
+    telem::SampleValue val_uint8 = static_cast<uint8_t>(99);
+    s_uint8.set(1, val_uint8);
+    ASSERT_EQ(s_uint8.at<uint8_t>(1), 99);
+
+    // Test int64_t
+    telem::Series s_int64(telem::INT64_T, 3);
+    for (int64_t i = 1; i <= 3; i++)
+        s_int64.write(i);
+    telem::SampleValue val_int64 = static_cast<int64_t>(123456789);
+    s_int64.set(2, val_int64);
+    ASSERT_EQ(s_int64.at<int64_t>(2), 123456789);
+
+    // Test float64
+    telem::Series s_float64(telem::FLOAT64_T, 3);
+    for (int i = 1; i <= 3; i++)
+        s_float64.write(static_cast<double>(i));
+    telem::SampleValue val_float64 = 3.14159;
+    s_float64.set(0, val_float64);
+    ASSERT_DOUBLE_EQ(s_float64.at<double>(0), 3.14159);
 }

@@ -1,0 +1,46 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+syntax = "proto3";
+
+package arc.v1.types;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/synnaxlabs/arc/types";
+
+enum PBKind {
+  PB_KIND_UNSPECIFIED = 0;
+  PB_KIND_U8 = 1;
+  PB_KIND_U16 = 2;
+  PB_KIND_U32 = 3;
+  PB_KIND_U64 = 4;
+  PB_KIND_I8 = 5;
+  PB_KIND_I16 = 6;
+  PB_KIND_I32 = 7;
+  PB_KIND_I64 = 8;
+  PB_KIND_F32 = 9;
+  PB_KIND_F64 = 10;
+  PB_KIND_STRING = 11;
+  PB_KIND_TIMESTAMP = 12;
+  PB_KIND_TIMESPAN = 13;
+  PB_KIND_CHAN = 14;
+  PB_KIND_SERIES = 15;
+}
+
+message PBType {
+  PBKind kind = 1;
+  PBType elem = 2;
+}
+
+message PBParam {
+  string name = 1;
+  PBType type = 2;
+  google.protobuf.Value value = 3;
+}

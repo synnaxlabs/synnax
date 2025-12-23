@@ -1,0 +1,20 @@
+cc_library(
+    name = "types",
+    srcs = ["types.cpp"],
+    hdrs = ["types.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/go/types:types_grpc",
+        "//x/cpp/telem",
+    ],
+)
+
+cc_test(
+    name = "types_test",
+    srcs = ["types_test.cpp"],
+    deps = [
+        ":types",
+        "//arc/go/types:types_grpc",
+        "@googletest//:gtest_main",
+    ],
+)

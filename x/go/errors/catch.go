@@ -31,9 +31,6 @@ func (c *Catcher) Exec(ca func() error) {
 	}
 }
 
-// Reset resets the Catcher so it becomes error free.
-func (c *Catcher) Reset() { c.errors = []error{} }
-
 // Error returns the most recent error caught.
 func (c *Catcher) Error() error {
 	if len(c.Errors()) == 0 {
