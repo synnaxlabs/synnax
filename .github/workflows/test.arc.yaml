@@ -44,6 +44,9 @@ on:
       - x/go/**
   workflow_dispatch:
 
+env:
+  BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+
 jobs:
   test-go:
     name: Test Go (${{ matrix.os }})
@@ -165,5 +168,9 @@ jobs:
         run: scripts/check_clang_format.sh arc/cpp
 
       - name: Test
-        run: bazel test --config=asan-leak --test_output=all //arc/cpp/...
-        shell: bash
+        run: |
+          bazel test --config=asan-leak --test_output=all //arc/cpp/... \
+            --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} \
+            --test_env=LSAN_OPTIONS="suppressions=${{ github.workspace }}/scripts/sanitizers/lsan_suppressions.txt" \
+            --spawn_strategy=local \
+            --jobs=1
