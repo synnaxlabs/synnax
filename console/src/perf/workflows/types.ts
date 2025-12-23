@@ -13,26 +13,11 @@ import { type Synnax } from "@synnaxlabs/client";
 import { type Layout } from "@/layout";
 import { type RootStore } from "@/store";
 
-/**
- * Workflow type identifier. Extensible string type - new workflows can define
- * their own types without modifying this file.
- *
- * Built-in types:
- * - "createLinePlot" - Creates a new line plot
- * - "addChannelsToPlot" - Adds channels to existing plot
- * - "panZoomPlot" - Simulates pan/zoom interactions
- * - "createSchematic" - Creates a new schematic
- * - "closePlot" - Closes the most recent plot
- */
 export type WorkflowType = string & { readonly __brand?: "WorkflowType" };
 
-/** Built-in workflow types for type-safe access to known workflows. */
 export const BUILTIN_WORKFLOW_TYPES = {
-  createLinePlot: "createLinePlot" as WorkflowType,
-  addChannelsToPlot: "addChannelsToPlot" as WorkflowType,
-  panZoomPlot: "panZoomPlot" as WorkflowType,
-  createSchematic: "createSchematic" as WorkflowType,
-  closePlot: "closePlot" as WorkflowType,
+  linePlot: "linePlot" as WorkflowType,
+  schematic: "schematic" as WorkflowType,
 } as const;
 
 /** Context provided to workflow steps for execution. */
@@ -73,16 +58,11 @@ export interface WorkflowConfig {
   delayBetweenWorkflowsMs: number;
 }
 
-/** Default workflow configuration. */
 export const DEFAULT_WORKFLOW_CONFIG: WorkflowConfig = {
-  workflows: [
-    BUILTIN_WORKFLOW_TYPES.createLinePlot,
-    BUILTIN_WORKFLOW_TYPES.addChannelsToPlot,
-    BUILTIN_WORKFLOW_TYPES.panZoomPlot,
-  ],
-  iterations: -1,
-  delayBetweenIterationsMs: 5000,
-  delayBetweenWorkflowsMs: 2000,
+  workflows: [BUILTIN_WORKFLOW_TYPES.linePlot, BUILTIN_WORKFLOW_TYPES.schematic],
+  iterations: 1,
+  delayBetweenIterationsMs: 2000,
+  delayBetweenWorkflowsMs: 1000,
 };
 
 /** Result of executing a single workflow. */
