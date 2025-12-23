@@ -77,7 +77,8 @@ genrule(
             cmake --build . --config Release
             mkdir -p $(GENDIR)/vendor/wasmtime/lib
             mkdir -p $(GENDIR)/vendor/wasmtime/include
-            cp $(shell rustc -vV | grep 'host:' | cut -d' ' -f2)/release/wasmtime.lib $(GENDIR)/vendor/wasmtime/lib/ || \
+            HOST_TARGET=$$(rustc -vV | grep 'host:' | cut -d' ' -f2)
+            cp "$$HOST_TARGET/release/wasmtime.lib" $(GENDIR)/vendor/wasmtime/lib/ || \
                 touch $(GENDIR)/vendor/wasmtime/lib/wasmtime.lib
             cp ../include/*.h $(GENDIR)/vendor/wasmtime/include/
             cp ../include/*.hh $(GENDIR)/vendor/wasmtime/include/
