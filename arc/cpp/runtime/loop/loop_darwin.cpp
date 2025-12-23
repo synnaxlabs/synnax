@@ -377,9 +377,7 @@ std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {
             break;
     }
 
-    if (auto err = loop->start(); err) {
-        return {nullptr, err};
-    }
+    if (auto err = loop->start(); err) { return {nullptr, err}; }
     return {std::move(loop), xerrors::NIL};
 }
 

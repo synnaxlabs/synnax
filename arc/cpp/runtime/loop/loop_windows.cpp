@@ -118,7 +118,9 @@ public:
             const int64_t interval_100ns = config_.interval.nanoseconds() / 100;
             due_time.QuadPart = -interval_100ns; // Negative = relative
 
-            const LONG period_ms = static_cast<LONG>(config_.interval.nanoseconds() / 1'000'000);
+            const LONG period_ms = static_cast<LONG>(
+                config_.interval.nanoseconds() / 1'000'000
+            );
 
             if (!SetWaitableTimer(
                     timer_event_,
@@ -149,7 +151,8 @@ public:
         // Apply thread priority and affinity
         if (config_.rt_priority > 0) {
             if (auto err = set_thread_priority(config_.rt_priority); err) {
-                LOG(WARNING) << "[loop] Failed to set thread priority: " << err.message();
+                LOG(WARNING) << "[loop] Failed to set thread priority: "
+                             << err.message();
             }
         }
 
@@ -263,7 +266,9 @@ private:
     /// @brief Hybrid mode - spin briefly, then block on events.
     void hybrid_wait(breaker::Breaker &breaker) {
         const auto spin_start = std::chrono::steady_clock::now();
-        const auto spin_duration = std::chrono::nanoseconds(config_.spin_duration.nanoseconds());
+        const auto spin_duration = std::chrono::nanoseconds(
+            config_.spin_duration.nanoseconds()
+        );
 
         HANDLE handles[2];
         DWORD count = 1;
@@ -355,9 +360,7 @@ private:
 
 std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {
     auto loop = std::make_unique<WindowsLoop>(cfg);
-    if (auto err = loop->start(); err) {
-        return {nullptr, err};
-    }
+    if (auto err = loop->start(); err) { return {nullptr, err}; }
     return {std::move(loop), xerrors::NIL};
 }
 }

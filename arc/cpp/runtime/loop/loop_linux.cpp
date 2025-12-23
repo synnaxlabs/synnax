@@ -264,7 +264,9 @@ private:
     /// @brief Hybrid mode - spin briefly, then block on epoll.
     void hybrid_wait(breaker::Breaker &breaker) {
         const auto spin_start = std::chrono::steady_clock::now();
-        const auto spin_duration = std::chrono::nanoseconds(config_.spin_duration.nanoseconds());
+        const auto spin_duration = std::chrono::nanoseconds(
+            config_.spin_duration.nanoseconds()
+        );
 
         struct epoll_event events[2];
 
@@ -354,9 +356,7 @@ private:
 
 std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {
     auto loop = std::make_unique<LinuxLoop>(cfg);
-    if (auto err = loop->start(); err) {
-        return {nullptr, err};
-    }
+    if (auto err = loop->start(); err) { return {nullptr, err}; }
     return {std::move(loop), xerrors::NIL};
 }
 }
