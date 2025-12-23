@@ -96,7 +96,9 @@ jobs:
 
   test-cpp:
     name: Test C++ (${{ matrix.os }})
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.base_ref == 'main'
+    if:
+      github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' ||
+      github.base_ref == 'main'
     strategy:
       fail-fast: false
       matrix:
