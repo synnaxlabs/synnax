@@ -9,6 +9,7 @@
 
 export * from "@/perf/hooks/useCapturedValues";
 export * from "@/perf/hooks/useCollectors";
+export * from "@/perf/hooks/useElapsedSeconds";
 export * from "@/perf/hooks/useProfilingAnalyzers";
 export * from "@/perf/hooks/useProfilingRange";
 export * from "@/perf/hooks/useProfilingSession";

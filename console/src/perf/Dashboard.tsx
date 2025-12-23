@@ -16,11 +16,11 @@ import { useDispatch } from "react-redux";
 import { type Layout } from "@/layout";
 import { MetricSections } from "@/perf/components/MetricSections";
 import { useCollectors } from "@/perf/hooks/useCollectors";
+import { useElapsedSeconds } from "@/perf/hooks/useElapsedSeconds";
 import { useProfilingSession } from "@/perf/hooks/useProfilingSession";
 import { ZERO_AGGREGATES } from "@/perf/metrics/buffer";
 import {
   useSelectCpuReport,
-  useSelectElapsedSeconds,
   useSelectFpsReport,
   useSelectGpuReport,
   useSelectLeakReport,
@@ -33,13 +33,12 @@ import { formatTime } from "@/perf/utils/formatting";
 export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElement => {
   const dispatch = useDispatch();
   const status = useSelectStatus();
-  const elapsedSeconds = useSelectElapsedSeconds();
+  const elapsedSeconds = useElapsedSeconds();
   const leakReport = useSelectLeakReport();
   const fpsReport = useSelectFpsReport();
   const cpuReport = useSelectCpuReport();
   const gpuReport = useSelectGpuReport();
 
-  // Grouping mode: "time" (Live, Changes) or "type" (Live, Delta, Stats)
   const [groupByType, setGroupByType] = useState(true);
 
   // Track current status for cleanup on unmount

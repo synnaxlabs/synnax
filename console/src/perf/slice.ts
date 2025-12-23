@@ -113,15 +113,24 @@ export const { actions, reducer } = createSlice({
     },
 
     stop: (state) => {
-      if (state.status === "running") state.status = "paused";
+      if (state.status === "running") {
+        state.status = "paused";
+        state.endTime = performance.now();
+      }
     },
 
     pause: (state) => {
-      if (state.status === "running") state.status = "paused";
+      if (state.status === "running") {
+        state.status = "paused";
+        state.endTime = performance.now();
+      }
     },
 
     resume: (state) => {
-      if (state.status === "paused") state.status = "running";
+      if (state.status === "paused") {
+        state.endTime = null;
+        state.status = "running";
+      }
     },
 
     addWorkflowResult: (state, { payload }: PayloadAction<AddWorkflowResultPayload>) => {

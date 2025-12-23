@@ -91,9 +91,7 @@ const ZERO_LIVE_METRICS: LiveMetrics = {
 };
 
 export interface UseCollectorsOptions {
-  /** Current profiling status - determines when to record samples */
   status: HarnessStatus;
-  /** Callback invoked when a sample is collected during "running" status */
   onSample?: (sample: MetricSample, sampleBuffer: SampleBuffer) => void;
 }
 

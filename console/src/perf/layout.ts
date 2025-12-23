@@ -19,5 +19,6 @@ export const create = (
   name: "Console Monitor",
   icon: "Units.Pressure",
   location: "mosaic",
+  tab: { location: "left" },
   ...overrides,
 });
