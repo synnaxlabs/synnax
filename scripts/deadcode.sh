@@ -13,11 +13,9 @@ done
 echo "deadcode -test -tags=driver $package_paths"
 
 # Run deadcode once for all packages
-output=$(deadcode -test -tags=driver $package_paths 2>&1)
+output="$(deadcode -test -tags=driver $package_paths 2>&1 || true)"
+printf '%s\n' "$output"
 
-if [ -n "$output" ]; then
-    echo "$output"
-    exit 1
-else
-    exit 0
+if [[ -n "$output" ]]; then
+  exit 1
 fi
