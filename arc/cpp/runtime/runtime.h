@@ -92,7 +92,8 @@ public:
                 this->state->ingest(frame);
                 const auto elapsed = telem::TimeStamp::now() - this->start_time;
                 this->scheduler->next(elapsed);
-                LOG(INFO) << "[arc] cycle t=" << elapsed.nanoseconds() / 1000000 << "ms";
+                LOG(INFO) << "[arc] cycle t=" << elapsed.nanoseconds() / 1000000
+                          << "ms";
                 this->state->clear_reads();
                 results.push_back(elapsed);
                 if (auto writes = this->state->flush_writes(); !writes.empty()) {
