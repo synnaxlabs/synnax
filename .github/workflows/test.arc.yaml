@@ -96,17 +96,11 @@ jobs:
 
   test-cpp:
     name: Test C++ (${{ matrix.os }})
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.base_ref == 'main'
     strategy:
       fail-fast: false
       matrix:
         os: [macos-latest, windows-latest]
-        exclude:
-          - os:
-              ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
-              'refs/heads/main' && github.base_ref != 'main') && 'macos-latest' }}
-          - os:
-              ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
-              'refs/heads/main' && github.base_ref != 'main') && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
