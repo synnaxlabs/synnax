@@ -102,6 +102,10 @@ Saving profiling metrics to synnax (either as KV metadata or independent channel
 - `hooks/useProfilingSession.ts` - Orchestrates session lifecycle (start/pause/resume/stop)
 - `hooks/useProfilingRange.ts` - Creates Synnax ranges, adds labels based on severity
 - `hooks/useMacroExecution.ts` - Manages macro execution state and runner lifecycle
+- `hooks/useCapturedValues.ts` - Tracks initial/final metric values for delta analysis
+- `hooks/useProfilingAnalyzers.ts` - Composes all analyzers into single analysis function
+- `hooks/useElapsedSeconds.ts` - Tracks elapsed profiling time with pause support
+
 
 ## Command Palette Integration
 
@@ -192,6 +196,9 @@ This tool should be hidden in production.
 - LinePlot and Schematic macros are example implementations demonstrating the pattern
 - Context provides: store, dispatch, placer, client, createdLayoutKeys
 
+**Examples:**
+1. **linePlot** (`macros/lineplot.ts`) - Creates a line plot, snaps to right, adds channels, then closes.
+2. **schematic** (`macros/schematic.ts`) - Creates a schematic, snaps to right, adds symbols, aligns/distributes, then closes.
 **MacroConfig:**
 ```typescript
 interface MacroConfig {
@@ -230,32 +237,6 @@ interface MacroStep {
 - `createdLayoutKeys` - Track layouts for cleanup
 - `availableChannelKeys` - Channels to use
 
-## Example Macros
-
-1. **linePlot** (`macros/lineplot.ts`) - Creates a line plot, snaps to right, adds channels, then closes.
-2. **schematic** (`macros/schematic.ts`) - Creates a schematic, snaps to right, adds symbols, aligns/distributes, then closes.
-
-## Adding New Macros
-
-Register macros in their own file using `registerMacro()`:
-
-```typescript
-registerMacro({
-  type: "myMacro",
-  name: "My Macro",
-  description: "Does something",
-  category: "general",
-  factory: () => [
-    {
-      name: "Step 1",
-      execute: async (ctx) => {
-        ctx.placer(Layout.create({ ... }));
-      },
-      delayAfterMs: 500,
-    },
-  ],
-});
-```
 
 
 ## Macro Execution Flow
@@ -281,7 +262,108 @@ Dashboard.tsx
                     └── Progress updates via onMacroComplete callback
 ```
 
-- **Registry pattern**: Macros self-register via `registerMacro()`
-- **Defined macros**: `linePlot`, `schematic` (example implementations)
-- **MacroContext**: Provides `store`, `dispatch`, `placer`, `client`
-- **Future work**: Add more macro examples for other Console features
+## Profiler Implementation Patterns
+
+### Circular Dependency Resolution (Dashboard.tsx)
+
+The Dashboard has a circular dependency between hooks:
+1. `useCollectors` needs `onSample` callback to report collected samples
+2. `useProfilingSession` needs `collectors` and `sampleBuffer` from `useCollectors`
+3. `useProfilingSession` returns `handleSample` which IS the `onSample` callback
+
+**Solution: Ref + Stable Wrapper Pattern**
+```typescript
+// 1. Create ref to hold the eventual function
+const handleSampleRef = useRef<HandleSampleFn | undefined>(undefined);
+
+// 2. Create stable wrapper that delegates to ref (empty deps = stable identity)
+const onSample = useCallback(
+  (sample, buffer) => handleSampleRef.current?.(sample, buffer),
+  [],
+);
+
+// 3. Pass stable wrapper to useCollectors
+const { collectors, sampleBuffer } = useCollectors({ status, onSample });
+
+// 4. Get real function from useProfilingSession
+const { handleSample } = useProfilingSession({ collectors, sampleBuffer });
+
+// 5. Update ref synchronously during render
+handleSampleRef.current = handleSample;
+```
+
+This works because:
+- The wrapper's identity is stable (empty deps), so `useCollectors` doesn't re-run
+- The ref is updated synchronously during render, before any effects run
+- When `useCollectors` calls `onSample`, it will use the latest `handleSample`
+
+### Status Ref Optimization (useCollectors.ts)
+
+To avoid recreating collectors on every status change, `useCollectors` uses a ref pattern:
+
+```typescript
+// Store status in ref to avoid recreating collectors
+const statusRef = useRef(status);
+statusRef.current = status;
+
+useEffect(() => {
+  // Collectors created once on mount
+  const c = collectorsRef.current;
+  c.cpu = new CpuCollector();
+  // ...
+
+  const updateInterval = setInterval(() => {
+    // Read from ref instead of closure
+    if (statusRef.current === "running") {
+      sampleBufferRef.current.push(sample);
+    }
+  }, SAMPLE_INTERVAL_MS);
+
+  return () => clearInterval(updateInterval);
+}, [collectSample]); // status NOT in deps
+```
+
+### Async Cleanup (useProfilingRange.ts)
+
+Async operations use an AbortController to prevent state updates after unmount:
+
+```typescript
+const abortRef = useRef<AbortController | null>(null);
+
+useEffect(() => {
+  abortRef.current = new AbortController();
+  return () => abortRef.current?.abort();
+}, []);
+
+const createRange = useCallback(() => {
+  const create = async () => {
+    // ... async operations
+  };
+
+  create().catch((error: Error) => {
+    // Skip error logging if component unmounted
+    if (abortRef.current?.signal.aborted) return;
+    console.error("Failed to create profiling range:", error);
+  });
+}, [client, dispatch, getRangeName]);
+```
+
+The abort check is placed only in catch handlers to minimize boilerplate while still preventing console noise from expected unmount errors.
+
+### Macro Execution Error Handling (useMacroExecution.ts)
+
+The macro runner uses proper promise handling with `.catch()` and `.finally()`:
+
+```typescript
+void runner
+  .run()
+  .catch((e) => console.error("Macro runner error:", e))
+  .finally(() => {
+    setState((prev) =>
+      prev.status === "running"
+        ? { ...prev, status: "idle", progress: ZERO_EXECUTION_STATE.progress }
+        : prev,
+    );
+    runnerRef.current = null;
+  });
+```
