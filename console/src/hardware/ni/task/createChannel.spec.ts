@@ -28,6 +28,7 @@ describe("createChannel", () => {
         key: expect.any(String),
         line: 0,
         port: 0,
+        name: "",
         type: "digital_input",
         enabled: true,
       });
@@ -56,6 +57,8 @@ describe("createChannel", () => {
         key: expect.any(String),
         line: 0,
         port: 0,
+        cmdChannelName: "",
+        stateChannelName: "",
         type: "digital_output",
         enabled: true,
       });

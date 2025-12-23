@@ -25,6 +25,7 @@ interface ListItemProps<C extends DigitalChannel> extends Omit<
 
 export type DigitalNameComponentProps<C extends DigitalChannel> = Omit<C, "key"> & {
   itemKey: string;
+  path: string;
 };
 
 const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>) => {
@@ -68,7 +69,7 @@ const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>)
         </Text.Text>
       </Flex.Box>
       <Flex.Box x align="center" justify="evenly">
-        {name({ ...channel, itemKey: rest.itemKey })}
+        {name({ ...channel, itemKey: rest.itemKey, path })}
         <Common.Task.EnableDisableButton path={`${path}.enabled`} />
       </Flex.Box>
     </Select.ListItem>
