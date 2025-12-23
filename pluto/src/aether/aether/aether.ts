@@ -83,7 +83,7 @@ export interface Component {
    * @param create - A function that creates a new component of the appropriate type if
    * it doesn't exist in the tree.
    */
-  _updateState: (args: UpdateStateParams) => void;
+  _updateState: (params: UpdateStateParams) => void;
   /**
    * Propagates a context update to the children and all of its descendants.
    */
@@ -103,7 +103,7 @@ export interface Component {
    * @param key - The correlation ID for matching the response. If undefined,
    *              this is fire-and-forget and no response will be sent.
    * @param method - The name of the method to invoke.
-   * @param args - The arguments to pass to the method (spread when calling handler).
+   * @param params - The parameters to pass to the method (spread when calling handler).
    */
   _invokeMethod: (params: InvokeMethodParams) => void;
 }
@@ -193,10 +193,10 @@ export type EmptyMethodsSchema = Record<string, never>;
  */
 export type HandlersFromSchema<T> = {
   [K in keyof T]: T[K] extends z.ZodType<infer F>
-    ? F extends (...args: infer A) => infer R
+    ? F extends (...params: infer A) => infer R
       ? R extends Promise<unknown>
-        ? (...args: A) => R // Schema already specifies async, don't allow double-wrap
-        : (...args: A) => R | Promise<R> // Schema is sync, allow async implementation
+        ? (...params: A) => R // Schema already specifies async, don't allow double-wrap
+        : (...params: A) => R | Promise<R> // Schema is sync, allow async implementation
       : never
     : never;
 };
@@ -217,10 +217,10 @@ export const isFireAndForget = <F extends z.ZodFunction>(schema: F): boolean => 
  */
 export type CallersFromSchema<T> = {
   [K in keyof T]: T[K] extends z.ZodType<infer F>
-    ? F extends (...args: infer A) => infer R
+    ? F extends (...params: infer A) => infer R
       ? R extends void
-        ? (...args: A) => void
-        : (...args: A) => Promise<Awaited<R>> // Unwrap if already Promise to avoid double-wrap
+        ? (...params: A) => void
+        : (...params: A) => Promise<Awaited<R>> // Unwrap if already Promise to avoid double-wrap
       : never
     : never;
 };
