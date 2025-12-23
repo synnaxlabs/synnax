@@ -17,5 +17,5 @@ output="$(deadcode -test -tags=driver $package_paths 2>&1 || true)"
 printf '%s\n' "$output"
 
 if [[ -n "$output" ]]; then
-  exit 1
+    exit 1
 fi
