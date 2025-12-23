@@ -9,7 +9,7 @@
 
 export { SampleBuffer } from "@/perf/metrics/buffer";
 export { CpuCollector } from "@/perf/metrics/cpu";
-export { FrameRateCollector } from "@/perf/metrics/framerate";
+export { FpsCollector } from "@/perf/metrics/fps";
 export { HeapCollector } from "@/perf/metrics/heap";
 export { LongTaskCollector } from "@/perf/metrics/longtasks";
 export { NetworkCollector } from "@/perf/metrics/network";

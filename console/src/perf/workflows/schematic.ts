@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { registerWorkflow } from "@/perf/workflows/registry";
 import { type WorkflowContext, type WorkflowStep } from "@/perf/workflows/types";
 import { Schematic } from "@/schematic";
 
@@ -29,3 +30,11 @@ export const createSchematicWorkflow = (): WorkflowStep[] => [
     delayAfterMs: 500,
   },
 ];
+
+registerWorkflow({
+  type: "createSchematic",
+  name: "Create Schematic",
+  description: "Creates a new schematic diagram",
+  category: "schematic",
+  factory: createSchematicWorkflow,
+});

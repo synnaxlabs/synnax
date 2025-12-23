@@ -13,12 +13,12 @@ import { Flex, Icon, Text } from "@synnaxlabs/pluto";
 import { memo, type ReactElement, type ReactNode, useState } from "react";
 
 import { WithTooltip } from "@/perf/components/WithTooltip";
-import { type Status } from "@/perf/types";
+import { type DisplayStatus } from "@/perf/ui-types";
 
 interface SectionProps {
   title: string;
   secondaryText?: ReactNode;
-  secondaryStatus?: Status;
+  secondaryStatus?: DisplayStatus;
   secondaryTooltip?: string;
   defaultOpen?: boolean;
   children?: ReactNode;

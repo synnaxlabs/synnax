@@ -7,45 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { math } from "@synnaxlabs/x";
-
-import { type GpuReport, type Severity, ZERO_GPU_REPORT } from "@/perf/analyzer/types";
+import {
+  ResourceAnalyzer,
+  type ResourceContext,
+} from "@/perf/analyzer/resource-analyzer";
+import { type GpuReport } from "@/perf/analyzer/types";
 import { THRESHOLDS } from "@/perf/constants";
 
-export interface GpuContext {
-  startPercent: number | null;
-  endPercent: number | null;
-  avgPercent: number | null;
-  maxPercent: number | null;
-}
+export type GpuContext = ResourceContext;
 
-/**
- * Analyzes GPU usage during performance tests.
- */
-export class GpuAnalyzer {
-  analyze(ctx: GpuContext): GpuReport {
-    const effectiveMax = Math.max(ctx.maxPercent ?? 0, ctx.endPercent ?? 0);
+export class GpuAnalyzer extends ResourceAnalyzer {
+  constructor() {
+    super(THRESHOLDS.gpu, THRESHOLDS.gpuAvg);
+  }
 
-    // Peak severity: based on maximum GPU usage
-    let peakSeverity: Severity = "none";
-    if (effectiveMax > THRESHOLDS.gpu.error) peakSeverity = "error";
-    else if (effectiveMax > THRESHOLDS.gpu.warn) peakSeverity = "warning";
-
-    // Avg severity: based on average GPU usage
-    let avgSeverity: Severity = "none";
-    if (ctx.avgPercent != null) 
-      if (ctx.avgPercent > THRESHOLDS.gpuAvg.error) avgSeverity = "error";
-      else if (ctx.avgPercent > THRESHOLDS.gpuAvg.warn) avgSeverity = "warning";
-    
-
-    return {
-      ...ZERO_GPU_REPORT,
-      peakSeverity,
-      avgSeverity,
-      avgPercent: ctx.avgPercent != null ? math.roundTo(ctx.avgPercent) : null,
-      maxPercent: ctx.maxPercent != null ? math.roundTo(ctx.maxPercent) : null,
-      startPercent: ctx.startPercent != null ? math.roundTo(ctx.startPercent) : null,
-      endPercent: ctx.endPercent != null ? math.roundTo(ctx.endPercent) : null,
-    };
+  override analyze(ctx: GpuContext): GpuReport {
+    return super.analyze(ctx) as GpuReport;
   }
 }

@@ -7,11 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/**
- * Measures frame rate using requestAnimationFrame.
- * Calculates FPS by counting frames over a sliding window.
- */
-export class FrameRateCollector {
+export class FpsCollector {
   private frameCount = 0;
   private lastFPSUpdate = 0;
   private currentFPS = 0;

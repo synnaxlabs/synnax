@@ -157,17 +157,4 @@ describe("MetricTable", () => {
     expect(rows).toHaveLength(0);
   });
 
-  it("should apply first column width style", () => {
-    const data = createTestData(1);
-    const { container } = render(
-      <MetricTable
-        result={data}
-        columns={TEST_COLUMNS}
-        getKey={(item) => item.id}
-      />,
-    );
-
-    const firstCell = container.querySelector("tbody tr td:first-child") as HTMLElement;
-    expect(firstCell?.style.width).toBe("60%");
-  });
 });

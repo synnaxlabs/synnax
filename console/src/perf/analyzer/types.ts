@@ -15,6 +15,11 @@ export type Trend = "increasing" | "stable" | "decreasing";
 /** Severity level for analyzer reports. */
 export type Severity = "none" | "warning" | "error";
 
+export interface MetricSeverities {
+  peakSeverity: Severity;
+  avgSeverity: Severity;
+}
+
 /** Report on memory leak detection. */
 export interface LeakReport {
   severity: Severity;

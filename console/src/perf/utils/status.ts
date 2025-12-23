@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Status } from "@/perf/types";
+import { type DisplayStatus } from "@/perf/ui-types";
 
 /** Get status based on threshold. Use inverted=true when lower values are worse (e.g., FPS). */
 export const getThresholdStatus = (
@@ -15,7 +15,7 @@ export const getThresholdStatus = (
   warningThreshold: number,
   errorThreshold: number,
   inverted = false,
-): Status => {
+): DisplayStatus => {
   if (value == null) return undefined;
   const compare = inverted
     ? (v: number, t: number) => v < t

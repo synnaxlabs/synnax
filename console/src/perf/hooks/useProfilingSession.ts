@@ -19,23 +19,13 @@ import {
   ZERO_LEAK_REPORT,
 } from "@/perf/analyzer/types";
 import { useCapturedValues } from "@/perf/hooks/useCapturedValues";
+import { type CollectorsState } from "@/perf/hooks/useCollectors";
 import { useProfilingAnalyzers } from "@/perf/hooks/useProfilingAnalyzers";
 import { useProfilingRange } from "@/perf/hooks/useProfilingRange";
 import { type Aggregates, type SampleBuffer } from "@/perf/metrics/buffer";
 import { type MetricSample } from "@/perf/metrics/types";
 import * as Perf from "@/perf/slice";
 import { type HarnessStatus } from "@/perf/slice";
-
-/** Collector state interface matching useCollectors. */
-interface CollectorsState {
-  cpu: { getCpuPercent: () => number | null } | null;
-  gpu: { getGpuPercent: () => number | null } | null;
-  frameRate: { getCurrentFPS: () => number | null } | null;
-  heap: { getHeapUsedMB: () => number | null } | null;
-  longTask: unknown;
-  network: unknown;
-  console: unknown;
-}
 
 export interface UseProfilingSessionOptions {
   status: HarnessStatus;
@@ -80,7 +70,6 @@ export const useProfilingSession = ({
   // Store range data in refs so it survives the idle transition
   const rangeDataRef = useRef<{ key: string; startTime: number } | null>(null);
 
-  // Compose child hooks
   const { captured, captureInitial, captureFinal, reset: resetCaptured } = useCapturedValues();
   const { analyze } = useProfilingAnalyzers();
   const {
@@ -100,7 +89,7 @@ export const useProfilingSession = ({
         averages: { cpu: agg.avgCpu, fps: agg.avgFps, gpu: agg.avgGpu },
         peaks: {
           cpu: agg.maxCpu,
-          fps: agg.minFps, // Min FPS is worst performance
+          fps: agg.minFps,
           gpu: agg.maxGpu,
           heap: agg.maxHeap,
         },
@@ -190,7 +179,7 @@ export const useProfilingSession = ({
       resetEventCollectors();
       resetTableData();
 
-      const initialFPS = c?.frameRate?.getCurrentFPS() ?? null;
+      const initialFPS = c?.fps?.getCurrentFPS() ?? null;
       const initialCPU = c?.cpu?.getCpuPercent() ?? null;
       const initialGPU = c?.gpu?.getGpuPercent() ?? null;
       const initialHeap = c?.heap?.getHeapUsedMB() ?? null;
@@ -225,11 +214,6 @@ export const useProfilingSession = ({
       createRange();
     }
 
-    if (status === "running" && prevStatus === "running" && rangeKey == null) {
-      console.warn("[useProfilingSession] Range creation failed, retrying...");
-      createRange();
-    }
-
     // Capture range data into ref when it becomes available
     if (status === "running" && rangeKey != null && rangeStartTime != null) 
       rangeDataRef.current = { key: rangeKey, startTime: rangeStartTime };
@@ -242,7 +226,7 @@ export const useProfilingSession = ({
       captureFinal({
         sample: lastSample,
         fallback: {
-          fps: c?.frameRate?.getCurrentFPS() ?? null,
+          fps: c?.fps?.getCurrentFPS() ?? null,
           cpu: c?.cpu?.getCpuPercent() ?? null,
           gpu: c?.gpu?.getGpuPercent() ?? null,
           heap: c?.heap?.getHeapUsedMB() ?? null,

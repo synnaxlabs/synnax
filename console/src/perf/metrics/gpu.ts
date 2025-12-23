@@ -10,39 +10,18 @@
 import { runtime } from "@synnaxlabs/x";
 import { invoke } from "@tauri-apps/api/core";
 
-/**
- * Collects GPU usage metrics via Tauri's NVML integration.
- * Only available in Tauri environment on Windows/Linux with NVIDIA GPUs.
- * Returns null on macOS or when no compatible GPU is available.
- */
-export class GpuCollector {
-  private cachedGpuPercent: number | null = null;
-  private updateInterval: ReturnType<typeof setInterval> | null = null;
+import { PollingCollector } from "@/perf/metrics/polling-collector";
 
-  start(): void {
-    if (!runtime.IS_TAURI) return;
-
-    // Fetch immediately
-    void this.fetchTauriGpu();
-    // Then poll every second
-    this.updateInterval = setInterval(() => {
-      void this.fetchTauriGpu();
-    }, 1000);
+export class GpuCollector extends PollingCollector<number> {
+  protected isAvailable(): boolean {
+    return runtime.IS_TAURI;
   }
 
-  stop(): void {
-    if (this.updateInterval != null) {
-      clearInterval(this.updateInterval);
-      this.updateInterval = null;
-    }
-  }
-
-  private async fetchTauriGpu(): Promise<void> {
+  protected async fetchValue(): Promise<number | null> {
     try {
-      const percent = await invoke<number | null>("get_gpu_usage");
-      this.cachedGpuPercent = percent;
+      return await invoke<number | null>("get_gpu_usage");
     } catch {
-      this.cachedGpuPercent = null;
+      return null;
     }
   }
 
@@ -51,11 +30,6 @@ export class GpuCollector {
   }
 
   getGpuPercent(): number | null {
-    if (!runtime.IS_TAURI) return null;
-    return this.cachedGpuPercent;
-  }
-
-  reset(): void {
-    this.cachedGpuPercent = null;
+    return this.getValue();
   }
 }

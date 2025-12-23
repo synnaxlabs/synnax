@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useSelector } from "react-redux";
-
+import { useMemoSelect } from "@/hooks";
 import {
   type CpuReport,
   type FpsReport,
@@ -58,17 +57,18 @@ export const selectRangeKey = (state: RootState): string | null =>
 export const selectRangeStartTime = (state: RootState): number | null =>
   selectSlice(state).rangeStartTime;
 
-export const useSelectSlice = (): SliceState => useSelector(selectSlice);
-export const useSelectStatus = (): HarnessStatus => useSelector(selectStatus);
-export const useSelectIsRunning = (): boolean => useSelector(selectIsRunning);
+export const useSelectSlice = (): SliceState => useMemoSelect(selectSlice, []);
+export const useSelectStatus = (): HarnessStatus => useMemoSelect(selectStatus, []);
+export const useSelectIsRunning = (): boolean => useMemoSelect(selectIsRunning, []);
 export const useSelectWorkflowResults = (): WorkflowResult[] =>
-  useSelector(selectWorkflowResults);
-export const useSelectLeakReport = (): LeakReport => useSelector(selectLeakReport);
-export const useSelectFpsReport = (): FpsReport => useSelector(selectFpsReport);
-export const useSelectCpuReport = (): CpuReport => useSelector(selectCpuReport);
-export const useSelectGpuReport = (): GpuReport => useSelector(selectGpuReport);
-export const useSelectError = (): string | null => useSelector(selectError);
-export const useSelectElapsedSeconds = (): number => useSelector(selectElapsedSeconds);
-export const useSelectRangeKey = (): string | null => useSelector(selectRangeKey);
+  useMemoSelect(selectWorkflowResults, []);
+export const useSelectLeakReport = (): LeakReport => useMemoSelect(selectLeakReport, []);
+export const useSelectFpsReport = (): FpsReport => useMemoSelect(selectFpsReport, []);
+export const useSelectCpuReport = (): CpuReport => useMemoSelect(selectCpuReport, []);
+export const useSelectGpuReport = (): GpuReport => useMemoSelect(selectGpuReport, []);
+export const useSelectError = (): string | null => useMemoSelect(selectError, []);
+export const useSelectElapsedSeconds = (): number =>
+  useMemoSelect(selectElapsedSeconds, []);
+export const useSelectRangeKey = (): string | null => useMemoSelect(selectRangeKey, []);
 export const useSelectRangeStartTime = (): number | null =>
-  useSelector(selectRangeStartTime);
+  useMemoSelect(selectRangeStartTime, []);

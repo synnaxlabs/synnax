@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CpuReport, type Severity } from "@/perf/analyzer/types";
+import { type MetricSeverities, type Severity } from "@/perf/analyzer/types";
 import { THRESHOLDS } from "@/perf/constants";
-import { type MetricDef, type Status } from "@/perf/types";
+import { type DisplayStatus, type MetricDef } from "@/perf/ui-types";
 import {
   formatDelta,
   formatFps,
@@ -20,14 +20,17 @@ import {
 } from "@/perf/utils/formatting";
 import { getThresholdStatus } from "@/perf/utils/status";
 
-export type ResourceReport = Omit<CpuReport, "detected">;
+export type { MetricSeverities } from "@/perf/analyzer/types";
 
-export interface MetricSeverities {
-  peakSeverity: Severity;
-  avgSeverity: Severity;
+/** Subset of CPU/GPU report fields needed for resource metrics display. */
+export interface ResourceReport {
+  avgPercent: number | null;
+  maxPercent: number | null;
+  startPercent: number | null;
+  endPercent: number | null;
 }
 
-const severityToStatus = (severities: MetricSeverities): Status => {
+const severityToStatus = (severities: MetricSeverities): DisplayStatus => {
   if (severities.peakSeverity === "error" || severities.avgSeverity === "error")
     return "error";
   if (severities.peakSeverity === "warning" || severities.avgSeverity === "warning")
@@ -81,7 +84,7 @@ export const createFpsMetrics = (
 ];
 
 /** Convert single severity to UI Status */
-const singleSeverityToStatus = (severity: Severity): Status => {
+const singleSeverityToStatus = (severity: Severity): DisplayStatus => {
   if (severity === "error") return "error";
   if (severity === "warning") return "warning";
   return undefined;

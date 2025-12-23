@@ -29,6 +29,7 @@ import {
 import * as Perf from "@/perf/slice";
 import { formatTime } from "@/perf/utils/formatting";
 
+// layoutKey is required by Layout.Renderer interface but not used by this component
 export const Dashboard: Layout.Renderer = ({ layoutKey: _layoutKey }): ReactElement => {
   const dispatch = useDispatch();
   const status = useSelectStatus();

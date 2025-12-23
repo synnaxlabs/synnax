@@ -14,14 +14,14 @@ import { SAMPLE_INTERVAL_MS } from "@/perf/constants";
 import { type Aggregates, SampleBuffer, ZERO_AGGREGATES } from "@/perf/metrics/buffer";
 import { ConsoleCollector, type ConsoleLogEntry } from "@/perf/metrics/console";
 import { CpuCollector } from "@/perf/metrics/cpu";
-import { FrameRateCollector } from "@/perf/metrics/framerate";
+import { FpsCollector } from "@/perf/metrics/fps";
 import { GpuCollector } from "@/perf/metrics/gpu";
 import { HeapCollector } from "@/perf/metrics/heap";
 import { LongTaskCollector, type LongTaskStats } from "@/perf/metrics/longtasks";
 import { type EndpointStats, NetworkCollector } from "@/perf/metrics/network";
 import { type MetricSample } from "@/perf/metrics/types";
 import { type HarnessStatus } from "@/perf/slice";
-import { type LiveMetrics } from "@/perf/types";
+import { type LiveMetrics } from "@/perf/ui-types";
 
 interface Collector {
   start(): void;
@@ -35,7 +35,7 @@ interface ResettableCollector extends Collector {
 const getAllCollectors = (c: CollectorsState): (Collector | null)[] => [
   c.cpu,
   c.gpu,
-  c.frameRate,
+  c.fps,
   c.heap,
   c.longTask,
   c.network,
@@ -48,10 +48,10 @@ const getResettableCollectors = (c: CollectorsState): (ResettableCollector | nul
   c.console,
 ];
 
-interface CollectorsState {
+export interface CollectorsState {
   cpu: CpuCollector | null;
   gpu: GpuCollector | null;
-  frameRate: FrameRateCollector | null;
+  fps: FpsCollector | null;
   heap: HeapCollector | null;
   longTask: LongTaskCollector | null;
   network: NetworkCollector | null;
@@ -139,7 +139,7 @@ export const useCollectors = ({
   const collectorsRef = useRef<CollectorsState>({
     cpu: null,
     gpu: null,
-    frameRate: null,
+    fps: null,
     heap: null,
     longTask: null,
     network: null,
@@ -154,7 +154,7 @@ export const useCollectors = ({
       gpuPercent: c.gpu?.getGpuPercent() ?? null,
       heapUsedMB: c.heap?.getHeapUsedMB() ?? null,
       heapTotalMB: c.heap?.getHeapTotalMB() ?? null,
-      frameRate: c.frameRate?.getCurrentFPS() ?? null,
+      frameRate: c.fps?.getCurrentFPS() ?? null,
       longTaskCount: c.longTask?.getCountSinceLastSample() ?? 0,
       longTaskDurationMs: c.longTask?.getDurationSinceLastSample() ?? 0,
       networkRequestCount: c.network?.getCountSinceLastSample() ?? 0,
@@ -181,7 +181,7 @@ export const useCollectors = ({
     const c = collectorsRef.current;
     c.cpu = new CpuCollector();
     c.gpu = new GpuCollector();
-    c.frameRate = new FrameRateCollector();
+    c.fps = new FpsCollector();
     c.heap = new HeapCollector();
     c.longTask = new LongTaskCollector();
     c.network = new NetworkCollector();
@@ -196,7 +196,7 @@ export const useCollectors = ({
 
       setLatestSample(sample);
       setLiveMetrics({
-        frameRate: c.frameRate?.getCurrentFPS() ?? null,
+        frameRate: c.fps?.getCurrentFPS() ?? null,
         cpuPercent: c.cpu?.getCpuPercent() ?? null,
         gpuPercent: c.gpu?.getGpuPercent() ?? null,
         heapUsedMB: c.heap?.getHeapUsedMB() ?? null,

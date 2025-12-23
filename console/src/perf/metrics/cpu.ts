@@ -10,38 +10,18 @@
 import { runtime } from "@synnaxlabs/x";
 import { invoke } from "@tauri-apps/api/core";
 
-/**
- * Collects CPU usage metrics via Tauri's sysinfo.
- * Only available in Tauri environment.
- */
-export class CpuCollector {
-  private cachedCpuPercent: number | null = null;
-  private updateInterval: ReturnType<typeof setInterval> | null = null;
+import { PollingCollector } from "@/perf/metrics/polling-collector";
 
-  start(): void {
-    if (!runtime.IS_TAURI) return;
-
-    // Fetch immediately
-    void this.fetchTauriCpu();
-    // Then poll every second
-    this.updateInterval = setInterval(() => {
-      void this.fetchTauriCpu();
-    }, 1000);
+export class CpuCollector extends PollingCollector<number> {
+  protected isAvailable(): boolean {
+    return runtime.IS_TAURI;
   }
 
-  stop(): void {
-    if (this.updateInterval != null) {
-      clearInterval(this.updateInterval);
-      this.updateInterval = null;
-    }
-  }
-
-  private async fetchTauriCpu(): Promise<void> {
+  protected async fetchValue(): Promise<number | null> {
     try {
-      const percent = await invoke<number>("get_cpu_usage");
-      this.cachedCpuPercent = percent;
+      return await invoke<number>("get_cpu_usage");
     } catch {
-      this.cachedCpuPercent = null;
+      return null;
     }
   }
 
@@ -50,11 +30,6 @@ export class CpuCollector {
   }
 
   getCpuPercent(): number | null {
-    if (!runtime.IS_TAURI) return null;
-    return this.cachedCpuPercent;
-  }
-
-  reset(): void {
-    this.cachedCpuPercent = null;
+    return this.getValue();
   }
 }

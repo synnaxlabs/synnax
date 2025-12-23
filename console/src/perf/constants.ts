@@ -12,6 +12,8 @@ export const RESIZE_THRESHOLD = 6;
 export const LIVE_DISPLAY_INTERVAL_MS = 1000;
 export const SAMPLE_INTERVAL_MS = 1000;
 export const WARMUP_SAMPLES = 5;
+export const BASELINE_BUFFER_SIZE = 60;
+export const RECENT_BUFFER_SIZE = 60;
 export const TEXT_ROW_COLOR = 7 as const;
 
 export const LONG_TASK_THRESHOLD_MS = 50;

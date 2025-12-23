@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { WARMUP_SAMPLES } from "@/perf/constants";
+import {
+  BASELINE_BUFFER_SIZE,
+  RECENT_BUFFER_SIZE,
+  WARMUP_SAMPLES,
+} from "@/perf/constants";
 import { type MetricSample } from "@/perf/metrics/types";
 
 export const ZERO_SAMPLE: MetricSample = {
@@ -91,7 +95,10 @@ export class SampleBuffer {
     heap: { ...ZERO_AGGREGATE },
   };
 
-  constructor(baselineSize = 60, recentSize = 60) {
+  constructor(
+    baselineSize = BASELINE_BUFFER_SIZE,
+    recentSize = RECENT_BUFFER_SIZE,
+  ) {
     this.baselineSize = baselineSize;
     this.recentSize = recentSize;
     this.baseline = Array.from({ length: baselineSize }, () => ({ ...ZERO_SAMPLE }));

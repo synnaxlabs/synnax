@@ -20,59 +20,29 @@ import {
   ZERO_GPU_REPORT,
   ZERO_LEAK_REPORT,
 } from "@/perf/analyzer/types";
-import { DEFAULT_METRICS_CONFIG, type MetricsConfig } from "@/perf/metrics/types";
-import {
-  DEFAULT_WORKFLOW_CONFIG,
-  type WorkflowConfig,
-  type WorkflowResult,
-} from "@/perf/workflows/types";
+import * as latest from "@/perf/types";
+import { type WorkflowResult } from "@/perf/workflows/types";
 
 export const SLICE_NAME = "perf";
 
-export type HarnessStatus = "idle" | "running" | "paused" | "error";
-
-/** Configuration for the performance harness. */
-export interface HarnessConfig {
-  durationMinutes: number;
-  metricsConfig: MetricsConfig;
-  workflowConfig: WorkflowConfig;
-}
-
-export const DEFAULT_HARNESS_CONFIG: HarnessConfig = {
-  durationMinutes: 30,
-  metricsConfig: DEFAULT_METRICS_CONFIG,
-  workflowConfig: DEFAULT_WORKFLOW_CONFIG,
-};
-
-/** Redux slice state for performance harness. */
-export interface SliceState {
-  status: HarnessStatus;
-  config: HarnessConfig;
-  workflowResults: WorkflowResult[];
-  error: string | null;
-  startTime: number | null;
-  endTime: number | null;
-  rangeKey: string | null;
-  rangeStartTime: number | null;
-  leakReport: LeakReport;
-  fpsReport: FpsReport;
-  cpuReport: CpuReport;
-  gpuReport: GpuReport;
-}
-
+// Re-export types from versioned types file (following lineplot pattern)
+export type HarnessStatus = latest.HarnessStatus;
+export type HarnessConfig = latest.HarnessConfig;
+export type SliceState = Omit<latest.SliceState, "version">;
+export const DEFAULT_HARNESS_CONFIG = latest.DEFAULT_HARNESS_CONFIG;
 export const ZERO_SLICE_STATE: SliceState = {
-  status: "idle",
-  config: DEFAULT_HARNESS_CONFIG,
-  workflowResults: [],
-  error: null,
-  startTime: null,
-  endTime: null,
-  rangeKey: null,
-  rangeStartTime: null,
-  leakReport: ZERO_LEAK_REPORT,
-  fpsReport: ZERO_FPS_REPORT,
-  cpuReport: ZERO_CPU_REPORT,
-  gpuReport: ZERO_GPU_REPORT,
+  status: latest.ZERO_SLICE_STATE.status,
+  config: latest.ZERO_SLICE_STATE.config,
+  workflowResults: latest.ZERO_SLICE_STATE.workflowResults,
+  error: latest.ZERO_SLICE_STATE.error,
+  startTime: latest.ZERO_SLICE_STATE.startTime,
+  endTime: latest.ZERO_SLICE_STATE.endTime,
+  rangeKey: latest.ZERO_SLICE_STATE.rangeKey,
+  rangeStartTime: latest.ZERO_SLICE_STATE.rangeStartTime,
+  leakReport: latest.ZERO_SLICE_STATE.leakReport,
+  fpsReport: latest.ZERO_SLICE_STATE.fpsReport,
+  cpuReport: latest.ZERO_SLICE_STATE.cpuReport,
+  gpuReport: latest.ZERO_SLICE_STATE.gpuReport,
 };
 
 /** Store state shape for the perf slice. */
@@ -99,11 +69,29 @@ export const PERSIST_EXCLUDE = [
   "error",
 ].map((key) => `${SLICE_NAME}.${key}`) as Array<deep.Key<StoreState>>;
 
+export type PartialHarnessConfig = Partial<
+  Omit<HarnessConfig, "metricsConfig" | "workflowConfig">
+> & {
+  metricsConfig?: Partial<latest.MetricsConfig>;
+  workflowConfig?: Partial<latest.WorkflowConfig>;
+};
+
+export type StartPayload = PartialHarnessConfig | undefined;
+export type AddWorkflowResultPayload = WorkflowResult;
+export type SetLeakReportPayload = LeakReport;
+export type SetFpsReportPayload = FpsReport;
+export type SetCpuReportPayload = CpuReport;
+export type SetGpuReportPayload = GpuReport;
+export type SetRangeKeyPayload = string | null;
+export type SetRangeStartTimePayload = number | null;
+export type SetErrorPayload = string;
+export type SetConfigPayload = PartialHarnessConfig;
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    start: (state, { payload }: PayloadAction<Partial<HarnessConfig> | undefined>) => {
+    start: (state, { payload }: PayloadAction<StartPayload>) => {
       state.status = "running";
       if (payload != null)
         state.config = {
@@ -125,7 +113,6 @@ export const { actions, reducer } = createSlice({
     },
 
     stop: (state) => {
-      // Stop now behaves the same as pause - we no longer have a "completed" state
       if (state.status === "running") state.status = "paused";
     },
 
@@ -137,35 +124,35 @@ export const { actions, reducer } = createSlice({
       if (state.status === "paused") state.status = "running";
     },
 
-    addWorkflowResult: (state, { payload }: PayloadAction<WorkflowResult>) => {
+    addWorkflowResult: (state, { payload }: PayloadAction<AddWorkflowResultPayload>) => {
       state.workflowResults.push(payload);
     },
 
-    setLeakReport: (state, { payload }: PayloadAction<LeakReport>) => {
+    setLeakReport: (state, { payload }: PayloadAction<SetLeakReportPayload>) => {
       state.leakReport = payload;
     },
 
-    setFpsReport: (state, { payload }: PayloadAction<FpsReport>) => {
+    setFpsReport: (state, { payload }: PayloadAction<SetFpsReportPayload>) => {
       state.fpsReport = payload;
     },
 
-    setCpuReport: (state, { payload }: PayloadAction<CpuReport>) => {
+    setCpuReport: (state, { payload }: PayloadAction<SetCpuReportPayload>) => {
       state.cpuReport = payload;
     },
 
-    setGpuReport: (state, { payload }: PayloadAction<GpuReport>) => {
+    setGpuReport: (state, { payload }: PayloadAction<SetGpuReportPayload>) => {
       state.gpuReport = payload;
     },
 
-    setRangeKey: (state, { payload }: PayloadAction<string | null>) => {
+    setRangeKey: (state, { payload }: PayloadAction<SetRangeKeyPayload>) => {
       state.rangeKey = payload;
     },
 
-    setRangeStartTime: (state, { payload }: PayloadAction<number | null>) => {
+    setRangeStartTime: (state, { payload }: PayloadAction<SetRangeStartTimePayload>) => {
       state.rangeStartTime = payload;
     },
 
-    setError: (state, { payload }: PayloadAction<string>) => {
+    setError: (state, { payload }: PayloadAction<SetErrorPayload>) => {
       state.status = "error";
       state.error = payload;
       state.endTime = performance.now();
@@ -173,7 +160,7 @@ export const { actions, reducer } = createSlice({
 
     reset: () => ZERO_SLICE_STATE,
 
-    setConfig: (state, { payload }: PayloadAction<Partial<HarnessConfig>>) => {
+    setConfig: (state, { payload }: PayloadAction<SetConfigPayload>) => {
       state.config = {
         ...state.config,
         ...payload,
@@ -202,3 +189,5 @@ export const {
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
+
+export const migrateSlice = latest.migrateSlice;

@@ -10,9 +10,9 @@
 import { runtime } from "@synnaxlabs/x";
 import { invoke } from "@tauri-apps/api/core";
 
+import { PollingCollector } from "@/perf/metrics/polling-collector";
 import { type HeapSnapshot } from "@/perf/metrics/types";
 
-// Chrome's non-standard memory API
 interface PerformanceMemory {
   usedJSHeapSize: number;
   totalJSHeapSize: number;
@@ -25,39 +25,17 @@ interface PerformanceWithMemory extends Performance {
 
 const BYTES_TO_MB = 1024 * 1024;
 
-/**
- * Collects memory metrics.
- * In Tauri: Uses native process memory via Rust sysinfo.
- * In browser: Falls back to Chrome's performance.memory API.
- */
-export class HeapCollector {
-  private cachedMemoryMB: number | null = null;
-  private updateInterval: ReturnType<typeof setInterval> | null = null;
-
-  start(): void {
-    if (runtime.IS_TAURI) {
-      // Fetch immediately
-      void this.fetchTauriMemory();
-      // Then poll every second
-      this.updateInterval = setInterval(() => {
-        void this.fetchTauriMemory();
-      }, 1000);
-    }
+export class HeapCollector extends PollingCollector<number> {
+  protected isAvailable(): boolean {
+    return runtime.IS_TAURI;
   }
 
-  stop(): void {
-    if (this.updateInterval != null) {
-      clearInterval(this.updateInterval);
-      this.updateInterval = null;
-    }
-  }
-
-  private async fetchTauriMemory(): Promise<void> {
+  protected async fetchValue(): Promise<number | null> {
     try {
       const bytes = await invoke<number>("get_memory_usage");
-      this.cachedMemoryMB = bytes / BYTES_TO_MB;
+      return bytes / BYTES_TO_MB;
     } catch {
-      this.cachedMemoryMB = null;
+      return null;
     }
   }
 
@@ -66,18 +44,14 @@ export class HeapCollector {
   }
 
   getHeapUsedMB(): number | null {
-    if (runtime.IS_TAURI) return this.cachedMemoryMB;
-
+    if (runtime.IS_TAURI) return this.getValue();
     const perf = performance as PerformanceWithMemory;
     if (perf.memory == null) return null;
     return perf.memory.usedJSHeapSize / BYTES_TO_MB;
   }
 
   getHeapTotalMB(): number | null {
-    if (runtime.IS_TAURI)
-      // Tauri returns process memory, not heap total - return same value
-      return this.cachedMemoryMB;
-
+    if (runtime.IS_TAURI) return this.getValue();
     const perf = performance as PerformanceWithMemory;
     if (perf.memory == null) return null;
     return perf.memory.totalJSHeapSize / BYTES_TO_MB;
@@ -85,7 +59,6 @@ export class HeapCollector {
 
   getHeapLimitMB(): number | null {
     if (runtime.IS_TAURI) return null;
-
     const perf = performance as PerformanceWithMemory;
     if (perf.memory == null) return null;
     return perf.memory.jsHeapSizeLimit / BYTES_TO_MB;
@@ -100,9 +73,5 @@ export class HeapCollector {
       heapUsedMB: heapUsed,
       heapTotalMB: heapTotal,
     };
-  }
-
-  reset(): void {
-    this.cachedMemoryMB = null;
   }
 }

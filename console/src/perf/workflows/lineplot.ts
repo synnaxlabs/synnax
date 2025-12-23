@@ -9,6 +9,7 @@
 
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
+import { registerWorkflow } from "@/perf/workflows/registry";
 import { type WorkflowContext, type WorkflowStep } from "@/perf/workflows/types";
 
 /**
@@ -137,3 +138,35 @@ export const closePlotWorkflow = (): WorkflowStep[] => [
     delayAfterMs: 500,
   },
 ];
+
+registerWorkflow({
+  type: "createLinePlot",
+  name: "Create Line Plot",
+  description: "Creates a new line plot visualization",
+  category: "lineplot",
+  factory: createLinePlotWorkflow,
+});
+
+registerWorkflow({
+  type: "addChannelsToPlot",
+  name: "Add Channels to Plot",
+  description: "Adds data channels to an existing line plot",
+  category: "lineplot",
+  factory: addChannelsToPlotWorkflow,
+});
+
+registerWorkflow({
+  type: "panZoomPlot",
+  name: "Pan and Zoom Plot",
+  description: "Simulates pan and zoom interactions on a plot",
+  category: "lineplot",
+  factory: panZoomPlotWorkflow,
+});
+
+registerWorkflow({
+  type: "closePlot",
+  name: "Close Plot",
+  description: "Closes the most recently created plot",
+  category: "lineplot",
+  factory: closePlotWorkflow,
+});

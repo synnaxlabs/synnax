@@ -120,15 +120,15 @@ export interface UseProfilingRangeOptions {
   getMetrics: () => RangeMetrics | null;
 }
 
-export interface MetricSeverities {
+interface SeverityPair {
   peak: Severity;
   avg: Severity;
 }
 
 export interface AnalysisSeverities {
-  fps: MetricSeverities;
-  cpu: MetricSeverities;
-  gpu: MetricSeverities;
+  fps: SeverityPair;
+  cpu: SeverityPair;
+  gpu: SeverityPair;
   heap: Severity;
 }
 

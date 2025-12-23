@@ -13,12 +13,12 @@ import { Flex, Text } from "@synnaxlabs/pluto";
 import { memo,type ReactElement, type ReactNode } from "react";
 
 import { WithTooltip } from "@/perf/components/WithTooltip";
-import { type Status } from "@/perf/types";
+import { type DisplayStatus } from "@/perf/ui-types";
 
 interface MetricRowProps {
   label: string;
   value: string | ReactNode;
-  status?: Status;
+  status?: DisplayStatus;
   tooltip?: string;
 }
 

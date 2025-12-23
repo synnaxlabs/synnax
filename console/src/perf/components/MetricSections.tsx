@@ -45,7 +45,7 @@ import {
   NETWORK_TABLE_COLUMNS,
 } from "@/perf/metrics/network";
 import { type MetricSample } from "@/perf/metrics/types";
-import { type LiveMetrics, type MetricDef, type Status } from "@/perf/types";
+import { type DisplayStatus, type LiveMetrics, type MetricDef } from "@/perf/ui-types";
 import { formatCount } from "@/perf/utils/formatting";
 import {
   createFpsMetrics,
@@ -81,28 +81,78 @@ interface MetricSectionData {
   key: string;
   title: string;
   secondaryText?: string;
-  secondaryStatus?: Status;
+  secondaryStatus?: DisplayStatus;
   secondaryTooltip?: string;
   metrics: MetricDef[];
 }
 
-/**  Tables section data */
-interface EventSectionData {
+interface BaseEventSection {
   type: "event";
-  key: string;
   title: string;
   secondaryText: string;
-  secondaryStatus: Status;
+  secondaryStatus: DisplayStatus;
   secondaryTooltip: string;
-  // Using any for mixed table types - type safety is maintained at the definition site
-  tableData: MetricTableData<any>;
-  columns: MetricTableColumn<any>[];
-  getKey: (item: any, index: number) => string;
-  getTooltip?: (item: any) => string;
   showTable: boolean;
 }
 
+interface NetworkEventSection extends BaseEventSection {
+  key: "network";
+  tableData: MetricTableData<EndpointStats>;
+  columns: MetricTableColumn<EndpointStats>[];
+  getKey: (item: EndpointStats, index: number) => string;
+  getTooltip: (item: EndpointStats) => string;
+}
+
+interface LongTaskEventSection extends BaseEventSection {
+  key: "long-tasks";
+  tableData: MetricTableData<LongTaskStats>;
+  columns: MetricTableColumn<LongTaskStats>[];
+  getKey: (item: LongTaskStats, index: number) => string;
+  getTooltip?: undefined;
+}
+
+interface ConsoleLogEventSection extends BaseEventSection {
+  key: "console-logs";
+  tableData: MetricTableData<ConsoleLogEntry>;
+  columns: MetricTableColumn<ConsoleLogEntry>[];
+  getKey: (item: ConsoleLogEntry, index: number) => string;
+  getTooltip: (item: ConsoleLogEntry) => string;
+}
+
+type EventSectionData = NetworkEventSection | LongTaskEventSection | ConsoleLogEventSection;
+
 type SectionData = MetricSectionData | EventSectionData;
+
+const renderEventTable = (section: EventSectionData): ReactElement => {
+  switch (section.key) {
+    case "network":
+      return (
+        <MetricTable
+          result={section.tableData}
+          columns={section.columns}
+          getKey={section.getKey}
+          getTooltip={section.getTooltip}
+        />
+      );
+    case "long-tasks":
+      return (
+        <MetricTable
+          result={section.tableData}
+          columns={section.columns}
+          getKey={section.getKey}
+        />
+      );
+    case "console-logs":
+      return (
+        <MetricTable
+          result={section.tableData}
+          columns={section.columns}
+          getKey={section.getKey}
+          getTooltip={section.getTooltip}
+        />
+      );
+  }
+};
 
 export interface MetricSectionsProps {
   groupByType: boolean;
@@ -195,9 +245,9 @@ const MetricSectionsImpl = ({
     ],
   );
 
-  const networkStatus: Status = undefined;
-  const longTasksStatus: Status = undefined;
-  const consoleLogsStatus: Status = undefined;
+  const networkStatus: DisplayStatus = undefined;
+  const longTasksStatus: DisplayStatus = undefined;
+  const consoleLogsStatus: DisplayStatus = undefined;
 
   const isProfilingActive = status === "running" || status === "paused";
 
@@ -326,12 +376,7 @@ const MetricSectionsImpl = ({
               />
             ))
           ) : section.showTable ? (
-            <MetricTable
-              result={section.tableData}
-              columns={section.columns}
-              getKey={section.getKey}
-              getTooltip={section.getTooltip}
-            />
+            renderEventTable(section)
           ) : null}
         </Section>
       ))}

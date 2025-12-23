@@ -11,7 +11,7 @@ import { type ReactNode } from "react";
 
 import { type MetricCategory, type MetricType } from "@/perf/constants";
 
-export type Status = "success" | "warning" | "error" | "info" | undefined;
+export type DisplayStatus = "success" | "warning" | "error" | "info" | undefined;
 
 export interface LiveMetrics {
   frameRate: number | null;
@@ -32,7 +32,7 @@ export interface MetricDef {
   type: MetricType;
   category: MetricCategory;
   getValue: () => string;
-  getStatus?: () => Status;
+  getStatus?: () => DisplayStatus;
   tooltip: string;
   label?: string;
 }
@@ -41,7 +41,7 @@ export interface SectionConfig {
   key: string;
   title: string;
   secondaryText?: ReactNode;
-  secondaryStatus?: Status;
+  secondaryStatus?: DisplayStatus;
   secondaryTooltip?: string;
   content: ReactNode;
 }

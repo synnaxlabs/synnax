@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/perf/workflows/lineplot";
+export * from "@/perf/workflows/registry";
 export * from "@/perf/workflows/runner";
 export * from "@/perf/workflows/schematic";
 export * from "@/perf/workflows/types";

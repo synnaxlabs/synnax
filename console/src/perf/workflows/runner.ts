@@ -7,13 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  addChannelsToPlotWorkflow,
-  closePlotWorkflow,
-  createLinePlotWorkflow,
-  panZoomPlotWorkflow,
-} from "@/perf/workflows/lineplot";
-import { createSchematicWorkflow } from "@/perf/workflows/schematic";
+// Import workflow modules to trigger registration
+import "@/perf/workflows/lineplot";
+import "@/perf/workflows/schematic";
+
+import { getWorkflow } from "@/perf/workflows/registry";
 import {
   DEFAULT_WORKFLOW_CONFIG,
   type WorkflowConfig,
@@ -88,7 +86,7 @@ export class WorkflowRunner {
     for (const workflowType of this.config.workflows) {
       if (!this.running) break;
 
-      const workflow = this.getWorkflow(workflowType);
+      const workflow = this.getWorkflowSteps(workflowType);
       const result = await this.executeWorkflow(workflow, workflowType);
       this.results.push(result);
       this.callbacks.onWorkflowComplete?.(result);
@@ -126,21 +124,8 @@ export class WorkflowRunner {
     };
   }
 
-  private getWorkflow(type: WorkflowType): WorkflowStep[] {
-    switch (type) {
-      case "createLinePlot":
-        return createLinePlotWorkflow();
-      case "addChannelsToPlot":
-        return addChannelsToPlotWorkflow();
-      case "panZoomPlot":
-        return panZoomPlotWorkflow();
-      case "createSchematic":
-        return createSchematicWorkflow();
-      case "closePlot":
-        return closePlotWorkflow();
-      default:
-        throw new Error(`Unknown workflow type: ${type as string}`);
-    }
+  private getWorkflowSteps(type: WorkflowType): WorkflowStep[] {
+    return getWorkflow(type);
   }
 
   private delay(ms: number): Promise<void> {
