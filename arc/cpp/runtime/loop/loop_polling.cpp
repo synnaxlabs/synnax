@@ -26,12 +26,7 @@ namespace arc::runtime::loop {
 /// without epoll/kqueue/IOCP support or as a simple fallback.
 class PollingLoop final : public Loop {
 public:
-    PollingLoop() = default;
-    ~PollingLoop() override { stop(); }
-
-    xerrors::Error configure(const Config &config) override {
-        config_ = config;
-
+    explicit PollingLoop(const Config &config): config_(config) {
         // Validate configuration
         if (config_.rt_priority > 0) {
             LOG(WARNING) << "[loop] RT priority not supported in polling mode";
@@ -50,9 +45,9 @@ public:
             LOG(INFO) << "[loop] Falling back to HIGH_RATE mode for "
                       << "unsupported execution mode in polling implementation";
         }
-
-        return xerrors::NIL;
     }
+
+    ~PollingLoop() override { stop(); }
 
     void notify_data() override {
         // In polling mode, we don't have event-driven notifications.
@@ -65,16 +60,16 @@ public:
         if (!running_) return;
 
         // Check if we need to wait for timer interval
-        if (config_.interval > 0 && timer_) {
+        if (config_.interval.nanoseconds() > 0 && timer_) {
             const auto now = std::chrono::steady_clock::now();
             const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
                                      now - last_tick_
             )
                                      .count();
 
-            if (elapsed < static_cast<int64_t>(config_.interval)) {
+            if (elapsed < config_.interval.nanoseconds()) {
                 // Timer hasn't expired yet
-                const uint64_t remaining_ns = config_.interval - elapsed;
+                const int64_t remaining_ns = config_.interval.nanoseconds() - elapsed;
 
                 // Choose wait strategy based on mode
                 switch (config_.mode) {
@@ -116,11 +111,8 @@ public:
         }
 
         // Initialize timer if interval is configured
-        if (config_.interval > 0) {
-            const auto interval = telem::TimeSpan(
-                static_cast<int64_t>(config_.interval)
-            );
-            timer_ = std::make_unique<::loop::Timer>(interval);
+        if (config_.interval.nanoseconds() > 0) {
+            timer_ = std::make_unique<::loop::Timer>(config_.interval);
         }
 
         last_tick_ = std::chrono::steady_clock::now();
@@ -158,7 +150,11 @@ private:
     bool running_ = false;
 };
 
-std::unique_ptr<Loop> create() {
-    return std::make_unique<PollingLoop>();
+std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {
+    auto loop = std::make_unique<PollingLoop>(cfg);
+    if (auto err = loop->start(); err) {
+        return {nullptr, err};
+    }
+    return {std::move(loop), xerrors::NIL};
 }
 }

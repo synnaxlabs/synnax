@@ -348,28 +348,39 @@ std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {
         adjusted_cfg.mode = ExecutionMode::HIGH_RATE;
     }
 
+    std::unique_ptr<Loop> loop;
     switch (adjusted_cfg.mode) {
         case ExecutionMode::BUSY_WAIT:
             LOG(INFO) << "[loop] creating BusyWaitLoop";
-            return {std::make_unique<BusyWaitLoop>(adjusted_cfg), xerrors::NIL};
+            loop = std::make_unique<BusyWaitLoop>(adjusted_cfg);
+            break;
 
         case ExecutionMode::HIGH_RATE:
             LOG(INFO) << "[loop] creating HighRateLoop";
-            return {std::make_unique<HighRateLoop>(adjusted_cfg), xerrors::NIL};
+            loop = std::make_unique<HighRateLoop>(adjusted_cfg);
+            break;
 
         case ExecutionMode::HYBRID:
             LOG(INFO) << "[loop] creating HybridLoop";
-            return {std::make_unique<HybridLoop>(adjusted_cfg), xerrors::NIL};
+            loop = std::make_unique<HybridLoop>(adjusted_cfg);
+            break;
 
         case ExecutionMode::EVENT_DRIVEN:
             LOG(INFO) << "[loop] creating EventDrivenLoop";
-            return {std::make_unique<EventDrivenLoop>(adjusted_cfg), xerrors::NIL};
+            loop = std::make_unique<EventDrivenLoop>(adjusted_cfg);
+            break;
 
         case ExecutionMode::RT_EVENT:
         default:
             LOG(INFO) << "[loop] creating EventDrivenLoop (default)";
-            return {std::make_unique<EventDrivenLoop>(adjusted_cfg), xerrors::NIL};
+            loop = std::make_unique<EventDrivenLoop>(adjusted_cfg);
+            break;
     }
+
+    if (auto err = loop->start(); err) {
+        return {nullptr, err};
+    }
+    return {std::move(loop), xerrors::NIL};
 }
 
 }
