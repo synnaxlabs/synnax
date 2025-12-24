@@ -127,10 +127,14 @@ public:
     uint32_t series_element_mul_##suffix(uint32_t handle, cpptype value);              \
     uint32_t series_element_sub_##suffix(uint32_t handle, cpptype value);              \
     uint32_t series_element_div_##suffix(uint32_t handle, cpptype value);              \
+    uint32_t series_element_rsub_##suffix(uint32_t handle, cpptype value);             \
+    uint32_t series_element_rdiv_##suffix(uint32_t handle, cpptype value);             \
+    uint32_t series_element_mod_##suffix(uint32_t handle, cpptype value);              \
     uint32_t series_series_add_##suffix(uint32_t a, uint32_t b);                       \
     uint32_t series_series_mul_##suffix(uint32_t a, uint32_t b);                       \
     uint32_t series_series_sub_##suffix(uint32_t a, uint32_t b);                       \
     uint32_t series_series_div_##suffix(uint32_t a, uint32_t b);                       \
+    uint32_t series_series_mod_##suffix(uint32_t a, uint32_t b);                       \
     uint32_t series_compare_gt_##suffix(uint32_t a, uint32_t b);                       \
     uint32_t series_compare_lt_##suffix(uint32_t a, uint32_t b);                       \
     uint32_t series_compare_ge_##suffix(uint32_t a, uint32_t b);                       \

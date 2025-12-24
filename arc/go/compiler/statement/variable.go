@@ -10,6 +10,7 @@
 package statement
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/expression"
 	"github.com/synnaxlabs/arc/compiler/wasm"
@@ -101,16 +102,15 @@ func compileIndexedAssignment(
 	scope *symbol.Scope,
 	indexOrSlice parser.IIndexOrSliceContext,
 ) error {
-	seriesType := scope.Type
-	elemType := *seriesType.Elem
+	elemType := scope.Type.Unwrap()
 
 	// Step 1: Push series handle onto stack
 	ctx.Writer.WriteLocalGet(scope.ID)
 
 	// Step 2: Compile and push index expression
-	indexExprs := indexOrSlice.AllExpression()
+	indexExpressions := indexOrSlice.AllExpression()
 	if _, err := expression.Compile(
-		context.Child(ctx, indexExprs[0]).WithHint(types.I32()),
+		context.Child(ctx, indexExpressions[0]).WithHint(types.I32()),
 	); err != nil {
 		return errors.Wrap(err, "failed to compile index expression")
 	}
@@ -140,9 +140,7 @@ func compileIndexedAssignment(
 func compileAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 ) error {
-	// Resolve the variable name
 	name := ctx.AST.IDENTIFIER().GetText()
-	// Look up the symbol
 	scope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		return err
@@ -155,7 +153,6 @@ func compileAssignment(
 
 	sym := scope.Symbol
 	varType := sym.Type
-	// Compile the expression (analyzer guarantees type correctness)
 	exprType, err := expression.Compile(context.Child(ctx, ctx.AST.Expression()).WithHint(varType))
 	if err != nil {
 		return errors.Wrapf(err, "failed to compile assignment expression for '%s'", name)
@@ -181,19 +178,16 @@ func compileAssignment(
 		// Push value back from local
 		ctx.Writer.WriteLocalGet(scope.ID)
 		// Stack is now: [funcID, varID, value/handle]
-		var importIdx uint32
-		if varType.Kind == types.KindSeries {
-			// Series types use handle-based state operations
-			importIdx, err = ctx.Imports.GetStateStoreSeries(*varType.Elem)
-		} else {
-			// Primitive types use value-based state operations
-			importIdx, err = ctx.Imports.GetStateStore(varType)
-		}
+		resolveImportF := lo.Ternary(
+			varType.Kind == types.KindSeries,
+			ctx.Imports.GetStateStoreSeries,
+			ctx.Imports.GetStateStore,
+		)
+		importIdx, err := resolveImportF(varType.Unwrap())
 		if err != nil {
 			return err
 		}
 		ctx.Writer.WriteCall(importIdx)
-		// Assignment complete - stack is empty
 	case symbol.KindChannel, symbol.KindConfig:
 		// Channel write (assignment syntax): channel = value
 		// Stack: [value]

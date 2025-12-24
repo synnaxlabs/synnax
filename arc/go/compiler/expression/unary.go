@@ -36,15 +36,14 @@ func compileUnary(ctx context.Context[parser.IUnaryExpressionContext]) (types.Ty
 			ctx.Writer.WriteOpcode(wasm.OpF64Neg)
 		case types.KindSeries:
 			// Series negation - only for signed element types
-			elemType := *innerType.Elem
-			switch elemType.Kind {
-			case types.KindI8, types.KindI16, types.KindI32, types.KindI64, types.KindF32, types.KindF64:
+			elemType := innerType.Unwrap()
+			if elemType.IsSigned() {
 				funcIdx, err := ctx.Imports.GetSeriesNegate(elemType)
 				if err != nil {
 					return types.Type{}, err
 				}
 				ctx.Writer.WriteCall(funcIdx)
-			default:
+			} else {
 				return types.Type{}, errors.Newf("cannot negate series of unsigned type %s", elemType)
 			}
 		default:
@@ -54,18 +53,17 @@ func compileUnary(ctx context.Context[parser.IUnaryExpressionContext]) (types.Ty
 	}
 
 	if ctx.AST.NOT() != nil {
-		// Compile the inner expression
 		innerType, err := compileUnary(context.Child(ctx, ctx.AST.UnaryExpression()))
 		if err != nil {
 			return types.Type{}, err
 		}
 
-		// Handle series NOT (boolean series)
 		if innerType.Kind == types.KindSeries {
-			// Logical NOT on series - only valid for u8 (boolean) series
-			elemType := *innerType.Elem
-			if elemType.Kind != types.KindU8 {
-				return types.Type{}, errors.Newf("logical NOT on series requires boolean (u8) element type, got %s", elemType)
+			if !innerType.IsBool() {
+				return types.Type{}, errors.Newf(
+					"logical NOT on series requires boolean (u8) element type, got %s",
+					innerType.Unwrap(),
+				)
 			}
 			ctx.Writer.WriteCall(ctx.Imports.SeriesNotU8)
 			return innerType, nil

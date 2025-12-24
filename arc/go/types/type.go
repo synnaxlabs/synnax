@@ -412,6 +412,10 @@ func (t Type) IsSignedInteger() bool {
 	}
 }
 
+func (t Type) IsSigned() bool {
+	return t.IsSignedInteger() || t.IsFloat()
+}
+
 // IsUnsignedInteger returns true if the type is an unsigned integer type.
 func (t Type) IsUnsignedInteger() bool {
 	switch t.Kind {

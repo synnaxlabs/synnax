@@ -11,6 +11,7 @@ package expression
 
 import (
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -50,19 +51,15 @@ func emitStatefulLoad[ASTNode antlr.ParserRuleContext](
 	idx int,
 	t types.Type,
 ) error {
-	// Push funcID
 	ctx.Writer.WriteI32Const(0)
 	ctx.Writer.WriteI32Const(int32(idx))
 	emitZeroValue(ctx, t)
-
-	// Series types use handle-based state operations
-	var importIdx uint32
-	var err error
-	if t.Kind == types.KindSeries {
-		importIdx, err = ctx.Imports.GetStateLoadSeries(*t.Elem)
-	} else {
-		importIdx, err = ctx.Imports.GetStateLoad(t)
-	}
+	stateLoadF := lo.Ternary(
+		t.Kind == types.KindSeries,
+		ctx.Imports.GetStateLoadSeries,
+		ctx.Imports.GetStateLoad,
+	)
+	importIdx, err := stateLoadF(t.Unwrap())
 	if err != nil {
 		return err
 	}

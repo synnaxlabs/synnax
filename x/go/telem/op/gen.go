@@ -73,6 +73,9 @@ var operations = []Operation{
 	{Name: "Divide", FuncName: "Div", Op: "/", IsComp: false},
 }
 
+// Modulo operations - uses % for integers, math.Mod for floats
+var moduloIntOp = Operation{Name: "Modulo", FuncName: "Mod", Op: "%", IsComp: false}
+
 // Logical operations only for uint8 (boolean) types
 var logicalOperations = []Operation{
 	{Name: "And", FuncName: "And", Op: "&", IsComp: false},
@@ -93,6 +96,9 @@ var scalarArithmeticOps = []Operation{
 	{Name: "DivideScalar", FuncName: "DivS", Op: "/", IsComp: false},
 }
 
+// Modulo scalar operation - uses % for integers, math.Mod for floats
+var moduloScalarIntOp = Operation{Name: "ModuloScalar", FuncName: "ModS", Op: "%", IsComp: false}
+
 // Scalar comparison operations (series op scalar -> uint8)
 var scalarComparisonOps = []Operation{
 	{Name: "GreaterThanScalar", FuncName: "GtS", Op: ">", IsComp: true},
@@ -107,9 +113,13 @@ const headerTemplate = `
 package op
 
 import (
+	"math"
+
 	"github.com/synnaxlabs/x/telem"
 	xunsafe "github.com/synnaxlabs/x/unsafe"
 )
+
+var _ = math.Mod // Ensure math is used
 `
 
 const unaryFuncTemplate = `{{range $.UnaryOps}}
@@ -327,12 +337,68 @@ func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, out
 }
 {{end}}`
 
+// Template for float modulo (binary) - uses math.Mod
+const floatModuloFuncTemplate = `
+func Modulo{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
+	rhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
+	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+
+	var lhsLast, rhsLast {{$.Type.GoType}}
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = {{$.Type.GoType}}(math.Mod(float64(lhsVal), float64(rhsVal)))
+	}
+}
+`
+
+// Template for float modulo scalar - uses math.Mod
+const floatModuloScalarFuncTemplate = `
+func ModuloScalar{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
+	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = {{$.Type.GoType}}(math.Mod(float64(inData[i]), float64(scalar)))
+	}
+}
+`
+
 func main() {
 	tmpl := template.Must(template.New("funcs").Parse(funcTemplate))
 	unaryTmpl := template.Must(template.New("unary").Parse(unaryFuncTemplate))
 	reductionTmpl := template.Must(template.New("reduction").Parse(reductionFuncTemplate))
 	scalarArithTmpl := template.Must(template.New("scalarArith").Parse(scalarArithFuncTemplate))
 	scalarCompTmpl := template.Must(template.New("scalarComp").Parse(scalarCompFuncTemplate))
+	floatModuloTmpl := template.Must(template.New("floatModulo").Parse(floatModuloFuncTemplate))
+	floatModuloScalarTmpl := template.Must(template.New("floatModuloScalar").Parse(floatModuloScalarFuncTemplate))
 
 	var buf strings.Builder
 	buf.WriteString(headerTemplate)
@@ -345,6 +411,28 @@ func main() {
 		})
 		if err != nil {
 			panic(err)
+		}
+	}
+
+	// Generate modulo operations - integer types use %, float types use math.Mod
+	for _, typ := range types {
+		if typ.IsFloat {
+			// Float types use math.Mod
+			err := floatModuloTmpl.Execute(&buf, map[string]interface{}{
+				"Type": typ,
+			})
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			// Integer types use %
+			err := tmpl.Execute(&buf, map[string]interface{}{
+				"Type":       typ,
+				"Operations": []Operation{moduloIntOp},
+			})
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
 
@@ -401,6 +489,28 @@ func main() {
 		})
 		if err != nil {
 			panic(err)
+		}
+	}
+
+	// Generate modulo scalar operations - integer types use %, float types use math.Mod
+	for _, typ := range types {
+		if typ.IsFloat {
+			// Float types use math.Mod
+			err := floatModuloScalarTmpl.Execute(&buf, map[string]interface{}{
+				"Type": typ,
+			})
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			// Integer types use %
+			err := scalarArithTmpl.Execute(&buf, map[string]interface{}{
+				"Type":       typ,
+				"Operations": []Operation{moduloScalarIntOp},
+			})
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
 

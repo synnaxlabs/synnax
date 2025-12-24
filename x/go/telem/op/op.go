@@ -1,9 +1,13 @@
 package op
 
 import (
+	"math"
+
 	"github.com/synnaxlabs/x/telem"
 	xunsafe "github.com/synnaxlabs/x/unsafe"
 )
+
+var _ = math.Mod // Ensure math is used
 
 func GreaterThanF64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
@@ -3845,6 +3849,366 @@ func DivideU8(lhs, rhs telem.Series, output *telem.Series) {
 	}
 }
 
+func ModuloF64(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := xunsafe.CastSlice[uint8, float64](lhs.Data)
+	rhsData := xunsafe.CastSlice[uint8, float64](rhs.Data)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+
+	var lhsLast, rhsLast float64
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = float64(math.Mod(float64(lhsVal), float64(rhsVal)))
+	}
+}
+
+func ModuloF32(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := xunsafe.CastSlice[uint8, float32](lhs.Data)
+	rhsData := xunsafe.CastSlice[uint8, float32](rhs.Data)
+	outData := xunsafe.CastSlice[uint8, float32](output.Data)
+
+	var lhsLast, rhsLast float32
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = float32(math.Mod(float64(lhsVal), float64(rhsVal)))
+	}
+}
+
+func ModuloI64(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := xunsafe.CastSlice[uint8, int64](lhs.Data)
+	rhsData := xunsafe.CastSlice[uint8, int64](rhs.Data)
+	outData := xunsafe.CastSlice[uint8, int64](output.Data)
+
+	var lhsLast, rhsLast int64
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = lhsVal % rhsVal
+	}
+}
+
+func ModuloI32(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := xunsafe.CastSlice[uint8, int32](lhs.Data)
+	rhsData := xunsafe.CastSlice[uint8, int32](rhs.Data)
+	outData := xunsafe.CastSlice[uint8, int32](output.Data)
+
+	var lhsLast, rhsLast int32
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = lhsVal % rhsVal
+	}
+}
+
+func ModuloI16(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := xunsafe.CastSlice[uint8, int16](lhs.Data)
+	rhsData := xunsafe.CastSlice[uint8, int16](rhs.Data)
+	outData := xunsafe.CastSlice[uint8, int16](output.Data)
+
+	var lhsLast, rhsLast int16
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = lhsVal % rhsVal
+	}
+}
+
+func ModuloI8(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := xunsafe.CastSlice[uint8, int8](lhs.Data)
+	rhsData := xunsafe.CastSlice[uint8, int8](rhs.Data)
+	outData := xunsafe.CastSlice[uint8, int8](output.Data)
+
+	var lhsLast, rhsLast int8
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = lhsVal % rhsVal
+	}
+}
+
+func ModuloU64(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := xunsafe.CastSlice[uint8, uint64](lhs.Data)
+	rhsData := xunsafe.CastSlice[uint8, uint64](rhs.Data)
+	outData := xunsafe.CastSlice[uint8, uint64](output.Data)
+
+	var lhsLast, rhsLast uint64
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = lhsVal % rhsVal
+	}
+}
+
+func ModuloU32(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := xunsafe.CastSlice[uint8, uint32](lhs.Data)
+	rhsData := xunsafe.CastSlice[uint8, uint32](rhs.Data)
+	outData := xunsafe.CastSlice[uint8, uint32](output.Data)
+
+	var lhsLast, rhsLast uint32
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = lhsVal % rhsVal
+	}
+}
+
+func ModuloU16(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := xunsafe.CastSlice[uint8, uint16](lhs.Data)
+	rhsData := xunsafe.CastSlice[uint8, uint16](rhs.Data)
+	outData := xunsafe.CastSlice[uint8, uint16](output.Data)
+
+	var lhsLast, rhsLast uint16
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = lhsVal % rhsVal
+	}
+}
+
+func ModuloU8(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := xunsafe.CastSlice[uint8, uint8](lhs.Data)
+	rhsData := xunsafe.CastSlice[uint8, uint8](rhs.Data)
+	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
+
+	var lhsLast, rhsLast uint8
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = lhsVal % rhsVal
+	}
+}
+
 func AndU8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
@@ -5538,6 +5902,126 @@ func DivideScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 
 	for i := int64(0); i < length; i++ {
 		outData[i] = inData[i] / scalar
+	}
+}
+
+func ModuloScalarF64(series telem.Series, scalar float64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float64](series.Data)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = float64(math.Mod(float64(inData[i]), float64(scalar)))
+	}
+}
+
+func ModuloScalarF32(series telem.Series, scalar float32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float32](series.Data)
+	outData := xunsafe.CastSlice[uint8, float32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = float32(math.Mod(float64(inData[i]), float64(scalar)))
+	}
+}
+
+func ModuloScalarI64(series telem.Series, scalar int64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int64](series.Data)
+	outData := xunsafe.CastSlice[uint8, int64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] % scalar
+	}
+}
+
+func ModuloScalarI32(series telem.Series, scalar int32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int32](series.Data)
+	outData := xunsafe.CastSlice[uint8, int32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] % scalar
+	}
+}
+
+func ModuloScalarI16(series telem.Series, scalar int16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int16](series.Data)
+	outData := xunsafe.CastSlice[uint8, int16](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] % scalar
+	}
+}
+
+func ModuloScalarI8(series telem.Series, scalar int8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int8](series.Data)
+	outData := xunsafe.CastSlice[uint8, int8](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] % scalar
+	}
+}
+
+func ModuloScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint64](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] % scalar
+	}
+}
+
+func ModuloScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint32](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] % scalar
+	}
+}
+
+func ModuloScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint16](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint16](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] % scalar
+	}
+}
+
+func ModuloScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint8](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] % scalar
 	}
 }
 

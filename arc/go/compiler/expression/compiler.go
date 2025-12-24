@@ -210,30 +210,23 @@ func compileIndexOrSlice(
 	indexOrSlice parser.IIndexOrSliceContext,
 	operandType types.Type,
 ) (types.Type, error) {
-	exprs := indexOrSlice.AllExpression()
-	hasColon := indexOrSlice.COLON() != nil
+	expressions := indexOrSlice.AllExpression()
+	isSliceOp := indexOrSlice.COLON() != nil
 
-	if !hasColon {
-		// Index operation: series[i]
+	if !isSliceOp {
 		if operandType.Kind != types.KindSeries {
 			return types.Type{}, errors.New("indexing is only supported on series types")
 		}
-
-		// Compile the index expression (should be an integer)
-		_, err := Compile(context.Child(ctx, exprs[0]).WithHint(types.I32()))
-		if err != nil {
+		if _, err := Compile(context.Child(ctx, expressions[0]).WithHint(types.I32())); err != nil {
 			return types.Type{}, err
 		}
-
-		// Call SeriesIndex to get the element
-		elemType := *operandType.Elem
-		funcIdx, err := ctx.Imports.GetSeriesIndex(elemType)
+		t := operandType.Unwrap()
+		funcIdx, err := ctx.Imports.GetSeriesIndex(t)
 		if err != nil {
 			return types.Type{}, err
 		}
 		ctx.Writer.WriteCall(funcIdx)
-
-		return elemType, nil
+		return t, nil
 	}
 
 	// Slice operation: series[start:end]
@@ -244,33 +237,22 @@ func compileIndexOrSlice(
 	// Determine start and end expressions
 	// Grammar: LBRACKET expression? COLON expression? RBRACKET
 	var startExpr, endExpr parser.IExpressionContext
-	switch len(exprs) {
-	case 0:
-		// s[:] - full slice
-		startExpr = nil
-		endExpr = nil
-	case 1:
-		// Either s[start:] or s[:end]
-		// The expression position tells us which one
-		if indexOrSlice.GetChild(1) == exprs[0] {
-			// Expression is before colon: s[start:]
-			startExpr = exprs[0]
-			endExpr = nil
+	if len(expressions) == 1 {
+		if indexOrSlice.GetChild(1) == expressions[0] {
+			startExpr = expressions[0] // before colon: s[start:]
 		} else {
-			// Expression is after colon: s[:end]
-			startExpr = nil
-			endExpr = exprs[0]
+			endExpr = expressions[0] // after colon: s[:end]
 		}
-	case 2:
-		// s[start:end]
-		startExpr = exprs[0]
-		endExpr = exprs[1]
+	} else if len(expressions) == 2 {
+		startExpr = expressions[0]
+		endExpr = expressions[1]
+	} else {
+		return types.Type{}, errors.Newf("expected 1 or 2 items in slice expression, received %v", len(expressions))
 	}
 
 	// Compile start index (or push 0 if not specified)
 	if startExpr != nil {
-		_, err := Compile(context.Child(ctx, startExpr).WithHint(types.I32()))
-		if err != nil {
+		if _, err := Compile(context.Child(ctx, startExpr).WithHint(types.I32())); err != nil {
 			return types.Type{}, err
 		}
 	} else {
@@ -279,8 +261,7 @@ func compileIndexOrSlice(
 
 	// Compile end index (or push -1 to indicate "to end")
 	if endExpr != nil {
-		_, err := Compile(context.Child(ctx, endExpr).WithHint(types.I32()))
-		if err != nil {
+		if _, err := Compile(context.Child(ctx, endExpr).WithHint(types.I32())); err != nil {
 			return types.Type{}, err
 		}
 	} else {

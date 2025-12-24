@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <cstddef>
 #include <iostream>
 #include <string>
@@ -480,8 +481,6 @@ public:
         memcpy(this->data_.get(), data.data(), data.size());
         this->data_[byte_size() - 1] = NEWLINE_TERMINATOR;
     }
-
-    explicit Series(const char *data) {}
 
     /// @brief constructs the series from its protobuf representation.
     explicit Series(const PBSeries &s):
@@ -1081,6 +1080,19 @@ public:
         return apply_binary_op(other, [](auto a, auto b) { return a / b; });
     }
 
+    /// @brief Series-Series modulo operator. Returns a new Series.
+    /// Uses % for integer types, std::fmod for floating-point types.
+    /// @throws std::runtime_error if series lengths or types don't match.
+    Series operator%(const Series &other) const {
+        return apply_binary_op(other, [](auto a, auto b) {
+            if constexpr (std::is_integral_v<decltype(a)>) {
+                return a % b;
+            } else {
+                return std::fmod(a, b);
+            }
+        });
+    }
+
     /// @brief Series + scalar operator. Returns a new Series.
     template<typename T>
     Series operator+(T scalar) const {
@@ -1107,6 +1119,19 @@ public:
         return apply_scalar_op(scalar, std::divides<T>());
     }
 
+    /// @brief Series % scalar operator. Returns a new Series.
+    /// Uses % for integer types, std::fmod for floating-point types.
+    /// @throws std::runtime_error if scalar is zero.
+    template<typename T>
+    Series operator%(T scalar) const {
+        if (scalar == 0) throw std::runtime_error("modulo by zero");
+        if constexpr (std::is_integral_v<T>) {
+            return apply_scalar_op(scalar, std::modulus<T>());
+        } else {
+            return apply_scalar_op(scalar, [](auto a, auto b) { return std::fmod(a, b); });
+        }
+    }
+
     /// @brief scalar + Series operator (commutative). Returns a new Series.
     template<typename T>
     friend Series operator+(T scalar, const Series &s) {
@@ -1129,6 +1154,19 @@ public:
     template<typename T>
     friend Series operator/(T scalar, const Series &s) {
         return s.apply_reverse_scalar_op(scalar, std::divides<T>());
+    }
+
+    /// @brief scalar % Series operator. Computes (scalar % element) for each element.
+    /// Uses % for integer types, std::fmod for floating-point types.
+    template<typename T>
+    friend Series operator%(T scalar, const Series &s) {
+        if constexpr (std::is_integral_v<T>) {
+            return s.apply_reverse_scalar_op(scalar, std::modulus<T>());
+        } else {
+            return s.apply_reverse_scalar_op(
+                scalar, [](auto a, auto b) { return std::fmod(a, b); }
+            );
+        }
     }
 
     /// @brief Series > Series comparison. Returns UINT8_T Series with 0/1 values.

@@ -218,7 +218,28 @@ extend_to_match_length(const telem::Series &a, const telem::Series &b) {
     return {extend(a, max_len), extend(b, max_len)};
 }
 
-// Macro to generate all series operations for a given type
+#define IMPL_SERIES_SCALAR_OP(suffix, cpptype, name, op)                               \
+    uint32_t Bindings::series_element_##name##_##suffix(uint32_t handle, cpptype v) {  \
+        auto it = series.find(handle);                                                 \
+        if (it == series.end()) return 0;                                              \
+        auto result = it->second op v;                                                 \
+        const uint32_t new_handle = series_handle_counter++;                           \
+        series.emplace(new_handle, std::move(result));                                 \
+        return new_handle;                                                             \
+    }
+
+#define IMPL_SERIES_BINARY_OP(suffix, cpptype, prefix, name, op)                       \
+    uint32_t Bindings::prefix##_##name##_##suffix(uint32_t a, uint32_t b) {            \
+        auto it_a = series.find(a);                                                    \
+        auto it_b = series.find(b);                                                    \
+        if (it_a == series.end() || it_b == series.end()) return 0;                    \
+        auto [lhs, rhs] = extend_to_match_length<cpptype>(it_a->second, it_b->second); \
+        auto result = lhs op rhs;                                                      \
+        const uint32_t new_handle = series_handle_counter++;                           \
+        series.emplace(new_handle, std::move(result));                                 \
+        return new_handle;                                                             \
+    }
+
 #define IMPL_SERIES_OPS(suffix, cpptype, data_type_const)                              \
     uint32_t Bindings::series_create_empty_##suffix(uint32_t length) {                 \
         auto s = telem::Series(data_type_const, static_cast<size_t>(length));          \
@@ -242,30 +263,9 @@ extend_to_match_length(const telem::Series &a, const telem::Series &b) {
         if (it == series.end()) return cpptype{};                                      \
         return it->second.at<cpptype>(static_cast<int>(index));                        \
     }                                                                                  \
-    uint32_t Bindings::series_element_add_##suffix(uint32_t handle, cpptype value) {   \
-        auto it = series.find(handle);                                                 \
-        if (it == series.end()) return 0;                                              \
-        auto result = it->second + value;                                              \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
-    }                                                                                  \
-    uint32_t Bindings::series_element_mul_##suffix(uint32_t handle, cpptype value) {   \
-        auto it = series.find(handle);                                                 \
-        if (it == series.end()) return 0;                                              \
-        auto result = it->second * value;                                              \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
-    }                                                                                  \
-    uint32_t Bindings::series_element_sub_##suffix(uint32_t handle, cpptype value) {   \
-        auto it = series.find(handle);                                                 \
-        if (it == series.end()) return 0;                                              \
-        auto result = it->second - value;                                              \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
-    }                                                                                  \
+    IMPL_SERIES_SCALAR_OP(suffix, cpptype, add, +)                                     \
+    IMPL_SERIES_SCALAR_OP(suffix, cpptype, mul, *)                                     \
+    IMPL_SERIES_SCALAR_OP(suffix, cpptype, sub, -)                                     \
     uint32_t Bindings::series_element_div_##suffix(uint32_t handle, cpptype value) {   \
         auto it = series.find(handle);                                                 \
         if (it == series.end()) return 0;                                              \
@@ -275,106 +275,42 @@ extend_to_match_length(const telem::Series &a, const telem::Series &b) {
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
     }                                                                                  \
-    uint32_t Bindings::series_series_add_##suffix(uint32_t a, uint32_t b) {            \
-        auto it_a = series.find(a);                                                    \
-        auto it_b = series.find(b);                                                    \
-        if (it_a == series.end() || it_b == series.end()) return 0;                    \
-        auto [lhs, rhs] = extend_to_match_length<cpptype>(it_a->second, it_b->second); \
-        auto result = lhs + rhs;                                                       \
+    uint32_t Bindings::series_element_rsub_##suffix(uint32_t handle, cpptype value) {  \
+        auto it = series.find(handle);                                                 \
+        if (it == series.end()) return 0;                                              \
+        auto result = value - it->second;                                              \
         const uint32_t new_handle = series_handle_counter++;                           \
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
     }                                                                                  \
-    uint32_t Bindings::series_series_mul_##suffix(uint32_t a, uint32_t b) {            \
-        auto it_a = series.find(a);                                                    \
-        auto it_b = series.find(b);                                                    \
-        if (it_a == series.end() || it_b == series.end()) return 0;                    \
-        auto [lhs, rhs] = extend_to_match_length<cpptype>(it_a->second, it_b->second); \
-        auto result = lhs * rhs;                                                       \
+    uint32_t Bindings::series_element_rdiv_##suffix(uint32_t handle, cpptype value) {  \
+        auto it = series.find(handle);                                                 \
+        if (it == series.end()) return 0;                                              \
+        auto result = value / it->second;                                              \
         const uint32_t new_handle = series_handle_counter++;                           \
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
     }                                                                                  \
-    uint32_t Bindings::series_series_sub_##suffix(uint32_t a, uint32_t b) {            \
-        auto it_a = series.find(a);                                                    \
-        auto it_b = series.find(b);                                                    \
-        if (it_a == series.end() || it_b == series.end()) return 0;                    \
-        auto [lhs, rhs] = extend_to_match_length<cpptype>(it_a->second, it_b->second); \
-        auto result = lhs - rhs;                                                       \
+    uint32_t Bindings::series_element_mod_##suffix(uint32_t handle, cpptype value) {   \
+        auto it = series.find(handle);                                                 \
+        if (it == series.end()) return 0;                                              \
+        if (value == 0) return 0;                                                      \
+        auto result = it->second % value;                                              \
         const uint32_t new_handle = series_handle_counter++;                           \
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
     }                                                                                  \
-    uint32_t Bindings::series_series_div_##suffix(uint32_t a, uint32_t b) {            \
-        auto it_a = series.find(a);                                                    \
-        auto it_b = series.find(b);                                                    \
-        if (it_a == series.end() || it_b == series.end()) return 0;                    \
-        auto [lhs, rhs] = extend_to_match_length<cpptype>(it_a->second, it_b->second); \
-        auto result = lhs / rhs;                                                       \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
-    }                                                                                  \
-    uint32_t Bindings::series_compare_gt_##suffix(uint32_t a, uint32_t b) {            \
-        auto it_a = series.find(a);                                                    \
-        auto it_b = series.find(b);                                                    \
-        if (it_a == series.end() || it_b == series.end()) return 0;                    \
-        auto [lhs, rhs] = extend_to_match_length<cpptype>(it_a->second, it_b->second); \
-        auto result = lhs > rhs;                                                       \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
-    }                                                                                  \
-    uint32_t Bindings::series_compare_lt_##suffix(uint32_t a, uint32_t b) {            \
-        auto it_a = series.find(a);                                                    \
-        auto it_b = series.find(b);                                                    \
-        if (it_a == series.end() || it_b == series.end()) return 0;                    \
-        auto [lhs, rhs] = extend_to_match_length<cpptype>(it_a->second, it_b->second); \
-        auto result = lhs < rhs;                                                       \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
-    }                                                                                  \
-    uint32_t Bindings::series_compare_ge_##suffix(uint32_t a, uint32_t b) {            \
-        auto it_a = series.find(a);                                                    \
-        auto it_b = series.find(b);                                                    \
-        if (it_a == series.end() || it_b == series.end()) return 0;                    \
-        auto [lhs, rhs] = extend_to_match_length<cpptype>(it_a->second, it_b->second); \
-        auto result = lhs >= rhs;                                                      \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
-    }                                                                                  \
-    uint32_t Bindings::series_compare_le_##suffix(uint32_t a, uint32_t b) {            \
-        auto it_a = series.find(a);                                                    \
-        auto it_b = series.find(b);                                                    \
-        if (it_a == series.end() || it_b == series.end()) return 0;                    \
-        auto [lhs, rhs] = extend_to_match_length<cpptype>(it_a->second, it_b->second); \
-        auto result = lhs <= rhs;                                                      \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
-    }                                                                                  \
-    uint32_t Bindings::series_compare_eq_##suffix(uint32_t a, uint32_t b) {            \
-        auto it_a = series.find(a);                                                    \
-        auto it_b = series.find(b);                                                    \
-        if (it_a == series.end() || it_b == series.end()) return 0;                    \
-        auto [lhs, rhs] = extend_to_match_length<cpptype>(it_a->second, it_b->second); \
-        auto result = lhs == rhs;                                                      \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
-    }                                                                                  \
-    uint32_t Bindings::series_compare_ne_##suffix(uint32_t a, uint32_t b) {            \
-        auto it_a = series.find(a);                                                    \
-        auto it_b = series.find(b);                                                    \
-        if (it_a == series.end() || it_b == series.end()) return 0;                    \
-        auto [lhs, rhs] = extend_to_match_length<cpptype>(it_a->second, it_b->second); \
-        auto result = lhs != rhs;                                                      \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
-    }                                                                                  \
+    IMPL_SERIES_BINARY_OP(suffix, cpptype, series_series, add, +)                      \
+    IMPL_SERIES_BINARY_OP(suffix, cpptype, series_series, mul, *)                      \
+    IMPL_SERIES_BINARY_OP(suffix, cpptype, series_series, sub, -)                      \
+    IMPL_SERIES_BINARY_OP(suffix, cpptype, series_series, div, /)                      \
+    IMPL_SERIES_BINARY_OP(suffix, cpptype, series_series, mod, %)                      \
+    IMPL_SERIES_BINARY_OP(suffix, cpptype, series_compare, gt, >)                      \
+    IMPL_SERIES_BINARY_OP(suffix, cpptype, series_compare, lt, <)                      \
+    IMPL_SERIES_BINARY_OP(suffix, cpptype, series_compare, ge, >=)                     \
+    IMPL_SERIES_BINARY_OP(suffix, cpptype, series_compare, le, <=)                     \
+    IMPL_SERIES_BINARY_OP(suffix, cpptype, series_compare, eq, ==)                     \
+    IMPL_SERIES_BINARY_OP(suffix, cpptype, series_compare, ne, !=)                     \
     uint32_t Bindings::state_load_series_##suffix(                                     \
         uint32_t func_id,                                                              \
         uint32_t var_id,                                                               \
@@ -420,6 +356,8 @@ IMPL_SERIES_OPS(f32, float, telem::FLOAT32_T)
 IMPL_SERIES_OPS(f64, double, telem::FLOAT64_T)
 
 #undef IMPL_SERIES_OPS
+#undef IMPL_SERIES_SCALAR_OP
+#undef IMPL_SERIES_BINARY_OP
 
 // ===== Generic Operations =====
 
@@ -595,6 +533,21 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
         })                                                                             \
     );                                                                                 \
     imports.push_back(                                                                 \
+        wasmtime::Func::wrap(store, [runtime](uint32_t h, wasm_type v) -> uint32_t {   \
+            return runtime->series_element_rsub_##type(h, v);                          \
+        })                                                                             \
+    );                                                                                 \
+    imports.push_back(                                                                 \
+        wasmtime::Func::wrap(store, [runtime](uint32_t h, wasm_type v) -> uint32_t {   \
+            return runtime->series_element_rdiv_##type(h, v);                          \
+        })                                                                             \
+    );                                                                                 \
+    imports.push_back(                                                                 \
+        wasmtime::Func::wrap(store, [runtime](uint32_t h, wasm_type v) -> uint32_t {   \
+            return runtime->series_element_mod_##type(h, v);                           \
+        })                                                                             \
+    );                                                                                 \
+    imports.push_back(                                                                 \
         wasmtime::Func::wrap(store, [runtime](uint32_t a, uint32_t b) -> uint32_t {    \
             return runtime->series_series_add_##type(a, b);                            \
         })                                                                             \
@@ -612,6 +565,11 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(store, [runtime](uint32_t a, uint32_t b) -> uint32_t {    \
             return runtime->series_series_div_##type(a, b);                            \
+        })                                                                             \
+    );                                                                                 \
+    imports.push_back(                                                                 \
+        wasmtime::Func::wrap(store, [runtime](uint32_t a, uint32_t b) -> uint32_t {    \
+            return runtime->series_series_mod_##type(a, b);                            \
         })                                                                             \
     );                                                                                 \
     imports.push_back(                                                                 \

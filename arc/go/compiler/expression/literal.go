@@ -57,11 +57,11 @@ func compileSeriesLiteral(
 	}
 
 	// Get expressions from the list
-	var exprs []parser.IExpressionContext
+	var expressions []parser.IExpressionContext
 	if exprList := ctx.AST.ExpressionList(); exprList != nil {
-		exprs = exprList.AllExpression()
+		expressions = exprList.AllExpression()
 	}
-	length := len(exprs)
+	length := len(expressions)
 
 	// Create the series: push length and call series_create_empty_<type>
 	ctx.Writer.WriteI32Const(int32(length))
@@ -74,7 +74,7 @@ func compileSeriesLiteral(
 	// SetElement returns the handle, so we can chain calls directly on the stack.
 	// Stack after create: [handle]
 	// For each element: push index, push value, call SetElement -> [handle]
-	for i, expr := range exprs {
+	for i, expr := range expressions {
 		ctx.Writer.WriteI32Const(int32(i))
 		if _, err = Compile(context.Child(ctx, expr).WithHint(*elemType)); err != nil {
 			return types.Type{}, err

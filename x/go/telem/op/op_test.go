@@ -210,6 +210,66 @@ var _ = Describe("Vectorized Operations", func() {
 			})
 		})
 
+		Context("Modulo Operations", func() {
+			It("should perform ModuloI32 on equal length series", func() {
+				a := telem.NewSeriesV[int32](10, 15, 23, 7)
+				b := telem.NewSeriesV[int32](3, 4, 5, 3)
+				output := telem.Series{DataType: telem.Int32T}
+
+				op.ModuloI32(a, b, &output)
+
+				// [10%3, 15%4, 23%5, 7%3] = [1, 3, 3, 1]
+				expected := []int32{1, 3, 3, 1}
+				Expect(output.Len()).To(Equal(int64(4)))
+				Expect(telem.UnmarshalSlice[int32](output.Data, telem.Int32T)).To(Equal(expected))
+			})
+
+			It("should perform ModuloU64 on equal length series", func() {
+				a := telem.NewSeriesV[uint64](100, 250, 17)
+				b := telem.NewSeriesV[uint64](7, 7, 7)
+				output := telem.Series{DataType: telem.Uint64T}
+
+				op.ModuloU64(a, b, &output)
+
+				// [100%7, 250%7, 17%7] = [2, 5, 3]
+				expected := []uint64{2, 5, 3}
+				Expect(output.Len()).To(Equal(int64(3)))
+				Expect(telem.UnmarshalSlice[uint64](output.Data, telem.Uint64T)).To(Equal(expected))
+			})
+
+			It("should repeat last value for modulo with different lengths", func() {
+				a := telem.NewSeriesV[int64](10, 20, 30, 40)
+				b := telem.NewSeriesV[int64](3, 7)
+				output := telem.Series{DataType: telem.Int64T}
+
+				op.ModuloI64(a, b, &output)
+
+				// a values: [10, 20, 30, 40]
+				// b values: [3,  7,  7,  7] (7 repeats)
+				// result:   [1,  6,  2,  5]
+				expected := []int64{1, 6, 2, 5}
+				Expect(output.Len()).To(Equal(int64(4)))
+				Expect(telem.UnmarshalSlice[int64](output.Data, telem.Int64T)).To(Equal(expected))
+			})
+
+			It("should perform ModuloF64 using math.Mod", func() {
+				a := telem.NewSeriesV[float64](10.5, 15.3, 7.8)
+				b := telem.NewSeriesV[float64](3.0, 4.0, 2.5)
+				output := telem.Series{DataType: telem.Float64T}
+
+				op.ModuloF64(a, b, &output)
+
+				// math.Mod(10.5, 3.0) = 1.5
+				// math.Mod(15.3, 4.0) = 3.3
+				// math.Mod(7.8, 2.5) = 0.3
+				result := telem.UnmarshalSlice[float64](output.Data, telem.Float64T)
+				Expect(output.Len()).To(Equal(int64(3)))
+				Expect(result[0]).To(BeNumerically("~", 1.5, 0.001))
+				Expect(result[1]).To(BeNumerically("~", 3.3, 0.001))
+				Expect(result[2]).To(BeNumerically("~", 0.3, 0.001))
+			})
+		})
+
 		Context("Edge Cases", func() {
 			It("should handle both single element series", func() {
 				a := telem.NewSeriesV[uint64](42)
@@ -474,6 +534,44 @@ var _ = Describe("Vectorized Operations", func() {
 
 				expected := []int32{84}
 				Expect(telem.UnmarshalSlice[int32](output.Data, telem.Int32T)).To(Equal(expected))
+			})
+
+			It("should perform modulo scalar for I32", func() {
+				series := telem.NewSeriesV[int32](10, 15, 23, 7)
+				output := telem.Series{DataType: telem.Int32T}
+
+				op.ModuloScalarI32(series, 3, &output)
+
+				// [10%3, 15%3, 23%3, 7%3] = [1, 0, 2, 1]
+				expected := []int32{1, 0, 2, 1}
+				Expect(telem.UnmarshalSlice[int32](output.Data, telem.Int32T)).To(Equal(expected))
+			})
+
+			It("should perform modulo scalar for U64", func() {
+				series := telem.NewSeriesV[uint64](100, 250, 17)
+				output := telem.Series{DataType: telem.Uint64T}
+
+				op.ModuloScalarU64(series, 7, &output)
+
+				// [100%7, 250%7, 17%7] = [2, 5, 3]
+				expected := []uint64{2, 5, 3}
+				Expect(telem.UnmarshalSlice[uint64](output.Data, telem.Uint64T)).To(Equal(expected))
+			})
+
+			It("should perform modulo scalar for F64 using math.Mod", func() {
+				series := telem.NewSeriesV[float64](10.5, 15.3, 7.8)
+				output := telem.Series{DataType: telem.Float64T}
+
+				op.ModuloScalarF64(series, 3.0, &output)
+
+				// math.Mod(10.5, 3.0) = 1.5
+				// math.Mod(15.3, 3.0) = 0.3
+				// math.Mod(7.8, 3.0) = 1.8
+				result := telem.UnmarshalSlice[float64](output.Data, telem.Float64T)
+				Expect(output.Len()).To(Equal(int64(3)))
+				Expect(result[0]).To(BeNumerically("~", 1.5, 0.001))
+				Expect(result[1]).To(BeNumerically("~", 0.3, 0.001))
+				Expect(result[2]).To(BeNumerically("~", 1.8, 0.001))
 			})
 		})
 
