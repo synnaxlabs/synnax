@@ -13,10 +13,9 @@
 
 /// @brief sequence() should collect nodes from strata into stage nodes list
 TEST(BuilderTest, SequenceCollectsNodesFromStrata) {
-    auto ir = arc::ir::Builder().sequence(
-                                    "main",
-                                    {{"stage_a", {{"A", "B"}, {"C"}}}}
-    ).build();
+    auto ir = arc::ir::testutil::Builder()
+                  .sequence("main", {{"stage_a", {{"A", "B"}, {"C"}}}})
+                  .build();
 
     ASSERT_EQ(ir.sequences.size(), 1);
     ASSERT_EQ(ir.sequences[0].key, "main");
@@ -33,7 +32,7 @@ TEST(BuilderTest, SequenceCollectsNodesFromStrata) {
 
 /// @brief sequence() should handle multiple stages
 TEST(BuilderTest, SequenceHandlesMultipleStages) {
-    auto ir = arc::ir::Builder()
+    auto ir = arc::ir::testutil::Builder()
                   .sequence("seq", {{"first", {{"X"}}}, {"second", {{"Y"}, {"Z"}}}})
                   .build();
 
@@ -45,15 +44,18 @@ TEST(BuilderTest, SequenceHandlesMultipleStages) {
 
 /// @brief sequence() should handle empty strata
 TEST(BuilderTest, SequenceHandlesEmptyStrata) {
-    auto ir = arc::ir::Builder().sequence("empty", {{"stage", {}}}).build();
+    auto ir = arc::ir::testutil::Builder().sequence("empty", {{"stage", {}}}).build();
 
     ASSERT_EQ(ir.sequences[0].stages[0].nodes.size(), 0);
 }
 
 /// @brief edge() should create continuous edges
 TEST(BuilderTest, EdgeCreatesContinuousEdges) {
-    auto
-        ir = arc::ir::Builder().node("A").node("B").edge("A", "out", "B", "in").build();
+    auto ir = arc::ir::testutil::Builder()
+                  .node("A")
+                  .node("B")
+                  .edge("A", "out", "B", "in")
+                  .build();
 
     ASSERT_EQ(ir.edges.size(), 1);
     EXPECT_EQ(ir.edges[0].kind, arc::ir::EdgeKind::Continuous);
@@ -65,7 +67,7 @@ TEST(BuilderTest, EdgeCreatesContinuousEdges) {
 
 /// @brief oneshot() should create one-shot edges
 TEST(BuilderTest, OneshotCreatesOneShotEdges) {
-    auto ir = arc::ir::Builder()
+    auto ir = arc::ir::testutil::Builder()
                   .node("A")
                   .node("B")
                   .oneshot("A", "trigger", "B", "activate")
