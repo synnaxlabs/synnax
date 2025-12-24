@@ -312,6 +312,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			Framer:          cfg.Distribution.Framer,
 			Channel:         cfg.Distribution.Channel,
 			Arc:             l.Arc,
+			Status:          l.Status,
 		},
 	); !ok(err, l.Framer) {
 		return nil, err
