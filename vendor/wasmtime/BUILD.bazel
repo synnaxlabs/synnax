@@ -79,10 +79,6 @@ genrule(
             # Ensure MSVC target is installed
             rustup target add x86_64-pc-windows-msvc
 
-            # Verify we're using the right rustc
-            echo "Using rustc: $$(which rustc)"
-            echo "Sysroot: $$(rustc --print sysroot)"
-
             # Build wasmtime for Windows
             cd vendor/wasmtime/wasmtime
 

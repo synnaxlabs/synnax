@@ -224,13 +224,7 @@ jobs:
 
       - name: Install Rust
         if: inputs.driver
-        shell: bash
-        run: |
-          rustup update
-          # Add MSVC target for Windows wasmtime build
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            rustup target add x86_64-pc-windows-msvc
-          fi
+        run: rustup update
 
       - name: Build Driver (Windows)
         if: inputs.driver && matrix.os == 'windows-build-bot'
