@@ -24,8 +24,6 @@ Bindings::Bindings(state::State *state, wasmtime::Store *store):
     string_handle_counter(1),
     series_handle_counter(1) {}
 
-// ===== Channel Operations (Stubs) =====
-
 #define IMPL_CHANNEL_OPS(suffix, cpptype, default_val)                                 \
     cpptype Bindings::channel_read_##suffix(uint32_t channel_id) {                     \
         return default_val;                                                            \
@@ -55,8 +53,6 @@ void Bindings::channel_write_str(uint32_t channel_id, uint32_t str_handle) {}
 uint32_t Bindings::channel_blocking_read_str(uint32_t channel_id) {
     return 0;
 }
-
-// ===== State Operations =====
 
 #define IMPL_STATE_OPS(suffix, cpptype)                                                \
     cpptype Bindings::state_load_##suffix(                                             \
@@ -119,8 +115,6 @@ auto Bindings::state_store_str(
     if (const auto it = strings.find(str_handle); it != strings.end())
         state_string[state_key(func_id, var_id)] = it->second;
 }
-
-// ===== String Operations =====
 
 uint32_t Bindings::string_from_literal(const uint32_t ptr, const uint32_t len) {
     if (!memory || !store) {
@@ -185,7 +179,6 @@ std::string Bindings::string_get(const uint32_t handle) {
     return it->second;
 }
 
-// ===== Series Operations =====
 uint64_t Bindings::series_len(uint32_t handle) {
     auto it = series.find(handle);
     if (it == series.end()) return 0;
@@ -378,8 +371,6 @@ IMPL_SERIES_OPS(f64, double, telem::FLOAT64_T)
 #undef IMPL_SERIES_SCALAR_OP
 #undef IMPL_SERIES_BINARY_OP
 
-// ===== Generic Operations =====
-
 uint64_t Bindings::now() {
     auto now = std::chrono::system_clock::now();
     auto duration = now.time_since_epoch();
@@ -423,8 +414,6 @@ void Bindings::panic(uint32_t ptr, uint32_t len) {
     std::fprintf(stderr, "WASM panic: %s\n", message.c_str());
     throw std::runtime_error("WASM panic: " + message);
 }
-
-// ===== Math Operations =====
 
 template<typename T>
 static T int_pow(T base, T exp) {

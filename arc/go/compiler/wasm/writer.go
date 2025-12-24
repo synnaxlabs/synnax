@@ -145,10 +145,7 @@ func (e *Writer) WriteBrIf(labelIdx uint32) {
 	e.WriteLEB128Unsigned(uint64(labelIdx))
 }
 
-// === Arithmetic Instructions ===
-
 func (e *Writer) WriteBinaryOpInferred(op string, resultType types.Type) error {
-	// Resolve and emit opcode (analyzer already validated types match)
 	opcode, err := binaryOpcode(op, resultType)
 	if err != nil {
 		return err
@@ -188,8 +185,6 @@ func (e *Writer) writeBlockType(bt BlockType) {
 	e.buf.WriteByte(byte(bt.valueType))
 }
 
-// === LEB128 Encoding ===
-
 // WriteLEB128Unsigned writes an unsigned LEB128 encoded integer
 func (e *Writer) WriteLEB128Unsigned(val uint64) {
 	xbinary.WriteLEB128Unsigned(&e.buf, val)
@@ -199,8 +194,6 @@ func (e *Writer) WriteLEB128Unsigned(val uint64) {
 func (e *Writer) WriteLEB128Signed(val int64) {
 	xbinary.WriteLEB128Signed(&e.buf, val)
 }
-
-// === Output Methods ===
 
 // Bytes returns the accumulated bytecode
 func (e *Writer) Bytes() []byte {
@@ -216,8 +209,6 @@ func (e *Writer) Len() int {
 func (e *Writer) Reset() {
 	e.buf.Reset()
 }
-
-// === Block Types ===
 
 // BlockType represents the type signature of a block
 type BlockType struct {

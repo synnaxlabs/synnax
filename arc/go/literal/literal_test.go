@@ -280,73 +280,63 @@ var _ = Describe("Literal Parser", func() {
 	Describe("String literals", func() {
 		It("Should parse simple string", func() {
 			lit := getLiteral(`"hello"`)
-			parsed, err := literal.Parse(lit, types.String())
-			Expect(err).ToNot(HaveOccurred())
+			parsed := MustSucceed(literal.Parse(lit, types.String()))
 			Expect(parsed.Value).To(Equal("hello"))
 			Expect(parsed.Type).To(Equal(types.String()))
 		})
 
 		It("Should parse empty string", func() {
 			lit := getLiteral(`""`)
-			parsed, err := literal.Parse(lit, types.String())
-			Expect(err).ToNot(HaveOccurred())
+			parsed := MustSucceed(literal.Parse(lit, types.String()))
 			Expect(parsed.Value).To(Equal(""))
 			Expect(parsed.Type).To(Equal(types.String()))
 		})
 
 		It("Should parse string with spaces", func() {
 			lit := getLiteral(`"hello world"`)
-			parsed, err := literal.Parse(lit, types.String())
-			Expect(err).ToNot(HaveOccurred())
+			parsed := MustSucceed(literal.Parse(lit, types.String()))
 			Expect(parsed.Value).To(Equal("hello world"))
 		})
 
 		It("Should handle newline escape", func() {
 			lit := getLiteral(`"line1\nline2"`)
-			parsed, err := literal.Parse(lit, types.String())
-			Expect(err).ToNot(HaveOccurred())
+			parsed := MustSucceed(literal.Parse(lit, types.String()))
 			Expect(parsed.Value).To(Equal("line1\nline2"))
 		})
 
 		It("Should handle tab escape", func() {
 			lit := getLiteral(`"col1\tcol2"`)
-			parsed, err := literal.Parse(lit, types.String())
-			Expect(err).ToNot(HaveOccurred())
+			parsed := MustSucceed(literal.Parse(lit, types.String()))
 			Expect(parsed.Value).To(Equal("col1\tcol2"))
 		})
 
 		It("Should handle carriage return escape", func() {
 			lit := getLiteral(`"line1\rline2"`)
-			parsed, err := literal.Parse(lit, types.String())
-			Expect(err).ToNot(HaveOccurred())
+			parsed := MustSucceed(literal.Parse(lit, types.String()))
 			Expect(parsed.Value).To(Equal("line1\rline2"))
 		})
 
 		It("Should handle escaped quote", func() {
 			lit := getLiteral(`"say \"hello\""`)
-			parsed, err := literal.Parse(lit, types.String())
-			Expect(err).ToNot(HaveOccurred())
+			parsed := MustSucceed(literal.Parse(lit, types.String()))
 			Expect(parsed.Value).To(Equal(`say "hello"`))
 		})
 
 		It("Should handle escaped backslash", func() {
 			lit := getLiteral(`"path\\to\\file"`)
-			parsed, err := literal.Parse(lit, types.String())
-			Expect(err).ToNot(HaveOccurred())
+			parsed := MustSucceed(literal.Parse(lit, types.String()))
 			Expect(parsed.Value).To(Equal(`path\to\file`))
 		})
 
 		It("Should handle unicode escape", func() {
 			lit := getLiteral(`"A\u0042C"`)
-			parsed, err := literal.Parse(lit, types.String())
-			Expect(err).ToNot(HaveOccurred())
+			parsed := MustSucceed(literal.Parse(lit, types.String()))
 			Expect(parsed.Value).To(Equal("ABC"))
 		})
 
 		It("Should infer string type when no target type specified", func() {
 			lit := getLiteral(`"hello"`)
-			parsed, err := literal.Parse(lit, types.Type{})
-			Expect(err).ToNot(HaveOccurred())
+			parsed := MustSucceed(literal.Parse(lit, types.Type{}))
 			Expect(parsed.Value).To(Equal("hello"))
 			Expect(parsed.Type).To(Equal(types.String()))
 		})
