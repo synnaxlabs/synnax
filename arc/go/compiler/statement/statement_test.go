@@ -504,6 +504,61 @@ var _ = Describe("Statement Compiler", func() {
 		),
 	)
 
+	DescribeTable("Compound assignment operators", func(source string, instructions ...any) {
+		Expect(compileBlock(source)).To(MatchOpcodes(instructions...))
+	},
+		Entry("i64 plus equals",
+			`x i64 := 10
+			x += 5`,
+			OpI64Const, int64(10),
+			OpLocalSet, 0,
+			OpLocalGet, 0,
+			OpI64Const, int64(5),
+			OpI64Add,
+			OpLocalSet, 0,
+		),
+		Entry("f64 minus equals",
+			`x f64 := 10.0
+			x -= 2.5`,
+			OpF64Const, float64(10.0),
+			OpLocalSet, 0,
+			OpLocalGet, 0,
+			OpF64Const, 2.5,
+			OpF64Sub,
+			OpLocalSet, 0,
+		),
+		Entry("i32 multiply equals",
+			`x i32 := 3
+			x *= 4`,
+			OpI32Const, int32(3),
+			OpLocalSet, 0,
+			OpLocalGet, 0,
+			OpI32Const, int32(4),
+			OpI32Mul,
+			OpLocalSet, 0,
+		),
+		Entry("f32 divide equals",
+			`x f32 := 10.0
+			x /= 2.0`,
+			OpF32Const, float32(10.0),
+			OpLocalSet, 0,
+			OpLocalGet, 0,
+			OpF32Const, float32(2.0),
+			OpF32Div,
+			OpLocalSet, 0,
+		),
+		Entry("i64 modulo equals",
+			`x i64 := 17
+			x %= 5`,
+			OpI64Const, int64(17),
+			OpLocalSet, 0,
+			OpLocalGet, 0,
+			OpI64Const, int64(5),
+			OpI64RemS,
+			OpLocalSet, 0,
+		),
+	)
+
 	DescribeTable("Variable casts", func(source string, instructions ...any) {
 		Expect(compileBlock(source)).To(MatchOpcodes(instructions...))
 	},

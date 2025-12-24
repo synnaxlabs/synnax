@@ -499,6 +499,72 @@ func analyzeIndexedAssignment(
 	return true
 }
 
+func analyzeCompoundAssignment(
+	ctx context.Context[parser.IAssignmentContext],
+	varScope *symbol.Scope,
+	compoundOp parser.ICompoundOpContext,
+) bool {
+	if ctx.AST.IndexOrSlice() != nil {
+		ctx.Diagnostics.AddError(
+			errors.New("indexed compound assignment not yet supported"),
+			ctx.AST,
+		)
+		return false
+	}
+
+	varType := varScope.Type
+	if varType.Kind == types.KindChan {
+		ctx.Diagnostics.AddError(
+			errors.New("compound assignment not supported on channels"),
+			ctx.AST,
+		)
+		return false
+	}
+
+	if varType.Kind == types.KindString {
+		if compoundOp.PLUS_ASSIGN() == nil {
+			ctx.Diagnostics.AddError(
+				errors.New("strings only support += operator"),
+				ctx.AST,
+			)
+			return false
+		}
+	} else if !varType.IsNumeric() {
+		ctx.Diagnostics.AddError(
+			errors.Newf("compound assignment requires numeric type, got %s", varType),
+			ctx.AST,
+		)
+		return false
+	}
+
+	expr := ctx.AST.Expression()
+	if expr == nil {
+		return true
+	}
+	if !expression.Analyze(context.Child(ctx, expr)) {
+		return false
+	}
+	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
+	if !exprType.IsValid() || !varType.IsValid() {
+		return true
+	}
+	if exprType.Kind == types.KindVariable || varType.Kind == types.KindVariable {
+		if err := atypes.Check(ctx.Constraints, varType, exprType, ctx.AST, "compound assignment type compatibility"); err != nil {
+			ctx.Diagnostics.AddError(err, ctx.AST)
+			return false
+		}
+		return true
+	}
+	if atypes.Compatible(varType, exprType) {
+		return true
+	}
+	ctx.Diagnostics.AddError(
+		errors.Newf("type mismatch: cannot use %s in compound assignment to %s", exprType, varType),
+		ctx.AST,
+	)
+	return false
+}
+
 func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) bool {
 	name := ctx.AST.IDENTIFIER().GetText()
 	varScope, err := ctx.Scope.Resolve(ctx, name)
@@ -507,12 +573,14 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) bool {
 		return false
 	}
 
-	// Check if this is an indexed assignment (series[i] = value)
+	if compoundOp := ctx.AST.CompoundOp(); compoundOp != nil {
+		return analyzeCompoundAssignment(ctx, varScope, compoundOp)
+	}
+
 	if indexOrSlice := ctx.AST.IndexOrSlice(); indexOrSlice != nil {
 		return analyzeIndexedAssignment(ctx, varScope, indexOrSlice)
 	}
 
-	// Check if this is a channel assignment (channel = value)
 	if varScope.Type.Kind == types.KindChan {
 		return analyzeChannelAssignment(ctx, &varScope.Symbol)
 	}

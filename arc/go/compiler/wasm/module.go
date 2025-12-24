@@ -168,7 +168,7 @@ func (m *Module) Generate() []byte {
 
 func (m *Module) writeTypeSection() {
 	var section bytes.Buffer
-	binary.binary.WriteLEB128Unsigned(&section, uint64(len(m.types)))
+	binary.WriteLEB128Unsigned(&section, uint64(len(m.types)))
 	for _, ft := range m.types {
 		section.WriteByte(byte(FuncType))
 		binary.WriteLEB128Unsigned(&section, uint64(len(ft.Params)))

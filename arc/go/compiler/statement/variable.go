@@ -136,7 +136,74 @@ func compileIndexedAssignment(
 	return nil
 }
 
-// compileAssignment handles variable assignments (x = expr) and indexed assignments (s[i] = expr)
+func compileCompoundAssignment(
+	ctx context.Context[parser.IAssignmentContext],
+	scope *symbol.Scope,
+	compoundOp parser.ICompoundOpContext,
+) error {
+	sym := scope.Symbol
+	varType := sym.Type
+
+	var op string
+	switch {
+	case compoundOp.PLUS_ASSIGN() != nil:
+		op = "+"
+	case compoundOp.MINUS_ASSIGN() != nil:
+		op = "-"
+	case compoundOp.STAR_ASSIGN() != nil:
+		op = "*"
+	case compoundOp.SLASH_ASSIGN() != nil:
+		op = "/"
+	case compoundOp.PERCENT_ASSIGN() != nil:
+		op = "%"
+	}
+
+	ctx.Writer.WriteLocalGet(scope.ID)
+
+	exprType, err := expression.Compile(context.Child(ctx, ctx.AST.Expression()).WithHint(varType))
+	if err != nil {
+		return err
+	}
+
+	if !types.Equal(varType, exprType) {
+		if err = expression.EmitCast(ctx, exprType, varType); err != nil {
+			return err
+		}
+	}
+
+	if varType.Kind == types.KindString && op == "+" {
+		ctx.Writer.WriteCall(ctx.Imports.StringConcat)
+	} else {
+		if err = ctx.Writer.WriteBinaryOpInferred(op, varType); err != nil {
+			return err
+		}
+	}
+
+	switch sym.Kind {
+	case symbol.KindVariable, symbol.KindInput:
+		ctx.Writer.WriteLocalSet(scope.ID)
+	case symbol.KindStatefulVariable:
+		ctx.Writer.WriteLocalSet(scope.ID)
+		ctx.Writer.WriteI32Const(0)
+		ctx.Writer.WriteI32Const(int32(scope.ID))
+		ctx.Writer.WriteLocalGet(scope.ID)
+		resolveImportF := lo.Ternary(
+			varType.Kind == types.KindSeries,
+			ctx.Imports.GetStateStoreSeries,
+			ctx.Imports.GetStateStore,
+		)
+		importIdx, err := resolveImportF(varType.Unwrap())
+		if err != nil {
+			return err
+		}
+		ctx.Writer.WriteCall(importIdx)
+	default:
+		return errors.Newf("compound assignment not supported for %v", sym.Kind)
+	}
+
+	return nil
+}
+
 func compileAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 ) error {
@@ -146,7 +213,10 @@ func compileAssignment(
 		return err
 	}
 
-	// Check for indexed assignment (series[i] = value)
+	if compoundOp := ctx.AST.CompoundOp(); compoundOp != nil {
+		return compileCompoundAssignment(ctx, scope, compoundOp)
+	}
+
 	if indexOrSlice := ctx.AST.IndexOrSlice(); indexOrSlice != nil {
 		return compileIndexedAssignment(ctx, scope, indexOrSlice)
 	}
