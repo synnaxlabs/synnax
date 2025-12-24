@@ -70,45 +70,42 @@ func compileSeriesLiteral(
 		return types.Type{}, err
 	}
 	ctx.Writer.WriteCall(createIdx)
-
-	// For non-empty series, we need temporary storage for the handle.
-	// Use the target local (set by variable declaration) for this.
-	if length > 0 {
-		tempLocal := ctx.TargetLocal
-		if tempLocal < 0 {
-			return types.Type{}, errors.New("series literal requires target local for temporary storage")
-		}
-
-		// For each element, use local.tee/local.get pattern to preserve handle
-		// across SetElement calls (which return void)
-		for i, expr := range exprs {
-			if i == 0 {
-				// Store handle in target local, keep on stack for first SetElement
-				// LocalTee keeps the value on stack, so we don't need LocalGet here
-				ctx.Writer.WriteLocalTee(tempLocal)
-			} else {
-				// For subsequent elements, load handle from local
-				ctx.Writer.WriteLocalGet(tempLocal)
-			}
-
-			// Push index, compile value, call SetElement
-			ctx.Writer.WriteI32Const(int32(i))
-			_, err := Compile(context.Child(ctx, expr).WithHint(*elemType))
-			if err != nil {
-				return types.Type{}, err
-			}
-
-			setIdx, err := ctx.Imports.GetSeriesSetElement(*elemType)
-			if err != nil {
-				return types.Type{}, err
-			}
-			ctx.Writer.WriteCall(setIdx)
-		}
-
-		// Put handle back on stack as the expression result
-		ctx.Writer.WriteLocalGet(tempLocal)
+	if length == 0 {
+		return seriesType, nil
 	}
-	// If length == 0, handle is still on stack from CreateEmpty
+
+	tempLocal := ctx.TargetLocal
+	if tempLocal < 0 {
+		return types.Type{}, errors.New("series literal requires target local for temporary storage")
+	}
+
+	// For each element, use local.tee/local.get pattern to preserve handle
+	// across SetElement calls (which return void)
+	for i, expr := range exprs {
+		if i == 0 {
+			// Store handle in target local, keep on stack for first SetElement
+			// LocalTee keeps the value on stack, so we don't need LocalGet here
+			ctx.Writer.WriteLocalTee(tempLocal)
+		} else {
+			// For subsequent elements, load handle from local
+			ctx.Writer.WriteLocalGet(tempLocal)
+		}
+
+		// Push index, compile value, call SetElement
+		ctx.Writer.WriteI32Const(int32(i))
+		if _, err = Compile(context.Child(ctx, expr).WithHint(*elemType)); err != nil {
+			return types.Type{}, err
+		}
+
+		setIdx, err := ctx.Imports.GetSeriesSetElement(*elemType)
+		if err != nil {
+			return types.Type{}, err
+		}
+		ctx.Writer.WriteCall(setIdx)
+	}
+
+	// Put handle back on stack as the expression result
+	ctx.Writer.WriteLocalGet(tempLocal)
 
 	return seriesType, nil
 }

@@ -432,12 +432,84 @@ func analyzeChannelAssignment(ctx context.Context[parser.IAssignmentContext], ch
 	return true
 }
 
+// analyzeIndexedAssignment validates indexed assignment statements (series[i] = value)
+func analyzeIndexedAssignment(
+	ctx context.Context[parser.IAssignmentContext],
+	varScope *symbol.Scope,
+	indexOrSlice parser.IIndexOrSliceContext,
+) bool {
+	// 1. Verify base is a series type
+	if varScope.Type.Kind != types.KindSeries {
+		ctx.Diagnostics.AddError(
+			errors.New("indexed assignment only supported on series types"),
+			ctx.AST,
+		)
+		return false
+	}
+
+	// 2. Only support single index (not slices) for now
+	if indexOrSlice.COLON() != nil {
+		ctx.Diagnostics.AddError(
+			errors.New("slice assignment not supported"),
+			ctx.AST,
+		)
+		return false
+	}
+
+	// 3. Analyze index expression
+	indexExprs := indexOrSlice.AllExpression()
+	if len(indexExprs) != 1 {
+		return false
+	}
+	if !expression.Analyze(context.Child(ctx, indexExprs[0])) {
+		return false
+	}
+
+	// 4. Analyze value expression and check type compatibility
+	valueExpr := ctx.AST.Expression()
+	if !expression.Analyze(context.Child(ctx, valueExpr)) {
+		return false
+	}
+
+	elemType := *varScope.Type.Elem
+	exprType := atypes.InferFromExpression(context.Child(ctx, valueExpr))
+
+	if !exprType.IsValid() || !elemType.IsValid() {
+		return true
+	}
+
+	// If either type is a type variable, add a constraint instead of checking directly
+	if exprType.Kind == types.KindVariable || elemType.Kind == types.KindVariable {
+		if err := atypes.Check(ctx.Constraints, elemType, exprType, ctx.AST, "indexed assignment type compatibility"); err != nil {
+			ctx.Diagnostics.AddError(err, ctx.AST)
+			return false
+		}
+		return true
+	}
+
+	isLiteral := isLiteralExpression(context.Child(ctx, valueExpr))
+	if (isLiteral && !atypes.LiteralAssignmentCompatible(elemType, exprType)) || (!isLiteral && !atypes.Compatible(elemType, exprType)) {
+		ctx.Diagnostics.AddError(
+			errors.Newf("type mismatch: cannot assign %s to series element of type %s", exprType, elemType),
+			ctx.AST,
+		)
+		return false
+	}
+
+	return true
+}
+
 func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) bool {
 	name := ctx.AST.IDENTIFIER().GetText()
 	varScope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
+	}
+
+	// Check if this is an indexed assignment (series[i] = value)
+	if indexOrSlice := ctx.AST.IndexOrSlice(); indexOrSlice != nil {
+		return analyzeIndexedAssignment(ctx, varScope, indexOrSlice)
 	}
 
 	// Check if this is a channel assignment (channel = value)

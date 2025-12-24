@@ -100,7 +100,45 @@ func compileStatefulVariable(
 	return nil
 }
 
-// compileAssignment handles variable assignments (x = expr)
+// compileIndexedAssignment handles indexed assignment statements (series[i] = value)
+func compileIndexedAssignment(
+	ctx context.Context[parser.IAssignmentContext],
+	scope *symbol.Scope,
+	indexOrSlice parser.IIndexOrSliceContext,
+) error {
+	seriesType := scope.Type
+	elemType := *seriesType.Elem
+
+	// Step 1: Push series handle onto stack
+	ctx.Writer.WriteLocalGet(scope.ID)
+
+	// Step 2: Compile and push index expression
+	indexExprs := indexOrSlice.AllExpression()
+	if _, err := expression.Compile(
+		context.Child(ctx, indexExprs[0]).WithHint(types.I32()),
+	); err != nil {
+		return errors.Wrap(err, "failed to compile index expression")
+	}
+
+	// Step 3: Compile and push value expression
+	if _, err := expression.Compile(
+		context.Child(ctx, ctx.AST.Expression()).WithHint(elemType),
+	); err != nil {
+		return errors.Wrap(err, "failed to compile value expression")
+	}
+
+	// Stack is now: [series_handle, index, value]
+	// Step 4: Call series_set_element_<type>(handle, index, value)
+	importIdx, err := ctx.Imports.GetSeriesSetElement(elemType)
+	if err != nil {
+		return err
+	}
+	ctx.Writer.WriteCall(importIdx)
+
+	return nil
+}
+
+// compileAssignment handles variable assignments (x = expr) and indexed assignments (s[i] = expr)
 func compileAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 ) error {
@@ -111,6 +149,12 @@ func compileAssignment(
 	if err != nil {
 		return err
 	}
+
+	// Check for indexed assignment (series[i] = value)
+	if indexOrSlice := ctx.AST.IndexOrSlice(); indexOrSlice != nil {
+		return compileIndexedAssignment(ctx, scope, indexOrSlice)
+	}
+
 	sym := scope.Symbol
 	varType := sym.Type
 	// Compile the expression (analyzer guarantees type correctness)
