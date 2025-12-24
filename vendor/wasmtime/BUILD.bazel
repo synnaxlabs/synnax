@@ -71,7 +71,19 @@ genrule(
     ],
     cmd_bash = select({
         "@platforms//os:windows": """
-            # Ensure MSVC target is installed (Bazel env may differ from CI shell)
+            # Debug: show Rust environment
+            echo "=== Rust Environment Debug ==="
+            which rustc || true
+            which cargo || true
+            rustc --version || true
+            rustup show || true
+            rustc --print sysroot || true
+            echo "CARGO_HOME=$${CARGO_HOME:-not set}"
+            echo "RUSTUP_HOME=$${RUSTUP_HOME:-not set}"
+            echo "=== End Debug ==="
+
+            # Ensure we're using the MSVC toolchain and target
+            rustup default stable-x86_64-pc-windows-msvc || rustup default stable
             rustup target add x86_64-pc-windows-msvc
 
             # Build wasmtime for Windows
