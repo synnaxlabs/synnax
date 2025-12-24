@@ -34,33 +34,33 @@ testing. Examples:
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Dashboard.tsx                           │
-│  (Main UI: Start/Stop/Pause, MetricSections, MacroPanel)        │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-         ┌──────────────────────┼──────────────────────┐
-         ▼                      ▼                      ▼
-┌─────────────────┐   ┌─────────────────┐   ┌─────────────────────┐
-│   Collectors    │   │    Analyzers    │   │  useMacroExecution  │
-│ CPU, GPU, FPS,  │   │ FPS, CPU, GPU,  │   │ (Executes scripted  │
-│ Heap, Network,  │   │ Heap (leak)     │   │  UI interactions)   │
-│ LongTasks, Logs │   │                 │   │                     │
-└─────────────────┘   └─────────────────┘   └─────────────────────┘
-         │                      │                      │
-         └──────────┬───────────┘                      │
-                    ▼                                  │
-         ┌─────────────────────┐                       │
-         │   Report Compiler   │                       │
-         │ (Verdict, Issues,   │                       │
-         │  MetricsReport)     │                       │
-         └─────────────────────┘                       │
-                    │                                  │
-                    ▼                                  ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    Redux Slice (perf/slice.ts)                  │
-│  status, config, reports, macroResults, rangeKey                │
-└─────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────┐
+│                          Dashboard.tsx                            │
+│   (Main UI: Start/Stop/Pause, MetricSections, MacroPanel)         │
+└───────────────────────────────────────────────────────────────────┘
+                                 │
+          ┌──────────────────────┼──────────────────────┐
+          ▼                      ▼                      ▼
+┌───────────────────┐  ┌───────────────────┐  ┌───────────────────┐
+│    Collectors     │  │     Analyzers     │  │ useMacroExecution │
+│  CPU, GPU, FPS,   │  │  FPS, CPU, GPU,   │  │ (Executes scripted│
+│  Heap, Network,   │  │  Heap (leak)      │  │  UI interactions) │
+│  LongTasks, Logs  │  │                   │  │                   │
+└───────────────────┘  └───────────────────┘  └───────────────────┘
+          │                      │                      │
+          └──────────┬───────────┘                      │
+                     ▼                                  │
+          ┌───────────────────┐                         │
+          │  Report Compiler  │                         │
+          │ (Verdict, Issues, │                         │
+          │  MetricsReport)   │                         │
+          └───────────────────┘                         │
+                     │                                  │
+                     ▼                                  ▼
+┌───────────────────────────────────────────────────────────────────┐
+│                     Redux Slice (perf/slice.ts)                   │
+│   status, config, reports, macroResults, rangeKey                 │
+└───────────────────────────────────────────────────────────────────┘
 ```
 
 ## Thresholds (from constants.ts)
