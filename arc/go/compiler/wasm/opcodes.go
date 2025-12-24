@@ -55,6 +55,12 @@ const (
 	OpCallIndirect Opcode = 0x11 // call_indirect
 )
 
+// Parametric instructions
+const (
+	OpDrop   Opcode = 0x1a // drop
+	OpSelect Opcode = 0x1b // select
+)
+
 // Variable instructions
 const (
 	OpLocalGet  Opcode = 0x20 // local.get

@@ -95,7 +95,7 @@ type Bindings struct {
 
 	// U8
 	SeriesCreateEmptyU8 func(context.Context, uint32) uint32
-	SeriesSetElementU8  func(context.Context, uint32, uint32, uint8)
+	SeriesSetElementU8  func(context.Context, uint32, uint32, uint8) uint32
 	SeriesIndexU8       func(context.Context, uint32, uint32) uint8
 
 	// Series arithmetic - take proper Go types for scalars
@@ -124,7 +124,7 @@ type Bindings struct {
 
 	// U16
 	SeriesCreateEmptyU16 func(context.Context, uint32) uint32
-	SeriesSetElementU16  func(context.Context, uint32, uint32, uint16)
+	SeriesSetElementU16  func(context.Context, uint32, uint32, uint16) uint32
 	SeriesIndexU16       func(context.Context, uint32, uint32) uint16
 
 	// Series arithmetic - take proper Go types for scalars
@@ -153,7 +153,7 @@ type Bindings struct {
 
 	// U32
 	SeriesCreateEmptyU32 func(context.Context, uint32) uint32
-	SeriesSetElementU32  func(context.Context, uint32, uint32, uint32)
+	SeriesSetElementU32  func(context.Context, uint32, uint32, uint32) uint32
 	SeriesIndexU32       func(context.Context, uint32, uint32) uint32
 
 	// Series arithmetic - take proper Go types for scalars
@@ -182,7 +182,7 @@ type Bindings struct {
 
 	// U64
 	SeriesCreateEmptyU64 func(context.Context, uint32) uint32
-	SeriesSetElementU64  func(context.Context, uint32, uint32, uint64)
+	SeriesSetElementU64  func(context.Context, uint32, uint32, uint64) uint32
 	SeriesIndexU64       func(context.Context, uint32, uint32) uint64
 
 	// Series arithmetic - take proper Go types for scalars
@@ -211,7 +211,7 @@ type Bindings struct {
 
 	// I8
 	SeriesCreateEmptyI8 func(context.Context, uint32) uint32
-	SeriesSetElementI8  func(context.Context, uint32, uint32, int8)
+	SeriesSetElementI8  func(context.Context, uint32, uint32, int8) uint32
 	SeriesIndexI8       func(context.Context, uint32, uint32) int8
 
 	// Series arithmetic - take proper Go types for scalars
@@ -240,7 +240,7 @@ type Bindings struct {
 
 	// I16
 	SeriesCreateEmptyI16 func(context.Context, uint32) uint32
-	SeriesSetElementI16  func(context.Context, uint32, uint32, int16)
+	SeriesSetElementI16  func(context.Context, uint32, uint32, int16) uint32
 	SeriesIndexI16       func(context.Context, uint32, uint32) int16
 
 	// Series arithmetic - take proper Go types for scalars
@@ -269,7 +269,7 @@ type Bindings struct {
 
 	// I32
 	SeriesCreateEmptyI32 func(context.Context, uint32) uint32
-	SeriesSetElementI32  func(context.Context, uint32, uint32, int32)
+	SeriesSetElementI32  func(context.Context, uint32, uint32, int32) uint32
 	SeriesIndexI32       func(context.Context, uint32, uint32) int32
 
 	// Series arithmetic - take proper Go types for scalars
@@ -298,7 +298,7 @@ type Bindings struct {
 
 	// I64
 	SeriesCreateEmptyI64 func(context.Context, uint32) uint32
-	SeriesSetElementI64  func(context.Context, uint32, uint32, int64)
+	SeriesSetElementI64  func(context.Context, uint32, uint32, int64) uint32
 	SeriesIndexI64       func(context.Context, uint32, uint32) int64
 
 	// Series arithmetic - take proper Go types for scalars
@@ -327,7 +327,7 @@ type Bindings struct {
 
 	// F32
 	SeriesCreateEmptyF32 func(context.Context, uint32) uint32
-	SeriesSetElementF32  func(context.Context, uint32, uint32, float32)
+	SeriesSetElementF32  func(context.Context, uint32, uint32, float32) uint32
 	SeriesIndexF32       func(context.Context, uint32, uint32) float32
 
 	// Series arithmetic - take proper Go types for scalars
@@ -356,7 +356,7 @@ type Bindings struct {
 
 	// F64
 	SeriesCreateEmptyF64 func(context.Context, uint32) uint32
-	SeriesSetElementF64  func(context.Context, uint32, uint32, float64)
+	SeriesSetElementF64  func(context.Context, uint32, uint32, float64) uint32
 	SeriesIndexF64       func(context.Context, uint32, uint32) float64
 
 	// Series arithmetic - take proper Go types for scalars
@@ -382,6 +382,15 @@ type Bindings struct {
 	// Series state operations (for state variables of series type)
 	StateLoadSeriesF64  func(context.Context, uint32, uint32, uint32) uint32
 	StateStoreSeriesF64 func(context.Context, uint32, uint32, uint32)
+
+	// Series unary operations (negate for signed types)
+	SeriesNegateI8  func(context.Context, uint32) uint32
+	SeriesNegateI16 func(context.Context, uint32) uint32
+	SeriesNegateI32 func(context.Context, uint32) uint32
+	SeriesNegateI64 func(context.Context, uint32) uint32
+	SeriesNegateF32 func(context.Context, uint32) uint32
+	SeriesNegateF64 func(context.Context, uint32) uint32
+	SeriesNotU8     func(context.Context, uint32) uint32
 
 	// Generic operations
 	Now               func(context.Context) uint64
@@ -700,7 +709,7 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 	if b.SeriesSetElementU8 == nil {
-		b.SeriesSetElementU8 = func(ctx context.Context, handle uint32, index uint32, value uint8) {
+		b.SeriesSetElementU8 = func(ctx context.Context, handle uint32, index uint32, value uint8) uint32 {
 			panic("series_set_element_u8 not implemented")
 		}
 	}
@@ -803,7 +812,7 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 	if b.SeriesSetElementU16 == nil {
-		b.SeriesSetElementU16 = func(ctx context.Context, handle uint32, index uint32, value uint16) {
+		b.SeriesSetElementU16 = func(ctx context.Context, handle uint32, index uint32, value uint16) uint32 {
 			panic("series_set_element_u16 not implemented")
 		}
 	}
@@ -906,7 +915,7 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 	if b.SeriesSetElementU32 == nil {
-		b.SeriesSetElementU32 = func(ctx context.Context, handle uint32, index uint32, value uint32) {
+		b.SeriesSetElementU32 = func(ctx context.Context, handle uint32, index uint32, value uint32) uint32 {
 			panic("series_set_element_u32 not implemented")
 		}
 	}
@@ -1009,7 +1018,7 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 	if b.SeriesSetElementU64 == nil {
-		b.SeriesSetElementU64 = func(ctx context.Context, handle uint32, index uint32, value uint64) {
+		b.SeriesSetElementU64 = func(ctx context.Context, handle uint32, index uint32, value uint64) uint32 {
 			panic("series_set_element_u64 not implemented")
 		}
 	}
@@ -1112,7 +1121,7 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 	if b.SeriesSetElementI8 == nil {
-		b.SeriesSetElementI8 = func(ctx context.Context, handle uint32, index uint32, value int8) {
+		b.SeriesSetElementI8 = func(ctx context.Context, handle uint32, index uint32, value int8) uint32 {
 			panic("series_set_element_i8 not implemented")
 		}
 	}
@@ -1215,7 +1224,7 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 	if b.SeriesSetElementI16 == nil {
-		b.SeriesSetElementI16 = func(ctx context.Context, handle uint32, index uint32, value int16) {
+		b.SeriesSetElementI16 = func(ctx context.Context, handle uint32, index uint32, value int16) uint32 {
 			panic("series_set_element_i16 not implemented")
 		}
 	}
@@ -1318,7 +1327,7 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 	if b.SeriesSetElementI32 == nil {
-		b.SeriesSetElementI32 = func(ctx context.Context, handle uint32, index uint32, value int32) {
+		b.SeriesSetElementI32 = func(ctx context.Context, handle uint32, index uint32, value int32) uint32 {
 			panic("series_set_element_i32 not implemented")
 		}
 	}
@@ -1421,7 +1430,7 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 	if b.SeriesSetElementI64 == nil {
-		b.SeriesSetElementI64 = func(ctx context.Context, handle uint32, index uint32, value int64) {
+		b.SeriesSetElementI64 = func(ctx context.Context, handle uint32, index uint32, value int64) uint32 {
 			panic("series_set_element_i64 not implemented")
 		}
 	}
@@ -1524,7 +1533,7 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 	if b.SeriesSetElementF32 == nil {
-		b.SeriesSetElementF32 = func(ctx context.Context, handle uint32, index uint32, value float32) {
+		b.SeriesSetElementF32 = func(ctx context.Context, handle uint32, index uint32, value float32) uint32 {
 			panic("series_set_element_f32 not implemented")
 		}
 	}
@@ -1627,7 +1636,7 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 	if b.SeriesSetElementF64 == nil {
-		b.SeriesSetElementF64 = func(ctx context.Context, handle uint32, index uint32, value float64) {
+		b.SeriesSetElementF64 = func(ctx context.Context, handle uint32, index uint32, value float64) uint32 {
 			panic("series_set_element_f64 not implemented")
 		}
 	}
@@ -1722,6 +1731,43 @@ func (b *Bindings) setDefaultStubs() {
 	if b.StateStoreSeriesF64 == nil {
 		b.StateStoreSeriesF64 = func(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
 			panic("state_store_series_f64 not implemented")
+		}
+	}
+
+	// Series unary operation stubs
+	if b.SeriesNegateI8 == nil {
+		b.SeriesNegateI8 = func(ctx context.Context, handle uint32) uint32 {
+			panic("series_negate_i8 not implemented")
+		}
+	}
+	if b.SeriesNegateI16 == nil {
+		b.SeriesNegateI16 = func(ctx context.Context, handle uint32) uint32 {
+			panic("series_negate_i16 not implemented")
+		}
+	}
+	if b.SeriesNegateI32 == nil {
+		b.SeriesNegateI32 = func(ctx context.Context, handle uint32) uint32 {
+			panic("series_negate_i32 not implemented")
+		}
+	}
+	if b.SeriesNegateI64 == nil {
+		b.SeriesNegateI64 = func(ctx context.Context, handle uint32) uint32 {
+			panic("series_negate_i64 not implemented")
+		}
+	}
+	if b.SeriesNegateF32 == nil {
+		b.SeriesNegateF32 = func(ctx context.Context, handle uint32) uint32 {
+			panic("series_negate_f32 not implemented")
+		}
+	}
+	if b.SeriesNegateF64 == nil {
+		b.SeriesNegateF64 = func(ctx context.Context, handle uint32) uint32 {
+			panic("series_negate_f64 not implemented")
+		}
+	}
+	if b.SeriesNotU8 == nil {
+		b.SeriesNotU8 = func(ctx context.Context, handle uint32) uint32 {
+			panic("series_not_u8 not implemented")
 		}
 	}
 
@@ -2128,6 +2174,15 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	// Series state operations (at end of each type's series ops, matching setupSeriesStateOps)
 	hostBuilder.NewFunctionBuilder().WithFunc(b.StateLoadSeriesF64).Export("state_load_series_f64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.StateStoreSeriesF64).Export("state_store_series_f64")
+
+	// 2.5. Bind series unary operations (negate for signed types, not for boolean)
+	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesNegateI8).Export("series_negate_i8")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesNegateI16).Export("series_negate_i16")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesNegateI32).Export("series_negate_i32")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesNegateI64).Export("series_negate_i64")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesNegateF32).Export("series_negate_f32")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesNegateF64).Export("series_negate_f64")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesNotU8).Export("series_not_u8")
 
 	// 3. Bind primitive state operations with type conversion wrappers
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapStateLoadU8()).Export("state_load_u8")
@@ -2566,9 +2621,9 @@ func (b *Bindings) wrapStateStoreStr() func(context.Context, uint32, uint32, uin
 }
 
 // Series operation wrappers for u8
-func (b *Bindings) wrapSeriesSetElementU8() func(context.Context, uint32, uint32, uint32) {
-	return func(ctx context.Context, handle uint32, index uint32, value uint32) {
-		b.SeriesSetElementU8(ctx, handle, index, uint8(value))
+func (b *Bindings) wrapSeriesSetElementU8() func(context.Context, uint32, uint32, uint32) uint32 {
+	return func(ctx context.Context, handle uint32, index uint32, value uint32) uint32 {
+		return b.SeriesSetElementU8(ctx, handle, index, uint8(value))
 	}
 }
 
@@ -2605,9 +2660,9 @@ func (b *Bindings) wrapSeriesElementDivU8() func(context.Context, uint32, uint32
 }
 
 // Series operation wrappers for u16
-func (b *Bindings) wrapSeriesSetElementU16() func(context.Context, uint32, uint32, uint32) {
-	return func(ctx context.Context, handle uint32, index uint32, value uint32) {
-		b.SeriesSetElementU16(ctx, handle, index, uint16(value))
+func (b *Bindings) wrapSeriesSetElementU16() func(context.Context, uint32, uint32, uint32) uint32 {
+	return func(ctx context.Context, handle uint32, index uint32, value uint32) uint32 {
+		return b.SeriesSetElementU16(ctx, handle, index, uint16(value))
 	}
 }
 
@@ -2644,9 +2699,9 @@ func (b *Bindings) wrapSeriesElementDivU16() func(context.Context, uint32, uint3
 }
 
 // Series operation wrappers for u32
-func (b *Bindings) wrapSeriesSetElementU32() func(context.Context, uint32, uint32, uint32) {
-	return func(ctx context.Context, handle uint32, index uint32, value uint32) {
-		b.SeriesSetElementU32(ctx, handle, index, uint32(value))
+func (b *Bindings) wrapSeriesSetElementU32() func(context.Context, uint32, uint32, uint32) uint32 {
+	return func(ctx context.Context, handle uint32, index uint32, value uint32) uint32 {
+		return b.SeriesSetElementU32(ctx, handle, index, uint32(value))
 	}
 }
 
@@ -2683,9 +2738,9 @@ func (b *Bindings) wrapSeriesElementDivU32() func(context.Context, uint32, uint3
 }
 
 // Series operation wrappers for u64
-func (b *Bindings) wrapSeriesSetElementU64() func(context.Context, uint32, uint32, uint64) {
-	return func(ctx context.Context, handle uint32, index uint32, value uint64) {
-		b.SeriesSetElementU64(ctx, handle, index, uint64(value))
+func (b *Bindings) wrapSeriesSetElementU64() func(context.Context, uint32, uint32, uint64) uint32 {
+	return func(ctx context.Context, handle uint32, index uint32, value uint64) uint32 {
+		return b.SeriesSetElementU64(ctx, handle, index, uint64(value))
 	}
 }
 
@@ -2722,9 +2777,9 @@ func (b *Bindings) wrapSeriesElementDivU64() func(context.Context, uint32, uint6
 }
 
 // Series operation wrappers for i8
-func (b *Bindings) wrapSeriesSetElementI8() func(context.Context, uint32, uint32, uint32) {
-	return func(ctx context.Context, handle uint32, index uint32, value uint32) {
-		b.SeriesSetElementI8(ctx, handle, index, int8(value))
+func (b *Bindings) wrapSeriesSetElementI8() func(context.Context, uint32, uint32, uint32) uint32 {
+	return func(ctx context.Context, handle uint32, index uint32, value uint32) uint32 {
+		return b.SeriesSetElementI8(ctx, handle, index, int8(value))
 	}
 }
 
@@ -2761,9 +2816,9 @@ func (b *Bindings) wrapSeriesElementDivI8() func(context.Context, uint32, uint32
 }
 
 // Series operation wrappers for i16
-func (b *Bindings) wrapSeriesSetElementI16() func(context.Context, uint32, uint32, uint32) {
-	return func(ctx context.Context, handle uint32, index uint32, value uint32) {
-		b.SeriesSetElementI16(ctx, handle, index, int16(value))
+func (b *Bindings) wrapSeriesSetElementI16() func(context.Context, uint32, uint32, uint32) uint32 {
+	return func(ctx context.Context, handle uint32, index uint32, value uint32) uint32 {
+		return b.SeriesSetElementI16(ctx, handle, index, int16(value))
 	}
 }
 
@@ -2800,9 +2855,9 @@ func (b *Bindings) wrapSeriesElementDivI16() func(context.Context, uint32, uint3
 }
 
 // Series operation wrappers for i32
-func (b *Bindings) wrapSeriesSetElementI32() func(context.Context, uint32, uint32, uint32) {
-	return func(ctx context.Context, handle uint32, index uint32, value uint32) {
-		b.SeriesSetElementI32(ctx, handle, index, int32(value))
+func (b *Bindings) wrapSeriesSetElementI32() func(context.Context, uint32, uint32, uint32) uint32 {
+	return func(ctx context.Context, handle uint32, index uint32, value uint32) uint32 {
+		return b.SeriesSetElementI32(ctx, handle, index, int32(value))
 	}
 }
 
@@ -2839,9 +2894,9 @@ func (b *Bindings) wrapSeriesElementDivI32() func(context.Context, uint32, uint3
 }
 
 // Series operation wrappers for i64
-func (b *Bindings) wrapSeriesSetElementI64() func(context.Context, uint32, uint32, uint64) {
-	return func(ctx context.Context, handle uint32, index uint32, value uint64) {
-		b.SeriesSetElementI64(ctx, handle, index, int64(value))
+func (b *Bindings) wrapSeriesSetElementI64() func(context.Context, uint32, uint32, uint64) uint32 {
+	return func(ctx context.Context, handle uint32, index uint32, value uint64) uint32 {
+		return b.SeriesSetElementI64(ctx, handle, index, int64(value))
 	}
 }
 
@@ -2878,9 +2933,9 @@ func (b *Bindings) wrapSeriesElementDivI64() func(context.Context, uint32, uint6
 }
 
 // Series operation wrappers for f32
-func (b *Bindings) wrapSeriesSetElementF32() func(context.Context, uint32, uint32, float32) {
-	return func(ctx context.Context, handle uint32, index uint32, value float32) {
-		b.SeriesSetElementF32(ctx, handle, index, float32(value))
+func (b *Bindings) wrapSeriesSetElementF32() func(context.Context, uint32, uint32, float32) uint32 {
+	return func(ctx context.Context, handle uint32, index uint32, value float32) uint32 {
+		return b.SeriesSetElementF32(ctx, handle, index, float32(value))
 	}
 }
 
@@ -2917,9 +2972,9 @@ func (b *Bindings) wrapSeriesElementDivF32() func(context.Context, uint32, float
 }
 
 // Series operation wrappers for f64
-func (b *Bindings) wrapSeriesSetElementF64() func(context.Context, uint32, uint32, float64) {
-	return func(ctx context.Context, handle uint32, index uint32, value float64) {
-		b.SeriesSetElementF64(ctx, handle, index, float64(value))
+func (b *Bindings) wrapSeriesSetElementF64() func(context.Context, uint32, uint32, float64) uint32 {
+	return func(ctx context.Context, handle uint32, index uint32, value float64) uint32 {
+		return b.SeriesSetElementF64(ctx, handle, index, float64(value))
 	}
 }
 

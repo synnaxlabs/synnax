@@ -298,4 +298,13 @@ func BindRuntime(runtime *Runtime, b *compilerbindings.Bindings) {
 	// Generic series operations
 	b.SeriesLen = runtime.SeriesLen
 	b.SeriesSlice = runtime.SeriesSlice
+
+	// Series unary operations
+	b.SeriesNegateF64 = runtime.SeriesNegateF64
+	b.SeriesNegateF32 = runtime.SeriesNegateF32
+	b.SeriesNegateI64 = runtime.SeriesNegateI64
+	b.SeriesNegateI32 = runtime.SeriesNegateI32
+	b.SeriesNegateI16 = runtime.SeriesNegateI16
+	b.SeriesNegateI8 = runtime.SeriesNegateI8
+	b.SeriesNotU8 = runtime.SeriesNotU8
 }

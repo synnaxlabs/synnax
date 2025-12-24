@@ -15,6 +15,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "x/cpp/telem/series.h"
+
 #include "arc/cpp/runtime/state/state.h"
 #include "wasmtime.hh"
 
@@ -32,6 +34,10 @@ class Bindings {
     std::unordered_map<uint32_t, std::string> strings;
     uint32_t string_handle_counter;
 
+    // Series storage - handle to series mapping
+    std::unordered_map<uint32_t, telem::Series> series;
+    uint32_t series_handle_counter;
+
     // State storage for stateful variables
     // Key: (funcID << 32) | varID
     std::unordered_map<uint64_t, uint8_t> state_u8;
@@ -45,6 +51,8 @@ class Bindings {
     std::unordered_map<uint64_t, float> state_f32;
     std::unordered_map<uint64_t, double> state_f64;
     std::unordered_map<uint64_t, std::string> state_string;
+    // State storage for series (persists across executions)
+    std::unordered_map<uint64_t, telem::Series> state_series;
 
     static uint64_t state_key(uint32_t func_id, uint32_t var_id) {
         return (static_cast<uint64_t>(func_id) << 32) | static_cast<uint64_t>(var_id);
@@ -109,7 +117,11 @@ public:
 // Series element operations (per type) - using macro with proper C++ types
 #define DECLARE_SERIES_OPS(suffix, cpptype)                                            \
     uint32_t series_create_empty_##suffix(uint32_t length);                            \
-    void series_set_element_##suffix(uint32_t handle, uint32_t index, cpptype value);  \
+    uint32_t series_set_element_##suffix(                                              \
+        uint32_t handle,                                                               \
+        uint32_t index,                                                                \
+        cpptype value                                                                  \
+    );                                                                                 \
     cpptype series_index_##suffix(uint32_t handle, uint32_t index);                    \
     uint32_t series_element_add_##suffix(uint32_t handle, cpptype value);              \
     uint32_t series_element_mul_##suffix(uint32_t handle, cpptype value);              \
@@ -124,7 +136,17 @@ public:
     uint32_t series_compare_ge_##suffix(uint32_t a, uint32_t b);                       \
     uint32_t series_compare_le_##suffix(uint32_t a, uint32_t b);                       \
     uint32_t series_compare_eq_##suffix(uint32_t a, uint32_t b);                       \
-    uint32_t series_compare_ne_##suffix(uint32_t a, uint32_t b);
+    uint32_t series_compare_ne_##suffix(uint32_t a, uint32_t b);                       \
+    uint32_t state_load_series_##suffix(                                               \
+        uint32_t func_id,                                                              \
+        uint32_t var_id,                                                               \
+        uint32_t init_handle                                                           \
+    );                                                                                 \
+    void state_store_series_##suffix(                                                  \
+        uint32_t func_id,                                                              \
+        uint32_t var_id,                                                               \
+        uint32_t handle                                                                \
+    );
 
     DECLARE_SERIES_OPS(u8, uint8_t)
     DECLARE_SERIES_OPS(u16, uint16_t)

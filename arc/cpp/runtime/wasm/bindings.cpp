@@ -18,7 +18,11 @@
 namespace arc::runtime::wasm {
 
 Bindings::Bindings(state::State *state, wasmtime::Store *store):
-    state(state), store(store), memory(nullptr), string_handle_counter(1) {}
+    state(state),
+    store(store),
+    memory(nullptr),
+    string_handle_counter(1),
+    series_handle_counter(1) {}
 
 // ===== Channel Operations (Stubs) =====
 
@@ -162,80 +166,340 @@ uint32_t Bindings::string_equal(const uint32_t handle1, const uint32_t handle2) 
     return it1->second == it2->second ? 1 : 0;
 }
 
-// ===== Series Operations (Stubs) =====
+// ===== Series Operations =====
 uint64_t Bindings::series_len(uint32_t handle) {
-    return 0;
-}
-uint32_t Bindings::series_slice(uint32_t handle, uint32_t start, uint32_t end) {
-    return 0;
+    auto it = series.find(handle);
+    if (it == series.end()) return 0;
+    return static_cast<uint64_t>(it->second.size());
 }
 
-// Macro to generate all series operation stubs for a given type
-#define IMPL_SERIES_OPS(suffix, cpptype, default_val)                                  \
+uint32_t Bindings::series_slice(uint32_t handle, uint32_t start, uint32_t end) {
+    auto it = series.find(handle);
+    if (it == series.end()) return 0;
+    const auto &src = it->second;
+    const auto src_size = src.size();
+    if (start >= src_size || end > src_size || start >= end) return 0;
+    const auto slice_len = end - start;
+    auto sliced = telem::Series(src.data_type(), slice_len);
+    const auto density = src.data_type().density();
+    std::memcpy(sliced.data(), src.data() + start * density, slice_len * density);
+    sliced.resize(slice_len);
+    const uint32_t new_handle = series_handle_counter++;
+    series.emplace(new_handle, std::move(sliced));
+    return new_handle;
+}
+
+// Helper template for series-series operations with last-value repetition
+template<typename T, typename Op>
+static void series_series_op(
+    const telem::Series &lhs,
+    const telem::Series &rhs,
+    telem::Series &output,
+    Op op
+) {
+    const auto lhs_len = lhs.size();
+    const auto rhs_len = rhs.size();
+    const auto max_len = std::max(lhs_len, rhs_len);
+    output.resize(max_len);
+
+    auto *lhs_data = reinterpret_cast<const T *>(lhs.data());
+    auto *rhs_data = reinterpret_cast<const T *>(rhs.data());
+    auto *out_data = reinterpret_cast<T *>(output.data());
+
+    T lhs_last = lhs_len > 0 ? lhs_data[lhs_len - 1] : T{};
+    T rhs_last = rhs_len > 0 ? rhs_data[rhs_len - 1] : T{};
+
+    for (size_t i = 0; i < max_len; i++) {
+        T lhs_val = (i < lhs_len) ? lhs_data[i] : lhs_last;
+        T rhs_val = (i < rhs_len) ? rhs_data[i] : rhs_last;
+        if (i < lhs_len) lhs_last = lhs_val;
+        if (i < rhs_len) rhs_last = rhs_val;
+        out_data[i] = op(lhs_val, rhs_val);
+    }
+}
+
+// Helper template for series-series comparison with last-value repetition
+template<typename T, typename Op>
+static void series_compare_op(
+    const telem::Series &lhs,
+    const telem::Series &rhs,
+    telem::Series &output,
+    Op op
+) {
+    const auto lhs_len = lhs.size();
+    const auto rhs_len = rhs.size();
+    const auto max_len = std::max(lhs_len, rhs_len);
+    output.resize(max_len);
+
+    auto *lhs_data = reinterpret_cast<const T *>(lhs.data());
+    auto *rhs_data = reinterpret_cast<const T *>(rhs.data());
+    auto *out_data = reinterpret_cast<uint8_t *>(output.data());
+
+    T lhs_last = lhs_len > 0 ? lhs_data[lhs_len - 1] : T{};
+    T rhs_last = rhs_len > 0 ? rhs_data[rhs_len - 1] : T{};
+
+    for (size_t i = 0; i < max_len; i++) {
+        T lhs_val = (i < lhs_len) ? lhs_data[i] : lhs_last;
+        T rhs_val = (i < rhs_len) ? rhs_data[i] : rhs_last;
+        if (i < lhs_len) lhs_last = lhs_val;
+        if (i < rhs_len) rhs_last = rhs_val;
+        out_data[i] = op(lhs_val, rhs_val) ? 1 : 0;
+    }
+}
+
+// Macro to generate all series operations for a given type
+#define IMPL_SERIES_OPS(suffix, cpptype, data_type_const)                              \
     uint32_t Bindings::series_create_empty_##suffix(uint32_t length) {                 \
-        return 0;                                                                      \
+        auto s = telem::Series(data_type_const, static_cast<size_t>(length));          \
+        s.resize(length);                                                              \
+        const uint32_t handle = series_handle_counter++;                               \
+        series.emplace(handle, std::move(s));                                          \
+        return handle;                                                                 \
     }                                                                                  \
-    void Bindings::series_set_element_##suffix(                                        \
+    uint32_t Bindings::series_set_element_##suffix(                                    \
         uint32_t handle,                                                               \
         uint32_t index,                                                                \
         cpptype value                                                                  \
-    ) {}                                                                               \
+    ) {                                                                                \
+        auto it = series.find(handle);                                                 \
+        if (it == series.end()) return handle;                                         \
+        it->second.set(static_cast<int>(index), value);                                \
+        return handle;                                                                 \
+    }                                                                                  \
     cpptype Bindings::series_index_##suffix(uint32_t handle, uint32_t index) {         \
-        return default_val;                                                            \
+        auto it = series.find(handle);                                                 \
+        if (it == series.end()) return cpptype{};                                      \
+        return it->second.at<cpptype>(static_cast<int>(index));                        \
     }                                                                                  \
     uint32_t Bindings::series_element_add_##suffix(uint32_t handle, cpptype value) {   \
-        return 0;                                                                      \
+        auto it = series.find(handle);                                                 \
+        if (it == series.end()) return 0;                                              \
+        auto result = it->second.deep_copy();                                          \
+        result.add_inplace(value);                                                     \
+        const uint32_t new_handle = series_handle_counter++;                           \
+        series.emplace(new_handle, std::move(result));                                 \
+        return new_handle;                                                             \
     }                                                                                  \
     uint32_t Bindings::series_element_mul_##suffix(uint32_t handle, cpptype value) {   \
-        return 0;                                                                      \
+        auto it = series.find(handle);                                                 \
+        if (it == series.end()) return 0;                                              \
+        auto result = it->second.deep_copy();                                          \
+        result.multiply_inplace(value);                                                \
+        const uint32_t new_handle = series_handle_counter++;                           \
+        series.emplace(new_handle, std::move(result));                                 \
+        return new_handle;                                                             \
     }                                                                                  \
     uint32_t Bindings::series_element_sub_##suffix(uint32_t handle, cpptype value) {   \
-        return 0;                                                                      \
+        auto it = series.find(handle);                                                 \
+        if (it == series.end()) return 0;                                              \
+        auto result = it->second.deep_copy();                                          \
+        result.sub_inplace(value);                                                     \
+        const uint32_t new_handle = series_handle_counter++;                           \
+        series.emplace(new_handle, std::move(result));                                 \
+        return new_handle;                                                             \
     }                                                                                  \
     uint32_t Bindings::series_element_div_##suffix(uint32_t handle, cpptype value) {   \
-        return 0;                                                                      \
+        auto it = series.find(handle);                                                 \
+        if (it == series.end()) return 0;                                              \
+        auto result = it->second.deep_copy();                                          \
+        result.divide_inplace(value);                                                  \
+        const uint32_t new_handle = series_handle_counter++;                           \
+        series.emplace(new_handle, std::move(result));                                 \
+        return new_handle;                                                             \
     }                                                                                  \
     uint32_t Bindings::series_series_add_##suffix(uint32_t a, uint32_t b) {            \
-        return 0;                                                                      \
+        auto it_a = series.find(a);                                                    \
+        auto it_b = series.find(b);                                                    \
+        if (it_a == series.end() || it_b == series.end()) return 0;                    \
+        auto result = telem::Series(data_type_const, 0);                               \
+        series_series_op<cpptype>(                                                     \
+            it_a->second,                                                              \
+            it_b->second,                                                              \
+            result,                                                                    \
+            [](cpptype x, cpptype y) { return x + y; }                                 \
+        );                                                                             \
+        const uint32_t new_handle = series_handle_counter++;                           \
+        series.emplace(new_handle, std::move(result));                                 \
+        return new_handle;                                                             \
     }                                                                                  \
     uint32_t Bindings::series_series_mul_##suffix(uint32_t a, uint32_t b) {            \
-        return 0;                                                                      \
+        auto it_a = series.find(a);                                                    \
+        auto it_b = series.find(b);                                                    \
+        if (it_a == series.end() || it_b == series.end()) return 0;                    \
+        auto result = telem::Series(data_type_const, 0);                               \
+        series_series_op<cpptype>(                                                     \
+            it_a->second,                                                              \
+            it_b->second,                                                              \
+            result,                                                                    \
+            [](cpptype x, cpptype y) { return x * y; }                                 \
+        );                                                                             \
+        const uint32_t new_handle = series_handle_counter++;                           \
+        series.emplace(new_handle, std::move(result));                                 \
+        return new_handle;                                                             \
     }                                                                                  \
     uint32_t Bindings::series_series_sub_##suffix(uint32_t a, uint32_t b) {            \
-        return 0;                                                                      \
+        auto it_a = series.find(a);                                                    \
+        auto it_b = series.find(b);                                                    \
+        if (it_a == series.end() || it_b == series.end()) return 0;                    \
+        auto result = telem::Series(data_type_const, 0);                               \
+        series_series_op<cpptype>(                                                     \
+            it_a->second,                                                              \
+            it_b->second,                                                              \
+            result,                                                                    \
+            [](cpptype x, cpptype y) { return x - y; }                                 \
+        );                                                                             \
+        const uint32_t new_handle = series_handle_counter++;                           \
+        series.emplace(new_handle, std::move(result));                                 \
+        return new_handle;                                                             \
     }                                                                                  \
     uint32_t Bindings::series_series_div_##suffix(uint32_t a, uint32_t b) {            \
-        return 0;                                                                      \
+        auto it_a = series.find(a);                                                    \
+        auto it_b = series.find(b);                                                    \
+        if (it_a == series.end() || it_b == series.end()) return 0;                    \
+        auto result = telem::Series(data_type_const, 0);                               \
+        series_series_op<cpptype>(                                                     \
+            it_a->second,                                                              \
+            it_b->second,                                                              \
+            result,                                                                    \
+            [](cpptype x, cpptype y) { return y != 0 ? x / y : cpptype{}; }            \
+        );                                                                             \
+        const uint32_t new_handle = series_handle_counter++;                           \
+        series.emplace(new_handle, std::move(result));                                 \
+        return new_handle;                                                             \
     }                                                                                  \
     uint32_t Bindings::series_compare_gt_##suffix(uint32_t a, uint32_t b) {            \
-        return 0;                                                                      \
+        auto it_a = series.find(a);                                                    \
+        auto it_b = series.find(b);                                                    \
+        if (it_a == series.end() || it_b == series.end()) return 0;                    \
+        auto result = telem::Series(telem::UINT8_T, 0);                                \
+        series_compare_op<cpptype>(                                                    \
+            it_a->second,                                                              \
+            it_b->second,                                                              \
+            result,                                                                    \
+            [](cpptype x, cpptype y) { return x > y; }                                 \
+        );                                                                             \
+        const uint32_t new_handle = series_handle_counter++;                           \
+        series.emplace(new_handle, std::move(result));                                 \
+        return new_handle;                                                             \
     }                                                                                  \
     uint32_t Bindings::series_compare_lt_##suffix(uint32_t a, uint32_t b) {            \
-        return 0;                                                                      \
+        auto it_a = series.find(a);                                                    \
+        auto it_b = series.find(b);                                                    \
+        if (it_a == series.end() || it_b == series.end()) return 0;                    \
+        auto result = telem::Series(telem::UINT8_T, 0);                                \
+        series_compare_op<cpptype>(                                                    \
+            it_a->second,                                                              \
+            it_b->second,                                                              \
+            result,                                                                    \
+            [](cpptype x, cpptype y) { return x < y; }                                 \
+        );                                                                             \
+        const uint32_t new_handle = series_handle_counter++;                           \
+        series.emplace(new_handle, std::move(result));                                 \
+        return new_handle;                                                             \
     }                                                                                  \
     uint32_t Bindings::series_compare_ge_##suffix(uint32_t a, uint32_t b) {            \
-        return 0;                                                                      \
+        auto it_a = series.find(a);                                                    \
+        auto it_b = series.find(b);                                                    \
+        if (it_a == series.end() || it_b == series.end()) return 0;                    \
+        auto result = telem::Series(telem::UINT8_T, 0);                                \
+        series_compare_op<cpptype>(                                                    \
+            it_a->second,                                                              \
+            it_b->second,                                                              \
+            result,                                                                    \
+            [](cpptype x, cpptype y) { return x >= y; }                                \
+        );                                                                             \
+        const uint32_t new_handle = series_handle_counter++;                           \
+        series.emplace(new_handle, std::move(result));                                 \
+        return new_handle;                                                             \
     }                                                                                  \
     uint32_t Bindings::series_compare_le_##suffix(uint32_t a, uint32_t b) {            \
-        return 0;                                                                      \
+        auto it_a = series.find(a);                                                    \
+        auto it_b = series.find(b);                                                    \
+        if (it_a == series.end() || it_b == series.end()) return 0;                    \
+        auto result = telem::Series(telem::UINT8_T, 0);                                \
+        series_compare_op<cpptype>(                                                    \
+            it_a->second,                                                              \
+            it_b->second,                                                              \
+            result,                                                                    \
+            [](cpptype x, cpptype y) { return x <= y; }                                \
+        );                                                                             \
+        const uint32_t new_handle = series_handle_counter++;                           \
+        series.emplace(new_handle, std::move(result));                                 \
+        return new_handle;                                                             \
     }                                                                                  \
     uint32_t Bindings::series_compare_eq_##suffix(uint32_t a, uint32_t b) {            \
-        return 0;                                                                      \
+        auto it_a = series.find(a);                                                    \
+        auto it_b = series.find(b);                                                    \
+        if (it_a == series.end() || it_b == series.end()) return 0;                    \
+        auto result = telem::Series(telem::UINT8_T, 0);                                \
+        series_compare_op<cpptype>(                                                    \
+            it_a->second,                                                              \
+            it_b->second,                                                              \
+            result,                                                                    \
+            [](cpptype x, cpptype y) { return x == y; }                                \
+        );                                                                             \
+        const uint32_t new_handle = series_handle_counter++;                           \
+        series.emplace(new_handle, std::move(result));                                 \
+        return new_handle;                                                             \
     }                                                                                  \
     uint32_t Bindings::series_compare_ne_##suffix(uint32_t a, uint32_t b) {            \
-        return 0;                                                                      \
+        auto it_a = series.find(a);                                                    \
+        auto it_b = series.find(b);                                                    \
+        if (it_a == series.end() || it_b == series.end()) return 0;                    \
+        auto result = telem::Series(telem::UINT8_T, 0);                                \
+        series_compare_op<cpptype>(                                                    \
+            it_a->second,                                                              \
+            it_b->second,                                                              \
+            result,                                                                    \
+            [](cpptype x, cpptype y) { return x != y; }                                \
+        );                                                                             \
+        const uint32_t new_handle = series_handle_counter++;                           \
+        series.emplace(new_handle, std::move(result));                                 \
+        return new_handle;                                                             \
+    }                                                                                  \
+    uint32_t Bindings::state_load_series_##suffix(                                     \
+        uint32_t func_id,                                                              \
+        uint32_t var_id,                                                               \
+        uint32_t init_handle                                                           \
+    ) {                                                                                \
+        const auto key = state_key(func_id, var_id);                                   \
+        auto state_it = state_series.find(key);                                        \
+        if (state_it != state_series.end()) {                                          \
+            auto copy = state_it->second.deep_copy();                                  \
+            const uint32_t handle = series_handle_counter++;                           \
+            series.emplace(handle, std::move(copy));                                   \
+            return handle;                                                             \
+        }                                                                              \
+        auto init_it = series.find(init_handle);                                       \
+        if (init_it != series.end()) {                                                 \
+            state_series.emplace(key, init_it->second.deep_copy());                    \
+        }                                                                              \
+        return init_handle;                                                            \
+    }                                                                                  \
+    void Bindings::state_store_series_##suffix(                                        \
+        uint32_t func_id,                                                              \
+        uint32_t var_id,                                                               \
+        uint32_t handle                                                                \
+    ) {                                                                                \
+        auto it = series.find(handle);                                                 \
+        if (it != series.end()) {                                                      \
+            const auto key = state_key(func_id, var_id);                               \
+            auto state_it = state_series.find(key);                                    \
+            if (state_it != state_series.end()) { state_series.erase(state_it); }      \
+            state_series.emplace(key, it->second.deep_copy());                         \
+        }                                                                              \
     }
 
-IMPL_SERIES_OPS(u8, uint8_t, 0)
-IMPL_SERIES_OPS(u16, uint16_t, 0)
-IMPL_SERIES_OPS(u32, uint32_t, 0)
-IMPL_SERIES_OPS(u64, uint64_t, 0)
-IMPL_SERIES_OPS(i8, int8_t, 0)
-IMPL_SERIES_OPS(i16, int16_t, 0)
-IMPL_SERIES_OPS(i32, int32_t, 0)
-IMPL_SERIES_OPS(i64, int64_t, 0)
-IMPL_SERIES_OPS(f32, float, 0.0f)
-IMPL_SERIES_OPS(f64, double, 0.0)
+IMPL_SERIES_OPS(u8, uint8_t, telem::UINT8_T)
+IMPL_SERIES_OPS(u16, uint16_t, telem::UINT16_T)
+IMPL_SERIES_OPS(u32, uint32_t, telem::UINT32_T)
+IMPL_SERIES_OPS(u64, uint64_t, telem::UINT64_T)
+IMPL_SERIES_OPS(i8, int8_t, telem::INT8_T)
+IMPL_SERIES_OPS(i16, int16_t, telem::INT16_T)
+IMPL_SERIES_OPS(i32, int32_t, telem::INT32_T)
+IMPL_SERIES_OPS(i64, int64_t, telem::INT64_T)
+IMPL_SERIES_OPS(f32, float, telem::FLOAT32_T)
+IMPL_SERIES_OPS(f64, double, telem::FLOAT64_T)
 
 #undef IMPL_SERIES_OPS
 
@@ -380,9 +644,12 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
         })                                                                             \
     );                                                                                 \
     imports.push_back(                                                                 \
-        wasmtime::Func::wrap(store, [runtime](uint32_t h, uint32_t i, wasm_type v) {   \
-            runtime->series_set_element_##type(h, i, v);                               \
-        })                                                                             \
+        wasmtime::Func::wrap(                                                          \
+            store,                                                                     \
+            [runtime](uint32_t h, uint32_t i, wasm_type v) -> uint32_t {               \
+                return runtime->series_set_element_##type(h, i, v);                    \
+            }                                                                          \
+        )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(store, [runtime](uint32_t h, uint32_t i) -> wasm_type {   \

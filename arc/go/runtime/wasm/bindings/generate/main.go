@@ -314,13 +314,14 @@ func (r *Runtime) SeriesCreateEmpty{{.IRType | title}}(ctx context.Context, leng
 	return handle
 }
 
-// SeriesSetElement{{.IRType | title}} sets an element in a series at the given index.
-func (r *Runtime) SeriesSetElement{{.IRType | title}}(ctx context.Context, handle uint32, index uint32, value {{.GoType}}) {
+// SeriesSetElement{{.IRType | title}} sets an element in a series at the given index and returns the handle.
+func (r *Runtime) SeriesSetElement{{.IRType | title}}(ctx context.Context, handle uint32, index uint32, value {{.GoType}}) uint32 {
 	if s, ok := r.series[handle]; ok {
 		if int64(index) < s.Len() {
 			telem.SetValueAt[{{.GoType}}](s, int(index), value)
 		}
 	}
+	return handle
 }
 
 // SeriesIndex{{.IRType | title}} gets an element from a series at the given index.
@@ -593,6 +594,36 @@ func (r *Runtime) StateStoreSeries{{.IRType | title}}(ctx context.Context, funcI
 }
 {{end}}
 
+{{range .SignedTypes}}
+// SeriesNegate{{.IRType | title}} negates all elements of a series.
+func (r *Runtime) SeriesNegate{{.IRType | title}}(ctx context.Context, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.Negate{{.IRType | title}}(s, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+{{end}}
+
+// SeriesNotU8 performs logical NOT on a boolean series.
+func (r *Runtime) SeriesNotU8(ctx context.Context, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotU8(s, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
 // SeriesLen returns the length of a series.
 func (r *Runtime) SeriesLen(ctx context.Context, handle uint32) uint64 {
 	if s, ok := r.series[handle]; ok {
@@ -635,12 +666,18 @@ func main() {
 	// Filter numeric types (exclude str for now)
 	var numericTypes []TypeInfo
 	var integerTypes []TypeInfo
+	var signedTypes []TypeInfo
 	for _, t := range types {
 		if t.IRType != "str" {
 			numericTypes = append(numericTypes, t)
 			// Filter integer types (exclude floats and str)
 			if t.IRType != "f32" && t.IRType != "f64" {
 				integerTypes = append(integerTypes, t)
+			}
+			// Filter signed types (for negation - floats and signed integers)
+			if t.IRType == "f32" || t.IRType == "f64" ||
+				t.IRType == "i8" || t.IRType == "i16" || t.IRType == "i32" || t.IRType == "i64" {
+				signedTypes = append(signedTypes, t)
 			}
 		}
 	}
@@ -649,10 +686,12 @@ func main() {
 		Types        []TypeInfo
 		NumericTypes []TypeInfo
 		IntegerTypes []TypeInfo
+		SignedTypes  []TypeInfo
 	}{
 		Types:        types,
 		NumericTypes: numericTypes,
 		IntegerTypes: integerTypes,
+		SignedTypes:  signedTypes,
 	}
 
 	// Custom template functions

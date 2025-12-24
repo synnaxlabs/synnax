@@ -161,3 +161,13 @@ func (idx *ImportIndex) GetStateStoreSeries(elemType types.Type) (uint32, error)
 	}
 	return 0, errors.Newf("no series state store function for element type %v", elemType)
 }
+
+// GetSeriesNegate returns the import index for negating a series.
+// Only valid for signed types (f64, f32, i64, i32, i16, i8).
+func (idx *ImportIndex) GetSeriesNegate(elemType types.Type) (uint32, error) {
+	suffix := elemType.String()
+	if funcIdx, ok := idx.SeriesNegate[suffix]; ok {
+		return funcIdx, nil
+	}
+	return 0, errors.Newf("no series negate function for element type %v (only signed types supported)", elemType)
+}

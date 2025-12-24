@@ -51,6 +51,10 @@ type ImportIndex struct {
 	SeriesCompareEQ map[string]uint32
 	SeriesCompareNE map[string]uint32
 
+	// Series unary operations
+	SeriesNegate map[string]uint32 // For signed types (f64, f32, i64, i32, i16, i8)
+	SeriesNotU8  uint32            // Logical NOT for boolean series
+
 	// State persistence - for stateful variables
 	StateLoad  map[string]uint32
 	StateStore map[string]uint32
@@ -108,6 +112,7 @@ func NewImportIndex() *ImportIndex {
 		SeriesCompareLE:     make(map[string]uint32),
 		SeriesCompareEQ:     make(map[string]uint32),
 		SeriesCompareNE:     make(map[string]uint32),
+		SeriesNegate:        make(map[string]uint32),
 		StateLoad:           make(map[string]uint32),
 		StateStore:          make(map[string]uint32),
 		StateLoadSeries:     make(map[string]uint32),
@@ -127,6 +132,7 @@ func SetupImports(m *wasm.Module) *ImportIndex {
 	for _, typ := range types.Numerics {
 		setupSeriesOps(m, idx, typ)
 	}
+	setupSeriesUnaryOps(m, idx)
 	for _, typ := range types.Numerics {
 		setupStateOps(m, idx, typ)
 	}
@@ -169,11 +175,11 @@ func setupSeriesOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
 		Results: []wasm.ValueType{wasm.I32}, // series handle
 	})
 
-	// Set element
+	// Set element - returns handle for stack-based chaining
 	funcName = fmt.Sprintf("series_set_element_%s", t)
 	idx.SeriesSetElement[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
 		Params:  []wasm.ValueType{wasm.I32, wasm.I32, wasmType}, // series, index, value
-		Results: []wasm.ValueType{},
+		Results: []wasm.ValueType{wasm.I32},                     // returns series handle
 	})
 
 	// Resolve element (indexing)
@@ -255,6 +261,28 @@ func setupSeriesComparison(m *wasm.Module, idx *ImportIndex, typ types.Type) {
 			Results: []wasm.ValueType{wasm.I32},           // series u8 (boolean mask)
 		})
 	}
+}
+
+// setupSeriesUnaryOps registers unary operations for series (negate, not)
+func setupSeriesUnaryOps(m *wasm.Module, idx *ImportIndex) {
+	// Negate for signed types (floats and signed integers)
+	signedTypes := []types.Type{
+		types.F64(), types.F32(),
+		types.I64(), types.I32(), types.I16(), types.I8(),
+	}
+	for _, typ := range signedTypes {
+		funcName := fmt.Sprintf("series_negate_%s", typ)
+		idx.SeriesNegate[typ.String()] = m.AddImport("env", funcName, wasm.FunctionType{
+			Params:  []wasm.ValueType{wasm.I32}, // series handle
+			Results: []wasm.ValueType{wasm.I32}, // new series handle
+		})
+	}
+
+	// Logical NOT for boolean series (u8)
+	idx.SeriesNotU8 = m.AddImport("env", "series_not_u8", wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32}, // series handle
+		Results: []wasm.ValueType{wasm.I32}, // new series handle
+	})
 }
 
 // setupStateOps registers state persistence operations

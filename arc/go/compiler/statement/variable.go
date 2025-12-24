@@ -36,8 +36,7 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 		return err
 	}
 	varType := varScope.Type
-	// Set TargetLocal so series literals can use it for temporary storage
-	exprCtx := context.Child(ctx, ctx.AST.Expression()).WithHint(varType).WithTargetLocal(varScope.ID)
+	exprCtx := context.Child(ctx, ctx.AST.Expression()).WithHint(varType)
 	exprType, err := expression.Compile(exprCtx)
 	if err != nil {
 		return errors.Wrapf(err, "failed to compile initialization expression for '%s'", name)
@@ -69,11 +68,7 @@ func compileStatefulVariable(
 	ctx.Writer.WriteI32Const(int32(scope.ID))
 
 	// Compile the initialization expression (analyzer guarantees type correctness)
-	// For series types, set TargetLocal so series literals can use temporary storage
 	exprCtx := context.Child(ctx, ctx.AST.Expression()).WithHint(varType)
-	if varType.Kind == types.KindSeries {
-		exprCtx = exprCtx.WithTargetLocal(scope.ID)
-	}
 	_, err = expression.Compile(exprCtx)
 	if err != nil {
 		return errors.Wrapf(err, "failed to compile initialization for stateful variable '%s'", name)
@@ -128,12 +123,15 @@ func compileIndexedAssignment(
 	}
 
 	// Stack is now: [series_handle, index, value]
-	// Step 4: Call series_set_element_<type>(handle, index, value)
+	// Step 4: Call series_set_element_<type>(handle, index, value) -> handle
 	importIdx, err := ctx.Imports.GetSeriesSetElement(elemType)
 	if err != nil {
 		return err
 	}
 	ctx.Writer.WriteCall(importIdx)
+
+	// Drop the returned handle since we don't need it for assignment
+	ctx.Writer.WriteOpcode(wasm.OpDrop)
 
 	return nil
 }

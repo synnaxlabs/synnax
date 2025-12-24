@@ -650,13 +650,14 @@ func (r *Runtime) SeriesCreateEmptyU8(ctx context.Context, length uint32) uint32
 	return handle
 }
 
-// SeriesSetElementU8 sets an element in a series at the given index.
-func (r *Runtime) SeriesSetElementU8(ctx context.Context, handle uint32, index uint32, value uint8) {
+// SeriesSetElementU8 sets an element in a series at the given index and returns the handle.
+func (r *Runtime) SeriesSetElementU8(ctx context.Context, handle uint32, index uint32, value uint8) uint32 {
 	if s, ok := r.series[handle]; ok {
 		if int64(index) < s.Len() {
 			telem.SetValueAt[uint8](s, int(index), value)
 		}
 	}
+	return handle
 }
 
 // SeriesIndexU8 gets an element from a series at the given index.
@@ -937,13 +938,14 @@ func (r *Runtime) SeriesCreateEmptyU16(ctx context.Context, length uint32) uint3
 	return handle
 }
 
-// SeriesSetElementU16 sets an element in a series at the given index.
-func (r *Runtime) SeriesSetElementU16(ctx context.Context, handle uint32, index uint32, value uint16) {
+// SeriesSetElementU16 sets an element in a series at the given index and returns the handle.
+func (r *Runtime) SeriesSetElementU16(ctx context.Context, handle uint32, index uint32, value uint16) uint32 {
 	if s, ok := r.series[handle]; ok {
 		if int64(index) < s.Len() {
 			telem.SetValueAt[uint16](s, int(index), value)
 		}
 	}
+	return handle
 }
 
 // SeriesIndexU16 gets an element from a series at the given index.
@@ -1224,13 +1226,14 @@ func (r *Runtime) SeriesCreateEmptyU32(ctx context.Context, length uint32) uint3
 	return handle
 }
 
-// SeriesSetElementU32 sets an element in a series at the given index.
-func (r *Runtime) SeriesSetElementU32(ctx context.Context, handle uint32, index uint32, value uint32) {
+// SeriesSetElementU32 sets an element in a series at the given index and returns the handle.
+func (r *Runtime) SeriesSetElementU32(ctx context.Context, handle uint32, index uint32, value uint32) uint32 {
 	if s, ok := r.series[handle]; ok {
 		if int64(index) < s.Len() {
 			telem.SetValueAt[uint32](s, int(index), value)
 		}
 	}
+	return handle
 }
 
 // SeriesIndexU32 gets an element from a series at the given index.
@@ -1511,13 +1514,14 @@ func (r *Runtime) SeriesCreateEmptyU64(ctx context.Context, length uint32) uint3
 	return handle
 }
 
-// SeriesSetElementU64 sets an element in a series at the given index.
-func (r *Runtime) SeriesSetElementU64(ctx context.Context, handle uint32, index uint32, value uint64) {
+// SeriesSetElementU64 sets an element in a series at the given index and returns the handle.
+func (r *Runtime) SeriesSetElementU64(ctx context.Context, handle uint32, index uint32, value uint64) uint32 {
 	if s, ok := r.series[handle]; ok {
 		if int64(index) < s.Len() {
 			telem.SetValueAt[uint64](s, int(index), value)
 		}
 	}
+	return handle
 }
 
 // SeriesIndexU64 gets an element from a series at the given index.
@@ -1798,13 +1802,14 @@ func (r *Runtime) SeriesCreateEmptyI8(ctx context.Context, length uint32) uint32
 	return handle
 }
 
-// SeriesSetElementI8 sets an element in a series at the given index.
-func (r *Runtime) SeriesSetElementI8(ctx context.Context, handle uint32, index uint32, value int8) {
+// SeriesSetElementI8 sets an element in a series at the given index and returns the handle.
+func (r *Runtime) SeriesSetElementI8(ctx context.Context, handle uint32, index uint32, value int8) uint32 {
 	if s, ok := r.series[handle]; ok {
 		if int64(index) < s.Len() {
 			telem.SetValueAt[int8](s, int(index), value)
 		}
 	}
+	return handle
 }
 
 // SeriesIndexI8 gets an element from a series at the given index.
@@ -2085,13 +2090,14 @@ func (r *Runtime) SeriesCreateEmptyI16(ctx context.Context, length uint32) uint3
 	return handle
 }
 
-// SeriesSetElementI16 sets an element in a series at the given index.
-func (r *Runtime) SeriesSetElementI16(ctx context.Context, handle uint32, index uint32, value int16) {
+// SeriesSetElementI16 sets an element in a series at the given index and returns the handle.
+func (r *Runtime) SeriesSetElementI16(ctx context.Context, handle uint32, index uint32, value int16) uint32 {
 	if s, ok := r.series[handle]; ok {
 		if int64(index) < s.Len() {
 			telem.SetValueAt[int16](s, int(index), value)
 		}
 	}
+	return handle
 }
 
 // SeriesIndexI16 gets an element from a series at the given index.
@@ -2372,13 +2378,14 @@ func (r *Runtime) SeriesCreateEmptyI32(ctx context.Context, length uint32) uint3
 	return handle
 }
 
-// SeriesSetElementI32 sets an element in a series at the given index.
-func (r *Runtime) SeriesSetElementI32(ctx context.Context, handle uint32, index uint32, value int32) {
+// SeriesSetElementI32 sets an element in a series at the given index and returns the handle.
+func (r *Runtime) SeriesSetElementI32(ctx context.Context, handle uint32, index uint32, value int32) uint32 {
 	if s, ok := r.series[handle]; ok {
 		if int64(index) < s.Len() {
 			telem.SetValueAt[int32](s, int(index), value)
 		}
 	}
+	return handle
 }
 
 // SeriesIndexI32 gets an element from a series at the given index.
@@ -2659,13 +2666,14 @@ func (r *Runtime) SeriesCreateEmptyI64(ctx context.Context, length uint32) uint3
 	return handle
 }
 
-// SeriesSetElementI64 sets an element in a series at the given index.
-func (r *Runtime) SeriesSetElementI64(ctx context.Context, handle uint32, index uint32, value int64) {
+// SeriesSetElementI64 sets an element in a series at the given index and returns the handle.
+func (r *Runtime) SeriesSetElementI64(ctx context.Context, handle uint32, index uint32, value int64) uint32 {
 	if s, ok := r.series[handle]; ok {
 		if int64(index) < s.Len() {
 			telem.SetValueAt[int64](s, int(index), value)
 		}
 	}
+	return handle
 }
 
 // SeriesIndexI64 gets an element from a series at the given index.
@@ -2946,13 +2954,14 @@ func (r *Runtime) SeriesCreateEmptyF32(ctx context.Context, length uint32) uint3
 	return handle
 }
 
-// SeriesSetElementF32 sets an element in a series at the given index.
-func (r *Runtime) SeriesSetElementF32(ctx context.Context, handle uint32, index uint32, value float32) {
+// SeriesSetElementF32 sets an element in a series at the given index and returns the handle.
+func (r *Runtime) SeriesSetElementF32(ctx context.Context, handle uint32, index uint32, value float32) uint32 {
 	if s, ok := r.series[handle]; ok {
 		if int64(index) < s.Len() {
 			telem.SetValueAt[float32](s, int(index), value)
 		}
 	}
+	return handle
 }
 
 // SeriesIndexF32 gets an element from a series at the given index.
@@ -3233,13 +3242,14 @@ func (r *Runtime) SeriesCreateEmptyF64(ctx context.Context, length uint32) uint3
 	return handle
 }
 
-// SeriesSetElementF64 sets an element in a series at the given index.
-func (r *Runtime) SeriesSetElementF64(ctx context.Context, handle uint32, index uint32, value float64) {
+// SeriesSetElementF64 sets an element in a series at the given index and returns the handle.
+func (r *Runtime) SeriesSetElementF64(ctx context.Context, handle uint32, index uint32, value float64) uint32 {
 	if s, ok := r.series[handle]; ok {
 		if int64(index) < s.Len() {
 			telem.SetValueAt[float64](s, int(index), value)
 		}
 	}
+	return handle
 }
 
 // SeriesIndexF64 gets an element from a series at the given index.
@@ -3509,6 +3519,104 @@ func (r *Runtime) StateStoreSeriesF64(ctx context.Context, funcID uint32, varID 
 	if s, ok := r.series[handle]; ok {
 		r.stateSeries[stateKey(funcID, varID)] = s
 	}
+}
+
+// SeriesNegateI8 negates all elements of a series.
+func (r *Runtime) SeriesNegateI8(ctx context.Context, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.NegateI8(s, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesNegateI16 negates all elements of a series.
+func (r *Runtime) SeriesNegateI16(ctx context.Context, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.NegateI16(s, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesNegateI32 negates all elements of a series.
+func (r *Runtime) SeriesNegateI32(ctx context.Context, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.NegateI32(s, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesNegateI64 negates all elements of a series.
+func (r *Runtime) SeriesNegateI64(ctx context.Context, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.NegateI64(s, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesNegateF32 negates all elements of a series.
+func (r *Runtime) SeriesNegateF32(ctx context.Context, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.NegateF32(s, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesNegateF64 negates all elements of a series.
+func (r *Runtime) SeriesNegateF64(ctx context.Context, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.NegateF64(s, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesNotU8 performs logical NOT on a boolean series.
+func (r *Runtime) SeriesNotU8(ctx context.Context, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotU8(s, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
 }
 
 // SeriesLen returns the length of a series.
