@@ -71,6 +71,9 @@ genrule(
     ],
     cmd_bash = select({
         "@platforms//os:windows": """
+            # Ensure MSVC target is installed (Bazel env may differ from CI shell)
+            rustup target add x86_64-pc-windows-msvc
+
             # Build wasmtime for Windows
             cd vendor/wasmtime/wasmtime
             # Force MSVC target to avoid Mingw/GNU detection in Git Bash
