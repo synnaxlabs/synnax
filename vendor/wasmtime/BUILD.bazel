@@ -85,6 +85,11 @@ genrule(
 
             # Build wasmtime for Windows
             cd vendor/wasmtime/wasmtime
+
+            # Clean any cached artifacts from previous builds with wrong target
+            # (e.g., x86_64-pc-windows-gnu vs x86_64-pc-windows-msvc)
+            rm -rf target/c-api target/x86_64-pc-windows-msvc target/release 2>/dev/null || true
+
             # Force MSVC target to avoid Mingw/GNU detection in Git Bash
             cmake -S crates/c-api -B target/c-api \
                 --install-prefix="$$(pwd)/artifacts" \
