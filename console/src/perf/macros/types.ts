@@ -20,61 +20,38 @@ export const BUILTIN_MACRO_TYPES = {
   schematic: "schematic" as MacroType,
 } as const;
 
-/** Context provided to macro steps for execution. */
 export interface MacroContext {
-  /** Redux store for state access */
   store: RootStore;
-  /** Redux dispatch function */
   dispatch: Dispatch;
-  /** Synnax client for data access */
   client: Synnax | null;
-  /** Layout placer for creating visualizations */
   placer: Layout.Placer;
-  /** Keys of layouts created during this harness run */
   createdLayoutKeys: string[];
-  /** Channel keys available for use */
   availableChannelKeys: number[];
 }
 
-/** A single step in a macro. */
 export interface MacroStep {
-  /** Human-readable name of the step */
   name: string;
-  /** Execute the step */
   execute: (context: MacroContext) => Promise<void>;
-  /** Optional delay in ms after this step completes */
-  delayAfterMs?: number;
 }
 
-/** Configuration for the macro runner. */
 export interface MacroConfig {
-  /** Macros to execute in each iteration */
   macros: MacroType[];
-  /** Number of iterations (-1 for unlimited) */
   iterations: number;
-  /** Delay between macro iterations in ms */
-  delayBetweenIterationsMs: number;
-  /** Delay between individual macros in ms */
   delayBetweenMacrosMs: number;
+  delayBetweenStepsMs: number;
 }
 
 export const DEFAULT_MACRO_CONFIG: MacroConfig = {
   macros: [BUILTIN_MACRO_TYPES.linePlot, BUILTIN_MACRO_TYPES.schematic],
-  iterations: 1,
-  delayBetweenIterationsMs: 2000,
-  delayBetweenMacrosMs: 1000,
+  iterations: 10,
+  delayBetweenMacrosMs: 50,
+  delayBetweenStepsMs: 25,
 };
 
-/** Result of executing a single macro. */
 export interface MacroResult {
-  /** Type of macro executed */
   macroType: MacroType;
-  /** Start timestamp (performance.now()) */
   startTime: number;
-  /** End timestamp (performance.now()) */
   endTime: number;
-  /** Duration in milliseconds */
   durationMs: number;
-  /** Error message if the macro failed */
   error?: string;
 }

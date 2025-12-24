@@ -106,7 +106,6 @@ export const schematicMacro: MacroStep[] = [
         }),
       );
     },
-    delayAfterMs: 2500,
   },
   {
     name: "Close Schematic",

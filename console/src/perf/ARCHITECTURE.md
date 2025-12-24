@@ -204,8 +204,8 @@ This tool should be hidden in production.
 interface MacroConfig {
   macros: MacroType[];                 // Which macros to run
   iterations: number;                   // How many times to run each (-1 for unlimited)
-  delayBetweenIterationsMs: number;    // Delay between iteration loops
   delayBetweenMacrosMs: number;        // Delay between individual macros
+  delayBetweenStepsMs: number;         // Delay between steps within a macro
 }
 ```
 
@@ -225,7 +225,6 @@ interface MacroDefinition {
 interface MacroStep {
   name: string;
   execute: (context: MacroContext) => Promise<void>;
-  delayAfterMs?: number;  // Optional delay after step completes
 }
 ```
 

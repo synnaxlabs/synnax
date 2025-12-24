@@ -327,7 +327,7 @@ describe("perf slice", () => {
       );
       expect(state.config.macroConfig.iterations).toBe(10);
       // Other macroConfig properties should be preserved
-      expect(state.config.macroConfig.delayBetweenIterationsMs).toBeDefined();
+      expect(state.config.macroConfig.delayBetweenStepsMs).toBeDefined();
     });
   });
 });

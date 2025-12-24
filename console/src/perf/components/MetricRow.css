@@ -23,6 +23,7 @@
 
 .console-perf-row-label {
     color: var(--pluto-gray-l7);
+    white-space: nowrap;
 }
 
 .console-perf-row-value {
@@ -39,4 +40,9 @@
 
 .console-perf-row-value[data-status="error"] {
     color: var(--pluto-error-z);
+}
+
+
+.console-perf-row .pluto-input input {
+    text-align: right;
 }

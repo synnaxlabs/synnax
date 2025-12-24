@@ -14,4 +14,5 @@ export * from "@/hooks/useCursorDrag";
 export * from "@/hooks/useDebouncedCallback";
 export * from "@/hooks/useDestructors";
 export * from "@/hooks/useEffectCompare";
+export * from "@/hooks/useInterval";
 export * from "@/hooks/useResize";

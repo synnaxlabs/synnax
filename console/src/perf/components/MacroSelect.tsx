@@ -30,22 +30,26 @@ export const MacroSelect = ({
 
   const handleToggle = useCallback(
     (type: MacroType) => {
-      if (value.includes(type)) 
-        onChange(value.filter((v) => v !== type));
-       else 
-        onChange([...value, type]);
-      
+      if (value.includes(type)) onChange(value.filter((v) => v !== type));
+      else onChange([...value, type]);
     },
     [value, onChange],
   );
 
   const selectedCount = value.length;
-  const label =
-    selectedCount === 0
-      ? "Select macros"
-      : selectedCount === 1
-        ? definitions.find((d) => d.type === value[0])?.name ?? "1 macro"
-        : `${selectedCount} macros`;
+  const label = useMemo(() => {
+    if (selectedCount === 0) return "Select macros";
+
+    const names = value
+      .map((type) => definitions.find((d) => d.type === type)?.name)
+      .filter(Boolean)
+      .join(", ");
+
+    const MAX_LENGTH = 25;
+    if (names.length <= MAX_LENGTH) return names;
+
+    return `${selectedCount} macros`;
+  }, [selectedCount, value, definitions]);
 
   return (
     <Dialog.Frame variant="connected">
@@ -60,13 +64,12 @@ export const MacroSelect = ({
                 value={value.includes(def.type)}
                 onChange={() => handleToggle(def.type)}
                 disabled={disabled}
-                size="tiny"
               />
-              <Text.Text level="small">{def.name}</Text.Text>
+              <Text.Text >{def.name}</Text.Text>
             </Flex.Box>
           ))}
           {definitions.length === 0 && (
-            <Text.Text level="small">No macros available</Text.Text>
+            <Text.Text> No macros available</Text.Text>
           )}
         </Flex.Box>
       </Dialog.Dialog>

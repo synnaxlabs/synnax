@@ -1,4 +1,3 @@
-// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -77,9 +76,9 @@ export const THRESHOLDS = {
   fpsAvg: { warn: 25, error: 10, inverted: true },
   cpuAvg: { warn: 50, error: 75 },
   gpuAvg: { warn: 50, error: 75 },  
-  fps: { warn: 10, error: 5, inverted: true },
-  cpu: { warn: 85, error: 95 },
-  gpu: { warn: 85, error: 95 },
+  fps: { warn: 10, error: 1, inverted: true },
+  cpu: { warn: 90, error: 99 },
+  gpu: { warn: 90, error: 99 },
   fpsChange: { warn: 20, error: 40, inverted: true },
   cpuChange: { warn: 20, error: 40 },
   gpuChange: { warn: 20, error: 40 },

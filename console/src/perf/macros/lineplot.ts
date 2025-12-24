@@ -64,7 +64,6 @@ export const linePlotMacro: MacroStep[] = [
         }),
       );
     },
-    delayAfterMs: 2500,
   },
   {
     name: "Close Plot",

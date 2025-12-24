@@ -8,38 +8,36 @@
 // included in the file licenses/APL.txt.
 
 import "@/perf/components/MacroPanel.css";
+import "@/perf/components/MetricRow.css";
 
-import { Button, Flex, Icon, Progress, Text } from "@synnaxlabs/pluto";
+import { Button, Icon, Progress, Text } from "@synnaxlabs/pluto";
 import { memo, type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
 import { MacroConfigInputs } from "@/perf/components/MacroConfigInputs";
 import { MacroSelect } from "@/perf/components/MacroSelect";
+import { Section } from "@/perf/components/Section";
 import { useMacroExecution } from "@/perf/hooks/useMacroExecution";
+import { useTimer } from "@/perf/hooks/useTimer";
 import { DEFAULT_MACRO_CONFIG, type MacroConfig } from "@/perf/macros/types";
 import { formatTime } from "@/perf/utils/formatting";
 
 const MacroPanelImpl = (): ReactElement => {
   const { state, start, cancel } = useMacroExecution();
   const [config, setConfig] = useState<MacroConfig>(DEFAULT_MACRO_CONFIG);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
   const isRunning = state.status === "running";
+  const runningSeconds = useTimer(isRunning);
+  const finalSecondsRef = useRef(0);
 
+  // Capture elapsed time while running so we preserve it when complete
   useEffect(() => {
-    if (isRunning) {
-      setElapsedSeconds(0);
-      timerRef.current = setInterval(() => {
-        setElapsedSeconds((prev) => prev + 1);
-      }, 1000);
-    } else if (timerRef.current != null) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    return () => {
-      if (timerRef.current != null) clearInterval(timerRef.current);
-    };
-  }, [isRunning]);
+    if (isRunning) finalSecondsRef.current = runningSeconds;
+  }, [isRunning, runningSeconds]);
+
+  const elapsedSeconds = isRunning ? runningSeconds : finalSecondsRef.current;
+  const hasRun = !isRunning && state.progress.totalIterations > 0;
+  const isComplete =
+    hasRun && state.progress.currentIteration + 1 >= state.progress.totalIterations;
+  const isStopped = hasRun && !isComplete;
 
   const handleMacrosChange = useCallback((macros: string[]) => {
     setConfig((prev) => ({ ...prev, macros }));
@@ -50,61 +48,60 @@ const MacroPanelImpl = (): ReactElement => {
     start(config);
   }, [config, start]);
 
-  const isCancelled = state.status === "cancelled";
   const canRun = config.macros.length > 0 && !isRunning;
 
   const progressPercent =
-    state.progress.totalIterations > 0
-      ? (state.progress.currentIteration / state.progress.totalIterations) * 100
+    state.progress.totalIterations > 0 && (isRunning || hasRun)
+      ? ((state.progress.currentIteration + 1) / state.progress.totalIterations) * 100
       : 0;
 
-  return (
-    <Flex.Box y className="console-perf-macro-panel">
-      <Text.Text level="small" weight={500}>
-        Macros
-      </Text.Text>
+  const actionButton = isRunning ? (
+    <Button.Button variant="outlined" size="tiny" onClick={cancel}>
+      <Icon.Pause />
+      Stop
+    </Button.Button>
+  ) : (
+    <Button.Button variant="filled" size="tiny" onClick={handleRun} disabled={!canRun}>
+      <Icon.Play />
+      Run
+    </Button.Button>
+  );
 
+  const getStatusText = (): string => {
+    if (isRunning)
+      return `Iteration ${state.progress.currentIteration + 1} / ${state.progress.totalIterations}`;
+    if (isComplete) return `Complete (${state.progress.totalIterations} iterations)`;
+    if (isStopped)
+      return `Stopped (${state.progress.currentIteration + 1} / ${state.progress.totalIterations})`;
+    return "Idle";
+  };
+
+  const progressBar = (
+    <div className="console-perf-macro-progress">
+      <Progress.Progress value={progressPercent} />
+      <div className="console-perf-macro-progress-overlay">
+        <Text.Text
+          level="small"
+          className={isRunning || hasRun ? undefined : "console-perf-row-label"}
+        >
+          {getStatusText()}
+        </Text.Text>
+        <Text.Text level="small">
+          {isRunning || hasRun ? formatTime(elapsedSeconds) : ""}
+        </Text.Text>
+      </div>
+    </div>
+  );
+
+  return (
+    <Section title="Macros" actions={actionButton} subheader={progressBar}>
       <MacroSelect
         value={config.macros}
         onChange={handleMacrosChange}
         disabled={isRunning}
       />
-
       <MacroConfigInputs config={config} onChange={setConfig} disabled={isRunning} />
-
-      <Flex.Box x gap="small">
-        {isRunning ? (
-          <Button.Button variant="outlined" size="small" onClick={cancel}>
-            <Icon.Pause />
-            Cancel
-          </Button.Button>
-        ) : (
-          <Button.Button
-            variant="filled"
-            size="small"
-            onClick={handleRun}
-            disabled={!canRun}
-          >
-            <Icon.Play />
-            Run
-          </Button.Button>
-        )}
-      </Flex.Box>
-
-      {(isRunning || isCancelled) && (
-        <Flex.Box y gap="small">
-          <Progress.Progress value={progressPercent} />
-          <Flex.Box x justify="between" align="center">
-            <Text.Text level="small">
-              {isCancelled
-                ? "Cancelled"
-                : `Iteration ${state.progress.currentIteration + 1} / ${state.progress.totalIterations}`}
-            </Text.Text>
-            <Text.Text level="small">{formatTime(elapsedSeconds)}</Text.Text>
-          </Flex.Box>
-        </Flex.Box>
-      )}
-    </Flex.Box>
+    </Section>
   );
 };
 

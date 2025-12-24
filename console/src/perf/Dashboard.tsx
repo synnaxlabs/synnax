@@ -9,7 +9,7 @@
 
 import "@/perf/Dashboard.css";
 
-import { Button, Flex, Header, Icon, Text } from "@synnaxlabs/pluto";
+import { Button, Flex, Header, Icon, Text, Tooltip } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -19,6 +19,7 @@ import { MetricSections } from "@/perf/components/MetricSections";
 import { useCollectors } from "@/perf/hooks/useCollectors";
 import { useElapsedSeconds } from "@/perf/hooks/useElapsedSeconds";
 import { useProfilingSession } from "@/perf/hooks/useProfilingSession";
+import { TickProvider } from "@/perf/hooks/useTick";
 import { ZERO_AGGREGATES } from "@/perf/metrics/buffer";
 import {
   useSelectCpuReport,
@@ -30,7 +31,9 @@ import {
 import * as Perf from "@/perf/slice";
 import { formatTime } from "@/perf/utils/formatting";
 
-export const Dashboard: Layout.Renderer = (): ReactElement => {
+const DEV = import.meta.env.DEV;
+
+const DashboardContent = (): ReactElement => {
   const dispatch = useDispatch();
   const status = useSelectStatus();
   const elapsedSeconds = useElapsedSeconds();
@@ -40,6 +43,7 @@ export const Dashboard: Layout.Renderer = (): ReactElement => {
   const gpuReport = useSelectGpuReport();
 
   const [groupByType, setGroupByType] = useState(true);
+  const [showMacros, setShowMacros] = useState(false);
 
   // Track current status for cleanup on unmount
   const currentStatusRef = useRef<string>(status);
@@ -102,14 +106,12 @@ export const Dashboard: Layout.Renderer = (): ReactElement => {
     resetBuffer,
   });
 
-  // Update the ref so onSample can delegate to the real handleSample
   handleSampleRef.current = handleSample;
 
   useEffect(() => {
     currentStatusRef.current = status;
   }, [status]);
 
-  // Cleanup on unmount: reset if still profiling
   useEffect(() => () => {
       const currentStatus = currentStatusRef.current;
       if (currentStatus !== "idle") 
@@ -122,6 +124,7 @@ export const Dashboard: Layout.Renderer = (): ReactElement => {
   const handleResume = useCallback(() => dispatch(Perf.resume()), [dispatch]);
   const handleReset = useCallback(() => dispatch(Perf.reset()), [dispatch]);
   const toggleGroupByType = useCallback(() => setGroupByType((prev) => !prev), []);
+  const toggleMacros = useCallback(() => setShowMacros((prev) => !prev), []);
 
   const btn = useMemo(() => {
     switch (status) {
@@ -171,6 +174,14 @@ export const Dashboard: Layout.Renderer = (): ReactElement => {
             <Icon.Filter />
             {groupByType ? "By Resource" : "By Category"}
           </Button.Button>
+          {DEV && (
+            <Tooltip.Dialog location="bottom">
+              <Text.Text level="small">Toggle Macros (Dev Only)</Text.Text>
+              <Button.Button variant="text" size="tiny" onClick={toggleMacros}>
+                <Icon.Bolt />
+              </Button.Button>
+            </Tooltip.Dialog>
+          )}
           <Flex.Box grow />
           {showResetButton && (
             <Button.Button
@@ -188,6 +199,8 @@ export const Dashboard: Layout.Renderer = (): ReactElement => {
           </Button.Button>
         </Header.Actions>
       </Header.Header>
+
+      {showMacros && <MacroPanel />}
 
       <MetricSections
         groupByType={groupByType}
@@ -218,8 +231,6 @@ export const Dashboard: Layout.Renderer = (): ReactElement => {
         status={status}
       />
 
-      <MacroPanel />
-
       {status === "error" && (
         <Text.Text status="error" className="console-perf-error">
           An error occurred during performance testing
@@ -228,3 +239,9 @@ export const Dashboard: Layout.Renderer = (): ReactElement => {
     </Flex.Box>
   );
 };
+
+export const Dashboard: Layout.Renderer = (): ReactElement => (
+  <TickProvider>
+    <DashboardContent />
+  </TickProvider>
+);

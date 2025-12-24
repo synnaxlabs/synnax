@@ -20,6 +20,8 @@ interface SectionProps {
   secondaryText?: ReactNode;
   secondaryStatus?: DisplayStatus;
   secondaryTooltip?: string;
+  actions?: ReactNode;
+  subheader?: ReactNode;
   defaultOpen?: boolean;
   children?: ReactNode;
 }
@@ -29,7 +31,9 @@ const SectionImpl = ({
   secondaryText,
   secondaryStatus,
   secondaryTooltip,
-  defaultOpen = true,
+  actions,
+  subheader,
+  defaultOpen = false,
   children,
 }: SectionProps): ReactElement => {
   const [open, setOpen] = useState(defaultOpen);
@@ -39,6 +43,10 @@ const SectionImpl = ({
       e.preventDefault();
       setOpen(!open);
     }
+  };
+
+  const handleActionsClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
   };
 
   const header = (
@@ -65,14 +73,18 @@ const SectionImpl = ({
           {secondaryText}
         </Text.Text>
       )}
+      {actions != null && (
+        <Flex.Box x onClick={handleActionsClick} className="console-perf-section-actions">
+          {actions}
+        </Flex.Box>
+      )}
     </Flex.Box>
   );
 
   return (
     <Flex.Box y className="console-perf-section">
-      <WithTooltip tooltip={secondaryTooltip}>
-        {header}
-      </WithTooltip>
+      <WithTooltip tooltip={secondaryTooltip}>{header}</WithTooltip>
+      {subheader}
       {open && children}
     </Flex.Box>
   );

@@ -9,8 +9,20 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-perf-macro-panel {
-    border-top: 1px solid var(--pluto-gray-l3);
-    padding-top: 0.75rem;
-    margin-top: 0.5rem;
+.console-perf-macro-progress {
+    position: relative;
+}
+
+.console-perf-macro-progress .pluto-progress {
+    height: 2.5rem;
+}
+
+.console-perf-macro-progress-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    pointer-events: none;
 }

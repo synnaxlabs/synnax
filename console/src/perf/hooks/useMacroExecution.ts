@@ -56,36 +56,16 @@ export const useMacroExecution = (): UseMacroExecutionReturn => {
       });
 
       const runner = new MacroRunner(context, config, {
-        onMacroComplete: () => {
-          setState((prev) => {
-            const nextMacroIndex = prev.progress.currentMacroIndex + 1;
-            const isLastMacro = nextMacroIndex >= config.macros.length;
-
-            if (isLastMacro) {
-              const nextIteration = prev.progress.currentIteration + 1;
-              if (nextIteration >= config.iterations)
-                return { ...prev, status: "idle", progress: ZERO_EXECUTION_STATE.progress };
-              
-              return {
-                ...prev,
-                progress: {
-                  ...prev.progress,
-                  currentIteration: nextIteration,
-                  currentMacroIndex: 0,
-                  currentMacro: config.macros[0] ?? null,
-                },
-              };
-            }
-
-            return {
-              ...prev,
-              progress: {
-                ...prev.progress,
-                currentMacroIndex: nextMacroIndex,
-                currentMacro: config.macros[nextMacroIndex] ?? null,
-              },
-            };
-          });
+        onMacroStart: (macroType, macroIndex, iteration) => {
+          setState((prev) => ({
+            ...prev,
+            progress: {
+              ...prev.progress,
+              currentIteration: iteration,
+              currentMacroIndex: macroIndex,
+              currentMacro: macroType,
+            },
+          }));
         },
       });
 
@@ -95,9 +75,7 @@ export const useMacroExecution = (): UseMacroExecutionReturn => {
         .catch((e) => console.error("Macro runner error:", e))
         .finally(() => {
           setState((prev) =>
-            prev.status === "running"
-              ? { ...prev, status: "idle", progress: ZERO_EXECUTION_STATE.progress }
-              : prev,
+            prev.status === "running" ? { ...prev, status: "idle" } : prev,
           );
           runnerRef.current = null;
         });
@@ -107,9 +85,9 @@ export const useMacroExecution = (): UseMacroExecutionReturn => {
 
   const cancel = useCallback(() => {
     runnerRef.current?.stop();
-    setState({ status: "cancelled", progress: ZERO_EXECUTION_STATE.progress });
+    setState((prev) => ({ ...prev, status: "cancelled" }));
     setTimeout(() => {
-      setState(ZERO_EXECUTION_STATE);
+      setState((prev) => ({ ...prev, status: "idle" }));
     }, 1000);
   }, []);
 

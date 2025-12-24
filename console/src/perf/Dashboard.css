@@ -14,6 +14,7 @@
     height: 100%;
     overflow-y: auto;
     max-width: 400px;
+    min-width: 210px;
     margin-right: auto;
 }
 

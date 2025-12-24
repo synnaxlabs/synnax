@@ -32,21 +32,22 @@
     background: var(--pluto-gray-l1);
 }
 
-.console-perf-section-header .pluto-icon {
+.console-perf-section-header > .pluto-icon {
     font-size: 0.75rem;
     transition: transform 0.15s ease;
 }
 
-.console-perf-section-header[data-open="true"] .pluto-icon {
+.console-perf-section-header[data-open="true"] > .pluto-icon {
     transform: rotate(90deg);
 }
 
 .console-perf-section-title {
     color: var(--pluto-gray-l9);
+    flex-grow: 1;
+    white-space: nowrap;
 }
 
 .console-perf-section-header-value {
-    margin-left: auto;
     color: var(--pluto-gray-l9);
 }
 

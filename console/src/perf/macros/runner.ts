@@ -22,7 +22,7 @@ import {
 } from "@/perf/macros/types";
 
 export interface MacroRunnerCallbacks {
-  /** Called when a macro completes. */
+  onMacroStart?: (macroType: MacroType, macroIndex: number, iteration: number) => void;
   onMacroComplete?: (result: MacroResult) => void;
 }
 
@@ -47,7 +47,6 @@ export class MacroRunner {
     this.callbacks = callbacks;
   }
 
-  /** Start running macros. */
   async run(): Promise<MacroResult[]> {
     this.running = true;
     this.results = [];
@@ -59,32 +58,29 @@ export class MacroRunner {
     while (this.running && this.iterationsCompleted < maxIterations) {
       await this.runIteration();
       this.iterationsCompleted++;
-
-      if (this.running && this.iterationsCompleted < maxIterations)
-        await this.delay(this.config.delayBetweenIterationsMs);
     }
 
     return this.results;
   }
 
-  /** Stop running macros. */
   stop(): void {
     this.running = false;
   }
 
-  /** Check if the runner is currently running. */
   isRunning(): boolean {
     return this.running;
   }
 
-  /** Get all results so far. */
   getResults(): MacroResult[] {
     return [...this.results];
   }
 
   private async runIteration(): Promise<void> {
-    for (const macroType of this.config.macros) {
+    for (let i = 0; i < this.config.macros.length; i++) {
       if (!this.running) break;
+
+      const macroType = this.config.macros[i];
+      this.callbacks.onMacroStart?.(macroType, i, this.iterationsCompleted);
 
       const macro = this.getMacroSteps(macroType);
       const result = await this.executeMacro(macro, macroType);
@@ -103,11 +99,11 @@ export class MacroRunner {
     let error: string | undefined;
 
     try {
-      for (const step of steps) {
+      for (let i = 0; i < steps.length; i++) {
         if (!this.running) break;
-        await step.execute(this.context);
-        if (step.delayAfterMs != null && step.delayAfterMs > 0)
-          await this.delay(step.delayAfterMs);
+        await steps[i].execute(this.context);
+        if (this.running && i < steps.length - 1 && this.config.delayBetweenStepsMs > 0)
+          await this.delay(this.config.delayBetweenStepsMs);
       }
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
