@@ -14,5 +14,4 @@ export * from "@/lineplot/LinePlot";
 export * from "@/lineplot/queries";
 export * from "@/lineplot/Title";
 export * from "@/lineplot/tooltip";
-export * from "@/lineplot/useBoundQuerier";
 export * from "@/lineplot/Viewport";
