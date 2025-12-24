@@ -150,6 +150,59 @@ var _ = Describe("WASM Module", func() {
 		})
 	})
 
+	Describe("ImportCount", func() {
+		It("Should return zero for module with no imports", func() {
+			mod := wasm.NewModule()
+			Expect(mod.ImportCount()).To(Equal(uint32(0)))
+		})
+
+		It("Should return correct count after adding imports", func() {
+			mod := wasm.NewModule()
+			ft := wasm.FunctionType{
+				Params:  []wasm.ValueType{wasm.I32},
+				Results: []wasm.ValueType{wasm.I32},
+			}
+			mod.AddImport("env", "func1", ft)
+			Expect(mod.ImportCount()).To(Equal(uint32(1)))
+
+			mod.AddImport("env", "func2", ft)
+			Expect(mod.ImportCount()).To(Equal(uint32(2)))
+
+			mod.AddImport("env", "func3", ft)
+			Expect(mod.ImportCount()).To(Equal(uint32(3)))
+		})
+
+		It("Should not be affected by adding local functions", func() {
+			mod := wasm.NewModule()
+			ft := wasm.FunctionType{
+				Params:  []wasm.ValueType{wasm.I32},
+				Results: []wasm.ValueType{wasm.I32},
+			}
+			mod.AddImport("env", "imported_func", ft)
+			Expect(mod.ImportCount()).To(Equal(uint32(1)))
+
+			// Add local function
+			typeIdx := mod.AddType(ft)
+			mod.AddFunction(typeIdx, []wasm.ValueType{}, []byte{0x20, 0x00})
+			Expect(mod.ImportCount()).To(Equal(uint32(1))) // Still 1 import
+		})
+
+		It("Should not be affected by adding exports", func() {
+			mod := wasm.NewModule()
+			ft := wasm.FunctionType{
+				Params:  []wasm.ValueType{},
+				Results: []wasm.ValueType{wasm.I32},
+			}
+			mod.AddImport("env", "func", ft)
+			Expect(mod.ImportCount()).To(Equal(uint32(1)))
+
+			typeIdx := mod.AddType(ft)
+			funcIdx := mod.AddFunction(typeIdx, []wasm.ValueType{}, []byte{0x41, 0x2a})
+			mod.AddExport("exported", wasm.ExportFunc, funcIdx)
+			Expect(mod.ImportCount()).To(Equal(uint32(1))) // Still 1 import
+		})
+	})
+
 	Describe("Functions", func() {
 		It("Should add a function with empty body", func() {
 			mod := wasm.NewModule()

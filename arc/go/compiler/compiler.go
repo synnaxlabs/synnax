@@ -70,6 +70,11 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error
 	}
 	ctx := ccontext.CreateRoot(ctx_, program.Symbols, program.TypeMap, o.disableHostImports)
 
+	importCount := ctx.Module.ImportCount()
+	for i, f := range program.Functions {
+		ctx.FunctionIndices[f.Key] = importCount + uint32(i)
+	}
+
 	outputMemoryCounter := uint32(0x1000)
 	outputMemoryBases := make(map[string]uint32)
 
