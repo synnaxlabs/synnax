@@ -9,16 +9,15 @@
 
 #include "gtest/gtest.h"
 
-#include "arc/cpp/runtime/wasm/bindings.h"
 #include "x/cpp/telem/series.h"
+
+#include "arc/cpp/runtime/wasm/bindings.h"
 
 namespace arc::runtime::wasm {
 
 class BindingsTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-        bindings = std::make_unique<Bindings>(nullptr, nullptr);
-    }
+    void SetUp() override { bindings = std::make_unique<Bindings>(nullptr, nullptr); }
 
     std::unique_ptr<Bindings> bindings;
 };
@@ -155,7 +154,8 @@ TEST_F(BindingsTest, SeriesSeriesMulI64SameLength) {
     EXPECT_EQ(bindings->series_index_i64(h3, 1), 24);
 }
 
-// ===== Series-Series Arithmetic Tests (Different Lengths - Last Value Repetition) =====
+// ===== Series-Series Arithmetic Tests (Different Lengths - Last Value Repetition)
+// =====
 
 TEST_F(BindingsTest, SeriesSeriesAddF64DifferentLengthsLHSLonger) {
     // lhs = [1, 2, 3, 4, 5]
@@ -401,7 +401,7 @@ TEST_F(BindingsTest, SeriesSliceBasic) {
 
 TEST_F(BindingsTest, SeriesSliceInvalidBounds) {
     const uint32_t h1 = bindings->series_create_empty_f64(5);
-    EXPECT_EQ(bindings->series_slice(h1, 3, 2), 0);  // start > end
+    EXPECT_EQ(bindings->series_slice(h1, 3, 2), 0); // start > end
     EXPECT_EQ(bindings->series_slice(h1, 0, 10), 0); // end > size
     EXPECT_EQ(bindings->series_slice(h1, 10, 15), 0); // start > size
 }
@@ -543,4 +543,4 @@ TEST_F(BindingsTest, AllTypesCreateAndIndex) {
     }
 }
 
-}  // namespace arc::runtime::wasm
+} // namespace arc::runtime::wasm

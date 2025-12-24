@@ -365,24 +365,22 @@ func Function(props FunctionProperties) Type {
 }
 
 // IsNumeric returns true if the type is a numeric type (integer or float).
-// For channel types, it checks the value type. For type variables, it checks
-// if the constraint is a numeric constraint or if the constraint itself is numeric.
+// For channel and series types, it checks the element type. For type variables,
+// it checks if the constraint is a numeric constraint or if the constraint itself is numeric.
 func (t Type) IsNumeric() bool {
-	if t.Kind == KindChan && t.Elem != nil {
-		return t.Elem.IsNumeric()
-	}
-	if t.Kind == KindVariable {
-		if t.Constraint == nil {
+	unwrapped := t.Unwrap()
+	if unwrapped.Kind == KindVariable {
+		if unwrapped.Constraint == nil {
 			return false // Unconstrained type variable is not specifically numeric
 		}
-		if t.Constraint.Kind == KindNumericConstant ||
-			t.Constraint.Kind == KindIntegerConstant ||
-			t.Constraint.Kind == KindFloatConstant {
+		if unwrapped.Constraint.Kind == KindNumericConstant ||
+			unwrapped.Constraint.Kind == KindIntegerConstant ||
+			unwrapped.Constraint.Kind == KindFloatConstant {
 			return true
 		}
-		return t.Constraint.IsNumeric()
+		return unwrapped.Constraint.IsNumeric()
 	}
-	switch t.Kind {
+	switch unwrapped.Kind {
 	case KindU8, KindU16, KindU32, KindU64,
 		KindI8, KindI16, KindI32, KindI64,
 		KindF32, KindF64,
@@ -435,8 +433,9 @@ func (t Type) IsFloat() bool {
 }
 
 // IsBool returns true if the type is a boolean type (u8).
+// For channel and series types, it checks if the element type is boolean.
 func (t Type) IsBool() bool {
-	return t.Kind == KindU8
+	return t.Unwrap().Kind == KindU8
 }
 
 // Unwrap returns the value type of chan/series types, or the type itself otherwise.

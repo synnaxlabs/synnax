@@ -163,6 +163,140 @@ private:
             apply_numeric_op<uint8_t, T>(rhs, op);
     }
 
+    template<typename T, typename Op>
+    void apply_binary_op_typed(const Series &other, Series &result, Op op) const {
+        auto *lhs = reinterpret_cast<const T *>(this->data_.get());
+        auto *rhs = reinterpret_cast<const T *>(other.data_.get());
+        auto *out = reinterpret_cast<T *>(result.data_.get());
+        for (size_t i = 0; i < this->size(); i++)
+            out[i] = op(lhs[i], rhs[i]);
+    }
+
+    template<typename Op>
+    Series apply_binary_op(const Series &other, Op op) const {
+        if (this->size() != other.size())
+            throw std::runtime_error("series length mismatch for binary operation");
+        if (this->data_type() != other.data_type())
+            throw std::runtime_error("series type mismatch for binary operation");
+
+        auto result = Series(this->data_type(), this->size());
+        result.resize(this->size());
+
+        const auto dt = this->data_type();
+        if (dt == FLOAT64_T)
+            apply_binary_op_typed<double>(other, result, op);
+        else if (dt == FLOAT32_T)
+            apply_binary_op_typed<float>(other, result, op);
+        else if (dt == INT64_T)
+            apply_binary_op_typed<int64_t>(other, result, op);
+        else if (dt == INT32_T)
+            apply_binary_op_typed<int32_t>(other, result, op);
+        else if (dt == INT16_T)
+            apply_binary_op_typed<int16_t>(other, result, op);
+        else if (dt == INT8_T)
+            apply_binary_op_typed<int8_t>(other, result, op);
+        else if (dt == UINT64_T)
+            apply_binary_op_typed<uint64_t>(other, result, op);
+        else if (dt == UINT32_T)
+            apply_binary_op_typed<uint32_t>(other, result, op);
+        else if (dt == UINT16_T)
+            apply_binary_op_typed<uint16_t>(other, result, op);
+        else if (dt == UINT8_T)
+            apply_binary_op_typed<uint8_t>(other, result, op);
+
+        return result;
+    }
+
+    template<typename T, typename Op>
+    void apply_comparison_op_typed(const Series &other, Series &result, Op op) const {
+        auto *lhs = reinterpret_cast<const T *>(this->data_.get());
+        auto *rhs = reinterpret_cast<const T *>(other.data_.get());
+        auto *out = reinterpret_cast<uint8_t *>(result.data_.get());
+        for (size_t i = 0; i < this->size(); i++)
+            out[i] = op(lhs[i], rhs[i]) ? 1 : 0;
+    }
+
+    template<typename Op>
+    Series apply_comparison_op(const Series &other, Op op) const {
+        if (this->size() != other.size())
+            throw std::runtime_error("series length mismatch for comparison");
+        if (this->data_type() != other.data_type())
+            throw std::runtime_error("series type mismatch for comparison");
+
+        auto result = Series(UINT8_T, this->size());
+        result.resize(this->size());
+
+        const auto dt = this->data_type();
+        if (dt == FLOAT64_T)
+            apply_comparison_op_typed<double>(other, result, op);
+        else if (dt == FLOAT32_T)
+            apply_comparison_op_typed<float>(other, result, op);
+        else if (dt == INT64_T)
+            apply_comparison_op_typed<int64_t>(other, result, op);
+        else if (dt == INT32_T)
+            apply_comparison_op_typed<int32_t>(other, result, op);
+        else if (dt == INT16_T)
+            apply_comparison_op_typed<int16_t>(other, result, op);
+        else if (dt == INT8_T)
+            apply_comparison_op_typed<int8_t>(other, result, op);
+        else if (dt == UINT64_T)
+            apply_comparison_op_typed<uint64_t>(other, result, op);
+        else if (dt == UINT32_T)
+            apply_comparison_op_typed<uint32_t>(other, result, op);
+        else if (dt == UINT16_T)
+            apply_comparison_op_typed<uint16_t>(other, result, op);
+        else if (dt == UINT8_T)
+            apply_comparison_op_typed<uint8_t>(other, result, op);
+
+        return result;
+    }
+
+    template<typename T, typename Op>
+    Series apply_scalar_op(T scalar, Op op) const {
+        auto result = this->deep_copy();
+        result.cast_and_apply_numeric_op(scalar, op);
+        return result;
+    }
+
+    template<typename SourceType, typename T, typename Op>
+    void apply_reverse_scalar_op_typed(T scalar, Series &result, Op op) const {
+        auto *src = reinterpret_cast<const SourceType *>(this->data_.get());
+        auto *out = reinterpret_cast<SourceType *>(result.data_.get());
+        const auto cast_scalar = static_cast<SourceType>(scalar);
+        for (size_t i = 0; i < this->size(); i++)
+            out[i] = op(cast_scalar, src[i]);
+    }
+
+    template<typename T, typename Op>
+    Series apply_reverse_scalar_op(T scalar, Op op) const {
+        auto result = Series(this->data_type(), this->size());
+        result.resize(this->size());
+
+        const auto dt = this->data_type();
+        if (dt == FLOAT64_T)
+            apply_reverse_scalar_op_typed<double>(scalar, result, op);
+        else if (dt == FLOAT32_T)
+            apply_reverse_scalar_op_typed<float>(scalar, result, op);
+        else if (dt == INT64_T)
+            apply_reverse_scalar_op_typed<int64_t>(scalar, result, op);
+        else if (dt == INT32_T)
+            apply_reverse_scalar_op_typed<int32_t>(scalar, result, op);
+        else if (dt == INT16_T)
+            apply_reverse_scalar_op_typed<int16_t>(scalar, result, op);
+        else if (dt == INT8_T)
+            apply_reverse_scalar_op_typed<int8_t>(scalar, result, op);
+        else if (dt == UINT64_T)
+            apply_reverse_scalar_op_typed<uint64_t>(scalar, result, op);
+        else if (dt == UINT32_T)
+            apply_reverse_scalar_op_typed<uint32_t>(scalar, result, op);
+        else if (dt == UINT16_T)
+            apply_reverse_scalar_op_typed<uint16_t>(scalar, result, op);
+        else if (dt == UINT8_T)
+            apply_reverse_scalar_op_typed<uint8_t>(scalar, result, op);
+
+        return result;
+    }
+
 public:
     /// @brief returns the number of samples in the series.
     [[nodiscard]] size_t size() const { return this->size_; }
@@ -921,6 +1055,117 @@ public:
     void divide_inplace(const T &rhs) const {
         if (rhs == 0) throw std::runtime_error("division by zero");
         cast_and_apply_numeric_op(rhs, std::divides<T>());
+    }
+
+    /// @brief Series-Series addition operator. Returns a new Series.
+    /// @throws std::runtime_error if series lengths or types don't match.
+    Series operator+(const Series &other) const {
+        return apply_binary_op(other, [](auto a, auto b) { return a + b; });
+    }
+
+    /// @brief Series-Series subtraction operator. Returns a new Series.
+    /// @throws std::runtime_error if series lengths or types don't match.
+    Series operator-(const Series &other) const {
+        return apply_binary_op(other, [](auto a, auto b) { return a - b; });
+    }
+
+    /// @brief Series-Series multiplication operator. Returns a new Series.
+    /// @throws std::runtime_error if series lengths or types don't match.
+    Series operator*(const Series &other) const {
+        return apply_binary_op(other, [](auto a, auto b) { return a * b; });
+    }
+
+    /// @brief Series-Series division operator. Returns a new Series.
+    /// @throws std::runtime_error if series lengths or types don't match.
+    Series operator/(const Series &other) const {
+        return apply_binary_op(other, [](auto a, auto b) { return a / b; });
+    }
+
+    /// @brief Series + scalar operator. Returns a new Series.
+    template<typename T>
+    Series operator+(T scalar) const {
+        return apply_scalar_op(scalar, std::plus<T>());
+    }
+
+    /// @brief Series - scalar operator. Returns a new Series.
+    template<typename T>
+    Series operator-(T scalar) const {
+        return apply_scalar_op(scalar, std::minus<T>());
+    }
+
+    /// @brief Series * scalar operator. Returns a new Series.
+    template<typename T>
+    Series operator*(T scalar) const {
+        return apply_scalar_op(scalar, std::multiplies<T>());
+    }
+
+    /// @brief Series / scalar operator. Returns a new Series.
+    /// @throws std::runtime_error if scalar is zero.
+    template<typename T>
+    Series operator/(T scalar) const {
+        if (scalar == 0) throw std::runtime_error("division by zero");
+        return apply_scalar_op(scalar, std::divides<T>());
+    }
+
+    /// @brief scalar + Series operator (commutative). Returns a new Series.
+    template<typename T>
+    friend Series operator+(T scalar, const Series &s) {
+        return s + scalar;
+    }
+
+    /// @brief scalar * Series operator (commutative). Returns a new Series.
+    template<typename T>
+    friend Series operator*(T scalar, const Series &s) {
+        return s * scalar;
+    }
+
+    /// @brief scalar - Series operator. Computes (scalar - element) for each element.
+    template<typename T>
+    friend Series operator-(T scalar, const Series &s) {
+        return s.apply_reverse_scalar_op(scalar, std::minus<T>());
+    }
+
+    /// @brief scalar / Series operator. Computes (scalar / element) for each element.
+    template<typename T>
+    friend Series operator/(T scalar, const Series &s) {
+        return s.apply_reverse_scalar_op(scalar, std::divides<T>());
+    }
+
+    /// @brief Series > Series comparison. Returns UINT8_T Series with 0/1 values.
+    /// @throws std::runtime_error if series lengths or types don't match.
+    Series operator>(const Series &other) const {
+        return apply_comparison_op(other, [](auto a, auto b) { return a > b; });
+    }
+
+    /// @brief Series < Series comparison. Returns UINT8_T Series with 0/1 values.
+    /// @throws std::runtime_error if series lengths or types don't match.
+    Series operator<(const Series &other) const {
+        return apply_comparison_op(other, [](auto a, auto b) { return a < b; });
+    }
+
+    /// @brief Series >= Series comparison. Returns UINT8_T Series with 0/1 values.
+    /// @throws std::runtime_error if series lengths or types don't match.
+    Series operator>=(const Series &other) const {
+        return apply_comparison_op(other, [](auto a, auto b) { return a >= b; });
+    }
+
+    /// @brief Series <= Series comparison. Returns UINT8_T Series with 0/1 values.
+    /// @throws std::runtime_error if series lengths or types don't match.
+    Series operator<=(const Series &other) const {
+        return apply_comparison_op(other, [](auto a, auto b) { return a <= b; });
+    }
+
+    /// @brief Series == Series element-wise comparison. Returns UINT8_T Series.
+    /// Note: This performs element-wise comparison, not structural equality.
+    /// @throws std::runtime_error if series lengths or types don't match.
+    Series operator==(const Series &other) const {
+        return apply_comparison_op(other, [](auto a, auto b) { return a == b; });
+    }
+
+    /// @brief Series != Series element-wise comparison. Returns UINT8_T Series.
+    /// @throws std::runtime_error if series lengths or types don't match.
+    Series operator!=(const Series &other) const {
+        return apply_comparison_op(other, [](auto a, auto b) { return a != b; });
     }
 
     /// @brief deep copies the series, including all of its data_. This function

@@ -189,62 +189,33 @@ uint32_t Bindings::series_slice(uint32_t handle, uint32_t start, uint32_t end) {
     return new_handle;
 }
 
-// Helper template for series-series operations with last-value repetition
-template<typename T, typename Op>
-static void series_series_op(
-    const telem::Series &lhs,
-    const telem::Series &rhs,
-    telem::Series &output,
-    Op op
-) {
-    const auto lhs_len = lhs.size();
-    const auto rhs_len = rhs.size();
-    const auto max_len = std::max(lhs_len, rhs_len);
-    output.resize(max_len);
+template<typename T>
+static std::pair<telem::Series, telem::Series>
+extend_to_match_length(const telem::Series &a, const telem::Series &b) {
+    const auto a_len = a.size();
+    const auto b_len = b.size();
 
-    auto *lhs_data = reinterpret_cast<const T *>(lhs.data());
-    auto *rhs_data = reinterpret_cast<const T *>(rhs.data());
-    auto *out_data = reinterpret_cast<T *>(output.data());
+    if (a_len == b_len) { return {a.deep_copy(), b.deep_copy()}; }
 
-    T lhs_last = lhs_len > 0 ? lhs_data[lhs_len - 1] : T{};
-    T rhs_last = rhs_len > 0 ? rhs_data[rhs_len - 1] : T{};
+    const auto max_len = std::max(a_len, b_len);
 
-    for (size_t i = 0; i < max_len; i++) {
-        T lhs_val = (i < lhs_len) ? lhs_data[i] : lhs_last;
-        T rhs_val = (i < rhs_len) ? rhs_data[i] : rhs_last;
-        if (i < lhs_len) lhs_last = lhs_val;
-        if (i < rhs_len) rhs_last = rhs_val;
-        out_data[i] = op(lhs_val, rhs_val);
-    }
-}
+    auto extend = [](const telem::Series &src, size_t target_len) -> telem::Series {
+        if (src.size() >= target_len) return src.deep_copy();
+        auto result = telem::Series(src.data_type(), target_len);
+        result.resize(target_len);
+        const auto density = src.data_type().density();
+        std::memcpy(result.data(), src.data(), src.size() * density);
+        if (src.size() > 0) {
+            auto *data = reinterpret_cast<T *>(result.data());
+            const T last_val = data[src.size() - 1];
+            for (size_t i = src.size(); i < target_len; i++) {
+                data[i] = last_val;
+            }
+        }
+        return result;
+    };
 
-// Helper template for series-series comparison with last-value repetition
-template<typename T, typename Op>
-static void series_compare_op(
-    const telem::Series &lhs,
-    const telem::Series &rhs,
-    telem::Series &output,
-    Op op
-) {
-    const auto lhs_len = lhs.size();
-    const auto rhs_len = rhs.size();
-    const auto max_len = std::max(lhs_len, rhs_len);
-    output.resize(max_len);
-
-    auto *lhs_data = reinterpret_cast<const T *>(lhs.data());
-    auto *rhs_data = reinterpret_cast<const T *>(rhs.data());
-    auto *out_data = reinterpret_cast<uint8_t *>(output.data());
-
-    T lhs_last = lhs_len > 0 ? lhs_data[lhs_len - 1] : T{};
-    T rhs_last = rhs_len > 0 ? rhs_data[rhs_len - 1] : T{};
-
-    for (size_t i = 0; i < max_len; i++) {
-        T lhs_val = (i < lhs_len) ? lhs_data[i] : lhs_last;
-        T rhs_val = (i < rhs_len) ? rhs_data[i] : rhs_last;
-        if (i < lhs_len) lhs_last = lhs_val;
-        if (i < rhs_len) rhs_last = rhs_val;
-        out_data[i] = op(lhs_val, rhs_val) ? 1 : 0;
-    }
+    return {extend(a, max_len), extend(b, max_len)};
 }
 
 // Macro to generate all series operations for a given type
@@ -274,8 +245,7 @@ static void series_compare_op(
     uint32_t Bindings::series_element_add_##suffix(uint32_t handle, cpptype value) {   \
         auto it = series.find(handle);                                                 \
         if (it == series.end()) return 0;                                              \
-        auto result = it->second.deep_copy();                                          \
-        result.add_inplace(value);                                                     \
+        auto result = it->second + value;                                              \
         const uint32_t new_handle = series_handle_counter++;                           \
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
@@ -283,8 +253,7 @@ static void series_compare_op(
     uint32_t Bindings::series_element_mul_##suffix(uint32_t handle, cpptype value) {   \
         auto it = series.find(handle);                                                 \
         if (it == series.end()) return 0;                                              \
-        auto result = it->second.deep_copy();                                          \
-        result.multiply_inplace(value);                                                \
+        auto result = it->second * value;                                              \
         const uint32_t new_handle = series_handle_counter++;                           \
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
@@ -292,8 +261,7 @@ static void series_compare_op(
     uint32_t Bindings::series_element_sub_##suffix(uint32_t handle, cpptype value) {   \
         auto it = series.find(handle);                                                 \
         if (it == series.end()) return 0;                                              \
-        auto result = it->second.deep_copy();                                          \
-        result.sub_inplace(value);                                                     \
+        auto result = it->second - value;                                              \
         const uint32_t new_handle = series_handle_counter++;                           \
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
@@ -301,8 +269,8 @@ static void series_compare_op(
     uint32_t Bindings::series_element_div_##suffix(uint32_t handle, cpptype value) {   \
         auto it = series.find(handle);                                                 \
         if (it == series.end()) return 0;                                              \
-        auto result = it->second.deep_copy();                                          \
-        result.divide_inplace(value);                                                  \
+        if (value == 0) return 0;                                                      \
+        auto result = it->second / value;                                              \
         const uint32_t new_handle = series_handle_counter++;                           \
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
@@ -311,13 +279,8 @@ static void series_compare_op(
         auto it_a = series.find(a);                                                    \
         auto it_b = series.find(b);                                                    \
         if (it_a == series.end() || it_b == series.end()) return 0;                    \
-        auto result = telem::Series(data_type_const, 0);                               \
-        series_series_op<cpptype>(                                                     \
-            it_a->second,                                                              \
-            it_b->second,                                                              \
-            result,                                                                    \
-            [](cpptype x, cpptype y) { return x + y; }                                 \
-        );                                                                             \
+        auto [lhs, rhs] = extend_to_match_length<cpptype>(it_a->second, it_b->second); \
+        auto result = lhs + rhs;                                                       \
         const uint32_t new_handle = series_handle_counter++;                           \
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
@@ -326,13 +289,8 @@ static void series_compare_op(
         auto it_a = series.find(a);                                                    \
         auto it_b = series.find(b);                                                    \
         if (it_a == series.end() || it_b == series.end()) return 0;                    \
-        auto result = telem::Series(data_type_const, 0);                               \
-        series_series_op<cpptype>(                                                     \
-            it_a->second,                                                              \
-            it_b->second,                                                              \
-            result,                                                                    \
-            [](cpptype x, cpptype y) { return x * y; }                                 \
-        );                                                                             \
+        auto [lhs, rhs] = extend_to_match_length<cpptype>(it_a->second, it_b->second); \
+        auto result = lhs * rhs;                                                       \
         const uint32_t new_handle = series_handle_counter++;                           \
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
@@ -341,13 +299,8 @@ static void series_compare_op(
         auto it_a = series.find(a);                                                    \
         auto it_b = series.find(b);                                                    \
         if (it_a == series.end() || it_b == series.end()) return 0;                    \
-        auto result = telem::Series(data_type_const, 0);                               \
-        series_series_op<cpptype>(                                                     \
-            it_a->second,                                                              \
-            it_b->second,                                                              \
-            result,                                                                    \
-            [](cpptype x, cpptype y) { return x - y; }                                 \
-        );                                                                             \
+        auto [lhs, rhs] = extend_to_match_length<cpptype>(it_a->second, it_b->second); \
+        auto result = lhs - rhs;                                                       \
         const uint32_t new_handle = series_handle_counter++;                           \
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
@@ -356,13 +309,8 @@ static void series_compare_op(
         auto it_a = series.find(a);                                                    \
         auto it_b = series.find(b);                                                    \
         if (it_a == series.end() || it_b == series.end()) return 0;                    \
-        auto result = telem::Series(data_type_const, 0);                               \
-        series_series_op<cpptype>(                                                     \
-            it_a->second,                                                              \
-            it_b->second,                                                              \
-            result,                                                                    \
-            [](cpptype x, cpptype y) { return y != 0 ? x / y : cpptype{}; }            \
-        );                                                                             \
+        auto [lhs, rhs] = extend_to_match_length<cpptype>(it_a->second, it_b->second); \
+        auto result = lhs / rhs;                                                       \
         const uint32_t new_handle = series_handle_counter++;                           \
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
@@ -371,13 +319,8 @@ static void series_compare_op(
         auto it_a = series.find(a);                                                    \
         auto it_b = series.find(b);                                                    \
         if (it_a == series.end() || it_b == series.end()) return 0;                    \
-        auto result = telem::Series(telem::UINT8_T, 0);                                \
-        series_compare_op<cpptype>(                                                    \
-            it_a->second,                                                              \
-            it_b->second,                                                              \
-            result,                                                                    \
-            [](cpptype x, cpptype y) { return x > y; }                                 \
-        );                                                                             \
+        auto [lhs, rhs] = extend_to_match_length<cpptype>(it_a->second, it_b->second); \
+        auto result = lhs > rhs;                                                       \
         const uint32_t new_handle = series_handle_counter++;                           \
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
@@ -386,13 +329,8 @@ static void series_compare_op(
         auto it_a = series.find(a);                                                    \
         auto it_b = series.find(b);                                                    \
         if (it_a == series.end() || it_b == series.end()) return 0;                    \
-        auto result = telem::Series(telem::UINT8_T, 0);                                \
-        series_compare_op<cpptype>(                                                    \
-            it_a->second,                                                              \
-            it_b->second,                                                              \
-            result,                                                                    \
-            [](cpptype x, cpptype y) { return x < y; }                                 \
-        );                                                                             \
+        auto [lhs, rhs] = extend_to_match_length<cpptype>(it_a->second, it_b->second); \
+        auto result = lhs < rhs;                                                       \
         const uint32_t new_handle = series_handle_counter++;                           \
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
@@ -401,13 +339,8 @@ static void series_compare_op(
         auto it_a = series.find(a);                                                    \
         auto it_b = series.find(b);                                                    \
         if (it_a == series.end() || it_b == series.end()) return 0;                    \
-        auto result = telem::Series(telem::UINT8_T, 0);                                \
-        series_compare_op<cpptype>(                                                    \
-            it_a->second,                                                              \
-            it_b->second,                                                              \
-            result,                                                                    \
-            [](cpptype x, cpptype y) { return x >= y; }                                \
-        );                                                                             \
+        auto [lhs, rhs] = extend_to_match_length<cpptype>(it_a->second, it_b->second); \
+        auto result = lhs >= rhs;                                                      \
         const uint32_t new_handle = series_handle_counter++;                           \
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
@@ -416,13 +349,8 @@ static void series_compare_op(
         auto it_a = series.find(a);                                                    \
         auto it_b = series.find(b);                                                    \
         if (it_a == series.end() || it_b == series.end()) return 0;                    \
-        auto result = telem::Series(telem::UINT8_T, 0);                                \
-        series_compare_op<cpptype>(                                                    \
-            it_a->second,                                                              \
-            it_b->second,                                                              \
-            result,                                                                    \
-            [](cpptype x, cpptype y) { return x <= y; }                                \
-        );                                                                             \
+        auto [lhs, rhs] = extend_to_match_length<cpptype>(it_a->second, it_b->second); \
+        auto result = lhs <= rhs;                                                      \
         const uint32_t new_handle = series_handle_counter++;                           \
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
@@ -431,13 +359,8 @@ static void series_compare_op(
         auto it_a = series.find(a);                                                    \
         auto it_b = series.find(b);                                                    \
         if (it_a == series.end() || it_b == series.end()) return 0;                    \
-        auto result = telem::Series(telem::UINT8_T, 0);                                \
-        series_compare_op<cpptype>(                                                    \
-            it_a->second,                                                              \
-            it_b->second,                                                              \
-            result,                                                                    \
-            [](cpptype x, cpptype y) { return x == y; }                                \
-        );                                                                             \
+        auto [lhs, rhs] = extend_to_match_length<cpptype>(it_a->second, it_b->second); \
+        auto result = lhs == rhs;                                                      \
         const uint32_t new_handle = series_handle_counter++;                           \
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
@@ -446,13 +369,8 @@ static void series_compare_op(
         auto it_a = series.find(a);                                                    \
         auto it_b = series.find(b);                                                    \
         if (it_a == series.end() || it_b == series.end()) return 0;                    \
-        auto result = telem::Series(telem::UINT8_T, 0);                                \
-        series_compare_op<cpptype>(                                                    \
-            it_a->second,                                                              \
-            it_b->second,                                                              \
-            result,                                                                    \
-            [](cpptype x, cpptype y) { return x != y; }                                \
-        );                                                                             \
+        auto [lhs, rhs] = extend_to_match_length<cpptype>(it_a->second, it_b->second); \
+        auto result = lhs != rhs;                                                      \
         const uint32_t new_handle = series_handle_counter++;                           \
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \

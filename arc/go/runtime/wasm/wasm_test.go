@@ -1663,5 +1663,373 @@ var _ = Describe("Wasm", func() {
 			vals := telem.UnmarshalSeries[int32](result)
 			Expect(vals[0]).To(Equal(int32(42))) // s[0] was set to 42
 		})
+
+		It("Should negate a float64 series", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "series_negate_f64",
+						Inputs: types.Params{},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+						Body: ir.Body{Raw: `{
+							s series f64 := [1.0, -2.0, 3.0]
+							t series f64 := -s
+							return t[1]
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "series_negate_f64", Type: "series_negate_f64"},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("series_negate_f64"),
+				State:  s.Node("series_negate_f64"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("series_negate_f64").Output(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			vals := telem.UnmarshalSeries[float64](result)
+			Expect(vals[0]).To(Equal(float64(2.0))) // -(-2.0) = 2.0
+		})
+
+		It("Should negate a float32 series", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "series_negate_f32",
+						Inputs: types.Params{},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
+						},
+						Body: ir.Body{Raw: `{
+							s series f32 := [f32(5.0), f32(-3.0), f32(0.0)]
+							t series f32 := -s
+							return t[0]
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "series_negate_f32", Type: "series_negate_f32"},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("series_negate_f32"),
+				State:  s.Node("series_negate_f32"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("series_negate_f32").Output(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			vals := telem.UnmarshalSeries[float32](result)
+			Expect(vals[0]).To(Equal(float32(-5.0))) // -(5.0) = -5.0
+		})
+
+		It("Should negate an int64 series", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "series_negate_i64",
+						Inputs: types.Params{},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+						Body: ir.Body{Raw: `{
+							s series i64 := [10, -20, 30]
+							t series i64 := -s
+							return t[2]
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "series_negate_i64", Type: "series_negate_i64"},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("series_negate_i64"),
+				State:  s.Node("series_negate_i64"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("series_negate_i64").Output(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			vals := telem.UnmarshalSeries[int64](result)
+			Expect(vals[0]).To(Equal(int64(-30))) // -(30) = -30
+		})
+
+		It("Should negate an int32 series", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "series_negate_i32",
+						Inputs: types.Params{},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
+						},
+						Body: ir.Body{Raw: `{
+							s series i32 := [i32(100), i32(-50), i32(0)]
+							t series i32 := -s
+							return t[1]
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "series_negate_i32", Type: "series_negate_i32"},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("series_negate_i32"),
+				State:  s.Node("series_negate_i32"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("series_negate_i32").Output(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			vals := telem.UnmarshalSeries[int32](result)
+			Expect(vals[0]).To(Equal(int32(50))) // -(-50) = 50
+		})
+
+		It("Should perform logical NOT on a u8 series", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "series_not_u8",
+						Inputs: types.Params{},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+						Body: ir.Body{Raw: `{
+							mask series u8 := [u8(1), u8(0), u8(1)]
+							inverted series u8 := not mask
+							return inverted[0]
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "series_not_u8", Type: "series_not_u8"},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("series_not_u8"),
+				State:  s.Node("series_not_u8"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("series_not_u8").Output(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			vals := telem.UnmarshalSeries[uint8](result)
+			Expect(vals[0]).To(Equal(uint8(254))) // bitwise NOT of 1 = 254
+		})
+
+		It("Should perform logical NOT on false values", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "series_not_false",
+						Inputs: types.Params{},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+						Body: ir.Body{Raw: `{
+							mask series u8 := [u8(0), u8(0), u8(0)]
+							inverted series u8 := not mask
+							return inverted[1]
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "series_not_false", Type: "series_not_false"},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("series_not_false"),
+				State:  s.Node("series_not_false"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("series_not_false").Output(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			vals := telem.UnmarshalSeries[uint8](result)
+			Expect(vals[0]).To(Equal(uint8(255))) // bitwise NOT of 0 = 255
+		})
+
+		It("Should chain series negation with arithmetic", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "series_negate_chain",
+						Inputs: types.Params{},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+						Body: ir.Body{Raw: `{
+							s series f64 := [1.0, 2.0, 3.0]
+							t series f64 := -s + 10.0
+							return t[0]
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "series_negate_chain", Type: "series_negate_chain"},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("series_negate_chain"),
+				State:  s.Node("series_negate_chain"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("series_negate_chain").Output(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			vals := telem.UnmarshalSeries[float64](result)
+			Expect(vals[0]).To(Equal(float64(9.0))) // -1.0 + 10.0 = 9.0
+		})
+
+		It("Should double negate a series", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "series_double_negate",
+						Inputs: types.Params{},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+						Body: ir.Body{Raw: `{
+							s series f64 := [5.0, -10.0, 15.0]
+							t series f64 := --s
+							return t[1]
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "series_double_negate", Type: "series_double_negate"},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("series_double_negate"),
+				State:  s.Node("series_double_negate"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("series_double_negate").Output(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			vals := telem.UnmarshalSeries[float64](result)
+			Expect(vals[0]).To(Equal(float64(-10.0))) // --(-10.0) = -10.0
+		})
 	})
 })

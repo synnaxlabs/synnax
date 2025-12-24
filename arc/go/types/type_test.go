@@ -190,6 +190,11 @@ var _ = Describe("Types", func() {
 				Expect(types.Chan(types.String()).IsNumeric()).To(BeFalse())
 			})
 
+			It("Should check value type for series", func() {
+				Expect(types.Series(types.F64()).IsNumeric()).To(BeTrue())
+				Expect(types.Series(types.String()).IsNumeric()).To(BeFalse())
+			})
+
 			It("Should handle type variables with numeric constraint", func() {
 				constraint := types.NumericConstraint()
 				tv := types.Variable("N", &constraint)
@@ -332,6 +337,16 @@ var _ = Describe("Types", func() {
 			It("Should return false for other types", func() {
 				Expect(types.I32().IsBool()).To(BeFalse())
 				Expect(types.String().IsBool()).To(BeFalse())
+			})
+
+			It("Should check value type for channels", func() {
+				Expect(types.Chan(types.U8()).IsBool()).To(BeTrue())
+				Expect(types.Chan(types.I32()).IsBool()).To(BeFalse())
+			})
+
+			It("Should check value type for series", func() {
+				Expect(types.Series(types.U8()).IsBool()).To(BeTrue())
+				Expect(types.Series(types.I32()).IsBool()).To(BeFalse())
 			})
 		})
 
