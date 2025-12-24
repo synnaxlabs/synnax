@@ -237,7 +237,7 @@ jobs:
       - name: Build Driver (macOS)
         if: inputs.driver && matrix.os == 'macos-build-bot'
         run: |
-          bazel build $BAZEL_BUILD_FLAGS --action_env=HOME \
+          bazel build $BAZEL_BUILD_FLAGS \
             --config=opt-unix --config=hide_symbols //driver
 
       - name: Build Driver (NI Linux RT)
