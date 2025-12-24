@@ -73,12 +73,13 @@ genrule(
         "@platforms//os:windows": """
             cd vendor/wasmtime/wasmtime/crates/c-api
             rm -rf build && mkdir build && cd build
-            cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
+            # Force MSVC target to avoid Mingw/GNU detection in Git Bash
+            cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DWASMTIME_TARGET=x86_64-pc-windows-msvc
             cmake --build . --config Release
             mkdir -p $(GENDIR)/vendor/wasmtime/lib
             mkdir -p $(GENDIR)/vendor/wasmtime/include
-            HOST_TARGET=$$(rustc -vV | grep 'host:' | cut -d' ' -f2)
-            cp "$$HOST_TARGET/release/wasmtime.lib" $(GENDIR)/vendor/wasmtime/lib/ || \
+            # Copy the MSVC library
+            cp x86_64-pc-windows-msvc/release/wasmtime.lib $(GENDIR)/vendor/wasmtime/lib/ || \
                 touch $(GENDIR)/vendor/wasmtime/lib/wasmtime.lib
             cp ../include/*.h $(GENDIR)/vendor/wasmtime/include/
             cp ../include/*.hh $(GENDIR)/vendor/wasmtime/include/
