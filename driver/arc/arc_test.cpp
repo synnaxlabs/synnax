@@ -112,7 +112,12 @@ TEST(ArcTests, testBasicSequence) {
     // Create trigger channel (start_cmd)
     auto start_cmd_idx_name = make_unique_channel_name("start_cmd_idx");
     auto start_cmd_name = make_unique_channel_name("start_cmd");
-    auto start_cmd_idx = synnax::Channel(start_cmd_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto start_cmd_idx = synnax::Channel(
+        start_cmd_idx_name,
+        telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(start_cmd_idx));
     auto start_cmd_ch = synnax::Channel(
         start_cmd_name,
@@ -125,7 +130,12 @@ TEST(ArcTests, testBasicSequence) {
     // Create output channel (valve_cmd)
     auto valve_cmd_idx_name = make_unique_channel_name("valve_cmd_idx");
     auto valve_cmd_name = make_unique_channel_name("valve_cmd");
-    auto valve_cmd_idx = synnax::Channel(valve_cmd_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto valve_cmd_idx = synnax::Channel(
+        valve_cmd_idx_name,
+        telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(valve_cmd_idx));
     auto valve_cmd_ch = synnax::Channel(
         valve_cmd_name,
@@ -140,7 +150,9 @@ TEST(ArcTests, testBasicSequence) {
     arc_prog.text = arc::text::Text(
         "sequence main {\n"
         "    stage run {\n"
-        "        1 -> " + valve_cmd_name + "\n"
+        "        1 -> " +
+        valve_cmd_name +
+        "\n"
         "    }\n"
         "}\n"
         "\n" +
@@ -202,7 +214,7 @@ TEST(ArcTests, testBasicSequence) {
 
     // Verify valve_cmd received the value 1
     bool found_valve_cmd = false;
-    for (const auto &output_fr : *mock_writer->writes) {
+    for (const auto &output_fr: *mock_writer->writes) {
         if (output_fr.contains(valve_cmd_ch.key)) {
             auto output_val = output_fr.at<int64_t>(valve_cmd_ch.key, 0);
             EXPECT_EQ(output_val, 1);
@@ -223,7 +235,12 @@ TEST(ArcTests, testOneShotTruthiness) {
     // Create trigger channel (start_cmd)
     auto start_cmd_idx_name = make_unique_channel_name("truthiness_start_cmd_idx");
     auto start_cmd_name = make_unique_channel_name("truthiness_start_cmd");
-    auto start_cmd_idx = synnax::Channel(start_cmd_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto start_cmd_idx = synnax::Channel(
+        start_cmd_idx_name,
+        telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(start_cmd_idx));
     auto start_cmd_ch = synnax::Channel(
         start_cmd_name,
@@ -236,7 +253,12 @@ TEST(ArcTests, testOneShotTruthiness) {
     // Create output channel (valve_cmd)
     auto valve_cmd_idx_name = make_unique_channel_name("truthiness_valve_cmd_idx");
     auto valve_cmd_name = make_unique_channel_name("truthiness_valve_cmd");
-    auto valve_cmd_idx = synnax::Channel(valve_cmd_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto valve_cmd_idx = synnax::Channel(
+        valve_cmd_idx_name,
+        telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(valve_cmd_idx));
     auto valve_cmd_ch = synnax::Channel(
         valve_cmd_name,
@@ -251,7 +273,9 @@ TEST(ArcTests, testOneShotTruthiness) {
     arc_prog.text = arc::text::Text(
         "sequence main {\n"
         "    stage run {\n"
-        "        42 -> " + valve_cmd_name + "\n"
+        "        42 -> " +
+        valve_cmd_name +
+        "\n"
         "    }\n"
         "}\n"
         "\n" +
@@ -330,7 +354,7 @@ TEST(ArcTests, testOneShotTruthiness) {
     // This confirms the sequence was triggered only by the truthy value (1),
     // not by the falsy value (0)
     bool found_valve_cmd = false;
-    for (const auto &output_fr : *mock_writer->writes) {
+    for (const auto &output_fr: *mock_writer->writes) {
         if (output_fr.contains(valve_cmd_ch.key)) {
             auto output_val = output_fr.at<int64_t>(valve_cmd_ch.key, 0);
             EXPECT_EQ(output_val, 42);
@@ -338,8 +362,9 @@ TEST(ArcTests, testOneShotTruthiness) {
             break;
         }
     }
-    EXPECT_TRUE(found_valve_cmd) << "valve_cmd channel was not written to - "
-        "sequence should have been triggered by truthy value (1)";
+    EXPECT_TRUE(found_valve_cmd)
+        << "valve_cmd channel was not written to - "
+           "sequence should have been triggered by truthy value (1)";
 
     task->stop("test_stop", true);
 }

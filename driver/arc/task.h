@@ -172,12 +172,14 @@ public:
         const TaskConfig &cfg,
         std::shared_ptr<pipeline::WriterFactory> writer_factory = nullptr,
         std::shared_ptr<pipeline::StreamerFactory> streamer_factory = nullptr
-    ): runtime(std::move(runtime)),
-       state(ctx, task_meta) {
+    ):
+        runtime(std::move(runtime)), state(ctx, task_meta) {
         auto source = std::make_unique<Source>(this->runtime);
         auto sink = std::make_unique<Sink>(this->runtime);
         if (!writer_factory)
-            writer_factory = std::make_shared<pipeline::SynnaxWriterFactory>(ctx->client);
+            writer_factory = std::make_shared<pipeline::SynnaxWriterFactory>(
+                ctx->client
+            );
         if (!streamer_factory)
             streamer_factory = std::make_shared<pipeline::SynnaxStreamerFactory>(
                 ctx->client
