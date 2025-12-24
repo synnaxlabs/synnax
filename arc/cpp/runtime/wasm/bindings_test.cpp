@@ -244,6 +244,39 @@ TEST_F(BindingsTest, SeriesSeriesModU32DifferentLengths) {
     EXPECT_EQ(bindings->series_index_u32(h3, 3), 5);
 }
 
+TEST_F(BindingsTest, SeriesElementModF64) {
+    const uint32_t h1 = bindings->series_create_empty_f64(3);
+    bindings->series_set_element_f64(h1, 0, 10.5);
+    bindings->series_set_element_f64(h1, 1, 7.5);
+    bindings->series_set_element_f64(h1, 2, 15.0);
+
+    // [10.5, 7.5, 15.0] % 3.0 = [1.5, 1.5, 0.0] (using std::fmod)
+    const uint32_t h2 = bindings->series_element_mod_f64(h1, 3.0);
+    EXPECT_NE(h2, 0);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h2, 0), 1.5);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h2, 1), 1.5);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h2, 2), 0.0);
+}
+
+TEST_F(BindingsTest, SeriesSeriesModF64) {
+    const uint32_t h1 = bindings->series_create_empty_f64(3);
+    bindings->series_set_element_f64(h1, 0, 10.5);
+    bindings->series_set_element_f64(h1, 1, 20.0);
+    bindings->series_set_element_f64(h1, 2, 7.5);
+
+    const uint32_t h2 = bindings->series_create_empty_f64(3);
+    bindings->series_set_element_f64(h2, 0, 3.0);
+    bindings->series_set_element_f64(h2, 1, 6.0);
+    bindings->series_set_element_f64(h2, 2, 2.5);
+
+    // [10.5, 20.0, 7.5] % [3.0, 6.0, 2.5] = [1.5, 2.0, 0.0]
+    const uint32_t h3 = bindings->series_series_mod_f64(h1, h2);
+    EXPECT_NE(h3, 0);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h3, 0), 1.5);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h3, 1), 2.0);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h3, 2), 0.0);
+}
+
 // ===== Series-Series Arithmetic Tests (Same Length) =====
 
 TEST_F(BindingsTest, SeriesSeriesAddF64SameLength) {
