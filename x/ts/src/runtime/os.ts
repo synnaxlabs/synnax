@@ -102,18 +102,14 @@ export const initOSInfo = async (): Promise<OSInfo> => {
       }
 
       const osPlugin = await import("@tauri-apps/plugin-os");
-      const [hostname, platform, arch, version] = await Promise.all([
-        osPlugin.hostname(),
-        osPlugin.platform(),
-        osPlugin.arch(),
-        osPlugin.version(),
-      ]);
+      // hostname() is async, others are sync
+      const hostname = await osPlugin.hostname();
 
       cachedOSInfo = {
         hostname: hostname ?? "Unknown",
-        platform,
-        arch,
-        version,
+        platform: osPlugin.platform(),
+        arch: osPlugin.arch(),
+        version: osPlugin.version(),
       };
     } catch {
       // Not in Tauri or plugin not available - use browser fallback

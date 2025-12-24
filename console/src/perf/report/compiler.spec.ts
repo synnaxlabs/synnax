@@ -16,6 +16,7 @@ import {
   ZERO_LEAK_REPORT,
 } from "@/perf/analyzer/types";
 import { THRESHOLDS } from "@/perf/constants";
+import { ZERO_AGGREGATES } from "@/perf/metrics/buffer";
 import { compileReport } from "@/perf/report/compiler";
 import { type CompileInput } from "@/perf/report/types";
 
@@ -32,7 +33,7 @@ const createBaseInput = (overrides: Partial<CompileInput> = {}): CompileInput =>
     finalHeap: 100,
   },
   aggregates: {
-    count: 0,
+    ...ZERO_AGGREGATES,
     avgFps: 60,
     minFps: 60,
     maxFps: 60,
@@ -40,13 +41,8 @@ const createBaseInput = (overrides: Partial<CompileInput> = {}): CompileInput =>
     maxCpu: 10,
     avgGpu: 10,
     maxGpu: 10,
-    avgHeap: 100,
     minHeap: 100,
     maxHeap: 100,
-    totalLongTasks: 0,
-    totalLongTaskDurationMs: 0,
-    totalNetworkRequests: 0,
-    totalConsoleLogCount: 0,
   },
   analysisResults: {
     leak: ZERO_LEAK_REPORT,
