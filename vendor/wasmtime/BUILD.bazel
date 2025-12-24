@@ -372,8 +372,24 @@ cc_library(
     includes = ["include"],
     strip_include_prefix = "include",
     visibility = ["//visibility:public"],
+    # On Windows with static linking, disable dllimport declarations
+    defines = select({
+        "@platforms//os:windows": [
+            "WASM_API_EXTERN=",
+            "WASI_API_EXTERN=",
+        ],
+        "//conditions:default": [],
+    }),
     linkopts = select({
-        "@platforms//os:windows": [],
+        "@platforms//os:windows": [
+            "ws2_32.lib",
+            "advapi32.lib",
+            "userenv.lib",
+            "ntdll.lib",
+            "shell32.lib",
+            "ole32.lib",
+            "bcrypt.lib",
+        ],
         "@platforms//os:macos": [
             "-ldl",
             "-lpthread",
