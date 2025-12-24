@@ -65,8 +65,9 @@ type ImportIndex struct {
 
 	// String operations
 	StringFromLiteral uint32
-	StringLen         uint32
+	StringConcat      uint32
 	StringEqual       uint32
+	StringLen         uint32
 
 	// Built-in functions
 	Now uint32
@@ -341,14 +342,19 @@ func setupGenericOps(m *wasm.Module, idx *ImportIndex) {
 		Results: []wasm.ValueType{wasm.I32},           // string handle
 	})
 
-	idx.StringLen = m.AddImport("env", "string_len", wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32}, // string handle
-		Results: []wasm.ValueType{wasm.I32}, // length
+	idx.StringConcat = m.AddImport("env", "string_concat", wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // string1, string2
+		Results: []wasm.ValueType{wasm.I32},           // new string handle
 	})
 
 	idx.StringEqual = m.AddImport("env", "string_equal", wasm.FunctionType{
 		Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // string1, string2
 		Results: []wasm.ValueType{wasm.I32},           // u8 result (0 or 1)
+	})
+
+	idx.StringLen = m.AddImport("env", "string_len", wasm.FunctionType{
+		Params:  []wasm.ValueType{wasm.I32}, // string handle
+		Results: []wasm.ValueType{wasm.I32}, // length
 	})
 
 	// Built-in functions

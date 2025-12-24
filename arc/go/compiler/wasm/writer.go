@@ -16,6 +16,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/types"
+	xbinary "github.com/synnaxlabs/x/binary"
 )
 
 // Writer handles low-level WASM instruction encoding
@@ -166,14 +167,17 @@ func (e *Writer) WriteUnaryOp(op Opcode) {
 	e.WriteOpcode(op)
 }
 
+// WriteI32Eqz writes an i32.eqz instruction (returns 1 if value is 0, else 0)
+func (e *Writer) WriteI32Eqz() {
+	e.WriteOpcode(OpI32Eqz)
+}
+
 // WriteMemoryOp writes a memory operation with alignment and offset
 func (e *Writer) WriteMemoryOp(op Opcode, align, offset uint32) {
 	e.WriteOpcode(op)
 	e.WriteLEB128Unsigned(uint64(align))
 	e.WriteLEB128Unsigned(uint64(offset))
 }
-
-// === Helper Methods ===
 
 // writeBlockType writes a block type (for if/block/loop)
 func (e *Writer) writeBlockType(bt BlockType) {
@@ -188,40 +192,12 @@ func (e *Writer) writeBlockType(bt BlockType) {
 
 // WriteLEB128Unsigned writes an unsigned LEB128 encoded integer
 func (e *Writer) WriteLEB128Unsigned(val uint64) {
-	for {
-		b := byte(val & 0x7f)
-		val >>= 7
-		if val != 0 {
-			b |= 0x80
-		}
-		e.buf.WriteByte(b)
-		if val == 0 {
-			break
-		}
-	}
+	xbinary.WriteLEB128Unsigned(&e.buf, val)
 }
 
 // WriteLEB128Signed writes a signed LEB128 encoded integer
 func (e *Writer) WriteLEB128Signed(val int64) {
-	for {
-		b := byte(val & 0x7f)
-		// Sign bit of byte is second high bit (0x40)
-		signBit := b & 0x40
-
-		// Shift val by 7 to get next group
-		val >>= 7
-
-		// Check if we're done:
-		// - If val is 0 and sign bit is 0, we're done (positive number)
-		// - If val is -1 and sign bit is 1, we're done (negative number)
-		// - Otherwise we need more bytes
-		if (val == 0 && signBit == 0) || (val == -1 && signBit != 0) {
-			e.buf.WriteByte(b)
-			break
-		}
-
-		e.buf.WriteByte(b | 0x80)
-	}
+	xbinary.WriteLEB128Signed(&e.buf, val)
 }
 
 // === Output Methods ===

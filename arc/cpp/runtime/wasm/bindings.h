@@ -191,9 +191,11 @@ public:
 
     // ===== String Operations =====
     uint32_t string_from_literal(uint32_t ptr, uint32_t len);
-    uint32_t string_concat(uint32_t ptr, uint32_t len);
+    uint32_t string_create(const std::string &str);
+    uint32_t string_concat(uint32_t h1, uint32_t h2);
     uint32_t string_equal(uint32_t handle1, uint32_t handle2);
     uint32_t string_len(uint32_t handle);
+    std::string string_get(uint32_t handle);
 };
 
 /// Create import vector with all registered host functions for Wasmtime.

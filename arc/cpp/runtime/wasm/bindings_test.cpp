@@ -700,4 +700,81 @@ TEST_F(BindingsTest, AllTypesCreateAndIndex) {
     }
 }
 
+// ===== String Tests =====
+
+TEST_F(BindingsTest, StringCreate) {
+    const uint32_t h = bindings->string_create("hello");
+    EXPECT_NE(h, 0);
+    EXPECT_EQ(bindings->string_get(h), "hello");
+}
+
+TEST_F(BindingsTest, StringLen) {
+    const uint32_t h = bindings->string_create("hello");
+    EXPECT_EQ(bindings->string_len(h), 5);
+
+    const uint32_t h2 = bindings->string_create("");
+    EXPECT_EQ(bindings->string_len(h2), 0);
+
+    EXPECT_EQ(bindings->string_len(999), 0); // invalid handle
+}
+
+TEST_F(BindingsTest, StringConcat) {
+    const uint32_t h1 = bindings->string_create("hello");
+    const uint32_t h2 = bindings->string_create(" world");
+    const uint32_t h3 = bindings->string_concat(h1, h2);
+
+    EXPECT_NE(h3, 0);
+    EXPECT_NE(h3, h1);
+    EXPECT_NE(h3, h2);
+    EXPECT_EQ(bindings->string_get(h3), "hello world");
+
+    // Original strings unchanged
+    EXPECT_EQ(bindings->string_get(h1), "hello");
+    EXPECT_EQ(bindings->string_get(h2), " world");
+}
+
+TEST_F(BindingsTest, StringConcatEmpty) {
+    const uint32_t h1 = bindings->string_create("hello");
+    const uint32_t h2 = bindings->string_create("");
+    const uint32_t h3 = bindings->string_concat(h1, h2);
+
+    EXPECT_EQ(bindings->string_get(h3), "hello");
+}
+
+TEST_F(BindingsTest, StringConcatInvalidHandle) {
+    const uint32_t h1 = bindings->string_create("hello");
+    EXPECT_EQ(bindings->string_concat(h1, 999), 0);
+    EXPECT_EQ(bindings->string_concat(999, h1), 0);
+    EXPECT_EQ(bindings->string_concat(999, 888), 0);
+}
+
+TEST_F(BindingsTest, StringEqual) {
+    const uint32_t h1 = bindings->string_create("hello");
+    const uint32_t h2 = bindings->string_create("hello");
+    const uint32_t h3 = bindings->string_create("world");
+
+    EXPECT_EQ(bindings->string_equal(h1, h2), 1);
+    EXPECT_EQ(bindings->string_equal(h1, h3), 0);
+    EXPECT_EQ(bindings->string_equal(h2, h3), 0);
+}
+
+TEST_F(BindingsTest, StringEqualEmpty) {
+    const uint32_t h1 = bindings->string_create("");
+    const uint32_t h2 = bindings->string_create("");
+    const uint32_t h3 = bindings->string_create("x");
+
+    EXPECT_EQ(bindings->string_equal(h1, h2), 1);
+    EXPECT_EQ(bindings->string_equal(h1, h3), 0);
+}
+
+TEST_F(BindingsTest, StringEqualInvalidHandle) {
+    const uint32_t h1 = bindings->string_create("hello");
+    EXPECT_EQ(bindings->string_equal(h1, 999), 0);
+    EXPECT_EQ(bindings->string_equal(999, h1), 0);
+}
+
+TEST_F(BindingsTest, StringGetInvalidHandle) {
+    EXPECT_EQ(bindings->string_get(999), "");
+}
+
 } // namespace arc::runtime::wasm

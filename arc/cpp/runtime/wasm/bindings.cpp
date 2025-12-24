@@ -98,15 +98,17 @@ uint32_t Bindings::state_load_str(
 ) {
     const auto key = state_key(func_id, var_id);
     if (const auto it = this->state_string.find(key); it != this->state_string.end()) {
-        this->strings[string_handle_counter] = it->second;
-        return this->string_handle_counter++;
+        const uint32_t handle = ++this->string_handle_counter;
+        this->strings[handle] = it->second;
+        return handle;
     }
     if (const auto init_it = this->strings.find(init_handle); init_it != strings.end())
         this->state_string[key] = init_it->second;
     else
         this->state_string[key] = "";
-    this->strings[this->string_handle_counter] = this->state_string[key];
-    return this->string_handle_counter++;
+    const uint32_t handle = ++this->string_handle_counter;
+    this->strings[handle] = this->state_string[key];
+    return handle;
 }
 
 auto Bindings::state_store_str(
@@ -145,12 +147,17 @@ uint32_t Bindings::string_from_literal(const uint32_t ptr, const uint32_t len) {
     }
 
     const std::string str(reinterpret_cast<const char *>(mem_data + ptr), len);
-    const uint32_t handle = string_handle_counter++;
+    const uint32_t handle = ++string_handle_counter;
     strings[handle] = str;
     return handle;
 }
-uint32_t Bindings::string_concat(uint32_t ptr, uint32_t len) {
-    return 0; // Not implemented
+uint32_t Bindings::string_concat(uint32_t h1, uint32_t h2) {
+    const auto it1 = strings.find(h1);
+    const auto it2 = strings.find(h2);
+    if (it1 == strings.end() || it2 == strings.end()) return 0;
+    const uint32_t handle = ++string_handle_counter;
+    strings[handle] = it1->second + it2->second;
+    return handle;
 }
 
 uint32_t Bindings::string_len(const uint32_t handle) {
@@ -164,6 +171,18 @@ uint32_t Bindings::string_equal(const uint32_t handle1, const uint32_t handle2) 
     const auto it2 = strings.find(handle2);
     if (it1 == strings.end() || it2 == strings.end()) return 0;
     return it1->second == it2->second ? 1 : 0;
+}
+
+uint32_t Bindings::string_create(const std::string &str) {
+    const uint32_t handle = ++string_handle_counter;
+    strings[handle] = str;
+    return handle;
+}
+
+std::string Bindings::string_get(const uint32_t handle) {
+    const auto it = strings.find(handle);
+    if (it == strings.end()) return "";
+    return it->second;
 }
 
 // ===== Series Operations =====
@@ -685,10 +704,12 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
         })
     );
 
-    // string_len
-    imports.push_back(wasmtime::Func::wrap(store, [runtime](uint32_t h) -> uint32_t {
-        return runtime->string_len(h);
-    }));
+    // string_concat
+    imports.push_back(
+        wasmtime::Func::wrap(store, [runtime](uint32_t h1, uint32_t h2) -> uint32_t {
+            return runtime->string_concat(h1, h2);
+        })
+    );
 
     // string_equal
     imports.push_back(
@@ -696,6 +717,11 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
             return runtime->string_equal(h1, h2);
         })
     );
+
+    // string_len
+    imports.push_back(wasmtime::Func::wrap(store, [runtime](uint32_t h) -> uint32_t {
+        return runtime->string_len(h);
+    }));
 
     // now
     imports.push_back(wasmtime::Func::wrap(store, [runtime]() -> uint64_t {
