@@ -42,11 +42,9 @@ const getAllCollectors = (c: CollectorsState): (Collector | null)[] => [
   c.console,
 ];
 
-const getResettableCollectors = (c: CollectorsState): (ResettableCollector | null)[] => [
-  c.longTask,
-  c.network,
-  c.console,
-];
+const getResettableCollectors = (
+  c: CollectorsState,
+): (ResettableCollector | null)[] => [c.longTask, c.network, c.console];
 
 export interface CollectorsState {
   cpu: CpuCollector | null;
@@ -64,7 +62,7 @@ interface TableDataState {
   consoleLogs: MetricTableData<ConsoleLogEntry>;
 }
 
-const emptyTableData = <T,>(): MetricTableData<T> => ({
+const emptyTableData = <T>(): MetricTableData<T> => ({
   data: [],
   total: 0,
   truncated: false,
@@ -235,9 +233,7 @@ export const useCollectors = ({
           },
         });
         onSampleRef.current?.(sample, sampleBufferRef.current);
-      } else 
-        setData((prev) => ({ ...prev, latestSample: sample, liveMetrics }));
-      
+      } else setData((prev) => ({ ...prev, latestSample: sample, liveMetrics }));
     }, SAMPLE_INTERVAL_MS);
 
     return () => {

@@ -23,8 +23,8 @@ const detectIssues = (input: CompileInput): DetectedIssue[] => {
   const { aggregates, analysisResults } = input;
 
   // FPS issues (inverted: lower is worse)
-  if (aggregates.avgFps != null) 
-    if (aggregates.avgFps < THRESHOLDS.fps.error) 
+  if (aggregates.avgFps != null)
+    if (aggregates.avgFps < THRESHOLDS.fps.error)
       issues.push({
         category: "fps",
         severity: "critical",
@@ -32,7 +32,7 @@ const detectIssues = (input: CompileInput): DetectedIssue[] => {
         value: aggregates.avgFps,
         threshold: THRESHOLDS.fps.error,
       });
-     else if (aggregates.avgFps < THRESHOLDS.fps.warn) 
+    else if (aggregates.avgFps < THRESHOLDS.fps.warn)
       issues.push({
         category: "fps",
         severity: "warning",
@@ -40,16 +40,14 @@ const detectIssues = (input: CompileInput): DetectedIssue[] => {
         value: aggregates.avgFps,
         threshold: THRESHOLDS.fps.warn,
       });
-    
-  
 
   const hasFpsIssue =
     analysisResults.fps.peakSeverity !== "none" ||
     analysisResults.fps.avgSeverity !== "none";
 
   const fpsChangePercent = analysisResults.fps.changePercent;
-  if (hasFpsIssue && fpsChangePercent != null) 
-    if (fpsChangePercent > THRESHOLDS.fpsChange.error) 
+  if (hasFpsIssue && fpsChangePercent != null)
+    if (fpsChangePercent > THRESHOLDS.fpsChange.error)
       issues.push({
         category: "fps",
         severity: "critical",
@@ -57,7 +55,7 @@ const detectIssues = (input: CompileInput): DetectedIssue[] => {
         value: fpsChangePercent,
         threshold: THRESHOLDS.fpsChange.error,
       });
-     else if (fpsChangePercent > THRESHOLDS.fpsChange.warn) 
+    else if (fpsChangePercent > THRESHOLDS.fpsChange.warn)
       issues.push({
         category: "fps",
         severity: "warning",
@@ -65,12 +63,9 @@ const detectIssues = (input: CompileInput): DetectedIssue[] => {
         value: fpsChangePercent,
         threshold: THRESHOLDS.fpsChange.warn,
       });
-    
-  
-  
 
-  if (aggregates.avgCpu != null) 
-    if (aggregates.avgCpu > THRESHOLDS.cpu.error) 
+  if (aggregates.avgCpu != null)
+    if (aggregates.avgCpu > THRESHOLDS.cpu.error)
       issues.push({
         category: "cpu",
         severity: "critical",
@@ -78,7 +73,7 @@ const detectIssues = (input: CompileInput): DetectedIssue[] => {
         value: aggregates.avgCpu,
         threshold: THRESHOLDS.cpu.error,
       });
-     else if (aggregates.avgCpu > THRESHOLDS.cpu.warn) 
+    else if (aggregates.avgCpu > THRESHOLDS.cpu.warn)
       issues.push({
         category: "cpu",
         severity: "warning",
@@ -86,11 +81,9 @@ const detectIssues = (input: CompileInput): DetectedIssue[] => {
         value: aggregates.avgCpu,
         threshold: THRESHOLDS.cpu.warn,
       });
-    
-  
 
-  if (aggregates.avgGpu != null) 
-    if (aggregates.avgGpu > THRESHOLDS.gpu.error) 
+  if (aggregates.avgGpu != null)
+    if (aggregates.avgGpu > THRESHOLDS.gpu.error)
       issues.push({
         category: "gpu",
         severity: "critical",
@@ -98,7 +91,7 @@ const detectIssues = (input: CompileInput): DetectedIssue[] => {
         value: aggregates.avgGpu,
         threshold: THRESHOLDS.gpu.error,
       });
-     else if (aggregates.avgGpu > THRESHOLDS.gpu.warn) 
+    else if (aggregates.avgGpu > THRESHOLDS.gpu.warn)
       issues.push({
         category: "gpu",
         severity: "warning",
@@ -106,12 +99,10 @@ const detectIssues = (input: CompileInput): DetectedIssue[] => {
         value: aggregates.avgGpu,
         threshold: THRESHOLDS.gpu.warn,
       });
-    
-  
 
   const heapGrowth = analysisResults.leak.heapGrowthPercent;
-  if (analysisResults.leak.severity !== "none" && heapGrowth != null) 
-    if (heapGrowth > THRESHOLDS.heapGrowth.error) 
+  if (analysisResults.leak.severity !== "none" && heapGrowth != null)
+    if (heapGrowth > THRESHOLDS.heapGrowth.error)
       issues.push({
         category: "memory",
         severity: "critical",
@@ -119,7 +110,7 @@ const detectIssues = (input: CompileInput): DetectedIssue[] => {
         value: heapGrowth,
         threshold: THRESHOLDS.heapGrowth.error,
       });
-     else if (heapGrowth > THRESHOLDS.heapGrowth.warn) 
+    else if (heapGrowth > THRESHOLDS.heapGrowth.warn)
       issues.push({
         category: "memory",
         severity: "warning",
@@ -127,8 +118,6 @@ const detectIssues = (input: CompileInput): DetectedIssue[] => {
         value: heapGrowth,
         threshold: THRESHOLDS.heapGrowth.warn,
       });
-    
-  
 
   return issues;
 };
@@ -174,8 +163,10 @@ const buildMetricsReport = (input: CompileInput): MetricsReport => {
       changePercent: gpuChange != null ? math.roundTo(gpuChange, 1) : null,
     },
     memory: {
-      minHeapMB: aggregates.minHeap != null ? math.roundTo(aggregates.minHeap, 1) : null,
-      maxHeapMB: aggregates.maxHeap != null ? math.roundTo(aggregates.maxHeap, 1) : null,
+      minHeapMB:
+        aggregates.minHeap != null ? math.roundTo(aggregates.minHeap, 1) : null,
+      maxHeapMB:
+        aggregates.maxHeap != null ? math.roundTo(aggregates.maxHeap, 1) : null,
       growthPercent:
         analysisResults.leak.heapGrowthPercent != null
           ? math.roundTo(analysisResults.leak.heapGrowthPercent, 1)

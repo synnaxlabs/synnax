@@ -42,11 +42,7 @@ describe("MetricTable", () => {
   it("should render all rows when data length is under limit", () => {
     const data = createTestData(5);
     const { container } = render(
-      <MetricTable
-        result={data}
-        columns={TEST_COLUMNS}
-        getKey={(item) => item.id}
-      />,
+      <MetricTable result={data} columns={TEST_COLUMNS} getKey={(item) => item.id} />,
     );
 
     const rows = container.querySelectorAll("tbody tr");
@@ -56,11 +52,7 @@ describe("MetricTable", () => {
   it("should truncate rows when data exceeds display limit", () => {
     const data = createTestData(30);
     const { container } = render(
-      <MetricTable
-        result={data}
-        columns={TEST_COLUMNS}
-        getKey={(item) => item.id}
-      />,
+      <MetricTable result={data} columns={TEST_COLUMNS} getKey={(item) => item.id} />,
     );
 
     const rows = container.querySelectorAll("tbody tr");
@@ -70,11 +62,7 @@ describe("MetricTable", () => {
   it("should show truncation message when data is truncated", () => {
     const data = createTestData(30);
     render(
-      <MetricTable
-        result={data}
-        columns={TEST_COLUMNS}
-        getKey={(item) => item.id}
-      />,
+      <MetricTable result={data} columns={TEST_COLUMNS} getKey={(item) => item.id} />,
     );
 
     const message = screen.getByText(`Showing ${DISPLAY_LIMIT} of 30`);
@@ -84,11 +72,7 @@ describe("MetricTable", () => {
   it("should not show truncation message when data is under limit", () => {
     const data = createTestData(5);
     render(
-      <MetricTable
-        result={data}
-        columns={TEST_COLUMNS}
-        getKey={(item) => item.id}
-      />,
+      <MetricTable result={data} columns={TEST_COLUMNS} getKey={(item) => item.id} />,
     );
 
     expect(screen.queryByText(/Showing/)).toBeNull();
@@ -97,11 +81,7 @@ describe("MetricTable", () => {
   it("should render column values correctly", () => {
     const data = createTestData(2);
     render(
-      <MetricTable
-        result={data}
-        columns={TEST_COLUMNS}
-        getKey={(item) => item.id}
-      />,
+      <MetricTable result={data} columns={TEST_COLUMNS} getKey={(item) => item.id} />,
     );
 
     expect(screen.getByText("Item 0")).toBeDefined();
@@ -128,11 +108,7 @@ describe("MetricTable", () => {
   it("should render correct number of columns", () => {
     const data = createTestData(1);
     const { container } = render(
-      <MetricTable
-        result={data}
-        columns={TEST_COLUMNS}
-        getKey={(item) => item.id}
-      />,
+      <MetricTable result={data} columns={TEST_COLUMNS} getKey={(item) => item.id} />,
     );
 
     const cells = container.querySelectorAll("tbody tr:first-child td");
@@ -146,15 +122,10 @@ describe("MetricTable", () => {
       truncated: false,
     };
     const { container } = render(
-      <MetricTable
-        result={data}
-        columns={TEST_COLUMNS}
-        getKey={(item) => item.id}
-      />,
+      <MetricTable result={data} columns={TEST_COLUMNS} getKey={(item) => item.id} />,
     );
 
     const rows = container.querySelectorAll("tbody tr");
     expect(rows).toHaveLength(0);
   });
-
 });

@@ -11,7 +11,14 @@ import "@/perf/components/MacroPanel.css";
 import "@/perf/components/MetricRow.css";
 
 import { Button, Icon, Progress, Text } from "@synnaxlabs/pluto";
-import { memo, type ReactElement, useCallback, useEffect, useRef, useState } from "react";
+import {
+  memo,
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { MacroConfigInputs } from "@/perf/components/MacroConfigInputs";
 import { MacroSelect } from "@/perf/components/MacroSelect";

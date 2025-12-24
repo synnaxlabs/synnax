@@ -23,11 +23,8 @@ export const useTimer = (running: boolean): number => {
   const startTickRef = useRef<number | null>(null);
 
   // Handle transitions synchronously during render
-  if (running && startTickRef.current === null) 
-    startTickRef.current = tick;
-   else if (!running && startTickRef.current !== null) 
-    startTickRef.current = null;
-  
+  if (running && startTickRef.current === null) startTickRef.current = tick;
+  else if (!running && startTickRef.current !== null) startTickRef.current = null;
 
   if (!running || startTickRef.current === null) return 0;
   return tick - startTickRef.current;

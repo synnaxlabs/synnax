@@ -75,7 +75,7 @@ export const HEAP_SLOPE_THRESHOLD = 0.1;
 export const THRESHOLDS = {
   fpsAvg: { warn: 25, error: 10, inverted: true },
   cpuAvg: { warn: 75, error: 95 },
-  gpuAvg: { warn: 75, error: 95 },  
+  gpuAvg: { warn: 75, error: 95 },
   fpsChange: { warn: 50, error: 80, inverted: true },
   cpuChange: { warn: 80, error: 98 },
   gpuChange: { warn: 80, error: 98 },

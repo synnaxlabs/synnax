@@ -70,10 +70,7 @@ export class NetworkCollector {
 
       for (const entry of entries) {
         const endpoint = normalizeToEndpoint(entry.name);
-        this.endpointCounts.set(
-          endpoint,
-          (this.endpointCounts.get(endpoint) ?? 0) + 1,
-        );
+        this.endpointCounts.set(endpoint, (this.endpointCounts.get(endpoint) ?? 0) + 1);
         this.endpointDurations.set(
           endpoint,
           (this.endpointDurations.get(endpoint) ?? 0) + entry.duration,
@@ -115,9 +112,8 @@ export class NetworkCollector {
    */
   getTopEndpoints(): { data: EndpointStats[]; total: number; truncated: boolean } {
     // Clean up low-count endpoints if we have too many stored
-    if (this.endpointCounts.size > MAX_STORED_ENDPOINTS) 
+    if (this.endpointCounts.size > MAX_STORED_ENDPOINTS)
       this.cleanupEndpoints(MAX_STORED_ENDPOINTS);
-    
 
     const stats: EndpointStats[] = [];
 
@@ -152,22 +148,20 @@ export class NetworkCollector {
    */
   private cleanupEndpoints(maxToKeep: number): void {
     // Build array of endpoints sorted by count (descending)
-    const sorted = Array.from(this.endpointCounts.entries())
-      .sort((a, b) => b[1] - a[1]);
-
-    // Keep only the top N endpoints
-    const toKeep = new Set(
-      sorted.slice(0, maxToKeep).map(([endpoint]) => endpoint)
+    const sorted = Array.from(this.endpointCounts.entries()).sort(
+      (a, b) => b[1] - a[1],
     );
 
+    // Keep only the top N endpoints
+    const toKeep = new Set(sorted.slice(0, maxToKeep).map(([endpoint]) => endpoint));
+
     // Remove endpoints not in the top set
-    for (const endpoint of this.endpointCounts.keys()) 
+    for (const endpoint of this.endpointCounts.keys())
       if (!toKeep.has(endpoint)) {
         this.endpointCounts.delete(endpoint);
         this.endpointDurations.delete(endpoint);
         this.endpointLastSeen.delete(endpoint);
       }
-    
   }
 
   getEndpointCount(): number {

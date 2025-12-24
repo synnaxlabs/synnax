@@ -65,12 +65,10 @@ export const MacroSelect = ({
                 onChange={() => handleToggle(def.type)}
                 disabled={disabled}
               />
-              <Text.Text >{def.name}</Text.Text>
+              <Text.Text>{def.name}</Text.Text>
             </Flex.Box>
           ))}
-          {definitions.length === 0 && (
-            <Text.Text> No macros available</Text.Text>
-          )}
+          {definitions.length === 0 && <Text.Text> No macros available</Text.Text>}
         </Flex.Box>
       </Dialog.Dialog>
     </Dialog.Frame>

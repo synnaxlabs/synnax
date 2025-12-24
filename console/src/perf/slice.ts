@@ -171,7 +171,10 @@ export const { actions, reducer } = createSlice({
       state.rangeKey = payload;
     },
 
-    setRangeStartTime: (state, { payload }: PayloadAction<SetRangeStartTimePayload>) => {
+    setRangeStartTime: (
+      state,
+      { payload }: PayloadAction<SetRangeStartTimePayload>,
+    ) => {
       state.rangeStartTime = payload;
     },
 

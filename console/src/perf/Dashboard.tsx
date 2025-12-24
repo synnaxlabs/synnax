@@ -10,7 +10,14 @@
 import "@/perf/Dashboard.css";
 
 import { Button, Flex, Header, Icon, Text, Tooltip } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useDispatch } from "react-redux";
 
 import { type Layout } from "@/layout";
@@ -112,12 +119,13 @@ const DashboardContent = (): ReactElement => {
     currentStatusRef.current = status;
   }, [status]);
 
-  useEffect(() => () => {
+  useEffect(
+    () => () => {
       const currentStatus = currentStatusRef.current;
-      if (currentStatus !== "idle") 
-        dispatch(Perf.reset());
-      
-    }, [dispatch]);
+      if (currentStatus !== "idle") dispatch(Perf.reset());
+    },
+    [dispatch],
+  );
 
   const handleStart = useCallback(() => dispatch(Perf.start(undefined)), [dispatch]);
   const handlePause = useCallback(() => dispatch(Perf.pause()), [dispatch]);
@@ -166,11 +174,7 @@ const DashboardContent = (): ReactElement => {
     <Flex.Box y className="console-perf-dashboard" grow>
       <Header.Header level="h4">
         <Header.Actions grow>
-          <Button.Button
-            variant="text"
-            size="tiny"
-            onClick={toggleGroupByType}
-          >
+          <Button.Button variant="text" size="tiny" onClick={toggleGroupByType}>
             <Icon.Filter />
             {groupByType ? "By Resource" : "By Category"}
           </Button.Button>

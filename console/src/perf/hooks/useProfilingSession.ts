@@ -77,7 +77,12 @@ export const useProfilingSession = ({
   // Store range data in refs so it survives the idle transition
   const rangeDataRef = useRef<{ key: string; startTime: number } | null>(null);
 
-  const { captured, captureInitial, captureFinal, reset: resetCaptured } = useCapturedValues();
+  const {
+    captured,
+    captureInitial,
+    captureFinal,
+    reset: resetCaptured,
+  } = useCapturedValues();
   const { analyze } = useProfilingAnalyzers();
   const {
     rangeKey,
@@ -166,20 +171,27 @@ export const useProfilingSession = ({
         }
 
         // Peak not triggered - check avg (transient, can be removed)
-        if (report.avgSeverity !== "none") 
+        if (report.avgSeverity !== "none")
           addMetricLabel({ metric, severity: report.avgSeverity, latched: false });
-         else 
-          removeTransientLabel({ metric });
-        
+        else removeTransientLabel({ metric });
       }
 
       // Heap uses single severity (no peak/avg distinction)
-      if (!isMetricLatched("heap") && results.leak.severity !== "none") 
-        addMetricLabel({ metric: "heap", severity: results.leak.severity, latched: true });
-      
-
+      if (!isMetricLatched("heap") && results.leak.severity !== "none")
+        addMetricLabel({
+          metric: "heap",
+          severity: results.leak.severity,
+          latched: true,
+        });
     },
-    [dispatch, captured, analyze, addMetricLabel, removeTransientLabel, isMetricLatched],
+    [
+      dispatch,
+      captured,
+      analyze,
+      addMetricLabel,
+      removeTransientLabel,
+      isMetricLatched,
+    ],
   );
 
   useEffect(() => {
@@ -225,7 +237,6 @@ export const useProfilingSession = ({
     // Capture range data into ref when it becomes available
     if (status === "running" && rangeKey != null && rangeStartTime != null)
       rangeDataRef.current = { key: rangeKey, startTime: rangeStartTime };
-    
 
     if (status === "paused" && prevStatus === "running") {
       const samples = sampleBuffer.current?.getAllSamples() ?? [];
@@ -240,7 +251,6 @@ export const useProfilingSession = ({
       updateEndTime(TimeStamp.MAX);
       clearStopValues();
     }
-    
 
     if (status === "idle" && prevStatus !== "idle") {
       const rangeData = rangeDataRef.current;

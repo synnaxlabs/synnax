@@ -85,7 +85,8 @@ export class LongTaskCollector {
   }
 
   private trackEvent(type: string, event: Event): void {
-    const target = event.target instanceof Element ? event.target.tagName.toLowerCase() : undefined;
+    const target =
+      event.target instanceof Element ? event.target.tagName.toLowerCase() : undefined;
 
     this.recentEvents.push({
       type,
@@ -93,9 +94,7 @@ export class LongTaskCollector {
       target,
     });
 
-    if (this.recentEvents.length > MAX_TRACKED_EVENTS) 
-      this.recentEvents.shift();
-    
+    if (this.recentEvents.length > MAX_TRACKED_EVENTS) this.recentEvents.shift();
   }
 
   private findEventForTask(taskTimestamp: number): string {
@@ -103,9 +102,8 @@ export class LongTaskCollector {
 
     for (let i = this.recentEvents.length - 1; i >= 0; i--) {
       const event = this.recentEvents[i];
-      if (event.timestamp <= taskTimestamp && event.timestamp >= correlationStart) 
+      if (event.timestamp <= taskTimestamp && event.timestamp >= correlationStart)
         return event.target ? `${event.type} (${event.target})` : event.type;
-      
     }
 
     return "Unknown";
@@ -124,9 +122,9 @@ export class LongTaskCollector {
   private cleanupEventTracking(): void {
     if (typeof window === "undefined") return;
 
-    for (const { type, handler } of this.eventListeners) 
+    for (const { type, handler } of this.eventListeners)
       window.removeEventListener(type, handler, { capture: true });
-    
+
     this.eventListeners = [];
     this.recentEvents = [];
   }

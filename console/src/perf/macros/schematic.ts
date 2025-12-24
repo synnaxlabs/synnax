@@ -63,7 +63,9 @@ export const schematicMacro: MacroStep[] = [
             key: schematicKey,
             elKey: id.create(),
             props: { key: symbol },
-            node: { position: { x: 100 + (i % 3) * 150, y: 100 + Math.floor(i / 3) * 150 } },
+            node: {
+              position: { x: 100 + (i % 3) * 150, y: 100 + Math.floor(i / 3) * 150 },
+            },
           }),
         );
       });

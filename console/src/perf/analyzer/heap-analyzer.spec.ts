@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { beforeEach,describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { HeapAnalyzer } from "@/perf/analyzer/heap-analyzer";
 import { ZERO_LEAK_REPORT } from "@/perf/analyzer/types";
@@ -132,9 +132,7 @@ describe("HeapAnalyzer", () => {
     });
 
     it("should use correct window size for large datasets", () => {
-      const snapshots = Array.from({ length: 100 }, (_, i) =>
-        createSnapshot(100 + i),
-      );
+      const snapshots = Array.from({ length: 100 }, (_, i) => createSnapshot(100 + i));
       const report = analyzer.analyze(snapshots);
 
       expect(report.snapshotCount).toBe(100);

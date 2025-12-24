@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { beforeEach,describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
-import { SampleBuffer, ZERO_AGGREGATES,ZERO_SAMPLE } from "@/perf/metrics/buffer";
+import { SampleBuffer, ZERO_AGGREGATES, ZERO_SAMPLE } from "@/perf/metrics/buffer";
 import { type MetricSample } from "@/perf/metrics/types";
 
 const createSample = (overrides: Partial<MetricSample> = {}): MetricSample => ({

@@ -74,7 +74,11 @@ const SectionImpl = ({
         </Text.Text>
       )}
       {actions != null && (
-        <Flex.Box x onClick={handleActionsClick} className="console-perf-section-actions">
+        <Flex.Box
+          x
+          onClick={handleActionsClick}
+          className="console-perf-section-actions"
+        >
           {actions}
         </Flex.Box>
       )}

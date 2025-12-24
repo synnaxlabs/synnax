@@ -54,7 +54,6 @@ import {
   type ResourceReport,
 } from "@/perf/utils/metrics-factory";
 
-
 const groupMetrics = <K extends string>(
   metrics: MetricDef[],
   getKey: (m: MetricDef) => K,
@@ -118,7 +117,10 @@ interface ConsoleLogEventSection extends BaseEventSection {
   getTooltip: (item: ConsoleLogEntry) => string;
 }
 
-type EventSectionData = NetworkEventSection | LongTaskEventSection | ConsoleLogEventSection;
+type EventSectionData =
+  | NetworkEventSection
+  | LongTaskEventSection
+  | ConsoleLogEventSection;
 
 type SectionData = MetricSectionData | EventSectionData;
 
@@ -230,15 +232,7 @@ const MetricSectionsImpl = ({
         severities.gpu,
       ),
     ],
-    [
-      liveMetrics,
-      fpsReport,
-      aggregates,
-      leakReport,
-      cpuReport,
-      gpuReport,
-      severities,
-    ],
+    [liveMetrics, fpsReport, aggregates, leakReport, cpuReport, gpuReport, severities],
   );
 
   const isProfilingActive = status === "running" || status === "paused";
@@ -354,19 +348,19 @@ const MetricSectionsImpl = ({
           secondaryStatus={section.secondaryStatus}
           secondaryTooltip={section.secondaryTooltip}
         >
-          {section.type === "metrics" ? (
-            section.metrics.map((metric) => (
-              <MetricRow
-                key={metric.key}
-                label={getLabel(metric)}
-                value={metric.getValue()}
-                status={metric.getStatus?.()}
-                tooltip={metric.tooltip}
-              />
-            ))
-          ) : section.showTable ? (
-            renderEventTable(section)
-          ) : null}
+          {section.type === "metrics"
+            ? section.metrics.map((metric) => (
+                <MetricRow
+                  key={metric.key}
+                  label={getLabel(metric)}
+                  value={metric.getValue()}
+                  status={metric.getStatus?.()}
+                  tooltip={metric.tooltip}
+                />
+              ))
+            : section.showTable
+              ? renderEventTable(section)
+              : null}
         </Section>
       ))}
     </>

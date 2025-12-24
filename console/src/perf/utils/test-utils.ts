@@ -35,26 +35,20 @@ export const dispatchSyntheticEvent = (
  * @param durationMs - How long to block the thread (in milliseconds)
  * @param eventType - Optional event type to dispatch before blocking
  */
-export const simulateLongTask = (
-  durationMs: number,
-  eventType?: string,
-): void => {
+export const simulateLongTask = (durationMs: number, eventType?: string): void => {
   if (eventType) {
     dispatchSyntheticEvent(eventType);
     console.log(
       `[PerfTest] Simulating long task for ${durationMs}ms after "${eventType}" event...`,
     );
-  } else 
-    console.log(`[PerfTest] Simulating long task for ${durationMs}ms...`);
-  
+  } else console.log(`[PerfTest] Simulating long task for ${durationMs}ms...`);
 
   const start = performance.now();
 
   // Busy loop to block the main thread
-  while (performance.now() - start < durationMs) 
+  while (performance.now() - start < durationMs)
     // Intentionally blocking work
     Math.sqrt(Math.random());
-  
 
   const actual = performance.now() - start;
   console.log(`[PerfTest] Long task completed in ${actual.toFixed(1)}ms`);
@@ -83,9 +77,7 @@ export const simulateMultipleLongTasks = async (
     simulateLongTask(duration);
 
     // Wait before next task
-    if (i < count - 1) 
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-    
+    if (i < count - 1) await new Promise((resolve) => setTimeout(resolve, delayMs));
   }
 
   console.log(`[PerfTest] Completed ${count} long tasks`);
@@ -95,7 +87,6 @@ export const simulateMultipleLongTasks = async (
  * Simulates a specific long task scenario.
  */
 export const simulateLongTaskScenario = {
-
   lightStutter: () => simulateLongTask(100),
 
   mediumLag: () => simulateLongTask(250),
@@ -117,7 +108,6 @@ export const simulateLongTaskScenario = {
  * Tests event attribution system.
  */
 export const simulateEventBasedLongTask = {
-
   slowClick: () => simulateLongTask(150, "click"),
 
   slowKeydown: () => simulateLongTask(100, "keydown"),
@@ -148,13 +138,13 @@ export const simulateEventBasedLongTask = {
     ];
 
     console.log("[PerfTest] Testing all event types (4 rounds, 32 total)...");
-    for (let round = 0; round < 4; round++) 
+    for (let round = 0; round < 4; round++)
       for (const { type, duration } of events) {
         simulateLongTask(duration, type);
         // Small delay to ensure tasks are registered separately
         await new Promise((resolve) => setTimeout(resolve, 10));
       }
-    
+
     console.log("[PerfTest] Completed 32 long tasks");
   },
 };
@@ -179,9 +169,7 @@ export const simulateNetworkRequest = async (
   } = options;
 
   try {
-    if (latencyMs > 0) 
-      await new Promise((resolve) => setTimeout(resolve, latencyMs));
-    
+    if (latencyMs > 0) await new Promise((resolve) => setTimeout(resolve, latencyMs));
 
     if (shouldFail) {
       await fetch("https://invalid-domain-that-does-not-exist.local");
@@ -238,7 +226,7 @@ const HTTPBIN_ENDPOINTS = [
 
 export const simulateUniqueEndpoints = {
   allEndpoints: async (iterations = 1, delayMs = 0) => {
-    for (let iter = 0; iter < iterations; iter++) 
+    for (let iter = 0; iter < iterations; iter++)
       for (const endpoint of HTTPBIN_ENDPOINTS) {
         const method = endpoint.startsWith("/post")
           ? "POST"
@@ -255,11 +243,8 @@ export const simulateUniqueEndpoints = {
           method,
         });
 
-        if (delayMs > 0) 
-          await new Promise((resolve) => setTimeout(resolve, delayMs));
-        
+        if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
-    
   },
 
   randomEndpoints: async (count: number, delayMs = 0) => {
@@ -281,9 +266,7 @@ export const simulateUniqueEndpoints = {
         method,
       });
 
-      if (delayMs > 0) 
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
-      
+      if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   },
 
@@ -292,9 +275,7 @@ export const simulateUniqueEndpoints = {
       void simulateNetworkRequest({
         url: `https://httpbin.org/anything/inject/request_${i}`,
       });
-      if (delayMs > 0) 
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
-      
+      if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   },
 };

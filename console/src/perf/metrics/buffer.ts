@@ -58,7 +58,12 @@ interface RunningAggregate {
   count: number;
 }
 
-const ZERO_AGGREGATE: RunningAggregate = { avg: 0, min: Infinity, max: -Infinity, count: 0 };
+const ZERO_AGGREGATE: RunningAggregate = {
+  avg: 0,
+  min: Infinity,
+  max: -Infinity,
+  count: 0,
+};
 
 type AggregateKey = "fps" | "cpu" | "gpu" | "heap";
 
@@ -70,12 +75,9 @@ const updateAggregate = (
 ): void => {
   agg.count++;
   agg.avg += (value - agg.avg) / agg.count;
-  if (!skipMin) 
-    agg.min = Math.min(agg.min, value);
-  
-  if (!skipMax) 
-    agg.max = Math.max(agg.max, value);
-  
+  if (!skipMin) agg.min = Math.min(agg.min, value);
+
+  if (!skipMax) agg.max = Math.max(agg.max, value);
 };
 
 /** Pre-allocated buffer: baseline (first N) + recent (circular, last N). */
@@ -95,10 +97,7 @@ export class SampleBuffer {
     heap: { ...ZERO_AGGREGATE },
   };
 
-  constructor(
-    baselineSize = BASELINE_BUFFER_SIZE,
-    recentSize = RECENT_BUFFER_SIZE,
-  ) {
+  constructor(baselineSize = BASELINE_BUFFER_SIZE, recentSize = RECENT_BUFFER_SIZE) {
     this.baselineSize = baselineSize;
     this.recentSize = recentSize;
     this.baseline = Array.from({ length: baselineSize }, () => ({ ...ZERO_SAMPLE }));
@@ -109,10 +108,14 @@ export class SampleBuffer {
     this.totalPushCount++;
     const inWarmup = this.totalPushCount <= WARMUP_SAMPLES;
 
-    if (sample.frameRate != null) updateAggregate(this.agg.fps, sample.frameRate, false, inWarmup);
-    if (sample.cpuPercent != null) updateAggregate(this.agg.cpu, sample.cpuPercent, inWarmup);
-    if (sample.gpuPercent != null) updateAggregate(this.agg.gpu, sample.gpuPercent, inWarmup);
-    if (sample.heapUsedMB != null) updateAggregate(this.agg.heap, sample.heapUsedMB, inWarmup);
+    if (sample.frameRate != null)
+      updateAggregate(this.agg.fps, sample.frameRate, false, inWarmup);
+    if (sample.cpuPercent != null)
+      updateAggregate(this.agg.cpu, sample.cpuPercent, inWarmup);
+    if (sample.gpuPercent != null)
+      updateAggregate(this.agg.gpu, sample.gpuPercent, inWarmup);
+    if (sample.heapUsedMB != null)
+      updateAggregate(this.agg.heap, sample.heapUsedMB, inWarmup);
 
     // Fill baseline first, then switch to recent (no overlap)
     if (this.baselineCount < this.baselineSize) {
@@ -154,8 +157,7 @@ export class SampleBuffer {
       agg.count > 0 && agg.max !== -Infinity ? agg.max : null;
     const getMin = (agg: RunningAggregate) =>
       agg.count > 0 && agg.min !== Infinity ? agg.min : null;
-    const getAvg = (agg: RunningAggregate) =>
-      agg.count > 0 ? agg.avg : null;
+    const getAvg = (agg: RunningAggregate) => (agg.count > 0 ? agg.avg : null);
 
     return {
       avgFps: getAvg(this.agg.fps),

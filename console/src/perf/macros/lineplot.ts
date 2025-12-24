@@ -36,7 +36,12 @@ export const linePlotMacro: MacroStep[] = [
       const plotKey = ctx.createdLayoutKeys[ctx.createdLayoutKeys.length - 1];
       if (plotKey == null) return;
       ctx.dispatch(
-        moveMosaicTab({ windowKey: MAIN_WINDOW, key: 1, tabKey: plotKey, loc: "right" }),
+        moveMosaicTab({
+          windowKey: MAIN_WINDOW,
+          key: 1,
+          tabKey: plotKey,
+          loc: "right",
+        }),
       );
     },
   },
@@ -52,7 +57,11 @@ export const linePlotMacro: MacroStep[] = [
       const indexChannel = channels.find((ch) => ch.isIndex);
       if (indexChannel != null)
         ctx.dispatch(
-          LinePlot.setXChannel({ key: plotKey, axisKey: "x1", channel: indexChannel.key }),
+          LinePlot.setXChannel({
+            key: plotKey,
+            axisKey: "x1",
+            channel: indexChannel.key,
+          }),
         );
 
       ctx.dispatch(

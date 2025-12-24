@@ -10,7 +10,7 @@
 import "@/perf/components/MetricRow.css";
 
 import { Flex, Text } from "@synnaxlabs/pluto";
-import { memo,type ReactElement, type ReactNode } from "react";
+import { memo, type ReactElement, type ReactNode } from "react";
 
 import { WithTooltip } from "@/perf/components/WithTooltip";
 import { type DisplayStatus } from "@/perf/ui-types";
@@ -22,7 +22,12 @@ interface MetricRowProps {
   tooltip?: string;
 }
 
-const MetricRowImpl = ({ label, value, status, tooltip }: MetricRowProps): ReactElement => (
+const MetricRowImpl = ({
+  label,
+  value,
+  status,
+  tooltip,
+}: MetricRowProps): ReactElement => (
   <WithTooltip tooltip={tooltip}>
     <Flex.Box
       x
@@ -34,11 +39,7 @@ const MetricRowImpl = ({ label, value, status, tooltip }: MetricRowProps): React
       <Text.Text level="small" className="console-perf-row-label">
         {label}
       </Text.Text>
-      <Text.Text
-        level="small"
-        className="console-perf-row-value"
-        data-status={status}
-      >
+      <Text.Text level="small" className="console-perf-row-value" data-status={status}>
         {value}
       </Text.Text>
     </Flex.Box>

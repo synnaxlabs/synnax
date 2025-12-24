@@ -14,7 +14,6 @@ import { useCallback, useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
 
 import { useSelect as useSelectCluster } from "@/cluster/selectors";
-import { useSelectVersion } from "@/version/selectors";
 import { type Severity } from "@/perf/analyzer/types";
 import {
   getMetricLabelName,
@@ -27,6 +26,7 @@ import {
 import { useSelectRangeKey, useSelectRangeStartTime } from "@/perf/selectors";
 import * as Perf from "@/perf/slice";
 import { type HarnessStatus } from "@/perf/slice";
+import { useSelectVersion } from "@/version/selectors";
 
 /**
  * Retrieves an existing label by name, or creates it if it doesn't exist.
@@ -50,7 +50,9 @@ const getOrCreateLabel = async (
 
 const ensureProfilingLabelsExist = async (client: SynnaxClient): Promise<void> => {
   const configs = getProfilingLabelConfigs();
-  await Promise.all(configs.map(({ name, color }) => getOrCreateLabel(client, name, color)));
+  await Promise.all(
+    configs.map(({ name, color }) => getOrCreateLabel(client, name, color)),
+  );
 };
 
 interface RangeWithLabels {
@@ -365,7 +367,10 @@ export const useProfilingRange = ({
     };
 
     void writeMetrics();
-    const intervalId = setInterval(() => void writeMetrics(), METADATA_WRITE_INTERVAL_MS);
+    const intervalId = setInterval(
+      () => void writeMetrics(),
+      METADATA_WRITE_INTERVAL_MS,
+    );
 
     return () => clearInterval(intervalId);
   }, [status, client, rangeKey]);
@@ -407,9 +412,8 @@ export const useProfilingRange = ({
 
         for (const metric of METRIC_ORDER) {
           let severity: Severity;
-          if (metric === "heap") 
-            severity = severities.heap;
-           else {
+          if (metric === "heap") severity = severities.heap;
+          else {
             const ms = severities[metric];
             if (ms.peak === "error" || ms.avg === "error") severity = "error";
             else if (ms.peak === "warning" || ms.avg === "warning")

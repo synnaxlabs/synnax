@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CpuReport, type FpsReport, type GpuReport, type LeakReport } from "@/perf/analyzer/types";
+import {
+  type CpuReport,
+  type FpsReport,
+  type GpuReport,
+  type LeakReport,
+} from "@/perf/analyzer/types";
 import { type CapturedValues } from "@/perf/hooks/useCapturedValues";
 import { type Aggregates } from "@/perf/metrics/buffer";
 import { type MetricSample } from "@/perf/metrics/types";

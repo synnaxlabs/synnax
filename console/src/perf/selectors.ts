@@ -55,7 +55,8 @@ export const useSelectStatus = (): HarnessStatus => useMemoSelect(selectStatus, 
 export const useSelectIsRunning = (): boolean => useMemoSelect(selectIsRunning, []);
 export const useSelectMacroResults = (): MacroResult[] =>
   useMemoSelect(selectMacroResults, []);
-export const useSelectLeakReport = (): LeakReport => useMemoSelect(selectLeakReport, []);
+export const useSelectLeakReport = (): LeakReport =>
+  useMemoSelect(selectLeakReport, []);
 export const useSelectFpsReport = (): FpsReport => useMemoSelect(selectFpsReport, []);
 export const useSelectCpuReport = (): CpuReport => useMemoSelect(selectCpuReport, []);
 export const useSelectGpuReport = (): GpuReport => useMemoSelect(selectGpuReport, []);

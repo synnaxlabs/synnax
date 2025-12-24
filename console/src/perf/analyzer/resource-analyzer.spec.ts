@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { beforeEach,describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { CpuAnalyzer } from "@/perf/analyzer/cpu-analyzer";
 import { GpuAnalyzer } from "@/perf/analyzer/gpu-analyzer";
@@ -17,7 +17,6 @@ import {
 } from "@/perf/analyzer/resource-analyzer";
 
 describe("ResourceAnalyzer", () => {
-
   const testPeakThresholds = { warn: 80, error: 95 };
   const testAvgThresholds = { warn: 50, error: 75 };
 

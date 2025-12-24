@@ -12,7 +12,10 @@ import { useCallback, useRef, useState } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { usePlacer } from "@/layout/usePlacer";
-import { type MacroExecutionState, ZERO_EXECUTION_STATE } from "@/perf/macros/execution";
+import {
+  type MacroExecutionState,
+  ZERO_EXECUTION_STATE,
+} from "@/perf/macros/execution";
 import { MacroRunner } from "@/perf/macros/runner";
 import { type MacroConfig, type MacroContext } from "@/perf/macros/types";
 import { type RootStore } from "@/store";
