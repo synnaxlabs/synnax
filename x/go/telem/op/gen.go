@@ -85,6 +85,24 @@ var reductionOperations = []ReductionOperation{
 	{Name: "Max", FuncName: "Max"},
 }
 
+// Scalar arithmetic operations (series op scalar -> same type)
+var scalarArithmeticOps = []Operation{
+	{Name: "AddScalar", FuncName: "AddS", Op: "+", IsComp: false},
+	{Name: "SubtractScalar", FuncName: "SubS", Op: "-", IsComp: false},
+	{Name: "MultiplyScalar", FuncName: "MulS", Op: "*", IsComp: false},
+	{Name: "DivideScalar", FuncName: "DivS", Op: "/", IsComp: false},
+}
+
+// Scalar comparison operations (series op scalar -> uint8)
+var scalarComparisonOps = []Operation{
+	{Name: "GreaterThanScalar", FuncName: "GtS", Op: ">", IsComp: true},
+	{Name: "GreaterThanOrEqualScalar", FuncName: "GteS", Op: ">=", IsComp: true},
+	{Name: "LessThanScalar", FuncName: "LtS", Op: "<", IsComp: true},
+	{Name: "LessThanOrEqualScalar", FuncName: "LteS", Op: "<=", IsComp: true},
+	{Name: "EqualScalar", FuncName: "EqS", Op: "==", IsComp: true},
+	{Name: "NotEqualScalar", FuncName: "NeqS", Op: "!=", IsComp: true},
+}
+
 const headerTemplate = `
 package op
 
@@ -275,10 +293,46 @@ func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 }
 {{end}}{{end}}`
 
+// Template for scalar arithmetic operations (series op scalar -> same type)
+const scalarArithFuncTemplate = `{{range $.Operations}}
+func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
+	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] {{.Op}} scalar
+	}
+}
+{{end}}`
+
+// Template for scalar comparison operations (series op scalar -> uint8)
+const scalarCompFuncTemplate = `{{range $.Operations}}
+func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] {{.Op}} scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+{{end}}`
+
 func main() {
 	tmpl := template.Must(template.New("funcs").Parse(funcTemplate))
 	unaryTmpl := template.Must(template.New("unary").Parse(unaryFuncTemplate))
 	reductionTmpl := template.Must(template.New("reduction").Parse(reductionFuncTemplate))
+	scalarArithTmpl := template.Must(template.New("scalarArith").Parse(scalarArithFuncTemplate))
+	scalarCompTmpl := template.Must(template.New("scalarComp").Parse(scalarCompFuncTemplate))
 
 	var buf strings.Builder
 	buf.WriteString(headerTemplate)
@@ -333,6 +387,28 @@ func main() {
 		err := reductionTmpl.Execute(&buf, map[string]interface{}{
 			"Type":       typ,
 			"Reductions": reductionOperations,
+		})
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	// Generate scalar arithmetic operations for all types
+	for _, typ := range types {
+		err := scalarArithTmpl.Execute(&buf, map[string]interface{}{
+			"Type":       typ,
+			"Operations": scalarArithmeticOps,
+		})
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	// Generate scalar comparison operations for all types
+	for _, typ := range types {
+		err := scalarCompTmpl.Execute(&buf, map[string]interface{}{
+			"Type":       typ,
+			"Operations": scalarComparisonOps,
 		})
 		if err != nil {
 			panic(err)

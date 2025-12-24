@@ -7,61 +7,62 @@ import (
 	"math"
 
 	"github.com/synnaxlabs/arc/runtime/state"
-	"github.com/synnaxlabs/x/telem"
 	xmath "github.com/synnaxlabs/x/math"
+	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/telem/op"
 	"github.com/tetratelabs/wazero/api"
 )
 
 // Runtime provides the actual implementation of Arc runtime functions.
 // This is the "business logic" layer that the bindings call.
 type Runtime struct {
-	state *state.State
-	memory api.Memory  // WASM memory for reading string literals
+	state  *state.State
+	memory api.Memory // WASM memory for reading string literals
 
 	// String storage - handle to string mapping
-	strings map[uint32]string
+	strings             map[uint32]string
 	stringHandleCounter uint32
 
 	// Series storage - handle to series mapping
-	series map[uint32]telem.Series
+	series              map[uint32]telem.Series
 	seriesHandleCounter uint32
 
 	// State storage for stateful variables
 	// Key: (funcID << 32) | varID
-	stateU8 map[uint64]uint8
-	stateU16 map[uint64]uint16
-	stateU32 map[uint64]uint32
-	stateU64 map[uint64]uint64
-	stateI8 map[uint64]int8
-	stateI16 map[uint64]int16
-	stateI32 map[uint64]int32
-	stateI64 map[uint64]int64
-	stateF32 map[uint64]float32
-	stateF64 map[uint64]float64
+	stateU8     map[uint64]uint8
+	stateU16    map[uint64]uint16
+	stateU32    map[uint64]uint32
+	stateU64    map[uint64]uint64
+	stateI8     map[uint64]int8
+	stateI16    map[uint64]int16
+	stateI32    map[uint64]int32
+	stateI64    map[uint64]int64
+	stateF32    map[uint64]float32
+	stateF64    map[uint64]float64
 	stateString map[uint64]string
 	stateSeries map[uint64]telem.Series
 }
 
 func NewRuntime(state *state.State, memory api.Memory) *Runtime {
 	return &Runtime{
-		state: state,
-		memory: memory,
-		strings: make(map[uint32]string),
+		state:               state,
+		memory:              memory,
+		strings:             make(map[uint32]string),
 		stringHandleCounter: 1, // Start at 1, 0 is reserved for empty/null
-		series: make(map[uint32]telem.Series),
+		series:              make(map[uint32]telem.Series),
 		seriesHandleCounter: 1, // Start at 1, 0 is reserved for empty/null
-		stateU8: make(map[uint64]uint8),
-		stateU16: make(map[uint64]uint16),
-		stateU32: make(map[uint64]uint32),
-		stateU64: make(map[uint64]uint64),
-		stateI8: make(map[uint64]int8),
-		stateI16: make(map[uint64]int16),
-		stateI32: make(map[uint64]int32),
-		stateI64: make(map[uint64]int64),
-		stateF32: make(map[uint64]float32),
-		stateF64: make(map[uint64]float64),
-		stateString: make(map[uint64]string),
-		stateSeries: make(map[uint64]telem.Series),
+		stateU8:             make(map[uint64]uint8),
+		stateU16:            make(map[uint64]uint16),
+		stateU32:            make(map[uint64]uint32),
+		stateU64:            make(map[uint64]uint64),
+		stateI8:             make(map[uint64]int8),
+		stateI16:            make(map[uint64]int16),
+		stateI32:            make(map[uint64]int32),
+		stateI64:            make(map[uint64]int64),
+		stateF32:            make(map[uint64]float32),
+		stateF64:            make(map[uint64]float64),
+		stateString:         make(map[uint64]string),
+		stateSeries:         make(map[uint64]telem.Series),
 	}
 }
 
@@ -83,7 +84,6 @@ func stateKey(funcID uint32, varID uint32) uint64 {
 }
 
 // ===== Channel Operations =====
-
 
 // ChannelReadU8 reads the latest value from a channel.
 func (r *Runtime) ChannelReadU8(ctx context.Context, channelID uint32) uint8 {
@@ -285,9 +285,7 @@ func (r *Runtime) ChannelWriteF64(ctx context.Context, channelID uint32, value f
 	r.state.WriteChannelValue(channelID, series)
 }
 
-
 // ===== State Operations =====
-
 
 // StateLoadU8 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadU8(ctx context.Context, funcID uint32, varID uint32, initValue uint8) uint8 {
@@ -459,7 +457,6 @@ func (r *Runtime) StateStoreF64(ctx context.Context, funcID uint32, varID uint32
 	r.stateF64[key] = value
 }
 
-
 // ===== Generic Operations =====
 
 // Now returns the current timestamp.
@@ -488,7 +485,6 @@ func (r *Runtime) MathPowF32(ctx context.Context, base float32, exponent float32
 func (r *Runtime) MathPowF64(ctx context.Context, base float64, exponent float64) float64 {
 	return math.Pow(base, exponent)
 }
-
 
 // MathPowU8 computes base^exponent for u8 using integer exponentiation.
 func (r *Runtime) MathPowU8(ctx context.Context, base uint8, exponent uint8) uint8 {
@@ -529,7 +525,6 @@ func (r *Runtime) MathPowI32(ctx context.Context, base int32, exponent int32) in
 func (r *Runtime) MathPowI64(ctx context.Context, base int64, exponent int64) int64 {
 	return xmath.IntPow(base, int(exponent))
 }
-
 
 // ===== String Operations =====
 
@@ -646,7 +641,6 @@ func (r *Runtime) StateStoreStr(ctx context.Context, funcID uint32, varID uint32
 
 // ===== Series Operations =====
 
-
 // SeriesCreateEmptyU8 creates an empty series of the given length.
 func (r *Runtime) SeriesCreateEmptyU8(ctx context.Context, length uint32) uint32 {
 	s := telem.MakeSeries(telem.Uint8T, int(length))
@@ -681,12 +675,8 @@ func (r *Runtime) SeriesElementAddU8(ctx context.Context, handle uint32, scalar 
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[uint8](s, i)
-		telem.SetValueAt[uint8](result, i, v + scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarU8(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -699,12 +689,8 @@ func (r *Runtime) SeriesElementSubU8(ctx context.Context, handle uint32, scalar 
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[uint8](s, i)
-		telem.SetValueAt[uint8](result, i, v - scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.SubtractScalarU8(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -717,12 +703,8 @@ func (r *Runtime) SeriesElementMulU8(ctx context.Context, handle uint32, scalar 
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[uint8](s, i)
-		telem.SetValueAt[uint8](result, i, v * scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarU8(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -735,12 +717,8 @@ func (r *Runtime) SeriesElementDivU8(ctx context.Context, handle uint32, scalar 
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[uint8](s, i)
-		telem.SetValueAt[uint8](result, i, v / scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.DivideScalarU8(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -757,13 +735,8 @@ func (r *Runtime) SeriesSeriesAddU8(ctx context.Context, h1 uint32, h2 uint32) u
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in addition")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint8](s1, i)
-		v2 := telem.ValueAt[uint8](s2, i)
-		telem.SetValueAt[uint8](result, i, v1 + v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.AddU8(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -780,13 +753,8 @@ func (r *Runtime) SeriesSeriesSubU8(ctx context.Context, h1 uint32, h2 uint32) u
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in subtraction")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint8](s1, i)
-		v2 := telem.ValueAt[uint8](s2, i)
-		telem.SetValueAt[uint8](result, i, v1 - v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.SubtractU8(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -803,13 +771,8 @@ func (r *Runtime) SeriesSeriesMulU8(ctx context.Context, h1 uint32, h2 uint32) u
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in multiplication")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint8](s1, i)
-		v2 := telem.ValueAt[uint8](s2, i)
-		telem.SetValueAt[uint8](result, i, v1 * v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.MultiplyU8(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -826,13 +789,8 @@ func (r *Runtime) SeriesSeriesDivU8(ctx context.Context, h1 uint32, h2 uint32) u
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in division")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint8](s1, i)
-		v2 := telem.ValueAt[uint8](s2, i)
-		telem.SetValueAt[uint8](result, i, v1 / v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.DivideU8(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -849,17 +807,8 @@ func (r *Runtime) SeriesCompareGTU8(ctx context.Context, h1 uint32, h2 uint32) u
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint8](s1, i)
-		v2 := telem.ValueAt[uint8](s2, i)
-		if v1 > v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanU8(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -876,17 +825,8 @@ func (r *Runtime) SeriesCompareLTU8(ctx context.Context, h1 uint32, h2 uint32) u
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint8](s1, i)
-		v2 := telem.ValueAt[uint8](s2, i)
-		if v1 < v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanU8(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -903,17 +843,8 @@ func (r *Runtime) SeriesCompareGEU8(ctx context.Context, h1 uint32, h2 uint32) u
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint8](s1, i)
-		v2 := telem.ValueAt[uint8](s2, i)
-		if v1 >= v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualU8(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -930,17 +861,8 @@ func (r *Runtime) SeriesCompareLEU8(ctx context.Context, h1 uint32, h2 uint32) u
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint8](s1, i)
-		v2 := telem.ValueAt[uint8](s2, i)
-		if v1 <= v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualU8(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -957,17 +879,8 @@ func (r *Runtime) SeriesCompareEQU8(ctx context.Context, h1 uint32, h2 uint32) u
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint8](s1, i)
-		v2 := telem.ValueAt[uint8](s2, i)
-		if v1 == v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualU8(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -984,17 +897,8 @@ func (r *Runtime) SeriesCompareNEU8(ctx context.Context, h1 uint32, h2 uint32) u
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint8](s1, i)
-		v2 := telem.ValueAt[uint8](s2, i)
-		if v1 != v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualU8(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1058,12 +962,8 @@ func (r *Runtime) SeriesElementAddU16(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[uint16](s, i)
-		telem.SetValueAt[uint16](result, i, v + scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarU16(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1076,12 +976,8 @@ func (r *Runtime) SeriesElementSubU16(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[uint16](s, i)
-		telem.SetValueAt[uint16](result, i, v - scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.SubtractScalarU16(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1094,12 +990,8 @@ func (r *Runtime) SeriesElementMulU16(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[uint16](s, i)
-		telem.SetValueAt[uint16](result, i, v * scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarU16(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1112,12 +1004,8 @@ func (r *Runtime) SeriesElementDivU16(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[uint16](s, i)
-		telem.SetValueAt[uint16](result, i, v / scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.DivideScalarU16(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1134,13 +1022,8 @@ func (r *Runtime) SeriesSeriesAddU16(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in addition")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint16](s1, i)
-		v2 := telem.ValueAt[uint16](s2, i)
-		telem.SetValueAt[uint16](result, i, v1 + v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.AddU16(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1157,13 +1040,8 @@ func (r *Runtime) SeriesSeriesSubU16(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in subtraction")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint16](s1, i)
-		v2 := telem.ValueAt[uint16](s2, i)
-		telem.SetValueAt[uint16](result, i, v1 - v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.SubtractU16(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1180,13 +1058,8 @@ func (r *Runtime) SeriesSeriesMulU16(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in multiplication")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint16](s1, i)
-		v2 := telem.ValueAt[uint16](s2, i)
-		telem.SetValueAt[uint16](result, i, v1 * v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.MultiplyU16(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1203,13 +1076,8 @@ func (r *Runtime) SeriesSeriesDivU16(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in division")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint16](s1, i)
-		v2 := telem.ValueAt[uint16](s2, i)
-		telem.SetValueAt[uint16](result, i, v1 / v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.DivideU16(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1226,17 +1094,8 @@ func (r *Runtime) SeriesCompareGTU16(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint16](s1, i)
-		v2 := telem.ValueAt[uint16](s2, i)
-		if v1 > v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanU16(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1253,17 +1112,8 @@ func (r *Runtime) SeriesCompareLTU16(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint16](s1, i)
-		v2 := telem.ValueAt[uint16](s2, i)
-		if v1 < v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanU16(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1280,17 +1130,8 @@ func (r *Runtime) SeriesCompareGEU16(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint16](s1, i)
-		v2 := telem.ValueAt[uint16](s2, i)
-		if v1 >= v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualU16(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1307,17 +1148,8 @@ func (r *Runtime) SeriesCompareLEU16(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint16](s1, i)
-		v2 := telem.ValueAt[uint16](s2, i)
-		if v1 <= v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualU16(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1334,17 +1166,8 @@ func (r *Runtime) SeriesCompareEQU16(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint16](s1, i)
-		v2 := telem.ValueAt[uint16](s2, i)
-		if v1 == v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualU16(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1361,17 +1184,8 @@ func (r *Runtime) SeriesCompareNEU16(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint16](s1, i)
-		v2 := telem.ValueAt[uint16](s2, i)
-		if v1 != v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualU16(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1435,12 +1249,8 @@ func (r *Runtime) SeriesElementAddU32(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[uint32](s, i)
-		telem.SetValueAt[uint32](result, i, v + scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarU32(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1453,12 +1263,8 @@ func (r *Runtime) SeriesElementSubU32(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[uint32](s, i)
-		telem.SetValueAt[uint32](result, i, v - scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.SubtractScalarU32(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1471,12 +1277,8 @@ func (r *Runtime) SeriesElementMulU32(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[uint32](s, i)
-		telem.SetValueAt[uint32](result, i, v * scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarU32(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1489,12 +1291,8 @@ func (r *Runtime) SeriesElementDivU32(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[uint32](s, i)
-		telem.SetValueAt[uint32](result, i, v / scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.DivideScalarU32(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1511,13 +1309,8 @@ func (r *Runtime) SeriesSeriesAddU32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in addition")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint32](s1, i)
-		v2 := telem.ValueAt[uint32](s2, i)
-		telem.SetValueAt[uint32](result, i, v1 + v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.AddU32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1534,13 +1327,8 @@ func (r *Runtime) SeriesSeriesSubU32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in subtraction")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint32](s1, i)
-		v2 := telem.ValueAt[uint32](s2, i)
-		telem.SetValueAt[uint32](result, i, v1 - v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.SubtractU32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1557,13 +1345,8 @@ func (r *Runtime) SeriesSeriesMulU32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in multiplication")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint32](s1, i)
-		v2 := telem.ValueAt[uint32](s2, i)
-		telem.SetValueAt[uint32](result, i, v1 * v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.MultiplyU32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1580,13 +1363,8 @@ func (r *Runtime) SeriesSeriesDivU32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in division")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint32](s1, i)
-		v2 := telem.ValueAt[uint32](s2, i)
-		telem.SetValueAt[uint32](result, i, v1 / v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.DivideU32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1603,17 +1381,8 @@ func (r *Runtime) SeriesCompareGTU32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint32](s1, i)
-		v2 := telem.ValueAt[uint32](s2, i)
-		if v1 > v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanU32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1630,17 +1399,8 @@ func (r *Runtime) SeriesCompareLTU32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint32](s1, i)
-		v2 := telem.ValueAt[uint32](s2, i)
-		if v1 < v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanU32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1657,17 +1417,8 @@ func (r *Runtime) SeriesCompareGEU32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint32](s1, i)
-		v2 := telem.ValueAt[uint32](s2, i)
-		if v1 >= v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualU32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1684,17 +1435,8 @@ func (r *Runtime) SeriesCompareLEU32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint32](s1, i)
-		v2 := telem.ValueAt[uint32](s2, i)
-		if v1 <= v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualU32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1711,17 +1453,8 @@ func (r *Runtime) SeriesCompareEQU32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint32](s1, i)
-		v2 := telem.ValueAt[uint32](s2, i)
-		if v1 == v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualU32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1738,17 +1471,8 @@ func (r *Runtime) SeriesCompareNEU32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint32](s1, i)
-		v2 := telem.ValueAt[uint32](s2, i)
-		if v1 != v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualU32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1812,12 +1536,8 @@ func (r *Runtime) SeriesElementAddU64(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[uint64](s, i)
-		telem.SetValueAt[uint64](result, i, v + scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarU64(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1830,12 +1550,8 @@ func (r *Runtime) SeriesElementSubU64(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[uint64](s, i)
-		telem.SetValueAt[uint64](result, i, v - scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.SubtractScalarU64(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1848,12 +1564,8 @@ func (r *Runtime) SeriesElementMulU64(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[uint64](s, i)
-		telem.SetValueAt[uint64](result, i, v * scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarU64(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1866,12 +1578,8 @@ func (r *Runtime) SeriesElementDivU64(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[uint64](s, i)
-		telem.SetValueAt[uint64](result, i, v / scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.DivideScalarU64(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1888,13 +1596,8 @@ func (r *Runtime) SeriesSeriesAddU64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in addition")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint64](s1, i)
-		v2 := telem.ValueAt[uint64](s2, i)
-		telem.SetValueAt[uint64](result, i, v1 + v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.AddU64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1911,13 +1614,8 @@ func (r *Runtime) SeriesSeriesSubU64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in subtraction")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint64](s1, i)
-		v2 := telem.ValueAt[uint64](s2, i)
-		telem.SetValueAt[uint64](result, i, v1 - v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.SubtractU64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1934,13 +1632,8 @@ func (r *Runtime) SeriesSeriesMulU64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in multiplication")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint64](s1, i)
-		v2 := telem.ValueAt[uint64](s2, i)
-		telem.SetValueAt[uint64](result, i, v1 * v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.MultiplyU64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1957,13 +1650,8 @@ func (r *Runtime) SeriesSeriesDivU64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in division")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint64](s1, i)
-		v2 := telem.ValueAt[uint64](s2, i)
-		telem.SetValueAt[uint64](result, i, v1 / v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.DivideU64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1980,17 +1668,8 @@ func (r *Runtime) SeriesCompareGTU64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint64](s1, i)
-		v2 := telem.ValueAt[uint64](s2, i)
-		if v1 > v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanU64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2007,17 +1686,8 @@ func (r *Runtime) SeriesCompareLTU64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint64](s1, i)
-		v2 := telem.ValueAt[uint64](s2, i)
-		if v1 < v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanU64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2034,17 +1704,8 @@ func (r *Runtime) SeriesCompareGEU64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint64](s1, i)
-		v2 := telem.ValueAt[uint64](s2, i)
-		if v1 >= v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualU64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2061,17 +1722,8 @@ func (r *Runtime) SeriesCompareLEU64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint64](s1, i)
-		v2 := telem.ValueAt[uint64](s2, i)
-		if v1 <= v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualU64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2088,17 +1740,8 @@ func (r *Runtime) SeriesCompareEQU64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint64](s1, i)
-		v2 := telem.ValueAt[uint64](s2, i)
-		if v1 == v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualU64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2115,17 +1758,8 @@ func (r *Runtime) SeriesCompareNEU64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[uint64](s1, i)
-		v2 := telem.ValueAt[uint64](s2, i)
-		if v1 != v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualU64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2189,12 +1823,8 @@ func (r *Runtime) SeriesElementAddI8(ctx context.Context, handle uint32, scalar 
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[int8](s, i)
-		telem.SetValueAt[int8](result, i, v + scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarI8(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2207,12 +1837,8 @@ func (r *Runtime) SeriesElementSubI8(ctx context.Context, handle uint32, scalar 
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[int8](s, i)
-		telem.SetValueAt[int8](result, i, v - scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.SubtractScalarI8(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2225,12 +1851,8 @@ func (r *Runtime) SeriesElementMulI8(ctx context.Context, handle uint32, scalar 
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[int8](s, i)
-		telem.SetValueAt[int8](result, i, v * scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarI8(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2243,12 +1865,8 @@ func (r *Runtime) SeriesElementDivI8(ctx context.Context, handle uint32, scalar 
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[int8](s, i)
-		telem.SetValueAt[int8](result, i, v / scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.DivideScalarI8(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2265,13 +1883,8 @@ func (r *Runtime) SeriesSeriesAddI8(ctx context.Context, h1 uint32, h2 uint32) u
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in addition")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int8](s1, i)
-		v2 := telem.ValueAt[int8](s2, i)
-		telem.SetValueAt[int8](result, i, v1 + v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.AddI8(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2288,13 +1901,8 @@ func (r *Runtime) SeriesSeriesSubI8(ctx context.Context, h1 uint32, h2 uint32) u
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in subtraction")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int8](s1, i)
-		v2 := telem.ValueAt[int8](s2, i)
-		telem.SetValueAt[int8](result, i, v1 - v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.SubtractI8(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2311,13 +1919,8 @@ func (r *Runtime) SeriesSeriesMulI8(ctx context.Context, h1 uint32, h2 uint32) u
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in multiplication")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int8](s1, i)
-		v2 := telem.ValueAt[int8](s2, i)
-		telem.SetValueAt[int8](result, i, v1 * v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.MultiplyI8(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2334,13 +1937,8 @@ func (r *Runtime) SeriesSeriesDivI8(ctx context.Context, h1 uint32, h2 uint32) u
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in division")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int8](s1, i)
-		v2 := telem.ValueAt[int8](s2, i)
-		telem.SetValueAt[int8](result, i, v1 / v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.DivideI8(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2357,17 +1955,8 @@ func (r *Runtime) SeriesCompareGTI8(ctx context.Context, h1 uint32, h2 uint32) u
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int8](s1, i)
-		v2 := telem.ValueAt[int8](s2, i)
-		if v1 > v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanI8(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2384,17 +1973,8 @@ func (r *Runtime) SeriesCompareLTI8(ctx context.Context, h1 uint32, h2 uint32) u
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int8](s1, i)
-		v2 := telem.ValueAt[int8](s2, i)
-		if v1 < v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanI8(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2411,17 +1991,8 @@ func (r *Runtime) SeriesCompareGEI8(ctx context.Context, h1 uint32, h2 uint32) u
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int8](s1, i)
-		v2 := telem.ValueAt[int8](s2, i)
-		if v1 >= v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualI8(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2438,17 +2009,8 @@ func (r *Runtime) SeriesCompareLEI8(ctx context.Context, h1 uint32, h2 uint32) u
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int8](s1, i)
-		v2 := telem.ValueAt[int8](s2, i)
-		if v1 <= v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualI8(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2465,17 +2027,8 @@ func (r *Runtime) SeriesCompareEQI8(ctx context.Context, h1 uint32, h2 uint32) u
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int8](s1, i)
-		v2 := telem.ValueAt[int8](s2, i)
-		if v1 == v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualI8(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2492,17 +2045,8 @@ func (r *Runtime) SeriesCompareNEI8(ctx context.Context, h1 uint32, h2 uint32) u
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int8](s1, i)
-		v2 := telem.ValueAt[int8](s2, i)
-		if v1 != v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualI8(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2566,12 +2110,8 @@ func (r *Runtime) SeriesElementAddI16(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[int16](s, i)
-		telem.SetValueAt[int16](result, i, v + scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarI16(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2584,12 +2124,8 @@ func (r *Runtime) SeriesElementSubI16(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[int16](s, i)
-		telem.SetValueAt[int16](result, i, v - scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.SubtractScalarI16(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2602,12 +2138,8 @@ func (r *Runtime) SeriesElementMulI16(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[int16](s, i)
-		telem.SetValueAt[int16](result, i, v * scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarI16(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2620,12 +2152,8 @@ func (r *Runtime) SeriesElementDivI16(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[int16](s, i)
-		telem.SetValueAt[int16](result, i, v / scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.DivideScalarI16(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2642,13 +2170,8 @@ func (r *Runtime) SeriesSeriesAddI16(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in addition")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int16](s1, i)
-		v2 := telem.ValueAt[int16](s2, i)
-		telem.SetValueAt[int16](result, i, v1 + v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.AddI16(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2665,13 +2188,8 @@ func (r *Runtime) SeriesSeriesSubI16(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in subtraction")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int16](s1, i)
-		v2 := telem.ValueAt[int16](s2, i)
-		telem.SetValueAt[int16](result, i, v1 - v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.SubtractI16(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2688,13 +2206,8 @@ func (r *Runtime) SeriesSeriesMulI16(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in multiplication")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int16](s1, i)
-		v2 := telem.ValueAt[int16](s2, i)
-		telem.SetValueAt[int16](result, i, v1 * v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.MultiplyI16(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2711,13 +2224,8 @@ func (r *Runtime) SeriesSeriesDivI16(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in division")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int16](s1, i)
-		v2 := telem.ValueAt[int16](s2, i)
-		telem.SetValueAt[int16](result, i, v1 / v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.DivideI16(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2734,17 +2242,8 @@ func (r *Runtime) SeriesCompareGTI16(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int16](s1, i)
-		v2 := telem.ValueAt[int16](s2, i)
-		if v1 > v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanI16(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2761,17 +2260,8 @@ func (r *Runtime) SeriesCompareLTI16(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int16](s1, i)
-		v2 := telem.ValueAt[int16](s2, i)
-		if v1 < v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanI16(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2788,17 +2278,8 @@ func (r *Runtime) SeriesCompareGEI16(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int16](s1, i)
-		v2 := telem.ValueAt[int16](s2, i)
-		if v1 >= v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualI16(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2815,17 +2296,8 @@ func (r *Runtime) SeriesCompareLEI16(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int16](s1, i)
-		v2 := telem.ValueAt[int16](s2, i)
-		if v1 <= v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualI16(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2842,17 +2314,8 @@ func (r *Runtime) SeriesCompareEQI16(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int16](s1, i)
-		v2 := telem.ValueAt[int16](s2, i)
-		if v1 == v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualI16(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2869,17 +2332,8 @@ func (r *Runtime) SeriesCompareNEI16(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int16](s1, i)
-		v2 := telem.ValueAt[int16](s2, i)
-		if v1 != v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualI16(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2943,12 +2397,8 @@ func (r *Runtime) SeriesElementAddI32(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[int32](s, i)
-		telem.SetValueAt[int32](result, i, v + scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarI32(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2961,12 +2411,8 @@ func (r *Runtime) SeriesElementSubI32(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[int32](s, i)
-		telem.SetValueAt[int32](result, i, v - scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.SubtractScalarI32(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2979,12 +2425,8 @@ func (r *Runtime) SeriesElementMulI32(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[int32](s, i)
-		telem.SetValueAt[int32](result, i, v * scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarI32(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2997,12 +2439,8 @@ func (r *Runtime) SeriesElementDivI32(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[int32](s, i)
-		telem.SetValueAt[int32](result, i, v / scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.DivideScalarI32(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3019,13 +2457,8 @@ func (r *Runtime) SeriesSeriesAddI32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in addition")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int32](s1, i)
-		v2 := telem.ValueAt[int32](s2, i)
-		telem.SetValueAt[int32](result, i, v1 + v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.AddI32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3042,13 +2475,8 @@ func (r *Runtime) SeriesSeriesSubI32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in subtraction")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int32](s1, i)
-		v2 := telem.ValueAt[int32](s2, i)
-		telem.SetValueAt[int32](result, i, v1 - v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.SubtractI32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3065,13 +2493,8 @@ func (r *Runtime) SeriesSeriesMulI32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in multiplication")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int32](s1, i)
-		v2 := telem.ValueAt[int32](s2, i)
-		telem.SetValueAt[int32](result, i, v1 * v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.MultiplyI32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3088,13 +2511,8 @@ func (r *Runtime) SeriesSeriesDivI32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in division")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int32](s1, i)
-		v2 := telem.ValueAt[int32](s2, i)
-		telem.SetValueAt[int32](result, i, v1 / v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.DivideI32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3111,17 +2529,8 @@ func (r *Runtime) SeriesCompareGTI32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int32](s1, i)
-		v2 := telem.ValueAt[int32](s2, i)
-		if v1 > v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanI32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3138,17 +2547,8 @@ func (r *Runtime) SeriesCompareLTI32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int32](s1, i)
-		v2 := telem.ValueAt[int32](s2, i)
-		if v1 < v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanI32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3165,17 +2565,8 @@ func (r *Runtime) SeriesCompareGEI32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int32](s1, i)
-		v2 := telem.ValueAt[int32](s2, i)
-		if v1 >= v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualI32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3192,17 +2583,8 @@ func (r *Runtime) SeriesCompareLEI32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int32](s1, i)
-		v2 := telem.ValueAt[int32](s2, i)
-		if v1 <= v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualI32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3219,17 +2601,8 @@ func (r *Runtime) SeriesCompareEQI32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int32](s1, i)
-		v2 := telem.ValueAt[int32](s2, i)
-		if v1 == v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualI32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3246,17 +2619,8 @@ func (r *Runtime) SeriesCompareNEI32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int32](s1, i)
-		v2 := telem.ValueAt[int32](s2, i)
-		if v1 != v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualI32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3320,12 +2684,8 @@ func (r *Runtime) SeriesElementAddI64(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[int64](s, i)
-		telem.SetValueAt[int64](result, i, v + scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarI64(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3338,12 +2698,8 @@ func (r *Runtime) SeriesElementSubI64(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[int64](s, i)
-		telem.SetValueAt[int64](result, i, v - scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.SubtractScalarI64(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3356,12 +2712,8 @@ func (r *Runtime) SeriesElementMulI64(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[int64](s, i)
-		telem.SetValueAt[int64](result, i, v * scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarI64(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3374,12 +2726,8 @@ func (r *Runtime) SeriesElementDivI64(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[int64](s, i)
-		telem.SetValueAt[int64](result, i, v / scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.DivideScalarI64(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3396,13 +2744,8 @@ func (r *Runtime) SeriesSeriesAddI64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in addition")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int64](s1, i)
-		v2 := telem.ValueAt[int64](s2, i)
-		telem.SetValueAt[int64](result, i, v1 + v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.AddI64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3419,13 +2762,8 @@ func (r *Runtime) SeriesSeriesSubI64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in subtraction")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int64](s1, i)
-		v2 := telem.ValueAt[int64](s2, i)
-		telem.SetValueAt[int64](result, i, v1 - v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.SubtractI64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3442,13 +2780,8 @@ func (r *Runtime) SeriesSeriesMulI64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in multiplication")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int64](s1, i)
-		v2 := telem.ValueAt[int64](s2, i)
-		telem.SetValueAt[int64](result, i, v1 * v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.MultiplyI64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3465,13 +2798,8 @@ func (r *Runtime) SeriesSeriesDivI64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in division")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int64](s1, i)
-		v2 := telem.ValueAt[int64](s2, i)
-		telem.SetValueAt[int64](result, i, v1 / v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.DivideI64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3488,17 +2816,8 @@ func (r *Runtime) SeriesCompareGTI64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int64](s1, i)
-		v2 := telem.ValueAt[int64](s2, i)
-		if v1 > v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanI64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3515,17 +2834,8 @@ func (r *Runtime) SeriesCompareLTI64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int64](s1, i)
-		v2 := telem.ValueAt[int64](s2, i)
-		if v1 < v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanI64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3542,17 +2852,8 @@ func (r *Runtime) SeriesCompareGEI64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int64](s1, i)
-		v2 := telem.ValueAt[int64](s2, i)
-		if v1 >= v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualI64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3569,17 +2870,8 @@ func (r *Runtime) SeriesCompareLEI64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int64](s1, i)
-		v2 := telem.ValueAt[int64](s2, i)
-		if v1 <= v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualI64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3596,17 +2888,8 @@ func (r *Runtime) SeriesCompareEQI64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int64](s1, i)
-		v2 := telem.ValueAt[int64](s2, i)
-		if v1 == v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualI64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3623,17 +2906,8 @@ func (r *Runtime) SeriesCompareNEI64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[int64](s1, i)
-		v2 := telem.ValueAt[int64](s2, i)
-		if v1 != v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualI64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3697,12 +2971,8 @@ func (r *Runtime) SeriesElementAddF32(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[float32](s, i)
-		telem.SetValueAt[float32](result, i, v + scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarF32(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3715,12 +2985,8 @@ func (r *Runtime) SeriesElementSubF32(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[float32](s, i)
-		telem.SetValueAt[float32](result, i, v - scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.SubtractScalarF32(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3733,12 +2999,8 @@ func (r *Runtime) SeriesElementMulF32(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[float32](s, i)
-		telem.SetValueAt[float32](result, i, v * scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarF32(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3751,12 +3013,8 @@ func (r *Runtime) SeriesElementDivF32(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[float32](s, i)
-		telem.SetValueAt[float32](result, i, v / scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.DivideScalarF32(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3773,13 +3031,8 @@ func (r *Runtime) SeriesSeriesAddF32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in addition")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[float32](s1, i)
-		v2 := telem.ValueAt[float32](s2, i)
-		telem.SetValueAt[float32](result, i, v1 + v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.AddF32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3796,13 +3049,8 @@ func (r *Runtime) SeriesSeriesSubF32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in subtraction")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[float32](s1, i)
-		v2 := telem.ValueAt[float32](s2, i)
-		telem.SetValueAt[float32](result, i, v1 - v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.SubtractF32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3819,13 +3067,8 @@ func (r *Runtime) SeriesSeriesMulF32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in multiplication")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[float32](s1, i)
-		v2 := telem.ValueAt[float32](s2, i)
-		telem.SetValueAt[float32](result, i, v1 * v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.MultiplyF32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3842,13 +3085,8 @@ func (r *Runtime) SeriesSeriesDivF32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in division")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[float32](s1, i)
-		v2 := telem.ValueAt[float32](s2, i)
-		telem.SetValueAt[float32](result, i, v1 / v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.DivideF32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3865,17 +3103,8 @@ func (r *Runtime) SeriesCompareGTF32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[float32](s1, i)
-		v2 := telem.ValueAt[float32](s2, i)
-		if v1 > v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanF32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3892,17 +3121,8 @@ func (r *Runtime) SeriesCompareLTF32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[float32](s1, i)
-		v2 := telem.ValueAt[float32](s2, i)
-		if v1 < v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanF32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3919,17 +3139,8 @@ func (r *Runtime) SeriesCompareGEF32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[float32](s1, i)
-		v2 := telem.ValueAt[float32](s2, i)
-		if v1 >= v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualF32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3946,17 +3157,8 @@ func (r *Runtime) SeriesCompareLEF32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[float32](s1, i)
-		v2 := telem.ValueAt[float32](s2, i)
-		if v1 <= v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualF32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3973,17 +3175,8 @@ func (r *Runtime) SeriesCompareEQF32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[float32](s1, i)
-		v2 := telem.ValueAt[float32](s2, i)
-		if v1 == v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualF32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -4000,17 +3193,8 @@ func (r *Runtime) SeriesCompareNEF32(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[float32](s1, i)
-		v2 := telem.ValueAt[float32](s2, i)
-		if v1 != v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualF32(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -4074,12 +3258,8 @@ func (r *Runtime) SeriesElementAddF64(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[float64](s, i)
-		telem.SetValueAt[float64](result, i, v + scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarF64(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -4092,12 +3272,8 @@ func (r *Runtime) SeriesElementSubF64(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[float64](s, i)
-		telem.SetValueAt[float64](result, i, v - scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.SubtractScalarF64(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -4110,12 +3286,8 @@ func (r *Runtime) SeriesElementMulF64(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[float64](s, i)
-		telem.SetValueAt[float64](result, i, v * scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarF64(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -4128,12 +3300,8 @@ func (r *Runtime) SeriesElementDivF64(ctx context.Context, handle uint32, scalar
 	if !ok {
 		return 0
 	}
-	length := int(s.Len())
-	result := telem.MakeSeries(s.DataType, length)
-	for i := 0; i < length; i++ {
-		v := telem.ValueAt[float64](s, i)
-		telem.SetValueAt[float64](result, i, v / scalar)
-	}
+	result := telem.Series{DataType: s.DataType}
+	op.DivideScalarF64(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -4150,13 +3318,8 @@ func (r *Runtime) SeriesSeriesAddF64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in addition")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[float64](s1, i)
-		v2 := telem.ValueAt[float64](s2, i)
-		telem.SetValueAt[float64](result, i, v1 + v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.AddF64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -4173,13 +3336,8 @@ func (r *Runtime) SeriesSeriesSubF64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in subtraction")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[float64](s1, i)
-		v2 := telem.ValueAt[float64](s2, i)
-		telem.SetValueAt[float64](result, i, v1 - v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.SubtractF64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -4196,13 +3354,8 @@ func (r *Runtime) SeriesSeriesMulF64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in multiplication")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[float64](s1, i)
-		v2 := telem.ValueAt[float64](s2, i)
-		telem.SetValueAt[float64](result, i, v1 * v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.MultiplyF64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -4219,13 +3372,8 @@ func (r *Runtime) SeriesSeriesDivF64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in division")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(s1.DataType, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[float64](s1, i)
-		v2 := telem.ValueAt[float64](s2, i)
-		telem.SetValueAt[float64](result, i, v1 / v2)
-	}
+	result := telem.Series{DataType: s1.DataType}
+	op.DivideF64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -4242,17 +3390,8 @@ func (r *Runtime) SeriesCompareGTF64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[float64](s1, i)
-		v2 := telem.ValueAt[float64](s2, i)
-		if v1 > v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanF64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -4269,17 +3408,8 @@ func (r *Runtime) SeriesCompareLTF64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[float64](s1, i)
-		v2 := telem.ValueAt[float64](s2, i)
-		if v1 < v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanF64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -4296,17 +3426,8 @@ func (r *Runtime) SeriesCompareGEF64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[float64](s1, i)
-		v2 := telem.ValueAt[float64](s2, i)
-		if v1 >= v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.GreaterThanOrEqualF64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -4323,17 +3444,8 @@ func (r *Runtime) SeriesCompareLEF64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[float64](s1, i)
-		v2 := telem.ValueAt[float64](s2, i)
-		if v1 <= v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.LessThanOrEqualF64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -4350,17 +3462,8 @@ func (r *Runtime) SeriesCompareEQF64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[float64](s1, i)
-		v2 := telem.ValueAt[float64](s2, i)
-		if v1 == v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.EqualF64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -4377,17 +3480,8 @@ func (r *Runtime) SeriesCompareNEF64(ctx context.Context, h1 uint32, h2 uint32) 
 	if s1.Len() != s2.Len() {
 		panic("arc panic: series length mismatch in comparison")
 	}
-	length := int(s1.Len())
-	result := telem.MakeSeries(telem.Uint8T, length)
-	for i := 0; i < length; i++ {
-		v1 := telem.ValueAt[float64](s1, i)
-		v2 := telem.ValueAt[float64](s2, i)
-		if v1 != v2 {
-			telem.SetValueAt[uint8](result, i, 1)
-		} else {
-			telem.SetValueAt[uint8](result, i, 0)
-		}
-	}
+	result := telem.Series{DataType: telem.Uint8T}
+	op.NotEqualF64(s1, s2, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -4416,7 +3510,6 @@ func (r *Runtime) StateStoreSeriesF64(ctx context.Context, funcID uint32, varID 
 		r.stateSeries[stateKey(funcID, varID)] = s
 	}
 }
-
 
 // SeriesLen returns the length of a series.
 func (r *Runtime) SeriesLen(ctx context.Context, handle uint32) uint64 {

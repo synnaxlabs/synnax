@@ -395,4 +395,178 @@ var _ = Describe("Vectorized Operations", func() {
 		})
 	})
 
+	Describe("Scalar Operations", func() {
+		Describe("Scalar Arithmetic", func() {
+			It("should add scalar to all elements for F64", func() {
+				series := telem.NewSeriesV[float64](1.0, 2.0, 3.0)
+				output := telem.Series{DataType: telem.Float64T}
+
+				op.AddScalarF64(series, 10.0, &output)
+
+				expected := []float64{11.0, 12.0, 13.0}
+				Expect(telem.UnmarshalSlice[float64](output.Data, telem.Float64T)).To(Equal(expected))
+			})
+
+			It("should subtract scalar from all elements for I32", func() {
+				series := telem.NewSeriesV[int32](10, 20, 30)
+				output := telem.Series{DataType: telem.Int32T}
+
+				op.SubtractScalarI32(series, 5, &output)
+
+				expected := []int32{5, 15, 25}
+				Expect(telem.UnmarshalSlice[int32](output.Data, telem.Int32T)).To(Equal(expected))
+			})
+
+			It("should multiply all elements by scalar for U8", func() {
+				series := telem.NewSeriesV[uint8](2, 4, 6)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.MultiplyScalarU8(series, 3, &output)
+
+				expected := []uint8{6, 12, 18}
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+
+			It("should divide all elements by scalar for F32", func() {
+				series := telem.NewSeriesV[float32](10.0, 20.0, 30.0)
+				output := telem.Series{DataType: telem.Float32T}
+
+				op.DivideScalarF32(series, 2.0, &output)
+
+				expected := []float32{5.0, 10.0, 15.0}
+				Expect(telem.UnmarshalSlice[float32](output.Data, telem.Float32T)).To(Equal(expected))
+			})
+
+			It("should handle I64 scalar operations", func() {
+				series := telem.NewSeriesV[int64](100, 200, 300)
+				output := telem.Series{DataType: telem.Int64T}
+
+				op.AddScalarI64(series, 50, &output)
+
+				expected := []int64{150, 250, 350}
+				Expect(telem.UnmarshalSlice[int64](output.Data, telem.Int64T)).To(Equal(expected))
+			})
+
+			It("should handle U64 scalar operations", func() {
+				series := telem.NewSeriesV[uint64](1000, 2000, 3000)
+				output := telem.Series{DataType: telem.Uint64T}
+
+				op.MultiplyScalarU64(series, 2, &output)
+
+				expected := []uint64{2000, 4000, 6000}
+				Expect(telem.UnmarshalSlice[uint64](output.Data, telem.Uint64T)).To(Equal(expected))
+			})
+
+			It("should handle empty series", func() {
+				series := telem.Series{DataType: telem.Float64T}
+				output := telem.Series{DataType: telem.Float64T}
+
+				op.AddScalarF64(series, 10.0, &output)
+
+				Expect(output.Len()).To(Equal(int64(0)))
+			})
+
+			It("should handle single element series", func() {
+				series := telem.NewSeriesV[int32](42)
+				output := telem.Series{DataType: telem.Int32T}
+
+				op.MultiplyScalarI32(series, 2, &output)
+
+				expected := []int32{84}
+				Expect(telem.UnmarshalSlice[int32](output.Data, telem.Int32T)).To(Equal(expected))
+			})
+		})
+
+		Describe("Scalar Comparison", func() {
+			It("should compare greater than scalar for F64", func() {
+				series := telem.NewSeriesV[float64](1.0, 5.0, 3.0)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.GreaterThanScalarF64(series, 2.0, &output)
+
+				expected := []uint8{0, 1, 1}
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+
+			It("should compare greater than or equal scalar for I32", func() {
+				series := telem.NewSeriesV[int32](1, 2, 3, 4)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.GreaterThanOrEqualScalarI32(series, 3, &output)
+
+				expected := []uint8{0, 0, 1, 1}
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+
+			It("should compare less than scalar for F32", func() {
+				series := telem.NewSeriesV[float32](1.0, 5.0, 3.0)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.LessThanScalarF32(series, 3.0, &output)
+
+				expected := []uint8{1, 0, 0}
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+
+			It("should compare less than or equal scalar for I64", func() {
+				series := telem.NewSeriesV[int64](10, 20, 30, 40)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.LessThanOrEqualScalarI64(series, 25, &output)
+
+				expected := []uint8{1, 1, 0, 0}
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+
+			It("should compare equal to scalar for I32", func() {
+				series := telem.NewSeriesV[int32](1, 2, 2, 3)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.EqualScalarI32(series, 2, &output)
+
+				expected := []uint8{0, 1, 1, 0}
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+
+			It("should compare not equal to scalar for U8", func() {
+				series := telem.NewSeriesV[uint8](1, 2, 3, 2, 1)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.NotEqualScalarU8(series, 2, &output)
+
+				expected := []uint8{1, 0, 1, 0, 1}
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+
+			It("should handle empty series comparison", func() {
+				series := telem.Series{DataType: telem.Float64T}
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.GreaterThanScalarF64(series, 10.0, &output)
+
+				Expect(output.Len()).To(Equal(int64(0)))
+			})
+
+			It("should handle all true comparison", func() {
+				series := telem.NewSeriesV[int32](10, 20, 30, 40)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.GreaterThanScalarI32(series, 0, &output)
+
+				expected := []uint8{1, 1, 1, 1}
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+
+			It("should handle all false comparison", func() {
+				series := telem.NewSeriesV[int32](10, 20, 30, 40)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.GreaterThanScalarI32(series, 100, &output)
+
+				expected := []uint8{0, 0, 0, 0}
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+		})
+	})
+
 })
