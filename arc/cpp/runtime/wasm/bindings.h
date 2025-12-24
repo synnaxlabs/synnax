@@ -89,7 +89,6 @@ public:
     void channel_write_str(uint32_t channel_id, uint32_t str_handle);
     uint32_t channel_blocking_read_str(uint32_t channel_id);
 
-// ===== State Operations =====
 #define DECLARE_STATE_OPS(suffix, cpptype)                                             \
     cpptype state_load_##suffix(                                                       \
         uint32_t func_id,                                                              \
@@ -164,8 +163,6 @@ public:
     DECLARE_SERIES_OPS(f64, double)
 
 #undef DECLARE_SERIES_OPS
-
-    // ===== Generic Operations =====
     uint64_t now();
     uint64_t len(uint32_t handle);
     void panic(uint32_t ptr, uint32_t len);
@@ -184,12 +181,8 @@ public:
     DECLARE_MATH_POW_OP(f32, float)
     DECLARE_MATH_POW_OP(f64, double)
 #undef DECLARE_MATH_POW_OP
-
-    // ===== Series Operations (Stubs for compiler bindings) =====
     uint64_t series_len(uint32_t handle);
     uint32_t series_slice(uint32_t handle, uint32_t start, uint32_t end);
-
-    // ===== String Operations =====
     uint32_t string_from_literal(uint32_t ptr, uint32_t len);
     uint32_t string_create(const std::string &str);
     uint32_t string_concat(uint32_t h1, uint32_t h2);

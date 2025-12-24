@@ -22,8 +22,6 @@ protected:
     std::unique_ptr<Bindings> bindings;
 };
 
-// ===== Series Creation Tests =====
-
 TEST_F(BindingsTest, SeriesCreateEmptyF64) {
     const uint32_t handle = bindings->series_create_empty_f64(5);
     EXPECT_NE(handle, 0);
@@ -41,8 +39,6 @@ TEST_F(BindingsTest, SeriesCreateEmptyU8) {
     EXPECT_NE(handle, 0);
     EXPECT_EQ(bindings->series_len(handle), 3);
 }
-
-// ===== Element Access Tests =====
 
 TEST_F(BindingsTest, SeriesSetAndIndexF64) {
     const uint32_t handle = bindings->series_create_empty_f64(3);
@@ -777,4 +773,4 @@ TEST_F(BindingsTest, StringGetInvalidHandle) {
     EXPECT_EQ(bindings->string_get(999), "");
 }
 
-} // namespace arc::runtime::wasm
+}
