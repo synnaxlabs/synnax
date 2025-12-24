@@ -1338,5 +1338,191 @@ var _ = Describe("Wasm", func() {
 			vals = telem.UnmarshalSeries[float64](result)
 			Expect(vals[0]).To(Equal(float64(0.0)))
 		})
+
+		It("Should perform series-series comparison returning u8 mask", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "series_compare",
+						Inputs: types.Params{},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+						Body: ir.Body{Raw: `{
+							a series f64 := [1.0, 5.0, 3.0]
+							b series f64 := [2.0, 2.0, 2.0]
+							t series u8 := a > b
+							return t[1]
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "series_compare", Type: "series_compare"},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("series_compare"),
+				State:  s.Node("series_compare"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("series_compare").Output(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			vals := telem.UnmarshalSeries[uint8](result)
+			Expect(vals[0]).To(Equal(uint8(1))) // 5.0 > 2.0 = true
+		})
+
+		It("Should perform series subtraction", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "series_sub",
+						Inputs: types.Params{},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+						Body: ir.Body{Raw: `{
+							s series f64 := [10.0, 20.0, 30.0]
+							t series f64 := s - 5.0
+							return t[0]
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "series_sub", Type: "series_sub"},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("series_sub"),
+				State:  s.Node("series_sub"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("series_sub").Output(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			vals := telem.UnmarshalSeries[float64](result)
+			Expect(vals[0]).To(Equal(float64(5.0))) // 10.0 - 5.0 = 5.0
+		})
+
+		It("Should perform series-series multiplication", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "series_series_mul",
+						Inputs: types.Params{},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+						Body: ir.Body{Raw: `{
+							a series f64 := [2.0, 3.0]
+							b series f64 := [4.0, 5.0]
+							c series f64 := a * b
+							return c[1]
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "series_series_mul", Type: "series_series_mul"},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("series_series_mul"),
+				State:  s.Node("series_series_mul"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("series_series_mul").Output(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			vals := telem.UnmarshalSeries[float64](result)
+			Expect(vals[0]).To(Equal(float64(15.0))) // 3.0 * 5.0 = 15.0
+		})
+
+		It("Should slice a series", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "series_slice",
+						Inputs: types.Params{},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+						Body: ir.Body{Raw: `{
+							s series f64 := [1.0, 2.0, 3.0, 4.0, 5.0]
+							t series f64 := s[1:4]
+							return t[0]
+						}`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "series_slice", Type: "series_slice"},
+				},
+			}
+			mod := MustSucceed(arc.CompileGraph(ctx, g))
+			analyzed, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := state.New(state.Config{IR: analyzed})
+			wasmMod := MustSucceed(wasm.OpenModule(ctx, wasm.ModuleConfig{
+				Module: mod,
+				State:  s,
+			}))
+			defer func() {
+				Expect(wasmMod.Close()).To(Succeed())
+			}()
+			factory := MustSucceed(wasm.NewFactory(wasmMod))
+			n := MustSucceed(factory.Create(ctx, node.Config{
+				Node:   analyzed.Nodes.Get("series_slice"),
+				State:  s.Node("series_slice"),
+				Module: mod,
+			}))
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			result := *s.Node("series_slice").Output(0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			vals := telem.UnmarshalSeries[float64](result)
+			Expect(vals[0]).To(Equal(float64(2.0))) // s[1:4][0] = s[1] = 2.0
+		})
 	})
 })
