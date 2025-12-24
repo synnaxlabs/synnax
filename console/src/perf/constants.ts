@@ -74,15 +74,15 @@ export const HEAP_SLOPE_THRESHOLD = 0.1;
 
 export const THRESHOLDS = {
   fpsAvg: { warn: 25, error: 10, inverted: true },
-  cpuAvg: { warn: 50, error: 75 },
-  gpuAvg: { warn: 50, error: 75 },  
+  cpuAvg: { warn: 75, error: 95 },
+  gpuAvg: { warn: 75, error: 95 },  
+  fpsChange: { warn: 50, error: 80, inverted: true },
+  cpuChange: { warn: 80, error: 98 },
+  gpuChange: { warn: 80, error: 98 },
+  heapGrowth: { warn: 20, error: 40 },
   fps: { warn: 10, error: 1, inverted: true },
   cpu: { warn: 90, error: 99 },
   gpu: { warn: 90, error: 99 },
-  fpsChange: { warn: 20, error: 40, inverted: true },
-  cpuChange: { warn: 20, error: 40 },
-  gpuChange: { warn: 20, error: 40 },
-  heapGrowth: { warn: 20, error: 40 },
 } as const;
 
 export const LABEL_COLORS = {

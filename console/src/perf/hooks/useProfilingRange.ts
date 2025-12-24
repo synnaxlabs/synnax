@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
 
 import { useSelect as useSelectCluster } from "@/cluster/selectors";
+import { useSelectVersion } from "@/version/selectors";
 import { type Severity } from "@/perf/analyzer/types";
 import {
   getMetricLabelName,
@@ -103,6 +104,17 @@ export interface PeakMetrics {
 }
 
 /**
+ * Live metric values at a point in time.
+ * Used for start/end snapshots.
+ */
+export interface LiveValues {
+  fps: number | null;
+  cpu: number | null;
+  gpu: number | null;
+  heap: number | null;
+}
+
+/**
  * Structured metrics for range metadata.
  * - averages: Running averages during the session
  * - peaks: Worst-case values (max for cpu/gpu/heap, min for fps)
@@ -114,6 +126,13 @@ export interface RangeMetrics {
 
 // Temporary value. Don't know what strategy I want to use yet.
 const METADATA_WRITE_INTERVAL_MS = 5_000;
+
+const roundLiveValues = (values: LiveValues): LiveValues => ({
+  fps: values.fps != null ? math.roundTo(values.fps, 1) : null,
+  cpu: values.cpu != null ? math.roundTo(values.cpu, 1) : null,
+  gpu: values.gpu != null ? math.roundTo(values.gpu, 1) : null,
+  heap: values.heap != null ? math.roundTo(values.heap, 1) : null,
+});
 
 export interface UseProfilingRangeOptions {
   status: HarnessStatus;
@@ -135,8 +154,8 @@ export interface AnalysisSeverities {
 export interface FinalizeRangeInput {
   rangeKey: string;
   startTime: number;
-  metrics: RangeMetrics;
   severities: AnalysisSeverities;
+  stopValues: LiveValues;
 }
 
 export interface AddMetricLabelInput {
@@ -154,11 +173,16 @@ interface LabelState {
   latched: boolean;
 }
 
+export interface CreateRangeInput {
+  startValues?: LiveValues;
+}
+
 export interface UseProfilingRangeResult {
   rangeKey: string | null;
   rangeStartTime: number | null;
-  createRange: () => void;
+  createRange: (input?: CreateRangeInput) => void;
   updateEndTime: (endTime: TimeStamp) => void;
+  clearStopValues: () => void;
   finalizeRange: (input: FinalizeRangeInput) => void;
   addMetricLabel: (input: AddMetricLabelInput) => void;
   removeTransientLabel: (input: RemoveTransientLabelInput) => void;
@@ -183,6 +207,7 @@ export const useProfilingRange = ({
   const rangeStartTime = useSelectRangeStartTime();
   const activeCluster = useSelectCluster();
   const username = activeCluster?.username ?? "Unknown";
+  const version = useSelectVersion();
 
   const getMetricsRef = useRef(getMetrics);
   getMetricsRef.current = getMetrics;
@@ -206,47 +231,59 @@ export const useProfilingRange = ({
     [username],
   );
 
-  const createRange = useCallback(() => {
-    if (client == null) return;
+  const createRange = useCallback(
+    (input?: CreateRangeInput) => {
+      if (client == null) return;
 
-    labelStatesRef.current.clear();
-    nominalRemovedRef.current = false;
+      labelStatesRef.current.clear();
+      nominalRemovedRef.current = false;
 
-    const create = async () => {
-      const [osInfo, nominalLabel] = await Promise.all([
-        runtime.getOSInfoAsync(),
-        ensureProfilingLabelsExist(client).then(() =>
-          getOrCreateLabel(client, NOMINAL_LABEL_NAME, LABEL_COLORS.nominal),
-        ),
-      ]);
+      const create = async () => {
+        const [osInfo, nominalLabel] = await Promise.all([
+          runtime.getOSInfoAsync(),
+          ensureProfilingLabelsExist(client).then(() =>
+            getOrCreateLabel(client, NOMINAL_LABEL_NAME, LABEL_COLORS.nominal),
+          ),
+        ]);
 
-      const rangeName = getRangeName(osInfo.hostname);
-      rangeNameRef.current = rangeName;
+        const rangeName = getRangeName(osInfo.hostname);
+        rangeNameRef.current = rangeName;
 
-      const now = TimeStamp.now();
-      const range = await client.ranges.create({
-        name: rangeName,
-        timeRange: new TimeRange(now, TimeStamp.MAX).numeric,
+        const now = TimeStamp.now();
+        const range = await client.ranges.create({
+          name: rangeName,
+          timeRange: new TimeRange(now, TimeStamp.MAX).numeric,
+        });
+
+        dispatch(Perf.setRangeKey(range.key));
+        dispatch(Perf.setRangeStartTime(Number(now.valueOf())));
+
+        await range.addLabel(nominalLabel.key);
+
+        const kv = range.kv;
+        const kvWrites: Promise<void>[] = [
+          kv.set("hostname", osInfo.hostname),
+          kv.set("platform", osInfo.platform),
+          kv.set("osVersion", osInfo.version),
+          kv.set("username", username),
+          kv.set("version", version),
+        ];
+
+        if (input?.startValues != null)
+          kvWrites.push(
+            kv.set("startValues", JSON.stringify(roundLiveValues(input.startValues))),
+          );
+
+        await Promise.all(kvWrites);
+      };
+
+      create().catch((error: Error) => {
+        if (abortRef.current?.signal.aborted) return;
+        console.error("Failed to create profiling range:", error);
       });
-
-      dispatch(Perf.setRangeKey(range.key));
-      dispatch(Perf.setRangeStartTime(Number(now.valueOf())));
-
-      await range.addLabel(nominalLabel.key);
-
-      const kv = range.kv;
-      await Promise.all([
-        kv.set("hostname", osInfo.hostname),
-        kv.set("platform", osInfo.platform),
-        kv.set("osVersion", osInfo.version),
-      ]);
-    };
-
-    create().catch((error: Error) => {
-      if (abortRef.current?.signal.aborted) return;
-      console.error("Failed to create profiling range:", error);
-    });
-  }, [client, dispatch, getRangeName]);
+    },
+    [client, dispatch, getRangeName, username, version],
+  );
 
   const updateEndTime = useCallback(
     (endTime: TimeStamp) => {
@@ -266,6 +303,20 @@ export const useProfilingRange = ({
     },
     [client, rangeKey, rangeStartTime],
   );
+
+  const clearStopValues = useCallback(() => {
+    if (client == null || rangeKey == null) return;
+
+    const clear = async () => {
+      const range = await client.ranges.retrieve(rangeKey);
+      await range.kv.delete("stopValues");
+    };
+
+    clear().catch((error: Error) => {
+      if (abortRef.current?.signal.aborted) return;
+      console.error("Failed to clear stop values:", error);
+    });
+  }, [client, rangeKey]);
 
   const lastWrittenRef = useRef<{ averages: string; peaks: string } | null>(null);
 
@@ -327,7 +378,7 @@ export const useProfilingRange = ({
    */
   const finalizeRange = useCallback(
     (input: FinalizeRangeInput) => {
-      const { rangeKey: key, startTime, severities } = input;
+      const { rangeKey: key, startTime, severities, stopValues } = input;
       if (client == null) return;
 
       const finalize = async () => {
@@ -341,6 +392,8 @@ export const useProfilingRange = ({
         });
 
         const range = await client.ranges.retrieve(key);
+
+        await range.kv.set("stopValues", JSON.stringify(roundLiveValues(stopValues)));
 
         const hasIssues = METRIC_ORDER.some((m) => {
           if (m === "heap") return severities.heap !== "none";
@@ -510,6 +563,7 @@ export const useProfilingRange = ({
     rangeStartTime,
     createRange,
     updateEndTime,
+    clearStopValues,
     finalizeRange,
     addMetricLabel,
     removeTransientLabel,

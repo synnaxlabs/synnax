@@ -55,13 +55,15 @@ Saving profiling metrics to synnax (either as KV metadata or independent channel
 
 | Metric | Warning | Error |
 |--------|---------|-------|
-| FPS (peak/min) | < 10 | < 5 |
+| FPS (peak/min) | < 10 | < 1 |
 | FPS (avg) | < 25 | < 10 |
-| FPS Change | > 20% degradation | > 40% degradation |
-| CPU (peak) | > 85% | > 95% |
+| FPS Change | > 20% degradation | > 50% degradation |
+| CPU (peak) | > 90% | > 99% |
 | CPU (avg) | > 50% | > 75% |
-| GPU (peak) | > 85% | > 95% |
+| CPU Change | > 80% | > 98% |
+| GPU (peak) | > 90% | > 99% |
 | GPU (avg) | > 50% | > 75% |
+| GPU Change | > 80% | > 98% |
 | Heap Growth | > 20% | > 40% |
 
 ## Key Files
@@ -140,9 +142,14 @@ When profiling starts, a Synnax range is created to track the session. Labels ar
 **Range Metadata (KV store):**
 - Only tracking basic metrics for now
 - `hostname`, `platform`, `osVersion` - System info at session start
+- `username` - Logged-in user who started the session
+- `version` - Synnax Console version
+- `startValues` - JSON object with live values at session start (`{fps, cpu, gpu, heap}`)
+- `stopValues` - JSON object with live values at session stop (`{fps, cpu, gpu, heap}`)
 - `averages` - JSON object with running averages (`{cpu, fps, gpu}`)
 - `peaks` - JSON object with worst-case values (`{cpu, fps, gpu, heap}`)
 - Metadata updates every 5 seconds while running
+- On resume, `stopValues` is cleared (only present after a stop)
 
 **Finalization Flow:**
 1. Session stops → `finalizeRange()` called

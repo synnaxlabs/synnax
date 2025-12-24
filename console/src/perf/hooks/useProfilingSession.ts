@@ -21,11 +21,18 @@ import {
 import { useCapturedValues } from "@/perf/hooks/useCapturedValues";
 import { type CollectorsState } from "@/perf/hooks/useCollectors";
 import { useProfilingAnalyzers } from "@/perf/hooks/useProfilingAnalyzers";
-import { useProfilingRange } from "@/perf/hooks/useProfilingRange";
+import { type LiveValues, useProfilingRange } from "@/perf/hooks/useProfilingRange";
 import { type Aggregates, type SampleBuffer } from "@/perf/metrics/buffer";
 import { type MetricSample } from "@/perf/metrics/types";
 import * as Perf from "@/perf/slice";
 import { type HarnessStatus } from "@/perf/slice";
+
+const getCollectorValues = (c: CollectorsState | null): LiveValues => ({
+  fps: c?.fps?.getCurrentFPS() ?? null,
+  cpu: c?.cpu?.getCpuPercent() ?? null,
+  gpu: c?.gpu?.getGpuPercent() ?? null,
+  heap: c?.heap?.getHeapUsedMB() ?? null,
+});
 
 export interface UseProfilingSessionOptions {
   status: HarnessStatus;
@@ -77,6 +84,7 @@ export const useProfilingSession = ({
     rangeStartTime,
     createRange,
     updateEndTime,
+    clearStopValues,
     finalizeRange,
     addMetricLabel,
     removeTransientLabel,
@@ -183,40 +191,39 @@ export const useProfilingSession = ({
       resetEventCollectors();
       resetTableData();
 
-      const initialFPS = c?.fps?.getCurrentFPS() ?? null;
-      const initialCPU = c?.cpu?.getCpuPercent() ?? null;
-      const initialGPU = c?.gpu?.getGpuPercent() ?? null;
-      const initialHeap = c?.heap?.getHeapUsedMB() ?? null;
-
-      captureInitial({ fps: initialFPS, cpu: initialCPU, gpu: initialGPU, heap: initialHeap });
+      const startValues = getCollectorValues(c);
+      captureInitial(startValues);
 
       // Batch initial reports
       dispatch(
         Perf.setReports({
           fps: {
             ...ZERO_FPS_REPORT,
-            startFps: initialFPS != null ? math.roundTo(initialFPS) : null,
+            startFps: startValues.fps != null ? math.roundTo(startValues.fps) : null,
           },
           leak: {
             ...ZERO_LEAK_REPORT,
-            heapStartMB: initialHeap != null ? math.roundTo(initialHeap) : null,
+            heapStartMB:
+              startValues.heap != null ? math.roundTo(startValues.heap) : null,
           },
           cpu: {
             ...ZERO_CPU_REPORT,
-            startPercent: initialCPU != null ? math.roundTo(initialCPU) : null,
+            startPercent:
+              startValues.cpu != null ? math.roundTo(startValues.cpu) : null,
           },
           gpu: {
             ...ZERO_GPU_REPORT,
-            startPercent: initialGPU != null ? math.roundTo(initialGPU) : null,
+            startPercent:
+              startValues.gpu != null ? math.roundTo(startValues.gpu) : null,
           },
         }),
       );
 
-      createRange();
+      createRange({ startValues });
     }
 
     // Capture range data into ref when it becomes available
-    if (status === "running" && rangeKey != null && rangeStartTime != null) 
+    if (status === "running" && rangeKey != null && rangeStartTime != null)
       rangeDataRef.current = { key: rangeKey, startTime: rangeStartTime };
     
 
@@ -224,21 +231,15 @@ export const useProfilingSession = ({
       const samples = sampleBuffer.current?.getAllSamples() ?? [];
       const lastSample = samples.at(-1) ?? null;
 
-      captureFinal({
-        sample: lastSample,
-        fallback: {
-          fps: c?.fps?.getCurrentFPS() ?? null,
-          cpu: c?.cpu?.getCpuPercent() ?? null,
-          gpu: c?.gpu?.getGpuPercent() ?? null,
-          heap: c?.heap?.getHeapUsedMB() ?? null,
-        },
-      });
+      captureFinal({ sample: lastSample, fallback: getCollectorValues(c) });
 
       updateEndTime(TimeStamp.now());
     }
 
-    if (status === "running" && prevStatus === "paused") 
+    if (status === "running" && prevStatus === "paused") {
       updateEndTime(TimeStamp.MAX);
+      clearStopValues();
+    }
     
 
     if (status === "idle" && prevStatus !== "idle") {
@@ -248,6 +249,14 @@ export const useProfilingSession = ({
         const samples = sampleBuffer.current?.getAllSamples() ?? [];
         const lastSample = samples.at(-1) ?? null;
         const cap = captured.current;
+
+        const fallback = getCollectorValues(c);
+        const stopValues: LiveValues = {
+          fps: lastSample?.frameRate ?? fallback.fps,
+          cpu: lastSample?.cpuPercent ?? fallback.cpu,
+          gpu: lastSample?.gpuPercent ?? fallback.gpu,
+          heap: lastSample?.heapUsedMB ?? fallback.heap,
+        };
 
         // Run final analysis to get severities
         const results = analyze({
@@ -271,21 +280,13 @@ export const useProfilingSession = ({
         finalizeRange({
           rangeKey: rangeData.key,
           startTime: rangeData.startTime,
-          metrics: {
-            averages: { cpu: agg.avgCpu, fps: agg.avgFps, gpu: agg.avgGpu },
-            peaks: {
-              cpu: agg.maxCpu,
-              fps: agg.minFps,
-              gpu: agg.maxGpu,
-              heap: agg.maxHeap,
-            },
-          },
           severities: {
             fps: { peak: results.fps.peakSeverity, avg: results.fps.avgSeverity },
             cpu: { peak: results.cpu.peakSeverity, avg: results.cpu.avgSeverity },
             gpu: { peak: results.gpu.peakSeverity, avg: results.gpu.avgSeverity },
             heap: results.leak.severity,
           },
+          stopValues,
         });
       }
 
@@ -308,6 +309,7 @@ export const useProfilingSession = ({
     resetCaptured,
     createRange,
     updateEndTime,
+    clearStopValues,
     finalizeRange,
     getAggregates,
     resetEventCollectors,
@@ -315,7 +317,7 @@ export const useProfilingSession = ({
     resetBuffer,
     analyze,
     captured,
-    // Note: rangeDataRef is intentionally NOT in deps - it's a ref that persists
+    // Note: rangeDataRef is intentionally NOT in deps - it's a ref that persists across renders
   ]);
 
   return { handleSample };
