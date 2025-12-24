@@ -71,20 +71,17 @@ genrule(
     ],
     cmd_bash = select({
         "@platforms//os:windows": """
-            # Debug: show Rust environment
-            echo "=== Rust Environment Debug ==="
-            which rustc || true
-            which cargo || true
-            rustc --version || true
-            rustup show || true
-            rustc --print sysroot || true
-            echo "CARGO_HOME=$${CARGO_HOME:-not set}"
-            echo "RUSTUP_HOME=$${RUSTUP_HOME:-not set}"
-            echo "=== End Debug ==="
+            # Fix PATH: Use rustup's Rust instead of Chocolatey's
+            # Chocolatey installs Rust to /c/ProgramData/chocolatey/bin but rustup
+            # manages toolchains in ~/.cargo/bin. We need rustup's version.
+            export PATH="$$HOME/.cargo/bin:$$PATH"
 
-            # Ensure we're using the MSVC toolchain and target
-            rustup default stable-x86_64-pc-windows-msvc || rustup default stable
+            # Ensure MSVC target is installed
             rustup target add x86_64-pc-windows-msvc
+
+            # Verify we're using the right rustc
+            echo "Using rustc: $$(which rustc)"
+            echo "Sysroot: $$(rustc --print sysroot)"
 
             # Build wasmtime for Windows
             cd vendor/wasmtime/wasmtime
