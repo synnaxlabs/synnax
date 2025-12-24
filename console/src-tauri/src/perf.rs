@@ -74,7 +74,11 @@ pub fn get_gpu_usage() -> Option<f32> {
     let mut guard = NVML_INSTANCE.lock().ok()?;
 
     // Initialize NVML if not already done
-    let nvml = guard.get_or_insert_with(|| Nvml::init().ok()).as_ref()?;
+    if guard.is_none() {
+        *guard = Nvml::init().ok();
+    }
+
+    let nvml = guard.as_ref()?;
 
     // Get the first GPU device (device 0)
     let device = nvml.device_by_index(0).ok()?;

@@ -126,8 +126,7 @@ export interface RangeMetrics {
   peaks: PeakMetrics;
 }
 
-// Temporary value. Don't know what strategy I want to use yet.
-const METADATA_WRITE_INTERVAL_MS = 5_000;
+const METADATA_WRITE_INTERVAL_MS = 5_000; // Write metrics every 5 seconds during profiling
 
 const roundLiveValues = (values: LiveValues): LiveValues => ({
   fps: values.fps != null ? math.roundTo(values.fps, 1) : null,

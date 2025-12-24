@@ -56,7 +56,7 @@ describe("FpsAnalyzer", () => {
     it("should use endFps if lower than minFps", () => {
       const ctx: FpsAnalysisContext = {
         startFps: 60,
-        endFps: 3,
+        endFps: 0,
         minFps: 20,
         avgFps: 40,
       };

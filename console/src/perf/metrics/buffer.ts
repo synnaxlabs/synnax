@@ -108,6 +108,7 @@ export class SampleBuffer {
     this.totalPushCount++;
     const inWarmup = this.totalPushCount <= WARMUP_SAMPLES;
 
+    // Skip min during warmup since FPS is artificially low during initialization
     if (sample.frameRate != null)
       updateAggregate(this.agg.fps, sample.frameRate, false, inWarmup);
     if (sample.cpuPercent != null)

@@ -172,14 +172,14 @@ describe("CpuAnalyzer", () => {
   });
 
   it("should use CPU thresholds", () => {
-    // CPU peak thresholds: warn=85, error=95
-    // CPU avg thresholds: warn=50, error=75
+    // CPU peak thresholds: warn=90, error=99
+    // CPU avg thresholds: warn=75, error=95
 
     const ctx: ResourceContext = {
       startPercent: 30,
       endPercent: 40,
-      avgPercent: 60,
-      maxPercent: 90,
+      avgPercent: 76,
+      maxPercent: 91,
     };
     const report = analyzer.analyze(ctx);
 
@@ -191,8 +191,8 @@ describe("CpuAnalyzer", () => {
     const ctx: ResourceContext = {
       startPercent: 50,
       endPercent: 90,
-      avgPercent: 80,
-      maxPercent: 98,
+      avgPercent: 96,
+      maxPercent: 100,
     };
     const report = analyzer.analyze(ctx);
 
@@ -212,8 +212,8 @@ describe("GpuAnalyzer", () => {
     const ctx: ResourceContext = {
       startPercent: 30,
       endPercent: 40,
-      avgPercent: 60,
-      maxPercent: 90,
+      avgPercent: 76,
+      maxPercent: 91,
     };
     const report = analyzer.analyze(ctx);
 
@@ -225,8 +225,8 @@ describe("GpuAnalyzer", () => {
     const ctx: ResourceContext = {
       startPercent: 50,
       endPercent: 90,
-      avgPercent: 80,
-      maxPercent: 98,
+      avgPercent: 96,
+      maxPercent: 100,
     };
     const report = analyzer.analyze(ctx);
 
