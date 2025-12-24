@@ -10,64 +10,88 @@
 package units_test
 
 import (
+	stdctx "context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/units"
+	"github.com/synnaxlabs/arc/diagnostics"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+func testCtx() context.Context[parser.IProgramContext] {
+	return context.Context[parser.IProgramContext]{
+		Context:     stdctx.Background(),
+		Diagnostics: &diagnostics.Diagnostics{},
+	}
+}
 
 var _ = Describe("Analysis", func() {
 	Describe("ValidateBinaryOp", func() {
 		Context("Addition and Subtraction", func() {
 			It("Should allow adding same dimensions", func() {
+				ctx := testCtx()
 				left := types.Type{Kind: types.KindF64, Unit: units.MustResolve("psi")}
 				right := types.Type{Kind: types.KindF64, Unit: units.MustResolve("Pa")}
-				Expect(units.ValidateBinaryOp("+", left, right)).To(Succeed())
+				Expect(units.ValidateBinaryOp(ctx, "+", left, right)).To(BeTrue())
+				Expect(ctx.Diagnostics.Errors()).To(BeEmpty())
 			})
 
 			It("Should reject adding incompatible dimensions", func() {
+				ctx := testCtx()
 				left := types.Type{Kind: types.KindF64, Unit: units.MustResolve("psi")}
 				right := types.Type{Kind: types.KindF64, Unit: units.MustResolve("s")}
-				Expect(units.ValidateBinaryOp("+", left, right)).Error().To(MatchError(units.IncompatibleDimensionsError))
+				Expect(units.ValidateBinaryOp(ctx, "+", left, right)).To(BeFalse())
+				Expect(ctx.Diagnostics.Errors()).To(HaveLen(1))
 			})
 
 			It("Should allow adding dimensionless to dimensioned", func() {
+				ctx := testCtx()
 				left := types.Type{Kind: types.KindF64}
 				right := types.Type{Kind: types.KindF64, Unit: units.MustResolve("psi")}
-				Expect(units.ValidateBinaryOp("+", left, right)).To(Succeed())
+				Expect(units.ValidateBinaryOp(ctx, "+", left, right)).To(BeTrue())
+				Expect(ctx.Diagnostics.Errors()).To(BeEmpty())
 			})
 
 			It("Should allow subtracting same dimensions", func() {
+				ctx := testCtx()
 				left := types.Type{Kind: types.KindF64, Unit: units.MustResolve("psi")}
 				right := types.Type{Kind: types.KindF64, Unit: units.MustResolve("Pa")}
-				Expect(units.ValidateBinaryOp("-", left, right)).To(Succeed())
+				Expect(units.ValidateBinaryOp(ctx, "-", left, right)).To(BeTrue())
+				Expect(ctx.Diagnostics.Errors()).To(BeEmpty())
 			})
 		})
 
 		Context("Multiplication and Division", func() {
 			It("Should allow multiplying any dimensions", func() {
+				ctx := testCtx()
 				left := types.Type{Kind: types.KindF64, Unit: units.MustResolve("m")}
 				right := types.Type{Kind: types.KindF64, Unit: units.MustResolve("m")}
-				Expect(units.ValidateBinaryOp("*", left, right)).To(Succeed())
+				Expect(units.ValidateBinaryOp(ctx, "*", left, right)).To(BeTrue())
 			})
 
 			It("Should allow dividing any dimensions", func() {
+				ctx := testCtx()
 				left := types.Type{Kind: types.KindF64, Unit: units.MustResolve("m")}
 				right := types.Type{Kind: types.KindF64, Unit: units.MustResolve("s")}
-				Expect(units.ValidateBinaryOp("/", left, right)).To(Succeed())
+				Expect(units.ValidateBinaryOp(ctx, "/", left, right)).To(BeTrue())
 			})
 
 			It("Should allow multiplying dimensionless values", func() {
+				ctx := testCtx()
 				left := types.Type{Kind: types.KindF64}
 				right := types.Type{Kind: types.KindF64}
-				Expect(units.ValidateBinaryOp("*", left, right)).To(Succeed())
+				Expect(units.ValidateBinaryOp(ctx, "*", left, right)).To(BeTrue())
 			})
 
 			It("Should allow multiplying unit by dimensionless", func() {
+				ctx := testCtx()
 				left := types.Type{Kind: types.KindF64, Unit: units.MustResolve("m")}
 				right := types.Type{Kind: types.KindF64}
-				Expect(units.ValidateBinaryOp("*", left, right)).To(Succeed())
+				Expect(units.ValidateBinaryOp(ctx, "*", left, right)).To(BeTrue())
 			})
 		})
 	})
@@ -104,41 +128,49 @@ var _ = Describe("Analysis", func() {
 
 	Describe("ValidateBinaryOp - Comparisons", func() {
 		It("Should allow comparing same dimensions", func() {
+			ctx := testCtx()
 			left := types.Type{Kind: types.KindF64, Unit: units.MustResolve("psi")}
 			right := types.Type{Kind: types.KindF64, Unit: units.MustResolve("Pa")}
-			Expect(units.ValidateBinaryOp(">", left, right)).To(Succeed())
+			Expect(units.ValidateBinaryOp(ctx, ">", left, right)).To(BeTrue())
 		})
 
 		It("Should reject comparing incompatible dimensions", func() {
+			ctx := testCtx()
 			left := types.Type{Kind: types.KindF64, Unit: units.MustResolve("psi")}
 			right := types.Type{Kind: types.KindF64, Unit: units.MustResolve("s")}
-			Expect(units.ValidateBinaryOp("<", left, right)).To(MatchError(units.IncompatibleDimensionsError))
+			Expect(units.ValidateBinaryOp(ctx, "<", left, right)).To(BeFalse())
+			Expect(ctx.Diagnostics.Errors()).To(HaveLen(1))
 		})
 
 		It("Should allow comparing dimensionless values", func() {
+			ctx := testCtx()
 			left := types.Type{Kind: types.KindF64}
 			right := types.Type{Kind: types.KindF64}
-			Expect(units.ValidateBinaryOp("==", left, right)).To(Succeed())
+			Expect(units.ValidateBinaryOp(ctx, "==", left, right)).To(BeTrue())
 		})
 
 		It("Should allow comparing unit to dimensionless", func() {
+			ctx := testCtx()
 			left := types.Type{Kind: types.KindF64, Unit: units.MustResolve("psi")}
 			right := types.Type{Kind: types.KindF64}
-			Expect(units.ValidateBinaryOp(">=", left, right)).To(Succeed())
+			Expect(units.ValidateBinaryOp(ctx, ">=", left, right)).To(BeTrue())
 		})
 	})
 
 	Describe("ValidateBinaryOp - Modulo", func() {
 		It("Should allow modulo with same dimensions", func() {
+			ctx := testCtx()
 			left := types.Type{Kind: types.KindF64, Unit: units.MustResolve("m")}
 			right := types.Type{Kind: types.KindF64, Unit: units.MustResolve("m")}
-			Expect(units.ValidateBinaryOp("%", left, right)).To(Succeed())
+			Expect(units.ValidateBinaryOp(ctx, "%", left, right)).To(BeTrue())
 		})
 
 		It("Should reject modulo with incompatible dimensions", func() {
+			ctx := testCtx()
 			left := types.Type{Kind: types.KindF64, Unit: units.MustResolve("m")}
 			right := types.Type{Kind: types.KindF64, Unit: units.MustResolve("s")}
-			Expect(units.ValidateBinaryOp("%", left, right)).To(MatchError(units.IncompatibleDimensionsError))
+			Expect(units.ValidateBinaryOp(ctx, "%", left, right)).To(BeFalse())
+			Expect(ctx.Diagnostics.Errors()).To(HaveLen(1))
 		})
 	})
 
