@@ -14,7 +14,7 @@ unified client documentation structure.
 │   ├── read-data.mdx                   ✅ Complete
 │   └── write-data.mdx                  ✅ Complete
 ├── working-with-data/
-│   ├── series-and-frames.mdx           🔄 In Progress
+│   ├── series-and-frames.mdx           ✅ Complete
 │   ├── ranges.mdx                      🔄 In Progress
 │   ├── streaming-data.mdx              🔄 In Progress
 │   └── iterators.mdx                   🔄 In Progress
@@ -46,24 +46,24 @@ unified client documentation structure.
 ### Phase 3: Working with Data (🔄 IN PROGRESS)
 
 - [x] Create all shell pages
-- [🔄] Populate Series & Frames (content transferred, needs cleanup)
-- [🔄] Populate Ranges (content transferred, needs cleanup)
-- [🔄] Populate Streaming Data (content transferred, needs cleanup)
-- [🔄] Populate Iterators (content transferred, needs cleanup)
+- [x] Series & Frames
+- [🔄] Ranges (content transferred, needs cleanup)
+- [🔄] Streaming Data (content transferred, needs cleanup)
+- [🔄] Iterators (content transferred, needs cleanup)
 
 ### Phase 4: Advanced Topics (🔄 IN PROGRESS)
 
 - [x] Create all shell pages
-- [🔄] Populate Writers (content transferred, needs cleanup)
-- [🔄] Populate Delete Data (content transferred, needs cleanup)
-- [🔄] Populate Timestamps (content transferred, needs cleanup)
+- [🔄] Writers (content transferred, needs cleanup)
+- [🔄] Delete Data (content transferred, needs cleanup)
+- [🔄] Timestamps (content transferred, needs cleanup)
 
 ### Phase 5: Resources (🔄 IN PROGRESS)
 
 - [x] Create all shell pages
-- [🔄] Populate Examples page (content transferred, needs cleanup)
-- [🔄] Populate Build Device Driver (content transferred, needs cleanup)
-- [🔄] Populate Troubleshooting (content transferred, needs cleanup)
+- [🔄] Examples page (content transferred, needs cleanup)
+- [🔄] Build Device Driver (content transferred, needs cleanup)
+- [🔄] Troubleshooting (content transferred, needs cleanup)
 
 ### Phase 6: Cleanup
 
@@ -77,10 +77,10 @@ unified client documentation structure.
 | ----------------- | -------- | ----------------- |
 | Get Started       | 2        | ✅ Complete       |
 | Fundamentals      | 3        | ✅ Complete       |
-| Working with Data | 4        | 🔄 4 in progress  |
+| Working with Data | 4        | 🔄 3 in progress  |
 | Advanced Topics   | 3        | 🔄 3 in progress  |
 | Resources         | 3        | 🔄 3 in progress  |
-| **TOTAL**         | **15**   | **5 complete, 10 in progress** |
+| **TOTAL**         | **15**   | **6 complete, 9 in progress** |
 
 ## Notes
 
