@@ -67,6 +67,8 @@ package types
 
 import (
 	"encoding/json"
+	"fmt"
+	"math"
 	"slices"
 
 	"github.com/samber/lo"
@@ -210,6 +212,60 @@ type Type struct {
 	Unit *Unit `json:"unit,omitempty" msgpack:"unit"`
 	// FunctionProperties contains inputs, outputs, and config for function types.
 	FunctionProperties
+}
+
+// IntegerMaxValue returns the maximum value representable by this integer type.
+// Panics if the type is not an integer type.
+// Note: For U64, returns math.MaxInt64 for comparison safety since MaxUint64
+// cannot be represented in int64.
+func (t Type) IntegerMaxValue() int64 {
+	if !t.IsInteger() {
+		panic(fmt.Sprintf("[type.IntegerMaxValue] attempted to call on non-integer"))
+	}
+	switch t.Kind {
+	case KindI8:
+		return math.MaxInt8
+	case KindI16:
+		return math.MaxInt16
+	case KindI32:
+		return math.MaxInt32
+	case KindI64:
+		return math.MaxInt64
+	case KindU8:
+		return math.MaxUint8
+	case KindU16:
+		return math.MaxUint16
+	case KindU32:
+		return math.MaxUint32
+	case KindU64:
+		// Use MaxInt64 for comparison safety (can't represent MaxUint64 in int64)
+		return math.MaxInt64
+	default:
+		return math.MaxInt64
+	}
+}
+
+// IntegerMinValue returns the minimum value representable by this integer type.
+// Panics if the type is not an integer type.
+// Returns 0 for unsigned integer types.
+func (t Type) IntegerMinValue() int64 {
+	if !t.IsInteger() {
+		panic(fmt.Sprintf("[types.IntegerMinValue] attempted to call on non-integer"))
+	}
+	switch t.Kind {
+	case KindI8:
+		return math.MinInt8
+	case KindI16:
+		return math.MinInt16
+	case KindI32:
+		return math.MinInt32
+	case KindI64:
+		return math.MinInt64
+	case KindU8, KindU16, KindU32, KindU64:
+		return 0
+	default:
+		return math.MinInt64
+	}
 }
 
 // String returns the string representation of the type

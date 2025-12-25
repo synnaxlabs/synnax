@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
+	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -83,6 +84,11 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 		if expression != nil {
 			exprType := atypes.InferFromExpression(context.Child(ctx, expression))
 			if exprType.IsValid() && varType.IsValid() {
+				// Check magnitude safety for unit conversions (warnings only)
+				if varType.Unit != nil && exprType.Unit != nil {
+					units.CheckAssignmentScaleSafety(ctx, exprType, varType, nil)
+				}
+
 				// If either type is a type variable, add a constraint instead of checking directly
 				if exprType.Kind == types.KindVariable || varType.Kind == types.KindVariable {
 					if err := atypes.Check(ctx.Constraints, varType, exprType, ctx.AST, "assignment type compatibility"); err != nil {
@@ -412,6 +418,11 @@ func analyzeChannelAssignment(ctx context.Context[parser.IAssignmentContext], ch
 		return true
 	}
 
+	// Check magnitude safety for unit conversions (warnings only)
+	if chanValueType.Unit != nil && exprType.Unit != nil {
+		units.CheckAssignmentScaleSafety(ctx, exprType, chanValueType, nil)
+	}
+
 	// If either type is a type variable, add a constraint instead of checking directly
 	if exprType.Kind == types.KindVariable || chanValueType.Kind == types.KindVariable {
 		if err := atypes.Check(ctx.Constraints, chanValueType, exprType, ctx.AST, "channel write type compatibility"); err != nil {
@@ -597,6 +608,12 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) bool {
 		return true
 	}
 	varType := varScope.Type
+
+	// Check magnitude safety for unit conversions (warnings only)
+	if varType.Unit != nil && exprType.Unit != nil {
+		units.CheckAssignmentScaleSafety(ctx, exprType, varType, nil)
+	}
+
 	// If either type is a type variable, add a constraint instead of checking directly
 	if exprType.Kind == types.KindVariable || varType.Kind == types.KindVariable {
 		if err := atypes.Check(ctx.Constraints, varType, exprType, ctx.AST, "assignment type compatibility"); err != nil {

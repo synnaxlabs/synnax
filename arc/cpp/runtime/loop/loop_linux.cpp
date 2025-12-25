@@ -155,30 +155,27 @@ public:
         // Initialize high-rate timer if needed
         if (config_.mode == ExecutionMode::HIGH_RATE ||
             config_.mode == ExecutionMode::HYBRID) {
-            if (config_.interval > 0) {
-                const auto interval = telem::TimeSpan(
-                    static_cast<int64_t>(config_.interval)
-                );
-                timer_ = std::make_unique<::loop::Timer>(interval);
+            if (config_.interval.nanoseconds() > 0) {
+                timer_ = std::make_unique<::loop::Timer>(config_.interval);
             }
         }
 
         // Apply RT configuration
         if (config_.rt_priority > 0) {
             if (auto err = set_rt_priority(config_.rt_priority); err) {
-                LOG(WARNING) << "[loop] Failed to set RT priority: " << err.what();
+                LOG(WARNING) << "[loop] Failed to set RT priority: " << err.message();
             }
         }
 
         if (config_.cpu_affinity >= 0) {
             if (auto err = set_cpu_affinity(config_.cpu_affinity); err) {
-                LOG(WARNING) << "[loop] Failed to set CPU affinity: " << err.what();
+                LOG(WARNING) << "[loop] Failed to set CPU affinity: " << err.message();
             }
         }
 
         if (config_.lock_memory) {
             if (auto err = lock_memory(); err) {
-                LOG(WARNING) << "[loop] Failed to lock memory: " << err.what();
+                LOG(WARNING) << "[loop] Failed to lock memory: " << err.message();
             }
         }
 
@@ -267,7 +264,9 @@ private:
     /// @brief Hybrid mode - spin briefly, then block on epoll.
     void hybrid_wait(breaker::Breaker &breaker) {
         const auto spin_start = std::chrono::steady_clock::now();
-        const auto spin_duration = std::chrono::microseconds(config_.spin_duration_us);
+        const auto spin_duration = std::chrono::nanoseconds(
+            config_.spin_duration.nanoseconds()
+        );
 
         struct epoll_event events[2];
 
@@ -355,7 +354,9 @@ private:
     bool running_ = false;
 };
 
-std::unique_ptr<Loop> create() {
-    return std::make_unique<LinuxLoop>();
+std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {
+    auto loop = std::make_unique<LinuxLoop>(cfg);
+    if (auto err = loop->start(); err) { return {nullptr, err}; }
+    return {std::move(loop), xerrors::NIL};
 }
 }

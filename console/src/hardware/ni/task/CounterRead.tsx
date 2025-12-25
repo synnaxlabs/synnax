@@ -174,53 +174,54 @@ const onConfigure: Common.Task.OnConfigure<typeof counterReadConfigZ> = async (
         else throw e;
       }
     const identifier = channel.escapeInvalidName(dev.properties.identifier);
-    if (shouldCreateIndex) {
-      devModified = true;
-      const ciIndex = await client.channels.create({
-        name: `${identifier}_ctr_time`,
-        dataType: "timestamp",
-        isIndex: true,
+    try {
+      if (shouldCreateIndex) {
+        devModified = true;
+        const ciIndex = await client.channels.create({
+          name: `${identifier}_ctr_time`,
+          dataType: "timestamp",
+          isIndex: true,
+        });
+        dev.properties.counterInput.index = ciIndex.key;
+        dev.properties.counterInput.channels = {};
+      }
+
+      // Create counter channels for this device
+      const deviceChannels = config.channels.filter((c) => c.device === dev.key);
+      const toCreate: CIChannel[] = [];
+      for (const channel of deviceChannels) {
+        const exKey = dev.properties.counterInput.channels[channel.port.toString()];
+        if (primitive.isZero(exKey)) toCreate.push(channel);
+        else
+          try {
+            await client.channels.retrieve(exKey.toString());
+          } catch (e) {
+            if (QueryError.matches(e)) toCreate.push(channel);
+            else throw e;
+          }
+      }
+
+      if (toCreate.length > 0) {
+        devModified = true;
+        const channels = await client.channels.create(
+          toCreate.map((c) => ({
+            name: primitive.isNonZero(c.name) ? c.name : `${identifier}_ctr_${c.port}`,
+            dataType: "float64",
+            index: dev.properties.counterInput.index,
+          })),
+        );
+        channels.forEach(
+          (c, i) =>
+            (dev.properties.counterInput.channels[toCreate[i].port.toString()] = c.key),
+        );
+      }
+      // Map config channels to their Synnax channel keys
+      deviceChannels.forEach((c) => {
+        c.channel = dev.properties.counterInput.channels[c.port.toString()];
       });
-      dev.properties.counterInput.index = ciIndex.key;
-      dev.properties.counterInput.channels = {};
+    } finally {
+      if (devModified) await client.devices.create(dev);
     }
-
-    // Create counter channels for this device
-    const deviceChannels = config.channels.filter((c) => c.device === dev.key);
-    const toCreate: CIChannel[] = [];
-    for (const channel of deviceChannels) {
-      const exKey = dev.properties.counterInput.channels[channel.port.toString()];
-      if (primitive.isZero(exKey)) toCreate.push(channel);
-      else
-        try {
-          await client.channels.retrieve(exKey.toString());
-        } catch (e) {
-          if (QueryError.matches(e)) toCreate.push(channel);
-          else throw e;
-        }
-    }
-
-    if (toCreate.length > 0) {
-      devModified = true;
-      const channels = await client.channels.create(
-        toCreate.map((c) => ({
-          name: `${identifier}_ctr_${c.port}`,
-          dataType: "float64",
-          index: dev.properties.counterInput.index,
-        })),
-      );
-      channels.forEach(
-        (c, i) =>
-          (dev.properties.counterInput.channels[toCreate[i].port.toString()] = c.key),
-      );
-    }
-
-    if (devModified) await client.devices.create(dev);
-
-    // Map config channels to their Synnax channel keys
-    deviceChannels.forEach((c) => {
-      c.channel = dev.properties.counterInput.channels[c.port.toString()];
-    });
   }
 
   if (rackKey == null) throw new Error("No devices selected in task configuration");
