@@ -25,7 +25,7 @@ struct IntervalConfig {
     telem::TimeSpan interval;
 
     explicit IntervalConfig(const ir::Params &params) {
-        auto interval_ns = params["period"].get<std::int64_t>();
+        const auto interval_ns = params["period"].get<std::int64_t>();
         this->interval = telem::TimeSpan(interval_ns);
     }
 };
@@ -36,15 +36,15 @@ class Interval : public node::Node {
     telem::TimeSpan last_fired = telem::TimeSpan(-1);
 
 public:
-    explicit Interval(const IntervalConfig cfg, state::Node state):
+    explicit Interval(const IntervalConfig cfg, const state::Node &state):
         state(state), cfg(cfg), last_fired(-1 * cfg.interval) {}
 
     xerrors::Error next(node::Context &ctx) override {
         if (ctx.elapsed - this->last_fired < this->cfg.interval) return xerrors::NIL;
         this->last_fired = ctx.elapsed;
         ctx.mark_changed(ir::default_output_param);
-        auto &o = this->state.output(0);
-        auto &o_time = this->state.output_time(0);
+        const auto &o = this->state.output(0);
+        const auto &o_time = this->state.output_time(0);
         o->resize(1);
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
@@ -61,7 +61,7 @@ struct WaitConfig {
     telem::TimeSpan duration;
 
     explicit WaitConfig(const ir::Params &params) {
-        auto duration_ns = params["duration"].get<std::int64_t>();
+        const auto duration_ns = params["duration"].get<std::int64_t>();
         this->duration = telem::TimeSpan(duration_ns);
     }
 };
@@ -75,7 +75,7 @@ class Wait : public node::Node {
     bool fired = false;
 
 public:
-    explicit Wait(WaitConfig cfg, state::Node state):
+    explicit Wait(const WaitConfig cfg, state::Node state):
         state(std::move(state)), cfg(cfg) {}
 
     xerrors::Error next(node::Context &ctx) override {
@@ -128,7 +128,7 @@ public:
     }
 
 private:
-    void update_timing_base(telem::TimeSpan span) {
+    void update_timing_base(const telem::TimeSpan span) {
         if (timing_base.nanoseconds() == std::numeric_limits<int64_t>::max())
             timing_base = span;
         else

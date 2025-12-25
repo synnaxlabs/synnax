@@ -41,7 +41,8 @@ public:
         for (size_t i = 0; i < data.series.size(); i++) {
             auto &ser = data.series[i];
             auto lower = ser.alignment;
-            auto upper_val = lower.uint64() + (ser.size() > 0 ? ser.size() - 1 : 0);
+            const auto upper_val = lower.uint64() +
+                                   (ser.size() > 0 ? ser.size() - 1 : 0);
 
             if (lower.uint64() < high_water_mark.uint64()) continue;
 
@@ -57,15 +58,14 @@ public:
                                           : std::move(index_data.series[i]);
 
             if (generate_synthetic) {
-                auto now = telem::TimeStamp::now();
+                const auto now = telem::TimeStamp::now();
                 for (size_t j = 0; j < ser.size(); j++)
                     time_series.write(
                         telem::TimeStamp(now.nanoseconds() + static_cast<int64_t>(j))
                     );
                 time_series.alignment = ser.alignment;
-            } else if (time_series.alignment != ser.alignment) {
+            } else if (time_series.alignment != ser.alignment)
                 return xerrors::NIL;
-            }
 
             state.output(0) = xmemory::make_local_shared<telem::Series>(
                 ser.deep_copy()
