@@ -18,39 +18,44 @@ export const modeZ = z.enum(MODES);
 export type Mode = z.infer<typeof modeZ>;
 
 export const buttonStateZ = z.object({
-  trigger: z.number(),
   sink: telem.booleanSinkSpecZ.default(telem.noopBooleanSinkSpec),
   mode: modeZ.default("fire"),
 });
 
+export const buttonMethodsZ = {
+  onMouseDown: z.function({ input: z.tuple([]), output: z.void() }),
+  onMouseUp: z.function({ input: z.tuple([]), output: z.void() }),
+};
+
 interface InternalState {
   sink: telem.BooleanSink;
-  prevTrigger: number;
 }
 
-export const MOUSE_DOWN_INCREMENT = 2;
-export const MOUSE_UP_INCREMENT = 1;
-
-export class Button extends aether.Leaf<typeof buttonStateZ, InternalState> {
+export class Button
+  extends aether.Leaf<typeof buttonStateZ, InternalState, typeof buttonMethodsZ>
+  implements aether.HandlersFromSchema<typeof buttonMethodsZ>
+{
   static readonly TYPE = "Button";
+  static readonly METHODS = buttonMethodsZ;
 
   schema = buttonStateZ;
+  methods = buttonMethodsZ;
 
   afterUpdate(ctx: aether.Context): void {
-    const { sink: sinkProps, mode, trigger } = this.state;
-    const { internal: i } = this;
-    i.prevTrigger ??= trigger;
-    i.sink = telem.useSink(ctx, sinkProps, i.sink);
-    const prevTrigger = i.prevTrigger;
-    i.prevTrigger = trigger;
-    const isMouseDown = trigger === prevTrigger + MOUSE_DOWN_INCREMENT;
-    const isMouseUp = trigger === prevTrigger + MOUSE_UP_INCREMENT;
-    if (isMouseUp) {
-      if (mode == "fire") this.internal.sink.set(true);
-      else if (mode == "momentary") this.internal.sink.set(false);
-    } else if (isMouseDown)
-      if (mode == "momentary") this.internal.sink.set(true);
-      else if (mode == "pulse") this.internal.sink.set(true, false);
+    const { sink: sinkProps } = this.state;
+    this.internal.sink = telem.useSink(ctx, sinkProps, this.internal.sink);
+  }
+
+  onMouseDown(): void {
+    const { mode } = this.state;
+    if (mode === "momentary") this.internal.sink.set(true);
+    else if (mode === "pulse") this.internal.sink.set(true, false);
+  }
+
+  onMouseUp(): void {
+    const { mode } = this.state;
+    if (mode === "fire") this.internal.sink.set(true);
+    else if (mode === "momentary") this.internal.sink.set(false);
   }
 
   afterDelete(): void {

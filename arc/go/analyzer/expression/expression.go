@@ -280,8 +280,7 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 		// This must be checked even for type variables since the unit is known at parse time
 		// Note: Power operations (^) are handled separately in analyzePower via ValidatePowerOp.
 		if firstType.Unit != nil || nextType.Unit != nil {
-			if err := units.ValidateBinaryOp(opName, firstType, nextType); err != nil {
-				ctx.Diagnostics.AddError(err, ctx.AST)
+			if !units.ValidateBinaryOp(ctx, opName, firstType, nextType) {
 				return false
 			}
 		}

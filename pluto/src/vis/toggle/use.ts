@@ -23,40 +23,24 @@ export interface UseProps extends Pick<
 
 export interface UseReturn extends Pick<
   z.infer<typeof toggle.toggleStateZ>,
-  "triggered" | "enabled"
+  "enabled"
 > {
   toggle: () => void;
 }
 
 export const use = ({ aetherKey, source, sink }: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqual({ source, sink });
-  const [, { triggered, enabled }, setState] = Aether.use({
+  const [, { enabled }, setState, methods] = Aether.use({
     aetherKey,
     type: toggle.Toggle.TYPE,
     schema: toggle.toggleStateZ,
-    initialState: {
-      triggered: false,
-      enabled: false,
-      ...memoProps,
-    },
+    methods: toggle.toggleMethodsZ,
+    initialState: { enabled: false, ...memoProps },
   });
-
   useEffect(() => {
     setState((state) => ({ ...state, ...memoProps }));
   }, [memoProps, setState]);
-
-  const handleToggle = useCallback(
-    () =>
-      setState((state) => ({
-        ...state,
-        triggered: !state.triggered,
-      })),
-    [setState],
-  );
-
-  return {
-    toggle: handleToggle,
-    triggered,
-    enabled,
-  };
+  // Wrap to prevent React event from being passed as argument
+  const handleToggle = useCallback(() => methods.toggle(), [methods.toggle]);
+  return { toggle: handleToggle, enabled };
 };

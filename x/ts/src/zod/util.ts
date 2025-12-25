@@ -8,9 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import { type z } from "zod";
+import {
+  type $ZodFunction,
+  type $ZodFunctionIn,
+  type $ZodFunctionOut,
+} from "zod/v4/core";
 
 import { deep } from "@/deep";
 import { type record } from "@/record";
+
+export const functionOutput = <
+  In extends $ZodFunctionIn,
+  Out extends $ZodFunctionOut,
+  Func extends $ZodFunction<In, Out>,
+>(
+  schema: $ZodFunction<In, Out>,
+): Func["_zod"]["def"]["output"] => schema._zod.def.output;
 
 export const getFieldSchemaPath = (path: string): string =>
   deep.transformPath(path, (part, index, parts) => {
