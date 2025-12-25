@@ -319,9 +319,7 @@ public:
                 xerrors::Error(xerrors::VALIDATION, "export is not a function")
             };
 
-        const auto func_it = this->cfg.module.find_function(name);
-        if (func_it == this->cfg.module.functions.end())
-            return {zero_func, xerrors::NOT_FOUND};
+        const auto &func = this->cfg.module.function(name);
 
         uint32_t base = 0;
         if (const auto base_it = this->cfg.module.output_memory_bases.find(name);
@@ -330,7 +328,7 @@ public:
         }
 
         return {
-            Function(*this, *func_ptr, func_it->outputs, func_it->inputs, base),
+            Function(*this, *func_ptr, func.outputs, func.inputs, base),
             xerrors::NIL
         };
     }

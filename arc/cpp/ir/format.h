@@ -15,6 +15,8 @@
 #include <string>
 #include <vector>
 
+#include "x/cpp/telem/telem.h"
+
 namespace arc::ir {
 /// @brief Returns the tree prefix for a tree item.
 /// @param last If true, returns "└── ", otherwise "├── ".
@@ -38,7 +40,7 @@ std::string format_params(const Params &params) {
         if (!first) ss << ", ";
         first = false;
         ss << p.name << " (" << p.type.to_string() << ")";
-        if (!p.value.is_null()) ss << " = " << p.value.dump();
+        if (p.value.has_value()) ss << " = " << telem::to_string(*p.value);
     }
     return ss.str();
 }

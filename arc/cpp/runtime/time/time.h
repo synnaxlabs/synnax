@@ -25,7 +25,7 @@ struct IntervalConfig {
     telem::TimeSpan interval;
 
     explicit IntervalConfig(const ir::Params &params) {
-        auto interval_ns = params.get("period")->value.get<std::int64_t>();
+        auto interval_ns = params["period"].get<std::int64_t>();
         this->interval = telem::TimeSpan(interval_ns);
     }
 };
@@ -61,7 +61,7 @@ struct WaitConfig {
     telem::TimeSpan duration;
 
     explicit WaitConfig(const ir::Params &params) {
-        auto duration_ns = params.get("duration")->value.get<std::int64_t>();
+        auto duration_ns = params["duration"].get<std::int64_t>();
         this->duration = telem::TimeSpan(duration_ns);
     }
 };

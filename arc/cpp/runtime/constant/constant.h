@@ -26,44 +26,25 @@ namespace arc::runtime::constant {
 /// After the initial output, it does nothing on subsequent Next() calls.
 class Constant : public node::Node {
     state::Node state;
-    nlohmann::json value;
-    telem::DataType data_type;
+    telem::SampleValue value;
     bool initialized = false;
 
 public:
-    Constant(state::Node state, nlohmann::json value, const telem::DataType &data_type):
-        state(std::move(state)), value(std::move(value)), data_type(data_type) {}
+    Constant(
+        state::Node state,
+        const telem::SampleValue &value,
+        const telem::DataType &data_type
+    ):
+        state(std::move(state)), value(data_type.cast(value)) {}
 
     xerrors::Error next(node::Context &ctx) override {
         if (this->initialized) return xerrors::NIL;
         this->initialized = true;
         const auto &o = state.output(0);
         const auto &o_time = state.output_time(0);
-
         o->resize(1);
         o_time->resize(1);
-
-        if (data_type == telem::INT64_T)
-            o->set(0, value.get<int64_t>());
-        else if (data_type == telem::INT32_T)
-            o->set(0, value.get<int32_t>());
-        else if (data_type == telem::INT16_T)
-            o->set(0, value.get<int16_t>());
-        else if (data_type == telem::INT8_T)
-            o->set(0, value.get<int8_t>());
-        else if (data_type == telem::UINT64_T)
-            o->set(0, value.get<uint64_t>());
-        else if (data_type == telem::UINT32_T)
-            o->set(0, value.get<uint32_t>());
-        else if (data_type == telem::UINT16_T)
-            o->set(0, value.get<uint16_t>());
-        else if (data_type == telem::UINT8_T)
-            o->set(0, value.get<uint8_t>());
-        else if (data_type == telem::FLOAT64_T)
-            o->set(0, value.get<double>());
-        else if (data_type == telem::FLOAT32_T)
-            o->set(0, value.get<float>());
-
+        o->set(0, this->value);
         o_time->set(0, telem::TimeStamp::now());
         ctx.mark_changed(ir::default_output_param);
         return xerrors::NIL;
@@ -83,17 +64,12 @@ public:
     create(const node::Config &cfg) override {
         if (cfg.node.type != "constant") return {nullptr, xerrors::NOT_FOUND};
 
-        const auto value_param = cfg.node.config.get("value");
-        if (value_param == nullptr)
-            return {nullptr, xerrors::Error("constant node missing value config")};
-
-        if (cfg.node.outputs.empty())
-            return {nullptr, xerrors::Error("constant node missing output definition")};
-
+        const auto &param = cfg.node.config["value"];
+        assert(param.value.has_value() && "Constant node requires a value");
         auto data_type = cfg.node.outputs[0].type.telem();
 
         return {
-            std::make_unique<Constant>(cfg.state, value_param->value, data_type),
+            std::make_unique<Constant>(cfg.state, *param.value, data_type),
             xerrors::NIL
         };
     }

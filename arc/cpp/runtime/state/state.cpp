@@ -123,10 +123,7 @@ State::State(const Config &cfg): cfg(cfg) {
 }
 
 std::pair<Node, xerrors::Error> State::node(const std::string &key) {
-    auto ir_node_iter = this->cfg.ir.find_node(key);
-    if (ir_node_iter == this->cfg.ir.nodes.end()) return {Node(), xerrors::NOT_FOUND};
-    const auto ir_node = *ir_node_iter;
-
+    const auto &ir_node = this->cfg.ir.node(key);
     const size_t num_inputs = ir_node.inputs.size();
     std::vector<ir::Edge> inputs(num_inputs);
     std::vector<Series> aligned_data(num_inputs);
@@ -143,11 +140,11 @@ std::pair<Node, xerrors::Error> State::node(const std::string &key) {
     for (size_t i = 0; i < num_inputs; i++) {
         const auto &param = ir_node.inputs[i];
         ir::Handle target_handle(key, param.name);
-        auto edge_iter = cfg.ir.find_edge_by_target(target_handle);
+        auto edge = cfg.ir.edge_to(target_handle);
 
-        if (edge_iter != cfg.ir.edges.end()) {
-            inputs[i] = *edge_iter;
-            const auto &source_handle = edge_iter->source;
+        if (edge) {
+            inputs[i] = *edge;
+            const auto &source_handle = edge->source;
 
             auto source_output_iter = outputs.find(source_handle);
             if (source_output_iter != outputs.end()) {

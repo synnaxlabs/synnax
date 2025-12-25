@@ -123,16 +123,9 @@ public:
     create(const node::Config &cfg) override {
         if (cfg.node.type != "on" && cfg.node.type != "write")
             return {nullptr, xerrors::NOT_FOUND};
-
-        auto channel_param = cfg.node.config.get("channel");
-        if (channel_param == nullptr)
-            return {nullptr, xerrors::Error("telem node missing channel config")};
-
-        auto channel_key = channel_param->value.get<types::ChannelKey>();
-
-        if (cfg.node.type == "on") {
+        auto channel_key = cfg.node.config["channel"].get<types::ChannelKey>();
+        if (cfg.node.type == "on")
             return {std::make_unique<On>(cfg.state, channel_key), xerrors::NIL};
-        }
         return {std::make_unique<Write>(cfg.state, channel_key), xerrors::NIL};
     }
 };

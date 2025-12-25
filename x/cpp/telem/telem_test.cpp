@@ -844,4 +844,102 @@ TEST(ToStringTests, testEmptyString) {
     const SampleValue value = std::string("");
     ASSERT_EQ(to_string(value), "");
 }
+
+////////////////////////////////////////////////////////////
+// Protobuf Conversion Tests
+////////////////////////////////////////////////////////////
+
+/// @brief it should convert a protobuf number value to SampleValue.
+TEST(ProtoConversionTests, testFromProtoNumber) {
+    google::protobuf::Value pb;
+    pb.set_number_value(42.5);
+    const SampleValue sv = from_proto(pb);
+    ASSERT_DOUBLE_EQ(std::get<double>(sv), 42.5);
+}
+
+/// @brief it should convert a protobuf string value to SampleValue.
+TEST(ProtoConversionTests, testFromProtoString) {
+    google::protobuf::Value pb;
+    pb.set_string_value("hello");
+    const SampleValue sv = from_proto(pb);
+    ASSERT_EQ(std::get<std::string>(sv), "hello");
+}
+
+/// @brief it should convert a protobuf bool true to uint8_t 1.
+TEST(ProtoConversionTests, testFromProtoBoolTrue) {
+    google::protobuf::Value pb;
+    pb.set_bool_value(true);
+    const SampleValue sv = from_proto(pb);
+    ASSERT_EQ(std::get<uint8_t>(sv), 1);
+}
+
+/// @brief it should convert a protobuf bool false to uint8_t 0.
+TEST(ProtoConversionTests, testFromProtoBoolFalse) {
+    google::protobuf::Value pb;
+    pb.set_bool_value(false);
+    const SampleValue sv = from_proto(pb);
+    ASSERT_EQ(std::get<uint8_t>(sv), 0);
+}
+
+/// @brief it should convert a protobuf null value to default double 0.
+TEST(ProtoConversionTests, testFromProtoNull) {
+    google::protobuf::Value pb;
+    pb.set_null_value(google::protobuf::NULL_VALUE);
+    const SampleValue sv = from_proto(pb);
+    ASSERT_DOUBLE_EQ(std::get<double>(sv), 0.0);
+}
+
+/// @brief it should convert a double SampleValue to protobuf.
+TEST(ProtoConversionTests, testToProtoDouble) {
+    const SampleValue sv = 123.456;
+    google::protobuf::Value pb;
+    to_proto(sv, &pb);
+    ASSERT_EQ(pb.kind_case(), google::protobuf::Value::kNumberValue);
+    ASSERT_DOUBLE_EQ(pb.number_value(), 123.456);
+}
+
+/// @brief it should convert an int64 SampleValue to protobuf.
+TEST(ProtoConversionTests, testToProtoInt64) {
+    const SampleValue sv = static_cast<int64_t>(9876543210);
+    google::protobuf::Value pb;
+    to_proto(sv, &pb);
+    ASSERT_EQ(pb.kind_case(), google::protobuf::Value::kNumberValue);
+    ASSERT_DOUBLE_EQ(pb.number_value(), 9876543210.0);
+}
+
+/// @brief it should convert a string SampleValue to protobuf.
+TEST(ProtoConversionTests, testToProtoString) {
+    const SampleValue sv = std::string("world");
+    google::protobuf::Value pb;
+    to_proto(sv, &pb);
+    ASSERT_EQ(pb.kind_case(), google::protobuf::Value::kStringValue);
+    ASSERT_EQ(pb.string_value(), "world");
+}
+
+/// @brief it should convert a TimeStamp SampleValue to protobuf.
+TEST(ProtoConversionTests, testToProtoTimeStamp) {
+    const SampleValue sv = TimeStamp(1234567890);
+    google::protobuf::Value pb;
+    to_proto(sv, &pb);
+    ASSERT_EQ(pb.kind_case(), google::protobuf::Value::kNumberValue);
+    ASSERT_DOUBLE_EQ(pb.number_value(), 1234567890.0);
+}
+
+/// @brief it should round-trip a double through protobuf.
+TEST(ProtoConversionTests, testRoundTripDouble) {
+    const SampleValue original = 99.99;
+    google::protobuf::Value pb;
+    to_proto(original, &pb);
+    const SampleValue result = from_proto(pb);
+    ASSERT_DOUBLE_EQ(std::get<double>(result), 99.99);
+}
+
+/// @brief it should round-trip a string through protobuf.
+TEST(ProtoConversionTests, testRoundTripString) {
+    const SampleValue original = std::string("test string");
+    google::protobuf::Value pb;
+    to_proto(original, &pb);
+    const SampleValue result = from_proto(pb);
+    ASSERT_EQ(std::get<std::string>(result), "test string");
+}
 }

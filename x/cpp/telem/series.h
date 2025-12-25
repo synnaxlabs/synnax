@@ -1128,7 +1128,9 @@ public:
         if constexpr (std::is_integral_v<T>) {
             return apply_scalar_op(scalar, std::modulus<T>());
         } else {
-            return apply_scalar_op(scalar, [](auto a, auto b) { return std::fmod(a, b); });
+            return apply_scalar_op(scalar, [](auto a, auto b) {
+                return std::fmod(a, b);
+            });
         }
     }
 
@@ -1163,9 +1165,9 @@ public:
         if constexpr (std::is_integral_v<T>) {
             return s.apply_reverse_scalar_op(scalar, std::modulus<T>());
         } else {
-            return s.apply_reverse_scalar_op(
-                scalar, [](auto a, auto b) { return std::fmod(a, b); }
-            );
+            return s.apply_reverse_scalar_op(scalar, [](auto a, auto b) {
+                return std::fmod(a, b);
+            });
         }
     }
 
