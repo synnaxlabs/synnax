@@ -51,5 +51,7 @@ Factory::configure_initial_tasks(
     return {};
 }
 
-std::string Factory::name() { return INTEGRATION_NAME; }
+std::string Factory::name() {
+    return INTEGRATION_NAME;
+}
 }

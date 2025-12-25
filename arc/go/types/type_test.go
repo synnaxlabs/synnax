@@ -10,6 +10,8 @@
 package types_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/types"
@@ -304,6 +306,62 @@ var _ = Describe("Types", func() {
 					Expect(t.IsFloat()).To(BeFalse())
 				},
 				Entry("I32", types.I32()),
+				Entry("String", types.String()),
+			)
+		})
+
+		Describe("IntegerMaxValue", func() {
+			DescribeTable("Should return correct max value for integer types",
+				func(t types.Type, expected int64) {
+					Expect(t.IntegerMaxValue()).To(Equal(expected))
+				},
+				Entry("I8", types.I8(), int64(math.MaxInt8)),
+				Entry("I16", types.I16(), int64(math.MaxInt16)),
+				Entry("I32", types.I32(), int64(math.MaxInt32)),
+				Entry("I64", types.I64(), int64(math.MaxInt64)),
+				Entry("U8", types.U8(), int64(math.MaxUint8)),
+				Entry("U16", types.U16(), int64(math.MaxUint16)),
+				Entry("U32", types.U32(), int64(math.MaxUint32)),
+				Entry("U64", types.U64(), int64(math.MaxInt64)), // Uses MaxInt64 for comparison safety
+			)
+
+			DescribeTable("Should panic for non-integer types",
+				func(t types.Type) {
+					Expect(func() { t.IntegerMaxValue() }).To(Panic())
+				},
+				Entry("F32", types.F32()),
+				Entry("F64", types.F64()),
+				Entry("String", types.String()),
+			)
+		})
+
+		Describe("IntegerMinValue", func() {
+			DescribeTable("Should return correct min value for signed integer types",
+				func(t types.Type, expected int64) {
+					Expect(t.IntegerMinValue()).To(Equal(expected))
+				},
+				Entry("I8", types.I8(), int64(math.MinInt8)),
+				Entry("I16", types.I16(), int64(math.MinInt16)),
+				Entry("I32", types.I32(), int64(math.MinInt32)),
+				Entry("I64", types.I64(), int64(math.MinInt64)),
+			)
+
+			DescribeTable("Should return 0 for unsigned integer types",
+				func(t types.Type) {
+					Expect(t.IntegerMinValue()).To(Equal(int64(0)))
+				},
+				Entry("U8", types.U8()),
+				Entry("U16", types.U16()),
+				Entry("U32", types.U32()),
+				Entry("U64", types.U64()),
+			)
+
+			DescribeTable("Should panic for non-integer types",
+				func(t types.Type) {
+					Expect(func() { t.IntegerMinValue() }).To(Panic())
+				},
+				Entry("F32", types.F32()),
+				Entry("F64", types.F64()),
 				Entry("String", types.String()),
 			)
 		})
