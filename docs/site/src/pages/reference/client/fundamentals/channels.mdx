@@ -44,10 +44,13 @@ If you're unfamiliar with what channels are and how they work, check out the
     is_index=True,
   )
 
-my_sensor = client.channels.create( name="my_sensor", data_type=sy.DataType.FLOAT32,
-index=time_index_channel.key, )
+  my_sensor = client.channels.create(
+    name="my_sensor",
+    data_type=sy.DataType.FLOAT32,
+    index=time_index_channel.key,
+  )
 
-````
+```
 </Fragment>
 
 <Fragment slot="typescript">
@@ -63,7 +66,7 @@ const tempChannel = await client.channels.create({
   dataType: DataType.FLOAT32,
   index: timeIndexChannel.key,
 });
-````
+```
 
 </Fragment>
 
@@ -103,15 +106,15 @@ flag.
         name: "time",
         dataType: DataType.TIMESTAMP,
         isIndex: true,
-        retrieve_if_name_exists: true,
+        retrieveIfNameExists: true,
       });
 
       const tempChannel = await client.channels.create({
         name: "my_temp_sensor",
         dataType: DataType.FLOAT32,
         index: timeIndexChannel.key,
-        retrieve_if_name_exists: true,
-    });
+        retrieveIfNameExists: true,
+      });
 
 ````
 </Fragment>
@@ -120,11 +123,11 @@ flag.
 
 
 ### Creating Multiple Channels
-Mutliple channels can be created in a single call using the `create` method. This is
+Multiple channels can be created in a single call using the `create` method. This is
 more efficient than creating channels individually, and provides the atomic guarantee that
 either all or no channels will be created.
 
-Keep in mind that the index channel(s) must be still be creeated first.
+Keep in mind that the index channel(s) must still be created first.
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
@@ -199,14 +202,10 @@ data_channels = client.channels.create(
       index: timeIndexChannel.key,
     });
 
-    const sensors = await client.channels.create({
-      [
-        sensorOne,
-        sensorTwo,
-        sensorThree
-      ],
-      retrieve_if_name_exists:True,  // Optional
-    });
+    const sensors = await client.channels.create(
+      [sensorOne, sensorTwo, sensorThree],
+      true, // retrieveIfNameExists (optional)
+    );
     ```
 
   </Fragment>
@@ -287,8 +286,8 @@ multiple results, provide a list to the `retrieve` method as shown in the next s
     ```typescript
     // Method 1: By key
     const channels = await client.channels.retrieve([
-      sensor_one.key,
-      sensors_two.key,
+      sensorOne.key,
+      sensorTwo.key,
     ]);
 
     // Method 2: By name
@@ -332,7 +331,7 @@ list to the `retrieve` method, otherwise the client will raise a `MultipleFoundE
 
 ## Renaming Channels
 
-Renam channels using the `channels.rename` method. Currently, renaming must be done by
+Rename channels using the `channels.rename` method. Currently, renaming must be done by
 key from the client or by calling the rename on an existing channel object.
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
@@ -363,7 +362,7 @@ client.channels.rename([channel_one.key, channel_two.key], ["name_one", "name_tw
 
 ## Deleting Channels
 
-To delete a channel, we use the `channels.delete` method.
+To delete a channel, use the `channels.delete` method.
 
 <Note.Note variant="warning" className="compact">
   Deleting a channel will also delete all of the data stored for that channel in a
@@ -411,3 +410,9 @@ channel matching the key or name. This means that `delete` is an idempotent oper
 and is safe to call even if the channel has already been deleted.
 
 Deleting a channel by name will delete **all** channels with that name.
+
+
+## Aliasing Channels
+
+Channels can be aliased to give them a more descriptive name for a specific test or operation.
+Aliasing is a feature of ranges, and is covered in [Ranges - Working with Channels](/reference/client/working-with-data/ranges#working-with-channels).

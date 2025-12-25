@@ -15,7 +15,7 @@ unified client documentation structure.
 │   └── write-data.mdx                  ✅ Complete
 ├── working-with-data/
 │   ├── series-and-frames.mdx           ✅ Complete
-│   ├── ranges.mdx                      🔄 In Progress
+│   ├── ranges.mdx                      ✅ Complete
 │   ├── streaming-data.mdx              🔄 In Progress
 │   └── iterators.mdx                   🔄 In Progress
 ├── advanced/
@@ -47,7 +47,7 @@ unified client documentation structure.
 
 - [x] Create all shell pages
 - [x] Series & Frames
-- [🔄] Ranges (content transferred, needs cleanup)
+- [x] Ranges (content transferred, needs cleanup)
 - [🔄] Streaming Data (content transferred, needs cleanup)
 - [🔄] Iterators (content transferred, needs cleanup)
 
@@ -77,7 +77,7 @@ unified client documentation structure.
 | ----------------- | -------- | ----------------- |
 | Get Started       | 2        | ✅ Complete       |
 | Fundamentals      | 3        | ✅ Complete       |
-| Working with Data | 4        | 🔄 3 in progress  |
+| Working with Data | 4        | 🔄 2 in progress  |
 | Advanced Topics   | 3        | 🔄 3 in progress  |
 | Resources         | 3        | 🔄 3 in progress  |
 | **TOTAL**         | **15**   | **6 complete, 9 in progress** |
