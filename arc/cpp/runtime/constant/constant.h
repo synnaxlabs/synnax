@@ -30,7 +30,7 @@ class Constant : public node::Node {
 
 public:
     Constant(
-        state::Node state,
+        state::Node &&state,
         const telem::SampleValue &value,
         const telem::DataType &data_type
     ):
@@ -58,14 +58,18 @@ public:
 
 class Factory : public node::Factory {
 public:
+    bool handles(const std::string &node_type) const override {
+        return node_type == "constant";
+    }
+
     std::pair<std::unique_ptr<node::Node>, xerrors::Error>
-    create(const node::Config &cfg) override {
-        if (cfg.node.type != "constant") return {nullptr, xerrors::NOT_FOUND};
+    create(node::Config &&cfg) override {
+        if (!this->handles(cfg.node.type)) return {nullptr, xerrors::NOT_FOUND};
         const auto &param = cfg.node.config["value"];
         assert(param.value.has_value() && "constant node requires a value");
         auto data_type = cfg.node.outputs[0].type.telem();
         return {
-            std::make_unique<Constant>(cfg.state, *param.value, data_type),
+            std::make_unique<Constant>(std::move(cfg.state), *param.value, data_type),
             xerrors::NIL
         };
     }

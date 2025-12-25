@@ -9,11 +9,12 @@ cc_library(
     ],
     visibility = ["//arc/cpp/runtime:__subpackages__"],
     deps = [
-        "//arc/cpp/runtime/errors",
         "//arc/cpp/ir",
         "//arc/cpp/module",
+        "//arc/cpp/runtime/errors",
+        "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
-        "//vendor/wasmtime",  # Changed from WAMR to Wasmtime
+        "//vendor/wasmtime",
         "//x/cpp/telem",
         "//x/cpp/xerrors",
     ],
@@ -25,6 +26,34 @@ cc_test(
     deps = [
         ":wasm",
         "//x/cpp/telem",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "module_test",
+    srcs = ["module_test.cpp"],
+    deps = [
+        ":wasm",
+        "//client/cpp:synnax",
+        "//client/cpp/testutil",
+        "//x/cpp/telem",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "node_test",
+    srcs = ["node_test.cpp"],
+    deps = [
+        ":wasm",
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/state",
+        "//client/cpp:synnax",
+        "//client/cpp/testutil",
+        "//x/cpp/telem",
+        "//x/cpp/xtest",
         "@googletest//:gtest_main",
     ],
 )

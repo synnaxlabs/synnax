@@ -45,87 +45,73 @@ class State;
 
 class Node {
     friend class State;
-    /// Non-owning reference to parent State for channel I/O. Always valid after
-    /// construction via State::node(). Null only in error-return case.
-    State *state_ptr = nullptr;
+    State &state;
     std::vector<ir::Edge> inputs;
     std::vector<ir::Handle> outputs;
+    std::vector<size_t> input_source_idx;
+    std::vector<size_t> output_idx;
+    std::unordered_map<std::string, size_t> output_name_idx;
 
     struct InputEntry {
+        size_t source;
         Series data;
         Series time;
-        telem::TimeStamp last_timestamp;
-        bool consumed;
-
-        InputEntry(): last_timestamp(0), consumed(false) {}
+        telem::TimeStamp last_timestamp{0};
+        bool consumed{true};
     };
 
     std::vector<InputEntry> accumulated;
     std::vector<Series> aligned_data;
     std::vector<Series> aligned_time;
-    std::vector<Value *> input_sources;
-    std::vector<Value *> output_cache;
-    Node() = default;
 
     Node(
-        State *state_ptr,
+        State &state,
         std::vector<ir::Edge> inputs,
         std::vector<ir::Handle> outputs,
+        std::vector<size_t> input_source_idx,
+        std::vector<size_t> output_idx,
+        std::unordered_map<std::string, size_t> output_name_idx,
         std::vector<InputEntry> accumulated,
         std::vector<Series> aligned_data,
-        std::vector<Series> aligned_time,
-        std::vector<Value *> input_sources,
-        std::vector<Value *> output_cache
+        std::vector<Series> aligned_time
     ):
-        state_ptr(state_ptr),
+        state(state),
         inputs(std::move(inputs)),
         outputs(std::move(outputs)),
+        input_source_idx(std::move(input_source_idx)),
+        output_idx(std::move(output_idx)),
+        output_name_idx(std::move(output_name_idx)),
         accumulated(std::move(accumulated)),
         aligned_data(std::move(aligned_data)),
-        aligned_time(std::move(aligned_time)),
-        input_sources(std::move(input_sources)),
-        output_cache(std::move(output_cache)) {}
+        aligned_time(std::move(aligned_time)) {}
 
 public:
+    Node(const Node &) = delete;
+    Node &operator=(const Node &) = delete;
+    Node &operator=(Node &&) = delete;
+    Node(Node &&) noexcept = default;
+
     bool refresh_inputs();
 
     [[nodiscard]] const Series &input(const size_t param_index) const {
         return this->aligned_data[param_index];
     }
 
-    [[nodiscard]] const Series &input_time(const size_t param_index) const {
-        return this->aligned_time[param_index];
-    }
+    [[nodiscard]] const Series &input_time(size_t param_index) const;
 
-    [[nodiscard]] Series &output(const size_t param_index) const {
-        return this->output_cache[param_index]->data;
-    }
-
-    [[nodiscard]] Series &output_time(const size_t param_index) const {
-        return this->output_cache[param_index]->time;
-    }
+    [[nodiscard]] Series &output(size_t param_index) const;
+    [[nodiscard]] Series &output_time(size_t param_index) const;
 
     /// Reads buffered data and time series from a channel. Returns (data, index_data,
     /// ok). If the channel has an associated index, both data and time are returned.
     std::tuple<telem::MultiSeries, telem::MultiSeries, bool>
-    read_chan(types::ChannelKey key);
+    read_chan(types::ChannelKey key) const;
 
     /// Writes data and time series to a channel buffer.
-    void write_chan(types::ChannelKey key, const Series &data, const Series &time);
+    void
+    write_chan(types::ChannelKey key, const Series &data, const Series &time) const;
 
-    /// @brief Checks if the output at the given param name is truthy.
-    /// Returns false if the param doesn't exist, if the output is empty,
-    /// or if the last element is zero. Returns true otherwise.
-    [[nodiscard]] bool is_output_truthy(const std::string &param_name) const {
-        for (size_t i = 0; i < this->outputs.size(); ++i) {
-            if (this->outputs[i].param == param_name) {
-                const auto *series = this->output_cache[i]->data.get();
-                if (series == nullptr) return false;
-                return this->is_series_truthy(*series);
-            }
-        }
-        return false;
-    }
+    [[nodiscard]] bool is_output_truthy(const std::string &param_name) const;
 
     /// @brief Checks if a series is truthy by examining its last element.
     /// Empty series are falsy. A series with a last element of zero is falsy.
@@ -147,9 +133,9 @@ public:
 
 class State {
     friend class Node;
-
     Config cfg;
-    std::unordered_map<ir::Handle, Value> outputs;
+    std::vector<Value> values;
+    std::unordered_map<ir::Handle, size_t> value_index;
     std::unordered_map<types::ChannelKey, types::ChannelKey> indexes;
     std::unordered_map<types::ChannelKey, std::vector<Series>> reads;
     std::unordered_map<types::ChannelKey, Series> writes;
@@ -159,13 +145,9 @@ class State {
 
 public:
     explicit State(const Config &cfg);
-
     std::pair<Node, xerrors::Error> node(const std::string &key);
-
     void ingest(const telem::Frame &frame);
-
     std::vector<std::pair<types::ChannelKey, Series>> flush_writes();
-
     void clear_reads();
 };
 }

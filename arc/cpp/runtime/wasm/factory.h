@@ -19,11 +19,18 @@ class Factory : public node::Factory {
 public:
     explicit Factory(std::shared_ptr<Module> &mod): mod(mod) {}
 
+    bool handles(const std::string &node_type) const override {
+        return this->mod->has_func(node_type);
+    }
+
     std::pair<std::unique_ptr<node::Node>, xerrors::Error>
-    create(const node::Config &cfg) override {
-        auto [func, err] = mod->func(cfg.node.type);
+    create(node::Config &&cfg) override {
+        auto [func, err] = this->mod->func(cfg.node.type);
         if (err) return {nullptr, err};
-        return {std::make_unique<Node>(cfg.node, cfg.state, func), xerrors::NIL};
+        return {
+            std::make_unique<Node>(cfg.node, std::move(cfg.state), func),
+            xerrors::NIL
+        };
     }
 };
 }

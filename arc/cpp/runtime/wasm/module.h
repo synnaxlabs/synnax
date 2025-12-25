@@ -26,8 +26,8 @@ namespace arc::runtime::wasm {
 /// Convert SampleValue to wasmtime::Val for WASM function calls
 inline wasmtime::Val sample_to_wasm(const telem::SampleValue &val) {
     return std::visit(
-        [](auto &&arg) -> wasmtime::Val {
-            using T = std::decay_t<decltype(arg)>;
+        []<typename T0>(T0 &&arg) -> wasmtime::Val {
+            using T = std::decay_t<T0>;
             if constexpr (std::is_same_v<T, double>) {
                 return wasmtime::Val(arg);
             } else if constexpr (std::is_same_v<T, float>) {
@@ -41,7 +41,7 @@ inline wasmtime::Val sample_to_wasm(const telem::SampleValue &val) {
             } else if constexpr (std::is_same_v<T, std::string>) {
                 // Strings are passed as handles (uint32_t) which should already be
                 // converted
-                return wasmtime::Val(static_cast<int32_t>(0));
+                return wasmtime::Val(0);
             } else {
                 // int32_t, int16_t, int8_t, uint32_t, uint16_t, uint8_t
                 return wasmtime::Val(static_cast<int32_t>(arg));
@@ -79,7 +79,7 @@ sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
         case types::Kind::F64:
             return telem::SampleValue(val.f64());
         default:
-            return telem::SampleValue(static_cast<int32_t>(0));
+            return telem::SampleValue(0);
     }
 }
 
@@ -122,7 +122,7 @@ sample_from_bits(const uint64_t bits, const types::Type &type) {
     }
 }
 
-const auto BASE_ERROR = runtime::errors::BASE.sub("wasm");
+const auto BASE_ERROR = errors::BASE.sub("wasm");
 const auto INITIALIZATION_ERROR = BASE_ERROR.sub("initialization");
 
 struct ModuleConfig {
@@ -306,9 +306,14 @@ public:
         }
     };
 
+    [[nodiscard]] bool has_func(const std::string &name) const {
+        const auto export_opt = this->instance.get(this->store, name);
+        if (!export_opt) return false;
+        return std::get_if<wasmtime::Func>(&*export_opt) != nullptr;
+    }
+
     std::pair<Function, xerrors::Error> func(const std::string &name) {
-        // Use C++ API to lookup export by name
-        const auto export_opt = instance.get(store, name);
+        const auto export_opt = this->instance.get(this->store, name);
         const Function zero_func(*this, wasmtime::Func({}), {}, {}, 0);
         if (!export_opt) return {zero_func, xerrors::NOT_FOUND};
 

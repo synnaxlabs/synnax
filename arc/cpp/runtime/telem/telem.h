@@ -31,7 +31,7 @@ class On : public node::Node {
     telem::Alignment high_water_mark{0};
 
 public:
-    On(state::Node state, types::ChannelKey channel_key):
+    On(state::Node &&state, types::ChannelKey channel_key):
         state(std::move(state)), channel_key(channel_key) {}
 
     xerrors::Error next(node::Context &ctx) override {
@@ -91,7 +91,7 @@ class Write : public node::Node {
     types::ChannelKey channel_key;
 
 public:
-    Write(state::Node state, types::ChannelKey channel_key):
+    Write(state::Node &&state, types::ChannelKey channel_key):
         state(std::move(state)), channel_key(channel_key) {}
 
     xerrors::Error next(node::Context & /*ctx*/) override {
@@ -119,14 +119,23 @@ public:
 /// Factory creates On and Write nodes for "on" and "write" type nodes in the IR.
 class Factory : public node::Factory {
 public:
+    bool handles(const std::string &node_type) const override {
+        return node_type == "on" || node_type == "write";
+    }
+
     std::pair<std::unique_ptr<node::Node>, xerrors::Error>
-    create(const node::Config &cfg) override {
-        if (cfg.node.type != "on" && cfg.node.type != "write")
-            return {nullptr, xerrors::NOT_FOUND};
+    create(node::Config &&cfg) override {
+        if (!this->handles(cfg.node.type)) return {nullptr, xerrors::NOT_FOUND};
         auto channel_key = cfg.node.config["channel"].get<types::ChannelKey>();
         if (cfg.node.type == "on")
-            return {std::make_unique<On>(cfg.state, channel_key), xerrors::NIL};
-        return {std::make_unique<Write>(cfg.state, channel_key), xerrors::NIL};
+            return {
+                std::make_unique<On>(std::move(cfg.state), channel_key),
+                xerrors::NIL
+            };
+        return {
+            std::make_unique<Write>(std::move(cfg.state), channel_key),
+            xerrors::NIL
+        };
     }
 };
 

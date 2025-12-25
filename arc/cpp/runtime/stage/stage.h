@@ -40,9 +40,12 @@ public:
 /// @brief factory creates StageEntry nodes for "stage_entry" type nodes in the IR.
 class Factory : public node::Factory {
 public:
+    bool handles(const std::string &node_type) const override {
+        return node_type == "stage_entry";
+    }
+
     std::pair<std::unique_ptr<node::Node>, xerrors::Error>
-    create(const node::Config &cfg) override {
-        if (cfg.node.type != "stage_entry") return {nullptr, xerrors::NOT_FOUND};
+    create(node::Config &&cfg) override {
         return {std::make_unique<StageEntry>(), xerrors::NIL};
     }
 };
