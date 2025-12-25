@@ -272,6 +272,12 @@ public:
 
     /// @brief a zero nanosecond timespan.
     static TimeSpan ZERO() { return TimeSpan(0); }
+
+    /// @brief the maximum representable timespan.
+    static TimeSpan MAX() { return TimeSpan(std::numeric_limits<int64_t>::max()); }
+
+    /// @brief the minimum representable timespan.
+    static TimeSpan MIN() { return TimeSpan(std::numeric_limits<int64_t>::min()); }
 };
 
 /// @brief represents a 64-bit nanosecond-precision, UNIX Epoch UTC timestamp.

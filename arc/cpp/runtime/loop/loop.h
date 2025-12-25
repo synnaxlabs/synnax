@@ -12,6 +12,7 @@
 #include <memory>
 
 #include "x/cpp/breaker/breaker.h"
+#include "x/cpp/notify/notify.h"
 #include "x/cpp/xerrors/errors.h"
 
 namespace arc::runtime::loop {
@@ -50,8 +51,17 @@ struct Loop {
     virtual xerrors::Error start() = 0;
 
     virtual void stop() = 0;
+
+    /// @brief Registers an external notifier for multiplexed waiting.
+    /// When the notifier is signaled, wait() will return.
+    /// @param notifier The notifier to watch.
+    /// @return A handle for later unwatch(), or 0 if watching is not supported.
+    virtual uint64_t watch(notify::Notifier &notifier) = 0;
+
+    /// @brief Unregisters a previously watched notifier.
+    /// @param handle The handle returned by watch().
+    virtual void unwatch(uint64_t handle) = 0;
 };
 
 std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg);
-
 }

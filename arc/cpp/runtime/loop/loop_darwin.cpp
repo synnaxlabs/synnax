@@ -39,22 +39,21 @@ protected:
     std::atomic<bool> running{false};
 
     explicit BaseDarwinLoop(const Config &config): cfg(config) {
-        if (cfg.lock_memory)
+        if (this->cfg.lock_memory)
             LOG(WARNING) << "[loop] Memory locking not fully supported on macOS";
     }
 
     xerrors::Error setup_kqueue() {
-        kqueue_fd_ = kqueue();
-        if (kqueue_fd_ == -1)
+        this->kqueue_fd_ = kqueue();
+        if (this->kqueue_fd_ == -1)
             return xerrors::Error(
                 "Failed to create kqueue: " + std::string(strerror(errno))
             );
 
-        // Register user event for data notifications
         struct kevent kev;
         EV_SET(&kev, USER_EVENT_IDENT, EVFILT_USER, EV_ADD | EV_CLEAR, 0, 0, nullptr);
-        if (kevent(kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1) {
-            close(kqueue_fd_);
+        if (kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1) {
+            close(this->kqueue_fd_);
             return xerrors::Error(
                 "Failed to register user event: " + std::string(strerror(errno))
             );
@@ -64,9 +63,9 @@ protected:
     }
 
     xerrors::Error setup_timer() {
-        if (cfg.interval.nanoseconds() <= 0) return xerrors::NIL;
+        if (this->cfg.interval.nanoseconds() <= 0) return xerrors::NIL;
 
-        const uint64_t interval_ms = cfg.interval.milliseconds();
+        const uint64_t interval_ms = this->cfg.interval.milliseconds();
         if (interval_ms == 0)
             LOG(WARNING) << "[loop] Interval too small for kqueue timer "
                          << "(<1ms), using 1ms";
@@ -81,25 +80,21 @@ protected:
             interval_ms > 0 ? interval_ms : 1,
             nullptr
         );
-        if (kevent(kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1)
+        if (kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1)
             return xerrors::Error(
                 "Failed to register timer event: " + std::string(strerror(errno))
             );
 
-        timer_enabled = true;
+        this->timer_enabled = true;
         return xerrors::NIL;
     }
 
     void apply_thread_config() {
         mach_port_t thread_port = pthread_mach_thread_np(pthread_self());
 
-        // Set thread priority using Mach APIs
-        if (cfg.rt_priority > 0) {
-            // Use precedence policy instead of time constraint
-            // Time constraint policy can throttle threads that exceed their computation
-            // budget, which may hurt performance for variable workloads
+        if (this->cfg.rt_priority > 0) {
             thread_precedence_policy_data_t precedence;
-            precedence.importance = cfg.rt_priority;
+            precedence.importance = this->cfg.rt_priority;
 
             kern_return_t result = thread_policy_set(
                 thread_port,
@@ -112,14 +107,14 @@ protected:
                 LOG(WARNING) << "[loop] Failed to set thread precedence: "
                              << mach_error_string(result);
             } else {
-                LOG(INFO) << "[loop] Set thread precedence to " << cfg.rt_priority;
+                LOG(INFO) << "[loop] Set thread precedence to "
+                          << this->cfg.rt_priority;
             }
         }
 
-        // Set CPU affinity using thread affinity policy
-        if (cfg.cpu_affinity >= 0) {
+        if (this->cfg.cpu_affinity >= 0) {
             thread_affinity_policy_data_t affinity_policy;
-            affinity_policy.affinity_tag = cfg.cpu_affinity;
+            affinity_policy.affinity_tag = this->cfg.cpu_affinity;
 
             kern_return_t result = thread_policy_set(
                 thread_port,
@@ -130,39 +125,71 @@ protected:
 
             if (result != KERN_SUCCESS) {
                 LOG(WARNING) << "[loop] Failed to set CPU affinity to "
-                             << cfg.cpu_affinity << ": " << mach_error_string(result);
+                             << this->cfg.cpu_affinity << ": "
+                             << mach_error_string(result);
             } else {
-                LOG(INFO) << "[loop] Set thread affinity tag to " << cfg.cpu_affinity;
+                LOG(INFO) << "[loop] Set thread affinity tag to "
+                          << this->cfg.cpu_affinity;
             }
         }
     }
 
 public:
-    ~BaseDarwinLoop() override { stop(); }
+    ~BaseDarwinLoop() override { this->stop(); }
 
     void notify_data() override {
-        data_available.store(true, std::memory_order_release);
-        if (!running) return;
+        this->data_available.store(true, std::memory_order_release);
+        if (!this->running) return;
 
         struct kevent kev;
         EV_SET(&kev, USER_EVENT_IDENT, EVFILT_USER, 0, NOTE_TRIGGER, 0, nullptr);
 
-        if (kevent(kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1) {
+        if (kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1) {
             LOG(ERROR) << "[loop] Failed to trigger user event: " << strerror(errno);
         }
     }
 
     void stop() override {
-        if (!running) return;
+        if (!this->running) return;
 
-        running = false;
+        this->running = false;
 
-        if (kqueue_fd_ != -1) {
-            close(kqueue_fd_);
-            kqueue_fd_ = -1;
+        if (this->kqueue_fd_ != -1) {
+            close(this->kqueue_fd_);
+            this->kqueue_fd_ = -1;
         }
 
-        timer_enabled = false;
+        this->timer_enabled = false;
+    }
+
+    uint64_t watch(notify::Notifier &notifier) override {
+        const int fd = notifier.fd();
+        if (fd == -1) return 0;
+        if (this->kqueue_fd_ == -1) return 0;
+
+        struct kevent kev;
+        EV_SET(&kev, fd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, nullptr);
+
+        if (kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1) {
+            LOG(ERROR) << "[loop] Failed to watch notifier fd " << fd << ": "
+                       << strerror(errno);
+            return 0;
+        }
+
+        return static_cast<uint64_t>(fd);
+    }
+
+    void unwatch(const uint64_t handle) override {
+        if (handle == 0 || this->kqueue_fd_ == -1) return;
+
+        const int fd = static_cast<int>(handle);
+        struct kevent kev;
+        EV_SET(&kev, fd, EVFILT_READ, EV_DELETE, 0, 0, nullptr);
+
+        if (kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1) {
+            LOG(WARNING) << "[loop] Failed to unwatch fd " << fd << ": "
+                         << strerror(errno);
+        }
     }
 };
 
@@ -171,35 +198,35 @@ public:
     explicit BusyWaitLoop(const Config &config): BaseDarwinLoop(config) {}
 
     xerrors::Error start() override {
-        if (running) return xerrors::NIL;
+        if (this->running) return xerrors::NIL;
 
-        auto err = setup_kqueue();
+        auto err = this->setup_kqueue();
         if (err) return err;
 
-        if (cfg.interval.nanoseconds() > 0) {
-            err = setup_timer();
+        if (this->cfg.interval.nanoseconds() > 0) {
+            err = this->setup_timer();
             if (err) {
-                close(kqueue_fd_);
+                close(this->kqueue_fd_);
                 return err;
             }
         }
 
-        apply_thread_config();
-        running = true;
+        this->apply_thread_config();
+        this->running = true;
 
         return xerrors::NIL;
     }
 
     void wait(breaker::Breaker &breaker) override {
-        if (!running) return;
+        if (!this->running) return;
 
         constexpr timespec timeout = {0, 0};
         struct kevent events[2];
 
         while (breaker.running()) {
-            const int n = kevent(kqueue_fd_, nullptr, 0, events, 2, &timeout);
-            if (n > 0 || data_available.load(std::memory_order_acquire)) {
-                data_available.store(false, std::memory_order_release);
+            const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 2, &timeout);
+            if (n > 0 || this->data_available.load(std::memory_order_acquire)) {
+                this->data_available.store(false, std::memory_order_release);
                 return;
             }
             if (n == -1 && errno != EINTR) {
@@ -217,27 +244,27 @@ public:
     explicit HighRateLoop(const Config &config): BaseDarwinLoop(config) {}
 
     xerrors::Error start() override {
-        if (running) return xerrors::NIL;
-        if (cfg.interval.nanoseconds() > 0)
-            timer = std::make_unique<::loop::Timer>(cfg.interval);
+        if (this->running) return xerrors::NIL;
+        if (this->cfg.interval.nanoseconds() > 0)
+            this->timer = std::make_unique<::loop::Timer>(this->cfg.interval);
         if (auto err = this->setup_kqueue()) return err;
         this->apply_thread_config();
-        running = true;
+        this->running = true;
         return xerrors::NIL;
     }
 
     void wait(breaker::Breaker &breaker) override {
-        if (!running) return;
-        if (timer) {
-            timer->wait(breaker);
+        if (!this->running) return;
+        if (this->timer) {
+            this->timer->wait(breaker);
         } else {
             std::this_thread::sleep_for(std::chrono::microseconds(100));
         }
-        data_available.store(false, std::memory_order_release);
+        this->data_available.store(false, std::memory_order_release);
     }
 
     void stop() override {
-        timer.reset();
+        this->timer.reset();
         BaseDarwinLoop::stop();
     }
 };
@@ -249,34 +276,33 @@ public:
     explicit HybridLoop(const Config &config): BaseDarwinLoop(config) {}
 
     xerrors::Error start() override {
-        if (running) return xerrors::NIL;
-        if (auto err = setup_kqueue()) return err;
+        if (this->running) return xerrors::NIL;
+        if (auto err = this->setup_kqueue()) return err;
 
-        if (cfg.interval.nanoseconds() > 0)
-            timer = std::make_unique<::loop::Timer>(cfg.interval);
+        if (this->cfg.interval.nanoseconds() > 0)
+            this->timer = std::make_unique<::loop::Timer>(this->cfg.interval);
 
-        apply_thread_config();
-        running = true;
+        this->apply_thread_config();
+        this->running = true;
 
         return xerrors::NIL;
     }
 
     void wait(breaker::Breaker &breaker) override {
-        if (!running) return;
+        if (!this->running) return;
 
         const auto spin_start = std::chrono::steady_clock::now();
-        const auto spin_duration = cfg.spin_duration.chrono();
+        const auto spin_duration = this->cfg.spin_duration.chrono();
 
-        // Spin phase - non-blocking kevent checks
         struct timespec timeout = {0, 0};
         struct kevent events[2];
 
         while (std::chrono::steady_clock::now() - spin_start < spin_duration) {
             if (!breaker.running()) return;
 
-            const int n = kevent(kqueue_fd_, nullptr, 0, events, 2, &timeout);
-            if (n > 0 || data_available.load(std::memory_order_acquire)) {
-                data_available.store(false, std::memory_order_release);
+            const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 2, &timeout);
+            if (n > 0 || this->data_available.load(std::memory_order_acquire)) {
+                this->data_available.store(false, std::memory_order_release);
                 return;
             }
         }
@@ -284,14 +310,14 @@ public:
         timeout.tv_sec = 0;
         timeout.tv_nsec = 10'000'000;
 
-        const int n = kevent(kqueue_fd_, nullptr, 0, events, 2, &timeout);
-        if (n > 0 || data_available.load(std::memory_order_acquire)) {
-            data_available.store(false, std::memory_order_release);
+        const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 2, &timeout);
+        if (n > 0 || this->data_available.load(std::memory_order_acquire)) {
+            this->data_available.store(false, std::memory_order_release);
         }
     }
 
     void stop() override {
-        timer.reset();
+        this->timer.reset();
         BaseDarwinLoop::stop();
     }
 };
@@ -301,38 +327,37 @@ public:
     explicit EventDrivenLoop(const Config &config): BaseDarwinLoop(config) {}
 
     xerrors::Error start() override {
-        if (running) return xerrors::NIL;
+        if (this->running) return xerrors::NIL;
 
-        auto err = setup_kqueue();
+        auto err = this->setup_kqueue();
         if (err) return err;
 
-        if (cfg.interval.nanoseconds() > 0) {
-            err = setup_timer();
+        if (this->cfg.interval.nanoseconds() > 0) {
+            err = this->setup_timer();
             if (err) {
-                close(kqueue_fd_);
+                close(this->kqueue_fd_);
                 return err;
             }
         }
 
-        apply_thread_config();
-        running = true;
+        this->apply_thread_config();
+        this->running = true;
 
         return xerrors::NIL;
     }
 
     void wait(breaker::Breaker &breaker) override {
-        if (!running) return;
+        if (!this->running) return;
 
-        // Check if data is already available (handles early notifications)
-        if (data_available.load(std::memory_order_acquire)) {
-            data_available.store(false, std::memory_order_release);
+        if (this->data_available.load(std::memory_order_acquire)) {
+            this->data_available.store(false, std::memory_order_release);
             return;
         }
 
         struct kevent events[2];
-        const int n = kevent(kqueue_fd_, nullptr, 0, events, 2, nullptr);
-        if (n > 0 || data_available.load(std::memory_order_acquire))
-            return data_available.store(false, std::memory_order_release);
+        const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 2, nullptr);
+        if (n > 0 || this->data_available.load(std::memory_order_acquire))
+            return this->data_available.store(false, std::memory_order_release);
         if (n == -1 && errno != EINTR)
             LOG(ERROR) << "[loop] kevent error: " << strerror(errno);
     }
@@ -341,7 +366,6 @@ public:
 std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {
     Config adjusted_cfg = cfg;
 
-    // Adjust unsupported modes
     if (adjusted_cfg.mode == ExecutionMode::RT_EVENT) {
         LOG(INFO) << "[loop] RT_EVENT mode not supported on macOS, "
                   << "falling back to HIGH_RATE";
@@ -354,22 +378,18 @@ std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {
             LOG(INFO) << "[loop] creating BusyWaitLoop";
             loop = std::make_unique<BusyWaitLoop>(adjusted_cfg);
             break;
-
         case ExecutionMode::HIGH_RATE:
             LOG(INFO) << "[loop] creating HighRateLoop";
             loop = std::make_unique<HighRateLoop>(adjusted_cfg);
             break;
-
         case ExecutionMode::HYBRID:
             LOG(INFO) << "[loop] creating HybridLoop";
             loop = std::make_unique<HybridLoop>(adjusted_cfg);
             break;
-
         case ExecutionMode::EVENT_DRIVEN:
             LOG(INFO) << "[loop] creating EventDrivenLoop";
             loop = std::make_unique<EventDrivenLoop>(adjusted_cfg);
             break;
-
         case ExecutionMode::RT_EVENT:
         default:
             LOG(INFO) << "[loop] creating EventDrivenLoop (default)";
@@ -377,7 +397,7 @@ std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {
             break;
     }
 
-    if (auto err = loop->start(); err) { return {nullptr, err}; }
+    if (auto err = loop->start(); err) return {nullptr, err};
     return {std::move(loop), xerrors::NIL};
 }
 
