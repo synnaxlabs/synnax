@@ -306,7 +306,7 @@ public:
         }
     };
 
-    [[nodiscard]] bool has_func(const std::string &name) const {
+    [[nodiscard]] bool has_func(const std::string &name) {
         const auto export_opt = this->instance.get(this->store, name);
         if (!export_opt) return false;
         return std::get_if<wasmtime::Func>(&*export_opt) != nullptr;

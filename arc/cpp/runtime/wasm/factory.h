@@ -14,7 +14,7 @@
 
 namespace arc::runtime::wasm {
 class Factory : public node::Factory {
-    std::shared_ptr<Module> mod;
+    mutable std::shared_ptr<Module> mod;
 
 public:
     explicit Factory(std::shared_ptr<Module> &mod): mod(mod) {}

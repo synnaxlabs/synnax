@@ -125,8 +125,8 @@ func double(val f32) f32 {
     auto [node_state, state_err] = state.node(mod.nodes[0].key);
     ASSERT_NIL(state_err);
 
-    const node::Config cfg{.node = fake_node, .state = node_state};
-    auto [node, err] = factory.create(cfg);
+    node::Config cfg(fake_node, std::move(node_state));
+    auto [node, err] = factory.create(std::move(cfg));
     ASSERT_TRUE(err.matches(xerrors::NOT_FOUND));
     ASSERT_EQ(node, nullptr);
 }
@@ -162,8 +162,8 @@ func double(val f32) f32 {
     auto [node_state, state_err] = state.node(func_node->key);
     ASSERT_NIL(state_err);
 
-    const node::Config cfg{.node = *func_node, .state = node_state};
-    auto [node, err] = factory.create(cfg);
+    node::Config cfg(*func_node, std::move(node_state));
+    auto [node, err] = factory.create(std::move(cfg));
     ASSERT_NIL(err);
     ASSERT_NE(node, nullptr);
 }
@@ -185,7 +185,7 @@ TEST(NodeTest, NextReturnsEarlyWhenNoInputsRefreshed) {
     }
     ASSERT_NE(func_node, nullptr);
 
-    wasm::Node node(*func_node, setup.node_state, setup.func);
+    wasm::Node node(*func_node, std::move(setup.node_state), setup.func);
     ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(mark_called, 0);
 }
@@ -203,6 +203,6 @@ TEST(NodeTest, IsOutputTruthyDelegatesToState) {
     }
     ASSERT_NE(func_node, nullptr);
 
-    wasm::Node node(*func_node, setup.node_state, setup.func);
+    wasm::Node node(*func_node, std::move(setup.node_state), setup.func);
     EXPECT_FALSE(node.is_output_truthy("nonexistent"));
 }
