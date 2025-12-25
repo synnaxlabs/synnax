@@ -27,6 +27,8 @@ var registry = map[string]types.Unit{
 	"h":   {Dimensions: types.DimTime, Scale: 3600e9, Name: "h"},
 
 	// Length units (base: meters)
+	"fm":    {Dimensions: types.DimLength, Scale: 1e-15, Name: "fm"},
+	"pm":    {Dimensions: types.DimLength, Scale: 1e-12, Name: "pm"},
 	"nm":    {Dimensions: types.DimLength, Scale: 1e-9, Name: "nm"},
 	"um":    {Dimensions: types.DimLength, Scale: 1e-6, Name: "um"},
 	"mm":    {Dimensions: types.DimLength, Scale: 1e-3, Name: "mm"},
@@ -42,6 +44,9 @@ var registry = map[string]types.Unit{
 	"meter": {Dimensions: types.DimLength, Scale: 1, Name: "meter"},
 
 	// Mass units (base: kilograms)
+	"fg":  {Dimensions: types.DimMass, Scale: 1e-18, Name: "fg"},
+	"pg":  {Dimensions: types.DimMass, Scale: 1e-15, Name: "pg"},
+	"ng":  {Dimensions: types.DimMass, Scale: 1e-12, Name: "ng"},
 	"ug":  {Dimensions: types.DimMass, Scale: 1e-9, Name: "ug"},
 	"mg":  {Dimensions: types.DimMass, Scale: 1e-6, Name: "mg"},
 	"g":   {Dimensions: types.DimMass, Scale: 1e-3, Name: "g"},
@@ -51,9 +56,14 @@ var registry = map[string]types.Unit{
 	"ton": {Dimensions: types.DimMass, Scale: 1000, Name: "ton"},
 
 	// Pressure units (base: Pascals)
+	"pPa":  {Dimensions: types.DimPressure, Scale: 1e-12, Name: "pPa"},
+	"nPa":  {Dimensions: types.DimPressure, Scale: 1e-9, Name: "nPa"},
+	"uPa":  {Dimensions: types.DimPressure, Scale: 1e-6, Name: "uPa"},
+	"mPa":  {Dimensions: types.DimPressure, Scale: 1e-3, Name: "mPa"},
 	"Pa":   {Dimensions: types.DimPressure, Scale: 1, Name: "Pa"},
 	"kPa":  {Dimensions: types.DimPressure, Scale: 1e3, Name: "kPa"},
 	"MPa":  {Dimensions: types.DimPressure, Scale: 1e6, Name: "MPa"},
+	"GPa":  {Dimensions: types.DimPressure, Scale: 1e9, Name: "GPa"},
 	"bar":  {Dimensions: types.DimPressure, Scale: 1e5, Name: "bar"},
 	"mbar": {Dimensions: types.DimPressure, Scale: 100, Name: "mbar"},
 	"psi":  {Dimensions: types.DimPressure, Scale: 6894.76, Name: "psi"},
@@ -70,22 +80,36 @@ var registry = map[string]types.Unit{
 	"GHz": {Dimensions: types.DimFrequency, Scale: 1e9, Name: "GHz"},
 
 	// Voltage units (base: Volts)
+	"fV": {Dimensions: types.DimVoltage, Scale: 1e-15, Name: "fV"},
+	"pV": {Dimensions: types.DimVoltage, Scale: 1e-12, Name: "pV"},
+	"nV": {Dimensions: types.DimVoltage, Scale: 1e-9, Name: "nV"},
 	"uV": {Dimensions: types.DimVoltage, Scale: 1e-6, Name: "uV"},
 	"mV": {Dimensions: types.DimVoltage, Scale: 1e-3, Name: "mV"},
 	"V":  {Dimensions: types.DimVoltage, Scale: 1, Name: "V"},
 	"kV": {Dimensions: types.DimVoltage, Scale: 1e3, Name: "kV"},
+	"MV": {Dimensions: types.DimVoltage, Scale: 1e6, Name: "MV"},
 
 	// Current units (base: Amperes)
+	"fA": {Dimensions: types.DimCurrent, Scale: 1e-15, Name: "fA"},
+	"pA": {Dimensions: types.DimCurrent, Scale: 1e-12, Name: "pA"},
+	"nA": {Dimensions: types.DimCurrent, Scale: 1e-9, Name: "nA"},
 	"uA": {Dimensions: types.DimCurrent, Scale: 1e-6, Name: "uA"},
 	"mA": {Dimensions: types.DimCurrent, Scale: 1e-3, Name: "mA"},
 	"A":  {Dimensions: types.DimCurrent, Scale: 1, Name: "A"},
 	"kA": {Dimensions: types.DimCurrent, Scale: 1e3, Name: "kA"},
+	"MA": {Dimensions: types.DimCurrent, Scale: 1e6, Name: "MA"},
 
 	// Temperature units (base: Kelvin)
 	// Only Kelvin is supported - it's the SI unit and has a true zero (absolute zero).
 	// Celsius and Fahrenheit require affine conversions (offset + scale) which
 	// are not yet supported. Users needing C/F should convert externally.
-	"K": {Dimensions: types.DimTemperature, Scale: 1, Name: "K"},
+	"fK": {Dimensions: types.DimTemperature, Scale: 1e-15, Name: "fK"},
+	"pK": {Dimensions: types.DimTemperature, Scale: 1e-12, Name: "pK"},
+	"nK": {Dimensions: types.DimTemperature, Scale: 1e-9, Name: "nK"},
+	"uK": {Dimensions: types.DimTemperature, Scale: 1e-6, Name: "uK"},
+	"mK": {Dimensions: types.DimTemperature, Scale: 1e-3, Name: "mK"},
+	"K":  {Dimensions: types.DimTemperature, Scale: 1, Name: "K"},
+	"kK": {Dimensions: types.DimTemperature, Scale: 1e3, Name: "kK"},
 
 	// Angle units (base: radians)
 	"rad": {Dimensions: types.DimAngle, Scale: 1, Name: "rad"},

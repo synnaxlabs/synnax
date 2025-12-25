@@ -43,10 +43,14 @@ export type Status = z.infer<typeof statusZ>;
 export const controllerStateZ = z.object({
   name: z.string(),
   authority: z.number().default(0),
-  acquireTrigger: z.number(),
   status: statusZ.optional(),
   needsControlOf: channel.keyZ.array().default([]),
 });
+
+export const controllerMethodsZ = {
+  acquire: z.function({ input: z.tuple([]), output: z.void() }),
+  release: z.function({ input: z.tuple([]), output: z.void() }),
+};
 
 interface InternalState {
   client: Synnax | null;
@@ -55,7 +59,6 @@ interface InternalState {
   addStatus: status.Adder;
   runAsync: status.ErrorHandler;
   theme: theming.Theme;
-  prevTrigger: number;
   telemCtx: telem.Context;
 }
 
@@ -69,11 +72,19 @@ interface AetherControllerTelem extends telem.Telem {
  * to that writer.
  */
 export class Controller
-  extends aether.Composite<typeof controllerStateZ, InternalState>
-  implements telem.Factory
+  extends aether.Composite<
+    typeof controllerStateZ,
+    InternalState,
+    aether.Component,
+    typeof controllerMethodsZ
+  >
+  implements telem.Factory, aether.HandlersFromSchema<typeof controllerMethodsZ>
 {
   static readonly TYPE = "Controller";
+  static readonly METHODS = controllerMethodsZ;
+
   schema = controllerStateZ;
+  methods = controllerMethodsZ;
 
   private readonly registry = new Map<AetherControllerTelem, null>();
   private writer?: framer.Writer;
@@ -83,26 +94,16 @@ export class Controller
     i.instrumentation = alamos.useInstrumentation(ctx);
     i.addStatus = status.useAdder(ctx);
     i.runAsync = status.useErrorHandler(ctx);
-    if (
-      i.prevTrigger == null ||
-      Math.abs(this.state.acquireTrigger - i.prevTrigger) > 1
-    )
-      i.prevTrigger = this.state.acquireTrigger;
     const nextClient = synnax.use(ctx);
     const nextStateProv = StateProvider.use(ctx);
     i.stateProv = nextStateProv;
     i.telemCtx = telem.useChildContext(ctx, this, i.telemCtx);
     i.client = nextClient;
-    i.runAsync(async () => {
-      if (i.client == null) await this.release();
-      if (this.state.acquireTrigger > i.prevTrigger) await this.acquire();
-      else if (this.state.acquireTrigger < i.prevTrigger) await this.release();
-    }, "failed to acquire control");
   }
 
   afterDelete(): void {
     const { internal: i } = this;
-    i.runAsync(async () => await this.release(), "failed to release control");
+    i.runAsync(() => this.doRelease(), "failed to release control");
   }
 
   private async updateNeedsControlOf(): Promise<void> {
@@ -124,8 +125,15 @@ export class Controller
     this.setState((p) => ({ ...p, needsControlOf: nextKeys }));
   }
 
-  private async acquire(): Promise<void> {
-    this.internal.prevTrigger = this.state.acquireTrigger;
+  acquire(): void {
+    this.internal.runAsync(() => this.doAcquire(), "failed to acquire control");
+  }
+
+  release(): void {
+    this.internal.runAsync(() => this.doRelease(), "failed to release control");
+  }
+
+  private async doAcquire(): Promise<void> {
     const { client, addStatus } = this.internal;
     if (client == null)
       return addStatus({
@@ -165,8 +173,7 @@ export class Controller
     }
   }
 
-  private async release(): Promise<void> {
-    this.internal.prevTrigger = this.state.acquireTrigger;
+  private async doRelease(): Promise<void> {
     try {
       await this.writer?.close();
     } catch (e) {
@@ -185,19 +192,19 @@ export class Controller
   async set(
     frame: framer.CrudeFrame | Record<channel.KeyOrName, CrudeSeries>,
   ): Promise<void> {
-    if (this.writer == null) await this.acquire();
+    if (this.writer == null) await this.doAcquire();
     await this.writer?.write(frame);
   }
 
   async setAuthority(channels: channel.Keys, value: control.Authority): Promise<void> {
-    if (this.writer == null) await this.acquire();
+    if (this.writer == null) await this.doAcquire();
     await this.writer?.setAuthority(
       Object.fromEntries(channels.map((k) => [k, value])),
     );
   }
 
   async releaseAuthority(keys: channel.Keys): Promise<void> {
-    if (this.writer == null) await this.acquire();
+    if (this.writer == null) await this.doAcquire();
     await this.writer?.setAuthority(
       Object.fromEntries(keys.map((k) => [k, this.state.authority])),
     );
