@@ -108,7 +108,7 @@ public:
     virtual ~FrameSink() = default;
 
     /// @brief writes the frame to the sink.
-    virtual xerrors::Error write(const telem::Frame &frame) = 0;
+    virtual xerrors::Error write(telem::Frame &frame) = 0;
 
     /// @brief sets the authority of the channels being written to.
     virtual xerrors::Error set_authority(
@@ -136,7 +136,7 @@ public:
         synnax::WriterConfig cfg
     );
 
-    xerrors::Error write(const telem::Frame &frame) override;
+    xerrors::Error write(telem::Frame &frame) override;
 
     xerrors::Error set_authority(
         const std::vector<synnax::ChannelKey> &keys,

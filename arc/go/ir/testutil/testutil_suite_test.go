@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/lineplot/Axis";
-export * from "@/lineplot/Legend";
-export * from "@/lineplot/Line";
-export * from "@/lineplot/LinePlot";
-export * from "@/lineplot/queries";
-export * from "@/lineplot/Title";
-export * from "@/lineplot/tooltip";
-export * from "@/lineplot/Viewport";
+package testutil_test
+
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestTestutil(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "IR Testutil Suite")
+}

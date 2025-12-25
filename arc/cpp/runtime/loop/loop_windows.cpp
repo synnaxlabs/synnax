@@ -32,13 +32,7 @@ namespace arc::runtime::loop {
 /// Windows has RT support through high-priority threads and timer resolution.
 class WindowsLoop final : public Loop {
 public:
-    WindowsLoop() = default;
-
-    ~WindowsLoop() override { stop(); }
-
-    xerrors::Error configure(const Config &config) override {
-        config_ = config;
-
+    explicit WindowsLoop(const Config &config): config_(config) {
         // Windows RT support is available via high-priority threads
         if (config_.rt_priority > 0 && config_.rt_priority > 31) {
             LOG(WARNING) << "[loop] Windows priority range is 0-31, clamping";
@@ -48,9 +42,9 @@ public:
             LOG(WARNING) << "[loop] Memory locking on Windows requires "
                          << "VirtualLock API (not implemented)";
         }
-
-        return xerrors::NIL;
     }
+
+    ~WindowsLoop() override { stop(); }
 
     void notify_data() override {
         if (!running_ || data_event_ == NULL) return;
@@ -105,7 +99,7 @@ public:
         }
 
         // Create waitable timer if interval is configured
-        if (config_.interval > 0) {
+        if (config_.interval.nanoseconds() > 0) {
             timer_event_ = CreateWaitableTimer(
                 NULL, // Default security
                 FALSE, // Auto-reset
@@ -121,10 +115,12 @@ public:
             // Set timer interval
             // LARGE_INTEGER is in 100-nanosecond units, negative = relative time
             LARGE_INTEGER due_time;
-            const int64_t interval_100ns = static_cast<int64_t>(config_.interval) / 100;
+            const int64_t interval_100ns = config_.interval.nanoseconds() / 100;
             due_time.QuadPart = -interval_100ns; // Negative = relative
 
-            const LONG period_ms = static_cast<LONG>(config_.interval / 1'000'000);
+            const LONG period_ms = static_cast<LONG>(
+                config_.interval.nanoseconds() / 1'000'000
+            );
 
             if (!SetWaitableTimer(
                     timer_event_,
@@ -147,24 +143,22 @@ public:
         // Initialize high-rate timer if needed
         if (config_.mode == ExecutionMode::HIGH_RATE ||
             config_.mode == ExecutionMode::HYBRID) {
-            if (config_.interval > 0) {
-                const auto interval = telem::TimeSpan(
-                    static_cast<int64_t>(config_.interval)
-                );
-                timer_ = std::make_unique<::loop::Timer>(interval);
+            if (config_.interval.nanoseconds() > 0) {
+                timer_ = std::make_unique<::loop::Timer>(config_.interval);
             }
         }
 
         // Apply thread priority and affinity
         if (config_.rt_priority > 0) {
             if (auto err = set_thread_priority(config_.rt_priority); err) {
-                LOG(WARNING) << "[loop] Failed to set thread priority: " << err.what();
+                LOG(WARNING) << "[loop] Failed to set thread priority: "
+                             << err.message();
             }
         }
 
         if (config_.cpu_affinity >= 0) {
             if (auto err = set_cpu_affinity(config_.cpu_affinity); err) {
-                LOG(WARNING) << "[loop] Failed to set CPU affinity: " << err.what();
+                LOG(WARNING) << "[loop] Failed to set CPU affinity: " << err.message();
             }
         }
 
@@ -272,7 +266,9 @@ private:
     /// @brief Hybrid mode - spin briefly, then block on events.
     void hybrid_wait(breaker::Breaker &breaker) {
         const auto spin_start = std::chrono::steady_clock::now();
-        const auto spin_duration = std::chrono::microseconds(config_.spin_duration_us);
+        const auto spin_duration = std::chrono::nanoseconds(
+            config_.spin_duration.nanoseconds()
+        );
 
         HANDLE handles[2];
         DWORD count = 1;
@@ -362,7 +358,9 @@ private:
     bool running_ = false;
 };
 
-std::unique_ptr<Loop> create() {
-    return std::make_unique<WindowsLoop>();
+std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {
+    auto loop = std::make_unique<WindowsLoop>(cfg);
+    if (auto err = loop->start(); err) { return {nullptr, err}; }
+    return {std::move(loop), xerrors::NIL};
 }
 }
