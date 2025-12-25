@@ -21,9 +21,8 @@
 #include "arc/cpp/runtime/state/state.h"
 
 namespace arc::runtime::constant {
-
-/// Constant is a node that outputs a constant value once on initialization.
-/// After the initial output, it does nothing on subsequent Next() calls.
+/// @brief Constant is a node that outputs a constant value once on initialization,
+/// or after reset() has been called.
 class Constant : public node::Node {
     state::Node state;
     telem::SampleValue value;
@@ -52,22 +51,19 @@ public:
 
     void reset() override { this->initialized = false; }
 
-    [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
-        return this->state.is_output_truthy(param_name);
+    [[nodiscard]] bool is_output_truthy(const std::string &param) const override {
+        return this->state.is_output_truthy(param);
     }
 };
 
-/// Factory creates Constant nodes for "constant" type nodes in the IR.
 class Factory : public node::Factory {
 public:
     std::pair<std::unique_ptr<node::Node>, xerrors::Error>
     create(const node::Config &cfg) override {
         if (cfg.node.type != "constant") return {nullptr, xerrors::NOT_FOUND};
-
         const auto &param = cfg.node.config["value"];
-        assert(param.value.has_value() && "Constant node requires a value");
+        assert(param.value.has_value() && "constant node requires a value");
         auto data_type = cfg.node.outputs[0].type.telem();
-
         return {
             std::make_unique<Constant>(cfg.state, *param.value, data_type),
             xerrors::NIL

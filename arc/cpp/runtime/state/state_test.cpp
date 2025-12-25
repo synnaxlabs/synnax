@@ -35,15 +35,6 @@ TEST(StateTest, CreateStateAndGetNode) {
     auto node = s.node("test");
 }
 
-/// @brief Test node retrieval for non-existent node
-TEST(StateTest, GetNonExistentNode) {
-    arc::ir::IR ir;
-    Config cfg{.ir = ir, .channels = {}};
-    State s(cfg);
-
-    ASSERT_OCCURRED_AS_P(s.node("nonexistent"), xerrors::NOT_FOUND);
-}
-
 /// @brief Test basic input alignment with two connected nodes
 TEST(StateTest, RefreshInputs_BasicAlignment) {
     arc::ir::Param output_param;

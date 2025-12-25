@@ -15,96 +15,50 @@
 #include "arc/cpp/types/types.h"
 
 namespace arc::runtime::state {
-Series parse_default_value(const nlohmann::json &value, const types::Type &type) {
+Series parse_default_value(
+    const std::optional<telem::SampleValue> &value,
+    const types::Type &type
+) {
     auto data_type = type.telem();
-    auto series = xmemory::make_local_shared<telem::Series>(data_type, 1);
-    if (value.is_null()) {
-        switch (type.kind) {
-            case types::Kind::I8:
-                series->write(static_cast<int8_t>(0));
-                break;
-            case types::Kind::I16:
-                series->write(static_cast<int16_t>(0));
-                break;
-            case types::Kind::I32:
-                series->write(static_cast<int32_t>(0));
-                break;
-            case types::Kind::I64:
-                series->write(static_cast<int64_t>(0));
-                break;
-            case types::Kind::U8:
-                series->write(static_cast<uint8_t>(0));
-                break;
-            case types::Kind::U16:
-                series->write(static_cast<uint16_t>(0));
-                break;
-            case types::Kind::U32:
-                series->write(static_cast<uint32_t>(0));
-                break;
-            case types::Kind::U64:
-                series->write(static_cast<uint64_t>(0));
-                break;
-            case types::Kind::F32:
-                series->write(0.0f);
-                break;
-            case types::Kind::F64:
-                series->write(0.0);
-                break;
-            default:
-                break;
-        }
-        return series;
+    if (value.has_value()) {
+        auto casted = data_type.cast(*value);
+        return xmemory::make_local_shared<telem::Series>(casted);
     }
-
+    auto series = xmemory::make_local_shared<telem::Series>(data_type, 1);
     switch (type.kind) {
         case types::Kind::I8:
-            series->write(
-                static_cast<int8_t>(value.is_number() ? value.get<int>() : 0)
-            );
+            series->write(static_cast<int8_t>(0));
             break;
         case types::Kind::I16:
-            series->write(
-                static_cast<int16_t>(value.is_number() ? value.get<int>() : 0)
-            );
+            series->write(static_cast<int16_t>(0));
             break;
         case types::Kind::I32:
-            series->write(value.is_number() ? value.get<int32_t>() : 0);
+            series->write(static_cast<int32_t>(0));
             break;
         case types::Kind::I64:
-            series->write(value.is_number() ? value.get<int64_t>() : 0);
+            series->write(static_cast<int64_t>(0));
             break;
         case types::Kind::U8:
-            series->write(
-                static_cast<uint8_t>(value.is_number() ? value.get<unsigned>() : 0)
-            );
+            series->write(static_cast<uint8_t>(0));
             break;
         case types::Kind::U16:
-            series->write(
-                static_cast<uint16_t>(value.is_number() ? value.get<unsigned>() : 0)
-            );
+            series->write(static_cast<uint16_t>(0));
             break;
         case types::Kind::U32:
-            series->write(value.is_number() ? value.get<uint32_t>() : 0);
+            series->write(static_cast<uint32_t>(0));
             break;
         case types::Kind::U64:
-            series->write(value.is_number() ? value.get<uint64_t>() : 0);
+            series->write(static_cast<uint64_t>(0));
             break;
         case types::Kind::F32:
-            series->write(value.is_number() ? value.get<float>() : 0.0f);
+            series->write(0.0f);
             break;
         case types::Kind::F64:
-            series->write(value.is_number() ? value.get<double>() : 0.0);
-            break;
-        case types::Kind::String:
-            if (value.is_string()) {
-                // String handling would require special series support
-                // For now, leave empty
-            }
+            series->write(0.0);
             break;
         default:
             break;
     }
-
     return series;
 }
 

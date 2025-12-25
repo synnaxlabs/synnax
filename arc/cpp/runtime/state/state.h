@@ -48,8 +48,8 @@ class Node {
     /// Non-owning reference to parent State for channel I/O. Always valid after
     /// construction via State::node(). Null only in error-return case.
     State *state_ptr = nullptr;
-    std::vector<arc::ir::Edge> inputs;
-    std::vector<arc::ir::Handle> outputs;
+    std::vector<ir::Edge> inputs;
+    std::vector<ir::Handle> outputs;
 
     struct InputEntry {
         Series data;
@@ -57,7 +57,7 @@ class Node {
         telem::TimeStamp last_timestamp;
         bool consumed;
 
-        InputEntry(): data(), time(), last_timestamp(0), consumed(false) {}
+        InputEntry(): last_timestamp(0), consumed(false) {}
     };
 
     std::vector<InputEntry> accumulated;
@@ -69,8 +69,8 @@ class Node {
 
     Node(
         State *state_ptr,
-        std::vector<arc::ir::Edge> inputs,
-        std::vector<arc::ir::Handle> outputs,
+        std::vector<ir::Edge> inputs,
+        std::vector<ir::Handle> outputs,
         std::vector<InputEntry> accumulated,
         std::vector<Series> aligned_data,
         std::vector<Series> aligned_time,
@@ -97,11 +97,11 @@ public:
         return this->aligned_time[param_index];
     }
 
-    [[nodiscard]] Series &output(const size_t param_index) {
+    [[nodiscard]] Series &output(const size_t param_index) const {
         return this->output_cache[param_index]->data;
     }
 
-    [[nodiscard]] Series &output_time(const size_t param_index) {
+    [[nodiscard]] Series &output_time(const size_t param_index) const {
         return this->output_cache[param_index]->time;
     }
 
@@ -117,11 +117,11 @@ public:
     /// Returns false if the param doesn't exist, if the output is empty,
     /// or if the last element is zero. Returns true otherwise.
     [[nodiscard]] bool is_output_truthy(const std::string &param_name) const {
-        for (size_t i = 0; i < outputs.size(); ++i) {
-            if (outputs[i].param == param_name) {
-                const auto *series = output_cache[i]->data.get();
+        for (size_t i = 0; i < this->outputs.size(); ++i) {
+            if (this->outputs[i].param == param_name) {
+                const auto *series = this->output_cache[i]->data.get();
                 if (series == nullptr) return false;
-                return is_series_truthy(*series);
+                return this->is_series_truthy(*series);
             }
         }
         return false;
@@ -133,12 +133,10 @@ public:
         if (series.size() == 0) return false;
         const auto last_value = series.at(-1);
         return std::visit(
-            [](const auto &v) -> bool {
-                using T = std::decay_t<decltype(v)>;
+            []<typename T0>(const T0 &v) -> bool {
+                using T = std::decay_t<T0>;
                 if constexpr (std::is_same_v<T, std::string>)
                     return !v.empty();
-                else if constexpr (std::is_same_v<T, telem::TimeStamp>)
-                    return v.nanoseconds() != 0;
                 else
                     return v != 0;
             },
