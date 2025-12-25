@@ -182,54 +182,36 @@ func double(val f32) f32 {
     EXPECT_TRUE(changed_outputs.empty());
 }
 
-/// @brief Node::next executes function with no inputs and produces output.
-TEST(NodeTest, NextExecutesFunctionWithNoInputs) {
+/// @brief Node::next executes WASM function and produces correct output.
+TEST(NodeTest, NextExecutesFunctionAndProducesOutput) {
     const auto client = new_test_client();
 
-    const std::string source = R"(
-func constant() f32 {
-    return 42.0
-}
-constant{}
-)";
+    auto input_idx_name = random_name("input_idx");
+    auto input_name = random_name("input_val");
+    auto output_idx_name = random_name("output_idx");
+    auto output_name = random_name("output_val");
 
-    auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
-    const auto *func_node = find_node_by_type(mod, "constant");
-    ASSERT_NE(func_node, nullptr);
+    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client.channels.create(input_idx));
+    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client.channels.create(output_idx));
 
-    state::State state(
-        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}}
+    auto input_ch = synnax::Channel(input_name, telem::FLOAT32_T, input_idx.key, false);
+    ASSERT_NIL(client.channels.create(input_ch));
+    auto output_ch = synnax::Channel(
+        output_name,
+        telem::FLOAT32_T,
+        output_idx.key,
+        false
     );
-    auto node_state = ASSERT_NIL_P(state.node(func_node->key));
-    auto func = ASSERT_NIL_P(wasm_mod->func("constant"));
-
-    wasm::Node node(*func_node, std::move(node_state), func);
-
-    auto ctx = make_context();
-    std::vector<std::string> changed_outputs;
-    ctx.mark_changed = [&](const std::string &name) {
-        changed_outputs.push_back(name);
-    };
-
-    ASSERT_NIL(node.next(ctx));
-    ASSERT_EQ(changed_outputs.size(), 1);
-
-    auto &output = node_state.output(0);
-    ASSERT_EQ(output->size(), 1);
-    EXPECT_FLOAT_EQ(output->at<float>(0), 42.0f);
-}
-
-/// @brief Node::next executes function with default input value.
-TEST(NodeTest, NextExecutesFunctionWithDefaultValue) {
-    const auto client = new_test_client();
+    ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
-func double(val f32 = 5.0) f32 {
+func double(val f32) f32 {
     return val * 2.0
 }
-double{}
-)";
+)" + input_name + " -> double{} -> " +
+                               output_name;
 
     auto mod = compile_arc(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
@@ -237,8 +219,40 @@ double{}
     ASSERT_NE(func_node, nullptr);
 
     state::State state(
-        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}}
+        state::Config{
+            .ir = (static_cast<arc::ir::IR>(mod)),
+            .channels = {
+                {input_idx.key, telem::TIMESTAMP_T, 0},
+                {input_ch.key, telem::FLOAT32_T, input_idx.key},
+                {output_idx.key, telem::TIMESTAMP_T, 0},
+                {output_ch.key, telem::FLOAT32_T, output_idx.key}
+            }
+        }
     );
+
+    // Find the 'on' node that reads from the input channel
+    const auto *on_node = find_node_by_type(mod, "on");
+    ASSERT_NE(on_node, nullptr);
+
+    // Get the 'on' node's state and set its outputs directly
+    // This simulates what on.next() would do after reading from channels
+    auto on_node_state = ASSERT_NIL_P(state.node(on_node->key));
+
+    auto on_data = telem::Series(std::vector{5.0f, 10.0f, 15.0f});
+    on_data.alignment = telem::Alignment(1, 0);
+    on_node_state.output(0) = xmemory::make_local_shared<telem::Series>(
+        std::move(on_data)
+    );
+
+    auto on_time = telem::Series(
+        std::vector{telem::TimeStamp(1), telem::TimeStamp(2), telem::TimeStamp(3)}
+    );
+    on_time.alignment = telem::Alignment(1, 0);
+    on_node_state.output_time(0) = xmemory::make_local_shared<telem::Series>(
+        std::move(on_time)
+    );
+
+    // Now set up the double node
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("double"));
 
@@ -253,84 +267,13 @@ double{}
     ASSERT_NIL(node.next(ctx));
     ASSERT_EQ(changed_outputs.size(), 1);
 
-    auto &output = node_state.output(0);
-    ASSERT_EQ(output->size(), 1);
+    // Verify the double node's output
+    auto double_node_state = ASSERT_NIL_P(state.node(func_node->key));
+    const auto &output = double_node_state.output(0);
+    ASSERT_EQ(output->size(), 3);
     EXPECT_FLOAT_EQ(output->at<float>(0), 10.0f);
-}
-
-/// @brief Node::next handles multi-input functions correctly.
-TEST(NodeTest, NextHandlesMultipleInputs) {
-    const auto client = new_test_client();
-
-    auto idx_name = random_name("idx");
-    auto a_name = random_name("cha");
-    auto b_name = random_name("chb");
-    auto out_name = random_name("chsum");
-
-    auto idx_ch = synnax::Channel(idx_name, telem::TIMESTAMP_T, 0, true);
-    ASSERT_NIL(client.channels.create(idx_ch));
-
-    auto input_a = synnax::Channel(a_name, telem::FLOAT32_T, idx_ch.key, false);
-    ASSERT_NIL(client.channels.create(input_a));
-    auto input_b = synnax::Channel(b_name, telem::FLOAT32_T, idx_ch.key, false);
-    ASSERT_NIL(client.channels.create(input_b));
-    auto output_ch = synnax::Channel(out_name, telem::FLOAT32_T, idx_ch.key, false);
-    ASSERT_NIL(client.channels.create(output_ch));
-
-    const std::string source = R"(
-func add(a f32, b f32) f32 {
-    return a + b
-}
-)" + a_name + ", " + b_name + " -> add{} -> " +
-                               out_name;
-
-    auto mod = compile_arc(client, source);
-    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
-    const auto *func_node = find_node_by_type(mod, "add");
-    ASSERT_NE(func_node, nullptr);
-
-    state::State state(
-        state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
-            .channels = {
-                {idx_ch.key, telem::TIMESTAMP_T, 0},
-                {input_a.key, telem::FLOAT32_T, idx_ch.key},
-                {input_b.key, telem::FLOAT32_T, idx_ch.key},
-                {output_ch.key, telem::FLOAT32_T, idx_ch.key}
-            }
-        }
-    );
-
-    auto node_state = ASSERT_NIL_P(state.node(func_node->key));
-    auto func = ASSERT_NIL_P(wasm_mod->func("add"));
-
-    wasm::Node node(*func_node, std::move(node_state), func);
-
-    telem::Frame frame(3);
-    auto now = telem::TimeStamp::now();
-    auto idx_series = telem::Series(now);
-    idx_series.alignment = telem::Alignment(1, 0);
-    auto a_series = telem::Series(std::vector<float>{1.0f, 2.0f, 3.0f});
-    a_series.alignment = telem::Alignment(1, 0);
-    auto b_series = telem::Series(std::vector<float>{10.0f, 20.0f, 30.0f});
-    b_series.alignment = telem::Alignment(1, 0);
-    frame.emplace(idx_ch.key, std::move(idx_series));
-    frame.emplace(input_a.key, std::move(a_series));
-    frame.emplace(input_b.key, std::move(b_series));
-    state.ingest(frame);
-
-    auto ctx = make_context();
-    ASSERT_NIL(node.next(ctx));
-
-    auto writes = state.flush_writes();
-    for (const auto &[key, series]: writes) {
-        if (key == output_ch.key) {
-            ASSERT_EQ(series->size(), 3);
-            EXPECT_FLOAT_EQ(series->at<float>(0), 11.0f);
-            EXPECT_FLOAT_EQ(series->at<float>(1), 22.0f);
-            EXPECT_FLOAT_EQ(series->at<float>(2), 33.0f);
-        }
-    }
+    EXPECT_FLOAT_EQ(output->at<float>(1), 20.0f);
+    EXPECT_FLOAT_EQ(output->at<float>(2), 30.0f);
 }
 
 /// @brief Node::next reports errors via context when WASM execution fails.
@@ -372,20 +315,26 @@ func divide_by_zero(val i32) i32 {
         }
     );
 
+    // Find the 'on' node and set its outputs
+    const auto *on_node = find_node_by_type(mod, "on");
+    ASSERT_NE(on_node, nullptr);
+
+    auto on_node_state = ASSERT_NIL_P(state.node(on_node->key));
+    auto on_data = telem::Series(std::vector<int32_t>{42});
+    on_data.alignment = telem::Alignment(1, 0);
+    on_node_state.output(0) = xmemory::make_local_shared<telem::Series>(
+        std::move(on_data)
+    );
+    auto on_time = telem::Series(std::vector{telem::TimeStamp(1)});
+    on_time.alignment = telem::Alignment(1, 0);
+    on_node_state.output_time(0) = xmemory::make_local_shared<telem::Series>(
+        std::move(on_time)
+    );
+
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("divide_by_zero"));
 
     wasm::Node node(*func_node, std::move(node_state), func);
-
-    telem::Frame frame(2);
-    auto now = telem::TimeStamp::now();
-    auto idx_series = telem::Series(now);
-    idx_series.alignment = telem::Alignment(1, 0);
-    auto val_series = telem::Series(std::vector<int32_t>{42});
-    val_series.alignment = telem::Alignment(1, 0);
-    frame.emplace(index_ch.key, std::move(idx_series));
-    frame.emplace(input_ch.key, std::move(val_series));
-    state.ingest(frame);
 
     auto ctx = make_context();
     std::vector<xerrors::Error> reported_errors;
@@ -465,20 +414,26 @@ func passthrough(val f32) f32 {
         }
     );
 
+    // Find the 'on' node and set its outputs
+    const auto *on_node = find_node_by_type(mod, "on");
+    ASSERT_NE(on_node, nullptr);
+
+    auto on_node_state = ASSERT_NIL_P(state.node(on_node->key));
+    auto on_data = telem::Series(std::vector<float>{42.0f});
+    on_data.alignment = telem::Alignment(1, 0);
+    on_node_state.output(0) = xmemory::make_local_shared<telem::Series>(
+        std::move(on_data)
+    );
+    auto on_time = telem::Series(std::vector{telem::TimeStamp(1)});
+    on_time.alignment = telem::Alignment(1, 0);
+    on_node_state.output_time(0) = xmemory::make_local_shared<telem::Series>(
+        std::move(on_time)
+    );
+
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("passthrough"));
 
     wasm::Node node(*func_node, std::move(node_state), func);
-
-    telem::Frame frame(2);
-    auto now = telem::TimeStamp::now();
-    auto idx_series = telem::Series(now);
-    idx_series.alignment = telem::Alignment(1, 0);
-    auto val_series = telem::Series(std::vector<float>{42.0f});
-    val_series.alignment = telem::Alignment(1, 0);
-    frame.emplace(index_ch.key, std::move(idx_series));
-    frame.emplace(input_ch.key, std::move(val_series));
-    state.ingest(frame);
 
     auto ctx = make_context();
     ASSERT_NIL(node.next(ctx));

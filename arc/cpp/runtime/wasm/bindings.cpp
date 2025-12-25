@@ -94,7 +94,7 @@ uint32_t Bindings::state_load_str(
 ) {
     const auto key = state_key(func_id, var_id);
     if (const auto it = this->state_string.find(key); it != this->state_string.end()) {
-        const uint32_t handle = ++this->string_handle_counter;
+        const uint32_t handle = this->string_handle_counter++;
         this->strings[handle] = it->second;
         return handle;
     }
@@ -102,7 +102,7 @@ uint32_t Bindings::state_load_str(
         this->state_string[key] = init_it->second;
     else
         this->state_string[key] = "";
-    const uint32_t handle = ++this->string_handle_counter;
+    const uint32_t handle = this->string_handle_counter++;
     this->strings[handle] = this->state_string[key];
     return handle;
 }
@@ -141,7 +141,7 @@ uint32_t Bindings::string_from_literal(const uint32_t ptr, const uint32_t len) {
     }
 
     const std::string str(reinterpret_cast<const char *>(mem_data + ptr), len);
-    const uint32_t handle = ++string_handle_counter;
+    const uint32_t handle = string_handle_counter++;
     strings[handle] = str;
     return handle;
 }
@@ -149,7 +149,7 @@ uint32_t Bindings::string_concat(uint32_t h1, uint32_t h2) {
     const auto it1 = strings.find(h1);
     const auto it2 = strings.find(h2);
     if (it1 == strings.end() || it2 == strings.end()) return 0;
-    const uint32_t handle = ++string_handle_counter;
+    const uint32_t handle = string_handle_counter++;
     strings[handle] = it1->second + it2->second;
     return handle;
 }
@@ -168,7 +168,7 @@ uint32_t Bindings::string_equal(const uint32_t handle1, const uint32_t handle2) 
 }
 
 uint32_t Bindings::string_create(const std::string &str) {
-    const uint32_t handle = ++string_handle_counter;
+    const uint32_t handle = string_handle_counter++;
     strings[handle] = str;
     return handle;
 }
@@ -468,6 +468,18 @@ IMPL_MATH_POW_INT(i64, int64_t)
 
 #undef IMPL_MATH_POW_FLOAT
 #undef IMPL_MATH_POW_INT
+
+void Bindings::clear_transient_handles() {
+    // Clear transient series storage and reset counter.
+    // state_series is NOT cleared as it holds stateful variables.
+    this->series.clear();
+    this->series_handle_counter = 1;
+
+    // Clear transient string storage and reset counter.
+    // state_string is NOT cleared as it holds stateful variables.
+    this->strings.clear();
+    this->string_handle_counter = 1;
+}
 
 // ===== Import Creation =====
 

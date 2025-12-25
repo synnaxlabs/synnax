@@ -616,4 +616,141 @@ TEST_F(BindingsTest, StringGetInvalidHandle) {
     EXPECT_EQ(bindings->string_get(999), "");
 }
 
+// ===== Handle Cleanup Tests =====
+
+TEST_F(BindingsTest, ClearTransientHandlesClearsSeriesHandles) {
+    // Create some series handles
+    const uint32_t h1 = bindings->series_create_empty_f64(3);
+    bindings->series_set_element_f64(h1, 0, 1.0);
+    const uint32_t h2 = bindings->series_create_empty_i32(2);
+    bindings->series_set_element_i32(h2, 0, 42);
+
+    // Verify they exist
+    EXPECT_EQ(bindings->series_len(h1), 3);
+    EXPECT_EQ(bindings->series_len(h2), 2);
+
+    // Clear transient handles
+    bindings->clear_transient_handles();
+
+    // Handles should no longer be valid (return 0 for invalid)
+    EXPECT_EQ(bindings->series_len(h1), 0);
+    EXPECT_EQ(bindings->series_len(h2), 0);
+}
+
+TEST_F(BindingsTest, ClearTransientHandlesClearsStringHandles) {
+    // Create some string handles
+    const uint32_t h1 = bindings->string_create("hello");
+    const uint32_t h2 = bindings->string_create("world");
+
+    // Verify they exist
+    EXPECT_EQ(bindings->string_get(h1), "hello");
+    EXPECT_EQ(bindings->string_get(h2), "world");
+
+    // Clear transient handles
+    bindings->clear_transient_handles();
+
+    // Handles should no longer be valid (return empty string for invalid)
+    EXPECT_EQ(bindings->string_get(h1), "");
+    EXPECT_EQ(bindings->string_get(h2), "");
+}
+
+TEST_F(BindingsTest, ClearTransientHandlesResetsCounters) {
+    // Create several handles to increment counters
+    bindings->series_create_empty_f64(1);
+    bindings->series_create_empty_f64(1);
+    bindings->series_create_empty_f64(1);
+    bindings->string_create("a");
+    bindings->string_create("b");
+
+    // Clear transient handles
+    bindings->clear_transient_handles();
+
+    // New handles should start from 1 again
+    const uint32_t new_series = bindings->series_create_empty_f64(1);
+    const uint32_t new_string = bindings->string_create("new");
+
+    // Handles should be low numbers (1 is the first valid handle)
+    EXPECT_EQ(new_series, 1);
+    EXPECT_EQ(new_string, 1);
+}
+
+TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulSeries) {
+    // Create and store a stateful series
+    const uint32_t h1 = bindings->series_create_empty_f64(2);
+    bindings->series_set_element_f64(h1, 0, 100.0);
+    bindings->series_set_element_f64(h1, 1, 200.0);
+    bindings->state_store_series_f64(1, 1, h1);
+
+    // Clear transient handles
+    bindings->clear_transient_handles();
+
+    // The transient handle h1 is now invalid
+    EXPECT_EQ(bindings->series_len(h1), 0);
+
+    // But state_load should still return the stored data
+    const uint32_t dummy = bindings->series_create_empty_f64(1);
+    const uint32_t loaded = bindings->state_load_series_f64(1, 1, dummy);
+
+    EXPECT_EQ(bindings->series_len(loaded), 2);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(loaded, 0), 100.0);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(loaded, 1), 200.0);
+}
+
+TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulStrings) {
+    // Create and store a stateful string
+    const uint32_t h1 = bindings->string_create("persistent");
+    bindings->state_store_str(2, 2, h1);
+
+    // Clear transient handles
+    bindings->clear_transient_handles();
+
+    // The transient handle h1 is now invalid
+    EXPECT_EQ(bindings->string_get(h1), "");
+
+    // But state_load should still return the stored data
+    const uint32_t dummy = bindings->string_create("dummy");
+    const uint32_t loaded = bindings->state_load_str(2, 2, dummy);
+
+    EXPECT_EQ(bindings->string_get(loaded), "persistent");
+}
+
+TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulPrimitives) {
+    // Store some primitive state values
+    bindings->state_store_f64(1, 1, 3.14159);
+    bindings->state_store_i32(1, 2, -42);
+    bindings->state_store_u64(1, 3, 9999999999ULL);
+
+    // Clear transient handles
+    bindings->clear_transient_handles();
+
+    // Primitive state should still be accessible
+    EXPECT_DOUBLE_EQ(bindings->state_load_f64(1, 1, 0.0), 3.14159);
+    EXPECT_EQ(bindings->state_load_i32(1, 2, 0), -42);
+    EXPECT_EQ(bindings->state_load_u64(1, 3, 0), 9999999999ULL);
+}
+
+TEST_F(BindingsTest, MultipleClearCycles) {
+    // Simulate multiple execution cycles
+    for (int cycle = 0; cycle < 3; cycle++) {
+        // Create some transient handles each cycle
+        const uint32_t h1 = bindings->series_create_empty_f64(2);
+        bindings->series_set_element_f64(h1, 0, static_cast<double>(cycle));
+        const uint32_t h2 = bindings->string_create("cycle" + std::to_string(cycle));
+
+        // Verify they exist
+        EXPECT_EQ(bindings->series_len(h1), 2);
+        EXPECT_NE(bindings->string_get(h2), "");
+
+        // Clear at end of cycle
+        bindings->clear_transient_handles();
+    }
+
+    // After all cycles, handles should reset
+    const uint32_t final_series = bindings->series_create_empty_f64(1);
+    const uint32_t final_string = bindings->string_create("final");
+
+    EXPECT_EQ(final_series, 1);
+    EXPECT_EQ(final_string, 1);
+}
+
 }

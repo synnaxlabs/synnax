@@ -63,7 +63,9 @@ TEST(StageFactoryTest, CreatesStageEntryNode) {
     auto state_node = ASSERT_NIL_P(state.node("entry"));
 
     stage::Factory factory;
-    auto node = ASSERT_NIL_P(factory.create(node::Config(ir.nodes[0], std::move(state_node))));
+    auto node = ASSERT_NIL_P(
+        factory.create(node::Config(ir.nodes[0], std::move(state_node)))
+    );
     ASSERT_NE(node, nullptr);
 }
 

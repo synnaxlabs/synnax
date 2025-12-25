@@ -323,10 +323,16 @@ TEST(StateTest, OptionalInput_UseDefault) {
 
     auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
 
+    // First refresh triggers because default values are unconsumed (matches Go
+    // behavior)
     bool triggered = consumer_node.refresh_inputs();
-    ASSERT_FALSE(triggered);
+    ASSERT_TRUE(triggered);
     EXPECT_EQ(consumer_node.input(0)->size(), 1);
     EXPECT_EQ(consumer_node.input(0)->at<float>(0), 42.0f);
+
+    // Second refresh should NOT trigger because default was consumed
+    bool triggered2 = consumer_node.refresh_inputs();
+    ASSERT_FALSE(triggered2);
 }
 
 /// @brief Test that connected input overrides default value

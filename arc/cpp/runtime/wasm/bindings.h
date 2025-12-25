@@ -194,6 +194,12 @@ public:
     uint32_t string_equal(uint32_t handle1, uint32_t handle2);
     uint32_t string_len(uint32_t handle);
     std::string string_get(uint32_t handle);
+
+    /// @brief Clears transient string and series handles at the end of each execution
+    /// cycle. This resets the handle counters and clears the temporary storage maps.
+    /// Stateful variables (state_* maps) are NOT cleared as they must persist across
+    /// cycles.
+    void clear_transient_handles();
 };
 
 /// Create import vector with all registered host functions for Wasmtime.

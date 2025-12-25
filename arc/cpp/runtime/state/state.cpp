@@ -176,7 +176,7 @@ std::pair<Node, xerrors::Error> State::node(const std::string &key) {
 void State::ingest(const telem::Frame &frame) {
     for (size_t i = 0; i < frame.size(); i++)
         reads[frame.channels->at(i)].push_back(
-            xmemory::local_shared<telem::Series>(std::move(frame.series->at(i)))
+            xmemory::local_shared(std::move(frame.series->at(i)))
         );
 }
 
