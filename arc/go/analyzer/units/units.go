@@ -10,6 +10,8 @@
 package units
 
 import (
+	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -20,7 +22,9 @@ var (
 )
 
 // ValidateBinaryOp validates dimensional compatibility for a binary operation.
-// Returns an error if the operation is dimensionally invalid.
+// Returns false and adds diagnostics if the operation is dimensionally invalid.
+// For additive operations (+, -), also checks for magnitude safety issues and
+// adds warnings if precision loss may occur.
 //
 // Rules:
 //   - Multiplication/Division (*, /): Always valid.
@@ -28,22 +32,32 @@ var (
 //     Dimensions must match (or one operand must be dimensionless).
 //
 // Note: Power operations (^) are handled separately by ValidatePowerOp.
-func ValidateBinaryOp(op string, left, right types.Type) error {
+func ValidateBinaryOp[AST antlr.ParserRuleContext](
+	ctx context.Context[AST],
+	op string,
+	left, right types.Type,
+) bool {
 	// Multiplication and division are always dimensionally valid
 	if op == "*" || op == "/" {
-		return nil
+		return true
 	}
 	// If either operand lacks units, it's always valid
 	// (dimensionless values are compatible with anything)
-	if left.Unit == nil || right.Unit == nil || left.Unit.Dimensions.Equal(right.Unit.Dimensions) {
-		return nil
+	if left.Unit == nil || right.Unit == nil {
+		return true
 	}
-	return errors.Wrapf(
-		IncompatibleDimensionsError,
-		"%s vs %s",
-		left.Unit.Dimensions,
-		right.Unit.Dimensions,
-	)
+	if !left.Unit.Dimensions.Equal(right.Unit.Dimensions) {
+		ctx.Diagnostics.AddError(
+			errors.Wrapf(IncompatibleDimensionsError, "%s vs %s", left.Unit.Dimensions, right.Unit.Dimensions),
+			ctx.AST,
+		)
+		return false
+	}
+	// Check magnitude safety for additive operations (precision loss warning)
+	if op == "+" || op == "-" {
+		checkAdditiveScaleSafety(ctx, left, right)
+	}
+	return true
 }
 
 // ValidatePowerOp validates dimensional compatibility for power operations (^).

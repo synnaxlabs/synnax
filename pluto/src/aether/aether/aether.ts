@@ -21,8 +21,9 @@ import { z } from "zod";
 
 import {
   type AetherMessage,
+  type MainInvokeRequest,
   type MainMessage,
-  type MainUpdateMessage,
+  type MainUpdateRequest,
 } from "@/aether/message";
 import { state } from "@/state";
 import { prettyParse } from "@/util/zod";
@@ -49,12 +50,14 @@ interface CreateComponent {
   (initialParentCtxValues: ContextMap): Component;
 }
 
-export interface UpdateStateArgs extends Pick<
-  MainUpdateMessage,
+export interface UpdateStateParams extends Pick<
+  MainUpdateRequest,
   "path" | "type" | "state"
 > {
   create: CreateComponent;
 }
+
+export interface InvokeMethodParams extends Omit<MainInvokeRequest, "variant"> {}
 
 /**
  * A component in the Aether tree. Each component instance has a unique key identifying
@@ -80,7 +83,7 @@ export interface Component {
    * @param create - A function that creates a new component of the appropriate type if
    * it doesn't exist in the tree.
    */
-  _updateState: (args: UpdateStateArgs) => void;
+  _updateState: (params: UpdateStateParams) => void;
   /**
    * Propagates a context update to the children and all of its descendants.
    */
@@ -93,10 +96,20 @@ export interface Component {
    * @param path - The path of the component to delete.
    */
   _delete: (path: string[]) => void;
+  /**
+   * Invokes a method on this component. This is called by the Root when
+   * a MainInvokeRequest is received.
+   *
+   * @param key - The correlation ID for matching the response. If undefined,
+   *              this is fire-and-forget and no response will be sent.
+   * @param method - The name of the method to invoke.
+   * @param params - The parameters to pass to the method (spread when calling handler).
+   */
+  _invokeMethod: (params: InvokeMethodParams) => void;
 }
 
 /** Constructor props that all aether components must accept. */
-interface ComponentConstructorProps {
+export interface ComponentConstructorProps {
   /** The key of the component. */
   key: string;
   /** The type of the component. */
@@ -164,18 +177,92 @@ export interface Context {
 }
 
 /**
+ * A schema defining multiple invokable methods using z.function().
+ * No constraint - the actual schema type flows through for proper inference.
+ */
+
+export type MethodsSchema = Record<string, z.ZodFunction>;
+
+/** Empty methods schema for components that don't use invoke. */
+export type EmptyMethodsSchema = Record<string, never>;
+
+/**
+ * Type helper to extract handler function signatures from a methods schema.
+ * Uses z.infer to extract the function type, then allows async returns.
+ * If the schema output is already Promise<T>, handlers return Promise<T> (not Promise<Promise<T>>).
+ */
+export type HandlersFromSchema<T> = {
+  [K in keyof T]: T[K] extends z.ZodType<infer F>
+    ? F extends (...params: infer A) => infer R
+      ? R extends Promise<unknown>
+        ? (...params: A) => R // Schema already specifies async, don't allow double-wrap
+        : (...params: A) => R | Promise<R> // Schema is sync, allow async implementation
+      : never
+    : never;
+};
+
+export const isFireAndForget = <F extends z.ZodFunction>(schema: F): boolean => {
+  const outputType = schema._zod.def.output;
+  return (
+    outputType instanceof z.ZodVoid ||
+    outputType instanceof z.ZodNever ||
+    outputType instanceof z.ZodUnknown
+  );
+};
+
+/**
+ * Type helper to extract caller function signatures from a methods schema.
+ * Void returns become fire-and-forget (returns void), non-void returns use Promise.
+ * If the schema output is already Promise<T>, callers return Promise<T> (not Promise<Promise<T>>).
+ */
+export type CallersFromSchema<T> = {
+  [K in keyof T]: T[K] extends z.ZodType<infer F>
+    ? F extends (...params: infer A) => infer R
+      ? R extends void
+        ? (...params: A) => void
+        : (...params: A) => Promise<Awaited<R>> // Unwrap if already Promise to avoid double-wrap
+      : never
+    : never;
+};
+
+/**
  * Implements an AetherComponent that does not have any children, and servers as the base
  * class for the AetherComposite type. The corresponding react component should NOT have
  * any children that use Aether functionality; for those cases, use AetherComposite instead.
+ *
+ * For invokable methods:
+ * 1. Define a methods schema using `z.function()`
+ * 2. Add `implements HandlersFromSchema<typeof schema>` to get type checking
+ * 3. Set `methods = schema` on the class
+ * 4. Implement methods with matching names
+ *
+ * @example
+ * ```typescript
+ * const buttonMethodsZ = {
+ *   onMouseDown: z.function(),
+ *   onMouseUp: z.function().returns(z.number()),
+ * };
+ *
+ * class Button extends Leaf<typeof stateZ, {}, typeof buttonMethodsZ>
+ *   implements HandlersFromSchema<typeof buttonMethodsZ> {
+ *   schema = stateZ;
+ *   methods = buttonMethodsZ;
+ *
+ *   // TypeScript enforces these match the schema signatures
+ *   onMouseDown(): void { ... }
+ *   onMouseUp(): number { return 42; }
+ * }
+ * ```
  */
 export abstract class Leaf<
   StateSchema extends z.ZodType<state.State>,
   InternalState extends {} = {},
+  Methods extends MethodsSchema = EmptyMethodsSchema,
 > implements Component {
   readonly type: string;
   readonly key: string;
 
-  private readonly sender: Sender<AetherMessage>;
+  protected readonly sender: Sender<AetherMessage>;
 
   private readonly _internalState: InternalState;
   private _state: z.infer<StateSchema> | undefined;
@@ -187,6 +274,16 @@ export abstract class Leaf<
   readonly instrumentation: alamos.Instrumentation;
 
   schema: StateSchema | undefined = undefined;
+
+  /**
+   * Methods schema for invoke. Define this to enable invokable methods.
+   * Method names in the schema must match method names on the class.
+   */
+  methods: Methods | undefined = undefined;
+  private _methodImplementations: Record<
+    string,
+    (...args: unknown[]) => Promise<unknown>
+  > | null = null;
 
   constructor({
     key,
@@ -204,6 +301,19 @@ export abstract class Leaf<
     parentCtxValues?.forEach((value, key) => this.parentCtxValues.set(key, value));
     this.childCtxValues = new Map();
     this.childCtxChangedKeys = new Set();
+  }
+
+  private initializeMethods() {
+    if (this.methods == null || this._methodImplementations != null) return;
+    this._methodImplementations = {};
+    for (const [name, schema] of Object.entries(this.methods)) {
+      const methodFn = this[name as keyof this];
+      if (typeof methodFn !== "function")
+        throw new Error(`Method ${name} is not a function`);
+      this._methodImplementations[name] = isFireAndForget(schema)
+        ? schema.implement(methodFn.bind(this))
+        : schema.implementAsync(methodFn.bind(this));
+    }
   }
 
   private get _schema(): StateSchema {
@@ -280,9 +390,10 @@ export abstract class Leaf<
    * @implements AetherComponent, and should NOT be called by a subclass other than
    * AetherComposite.
    */
-  _updateState({ path, state }: UpdateStateArgs): void {
+  _updateState({ path, state }: UpdateStateParams): void {
     if (this.deleted) return;
     try {
+      this.initializeMethods();
       const endSpan = this.instrumentation.T.debug(`${this.toString()}:updateState`);
       this.validatePath(path);
       const state_ = prettyParse(this._schema, state, `${this.toString()}`);
@@ -360,6 +471,55 @@ export abstract class Leaf<
         `[Leaf.setState] - ${this.toString()} received a key ${key} but expected ${this.key}`,
       );
   }
+
+  protected handleInvokeError(
+    { method, key, args }: InvokeMethodParams,
+    error: unknown,
+  ) {
+    const expectsResponse = key != null;
+    if (!expectsResponse)
+      return console.error(
+        `Error in fire and forget method ${method} on ${this.toString()}`,
+        error,
+      );
+
+    const err = error instanceof Error ? error : new Error(String(error));
+    this.sender.send({
+      variant: "invoke_response",
+      key,
+      result: undefined,
+      error: {
+        name: err.name,
+        message: `Failed to execute ${method}(${key}) with args ${JSON.stringify(args)} on ${this.toString()}: ${err.message}`,
+        stack: err.stack ?? "",
+      },
+    });
+  }
+
+  _invokeMethod(params: InvokeMethodParams): void {
+    if (this.deleted) return;
+    const { method, key, args } = params;
+    const expectsResponse = key != null;
+    const methodFn = this._methodImplementations?.[method];
+    if (methodFn == null)
+      return this.handleInvokeError(
+        params,
+        new Error(`Method ${method} not found on ${this.toString()}`),
+      );
+    // Dynamic dispatch - TypeScript can't track string → method lookup.
+    try {
+      const res = methodFn(...args);
+      if (res instanceof Promise)
+        res
+          .then((r: unknown) => {
+            if (expectsResponse)
+              this.sender.send({ variant: "invoke_response", key, result: r });
+          })
+          .catch((e) => this.handleInvokeError(params, e));
+    } catch (e) {
+      this.handleInvokeError(params, e);
+    }
+  }
 }
 
 /**
@@ -371,8 +531,9 @@ export abstract class Composite<
   StateSchema extends z.ZodType<state.State>,
   InternalState extends {} = {},
   ChildComponents extends Component = Component,
+  M extends MethodsSchema = EmptyMethodsSchema,
 >
-  extends Leaf<StateSchema, InternalState>
+  extends Leaf<StateSchema, InternalState, M>
   implements Component
 {
   private readonly _children: Map<string, ChildComponents> = new Map();
@@ -406,15 +567,15 @@ export abstract class Composite<
     ) as unknown as readonly T[];
   }
 
-  _updateState(args: UpdateStateArgs): void {
-    const { path, type, create } = args;
+  _updateState(params: UpdateStateParams): void {
+    const { path, type, create } = params;
     if (this.deleted) return;
     const subPath = this.parsePath(path);
 
     const isSelfUpdate = subPath.length === 0;
     if (isSelfUpdate) {
       this.childCtxChangedKeys.clear();
-      super._updateState(args);
+      super._updateState(params);
       if (this.childCtxChangedKeys.size == 0) return;
       this.updateChildContexts();
       return;
@@ -422,7 +583,7 @@ export abstract class Composite<
 
     const childKey = subPath[0];
     const child = this.getChild(childKey);
-    if (child != null) return child._updateState({ ...args, path: subPath });
+    if (child != null) return child._updateState({ ...params, path: subPath });
     if (subPath.length > 1) {
       const childPath = path.slice(0, path.indexOf(childKey) + 1).join(".");
       const fullPath = path.join(".");
@@ -438,7 +599,7 @@ export abstract class Composite<
       );
     }
     const newChild = create(this.childCtx());
-    newChild._updateState({ ...args, path: subPath });
+    newChild._updateState({ ...params, path: subPath });
     this._children.set(childKey, newChild as ChildComponents);
   }
 
@@ -479,6 +640,23 @@ export abstract class Composite<
     if (subPath.length > 1) return child._delete(subPath);
     this._children.delete(child.key);
     child._delete(subPath);
+  }
+
+  /**
+   * Find a child component at the given path for method invocation.
+   * @param path - The path to the child component (excluding this component's key).
+   * @returns The component at the path, or null if not found.
+   */
+  findChildAtPath(path: string[]): Component | null {
+    if (path.length === 0) return null;
+    const [key, ...rest] = path;
+    const child = this.getChild(key);
+    if (child == null) return null;
+    if (rest.length === 0) return child;
+    if ("findChildAtPath" in child && typeof child.findChildAtPath === "function")
+      return child.findChildAtPath(rest);
+
+    return null;
   }
 
   private parsePath(path: string[], type?: string): string[] {
@@ -584,15 +762,23 @@ export class Root extends Composite<typeof aetherRootState> {
   }
 
   /**
-   * Handles messages from the worker thread and applies them as updates in the
+   * Handles messages from the main thread and applies them as updates in the
    * aether tree.
    */
   private handle(msg: MainMessage): void {
-    const { path, variant, type } = msg;
+    const { variant } = msg;
+
+    if (variant === "invoke_request") {
+      this.invokeAtPath(msg);
+      return;
+    }
+
+    const { path, type } = msg;
     if (variant === "delete") {
       this._delete(path);
       return;
     }
+
     const { state } = msg;
     this._updateState({
       path,
@@ -603,6 +789,34 @@ export class Root extends Composite<typeof aetherRootState> {
         return this.create({ key, type, parentCtxValues });
       },
     });
+  }
+
+  private invokeAtPath(params: InvokeMethodParams): void {
+    const { path } = params;
+    const [rootKey, ...childPath] = path;
+    if (rootKey !== Root.KEY) {
+      this.handleInvokeError(
+        params,
+        new Error(`Invalid path: expected root key '${Root.KEY}', got '${rootKey}'`),
+      );
+      return;
+    }
+
+    if (childPath.length === 0) {
+      this._invokeMethod(params);
+      return;
+    }
+
+    const component = this.findChildAtPath(childPath);
+    if (component == null) {
+      this.handleInvokeError(
+        params,
+        new NotFoundError(`Component at path ${path.join(".")} not found`),
+      );
+      return;
+    }
+
+    component._invokeMethod(params);
   }
 
   /** Creates a new component from the registry */
