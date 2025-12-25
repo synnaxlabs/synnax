@@ -135,7 +135,7 @@ std::pair<Node, xerrors::Error> State::node(const std::string &key) {
             accumulated[i].data = data_series;
             accumulated[i].time = time_series;
             accumulated[i].last_timestamp = telem::TimeStamp(0);
-            accumulated[i].consumed = true;
+            accumulated[i].consumed = false;
 
             if (!this->value_index.contains(synthetic_handle)) {
                 this->value_index[synthetic_handle] = this->values.size();

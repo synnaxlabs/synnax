@@ -35,8 +35,7 @@ arc::module::Module
 compile_arc(const synnax::Synnax &client, const std::string &source) {
     auto arc = synnax::Arc(random_name("test_arc"));
     arc.text.raw = source;
-    const auto create_err = client.arcs.create(arc);
-    if (create_err)
+    if (const auto create_err = client.arcs.create(arc))
         throw std::runtime_error("Failed to create arc: " + create_err.message());
 
     synnax::RetrieveOptions opts;
@@ -84,8 +83,7 @@ func double(val f32) f32 {
     ASSERT_FALSE(mod.wasm.empty());
 
     const ModuleConfig cfg{.module = mod};
-    const auto [module, err] = Module::open(cfg);
-    ASSERT_NIL(err);
+    const auto module = ASSERT_NIL_P(Module::open(cfg));
     ASSERT_NE(module, nullptr);
 }
 
@@ -104,8 +102,7 @@ func double(val f32) f32 {
 
     const auto mod = compile_arc(client, source);
     const ModuleConfig cfg{.module = mod};
-    auto [module, open_err] = Module::open(cfg);
-    ASSERT_NIL(open_err);
+    auto module = ASSERT_NIL_P(Module::open(cfg));
 
     auto [func, func_err] = module->func("nonexistent");
     ASSERT_TRUE(func_err.matches(xerrors::NOT_FOUND));
@@ -126,11 +123,8 @@ func double(val f32) f32 {
 
     const auto mod = compile_arc(client, source);
     const ModuleConfig cfg{.module = mod};
-    auto [module, open_err] = Module::open(cfg);
-    ASSERT_NIL(open_err);
-
-    auto [func, func_err] = module->func("double");
-    ASSERT_NIL(func_err);
+    auto module = ASSERT_NIL_P(Module::open(cfg));
+    ASSERT_NIL_P(module->func("double"));
 }
 
 /// @brief Function::call executes and returns results.
@@ -148,15 +142,11 @@ func double(val f32) f32 {
 
     const auto mod = compile_arc(client, source);
     const ModuleConfig cfg{.module = mod};
-    auto [module, open_err] = Module::open(cfg);
-    ASSERT_NIL(open_err);
-
-    auto [func, func_err] = module->func("double");
-    ASSERT_NIL(func_err);
+    auto module = ASSERT_NIL_P(Module::open(cfg));
+    auto func = ASSERT_NIL_P(module->func("double"));
 
     std::vector<telem::SampleValue> params = {5.0f};
-    auto [results, call_err] = func.call(params);
-    ASSERT_NIL(call_err);
+    auto results = ASSERT_NIL_P(func.call(params));
     ASSERT_EQ(results.size(), 1);
     ASSERT_TRUE(results[0].changed);
     EXPECT_FLOAT_EQ(std::get<float>(results[0].value), 10.0f);
