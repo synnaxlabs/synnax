@@ -287,36 +287,10 @@ extend_to_match_length(const telem::Series &a, const telem::Series &b) {
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
     }                                                                                  \
-    uint32_t Bindings::series_element_rsub_##suffix(uint32_t handle, cpptype value) {  \
-        auto it = series.find(handle);                                                 \
-        if (it == series.end()) return 0;                                              \
-        auto result = value - it->second;                                              \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
-    }                                                                                  \
-    uint32_t Bindings::series_element_rdiv_##suffix(uint32_t handle, cpptype value) {  \
-        auto it = series.find(handle);                                                 \
-        if (it == series.end()) return 0;                                              \
-        auto result = value / it->second;                                              \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
-    }                                                                                  \
-    uint32_t Bindings::series_element_mod_##suffix(uint32_t handle, cpptype value) {   \
-        auto it = series.find(handle);                                                 \
-        if (it == series.end()) return 0;                                              \
-        if (value == 0) return 0;                                                      \
-        auto result = it->second % value;                                              \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
-    }                                                                                  \
     IMPL_SERIES_BINARY_OP(suffix, cpptype, series_series, add, +)                      \
     IMPL_SERIES_BINARY_OP(suffix, cpptype, series_series, mul, *)                      \
     IMPL_SERIES_BINARY_OP(suffix, cpptype, series_series, sub, -)                      \
     IMPL_SERIES_BINARY_OP(suffix, cpptype, series_series, div, /)                      \
-    IMPL_SERIES_BINARY_OP(suffix, cpptype, series_series, mod, %)                      \
     IMPL_SERIES_BINARY_OP(suffix, cpptype, series_compare, gt, >)                      \
     IMPL_SERIES_BINARY_OP(suffix, cpptype, series_compare, lt, <)                      \
     IMPL_SERIES_BINARY_OP(suffix, cpptype, series_compare, ge, >=)                     \
@@ -370,6 +344,51 @@ IMPL_SERIES_OPS(f64, double, telem::FLOAT64_T)
 #undef IMPL_SERIES_OPS
 #undef IMPL_SERIES_SCALAR_OP
 #undef IMPL_SERIES_BINARY_OP
+
+// Series unary operations - negate for signed types
+#define IMPL_SERIES_NEGATE(suffix, cpptype, data_type_const)                           \
+    uint32_t Bindings::series_negate_##suffix(uint32_t handle) {                       \
+        auto it = series.find(handle);                                                 \
+        if (it == series.end()) return 0;                                              \
+        const auto &src = it->second;                                                  \
+        const size_t len = src.size();                                                 \
+        auto result = telem::Series(data_type_const, len);                             \
+        result.resize(len);                                                            \
+        for (size_t i = 0; i < len; i++) {                                             \
+            result.set(static_cast<int>(i), -src.at<cpptype>(static_cast<int>(i)));    \
+        }                                                                              \
+        const uint32_t new_handle = series_handle_counter++;                           \
+        series.emplace(new_handle, std::move(result));                                 \
+        return new_handle;                                                             \
+    }
+
+IMPL_SERIES_NEGATE(f64, double, telem::FLOAT64_T)
+IMPL_SERIES_NEGATE(f32, float, telem::FLOAT32_T)
+IMPL_SERIES_NEGATE(i64, int64_t, telem::INT64_T)
+IMPL_SERIES_NEGATE(i32, int32_t, telem::INT32_T)
+IMPL_SERIES_NEGATE(i16, int16_t, telem::INT16_T)
+IMPL_SERIES_NEGATE(i8, int8_t, telem::INT8_T)
+
+#undef IMPL_SERIES_NEGATE
+
+// Logical NOT for boolean series (u8)
+uint32_t Bindings::series_not_u8(uint32_t handle) {
+    auto it = series.find(handle);
+    if (it == series.end()) return 0;
+    const auto &src = it->second;
+    const size_t len = src.size();
+    auto result = telem::Series(telem::UINT8_T, len);
+    result.resize(len);
+    for (size_t i = 0; i < len; i++) {
+        result.set(
+            static_cast<int>(i),
+            static_cast<uint8_t>(src.at<uint8_t>(static_cast<int>(i)) == 0 ? 1 : 0)
+        );
+    }
+    const uint32_t new_handle = series_handle_counter++;
+    series.emplace(new_handle, std::move(result));
+    return new_handle;
+}
 
 uint64_t Bindings::now() {
     auto now = std::chrono::system_clock::now();
@@ -499,8 +518,9 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
     }));
 
 // ===== Series Operations (Per-Type) =====
-// Order: create_empty, set_element, index, element ops (add,mul,sub,div), series ops
-// (add,mul,sub,div), comparisons (gt,lt,ge,le,eq,ne)
+// Order must match Go compiler: create_empty, set_element, index,
+// element ops (add,mul,sub,div), series ops (add,mul,sub,div),
+// comparisons (gt,lt,ge,le,eq,ne), state_load_series, state_store_series
 #define REGISTER_SERIES_OPS(type, wasm_type)                                           \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(store, [runtime](uint32_t len) -> uint32_t {              \
@@ -541,21 +561,6 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
         })                                                                             \
     );                                                                                 \
     imports.push_back(                                                                 \
-        wasmtime::Func::wrap(store, [runtime](uint32_t h, wasm_type v) -> uint32_t {   \
-            return runtime->series_element_rsub_##type(h, v);                          \
-        })                                                                             \
-    );                                                                                 \
-    imports.push_back(                                                                 \
-        wasmtime::Func::wrap(store, [runtime](uint32_t h, wasm_type v) -> uint32_t {   \
-            return runtime->series_element_rdiv_##type(h, v);                          \
-        })                                                                             \
-    );                                                                                 \
-    imports.push_back(                                                                 \
-        wasmtime::Func::wrap(store, [runtime](uint32_t h, wasm_type v) -> uint32_t {   \
-            return runtime->series_element_mod_##type(h, v);                           \
-        })                                                                             \
-    );                                                                                 \
-    imports.push_back(                                                                 \
         wasmtime::Func::wrap(store, [runtime](uint32_t a, uint32_t b) -> uint32_t {    \
             return runtime->series_series_add_##type(a, b);                            \
         })                                                                             \
@@ -573,11 +578,6 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(store, [runtime](uint32_t a, uint32_t b) -> uint32_t {    \
             return runtime->series_series_div_##type(a, b);                            \
-        })                                                                             \
-    );                                                                                 \
-    imports.push_back(                                                                 \
-        wasmtime::Func::wrap(store, [runtime](uint32_t a, uint32_t b) -> uint32_t {    \
-            return runtime->series_series_mod_##type(a, b);                            \
         })                                                                             \
     );                                                                                 \
     imports.push_back(                                                                 \
@@ -609,6 +609,22 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
         wasmtime::Func::wrap(store, [runtime](uint32_t a, uint32_t b) -> uint32_t {    \
             return runtime->series_compare_ne_##type(a, b);                            \
         })                                                                             \
+    );                                                                                 \
+    imports.push_back(                                                                 \
+        wasmtime::Func::wrap(                                                          \
+            store,                                                                     \
+            [runtime](uint32_t func_id, uint32_t var_id, uint32_t init) -> uint32_t {  \
+                return runtime->state_load_series_##type(func_id, var_id, init);       \
+            }                                                                          \
+        )                                                                              \
+    );                                                                                 \
+    imports.push_back(                                                                 \
+        wasmtime::Func::wrap(                                                          \
+            store,                                                                     \
+            [runtime](uint32_t func_id, uint32_t var_id, uint32_t handle) {            \
+                runtime->state_store_series_##type(func_id, var_id, handle);           \
+            }                                                                          \
+        )                                                                              \
     );
 
     REGISTER_SERIES_OPS(u8, uint32_t)
@@ -623,6 +639,30 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
     REGISTER_SERIES_OPS(f64, double)
 
 #undef REGISTER_SERIES_OPS
+
+    // ===== Series Unary Operations =====
+    // Order: negate for signed types (f64, f32, i64, i32, i16, i8), then not for u8
+    imports.push_back(wasmtime::Func::wrap(store, [runtime](uint32_t h) -> uint32_t {
+        return runtime->series_negate_f64(h);
+    }));
+    imports.push_back(wasmtime::Func::wrap(store, [runtime](uint32_t h) -> uint32_t {
+        return runtime->series_negate_f32(h);
+    }));
+    imports.push_back(wasmtime::Func::wrap(store, [runtime](uint32_t h) -> uint32_t {
+        return runtime->series_negate_i64(h);
+    }));
+    imports.push_back(wasmtime::Func::wrap(store, [runtime](uint32_t h) -> uint32_t {
+        return runtime->series_negate_i32(h);
+    }));
+    imports.push_back(wasmtime::Func::wrap(store, [runtime](uint32_t h) -> uint32_t {
+        return runtime->series_negate_i16(h);
+    }));
+    imports.push_back(wasmtime::Func::wrap(store, [runtime](uint32_t h) -> uint32_t {
+        return runtime->series_negate_i8(h);
+    }));
+    imports.push_back(wasmtime::Func::wrap(store, [runtime](uint32_t h) -> uint32_t {
+        return runtime->series_not_u8(h);
+    }));
 
 // ===== State Operations =====
 #define REGISTER_STATE_OPS(suffix, wasm_type)                                          \
