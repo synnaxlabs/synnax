@@ -45,7 +45,7 @@ import numpy as np
 # will automatically be assumed to be of type int64.
 series = sy.Series([1, 2, 3, 4, 5])
 
-# We can also manually specify the type of the series
+# Manually specify the data type of the series
 series = sy.Series([1, 2, 3, 4, 5], data_type=sy.DataType.INT32)
 
 # Construct a series from a numpy array. The type of the series
@@ -75,7 +75,7 @@ import { Series } from "@synnaxlabs/client";
 // automatically be of type float64.
 const series = new Series([1, 2, 3, 4, 5]);
 
-// We can also manually specify the type of the series
+// Manually specify the data type of the series
 const series = new Series({ data: [1, 2, 3, 4, 5], dataType: "float32" });
 
 // Construct a series from a Float32Array. This is the most efficient way to

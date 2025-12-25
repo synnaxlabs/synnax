@@ -18,8 +18,8 @@ export const components = mdxOverrides;
   TODO: Even though another page will cover "advanced writing pattern", we should still add another simple example.
 </Note.Note>
 
-This guide covers the fundamental patterns for writing data to Synnax channels. We'll
-focus on simple, straightforward writes to get you started quickly.
+This guide covers the fundamental patterns for writing data to Synnax channels, focusing
+on simple, straightforward writes.
 
 If you'd like a conceptual overview of how writes work in Synnax, check out the
 [writes concepts guide](/reference/concepts/writes). The
@@ -82,9 +82,9 @@ to understand.
 
 ### Index and Data Alignment
 
-Notice how we align the two arrays using the common `start` timestamp. This tells Synnax
-that the first sample in the `temperatures` array is associated with the first timestamp
-in the `timestamps` array.
+Notice how the two arrays are aligned using the common `start` timestamp. This tells
+Synnax that the first sample in the `temperatures` array is associated with the first
+timestamp in the `timestamps` array.
 
 Synnax will raise a `ValidationError` if the index channel does not contain a
 corresponding timestamp for every sample in the data channel. After all, it wouldn't

@@ -15,7 +15,7 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 This guide covers the fundamental patterns for reading channel data from the Synnax
-Core. We'll focus on simple, straightforward reads to get you started quickly.
+Core, focusing on simple, straightforward reads.
 
 If you'd like a conceptual overview of how reads work in Synnax, check out the
 [reads concepts guide](/reference/concepts/reads).
@@ -64,7 +64,7 @@ The simplest way to read data from Synnax is to use the `read` method on a `Chan
     The returned data is a
     [`Series`](/reference/client/working-with-data/series-and-frames#series), which
     maintains a very similar interface to a JavaScript typed array (e.g. `Float32Array`,
-    `Int32Array`, etc.). We can convert the returned data to a JavaScript array easily.
+    `Int32Array`, etc.). Convert the returned data to a JavaScript array easily:
 
     ```typescript
     const data = Array.from(series);
@@ -83,8 +83,8 @@ The returned data is an instance of the
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
 <Fragment slot="python">
-  To access the `Series` object by using the `[]` operator.
-  We can also convert the `Frame` to a `pandas.DataFrame` by calling the `to_df` method.
+  Access the `Series` object using the `[]` operator. The `Frame` can also be converted
+  to a `pandas.DataFrame` by calling the `to_df` method.
 
 ```python
 import synnax as sy
@@ -101,7 +101,7 @@ df = frame.to_df()
   </Fragment>
 
 <Fragment slot="typescript">
-  To access the data for a specific channel, we can use the `get` method.
+  To access the data for a specific channel, use the `get` method.
 
 ```typescript
 import { TimeStamp } from "@synnaxlabs/pluto";

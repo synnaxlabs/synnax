@@ -43,8 +43,8 @@ many capabilities, including
   <Fragment slot="typescript">
     The TypeScript client is available on
     [npm](https://www.npmjs.com/package/@synnaxlabs/client), and can be installed with your
-    package manager of choice. We'll be using `npm` in our documentation, but feel free to
-    use `yarn`, `pnpm`, or any other package manager you prefer.
+    package manager of choice. This documentation uses `npm`, but `yarn`, `pnpm`, or any
+    other package manager will work.
 
     ```cmd
     npm install @synnaxlabs/client
@@ -105,8 +105,8 @@ parameters and credentials.
 
 ## Create Your First Channel
 
-We can create a channel using the `channels.create` client method. You must first create
-an "index" channel to
+Create a channel using the `channels.create` client method. First create an "index"
+channel to
 [store timestamps for your data channel](/reference/concepts/channels#index-channels).
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
@@ -162,8 +162,8 @@ an "index" channel to
 
 ## Write Data
 
-We can then write data to `timeChannel` and `tempChannel`. First, we must write to the
-index channel before writing to the data channel.
+Write data to `timeChannel` and `tempChannel`. The index channel must be written to
+before writing to the data channel.
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
@@ -210,9 +210,9 @@ index channel before writing to the data channel.
   </Fragment>
 </Client.Tabs>
 
-Notice how we align the two arrays using the common `start` timestamp. This tells Synnax
-that the first sample in the `temperatures` array is associated with the first timestamp
-in the `timestamps` array.
+Notice how the two arrays are aligned using the common `start` timestamp. This tells
+Synnax that the first sample in the `temperatures` array is associated with the first
+timestamp in the `timestamps` array.
 
 Synnax will raise a `ValidationError` if the index channel does not contain a
 corresponding timestamp for every sample in the data channel. After all, it wouldn't
@@ -263,7 +263,7 @@ object:
 The returned data is a
 [`Series`](/reference/client/working-with-data/series-and-frames#series), which
 maintains a very similar interface to a JavaScript typed array (e.g. `Float32Array`,
-`Int32Array`, etc.). We can convert the returned data to a JavaScript array easily.
+`Int32Array`, etc.). Convert the returned data to a JavaScript array easily:
 
 ```typescript
 const data = Array.from(series);
