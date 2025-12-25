@@ -42,7 +42,6 @@ export interface StoreState {
 export const purgeState = (state: State): State => {
   // Reset control states.
   state.control = "released";
-  state.controlAcquireTrigger = 0;
   state.toolbar = { ...state.toolbar, activeTab: "symbols" };
   return state;
 };
@@ -113,11 +112,6 @@ export interface SetFitViewOnResizePayload {
 export interface SetControlStatusPayload {
   key: string;
   control: Control.Status;
-}
-
-export interface ToggleControlPayload {
-  key: string;
-  status: Control.Status;
 }
 
 export interface SetActiveToolbarTabPayload {
@@ -271,7 +265,6 @@ export const { actions, reducer } = createSlice({
       layoutKeys.forEach((layoutKey) => {
         const schematic = state.schematics[layoutKey];
         if (schematic == null) return;
-        if (schematic.control === "acquired") schematic.controlAcquireTrigger -= 1;
         delete state.schematics[layoutKey];
       });
     },
@@ -375,7 +368,6 @@ export const { actions, reducer } = createSlice({
       const { key: layoutKey, editable } = payload;
       const schematic = state.schematics[layoutKey];
       clearSelections(schematic);
-      if (schematic.control === "acquired") schematic.controlAcquireTrigger -= 1;
       if (schematic.snapshot) return;
       schematic.editable = editable;
     },
@@ -386,14 +378,6 @@ export const { actions, reducer } = createSlice({
       const { key: layoutKey, fitViewOnResize } = payload;
       const schematic = state.schematics[layoutKey];
       schematic.fitViewOnResize = fitViewOnResize;
-    },
-    toggleControl: (state, { payload }: PayloadAction<ToggleControlPayload>) => {
-      const { key: layoutKey } = payload;
-      let { status } = payload;
-      const schematic = state.schematics[layoutKey];
-      status ??= schematic.control === "released" ? "acquired" : "released";
-      if (status === "released") schematic.controlAcquireTrigger -= 1;
-      else schematic.controlAcquireTrigger += 1;
     },
     setControlStatus: (state, { payload }: PayloadAction<SetControlStatusPayload>) => {
       const { key: layoutKey, control } = payload;
@@ -490,7 +474,6 @@ export const {
   setLegend,
   setLegendVisible,
   setNodePositions,
-  toggleControl,
   setControlStatus,
   addElement,
   selectAll,

@@ -90,7 +90,7 @@ jobs:
           file: ./core/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+          tags: ghcr.io/synnaxlabs/synnax:${{ github.sha }}-test-driver
           cache-from: type=gha,scope=synnax-docker-cache
           cache-to: type=inline
           build-args: |
@@ -102,7 +102,7 @@ jobs:
     needs: server
     services:
       synnax:
-        image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+        image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}-test-driver
         env:
           SYNNAX_LISTEN: localhost:9090
           SYNNAX_VERBOSE: true

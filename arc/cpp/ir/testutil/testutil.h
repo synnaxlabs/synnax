@@ -15,7 +15,7 @@
 
 #include "arc/cpp/ir/ir.h"
 
-namespace arc::ir {
+namespace arc::ir::testutil {
 
 /// @brief Fluent builder for constructing IR in tests.
 /// Avoids verbose protobuf construction for simple test graphs.

@@ -96,6 +96,62 @@ TEST(IRTest, testIRProtobufRoundTrip) {
     ASSERT_EQ(reconstructed.edges[0].source.node, "node1");
 }
 
+/// @brief Stage::to_string should format stage with nodes
+TEST(StageTest, ToStringFormatsStageWithNodes) {
+    arc::ir::Stage stage;
+    stage.key = "pressurization";
+    stage.nodes = {"timer_1", "controller_1"};
+    EXPECT_EQ(stage.to_string(), "pressurization: [timer_1, controller_1]");
+}
+
+/// @brief Stage::to_string should format stage with empty nodes
+TEST(StageTest, ToStringFormatsEmptyNodes) {
+    arc::ir::Stage stage;
+    stage.key = "terminal";
+    EXPECT_EQ(stage.to_string(), "terminal: []");
+}
+
+/// @brief Stage::to_string should include strata when present
+TEST(StageTest, ToStringIncludesStrata) {
+    arc::ir::Stage stage;
+    stage.key = "main";
+    stage.nodes = {"a", "b"};
+    stage.strata = arc::ir::Strata({{"a"}, {"b"}});
+    const auto str = stage.to_string();
+    EXPECT_NE(str.find("main: [a, b]"), std::string::npos);
+    EXPECT_NE(str.find("[0]: a"), std::string::npos);
+    EXPECT_NE(str.find("[1]: b"), std::string::npos);
+}
+
+/// @brief Sequence::to_string should format with tree structure
+TEST(SequenceTest, ToStringFormatsTreeStructure) {
+    arc::ir::Sequence seq;
+    seq.key = "main";
+    arc::ir::Stage s1, s2;
+    s1.key = "precheck";
+    s1.nodes = {"check_1"};
+    s2.key = "complete";
+    seq.stages = {s1, s2};
+    const auto str = seq.to_string();
+    EXPECT_EQ(str.substr(0, 5), "main\n");
+    EXPECT_NE(str.find("precheck:"), std::string::npos);
+    EXPECT_NE(str.find("complete:"), std::string::npos);
+}
+
+/// @brief Sequence::to_string should use correct tree prefixes
+TEST(SequenceTest, ToStringUsesCorrectTreePrefixes) {
+    arc::ir::Sequence seq;
+    seq.key = "seq";
+    arc::ir::Stage s1, s2;
+    s1.key = "first";
+    s2.key = "last";
+    seq.stages = {s1, s2};
+    const auto str = seq.to_string();
+    // First stage uses ├──, last stage uses └──
+    EXPECT_NE(str.find("├── first"), std::string::npos);
+    EXPECT_NE(str.find("└── last"), std::string::npos);
+}
+
 // -------------------- Params access tests --------------------
 
 /// @brief it should access params by name using operator[]
