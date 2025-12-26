@@ -25,7 +25,7 @@ unified client documentation structure.
 └── resources/
     ├── examples.mdx                    ✅ Complete
     ├── build-device-driver.mdx         🔄 In Progress (Python only)
-    └── troubleshooting.mdx             🔄 In Progress
+    └── troubleshooting.mdx             ✅ Complete
 ```
 
 
@@ -63,7 +63,7 @@ unified client documentation structure.
 - [x] Create all shell pages
 - [x] Examples
 - [🔄] Build Device Driver
-- [🔄] Troubleshooting
+- [x] Troubleshooting
 
 ### Phase 6: Cleanup
 
@@ -79,8 +79,8 @@ unified client documentation structure.
 | Fundamentals      | 3        | ✅ Complete       |
 | Working with Data | 4        | ✅ Complete       |
 | Advanced Topics   | 3        | ✅ Complete       |
-| Resources         | 3        | 🔄 3 in progress  |
-| **TOTAL**         | **15**   | **12 complete, 3 in progress** |
+| Resources         | 3        | 1 in progress  |
+| **TOTAL**         | **15**   | **14 complete, 1 in progress** |
 
 ## Notes
 
