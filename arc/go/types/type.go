@@ -180,6 +180,18 @@ func (p Params) ValueMap() map[string]any {
 	})
 }
 
+// RequiredCount returns the number of required (non-optional) parameters.
+// A parameter is optional if its Value field is non-nil (has a default).
+func (p Params) RequiredCount() int {
+	count := 0
+	for _, param := range p {
+		if param.Value == nil {
+			count++
+		}
+	}
+	return count
+}
+
 type Param struct {
 	Name  string `json:"name"`
 	Type  Type   `json:"type"`
