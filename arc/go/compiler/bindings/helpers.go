@@ -43,11 +43,6 @@ func (idx *ImportIndex) GetChannelWrite(t types.Type) (uint32, error) {
 	return idx.lookupImport(idx.ChannelWrite, t, "channel write")
 }
 
-// GetChannelBlockingRead returns the import index for a blocking channel read function
-func (idx *ImportIndex) GetChannelBlockingRead(t types.Type) (uint32, error) {
-	return idx.lookupImport(idx.ChannelBlockingRead, t, "channel blocking read")
-}
-
 // GetSeriesCreateEmpty returns the import index for creating an empty series
 func (idx *ImportIndex) GetSeriesCreateEmpty(t types.Type) (uint32, error) {
 	return idx.lookupImport(idx.SeriesCreateEmpty, t, "series create")
@@ -63,7 +58,8 @@ func (idx *ImportIndex) GetSeriesSetElement(t types.Type) (uint32, error) {
 	return idx.lookupImport(idx.SeriesSetElement, t, "series set element")
 }
 
-// GetSeriesArithmetic returns the import index for series arithmetic operations
+// GetSeriesArithmetic returns the import index for series arithmetic operations.
+// For non-commutative ops (-, /) with scalar on left, use GetSeriesReverseArithmetic.
 func (idx *ImportIndex) GetSeriesArithmetic(op string, t types.Type, isScalar bool) (uint32, error) {
 	suffix := t.Unwrap().String()
 
@@ -78,6 +74,8 @@ func (idx *ImportIndex) GetSeriesArithmetic(op string, t types.Type, isScalar bo
 			m = idx.SeriesElementMul
 		case "/":
 			m = idx.SeriesElementDiv
+		case "%":
+			m = idx.SeriesElementMod
 		default:
 			return 0, errors.Newf("unknown arithmetic operator: %s", op)
 		}
@@ -91,6 +89,8 @@ func (idx *ImportIndex) GetSeriesArithmetic(op string, t types.Type, isScalar bo
 			m = idx.SeriesSeriesMul
 		case "/":
 			m = idx.SeriesSeriesDiv
+		case "%":
+			m = idx.SeriesSeriesMod
 		default:
 			return 0, errors.Newf("unknown arithmetic operator: %s", op)
 		}
@@ -102,7 +102,29 @@ func (idx *ImportIndex) GetSeriesArithmetic(op string, t types.Type, isScalar bo
 	return 0, errors.Newf("no series %s function for type %v", op, t)
 }
 
-// GetSeriesComparison returns the import index for series comparison operations
+// GetSeriesReverseArithmetic returns the import index for reverse scalar arithmetic
+// operations (scalar op series instead of series op scalar). This is needed for
+// non-commutative operations like subtraction and division where order matters.
+func (idx *ImportIndex) GetSeriesReverseArithmetic(op string, t types.Type) (uint32, error) {
+	suffix := t.Unwrap().String()
+
+	var m map[string]uint32
+	switch op {
+	case "-":
+		m = idx.SeriesElementRSub // scalar - series
+	case "/":
+		m = idx.SeriesElementRDiv // scalar / series
+	default:
+		return 0, errors.Newf("reverse arithmetic only supported for - and /: got %s", op)
+	}
+
+	if funcIdx, ok := m[suffix]; ok {
+		return funcIdx, nil
+	}
+	return 0, errors.Newf("no series reverse %s function for type %v", op, t)
+}
+
+// GetSeriesComparison returns the import index for series-to-series comparison operations
 func (idx *ImportIndex) GetSeriesComparison(op string, t types.Type) (uint32, error) {
 	suffix := t.Unwrap().String()
 
@@ -128,6 +150,34 @@ func (idx *ImportIndex) GetSeriesComparison(op string, t types.Type) (uint32, er
 		return funcIdx, nil
 	}
 	return 0, errors.Newf("no series comparison %s function for type %v", op, t)
+}
+
+// GetSeriesScalarComparison returns the import index for series-to-scalar comparison operations
+func (idx *ImportIndex) GetSeriesScalarComparison(op string, t types.Type) (uint32, error) {
+	suffix := t.Unwrap().String()
+
+	var m map[string]uint32
+	switch op {
+	case ">":
+		m = idx.SeriesCompareGTScalar
+	case "<":
+		m = idx.SeriesCompareLTScalar
+	case ">=":
+		m = idx.SeriesCompareGEScalar
+	case "<=":
+		m = idx.SeriesCompareLEScalar
+	case "==":
+		m = idx.SeriesCompareEQScalar
+	case "!=":
+		m = idx.SeriesCompareNEScalar
+	default:
+		return 0, errors.Newf("unknown comparison operator: %s", op)
+	}
+
+	if funcIdx, ok := m[suffix]; ok {
+		return funcIdx, nil
+	}
+	return 0, errors.Newf("no series scalar comparison %s function for type %v", op, t)
 }
 
 // GetStateLoad returns the import index for a state load function

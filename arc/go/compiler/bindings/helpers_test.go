@@ -27,7 +27,6 @@ var _ = Describe("ImportIndex Helpers", func() {
 		idx.ChannelRead["f64"] = 2
 		idx.ChannelWrite["i64"] = 3
 		idx.ChannelWrite["f64"] = 4
-		idx.ChannelBlockingRead["i64"] = 5
 		idx.SeriesCreateEmpty["i64"] = 6
 		idx.SeriesIndex["i64"] = 7
 		idx.StateLoad["i64"] = 8
@@ -81,19 +80,6 @@ var _ = Describe("ImportIndex Helpers", func() {
 			_, err := idx.GetChannelWrite(types.U8())
 			Expect(err).NotTo(BeNil())
 			Expect(err).To(MatchError(ContainSubstring("no channel write function")))
-		})
-	})
-
-	Describe("GetChannelBlockingRead", func() {
-		It("Should return import index for valid type", func() {
-			funcIdx := MustSucceed(idx.GetChannelBlockingRead(types.I64()))
-			Expect(funcIdx).To(Equal(uint32(5)))
-		})
-
-		It("Should return error for unsupported type", func() {
-			_, err := idx.GetChannelBlockingRead(types.U8())
-			Expect(err).NotTo(BeNil())
-			Expect(err).To(MatchError(ContainSubstring("no channel blocking read function")))
 		})
 	})
 
@@ -171,12 +157,6 @@ var _ = Describe("ImportIndex Helpers", func() {
 				Expect(funcIdx).To(Equal(uint32(13)))
 			})
 
-			It("Should return error for unknown operator", func() {
-				_, err := idx.GetSeriesArithmetic("%", types.I64(), true)
-				Expect(err).NotTo(BeNil())
-				Expect(err).To(MatchError(ContainSubstring("unknown arithmetic operator")))
-			})
-
 			It("Should return error for unsupported type", func() {
 				_, err := idx.GetSeriesArithmetic("+", types.U8(), true)
 				Expect(err).NotTo(BeNil())
@@ -205,11 +185,6 @@ var _ = Describe("ImportIndex Helpers", func() {
 				Expect(funcIdx).To(Equal(uint32(17)))
 			})
 
-			It("Should return error for unknown operator", func() {
-				_, err := idx.GetSeriesArithmetic("%", types.I64(), false)
-				Expect(err).NotTo(BeNil())
-				Expect(err).To(MatchError(ContainSubstring("unknown arithmetic operator")))
-			})
 		})
 	})
 

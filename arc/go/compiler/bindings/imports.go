@@ -22,9 +22,8 @@ import (
 // This defines the contract between compiled arc WASM modules and the host runtime.
 type ImportIndex struct {
 	// Channel operations - per-type functions for type safety
-	ChannelRead         map[string]uint32 // type suffix -> function index
-	ChannelWrite        map[string]uint32
-	ChannelBlockingRead map[string]uint32
+	ChannelRead  map[string]uint32 // type suffix -> function index
+	ChannelWrite map[string]uint32
 
 	// Series operations - handle-based for memory isolation
 	SeriesCreateEmpty map[string]uint32
@@ -34,14 +33,18 @@ type ImportIndex struct {
 	SeriesSlice       uint32
 
 	// Series arithmetic - per-type for performance
-	SeriesElementAdd map[string]uint32
-	SeriesElementMul map[string]uint32
-	SeriesElementSub map[string]uint32
-	SeriesElementDiv map[string]uint32
-	SeriesSeriesAdd  map[string]uint32
-	SeriesSeriesMul  map[string]uint32
-	SeriesSeriesSub  map[string]uint32
-	SeriesSeriesDiv  map[string]uint32
+	SeriesElementAdd  map[string]uint32
+	SeriesElementMul  map[string]uint32
+	SeriesElementSub  map[string]uint32
+	SeriesElementDiv  map[string]uint32
+	SeriesElementMod  map[string]uint32
+	SeriesElementRSub map[string]uint32 // reverse subtract: scalar - series
+	SeriesElementRDiv map[string]uint32 // reverse divide: scalar / series
+	SeriesSeriesAdd   map[string]uint32
+	SeriesSeriesMul   map[string]uint32
+	SeriesSeriesSub   map[string]uint32
+	SeriesSeriesDiv   map[string]uint32
+	SeriesSeriesMod   map[string]uint32
 
 	// Series comparison - returns series u8
 	SeriesCompareGT map[string]uint32
@@ -50,6 +53,14 @@ type ImportIndex struct {
 	SeriesCompareLE map[string]uint32
 	SeriesCompareEQ map[string]uint32
 	SeriesCompareNE map[string]uint32
+
+	// Series scalar comparison - returns series u8
+	SeriesCompareGTScalar map[string]uint32
+	SeriesCompareLTScalar map[string]uint32
+	SeriesCompareGEScalar map[string]uint32
+	SeriesCompareLEScalar map[string]uint32
+	SeriesCompareEQScalar map[string]uint32
+	SeriesCompareNEScalar map[string]uint32
 
 	// Series unary operations
 	SeriesNegate map[string]uint32 // For signed types (f64, f32, i64, i32, i16, i8)
@@ -92,31 +103,40 @@ type ImportIndex struct {
 // NewImportIndex creates a new import index with initialized maps
 func NewImportIndex() *ImportIndex {
 	return &ImportIndex{
-		ChannelRead:         make(map[string]uint32),
-		ChannelWrite:        make(map[string]uint32),
-		ChannelBlockingRead: make(map[string]uint32),
-		SeriesCreateEmpty:   make(map[string]uint32),
-		SeriesSetElement:    make(map[string]uint32),
-		SeriesIndex:         make(map[string]uint32),
-		SeriesElementAdd:    make(map[string]uint32),
-		SeriesElementMul:    make(map[string]uint32),
-		SeriesElementSub:    make(map[string]uint32),
-		SeriesElementDiv:    make(map[string]uint32),
-		SeriesSeriesAdd:     make(map[string]uint32),
-		SeriesSeriesMul:     make(map[string]uint32),
-		SeriesSeriesSub:     make(map[string]uint32),
-		SeriesSeriesDiv:     make(map[string]uint32),
-		SeriesCompareGT:     make(map[string]uint32),
-		SeriesCompareLT:     make(map[string]uint32),
-		SeriesCompareGE:     make(map[string]uint32),
-		SeriesCompareLE:     make(map[string]uint32),
-		SeriesCompareEQ:     make(map[string]uint32),
-		SeriesCompareNE:     make(map[string]uint32),
-		SeriesNegate:        make(map[string]uint32),
-		StateLoad:           make(map[string]uint32),
-		StateStore:          make(map[string]uint32),
-		StateLoadSeries:     make(map[string]uint32),
-		StateStoreSeries:    make(map[string]uint32),
+		ChannelRead:  make(map[string]uint32),
+		ChannelWrite: make(map[string]uint32),
+		SeriesCreateEmpty:     make(map[string]uint32),
+		SeriesSetElement:      make(map[string]uint32),
+		SeriesIndex:           make(map[string]uint32),
+		SeriesElementAdd:      make(map[string]uint32),
+		SeriesElementMul:      make(map[string]uint32),
+		SeriesElementSub:      make(map[string]uint32),
+		SeriesElementDiv:      make(map[string]uint32),
+		SeriesElementMod:      make(map[string]uint32),
+		SeriesElementRSub:     make(map[string]uint32),
+		SeriesElementRDiv:     make(map[string]uint32),
+		SeriesSeriesAdd:       make(map[string]uint32),
+		SeriesSeriesMul:       make(map[string]uint32),
+		SeriesSeriesSub:       make(map[string]uint32),
+		SeriesSeriesDiv:       make(map[string]uint32),
+		SeriesSeriesMod:       make(map[string]uint32),
+		SeriesCompareGT:       make(map[string]uint32),
+		SeriesCompareLT:       make(map[string]uint32),
+		SeriesCompareGE:       make(map[string]uint32),
+		SeriesCompareLE:       make(map[string]uint32),
+		SeriesCompareEQ:       make(map[string]uint32),
+		SeriesCompareNE:       make(map[string]uint32),
+		SeriesCompareGTScalar: make(map[string]uint32),
+		SeriesCompareLTScalar: make(map[string]uint32),
+		SeriesCompareGEScalar: make(map[string]uint32),
+		SeriesCompareLEScalar: make(map[string]uint32),
+		SeriesCompareEQScalar: make(map[string]uint32),
+		SeriesCompareNEScalar: make(map[string]uint32),
+		SeriesNegate:          make(map[string]uint32),
+		StateLoad:             make(map[string]uint32),
+		StateStore:            make(map[string]uint32),
+		StateLoadSeries:       make(map[string]uint32),
+		StateStoreSeries:      make(map[string]uint32),
 	}
 }
 
@@ -155,12 +175,6 @@ func setupChannelOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
 	idx.ChannelWrite[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
 		Params:  []wasm.ValueType{wasm.I32, wasmType}, // channel ID, value
 		Results: []wasm.ValueType{},
-	})
-
-	funcName = fmt.Sprintf("channel_blocking_read_%s", t)
-	idx.ChannelBlockingRead[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-		Params:  []wasm.ValueType{wasm.I32}, // channel ID
-		Results: []wasm.ValueType{wasmType}, // value or handle
 	})
 }
 
@@ -201,7 +215,7 @@ func setupSeriesOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
 
 // setupSeriesArithmetic registers arithmetic operations for series
 func setupSeriesArithmetic(m *wasm.Module, idx *ImportIndex, typ types.Type, wasmType wasm.ValueType) {
-	// Scalar operations
+	// Scalar operations - order matches Bind() in static_bindings_generated.go
 	ops := []struct {
 		name string
 		idx  *map[string]uint32
@@ -210,6 +224,9 @@ func setupSeriesArithmetic(m *wasm.Module, idx *ImportIndex, typ types.Type, was
 		{"mul", &idx.SeriesElementMul},
 		{"sub", &idx.SeriesElementSub},
 		{"div", &idx.SeriesElementDiv},
+		{"mod", &idx.SeriesElementMod},
+		{"rsub", &idx.SeriesElementRSub},
+		{"rdiv", &idx.SeriesElementRDiv},
 	}
 
 	for _, op := range ops {
@@ -229,6 +246,7 @@ func setupSeriesArithmetic(m *wasm.Module, idx *ImportIndex, typ types.Type, was
 		{"mul", &idx.SeriesSeriesMul},
 		{"sub", &idx.SeriesSeriesSub},
 		{"div", &idx.SeriesSeriesDiv},
+		{"mod", &idx.SeriesSeriesMod},
 	}
 
 	for _, op := range seriesOps {
@@ -242,6 +260,9 @@ func setupSeriesArithmetic(m *wasm.Module, idx *ImportIndex, typ types.Type, was
 
 // setupSeriesComparison registers comparison operations for series
 func setupSeriesComparison(m *wasm.Module, idx *ImportIndex, typ types.Type) {
+	wasmType := wasm.ConvertType(typ)
+
+	// Series-to-series comparison operations
 	ops := []struct {
 		name string
 		idx  *map[string]uint32
@@ -257,7 +278,28 @@ func setupSeriesComparison(m *wasm.Module, idx *ImportIndex, typ types.Type) {
 	for _, op := range ops {
 		funcName := fmt.Sprintf("series_compare_%s_%s", op.name, typ)
 		(*op.idx)[typ.String()] = m.AddImport("env", funcName, wasm.FunctionType{
-			Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // series1, series2 or series, scalar
+			Params:  []wasm.ValueType{wasm.I32, wasm.I32}, // series1, series2
+			Results: []wasm.ValueType{wasm.I32},           // series u8 (boolean mask)
+		})
+	}
+
+	// Series-to-scalar comparison operations
+	scalarOps := []struct {
+		name string
+		idx  *map[string]uint32
+	}{
+		{"gt_scalar", &idx.SeriesCompareGTScalar},
+		{"lt_scalar", &idx.SeriesCompareLTScalar},
+		{"ge_scalar", &idx.SeriesCompareGEScalar},
+		{"le_scalar", &idx.SeriesCompareLEScalar},
+		{"eq_scalar", &idx.SeriesCompareEQScalar},
+		{"ne_scalar", &idx.SeriesCompareNEScalar},
+	}
+
+	for _, op := range scalarOps {
+		funcName := fmt.Sprintf("series_compare_%s_%s", op.name, typ)
+		(*op.idx)[typ.String()] = m.AddImport("env", funcName, wasm.FunctionType{
+			Params:  []wasm.ValueType{wasm.I32, wasmType}, // series, scalar
 			Results: []wasm.ValueType{wasm.I32},           // series u8 (boolean mask)
 		})
 	}
