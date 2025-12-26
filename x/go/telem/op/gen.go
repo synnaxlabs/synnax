@@ -96,6 +96,13 @@ var scalarArithmeticOps = []Operation{
 	{Name: "DivideScalar", FuncName: "DivS", Op: "/", IsComp: false},
 }
 
+// Reverse scalar arithmetic operations (scalar op series -> same type)
+// Used for non-commutative operations where scalar is on the left
+var reverseScalarArithmeticOps = []Operation{
+	{Name: "ReverseSubtractScalar", FuncName: "RSubS", Op: "-", IsComp: false}, // scalar - series
+	{Name: "ReverseDivideScalar", FuncName: "RDivS", Op: "/", IsComp: false},   // scalar / series
+}
+
 // Modulo scalar operation - uses % for integers, math.Mod for floats
 var moduloScalarIntOp = Operation{Name: "ModuloScalar", FuncName: "ModS", Op: "%", IsComp: false}
 
@@ -337,6 +344,22 @@ func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, out
 }
 {{end}}`
 
+// Template for reverse scalar arithmetic operations (scalar op series -> same type)
+// Note: scalar is on the LEFT side of the operation
+const reverseScalarArithFuncTemplate = `{{range $.Operations}}
+func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
+	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar {{.Op}} inData[i]
+	}
+}
+{{end}}`
+
 // Template for float modulo (binary) - uses math.Mod
 const floatModuloFuncTemplate = `
 func Modulo{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
@@ -396,6 +419,7 @@ func main() {
 	unaryTmpl := template.Must(template.New("unary").Parse(unaryFuncTemplate))
 	reductionTmpl := template.Must(template.New("reduction").Parse(reductionFuncTemplate))
 	scalarArithTmpl := template.Must(template.New("scalarArith").Parse(scalarArithFuncTemplate))
+	reverseScalarArithTmpl := template.Must(template.New("reverseScalarArith").Parse(reverseScalarArithFuncTemplate))
 	scalarCompTmpl := template.Must(template.New("scalarComp").Parse(scalarCompFuncTemplate))
 	floatModuloTmpl := template.Must(template.New("floatModulo").Parse(floatModuloFuncTemplate))
 	floatModuloScalarTmpl := template.Must(template.New("floatModuloScalar").Parse(floatModuloScalarFuncTemplate))
@@ -486,6 +510,17 @@ func main() {
 		err := scalarArithTmpl.Execute(&buf, map[string]interface{}{
 			"Type":       typ,
 			"Operations": scalarArithmeticOps,
+		})
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	// Generate reverse scalar arithmetic operations for all types
+	for _, typ := range types {
+		err := reverseScalarArithTmpl.Execute(&buf, map[string]interface{}{
+			"Type":       typ,
+			"Operations": reverseScalarArithmeticOps,
 		})
 		if err != nil {
 			panic(err)
