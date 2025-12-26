@@ -43,11 +43,6 @@ func (idx *ImportIndex) GetChannelWrite(t types.Type) (uint32, error) {
 	return idx.lookupImport(idx.ChannelWrite, t, "channel write")
 }
 
-// GetChannelBlockingRead returns the import index for a blocking channel read function
-func (idx *ImportIndex) GetChannelBlockingRead(t types.Type) (uint32, error) {
-	return idx.lookupImport(idx.ChannelBlockingRead, t, "channel blocking read")
-}
-
 // GetSeriesCreateEmpty returns the import index for creating an empty series
 func (idx *ImportIndex) GetSeriesCreateEmpty(t types.Type) (uint32, error) {
 	return idx.lookupImport(idx.SeriesCreateEmpty, t, "series create")

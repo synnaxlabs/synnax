@@ -52,11 +52,12 @@ public:
                 this->high_rate_wait(breaker);
                 break;
             case ExecutionMode::RT_EVENT:
+                // RT_EVENT: True RT with indefinite blocking (relies on
+                // eventfd/timerfd)
+                this->event_driven_wait(breaker, /*blocking=*/true);
+                break;
             case ExecutionMode::EVENT_DRIVEN:
-                this->event_driven_wait(
-                    breaker,
-                    this->config_.mode == ExecutionMode::EVENT_DRIVEN
-                );
+                this->event_driven_wait(breaker, /*blocking=*/true);
                 break;
             case ExecutionMode::HYBRID:
                 this->hybrid_wait(breaker);
@@ -239,7 +240,7 @@ private:
         if (this->timer_) {
             this->timer_->wait(breaker);
         } else {
-            std::this_thread::sleep_for(std::chrono::microseconds(100));
+            std::this_thread::sleep_for(timing::HIGH_RATE_POLL_INTERVAL.chrono());
         }
         this->data_available_.store(false, std::memory_order_release);
     }
@@ -280,7 +281,8 @@ private:
             }
         }
 
-        const int n = epoll_wait(this->epoll_fd_, events, 2, 10);
+        const int timeout_ms = timing::HYBRID_BLOCK_TIMEOUT.milliseconds();
+        const int n = epoll_wait(this->epoll_fd_, events, 2, timeout_ms);
         if (n > 0) this->consume_events(events, n);
 
         this->data_available_.store(false, std::memory_order_release);
@@ -340,7 +342,7 @@ private:
     bool timer_enabled_ = false;
     std::unique_ptr<::loop::Timer> timer_;
     std::atomic<bool> data_available_{false};
-    bool running_ = false;
+    std::atomic<bool> running_{false};
 };
 
 std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {

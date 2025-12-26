@@ -24,7 +24,13 @@ struct Notifier {
 
     virtual bool poll() = 0;
 
+    /// @returns the file descriptor for use with epoll/kqueue, or -1 if not supported.
     [[nodiscard]] virtual int fd() const = 0;
+
+    /// @returns the native handle for platform-specific use. On Windows, this returns
+    /// the HANDLE for use with WaitForMultipleObjects. On POSIX systems, returns
+    /// nullptr.
+    [[nodiscard]] virtual void *native_handle() const = 0;
 };
 
 std::unique_ptr<Notifier> create();

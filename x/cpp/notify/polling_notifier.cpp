@@ -23,14 +23,12 @@ public:
     PollingNotifier() = default;
     ~PollingNotifier() override = default;
 
-    PollingNotifier(const PollingNotifier&) = delete;
-    PollingNotifier& operator=(const PollingNotifier&) = delete;
-    PollingNotifier(PollingNotifier&&) = delete;
-    PollingNotifier& operator=(PollingNotifier&&) = delete;
+    PollingNotifier(const PollingNotifier &) = delete;
+    PollingNotifier &operator=(const PollingNotifier &) = delete;
+    PollingNotifier(PollingNotifier &&) = delete;
+    PollingNotifier &operator=(PollingNotifier &&) = delete;
 
-    void signal() override {
-        this->signaled.store(true, std::memory_order_release);
-    }
+    void signal() override { this->signaled.store(true, std::memory_order_release); }
 
     bool wait(const telem::TimeSpan timeout) override {
         if (this->signaled.exchange(false, std::memory_order_acquire)) return true;
@@ -45,9 +43,11 @@ public:
 
             if (!indefinite) {
                 const auto elapsed = std::chrono::steady_clock::now() - start;
-                const auto elapsed_ns =
-                    std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed)
-                        .count();
+                const auto
+                    elapsed_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                     elapsed
+                    )
+                                     .count();
                 if (elapsed_ns >= timeout.nanoseconds()) return false;
             }
         }
@@ -58,8 +58,12 @@ public:
     }
 
     [[nodiscard]] int fd() const override { return -1; }
+
+    [[nodiscard]] void *native_handle() const override { return nullptr; }
 };
 
-std::unique_ptr<Notifier> create() { return std::make_unique<PollingNotifier>(); }
+std::unique_ptr<Notifier> create() {
+    return std::make_unique<PollingNotifier>();
+}
 
 }

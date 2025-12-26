@@ -308,6 +308,44 @@ var _ = Describe("Compiler", func() {
 	})
 
 	Describe("Channel Operations", func() {
+		// Regression test for SY-XXXX: Channel keys should not be used as WASM local indices.
+		// Previously, assigning to a channel would generate local.set with the channel key
+		// as the local index, causing "unknown local N: local index out of bounds" errors.
+		It("Should compile channel writes with high channel keys", func() {
+			mockRuntime := bindings.NewBindings()
+			var writtenValue uint8
+			mockRuntime.ChannelWriteU8 = func(_ context.Context, _ uint32, val uint8) {
+				writtenValue = val
+			}
+			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
+
+			// Use a high channel key that would cause local index out of bounds
+			// if mistakenly used as a WASM local variable index
+			resolver := symbol.MapResolver(map[string]symbol.Symbol{
+				"press_vlv_cmd": {
+					Name: "press_vlv_cmd",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   1048589,
+				},
+			})
+
+			output := MustSucceed(compileWithHostImports(`
+			func press() {
+				press_vlv_cmd = 1
+			}
+			`, resolver))
+
+			// This instantiation would fail with "unknown local 1048589" if the
+			// channel key was used as a local variable index
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			press := mod.ExportedFunction("press")
+			Expect(press).ToNot(BeNil())
+
+			MustSucceed(press.Call(ctx))
+			Expect(writtenValue).To(Equal(uint8(1)))
+		})
+
 		It("Should execute a function with channel read operations", func() {
 			// Create mock runtime with channel implementations
 			mockRuntime := bindings.NewBindings()
@@ -348,6 +386,155 @@ var _ = Describe("Compiler", func() {
 			results := MustSucceed(readAndDouble.Call(ctx))
 			Expect(results).To(HaveLen(1))
 			Expect(results[0]).To(Equal(uint64(84))) // 42 * 2
+		})
+
+		It("Should execute a channel read in a comparison expression", func() {
+			mockRuntime := bindings.NewBindings()
+			channelData := map[uint32]int32{0: 50}
+			mockRuntime.ChannelReadI32 = func(ctx context.Context, channelID uint32) int32 {
+				if val, ok := channelData[channelID]; ok {
+					return val
+				}
+				return 0
+			}
+			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
+
+			resolver := symbol.MapResolver(map[string]symbol.Symbol{
+				"press_pt": {
+					Name: "press_pt",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.I32()),
+				},
+			})
+
+			output := MustSucceed(compileWithHostImports(`
+			func checkPressure() u8 {
+				return press_pt > 1
+			}
+			`, resolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			checkPressure := mod.ExportedFunction("checkPressure")
+			Expect(checkPressure).ToNot(BeNil())
+
+			results := MustSucceed(checkPressure.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1))) // 50 > 1
+
+			channelData[0] = 0
+			results = MustSucceed(checkPressure.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(0))) // 0 > 1
+		})
+
+		It("Should execute multiple channel reads in a boolean expression", func() {
+			mockRuntime := bindings.NewBindings()
+			channelData := map[uint32]int32{0: 75}
+			mockRuntime.ChannelReadI32 = func(ctx context.Context, channelID uint32) int32 {
+				if val, ok := channelData[channelID]; ok {
+					return val
+				}
+				return 0
+			}
+			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
+
+			resolver := symbol.MapResolver(map[string]symbol.Symbol{
+				"sensor": {
+					Name: "sensor",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.I32()),
+				},
+			})
+
+			output := MustSucceed(compileWithHostImports(`
+			func inRange() u8 {
+				return sensor > 50 and sensor < 100
+			}
+			`, resolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			inRange := mod.ExportedFunction("inRange")
+			Expect(inRange).ToNot(BeNil())
+
+			results := MustSucceed(inRange.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1))) // 75 in (50, 100)
+
+			channelData[0] = 150
+			results = MustSucceed(inRange.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(0))) // 150 >= 100
+
+			channelData[0] = 25
+			results = MustSucceed(inRange.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(0))) // 25 <= 50
+		})
+
+		It("Should compile channel write with expression", func() {
+			mockRuntime := bindings.NewBindings()
+			var writtenKey uint32
+			var writtenValue int32
+			mockRuntime.ChannelWriteI32 = func(_ context.Context, key uint32, val int32) {
+				writtenKey = key
+				writtenValue = val
+			}
+			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
+
+			resolver := symbol.MapResolver(map[string]symbol.Symbol{
+				"output_ch": {
+					Name: "output_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.I32()),
+					ID:   999999,
+				},
+			})
+
+			output := MustSucceed(compileWithHostImports(`
+			func compute(x i32) {
+				output_ch = x + 10
+			}
+			`, resolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			compute := mod.ExportedFunction("compute")
+			Expect(compute).ToNot(BeNil())
+
+			MustSucceed(compute.Call(ctx, 5))
+			Expect(writtenKey).To(Equal(uint32(999999)))
+			Expect(writtenValue).To(Equal(int32(15)))
+		})
+
+		It("Should compile multiple channel writes with different high keys", func() {
+			mockRuntime := bindings.NewBindings()
+			writes := make(map[uint32]int32)
+			mockRuntime.ChannelWriteI32 = func(_ context.Context, key uint32, val int32) {
+				writes[key] = val
+			}
+			Expect(mockRuntime.Bind(ctx, r)).To(Succeed())
+
+			resolver := symbol.MapResolver(map[string]symbol.Symbol{
+				"ch_a": {Name: "ch_a", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 1000001},
+				"ch_b": {Name: "ch_b", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 2000002},
+				"ch_c": {Name: "ch_c", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 3000003},
+			})
+
+			output := MustSucceed(compileWithHostImports(`
+			func writeAll(v i32) {
+				ch_a = v
+				ch_b = v * 2
+				ch_c = v + 100
+			}
+			`, resolver))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			writeAll := mod.ExportedFunction("writeAll")
+			Expect(writeAll).ToNot(BeNil())
+
+			MustSucceed(writeAll.Call(ctx, 5))
+			Expect(writes[1000001]).To(Equal(int32(5)))
+			Expect(writes[2000002]).To(Equal(int32(10)))
+			Expect(writes[3000003]).To(Equal(int32(105)))
 		})
 	})
 

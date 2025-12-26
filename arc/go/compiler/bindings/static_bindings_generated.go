@@ -13,59 +13,48 @@ type Bindings struct {
 	// Channel operations - use proper Go types, handle WASM conversion internally
 
 	// U8
-	ChannelReadU8         func(context.Context, uint32) uint8
-	ChannelWriteU8        func(context.Context, uint32, uint8)
-	ChannelBlockingReadU8 func(context.Context, uint32) uint8
+	ChannelReadU8  func(context.Context, uint32) uint8
+	ChannelWriteU8 func(context.Context, uint32, uint8)
 
 	// U16
-	ChannelReadU16         func(context.Context, uint32) uint16
-	ChannelWriteU16        func(context.Context, uint32, uint16)
-	ChannelBlockingReadU16 func(context.Context, uint32) uint16
+	ChannelReadU16  func(context.Context, uint32) uint16
+	ChannelWriteU16 func(context.Context, uint32, uint16)
 
 	// U32
-	ChannelReadU32         func(context.Context, uint32) uint32
-	ChannelWriteU32        func(context.Context, uint32, uint32)
-	ChannelBlockingReadU32 func(context.Context, uint32) uint32
+	ChannelReadU32  func(context.Context, uint32) uint32
+	ChannelWriteU32 func(context.Context, uint32, uint32)
 
 	// U64
-	ChannelReadU64         func(context.Context, uint32) uint64
-	ChannelWriteU64        func(context.Context, uint32, uint64)
-	ChannelBlockingReadU64 func(context.Context, uint32) uint64
+	ChannelReadU64  func(context.Context, uint32) uint64
+	ChannelWriteU64 func(context.Context, uint32, uint64)
 
 	// I8
-	ChannelReadI8         func(context.Context, uint32) int8
-	ChannelWriteI8        func(context.Context, uint32, int8)
-	ChannelBlockingReadI8 func(context.Context, uint32) int8
+	ChannelReadI8  func(context.Context, uint32) int8
+	ChannelWriteI8 func(context.Context, uint32, int8)
 
 	// I16
-	ChannelReadI16         func(context.Context, uint32) int16
-	ChannelWriteI16        func(context.Context, uint32, int16)
-	ChannelBlockingReadI16 func(context.Context, uint32) int16
+	ChannelReadI16  func(context.Context, uint32) int16
+	ChannelWriteI16 func(context.Context, uint32, int16)
 
 	// I32
-	ChannelReadI32         func(context.Context, uint32) int32
-	ChannelWriteI32        func(context.Context, uint32, int32)
-	ChannelBlockingReadI32 func(context.Context, uint32) int32
+	ChannelReadI32  func(context.Context, uint32) int32
+	ChannelWriteI32 func(context.Context, uint32, int32)
 
 	// I64
-	ChannelReadI64         func(context.Context, uint32) int64
-	ChannelWriteI64        func(context.Context, uint32, int64)
-	ChannelBlockingReadI64 func(context.Context, uint32) int64
+	ChannelReadI64  func(context.Context, uint32) int64
+	ChannelWriteI64 func(context.Context, uint32, int64)
 
 	// F32
-	ChannelReadF32         func(context.Context, uint32) float32
-	ChannelWriteF32        func(context.Context, uint32, float32)
-	ChannelBlockingReadF32 func(context.Context, uint32) float32
+	ChannelReadF32  func(context.Context, uint32) float32
+	ChannelWriteF32 func(context.Context, uint32, float32)
 
 	// F64
-	ChannelReadF64         func(context.Context, uint32) float64
-	ChannelWriteF64        func(context.Context, uint32, float64)
-	ChannelBlockingReadF64 func(context.Context, uint32) float64
+	ChannelReadF64  func(context.Context, uint32) float64
+	ChannelWriteF64 func(context.Context, uint32, float64)
 
 	// Str
-	ChannelReadStr         func(context.Context, uint32) uint32
-	ChannelWriteStr        func(context.Context, uint32, uint32)
-	ChannelBlockingReadStr func(context.Context, uint32) uint32
+	ChannelReadStr  func(context.Context, uint32) uint32
+	ChannelWriteStr func(context.Context, uint32, uint32)
 
 	// State operations - use proper Go types (load takes initValue)
 	StateLoadU8   func(context.Context, uint32, uint32, uint8) uint8
@@ -434,11 +423,6 @@ func (b *Bindings) setDefaultStubs() {
 			panic("channel_write_u8 not implemented")
 		}
 	}
-	if b.ChannelBlockingReadU8 == nil {
-		b.ChannelBlockingReadU8 = func(ctx context.Context, channelID uint32) uint8 {
-			panic("channel_blocking_read_u8 not implemented")
-		}
-	}
 	if b.ChannelReadU16 == nil {
 		b.ChannelReadU16 = func(ctx context.Context, channelID uint32) uint16 {
 			panic("channel_read_u16 not implemented")
@@ -447,11 +431,6 @@ func (b *Bindings) setDefaultStubs() {
 	if b.ChannelWriteU16 == nil {
 		b.ChannelWriteU16 = func(ctx context.Context, channelID uint32, value uint16) {
 			panic("channel_write_u16 not implemented")
-		}
-	}
-	if b.ChannelBlockingReadU16 == nil {
-		b.ChannelBlockingReadU16 = func(ctx context.Context, channelID uint32) uint16 {
-			panic("channel_blocking_read_u16 not implemented")
 		}
 	}
 	if b.ChannelReadU32 == nil {
@@ -464,11 +443,6 @@ func (b *Bindings) setDefaultStubs() {
 			panic("channel_write_u32 not implemented")
 		}
 	}
-	if b.ChannelBlockingReadU32 == nil {
-		b.ChannelBlockingReadU32 = func(ctx context.Context, channelID uint32) uint32 {
-			panic("channel_blocking_read_u32 not implemented")
-		}
-	}
 	if b.ChannelReadU64 == nil {
 		b.ChannelReadU64 = func(ctx context.Context, channelID uint32) uint64 {
 			panic("channel_read_u64 not implemented")
@@ -477,11 +451,6 @@ func (b *Bindings) setDefaultStubs() {
 	if b.ChannelWriteU64 == nil {
 		b.ChannelWriteU64 = func(ctx context.Context, channelID uint32, value uint64) {
 			panic("channel_write_u64 not implemented")
-		}
-	}
-	if b.ChannelBlockingReadU64 == nil {
-		b.ChannelBlockingReadU64 = func(ctx context.Context, channelID uint32) uint64 {
-			panic("channel_blocking_read_u64 not implemented")
 		}
 	}
 	if b.ChannelReadI8 == nil {
@@ -494,11 +463,6 @@ func (b *Bindings) setDefaultStubs() {
 			panic("channel_write_i8 not implemented")
 		}
 	}
-	if b.ChannelBlockingReadI8 == nil {
-		b.ChannelBlockingReadI8 = func(ctx context.Context, channelID uint32) int8 {
-			panic("channel_blocking_read_i8 not implemented")
-		}
-	}
 	if b.ChannelReadI16 == nil {
 		b.ChannelReadI16 = func(ctx context.Context, channelID uint32) int16 {
 			panic("channel_read_i16 not implemented")
@@ -507,11 +471,6 @@ func (b *Bindings) setDefaultStubs() {
 	if b.ChannelWriteI16 == nil {
 		b.ChannelWriteI16 = func(ctx context.Context, channelID uint32, value int16) {
 			panic("channel_write_i16 not implemented")
-		}
-	}
-	if b.ChannelBlockingReadI16 == nil {
-		b.ChannelBlockingReadI16 = func(ctx context.Context, channelID uint32) int16 {
-			panic("channel_blocking_read_i16 not implemented")
 		}
 	}
 	if b.ChannelReadI32 == nil {
@@ -524,11 +483,6 @@ func (b *Bindings) setDefaultStubs() {
 			panic("channel_write_i32 not implemented")
 		}
 	}
-	if b.ChannelBlockingReadI32 == nil {
-		b.ChannelBlockingReadI32 = func(ctx context.Context, channelID uint32) int32 {
-			panic("channel_blocking_read_i32 not implemented")
-		}
-	}
 	if b.ChannelReadI64 == nil {
 		b.ChannelReadI64 = func(ctx context.Context, channelID uint32) int64 {
 			panic("channel_read_i64 not implemented")
@@ -537,11 +491,6 @@ func (b *Bindings) setDefaultStubs() {
 	if b.ChannelWriteI64 == nil {
 		b.ChannelWriteI64 = func(ctx context.Context, channelID uint32, value int64) {
 			panic("channel_write_i64 not implemented")
-		}
-	}
-	if b.ChannelBlockingReadI64 == nil {
-		b.ChannelBlockingReadI64 = func(ctx context.Context, channelID uint32) int64 {
-			panic("channel_blocking_read_i64 not implemented")
 		}
 	}
 	if b.ChannelReadF32 == nil {
@@ -554,11 +503,6 @@ func (b *Bindings) setDefaultStubs() {
 			panic("channel_write_f32 not implemented")
 		}
 	}
-	if b.ChannelBlockingReadF32 == nil {
-		b.ChannelBlockingReadF32 = func(ctx context.Context, channelID uint32) float32 {
-			panic("channel_blocking_read_f32 not implemented")
-		}
-	}
 	if b.ChannelReadF64 == nil {
 		b.ChannelReadF64 = func(ctx context.Context, channelID uint32) float64 {
 			panic("channel_read_f64 not implemented")
@@ -569,11 +513,6 @@ func (b *Bindings) setDefaultStubs() {
 			panic("channel_write_f64 not implemented")
 		}
 	}
-	if b.ChannelBlockingReadF64 == nil {
-		b.ChannelBlockingReadF64 = func(ctx context.Context, channelID uint32) float64 {
-			panic("channel_blocking_read_f64 not implemented")
-		}
-	}
 	if b.ChannelReadStr == nil {
 		b.ChannelReadStr = func(ctx context.Context, channelID uint32) uint32 {
 			panic("channel_read_str not implemented")
@@ -582,11 +521,6 @@ func (b *Bindings) setDefaultStubs() {
 	if b.ChannelWriteStr == nil {
 		b.ChannelWriteStr = func(ctx context.Context, channelID uint32, value uint32) {
 			panic("channel_write_str not implemented")
-		}
-	}
-	if b.ChannelBlockingReadStr == nil {
-		b.ChannelBlockingReadStr = func(ctx context.Context, channelID uint32) uint32 {
-			panic("channel_blocking_read_str not implemented")
 		}
 	}
 
@@ -1881,37 +1815,26 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	// 1. Bind channel operations with type conversion wrappers
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelReadU8()).Export("channel_read_u8")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelWriteU8()).Export("channel_write_u8")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelBlockingReadU8()).Export("channel_blocking_read_u8")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelReadU16()).Export("channel_read_u16")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelWriteU16()).Export("channel_write_u16")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelBlockingReadU16()).Export("channel_blocking_read_u16")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelReadU32()).Export("channel_read_u32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelWriteU32()).Export("channel_write_u32")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelBlockingReadU32()).Export("channel_blocking_read_u32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelReadU64()).Export("channel_read_u64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelWriteU64()).Export("channel_write_u64")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelBlockingReadU64()).Export("channel_blocking_read_u64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelReadI8()).Export("channel_read_i8")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelWriteI8()).Export("channel_write_i8")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelBlockingReadI8()).Export("channel_blocking_read_i8")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelReadI16()).Export("channel_read_i16")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelWriteI16()).Export("channel_write_i16")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelBlockingReadI16()).Export("channel_blocking_read_i16")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelReadI32()).Export("channel_read_i32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelWriteI32()).Export("channel_write_i32")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelBlockingReadI32()).Export("channel_blocking_read_i32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelReadI64()).Export("channel_read_i64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelWriteI64()).Export("channel_write_i64")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelBlockingReadI64()).Export("channel_blocking_read_i64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelReadF32()).Export("channel_read_f32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelWriteF32()).Export("channel_write_f32")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelBlockingReadF32()).Export("channel_blocking_read_f32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelReadF64()).Export("channel_read_f64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelWriteF64()).Export("channel_write_f64")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelBlockingReadF64()).Export("channel_blocking_read_f64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelReadStr()).Export("channel_read_str")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelWriteStr()).Export("channel_write_str")
-	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelBlockingReadStr()).Export("channel_blocking_read_str")
 
 	// 2. Bind series operations with type conversion wrappers (includes series state ops)
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesCreateEmptyU8).Export("series_create_empty_u8")
@@ -2249,13 +2172,6 @@ func (b *Bindings) wrapChannelWriteU8() func(context.Context, uint32, uint32) {
 	}
 }
 
-func (b *Bindings) wrapChannelBlockingReadU8() func(context.Context, uint32) uint32 {
-	return func(ctx context.Context, channelID uint32) uint32 {
-		result := b.ChannelBlockingReadU8(ctx, channelID)
-		return uint32(result)
-	}
-}
-
 // State operation wrappers for u8
 func (b *Bindings) wrapStateLoadU8() func(context.Context, uint32, uint32, uint32) uint32 {
 	return func(ctx context.Context, taskID uint32, key uint32, initValue uint32) uint32 {
@@ -2281,13 +2197,6 @@ func (b *Bindings) wrapChannelReadU16() func(context.Context, uint32) uint32 {
 func (b *Bindings) wrapChannelWriteU16() func(context.Context, uint32, uint32) {
 	return func(ctx context.Context, channelID uint32, value uint32) {
 		b.ChannelWriteU16(ctx, channelID, uint16(value))
-	}
-}
-
-func (b *Bindings) wrapChannelBlockingReadU16() func(context.Context, uint32) uint32 {
-	return func(ctx context.Context, channelID uint32) uint32 {
-		result := b.ChannelBlockingReadU16(ctx, channelID)
-		return uint32(result)
 	}
 }
 
@@ -2319,13 +2228,6 @@ func (b *Bindings) wrapChannelWriteU32() func(context.Context, uint32, uint32) {
 	}
 }
 
-func (b *Bindings) wrapChannelBlockingReadU32() func(context.Context, uint32) uint32 {
-	return func(ctx context.Context, channelID uint32) uint32 {
-		result := b.ChannelBlockingReadU32(ctx, channelID)
-		return uint32(result)
-	}
-}
-
 // State operation wrappers for u32
 func (b *Bindings) wrapStateLoadU32() func(context.Context, uint32, uint32, uint32) uint32 {
 	return func(ctx context.Context, taskID uint32, key uint32, initValue uint32) uint32 {
@@ -2351,13 +2253,6 @@ func (b *Bindings) wrapChannelReadU64() func(context.Context, uint32) uint64 {
 func (b *Bindings) wrapChannelWriteU64() func(context.Context, uint32, uint64) {
 	return func(ctx context.Context, channelID uint32, value uint64) {
 		b.ChannelWriteU64(ctx, channelID, uint64(value))
-	}
-}
-
-func (b *Bindings) wrapChannelBlockingReadU64() func(context.Context, uint32) uint64 {
-	return func(ctx context.Context, channelID uint32) uint64 {
-		result := b.ChannelBlockingReadU64(ctx, channelID)
-		return uint64(result)
 	}
 }
 
@@ -2389,13 +2284,6 @@ func (b *Bindings) wrapChannelWriteI8() func(context.Context, uint32, uint32) {
 	}
 }
 
-func (b *Bindings) wrapChannelBlockingReadI8() func(context.Context, uint32) uint32 {
-	return func(ctx context.Context, channelID uint32) uint32 {
-		result := b.ChannelBlockingReadI8(ctx, channelID)
-		return uint32(result)
-	}
-}
-
 // State operation wrappers for i8
 func (b *Bindings) wrapStateLoadI8() func(context.Context, uint32, uint32, uint32) uint32 {
 	return func(ctx context.Context, taskID uint32, key uint32, initValue uint32) uint32 {
@@ -2421,13 +2309,6 @@ func (b *Bindings) wrapChannelReadI16() func(context.Context, uint32) uint32 {
 func (b *Bindings) wrapChannelWriteI16() func(context.Context, uint32, uint32) {
 	return func(ctx context.Context, channelID uint32, value uint32) {
 		b.ChannelWriteI16(ctx, channelID, int16(value))
-	}
-}
-
-func (b *Bindings) wrapChannelBlockingReadI16() func(context.Context, uint32) uint32 {
-	return func(ctx context.Context, channelID uint32) uint32 {
-		result := b.ChannelBlockingReadI16(ctx, channelID)
-		return uint32(result)
 	}
 }
 
@@ -2459,13 +2340,6 @@ func (b *Bindings) wrapChannelWriteI32() func(context.Context, uint32, uint32) {
 	}
 }
 
-func (b *Bindings) wrapChannelBlockingReadI32() func(context.Context, uint32) uint32 {
-	return func(ctx context.Context, channelID uint32) uint32 {
-		result := b.ChannelBlockingReadI32(ctx, channelID)
-		return uint32(result)
-	}
-}
-
 // State operation wrappers for i32
 func (b *Bindings) wrapStateLoadI32() func(context.Context, uint32, uint32, uint32) uint32 {
 	return func(ctx context.Context, taskID uint32, key uint32, initValue uint32) uint32 {
@@ -2491,13 +2365,6 @@ func (b *Bindings) wrapChannelReadI64() func(context.Context, uint32) uint64 {
 func (b *Bindings) wrapChannelWriteI64() func(context.Context, uint32, uint64) {
 	return func(ctx context.Context, channelID uint32, value uint64) {
 		b.ChannelWriteI64(ctx, channelID, int64(value))
-	}
-}
-
-func (b *Bindings) wrapChannelBlockingReadI64() func(context.Context, uint32) uint64 {
-	return func(ctx context.Context, channelID uint32) uint64 {
-		result := b.ChannelBlockingReadI64(ctx, channelID)
-		return uint64(result)
 	}
 }
 
@@ -2529,13 +2396,6 @@ func (b *Bindings) wrapChannelWriteF32() func(context.Context, uint32, float32) 
 	}
 }
 
-func (b *Bindings) wrapChannelBlockingReadF32() func(context.Context, uint32) float32 {
-	return func(ctx context.Context, channelID uint32) float32 {
-		result := b.ChannelBlockingReadF32(ctx, channelID)
-		return float32(result)
-	}
-}
-
 // State operation wrappers for f32
 func (b *Bindings) wrapStateLoadF32() func(context.Context, uint32, uint32, float32) float32 {
 	return func(ctx context.Context, taskID uint32, key uint32, initValue float32) float32 {
@@ -2564,13 +2424,6 @@ func (b *Bindings) wrapChannelWriteF64() func(context.Context, uint32, float64) 
 	}
 }
 
-func (b *Bindings) wrapChannelBlockingReadF64() func(context.Context, uint32) float64 {
-	return func(ctx context.Context, channelID uint32) float64 {
-		result := b.ChannelBlockingReadF64(ctx, channelID)
-		return float64(result)
-	}
-}
-
 // State operation wrappers for f64
 func (b *Bindings) wrapStateLoadF64() func(context.Context, uint32, uint32, float64) float64 {
 	return func(ctx context.Context, taskID uint32, key uint32, initValue float64) float64 {
@@ -2596,13 +2449,6 @@ func (b *Bindings) wrapChannelReadStr() func(context.Context, uint32) uint32 {
 func (b *Bindings) wrapChannelWriteStr() func(context.Context, uint32, uint32) {
 	return func(ctx context.Context, channelID uint32, value uint32) {
 		b.ChannelWriteStr(ctx, channelID, uint32(value))
-	}
-}
-
-func (b *Bindings) wrapChannelBlockingReadStr() func(context.Context, uint32) uint32 {
-	return func(ctx context.Context, channelID uint32) uint32 {
-		result := b.ChannelBlockingReadStr(ctx, channelID)
-		return uint32(result)
 	}
 }
 

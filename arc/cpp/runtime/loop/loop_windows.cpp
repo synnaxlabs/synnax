@@ -9,7 +9,10 @@
 
 #include <atomic>
 #include <chrono>
+#include <mutex>
 #include <thread>
+#include <unordered_map>
+#include <vector>
 
 #include "glog/logging.h"
 #include <windows.h>
@@ -22,6 +25,8 @@
 namespace arc::runtime::loop {
 
 class WindowsLoop final : public Loop {
+    static constexpr DWORD MAX_HANDLES = MAXIMUM_WAIT_OBJECTS;
+
 public:
     explicit WindowsLoop(const Config &config): config_(config) {
         if (this->config_.rt_priority > 0 && this->config_.rt_priority > 31) {
@@ -161,6 +166,12 @@ public:
     }
 
     uint64_t watch(notify::Notifier &notifier) override {
+        static bool warned = false;
+        if (!warned) {
+            LOG(WARNING) << "[loop] watch() not supported on Windows; "
+                         << "external notifiers will not wake wait()";
+            warned = true;
+        }
         (void) notifier;
         return 0;
     }
@@ -205,7 +216,7 @@ private:
         if (this->timer_) {
             this->timer_->wait(breaker);
         } else {
-            std::this_thread::sleep_for(std::chrono::microseconds(100));
+            std::this_thread::sleep_for(timing::HIGH_RATE_POLL_INTERVAL.chrono());
         }
 
         ResetEvent(this->data_event_);
@@ -222,7 +233,11 @@ private:
             count = 2;
         }
 
-        const DWORD timeout_ms = blocking ? INFINITE : 10;
+        const DWORD timeout_ms = blocking
+                                   ? INFINITE
+                                   : static_cast<DWORD>(
+                                         timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
+                                     );
 
         const DWORD result = WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
 
@@ -268,7 +283,10 @@ private:
             }
         }
 
-        const DWORD result = WaitForMultipleObjects(count, handles, FALSE, 10);
+        const DWORD timeout_ms = static_cast<DWORD>(
+            timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
+        );
+        const DWORD result = WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
         if (result >= WAIT_OBJECT_0 && result < WAIT_OBJECT_0 + count) {
             ResetEvent(this->data_event_);
         }
@@ -315,7 +333,7 @@ private:
     bool timer_enabled_ = false;
     std::unique_ptr<::loop::Timer> timer_;
     std::atomic<bool> data_available_{false};
-    bool running_ = false;
+    std::atomic<bool> running_{false};
 };
 
 std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {

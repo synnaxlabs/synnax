@@ -7,71 +7,96 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <sys/event.h>
-#include <sys/time.h>
-#include <unistd.h>
+/// Pipe-based notifier for macOS.
+///
+/// Why not kqueue EVFILT_USER?
+/// EVFILT_USER events are internal to a single kqueue - they cannot be watched
+/// from another kqueue via EVFILT_READ. Since the runtime's event loop has its
+/// own kqueue that watches notifier fds, we need an fd that becomes readable
+/// when signaled. A pipe provides this: write to one end, read-end becomes readable.
+///
+/// This matches Linux's eventfd semantics and preserves soft RT guarantees:
+/// - No userspace mutexes (kernel-managed buffer)
+/// - O(1) bounded latency for signal/wait
+/// - No memory allocation (fixed kernel buffer, 1-byte writes)
 
 #include <system_error>
+
+#include <fcntl.h>
+#include <poll.h>
+#include <unistd.h>
 
 #include "x/cpp/notify/notify.h"
 
 namespace notify {
 
-class KQueueNotifier final : public Notifier {
-    int kq = -1;
-    static constexpr uintptr_t IDENT = 1;
+class PipeNotifier final : public Notifier {
+    int read_fd = -1;
+    int write_fd = -1;
 
 public:
-    KQueueNotifier() : kq(kqueue()) {
-        if (this->kq == -1)
-            throw std::system_error(errno, std::system_category(), "kqueue");
+    PipeNotifier() {
+        int fds[2];
+        if (pipe(fds) == -1)
+            throw std::system_error(errno, std::system_category(), "pipe");
 
-        struct kevent kev {};
-        EV_SET(&kev, IDENT, EVFILT_USER, EV_ADD | EV_CLEAR, 0, 0, nullptr);
-        if (kevent(this->kq, &kev, 1, nullptr, 0, nullptr) == -1) {
-            close(this->kq);
-            throw std::system_error(errno, std::system_category(), "kevent register");
-        }
+        this->read_fd = fds[0];
+        this->write_fd = fds[1];
+
+        fcntl(this->read_fd, F_SETFL, O_NONBLOCK);
+        fcntl(this->write_fd, F_SETFL, O_NONBLOCK);
+        fcntl(this->read_fd, F_SETFD, FD_CLOEXEC);
+        fcntl(this->write_fd, F_SETFD, FD_CLOEXEC);
     }
 
-    ~KQueueNotifier() override {
-        if (this->kq != -1) close(this->kq);
+    ~PipeNotifier() override {
+        if (this->read_fd != -1) close(this->read_fd);
+        if (this->write_fd != -1) close(this->write_fd);
     }
 
-    KQueueNotifier(const KQueueNotifier&) = delete;
-    KQueueNotifier& operator=(const KQueueNotifier&) = delete;
-    KQueueNotifier(KQueueNotifier&&) = delete;
-    KQueueNotifier& operator=(KQueueNotifier&&) = delete;
+    PipeNotifier(const PipeNotifier &) = delete;
+    PipeNotifier &operator=(const PipeNotifier &) = delete;
+    PipeNotifier(PipeNotifier &&) = delete;
+    PipeNotifier &operator=(PipeNotifier &&) = delete;
 
     void signal() override {
-        struct kevent kev {};
-        EV_SET(&kev, IDENT, EVFILT_USER, 0, NOTE_TRIGGER, 0, nullptr);
-        kevent(this->kq, &kev, 1, nullptr, 0, nullptr);
+        const char byte = 1;
+        [[maybe_unused]] auto _ = write(this->write_fd, &byte, 1);
     }
 
     bool wait(const telem::TimeSpan timeout) override {
-        struct kevent kev {};
-        timespec ts {};
-        timespec* ts_ptr = nullptr;
+        if (this->drain()) return true;
 
-        if (timeout != telem::TimeSpan::MAX()) {
-            ts.tv_sec = timeout.seconds();
-            ts.tv_nsec = timeout.nanoseconds() % 1000000000LL;
-            ts_ptr = &ts;
+        pollfd pfd = {this->read_fd, POLLIN, 0};
+        const int timeout_ms = (timeout == telem::TimeSpan::MAX())
+                                 ? -1
+                                 : static_cast<int>(timeout.milliseconds());
+
+        if (::poll(&pfd, 1, timeout_ms) > 0) {
+            this->drain();
+            return true;
         }
-
-        return kevent(this->kq, nullptr, 0, &kev, 1, ts_ptr) > 0;
+        return false;
     }
 
-    bool poll() override {
-        struct kevent kev {};
-        timespec ts = {0, 0};
-        return kevent(this->kq, nullptr, 0, &kev, 1, &ts) > 0;
-    }
+    bool poll() override { return this->drain(); }
 
-    [[nodiscard]] int fd() const override { return this->kq; }
+    [[nodiscard]] int fd() const override { return this->read_fd; }
+
+    [[nodiscard]] void *native_handle() const override { return nullptr; }
+
+private:
+    bool drain() {
+        char buf[64];
+        bool drained = false;
+        while (read(this->read_fd, buf, sizeof(buf)) > 0)
+            drained = true;
+        return drained;
+    }
 };
 
-std::unique_ptr<Notifier> create() { return std::make_unique<KQueueNotifier>(); }
+std::unique_ptr<Notifier> create() {
+    return std::make_unique<PipeNotifier>();
+}
 
 }

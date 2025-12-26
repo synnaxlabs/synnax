@@ -69,8 +69,7 @@ public:
 
 #define DECLARE_CHANNEL_OPS(suffix, cpptype)                                           \
     cpptype channel_read_##suffix(uint32_t channel_id);                                \
-    void channel_write_##suffix(uint32_t channel_id, cpptype value);                   \
-    cpptype channel_blocking_read_##suffix(uint32_t channel_id);
+    void channel_write_##suffix(uint32_t channel_id, cpptype value);
 
     DECLARE_CHANNEL_OPS(u8, uint8_t)
     DECLARE_CHANNEL_OPS(u16, uint16_t)
@@ -87,7 +86,6 @@ public:
 
     uint32_t channel_read_str(uint32_t channel_id);
     void channel_write_str(uint32_t channel_id, uint32_t str_handle);
-    uint32_t channel_blocking_read_str(uint32_t channel_id);
 
 #define DECLARE_STATE_OPS(suffix, cpptype)                                             \
     cpptype state_load_##suffix(                                                       \

@@ -298,6 +298,12 @@ public:
     /// @brief interprets the given TimeSpan as a TimeStamp.
     explicit TimeStamp(const TimeSpan ts): value(ts.nanoseconds()) {}
 
+    /// @brief the maximum representable timespan.
+    static TimeStamp MAX() { return TimeStamp(std::numeric_limits<int64_t>::max()); }
+
+    /// @brief the minimum representable timespan.
+    static TimeStamp MIN() { return TimeStamp(std::numeric_limits<int64_t>::min()); }
+
     TimeStamp static now() {
         // note that on some machines, hig-res clock refs system_clock and on others
         // it references steady_clock. This could create a problem so we should

@@ -12,6 +12,9 @@
 #include <cstdio>
 #include <cstring>
 
+#include "x/cpp/xmemory/local_shared.h"
+
+#include "arc/cpp/types/types.h"
 #include "bindings.h"
 #include "wasmtime.hh" // For Wasmtime C++ API
 
@@ -24,34 +27,62 @@ Bindings::Bindings(state::State *state, wasmtime::Store *store):
     string_handle_counter(1),
     series_handle_counter(1) {}
 
-#define IMPL_CHANNEL_OPS(suffix, cpptype, default_val)                                 \
+#define IMPL_CHANNEL_OPS(suffix, cpptype, default_val, data_type_const)                \
     cpptype Bindings::channel_read_##suffix(uint32_t channel_id) {                     \
-        return default_val;                                                            \
+        if (this->state == nullptr) return default_val;                                \
+        auto [multi_series, ok] = this->state->read_channel(                           \
+            static_cast<types::ChannelKey>(channel_id)                                 \
+        );                                                                             \
+        if (!ok || multi_series.series.empty()) return default_val;                    \
+        const auto &last_series = multi_series.series.back();                          \
+        if (last_series.size() == 0) return default_val;                               \
+        return last_series.at<cpptype>(-1);                                            \
     }                                                                                  \
-    void Bindings::channel_write_##suffix(uint32_t channel_id, cpptype value) {}       \
-    cpptype Bindings::channel_blocking_read_##suffix(uint32_t channel_id) {            \
-        return default_val;                                                            \
+    void Bindings::channel_write_##suffix(uint32_t channel_id, cpptype value) {        \
+        if (this->state == nullptr) return;                                            \
+        auto data = xmemory::make_local_shared<telem::Series>(data_type_const, 1);     \
+        data->write(value);                                                            \
+        auto time = xmemory::make_local_shared<telem::Series>(telem::TIMESTAMP_T, 1);  \
+        time->write(telem::TimeStamp::now());                                          \
+        this->state                                                                    \
+            ->write_channel(static_cast<types::ChannelKey>(channel_id), data, time);   \
     }
 
-IMPL_CHANNEL_OPS(u8, uint8_t, 0)
-IMPL_CHANNEL_OPS(u16, uint16_t, 0)
-IMPL_CHANNEL_OPS(u32, uint32_t, 0)
-IMPL_CHANNEL_OPS(u64, uint64_t, 0)
-IMPL_CHANNEL_OPS(i8, int8_t, 0)
-IMPL_CHANNEL_OPS(i16, int16_t, 0)
-IMPL_CHANNEL_OPS(i32, int32_t, 0)
-IMPL_CHANNEL_OPS(i64, int64_t, 0)
-IMPL_CHANNEL_OPS(f32, float, 0.0f)
-IMPL_CHANNEL_OPS(f64, double, 0.0)
+IMPL_CHANNEL_OPS(u8, uint8_t, 0, telem::UINT8_T)
+IMPL_CHANNEL_OPS(u16, uint16_t, 0, telem::UINT16_T)
+IMPL_CHANNEL_OPS(u32, uint32_t, 0, telem::UINT32_T)
+IMPL_CHANNEL_OPS(u64, uint64_t, 0, telem::UINT64_T)
+IMPL_CHANNEL_OPS(i8, int8_t, 0, telem::INT8_T)
+IMPL_CHANNEL_OPS(i16, int16_t, 0, telem::INT16_T)
+IMPL_CHANNEL_OPS(i32, int32_t, 0, telem::INT32_T)
+IMPL_CHANNEL_OPS(i64, int64_t, 0, telem::INT64_T)
+IMPL_CHANNEL_OPS(f32, float, 0.0f, telem::FLOAT32_T)
+IMPL_CHANNEL_OPS(f64, double, 0.0, telem::FLOAT64_T)
 
 #undef IMPL_CHANNEL_OPS
 
 uint32_t Bindings::channel_read_str(uint32_t channel_id) {
-    return 0;
+    if (this->state == nullptr) return 0;
+    auto [multi_series, ok] = this->state->read_channel(channel_id);
+    if (!ok || multi_series.series.empty()) return 0;
+    const auto &last_series = multi_series.series.back();
+    if (last_series.size() == 0) return 0;
+    std::string str = last_series.at<std::string>(-1);
+    return string_create(str);
 }
-void Bindings::channel_write_str(uint32_t channel_id, uint32_t str_handle) {}
-uint32_t Bindings::channel_blocking_read_str(uint32_t channel_id) {
-    return 0;
+
+void Bindings::channel_write_str(uint32_t channel_id, uint32_t str_handle) {
+    if (this->state == nullptr) return;
+    const auto it = strings.find(str_handle);
+    if (it == strings.end()) return;
+    // For STRING_T, capacity is in bytes. Allocate enough for string + newline
+    // terminator.
+    const size_t byte_cap = it->second.size() + 1;
+    auto data = xmemory::make_local_shared<telem::Series>(telem::STRING_T, byte_cap);
+    data->write(it->second);
+    auto time = xmemory::make_local_shared<telem::Series>(telem::TIMESTAMP_T, 1);
+    time->write(telem::TimeStamp::now());
+    this->state->write_channel(static_cast<types::ChannelKey>(channel_id), data, time);
 }
 
 #define IMPL_STATE_OPS(suffix, cpptype)                                                \
@@ -488,7 +519,7 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
     std::vector<wasmtime::Extern> imports;
 
 // ===== Channel Operations =====
-// Order matters! Must match: read, write, blocking_read for each type
+// Order matters! Must match: read, write for each type
 #define REGISTER_CHANNEL_OPS(suffix, wasm_type)                                        \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(store, [runtime](uint32_t id) -> wasm_type {              \
@@ -498,11 +529,6 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(store, [runtime](uint32_t id, wasm_type v) {              \
             runtime->channel_write_##suffix(id, v);                                    \
-        })                                                                             \
-    );                                                                                 \
-    imports.push_back(                                                                 \
-        wasmtime::Func::wrap(store, [runtime](uint32_t id) -> wasm_type {              \
-            return runtime->channel_blocking_read_##suffix(id);                        \
         })                                                                             \
     );
 
@@ -524,9 +550,6 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
     }));
     imports.push_back(wasmtime::Func::wrap(store, [runtime](uint32_t id, uint32_t v) {
         runtime->channel_write_str(id, v);
-    }));
-    imports.push_back(wasmtime::Func::wrap(store, [runtime](uint32_t id) -> uint32_t {
-        return runtime->channel_blocking_read_str(id);
     }));
 
 // ===== Series Operations (Per-Type) =====

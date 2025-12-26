@@ -14,9 +14,9 @@
 #define NOMINMAX
 #endif
 
-#include <windows.h>
-
 #include <system_error>
+
+#include <windows.h>
 
 #include "x/cpp/notify/notify.h"
 
@@ -26,8 +26,7 @@ class WindowsEventNotifier final : public Notifier {
     HANDLE event_handle = nullptr;
 
 public:
-    WindowsEventNotifier()
-        : event_handle(CreateEvent(nullptr, FALSE, FALSE, nullptr)) {
+    WindowsEventNotifier(): event_handle(CreateEvent(nullptr, FALSE, FALSE, nullptr)) {
         if (this->event_handle == nullptr)
             throw std::system_error(
                 static_cast<int>(GetLastError()),
@@ -40,10 +39,10 @@ public:
         if (this->event_handle != nullptr) CloseHandle(this->event_handle);
     }
 
-    WindowsEventNotifier(const WindowsEventNotifier&) = delete;
-    WindowsEventNotifier& operator=(const WindowsEventNotifier&) = delete;
-    WindowsEventNotifier(WindowsEventNotifier&&) = delete;
-    WindowsEventNotifier& operator=(WindowsEventNotifier&&) = delete;
+    WindowsEventNotifier(const WindowsEventNotifier &) = delete;
+    WindowsEventNotifier &operator=(const WindowsEventNotifier &) = delete;
+    WindowsEventNotifier(WindowsEventNotifier &&) = delete;
+    WindowsEventNotifier &operator=(WindowsEventNotifier &&) = delete;
 
     void signal() override { SetEvent(this->event_handle); }
 
@@ -54,8 +53,8 @@ public:
         } else {
             const auto ms = timeout.milliseconds();
             timeout_ms = (ms > static_cast<double>(INFINITE - 1))
-                             ? (INFINITE - 1)
-                             : static_cast<DWORD>(ms);
+                           ? (INFINITE - 1)
+                           : static_cast<DWORD>(ms);
         }
         return WaitForSingleObject(this->event_handle, timeout_ms) == WAIT_OBJECT_0;
     }
@@ -66,7 +65,7 @@ public:
 
     [[nodiscard]] int fd() const override { return -1; }
 
-    [[nodiscard]] HANDLE handle() const { return this->event_handle; }
+    [[nodiscard]] void *native_handle() const override { return this->event_handle; }
 };
 
 std::unique_ptr<Notifier> create() {

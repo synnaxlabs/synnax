@@ -79,11 +79,11 @@ public:
                 this->last_tick_ = now;
             }
         } else {
-            const uint64_t poll_interval_us = this->config_.mode ==
-                                                      ExecutionMode::BUSY_WAIT
-                                                ? 1
-                                                : 100;
-            std::this_thread::sleep_for(std::chrono::microseconds(poll_interval_us));
+            if (this->config_.mode == ExecutionMode::BUSY_WAIT) {
+                std::this_thread::sleep_for(std::chrono::microseconds(1));
+            } else {
+                std::this_thread::sleep_for(timing::HIGH_RATE_POLL_INTERVAL.chrono());
+            }
         }
 
         this->data_available_.store(false, std::memory_order_release);
@@ -109,6 +109,12 @@ public:
     }
 
     uint64_t watch(notify::Notifier &notifier) override {
+        static bool warned = false;
+        if (!warned) {
+            LOG(WARNING) << "[loop] watch() not supported in polling mode; "
+                         << "external notifiers will not wake wait()";
+            warned = true;
+        }
         (void) notifier;
         return 0;
     }
@@ -132,7 +138,7 @@ private:
     std::unique_ptr<::loop::Timer> timer_;
     std::chrono::steady_clock::time_point last_tick_;
     std::atomic<bool> data_available_{false};
-    bool running_ = false;
+    std::atomic<bool> running_{false};
 };
 
 std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {

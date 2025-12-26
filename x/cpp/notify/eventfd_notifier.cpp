@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <system_error>
+
 #include <poll.h>
 #include <sys/eventfd.h>
 #include <unistd.h>
-
-#include <system_error>
 
 #include "x/cpp/notify/notify.h"
 
@@ -21,7 +21,7 @@ class EventFDNotifier final : public Notifier {
     int event_fd = -1;
 
 public:
-    EventFDNotifier() : event_fd(eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC)) {
+    EventFDNotifier(): event_fd(eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC)) {
         if (this->event_fd == -1)
             throw std::system_error(errno, std::system_category(), "eventfd");
     }
@@ -30,10 +30,10 @@ public:
         if (this->event_fd != -1) close(this->event_fd);
     }
 
-    EventFDNotifier(const EventFDNotifier&) = delete;
-    EventFDNotifier& operator=(const EventFDNotifier&) = delete;
-    EventFDNotifier(EventFDNotifier&&) = delete;
-    EventFDNotifier& operator=(EventFDNotifier&&) = delete;
+    EventFDNotifier(const EventFDNotifier &) = delete;
+    EventFDNotifier &operator=(const EventFDNotifier &) = delete;
+    EventFDNotifier(EventFDNotifier &&) = delete;
+    EventFDNotifier &operator=(EventFDNotifier &&) = delete;
 
     void signal() override {
         const uint64_t val = 1;
@@ -43,8 +43,8 @@ public:
     bool wait(const telem::TimeSpan timeout) override {
         pollfd pfd = {this->event_fd, POLLIN, 0};
         const int timeout_ms = (timeout == telem::TimeSpan::MAX())
-                                   ? -1
-                                   : static_cast<int>(timeout.milliseconds());
+                                 ? -1
+                                 : static_cast<int>(timeout.milliseconds());
 
         const int result = poll(&pfd, 1, timeout_ms);
         if (result > 0) {
@@ -61,8 +61,12 @@ public:
     }
 
     [[nodiscard]] int fd() const override { return this->event_fd; }
+
+    [[nodiscard]] void *native_handle() const override { return nullptr; }
 };
 
-std::unique_ptr<Notifier> create() { return std::make_unique<EventFDNotifier>(); }
+std::unique_ptr<Notifier> create() {
+    return std::make_unique<EventFDNotifier>();
+}
 
 }
