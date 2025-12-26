@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/compiler/expression"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -149,6 +150,93 @@ var _ = Describe("Identifier Compilation", func() {
 			bytecode, exprType := compileWithCtx(ctx, "value")
 			Expect(bytecode).To(MatchOpcodes(OpLocalGet, 0))
 			Expect(exprType).To(Equal(types.F64()))
+		})
+	})
+
+	Context("User-Defined Function Calls", func() {
+		It("Should compile a simple function call with no arguments", func() {
+			ctx := NewContext(bCtx)
+			ctx.FunctionIndices = map[string]uint32{"getVal": 5}
+
+			funcType := types.Function(types.FunctionProperties{
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+			})
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "getVal",
+				Kind: symbol.KindFunction,
+				Type: funcType,
+			}))
+
+			byteCode, exprType := compileWithCtx(ctx, "getVal()")
+			Expect(byteCode).To(MatchOpcodes(OpCall, uint32(5)))
+			Expect(exprType).To(Equal(types.I64()))
+		})
+
+		It("Should compile a function call with arguments", func() {
+			ctx := NewContext(bCtx)
+			ctx.FunctionIndices = map[string]uint32{"add": 3}
+
+			funcType := types.Function(types.FunctionProperties{
+				Inputs:  types.Params{{Name: "a", Type: types.I64()}, {Name: "b", Type: types.I64()}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+			})
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "add",
+				Kind: symbol.KindFunction,
+				Type: funcType,
+			}))
+
+			byteCode, exprType := compileWithCtx(ctx, "add(10, 32)")
+			Expect(byteCode).To(MatchOpcodes(
+				OpI64Const, int64(10),
+				OpI64Const, int64(32),
+				OpCall, uint32(3),
+			))
+			Expect(exprType).To(Equal(types.I64()))
+		})
+
+		It("Should compile nested function calls", func() {
+			ctx := NewContext(bCtx)
+			ctx.FunctionIndices = map[string]uint32{"inner": 2, "outer": 3}
+
+			innerType := types.Function(types.FunctionProperties{
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+			})
+			outerType := types.Function(types.FunctionProperties{
+				Inputs:  types.Params{{Name: "x", Type: types.I64()}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+			})
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "inner", Kind: symbol.KindFunction, Type: innerType}))
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "outer", Kind: symbol.KindFunction, Type: outerType}))
+
+			byteCode, exprType := compileWithCtx(ctx, "outer(inner())")
+			Expect(byteCode).To(MatchOpcodes(
+				OpCall, uint32(2), // inner() called first
+				OpCall, uint32(3), // outer() called with result
+			))
+			Expect(exprType).To(Equal(types.I64()))
+		})
+
+		It("Should compile function call in binary expression", func() {
+			ctx := NewContext(bCtx)
+			ctx.FunctionIndices = map[string]uint32{"getValue": 7}
+
+			funcType := types.Function(types.FunctionProperties{
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+			})
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name:    "getValue",
+				Kind:    symbol.KindFunction,
+				Type:    funcType,
+			}))
+
+			byteCode, exprType := compileWithCtx(ctx, "getValue() + 5")
+			Expect(byteCode).To(MatchOpcodes(
+				OpCall, uint32(7),
+				OpI64Const, int64(5),
+				OpI64Add,
+			))
+			Expect(exprType).To(Equal(types.I64()))
 		})
 	})
 })

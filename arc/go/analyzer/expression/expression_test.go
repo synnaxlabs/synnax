@@ -551,6 +551,17 @@ var _ = Describe("Expressions", func() {
 					result := double(double())
 				}
 			`, "expects 1 argument(s), got 0"),
+			Entry("calling a variable as a function", `
+				func testFunc() {
+					x i32 := 42
+					result := x()
+				}
+			`, "cannot call non-function"),
+			Entry("calling a parameter as a function", `
+				func testFunc(x i32) i32 {
+					return x()
+				}
+			`, "cannot call non-function"),
 		)
 	})
 
