@@ -14,10 +14,6 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Note.Note variant="error">
-  TODO: Even though another page will cover "advanced writing pattern", we should still add another simple example.
-</Note.Note>
-
 This guide covers the fundamental patterns for writing data to Synnax channels, focusing
 on simple, straightforward writes.
 
@@ -96,3 +92,110 @@ make sense to have a temperature reading without an associated timestamp.
 </Note.Note>
 
 <Divider.Divider x />
+
+## Writing Multiple Data Channels
+
+It's common to have multiple data channels that share the same index. For example, a
+weather station might record temperature, humidity, and pressure all at the same
+timestamps.
+
+### Single Time Index
+
+When writing a single sample to multiple channels at the same instant, use a dictionary
+with scalar values.
+
+<Client.Tabs client:load exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+    ```python
+    now = sy.TimeStamp.now()
+
+    # Write a single sample to multiple channels
+    client.write(now, {
+        "time": now,
+        "temperature": 22.5,
+        "humidity": 45.0,
+        "pressure": 1013.2,
+    })
+    ```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+    ```typescript
+    const now = TimeStamp.now();
+
+    // Write a single sample to multiple channels
+    await client.write(now, {
+      time: now,
+      temperature: 22.5,
+      humidity: 45.0,
+      pressure: 1013.2,
+    });
+    ```
+
+  </Fragment>
+</Client.Tabs>
+
+### Multiple Time Indices
+
+When writing multiple samples over time, use arrays for both the timestamps and data
+values.
+
+<Client.Tabs client:load exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+    ```python
+    start = sy.TimeStamp.now()
+    timestamps = [
+        start,
+        start + 1 * sy.TimeSpan.SECOND,
+        start + 2 * sy.TimeSpan.SECOND,
+        start + 3 * sy.TimeSpan.SECOND,
+        start + 4 * sy.TimeSpan.SECOND,
+    ]
+    temperatures = [22.5, 22.6, 22.8, 23.1, 23.0]
+    humidities = [45.0, 45.2, 45.1, 44.8, 44.9]
+    pressures = [1013.2, 1013.3, 1013.1, 1013.0, 1012.9]
+
+    # Write all channels in a single call
+    client.write(start, {
+        "time": timestamps,
+        "temperature": temperatures,
+        "humidity": humidities,
+        "pressure": pressures,
+    })
+    ```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+    ```typescript
+    const start = TimeStamp.now();
+    const timestamps = new BigInt64Array([
+      start.valueOf(),
+      start.add(TimeSpan.seconds(1)).valueOf(),
+      start.add(TimeSpan.seconds(2)).valueOf(),
+      start.add(TimeSpan.seconds(3)).valueOf(),
+      start.add(TimeSpan.seconds(4)).valueOf(),
+    ]);
+    const temperatures = new Float32Array([22.5, 22.6, 22.8, 23.1, 23.0]);
+    const humidities = new Float32Array([45.0, 45.2, 45.1, 44.8, 44.9]);
+    const pressures = new Float32Array([1013.2, 1013.3, 1013.1, 1013.0, 1012.9]);
+
+    // Write all channels in a single call
+    await client.write(start, {
+      time: timestamps,
+      temperature: temperatures,
+      humidity: humidities,
+      pressure: pressures,
+    });
+    ```
+
+  </Fragment>
+</Client.Tabs>
+
+All data channels use the same `start` timestamp for alignment, which tells Synnax
+they share the same index. The arrays must all have the same length as the timestamps
+array.
+
