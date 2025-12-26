@@ -16,11 +16,11 @@ unified client documentation structure.
 ├── working-with-data/
 │   ├── series-and-frames.mdx           ✅ Complete
 │   ├── ranges.mdx                      ✅ Complete
-│   ├── streaming-data.mdx              🔄 In Progress
-│   └── iterators.mdx                   🔄 In Progress
+│   ├── streaming-data.mdx              ✅ Complete
+│   └── iterators.mdx                   ✅ Complete
 ├── advanced/
-│   ├── writers.mdx                     🔄 In Progress
-│   ├── delete-data.mdx                 🔄 In Progress
+│   ├── writers.mdx                     ✅ Complete
+│   ├── delete-data.mdx                 ✅ Complete
 │   └── timestamps.mdx                  🔄 In Progress (TS only)
 └── resources/
     ├── examples.mdx                    🔄 In Progress
@@ -48,14 +48,14 @@ unified client documentation structure.
 - [x] Create all shell pages
 - [x] Series & Frames
 - [x] Ranges (content transferred, needs cleanup)
-- [🔄] Streaming Data (content transferred, needs cleanup)
-- [🔄] Iterators (content transferred, needs cleanup)
+- [x] Streaming Data (content transferred, needs cleanup)
+- [x] Iterators (content transferred, needs cleanup)
 
 ### Phase 4: Advanced Topics (🔄 IN PROGRESS)
 
 - [x] Create all shell pages
-- [🔄] Writers (content transferred, needs cleanup)
-- [🔄] Delete Data (content transferred, needs cleanup)
+- [x] Writers (content transferred, needs cleanup)
+- [x] Delete Data (content transferred, needs cleanup)
 - [🔄] Timestamps (content transferred, needs cleanup)
 
 ### Phase 5: Resources (🔄 IN PROGRESS)
@@ -77,8 +77,8 @@ unified client documentation structure.
 | ----------------- | -------- | ----------------- |
 | Get Started       | 2        | ✅ Complete       |
 | Fundamentals      | 3        | ✅ Complete       |
-| Working with Data | 4        | 🔄 2 in progress  |
-| Advanced Topics   | 3        | 🔄 3 in progress  |
+| Working with Data | 4        | ✅ Complete       |
+| Advanced Topics   | 3        | 🔄 1 in progress  |
 | Resources         | 3        | 🔄 3 in progress  |
 | **TOTAL**         | **15**   | **6 complete, 9 in progress** |
 
