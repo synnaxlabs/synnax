@@ -103,8 +103,8 @@ type ImportIndex struct {
 // NewImportIndex creates a new import index with initialized maps
 func NewImportIndex() *ImportIndex {
 	return &ImportIndex{
-		ChannelRead:  make(map[string]uint32),
-		ChannelWrite: make(map[string]uint32),
+		ChannelRead:           make(map[string]uint32),
+		ChannelWrite:          make(map[string]uint32),
 		SeriesCreateEmpty:     make(map[string]uint32),
 		SeriesSetElement:      make(map[string]uint32),
 		SeriesIndex:           make(map[string]uint32),

@@ -463,7 +463,7 @@ var _ = Describe("Binary Operations", func() {
 			OpI32Const,
 			int32(3),
 			OpCall,
-			uint32(367), // MathIntPowI32
+			uint32(356), // MathIntPowI32
 		),
 
 		Entry(
@@ -475,7 +475,7 @@ var _ = Describe("Binary Operations", func() {
 			OpI64Const,
 			int64(10),
 			OpCall,
-			uint32(368), // MathIntPowI64
+			uint32(357), // MathIntPowI64
 		),
 
 		Entry(
@@ -487,7 +487,7 @@ var _ = Describe("Binary Operations", func() {
 			OpI32Const,
 			int32(4),
 			OpCall,
-			uint32(363), // MathIntPowU32
+			uint32(352), // MathIntPowU32
 		),
 
 		Entry(
@@ -499,7 +499,7 @@ var _ = Describe("Binary Operations", func() {
 			OpI64Const,
 			int64(3),
 			OpCall,
-			uint32(364), // MathIntPowU64
+			uint32(353), // MathIntPowU64
 		),
 
 		Entry(
@@ -511,7 +511,7 @@ var _ = Describe("Binary Operations", func() {
 			OpF32Const,
 			float32(3.0),
 			OpCall,
-			uint32(359), // MathPowF32
+			uint32(348), // MathPowF32
 		),
 
 		Entry(
@@ -523,7 +523,7 @@ var _ = Describe("Binary Operations", func() {
 			OpF64Const,
 			float64(2.0),
 			OpCall,
-			uint32(360), // MathPowF64
+			uint32(349), // MathPowF64
 		),
 
 		Entry(
@@ -537,9 +537,9 @@ var _ = Describe("Binary Operations", func() {
 			OpI32Const,
 			int32(2),
 			OpCall,
-			uint32(367), // MathIntPowI32 for 3^2
+			uint32(356), // MathIntPowI32 for 3^2
 			OpCall,
-			uint32(367), // MathIntPowI32 for 2^9
+			uint32(356), // MathIntPowI32 for 2^9
 		),
 
 		Entry(
@@ -553,7 +553,7 @@ var _ = Describe("Binary Operations", func() {
 			OpI32Const,
 			int32(2),
 			OpCall,
-			uint32(367), // MathIntPowI32 for 3^2
+			uint32(356), // MathIntPowI32 for 3^2
 			OpI32Add,    // then add
 		),
 
@@ -569,7 +569,7 @@ var _ = Describe("Binary Operations", func() {
 			OpI32Const,
 			int32(2),
 			OpCall,
-			uint32(367), // MathIntPowI32
+			uint32(356), // MathIntPowI32
 		),
 	)
 
@@ -634,7 +634,7 @@ var _ = Describe("Binary Operations", func() {
 				OpI32Const,
 				int32(0),
 				OpCall,
-				uint32(27),
+				uint32(18), // channel_read_f64
 				OpF64Mul,
 			),
 
@@ -653,7 +653,7 @@ var _ = Describe("Binary Operations", func() {
 				OpI32Const,
 				int32(0),
 				OpCall,
-				uint32(27),
+				uint32(18), // channel_read_f64
 				OpF64Const,
 				float64(2),
 				OpF64Mul,
@@ -674,7 +674,7 @@ var _ = Describe("Binary Operations", func() {
 				OpI32Const,
 				int32(0),
 				OpCall,
-				uint32(18),
+				uint32(12), // channel_read_i32
 				OpI32Const,
 				int32(10),
 				OpI32Add,
@@ -697,7 +697,7 @@ var _ = Describe("Binary Operations", func() {
 				OpI32Const,
 				int32(0),
 				OpCall,
-				uint32(18),
+				uint32(12), // channel_read_i32
 				OpI32Add,
 			),
 
@@ -716,7 +716,7 @@ var _ = Describe("Binary Operations", func() {
 				OpI32Const,
 				int32(0),
 				OpCall,
-				uint32(27),
+				uint32(18), // channel_read_f64
 				OpF64Const,
 				float64(5),
 				OpF64Sub,
@@ -739,7 +739,7 @@ var _ = Describe("Binary Operations", func() {
 				OpI32Const,
 				int32(0),
 				OpCall,
-				uint32(27),
+				uint32(18), // channel_read_f64
 				OpF64Div,
 			),
 
@@ -758,7 +758,7 @@ var _ = Describe("Binary Operations", func() {
 				OpI32Const,
 				int32(0),
 				OpCall,
-				uint32(21),
+				uint32(14), // channel_read_i64
 				OpI64Const,
 				int64(3),
 				OpI64RemS,
@@ -781,7 +781,7 @@ var _ = Describe("Binary Operations", func() {
 				OpI32Const,
 				int32(0),
 				OpCall,
-				uint32(24),
+				uint32(16), // channel_read_f32
 				OpF32Mul,
 			),
 
@@ -800,7 +800,7 @@ var _ = Describe("Binary Operations", func() {
 				OpI32Const,
 				int32(0),
 				OpCall,
-				uint32(6),
+				uint32(4), // channel_read_u32
 				OpI32Const,
 				int32(1),
 				OpI32Add,
@@ -821,7 +821,7 @@ var _ = Describe("Binary Operations", func() {
 				OpI32Const,
 				int32(0),
 				OpCall,
-				uint32(27),
+				uint32(18), // channel_read_f64
 				OpF64Const,
 				float64(100),
 				OpF64Gt,
@@ -844,7 +844,7 @@ var _ = Describe("Binary Operations", func() {
 				OpI32Const,
 				int32(0),
 				OpCall,
-				uint32(18),
+				uint32(12), // channel_read_i32
 				OpI32LtS,
 			),
 
@@ -863,7 +863,7 @@ var _ = Describe("Binary Operations", func() {
 				OpI32Const,
 				int32(0),
 				OpCall,
-				uint32(27),
+				uint32(18), // channel_read_f64
 				OpF64Const,
 				float64(1000),
 				OpF64Ge,
@@ -884,7 +884,7 @@ var _ = Describe("Binary Operations", func() {
 				OpI32Const,
 				int32(0),
 				OpCall,
-				uint32(27),
+				uint32(18), // channel_read_f64
 				OpF64Const,
 				float64(3.14),
 				OpF64Eq,
@@ -907,7 +907,7 @@ var _ = Describe("Binary Operations", func() {
 				OpI32Const,
 				int32(0),
 				OpCall,
-				uint32(18),
+				uint32(12), // channel_read_i32
 				OpI32Ne,
 			),
 
@@ -934,14 +934,14 @@ var _ = Describe("Binary Operations", func() {
 				OpI32Const,
 				int32(0),
 				OpCall,
-				uint32(27),
+				uint32(18), // channel_read_f64
 				OpF64Mul,
 				OpF64Const,
 				float64(3),
 				OpI32Const,
 				int32(1),
 				OpCall,
-				uint32(27),
+				uint32(18), // channel_read_f64
 				OpF64Mul,
 				OpF64Add,
 			),
@@ -967,14 +967,14 @@ var _ = Describe("Binary Operations", func() {
 				OpI32Const,
 				int32(0),
 				OpCall,
-				uint32(27),
+				uint32(18), // channel_read_f64
 				OpF64Const,
 				float64(5),
 				OpF64Add,
 				OpI32Const,
 				int32(1),
 				OpCall,
-				uint32(27),
+				uint32(18), // channel_read_f64
 				OpF64Const,
 				float64(3),
 				OpF64Sub,
@@ -996,7 +996,7 @@ var _ = Describe("Binary Operations", func() {
 				OpI32Const,
 				int32(0),
 				OpCall,
-				uint32(9),
+				uint32(6), // channel_read_u64
 				OpI64Const,
 				int64(1000),
 				OpI64Add,
@@ -1038,7 +1038,7 @@ var _ = Describe("Binary Operations", func() {
 				OpI32Const,
 				int32(0),
 				OpCall,
-				uint32(3),
+				uint32(2), // channel_read_u16
 				OpI32Const,
 				int32(3),
 				OpI32Mul,
@@ -1065,14 +1065,14 @@ var _ = Describe("Binary Operations", func() {
 				OpI32Const,
 				int32(0),
 				OpCall,
-				uint32(27),
+				uint32(18), // channel_read_f64
 				OpF64Const,
 				float64(10),
 				OpF64Sub,
 				OpI32Const,
 				int32(1),
 				OpCall,
-				uint32(27),
+				uint32(18), // channel_read_f64
 				OpF64Add,
 			),
 
@@ -1093,7 +1093,7 @@ var _ = Describe("Binary Operations", func() {
 				OpI32Const,
 				int32(0),
 				OpCall,
-				uint32(27),
+				uint32(18), // channel_read_f64
 				OpF64Div,
 				OpF64Const,
 				float64(2),
