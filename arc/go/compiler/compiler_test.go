@@ -1494,34 +1494,34 @@ var _ = Describe("Compiler", func() {
 			Entry("create and index series literal", `{
 				s series f64 := [1.0, 2.0, 3.0, 4.0, 5.0]
 				return s[2]
-			}`, float64(3.0)),
+			}`, 3.0),
 
 			// Series-scalar arithmetic (f64)
 			Entry("series-scalar add f64", `{
 				s series f64 := [10.0, 20.0, 30.0]
 				t series f64 := s + 5.0
 				return t[1]
-			}`, float64(25.0)),
+			}`, 25.0),
 			Entry("series-scalar sub f64", `{
 				s series f64 := [10.0, 20.0, 30.0]
 				t series f64 := s - 5.0
 				return t[0]
-			}`, float64(5.0)),
+			}`, 5.0),
 			Entry("series-scalar mul f64", `{
 				s series f64 := [2.0, 3.0, 4.0]
 				t series f64 := s * 10.0
 				return t[0]
-			}`, float64(20.0)),
+			}`, 20.0),
 			Entry("series-scalar div f64", `{
 				s series f64 := [100.0, 200.0, 300.0]
 				t series f64 := s / 10.0
 				return t[2]
-			}`, float64(30.0)),
+			}`, 30.0),
 			Entry("series-scalar mod f64", `{
 				s series f64 := [10.5, 21.5]
 				t series f64 := s % 4.0
 				return t[0]
-			}`, float64(2.5)),
+			}`, 2.5),
 
 			// Series-series arithmetic (f64)
 			Entry("series-series add f64", `{
@@ -1529,32 +1529,32 @@ var _ = Describe("Compiler", func() {
 				b series f64 := [10.0, 20.0, 30.0]
 				c series f64 := a + b
 				return c[2]
-			}`, float64(33.0)),
+			}`, 33.0),
 			Entry("series-series mul f64", `{
 				a series f64 := [2.0, 3.0]
 				b series f64 := [4.0, 5.0]
 				c series f64 := a * b
 				return c[1]
-			}`, float64(15.0)),
+			}`, 15.0),
 
 			// Series slicing
 			Entry("series slice", `{
 				s series f64 := [1.0, 2.0, 3.0, 4.0, 5.0]
 				t series f64 := s[1:4]
 				return t[0]
-			}`, float64(2.0)),
+			}`, 2.0),
 
 			// Series negation
 			Entry("series negate f64", `{
 				s series f64 := [10.0, 20.0, 30.0]
 				t series f64 := -s
 				return t[0]
-			}`, float64(-10.0)),
+			}`, -10.0),
 			Entry("series double negate f64", `{
 				s series f64 := [-10.0, -20.0, -30.0]
 				t series f64 := --s
 				return t[1]
-			}`, float64(-20.0)),
+			}`, -20.0),
 
 			// Series comparison
 			Entry("series-series comparison", `{
@@ -1566,18 +1566,18 @@ var _ = Describe("Compiler", func() {
 
 			// Integer series operations (i32)
 			Entry("integer series add i32", `{
-				s series i32 := [i32(10), i32(20), i32(30)]
-				t series i32 := s + i32(5)
+				s series i32 := [10, 20, 30]
+				t series i32 := s + 5
 				return t[1]
 			}`, int32(25)),
 			Entry("integer series mod i32", `{
-				s series i32 := [i32(10), i32(21), i32(32)]
-				t series i32 := s % i32(5)
+				s series i32 := [10, 21, 32]
+				t series i32 := s % 5
 				return t[1]
 			}`, int32(1)),
 			Entry("series-series mod i32", `{
-				a series i32 := [i32(10), i32(21), i32(32)]
-				b series i32 := [i32(3), i32(4), i32(5)]
+				a series i32 := [10, 21, 32]
+				b series i32 := [3, 4, 5]
 				c series i32 := a % b
 				return c[1]
 			}`, int32(1)),
@@ -1608,134 +1608,134 @@ var _ = Describe("Compiler", func() {
 
 			// Scalar-series reverse operations (i32)
 			Entry("scalar-series rsub i32", `{
-				s series i32 := [i32(10), i32(20), i32(30)]
-				t series i32 := i32(100) - s
+				s series i32 := [10, 20, 30]
+				t series i32 := 100 - s
 				return t[0]
 			}`, int32(90)),
 			Entry("scalar-series rdiv i32", `{
-				s series i32 := [i32(2), i32(4), i32(5)]
-				t series i32 := i32(100) / s
+				s series i32 := [2, 4, 5]
+				t series i32 := 100 / s
 				return t[0]
 			}`, int32(50)),
 
 			// Scalar-series reverse operations (i16)
 			Entry("scalar-series rsub i16", `{
-				s series i16 := [i16(10), i16(20), i16(30)]
-				t series i16 := i16(100) - s
+				s series i16 := [10, 20, 30]
+				t series i16 := 100 - s
 				return t[0]
 			}`, int16(90)),
 			Entry("scalar-series rdiv i16", `{
-				s series i16 := [i16(2), i16(4), i16(5)]
-				t series i16 := i16(100) / s
+				s series i16 := [2, 4, 5]
+				t series i16 := 100 / s
 				return t[0]
 			}`, int16(50)),
 
 			// Scalar-series reverse operations (i8)
 			Entry("scalar-series rsub i8", `{
-				s series i8 := [i8(10), i8(20), i8(30)]
-				t series i8 := i8(100) - s
+				s series i8 := [10, 20, 30]
+				t series i8 := 100 - s
 				return t[0]
 			}`, int8(90)),
 			Entry("scalar-series rdiv i8", `{
-				s series i8 := [i8(2), i8(4), i8(5)]
-				t series i8 := i8(100) / s
+				s series i8 := [2, 4, 5]
+				t series i8 := 100 / s
 				return t[0]
 			}`, int8(50)),
 
 			// Scalar-series reverse operations (u64)
 			Entry("scalar-series rsub u64", `{
-				s series u64 := [u64(10), u64(20), u64(30)]
-				t series u64 := u64(100) - s
+				s series u64 := [10, 20, 30]
+				t series u64 := 100 - s
 				return t[0]
 			}`, uint64(90)),
 			Entry("scalar-series rdiv u64", `{
-				s series u64 := [u64(2), u64(4), u64(5)]
-				t series u64 := u64(100) / s
+				s series u64 := [2, 4, 5]
+				t series u64 := 100 / s
 				return t[0]
 			}`, uint64(50)),
 
 			// Scalar-series reverse operations (u32)
 			Entry("scalar-series rsub u32", `{
-				s series u32 := [u32(10), u32(20), u32(30)]
-				t series u32 := u32(100) - s
+				s series u32 := [10, 20, 30]
+				t series u32 := 100 - s
 				return t[0]
 			}`, uint32(90)),
 			Entry("scalar-series rdiv u32", `{
-				s series u32 := [u32(2), u32(4), u32(5)]
-				t series u32 := u32(100) / s
+				s series u32 := [2, 4, 5]
+				t series u32 := 100 / s
 				return t[0]
 			}`, uint32(50)),
 
 			// Scalar-series reverse operations (u16)
 			Entry("scalar-series rsub u16", `{
-				s series u16 := [u16(10), u16(20), u16(30)]
-				t series u16 := u16(100) - s
+				s series u16 := [10, 20, 30]
+				t series u16 := 100 - s
 				return t[0]
 			}`, uint16(90)),
 			Entry("scalar-series rdiv u16", `{
-				s series u16 := [u16(2), u16(4), u16(5)]
-				t series u16 := u16(100) / s
+				s series u16 := [2, 4, 5]
+				t series u16 := 100 / s
 				return t[0]
 			}`, uint16(50)),
 
 			// Scalar-series reverse operations (u8)
 			Entry("scalar-series rsub u8", `{
-				s series u8 := [u8(10), u8(20), u8(30)]
-				t series u8 := u8(100) - s
+				s series u8 := [10, 20, 30]
+				t series u8 := 100 - s
 				return t[0]
 			}`, uint8(90)),
 			Entry("scalar-series rdiv u8", `{
-				s series u8 := [u8(2), u8(4), u8(5)]
-				t series u8 := u8(100) / s
+				s series u8 := [2, 4, 5]
+				t series u8 := 100 / s
 				return t[0]
 			}`, uint8(50)),
 
 			// Scalar-series reverse operations (f32)
 			Entry("scalar-series rsub f32", `{
-				s series f32 := [f32(10.0), f32(20.0), f32(30.0)]
-				t series f32 := f32(100.0) - s
+				s series f32 := [10.0, 20.0, 30.0]
+				t series f32 := 100.0 - s
 				return t[0]
 			}`, float32(90.0)),
 			Entry("scalar-series rdiv f32", `{
-				s series f32 := [f32(2.0), f32(4.0), f32(5.0)]
-				t series f32 := f32(100.0) / s
+				s series f32 := [2.0, 4.0, 5.0]
+				t series f32 := 100.0 / s
 				return t[0]
 			}`, float32(50.0)),
 
 			// Series-scalar operations (various types)
 			Entry("series-scalar add u8", `{
-				s series u8 := [u8(10), u8(20), u8(30)]
-				t series u8 := s + u8(5)
+				s series u8 := [10, 20, 30]
+				t series u8 := s + 5
 				return t[0]
 			}`, uint8(15)),
 			Entry("series-scalar sub u16", `{
-				s series u16 := [u16(100), u16(200), u16(300)]
-				t series u16 := s - u16(10)
+				s series u16 := [100, 200, 300]
+				t series u16 := s - 10
 				return t[0]
 			}`, uint16(90)),
 			Entry("series-scalar mul u32", `{
-				s series u32 := [u32(10), u32(20), u32(30)]
-				t series u32 := s * u32(3)
+				s series u32 := [10, 20, 30]
+				t series u32 := s * 3
 				return t[0]
 			}`, uint32(30)),
 			Entry("series-scalar div u64", `{
-				s series u64 := [u64(100), u64(200), u64(300)]
-				t series u64 := s / u64(10)
+				s series u64 := [100, 200, 300]
+				t series u64 := s / 10
 				return t[0]
 			}`, uint64(10)),
 			Entry("series-scalar mod i8", `{
-				s series i8 := [i8(17), i8(23), i8(31)]
-				t series i8 := s % i8(5)
+				s series i8 := [17, 23, 31]
+				t series i8 := s % 5
 				return t[0]
 			}`, int8(2)),
 			Entry("series-scalar add i16", `{
-				s series i16 := [i16(10), i16(20), i16(30)]
-				t series i16 := s + i16(5)
+				s series i16 := [10, 20, 30]
+				t series i16 := s + 5
 				return t[0]
 			}`, int16(15)),
 			Entry("series-scalar sub i32", `{
-				s series i32 := [i32(100), i32(200), i32(300)]
-				t series i32 := s - i32(10)
+				s series i32 := [100, 200, 300]
+				t series i32 := s - 10
 				return t[0]
 			}`, int32(90)),
 			Entry("series-scalar mul i64", `{
@@ -1744,8 +1744,8 @@ var _ = Describe("Compiler", func() {
 				return t[0]
 			}`, int64(30)),
 			Entry("series-scalar div f32", `{
-				s series f32 := [f32(100.0), f32(200.0), f32(300.0)]
-				t series f32 := s / f32(10.0)
+				s series f32 := [100.0, 200.0, 300.0]
+				t series f32 := s / 10.0
 				return t[0]
 			}`, float32(10.0)),
 			Entry("series-scalar add f64 (explicit)", `{

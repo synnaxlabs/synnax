@@ -110,6 +110,11 @@ func compileNumericLiteral(
 		}
 	}
 
+	// Unwrap series/channel types to get the element type for scalar literals.
+	// When compiling `100 - s` where s is `series i32`, the hint may be `series i32`
+	// but the literal should compile to the element type `i32`.
+	targetType = targetType.Unwrap()
+
 	// Clear the unit from target type - unit literals should always convert to SI base units.
 	// The unit is preserved in the TypeMap for dimensional analysis but should not affect
 	// the numeric value emitted (which is always in SI base units).

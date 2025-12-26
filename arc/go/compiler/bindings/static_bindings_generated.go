@@ -56,18 +56,17 @@ type Bindings struct {
 	ChannelReadStr  func(context.Context, uint32) uint32
 	ChannelWriteStr func(context.Context, uint32, uint32)
 
-
 	// State operations - use proper Go types (load takes initValue)
-	StateLoadU8  func(context.Context, uint32, uint32, uint8) uint8
-	StateStoreU8 func(context.Context, uint32, uint32, uint8)
+	StateLoadU8   func(context.Context, uint32, uint32, uint8) uint8
+	StateStoreU8  func(context.Context, uint32, uint32, uint8)
 	StateLoadU16  func(context.Context, uint32, uint32, uint16) uint16
 	StateStoreU16 func(context.Context, uint32, uint32, uint16)
 	StateLoadU32  func(context.Context, uint32, uint32, uint32) uint32
 	StateStoreU32 func(context.Context, uint32, uint32, uint32)
 	StateLoadU64  func(context.Context, uint32, uint32, uint64) uint64
 	StateStoreU64 func(context.Context, uint32, uint32, uint64)
-	StateLoadI8  func(context.Context, uint32, uint32, int8) int8
-	StateStoreI8 func(context.Context, uint32, uint32, int8)
+	StateLoadI8   func(context.Context, uint32, uint32, int8) int8
+	StateStoreI8  func(context.Context, uint32, uint32, int8)
 	StateLoadI16  func(context.Context, uint32, uint32, int16) int16
 	StateStoreI16 func(context.Context, uint32, uint32, int16)
 	StateLoadI32  func(context.Context, uint32, uint32, int32) int32
@@ -81,37 +80,36 @@ type Bindings struct {
 	StateLoadStr  func(context.Context, uint32, uint32, uint32) uint32
 	StateStoreStr func(context.Context, uint32, uint32, uint32)
 
-
 	// Series operations
 
 	// U8
-	SeriesCreateEmptyU8   func(context.Context, uint32) uint32
-	SeriesSetElementU8    func(context.Context, uint32, uint32, uint8) uint32
-	SeriesIndexU8         func(context.Context, uint32, uint32) uint8
+	SeriesCreateEmptyU8 func(context.Context, uint32) uint32
+	SeriesSetElementU8  func(context.Context, uint32, uint32, uint8) uint32
+	SeriesIndexU8       func(context.Context, uint32, uint32) uint8
 
 	// Series arithmetic - take proper Go types for scalars
-	SeriesElementAddU8    func(context.Context, uint32, uint8) uint32
-	SeriesElementSubU8    func(context.Context, uint32, uint8) uint32
-	SeriesElementMulU8    func(context.Context, uint32, uint8) uint32
-	SeriesElementDivU8    func(context.Context, uint32, uint8) uint32
-	SeriesElementModU8    func(context.Context, uint32, uint8) uint32
-	SeriesElementRSubU8   func(context.Context, uint8, uint32) uint32  // (scalar, handle) for scalar - series
-	SeriesElementRDivU8   func(context.Context, uint8, uint32) uint32  // (scalar, handle) for scalar / series
+	SeriesElementAddU8  func(context.Context, uint32, uint8) uint32
+	SeriesElementSubU8  func(context.Context, uint32, uint8) uint32
+	SeriesElementMulU8  func(context.Context, uint32, uint8) uint32
+	SeriesElementDivU8  func(context.Context, uint32, uint8) uint32
+	SeriesElementModU8  func(context.Context, uint32, uint8) uint32
+	SeriesElementRSubU8 func(context.Context, uint8, uint32) uint32 // (scalar, handle) for scalar - series
+	SeriesElementRDivU8 func(context.Context, uint8, uint32) uint32 // (scalar, handle) for scalar / series
 
 	// Series arithmetic - series-to-series operations
-	SeriesSeriesAddU8     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesSubU8     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesMulU8     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesDivU8     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesModU8     func(context.Context, uint32, uint32) uint32
+	SeriesSeriesAddU8 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesSubU8 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesMulU8 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesDivU8 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesModU8 func(context.Context, uint32, uint32) uint32
 
 	// Series comparison operations - series-to-series
-	SeriesCompareGTU8     func(context.Context, uint32, uint32) uint32
-	SeriesCompareLTU8     func(context.Context, uint32, uint32) uint32
-	SeriesCompareGEU8     func(context.Context, uint32, uint32) uint32
-	SeriesCompareLEU8     func(context.Context, uint32, uint32) uint32
-	SeriesCompareEQU8     func(context.Context, uint32, uint32) uint32
-	SeriesCompareNEU8     func(context.Context, uint32, uint32) uint32
+	SeriesCompareGTU8 func(context.Context, uint32, uint32) uint32
+	SeriesCompareLTU8 func(context.Context, uint32, uint32) uint32
+	SeriesCompareGEU8 func(context.Context, uint32, uint32) uint32
+	SeriesCompareLEU8 func(context.Context, uint32, uint32) uint32
+	SeriesCompareEQU8 func(context.Context, uint32, uint32) uint32
+	SeriesCompareNEU8 func(context.Context, uint32, uint32) uint32
 
 	// Series comparison operations - scalar
 	SeriesCompareGTScalarU8 func(context.Context, uint32, uint8) uint32
@@ -122,38 +120,37 @@ type Bindings struct {
 	SeriesCompareNEScalarU8 func(context.Context, uint32, uint8) uint32
 
 	// Series state operations (for state variables of series type)
-	StateLoadSeriesU8     func(context.Context, uint32, uint32, uint32) uint32
-	StateStoreSeriesU8    func(context.Context, uint32, uint32, uint32)
-
+	StateLoadSeriesU8  func(context.Context, uint32, uint32, uint32) uint32
+	StateStoreSeriesU8 func(context.Context, uint32, uint32, uint32)
 
 	// U16
-	SeriesCreateEmptyU16   func(context.Context, uint32) uint32
-	SeriesSetElementU16    func(context.Context, uint32, uint32, uint16) uint32
-	SeriesIndexU16         func(context.Context, uint32, uint32) uint16
+	SeriesCreateEmptyU16 func(context.Context, uint32) uint32
+	SeriesSetElementU16  func(context.Context, uint32, uint32, uint16) uint32
+	SeriesIndexU16       func(context.Context, uint32, uint32) uint16
 
 	// Series arithmetic - take proper Go types for scalars
-	SeriesElementAddU16    func(context.Context, uint32, uint16) uint32
-	SeriesElementSubU16    func(context.Context, uint32, uint16) uint32
-	SeriesElementMulU16    func(context.Context, uint32, uint16) uint32
-	SeriesElementDivU16    func(context.Context, uint32, uint16) uint32
-	SeriesElementModU16    func(context.Context, uint32, uint16) uint32
-	SeriesElementRSubU16   func(context.Context, uint16, uint32) uint32  // (scalar, handle) for scalar - series
-	SeriesElementRDivU16   func(context.Context, uint16, uint32) uint32  // (scalar, handle) for scalar / series
+	SeriesElementAddU16  func(context.Context, uint32, uint16) uint32
+	SeriesElementSubU16  func(context.Context, uint32, uint16) uint32
+	SeriesElementMulU16  func(context.Context, uint32, uint16) uint32
+	SeriesElementDivU16  func(context.Context, uint32, uint16) uint32
+	SeriesElementModU16  func(context.Context, uint32, uint16) uint32
+	SeriesElementRSubU16 func(context.Context, uint16, uint32) uint32 // (scalar, handle) for scalar - series
+	SeriesElementRDivU16 func(context.Context, uint16, uint32) uint32 // (scalar, handle) for scalar / series
 
 	// Series arithmetic - series-to-series operations
-	SeriesSeriesAddU16     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesSubU16     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesMulU16     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesDivU16     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesModU16     func(context.Context, uint32, uint32) uint32
+	SeriesSeriesAddU16 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesSubU16 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesMulU16 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesDivU16 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesModU16 func(context.Context, uint32, uint32) uint32
 
 	// Series comparison operations - series-to-series
-	SeriesCompareGTU16     func(context.Context, uint32, uint32) uint32
-	SeriesCompareLTU16     func(context.Context, uint32, uint32) uint32
-	SeriesCompareGEU16     func(context.Context, uint32, uint32) uint32
-	SeriesCompareLEU16     func(context.Context, uint32, uint32) uint32
-	SeriesCompareEQU16     func(context.Context, uint32, uint32) uint32
-	SeriesCompareNEU16     func(context.Context, uint32, uint32) uint32
+	SeriesCompareGTU16 func(context.Context, uint32, uint32) uint32
+	SeriesCompareLTU16 func(context.Context, uint32, uint32) uint32
+	SeriesCompareGEU16 func(context.Context, uint32, uint32) uint32
+	SeriesCompareLEU16 func(context.Context, uint32, uint32) uint32
+	SeriesCompareEQU16 func(context.Context, uint32, uint32) uint32
+	SeriesCompareNEU16 func(context.Context, uint32, uint32) uint32
 
 	// Series comparison operations - scalar
 	SeriesCompareGTScalarU16 func(context.Context, uint32, uint16) uint32
@@ -164,38 +161,37 @@ type Bindings struct {
 	SeriesCompareNEScalarU16 func(context.Context, uint32, uint16) uint32
 
 	// Series state operations (for state variables of series type)
-	StateLoadSeriesU16     func(context.Context, uint32, uint32, uint32) uint32
-	StateStoreSeriesU16    func(context.Context, uint32, uint32, uint32)
-
+	StateLoadSeriesU16  func(context.Context, uint32, uint32, uint32) uint32
+	StateStoreSeriesU16 func(context.Context, uint32, uint32, uint32)
 
 	// U32
-	SeriesCreateEmptyU32   func(context.Context, uint32) uint32
-	SeriesSetElementU32    func(context.Context, uint32, uint32, uint32) uint32
-	SeriesIndexU32         func(context.Context, uint32, uint32) uint32
+	SeriesCreateEmptyU32 func(context.Context, uint32) uint32
+	SeriesSetElementU32  func(context.Context, uint32, uint32, uint32) uint32
+	SeriesIndexU32       func(context.Context, uint32, uint32) uint32
 
 	// Series arithmetic - take proper Go types for scalars
-	SeriesElementAddU32    func(context.Context, uint32, uint32) uint32
-	SeriesElementSubU32    func(context.Context, uint32, uint32) uint32
-	SeriesElementMulU32    func(context.Context, uint32, uint32) uint32
-	SeriesElementDivU32    func(context.Context, uint32, uint32) uint32
-	SeriesElementModU32    func(context.Context, uint32, uint32) uint32
-	SeriesElementRSubU32   func(context.Context, uint32, uint32) uint32  // (scalar, handle) for scalar - series
-	SeriesElementRDivU32   func(context.Context, uint32, uint32) uint32  // (scalar, handle) for scalar / series
+	SeriesElementAddU32  func(context.Context, uint32, uint32) uint32
+	SeriesElementSubU32  func(context.Context, uint32, uint32) uint32
+	SeriesElementMulU32  func(context.Context, uint32, uint32) uint32
+	SeriesElementDivU32  func(context.Context, uint32, uint32) uint32
+	SeriesElementModU32  func(context.Context, uint32, uint32) uint32
+	SeriesElementRSubU32 func(context.Context, uint32, uint32) uint32 // (scalar, handle) for scalar - series
+	SeriesElementRDivU32 func(context.Context, uint32, uint32) uint32 // (scalar, handle) for scalar / series
 
 	// Series arithmetic - series-to-series operations
-	SeriesSeriesAddU32     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesSubU32     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesMulU32     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesDivU32     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesModU32     func(context.Context, uint32, uint32) uint32
+	SeriesSeriesAddU32 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesSubU32 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesMulU32 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesDivU32 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesModU32 func(context.Context, uint32, uint32) uint32
 
 	// Series comparison operations - series-to-series
-	SeriesCompareGTU32     func(context.Context, uint32, uint32) uint32
-	SeriesCompareLTU32     func(context.Context, uint32, uint32) uint32
-	SeriesCompareGEU32     func(context.Context, uint32, uint32) uint32
-	SeriesCompareLEU32     func(context.Context, uint32, uint32) uint32
-	SeriesCompareEQU32     func(context.Context, uint32, uint32) uint32
-	SeriesCompareNEU32     func(context.Context, uint32, uint32) uint32
+	SeriesCompareGTU32 func(context.Context, uint32, uint32) uint32
+	SeriesCompareLTU32 func(context.Context, uint32, uint32) uint32
+	SeriesCompareGEU32 func(context.Context, uint32, uint32) uint32
+	SeriesCompareLEU32 func(context.Context, uint32, uint32) uint32
+	SeriesCompareEQU32 func(context.Context, uint32, uint32) uint32
+	SeriesCompareNEU32 func(context.Context, uint32, uint32) uint32
 
 	// Series comparison operations - scalar
 	SeriesCompareGTScalarU32 func(context.Context, uint32, uint32) uint32
@@ -206,38 +202,37 @@ type Bindings struct {
 	SeriesCompareNEScalarU32 func(context.Context, uint32, uint32) uint32
 
 	// Series state operations (for state variables of series type)
-	StateLoadSeriesU32     func(context.Context, uint32, uint32, uint32) uint32
-	StateStoreSeriesU32    func(context.Context, uint32, uint32, uint32)
-
+	StateLoadSeriesU32  func(context.Context, uint32, uint32, uint32) uint32
+	StateStoreSeriesU32 func(context.Context, uint32, uint32, uint32)
 
 	// U64
-	SeriesCreateEmptyU64   func(context.Context, uint32) uint32
-	SeriesSetElementU64    func(context.Context, uint32, uint32, uint64) uint32
-	SeriesIndexU64         func(context.Context, uint32, uint32) uint64
+	SeriesCreateEmptyU64 func(context.Context, uint32) uint32
+	SeriesSetElementU64  func(context.Context, uint32, uint32, uint64) uint32
+	SeriesIndexU64       func(context.Context, uint32, uint32) uint64
 
 	// Series arithmetic - take proper Go types for scalars
-	SeriesElementAddU64    func(context.Context, uint32, uint64) uint32
-	SeriesElementSubU64    func(context.Context, uint32, uint64) uint32
-	SeriesElementMulU64    func(context.Context, uint32, uint64) uint32
-	SeriesElementDivU64    func(context.Context, uint32, uint64) uint32
-	SeriesElementModU64    func(context.Context, uint32, uint64) uint32
-	SeriesElementRSubU64   func(context.Context, uint64, uint32) uint32  // (scalar, handle) for scalar - series
-	SeriesElementRDivU64   func(context.Context, uint64, uint32) uint32  // (scalar, handle) for scalar / series
+	SeriesElementAddU64  func(context.Context, uint32, uint64) uint32
+	SeriesElementSubU64  func(context.Context, uint32, uint64) uint32
+	SeriesElementMulU64  func(context.Context, uint32, uint64) uint32
+	SeriesElementDivU64  func(context.Context, uint32, uint64) uint32
+	SeriesElementModU64  func(context.Context, uint32, uint64) uint32
+	SeriesElementRSubU64 func(context.Context, uint64, uint32) uint32 // (scalar, handle) for scalar - series
+	SeriesElementRDivU64 func(context.Context, uint64, uint32) uint32 // (scalar, handle) for scalar / series
 
 	// Series arithmetic - series-to-series operations
-	SeriesSeriesAddU64     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesSubU64     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesMulU64     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesDivU64     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesModU64     func(context.Context, uint32, uint32) uint32
+	SeriesSeriesAddU64 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesSubU64 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesMulU64 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesDivU64 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesModU64 func(context.Context, uint32, uint32) uint32
 
 	// Series comparison operations - series-to-series
-	SeriesCompareGTU64     func(context.Context, uint32, uint32) uint32
-	SeriesCompareLTU64     func(context.Context, uint32, uint32) uint32
-	SeriesCompareGEU64     func(context.Context, uint32, uint32) uint32
-	SeriesCompareLEU64     func(context.Context, uint32, uint32) uint32
-	SeriesCompareEQU64     func(context.Context, uint32, uint32) uint32
-	SeriesCompareNEU64     func(context.Context, uint32, uint32) uint32
+	SeriesCompareGTU64 func(context.Context, uint32, uint32) uint32
+	SeriesCompareLTU64 func(context.Context, uint32, uint32) uint32
+	SeriesCompareGEU64 func(context.Context, uint32, uint32) uint32
+	SeriesCompareLEU64 func(context.Context, uint32, uint32) uint32
+	SeriesCompareEQU64 func(context.Context, uint32, uint32) uint32
+	SeriesCompareNEU64 func(context.Context, uint32, uint32) uint32
 
 	// Series comparison operations - scalar
 	SeriesCompareGTScalarU64 func(context.Context, uint32, uint64) uint32
@@ -248,38 +243,37 @@ type Bindings struct {
 	SeriesCompareNEScalarU64 func(context.Context, uint32, uint64) uint32
 
 	// Series state operations (for state variables of series type)
-	StateLoadSeriesU64     func(context.Context, uint32, uint32, uint32) uint32
-	StateStoreSeriesU64    func(context.Context, uint32, uint32, uint32)
-
+	StateLoadSeriesU64  func(context.Context, uint32, uint32, uint32) uint32
+	StateStoreSeriesU64 func(context.Context, uint32, uint32, uint32)
 
 	// I8
-	SeriesCreateEmptyI8   func(context.Context, uint32) uint32
-	SeriesSetElementI8    func(context.Context, uint32, uint32, int8) uint32
-	SeriesIndexI8         func(context.Context, uint32, uint32) int8
+	SeriesCreateEmptyI8 func(context.Context, uint32) uint32
+	SeriesSetElementI8  func(context.Context, uint32, uint32, int8) uint32
+	SeriesIndexI8       func(context.Context, uint32, uint32) int8
 
 	// Series arithmetic - take proper Go types for scalars
-	SeriesElementAddI8    func(context.Context, uint32, int8) uint32
-	SeriesElementSubI8    func(context.Context, uint32, int8) uint32
-	SeriesElementMulI8    func(context.Context, uint32, int8) uint32
-	SeriesElementDivI8    func(context.Context, uint32, int8) uint32
-	SeriesElementModI8    func(context.Context, uint32, int8) uint32
-	SeriesElementRSubI8   func(context.Context, int8, uint32) uint32  // (scalar, handle) for scalar - series
-	SeriesElementRDivI8   func(context.Context, int8, uint32) uint32  // (scalar, handle) for scalar / series
+	SeriesElementAddI8  func(context.Context, uint32, int8) uint32
+	SeriesElementSubI8  func(context.Context, uint32, int8) uint32
+	SeriesElementMulI8  func(context.Context, uint32, int8) uint32
+	SeriesElementDivI8  func(context.Context, uint32, int8) uint32
+	SeriesElementModI8  func(context.Context, uint32, int8) uint32
+	SeriesElementRSubI8 func(context.Context, int8, uint32) uint32 // (scalar, handle) for scalar - series
+	SeriesElementRDivI8 func(context.Context, int8, uint32) uint32 // (scalar, handle) for scalar / series
 
 	// Series arithmetic - series-to-series operations
-	SeriesSeriesAddI8     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesSubI8     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesMulI8     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesDivI8     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesModI8     func(context.Context, uint32, uint32) uint32
+	SeriesSeriesAddI8 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesSubI8 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesMulI8 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesDivI8 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesModI8 func(context.Context, uint32, uint32) uint32
 
 	// Series comparison operations - series-to-series
-	SeriesCompareGTI8     func(context.Context, uint32, uint32) uint32
-	SeriesCompareLTI8     func(context.Context, uint32, uint32) uint32
-	SeriesCompareGEI8     func(context.Context, uint32, uint32) uint32
-	SeriesCompareLEI8     func(context.Context, uint32, uint32) uint32
-	SeriesCompareEQI8     func(context.Context, uint32, uint32) uint32
-	SeriesCompareNEI8     func(context.Context, uint32, uint32) uint32
+	SeriesCompareGTI8 func(context.Context, uint32, uint32) uint32
+	SeriesCompareLTI8 func(context.Context, uint32, uint32) uint32
+	SeriesCompareGEI8 func(context.Context, uint32, uint32) uint32
+	SeriesCompareLEI8 func(context.Context, uint32, uint32) uint32
+	SeriesCompareEQI8 func(context.Context, uint32, uint32) uint32
+	SeriesCompareNEI8 func(context.Context, uint32, uint32) uint32
 
 	// Series comparison operations - scalar
 	SeriesCompareGTScalarI8 func(context.Context, uint32, int8) uint32
@@ -290,38 +284,37 @@ type Bindings struct {
 	SeriesCompareNEScalarI8 func(context.Context, uint32, int8) uint32
 
 	// Series state operations (for state variables of series type)
-	StateLoadSeriesI8     func(context.Context, uint32, uint32, uint32) uint32
-	StateStoreSeriesI8    func(context.Context, uint32, uint32, uint32)
-
+	StateLoadSeriesI8  func(context.Context, uint32, uint32, uint32) uint32
+	StateStoreSeriesI8 func(context.Context, uint32, uint32, uint32)
 
 	// I16
-	SeriesCreateEmptyI16   func(context.Context, uint32) uint32
-	SeriesSetElementI16    func(context.Context, uint32, uint32, int16) uint32
-	SeriesIndexI16         func(context.Context, uint32, uint32) int16
+	SeriesCreateEmptyI16 func(context.Context, uint32) uint32
+	SeriesSetElementI16  func(context.Context, uint32, uint32, int16) uint32
+	SeriesIndexI16       func(context.Context, uint32, uint32) int16
 
 	// Series arithmetic - take proper Go types for scalars
-	SeriesElementAddI16    func(context.Context, uint32, int16) uint32
-	SeriesElementSubI16    func(context.Context, uint32, int16) uint32
-	SeriesElementMulI16    func(context.Context, uint32, int16) uint32
-	SeriesElementDivI16    func(context.Context, uint32, int16) uint32
-	SeriesElementModI16    func(context.Context, uint32, int16) uint32
-	SeriesElementRSubI16   func(context.Context, int16, uint32) uint32  // (scalar, handle) for scalar - series
-	SeriesElementRDivI16   func(context.Context, int16, uint32) uint32  // (scalar, handle) for scalar / series
+	SeriesElementAddI16  func(context.Context, uint32, int16) uint32
+	SeriesElementSubI16  func(context.Context, uint32, int16) uint32
+	SeriesElementMulI16  func(context.Context, uint32, int16) uint32
+	SeriesElementDivI16  func(context.Context, uint32, int16) uint32
+	SeriesElementModI16  func(context.Context, uint32, int16) uint32
+	SeriesElementRSubI16 func(context.Context, int16, uint32) uint32 // (scalar, handle) for scalar - series
+	SeriesElementRDivI16 func(context.Context, int16, uint32) uint32 // (scalar, handle) for scalar / series
 
 	// Series arithmetic - series-to-series operations
-	SeriesSeriesAddI16     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesSubI16     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesMulI16     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesDivI16     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesModI16     func(context.Context, uint32, uint32) uint32
+	SeriesSeriesAddI16 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesSubI16 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesMulI16 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesDivI16 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesModI16 func(context.Context, uint32, uint32) uint32
 
 	// Series comparison operations - series-to-series
-	SeriesCompareGTI16     func(context.Context, uint32, uint32) uint32
-	SeriesCompareLTI16     func(context.Context, uint32, uint32) uint32
-	SeriesCompareGEI16     func(context.Context, uint32, uint32) uint32
-	SeriesCompareLEI16     func(context.Context, uint32, uint32) uint32
-	SeriesCompareEQI16     func(context.Context, uint32, uint32) uint32
-	SeriesCompareNEI16     func(context.Context, uint32, uint32) uint32
+	SeriesCompareGTI16 func(context.Context, uint32, uint32) uint32
+	SeriesCompareLTI16 func(context.Context, uint32, uint32) uint32
+	SeriesCompareGEI16 func(context.Context, uint32, uint32) uint32
+	SeriesCompareLEI16 func(context.Context, uint32, uint32) uint32
+	SeriesCompareEQI16 func(context.Context, uint32, uint32) uint32
+	SeriesCompareNEI16 func(context.Context, uint32, uint32) uint32
 
 	// Series comparison operations - scalar
 	SeriesCompareGTScalarI16 func(context.Context, uint32, int16) uint32
@@ -332,38 +325,37 @@ type Bindings struct {
 	SeriesCompareNEScalarI16 func(context.Context, uint32, int16) uint32
 
 	// Series state operations (for state variables of series type)
-	StateLoadSeriesI16     func(context.Context, uint32, uint32, uint32) uint32
-	StateStoreSeriesI16    func(context.Context, uint32, uint32, uint32)
-
+	StateLoadSeriesI16  func(context.Context, uint32, uint32, uint32) uint32
+	StateStoreSeriesI16 func(context.Context, uint32, uint32, uint32)
 
 	// I32
-	SeriesCreateEmptyI32   func(context.Context, uint32) uint32
-	SeriesSetElementI32    func(context.Context, uint32, uint32, int32) uint32
-	SeriesIndexI32         func(context.Context, uint32, uint32) int32
+	SeriesCreateEmptyI32 func(context.Context, uint32) uint32
+	SeriesSetElementI32  func(context.Context, uint32, uint32, int32) uint32
+	SeriesIndexI32       func(context.Context, uint32, uint32) int32
 
 	// Series arithmetic - take proper Go types for scalars
-	SeriesElementAddI32    func(context.Context, uint32, int32) uint32
-	SeriesElementSubI32    func(context.Context, uint32, int32) uint32
-	SeriesElementMulI32    func(context.Context, uint32, int32) uint32
-	SeriesElementDivI32    func(context.Context, uint32, int32) uint32
-	SeriesElementModI32    func(context.Context, uint32, int32) uint32
-	SeriesElementRSubI32   func(context.Context, int32, uint32) uint32  // (scalar, handle) for scalar - series
-	SeriesElementRDivI32   func(context.Context, int32, uint32) uint32  // (scalar, handle) for scalar / series
+	SeriesElementAddI32  func(context.Context, uint32, int32) uint32
+	SeriesElementSubI32  func(context.Context, uint32, int32) uint32
+	SeriesElementMulI32  func(context.Context, uint32, int32) uint32
+	SeriesElementDivI32  func(context.Context, uint32, int32) uint32
+	SeriesElementModI32  func(context.Context, uint32, int32) uint32
+	SeriesElementRSubI32 func(context.Context, int32, uint32) uint32 // (scalar, handle) for scalar - series
+	SeriesElementRDivI32 func(context.Context, int32, uint32) uint32 // (scalar, handle) for scalar / series
 
 	// Series arithmetic - series-to-series operations
-	SeriesSeriesAddI32     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesSubI32     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesMulI32     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesDivI32     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesModI32     func(context.Context, uint32, uint32) uint32
+	SeriesSeriesAddI32 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesSubI32 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesMulI32 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesDivI32 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesModI32 func(context.Context, uint32, uint32) uint32
 
 	// Series comparison operations - series-to-series
-	SeriesCompareGTI32     func(context.Context, uint32, uint32) uint32
-	SeriesCompareLTI32     func(context.Context, uint32, uint32) uint32
-	SeriesCompareGEI32     func(context.Context, uint32, uint32) uint32
-	SeriesCompareLEI32     func(context.Context, uint32, uint32) uint32
-	SeriesCompareEQI32     func(context.Context, uint32, uint32) uint32
-	SeriesCompareNEI32     func(context.Context, uint32, uint32) uint32
+	SeriesCompareGTI32 func(context.Context, uint32, uint32) uint32
+	SeriesCompareLTI32 func(context.Context, uint32, uint32) uint32
+	SeriesCompareGEI32 func(context.Context, uint32, uint32) uint32
+	SeriesCompareLEI32 func(context.Context, uint32, uint32) uint32
+	SeriesCompareEQI32 func(context.Context, uint32, uint32) uint32
+	SeriesCompareNEI32 func(context.Context, uint32, uint32) uint32
 
 	// Series comparison operations - scalar
 	SeriesCompareGTScalarI32 func(context.Context, uint32, int32) uint32
@@ -374,38 +366,37 @@ type Bindings struct {
 	SeriesCompareNEScalarI32 func(context.Context, uint32, int32) uint32
 
 	// Series state operations (for state variables of series type)
-	StateLoadSeriesI32     func(context.Context, uint32, uint32, uint32) uint32
-	StateStoreSeriesI32    func(context.Context, uint32, uint32, uint32)
-
+	StateLoadSeriesI32  func(context.Context, uint32, uint32, uint32) uint32
+	StateStoreSeriesI32 func(context.Context, uint32, uint32, uint32)
 
 	// I64
-	SeriesCreateEmptyI64   func(context.Context, uint32) uint32
-	SeriesSetElementI64    func(context.Context, uint32, uint32, int64) uint32
-	SeriesIndexI64         func(context.Context, uint32, uint32) int64
+	SeriesCreateEmptyI64 func(context.Context, uint32) uint32
+	SeriesSetElementI64  func(context.Context, uint32, uint32, int64) uint32
+	SeriesIndexI64       func(context.Context, uint32, uint32) int64
 
 	// Series arithmetic - take proper Go types for scalars
-	SeriesElementAddI64    func(context.Context, uint32, int64) uint32
-	SeriesElementSubI64    func(context.Context, uint32, int64) uint32
-	SeriesElementMulI64    func(context.Context, uint32, int64) uint32
-	SeriesElementDivI64    func(context.Context, uint32, int64) uint32
-	SeriesElementModI64    func(context.Context, uint32, int64) uint32
-	SeriesElementRSubI64   func(context.Context, int64, uint32) uint32  // (scalar, handle) for scalar - series
-	SeriesElementRDivI64   func(context.Context, int64, uint32) uint32  // (scalar, handle) for scalar / series
+	SeriesElementAddI64  func(context.Context, uint32, int64) uint32
+	SeriesElementSubI64  func(context.Context, uint32, int64) uint32
+	SeriesElementMulI64  func(context.Context, uint32, int64) uint32
+	SeriesElementDivI64  func(context.Context, uint32, int64) uint32
+	SeriesElementModI64  func(context.Context, uint32, int64) uint32
+	SeriesElementRSubI64 func(context.Context, int64, uint32) uint32 // (scalar, handle) for scalar - series
+	SeriesElementRDivI64 func(context.Context, int64, uint32) uint32 // (scalar, handle) for scalar / series
 
 	// Series arithmetic - series-to-series operations
-	SeriesSeriesAddI64     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesSubI64     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesMulI64     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesDivI64     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesModI64     func(context.Context, uint32, uint32) uint32
+	SeriesSeriesAddI64 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesSubI64 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesMulI64 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesDivI64 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesModI64 func(context.Context, uint32, uint32) uint32
 
 	// Series comparison operations - series-to-series
-	SeriesCompareGTI64     func(context.Context, uint32, uint32) uint32
-	SeriesCompareLTI64     func(context.Context, uint32, uint32) uint32
-	SeriesCompareGEI64     func(context.Context, uint32, uint32) uint32
-	SeriesCompareLEI64     func(context.Context, uint32, uint32) uint32
-	SeriesCompareEQI64     func(context.Context, uint32, uint32) uint32
-	SeriesCompareNEI64     func(context.Context, uint32, uint32) uint32
+	SeriesCompareGTI64 func(context.Context, uint32, uint32) uint32
+	SeriesCompareLTI64 func(context.Context, uint32, uint32) uint32
+	SeriesCompareGEI64 func(context.Context, uint32, uint32) uint32
+	SeriesCompareLEI64 func(context.Context, uint32, uint32) uint32
+	SeriesCompareEQI64 func(context.Context, uint32, uint32) uint32
+	SeriesCompareNEI64 func(context.Context, uint32, uint32) uint32
 
 	// Series comparison operations - scalar
 	SeriesCompareGTScalarI64 func(context.Context, uint32, int64) uint32
@@ -416,38 +407,37 @@ type Bindings struct {
 	SeriesCompareNEScalarI64 func(context.Context, uint32, int64) uint32
 
 	// Series state operations (for state variables of series type)
-	StateLoadSeriesI64     func(context.Context, uint32, uint32, uint32) uint32
-	StateStoreSeriesI64    func(context.Context, uint32, uint32, uint32)
-
+	StateLoadSeriesI64  func(context.Context, uint32, uint32, uint32) uint32
+	StateStoreSeriesI64 func(context.Context, uint32, uint32, uint32)
 
 	// F32
-	SeriesCreateEmptyF32   func(context.Context, uint32) uint32
-	SeriesSetElementF32    func(context.Context, uint32, uint32, float32) uint32
-	SeriesIndexF32         func(context.Context, uint32, uint32) float32
+	SeriesCreateEmptyF32 func(context.Context, uint32) uint32
+	SeriesSetElementF32  func(context.Context, uint32, uint32, float32) uint32
+	SeriesIndexF32       func(context.Context, uint32, uint32) float32
 
 	// Series arithmetic - take proper Go types for scalars
-	SeriesElementAddF32    func(context.Context, uint32, float32) uint32
-	SeriesElementSubF32    func(context.Context, uint32, float32) uint32
-	SeriesElementMulF32    func(context.Context, uint32, float32) uint32
-	SeriesElementDivF32    func(context.Context, uint32, float32) uint32
-	SeriesElementModF32    func(context.Context, uint32, float32) uint32
-	SeriesElementRSubF32   func(context.Context, float32, uint32) uint32  // (scalar, handle) for scalar - series
-	SeriesElementRDivF32   func(context.Context, float32, uint32) uint32  // (scalar, handle) for scalar / series
+	SeriesElementAddF32  func(context.Context, uint32, float32) uint32
+	SeriesElementSubF32  func(context.Context, uint32, float32) uint32
+	SeriesElementMulF32  func(context.Context, uint32, float32) uint32
+	SeriesElementDivF32  func(context.Context, uint32, float32) uint32
+	SeriesElementModF32  func(context.Context, uint32, float32) uint32
+	SeriesElementRSubF32 func(context.Context, float32, uint32) uint32 // (scalar, handle) for scalar - series
+	SeriesElementRDivF32 func(context.Context, float32, uint32) uint32 // (scalar, handle) for scalar / series
 
 	// Series arithmetic - series-to-series operations
-	SeriesSeriesAddF32     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesSubF32     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesMulF32     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesDivF32     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesModF32     func(context.Context, uint32, uint32) uint32
+	SeriesSeriesAddF32 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesSubF32 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesMulF32 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesDivF32 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesModF32 func(context.Context, uint32, uint32) uint32
 
 	// Series comparison operations - series-to-series
-	SeriesCompareGTF32     func(context.Context, uint32, uint32) uint32
-	SeriesCompareLTF32     func(context.Context, uint32, uint32) uint32
-	SeriesCompareGEF32     func(context.Context, uint32, uint32) uint32
-	SeriesCompareLEF32     func(context.Context, uint32, uint32) uint32
-	SeriesCompareEQF32     func(context.Context, uint32, uint32) uint32
-	SeriesCompareNEF32     func(context.Context, uint32, uint32) uint32
+	SeriesCompareGTF32 func(context.Context, uint32, uint32) uint32
+	SeriesCompareLTF32 func(context.Context, uint32, uint32) uint32
+	SeriesCompareGEF32 func(context.Context, uint32, uint32) uint32
+	SeriesCompareLEF32 func(context.Context, uint32, uint32) uint32
+	SeriesCompareEQF32 func(context.Context, uint32, uint32) uint32
+	SeriesCompareNEF32 func(context.Context, uint32, uint32) uint32
 
 	// Series comparison operations - scalar
 	SeriesCompareGTScalarF32 func(context.Context, uint32, float32) uint32
@@ -458,38 +448,37 @@ type Bindings struct {
 	SeriesCompareNEScalarF32 func(context.Context, uint32, float32) uint32
 
 	// Series state operations (for state variables of series type)
-	StateLoadSeriesF32     func(context.Context, uint32, uint32, uint32) uint32
-	StateStoreSeriesF32    func(context.Context, uint32, uint32, uint32)
-
+	StateLoadSeriesF32  func(context.Context, uint32, uint32, uint32) uint32
+	StateStoreSeriesF32 func(context.Context, uint32, uint32, uint32)
 
 	// F64
-	SeriesCreateEmptyF64   func(context.Context, uint32) uint32
-	SeriesSetElementF64    func(context.Context, uint32, uint32, float64) uint32
-	SeriesIndexF64         func(context.Context, uint32, uint32) float64
+	SeriesCreateEmptyF64 func(context.Context, uint32) uint32
+	SeriesSetElementF64  func(context.Context, uint32, uint32, float64) uint32
+	SeriesIndexF64       func(context.Context, uint32, uint32) float64
 
 	// Series arithmetic - take proper Go types for scalars
-	SeriesElementAddF64    func(context.Context, uint32, float64) uint32
-	SeriesElementSubF64    func(context.Context, uint32, float64) uint32
-	SeriesElementMulF64    func(context.Context, uint32, float64) uint32
-	SeriesElementDivF64    func(context.Context, uint32, float64) uint32
-	SeriesElementModF64    func(context.Context, uint32, float64) uint32
-	SeriesElementRSubF64   func(context.Context, float64, uint32) uint32  // (scalar, handle) for scalar - series
-	SeriesElementRDivF64   func(context.Context, float64, uint32) uint32  // (scalar, handle) for scalar / series
+	SeriesElementAddF64  func(context.Context, uint32, float64) uint32
+	SeriesElementSubF64  func(context.Context, uint32, float64) uint32
+	SeriesElementMulF64  func(context.Context, uint32, float64) uint32
+	SeriesElementDivF64  func(context.Context, uint32, float64) uint32
+	SeriesElementModF64  func(context.Context, uint32, float64) uint32
+	SeriesElementRSubF64 func(context.Context, float64, uint32) uint32 // (scalar, handle) for scalar - series
+	SeriesElementRDivF64 func(context.Context, float64, uint32) uint32 // (scalar, handle) for scalar / series
 
 	// Series arithmetic - series-to-series operations
-	SeriesSeriesAddF64     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesSubF64     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesMulF64     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesDivF64     func(context.Context, uint32, uint32) uint32
-	SeriesSeriesModF64     func(context.Context, uint32, uint32) uint32
+	SeriesSeriesAddF64 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesSubF64 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesMulF64 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesDivF64 func(context.Context, uint32, uint32) uint32
+	SeriesSeriesModF64 func(context.Context, uint32, uint32) uint32
 
 	// Series comparison operations - series-to-series
-	SeriesCompareGTF64     func(context.Context, uint32, uint32) uint32
-	SeriesCompareLTF64     func(context.Context, uint32, uint32) uint32
-	SeriesCompareGEF64     func(context.Context, uint32, uint32) uint32
-	SeriesCompareLEF64     func(context.Context, uint32, uint32) uint32
-	SeriesCompareEQF64     func(context.Context, uint32, uint32) uint32
-	SeriesCompareNEF64     func(context.Context, uint32, uint32) uint32
+	SeriesCompareGTF64 func(context.Context, uint32, uint32) uint32
+	SeriesCompareLTF64 func(context.Context, uint32, uint32) uint32
+	SeriesCompareGEF64 func(context.Context, uint32, uint32) uint32
+	SeriesCompareLEF64 func(context.Context, uint32, uint32) uint32
+	SeriesCompareEQF64 func(context.Context, uint32, uint32) uint32
+	SeriesCompareNEF64 func(context.Context, uint32, uint32) uint32
 
 	// Series comparison operations - scalar
 	SeriesCompareGTScalarF64 func(context.Context, uint32, float64) uint32
@@ -500,34 +489,32 @@ type Bindings struct {
 	SeriesCompareNEScalarF64 func(context.Context, uint32, float64) uint32
 
 	// Series state operations (for state variables of series type)
-	StateLoadSeriesF64     func(context.Context, uint32, uint32, uint32) uint32
-	StateStoreSeriesF64    func(context.Context, uint32, uint32, uint32)
-
-
+	StateLoadSeriesF64  func(context.Context, uint32, uint32, uint32) uint32
+	StateStoreSeriesF64 func(context.Context, uint32, uint32, uint32)
 
 	// Series unary operations (negate for signed types)
-	SeriesNegateI8 func(context.Context, uint32) uint32
+	SeriesNegateI8  func(context.Context, uint32) uint32
 	SeriesNegateI16 func(context.Context, uint32) uint32
 	SeriesNegateI32 func(context.Context, uint32) uint32
 	SeriesNegateI64 func(context.Context, uint32) uint32
 	SeriesNegateF32 func(context.Context, uint32) uint32
 	SeriesNegateF64 func(context.Context, uint32) uint32
-	SeriesNotU8 func(context.Context, uint32) uint32
+	SeriesNotU8     func(context.Context, uint32) uint32
 
 	// Generic operations
 	Now               func(context.Context) uint64
 	Len               func(context.Context, uint32) uint64
 	Panic             func(context.Context, uint32, uint32)
-	MathPowU8 func(context.Context, uint8, uint8) uint8
-	MathPowU16 func(context.Context, uint16, uint16) uint16
-	MathPowU32 func(context.Context, uint32, uint32) uint32
-	MathPowU64 func(context.Context, uint64, uint64) uint64
-	MathPowI8 func(context.Context, int8, int8) int8
-	MathPowI16 func(context.Context, int16, int16) int16
-	MathPowI32 func(context.Context, int32, int32) int32
-	MathPowI64 func(context.Context, int64, int64) int64
-	MathPowF32 func(context.Context, float32, float32) float32
-	MathPowF64 func(context.Context, float64, float64) float64
+	MathPowU8         func(context.Context, uint8, uint8) uint8
+	MathPowU16        func(context.Context, uint16, uint16) uint16
+	MathPowU32        func(context.Context, uint32, uint32) uint32
+	MathPowU64        func(context.Context, uint64, uint64) uint64
+	MathPowI8         func(context.Context, int8, int8) int8
+	MathPowI16        func(context.Context, int16, int16) int16
+	MathPowI32        func(context.Context, int32, int32) int32
+	MathPowI64        func(context.Context, int64, int64) int64
+	MathPowF32        func(context.Context, float32, float32) float32
+	MathPowF64        func(context.Context, float64, float64) float64
 	SeriesLen         func(context.Context, uint32) uint64
 	SeriesSlice       func(context.Context, uint32, uint32, uint32) uint32
 	StringFromLiteral func(context.Context, uint32, uint32) uint32
@@ -657,7 +644,6 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 
-
 	// State operation stubs
 	if b.StateLoadU8 == nil {
 		b.StateLoadU8 = func(ctx context.Context, taskID uint32, key uint32, initValue uint8) uint8 {
@@ -769,7 +755,6 @@ func (b *Bindings) setDefaultStubs() {
 			panic("state_store_str not implemented")
 		}
 	}
-
 
 	// Series operation stubs
 	if b.SeriesCreateEmptyU8 == nil {
@@ -2323,7 +2308,6 @@ func (b *Bindings) setDefaultStubs() {
 		}
 	}
 
-
 	// Series unary operation stubs
 	if b.SeriesNegateI8 == nil {
 		b.SeriesNegateI8 = func(ctx context.Context, handle uint32) uint32 {
@@ -2491,7 +2475,6 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelWriteF64()).Export("channel_write_f64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelReadStr()).Export("channel_read_str")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapChannelWriteStr()).Export("channel_write_str")
-
 
 	// 2. Bind series operations with type conversion wrappers (includes series state ops)
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesCreateEmptyU8).Export("series_create_empty_u8")
@@ -2875,7 +2858,6 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.StateLoadSeriesF64).Export("state_load_series_f64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.StateStoreSeriesF64).Export("state_store_series_f64")
 
-
 	// 2.5. Bind series unary operations (negate for signed types, not for boolean)
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesNegateI8).Export("series_negate_i8")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesNegateI16).Export("series_negate_i16")
@@ -2908,7 +2890,6 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapStateStoreF64()).Export("state_store_f64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapStateLoadStr()).Export("state_load_str")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapStateStoreStr()).Export("state_store_str")
-
 
 	// 4. Bind generic operations (no conversion needed)
 	hostBuilder.NewFunctionBuilder().WithFunc(b.Now).Export("now")
@@ -3244,8 +3225,6 @@ func (b *Bindings) wrapStateStoreStr() func(context.Context, uint32, uint32, uin
 		b.StateStoreStr(ctx, taskID, key, uint32(value))
 	}
 }
-
-
 
 // Series operation wrappers for u8
 func (b *Bindings) wrapSeriesSetElementU8() func(context.Context, uint32, uint32, uint32) uint32 {
@@ -4187,7 +4166,6 @@ func (b *Bindings) wrapSeriesCompareNEScalarF64() func(context.Context, uint32, 
 	}
 }
 
-
 // Math power operation wrappers for integer types
 
 func (b *Bindings) wrapMathPowU8() func(context.Context, uint32, uint32) uint32 {
@@ -4259,4 +4237,3 @@ func (b *Bindings) wrapMathPowF64() func(context.Context, float64, float64) floa
 		return float64(result)
 	}
 }
-
