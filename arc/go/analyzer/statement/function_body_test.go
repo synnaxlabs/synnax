@@ -53,7 +53,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 		)
 
 		DescribeTable("literal returns",
-			func(code string, expectedKind types.TypeKind) {
+			func(code string, expectedKind types.Kind) {
 				block := MustSucceed(parser.ParseBlock(code))
 				ctx := createContext(block)
 				inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
