@@ -278,11 +278,74 @@ var _ = Describe("Literal Parser", func() {
 	})
 
 	Describe("String literals", func() {
-		It("Should return error for string literals (not yet supported)", func() {
+		It("Should parse simple string", func() {
 			lit := getLiteral(`"hello"`)
-			_, err := literal.Parse(lit, types.String())
+			parsed := MustSucceed(literal.Parse(lit, types.String()))
+			Expect(parsed.Value).To(Equal("hello"))
+			Expect(parsed.Type).To(Equal(types.String()))
+		})
+
+		It("Should parse empty string", func() {
+			lit := getLiteral(`""`)
+			parsed := MustSucceed(literal.Parse(lit, types.String()))
+			Expect(parsed.Value).To(Equal(""))
+			Expect(parsed.Type).To(Equal(types.String()))
+		})
+
+		It("Should parse string with spaces", func() {
+			lit := getLiteral(`"hello world"`)
+			parsed := MustSucceed(literal.Parse(lit, types.String()))
+			Expect(parsed.Value).To(Equal("hello world"))
+		})
+
+		It("Should handle newline escape", func() {
+			lit := getLiteral(`"line1\nline2"`)
+			parsed := MustSucceed(literal.Parse(lit, types.String()))
+			Expect(parsed.Value).To(Equal("line1\nline2"))
+		})
+
+		It("Should handle tab escape", func() {
+			lit := getLiteral(`"col1\tcol2"`)
+			parsed := MustSucceed(literal.Parse(lit, types.String()))
+			Expect(parsed.Value).To(Equal("col1\tcol2"))
+		})
+
+		It("Should handle carriage return escape", func() {
+			lit := getLiteral(`"line1\rline2"`)
+			parsed := MustSucceed(literal.Parse(lit, types.String()))
+			Expect(parsed.Value).To(Equal("line1\rline2"))
+		})
+
+		It("Should handle escaped quote", func() {
+			lit := getLiteral(`"say \"hello\""`)
+			parsed := MustSucceed(literal.Parse(lit, types.String()))
+			Expect(parsed.Value).To(Equal(`say "hello"`))
+		})
+
+		It("Should handle escaped backslash", func() {
+			lit := getLiteral(`"path\\to\\file"`)
+			parsed := MustSucceed(literal.Parse(lit, types.String()))
+			Expect(parsed.Value).To(Equal(`path\to\file`))
+		})
+
+		It("Should handle unicode escape", func() {
+			lit := getLiteral(`"A\u0042C"`)
+			parsed := MustSucceed(literal.Parse(lit, types.String()))
+			Expect(parsed.Value).To(Equal("ABC"))
+		})
+
+		It("Should infer string type when no target type specified", func() {
+			lit := getLiteral(`"hello"`)
+			parsed := MustSucceed(literal.Parse(lit, types.Type{}))
+			Expect(parsed.Value).To(Equal("hello"))
+			Expect(parsed.Type).To(Equal(types.String()))
+		})
+
+		It("Should return error when assigning string to non-string type", func() {
+			lit := getLiteral(`"hello"`)
+			_, err := literal.Parse(lit, types.I32())
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("string literals not yet supported"))
+			Expect(err.Error()).To(ContainSubstring("cannot assign string to"))
 		})
 	})
 

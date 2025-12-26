@@ -24,12 +24,32 @@ func compileLiteral(
 		return compileNumericLiteral(context.Child(ctx, num))
 	}
 	if str := ctx.AST.STR_LITERAL(); str != nil {
-		return types.Type{}, errors.New("str literals are not yet supported")
+		return compileStringLiteral(ctx, str.GetText())
 	}
 	if series := ctx.AST.SeriesLiteral(); series != nil {
 		return compileSeriesLiteral(context.Child(ctx, series))
 	}
 	return types.Type{}, errors.New("unknown literal type")
+}
+
+func compileStringLiteral(
+	ctx context.Context[parser.ILiteralContext],
+	text string,
+) (types.Type, error) {
+	parsed, err := literal.ParseString(text, types.String())
+	if err != nil {
+		return types.Type{}, err
+	}
+	strBytes := []byte(parsed.Value.(string))
+	offset := ctx.Module.AddData(strBytes)
+	// Emit WASM bytecode:
+	// i32.const <offset>    ; push pointer to string in linear memory
+	// i32.const <length>    ; push length
+	// call $string_from_literal  ; returns handle (i32)
+	ctx.Writer.WriteI32Const(int32(offset))
+	ctx.Writer.WriteI32Const(int32(len(strBytes)))
+	ctx.Writer.WriteCall(ctx.Imports.StringFromLiteral)
+	return types.String(), nil
 }
 
 func compileSeriesLiteral(
