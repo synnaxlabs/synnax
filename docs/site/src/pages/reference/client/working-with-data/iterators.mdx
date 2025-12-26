@@ -22,190 +22,175 @@ memory.
 
 ## What are Iterators?
 
-<Client.Tabs client:load exclude={["cpp","console"]}>
-  <Fragment slot="console">
-  </Fragment>
-
-  <Fragment slot="python">
-    <Note.Note variant="warning">
-
-Single, multiple, and named reads will cover most use cases, but there are situations
-where it's necessary to process more data than can be stored in memory.
-
-Synnax supports server-side iterators that allow us to process large queries in
-consistently sized chunks.
-
-    </Note.Note>
-  </Fragment>
-
-  <Fragment slot="typescript">
-    <Note.Note variant="info">
-
-While the standard read methods will cover most use cases, there are situations where
-it's necessary to query large volumes of data. Iterators provide a way to efficiently
-process data in chunks to avoid keeping large amounts of data in memory.
-
-    </Note.Note>
-  </Fragment>
-</Client.Tabs>
+While standard read methods cover most use cases, there are situations where you need to
+process more data than can fit in memory. Iterators are processed server-side, reading
+data in consistently sized chunks and avoiding the need to load everything into memory
+at once.
 
 <Divider.Divider x />
 
-## Creating an Iterator
+## Opening an Iterator
+
+To open an iterator, use the `open_iterator` / `openIterator` method with a time range
+and channel specification.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
-  <Fragment slot="console">
-  </Fragment>
 
   <Fragment slot="python">
-    <Note.Note variant="warning">
-
-To create an iterator, use the `client.open_iterator` method with a time range and
-channel specification:
 
 ```python
-with client.open_iterator(start, end, "my_precise_tc") as it:
-    for frame in it:
-        # Do something with the frame
+iterator = client.open_iterator(
+  start,
+  end,
+  ["temperature", "pressure"]
+)
 ```
 
-The iterator is used as a context manager (`with` statement) to ensure proper cleanup of
-resources when iteration is complete.
-
-    </Note.Note>
   </Fragment>
 
   <Fragment slot="typescript">
-    <Note.Note variant="info">
-
-To create an iterator, use the `client.openIterator` method with a time range and
-channel specification:
 
 ```typescript
-const start = TimeStamp.now();
-const end = start.add(TimeStamp.seconds(10));
-
 const iterator = await client.openIterator(
   { start, end },
   ["temperature", "humidity"],
 );
 ```
 
-    </Note.Note>
   </Fragment>
 </Client.Tabs>
+
+### Chunk Size Option
+
+By default, Synnax uses a chunk size of 100,000 samples. To configure a custom chunk
+size, use the `chunk_size` / `chunkSize` parameter with the desired number of samples
+per iteration.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+iterator = client.open_iterator(
+    start,
+    end,
+    "my_precise_tc",
+    chunk_size=100,
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const iterator = await client.openIterator(
+  { start, end },
+  ["temperature", "humidity"],
+  { chunkSize: 100 },
+);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+Smaller chunk sizes reduce memory usage but may increase the number of network requests.
+Larger chunk sizes can improve throughput but require more memory.
 
 <Divider.Divider x />
 
 ## Iterating through Data
 
+Use a `for` / `for await` loop to iterate through data in chunks. Each iteration yields
+a frame containing a portion of the data.
+
 <Client.Tabs client:load exclude={["cpp","console"]}>
-  <Fragment slot="console">
-  </Fragment>
 
   <Fragment slot="python">
-    <Note.Note variant="warning">
-
-Use a `for` loop to iterate through the data in chunks:
 
 ```python
-with client.open_iterator(start, end, "my_precise_tc") as it:
-    for frame in it:
-        # Process each frame chunk
-        print(frame)
+for frame in iterator:
+    print(frame)
 ```
 
-Each iteration yields a frame containing a chunk of the data, allowing you to process
-large datasets without loading everything into memory at once.
-
-    </Note.Note>
   </Fragment>
 
   <Fragment slot="typescript">
-    <Note.Note variant="info">
-
-Use a `for await...of` loop to iterate through the data in chunks:
 
 ```typescript
-const iterator = await client.openIterator(
-  { start, end },
-  ["temperature", "humidity"],
-);
-try {
-  for await (const frame of iterator) {
-    const temperature = frame.get("temperature");
-    const humidity = frame.get("humidity");
-    // Process the data
-  }
-} finally {
-  iterator.close();
+for await (const frame of iterator) {
+  console.log(frame.get("temperature"));
 }
 ```
 
-It's very important to `close` the iterator when you're done with it to free up network
-resources. We highly recommend wrapping the iterator in a `try...finally` block to
-ensure that it's closed properly in the event of an error.
-
-    </Note.Note>
   </Fragment>
 </Client.Tabs>
 
 <Divider.Divider x />
 
-## Iterator Configuration
+## Closing the Iterator
+
+After you're done iterating, it's essential to close the iterator to release the network
+connection and other related resources.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
-  <Fragment slot="console">
-  </Fragment>
 
   <Fragment slot="python">
-    <Note.Note variant="warning">
-
-By default, Synnax uses a chunk size of 100,000 samples. To configure a custom chunk
-size, pass in the `chunk_size` argument to the `open_iterator` method with the desired
-number of samples per iteration:
 
 ```python
-with client.open_iterator(start, end, "my_precise_tc", chunk_size=100) as it:
-    for frame in it:
-        # Do something with the frame
+iterator.close()
 ```
 
-Smaller chunk sizes reduce memory usage but may increase the number of network requests.
-Larger chunk sizes can improve throughput but require more memory.
-
-    </Note.Note>
   </Fragment>
 
   <Fragment slot="typescript">
-    <Note.Note variant="info">
 
-By default, Synnax uses a chunk size of 100,000 samples. To configure a custom chunk
-size, set the `chunkSize` field in the options argument to the `openIterator` method
-with the desired number of samples per iteration:
+```typescript
+iterator.close();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+Using structured cleanup patterns ensures the iterator is always closed, even if an
+exception is thrown.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+# Python's context manager is the recommended approach
+with client.open_iterator(start, end, "my_precise_tc") as iterator:
+    for frame in iterator:
+        print(frame)
+
+# Alternatively, use a try/finally block
+iterator = client.open_iterator(start, end, "my_precise_tc")
+try:
+    for frame in iterator:
+        print(frame)
+finally:
+    iterator.close()
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
 
 ```typescript
 const iterator = await client.openIterator(
   { start, end },
   ["temperature", "humidity"],
-  {
-    chunkSize: 100,
-  },
 );
 try {
   for await (const frame of iterator) {
-    const temperature = frame.get("temperature");
-    const humidity = frame.get("humidity");
-    // Process the data
+    console.log(frame.get("temperature"));
   }
 } finally {
   iterator.close();
 }
 ```
 
-Smaller chunk sizes reduce memory usage but may increase the number of network requests.
-Larger chunk sizes can improve throughput but require more memory.
-
-    </Note.Note>
   </Fragment>
 </Client.Tabs>
