@@ -30,3 +30,21 @@ export const detect = (): Runtime => {
 };
 
 export const RUNTIME = detect();
+
+/**
+ * Detects if the code is running inside a Tauri desktop application.
+ *
+ * @returns true if running in Tauri, false otherwise.
+ */
+export const isTauri = (): boolean =>
+  typeof window !== "undefined" &&
+  "__TAURI_INTERNALS__" in window &&
+  window.__TAURI_INTERNALS__ != null;
+
+export const IS_TAURI = isTauri();
+
+declare global {
+  interface Window {
+    __TAURI_INTERNALS__?: unknown;
+  }
+}

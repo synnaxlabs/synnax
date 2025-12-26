@@ -77,3 +77,22 @@ export const mult = multiCoercedOp((a, b) => a * b);
 
 /** @returns the division of a and b, coercing b to the type of a if necessary. */
 export const div = multiCoercedOp((a, b) => a / b);
+
+/** @returns the average of an array of numbers. Returns 0 for empty arrays. */
+export const average = (values: number[]): number => {
+  if (values.length === 0) return 0;
+  return values.reduce((a, b) => a + b, 0) / values.length;
+};
+
+/**
+ * Rounds a number to a specified number of decimal places.
+ * @param value The number to round.
+ * @param decimals The number of decimal places (default: 1).
+ * @returns The rounded number.
+ * @example roundTo(1.234, 1) => 1.2
+ * @example roundTo(1.234, 2) => 1.23
+ */
+export const roundTo = (value: number, decimals = 1): number => {
+  const multiplier = 10 ** decimals;
+  return Math.round(value * multiplier) / multiplier;
+};
