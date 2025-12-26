@@ -665,6 +665,94 @@ var _ = Describe("Vectorized Operations", func() {
 				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
 			})
 		})
+
+		Describe("Reverse Scalar Arithmetic", func() {
+			It("should perform scalar - series (reverse subtract) for F64", func() {
+				series := telem.NewSeriesV[float64](1.0, 2.0, 3.0)
+				output := telem.Series{DataType: telem.Float64T}
+
+				op.ReverseSubtractScalarF64(series, 10.0, &output)
+
+				// 10.0 - [1.0, 2.0, 3.0] = [9.0, 8.0, 7.0]
+				expected := []float64{9.0, 8.0, 7.0}
+				Expect(telem.UnmarshalSlice[float64](output.Data, telem.Float64T)).To(Equal(expected))
+			})
+
+			It("should perform scalar / series (reverse divide) for F64", func() {
+				series := telem.NewSeriesV[float64](2.0, 4.0, 5.0)
+				output := telem.Series{DataType: telem.Float64T}
+
+				op.ReverseDivideScalarF64(series, 20.0, &output)
+
+				// 20.0 / [2.0, 4.0, 5.0] = [10.0, 5.0, 4.0]
+				expected := []float64{10.0, 5.0, 4.0}
+				Expect(telem.UnmarshalSlice[float64](output.Data, telem.Float64T)).To(Equal(expected))
+			})
+
+			It("should perform reverse subtract for I32", func() {
+				series := telem.NewSeriesV[int32](5, 10, 15)
+				output := telem.Series{DataType: telem.Int32T}
+
+				op.ReverseSubtractScalarI32(series, 20, &output)
+
+				// 20 - [5, 10, 15] = [15, 10, 5]
+				expected := []int32{15, 10, 5}
+				Expect(telem.UnmarshalSlice[int32](output.Data, telem.Int32T)).To(Equal(expected))
+			})
+
+			It("should perform reverse divide for I64", func() {
+				series := telem.NewSeriesV[int64](2, 5, 10)
+				output := telem.Series{DataType: telem.Int64T}
+
+				op.ReverseDivideScalarI64(series, 100, &output)
+
+				// 100 / [2, 5, 10] = [50, 20, 10]
+				expected := []int64{50, 20, 10}
+				Expect(telem.UnmarshalSlice[int64](output.Data, telem.Int64T)).To(Equal(expected))
+			})
+
+			It("should perform reverse subtract for F32", func() {
+				series := telem.NewSeriesV[float32](1.5, 2.5, 3.5)
+				output := telem.Series{DataType: telem.Float32T}
+
+				op.ReverseSubtractScalarF32(series, 5.0, &output)
+
+				// 5.0 - [1.5, 2.5, 3.5] = [3.5, 2.5, 1.5]
+				expected := []float32{3.5, 2.5, 1.5}
+				Expect(telem.UnmarshalSlice[float32](output.Data, telem.Float32T)).To(Equal(expected))
+			})
+
+			It("should perform reverse divide for U8", func() {
+				series := telem.NewSeriesV[uint8](2, 4, 5)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.ReverseDivideScalarU8(series, 20, &output)
+
+				// 20 / [2, 4, 5] = [10, 5, 4]
+				expected := []uint8{10, 5, 4}
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+
+			It("should handle empty series for reverse subtract", func() {
+				series := telem.Series{DataType: telem.Float64T}
+				output := telem.Series{DataType: telem.Float64T}
+
+				op.ReverseSubtractScalarF64(series, 10.0, &output)
+
+				Expect(output.Len()).To(Equal(int64(0)))
+			})
+
+			It("should handle single element for reverse divide", func() {
+				series := telem.NewSeriesV[int32](5)
+				output := telem.Series{DataType: telem.Int32T}
+
+				op.ReverseDivideScalarI32(series, 100, &output)
+
+				// 100 / [5] = [20]
+				expected := []int32{20}
+				Expect(telem.UnmarshalSlice[int32](output.Data, telem.Int32T)).To(Equal(expected))
+			})
+		})
 	})
 
 })
