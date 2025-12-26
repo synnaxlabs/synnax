@@ -172,11 +172,17 @@ public:
             engine,
             wasmtime::Span<uint8_t>(wasm_bytes.data(), wasm_bytes.size())
         );
-        if (!mod_result)
+        if (!mod_result) {
+            auto err = mod_result.err();
+            auto msg = err.message();
             return {
                 nullptr,
-                xerrors::Error(xerrors::VALIDATION, "failed to compile module")
+                xerrors::Error(
+                    xerrors::VALIDATION,
+                    "failed to compile module: " + std::string(msg.data(), msg.size())
+                )
             };
+        }
         const auto mod = mod_result.ok();
         const auto imports = create_imports(store, cfg.bindings);
         auto instance = wasmtime::Instance::create(store, mod, imports).unwrap();
