@@ -245,7 +245,11 @@ func double(val f32) f32 {
     );
 
     auto on_time = telem::Series(
-        std::vector{telem::TimeStamp(1), telem::TimeStamp(2), telem::TimeStamp(3)}
+        std::vector{
+            telem::TimeStamp(1 * telem::MICROSECOND),
+            telem::TimeStamp(2 * telem::MICROSECOND),
+            telem::TimeStamp(3 * telem::MICROSECOND)
+        }
     );
     on_time.alignment = telem::Alignment(1, 0);
     on_node_state.output_time(0) = xmemory::make_local_shared<telem::Series>(
@@ -320,12 +324,12 @@ func divide_by_zero(val i32) i32 {
     ASSERT_NE(on_node, nullptr);
 
     auto on_node_state = ASSERT_NIL_P(state.node(on_node->key));
-    auto on_data = telem::Series(std::vector<int32_t>{42});
+    auto on_data = telem::Series(static_cast<int32_t>(42));
     on_data.alignment = telem::Alignment(1, 0);
     on_node_state.output(0) = xmemory::make_local_shared<telem::Series>(
         std::move(on_data)
     );
-    auto on_time = telem::Series(std::vector{telem::TimeStamp(1)});
+    auto on_time = telem::Series(telem::TimeStamp(1 * telem::MICROSECOND));
     on_time.alignment = telem::Alignment(1, 0);
     on_node_state.output_time(0) = xmemory::make_local_shared<telem::Series>(
         std::move(on_time)
@@ -419,12 +423,12 @@ func passthrough(val f32) f32 {
     ASSERT_NE(on_node, nullptr);
 
     auto on_node_state = ASSERT_NIL_P(state.node(on_node->key));
-    auto on_data = telem::Series(std::vector<float>{42.0f});
+    auto on_data = telem::Series(42.0f);
     on_data.alignment = telem::Alignment(1, 0);
     on_node_state.output(0) = xmemory::make_local_shared<telem::Series>(
         std::move(on_data)
     );
-    auto on_time = telem::Series(std::vector{telem::TimeStamp(1)});
+    auto on_time = telem::Series(telem::TimeStamp(1 * telem::MICROSECOND));
     on_time.alignment = telem::Alignment(1, 0);
     on_node_state.output_time(0) = xmemory::make_local_shared<telem::Series>(
         std::move(on_time)

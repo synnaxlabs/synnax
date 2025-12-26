@@ -295,18 +295,18 @@ TEST(OnTest, NextHandlesMultipleSeries) {
     );
 
     telem::Frame frame1(2);
-    auto d1 = telem::Series(std::vector<float>{1.0f});
+    auto d1 = telem::Series(1.0f);
     d1.alignment = telem::Alignment(0);
-    auto t1 = telem::Series(std::vector<int64_t>{10});
+    auto t1 = telem::Series(static_cast<int64_t>(10));
     t1.alignment = telem::Alignment(0);
     frame1.emplace(10, std::move(d1));
     frame1.emplace(11, std::move(t1));
     s.ingest(frame1);
 
     telem::Frame frame2(2);
-    auto d2 = telem::Series(std::vector<float>{2.0f});
+    auto d2 = telem::Series(2.0f);
     d2.alignment = telem::Alignment(1);
-    auto t2 = telem::Series(std::vector<int64_t>{20});
+    auto t2 = telem::Series(static_cast<int64_t>(20));
     t2.alignment = telem::Alignment(1);
     frame2.emplace(10, std::move(d2));
     frame2.emplace(11, std::move(t2));
@@ -360,14 +360,14 @@ TEST(OnTest, NextSkipsOnIndexCountMismatch) {
     );
 
     telem::Frame frame1(2);
-    auto d1 = telem::Series(std::vector<float>{1.0f});
-    auto t1 = telem::Series(std::vector<int64_t>{10});
+    auto d1 = telem::Series(1.0f);
+    auto t1 = telem::Series(static_cast<int64_t>(10));
     frame1.emplace(10, std::move(d1));
     frame1.emplace(11, std::move(t1));
     s.ingest(frame1);
 
     telem::Frame frame2(1);
-    auto d2 = telem::Series(std::vector<float>{2.0f});
+    auto d2 = telem::Series(2.0f);
     frame2.emplace(10, std::move(d2));
     s.ingest(frame2);
 
@@ -461,8 +461,8 @@ TEST(OnTest, NextCallsMarkChanged) {
     );
 
     telem::Frame frame(2);
-    auto data = telem::Series(std::vector<float>{1.0f});
-    auto time = telem::Series(std::vector<int64_t>{10});
+    auto data = telem::Series(1.0f);
+    auto time = telem::Series(static_cast<int64_t>(10));
     frame.emplace(10, std::move(data));
     frame.emplace(11, std::move(time));
     s.ingest(frame);
