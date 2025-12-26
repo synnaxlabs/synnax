@@ -252,6 +252,44 @@ private:
         return result;
     }
 
+    template<typename SourceType, typename T, typename Op>
+    void apply_scalar_comparison_op_typed(T scalar, Series &result, Op op) const {
+        auto *src = reinterpret_cast<const SourceType *>(this->data_.get());
+        auto *out = reinterpret_cast<uint8_t *>(result.data_.get());
+        for (size_t i = 0; i < this->size(); i++)
+            out[i] = op(src[i], static_cast<SourceType>(scalar)) ? 1 : 0;
+    }
+
+    template<typename T, typename Op>
+    Series apply_scalar_comparison_op(T scalar, Op op) const {
+        auto result = Series(UINT8_T, this->size());
+        result.resize(this->size());
+
+        const auto dt = this->data_type();
+        if (dt == FLOAT64_T)
+            apply_scalar_comparison_op_typed<double>(scalar, result, op);
+        else if (dt == FLOAT32_T)
+            apply_scalar_comparison_op_typed<float>(scalar, result, op);
+        else if (dt == INT64_T)
+            apply_scalar_comparison_op_typed<int64_t>(scalar, result, op);
+        else if (dt == INT32_T)
+            apply_scalar_comparison_op_typed<int32_t>(scalar, result, op);
+        else if (dt == INT16_T)
+            apply_scalar_comparison_op_typed<int16_t>(scalar, result, op);
+        else if (dt == INT8_T)
+            apply_scalar_comparison_op_typed<int8_t>(scalar, result, op);
+        else if (dt == UINT64_T)
+            apply_scalar_comparison_op_typed<uint64_t>(scalar, result, op);
+        else if (dt == UINT32_T)
+            apply_scalar_comparison_op_typed<uint32_t>(scalar, result, op);
+        else if (dt == UINT16_T)
+            apply_scalar_comparison_op_typed<uint16_t>(scalar, result, op);
+        else if (dt == UINT8_T)
+            apply_scalar_comparison_op_typed<uint8_t>(scalar, result, op);
+
+        return result;
+    }
+
     template<typename T, typename Op>
     Series apply_scalar_op(T scalar, Op op) const {
         auto result = this->deep_copy();
@@ -1206,6 +1244,42 @@ public:
     /// @throws std::runtime_error if series lengths or types don't match.
     Series operator!=(const Series &other) const {
         return apply_comparison_op(other, [](auto a, auto b) { return a != b; });
+    }
+
+    /// @brief Series > scalar comparison. Returns UINT8_T Series with 0/1 values.
+    template<typename T>
+    Series operator>(T scalar) const {
+        return apply_scalar_comparison_op(scalar, [](auto a, auto b) { return a > b; });
+    }
+
+    /// @brief Series < scalar comparison. Returns UINT8_T Series with 0/1 values.
+    template<typename T>
+    Series operator<(T scalar) const {
+        return apply_scalar_comparison_op(scalar, [](auto a, auto b) { return a < b; });
+    }
+
+    /// @brief Series >= scalar comparison. Returns UINT8_T Series with 0/1 values.
+    template<typename T>
+    Series operator>=(T scalar) const {
+        return apply_scalar_comparison_op(scalar, [](auto a, auto b) { return a >= b; });
+    }
+
+    /// @brief Series <= scalar comparison. Returns UINT8_T Series with 0/1 values.
+    template<typename T>
+    Series operator<=(T scalar) const {
+        return apply_scalar_comparison_op(scalar, [](auto a, auto b) { return a <= b; });
+    }
+
+    /// @brief Series == scalar comparison. Returns UINT8_T Series with 0/1 values.
+    template<typename T>
+    Series operator==(T scalar) const {
+        return apply_scalar_comparison_op(scalar, [](auto a, auto b) { return a == b; });
+    }
+
+    /// @brief Series != scalar comparison. Returns UINT8_T Series with 0/1 values.
+    template<typename T>
+    Series operator!=(T scalar) const {
+        return apply_scalar_comparison_op(scalar, [](auto a, auto b) { return a != b; });
     }
 
     /// @brief deep copies the series, including all of its data_. This function

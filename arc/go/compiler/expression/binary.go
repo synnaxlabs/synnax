@@ -25,10 +25,10 @@ func compileBinaryAdditive(
 		return types.Type{}, err
 	}
 
-	// Check if we're operating on series BEFORE unwrapping
-	isSeries := resultType.Kind == types.KindSeries
+	// Check if first operand is series
+	firstIsSeries := resultType.Kind == types.KindSeries
 	var elemType types.Type
-	if isSeries {
+	if firstIsSeries {
 		elemType = *resultType.Elem
 	}
 
@@ -54,7 +54,7 @@ func compileBinaryAdditive(
 	for i := 1; i < len(muls); i++ {
 		// For series operations, hint with element type so scalars compile correctly
 		operandHint := hintType
-		if isSeries {
+		if firstIsSeries {
 			operandHint = elemType
 		}
 		operandType, err := compileMultiplicative(context.Child(ctx, muls[i]).WithHint(operandHint))
@@ -62,14 +62,44 @@ func compileBinaryAdditive(
 			return types.Type{}, err
 		}
 
-		if isSeries {
-			// Determine if second operand is scalar or series
-			isScalar := operandType.Kind != types.KindSeries
+		secondIsSeries := operandType.Kind == types.KindSeries
+
+		if firstIsSeries {
+			// series op scalar or series op series
+			isScalar := !secondIsSeries
 			funcIdx, err := ctx.Imports.GetSeriesArithmetic(operators[i-1], elemType, isScalar)
 			if err != nil {
 				return types.Type{}, err
 			}
 			ctx.Writer.WriteCall(funcIdx)
+		} else if secondIsSeries {
+			// scalar op series - need reverse arithmetic for non-commutative ops
+			secondElemType := *operandType.Elem
+			op := operators[i-1]
+			if op == "-" || op == "/" {
+				// Non-commutative: use reverse operations (rsub, rdiv)
+				funcIdx, err := ctx.Imports.GetSeriesReverseArithmetic(op, secondElemType)
+				if err != nil {
+					return types.Type{}, err
+				}
+				ctx.Writer.WriteCall(funcIdx)
+			} else {
+				// Commutative (+): just use regular series_element_add with swapped args
+				// Stack has [scalar, handle], but series_element_add expects [handle, scalar]
+				// We need to swap them. For now, use a local variable approach.
+				// Actually, for commutative ops we can just call the regular function
+				// with swapped stack order - but that requires a swap instruction or temp local.
+				// Simplest solution: call the same function, host handles the swap.
+				funcIdx, err := ctx.Imports.GetSeriesArithmetic(op, secondElemType, true)
+				if err != nil {
+					return types.Type{}, err
+				}
+				ctx.Writer.WriteCall(funcIdx)
+			}
+			// Update state to reflect we now have a series result
+			resultType = operandType
+			elemType = secondElemType
+			firstIsSeries = true
 		} else if hintType.Kind == types.KindString && operators[i-1] == "+" {
 			ctx.Writer.WriteCall(ctx.Imports.StringConcat)
 		} else {
@@ -80,7 +110,7 @@ func compileBinaryAdditive(
 	}
 
 	// Return the series type if operating on series, otherwise the hint type
-	if isSeries {
+	if firstIsSeries {
 		return resultType, nil
 	}
 	return hintType, nil
@@ -97,10 +127,10 @@ func compileBinaryMultiplicative(
 		return types.Type{}, err
 	}
 
-	// Check if we're operating on series BEFORE unwrapping
-	isSeries := resultType.Kind == types.KindSeries
+	// Check if first operand is series
+	firstIsSeries := resultType.Kind == types.KindSeries
 	var elemType types.Type
-	if isSeries {
+	if firstIsSeries {
 		elemType = *resultType.Elem
 	}
 
@@ -129,7 +159,7 @@ func compileBinaryMultiplicative(
 	for i := 1; i < len(pows); i++ {
 		// For series operations, hint with element type so scalars compile correctly
 		operandHint := hintType
-		if isSeries {
+		if firstIsSeries {
 			operandHint = elemType
 		}
 		operandType, err := compilePower(context.Child(ctx, pows[i]).WithHint(operandHint))
@@ -137,14 +167,41 @@ func compileBinaryMultiplicative(
 			return types.Type{}, err
 		}
 
-		if isSeries {
-			// Determine if second operand is scalar or series
-			isScalar := operandType.Kind != types.KindSeries
+		secondIsSeries := operandType.Kind == types.KindSeries
+
+		if firstIsSeries {
+			// series op scalar or series op series
+			isScalar := !secondIsSeries
 			funcIdx, err := ctx.Imports.GetSeriesArithmetic(operators[i-1], elemType, isScalar)
 			if err != nil {
 				return types.Type{}, err
 			}
 			ctx.Writer.WriteCall(funcIdx)
+		} else if secondIsSeries {
+			// scalar op series - need reverse arithmetic for non-commutative ops
+			secondElemType := *operandType.Elem
+			op := operators[i-1]
+			if op == "/" {
+				// Non-commutative: use reverse operations (rdiv)
+				funcIdx, err := ctx.Imports.GetSeriesReverseArithmetic(op, secondElemType)
+				if err != nil {
+					return types.Type{}, err
+				}
+				ctx.Writer.WriteCall(funcIdx)
+			} else {
+				// Commutative (* and %): just use regular series_element_mul/mod
+				// Stack has [scalar, handle], but series_element_* expects [handle, scalar]
+				// For now, call the same function - the host will need to handle this
+				funcIdx, err := ctx.Imports.GetSeriesArithmetic(op, secondElemType, true)
+				if err != nil {
+					return types.Type{}, err
+				}
+				ctx.Writer.WriteCall(funcIdx)
+			}
+			// Update state to reflect we now have a series result
+			resultType = operandType
+			elemType = secondElemType
+			firstIsSeries = true
 		} else {
 			if err = ctx.Writer.WriteBinaryOpInferred(operators[i-1], hintType); err != nil {
 				return types.Type{}, err
@@ -153,7 +210,7 @@ func compileBinaryMultiplicative(
 	}
 
 	// Return the series type if operating on series, otherwise the hint type
-	if isSeries {
+	if firstIsSeries {
 		return resultType, nil
 	}
 	return hintType, nil

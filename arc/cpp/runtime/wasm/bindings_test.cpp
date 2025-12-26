@@ -541,6 +541,146 @@ TEST_F(BindingsTest, AllTypesCreateAndIndex) {
     }
 }
 
+// ===== Scalar Comparison Tests =====
+
+TEST_F(BindingsTest, SeriesScalarCompareGtF64) {
+    const uint32_t h1 = bindings->series_create_empty_f64(4);
+    bindings->series_set_element_f64(h1, 0, 1.0);
+    bindings->series_set_element_f64(h1, 1, 5.0);
+    bindings->series_set_element_f64(h1, 2, 3.0);
+    bindings->series_set_element_f64(h1, 3, 8.0);
+
+    const uint32_t h2 = bindings->series_scalar_compare_gt_f64(h1, 4.0);
+    EXPECT_NE(h2, 0);
+    EXPECT_EQ(bindings->series_len(h2), 4);
+    // 1 > 4? false, 5 > 4? true, 3 > 4? false, 8 > 4? true
+    EXPECT_EQ(bindings->series_index_u8(h2, 0), 0);
+    EXPECT_EQ(bindings->series_index_u8(h2, 1), 1);
+    EXPECT_EQ(bindings->series_index_u8(h2, 2), 0);
+    EXPECT_EQ(bindings->series_index_u8(h2, 3), 1);
+}
+
+TEST_F(BindingsTest, SeriesScalarCompareLtI32) {
+    const uint32_t h1 = bindings->series_create_empty_i32(3);
+    bindings->series_set_element_i32(h1, 0, 1);
+    bindings->series_set_element_i32(h1, 1, 5);
+    bindings->series_set_element_i32(h1, 2, 3);
+
+    const uint32_t h2 = bindings->series_scalar_compare_lt_i32(h1, 3);
+    // 1 < 3? true, 5 < 3? false, 3 < 3? false
+    EXPECT_EQ(bindings->series_index_u8(h2, 0), 1);
+    EXPECT_EQ(bindings->series_index_u8(h2, 1), 0);
+    EXPECT_EQ(bindings->series_index_u8(h2, 2), 0);
+}
+
+TEST_F(BindingsTest, SeriesScalarCompareGeF64) {
+    const uint32_t h1 = bindings->series_create_empty_f64(3);
+    bindings->series_set_element_f64(h1, 0, 1.0);
+    bindings->series_set_element_f64(h1, 1, 3.0);
+    bindings->series_set_element_f64(h1, 2, 5.0);
+
+    const uint32_t h2 = bindings->series_scalar_compare_ge_f64(h1, 3.0);
+    // 1 >= 3? false, 3 >= 3? true, 5 >= 3? true
+    EXPECT_EQ(bindings->series_index_u8(h2, 0), 0);
+    EXPECT_EQ(bindings->series_index_u8(h2, 1), 1);
+    EXPECT_EQ(bindings->series_index_u8(h2, 2), 1);
+}
+
+TEST_F(BindingsTest, SeriesScalarCompareLeI64) {
+    const uint32_t h1 = bindings->series_create_empty_i64(3);
+    bindings->series_set_element_i64(h1, 0, 1);
+    bindings->series_set_element_i64(h1, 1, 3);
+    bindings->series_set_element_i64(h1, 2, 5);
+
+    const uint32_t h2 = bindings->series_scalar_compare_le_i64(h1, 3);
+    // 1 <= 3? true, 3 <= 3? true, 5 <= 3? false
+    EXPECT_EQ(bindings->series_index_u8(h2, 0), 1);
+    EXPECT_EQ(bindings->series_index_u8(h2, 1), 1);
+    EXPECT_EQ(bindings->series_index_u8(h2, 2), 0);
+}
+
+TEST_F(BindingsTest, SeriesScalarCompareEqU32) {
+    const uint32_t h1 = bindings->series_create_empty_u32(4);
+    bindings->series_set_element_u32(h1, 0, 1);
+    bindings->series_set_element_u32(h1, 1, 3);
+    bindings->series_set_element_u32(h1, 2, 3);
+    bindings->series_set_element_u32(h1, 3, 5);
+
+    const uint32_t h2 = bindings->series_scalar_compare_eq_u32(h1, 3);
+    // 1 == 3? false, 3 == 3? true, 3 == 3? true, 5 == 3? false
+    EXPECT_EQ(bindings->series_index_u8(h2, 0), 0);
+    EXPECT_EQ(bindings->series_index_u8(h2, 1), 1);
+    EXPECT_EQ(bindings->series_index_u8(h2, 2), 1);
+    EXPECT_EQ(bindings->series_index_u8(h2, 3), 0);
+}
+
+TEST_F(BindingsTest, SeriesScalarCompareNeF32) {
+    const uint32_t h1 = bindings->series_create_empty_f32(3);
+    bindings->series_set_element_f32(h1, 0, 1.0f);
+    bindings->series_set_element_f32(h1, 1, 3.0f);
+    bindings->series_set_element_f32(h1, 2, 5.0f);
+
+    const uint32_t h2 = bindings->series_scalar_compare_ne_f32(h1, 3.0f);
+    // 1 != 3? true, 3 != 3? false, 5 != 3? true
+    EXPECT_EQ(bindings->series_index_u8(h2, 0), 1);
+    EXPECT_EQ(bindings->series_index_u8(h2, 1), 0);
+    EXPECT_EQ(bindings->series_index_u8(h2, 2), 1);
+}
+
+TEST_F(BindingsTest, SeriesScalarCompareInvalidHandle) {
+    EXPECT_EQ(bindings->series_scalar_compare_gt_f64(999, 1.0), 0);
+    EXPECT_EQ(bindings->series_scalar_compare_lt_i32(999, 1), 0);
+}
+
+TEST_F(BindingsTest, SeriesScalarCompareAllTypes) {
+    // u8
+    {
+        const uint32_t h = bindings->series_create_empty_u8(2);
+        bindings->series_set_element_u8(h, 0, 5);
+        bindings->series_set_element_u8(h, 1, 15);
+        const uint32_t r = bindings->series_scalar_compare_gt_u8(h, 10);
+        EXPECT_EQ(bindings->series_index_u8(r, 0), 0); // 5 > 10? false
+        EXPECT_EQ(bindings->series_index_u8(r, 1), 1); // 15 > 10? true
+    }
+    // u16
+    {
+        const uint32_t h = bindings->series_create_empty_u16(2);
+        bindings->series_set_element_u16(h, 0, 100);
+        bindings->series_set_element_u16(h, 1, 200);
+        const uint32_t r = bindings->series_scalar_compare_lt_u16(h, 150);
+        EXPECT_EQ(bindings->series_index_u8(r, 0), 1); // 100 < 150? true
+        EXPECT_EQ(bindings->series_index_u8(r, 1), 0); // 200 < 150? false
+    }
+    // u64
+    {
+        const uint32_t h = bindings->series_create_empty_u64(2);
+        bindings->series_set_element_u64(h, 0, 1000);
+        bindings->series_set_element_u64(h, 1, 1000);
+        const uint32_t r = bindings->series_scalar_compare_eq_u64(h, 1000);
+        EXPECT_EQ(bindings->series_index_u8(r, 0), 1);
+        EXPECT_EQ(bindings->series_index_u8(r, 1), 1);
+    }
+    // i8
+    {
+        const uint32_t h = bindings->series_create_empty_i8(2);
+        bindings->series_set_element_i8(h, 0, -5);
+        bindings->series_set_element_i8(h, 1, 5);
+        const uint32_t r = bindings->series_scalar_compare_ge_i8(h, 0);
+        EXPECT_EQ(bindings->series_index_u8(r, 0), 0); // -5 >= 0? false
+        EXPECT_EQ(bindings->series_index_u8(r, 1), 1); // 5 >= 0? true
+    }
+    // i16
+    {
+        const uint32_t h = bindings->series_create_empty_i16(2);
+        bindings->series_set_element_i16(h, 0, -100);
+        bindings->series_set_element_i16(h, 1, 100);
+        const uint32_t r = bindings->series_scalar_compare_le_i16(h, 0);
+        EXPECT_EQ(bindings->series_index_u8(r, 0), 1); // -100 <= 0? true
+        EXPECT_EQ(bindings->series_index_u8(r, 1), 0); // 100 <= 0? false
+    }
+}
+
+} // namespace arc::runtime::wasm
 // ===== String Tests =====
 
 TEST_F(BindingsTest, StringCreate) {

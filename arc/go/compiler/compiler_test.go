@@ -40,6 +40,58 @@ func compileWithHostImports(source string, resolver symbol.Resolver) (compiler.O
 	return compiler.Compile(ctx, inter)
 }
 
+func inferReturnType(expected any) string {
+	switch expected.(type) {
+	case float64:
+		return "f64"
+	case float32:
+		return "f32"
+	case int64:
+		return "i64"
+	case int32:
+		return "i32"
+	case int16:
+		return "i16"
+	case int8:
+		return "i8"
+	case uint64:
+		return "u64"
+	case uint32:
+		return "u32"
+	case uint16:
+		return "u16"
+	case uint8:
+		return "u8"
+	default:
+		return "i64"
+	}
+}
+
+func assertResult(result uint64, expected any) {
+	switch v := expected.(type) {
+	case float64:
+		Expect(math.Float64frombits(result)).To(Equal(v))
+	case float32:
+		Expect(math.Float32frombits(uint32(result))).To(Equal(v))
+	case int64:
+		Expect(int64(result)).To(Equal(v))
+	case int32:
+		Expect(int32(result)).To(Equal(v))
+	case int16:
+		Expect(int16(result)).To(Equal(v))
+	case int8:
+		Expect(int8(result)).To(Equal(v))
+	case uint64:
+		Expect(result).To(Equal(v))
+	case uint32:
+		Expect(uint32(result)).To(Equal(v))
+	case uint16:
+		Expect(uint16(result)).To(Equal(v))
+	case uint8:
+		Expect(uint8(result)).To(Equal(v))
+	}
+}
+
 var _ = Describe("Compiler", func() {
 	var r wazero.Runtime
 	BeforeEach(func() {
@@ -550,7 +602,8 @@ var _ = Describe("Compiler", func() {
 			debug := mod.ExportedFunction("debug")
 			Expect(debug).ToNot(BeNil())
 
-			MustSucceed(debug.Call(ctx, 10, 3))
+			results := MustSucceed(debug.Call(ctx, 10, 3))
+			Expect(results).ToNot(BeNil())
 
 			mem := mod.Memory()
 			dirtyFlags, ok := mem.ReadUint64Le(0x1000)
@@ -578,7 +631,8 @@ var _ = Describe("Compiler", func() {
 			Expect(classifier).ToNot(BeNil())
 
 			// Call with value > 50 - should set high output
-			MustSucceed(classifier.Call(ctx, 75))
+			results := MustSucceed(classifier.Call(ctx, 75))
+			Expect(results).ToNot(BeNil())
 
 			// Read memory to check outputs
 			// Memory layout: [dirty_flags:i64][high:i64][low:i64]
@@ -592,7 +646,8 @@ var _ = Describe("Compiler", func() {
 			Expect(highValue).To(Equal(uint64(75)))
 
 			// Call with value <= 50 - should set low output
-			MustSucceed(classifier.Call(ctx, 25))
+			results = MustSucceed(classifier.Call(ctx, 25))
+			Expect(results).ToNot(BeNil())
 
 			dirtyFlags, ok = mem.ReadUint64Le(0x1000)
 			Expect(ok).To(BeTrue())
@@ -622,7 +677,8 @@ var _ = Describe("Compiler", func() {
 			Expect(router).ToNot(BeNil())
 
 			// Test x > y case
-			MustSucceed(router.Call(ctx, 10, 3))
+			results := MustSucceed(router.Call(ctx, 10, 3))
+			Expect(results).ToNot(BeNil())
 
 			mem := mod.Memory()
 			dirtyFlags, ok := mem.ReadUint64Le(0x1000)
@@ -640,7 +696,8 @@ var _ = Describe("Compiler", func() {
 			Expect(diffValue).To(Equal(uint64(7)))
 
 			// Test x == y case
-			MustSucceed(router.Call(ctx, 5, 5))
+			results = MustSucceed(router.Call(ctx, 5, 5))
+			Expect(results).ToNot(BeNil())
 
 			dirtyFlags, ok = mem.ReadUint64Le(0x1000)
 			Expect(ok).To(BeTrue())
@@ -666,7 +723,8 @@ var _ = Describe("Compiler", func() {
 			converter := mod.ExportedFunction("converter")
 			Expect(converter).ToNot(BeNil())
 
-			MustSucceed(converter.Call(ctx, 100))
+			results := MustSucceed(converter.Call(ctx, 100))
+			Expect(results).ToNot(BeNil())
 
 			mem := mod.Memory()
 			dirtyFlags, ok := mem.ReadUint64Le(0x1000)
@@ -698,7 +756,8 @@ var _ = Describe("Compiler", func() {
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			divMod := mod.ExportedFunction("divMod")
 			Expect(divMod).ToNot(BeNil())
-			MustSucceed(divMod.Call(ctx, 17, 5))
+			results := MustSucceed(divMod.Call(ctx, 17, 5))
+			Expect(results).ToNot(BeNil())
 
 			mem := mod.Memory()
 			dirtyFlags := MustBeOk(mem.ReadUint64Le(0x1000))
@@ -1597,6 +1656,291 @@ var _ = Describe("Compiler", func() {
 			result := math.Float32frombits(uint32(results[0]))
 			Expect(result).To(BeNumerically("~", 256.0, 0.0001))
 		})
+	})
+
+	Describe("Series Operations", func() {
+		BeforeEach(func() {
+			b := bindings.NewBindings()
+			arcRuntime := runtimebindings.NewRuntime(nil, nil)
+			runtimebindings.BindRuntime(arcRuntime, b)
+			Expect(b.Bind(ctx, r)).To(Succeed())
+		})
+
+		DescribeTable("basic series operations",
+			func(body string, expected any) {
+				source := fmt.Sprintf(`func test() %s %s`, inferReturnType(expected), body)
+				output := MustSucceed(compileWithHostImports(source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				results := MustSucceed(test.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				assertResult(results[0], expected)
+			},
+			// Series creation and indexing
+			Entry("create and index series literal", `{
+				s series f64 := [1.0, 2.0, 3.0, 4.0, 5.0]
+				return s[2]
+			}`, 3.0),
+
+			// Series-scalar arithmetic (f64)
+			Entry("series-scalar add f64", `{
+				s series f64 := [10.0, 20.0, 30.0]
+				t series f64 := s + 5.0
+				return t[1]
+			}`, 25.0),
+			Entry("series-scalar sub f64", `{
+				s series f64 := [10.0, 20.0, 30.0]
+				t series f64 := s - 5.0
+				return t[0]
+			}`, 5.0),
+			Entry("series-scalar mul f64", `{
+				s series f64 := [2.0, 3.0, 4.0]
+				t series f64 := s * 10.0
+				return t[0]
+			}`, 20.0),
+			Entry("series-scalar div f64", `{
+				s series f64 := [100.0, 200.0, 300.0]
+				t series f64 := s / 10.0
+				return t[2]
+			}`, 30.0),
+			Entry("series-scalar mod f64", `{
+				s series f64 := [10.5, 21.5]
+				t series f64 := s % 4.0
+				return t[0]
+			}`, 2.5),
+
+			// Series-series arithmetic (f64)
+			Entry("series-series add f64", `{
+				a series f64 := [1.0, 2.0, 3.0]
+				b series f64 := [10.0, 20.0, 30.0]
+				c series f64 := a + b
+				return c[2]
+			}`, 33.0),
+			Entry("series-series mul f64", `{
+				a series f64 := [2.0, 3.0]
+				b series f64 := [4.0, 5.0]
+				c series f64 := a * b
+				return c[1]
+			}`, 15.0),
+
+			// Series slicing
+			Entry("series slice", `{
+				s series f64 := [1.0, 2.0, 3.0, 4.0, 5.0]
+				t series f64 := s[1:4]
+				return t[0]
+			}`, 2.0),
+
+			// Series negation
+			Entry("series negate f64", `{
+				s series f64 := [10.0, 20.0, 30.0]
+				t series f64 := -s
+				return t[0]
+			}`, -10.0),
+			Entry("series double negate f64", `{
+				s series f64 := [-10.0, -20.0, -30.0]
+				t series f64 := --s
+				return t[1]
+			}`, -20.0),
+
+			// Series comparison
+			Entry("series-series comparison", `{
+				a series f64 := [1.0, 5.0, 3.0]
+				b series f64 := [2.0, 2.0, 2.0]
+				t series u8 := a > b
+				return t[1]
+			}`, uint8(1)),
+
+			// Integer series operations (i32)
+			Entry("integer series add i32", `{
+				s series i32 := [10, 20, 30]
+				t series i32 := s + 5
+				return t[1]
+			}`, int32(25)),
+			Entry("integer series mod i32", `{
+				s series i32 := [10, 21, 32]
+				t series i32 := s % 5
+				return t[1]
+			}`, int32(1)),
+			Entry("series-series mod i32", `{
+				a series i32 := [10, 21, 32]
+				b series i32 := [3, 4, 5]
+				c series i32 := a % b
+				return c[1]
+			}`, int32(1)),
+
+			// Scalar-series reverse operations (f64)
+			Entry("scalar-series rsub f64", `{
+				s series f64 := [10.0, 20.0, 30.0]
+				t series f64 := 100.0 - s
+				return t[0]
+			}`, float64(90.0)),
+			Entry("scalar-series rdiv f64", `{
+				s series f64 := [2.0, 4.0, 5.0]
+				t series f64 := 100.0 / s
+				return t[0]
+			}`, float64(50.0)),
+
+			// Scalar-series reverse operations (i64)
+			Entry("scalar-series rsub i64", `{
+				s series i64 := [10, 20, 30]
+				t series i64 := 100 - s
+				return t[0]
+			}`, int64(90)),
+			Entry("scalar-series rdiv i64", `{
+				s series i64 := [2, 4, 5]
+				t series i64 := 100 / s
+				return t[0]
+			}`, int64(50)),
+
+			// Scalar-series reverse operations (i32)
+			Entry("scalar-series rsub i32", `{
+				s series i32 := [10, 20, 30]
+				t series i32 := 100 - s
+				return t[0]
+			}`, int32(90)),
+			Entry("scalar-series rdiv i32", `{
+				s series i32 := [2, 4, 5]
+				t series i32 := 100 / s
+				return t[0]
+			}`, int32(50)),
+
+			// Scalar-series reverse operations (i16)
+			Entry("scalar-series rsub i16", `{
+				s series i16 := [10, 20, 30]
+				t series i16 := 100 - s
+				return t[0]
+			}`, int16(90)),
+			Entry("scalar-series rdiv i16", `{
+				s series i16 := [2, 4, 5]
+				t series i16 := 100 / s
+				return t[0]
+			}`, int16(50)),
+
+			// Scalar-series reverse operations (i8)
+			Entry("scalar-series rsub i8", `{
+				s series i8 := [10, 20, 30]
+				t series i8 := 100 - s
+				return t[0]
+			}`, int8(90)),
+			Entry("scalar-series rdiv i8", `{
+				s series i8 := [2, 4, 5]
+				t series i8 := 100 / s
+				return t[0]
+			}`, int8(50)),
+
+			// Scalar-series reverse operations (u64)
+			Entry("scalar-series rsub u64", `{
+				s series u64 := [10, 20, 30]
+				t series u64 := 100 - s
+				return t[0]
+			}`, uint64(90)),
+			Entry("scalar-series rdiv u64", `{
+				s series u64 := [2, 4, 5]
+				t series u64 := 100 / s
+				return t[0]
+			}`, uint64(50)),
+
+			// Scalar-series reverse operations (u32)
+			Entry("scalar-series rsub u32", `{
+				s series u32 := [10, 20, 30]
+				t series u32 := 100 - s
+				return t[0]
+			}`, uint32(90)),
+			Entry("scalar-series rdiv u32", `{
+				s series u32 := [2, 4, 5]
+				t series u32 := 100 / s
+				return t[0]
+			}`, uint32(50)),
+
+			// Scalar-series reverse operations (u16)
+			Entry("scalar-series rsub u16", `{
+				s series u16 := [10, 20, 30]
+				t series u16 := 100 - s
+				return t[0]
+			}`, uint16(90)),
+			Entry("scalar-series rdiv u16", `{
+				s series u16 := [2, 4, 5]
+				t series u16 := 100 / s
+				return t[0]
+			}`, uint16(50)),
+
+			// Scalar-series reverse operations (u8)
+			Entry("scalar-series rsub u8", `{
+				s series u8 := [10, 20, 30]
+				t series u8 := 100 - s
+				return t[0]
+			}`, uint8(90)),
+			Entry("scalar-series rdiv u8", `{
+				s series u8 := [2, 4, 5]
+				t series u8 := 100 / s
+				return t[0]
+			}`, uint8(50)),
+
+			// Scalar-series reverse operations (f32)
+			Entry("scalar-series rsub f32", `{
+				s series f32 := [10.0, 20.0, 30.0]
+				t series f32 := 100.0 - s
+				return t[0]
+			}`, float32(90.0)),
+			Entry("scalar-series rdiv f32", `{
+				s series f32 := [2.0, 4.0, 5.0]
+				t series f32 := 100.0 / s
+				return t[0]
+			}`, float32(50.0)),
+
+			// Series-scalar operations (various types)
+			Entry("series-scalar add u8", `{
+				s series u8 := [10, 20, 30]
+				t series u8 := s + 5
+				return t[0]
+			}`, uint8(15)),
+			Entry("series-scalar sub u16", `{
+				s series u16 := [100, 200, 300]
+				t series u16 := s - 10
+				return t[0]
+			}`, uint16(90)),
+			Entry("series-scalar mul u32", `{
+				s series u32 := [10, 20, 30]
+				t series u32 := s * 3
+				return t[0]
+			}`, uint32(30)),
+			Entry("series-scalar div u64", `{
+				s series u64 := [100, 200, 300]
+				t series u64 := s / 10
+				return t[0]
+			}`, uint64(10)),
+			Entry("series-scalar mod i8", `{
+				s series i8 := [17, 23, 31]
+				t series i8 := s % 5
+				return t[0]
+			}`, int8(2)),
+			Entry("series-scalar add i16", `{
+				s series i16 := [10, 20, 30]
+				t series i16 := s + 5
+				return t[0]
+			}`, int16(15)),
+			Entry("series-scalar sub i32", `{
+				s series i32 := [100, 200, 300]
+				t series i32 := s - 10
+				return t[0]
+			}`, int32(90)),
+			Entry("series-scalar mul i64", `{
+				s series i64 := [10, 20, 30]
+				t series i64 := s * 3
+				return t[0]
+			}`, int64(30)),
+			Entry("series-scalar div f32", `{
+				s series f32 := [100.0, 200.0, 300.0]
+				t series f32 := s / 10.0
+				return t[0]
+			}`, float32(10.0)),
+			Entry("series-scalar add f64 (explicit)", `{
+				s series f64 := [10.0, 20.0, 30.0]
+				t series f64 := s + 5.0
+				return t[0]
+			}`, float64(15.0)),
+		)
 	})
 
 	Describe("Unit Literals", func() {

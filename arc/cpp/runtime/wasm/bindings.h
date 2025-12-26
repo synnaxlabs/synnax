@@ -124,6 +124,9 @@ public:
     uint32_t series_element_mul_##suffix(uint32_t handle, cpptype value);              \
     uint32_t series_element_sub_##suffix(uint32_t handle, cpptype value);              \
     uint32_t series_element_div_##suffix(uint32_t handle, cpptype value);              \
+    uint32_t series_element_rsub_##suffix(cpptype value, uint32_t handle);             \
+    uint32_t series_element_rdiv_##suffix(cpptype value, uint32_t handle);             \
+    uint32_t series_element_mod_##suffix(uint32_t handle, cpptype value);              \
     uint32_t series_series_add_##suffix(uint32_t a, uint32_t b);                       \
     uint32_t series_series_mul_##suffix(uint32_t a, uint32_t b);                       \
     uint32_t series_series_sub_##suffix(uint32_t a, uint32_t b);                       \
@@ -134,6 +137,12 @@ public:
     uint32_t series_compare_le_##suffix(uint32_t a, uint32_t b);                       \
     uint32_t series_compare_eq_##suffix(uint32_t a, uint32_t b);                       \
     uint32_t series_compare_ne_##suffix(uint32_t a, uint32_t b);                       \
+    uint32_t series_scalar_compare_gt_##suffix(uint32_t handle, cpptype value);        \
+    uint32_t series_scalar_compare_lt_##suffix(uint32_t handle, cpptype value);        \
+    uint32_t series_scalar_compare_ge_##suffix(uint32_t handle, cpptype value);        \
+    uint32_t series_scalar_compare_le_##suffix(uint32_t handle, cpptype value);        \
+    uint32_t series_scalar_compare_eq_##suffix(uint32_t handle, cpptype value);        \
+    uint32_t series_scalar_compare_ne_##suffix(uint32_t handle, cpptype value);        \
     uint32_t state_load_series_##suffix(                                               \
         uint32_t func_id,                                                              \
         uint32_t var_id,                                                               \

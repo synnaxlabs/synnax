@@ -75,14 +75,14 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// TypeKind represents the different categories of types in the Arc type system.
+// Kind represents the different categories of types in the Arc type system.
 // It is used as a discriminator in the Type tagged union.
-type TypeKind int
+type Kind int
 
-//go:generate stringer -type=TypeKind
+//go:generate stringer -type=Kind
 const (
 	// KindInvalid represents an invalid or uninitialized type.
-	KindInvalid TypeKind = iota
+	KindInvalid Kind = iota
 
 	// KindU8 is an 8-bit unsigned integer type.
 	KindU8
@@ -212,7 +212,7 @@ type FunctionProperties struct {
 // Type represents a type in the Arc type system using a tagged union.
 type Type struct {
 	// Kind is the discriminator that determines which type this represents.
-	Kind TypeKind `json:"kind" msgpack:"kind"`
+	Kind Kind `json:"kind" msgpack:"kind"`
 	// Elem is the element type for compound types (chan, series).
 	Elem *Type `json:"elem,omitempty" msgpack:"elem"`
 	// Name is the identifier for type variables.
@@ -232,7 +232,7 @@ type Type struct {
 // cannot be represented in int64.
 func (t Type) IntegerMaxValue() int64 {
 	if !t.IsInteger() {
-		panic(fmt.Sprintf("[type.IntegerMaxValue] attempted to call on non-integer"))
+		panic(fmt.Sprintf("[type.IntegerMaxValue] attempted to call on non-integer %s", t))
 	}
 	switch t.Kind {
 	case KindI8:
@@ -262,7 +262,7 @@ func (t Type) IntegerMaxValue() int64 {
 // Returns 0 for unsigned integer types.
 func (t Type) IntegerMinValue() int64 {
 	if !t.IsInteger() {
-		panic(fmt.Sprintf("[types.IntegerMinValue] attempted to call on non-integer"))
+		panic(fmt.Sprintf("[types.IntegerMinValue] attempted to call on non-integer %s", t))
 	}
 	switch t.Kind {
 	case KindI8:

@@ -485,22 +485,29 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) bool 
 		}
 	}
 
-	if len(funcCalls) > 0 {
-		primary := ctx.AST.PrimaryExpression()
-		if id := primary.IDENTIFIER(); id != nil {
-			funcName := id.GetText()
-			if funcName != "true" && funcName != "false" {
-				if scope, err := ctx.Scope.Resolve(ctx, funcName); err == nil {
-					if scope.Kind == symbol.KindFunction {
-						if !validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0]) {
-							return false
-						}
-					}
-				}
+	if len(funcCalls) == 0 {
+		return true
+	}
+	primary := ctx.AST.PrimaryExpression()
+	if id := primary.IDENTIFIER(); id != nil {
+		funcName := id.GetText()
+		scope, err := ctx.Scope.Resolve(ctx, funcName)
+		if err != nil {
+			ctx.Diagnostics.AddError(err, primary)
+			return false
+		}
+		if scope.Kind == symbol.KindFunction {
+			if !validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0]) {
+				return false
 			}
+		} else {
+			ctx.Diagnostics.AddError(
+				errors.Newf("cannot call non-function %s of type %s", funcName, scope.Type),
+				funcCalls[0],
+			)
+			return false
 		}
 	}
-
 	return true
 }
 

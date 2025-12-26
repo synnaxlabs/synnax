@@ -157,12 +157,6 @@ var _ = Describe("ImportIndex Helpers", func() {
 				Expect(funcIdx).To(Equal(uint32(13)))
 			})
 
-			It("Should return error for unknown operator", func() {
-				_, err := idx.GetSeriesArithmetic("%", types.I64(), true)
-				Expect(err).NotTo(BeNil())
-				Expect(err).To(MatchError(ContainSubstring("unknown arithmetic operator")))
-			})
-
 			It("Should return error for unsupported type", func() {
 				_, err := idx.GetSeriesArithmetic("+", types.U8(), true)
 				Expect(err).NotTo(BeNil())
@@ -191,11 +185,6 @@ var _ = Describe("ImportIndex Helpers", func() {
 				Expect(funcIdx).To(Equal(uint32(17)))
 			})
 
-			It("Should return error for unknown operator", func() {
-				_, err := idx.GetSeriesArithmetic("%", types.I64(), false)
-				Expect(err).NotTo(BeNil())
-				Expect(err).To(MatchError(ContainSubstring("unknown arithmetic operator")))
-			})
 		})
 	})
 

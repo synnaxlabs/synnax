@@ -152,8 +152,6 @@ TEST(SequenceTest, ToStringUsesCorrectTreePrefixes) {
     EXPECT_NE(str.find("└── last"), std::string::npos);
 }
 
-// -------------------- Params access tests --------------------
-
 /// @brief it should access params by name using operator[]
 TEST(ParamsTest, testOperatorBracketByName) {
     arc::ir::Params params;
@@ -187,8 +185,6 @@ TEST(ParamsTest, testOperatorBracketByIndex) {
     ASSERT_EQ(params[1].name, "second");
     ASSERT_EQ(params[1].get<int32_t>(), 200);
 }
-
-// -------------------- IR access tests --------------------
 
 /// @brief it should access nodes by key using node()
 TEST(IRTest, testNodeAccess) {
@@ -308,15 +304,12 @@ TEST(IRTest, testEdgesInto) {
         arc::ir::Handle("node_other", "in")
     );
 
-    auto edges = ir.edges_into("node_target");
+    const auto edges = ir.edges_into("node_target");
     ASSERT_EQ(edges.size(), 2);
 
-    // Non-existent node should return empty vector
-    auto no_edges = ir.edges_into("nonexistent");
+    const auto no_edges = ir.edges_into("nonexistent");
     ASSERT_TRUE(no_edges.empty());
 }
-
-// -------------------- Sequence access tests --------------------
 
 /// @brief it should access stages by key using operator[]
 TEST(SequenceTest, testOperatorBracket) {

@@ -108,6 +108,8 @@ var _ = Describe("Expression func Conversion", func() {
 			Expect(fnSym.Type.Config).To(BeEmpty())
 			output := MustBeOk(fnSym.Type.Outputs.Get(ir.DefaultOutputParam))
 			Expect(output.Type).To(Equal(types.U8()))
+			Expect(fnSym.Channels.Read).To(HaveLen(1))
+			Expect(fnSym.Channels.Read).To(HaveKey(uint32(12)))
 		})
 
 		It("should extract multiple channels from arithmetic expressions", func() {
