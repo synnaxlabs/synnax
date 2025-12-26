@@ -18,10 +18,10 @@ import ExampleDetails from "@/components/details/ExampleDetails.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-While the [Synnax Driver](/reference/driver) is great for the devices we support, you
+While the [Synnax Driver](/reference/driver) is great for the devices it supports, you
 may need to integrate your own hardware with Synnax. This guide walks you through
-building a reliable, performant driver using the client libraries. We'll use an Arduino
-as an example, but the patterns apply to any serial-based device.
+building a reliable, performant driver using the client libraries. The guide uses an
+Arduino as an example, but the patterns apply to any serial-based device.
 
 <Divider.Divider x />
 
@@ -32,7 +32,7 @@ Before starting, ensure you have:
 - **Synnax Core** running ([installation guide](/reference/core/installation))
 - **Synnax Console** installed ([get started](/reference/console/get-started))
 - **Arduino IDE** ([download](https://www.arduino.cc/en/software)) - any Arduino board
-  works (we use an Arduino Mega 2560)
+  works (this guide uses an Arduino Mega 2560)
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
@@ -59,8 +59,8 @@ Before starting, ensure you have:
 
 ## Read-Only Driver
 
-We'll set up the Arduino to continuously read from an analog input and send the value
-over serial. Our Python script will capture each incoming value and write it to a
+This section sets up the Arduino to continuously read from an analog input and send the
+value over serial. The driver script captures each incoming value and writes it to a
 [channel](/reference/concepts/channels) in Synnax.
 
 ### <StepText step={1} level="h3">Arduino Code</StepText>
@@ -384,7 +384,8 @@ With the script running, set up a line plot in the Console:
 
 ## Write-Only Driver
 
-Now we'll receive commands from Synnax to control digital outputs on the Arduino.
+This section covers receiving commands from Synnax to control digital outputs on the
+Arduino.
 
 ### <StepText step={1} level="h3">Arduino Code</StepText>
 
@@ -569,7 +570,8 @@ Set up a switch on a [schematic](/reference/console/schematics).
 
 ## Read-Write Driver
 
-You may have noticed we set both "State" and "Command" to the same channel. This works,
+You may have noticed the previous section set both "State" and "Command" to the same
+channel. This works,
 but has a problem: if the driver stops, clicking the switch still appears to work (it
 toggles visually) even though nothing happens on the hardware.
 
