@@ -32,7 +32,7 @@ TEST(StateTest, CreateStateAndGetNode) {
     Config cfg{.ir = ir, .channels = {}};
     State s(cfg);
 
-    auto node = s.node("test");
+    auto state = ASSERT_NIL_P(s.node("test"));
 }
 
 /// @brief Test basic input alignment with two connected nodes
