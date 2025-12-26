@@ -85,7 +85,7 @@ var _ = Describe("Type Inference", func() {
 
 	Describe("InferFromExpression", func() {
 		DescribeTable("channel unwrapping",
-			func(expr string, expectedKind types.TypeKind) {
+			func(expr string, expectedKind types.Kind) {
 				t := inferExprType(bCtx, testResolver, expr)
 				Expect(t.Kind).To(Equal(expectedKind))
 			},
@@ -96,23 +96,23 @@ var _ = Describe("Type Inference", func() {
 		)
 
 		DescribeTable("literal type inference",
-			func(expr string, expectedKind types.TypeKind, constraintKind *types.TypeKind) {
+			func(expr string, expectedKind types.Kind, constraintKind types.Kind) {
 				t := inferExprType(bCtx, testResolver, expr)
 				Expect(t.Kind).To(Equal(expectedKind))
-				if constraintKind != nil {
+				if constraintKind != types.KindInvalid {
 					Expect(t.Constraint).ToNot(BeNil())
-					Expect(t.Constraint.Kind).To(Equal(*constraintKind))
+					Expect(t.Constraint.Kind).To(Equal(constraintKind))
 				}
 			},
-			Entry("integer literal", "42", types.KindVariable, ptr(types.KindIntegerConstant)),
-			Entry("float literal", "3.14", types.KindVariable, ptr(types.KindFloatConstant)),
-			Entry("string literal", `"hello"`, types.KindString, (*types.TypeKind)(nil)),
-			Entry("boolean true", "true", types.KindU8, (*types.TypeKind)(nil)),
-			Entry("boolean false", "false", types.KindU8, (*types.TypeKind)(nil)),
+			Entry("integer literal", "42", types.KindVariable, types.KindIntegerConstant),
+			Entry("float literal", "3.14", types.KindVariable, types.KindFloatConstant),
+			Entry("string literal", `"hello"`, types.KindString, types.KindInvalid),
+			Entry("boolean true", "true", types.KindU8, types.KindInvalid),
+			Entry("boolean false", "false", types.KindU8, types.KindInvalid),
 		)
 
 		DescribeTable("literal inference from context",
-			func(expr string, expectedKind types.TypeKind) {
+			func(expr string, expectedKind types.Kind) {
 				t := inferExprType(bCtx, testResolver, expr)
 				Expect(t.Kind).To(Equal(expectedKind))
 			},
@@ -122,7 +122,7 @@ var _ = Describe("Type Inference", func() {
 		)
 
 		DescribeTable("comparison and logical expressions",
-			func(expr string, expectedKind types.TypeKind) {
+			func(expr string, expectedKind types.Kind) {
 				t := inferExprType(bCtx, testResolver, expr)
 				Expect(t.Kind).To(Equal(expectedKind))
 			},
@@ -135,7 +135,7 @@ var _ = Describe("Type Inference", func() {
 		)
 
 		DescribeTable("complex expressions",
-			func(expr string, expectedKind types.TypeKind) {
+			func(expr string, expectedKind types.Kind) {
 				t := inferExprType(bCtx, testResolver, expr)
 				Expect(t.Kind).To(Equal(expectedKind))
 			},
@@ -270,7 +270,7 @@ var _ = Describe("Type Inference", func() {
 		})
 
 		DescribeTable("primitive types",
-			func(decl string, expectedKind types.TypeKind) {
+			func(decl string, expectedKind types.Kind) {
 				typeCtx := parseTypeFromDecl(decl)
 				t := MustSucceed(atypes.InferFromTypeContext(typeCtx))
 				Expect(t.Kind).To(Equal(expectedKind))
@@ -294,7 +294,7 @@ var _ = Describe("Type Inference", func() {
 		)
 
 		DescribeTable("composite types",
-			func(decl string, expectedKind types.TypeKind, expectedElemKind types.TypeKind) {
+			func(decl string, expectedKind types.Kind, expectedElemKind types.Kind) {
 				typeCtx := parseTypeFromDecl(decl)
 				t := MustSucceed(atypes.InferFromTypeContext(typeCtx))
 				Expect(t.Kind).To(Equal(expectedKind))
@@ -336,6 +336,3 @@ var _ = Describe("Type Inference", func() {
 		})
 	})
 })
-
-// ptr is a helper to create pointers to values for table entries.
-func ptr[T any](v T) *T { return &v }
