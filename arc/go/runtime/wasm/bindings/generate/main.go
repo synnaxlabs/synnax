@@ -405,7 +405,8 @@ func (r *Runtime) SeriesElementMod{{.IRType | title}}(ctx context.Context, handl
 }
 
 // SeriesElementRSub{{.IRType | title}} computes scalar - series (reverse subtract).
-func (r *Runtime) SeriesElementRSub{{.IRType | title}}(ctx context.Context, handle uint32, scalar {{.GoType}}) uint32 {
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar - series'.
+func (r *Runtime) SeriesElementRSub{{.IRType | title}}(ctx context.Context, scalar {{.GoType}}, handle uint32) uint32 {
 	s, ok := r.series[handle]
 	if !ok {
 		return 0
@@ -419,7 +420,8 @@ func (r *Runtime) SeriesElementRSub{{.IRType | title}}(ctx context.Context, hand
 }
 
 // SeriesElementRDiv{{.IRType | title}} computes scalar / series (reverse divide).
-func (r *Runtime) SeriesElementRDiv{{.IRType | title}}(ctx context.Context, handle uint32, scalar {{.GoType}}) uint32 {
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar / series'.
+func (r *Runtime) SeriesElementRDiv{{.IRType | title}}(ctx context.Context, scalar {{.GoType}}, handle uint32) uint32 {
 	s, ok := r.series[handle]
 	if !ok {
 		return 0

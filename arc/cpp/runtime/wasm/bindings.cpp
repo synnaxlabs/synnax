@@ -269,7 +269,7 @@ extend_to_match_length(const telem::Series &a, const telem::Series &b) {
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
     }                                                                                  \
-    uint32_t Bindings::series_element_rsub_##suffix(uint32_t handle, cpptype value) {  \
+    uint32_t Bindings::series_element_rsub_##suffix(cpptype value, uint32_t handle) {  \
         auto it = series.find(handle);                                                 \
         if (it == series.end()) return 0;                                              \
         auto result = value - it->second;                                              \
@@ -277,7 +277,7 @@ extend_to_match_length(const telem::Series &a, const telem::Series &b) {
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
     }                                                                                  \
-    uint32_t Bindings::series_element_rdiv_##suffix(uint32_t handle, cpptype value) {  \
+    uint32_t Bindings::series_element_rdiv_##suffix(cpptype value, uint32_t handle) {  \
         auto it = series.find(handle);                                                 \
         if (it == series.end()) return 0;                                              \
         auto result = value / it->second;                                              \
@@ -574,13 +574,13 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
         })                                                                             \
     );                                                                                 \
     imports.push_back(                                                                 \
-        wasmtime::Func::wrap(store, [runtime](uint32_t h, wasm_type v) -> uint32_t {   \
-            return runtime->series_element_rsub_##type(h, v);                          \
+        wasmtime::Func::wrap(store, [runtime](wasm_type v, uint32_t h) -> uint32_t {   \
+            return runtime->series_element_rsub_##type(v, h);                          \
         })                                                                             \
     );                                                                                 \
     imports.push_back(                                                                 \
-        wasmtime::Func::wrap(store, [runtime](uint32_t h, wasm_type v) -> uint32_t {   \
-            return runtime->series_element_rdiv_##type(h, v);                          \
+        wasmtime::Func::wrap(store, [runtime](wasm_type v, uint32_t h) -> uint32_t {   \
+            return runtime->series_element_rdiv_##type(v, h);                          \
         })                                                                             \
     );                                                                                 \
     imports.push_back(                                                                 \

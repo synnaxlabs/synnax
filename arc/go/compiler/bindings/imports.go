@@ -215,7 +215,7 @@ func setupSeriesOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
 
 // setupSeriesArithmetic registers arithmetic operations for series
 func setupSeriesArithmetic(m *wasm.Module, idx *ImportIndex, typ types.Type, wasmType wasm.ValueType) {
-	// Scalar operations - order matches Bind() in static_bindings_generated.go
+	// Scalar operations: series op scalar -> (handle, scalar)
 	ops := []struct {
 		name string
 		idx  *map[string]uint32
@@ -225,14 +225,30 @@ func setupSeriesArithmetic(m *wasm.Module, idx *ImportIndex, typ types.Type, was
 		{"sub", &idx.SeriesElementSub},
 		{"div", &idx.SeriesElementDiv},
 		{"mod", &idx.SeriesElementMod},
-		{"rsub", &idx.SeriesElementRSub},
-		{"rdiv", &idx.SeriesElementRDiv},
 	}
 
 	for _, op := range ops {
 		funcName := fmt.Sprintf("series_element_%s_%s", op.name, typ)
 		(*op.idx)[typ.String()] = m.AddImport("env", funcName, wasm.FunctionType{
 			Params:  []wasm.ValueType{wasm.I32, wasmType}, // series, scalar
+			Results: []wasm.ValueType{wasm.I32},           // new series
+		})
+	}
+
+	// Reverse operations: scalar op series -> (scalar, handle)
+	// For `scalar - series`, stack is [scalar, handle], so signature is (scalar, handle)
+	reverseOps := []struct {
+		name string
+		idx  *map[string]uint32
+	}{
+		{"rsub", &idx.SeriesElementRSub},
+		{"rdiv", &idx.SeriesElementRDiv},
+	}
+
+	for _, op := range reverseOps {
+		funcName := fmt.Sprintf("series_element_%s_%s", op.name, typ)
+		(*op.idx)[typ.String()] = m.AddImport("env", funcName, wasm.FunctionType{
+			Params:  []wasm.ValueType{wasmType, wasm.I32}, // scalar, series
 			Results: []wasm.ValueType{wasm.I32},           // new series
 		})
 	}
