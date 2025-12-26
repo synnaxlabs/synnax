@@ -10,12 +10,24 @@
 package units_test
 
 import (
+	stdctx "context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/units"
+	"github.com/synnaxlabs/arc/diagnostics"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+func testCtx() context.Context[parser.IProgramContext] {
+	return context.Context[parser.IProgramContext]{
+		Context:     stdctx.Background(),
+		Diagnostics: &diagnostics.Diagnostics{},
+	}
+}
 
 // makeType is a helper to create a types.Type with an optional unit.
 func makeType(unitName string) types.Type {
@@ -31,8 +43,10 @@ var _ = Describe("Analysis", func() {
 		Context("Multiplication and Division", func() {
 			DescribeTable("should allow any dimension combinations",
 				func(op, leftUnit, rightUnit string) {
+					ctx := testCtx()
 					left, right := makeType(leftUnit), makeType(rightUnit)
-					Expect(units.ValidateBinaryOp(op, left, right)).To(Succeed())
+					Expect(units.ValidateBinaryOp(ctx, op, left, right)).To(BeTrue())
+					Expect(ctx.Diagnostics.Errors()).To(BeEmpty())
 				},
 				Entry("multiply same dimensions", "*", "m", "m"),
 				Entry("multiply different dimensions", "*", "m", "s"),
@@ -49,8 +63,10 @@ var _ = Describe("Analysis", func() {
 		Context("Dimension-Matching Operations", func() {
 			DescribeTable("should allow matching or dimensionless operands",
 				func(op, leftUnit, rightUnit string) {
+					ctx := testCtx()
 					left, right := makeType(leftUnit), makeType(rightUnit)
-					Expect(units.ValidateBinaryOp(op, left, right)).To(Succeed())
+					Expect(units.ValidateBinaryOp(ctx, op, left, right)).To(BeTrue())
+					Expect(ctx.Diagnostics.Errors()).To(BeEmpty())
 				},
 				// Addition
 				Entry("add same dimensions (pressure)", "+", "psi", "Pa"),
@@ -73,10 +89,10 @@ var _ = Describe("Analysis", func() {
 
 			DescribeTable("should reject incompatible dimensions",
 				func(op, leftUnit, rightUnit string) {
+					ctx := testCtx()
 					left, right := makeType(leftUnit), makeType(rightUnit)
-					Expect(units.ValidateBinaryOp(op, left, right)).To(
-						MatchError(units.IncompatibleDimensionsError),
-					)
+					Expect(units.ValidateBinaryOp(ctx, op, left, right)).To(BeFalse())
+					Expect(ctx.Diagnostics.Errors()).To(HaveLen(1))
 				},
 				Entry("add pressure and time", "+", "psi", "s"),
 				Entry("subtract length and time", "-", "m", "s"),

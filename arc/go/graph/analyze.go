@@ -156,7 +156,7 @@ func Analyze(
 		}
 	}
 
-	// Step 5.5: Check for Duplicate Edge Targets and Build Connected Inputs Map
+	// Step 5A: Check for Duplicate Edge Targets and Build Connected Inputs Map
 	connectedInputs := make(map[string]map[string]bool)
 	for _, edge := range g.Edges {
 		if connectedInputs[edge.Target.Node] == nil {
@@ -176,7 +176,7 @@ func Analyze(
 		return ir.IR{}, ctx.Diagnostics
 	}
 
-	// Step 5.6: Check Missing Required Inputs
+	// Step 5B: Check Missing Required Inputs
 	for _, n := range g.Nodes {
 		freshType := freshFuncTypes[n.Key]
 		if freshType.Inputs == nil {

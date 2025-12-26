@@ -27,7 +27,8 @@ func compile(source string) []byte {
 	aCtx := acontext.CreateRoot(bCtx, stmt, nil)
 	Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
 	ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, true)
-	MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+	diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+	Expect(diverged).To(BeFalse()) // Normal statements don't diverge control flow
 	return ctx.Writer.Bytes()
 }
 
@@ -36,7 +37,8 @@ func compileBlock(source string) []byte {
 	aCtx := acontext.CreateRoot(bCtx, block, nil)
 	Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
 	ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, true)
-	MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+	diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+	Expect(diverged).To(BeFalse())
 	return ctx.Writer.Bytes()
 }
 
@@ -92,7 +94,8 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
 			Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
-			MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+			Expect(diverged).To(BeFalse())
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
@@ -109,7 +112,8 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
 			Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
-			MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+			Expect(diverged).To(BeFalse())
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
@@ -129,7 +133,8 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
 			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
-			MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			stateStoreIdx := ctx.Imports.StateStore["i64"]
@@ -158,7 +163,8 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
 			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
-			MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
@@ -188,7 +194,8 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
 			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
-			MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
@@ -223,7 +230,8 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
 			Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
-			MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+			Expect(diverged).To(BeFalse())
 
 			stateLoadIdx := ctx.Imports.StateLoad["f64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
