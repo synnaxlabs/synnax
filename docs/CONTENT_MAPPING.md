@@ -21,7 +21,7 @@ unified client documentation structure.
 ├── advanced/
 │   ├── writers.mdx                     ✅ Complete
 │   ├── delete-data.mdx                 ✅ Complete
-│   └── timestamps.mdx                  🔄 In Progress (TS only)
+│   └── time-types.mdx                  ✅ Complete
 └── resources/
     ├── examples.mdx                    🔄 In Progress
     ├── build-device-driver.mdx         🔄 In Progress (Python only)
@@ -33,30 +33,30 @@ unified client documentation structure.
 
 ### Phase 1: Get Started (✅ COMPLETE)
 
-- [x] Create Quick Start with actual content
-- [x] Create Authentication page with actual content
+- [x] Quick Start
+- [x] Authentication
 - [x] Update navigation structure
 
 ### Phase 2: Fundamentals (✅ COMPLETE)
 
-- [x] Create Channels with actual content
-- [x] Create Read Data with actual content
-- [x] Create Write Data with actual content
+- [x] Channels
+- [x] Read Data
+- [x] Write Data
 
-### Phase 3: Working with Data (🔄 IN PROGRESS)
+### Phase 3: Working with Data (✅ COMPLETE)
 
 - [x] Create all shell pages
 - [x] Series & Frames
-- [x] Ranges (content transferred, needs cleanup)
-- [x] Streaming Data (content transferred, needs cleanup)
-- [x] Iterators (content transferred, needs cleanup)
+- [x] Ranges
+- [x] Streaming Data
+- [x] Iterators
 
-### Phase 4: Advanced Topics (🔄 IN PROGRESS)
+### Phase 4: Advanced Topics (✅ COMPLETE)
 
 - [x] Create all shell pages
-- [x] Writers (content transferred, needs cleanup)
-- [x] Delete Data (content transferred, needs cleanup)
-- [🔄] Timestamps (content transferred, needs cleanup)
+- [x] Writers
+- [x] Delete Data
+- [x] Time Types
 
 ### Phase 5: Resources (🔄 IN PROGRESS)
 
@@ -78,9 +78,9 @@ unified client documentation structure.
 | Get Started       | 2        | ✅ Complete       |
 | Fundamentals      | 3        | ✅ Complete       |
 | Working with Data | 4        | ✅ Complete       |
-| Advanced Topics   | 3        | 🔄 1 in progress  |
+| Advanced Topics   | 3        | ✅ Complete       |
 | Resources         | 3        | 🔄 3 in progress  |
-| **TOTAL**         | **15**   | **6 complete, 9 in progress** |
+| **TOTAL**         | **15**   | **12 complete, 3 in progress** |
 
 ## Notes
 

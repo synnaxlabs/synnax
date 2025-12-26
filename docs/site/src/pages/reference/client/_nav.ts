@@ -85,9 +85,9 @@ export const CLIENT_NAV: PageNavNode = {
           name: "Delete Data",
         },
         {
-          key: "/reference/client/advanced/timestamps",
-          href: "/reference/client/advanced/timestamps",
-          name: "Timestamps",
+          key: "/reference/client/advanced/time-types",
+          href: "/reference/client/advanced/time-types",
+          name: "Time Types",
         },
       ],
     },
