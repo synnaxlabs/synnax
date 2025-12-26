@@ -18,7 +18,7 @@ This example requires the `stream_write.py` file to be running in a separate ter
 import synnax as sy
 
 # We've logged in via the command-line interface, so there's no need to provide
-# credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
+# credentials here. See https://docs.synnaxlabs.com/reference/client/quick-start.
 client = sy.Synnax()
 
 # We can just specify the names of the channels we'd like to stream from. These channels

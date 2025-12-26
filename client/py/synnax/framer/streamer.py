@@ -68,7 +68,7 @@ class Streamer:
     frames of telemetry as they are received. This is useful when you want to process
     each frame as it is received.
 
-    For detailed documentation, see https://docs.synnaxlabs.com/reference/python-client/stream-data
+    For detailed documentation, see https://docs.synnaxlabs.com/reference/client/working-with-data/streaming-data
     """
 
     _stream: Stream[_Request, _Response]

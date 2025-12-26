@@ -19,7 +19,7 @@ assumes that example is running in a separate terminal.
 import synnax as sy
 
 # We've logged in via the CLI, so there's no need to provide credentials here.
-# See https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
+# See https://docs.synnaxlabs.com/reference/client/quick-start for more information.
 client = sy.Synnax()
 
 # We can just specify the names of the channels we'd like to stream from.

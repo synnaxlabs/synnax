@@ -23,7 +23,7 @@ unified client documentation structure.
 │   ├── delete-data.mdx                 ✅ Complete
 │   └── time-types.mdx                  ✅ Complete
 └── resources/
-    ├── examples.mdx                    🔄 In Progress
+    ├── examples.mdx                    ✅ Complete
     ├── build-device-driver.mdx         🔄 In Progress (Python only)
     └── troubleshooting.mdx             🔄 In Progress
 ```
@@ -61,9 +61,9 @@ unified client documentation structure.
 ### Phase 5: Resources (🔄 IN PROGRESS)
 
 - [x] Create all shell pages
-- [🔄] Examples page (content transferred, needs cleanup)
-- [🔄] Build Device Driver (content transferred, needs cleanup)
-- [🔄] Troubleshooting (content transferred, needs cleanup)
+- [x] Examples
+- [🔄] Build Device Driver
+- [🔄] Troubleshooting
 
 ### Phase 6: Cleanup
 
