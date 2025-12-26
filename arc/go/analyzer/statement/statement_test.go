@@ -24,10 +24,11 @@ import (
 var _ = Describe("Statement", func() {
 	// Helper to set up function context for tests that need it
 	setupFunctionContext := func(ctx context.Context[parser.IBlockContext]) {
-		MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+		scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 			Name: "testFunc",
 			Kind: symbol.KindFunction,
 		}))
+		Expect(scope).ToNot(BeNil())
 		fn := MustSucceed(ctx.Scope.Resolve(ctx, "testFunc"))
 		ctx.Scope = fn
 	}
@@ -194,11 +195,12 @@ var _ = Describe("Statement", func() {
 		It("should analyze standalone expression with existing variable", func() {
 			stmt := MustSucceed(parser.ParseStatement(`x + 1`))
 			ctx := context.CreateRoot(bCtx, stmt, nil)
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+			scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: "x",
 				Kind: symbol.KindVariable,
 				Type: types.I64(),
 			}))
+			Expect(scope).ToNot(BeNil())
 			Expect(statement.Analyze(ctx)).To(BeTrue())
 			Expect(*ctx.Diagnostics).To(BeEmpty())
 		})
@@ -241,10 +243,11 @@ var _ = Describe("Statement", func() {
 		})
 
 		setupChannelFunctionContext := func(ctx context.Context[parser.IBlockContext]) {
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+			scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: "testFunc",
 				Kind: symbol.KindFunction,
 			}))
+			Expect(scope).ToNot(BeNil())
 			fn := MustSucceed(ctx.Scope.Resolve(ctx, "testFunc"))
 			ctx.Scope = fn
 		}
