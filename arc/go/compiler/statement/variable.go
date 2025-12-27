@@ -357,6 +357,14 @@ func compileAssignment(
 
 	sym := scope.Symbol
 	varType := sym.Type
+
+	// For channel writes, push the channel ID before compiling the expression.
+	// This avoids needing a temporary local variable to rearrange the stack.
+	// The channel's scope.ID is the Synnax channel key (not a WASM local index).
+	if sym.Kind == symbol.KindChannel || sym.Kind == symbol.KindConfig {
+		ctx.Writer.WriteI32Const(int32(scope.ID))
+	}
+
 	exprType, err := expression.Compile(context.Child(ctx, ctx.AST.Expression()).WithHint(varType))
 	if err != nil {
 		return errors.Wrapf(err, "failed to compile assignment expression for '%s'", name)
@@ -366,22 +374,17 @@ func compileAssignment(
 			return err
 		}
 	}
-	// Handle based on variable kind
+
 	switch sym.Kind {
 	case symbol.KindVariable, symbol.KindInput:
-		// Regular local variable or input
 		ctx.Writer.WriteLocalSet(scope.ID)
 	case symbol.KindStatefulVariable:
-		// Value/handle is on stack from expression compilation
-		// Need to rearrange to: [funcID, varID, value/handle]
-		// First store value temporarily in local
+		// Stack: [value]
+		// Need: [funcID, varID, value]
 		ctx.Writer.WriteLocalSet(scope.ID)
-		// Push funcID and varID
-		ctx.Writer.WriteI32Const(0) // func ID
+		ctx.Writer.WriteI32Const(0)
 		ctx.Writer.WriteI32Const(int32(scope.ID))
-		// Push value back from local
 		ctx.Writer.WriteLocalGet(scope.ID)
-		// Stack is now: [funcID, varID, value/handle]
 		resolveImportF := lo.Ternary(
 			varType.Kind == types.KindSeries,
 			ctx.Imports.GetStateStoreSeries,
@@ -393,25 +396,12 @@ func compileAssignment(
 		}
 		ctx.Writer.WriteCall(importIdx)
 	case symbol.KindChannel, symbol.KindConfig:
-		// Channel write (assignment syntax): channel = value
-		// Stack: [value]
-		// Need to rearrange to: [channelID, value] then call host function
-		chanValueType := varType.Unwrap()
-
-		// Push channel ID first, then value
-		// But value is already on stack, so store it temporarily using local index
-		// Use the variable's own index as temporary storage
-		ctx.Writer.WriteLocalTee(scope.ID)        // [value] -> tee -> [value], value in local
-		ctx.Writer.WriteI32Const(int32(scope.ID)) // Push channel ID
-		ctx.Writer.WriteLocalGet(scope.ID)        // Push value back
-		// Stack is now: [channelID, value]
-
-		importIdx, err := ctx.Imports.GetChannelWrite(chanValueType)
+		// Stack is already [channelID, value] from pushing ID before expression
+		importIdx, err := ctx.Imports.GetChannelWrite(varType.Unwrap())
 		if err != nil {
 			return err
 		}
 		ctx.Writer.WriteCall(importIdx)
-		// Write complete - stack is empty
 	case symbol.KindOutput:
 		// Named output - needs special handling for multi-output routing
 		if err := compileOutputAssignment(ctx, name, scope); err != nil {

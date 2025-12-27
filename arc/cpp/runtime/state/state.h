@@ -140,10 +140,9 @@ class State {
     std::unordered_map<types::ChannelKey, std::vector<Series>> reads;
     std::unordered_map<types::ChannelKey, Series> writes;
 
+public:
     void write_channel(types::ChannelKey key, const Series &data, const Series &time);
     std::pair<telem::MultiSeries, bool> read_channel(types::ChannelKey key);
-
-public:
     explicit State(const Config &cfg);
     std::pair<Node, xerrors::Error> node(const std::string &key);
     void ingest(const telem::Frame &frame);
