@@ -26,7 +26,7 @@ To run the example, make sure you have:
    [Quick Start](https://docs.synnaxlabs.com/reference/core/quick-start) guide for more
    information.
 2. The Synnax Python client installed. See the
-   [Getting Started](https://docs.synnaxlabs.com/reference/python-client/get-started)
+   [Quick Start](https://docs.synnaxlabs.com/reference/client/quick-start)
    guide for more information.
 3. Optionally, the Synnax Console installed and set up to visualize the data generated
    by the control sequence. See the

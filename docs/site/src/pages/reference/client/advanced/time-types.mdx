@@ -1,0 +1,560 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Time Types"
+description: "High-precision time types for timestamps, durations, and ranges."
+next: "Examples"
+nextURL: "/reference/client/resources/examples"
+prev: "Delete Data"
+prevURL: "/reference/client/advanced/delete-data"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Synnax stores timestamps with nanosecond precision, which exceeds what native types
+in most languages can represent. The client libraries provide utility classes for
+working with high-precision timestamps, durations, and time ranges.
+
+<Divider.Divider x />
+
+## TimeStamp
+
+The `TimeStamp` class represents a 64-bit nanosecond-precision UTC timestamp. It stores
+the number of nanoseconds elapsed since the Unix epoch (January 1, 1970).
+
+### Constructing a TimeStamp
+
+There are several easy ways to construct a `TimeStamp`:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+from datetime import datetime
+
+# From the current time
+now = sy.TimeStamp.now()
+# From a datetime object
+ts = sy.TimeStamp(datetime(2021, 1, 1))
+# From a string (ISO format)
+ts = sy.TimeStamp("2021-01-01T00:00:00Z")
+# From a number of nanoseconds
+ts = sy.TimeStamp(1000000000)
+# From utility functions
+ts = sy.TimeStamp.now() - sy.TimeSpan.SECOND
+# From a pandas Timestamp
+import pandas as pd
+ts = sy.TimeStamp(pd.Timestamp("2021-01-01"))
+# From a numpy datetime64
+import numpy as np
+ts = sy.TimeStamp(np.datetime64("2021-01-01"))
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { TimeStamp } from "@synnaxlabs/client";
+
+// From the current time
+const now = TimeStamp.now();
+
+// From a Date object
+const ts = new TimeStamp(new Date("2021-01-01T00:00:00Z"));
+
+// From a string
+const ts = new TimeStamp("2021-01-01T00:00:00Z");
+
+// From a number of nanoseconds
+const ts = new TimeStamp(1000000000);
+
+// From a bigint of nanoseconds
+const ts = new TimeStamp(BigInt(1000000000));
+
+// From utility functions
+const ts = TimeStamp.now().sub(TimeSpan.seconds(1));
+```
+  <div style={{ margin: "4rem 0" }}>
+
+  </div>
+
+  </Fragment>
+</Client.Tabs>
+
+Any of these formats can be passed to common methods used throughout the Synnax client.
+The union of these formats is called a `CrudeTimeStamp`. Examples include `read`,
+`write`, `open_iterator`/`openIterator`, `open_streamer`/`openStreamer`, and
+`open_writer`/`openWriter`.
+
+### Converting to a Date/Datetime
+
+You can convert a `TimeStamp` to a native date object:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+  <Fragment slot="python">
+
+```python
+from datetime import timezone
+
+ts = sy.TimeStamp.now()
+# Convert to datetime (defaults to local timezone)
+dt = ts.datetime()
+# Convert to datetime with specific timezone
+dt_utc = ts.datetime(timezone.utc)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// TimeStamp is always in UTC
+const ts = TimeStamp.now();
+// Convert to Date object (internally UTC, displays in local timezone)
+const date = ts.date();
+// Display in a specific timezone
+const dateStr = date.toLocaleString("en-US", { timeZone: "America/New_York" });
+```
+
+  <div style={{ margin: "8rem 0" }}>
+
+  </div>
+  </Fragment>
+</Client.Tabs>
+
+### Arithmetic
+
+You can perform arithmetic on `TimeStamp` objects:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+  <Fragment slot="python">
+
+```python
+ts1 = sy.TimeStamp.now()
+# Add a TimeSpan
+ts2 = ts1 + sy.TimeSpan.SECOND
+# Subtract a TimeSpan
+ts3 = ts1 - sy.TimeSpan.SECOND
+# Get the TimeSpan between two timestamps
+diff = ts2.span(ts1)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const ts1 = TimeStamp.now();
+// Add a TimeSpan
+const ts2 = ts1.add(TimeSpan.seconds(1));
+// Subtract a TimeSpan
+const ts3 = ts1.sub(TimeSpan.seconds(1));
+// Get the TimeSpan between two timestamps
+const diff = ts2.span(ts1);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+### Comparisons
+
+You can compare `TimeStamp` objects:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+  <Fragment slot="python">
+
+```python
+is_after = ts2.after(ts1)
+is_after_eq = ts2.after_eq(ts1)
+is_before = ts1.before(ts2)
+is_before_eq = ts1.before_eq(ts2)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const isAfter = ts2.after(ts1);
+const isAfterEq = ts2.afterEq(ts1);
+const isBefore = ts1.before(ts2);
+const isBeforeEq = ts1.beforeEq(ts2);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+### Accessing the Underlying Value
+
+You can access the underlying nanosecond value:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+  <Fragment slot="python">
+
+```python
+# Access the underlying nanosecond value (TimeStamp is a subclass of int)
+value = int(ts)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// Access the underlying nanosecond value (as bigint)
+const value = ts.value;
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## TimeSpan
+
+The `TimeSpan` class represents a 64-bit nanosecond-precision duration. It stores a
+duration as nanoseconds and provides utility methods for working with time intervals.
+
+### Constructing a TimeSpan
+
+You can construct a `TimeSpan` directly from a number of nanoseconds, but it's generally
+easier to use the utility constants or functions:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+from datetime import timedelta
+
+# From a number of nanoseconds
+span = sy.TimeSpan(1000000000)
+# From a timedelta
+span = sy.TimeSpan(timedelta(hours=1))
+# From predefined constants
+span = sy.TimeSpan.HOUR
+span = sy.TimeSpan.SECOND
+span = sy.TimeSpan.MILLISECOND
+# Combining constants with arithmetic
+span = sy.TimeSpan.DAY + sy.TimeSpan.HOUR + sy.TimeSpan.MINUTE
+# Multiplying constants
+span = 5 * sy.TimeSpan.SECOND
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { TimeSpan } from "@synnaxlabs/client";
+
+// From a number of nanoseconds
+const span = new TimeSpan(1000000000);
+
+// From utility functions
+const span = TimeSpan.hours(1);
+const span = TimeSpan.seconds(5);
+const span = TimeSpan.milliseconds(100);
+
+// Combining with arithmetic
+const span = TimeSpan.days(1).add(TimeSpan.hours(1)).add(TimeSpan.minutes(1));
+
+// Multiplying
+const span = TimeSpan.seconds(1).mult(5);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+### Performing Arithmetic
+
+You can perform arithmetic on `TimeSpan` objects:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+  <Fragment slot="python">
+
+```python
+span1 = sy.TimeSpan.HOUR
+# Add TimeSpans
+span2 = span1 + sy.TimeSpan.MINUTE
+# Subtract TimeSpans
+diff = span2 - span1
+# Multiply by a scalar
+span3 = 5 * sy.TimeSpan.SECOND
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const span1 = TimeSpan.hours(1);
+// Add TimeSpans
+const span2 = span1.add(TimeSpan.minutes(1));
+// Subtract TimeSpans
+const diff = span2.sub(span1);
+// Multiply by a scalar
+const span3 = TimeSpan.seconds(1).mult(5);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+### Accessing the Underlying Value
+
+You can access the underlying nanosecond value:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+  <Fragment slot="python">
+
+```python
+span = sy.TimeSpan.HOUR
+# Access the underlying nanosecond value (TimeSpan is a subclass of int)
+value = int(span)
+# Or use convenience properties
+seconds = span.seconds  # As float
+hours = span.hours_int  # As int
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const span = TimeSpan.hours(1);
+// Access the underlying nanosecond value (as bigint)
+const value = span.value;
+// Or use convenience properties
+const seconds = span.seconds; // As number
+const hours = span.hours; // As number
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## TimeRange
+
+The `TimeRange` class represents a range of time marked by a `start` and `end`
+`TimeStamp`. A `TimeRange` is start-inclusive and end-exclusive.
+
+### Constructing a TimeRange
+
+You can construct a `TimeRange` from two timestamps in any of the formats that
+`TimeStamp` supports:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+from datetime import datetime
+
+# From TimeStamp objects
+start = sy.TimeStamp.now()
+end = start + sy.TimeSpan.HOUR
+time_range = sy.TimeRange(start, end)
+
+# From datetime objects
+time_range = sy.TimeRange(datetime(2021, 1, 1), datetime(2021, 1, 1, 0, 0, 1))
+# From strings (ISO format)
+time_range = sy.TimeRange("2021-01-01T00:00:00Z", "2021-01-01T00:00:01Z")
+
+# From TimeSpan constants (seconds, minutes, hours, etc.)
+time_range = sy.TimeRange(5 * sy.TimeSpan.SECOND, 10 * sy.TimeSpan.SECOND)
+time_range = sy.TimeRange(1 * sy.TimeSpan.MINUTE, 5 * sy.TimeSpan.MINUTE)
+time_range = sy.TimeRange(1 * sy.TimeSpan.HOUR, 2 * sy.TimeSpan.HOUR)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { TimeRange } from "@synnaxlabs/client";
+
+// From TimeStamp objects
+const start = TimeStamp.now();
+const end = start.add(TimeSpan.hours(1));
+const range = new TimeRange(start, end);
+// From Date objects
+const range = new TimeRange(
+  new Date("2021-01-01T00:00:00Z"),
+  new Date("2021-01-01T00:00:01Z"),
+);
+// From strings
+const range = new TimeRange("2021-01-01T00:00:00Z", "2021-01-01T00:00:01Z");
+// From TimeSpan functions (seconds, minutes, hours, etc.)
+const range = new TimeRange(TimeSpan.seconds(5), TimeSpan.seconds(10));
+const range = new TimeRange(TimeSpan.minutes(1), TimeSpan.minutes(5));
+const range = new TimeRange(TimeSpan.hours(1), TimeSpan.hours(2));
+```
+
+  </Fragment>
+</Client.Tabs>
+
+### Checking if a TimeStamp is in a TimeRange
+
+You can check if a `TimeStamp` is contained in a `TimeRange` using the `contains` method:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+  <Fragment slot="python">
+
+```python
+time_range = sy.TimeRange(
+    "2021-01-01T00:00:00Z",
+    "2021-01-01T00:00:01Z",
+)
+ts = sy.TimeStamp("2021-01-01T00:00:00.5Z")
+is_in = time_range.contains(ts)
+print(is_in)  # True
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const range = new TimeRange(
+  new Date("2021-01-01T00:00:00Z"),
+  new Date("2021-01-01T00:00:01Z"),
+);
+const ts = new TimeStamp("2021-01-01T00:00:00.5Z");
+const isIn = range.contains(ts);
+console.log(isIn); // true
+```
+
+  </Fragment>
+</Client.Tabs>
+
+### Checking if Two TimeRanges Overlap
+
+You can check if two `TimeRange` objects overlap using the `overlapsWith` method:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+  <Fragment slot="python">
+
+```python
+range1 = sy.TimeRange(
+    "2021-01-01T00:00:00Z",
+    "2021-01-01T00:00:01Z",
+)
+range2 = sy.TimeRange(
+    "2021-01-01T00:00:00.5Z",
+    "2021-01-01T00:00:01.5Z",
+)
+does_overlap = range1.overlaps_with(range2)
+print(does_overlap)  # True
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const range1 = new TimeRange(
+  new Date("2021-01-01T00:00:00Z"),
+  new Date("2021-01-01T00:00:01Z"),
+);
+const range2 = new TimeRange(
+  new Date("2021-01-01T00:00:00.5Z"),
+  new Date("2021-01-01T00:00:01.5Z"),
+);
+const doesOverlap = range1.overlapsWith(range2);
+console.log(doesOverlap); // true
+```
+
+  </Fragment>
+</Client.Tabs>
+
+### Getting the TimeSpan of a TimeRange
+
+You can get the `TimeSpan` of a `TimeRange` using the `span` property:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+  <Fragment slot="python">
+
+```python
+time_range = sy.TimeRange(
+    "2021-01-01T00:00:00Z",
+    "2021-01-01T00:00:01Z",
+)
+span = time_range.span
+print(span.seconds)  # 1.0
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const range = new TimeRange(
+  new Date("2021-01-01T00:00:00Z"),
+  new Date("2021-01-01T00:00:01Z"),
+);
+const span = range.span;
+console.log(span.seconds); // 1
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Limitations
+
+Synnax stores timestamps as 64-bit integers representing the number of nanoseconds
+elapsed since the Unix epoch in UTC. The client libraries use specialized types to
+preserve this precision, but there are limitations to be aware of when converting
+to native types.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+Python's `int` type has arbitrary precision, so `TimeStamp` and `TimeSpan` (which
+subclass `int`) can represent any nanosecond value without precision loss. However,
+Python's native `datetime` only supports microsecond precision. When converting a
+`TimeStamp` to a `datetime`, the nanosecond portion is truncated:
+
+```python
+import synnax as sy
+
+# Create a timestamp with nanosecond precision
+ts = sy.TimeStamp(1609459200123456789)
+
+# Convert to datetime - nanoseconds are lost
+dt = ts.datetime()
+
+print(dt)  # 2021-01-01 00:00:00.123456 (truncated to microseconds)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+JavaScript's native `Date` object only supports millisecond precision, and the `number`
+type uses 64-bit floating point which can only represent integers up to 2^53 accurately.
+The `TimeStamp` and `TimeSpan` classes use `bigint` internally to preserve full
+nanosecond precision. However, precision loss occurs when converting to native types:
+
+```typescript
+// TimeStamp uses bigint internally - full precision preserved
+const ts = new TimeStamp(1609459200123456789n);
+
+// Convert to Date - nanoseconds are lost (millisecond precision only)
+const date = ts.date();
+console.log(date); // 2021-01-01T00:00:00.123Z (truncated to milliseconds)
+
+// Convert to number - precision loss for large values
+const num = Number(ts.valueOf()); // May lose precision beyond 2^53
+```
+
+  </Fragment>
+</Client.Tabs>
