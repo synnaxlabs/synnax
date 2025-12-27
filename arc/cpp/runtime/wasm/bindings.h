@@ -168,6 +168,8 @@ public:
 
     uint32_t series_not_u8(uint32_t handle);
 
+    void set_memory(wasmtime::Memory *mem) { this->memory = mem; }
+
     static uint64_t now();
     uint64_t len(uint32_t handle);
     void panic(uint32_t ptr, uint32_t len);
