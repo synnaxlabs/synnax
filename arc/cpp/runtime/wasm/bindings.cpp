@@ -318,7 +318,7 @@ uint32_t Bindings::string_len(const uint32_t handle) {
     IMPL_SERIES_BINARY_OP(suffix, cpptype, series_compare, le, <=)                     \
     IMPL_SERIES_BINARY_OP(suffix, cpptype, series_compare, eq, ==)                     \
     IMPL_SERIES_BINARY_OP(suffix, cpptype, series_compare, ne, !=)                     \
-    uint32_t Bindings::series_scalar_compare_gt_##suffix(uint32_t handle, cpptype v) { \
+    uint32_t Bindings::series_compare_gt_scalar_##suffix(uint32_t handle, cpptype v) { \
         auto it = series.find(handle);                                                 \
         if (it == series.end()) return 0;                                              \
         auto result = it->second > v;                                                  \
@@ -326,7 +326,7 @@ uint32_t Bindings::string_len(const uint32_t handle) {
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
     }                                                                                  \
-    uint32_t Bindings::series_scalar_compare_lt_##suffix(uint32_t handle, cpptype v) { \
+    uint32_t Bindings::series_compare_lt_scalar_##suffix(uint32_t handle, cpptype v) { \
         auto it = series.find(handle);                                                 \
         if (it == series.end()) return 0;                                              \
         auto result = it->second < v;                                                  \
@@ -334,7 +334,7 @@ uint32_t Bindings::string_len(const uint32_t handle) {
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
     }                                                                                  \
-    uint32_t Bindings::series_scalar_compare_ge_##suffix(uint32_t handle, cpptype v) { \
+    uint32_t Bindings::series_compare_ge_scalar_##suffix(uint32_t handle, cpptype v) { \
         auto it = series.find(handle);                                                 \
         if (it == series.end()) return 0;                                              \
         auto result = it->second >= v;                                                 \
@@ -342,7 +342,7 @@ uint32_t Bindings::string_len(const uint32_t handle) {
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
     }                                                                                  \
-    uint32_t Bindings::series_scalar_compare_le_##suffix(uint32_t handle, cpptype v) { \
+    uint32_t Bindings::series_compare_le_scalar_##suffix(uint32_t handle, cpptype v) { \
         auto it = series.find(handle);                                                 \
         if (it == series.end()) return 0;                                              \
         auto result = it->second <= v;                                                 \
@@ -350,7 +350,7 @@ uint32_t Bindings::string_len(const uint32_t handle) {
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
     }                                                                                  \
-    uint32_t Bindings::series_scalar_compare_eq_##suffix(uint32_t handle, cpptype v) { \
+    uint32_t Bindings::series_compare_eq_scalar_##suffix(uint32_t handle, cpptype v) { \
         auto it = series.find(handle);                                                 \
         if (it == series.end()) return 0;                                              \
         auto result = it->second == v;                                                 \
@@ -358,7 +358,7 @@ uint32_t Bindings::string_len(const uint32_t handle) {
         series.emplace(new_handle, std::move(result));                                 \
         return new_handle;                                                             \
     }                                                                                  \
-    uint32_t Bindings::series_scalar_compare_ne_##suffix(uint32_t handle, cpptype v) { \
+    uint32_t Bindings::series_compare_ne_scalar_##suffix(uint32_t handle, cpptype v) { \
         auto it = series.find(handle);                                                 \
         if (it == series.end()) return 0;                                              \
         auto result = it->second != v;                                                 \
@@ -679,37 +679,37 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_scalar_compare_gt_##suffix)                \
+            wrap(runtime, &Bindings::series_compare_gt_scalar_##suffix)                \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_scalar_compare_lt_##suffix)                \
+            wrap(runtime, &Bindings::series_compare_lt_scalar_##suffix)                \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_scalar_compare_ge_##suffix)                \
+            wrap(runtime, &Bindings::series_compare_ge_scalar_##suffix)                \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_scalar_compare_le_##suffix)                \
+            wrap(runtime, &Bindings::series_compare_le_scalar_##suffix)                \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_scalar_compare_eq_##suffix)                \
+            wrap(runtime, &Bindings::series_compare_eq_scalar_##suffix)                \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_scalar_compare_ne_##suffix)                \
+            wrap(runtime, &Bindings::series_compare_ne_scalar_##suffix)                \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
@@ -801,10 +801,10 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
         wasmtime::Func::wrap(store, wrap(runtime, &Bindings::string_concat))
     );
     imports.push_back(
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::string_len))
+        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::string_equal))
     );
     imports.push_back(
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::string_equal))
+        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::string_len))
     );
     imports.push_back(wasmtime::Func::wrap(store, &Bindings::now));
     imports.push_back(wasmtime::Func::wrap(store, wrap(runtime, &Bindings::len)));

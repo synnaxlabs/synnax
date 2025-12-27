@@ -127,12 +127,12 @@ public:
     uint32_t series_compare_le_##suffix(uint32_t a, uint32_t b);                       \
     uint32_t series_compare_eq_##suffix(uint32_t a, uint32_t b);                       \
     uint32_t series_compare_ne_##suffix(uint32_t a, uint32_t b);                       \
-    uint32_t series_scalar_compare_gt_##suffix(uint32_t handle, cpptype value);        \
-    uint32_t series_scalar_compare_lt_##suffix(uint32_t handle, cpptype value);        \
-    uint32_t series_scalar_compare_ge_##suffix(uint32_t handle, cpptype value);        \
-    uint32_t series_scalar_compare_le_##suffix(uint32_t handle, cpptype value);        \
-    uint32_t series_scalar_compare_eq_##suffix(uint32_t handle, cpptype value);        \
-    uint32_t series_scalar_compare_ne_##suffix(uint32_t handle, cpptype value);        \
+    uint32_t series_compare_gt_scalar_##suffix(uint32_t handle, cpptype value);        \
+    uint32_t series_compare_lt_scalar_##suffix(uint32_t handle, cpptype value);        \
+    uint32_t series_compare_ge_scalar_##suffix(uint32_t handle, cpptype value);        \
+    uint32_t series_compare_le_scalar_##suffix(uint32_t handle, cpptype value);        \
+    uint32_t series_compare_eq_scalar_##suffix(uint32_t handle, cpptype value);        \
+    uint32_t series_compare_ne_scalar_##suffix(uint32_t handle, cpptype value);        \
     uint32_t state_load_series_##suffix(                                               \
         uint32_t func_id,                                                              \
         uint32_t var_id,                                                               \

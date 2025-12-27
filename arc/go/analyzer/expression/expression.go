@@ -21,10 +21,10 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-func isBool(t basetypes.Type) bool           { return t.IsBool() }
-func isNumeric(t basetypes.Type) bool        { return t.IsNumeric() }
+func isBool(t basetypes.Type) bool            { return t.IsBool() }
+func isNumeric(t basetypes.Type) bool         { return t.IsNumeric() }
 func isNumericOrString(t basetypes.Type) bool { return t.IsNumeric() || t.Kind == basetypes.KindString }
-func isAny(basetypes.Type) bool              { return true }
+func isAny(basetypes.Type) bool               { return true }
 
 // IsLiteral checks if an expression is a single literal value with no operators.
 func IsLiteral(expr parser.IExpressionContext) bool {
