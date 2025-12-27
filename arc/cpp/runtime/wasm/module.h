@@ -207,18 +207,19 @@ public:
             };
         auto mem = *mem_ptr;
 
-        if (cfg.bindings != nullptr) cfg.bindings->set_memory(&mem);
-        return {
-            std::make_shared<Module>(
-                cfg,
-                std::move(mod),
-                std::move(engine),
-                std::move(store),
-                std::move(mem),
-                std::move(instance)
-            ),
-            xerrors::NIL
-        };
+        auto module = std::make_shared<Module>(
+            cfg,
+            std::move(mod),
+            std::move(engine),
+            std::move(store),
+            std::move(mem),
+            std::move(instance)
+        );
+        if (cfg.bindings != nullptr) {
+            cfg.bindings->set_memory(&module->memory);
+            cfg.bindings->set_store(&module->store);
+        }
+        return {module, xerrors::NIL};
     }
 
     Module(Module &&other) noexcept = default;

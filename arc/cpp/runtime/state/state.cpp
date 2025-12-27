@@ -24,42 +24,30 @@ Series parse_default_value(
         auto casted = data_type.cast(*value);
         return xmemory::make_local_shared<telem::Series>(casted);
     }
-    auto series = xmemory::make_local_shared<telem::Series>(data_type, 1);
     switch (type.kind) {
         case types::Kind::I8:
-            series->write(static_cast<int8_t>(0));
-            break;
+            return xmemory::make_local_shared<telem::Series>(static_cast<int8_t>(0));
         case types::Kind::I16:
-            series->write(static_cast<int16_t>(0));
-            break;
+            return xmemory::make_local_shared<telem::Series>(static_cast<int16_t>(0));
         case types::Kind::I32:
-            series->write(static_cast<int32_t>(0));
-            break;
+            return xmemory::make_local_shared<telem::Series>(static_cast<int32_t>(0));
         case types::Kind::I64:
-            series->write(static_cast<int64_t>(0));
-            break;
+            return xmemory::make_local_shared<telem::Series>(static_cast<int64_t>(0));
         case types::Kind::U8:
-            series->write(static_cast<uint8_t>(0));
-            break;
+            return xmemory::make_local_shared<telem::Series>(static_cast<uint8_t>(0));
         case types::Kind::U16:
-            series->write(static_cast<uint16_t>(0));
-            break;
+            return xmemory::make_local_shared<telem::Series>(static_cast<uint16_t>(0));
         case types::Kind::U32:
-            series->write(static_cast<uint32_t>(0));
-            break;
+            return xmemory::make_local_shared<telem::Series>(static_cast<uint32_t>(0));
         case types::Kind::U64:
-            series->write(static_cast<uint64_t>(0));
-            break;
+            return xmemory::make_local_shared<telem::Series>(static_cast<uint64_t>(0));
         case types::Kind::F32:
-            series->write(0.0f);
-            break;
+            return xmemory::make_local_shared<telem::Series>(0.0f);
         case types::Kind::F64:
-            series->write(0.0);
-            break;
+            return xmemory::make_local_shared<telem::Series>(0.0);
         default:
-            break;
+            return xmemory::make_local_shared<telem::Series>(data_type, 0);
     }
-    return series;
 }
 
 State::State(const Config &cfg): cfg(cfg) {
@@ -124,10 +112,8 @@ std::pair<Node, xerrors::Error> State::node(const std::string &key) {
 
             auto data_series = parse_default_value(param.value, param.type);
             auto time_series = xmemory::make_local_shared<telem::Series>(
-                telem::TIMESTAMP_T,
-                1
+                telem::TimeStamp(0)
             );
-            time_series->write(telem::TimeStamp(0));
 
             aligned_data[i] = data_series;
             aligned_time[i] = time_series;

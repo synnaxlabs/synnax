@@ -170,6 +170,8 @@ public:
 
     void set_memory(wasmtime::Memory *mem) { this->memory = mem; }
 
+    void set_store(wasmtime::Store *store) { this->store = store; }
+
     static uint64_t now();
     uint64_t len(uint32_t handle);
     void panic(uint32_t ptr, uint32_t len);
