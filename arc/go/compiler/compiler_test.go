@@ -1947,6 +1947,74 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(HaveLen(1))
 			Expect(results[0]).To(Equal(uint64(1)))
 		})
+
+		DescribeTable("indexed compound assignments",
+			func(body string, expected any) {
+				source := fmt.Sprintf(`func test() %s %s`, inferReturnType(expected), body)
+				output := MustSucceed(compileWithHostImports(source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				results := MustSucceed(test.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				assertResult(results[0], expected)
+			},
+			Entry("i32 indexed +=", `{
+				arr series i32 := [1, 2, 3]
+				arr[0] += 10
+				return arr[0]
+			}`, int32(11)),
+			Entry("i64 indexed -=", `{
+				arr series i64 := [100, 200, 300]
+				arr[1] -= 50
+				return arr[1]
+			}`, int64(150)),
+			Entry("f64 indexed *=", `{
+				arr series f64 := [2.0, 3.0, 4.0]
+				arr[2] *= 2.5
+				return arr[2]
+			}`, float64(10.0)),
+			Entry("f32 indexed /=", `{
+				arr series f32 := [10.0, 20.0]
+				arr[0] /= 2.0
+				return arr[0]
+			}`, float32(5.0)),
+			Entry("i64 indexed %=", `{
+				arr series i64 := [17, 23]
+				arr[0] %= 5
+				return arr[0]
+			}`, int64(2)),
+			Entry("indexed compound with variable index", `{
+				arr series i32 := [10, 20, 30]
+				i i32 := 1
+				arr[i] += 5
+				return arr[1]
+			}`, int32(25)),
+			Entry("indexed compound with expression index", `{
+				arr series i32 := [10, 20, 30]
+				arr[1 + 1] += 7
+				return arr[2]
+			}`, int32(37)),
+			Entry("indexed compound with variable value", `{
+				arr series i32 := [10, 20, 30]
+				delta i32 := 15
+				arr[0] += delta
+				return arr[0]
+			}`, int32(25)),
+			Entry("chained indexed compound assignments", `{
+				arr series i32 := [100, 200, 300]
+				arr[0] += 10
+				arr[0] *= 2
+				return arr[0]
+			}`, int32(220)),
+			Entry("multiple elements indexed compound", `{
+				arr series i64 := [10, 20, 30]
+				arr[0] += 1
+				arr[1] += 2
+				arr[2] += 3
+				return arr[0] + arr[1] + arr[2]
+			}`, int64(66)),
+		)
 	})
 
 	Describe("Compound Assignment Operators", func() {

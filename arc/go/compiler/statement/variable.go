@@ -136,11 +136,102 @@ func compileIndexedAssignment(
 	return nil
 }
 
+// compileIndexedCompoundAssignment handles indexed compound assignment statements (series[i] += value)
+// Equivalent to: arr[i] = arr[i] op expr
+func compileIndexedCompoundAssignment(
+	ctx context.Context[parser.IAssignmentContext],
+	scope *symbol.Scope,
+	indexOrSlice parser.IIndexOrSliceContext,
+	compoundOp parser.ICompoundOpContext,
+) error {
+	elemType := scope.Type.Unwrap()
+	indexExprs := indexOrSlice.AllExpression()
+
+	// Determine the operation
+	var op string
+	switch {
+	case compoundOp.PLUS_ASSIGN() != nil:
+		op = "+"
+	case compoundOp.MINUS_ASSIGN() != nil:
+		op = "-"
+	case compoundOp.STAR_ASSIGN() != nil:
+		op = "*"
+	case compoundOp.SLASH_ASSIGN() != nil:
+		op = "/"
+	case compoundOp.PERCENT_ASSIGN() != nil:
+		op = "%"
+	}
+
+	// Step 1: Push handle and index for eventual set_element call
+	ctx.Writer.WriteLocalGet(scope.ID)
+	if _, err := expression.Compile(
+		context.Child(ctx, indexExprs[0]).WithHint(types.I32()),
+	); err != nil {
+		return errors.Wrap(err, "failed to compile index expression")
+	}
+	// Stack: [handle, index]
+
+	// Step 2: Read current value via series_index(handle, index)
+	// We compile the index expression again (safe since index expressions are pure)
+	ctx.Writer.WriteLocalGet(scope.ID)
+	if _, err := expression.Compile(
+		context.Child(ctx, indexExprs[0]).WithHint(types.I32()),
+	); err != nil {
+		return errors.Wrap(err, "failed to compile index expression")
+	}
+	indexImport, err := ctx.Imports.GetSeriesIndex(elemType)
+	if err != nil {
+		return err
+	}
+	ctx.Writer.WriteCall(indexImport)
+	// Stack: [handle, index, current_value]
+
+	// Step 3: Compile RHS expression
+	exprType, err := expression.Compile(
+		context.Child(ctx, ctx.AST.Expression()).WithHint(elemType),
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to compile value expression")
+	}
+	if !types.Equal(elemType, exprType) {
+		if err = expression.EmitCast(ctx, exprType, elemType); err != nil {
+			return err
+		}
+	}
+	// Stack: [handle, index, current_value, expr_value]
+
+	// Step 4: Apply binary operation
+	if elemType.Kind == types.KindString && op == "+" {
+		ctx.Writer.WriteCall(ctx.Imports.StringConcat)
+	} else {
+		if err = ctx.Writer.WriteBinaryOpInferred(op, elemType); err != nil {
+			return err
+		}
+	}
+	// Stack: [handle, index, new_value]
+
+	// Step 5: Call series_set_element and drop result
+	setImport, err := ctx.Imports.GetSeriesSetElement(elemType)
+	if err != nil {
+		return err
+	}
+	ctx.Writer.WriteCall(setImport)
+	ctx.Writer.WriteOpcode(wasm.OpDrop)
+	// Stack: []
+
+	return nil
+}
+
 func compileCompoundAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 	scope *symbol.Scope,
 	compoundOp parser.ICompoundOpContext,
 ) error {
+	// Handle indexed compound assignment (arr[i] += value)
+	if indexOrSlice := ctx.AST.IndexOrSlice(); indexOrSlice != nil {
+		return compileIndexedCompoundAssignment(ctx, scope, indexOrSlice, compoundOp)
+	}
+
 	sym := scope.Symbol
 	varType := sym.Type
 

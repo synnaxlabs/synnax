@@ -415,15 +415,69 @@ var _ = Describe("Statement", func() {
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: undefined_var"))
 			})
 
-			It("should reject indexed compound assignment", func() {
-				block := MustSucceed(parser.ParseBlock(`{
+			DescribeTable("valid indexed compound assignments",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					Expect(statement.AnalyzeBlock(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+					Expect(*ctx.Diagnostics).To(BeEmpty())
+				},
+				Entry("i32 plus equals", `{
 					arr series i32 := [1, 2, 3]
 					arr[0] += 5
+				}`),
+				Entry("i64 minus equals", `{
+					arr series i64 := [10, 20, 30]
+					arr[1] -= 5
+				}`),
+				Entry("f64 multiply equals", `{
+					arr series f64 := [1.0, 2.0, 3.0]
+					arr[2] *= 2.5
+				}`),
+				Entry("f32 divide equals", `{
+					arr series f32 := [10.0, 20.0]
+					arr[0] /= 2.0
+				}`),
+				Entry("i64 modulo equals", `{
+					arr series i64 := [17, 23]
+					arr[0] %= 5
+				}`),
+				Entry("with variable index", `{
+					arr series i32 := [1, 2, 3]
+					i i32 := 1
+					arr[i] += 10
+				}`),
+				Entry("with expression index", `{
+					arr series i32 := [1, 2, 3]
+					arr[1 + 1] += 100
+				}`),
+				Entry("with variable value", `{
+					arr series i32 := [1, 2, 3]
+					delta i32 := 42
+					arr[0] += delta
+				}`),
+			)
+
+			It("should reject slice compound assignment", func() {
+				block := MustSucceed(parser.ParseBlock(`{
+					arr series i32 := [1, 2, 3]
+					arr[0:2] += 5
 				}`))
 				ctx := context.CreateRoot(bCtx, block, nil)
 				Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
-				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("indexed compound assignment not yet supported"))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("slice compound assignment not supported"))
+			})
+
+			It("should reject indexed compound assignment on non-series type", func() {
+				block := MustSucceed(parser.ParseBlock(`{
+					x i32 := 5
+					x[0] += 1
+				}`))
+				ctx := context.CreateRoot(bCtx, block, nil)
+				Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("indexed"))
 			})
 		})
 	})

@@ -510,17 +510,103 @@ func analyzeIndexedAssignment(
 	return true
 }
 
+// analyzeIndexedCompoundAssignment validates indexed compound assignment statements (series[i] += value)
+func analyzeIndexedCompoundAssignment(
+	ctx context.Context[parser.IAssignmentContext],
+	varScope *symbol.Scope,
+	indexOrSlice parser.IIndexOrSliceContext,
+	compoundOp parser.ICompoundOpContext,
+) bool {
+	// 1. Verify base is a series type
+	if varScope.Type.Kind != types.KindSeries {
+		ctx.Diagnostics.AddError(
+			errors.New("indexed compound assignment only supported on series types"),
+			ctx.AST,
+		)
+		return false
+	}
+
+	// 2. Reject slice compound assignment (arr[0:2] += value)
+	if indexOrSlice.COLON() != nil {
+		ctx.Diagnostics.AddError(
+			errors.New("slice compound assignment not supported"),
+			ctx.AST,
+		)
+		return false
+	}
+
+	// 3. Get element type and validate operator compatibility
+	elemType := *varScope.Type.Elem
+	if elemType.Kind == types.KindString {
+		if compoundOp.PLUS_ASSIGN() == nil {
+			ctx.Diagnostics.AddError(
+				errors.New("string series elements only support += operator"),
+				ctx.AST,
+			)
+			return false
+		}
+	} else if !elemType.IsNumeric() {
+		ctx.Diagnostics.AddError(
+			errors.Newf("compound assignment requires numeric element type, got %s", elemType),
+			ctx.AST,
+		)
+		return false
+	}
+
+	// 4. Analyze index expression
+	indexExprs := indexOrSlice.AllExpression()
+	if len(indexExprs) != 1 {
+		return false
+	}
+	if !expression.Analyze(context.Child(ctx, indexExprs[0])) {
+		return false
+	}
+
+	// 5. Analyze value expression and check type compatibility
+	expr := ctx.AST.Expression()
+	if expr == nil {
+		return true
+	}
+	if !expression.Analyze(context.Child(ctx, expr)) {
+		return false
+	}
+
+	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
+	if !exprType.IsValid() || !elemType.IsValid() {
+		return true
+	}
+
+	if exprType.Kind == types.KindVariable || elemType.Kind == types.KindVariable {
+		if err := atypes.Check(ctx.Constraints, elemType, exprType, ctx.AST,
+			"indexed compound assignment type compatibility"); err != nil {
+			ctx.Diagnostics.AddError(err, ctx.AST)
+			return false
+		}
+		return true
+	}
+
+	isLiteral := isLiteralExpression(context.Child(ctx, expr))
+	if (isLiteral && !atypes.LiteralAssignmentCompatible(elemType, exprType)) ||
+		(!isLiteral && !atypes.Compatible(elemType, exprType)) {
+		ctx.Diagnostics.AddError(
+			errors.Newf("type mismatch: cannot use %s in compound assignment to series element of type %s",
+				exprType, elemType),
+			ctx.AST,
+		)
+		return false
+	}
+
+	return true
+}
+
 func analyzeCompoundAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 	varScope *symbol.Scope,
 	compoundOp parser.ICompoundOpContext,
 ) bool {
-	if ctx.AST.IndexOrSlice() != nil {
-		ctx.Diagnostics.AddError(
-			errors.New("indexed compound assignment not yet supported"),
-			ctx.AST,
-		)
-		return false
+	// Handle indexed compound assignment (arr[i] += value)
+	if indexOrSlice := ctx.AST.IndexOrSlice(); indexOrSlice != nil {
+		return analyzeIndexedCompoundAssignment(ctx, varScope, indexOrSlice, compoundOp)
 	}
 
 	varType := varScope.Type
