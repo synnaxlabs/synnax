@@ -83,10 +83,10 @@ Bindings::Bindings(state::State *state, wasmtime::Store *store):
     }                                                                                  \
     void Bindings::channel_write_##suffix(uint32_t channel_id, cpptype value) {        \
         if (this->state == nullptr) return;                                            \
-        auto data = xmemory::make_local_shared<telem::Series>(data_type_const, 1);     \
-        data->write(value);                                                            \
-        auto time = xmemory::make_local_shared<telem::Series>(telem::TIMESTAMP_T, 1);  \
-        time->write(telem::TimeStamp::now());                                          \
+        auto data = xmemory::make_local_shared<telem::Series>(value, data_type_const); \
+        auto time = xmemory::make_local_shared<telem::Series>(                         \
+            telem::TimeStamp::now()                                                    \
+        );                                                                             \
         this->state                                                                    \
             ->write_channel(static_cast<types::ChannelKey>(channel_id), data, time);   \
     }
@@ -118,13 +118,10 @@ void Bindings::channel_write_str(uint32_t channel_id, uint32_t str_handle) {
     if (this->state == nullptr) return;
     const auto it = strings.find(str_handle);
     if (it == strings.end()) return;
-    // For STRING_T, capacity is in bytes. Allocate enough for string + newline
-    // terminator.
-    const size_t byte_cap = it->second.size() + 1;
-    auto data = xmemory::make_local_shared<telem::Series>(telem::STRING_T, byte_cap);
-    data->write(it->second);
-    auto time = xmemory::make_local_shared<telem::Series>(telem::TIMESTAMP_T, 1);
-    time->write(telem::TimeStamp::now());
+    const auto data = xmemory::make_local_shared<telem::Series>(it->second);
+    const auto time = xmemory::make_local_shared<telem::Series>(
+        telem::TimeStamp::now()
+    );
     this->state->write_channel(static_cast<types::ChannelKey>(channel_id), data, time);
 }
 
