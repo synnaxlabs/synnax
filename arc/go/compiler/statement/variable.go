@@ -206,7 +206,7 @@ func compileOutputAssignment(
 		ctx.Writer.WriteMemoryOp(wasm.OpI32Store16, 1, 0)
 	case types.KindI32, types.KindU32:
 		ctx.Writer.WriteMemoryOp(wasm.OpI32Store, 2, 0)
-	case types.KindI64, types.KindU64, types.KindTimeStamp, types.KindTimeSpan:
+	case types.KindI64, types.KindU64:
 		ctx.Writer.WriteMemoryOp(wasm.OpI64Store, 3, 0)
 	case types.KindF32:
 		ctx.Writer.WriteMemoryOp(wasm.OpF32Store, 2, 0)

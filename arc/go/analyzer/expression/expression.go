@@ -14,6 +14,8 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
+	"github.com/synnaxlabs/arc/analyzer/units"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	basetypes "github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -68,17 +70,117 @@ func isPureLiteralNode(node antlr.ParserRuleContext) bool {
 // GetLiteral extracts the literal node from a pure literal expression.
 // Callers should first verify IsPureLiteral returns true.
 func GetLiteral(expr parser.IExpressionContext) parser.ILiteralContext {
-	return expr.LogicalOrExpression().
-		AllLogicalAndExpression()[0].
-		AllEqualityExpression()[0].
-		AllRelationalExpression()[0].
-		AllAdditiveExpression()[0].
-		AllMultiplicativeExpression()[0].
-		AllPowerExpression()[0].
-		UnaryExpression().
-		PostfixExpression().
-		PrimaryExpression().
-		Literal()
+	return getLiteralNode(expr.LogicalOrExpression())
+}
+
+// getLiteralNode extracts the literal from any AST node type.
+// Returns nil if the node is not a pure literal. Mirrors isPureLiteralNode.
+func getLiteralNode(node antlr.ParserRuleContext) parser.ILiteralContext {
+	if node == nil {
+		return nil
+	}
+	switch ctx := node.(type) {
+	case parser.ILogicalOrExpressionContext:
+		ands := ctx.AllLogicalAndExpression()
+		if len(ands) == 1 {
+			return getLiteralNode(ands[0])
+		}
+	case parser.ILogicalAndExpressionContext:
+		eqs := ctx.AllEqualityExpression()
+		if len(eqs) == 1 {
+			return getLiteralNode(eqs[0])
+		}
+	case parser.IEqualityExpressionContext:
+		rels := ctx.AllRelationalExpression()
+		if len(rels) == 1 {
+			return getLiteralNode(rels[0])
+		}
+	case parser.IRelationalExpressionContext:
+		adds := ctx.AllAdditiveExpression()
+		if len(adds) == 1 {
+			return getLiteralNode(adds[0])
+		}
+	case parser.IAdditiveExpressionContext:
+		muls := ctx.AllMultiplicativeExpression()
+		if len(muls) == 1 {
+			return getLiteralNode(muls[0])
+		}
+	case parser.IMultiplicativeExpressionContext:
+		pows := ctx.AllPowerExpression()
+		if len(pows) == 1 {
+			return getLiteralNode(pows[0])
+		}
+	case parser.IPowerExpressionContext:
+		if ctx.CARET() == nil {
+			return getLiteralNode(ctx.UnaryExpression())
+		}
+	case parser.IUnaryExpressionContext:
+		if ctx.UnaryExpression() == nil {
+			return getLiteralNode(ctx.PostfixExpression())
+		}
+	case parser.IPostfixExpressionContext:
+		if len(ctx.AllIndexOrSlice()) == 0 && len(ctx.AllFunctionCallSuffix()) == 0 {
+			return getLiteralNode(ctx.PrimaryExpression())
+		}
+	case parser.IPrimaryExpressionContext:
+		return ctx.Literal()
+	}
+	return nil
+}
+
+// getSignedIntegerLiteral extracts a signed integer value from a node.
+// Supports both plain integer literals (2) and negated ones (-2).
+// Returns (value, true) if successful, (0, false) otherwise.
+func getSignedIntegerLiteral(node antlr.ParserRuleContext) (int, bool) {
+	if node == nil {
+		return 0, false
+	}
+	var (
+		sign    = 1
+		current = node
+	)
+	if power, ok := current.(parser.IPowerExpressionContext); ok {
+		if power.CARET() != nil {
+			return 0, false
+		}
+		current = power.UnaryExpression()
+	}
+	if unary, ok := current.(parser.IUnaryExpressionContext); ok {
+		if unary.MINUS() != nil {
+			sign = -1
+			current = unary.UnaryExpression()
+		} else if unary.NOT() != nil {
+			// NOT doesn't make sense for integer exponent
+			return 0, false
+		}
+	}
+	lit := getLiteralNode(current)
+	if lit == nil {
+		return 0, false
+	}
+	numLit := lit.NumericLiteral()
+	if numLit == nil {
+		return 0, false
+	}
+	intLit := numLit.INTEGER_LITERAL()
+	if intLit == nil {
+		return 0, false
+	}
+	if numLit.IDENTIFIER() != nil {
+		return 0, false
+	}
+	parsed, err := literal.ParseNumeric(numLit, basetypes.I64())
+	if err != nil {
+		return 0, false
+	}
+	if parsed.Type.Unit != nil {
+		return 0, false
+	}
+	intVal, ok := parsed.Value.(int64)
+	if !ok {
+		return 0, false
+	}
+	return sign * int(intVal), true
 }
 
 // Analyze validates type correctness of an expression and accumulates constraints.
@@ -163,7 +265,6 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 	firstType := infer(context.Child(ctx, items[0])).Unwrap()
 	opName := getOperator(ctx.AST)
 
-	// If first type is a type variable, we can't check it yet - will be validated during unification
 	if firstType.Kind != basetypes.KindVariable && !check(firstType) {
 		ctx.Diagnostics.AddError(
 			errors.Newf("cannot use %s in %s operation", firstType, opName),
@@ -175,7 +276,15 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 	for i := 1; i < len(items); i++ {
 		nextType := infer(context.Child(ctx, items[i]).WithTypeHint(firstType)).Unwrap()
 
-		// If either type is a type variable, add a constraint instead of checking directly
+		// Check dimensional compatibility first if either operand has units
+		// This must be checked even for type variables since the unit is known at parse time
+		// Note: Power operations (^) are handled separately in analyzePower via ValidatePowerOp.
+		if firstType.Unit != nil || nextType.Unit != nil {
+			if !units.ValidateBinaryOp(ctx, opName, firstType, nextType) {
+				return false
+			}
+		}
+
 		if firstType.Kind == basetypes.KindVariable || nextType.Kind == basetypes.KindVariable {
 			ctx.Constraints.AddCompatible(firstType, nextType, items[i], opName+" operands must be compatible")
 		} else if !types.Compatible(firstType, nextType) {
@@ -285,11 +394,26 @@ func analyzePower(ctx context.Context[parser.IPowerExpressionContext]) bool {
 			return false
 		}
 	}
-	if power := ctx.AST.PowerExpression(); power != nil {
+	power := ctx.AST.PowerExpression()
+	if power != nil {
 		if !analyzePower(context.Child(ctx, power)) {
 			return false
 		}
 	}
+
+	if ctx.AST.CARET() != nil && power != nil {
+		baseType := types.InferFromUnaryExpression(context.Child(ctx, ctx.AST.UnaryExpression())).Unwrap()
+		expType := types.InferPower(context.Child(ctx, power)).Unwrap()
+
+		if baseType.Unit != nil || expType.Unit != nil {
+			_, isLiteral := getSignedIntegerLiteral(power)
+			if err := units.ValidatePowerOp(baseType, expType, isLiteral); err != nil {
+				ctx.Diagnostics.AddError(err, ctx.AST)
+				return false
+			}
+		}
+	}
+
 	return true
 }
 

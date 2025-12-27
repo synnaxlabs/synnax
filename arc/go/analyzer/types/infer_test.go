@@ -355,14 +355,5 @@ var _ = Describe("Type Inference", func() {
 			Expect(t.Kind).To(Equal(types.KindSeries))
 			Expect(t.Unwrap().Kind).To(Equal(types.KindI64))
 		})
-
-		It("should infer temporal types", func() {
-			stmt := MustSucceed(parser.ParseStatement("t timestamp := 0"))
-			varDecl := stmt.VariableDeclaration().LocalVariable()
-			typeCtx := varDecl.Type_()
-			t, err := atypes.InferFromTypeContext(typeCtx)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(t.Kind).To(Equal(types.KindTimeStamp))
-		})
 	})
 })

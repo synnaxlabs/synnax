@@ -263,6 +263,12 @@ func (s *BaseArcParserListener) EnterType(ctx *TypeContext) {}
 // ExitType is called when production type is exited.
 func (s *BaseArcParserListener) ExitType(ctx *TypeContext) {}
 
+// EnterUnitSuffix is called when production unitSuffix is entered.
+func (s *BaseArcParserListener) EnterUnitSuffix(ctx *UnitSuffixContext) {}
+
+// ExitUnitSuffix is called when production unitSuffix is exited.
+func (s *BaseArcParserListener) ExitUnitSuffix(ctx *UnitSuffixContext) {}
+
 // EnterPrimitiveType is called when production primitiveType is entered.
 func (s *BaseArcParserListener) EnterPrimitiveType(ctx *PrimitiveTypeContext) {}
 
@@ -286,12 +292,6 @@ func (s *BaseArcParserListener) EnterFloatType(ctx *FloatTypeContext) {}
 
 // ExitFloatType is called when production floatType is exited.
 func (s *BaseArcParserListener) ExitFloatType(ctx *FloatTypeContext) {}
-
-// EnterTemporalType is called when production temporalType is entered.
-func (s *BaseArcParserListener) EnterTemporalType(ctx *TemporalTypeContext) {}
-
-// ExitTemporalType is called when production temporalType is exited.
-func (s *BaseArcParserListener) ExitTemporalType(ctx *TemporalTypeContext) {}
 
 // EnterChannelType is called when production channelType is entered.
 func (s *BaseArcParserListener) EnterChannelType(ctx *ChannelTypeContext) {}
@@ -400,12 +400,6 @@ func (s *BaseArcParserListener) EnterNumericLiteral(ctx *NumericLiteralContext) 
 
 // ExitNumericLiteral is called when production numericLiteral is exited.
 func (s *BaseArcParserListener) ExitNumericLiteral(ctx *NumericLiteralContext) {}
-
-// EnterTemporalLiteral is called when production temporalLiteral is entered.
-func (s *BaseArcParserListener) EnterTemporalLiteral(ctx *TemporalLiteralContext) {}
-
-// ExitTemporalLiteral is called when production temporalLiteral is exited.
-func (s *BaseArcParserListener) ExitTemporalLiteral(ctx *TemporalLiteralContext) {}
 
 // EnterSeriesLiteral is called when production seriesLiteral is entered.
 func (s *BaseArcParserListener) EnterSeriesLiteral(ctx *SeriesLiteralContext) {}

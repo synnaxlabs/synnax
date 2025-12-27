@@ -202,9 +202,13 @@ functionCall
 // =============================================================================
 
 type
-    : primitiveType
+    : primitiveType unitSuffix?
     | channelType
     | seriesType
+    ;
+
+unitSuffix
+    : IDENTIFIER
     ;
 
 primitiveType
@@ -215,7 +219,6 @@ primitiveType
 numericType
     : integerType
     | floatType
-    | temporalType
     ;
 
 integerType
@@ -227,16 +230,13 @@ floatType
     : F32 | F64
     ;
 
-temporalType
-    : TIMESTAMP | TIMESPAN
-    ;
-
 channelType
-    : CHAN (primitiveType | seriesType)
+    : CHAN primitiveType unitSuffix?
+    | CHAN seriesType
     ;
 
 seriesType
-    : SERIES primitiveType
+    : SERIES primitiveType unitSuffix?
     ;
 
 // =============================================================================
@@ -312,19 +312,16 @@ typeCast
 
 literal
     : numericLiteral
-    | temporalLiteral
     | STR_LITERAL
     | seriesLiteral
     ;
 
+// Numeric literal with optional unit suffix.
+// The unit suffix (IDENTIFIER) is only consumed if it immediately follows
+// the number with no whitespace. This is checked via semantic predicate.
 numericLiteral
-    : INTEGER_LITERAL
-    | FLOAT_LITERAL
-    ;
-
-temporalLiteral
-    : TEMPORAL_LITERAL
-    | FREQUENCY_LITERAL
+    : (INTEGER_LITERAL | FLOAT_LITERAL)
+      ({p.TokensAdjacent(p.GetTokenStream().LT(-1), p.GetTokenStream().LT(1))}? IDENTIFIER)?
     ;
 
 seriesLiteral

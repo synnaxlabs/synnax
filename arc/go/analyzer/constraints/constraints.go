@@ -114,6 +114,10 @@ func (s *System) applySubstitutionsWithVisited(t types.Type, visited map[string]
 			visited[t.Name] = true
 			result := s.applySubstitutionsWithVisited(sub, visited)
 			visited[t.Name] = false
+			// Preserve unit from the original type variable if it had one
+			if t.Unit != nil && result.Unit == nil {
+				result.Unit = t.Unit
+			}
 			return result
 		}
 		return t

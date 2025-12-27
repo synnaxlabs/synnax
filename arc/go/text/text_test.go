@@ -261,10 +261,10 @@ var _ = Describe("Text", func() {
 				Expect(len(node.Config)).To(Equal(2))
 				Expect(node.Config[0].Name).To(Equal("threshold"))
 				Expect(node.Config[0].Type).To(Equal(types.I64()))
-				Expect(node.Config[0].Value).To(Equal("100"))
+				Expect(node.Config[0].Value).To(Equal(int64(100)))
 				Expect(node.Config[1].Name).To(Equal("scale"))
 				Expect(node.Config[1].Type).To(Equal(types.F64()))
-				Expect(node.Config[1].Value).To(Equal("2.5"))
+				Expect(node.Config[1].Value).To(Equal(2.5))
 			})
 
 			It("Should handle simple config with multiple values", func() {
@@ -291,13 +291,13 @@ var _ = Describe("Text", func() {
 				Expect(len(node.Config)).To(Equal(3))
 				Expect(node.Config[0].Name).To(Equal("a"))
 				Expect(node.Config[0].Type).To(Equal(types.I64()))
-				Expect(node.Config[0].Value).To(Equal("10"))
+				Expect(node.Config[0].Value).To(Equal(int64(10)))
 				Expect(node.Config[1].Name).To(Equal("b"))
 				Expect(node.Config[1].Type).To(Equal(types.I64()))
-				Expect(node.Config[1].Value).To(Equal("20"))
+				Expect(node.Config[1].Value).To(Equal(int64(20)))
 				Expect(node.Config[2].Name).To(Equal("c"))
 				Expect(node.Config[2].Type).To(Equal(types.I64()))
-				Expect(node.Config[2].Value).To(Equal("30"))
+				Expect(node.Config[2].Value).To(Equal(int64(30)))
 			})
 		})
 
@@ -1097,4 +1097,48 @@ var _ = Describe("Text", func() {
 		})
 	})
 
+	Describe("Unit Dimensional Analysis", func() {
+		It("Should error when adding incompatible dimensions", func() {
+			source := `
+			func bad() f64 {
+				return 5psi + 3s
+			}
+			`
+			_, diag := text.Analyze(
+				ctx,
+				MustSucceed(text.Parse(text.Text{Raw: source})),
+				nil,
+			)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("incompatible: dimensions"))
+		})
+
+		It("Should allow adding same dimensions", func() {
+			source := `
+			func good() f64 {
+				return 100psi + 50psi
+			}
+			`
+			_, diag := text.Analyze(
+				ctx,
+				MustSucceed(text.Parse(text.Text{Raw: source})),
+				nil,
+			)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		It("Should allow multiplying different dimensions", func() {
+			source := `
+			func velocity() f64 {
+				return 100m / 10s
+			}
+			`
+			_, diag := text.Analyze(
+				ctx,
+				MustSucceed(text.Parse(text.Text{Raw: source})),
+				nil,
+			)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+	})
 })
