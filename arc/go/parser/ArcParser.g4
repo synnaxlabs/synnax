@@ -174,7 +174,8 @@ statefulVariable
     ;
 
 assignment
-    : IDENTIFIER ASSIGN expression
+    : IDENTIFIER ASSIGN expression                    // Variable assignment
+    | IDENTIFIER indexOrSlice ASSIGN expression       // Indexed assignment
     ;
 
 ifStatement

@@ -77,14 +77,38 @@ func InferAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) types
 		return types.Type{}
 	}
 	if len(multiplicatives) > 1 {
-		firstType := InferMultiplicative(context.Child(ctx, multiplicatives[0])).Unwrap()
+		firstType := InferMultiplicative(context.Child(ctx, multiplicatives[0]))
+		// Track if any operand is a series - if so, result is a series
+		isSeries := firstType.Kind == types.KindSeries
+		// Use series element type when available, as it's more concrete than scalar type variables
+		elemType := firstType.Unwrap()
+
 		for i := 1; i < len(multiplicatives); i++ {
-			nextType := InferMultiplicative(context.Child(ctx, multiplicatives[i])).Unwrap()
-			if !Compatible(firstType, nextType) {
-				return firstType
+			nextType := InferMultiplicative(context.Child(ctx, multiplicatives[i]))
+			if nextType.Kind == types.KindSeries {
+				isSeries = true
+				// Prefer series element type over scalar type variable
+				nextElem := nextType.Unwrap()
+				if nextElem.Kind != types.KindVariable {
+					elemType = nextElem
+				}
+				if !Compatible(elemType, nextElem) {
+					if isSeries {
+						return types.Series(elemType)
+					}
+					return elemType
+				}
+			} else if !Compatible(elemType, nextType.Unwrap()) {
+				if isSeries {
+					return types.Series(elemType)
+				}
+				return elemType
 			}
 		}
-		return firstType
+		if isSeries {
+			return types.Series(elemType)
+		}
+		return elemType
 	}
 	return InferMultiplicative(context.Child(ctx, multiplicatives[0]))
 }
@@ -95,16 +119,35 @@ func InferMultiplicative(ctx context.Context[parser.IMultiplicativeExpressionCon
 		return types.Type{}
 	}
 	if len(powers) > 1 {
-		firstType := InferPower(context.Child(ctx, powers[0])).Unwrap()
+		firstType := InferPower(context.Child(ctx, powers[0]))
+		// Track if any operand is a series - if so, result is a series
+		isSeries := firstType.Kind == types.KindSeries
+		// Use series element type when available, as it's more concrete than scalar type variables
+		elemType := firstType.Unwrap()
+
 		for i := 1; i < len(powers); i++ {
-			nextType := InferPower(context.Child(ctx, powers[i])).Unwrap()
-			if !Compatible(firstType, nextType) {
-				ctx.TypeMap[ctx.AST] = firstType
-				return firstType
+			nextType := InferPower(context.Child(ctx, powers[i]))
+			if nextType.Kind == types.KindSeries {
+				isSeries = true
+				// Prefer series element type over scalar type variable
+				nextElem := nextType.Unwrap()
+				if nextElem.Kind != types.KindVariable {
+					elemType = nextElem
+				}
+				if !Compatible(elemType, nextElem) {
+					resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
+					ctx.TypeMap[ctx.AST] = resultType
+					return resultType
+				}
+			} else if !Compatible(elemType, nextType.Unwrap()) {
+				resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
+				ctx.TypeMap[ctx.AST] = resultType
+				return resultType
 			}
 		}
-		ctx.TypeMap[ctx.AST] = firstType
-		return firstType
+		resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
+		ctx.TypeMap[ctx.AST] = resultType
+		return resultType
 	}
 	resultType := InferPower(context.Child(ctx, powers[0]))
 	ctx.TypeMap[ctx.AST] = resultType

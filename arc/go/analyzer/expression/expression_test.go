@@ -201,6 +201,155 @@ var _ = Describe("Expressions", func() {
 				}
 			`, "type mismatch: cannot use i32 and u32 in > operation"),
 		)
+
+		Describe("Series Binary Operations", func() {
+			DescribeTable("valid series-series arithmetic",
+				func(code string) { expectSuccess(code, nil) },
+				Entry("series + series (i32)", `
+					func testFunc() {
+						a series i32 := [1, 2, 3]
+						b series i32 := [4, 5, 6]
+						c := a + b
+					}
+				`),
+				Entry("series - series (i32)", `
+					func testFunc() {
+						a series i32 := [10, 20, 30]
+						b series i32 := [1, 2, 3]
+						c := a - b
+					}
+				`),
+				Entry("series * series (f64)", `
+					func testFunc() {
+						a series f64 := [1.0, 2.0, 3.0]
+						b series f64 := [2.0, 3.0, 4.0]
+						c := a * b
+					}
+				`),
+				Entry("series / series (f64)", `
+					func testFunc() {
+						a series f64 := [10.0, 20.0, 30.0]
+						b series f64 := [2.0, 4.0, 5.0]
+						c := a / b
+					}
+				`),
+				Entry("series % series (i32)", `
+					func testFunc() {
+						a series i32 := [10, 21, 35]
+						b series i32 := [3, 5, 7]
+						c := a % b
+					}
+				`),
+			)
+
+			DescribeTable("valid series-scalar arithmetic",
+				func(code string) { expectSuccess(code, nil) },
+				Entry("series + scalar (i32)", `
+					func testFunc() {
+						a series i32 := [1, 2, 3]
+						c := a + 10
+					}
+				`),
+				Entry("series - scalar (i32)", `
+					func testFunc() {
+						a series i32 := [10, 20, 30]
+						c := a - 5
+					}
+				`),
+				Entry("series * scalar (f64)", `
+					func testFunc() {
+						a series f64 := [1.0, 2.0, 3.0]
+						c := a * 2.5
+					}
+				`),
+				Entry("series / scalar (f64)", `
+					func testFunc() {
+						a series f64 := [10.0, 20.0, 30.0]
+						c := a / 2.0
+					}
+				`),
+				Entry("series % scalar (i32)", `
+					func testFunc() {
+						a series i32 := [10, 21, 35]
+						c := a % 7
+					}
+				`),
+			)
+
+			DescribeTable("valid scalar-series arithmetic",
+				func(code string) { expectSuccess(code, nil) },
+				Entry("scalar + series (i32)", `
+					func testFunc() {
+						a series i32 := [1, 2, 3]
+						c := 10 + a
+					}
+				`),
+				Entry("scalar - series (i32)", `
+					func testFunc() {
+						a series i32 := [1, 2, 3]
+						c := 100 - a
+					}
+				`),
+				Entry("scalar * series (f64)", `
+					func testFunc() {
+						a series f64 := [1.0, 2.0, 3.0]
+						c := 2.5 * a
+					}
+				`),
+				Entry("scalar / series (f64)", `
+					func testFunc() {
+						a series f64 := [2.0, 4.0, 5.0]
+						c := 100.0 / a
+					}
+				`),
+				Entry("scalar % series (i32)", `
+					func testFunc() {
+						a series i32 := [3, 5, 7]
+						c := 100 % a
+					}
+				`),
+			)
+
+			DescribeTable("valid series comparison operations",
+				func(code string) { expectSuccess(code, nil) },
+				Entry("series > scalar (f64)", `
+					func testFunc() {
+						a series f64 := [1.0, 5.0, 10.0]
+						c := a > 3.0
+					}
+				`),
+				Entry("series < scalar (i32)", `
+					func testFunc() {
+						a series i32 := [1, 5, 10]
+						c := a < 7
+					}
+				`),
+				Entry("series >= scalar (f64)", `
+					func testFunc() {
+						a series f64 := [1.0, 5.0, 10.0]
+						c := a >= 5.0
+					}
+				`),
+				Entry("series <= scalar (i32)", `
+					func testFunc() {
+						a series i32 := [1, 5, 10]
+						c := a <= 5
+					}
+				`),
+				Entry("series == scalar (f64)", `
+					func testFunc() {
+						a series f64 := [1.0, 5.0, 10.0]
+						c := a == 5.0
+					}
+				`),
+				Entry("series != scalar (i32)", `
+					func testFunc() {
+						a series i32 := [1, 5, 10]
+						c := a != 5
+					}
+				`),
+			)
+		})
 	})
 
 	Describe("Unary Expressions", func() {

@@ -1235,3 +1235,315 @@ TEST(TestSeries, testSetSampleValueAllNumericTypes) {
     s_float64.set(0, val_float64);
     ASSERT_DOUBLE_EQ(s_float64.at<double>(0), 3.14159);
 }
+
+/// @brief Tests Series + Series addition operator.
+TEST(SeriesOperators, AdditionSameLength) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto b = telem::Series(std::vector<double>{4.0, 5.0, 6.0});
+    auto result = a + b;
+    ASSERT_EQ(result.size(), 3);
+    ASSERT_EQ(result.data_type(), telem::FLOAT64_T);
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 5.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 7.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 9.0);
+}
+
+/// @brief Tests Series - Series subtraction operator.
+TEST(SeriesOperators, SubtractionSameLength) {
+    auto a = telem::Series(std::vector<double>{10.0, 20.0, 30.0});
+    auto b = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto result = a - b;
+    ASSERT_EQ(result.size(), 3);
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 9.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 18.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 27.0);
+}
+
+/// @brief Tests Series * Series multiplication operator.
+TEST(SeriesOperators, MultiplicationSameLength) {
+    auto a = telem::Series(std::vector<double>{2.0, 3.0, 4.0});
+    auto b = telem::Series(std::vector<double>{5.0, 6.0, 7.0});
+    auto result = a * b;
+    ASSERT_EQ(result.size(), 3);
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 10.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 18.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 28.0);
+}
+
+/// @brief Tests Series / Series division operator.
+TEST(SeriesOperators, DivisionSameLength) {
+    auto a = telem::Series(std::vector<double>{10.0, 20.0, 30.0});
+    auto b = telem::Series(std::vector<double>{2.0, 4.0, 5.0});
+    auto result = a / b;
+    ASSERT_EQ(result.size(), 3);
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 5.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 5.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 6.0);
+}
+
+/// @brief Tests that length mismatch throws for binary operations.
+TEST(SeriesOperators, LengthMismatchThrows) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto b = telem::Series(std::vector<double>{4.0, 5.0});
+    ASSERT_THROW(a + b, std::runtime_error);
+    ASSERT_THROW(a - b, std::runtime_error);
+    ASSERT_THROW(a * b, std::runtime_error);
+    ASSERT_THROW(a / b, std::runtime_error);
+}
+
+/// @brief Tests that type mismatch throws for binary operations.
+TEST(SeriesOperators, TypeMismatchThrows) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto b = telem::Series(std::vector<int32_t>{4, 5, 6});
+    ASSERT_THROW(a + b, std::runtime_error);
+    ASSERT_THROW(a - b, std::runtime_error);
+    ASSERT_THROW(a * b, std::runtime_error);
+    ASSERT_THROW(a / b, std::runtime_error);
+}
+
+/// @brief Tests Series + scalar operator.
+TEST(SeriesOperators, ScalarAddition) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto result = a + 10.0;
+    ASSERT_EQ(result.size(), 3);
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 11.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 12.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 13.0);
+    // Original should be unchanged
+    ASSERT_DOUBLE_EQ(a.at<double>(0), 1.0);
+}
+
+/// @brief Tests scalar + Series operator (commutative).
+TEST(SeriesOperators, ScalarOnLeftAddition) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto result = 10.0 + a;
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 11.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 12.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 13.0);
+}
+
+/// @brief Tests Series - scalar operator.
+TEST(SeriesOperators, ScalarSubtraction) {
+    auto a = telem::Series(std::vector<double>{10.0, 20.0, 30.0});
+    auto result = a - 5.0;
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 5.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 15.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 25.0);
+}
+
+/// @brief Tests scalar - Series operator (non-commutative).
+TEST(SeriesOperators, ScalarOnLeftSubtraction) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto result = 10.0 - a;
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 9.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 8.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 7.0);
+}
+
+/// @brief Tests Series * scalar operator.
+TEST(SeriesOperators, ScalarMultiplication) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto result = a * 3.0;
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 3.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 6.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 9.0);
+}
+
+/// @brief Tests scalar * Series operator (commutative).
+TEST(SeriesOperators, ScalarOnLeftMultiplication) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto result = 3.0 * a;
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 3.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 6.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 9.0);
+}
+
+/// @brief Tests Series / scalar operator.
+TEST(SeriesOperators, ScalarDivision) {
+    auto a = telem::Series(std::vector<double>{10.0, 20.0, 30.0});
+    auto result = a / 2.0;
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 5.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 10.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 15.0);
+}
+
+/// @brief Tests scalar / Series operator (non-commutative).
+TEST(SeriesOperators, ScalarOnLeftDivision) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 4.0});
+    auto result = 8.0 / a;
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 8.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 4.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 2.0);
+}
+
+/// @brief Tests division by zero throws.
+TEST(SeriesOperators, DivisionByZeroThrows) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    ASSERT_THROW(a / 0.0, std::runtime_error);
+}
+
+/// @brief Tests > comparison operator.
+TEST(SeriesOperators, GreaterThanReturnsUint8) {
+    auto a = telem::Series(std::vector<double>{1.0, 5.0, 3.0});
+    auto b = telem::Series(std::vector<double>{2.0, 3.0, 3.0});
+    auto result = a > b;
+    ASSERT_EQ(result.data_type(), telem::UINT8_T);
+    ASSERT_EQ(result.size(), 3);
+    ASSERT_EQ(result.at<uint8_t>(0), 0); // 1.0 > 2.0 = false
+    ASSERT_EQ(result.at<uint8_t>(1), 1); // 5.0 > 3.0 = true
+    ASSERT_EQ(result.at<uint8_t>(2), 0); // 3.0 > 3.0 = false
+}
+
+/// @brief Tests < comparison operator.
+TEST(SeriesOperators, LessThanReturnsUint8) {
+    auto a = telem::Series(std::vector<double>{1.0, 5.0, 3.0});
+    auto b = telem::Series(std::vector<double>{2.0, 3.0, 3.0});
+    auto result = a < b;
+    ASSERT_EQ(result.data_type(), telem::UINT8_T);
+    ASSERT_EQ(result.at<uint8_t>(0), 1); // 1.0 < 2.0 = true
+    ASSERT_EQ(result.at<uint8_t>(1), 0); // 5.0 < 3.0 = false
+    ASSERT_EQ(result.at<uint8_t>(2), 0); // 3.0 < 3.0 = false
+}
+
+/// @brief Tests >= comparison operator.
+TEST(SeriesOperators, GreaterThanOrEqualReturnsUint8) {
+    auto a = telem::Series(std::vector<double>{1.0, 5.0, 3.0});
+    auto b = telem::Series(std::vector<double>{2.0, 3.0, 3.0});
+    auto result = a >= b;
+    ASSERT_EQ(result.data_type(), telem::UINT8_T);
+    ASSERT_EQ(result.at<uint8_t>(0), 0); // 1.0 >= 2.0 = false
+    ASSERT_EQ(result.at<uint8_t>(1), 1); // 5.0 >= 3.0 = true
+    ASSERT_EQ(result.at<uint8_t>(2), 1); // 3.0 >= 3.0 = true
+}
+
+/// @brief Tests <= comparison operator.
+TEST(SeriesOperators, LessThanOrEqualReturnsUint8) {
+    auto a = telem::Series(std::vector<double>{1.0, 5.0, 3.0});
+    auto b = telem::Series(std::vector<double>{2.0, 3.0, 3.0});
+    auto result = a <= b;
+    ASSERT_EQ(result.data_type(), telem::UINT8_T);
+    ASSERT_EQ(result.at<uint8_t>(0), 1); // 1.0 <= 2.0 = true
+    ASSERT_EQ(result.at<uint8_t>(1), 0); // 5.0 <= 3.0 = false
+    ASSERT_EQ(result.at<uint8_t>(2), 1); // 3.0 <= 3.0 = true
+}
+
+/// @brief Tests == comparison operator.
+TEST(SeriesOperators, EqualityReturnsUint8) {
+    auto a = telem::Series(std::vector<double>{1.0, 3.0, 3.0});
+    auto b = telem::Series(std::vector<double>{2.0, 3.0, 4.0});
+    auto result = a == b;
+    ASSERT_EQ(result.data_type(), telem::UINT8_T);
+    ASSERT_EQ(result.at<uint8_t>(0), 0); // 1.0 == 2.0 = false
+    ASSERT_EQ(result.at<uint8_t>(1), 1); // 3.0 == 3.0 = true
+    ASSERT_EQ(result.at<uint8_t>(2), 0); // 3.0 == 4.0 = false
+}
+
+/// @brief Tests != comparison operator.
+TEST(SeriesOperators, InequalityReturnsUint8) {
+    auto a = telem::Series(std::vector<double>{1.0, 3.0, 3.0});
+    auto b = telem::Series(std::vector<double>{2.0, 3.0, 4.0});
+    auto result = a != b;
+    ASSERT_EQ(result.data_type(), telem::UINT8_T);
+    ASSERT_EQ(result.at<uint8_t>(0), 1); // 1.0 != 2.0 = true
+    ASSERT_EQ(result.at<uint8_t>(1), 0); // 3.0 != 3.0 = false
+    ASSERT_EQ(result.at<uint8_t>(2), 1); // 3.0 != 4.0 = true
+}
+
+/// @brief Tests comparison operators throw on length mismatch.
+TEST(SeriesOperators, ComparisonLengthMismatchThrows) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto b = telem::Series(std::vector<double>{4.0, 5.0});
+    ASSERT_THROW((void) (a > b), std::runtime_error);
+    ASSERT_THROW((void) (a < b), std::runtime_error);
+    ASSERT_THROW((void) (a >= b), std::runtime_error);
+    ASSERT_THROW((void) (a <= b), std::runtime_error);
+    ASSERT_THROW((void) (a == b), std::runtime_error);
+    ASSERT_THROW((void) (a != b), std::runtime_error);
+}
+
+/// @brief Tests operations with empty series.
+TEST(SeriesOperators, EmptySeriesOperations) {
+    auto a = telem::Series(telem::FLOAT64_T, 0);
+    auto b = telem::Series(telem::FLOAT64_T, 0);
+    auto result = a + b;
+    ASSERT_EQ(result.size(), 0);
+}
+
+/// @brief Tests operations with single element series.
+TEST(SeriesOperators, SingleElementOperations) {
+    auto a = telem::Series(std::vector<double>{5.0});
+    auto b = telem::Series(std::vector<double>{3.0});
+    auto result = a + b;
+    ASSERT_EQ(result.size(), 1);
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 8.0);
+}
+
+/// @brief Tests operations with int32_t type.
+TEST(SeriesOperators, Int32Operations) {
+    auto a = telem::Series(std::vector<int32_t>{1, 2, 3});
+    auto b = telem::Series(std::vector<int32_t>{4, 5, 6});
+    auto result = a + b;
+    ASSERT_EQ(result.data_type(), telem::INT32_T);
+    ASSERT_EQ(result.at<int32_t>(0), 5);
+    ASSERT_EQ(result.at<int32_t>(1), 7);
+    ASSERT_EQ(result.at<int32_t>(2), 9);
+}
+
+/// @brief Tests operations with float32 type.
+TEST(SeriesOperators, Float32Operations) {
+    auto a = telem::Series(std::vector<float>{1.0f, 2.0f, 3.0f});
+    auto b = telem::Series(std::vector<float>{4.0f, 5.0f, 6.0f});
+    auto result = a + b;
+    ASSERT_EQ(result.data_type(), telem::FLOAT32_T);
+    ASSERT_FLOAT_EQ(result.at<float>(0), 5.0f);
+    ASSERT_FLOAT_EQ(result.at<float>(1), 7.0f);
+    ASSERT_FLOAT_EQ(result.at<float>(2), 9.0f);
+}
+
+/// @brief Tests operations with uint8_t type.
+TEST(SeriesOperators, Uint8Operations) {
+    auto a = telem::Series(std::vector<uint8_t>{10, 20, 30});
+    auto b = telem::Series(std::vector<uint8_t>{5, 10, 15});
+    auto result = a + b;
+    ASSERT_EQ(result.data_type(), telem::UINT8_T);
+    ASSERT_EQ(result.at<uint8_t>(0), 15);
+    ASSERT_EQ(result.at<uint8_t>(1), 30);
+    ASSERT_EQ(result.at<uint8_t>(2), 45);
+}
+
+/// @brief Tests operations with int64_t type.
+TEST(SeriesOperators, Int64Operations) {
+    auto a = telem::Series(std::vector<int64_t>{100, 200, 300});
+    auto b = telem::Series(std::vector<int64_t>{10, 20, 30});
+    auto result = a - b;
+    ASSERT_EQ(result.data_type(), telem::INT64_T);
+    ASSERT_EQ(result.at<int64_t>(0), 90);
+    ASSERT_EQ(result.at<int64_t>(1), 180);
+    ASSERT_EQ(result.at<int64_t>(2), 270);
+}
+
+/// @brief Tests chained operations.
+TEST(SeriesOperators, ChainedOperations) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto b = telem::Series(std::vector<double>{2.0, 2.0, 2.0});
+    // (a + b) * 3 - 1
+    auto result = (a + b) * 3.0 - 1.0;
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 8.0); // (1+2)*3-1 = 8
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 11.0); // (2+2)*3-1 = 11
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 14.0); // (3+2)*3-1 = 14
+}
+
+/// @brief Tests that original series is not modified by operators.
+TEST(SeriesOperators, OriginalUnmodified) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto b = telem::Series(std::vector<double>{4.0, 5.0, 6.0});
+    auto result = a + b;
+
+    // Original series should be unchanged
+    ASSERT_DOUBLE_EQ(a.at<double>(0), 1.0);
+    ASSERT_DOUBLE_EQ(a.at<double>(1), 2.0);
+    ASSERT_DOUBLE_EQ(a.at<double>(2), 3.0);
+    ASSERT_DOUBLE_EQ(b.at<double>(0), 4.0);
+    ASSERT_DOUBLE_EQ(b.at<double>(1), 5.0);
+    ASSERT_DOUBLE_EQ(b.at<double>(2), 6.0);
+}

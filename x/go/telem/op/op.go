@@ -1,18 +1,14 @@
-// Copyright 2025 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
 
 package op
 
 import (
+	"math"
+
 	"github.com/synnaxlabs/x/telem"
 	xunsafe "github.com/synnaxlabs/x/unsafe"
 )
+
+var _ = math.Mod // Ensure math is used
 
 func GreaterThanF64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
@@ -3854,6 +3850,366 @@ func DivideU8(lhs, rhs telem.Series, output *telem.Series) {
 	}
 }
 
+func ModuloF64(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := xunsafe.CastSlice[uint8, float64](lhs.Data)
+	rhsData := xunsafe.CastSlice[uint8, float64](rhs.Data)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+
+	var lhsLast, rhsLast float64
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = float64(math.Mod(float64(lhsVal), float64(rhsVal)))
+	}
+}
+
+func ModuloF32(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := xunsafe.CastSlice[uint8, float32](lhs.Data)
+	rhsData := xunsafe.CastSlice[uint8, float32](rhs.Data)
+	outData := xunsafe.CastSlice[uint8, float32](output.Data)
+
+	var lhsLast, rhsLast float32
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = float32(math.Mod(float64(lhsVal), float64(rhsVal)))
+	}
+}
+
+func ModuloI64(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := xunsafe.CastSlice[uint8, int64](lhs.Data)
+	rhsData := xunsafe.CastSlice[uint8, int64](rhs.Data)
+	outData := xunsafe.CastSlice[uint8, int64](output.Data)
+
+	var lhsLast, rhsLast int64
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = lhsVal % rhsVal
+	}
+}
+
+func ModuloI32(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := xunsafe.CastSlice[uint8, int32](lhs.Data)
+	rhsData := xunsafe.CastSlice[uint8, int32](rhs.Data)
+	outData := xunsafe.CastSlice[uint8, int32](output.Data)
+
+	var lhsLast, rhsLast int32
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = lhsVal % rhsVal
+	}
+}
+
+func ModuloI16(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := xunsafe.CastSlice[uint8, int16](lhs.Data)
+	rhsData := xunsafe.CastSlice[uint8, int16](rhs.Data)
+	outData := xunsafe.CastSlice[uint8, int16](output.Data)
+
+	var lhsLast, rhsLast int16
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = lhsVal % rhsVal
+	}
+}
+
+func ModuloI8(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := xunsafe.CastSlice[uint8, int8](lhs.Data)
+	rhsData := xunsafe.CastSlice[uint8, int8](rhs.Data)
+	outData := xunsafe.CastSlice[uint8, int8](output.Data)
+
+	var lhsLast, rhsLast int8
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = lhsVal % rhsVal
+	}
+}
+
+func ModuloU64(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := xunsafe.CastSlice[uint8, uint64](lhs.Data)
+	rhsData := xunsafe.CastSlice[uint8, uint64](rhs.Data)
+	outData := xunsafe.CastSlice[uint8, uint64](output.Data)
+
+	var lhsLast, rhsLast uint64
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = lhsVal % rhsVal
+	}
+}
+
+func ModuloU32(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := xunsafe.CastSlice[uint8, uint32](lhs.Data)
+	rhsData := xunsafe.CastSlice[uint8, uint32](rhs.Data)
+	outData := xunsafe.CastSlice[uint8, uint32](output.Data)
+
+	var lhsLast, rhsLast uint32
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = lhsVal % rhsVal
+	}
+}
+
+func ModuloU16(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := xunsafe.CastSlice[uint8, uint16](lhs.Data)
+	rhsData := xunsafe.CastSlice[uint8, uint16](rhs.Data)
+	outData := xunsafe.CastSlice[uint8, uint16](output.Data)
+
+	var lhsLast, rhsLast uint16
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = lhsVal % rhsVal
+	}
+}
+
+func ModuloU8(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := xunsafe.CastSlice[uint8, uint8](lhs.Data)
+	rhsData := xunsafe.CastSlice[uint8, uint8](rhs.Data)
+	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
+
+	var lhsLast, rhsLast uint8
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = lhsVal % rhsVal
+	}
+}
+
 func AndU8(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
 	rhsLen := rhs.Len()
@@ -4018,6 +4374,7 @@ func AvgF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, float64](input.Data)
 
+	
 	// Compute sum of new input samples
 	var newSum float64
 	for i := int64(0); i < inputLen; i++ {
@@ -4037,11 +4394,11 @@ func AvgF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		// Weighted average: combine previous average with new samples
 		prevAvg := outData[0]
 		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg*float64(prevCount) + newSum) / float64(totalCount)
+		outData[0] = (prevAvg * float64(prevCount) + newSum) / float64(totalCount)
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func MinF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4052,6 +4409,7 @@ func MinF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, float64](input.Data)
 
+	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4077,7 +4435,7 @@ func MinF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func MaxF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4088,6 +4446,7 @@ func MaxF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, float64](input.Data)
 
+	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4113,7 +4472,7 @@ func MaxF64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func AvgF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4124,6 +4483,7 @@ func AvgF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, float32](input.Data)
 
+	
 	// Compute sum of new input samples
 	var newSum float32
 	for i := int64(0); i < inputLen; i++ {
@@ -4143,11 +4503,11 @@ func AvgF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		// Weighted average: combine previous average with new samples
 		prevAvg := outData[0]
 		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg*float32(prevCount) + newSum) / float32(totalCount)
+		outData[0] = (prevAvg * float32(prevCount) + newSum) / float32(totalCount)
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func MinF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4158,6 +4518,7 @@ func MinF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, float32](input.Data)
 
+	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4183,7 +4544,7 @@ func MinF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func MaxF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4194,6 +4555,7 @@ func MaxF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, float32](input.Data)
 
+	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4219,7 +4581,7 @@ func MaxF32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func AvgI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4230,6 +4592,7 @@ func AvgI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, int64](input.Data)
 
+	
 	// Compute sum of new input samples
 	var newSum int64
 	for i := int64(0); i < inputLen; i++ {
@@ -4249,11 +4612,11 @@ func AvgI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		// Weighted average: combine previous average with new samples
 		prevAvg := outData[0]
 		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg*int64(prevCount) + newSum) / int64(totalCount)
+		outData[0] = (prevAvg * int64(prevCount) + newSum) / int64(totalCount)
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func MinI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4264,6 +4627,7 @@ func MinI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, int64](input.Data)
 
+	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4289,7 +4653,7 @@ func MinI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func MaxI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4300,6 +4664,7 @@ func MaxI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, int64](input.Data)
 
+	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4325,7 +4690,7 @@ func MaxI64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func AvgI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4336,6 +4701,7 @@ func AvgI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, int32](input.Data)
 
+	
 	// Compute sum of new input samples
 	var newSum int32
 	for i := int64(0); i < inputLen; i++ {
@@ -4355,11 +4721,11 @@ func AvgI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		// Weighted average: combine previous average with new samples
 		prevAvg := outData[0]
 		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg*int32(prevCount) + newSum) / int32(totalCount)
+		outData[0] = (prevAvg * int32(prevCount) + newSum) / int32(totalCount)
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func MinI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4370,6 +4736,7 @@ func MinI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, int32](input.Data)
 
+	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4395,7 +4762,7 @@ func MinI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func MaxI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4406,6 +4773,7 @@ func MaxI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, int32](input.Data)
 
+	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4431,7 +4799,7 @@ func MaxI32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func AvgI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4442,6 +4810,7 @@ func AvgI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, int16](input.Data)
 
+	
 	// Compute sum of new input samples
 	var newSum int16
 	for i := int64(0); i < inputLen; i++ {
@@ -4461,11 +4830,11 @@ func AvgI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		// Weighted average: combine previous average with new samples
 		prevAvg := outData[0]
 		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg*int16(prevCount) + newSum) / int16(totalCount)
+		outData[0] = (prevAvg * int16(prevCount) + newSum) / int16(totalCount)
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func MinI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4476,6 +4845,7 @@ func MinI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, int16](input.Data)
 
+	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4501,7 +4871,7 @@ func MinI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func MaxI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4512,6 +4882,7 @@ func MaxI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, int16](input.Data)
 
+	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4537,7 +4908,7 @@ func MaxI16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func AvgI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4548,6 +4919,7 @@ func AvgI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, int8](input.Data)
 
+	
 	// Compute sum of new input samples
 	var newSum int8
 	for i := int64(0); i < inputLen; i++ {
@@ -4567,11 +4939,11 @@ func AvgI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		// Weighted average: combine previous average with new samples
 		prevAvg := outData[0]
 		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg*int8(prevCount) + newSum) / int8(totalCount)
+		outData[0] = (prevAvg * int8(prevCount) + newSum) / int8(totalCount)
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func MinI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4582,6 +4954,7 @@ func MinI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, int8](input.Data)
 
+	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4607,7 +4980,7 @@ func MinI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func MaxI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4618,6 +4991,7 @@ func MaxI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, int8](input.Data)
 
+	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4643,7 +5017,7 @@ func MaxI8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func AvgU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4654,6 +5028,7 @@ func AvgU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, uint64](input.Data)
 
+	
 	// Compute sum of new input samples
 	var newSum uint64
 	for i := int64(0); i < inputLen; i++ {
@@ -4673,11 +5048,11 @@ func AvgU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		// Weighted average: combine previous average with new samples
 		prevAvg := outData[0]
 		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg*uint64(prevCount) + newSum) / uint64(totalCount)
+		outData[0] = (prevAvg * uint64(prevCount) + newSum) / uint64(totalCount)
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func MinU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4688,6 +5063,7 @@ func MinU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, uint64](input.Data)
 
+	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4713,7 +5089,7 @@ func MinU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func MaxU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4724,6 +5100,7 @@ func MaxU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, uint64](input.Data)
 
+	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4749,7 +5126,7 @@ func MaxU64(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func AvgU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4760,6 +5137,7 @@ func AvgU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, uint32](input.Data)
 
+	
 	// Compute sum of new input samples
 	var newSum uint32
 	for i := int64(0); i < inputLen; i++ {
@@ -4779,11 +5157,11 @@ func AvgU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		// Weighted average: combine previous average with new samples
 		prevAvg := outData[0]
 		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg*uint32(prevCount) + newSum) / uint32(totalCount)
+		outData[0] = (prevAvg * uint32(prevCount) + newSum) / uint32(totalCount)
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func MinU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4794,6 +5172,7 @@ func MinU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, uint32](input.Data)
 
+	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4819,7 +5198,7 @@ func MinU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func MaxU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4830,6 +5209,7 @@ func MaxU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, uint32](input.Data)
 
+	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4855,7 +5235,7 @@ func MaxU32(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func AvgU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4866,6 +5246,7 @@ func AvgU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, uint16](input.Data)
 
+	
 	// Compute sum of new input samples
 	var newSum uint16
 	for i := int64(0); i < inputLen; i++ {
@@ -4885,11 +5266,11 @@ func AvgU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		// Weighted average: combine previous average with new samples
 		prevAvg := outData[0]
 		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg*uint16(prevCount) + newSum) / uint16(totalCount)
+		outData[0] = (prevAvg * uint16(prevCount) + newSum) / uint16(totalCount)
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func MinU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4900,6 +5281,7 @@ func MinU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, uint16](input.Data)
 
+	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4925,7 +5307,7 @@ func MinU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func MaxU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4936,6 +5318,7 @@ func MaxU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, uint16](input.Data)
 
+	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -4961,7 +5344,7 @@ func MaxU16(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func AvgU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -4972,6 +5355,7 @@ func AvgU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, uint8](input.Data)
 
+	
 	// Compute sum of new input samples
 	var newSum uint8
 	for i := int64(0); i < inputLen; i++ {
@@ -4991,11 +5375,11 @@ func AvgU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 		// Weighted average: combine previous average with new samples
 		prevAvg := outData[0]
 		totalCount := prevCount + inputLen
-		outData[0] = (prevAvg*uint8(prevCount) + newSum) / uint8(totalCount)
+		outData[0] = (prevAvg * uint8(prevCount) + newSum) / uint8(totalCount)
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func MinU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -5006,6 +5390,7 @@ func MinU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, uint8](input.Data)
 
+	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -5031,7 +5416,7 @@ func MinU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
-
+	
 }
 
 func MaxU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
@@ -5042,6 +5427,7 @@ func MaxU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 
 	inData := xunsafe.CastSlice[uint8, uint8](input.Data)
 
+	
 	// Check if we're starting fresh (either no previous samples or output was reset)
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
@@ -5067,5 +5453,1805 @@ func MaxU8(input telem.Series, prevCount int64, output *telem.Series) int64 {
 	}
 
 	return prevCount + inputLen
+	
+}
 
+func AddScalarF64(series telem.Series, scalar float64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float64](series.Data)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] + scalar
+	}
+}
+
+func SubtractScalarF64(series telem.Series, scalar float64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float64](series.Data)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] - scalar
+	}
+}
+
+func MultiplyScalarF64(series telem.Series, scalar float64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float64](series.Data)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] * scalar
+	}
+}
+
+func DivideScalarF64(series telem.Series, scalar float64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float64](series.Data)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] / scalar
+	}
+}
+
+func AddScalarF32(series telem.Series, scalar float32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float32](series.Data)
+	outData := xunsafe.CastSlice[uint8, float32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] + scalar
+	}
+}
+
+func SubtractScalarF32(series telem.Series, scalar float32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float32](series.Data)
+	outData := xunsafe.CastSlice[uint8, float32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] - scalar
+	}
+}
+
+func MultiplyScalarF32(series telem.Series, scalar float32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float32](series.Data)
+	outData := xunsafe.CastSlice[uint8, float32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] * scalar
+	}
+}
+
+func DivideScalarF32(series telem.Series, scalar float32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float32](series.Data)
+	outData := xunsafe.CastSlice[uint8, float32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] / scalar
+	}
+}
+
+func AddScalarI64(series telem.Series, scalar int64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int64](series.Data)
+	outData := xunsafe.CastSlice[uint8, int64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] + scalar
+	}
+}
+
+func SubtractScalarI64(series telem.Series, scalar int64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int64](series.Data)
+	outData := xunsafe.CastSlice[uint8, int64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] - scalar
+	}
+}
+
+func MultiplyScalarI64(series telem.Series, scalar int64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int64](series.Data)
+	outData := xunsafe.CastSlice[uint8, int64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] * scalar
+	}
+}
+
+func DivideScalarI64(series telem.Series, scalar int64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int64](series.Data)
+	outData := xunsafe.CastSlice[uint8, int64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] / scalar
+	}
+}
+
+func AddScalarI32(series telem.Series, scalar int32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int32](series.Data)
+	outData := xunsafe.CastSlice[uint8, int32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] + scalar
+	}
+}
+
+func SubtractScalarI32(series telem.Series, scalar int32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int32](series.Data)
+	outData := xunsafe.CastSlice[uint8, int32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] - scalar
+	}
+}
+
+func MultiplyScalarI32(series telem.Series, scalar int32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int32](series.Data)
+	outData := xunsafe.CastSlice[uint8, int32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] * scalar
+	}
+}
+
+func DivideScalarI32(series telem.Series, scalar int32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int32](series.Data)
+	outData := xunsafe.CastSlice[uint8, int32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] / scalar
+	}
+}
+
+func AddScalarI16(series telem.Series, scalar int16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int16](series.Data)
+	outData := xunsafe.CastSlice[uint8, int16](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] + scalar
+	}
+}
+
+func SubtractScalarI16(series telem.Series, scalar int16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int16](series.Data)
+	outData := xunsafe.CastSlice[uint8, int16](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] - scalar
+	}
+}
+
+func MultiplyScalarI16(series telem.Series, scalar int16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int16](series.Data)
+	outData := xunsafe.CastSlice[uint8, int16](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] * scalar
+	}
+}
+
+func DivideScalarI16(series telem.Series, scalar int16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int16](series.Data)
+	outData := xunsafe.CastSlice[uint8, int16](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] / scalar
+	}
+}
+
+func AddScalarI8(series telem.Series, scalar int8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int8](series.Data)
+	outData := xunsafe.CastSlice[uint8, int8](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] + scalar
+	}
+}
+
+func SubtractScalarI8(series telem.Series, scalar int8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int8](series.Data)
+	outData := xunsafe.CastSlice[uint8, int8](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] - scalar
+	}
+}
+
+func MultiplyScalarI8(series telem.Series, scalar int8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int8](series.Data)
+	outData := xunsafe.CastSlice[uint8, int8](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] * scalar
+	}
+}
+
+func DivideScalarI8(series telem.Series, scalar int8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int8](series.Data)
+	outData := xunsafe.CastSlice[uint8, int8](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] / scalar
+	}
+}
+
+func AddScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint64](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] + scalar
+	}
+}
+
+func SubtractScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint64](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] - scalar
+	}
+}
+
+func MultiplyScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint64](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] * scalar
+	}
+}
+
+func DivideScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint64](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] / scalar
+	}
+}
+
+func AddScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint32](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] + scalar
+	}
+}
+
+func SubtractScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint32](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] - scalar
+	}
+}
+
+func MultiplyScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint32](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] * scalar
+	}
+}
+
+func DivideScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint32](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] / scalar
+	}
+}
+
+func AddScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint16](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint16](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] + scalar
+	}
+}
+
+func SubtractScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint16](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint16](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] - scalar
+	}
+}
+
+func MultiplyScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint16](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint16](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] * scalar
+	}
+}
+
+func DivideScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint16](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint16](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] / scalar
+	}
+}
+
+func AddScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint8](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] + scalar
+	}
+}
+
+func SubtractScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint8](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] - scalar
+	}
+}
+
+func MultiplyScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint8](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] * scalar
+	}
+}
+
+func DivideScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint8](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] / scalar
+	}
+}
+
+func ReverseSubtractScalarF64(series telem.Series, scalar float64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float64](series.Data)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar - inData[i]
+	}
+}
+
+func ReverseDivideScalarF64(series telem.Series, scalar float64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float64](series.Data)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar / inData[i]
+	}
+}
+
+func ReverseSubtractScalarF32(series telem.Series, scalar float32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float32](series.Data)
+	outData := xunsafe.CastSlice[uint8, float32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar - inData[i]
+	}
+}
+
+func ReverseDivideScalarF32(series telem.Series, scalar float32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float32](series.Data)
+	outData := xunsafe.CastSlice[uint8, float32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar / inData[i]
+	}
+}
+
+func ReverseSubtractScalarI64(series telem.Series, scalar int64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int64](series.Data)
+	outData := xunsafe.CastSlice[uint8, int64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar - inData[i]
+	}
+}
+
+func ReverseDivideScalarI64(series telem.Series, scalar int64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int64](series.Data)
+	outData := xunsafe.CastSlice[uint8, int64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar / inData[i]
+	}
+}
+
+func ReverseSubtractScalarI32(series telem.Series, scalar int32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int32](series.Data)
+	outData := xunsafe.CastSlice[uint8, int32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar - inData[i]
+	}
+}
+
+func ReverseDivideScalarI32(series telem.Series, scalar int32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int32](series.Data)
+	outData := xunsafe.CastSlice[uint8, int32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar / inData[i]
+	}
+}
+
+func ReverseSubtractScalarI16(series telem.Series, scalar int16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int16](series.Data)
+	outData := xunsafe.CastSlice[uint8, int16](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar - inData[i]
+	}
+}
+
+func ReverseDivideScalarI16(series telem.Series, scalar int16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int16](series.Data)
+	outData := xunsafe.CastSlice[uint8, int16](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar / inData[i]
+	}
+}
+
+func ReverseSubtractScalarI8(series telem.Series, scalar int8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int8](series.Data)
+	outData := xunsafe.CastSlice[uint8, int8](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar - inData[i]
+	}
+}
+
+func ReverseDivideScalarI8(series telem.Series, scalar int8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int8](series.Data)
+	outData := xunsafe.CastSlice[uint8, int8](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar / inData[i]
+	}
+}
+
+func ReverseSubtractScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint64](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar - inData[i]
+	}
+}
+
+func ReverseDivideScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint64](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar / inData[i]
+	}
+}
+
+func ReverseSubtractScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint32](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar - inData[i]
+	}
+}
+
+func ReverseDivideScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint32](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar / inData[i]
+	}
+}
+
+func ReverseSubtractScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint16](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint16](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar - inData[i]
+	}
+}
+
+func ReverseDivideScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint16](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint16](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar / inData[i]
+	}
+}
+
+func ReverseSubtractScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint8](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar - inData[i]
+	}
+}
+
+func ReverseDivideScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint8](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar / inData[i]
+	}
+}
+
+func ModuloScalarF64(series telem.Series, scalar float64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float64](series.Data)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = float64(math.Mod(float64(inData[i]), float64(scalar)))
+	}
+}
+
+func ModuloScalarF32(series telem.Series, scalar float32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float32](series.Data)
+	outData := xunsafe.CastSlice[uint8, float32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = float32(math.Mod(float64(inData[i]), float64(scalar)))
+	}
+}
+
+func ModuloScalarI64(series telem.Series, scalar int64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int64](series.Data)
+	outData := xunsafe.CastSlice[uint8, int64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] % scalar
+	}
+}
+
+func ModuloScalarI32(series telem.Series, scalar int32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int32](series.Data)
+	outData := xunsafe.CastSlice[uint8, int32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] % scalar
+	}
+}
+
+func ModuloScalarI16(series telem.Series, scalar int16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int16](series.Data)
+	outData := xunsafe.CastSlice[uint8, int16](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] % scalar
+	}
+}
+
+func ModuloScalarI8(series telem.Series, scalar int8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int8](series.Data)
+	outData := xunsafe.CastSlice[uint8, int8](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] % scalar
+	}
+}
+
+func ModuloScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint64](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] % scalar
+	}
+}
+
+func ModuloScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint32](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] % scalar
+	}
+}
+
+func ModuloScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint16](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint16](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] % scalar
+	}
+}
+
+func ModuloScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint8](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = inData[i] % scalar
+	}
+}
+
+func GreaterThanScalarF64(series telem.Series, scalar float64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float64](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] > scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func GreaterThanOrEqualScalarF64(series telem.Series, scalar float64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float64](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] >= scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func LessThanScalarF64(series telem.Series, scalar float64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float64](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] < scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func LessThanOrEqualScalarF64(series telem.Series, scalar float64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float64](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] <= scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func EqualScalarF64(series telem.Series, scalar float64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float64](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] == scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func NotEqualScalarF64(series telem.Series, scalar float64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float64](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] != scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func GreaterThanScalarF32(series telem.Series, scalar float32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float32](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] > scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func GreaterThanOrEqualScalarF32(series telem.Series, scalar float32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float32](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] >= scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func LessThanScalarF32(series telem.Series, scalar float32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float32](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] < scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func LessThanOrEqualScalarF32(series telem.Series, scalar float32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float32](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] <= scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func EqualScalarF32(series telem.Series, scalar float32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float32](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] == scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func NotEqualScalarF32(series telem.Series, scalar float32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float32](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] != scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func GreaterThanScalarI64(series telem.Series, scalar int64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int64](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] > scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func GreaterThanOrEqualScalarI64(series telem.Series, scalar int64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int64](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] >= scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func LessThanScalarI64(series telem.Series, scalar int64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int64](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] < scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func LessThanOrEqualScalarI64(series telem.Series, scalar int64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int64](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] <= scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func EqualScalarI64(series telem.Series, scalar int64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int64](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] == scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func NotEqualScalarI64(series telem.Series, scalar int64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int64](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] != scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func GreaterThanScalarI32(series telem.Series, scalar int32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int32](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] > scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func GreaterThanOrEqualScalarI32(series telem.Series, scalar int32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int32](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] >= scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func LessThanScalarI32(series telem.Series, scalar int32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int32](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] < scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func LessThanOrEqualScalarI32(series telem.Series, scalar int32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int32](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] <= scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func EqualScalarI32(series telem.Series, scalar int32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int32](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] == scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func NotEqualScalarI32(series telem.Series, scalar int32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int32](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] != scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func GreaterThanScalarI16(series telem.Series, scalar int16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int16](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] > scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func GreaterThanOrEqualScalarI16(series telem.Series, scalar int16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int16](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] >= scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func LessThanScalarI16(series telem.Series, scalar int16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int16](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] < scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func LessThanOrEqualScalarI16(series telem.Series, scalar int16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int16](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] <= scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func EqualScalarI16(series telem.Series, scalar int16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int16](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] == scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func NotEqualScalarI16(series telem.Series, scalar int16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int16](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] != scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func GreaterThanScalarI8(series telem.Series, scalar int8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int8](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] > scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func GreaterThanOrEqualScalarI8(series telem.Series, scalar int8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int8](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] >= scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func LessThanScalarI8(series telem.Series, scalar int8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int8](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] < scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func LessThanOrEqualScalarI8(series telem.Series, scalar int8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int8](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] <= scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func EqualScalarI8(series telem.Series, scalar int8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int8](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] == scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func NotEqualScalarI8(series telem.Series, scalar int8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int8](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] != scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func GreaterThanScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint64](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] > scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func GreaterThanOrEqualScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint64](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] >= scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func LessThanScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint64](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] < scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func LessThanOrEqualScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint64](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] <= scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func EqualScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint64](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] == scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func NotEqualScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint64](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] != scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func GreaterThanScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint32](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] > scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func GreaterThanOrEqualScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint32](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] >= scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func LessThanScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint32](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] < scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func LessThanOrEqualScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint32](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] <= scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func EqualScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint32](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] == scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func NotEqualScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint32](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] != scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func GreaterThanScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint16](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] > scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func GreaterThanOrEqualScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint16](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] >= scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func LessThanScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint16](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] < scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func LessThanOrEqualScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint16](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] <= scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func EqualScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint16](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] == scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func NotEqualScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint16](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] != scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func GreaterThanScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint8](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] > scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func GreaterThanOrEqualScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint8](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] >= scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func LessThanScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint8](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] < scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func LessThanOrEqualScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint8](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] <= scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func EqualScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint8](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] == scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
+}
+
+func NotEqualScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint8](series.Data)
+	outData := output.Data
+
+	for i := int64(0); i < length; i++ {
+		if inData[i] != scalar {
+			outData[i] = 1
+		} else {
+			outData[i] = 0
+		}
+	}
 }
