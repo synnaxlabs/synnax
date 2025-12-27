@@ -193,13 +193,10 @@ var _ = Describe("State", func() {
 				fr2 := telem.UnaryFrame[uint32](10, telem.NewSeriesV[float32](4, 5))
 				s.Ingest(fr2)
 				n := s.Node("test")
-				// Before clear, should have both series
 				data, _, ok := n.ReadChan(10)
 				Expect(ok).To(BeTrue())
 				Expect(data.Series).To(HaveLen(2))
-				// Clear reads - should preserve only the latest series
 				s.ClearReads()
-				// After clear, should have only the last series
 				data, _, ok = n.ReadChan(10)
 				Expect(ok).To(BeTrue())
 				Expect(data.Series).To(HaveLen(1))
@@ -223,7 +220,6 @@ var _ = Describe("State", func() {
 				s.Ingest(fr)
 				s.ClearReads()
 				n := s.Node("test")
-				// Both channels should still have their data preserved
 				data1, time1, ok1 := n.ReadChan(1)
 				Expect(ok1).To(BeTrue())
 				Expect(data1.Series).To(HaveLen(1))
@@ -238,24 +234,19 @@ var _ = Describe("State", func() {
 
 			It("Should allow preserved data to be available in subsequent cycles", func() {
 				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				// Cycle 1: channel 10 receives data
 				fr1 := telem.UnaryFrame[uint32](10, telem.NewSeriesV[float32](1, 2))
 				s.Ingest(fr1)
 				s.ClearReads()
-				// Cycle 2: channel 20 receives data, but channel 10 does not
 				fr2 := telem.UnaryFrame[uint32](20, telem.NewSeriesV[float32](3, 4))
 				s.Ingest(fr2)
 				n := s.Node("test")
-				// Channel 10 should still have its preserved data from cycle 1
 				data10, _, ok10 := n.ReadChan(10)
 				Expect(ok10).To(BeTrue())
 				Expect(data10.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float32](1, 2)))
-				// Channel 20 should have its new data
 				data20, _, ok20 := n.ReadChan(20)
 				Expect(ok20).To(BeTrue())
 				Expect(data20.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float32](3, 4)))
 				s.ClearReads()
-				// After another clear, both should still be available
 				data10, _, ok10 = n.ReadChan(10)
 				Expect(ok10).To(BeTrue())
 				Expect(data10.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float32](1, 2)))
@@ -266,20 +257,16 @@ var _ = Describe("State", func() {
 
 			It("Should overwrite preserved data when new data arrives", func() {
 				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				// Cycle 1: ingest initial data
 				fr1 := telem.UnaryFrame[uint32](5, telem.NewSeriesV[uint8](10, 20))
 				s.Ingest(fr1)
 				s.ClearReads()
 				n := s.Node("test")
-				// Verify preserved value
 				data, _, ok := n.ReadChan(5)
 				Expect(ok).To(BeTrue())
 				Expect(data.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[uint8](10, 20)))
-				// Cycle 2: ingest new data for same channel
 				fr2 := telem.UnaryFrame[uint32](5, telem.NewSeriesV[uint8](30, 40))
 				s.Ingest(fr2)
 				s.ClearReads()
-				// Should now have the new value
 				data, _, ok = n.ReadChan(5)
 				Expect(ok).To(BeTrue())
 				Expect(data.Series).To(HaveLen(1))
@@ -290,7 +277,6 @@ var _ = Describe("State", func() {
 				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
 				fr := telem.UnaryFrame[uint32](10, telem.NewSeriesV[int32](1, 2, 3))
 				s.Ingest(fr)
-				// Only one series, clear_reads should be a no-op
 				s.ClearReads()
 				n := s.Node("test")
 				data, _, ok := n.ReadChan(10)
