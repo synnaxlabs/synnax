@@ -33,6 +33,10 @@ inline const telem::TimeSpan HYBRID_BLOCK_TIMEOUT = 10 * telem::MILLISECOND;
 /// @brief Minimum meaningful interval for kqueue EVFILT_TIMER on macOS (1 millisecond).
 /// Intervals below this threshold use software timing instead.
 inline const telem::TimeSpan KQUEUE_TIMER_MIN = telem::MILLISECOND;
+
+/// @brief Threshold below which software timer (HIGH_RATE) is used for precision.
+/// Above this, OS timers (timerfd/kqueue/WaitableTimer) provide sufficient precision.
+inline const telem::TimeSpan SOFTWARE_TIMER_THRESHOLD = telem::MILLISECOND;
 }
 
 enum class ExecutionMode {

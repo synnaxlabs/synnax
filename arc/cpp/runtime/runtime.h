@@ -209,10 +209,13 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
     const bool has_intervals = timing_interval.nanoseconds() !=
                                std::numeric_limits<int64_t>::max();
 
+    auto mode = loop::ExecutionMode::EVENT_DRIVEN;
+    if (has_intervals && timing_interval < loop::timing::SOFTWARE_TIMER_THRESHOLD)
+        mode = loop::ExecutionMode::HIGH_RATE;
+
     auto [loop, err] = loop::create(
         loop::Config{
-            .mode = has_intervals ? loop::ExecutionMode::HIGH_RATE
-                                  : loop::ExecutionMode::EVENT_DRIVEN,
+            .mode = mode,
             .interval = has_intervals ? timing_interval : telem::TimeSpan(0),
             .rt_priority = 47,
             .cpu_affinity = -1,

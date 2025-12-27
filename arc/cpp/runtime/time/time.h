@@ -85,13 +85,13 @@ public:
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.elapsed;
         if (ctx.elapsed - start_time < cfg.duration) return xerrors::NIL;
         this->fired = true;
-        ctx.mark_changed(ir::default_output_param);
         const auto &o = state.output(0);
         const auto &o_time = state.output_time(0);
         o->resize(1);
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
         o_time->set(0, ctx.elapsed.nanoseconds());
+        ctx.mark_changed(ir::default_output_param);
         return xerrors::NIL;
     }
 
