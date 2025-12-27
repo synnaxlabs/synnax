@@ -279,7 +279,7 @@ var _ = Describe("Sequence", func() {
 			Expect(restored.Stages).To(HaveLen(0))
 		})
 
-		It("Should round-trip entry() result correctly", func() {
+		It("Should round-trip Entry() result correctly", func() {
 			data := MustSucceed(json.Marshal(seq))
 
 			var restored ir.Sequence
@@ -473,7 +473,7 @@ var _ = Describe("Sequences", func() {
 	})
 
 	Describe("Multiple Sequence Operations", func() {
-		It("Should support independent entry() calls", func() {
+		It("Should support independent Entry() calls", func() {
 			main := sequences.Get("main")
 			abort := sequences.Get("abort")
 			recovery := sequences.Get("recovery")
