@@ -238,9 +238,9 @@ var _ = Describe("Identifier Compilation", func() {
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 			})
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
-				Name:    "getValue",
-				Kind:    symbol.KindFunction,
-				Type:    funcType,
+				Name: "getValue",
+				Kind: symbol.KindFunction,
+				Type: funcType,
 			}))
 
 			byteCode, exprType := compileWithCtx(ctx, "getValue() + 5")
