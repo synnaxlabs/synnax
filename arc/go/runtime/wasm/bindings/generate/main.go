@@ -182,7 +182,7 @@ func (r *Runtime) StringFromLiteral(ctx context.Context, ptr uint32, length uint
 		return 0 // Return null handle on failure
 	}
 
-	// Generate new handle
+	// generate new handle
 	handle := r.stringHandleCounter
 	r.stringHandleCounter++
 
@@ -227,7 +227,7 @@ func (r *Runtime) ChannelReadStr(ctx context.Context, channelID uint32) uint32 {
 	// Get the last (most recent) string
 	str := strings[len(strings)-1]
 
-	// Generate handle and store
+	// generate handle and store
 	handle := r.stringHandleCounter
 	r.stringHandleCounter++
 	r.strings[handle] = str

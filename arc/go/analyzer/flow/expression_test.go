@@ -143,7 +143,8 @@ var _ = Describe("Expression func Conversion", func() {
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("unknown"))
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(Equal("undefined symbol: unknown_channel"))
 		})
 	})
 

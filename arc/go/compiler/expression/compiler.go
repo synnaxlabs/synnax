@@ -198,8 +198,18 @@ func compilePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) (type
 	if lit := ctx.AST.Literal(); lit != nil {
 		return compileLiteral(context.Child(ctx, lit))
 	}
-	if ctx.AST.IDENTIFIER() != nil {
-		return compileIdentifier(ctx, ctx.AST.IDENTIFIER().GetText())
+	if id := ctx.AST.IDENTIFIER(); id != nil {
+		text := id.GetText()
+		// Handle boolean literals (parsed as identifiers in the grammar)
+		if text == "true" {
+			ctx.Writer.WriteI32Const(1)
+			return types.U8(), nil
+		}
+		if text == "false" {
+			ctx.Writer.WriteI32Const(0)
+			return types.U8(), nil
+		}
+		return compileIdentifier(ctx, text)
 	}
 	if ctx.AST.LPAREN() != nil && ctx.AST.Expression() != nil {
 		return Compile(context.Child(ctx, ctx.AST.Expression()))
