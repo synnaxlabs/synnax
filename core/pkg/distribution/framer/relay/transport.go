@@ -12,7 +12,7 @@ package relay
 import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 )
 
@@ -21,7 +21,7 @@ type Request struct {
 }
 
 type Response struct {
-	Frame core.Frame `json:"frame" msgpack:"frame"`
+	Frame frame.Frame `json:"frame" msgpack:"frame"`
 }
 
 func reqToStorage(req Request) ts.StreamerRequest {
@@ -29,7 +29,7 @@ func reqToStorage(req Request) ts.StreamerRequest {
 }
 
 func resFromStorage(res ts.StreamerResponse) Response {
-	return Response{Frame: core.NewFrameFromStorage(res.Frame)}
+	return Response{Frame: frame.NewFromStorage(res.Frame)}
 }
 
 type (

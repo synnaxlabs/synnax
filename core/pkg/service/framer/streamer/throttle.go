@@ -13,7 +13,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -21,14 +21,14 @@ import (
 
 type throttle struct {
 	rate telem.Rate
-	fr   core.Frame
+	fr   frame.Frame
 	confluence.LinearTransform[Response, Response]
 }
 
 func newThrottle(cfg Config) responseSegment {
 	t := &throttle{
 		rate: cfg.ThrottleRate,
-		fr:   core.Frame{},
+		fr:   frame.Frame{},
 	}
 	return t
 }
@@ -53,7 +53,7 @@ func (t *throttle) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					); err != nil {
 						return err
 					}
-					t.fr = core.AllocFrame(t.fr.Count())
+					t.fr = frame.Alloc(t.fr.Count())
 				}
 			case res, ok := <-t.In.Outlet():
 				if first && res.Frame.Empty() {

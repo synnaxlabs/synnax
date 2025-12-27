@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	distFramer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -293,7 +293,7 @@ var _ = Describe("Metrics", Ordered, func() {
 				Keys:  []channel.Key{indexCh.Key(), dataCh.Key()},
 			}))
 			now := telem.Now()
-			fr := core.UnaryFrame(indexCh.Key(), telem.NewSeriesV[telem.TimeStamp](now, now+telem.MillisecondTS, now+2*telem.MillisecondTS)).
+			fr := frame.NewUnary(indexCh.Key(), telem.NewSeriesV(now, now+telem.MillisecondTS, now+2*telem.MillisecondTS)).
 				Append(dataCh.Key(), telem.NewSeriesV[float32](1.0, 2.0, 3.0))
 			MustSucceed(w.Write(fr))
 			Expect(w.Close()).To(Succeed())
