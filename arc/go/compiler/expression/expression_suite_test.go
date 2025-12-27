@@ -96,26 +96,17 @@ func seriesSymbol(name string, elemType types.Type, id int) symbol.Symbol {
 
 // seriesArithmeticIdx returns the function index for series arithmetic operations
 func seriesArithmeticIdx(op string, elemType types.Type, isScalar bool) uint32 {
-	idx, _ := testImports.GetSeriesArithmetic(op, elemType, isScalar)
-	return idx
+	return MustSucceed(testImports.GetSeriesArithmetic(op, elemType, isScalar))
 }
 
 // seriesReverseArithmeticIdx returns the function index for reverse arithmetic operations (scalar op series)
 func seriesReverseArithmeticIdx(op string, elemType types.Type) uint32 {
-	idx, _ := testImports.GetSeriesReverseArithmetic(op, elemType)
-	return idx
+	return MustSucceed(testImports.GetSeriesReverseArithmetic(op, elemType))
 }
 
 // seriesComparisonIdx returns the function index for series-series comparison operations
 func seriesComparisonIdx(op string, elemType types.Type) uint32 {
-	idx, _ := testImports.GetSeriesComparison(op, elemType)
-	return idx
-}
-
-// seriesScalarComparisonIdx returns the function index for series-scalar comparison operations
-func seriesScalarComparisonIdx(op string, elemType types.Type) uint32 {
-	idx, _ := testImports.GetSeriesScalarComparison(op, elemType)
-	return idx
+	return MustSucceed(testImports.GetSeriesComparison(op, elemType))
 }
 
 func TestExpression(t *testing.T) {

@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var ctx = context.Background()
@@ -59,7 +60,7 @@ var _ = Describe("Constant", func() {
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: 42}}},
 				State: s.Node("const"),
 			}
-			Expect(factory.Create(ctx, cfg)).Error().To(Succeed())
+			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
 		})
 		It("Should return NotFound for unknown type", func() {
 			cfg := node.Config{
@@ -80,7 +81,7 @@ var _ = Describe("Constant", func() {
 				},
 				State: s.Node("const"),
 			}
-			Expect(factory.Create(ctx, cfg)).Error().To(Succeed())
+			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
 		})
 		It("Should handle int value", func() {
 			cfg := node.Config{
@@ -93,7 +94,7 @@ var _ = Describe("Constant", func() {
 					}}},
 				State: s.Node("const"),
 			}
-			Expect(factory.Create(ctx, cfg)).Error().To(Succeed())
+			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
 		})
 		It("Should handle uint8 value", func() {
 			cfg := node.Config{
@@ -106,7 +107,7 @@ var _ = Describe("Constant", func() {
 					}}},
 				State: s.Node("const"),
 			}
-			Expect(factory.Create(ctx, cfg)).Error().To(Succeed())
+			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
 		})
 	})
 
