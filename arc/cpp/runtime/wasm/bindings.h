@@ -76,7 +76,6 @@ public:
     uint32_t channel_read_str(uint32_t channel_id);
     void channel_write_str(uint32_t channel_id, uint32_t str_handle);
 
-/// State operations use semantic C++ types. The MethodWrapper handles WASM conversion.
 #define DECLARE_STATE_OPS(suffix, cpptype)                                             \
     cpptype state_load_##suffix(                                                       \
         uint32_t func_id,                                                              \
