@@ -938,4 +938,25 @@ TEST_F(BindingsTest, SeriesNotU8DoubleNot) {
     EXPECT_EQ(bindings->series_index_u8(h3, 3), 0x55);
 }
 
+// String operation tests
+
+TEST_F(BindingsTest, StringLenInvalidHandle) {
+    EXPECT_EQ(bindings->string_len(999), 0u);
+}
+
+TEST_F(BindingsTest, StringEqualInvalidHandles) {
+    EXPECT_EQ(bindings->string_equal(999, 998), 0u);
+}
+
+TEST_F(BindingsTest, StringConcatInvalidHandles) {
+    EXPECT_EQ(bindings->string_concat(999, 998), 0u);
+}
+
+TEST_F(BindingsTest, StringConcatOneInvalidHandle) {
+    // Can't easily test with valid handles without WASM memory setup
+    // but we can verify that one invalid handle returns 0
+    EXPECT_EQ(bindings->string_concat(999, 0), 0u);
+    EXPECT_EQ(bindings->string_concat(0, 999), 0u);
+}
+
 }
