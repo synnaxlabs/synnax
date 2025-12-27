@@ -157,6 +157,18 @@ public:
     DECLARE_SERIES_OPS(f64, double)
 
 #undef DECLARE_SERIES_OPS
+
+#define DECLARE_SERIES_NEGATE(suffix) uint32_t series_negate_##suffix(uint32_t handle);
+    DECLARE_SERIES_NEGATE(i8)
+    DECLARE_SERIES_NEGATE(i16)
+    DECLARE_SERIES_NEGATE(i32)
+    DECLARE_SERIES_NEGATE(i64)
+    DECLARE_SERIES_NEGATE(f32)
+    DECLARE_SERIES_NEGATE(f64)
+#undef DECLARE_SERIES_NEGATE
+
+    uint32_t series_not_u8(uint32_t handle);
+
     static uint64_t now();
     uint64_t len(uint32_t handle);
     void panic(uint32_t ptr, uint32_t len);

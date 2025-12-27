@@ -759,4 +759,183 @@ TEST_F(BindingsTest, SeriesScalarCompareAllTypes) {
     }
 }
 
+TEST_F(BindingsTest, SeriesNegateI8) {
+    const uint32_t h1 = bindings->series_create_empty_i8(3);
+    bindings->series_set_element_i8(h1, 0, 5);
+    bindings->series_set_element_i8(h1, 1, -3);
+    bindings->series_set_element_i8(h1, 2, 0);
+
+    const uint32_t h2 = bindings->series_negate_i8(h1);
+    EXPECT_NE(h2, 0);
+    EXPECT_NE(h2, h1);
+    EXPECT_EQ(bindings->series_index_i8(h2, 0), -5);
+    EXPECT_EQ(bindings->series_index_i8(h2, 1), 3);
+    EXPECT_EQ(bindings->series_index_i8(h2, 2), 0);
+
+    // Original unchanged
+    EXPECT_EQ(bindings->series_index_i8(h1, 0), 5);
+}
+
+TEST_F(BindingsTest, SeriesNegateI16) {
+    const uint32_t h1 = bindings->series_create_empty_i16(3);
+    bindings->series_set_element_i16(h1, 0, 1000);
+    bindings->series_set_element_i16(h1, 1, -500);
+    bindings->series_set_element_i16(h1, 2, 0);
+
+    const uint32_t h2 = bindings->series_negate_i16(h1);
+    EXPECT_NE(h2, 0);
+    EXPECT_EQ(bindings->series_index_i16(h2, 0), -1000);
+    EXPECT_EQ(bindings->series_index_i16(h2, 1), 500);
+    EXPECT_EQ(bindings->series_index_i16(h2, 2), 0);
+}
+
+TEST_F(BindingsTest, SeriesNegateI32) {
+    const uint32_t h1 = bindings->series_create_empty_i32(4);
+    bindings->series_set_element_i32(h1, 0, 100000);
+    bindings->series_set_element_i32(h1, 1, -50000);
+    bindings->series_set_element_i32(h1, 2, 0);
+    bindings->series_set_element_i32(h1, 3, 2147483647); // INT32_MAX
+
+    const uint32_t h2 = bindings->series_negate_i32(h1);
+    EXPECT_NE(h2, 0);
+    EXPECT_EQ(bindings->series_index_i32(h2, 0), -100000);
+    EXPECT_EQ(bindings->series_index_i32(h2, 1), 50000);
+    EXPECT_EQ(bindings->series_index_i32(h2, 2), 0);
+    EXPECT_EQ(bindings->series_index_i32(h2, 3), -2147483647);
+}
+
+TEST_F(BindingsTest, SeriesNegateI64) {
+    const uint32_t h1 = bindings->series_create_empty_i64(3);
+    bindings->series_set_element_i64(h1, 0, 10000000000LL);
+    bindings->series_set_element_i64(h1, 1, -5000000000LL);
+    bindings->series_set_element_i64(h1, 2, 0);
+
+    const uint32_t h2 = bindings->series_negate_i64(h1);
+    EXPECT_NE(h2, 0);
+    EXPECT_EQ(bindings->series_index_i64(h2, 0), -10000000000LL);
+    EXPECT_EQ(bindings->series_index_i64(h2, 1), 5000000000LL);
+    EXPECT_EQ(bindings->series_index_i64(h2, 2), 0);
+}
+
+TEST_F(BindingsTest, SeriesNegateF32) {
+    const uint32_t h1 = bindings->series_create_empty_f32(4);
+    bindings->series_set_element_f32(h1, 0, 3.14159f);
+    bindings->series_set_element_f32(h1, 1, -2.71828f);
+    bindings->series_set_element_f32(h1, 2, 0.0f);
+    bindings->series_set_element_f32(h1, 3, 1.0f);
+
+    const uint32_t h2 = bindings->series_negate_f32(h1);
+    EXPECT_NE(h2, 0);
+    EXPECT_FLOAT_EQ(bindings->series_index_f32(h2, 0), -3.14159f);
+    EXPECT_FLOAT_EQ(bindings->series_index_f32(h2, 1), 2.71828f);
+    EXPECT_FLOAT_EQ(bindings->series_index_f32(h2, 2), 0.0f);
+    EXPECT_FLOAT_EQ(bindings->series_index_f32(h2, 3), -1.0f);
+}
+
+TEST_F(BindingsTest, SeriesNegateF64) {
+    const uint32_t h1 = bindings->series_create_empty_f64(4);
+    bindings->series_set_element_f64(h1, 0, 3.14159265358979);
+    bindings->series_set_element_f64(h1, 1, -2.71828182845905);
+    bindings->series_set_element_f64(h1, 2, 0.0);
+    bindings->series_set_element_f64(h1, 3, 1.0);
+
+    const uint32_t h2 = bindings->series_negate_f64(h1);
+    EXPECT_NE(h2, 0);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h2, 0), -3.14159265358979);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h2, 1), 2.71828182845905);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h2, 2), 0.0);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h2, 3), -1.0);
+}
+
+TEST_F(BindingsTest, SeriesNegateInvalidHandle) {
+    EXPECT_EQ(bindings->series_negate_i32(999), 0);
+    EXPECT_EQ(bindings->series_negate_f64(999), 0);
+}
+
+TEST_F(BindingsTest, SeriesNegateEmpty) {
+    const uint32_t h1 = bindings->series_create_empty_f64(0);
+    const uint32_t h2 = bindings->series_negate_f64(h1);
+    EXPECT_NE(h2, 0);
+    EXPECT_EQ(bindings->series_len(h2), 0);
+}
+
+TEST_F(BindingsTest, SeriesNegateDoubleNegation) {
+    const uint32_t h1 = bindings->series_create_empty_i32(3);
+    bindings->series_set_element_i32(h1, 0, 10);
+    bindings->series_set_element_i32(h1, 1, -20);
+    bindings->series_set_element_i32(h1, 2, 30);
+
+    const uint32_t h2 = bindings->series_negate_i32(h1);
+    const uint32_t h3 = bindings->series_negate_i32(h2);
+
+    // Double negation should return original values
+    EXPECT_EQ(bindings->series_index_i32(h3, 0), 10);
+    EXPECT_EQ(bindings->series_index_i32(h3, 1), -20);
+    EXPECT_EQ(bindings->series_index_i32(h3, 2), 30);
+}
+
+TEST_F(BindingsTest, SeriesNotU8) {
+    const uint32_t h1 = bindings->series_create_empty_u8(4);
+    bindings->series_set_element_u8(h1, 0, 0x00);
+    bindings->series_set_element_u8(h1, 1, 0xFF);
+    bindings->series_set_element_u8(h1, 2, 0x0F);
+    bindings->series_set_element_u8(h1, 3, 0xF0);
+
+    const uint32_t h2 = bindings->series_not_u8(h1);
+    EXPECT_NE(h2, 0);
+    EXPECT_NE(h2, h1);
+    EXPECT_EQ(bindings->series_index_u8(h2, 0), 0xFF);
+    EXPECT_EQ(bindings->series_index_u8(h2, 1), 0x00);
+    EXPECT_EQ(bindings->series_index_u8(h2, 2), 0xF0);
+    EXPECT_EQ(bindings->series_index_u8(h2, 3), 0x0F);
+
+    // Original unchanged
+    EXPECT_EQ(bindings->series_index_u8(h1, 0), 0x00);
+}
+
+TEST_F(BindingsTest, SeriesNotU8BooleanValues) {
+    // Test with boolean-like values (0 and 1)
+    const uint32_t h1 = bindings->series_create_empty_u8(4);
+    bindings->series_set_element_u8(h1, 0, 0); // false
+    bindings->series_set_element_u8(h1, 1, 1); // true
+    bindings->series_set_element_u8(h1, 2, 1); // true
+    bindings->series_set_element_u8(h1, 3, 0); // false
+
+    const uint32_t h2 = bindings->series_not_u8(h1);
+    // For boolean NOT, we expect bitwise NOT
+    // NOT 0 = 255, NOT 1 = 254
+    EXPECT_EQ(bindings->series_index_u8(h2, 0), 0xFF);
+    EXPECT_EQ(bindings->series_index_u8(h2, 1), 0xFE);
+    EXPECT_EQ(bindings->series_index_u8(h2, 2), 0xFE);
+    EXPECT_EQ(bindings->series_index_u8(h2, 3), 0xFF);
+}
+
+TEST_F(BindingsTest, SeriesNotU8InvalidHandle) {
+    EXPECT_EQ(bindings->series_not_u8(999), 0);
+}
+
+TEST_F(BindingsTest, SeriesNotU8Empty) {
+    const uint32_t h1 = bindings->series_create_empty_u8(0);
+    const uint32_t h2 = bindings->series_not_u8(h1);
+    EXPECT_NE(h2, 0);
+    EXPECT_EQ(bindings->series_len(h2), 0);
+}
+
+TEST_F(BindingsTest, SeriesNotU8DoubleNot) {
+    const uint32_t h1 = bindings->series_create_empty_u8(4);
+    bindings->series_set_element_u8(h1, 0, 0x00);
+    bindings->series_set_element_u8(h1, 1, 0xFF);
+    bindings->series_set_element_u8(h1, 2, 0xAB);
+    bindings->series_set_element_u8(h1, 3, 0x55);
+
+    const uint32_t h2 = bindings->series_not_u8(h1);
+    const uint32_t h3 = bindings->series_not_u8(h2);
+
+    // Double NOT should return original values
+    EXPECT_EQ(bindings->series_index_u8(h3, 0), 0x00);
+    EXPECT_EQ(bindings->series_index_u8(h3, 1), 0xFF);
+    EXPECT_EQ(bindings->series_index_u8(h3, 2), 0xAB);
+    EXPECT_EQ(bindings->series_index_u8(h3, 3), 0x55);
+}
+
 }

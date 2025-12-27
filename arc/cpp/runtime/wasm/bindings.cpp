@@ -408,6 +408,36 @@ IMPL_SERIES_OPS(f64, double, telem::FLOAT64_T)
 #undef IMPL_SERIES_SCALAR_OP
 #undef IMPL_SERIES_BINARY_OP
 
+// Unary negate operations (signed types only)
+#define IMPL_SERIES_NEGATE(suffix)                                                     \
+    uint32_t Bindings::series_negate_##suffix(uint32_t handle) {                       \
+        auto it = series.find(handle);                                                 \
+        if (it == series.end()) return 0;                                              \
+        auto result = -it->second;                                                     \
+        const uint32_t new_handle = series_handle_counter++;                           \
+        series.emplace(new_handle, std::move(result));                                 \
+        return new_handle;                                                             \
+    }
+
+IMPL_SERIES_NEGATE(i8)
+IMPL_SERIES_NEGATE(i16)
+IMPL_SERIES_NEGATE(i32)
+IMPL_SERIES_NEGATE(i64)
+IMPL_SERIES_NEGATE(f32)
+IMPL_SERIES_NEGATE(f64)
+
+#undef IMPL_SERIES_NEGATE
+
+// Boolean NOT (U8 only - for logical negation)
+uint32_t Bindings::series_not_u8(uint32_t handle) {
+    auto it = series.find(handle);
+    if (it == series.end()) return 0;
+    auto result = ~it->second;
+    const uint32_t new_handle = series_handle_counter++;
+    series.emplace(new_handle, std::move(result));
+    return new_handle;
+}
+
 uint64_t Bindings::now() {
     return static_cast<uint64_t>(telem::TimeStamp::now().nanoseconds());
 }
@@ -701,6 +731,30 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
     REGISTER_SERIES_OPS(f64)
 
 #undef REGISTER_SERIES_OPS
+
+    // Register unary operations (negate for signed types, NOT for boolean)
+    // Order matches Go: F64, F32, I64, I32, I16, I8 for negate, then U8 for NOT
+    imports.push_back(
+        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::series_negate_f64))
+    );
+    imports.push_back(
+        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::series_negate_f32))
+    );
+    imports.push_back(
+        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::series_negate_i64))
+    );
+    imports.push_back(
+        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::series_negate_i32))
+    );
+    imports.push_back(
+        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::series_negate_i16))
+    );
+    imports.push_back(
+        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::series_negate_i8))
+    );
+    imports.push_back(
+        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::series_not_u8))
+    );
 
 #define REGISTER_STATE_OPS(suffix)                                                     \
     imports.push_back(                                                                 \
