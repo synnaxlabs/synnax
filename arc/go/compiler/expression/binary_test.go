@@ -576,11 +576,12 @@ var _ = Describe("Binary Operations", func() {
 	Describe("Literal Coercion", func() {
 		It("Should coerce a literal type", func() {
 			ctx := NewContext(bCtx)
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+			scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: "x",
 				Kind: symbol.KindVariable,
 				Type: types.F32(),
 			}))
+			Expect(scope).ToNot(BeNil())
 			compiled, t := compileWithCtx(ctx, "x + 1")
 			Expect(t).To(Equal(types.F32()))
 			Expect(compiled).To(MatchOpcodes(

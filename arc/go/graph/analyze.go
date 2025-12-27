@@ -70,13 +70,7 @@ func Analyze(
 			ctx.Diagnostics.AddError(err, fn.Body.AST)
 			return ir.IR{}, ctx.Diagnostics
 		}
-		funcScope.Channels = symbol.NewChannels()
-		funcScope.OnResolve = func(ctx context.Context, s *symbol.Scope) error {
-			if s.Kind == symbol.KindChannel || s.Type.Kind == types.KindChan {
-				funcScope.Channels.Read[uint32(s.ID)] = s.Name
-			}
-			return nil
-		}
+		funcScope.AccumulateReadChannels()
 		if fn.Body.Raw != "" {
 			blockCtx, ok := fn.Body.AST.(parser.IBlockContext)
 			if !ok {
