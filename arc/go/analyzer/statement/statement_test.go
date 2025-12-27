@@ -298,6 +298,136 @@ var _ = Describe("Statement", func() {
 		})
 	})
 
+	Describe("Compound Assignment", func() {
+		Context("valid compound assignments", func() {
+			DescribeTable("numeric types",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					Expect(statement.AnalyzeBlock(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+					Expect(*ctx.Diagnostics).To(BeEmpty())
+				},
+				Entry("i64 plus equals", `{
+					x i64 := 10
+					x += 5
+				}`),
+				Entry("i32 minus equals", `{
+					x i32 := 10
+					x -= 5
+				}`),
+				Entry("f64 multiply equals", `{
+					x f64 := 10.0
+					x *= 2.5
+				}`),
+				Entry("f32 divide equals", `{
+					x f32 := 10.0
+					x /= 2.0
+				}`),
+				Entry("i64 modulo equals", `{
+					x i64 := 17
+					x %= 5
+				}`),
+				Entry("inferred type plus equals", `{
+					x := 10
+					x += 5
+				}`),
+				Entry("compound with expression", `{
+					x i64 := 10
+					y i64 := 5
+					x += y * 2
+				}`),
+			)
+
+			It("should allow string concatenation with +=", func() {
+				block := MustSucceed(parser.ParseBlock(`{
+					s str := "hello"
+					s += " world"
+				}`))
+				ctx := context.CreateRoot(bCtx, block, nil)
+				Expect(statement.AnalyzeBlock(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+				Expect(*ctx.Diagnostics).To(BeEmpty())
+			})
+		})
+
+		Context("invalid compound assignments", func() {
+			var channelResolver symbol.MapResolver
+
+			BeforeEach(func() {
+				channelResolver = symbol.MapResolver{
+					"sensor": symbol.Symbol{
+						Kind: symbol.KindChannel,
+						Name: "sensor",
+						Type: types.Chan(types.F64()),
+					},
+				}
+			})
+
+			It("should reject compound assignment on channels", func() {
+				block := MustSucceed(parser.ParseBlock(`{ sensor += 1.0 }`))
+				ctx := context.CreateRoot(bCtx, block, channelResolver)
+				Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("compound assignment not supported on channels"))
+			})
+
+			DescribeTable("strings only support +=",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
+					Expect(*ctx.Diagnostics).To(HaveLen(1))
+					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("strings only support += operator"))
+				},
+				Entry("minus equals on string", `{
+					s str := "hello"
+					s -= "h"
+				}`),
+				Entry("multiply equals on string", `{
+					s str := "hello"
+					s *= "x"
+				}`),
+				Entry("divide equals on string", `{
+					s str := "hello"
+					s /= "x"
+				}`),
+				Entry("modulo equals on string", `{
+					s str := "hello"
+					s %= "x"
+				}`),
+			)
+
+			It("should reject compound assignment with type mismatch", func() {
+				block := MustSucceed(parser.ParseBlock(`{
+					x i32 := 10
+					x += "hello"
+				}`))
+				ctx := context.CreateRoot(bCtx, block, nil)
+				Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
+			})
+
+			It("should reject compound assignment on undefined variable", func() {
+				block := MustSucceed(parser.ParseBlock(`{ undefined_var += 5 }`))
+				ctx := context.CreateRoot(bCtx, block, nil)
+				Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: undefined_var"))
+			})
+
+			It("should reject indexed compound assignment", func() {
+				block := MustSucceed(parser.ParseBlock(`{
+					arr series i32 := [1, 2, 3]
+					arr[0] += 5
+				}`))
+				ctx := context.CreateRoot(bCtx, block, nil)
+				Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("indexed compound assignment not yet supported"))
+			})
+		})
+	})
+
 	Describe("Mixed Type Scenarios", func() {
 		It("should handle complex nested structures", func() {
 			block := MustSucceed(parser.ParseBlock(`{

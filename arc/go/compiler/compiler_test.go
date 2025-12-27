@@ -1913,5 +1913,139 @@ var _ = Describe("Compiler", func() {
 			Expect(results).To(HaveLen(1))
 			Expect(results[0]).To(Equal(uint64(1)))
 		})
+
+		It("Should execute string compound concatenation", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func build() u8 {
+				s str := "hello"
+				s += " "
+				s += "world"
+				return s == "hello world"
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			arcRuntime.SetMemory(mod.Memory())
+			build := mod.ExportedFunction("build")
+			results := MustSucceed(build.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1)))
+		})
+
+		It("Should execute string compound concatenation with variable", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func build() u8 {
+				s str := "a"
+				suffix str := "b"
+				s += suffix
+				return s == "ab"
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			arcRuntime.SetMemory(mod.Memory())
+			build := mod.ExportedFunction("build")
+			results := MustSucceed(build.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1)))
+		})
+	})
+
+	Describe("Compound Assignment Operators", func() {
+		DescribeTable("numeric compound assignments",
+			func(body string, expected any) {
+				source := fmt.Sprintf(`func test() %s %s`, inferReturnType(expected), body)
+				output := MustSucceed(compile(source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				results := MustSucceed(test.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				assertResult(results[0], expected)
+			},
+			Entry("i64 plus equals", `{
+				x i64 := 10
+				x += 5
+				return x
+			}`, int64(15)),
+			Entry("i64 minus equals", `{
+				x i64 := 10
+				x -= 3
+				return x
+			}`, int64(7)),
+			Entry("i64 multiply equals", `{
+				x i64 := 10
+				x *= 4
+				return x
+			}`, int64(40)),
+			Entry("i64 divide equals", `{
+				x i64 := 20
+				x /= 4
+				return x
+			}`, int64(5)),
+			Entry("i64 modulo equals", `{
+				x i64 := 17
+				x %= 5
+				return x
+			}`, int64(2)),
+			Entry("f64 plus equals", `{
+				x f64 := 10.5
+				x += 2.5
+				return x
+			}`, float64(13.0)),
+			Entry("f64 minus equals", `{
+				x f64 := 10.0
+				x -= 3.5
+				return x
+			}`, float64(6.5)),
+			Entry("f64 multiply equals", `{
+				x f64 := 2.5
+				x *= 4.0
+				return x
+			}`, float64(10.0)),
+			Entry("f64 divide equals", `{
+				x f64 := 15.0
+				x /= 3.0
+				return x
+			}`, float64(5.0)),
+			Entry("i32 plus equals", `{
+				x i32 := 100
+				x += 50
+				return x
+			}`, int32(150)),
+			Entry("i32 multiply equals", `{
+				x i32 := 7
+				x *= 6
+				return x
+			}`, int32(42)),
+			Entry("f32 plus equals", `{
+				x f32 := 1.5
+				x += 2.5
+				return x
+			}`, float32(4.0)),
+			Entry("multiple compound assignments", `{
+				x i64 := 10
+				x += 5
+				x *= 2
+				x -= 10
+				return x
+			}`, int64(20)),
+			Entry("compound assignment with expression", `{
+				x i64 := 10
+				y i64 := 3
+				x += y * 2
+				return x
+			}`, int64(16)),
+			Entry("compound assignment in conditional", `{
+				x i64 := 10
+				if x > 5 {
+					x += 100
+				}
+				return x
+			}`, int64(110)),
+			Entry("compound assignment with parameter", `{
+				x i64 := 5
+				x *= x
+				return x
+			}`, int64(25)),
+		)
 	})
 })
