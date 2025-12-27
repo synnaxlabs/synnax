@@ -54,6 +54,7 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 		return false
 	}
 	fnScope = fnScope.AutoName("expression_")
+	fnScope.AccumulateReadChannels()
 
 	blockScope, err := fnScope.Add(ctx, symbol.Symbol{
 		Kind: symbol.KindBlock,
