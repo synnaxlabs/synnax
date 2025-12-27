@@ -450,4 +450,32 @@ var _ = Describe("Runtime Series Operations", func() {
 			Expect(rt.SeriesCompareGTF64(ctx, 999, 888)).To(Equal(uint32(0)))
 		})
 	})
+
+	Describe("String Operations", func() {
+		Describe("StringLen", func() {
+			It("Should return 0 for invalid handle", func() {
+				Expect(rt.StringLen(ctx, 999)).To(Equal(uint32(0)))
+			})
+		})
+
+		Describe("StringEqual", func() {
+			It("Should return 0 for invalid handles", func() {
+				Expect(rt.StringEqual(ctx, 999, 998)).To(Equal(uint32(0)))
+			})
+		})
+
+		Describe("StringConcat", func() {
+			It("Should return 0 for invalid handles", func() {
+				Expect(rt.StringConcat(ctx, 999, 998)).To(Equal(uint32(0)))
+			})
+
+			It("Should return 0 when first handle is invalid", func() {
+				Expect(rt.StringConcat(ctx, 999, 0)).To(Equal(uint32(0)))
+			})
+
+			It("Should return 0 when second handle is invalid", func() {
+				Expect(rt.StringConcat(ctx, 0, 999)).To(Equal(uint32(0)))
+			})
+		})
+	})
 })

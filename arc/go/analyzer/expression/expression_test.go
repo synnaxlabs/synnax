@@ -128,17 +128,63 @@ var _ = Describe("Expressions", func() {
 			`),
 		)
 
+		DescribeTable("valid string operations",
+			func(code string) { expectSuccess(code, nil) },
+			Entry("simple string concatenation", `
+				func testFunc() {
+					x str := "hello"
+					y str := " world"
+					z := x + y
+				}
+			`),
+			Entry("multiple string concatenation", `
+				func testFunc() {
+					a str := "hello"
+					b str := " "
+					c str := "world"
+					result := a + b + c
+				}
+			`),
+			Entry("string concatenation with literal", `
+				func testFunc() {
+					x str := "hello"
+					y := x + " world"
+				}
+			`),
+			Entry("string equality", `
+				func testFunc() {
+					x str := "hello"
+					y str := "hello"
+					result := x == y
+				}
+			`),
+			Entry("string inequality", `
+				func testFunc() {
+					x str := "hello"
+					y str := "world"
+					result := x != y
+				}
+			`),
+			Entry("string equality with literal", `
+				func testFunc() {
+					x str := "hello"
+					result := x == "hello"
+				}
+			`),
+			Entry("concatenation and equality together", `
+				func testFunc() {
+					a str := "hello"
+					b str := " world"
+					c := a + b
+					result := c == "hello world"
+				}
+			`),
+		)
+
 		DescribeTable("invalid arithmetic operations on strings",
 			func(code string, operator string) {
 				expectOperatorTypeError(code, "str", operator)
 			},
-			Entry("add", `
-				func testFunc() {
-					x str := "hello"
-					y str := "world"
-					z := x + y
-				}
-			`, "+"),
 			Entry("subtract", `
 				func testFunc() {
 					x str := "hello"

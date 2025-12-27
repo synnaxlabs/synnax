@@ -574,6 +574,26 @@ func (r *Runtime) StringEqual(ctx context.Context, handle1 uint32, handle2 uint3
 	return 0
 }
 
+// StringConcat concatenates two strings and returns a new handle.
+func (r *Runtime) StringConcat(ctx context.Context, handle1 uint32, handle2 uint32) uint32 {
+	str1, ok1 := r.strings[handle1]
+	str2, ok2 := r.strings[handle2]
+	if !ok1 || !ok2 {
+		return 0
+	}
+	result := str1 + str2
+	handle := r.stringHandleCounter
+	r.stringHandleCounter++
+	r.strings[handle] = result
+	return handle
+}
+
+// GetString retrieves the string value for a given handle.
+// This is primarily useful for testing and debugging.
+func (r *Runtime) GetString(handle uint32) string {
+	return r.strings[handle]
+}
+
 // ChannelReadStr reads the latest string from a channel and returns a handle.
 func (r *Runtime) ChannelReadStr(ctx context.Context, channelID uint32) uint32 {
 	series, ok := r.state.ReadChannelValue(channelID)

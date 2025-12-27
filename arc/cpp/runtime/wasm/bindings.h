@@ -189,7 +189,7 @@ public:
     uint32_t series_slice(uint32_t handle, uint32_t start, uint32_t end);
 
     uint32_t string_from_literal(uint32_t ptr, uint32_t len);
-    uint32_t string_concat(uint32_t ptr, uint32_t len);
+    uint32_t string_concat(uint32_t handle1, uint32_t handle2);
     uint32_t string_equal(uint32_t handle1, uint32_t handle2);
     uint32_t string_len(uint32_t handle);
 };

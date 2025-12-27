@@ -201,8 +201,14 @@ uint32_t Bindings::string_from_literal(const uint32_t ptr, const uint32_t len) {
     return handle;
 }
 
-uint32_t Bindings::string_concat(uint32_t ptr, uint32_t len) {
-    return 0; // Not implemented
+uint32_t Bindings::string_concat(const uint32_t handle1, const uint32_t handle2) {
+    const auto it1 = strings.find(handle1);
+    const auto it2 = strings.find(handle2);
+    if (it1 == strings.end() || it2 == strings.end()) return 0;
+    const std::string result = it1->second + it2->second;
+    const uint32_t new_handle = string_handle_counter++;
+    strings[new_handle] = result;
+    return new_handle;
 }
 
 uint32_t Bindings::string_equal(const uint32_t handle1, const uint32_t handle2) {
@@ -790,6 +796,9 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
     );
     imports.push_back(
         wasmtime::Func::wrap(store, wrap(runtime, &Bindings::string_from_literal))
+    );
+    imports.push_back(
+        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::string_concat))
     );
     imports.push_back(
         wasmtime::Func::wrap(store, wrap(runtime, &Bindings::string_len))

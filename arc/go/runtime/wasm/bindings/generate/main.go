@@ -108,8 +108,6 @@ func stateKey(funcID uint32, varID uint32) uint64 {
 	return (uint64(funcID) << 32) | uint64(varID)
 }
 
-// ===== Channel Operations =====
-
 {{range .Types}}{{if ne .IRType "str"}}
 // ChannelRead{{.IRType | title}} reads the latest value from a channel.
 func (r *Runtime) ChannelRead{{.IRType | title}}(ctx context.Context, channelID uint32) {{.GoType}} {
@@ -132,8 +130,6 @@ func (r *Runtime) ChannelWrite{{.IRType | title}}(ctx context.Context, channelID
 }
 {{end}}{{end}}
 
-// ===== State Operations =====
-
 {{range .Types}}{{if ne .IRType "str"}}
 // StateLoad{{.IRType | title}} loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoad{{.IRType | title}}(ctx context.Context, funcID uint32, varID uint32, initValue {{.GoType}}) {{.GoType}} {
@@ -153,8 +149,6 @@ func (r *Runtime) StateStore{{.IRType | title}}(ctx context.Context, funcID uint
 }
 {{end}}{{end}}
 
-// ===== Generic Operations =====
-
 // Now returns the current timestamp.
 func (r *Runtime) Now(ctx context.Context) uint64 {
 	return uint64(telem.Now())
@@ -169,8 +163,6 @@ func (r *Runtime) Panic(ctx context.Context, ptr uint32, length uint32) {
 	}
 	panic("arc panic: " + string(msg))
 }
-
-// ===== Math Operations =====
 
 // MathPowF32 computes base^exponent for f32.
 func (r *Runtime) MathPowF32(ctx context.Context, base float32, exponent float32) float32 {
@@ -188,8 +180,6 @@ func (r *Runtime) MathPow{{.IRType | title}}(ctx context.Context, base {{.GoType
 	return xmath.IntPow(base, int(exponent))
 }
 {{end}}
-
-// ===== String Operations =====
 
 // StringFromLiteral creates a string from WASM memory and returns a handle.
 func (r *Runtime) StringFromLiteral(ctx context.Context, ptr uint32, length uint32) uint32 {
@@ -301,8 +291,6 @@ func (r *Runtime) StateStoreStr(ctx context.Context, funcID uint32, varID uint32
 	key := stateKey(funcID, varID)
 	r.stateString[key] = str
 }
-
-// ===== Series Operations =====
 
 {{range .NumericTypes}}
 // SeriesCreateEmpty{{.IRType | title}} creates an empty series of the given length.
