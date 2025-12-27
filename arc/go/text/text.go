@@ -499,6 +499,11 @@ func analyzeIdentifierAsSink(
 		return analyzeSequenceNodeAsSink(ctx, sym, kg)
 	}
 
+	// If the target is a stage, connect to that stage's entry node
+	if sym.Kind == symbol.KindStage {
+		return analyzeStageNodeAsSink(ctx, sym, kg)
+	}
+
 	// Otherwise, treat as a channel write node
 	nodeKey := kg.Generate("write", name)
 	chKey := uint32(sym.ID)
@@ -516,6 +521,32 @@ func analyzeIdentifierAsSink(
 	inputHandle := ir.Handle{Node: nodeKey, Param: ir.DefaultInputParam}
 	outputHandle := ir.Handle{Node: nodeKey, Param: ""}
 	return n, inputHandle, outputHandle, true
+}
+
+// analyzeStageNodeAsSink handles stage identifiers in sink position.
+// Instead of creating a write node, it returns a handle to the stage's
+// entry node's "activate" input.
+func analyzeStageNodeAsSink(
+	ctx acontext.Context[parser.IIdentifierContext],
+	stageSym *symbol.Scope,
+	kg *KeyGenerator,
+) (ir.Node, ir.Handle, ir.Handle, bool) {
+	stageName := stageSym.Name
+	// Get the sequence name from the stage's parent (the sequence scope)
+	seqName := stageSym.Parent.Name
+
+	// Build the entry node key using the same pattern as analyzeStage
+	entryKey := kg.Entry(seqName, stageName)
+
+	// Return a reference to the existing entry node (no new node created)
+	// The input handle points to the stage entry's "activate" input
+	inputHandle := ir.Handle{Node: entryKey, Param: "activate"}
+	// Stage sinks have no meaningful output
+	outputHandle := ir.Handle{Node: entryKey, Param: ""}
+
+	// Return an empty node - we don't create a new node, just return the handle
+	// to the existing stage entry node that was already created by analyzeStage
+	return ir.Node{}, inputHandle, outputHandle, true
 }
 
 // analyzeSequenceNodeAsSink handles sequence identifiers in sink position.
@@ -834,6 +865,13 @@ func analyzeSequence(
 	seqName := ctx.AST.IDENTIFIER().GetText()
 	seq := ir.Sequence{Key: seqName}
 
+	// Resolve the sequence scope to access stage symbols
+	seqScope, err := ctx.Scope.Resolve(ctx, seqName)
+	if err != nil {
+		ctx.Diagnostics.AddError(err, ctx.AST)
+		return ir.Sequence{}, nil, nil, false
+	}
+
 	var allNodes []ir.Node
 	var allEdges []ir.Edge
 
@@ -845,8 +883,9 @@ func analyzeSequence(
 			nextStageName = stageDecls[i+1].IDENTIFIER().GetText()
 		}
 		kg.SetStageContext(seqName, stageName, nextStageName)
+		// Pass the sequence scope so stage transitions can resolve stage names
 		stage, nodes, edges, ok := analyzeStage(
-			acontext.Child(ctx, stageDecl),
+			acontext.Child(ctx, stageDecl).WithScope(seqScope),
 			seqName,
 			kg,
 		)

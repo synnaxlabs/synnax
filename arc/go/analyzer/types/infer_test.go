@@ -268,8 +268,7 @@ var _ = Describe("Type Inference", func() {
 
 		It("should recursively check channel types", func() {
 			ast := testutil.NewMockAST(1)
-			err := atypes.Check(cs, types.Chan(types.F32()), types.Chan(types.F32()), ast, "test")
-			Expect(err).ToNot(HaveOccurred())
+			Expect(atypes.Check(cs, types.Chan(types.F32()), types.Chan(types.F32()), ast, "test")).To(Succeed())
 		})
 
 		It("should error on channel type mismatch", func() {

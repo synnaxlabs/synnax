@@ -14,7 +14,7 @@
 #include <set>
 #include <utility>
 
-#include <glog/logging.h>
+#include "glog/logging.h"
 
 #include "x/cpp/queue/spsc.h"
 #include "x/cpp/telem/frame.h"
@@ -99,7 +99,7 @@ public:
                 if (auto writes = this->state->flush_writes(); !writes.empty()) {
                     telem::Frame out_frame(writes.size());
                     for (auto &[key, series]: writes)
-                        out_frame.emplace(key, std::move(*series));
+                        out_frame.emplace(key, series->deep_copy());
                     LOG(INFO) << "[arc] wrote " << out_frame.size() << " channels";
                     this->outputs->push(std::move(out_frame));
                 }

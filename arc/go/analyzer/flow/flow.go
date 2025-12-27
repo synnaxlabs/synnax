@@ -210,7 +210,7 @@ func analyzeIdentifier(ctx context.Context[parser.IIdentifierContext], prevNode 
 		if prevExpr := prevNode.Expression(); prevExpr != nil {
 			exprType := atypes.InferFromExpression(context.Child(ctx, prevExpr))
 			chanValueType := sym.Type.Unwrap()
-			if err := atypes.Check(
+			if err = atypes.Check(
 				ctx.Constraints,
 				exprType,
 				chanValueType,

@@ -244,7 +244,7 @@ bool Node::refresh_inputs() {
     bool has_unconsumed = false;
     for (size_t i = 0; i < inputs.size(); i++) {
         const auto *src = this->input_sources[i];
-        if (src != nullptr && src->time != nullptr && !src->time->empty()) {
+        if (src->time->size() > 0 && src->data->size() > 0) {
             if (auto ts = src->time->at<telem::TimeStamp>(-1);
                 ts > this->accumulated[i].last_timestamp) {
                 this->accumulated[i].data = src->data;
