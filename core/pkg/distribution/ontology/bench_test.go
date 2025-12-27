@@ -19,8 +19,6 @@ import (
 	"testing"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
@@ -37,24 +35,20 @@ var _ ontology.Service = (*benchService)(nil)
 
 const benchType ontology.Type = "bench"
 
-type BenchResource struct {
-	Key string
-}
+type BenchResource struct{ Key string }
 
 func newBenchID(key string) ontology.ID {
 	return ontology.ID{Key: key, Type: benchType}
 }
 
-var benchSchema = zyn.Object(map[string]zyn.Schema{
-	"key": zyn.String(),
-})
+var benchSchema = zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
 
 func (s *benchService) Type() ontology.Type { return benchType }
 
 func (s *benchService) Schema() zyn.Schema { return benchSchema }
 
 func (s *benchService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (ontology.Resource, error) {
-	return core.NewResource(s.Schema(), newBenchID(key), key, BenchResource{Key: key}), nil
+	return ontology.NewResource(s.Schema(), newBenchID(key), key, BenchResource{Key: key}), nil
 }
 
 func (s *benchService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
@@ -248,7 +242,7 @@ func BenchmarkSearch(b *testing.B) {
 			b.ResetTimer()
 			var err error
 			for i := 0; i < b.N; i++ {
-				_, err = env.otg.Search(env.ctx, search.Request{Term: "500"})
+				_, err = env.otg.Search(env.ctx, ontology.SearchRequest{Term: "500"})
 			}
 			if err != nil {
 				b.Fatalf("benchmark failed: %v", err)

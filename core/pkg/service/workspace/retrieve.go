@@ -11,9 +11,9 @@ package workspace
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -63,7 +63,7 @@ func (r Retrieve) Offset(offset int) Retrieve {
 
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	if r.searchTerm != "" {
-		ids, err := r.otg.SearchIDs(ctx, search.Request{
+		ids, err := r.otg.SearchIDs(ctx, ontology.SearchRequest{
 			Type: OntologyType,
 			Term: r.searchTerm,
 		})

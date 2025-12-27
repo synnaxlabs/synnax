@@ -110,5 +110,8 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 // ontology.
 func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := gorp.WrapReader[string, Device](s.cfg.DB).OpenNexter(ctx)
-	return xiter.Map(n, newResource), closer, err
+	if err != nil {
+		return nil, nil, err
+	}
+	return xiter.Map(n, newResource), closer, nil
 }

@@ -21,7 +21,7 @@ import (
 )
 
 func init() {
-	lo.Must0(registry.RegisterTokenizer(separatorTokenizer, func(config map[string]any, cache *registry.Cache) (analysis.Tokenizer, error) {
+	lo.Must0(registry.RegisterTokenizer(separatorTokenizer, func(map[string]any, *registry.Cache) (analysis.Tokenizer, error) {
 		return &SepTokenizer{}, nil
 	}))
 }
@@ -37,8 +37,11 @@ var validSeparators = []byte{'_', '-', '.'}
 type SepTokenizer struct{}
 
 // Tokenize splits the input text by common separators.
-func (t *SepTokenizer) Tokenize(input []byte) (tokens analysis.TokenStream) {
-	start := 0
+func (t *SepTokenizer) Tokenize(input []byte) analysis.TokenStream {
+	var (
+		start  int
+		tokens analysis.TokenStream
+	)
 	for i, r := range input {
 		if unicode.IsSpace(rune(r)) || slices.Contains(validSeparators, r) {
 			if start != i {
