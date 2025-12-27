@@ -392,3 +392,173 @@ TEST(StateTest, OptionalInput_OverrideDefault) {
     EXPECT_EQ(consumer_node.input(0)->at<float>(0), 100.0f);
     EXPECT_EQ(consumer_node.input(0)->at<float>(1), 200.0f);
 }
+
+/// @brief Helper to create a minimal State for channel read/write tests
+State create_minimal_state() {
+    arc::ir::Node ir_node;
+    ir_node.key = "test";
+    ir_node.type = "test";
+
+    arc::ir::Function fn;
+    fn.key = "test";
+
+    arc::ir::IR ir;
+    ir.nodes.push_back(ir_node);
+    ir.functions.push_back(fn);
+
+    const Config cfg{.ir = ir, .channels = {}};
+    return State(cfg);
+}
+
+TEST(StateTest, ClearReads_PreservesLatestSeries) {
+    State s = create_minimal_state();
+
+    auto series1 = telem::Series(telem::FLOAT32_T, 3);
+    series1.write(1.0f);
+    series1.write(2.0f);
+    series1.write(3.0f);
+    s.ingest(telem::Frame(10, std::move(series1)));
+
+    auto series2 = telem::Series(telem::FLOAT32_T, 2);
+    series2.write(4.0f);
+    series2.write(5.0f);
+    s.ingest(telem::Frame(10, std::move(series2)));
+
+    auto [data_before, ok_before] = s.read_channel(10);
+    ASSERT_TRUE(ok_before);
+    ASSERT_EQ(data_before.series.size(), 2);
+
+    s.clear_reads();
+
+    auto [data_after, ok_after] = s.read_channel(10);
+    ASSERT_TRUE(ok_after);
+    ASSERT_EQ(data_after.series.size(), 1);
+    EXPECT_EQ(data_after.series[0].size(), 2);
+    EXPECT_EQ(data_after.series[0].at<float>(0), 4.0f);
+    EXPECT_EQ(data_after.series[0].at<float>(1), 5.0f);
+}
+
+TEST(StateTest, ClearReads_PreservesMultipleChannels) {
+    State s = create_minimal_state();
+
+    auto series1 = telem::Series(telem::FLOAT32_T, 2);
+    series1.write(1.0f);
+    series1.write(2.0f);
+    s.ingest(telem::Frame(10, std::move(series1)));
+
+    auto series2 = telem::Series(telem::FLOAT64_T, 3);
+    series2.write(10.0);
+    series2.write(20.0);
+    series2.write(30.0);
+    s.ingest(telem::Frame(20, std::move(series2)));
+
+    s.clear_reads();
+
+    auto [data10, ok10] = s.read_channel(10);
+    ASSERT_TRUE(ok10);
+    ASSERT_EQ(data10.series.size(), 1);
+    EXPECT_EQ(data10.series[0].at<float>(-1), 2.0f);
+
+    auto [data20, ok20] = s.read_channel(20);
+    ASSERT_TRUE(ok20);
+    ASSERT_EQ(data20.series.size(), 1);
+    EXPECT_EQ(data20.series[0].at<double>(-1), 30.0);
+}
+
+TEST(StateTest, ClearReads_PreservedDataAvailableNextCycle) {
+    State s = create_minimal_state();
+
+    auto series1 = telem::Series(telem::FLOAT32_T, 2);
+    series1.write(1.0f);
+    series1.write(2.0f);
+    s.ingest(telem::Frame(10, std::move(series1)));
+    s.clear_reads();
+
+    auto series2 = telem::Series(telem::FLOAT32_T, 2);
+    series2.write(3.0f);
+    series2.write(4.0f);
+    s.ingest(telem::Frame(20, std::move(series2)));
+
+    auto [data10, ok10] = s.read_channel(10);
+    ASSERT_TRUE(ok10);
+    EXPECT_EQ(data10.series[0].at<float>(-1), 2.0f);
+
+    auto [data20, ok20] = s.read_channel(20);
+    ASSERT_TRUE(ok20);
+    EXPECT_EQ(data20.series[0].at<float>(-1), 4.0f);
+
+    s.clear_reads();
+
+    auto [data10_2, ok10_2] = s.read_channel(10);
+    ASSERT_TRUE(ok10_2);
+    EXPECT_EQ(data10_2.series[0].at<float>(-1), 2.0f);
+
+    auto [data20_2, ok20_2] = s.read_channel(20);
+    ASSERT_TRUE(ok20_2);
+    EXPECT_EQ(data20_2.series[0].at<float>(-1), 4.0f);
+}
+
+TEST(StateTest, ClearReads_NewDataOverwritesPreserved) {
+    State s = create_minimal_state();
+
+    auto series1 = telem::Series(telem::FLOAT32_T, 1);
+    series1.write(100.0f);
+    s.ingest(telem::Frame(10, std::move(series1)));
+    s.clear_reads();
+
+    auto [data1, ok1] = s.read_channel(10);
+    ASSERT_TRUE(ok1);
+    EXPECT_EQ(data1.series[0].at<float>(-1), 100.0f);
+
+    auto series2 = telem::Series(telem::FLOAT32_T, 1);
+    series2.write(200.0f);
+    s.ingest(telem::Frame(10, std::move(series2)));
+    s.clear_reads();
+
+    auto [data2, ok2] = s.read_channel(10);
+    ASSERT_TRUE(ok2);
+    ASSERT_EQ(data2.series.size(), 1);
+    EXPECT_EQ(data2.series[0].at<float>(-1), 200.0f);
+}
+
+TEST(StateTest, ClearReads_SingleSeriesNoOp) {
+    State s = create_minimal_state();
+
+    auto series = telem::Series(telem::INT32_T, 3);
+    series.write(1);
+    series.write(2);
+    series.write(3);
+    s.ingest(telem::Frame(10, std::move(series)));
+
+    s.clear_reads();
+
+    auto [data, ok] = s.read_channel(10);
+    ASSERT_TRUE(ok);
+    ASSERT_EQ(data.series.size(), 1);
+    EXPECT_EQ(data.series[0].size(), 3);
+    EXPECT_EQ(data.series[0].at<int32_t>(0), 1);
+    EXPECT_EQ(data.series[0].at<int32_t>(1), 2);
+    EXPECT_EQ(data.series[0].at<int32_t>(2), 3);
+}
+
+TEST(StateTest, ClearReads_EmptyState) {
+    State s = create_minimal_state();
+
+    s.clear_reads();
+
+    auto [data, ok] = s.read_channel(10);
+    ASSERT_FALSE(ok);
+    EXPECT_TRUE(data.series.empty());
+}
+
+TEST(StateTest, ReadChannel_UnknownChannel) {
+    State s = create_minimal_state();
+
+    auto series = telem::Series(telem::FLOAT32_T, 1);
+    series.write(1.0f);
+    s.ingest(telem::Frame(10, std::move(series)));
+
+    auto [data, ok] = s.read_channel(99);
+    ASSERT_FALSE(ok);
+    EXPECT_TRUE(data.series.empty());
+}
