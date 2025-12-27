@@ -10,16 +10,19 @@
 #pragma once
 
 #include <algorithm>
+#include <cassert>
 #include <map>
+#include <optional>
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
-#include "nlohmann/json.hpp"
+#include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/ir/format.h"
-#include "arc/cpp/proto/proto.h"
 #include "arc/cpp/types/types.h"
 #include "arc/go/ir/arc/go/ir/ir.pb.h"
 #include "arc/go/symbol/arc/go/symbol/symbol.pb.h"
@@ -122,12 +125,12 @@ namespace arc::ir {
 struct Param {
     std::string name;
     types::Type type;
-    nlohmann::json value;
+    std::optional<telem::SampleValue> value;
 
     explicit Param(const v1::types::PBParam &pb) {
         this->name = pb.name();
         if (pb.has_type()) this->type = types::Type(pb.type());
-        if (pb.has_value()) this->value = arc::proto::pb_value_to_json(pb.value());
+        if (pb.has_value()) this->value = telem::from_proto(pb.value());
     }
 
     Param() = default;
@@ -135,12 +138,22 @@ struct Param {
     void to_proto(v1::types::PBParam *pb) const {
         pb->set_name(name);
         type.to_proto(pb->mutable_type());
-        if (!value.is_null()) arc::proto::json_to_pb_value(value, pb->mutable_value());
+        if (value.has_value()) telem::to_proto(*value, pb->mutable_value());
+    }
+
+    /// @brief Returns the value cast to the requested type.
+    /// @tparam T The type to cast to.
+    /// @returns The value as type T.
+    /// @note The compiler guarantees this param has a value.
+    template<typename T>
+    [[nodiscard]] T get() const {
+        assert(value.has_value() && "Param has no value");
+        return telem::cast<T>(*value);
     }
 
     [[nodiscard]] std::string to_string() const {
         std::string result = name + " (" + type.to_string() + ")";
-        if (!value.is_null()) result += " = " + value.dump();
+        if (value.has_value()) result += " = " + telem::to_string(*value);
         return result;
     }
 
@@ -169,10 +182,14 @@ struct Params {
             param.to_proto(pb_params->Add());
     }
 
-    [[nodiscard]] const Param *get(const std::string &name) const {
+    /// @brief Returns the parameter with the given name.
+    /// @param name The name of the parameter to find.
+    /// @returns A reference to the parameter.
+    /// @note The compiler guarantees this parameter exists.
+    [[nodiscard]] const Param &operator[](const std::string &name) const {
         for (const auto &p: this->params)
-            if (p.name == name) return &p;
-        return nullptr;
+            if (p.name == name) return p;
+        assert(false && "Param not found");
     }
 
     [[nodiscard]] std::vector<std::string> keys() const {
@@ -190,7 +207,9 @@ struct Params {
     [[nodiscard]] size_t size() const { return this->params.size(); }
     [[nodiscard]] bool empty() const { return this->params.empty(); }
 
-    Param &operator[](const size_t index) { return params.at(index); }
+    /// @brief Returns the parameter at the given index.
+    /// @param index The index of the parameter.
+    /// @returns A reference to the parameter.
     [[nodiscard]] const Param &operator[](const size_t index) const {
         return params.at(index);
     }
@@ -362,26 +381,27 @@ struct Function {
 };
 
 struct Strata {
-    std::vector<std::vector<std::string>> strata;
-
     Strata() = default;
+
+    explicit Strata(std::vector<std::vector<std::string>> layers):
+        layers_(std::move(layers)) {}
 
     template<typename PBStrataContainer>
     explicit Strata(const PBStrataContainer &pb_strata) {
-        strata.reserve(pb_strata.size());
+        layers_.reserve(pb_strata.size());
         for (const auto &pb_stratum: pb_strata) {
             std::vector<std::string> stratum;
             stratum.reserve(pb_stratum.nodes_size());
             for (const auto &node: pb_stratum.nodes())
                 stratum.push_back(node);
-            strata.push_back(std::move(stratum));
+            layers_.push_back(std::move(stratum));
         }
     }
 
     template<typename PBStrataRepeatedField>
     void to_proto(PBStrataRepeatedField *pb_strata) const {
-        pb_strata->Reserve(static_cast<int>(strata.size()));
-        for (const auto &stratum: strata) {
+        pb_strata->Reserve(static_cast<int>(layers_.size()));
+        for (const auto &stratum: layers_) {
             auto *pb_stratum = pb_strata->Add();
             pb_stratum->mutable_nodes()->Reserve(static_cast<int>(stratum.size()));
             for (const auto &node: stratum)
@@ -389,19 +409,36 @@ struct Strata {
         }
     }
 
+    /// @brief Returns the layer (stratum) at the given index.
+    [[nodiscard]] const std::vector<std::string> &operator[](const size_t index) const {
+        return layers_.at(index);
+    }
+
+    /// @brief Returns the layer (stratum) at the given index.
+    [[nodiscard]] std::vector<std::string> &operator[](const size_t index) {
+        return layers_.at(index);
+    }
+
+    [[nodiscard]] auto begin() const { return layers_.begin(); }
+    [[nodiscard]] auto end() const { return layers_.end(); }
+    auto begin() { return layers_.begin(); }
+    auto end() { return layers_.end(); }
+    [[nodiscard]] size_t size() const { return layers_.size(); }
+    [[nodiscard]] bool empty() const { return layers_.empty(); }
+
     /// @brief Returns the string representation of the strata.
     [[nodiscard]] std::string to_string() const { return to_string_with_prefix(""); }
 
     /// @brief Returns the string representation with tree formatting.
     [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const {
-        if (strata.empty()) return "";
+        if (layers_.empty()) return "";
         std::ostringstream ss;
-        for (size_t i = 0; i < strata.size(); ++i) {
-            const bool is_last = i == strata.size() - 1;
+        for (size_t i = 0; i < layers_.size(); ++i) {
+            const bool is_last = i == layers_.size() - 1;
             ss << prefix << tree_prefix(is_last) << "[" << i << "]: ";
-            for (size_t j = 0; j < strata[i].size(); ++j) {
+            for (size_t j = 0; j < layers_[i].size(); ++j) {
                 if (j > 0) ss << ", ";
-                ss << strata[i][j];
+                ss << layers_[i][j];
             }
             ss << "\n";
         }
@@ -411,6 +448,9 @@ struct Strata {
     friend std::ostream &operator<<(std::ostream &os, const Strata &s) {
         return os << s.to_string();
     }
+
+private:
+    std::vector<std::vector<std::string>> layers_;
 };
 
 struct Stage {
@@ -446,7 +486,7 @@ struct Stage {
             ss << nodes[i];
         }
         ss << "]";
-        if (!strata.strata.empty()) ss << "\n" << strata.to_string_with_prefix(prefix);
+        if (!strata.empty()) ss << "\n" << strata.to_string_with_prefix(prefix);
         return ss.str();
     }
 
@@ -473,21 +513,24 @@ struct Sequence {
             stage.to_proto(pb->add_stages());
     }
 
-    [[nodiscard]] const Stage *find_stage(const std::string &stage_key) const {
+    /// @brief Returns the stage with the given key.
+    /// @param stage_key The key of the stage to find.
+    /// @returns A reference to the stage.
+    /// @note The compiler guarantees this stage exists.
+    [[nodiscard]] const Stage &operator[](const std::string &stage_key) const {
         for (const auto &stage: stages)
-            if (stage.key == stage_key) return &stage;
-        return nullptr;
+            if (stage.key == stage_key) return stage;
+        assert(false && "Stage not found");
     }
 
     /// @brief Returns the stage that follows the given stage in definition order.
-    /// @param stage_key The key of the current stage
-    /// @return Pointer to the next stage if found, nullptr if the given stage is
-    /// the last stage or not found.
-    [[nodiscard]] const Stage *next_stage(const std::string &stage_key) const {
+    /// @param stage_key The key of the current stage.
+    /// @returns The next stage, or std::nullopt if this is the last stage.
+    [[nodiscard]] std::optional<Stage> next(const std::string &stage_key) const {
         for (size_t i = 0; i < stages.size(); ++i)
             if (stages[i].key == stage_key && i + 1 < stages.size())
-                return &stages[i + 1];
-        return nullptr;
+                return stages[i + 1];
+        return std::nullopt;
     }
 
     /// @brief Returns the string representation of the sequence.
@@ -502,7 +545,7 @@ struct Sequence {
             std::string stage_child_prefix = prefix + tree_indent(is_last);
             ss << prefix << tree_prefix(is_last)
                << stages[i].to_string_with_prefix(stage_child_prefix);
-            if (stages[i].strata.strata.empty()) ss << "\n";
+            if (stages[i].strata.empty()) ss << "\n";
         }
         return ss.str();
     }
@@ -553,57 +596,61 @@ struct IR {
             seq.to_proto(pb->add_sequences());
     }
 
-    [[nodiscard]] const Sequence *find_sequence(const std::string &key) const {
+    /// @brief Returns the node with the given key.
+    /// @param key The key of the node to find.
+    /// @returns A reference to the node.
+    /// @note The compiler guarantees this node exists.
+    [[nodiscard]] const Node &node(const std::string &key) const {
+        for (const auto &n: nodes)
+            if (n.key == key) return n;
+        assert(false && "Node not found");
+    }
+
+    /// @brief Returns the function with the given key.
+    /// @param key The key of the function to find.
+    /// @returns A reference to the function.
+    /// @note The compiler guarantees this function exists.
+    [[nodiscard]] const Function &function(const std::string &key) const {
+        for (const auto &fn: functions)
+            if (fn.key == key) return fn;
+        assert(false && "Function not found");
+    }
+
+    /// @brief Returns the sequence with the given key.
+    /// @param key The key of the sequence to find.
+    /// @returns A reference to the sequence.
+    /// @note The compiler guarantees this sequence exists.
+    [[nodiscard]] const Sequence &sequence(const std::string &key) const {
         for (const auto &seq: sequences)
-            if (seq.key == key) return &seq;
-        return nullptr;
+            if (seq.key == key) return seq;
+        assert(false && "Sequence not found");
     }
 
-    using function_iterator = std::vector<Function>::iterator;
-    using const_function_iterator = std::vector<Function>::const_iterator;
-    using node_iterator = std::vector<Node>::iterator;
-    using const_node_iterator = std::vector<Node>::const_iterator;
-    using edge_iterator = std::vector<Edge>::iterator;
-    using const_edge_iterator = std::vector<Edge>::const_iterator;
-
-    [[nodiscard]] function_iterator find_function(const std::string &key) {
-        return std::ranges::find_if(functions, [&](const auto &fn) {
-            return fn.key == key;
-        });
-    }
-    [[nodiscard]] const_function_iterator find_function(const std::string &key) const {
-        return std::ranges::find_if(functions, [&](const auto &fn) {
-            return fn.key == key;
-        });
+    /// @brief Returns the edge targeting the given handle, if one exists.
+    /// @param target The target handle to search for.
+    /// @returns The edge if found, or std::nullopt if no edge targets this handle.
+    [[nodiscard]] std::optional<Edge> edge_to(const Handle &target) const {
+        for (const auto &e: edges)
+            if (e.target == target) return e;
+        return std::nullopt;
     }
 
-    [[nodiscard]] node_iterator find_node(const std::string &key) {
-        return std::ranges::find_if(nodes, [&](const auto &node) {
-            return node.key == key;
-        });
-    }
-
-    [[nodiscard]] const_node_iterator find_node(const std::string &key) const {
-        return std::ranges::find_if(nodes, [&](const auto &node) {
-            return node.key == key;
-        });
-    }
-
-    [[nodiscard]] const_edge_iterator find_edge_by_target(const Handle &handle) const {
-        return std::ranges::find_if(edges, [&](const auto &edge) {
-            return edge.target == handle;
-        });
-    }
-
+    /// @brief Returns all edges originating from the given node, grouped by output
+    /// param.
+    /// @param node_key The key of the source node.
+    /// @returns A map from output parameter name to the edges from that parameter.
     [[nodiscard]] std::unordered_map<std::string, std::vector<Edge>>
-    outgoing_edges(const std::string &node_key) const {
+    edges_from(const std::string &node_key) const {
         std::unordered_map<std::string, std::vector<Edge>> result;
         for (const auto &e: edges)
             if (e.source.node == node_key) result[e.source.param].push_back(e);
         return result;
     }
 
-    [[nodiscard]] std::vector<Edge> incoming_edges(const std::string &node_key) const {
+    /// @brief Returns all edges targeting the given node.
+    /// @param node_key The key of the target node.
+    /// @returns A vector of all edges into this node.
+    [[nodiscard]] std::vector<Edge> edges_into(const std::string &node_key) const {
         std::vector<Edge> result;
         for (const auto &e: edges)
             if (e.target.node == node_key) result.push_back(e);
@@ -620,7 +667,7 @@ struct IR {
         const bool has_functions = !functions.empty();
         const bool has_nodes = !nodes.empty();
         const bool has_edges = !edges.empty();
-        const bool has_strata = !strata.strata.empty();
+        const bool has_strata = !strata.empty();
         const bool has_sequences = !sequences.empty();
 
         if (has_functions) {
@@ -702,7 +749,7 @@ private:
         const std::string &prefix,
         const bool last
     ) const {
-        ss << prefix << tree_prefix(last) << "Strata (" << strata.strata.size()
+        ss << prefix << tree_prefix(last) << "Strata (" << strata.size()
            << " layers)\n";
         const std::string child_prefix = prefix + tree_indent(last);
         ss << strata.to_string_with_prefix(child_prefix);
