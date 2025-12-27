@@ -105,8 +105,7 @@ public:
                 this->state->ingest(frame);
                 const auto elapsed = telem::TimeStamp::now() - this->start_time;
                 this->scheduler->next(elapsed);
-                // TODO: Fix this function so that it properly holds latest values
-                // this->state->clear_reads();
+                this->state->clear_reads();
                 results.push_back(elapsed);
                 if (auto writes = this->state->flush_writes(); !writes.empty()) {
                     telem::Frame out_frame(writes.size());
