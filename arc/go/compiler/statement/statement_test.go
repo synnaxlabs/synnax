@@ -242,6 +242,109 @@ var _ = Describe("Statement Compiler", func() {
 				OpLocalSet, 0, // store in local
 			))
 		})
+
+		It("Should compile stateful variable compound assignment", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				count i64 $= 10
+				count += 5
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			stateLoadIdx := ctx.Imports.StateLoad["i64"]
+			stateStoreIdx := ctx.Imports.StateStore["i64"]
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpI64Const, int64(10),
+				OpCall, uint64(stateLoadIdx),
+				OpLocalSet, 0,
+
+				OpLocalGet, 0,
+				OpI64Const, int64(5),
+				OpI64Add,
+				OpLocalSet, 0,
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpLocalGet, 0,
+				OpCall, uint64(stateStoreIdx),
+			))
+		})
+
+		It("Should compile stateful variable compound subtraction", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				value f64 $= 100.0
+				value -= 25.5
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			stateLoadIdx := ctx.Imports.StateLoad["f64"]
+			stateStoreIdx := ctx.Imports.StateStore["f64"]
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpF64Const, 100.0,
+				OpCall, uint64(stateLoadIdx),
+				OpLocalSet, 0,
+
+				OpLocalGet, 0,
+				OpF64Const, 25.5,
+				OpF64Sub,
+				OpLocalSet, 0,
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpLocalGet, 0,
+				OpCall, uint64(stateStoreIdx),
+			))
+		})
+
+		It("Should compile multiple compound assignments to stateful variable", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				n i32 $= 1
+				n *= 2
+				n *= 3
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			stateLoadIdx := ctx.Imports.StateLoad["i32"]
+			stateStoreIdx := ctx.Imports.StateStore["i32"]
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpI32Const, int32(1),
+				OpCall, uint64(stateLoadIdx),
+				OpLocalSet, 0,
+
+				OpLocalGet, 0,
+				OpI32Const, int32(2),
+				OpI32Mul,
+				OpLocalSet, 0,
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpLocalGet, 0,
+				OpCall, uint64(stateStoreIdx),
+
+				OpLocalGet, 0,
+				OpI32Const, int32(3),
+				OpI32Mul,
+				OpLocalSet, 0,
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpLocalGet, 0,
+				OpCall, uint64(stateStoreIdx),
+			))
+		})
 	})
 
 	DescribeTable("Multi Statement Bytecode Values", func(source string, instructions ...any) {
@@ -566,6 +669,90 @@ var _ = Describe("Statement Compiler", func() {
 			OpLocalSet, 0,
 		),
 	)
+
+	Describe("Compound string concatenation", func() {
+		var sLit, sConcat uint64
+		compileStr := func(source string) []byte {
+			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+			sLit = uint64(ctx.Imports.StringFromLiteral)
+			sConcat = uint64(ctx.Imports.StringConcat)
+			return ctx.Writer.Bytes()
+		}
+
+		It("Should compile string += with string literal", func() {
+			Expect(compileStr(`
+				s str := "hello"
+				s += " world"
+			`)).To(MatchOpcodes(
+				OpI32Const, int32(0),
+				OpI32Const, int32(5),
+				OpCall, sLit,
+				OpLocalSet, 0,
+
+				OpLocalGet, 0,
+				OpI32Const, int32(5),
+				OpI32Const, int32(6),
+				OpCall, sLit,
+				OpCall, sConcat,
+				OpLocalSet, 0,
+			))
+		})
+
+		It("Should compile string += with string variable", func() {
+			Expect(compileStr(`
+				s str := "hello"
+				suffix str := " world"
+				s += suffix
+			`)).To(MatchOpcodes(
+				OpI32Const, int32(0),
+				OpI32Const, int32(5),
+				OpCall, sLit,
+				OpLocalSet, 0,
+
+				OpI32Const, int32(5),
+				OpI32Const, int32(6),
+				OpCall, sLit,
+				OpLocalSet, 1,
+
+				OpLocalGet, 0,
+				OpLocalGet, 1,
+				OpCall, sConcat,
+				OpLocalSet, 0,
+			))
+		})
+
+		It("Should compile multiple string += operations", func() {
+			Expect(compileStr(`
+				s str := "a"
+				s += "b"
+				s += "c"
+			`)).To(MatchOpcodes(
+				OpI32Const, int32(0),
+				OpI32Const, int32(1),
+				OpCall, sLit,
+				OpLocalSet, 0,
+
+				OpLocalGet, 0,
+				OpI32Const, int32(1),
+				OpI32Const, int32(1),
+				OpCall, sLit,
+				OpCall, sConcat,
+				OpLocalSet, 0,
+
+				OpLocalGet, 0,
+				OpI32Const, int32(2),
+				OpI32Const, int32(1),
+				OpCall, sLit,
+				OpCall, sConcat,
+				OpLocalSet, 0,
+			))
+		})
+	})
 
 	DescribeTable("Variable casts", func(source string, instructions ...any) {
 		Expect(compileBlock(source)).To(MatchOpcodes(instructions...))

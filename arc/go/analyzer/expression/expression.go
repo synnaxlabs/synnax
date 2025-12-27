@@ -25,9 +25,10 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-func isBool(t basetypes.Type) bool    { return t.IsBool() }
-func isNumeric(t basetypes.Type) bool { return t.IsNumeric() }
-func isAny(basetypes.Type) bool       { return true }
+func isBool(t basetypes.Type) bool            { return t.IsBool() }
+func isNumeric(t basetypes.Type) bool         { return t.IsNumeric() }
+func isNumericOrString(t basetypes.Type) bool { return t.IsNumeric() || t.Kind == basetypes.KindString }
+func isAny(basetypes.Type) bool               { return true }
 
 // IsLiteral checks if an expression is a single literal value with no operators.
 func IsLiteral(expr parser.IExpressionContext) bool {
@@ -370,12 +371,20 @@ func analyzeAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) boo
 			return false
 		}
 	}
+	// Determine the operator - strings are only allowed for + (concatenation)
+	op := getAdditiveOperator(ctx.AST)
+	var check func(basetypes.Type) bool
+	if op == "+" {
+		check = isNumericOrString
+	} else {
+		check = isNumeric
+	}
 	return validateType[parser.IMultiplicativeExpressionContext](
 		ctx,
 		mults,
 		getAdditiveOperator,
 		types.InferMultiplicative,
-		isNumeric,
+		check,
 	)
 }
 

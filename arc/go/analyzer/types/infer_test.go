@@ -330,8 +330,9 @@ var _ = Describe("Type Inference", func() {
 
 			It("should error on unknown unit", func() {
 				typeCtx := parseTypeFromDecl("x f32 unknownunit := 0")
-				_, err := atypes.InferFromTypeContext(typeCtx)
-				Expect(err).To(MatchError(ContainSubstring("unknown unit")))
+				Expect(atypes.InferFromTypeContext(typeCtx)).Error().To(
+					MatchError(ContainSubstring("unknown unit")),
+				)
 			})
 		})
 	})

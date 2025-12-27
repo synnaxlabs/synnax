@@ -26,20 +26,14 @@ namespace arc::runtime::wasm {
 /// This is the "business logic" layer that the bindings call.
 class Bindings {
     [[maybe_unused]] state::State *state;
-    wasmtime::Store
-        *store; // Non-owning pointer to store (for accessing caller context)
-    wasmtime::Memory *memory; // Non-owning pointer to WASM memory for string operations
+    wasmtime::Store *store;
+    wasmtime::Memory *memory;
 
-    // String storage - handle to string mapping
     std::unordered_map<uint32_t, std::string> strings;
     uint32_t string_handle_counter;
-
-    // Series storage - handle to series mapping
     std::unordered_map<uint32_t, telem::Series> series;
     uint32_t series_handle_counter;
 
-    // State storage for stateful variables
-    // Key: (funcID << 32) | varID
     std::unordered_map<uint64_t, uint8_t> state_u8;
     std::unordered_map<uint64_t, uint16_t> state_u16;
     std::unordered_map<uint64_t, uint32_t> state_u32;
@@ -51,22 +45,18 @@ class Bindings {
     std::unordered_map<uint64_t, float> state_f32;
     std::unordered_map<uint64_t, double> state_f64;
     std::unordered_map<uint64_t, std::string> state_string;
-    // State storage for series (persists across executions)
     std::unordered_map<uint64_t, telem::Series> state_series;
 
-    static uint64_t state_key(uint32_t func_id, uint32_t var_id) {
-        return (static_cast<uint64_t>(func_id) << 32) | static_cast<uint64_t>(var_id);
+    static uint64_t state_key(const uint32_t func_id, const uint32_t var_id) {
+        return static_cast<uint64_t>(func_id) << 32 | static_cast<uint64_t>(var_id);
     }
 
 public:
     Bindings(state::State *state, wasmtime::Store *store);
 
-    // Set the store (used after creation)
-    void set_store(wasmtime::Store *store) { this->store = store; }
-
-    // Set the memory (used after module instantiation)
-    void set_memory(wasmtime::Memory *mem) { this->memory = mem; }
-
+/// Channel operations use semantic C++ types. The MethodWrapper in bindings.cpp
+/// automatically converts to WASM-compatible types (i32, i64, f32, f64) at the
+/// binding layer using the WasmType trait.
 #define DECLARE_CHANNEL_OPS(suffix, cpptype)                                           \
     cpptype channel_read_##suffix(uint32_t channel_id);                                \
     void channel_write_##suffix(uint32_t channel_id, cpptype value);
@@ -75,7 +65,7 @@ public:
     DECLARE_CHANNEL_OPS(u16, uint16_t)
     DECLARE_CHANNEL_OPS(u32, uint32_t)
     DECLARE_CHANNEL_OPS(u64, uint64_t)
-    DECLARE_CHANNEL_OPS(i8, int8_t);
+    DECLARE_CHANNEL_OPS(i8, int8_t)
     DECLARE_CHANNEL_OPS(i16, int16_t)
     DECLARE_CHANNEL_OPS(i32, int32_t)
     DECLARE_CHANNEL_OPS(i64, int64_t)
@@ -83,7 +73,6 @@ public:
     DECLARE_CHANNEL_OPS(f64, double)
 
 #undef DECLARE_CHANNEL_OPS
-
     uint32_t channel_read_str(uint32_t channel_id);
     void channel_write_str(uint32_t channel_id, uint32_t str_handle);
 
@@ -131,18 +120,19 @@ public:
     uint32_t series_series_mul_##suffix(uint32_t a, uint32_t b);                       \
     uint32_t series_series_sub_##suffix(uint32_t a, uint32_t b);                       \
     uint32_t series_series_div_##suffix(uint32_t a, uint32_t b);                       \
+    uint32_t series_series_mod_##suffix(uint32_t a, uint32_t b);                       \
     uint32_t series_compare_gt_##suffix(uint32_t a, uint32_t b);                       \
     uint32_t series_compare_lt_##suffix(uint32_t a, uint32_t b);                       \
     uint32_t series_compare_ge_##suffix(uint32_t a, uint32_t b);                       \
     uint32_t series_compare_le_##suffix(uint32_t a, uint32_t b);                       \
     uint32_t series_compare_eq_##suffix(uint32_t a, uint32_t b);                       \
     uint32_t series_compare_ne_##suffix(uint32_t a, uint32_t b);                       \
-    uint32_t series_scalar_compare_gt_##suffix(uint32_t handle, cpptype value);        \
-    uint32_t series_scalar_compare_lt_##suffix(uint32_t handle, cpptype value);        \
-    uint32_t series_scalar_compare_ge_##suffix(uint32_t handle, cpptype value);        \
-    uint32_t series_scalar_compare_le_##suffix(uint32_t handle, cpptype value);        \
-    uint32_t series_scalar_compare_eq_##suffix(uint32_t handle, cpptype value);        \
-    uint32_t series_scalar_compare_ne_##suffix(uint32_t handle, cpptype value);        \
+    uint32_t series_compare_gt_scalar_##suffix(uint32_t handle, cpptype value);        \
+    uint32_t series_compare_lt_scalar_##suffix(uint32_t handle, cpptype value);        \
+    uint32_t series_compare_ge_scalar_##suffix(uint32_t handle, cpptype value);        \
+    uint32_t series_compare_le_scalar_##suffix(uint32_t handle, cpptype value);        \
+    uint32_t series_compare_eq_scalar_##suffix(uint32_t handle, cpptype value);        \
+    uint32_t series_compare_ne_scalar_##suffix(uint32_t handle, cpptype value);        \
     uint32_t state_load_series_##suffix(                                               \
         uint32_t func_id,                                                              \
         uint32_t var_id,                                                               \
@@ -167,21 +157,24 @@ public:
 
 #undef DECLARE_SERIES_OPS
 
-    // Series unary operations (negate for signed types, not for u8 booleans)
-    uint32_t series_negate_f64(uint32_t handle);
-    uint32_t series_negate_f32(uint32_t handle);
-    uint32_t series_negate_i64(uint32_t handle);
-    uint32_t series_negate_i32(uint32_t handle);
-    uint32_t series_negate_i16(uint32_t handle);
-    uint32_t series_negate_i8(uint32_t handle);
+#define DECLARE_SERIES_NEGATE(suffix) uint32_t series_negate_##suffix(uint32_t handle);
+    DECLARE_SERIES_NEGATE(i8)
+    DECLARE_SERIES_NEGATE(i16)
+    DECLARE_SERIES_NEGATE(i32)
+    DECLARE_SERIES_NEGATE(i64)
+    DECLARE_SERIES_NEGATE(f32)
+    DECLARE_SERIES_NEGATE(f64)
+#undef DECLARE_SERIES_NEGATE
+
     uint32_t series_not_u8(uint32_t handle);
-    uint64_t now();
+
+    void set_memory(wasmtime::Memory *mem) { this->memory = mem; }
+
+    static uint64_t now();
     uint64_t len(uint32_t handle);
     void panic(uint32_t ptr, uint32_t len);
-
 #define DECLARE_MATH_POW_OP(suffix, cpptype)                                           \
     cpptype math_pow_##suffix(cpptype base, cpptype exp);
-
     DECLARE_MATH_POW_OP(u8, uint8_t)
     DECLARE_MATH_POW_OP(u16, uint16_t)
     DECLARE_MATH_POW_OP(u32, uint32_t)
@@ -193,14 +186,14 @@ public:
     DECLARE_MATH_POW_OP(f32, float)
     DECLARE_MATH_POW_OP(f64, double)
 #undef DECLARE_MATH_POW_OP
+
     uint64_t series_len(uint32_t handle);
     uint32_t series_slice(uint32_t handle, uint32_t start, uint32_t end);
+
     uint32_t string_from_literal(uint32_t ptr, uint32_t len);
-    uint32_t string_create(const std::string &str);
-    uint32_t string_concat(uint32_t h1, uint32_t h2);
+    uint32_t string_concat(uint32_t handle1, uint32_t handle2);
     uint32_t string_equal(uint32_t handle1, uint32_t handle2);
     uint32_t string_len(uint32_t handle);
-    std::string string_get(uint32_t handle);
 
     /// @brief Clears transient string and series handles at the end of each execution
     /// cycle. This resets the handle counters and clears the temporary storage maps.
@@ -209,7 +202,7 @@ public:
     void clear_transient_handles();
 };
 
-/// Create import vector with all registered host functions for Wasmtime.
+/// @brief create import vector with all registered host functions for Wasmtime.
 /// Must be called before instance creation.
 /// Returns vector of Extern objects that should be passed to Instance::create().
 std::vector<wasmtime::Extern> create_imports(wasmtime::Store &store, Bindings *runtime);
