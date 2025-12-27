@@ -10,6 +10,7 @@
 #ifndef SYNNAX_NILINUXRT
 #include "driver/modbus/modbus.h"
 #endif
+#include "driver/arc/arc.h"
 #include "driver/rack/rack.h"
 
 using FactoryList = std::vector<std::unique_ptr<task::Factory>>;
@@ -68,6 +69,12 @@ void configure_modbus(const rack::Config &config, FactoryList &factories) {
 }
 #endif
 
+void configure_arc(const rack::Config &config, FactoryList &factories) {
+    configure_integration(config, factories, arc::INTEGRATION_NAME, []() {
+        return std::make_unique<arc::Factory>();
+    });
+}
+
 std::unique_ptr<task::Factory> rack::Config::new_factory() const {
     FactoryList factories;
     configure_state(factories);
@@ -75,6 +82,7 @@ std::unique_ptr<task::Factory> rack::Config::new_factory() const {
     configure_ni(*this, factories);
     configure_sequences(*this, factories);
     configure_labjack(*this, factories);
+    configure_arc(*this, factories);
 #ifndef SYNNAX_NILINUXRT
     configure_modbus(*this, factories);
 #endif

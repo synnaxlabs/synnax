@@ -32,10 +32,10 @@ public:
         node_key(std::move(node_key)), state(std::move(state)) {}
 
     xerrors::Error next(node::Context &ctx) override {
-        if (!state.refresh_inputs()) return xerrors::NIL;
-        auto &input = state.input(0);
-        if (input->size() == 0) return xerrors::NIL;
-        if (input->at<std::uint8_t>(0) == 1) ctx.activate_stage(node_key);
+        // Entry nodes only execute when the scheduler's mark_changed() adds them
+        // to the changed set. mark_changed() already validates is_output_truthy()
+        // on the upstream node for one-shot edges, so no input check is needed here.
+        ctx.activate_stage();
         return xerrors::NIL;
     }
 

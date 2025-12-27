@@ -38,10 +38,17 @@ var (
 
 type constant struct {
 	*state.Node
-	value any
+	value       any
+	initialized bool
 }
 
-func (c constant) Init(ctx node.Context) {
+var _ node.Node = (*constant)(nil)
+
+func (c *constant) Next(ctx node.Context) {
+	if c.initialized {
+		return
+	}
+	c.initialized = true
 	d := c.Output(0)
 	*d = telem.NewSeriesFromAny(c.value, d.DataType)
 	t := c.OutputTime(0)
@@ -49,7 +56,9 @@ func (c constant) Init(ctx node.Context) {
 	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 
-func (c constant) Next(node.Context) {}
+func (c *constant) Reset() {
+	c.initialized = false
+}
 
 type constantFactory struct{}
 
@@ -57,7 +66,7 @@ func (c *constantFactory) Create(_ context.Context, cfg node.Config) (node.Node,
 	if cfg.Node.Type != symName {
 		return nil, query.NotFound
 	}
-	return constant{Node: cfg.State, value: cfg.Node.Config[0].Value}, nil
+	return &constant{Node: cfg.State, value: cfg.Node.Config[0].Value}, nil
 }
 
 func NewFactory() node.Factory { return &constantFactory{} }

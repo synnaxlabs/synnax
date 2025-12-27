@@ -130,7 +130,7 @@ public:
     /// @brief Checks if a series is truthy by examining its last element.
     /// Empty series are falsy. A series with a last element of zero is falsy.
     [[nodiscard]] static bool is_series_truthy(const telem::Series &series) {
-        if (series.empty()) return false;
+        if (series.size() == 0) return false;
         const auto last_value = series.at(-1);
         return std::visit(
             [](const auto &v) -> bool {
@@ -151,7 +151,7 @@ class State {
     friend class Node;
 
     Config cfg;
-    std::unordered_map<ir::Handle, Value, ir::Handle::Hasher> outputs;
+    std::unordered_map<ir::Handle, Value> outputs;
     std::unordered_map<types::ChannelKey, types::ChannelKey> indexes;
     std::unordered_map<types::ChannelKey, std::vector<Series>> reads;
     std::unordered_map<types::ChannelKey, Series> writes;

@@ -25,8 +25,6 @@ type binary struct {
 	op op.Binary
 }
 
-func (n *binary) Init(node.Context) {}
-
 func (n *binary) Next(ctx node.Context) {
 	if !n.RefreshInputs() {
 		return
@@ -55,7 +53,7 @@ type unary struct {
 	op op.Unary
 }
 
-func (n *unary) Init(node.Context) {}
+var _ node.Node = (*unary)(nil)
 
 func (n *unary) Next(ctx node.Context) {
 	if !n.RefreshInputs() {

@@ -50,12 +50,27 @@ type Text struct {
 // KeyGenerator creates unique, semantically meaningful node keys.
 // Keys follow the pattern: {role}_{name}_{occurrence} where name provides semantic context.
 type KeyGenerator struct {
-	occurrences map[string]int
+	occurrences   map[string]int
+	seqName       string
+	stageName     string
+	nextStageName string
 }
 
 // NewKeyGenerator creates a new KeyGenerator instance.
 func NewKeyGenerator() *KeyGenerator {
 	return &KeyGenerator{occurrences: make(map[string]int)}
+}
+
+func (kg *KeyGenerator) SetStageContext(seqName, stageName, nextStageName string) {
+	kg.seqName = seqName
+	kg.stageName = stageName
+	kg.nextStageName = nextStageName
+}
+
+func (kg *KeyGenerator) ClearStageContext() {
+	kg.seqName = ""
+	kg.stageName = ""
+	kg.nextStageName = ""
 }
 
 // Generate creates a unique key for a node.
@@ -400,7 +415,30 @@ func analyzeExpressionNode(
 	if expr := ctx.AST.Expression(); expr != nil {
 		return analyzeExpression(acontext.Child(ctx, expr), kg)
 	}
+	if ctx.AST.NEXT() != nil {
+		return analyzeNextToken(ctx, kg)
+	}
 	return ir.Node{}, ir.Handle{}, ir.Handle{}, true
+}
+
+func analyzeNextToken(
+	ctx acontext.Context[parser.IFlowNodeContext],
+	kg *KeyGenerator,
+) (ir.Node, ir.Handle, ir.Handle, bool) {
+	if kg.seqName == "" {
+		ctx.Diagnostics.AddError(errors.New("'next' used outside of a sequence"), ctx.AST)
+		return ir.Node{}, ir.Handle{}, ir.Handle{}, false
+	}
+	if kg.nextStageName == "" {
+		ctx.Diagnostics.AddError(
+			errors.Newf("'next' in last stage '%s' has no next stage", kg.stageName),
+			ctx.AST,
+		)
+		return ir.Node{}, ir.Handle{}, ir.Handle{}, false
+	}
+	entryKey := kg.Entry(kg.seqName, kg.nextStageName)
+	inputHandle := ir.Handle{Node: entryKey, Param: "activate"}
+	return ir.Node{}, inputHandle, ir.Handle{}, true
 }
 
 func analyzeExpressionNodeAsSink(
@@ -461,6 +499,11 @@ func analyzeIdentifierAsSink(
 		return analyzeSequenceNodeAsSink(ctx, sym, kg)
 	}
 
+	// If the target is a stage, connect to that stage's entry node
+	if sym.Kind == symbol.KindStage {
+		return analyzeStageNodeAsSink(ctx, sym, kg)
+	}
+
 	// Otherwise, treat as a channel write node
 	nodeKey := kg.Generate("write", name)
 	chKey := uint32(sym.ID)
@@ -478,6 +521,32 @@ func analyzeIdentifierAsSink(
 	inputHandle := ir.Handle{Node: nodeKey, Param: ir.DefaultInputParam}
 	outputHandle := ir.Handle{Node: nodeKey, Param: ""}
 	return n, inputHandle, outputHandle, true
+}
+
+// analyzeStageNodeAsSink handles stage identifiers in sink position.
+// Instead of creating a write node, it returns a handle to the stage's
+// entry node's "activate" input.
+func analyzeStageNodeAsSink(
+	ctx acontext.Context[parser.IIdentifierContext],
+	stageSym *symbol.Scope,
+	kg *KeyGenerator,
+) (ir.Node, ir.Handle, ir.Handle, bool) {
+	stageName := stageSym.Name
+	// Get the sequence name from the stage's parent (the sequence scope)
+	seqName := stageSym.Parent.Name
+
+	// Build the entry node key using the same pattern as analyzeStage
+	entryKey := kg.Entry(seqName, stageName)
+
+	// Return a reference to the existing entry node (no new node created)
+	// The input handle points to the stage entry's "activate" input
+	inputHandle := ir.Handle{Node: entryKey, Param: "activate"}
+	// Stage sinks have no meaningful output
+	outputHandle := ir.Handle{Node: entryKey, Param: ""}
+
+	// Return an empty node - we don't create a new node, just return the handle
+	// to the existing stage entry node that was already created by analyzeStage
+	return ir.Node{}, inputHandle, outputHandle, true
 }
 
 // analyzeSequenceNodeAsSink handles sequence identifiers in sink position.
@@ -641,12 +710,13 @@ func analyzeExpression(
 
 	// Non-constant expressions (e.g., inline functions)
 	key := kg.Generate(sym.Name, "")
+	outputType := ctx.Constraints.ApplySubstitutions(sym.Type.Outputs[0].Type)
 	n := ir.Node{
 		Key:      key,
 		Type:     sym.Name,
 		Channels: symbol.NewChannels(),
+		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 	}
-	// Expression nodes use default parameters
 	inputHandle := ir.Handle{Node: key, Param: ir.DefaultInputParam}
 	outputHandle := ir.Handle{Node: key, Param: ir.DefaultOutputParam}
 	return n, inputHandle, outputHandle, true
@@ -795,15 +865,31 @@ func analyzeSequence(
 	seqName := ctx.AST.IDENTIFIER().GetText()
 	seq := ir.Sequence{Key: seqName}
 
+	// Resolve the sequence scope to access stage symbols
+	seqScope, err := ctx.Scope.Resolve(ctx, seqName)
+	if err != nil {
+		ctx.Diagnostics.AddError(err, ctx.AST)
+		return ir.Sequence{}, nil, nil, false
+	}
+
 	var allNodes []ir.Node
 	var allEdges []ir.Edge
 
-	for _, stageDecl := range ctx.AST.AllStageDeclaration() {
+	stageDecls := ctx.AST.AllStageDeclaration()
+	for i, stageDecl := range stageDecls {
+		stageName := stageDecl.IDENTIFIER().GetText()
+		nextStageName := ""
+		if i+1 < len(stageDecls) {
+			nextStageName = stageDecls[i+1].IDENTIFIER().GetText()
+		}
+		kg.SetStageContext(seqName, stageName, nextStageName)
+		// Pass the sequence scope so stage transitions can resolve stage names
 		stage, nodes, edges, ok := analyzeStage(
-			acontext.Child(ctx, stageDecl),
+			acontext.Child(ctx, stageDecl).WithScope(seqScope),
 			seqName,
 			kg,
 		)
+		kg.ClearStageContext()
 		if !ok {
 			return ir.Sequence{}, nil, nil, false
 		}

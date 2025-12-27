@@ -1028,6 +1028,73 @@ var _ = Describe("Text", func() {
 				Expect(alarmEdge.Target.Param).To(Equal("activate"))
 			})
 		})
+
+		Describe("next keyword", func() {
+			It("Should wire next to the following stage's entry node", func() {
+				source := `
+				sequence main {
+					stage first {
+						1 -> output,
+						input > 10 => next
+					}
+					stage second {
+						0 -> output
+					}
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diag := text.Analyze(
+					ctx,
+					parsedText,
+					symbol.MapResolver{
+						"input":  {Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 1},
+						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 2},
+					},
+				)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+
+				var nextEdge *ir.Edge
+				for i := range inter.Edges {
+					if inter.Edges[i].Target.Node == "entry_main_second" {
+						nextEdge = &inter.Edges[i]
+						break
+					}
+				}
+				Expect(nextEdge).ToNot(BeNil())
+				Expect(nextEdge.Target.Param).To(Equal("activate"))
+				Expect(nextEdge.Kind).To(Equal(ir.OneShot))
+			})
+
+			It("Should error when next is used in the last stage", func() {
+				source := `
+				sequence main {
+					stage only {
+						input > 10 => next
+					}
+				}`
+				_, diag := text.Analyze(
+					ctx,
+					MustSucceed(text.Parse(text.Text{Raw: source})),
+					symbol.MapResolver{
+						"input": {Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 1},
+					},
+				)
+				Expect(diag).ToNot(BeNil())
+				Expect(diag.String()).To(ContainSubstring("no next stage"))
+			})
+
+			It("Should error when next is used outside a sequence", func() {
+				source := `input > 10 => next`
+				_, diag := text.Analyze(
+					ctx,
+					MustSucceed(text.Parse(text.Text{Raw: source})),
+					symbol.MapResolver{
+						"input": {Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 1},
+					},
+				)
+				Expect(diag).ToNot(BeNil())
+				Expect(diag.String()).To(ContainSubstring("outside of a sequence"))
+			})
+		})
 	})
 
 })

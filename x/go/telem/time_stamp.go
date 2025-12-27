@@ -83,6 +83,12 @@ func (ts TimeStamp) Add(tspan TimeSpan) TimeStamp {
 	return TimeStamp(clamp.AddInt64(int64(ts), int64(tspan)))
 }
 
+// Since returns a TimeSpan representing the amount of time that has passed
+// since the provided TimeStamp.
+func Since(time TimeStamp) TimeSpan {
+	return TimeSpan(Now() - time)
+}
+
 // Sub returns a new TimeStamp with the provided TimeSpan subtracted from it.
 func (ts TimeStamp) Sub(tspan TimeSpan) TimeStamp { return ts.Add(-tspan) }
 

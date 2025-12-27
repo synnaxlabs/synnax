@@ -31,7 +31,6 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 	if expression.IsPureLiteral(ctx.AST) {
 		t.Config = append(t.Config, types.Param{Name: "value", Type: exprType})
 		scope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
-			Name: "",
 			Kind: symbol.KindConstant,
 			Type: t,
 			AST:  ctx.AST,
@@ -46,7 +45,6 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 
 	// Complex expressions become synthetic functions that need compilation
 	fnScope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
-		Name: "",
 		Kind: symbol.KindFunction,
 		Type: t,
 		AST:  ctx.AST,
@@ -58,7 +56,6 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 	fnScope = fnScope.AutoName("expression_")
 
 	blockScope, err := fnScope.Add(ctx, symbol.Symbol{
-		Name: "",
 		Kind: symbol.KindBlock,
 		AST:  ctx.AST,
 	})
