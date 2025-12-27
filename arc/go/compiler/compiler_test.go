@@ -2015,6 +2015,88 @@ var _ = Describe("Compiler", func() {
 				return arr[0] + arr[1] + arr[2]
 			}`, int64(66)),
 		)
+
+		DescribeTable("whole-series compound assignments",
+			func(body string, expected any) {
+				source := fmt.Sprintf(`func test() %s %s`, inferReturnType(expected), body)
+				output := MustSucceed(compileWithHostImports(source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				results := MustSucceed(test.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				assertResult(results[0], expected)
+			},
+			// series += scalar (broadcast)
+			Entry("series += scalar f64", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				s += 10.0
+				return s[1]
+			}`, float64(12.0)),
+			Entry("series -= scalar i32", `{
+				s series i32 := [10, 20, 30]
+				s -= 5
+				return s[0]
+			}`, int32(5)),
+			Entry("series *= scalar", `{
+				s series f64 := [2.0, 3.0, 4.0]
+				s *= 10.0
+				return s[0]
+			}`, float64(20.0)),
+			Entry("series /= scalar", `{
+				s series f64 := [100.0, 200.0]
+				s /= 10.0
+				return s[1]
+			}`, float64(20.0)),
+			Entry("series %= scalar", `{
+				s series i64 := [17, 23]
+				s %= 5
+				return s[0]
+			}`, int64(2)),
+
+			// series += series (element-wise)
+			Entry("series += series f64", `{
+				a series f64 := [1.0, 2.0, 3.0]
+				b series f64 := [10.0, 20.0, 30.0]
+				a += b
+				return a[1]
+			}`, float64(22.0)),
+			Entry("series -= series i32", `{
+				a series i32 := [100, 200, 300]
+				b series i32 := [10, 20, 30]
+				a -= b
+				return a[2]
+			}`, int32(270)),
+			Entry("series *= series", `{
+				a series f64 := [2.0, 3.0]
+				b series f64 := [4.0, 5.0]
+				a *= b
+				return a[1]
+			}`, float64(15.0)),
+			Entry("series /= series", `{
+				a series f64 := [100.0, 200.0]
+				b series f64 := [10.0, 20.0]
+				a /= b
+				return a[0]
+			}`, float64(10.0)),
+
+			// Chained operations
+			Entry("chained series compound assignments", `{
+				s series f64 := [10.0, 20.0]
+				s += 5.0
+				s *= 2.0
+				return s[0]
+			}`, float64(30.0)),
+
+			// Multiple series modifications
+			Entry("multiple series compound operations", `{
+				a series i64 := [10, 20]
+				b series i64 := [1, 2]
+				a += b
+				b += a
+				return a[0] + b[0]
+			}`, int64(23)), // a[0]=11, b[0]=12, sum=23
+		)
 	})
 
 	Describe("Compound Assignment Operators", func() {

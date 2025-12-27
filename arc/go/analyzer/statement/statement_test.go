@@ -479,6 +479,74 @@ var _ = Describe("Statement", func() {
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("indexed"))
 			})
+
+			// Whole-series compound assignment tests
+			DescribeTable("valid whole-series compound assignments",
+				func(code string) {
+					block := MustSucceed(parser.ParseBlock(code))
+					ctx := context.CreateRoot(bCtx, block, nil)
+					Expect(statement.AnalyzeBlock(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+					Expect(*ctx.Diagnostics).To(BeEmpty())
+				},
+				Entry("series += scalar f64", `{
+					s series f64 := [1.0, 2.0, 3.0]
+					s += 5.0
+				}`),
+				Entry("series -= scalar i32", `{
+					s series i32 := [10, 20, 30]
+					s -= 5
+				}`),
+				Entry("series *= scalar", `{
+					s series f64 := [1.0, 2.0]
+					s *= 2.0
+				}`),
+				Entry("series /= scalar", `{
+					s series f64 := [10.0, 20.0]
+					s /= 2.0
+				}`),
+				Entry("series %= scalar", `{
+					s series i64 := [17, 23]
+					s %= 5
+				}`),
+				Entry("series += series", `{
+					a series f64 := [1.0, 2.0]
+					b series f64 := [10.0, 20.0]
+					a += b
+				}`),
+				Entry("series -= series", `{
+					a series i32 := [100, 200]
+					b series i32 := [10, 20]
+					a -= b
+				}`),
+				Entry("series *= series", `{
+					a series f64 := [2.0, 3.0]
+					b series f64 := [4.0, 5.0]
+					a *= b
+				}`),
+			)
+
+			It("should reject series compound assignment with incompatible scalar type", func() {
+				block := MustSucceed(parser.ParseBlock(`{
+					s series i32 := [1, 2, 3]
+					s += "hello"
+				}`))
+				ctx := context.CreateRoot(bCtx, block, nil)
+				Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
+			})
+
+			It("should reject series compound assignment with mismatched series element types", func() {
+				block := MustSucceed(parser.ParseBlock(`{
+					a series i32 := [1, 2, 3]
+					b series f64 := [1.0, 2.0, 3.0]
+					a += b
+				}`))
+				ctx := context.CreateRoot(bCtx, block, nil)
+				Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
+			})
 		})
 	})
 
