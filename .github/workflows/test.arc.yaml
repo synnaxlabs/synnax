@@ -81,6 +81,10 @@ jobs:
         if: matrix.lint
         run: scripts/check_gofmt.sh arc
 
+      - name: Validate WASM Bindings
+        if: matrix.lint
+        run: ./arc/scripts/validate_bindings.sh
+
       - name: Lint
         if: matrix.lint
         uses: golangci/golangci-lint-action@v9

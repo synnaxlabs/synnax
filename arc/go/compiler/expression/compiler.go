@@ -187,11 +187,91 @@ func getIntPowImport(imports *bindings.ImportIndex, t types.Type) (uint32, error
 
 func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (types.Type, error) {
 	primary := ctx.AST.PrimaryExpression()
-	primaryType, err := compilePrimary(context.Child(ctx, primary))
+	currentType, err := compilePrimary(context.Child(ctx, primary))
 	if err != nil {
 		return types.Type{}, err
 	}
-	return primaryType, nil
+
+	// Handle any indexOrSlice operations
+	for _, indexOrSlice := range ctx.AST.AllIndexOrSlice() {
+		currentType, err = compileIndexOrSlice(ctx, indexOrSlice, currentType)
+		if err != nil {
+			return types.Type{}, err
+		}
+	}
+
+	// TODO: Handle functionCallSuffix when function calls are implemented
+
+	return currentType, nil
+}
+
+func compileIndexOrSlice(
+	ctx context.Context[parser.IPostfixExpressionContext],
+	indexOrSlice parser.IIndexOrSliceContext,
+	operandType types.Type,
+) (types.Type, error) {
+	expressions := indexOrSlice.AllExpression()
+	isSliceOp := indexOrSlice.COLON() != nil
+
+	if !isSliceOp {
+		if operandType.Kind != types.KindSeries {
+			return types.Type{}, errors.New("indexing is only supported on series types")
+		}
+		if _, err := Compile(context.Child(ctx, expressions[0]).WithHint(types.I32())); err != nil {
+			return types.Type{}, err
+		}
+		t := operandType.Unwrap()
+		funcIdx, err := ctx.Imports.GetSeriesIndex(t)
+		if err != nil {
+			return types.Type{}, err
+		}
+		ctx.Writer.WriteCall(funcIdx)
+		return t, nil
+	}
+
+	// Slice operation: series[start:end]
+	if operandType.Kind != types.KindSeries {
+		return types.Type{}, errors.New("slicing is only supported on series types")
+	}
+
+	// Determine start and end expressions
+	// Grammar: LBRACKET expression? COLON expression? RBRACKET
+	var startExpr, endExpr parser.IExpressionContext
+	if len(expressions) == 1 {
+		if indexOrSlice.GetChild(1) == expressions[0] {
+			startExpr = expressions[0] // before colon: s[start:]
+		} else {
+			endExpr = expressions[0] // after colon: s[:end]
+		}
+	} else if len(expressions) == 2 {
+		startExpr = expressions[0]
+		endExpr = expressions[1]
+	} else {
+		return types.Type{}, errors.Newf("expected 1 or 2 items in slice expression, received %v", len(expressions))
+	}
+
+	// Compile start index (or push 0 if not specified)
+	if startExpr != nil {
+		if _, err := Compile(context.Child(ctx, startExpr).WithHint(types.I32())); err != nil {
+			return types.Type{}, err
+		}
+	} else {
+		ctx.Writer.WriteI32Const(0)
+	}
+
+	// Compile end index (or push -1 to indicate "to end")
+	if endExpr != nil {
+		if _, err := Compile(context.Child(ctx, endExpr).WithHint(types.I32())); err != nil {
+			return types.Type{}, err
+		}
+	} else {
+		ctx.Writer.WriteI32Const(-1)
+	}
+
+	// Call SeriesSlice(handle, start, end) → new handle
+	ctx.Writer.WriteCall(ctx.Imports.SeriesSlice)
+
+	return operandType, nil
 }
 
 func compilePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) (types.Type, error) {

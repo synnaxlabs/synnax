@@ -46,10 +46,11 @@ SeriesType ::= 'series' PrimitiveType
 SeriesLiteral ::= '[' ExpressionList? ']'
 ```
 
-**Series are immutable** homogeneous arrays with elementwise operations:
+**Series** are homogeneous arrays with elementwise operations:
 
 ```arc
 data := [1.0, 2.0, 3.0]
+data[0] = 5.0                    // element assignment
 length := len(data)              // i64
 first := data[0]                 // indexing
 subset := data[1:3]              // slicing [2.0, 3.0]

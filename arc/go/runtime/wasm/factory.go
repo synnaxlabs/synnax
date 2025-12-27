@@ -49,5 +49,5 @@ type FactoryConfig struct {
 }
 
 func NewFactory(mod *Module) (node2.Factory, error) {
-	return &factory{wasm: mod.module}, nil
+	return &factory{wasm: mod.wasmModule}, nil
 }
