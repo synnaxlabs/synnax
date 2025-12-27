@@ -224,6 +224,18 @@ uint32_t Bindings::string_len(const uint32_t handle) {
     return static_cast<uint32_t>(it->second.length());
 }
 
+uint32_t Bindings::string_create(const std::string &str) {
+    const uint32_t handle = string_handle_counter++;
+    strings[handle] = str;
+    return handle;
+}
+
+std::string Bindings::string_get(const uint32_t handle) {
+    const auto it = strings.find(handle);
+    if (it == strings.end()) return "";
+    return it->second;
+}
+
 #define IMPL_SERIES_SCALAR_OP(suffix, cpptype, name, op)                               \
     uint32_t Bindings::series_element_##name##_##suffix(uint32_t handle, cpptype v) {  \
         auto it = series.find(handle);                                                 \
