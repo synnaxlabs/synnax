@@ -58,7 +58,7 @@ unified client documentation structure.
 - [x] Delete Data
 - [x] Time Types
 
-### Phase 5: Resources (🔄 IN PROGRESS)
+### Phase 5: Resources (✅ COMPLETE)
 
 - [x] Create all shell pages
 - [x] Examples
@@ -67,9 +67,9 @@ unified client documentation structure.
 
 ### Phase 6: Cleanup
 
-- [ ] Add console tab content
 - [x] Final navigation review
-- [ ] Remove/redirect old python-client and typescript-client pages
+- [x] Examples validation/review
+- [x] Remove/redirect old python-client and typescript-client pages
 
 ## Total Section Count
 
@@ -84,10 +84,9 @@ unified client documentation structure.
 
 ## Notes
 
-1. **Language Parity**: TypeScript is missing some Python features (rename, regex,
-   conditional creation, range-based reads/writes)
-2. **TypeScript-Specific**: Timestamps page addresses JavaScript precision issues
-3. **Python-Specific**: Build Device Driver for hardware integration, async streamers
+1. **Language Parity**: Mirrored throughout docs
+2. **TypeScript-Specific**: Timestamps page addresses JavaScript precision issues (mirrored to py)
+3. **Python-Specific**: Build Device Driver for hardware integration, async streamers (mirrored to ts)
 4. **Troubleshooting**: Combined Python and TypeScript troubleshooting into unified page
    with language tabs. Some sections are Python-only or TypeScript-only.
-5. **Console Tabs**: All console fragments currently empty, to be filled after refactor
+

@@ -124,7 +124,7 @@ channel to
     temp_channel = client.channels.create(
         name="my_temp_sensor",
         data_type=sy.DataType.FLOAT32,
-        index=time_index_channel.key,
+        index=time_channel.key,
     )
     ```
 
@@ -145,7 +145,7 @@ channel to
     const tempChannel = await client.channels.create({
       name: "my_temp_sensor",
       dataType: DataType.FLOAT32,
-      index: timeIndexChannel.key,
+      index: timeChannel.key,
     });
     ```
 
@@ -204,7 +204,7 @@ before writing to the data channel.
     await timeChannel.write(start, timestamps);
 
     // Then write the data
-    await temperatureChannel.write(start, temperatures);
+    await tempChannel.write(start, temperatures);
     ```
 
   </Fragment>
@@ -235,8 +235,8 @@ object:
   <Fragment slot="python">
     ```python
     channel = client.channels.retrieve("my_temp_sensor")
-    start = sy.TimeStamp("2023-02-12 12:30:00")
-    end = sy.TimeStamp("2023-02-12 14:30:00")
+    start = sy.TimeStamp("2025-02-12 12:30:00")
+    end = sy.TimeStamp("2025-02-12 14:30:00")
 
     data = channel.read(start, end)
     ```
@@ -253,8 +253,8 @@ object:
   <Fragment slot="typescript">
     ```typescript
     const channel = await client.channels.retrieve("my_temp_sensor");
-    const start = new Date("2023-02-12T12:30:00Z");
-    const end = new Date("2022-02-12T14:30:00Z");
+    const start = new Date("2025-02-12T12:30:00Z");
+    const end = new Date("2025-02-12T14:30:00Z");
 
     const series = await channel.read(start, end);
 

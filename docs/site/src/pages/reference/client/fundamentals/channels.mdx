@@ -116,7 +116,7 @@ flag.
         retrieveIfNameExists: true,
       });
 
-````
+    ```
 </Fragment>
 </Client.Tabs>
 
@@ -170,7 +170,7 @@ data_channels = client.channels.create(
   ],
   retrieve_if_name_exists=True, # Optional
 )
-````
+```
 
 </Fragment>
 
@@ -204,7 +204,7 @@ data_channels = client.channels.create(
 
     const sensors = await client.channels.create(
       [sensorOne, sensorTwo, sensorThree],
-      true, // retrieveIfNameExists (optional)
+      { retrieveIfNameExists: true }, // optional
     );
     ```
 
@@ -352,9 +352,16 @@ client.channels.rename([channel_one.key, channel_two.key], ["name_one", "name_tw
 </Fragment>
 
   <Fragment slot="typescript">
-    <Note.Note variant="warning">
-      <span style={{ color: "red" }}>No corresponding section - feature may not exist in TypeScript</span>{" "}
-    </Note.Note>
+    ```typescript
+    // Renaming single channel
+    await client.channels.rename(dataChannel.key, "new_name");
+
+    // Renaming multiple channels
+    await client.channels.rename(
+      [channelOne.key, channelTwo.key],
+      ["name_one", "name_two"]
+    );
+    ```
   </Fragment>
 </Client.Tabs>
 

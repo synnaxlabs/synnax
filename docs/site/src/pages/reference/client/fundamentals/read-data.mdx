@@ -36,8 +36,8 @@ The simplest way to read data from Synnax is to use the `read` method on a `Chan
   <Fragment slot="python">
     ```python
     channel = client.channels.retrieve("my_temp_sensor")
-    start = sy.TimeStamp("2023-02-12 12:30:00")
-    end = sy.TimeStamp("2023-02-12 14:30:00")
+    start = sy.TimeStamp("2025-02-12 12:30:00")
+    end = sy.TimeStamp("2025-02-12 14:30:00")
 
     data = channel.read(start, end)
     ```
@@ -54,8 +54,8 @@ The simplest way to read data from Synnax is to use the `read` method on a `Chan
   <Fragment slot="typescript">
     ```typescript
     const channel = await client.channels.retrieve("my_temp_sensor");
-    const start = new Date("2023-02-12T12:30:00Z");
-    const end = new Date("2022-02-12T14:30:00Z");
+    const start = new Date("2025-02-12T12:30:00Z");
+    const end = new Date("2025-02-12T14:30:00Z");
 
     const series = await channel.read(start, end);
 
@@ -89,8 +89,8 @@ The returned data is an instance of the
 ```python
 import synnax as sy
 
-start = sy.TimeStamp("2023-02-12 12:30:00")
-end = sy.TimeStamp("2023-02-12 14:30:00")
+start = sy.TimeStamp("2025-02-12 12:30:00")
+end = sy.TimeStamp("2025-02-12 14:30:00")
 
 frame = client.read(start, end, ["my_sensor", "sensor_index"])
 
@@ -104,10 +104,10 @@ df = frame.to_df()
   To access the data for a specific channel, use the `get` method.
 
 ```typescript
-import { TimeStamp } from "@synnaxlabs/pluto";
+import { TimeStamp, TimeSpan } from "@synnaxlabs/client";
 
 const start = TimeStamp.now();
-const end = start.add(TimeStamp.seconds(10));
+const end = start.add(TimeSpan.seconds(10));
 
 const frame = await client.read({ start, end }, ["my_sensor", "sensor_index"]);
 
@@ -130,7 +130,7 @@ channels:
 <Fragment slot="python">
   ```python
   # Read the latest sample from a channel
-    latest_value = client.read_latest("my_tc", n=1)
+  latest_value = client.read_latest("my_tc", n=1)
 
 # Read the latest 10 samples from a channel
 
@@ -140,7 +140,7 @@ latest_samples = client.read_latest("my_tc", n=10)
 
 frame = client.read_latest(["my_tc", "my_sg", "my_pt"], n=5)
 
-````
+  ```
 
 </Fragment>
 
@@ -149,12 +149,12 @@ frame = client.read_latest(["my_tc", "my_sg", "my_pt"], n=5)
 // Read the latest sample from a channel
 const latestValue = await client.readLatest("my_tc", 1);
 
-// Read the latest 10 samples from a channel const latestSamples = await
-client.readLatest("my_tc", 10);
+// Read the latest 10 samples from a channel
+const latestSamples = await client.readLatest("my_tc", 10);
 
-// Read the latest 5 samples from multiple channels const frame = await
-client.readLatest(["my_tc", "my_sg", "my_pt"], 5);
-````
+// Read the latest 5 samples from multiple channels
+const frame = await client.readLatest(["my_tc", "my_sg", "my_pt"], 5);
+```
 
 </Fragment>
 </Client.Tabs>
