@@ -71,7 +71,7 @@ var _ = Describe("Registry", func() {
 		)
 	})
 
-	Specify("Mutating a Unit Entry Should not Modify Value in Registry", func() {
+	Specify("Mutating a Unit entry Should not Modify Value in Registry", func() {
 		u := units.MustResolve("m")
 		u.Scale = 12
 		u2 := units.MustResolve("m")
@@ -95,5 +95,18 @@ var _ = Describe("Registry", func() {
 			Entry("invalid", "invalid"),
 			Entry("empty", ""),
 		)
+	})
+
+	Describe("MustResolve", func() {
+		It("should return unit for valid name", func() {
+			u := units.MustResolve("m")
+			Expect(u.Name).To(Equal("m"))
+		})
+
+		It("should panic for invalid name", func() {
+			Expect(func() {
+				units.MustResolve("invalid_unit")
+			}).To(PanicWith(ContainSubstring("failed to resolve invalid_unit")))
+		})
 	})
 })

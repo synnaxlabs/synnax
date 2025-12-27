@@ -363,7 +363,8 @@ var _ = Describe("Compiler", func() {
 			debug := mod.ExportedFunction("debug")
 			Expect(debug).ToNot(BeNil())
 
-			MustSucceed(debug.Call(ctx, 10, 3))
+			results := MustSucceed(debug.Call(ctx, 10, 3))
+			Expect(results).ToNot(BeNil())
 
 			mem := mod.Memory()
 			dirtyFlags, ok := mem.ReadUint64Le(0x1000)
@@ -391,7 +392,8 @@ var _ = Describe("Compiler", func() {
 			Expect(classifier).ToNot(BeNil())
 
 			// Call with value > 50 - should set high output
-			MustSucceed(classifier.Call(ctx, 75))
+			results := MustSucceed(classifier.Call(ctx, 75))
+			Expect(results).ToNot(BeNil())
 
 			// Read memory to check outputs
 			// Memory layout: [dirty_flags:i64][high:i64][low:i64]
@@ -405,7 +407,8 @@ var _ = Describe("Compiler", func() {
 			Expect(highValue).To(Equal(uint64(75)))
 
 			// Call with value <= 50 - should set low output
-			MustSucceed(classifier.Call(ctx, 25))
+			results = MustSucceed(classifier.Call(ctx, 25))
+			Expect(results).ToNot(BeNil())
 
 			dirtyFlags, ok = mem.ReadUint64Le(0x1000)
 			Expect(ok).To(BeTrue())
@@ -435,7 +438,8 @@ var _ = Describe("Compiler", func() {
 			Expect(router).ToNot(BeNil())
 
 			// Test x > y case
-			MustSucceed(router.Call(ctx, 10, 3))
+			results := MustSucceed(router.Call(ctx, 10, 3))
+			Expect(results).ToNot(BeNil())
 
 			mem := mod.Memory()
 			dirtyFlags, ok := mem.ReadUint64Le(0x1000)
@@ -453,7 +457,8 @@ var _ = Describe("Compiler", func() {
 			Expect(diffValue).To(Equal(uint64(7)))
 
 			// Test x == y case
-			MustSucceed(router.Call(ctx, 5, 5))
+			results = MustSucceed(router.Call(ctx, 5, 5))
+			Expect(results).ToNot(BeNil())
 
 			dirtyFlags, ok = mem.ReadUint64Le(0x1000)
 			Expect(ok).To(BeTrue())
@@ -479,7 +484,8 @@ var _ = Describe("Compiler", func() {
 			converter := mod.ExportedFunction("converter")
 			Expect(converter).ToNot(BeNil())
 
-			MustSucceed(converter.Call(ctx, 100))
+			results := MustSucceed(converter.Call(ctx, 100))
+			Expect(results).ToNot(BeNil())
 
 			mem := mod.Memory()
 			dirtyFlags, ok := mem.ReadUint64Le(0x1000)
@@ -511,7 +517,8 @@ var _ = Describe("Compiler", func() {
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			divMod := mod.ExportedFunction("divMod")
 			Expect(divMod).ToNot(BeNil())
-			MustSucceed(divMod.Call(ctx, 17, 5))
+			results := MustSucceed(divMod.Call(ctx, 17, 5))
+			Expect(results).ToNot(BeNil())
 
 			mem := mod.Memory()
 			dirtyFlags := MustBeOk(mem.ReadUint64Le(0x1000))

@@ -75,14 +75,14 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// TypeKind represents the different categories of types in the Arc type system.
+// Kind represents the different categories of types in the Arc type system.
 // It is used as a discriminator in the Type tagged union.
-type TypeKind int
+type Kind int
 
-//go:generate stringer -type=TypeKind
+//go:generate stringer -type=Kind
 const (
 	// KindInvalid represents an invalid or uninitialized type.
-	KindInvalid TypeKind = iota
+	KindInvalid Kind = iota
 
 	// KindU8 is an 8-bit unsigned integer type.
 	KindU8
@@ -133,11 +133,6 @@ const (
 	// KindStage represents a stage within a sequence.
 	KindStage
 )
-
-// NewFunctionProperties creates a new FunctionProperties with empty Inputs, Outputs, and Config.
-func NewFunctionProperties() FunctionProperties {
-	return FunctionProperties{}
-}
 
 // Params are named, ordered parameters for a function.
 type Params []Param
@@ -202,19 +197,10 @@ type FunctionProperties struct {
 	Config Params `json:"config,omitempty" msgpack:"config,omitempty"`
 }
 
-// Copy creates a deep copy of the function properties.
-func (f FunctionProperties) Copy() FunctionProperties {
-	return FunctionProperties{
-		Inputs:  slices.Clone(f.Inputs),
-		Outputs: slices.Clone(f.Outputs),
-		Config:  slices.Clone(f.Config),
-	}
-}
-
 // Type represents a type in the Arc type system using a tagged union.
 type Type struct {
 	// Kind is the discriminator that determines which type this represents.
-	Kind TypeKind `json:"kind" msgpack:"kind"`
+	Kind Kind `json:"kind" msgpack:"kind"`
 	// Elem is the element type for compound types (chan, series).
 	Elem *Type `json:"elem,omitempty" msgpack:"elem"`
 	// Name is the identifier for type variables.
@@ -521,10 +507,11 @@ func (t Type) Unwrap() Type {
 // IsValid returns true if the type is not invalid or uninitialized.
 func (t *Type) IsValid() bool { return t.Kind != KindInvalid }
 
-// Equal compares two types for structural equality.
+// Equal compares two types for strict structural equality, including units.
 // For compound types (chan, series), it recursively compares value types.
 // For type variables, it compares names and constraints.
 // For function types, it compares inputs, outputs, and config parameters.
+// For numeric types with units, units must match exactly.
 func Equal(t Type, v Type) bool {
 	if t.Kind != v.Kind {
 		return false

@@ -20,6 +20,18 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// analyzeAndExpect is a helper that parses source, analyzes it, and returns the context.
+// It asserts the analysis succeeds when expectSuccess is true.
+func analyzeAndExpect(source string, expectSuccess bool) context.Context[parser.IProgramContext] {
+	prog := MustSucceed(parser.Parse(source))
+	ctx := context.CreateRoot(bCtx, prog, nil)
+	Expect(analyzer.AnalyzeProgram(ctx)).To(Equal(expectSuccess))
+	if expectSuccess {
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue())
+	}
+	return ctx
+}
+
 var _ = Describe("Analyzer Integration", func() {
 
 	Describe("Cross-Scope Symbol Resolution", func() {
@@ -37,17 +49,15 @@ var _ = Describe("Analyzer Integration", func() {
 		})
 
 		It("Should allow variable declaration from a function parameter", func() {
-			prog := MustSucceed(parser.Parse(`
+			_ = analyzeAndExpect(`
 				func testFunc(a i64) {
 					b := a
 				}
-			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			`, true)
 		})
 
 		It("Should resolve variables across nested scopes", func() {
-			prog := MustSucceed(parser.Parse(`
+			_ = analyzeAndExpect(`
 				func outer() i64 {
 					x i64 := 10
 					if x > 5 {
@@ -56,65 +66,65 @@ var _ = Describe("Analyzer Integration", func() {
 					}
 					return x
 				}
-			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			`, true)
 		})
 	})
 
 	Describe("Type Unification Results", func() {
-		It("Should resolve integer literal to i64 after unification", func() {
-			prog := MustSucceed(parser.Parse(`
-				func testFunc() {
-					x := 42
-				}
-			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			Expect(*ctx.Diagnostics).To(BeEmpty())
+		type unificationCase struct {
+			source       string
+			funcName     string
+			varName      string
+			expectedType types.Type
+		}
 
-			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "testFunc"))
-			blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
-			varScope := MustSucceed(blockScope.Resolve(ctx, "x"))
-			Expect(varScope.Type).To(Equal(types.I64()))
-		})
-
-		It("Should resolve float literal to f64 after unification", func() {
-			prog := MustSucceed(parser.Parse(`
-				func testFunc() {
-					x := 42.0
-				}
-			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			Expect(*ctx.Diagnostics).To(BeEmpty())
-
-			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "testFunc"))
-			blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
-			varScope := MustSucceed(blockScope.Resolve(ctx, "x"))
-			Expect(varScope.Type).To(Equal(types.F64()))
-		})
-
-		It("Should unify integer literal with explicit f32 type", func() {
-			prog := MustSucceed(parser.Parse(`
-				func testFunc() {
-					x f32 := 42
-				}
-			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			Expect(*ctx.Diagnostics).To(BeEmpty())
-
-			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "testFunc"))
-			blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
-			varScope := MustSucceed(blockScope.Resolve(ctx, "x"))
-			Expect(varScope.Type).To(Equal(types.F32()))
-		})
+		DescribeTable("literal type inference",
+			func(tc unificationCase) {
+				ctx := analyzeAndExpect(tc.source, true)
+				funcScope := MustSucceed(ctx.Scope.Resolve(ctx, tc.funcName))
+				blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
+				varScope := MustSucceed(blockScope.Resolve(ctx, tc.varName))
+				Expect(varScope.Type).To(Equal(tc.expectedType))
+			},
+			Entry("integer literal resolves to i64",
+				unificationCase{
+					source: `
+						func testFunc() {
+							x := 42
+						}
+					`,
+					funcName:     "testFunc",
+					varName:      "x",
+					expectedType: types.I64(),
+				}),
+			Entry("float literal resolves to f64",
+				unificationCase{
+					source: `
+						func testFunc() {
+							x := 42.0
+						}
+					`,
+					funcName:     "testFunc",
+					varName:      "x",
+					expectedType: types.F64(),
+				}),
+			Entry("integer literal unifies with explicit f32 type",
+				unificationCase{
+					source: `
+						func testFunc() {
+							x f32 := 42
+						}
+					`,
+					funcName:     "testFunc",
+					varName:      "x",
+					expectedType: types.F32(),
+				}),
+		)
 	})
 
 	Describe("Symbol Table Structure", func() {
 		It("Should build correct symbol table for if-else statement", func() {
-			prog := MustSucceed(parser.Parse(`
+			ctx := analyzeAndExpect(`
 				func dog() i64 {
 					if 3 > 5 {
 						return 1
@@ -122,9 +132,7 @@ var _ = Describe("Analyzer Integration", func() {
 						return 2
 					}
 				}
-			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			`, true)
 
 			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "dog"))
 			Expect(funcScope.Name).To(Equal("dog"))
@@ -136,7 +144,7 @@ var _ = Describe("Analyzer Integration", func() {
 		})
 
 		It("Should build correct symbol table for variables in nested blocks", func() {
-			prog := MustSucceed(parser.Parse(`
+			ctx := analyzeAndExpect(`
 				func dog() i64 {
 					a f32 := 2.0
 					if (a > 5) {
@@ -145,9 +153,7 @@ var _ = Describe("Analyzer Integration", func() {
 					}
 					return 2
 				}
-			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			`, true)
 
 			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "dog"))
 			blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
@@ -158,7 +164,7 @@ var _ = Describe("Analyzer Integration", func() {
 		})
 
 		It("Should build correct symbol table for if-else-if chain", func() {
-			prog := MustSucceed(parser.Parse(`
+			ctx := analyzeAndExpect(`
 				func dog(b i64) i64 {
 					a i64 := 2
 					if b == a {
@@ -170,9 +176,7 @@ var _ = Describe("Analyzer Integration", func() {
 						return 3
 					}
 				}
-			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			`, true)
 
 			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "dog"))
 			blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
@@ -187,7 +191,7 @@ var _ = Describe("Analyzer Integration", func() {
 
 	Describe("Multi-Function Programs", func() {
 		It("Should analyze program with multiple functions", func() {
-			prog := MustSucceed(parser.Parse(`
+			ctx := analyzeAndExpect(`
 				func add(x i64, y i64) i64 {
 					return x + y
 				}
@@ -195,9 +199,7 @@ var _ = Describe("Analyzer Integration", func() {
 				func multiply(a i64, b i64) i64 {
 					return a * b
 				}
-			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			`, true)
 
 			addFunc := MustSucceed(ctx.Scope.Resolve(ctx, "add"))
 			Expect(addFunc.Name).To(Equal("add"))
@@ -215,6 +217,87 @@ var _ = Describe("Analyzer Integration", func() {
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: unknownFunc"))
+		})
+	})
+
+	Describe("AnalyzeStatement", func() {
+		It("Should analyze a valid variable declaration statement", func() {
+			stmt := MustSucceed(parser.ParseStatement("x := 42"))
+			ctx := context.CreateRoot(bCtx, stmt, nil)
+			Expect(analyzer.AnalyzeStatement(ctx)).To(BeTrue())
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
+
+			varScope := MustSucceed(ctx.Scope.Resolve(ctx, "x"))
+			Expect(varScope.Type).To(Equal(types.I64()))
+		})
+
+		It("Should diagnose undefined symbol in statement", func() {
+			stmt := MustSucceed(parser.ParseStatement("x := undefined_var"))
+			ctx := context.CreateRoot(bCtx, stmt, nil)
+			Expect(analyzer.AnalyzeStatement(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: undefined_var"))
+		})
+
+		It("Should handle type unification in statement analysis", func() {
+			stmt := MustSucceed(parser.ParseStatement("x f32 := 100"))
+			ctx := context.CreateRoot(bCtx, stmt, nil)
+			Expect(analyzer.AnalyzeStatement(ctx)).To(BeTrue())
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
+
+			varScope := MustSucceed(ctx.Scope.Resolve(ctx, "x"))
+			Expect(varScope.Type).To(Equal(types.F32()))
+		})
+	})
+
+	Describe("AnalyzeBlock", func() {
+		It("Should analyze a valid block without return statements", func() {
+			// Note: AnalyzeBlock analyzes blocks in isolation without function context,
+			// so return statements may fail without proper scope setup.
+			prog := MustSucceed(parser.Parse(`
+				func test() {
+					x := 1
+					y := 2
+					z := x + y
+				}
+			`))
+			funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
+			block := funcDecl.Block()
+			progCtx := context.CreateRoot(bCtx, prog, nil)
+			blockCtx := context.Child(progCtx, block)
+			Expect(analyzer.AnalyzeBlock(blockCtx)).To(BeTrue())
+			Expect(blockCtx.Diagnostics.Ok()).To(BeTrue())
+		})
+
+		It("Should diagnose error in block and stop analysis", func() {
+			prog := MustSucceed(parser.Parse(`
+				func test() {
+					x := undefined_var
+					y := 2
+				}
+			`))
+			funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
+			block := funcDecl.Block()
+			progCtx := context.CreateRoot(bCtx, prog, nil)
+			blockCtx := context.Child(progCtx, block)
+			Expect(analyzer.AnalyzeBlock(blockCtx)).To(BeFalse())
+			Expect(*blockCtx.Diagnostics).To(HaveLen(1))
+			Expect((*blockCtx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: undefined_var"))
+		})
+
+		It("Should handle type unification across block statements", func() {
+			prog := MustSucceed(parser.Parse(`
+				func test() {
+					x f64 := 1
+					y := x + 2.0
+				}
+			`))
+			funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
+			block := funcDecl.Block()
+			progCtx := context.CreateRoot(bCtx, prog, nil)
+			blockCtx := context.Child(progCtx, block)
+			Expect(analyzer.AnalyzeBlock(blockCtx)).To(BeTrue())
+			Expect(blockCtx.Diagnostics.Ok()).To(BeTrue())
 		})
 	})
 })
