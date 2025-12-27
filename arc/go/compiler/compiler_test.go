@@ -1802,4 +1802,116 @@ var _ = Describe("Compiler", func() {
 			Expect(result).To(BeNumerically("~", 689476.0, 1.0))
 		})
 	})
+
+	Describe("String Operations", func() {
+		var arcRuntime *runtimebindings.Runtime
+
+		BeforeEach(func() {
+			b := bindings.NewBindings()
+			arcRuntime = runtimebindings.NewRuntime(nil, nil)
+			runtimebindings.BindRuntime(arcRuntime, b)
+			Expect(b.Bind(ctx, r)).To(Succeed())
+		})
+
+		It("Should return string handle from function", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func concat() str {
+				a str := "hello"
+				b str := " world"
+				return a + b
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			arcRuntime.SetMemory(mod.Memory())
+			concat := mod.ExportedFunction("concat")
+			results := MustSucceed(concat.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			handle := uint32(results[0])
+			Expect(handle).To(BeNumerically(">", 0))
+			Expect(arcRuntime.GetString(handle)).To(Equal("hello world"))
+		})
+
+		It("Should execute string concatenation with multiple operands", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func concat() u8 {
+				a str := "hello"
+				b str := " "
+				c str := "world"
+				result str := a + b + c
+				return result == "hello world"
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			arcRuntime.SetMemory(mod.Memory())
+			concat := mod.ExportedFunction("concat")
+			results := MustSucceed(concat.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1)))
+		})
+
+		It("Should execute string equality - equal strings", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func equal() u8 {
+				a str := "hello"
+				b str := "hello"
+				return a == b
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			arcRuntime.SetMemory(mod.Memory())
+			equal := mod.ExportedFunction("equal")
+			results := MustSucceed(equal.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1)))
+		})
+
+		It("Should execute string equality - different strings", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func notEqual() u8 {
+				a str := "hello"
+				b str := "world"
+				return a == b
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			arcRuntime.SetMemory(mod.Memory())
+			notEqual := mod.ExportedFunction("notEqual")
+			results := MustSucceed(notEqual.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(0)))
+		})
+
+		It("Should execute string inequality", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func notEqual() u8 {
+				a str := "hello"
+				b str := "world"
+				return a != b
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			arcRuntime.SetMemory(mod.Memory())
+			notEqual := mod.ExportedFunction("notEqual")
+			results := MustSucceed(notEqual.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1)))
+		})
+
+		It("Should verify concatenated string matches expected value", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func concatMatch() u8 {
+				a str := "hello"
+				b str := " world"
+				c str := a + b
+				return c == "hello world"
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			arcRuntime.SetMemory(mod.Memory())
+			concatMatch := mod.ExportedFunction("concatMatch")
+			results := MustSucceed(concatMatch.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1)))
+		})
+	})
 })

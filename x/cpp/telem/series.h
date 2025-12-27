@@ -252,6 +252,44 @@ private:
         return result;
     }
 
+    template<typename T, typename Op>
+    void apply_unary_op_typed(Series &result, Op op) const {
+        auto *src = reinterpret_cast<const T *>(this->data_.get());
+        auto *out = reinterpret_cast<T *>(result.data_.get());
+        for (size_t i = 0; i < this->size(); i++)
+            out[i] = op(src[i]);
+    }
+
+    template<typename Op>
+    Series apply_unary_op(Op op) const {
+        auto result = Series(this->data_type(), this->size());
+        result.resize(this->size());
+
+        const auto dt = this->data_type();
+        if (dt == FLOAT64_T)
+            apply_unary_op_typed<double>(result, op);
+        else if (dt == FLOAT32_T)
+            apply_unary_op_typed<float>(result, op);
+        else if (dt == INT64_T)
+            apply_unary_op_typed<int64_t>(result, op);
+        else if (dt == INT32_T)
+            apply_unary_op_typed<int32_t>(result, op);
+        else if (dt == INT16_T)
+            apply_unary_op_typed<int16_t>(result, op);
+        else if (dt == INT8_T)
+            apply_unary_op_typed<int8_t>(result, op);
+        else if (dt == UINT64_T)
+            apply_unary_op_typed<uint64_t>(result, op);
+        else if (dt == UINT32_T)
+            apply_unary_op_typed<uint32_t>(result, op);
+        else if (dt == UINT16_T)
+            apply_unary_op_typed<uint16_t>(result, op);
+        else if (dt == UINT8_T)
+            apply_unary_op_typed<uint8_t>(result, op);
+
+        return result;
+    }
+
     template<typename SourceType, typename T, typename Op>
     void apply_scalar_comparison_op_typed(T scalar, Series &result, Op op) const {
         auto *src = reinterpret_cast<const SourceType *>(this->data_.get());
@@ -1261,25 +1299,60 @@ public:
     /// @brief Series >= scalar comparison. Returns UINT8_T Series with 0/1 values.
     template<typename T>
     Series operator>=(T scalar) const {
-        return apply_scalar_comparison_op(scalar, [](auto a, auto b) { return a >= b; });
+        return apply_scalar_comparison_op(scalar, [](auto a, auto b) {
+            return a >= b;
+        });
     }
 
     /// @brief Series <= scalar comparison. Returns UINT8_T Series with 0/1 values.
     template<typename T>
     Series operator<=(T scalar) const {
-        return apply_scalar_comparison_op(scalar, [](auto a, auto b) { return a <= b; });
+        return apply_scalar_comparison_op(scalar, [](auto a, auto b) {
+            return a <= b;
+        });
     }
 
     /// @brief Series == scalar comparison. Returns UINT8_T Series with 0/1 values.
     template<typename T>
     Series operator==(T scalar) const {
-        return apply_scalar_comparison_op(scalar, [](auto a, auto b) { return a == b; });
+        return apply_scalar_comparison_op(scalar, [](auto a, auto b) {
+            return a == b;
+        });
     }
 
     /// @brief Series != scalar comparison. Returns UINT8_T Series with 0/1 values.
     template<typename T>
     Series operator!=(T scalar) const {
-        return apply_scalar_comparison_op(scalar, [](auto a, auto b) { return a != b; });
+        return apply_scalar_comparison_op(scalar, [](auto a, auto b) {
+            return a != b;
+        });
+    }
+
+    /// @brief Unary negation operator. Returns a new Series with negated values.
+    /// Works for all numeric types (signed and unsigned).
+    Series operator-() const {
+        return apply_unary_op([](auto a) { return -a; });
+    }
+
+    /// @brief Bitwise NOT operator. Returns a new Series with inverted bits.
+    /// Only valid for integer types.
+    /// @throws std::runtime_error if called on floating-point types.
+    Series operator~() const {
+        const auto dt = this->data_type();
+        if (dt == FLOAT32_T || dt == FLOAT64_T) {
+            throw std::runtime_error(
+                "bitwise NOT not supported for floating-point types"
+            );
+        }
+        return apply_unary_op([](auto a) {
+            if constexpr (std::is_integral_v<decltype(a)>) {
+                return static_cast<decltype(a)>(~a);
+            } else {
+                // This branch is never reached due to the runtime check above,
+                // but is needed for template instantiation.
+                return a;
+            }
+        });
     }
 
     /// @brief deep copies the series, including all of its data_. This function

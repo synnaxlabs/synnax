@@ -66,6 +66,7 @@ func BindRuntime(runtime *Runtime, b *compilerbindings.Bindings) {
 
 	// String operations
 	b.StringFromLiteral = runtime.StringFromLiteral
+	b.StringConcat = runtime.StringConcat
 	b.StringLen = runtime.StringLen
 	b.StringEqual = runtime.StringEqual
 
