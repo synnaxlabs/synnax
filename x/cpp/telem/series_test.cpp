@@ -1547,3 +1547,179 @@ TEST(SeriesOperators, OriginalUnmodified) {
     ASSERT_DOUBLE_EQ(b.at<double>(1), 5.0);
     ASSERT_DOUBLE_EQ(b.at<double>(2), 6.0);
 }
+
+/// @brief Tests unary negation operator with double.
+TEST(SeriesOperators, UnaryNegateFloat64) {
+    auto a = telem::Series(std::vector<double>{1.0, -2.0, 3.0, 0.0});
+    auto result = -a;
+    ASSERT_EQ(result.data_type(), telem::FLOAT64_T);
+    ASSERT_EQ(result.size(), 4);
+    ASSERT_DOUBLE_EQ(result.at<double>(0), -1.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 2.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), -3.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(3), 0.0);
+    // Original should be unchanged
+    ASSERT_DOUBLE_EQ(a.at<double>(0), 1.0);
+}
+
+/// @brief Tests unary negation operator with float.
+TEST(SeriesOperators, UnaryNegateFloat32) {
+    auto a = telem::Series(std::vector<float>{1.5f, -2.5f, 3.5f});
+    auto result = -a;
+    ASSERT_EQ(result.data_type(), telem::FLOAT32_T);
+    ASSERT_FLOAT_EQ(result.at<float>(0), -1.5f);
+    ASSERT_FLOAT_EQ(result.at<float>(1), 2.5f);
+    ASSERT_FLOAT_EQ(result.at<float>(2), -3.5f);
+}
+
+/// @brief Tests unary negation operator with int32.
+TEST(SeriesOperators, UnaryNegateInt32) {
+    auto a = telem::Series(std::vector<int32_t>{1, -2, 3, 0, -100});
+    auto result = -a;
+    ASSERT_EQ(result.data_type(), telem::INT32_T);
+    ASSERT_EQ(result.at<int32_t>(0), -1);
+    ASSERT_EQ(result.at<int32_t>(1), 2);
+    ASSERT_EQ(result.at<int32_t>(2), -3);
+    ASSERT_EQ(result.at<int32_t>(3), 0);
+    ASSERT_EQ(result.at<int32_t>(4), 100);
+}
+
+/// @brief Tests unary negation operator with int64.
+TEST(SeriesOperators, UnaryNegateInt64) {
+    auto a = telem::Series(std::vector<int64_t>{1000000000LL, -2000000000LL});
+    auto result = -a;
+    ASSERT_EQ(result.data_type(), telem::INT64_T);
+    ASSERT_EQ(result.at<int64_t>(0), -1000000000LL);
+    ASSERT_EQ(result.at<int64_t>(1), 2000000000LL);
+}
+
+/// @brief Tests unary negation operator with int16.
+TEST(SeriesOperators, UnaryNegateInt16) {
+    auto a = telem::Series(std::vector<int16_t>{100, -200, 300});
+    auto result = -a;
+    ASSERT_EQ(result.data_type(), telem::INT16_T);
+    ASSERT_EQ(result.at<int16_t>(0), -100);
+    ASSERT_EQ(result.at<int16_t>(1), 200);
+    ASSERT_EQ(result.at<int16_t>(2), -300);
+}
+
+/// @brief Tests unary negation operator with int8.
+TEST(SeriesOperators, UnaryNegateInt8) {
+    auto a = telem::Series(std::vector<int8_t>{10, -20, 30});
+    auto result = -a;
+    ASSERT_EQ(result.data_type(), telem::INT8_T);
+    ASSERT_EQ(result.at<int8_t>(0), -10);
+    ASSERT_EQ(result.at<int8_t>(1), 20);
+    ASSERT_EQ(result.at<int8_t>(2), -30);
+}
+
+/// @brief Tests unary negation with empty series.
+TEST(SeriesOperators, UnaryNegateEmpty) {
+    auto a = telem::Series(telem::FLOAT64_T, 0);
+    auto result = -a;
+    ASSERT_EQ(result.size(), 0);
+    ASSERT_EQ(result.data_type(), telem::FLOAT64_T);
+}
+
+/// @brief Tests unary negation with single element.
+TEST(SeriesOperators, UnaryNegateSingleElement) {
+    auto a = telem::Series(std::vector<double>{5.0});
+    auto result = -a;
+    ASSERT_EQ(result.size(), 1);
+    ASSERT_DOUBLE_EQ(result.at<double>(0), -5.0);
+}
+
+/// @brief Tests bitwise NOT operator with uint8.
+TEST(SeriesOperators, BitwiseNotUint8) {
+    auto a = telem::Series(std::vector<uint8_t>{0x00, 0xFF, 0x0F, 0xF0, 0xAA});
+    auto result = ~a;
+    ASSERT_EQ(result.data_type(), telem::UINT8_T);
+    ASSERT_EQ(result.size(), 5);
+    ASSERT_EQ(result.at<uint8_t>(0), 0xFF);
+    ASSERT_EQ(result.at<uint8_t>(1), 0x00);
+    ASSERT_EQ(result.at<uint8_t>(2), 0xF0);
+    ASSERT_EQ(result.at<uint8_t>(3), 0x0F);
+    ASSERT_EQ(result.at<uint8_t>(4), 0x55);
+}
+
+/// @brief Tests bitwise NOT operator with uint16.
+TEST(SeriesOperators, BitwiseNotUint16) {
+    auto a = telem::Series(std::vector<uint16_t>{0x0000, 0xFFFF, 0x00FF});
+    auto result = ~a;
+    ASSERT_EQ(result.data_type(), telem::UINT16_T);
+    ASSERT_EQ(result.at<uint16_t>(0), 0xFFFF);
+    ASSERT_EQ(result.at<uint16_t>(1), 0x0000);
+    ASSERT_EQ(result.at<uint16_t>(2), 0xFF00);
+}
+
+/// @brief Tests bitwise NOT operator with uint32.
+TEST(SeriesOperators, BitwiseNotUint32) {
+    auto a = telem::Series(std::vector<uint32_t>{0x00000000, 0xFFFFFFFF, 0x0000FFFF});
+    auto result = ~a;
+    ASSERT_EQ(result.data_type(), telem::UINT32_T);
+    ASSERT_EQ(result.at<uint32_t>(0), 0xFFFFFFFF);
+    ASSERT_EQ(result.at<uint32_t>(1), 0x00000000);
+    ASSERT_EQ(result.at<uint32_t>(2), 0xFFFF0000);
+}
+
+/// @brief Tests bitwise NOT operator with uint64.
+TEST(SeriesOperators, BitwiseNotUint64) {
+    auto a = telem::Series(
+        std::vector<uint64_t>{0x0000000000000000ULL, 0xFFFFFFFFFFFFFFFFULL}
+    );
+    auto result = ~a;
+    ASSERT_EQ(result.data_type(), telem::UINT64_T);
+    ASSERT_EQ(result.at<uint64_t>(0), 0xFFFFFFFFFFFFFFFFULL);
+    ASSERT_EQ(result.at<uint64_t>(1), 0x0000000000000000ULL);
+}
+
+/// @brief Tests bitwise NOT operator with int32 (two's complement).
+TEST(SeriesOperators, BitwiseNotInt32) {
+    auto a = telem::Series(std::vector<int32_t>{0, -1, 1});
+    auto result = ~a;
+    ASSERT_EQ(result.data_type(), telem::INT32_T);
+    ASSERT_EQ(result.at<int32_t>(0), -1); // ~0 = -1 in two's complement
+    ASSERT_EQ(result.at<int32_t>(1), 0); // ~(-1) = 0
+    ASSERT_EQ(result.at<int32_t>(2), -2); // ~1 = -2 in two's complement
+}
+
+/// @brief Tests bitwise NOT throws for floating-point types.
+TEST(SeriesOperators, BitwiseNotFloatThrows) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    ASSERT_THROW(~a, std::runtime_error);
+}
+
+/// @brief Tests bitwise NOT throws for float32 types.
+TEST(SeriesOperators, BitwiseNotFloat32Throws) {
+    auto a = telem::Series(std::vector<float>{1.0f, 2.0f, 3.0f});
+    ASSERT_THROW(~a, std::runtime_error);
+}
+
+/// @brief Tests double negation returns original values.
+TEST(SeriesOperators, DoubleNegation) {
+    auto a = telem::Series(std::vector<double>{1.0, -2.0, 3.0});
+    auto result = -(-a);
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 1.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), -2.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 3.0);
+}
+
+/// @brief Tests double bitwise NOT returns original values.
+TEST(SeriesOperators, DoubleBitwiseNot) {
+    auto a = telem::Series(std::vector<uint8_t>{0x00, 0xFF, 0xAA});
+    auto result = ~~a;
+    ASSERT_EQ(result.at<uint8_t>(0), 0x00);
+    ASSERT_EQ(result.at<uint8_t>(1), 0xFF);
+    ASSERT_EQ(result.at<uint8_t>(2), 0xAA);
+}
+
+/// @brief Tests negation can be chained with other operations.
+TEST(SeriesOperators, NegationChainedWithOperations) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto b = telem::Series(std::vector<double>{4.0, 5.0, 6.0});
+    // -a + b should give {3.0, 3.0, 3.0}
+    auto result = (-a) + b;
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 3.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 3.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 3.0);
+}

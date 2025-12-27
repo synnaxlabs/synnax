@@ -1990,6 +1990,402 @@ var _ = Describe("Compiler", func() {
 		})
 	})
 
+	Describe("String Operations", func() {
+		var arcRuntime *runtimebindings.Runtime
+
+		BeforeEach(func() {
+			b := bindings.NewBindings()
+			arcRuntime = runtimebindings.NewRuntime(nil, nil)
+			runtimebindings.BindRuntime(arcRuntime, b)
+			Expect(b.Bind(ctx, r)).To(Succeed())
+		})
+
+		It("Should return string handle from function", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func concat() str {
+				a str := "hello"
+				b str := " world"
+				return a + b
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			arcRuntime.SetMemory(mod.Memory())
+			concat := mod.ExportedFunction("concat")
+			results := MustSucceed(concat.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			handle := uint32(results[0])
+			Expect(handle).To(BeNumerically(">", 0))
+			Expect(arcRuntime.GetString(handle)).To(Equal("hello world"))
+		})
+
+		It("Should execute string concatenation with multiple operands", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func concat() u8 {
+				a str := "hello"
+				b str := " "
+				c str := "world"
+				result str := a + b + c
+				return result == "hello world"
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			arcRuntime.SetMemory(mod.Memory())
+			concat := mod.ExportedFunction("concat")
+			results := MustSucceed(concat.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1)))
+		})
+
+		It("Should execute string equality - equal strings", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func equal() u8 {
+				a str := "hello"
+				b str := "hello"
+				return a == b
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			arcRuntime.SetMemory(mod.Memory())
+			equal := mod.ExportedFunction("equal")
+			results := MustSucceed(equal.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1)))
+		})
+
+		It("Should execute string equality - different strings", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func notEqual() u8 {
+				a str := "hello"
+				b str := "world"
+				return a == b
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			arcRuntime.SetMemory(mod.Memory())
+			notEqual := mod.ExportedFunction("notEqual")
+			results := MustSucceed(notEqual.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(0)))
+		})
+
+		It("Should execute string inequality", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func notEqual() u8 {
+				a str := "hello"
+				b str := "world"
+				return a != b
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			arcRuntime.SetMemory(mod.Memory())
+			notEqual := mod.ExportedFunction("notEqual")
+			results := MustSucceed(notEqual.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1)))
+		})
+
+		It("Should verify concatenated string matches expected value", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func concatMatch() u8 {
+				a str := "hello"
+				b str := " world"
+				c str := a + b
+				return c == "hello world"
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			arcRuntime.SetMemory(mod.Memory())
+			concatMatch := mod.ExportedFunction("concatMatch")
+			results := MustSucceed(concatMatch.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1)))
+		})
+
+		It("Should execute string compound concatenation", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func build() u8 {
+				s str := "hello"
+				s += " "
+				s += "world"
+				return s == "hello world"
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			arcRuntime.SetMemory(mod.Memory())
+			build := mod.ExportedFunction("build")
+			results := MustSucceed(build.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1)))
+		})
+
+		It("Should execute string compound concatenation with variable", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func build() u8 {
+				s str := "a"
+				suffix str := "b"
+				s += suffix
+				return s == "ab"
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			arcRuntime.SetMemory(mod.Memory())
+			build := mod.ExportedFunction("build")
+			results := MustSucceed(build.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1)))
+		})
+
+		DescribeTable("indexed compound assignments",
+			func(body string, expected any) {
+				source := fmt.Sprintf(`func test() %s %s`, inferReturnType(expected), body)
+				output := MustSucceed(compileWithHostImports(source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				results := MustSucceed(test.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				assertResult(results[0], expected)
+			},
+			Entry("i32 indexed +=", `{
+				arr series i32 := [1, 2, 3]
+				arr[0] += 10
+				return arr[0]
+			}`, int32(11)),
+			Entry("i64 indexed -=", `{
+				arr series i64 := [100, 200, 300]
+				arr[1] -= 50
+				return arr[1]
+			}`, int64(150)),
+			Entry("f64 indexed *=", `{
+				arr series f64 := [2.0, 3.0, 4.0]
+				arr[2] *= 2.5
+				return arr[2]
+			}`, float64(10.0)),
+			Entry("f32 indexed /=", `{
+				arr series f32 := [10.0, 20.0]
+				arr[0] /= 2.0
+				return arr[0]
+			}`, float32(5.0)),
+			Entry("i64 indexed %=", `{
+				arr series i64 := [17, 23]
+				arr[0] %= 5
+				return arr[0]
+			}`, int64(2)),
+			Entry("indexed compound with variable index", `{
+				arr series i32 := [10, 20, 30]
+				i i32 := 1
+				arr[i] += 5
+				return arr[1]
+			}`, int32(25)),
+			Entry("indexed compound with expression index", `{
+				arr series i32 := [10, 20, 30]
+				arr[1 + 1] += 7
+				return arr[2]
+			}`, int32(37)),
+			Entry("indexed compound with variable value", `{
+				arr series i32 := [10, 20, 30]
+				delta i32 := 15
+				arr[0] += delta
+				return arr[0]
+			}`, int32(25)),
+			Entry("chained indexed compound assignments", `{
+				arr series i32 := [100, 200, 300]
+				arr[0] += 10
+				arr[0] *= 2
+				return arr[0]
+			}`, int32(220)),
+			Entry("multiple elements indexed compound", `{
+				arr series i64 := [10, 20, 30]
+				arr[0] += 1
+				arr[1] += 2
+				arr[2] += 3
+				return arr[0] + arr[1] + arr[2]
+			}`, int64(66)),
+		)
+
+		DescribeTable("whole-series compound assignments",
+			func(body string, expected any) {
+				source := fmt.Sprintf(`func test() %s %s`, inferReturnType(expected), body)
+				output := MustSucceed(compileWithHostImports(source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				results := MustSucceed(test.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				assertResult(results[0], expected)
+			},
+			// series += scalar (broadcast)
+			Entry("series += scalar f64", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				s += 10.0
+				return s[1]
+			}`, float64(12.0)),
+			Entry("series -= scalar i32", `{
+				s series i32 := [10, 20, 30]
+				s -= 5
+				return s[0]
+			}`, int32(5)),
+			Entry("series *= scalar", `{
+				s series f64 := [2.0, 3.0, 4.0]
+				s *= 10.0
+				return s[0]
+			}`, float64(20.0)),
+			Entry("series /= scalar", `{
+				s series f64 := [100.0, 200.0]
+				s /= 10.0
+				return s[1]
+			}`, float64(20.0)),
+			Entry("series %= scalar", `{
+				s series i64 := [17, 23]
+				s %= 5
+				return s[0]
+			}`, int64(2)),
+
+			// series += series (element-wise)
+			Entry("series += series f64", `{
+				a series f64 := [1.0, 2.0, 3.0]
+				b series f64 := [10.0, 20.0, 30.0]
+				a += b
+				return a[1]
+			}`, float64(22.0)),
+			Entry("series -= series i32", `{
+				a series i32 := [100, 200, 300]
+				b series i32 := [10, 20, 30]
+				a -= b
+				return a[2]
+			}`, int32(270)),
+			Entry("series *= series", `{
+				a series f64 := [2.0, 3.0]
+				b series f64 := [4.0, 5.0]
+				a *= b
+				return a[1]
+			}`, float64(15.0)),
+			Entry("series /= series", `{
+				a series f64 := [100.0, 200.0]
+				b series f64 := [10.0, 20.0]
+				a /= b
+				return a[0]
+			}`, float64(10.0)),
+
+			// Chained operations
+			Entry("chained series compound assignments", `{
+				s series f64 := [10.0, 20.0]
+				s += 5.0
+				s *= 2.0
+				return s[0]
+			}`, float64(30.0)),
+
+			// Multiple series modifications
+			Entry("multiple series compound operations", `{
+				a series i64 := [10, 20]
+				b series i64 := [1, 2]
+				a += b
+				b += a
+				return a[0] + b[0]
+			}`, int64(23)), // a[0]=11, b[0]=12, sum=23
+		)
+	})
+
+	Describe("Compound Assignment Operators", func() {
+		DescribeTable("numeric compound assignments",
+			func(body string, expected any) {
+				source := fmt.Sprintf(`func test() %s %s`, inferReturnType(expected), body)
+				output := MustSucceed(compile(source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				results := MustSucceed(test.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				assertResult(results[0], expected)
+			},
+			Entry("i64 plus equals", `{
+				x i64 := 10
+				x += 5
+				return x
+			}`, int64(15)),
+			Entry("i64 minus equals", `{
+				x i64 := 10
+				x -= 3
+				return x
+			}`, int64(7)),
+			Entry("i64 multiply equals", `{
+				x i64 := 10
+				x *= 4
+				return x
+			}`, int64(40)),
+			Entry("i64 divide equals", `{
+				x i64 := 20
+				x /= 4
+				return x
+			}`, int64(5)),
+			Entry("i64 modulo equals", `{
+				x i64 := 17
+				x %= 5
+				return x
+			}`, int64(2)),
+			Entry("f64 plus equals", `{
+				x f64 := 10.5
+				x += 2.5
+				return x
+			}`, float64(13.0)),
+			Entry("f64 minus equals", `{
+				x f64 := 10.0
+				x -= 3.5
+				return x
+			}`, float64(6.5)),
+			Entry("f64 multiply equals", `{
+				x f64 := 2.5
+				x *= 4.0
+				return x
+			}`, float64(10.0)),
+			Entry("f64 divide equals", `{
+				x f64 := 15.0
+				x /= 3.0
+				return x
+			}`, float64(5.0)),
+			Entry("i32 plus equals", `{
+				x i32 := 100
+				x += 50
+				return x
+			}`, int32(150)),
+			Entry("i32 multiply equals", `{
+				x i32 := 7
+				x *= 6
+				return x
+			}`, int32(42)),
+			Entry("f32 plus equals", `{
+				x f32 := 1.5
+				x += 2.5
+				return x
+			}`, float32(4.0)),
+			Entry("multiple compound assignments", `{
+				x i64 := 10
+				x += 5
+				x *= 2
+				x -= 10
+				return x
+			}`, int64(20)),
+			Entry("compound assignment with expression", `{
+				x i64 := 10
+				y i64 := 3
+				x += y * 2
+				return x
+			}`, int64(16)),
+			Entry("compound assignment in conditional", `{
+				x i64 := 10
+				if x > 5 {
+					x += 100
+				}
+				return x
+			}`, int64(110)),
+			Entry("compound assignment with parameter", `{
+				x i64 := 5
+				x *= x
+				return x
+			}`, int64(25)),
+		)
+	})
+
 	Describe("Function Calls", func() {
 		It("Should call another function and return its result", func() {
 			output := MustSucceed(compile(`

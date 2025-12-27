@@ -17,7 +17,7 @@
 
 namespace arc::runtime::wasm {
 
-class BindingsTest : public ::testing::Test {
+class BindingsTest : public testing::Test {
 protected:
     void SetUp() override { bindings = std::make_unique<Bindings>(nullptr, nullptr); }
 
@@ -65,8 +65,6 @@ TEST_F(BindingsTest, SeriesSetAndIndexI32) {
     EXPECT_EQ(bindings->series_index_i32(handle, 2), 10);
     EXPECT_EQ(bindings->series_index_i32(handle, 3), 100);
 }
-
-// ===== Scalar Arithmetic Tests =====
 
 TEST_F(BindingsTest, SeriesElementAddF64) {
     const uint32_t h1 = bindings->series_create_empty_f64(3);
@@ -118,7 +116,153 @@ TEST_F(BindingsTest, SeriesElementDivF64) {
     EXPECT_DOUBLE_EQ(bindings->series_index_f64(h2, 1), 10.0);
 }
 
-// ===== Series-Series Arithmetic Tests (Same Length) =====
+TEST_F(BindingsTest, SeriesElementRsubF64) {
+    const uint32_t h1 = bindings->series_create_empty_f64(3);
+    bindings->series_set_element_f64(h1, 0, 1.0);
+    bindings->series_set_element_f64(h1, 1, 2.0);
+    bindings->series_set_element_f64(h1, 2, 3.0);
+
+    // 10.0 - [1, 2, 3] = [9, 8, 7]
+    const uint32_t h2 = bindings->series_element_rsub_f64(10.0, h1);
+    EXPECT_NE(h2, 0);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h2, 0), 9.0);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h2, 1), 8.0);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h2, 2), 7.0);
+
+    // Original unchanged
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h1, 0), 1.0);
+}
+
+TEST_F(BindingsTest, SeriesElementRdivF64) {
+    const uint32_t h1 = bindings->series_create_empty_f64(3);
+    bindings->series_set_element_f64(h1, 0, 2.0);
+    bindings->series_set_element_f64(h1, 1, 4.0);
+    bindings->series_set_element_f64(h1, 2, 5.0);
+
+    // 10.0 / [2, 4, 5] = [5, 2.5, 2]
+    const uint32_t h2 = bindings->series_element_rdiv_f64(10.0, h1);
+    EXPECT_NE(h2, 0);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h2, 0), 5.0);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h2, 1), 2.5);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h2, 2), 2.0);
+}
+
+TEST_F(BindingsTest, SeriesElementRsubI32) {
+    const uint32_t h1 = bindings->series_create_empty_i32(3);
+    bindings->series_set_element_i32(h1, 0, 5);
+    bindings->series_set_element_i32(h1, 1, 10);
+    bindings->series_set_element_i32(h1, 2, 15);
+
+    // 100 - [5, 10, 15] = [95, 90, 85]
+    const uint32_t h2 = bindings->series_element_rsub_i32(100, h1);
+    EXPECT_EQ(bindings->series_index_i32(h2, 0), 95);
+    EXPECT_EQ(bindings->series_index_i32(h2, 1), 90);
+    EXPECT_EQ(bindings->series_index_i32(h2, 2), 85);
+}
+
+TEST_F(BindingsTest, SeriesElementModI32) {
+    const uint32_t h1 = bindings->series_create_empty_i32(4);
+    bindings->series_set_element_i32(h1, 0, 10);
+    bindings->series_set_element_i32(h1, 1, 15);
+    bindings->series_set_element_i32(h1, 2, 20);
+    bindings->series_set_element_i32(h1, 3, 7);
+
+    // [10, 15, 20, 7] % 3 = [1, 0, 2, 1]
+    const uint32_t h2 = bindings->series_element_mod_i32(h1, 3);
+    EXPECT_NE(h2, 0);
+    EXPECT_EQ(bindings->series_index_i32(h2, 0), 1);
+    EXPECT_EQ(bindings->series_index_i32(h2, 1), 0);
+    EXPECT_EQ(bindings->series_index_i32(h2, 2), 2);
+    EXPECT_EQ(bindings->series_index_i32(h2, 3), 1);
+}
+
+TEST_F(BindingsTest, SeriesElementModU64) {
+    const uint32_t h1 = bindings->series_create_empty_u64(3);
+    bindings->series_set_element_u64(h1, 0, 100);
+    bindings->series_set_element_u64(h1, 1, 250);
+    bindings->series_set_element_u64(h1, 2, 17);
+
+    // [100, 250, 17] % 7 = [2, 5, 3]
+    const uint32_t h2 = bindings->series_element_mod_u64(h1, 7);
+    EXPECT_EQ(bindings->series_index_u64(h2, 0), 2);
+    EXPECT_EQ(bindings->series_index_u64(h2, 1), 5);
+    EXPECT_EQ(bindings->series_index_u64(h2, 2), 3);
+}
+
+TEST_F(BindingsTest, SeriesElementModDivisionByZero) {
+    const uint32_t h1 = bindings->series_create_empty_i32(1);
+    bindings->series_set_element_i32(h1, 0, 10);
+
+    // Should return 0 (invalid handle) for division by zero
+    EXPECT_EQ(bindings->series_element_mod_i32(h1, 0), 0);
+}
+
+TEST_F(BindingsTest, SeriesSeriesModI32) {
+    const uint32_t h1 = bindings->series_create_empty_i32(3);
+    bindings->series_set_element_i32(h1, 0, 10);
+    bindings->series_set_element_i32(h1, 1, 15);
+    bindings->series_set_element_i32(h1, 2, 23);
+
+    const uint32_t h2 = bindings->series_create_empty_i32(3);
+    bindings->series_set_element_i32(h2, 0, 3);
+    bindings->series_set_element_i32(h2, 1, 4);
+    bindings->series_set_element_i32(h2, 2, 5);
+
+    // [10, 15, 23] % [3, 4, 5] = [1, 3, 3]
+    const uint32_t h3 = bindings->series_series_mod_i32(h1, h2);
+    EXPECT_NE(h3, 0);
+    EXPECT_EQ(bindings->series_index_i32(h3, 0), 1);
+    EXPECT_EQ(bindings->series_index_i32(h3, 1), 3);
+    EXPECT_EQ(bindings->series_index_i32(h3, 2), 3);
+}
+
+TEST_F(BindingsTest, SeriesSeriesModU32DifferentLengths) {
+    const uint32_t h1 = bindings->series_create_empty_u32(4);
+    bindings->series_set_element_u32(h1, 0, 10);
+    bindings->series_set_element_u32(h1, 1, 20);
+    bindings->series_set_element_u32(h1, 2, 30);
+    bindings->series_set_element_u32(h1, 3, 40);
+
+    const uint32_t h2 = bindings->series_create_empty_u32(2);
+    bindings->series_set_element_u32(h2, 0, 3);
+    bindings->series_set_element_u32(h2, 1, 7);
+
+    // Different lengths should panic
+    EXPECT_THROW(bindings->series_series_mod_u32(h1, h2), std::runtime_error);
+}
+
+TEST_F(BindingsTest, SeriesElementModF64) {
+    const uint32_t h1 = bindings->series_create_empty_f64(3);
+    bindings->series_set_element_f64(h1, 0, 10.5);
+    bindings->series_set_element_f64(h1, 1, 7.5);
+    bindings->series_set_element_f64(h1, 2, 15.0);
+
+    // [10.5, 7.5, 15.0] % 3.0 = [1.5, 1.5, 0.0] (using std::fmod)
+    const uint32_t h2 = bindings->series_element_mod_f64(h1, 3.0);
+    EXPECT_NE(h2, 0);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h2, 0), 1.5);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h2, 1), 1.5);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h2, 2), 0.0);
+}
+
+TEST_F(BindingsTest, SeriesSeriesModF64) {
+    const uint32_t h1 = bindings->series_create_empty_f64(3);
+    bindings->series_set_element_f64(h1, 0, 10.5);
+    bindings->series_set_element_f64(h1, 1, 20.0);
+    bindings->series_set_element_f64(h1, 2, 7.5);
+
+    const uint32_t h2 = bindings->series_create_empty_f64(3);
+    bindings->series_set_element_f64(h2, 0, 3.0);
+    bindings->series_set_element_f64(h2, 1, 6.0);
+    bindings->series_set_element_f64(h2, 2, 2.5);
+
+    // [10.5, 20.0, 7.5] % [3.0, 6.0, 2.5] = [1.5, 2.0, 0.0]
+    const uint32_t h3 = bindings->series_series_mod_f64(h1, h2);
+    EXPECT_NE(h3, 0);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h3, 0), 1.5);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h3, 1), 2.0);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h3, 2), 0.0);
+}
 
 TEST_F(BindingsTest, SeriesSeriesAddF64SameLength) {
     const uint32_t h1 = bindings->series_create_empty_f64(3);
@@ -152,50 +296,27 @@ TEST_F(BindingsTest, SeriesSeriesMulI64SameLength) {
     EXPECT_EQ(bindings->series_index_i64(h3, 1), 24);
 }
 
-// ===== Series-Series Arithmetic Tests (Different Lengths - Last Value Repetition)
-// =====
-
 TEST_F(BindingsTest, SeriesSeriesAddF64DifferentLengthsLHSLonger) {
-    // lhs = [1, 2, 3, 4, 5]
     const uint32_t h1 = bindings->series_create_empty_f64(5);
-    for (uint32_t i = 0; i < 5; i++) {
-        bindings->series_set_element_f64(h1, i, static_cast<double>(i + 1));
-    }
+    for (uint32_t i = 0; i < 5; i++)
+        bindings->series_set_element_f64(h1, i, i + 1);
 
-    // rhs = [10, 20] -> repeats last value (20) for remaining positions
     const uint32_t h2 = bindings->series_create_empty_f64(2);
     bindings->series_set_element_f64(h2, 0, 10.0);
     bindings->series_set_element_f64(h2, 1, 20.0);
-
-    const uint32_t h3 = bindings->series_series_add_f64(h1, h2);
-    EXPECT_EQ(bindings->series_len(h3), 5);
-    // Result: [1+10, 2+20, 3+20, 4+20, 5+20] = [11, 22, 23, 24, 25]
-    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h3, 0), 11.0);
-    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h3, 1), 22.0);
-    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h3, 2), 23.0);
-    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h3, 3), 24.0);
-    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h3, 4), 25.0);
+    // Different lengths should panic
+    EXPECT_THROW(bindings->series_series_add_f64(h1, h2), std::runtime_error);
 }
 
 TEST_F(BindingsTest, SeriesSeriesAddF64DifferentLengthsRHSLonger) {
-    // lhs = [1, 2] -> repeats last value (2) for remaining positions
     const uint32_t h1 = bindings->series_create_empty_f64(2);
     bindings->series_set_element_f64(h1, 0, 1.0);
     bindings->series_set_element_f64(h1, 1, 2.0);
 
-    // rhs = [10, 20, 30, 40]
     const uint32_t h2 = bindings->series_create_empty_f64(4);
-    for (uint32_t i = 0; i < 4; i++) {
-        bindings->series_set_element_f64(h2, i, static_cast<double>((i + 1) * 10));
-    }
-
-    const uint32_t h3 = bindings->series_series_add_f64(h1, h2);
-    EXPECT_EQ(bindings->series_len(h3), 4);
-    // Result: [1+10, 2+20, 2+30, 2+40] = [11, 22, 32, 42]
-    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h3, 0), 11.0);
-    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h3, 1), 22.0);
-    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h3, 2), 32.0);
-    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h3, 3), 42.0);
+    for (uint32_t i = 0; i < 4; i++)
+        bindings->series_set_element_f64(h2, i, (i + 1) * 10);
+    EXPECT_THROW(bindings->series_series_add_f64(h1, h2), std::runtime_error);
 }
 
 TEST_F(BindingsTest, SeriesSeriesSubI32DifferentLengths) {
@@ -203,16 +324,9 @@ TEST_F(BindingsTest, SeriesSeriesSubI32DifferentLengths) {
     bindings->series_set_element_i32(h1, 0, 100);
     bindings->series_set_element_i32(h1, 1, 200);
     bindings->series_set_element_i32(h1, 2, 300);
-
     const uint32_t h2 = bindings->series_create_empty_i32(1);
     bindings->series_set_element_i32(h2, 0, 10);
-
-    const uint32_t h3 = bindings->series_series_sub_i32(h1, h2);
-    // Result: [100-10, 200-10, 300-10] = [90, 190, 290]
-    EXPECT_EQ(bindings->series_len(h3), 3);
-    EXPECT_EQ(bindings->series_index_i32(h3, 0), 90);
-    EXPECT_EQ(bindings->series_index_i32(h3, 1), 190);
-    EXPECT_EQ(bindings->series_index_i32(h3, 2), 290);
+    EXPECT_THROW(bindings->series_series_sub_i32(h1, h2), std::runtime_error);
 }
 
 TEST_F(BindingsTest, SeriesSeriesDivF64DifferentLengths) {
@@ -221,21 +335,11 @@ TEST_F(BindingsTest, SeriesSeriesDivF64DifferentLengths) {
     bindings->series_set_element_f64(h1, 1, 20.0);
     bindings->series_set_element_f64(h1, 2, 30.0);
     bindings->series_set_element_f64(h1, 3, 40.0);
-
     const uint32_t h2 = bindings->series_create_empty_f64(2);
     bindings->series_set_element_f64(h2, 0, 2.0);
     bindings->series_set_element_f64(h2, 1, 4.0);
-
-    const uint32_t h3 = bindings->series_series_div_f64(h1, h2);
-    // Result: [10/2, 20/4, 30/4, 40/4] = [5, 5, 7.5, 10]
-    EXPECT_EQ(bindings->series_len(h3), 4);
-    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h3, 0), 5.0);
-    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h3, 1), 5.0);
-    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h3, 2), 7.5);
-    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h3, 3), 10.0);
+    EXPECT_THROW(bindings->series_series_div_f64(h1, h2), std::runtime_error);
 }
-
-// ===== Comparison Tests =====
 
 TEST_F(BindingsTest, SeriesCompareGtF64) {
     const uint32_t h1 = bindings->series_create_empty_f64(3);
@@ -346,31 +450,20 @@ TEST_F(BindingsTest, SeriesCompareNeF32) {
     EXPECT_EQ(bindings->series_index_u8(h3, 2), 1);
 }
 
-// ===== Comparison with Different Lengths =====
-
 TEST_F(BindingsTest, SeriesCompareGtDifferentLengths) {
     // lhs = [1, 2, 3, 4, 5]
     const uint32_t h1 = bindings->series_create_empty_f64(5);
-    for (uint32_t i = 0; i < 5; i++) {
-        bindings->series_set_element_f64(h1, i, static_cast<double>(i + 1));
-    }
+    for (uint32_t i = 0; i < 5; i++)
+        bindings->series_set_element_f64(h1, i, i + 1);
 
-    // rhs = [2, 1] -> last value (1) repeats
+    // rhs = [2, 1]
     const uint32_t h2 = bindings->series_create_empty_f64(2);
     bindings->series_set_element_f64(h2, 0, 2.0);
     bindings->series_set_element_f64(h2, 1, 1.0);
 
-    const uint32_t h3 = bindings->series_compare_gt_f64(h1, h2);
-    EXPECT_EQ(bindings->series_len(h3), 5);
-    // 1 > 2? false, 2 > 1? true, 3 > 1? true, 4 > 1? true, 5 > 1? true
-    EXPECT_EQ(bindings->series_index_u8(h3, 0), 0);
-    EXPECT_EQ(bindings->series_index_u8(h3, 1), 1);
-    EXPECT_EQ(bindings->series_index_u8(h3, 2), 1);
-    EXPECT_EQ(bindings->series_index_u8(h3, 3), 1);
-    EXPECT_EQ(bindings->series_index_u8(h3, 4), 1);
+    // Different lengths should panic
+    EXPECT_THROW(bindings->series_compare_gt_f64(h1, h2), std::runtime_error);
 }
-
-// ===== Series Len Tests =====
 
 TEST_F(BindingsTest, SeriesLenInvalidHandle) {
     EXPECT_EQ(bindings->series_len(999), 0);
@@ -380,8 +473,6 @@ TEST_F(BindingsTest, SeriesLenValidHandle) {
     const uint32_t h = bindings->series_create_empty_i32(7);
     EXPECT_EQ(bindings->series_len(h), 7);
 }
-
-// ===== Series Slice Tests =====
 
 TEST_F(BindingsTest, SeriesSliceBasic) {
     const uint32_t h1 = bindings->series_create_empty_f64(5);
@@ -403,8 +494,6 @@ TEST_F(BindingsTest, SeriesSliceInvalidBounds) {
     EXPECT_EQ(bindings->series_slice(h1, 0, 10), 0); // end > size
     EXPECT_EQ(bindings->series_slice(h1, 10, 15), 0); // start > size
 }
-
-// ===== State Persistence Tests =====
 
 TEST_F(BindingsTest, StateLoadStoreSeriesF64) {
     const uint32_t h1 = bindings->series_create_empty_f64(3);
@@ -447,8 +536,6 @@ TEST_F(BindingsTest, StateLoadStoreSeriesI32) {
     EXPECT_EQ(bindings->series_index_i32(loaded, 1), -42);
 }
 
-// ===== Edge Case Tests =====
-
 TEST_F(BindingsTest, SeriesOperationsOnInvalidHandle) {
     EXPECT_EQ(bindings->series_index_f64(999, 0), 0.0);
     EXPECT_EQ(bindings->series_element_add_f64(999, 1.0), 0);
@@ -475,8 +562,6 @@ TEST_F(BindingsTest, SeriesSingleElementOperations) {
     EXPECT_EQ(bindings->series_len(h3), 1);
     EXPECT_DOUBLE_EQ(bindings->series_index_f64(h3, 0), 8.0);
 }
-
-// ===== All Type Tests (Smoke Tests) =====
 
 TEST_F(BindingsTest, AllTypesCreateAndIndex) {
     // u8
@@ -541,8 +626,6 @@ TEST_F(BindingsTest, AllTypesCreateAndIndex) {
     }
 }
 
-// ===== Scalar Comparison Tests =====
-
 TEST_F(BindingsTest, SeriesScalarCompareGtF64) {
     const uint32_t h1 = bindings->series_create_empty_f64(4);
     bindings->series_set_element_f64(h1, 0, 1.0);
@@ -550,7 +633,7 @@ TEST_F(BindingsTest, SeriesScalarCompareGtF64) {
     bindings->series_set_element_f64(h1, 2, 3.0);
     bindings->series_set_element_f64(h1, 3, 8.0);
 
-    const uint32_t h2 = bindings->series_scalar_compare_gt_f64(h1, 4.0);
+    const uint32_t h2 = bindings->series_compare_gt_scalar_f64(h1, 4.0);
     EXPECT_NE(h2, 0);
     EXPECT_EQ(bindings->series_len(h2), 4);
     // 1 > 4? false, 5 > 4? true, 3 > 4? false, 8 > 4? true
@@ -566,7 +649,7 @@ TEST_F(BindingsTest, SeriesScalarCompareLtI32) {
     bindings->series_set_element_i32(h1, 1, 5);
     bindings->series_set_element_i32(h1, 2, 3);
 
-    const uint32_t h2 = bindings->series_scalar_compare_lt_i32(h1, 3);
+    const uint32_t h2 = bindings->series_compare_lt_scalar_i32(h1, 3);
     // 1 < 3? true, 5 < 3? false, 3 < 3? false
     EXPECT_EQ(bindings->series_index_u8(h2, 0), 1);
     EXPECT_EQ(bindings->series_index_u8(h2, 1), 0);
@@ -579,7 +662,7 @@ TEST_F(BindingsTest, SeriesScalarCompareGeF64) {
     bindings->series_set_element_f64(h1, 1, 3.0);
     bindings->series_set_element_f64(h1, 2, 5.0);
 
-    const uint32_t h2 = bindings->series_scalar_compare_ge_f64(h1, 3.0);
+    const uint32_t h2 = bindings->series_compare_ge_scalar_f64(h1, 3.0);
     // 1 >= 3? false, 3 >= 3? true, 5 >= 3? true
     EXPECT_EQ(bindings->series_index_u8(h2, 0), 0);
     EXPECT_EQ(bindings->series_index_u8(h2, 1), 1);
@@ -592,7 +675,7 @@ TEST_F(BindingsTest, SeriesScalarCompareLeI64) {
     bindings->series_set_element_i64(h1, 1, 3);
     bindings->series_set_element_i64(h1, 2, 5);
 
-    const uint32_t h2 = bindings->series_scalar_compare_le_i64(h1, 3);
+    const uint32_t h2 = bindings->series_compare_le_scalar_i64(h1, 3);
     // 1 <= 3? true, 3 <= 3? true, 5 <= 3? false
     EXPECT_EQ(bindings->series_index_u8(h2, 0), 1);
     EXPECT_EQ(bindings->series_index_u8(h2, 1), 1);
@@ -606,7 +689,7 @@ TEST_F(BindingsTest, SeriesScalarCompareEqU32) {
     bindings->series_set_element_u32(h1, 2, 3);
     bindings->series_set_element_u32(h1, 3, 5);
 
-    const uint32_t h2 = bindings->series_scalar_compare_eq_u32(h1, 3);
+    const uint32_t h2 = bindings->series_compare_eq_scalar_u32(h1, 3);
     // 1 == 3? false, 3 == 3? true, 3 == 3? true, 5 == 3? false
     EXPECT_EQ(bindings->series_index_u8(h2, 0), 0);
     EXPECT_EQ(bindings->series_index_u8(h2, 1), 1);
@@ -620,7 +703,7 @@ TEST_F(BindingsTest, SeriesScalarCompareNeF32) {
     bindings->series_set_element_f32(h1, 1, 3.0f);
     bindings->series_set_element_f32(h1, 2, 5.0f);
 
-    const uint32_t h2 = bindings->series_scalar_compare_ne_f32(h1, 3.0f);
+    const uint32_t h2 = bindings->series_compare_ne_scalar_f32(h1, 3.0f);
     // 1 != 3? true, 3 != 3? false, 5 != 3? true
     EXPECT_EQ(bindings->series_index_u8(h2, 0), 1);
     EXPECT_EQ(bindings->series_index_u8(h2, 1), 0);
@@ -628,8 +711,8 @@ TEST_F(BindingsTest, SeriesScalarCompareNeF32) {
 }
 
 TEST_F(BindingsTest, SeriesScalarCompareInvalidHandle) {
-    EXPECT_EQ(bindings->series_scalar_compare_gt_f64(999, 1.0), 0);
-    EXPECT_EQ(bindings->series_scalar_compare_lt_i32(999, 1), 0);
+    EXPECT_EQ(bindings->series_compare_gt_scalar_f64(999, 1.0), 0);
+    EXPECT_EQ(bindings->series_compare_lt_scalar_i32(999, 1), 0);
 }
 
 TEST_F(BindingsTest, SeriesScalarCompareAllTypes) {
@@ -638,7 +721,7 @@ TEST_F(BindingsTest, SeriesScalarCompareAllTypes) {
         const uint32_t h = bindings->series_create_empty_u8(2);
         bindings->series_set_element_u8(h, 0, 5);
         bindings->series_set_element_u8(h, 1, 15);
-        const uint32_t r = bindings->series_scalar_compare_gt_u8(h, 10);
+        const uint32_t r = bindings->series_compare_gt_scalar_u8(h, 10);
         EXPECT_EQ(bindings->series_index_u8(r, 0), 0); // 5 > 10? false
         EXPECT_EQ(bindings->series_index_u8(r, 1), 1); // 15 > 10? true
     }
@@ -647,7 +730,7 @@ TEST_F(BindingsTest, SeriesScalarCompareAllTypes) {
         const uint32_t h = bindings->series_create_empty_u16(2);
         bindings->series_set_element_u16(h, 0, 100);
         bindings->series_set_element_u16(h, 1, 200);
-        const uint32_t r = bindings->series_scalar_compare_lt_u16(h, 150);
+        const uint32_t r = bindings->series_compare_lt_scalar_u16(h, 150);
         EXPECT_EQ(bindings->series_index_u8(r, 0), 1); // 100 < 150? true
         EXPECT_EQ(bindings->series_index_u8(r, 1), 0); // 200 < 150? false
     }
@@ -656,7 +739,7 @@ TEST_F(BindingsTest, SeriesScalarCompareAllTypes) {
         const uint32_t h = bindings->series_create_empty_u64(2);
         bindings->series_set_element_u64(h, 0, 1000);
         bindings->series_set_element_u64(h, 1, 1000);
-        const uint32_t r = bindings->series_scalar_compare_eq_u64(h, 1000);
+        const uint32_t r = bindings->series_compare_eq_scalar_u64(h, 1000);
         EXPECT_EQ(bindings->series_index_u8(r, 0), 1);
         EXPECT_EQ(bindings->series_index_u8(r, 1), 1);
     }
@@ -665,7 +748,7 @@ TEST_F(BindingsTest, SeriesScalarCompareAllTypes) {
         const uint32_t h = bindings->series_create_empty_i8(2);
         bindings->series_set_element_i8(h, 0, -5);
         bindings->series_set_element_i8(h, 1, 5);
-        const uint32_t r = bindings->series_scalar_compare_ge_i8(h, 0);
+        const uint32_t r = bindings->series_compare_ge_scalar_i8(h, 0);
         EXPECT_EQ(bindings->series_index_u8(r, 0), 0); // -5 >= 0? false
         EXPECT_EQ(bindings->series_index_u8(r, 1), 1); // 5 >= 0? true
     }
@@ -674,162 +757,263 @@ TEST_F(BindingsTest, SeriesScalarCompareAllTypes) {
         const uint32_t h = bindings->series_create_empty_i16(2);
         bindings->series_set_element_i16(h, 0, -100);
         bindings->series_set_element_i16(h, 1, 100);
-        const uint32_t r = bindings->series_scalar_compare_le_i16(h, 0);
+        const uint32_t r = bindings->series_compare_le_scalar_i16(h, 0);
         EXPECT_EQ(bindings->series_index_u8(r, 0), 1); // -100 <= 0? true
         EXPECT_EQ(bindings->series_index_u8(r, 1), 0); // 100 <= 0? false
     }
 }
 
-} // namespace arc::runtime::wasm
-// ===== String Tests =====
+TEST_F(BindingsTest, SeriesNegateI8) {
+    const uint32_t h1 = bindings->series_create_empty_i8(3);
+    bindings->series_set_element_i8(h1, 0, 5);
+    bindings->series_set_element_i8(h1, 1, -3);
+    bindings->series_set_element_i8(h1, 2, 0);
 
-TEST_F(BindingsTest, StringCreate) {
-    const uint32_t h = bindings->string_create("hello");
-    EXPECT_NE(h, 0);
-    EXPECT_EQ(bindings->string_get(h), "hello");
+    const uint32_t h2 = bindings->series_negate_i8(h1);
+    EXPECT_NE(h2, 0);
+    EXPECT_NE(h2, h1);
+    EXPECT_EQ(bindings->series_index_i8(h2, 0), -5);
+    EXPECT_EQ(bindings->series_index_i8(h2, 1), 3);
+    EXPECT_EQ(bindings->series_index_i8(h2, 2), 0);
+
+    // Original unchanged
+    EXPECT_EQ(bindings->series_index_i8(h1, 0), 5);
 }
 
-TEST_F(BindingsTest, StringLen) {
-    const uint32_t h = bindings->string_create("hello");
-    EXPECT_EQ(bindings->string_len(h), 5);
+TEST_F(BindingsTest, SeriesNegateI16) {
+    const uint32_t h1 = bindings->series_create_empty_i16(3);
+    bindings->series_set_element_i16(h1, 0, 1000);
+    bindings->series_set_element_i16(h1, 1, -500);
+    bindings->series_set_element_i16(h1, 2, 0);
 
-    const uint32_t h2 = bindings->string_create("");
-    EXPECT_EQ(bindings->string_len(h2), 0);
-
-    EXPECT_EQ(bindings->string_len(999), 0); // invalid handle
+    const uint32_t h2 = bindings->series_negate_i16(h1);
+    EXPECT_NE(h2, 0);
+    EXPECT_EQ(bindings->series_index_i16(h2, 0), -1000);
+    EXPECT_EQ(bindings->series_index_i16(h2, 1), 500);
+    EXPECT_EQ(bindings->series_index_i16(h2, 2), 0);
 }
 
-TEST_F(BindingsTest, StringConcat) {
-    const uint32_t h1 = bindings->string_create("hello");
-    const uint32_t h2 = bindings->string_create(" world");
-    const uint32_t h3 = bindings->string_concat(h1, h2);
+TEST_F(BindingsTest, SeriesNegateI32) {
+    const uint32_t h1 = bindings->series_create_empty_i32(4);
+    bindings->series_set_element_i32(h1, 0, 100000);
+    bindings->series_set_element_i32(h1, 1, -50000);
+    bindings->series_set_element_i32(h1, 2, 0);
+    bindings->series_set_element_i32(h1, 3, 2147483647); // INT32_MAX
 
-    EXPECT_NE(h3, 0);
-    EXPECT_NE(h3, h1);
-    EXPECT_NE(h3, h2);
-    EXPECT_EQ(bindings->string_get(h3), "hello world");
-
-    // Original strings unchanged
-    EXPECT_EQ(bindings->string_get(h1), "hello");
-    EXPECT_EQ(bindings->string_get(h2), " world");
+    const uint32_t h2 = bindings->series_negate_i32(h1);
+    EXPECT_NE(h2, 0);
+    EXPECT_EQ(bindings->series_index_i32(h2, 0), -100000);
+    EXPECT_EQ(bindings->series_index_i32(h2, 1), 50000);
+    EXPECT_EQ(bindings->series_index_i32(h2, 2), 0);
+    EXPECT_EQ(bindings->series_index_i32(h2, 3), -2147483647);
 }
 
-TEST_F(BindingsTest, StringConcatEmpty) {
-    const uint32_t h1 = bindings->string_create("hello");
-    const uint32_t h2 = bindings->string_create("");
-    const uint32_t h3 = bindings->string_concat(h1, h2);
+TEST_F(BindingsTest, SeriesNegateI64) {
+    const uint32_t h1 = bindings->series_create_empty_i64(3);
+    bindings->series_set_element_i64(h1, 0, 10000000000LL);
+    bindings->series_set_element_i64(h1, 1, -5000000000LL);
+    bindings->series_set_element_i64(h1, 2, 0);
 
-    EXPECT_EQ(bindings->string_get(h3), "hello");
+    const uint32_t h2 = bindings->series_negate_i64(h1);
+    EXPECT_NE(h2, 0);
+    EXPECT_EQ(bindings->series_index_i64(h2, 0), -10000000000LL);
+    EXPECT_EQ(bindings->series_index_i64(h2, 1), 5000000000LL);
+    EXPECT_EQ(bindings->series_index_i64(h2, 2), 0);
 }
 
-TEST_F(BindingsTest, StringConcatInvalidHandle) {
-    const uint32_t h1 = bindings->string_create("hello");
-    EXPECT_EQ(bindings->string_concat(h1, 999), 0);
-    EXPECT_EQ(bindings->string_concat(999, h1), 0);
-    EXPECT_EQ(bindings->string_concat(999, 888), 0);
+TEST_F(BindingsTest, SeriesNegateF32) {
+    const uint32_t h1 = bindings->series_create_empty_f32(4);
+    bindings->series_set_element_f32(h1, 0, 3.14159f);
+    bindings->series_set_element_f32(h1, 1, -2.71828f);
+    bindings->series_set_element_f32(h1, 2, 0.0f);
+    bindings->series_set_element_f32(h1, 3, 1.0f);
+
+    const uint32_t h2 = bindings->series_negate_f32(h1);
+    EXPECT_NE(h2, 0);
+    EXPECT_FLOAT_EQ(bindings->series_index_f32(h2, 0), -3.14159f);
+    EXPECT_FLOAT_EQ(bindings->series_index_f32(h2, 1), 2.71828f);
+    EXPECT_FLOAT_EQ(bindings->series_index_f32(h2, 2), 0.0f);
+    EXPECT_FLOAT_EQ(bindings->series_index_f32(h2, 3), -1.0f);
 }
 
-TEST_F(BindingsTest, StringEqual) {
-    const uint32_t h1 = bindings->string_create("hello");
-    const uint32_t h2 = bindings->string_create("hello");
-    const uint32_t h3 = bindings->string_create("world");
+TEST_F(BindingsTest, SeriesNegateF64) {
+    const uint32_t h1 = bindings->series_create_empty_f64(4);
+    bindings->series_set_element_f64(h1, 0, 3.14159265358979);
+    bindings->series_set_element_f64(h1, 1, -2.71828182845905);
+    bindings->series_set_element_f64(h1, 2, 0.0);
+    bindings->series_set_element_f64(h1, 3, 1.0);
 
-    EXPECT_EQ(bindings->string_equal(h1, h2), 1);
-    EXPECT_EQ(bindings->string_equal(h1, h3), 0);
-    EXPECT_EQ(bindings->string_equal(h2, h3), 0);
+    const uint32_t h2 = bindings->series_negate_f64(h1);
+    EXPECT_NE(h2, 0);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h2, 0), -3.14159265358979);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h2, 1), 2.71828182845905);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h2, 2), 0.0);
+    EXPECT_DOUBLE_EQ(bindings->series_index_f64(h2, 3), -1.0);
 }
 
-TEST_F(BindingsTest, StringEqualEmpty) {
-    const uint32_t h1 = bindings->string_create("");
-    const uint32_t h2 = bindings->string_create("");
-    const uint32_t h3 = bindings->string_create("x");
-
-    EXPECT_EQ(bindings->string_equal(h1, h2), 1);
-    EXPECT_EQ(bindings->string_equal(h1, h3), 0);
+TEST_F(BindingsTest, SeriesNegateInvalidHandle) {
+    EXPECT_EQ(bindings->series_negate_i32(999), 0);
+    EXPECT_EQ(bindings->series_negate_f64(999), 0);
 }
 
-TEST_F(BindingsTest, StringEqualInvalidHandle) {
-    const uint32_t h1 = bindings->string_create("hello");
-    EXPECT_EQ(bindings->string_equal(h1, 999), 0);
-    EXPECT_EQ(bindings->string_equal(999, h1), 0);
+TEST_F(BindingsTest, SeriesNegateEmpty) {
+    const uint32_t h1 = bindings->series_create_empty_f64(0);
+    const uint32_t h2 = bindings->series_negate_f64(h1);
+    EXPECT_NE(h2, 0);
+    EXPECT_EQ(bindings->series_len(h2), 0);
 }
 
-TEST_F(BindingsTest, StringGetInvalidHandle) {
-    EXPECT_EQ(bindings->string_get(999), "");
+TEST_F(BindingsTest, SeriesNegateDoubleNegation) {
+    const uint32_t h1 = bindings->series_create_empty_i32(3);
+    bindings->series_set_element_i32(h1, 0, 10);
+    bindings->series_set_element_i32(h1, 1, -20);
+    bindings->series_set_element_i32(h1, 2, 30);
+
+    const uint32_t h2 = bindings->series_negate_i32(h1);
+    const uint32_t h3 = bindings->series_negate_i32(h2);
+
+    // Double negation should return original values
+    EXPECT_EQ(bindings->series_index_i32(h3, 0), 10);
+    EXPECT_EQ(bindings->series_index_i32(h3, 1), -20);
+    EXPECT_EQ(bindings->series_index_i32(h3, 2), 30);
 }
 
-// ===== Handle Cleanup Tests =====
+TEST_F(BindingsTest, SeriesNotU8) {
+    const uint32_t h1 = bindings->series_create_empty_u8(4);
+    bindings->series_set_element_u8(h1, 0, 0x00);
+    bindings->series_set_element_u8(h1, 1, 0xFF);
+    bindings->series_set_element_u8(h1, 2, 0x0F);
+    bindings->series_set_element_u8(h1, 3, 0xF0);
+
+    const uint32_t h2 = bindings->series_not_u8(h1);
+    EXPECT_NE(h2, 0);
+    EXPECT_NE(h2, h1);
+    EXPECT_EQ(bindings->series_index_u8(h2, 0), 0xFF);
+    EXPECT_EQ(bindings->series_index_u8(h2, 1), 0x00);
+    EXPECT_EQ(bindings->series_index_u8(h2, 2), 0xF0);
+    EXPECT_EQ(bindings->series_index_u8(h2, 3), 0x0F);
+
+    // Original unchanged
+    EXPECT_EQ(bindings->series_index_u8(h1, 0), 0x00);
+}
+
+TEST_F(BindingsTest, SeriesNotU8BooleanValues) {
+    // Test with boolean-like values (0 and 1)
+    const uint32_t h1 = bindings->series_create_empty_u8(4);
+    bindings->series_set_element_u8(h1, 0, 0); // false
+    bindings->series_set_element_u8(h1, 1, 1); // true
+    bindings->series_set_element_u8(h1, 2, 1); // true
+    bindings->series_set_element_u8(h1, 3, 0); // false
+
+    const uint32_t h2 = bindings->series_not_u8(h1);
+    // For boolean NOT, we expect bitwise NOT
+    // NOT 0 = 255, NOT 1 = 254
+    EXPECT_EQ(bindings->series_index_u8(h2, 0), 0xFF);
+    EXPECT_EQ(bindings->series_index_u8(h2, 1), 0xFE);
+    EXPECT_EQ(bindings->series_index_u8(h2, 2), 0xFE);
+    EXPECT_EQ(bindings->series_index_u8(h2, 3), 0xFF);
+}
+
+TEST_F(BindingsTest, SeriesNotU8InvalidHandle) {
+    EXPECT_EQ(bindings->series_not_u8(999), 0);
+}
+
+TEST_F(BindingsTest, SeriesNotU8Empty) {
+    const uint32_t h1 = bindings->series_create_empty_u8(0);
+    const uint32_t h2 = bindings->series_not_u8(h1);
+    EXPECT_NE(h2, 0);
+    EXPECT_EQ(bindings->series_len(h2), 0);
+}
+
+TEST_F(BindingsTest, SeriesNotU8DoubleNot) {
+    const uint32_t h1 = bindings->series_create_empty_u8(4);
+    bindings->series_set_element_u8(h1, 0, 0x00);
+    bindings->series_set_element_u8(h1, 1, 0xFF);
+    bindings->series_set_element_u8(h1, 2, 0xAB);
+    bindings->series_set_element_u8(h1, 3, 0x55);
+
+    const uint32_t h2 = bindings->series_not_u8(h1);
+    const uint32_t h3 = bindings->series_not_u8(h2);
+
+    EXPECT_EQ(bindings->series_index_u8(h3, 0), 0x00);
+    EXPECT_EQ(bindings->series_index_u8(h3, 1), 0xFF);
+    EXPECT_EQ(bindings->series_index_u8(h3, 2), 0xAB);
+    EXPECT_EQ(bindings->series_index_u8(h3, 3), 0x55);
+}
+
+TEST_F(BindingsTest, StringLenInvalidHandle) {
+    EXPECT_EQ(bindings->string_len(999), 0u);
+}
+
+TEST_F(BindingsTest, StringEqualInvalidHandles) {
+    EXPECT_EQ(bindings->string_equal(999, 998), 0u);
+}
+
+TEST_F(BindingsTest, StringConcatInvalidHandles) {
+    EXPECT_EQ(bindings->string_concat(999, 998), 0u);
+}
+
+TEST_F(BindingsTest, StringConcatOneInvalidHandle) {
+    // Can't easily test with valid handles without WASM memory setup
+    // but we can verify that one invalid handle returns 0
+    EXPECT_EQ(bindings->string_concat(999, 0), 0u);
+    EXPECT_EQ(bindings->string_concat(0, 999), 0u);
+}
 
 TEST_F(BindingsTest, ClearTransientHandlesClearsSeriesHandles) {
-    // Create some series handles
     const uint32_t h1 = bindings->series_create_empty_f64(3);
     bindings->series_set_element_f64(h1, 0, 1.0);
     const uint32_t h2 = bindings->series_create_empty_i32(2);
     bindings->series_set_element_i32(h2, 0, 42);
 
-    // Verify they exist
     EXPECT_EQ(bindings->series_len(h1), 3);
     EXPECT_EQ(bindings->series_len(h2), 2);
 
-    // Clear transient handles
     bindings->clear_transient_handles();
 
-    // Handles should no longer be valid (return 0 for invalid)
     EXPECT_EQ(bindings->series_len(h1), 0);
     EXPECT_EQ(bindings->series_len(h2), 0);
 }
 
 TEST_F(BindingsTest, ClearTransientHandlesClearsStringHandles) {
-    // Create some string handles
     const uint32_t h1 = bindings->string_create("hello");
     const uint32_t h2 = bindings->string_create("world");
 
-    // Verify they exist
     EXPECT_EQ(bindings->string_get(h1), "hello");
     EXPECT_EQ(bindings->string_get(h2), "world");
 
-    // Clear transient handles
     bindings->clear_transient_handles();
 
-    // Handles should no longer be valid (return empty string for invalid)
     EXPECT_EQ(bindings->string_get(h1), "");
     EXPECT_EQ(bindings->string_get(h2), "");
 }
 
 TEST_F(BindingsTest, ClearTransientHandlesResetsCounters) {
-    // Create several handles to increment counters
     bindings->series_create_empty_f64(1);
     bindings->series_create_empty_f64(1);
     bindings->series_create_empty_f64(1);
     bindings->string_create("a");
     bindings->string_create("b");
 
-    // Clear transient handles
     bindings->clear_transient_handles();
 
-    // New handles should start from 1 again
     const uint32_t new_series = bindings->series_create_empty_f64(1);
     const uint32_t new_string = bindings->string_create("new");
 
-    // Handles should be low numbers (1 is the first valid handle)
     EXPECT_EQ(new_series, 1);
     EXPECT_EQ(new_string, 1);
 }
 
 TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulSeries) {
-    // Create and store a stateful series
     const uint32_t h1 = bindings->series_create_empty_f64(2);
     bindings->series_set_element_f64(h1, 0, 100.0);
     bindings->series_set_element_f64(h1, 1, 200.0);
     bindings->state_store_series_f64(1, 1, h1);
 
-    // Clear transient handles
     bindings->clear_transient_handles();
 
-    // The transient handle h1 is now invalid
     EXPECT_EQ(bindings->series_len(h1), 0);
 
-    // But state_load should still return the stored data
     const uint32_t dummy = bindings->series_create_empty_f64(1);
     const uint32_t loaded = bindings->state_load_series_f64(1, 1, dummy);
 
@@ -839,17 +1023,13 @@ TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulSeries) {
 }
 
 TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulStrings) {
-    // Create and store a stateful string
     const uint32_t h1 = bindings->string_create("persistent");
     bindings->state_store_str(2, 2, h1);
 
-    // Clear transient handles
     bindings->clear_transient_handles();
 
-    // The transient handle h1 is now invalid
     EXPECT_EQ(bindings->string_get(h1), "");
 
-    // But state_load should still return the stored data
     const uint32_t dummy = bindings->string_create("dummy");
     const uint32_t loaded = bindings->state_load_str(2, 2, dummy);
 
@@ -857,45 +1037,35 @@ TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulStrings) {
 }
 
 TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulPrimitives) {
-    // Store some primitive state values
     bindings->state_store_f64(1, 1, 3.14159);
     bindings->state_store_i32(1, 2, -42);
     bindings->state_store_u64(1, 3, 9999999999ULL);
 
-    // Clear transient handles
     bindings->clear_transient_handles();
 
-    // Primitive state should still be accessible
     EXPECT_DOUBLE_EQ(bindings->state_load_f64(1, 1, 0.0), 3.14159);
     EXPECT_EQ(bindings->state_load_i32(1, 2, 0), -42);
     EXPECT_EQ(bindings->state_load_u64(1, 3, 0), 9999999999ULL);
 }
 
 TEST_F(BindingsTest, MultipleClearCycles) {
-    // Simulate multiple execution cycles
     for (int cycle = 0; cycle < 3; cycle++) {
-        // Create some transient handles each cycle
         const uint32_t h1 = bindings->series_create_empty_f64(2);
         bindings->series_set_element_f64(h1, 0, static_cast<double>(cycle));
         const uint32_t h2 = bindings->string_create("cycle" + std::to_string(cycle));
 
-        // Verify they exist
         EXPECT_EQ(bindings->series_len(h1), 2);
         EXPECT_NE(bindings->string_get(h2), "");
 
-        // Clear at end of cycle
         bindings->clear_transient_handles();
     }
 
-    // After all cycles, handles should reset
     const uint32_t final_series = bindings->series_create_empty_f64(1);
     const uint32_t final_string = bindings->string_create("final");
 
     EXPECT_EQ(final_series, 1);
     EXPECT_EQ(final_string, 1);
 }
-
-// ===== Channel Operation Tests =====
 
 // Test fixture with State for channel operations
 class BindingsChannelTest : public ::testing::Test {
@@ -922,7 +1092,7 @@ TEST_F(BindingsChannelTest, ChannelReadNoDataReturnsDefault) {
 
 TEST_F(BindingsChannelTest, ChannelReadF64WithData) {
     // Create a frame with data for channel 1
-    telem::Frame frame(1);
+    const telem::Frame frame(1);
     auto series = telem::Series(telem::FLOAT64_T, 3);
     series.write(1.5);
     series.write(2.5);
@@ -937,7 +1107,7 @@ TEST_F(BindingsChannelTest, ChannelReadF64WithData) {
 }
 
 TEST_F(BindingsChannelTest, ChannelReadI32WithData) {
-    telem::Frame frame(1);
+    const telem::Frame frame(1);
     auto series = telem::Series(telem::INT32_T, 2);
     series.write(static_cast<int32_t>(42));
     series.write(static_cast<int32_t>(-100));
@@ -949,7 +1119,7 @@ TEST_F(BindingsChannelTest, ChannelReadI32WithData) {
 }
 
 TEST_F(BindingsChannelTest, ChannelReadU8WithData) {
-    telem::Frame frame(1);
+    const telem::Frame frame(1);
     auto series = telem::Series(telem::UINT8_T, 2);
     series.write(static_cast<uint8_t>(255));
     series.write(static_cast<uint8_t>(128));
@@ -965,7 +1135,7 @@ TEST_F(BindingsChannelTest, ChannelWriteF64) {
     bindings->channel_write_f64(10, 99.5);
 
     // Flush writes and verify
-    auto writes = state->flush_writes();
+    const auto writes = state->flush_writes();
     EXPECT_EQ(writes.size(), 1);
     EXPECT_EQ(writes[0].first, 10);
     EXPECT_EQ(writes[0].second->size(), 1);
@@ -975,7 +1145,7 @@ TEST_F(BindingsChannelTest, ChannelWriteF64) {
 TEST_F(BindingsChannelTest, ChannelWriteI32) {
     bindings->channel_write_i32(20, -42);
 
-    auto writes = state->flush_writes();
+    const auto writes = state->flush_writes();
     EXPECT_EQ(writes.size(), 1);
     EXPECT_EQ(writes[0].first, 20);
     EXPECT_EQ(writes[0].second->at<int32_t>(0), -42);
@@ -984,7 +1154,7 @@ TEST_F(BindingsChannelTest, ChannelWriteI32) {
 TEST_F(BindingsChannelTest, ChannelWriteU64) {
     bindings->channel_write_u64(30, 18446744073709551615ULL);
 
-    auto writes = state->flush_writes();
+    const auto writes = state->flush_writes();
     EXPECT_EQ(writes.size(), 1);
     EXPECT_EQ(writes[0].first, 30);
     EXPECT_EQ(writes[0].second->at<uint64_t>(0), 18446744073709551615ULL);
@@ -992,7 +1162,7 @@ TEST_F(BindingsChannelTest, ChannelWriteU64) {
 
 TEST_F(BindingsChannelTest, ChannelReadDifferentChannelReturnsDefault) {
     // Ingest data for channel 1
-    telem::Frame frame(1);
+    const telem::Frame frame(1);
     auto series = telem::Series(telem::FLOAT64_T, 1);
     series.write(123.456);
     frame.emplace(1, std::move(series));
@@ -1011,7 +1181,7 @@ TEST_F(BindingsChannelTest, ChannelMultipleWrites) {
     bindings->channel_write_f64(2, 2.0);
     bindings->channel_write_i32(3, 3);
 
-    auto writes = state->flush_writes();
+    const auto writes = state->flush_writes();
     EXPECT_EQ(writes.size(), 3);
 }
 
@@ -1027,7 +1197,7 @@ TEST_F(BindingsChannelTest, ChannelWriteStr) {
     // Write the string to a channel
     bindings->channel_write_str(40, str_handle);
 
-    auto writes = state->flush_writes();
+    const auto writes = state->flush_writes();
     EXPECT_EQ(writes.size(), 1);
     EXPECT_EQ(writes[0].first, 40);
     // The written series should contain the string
@@ -1036,7 +1206,7 @@ TEST_F(BindingsChannelTest, ChannelWriteStr) {
 
 // Test that channel operations with null state don't crash
 TEST(BindingsNullStateTest, ChannelReadWithNullStateReturnsDefault) {
-    auto bindings = std::make_unique<Bindings>(nullptr, nullptr);
+    const auto bindings = std::make_unique<Bindings>(nullptr, nullptr);
 
     EXPECT_EQ(bindings->channel_read_f64(1), 0.0);
     EXPECT_EQ(bindings->channel_read_i32(1), 0);
@@ -1044,7 +1214,7 @@ TEST(BindingsNullStateTest, ChannelReadWithNullStateReturnsDefault) {
 }
 
 TEST(BindingsNullStateTest, ChannelWriteWithNullStateDoesNotCrash) {
-    auto bindings = std::make_unique<Bindings>(nullptr, nullptr);
+    const auto bindings = std::make_unique<Bindings>(nullptr, nullptr);
 
     // These should not crash
     bindings->channel_write_f64(1, 123.0);

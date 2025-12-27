@@ -510,26 +510,189 @@ func analyzeIndexedAssignment(
 	return true
 }
 
-func analyzeCompoundAssignment(
+// analyzeIndexedCompoundAssignment validates indexed compound assignment statements (series[i] += value)
+func analyzeIndexedCompoundAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 	varScope *symbol.Scope,
+	indexOrSlice parser.IIndexOrSliceContext,
 	compoundOp parser.ICompoundOpContext,
 ) bool {
-	if ctx.AST.IndexOrSlice() != nil {
+	if varScope.Type.Kind != types.KindSeries {
 		ctx.Diagnostics.AddError(
-			errors.New("indexed compound assignment not yet supported"),
+			errors.New("indexed compound assignment only supported on series types"),
 			ctx.AST,
 		)
 		return false
 	}
 
+	if indexOrSlice.COLON() != nil {
+		ctx.Diagnostics.AddError(
+			errors.New("slice compound assignment not supported"),
+			ctx.AST,
+		)
+		return false
+	}
+
+	elemType := *varScope.Type.Elem
+	if elemType.Kind == types.KindString {
+		if compoundOp.PLUS_ASSIGN() == nil {
+			ctx.Diagnostics.AddError(
+				errors.New("string series elements only support += operator"),
+				ctx.AST,
+			)
+			return false
+		}
+	} else if !elemType.IsNumeric() {
+		ctx.Diagnostics.AddError(
+			errors.Newf("compound assignment requires numeric element type, got %s", elemType),
+			ctx.AST,
+		)
+		return false
+	}
+
+	indexExpressions := indexOrSlice.AllExpression()
+	if len(indexExpressions) != 1 {
+		return false
+	}
+	if !expression.Analyze(context.Child(ctx, indexExpressions[0])) {
+		return false
+	}
+
+	expr := ctx.AST.Expression()
+	if expr == nil {
+		return true
+	}
+	if !expression.Analyze(context.Child(ctx, expr)) {
+		return false
+	}
+
+	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
+	if !exprType.IsValid() || !elemType.IsValid() {
+		return true
+	}
+
+	if exprType.Kind == types.KindVariable || elemType.Kind == types.KindVariable {
+		if err := atypes.Check(ctx.Constraints, elemType, exprType, ctx.AST,
+			"indexed compound assignment type compatibility"); err != nil {
+			ctx.Diagnostics.AddError(err, ctx.AST)
+			return false
+		}
+		return true
+	}
+
+	isLiteral := isLiteralExpression(context.Child(ctx, expr))
+	if (isLiteral && !atypes.LiteralAssignmentCompatible(elemType, exprType)) ||
+		(!isLiteral && !atypes.Compatible(elemType, exprType)) {
+		ctx.Diagnostics.AddError(
+			errors.Newf("type mismatch: cannot use %s in compound assignment to series element of type %s",
+				exprType, elemType),
+			ctx.AST,
+		)
+		return false
+	}
+
+	return true
+}
+
+// analyzeSeriesCompoundAssignment validates whole-series compound assignment (series += value)
+// Supports both series += scalar (broadcast) and series += series (element-wise)
+func analyzeSeriesCompoundAssignment(
+	ctx context.Context[parser.IAssignmentContext],
+	varScope *symbol.Scope,
+	compoundOp parser.ICompoundOpContext,
+) bool {
+	elemType := *varScope.Type.Elem
+
+	if elemType.Kind == types.KindString {
+		if compoundOp.PLUS_ASSIGN() == nil {
+			ctx.Diagnostics.AddError(
+				errors.New("string series only support += operator"),
+				ctx.AST,
+			)
+			return false
+		}
+	} else if !elemType.IsNumeric() {
+		ctx.Diagnostics.AddError(
+			errors.Newf("compound assignment requires numeric element type, got %s", elemType),
+			ctx.AST,
+		)
+		return false
+	}
+
+	expr := ctx.AST.Expression()
+	if expr == nil {
+		return true
+	}
+	if !expression.Analyze(context.Child(ctx, expr)) {
+		return false
+	}
+
+	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
+	if !exprType.IsValid() || !elemType.IsValid() {
+		return true
+	}
+
+	if exprType.Kind == types.KindVariable || elemType.Kind == types.KindVariable {
+		targetType := elemType
+		if exprType.Kind == types.KindSeries {
+			targetType = *exprType.Elem
+		}
+		if err := atypes.Check(ctx.Constraints, elemType, targetType, ctx.AST,
+			"series compound assignment type compatibility"); err != nil {
+			ctx.Diagnostics.AddError(err, ctx.AST)
+			return false
+		}
+		return true
+	}
+
+	// Type compatibility: RHS must be scalar or series with matching element type
+	if exprType.Kind == types.KindSeries {
+		rhsElemType := *exprType.Elem
+		if !atypes.Compatible(elemType, rhsElemType) {
+			ctx.Diagnostics.AddError(
+				errors.Newf("type mismatch: cannot use %s in compound assignment to %s",
+					exprType, varScope.Type),
+				ctx.AST,
+			)
+			return false
+		}
+	} else {
+		isLiteral := isLiteralExpression(context.Child(ctx, expr))
+		if (isLiteral && !atypes.LiteralAssignmentCompatible(elemType, exprType)) ||
+			(!isLiteral && !atypes.Compatible(elemType, exprType)) {
+			ctx.Diagnostics.AddError(
+				errors.Newf("type mismatch: cannot use %s in compound assignment to series of %s",
+					exprType, elemType),
+				ctx.AST,
+			)
+			return false
+		}
+	}
+
+	return true
+}
+
+func analyzeCompoundAssignment(
+	ctx context.Context[parser.IAssignmentContext],
+	varScope *symbol.Scope,
+	compoundOp parser.ICompoundOpContext,
+) bool {
+	if indexOrSlice := ctx.AST.IndexOrSlice(); indexOrSlice != nil {
+		return analyzeIndexedCompoundAssignment(ctx, varScope, indexOrSlice, compoundOp)
+	}
+
 	varType := varScope.Type
+
 	if varType.Kind == types.KindChan {
 		ctx.Diagnostics.AddError(
 			errors.New("compound assignment not supported on channels"),
 			ctx.AST,
 		)
 		return false
+	}
+
+	if varType.Kind == types.KindSeries {
+		return analyzeSeriesCompoundAssignment(ctx, varScope, compoundOp)
 	}
 
 	if varType.Kind == types.KindString {

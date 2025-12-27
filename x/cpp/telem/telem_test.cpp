@@ -140,10 +140,6 @@ TEST(TimeStampTests, testModuloAssignment) {
     ASSERT_EQ(ts.nanoseconds(), 1);
 }
 
-////////////////////////////////////////////////////////////
-// TimeSpan Tests
-////////////////////////////////////////////////////////////
-
 /// @brief it should initialize a timespan from a long.
 TEST(TimeSpanTests, testConstructor) {
     const auto ts = TimeSpan(5);
@@ -363,10 +359,6 @@ TEST(TimeSpanTests, testAbs) {
     ASSERT_EQ(zero.abs().nanoseconds(), 0);
 }
 
-////////////////////////////////////////////////////////////
-// TimeRange Tests
-////////////////////////////////////////////////////////////
-
 /// @brief it should check if a timestamp is contained within a time range.
 TEST(TimeRangeTests, testContains) {
     const auto tr = TimeRange(5, 10);
@@ -408,10 +400,6 @@ TEST(TimeRangeTests, testNotEqualOperatorNotEqual) {
     const auto tr2 = TimeRange(5, 11);
     ASSERT_TRUE(tr != tr2);
 }
-
-////////////////////////////////////////////////////////////
-// Rate Tests
-////////////////////////////////////////////////////////////
 
 /// @brief it should calculate the period from a rate.
 TEST(RateTests, testPeriod) {
@@ -564,16 +552,12 @@ TEST(RateTests, testRateStreamOperator) {
 
 /// @brief Test that Rate operator<< works in error messages
 TEST(RateTests, testRateInErrorMessage) {
-    Rate configured_rate(25.0);
+    const Rate configured_rate(25.0);
     std::ostringstream msg;
     msg << "configured sample rate (" << configured_rate << ") is below device minimum";
     EXPECT_TRUE(msg.str().find("25 Hz") != std::string::npos);
     EXPECT_FALSE(msg.str().find(".hz()") != std::string::npos);
 }
-
-////////////////////////////////////////////////////////////
-// DataType Tests
-////////////////////////////////////////////////////////////
 
 class DataTypeTests : public ::testing::Test {};
 
@@ -690,28 +674,28 @@ TEST(DataTypeTests, testStreamOperator) {
 
 /// @brief it should return the domain index from an alignment.
 TEST(AlignmentTests, testDomainIndex) {
-    telem::Alignment a(1, 0);
+    const Alignment a(1, 0);
     ASSERT_EQ(a.domain_index(), 1);
 }
 
 /// @brief it should return the sample index from an alignment.
 TEST(AlignmentTests, testSampleIndex) {
-    telem::Alignment a(0, 1);
+    const Alignment a(0, 1);
     ASSERT_EQ(a.sample_index(), 1);
 }
 
 /// @brief it should construct an alignment from a uint64.
 TEST(AlignmentTests, testConstructionFromUint64) {
-    telem::Alignment a(20);
+    const Alignment a(20);
     ASSERT_EQ(a.domain_index(), 0);
     ASSERT_EQ(a.sample_index(), 20);
 }
 
 /// @brief it should compare two alignments for equality.
 TEST(AlignmentTests, testEquality) {
-    auto a = telem::Alignment(1, 2);
-    auto b = telem::Alignment(1, 2);
-    auto c = telem::Alignment(2, 1);
+    const auto a = Alignment(1, 2);
+    const auto b = Alignment(1, 2);
+    const auto c = Alignment(2, 1);
     ASSERT_TRUE(a == b);
     ASSERT_FALSE(a != b);
     ASSERT_FALSE(a == c);
@@ -720,16 +704,12 @@ TEST(AlignmentTests, testEquality) {
 
 /// @brief it should compare an alignment with a uint64 value.
 TEST(AlignmentTests, testUint64Equality) {
-    auto a = telem::Alignment(1, 2);
+    const auto a = Alignment(1, 2);
     ASSERT_TRUE(a == 4294967298);
     ASSERT_FALSE(a != 4294967298);
     ASSERT_FALSE(a == 4294967292);
     ASSERT_TRUE(a != 4294967294);
 }
-
-////////////////////////////////////////////////////////////
-// to_string Tests
-////////////////////////////////////////////////////////////
 
 /// @brief it should convert a double to a string.
 TEST(ToStringTests, testDoubleConversion) {
@@ -844,10 +824,6 @@ TEST(ToStringTests, testEmptyString) {
     const SampleValue value = std::string("");
     ASSERT_EQ(to_string(value), "");
 }
-
-////////////////////////////////////////////////////////////
-// Protobuf Conversion Tests
-////////////////////////////////////////////////////////////
 
 /// @brief it should convert a protobuf number value to SampleValue.
 TEST(ProtoConversionTests, testFromProtoNumber) {
