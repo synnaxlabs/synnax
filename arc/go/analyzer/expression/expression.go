@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	basetypes "github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -281,11 +282,51 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) bool {
 }
 
 func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) bool {
-	if primary := ctx.AST.PrimaryExpression(); primary != nil {
-		if !analyzePrimary(context.Child(ctx, primary)) {
-			return false
+	primary := ctx.AST.PrimaryExpression()
+	if primary == nil {
+		return true
+	}
+
+	// Check if this is a module member access (e.g., math.sqrt)
+	memberAccesses := ctx.AST.AllMemberAccess()
+	if len(memberAccesses) > 0 && primary.IDENTIFIER() != nil {
+		qualifier := primary.IDENTIFIER().GetText()
+		// Resolve the qualifier via normal scope resolution
+		sym, err := ctx.Scope.Resolve(ctx, qualifier)
+		if err == nil && sym.Kind == symbol.KindModule && sym.Resolver != nil {
+			// This is a module member access - resolve members via the module's resolver
+			for _, memberAccess := range memberAccesses {
+				memberName := memberAccess.IDENTIFIER().GetText()
+				memberSym, err := sym.Resolver.Resolve(ctx, memberName)
+				if err != nil {
+					ctx.Diagnostics.AddError(
+						errors.Wrapf(err, "module %q has no member %q", qualifier, memberName),
+						memberAccess,
+					)
+					return false
+				}
+				// Store the resolved type in the type map
+				ctx.TypeMap[memberAccess] = memberSym.Type
+			}
+			// Analyze any function call arguments
+			for _, funcCall := range ctx.AST.AllFunctionCallSuffix() {
+				if argList := funcCall.ArgumentList(); argList != nil {
+					for _, expr := range argList.AllExpression() {
+						if !Analyze(context.Child(ctx, expr)) {
+							return false
+						}
+					}
+				}
+			}
+			return true
 		}
 	}
+
+	// Regular primary expression analysis
+	if !analyzePrimary(context.Child(ctx, primary)) {
+		return false
+	}
+
 	for _, indexOrSlice := range ctx.AST.AllIndexOrSlice() {
 		for _, expr := range indexOrSlice.AllExpression() {
 			if !Analyze(context.Child(ctx, expr)) {

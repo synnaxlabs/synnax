@@ -27,6 +27,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/imports"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
@@ -80,10 +81,20 @@ func Analyze(
 		// have the most complete understanding of the document.
 		i = ir.IR{Symbols: ctx.Scope, TypeMap: ctx.TypeMap}
 	)
+
+	// Step 0: Analyze imports
+	imps, ok := imports.Analyze(ctx, defaultModules())
+	if !ok {
+		return i, ctx.Diagnostics
+	}
+
 	// Step 1: Analyze the Program
 	if !analyzer.AnalyzeProgram(ctx) {
 		return i, ctx.Diagnostics
 	}
+
+	// Check for unused imports (warning, not error)
+	imps.CheckUnused(ctx)
 
 	// Step 2: Iterate through the root scope children to assemble functions
 	for _, c := range i.Symbols.Children {
@@ -314,4 +325,119 @@ func getExpressionText(expr parser.IExpressionContext) string {
 		}
 	}
 	return expr.GetText()
+}
+
+// defaultModules returns the standard library modules available for import.
+func defaultModules() map[string]symbol.Resolver {
+	return map[string]symbol.Resolver{
+		"math": symbol.MapResolver{
+			"sqrt": symbol.Symbol{
+				Name: "sqrt",
+				Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{
+					Inputs:  types.Params{{Name: "x", Type: types.F64()}},
+					Outputs: types.Params{{Name: "output", Type: types.F64()}},
+				}),
+			},
+			"pow": symbol.Symbol{
+				Name: "pow",
+				Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{
+					Inputs:  types.Params{{Name: "base", Type: types.F64()}, {Name: "exp", Type: types.F64()}},
+					Outputs: types.Params{{Name: "output", Type: types.F64()}},
+				}),
+			},
+			"abs": symbol.Symbol{
+				Name: "abs",
+				Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{
+					Inputs:  types.Params{{Name: "x", Type: types.F64()}},
+					Outputs: types.Params{{Name: "output", Type: types.F64()}},
+				}),
+			},
+			"sin": symbol.Symbol{
+				Name: "sin",
+				Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{
+					Inputs:  types.Params{{Name: "x", Type: types.F64()}},
+					Outputs: types.Params{{Name: "output", Type: types.F64()}},
+				}),
+			},
+			"cos": symbol.Symbol{
+				Name: "cos",
+				Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{
+					Inputs:  types.Params{{Name: "x", Type: types.F64()}},
+					Outputs: types.Params{{Name: "output", Type: types.F64()}},
+				}),
+			},
+			"tan": symbol.Symbol{
+				Name: "tan",
+				Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{
+					Inputs:  types.Params{{Name: "x", Type: types.F64()}},
+					Outputs: types.Params{{Name: "output", Type: types.F64()}},
+				}),
+			},
+			"floor": symbol.Symbol{
+				Name: "floor",
+				Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{
+					Inputs:  types.Params{{Name: "x", Type: types.F64()}},
+					Outputs: types.Params{{Name: "output", Type: types.F64()}},
+				}),
+			},
+			"ceil": symbol.Symbol{
+				Name: "ceil",
+				Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{
+					Inputs:  types.Params{{Name: "x", Type: types.F64()}},
+					Outputs: types.Params{{Name: "output", Type: types.F64()}},
+				}),
+			},
+			"min": symbol.Symbol{
+				Name: "min",
+				Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{
+					Inputs:  types.Params{{Name: "a", Type: types.F64()}, {Name: "b", Type: types.F64()}},
+					Outputs: types.Params{{Name: "output", Type: types.F64()}},
+				}),
+			},
+			"max": symbol.Symbol{
+				Name: "max",
+				Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{
+					Inputs:  types.Params{{Name: "a", Type: types.F64()}, {Name: "b", Type: types.F64()}},
+					Outputs: types.Params{{Name: "output", Type: types.F64()}},
+				}),
+			},
+			"PI": symbol.Symbol{
+				Name: "PI",
+				Kind: symbol.KindConstant,
+				Type: types.F64(),
+			},
+			"E": symbol.Symbol{
+				Name: "E",
+				Kind: symbol.KindConstant,
+				Type: types.F64(),
+			},
+		},
+		"time": symbol.MapResolver{
+			"now": symbol.Symbol{
+				Name: "now",
+				Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{
+					Outputs: types.Params{{Name: "output", Type: types.TimeStamp()}},
+				}),
+			},
+			"elapsed": symbol.Symbol{
+				Name: "elapsed",
+				Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{
+					Inputs:  types.Params{{Name: "since", Type: types.TimeStamp()}},
+					Outputs: types.Params{{Name: "output", Type: types.TimeSpan()}},
+				}),
+			},
+		},
+	}
 }

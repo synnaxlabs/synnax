@@ -9,12 +9,28 @@ options {
 // =============================================================================
 
 program
-    : topLevelItem* EOF
+    : importBlock? topLevelItem* EOF
     ;
 
 topLevelItem
     : functionDeclaration
     | flowStatement
+    ;
+
+// =============================================================================
+// Import Declarations
+// =============================================================================
+
+importBlock
+    : IMPORT LPAREN importItem+ RPAREN
+    ;
+
+importItem
+    : modulePath
+    ;
+
+modulePath
+    : IDENTIFIER (DOT IDENTIFIER)*
     ;
 
 // =============================================================================
@@ -282,7 +298,11 @@ blockingReadExpr
     ;
 
 postfixExpression
-    : primaryExpression (indexOrSlice | functionCallSuffix)*
+    : primaryExpression (memberAccess | indexOrSlice | functionCallSuffix)*
+    ;
+
+memberAccess
+    : DOT IDENTIFIER
     ;
 
 indexOrSlice

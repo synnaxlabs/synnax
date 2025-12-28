@@ -78,6 +78,10 @@ const (
 	KindInput
 	// KindOutput represents an output parameter from a function or task.
 	KindOutput
+	// KindModule represents an imported module namespace.
+	KindModule
+	// KindConstant represents a constant value (e.g., math.PI).
+	KindConstant
 )
 
 // Symbol represents a named entity in an Arc program.
@@ -103,4 +107,7 @@ type Symbol struct {
 	// DefaultValue stores the default value literal for optional parameters.
 	// Only used for KindInput and KindConfig symbols. Nil means no default (required parameter).
 	DefaultValue any
+	// Resolver provides symbol resolution for module namespaces. Only used for
+	// KindModule symbols to resolve member access (e.g., math.sqrt).
+	Resolver Resolver
 }
