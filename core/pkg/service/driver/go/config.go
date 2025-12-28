@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -34,6 +35,8 @@ type Config struct {
 	Framer *framer.Service
 	// Channel is the channel service for retrieving command channels.
 	Channel *channel.Service
+	// Status is the status service for task status updates.
+	Status *status.Service
 	// Factory is the factory for creating tasks.
 	Factory Factory
 	// Host is the node key of the current host.
@@ -53,6 +56,7 @@ func (c Config) Override(other Config) Config {
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Status = override.Nil(c.Status, other.Status)
 	c.Factory = override.Nil(c.Factory, other.Factory)
 	c.Host = override.Nil(c.Host, other.Host)
 	return c
@@ -66,6 +70,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "task", c.Task)
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "status", c.Status)
 	validate.NotNil(v, "factory", c.Factory)
 	validate.NotNil(v, "host", c.Host)
 	return v.Error()

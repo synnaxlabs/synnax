@@ -34,6 +34,7 @@ import (
 type Driver struct {
 	Config
 	rack rack.Rack
+	ctx  Context
 	mu   struct {
 		sync.RWMutex
 		tasks map[task.Key]Task
@@ -58,6 +59,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 		return nil, err
 	}
 	d := &Driver{Config: cfg}
+	d.ctx = NewContext(ctx, cfg.Status)
 	d.mu.tasks = make(map[task.Key]Task)
 
 	// Create core rack for this driver
@@ -172,7 +174,9 @@ func (d *Driver) configure(ctx context.Context, t task.Task) {
 		}
 		delete(d.mu.tasks, t.Key)
 	}
-	newTask, ok, err := d.Factory.ConfigureTask(ctx, t)
+	// Create a new context with the current context for this configuration
+	taskCtx := NewContext(ctx, d.Status)
+	newTask, ok, err := d.Factory.ConfigureTask(taskCtx, t)
 	if err != nil {
 		d.L.Error("factory failed to configure task",
 			zap.Stringer("task", t.Key),

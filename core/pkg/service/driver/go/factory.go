@@ -10,8 +10,6 @@
 package godriver
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 )
 
@@ -21,7 +19,7 @@ type Factory interface {
 	// Returns (task, true, nil) if handled successfully.
 	// Returns (nil, false, nil) if this factory does not handle the task type.
 	// Returns (nil, true, err) if the factory handles this type but configuration failed.
-	ConfigureTask(ctx context.Context, t task.Task) (Task, bool, error)
+	ConfigureTask(ctx Context, t task.Task) (Task, bool, error)
 
 	// Name returns the factory name for logging.
 	Name() string
@@ -39,7 +37,7 @@ func NewMultiFactory(factories ...Factory) *MultiFactory {
 }
 
 // ConfigureTask tries each factory in order until one handles the task.
-func (m *MultiFactory) ConfigureTask(ctx context.Context, t task.Task) (Task, bool, error) {
+func (m *MultiFactory) ConfigureTask(ctx Context, t task.Task) (Task, bool, error) {
 	for _, f := range m.factories {
 		task, ok, err := f.ConfigureTask(ctx, t)
 		if ok || err != nil {
