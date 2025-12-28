@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
-import { arc } from "@synnaxlabs/client";
+import { arc, type rack, task } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
@@ -20,13 +20,16 @@ import {
   Haul,
   Icon,
   Menu as PMenu,
+  Rack,
   Status,
+  Synnax,
+  Task,
   Theming,
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
 import { box, deep, id, uuid, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo, useRef } from "react";
+import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -37,6 +40,7 @@ import {
   useSelectVersion,
   useSelectViewportMode,
 } from "@/arc/selectors";
+import { createArcTask, deleteArcTask, useArcTask } from "@/arc/task";
 import {
   addElement,
   clearSelection,
@@ -123,7 +127,7 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
   </PMenu.Menu>
 );
 
-interface StatusChipProps {
+interface ControlsProps {
   arc: State;
 }
 
@@ -131,23 +135,59 @@ const statusDetailsSchema = z.object({
   running: z.boolean(),
 });
 
-const { useRetrieve } = Status.createRetrieve(statusDetailsSchema);
+const { useRetrieve: useRetrieveStatus } = Status.createRetrieve(statusDetailsSchema);
 
-export const Controls = ({ arc }: StatusChipProps) => {
+export const Controls = ({ arc }: ControlsProps) => {
+  const client = Synnax.use();
   const name = Layout.useSelectRequiredName(arc.key);
-  const status = useRetrieve({ key: arc.key }, { addStatusOnFailure: false });
-  const { update: create } = Arc.useCreate();
-  const isRunning = status.data?.details?.running ?? false;
-  const handleDeploy = useCallback(() => {
-    create({
-      key: arc.key,
-      name,
-      graph: translateGraphToServer(arc.graph),
-      text: arc.text,
-      deploy: !isRunning,
-      version: arc.version,
-    });
-  }, [arc, name, create, isRunning]);
+  const arcTask = useArcTask(arc.key);
+  const [selectedRack, setSelectedRack] = useState<rack.Key | undefined>(
+    arcTask != null ? task.rackKey(arcTask.key) : undefined,
+  );
+  const addStatus = Status.useAdder();
+
+  // Get task status
+  const taskStatus = useRetrieveStatus(
+    { key: arcTask?.key?.toString() ?? "" },
+    { addStatusOnFailure: false },
+  );
+  const isRunning = taskStatus.data?.details?.running ?? false;
+
+  const { update: runCommand } = Task.useCommand();
+
+  const handleDeploy = useCallback(async () => {
+    if (client == null || selectedRack === undefined) return;
+
+    try {
+      let taskKey = arcTask?.key;
+      const currentTaskRack = arcTask != null ? task.rackKey(arcTask.key) : null;
+
+      // If task exists on different rack, delete it first
+      if (taskKey != null && currentTaskRack !== selectedRack) {
+        // Stop then delete the old task
+        if (isRunning) {
+          await runCommand([{ task: taskKey, type: "stop" }]);
+        }
+        await deleteArcTask(client, taskKey);
+        taskKey = undefined;
+      }
+
+      // Create task if it doesn't exist
+      if (taskKey == null) {
+        const newTask = await createArcTask(client, arc.key, selectedRack, name);
+        taskKey = newTask.key;
+      }
+
+      // Send start/stop command
+      await runCommand([{ task: taskKey, type: isRunning ? "stop" : "start" }]);
+    } catch (e) {
+      addStatus({
+        variant: "error",
+        message: `Failed to ${isRunning ? "stop" : "start"} Arc task`,
+        description: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }, [client, selectedRack, arcTask, arc.key, name, isRunning, runCommand, addStatus]);
 
   return (
     <Flex.Box
@@ -170,13 +210,26 @@ export const Controls = ({ arc }: StatusChipProps) => {
         grow
         rounded={2}
         justify="between"
+        gap="medium"
       >
-        <Status.Summary
-          variant="disabled"
-          message="Arc not started"
-          status={status.data}
-        />
-        <Button.Button onClick={handleDeploy} variant="filled">
+        <Flex.Box x gap="small" align="center" grow>
+          <Rack.SelectSingle
+            value={selectedRack}
+            onChange={setSelectedRack}
+            allowNone
+            style={{ minWidth: 150 }}
+          />
+          <Status.Summary
+            variant="disabled"
+            message="Not deployed"
+            status={taskStatus.data}
+          />
+        </Flex.Box>
+        <Button.Button
+          onClick={handleDeploy}
+          variant="filled"
+          disabled={selectedRack === undefined}
+        >
           {isRunning ? <Icon.Pause /> : <Icon.Play />}
           {isRunning ? "Stop" : "Start"}
         </Button.Button>

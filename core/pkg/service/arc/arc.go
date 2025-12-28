@@ -37,10 +37,8 @@ type Arc struct {
 	Text text.Text `json:"text" msgpack:"text"`
 	// Module is the compiled Arc module containing IR and WASM bytecode.
 	// This field is computed on-demand and not persisted to the database.
-	Module module.Module `json:"module" msgpack:"-"`
-	// Deploy sets whether on not the arc program should be deployed.
-	Deploy  bool   `json:"deploy" msgpack:"deploy"`
-	Version string `json:"version" msgpack:"version"`
+	Module  module.Module `json:"module" msgpack:"-"`
+	Version string        `json:"version" msgpack:"version"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Arc{}

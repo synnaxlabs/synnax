@@ -9,7 +9,7 @@
 
 //go:build !driver
 
-package driver
+package cpp
 
 import (
 	"context"

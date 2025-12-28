@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//go:build driver && windows
+//go:build driver && !windows
 
-package driver
+package cpp
 
 import (
 	"embed"
@@ -17,12 +17,14 @@ import (
 	"syscall"
 )
 
-//go:embed assets/driver.exe
+//go:embed assets/driver
 var executable embed.FS
 
 // driverPath is the path to the driver executable
-const driverName = "driver.exe"
+const (
+	driverName = "driver"
+)
 
 func configureSysProcAttr(cmd *exec.Cmd) {
-	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP}
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 }

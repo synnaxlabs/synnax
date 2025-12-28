@@ -13,7 +13,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sync"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
@@ -31,7 +30,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
@@ -106,11 +104,7 @@ func (c ServiceConfig) baseRuntimeConfig() runtime.Config {
 type Service struct {
 	cfg            ServiceConfig
 	symbolResolver arc.SymbolResolver
-	mu             struct {
-		sync.Mutex
-		entries map[uuid.UUID]*entry
-		closer  io.Closer
-	}
+	closer         io.Closer
 }
 
 func (s *Service) SymbolResolver() arc.SymbolResolver {
@@ -118,32 +112,10 @@ func (s *Service) SymbolResolver() arc.SymbolResolver {
 }
 
 func (s *Service) Close() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c := errors.NewCatcher(errors.WithAggregation())
-	c.Exec(s.mu.closer.Close)
-	for _, e := range s.mu.entries {
-		c.Exec(e.runtime.Close)
+	if s.closer != nil {
+		return s.closer.Close()
 	}
-	return c.Error()
-}
-
-func (s *Service) Deploy(ctx context.Context, key uuid.UUID) error {
-	var prog Arc
-	if err := s.NewRetrieve().WhereKeys(key).Entry(&prog).Exec(ctx, nil); err != nil {
-		return nil
-	}
-	prog.Deploy = true
-	return s.NewWriter(nil).Create(ctx, &prog)
-}
-
-func (s *Service) Stop(ctx context.Context, key uuid.UUID) error {
-	var prog Arc
-	if err := s.NewRetrieve().WhereKeys(key).Entry(&prog).Exec(ctx, nil); err != nil {
-		return nil
-	}
-	prog.Deploy = false
-	return s.NewWriter(nil).Create(ctx, &prog)
+	return nil
 }
 
 func (s *Service) AnalyzeCalculation(ctx context.Context, expr string) (telem.DataType, error) {
@@ -179,7 +151,6 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	s.mu.entries = make(map[uuid.UUID]*entry)
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
 		stopSignals, err := signals.PublishFromGorp(ctx, s.cfg.Signals, signals.GorpPublisherConfigUUID[Arc](cfg.DB))
@@ -188,9 +159,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		}
 		closer = append(closer, stopSignals)
 	}
-	obs := gorp.Observe[uuid.UUID, Arc](cfg.DB)
-	closer = append(closer, xio.NoFailCloserFunc(obs.OnChange(s.handleChange)))
-	s.mu.closer = closer
+	s.closer = closer
 	return s, nil
 }
 

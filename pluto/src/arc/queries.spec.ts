@@ -39,14 +39,12 @@ describe("Arc queries", () => {
         version: "1.0.0",
         graph: { nodes: [], edges: [] },
         text: { raw: "" },
-        deploy: false,
       });
       const arc2 = await client.arcs.create({
         name: "arc2",
         version: "1.0.0",
         graph: { nodes: [], edges: [] },
         text: { raw: "" },
-        deploy: false,
       });
 
       const { result } = renderHook(() => Arc.useList({}), { wrapper });
@@ -88,8 +86,7 @@ describe("Arc queries", () => {
           version: "1.0.0",
           graph: { nodes: [], edges: [] },
           text: { raw: "" },
-          deploy: false,
-        });
+          });
       });
 
       await waitFor(() => {
@@ -109,7 +106,6 @@ describe("Arc queries", () => {
         version: "1.0.0",
         graph: { nodes: [], edges: [] },
         text: { raw: "" },
-        deploy: false,
       });
 
       const { result } = renderHook(() => Arc.useList({}), { wrapper });
@@ -142,7 +138,6 @@ describe("Arc queries", () => {
         version: "1.0.0",
         graph: { nodes: [], edges: [] },
         text: { raw: "" },
-        deploy: false,
       });
 
       const { result } = renderHook(() => Arc.useList({}), { wrapper });
@@ -172,21 +167,18 @@ describe("Arc queries", () => {
         version: "1.0.0",
         graph: { nodes: [], edges: [] },
         text: { raw: "" },
-        deploy: false,
       });
       const arc2 = await client.arcs.create({
         name: "filter-arc-2",
         version: "1.0.0",
         graph: { nodes: [], edges: [] },
         text: { raw: "" },
-        deploy: false,
       });
       await client.arcs.create({
         name: "filter-arc-3",
         version: "1.0.0",
         graph: { nodes: [], edges: [] },
         text: { raw: "" },
-        deploy: false,
       });
 
       const { result } = renderHook(() => Arc.useList({}), { wrapper });
@@ -217,7 +209,6 @@ describe("Arc queries", () => {
         version: "1.0.0",
         graph: { nodes: [], edges: [] },
         text: { raw: "" },
-        deploy: false,
       });
 
       const { result } = renderHook(() => Arc.useDelete(), { wrapper });
@@ -239,14 +230,12 @@ describe("Arc queries", () => {
         version: "1.0.0",
         graph: { nodes: [], edges: [] },
         text: { raw: "" },
-        deploy: false,
       });
       const arc2 = await client.arcs.create({
         name: "delete-multi-2",
         version: "1.0.0",
         graph: { nodes: [], edges: [] },
         text: { raw: "" },
-        deploy: false,
       });
 
       const { result } = renderHook(() => Arc.useDelete(), { wrapper });
@@ -276,7 +265,6 @@ describe("Arc queries", () => {
           version: "1.0.0",
           graph: { nodes: [], edges: [] },
           text: { raw: "" },
-          deploy: false,
         });
       });
 
@@ -295,7 +283,6 @@ describe("Arc queries", () => {
       const formData = result.current.form.value();
       expect(formData.name).toBe("");
       expect(formData.version).toBe("0.0.0");
-      expect(formData.deploy).toBe(true);
       expect(formData.graph).toEqual({ nodes: [], edges: [] });
       expect(formData.text).toEqual({ raw: "" });
     });
@@ -310,7 +297,6 @@ describe("Arc queries", () => {
       act(() => {
         result.current.form.set("name", uniqueName);
         result.current.form.set("version", "2.0.0");
-        result.current.form.set("deploy", false);
       });
 
       await act(async () => {
@@ -321,7 +307,6 @@ describe("Arc queries", () => {
         expect(result.current.variant).toBe("success");
         expect(result.current.form.value().name).toEqual(uniqueName);
         expect(result.current.form.value().version).toEqual("2.0.0");
-        expect(result.current.form.value().deploy).toBe(false);
         expect(result.current.form.value().key).toBeDefined();
       });
     });
@@ -332,7 +317,6 @@ describe("Arc queries", () => {
         version: "1.0.0",
         graph: { nodes: [], edges: [] },
         text: { raw: "" },
-        deploy: false,
       });
 
       const { result } = renderHook(
@@ -344,7 +328,6 @@ describe("Arc queries", () => {
 
       expect(result.current.form.value().name).toEqual(existingArc.name);
       expect(result.current.form.value().version).toEqual("1.0.0");
-      expect(result.current.form.value().deploy).toBe(false);
 
       act(() => {
         result.current.form.set("name", "edited-arc");
@@ -374,7 +357,6 @@ describe("Arc queries", () => {
         version: "1.0.0",
         graph: { nodes: [], edges: [] },
         text: { raw: "" },
-        deploy: true,
       });
 
       const { result } = renderHook(() => Arc.useRetrieve({ key: testArc.key }), {
@@ -388,43 +370,6 @@ describe("Arc queries", () => {
       expect(result.current.data?.key).toBe(testArc.key);
       expect(result.current.data?.name).toBe(testArc.name);
       expect(result.current.data?.version).toBe("1.0.0");
-      expect(result.current.data?.deploy).toBe(true);
-    });
-  });
-
-  describe("useToggleDeploy", () => {
-    it("should toggle deploy status", async () => {
-      const testArc = await client.arcs.create({
-        name: `toggle-arc-${Math.random().toString(36).substring(7)}`,
-        version: "1.0.0",
-        graph: { nodes: [], edges: [] },
-        text: { raw: "" },
-        deploy: false,
-      });
-
-      const { result } = renderHook(() => Arc.useToggleDeploy(), { wrapper });
-
-      await act(async () => {
-        await result.current.updateAsync(testArc.key);
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-
-      const retrieved = await client.arcs.retrieve({ key: testArc.key });
-      expect(retrieved.deploy).toBe(true);
-
-      await act(async () => {
-        await result.current.updateAsync(testArc.key);
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-
-      const retrievedAgain = await client.arcs.retrieve({ key: testArc.key });
-      expect(retrievedAgain.deploy).toBe(false);
     });
   });
 
@@ -435,7 +380,6 @@ describe("Arc queries", () => {
         version: "1.0.0",
         graph: { nodes: [], edges: [] },
         text: { raw: "" },
-        deploy: false,
       });
 
       const { result } = renderHook(() => Arc.useRename(), { wrapper });

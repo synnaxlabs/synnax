@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, NotFoundError } from "@synnaxlabs/client";
+import { arc } from "@synnaxlabs/client";
 import { primitive } from "@synnaxlabs/x";
 import z from "zod";
 
@@ -146,7 +146,6 @@ export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   version: "0.0.0",
   graph: { nodes: [], edges: [] },
   text: { raw: "" },
-  deploy: true,
 };
 
 export const useForm = Flux.createForm<
@@ -173,27 +172,6 @@ export const { useUpdate: useCreate } = Flux.createUpdate<arc.New, FluxSubStore>
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const arc = await client.arcs.create(data);
-    try {
-      const task = await client.tasks.retrieve({ name: arc.key });
-      await client.tasks.create({
-        ...task.payload,
-        config: {
-          arcKey: arc.key,
-        },
-      });
-    } catch (error) {
-      if (NotFoundError.matches(error)) {
-        const rack = await client.racks.retrieve({ key: 65538 });
-        await rack.createTask({
-          name: arc.key,
-          type: "arc",
-          config: {
-            arcKey: arc.key,
-          },
-        });
-      }
-    }
-
     rollbacks.push(store.arcs.set(arc));
     return data;
   },
@@ -209,17 +187,6 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
   mountListeners: ({ store, query, onChange }) => {
     if (!("key" in query) || primitive.isZero(query.key)) return [];
     return [store.arcs.onSet(onChange, query.key)];
-  },
-});
-
-export const { useUpdate: useToggleDeploy } = Flux.createUpdate<arc.Key, FluxSubStore>({
-  name: RESOURCE_NAME,
-  verbs: Flux.UPDATE_VERBS,
-  update: async ({ client, store, data: key, rollbacks }) => {
-    const arc = await retrieveSingle({ client, store, query: { key } });
-    const updated = await client.arcs.create({ ...arc, deploy: !arc.deploy });
-    rollbacks.push(store.arcs.set(updated));
-    return key;
   },
 });
 

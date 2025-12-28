@@ -36,9 +36,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/driver/cpp"
+	godriver "github.com/synnaxlabs/synnax/pkg/service/driver/go"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/address"
@@ -137,7 +139,8 @@ func start(cmd *cobra.Command) {
 			serviceLayer      *service.Layer
 			apiLayer          *api.Layer
 			rootServer        *server.Server
-			embeddedDriver    *driver.Driver
+			embeddedDriver    *cpp.Driver
+			coreDriver        *godriver.Driver
 			certLoaderConfig  = buildCertLoaderConfig(ins)
 		)
 		cleanup, ok := xservice.NewOpener(ctx, &closer)
@@ -267,9 +270,9 @@ func start(cmd *cobra.Command) {
 			return nil
 		}
 
-		if embeddedDriver, err = driver.OpenDriver(
+		if embeddedDriver, err = cpp.OpenDriver(
 			ctx,
-			driver.Config{
+			cpp.Config{
 				Enabled:         config.Bool(!noDriver),
 				Insecure:        config.Bool(insecure),
 				Integrations:    parseIntegrationsFlag(),
@@ -286,6 +289,25 @@ func start(cmd *cobra.Command) {
 				ParentDirname:   workDir,
 			},
 		); !ok(err, embeddedDriver) {
+			return err
+		}
+
+		// Open the Go task executor with Arc factory
+		if coreDriver, err = godriver.Open(
+			ctx,
+			godriver.Config{
+				Instrumentation: ins.Child("godriver"),
+				DB:              distributionLayer.DB,
+				Rack:            serviceLayer.Rack,
+				Task:            serviceLayer.Task,
+				Framer:          distributionLayer.Framer,
+				Channel:         distributionLayer.Channel,
+				Factory: godriver.NewMultiFactory(
+					arc.NewFactory(serviceLayer.Arc),
+				),
+				HostKey: distributionLayer.Cluster.HostKey(),
+			},
+		); !ok(err, coreDriver) {
 			return err
 		}
 

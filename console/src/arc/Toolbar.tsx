@@ -30,6 +30,7 @@ import { useDispatch } from "react-redux";
 
 import { Editor } from "@/arc/editor";
 import { remove } from "@/arc/slice";
+import { useArcTask } from "@/arc/task";
 import { translateGraphToConsole } from "@/arc/types/translate";
 import { EmptyAction, Menu, Toolbar } from "@/components";
 import { CSS } from "@/css";
@@ -107,8 +108,6 @@ const Content = () => {
     [getItem, addStatus, placeLayout],
   );
 
-  const { update: handleToggleDeploy } = Arc.useToggleDeploy();
-
   const rename = Modals.useRename();
 
   const handleCreate = useCallback(() => {
@@ -150,10 +149,9 @@ const Content = () => {
         arcs={getItem(keys)}
         onDelete={handleDelete}
         onEdit={handleEdit}
-        onToggleDeploy={(key) => handleToggleDeploy(key)}
       />
     ),
-    [handleDelete, handleEdit, handleToggleDeploy, handleRename, getItem],
+    [handleDelete, handleEdit, handleRename, getItem],
   );
 
   return (
@@ -188,9 +186,8 @@ const Content = () => {
               <ArcListItem
                 key={key}
                 {...p}
-                onToggleDeploy={() => handleToggleDeploy(key)}
                 onRename={(name) => handleRename({ key, name })}
-                onDoubleClick={() => handleEdit(key)}
+                onEdit={() => handleEdit(key)}
               />
             )}
           </List.Items>
@@ -213,19 +210,19 @@ export const TOOLBAR: Layout.NavDrawerItem = {
 };
 
 interface ArcListItemProps extends List.ItemProps<arc.Key> {
-  onToggleDeploy: () => void;
   onRename: (name: string) => void;
+  onEdit: () => void;
 }
 
-const ArcListItem = ({ onToggleDeploy, onRename, ...rest }: ArcListItemProps) => {
+const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
   const { itemKey } = rest;
   const arcItem = List.useItem<arc.Key, arc.Arc>(itemKey);
   const hasEditPermission = Access.useUpdateGranted(arc.ontologyID(itemKey));
+  const arcTask = useArcTask(itemKey);
 
   const variant = arcItem?.status?.variant;
-  const isLoading = variant === "loading";
-  const isRunning = arcItem?.status?.details.running === true;
-  const isDeployed = arcItem?.deploy === true;
+  const isRunning = arcItem?.status?.details?.running === true;
+  const hasTask = arcTask != null;
 
   return (
     <Select.ListItem {...rest} justify="between" align="center">
@@ -245,16 +242,15 @@ const ArcListItem = ({ onToggleDeploy, onRename, ...rest }: ArcListItemProps) =>
           />
         </Flex.Box>
         <Text.Text level="small" color={10}>
-          {arcItem?.status?.message ?? (isDeployed ? "Started" : "Stopped")}
+          {arcItem?.status?.message ?? (hasTask ? (isRunning ? "Running" : "Stopped") : "Not deployed")}
         </Text.Text>
       </Flex.Box>
       {hasEditPermission && (
         <Button.Button
           variant="outlined"
-          status={isLoading ? "loading" : undefined}
-          onClick={onToggleDeploy}
+          onClick={onEdit}
           onDoubleClick={stopPropagation}
-          tooltip={`${isDeployed ? "Stop" : "Start"} ${arcItem?.name ?? ""}`}
+          tooltip={hasTask ? (isRunning ? "Stop" : "Start") : "Deploy"}
         >
           {isRunning ? <Icon.Pause /> : <Icon.Play />}
         </Button.Button>
@@ -268,7 +264,6 @@ interface ContextMenuProps {
   arcs: arc.Arc[];
   onDelete: (keys: arc.Key | arc.Key[]) => void;
   onEdit: (key: arc.Key) => void;
-  onToggleDeploy: (key: arc.Key) => void;
 }
 
 const ContextMenu = ({
@@ -276,61 +271,33 @@ const ContextMenu = ({
   arcs,
   onDelete,
   onEdit,
-  onToggleDeploy,
 }: ContextMenuProps) => {
   const ids = arc.ontologyID(keys);
   const canDeleteAccess = Access.useDeleteGranted(ids);
   const canEditAccess = Access.useUpdateGranted(ids);
-  const canDeploy = arcs.some((arc) => arc.deploy === false);
-  const canStop = arcs.some((arc) => arc.deploy === true);
   const someSelected = arcs.length > 0;
   const isSingle = arcs.length === 1;
 
   const handleChange = useMemo<PMenu.MenuProps["onChange"]>(
     () => ({
-      start: () =>
-        arcs.forEach((arc) => {
-          if (!arc.deploy) onToggleDeploy(arc.key);
-        }),
-      stop: () =>
-        arcs.forEach((arc) => {
-          if (arc.deploy) onToggleDeploy(arc.key);
-        }),
       edit: () => isSingle && onEdit(arcs[0].key),
       rename: () => isSingle && Text.edit(`text-${arcs[0].key}`),
       delete: () => onDelete(keys),
     }),
-    [arcs, onToggleDeploy, onEdit, onDelete, isSingle, keys],
+    [arcs, onEdit, onDelete, isSingle, keys],
   );
 
   return (
     <PMenu.Menu level="small" gap="small" onChange={handleChange}>
-      {canEditAccess && (
+      {canEditAccess && isSingle && (
         <>
-          {canDeploy && (
-            <PMenu.Item itemKey="start">
-              <Icon.Play />
-              Start
-            </PMenu.Item>
-          )}
-          {canStop && (
-            <PMenu.Item itemKey="stop">
-              <Icon.Pause />
-              Stop
-            </PMenu.Item>
-          )}
-          {(canDeploy || canStop) && <PMenu.Divider />}
-          {isSingle && (
-            <>
-              <PMenu.Item itemKey="edit">
-                <Icon.Edit />
-                Edit Arc
-              </PMenu.Item>
-              <PMenu.Divider />
-              <Menu.RenameItem />
-              <PMenu.Divider />
-            </>
-          )}
+          <PMenu.Item itemKey="edit">
+            <Icon.Edit />
+            Edit Arc
+          </PMenu.Item>
+          <PMenu.Divider />
+          <Menu.RenameItem />
+          <PMenu.Divider />
         </>
       )}
       {canDeleteAccess && someSelected && (
