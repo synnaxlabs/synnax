@@ -35,11 +35,11 @@ func (f *mockFactory) Name() string { return f.name }
 
 type mockTask struct {
 	key      task.Key
-	execFunc func(cmd godriver.Command) error
+	execFunc func(cmd task.Command) error
 	stopFunc func() error
 }
 
-func (t *mockTask) Exec(_ context.Context, cmd godriver.Command) error {
+func (t *mockTask) Exec(_ context.Context, cmd task.Command) error {
 	if t.execFunc != nil {
 		return t.execFunc(cmd)
 	}

@@ -22,13 +22,9 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/core"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
@@ -53,14 +49,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// Framer is used for reading and writing telemetry frames to/from the cluster.
-	//
-	// [REQUIRED]
-	Framer *framer.Service
-	// Status is used for creating arc-related statuses
-	//
-	// [REQUIRED]
-	Status *status.Service
 	// Signals is used for propagating changes to arcs through the cluster.
 	//
 	// [OPTIONAL] - Defaults to nil. Signals will not be propagated if this service
@@ -79,10 +67,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Channel = override.Nil(c.Channel, other.Channel)
-	c.Status = override.Nil(c.Status, other.Status)
 	return c
 }
 
@@ -92,12 +78,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "status", c.Status)
 	return v.Error()
-}
-
-func (c ServiceConfig) baseRuntimeConfig() runtime.Config {
-	return runtime.Config{Channel: c.Channel, Framer: c.Framer, Status: c.Status}
 }
 
 // Service is the primary service for retrieving and modifying arcs from Synnax.
@@ -135,6 +116,21 @@ func (s *Service) AnalyzeCalculation(ctx context.Context, expr string) (telem.Da
 	return types.ToTelem(dataType), nil
 }
 
+// GetModule retrieves an Arc program by key and compiles its Module.
+// The returned Arc has its Module field populated with the compiled module.
+func (s *Service) GetModule(ctx context.Context, key uuid.UUID) (Arc, error) {
+	var prog Arc
+	if err := s.NewRetrieve().WhereKeys(key).Entry(&prog).Exec(ctx, nil); err != nil {
+		return Arc{}, err
+	}
+	mod, err := arc.CompileGraph(ctx, prog.Graph, arc.WithResolver(s.symbolResolver))
+	if err != nil {
+		return Arc{}, err
+	}
+	prog.Module = mod
+	return prog, nil
+}
+
 // OpenService instantiates a new Arc service using the provided configurations. Each
 // configuration will be used as an override for the previous configuration in the list.
 // See the ConfigValues struct for information on which fields should be set.
@@ -147,10 +143,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		closer xio.MultiCloser
 		s      = &Service{cfg: cfg}
 	)
-	s.symbolResolver, err = symbol.CreateResolver(cfg.baseRuntimeConfig())
-	if err != nil {
-		return nil, err
-	}
+	s.symbolResolver = symbol.CreateResolver(cfg.Channel)
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
 		stopSignals, err := signals.PublishFromGorp(ctx, s.cfg.Signals, signals.GorpPublisherConfigUUID[Arc](cfg.DB))
@@ -168,9 +161,8 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 // execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:     gorp.OverrideTx(s.cfg.DB, tx),
-		otg:    s.cfg.Ontology.NewWriter(tx),
-		status: status.NewWriter[core.StatusDetails](s.cfg.Status, tx),
+		tx:  gorp.OverrideTx(s.cfg.DB, tx),
+		otg: s.cfg.Ontology.NewWriter(tx),
 	}
 }
 

@@ -36,8 +36,8 @@ type Config struct {
 	Channel *channel.Service
 	// Factory is the factory for creating tasks.
 	Factory Factory
-	// HostKey is the node key of the current host.
-	HostKey cluster.NodeKey
+	// Host is the node key of the current host.
+	Host cluster.HostProvider
 }
 
 var (
@@ -54,19 +54,19 @@ func (c Config) Override(other Config) Config {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Factory = override.Nil(c.Factory, other.Factory)
-	c.HostKey = override.Numeric(c.HostKey, other.HostKey)
+	c.Host = override.Nil(c.Host, other.Host)
 	return c
 }
 
 // Validate implements config.Config.
 func (c Config) Validate() error {
-	v := validate.New("godriver")
-	validate.NotNil(v, "DB", c.DB)
-	validate.NotNil(v, "Rack", c.Rack)
-	validate.NotNil(v, "Task", c.Task)
-	validate.NotNil(v, "Framer", c.Framer)
-	validate.NotNil(v, "Channel", c.Channel)
-	validate.NotNil(v, "Factory", c.Factory)
-	validate.NonZero(v, "HostKey", c.HostKey)
+	v := validate.New("go_driver")
+	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "rack", c.Rack)
+	validate.NotNil(v, "task", c.Task)
+	validate.NotNil(v, "framer", c.Framer)
+	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "factory", c.Factory)
+	validate.NotNil(v, "host", c.Host)
 	return v.Error()
 }

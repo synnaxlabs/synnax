@@ -33,12 +33,13 @@ import (
 
 var _ = Describe("Config", Ordered, func() {
 	var (
-		db          *gorp.DB
-		rackService *rack.Service
-		taskService *task.Service
-		framerSvc   *framer.Service
-		channelSvc  *channel.Service
-		factory     godriver.Factory
+		db           *gorp.DB
+		rackService  *rack.Service
+		taskService  *task.Service
+		framerSvc    *framer.Service
+		channelSvc   *channel.Service
+		factory      godriver.Factory
+		hostProvider = mock.StaticHostKeyProvider(1)
 	)
 
 	BeforeAll(func() {
@@ -70,7 +71,7 @@ var _ = Describe("Config", Ordered, func() {
 				Framer:  framerSvc,
 				Channel: channelSvc,
 				Factory: factory,
-				HostKey: 1,
+				Host:    hostProvider,
 			}
 			Expect(cfg.Validate()).To(HaveOccurred())
 		})
@@ -82,7 +83,7 @@ var _ = Describe("Config", Ordered, func() {
 				Framer:  framerSvc,
 				Channel: channelSvc,
 				Factory: factory,
-				HostKey: 1,
+				Host:    hostProvider,
 			}
 			Expect(cfg.Validate()).To(HaveOccurred())
 		})
@@ -94,7 +95,7 @@ var _ = Describe("Config", Ordered, func() {
 				Framer:  framerSvc,
 				Channel: channelSvc,
 				Factory: factory,
-				HostKey: 1,
+				Host:    hostProvider,
 			}
 			Expect(cfg.Validate()).To(HaveOccurred())
 		})
@@ -106,12 +107,12 @@ var _ = Describe("Config", Ordered, func() {
 				Task:    taskService,
 				Framer:  framerSvc,
 				Channel: channelSvc,
-				HostKey: 1,
+				Host:    hostProvider,
 			}
 			Expect(cfg.Validate()).To(HaveOccurred())
 		})
 
-		It("should fail when HostKey is zero", func() {
+		It("should fail when Host is zero", func() {
 			cfg := godriver.Config{
 				DB:      db,
 				Rack:    rackService,
@@ -127,11 +128,12 @@ var _ = Describe("Config", Ordered, func() {
 
 var _ = Describe("Driver", Ordered, func() {
 	var (
-		dist        mock.Node
-		rackService *rack.Service
-		taskService *task.Service
-		channelSvc  *channel.Service
-		framerSvc   *framer.Service
+		dist         mock.Node
+		rackService  *rack.Service
+		taskService  *task.Service
+		channelSvc   *channel.Service
+		framerSvc    *framer.Service
+		hostProvider = mock.StaticHostKeyProvider(1)
 	)
 
 	// openDriver creates a driver with the given factory and registers cleanup.
@@ -143,7 +145,7 @@ var _ = Describe("Driver", Ordered, func() {
 			Framer:  framerSvc,
 			Channel: channelSvc,
 			Factory: factory,
-			HostKey: 1,
+			Host:    hostProvider,
 		}))
 		DeferCleanup(func() { Expect(driver.Close()).To(Succeed()) })
 		return driver
@@ -439,7 +441,7 @@ var _ = Describe("Driver", Ordered, func() {
 				Framer:  framerSvc,
 				Channel: channelSvc,
 				Factory: factory,
-				HostKey: 1,
+				Host:    hostProvider,
 			}))
 
 			for i := 0; i < int(expectedTasks); i++ {
@@ -478,7 +480,7 @@ var _ = Describe("Driver", Ordered, func() {
 				Framer:  framerSvc,
 				Channel: channelSvc,
 				Factory: factory,
-				HostKey: 1,
+				Host:    hostProvider,
 			}))
 
 			t := newTask(driver.RackKey())

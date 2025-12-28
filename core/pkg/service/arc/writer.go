@@ -11,16 +11,10 @@ package arc
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/core"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
-	xstatus "github.com/synnaxlabs/x/status"
-	"github.com/synnaxlabs/x/telem"
 )
 
 // Writer is used to create, update, and delete arcs within Synnax. The writer
@@ -28,9 +22,8 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
 type Writer struct {
-	tx     gorp.Tx
-	otg    ontology.Writer
-	status status.Writer[core.StatusDetails]
+	tx  gorp.Tx
+	otg ontology.Writer
 }
 
 // Create creates the given Arc. If the Arc does not have a key,
@@ -60,15 +53,7 @@ func (w Writer) Create(
 			return err
 		}
 	}
-
-	return w.status.SetWithParent(ctx, &status.Status[core.StatusDetails]{
-		Name:    fmt.Sprintf("%s Status", a.Name),
-		Key:     a.Key.String(),
-		Variant: xstatus.LoadingVariant,
-		Message: "Deploying",
-		Time:    telem.Now(),
-		Details: core.StatusDetails{Running: false},
-	}, otgID)
+	return nil
 }
 
 // Delete deletes the arcs with the given keys.
@@ -78,10 +63,6 @@ func (w Writer) Delete(
 ) (err error) {
 	if err = gorp.NewDelete[uuid.UUID, Arc]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
 		return
-	}
-	statusKeys := lo.Map(keys, func(k uuid.UUID, _ int) string { return k.String() })
-	if err = w.status.DeleteMany(ctx, statusKeys...); err != nil {
-		return err
 	}
 	for _, key := range keys {
 		if err = w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {

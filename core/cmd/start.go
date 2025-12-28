@@ -36,7 +36,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/service"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	arcruntime "github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/driver/cpp"
@@ -303,9 +303,14 @@ func start(cmd *cobra.Command) {
 				Framer:          distributionLayer.Framer,
 				Channel:         distributionLayer.Channel,
 				Factory: godriver.NewMultiFactory(
-					arc.NewFactory(serviceLayer.Arc),
+					arcruntime.NewFactory(arcruntime.FactoryConfig{
+						Channel:   distributionLayer.Channel,
+						Framer:    distributionLayer.Framer,
+						Status:    serviceLayer.Status,
+						GetModule: serviceLayer.Arc.GetModule,
+					}),
 				),
-				HostKey: distributionLayer.Cluster.HostKey(),
+				Host: distributionLayer.Cluster,
 			},
 		); !ok(err, coreDriver) {
 			return err

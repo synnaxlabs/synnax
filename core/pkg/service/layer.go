@@ -283,10 +283,8 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			Instrumentation: cfg.Child("arc"),
 			DB:              cfg.Distribution.DB,
 			Ontology:        cfg.Distribution.Ontology,
-			Framer:          cfg.Distribution.Framer,
 			Channel:         cfg.Distribution.Channel,
 			Signals:         cfg.Distribution.Signals,
-			Status:          l.Status,
 		},
 	); !ok(err, l.Arc) {
 		return nil, err
