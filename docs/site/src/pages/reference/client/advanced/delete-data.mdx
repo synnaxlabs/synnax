@@ -37,8 +37,8 @@ throughout Synnax, remember that a time range is **start-inclusive** and
 **end-exclusive**, i.e. data at the start time stamp is deleted and data at the end time
 stamp is not.
 
-For example, to remove data in the range `[00:01, 00:03)` on the `my_index_ch`
-and `my_tc` channels:
+For example, to remove data in the range `[00:01, 00:03)` on the `my_index_ch` and
+`my_tc` channels:
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -182,10 +182,7 @@ client.delete(
 ```typescript
 // If my_tc is indexed by my_index_ch from 1 second to 3 seconds,
 // my_index_ch cannot be deleted. This call raises an error.
-await client.delete(
-  ["my_index_ch"],
-  TimeStamp.seconds(1).range(TimeStamp.seconds(3)),
-);
+await client.delete(["my_index_ch"], TimeStamp.seconds(1).range(TimeStamp.seconds(3)));
 
 // If my_tc, the dependent, is deleted at the same time as my_index_ch,
 // no errors are raised.
@@ -232,10 +229,7 @@ const writer = await client.openWriter({
 });
 
 // Error raised since writer start 00:10 is before deleting time range [00:12 - 00:30)
-await client.delete(
-  ["my_tc"],
-  TimeStamp.seconds(12).range(TimeStamp.seconds(30)),
-);
+await client.delete(["my_tc"], TimeStamp.seconds(12).range(TimeStamp.seconds(30)));
 ```
 
   </Fragment>

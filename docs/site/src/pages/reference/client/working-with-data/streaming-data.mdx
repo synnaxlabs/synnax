@@ -23,8 +23,8 @@ a conceptual overview of how streaming works in Synnax, check out the
 
 ## Opening a Streamer
 
-To start streaming data, call the `open_streamer`/`openStreamer` method on the client and provide a
-list of channels to stream.
+To start streaming data, call the `open_streamer`/`openStreamer` method on the client
+and provide a list of channels to stream.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -33,10 +33,10 @@ list of channels to stream.
 ```python
 streamer = client.open_streamer(["channel1", "channel2"])
 ```
+
   </Fragment>
 
   <Fragment slot="typescript">
-
 
 ```typescript
 const streamer = await client.openStreamer(["temperature1", "temperature2"]);
@@ -97,11 +97,9 @@ async with await client.open_async_streamer(["channel1", "channel2"]) as streame
 
   <Fragment slot="typescript">
 
-  <br />
+<br />
 
-  <Note.Note variant="info">
-    TypeScript streaming is async by default.
-  </Note.Note>
+<Note.Note variant="info">TypeScript streaming is async by default.</Note.Note>
 
   </Fragment>
 </Client.Tabs>
@@ -176,7 +174,6 @@ from two sensors, `temperature` and `pressure`, that are being sampled by differ
 devices at different rates, a frame may contain data only for the first channel,
 followed by a frame containing only data for the second channel.
 
-
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
   <Fragment slot="python">
@@ -221,8 +218,7 @@ console.log(frame3.at(-1));
 // Output: { temperature: 25.1, pressure: 1013.25 }
 
 // Check if a frame contains data for a specific channel
-if (frame.has("temperature"))
-  console.log(frame.get("temperature"));
+if (frame.has("temperature")) console.log(frame.get("temperature"));
 ```
 
   </Fragment>
@@ -252,10 +248,12 @@ if frame is None:
 
   <Fragment slot="typescript">
 
-TypeScript doesn't have built-in timeout support. Instead, you can use `Promise.race()` to achieve the equivalent functionality.
+TypeScript doesn't have built-in timeout support. Instead, you can use `Promise.race()`
+to achieve the equivalent functionality.
 
 ```typescript
-const timeout = (ms: number) => new Promise<null>((resolve) => setTimeout(() => resolve(null), ms));
+const timeout = (ms: number) =>
+  new Promise<null>((resolve) => setTimeout(() => resolve(null), ms));
 
 // Wait for 5 seconds
 const frame = await Promise.race([streamer.read(), timeout(5000)]);
@@ -273,7 +271,7 @@ if (frame === null) {
 ## Updating the Channel List
 
 To update the list of channels being streamed, call the `update_channels` / `update`
-method on the streamer. This will *replace* the current list of channels, not add to it.
+method on the streamer. This will _replace_ the current list of channels, not add to it.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 

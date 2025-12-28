@@ -78,10 +78,10 @@ try {
   </Fragment>
 </Client.Tabs>
 
-These examples write 100 samples to the `temperature` channel, each spaced roughly
-100ms apart, and commit all writes when finished. It's typical to write and commit
-millions of samples over the course of hours or days, intermittently calling commit to
-persist data to the cluster.
+These examples write 100 samples to the `temperature` channel, each spaced roughly 100ms
+apart, and commit all writes when finished. It's typical to write and commit millions of
+samples over the course of hours or days, intermittently calling commit to persist data
+to the cluster.
 
 ### Auto-Commit
 
@@ -125,6 +125,7 @@ with client.open_writer(
         # Commit the chunk
         writer.commit()
 ```
+
   <div style={{ margin: "4rem 0" }}>
 
   </div>
@@ -142,7 +143,7 @@ const writer = await client.openWriter({
 try {
   for (let chunk = 0; chunk < 10; chunk++) {
     for (let i = 0; i < 1000; i++)
-      await writer.write({ time: TimeStamp.now(), temperature: i});
+      await writer.write({ time: TimeStamp.now(), temperature: i });
     await writer.commit();
   }
 } finally {
@@ -163,8 +164,8 @@ allowed to write. If two writers have the same authority, the writer that opened
 will be allowed to write. For more information, see the
 [concepts](/reference/concepts/writes#dynamic-control---write-authorities) page.
 
-By default, writers are opened with an authority of `ABSOLUTE` (255). This means that
-no other writers can write to the channel as long as the writer is open.
+By default, writers are opened with an authority of `ABSOLUTE` (255). This means that no
+other writers can write to the channel as long as the writer is open.
 
 #### Same Authority on All Channels
 
@@ -312,8 +313,8 @@ const writer = await client.openWriter({
 
 ## Writing Data
 
-The `write` method accepts several argument formats. Use the one that best fits your
-use case.
+The `write` method accepts several argument formats. Use the one that best fits your use
+case.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -395,10 +396,7 @@ const now = TimeStamp.now();
 await writer.write(
   new Frame({
     [timeChannel.key]: new Series({
-      data: new BigInt64Array([
-        now.valueOf(),
-        now.add(TimeSpan.seconds(1)).valueOf(),
-      ]),
+      data: new BigInt64Array([now.valueOf(), now.add(TimeSpan.seconds(1)).valueOf()]),
     }),
     [tempChannel.key]: new Series({
       data: new Float32Array([25.5, 26.0]),
@@ -406,6 +404,7 @@ await writer.write(
   }),
 );
 ```
+
   <div style={{ margin: "4rem 0" }}>
 
   </div>
@@ -506,7 +505,8 @@ instead of making individual write calls to a channel. Calls to `write` on a cha
 an entirely new transaction for each call - constantly creating, committing, and closing
 transactions has a dramatic impact on performance.
 
-<span style={{color: 'red'}}>**Don't do this**</span> - writing directly to channels in a loop:
+<span style={{ color: "red" }}>**Don't do this**</span> - writing directly to channels
+in a loop:
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -538,7 +538,8 @@ for (let i = 0; i < 100; i++) {
   </Fragment>
 </Client.Tabs>
 
-<span style={{color: 'red'}}>**Also don't do this**</span> - opening and closing a writer for every write:
+<span style={{ color: "red" }}>**Also don't do this**</span> - opening and closing a
+writer for every write:
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -577,7 +578,8 @@ for (let i = 0; i < 100; i++) {
   </Fragment>
 </Client.Tabs>
 
-<span style={{color: 'green'}}>**Do this instead**</span> - repeatedly call `write` on a single writer:
+<span style={{ color: "green" }}>**Do this instead**</span> - repeatedly call `write` on
+a single writer:
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -625,7 +627,7 @@ calling `commit` on every write is a bad idea because it requires a round-trip t
 cluster. This can be very slow when writing large volumes of data. Instead, commit every
 few seconds or use auto-commit (which is enabled by default).
 
-<span style={{color: 'red'}}>**Don't do this**</span> - committing on every write:
+<span style={{ color: "red" }}>**Don't do this**</span> - committing on every write:
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -669,7 +671,8 @@ try {
   </Fragment>
 </Client.Tabs>
 
-<span style={{color: 'green'}}>**Do this instead**</span> - use auto-commit (enabled by default):
+<span style={{ color: "green" }}>**Do this instead**</span> - use auto-commit (enabled
+by default):
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 

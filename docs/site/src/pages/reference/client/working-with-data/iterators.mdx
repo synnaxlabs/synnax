@@ -51,10 +51,7 @@ iterator = client.open_iterator(
   <Fragment slot="typescript">
 
 ```typescript
-const iterator = await client.openIterator(
-  { start, end },
-  ["temperature", "humidity"],
-);
+const iterator = await client.openIterator({ start, end }, ["temperature", "humidity"]);
 ```
 
   </Fragment>
@@ -179,10 +176,7 @@ finally:
   <Fragment slot="typescript">
 
 ```typescript
-const iterator = await client.openIterator(
-  { start, end },
-  ["temperature", "humidity"],
-);
+const iterator = await client.openIterator({ start, end }, ["temperature", "humidity"]);
 try {
   for await (const frame of iterator) {
     console.log(frame.get("temperature"));

@@ -37,13 +37,13 @@ Before starting, ensure you have:
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
 <Fragment slot="python">
-- **Python 3.12+** with the Synnax client: `pip install synnax`
-- **pyserial** package: `pip install pyserial`
+  - **Python 3.12+** with the Synnax client: `pip install synnax` - **pyserial**
+  package: `pip install pyserial`
 </Fragment>
 
 <Fragment slot="typescript">
-- **Node.js 18+** with the Synnax client: `npm install @synnaxlabs/client`
-- **serialport** package: `npm install serialport @serialport/parser-readline`
+  - **Node.js 18+** with the Synnax client: `npm install @synnaxlabs/client` -
+  **serialport** package: `npm install serialport @serialport/parser-readline`
 </Fragment>
 
 </Client.Tabs>
@@ -83,8 +83,8 @@ void loop() {
 
 ### <StepText step={2} level="h3">Serial Connection</StepText>
 
-Create a driver file. Find your Arduino's port in the Arduino IDE (top-right corner
-when connected via USB).
+Create a driver file. Find your Arduino's port in the Arduino IDE (top-right corner when
+connected via USB).
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
@@ -92,13 +92,12 @@ when connected via USB).
 ```python
 import serial
 
-PORT = "/dev/ttyACM0"  # Update with your port
-BAUD_RATE = 9600
+PORT = "/dev/ttyACM0" # Update with your port BAUD_RATE = 9600
 
-ser = serial.Serial(PORT, BAUD_RATE)
-if ser.is_open:
-    print("Serial connection established")
-```
+ser = serial.Serial(PORT, BAUD_RATE) if ser.is_open: print("Serial connection
+established")
+
+````
 </Fragment>
 
 <Fragment slot="typescript">
@@ -113,7 +112,8 @@ const port = new SerialPort({ path: PORT, baudRate: BAUD_RATE });
 const parser = port.pipe(new ReadlineParser({ delimiter: "\n" }));
 
 port.on("open", () => console.log("Serial connection established"));
-```
+````
+
 </Fragment>
 
 </Client.Tabs>
@@ -125,11 +125,8 @@ Read values in a loop.
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
 <Fragment slot="python">
-```python
-while True:
-    value = float(ser.readline().decode("utf-8").rstrip())
-    print(value)
-```
+  ```python while True: value = float(ser.readline().decode("utf-8").rstrip())
+  print(value) ```
 </Fragment>
 
 <Fragment slot="typescript">
@@ -154,27 +151,15 @@ channel** for values.
 ```python
 import synnax as sy
 
-client = sy.Synnax(
-    host="localhost",
-    port=9090,
-    username="synnax",
-    password="seldon",
-)
+client = sy.Synnax( host="localhost", port=9090, username="synnax", password="seldon", )
 
-index_channel = client.channels.create(
-    name="arduino_time",
-    is_index=True,
-    data_type="timestamp",
-    retrieve_if_name_exists=True,
-)
+index_channel = client.channels.create( name="arduino_time", is_index=True,
+data_type="timestamp", retrieve_if_name_exists=True, )
 
-data_channel = client.channels.create(
-    name="arduino_value",
-    index=index_channel.key,
-    data_type="float32",
-    retrieve_if_name_exists=True,
-)
-```
+data_channel = client.channels.create( name="arduino_value", index=index_channel.key,
+data_type="float32", retrieve_if_name_exists=True, )
+
+````
 </Fragment>
 
 <Fragment slot="typescript">
@@ -201,7 +186,8 @@ const dataChannel = await client.channels.create({
   dataType: DataType.FLOAT32,
   retrieveIfNameExists: true,
 });
-```
+````
+
 </Fragment>
 
 </Client.Tabs>
@@ -231,25 +217,16 @@ with client.open_writer(
 ```typescript
 import { TimeStamp } from "@synnaxlabs/client";
 
-const writer = await client.openWriter({
-  start: TimeStamp.now(),
-  channels: ["arduino_time", "arduino_value"],
-});
+const writer = await client.openWriter({ start: TimeStamp.now(), channels:
+["arduino_time", "arduino_value"], });
 
-parser.on("data", async (line: string) => {
-  const value = parseFloat(line.trim());
-  await writer.write({
-    arduino_time: TimeStamp.now(),
-    arduino_value: value,
-  });
-});
+parser.on("data", async (line: string) => { const value = parseFloat(line.trim()); await
+writer.write({ arduino_time: TimeStamp.now(), arduino_value: value, }); });
 
-// Remember to close the writer when done
-process.on("SIGINT", async () => {
-  await writer.close();
-  process.exit();
-});
-```
+// Remember to close the writer when done process.on("SIGINT", async () => { await
+writer.close(); process.exit(); });
+
+````
 </Fragment>
 
 </Client.Tabs>
@@ -302,7 +279,7 @@ with client.open_writer(
             "arduino_time": sy.TimeStamp.now(),
             "arduino_value": value,
         })
-```
+````
 
 </ExampleDetails>
 </Fragment>
@@ -375,10 +352,7 @@ process.on("SIGINT", async () => {
 
 With the script running, set up a line plot in the Console:
 
-<Video
-  client:only="react"
-  id="client/resources/build-device-driver/line-plot"
-/>
+<Video client:only="react" id="client/resources/build-device-driver/line-plot" />
 
 <Divider.Divider x />
 
@@ -422,14 +396,8 @@ As a consequence, an index channel is not needed.
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
 <Fragment slot="python">
-```python
-command_channel = client.channels.create(
-    name="arduino_command",
-    data_type="uint8",
-    virtual=True,
-    retrieve_if_name_exists=True,
-)
-```
+  ```python command_channel = client.channels.create( name="arduino_command",
+  data_type="uint8", virtual=True, retrieve_if_name_exists=True, ) ```
 </Fragment>
 
 <Fragment slot="typescript">
@@ -452,23 +420,19 @@ Open a streamer to receive commands and write them to serial.
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
 <Fragment slot="python">
-```python
-with client.open_streamer(["arduino_command"]) as streamer:
-    for frame in streamer:
-        command = str(frame["arduino_command"][0])
-        ser.write(command.encode("utf-8"))
-```
+  ```python with client.open_streamer(["arduino_command"]) as streamer: for frame in
+  streamer: command = str(frame["arduino_command"][0])
+  ser.write(command.encode("utf-8")) ```
 </Fragment>
 
 <Fragment slot="typescript">
 ```typescript
 const streamer = await client.openStreamer(["arduino_command"]);
 
-for await (const frame of streamer) {
-  const command = String(frame.get("arduino_command").at(0));
-  port.write(command);
-}
-```
+for await (const frame of streamer) { const command =
+String(frame.get("arduino_command").at(0)); port.write(command); }
+
+````
 </Fragment>
 
 </Client.Tabs>
@@ -508,7 +472,7 @@ with client.open_streamer(["arduino_command"]) as streamer:
     for frame in streamer:
         command = str(frame["arduino_command"][0])
         ser.write(command.encode("utf-8"))
-```
+````
 
 </ExampleDetails>
 </Fragment>
@@ -561,19 +525,15 @@ for await (const frame of streamer) {
 
 Set up a switch on a [schematic](/reference/console/schematics).
 
-<Video
-  client:only="react"
-  id="client/resources/build-device-driver/schematic"
-/>
+<Video client:only="react" id="client/resources/build-device-driver/schematic" />
 
 <Divider.Divider x />
 
 ## Read-Write Driver
 
 You may have noticed the previous section set both "State" and "Command" to the same
-channel. This works,
-but has a problem: if the driver stops, clicking the switch still appears to work (it
-toggles visually) even though nothing happens on the hardware.
+channel. This works, but has a problem: if the driver stops, clicking the switch still
+appears to work (it toggles visually) even though nothing happens on the hardware.
 
 The solution is to use **separate channels**: a **command channel** for sending
 commands, and a **state channel** that reflects the actual hardware state. The switch
@@ -627,27 +587,16 @@ arduino_command = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-arduino_time = client.channels.create(
-    name="arduino_time",
-    is_index=True,
-    data_type="timestamp",
-    retrieve_if_name_exists=True,
-)
+arduino_time = client.channels.create( name="arduino_time", is_index=True,
+data_type="timestamp", retrieve_if_name_exists=True, )
 
-arduino_state = client.channels.create(
-    name="arduino_state",
-    index=arduino_time.key,
-    data_type="uint8",
-    retrieve_if_name_exists=True,
-)
+arduino_state = client.channels.create( name="arduino_state", index=arduino_time.key,
+data_type="uint8", retrieve_if_name_exists=True, )
 
-arduino_value = client.channels.create(
-    name="arduino_value",
-    index=arduino_time.key,
-    data_type="float32",
-    retrieve_if_name_exists=True,
-)
-```
+arduino_value = client.channels.create( name="arduino_value", index=arduino_time.key,
+data_type="float32", retrieve_if_name_exists=True, )
+
+````
 </Fragment>
 
 <Fragment slot="typescript">
@@ -679,7 +628,8 @@ const arduinoValue = await client.channels.create({
   dataType: DataType.FLOAT32,
   retrieveIfNameExists: true,
 });
-```
+````
+
 </Fragment>
 
 </Client.Tabs>
@@ -721,34 +671,19 @@ const writer = await client.openWriter({
   channels: ["arduino_time", "arduino_state", "arduino_value"],
 });
 
-// Handle incoming commands
-streamer.read().then(async function processCommand(frame) {
-  if (frame) {
-    const command = String(frame.get("arduino_command").at(0));
-    port.write(command);
-  }
-  streamer.read().then(processCommand);
-});
+// Handle incoming commands streamer.read().then(async function processCommand(frame) {
+if (frame) { const command = String(frame.get("arduino_command").at(0));
+port.write(command); } streamer.read().then(processCommand); });
 
-// Handle incoming data from Arduino
-parser.on("data", async (line: string) => {
-  const data = line.trim();
-  if (data) {
-    const [state, value] = data.split(",");
-    await writer.write({
-      arduino_time: TimeStamp.now(),
-      arduino_state: parseInt(state),
-      arduino_value: parseFloat(value),
-    });
-  }
-});
+// Handle incoming data from Arduino parser.on("data", async (line: string) => { const
+data = line.trim(); if (data) { const [state, value] = data.split(","); await
+writer.write({ arduino_time: TimeStamp.now(), arduino_state: parseInt(state),
+arduino_value: parseFloat(value), }); } });
 
-process.on("SIGINT", async () => {
-  streamer.close();
-  await writer.close();
-  process.exit();
-});
-```
+process.on("SIGINT", async () => { streamer.close(); await writer.close();
+process.exit(); });
+
+````
 </Fragment>
 
 </Client.Tabs>
@@ -823,7 +758,7 @@ with client.open_streamer(["arduino_command"]) as streamer:
                     "arduino_state": int(split[0]),
                     "arduino_value": float(split[1]),
                 })
-```
+````
 
 </ExampleDetails>
 </Fragment>
@@ -925,22 +860,20 @@ process.on("SIGINT", async () => {
 ### <StepText step={4} level="h3">Console Setup</StepText>
 
 Now configure the switch with separate channels:
+
 - **Command**: `arduino_command`
 - **State**: `arduino_state`
 
 Add a line plot for `arduino_value` to see the analog input.
 
-<Video
-  client:only="react"
-  id="client/resources/build-device-driver/console-setup"
-/>
+<Video client:only="react" id="client/resources/build-device-driver/console-setup" />
 
 <Divider.Divider x />
 
 ## Production Drivers
 
-For production-grade hardware integrations, see the [C++ Driver
-documentation](/reference/driver). The C++ driver offers:
+For production-grade hardware integrations, see the
+[C++ Driver documentation](/reference/driver). The C++ driver offers:
 
 - **Built-in support** for LabJack, National Instruments, OPC UA, and Modbus devices
 - **Better performance** for high-frequency data acquisition

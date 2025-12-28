@@ -20,8 +20,7 @@ import { DataType, Synnax, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 
 // Connect to a locally running, insecure Synnax cluster. If your connection parameters
 // are different, enter them here. See https://docs.synnaxlabs.com/reference/client/quick-start.
-const client = new Synnax({
-});
+const client = new Synnax({});
 
 // Define the data.
 const start = TimeStamp.now();

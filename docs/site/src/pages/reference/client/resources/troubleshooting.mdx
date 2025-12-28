@@ -35,7 +35,10 @@ recommends using the latest version of the official
 Make sure to check the box that says "Add Python to PATH" during the installation
 process. This will ensure that the `python` command is available in your terminal.
 
-Alternatively, if you plan to use Synnax inside [WSL](https://docs.microsoft.com/en-us/windows/wsl/install-win10), follow the instructions for Linux instead.
+Alternatively, if you plan to use Synnax inside
+[WSL](https://docs.microsoft.com/en-us/windows/wsl/install-win10), follow the
+instructions for Linux instead.
+
 <div style={{ margin: "14rem 0" }}>
 </div>
 </Fragment>
@@ -75,8 +78,6 @@ sudo apt install python3.12 -y
 python3.12 --version
 ```
 
-
-
 </Fragment>
 
 </Platform.Tabs>
@@ -85,11 +86,12 @@ python3.12 --version
 
   <Fragment slot="typescript">
 
-The latest version of Node.js from the
-[official Node.js website](https://nodejs.org/) is recommended.
+The latest version of Node.js from the [official Node.js website](https://nodejs.org/)
+is recommended.
 
 <Note.Note variant="info" className="compact">
-  After installing Node.js, you can install the Synnax client with `npm install @synnaxlabs/client`.
+  After installing Node.js, you can install the Synnax client with `npm install
+  @synnaxlabs/client`.
 </Note.Note>
 
 <Platform.Tabs client:only="react" exclude={["Docker"]}>
@@ -99,7 +101,8 @@ The latest version of Node.js from the
 Download and run the Windows installer from [nodejs.org](https://nodejs.org/). The
 installer will automatically add Node.js to your PATH.
 
-Alternatively, if using [Windows Subsystem for Linux](https://docs.microsoft.com/en-us/windows/wsl/install-win10),
+Alternatively, if using
+[Windows Subsystem for Linux](https://docs.microsoft.com/en-us/windows/wsl/install-win10),
 follow the Linux instructions instead.
 
 </Fragment>
@@ -139,8 +142,6 @@ sudo yum install -y nodejs
 
 </Platform.Tabs>
 
-
-
   </Fragment>
 </Client.Tabs>
 
@@ -155,22 +156,20 @@ sudo yum install -y nodejs
 Synnax requires Python 3.12+. Check your version:
 
 ```bash
-python --version   # or try: python3 --version, python3.12 --version
+python --version # or try: python3 --version, python3.12 --version
 ```
 
-If the output shows `Python 3.12.x` or higher, the version is compatible. If older, update Python:
+If the output shows `Python 3.12.x` or higher, the version is compatible. If older,
+update Python:
 
 <Platform.Tabs client:only="react" exclude={["Docker"]}>
 
 <Fragment slot="Windows">
 
-Reinstall from [python.org](https://www.python.org/downloads/) - make sure to check
-"Add Python to PATH".
+Reinstall from [python.org](https://www.python.org/downloads/) - make sure to check "Add
+Python to PATH".
 
-
-
-<div style={{ margin: "14rem 0" }}>
-</div>
+<div style={{ margin: "14rem 0" }}></div>
 
 </Fragment>
 
@@ -179,6 +178,7 @@ Reinstall from [python.org](https://www.python.org/downloads/) - make sure to ch
 ```bash
 brew upgrade python
 ```
+
 </Fragment>
 
 <Fragment slot="Linux">
@@ -218,10 +218,9 @@ section above.
 
 If `python --version` returns `command not found`, the executable isn't on your PATH.
 
-
 <Note.Note variant="info" className="compact">
-If multiple Python versions are installed, an older version may shadow the newer one in
-your PATH. Check your PATH order and remove or reorder conflicting entries.
+  If multiple Python versions are installed, an older version may shadow the newer one
+  in your PATH. Check your PATH order and remove or reorder conflicting entries.
 </Note.Note>
 
 <Platform.Tabs client:only="react" exclude={["Docker"]}>
@@ -229,6 +228,7 @@ your PATH. Check your PATH order and remove or reorder conflicting entries.
 <Fragment slot="Windows">
 
 **Common install locations:**
+
 - Official installer: `C:\Users\{username}\AppData\Local\Programs\Python312`
 - Anaconda: `C:\Users\{username}\Anaconda3`
 
@@ -272,7 +272,6 @@ source ~/.bashrc
 
 </Platform.Tabs>
 
-
   </Fragment>
 
   <Fragment slot="typescript">
@@ -287,8 +286,7 @@ If `node --version` returns `command not found`, Node.js isn't on your PATH.
 Reinstall from [nodejs.org](https://nodejs.org/) - the installer automatically adds
 Node.js to PATH.
 
-<div style={{ margin: "28rem 0" }}>
-</div>
+<div style={{ margin: "28rem 0" }}></div>
 
 </Fragment>
 
@@ -336,7 +334,7 @@ If `synnax` returns `command not found` after installing via pip:
 **1. Check pip is using the correct Python version:**
 
 ```bash
-pip --version   # Should show (python 3.12) or higher
+pip --version # Should show (python 3.12) or higher
 ```
 
 If it shows an older version, your PATH may point to the wrong pip. See
@@ -345,9 +343,9 @@ If it shows an older version, your PATH may point to the wrong pip. See
 **2. If using a virtual environment, activate it first:**
 
 ```bash
-poetry shell              # Poetry
-source venv/bin/activate  # venv
-conda activate myenv      # Conda
+poetry shell             # Poetry
+source venv/bin/activate # venv
+conda activate myenv     # Conda
 ```
 
   </Fragment>

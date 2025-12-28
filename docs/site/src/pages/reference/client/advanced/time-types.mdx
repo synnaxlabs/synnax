@@ -14,9 +14,9 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Synnax stores timestamps with nanosecond precision, which exceeds what native types
-in most languages can represent. The client libraries provide utility classes for
-working with high-precision timestamps, durations, and time ranges.
+Synnax stores timestamps with nanosecond precision, which exceeds what native types in
+most languages can represent. The client libraries provide utility classes for working
+with high-precision timestamps, durations, and time ranges.
 
 <Divider.Divider x />
 
@@ -79,6 +79,7 @@ const ts = new TimeStamp(BigInt(1000000000));
 // From utility functions
 const ts = TimeStamp.now().sub(TimeSpan.seconds(1));
 ```
+
   <div style={{ margin: "4rem 0" }}>
 
   </div>
@@ -401,7 +402,8 @@ const range = new TimeRange(TimeSpan.hours(1), TimeSpan.hours(2));
 
 ### Checking if a TimeStamp is in a TimeRange
 
-You can check if a `TimeStamp` is contained in a `TimeRange` using the `contains` method:
+You can check if a `TimeStamp` is contained in a `TimeRange` using the `contains`
+method:
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
   <Fragment slot="python">
@@ -511,8 +513,8 @@ console.log(span.seconds); // 1
 
 Synnax stores timestamps as 64-bit integers representing the number of nanoseconds
 elapsed since the Unix epoch in UTC. The client libraries use specialized types to
-preserve this precision, but there are limitations to be aware of when converting
-to native types.
+preserve this precision, but there are limitations to be aware of when converting to
+native types.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 

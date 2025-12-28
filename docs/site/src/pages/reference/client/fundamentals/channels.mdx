@@ -44,13 +44,10 @@ If you're unfamiliar with what channels are and how they work, check out the
     is_index=True,
   )
 
-  my_sensor = client.channels.create(
-    name="my_sensor",
-    data_type=sy.DataType.FLOAT32,
-    index=time_index_channel.key,
-  )
+my_sensor = client.channels.create( name="my_sensor", data_type=sy.DataType.FLOAT32,
+index=time_index_channel.key, )
 
-```
+````
 </Fragment>
 
 <Fragment slot="typescript">
@@ -66,7 +63,7 @@ const tempChannel = await client.channels.create({
   dataType: DataType.FLOAT32,
   index: timeIndexChannel.key,
 });
-```
+````
 
 </Fragment>
 
@@ -117,15 +114,15 @@ flag.
       });
 
     ```
+
 </Fragment>
 </Client.Tabs>
 
-
-
 ### Creating Multiple Channels
+
 Multiple channels can be created in a single call using the `create` method. This is
-more efficient than creating channels individually, and provides the atomic guarantee that
-either all or no channels will be created.
+more efficient than creating channels individually, and provides the atomic guarantee
+that either all or no channels will be created.
 
 Keep in mind that the index channel(s) must still be created first.
 
@@ -362,6 +359,7 @@ client.channels.rename([channel_one.key, channel_two.key], ["name_one", "name_tw
       ["name_one", "name_two"]
     );
     ```
+
   </Fragment>
 </Client.Tabs>
 
@@ -418,8 +416,8 @@ and is safe to call even if the channel has already been deleted.
 
 Deleting a channel by name will delete **all** channels with that name.
 
-
 ## Aliasing Channels
 
-Channels can be aliased to give them a more descriptive name for a specific test or operation.
-Aliasing is a feature of ranges, and is covered in [Ranges - Working with Channels](/reference/client/working-with-data/ranges#working-with-channels).
+Channels can be aliased to give them a more descriptive name for a specific test or
+operation. Aliasing is a feature of ranges, and is covered in
+[Ranges - Working with Channels](/reference/client/working-with-data/ranges#working-with-channels).

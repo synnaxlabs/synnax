@@ -16,23 +16,22 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 This guide covers the fundamental data structures used in Synnax: Series (typed arrays)
-and Frames (multi-channel containers). These are core types returned by read
-operations and used for write operations.
+and Frames (multi-channel containers). These are core types returned by read operations
+and used for write operations.
 
 <Divider.Divider x />
 
 ## Series
 
-A series is a strongly typed array of data samples. A series can contain any data you want it
-to, but in the context of Synnax, it represents a set of contiguous samples
-from a single channel.
+A series is a strongly typed array of data samples. A series can contain any data you
+want it to, but in the context of Synnax, it represents a set of contiguous samples from
+a single channel.
 
 <Divider.Divider x />
 
 ### Constructing a Series
 
 Here are a few simple ways to construct a series:
-
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -42,28 +41,35 @@ import synnax as sy
 import numpy as np
 
 # Construct a series from a list of samples. In this case, the series
+
 # will automatically be assumed to be of type int64.
+
 series = sy.Series([1, 2, 3, 4, 5])
 
 # Manually specify the data type of the series
+
 series = sy.Series([1, 2, 3, 4, 5], data_type=sy.DataType.INT32)
 
 # Construct a series from a numpy array. The type of the series
+
 # will be inferred from the numpy array.
+
 series = sy.Series(np.array([1, 2, 3, 4, 5], dtype=np.int64))
 
 # Construct a series from a list of strings. In this case,
+
 # the series will automatically be of type string.
+
 series = sy.Series(["apple", "banana", "cherry"])
 
 # Construct a series from dictionaries. In this case, the series
+
 # will automatically be assumed to be of type json.
-series = sy.Series([
-  {"red": "cherry" },
-  {"yellow": "banana" },
-  {"orange": "orange" },
+
+series = sy.Series([ {"red": "cherry" }, {"yellow": "banana" }, {"orange": "orange" },
 ])
-```
+
+````
 
 </Fragment>
 
@@ -93,8 +99,7 @@ const series = new Series([
   { yellow: "banana" },
   { orange: "orange" },
 ]);
-```
-
+````
 
   </Fragment>
 </Client.Tabs>
@@ -111,8 +116,8 @@ not behave as expected.
 
   <Fragment slot="python">
 
-The `Series` class is directly compatible with numpy, and supports all of
-the operations possible on a numpy array without needing to convert back and forth.
+The `Series` class is directly compatible with numpy, and supports all of the operations
+possible on a numpy array without needing to convert back and forth.
 
 ```python
 import matplotlib.pyplot as plt
@@ -155,15 +160,17 @@ console.log(jsArray); // [ 1, 2, 3, 4, 5 ]
 
 // Using Array.from
 const jsArray2 = Array.from(series);
-console.log(jsArray2);  // [ 1, 2, 3, 4, 5 ]
+console.log(jsArray2); // [ 1, 2, 3, 4, 5 ]
 
 // This method will also work for
 // `json` and `string` encoded series
-const series = new Series([{ 
-  a: "one",
-  b: "two",
-  c: "three" 
-}]);
+const series = new Series([
+  {
+    a: "one",
+    b: "two",
+    c: "three",
+  },
+]);
 const jsArray = [...series];
 
 console.log(jsArray); // [ { a: 'one', b: 'two', c: 'three' } ]
@@ -203,7 +210,7 @@ import { Series } from "@synnaxlabs/client";
 
 const series = new Series([1, 2, 3, 4, 5]);
 
-console.log(series.at(0));  // 1
+console.log(series.at(0)); // 1
 console.log(series.at(-1)); // 5
 ```
 
@@ -214,10 +221,10 @@ console.log(series.at(-1)); // 5
 
 ### The Time Range Property
 
-Whenever you read a series from Synnax, it will have a `time_range`/`timeRange` property that
-represents the time range occupied by the samples in the Series. This property can be
-useful for getting a high-level understanding of when the samples were recorded without
-needing to query an index channel.
+Whenever you read a series from Synnax, it will have a `time_range`/`timeRange` property
+that represents the time range occupied by the samples in the Series. This property can
+be useful for getting a high-level understanding of when the samples were recorded
+without needing to query an index channel.
 
 The `start` field represents the timestamp for the first sample, and the `end` field
 represents a timestamp just after the last sample (start-inclusive, end-exclusive).
@@ -237,6 +244,7 @@ series = sy.Series(
     time_range=sy.TimeRange(start=start, end=start + sy.TimeSpan.SECOND * 6),
 )
 ```
+
   </Fragment>
 
   <Fragment slot="typescript">
@@ -311,7 +319,7 @@ The `length` property returns the number of samples in the series:
 import { Series } from "@synnaxlabs/client";
 
 const series = new Series([1, 2, 3, 4, 5]);
-console.log(series.length);  // 5
+console.log(series.length); // 5
 ```
 
 #### Data Type
@@ -322,8 +330,8 @@ The `dataType` property returns the data type of the series:
 import { DataType, Series } from "@synnaxlabs/client";
 
 const series = new Series([1, 2, 3, 4, 5]);
-console.log(series.dataType.toString());            // "float64"
-console.log(series.dataType.equals(DataType.FLOAT64));  // true
+console.log(series.dataType.toString()); // "float64"
+console.log(series.dataType.equals(DataType.FLOAT64)); // true
 ```
 
 #### Max, Min, and Bounds
@@ -334,9 +342,9 @@ The `max`, `min`, and `bounds` properties return the extrema of numeric series:
 import { DataType, Series } from "@synnaxlabs/client";
 
 const series = new Series([1, 2, 3, 4, 5]);
-console.log(series.max);     // 5
-console.log(series.min);     // 1
-console.log(series.bounds);  // { lower: 1, upper: 5 }
+console.log(series.max); // 5
+console.log(series.min); // 1
+console.log(series.bounds); // { lower: 1, upper: 5 }
 ```
 
   </Fragment>
@@ -351,8 +359,8 @@ console.log(series.bounds);  // { lower: 1, upper: 5 }
   <Fragment slot="python">
 
 A frame is a collection of series from multiple channels. Frames are returned by the
-`read` method of the Synnax data client (`client.read`), the `read` method of a 
-`Streamer` instance (`client.open_streamer`), and the `value` property of an `Iterator` 
+`read` method of the Synnax data client (`client.read`), the `read` method of a
+`Streamer` instance (`client.open_streamer`), and the `value` property of an `Iterator`
 instance (`client.open_iterator`).
 
   </Fragment>
@@ -425,15 +433,12 @@ const frame = new Frame({
 const frame = new Frame({
   1: new Series([1, 2, 3, 4, 5]),
   2: new Series([5, 4, 3, 2, 1]),
-  3: new Series([1, 1, 1]),  // Series don't need to be the same length
+  3: new Series([1, 1, 1]), // Series don't need to be the same length
 });
 
 // Construct a frame with multiple series for a single channel
 const frame = new Frame({
-  channel1: [
-    new Series([1, 2, 3, 4, 5]),
-    new Series([6, 7, 8, 9, 10]),
-  ],
+  channel1: [new Series([1, 2, 3, 4, 5]), new Series([6, 7, 8, 9, 10])],
 });
 ```
 
@@ -451,8 +456,8 @@ const frame = new Frame({
 #### The get method
 
 The easiest way to access data from a frame is using bracket notation or the `get`
-method. Both return a `MultiSeries` object, which wraps multiple `Series` instances
-but behaves like a single series:
+method. Both return a `MultiSeries` object, which wraps multiple `Series` instances but
+behaves like a single series:
 
 ```python
 import synnax as sy
@@ -483,8 +488,8 @@ print(py_list)  # [1, 2, 3, 4, 5]
 #### The get method
 
 The easiest way to access data from a frame is to use the `get` method. This method
-returns a `MultiSeries` object, which wraps multiple `Series` instances but behaves
-like a single series:
+returns a `MultiSeries` object, which wraps multiple `Series` instances but behaves like
+a single series:
 
 ```typescript
 import { Frame, MultiSeries, Series } from "@synnaxlabs/client";
@@ -542,8 +547,8 @@ const obj = frame.at(3, true); // Throws an error
 
   <Fragment slot="typescript">
 
-The `at` method returns a `TelemValue` type, which is a union of all possible data
-types a series can contain. This can make type-safe code difficult:
+The `at` method returns a `TelemValue` type, which is a union of all possible data types
+a series can contain. This can make type-safe code difficult:
 
 ```typescript
 import { Series, TelemValue } from "@synnaxlabs/client";
