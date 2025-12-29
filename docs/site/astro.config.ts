@@ -36,4 +36,9 @@ export default defineConfig({
     "/reference/console/clusters": "/reference/console/cores",
   },
   site: "https://docs.synnaxlabs.com",
+  vite: {
+    worker: {
+      format: "es",
+    },
+  },
 });
