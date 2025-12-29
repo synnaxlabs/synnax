@@ -145,7 +145,7 @@ func (s *Service) validateChannels(channels []Channel) ([]Channel, error) {
 	for i, key := range KeysFromChannels(channels) {
 		if s.proxy.mu.externalNonVirtualSet.Contains(key) {
 			channelNumber := s.proxy.mu.externalNonVirtualSet.NumLessThan(key) + 1
-			if err := s.proxy.IntOverflowCheck(types.Uint20(channelNumber)); err != nil {
+			if err := s.cfg.IntOverflowCheck(types.Uint20(channelNumber)); err != nil {
 				return nil, err
 			}
 		}
