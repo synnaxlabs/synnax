@@ -128,11 +128,13 @@ export const use = <K extends record.Key = string>({
   };
 };
 
-export interface ItemRenderProps<K extends record.Key = string>
-  extends List.ItemRenderProps<K> {}
+export interface ItemRenderProps<
+  K extends record.Key = string,
+> extends List.ItemRenderProps<K> {}
 
 export interface TreeProps<K extends record.Key, E extends record.Keyed<K>>
-  extends Omit<
+  extends
+    Omit<
       Select.FrameProps<K, E>,
       "children" | "ref" | "virtualizer" | "data" | "onChange"
     >,

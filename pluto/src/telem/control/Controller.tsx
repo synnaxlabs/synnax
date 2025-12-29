@@ -17,7 +17,8 @@ import { useMemoDeepEqual } from "@/memo";
 import { control } from "@/telem/control/aether";
 
 export interface ControllerProps
-  extends Omit<z.input<typeof control.controllerStateZ>, "needsControlOf">,
+  extends
+    Omit<z.input<typeof control.controllerStateZ>, "needsControlOf">,
     PropsWithChildren {
   onStatusChange?: (status: control.Status) => void;
   name: string;
@@ -25,10 +26,12 @@ export interface ControllerProps
 
 export interface ContextValue {
   needsControlOf: channel.Keys;
+  acquire: () => void;
+  release: () => void;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
-  defaultValue: { needsControlOf: [] },
+  defaultValue: { needsControlOf: [], acquire: () => {}, release: () => {} },
   displayName: "Control.Context",
 });
 export { useContext };
@@ -39,10 +42,11 @@ export const Controller = ({
   ...props
 }: ControllerProps): ReactElement => {
   const memoProps = useMemoDeepEqual(props);
-  const [{ path }, { status, needsControlOf }, setState] = Aether.use({
+  const [{ path }, { status, needsControlOf }, setState, methods] = Aether.use({
     type: control.Controller.TYPE,
     schema: control.controllerStateZ,
     initialState: memoProps,
+    methods: control.controllerMethodsZ,
   });
   useEffect(() => {
     if (status != null) onStatusChange?.(status);
@@ -51,7 +55,10 @@ export const Controller = ({
     setState((state) => ({ ...state, ...memoProps }));
   }, [memoProps, setState]);
   useEffect(() => () => onStatusChange?.("released"), []);
-  const value = useMemo(() => ({ needsControlOf }), [needsControlOf]);
+  const value = useMemo(
+    () => ({ needsControlOf, acquire: methods.acquire, release: methods.release }),
+    [needsControlOf, methods.acquire, methods.release],
+  );
   return (
     <Context value={value}>
       <Aether.Composite path={path}>{children}</Aether.Composite>;

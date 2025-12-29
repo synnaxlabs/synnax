@@ -57,6 +57,7 @@ export const ZERO_INPUT_CHANNELS = {
     channel: 0,
     enabled: true,
     key: id.create(),
+    name: "",
   },
   [DISCRETE_INPUT_TYPE]: {
     type: DISCRETE_INPUT_TYPE,
@@ -64,6 +65,7 @@ export const ZERO_INPUT_CHANNELS = {
     channel: 0,
     enabled: true,
     key: id.create(),
+    name: "",
   },
   [HOLDING_REGISTER_INPUT_TYPE]: {
     type: HOLDING_REGISTER_INPUT_TYPE,
@@ -72,6 +74,7 @@ export const ZERO_INPUT_CHANNELS = {
     enabled: true,
     key: id.create(),
     dataType: DataType.UINT8.toString(),
+    name: "",
   },
   [REGISTER_INPUT_TYPE]: {
     type: REGISTER_INPUT_TYPE,
@@ -80,6 +83,7 @@ export const ZERO_INPUT_CHANNELS = {
     channel: 0,
     enabled: true,
     key: id.create(),
+    name: "",
   },
 } as const satisfies Record<InputChannelType, InputChannel>;
 
@@ -134,8 +138,11 @@ export const readStatusDataZ = z
 export const READ_TYPE = `${PREFIX}_read`;
 export const readTypeZ = z.literal(READ_TYPE);
 
-interface ReadPayload
-  extends task.Payload<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ> {}
+interface ReadPayload extends task.Payload<
+  typeof readTypeZ,
+  typeof readConfigZ,
+  typeof readStatusDataZ
+> {}
 export const ZERO_READ_PAYLOAD = {
   key: "",
   name: "Modbus Read Task",
@@ -160,6 +167,7 @@ export const SCAN_TYPE = `${PREFIX}_scan`;
 const baseOutputZ = Common.Task.channelZ.extend({
   address: z.number(),
   channel: z.number(),
+  name: Common.Task.nameZ,
 });
 
 const coilOutputZ = baseOutputZ.extend({ type: z.literal(COIL_OUTPUT_TYPE) });
@@ -180,6 +188,7 @@ export const ZERO_OUTPUT_CHANNELS = {
     channel: 0,
     enabled: true,
     key: id.create(),
+    name: "",
   },
   [HOLDING_REGISTER_OUTPUT_TYPE]: {
     type: HOLDING_REGISTER_OUTPUT_TYPE,
@@ -188,6 +197,7 @@ export const ZERO_OUTPUT_CHANNELS = {
     enabled: true,
     key: id.create(),
     dataType: DataType.UINT8.toString(),
+    name: "",
   },
 } as const satisfies Record<OutputChannelType, OutputChannel>;
 
@@ -212,12 +222,11 @@ export const writeStatusDataZ = z
 export const WRITE_TYPE = `${PREFIX}_write`;
 export const writeTypeZ = z.literal(WRITE_TYPE);
 
-interface WritePayload
-  extends task.Payload<
-    typeof writeTypeZ,
-    typeof writeConfigZ,
-    typeof writeStatusDataZ
-  > {}
+interface WritePayload extends task.Payload<
+  typeof writeTypeZ,
+  typeof writeConfigZ,
+  typeof writeStatusDataZ
+> {}
 
 export const ZERO_WRITE_PAYLOAD = {
   key: "",
