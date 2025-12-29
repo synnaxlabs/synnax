@@ -160,7 +160,7 @@ export const createToggle = <P extends object = record.Unknown>(
     position: _,
     ...rest
   }: SymbolProps<ToggleProps<P>>): ReactElement => {
-    const { enabled, triggered, toggle } = Toggle.use({
+    const { enabled, toggle } = Toggle.use({
       aetherKey: symbolKey,
       source,
       sink,
@@ -196,7 +196,6 @@ export const createToggle = <P extends object = record.Unknown>(
         {/* @ts-expect-error - typescript with HOCs */}
         <BaseSymbol
           enabled={enabled}
-          triggered={triggered}
           onClick={toggle}
           orientation={orientation}
           {...rest}
@@ -663,7 +662,8 @@ export const BoxPreview = (props: BoxProps): ReactElement => (
 );
 
 export interface InputProps
-  extends Omit<Primitives.InputProps, "value" | "onChange">,
+  extends
+    Omit<Primitives.InputProps, "value" | "onChange">,
     Omit<CoreInput.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
   control?: ControlStateProps;
@@ -724,7 +724,8 @@ export const InputPreview = ({ color, className }: InputProps): ReactElement => 
 );
 
 export interface SetpointProps
-  extends Omit<Primitives.SetpointProps, "value" | "onChange">,
+  extends
+    Omit<Primitives.SetpointProps, "value" | "onChange">,
     Omit<CoreSetpoint.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
   control?: ControlStateProps;
@@ -793,8 +794,7 @@ export const SetpointPreview = ({
 );
 
 export interface ValueProps
-  extends Omit<CoreValue.UseProps, "box" | "aetherKey">,
-    Primitives.ValueProps {
+  extends Omit<CoreValue.UseProps, "box" | "aetherKey">, Primitives.ValueProps {
   position?: xy.XY;
   label?: LabelExtensionProps;
   color?: color.Crude;
@@ -1031,7 +1031,8 @@ export const GaugePreview = ({ color: c }: GaugeProps): ReactElement => {
 };
 
 export interface ButtonProps
-  extends Omit<Primitives.ButtonProps, "label" | "onClick">,
+  extends
+    Omit<Primitives.ButtonProps, "label" | "onClick">,
     Omit<CoreButton.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
   control?: ControlStateProps;
@@ -1089,8 +1090,7 @@ export const ButtonPreview = ({ label: _, ...rest }: ButtonProps): ReactElement 
 );
 
 export interface LightProps
-  extends Primitives.LightProps,
-    Omit<CoreLight.UseProps, "aetherKey"> {
+  extends Primitives.LightProps, Omit<CoreLight.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
 }
 
@@ -1122,8 +1122,10 @@ export const Light = ({
   );
 };
 
-export interface OffPageReferenceProps
-  extends Omit<Primitives.OffPageReferenceProps, "label"> {
+export interface OffPageReferenceProps extends Omit<
+  Primitives.OffPageReferenceProps,
+  "label"
+> {
   label: LabelExtensionProps;
 }
 

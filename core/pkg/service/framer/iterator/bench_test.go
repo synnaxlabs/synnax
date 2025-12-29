@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -32,7 +32,7 @@ type benchIterEnv struct {
 	builder     *mock.Cluster
 	dist        mock.Node
 	iteratorSvc *iterator.Service
-	arcSvc      *svcarc.Service
+	arcSvc      *arc.Service
 }
 
 func newBenchIterEnv(b *testing.B) *benchIterEnv {
@@ -41,7 +41,7 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	builder := mock.NewCluster()
 	dist := builder.Provision(ctx)
 
-	labelSvc, err := label.OpenService(ctx, label.Config{
+	labelSvc, err := label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
@@ -62,7 +62,7 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 		b.Fatalf("failed to open status service: %v", err)
 	}
 
-	arcSvc, err := svcarc.OpenService(ctx, svcarc.ServiceConfig{
+	arcSvc, err := arc.OpenService(ctx, arc.ServiceConfig{
 		DB:       dist.DB,
 		Channel:  dist.Channel,
 		Framer:   dist.Framer,
@@ -189,7 +189,7 @@ func BenchmarkIteratorCalc_SingleResponse(b *testing.B) {
 	env.writeData(b, indexCh, dataChannels, 100)
 	calc := env.createCalculation(b, "single_calc", "return single_sensor_0 * 2")
 
-	iter, err := env.iteratorSvc.Open(env.ctx, framer.IteratorConfig{
+	iter, err := env.iteratorSvc.Open(env.ctx, iterator.Config{
 		Keys:   []channel.Key{calc.Key(), calc.Index()},
 		Bounds: telem.TimeRangeMax,
 	})
@@ -228,7 +228,7 @@ func BenchmarkIteratorCalc_ManyChannels(b *testing.B) {
 			env.writeData(b, indexCh, dataChannels, 100)
 			calc := env.createCalculation(b, prefix+"_calc", fmt.Sprintf("return %s_sensor_0", prefix))
 
-			iter, err := env.iteratorSvc.Open(env.ctx, framer.IteratorConfig{
+			iter, err := env.iteratorSvc.Open(env.ctx, iterator.Config{
 				Keys:   []channel.Key{calc.Key(), calc.Index()},
 				Bounds: telem.TimeRangeMax,
 			})
@@ -269,7 +269,7 @@ func BenchmarkIteratorCalc_LargeFrames(b *testing.B) {
 			env.writeData(b, indexCh, dataChannels, size)
 			calc := env.createCalculation(b, prefix+"_calc", fmt.Sprintf("return %s_sensor_0 * 2", prefix))
 
-			iter, err := env.iteratorSvc.Open(env.ctx, framer.IteratorConfig{
+			iter, err := env.iteratorSvc.Open(env.ctx, iterator.Config{
 				Keys:   []channel.Key{calc.Key(), calc.Index()},
 				Bounds: telem.TimeRangeMax,
 			})
@@ -317,7 +317,7 @@ func BenchmarkIteratorCalc_CalculatorChain(b *testing.B) {
 				prevName = name
 			}
 
-			iter, err := env.iteratorSvc.Open(env.ctx, framer.IteratorConfig{
+			iter, err := env.iteratorSvc.Open(env.ctx, iterator.Config{
 				Keys:   []channel.Key{finalCalc.Key(), finalCalc.Index()},
 				Bounds: telem.TimeRangeMax,
 			})
@@ -401,7 +401,7 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 			}
 
 			calc := env.createCalculation(b, prefix+"_calc", "return "+prefix+"_sensor * 2")
-			iter, err := env.iteratorSvc.Open(env.ctx, framer.IteratorConfig{
+			iter, err := env.iteratorSvc.Open(env.ctx, iterator.Config{
 				Keys:   []channel.Key{calc.Key(), calc.Index()},
 				Bounds: telem.TimeRangeMax,
 			})
@@ -439,7 +439,7 @@ func BenchmarkIteratorCalc_TwoInputAdd(b *testing.B) {
 	env.writeData(b, indexCh, dataChannels, 100)
 	calc := env.createCalculation(b, "twoinput_calc", "return twoinput_sensor_0 + twoinput_sensor_1")
 
-	iter, err := env.iteratorSvc.Open(env.ctx, framer.IteratorConfig{
+	iter, err := env.iteratorSvc.Open(env.ctx, iterator.Config{
 		Keys:   []channel.Key{calc.Key(), calc.Index()},
 		Bounds: telem.TimeRangeMax,
 	})
@@ -481,7 +481,7 @@ func BenchmarkIteratorCalc_MixedConcreteAndCalc(b *testing.B) {
 		calc.Key(),
 		calc.Index(),
 	}
-	iter, err := env.iteratorSvc.Open(env.ctx, framer.IteratorConfig{
+	iter, err := env.iteratorSvc.Open(env.ctx, iterator.Config{
 		Keys:   requestKeys,
 		Bounds: telem.TimeRangeMax,
 	})

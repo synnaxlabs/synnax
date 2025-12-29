@@ -207,8 +207,5 @@ func compilePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) (type
 	if cast := ctx.AST.TypeCast(); cast != nil {
 		return compileTypeCast(context.Child(ctx, cast))
 	}
-	if builtin := ctx.AST.BuiltinFunction(); builtin != nil {
-		return types.Type{}, errors.New("builtin functions not yet implemented")
-	}
 	return types.Type{}, errors.New("unknown primary expression")
 }

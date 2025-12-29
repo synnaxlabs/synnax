@@ -14,8 +14,8 @@ set -e
 echo "=== Starting Arc compilation pipeline ==="
 
 rm -f arc
-rm -f ./cmd/arc-language.vsix
-touch ./cmd/arc-language.vsix
+rm -f ./cmd/arc/cmd/arc-language.vsix
+touch ./cmd/arc/cmd/arc-language.vsix
 rm -f ./lsp/extensions/vscode/bin/arc
 
 # Step 1: Compile arc
@@ -31,12 +31,13 @@ cp arc lsp/extensions/vscode/bin/arc
 echo "Step 3: Building VSCode extension..."
 cd lsp/extensions/vscode
 npm install
-npx vsce package
+npm run vscode:prepublish
+npx vsce package --no-dependencies
 cd ../../..
 
 # Step 4: Copy VSIX to cmd directory for Go embedding
 echo "Step 4: Copying VSIX for Go embedding..."
-cp lsp/extensions/vscode/synnax-arc-*.vsix cmd/arc-language.vsix
+cp lsp/extensions/vscode/synnax-arc-*.vsix cmd/arc/cmd/arc-language.vsix
 
 # Step 5: Rebuild arc again (final build with embedded VSIX)
 echo "Step 5: Final Arc build with embedded VSIX..."

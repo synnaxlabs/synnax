@@ -12,6 +12,7 @@ on:
       - .github/workflows/build.synnax.yaml
       - alamos/go/**
       - alamos/ts/**
+      - arc/cpp/**
       - aspen/**
       - cesium/**
       - client/cpp/**
@@ -51,6 +52,7 @@ on:
       - .github/workflows/build.synnax.yaml
       - alamos/go/**
       - alamos/ts/**
+      - arc/cpp/**
       - aspen/**
       - cesium/**
       - client/cpp/**
@@ -178,7 +180,6 @@ jobs:
       windows: true
       macos: true
       ubuntu: true
-      ubuntu_22_04: true
       docker: true
       driver: true
       console: true

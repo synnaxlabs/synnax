@@ -1,0 +1,6 @@
+cc_library(
+    name = "time",
+    hdrs = ["time.h"],
+    visibility = ["//visibility:public"],
+    deps = ["//x/cpp/telem"],
+)

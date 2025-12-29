@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // Reader is a readable key-value store.
@@ -89,6 +90,7 @@ type DB interface {
 	Observable
 	alamos.ReportProvider
 	io.Closer
+	Size() telem.Size
 }
 
 // Change represents a change to a key-value pair. The contents of Name and Value

@@ -169,10 +169,10 @@ func (c Config) toStorage() ts.WriterConfig {
 func (c Config) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	validate.NotEmptySlice(v, "keys", c.Keys)
-	validate.NotEmptyString(v, "ControlSubject.Task", c.ControlSubject.Key)
-	validate.NotNil(v, "EnableAutoCommit", c.EnableAutoCommit)
-	validate.NotNil(v, "Sync", c.Sync)
-	validate.NotNil(v, "ErrOnUnauthorized", c.ErrOnUnauthorized)
+	validate.NotEmptyString(v, "control_subject.key", c.ControlSubject.Key)
+	validate.NotNil(v, "enable_auto_commit", c.EnableAutoCommit)
+	validate.NotNil(v, "sync", c.Sync)
+	validate.NotNil(v, "err_on_unauthorized", c.ErrOnUnauthorized)
 	v.Ternaryf(
 		"authorities",
 		len(c.Authorities) != 1 && len(c.Authorities) != len(c.Keys),
@@ -250,7 +250,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Service is the central service for the writer package, allowing the caller to open
 // Writers and StreamWriters for writing data to the cluster.
 type Service struct {
-	ServiceConfig
+	cfg                 ServiceConfig
 	server              *server
 	freeWriteAlignments *freeWriteAlignments
 }
@@ -263,8 +263,8 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		ServiceConfig: cfg,
-		server:        startServer(cfg),
+		cfg:    cfg,
+		server: startServer(cfg),
 		freeWriteAlignments: &freeWriteAlignments{
 			alignments: make(map[channel.Key]*atomic.Uint32),
 		},
@@ -285,7 +285,7 @@ const (
 // control the lifetime of goroutines spawned by the writer. If the given context is
 // cancelled, the writer will immediately abort all pending writes and return an error.
 func (s *Service) Open(ctx context.Context, cfgs ...Config) (*Writer, error) {
-	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation))
+	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(s.cfg.Instrumentation))
 	cfg, err := config.New(DefaultConfig(), cfgs...)
 	if err != nil {
 		return nil, err
@@ -327,7 +327,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	}
 
 	var (
-		hostKey           = s.HostResolver.HostKey()
+		hostKey           = s.cfg.HostResolver.HostKey()
 		batch             = proxy.BatchFactory[keyAuthority]{Host: hostKey}.Batch(cfg.keyAuthorities())
 		pipe              = plumber.New()
 		hasPeer           = len(batch.Peers) > 0
@@ -343,7 +343,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	plumber.SetSegment(
 		pipe,
 		synchronizerAddr,
-		newSynchronizer(len(cfg.Keys.UniqueLeaseholders()), s.Instrumentation),
+		newSynchronizer(len(cfg.Keys.UniqueLeaseholders()), s.cfg.Instrumentation),
 	)
 
 	switchTargets := make([]address.Address, 0, 3)
@@ -420,7 +420,7 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) ([
 		return nil, v.Error()
 	}
 	var channels []channel.Channel
-	if err := s.Channel.
+	if err := s.cfg.Channel.
 		NewRetrieve().
 		Entries(&channels).
 		WhereKeys(keys...).

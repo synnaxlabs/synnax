@@ -24,9 +24,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Config is the configuration for the label service. Config is provided to the
-// OpenService method.
-type Config struct {
+// ServiceConfig is the configuration for the label service. ServiceConfig is provided
+// to the OpenService method.
+type ServiceConfig struct {
 	// DB specifies the database that the label service will use to store and retrieve
 	// labels.
 	// [REQUIRED]
@@ -44,15 +44,15 @@ type Config struct {
 }
 
 var (
-	_ config.Config[Config] = Config{}
+	_ config.Config[ServiceConfig] = ServiceConfig{}
 	// DefaultConfig is the default for the label service. This configuration is not
 	// valid, and must be overridden with a valid configuration before the service can
 	// be opened.
-	DefaultConfig = Config{}
+	DefaultConfig = ServiceConfig{}
 )
 
 // Validate implements config.Config.
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("label")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
@@ -61,7 +61,7 @@ func (c Config) Validate() error {
 }
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
@@ -72,15 +72,15 @@ func (c Config) Override(other Config) Config {
 // Service is the main entry point for managing labels within Synnax. It provides
 // mechanisms for creating, deleting, retrieving, and listening to changes on labels.
 type Service struct {
-	Config
-	signals      io.Closer
+	cfg     ServiceConfig
+	signals io.Closer
 	entryManager *gorp.EntryManager[uuid.UUID, Label]
 }
 
 // OpenService opens a new label service using the provided configuration. If error
 // is nil, the service is ready for use and must be closed by calling Close in order
 // to prevent resource leaks.
-func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
@@ -89,7 +89,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{Config: cfg, entryManager: entryManager}
+	s := &Service{cfg: cfg, entryManager: entryManager}
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
 		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Label](cfg.DB))
@@ -112,9 +112,9 @@ func (s *Service) Close() error {
 // NewRetrieve opens a new Retrieve query to fetch labels.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		baseTx: s.DB,
+		baseTx: s.cfg.DB,
 		gorp:   gorp.NewRetrieve[uuid.UUID, Label](),
-		otg:    s.Ontology,
+		otg:    s.cfg.Ontology,
 	}
 }
 
@@ -122,5 +122,5 @@ func (s *Service) NewRetrieve() Retrieve {
 // the writer will use it, otherwise it will execute operations directly against the
 // underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{tx: tx, otg: s.Ontology.NewWriter(tx)}
+	return Writer{tx: tx, otg: s.cfg.Ontology.NewWriter(tx)}
 }

@@ -118,8 +118,10 @@ export class StreamChannelValue
   }
 }
 
-interface SelectedChannelProperties
-  extends Pick<channel.Payload, "key" | "dataType" | "virtual"> {
+interface SelectedChannelProperties extends Pick<
+  channel.Payload,
+  "key" | "dataType" | "virtual"
+> {
   isCalculated: boolean;
 }
 

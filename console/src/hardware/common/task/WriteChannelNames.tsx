@@ -13,32 +13,40 @@ import { CSS } from "@/css";
 import { ChannelName, type ChannelNameProps } from "@/hardware/common/task/ChannelName";
 import { getChannelNameID } from "@/hardware/common/task/getChannelNameID";
 
-export interface WriteChannelNamesProps
-  extends Omit<ChannelNameProps, "channel" | "defaultName" | "id"> {
+export interface WriteChannelNamesProps extends Omit<
+  ChannelNameProps,
+  "channel" | "defaultName" | "id" | "namePath"
+> {
   cmdChannel: channel.Key;
+  cmdNamePath: string;
   stateChannel: channel.Key;
+  stateNamePath: string;
   itemKey: string;
 }
 
 export const WriteChannelNames = ({
   cmdChannel,
+  cmdNamePath,
+  stateNamePath,
   stateChannel,
   itemKey,
   ...rest
 }: WriteChannelNamesProps) => (
   <>
     <ChannelName
-      channel={cmdChannel}
-      defaultName="No Command Channel"
-      id={getChannelNameID(itemKey, "cmd")}
       {...rest}
+      channel={cmdChannel}
+      id={getChannelNameID(itemKey, "cmd")}
+      defaultName="No Command Channel"
+      namePath={cmdNamePath}
     />
     <ChannelName
+      {...rest}
       channel={stateChannel}
       className={CSS.B("state-channel")}
       defaultName="No State Channel"
+      namePath={stateNamePath}
       id={getChannelNameID(itemKey, "state")}
-      {...rest}
     />
   </>
 );

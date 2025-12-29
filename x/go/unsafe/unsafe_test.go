@@ -25,16 +25,6 @@ var _ = Describe("Unsafe", func() {
 			Expect(out).To(Equal([]myCustomUint32{1, 2, 3}))
 		})
 	})
-	Describe("ReinterpretMap", func() {
-		type myCustomUint32 uint32
-		type myCustomUint64 uint64
-		It("should convert a map of one type to a map of another type", func() {
-			in := map[uint32]uint64{1: 1, 2: 2, 3: 3}
-			out := unsafe.ReinterpretMap[uint32, uint64, myCustomUint32, myCustomUint64](in)
-			Expect(out).To(Equal(map[myCustomUint32]myCustomUint64{1: 1, 2: 2, 3: 3}))
-		})
-	})
-
 	Describe("CastSlice", func() {
 		Context("Larger to Smaller Types", func() {
 			It("should convert float64 (8 bytes) to uint8 (1 byte)", func() {
@@ -216,7 +206,7 @@ var _ = Describe("Unsafe", func() {
 
 		It("should cast float64 to 8 bytes", func() {
 			// 1.0 in IEEE 754 double precision is 0x3FF0000000000000
-			b := unsafe.CastToBytes[float64](1.0)
+			b := unsafe.CastToBytes(1.0)
 			Expect(len(b)).To(Equal(8))
 			Expect(b).To(Equal([]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xF0, 0x3F}))
 		})

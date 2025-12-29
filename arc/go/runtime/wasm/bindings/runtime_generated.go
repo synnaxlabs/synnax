@@ -14,7 +14,6 @@ package bindings
 import (
 	"context"
 	"math"
-	"sync"
 
 	"github.com/synnaxlabs/arc/runtime/state"
 	xmath "github.com/synnaxlabs/x/math"
@@ -45,8 +44,6 @@ type Runtime struct {
 	stateF32    map[uint64]float32
 	stateF64    map[uint64]float64
 	stateString map[uint64]string
-
-	mu sync.RWMutex
 }
 
 func NewRuntime(state *state.State, memory api.Memory) *Runtime {
@@ -71,8 +68,6 @@ func NewRuntime(state *state.State, memory api.Memory) *Runtime {
 
 // SetMemory updates the WASM memory reference (used after module instantiation).
 func (r *Runtime) SetMemory(memory api.Memory) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
 	r.memory = memory
 }
 
@@ -85,9 +80,6 @@ func stateKey(funcID uint32, varID uint32) uint64 {
 
 // ChannelReadU8 reads the latest value from a channel.
 func (r *Runtime) ChannelReadU8(ctx context.Context, channelID uint32) uint8 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return uint8(0) // Default value
@@ -99,9 +91,6 @@ func (r *Runtime) ChannelReadU8(ctx context.Context, channelID uint32) uint8 {
 
 // ChannelWriteU8 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteU8(ctx context.Context, channelID uint32, value uint8) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Create a single-value series
 	series := telem.NewSeriesV[uint8](value)
 
@@ -111,9 +100,6 @@ func (r *Runtime) ChannelWriteU8(ctx context.Context, channelID uint32, value ui
 
 // ChannelReadU16 reads the latest value from a channel.
 func (r *Runtime) ChannelReadU16(ctx context.Context, channelID uint32) uint16 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return uint16(0) // Default value
@@ -125,9 +111,6 @@ func (r *Runtime) ChannelReadU16(ctx context.Context, channelID uint32) uint16 {
 
 // ChannelWriteU16 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteU16(ctx context.Context, channelID uint32, value uint16) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Create a single-value series
 	series := telem.NewSeriesV[uint16](value)
 
@@ -137,9 +120,6 @@ func (r *Runtime) ChannelWriteU16(ctx context.Context, channelID uint32, value u
 
 // ChannelReadU32 reads the latest value from a channel.
 func (r *Runtime) ChannelReadU32(ctx context.Context, channelID uint32) uint32 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return uint32(0) // Default value
@@ -151,9 +131,6 @@ func (r *Runtime) ChannelReadU32(ctx context.Context, channelID uint32) uint32 {
 
 // ChannelWriteU32 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteU32(ctx context.Context, channelID uint32, value uint32) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Create a single-value series
 	series := telem.NewSeriesV[uint32](value)
 
@@ -163,9 +140,6 @@ func (r *Runtime) ChannelWriteU32(ctx context.Context, channelID uint32, value u
 
 // ChannelReadU64 reads the latest value from a channel.
 func (r *Runtime) ChannelReadU64(ctx context.Context, channelID uint32) uint64 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return uint64(0) // Default value
@@ -177,9 +151,6 @@ func (r *Runtime) ChannelReadU64(ctx context.Context, channelID uint32) uint64 {
 
 // ChannelWriteU64 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteU64(ctx context.Context, channelID uint32, value uint64) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Create a single-value series
 	series := telem.NewSeriesV[uint64](value)
 
@@ -189,9 +160,6 @@ func (r *Runtime) ChannelWriteU64(ctx context.Context, channelID uint32, value u
 
 // ChannelReadI8 reads the latest value from a channel.
 func (r *Runtime) ChannelReadI8(ctx context.Context, channelID uint32) int8 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return int8(0) // Default value
@@ -203,9 +171,6 @@ func (r *Runtime) ChannelReadI8(ctx context.Context, channelID uint32) int8 {
 
 // ChannelWriteI8 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteI8(ctx context.Context, channelID uint32, value int8) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Create a single-value series
 	series := telem.NewSeriesV[int8](value)
 
@@ -215,9 +180,6 @@ func (r *Runtime) ChannelWriteI8(ctx context.Context, channelID uint32, value in
 
 // ChannelReadI16 reads the latest value from a channel.
 func (r *Runtime) ChannelReadI16(ctx context.Context, channelID uint32) int16 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return int16(0) // Default value
@@ -229,9 +191,6 @@ func (r *Runtime) ChannelReadI16(ctx context.Context, channelID uint32) int16 {
 
 // ChannelWriteI16 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteI16(ctx context.Context, channelID uint32, value int16) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Create a single-value series
 	series := telem.NewSeriesV[int16](value)
 
@@ -241,9 +200,6 @@ func (r *Runtime) ChannelWriteI16(ctx context.Context, channelID uint32, value i
 
 // ChannelReadI32 reads the latest value from a channel.
 func (r *Runtime) ChannelReadI32(ctx context.Context, channelID uint32) int32 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return int32(0) // Default value
@@ -255,9 +211,6 @@ func (r *Runtime) ChannelReadI32(ctx context.Context, channelID uint32) int32 {
 
 // ChannelWriteI32 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteI32(ctx context.Context, channelID uint32, value int32) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Create a single-value series
 	series := telem.NewSeriesV[int32](value)
 
@@ -267,9 +220,6 @@ func (r *Runtime) ChannelWriteI32(ctx context.Context, channelID uint32, value i
 
 // ChannelReadI64 reads the latest value from a channel.
 func (r *Runtime) ChannelReadI64(ctx context.Context, channelID uint32) int64 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return int64(0) // Default value
@@ -281,9 +231,6 @@ func (r *Runtime) ChannelReadI64(ctx context.Context, channelID uint32) int64 {
 
 // ChannelWriteI64 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteI64(ctx context.Context, channelID uint32, value int64) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Create a single-value series
 	series := telem.NewSeriesV[int64](value)
 
@@ -293,9 +240,6 @@ func (r *Runtime) ChannelWriteI64(ctx context.Context, channelID uint32, value i
 
 // ChannelReadF32 reads the latest value from a channel.
 func (r *Runtime) ChannelReadF32(ctx context.Context, channelID uint32) float32 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return float32(0) // Default value
@@ -307,9 +251,6 @@ func (r *Runtime) ChannelReadF32(ctx context.Context, channelID uint32) float32 
 
 // ChannelWriteF32 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteF32(ctx context.Context, channelID uint32, value float32) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Create a single-value series
 	series := telem.NewSeriesV[float32](value)
 
@@ -319,9 +260,6 @@ func (r *Runtime) ChannelWriteF32(ctx context.Context, channelID uint32, value f
 
 // ChannelReadF64 reads the latest value from a channel.
 func (r *Runtime) ChannelReadF64(ctx context.Context, channelID uint32) float64 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return float64(0) // Default value
@@ -333,9 +271,6 @@ func (r *Runtime) ChannelReadF64(ctx context.Context, channelID uint32) float64 
 
 // ChannelWriteF64 writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWriteF64(ctx context.Context, channelID uint32, value float64) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Create a single-value series
 	series := telem.NewSeriesV[float64](value)
 
@@ -347,9 +282,6 @@ func (r *Runtime) ChannelWriteF64(ctx context.Context, channelID uint32, value f
 
 // StateLoadU8 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadU8(ctx context.Context, funcID uint32, varID uint32, initValue uint8) uint8 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	if value, ok := r.stateU8[key]; ok {
 		return value
@@ -361,18 +293,12 @@ func (r *Runtime) StateLoadU8(ctx context.Context, funcID uint32, varID uint32, 
 
 // StateStoreU8 stores a stateful variable's value.
 func (r *Runtime) StateStoreU8(ctx context.Context, funcID uint32, varID uint32, value uint8) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	r.stateU8[key] = value
 }
 
 // StateLoadU16 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadU16(ctx context.Context, funcID uint32, varID uint32, initValue uint16) uint16 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	if value, ok := r.stateU16[key]; ok {
 		return value
@@ -384,18 +310,12 @@ func (r *Runtime) StateLoadU16(ctx context.Context, funcID uint32, varID uint32,
 
 // StateStoreU16 stores a stateful variable's value.
 func (r *Runtime) StateStoreU16(ctx context.Context, funcID uint32, varID uint32, value uint16) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	r.stateU16[key] = value
 }
 
 // StateLoadU32 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadU32(ctx context.Context, funcID uint32, varID uint32, initValue uint32) uint32 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	if value, ok := r.stateU32[key]; ok {
 		return value
@@ -407,18 +327,12 @@ func (r *Runtime) StateLoadU32(ctx context.Context, funcID uint32, varID uint32,
 
 // StateStoreU32 stores a stateful variable's value.
 func (r *Runtime) StateStoreU32(ctx context.Context, funcID uint32, varID uint32, value uint32) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	r.stateU32[key] = value
 }
 
 // StateLoadU64 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadU64(ctx context.Context, funcID uint32, varID uint32, initValue uint64) uint64 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	if value, ok := r.stateU64[key]; ok {
 		return value
@@ -430,18 +344,12 @@ func (r *Runtime) StateLoadU64(ctx context.Context, funcID uint32, varID uint32,
 
 // StateStoreU64 stores a stateful variable's value.
 func (r *Runtime) StateStoreU64(ctx context.Context, funcID uint32, varID uint32, value uint64) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	r.stateU64[key] = value
 }
 
 // StateLoadI8 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadI8(ctx context.Context, funcID uint32, varID uint32, initValue int8) int8 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	if value, ok := r.stateI8[key]; ok {
 		return value
@@ -453,18 +361,12 @@ func (r *Runtime) StateLoadI8(ctx context.Context, funcID uint32, varID uint32, 
 
 // StateStoreI8 stores a stateful variable's value.
 func (r *Runtime) StateStoreI8(ctx context.Context, funcID uint32, varID uint32, value int8) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	r.stateI8[key] = value
 }
 
 // StateLoadI16 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadI16(ctx context.Context, funcID uint32, varID uint32, initValue int16) int16 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	if value, ok := r.stateI16[key]; ok {
 		return value
@@ -476,18 +378,12 @@ func (r *Runtime) StateLoadI16(ctx context.Context, funcID uint32, varID uint32,
 
 // StateStoreI16 stores a stateful variable's value.
 func (r *Runtime) StateStoreI16(ctx context.Context, funcID uint32, varID uint32, value int16) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	r.stateI16[key] = value
 }
 
 // StateLoadI32 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadI32(ctx context.Context, funcID uint32, varID uint32, initValue int32) int32 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	if value, ok := r.stateI32[key]; ok {
 		return value
@@ -499,18 +395,12 @@ func (r *Runtime) StateLoadI32(ctx context.Context, funcID uint32, varID uint32,
 
 // StateStoreI32 stores a stateful variable's value.
 func (r *Runtime) StateStoreI32(ctx context.Context, funcID uint32, varID uint32, value int32) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	r.stateI32[key] = value
 }
 
 // StateLoadI64 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadI64(ctx context.Context, funcID uint32, varID uint32, initValue int64) int64 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	if value, ok := r.stateI64[key]; ok {
 		return value
@@ -522,18 +412,12 @@ func (r *Runtime) StateLoadI64(ctx context.Context, funcID uint32, varID uint32,
 
 // StateStoreI64 stores a stateful variable's value.
 func (r *Runtime) StateStoreI64(ctx context.Context, funcID uint32, varID uint32, value int64) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	r.stateI64[key] = value
 }
 
 // StateLoadF32 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadF32(ctx context.Context, funcID uint32, varID uint32, initValue float32) float32 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	if value, ok := r.stateF32[key]; ok {
 		return value
@@ -545,18 +429,12 @@ func (r *Runtime) StateLoadF32(ctx context.Context, funcID uint32, varID uint32,
 
 // StateStoreF32 stores a stateful variable's value.
 func (r *Runtime) StateStoreF32(ctx context.Context, funcID uint32, varID uint32, value float32) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	r.stateF32[key] = value
 }
 
 // StateLoadF64 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadF64(ctx context.Context, funcID uint32, varID uint32, initValue float64) float64 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	if value, ok := r.stateF64[key]; ok {
 		return value
@@ -568,9 +446,6 @@ func (r *Runtime) StateLoadF64(ctx context.Context, funcID uint32, varID uint32,
 
 // StateStoreF64 stores a stateful variable's value.
 func (r *Runtime) StateStoreF64(ctx context.Context, funcID uint32, varID uint32, value float64) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	r.stateF64[key] = value
 }
@@ -604,43 +479,43 @@ func (r *Runtime) MathPowF64(ctx context.Context, base float64, exponent float64
 	return math.Pow(base, exponent)
 }
 
-// MathIntPowU8 computes base^exponent for u8 using integer exponentiation.
-func (r *Runtime) MathIntPowU8(ctx context.Context, base uint8, exponent uint8) uint8 {
+// MathPowU8 computes base^exponent for u8 using integer exponentiation.
+func (r *Runtime) MathPowU8(ctx context.Context, base uint8, exponent uint8) uint8 {
 	return xmath.IntPow(base, int(exponent))
 }
 
-// MathIntPowU16 computes base^exponent for u16 using integer exponentiation.
-func (r *Runtime) MathIntPowU16(ctx context.Context, base uint16, exponent uint16) uint16 {
+// MathPowU16 computes base^exponent for u16 using integer exponentiation.
+func (r *Runtime) MathPowU16(ctx context.Context, base uint16, exponent uint16) uint16 {
 	return xmath.IntPow(base, int(exponent))
 }
 
-// MathIntPowU32 computes base^exponent for u32 using integer exponentiation.
-func (r *Runtime) MathIntPowU32(ctx context.Context, base uint32, exponent uint32) uint32 {
+// MathPowU32 computes base^exponent for u32 using integer exponentiation.
+func (r *Runtime) MathPowU32(ctx context.Context, base uint32, exponent uint32) uint32 {
 	return xmath.IntPow(base, int(exponent))
 }
 
-// MathIntPowU64 computes base^exponent for u64 using integer exponentiation.
-func (r *Runtime) MathIntPowU64(ctx context.Context, base uint64, exponent uint64) uint64 {
+// MathPowU64 computes base^exponent for u64 using integer exponentiation.
+func (r *Runtime) MathPowU64(ctx context.Context, base uint64, exponent uint64) uint64 {
 	return xmath.IntPow(base, int(exponent))
 }
 
-// MathIntPowI8 computes base^exponent for i8 using integer exponentiation.
-func (r *Runtime) MathIntPowI8(ctx context.Context, base int8, exponent int8) int8 {
+// MathPowI8 computes base^exponent for i8 using integer exponentiation.
+func (r *Runtime) MathPowI8(ctx context.Context, base int8, exponent int8) int8 {
 	return xmath.IntPow(base, int(exponent))
 }
 
-// MathIntPowI16 computes base^exponent for i16 using integer exponentiation.
-func (r *Runtime) MathIntPowI16(ctx context.Context, base int16, exponent int16) int16 {
+// MathPowI16 computes base^exponent for i16 using integer exponentiation.
+func (r *Runtime) MathPowI16(ctx context.Context, base int16, exponent int16) int16 {
 	return xmath.IntPow(base, int(exponent))
 }
 
-// MathIntPowI32 computes base^exponent for i32 using integer exponentiation.
-func (r *Runtime) MathIntPowI32(ctx context.Context, base int32, exponent int32) int32 {
+// MathPowI32 computes base^exponent for i32 using integer exponentiation.
+func (r *Runtime) MathPowI32(ctx context.Context, base int32, exponent int32) int32 {
 	return xmath.IntPow(base, int(exponent))
 }
 
-// MathIntPowI64 computes base^exponent for i64 using integer exponentiation.
-func (r *Runtime) MathIntPowI64(ctx context.Context, base int64, exponent int64) int64 {
+// MathPowI64 computes base^exponent for i64 using integer exponentiation.
+func (r *Runtime) MathPowI64(ctx context.Context, base int64, exponent int64) int64 {
 	return xmath.IntPow(base, int(exponent))
 }
 
@@ -648,9 +523,6 @@ func (r *Runtime) MathIntPowI64(ctx context.Context, base int64, exponent int64)
 
 // StringFromLiteral creates a string from WASM memory and returns a handle.
 func (r *Runtime) StringFromLiteral(ctx context.Context, ptr uint32, length uint32) uint32 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Read string data from WASM memory
 	data, ok := r.memory.Read(ptr, length)
 	if !ok {
@@ -669,9 +541,6 @@ func (r *Runtime) StringFromLiteral(ctx context.Context, ptr uint32, length uint
 
 // StringLen returns the length of a string.
 func (r *Runtime) StringLen(ctx context.Context, handle uint32) uint32 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	if str, ok := r.strings[handle]; ok {
 		return uint32(len(str))
 	}
@@ -680,9 +549,6 @@ func (r *Runtime) StringLen(ctx context.Context, handle uint32) uint32 {
 
 // StringEqual compares two strings for equality.
 func (r *Runtime) StringEqual(ctx context.Context, handle1 uint32, handle2 uint32) uint32 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	str1, ok1 := r.strings[handle1]
 	str2, ok2 := r.strings[handle2]
 
@@ -694,9 +560,6 @@ func (r *Runtime) StringEqual(ctx context.Context, handle1 uint32, handle2 uint3
 
 // ChannelReadStr reads the latest string from a channel and returns a handle.
 func (r *Runtime) ChannelReadStr(ctx context.Context, channelID uint32) uint32 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return 0 // Return null handle
@@ -721,9 +584,6 @@ func (r *Runtime) ChannelReadStr(ctx context.Context, channelID uint32) uint32 {
 
 // ChannelWriteStr writes a string to a channel (queued for flush).
 func (r *Runtime) ChannelWriteStr(ctx context.Context, channelID uint32, handle uint32) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Look up string by handle
 	str, ok := r.strings[handle]
 	if !ok {
@@ -743,9 +603,6 @@ func (r *Runtime) ChannelWriteStr(ctx context.Context, channelID uint32, handle 
 
 // StateLoadStr loads a stateful string variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadStr(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	str, ok := r.stateString[key]
 	if ok {
@@ -765,9 +622,6 @@ func (r *Runtime) StateLoadStr(ctx context.Context, funcID uint32, varID uint32,
 
 // StateStoreStr stores a stateful string variable's value.
 func (r *Runtime) StateStoreStr(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Look up string by handle
 	str, ok := r.strings[handle]
 	if !ok {

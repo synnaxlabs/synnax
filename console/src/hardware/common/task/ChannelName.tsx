@@ -8,43 +8,54 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError } from "@synnaxlabs/client";
-import { Channel, Flex, Text, Tooltip } from "@synnaxlabs/pluto";
-import { location, type optional, primitive, status } from "@synnaxlabs/x";
+import { Channel, Flex, Form, Text, Tooltip } from "@synnaxlabs/pluto";
+import { location, type optional, status } from "@synnaxlabs/x";
 import { useCallback, useEffect, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { useSelectActiveKey as useSelectActiveRangeKey } from "@/range/selectors";
 
-export interface ChannelNameProps
-  extends optional.Optional<Omit<Text.MaybeEditableProps, "value">, "level"> {
+export interface ChannelNameProps extends optional.Optional<
+  Omit<Text.MaybeEditableProps, "value">,
+  "level"
+> {
   channel: channel.Key;
   defaultName?: string;
+  namePath: string;
 }
 
 export const ChannelName = ({
   channel,
   defaultName = "No Channel",
   className,
+  namePath,
   ...rest
 }: ChannelNameProps) => {
+  const { onChange } = Form.useField<string>(namePath);
+  const formName = Form.useFieldValue<string>(namePath);
   const range = useSelectActiveRangeKey();
   const { data, retrieve, ...restResult } = Channel.useRetrieveStateful();
   useEffect(() => {
-    if (primitive.isZero(channel)) return;
+    if (channel === 0) return;
     retrieve({ key: channel, rangeKey: range ?? undefined });
   }, [channel, range]);
   const { update } = Channel.useRename();
-  const name = data?.name ?? defaultName;
+  const name = data?.name ?? (formName !== "" ? formName : defaultName);
   const handleRename = useCallback(
-    (name: string) => update({ key: channel, name }),
-    [channel, update],
+    (name: string) => {
+      if (channel === 0) {
+        onChange?.(name);
+        return;
+      }
+      update({ key: channel, name });
+    },
+    [channel, update, onChange],
   );
   const stat = useMemo((): Pick<
     status.Status,
     "variant" | "message" | "description"
   > => {
-    if (primitive.isZero(channel))
-      return { variant: "warning", message: "No channel selected" };
+    if (channel === 0) return { variant: "warning", message: "No channel selected" };
     if (
       restResult.status.variant === "error" &&
       NotFoundError.matches(restResult.status.details.error) &&

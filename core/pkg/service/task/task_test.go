@@ -43,8 +43,8 @@ var _ = Describe("Task", Ordered, func() {
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-		labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
@@ -438,8 +438,8 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should create unknown statuses for tasks missing them", func() {
 			db := gorp.Wrap(memkv.New())
 			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-			g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-			labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+			g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+			labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,

@@ -54,11 +54,6 @@ func KeysFromOntologyIDs(ids []ontology.ID) ([]uuid.UUID, error) {
 	return keys, nil
 }
 
-// OntologyIDsFromRanges converts a slice of ranges to a slice of ontology IDs.
-func OntologyIDsFromRanges(ranges []Range) []ontology.ID {
-	return lo.Map(ranges, func(r Range, _ int) ontology.ID { return OntologyID(r.Key) })
-}
-
 var schema = zyn.Object(map[string]zyn.Schema{
 	"key":        zyn.UUID(),
 	"name":       zyn.String(),
@@ -111,11 +106,11 @@ func (s *Service) OnChange(
 	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Range]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
-	return gorp.Observe[uuid.UUID, Range](s.DB).OnChange(handleChange)
+	return gorp.Observe[uuid.UUID, Range](s.cfg.DB).OnChange(handleChange)
 }
 
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
-	n, closer, err := gorp.WrapReader[uuid.UUID, Range](s.DB).OpenNexter(ctx)
+	n, closer, err := gorp.WrapReader[uuid.UUID, Range](s.cfg.DB).OpenNexter(ctx)
 	return xiter.Map(n, newResource), closer, err
 }

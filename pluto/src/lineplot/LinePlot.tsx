@@ -24,8 +24,10 @@ import {
   type HTMLAttributes,
   type PropsWithChildren,
   type ReactElement,
+  type Ref,
   useCallback,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
@@ -95,20 +97,28 @@ export interface LineSpec {
   visible: boolean;
 }
 
+/** Ref handle exposed by LinePlot for imperative access */
+export interface LinePlotRef {
+  /** Returns the current bounds for all axes */
+  getBounds: () => Promise<lineplot.AxesBounds>;
+}
+
 type LineState = LineSpec[];
 
 export interface LinePlotProps
-  extends PropsWithChildren,
+  extends
+    PropsWithChildren,
     Partial<
       Pick<
         z.input<typeof lineplot.linePlotStateZ>,
         "clearOverScan" | "hold" | "visible"
       >
     >,
-    HTMLDivProps,
+    Omit<HTMLDivProps, "ref">,
     Aether.ComponentProps {
   resizeDebounce?: number;
   onHold?: (hold: boolean) => void;
+  ref?: Ref<LinePlotRef>;
 }
 
 export const LinePlot = ({
@@ -120,13 +130,14 @@ export const LinePlot = ({
   hold = false,
   onHold,
   visible,
+  ref,
   ...rest
 }: LinePlotProps): ReactElement => {
   const [lines, setLines] = useState<LineState>([]);
 
   const memoProps = useMemoDeepEqual({ clearOverScan, hold, visible });
 
-  const [{ path }, { grid }, setState] = Aether.use({
+  const [{ path }, { grid }, setState, methods] = Aether.use({
     aetherKey,
     type: lineplot.LinePlot.TYPE,
     schema: lineplot.linePlotStateZ,
@@ -136,6 +147,7 @@ export const LinePlot = ({
       grid: {},
       ...memoProps,
     },
+    methods: lineplot.linePlotMethodsZ,
   });
 
   // We use a single resize handler for both the container and plotting region because
@@ -148,7 +160,11 @@ export const LinePlot = ({
     [setState, visible],
   );
 
-  const ref = Canvas.useRegion(handleResize, { debounce });
+  const regionRef = Canvas.useRegion(handleResize, { debounce });
+
+  useImperativeHandle(ref, () => ({ getBounds: methods.getBounds }), [
+    methods.getBounds,
+  ]);
 
   useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
 
@@ -249,7 +265,7 @@ export const LinePlot = ({
       id={id}
       className={CSS.B("line-plot")}
       style={{ ...style, ...cssGrid }}
-      ref={ref}
+      ref={regionRef}
       {...rest}
     >
       <Context value={contextValue}>

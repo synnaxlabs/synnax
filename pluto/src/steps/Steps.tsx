@@ -21,8 +21,7 @@ export interface Step {
 }
 
 export interface StepsProps
-  extends Omit<Flex.BoxProps, "children" | "onChange">,
-    Input.Control<string> {
+  extends Omit<Flex.BoxProps, "children" | "onChange">, Input.Control<string> {
   steps: Step[];
 }
 

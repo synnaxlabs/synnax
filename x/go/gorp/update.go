@@ -27,11 +27,6 @@ func NewUpdate[K Key, E Entry[K]]() Update[K, E] {
 	return Update[K, E]{retrieve: NewRetrieve[K, E]()}
 }
 
-func (u Update[K, E]) Where(filter FilterFunc[K, E]) Update[K, E] {
-	u.retrieve = u.retrieve.Where(filter)
-	return u
-}
-
 func (u Update[K, E]) WhereKeys(keys ...K) Update[K, E] {
 	u.retrieve = u.retrieve.WhereKeys(keys...)
 	return u

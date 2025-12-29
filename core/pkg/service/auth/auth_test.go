@@ -29,7 +29,7 @@ var _ = Describe("KV", Ordered, Serial, func() {
 	)
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
-		authenticator = auth.MultiAuthenticator{MustSucceed(auth.OpenKV(ctx, db))}
+		authenticator = MustSucceed(auth.OpenKV(ctx, db))
 		creds = auth.InsecureCredentials{Username: "username", Password: "password"}
 		invalPassCreds = auth.InsecureCredentials{Username: creds.Username, Password: "invalid"}
 		invalUserCreds = auth.InsecureCredentials{Username: "invalid", Password: creds.Password}

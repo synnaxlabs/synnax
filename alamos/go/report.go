@@ -38,8 +38,8 @@ var (
 
 // Validate implements config.Config.
 func (r ReporterConfig) Validate() error {
-	v := validate.New("alamos.ReporterConfig")
-	validate.NotNil(v, "Filter", r.Filter)
+	v := validate.New("alamos.reporter_config")
+	validate.NotNil(v, "filter", r.Filter)
 	return v.Error()
 }
 

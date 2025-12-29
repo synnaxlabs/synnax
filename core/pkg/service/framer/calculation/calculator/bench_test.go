@@ -38,7 +38,7 @@ func newBenchEnv(b *testing.B) *benchEnv {
 	distB := mock.NewCluster()
 	dist := distB.Provision(ctx)
 
-	labelSvc, err := label.OpenService(ctx, label.Config{
+	labelSvc, err := label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,

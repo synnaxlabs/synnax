@@ -24,8 +24,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Config is the configuration for creating a Service.
-type Config struct {
+// ServiceConfig is the configuration for creating a Service.
+type ServiceConfig struct {
 	Signals  *signals.Provider
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
@@ -33,12 +33,12 @@ type Config struct {
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	_             config.Config[ServiceConfig] = ServiceConfig{}
+	DefaultConfig                              = ServiceConfig{}
 )
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
@@ -47,7 +47,7 @@ func (c Config) Override(other Config) Config {
 }
 
 // Validate implements config.Config.
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("workspace")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
@@ -56,7 +56,7 @@ func (c Config) Validate() error {
 }
 
 type Service struct {
-	Config
+	cfg             ServiceConfig
 	group           group.Group
 	shutdownSignals io.Closer
 	entryManager    *gorp.EntryManager[uuid.UUID, Workspace]
@@ -64,7 +64,7 @@ type Service struct {
 
 const groupName = "Workspaces"
 
-func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
@@ -77,7 +77,7 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{Config: cfg, group: g, entryManager: entryManager}
+	s := &Service{cfg: cfg, group: g, entryManager: entryManager}
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
@@ -98,16 +98,16 @@ func (s *Service) Close() error {
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:    gorp.OverrideTx(s.DB, tx),
-		otg:   s.Ontology.NewWriter(tx),
+		tx:    gorp.OverrideTx(s.cfg.DB, tx),
+		otg:   s.cfg.Ontology.NewWriter(tx),
 		group: s.group,
 	}
 }
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		otg:    s.Ontology,
-		baseTX: s.DB,
+		otg:    s.cfg.Ontology,
+		baseTX: s.cfg.DB,
 		gorp:   gorp.NewRetrieve[uuid.UUID, Workspace](),
 	}
 }

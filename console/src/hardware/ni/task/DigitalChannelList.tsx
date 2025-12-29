@@ -16,13 +16,16 @@ import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { type DigitalChannel } from "@/hardware/ni/task/types";
 
-interface ListItemProps<C extends DigitalChannel>
-  extends Omit<Common.Task.ChannelListItemProps, "name"> {
+interface ListItemProps<C extends DigitalChannel> extends Omit<
+  Common.Task.ChannelListItemProps,
+  "name"
+> {
   name: Component.RenderProp<DigitalNameComponentProps<C>>;
 }
 
 export type DigitalNameComponentProps<C extends DigitalChannel> = Omit<C, "key"> & {
   itemKey: string;
+  path: string;
 };
 
 const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>) => {
@@ -66,7 +69,7 @@ const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>)
         </Text.Text>
       </Flex.Box>
       <Flex.Box x align="center" justify="evenly">
-        {name({ ...channel, itemKey: rest.itemKey })}
+        {name({ ...channel, itemKey: rest.itemKey, path })}
         <Common.Task.EnableDisableButton path={`${path}.enabled`} />
       </Flex.Box>
     </Select.ListItem>
@@ -74,7 +77,8 @@ const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>)
 };
 
 export interface DigitalChannelListProps<C extends DigitalChannel>
-  extends Omit<Common.Task.Layouts.ListProps<C>, "listItem">,
+  extends
+    Omit<Common.Task.Layouts.ListProps<C>, "listItem">,
     Pick<ListItemProps<C>, "name"> {}
 
 export const DigitalChannelList = <C extends DigitalChannel>({

@@ -25,7 +25,7 @@ export interface Factory {
   create: (spec: telem.Spec, options?: CreateOptions) => telem.Telem | null;
 }
 
-export class CompoundTelemFactory {
+export class CompoundFactory {
   factories: Factory[];
 
   type = "compound";
@@ -50,9 +50,9 @@ export class CompoundTelemFactory {
   }
 }
 
-export const createFactory = (client?: client.Client): CompoundTelemFactory => {
+export const createFactory = (client?: client.Client): CompoundFactory => {
   const base = [new TransformerFactory(), new StaticFactory(), new NoopFactory()];
-  const f = new CompoundTelemFactory(base);
+  const f = new CompoundFactory(base);
   if (client != null) f.add(new RemoteFactory(client));
   f.add(new PipelineFactory(f));
   return f;

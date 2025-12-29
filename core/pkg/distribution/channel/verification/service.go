@@ -30,8 +30,8 @@ import (
 
 const FreeCount = 50
 
-// Config is the configuration for a verification service
-type Config struct {
+// ServiceConfig is the configuration for a verification service
+type ServiceConfig struct {
 	// Instrumentation is for logging, tracing, and metrics.
 	//
 	// [OPTIONAL]
@@ -54,12 +54,12 @@ type Config struct {
 	WarningTime time.Duration
 }
 
-var _ config.Config[Config] = Config{}
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 var retrieveKey = []byte("bGljZW5zZUtleQ==")
 
 // Validate validates the configuration for use in the service.
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("channel.verification")
 	validate.NotNil(v, "db", c.DB)
 	validate.NonZero(v, "warning_time", c.WarningTime)
@@ -68,7 +68,7 @@ func (c Config) Validate() error {
 }
 
 // Override replaces fields on c with valid fields from other.
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.CheckInterval = override.If(c.CheckInterval, other.CheckInterval,
@@ -80,7 +80,7 @@ func (c Config) Override(other Config) Config {
 }
 
 // DefaultConfig is the default configuration for the verification service.
-var DefaultConfig = Config{
+var DefaultConfig = ServiceConfig{
 	CheckInterval: 24 * time.Hour,
 	WarningTime:   7 * 24 * time.Hour,
 }
@@ -88,7 +88,7 @@ var DefaultConfig = Config{
 // Service provides a service for verifying channels.
 type Service struct {
 	info
-	cfg      Config
+	cfg      ServiceConfig
 	shutdown io.Closer
 }
 
@@ -107,7 +107,7 @@ var (
 )
 
 // OpenService opens a new verification service.
-func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
