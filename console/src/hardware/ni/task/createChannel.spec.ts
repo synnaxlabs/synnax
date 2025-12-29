@@ -130,7 +130,7 @@ describe("createChannel", () => {
 
     it("should handle non-sequential ports correctly", () => {
       const channels: Task.AIChannel[] = [
-        { ...Task.ZERO_AI_CHANNEL, key: "1", port: 0 }, 
+        { ...Task.ZERO_AI_CHANNEL, key: "1", port: 0 },
         { ...Task.ZERO_AI_CHANNEL, key: "2", port: 2 },
         { ...Task.ZERO_AI_CHANNEL, key: "3", port: 5 },
       ];
