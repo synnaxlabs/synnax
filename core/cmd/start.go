@@ -302,6 +302,7 @@ func start(cmd *cobra.Command) {
 				Task:            serviceLayer.Task,
 				Framer:          distributionLayer.Framer,
 				Channel:         distributionLayer.Channel,
+				Status:          serviceLayer.Status,
 				Factory: godriver.NewMultiFactory(
 					arcruntime.NewFactory(arcruntime.FactoryConfig{
 						Channel:   distributionLayer.Channel,

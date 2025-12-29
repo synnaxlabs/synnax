@@ -62,12 +62,11 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	d.ctx = NewContext(ctx, cfg.Status)
 	d.mu.tasks = make(map[task.Key]Task)
 
-	// Create core rack for this driver
 	d.rack = rack.Rack{
-		Name:     fmt.Sprintf("Node %d Go Core", cfg.Host),
+		Name:     fmt.Sprintf("Node %d Core", cfg.Host.HostKey()),
 		Embedded: true,
 	}
-	if err := cfg.Rack.NewWriter(nil).Create(ctx, &d.rack); err != nil {
+	if err = cfg.Rack.NewWriter(nil).Create(ctx, &d.rack); err != nil {
 		return nil, err
 	}
 	cfg.L.Info("created go driver rack", zap.Stringer("key", d.rack.Key))
@@ -109,9 +108,13 @@ func (d *Driver) setupCommandStreaming(ctx context.Context, sCtx signal.Context)
 	sink := &commandSink{driver: d}
 	sink.Sink = sink.process
 	plumber.SetSink[framer.StreamerResponse](p, "driver", sink)
+
+	plumber.MustConnect[framer.StreamerResponse](p, "streamer", "driver", 10)
+
 	streamerRequests := confluence.NewStream[framer.StreamerRequest]()
 	streamer.InFrom(streamerRequests)
 	d.closeStreamerRequests = streamerRequests
+
 	sink.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 }
 

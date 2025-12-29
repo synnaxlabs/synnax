@@ -40,7 +40,6 @@ import {
   useSelectVersion,
   useSelectViewportMode,
 } from "@/arc/selectors";
-import { createArcTask, deleteArcTask, useArcTask } from "@/arc/task";
 import {
   addElement,
   clearSelection,
@@ -58,6 +57,7 @@ import {
   type State,
   ZERO_STATE,
 } from "@/arc/slice";
+import { createArcTask, deleteArcTask, useArcTask } from "@/arc/task";
 import { translateGraphToConsole, translateGraphToServer } from "@/arc/types/translate";
 import { TYPE } from "@/arc/types/v0";
 import { Controls as CoreControls } from "@/components";
@@ -146,7 +146,6 @@ export const Controls = ({ arc }: ControlsProps) => {
   );
   const addStatus = Status.useAdder();
 
-  // Get task status
   const taskStatus = useRetrieveStatus(
     { key: arcTask?.key?.toString() ?? "" },
     { addStatusOnFailure: false },
@@ -162,23 +161,18 @@ export const Controls = ({ arc }: ControlsProps) => {
       let taskKey = arcTask?.key;
       const currentTaskRack = arcTask != null ? task.rackKey(arcTask.key) : null;
 
-      // If task exists on different rack, delete it first
       if (taskKey != null && currentTaskRack !== selectedRack) {
-        // Stop then delete the old task
-        if (isRunning) {
-          await runCommand([{ task: taskKey, type: "stop" }]);
-        }
+        if (isRunning) await runCommand([{ task: taskKey, type: "stop" }]);
+
         await deleteArcTask(client, taskKey);
         taskKey = undefined;
       }
 
-      // Create task if it doesn't exist
       if (taskKey == null) {
         const newTask = await createArcTask(client, arc.key, selectedRack, name);
         taskKey = newTask.key;
       }
 
-      // Send start/stop command
       await runCommand([{ task: taskKey, type: isRunning ? "stop" : "start" }]);
     } catch (e) {
       addStatus({
