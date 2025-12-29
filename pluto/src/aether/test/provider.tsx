@@ -8,20 +8,28 @@
 // included in the file licenses/APL.txt.
 
 import { createMockWorkers } from "@synnaxlabs/x";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import { type FC, type PropsWithChildren, useMemo } from "react";
 
-import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
+import { Provider } from "@/aether/main";
 import { type AetherMessage, type MainMessage } from "@/aether/message";
 
-export const createAetherProvider = (
+export const createProvider = (
   registry: aether.ComponentRegistry,
 ): FC<PropsWithChildren> => {
-  const [a, b] = createMockWorkers();
-  aether.render({ comms: a.route("test"), registry });
-  const worker = b.route<MainMessage, AetherMessage>("test");
-  const AetherProvider = (props: PropsWithChildren): ReactElement => (
-    <Aether.Provider {...props} worker={worker} workerKey="test" />
-  );
-  return AetherProvider;
+  const TestProvider: FC<PropsWithChildren> = ({ children }) => {
+    const worker = useMemo(() => {
+      const [worker, main] = createMockWorkers();
+      aether.render({ comms: worker.route("test"), registry });
+      return main.route<MainMessage, AetherMessage>("test");
+    }, []);
+
+    return (
+      <Provider worker={worker} workerKey="test">
+        {children}
+      </Provider>
+    );
+  };
+
+  return TestProvider;
 };
