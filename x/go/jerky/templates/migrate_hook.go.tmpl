@@ -1,0 +1,16 @@
+package {{ .SubPackageName }}
+
+// MigrateV{{ .FromVersion }}ToV{{ .ToVersion }}Hook handles custom field mappings from V{{ .FromVersion }} to V{{ .ToVersion }} for {{ .TypeName }}.
+// This file is generated once and will NOT be overwritten by jerky.
+{{- if .AddedFields }}
+// New fields in V{{ .ToVersion }}: {{ range $i, $f := .AddedFields }}{{ if $i }}, {{ end }}{{ $f }}{{ end }}
+{{- end }}
+{{- if .RemovedFields }}
+// Removed fields from V{{ .FromVersion }}: {{ range $i, $f := .RemovedFields }}{{ if $i }}, {{ end }}{{ $f }}{{ end }}
+{{- end }}
+func MigrateV{{ .FromVersion }}ToV{{ .ToVersion }}Hook(old *V{{ .FromVersion }}, new *V{{ .ToVersion }}) {
+	// Add custom field mappings here. Examples:
+	// new.NewField = old.OldField           // field rename
+	// new.FullName = old.First + old.Last   // field merge
+	// new.Role = "user"                     // default value for new field
+}

@@ -18,6 +18,7 @@ import (
 // TimeRange represents a range of time between two TimeStamp. It's important
 // to note that the start of the range is inclusive, while the end of the range is
 // exclusive.
+//go:generate jerky embedded
 type TimeRange struct {
 	// Start is the start of the range.
 	Start TimeStamp `json:"start" msgpack:"start"`

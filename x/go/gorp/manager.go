@@ -29,26 +29,25 @@ func OpenEntryManager[K Key, E Entry[K]](ctx context.Context, db *DB) (*EntryMan
 }
 
 func migrateKeys[K Key, E Entry[K]](ctx context.Context, db *DB) error {
-	iter, err := WrapReader[K, E](db).OpenIterator(IterOptions{})
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = errors.Combine(err, iter.Close())
-	}()
-	err = db.WithTx(ctx, func(tx Tx) error {
+	return db.WithTx(ctx, func(tx Tx) error {
+		iter, err := WrapReader[K, E](tx).OpenIterator(IterOptions{})
+		if err != nil {
+			return err
+		}
+		defer func() {
+			err = errors.Combine(err, iter.Close())
+		}()
 		writer := WrapWriter[K, E](tx)
 		for iter.First(); iter.Valid(); iter.Next() {
-			//// Delete the iterator by its previous key.
-			//if err = writer.BaseWriter.Delete(ctx, iter.Key()); err != nil {
-			//	return err
-			//}
+			// Delete the iterator by its previous key.
+			if err = writer.BaseWriter.Delete(ctx, iter.Key()); err != nil {
+				return err
+			}
 			// Reset the entry using its new gorp key.
 			if err = writer.Set(ctx, *iter.Value(ctx)); err != nil {
 				return err
 			}
 		}
-		return nil
+		return err
 	})
-	return err
 }

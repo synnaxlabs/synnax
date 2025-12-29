@@ -62,3 +62,13 @@ func IterEndlessly[T any](values []T) iter.Seq[T] {
 		}
 	}
 }
+
+// GrowTo ensures that s has at least target capacity and returns the (maybe reallocated) slice.
+func GrowTo[T any](s []T, target int) []T {
+	if cap(s) >= target {
+		return s
+	}
+	ns := make([]T, len(s), target)
+	copy(ns, s)
+	return ns
+}
