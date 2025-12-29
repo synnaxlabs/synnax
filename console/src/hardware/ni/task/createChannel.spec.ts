@@ -109,10 +109,38 @@ describe("createChannel", () => {
       expect(result.port).toBe(2);
       expect(result.channel).not.toBe(3);
     });
+
+    it("should correctly increment port when duplicating with multiple existing channels", () => {
+      const channels: Task.AIChannel[] = [
+        { ...Task.ZERO_AI_CHANNEL, key: "1", port: 0 },
+        { ...Task.ZERO_AI_CHANNEL, key: "2", port: 1 },
+        { ...Task.ZERO_AI_CHANNEL, key: "3", port: 2 },
+        { ...Task.ZERO_AI_CHANNEL, key: "4", port: 3 },
+      ];
+      const firstDuplicate = createAIChannel(channels, "1");
+      expect(firstDuplicate.port).toBe(4);
+
+      const channelsWithFirstDuplicate = [...channels, firstDuplicate];
+      const secondDuplicate = createAIChannel(channelsWithFirstDuplicate, "1");
+      expect(secondDuplicate.port).toBe(5);
+
+      const thirdDuplicate = createAIChannel(channelsWithFirstDuplicate, "3");
+      expect(thirdDuplicate.port).toBe(5);
+    });
+
+    it("should handle non-sequential ports correctly", () => {
+      const channels: Task.AIChannel[] = [
+        { ...Task.ZERO_AI_CHANNEL, key: "1", port: 0 }, 
+        { ...Task.ZERO_AI_CHANNEL, key: "2", port: 2 },
+        { ...Task.ZERO_AI_CHANNEL, key: "3", port: 5 },
+      ];
+      const result = createAIChannel(channels, "1");
+      expect(result.port).toBe(1);
+    });
   });
 
   describe("createAOChannel", () => {
-    it("should create a new A) channel with port 0 when no channels exist", () => {
+    it("should create a new AO channel with port 0 when no channels exist", () => {
       const channels: Task.AOChannel[] = [];
       const result = createAOChannel(channels);
       expect(result.port).toBe(0);
