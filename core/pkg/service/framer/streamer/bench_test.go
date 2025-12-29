@@ -43,7 +43,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	builder := mock.NewCluster()
 	dist := builder.Provision(ctx)
 
-	labelSvc, err := label.OpenService(ctx, label.Config{
+	labelSvc, err := label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,

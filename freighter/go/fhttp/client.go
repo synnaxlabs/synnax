@@ -22,8 +22,8 @@ type ClientFactoryConfig struct {
 }
 
 func (c ClientFactoryConfig) Validate() error {
-	v := validate.New("[ws.streamClient]")
-	validate.NotNil(v, "Codec", c.Codec)
+	v := validate.New("ws.stream_client")
+	validate.NotNil(v, "codec", c.Codec)
 	return v.Error()
 }
 
