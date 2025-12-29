@@ -34,7 +34,7 @@ var _ = Describe("Group", Ordered, func() {
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		svc = MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
+		svc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
 		w = svc.NewWriter(nil)
 	})
 

@@ -28,17 +28,17 @@ func (s *Service) migrate(ctx context.Context) error {
 		Migrations: []gorp.MigrationSpec{
 			{Name: "range_groups", Migrate: s.migrateRangeGroups},
 		},
-		Force: *s.ForceMigration,
-	}.Run(ctx, s.DB)
+		Force: *s.cfg.ForceMigration,
+	}.Run(ctx, s.cfg.DB)
 }
 
 func (s *Service) migrateRangeGroups(ctx context.Context, tx gorp.Tx) error {
-	s.L.Info("Swapping ranges to make sure the time range is valid.")
+	s.cfg.L.Info("Swapping ranges to make sure the time range is valid.")
 	if err := s.NewWriter(tx).swapRanges(ctx); err != nil {
 		return err
 	}
 	var topLevelGroup group.Group
-	if err := s.
+	if err := s.cfg.
 		Group.
 		NewRetrieve().
 		Entry(&topLevelGroup).
@@ -49,11 +49,11 @@ func (s *Service) migrateRangeGroups(ctx context.Context, tx gorp.Tx) error {
 		}
 		return err
 	}
-	s.L.Info(
+	s.cfg.L.Info(
 		"Migrating subgroups of the Ranges group to ranges and deleting the group.",
 	)
 	var groups []ontology.Resource
-	if err := s.
+	if err := s.cfg.
 		Ontology.
 		NewRetrieve().
 		WhereIDs(topLevelGroup.OntologyID()).
@@ -63,14 +63,14 @@ func (s *Service) migrateRangeGroups(ctx context.Context, tx gorp.Tx) error {
 		Exec(ctx, tx); err != nil {
 		return err
 	}
-	if err := s.Ontology.NewWriter(tx).DeleteOutgoingRelationshipsOfType(
+	if err := s.cfg.Ontology.NewWriter(tx).DeleteOutgoingRelationshipsOfType(
 		ctx,
 		topLevelGroup.OntologyID(),
 		ontology.ParentOf,
 	); err != nil {
 		return err
 	}
-	if err := s.Group.NewWriter(tx).Delete(ctx, topLevelGroup.Key); err != nil {
+	if err := s.cfg.Group.NewWriter(tx).Delete(ctx, topLevelGroup.Key); err != nil {
 		return err
 	}
 	// Now we have subgroups. For each subgroup, we want to grab the children of that
@@ -79,7 +79,7 @@ func (s *Service) migrateRangeGroups(ctx context.Context, tx gorp.Tx) error {
 	// subgroup's name, and has children that are the children of the subgroup.
 	for _, g := range groups {
 		var childRanges []ontology.Resource
-		if err := s.
+		if err := s.cfg.
 			Ontology.
 			NewRetrieve().
 			WhereIDs(g.ID).
@@ -89,7 +89,7 @@ func (s *Service) migrateRangeGroups(ctx context.Context, tx gorp.Tx) error {
 			Exec(ctx, tx); err != nil {
 			return err
 		}
-		s.L.Infof(
+		s.cfg.L.Infof(
 			"Migrating range group: %s with %d children.",
 			g.Name,
 			len(childRanges),
@@ -98,14 +98,14 @@ func (s *Service) migrateRangeGroups(ctx context.Context, tx gorp.Tx) error {
 		if err != nil {
 			return err
 		}
-		if err := s.Ontology.NewWriter(tx).DeleteOutgoingRelationshipsOfType(
+		if err := s.cfg.Ontology.NewWriter(tx).DeleteOutgoingRelationshipsOfType(
 			ctx,
 			g.ID,
 			ontology.ParentOf,
 		); err != nil {
 			return err
 		}
-		if err := s.Group.NewWriter(tx).Delete(ctx, gKey); err != nil {
+		if err := s.cfg.Group.NewWriter(tx).Delete(ctx, gKey); err != nil {
 			return err
 		}
 		if len(childRanges) == 0 {
@@ -140,7 +140,7 @@ func (s *Service) migrateRangeGroups(ctx context.Context, tx gorp.Tx) error {
 		if err := s.NewWriter(tx).Create(ctx, &newParentRange); err != nil {
 			return err
 		}
-		if err := s.
+		if err := s.cfg.
 			Ontology.
 			NewWriter(tx).
 			DefineFromOneToManyRelationships(
@@ -154,6 +154,6 @@ func (s *Service) migrateRangeGroups(ctx context.Context, tx gorp.Tx) error {
 			return err
 		}
 	}
-	s.L.Info("finished ranger migration")
+	s.cfg.L.Info("finished ranger migration")
 	return nil
 }

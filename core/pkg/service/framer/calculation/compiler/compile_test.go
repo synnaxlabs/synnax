@@ -34,7 +34,7 @@ var _ = BeforeSuite(func() {
 	ctx = context.Background()
 	distB := mock.NewCluster()
 	dist = distB.Provision(ctx)
-	labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+	labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,

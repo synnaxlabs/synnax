@@ -240,7 +240,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 
 	if l.Group, err = group.OpenService(
 		ctx,
-		group.Config{
+		group.ServiceConfig{
 			DB:       l.DB,
 			Ontology: l.Ontology,
 		},
@@ -258,7 +258,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 
 	nodeOntologySvc.ListenForChanges(ctx)
 
-	if l.Verification, err = verification.OpenService(ctx, verification.Config{
+	if l.Verification, err = verification.OpenService(ctx, verification.ServiceConfig{
 		Verifier:        cfg.Verifier,
 		DB:              l.DB.KV(),
 		Instrumentation: cfg.Instrumentation,
@@ -266,7 +266,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 
-	if l.Channel, err = channel.NewService(ctx, channel.Config{
+	if l.Channel, err = channel.NewService(ctx, channel.ServiceConfig{
 		HostResolver: l.Cluster,
 		ClusterDB:    l.DB,
 		TSChannel:    cfg.Storage.TS,

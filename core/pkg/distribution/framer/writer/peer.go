@@ -36,7 +36,7 @@ func (s *Service) openManyPeers(
 	)
 
 	for nodeKey, keys := range targets {
-		target, err := s.HostResolver.Resolve(nodeKey)
+		target, err := s.cfg.HostResolver.Resolve(nodeKey)
 		if err != nil {
 			return sender, receivers, receiverAddresses, err
 		}
@@ -57,7 +57,7 @@ func (s *Service) openPeerClient(ctx context.Context,
 	target address.Address,
 	cfg Config,
 ) (ClientStream, error) {
-	client, err := s.Transport.Client().Stream(ctx, target)
+	client, err := s.cfg.Transport.Client().Stream(ctx, target)
 	if err != nil {
 		return nil, err
 	}

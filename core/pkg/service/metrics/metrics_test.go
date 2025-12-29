@@ -39,7 +39,7 @@ var _ = Describe("Metrics", Ordered, func() {
 	)
 	BeforeAll(func() {
 		dist = builder.Provision(ctx)
-		labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
@@ -60,7 +60,7 @@ var _ = Describe("Metrics", Ordered, func() {
 			Status:   statusSvc,
 			Signals:  dist.Signals,
 		}))
-		svcFramer = MustSucceed(framer.OpenService(ctx, framer.Config{
+		svcFramer = MustSucceed(framer.OpenService(ctx, framer.ServiceConfig{
 			DB:      dist.DB,
 			Framer:  dist.Framer,
 			Channel: dist.Channel,
@@ -73,7 +73,7 @@ var _ = Describe("Metrics", Ordered, func() {
 	})
 	Describe("Service Creation", func() {
 		It("Should create a service with valid configuration", func() {
-			svc := MustSucceed(metrics.OpenService(ctx, metrics.Config{
+			svc := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            dist.Channel,
 				Framer:             svcFramer,
 				HostProvider:       dist.Cluster,
@@ -84,35 +84,35 @@ var _ = Describe("Metrics", Ordered, func() {
 			Expect(svc.Close()).To(Succeed())
 		})
 		It("Should fail with missing Channel service", func() {
-			Expect(metrics.OpenService(ctx, metrics.Config{
+			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Framer:       svcFramer,
 				HostProvider: dist.Cluster,
 				Storage:      dist.Storage,
 			})).Error().To(MatchError(ContainSubstring("channel: must be non-nil")))
 		})
 		It("Should fail with missing Framer service", func() {
-			Expect(metrics.OpenService(ctx, metrics.Config{
+			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:      dist.Channel,
 				HostProvider: dist.Cluster,
 				Storage:      dist.Storage,
 			})).Error().To(MatchError(ContainSubstring("framer: must be non-nil")))
 		})
 		It("Should fail with missing HostProvider", func() {
-			Expect(metrics.OpenService(ctx, metrics.Config{
+			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel: dist.Channel,
 				Framer:  svcFramer,
 				Storage: dist.Storage,
 			})).Error().To(MatchError(ContainSubstring("host_provider: must be non-nil")))
 		})
 		It("Should fail with missing Storage", func() {
-			Expect(metrics.OpenService(ctx, metrics.Config{
+			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:      dist.Channel,
 				Framer:       svcFramer,
 				HostProvider: dist.Cluster,
 			})).Error().To(MatchError(ContainSubstring("storage: must be non-nil")))
 		})
 		It("Should apply default collection interval", func() {
-			cfg := metrics.DefaultConfig.Override(metrics.Config{
+			cfg := metrics.DefaultConfig.Override(metrics.ServiceConfig{
 				Channel:      dist.Channel,
 				Framer:       svcFramer,
 				HostProvider: dist.Cluster,
@@ -124,7 +124,7 @@ var _ = Describe("Metrics", Ordered, func() {
 	Describe("Channel Creation", func() {
 		var svc *metrics.Service
 		JustBeforeEach(func() {
-			svc = MustSucceed(metrics.OpenService(ctx, metrics.Config{
+			svc = MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            dist.Channel,
 				Framer:             svcFramer,
 				HostProvider:       dist.Cluster,
@@ -239,7 +239,7 @@ var _ = Describe("Metrics", Ordered, func() {
 			}).Should(Succeed())
 		})
 		It("Should reuse existing channels", func() {
-			svc2 := MustSucceed(metrics.OpenService(ctx, metrics.Config{
+			svc2 := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            dist.Channel,
 				Framer:             svcFramer,
 				HostProvider:       dist.Cluster,
@@ -298,7 +298,7 @@ var _ = Describe("Metrics", Ordered, func() {
 			MustSucceed(w.Write(fr))
 			Expect(w.Close()).To(Succeed())
 
-			svc = MustSucceed(metrics.OpenService(ctx, metrics.Config{
+			svc = MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            dist.Channel,
 				Framer:             svcFramer,
 				HostProvider:       dist.Cluster,

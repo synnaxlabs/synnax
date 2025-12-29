@@ -45,13 +45,13 @@ var _ = Describe("Migrate", func() {
 			DB:           db,
 			EnableSearch: config.True(),
 		}))
-		gSvc = MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-		lab = MustSucceed(label.OpenService(ctx, label.Config{
+		gSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+		lab = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    gSvc,
 		}))
-		svc = MustSucceed(ranger.OpenService(ctx, ranger.Config{
+		svc = MustSucceed(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    gSvc,
@@ -96,7 +96,7 @@ var _ = Describe("Migrate", func() {
 		Expect(svc.Close()).To(Succeed())
 
 		// Reopen the service to run the migration
-		svc = MustSucceed(ranger.OpenService(ctx, ranger.Config{
+		svc = MustSucceed(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:             db,
 			Ontology:       otg,
 			Group:          gSvc,

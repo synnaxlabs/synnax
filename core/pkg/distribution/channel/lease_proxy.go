@@ -31,7 +31,7 @@ import (
 )
 
 type leaseProxy struct {
-	Config
+	ServiceConfig
 	createRouter       proxy.BatchFactory[Channel]
 	renameRouter       proxy.BatchFactory[renameBatchEntry]
 	keyRouter          proxy.BatchFactory[Key]
@@ -53,7 +53,7 @@ const (
 
 func newLeaseProxy(
 	ctx context.Context,
-	cfg Config,
+	cfg ServiceConfig,
 	group group.Group,
 ) (*leaseProxy, error) {
 	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + leasedCounterSuffix)
@@ -74,7 +74,7 @@ func newLeaseProxy(
 	}
 
 	p := &leaseProxy{
-		Config:        cfg,
+		ServiceConfig: cfg,
 		createRouter:  proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
 		keyRouter:     keyRouter,
 		renameRouter:  proxy.BatchFactory[renameBatchEntry]{Host: cfg.HostResolver.HostKey()},

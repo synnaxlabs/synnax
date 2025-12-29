@@ -200,7 +200,7 @@ func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 }
 
 func (w Writer) validate(r Range) error {
-	v := validate.New("ranger.Range")
+	v := validate.New("ranger.range")
 	validate.NotNil(v, "key", r.Key)
 	validate.NotEmptyString(v, "name", r.Name)
 	validate.NonZero(v, "time_range.start", r.TimeRange.Start)
