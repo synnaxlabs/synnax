@@ -87,7 +87,7 @@ var _ = Describe("View", func() {
 		})
 
 		Describe("CreateMany", func() {
-			FIt("Should create multiple views", func() {
+			It("Should create multiple views", func() {
 				views := []view.View{
 					{
 						Name: "View 1",

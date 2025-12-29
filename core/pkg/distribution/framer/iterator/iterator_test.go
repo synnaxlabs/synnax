@@ -31,13 +31,13 @@ import (
 var _ = Describe("Iterator", func() {
 	Describe("Happy Path", Ordered, func() {
 		scenarios := []func() scenario{
-			//gatewayOnlyScenario,
+			gatewayOnlyScenario,
 			peerOnlyScenario,
 		}
 		for i, sF := range scenarios {
 			_sF := sF
 			var s scenario
-			FDescribe(fmt.Sprintf("Scenario: %v - Iteration", i), func() {
+			Describe(fmt.Sprintf("Scenario: %v - Iteration", i), func() {
 				BeforeAll(func() {
 					s = _sF()
 					writer := MustSucceed(s.dist.Framer.OpenWriter(context.TODO(), writer.Config{

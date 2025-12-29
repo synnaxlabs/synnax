@@ -32,16 +32,16 @@ func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
 // Entry binds the View that Retrieve will fill results into. If multiple results match
 // the query, only the first result will be filled into the provided View.
-func (r Retrieve) Entry(view *View) Retrieve { r.gorp.Entry(view); return r }
+func (r Retrieve) Entry(view *View) Retrieve { r.gorp = r.gorp.Entry(view); return r }
 
 // Limit sets the maximum number of results that Retrieve will return.
-func (r Retrieve) Limit(limit int) Retrieve { r.gorp.Limit(limit); return r }
+func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
 // Offset sets the number of results that Retrieve will skip before returning results.
-func (r Retrieve) Offset(offset int) Retrieve { r.gorp.Offset(offset); return r }
+func (r Retrieve) Offset(offset int) Retrieve { r.gorp = r.gorp.Offset(offset); return r }
 
 // Entries binds a slice that Retrieve will fill results into.
-func (r Retrieve) Entries(views *[]View) Retrieve { r.gorp.Entries(views); return r }
+func (r Retrieve) Entries(views *[]View) Retrieve { r.gorp = r.gorp.Entries(views); return r }
 
 // WhereKeys filters for views whose Key attribute matches the provided key.
 func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve {
