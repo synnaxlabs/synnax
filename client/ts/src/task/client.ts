@@ -21,7 +21,7 @@ import { z } from "zod";
 
 import { type framer } from "@/framer";
 import { ontology } from "@/ontology";
-import { keyZ as rackKeyZ } from "@/rack/payload";
+import { type Key as RackKey, keyZ as rackKeyZ } from "@/rack/types.gen";
 import { type ranger } from "@/ranger";
 import { status } from "@/status";
 import {
@@ -29,12 +29,13 @@ import {
   keyZ,
   type New,
   newZ,
+  ontologyID,
   type Payload,
-  type Schemas,
+  type PayloadSchemas as Schemas,
+  payloadZ,
   type Status,
   statusZ,
-  taskZ,
-} from "@/task/payload";
+} from "@/task/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const COMMAND_CHANNEL_NAME = "sy_task_cmd";
@@ -42,6 +43,8 @@ export const SET_CHANNEL_NAME = "sy_task_set";
 export const DELETE_CHANNEL_NAME = "sy_task_delete";
 
 const NOT_CREATED_ERROR = new Error("Task not created");
+
+export const rackKey = (key: Key): RackKey => Number(BigInt(key) >> 32n);
 
 const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Client) => {
   const parents = await ontologyClient.retrieveParents(ontologyID(taskKey));
@@ -87,7 +90,7 @@ export class Task<
   type: z.infer<Type>;
   snapshot: boolean;
   config: z.infer<Config>;
-  status?: Status<StatusData>;
+  status?: Status<StatusData> | null;
 
   readonly schemas: Schemas<Type, Config, StatusData>;
   private readonly frameClient_?: framer.Client;
@@ -129,9 +132,9 @@ export class Task<
     this.type = type;
     this.config = config;
     this.schemas = schemas ?? {
-      typeSchema: z.string() as unknown as Type,
-      configSchema: z.unknown() as unknown as Config,
-      statusDataSchema: z.unknown() as unknown as StatusData,
+      type: z.string() as unknown as Type,
+      config: z.unknown() as unknown as Config,
+      statusData: z.unknown() as unknown as StatusData,
     };
     this.internal = internal;
     this.snapshot = snapshot;
@@ -172,7 +175,7 @@ export class Task<
       frameClient: this.frameClient,
       task: this.key,
       name: this.name,
-      statusDataZ: this.schemas?.statusDataSchema,
+      statusDataZ: this.schemas.statusData as StatusData,
     });
   }
 
@@ -252,7 +255,7 @@ const retrieveResZ = <
   schemas?: Schemas<Type, Config, StatusData>,
 ) =>
   z.object({
-    tasks: array.nullableZ(taskZ(schemas)),
+    tasks: array.nullableZ(payloadZ(schemas)),
   });
 
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
@@ -270,7 +273,7 @@ const createResZ = <
   StatusData extends z.ZodType = z.ZodType,
 >(
   schemas?: Schemas<Type, Config, StatusData>,
-) => z.object({ tasks: taskZ(schemas).array() });
+) => z.object({ tasks: payloadZ(schemas).array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 const copyReqZ = z.object({ key: keyZ, name: z.string(), snapshot: z.boolean() });
@@ -280,7 +283,7 @@ const copyResZ = <
   StatusData extends z.ZodType = z.ZodType,
 >(
   schemas?: Schemas<Type, Config, StatusData>,
-) => z.object({ task: taskZ(schemas) });
+) => z.object({ task: payloadZ(schemas) });
 
 export class Client {
   readonly type: string = "task";
@@ -517,9 +520,6 @@ export class Client {
     });
   }
 }
-
-export const ontologyID = ontology.createIDFactory<Key>("task");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
 
 export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));
 

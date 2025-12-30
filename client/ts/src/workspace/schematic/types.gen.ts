@@ -11,7 +11,7 @@ export type Key = z.infer<typeof keyZ>;
 export const schematicZ = z.object({
   key: keyZ,
   name: z.string(),
-  data: zod.stringifiedJSON,
+  data: zod.stringifiedJSON(),
   snapshot: z.boolean(),
 });
 export type Schematic = z.infer<typeof schematicZ>;
@@ -19,7 +19,7 @@ export type Schematic = z.infer<typeof schematicZ>;
 export const newZ = z.object({
   key: keyZ.optional(),
   name: z.string(),
-  data: zod.jsonStringifier,
+  data: zod.jsonStringifier(),
   snapshot: z.boolean().optional(),
 });
 export type New = z.input<typeof newZ>;

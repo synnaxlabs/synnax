@@ -1,7 +1,6 @@
 // Code generated from OracleParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // OracleParser
-
 import (
 	"fmt"
 	"strconv"
@@ -51,7 +50,7 @@ func oracleparserParserInit() {
 	}
 	staticData.PredictionContextCache = antlr.NewPredictionContextCache()
 	staticData.serializedATN = []int32{
-		4, 1, 26, 334, 2, 0, 7, 0, 2, 1, 7, 1, 2, 2, 7, 2, 2, 3, 7, 3, 2, 4, 7,
+		4, 1, 26, 337, 2, 0, 7, 0, 2, 1, 7, 1, 2, 2, 7, 2, 2, 3, 7, 3, 2, 4, 7,
 		4, 2, 5, 7, 5, 2, 6, 7, 6, 2, 7, 7, 7, 2, 8, 7, 8, 2, 9, 7, 9, 2, 10, 7,
 		10, 2, 11, 7, 11, 2, 12, 7, 12, 2, 13, 7, 13, 2, 14, 7, 14, 2, 15, 7, 15,
 		2, 16, 7, 16, 2, 17, 7, 17, 2, 18, 7, 18, 2, 19, 7, 19, 2, 20, 7, 20, 1,
@@ -61,146 +60,148 @@ func oracleparserParserInit() {
 		71, 9, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 2, 1, 2, 1, 2, 1, 3, 1, 3, 3, 3, 82,
 		8, 3, 1, 4, 1, 4, 1, 4, 3, 4, 87, 8, 4, 1, 4, 5, 4, 90, 8, 4, 10, 4, 12,
 		4, 93, 9, 4, 1, 4, 1, 4, 5, 4, 97, 8, 4, 10, 4, 12, 4, 100, 9, 4, 1, 4,
-		1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 3, 4, 110, 8, 4, 3, 4, 112, 8,
-		4, 1, 5, 5, 5, 115, 8, 5, 10, 5, 12, 5, 118, 9, 5, 1, 5, 1, 5, 5, 5, 122,
-		8, 5, 10, 5, 12, 5, 125, 9, 5, 1, 5, 1, 5, 5, 5, 129, 8, 5, 10, 5, 12,
-		5, 132, 9, 5, 5, 5, 134, 8, 5, 10, 5, 12, 5, 137, 9, 5, 1, 5, 1, 5, 1,
-		6, 1, 6, 1, 6, 1, 6, 5, 6, 145, 8, 6, 10, 6, 12, 6, 148, 9, 6, 1, 6, 1,
-		6, 1, 7, 1, 7, 1, 7, 3, 7, 155, 8, 7, 1, 7, 1, 7, 3, 7, 159, 8, 7, 1, 8,
-		1, 8, 3, 8, 163, 8, 8, 1, 8, 5, 8, 166, 8, 8, 10, 8, 12, 8, 169, 9, 8,
-		5, 8, 171, 8, 8, 10, 8, 12, 8, 174, 9, 8, 1, 9, 1, 9, 1, 9, 1, 9, 3, 9,
-		180, 8, 9, 1, 10, 5, 10, 183, 8, 10, 10, 10, 12, 10, 186, 9, 10, 1, 10,
-		1, 10, 5, 10, 190, 8, 10, 10, 10, 12, 10, 193, 9, 10, 1, 10, 1, 10, 5,
-		10, 197, 8, 10, 10, 10, 12, 10, 200, 9, 10, 5, 10, 202, 8, 10, 10, 10,
-		12, 10, 205, 9, 10, 1, 10, 1, 10, 1, 11, 1, 11, 1, 11, 3, 11, 212, 8, 11,
-		1, 12, 5, 12, 215, 8, 12, 10, 12, 12, 12, 218, 9, 12, 1, 12, 1, 12, 5,
-		12, 222, 8, 12, 10, 12, 12, 12, 225, 9, 12, 1, 12, 1, 12, 4, 12, 229, 8,
-		12, 11, 12, 12, 12, 230, 1, 12, 1, 12, 5, 12, 235, 8, 12, 10, 12, 12, 12,
-		238, 9, 12, 3, 12, 240, 8, 12, 1, 12, 5, 12, 243, 8, 12, 10, 12, 12, 12,
-		246, 9, 12, 1, 12, 1, 12, 1, 13, 1, 13, 3, 13, 252, 8, 13, 1, 13, 1, 13,
-		3, 13, 256, 8, 13, 1, 13, 3, 13, 259, 8, 13, 1, 14, 1, 14, 1, 14, 1, 14,
-		5, 14, 265, 8, 14, 10, 14, 12, 14, 268, 9, 14, 1, 14, 1, 14, 1, 15, 1,
-		15, 3, 15, 274, 8, 15, 1, 15, 1, 15, 3, 15, 278, 8, 15, 3, 15, 280, 8,
-		15, 1, 16, 1, 16, 1, 16, 3, 16, 285, 8, 16, 1, 17, 1, 17, 5, 17, 289, 8,
-		17, 10, 17, 12, 17, 292, 9, 17, 1, 18, 1, 18, 1, 18, 1, 18, 1, 18, 3, 18,
-		299, 8, 18, 1, 19, 1, 19, 1, 19, 5, 19, 304, 8, 19, 10, 19, 12, 19, 307,
-		9, 19, 1, 19, 1, 19, 5, 19, 311, 8, 19, 10, 19, 12, 19, 314, 9, 19, 1,
-		19, 1, 19, 5, 19, 318, 8, 19, 10, 19, 12, 19, 321, 9, 19, 5, 19, 323, 8,
-		19, 10, 19, 12, 19, 326, 9, 19, 1, 19, 1, 19, 1, 20, 1, 20, 1, 20, 1, 20,
-		1, 20, 0, 0, 21, 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28,
-		30, 32, 34, 36, 38, 40, 0, 1, 2, 0, 18, 18, 20, 20, 362, 0, 45, 1, 0, 0,
-		0, 2, 74, 1, 0, 0, 0, 4, 76, 1, 0, 0, 0, 6, 81, 1, 0, 0, 0, 8, 111, 1,
-		0, 0, 0, 10, 116, 1, 0, 0, 0, 12, 140, 1, 0, 0, 0, 14, 151, 1, 0, 0, 0,
-		16, 172, 1, 0, 0, 0, 18, 175, 1, 0, 0, 0, 20, 184, 1, 0, 0, 0, 22, 208,
-		1, 0, 0, 0, 24, 216, 1, 0, 0, 0, 26, 249, 1, 0, 0, 0, 28, 260, 1, 0, 0,
-		0, 30, 279, 1, 0, 0, 0, 32, 281, 1, 0, 0, 0, 34, 286, 1, 0, 0, 0, 36, 298,
-		1, 0, 0, 0, 38, 300, 1, 0, 0, 0, 40, 329, 1, 0, 0, 0, 42, 44, 3, 2, 1,
-		0, 43, 42, 1, 0, 0, 0, 44, 47, 1, 0, 0, 0, 45, 43, 1, 0, 0, 0, 45, 46,
-		1, 0, 0, 0, 46, 57, 1, 0, 0, 0, 47, 45, 1, 0, 0, 0, 48, 52, 3, 4, 2, 0,
-		49, 51, 3, 2, 1, 0, 50, 49, 1, 0, 0, 0, 51, 54, 1, 0, 0, 0, 52, 50, 1,
-		0, 0, 0, 52, 53, 1, 0, 0, 0, 53, 56, 1, 0, 0, 0, 54, 52, 1, 0, 0, 0, 55,
-		48, 1, 0, 0, 0, 56, 59, 1, 0, 0, 0, 57, 55, 1, 0, 0, 0, 57, 58, 1, 0, 0,
-		0, 58, 69, 1, 0, 0, 0, 59, 57, 1, 0, 0, 0, 60, 64, 3, 6, 3, 0, 61, 63,
-		3, 2, 1, 0, 62, 61, 1, 0, 0, 0, 63, 66, 1, 0, 0, 0, 64, 62, 1, 0, 0, 0,
-		64, 65, 1, 0, 0, 0, 65, 68, 1, 0, 0, 0, 66, 64, 1, 0, 0, 0, 67, 60, 1,
-		0, 0, 0, 68, 71, 1, 0, 0, 0, 69, 67, 1, 0, 0, 0, 69, 70, 1, 0, 0, 0, 70,
-		72, 1, 0, 0, 0, 71, 69, 1, 0, 0, 0, 72, 73, 5, 0, 0, 1, 73, 1, 1, 0, 0,
-		0, 74, 75, 5, 25, 0, 0, 75, 3, 1, 0, 0, 0, 76, 77, 5, 5, 0, 0, 77, 78,
-		5, 18, 0, 0, 78, 5, 1, 0, 0, 0, 79, 82, 3, 8, 4, 0, 80, 82, 3, 38, 19,
-		0, 81, 79, 1, 0, 0, 0, 81, 80, 1, 0, 0, 0, 82, 7, 1, 0, 0, 0, 83, 84, 5,
-		1, 0, 0, 84, 86, 5, 22, 0, 0, 85, 87, 3, 12, 6, 0, 86, 85, 1, 0, 0, 0,
-		86, 87, 1, 0, 0, 0, 87, 91, 1, 0, 0, 0, 88, 90, 3, 2, 1, 0, 89, 88, 1,
-		0, 0, 0, 90, 93, 1, 0, 0, 0, 91, 89, 1, 0, 0, 0, 91, 92, 1, 0, 0, 0, 92,
-		94, 1, 0, 0, 0, 93, 91, 1, 0, 0, 0, 94, 98, 5, 7, 0, 0, 95, 97, 3, 2, 1,
-		0, 96, 95, 1, 0, 0, 0, 97, 100, 1, 0, 0, 0, 98, 96, 1, 0, 0, 0, 98, 99,
-		1, 0, 0, 0, 99, 101, 1, 0, 0, 0, 100, 98, 1, 0, 0, 0, 101, 102, 3, 16,
-		8, 0, 102, 103, 5, 8, 0, 0, 103, 112, 1, 0, 0, 0, 104, 105, 5, 1, 0, 0,
-		105, 106, 5, 22, 0, 0, 106, 107, 5, 17, 0, 0, 107, 109, 3, 26, 13, 0, 108,
-		110, 3, 10, 5, 0, 109, 108, 1, 0, 0, 0, 109, 110, 1, 0, 0, 0, 110, 112,
-		1, 0, 0, 0, 111, 83, 1, 0, 0, 0, 111, 104, 1, 0, 0, 0, 112, 9, 1, 0, 0,
-		0, 113, 115, 3, 2, 1, 0, 114, 113, 1, 0, 0, 0, 115, 118, 1, 0, 0, 0, 116,
-		114, 1, 0, 0, 0, 116, 117, 1, 0, 0, 0, 117, 119, 1, 0, 0, 0, 118, 116,
-		1, 0, 0, 0, 119, 123, 5, 7, 0, 0, 120, 122, 3, 2, 1, 0, 121, 120, 1, 0,
-		0, 0, 122, 125, 1, 0, 0, 0, 123, 121, 1, 0, 0, 0, 123, 124, 1, 0, 0, 0,
-		124, 135, 1, 0, 0, 0, 125, 123, 1, 0, 0, 0, 126, 130, 3, 22, 11, 0, 127,
-		129, 3, 2, 1, 0, 128, 127, 1, 0, 0, 0, 129, 132, 1, 0, 0, 0, 130, 128,
-		1, 0, 0, 0, 130, 131, 1, 0, 0, 0, 131, 134, 1, 0, 0, 0, 132, 130, 1, 0,
-		0, 0, 133, 126, 1, 0, 0, 0, 134, 137, 1, 0, 0, 0, 135, 133, 1, 0, 0, 0,
-		135, 136, 1, 0, 0, 0, 136, 138, 1, 0, 0, 0, 137, 135, 1, 0, 0, 0, 138,
-		139, 5, 8, 0, 0, 139, 11, 1, 0, 0, 0, 140, 141, 5, 11, 0, 0, 141, 146,
-		3, 14, 7, 0, 142, 143, 5, 13, 0, 0, 143, 145, 3, 14, 7, 0, 144, 142, 1,
-		0, 0, 0, 145, 148, 1, 0, 0, 0, 146, 144, 1, 0, 0, 0, 146, 147, 1, 0, 0,
-		0, 147, 149, 1, 0, 0, 0, 148, 146, 1, 0, 0, 0, 149, 150, 5, 12, 0, 0, 150,
-		13, 1, 0, 0, 0, 151, 154, 5, 22, 0, 0, 152, 153, 5, 6, 0, 0, 153, 155,
-		3, 26, 13, 0, 154, 152, 1, 0, 0, 0, 154, 155, 1, 0, 0, 0, 155, 158, 1,
-		0, 0, 0, 156, 157, 5, 17, 0, 0, 157, 159, 3, 26, 13, 0, 158, 156, 1, 0,
-		0, 0, 158, 159, 1, 0, 0, 0, 159, 15, 1, 0, 0, 0, 160, 163, 3, 18, 9, 0,
-		161, 163, 3, 22, 11, 0, 162, 160, 1, 0, 0, 0, 162, 161, 1, 0, 0, 0, 163,
-		167, 1, 0, 0, 0, 164, 166, 3, 2, 1, 0, 165, 164, 1, 0, 0, 0, 166, 169,
-		1, 0, 0, 0, 167, 165, 1, 0, 0, 0, 167, 168, 1, 0, 0, 0, 168, 171, 1, 0,
-		0, 0, 169, 167, 1, 0, 0, 0, 170, 162, 1, 0, 0, 0, 171, 174, 1, 0, 0, 0,
-		172, 170, 1, 0, 0, 0, 172, 173, 1, 0, 0, 0, 173, 17, 1, 0, 0, 0, 174, 172,
-		1, 0, 0, 0, 175, 176, 5, 2, 0, 0, 176, 177, 5, 22, 0, 0, 177, 179, 3, 26,
-		13, 0, 178, 180, 3, 20, 10, 0, 179, 178, 1, 0, 0, 0, 179, 180, 1, 0, 0,
-		0, 180, 19, 1, 0, 0, 0, 181, 183, 3, 2, 1, 0, 182, 181, 1, 0, 0, 0, 183,
-		186, 1, 0, 0, 0, 184, 182, 1, 0, 0, 0, 184, 185, 1, 0, 0, 0, 185, 187,
-		1, 0, 0, 0, 186, 184, 1, 0, 0, 0, 187, 191, 5, 7, 0, 0, 188, 190, 3, 2,
-		1, 0, 189, 188, 1, 0, 0, 0, 190, 193, 1, 0, 0, 0, 191, 189, 1, 0, 0, 0,
-		191, 192, 1, 0, 0, 0, 192, 203, 1, 0, 0, 0, 193, 191, 1, 0, 0, 0, 194,
-		198, 3, 22, 11, 0, 195, 197, 3, 2, 1, 0, 196, 195, 1, 0, 0, 0, 197, 200,
-		1, 0, 0, 0, 198, 196, 1, 0, 0, 0, 198, 199, 1, 0, 0, 0, 199, 202, 1, 0,
-		0, 0, 200, 198, 1, 0, 0, 0, 201, 194, 1, 0, 0, 0, 202, 205, 1, 0, 0, 0,
-		203, 201, 1, 0, 0, 0, 203, 204, 1, 0, 0, 0, 204, 206, 1, 0, 0, 0, 205,
-		203, 1, 0, 0, 0, 206, 207, 5, 8, 0, 0, 207, 21, 1, 0, 0, 0, 208, 209, 5,
-		3, 0, 0, 209, 211, 5, 22, 0, 0, 210, 212, 3, 24, 12, 0, 211, 210, 1, 0,
-		0, 0, 211, 212, 1, 0, 0, 0, 212, 23, 1, 0, 0, 0, 213, 215, 3, 2, 1, 0,
-		214, 213, 1, 0, 0, 0, 215, 218, 1, 0, 0, 0, 216, 214, 1, 0, 0, 0, 216,
-		217, 1, 0, 0, 0, 217, 219, 1, 0, 0, 0, 218, 216, 1, 0, 0, 0, 219, 223,
-		5, 7, 0, 0, 220, 222, 3, 2, 1, 0, 221, 220, 1, 0, 0, 0, 222, 225, 1, 0,
-		0, 0, 223, 221, 1, 0, 0, 0, 223, 224, 1, 0, 0, 0, 224, 239, 1, 0, 0, 0,
-		225, 223, 1, 0, 0, 0, 226, 236, 3, 34, 17, 0, 227, 229, 3, 2, 1, 0, 228,
-		227, 1, 0, 0, 0, 229, 230, 1, 0, 0, 0, 230, 228, 1, 0, 0, 0, 230, 231,
-		1, 0, 0, 0, 231, 232, 1, 0, 0, 0, 232, 233, 3, 34, 17, 0, 233, 235, 1,
-		0, 0, 0, 234, 228, 1, 0, 0, 0, 235, 238, 1, 0, 0, 0, 236, 234, 1, 0, 0,
-		0, 236, 237, 1, 0, 0, 0, 237, 240, 1, 0, 0, 0, 238, 236, 1, 0, 0, 0, 239,
-		226, 1, 0, 0, 0, 239, 240, 1, 0, 0, 0, 240, 244, 1, 0, 0, 0, 241, 243,
-		3, 2, 1, 0, 242, 241, 1, 0, 0, 0, 243, 246, 1, 0, 0, 0, 244, 242, 1, 0,
-		0, 0, 244, 245, 1, 0, 0, 0, 245, 247, 1, 0, 0, 0, 246, 244, 1, 0, 0, 0,
-		247, 248, 5, 8, 0, 0, 248, 25, 1, 0, 0, 0, 249, 251, 3, 32, 16, 0, 250,
-		252, 3, 28, 14, 0, 251, 250, 1, 0, 0, 0, 251, 252, 1, 0, 0, 0, 252, 255,
-		1, 0, 0, 0, 253, 254, 5, 9, 0, 0, 254, 256, 5, 10, 0, 0, 255, 253, 1, 0,
-		0, 0, 255, 256, 1, 0, 0, 0, 256, 258, 1, 0, 0, 0, 257, 259, 3, 30, 15,
-		0, 258, 257, 1, 0, 0, 0, 258, 259, 1, 0, 0, 0, 259, 27, 1, 0, 0, 0, 260,
-		261, 5, 11, 0, 0, 261, 266, 3, 26, 13, 0, 262, 263, 5, 13, 0, 0, 263, 265,
-		3, 26, 13, 0, 264, 262, 1, 0, 0, 0, 265, 268, 1, 0, 0, 0, 266, 264, 1,
-		0, 0, 0, 266, 267, 1, 0, 0, 0, 267, 269, 1, 0, 0, 0, 268, 266, 1, 0, 0,
-		0, 269, 270, 5, 12, 0, 0, 270, 29, 1, 0, 0, 0, 271, 273, 5, 14, 0, 0, 272,
-		274, 5, 15, 0, 0, 273, 272, 1, 0, 0, 0, 273, 274, 1, 0, 0, 0, 274, 280,
-		1, 0, 0, 0, 275, 277, 5, 15, 0, 0, 276, 278, 5, 14, 0, 0, 277, 276, 1,
-		0, 0, 0, 277, 278, 1, 0, 0, 0, 278, 280, 1, 0, 0, 0, 279, 271, 1, 0, 0,
-		0, 279, 275, 1, 0, 0, 0, 280, 31, 1, 0, 0, 0, 281, 284, 5, 22, 0, 0, 282,
-		283, 5, 16, 0, 0, 283, 285, 5, 22, 0, 0, 284, 282, 1, 0, 0, 0, 284, 285,
-		1, 0, 0, 0, 285, 33, 1, 0, 0, 0, 286, 290, 5, 22, 0, 0, 287, 289, 3, 36,
-		18, 0, 288, 287, 1, 0, 0, 0, 289, 292, 1, 0, 0, 0, 290, 288, 1, 0, 0, 0,
-		290, 291, 1, 0, 0, 0, 291, 35, 1, 0, 0, 0, 292, 290, 1, 0, 0, 0, 293, 299,
-		5, 18, 0, 0, 294, 299, 5, 20, 0, 0, 295, 299, 5, 19, 0, 0, 296, 299, 5,
-		21, 0, 0, 297, 299, 3, 32, 16, 0, 298, 293, 1, 0, 0, 0, 298, 294, 1, 0,
-		0, 0, 298, 295, 1, 0, 0, 0, 298, 296, 1, 0, 0, 0, 298, 297, 1, 0, 0, 0,
-		299, 37, 1, 0, 0, 0, 300, 301, 5, 4, 0, 0, 301, 305, 5, 22, 0, 0, 302,
-		304, 3, 2, 1, 0, 303, 302, 1, 0, 0, 0, 304, 307, 1, 0, 0, 0, 305, 303,
-		1, 0, 0, 0, 305, 306, 1, 0, 0, 0, 306, 308, 1, 0, 0, 0, 307, 305, 1, 0,
-		0, 0, 308, 312, 5, 7, 0, 0, 309, 311, 3, 2, 1, 0, 310, 309, 1, 0, 0, 0,
-		311, 314, 1, 0, 0, 0, 312, 310, 1, 0, 0, 0, 312, 313, 1, 0, 0, 0, 313,
-		324, 1, 0, 0, 0, 314, 312, 1, 0, 0, 0, 315, 319, 3, 40, 20, 0, 316, 318,
-		3, 2, 1, 0, 317, 316, 1, 0, 0, 0, 318, 321, 1, 0, 0, 0, 319, 317, 1, 0,
-		0, 0, 319, 320, 1, 0, 0, 0, 320, 323, 1, 0, 0, 0, 321, 319, 1, 0, 0, 0,
-		322, 315, 1, 0, 0, 0, 323, 326, 1, 0, 0, 0, 324, 322, 1, 0, 0, 0, 324,
-		325, 1, 0, 0, 0, 325, 327, 1, 0, 0, 0, 326, 324, 1, 0, 0, 0, 327, 328,
-		5, 8, 0, 0, 328, 39, 1, 0, 0, 0, 329, 330, 5, 22, 0, 0, 330, 331, 5, 17,
-		0, 0, 331, 332, 7, 0, 0, 0, 332, 41, 1, 0, 0, 0, 47, 45, 52, 57, 64, 69,
-		81, 86, 91, 98, 109, 111, 116, 123, 130, 135, 146, 154, 158, 162, 167,
-		172, 179, 184, 191, 198, 203, 211, 216, 223, 230, 236, 239, 244, 251, 255,
-		258, 266, 273, 277, 279, 284, 290, 298, 305, 312, 319, 324,
+		1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 3, 4, 108, 8, 4, 1, 4, 1, 4, 1, 4, 3, 4,
+		113, 8, 4, 3, 4, 115, 8, 4, 1, 5, 5, 5, 118, 8, 5, 10, 5, 12, 5, 121, 9,
+		5, 1, 5, 1, 5, 5, 5, 125, 8, 5, 10, 5, 12, 5, 128, 9, 5, 1, 5, 1, 5, 5,
+		5, 132, 8, 5, 10, 5, 12, 5, 135, 9, 5, 5, 5, 137, 8, 5, 10, 5, 12, 5, 140,
+		9, 5, 1, 5, 1, 5, 1, 6, 1, 6, 1, 6, 1, 6, 5, 6, 148, 8, 6, 10, 6, 12, 6,
+		151, 9, 6, 1, 6, 1, 6, 1, 7, 1, 7, 1, 7, 3, 7, 158, 8, 7, 1, 7, 1, 7, 3,
+		7, 162, 8, 7, 1, 8, 1, 8, 3, 8, 166, 8, 8, 1, 8, 5, 8, 169, 8, 8, 10, 8,
+		12, 8, 172, 9, 8, 5, 8, 174, 8, 8, 10, 8, 12, 8, 177, 9, 8, 1, 9, 1, 9,
+		1, 9, 1, 9, 3, 9, 183, 8, 9, 1, 10, 5, 10, 186, 8, 10, 10, 10, 12, 10,
+		189, 9, 10, 1, 10, 1, 10, 5, 10, 193, 8, 10, 10, 10, 12, 10, 196, 9, 10,
+		1, 10, 1, 10, 5, 10, 200, 8, 10, 10, 10, 12, 10, 203, 9, 10, 5, 10, 205,
+		8, 10, 10, 10, 12, 10, 208, 9, 10, 1, 10, 1, 10, 1, 11, 1, 11, 1, 11, 3,
+		11, 215, 8, 11, 1, 12, 5, 12, 218, 8, 12, 10, 12, 12, 12, 221, 9, 12, 1,
+		12, 1, 12, 5, 12, 225, 8, 12, 10, 12, 12, 12, 228, 9, 12, 1, 12, 1, 12,
+		4, 12, 232, 8, 12, 11, 12, 12, 12, 233, 1, 12, 1, 12, 5, 12, 238, 8, 12,
+		10, 12, 12, 12, 241, 9, 12, 3, 12, 243, 8, 12, 1, 12, 5, 12, 246, 8, 12,
+		10, 12, 12, 12, 249, 9, 12, 1, 12, 1, 12, 1, 13, 1, 13, 3, 13, 255, 8,
+		13, 1, 13, 1, 13, 3, 13, 259, 8, 13, 1, 13, 3, 13, 262, 8, 13, 1, 14, 1,
+		14, 1, 14, 1, 14, 5, 14, 268, 8, 14, 10, 14, 12, 14, 271, 9, 14, 1, 14,
+		1, 14, 1, 15, 1, 15, 3, 15, 277, 8, 15, 1, 15, 1, 15, 3, 15, 281, 8, 15,
+		3, 15, 283, 8, 15, 1, 16, 1, 16, 1, 16, 3, 16, 288, 8, 16, 1, 17, 1, 17,
+		5, 17, 292, 8, 17, 10, 17, 12, 17, 295, 9, 17, 1, 18, 1, 18, 1, 18, 1,
+		18, 1, 18, 3, 18, 302, 8, 18, 1, 19, 1, 19, 1, 19, 5, 19, 307, 8, 19, 10,
+		19, 12, 19, 310, 9, 19, 1, 19, 1, 19, 5, 19, 314, 8, 19, 10, 19, 12, 19,
+		317, 9, 19, 1, 19, 1, 19, 5, 19, 321, 8, 19, 10, 19, 12, 19, 324, 9, 19,
+		5, 19, 326, 8, 19, 10, 19, 12, 19, 329, 9, 19, 1, 19, 1, 19, 1, 20, 1,
+		20, 1, 20, 1, 20, 1, 20, 0, 0, 21, 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20,
+		22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 0, 1, 2, 0, 18, 18, 20, 20, 366,
+		0, 45, 1, 0, 0, 0, 2, 74, 1, 0, 0, 0, 4, 76, 1, 0, 0, 0, 6, 81, 1, 0, 0,
+		0, 8, 114, 1, 0, 0, 0, 10, 119, 1, 0, 0, 0, 12, 143, 1, 0, 0, 0, 14, 154,
+		1, 0, 0, 0, 16, 175, 1, 0, 0, 0, 18, 178, 1, 0, 0, 0, 20, 187, 1, 0, 0,
+		0, 22, 211, 1, 0, 0, 0, 24, 219, 1, 0, 0, 0, 26, 252, 1, 0, 0, 0, 28, 263,
+		1, 0, 0, 0, 30, 282, 1, 0, 0, 0, 32, 284, 1, 0, 0, 0, 34, 289, 1, 0, 0,
+		0, 36, 301, 1, 0, 0, 0, 38, 303, 1, 0, 0, 0, 40, 332, 1, 0, 0, 0, 42, 44,
+		3, 2, 1, 0, 43, 42, 1, 0, 0, 0, 44, 47, 1, 0, 0, 0, 45, 43, 1, 0, 0, 0,
+		45, 46, 1, 0, 0, 0, 46, 57, 1, 0, 0, 0, 47, 45, 1, 0, 0, 0, 48, 52, 3,
+		4, 2, 0, 49, 51, 3, 2, 1, 0, 50, 49, 1, 0, 0, 0, 51, 54, 1, 0, 0, 0, 52,
+		50, 1, 0, 0, 0, 52, 53, 1, 0, 0, 0, 53, 56, 1, 0, 0, 0, 54, 52, 1, 0, 0,
+		0, 55, 48, 1, 0, 0, 0, 56, 59, 1, 0, 0, 0, 57, 55, 1, 0, 0, 0, 57, 58,
+		1, 0, 0, 0, 58, 69, 1, 0, 0, 0, 59, 57, 1, 0, 0, 0, 60, 64, 3, 6, 3, 0,
+		61, 63, 3, 2, 1, 0, 62, 61, 1, 0, 0, 0, 63, 66, 1, 0, 0, 0, 64, 62, 1,
+		0, 0, 0, 64, 65, 1, 0, 0, 0, 65, 68, 1, 0, 0, 0, 66, 64, 1, 0, 0, 0, 67,
+		60, 1, 0, 0, 0, 68, 71, 1, 0, 0, 0, 69, 67, 1, 0, 0, 0, 69, 70, 1, 0, 0,
+		0, 70, 72, 1, 0, 0, 0, 71, 69, 1, 0, 0, 0, 72, 73, 5, 0, 0, 1, 73, 1, 1,
+		0, 0, 0, 74, 75, 5, 25, 0, 0, 75, 3, 1, 0, 0, 0, 76, 77, 5, 5, 0, 0, 77,
+		78, 5, 18, 0, 0, 78, 5, 1, 0, 0, 0, 79, 82, 3, 8, 4, 0, 80, 82, 3, 38,
+		19, 0, 81, 79, 1, 0, 0, 0, 81, 80, 1, 0, 0, 0, 82, 7, 1, 0, 0, 0, 83, 84,
+		5, 1, 0, 0, 84, 86, 5, 22, 0, 0, 85, 87, 3, 12, 6, 0, 86, 85, 1, 0, 0,
+		0, 86, 87, 1, 0, 0, 0, 87, 91, 1, 0, 0, 0, 88, 90, 3, 2, 1, 0, 89, 88,
+		1, 0, 0, 0, 90, 93, 1, 0, 0, 0, 91, 89, 1, 0, 0, 0, 91, 92, 1, 0, 0, 0,
+		92, 94, 1, 0, 0, 0, 93, 91, 1, 0, 0, 0, 94, 98, 5, 7, 0, 0, 95, 97, 3,
+		2, 1, 0, 96, 95, 1, 0, 0, 0, 97, 100, 1, 0, 0, 0, 98, 96, 1, 0, 0, 0, 98,
+		99, 1, 0, 0, 0, 99, 101, 1, 0, 0, 0, 100, 98, 1, 0, 0, 0, 101, 102, 3,
+		16, 8, 0, 102, 103, 5, 8, 0, 0, 103, 115, 1, 0, 0, 0, 104, 105, 5, 1, 0,
+		0, 105, 107, 5, 22, 0, 0, 106, 108, 3, 12, 6, 0, 107, 106, 1, 0, 0, 0,
+		107, 108, 1, 0, 0, 0, 108, 109, 1, 0, 0, 0, 109, 110, 5, 17, 0, 0, 110,
+		112, 3, 26, 13, 0, 111, 113, 3, 10, 5, 0, 112, 111, 1, 0, 0, 0, 112, 113,
+		1, 0, 0, 0, 113, 115, 1, 0, 0, 0, 114, 83, 1, 0, 0, 0, 114, 104, 1, 0,
+		0, 0, 115, 9, 1, 0, 0, 0, 116, 118, 3, 2, 1, 0, 117, 116, 1, 0, 0, 0, 118,
+		121, 1, 0, 0, 0, 119, 117, 1, 0, 0, 0, 119, 120, 1, 0, 0, 0, 120, 122,
+		1, 0, 0, 0, 121, 119, 1, 0, 0, 0, 122, 126, 5, 7, 0, 0, 123, 125, 3, 2,
+		1, 0, 124, 123, 1, 0, 0, 0, 125, 128, 1, 0, 0, 0, 126, 124, 1, 0, 0, 0,
+		126, 127, 1, 0, 0, 0, 127, 138, 1, 0, 0, 0, 128, 126, 1, 0, 0, 0, 129,
+		133, 3, 22, 11, 0, 130, 132, 3, 2, 1, 0, 131, 130, 1, 0, 0, 0, 132, 135,
+		1, 0, 0, 0, 133, 131, 1, 0, 0, 0, 133, 134, 1, 0, 0, 0, 134, 137, 1, 0,
+		0, 0, 135, 133, 1, 0, 0, 0, 136, 129, 1, 0, 0, 0, 137, 140, 1, 0, 0, 0,
+		138, 136, 1, 0, 0, 0, 138, 139, 1, 0, 0, 0, 139, 141, 1, 0, 0, 0, 140,
+		138, 1, 0, 0, 0, 141, 142, 5, 8, 0, 0, 142, 11, 1, 0, 0, 0, 143, 144, 5,
+		11, 0, 0, 144, 149, 3, 14, 7, 0, 145, 146, 5, 13, 0, 0, 146, 148, 3, 14,
+		7, 0, 147, 145, 1, 0, 0, 0, 148, 151, 1, 0, 0, 0, 149, 147, 1, 0, 0, 0,
+		149, 150, 1, 0, 0, 0, 150, 152, 1, 0, 0, 0, 151, 149, 1, 0, 0, 0, 152,
+		153, 5, 12, 0, 0, 153, 13, 1, 0, 0, 0, 154, 157, 5, 22, 0, 0, 155, 156,
+		5, 6, 0, 0, 156, 158, 3, 26, 13, 0, 157, 155, 1, 0, 0, 0, 157, 158, 1,
+		0, 0, 0, 158, 161, 1, 0, 0, 0, 159, 160, 5, 17, 0, 0, 160, 162, 3, 26,
+		13, 0, 161, 159, 1, 0, 0, 0, 161, 162, 1, 0, 0, 0, 162, 15, 1, 0, 0, 0,
+		163, 166, 3, 18, 9, 0, 164, 166, 3, 22, 11, 0, 165, 163, 1, 0, 0, 0, 165,
+		164, 1, 0, 0, 0, 166, 170, 1, 0, 0, 0, 167, 169, 3, 2, 1, 0, 168, 167,
+		1, 0, 0, 0, 169, 172, 1, 0, 0, 0, 170, 168, 1, 0, 0, 0, 170, 171, 1, 0,
+		0, 0, 171, 174, 1, 0, 0, 0, 172, 170, 1, 0, 0, 0, 173, 165, 1, 0, 0, 0,
+		174, 177, 1, 0, 0, 0, 175, 173, 1, 0, 0, 0, 175, 176, 1, 0, 0, 0, 176,
+		17, 1, 0, 0, 0, 177, 175, 1, 0, 0, 0, 178, 179, 5, 2, 0, 0, 179, 180, 5,
+		22, 0, 0, 180, 182, 3, 26, 13, 0, 181, 183, 3, 20, 10, 0, 182, 181, 1,
+		0, 0, 0, 182, 183, 1, 0, 0, 0, 183, 19, 1, 0, 0, 0, 184, 186, 3, 2, 1,
+		0, 185, 184, 1, 0, 0, 0, 186, 189, 1, 0, 0, 0, 187, 185, 1, 0, 0, 0, 187,
+		188, 1, 0, 0, 0, 188, 190, 1, 0, 0, 0, 189, 187, 1, 0, 0, 0, 190, 194,
+		5, 7, 0, 0, 191, 193, 3, 2, 1, 0, 192, 191, 1, 0, 0, 0, 193, 196, 1, 0,
+		0, 0, 194, 192, 1, 0, 0, 0, 194, 195, 1, 0, 0, 0, 195, 206, 1, 0, 0, 0,
+		196, 194, 1, 0, 0, 0, 197, 201, 3, 22, 11, 0, 198, 200, 3, 2, 1, 0, 199,
+		198, 1, 0, 0, 0, 200, 203, 1, 0, 0, 0, 201, 199, 1, 0, 0, 0, 201, 202,
+		1, 0, 0, 0, 202, 205, 1, 0, 0, 0, 203, 201, 1, 0, 0, 0, 204, 197, 1, 0,
+		0, 0, 205, 208, 1, 0, 0, 0, 206, 204, 1, 0, 0, 0, 206, 207, 1, 0, 0, 0,
+		207, 209, 1, 0, 0, 0, 208, 206, 1, 0, 0, 0, 209, 210, 5, 8, 0, 0, 210,
+		21, 1, 0, 0, 0, 211, 212, 5, 3, 0, 0, 212, 214, 5, 22, 0, 0, 213, 215,
+		3, 24, 12, 0, 214, 213, 1, 0, 0, 0, 214, 215, 1, 0, 0, 0, 215, 23, 1, 0,
+		0, 0, 216, 218, 3, 2, 1, 0, 217, 216, 1, 0, 0, 0, 218, 221, 1, 0, 0, 0,
+		219, 217, 1, 0, 0, 0, 219, 220, 1, 0, 0, 0, 220, 222, 1, 0, 0, 0, 221,
+		219, 1, 0, 0, 0, 222, 226, 5, 7, 0, 0, 223, 225, 3, 2, 1, 0, 224, 223,
+		1, 0, 0, 0, 225, 228, 1, 0, 0, 0, 226, 224, 1, 0, 0, 0, 226, 227, 1, 0,
+		0, 0, 227, 242, 1, 0, 0, 0, 228, 226, 1, 0, 0, 0, 229, 239, 3, 34, 17,
+		0, 230, 232, 3, 2, 1, 0, 231, 230, 1, 0, 0, 0, 232, 233, 1, 0, 0, 0, 233,
+		231, 1, 0, 0, 0, 233, 234, 1, 0, 0, 0, 234, 235, 1, 0, 0, 0, 235, 236,
+		3, 34, 17, 0, 236, 238, 1, 0, 0, 0, 237, 231, 1, 0, 0, 0, 238, 241, 1,
+		0, 0, 0, 239, 237, 1, 0, 0, 0, 239, 240, 1, 0, 0, 0, 240, 243, 1, 0, 0,
+		0, 241, 239, 1, 0, 0, 0, 242, 229, 1, 0, 0, 0, 242, 243, 1, 0, 0, 0, 243,
+		247, 1, 0, 0, 0, 244, 246, 3, 2, 1, 0, 245, 244, 1, 0, 0, 0, 246, 249,
+		1, 0, 0, 0, 247, 245, 1, 0, 0, 0, 247, 248, 1, 0, 0, 0, 248, 250, 1, 0,
+		0, 0, 249, 247, 1, 0, 0, 0, 250, 251, 5, 8, 0, 0, 251, 25, 1, 0, 0, 0,
+		252, 254, 3, 32, 16, 0, 253, 255, 3, 28, 14, 0, 254, 253, 1, 0, 0, 0, 254,
+		255, 1, 0, 0, 0, 255, 258, 1, 0, 0, 0, 256, 257, 5, 9, 0, 0, 257, 259,
+		5, 10, 0, 0, 258, 256, 1, 0, 0, 0, 258, 259, 1, 0, 0, 0, 259, 261, 1, 0,
+		0, 0, 260, 262, 3, 30, 15, 0, 261, 260, 1, 0, 0, 0, 261, 262, 1, 0, 0,
+		0, 262, 27, 1, 0, 0, 0, 263, 264, 5, 11, 0, 0, 264, 269, 3, 26, 13, 0,
+		265, 266, 5, 13, 0, 0, 266, 268, 3, 26, 13, 0, 267, 265, 1, 0, 0, 0, 268,
+		271, 1, 0, 0, 0, 269, 267, 1, 0, 0, 0, 269, 270, 1, 0, 0, 0, 270, 272,
+		1, 0, 0, 0, 271, 269, 1, 0, 0, 0, 272, 273, 5, 12, 0, 0, 273, 29, 1, 0,
+		0, 0, 274, 276, 5, 14, 0, 0, 275, 277, 5, 15, 0, 0, 276, 275, 1, 0, 0,
+		0, 276, 277, 1, 0, 0, 0, 277, 283, 1, 0, 0, 0, 278, 280, 5, 15, 0, 0, 279,
+		281, 5, 14, 0, 0, 280, 279, 1, 0, 0, 0, 280, 281, 1, 0, 0, 0, 281, 283,
+		1, 0, 0, 0, 282, 274, 1, 0, 0, 0, 282, 278, 1, 0, 0, 0, 283, 31, 1, 0,
+		0, 0, 284, 287, 5, 22, 0, 0, 285, 286, 5, 16, 0, 0, 286, 288, 5, 22, 0,
+		0, 287, 285, 1, 0, 0, 0, 287, 288, 1, 0, 0, 0, 288, 33, 1, 0, 0, 0, 289,
+		293, 5, 22, 0, 0, 290, 292, 3, 36, 18, 0, 291, 290, 1, 0, 0, 0, 292, 295,
+		1, 0, 0, 0, 293, 291, 1, 0, 0, 0, 293, 294, 1, 0, 0, 0, 294, 35, 1, 0,
+		0, 0, 295, 293, 1, 0, 0, 0, 296, 302, 5, 18, 0, 0, 297, 302, 5, 20, 0,
+		0, 298, 302, 5, 19, 0, 0, 299, 302, 5, 21, 0, 0, 300, 302, 3, 32, 16, 0,
+		301, 296, 1, 0, 0, 0, 301, 297, 1, 0, 0, 0, 301, 298, 1, 0, 0, 0, 301,
+		299, 1, 0, 0, 0, 301, 300, 1, 0, 0, 0, 302, 37, 1, 0, 0, 0, 303, 304, 5,
+		4, 0, 0, 304, 308, 5, 22, 0, 0, 305, 307, 3, 2, 1, 0, 306, 305, 1, 0, 0,
+		0, 307, 310, 1, 0, 0, 0, 308, 306, 1, 0, 0, 0, 308, 309, 1, 0, 0, 0, 309,
+		311, 1, 0, 0, 0, 310, 308, 1, 0, 0, 0, 311, 315, 5, 7, 0, 0, 312, 314,
+		3, 2, 1, 0, 313, 312, 1, 0, 0, 0, 314, 317, 1, 0, 0, 0, 315, 313, 1, 0,
+		0, 0, 315, 316, 1, 0, 0, 0, 316, 327, 1, 0, 0, 0, 317, 315, 1, 0, 0, 0,
+		318, 322, 3, 40, 20, 0, 319, 321, 3, 2, 1, 0, 320, 319, 1, 0, 0, 0, 321,
+		324, 1, 0, 0, 0, 322, 320, 1, 0, 0, 0, 322, 323, 1, 0, 0, 0, 323, 326,
+		1, 0, 0, 0, 324, 322, 1, 0, 0, 0, 325, 318, 1, 0, 0, 0, 326, 329, 1, 0,
+		0, 0, 327, 325, 1, 0, 0, 0, 327, 328, 1, 0, 0, 0, 328, 330, 1, 0, 0, 0,
+		329, 327, 1, 0, 0, 0, 330, 331, 5, 8, 0, 0, 331, 39, 1, 0, 0, 0, 332, 333,
+		5, 22, 0, 0, 333, 334, 5, 17, 0, 0, 334, 335, 7, 0, 0, 0, 335, 41, 1, 0,
+		0, 0, 48, 45, 52, 57, 64, 69, 81, 86, 91, 98, 107, 112, 114, 119, 126,
+		133, 138, 149, 157, 161, 165, 170, 175, 182, 187, 194, 201, 206, 214, 219,
+		226, 233, 239, 242, 247, 254, 258, 261, 269, 276, 280, 282, 287, 293, 301,
+		308, 315, 322, 327,
 	}
 	deserializer := antlr.NewATNDeserializer(nil)
 	staticData.atn = deserializer.Deserialize(staticData.serializedATN)
@@ -1184,6 +1185,22 @@ func (s *StructAliasContext) TypeRef() ITypeRefContext {
 	return t.(ITypeRefContext)
 }
 
+func (s *StructAliasContext) TypeParams() ITypeParamsContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(ITypeParamsContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(ITypeParamsContext)
+}
+
 func (s *StructAliasContext) AliasBody() IAliasBodyContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
@@ -1217,13 +1234,13 @@ func (p *OracleParser) StructDef() (localctx IStructDefContext) {
 	p.EnterRule(localctx, 8, OracleParserRULE_structDef)
 	var _la int
 
-	p.SetState(111)
+	p.SetState(114)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
 	}
 
-	switch p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 10, p.GetParserRuleContext()) {
+	switch p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 11, p.GetParserRuleContext()) {
 	case 1:
 		localctx = NewStructFullContext(p, localctx)
 		p.EnterOuterAlt(localctx, 1)
@@ -1337,8 +1354,22 @@ func (p *OracleParser) StructDef() (localctx IStructDefContext) {
 				goto errorExit
 			}
 		}
+		p.SetState(107)
+		p.GetErrorHandler().Sync(p)
+		if p.HasError() {
+			goto errorExit
+		}
+		_la = p.GetTokenStream().LA(1)
+
+		if _la == OracleParserLT {
+			{
+				p.SetState(106)
+				p.TypeParams()
+			}
+
+		}
 		{
-			p.SetState(106)
+			p.SetState(109)
 			p.Match(OracleParserEQUALS)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -1346,15 +1377,15 @@ func (p *OracleParser) StructDef() (localctx IStructDefContext) {
 			}
 		}
 		{
-			p.SetState(107)
+			p.SetState(110)
 			p.TypeRef()
 		}
-		p.SetState(109)
+		p.SetState(112)
 		p.GetErrorHandler().Sync(p)
 
-		if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 9, p.GetParserRuleContext()) == 1 {
+		if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 10, p.GetParserRuleContext()) == 1 {
 			{
-				p.SetState(108)
+				p.SetState(111)
 				p.AliasBody()
 			}
 
@@ -1546,7 +1577,7 @@ func (p *OracleParser) AliasBody() (localctx IAliasBodyContext) {
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
-	p.SetState(116)
+	p.SetState(119)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -1555,11 +1586,11 @@ func (p *OracleParser) AliasBody() (localctx IAliasBodyContext) {
 
 	for _la == OracleParserNEWLINE {
 		{
-			p.SetState(113)
+			p.SetState(116)
 			p.Nl()
 		}
 
-		p.SetState(118)
+		p.SetState(121)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -1567,14 +1598,14 @@ func (p *OracleParser) AliasBody() (localctx IAliasBodyContext) {
 		_la = p.GetTokenStream().LA(1)
 	}
 	{
-		p.SetState(119)
+		p.SetState(122)
 		p.Match(OracleParserLBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
-	p.SetState(123)
+	p.SetState(126)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -1583,18 +1614,18 @@ func (p *OracleParser) AliasBody() (localctx IAliasBodyContext) {
 
 	for _la == OracleParserNEWLINE {
 		{
-			p.SetState(120)
+			p.SetState(123)
 			p.Nl()
 		}
 
-		p.SetState(125)
+		p.SetState(128)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
 		}
 		_la = p.GetTokenStream().LA(1)
 	}
-	p.SetState(135)
+	p.SetState(138)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -1603,10 +1634,10 @@ func (p *OracleParser) AliasBody() (localctx IAliasBodyContext) {
 
 	for _la == OracleParserDOMAIN {
 		{
-			p.SetState(126)
+			p.SetState(129)
 			p.DomainDef()
 		}
-		p.SetState(130)
+		p.SetState(133)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -1615,11 +1646,11 @@ func (p *OracleParser) AliasBody() (localctx IAliasBodyContext) {
 
 		for _la == OracleParserNEWLINE {
 			{
-				p.SetState(127)
+				p.SetState(130)
 				p.Nl()
 			}
 
-			p.SetState(132)
+			p.SetState(135)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
@@ -1627,7 +1658,7 @@ func (p *OracleParser) AliasBody() (localctx IAliasBodyContext) {
 			_la = p.GetTokenStream().LA(1)
 		}
 
-		p.SetState(137)
+		p.SetState(140)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -1635,7 +1666,7 @@ func (p *OracleParser) AliasBody() (localctx IAliasBodyContext) {
 		_la = p.GetTokenStream().LA(1)
 	}
 	{
-		p.SetState(138)
+		p.SetState(141)
 		p.Match(OracleParserRBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -1791,7 +1822,7 @@ func (p *OracleParser) TypeParams() (localctx ITypeParamsContext) {
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(140)
+		p.SetState(143)
 		p.Match(OracleParserLT)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -1799,10 +1830,10 @@ func (p *OracleParser) TypeParams() (localctx ITypeParamsContext) {
 		}
 	}
 	{
-		p.SetState(141)
+		p.SetState(144)
 		p.TypeParam()
 	}
-	p.SetState(146)
+	p.SetState(149)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -1811,7 +1842,7 @@ func (p *OracleParser) TypeParams() (localctx ITypeParamsContext) {
 
 	for _la == OracleParserCOMMA {
 		{
-			p.SetState(142)
+			p.SetState(145)
 			p.Match(OracleParserCOMMA)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -1819,11 +1850,11 @@ func (p *OracleParser) TypeParams() (localctx ITypeParamsContext) {
 			}
 		}
 		{
-			p.SetState(143)
+			p.SetState(146)
 			p.TypeParam()
 		}
 
-		p.SetState(148)
+		p.SetState(151)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -1831,7 +1862,7 @@ func (p *OracleParser) TypeParams() (localctx ITypeParamsContext) {
 		_la = p.GetTokenStream().LA(1)
 	}
 	{
-		p.SetState(149)
+		p.SetState(152)
 		p.Match(OracleParserGT)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -1982,14 +2013,14 @@ func (p *OracleParser) TypeParam() (localctx ITypeParamContext) {
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(151)
+		p.SetState(154)
 		p.Match(OracleParserIDENT)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
-	p.SetState(154)
+	p.SetState(157)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -1998,7 +2029,7 @@ func (p *OracleParser) TypeParam() (localctx ITypeParamContext) {
 
 	if _la == OracleParserEXTENDS {
 		{
-			p.SetState(152)
+			p.SetState(155)
 			p.Match(OracleParserEXTENDS)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2006,12 +2037,12 @@ func (p *OracleParser) TypeParam() (localctx ITypeParamContext) {
 			}
 		}
 		{
-			p.SetState(153)
+			p.SetState(156)
 			p.TypeRef()
 		}
 
 	}
-	p.SetState(158)
+	p.SetState(161)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -2020,7 +2051,7 @@ func (p *OracleParser) TypeParam() (localctx ITypeParamContext) {
 
 	if _la == OracleParserEQUALS {
 		{
-			p.SetState(156)
+			p.SetState(159)
 			p.Match(OracleParserEQUALS)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2028,7 +2059,7 @@ func (p *OracleParser) TypeParam() (localctx ITypeParamContext) {
 			}
 		}
 		{
-			p.SetState(157)
+			p.SetState(160)
 			p.TypeRef()
 		}
 
@@ -2247,7 +2278,7 @@ func (p *OracleParser) StructBody() (localctx IStructBodyContext) {
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
-	p.SetState(172)
+	p.SetState(175)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -2255,7 +2286,7 @@ func (p *OracleParser) StructBody() (localctx IStructBodyContext) {
 	_la = p.GetTokenStream().LA(1)
 
 	for _la == OracleParserFIELD || _la == OracleParserDOMAIN {
-		p.SetState(162)
+		p.SetState(165)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -2264,13 +2295,13 @@ func (p *OracleParser) StructBody() (localctx IStructBodyContext) {
 		switch p.GetTokenStream().LA(1) {
 		case OracleParserFIELD:
 			{
-				p.SetState(160)
+				p.SetState(163)
 				p.FieldDef()
 			}
 
 		case OracleParserDOMAIN:
 			{
-				p.SetState(161)
+				p.SetState(164)
 				p.DomainDef()
 			}
 
@@ -2278,7 +2309,7 @@ func (p *OracleParser) StructBody() (localctx IStructBodyContext) {
 			p.SetError(antlr.NewNoViableAltException(p, nil, nil, nil, nil, nil))
 			goto errorExit
 		}
-		p.SetState(167)
+		p.SetState(170)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -2287,11 +2318,11 @@ func (p *OracleParser) StructBody() (localctx IStructBodyContext) {
 
 		for _la == OracleParserNEWLINE {
 			{
-				p.SetState(164)
+				p.SetState(167)
 				p.Nl()
 			}
 
-			p.SetState(169)
+			p.SetState(172)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
@@ -2299,7 +2330,7 @@ func (p *OracleParser) StructBody() (localctx IStructBodyContext) {
 			_la = p.GetTokenStream().LA(1)
 		}
 
-		p.SetState(174)
+		p.SetState(177)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -2434,7 +2465,7 @@ func (p *OracleParser) FieldDef() (localctx IFieldDefContext) {
 	p.EnterRule(localctx, 18, OracleParserRULE_fieldDef)
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(175)
+		p.SetState(178)
 		p.Match(OracleParserFIELD)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -2442,7 +2473,7 @@ func (p *OracleParser) FieldDef() (localctx IFieldDefContext) {
 		}
 	}
 	{
-		p.SetState(176)
+		p.SetState(179)
 		p.Match(OracleParserIDENT)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -2450,15 +2481,15 @@ func (p *OracleParser) FieldDef() (localctx IFieldDefContext) {
 		}
 	}
 	{
-		p.SetState(177)
+		p.SetState(180)
 		p.TypeRef()
 	}
-	p.SetState(179)
+	p.SetState(182)
 	p.GetErrorHandler().Sync(p)
 
-	if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 21, p.GetParserRuleContext()) == 1 {
+	if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 22, p.GetParserRuleContext()) == 1 {
 		{
-			p.SetState(178)
+			p.SetState(181)
 			p.FieldBody()
 		}
 
@@ -2646,7 +2677,7 @@ func (p *OracleParser) FieldBody() (localctx IFieldBodyContext) {
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
-	p.SetState(184)
+	p.SetState(187)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -2655,11 +2686,11 @@ func (p *OracleParser) FieldBody() (localctx IFieldBodyContext) {
 
 	for _la == OracleParserNEWLINE {
 		{
-			p.SetState(181)
+			p.SetState(184)
 			p.Nl()
 		}
 
-		p.SetState(186)
+		p.SetState(189)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -2667,14 +2698,14 @@ func (p *OracleParser) FieldBody() (localctx IFieldBodyContext) {
 		_la = p.GetTokenStream().LA(1)
 	}
 	{
-		p.SetState(187)
+		p.SetState(190)
 		p.Match(OracleParserLBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
-	p.SetState(191)
+	p.SetState(194)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -2683,18 +2714,18 @@ func (p *OracleParser) FieldBody() (localctx IFieldBodyContext) {
 
 	for _la == OracleParserNEWLINE {
 		{
-			p.SetState(188)
+			p.SetState(191)
 			p.Nl()
 		}
 
-		p.SetState(193)
+		p.SetState(196)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
 		}
 		_la = p.GetTokenStream().LA(1)
 	}
-	p.SetState(203)
+	p.SetState(206)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -2703,10 +2734,10 @@ func (p *OracleParser) FieldBody() (localctx IFieldBodyContext) {
 
 	for _la == OracleParserDOMAIN {
 		{
-			p.SetState(194)
+			p.SetState(197)
 			p.DomainDef()
 		}
-		p.SetState(198)
+		p.SetState(201)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -2715,11 +2746,11 @@ func (p *OracleParser) FieldBody() (localctx IFieldBodyContext) {
 
 		for _la == OracleParserNEWLINE {
 			{
-				p.SetState(195)
+				p.SetState(198)
 				p.Nl()
 			}
 
-			p.SetState(200)
+			p.SetState(203)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
@@ -2727,7 +2758,7 @@ func (p *OracleParser) FieldBody() (localctx IFieldBodyContext) {
 			_la = p.GetTokenStream().LA(1)
 		}
 
-		p.SetState(205)
+		p.SetState(208)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -2735,7 +2766,7 @@ func (p *OracleParser) FieldBody() (localctx IFieldBodyContext) {
 		_la = p.GetTokenStream().LA(1)
 	}
 	{
-		p.SetState(206)
+		p.SetState(209)
 		p.Match(OracleParserRBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -2853,7 +2884,7 @@ func (p *OracleParser) DomainDef() (localctx IDomainDefContext) {
 	p.EnterRule(localctx, 22, OracleParserRULE_domainDef)
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(208)
+		p.SetState(211)
 		p.Match(OracleParserDOMAIN)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -2861,19 +2892,19 @@ func (p *OracleParser) DomainDef() (localctx IDomainDefContext) {
 		}
 	}
 	{
-		p.SetState(209)
+		p.SetState(212)
 		p.Match(OracleParserIDENT)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
-	p.SetState(211)
+	p.SetState(214)
 	p.GetErrorHandler().Sync(p)
 
-	if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 26, p.GetParserRuleContext()) == 1 {
+	if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 27, p.GetParserRuleContext()) == 1 {
 		{
-			p.SetState(210)
+			p.SetState(213)
 			p.DomainBody()
 		}
 
@@ -3063,7 +3094,7 @@ func (p *OracleParser) DomainBody() (localctx IDomainBodyContext) {
 	var _alt int
 
 	p.EnterOuterAlt(localctx, 1)
-	p.SetState(216)
+	p.SetState(219)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -3072,11 +3103,11 @@ func (p *OracleParser) DomainBody() (localctx IDomainBodyContext) {
 
 	for _la == OracleParserNEWLINE {
 		{
-			p.SetState(213)
+			p.SetState(216)
 			p.Nl()
 		}
 
-		p.SetState(218)
+		p.SetState(221)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -3084,41 +3115,41 @@ func (p *OracleParser) DomainBody() (localctx IDomainBodyContext) {
 		_la = p.GetTokenStream().LA(1)
 	}
 	{
-		p.SetState(219)
+		p.SetState(222)
 		p.Match(OracleParserLBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
-	p.SetState(223)
+	p.SetState(226)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
 	}
-	_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 28, p.GetParserRuleContext())
+	_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 29, p.GetParserRuleContext())
 	if p.HasError() {
 		goto errorExit
 	}
 	for _alt != 2 && _alt != antlr.ATNInvalidAltNumber {
 		if _alt == 1 {
 			{
-				p.SetState(220)
+				p.SetState(223)
 				p.Nl()
 			}
 
 		}
-		p.SetState(225)
+		p.SetState(228)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
 		}
-		_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 28, p.GetParserRuleContext())
+		_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 29, p.GetParserRuleContext())
 		if p.HasError() {
 			goto errorExit
 		}
 	}
-	p.SetState(239)
+	p.SetState(242)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -3127,21 +3158,21 @@ func (p *OracleParser) DomainBody() (localctx IDomainBodyContext) {
 
 	if _la == OracleParserIDENT {
 		{
-			p.SetState(226)
+			p.SetState(229)
 			p.Expression()
 		}
-		p.SetState(236)
+		p.SetState(239)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
 		}
-		_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 30, p.GetParserRuleContext())
+		_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 31, p.GetParserRuleContext())
 		if p.HasError() {
 			goto errorExit
 		}
 		for _alt != 2 && _alt != antlr.ATNInvalidAltNumber {
 			if _alt == 1 {
-				p.SetState(228)
+				p.SetState(231)
 				p.GetErrorHandler().Sync(p)
 				if p.HasError() {
 					goto errorExit
@@ -3150,11 +3181,11 @@ func (p *OracleParser) DomainBody() (localctx IDomainBodyContext) {
 
 				for ok := true; ok; ok = _la == OracleParserNEWLINE {
 					{
-						p.SetState(227)
+						p.SetState(230)
 						p.Nl()
 					}
 
-					p.SetState(230)
+					p.SetState(233)
 					p.GetErrorHandler().Sync(p)
 					if p.HasError() {
 						goto errorExit
@@ -3162,24 +3193,24 @@ func (p *OracleParser) DomainBody() (localctx IDomainBodyContext) {
 					_la = p.GetTokenStream().LA(1)
 				}
 				{
-					p.SetState(232)
+					p.SetState(235)
 					p.Expression()
 				}
 
 			}
-			p.SetState(238)
+			p.SetState(241)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
 			}
-			_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 30, p.GetParserRuleContext())
+			_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 31, p.GetParserRuleContext())
 			if p.HasError() {
 				goto errorExit
 			}
 		}
 
 	}
-	p.SetState(244)
+	p.SetState(247)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -3188,11 +3219,11 @@ func (p *OracleParser) DomainBody() (localctx IDomainBodyContext) {
 
 	for _la == OracleParserNEWLINE {
 		{
-			p.SetState(241)
+			p.SetState(244)
 			p.Nl()
 		}
 
-		p.SetState(246)
+		p.SetState(249)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -3200,7 +3231,7 @@ func (p *OracleParser) DomainBody() (localctx IDomainBodyContext) {
 		_la = p.GetTokenStream().LA(1)
 	}
 	{
-		p.SetState(247)
+		p.SetState(250)
 		p.Match(OracleParserRBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -3354,10 +3385,10 @@ func (p *OracleParser) TypeRef() (localctx ITypeRefContext) {
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(249)
+		p.SetState(252)
 		p.QualifiedIdent()
 	}
-	p.SetState(251)
+	p.SetState(254)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -3366,34 +3397,8 @@ func (p *OracleParser) TypeRef() (localctx ITypeRefContext) {
 
 	if _la == OracleParserLT {
 		{
-			p.SetState(250)
-			p.TypeArgs()
-		}
-
-	}
-	p.SetState(255)
-	p.GetErrorHandler().Sync(p)
-	if p.HasError() {
-		goto errorExit
-	}
-	_la = p.GetTokenStream().LA(1)
-
-	if _la == OracleParserLBRACKET {
-		{
 			p.SetState(253)
-			p.Match(OracleParserLBRACKET)
-			if p.HasError() {
-				// Recognition error - abort rule
-				goto errorExit
-			}
-		}
-		{
-			p.SetState(254)
-			p.Match(OracleParserRBRACKET)
-			if p.HasError() {
-				// Recognition error - abort rule
-				goto errorExit
-			}
+			p.TypeArgs()
 		}
 
 	}
@@ -3404,9 +3409,35 @@ func (p *OracleParser) TypeRef() (localctx ITypeRefContext) {
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	if _la == OracleParserQUESTION || _la == OracleParserBANG {
+	if _la == OracleParserLBRACKET {
+		{
+			p.SetState(256)
+			p.Match(OracleParserLBRACKET)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
 		{
 			p.SetState(257)
+			p.Match(OracleParserRBRACKET)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+
+	}
+	p.SetState(261)
+	p.GetErrorHandler().Sync(p)
+	if p.HasError() {
+		goto errorExit
+	}
+	_la = p.GetTokenStream().LA(1)
+
+	if _la == OracleParserQUESTION || _la == OracleParserBANG {
+		{
+			p.SetState(260)
 			p.TypeModifiers()
 		}
 
@@ -3560,7 +3591,7 @@ func (p *OracleParser) TypeArgs() (localctx ITypeArgsContext) {
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(260)
+		p.SetState(263)
 		p.Match(OracleParserLT)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -3568,10 +3599,10 @@ func (p *OracleParser) TypeArgs() (localctx ITypeArgsContext) {
 		}
 	}
 	{
-		p.SetState(261)
+		p.SetState(264)
 		p.TypeRef()
 	}
-	p.SetState(266)
+	p.SetState(269)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -3580,7 +3611,7 @@ func (p *OracleParser) TypeArgs() (localctx ITypeArgsContext) {
 
 	for _la == OracleParserCOMMA {
 		{
-			p.SetState(262)
+			p.SetState(265)
 			p.Match(OracleParserCOMMA)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3588,11 +3619,11 @@ func (p *OracleParser) TypeArgs() (localctx ITypeArgsContext) {
 			}
 		}
 		{
-			p.SetState(263)
+			p.SetState(266)
 			p.TypeRef()
 		}
 
-		p.SetState(268)
+		p.SetState(271)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -3600,7 +3631,7 @@ func (p *OracleParser) TypeArgs() (localctx ITypeArgsContext) {
 		_la = p.GetTokenStream().LA(1)
 	}
 	{
-		p.SetState(269)
+		p.SetState(272)
 		p.Match(OracleParserGT)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -3701,7 +3732,7 @@ func (p *OracleParser) TypeModifiers() (localctx ITypeModifiersContext) {
 	p.EnterRule(localctx, 30, OracleParserRULE_typeModifiers)
 	var _la int
 
-	p.SetState(279)
+	p.SetState(282)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -3711,14 +3742,14 @@ func (p *OracleParser) TypeModifiers() (localctx ITypeModifiersContext) {
 	case OracleParserQUESTION:
 		p.EnterOuterAlt(localctx, 1)
 		{
-			p.SetState(271)
+			p.SetState(274)
 			p.Match(OracleParserQUESTION)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(273)
+		p.SetState(276)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -3727,7 +3758,7 @@ func (p *OracleParser) TypeModifiers() (localctx ITypeModifiersContext) {
 
 		if _la == OracleParserBANG {
 			{
-				p.SetState(272)
+				p.SetState(275)
 				p.Match(OracleParserBANG)
 				if p.HasError() {
 					// Recognition error - abort rule
@@ -3740,14 +3771,14 @@ func (p *OracleParser) TypeModifiers() (localctx ITypeModifiersContext) {
 	case OracleParserBANG:
 		p.EnterOuterAlt(localctx, 2)
 		{
-			p.SetState(275)
+			p.SetState(278)
 			p.Match(OracleParserBANG)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(277)
+		p.SetState(280)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -3756,7 +3787,7 @@ func (p *OracleParser) TypeModifiers() (localctx ITypeModifiersContext) {
 
 		if _la == OracleParserQUESTION {
 			{
-				p.SetState(276)
+				p.SetState(279)
 				p.Match(OracleParserQUESTION)
 				if p.HasError() {
 					// Recognition error - abort rule
@@ -3871,14 +3902,14 @@ func (p *OracleParser) QualifiedIdent() (localctx IQualifiedIdentContext) {
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(281)
+		p.SetState(284)
 		p.Match(OracleParserIDENT)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
-	p.SetState(284)
+	p.SetState(287)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -3887,7 +3918,7 @@ func (p *OracleParser) QualifiedIdent() (localctx IQualifiedIdentContext) {
 
 	if _la == OracleParserDOT {
 		{
-			p.SetState(282)
+			p.SetState(285)
 			p.Match(OracleParserDOT)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3895,7 +3926,7 @@ func (p *OracleParser) QualifiedIdent() (localctx IQualifiedIdentContext) {
 			}
 		}
 		{
-			p.SetState(283)
+			p.SetState(286)
 			p.Match(OracleParserIDENT)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -4038,14 +4069,14 @@ func (p *OracleParser) Expression() (localctx IExpressionContext) {
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(286)
+		p.SetState(289)
 		p.Match(OracleParserIDENT)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
-	p.SetState(290)
+	p.SetState(293)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -4054,11 +4085,11 @@ func (p *OracleParser) Expression() (localctx IExpressionContext) {
 
 	for (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&8126464) != 0 {
 		{
-			p.SetState(287)
+			p.SetState(290)
 			p.ExpressionValue()
 		}
 
-		p.SetState(292)
+		p.SetState(295)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -4184,7 +4215,7 @@ func (s *ExpressionValueContext) ExitRule(listener antlr.ParseTreeListener) {
 func (p *OracleParser) ExpressionValue() (localctx IExpressionValueContext) {
 	localctx = NewExpressionValueContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 36, OracleParserRULE_expressionValue)
-	p.SetState(298)
+	p.SetState(301)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -4194,7 +4225,7 @@ func (p *OracleParser) ExpressionValue() (localctx IExpressionValueContext) {
 	case OracleParserSTRING_LIT:
 		p.EnterOuterAlt(localctx, 1)
 		{
-			p.SetState(293)
+			p.SetState(296)
 			p.Match(OracleParserSTRING_LIT)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -4205,7 +4236,7 @@ func (p *OracleParser) ExpressionValue() (localctx IExpressionValueContext) {
 	case OracleParserINT_LIT:
 		p.EnterOuterAlt(localctx, 2)
 		{
-			p.SetState(294)
+			p.SetState(297)
 			p.Match(OracleParserINT_LIT)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -4216,7 +4247,7 @@ func (p *OracleParser) ExpressionValue() (localctx IExpressionValueContext) {
 	case OracleParserFLOAT_LIT:
 		p.EnterOuterAlt(localctx, 3)
 		{
-			p.SetState(295)
+			p.SetState(298)
 			p.Match(OracleParserFLOAT_LIT)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -4227,7 +4258,7 @@ func (p *OracleParser) ExpressionValue() (localctx IExpressionValueContext) {
 	case OracleParserBOOL_LIT:
 		p.EnterOuterAlt(localctx, 4)
 		{
-			p.SetState(296)
+			p.SetState(299)
 			p.Match(OracleParserBOOL_LIT)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -4238,7 +4269,7 @@ func (p *OracleParser) ExpressionValue() (localctx IExpressionValueContext) {
 	case OracleParserIDENT:
 		p.EnterOuterAlt(localctx, 5)
 		{
-			p.SetState(297)
+			p.SetState(300)
 			p.QualifiedIdent()
 		}
 
@@ -4438,7 +4469,7 @@ func (p *OracleParser) EnumDef() (localctx IEnumDefContext) {
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(300)
+		p.SetState(303)
 		p.Match(OracleParserENUM)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -4446,14 +4477,14 @@ func (p *OracleParser) EnumDef() (localctx IEnumDefContext) {
 		}
 	}
 	{
-		p.SetState(301)
+		p.SetState(304)
 		p.Match(OracleParserIDENT)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
-	p.SetState(305)
+	p.SetState(308)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -4462,11 +4493,11 @@ func (p *OracleParser) EnumDef() (localctx IEnumDefContext) {
 
 	for _la == OracleParserNEWLINE {
 		{
-			p.SetState(302)
+			p.SetState(305)
 			p.Nl()
 		}
 
-		p.SetState(307)
+		p.SetState(310)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -4474,14 +4505,14 @@ func (p *OracleParser) EnumDef() (localctx IEnumDefContext) {
 		_la = p.GetTokenStream().LA(1)
 	}
 	{
-		p.SetState(308)
+		p.SetState(311)
 		p.Match(OracleParserLBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
-	p.SetState(312)
+	p.SetState(315)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -4490,18 +4521,18 @@ func (p *OracleParser) EnumDef() (localctx IEnumDefContext) {
 
 	for _la == OracleParserNEWLINE {
 		{
-			p.SetState(309)
+			p.SetState(312)
 			p.Nl()
 		}
 
-		p.SetState(314)
+		p.SetState(317)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
 		}
 		_la = p.GetTokenStream().LA(1)
 	}
-	p.SetState(324)
+	p.SetState(327)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -4510,10 +4541,10 @@ func (p *OracleParser) EnumDef() (localctx IEnumDefContext) {
 
 	for _la == OracleParserIDENT {
 		{
-			p.SetState(315)
+			p.SetState(318)
 			p.EnumValue()
 		}
-		p.SetState(319)
+		p.SetState(322)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -4522,11 +4553,11 @@ func (p *OracleParser) EnumDef() (localctx IEnumDefContext) {
 
 		for _la == OracleParserNEWLINE {
 			{
-				p.SetState(316)
+				p.SetState(319)
 				p.Nl()
 			}
 
-			p.SetState(321)
+			p.SetState(324)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
@@ -4534,7 +4565,7 @@ func (p *OracleParser) EnumDef() (localctx IEnumDefContext) {
 			_la = p.GetTokenStream().LA(1)
 		}
 
-		p.SetState(326)
+		p.SetState(329)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -4542,7 +4573,7 @@ func (p *OracleParser) EnumDef() (localctx IEnumDefContext) {
 		_la = p.GetTokenStream().LA(1)
 	}
 	{
-		p.SetState(327)
+		p.SetState(330)
 		p.Match(OracleParserRBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -4655,7 +4686,7 @@ func (p *OracleParser) EnumValue() (localctx IEnumValueContext) {
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(329)
+		p.SetState(332)
 		p.Match(OracleParserIDENT)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -4663,7 +4694,7 @@ func (p *OracleParser) EnumValue() (localctx IEnumValueContext) {
 		}
 	}
 	{
-		p.SetState(330)
+		p.SetState(333)
 		p.Match(OracleParserEQUALS)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -4671,7 +4702,7 @@ func (p *OracleParser) EnumValue() (localctx IEnumValueContext) {
 		}
 	}
 	{
-		p.SetState(331)
+		p.SetState(334)
 		_la = p.GetTokenStream().LA(1)
 
 		if !(_la == OracleParserSTRING_LIT || _la == OracleParserINT_LIT) {

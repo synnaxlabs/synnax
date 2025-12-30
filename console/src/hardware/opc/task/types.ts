@@ -134,14 +134,14 @@ export interface ReadTask extends task.Task<
 > {}
 export interface NewReadTask extends task.New<typeof readTypeZ, typeof readConfigZ> {}
 
-export const READ_SCHEMAS: task.Schemas<
+export const READ_SCHEMAS: task.PayloadSchemas<
   typeof readTypeZ,
   typeof readConfigZ,
   typeof readStatusDataZ
 > = {
-  typeSchema: readTypeZ,
-  configSchema: readConfigZ,
-  statusDataSchema: readStatusDataZ,
+  type: readTypeZ,
+  config: readConfigZ,
+  statusData: readStatusDataZ,
 };
 
 export const scanConfigZ = z.object({});
@@ -183,14 +183,14 @@ export const SCAN_TYPE = `${PREFIX}_scan`;
 export const scanTypeZ = z.literal(SCAN_TYPE);
 export type ScanType = typeof SCAN_TYPE;
 
-export const SCAN_SCHEMAS: task.Schemas<
+export const SCAN_SCHEMAS: task.PayloadSchemas<
   typeof scanTypeZ,
   typeof scanConfigZ,
   typeof scanStatusDataZ
 > = {
-  typeSchema: scanTypeZ,
-  configSchema: scanConfigZ,
-  statusDataSchema: scanStatusDataZ,
+  type: scanTypeZ,
+  config: scanConfigZ,
+  statusData: scanStatusDataZ,
 };
 
 export interface ScanPayload extends task.Payload<
@@ -263,12 +263,12 @@ export interface NewWriteTask extends task.New<
   typeof writeConfigZ
 > {}
 
-export const WRITE_SCHEMAS: task.Schemas<
+export const WRITE_SCHEMAS: task.PayloadSchemas<
   typeof writeTypeZ,
   typeof writeConfigZ,
   typeof writeStatusDataZ
 > = {
-  typeSchema: writeTypeZ,
-  configSchema: writeConfigZ,
-  statusDataSchema: writeStatusDataZ,
+  type: writeTypeZ,
+  config: writeConfigZ,
+  statusData: writeStatusDataZ,
 };

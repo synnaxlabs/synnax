@@ -50,9 +50,10 @@ definition
 // struct Status<D extends schema> { ... }
 // struct RackStatus = status.Status<RackDetails>
 // struct RackStatus = status.Status<RackDetails> { domain ts { output "..." } }
+// struct Status<D extends json> = status.Status<StatusDetails<D>> { ... }
 structDef
     : STRUCT IDENT typeParams? nl* LBRACE nl* structBody RBRACE  # StructFull
-    | STRUCT IDENT EQUALS typeRef aliasBody?                      # StructAlias
+    | STRUCT IDENT typeParams? EQUALS typeRef aliasBody?          # StructAlias
     ;
 
 // Optional body for struct aliases (domains only, no fields)

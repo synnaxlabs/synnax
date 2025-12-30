@@ -1,0 +1,94 @@
+import "schemas/status"
+
+struct StatusDetails {
+    field rack uint32
+    field device string
+
+    domain ts {
+        output "client/ts/src/device"
+    }
+}
+
+struct Status = status.Status<StatusDetails> {
+    domain ts {
+        output "client/ts/src/device"
+    }
+}
+
+struct Device<Properties extends json = json, Make extends string = string, Model extends string = string> {
+    field key string {
+        domain id
+    }
+    field rack uint32 {
+        domain validate {
+            required
+        }
+    }
+    field location string {
+        domain validate {
+            required
+        }
+    }
+    field make Make {
+        domain validate {
+            required
+        }
+    }
+    field model Model {
+        domain validate {
+            required
+        }
+    }
+    field name string {
+        domain validate {
+            required
+        }
+    }
+    field configured bool?
+    field properties Properties
+    field status Status?
+
+    domain ts {
+        output "client/ts/src/device"
+    }
+
+    domain ontology {
+        type "device"
+    }
+}
+
+struct New<Properties extends json = json, Make extends string = string, Model extends string = string> {
+    field key string?
+    field rack uint32 {
+        domain validate {
+            required
+        }
+    }
+    field name string {
+        domain validate {
+            required
+        }
+    }
+    field location string {
+        domain validate {
+            required
+        }
+    }
+    field make Make {
+        domain validate {
+            required
+        }
+    }
+    field model Model {
+        domain validate {
+            required
+        }
+    }
+    field properties Properties
+    field status Status?
+
+    domain ts {
+        output "client/ts/src/device"
+        use_input
+    }
+}

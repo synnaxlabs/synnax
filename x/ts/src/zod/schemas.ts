@@ -33,15 +33,34 @@ export const float32Z = z.number();
 export const float64Z = z.number();
 
 // JSON utilities
-/** Parses JSON from a string, or passes through if already an object */
-export const stringifiedJSON = z
-  .record(z.string(), z.unknown())
-  .or(z.string().transform((s) => JSON.parse(s) as Record<string, unknown>));
+const defaultJSONSchema = z.record(z.string(), z.unknown());
 
-/** Transforms a record to a JSON string for sending to server */
-export const jsonStringifier = z
-  .record(z.string(), z.unknown())
-  .transform((v) => JSON.stringify(v));
+/**
+ * Creates a schema that parses a JSON string and validates against an optional inner schema.
+ * @param schema - Optional schema to validate the parsed JSON against. Defaults to record.
+ * @returns A Zod schema that parses JSON strings.
+ */
+export const stringifiedJSON = <T extends z.ZodType = typeof defaultJSONSchema>(
+  schema?: T,
+) => {
+  const inner = (schema ?? defaultJSONSchema) as T;
+  return z
+    .union([z.string(), z.record(z.string(), z.unknown())])
+    .transform((s) => (typeof s === "string" ? JSON.parse(s) : s))
+    .pipe(inner);
+};
+
+/**
+ * Creates a schema that validates against an optional inner schema and stringifies to JSON.
+ * @param schema - Optional schema to validate input against. Defaults to record.
+ * @returns A Zod schema that stringifies values to JSON.
+ */
+export const jsonStringifier = <T extends z.ZodType = typeof defaultJSONSchema>(
+  schema?: T,
+) => {
+  const inner = (schema ?? defaultJSONSchema) as T;
+  return inner.transform((v) => JSON.stringify(v));
+};
 
 /** @deprecated Use uint12Z instead */
 export const uint12 = uint12Z;

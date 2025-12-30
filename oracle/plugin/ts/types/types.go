@@ -315,13 +315,14 @@ func (p *Plugin) processEnum(enum *resolution.EnumEntry) enumData {
 
 func (p *Plugin) processStruct(entry *resolution.StructEntry, table *resolution.Table, data *templateData, idFields []idFieldData) structData {
 	sd := structData{
-		Name:      entry.Name,
-		TSName:    entry.Name,
-		Fields:    make([]fieldData, 0, len(entry.Fields)),
-		IsGeneric: entry.IsGeneric(),
-		IsAlias:   entry.IsAlias(),
+		Name:          entry.Name,
+		TSName:        entry.Name,
+		Fields:        make([]fieldData, 0, len(entry.Fields)),
+		IsGeneric:     entry.IsGeneric(),
+		IsSingleParam: len(entry.TypeParams) == 1,
+		IsAlias:       entry.IsAlias(),
 	}
-	// Check if ts domain has use_input, handwritten, or name expressions
+	// Check if ts domain has use_input, handwritten, concrete_types, or name expressions
 	if tsDomain, ok := entry.Domains["ts"]; ok {
 		for _, expr := range tsDomain.Expressions {
 			switch expr.Name {
@@ -329,6 +330,8 @@ func (p *Plugin) processStruct(entry *resolution.StructEntry, table *resolution.
 				sd.UseInput = true
 			case "handwritten":
 				sd.Handwritten = true
+			case "concrete_types":
+				sd.ConcreteTypes = true
 			case "name":
 				if len(expr.Values) > 0 {
 					sd.TSName = expr.Values[0].StringValue
@@ -340,14 +343,14 @@ func (p *Plugin) processStruct(entry *resolution.StructEntry, table *resolution.
 	if sd.Handwritten {
 		return sd
 	}
+	// Process type parameters for generic structs (must happen before alias check)
+	for _, tp := range entry.TypeParams {
+		sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, data))
+	}
 	// Handle struct aliases: generate the aliased type expression
 	if entry.IsAlias() {
 		sd.AliasOf = p.typeToZod(entry.AliasOf, table, data, sd.UseInput)
 		return sd
-	}
-	// Process type parameters for generic structs
-	for _, tp := range entry.TypeParams {
-		sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, data))
 	}
 	for _, field := range entry.Fields {
 		sd.Fields = append(sd.Fields, p.processField(field, table, data, idFields, sd.UseInput))
@@ -361,13 +364,15 @@ func (p *Plugin) processTypeParam(tp *resolution.TypeParam, data *templateData) 
 	// Map constraint to TypeScript
 	if tp.Constraint != nil {
 		tpd.Constraint = constraintToTS(tp.Constraint.RawType)
+		tpd.IsJSON = tp.Constraint.Primitive == "json"
 	} else {
 		tpd.Constraint = "z.ZodType" // Default constraint
 	}
-	// Map default to TypeScript
+	// Map default to TypeScript (both type and runtime value)
 	if tp.Default != nil {
 		tpd.HasDefault = true
 		tpd.Default = defaultToTS(tp.Default.RawType)
+		tpd.DefaultValue = defaultValueToTS(tp.Default.RawType)
 	}
 	return tpd
 }
@@ -382,13 +387,67 @@ func constraintToTS(rawType string) string {
 	}
 }
 
-// defaultToTS maps Oracle default types to TypeScript.
+// defaultToTS maps Oracle default types to TypeScript Zod type names.
 func defaultToTS(rawType string) string {
 	switch rawType {
 	case "never":
 		return "z.ZodNever"
+	case "string":
+		return "z.ZodString"
+	case "bool":
+		return "z.ZodBoolean"
+	case "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64", "float32", "float64":
+		return "z.ZodNumber"
+	case "json":
+		return "z.ZodType"
+	case "uuid":
+		return "z.ZodString"
+	case "timestamp", "timespan":
+		return "z.ZodNumber"
 	default:
-		return "z.ZodNever"
+		return "z.ZodType"
+	}
+}
+
+// defaultValueToTS maps Oracle default types to TypeScript Zod runtime schema values.
+// This is used for default parameter values in destructuring (e.g., { make = z.string() }).
+func defaultValueToTS(rawType string) string {
+	switch rawType {
+	case "string":
+		return "z.string()"
+	case "bool":
+		return "z.boolean()"
+	case "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64", "float32", "float64":
+		return "z.number()"
+	case "uuid":
+		return "z.string()"
+	case "json":
+		return "" // json params don't get a default value, they're wrapped with stringifiedJSON
+	default:
+		return "z.unknown()"
+	}
+}
+
+// fallbackForConstraint returns the Zod schema fallback value for a type parameter constraint.
+// This is used when the caller doesn't provide a schema for the type parameter.
+func fallbackForConstraint(constraint *resolution.TypeRef) string {
+	if constraint == nil {
+		return "z.unknown()"
+	}
+	switch constraint.Primitive {
+	case "string":
+		return "z.string()"
+	case "bool":
+		return "z.boolean()"
+	case "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64", "float32", "float64":
+		return "z.number()"
+	case "uuid":
+		return "z.string()"
+	case "json":
+		// json constraints are handled specially in typeToZod, but provide fallback just in case
+		return "z.unknown()"
+	default:
+		return "z.unknown()"
 	}
 }
 
@@ -402,8 +461,10 @@ func (p *Plugin) processField(field *resolution.FieldEntry, table *resolution.Ta
 	}
 	if idField := findIDField(field.Name, idFields); idField != nil {
 		fd.ZodType = idField.TSName + "Z"
+		fd.TSType = lo.Capitalize(lo.CamelCase(idField.Name)) // e.g., "Key"
 	} else {
 		fd.ZodType = p.typeToZod(field.TypeRef, table, data, useInput)
+		fd.TSType = p.typeToTS(field.TypeRef, table, data)
 		if validateDomain := plugin.GetFieldDomain(field, "validate"); validateDomain != nil {
 			fd.ZodType = p.applyValidation(fd.ZodType, validateDomain, field.TypeRef, field.Name)
 		}
@@ -446,16 +507,35 @@ func findIDField(name string, idFields []idFieldData) *idFieldData {
 }
 
 func (p *Plugin) typeToZod(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData, useInput bool) string {
+	return p.typeToZodInternal(typeRef, table, data, useInput, false)
+}
+
+// typeToZodInternal generates the Zod schema expression for a type reference.
+// forStructArg indicates if this is being generated as an argument to pass to another struct's schema function.
+// When true, we don't wrap json type params - the wrapping happens inside the called struct.
+func (p *Plugin) typeToZodInternal(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData, useInput bool, forStructArg bool) string {
 	switch typeRef.Kind {
 	case resolution.TypeKindPrimitive:
 		return primitiveToZod(typeRef.Primitive, data, useInput)
 	case resolution.TypeKindTypeParam:
 		// Type parameter reference (e.g., field details D? in struct Status<D>)
-		// In the generic function, this becomes the parameter variable with fallback
-		// Use z.unknown() as fallback so the field accepts any value when no schema provided
 		if typeRef.TypeParamRef != nil {
-			paramName := strings.ToLower(typeRef.TypeParamRef.Name)
-			return fmt.Sprintf("%s ?? z.unknown()", paramName)
+			paramName := lo.CamelCase(typeRef.TypeParamRef.Name)
+			// When passing as arg to another struct, don't wrap - the struct handles wrapping
+			if forStructArg {
+				return paramName
+			}
+			// Check if the constraint is json - if so, wrap with stringifiedJSON/jsonStringifier
+			if typeRef.TypeParamRef.Constraint != nil && typeRef.TypeParamRef.Constraint.Primitive == "json" {
+				addXImport(data, xImport{name: "zod", submodule: "zod"})
+				if useInput {
+					return fmt.Sprintf("zod.jsonStringifier(%s)", paramName)
+				}
+				return fmt.Sprintf("zod.stringifiedJSON(%s)", paramName)
+			}
+			// For non-json type params, use ?? with fallback based on constraint
+			fallback := fallbackForConstraint(typeRef.TypeParamRef.Constraint)
+			return fmt.Sprintf("%s ?? %s", paramName, fallback)
 		}
 		return "z.unknown()"
 	case resolution.TypeKindStruct:
@@ -466,12 +546,25 @@ func (p *Plugin) typeToZod(typeRef *resolution.TypeRef, table *resolution.Table,
 		// Handle generic struct references
 		if typeRef.StructRef.IsGeneric() {
 			if len(typeRef.TypeArgs) > 0 {
-				// Generate type arguments: statusZ(detailsZ)
+				structParams := typeRef.StructRef.TypeParams
+				isSingleParam := len(structParams) == 1
+				// Generate type arguments, passing forStructArg=true to avoid double-wrapping
 				args := make([]string, len(typeRef.TypeArgs))
 				for i, arg := range typeRef.TypeArgs {
-					args[i] = p.typeToZod(arg, table, data, useInput)
+					args[i] = p.typeToZodInternal(arg, table, data, useInput, true)
 				}
-				schemaName = fmt.Sprintf("%s(%s)", schemaName, strings.Join(args, ", "))
+				if isSingleParam {
+					// Single param: positional argument
+					schemaName = fmt.Sprintf("%s(%s)", schemaName, args[0])
+				} else {
+					// Multiple params: object with named properties
+					namedArgs := make([]string, len(typeRef.TypeArgs))
+					for i, arg := range args {
+						paramName := lo.CamelCase(structParams[i].Name)
+						namedArgs[i] = fmt.Sprintf("%s: %s", paramName, arg)
+					}
+					schemaName = fmt.Sprintf("%s({%s})", schemaName, strings.Join(namedArgs, ", "))
+				}
 			} else {
 				// Generic struct without type args: call with no arguments
 				schemaName = schemaName + "()"
@@ -514,6 +607,82 @@ func (p *Plugin) typeToZod(typeRef *resolution.TypeRef, table *resolution.Table,
 		return enumName
 	default:
 		return "z.unknown()"
+	}
+}
+
+// typeToTS generates the concrete TypeScript type for a type reference.
+// Used when ConcreteTypes is enabled to generate explicit type definitions.
+func (p *Plugin) typeToTS(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData) string {
+	return p.typeToTSInternal(typeRef, table, data, false)
+}
+
+// typeToTSInternal generates the concrete TypeScript type.
+// forStructArg indicates this is being used as a type argument to another struct,
+// in which case type params should be passed as-is (not wrapped in z.infer).
+func (p *Plugin) typeToTSInternal(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData, forStructArg bool) string {
+	switch typeRef.Kind {
+	case resolution.TypeKindPrimitive:
+		return primitiveToTS(typeRef.Primitive)
+	case resolution.TypeKindTypeParam:
+		if typeRef.TypeParamRef != nil {
+			// When passing to another struct, pass the ZodType directly
+			if forStructArg {
+				return typeRef.TypeParamRef.Name
+			}
+			// Type params are Zod schemas, so we need z.infer to get the value type
+			return fmt.Sprintf("z.infer<%s>", typeRef.TypeParamRef.Name)
+		}
+		return "unknown"
+	case resolution.TypeKindStruct:
+		if typeRef.StructRef == nil {
+			return "unknown"
+		}
+		typeName := typeRef.StructRef.Name
+		if typeRef.StructRef.IsGeneric() && len(typeRef.TypeArgs) > 0 {
+			args := make([]string, len(typeRef.TypeArgs))
+			for i, arg := range typeRef.TypeArgs {
+				// Pass true for forStructArg since these are arguments to a struct
+				args[i] = p.typeToTSInternal(arg, table, data, true)
+			}
+			typeName = fmt.Sprintf("%s<%s>", typeName, strings.Join(args, ", "))
+		}
+		if typeRef.StructRef.Namespace != data.Namespace {
+			ns := typeRef.StructRef.Namespace
+			return fmt.Sprintf("%s.%s", ns, typeName)
+		}
+		return typeName
+	case resolution.TypeKindEnum:
+		if typeRef.EnumRef == nil {
+			return "unknown"
+		}
+		enumName := typeRef.EnumRef.Name
+		if typeRef.EnumRef.Namespace != data.Namespace {
+			ns := typeRef.EnumRef.Namespace
+			return fmt.Sprintf("%s.%s", ns, enumName)
+		}
+		return enumName
+	default:
+		return "unknown"
+	}
+}
+
+// primitiveToTS converts a primitive type to its TypeScript equivalent.
+func primitiveToTS(primitive string) string {
+	switch primitive {
+	case "string", "uuid":
+		return "string"
+	case "bool":
+		return "boolean"
+	case "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64", "float32", "float64":
+		return "number"
+	case "timestamp", "timespan":
+		return "number"
+	case "json":
+		return "unknown"
+	case "bytes":
+		return "Uint8Array"
+	default:
+		return "unknown"
 	}
 }
 
@@ -574,10 +743,10 @@ func primitiveToZod(primitive string, data *templateData, useInput bool) string 
 		addXImport(data, xImport{name: "zod", submodule: "zod"})
 		if useInput {
 			// For input types, stringify JSON when sending to server
-			return "zod.jsonStringifier"
+			return "zod.jsonStringifier()"
 		}
 		// For output types, parse JSON when receiving from server
-		return "zod.stringifiedJSON"
+		return "zod.stringifiedJSON()"
 	}
 	if mapping, ok := primitiveZodTypes[primitive]; ok {
 		for _, imp := range mapping.xImports {
@@ -764,29 +933,34 @@ type namedImportData struct {
 }
 
 type structData struct {
-	Name        string // Original struct name from schema
-	TSName      string // TypeScript name (can be overridden via ts domain { name "..." })
-	Fields      []fieldData
-	UseInput    bool            // If true, use z.input instead of z.infer for type derivation
-	Handwritten bool            // If true, skip generating both schema and type (struct is handwritten)
-	TypeParams  []typeParamData // Generic type parameters
-	IsGeneric   bool            // True if struct has type parameters
-	IsAlias     bool            // True if struct is an alias of another type
-	AliasOf     string          // TypeScript expression for the aliased type schema
+	Name          string // Original struct name from schema
+	TSName        string // TypeScript name (can be overridden via ts domain { name "..." })
+	Fields        []fieldData
+	UseInput      bool            // If true, use z.input instead of z.infer for type derivation
+	Handwritten   bool            // If true, skip generating both schema and type (struct is handwritten)
+	ConcreteTypes bool            // If true, generate explicit type definitions instead of z.infer
+	TypeParams    []typeParamData // Generic type parameters
+	IsGeneric     bool            // True if struct has type parameters
+	IsSingleParam bool            // True if struct has exactly one type parameter (use positional arg)
+	IsAlias       bool            // True if struct is an alias of another type
+	AliasOf       string          // TypeScript expression for the aliased type schema
 }
 
 // typeParamData holds data for a generic type parameter.
 type typeParamData struct {
-	Name       string // e.g., "D"
-	Constraint string // e.g., "z.ZodType" (TypeScript constraint)
-	Default    string // e.g., "z.ZodNever" (TypeScript default)
-	HasDefault bool   // True if a default value is specified
+	Name         string // e.g., "D"
+	Constraint   string // e.g., "z.ZodType" (TypeScript constraint)
+	Default      string // e.g., "z.ZodNever" (TypeScript default type)
+	DefaultValue string // e.g., "z.string()" (runtime default value for destructuring)
+	HasDefault   bool   // True if a default value is specified
+	IsJSON       bool   // True if the constraint is json (needs special wrapping)
 }
 
 type fieldData struct {
 	Name       string
 	TSName     string
 	ZodType    string
+	TSType     string // Concrete TypeScript type (e.g., "z.infer<Type>", "string")
 	IsOptional bool
 	IsNullable bool
 	IsArray    bool
@@ -846,25 +1020,83 @@ export type {{ .Name }} = z.infer<typeof {{ camelCase .Name }}Z>;
 {{- range .Structs }}
 {{- if not .Handwritten }}
 {{- if .IsAlias }}
+{{- if .IsGeneric }}
+{{- if .IsSingleParam }}
+
+export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}>({{ range $i, $p := .TypeParams }}{{ $p.Name | camelCase }}?: {{ $p.Name }}{{ end }}) =>
+  {{ .AliasOf }};
+{{- if $.GenerateTypes }}
+export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.infer<
+  ReturnType<typeof {{ camelCase .TSName }}Z<{{ range $i, $p := .TypeParams }}{{ $p.Name }}{{ end }}>>
+>;
+{{- end }}
+{{- else }}
+
+export interface {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> {
+{{- range $i, $p := .TypeParams }}
+  {{ $p.Name | camelCase }}?: {{ $p.Name }};
+{{- end }}
+}
+
+export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}>({
+{{- range $i, $p := .TypeParams }}
+  {{ $p.Name | camelCase }},
+{{- end }}
+}: {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}> = {}) =>
+  {{ .AliasOf }};
+{{- if $.GenerateTypes }}
+export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.infer<
+  ReturnType<typeof {{ camelCase .TSName }}Z<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>>
+>;
+{{- end }}
+{{- end }}
+{{- else }}
 
 export const {{ camelCase .TSName }}Z = {{ .AliasOf }};
 {{- if $.GenerateTypes }}
 export type {{ .TSName }} = z.infer<typeof {{ camelCase .TSName }}Z>;
 {{- end }}
+{{- end }}
 {{- else if .IsGeneric }}
+{{- if .IsSingleParam }}
 
-export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}>(
-  {{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name | lower }}?: {{ $p.Name }}{{ end }}
-) =>
+export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}>({{ range $i, $p := .TypeParams }}{{ $p.Name | camelCase }}?: {{ $p.Name }}{{ end }}) =>
   z.object({
 {{- range .Fields }}
     {{ .TSName }}: {{ .ZodType }},
 {{- end }}
   });
+{{- else }}
+
+export interface {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> {
+{{- range $i, $p := .TypeParams }}
+  {{ $p.Name | camelCase }}?: {{ $p.Name }};
+{{- end }}
+}
+
+export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}>({
+{{- range $i, $p := .TypeParams }}
+  {{ $p.Name | camelCase }},
+{{- end }}
+}: {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}> = {}) =>
+  z.object({
+{{- range .Fields }}
+    {{ .TSName }}: {{ .ZodType }},
+{{- end }}
+  });
+{{- end }}
 {{- if $.GenerateTypes }}
+{{- if .ConcreteTypes }}
+export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = {
+{{- range .Fields }}
+  {{ .TSName }}{{ if .IsOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }}{{ if .IsNullable }} | null{{ end }};
+{{- end }}
+};
+{{- else }}
 export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.infer<
   ReturnType<typeof {{ camelCase .TSName }}Z<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>>
 >;
+{{- end }}
 {{- end }}
 {{- else }}
 

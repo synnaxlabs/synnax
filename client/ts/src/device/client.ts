@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { type Device, deviceZ, type Key, keyZ, type New, newZ } from "@/device/payload";
 import { ontology } from "@/ontology";
-import { keyZ as rackKeyZ } from "@/rack/payload";
+import { keyZ as rackKeyZ } from "@/rack/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_device_set";

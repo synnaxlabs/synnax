@@ -11,14 +11,14 @@ export type Key = z.infer<typeof keyZ>;
 export const tableZ = z.object({
   key: keyZ,
   name: z.string(),
-  data: zod.stringifiedJSON,
+  data: zod.stringifiedJSON(),
 });
 export type Table = z.infer<typeof tableZ>;
 
 export const newZ = z.object({
   key: keyZ.optional(),
   name: z.string(),
-  data: zod.jsonStringifier,
+  data: zod.jsonStringifier(),
 });
 export type New = z.input<typeof newZ>;
 

@@ -37,3 +37,28 @@ struct Status<D extends schema = never> {
         handwritten
     }
 }
+
+struct New<D extends schema = never> {
+    field key uuid? {
+        domain id
+    }
+
+    field name string?
+
+    field variant Variant
+
+    field message string
+
+    field description string?
+
+    field time timestamp
+
+    field labels label.Label[]?!
+
+    field details D?
+
+    domain ts {
+        output "x/ts/src/status"
+        handwritten
+    }
+}

@@ -437,12 +437,12 @@ describe("queries", () => {
       });
 
       const schemas = {
-        typeSchema: z.literal("typedTask"),
-        configSchema: z.object({
+        type: z.literal("typedTask"),
+        config: z.object({
           port: z.number(),
           host: z.string(),
         }),
-        statusDataSchema: z.any(),
+        statusData: z.any(),
       };
 
       const { useRetrieve } = Task.createRetrieve(schemas);
@@ -704,9 +704,9 @@ describe("queries", () => {
     it("should initialize a form with default values", async () => {
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({}),
-          statusDataSchema: z.any(),
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: z.any(),
         },
         initialValues: {
           key: "123",
@@ -738,9 +738,9 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({ setting: z.string() }),
-          statusDataSchema: z.any().or(z.null()),
+          type: z.literal("testType"),
+          config: z.object({ setting: z.string() }),
+          statusData: z.any().or(z.null()),
         },
         initialValues: {
           key: "0",
@@ -771,9 +771,9 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({}),
-          statusDataSchema: z.any(),
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: z.any(),
         },
         initialValues: {
           key: testTask.key,
@@ -811,12 +811,12 @@ describe("queries", () => {
     it("should validate form fields according to schema", async () => {
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({
+          type: z.literal("testType"),
+          config: z.object({
             port: z.number().min(1).max(65535),
             host: z.string().min(1),
           }),
-          statusDataSchema: z.any(),
+          statusData: z.any(),
         },
         initialValues: {
           key: "0",
@@ -866,9 +866,9 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({}),
-          statusDataSchema: z.any(),
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: z.any(),
         },
         initialValues: {
           key: testTask.key,
@@ -919,9 +919,9 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({}),
-          statusDataSchema: z.any(),
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: z.any(),
         },
         initialValues: {
           key: testTask.key,
@@ -973,9 +973,9 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({}),
-          statusDataSchema: statusDataSchema.or(z.null()),
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: statusDataSchema.or(z.null()),
         },
         initialValues: {
           key: testTask.key,
@@ -1020,9 +1020,9 @@ describe("queries", () => {
     it("should handle field changes and mark form as touched", async () => {
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({}),
-          statusDataSchema: z.any(),
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: z.any(),
         },
         initialValues: {
           key: "123",
@@ -1057,9 +1057,9 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({ value: z.string() }),
-          statusDataSchema: z.any(),
+          type: z.literal("testType"),
+          config: z.object({ value: z.string() }),
+          statusData: z.any(),
         },
         initialValues: {
           key: testTask.key,
@@ -1107,9 +1107,9 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({}),
-          statusDataSchema: statusDataSchema.or(z.null()),
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: statusDataSchema.or(z.null()),
         },
         initialValues: {
           key: testTask.key,
@@ -1161,9 +1161,9 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({ setting: z.string() }),
-          statusDataSchema: z.any(),
+          type: z.literal("testType"),
+          config: z.object({ setting: z.string() }),
+          statusData: z.any(),
         },
         initialValues: {
           key: testTask.key,
@@ -1207,9 +1207,9 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({}),
-          statusDataSchema: z.any(),
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: z.any(),
         },
         initialValues: {
           key: testTask.key,
@@ -1254,9 +1254,9 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({ value: z.string() }),
-          statusDataSchema: z.any(),
+          type: z.literal("testType"),
+          config: z.object({ value: z.string() }),
+          statusData: z.any(),
         },
         initialValues: {
           key: testTask.key,
@@ -1291,9 +1291,9 @@ describe("queries", () => {
     it("should handle error states in form operations", async () => {
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({}),
-          statusDataSchema: z.any(),
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: z.any(),
         },
         initialValues: {
           key: "999999",
@@ -1326,9 +1326,9 @@ describe("queries", () => {
 
       const useForm = Task.createForm({
         schemas: {
-          typeSchema: z.literal("testType"),
-          configSchema: z.object({}),
-          statusDataSchema: z.any(),
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: z.any(),
         },
         initialValues: {
           key: testTask.key,
@@ -1397,9 +1397,9 @@ describe("queries", () => {
       });
       const statusDataSchema = z.any();
       const schemas = {
-        typeSchema,
-        configSchema,
-        statusDataSchema,
+        type: typeSchema,
+        config: configSchema,
+        statusData: statusDataSchema,
       };
 
       const useForm = Task.createForm({

@@ -12,7 +12,7 @@ export const viewZ = z.object({
   key: keyZ,
   name: z.string(),
   type: z.string(),
-  query: zod.stringifiedJSON,
+  query: zod.stringifiedJSON(),
 });
 export type View = z.infer<typeof viewZ>;
 
@@ -20,7 +20,7 @@ export const newZ = z.object({
   key: keyZ.optional(),
   name: z.string(),
   type: z.string(),
-  query: zod.stringifiedJSON,
+  query: zod.stringifiedJSON(),
 });
 export type New = z.infer<typeof newZ>;
 

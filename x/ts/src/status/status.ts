@@ -51,6 +51,24 @@ export const statusZ: StatusZFunction = <DetailsSchema extends z.ZodType>(
     details: details ?? z.unknown().optional(),
   });
 
+export const newZ = <DetailsSchema extends z.ZodType>(details?: DetailsSchema) =>
+  z.object({
+    key: z.string().optional(),
+    name: z.string().optional(),
+    variant: variantZ,
+    message: z.string(),
+    description: z.string().optional(),
+    time: TimeStamp.z,
+    labels: array.nullableZ(label.labelZ).optional(),
+    details: details ?? z.unknown().optional(),
+  });
+
+export type New<DetailsSchema = z.ZodNever, V extends Variant = Variant> = Partial<
+  Pick<Base<V>, "key" | "name">
+> &
+  Omit<Base<V>, "key" | "name"> &
+  ([DetailsSchema] extends [z.ZodNever] ? {} : { details: z.output<DetailsSchema> });
+
 type Base<V extends Variant> = {
   key: string;
   name: string;

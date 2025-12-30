@@ -221,6 +221,7 @@ func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 		FilePath:      c.filePath,
 		QualifiedName: qname,
 		Domains:       make(map[string]*resolution.DomainEntry),
+		TypeParams:    collectTypeParams(def.TypeParams()),
 		AliasOf:       collectTypeRef(def.TypeRef()),
 	}
 	// Collect domains from alias body if present

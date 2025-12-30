@@ -116,14 +116,14 @@ export const ZERO_ANALOG_READ_PAYLOAD = v1.ZERO_ANALOG_READ_PAYLOAD;
 export interface AnalogReadPayload extends v1.AnalogReadPayload {}
 export interface AnalogReadTask extends v1.AnalogReadTask {}
 export interface NewAnalogReadTask extends v1.NewAnalogReadTask {}
-export const ANALOG_READ_SCHEMAS: task.Schemas<
+export const ANALOG_READ_SCHEMAS: task.PayloadSchemas<
   typeof analogReadTypeZ,
   typeof analogReadConfigZ,
   typeof analogReadStatusDataZ
 > = {
-  typeSchema: analogReadTypeZ,
-  configSchema: analogReadConfigZ,
-  statusDataSchema: analogReadStatusDataZ,
+  type: analogReadTypeZ,
+  config: analogReadConfigZ,
+  statusData: analogReadStatusDataZ,
 };
 
 export const counterReadTypeZ = v0.counterReadTypeZ;
@@ -136,14 +136,14 @@ export const ZERO_COUNTER_READ_PAYLOAD = v0.ZERO_COUNTER_READ_PAYLOAD;
 export interface CounterReadPayload extends v0.CounterReadPayload {}
 export interface CounterReadTask extends v0.CounterReadTask {}
 export interface NewCounterReadTask extends v0.NewCounterReadTask {}
-export const COUNTER_READ_SCHEMAS: task.Schemas<
+export const COUNTER_READ_SCHEMAS: task.PayloadSchemas<
   typeof counterReadTypeZ,
   typeof counterReadConfigZ,
   typeof counterReadStatusDataZ
 > = {
-  typeSchema: counterReadTypeZ,
-  configSchema: counterReadConfigZ,
-  statusDataSchema: counterReadStatusDataZ,
+  type: counterReadTypeZ,
+  config: counterReadConfigZ,
+  statusData: counterReadStatusDataZ,
 };
 
 export const analogWriteTypeZ = v0.analogWriteTypeZ;
@@ -156,14 +156,14 @@ export const ZERO_ANALOG_WRITE_PAYLOAD = v0.ZERO_ANALOG_WRITE_PAYLOAD;
 export interface AnalogWritePayload extends v0.AnalogWritePayload {}
 export interface AnalogWriteTask extends v0.AnalogWriteTask {}
 export interface NewAnalogWriteTask extends v0.NewAnalogWriteTask {}
-export const ANALOG_WRITE_SCHEMAS: task.Schemas<
+export const ANALOG_WRITE_SCHEMAS: task.PayloadSchemas<
   typeof analogWriteTypeZ,
   typeof analogWriteConfigZ,
   typeof analogWriteStatusDataZ
 > = {
-  typeSchema: analogWriteTypeZ,
-  configSchema: analogWriteConfigZ,
-  statusDataSchema: analogWriteStatusDataZ,
+  type: analogWriteTypeZ,
+  config: analogWriteConfigZ,
+  statusData: analogWriteStatusDataZ,
 };
 
 export const digitalReadTypeZ = v0.digitalReadTypeZ;
@@ -176,14 +176,14 @@ export const ZERO_DIGITAL_READ_PAYLOAD = v0.ZERO_DIGITAL_READ_PAYLOAD;
 export interface DigitalReadPayload extends v0.DigitalReadPayload {}
 export interface DigitalReadTask extends v0.DigitalReadTask {}
 export interface NewDigitalReadTask extends v0.NewDigitalReadTask {}
-export const DIGITAL_READ_SCHEMAS: task.Schemas<
+export const DIGITAL_READ_SCHEMAS: task.PayloadSchemas<
   typeof digitalReadTypeZ,
   typeof digitalReadConfigZ,
   typeof digitalReadStatusDataZ
 > = {
-  typeSchema: digitalReadTypeZ,
-  configSchema: digitalReadConfigZ,
-  statusDataSchema: digitalReadStatusDataZ,
+  type: digitalReadTypeZ,
+  config: digitalReadConfigZ,
+  statusData: digitalReadStatusDataZ,
 };
 
 export const digitalWriteTypeZ = v0.digitalWriteTypeZ;
@@ -196,14 +196,14 @@ export const ZERO_DIGITAL_WRITE_PAYLOAD = v0.ZERO_DIGITAL_WRITE_PAYLOAD;
 export interface DigitalWritePayload extends v0.DigitalWritePayload {}
 export interface DigitalWriteTask extends v0.DigitalWriteTask {}
 export interface NewDigitalWriteTask extends v0.NewDigitalWriteTask {}
-export const DIGITAL_WRITE_SCHEMAS: task.Schemas<
+export const DIGITAL_WRITE_SCHEMAS: task.PayloadSchemas<
   typeof digitalWriteTypeZ,
   typeof digitalWriteConfigZ,
   typeof digitalWriteStatusDataZ
 > = {
-  typeSchema: digitalWriteTypeZ,
-  configSchema: digitalWriteConfigZ,
-  statusDataSchema: digitalWriteStatusDataZ,
+  type: digitalWriteTypeZ,
+  config: digitalWriteConfigZ,
+  statusData: digitalWriteStatusDataZ,
 };
 
 export const scanTypeZ = v0.scanTypeZ;
@@ -215,12 +215,12 @@ export type ScanType = v0.ScanType;
 export interface ScanPayload extends v0.ScanPayload {}
 export interface ScanTask extends v0.ScanTask {}
 export interface NewScanTask extends v0.NewScanTask {}
-export const SCAN_SCHEMAS: task.Schemas<
+export const SCAN_SCHEMAS: task.PayloadSchemas<
   typeof scanTypeZ,
   typeof scanConfigZ,
   typeof scanStatusDataZ
 > = {
-  typeSchema: scanTypeZ,
-  configSchema: scanConfigZ,
-  statusDataSchema: scanStatusDataZ,
+  type: scanTypeZ,
+  config: scanConfigZ,
+  statusData: scanStatusDataZ,
 };

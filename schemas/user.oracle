@@ -27,10 +27,6 @@ struct User {
         domain doc { value "LastName is the user's last name." }
     }
     
-    field age int32 {
-        domain doc { value "Age is the user's age." }
-    }
-
     field root_user bool {
         domain validate {
             default false

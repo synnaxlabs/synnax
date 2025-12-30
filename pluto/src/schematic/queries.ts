@@ -59,7 +59,7 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
   ],
 });
 
-export type DeleteParams = schematic.Params;
+export type DeleteParams = schematic.Key | schematic.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
   name: RESOURCE_NAME,

@@ -11,14 +11,14 @@ export type Key = z.infer<typeof keyZ>;
 export const workspaceZ = z.object({
   key: keyZ,
   name: z.string().min(1, "Name is required"),
-  layout: zod.stringifiedJSON,
+  layout: zod.stringifiedJSON(),
 });
 export type Workspace = z.infer<typeof workspaceZ>;
 
 export const newZ = z.object({
   key: keyZ.optional(),
   name: z.string().min(1, "Name is required"),
-  layout: zod.jsonStringifier,
+  layout: zod.jsonStringifier(),
 });
 export type New = z.input<typeof newZ>;
 

@@ -156,7 +156,7 @@ export class Rack {
     StatusData extends z.ZodType = z.ZodType,
   >(
     task: task.New<Type, Config, StatusData>,
-    schemas: task.Schemas<Type, Config, StatusData>,
+    schemas: task.PayloadSchemas<Type, Config, StatusData>,
   ): Promise<task.Task<Type, Config, StatusData>>;
 
   async createTask<
@@ -165,7 +165,7 @@ export class Rack {
     StatusData extends z.ZodType = z.ZodType,
   >(
     task: task.New<Type, Config, StatusData>,
-    schemas?: task.Schemas<Type, Config, StatusData>,
+    schemas?: task.PayloadSchemas<Type, Config, StatusData>,
   ): Promise<task.Task<Type, Config, StatusData>> {
     task.key = (
       (BigInt(this.key) << 32n) +
@@ -173,7 +173,7 @@ export class Rack {
     ).toString();
     return await this.tasks.create(
       task,
-      schemas as Required<task.Schemas<Type, Config, StatusData>>,
+      schemas as Required<task.PayloadSchemas<Type, Config, StatusData>>,
     );
   }
 

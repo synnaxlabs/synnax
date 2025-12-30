@@ -1,0 +1,82 @@
+import "schemas/status"
+
+struct StatusDetails<Data extends json = json> {
+    field task string
+    field running bool
+    field cmd string?
+    field data Data
+
+    domain ts {
+        output "client/ts/src/task"
+    }
+}
+
+struct Status<Data extends json = json> = status.Status<StatusDetails<Data>> {
+    domain ts {
+        output "client/ts/src/task"
+    }
+}
+
+struct NewStatusDetails<Data extends json = json> {
+    field task string?
+    field running bool
+    field cmd string?
+    field data Data
+
+    domain ts {
+        output "client/ts/src/task"
+    }
+}
+
+struct NewStatus<Data extends json = json> = status.New<NewStatusDetails<Data>> {
+    domain ts {
+        output "client/ts/src/task"
+    }
+}
+
+struct Task<Type extends string = string, Config extends json = json, StatusData extends json = json> {
+    field key string {
+        domain id
+    }
+    field name string
+    field type Type
+    field config Config
+    field internal bool?
+    field snapshot bool?
+    field status Status<StatusData>?!
+
+    domain ts {
+        output "client/ts/src/task"
+        name "Payload"
+        concrete_types
+    }
+
+    domain ontology {
+        type "task"
+    }
+}
+
+struct New<Type extends string = string, Config extends json = json, StatusData extends json = json> {
+    field key string?
+    field name string
+    field type Type
+    field config Config
+    field status NewStatus<StatusData>?!
+
+    domain ts {
+        output "client/ts/src/task"
+        use_input
+        concrete_types
+    }
+}
+
+struct Command {
+    field task string
+    field type string
+    field key string
+    field args json?
+
+    domain ts {
+        output "client/ts/src/task"
+    }
+}
