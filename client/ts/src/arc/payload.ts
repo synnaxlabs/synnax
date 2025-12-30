@@ -71,8 +71,5 @@ export interface Arc extends z.infer<typeof arcZ> {}
 export const newZ = arcZ.partial({ key: true }).omit({ status: true });
 export interface New extends z.input<typeof newZ> {}
 
-export const ONTOLOGY_TYPE = "arc";
-export type OntologyType = typeof ONTOLOGY_TYPE;
-
 export const ontologyID = ontology.createIDFactory<Key>("arc");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

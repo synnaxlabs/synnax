@@ -13,16 +13,16 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
 import {
   type Key,
   keyZ,
   type New,
   newZ,
   type Params,
-  remoteZ,
   type Table,
+  tableZ,
 } from "@/workspace/table/payload";
+import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/types.gen";
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
@@ -39,10 +39,10 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
-const retrieveResZ = z.object({ tables: array.nullableZ(remoteZ) });
+const retrieveResZ = z.object({ tables: array.nullableZ(tableZ) });
 
 const createReqZ = z.object({ workspace: workspaceKeyZ, tables: newZ.array() });
-const createResZ = z.object({ tables: remoteZ.array() });
+const createResZ = z.object({ tables: tableZ.array() });
 
 const emptyResZ = z.object({});
 

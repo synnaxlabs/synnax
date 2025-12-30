@@ -17,6 +17,5 @@ export const rangeZ = z.object({
 });
 export type Range = z.infer<typeof rangeZ>;
 
-export const ONTOLOGY_TYPE = "range";
 export const ontologyID = ontology.createIDFactory<Key>("range");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

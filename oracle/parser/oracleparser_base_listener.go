@@ -1,6 +1,7 @@
 // Code generated from OracleParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // OracleParser
+
 import "github.com/antlr4-go/antlr/v4"
 
 // BaseOracleParserListener is a complete listener for a parse tree produced by OracleParser.
@@ -44,11 +45,35 @@ func (s *BaseOracleParserListener) EnterDefinition(ctx *DefinitionContext) {}
 // ExitDefinition is called when production definition is exited.
 func (s *BaseOracleParserListener) ExitDefinition(ctx *DefinitionContext) {}
 
-// EnterStructDef is called when production structDef is entered.
-func (s *BaseOracleParserListener) EnterStructDef(ctx *StructDefContext) {}
+// EnterStructFull is called when production StructFull is entered.
+func (s *BaseOracleParserListener) EnterStructFull(ctx *StructFullContext) {}
 
-// ExitStructDef is called when production structDef is exited.
-func (s *BaseOracleParserListener) ExitStructDef(ctx *StructDefContext) {}
+// ExitStructFull is called when production StructFull is exited.
+func (s *BaseOracleParserListener) ExitStructFull(ctx *StructFullContext) {}
+
+// EnterStructAlias is called when production StructAlias is entered.
+func (s *BaseOracleParserListener) EnterStructAlias(ctx *StructAliasContext) {}
+
+// ExitStructAlias is called when production StructAlias is exited.
+func (s *BaseOracleParserListener) ExitStructAlias(ctx *StructAliasContext) {}
+
+// EnterAliasBody is called when production aliasBody is entered.
+func (s *BaseOracleParserListener) EnterAliasBody(ctx *AliasBodyContext) {}
+
+// ExitAliasBody is called when production aliasBody is exited.
+func (s *BaseOracleParserListener) ExitAliasBody(ctx *AliasBodyContext) {}
+
+// EnterTypeParams is called when production typeParams is entered.
+func (s *BaseOracleParserListener) EnterTypeParams(ctx *TypeParamsContext) {}
+
+// ExitTypeParams is called when production typeParams is exited.
+func (s *BaseOracleParserListener) ExitTypeParams(ctx *TypeParamsContext) {}
+
+// EnterTypeParam is called when production typeParam is entered.
+func (s *BaseOracleParserListener) EnterTypeParam(ctx *TypeParamContext) {}
+
+// ExitTypeParam is called when production typeParam is exited.
+func (s *BaseOracleParserListener) ExitTypeParam(ctx *TypeParamContext) {}
 
 // EnterStructBody is called when production structBody is entered.
 func (s *BaseOracleParserListener) EnterStructBody(ctx *StructBodyContext) {}
@@ -85,6 +110,18 @@ func (s *BaseOracleParserListener) EnterTypeRef(ctx *TypeRefContext) {}
 
 // ExitTypeRef is called when production typeRef is exited.
 func (s *BaseOracleParserListener) ExitTypeRef(ctx *TypeRefContext) {}
+
+// EnterTypeArgs is called when production typeArgs is entered.
+func (s *BaseOracleParserListener) EnterTypeArgs(ctx *TypeArgsContext) {}
+
+// ExitTypeArgs is called when production typeArgs is exited.
+func (s *BaseOracleParserListener) ExitTypeArgs(ctx *TypeArgsContext) {}
+
+// EnterTypeModifiers is called when production typeModifiers is entered.
+func (s *BaseOracleParserListener) EnterTypeModifiers(ctx *TypeModifiersContext) {}
+
+// ExitTypeModifiers is called when production typeModifiers is exited.
+func (s *BaseOracleParserListener) ExitTypeModifiers(ctx *TypeModifiersContext) {}
 
 // EnterQualifiedIdent is called when production qualifiedIdent is entered.
 func (s *BaseOracleParserListener) EnterQualifiedIdent(ctx *QualifiedIdentContext) {}

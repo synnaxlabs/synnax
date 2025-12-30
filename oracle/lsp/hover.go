@@ -95,8 +95,15 @@ import "schema/core/label"
 	"relation": "**domain relation**\n\nDefines a relationship to another struct.",
 	"sort":     "**domain sort**\n\nMarks this field as sortable in queries.",
 	"go":       "**domain go**\n\nGo output configuration.\n\nUse `output \"path\"` to specify the output directory.",
-	"ts":        "**domain ts**\n\nTypeScript output configuration.\n\nExpressions:\n- `output \"path\"` - Output directory\n- `use_input` - Use `z.input` instead of `z.infer` for type derivation",
+	"ts":        "**domain ts**\n\nTypeScript output configuration.\n\nExpressions:\n- `output \"path\"` - Output directory\n- `use_input` - Use `z.input` instead of `z.infer` for type derivation\n- `name \"TypeName\"` - Override the generated TypeScript type/schema name",
 	"use_input": "**use_input**\n\nUse `z.input` instead of `z.infer` for the generated TypeScript type.\n\nUseful for schemas with transforms where you want the input type.",
+	"name":      "**name** *\"TypeName\"*\n\nOverride the generated TypeScript type and schema name.\n\n" + "```oracle" + `
+struct New {
+    domain ts {
+        name "WorkspaceNew"
+    }
+}
+` + "```",
 	"python":   "**domain python**\n\nPython output configuration.\n\nUse `output \"path\"` to specify the output directory.",
 	"zod":      "**domain zod**\n\nZod schema output configuration.\n\nUse `output \"path\"` to specify the output directory.",
 

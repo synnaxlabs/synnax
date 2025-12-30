@@ -23,7 +23,19 @@ func (v *BaseOracleParserVisitor) VisitDefinition(ctx *DefinitionContext) interf
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseOracleParserVisitor) VisitStructDef(ctx *StructDefContext) interface{} {
+func (v *BaseOracleParserVisitor) VisitStructFull(ctx *StructFullContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitStructAlias(ctx *StructAliasContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitTypeParams(ctx *TypeParamsContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitTypeParam(ctx *TypeParamContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -48,6 +60,10 @@ func (v *BaseOracleParserVisitor) VisitDomainBody(ctx *DomainBodyContext) interf
 }
 
 func (v *BaseOracleParserVisitor) VisitTypeRef(ctx *TypeRefContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitTypeArgs(ctx *TypeArgsContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

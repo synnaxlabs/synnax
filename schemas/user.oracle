@@ -53,10 +53,6 @@ struct User {
     domain py {
         output "client/py/synnax/user"
     }
-
-    domain zod {
-        output "client/ts/src/user"
-    }
 }
 
 struct New {

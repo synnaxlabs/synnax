@@ -24,10 +24,13 @@ var checkCmd = &cobra.Command{
 	Long: `Parse and analyze .oracle schema files to check for errors
 without generating any code (dry run).
 
+By default, looks for schemas in schemas/*.oracle.
+
 This is useful for CI/CD pipelines or pre-commit hooks to validate
 schema changes before code generation.`,
-	Example: `  oracle check --schemas "schema/*.oracle"
-  oracle check -s "schema/*.oracle" -v`,
+	Example: `  oracle check
+  oracle check -s "other/*.oracle"
+  oracle check -v`,
 	RunE: runCheck,
 }
 
@@ -41,6 +44,9 @@ func runCheck(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	verbose := viper.GetBool(verboseFlag)
 	schemaPatterns := viper.GetStringSlice(schemasFlag)
+	if len(schemaPatterns) == 0 {
+		schemaPatterns = []string{"schemas/*.oracle"}
+	}
 	wd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get working directory: %w", err)

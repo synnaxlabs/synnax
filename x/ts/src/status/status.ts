@@ -13,19 +13,8 @@ import { array } from "@/array";
 import { id } from "@/id";
 import { label } from "@/label";
 import { type optional } from "@/optional";
+import { type Variant, variantZ } from "@/status/types.gen";
 import { TimeStamp } from "@/telem";
-
-export const variantZ = z.enum([
-  "success",
-  "info",
-  "warning",
-  "error",
-  "loading",
-  "disabled",
-]);
-
-// Represents one of the possible variants of a status message.
-export type Variant = z.infer<typeof variantZ>;
 
 export type StatusZodObject<DetailsSchema extends z.ZodType = z.ZodNever> = z.ZodObject<
   {

@@ -10,7 +10,7 @@
 import { binary, record, status, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { keyZ as rackKeyZ } from "@/rack/payload";
+import { keyZ as rackKeyZ } from "@/rack/types.gen";
 import { decodeJSONString } from "@/util/decodeJSONString";
 
 export const keyZ = z.string();

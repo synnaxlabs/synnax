@@ -5,7 +5,7 @@ struct Workspace {
 
     field name string {
         domain validate {
-            min_length 1
+            required
         }
     }
 
@@ -25,7 +25,7 @@ struct New {
 
     field name string {
         domain validate {
-            min_length 1
+            required
         }
     }
 
@@ -33,5 +33,6 @@ struct New {
 
     domain ts {
         output "client/ts/src/workspace"
+        use_input
     }
 }

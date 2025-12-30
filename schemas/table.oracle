@@ -25,5 +25,6 @@ struct New {
 
     domain ts {
         output "client/ts/src/workspace/table"
+        use_input
     }
 }

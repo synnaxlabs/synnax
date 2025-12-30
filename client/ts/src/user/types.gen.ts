@@ -8,6 +8,16 @@ import { ontology } from "@/ontology";
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
+export const userZ = z.object({
+  key: keyZ,
+  username: z.string().min(1, "Username is required"),
+  firstName: z.string(),
+  lastName: z.string(),
+  age: zod.int32Z,
+  rootUser: z.boolean().default(false),
+});
+export type User = z.infer<typeof userZ>;
+
 export const newZ = z.object({
   key: keyZ.optional(),
   username: z.string().min(1, "Username is required"),
@@ -17,16 +27,5 @@ export const newZ = z.object({
 });
 export type New = z.input<typeof newZ>;
 
-export const userZ = z.object({
-  key: keyZ,
-  username: z.string().min(1, "Username is required"),
-  firstName: z.string(),
-  lastName: z.string(),
-  age: zod.int32Z,
-  rootUser: z.boolean(),
-});
-export type User = z.infer<typeof userZ>;
-
-export const ONTOLOGY_TYPE = "user";
 export const ontologyID = ontology.createIDFactory<Key>("user");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

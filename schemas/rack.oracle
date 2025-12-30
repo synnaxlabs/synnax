@@ -1,0 +1,53 @@
+import "schemas/status"
+
+struct StatusDetails {
+    field rack uint32
+
+    domain ts {
+        output "client/ts/src/rack"
+    }
+}
+
+struct Status = status.Status<StatusDetails> {
+    domain ts {
+        output "client/ts/src/rack"
+    }
+}
+
+struct Rack {
+    field key uint32 {
+        domain id
+    }
+    field name string {
+        domain validate {
+            required
+        }
+    }
+
+    field status Status?
+
+    domain ts {
+        output "client/ts/src/rack"
+        name "Payload"
+    }
+
+    domain ontology {
+        type "rack"
+    }
+}
+
+struct New {
+    field key uint32?
+    field name string {
+        domain validate {
+            required
+        }
+    }
+
+    field status Status?
+
+    domain ts {
+        output "client/ts/src/rack"
+        use_input
+    }
+}

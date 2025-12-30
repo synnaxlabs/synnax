@@ -103,6 +103,7 @@ var (
 	tsExpressionCompletions = []protocol.CompletionItem{
 		{Label: "output", Kind: protocol.CompletionItemKindValue, Detail: "Output path for generated code"},
 		{Label: "use_input", Kind: protocol.CompletionItemKindValue, Detail: "Use z.input instead of z.infer for type"},
+		{Label: "name", Kind: protocol.CompletionItemKindValue, Detail: "Override generated type/schema name"},
 	}
 )
 

@@ -118,7 +118,8 @@ if $INSTALL_CLI; then
 
     cd "$ORACLE_ROOT"
     mkdir -p "$INSTALL_DIR"
-    go build -o "$INSTALL_DIR/oracle" ./cmd/oracle
+    BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+    go build -ldflags "-X 'github.com/synnaxlabs/oracle/cli.BuildTime=$BUILD_TIME'" -o "$INSTALL_DIR/oracle" ./cmd/oracle
     chmod +x "$INSTALL_DIR/oracle"
 
     print_success "Built: $INSTALL_DIR/oracle"
@@ -127,6 +128,7 @@ if $INSTALL_CLI; then
     if $INSTALL_EXTENSION; then
         mkdir -p "$EXTENSION_DIR/bin"
         cp "$INSTALL_DIR/oracle" "$EXTENSION_DIR/bin/oracle"
+        print_success "Copied to: $EXTENSION_DIR/bin/oracle"
     fi
 fi
 

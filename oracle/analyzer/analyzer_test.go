@@ -45,7 +45,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(table).NotTo(BeNil())
 			Expect(table.Structs).To(HaveLen(1))
 
-			rangeStruct := table.Structs["ranger.Range"]
+			rangeStruct := table.MustGetStruct("ranger.Range")
 			Expect(rangeStruct).NotTo(BeNil())
 			Expect(rangeStruct.Name).To(Equal("Range"))
 			Expect(rangeStruct.Namespace).To(Equal("ranger"))
@@ -80,7 +80,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.HasErrors()).To(BeFalse())
 			Expect(table.Enums).To(HaveLen(1))
 
-			taskState := table.Enums["task.TaskState"]
+			taskState := table.MustGetEnum("task.TaskState")
 			Expect(taskState).NotTo(BeNil())
 			Expect(taskState.Name).To(Equal("TaskState"))
 			Expect(taskState.IsIntEnum).To(BeTrue())
@@ -101,7 +101,7 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "telem", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			dataType := table.Enums["telem.DataType"]
+			dataType := table.MustGetEnum("telem.DataType")
 			Expect(dataType).NotTo(BeNil())
 			Expect(dataType.IsIntEnum).To(BeFalse())
 			Expect(dataType.Values[0].StringValue).To(Equal("float32"))
@@ -126,7 +126,7 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			userStruct := table.Structs["user.User"]
+			userStruct := table.MustGetStruct("user.User")
 			nameField := userStruct.Field("name")
 			Expect(nameField.Domains).To(HaveLen(2))
 			Expect(nameField.Domains).To(HaveKey("validate"))
@@ -157,7 +157,7 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			rangeStruct := table.Structs["ranger.Range"]
+			rangeStruct := table.MustGetStruct("ranger.Range")
 			Expect(rangeStruct.Domains).To(HaveLen(1))
 			Expect(rangeStruct.Domains).To(HaveKey("index"))
 
@@ -176,7 +176,7 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			rangeStruct := table.Structs["ranger.Range"]
+			rangeStruct := table.MustGetStruct("ranger.Range")
 
 			labelsField := rangeStruct.Field("labels")
 			Expect(labelsField.TypeRef.IsArray).To(BeTrue())
@@ -196,7 +196,7 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			rangeStruct := table.Structs["ranger.Range"]
+			rangeStruct := table.MustGetStruct("ranger.Range")
 			parentField := rangeStruct.Field("parent")
 			Expect(parentField.TypeRef.IsOptional).To(BeTrue())
 			Expect(parentField.TypeRef.IsArray).To(BeFalse())
@@ -229,8 +229,10 @@ var _ = Describe("Analyzer", func() {
 
 			// Both structs should be in the table
 			Expect(table.Structs).To(HaveLen(2))
-			Expect(table.Structs).To(HaveKey("ranger.Range"))
-			Expect(table.Structs).To(HaveKey("label.Label"))
+			_, ok := table.GetStruct("ranger.Range")
+			Expect(ok).To(BeTrue())
+			_, ok = table.GetStruct("label.Label")
+			Expect(ok).To(BeTrue())
 		})
 
 		It("Should detect circular imports", func() {
@@ -284,7 +286,7 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			testStruct := table.Structs["test.Test"]
+			testStruct := table.MustGetStruct("test.Test")
 			for _, field := range testStruct.Fields {
 				Expect(field.TypeRef.Kind).To(Equal(resolution.TypeKindPrimitive))
 			}
@@ -305,7 +307,7 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "viz", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			viewportStruct := table.Structs["viz.Viewport"]
+			viewportStruct := table.MustGetStruct("viz.Viewport")
 			positionField := viewportStruct.Field("position")
 			Expect(positionField.TypeRef.Kind).To(Equal(resolution.TypeKindStruct))
 			Expect(positionField.TypeRef.StructRef).NotTo(BeNil())
@@ -330,7 +332,7 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			rangeStruct := table.Structs["ranger.Range"]
+			rangeStruct := table.MustGetStruct("ranger.Range")
 			labelsField := rangeStruct.Field("labels")
 			Expect(labelsField.TypeRef.RawType).To(Equal("label.Label"))
 			Expect(labelsField.TypeRef.Kind).To(Equal(resolution.TypeKindStruct))
@@ -352,7 +354,7 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			taskStruct := table.Structs["task.Task"]
+			taskStruct := table.MustGetStruct("task.Task")
 			stateField := taskStruct.Field("state")
 			Expect(stateField.TypeRef.Kind).To(Equal(resolution.TypeKindEnum))
 			Expect(stateField.TypeRef.EnumRef).NotTo(BeNil())

@@ -13,6 +13,5 @@ export const groupZ = z.object({
 });
 export type Group = z.infer<typeof groupZ>;
 
-export const ONTOLOGY_TYPE = "group";
 export const ontologyID = ontology.createIDFactory<Key>("group");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

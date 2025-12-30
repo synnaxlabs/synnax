@@ -1,6 +1,7 @@
 // Code generated from OracleParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // OracleParser
+
 import (
 	"fmt"
 	"strconv"
@@ -32,135 +33,174 @@ var OracleParserParserStaticData struct {
 func oracleparserParserInit() {
 	staticData := &OracleParserParserStaticData
 	staticData.LiteralNames = []string{
-		"", "'struct'", "'field'", "'domain'", "'enum'", "'import'", "'{'",
-		"'}'", "'['", "']'", "'?'", "'!'", "'.'", "'='",
+		"", "'struct'", "'field'", "'domain'", "'enum'", "'import'", "'extends'",
+		"'{'", "'}'", "'['", "']'", "'<'", "'>'", "','", "'?'", "'!'", "'.'",
+		"'='",
 	}
 	staticData.SymbolicNames = []string{
-		"", "STRUCT", "FIELD", "DOMAIN", "ENUM", "IMPORT", "LBRACE", "RBRACE",
-		"LBRACKET", "RBRACKET", "QUESTION", "BANG", "DOT", "EQUALS", "STRING_LIT",
-		"FLOAT_LIT", "INT_LIT", "BOOL_LIT", "IDENT", "LINE_COMMENT", "BLOCK_COMMENT",
-		"NEWLINE", "WS",
+		"", "STRUCT", "FIELD", "DOMAIN", "ENUM", "IMPORT", "EXTENDS", "LBRACE",
+		"RBRACE", "LBRACKET", "RBRACKET", "LT", "GT", "COMMA", "QUESTION", "BANG",
+		"DOT", "EQUALS", "STRING_LIT", "FLOAT_LIT", "INT_LIT", "BOOL_LIT", "IDENT",
+		"LINE_COMMENT", "BLOCK_COMMENT", "NEWLINE", "WS",
 	}
 	staticData.RuleNames = []string{
-		"schema", "nl", "importStmt", "definition", "structDef", "structBody",
-		"fieldDef", "fieldBody", "domainDef", "domainBody", "typeRef", "typeModifiers",
-		"qualifiedIdent", "expression", "expressionValue", "enumDef", "enumValue",
+		"schema", "nl", "importStmt", "definition", "structDef", "aliasBody",
+		"typeParams", "typeParam", "structBody", "fieldDef", "fieldBody", "domainDef",
+		"domainBody", "typeRef", "typeArgs", "typeModifiers", "qualifiedIdent",
+		"expression", "expressionValue", "enumDef", "enumValue",
 	}
 	staticData.PredictionContextCache = antlr.NewPredictionContextCache()
 	staticData.serializedATN = []int32{
-		4, 1, 22, 253, 2, 0, 7, 0, 2, 1, 7, 1, 2, 2, 7, 2, 2, 3, 7, 3, 2, 4, 7,
+		4, 1, 26, 334, 2, 0, 7, 0, 2, 1, 7, 1, 2, 2, 7, 2, 2, 3, 7, 3, 2, 4, 7,
 		4, 2, 5, 7, 5, 2, 6, 7, 6, 2, 7, 7, 7, 2, 8, 7, 8, 2, 9, 7, 9, 2, 10, 7,
 		10, 2, 11, 7, 11, 2, 12, 7, 12, 2, 13, 7, 13, 2, 14, 7, 14, 2, 15, 7, 15,
-		2, 16, 7, 16, 1, 0, 5, 0, 36, 8, 0, 10, 0, 12, 0, 39, 9, 0, 1, 0, 1, 0,
-		5, 0, 43, 8, 0, 10, 0, 12, 0, 46, 9, 0, 5, 0, 48, 8, 0, 10, 0, 12, 0, 51,
-		9, 0, 1, 0, 1, 0, 5, 0, 55, 8, 0, 10, 0, 12, 0, 58, 9, 0, 5, 0, 60, 8,
-		0, 10, 0, 12, 0, 63, 9, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 2, 1, 2, 1, 2, 1,
-		3, 1, 3, 3, 3, 74, 8, 3, 1, 4, 1, 4, 1, 4, 5, 4, 79, 8, 4, 10, 4, 12, 4,
-		82, 9, 4, 1, 4, 1, 4, 5, 4, 86, 8, 4, 10, 4, 12, 4, 89, 9, 4, 1, 4, 1,
-		4, 1, 4, 1, 5, 1, 5, 3, 5, 96, 8, 5, 1, 5, 5, 5, 99, 8, 5, 10, 5, 12, 5,
-		102, 9, 5, 5, 5, 104, 8, 5, 10, 5, 12, 5, 107, 9, 5, 1, 6, 1, 6, 1, 6,
-		1, 6, 3, 6, 113, 8, 6, 1, 7, 5, 7, 116, 8, 7, 10, 7, 12, 7, 119, 9, 7,
-		1, 7, 1, 7, 5, 7, 123, 8, 7, 10, 7, 12, 7, 126, 9, 7, 1, 7, 1, 7, 5, 7,
-		130, 8, 7, 10, 7, 12, 7, 133, 9, 7, 5, 7, 135, 8, 7, 10, 7, 12, 7, 138,
-		9, 7, 1, 7, 1, 7, 1, 8, 1, 8, 1, 8, 3, 8, 145, 8, 8, 1, 9, 5, 9, 148, 8,
-		9, 10, 9, 12, 9, 151, 9, 9, 1, 9, 1, 9, 5, 9, 155, 8, 9, 10, 9, 12, 9,
-		158, 9, 9, 1, 9, 1, 9, 4, 9, 162, 8, 9, 11, 9, 12, 9, 163, 1, 9, 1, 9,
-		5, 9, 168, 8, 9, 10, 9, 12, 9, 171, 9, 9, 3, 9, 173, 8, 9, 1, 9, 5, 9,
-		176, 8, 9, 10, 9, 12, 9, 179, 9, 9, 1, 9, 1, 9, 1, 10, 1, 10, 1, 10, 3,
-		10, 186, 8, 10, 1, 10, 3, 10, 189, 8, 10, 1, 11, 1, 11, 3, 11, 193, 8,
-		11, 1, 11, 1, 11, 3, 11, 197, 8, 11, 3, 11, 199, 8, 11, 1, 12, 1, 12, 1,
-		12, 3, 12, 204, 8, 12, 1, 13, 1, 13, 5, 13, 208, 8, 13, 10, 13, 12, 13,
-		211, 9, 13, 1, 14, 1, 14, 1, 14, 1, 14, 1, 14, 3, 14, 218, 8, 14, 1, 15,
-		1, 15, 1, 15, 5, 15, 223, 8, 15, 10, 15, 12, 15, 226, 9, 15, 1, 15, 1,
-		15, 5, 15, 230, 8, 15, 10, 15, 12, 15, 233, 9, 15, 1, 15, 1, 15, 5, 15,
-		237, 8, 15, 10, 15, 12, 15, 240, 9, 15, 5, 15, 242, 8, 15, 10, 15, 12,
-		15, 245, 9, 15, 1, 15, 1, 15, 1, 16, 1, 16, 1, 16, 1, 16, 1, 16, 0, 0,
-		17, 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 0, 1,
-		2, 0, 14, 14, 16, 16, 273, 0, 37, 1, 0, 0, 0, 2, 66, 1, 0, 0, 0, 4, 68,
-		1, 0, 0, 0, 6, 73, 1, 0, 0, 0, 8, 75, 1, 0, 0, 0, 10, 105, 1, 0, 0, 0,
-		12, 108, 1, 0, 0, 0, 14, 117, 1, 0, 0, 0, 16, 141, 1, 0, 0, 0, 18, 149,
-		1, 0, 0, 0, 20, 182, 1, 0, 0, 0, 22, 198, 1, 0, 0, 0, 24, 200, 1, 0, 0,
-		0, 26, 205, 1, 0, 0, 0, 28, 217, 1, 0, 0, 0, 30, 219, 1, 0, 0, 0, 32, 248,
-		1, 0, 0, 0, 34, 36, 3, 2, 1, 0, 35, 34, 1, 0, 0, 0, 36, 39, 1, 0, 0, 0,
-		37, 35, 1, 0, 0, 0, 37, 38, 1, 0, 0, 0, 38, 49, 1, 0, 0, 0, 39, 37, 1,
-		0, 0, 0, 40, 44, 3, 4, 2, 0, 41, 43, 3, 2, 1, 0, 42, 41, 1, 0, 0, 0, 43,
-		46, 1, 0, 0, 0, 44, 42, 1, 0, 0, 0, 44, 45, 1, 0, 0, 0, 45, 48, 1, 0, 0,
-		0, 46, 44, 1, 0, 0, 0, 47, 40, 1, 0, 0, 0, 48, 51, 1, 0, 0, 0, 49, 47,
-		1, 0, 0, 0, 49, 50, 1, 0, 0, 0, 50, 61, 1, 0, 0, 0, 51, 49, 1, 0, 0, 0,
-		52, 56, 3, 6, 3, 0, 53, 55, 3, 2, 1, 0, 54, 53, 1, 0, 0, 0, 55, 58, 1,
-		0, 0, 0, 56, 54, 1, 0, 0, 0, 56, 57, 1, 0, 0, 0, 57, 60, 1, 0, 0, 0, 58,
-		56, 1, 0, 0, 0, 59, 52, 1, 0, 0, 0, 60, 63, 1, 0, 0, 0, 61, 59, 1, 0, 0,
-		0, 61, 62, 1, 0, 0, 0, 62, 64, 1, 0, 0, 0, 63, 61, 1, 0, 0, 0, 64, 65,
-		5, 0, 0, 1, 65, 1, 1, 0, 0, 0, 66, 67, 5, 21, 0, 0, 67, 3, 1, 0, 0, 0,
-		68, 69, 5, 5, 0, 0, 69, 70, 5, 14, 0, 0, 70, 5, 1, 0, 0, 0, 71, 74, 3,
-		8, 4, 0, 72, 74, 3, 30, 15, 0, 73, 71, 1, 0, 0, 0, 73, 72, 1, 0, 0, 0,
-		74, 7, 1, 0, 0, 0, 75, 76, 5, 1, 0, 0, 76, 80, 5, 18, 0, 0, 77, 79, 3,
-		2, 1, 0, 78, 77, 1, 0, 0, 0, 79, 82, 1, 0, 0, 0, 80, 78, 1, 0, 0, 0, 80,
-		81, 1, 0, 0, 0, 81, 83, 1, 0, 0, 0, 82, 80, 1, 0, 0, 0, 83, 87, 5, 6, 0,
-		0, 84, 86, 3, 2, 1, 0, 85, 84, 1, 0, 0, 0, 86, 89, 1, 0, 0, 0, 87, 85,
-		1, 0, 0, 0, 87, 88, 1, 0, 0, 0, 88, 90, 1, 0, 0, 0, 89, 87, 1, 0, 0, 0,
-		90, 91, 3, 10, 5, 0, 91, 92, 5, 7, 0, 0, 92, 9, 1, 0, 0, 0, 93, 96, 3,
-		12, 6, 0, 94, 96, 3, 16, 8, 0, 95, 93, 1, 0, 0, 0, 95, 94, 1, 0, 0, 0,
-		96, 100, 1, 0, 0, 0, 97, 99, 3, 2, 1, 0, 98, 97, 1, 0, 0, 0, 99, 102, 1,
-		0, 0, 0, 100, 98, 1, 0, 0, 0, 100, 101, 1, 0, 0, 0, 101, 104, 1, 0, 0,
-		0, 102, 100, 1, 0, 0, 0, 103, 95, 1, 0, 0, 0, 104, 107, 1, 0, 0, 0, 105,
-		103, 1, 0, 0, 0, 105, 106, 1, 0, 0, 0, 106, 11, 1, 0, 0, 0, 107, 105, 1,
-		0, 0, 0, 108, 109, 5, 2, 0, 0, 109, 110, 5, 18, 0, 0, 110, 112, 3, 20,
-		10, 0, 111, 113, 3, 14, 7, 0, 112, 111, 1, 0, 0, 0, 112, 113, 1, 0, 0,
-		0, 113, 13, 1, 0, 0, 0, 114, 116, 3, 2, 1, 0, 115, 114, 1, 0, 0, 0, 116,
-		119, 1, 0, 0, 0, 117, 115, 1, 0, 0, 0, 117, 118, 1, 0, 0, 0, 118, 120,
-		1, 0, 0, 0, 119, 117, 1, 0, 0, 0, 120, 124, 5, 6, 0, 0, 121, 123, 3, 2,
-		1, 0, 122, 121, 1, 0, 0, 0, 123, 126, 1, 0, 0, 0, 124, 122, 1, 0, 0, 0,
-		124, 125, 1, 0, 0, 0, 125, 136, 1, 0, 0, 0, 126, 124, 1, 0, 0, 0, 127,
-		131, 3, 16, 8, 0, 128, 130, 3, 2, 1, 0, 129, 128, 1, 0, 0, 0, 130, 133,
-		1, 0, 0, 0, 131, 129, 1, 0, 0, 0, 131, 132, 1, 0, 0, 0, 132, 135, 1, 0,
-		0, 0, 133, 131, 1, 0, 0, 0, 134, 127, 1, 0, 0, 0, 135, 138, 1, 0, 0, 0,
-		136, 134, 1, 0, 0, 0, 136, 137, 1, 0, 0, 0, 137, 139, 1, 0, 0, 0, 138,
-		136, 1, 0, 0, 0, 139, 140, 5, 7, 0, 0, 140, 15, 1, 0, 0, 0, 141, 142, 5,
-		3, 0, 0, 142, 144, 5, 18, 0, 0, 143, 145, 3, 18, 9, 0, 144, 143, 1, 0,
-		0, 0, 144, 145, 1, 0, 0, 0, 145, 17, 1, 0, 0, 0, 146, 148, 3, 2, 1, 0,
-		147, 146, 1, 0, 0, 0, 148, 151, 1, 0, 0, 0, 149, 147, 1, 0, 0, 0, 149,
-		150, 1, 0, 0, 0, 150, 152, 1, 0, 0, 0, 151, 149, 1, 0, 0, 0, 152, 156,
-		5, 6, 0, 0, 153, 155, 3, 2, 1, 0, 154, 153, 1, 0, 0, 0, 155, 158, 1, 0,
-		0, 0, 156, 154, 1, 0, 0, 0, 156, 157, 1, 0, 0, 0, 157, 172, 1, 0, 0, 0,
-		158, 156, 1, 0, 0, 0, 159, 169, 3, 26, 13, 0, 160, 162, 3, 2, 1, 0, 161,
-		160, 1, 0, 0, 0, 162, 163, 1, 0, 0, 0, 163, 161, 1, 0, 0, 0, 163, 164,
-		1, 0, 0, 0, 164, 165, 1, 0, 0, 0, 165, 166, 3, 26, 13, 0, 166, 168, 1,
-		0, 0, 0, 167, 161, 1, 0, 0, 0, 168, 171, 1, 0, 0, 0, 169, 167, 1, 0, 0,
-		0, 169, 170, 1, 0, 0, 0, 170, 173, 1, 0, 0, 0, 171, 169, 1, 0, 0, 0, 172,
-		159, 1, 0, 0, 0, 172, 173, 1, 0, 0, 0, 173, 177, 1, 0, 0, 0, 174, 176,
-		3, 2, 1, 0, 175, 174, 1, 0, 0, 0, 176, 179, 1, 0, 0, 0, 177, 175, 1, 0,
-		0, 0, 177, 178, 1, 0, 0, 0, 178, 180, 1, 0, 0, 0, 179, 177, 1, 0, 0, 0,
-		180, 181, 5, 7, 0, 0, 181, 19, 1, 0, 0, 0, 182, 185, 3, 24, 12, 0, 183,
-		184, 5, 8, 0, 0, 184, 186, 5, 9, 0, 0, 185, 183, 1, 0, 0, 0, 185, 186,
-		1, 0, 0, 0, 186, 188, 1, 0, 0, 0, 187, 189, 3, 22, 11, 0, 188, 187, 1,
-		0, 0, 0, 188, 189, 1, 0, 0, 0, 189, 21, 1, 0, 0, 0, 190, 192, 5, 10, 0,
-		0, 191, 193, 5, 11, 0, 0, 192, 191, 1, 0, 0, 0, 192, 193, 1, 0, 0, 0, 193,
-		199, 1, 0, 0, 0, 194, 196, 5, 11, 0, 0, 195, 197, 5, 10, 0, 0, 196, 195,
-		1, 0, 0, 0, 196, 197, 1, 0, 0, 0, 197, 199, 1, 0, 0, 0, 198, 190, 1, 0,
-		0, 0, 198, 194, 1, 0, 0, 0, 199, 23, 1, 0, 0, 0, 200, 203, 5, 18, 0, 0,
-		201, 202, 5, 12, 0, 0, 202, 204, 5, 18, 0, 0, 203, 201, 1, 0, 0, 0, 203,
-		204, 1, 0, 0, 0, 204, 25, 1, 0, 0, 0, 205, 209, 5, 18, 0, 0, 206, 208,
-		3, 28, 14, 0, 207, 206, 1, 0, 0, 0, 208, 211, 1, 0, 0, 0, 209, 207, 1,
-		0, 0, 0, 209, 210, 1, 0, 0, 0, 210, 27, 1, 0, 0, 0, 211, 209, 1, 0, 0,
-		0, 212, 218, 5, 14, 0, 0, 213, 218, 5, 16, 0, 0, 214, 218, 5, 15, 0, 0,
-		215, 218, 5, 17, 0, 0, 216, 218, 3, 24, 12, 0, 217, 212, 1, 0, 0, 0, 217,
-		213, 1, 0, 0, 0, 217, 214, 1, 0, 0, 0, 217, 215, 1, 0, 0, 0, 217, 216,
-		1, 0, 0, 0, 218, 29, 1, 0, 0, 0, 219, 220, 5, 4, 0, 0, 220, 224, 5, 18,
-		0, 0, 221, 223, 3, 2, 1, 0, 222, 221, 1, 0, 0, 0, 223, 226, 1, 0, 0, 0,
-		224, 222, 1, 0, 0, 0, 224, 225, 1, 0, 0, 0, 225, 227, 1, 0, 0, 0, 226,
-		224, 1, 0, 0, 0, 227, 231, 5, 6, 0, 0, 228, 230, 3, 2, 1, 0, 229, 228,
-		1, 0, 0, 0, 230, 233, 1, 0, 0, 0, 231, 229, 1, 0, 0, 0, 231, 232, 1, 0,
-		0, 0, 232, 243, 1, 0, 0, 0, 233, 231, 1, 0, 0, 0, 234, 238, 3, 32, 16,
-		0, 235, 237, 3, 2, 1, 0, 236, 235, 1, 0, 0, 0, 237, 240, 1, 0, 0, 0, 238,
-		236, 1, 0, 0, 0, 238, 239, 1, 0, 0, 0, 239, 242, 1, 0, 0, 0, 240, 238,
-		1, 0, 0, 0, 241, 234, 1, 0, 0, 0, 242, 245, 1, 0, 0, 0, 243, 241, 1, 0,
-		0, 0, 243, 244, 1, 0, 0, 0, 244, 246, 1, 0, 0, 0, 245, 243, 1, 0, 0, 0,
-		246, 247, 5, 7, 0, 0, 247, 31, 1, 0, 0, 0, 248, 249, 5, 18, 0, 0, 249,
-		250, 5, 13, 0, 0, 250, 251, 7, 0, 0, 0, 251, 33, 1, 0, 0, 0, 35, 37, 44,
-		49, 56, 61, 73, 80, 87, 95, 100, 105, 112, 117, 124, 131, 136, 144, 149,
-		156, 163, 169, 172, 177, 185, 188, 192, 196, 198, 203, 209, 217, 224, 231,
-		238, 243,
+		2, 16, 7, 16, 2, 17, 7, 17, 2, 18, 7, 18, 2, 19, 7, 19, 2, 20, 7, 20, 1,
+		0, 5, 0, 44, 8, 0, 10, 0, 12, 0, 47, 9, 0, 1, 0, 1, 0, 5, 0, 51, 8, 0,
+		10, 0, 12, 0, 54, 9, 0, 5, 0, 56, 8, 0, 10, 0, 12, 0, 59, 9, 0, 1, 0, 1,
+		0, 5, 0, 63, 8, 0, 10, 0, 12, 0, 66, 9, 0, 5, 0, 68, 8, 0, 10, 0, 12, 0,
+		71, 9, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 2, 1, 2, 1, 2, 1, 3, 1, 3, 3, 3, 82,
+		8, 3, 1, 4, 1, 4, 1, 4, 3, 4, 87, 8, 4, 1, 4, 5, 4, 90, 8, 4, 10, 4, 12,
+		4, 93, 9, 4, 1, 4, 1, 4, 5, 4, 97, 8, 4, 10, 4, 12, 4, 100, 9, 4, 1, 4,
+		1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 3, 4, 110, 8, 4, 3, 4, 112, 8,
+		4, 1, 5, 5, 5, 115, 8, 5, 10, 5, 12, 5, 118, 9, 5, 1, 5, 1, 5, 5, 5, 122,
+		8, 5, 10, 5, 12, 5, 125, 9, 5, 1, 5, 1, 5, 5, 5, 129, 8, 5, 10, 5, 12,
+		5, 132, 9, 5, 5, 5, 134, 8, 5, 10, 5, 12, 5, 137, 9, 5, 1, 5, 1, 5, 1,
+		6, 1, 6, 1, 6, 1, 6, 5, 6, 145, 8, 6, 10, 6, 12, 6, 148, 9, 6, 1, 6, 1,
+		6, 1, 7, 1, 7, 1, 7, 3, 7, 155, 8, 7, 1, 7, 1, 7, 3, 7, 159, 8, 7, 1, 8,
+		1, 8, 3, 8, 163, 8, 8, 1, 8, 5, 8, 166, 8, 8, 10, 8, 12, 8, 169, 9, 8,
+		5, 8, 171, 8, 8, 10, 8, 12, 8, 174, 9, 8, 1, 9, 1, 9, 1, 9, 1, 9, 3, 9,
+		180, 8, 9, 1, 10, 5, 10, 183, 8, 10, 10, 10, 12, 10, 186, 9, 10, 1, 10,
+		1, 10, 5, 10, 190, 8, 10, 10, 10, 12, 10, 193, 9, 10, 1, 10, 1, 10, 5,
+		10, 197, 8, 10, 10, 10, 12, 10, 200, 9, 10, 5, 10, 202, 8, 10, 10, 10,
+		12, 10, 205, 9, 10, 1, 10, 1, 10, 1, 11, 1, 11, 1, 11, 3, 11, 212, 8, 11,
+		1, 12, 5, 12, 215, 8, 12, 10, 12, 12, 12, 218, 9, 12, 1, 12, 1, 12, 5,
+		12, 222, 8, 12, 10, 12, 12, 12, 225, 9, 12, 1, 12, 1, 12, 4, 12, 229, 8,
+		12, 11, 12, 12, 12, 230, 1, 12, 1, 12, 5, 12, 235, 8, 12, 10, 12, 12, 12,
+		238, 9, 12, 3, 12, 240, 8, 12, 1, 12, 5, 12, 243, 8, 12, 10, 12, 12, 12,
+		246, 9, 12, 1, 12, 1, 12, 1, 13, 1, 13, 3, 13, 252, 8, 13, 1, 13, 1, 13,
+		3, 13, 256, 8, 13, 1, 13, 3, 13, 259, 8, 13, 1, 14, 1, 14, 1, 14, 1, 14,
+		5, 14, 265, 8, 14, 10, 14, 12, 14, 268, 9, 14, 1, 14, 1, 14, 1, 15, 1,
+		15, 3, 15, 274, 8, 15, 1, 15, 1, 15, 3, 15, 278, 8, 15, 3, 15, 280, 8,
+		15, 1, 16, 1, 16, 1, 16, 3, 16, 285, 8, 16, 1, 17, 1, 17, 5, 17, 289, 8,
+		17, 10, 17, 12, 17, 292, 9, 17, 1, 18, 1, 18, 1, 18, 1, 18, 1, 18, 3, 18,
+		299, 8, 18, 1, 19, 1, 19, 1, 19, 5, 19, 304, 8, 19, 10, 19, 12, 19, 307,
+		9, 19, 1, 19, 1, 19, 5, 19, 311, 8, 19, 10, 19, 12, 19, 314, 9, 19, 1,
+		19, 1, 19, 5, 19, 318, 8, 19, 10, 19, 12, 19, 321, 9, 19, 5, 19, 323, 8,
+		19, 10, 19, 12, 19, 326, 9, 19, 1, 19, 1, 19, 1, 20, 1, 20, 1, 20, 1, 20,
+		1, 20, 0, 0, 21, 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28,
+		30, 32, 34, 36, 38, 40, 0, 1, 2, 0, 18, 18, 20, 20, 362, 0, 45, 1, 0, 0,
+		0, 2, 74, 1, 0, 0, 0, 4, 76, 1, 0, 0, 0, 6, 81, 1, 0, 0, 0, 8, 111, 1,
+		0, 0, 0, 10, 116, 1, 0, 0, 0, 12, 140, 1, 0, 0, 0, 14, 151, 1, 0, 0, 0,
+		16, 172, 1, 0, 0, 0, 18, 175, 1, 0, 0, 0, 20, 184, 1, 0, 0, 0, 22, 208,
+		1, 0, 0, 0, 24, 216, 1, 0, 0, 0, 26, 249, 1, 0, 0, 0, 28, 260, 1, 0, 0,
+		0, 30, 279, 1, 0, 0, 0, 32, 281, 1, 0, 0, 0, 34, 286, 1, 0, 0, 0, 36, 298,
+		1, 0, 0, 0, 38, 300, 1, 0, 0, 0, 40, 329, 1, 0, 0, 0, 42, 44, 3, 2, 1,
+		0, 43, 42, 1, 0, 0, 0, 44, 47, 1, 0, 0, 0, 45, 43, 1, 0, 0, 0, 45, 46,
+		1, 0, 0, 0, 46, 57, 1, 0, 0, 0, 47, 45, 1, 0, 0, 0, 48, 52, 3, 4, 2, 0,
+		49, 51, 3, 2, 1, 0, 50, 49, 1, 0, 0, 0, 51, 54, 1, 0, 0, 0, 52, 50, 1,
+		0, 0, 0, 52, 53, 1, 0, 0, 0, 53, 56, 1, 0, 0, 0, 54, 52, 1, 0, 0, 0, 55,
+		48, 1, 0, 0, 0, 56, 59, 1, 0, 0, 0, 57, 55, 1, 0, 0, 0, 57, 58, 1, 0, 0,
+		0, 58, 69, 1, 0, 0, 0, 59, 57, 1, 0, 0, 0, 60, 64, 3, 6, 3, 0, 61, 63,
+		3, 2, 1, 0, 62, 61, 1, 0, 0, 0, 63, 66, 1, 0, 0, 0, 64, 62, 1, 0, 0, 0,
+		64, 65, 1, 0, 0, 0, 65, 68, 1, 0, 0, 0, 66, 64, 1, 0, 0, 0, 67, 60, 1,
+		0, 0, 0, 68, 71, 1, 0, 0, 0, 69, 67, 1, 0, 0, 0, 69, 70, 1, 0, 0, 0, 70,
+		72, 1, 0, 0, 0, 71, 69, 1, 0, 0, 0, 72, 73, 5, 0, 0, 1, 73, 1, 1, 0, 0,
+		0, 74, 75, 5, 25, 0, 0, 75, 3, 1, 0, 0, 0, 76, 77, 5, 5, 0, 0, 77, 78,
+		5, 18, 0, 0, 78, 5, 1, 0, 0, 0, 79, 82, 3, 8, 4, 0, 80, 82, 3, 38, 19,
+		0, 81, 79, 1, 0, 0, 0, 81, 80, 1, 0, 0, 0, 82, 7, 1, 0, 0, 0, 83, 84, 5,
+		1, 0, 0, 84, 86, 5, 22, 0, 0, 85, 87, 3, 12, 6, 0, 86, 85, 1, 0, 0, 0,
+		86, 87, 1, 0, 0, 0, 87, 91, 1, 0, 0, 0, 88, 90, 3, 2, 1, 0, 89, 88, 1,
+		0, 0, 0, 90, 93, 1, 0, 0, 0, 91, 89, 1, 0, 0, 0, 91, 92, 1, 0, 0, 0, 92,
+		94, 1, 0, 0, 0, 93, 91, 1, 0, 0, 0, 94, 98, 5, 7, 0, 0, 95, 97, 3, 2, 1,
+		0, 96, 95, 1, 0, 0, 0, 97, 100, 1, 0, 0, 0, 98, 96, 1, 0, 0, 0, 98, 99,
+		1, 0, 0, 0, 99, 101, 1, 0, 0, 0, 100, 98, 1, 0, 0, 0, 101, 102, 3, 16,
+		8, 0, 102, 103, 5, 8, 0, 0, 103, 112, 1, 0, 0, 0, 104, 105, 5, 1, 0, 0,
+		105, 106, 5, 22, 0, 0, 106, 107, 5, 17, 0, 0, 107, 109, 3, 26, 13, 0, 108,
+		110, 3, 10, 5, 0, 109, 108, 1, 0, 0, 0, 109, 110, 1, 0, 0, 0, 110, 112,
+		1, 0, 0, 0, 111, 83, 1, 0, 0, 0, 111, 104, 1, 0, 0, 0, 112, 9, 1, 0, 0,
+		0, 113, 115, 3, 2, 1, 0, 114, 113, 1, 0, 0, 0, 115, 118, 1, 0, 0, 0, 116,
+		114, 1, 0, 0, 0, 116, 117, 1, 0, 0, 0, 117, 119, 1, 0, 0, 0, 118, 116,
+		1, 0, 0, 0, 119, 123, 5, 7, 0, 0, 120, 122, 3, 2, 1, 0, 121, 120, 1, 0,
+		0, 0, 122, 125, 1, 0, 0, 0, 123, 121, 1, 0, 0, 0, 123, 124, 1, 0, 0, 0,
+		124, 135, 1, 0, 0, 0, 125, 123, 1, 0, 0, 0, 126, 130, 3, 22, 11, 0, 127,
+		129, 3, 2, 1, 0, 128, 127, 1, 0, 0, 0, 129, 132, 1, 0, 0, 0, 130, 128,
+		1, 0, 0, 0, 130, 131, 1, 0, 0, 0, 131, 134, 1, 0, 0, 0, 132, 130, 1, 0,
+		0, 0, 133, 126, 1, 0, 0, 0, 134, 137, 1, 0, 0, 0, 135, 133, 1, 0, 0, 0,
+		135, 136, 1, 0, 0, 0, 136, 138, 1, 0, 0, 0, 137, 135, 1, 0, 0, 0, 138,
+		139, 5, 8, 0, 0, 139, 11, 1, 0, 0, 0, 140, 141, 5, 11, 0, 0, 141, 146,
+		3, 14, 7, 0, 142, 143, 5, 13, 0, 0, 143, 145, 3, 14, 7, 0, 144, 142, 1,
+		0, 0, 0, 145, 148, 1, 0, 0, 0, 146, 144, 1, 0, 0, 0, 146, 147, 1, 0, 0,
+		0, 147, 149, 1, 0, 0, 0, 148, 146, 1, 0, 0, 0, 149, 150, 5, 12, 0, 0, 150,
+		13, 1, 0, 0, 0, 151, 154, 5, 22, 0, 0, 152, 153, 5, 6, 0, 0, 153, 155,
+		3, 26, 13, 0, 154, 152, 1, 0, 0, 0, 154, 155, 1, 0, 0, 0, 155, 158, 1,
+		0, 0, 0, 156, 157, 5, 17, 0, 0, 157, 159, 3, 26, 13, 0, 158, 156, 1, 0,
+		0, 0, 158, 159, 1, 0, 0, 0, 159, 15, 1, 0, 0, 0, 160, 163, 3, 18, 9, 0,
+		161, 163, 3, 22, 11, 0, 162, 160, 1, 0, 0, 0, 162, 161, 1, 0, 0, 0, 163,
+		167, 1, 0, 0, 0, 164, 166, 3, 2, 1, 0, 165, 164, 1, 0, 0, 0, 166, 169,
+		1, 0, 0, 0, 167, 165, 1, 0, 0, 0, 167, 168, 1, 0, 0, 0, 168, 171, 1, 0,
+		0, 0, 169, 167, 1, 0, 0, 0, 170, 162, 1, 0, 0, 0, 171, 174, 1, 0, 0, 0,
+		172, 170, 1, 0, 0, 0, 172, 173, 1, 0, 0, 0, 173, 17, 1, 0, 0, 0, 174, 172,
+		1, 0, 0, 0, 175, 176, 5, 2, 0, 0, 176, 177, 5, 22, 0, 0, 177, 179, 3, 26,
+		13, 0, 178, 180, 3, 20, 10, 0, 179, 178, 1, 0, 0, 0, 179, 180, 1, 0, 0,
+		0, 180, 19, 1, 0, 0, 0, 181, 183, 3, 2, 1, 0, 182, 181, 1, 0, 0, 0, 183,
+		186, 1, 0, 0, 0, 184, 182, 1, 0, 0, 0, 184, 185, 1, 0, 0, 0, 185, 187,
+		1, 0, 0, 0, 186, 184, 1, 0, 0, 0, 187, 191, 5, 7, 0, 0, 188, 190, 3, 2,
+		1, 0, 189, 188, 1, 0, 0, 0, 190, 193, 1, 0, 0, 0, 191, 189, 1, 0, 0, 0,
+		191, 192, 1, 0, 0, 0, 192, 203, 1, 0, 0, 0, 193, 191, 1, 0, 0, 0, 194,
+		198, 3, 22, 11, 0, 195, 197, 3, 2, 1, 0, 196, 195, 1, 0, 0, 0, 197, 200,
+		1, 0, 0, 0, 198, 196, 1, 0, 0, 0, 198, 199, 1, 0, 0, 0, 199, 202, 1, 0,
+		0, 0, 200, 198, 1, 0, 0, 0, 201, 194, 1, 0, 0, 0, 202, 205, 1, 0, 0, 0,
+		203, 201, 1, 0, 0, 0, 203, 204, 1, 0, 0, 0, 204, 206, 1, 0, 0, 0, 205,
+		203, 1, 0, 0, 0, 206, 207, 5, 8, 0, 0, 207, 21, 1, 0, 0, 0, 208, 209, 5,
+		3, 0, 0, 209, 211, 5, 22, 0, 0, 210, 212, 3, 24, 12, 0, 211, 210, 1, 0,
+		0, 0, 211, 212, 1, 0, 0, 0, 212, 23, 1, 0, 0, 0, 213, 215, 3, 2, 1, 0,
+		214, 213, 1, 0, 0, 0, 215, 218, 1, 0, 0, 0, 216, 214, 1, 0, 0, 0, 216,
+		217, 1, 0, 0, 0, 217, 219, 1, 0, 0, 0, 218, 216, 1, 0, 0, 0, 219, 223,
+		5, 7, 0, 0, 220, 222, 3, 2, 1, 0, 221, 220, 1, 0, 0, 0, 222, 225, 1, 0,
+		0, 0, 223, 221, 1, 0, 0, 0, 223, 224, 1, 0, 0, 0, 224, 239, 1, 0, 0, 0,
+		225, 223, 1, 0, 0, 0, 226, 236, 3, 34, 17, 0, 227, 229, 3, 2, 1, 0, 228,
+		227, 1, 0, 0, 0, 229, 230, 1, 0, 0, 0, 230, 228, 1, 0, 0, 0, 230, 231,
+		1, 0, 0, 0, 231, 232, 1, 0, 0, 0, 232, 233, 3, 34, 17, 0, 233, 235, 1,
+		0, 0, 0, 234, 228, 1, 0, 0, 0, 235, 238, 1, 0, 0, 0, 236, 234, 1, 0, 0,
+		0, 236, 237, 1, 0, 0, 0, 237, 240, 1, 0, 0, 0, 238, 236, 1, 0, 0, 0, 239,
+		226, 1, 0, 0, 0, 239, 240, 1, 0, 0, 0, 240, 244, 1, 0, 0, 0, 241, 243,
+		3, 2, 1, 0, 242, 241, 1, 0, 0, 0, 243, 246, 1, 0, 0, 0, 244, 242, 1, 0,
+		0, 0, 244, 245, 1, 0, 0, 0, 245, 247, 1, 0, 0, 0, 246, 244, 1, 0, 0, 0,
+		247, 248, 5, 8, 0, 0, 248, 25, 1, 0, 0, 0, 249, 251, 3, 32, 16, 0, 250,
+		252, 3, 28, 14, 0, 251, 250, 1, 0, 0, 0, 251, 252, 1, 0, 0, 0, 252, 255,
+		1, 0, 0, 0, 253, 254, 5, 9, 0, 0, 254, 256, 5, 10, 0, 0, 255, 253, 1, 0,
+		0, 0, 255, 256, 1, 0, 0, 0, 256, 258, 1, 0, 0, 0, 257, 259, 3, 30, 15,
+		0, 258, 257, 1, 0, 0, 0, 258, 259, 1, 0, 0, 0, 259, 27, 1, 0, 0, 0, 260,
+		261, 5, 11, 0, 0, 261, 266, 3, 26, 13, 0, 262, 263, 5, 13, 0, 0, 263, 265,
+		3, 26, 13, 0, 264, 262, 1, 0, 0, 0, 265, 268, 1, 0, 0, 0, 266, 264, 1,
+		0, 0, 0, 266, 267, 1, 0, 0, 0, 267, 269, 1, 0, 0, 0, 268, 266, 1, 0, 0,
+		0, 269, 270, 5, 12, 0, 0, 270, 29, 1, 0, 0, 0, 271, 273, 5, 14, 0, 0, 272,
+		274, 5, 15, 0, 0, 273, 272, 1, 0, 0, 0, 273, 274, 1, 0, 0, 0, 274, 280,
+		1, 0, 0, 0, 275, 277, 5, 15, 0, 0, 276, 278, 5, 14, 0, 0, 277, 276, 1,
+		0, 0, 0, 277, 278, 1, 0, 0, 0, 278, 280, 1, 0, 0, 0, 279, 271, 1, 0, 0,
+		0, 279, 275, 1, 0, 0, 0, 280, 31, 1, 0, 0, 0, 281, 284, 5, 22, 0, 0, 282,
+		283, 5, 16, 0, 0, 283, 285, 5, 22, 0, 0, 284, 282, 1, 0, 0, 0, 284, 285,
+		1, 0, 0, 0, 285, 33, 1, 0, 0, 0, 286, 290, 5, 22, 0, 0, 287, 289, 3, 36,
+		18, 0, 288, 287, 1, 0, 0, 0, 289, 292, 1, 0, 0, 0, 290, 288, 1, 0, 0, 0,
+		290, 291, 1, 0, 0, 0, 291, 35, 1, 0, 0, 0, 292, 290, 1, 0, 0, 0, 293, 299,
+		5, 18, 0, 0, 294, 299, 5, 20, 0, 0, 295, 299, 5, 19, 0, 0, 296, 299, 5,
+		21, 0, 0, 297, 299, 3, 32, 16, 0, 298, 293, 1, 0, 0, 0, 298, 294, 1, 0,
+		0, 0, 298, 295, 1, 0, 0, 0, 298, 296, 1, 0, 0, 0, 298, 297, 1, 0, 0, 0,
+		299, 37, 1, 0, 0, 0, 300, 301, 5, 4, 0, 0, 301, 305, 5, 22, 0, 0, 302,
+		304, 3, 2, 1, 0, 303, 302, 1, 0, 0, 0, 304, 307, 1, 0, 0, 0, 305, 303,
+		1, 0, 0, 0, 305, 306, 1, 0, 0, 0, 306, 308, 1, 0, 0, 0, 307, 305, 1, 0,
+		0, 0, 308, 312, 5, 7, 0, 0, 309, 311, 3, 2, 1, 0, 310, 309, 1, 0, 0, 0,
+		311, 314, 1, 0, 0, 0, 312, 310, 1, 0, 0, 0, 312, 313, 1, 0, 0, 0, 313,
+		324, 1, 0, 0, 0, 314, 312, 1, 0, 0, 0, 315, 319, 3, 40, 20, 0, 316, 318,
+		3, 2, 1, 0, 317, 316, 1, 0, 0, 0, 318, 321, 1, 0, 0, 0, 319, 317, 1, 0,
+		0, 0, 319, 320, 1, 0, 0, 0, 320, 323, 1, 0, 0, 0, 321, 319, 1, 0, 0, 0,
+		322, 315, 1, 0, 0, 0, 323, 326, 1, 0, 0, 0, 324, 322, 1, 0, 0, 0, 324,
+		325, 1, 0, 0, 0, 325, 327, 1, 0, 0, 0, 326, 324, 1, 0, 0, 0, 327, 328,
+		5, 8, 0, 0, 328, 39, 1, 0, 0, 0, 329, 330, 5, 22, 0, 0, 330, 331, 5, 17,
+		0, 0, 331, 332, 7, 0, 0, 0, 332, 41, 1, 0, 0, 0, 47, 45, 52, 57, 64, 69,
+		81, 86, 91, 98, 109, 111, 116, 123, 130, 135, 146, 154, 158, 162, 167,
+		172, 179, 184, 191, 198, 203, 211, 216, 223, 230, 236, 239, 244, 251, 255,
+		258, 266, 273, 277, 279, 284, 290, 298, 305, 312, 319, 324,
 	}
 	deserializer := antlr.NewATNDeserializer(nil)
 	staticData.atn = deserializer.Deserialize(staticData.serializedATN)
@@ -204,23 +244,27 @@ const (
 	OracleParserDOMAIN        = 3
 	OracleParserENUM          = 4
 	OracleParserIMPORT        = 5
-	OracleParserLBRACE        = 6
-	OracleParserRBRACE        = 7
-	OracleParserLBRACKET      = 8
-	OracleParserRBRACKET      = 9
-	OracleParserQUESTION      = 10
-	OracleParserBANG          = 11
-	OracleParserDOT           = 12
-	OracleParserEQUALS        = 13
-	OracleParserSTRING_LIT    = 14
-	OracleParserFLOAT_LIT     = 15
-	OracleParserINT_LIT       = 16
-	OracleParserBOOL_LIT      = 17
-	OracleParserIDENT         = 18
-	OracleParserLINE_COMMENT  = 19
-	OracleParserBLOCK_COMMENT = 20
-	OracleParserNEWLINE       = 21
-	OracleParserWS            = 22
+	OracleParserEXTENDS       = 6
+	OracleParserLBRACE        = 7
+	OracleParserRBRACE        = 8
+	OracleParserLBRACKET      = 9
+	OracleParserRBRACKET      = 10
+	OracleParserLT            = 11
+	OracleParserGT            = 12
+	OracleParserCOMMA         = 13
+	OracleParserQUESTION      = 14
+	OracleParserBANG          = 15
+	OracleParserDOT           = 16
+	OracleParserEQUALS        = 17
+	OracleParserSTRING_LIT    = 18
+	OracleParserFLOAT_LIT     = 19
+	OracleParserINT_LIT       = 20
+	OracleParserBOOL_LIT      = 21
+	OracleParserIDENT         = 22
+	OracleParserLINE_COMMENT  = 23
+	OracleParserBLOCK_COMMENT = 24
+	OracleParserNEWLINE       = 25
+	OracleParserWS            = 26
 )
 
 // OracleParser rules.
@@ -230,18 +274,22 @@ const (
 	OracleParserRULE_importStmt      = 2
 	OracleParserRULE_definition      = 3
 	OracleParserRULE_structDef       = 4
-	OracleParserRULE_structBody      = 5
-	OracleParserRULE_fieldDef        = 6
-	OracleParserRULE_fieldBody       = 7
-	OracleParserRULE_domainDef       = 8
-	OracleParserRULE_domainBody      = 9
-	OracleParserRULE_typeRef         = 10
-	OracleParserRULE_typeModifiers   = 11
-	OracleParserRULE_qualifiedIdent  = 12
-	OracleParserRULE_expression      = 13
-	OracleParserRULE_expressionValue = 14
-	OracleParserRULE_enumDef         = 15
-	OracleParserRULE_enumValue       = 16
+	OracleParserRULE_aliasBody       = 5
+	OracleParserRULE_typeParams      = 6
+	OracleParserRULE_typeParam       = 7
+	OracleParserRULE_structBody      = 8
+	OracleParserRULE_fieldDef        = 9
+	OracleParserRULE_fieldBody       = 10
+	OracleParserRULE_domainDef       = 11
+	OracleParserRULE_domainBody      = 12
+	OracleParserRULE_typeRef         = 13
+	OracleParserRULE_typeArgs        = 14
+	OracleParserRULE_typeModifiers   = 15
+	OracleParserRULE_qualifiedIdent  = 16
+	OracleParserRULE_expression      = 17
+	OracleParserRULE_expressionValue = 18
+	OracleParserRULE_enumDef         = 19
+	OracleParserRULE_enumValue       = 20
 )
 
 // ISchemaContext is an interface to support dynamic dispatch.
@@ -431,13 +479,15 @@ func (s *SchemaContext) ToStringTree(ruleNames []string, recog antlr.Recognizer)
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *SchemaContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitSchema(s)
+func (s *SchemaContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.EnterSchema(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *SchemaContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.ExitSchema(s)
 	}
 }
 
@@ -447,7 +497,7 @@ func (p *OracleParser) Schema() (localctx ISchemaContext) {
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
-	p.SetState(37)
+	p.SetState(45)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -456,18 +506,18 @@ func (p *OracleParser) Schema() (localctx ISchemaContext) {
 
 	for _la == OracleParserNEWLINE {
 		{
-			p.SetState(34)
+			p.SetState(42)
 			p.Nl()
 		}
 
-		p.SetState(39)
+		p.SetState(47)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
 		}
 		_la = p.GetTokenStream().LA(1)
 	}
-	p.SetState(49)
+	p.SetState(57)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -476,10 +526,10 @@ func (p *OracleParser) Schema() (localctx ISchemaContext) {
 
 	for _la == OracleParserIMPORT {
 		{
-			p.SetState(40)
+			p.SetState(48)
 			p.ImportStmt()
 		}
-		p.SetState(44)
+		p.SetState(52)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -488,11 +538,11 @@ func (p *OracleParser) Schema() (localctx ISchemaContext) {
 
 		for _la == OracleParserNEWLINE {
 			{
-				p.SetState(41)
+				p.SetState(49)
 				p.Nl()
 			}
 
-			p.SetState(46)
+			p.SetState(54)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
@@ -500,14 +550,14 @@ func (p *OracleParser) Schema() (localctx ISchemaContext) {
 			_la = p.GetTokenStream().LA(1)
 		}
 
-		p.SetState(51)
+		p.SetState(59)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
 		}
 		_la = p.GetTokenStream().LA(1)
 	}
-	p.SetState(61)
+	p.SetState(69)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -516,10 +566,10 @@ func (p *OracleParser) Schema() (localctx ISchemaContext) {
 
 	for _la == OracleParserSTRUCT || _la == OracleParserENUM {
 		{
-			p.SetState(52)
+			p.SetState(60)
 			p.Definition()
 		}
-		p.SetState(56)
+		p.SetState(64)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -528,11 +578,11 @@ func (p *OracleParser) Schema() (localctx ISchemaContext) {
 
 		for _la == OracleParserNEWLINE {
 			{
-				p.SetState(53)
+				p.SetState(61)
 				p.Nl()
 			}
 
-			p.SetState(58)
+			p.SetState(66)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
@@ -540,7 +590,7 @@ func (p *OracleParser) Schema() (localctx ISchemaContext) {
 			_la = p.GetTokenStream().LA(1)
 		}
 
-		p.SetState(63)
+		p.SetState(71)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -548,7 +598,7 @@ func (p *OracleParser) Schema() (localctx ISchemaContext) {
 		_la = p.GetTokenStream().LA(1)
 	}
 	{
-		p.SetState(64)
+		p.SetState(72)
 		p.Match(OracleParserEOF)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -627,13 +677,15 @@ func (s *NlContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) str
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *NlContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitNl(s)
+func (s *NlContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.EnterNl(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *NlContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.ExitNl(s)
 	}
 }
 
@@ -642,7 +694,7 @@ func (p *OracleParser) Nl() (localctx INlContext) {
 	p.EnterRule(localctx, 2, OracleParserRULE_nl)
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(66)
+		p.SetState(74)
 		p.Match(OracleParserNEWLINE)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -726,13 +778,15 @@ func (s *ImportStmtContext) ToStringTree(ruleNames []string, recog antlr.Recogni
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ImportStmtContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitImportStmt(s)
+func (s *ImportStmtContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.EnterImportStmt(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *ImportStmtContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.ExitImportStmt(s)
 	}
 }
 
@@ -741,7 +795,7 @@ func (p *OracleParser) ImportStmt() (localctx IImportStmtContext) {
 	p.EnterRule(localctx, 4, OracleParserRULE_importStmt)
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(68)
+		p.SetState(76)
 		p.Match(OracleParserIMPORT)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -749,7 +803,7 @@ func (p *OracleParser) ImportStmt() (localctx IImportStmtContext) {
 		}
 	}
 	{
-		p.SetState(69)
+		p.SetState(77)
 		p.Match(OracleParserSTRING_LIT)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -857,20 +911,22 @@ func (s *DefinitionContext) ToStringTree(ruleNames []string, recog antlr.Recogni
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *DefinitionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitDefinition(s)
+func (s *DefinitionContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.EnterDefinition(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *DefinitionContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.ExitDefinition(s)
 	}
 }
 
 func (p *OracleParser) Definition() (localctx IDefinitionContext) {
 	localctx = NewDefinitionContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 6, OracleParserRULE_definition)
-	p.SetState(73)
+	p.SetState(81)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -880,14 +936,14 @@ func (p *OracleParser) Definition() (localctx IDefinitionContext) {
 	case OracleParserSTRUCT:
 		p.EnterOuterAlt(localctx, 1)
 		{
-			p.SetState(71)
+			p.SetState(79)
 			p.StructDef()
 		}
 
 	case OracleParserENUM:
 		p.EnterOuterAlt(localctx, 2)
 		{
-			p.SetState(72)
+			p.SetState(80)
 			p.EnumDef()
 		}
 
@@ -915,16 +971,6 @@ type IStructDefContext interface {
 
 	// GetParser returns the parser.
 	GetParser() antlr.Parser
-
-	// Getter signatures
-	STRUCT() antlr.TerminalNode
-	IDENT() antlr.TerminalNode
-	LBRACE() antlr.TerminalNode
-	StructBody() IStructBodyContext
-	RBRACE() antlr.TerminalNode
-	AllNl() []INlContext
-	Nl(i int) INlContext
-
 	// IsStructDefContext differentiates from other interfaces.
 	IsStructDefContext()
 }
@@ -961,19 +1007,49 @@ func NewStructDefContext(parser antlr.Parser, parent antlr.ParserRuleContext, in
 
 func (s *StructDefContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *StructDefContext) STRUCT() antlr.TerminalNode {
+func (s *StructDefContext) CopyAll(ctx *StructDefContext) {
+	s.CopyFrom(&ctx.BaseParserRuleContext)
+}
+
+func (s *StructDefContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *StructDefContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+	return antlr.TreesStringTree(s, ruleNames, recog)
+}
+
+type StructFullContext struct {
+	StructDefContext
+}
+
+func NewStructFullContext(parser antlr.Parser, ctx antlr.ParserRuleContext) *StructFullContext {
+	var p = new(StructFullContext)
+
+	InitEmptyStructDefContext(&p.StructDefContext)
+	p.parser = parser
+	p.CopyAll(ctx.(*StructDefContext))
+
+	return p
+}
+
+func (s *StructFullContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *StructFullContext) STRUCT() antlr.TerminalNode {
 	return s.GetToken(OracleParserSTRUCT, 0)
 }
 
-func (s *StructDefContext) IDENT() antlr.TerminalNode {
+func (s *StructFullContext) IDENT() antlr.TerminalNode {
 	return s.GetToken(OracleParserIDENT, 0)
 }
 
-func (s *StructDefContext) LBRACE() antlr.TerminalNode {
+func (s *StructFullContext) LBRACE() antlr.TerminalNode {
 	return s.GetToken(OracleParserLBRACE, 0)
 }
 
-func (s *StructDefContext) StructBody() IStructBodyContext {
+func (s *StructFullContext) StructBody() IStructBodyContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(IStructBodyContext); ok {
@@ -989,11 +1065,27 @@ func (s *StructDefContext) StructBody() IStructBodyContext {
 	return t.(IStructBodyContext)
 }
 
-func (s *StructDefContext) RBRACE() antlr.TerminalNode {
+func (s *StructFullContext) RBRACE() antlr.TerminalNode {
 	return s.GetToken(OracleParserRBRACE, 0)
 }
 
-func (s *StructDefContext) AllNl() []INlContext {
+func (s *StructFullContext) TypeParams() ITypeParamsContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(ITypeParamsContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(ITypeParamsContext)
+}
+
+func (s *StructFullContext) AllNl() []INlContext {
 	children := s.GetChildren()
 	len := 0
 	for _, ctx := range children {
@@ -1014,7 +1106,7 @@ func (s *StructDefContext) AllNl() []INlContext {
 	return tst
 }
 
-func (s *StructDefContext) Nl(i int) INlContext {
+func (s *StructFullContext) Nl(i int) INlContext {
 	var t antlr.RuleContext
 	j := 0
 	for _, ctx := range s.GetChildren() {
@@ -1034,21 +1126,89 @@ func (s *StructDefContext) Nl(i int) INlContext {
 	return t.(INlContext)
 }
 
-func (s *StructDefContext) GetRuleContext() antlr.RuleContext {
+func (s *StructFullContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.EnterStructFull(s)
+	}
+}
+
+func (s *StructFullContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.ExitStructFull(s)
+	}
+}
+
+type StructAliasContext struct {
+	StructDefContext
+}
+
+func NewStructAliasContext(parser antlr.Parser, ctx antlr.ParserRuleContext) *StructAliasContext {
+	var p = new(StructAliasContext)
+
+	InitEmptyStructDefContext(&p.StructDefContext)
+	p.parser = parser
+	p.CopyAll(ctx.(*StructDefContext))
+
+	return p
+}
+
+func (s *StructAliasContext) GetRuleContext() antlr.RuleContext {
 	return s
 }
 
-func (s *StructDefContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
-	return antlr.TreesStringTree(s, ruleNames, recog)
+func (s *StructAliasContext) STRUCT() antlr.TerminalNode {
+	return s.GetToken(OracleParserSTRUCT, 0)
 }
 
-func (s *StructDefContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitStructDef(s)
+func (s *StructAliasContext) IDENT() antlr.TerminalNode {
+	return s.GetToken(OracleParserIDENT, 0)
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *StructAliasContext) EQUALS() antlr.TerminalNode {
+	return s.GetToken(OracleParserEQUALS, 0)
+}
+
+func (s *StructAliasContext) TypeRef() ITypeRefContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(ITypeRefContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(ITypeRefContext)
+}
+
+func (s *StructAliasContext) AliasBody() IAliasBodyContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IAliasBodyContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IAliasBodyContext)
+}
+
+func (s *StructAliasContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.EnterStructAlias(s)
+	}
+}
+
+func (s *StructAliasContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.ExitStructAlias(s)
 	}
 }
 
@@ -1057,24 +1217,336 @@ func (p *OracleParser) StructDef() (localctx IStructDefContext) {
 	p.EnterRule(localctx, 8, OracleParserRULE_structDef)
 	var _la int
 
+	p.SetState(111)
+	p.GetErrorHandler().Sync(p)
+	if p.HasError() {
+		goto errorExit
+	}
+
+	switch p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 10, p.GetParserRuleContext()) {
+	case 1:
+		localctx = NewStructFullContext(p, localctx)
+		p.EnterOuterAlt(localctx, 1)
+		{
+			p.SetState(83)
+			p.Match(OracleParserSTRUCT)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		{
+			p.SetState(84)
+			p.Match(OracleParserIDENT)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		p.SetState(86)
+		p.GetErrorHandler().Sync(p)
+		if p.HasError() {
+			goto errorExit
+		}
+		_la = p.GetTokenStream().LA(1)
+
+		if _la == OracleParserLT {
+			{
+				p.SetState(85)
+				p.TypeParams()
+			}
+
+		}
+		p.SetState(91)
+		p.GetErrorHandler().Sync(p)
+		if p.HasError() {
+			goto errorExit
+		}
+		_la = p.GetTokenStream().LA(1)
+
+		for _la == OracleParserNEWLINE {
+			{
+				p.SetState(88)
+				p.Nl()
+			}
+
+			p.SetState(93)
+			p.GetErrorHandler().Sync(p)
+			if p.HasError() {
+				goto errorExit
+			}
+			_la = p.GetTokenStream().LA(1)
+		}
+		{
+			p.SetState(94)
+			p.Match(OracleParserLBRACE)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		p.SetState(98)
+		p.GetErrorHandler().Sync(p)
+		if p.HasError() {
+			goto errorExit
+		}
+		_la = p.GetTokenStream().LA(1)
+
+		for _la == OracleParserNEWLINE {
+			{
+				p.SetState(95)
+				p.Nl()
+			}
+
+			p.SetState(100)
+			p.GetErrorHandler().Sync(p)
+			if p.HasError() {
+				goto errorExit
+			}
+			_la = p.GetTokenStream().LA(1)
+		}
+		{
+			p.SetState(101)
+			p.StructBody()
+		}
+		{
+			p.SetState(102)
+			p.Match(OracleParserRBRACE)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+
+	case 2:
+		localctx = NewStructAliasContext(p, localctx)
+		p.EnterOuterAlt(localctx, 2)
+		{
+			p.SetState(104)
+			p.Match(OracleParserSTRUCT)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		{
+			p.SetState(105)
+			p.Match(OracleParserIDENT)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		{
+			p.SetState(106)
+			p.Match(OracleParserEQUALS)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		{
+			p.SetState(107)
+			p.TypeRef()
+		}
+		p.SetState(109)
+		p.GetErrorHandler().Sync(p)
+
+		if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 9, p.GetParserRuleContext()) == 1 {
+			{
+				p.SetState(108)
+				p.AliasBody()
+			}
+
+		} else if p.HasError() { // JIM
+			goto errorExit
+		}
+
+	case antlr.ATNInvalidAltNumber:
+		goto errorExit
+	}
+
+errorExit:
+	if p.HasError() {
+		v := p.GetError()
+		localctx.SetException(v)
+		p.GetErrorHandler().ReportError(p, v)
+		p.GetErrorHandler().Recover(p, v)
+		p.SetError(nil)
+	}
+	p.ExitRule()
+	return localctx
+	goto errorExit // Trick to prevent compiler error if the label is not used
+}
+
+// IAliasBodyContext is an interface to support dynamic dispatch.
+type IAliasBodyContext interface {
+	antlr.ParserRuleContext
+
+	// GetParser returns the parser.
+	GetParser() antlr.Parser
+
+	// Getter signatures
+	LBRACE() antlr.TerminalNode
+	RBRACE() antlr.TerminalNode
+	AllNl() []INlContext
+	Nl(i int) INlContext
+	AllDomainDef() []IDomainDefContext
+	DomainDef(i int) IDomainDefContext
+
+	// IsAliasBodyContext differentiates from other interfaces.
+	IsAliasBodyContext()
+}
+
+type AliasBodyContext struct {
+	antlr.BaseParserRuleContext
+	parser antlr.Parser
+}
+
+func NewEmptyAliasBodyContext() *AliasBodyContext {
+	var p = new(AliasBodyContext)
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = OracleParserRULE_aliasBody
+	return p
+}
+
+func InitEmptyAliasBodyContext(p *AliasBodyContext) {
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = OracleParserRULE_aliasBody
+}
+
+func (*AliasBodyContext) IsAliasBodyContext() {}
+
+func NewAliasBodyContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *AliasBodyContext {
+	var p = new(AliasBodyContext)
+
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
+
+	p.parser = parser
+	p.RuleIndex = OracleParserRULE_aliasBody
+
+	return p
+}
+
+func (s *AliasBodyContext) GetParser() antlr.Parser { return s.parser }
+
+func (s *AliasBodyContext) LBRACE() antlr.TerminalNode {
+	return s.GetToken(OracleParserLBRACE, 0)
+}
+
+func (s *AliasBodyContext) RBRACE() antlr.TerminalNode {
+	return s.GetToken(OracleParserRBRACE, 0)
+}
+
+func (s *AliasBodyContext) AllNl() []INlContext {
+	children := s.GetChildren()
+	len := 0
+	for _, ctx := range children {
+		if _, ok := ctx.(INlContext); ok {
+			len++
+		}
+	}
+
+	tst := make([]INlContext, len)
+	i := 0
+	for _, ctx := range children {
+		if t, ok := ctx.(INlContext); ok {
+			tst[i] = t.(INlContext)
+			i++
+		}
+	}
+
+	return tst
+}
+
+func (s *AliasBodyContext) Nl(i int) INlContext {
+	var t antlr.RuleContext
+	j := 0
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(INlContext); ok {
+			if j == i {
+				t = ctx.(antlr.RuleContext)
+				break
+			}
+			j++
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(INlContext)
+}
+
+func (s *AliasBodyContext) AllDomainDef() []IDomainDefContext {
+	children := s.GetChildren()
+	len := 0
+	for _, ctx := range children {
+		if _, ok := ctx.(IDomainDefContext); ok {
+			len++
+		}
+	}
+
+	tst := make([]IDomainDefContext, len)
+	i := 0
+	for _, ctx := range children {
+		if t, ok := ctx.(IDomainDefContext); ok {
+			tst[i] = t.(IDomainDefContext)
+			i++
+		}
+	}
+
+	return tst
+}
+
+func (s *AliasBodyContext) DomainDef(i int) IDomainDefContext {
+	var t antlr.RuleContext
+	j := 0
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(IDomainDefContext); ok {
+			if j == i {
+				t = ctx.(antlr.RuleContext)
+				break
+			}
+			j++
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(IDomainDefContext)
+}
+
+func (s *AliasBodyContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *AliasBodyContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+	return antlr.TreesStringTree(s, ruleNames, recog)
+}
+
+func (s *AliasBodyContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.EnterAliasBody(s)
+	}
+}
+
+func (s *AliasBodyContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.ExitAliasBody(s)
+	}
+}
+
+func (p *OracleParser) AliasBody() (localctx IAliasBodyContext) {
+	localctx = NewAliasBodyContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 10, OracleParserRULE_aliasBody)
+	var _la int
+
 	p.EnterOuterAlt(localctx, 1)
-	{
-		p.SetState(75)
-		p.Match(OracleParserSTRUCT)
-		if p.HasError() {
-			// Recognition error - abort rule
-			goto errorExit
-		}
-	}
-	{
-		p.SetState(76)
-		p.Match(OracleParserIDENT)
-		if p.HasError() {
-			// Recognition error - abort rule
-			goto errorExit
-		}
-	}
-	p.SetState(80)
+	p.SetState(116)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -1083,11 +1555,11 @@ func (p *OracleParser) StructDef() (localctx IStructDefContext) {
 
 	for _la == OracleParserNEWLINE {
 		{
-			p.SetState(77)
+			p.SetState(113)
 			p.Nl()
 		}
 
-		p.SetState(82)
+		p.SetState(118)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -1095,14 +1567,14 @@ func (p *OracleParser) StructDef() (localctx IStructDefContext) {
 		_la = p.GetTokenStream().LA(1)
 	}
 	{
-		p.SetState(83)
+		p.SetState(119)
 		p.Match(OracleParserLBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
-	p.SetState(87)
+	p.SetState(123)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -1111,11 +1583,51 @@ func (p *OracleParser) StructDef() (localctx IStructDefContext) {
 
 	for _la == OracleParserNEWLINE {
 		{
-			p.SetState(84)
+			p.SetState(120)
 			p.Nl()
 		}
 
-		p.SetState(89)
+		p.SetState(125)
+		p.GetErrorHandler().Sync(p)
+		if p.HasError() {
+			goto errorExit
+		}
+		_la = p.GetTokenStream().LA(1)
+	}
+	p.SetState(135)
+	p.GetErrorHandler().Sync(p)
+	if p.HasError() {
+		goto errorExit
+	}
+	_la = p.GetTokenStream().LA(1)
+
+	for _la == OracleParserDOMAIN {
+		{
+			p.SetState(126)
+			p.DomainDef()
+		}
+		p.SetState(130)
+		p.GetErrorHandler().Sync(p)
+		if p.HasError() {
+			goto errorExit
+		}
+		_la = p.GetTokenStream().LA(1)
+
+		for _la == OracleParserNEWLINE {
+			{
+				p.SetState(127)
+				p.Nl()
+			}
+
+			p.SetState(132)
+			p.GetErrorHandler().Sync(p)
+			if p.HasError() {
+				goto errorExit
+			}
+			_la = p.GetTokenStream().LA(1)
+		}
+
+		p.SetState(137)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -1123,16 +1635,403 @@ func (p *OracleParser) StructDef() (localctx IStructDefContext) {
 		_la = p.GetTokenStream().LA(1)
 	}
 	{
-		p.SetState(90)
-		p.StructBody()
-	}
-	{
-		p.SetState(91)
+		p.SetState(138)
 		p.Match(OracleParserRBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
+	}
+
+errorExit:
+	if p.HasError() {
+		v := p.GetError()
+		localctx.SetException(v)
+		p.GetErrorHandler().ReportError(p, v)
+		p.GetErrorHandler().Recover(p, v)
+		p.SetError(nil)
+	}
+	p.ExitRule()
+	return localctx
+	goto errorExit // Trick to prevent compiler error if the label is not used
+}
+
+// ITypeParamsContext is an interface to support dynamic dispatch.
+type ITypeParamsContext interface {
+	antlr.ParserRuleContext
+
+	// GetParser returns the parser.
+	GetParser() antlr.Parser
+
+	// Getter signatures
+	LT() antlr.TerminalNode
+	AllTypeParam() []ITypeParamContext
+	TypeParam(i int) ITypeParamContext
+	GT() antlr.TerminalNode
+	AllCOMMA() []antlr.TerminalNode
+	COMMA(i int) antlr.TerminalNode
+
+	// IsTypeParamsContext differentiates from other interfaces.
+	IsTypeParamsContext()
+}
+
+type TypeParamsContext struct {
+	antlr.BaseParserRuleContext
+	parser antlr.Parser
+}
+
+func NewEmptyTypeParamsContext() *TypeParamsContext {
+	var p = new(TypeParamsContext)
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = OracleParserRULE_typeParams
+	return p
+}
+
+func InitEmptyTypeParamsContext(p *TypeParamsContext) {
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = OracleParserRULE_typeParams
+}
+
+func (*TypeParamsContext) IsTypeParamsContext() {}
+
+func NewTypeParamsContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *TypeParamsContext {
+	var p = new(TypeParamsContext)
+
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
+
+	p.parser = parser
+	p.RuleIndex = OracleParserRULE_typeParams
+
+	return p
+}
+
+func (s *TypeParamsContext) GetParser() antlr.Parser { return s.parser }
+
+func (s *TypeParamsContext) LT() antlr.TerminalNode {
+	return s.GetToken(OracleParserLT, 0)
+}
+
+func (s *TypeParamsContext) AllTypeParam() []ITypeParamContext {
+	children := s.GetChildren()
+	len := 0
+	for _, ctx := range children {
+		if _, ok := ctx.(ITypeParamContext); ok {
+			len++
+		}
+	}
+
+	tst := make([]ITypeParamContext, len)
+	i := 0
+	for _, ctx := range children {
+		if t, ok := ctx.(ITypeParamContext); ok {
+			tst[i] = t.(ITypeParamContext)
+			i++
+		}
+	}
+
+	return tst
+}
+
+func (s *TypeParamsContext) TypeParam(i int) ITypeParamContext {
+	var t antlr.RuleContext
+	j := 0
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(ITypeParamContext); ok {
+			if j == i {
+				t = ctx.(antlr.RuleContext)
+				break
+			}
+			j++
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(ITypeParamContext)
+}
+
+func (s *TypeParamsContext) GT() antlr.TerminalNode {
+	return s.GetToken(OracleParserGT, 0)
+}
+
+func (s *TypeParamsContext) AllCOMMA() []antlr.TerminalNode {
+	return s.GetTokens(OracleParserCOMMA)
+}
+
+func (s *TypeParamsContext) COMMA(i int) antlr.TerminalNode {
+	return s.GetToken(OracleParserCOMMA, i)
+}
+
+func (s *TypeParamsContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *TypeParamsContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+	return antlr.TreesStringTree(s, ruleNames, recog)
+}
+
+func (s *TypeParamsContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.EnterTypeParams(s)
+	}
+}
+
+func (s *TypeParamsContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.ExitTypeParams(s)
+	}
+}
+
+func (p *OracleParser) TypeParams() (localctx ITypeParamsContext) {
+	localctx = NewTypeParamsContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 12, OracleParserRULE_typeParams)
+	var _la int
+
+	p.EnterOuterAlt(localctx, 1)
+	{
+		p.SetState(140)
+		p.Match(OracleParserLT)
+		if p.HasError() {
+			// Recognition error - abort rule
+			goto errorExit
+		}
+	}
+	{
+		p.SetState(141)
+		p.TypeParam()
+	}
+	p.SetState(146)
+	p.GetErrorHandler().Sync(p)
+	if p.HasError() {
+		goto errorExit
+	}
+	_la = p.GetTokenStream().LA(1)
+
+	for _la == OracleParserCOMMA {
+		{
+			p.SetState(142)
+			p.Match(OracleParserCOMMA)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		{
+			p.SetState(143)
+			p.TypeParam()
+		}
+
+		p.SetState(148)
+		p.GetErrorHandler().Sync(p)
+		if p.HasError() {
+			goto errorExit
+		}
+		_la = p.GetTokenStream().LA(1)
+	}
+	{
+		p.SetState(149)
+		p.Match(OracleParserGT)
+		if p.HasError() {
+			// Recognition error - abort rule
+			goto errorExit
+		}
+	}
+
+errorExit:
+	if p.HasError() {
+		v := p.GetError()
+		localctx.SetException(v)
+		p.GetErrorHandler().ReportError(p, v)
+		p.GetErrorHandler().Recover(p, v)
+		p.SetError(nil)
+	}
+	p.ExitRule()
+	return localctx
+	goto errorExit // Trick to prevent compiler error if the label is not used
+}
+
+// ITypeParamContext is an interface to support dynamic dispatch.
+type ITypeParamContext interface {
+	antlr.ParserRuleContext
+
+	// GetParser returns the parser.
+	GetParser() antlr.Parser
+
+	// Getter signatures
+	IDENT() antlr.TerminalNode
+	EXTENDS() antlr.TerminalNode
+	AllTypeRef() []ITypeRefContext
+	TypeRef(i int) ITypeRefContext
+	EQUALS() antlr.TerminalNode
+
+	// IsTypeParamContext differentiates from other interfaces.
+	IsTypeParamContext()
+}
+
+type TypeParamContext struct {
+	antlr.BaseParserRuleContext
+	parser antlr.Parser
+}
+
+func NewEmptyTypeParamContext() *TypeParamContext {
+	var p = new(TypeParamContext)
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = OracleParserRULE_typeParam
+	return p
+}
+
+func InitEmptyTypeParamContext(p *TypeParamContext) {
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = OracleParserRULE_typeParam
+}
+
+func (*TypeParamContext) IsTypeParamContext() {}
+
+func NewTypeParamContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *TypeParamContext {
+	var p = new(TypeParamContext)
+
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
+
+	p.parser = parser
+	p.RuleIndex = OracleParserRULE_typeParam
+
+	return p
+}
+
+func (s *TypeParamContext) GetParser() antlr.Parser { return s.parser }
+
+func (s *TypeParamContext) IDENT() antlr.TerminalNode {
+	return s.GetToken(OracleParserIDENT, 0)
+}
+
+func (s *TypeParamContext) EXTENDS() antlr.TerminalNode {
+	return s.GetToken(OracleParserEXTENDS, 0)
+}
+
+func (s *TypeParamContext) AllTypeRef() []ITypeRefContext {
+	children := s.GetChildren()
+	len := 0
+	for _, ctx := range children {
+		if _, ok := ctx.(ITypeRefContext); ok {
+			len++
+		}
+	}
+
+	tst := make([]ITypeRefContext, len)
+	i := 0
+	for _, ctx := range children {
+		if t, ok := ctx.(ITypeRefContext); ok {
+			tst[i] = t.(ITypeRefContext)
+			i++
+		}
+	}
+
+	return tst
+}
+
+func (s *TypeParamContext) TypeRef(i int) ITypeRefContext {
+	var t antlr.RuleContext
+	j := 0
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(ITypeRefContext); ok {
+			if j == i {
+				t = ctx.(antlr.RuleContext)
+				break
+			}
+			j++
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(ITypeRefContext)
+}
+
+func (s *TypeParamContext) EQUALS() antlr.TerminalNode {
+	return s.GetToken(OracleParserEQUALS, 0)
+}
+
+func (s *TypeParamContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *TypeParamContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+	return antlr.TreesStringTree(s, ruleNames, recog)
+}
+
+func (s *TypeParamContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.EnterTypeParam(s)
+	}
+}
+
+func (s *TypeParamContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.ExitTypeParam(s)
+	}
+}
+
+func (p *OracleParser) TypeParam() (localctx ITypeParamContext) {
+	localctx = NewTypeParamContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 14, OracleParserRULE_typeParam)
+	var _la int
+
+	p.EnterOuterAlt(localctx, 1)
+	{
+		p.SetState(151)
+		p.Match(OracleParserIDENT)
+		if p.HasError() {
+			// Recognition error - abort rule
+			goto errorExit
+		}
+	}
+	p.SetState(154)
+	p.GetErrorHandler().Sync(p)
+	if p.HasError() {
+		goto errorExit
+	}
+	_la = p.GetTokenStream().LA(1)
+
+	if _la == OracleParserEXTENDS {
+		{
+			p.SetState(152)
+			p.Match(OracleParserEXTENDS)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		{
+			p.SetState(153)
+			p.TypeRef()
+		}
+
+	}
+	p.SetState(158)
+	p.GetErrorHandler().Sync(p)
+	if p.HasError() {
+		goto errorExit
+	}
+	_la = p.GetTokenStream().LA(1)
+
+	if _la == OracleParserEQUALS {
+		{
+			p.SetState(156)
+			p.Match(OracleParserEQUALS)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		{
+			p.SetState(157)
+			p.TypeRef()
+		}
+
 	}
 
 errorExit:
@@ -1330,23 +2229,25 @@ func (s *StructBodyContext) ToStringTree(ruleNames []string, recog antlr.Recogni
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *StructBodyContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitStructBody(s)
+func (s *StructBodyContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.EnterStructBody(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *StructBodyContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.ExitStructBody(s)
 	}
 }
 
 func (p *OracleParser) StructBody() (localctx IStructBodyContext) {
 	localctx = NewStructBodyContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 10, OracleParserRULE_structBody)
+	p.EnterRule(localctx, 16, OracleParserRULE_structBody)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
-	p.SetState(105)
+	p.SetState(172)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -1354,7 +2255,7 @@ func (p *OracleParser) StructBody() (localctx IStructBodyContext) {
 	_la = p.GetTokenStream().LA(1)
 
 	for _la == OracleParserFIELD || _la == OracleParserDOMAIN {
-		p.SetState(95)
+		p.SetState(162)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -1363,13 +2264,13 @@ func (p *OracleParser) StructBody() (localctx IStructBodyContext) {
 		switch p.GetTokenStream().LA(1) {
 		case OracleParserFIELD:
 			{
-				p.SetState(93)
+				p.SetState(160)
 				p.FieldDef()
 			}
 
 		case OracleParserDOMAIN:
 			{
-				p.SetState(94)
+				p.SetState(161)
 				p.DomainDef()
 			}
 
@@ -1377,7 +2278,7 @@ func (p *OracleParser) StructBody() (localctx IStructBodyContext) {
 			p.SetError(antlr.NewNoViableAltException(p, nil, nil, nil, nil, nil))
 			goto errorExit
 		}
-		p.SetState(100)
+		p.SetState(167)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -1386,11 +2287,11 @@ func (p *OracleParser) StructBody() (localctx IStructBodyContext) {
 
 		for _la == OracleParserNEWLINE {
 			{
-				p.SetState(97)
+				p.SetState(164)
 				p.Nl()
 			}
 
-			p.SetState(102)
+			p.SetState(169)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
@@ -1398,7 +2299,7 @@ func (p *OracleParser) StructBody() (localctx IStructBodyContext) {
 			_la = p.GetTokenStream().LA(1)
 		}
 
-		p.SetState(107)
+		p.SetState(174)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -1516,22 +2417,24 @@ func (s *FieldDefContext) ToStringTree(ruleNames []string, recog antlr.Recognize
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *FieldDefContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitFieldDef(s)
+func (s *FieldDefContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.EnterFieldDef(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *FieldDefContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.ExitFieldDef(s)
 	}
 }
 
 func (p *OracleParser) FieldDef() (localctx IFieldDefContext) {
 	localctx = NewFieldDefContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 12, OracleParserRULE_fieldDef)
+	p.EnterRule(localctx, 18, OracleParserRULE_fieldDef)
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(108)
+		p.SetState(175)
 		p.Match(OracleParserFIELD)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -1539,7 +2442,7 @@ func (p *OracleParser) FieldDef() (localctx IFieldDefContext) {
 		}
 	}
 	{
-		p.SetState(109)
+		p.SetState(176)
 		p.Match(OracleParserIDENT)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -1547,15 +2450,15 @@ func (p *OracleParser) FieldDef() (localctx IFieldDefContext) {
 		}
 	}
 	{
-		p.SetState(110)
+		p.SetState(177)
 		p.TypeRef()
 	}
-	p.SetState(112)
+	p.SetState(179)
 	p.GetErrorHandler().Sync(p)
 
-	if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 11, p.GetParserRuleContext()) == 1 {
+	if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 21, p.GetParserRuleContext()) == 1 {
 		{
-			p.SetState(111)
+			p.SetState(178)
 			p.FieldBody()
 		}
 
@@ -1725,23 +2628,25 @@ func (s *FieldBodyContext) ToStringTree(ruleNames []string, recog antlr.Recogniz
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *FieldBodyContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitFieldBody(s)
+func (s *FieldBodyContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.EnterFieldBody(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *FieldBodyContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.ExitFieldBody(s)
 	}
 }
 
 func (p *OracleParser) FieldBody() (localctx IFieldBodyContext) {
 	localctx = NewFieldBodyContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 14, OracleParserRULE_fieldBody)
+	p.EnterRule(localctx, 20, OracleParserRULE_fieldBody)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
-	p.SetState(117)
+	p.SetState(184)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -1750,11 +2655,11 @@ func (p *OracleParser) FieldBody() (localctx IFieldBodyContext) {
 
 	for _la == OracleParserNEWLINE {
 		{
-			p.SetState(114)
+			p.SetState(181)
 			p.Nl()
 		}
 
-		p.SetState(119)
+		p.SetState(186)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -1762,14 +2667,14 @@ func (p *OracleParser) FieldBody() (localctx IFieldBodyContext) {
 		_la = p.GetTokenStream().LA(1)
 	}
 	{
-		p.SetState(120)
+		p.SetState(187)
 		p.Match(OracleParserLBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
-	p.SetState(124)
+	p.SetState(191)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -1778,18 +2683,18 @@ func (p *OracleParser) FieldBody() (localctx IFieldBodyContext) {
 
 	for _la == OracleParserNEWLINE {
 		{
-			p.SetState(121)
+			p.SetState(188)
 			p.Nl()
 		}
 
-		p.SetState(126)
+		p.SetState(193)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
 		}
 		_la = p.GetTokenStream().LA(1)
 	}
-	p.SetState(136)
+	p.SetState(203)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -1798,10 +2703,10 @@ func (p *OracleParser) FieldBody() (localctx IFieldBodyContext) {
 
 	for _la == OracleParserDOMAIN {
 		{
-			p.SetState(127)
+			p.SetState(194)
 			p.DomainDef()
 		}
-		p.SetState(131)
+		p.SetState(198)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -1810,11 +2715,11 @@ func (p *OracleParser) FieldBody() (localctx IFieldBodyContext) {
 
 		for _la == OracleParserNEWLINE {
 			{
-				p.SetState(128)
+				p.SetState(195)
 				p.Nl()
 			}
 
-			p.SetState(133)
+			p.SetState(200)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
@@ -1822,7 +2727,7 @@ func (p *OracleParser) FieldBody() (localctx IFieldBodyContext) {
 			_la = p.GetTokenStream().LA(1)
 		}
 
-		p.SetState(138)
+		p.SetState(205)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -1830,7 +2735,7 @@ func (p *OracleParser) FieldBody() (localctx IFieldBodyContext) {
 		_la = p.GetTokenStream().LA(1)
 	}
 	{
-		p.SetState(139)
+		p.SetState(206)
 		p.Match(OracleParserRBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -1931,22 +2836,24 @@ func (s *DomainDefContext) ToStringTree(ruleNames []string, recog antlr.Recogniz
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *DomainDefContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitDomainDef(s)
+func (s *DomainDefContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.EnterDomainDef(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *DomainDefContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.ExitDomainDef(s)
 	}
 }
 
 func (p *OracleParser) DomainDef() (localctx IDomainDefContext) {
 	localctx = NewDomainDefContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 16, OracleParserRULE_domainDef)
+	p.EnterRule(localctx, 22, OracleParserRULE_domainDef)
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(141)
+		p.SetState(208)
 		p.Match(OracleParserDOMAIN)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -1954,19 +2861,19 @@ func (p *OracleParser) DomainDef() (localctx IDomainDefContext) {
 		}
 	}
 	{
-		p.SetState(142)
+		p.SetState(209)
 		p.Match(OracleParserIDENT)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
-	p.SetState(144)
+	p.SetState(211)
 	p.GetErrorHandler().Sync(p)
 
-	if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 16, p.GetParserRuleContext()) == 1 {
+	if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 26, p.GetParserRuleContext()) == 1 {
 		{
-			p.SetState(143)
+			p.SetState(210)
 			p.DomainBody()
 		}
 
@@ -2136,25 +3043,27 @@ func (s *DomainBodyContext) ToStringTree(ruleNames []string, recog antlr.Recogni
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *DomainBodyContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitDomainBody(s)
+func (s *DomainBodyContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.EnterDomainBody(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *DomainBodyContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.ExitDomainBody(s)
 	}
 }
 
 func (p *OracleParser) DomainBody() (localctx IDomainBodyContext) {
 	localctx = NewDomainBodyContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 18, OracleParserRULE_domainBody)
+	p.EnterRule(localctx, 24, OracleParserRULE_domainBody)
 	var _la int
 
 	var _alt int
 
 	p.EnterOuterAlt(localctx, 1)
-	p.SetState(149)
+	p.SetState(216)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -2163,11 +3072,11 @@ func (p *OracleParser) DomainBody() (localctx IDomainBodyContext) {
 
 	for _la == OracleParserNEWLINE {
 		{
-			p.SetState(146)
+			p.SetState(213)
 			p.Nl()
 		}
 
-		p.SetState(151)
+		p.SetState(218)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -2175,41 +3084,41 @@ func (p *OracleParser) DomainBody() (localctx IDomainBodyContext) {
 		_la = p.GetTokenStream().LA(1)
 	}
 	{
-		p.SetState(152)
+		p.SetState(219)
 		p.Match(OracleParserLBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
-	p.SetState(156)
+	p.SetState(223)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
 	}
-	_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 18, p.GetParserRuleContext())
+	_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 28, p.GetParserRuleContext())
 	if p.HasError() {
 		goto errorExit
 	}
 	for _alt != 2 && _alt != antlr.ATNInvalidAltNumber {
 		if _alt == 1 {
 			{
-				p.SetState(153)
+				p.SetState(220)
 				p.Nl()
 			}
 
 		}
-		p.SetState(158)
+		p.SetState(225)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
 		}
-		_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 18, p.GetParserRuleContext())
+		_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 28, p.GetParserRuleContext())
 		if p.HasError() {
 			goto errorExit
 		}
 	}
-	p.SetState(172)
+	p.SetState(239)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -2218,21 +3127,21 @@ func (p *OracleParser) DomainBody() (localctx IDomainBodyContext) {
 
 	if _la == OracleParserIDENT {
 		{
-			p.SetState(159)
+			p.SetState(226)
 			p.Expression()
 		}
-		p.SetState(169)
+		p.SetState(236)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
 		}
-		_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 20, p.GetParserRuleContext())
+		_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 30, p.GetParserRuleContext())
 		if p.HasError() {
 			goto errorExit
 		}
 		for _alt != 2 && _alt != antlr.ATNInvalidAltNumber {
 			if _alt == 1 {
-				p.SetState(161)
+				p.SetState(228)
 				p.GetErrorHandler().Sync(p)
 				if p.HasError() {
 					goto errorExit
@@ -2241,11 +3150,11 @@ func (p *OracleParser) DomainBody() (localctx IDomainBodyContext) {
 
 				for ok := true; ok; ok = _la == OracleParserNEWLINE {
 					{
-						p.SetState(160)
+						p.SetState(227)
 						p.Nl()
 					}
 
-					p.SetState(163)
+					p.SetState(230)
 					p.GetErrorHandler().Sync(p)
 					if p.HasError() {
 						goto errorExit
@@ -2253,24 +3162,24 @@ func (p *OracleParser) DomainBody() (localctx IDomainBodyContext) {
 					_la = p.GetTokenStream().LA(1)
 				}
 				{
-					p.SetState(165)
+					p.SetState(232)
 					p.Expression()
 				}
 
 			}
-			p.SetState(171)
+			p.SetState(238)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
 			}
-			_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 20, p.GetParserRuleContext())
+			_alt = p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 30, p.GetParserRuleContext())
 			if p.HasError() {
 				goto errorExit
 			}
 		}
 
 	}
-	p.SetState(177)
+	p.SetState(244)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -2279,11 +3188,11 @@ func (p *OracleParser) DomainBody() (localctx IDomainBodyContext) {
 
 	for _la == OracleParserNEWLINE {
 		{
-			p.SetState(174)
+			p.SetState(241)
 			p.Nl()
 		}
 
-		p.SetState(179)
+		p.SetState(246)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -2291,7 +3200,7 @@ func (p *OracleParser) DomainBody() (localctx IDomainBodyContext) {
 		_la = p.GetTokenStream().LA(1)
 	}
 	{
-		p.SetState(180)
+		p.SetState(247)
 		p.Match(OracleParserRBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -2321,6 +3230,7 @@ type ITypeRefContext interface {
 
 	// Getter signatures
 	QualifiedIdent() IQualifiedIdentContext
+	TypeArgs() ITypeArgsContext
 	LBRACKET() antlr.TerminalNode
 	RBRACKET() antlr.TerminalNode
 	TypeModifiers() ITypeModifiersContext
@@ -2377,6 +3287,22 @@ func (s *TypeRefContext) QualifiedIdent() IQualifiedIdentContext {
 	return t.(IQualifiedIdentContext)
 }
 
+func (s *TypeRefContext) TypeArgs() ITypeArgsContext {
+	var t antlr.RuleContext
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(ITypeArgsContext); ok {
+			t = ctx.(antlr.RuleContext)
+			break
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(ITypeArgsContext)
+}
+
 func (s *TypeRefContext) LBRACKET() antlr.TerminalNode {
 	return s.GetToken(OracleParserLBRACKET, 0)
 }
@@ -2409,27 +3335,43 @@ func (s *TypeRefContext) ToStringTree(ruleNames []string, recog antlr.Recognizer
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *TypeRefContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitTypeRef(s)
+func (s *TypeRefContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.EnterTypeRef(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *TypeRefContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.ExitTypeRef(s)
 	}
 }
 
 func (p *OracleParser) TypeRef() (localctx ITypeRefContext) {
 	localctx = NewTypeRefContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 20, OracleParserRULE_typeRef)
+	p.EnterRule(localctx, 26, OracleParserRULE_typeRef)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(182)
+		p.SetState(249)
 		p.QualifiedIdent()
 	}
-	p.SetState(185)
+	p.SetState(251)
+	p.GetErrorHandler().Sync(p)
+	if p.HasError() {
+		goto errorExit
+	}
+	_la = p.GetTokenStream().LA(1)
+
+	if _la == OracleParserLT {
+		{
+			p.SetState(250)
+			p.TypeArgs()
+		}
+
+	}
+	p.SetState(255)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -2438,7 +3380,7 @@ func (p *OracleParser) TypeRef() (localctx ITypeRefContext) {
 
 	if _la == OracleParserLBRACKET {
 		{
-			p.SetState(183)
+			p.SetState(253)
 			p.Match(OracleParserLBRACKET)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2446,7 +3388,7 @@ func (p *OracleParser) TypeRef() (localctx ITypeRefContext) {
 			}
 		}
 		{
-			p.SetState(184)
+			p.SetState(254)
 			p.Match(OracleParserRBRACKET)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2455,7 +3397,7 @@ func (p *OracleParser) TypeRef() (localctx ITypeRefContext) {
 		}
 
 	}
-	p.SetState(188)
+	p.SetState(258)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -2464,10 +3406,206 @@ func (p *OracleParser) TypeRef() (localctx ITypeRefContext) {
 
 	if _la == OracleParserQUESTION || _la == OracleParserBANG {
 		{
-			p.SetState(187)
+			p.SetState(257)
 			p.TypeModifiers()
 		}
 
+	}
+
+errorExit:
+	if p.HasError() {
+		v := p.GetError()
+		localctx.SetException(v)
+		p.GetErrorHandler().ReportError(p, v)
+		p.GetErrorHandler().Recover(p, v)
+		p.SetError(nil)
+	}
+	p.ExitRule()
+	return localctx
+	goto errorExit // Trick to prevent compiler error if the label is not used
+}
+
+// ITypeArgsContext is an interface to support dynamic dispatch.
+type ITypeArgsContext interface {
+	antlr.ParserRuleContext
+
+	// GetParser returns the parser.
+	GetParser() antlr.Parser
+
+	// Getter signatures
+	LT() antlr.TerminalNode
+	AllTypeRef() []ITypeRefContext
+	TypeRef(i int) ITypeRefContext
+	GT() antlr.TerminalNode
+	AllCOMMA() []antlr.TerminalNode
+	COMMA(i int) antlr.TerminalNode
+
+	// IsTypeArgsContext differentiates from other interfaces.
+	IsTypeArgsContext()
+}
+
+type TypeArgsContext struct {
+	antlr.BaseParserRuleContext
+	parser antlr.Parser
+}
+
+func NewEmptyTypeArgsContext() *TypeArgsContext {
+	var p = new(TypeArgsContext)
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = OracleParserRULE_typeArgs
+	return p
+}
+
+func InitEmptyTypeArgsContext(p *TypeArgsContext) {
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
+	p.RuleIndex = OracleParserRULE_typeArgs
+}
+
+func (*TypeArgsContext) IsTypeArgsContext() {}
+
+func NewTypeArgsContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *TypeArgsContext {
+	var p = new(TypeArgsContext)
+
+	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
+
+	p.parser = parser
+	p.RuleIndex = OracleParserRULE_typeArgs
+
+	return p
+}
+
+func (s *TypeArgsContext) GetParser() antlr.Parser { return s.parser }
+
+func (s *TypeArgsContext) LT() antlr.TerminalNode {
+	return s.GetToken(OracleParserLT, 0)
+}
+
+func (s *TypeArgsContext) AllTypeRef() []ITypeRefContext {
+	children := s.GetChildren()
+	len := 0
+	for _, ctx := range children {
+		if _, ok := ctx.(ITypeRefContext); ok {
+			len++
+		}
+	}
+
+	tst := make([]ITypeRefContext, len)
+	i := 0
+	for _, ctx := range children {
+		if t, ok := ctx.(ITypeRefContext); ok {
+			tst[i] = t.(ITypeRefContext)
+			i++
+		}
+	}
+
+	return tst
+}
+
+func (s *TypeArgsContext) TypeRef(i int) ITypeRefContext {
+	var t antlr.RuleContext
+	j := 0
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(ITypeRefContext); ok {
+			if j == i {
+				t = ctx.(antlr.RuleContext)
+				break
+			}
+			j++
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(ITypeRefContext)
+}
+
+func (s *TypeArgsContext) GT() antlr.TerminalNode {
+	return s.GetToken(OracleParserGT, 0)
+}
+
+func (s *TypeArgsContext) AllCOMMA() []antlr.TerminalNode {
+	return s.GetTokens(OracleParserCOMMA)
+}
+
+func (s *TypeArgsContext) COMMA(i int) antlr.TerminalNode {
+	return s.GetToken(OracleParserCOMMA, i)
+}
+
+func (s *TypeArgsContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *TypeArgsContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+	return antlr.TreesStringTree(s, ruleNames, recog)
+}
+
+func (s *TypeArgsContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.EnterTypeArgs(s)
+	}
+}
+
+func (s *TypeArgsContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.ExitTypeArgs(s)
+	}
+}
+
+func (p *OracleParser) TypeArgs() (localctx ITypeArgsContext) {
+	localctx = NewTypeArgsContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 28, OracleParserRULE_typeArgs)
+	var _la int
+
+	p.EnterOuterAlt(localctx, 1)
+	{
+		p.SetState(260)
+		p.Match(OracleParserLT)
+		if p.HasError() {
+			// Recognition error - abort rule
+			goto errorExit
+		}
+	}
+	{
+		p.SetState(261)
+		p.TypeRef()
+	}
+	p.SetState(266)
+	p.GetErrorHandler().Sync(p)
+	if p.HasError() {
+		goto errorExit
+	}
+	_la = p.GetTokenStream().LA(1)
+
+	for _la == OracleParserCOMMA {
+		{
+			p.SetState(262)
+			p.Match(OracleParserCOMMA)
+			if p.HasError() {
+				// Recognition error - abort rule
+				goto errorExit
+			}
+		}
+		{
+			p.SetState(263)
+			p.TypeRef()
+		}
+
+		p.SetState(268)
+		p.GetErrorHandler().Sync(p)
+		if p.HasError() {
+			goto errorExit
+		}
+		_la = p.GetTokenStream().LA(1)
+	}
+	{
+		p.SetState(269)
+		p.Match(OracleParserGT)
+		if p.HasError() {
+			// Recognition error - abort rule
+			goto errorExit
+		}
 	}
 
 errorExit:
@@ -2546,22 +3684,24 @@ func (s *TypeModifiersContext) ToStringTree(ruleNames []string, recog antlr.Reco
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *TypeModifiersContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitTypeModifiers(s)
+func (s *TypeModifiersContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.EnterTypeModifiers(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *TypeModifiersContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.ExitTypeModifiers(s)
 	}
 }
 
 func (p *OracleParser) TypeModifiers() (localctx ITypeModifiersContext) {
 	localctx = NewTypeModifiersContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 22, OracleParserRULE_typeModifiers)
+	p.EnterRule(localctx, 30, OracleParserRULE_typeModifiers)
 	var _la int
 
-	p.SetState(198)
+	p.SetState(279)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -2571,14 +3711,14 @@ func (p *OracleParser) TypeModifiers() (localctx ITypeModifiersContext) {
 	case OracleParserQUESTION:
 		p.EnterOuterAlt(localctx, 1)
 		{
-			p.SetState(190)
+			p.SetState(271)
 			p.Match(OracleParserQUESTION)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(192)
+		p.SetState(273)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -2587,7 +3727,7 @@ func (p *OracleParser) TypeModifiers() (localctx ITypeModifiersContext) {
 
 		if _la == OracleParserBANG {
 			{
-				p.SetState(191)
+				p.SetState(272)
 				p.Match(OracleParserBANG)
 				if p.HasError() {
 					// Recognition error - abort rule
@@ -2600,14 +3740,14 @@ func (p *OracleParser) TypeModifiers() (localctx ITypeModifiersContext) {
 	case OracleParserBANG:
 		p.EnterOuterAlt(localctx, 2)
 		{
-			p.SetState(194)
+			p.SetState(275)
 			p.Match(OracleParserBANG)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
 			}
 		}
-		p.SetState(196)
+		p.SetState(277)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -2616,7 +3756,7 @@ func (p *OracleParser) TypeModifiers() (localctx ITypeModifiersContext) {
 
 		if _la == OracleParserQUESTION {
 			{
-				p.SetState(195)
+				p.SetState(276)
 				p.Match(OracleParserQUESTION)
 				if p.HasError() {
 					// Recognition error - abort rule
@@ -2712,31 +3852,33 @@ func (s *QualifiedIdentContext) ToStringTree(ruleNames []string, recog antlr.Rec
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *QualifiedIdentContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitQualifiedIdent(s)
+func (s *QualifiedIdentContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.EnterQualifiedIdent(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *QualifiedIdentContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.ExitQualifiedIdent(s)
 	}
 }
 
 func (p *OracleParser) QualifiedIdent() (localctx IQualifiedIdentContext) {
 	localctx = NewQualifiedIdentContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 24, OracleParserRULE_qualifiedIdent)
+	p.EnterRule(localctx, 32, OracleParserRULE_qualifiedIdent)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(200)
+		p.SetState(281)
 		p.Match(OracleParserIDENT)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
-	p.SetState(203)
+	p.SetState(284)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -2745,7 +3887,7 @@ func (p *OracleParser) QualifiedIdent() (localctx IQualifiedIdentContext) {
 
 	if _la == OracleParserDOT {
 		{
-			p.SetState(201)
+			p.SetState(282)
 			p.Match(OracleParserDOT)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2753,7 +3895,7 @@ func (p *OracleParser) QualifiedIdent() (localctx IQualifiedIdentContext) {
 			}
 		}
 		{
-			p.SetState(202)
+			p.SetState(283)
 			p.Match(OracleParserIDENT)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -2877,44 +4019,46 @@ func (s *ExpressionContext) ToStringTree(ruleNames []string, recog antlr.Recogni
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitExpression(s)
+func (s *ExpressionContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.EnterExpression(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *ExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.ExitExpression(s)
 	}
 }
 
 func (p *OracleParser) Expression() (localctx IExpressionContext) {
 	localctx = NewExpressionContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 26, OracleParserRULE_expression)
+	p.EnterRule(localctx, 34, OracleParserRULE_expression)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(205)
+		p.SetState(286)
 		p.Match(OracleParserIDENT)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
-	p.SetState(209)
+	p.SetState(290)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	for (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&507904) != 0 {
+	for (int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&8126464) != 0 {
 		{
-			p.SetState(206)
+			p.SetState(287)
 			p.ExpressionValue()
 		}
 
-		p.SetState(211)
+		p.SetState(292)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -3025,20 +4169,22 @@ func (s *ExpressionValueContext) ToStringTree(ruleNames []string, recog antlr.Re
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ExpressionValueContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitExpressionValue(s)
+func (s *ExpressionValueContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.EnterExpressionValue(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *ExpressionValueContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.ExitExpressionValue(s)
 	}
 }
 
 func (p *OracleParser) ExpressionValue() (localctx IExpressionValueContext) {
 	localctx = NewExpressionValueContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 28, OracleParserRULE_expressionValue)
-	p.SetState(217)
+	p.EnterRule(localctx, 36, OracleParserRULE_expressionValue)
+	p.SetState(298)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -3048,7 +4194,7 @@ func (p *OracleParser) ExpressionValue() (localctx IExpressionValueContext) {
 	case OracleParserSTRING_LIT:
 		p.EnterOuterAlt(localctx, 1)
 		{
-			p.SetState(212)
+			p.SetState(293)
 			p.Match(OracleParserSTRING_LIT)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3059,7 +4205,7 @@ func (p *OracleParser) ExpressionValue() (localctx IExpressionValueContext) {
 	case OracleParserINT_LIT:
 		p.EnterOuterAlt(localctx, 2)
 		{
-			p.SetState(213)
+			p.SetState(294)
 			p.Match(OracleParserINT_LIT)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3070,7 +4216,7 @@ func (p *OracleParser) ExpressionValue() (localctx IExpressionValueContext) {
 	case OracleParserFLOAT_LIT:
 		p.EnterOuterAlt(localctx, 3)
 		{
-			p.SetState(214)
+			p.SetState(295)
 			p.Match(OracleParserFLOAT_LIT)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3081,7 +4227,7 @@ func (p *OracleParser) ExpressionValue() (localctx IExpressionValueContext) {
 	case OracleParserBOOL_LIT:
 		p.EnterOuterAlt(localctx, 4)
 		{
-			p.SetState(215)
+			p.SetState(296)
 			p.Match(OracleParserBOOL_LIT)
 			if p.HasError() {
 				// Recognition error - abort rule
@@ -3092,7 +4238,7 @@ func (p *OracleParser) ExpressionValue() (localctx IExpressionValueContext) {
 	case OracleParserIDENT:
 		p.EnterOuterAlt(localctx, 5)
 		{
-			p.SetState(216)
+			p.SetState(297)
 			p.QualifiedIdent()
 		}
 
@@ -3273,24 +4419,26 @@ func (s *EnumDefContext) ToStringTree(ruleNames []string, recog antlr.Recognizer
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *EnumDefContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitEnumDef(s)
+func (s *EnumDefContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.EnterEnumDef(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *EnumDefContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.ExitEnumDef(s)
 	}
 }
 
 func (p *OracleParser) EnumDef() (localctx IEnumDefContext) {
 	localctx = NewEnumDefContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 30, OracleParserRULE_enumDef)
+	p.EnterRule(localctx, 38, OracleParserRULE_enumDef)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(219)
+		p.SetState(300)
 		p.Match(OracleParserENUM)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -3298,14 +4446,14 @@ func (p *OracleParser) EnumDef() (localctx IEnumDefContext) {
 		}
 	}
 	{
-		p.SetState(220)
+		p.SetState(301)
 		p.Match(OracleParserIDENT)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
-	p.SetState(224)
+	p.SetState(305)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -3314,11 +4462,11 @@ func (p *OracleParser) EnumDef() (localctx IEnumDefContext) {
 
 	for _la == OracleParserNEWLINE {
 		{
-			p.SetState(221)
+			p.SetState(302)
 			p.Nl()
 		}
 
-		p.SetState(226)
+		p.SetState(307)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -3326,14 +4474,14 @@ func (p *OracleParser) EnumDef() (localctx IEnumDefContext) {
 		_la = p.GetTokenStream().LA(1)
 	}
 	{
-		p.SetState(227)
+		p.SetState(308)
 		p.Match(OracleParserLBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
 			goto errorExit
 		}
 	}
-	p.SetState(231)
+	p.SetState(312)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -3342,18 +4490,18 @@ func (p *OracleParser) EnumDef() (localctx IEnumDefContext) {
 
 	for _la == OracleParserNEWLINE {
 		{
-			p.SetState(228)
+			p.SetState(309)
 			p.Nl()
 		}
 
-		p.SetState(233)
+		p.SetState(314)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
 		}
 		_la = p.GetTokenStream().LA(1)
 	}
-	p.SetState(243)
+	p.SetState(324)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
 		goto errorExit
@@ -3362,10 +4510,10 @@ func (p *OracleParser) EnumDef() (localctx IEnumDefContext) {
 
 	for _la == OracleParserIDENT {
 		{
-			p.SetState(234)
+			p.SetState(315)
 			p.EnumValue()
 		}
-		p.SetState(238)
+		p.SetState(319)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -3374,11 +4522,11 @@ func (p *OracleParser) EnumDef() (localctx IEnumDefContext) {
 
 		for _la == OracleParserNEWLINE {
 			{
-				p.SetState(235)
+				p.SetState(316)
 				p.Nl()
 			}
 
-			p.SetState(240)
+			p.SetState(321)
 			p.GetErrorHandler().Sync(p)
 			if p.HasError() {
 				goto errorExit
@@ -3386,7 +4534,7 @@ func (p *OracleParser) EnumDef() (localctx IEnumDefContext) {
 			_la = p.GetTokenStream().LA(1)
 		}
 
-		p.SetState(245)
+		p.SetState(326)
 		p.GetErrorHandler().Sync(p)
 		if p.HasError() {
 			goto errorExit
@@ -3394,7 +4542,7 @@ func (p *OracleParser) EnumDef() (localctx IEnumDefContext) {
 		_la = p.GetTokenStream().LA(1)
 	}
 	{
-		p.SetState(246)
+		p.SetState(327)
 		p.Match(OracleParserRBRACE)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -3488,24 +4636,26 @@ func (s *EnumValueContext) ToStringTree(ruleNames []string, recog antlr.Recogniz
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *EnumValueContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitEnumValue(s)
+func (s *EnumValueContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.EnterEnumValue(s)
+	}
+}
 
-	default:
-		return t.VisitChildren(s)
+func (s *EnumValueContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(OracleParserListener); ok {
+		listenerT.ExitEnumValue(s)
 	}
 }
 
 func (p *OracleParser) EnumValue() (localctx IEnumValueContext) {
 	localctx = NewEnumValueContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 32, OracleParserRULE_enumValue)
+	p.EnterRule(localctx, 40, OracleParserRULE_enumValue)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
 	{
-		p.SetState(248)
+		p.SetState(329)
 		p.Match(OracleParserIDENT)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -3513,7 +4663,7 @@ func (p *OracleParser) EnumValue() (localctx IEnumValueContext) {
 		}
 	}
 	{
-		p.SetState(249)
+		p.SetState(330)
 		p.Match(OracleParserEQUALS)
 		if p.HasError() {
 			// Recognition error - abort rule
@@ -3521,7 +4671,7 @@ func (p *OracleParser) EnumValue() (localctx IEnumValueContext) {
 		}
 	}
 	{
-		p.SetState(250)
+		p.SetState(331)
 		_la = p.GetTokenStream().LA(1)
 
 		if !(_la == OracleParserSTRING_LIT || _la == OracleParserINT_LIT) {

@@ -1,0 +1,39 @@
+import "schemas/label"
+
+enum Variant {
+    success = "success"
+    info = "info"
+    warning = "warning"
+    error = "error"
+    loading = "loading"
+    disabled = "disabled"
+}
+
+struct Status<D extends schema = never> {
+    field key uuid {
+        domain id
+    }
+
+    field name string {
+        domain validate {
+            default ""
+        }
+    }
+
+    field variant Variant
+
+    field message string
+
+    field description string?
+
+    field time timestamp
+
+    field labels label.Label[]?!
+
+    field details D?
+
+    domain ts {
+        output "x/ts/src/status"
+        handwritten
+    }
+}

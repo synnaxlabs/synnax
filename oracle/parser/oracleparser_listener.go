@@ -1,6 +1,7 @@
 // Code generated from OracleParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // OracleParser
+
 import "github.com/antlr4-go/antlr/v4"
 
 // OracleParserListener is a complete listener for a parse tree produced by OracleParser.
@@ -19,8 +20,20 @@ type OracleParserListener interface {
 	// EnterDefinition is called when entering the definition production.
 	EnterDefinition(c *DefinitionContext)
 
-	// EnterStructDef is called when entering the structDef production.
-	EnterStructDef(c *StructDefContext)
+	// EnterStructFull is called when entering the StructFull production.
+	EnterStructFull(c *StructFullContext)
+
+	// EnterStructAlias is called when entering the StructAlias production.
+	EnterStructAlias(c *StructAliasContext)
+
+	// EnterAliasBody is called when entering the aliasBody production.
+	EnterAliasBody(c *AliasBodyContext)
+
+	// EnterTypeParams is called when entering the typeParams production.
+	EnterTypeParams(c *TypeParamsContext)
+
+	// EnterTypeParam is called when entering the typeParam production.
+	EnterTypeParam(c *TypeParamContext)
 
 	// EnterStructBody is called when entering the structBody production.
 	EnterStructBody(c *StructBodyContext)
@@ -39,6 +52,12 @@ type OracleParserListener interface {
 
 	// EnterTypeRef is called when entering the typeRef production.
 	EnterTypeRef(c *TypeRefContext)
+
+	// EnterTypeArgs is called when entering the typeArgs production.
+	EnterTypeArgs(c *TypeArgsContext)
+
+	// EnterTypeModifiers is called when entering the typeModifiers production.
+	EnterTypeModifiers(c *TypeModifiersContext)
 
 	// EnterQualifiedIdent is called when entering the qualifiedIdent production.
 	EnterQualifiedIdent(c *QualifiedIdentContext)
@@ -67,8 +86,20 @@ type OracleParserListener interface {
 	// ExitDefinition is called when exiting the definition production.
 	ExitDefinition(c *DefinitionContext)
 
-	// ExitStructDef is called when exiting the structDef production.
-	ExitStructDef(c *StructDefContext)
+	// ExitStructFull is called when exiting the StructFull production.
+	ExitStructFull(c *StructFullContext)
+
+	// ExitStructAlias is called when exiting the StructAlias production.
+	ExitStructAlias(c *StructAliasContext)
+
+	// ExitAliasBody is called when exiting the aliasBody production.
+	ExitAliasBody(c *AliasBodyContext)
+
+	// ExitTypeParams is called when exiting the typeParams production.
+	ExitTypeParams(c *TypeParamsContext)
+
+	// ExitTypeParam is called when exiting the typeParam production.
+	ExitTypeParam(c *TypeParamContext)
 
 	// ExitStructBody is called when exiting the structBody production.
 	ExitStructBody(c *StructBodyContext)
@@ -87,6 +118,12 @@ type OracleParserListener interface {
 
 	// ExitTypeRef is called when exiting the typeRef production.
 	ExitTypeRef(c *TypeRefContext)
+
+	// ExitTypeArgs is called when exiting the typeArgs production.
+	ExitTypeArgs(c *TypeArgsContext)
+
+	// ExitTypeModifiers is called when exiting the typeModifiers production.
+	ExitTypeModifiers(c *TypeModifiersContext)
 
 	// ExitQualifiedIdent is called when exiting the qualifiedIdent production.
 	ExitQualifiedIdent(c *QualifiedIdentContext)

@@ -260,9 +260,9 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`m: zod.float64Z`))
 			Expect(content).To(ContainSubstring(`n: TimeStamp.z`))
 			Expect(content).To(ContainSubstring(`o: TimeSpan.z`))
-			Expect(content).To(ContainSubstring(`p: record.unknownZ.or(z.string().transform((s) => JSON.parse(s)))`))
+			Expect(content).To(ContainSubstring(`p: zod.stringifiedJSON`))
 			Expect(content).To(ContainSubstring(`q: z.instanceof(Uint8Array)`))
-			Expect(content).To(ContainSubstring(`import { TimeSpan, TimeStamp, record, zod } from "@synnaxlabs/x"`))
+			Expect(content).To(ContainSubstring(`import { TimeSpan, TimeStamp, zod } from "@synnaxlabs/x"`))
 		})
 
 		It("Should convert snake_case to camelCase for field names", func() {
@@ -455,11 +455,12 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`firstName: z.string().min(1, "First Name is required")`))
 		})
 
-		It("Should use z.input when use_input is specified in ts domain", func() {
+		It("Should use z.input and jsonStringifier when use_input is specified in ts domain", func() {
 			source := `
 				struct New {
 					field key uuid?
 					field name string
+					field data json
 					domain ts {
 						output "out"
 						use_input
@@ -479,6 +480,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export type New = z.input<typeof newZ>`))
+			Expect(content).To(ContainSubstring(`data: zod.jsonStringifier`))
 		})
 
 		It("Should use z.infer by default without use_input", func() {

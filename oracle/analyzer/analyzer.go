@@ -150,15 +150,37 @@ func analyze(c *analysisCtx) {
 	}
 	for _, s := range c.table.StructsInNamespace(c.namespace) {
 		for _, f := range s.Fields {
-			resolveType(c, f.TypeRef)
+			resolveType(c, s, f.TypeRef)
+		}
+		// Also resolve type parameter constraints and defaults
+		for _, tp := range s.TypeParams {
+			if tp.Constraint != nil {
+				resolveType(c, nil, tp.Constraint)
+			}
+			if tp.Default != nil {
+				resolveType(c, nil, tp.Default)
+			}
+		}
+		// Resolve alias target type
+		if s.AliasOf != nil {
+			resolveType(c, s, s.AliasOf)
 		}
 	}
 }
 
 func collectStruct(c *analysisCtx, def parser.IStructDefContext) {
+	switch d := def.(type) {
+	case *parser.StructFullContext:
+		collectStructFull(c, d)
+	case *parser.StructAliasContext:
+		collectStructAlias(c, d)
+	}
+}
+
+func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 	name := def.IDENT().GetText()
 	qname := c.namespace + "." + name
-	if _, exists := c.table.Structs[qname]; exists {
+	if _, exists := c.table.GetStruct(qname); exists {
 		c.diag.AddErrorf(def, c.filePath, "duplicate struct definition: %s", qname)
 		return
 	}
@@ -170,6 +192,7 @@ func collectStruct(c *analysisCtx, def parser.IStructDefContext) {
 		QualifiedName: qname,
 		Fields:        nil,
 		Domains:       make(map[string]*resolution.DomainEntry),
+		TypeParams:    collectTypeParams(def.TypeParams()),
 	}
 	if body := def.StructBody(); body != nil {
 		for _, f := range body.AllFieldDef() {
@@ -182,6 +205,98 @@ func collectStruct(c *analysisCtx, def parser.IStructDefContext) {
 		}
 	}
 	c.table.AddStruct(entry)
+}
+
+func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
+	name := def.IDENT().GetText()
+	qname := c.namespace + "." + name
+	if _, exists := c.table.GetStruct(qname); exists {
+		c.diag.AddErrorf(def, c.filePath, "duplicate struct definition: %s", qname)
+		return
+	}
+	entry := &resolution.StructEntry{
+		AST:           def,
+		Name:          name,
+		Namespace:     c.namespace,
+		FilePath:      c.filePath,
+		QualifiedName: qname,
+		Domains:       make(map[string]*resolution.DomainEntry),
+		AliasOf:       collectTypeRef(def.TypeRef()),
+	}
+	// Collect domains from alias body if present
+	if body := def.AliasBody(); body != nil {
+		for _, d := range body.AllDomainDef() {
+			if de := collectDomain(d); de != nil {
+				entry.Domains[de.Name] = de
+			}
+		}
+	}
+	c.table.AddStruct(entry)
+}
+
+// collectTypeParams parses generic type parameters from a struct definition.
+// Examples: <T>, <T, U>, <T extends schema>, <T extends schema = never>
+func collectTypeParams(params parser.ITypeParamsContext) []*resolution.TypeParam {
+	if params == nil {
+		return nil
+	}
+	var result []*resolution.TypeParam
+	for _, p := range params.AllTypeParam() {
+		tp := &resolution.TypeParam{Name: p.IDENT().GetText()}
+		// Handle constraint (extends X) and default (= Y)
+		// TypeParam rule: IDENT (EXTENDS typeRef)? (EQUALS typeRef)?
+		typeRefs := p.AllTypeRef()
+		hasExtends := p.EXTENDS() != nil
+		hasEquals := p.EQUALS() != nil
+		if hasExtends && len(typeRefs) > 0 {
+			tp.Constraint = parseTypeRefBasic(typeRefs[0])
+		}
+		if hasEquals {
+			// Default is the last typeRef when EQUALS is present
+			idx := 0
+			if hasExtends {
+				idx = 1
+			}
+			if idx < len(typeRefs) {
+				tp.Default = parseTypeRefBasic(typeRefs[idx])
+			}
+		}
+		result = append(result, tp)
+	}
+	return result
+}
+
+// collectTypeRef creates a TypeRef from a parser context.
+// Alias for parseTypeRefBasic, used for struct aliases.
+func collectTypeRef(tr parser.ITypeRefContext) *resolution.TypeRef {
+	return parseTypeRefBasic(tr)
+}
+
+// parseTypeRefBasic creates a basic unresolved TypeRef from a parser context.
+// Used for type parameter constraints and defaults where we just need the raw type.
+func parseTypeRefBasic(tr parser.ITypeRefContext) *resolution.TypeRef {
+	isOptional, isNullable := extractTypeModifiers(tr)
+	return &resolution.TypeRef{
+		Kind:       resolution.TypeKindUnresolved,
+		IsArray:    tr.LBRACKET() != nil,
+		IsOptional: isOptional,
+		IsNullable: isNullable,
+		RawType:    extractType(tr),
+		TypeArgs:   collectTypeArgs(tr.TypeArgs()),
+	}
+}
+
+// collectTypeArgs parses type arguments from a type reference.
+// Example: Status<Foo, Bar> -> [Foo, Bar]
+func collectTypeArgs(args parser.ITypeArgsContext) []*resolution.TypeRef {
+	if args == nil {
+		return nil
+	}
+	var result []*resolution.TypeRef
+	for _, tr := range args.AllTypeRef() {
+		result = append(result, parseTypeRefBasic(tr))
+	}
+	return result
 }
 
 func collectField(
@@ -205,6 +320,7 @@ func collectField(
 			IsOptional: isOptional,
 			IsNullable: isNullable,
 			RawType:    extractType(tr),
+			TypeArgs:   collectTypeArgs(tr.TypeArgs()),
 		},
 		Domains: make(map[string]*resolution.DomainEntry),
 	}
@@ -276,7 +392,7 @@ func collectValue(v parser.IExpressionValueContext) resolution.ExpressionValue {
 func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 	name := def.IDENT().GetText()
 	qname := c.namespace + "." + name
-	if _, exists := c.table.Enums[qname]; exists {
+	if _, exists := c.table.GetEnum(qname); exists {
 		c.diag.AddErrorf(def, c.filePath, "duplicate enum definition: %s", qname)
 		return
 	}
@@ -306,18 +422,33 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 	c.table.AddEnum(entry)
 }
 
-func resolveType(c *analysisCtx, t *resolution.TypeRef) {
+// resolveType resolves a type reference to its concrete type.
+// The struct parameter provides context for resolving type parameters within generic structs.
+func resolveType(c *analysisCtx, currentStruct *resolution.StructEntry, t *resolution.TypeRef) {
 	parts := strings.Split(t.RawType, ".")
 	ns, name := c.namespace, parts[0]
 	if len(parts) == 2 {
 		ns, name = parts[0], parts[1]
 	}
+
+	// Check if this is a type parameter reference (e.g., field value T in struct Box<T>)
+	if currentStruct != nil && len(parts) == 1 {
+		if tp := currentStruct.TypeParam(name); tp != nil {
+			t.Kind, t.TypeParamRef = resolution.TypeKindTypeParam, tp
+			return
+		}
+	}
+
 	if resolution.IsPrimitive(name) && len(parts) == 1 {
 		t.Kind, t.Primitive = resolution.TypeKindPrimitive, name
 		return
 	}
 	if s, ok := c.table.LookupStruct(ns, name); ok {
 		t.Kind, t.StructRef = resolution.TypeKindStruct, s
+		// Recursively resolve type arguments
+		for _, arg := range t.TypeArgs {
+			resolveType(c, currentStruct, arg)
+		}
 		return
 	}
 	if e, ok := c.table.LookupEnum(ns, name); ok {

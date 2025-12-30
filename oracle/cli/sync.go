@@ -12,11 +12,13 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/oracle"
 	"github.com/synnaxlabs/oracle/paths"
+	"github.com/synnaxlabs/oracle/plugin"
 )
 
 var syncCmd = &cobra.Command{
@@ -136,6 +138,19 @@ func runSync(cmd *cobra.Command, args []string) error {
 		if len(syncResult.Written) == 0 {
 			fmt.Println("Already up to date")
 		} else {
+			// Run post-write hooks for plugins that implement PostWriter
+			for pluginName, files := range syncResult.ByPlugin {
+				p := registry.Get(pluginName)
+				if pw, ok := p.(plugin.PostWriter); ok {
+					absPaths := make([]string, len(files))
+					for i, f := range files {
+						absPaths[i] = filepath.Join(repoRoot, f)
+					}
+					if err := pw.PostWrite(absPaths); err != nil {
+						fmt.Fprintf(os.Stderr, "warning: post-write hook for %s failed: %v\n", pluginName, err)
+					}
+				}
+			}
 			fmt.Printf("Synced %d file(s)\n", len(syncResult.Written))
 		}
 	}

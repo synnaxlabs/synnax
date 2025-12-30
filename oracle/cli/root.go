@@ -18,6 +18,9 @@ import (
 	"github.com/spf13/viper"
 )
 
+// BuildTime is injected at build time via -ldflags.
+var BuildTime = "dev"
+
 var rootCmd = &cobra.Command{
 	Use:   "oracle",
 	Short: "Schema-first code generation for Synnax metadata structures",
@@ -49,6 +52,7 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.Version = BuildTime
 	configureRootFlags()
 	bindFlags(rootCmd)
 	cobra.OnInitialize(initConfig)

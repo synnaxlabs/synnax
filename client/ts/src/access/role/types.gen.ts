@@ -23,6 +23,5 @@ export const newZ = z.object({
 });
 export type New = z.infer<typeof newZ>;
 
-export const ONTOLOGY_TYPE = "role";
 export const ontologyID = ontology.createIDFactory<Key>("role");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

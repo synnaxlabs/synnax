@@ -47,8 +47,28 @@ definition
 // =============================================================================
 
 // struct Range { ... }
+// struct Status<D extends schema> { ... }
+// struct RackStatus = status.Status<RackDetails>
+// struct RackStatus = status.Status<RackDetails> { domain ts { output "..." } }
 structDef
-    : STRUCT IDENT nl* LBRACE nl* structBody RBRACE
+    : STRUCT IDENT typeParams? nl* LBRACE nl* structBody RBRACE  # StructFull
+    | STRUCT IDENT EQUALS typeRef aliasBody?                      # StructAlias
+    ;
+
+// Optional body for struct aliases (domains only, no fields)
+aliasBody
+    : nl* LBRACE nl* (domainDef nl*)* RBRACE
+    ;
+
+// Type parameters for generic structs: <T>, <T, U>, <T extends schema>
+typeParams
+    : LT typeParam (COMMA typeParam)* GT
+    ;
+
+// Single type parameter with optional constraint and default
+// Examples: T, T extends schema, T extends schema = never
+typeParam
+    : IDENT (EXTENDS typeRef)? (EQUALS typeRef)?
     ;
 
 // Struct body contains fields and/or struct-level domains
@@ -90,10 +110,15 @@ domainBody
 // Type References
 // =============================================================================
 
-// Type reference with optional array, optional, and nullable modifiers
-// Examples: string, uuid, uuid[], string?, string!, string?!, label.Label[]?
+// Type reference with optional type args, array, optional, and nullable modifiers
+// Examples: string, uuid, uuid[], string?, Status<D>, Result<T, E>[]?
 typeRef
-    : qualifiedIdent (LBRACKET RBRACKET)? typeModifiers?
+    : qualifiedIdent typeArgs? (LBRACKET RBRACKET)? typeModifiers?
+    ;
+
+// Type arguments when using a generic type: <string>, <Foo, Bar>
+typeArgs
+    : LT typeRef (COMMA typeRef)* GT
     ;
 
 // Type modifiers: optional (?), nullable (!), or both in any order

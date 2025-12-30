@@ -27,7 +27,3 @@ export const newZ = tableZ
   .partial({ key: true })
   .transform((p) => ({ ...p, data: JSON.stringify(p.data) }));
 export interface New extends z.input<typeof newZ> {}
-
-export const remoteZ = tableZ.extend({
-  data: z.string().transform(parseWithoutKeyConversion),
-});

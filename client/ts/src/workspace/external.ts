@@ -8,4 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/workspace/client";
-export * from "@/workspace/payload";
+export * from "@/workspace/types.gen";

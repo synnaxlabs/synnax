@@ -1670,13 +1670,15 @@ export class TimeRange implements primitive.Stringer {
    */
   static readonly boundedZ = TimeRange.z
     .refine(({ isValid }) => isValid, {
-      message: "Time range start must be before or equal to end",
+      message: "Time range start time must be before or equal to time range end time",
     })
     .refine(({ end }) => end.valueOf() <= math.MAX_INT64, {
-      message: "Time range end must be <= max int64",
+      message:
+        "Time range end time must be less than or equal to the maximum value of an int64",
     })
     .refine(({ start }) => start.valueOf() >= math.MIN_INT64, {
-      message: "Time range start must be >= min int64",
+      message:
+        "Time range start time must be greater than or equal to the minimum value of an int64",
     });
 
   /**

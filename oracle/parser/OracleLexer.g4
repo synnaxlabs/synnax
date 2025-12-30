@@ -18,6 +18,7 @@ FIELD       : 'field' ;
 DOMAIN      : 'domain' ;
 ENUM        : 'enum' ;
 IMPORT      : 'import' ;
+EXTENDS     : 'extends' ;
 
 // =============================================================================
 // Symbols
@@ -27,6 +28,9 @@ LBRACE      : '{' ;
 RBRACE      : '}' ;
 LBRACKET    : '[' ;
 RBRACKET    : ']' ;
+LT          : '<' ;
+GT          : '>' ;
+COMMA       : ',' ;
 QUESTION    : '?' ;
 BANG        : '!' ;
 DOT         : '.' ;

@@ -29,5 +29,6 @@ struct New {
 
     domain ts {
         output "client/ts/src/workspace/schematic"
+        use_input
     }
 }

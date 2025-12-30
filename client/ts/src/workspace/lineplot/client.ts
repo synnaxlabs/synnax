@@ -11,7 +11,6 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type record } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import {
   type Key,
@@ -20,9 +19,8 @@ import {
   linePlotZ,
   type New,
   newZ,
-  type Params,
-} from "@/workspace/lineplot/payload";
-import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
+} from "@/workspace/lineplot/types.gen";
+import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/types.gen";
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
@@ -107,7 +105,7 @@ export class Client {
     return isSingle ? res.linePlots[0] : res.linePlots;
   }
 
-  async delete(keys: Params): Promise<void> {
+  async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired(
       this.client,
       "/workspace/lineplot/delete",
@@ -117,6 +115,3 @@ export class Client {
     );
   }
 }
-
-export const ontologyID = ontology.createIDFactory<Key>("lineplot");
-export const TYPE_ONTOLOGY_ID = ontologyID("");

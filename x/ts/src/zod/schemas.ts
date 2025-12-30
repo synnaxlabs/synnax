@@ -32,5 +32,16 @@ export const uint64Z = z.number().int().min(0).max(math.MAX_UINT64_NUMBER);
 export const float32Z = z.number();
 export const float64Z = z.number();
 
+// JSON utilities
+/** Parses JSON from a string, or passes through if already an object */
+export const stringifiedJSON = z
+  .record(z.string(), z.unknown())
+  .or(z.string().transform((s) => JSON.parse(s) as Record<string, unknown>));
+
+/** Transforms a record to a JSON string for sending to server */
+export const jsonStringifier = z
+  .record(z.string(), z.unknown())
+  .transform((v) => JSON.stringify(v));
+
 /** @deprecated Use uint12Z instead */
 export const uint12 = uint12Z;

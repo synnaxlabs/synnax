@@ -19,8 +19,17 @@ type OracleParserVisitor interface {
 	// Visit a parse tree produced by OracleParser#definition.
 	VisitDefinition(ctx *DefinitionContext) interface{}
 
-	// Visit a parse tree produced by OracleParser#structDef.
-	VisitStructDef(ctx *StructDefContext) interface{}
+	// Visit a parse tree produced by OracleParser#StructFull.
+	VisitStructFull(ctx *StructFullContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#StructAlias.
+	VisitStructAlias(ctx *StructAliasContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#typeParams.
+	VisitTypeParams(ctx *TypeParamsContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#typeParam.
+	VisitTypeParam(ctx *TypeParamContext) interface{}
 
 	// Visit a parse tree produced by OracleParser#structBody.
 	VisitStructBody(ctx *StructBodyContext) interface{}
@@ -39,6 +48,9 @@ type OracleParserVisitor interface {
 
 	// Visit a parse tree produced by OracleParser#typeRef.
 	VisitTypeRef(ctx *TypeRefContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#typeArgs.
+	VisitTypeArgs(ctx *TypeArgsContext) interface{}
 
 	// Visit a parse tree produced by OracleParser#typeModifiers.
 	VisitTypeModifiers(ctx *TypeModifiersContext) interface{}
