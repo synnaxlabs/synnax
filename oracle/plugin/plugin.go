@@ -13,6 +13,7 @@ package plugin
 
 import (
 	"github.com/synnaxlabs/oracle/parser"
+	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
@@ -48,7 +49,7 @@ type Plugin interface {
 
 // Request contains all data needed for code generation.
 type Request struct {
-	// Schemas contains all parsed schema files
+	// Schemas contains all parsed schema files with repo-relative paths
 	Schemas []SchemaFile
 
 	// Resolutions contains the resolution table with all resolved types
@@ -57,8 +58,30 @@ type Request struct {
 	// Options contains plugin-specific configuration from oracle.yaml
 	Options map[string]interface{}
 
-	// OutputDir is the base output directory for generated files
+	// RepoRoot is the absolute path to the git repository root.
+	// All paths in Schemas and outputs should be relative to this.
+	RepoRoot string
+
+	// OutputDir is the base output directory for generated files.
+	// Deprecated: This is always equal to RepoRoot. Use RepoRoot instead.
 	OutputDir string
+}
+
+// ResolvePath converts a repo-relative path to an absolute path.
+func (r *Request) ResolvePath(repoRelative string) string {
+	return paths.Resolve(repoRelative, r.RepoRoot)
+}
+
+// RelativeImport calculates the relative import path between two repo-relative directories.
+// Both from and to should be repo-relative directory paths.
+// Returns a path suitable for use in import statements.
+func (r *Request) RelativeImport(from, to string) (string, error) {
+	return paths.RelativeImport(from, to)
+}
+
+// ValidateOutputPath validates that an output path is valid and within repo bounds.
+func (r *Request) ValidateOutputPath(path string) error {
+	return paths.ValidateOutput(path, r.RepoRoot)
 }
 
 // SchemaFile represents a single parsed and analyzed schema file.
@@ -66,10 +89,10 @@ type SchemaFile struct {
 	// AST is the parsed schema
 	AST parser.ISchemaContext
 
-	// FilePath is the path to the source file
+	// FilePath is the repo-relative path to the source file (e.g., "schema/core/user.oracle")
 	FilePath string
 
-	// Namespace is derived from the file path
+	// Namespace is derived from the file path (e.g., "user" from "schema/core/user.oracle")
 	Namespace string
 }
 

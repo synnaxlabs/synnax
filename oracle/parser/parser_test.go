@@ -81,7 +81,7 @@ var _ = Describe("Parser", func() {
 			// key uuid
 			Expect(fields[0].IDENT().GetText()).To(Equal("key"))
 			Expect(fields[0].TypeRef().QualifiedIdent().IDENT(0).GetText()).To(Equal("uuid"))
-			Expect(fields[0].TypeRef().QUESTION()).To(BeNil())
+			Expect(fields[0].TypeRef().TypeModifiers()).To(BeNil())
 
 			// name string
 			Expect(fields[1].IDENT().GetText()).To(Equal("name"))
@@ -89,7 +89,8 @@ var _ = Describe("Parser", func() {
 
 			// description string?
 			Expect(fields[2].IDENT().GetText()).To(Equal("description"))
-			Expect(fields[2].TypeRef().QUESTION()).NotTo(BeNil())
+			Expect(fields[2].TypeRef().TypeModifiers()).NotTo(BeNil())
+			Expect(fields[2].TypeRef().TypeModifiers().QUESTION()).NotTo(BeNil())
 		})
 
 		It("Should parse array type fields", func() {
@@ -106,11 +107,12 @@ var _ = Describe("Parser", func() {
 
 			// labels uuid[]
 			Expect(fields[0].TypeRef().LBRACKET()).NotTo(BeNil())
-			Expect(fields[0].TypeRef().QUESTION()).To(BeNil())
+			Expect(fields[0].TypeRef().TypeModifiers()).To(BeNil())
 
 			// tags string[]?
 			Expect(fields[1].TypeRef().LBRACKET()).NotTo(BeNil())
-			Expect(fields[1].TypeRef().QUESTION()).NotTo(BeNil())
+			Expect(fields[1].TypeRef().TypeModifiers()).NotTo(BeNil())
+			Expect(fields[1].TypeRef().TypeModifiers().QUESTION()).NotTo(BeNil())
 		})
 
 		It("Should parse qualified type references", func() {

@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package zod
+package types
 
 import (
 	"bytes"
 	"fmt"
+	"path/filepath"
 	"sort"
+	"strings"
 	"text/template"
 
 	"github.com/samber/lo"
@@ -31,14 +33,14 @@ type Options struct {
 func DefaultOptions() Options {
 	return Options{
 		OutputPath:      "{{.Namespace}}",
-		FileNamePattern: "schema.gen.ts",
+		FileNamePattern: "types.gen.ts",
 		GenerateTypes:   true,
 	}
 }
 
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
-func (p *Plugin) Name() string { return "zod" }
+func (p *Plugin) Name() string { return "ts/types" }
 
 func (p *Plugin) Domains() []string { return nil }
 
@@ -51,12 +53,17 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	outputStructs := make(map[string][]*resolution.StructEntry)
 	for _, entry := range req.Resolutions.AllStructs() {
 		if outputPath := getOutputPath(entry); outputPath != "" {
+			if req.RepoRoot != "" {
+				if err := req.ValidateOutputPath(outputPath); err != nil {
+					return nil, fmt.Errorf("invalid output path for struct %s: %w", entry.Name, err)
+				}
+			}
 			outputStructs[outputPath] = append(outputStructs[outputPath], entry)
 		}
 	}
 	for outputPath, structs := range outputStructs {
 		enums := collectReferencedEnums(structs)
-		content, err := p.generateFile(structs[0].Namespace, structs, enums, req.Resolutions)
+		content, err := p.generateFile(structs[0].Namespace, outputPath, structs, enums, req)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate %s: %w", outputPath, err)
 		}
@@ -95,28 +102,64 @@ func getOutputPath(entry *resolution.StructEntry) string {
 	return ""
 }
 
+// calculateRelativeImport calculates the relative import path from one output
+// directory to another, including the file pattern (e.g., "types.gen").
+func calculateRelativeImport(from, to, filePattern string) string {
+	importFile := strings.TrimSuffix(filePattern, filepath.Ext(filePattern))
+	rel, err := filepath.Rel(from, to)
+	if err != nil {
+		return "./" + to + "/" + importFile
+	}
+	rel = filepath.ToSlash(rel)
+	if !strings.HasPrefix(rel, ".") {
+		rel = "./" + rel
+	}
+	return rel + "/" + importFile
+}
+
+// findEnumOutputPath finds the output path for an enum by looking up structs
+// that are in the same namespace and have a ts output domain.
+func findEnumOutputPath(enum *resolution.EnumEntry, table *resolution.Table) string {
+	// Look for a struct in the same namespace that has a ts output domain
+	for _, s := range table.AllStructs() {
+		if s.Namespace == enum.Namespace {
+			if path := getOutputPath(s); path != "" {
+				return path
+			}
+		}
+	}
+	return ""
+}
+
 func (p *Plugin) generateFile(
 	namespace string,
+	outputPath string,
 	structs []*resolution.StructEntry,
 	enums []*resolution.EnumEntry,
-	table *resolution.Table,
+	req *plugin.Request,
 ) ([]byte, error) {
 	data := &templateData{
 		Namespace:     namespace,
+		OutputPath:    outputPath,
+		Request:       req,
 		IDFields:      make([]idFieldData, 0),
 		Structs:       make([]structData, 0, len(structs)),
 		Enums:         make([]enumData, 0, len(enums)),
 		GenerateTypes: p.Options.GenerateTypes,
 		Imports:       make(map[string]*importSpec),
 	}
-	// Collect ID fields first (fields with domain id)
 	idFields := collectIDFields(structs, data)
 	data.IDFields = idFields
+	data.Ontology = extractOntology(structs, idFields)
+	if data.Ontology != nil {
+		data.addNamedImport("@/ontology", "ontology")
+	}
+
 	for _, enum := range enums {
 		data.Enums = append(data.Enums, p.processEnum(enum))
 	}
 	for _, entry := range structs {
-		data.Structs = append(data.Structs, p.processStruct(entry, table, data, idFields))
+		data.Structs = append(data.Structs, p.processStruct(entry, req.Resolutions, data, idFields))
 	}
 	var buf bytes.Buffer
 	if err := fileTemplate.Execute(&buf, data); err != nil {
@@ -143,6 +186,41 @@ func collectIDFields(structs []*resolution.StructEntry, data *templateData) []id
 		}
 	}
 	return result
+}
+
+// extractOntology extracts ontology data from structs if any has the ontology domain.
+// Returns nil if no struct has an ontology domain or if no ID field is found.
+func extractOntology(structs []*resolution.StructEntry, idFields []idFieldData) *ontologyData {
+	for _, s := range structs {
+		domain, ok := s.Domains["ontology"]
+		if !ok {
+			continue
+		}
+
+		// Find the type expression
+		var typeName string
+		for _, expr := range domain.Expressions {
+			if expr.Name == "type" && len(expr.Values) > 0 {
+				typeName = expr.Values[0].StringValue
+				break
+			}
+		}
+		if typeName == "" {
+			continue
+		}
+
+		// Find the ID field's TypeScript type name (capitalized)
+		if len(idFields) == 0 {
+			continue
+		}
+		keyType := lo.Capitalize(lo.CamelCase(idFields[0].Name))
+
+		return &ontologyData{
+			TypeName: typeName,
+			KeyType:  keyType,
+		}
+	}
+	return nil
 }
 
 func (p *Plugin) processEnum(enum *resolution.EnumEntry) enumData {
@@ -174,7 +252,6 @@ func (p *Plugin) processField(field *resolution.FieldEntry, table *resolution.Ta
 		IsNullable: field.TypeRef.IsNullable,
 		IsArray:    field.TypeRef.IsArray,
 	}
-	// Check if this field matches an ID field - if so, reference the standalone schema
 	if idField := findIDField(field.Name, idFields); idField != nil {
 		fd.ZodType = idField.TSName + "Z"
 	} else {
@@ -184,7 +261,6 @@ func (p *Plugin) processField(field *resolution.FieldEntry, table *resolution.Ta
 		}
 	}
 
-	// Handle array and nullable/optional modifiers
 	if field.TypeRef.IsArray {
 		if field.TypeRef.IsNullable {
 			// array.nullableZ transforms null/undefined to empty array
@@ -201,7 +277,6 @@ func (p *Plugin) processField(field *resolution.FieldEntry, table *resolution.Ta
 			}
 		}
 	} else {
-		// Scalar types: handle optional/nullable/nullish
 		if field.TypeRef.IsOptional && field.TypeRef.IsNullable {
 			fd.ZodType = fd.ZodType + ".nullish()"
 		} else if field.TypeRef.IsNullable {
@@ -233,7 +308,15 @@ func (p *Plugin) typeToZod(typeRef *resolution.TypeRef, table *resolution.Table,
 		schemaName := lo.CamelCase(typeRef.StructRef.Name) + "Z"
 		if typeRef.StructRef.Namespace != data.Namespace {
 			ns := typeRef.StructRef.Namespace
-			data.addNamespaceImport("./"+ns+"/schema.gen", ns)
+			// Get target output path from the referenced struct's domain
+			targetOutputPath := getOutputPath(typeRef.StructRef)
+			if targetOutputPath == "" {
+				// Fallback if no output path defined
+				targetOutputPath = ns
+			}
+			// Calculate relative import path from current output to target output
+			relPath := calculateRelativeImport(data.OutputPath, targetOutputPath, p.Options.FileNamePattern)
+			data.addNamespaceImport(relPath, ns)
 			return fmt.Sprintf("%s.%s", ns, schemaName)
 		}
 		return schemaName
@@ -244,7 +327,14 @@ func (p *Plugin) typeToZod(typeRef *resolution.TypeRef, table *resolution.Table,
 		enumName := lo.CamelCase(typeRef.EnumRef.Name) + "Z"
 		if typeRef.EnumRef.Namespace != data.Namespace {
 			ns := typeRef.EnumRef.Namespace
-			data.addNamespaceImport("./"+ns+"/schema.gen", ns)
+			// For enums, look up the struct that references this enum to find its output path
+			// Or use namespace as fallback
+			targetOutputPath := findEnumOutputPath(typeRef.EnumRef, table)
+			if targetOutputPath == "" {
+				targetOutputPath = ns
+			}
+			relPath := calculateRelativeImport(data.OutputPath, targetOutputPath, p.Options.FileNamePattern)
+			data.addNamespaceImport(relPath, ns)
 			return fmt.Sprintf("%s.%s", ns, enumName)
 		}
 		return enumName
@@ -352,11 +442,20 @@ func (p *Plugin) applyValidation(zodType string, domain *resolution.DomainEntry,
 
 type templateData struct {
 	Namespace     string
+	OutputPath    string          // Current output path for calculating relative imports
+	Request       *plugin.Request // Request for access to helper methods
 	IDFields      []idFieldData
 	Structs       []structData
 	Enums         []enumData
 	GenerateTypes bool
 	Imports       map[string]*importSpec
+	Ontology      *ontologyData // Ontology data if domain ontology is present
+}
+
+// ontologyData holds data for generating ontology ID factory and constant.
+type ontologyData struct {
+	TypeName string // e.g., "user" - from domain ontology { type "user" }
+	KeyType  string // e.g., "Key" - derived from the ID field
 }
 
 type idFieldData struct {
@@ -396,6 +495,28 @@ func (d *templateData) NamedImports() []namedImportData {
 		}
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].Path < result[j].Path })
+	return result
+}
+
+// ExternalNamedImports returns named imports from external packages (not starting with @/)
+func (d *templateData) ExternalNamedImports() []namedImportData {
+	var result []namedImportData
+	for _, imp := range d.NamedImports() {
+		if !strings.HasPrefix(imp.Path, "@/") {
+			result = append(result, imp)
+		}
+	}
+	return result
+}
+
+// InternalNamedImports returns named imports from internal packages (starting with @/)
+func (d *templateData) InternalNamedImports() []namedImportData {
+	var result []namedImportData
+	for _, imp := range d.NamedImports() {
+		if strings.HasPrefix(imp.Path, "@/") {
+			result = append(result, imp)
+		}
+	}
 	return result
 }
 
@@ -455,11 +576,16 @@ var templateFuncs = template.FuncMap{
 var fileTemplate = template.Must(template.New("zod").Funcs(templateFuncs).Parse(`// Code generated by Oracle. DO NOT EDIT.
 
 import { z } from "zod";
-{{- range .NamedImports }}
+{{- range .ExternalNamedImports }}
 import { {{ range $i, $name := .Names }}{{ if $i }}, {{ end }}{{ $name }}{{ end }} } from "{{ .Path }}";
 {{- end }}
 {{- range .NamespaceImports }}
 import * as {{ .Alias }} from "{{ .Path }}";
+{{- end }}
+{{ if .InternalNamedImports }}
+{{- range .InternalNamedImports }}
+import { {{ range $i, $name := .Names }}{{ if $i }}, {{ end }}{{ $name }}{{ end }} } from "{{ .Path }}";
+{{- end }}
 {{- end }}
 {{- range .IDFields }}
 
@@ -484,11 +610,16 @@ export type {{ .Name }} = z.infer<typeof {{ camelCase .Name }}Z>;
 
 export const {{ camelCase .Name }}Z = z.object({
 {{- range .Fields }}
-    {{ .TSName }}: {{ .ZodType }},
+  {{ .TSName }}: {{ .ZodType }},
 {{- end }}
 });
 {{- if $.GenerateTypes }}
 export type {{ .Name }} = z.infer<typeof {{ camelCase .Name }}Z>;
 {{- end }}
+{{- end }}
+{{- if .Ontology }}
+
+export const ontologyID = ontology.createIDFactory<{{ .Ontology.KeyType }}>("{{ .Ontology.TypeName }}");
+export const TYPE_ONTOLOGY_ID = ontologyID("");
 {{- end }}
 `))

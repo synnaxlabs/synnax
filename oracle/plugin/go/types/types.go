@@ -58,16 +58,19 @@ func (p *Plugin) Check(req *plugin.Request) error {
 // Generate produces Go type definition files from the analyzed schemas.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
-
-	// Group structs by output path
 	outputStructs := make(map[string][]*resolution.StructEntry)
 	for _, entry := range req.Resolutions.AllStructs() {
 		if outputPath := getOutputPath(entry); outputPath != "" {
+			// Validate output path if RepoRoot is available
+			if req.RepoRoot != "" {
+				if err := req.ValidateOutputPath(outputPath); err != nil {
+					return nil, fmt.Errorf("invalid output path for struct %s: %w", entry.Name, err)
+				}
+			}
 			outputStructs[outputPath] = append(outputStructs[outputPath], entry)
 		}
 	}
 
-	// Generate a file for each output path
 	for outputPath, structs := range outputStructs {
 		content, err := p.generateFile(outputPath, structs)
 		if err != nil {
@@ -96,7 +99,6 @@ func getOutputPath(entry *resolution.StructEntry) string {
 
 // generateFile generates the Go source file for a set of structs.
 func (p *Plugin) generateFile(outputPath string, structs []*resolution.StructEntry) ([]byte, error) {
-	// Sort structs for deterministic output
 	sort.Slice(structs, func(i, j int) bool { return structs[i].Name < structs[j].Name })
 
 	data := &templateData{
@@ -175,21 +177,17 @@ func (p *Plugin) typeToGo(typeRef *resolution.TypeRef, data *templateData) strin
 			data.Imports[mapping.importPath] = true
 		}
 	case resolution.TypeKindStruct:
-		// For now, skip struct-to-struct references
 		baseType = "any"
 	case resolution.TypeKindEnum:
-		// For now, skip enum references
 		baseType = "any"
 	default:
 		baseType = "any"
 	}
 
-	// Apply modifiers
 	if typeRef.IsArray {
 		baseType = "[]" + baseType
 	}
 	if typeRef.IsOptional && !typeRef.IsArray {
-		// Pointers for optional non-array types
 		baseType = "*" + baseType
 	}
 

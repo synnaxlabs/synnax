@@ -33,6 +33,10 @@ func (m *MockFileLoader) Load(importPath string) (string, string, error) {
 	return "", "", &fileNotFoundError{path: importPath}
 }
 
+func (m *MockFileLoader) RepoRoot() string {
+	return "/mock/repo"
+}
+
 type fileNotFoundError struct {
 	path string
 }

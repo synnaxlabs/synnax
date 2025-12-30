@@ -11,35 +11,49 @@ package analyzer
 
 import (
 	"os"
-	"path/filepath"
-	"strings"
+
+	"github.com/synnaxlabs/oracle/paths"
 )
 
 // FileLoader loads schema files for import resolution.
 type FileLoader interface {
+	// Load loads a schema file by its import path.
+	// The importPath should be repo-relative (e.g., "schema/core/label").
+	// Returns the file source content, the repo-relative file path, and any error.
 	Load(importPath string) (source, filePath string, err error)
+
+	// RepoRoot returns the absolute path to the git repository root.
+	RepoRoot() string
 }
 
-// StandardFileLoader loads files from the filesystem.
-type StandardFileLoader struct{ BaseDir string }
-
-func NewStandardFileLoader(baseDir string) *StandardFileLoader {
-	return &StandardFileLoader{baseDir}
+// StandardFileLoader loads files from the filesystem relative to the git repo root.
+type StandardFileLoader struct {
+	repoRoot string
 }
 
+// NewStandardFileLoader creates a FileLoader that resolves paths from the repo root.
+func NewStandardFileLoader(repoRoot string) *StandardFileLoader {
+	return &StandardFileLoader{repoRoot: repoRoot}
+}
+
+// Load loads a schema file by its repo-relative import path.
 func (l *StandardFileLoader) Load(importPath string) (string, string, error) {
-	if !strings.HasSuffix(importPath, ".oracle") {
-		importPath += ".oracle"
-	}
-	fullPath := importPath
-	if !filepath.IsAbs(importPath) {
-		fullPath = filepath.Join(l.BaseDir, importPath)
-	}
+	importPath = paths.EnsureOracleExtension(importPath)
+	fullPath := paths.Resolve(importPath, l.repoRoot)
 	content, err := os.ReadFile(fullPath)
-	return string(content), fullPath, err
+	if err != nil {
+		return "", "", err
+	}
+	return string(content), importPath, nil
+}
+
+// RepoRoot returns the absolute path to the git repository root.
+func (l *StandardFileLoader) RepoRoot() string {
+	return l.repoRoot
 }
 
 // DeriveNamespace extracts namespace from path: "schema/label.oracle" -> "label"
+// This is a convenience wrapper around paths.DeriveNamespace.
 func DeriveNamespace(path string) string {
-	return strings.TrimSuffix(filepath.Base(path), ".oracle")
+	return paths.DeriveNamespace(path)
 }

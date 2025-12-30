@@ -102,7 +102,6 @@ func analyze(c *analysisCtx) {
 	if c.ast == nil {
 		return
 	}
-	// Collect definitions
 	for _, def := range c.ast.AllDefinition() {
 		if s := def.StructDef(); s != nil {
 			collectStruct(c, s)
@@ -111,7 +110,6 @@ func analyze(c *analysisCtx) {
 			collectEnum(c, e)
 		}
 	}
-	// Resolve imports
 	for _, imp := range c.ast.AllImportStmt() {
 		path := strings.Trim(imp.STRING_LIT().GetText(), `"`)
 		if c.table.IsImported(path) {
@@ -142,7 +140,6 @@ func analyze(c *analysisCtx) {
 		}
 		analyze(ic)
 	}
-	// Resolve type references
 	for _, s := range c.table.StructsInNamespace(c.namespace) {
 		for _, f := range s.Fields {
 			resolveType(c, f.TypeRef)

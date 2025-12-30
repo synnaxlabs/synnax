@@ -174,7 +174,6 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 		return
 	}
 
-	// Parse the schema
 	ast, parseDiag := parser.Parse(content)
 	if parseDiag != nil && parseDiag.HasErrors() {
 		doc.Diagnostics = parseDiag
@@ -186,8 +185,6 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 	}
 
 	doc.Schema = ast
-
-	// Analyze for semantic errors
 	namespace := deriveNamespaceFromURI(uri)
 	table, analyzeDiag := analyzer.AnalyzeSource(ctx, content, namespace, noopLoader{})
 	if analyzeDiag != nil {
@@ -259,10 +256,15 @@ func deriveNamespaceFromURI(uri protocol.DocumentURI) string {
 }
 
 // noopLoader is a FileLoader that doesn't load any files.
+// It's used by the LSP server for analyzing single files without import resolution.
 type noopLoader struct{}
 
 func (noopLoader) Load(path string) (source, filePath string, err error) {
 	return "", path, nil
+}
+
+func (noopLoader) RepoRoot() string {
+	return ""
 }
 
 func convertToSemanticTokenTypes(types []string) []protocol.SemanticTokenTypes {

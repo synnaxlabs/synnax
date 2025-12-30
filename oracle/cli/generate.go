@@ -17,9 +17,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/oracle"
+	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/plugin"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
-	"github.com/synnaxlabs/oracle/plugin/zod"
+	pytypes "github.com/synnaxlabs/oracle/plugin/py/types"
+	tstypes "github.com/synnaxlabs/oracle/plugin/ts/types"
 )
 
 var generateCmd = &cobra.Command{
@@ -38,8 +40,8 @@ For example:
         domain ts { output "console/src/ranger" }
     }`,
 	Example: `  oracle generate --schemas "schema/*.oracle"
-  oracle generate -s "schema/*.oracle" -p zod
-  oracle generate -s "schema/*.oracle" -p go -p ts -v`,
+  oracle generate -s "schema/*.oracle" -p ts/types
+  oracle generate -s "schema/*.oracle" -p go/types -p ts/types -v`,
 	RunE: runGenerate,
 }
 
@@ -53,20 +55,21 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	verbose := viper.GetBool(verboseFlag)
 
-	// Get schema patterns
 	schemaPatterns := viper.GetStringSlice(schemasFlag)
 	if len(schemaPatterns) == 0 {
 		return fmt.Errorf("no schemas specified (use --schemas)")
 	}
 
-	// Get working directory
-	wd, err := os.Getwd()
+	repoRoot, err := paths.RepoRoot()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		return fmt.Errorf("oracle must be run within a git repository: %w", err)
 	}
 
-	// Expand schema globs
-	schemaFiles, err := expandGlobs(schemaPatterns, wd)
+	if verbose {
+		fmt.Printf("Repository root: %s\n", repoRoot)
+	}
+
+	schemaFiles, err := expandGlobs(schemaPatterns, repoRoot)
 	if err != nil {
 		return err
 	}
@@ -75,9 +78,18 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no schema files found matching patterns: %v", schemaPatterns)
 	}
 
+	normalizedFiles := make([]string, 0, len(schemaFiles))
+	for _, f := range schemaFiles {
+		relPath, err := paths.Normalize(f, repoRoot)
+		if err != nil {
+			return fmt.Errorf("failed to normalize schema path %q: %w", f, err)
+		}
+		normalizedFiles = append(normalizedFiles, relPath)
+	}
+
 	if verbose {
-		fmt.Printf("Found %d schema file(s):\n", len(schemaFiles))
-		for _, f := range schemaFiles {
+		fmt.Printf("Found %d schema file(s):\n", len(normalizedFiles))
+		for _, f := range normalizedFiles {
 			fmt.Printf("  - %s\n", f)
 		}
 	}
@@ -93,10 +105,7 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Using %d plugin(s): %v\n", len(registry.Names()), registry.Names())
 	}
 
-	// Run generation
-	result, diag := oracle.Generate(ctx, schemaFiles, wd, registry, wd)
-
-	// Print diagnostics
+	result, diag := oracle.Generate(ctx, normalizedFiles, repoRoot, registry, repoRoot)
 	if diag != nil && !diag.Empty() {
 		fmt.Fprintln(os.Stderr, diag.String())
 	}
@@ -105,9 +114,8 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("generation failed with %d error(s)", len(diag.Errors()))
 	}
 
-	// Write generated files
 	if result != nil {
-		if err := result.WriteFiles(wd); err != nil {
+		if err := result.WriteFiles(repoRoot); err != nil {
 			return fmt.Errorf("failed to write generated files: %w", err)
 		}
 
@@ -126,7 +134,6 @@ func expandGlobs(patterns []string, baseDir string) ([]string, error) {
 	var files []string
 
 	for _, pattern := range patterns {
-		// Make pattern absolute if relative
 		if !filepath.IsAbs(pattern) {
 			pattern = filepath.Join(baseDir, pattern)
 		}
@@ -146,10 +153,8 @@ func expandGlobs(patterns []string, baseDir string) ([]string, error) {
 // If no plugins are specified, all available plugins are loaded.
 func buildPluginRegistry(pluginNames []string) (*plugin.Registry, error) {
 	registry := plugin.NewRegistry()
-
-	// If no plugins specified, load all available
 	if len(pluginNames) == 0 {
-		pluginNames = []string{"zod"}
+		pluginNames = []string{"ts/types"}
 	}
 
 	for _, name := range pluginNames {
@@ -168,12 +173,14 @@ func buildPluginRegistry(pluginNames []string) (*plugin.Registry, error) {
 // createPlugin instantiates a plugin by name.
 func createPlugin(name string) (plugin.Plugin, error) {
 	switch name {
-	case "zod":
-		return zod.New(zod.DefaultOptions()), nil
+	case "ts/types":
+		return tstypes.New(tstypes.DefaultOptions()), nil
 	case "go/types":
 		return gotypes.New(gotypes.DefaultOptions()), nil
+	case "py/types":
+		return pytypes.New(pytypes.DefaultOptions()), nil
 	default:
-		return nil, fmt.Errorf("unknown plugin: %s (available: zod, go/types)", name)
+		return nil, fmt.Errorf("unknown plugin: %s (available: ts/types, go/types, py/types)", name)
 	}
 }
 

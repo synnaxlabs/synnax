@@ -87,19 +87,13 @@ func Generate(
 	registry *plugin.Registry,
 	outputDir string,
 ) (*GenerateResult, *diagnostics.Diagnostics) {
-	// Create file loader
 	loader := analyzer.NewStandardFileLoader(baseDir)
-
-	// Analyze all schema files
 	table, diag := analyzer.Analyze(ctx, files, loader)
 	if diag != nil && diag.HasErrors() {
 		return nil, diag
 	}
 
-	// Build schema file list for plugins
 	schemaFiles := buildSchemaFiles(files, loader, table)
-
-	// Run each plugin
 	result := &GenerateResult{
 		Resolutions: table,
 		Files:       make(map[string][]plugin.File),
@@ -110,10 +104,10 @@ func Generate(
 			Schemas:     schemaFiles,
 			Resolutions: table,
 			Options:     make(map[string]interface{}),
+			RepoRoot:    baseDir,
 			OutputDir:   outputDir,
 		}
 
-		// Check dependencies before running this plugin
 		for _, depName := range p.Requires() {
 			dep := registry.Get(depName)
 			if dep == nil {
@@ -122,7 +116,6 @@ func Generate(
 			}
 
 			if err := dep.Check(req); err != nil {
-				// Return a DependencyStaleError so CLI can format it nicely
 				return nil, diagnostics.FromError(&plugin.DependencyStaleError{
 					Plugin:     p.Name(),
 					Dependency: depName,
@@ -163,14 +156,10 @@ func (r *GenerateResult) WriteFiles(outputDir string) error {
 	for _, files := range r.Files {
 		for _, f := range files {
 			fullPath := filepath.Join(outputDir, f.Path)
-
-			// Create directory if needed
 			dir := filepath.Dir(fullPath)
 			if err := os.MkdirAll(dir, 0755); err != nil {
 				return err
 			}
-
-			// Write file
 			if err := os.WriteFile(fullPath, f.Content, 0644); err != nil {
 				return err
 			}
@@ -193,7 +182,6 @@ func buildSchemaFiles(
 			continue
 		}
 
-		// Parse to get the AST
 		parsedAST, err := parseSource(source)
 		if err != nil || parsedAST == nil {
 			continue

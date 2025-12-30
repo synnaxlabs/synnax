@@ -42,7 +42,11 @@ struct User {
         output "client/ts/src/user"
     }
 
-    domain python {
+    domain ontology {
+        type "user"
+    }
+
+    domain py {
         output "client/py/synnax/user"
     }
 
