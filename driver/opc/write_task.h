@@ -84,8 +84,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         }
         for (const auto &sy_ch: sy_channels) {
             auto it = this->channels.find(sy_ch.key);
-            if (it != this->channels.end())
-                it->second->ch = sy_ch;
+            if (it != this->channels.end()) it->second->ch = sy_ch;
         }
         auto [dev, err] = client->devices.retrieve(this->device_key);
         if (err) {
