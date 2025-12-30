@@ -18,20 +18,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// A User is a representation of a user in the Synnax cluster.
-type User struct {
-	// Key is the unique identifier for the user.
-	Key uuid.UUID `json:"key"`
-	// Username is the unique username for the user. Username is also enforced to be
-	// unique.
-	Username string `json:"username"`
-	// FirstName is the first name of the user.
-	FirstName string `json:"first_name" msgpack:"first_name"`
-	// LastName is the last name of the user.
-	LastName string `json:"last_name" msgpack:"last_name"`
-	RootUser bool   `json:"root_user" msgpack:"root_user"`
-}
-
 var _ gorp.Entry[uuid.UUID] = User{}
 
 // GorpKey implements gorp.Entry.

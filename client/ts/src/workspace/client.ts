@@ -12,7 +12,7 @@ import { array, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
-import { keyZ as userKeyZ } from "@/user/payload";
+import { keyZ as userKeyZ } from "@/user/schema.gen";
 import { lineplot } from "@/workspace/lineplot";
 import { log } from "@/workspace/log";
 import {

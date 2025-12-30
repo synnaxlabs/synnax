@@ -7,16 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export {
-  Client,
-  DELETE_CHANNEL_NAME,
-  type KeyRetrieveRequest,
-  ontologyID,
-  type RetrieveArgs,
-  type RetrieveRequest,
-  SET_CHANNEL_NAME,
-  TYPE_ONTOLOGY_ID,
-  type UsernameRetrieveRequest,
-  type UsernamesRetrieveRequest,
-} from "@/user/client";
-export * from "@/user/schema.gen";
+// Package main is the entrypoint for the Oracle CLI.
+package main
+
+import "github.com/synnaxlabs/oracle/cli"
+
+func main() {
+	cli.Execute()
+}

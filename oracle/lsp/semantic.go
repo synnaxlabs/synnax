@@ -1,0 +1,139 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package lsp
+
+import (
+	"context"
+
+	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/oracle/parser"
+	"go.lsp.dev/protocol"
+)
+
+const (
+	SemanticTokenTypeKeyword = iota
+	SemanticTokenTypeType
+	SemanticTokenTypeClass
+	SemanticTokenTypeProperty
+	SemanticTokenTypeDecorator
+	SemanticTokenTypeString
+	SemanticTokenTypeNumber
+	SemanticTokenTypeComment
+)
+
+var semanticTokenTypes = []string{
+	"keyword",
+	"type",
+	"class",
+	"property",
+	"decorator",
+	"string",
+	"number",
+	"comment",
+}
+
+var primitiveTypes = map[string]bool{
+	"uuid": true, "string": true, "bool": true,
+	"int8": true, "int16": true, "int32": true, "int64": true,
+	"uint8": true, "uint16": true, "uint32": true, "uint64": true,
+	"float32": true, "float64": true,
+	"timestamp": true, "timespan": true, "time_range": true,
+	"json": true, "bytes": true,
+}
+
+func (s *Server) SemanticTokensFull(_ context.Context, params *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {
+	doc, ok := s.getDocument(params.TextDocument.URI)
+	if !ok {
+		return &protocol.SemanticTokens{Data: []uint32{}}, nil
+	}
+	tokens := extractSemanticTokens(doc.Content)
+	return &protocol.SemanticTokens{Data: tokens}, nil
+}
+
+type token struct {
+	line      uint32
+	startChar uint32
+	length    uint32
+	tokenType uint32
+}
+
+func extractSemanticTokens(content string) []uint32 {
+	input := antlr.NewInputStream(content)
+	lexer := parser.NewOracleLexer(input)
+	stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
+	stream.Fill()
+	allTokens := stream.GetAllTokens()
+
+	var tokens []token
+	for _, t := range allTokens {
+		if t.GetTokenType() == antlr.TokenEOF {
+			continue
+		}
+		tokenType := mapTokenType(t.GetTokenType(), t.GetText())
+		if tokenType == nil {
+			continue
+		}
+		tokens = append(tokens, token{
+			line:      uint32(t.GetLine() - 1),
+			startChar: uint32(t.GetColumn()),
+			length:    uint32(len(t.GetText())),
+			tokenType: *tokenType,
+		})
+	}
+	return encodeSemanticTokens(tokens)
+}
+
+func mapTokenType(antlrType int, text string) *uint32 {
+	var tokenType uint32
+	switch antlrType {
+	case parser.OracleLexerSTRUCT, parser.OracleLexerFIELD,
+		parser.OracleLexerDOMAIN, parser.OracleLexerENUM, parser.OracleLexerIMPORT:
+		tokenType = SemanticTokenTypeKeyword
+	case parser.OracleLexerSTRING_LIT:
+		tokenType = SemanticTokenTypeString
+	case parser.OracleLexerINT_LIT, parser.OracleLexerFLOAT_LIT:
+		tokenType = SemanticTokenTypeNumber
+	case parser.OracleLexerBOOL_LIT:
+		tokenType = SemanticTokenTypeKeyword
+	case parser.OracleLexerLINE_COMMENT, parser.OracleLexerBLOCK_COMMENT:
+		tokenType = SemanticTokenTypeComment
+	case parser.OracleLexerIDENT:
+		if primitiveTypes[text] {
+			tokenType = SemanticTokenTypeType
+		} else {
+			tokenType = SemanticTokenTypeProperty
+		}
+	default:
+		return nil
+	}
+	return &tokenType
+}
+
+func encodeSemanticTokens(tokens []token) []uint32 {
+	if len(tokens) == 0 {
+		return []uint32{}
+	}
+	encoded := make([]uint32, 0, len(tokens)*5)
+	prevLine := uint32(0)
+	prevChar := uint32(0)
+	for _, t := range tokens {
+		deltaLine := t.line - prevLine
+		var deltaChar uint32
+		if deltaLine == 0 {
+			deltaChar = t.startChar - prevChar
+		} else {
+			deltaChar = t.startChar
+		}
+		encoded = append(encoded, deltaLine, deltaChar, t.length, t.tokenType, 0)
+		prevLine = t.line
+		prevChar = t.startChar
+	}
+	return encoded
+}

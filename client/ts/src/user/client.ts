@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { MultipleFoundError, NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
-import { type Key, keyZ, type New, newZ, type User, userZ } from "@/user/payload";
+import { type Key, keyZ, type New, newZ, type User, userZ } from "@/user/schema.gen";
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),

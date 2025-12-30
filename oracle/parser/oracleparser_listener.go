@@ -1,0 +1,105 @@
+// Code generated from OracleParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
+
+package parser // OracleParser
+import "github.com/antlr4-go/antlr/v4"
+
+// OracleParserListener is a complete listener for a parse tree produced by OracleParser.
+type OracleParserListener interface {
+	antlr.ParseTreeListener
+
+	// EnterSchema is called when entering the schema production.
+	EnterSchema(c *SchemaContext)
+
+	// EnterNl is called when entering the nl production.
+	EnterNl(c *NlContext)
+
+	// EnterImportStmt is called when entering the importStmt production.
+	EnterImportStmt(c *ImportStmtContext)
+
+	// EnterDefinition is called when entering the definition production.
+	EnterDefinition(c *DefinitionContext)
+
+	// EnterStructDef is called when entering the structDef production.
+	EnterStructDef(c *StructDefContext)
+
+	// EnterStructBody is called when entering the structBody production.
+	EnterStructBody(c *StructBodyContext)
+
+	// EnterFieldDef is called when entering the fieldDef production.
+	EnterFieldDef(c *FieldDefContext)
+
+	// EnterFieldBody is called when entering the fieldBody production.
+	EnterFieldBody(c *FieldBodyContext)
+
+	// EnterDomainDef is called when entering the domainDef production.
+	EnterDomainDef(c *DomainDefContext)
+
+	// EnterDomainBody is called when entering the domainBody production.
+	EnterDomainBody(c *DomainBodyContext)
+
+	// EnterTypeRef is called when entering the typeRef production.
+	EnterTypeRef(c *TypeRefContext)
+
+	// EnterQualifiedIdent is called when entering the qualifiedIdent production.
+	EnterQualifiedIdent(c *QualifiedIdentContext)
+
+	// EnterExpression is called when entering the expression production.
+	EnterExpression(c *ExpressionContext)
+
+	// EnterExpressionValue is called when entering the expressionValue production.
+	EnterExpressionValue(c *ExpressionValueContext)
+
+	// EnterEnumDef is called when entering the enumDef production.
+	EnterEnumDef(c *EnumDefContext)
+
+	// EnterEnumValue is called when entering the enumValue production.
+	EnterEnumValue(c *EnumValueContext)
+
+	// ExitSchema is called when exiting the schema production.
+	ExitSchema(c *SchemaContext)
+
+	// ExitNl is called when exiting the nl production.
+	ExitNl(c *NlContext)
+
+	// ExitImportStmt is called when exiting the importStmt production.
+	ExitImportStmt(c *ImportStmtContext)
+
+	// ExitDefinition is called when exiting the definition production.
+	ExitDefinition(c *DefinitionContext)
+
+	// ExitStructDef is called when exiting the structDef production.
+	ExitStructDef(c *StructDefContext)
+
+	// ExitStructBody is called when exiting the structBody production.
+	ExitStructBody(c *StructBodyContext)
+
+	// ExitFieldDef is called when exiting the fieldDef production.
+	ExitFieldDef(c *FieldDefContext)
+
+	// ExitFieldBody is called when exiting the fieldBody production.
+	ExitFieldBody(c *FieldBodyContext)
+
+	// ExitDomainDef is called when exiting the domainDef production.
+	ExitDomainDef(c *DomainDefContext)
+
+	// ExitDomainBody is called when exiting the domainBody production.
+	ExitDomainBody(c *DomainBodyContext)
+
+	// ExitTypeRef is called when exiting the typeRef production.
+	ExitTypeRef(c *TypeRefContext)
+
+	// ExitQualifiedIdent is called when exiting the qualifiedIdent production.
+	ExitQualifiedIdent(c *QualifiedIdentContext)
+
+	// ExitExpression is called when exiting the expression production.
+	ExitExpression(c *ExpressionContext)
+
+	// ExitExpressionValue is called when exiting the expressionValue production.
+	ExitExpressionValue(c *ExpressionValueContext)
+
+	// ExitEnumDef is called when exiting the enumDef production.
+	ExitEnumDef(c *EnumDefContext)
+
+	// ExitEnumValue is called when exiting the enumValue production.
+	ExitEnumValue(c *EnumValueContext)
+}

@@ -7,16 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export {
-  Client,
-  DELETE_CHANNEL_NAME,
-  type KeyRetrieveRequest,
-  ontologyID,
-  type RetrieveArgs,
-  type RetrieveRequest,
-  SET_CHANNEL_NAME,
-  TYPE_ONTOLOGY_ID,
-  type UsernameRetrieveRequest,
-  type UsernamesRetrieveRequest,
-} from "@/user/client";
-export * from "@/user/schema.gen";
+package cli
+
+// Generate-specific flag constants
+const (
+	pluginsFlag = "plugin"
+)
+
+func configureGenerateFlags() {
+	generateCmd.Flags().StringSliceP(
+		pluginsFlag,
+		"p",
+		nil,
+		"Plugins to run (e.g., 'go', 'zod', 'py'). If not specified, all available plugins are run.",
+	)
+}
