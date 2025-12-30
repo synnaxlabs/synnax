@@ -35,6 +35,9 @@ struct OutputChan {
     /// @brief the corresponding channel key to write the variable for the node
     /// from.
     const synnax::ChannelKey cmd_channel;
+    /// @brief the channel fetched from the Synnax server. This does not need to
+    /// be provided via the JSON configuration.
+    synnax::Channel ch;
 
     explicit OutputChan(xjson::Parser &parser):
         enabled(parser.field<bool>("enabled", true)),
@@ -65,6 +68,24 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         if (this->channels.empty()) {
             parser.field_err("channels", "task must have at least one enabled channel");
             return;
+        }
+        // Retrieve channel info from Synnax server
+        std::vector<synnax::ChannelKey> keys;
+        keys.reserve(this->channels.size());
+        for (const auto &[key, _]: this->channels)
+            keys.push_back(key);
+        auto [sy_channels, ch_err] = client->channels.retrieve(keys);
+        if (ch_err) {
+            parser.field_err(
+                "channels",
+                "failed to retrieve channels: " + ch_err.message()
+            );
+            return;
+        }
+        for (const auto &sy_ch: sy_channels) {
+            auto it = this->channels.find(sy_ch.key);
+            if (it != this->channels.end())
+                it->second->ch = sy_ch;
         }
         auto [dev, err] = client->devices.retrieve(this->device_key);
         if (err) {
@@ -139,6 +160,7 @@ private:
     xerrors::Error perform_write(const synnax::Frame &frame) {
         if (!this->connection) return opc::errors::NO_CONNECTION;
         this->builder.clear();
+        std::vector<const OutputChan *> written_channels;
         for (const auto &[key, s]: frame) {
             auto it = this->cfg.channels.find(key);
             if (it == this->cfg.channels.end()) continue;
@@ -146,12 +168,25 @@ private:
                 LOG(ERROR) << "[opc.write_task] failed to add value: " << err;
                 continue;
             }
+            written_channels.push_back(it->second.get());
         }
         if (this->builder.empty()) return xerrors::NIL;
         opc::WriteResponse res(
             UA_Client_Service_write(this->connection.get(), this->builder.build())
         );
-        return opc::errors::parse(res.get().responseHeader.serviceResult);
+        if (auto err = opc::errors::parse(res.get().responseHeader.serviceResult); err)
+            return err;
+        for (std::size_t i = 0; i < res.get().resultsSize; ++i) {
+            if (auto err = opc::errors::parse(res.get().results[i]); err) {
+                const auto &ch = written_channels[i];
+                const std::string node_id_str = opc::NodeId::to_string(ch->node.get());
+                return xerrors::Error(
+                    err,
+                    ch->ch.name + " (" + node_id_str + "): " + err.data
+                );
+            }
+        }
+        return xerrors::NIL;
     }
 };
 }
