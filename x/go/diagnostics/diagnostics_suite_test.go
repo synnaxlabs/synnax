@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export {
-  Client,
-  DELETE_CHANNEL_NAME,
-  type KeyRetrieveRequest,
-  ontologyID,
-  type RetrieveArgs,
-  type RetrieveRequest,
-  SET_CHANNEL_NAME,
-  TYPE_ONTOLOGY_ID,
-  type UsernameRetrieveRequest,
-  type UsernamesRetrieveRequest,
-} from "@/user/client";
-export * from "@/user/types.gen";
+package diagnostics_test
+
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestDiagnostics(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Diagnostics Suite")
+}

@@ -18,6 +18,8 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/enum"
+	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
@@ -49,7 +51,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 	outputStructs := make(map[string][]*resolution.StructEntry)
 	for _, entry := range req.Resolutions.AllStructs() {
-		if outputPath := getOutputPath(entry); outputPath != "" {
+		if outputPath := output.GetPath(entry, "py"); outputPath != "" {
 			if req.RepoRoot != "" {
 				if err := req.ValidateOutputPath(outputPath); err != nil {
 					return nil, fmt.Errorf("invalid output path for struct %s: %w", entry.Name, err)
@@ -59,7 +61,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 	}
 	for outputPath, structs := range outputStructs {
-		enums := collectReferencedEnums(structs)
+		enums := enum.CollectReferenced(structs)
 		content, err := p.generateFile(structs[0].Namespace, structs, enums, req.Resolutions)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate %s: %w", outputPath, err)
@@ -70,33 +72,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		})
 	}
 	return resp, nil
-}
-
-func collectReferencedEnums(structs []*resolution.StructEntry) []*resolution.EnumEntry {
-	seen := make(map[string]bool)
-	var enums []*resolution.EnumEntry
-	for _, s := range structs {
-		for _, f := range s.Fields {
-			if f.TypeRef.Kind == resolution.TypeKindEnum && f.TypeRef.EnumRef != nil {
-				if !seen[f.TypeRef.EnumRef.QualifiedName] {
-					seen[f.TypeRef.EnumRef.QualifiedName] = true
-					enums = append(enums, f.TypeRef.EnumRef)
-				}
-			}
-		}
-	}
-	return enums
-}
-
-func getOutputPath(entry *resolution.StructEntry) string {
-	if domain, ok := entry.Domains["py"]; ok {
-		for _, expr := range domain.Expressions {
-			if expr.Name == "output" && len(expr.Values) > 0 {
-				return expr.Values[0].StringValue
-			}
-		}
-	}
-	return ""
 }
 
 func (p *Plugin) generateFile(
@@ -297,8 +272,8 @@ func (p *Plugin) collectValidation(
 	data *templateData,
 ) []string {
 	var constraints []string
-	isString := typeRef.Kind == resolution.TypeKindPrimitive && stringPrimitives[typeRef.Primitive]
-	isNumber := typeRef.Kind == resolution.TypeKindPrimitive && numberPrimitives[typeRef.Primitive]
+	isString := typeRef.Kind == resolution.TypeKindPrimitive && resolution.IsStringPrimitive(typeRef.Primitive)
+	isNumber := typeRef.Kind == resolution.TypeKindPrimitive && resolution.IsNumberPrimitive(typeRef.Primitive)
 
 	for _, expr := range domain.Expressions {
 		if len(expr.Values) == 0 {
@@ -380,7 +355,7 @@ func (p *Plugin) typeToPython(
 		structName := typeRef.StructRef.Name
 		if typeRef.StructRef.Namespace != data.Namespace {
 			ns := typeRef.StructRef.Namespace
-			outputPath := getOutputPath(typeRef.StructRef)
+			outputPath := output.GetPath(typeRef.StructRef, "py")
 			if outputPath == "" {
 				outputPath = ns
 			}
@@ -397,7 +372,7 @@ func (p *Plugin) typeToPython(
 		enumName := typeRef.EnumRef.Name
 		if typeRef.EnumRef.Namespace != data.Namespace {
 			ns := typeRef.EnumRef.Namespace
-			outputPath := findEnumOutputPath(typeRef.EnumRef, table)
+			outputPath := enum.FindOutputPath(typeRef.EnumRef, table, "py")
 			if outputPath == "" {
 				outputPath = ns
 			}
@@ -432,19 +407,6 @@ func toPythonModulePath(repoPath string) string {
 	return strings.ReplaceAll(path, "/", ".")
 }
 
-// findEnumOutputPath finds the output path for an enum by looking up structs
-// that are in the same namespace and have a py output domain.
-func findEnumOutputPath(enum *resolution.EnumEntry, table *resolution.Table) string {
-	for _, s := range table.AllStructs() {
-		if s.Namespace == enum.Namespace {
-			if path := getOutputPath(s); path != "" {
-				return path
-			}
-		}
-	}
-	return ""
-}
-
 type primitiveMapping struct {
 	pyType  string
 	imports []importEntry
@@ -474,13 +436,6 @@ var primitivePythonTypes = map[string]primitiveMapping{
 	"time_range": {pyType: "TimeRange", imports: []importEntry{{"synnax", "TimeRange"}}},
 	"json":       {pyType: "dict[str, Any]", imports: []importEntry{{"typing", "Any"}}},
 	"bytes":      {pyType: "bytes"},
-}
-
-var stringPrimitives = map[string]bool{"string": true, "uuid": true}
-var numberPrimitives = map[string]bool{
-	"int8": true, "int16": true, "int32": true, "int64": true,
-	"uint8": true, "uint16": true, "uint32": true, "uint64": true,
-	"float32": true, "float64": true,
 }
 
 func primitiveToPython(primitive string, data *templateData) string {

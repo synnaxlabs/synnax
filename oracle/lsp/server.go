@@ -17,9 +17,10 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/oracle/analyzer"
-	"github.com/synnaxlabs/oracle/diagnostics"
 	"github.com/synnaxlabs/oracle/parser"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/diagnostics"
+	xlsp "github.com/synnaxlabs/x/lsp"
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
 	"go.uber.org/zap"
@@ -27,11 +28,14 @@ import (
 
 // Server implements the Language Server Protocol for Oracle schema files.
 type Server struct {
+	xlsp.NoopServer
 	client       protocol.Client
 	mu           sync.RWMutex
 	documents    map[protocol.DocumentURI]*Document
 	capabilities protocol.ServerCapabilities
 }
+
+var translateCfg = xlsp.TranslateConfig{Source: "oracle-analyzer"}
 
 // Document represents an open document in the LSP server.
 type Document struct {
@@ -58,7 +62,7 @@ func New() *Server {
 			CompletionProvider: &protocol.CompletionOptions{},
 			SemanticTokensProvider: map[string]interface{}{
 				"legend": protocol.SemanticTokensLegend{
-					TokenTypes: convertToSemanticTokenTypes(semanticTokenTypes),
+					TokenTypes: xlsp.ConvertToSemanticTokenTypes(semanticTokenTypes),
 				},
 				"full": true,
 			},
@@ -68,7 +72,7 @@ func New() *Server {
 
 // Serve starts the LSP server on the given reader and writer (typically stdin/stdout).
 func (s *Server) Serve(ctx context.Context, r io.Reader, w io.Writer) error {
-	stream := jsonrpc2.NewStream(&rwCloser{r: r, w: w})
+	stream := jsonrpc2.NewStream(&xlsp.RWCloser{R: r, W: w})
 	conn := jsonrpc2.NewConn(stream)
 	logger := zap.NewNop() // Use noop logger to avoid nil pointer
 	s.client = protocol.ClientDispatcher(conn, logger)
@@ -76,16 +80,6 @@ func (s *Server) Serve(ctx context.Context, r io.Reader, w io.Writer) error {
 	<-conn.Done()
 	return conn.Err()
 }
-
-// rwCloser wraps an io.Reader and io.Writer to implement io.ReadWriteCloser.
-type rwCloser struct {
-	r io.Reader
-	w io.Writer
-}
-
-func (rw *rwCloser) Read(p []byte) (int, error)  { return rw.r.Read(p) }
-func (rw *rwCloser) Write(p []byte) (int, error) { return rw.w.Write(p) }
-func (rw *rwCloser) Close() error                { return nil }
 
 // SetClient sets the LSP client for sending notifications.
 func (s *Server) SetClient(client protocol.Client) {
@@ -179,7 +173,7 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 		doc.Diagnostics = parseDiag
 		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 			URI:         uri,
-			Diagnostics: translateDiagnostics(*parseDiag),
+			Diagnostics: xlsp.TranslateDiagnostics(*parseDiag, translateCfg),
 		})
 		return
 	}
@@ -192,7 +186,7 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 		doc.Table = table
 		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 			URI:         uri,
-			Diagnostics: translateDiagnostics(*analyzeDiag),
+			Diagnostics: xlsp.TranslateDiagnostics(*analyzeDiag, translateCfg),
 		})
 		return
 	}
@@ -205,43 +199,6 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 	})
 }
 
-// translateDiagnostics converts Oracle diagnostics to LSP diagnostics.
-func translateDiagnostics(diag diagnostics.Diagnostics) []protocol.Diagnostic {
-	result := make([]protocol.Diagnostic, 0, len(diag))
-	for _, d := range diag {
-		result = append(result, protocol.Diagnostic{
-			Range: protocol.Range{
-				Start: protocol.Position{
-					Line:      uint32(max(0, d.Line-1)),
-					Character: uint32(d.Column),
-				},
-				End: protocol.Position{
-					Line:      uint32(max(0, d.Line-1)),
-					Character: uint32(d.Column + 10),
-				},
-			},
-			Severity: severity(d.Severity),
-			Source:   "oracle-analyzer",
-			Message:  d.Message,
-		})
-	}
-	return result
-}
-
-func severity(s diagnostics.Severity) protocol.DiagnosticSeverity {
-	switch s {
-	case diagnostics.Error:
-		return protocol.DiagnosticSeverityError
-	case diagnostics.Warning:
-		return protocol.DiagnosticSeverityWarning
-	case diagnostics.Info:
-		return protocol.DiagnosticSeverityInformation
-	case diagnostics.Hint:
-		return protocol.DiagnosticSeverityHint
-	default:
-		return protocol.DiagnosticSeverityError
-	}
-}
 
 // deriveNamespaceFromURI extracts a namespace from the document URI.
 func deriveNamespaceFromURI(uri protocol.DocumentURI) string {
@@ -267,10 +224,3 @@ func (noopLoader) RepoRoot() string {
 	return ""
 }
 
-func convertToSemanticTokenTypes(types []string) []protocol.SemanticTokenTypes {
-	result := make([]protocol.SemanticTokenTypes, len(types))
-	for i, t := range types {
-		result[i] = protocol.SemanticTokenTypes(t)
-	}
-	return result
-}

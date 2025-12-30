@@ -45,7 +45,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
-	"github.com/synnaxlabs/arc/diagnostics"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )

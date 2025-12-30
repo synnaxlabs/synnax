@@ -30,7 +30,7 @@ package parser
 
 import (
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/oracle/diagnostics"
+	"github.com/synnaxlabs/x/diagnostics"
 )
 
 // Parse parses a complete Oracle schema from source code.

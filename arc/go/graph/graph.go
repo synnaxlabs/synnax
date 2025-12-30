@@ -35,7 +35,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
-	"github.com/synnaxlabs/arc/diagnostics"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/stratifier"

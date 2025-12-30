@@ -73,7 +73,7 @@ import (
 	"path/filepath"
 
 	"github.com/synnaxlabs/oracle/analyzer"
-	"github.com/synnaxlabs/oracle/diagnostics"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/oracle/parser"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/resolution"

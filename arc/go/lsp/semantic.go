@@ -14,6 +14,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/parser"
+	xlsp "github.com/synnaxlabs/x/lsp"
 	"go.lsp.dev/protocol"
 )
 
@@ -47,13 +48,6 @@ func (s *Server) SemanticTokensFull(_ context.Context, params *protocol.Semantic
 	return &protocol.SemanticTokens{Data: tokens}, nil
 }
 
-type token struct {
-	line      uint32
-	startChar uint32
-	length    uint32
-	tokenType uint32
-}
-
 // extractSemanticTokens parses the document and extracts semantic tokens
 func extractSemanticTokens(content string) []uint32 {
 	var (
@@ -63,7 +57,7 @@ func extractSemanticTokens(content string) []uint32 {
 	)
 	stream.Fill()
 	allTokens := stream.GetAllTokens()
-	var tokens []token
+	var tokens []xlsp.Token
 	for _, t := range allTokens {
 		if t.GetTokenType() == antlr.TokenEOF {
 			continue
@@ -72,14 +66,14 @@ func extractSemanticTokens(content string) []uint32 {
 		if tokenType == nil {
 			continue
 		}
-		tokens = append(tokens, token{
-			line:      uint32(t.GetLine() - 1),
-			startChar: uint32(t.GetColumn()),
-			length:    uint32(len(t.GetText())),
-			tokenType: *tokenType,
+		tokens = append(tokens, xlsp.Token{
+			Line:      uint32(t.GetLine() - 1),
+			StartChar: uint32(t.GetColumn()),
+			Length:    uint32(len(t.GetText())),
+			TokenType: *tokenType,
 		})
 	}
-	return encodeSemanticTokens(tokens)
+	return xlsp.EncodeSemanticTokens(tokens)
 }
 
 func mapTokenType(antlrType int) *uint32 {
@@ -119,25 +113,3 @@ func mapTokenType(antlrType int) *uint32 {
 	return &tokenType
 }
 
-func encodeSemanticTokens(tokens []token) []uint32 {
-	if len(tokens) == 0 {
-		return []uint32{}
-	}
-	encoded := make([]uint32, 0, len(tokens)*5)
-	prevLine := uint32(0)
-	prevChar := uint32(0)
-	for _, t := range tokens {
-		deltaLine := t.line - prevLine
-		var deltaChar uint32
-		if deltaLine == 0 {
-			deltaChar = t.startChar - prevChar
-		} else {
-			deltaChar = t.startChar
-		}
-		encoded = append(encoded, deltaLine, deltaChar, t.length, t.tokenType, 0)
-		prevLine = t.line
-		prevChar = t.startChar
-	}
-
-	return encoded
-}

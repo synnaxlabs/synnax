@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/py/types"
+	"github.com/synnaxlabs/oracle/testutil"
 )
 
 func TestTypes(t *testing.T) {
@@ -25,43 +26,16 @@ func TestTypes(t *testing.T) {
 	RunSpecs(t, "Python Types Plugin Suite")
 }
 
-// MockFileLoader is a file loader that serves files from memory.
-type MockFileLoader struct {
-	Files map[string]string
-}
-
-func (m *MockFileLoader) Load(importPath string) (string, string, error) {
-	if content, ok := m.Files[importPath]; ok {
-		return content, importPath + ".oracle", nil
-	}
-	if content, ok := m.Files[importPath+".oracle"]; ok {
-		return content, importPath + ".oracle", nil
-	}
-	return "", "", &fileNotFoundError{path: importPath}
-}
-
-func (m *MockFileLoader) RepoRoot() string {
-	return "/mock/repo"
-}
-
-type fileNotFoundError struct {
-	path string
-}
-
-func (e *fileNotFoundError) Error() string {
-	return "file not found: " + e.path
-}
-
 var _ = Describe("Python Types Plugin", func() {
 	var (
 		ctx         context.Context
-		loader      *MockFileLoader
+		loader      *testutil.MockFileLoader
 		typesPlugin *types.Plugin
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		loader = &MockFileLoader{Files: make(map[string]string)}
+		loader = testutil.NewMockFileLoader()
 		typesPlugin = types.New(types.DefaultOptions())
 	})
 

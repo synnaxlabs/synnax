@@ -19,6 +19,8 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/doc"
+	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
@@ -60,7 +62,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 	outputStructs := make(map[string][]*resolution.StructEntry)
 	for _, entry := range req.Resolutions.AllStructs() {
-		if outputPath := getOutputPath(entry); outputPath != "" {
+		if outputPath := output.GetPath(entry, "go"); outputPath != "" {
 			// Validate output path if RepoRoot is available
 			if req.RepoRoot != "" {
 				if err := req.ValidateOutputPath(outputPath); err != nil {
@@ -83,18 +85,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 
 	return resp, nil
-}
-
-// getOutputPath extracts the output path from the struct's "go" domain.
-func getOutputPath(entry *resolution.StructEntry) string {
-	if domain, ok := entry.Domains["go"]; ok {
-		for _, expr := range domain.Expressions {
-			if expr.Name == "output" && len(expr.Values) > 0 {
-				return expr.Values[0].StringValue
-			}
-		}
-	}
-	return ""
 }
 
 // generateFile generates the Go source file for a set of structs.
@@ -128,28 +118,13 @@ func derivePackageName(outputPath string) string {
 func (p *Plugin) processStruct(entry *resolution.StructEntry, data *templateData) structData {
 	sd := structData{
 		Name:   entry.Name,
-		Doc:    getDoc(entry.Domains),
+		Doc:    doc.Get(entry.Domains),
 		Fields: make([]fieldData, 0, len(entry.Fields)),
 	}
 	for _, field := range entry.Fields {
 		sd.Fields = append(sd.Fields, p.processField(field, data))
 	}
 	return sd
-}
-
-// getDoc extracts documentation from a "doc" domain.
-func getDoc(domains map[string]*resolution.DomainEntry) string {
-	if domain, ok := domains["doc"]; ok {
-		if len(domain.Expressions) > 0 {
-			expr := domain.Expressions[0]
-			if len(expr.Values) > 0 {
-				return expr.Values[0].StringValue
-			}
-			// Handle bare identifier as doc text (domain doc "text" vs domain doc { text "..." })
-			return expr.Name
-		}
-	}
-	return ""
 }
 
 // processField converts a FieldEntry to template data.
@@ -161,7 +136,7 @@ func (p *Plugin) processField(field *resolution.FieldEntry, data *templateData) 
 		GoType:     goType,
 		JSONName:   field.Name,
 		IsOptional: field.TypeRef.IsOptional,
-		Doc:        getDoc(field.Domains),
+		Doc:        doc.Get(field.Domains),
 	}
 }
 

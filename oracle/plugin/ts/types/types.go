@@ -19,6 +19,8 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/enum"
+	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
@@ -52,7 +54,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 	outputStructs := make(map[string][]*resolution.StructEntry)
 	for _, entry := range req.Resolutions.AllStructs() {
-		if outputPath := getOutputPath(entry); outputPath != "" {
+		if outputPath := output.GetPath(entry, "ts"); outputPath != "" {
 			if req.RepoRoot != "" {
 				if err := req.ValidateOutputPath(outputPath); err != nil {
 					return nil, fmt.Errorf("invalid output path for struct %s: %w", entry.Name, err)
@@ -62,7 +64,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 	}
 	for outputPath, structs := range outputStructs {
-		enums := collectReferencedEnums(structs)
+		enums := enum.CollectReferenced(structs)
 		content, err := p.generateFile(structs[0].Namespace, outputPath, structs, enums, req)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate %s: %w", outputPath, err)
@@ -73,33 +75,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		})
 	}
 	return resp, nil
-}
-
-func collectReferencedEnums(structs []*resolution.StructEntry) []*resolution.EnumEntry {
-	seen := make(map[string]bool)
-	var enums []*resolution.EnumEntry
-	for _, s := range structs {
-		for _, f := range s.Fields {
-			if f.TypeRef.Kind == resolution.TypeKindEnum && f.TypeRef.EnumRef != nil {
-				if !seen[f.TypeRef.EnumRef.QualifiedName] {
-					seen[f.TypeRef.EnumRef.QualifiedName] = true
-					enums = append(enums, f.TypeRef.EnumRef)
-				}
-			}
-		}
-	}
-	return enums
-}
-
-func getOutputPath(entry *resolution.StructEntry) string {
-	if domain, ok := entry.Domains["ts"]; ok {
-		for _, expr := range domain.Expressions {
-			if expr.Name == "output" && len(expr.Values) > 0 {
-				return expr.Values[0].StringValue
-			}
-		}
-	}
-	return ""
 }
 
 // calculateRelativeImport calculates the relative import path from one output
@@ -115,20 +90,6 @@ func calculateRelativeImport(from, to, filePattern string) string {
 		rel = "./" + rel
 	}
 	return rel + "/" + importFile
-}
-
-// findEnumOutputPath finds the output path for an enum by looking up structs
-// that are in the same namespace and have a ts output domain.
-func findEnumOutputPath(enum *resolution.EnumEntry, table *resolution.Table) string {
-	// Look for a struct in the same namespace that has a ts output domain
-	for _, s := range table.AllStructs() {
-		if s.Namespace == enum.Namespace {
-			if path := getOutputPath(s); path != "" {
-				return path
-			}
-		}
-	}
-	return ""
 }
 
 func (p *Plugin) generateFile(
@@ -309,7 +270,7 @@ func (p *Plugin) typeToZod(typeRef *resolution.TypeRef, table *resolution.Table,
 		if typeRef.StructRef.Namespace != data.Namespace {
 			ns := typeRef.StructRef.Namespace
 			// Get target output path from the referenced struct's domain
-			targetOutputPath := getOutputPath(typeRef.StructRef)
+			targetOutputPath := output.GetPath(typeRef.StructRef, "ts")
 			if targetOutputPath == "" {
 				// Fallback if no output path defined
 				targetOutputPath = ns
@@ -329,7 +290,7 @@ func (p *Plugin) typeToZod(typeRef *resolution.TypeRef, table *resolution.Table,
 			ns := typeRef.EnumRef.Namespace
 			// For enums, look up the struct that references this enum to find its output path
 			// Or use namespace as fallback
-			targetOutputPath := findEnumOutputPath(typeRef.EnumRef, table)
+			targetOutputPath := enum.FindOutputPath(typeRef.EnumRef, table, "ts")
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
@@ -381,16 +342,9 @@ func primitiveToZod(primitive string, data *templateData) string {
 	return "z.unknown()"
 }
 
-var stringPrimitives = map[string]bool{"string": true, "uuid": true}
-var numberPrimitives = map[string]bool{
-	"int8": true, "int16": true, "int32": true, "int64": true,
-	"uint8": true, "uint16": true, "uint32": true, "uint64": true,
-	"float32": true, "float64": true,
-}
-
 func (p *Plugin) applyValidation(zodType string, domain *resolution.DomainEntry, typeRef *resolution.TypeRef) string {
-	isString := typeRef.Kind == resolution.TypeKindPrimitive && stringPrimitives[typeRef.Primitive]
-	isNumber := typeRef.Kind == resolution.TypeKindPrimitive && numberPrimitives[typeRef.Primitive]
+	isString := typeRef.Kind == resolution.TypeKindPrimitive && resolution.IsStringPrimitive(typeRef.Primitive)
+	isNumber := typeRef.Kind == resolution.TypeKindPrimitive && resolution.IsNumberPrimitive(typeRef.Primitive)
 	for _, expr := range domain.Expressions {
 		if len(expr.Values) == 0 {
 			switch expr.Name {

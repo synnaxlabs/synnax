@@ -30,7 +30,7 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/compiler"
-	"github.com/synnaxlabs/arc/diagnostics"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/module"

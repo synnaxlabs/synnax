@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/synnaxlabs/oracle/diagnostics"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/oracle/parser"
 	"github.com/synnaxlabs/oracle/resolution"
 )

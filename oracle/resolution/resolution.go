@@ -134,6 +134,22 @@ var Primitives = map[string]bool{
 
 func IsPrimitive(name string) bool { return Primitives[name] }
 
+// StringPrimitives identifies primitives that map to string-like types.
+var StringPrimitives = map[string]bool{"string": true, "uuid": true}
+
+// NumberPrimitives identifies primitives that map to number types.
+var NumberPrimitives = map[string]bool{
+	"int8": true, "int16": true, "int32": true, "int64": true,
+	"uint8": true, "uint16": true, "uint32": true, "uint64": true,
+	"float32": true, "float64": true,
+}
+
+// IsStringPrimitive checks if the primitive is a string-like type.
+func IsStringPrimitive(name string) bool { return StringPrimitives[name] }
+
+// IsNumberPrimitive checks if the primitive is a number type.
+func IsNumberPrimitive(name string) bool { return NumberPrimitives[name] }
+
 func (t *Table) LookupStruct(namespace, name string) (*StructEntry, bool) {
 	if e, ok := t.Structs[namespace+"."+name]; ok {
 		return e, true

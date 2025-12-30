@@ -16,44 +16,18 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/oracle/testutil"
 )
-
-// MockFileLoader is a file loader that serves files from memory.
-type MockFileLoader struct {
-	Files map[string]string
-}
-
-func (m *MockFileLoader) Load(importPath string) (string, string, error) {
-	if content, ok := m.Files[importPath]; ok {
-		return content, importPath + ".oracle", nil
-	}
-	if content, ok := m.Files[importPath+".oracle"]; ok {
-		return content, importPath + ".oracle", nil
-	}
-	return "", "", &fileNotFoundError{path: importPath}
-}
-
-func (m *MockFileLoader) RepoRoot() string {
-	return "/mock/repo"
-}
-
-type fileNotFoundError struct {
-	path string
-}
-
-func (e *fileNotFoundError) Error() string {
-	return "file not found: " + e.path
-}
 
 var _ = Describe("Analyzer", func() {
 	var (
 		ctx    context.Context
-		loader *MockFileLoader
+		loader *testutil.MockFileLoader
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		loader = &MockFileLoader{Files: make(map[string]string)}
+		loader = testutil.NewMockFileLoader()
 	})
 
 	Describe("AnalyzeSource", func() {

@@ -17,12 +17,13 @@ import (
 	"github.com/synnaxlabs/alamos"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
-	"github.com/synnaxlabs/arc/diagnostics"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/config"
+	xlsp "github.com/synnaxlabs/x/lsp"
 	"github.com/synnaxlabs/x/override"
 	"go.lsp.dev/protocol"
 	"go.uber.org/zap"
@@ -55,6 +56,7 @@ func (c Config) Validate() error { return nil }
 
 // Server implements the Language Server Protocol for arc
 type Server struct {
+	xlsp.NoopServer
 	cfg          Config
 	client       protocol.Client
 	mu           sync.RWMutex
@@ -98,7 +100,7 @@ func New(cfgs ...Config) (*Server, error) {
 			DocumentSymbolProvider: true,
 			SemanticTokensProvider: map[string]interface{}{
 				"legend": protocol.SemanticTokensLegend{
-					TokenTypes: convertToSemanticTokenTypes(semanticTokenTypes),
+					TokenTypes: xlsp.ConvertToSemanticTokenTypes(semanticTokenTypes),
 				},
 				"full": true,
 			},
@@ -129,14 +131,7 @@ func (s *Server) getDocument(uri protocol.DocumentURI) (*Document, bool) {
 	return doc, ok
 }
 
-// Helper functions to convert string slices to protocol types
-func convertToSemanticTokenTypes(types []string) []protocol.SemanticTokenTypes {
-	result := make([]protocol.SemanticTokenTypes, len(types))
-	for i, t := range types {
-		result[i] = protocol.SemanticTokenTypes(t)
-	}
-	return result
-}
+var translateCfg = xlsp.TranslateConfig{Source: "arc-analyzer"}
 
 // Initialize handles the initialize request
 func (s *Server) Initialize(_ context.Context, params *protocol.InitializeParams) (*protocol.InitializeResult, error) {
@@ -233,7 +228,7 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 	if doc.Metadata.IsFunctionBlock {
 		t, err := parser.ParseBlock(fmt.Sprintf("{%s}", content))
 		if err != nil {
-			pDiagnostics = translateDiagnostics(*err)
+			pDiagnostics = xlsp.TranslateDiagnostics(*err, translateCfg)
 		} else {
 			aCtx := acontext.CreateRoot[parser.IBlockContext](
 				ctx,
@@ -243,18 +238,18 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 			statement.AnalyzeFunctionBody(aCtx)
 			doc.IR = ir.IR{Symbols: aCtx.Scope}
 			doc.Diagnostics = *aCtx.Diagnostics
-			pDiagnostics = translateDiagnostics(*aCtx.Diagnostics)
+			pDiagnostics = xlsp.TranslateDiagnostics(*aCtx.Diagnostics, translateCfg)
 		}
 	} else {
 		t, diag := text.Parse(text.Text{Raw: content})
 		if diag != nil {
-			pDiagnostics = translateDiagnostics(*diag)
+			pDiagnostics = xlsp.TranslateDiagnostics(*diag, translateCfg)
 		} else {
 			analyzedIR, analysisDiag := text.Analyze(ctx, t, s.cfg.GlobalResolver)
 			doc.IR = analyzedIR
 			if analysisDiag != nil {
 				doc.Diagnostics = *analysisDiag
-				pDiagnostics = translateDiagnostics(*analysisDiag)
+				pDiagnostics = xlsp.TranslateDiagnostics(*analysisDiag, translateCfg)
 			}
 		}
 	}
@@ -271,40 +266,3 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 	}
 }
 
-func severity(in diagnostics.Severity) protocol.DiagnosticSeverity {
-	var out protocol.DiagnosticSeverity
-	switch in {
-	case diagnostics.Warning:
-		out = protocol.DiagnosticSeverityWarning
-	case diagnostics.Info:
-		out = protocol.DiagnosticSeverityInformation
-	case diagnostics.Hint:
-		out = protocol.DiagnosticSeverityHint
-	case diagnostics.Error:
-		out = protocol.DiagnosticSeverityError
-	}
-	return out
-}
-
-// translateDiagnostics converts Arc analyzer diagnostics to LSP diagnostics
-func translateDiagnostics(analysisDiag diagnostics.Diagnostics) []protocol.Diagnostic {
-	oDiagnostics := make([]protocol.Diagnostic, 0, len(analysisDiag))
-	for _, diag := range analysisDiag {
-		oDiagnostics = append(oDiagnostics, protocol.Diagnostic{
-			Range: protocol.Range{
-				Start: protocol.Position{
-					Line:      uint32(diag.Line - 1),
-					Character: uint32(diag.Column),
-				},
-				End: protocol.Position{
-					Line:      uint32(diag.Line - 1),
-					Character: uint32(diag.Column + 10),
-				},
-			},
-			Severity: severity(diag.Severity),
-			Source:   "arc-analyzer",
-			Message:  diag.Message,
-		})
-	}
-	return oDiagnostics
-}
