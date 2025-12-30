@@ -23,7 +23,7 @@ public:
         std::pair<std::vector<synnax::ChannelKey>, std::vector<telem::Authority>>>
         authority_calls;
 
-    xerrors::Error write(const telem::Frame &frame) override {
+    xerrors::Error write(telem::Frame &frame) override {
         return pipeline::mock::Sink::write(frame);
     }
 

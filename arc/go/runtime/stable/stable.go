@@ -51,8 +51,6 @@ type stableFor struct {
 	now         func() telem.TimeStamp
 }
 
-func (s *stableFor) Init(ctx node.Context) {}
-
 // Reset resets the stableFor timer state when its stage is activated.
 func (s *stableFor) Reset() {
 	s.Node.Reset()
@@ -60,6 +58,8 @@ func (s *stableFor) Reset() {
 	s.lastSent = nil
 	s.lastChanged = 0
 }
+
+var _ node.Node = (*stableFor)(nil)
 
 func (s *stableFor) Next(ctx node.Context) {
 	if s.RefreshInputs() {

@@ -43,8 +43,6 @@ var (
 
 type selectNode struct{ *state.Node }
 
-func (s *selectNode) Init(ctx node.Context) {}
-
 func (s *selectNode) Next(ctx node.Context) {
 	if !s.RefreshInputs() {
 		return

@@ -11,7 +11,7 @@
 
 #include <string>
 
-#include <glog/logging.h>
+#include "glog/logging.h"
 
 namespace xlog {
 inline std::string get_color(const std::string &color) {

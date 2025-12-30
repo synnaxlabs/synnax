@@ -32,7 +32,7 @@ public:
     Node(const ir::Node &node, state::Node state, const Module::Function &func):
         ir(node), state(std::move(state)), func(func) {
         inputs.resize(node.inputs.size());
-        offsets.resize(node.inputs.size());
+        offsets.resize(node.outputs.size());
     }
 
     xerrors::Error next(node::Context &ctx) override {

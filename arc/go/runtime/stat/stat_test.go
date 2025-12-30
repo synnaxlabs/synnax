@@ -57,7 +57,6 @@ var _ = Describe("Stat", func() {
 				Node:  ir.Node{Type: "avg", Config: types.Params{{Name: "count", Type: types.I64(), Value: int64(3)}}},
 				State: s.Node("avg"),
 			}))
-			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			*inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 30.0)
 			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 			changed := make(set.Set[string])
@@ -117,7 +116,6 @@ var _ = Describe("Stat", func() {
 				Node:  ir.Node{Type: "min", Config: types.Params{{Name: "duration", Type: types.TimeSpan(), Value: telem.Second * 5}}},
 				State: s.Node("min"),
 			}))
-			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			// First batch: timestamps [1s, 2s, 3s] with duration 5s
 			// No reset: 3s - 1s = 2s < 5s
 			*inputNode.Output(0) = telem.NewSeriesV[int32](50, 10, 70)
@@ -196,7 +194,6 @@ var _ = Describe("Stat", func() {
 				State:  s.Node("max"),
 				Module: module.Module{IR: analyzed},
 			}))
-			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			*inputNode.Output(0) = telem.NewSeriesV[uint64](10, 50, 30)
 			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 			*resetNode.Output(0) = telem.NewSeriesV[uint8](0)
@@ -260,7 +257,6 @@ var _ = Describe("Stat", func() {
 				State:  s.Node("max"),
 				Module: module.Module{IR: analyzed},
 			}))
-			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			// Should work even without reset signal
 			*inputNode.Output(0) = telem.NewSeriesV[uint64](10, 50, 30)
 			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
@@ -324,7 +320,6 @@ var _ = Describe("Stat", func() {
 				State:  s.Node("avg"),
 				Module: module.Module{IR: analyzed},
 			}))
-			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
 			// Accumulate some data
 			*inputNode.Output(0) = telem.NewSeriesV[int64](10, 20, 30)
 			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
@@ -384,8 +379,6 @@ var _ = Describe("Stat", func() {
 				State:  s.Node("avg"),
 				Module: module.Module{IR: analyzed},
 			}))
-			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
-
 			inputSeries := telem.NewSeriesV(10.0, 20.0, 30.0)
 			inputSeries.Alignment = 250
 			inputSeries.TimeRange = telem.TimeRange{Start: 100 * telem.SecondTS, End: 300 * telem.SecondTS}
@@ -449,7 +442,6 @@ var _ = Describe("Stat", func() {
 				State:  s.Node("avg"),
 				Module: module.Module{IR: analyzed},
 			}))
-			n.Init(node.Context{Context: ctx, MarkChanged: func(string) {}})
 
 			inputSeries := telem.NewSeriesV[int64](10, 20, 30)
 			inputSeries.Alignment = 100

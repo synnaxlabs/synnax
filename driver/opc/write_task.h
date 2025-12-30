@@ -117,7 +117,7 @@ public:
         return xerrors::NIL;
     }
 
-    xerrors::Error write(const ::telem::Frame &frame) override {
+    xerrors::Error write(::telem::Frame &frame) override {
         auto err = this->perform_write(frame);
         if (!err.matches(opc::errors::UNREACHABLE)) return err;
         LOG(

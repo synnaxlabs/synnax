@@ -203,10 +203,10 @@ protected:
         auto server_cfg = mock::ServerConfig::create_default();
 
         ctx = std::make_shared<task::MockContext>(client);
-        auto reads = std::make_shared<std::vector<telem::Frame>>();
+        auto reads = std::make_shared<std::vector<::telem::Frame>>();
 
         // Create test frames with different data types
-        auto fr = telem::Frame(10);
+        auto fr = ::telem::Frame(10);
 
         // Create Series with single values using the value constructor
         fr.emplace(
@@ -357,7 +357,7 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     ASSERT_NIL(sink->start());
 
     // First write should succeed
-    auto fr1 = telem::Frame(1);
+    auto fr1 = ::telem::Frame(1);
     fr1.emplace(
         this->uint32_cmd_channel.key,
         telem::Series(static_cast<uint32_t>(11111), telem::UINT32_T)
@@ -369,7 +369,7 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     // Write while server is down - should fail
-    auto fr2 = telem::Frame(1);
+    auto fr2 = ::telem::Frame(1);
     fr2.emplace(
         this->uint32_cmd_channel.key,
         telem::Series(static_cast<uint32_t>(22222), telem::UINT32_T)
@@ -386,7 +386,7 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     UA_Client_disconnect(test_client.get());
 
     // Write after server restart - should trigger reconnect and succeed
-    auto fr3 = telem::Frame(1);
+    auto fr3 = ::telem::Frame(1);
     fr3.emplace(
         this->uint32_cmd_channel.key,
         telem::Series(static_cast<uint32_t>(33333), telem::UINT32_T)
@@ -412,7 +412,7 @@ TEST_F(TestWriteTask, testMultipleSequentialWrites) {
 
     // Perform multiple writes with different values
     for (int i = 0; i < 5; i++) {
-        auto fr = telem::Frame(1);
+        auto fr = ::telem::Frame(1);
         fr.emplace(
             this->uint32_cmd_channel.key,
             telem::Series(static_cast<uint32_t>(i * 1000), telem::UINT32_T)

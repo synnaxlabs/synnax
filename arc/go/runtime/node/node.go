@@ -26,9 +26,6 @@ package node
 // Implementations transform input data into output data and signal changes
 // to downstream nodes via the Context.MarkChanged callback.
 type Node interface {
-	// Init performs one-time initialization for source nodes.
-	// Called only for stratum-0 nodes during scheduler initialization.
-	Init(ctx Context)
 	// Next executes the node's computational logic.
 	// Called each cycle when the node is in stratum-0 or when marked as changed.
 	Next(ctx Context)
