@@ -69,7 +69,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             parser.field_err("channels", "task must have at least one enabled channel");
             return;
         }
-        // Retrieve channel info from Synnax server
+
         std::vector<synnax::ChannelKey> keys;
         keys.reserve(this->channels.size());
         for (const auto &[key, _]: this->channels)
@@ -117,6 +117,7 @@ class WriteTaskSink final : public common::Sink {
     std::shared_ptr<opc::connection::Pool> pool;
     opc::connection::Pool::Connection connection;
     opc::WriteRequestBuilder builder;
+    std::vector<synnax::ChannelKey> written_keys;
 
 public:
     WriteTaskSink(std::shared_ptr<opc::connection::Pool> pool, WriteTaskConfig cfg):
@@ -159,7 +160,7 @@ private:
     xerrors::Error perform_write(const synnax::Frame &frame) {
         if (!this->connection) return opc::errors::NO_CONNECTION;
         this->builder.clear();
-        std::vector<const OutputChan *> written_channels;
+        this->written_keys.clear();
         for (const auto &[key, s]: frame) {
             auto it = this->cfg.channels.find(key);
             if (it == this->cfg.channels.end()) continue;
@@ -167,7 +168,7 @@ private:
                 LOG(ERROR) << "[opc.write_task] failed to add value: " << err;
                 continue;
             }
-            written_channels.push_back(it->second.get());
+            this->written_keys.push_back(key);
         }
         if (this->builder.empty()) return xerrors::NIL;
         opc::WriteResponse res(
@@ -177,11 +178,11 @@ private:
             return err;
         for (std::size_t i = 0; i < res.get().resultsSize; ++i) {
             if (auto err = opc::errors::parse(res.get().results[i]); err) {
-                const auto &ch = written_channels[i];
-                const std::string node_id_str = opc::NodeId::to_string(ch->node.get());
-                return xerrors::Error(
+                const auto &ch = this->cfg.channels.at(this->written_keys[i]);
+                return driver::wrap_channel_error(
                     err,
-                    ch->ch.name + " (" + node_id_str + "): " + err.data
+                    ch->ch.name,
+                    opc::NodeId::to_string(ch->node.get())
                 );
             }
         }

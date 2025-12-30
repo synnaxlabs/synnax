@@ -259,10 +259,10 @@ public:
             auto &result = ua_res.get().results[i];
             const auto &ch = cfg.channels[i];
             if (res.error = opc::errors::parse(result.status); res.error) {
-                const std::string node_id_str = opc::NodeId::to_string(ch->node.get());
-                res.error = xerrors::Error(
+                res.error = driver::wrap_channel_error(
                     res.error,
-                    ch->ch.name + " (" + node_id_str + "): " + res.error.data
+                    ch->ch.name,
+                    opc::NodeId::to_string(ch->node.get())
                 );
                 return res;
             }
@@ -342,12 +342,10 @@ public:
                 UA_DataValue &result = ua_res.get().results[j];
                 const auto &ch = this->cfg.channels[j];
                 if (res.error = opc::errors::parse(result.status); res.error) {
-                    const std::string node_id_str = opc::NodeId::to_string(
-                        ch->node.get()
-                    );
-                    res.error = xerrors::Error(
+                    res.error = driver::wrap_channel_error(
                         res.error,
-                        ch->ch.name + " (" + node_id_str + "): " + res.error.data
+                        ch->ch.name,
+                        opc::NodeId::to_string(ch->node.get())
                     );
                     return res;
                 }
