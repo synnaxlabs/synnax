@@ -1,0 +1,33 @@
+struct View {
+    field key uuid {
+        domain id
+    }
+
+    field name string
+
+    field type string
+
+    field query json
+
+    domain ts {
+        output "client/ts/src/view"
+    }
+
+    domain ontology {
+        type "view"
+    }
+}
+
+struct New {
+    field key uuid?
+
+    field name string
+
+    field type string
+
+    field query json
+
+    domain ts {
+        output "client/ts/src/view"
+    }
+}

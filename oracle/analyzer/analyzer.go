@@ -39,6 +39,14 @@ func Analyze(
 	table := resolution.NewTable()
 
 	for _, file := range files {
+		// Mark file as imported to prevent duplicate loading via import statements
+		// Import paths don't have the .oracle extension, so we strip it
+		importPath := strings.TrimSuffix(file, ".oracle")
+		if table.IsImported(importPath) {
+			continue
+		}
+		table.MarkImported(importPath)
+
 		source, filePath, err := loader.Load(file)
 		if err != nil {
 			diag.AddErrorf(nil, file, "failed to load file: %v", err)

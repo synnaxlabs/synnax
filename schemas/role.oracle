@@ -1,0 +1,33 @@
+struct Role {
+    field key uuid {
+        domain id
+    }
+
+    field name string
+
+    field description string?
+
+    field internal bool?
+
+    domain ts {
+        output "client/ts/src/access/role"
+    }
+
+    domain ontology {
+        type "role"
+    }
+}
+
+struct New {
+    field key uuid?
+
+    field name string
+
+    field description string?
+
+    field internal bool?
+
+    domain ts {
+        output "client/ts/src/access/role"
+    }
+}

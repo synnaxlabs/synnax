@@ -1,0 +1,29 @@
+struct Table {
+    field key uuid {
+        domain id
+    }
+
+    field name string
+
+    field data json
+
+    domain ts {
+        output "client/ts/src/workspace/table"
+    }
+
+    domain ontology {
+        type "table"
+    }
+}
+
+struct New {
+    field key uuid?
+
+    field name string
+
+    field data json
+
+    domain ts {
+        output "client/ts/src/workspace/table"
+    }
+}

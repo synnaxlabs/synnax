@@ -13,6 +13,7 @@ class User(BaseModel):
     username: str
     first_name: str
     last_name: str
+    age: int
     root_user: bool = Field(default=False)
 
 

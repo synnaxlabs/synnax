@@ -168,6 +168,53 @@ func (r *GenerateResult) WriteFiles(outputDir string) error {
 	return nil
 }
 
+// SyncResult contains the results of a sync operation.
+type SyncResult struct {
+	// Written contains files that were written (new or changed)
+	Written []string
+	// Unchanged contains files that already had the correct content
+	Unchanged []string
+	// ByPlugin maps plugin names to their written files
+	ByPlugin map[string][]string
+}
+
+// SyncFiles writes only files whose content has changed.
+// Returns details about what was written vs unchanged.
+func (r *GenerateResult) SyncFiles(outputDir string) (*SyncResult, error) {
+	result := &SyncResult{
+		Written:   make([]string, 0),
+		Unchanged: make([]string, 0),
+		ByPlugin:  make(map[string][]string),
+	}
+
+	for pluginName, files := range r.Files {
+		for _, f := range files {
+			fullPath := filepath.Join(outputDir, f.Path)
+
+			// Check if file exists and has same content
+			existing, err := os.ReadFile(fullPath)
+			if err == nil && string(existing) == string(f.Content) {
+				result.Unchanged = append(result.Unchanged, f.Path)
+				continue
+			}
+
+			// Write the file (new or changed)
+			dir := filepath.Dir(fullPath)
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return nil, err
+			}
+			if err := os.WriteFile(fullPath, f.Content, 0644); err != nil {
+				return nil, err
+			}
+
+			result.Written = append(result.Written, f.Path)
+			result.ByPlugin[pluginName] = append(result.ByPlugin[pluginName], f.Path)
+		}
+	}
+
+	return result, nil
+}
+
 // buildSchemaFiles creates SchemaFile entries for each analyzed file.
 func buildSchemaFiles(
 	files []string,

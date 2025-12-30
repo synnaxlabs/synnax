@@ -1665,6 +1665,21 @@ export class TimeRange implements primitive.Stringer {
   ]);
 
   /**
+   * A zod schema that validates time ranges with bounds checking.
+   * Ensures the range is valid (start <= end) and within int64 bounds.
+   */
+  static readonly boundedZ = TimeRange.z
+    .refine(({ isValid }) => isValid, {
+      message: "Time range start must be before or equal to end",
+    })
+    .refine(({ end }) => end.valueOf() <= math.MAX_INT64, {
+      message: "Time range end must be <= max int64",
+    })
+    .refine(({ start }) => start.valueOf() >= math.MIN_INT64, {
+      message: "Time range start must be >= min int64",
+    });
+
+  /**
    * Sorts two time ranges. The range with the earlier start time is considered less than
    * the range with the later start time. If the start times are equal, the range with the
    * earlier end time is considered less than the range with the later end time.

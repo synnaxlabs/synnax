@@ -17,6 +17,8 @@ type User struct {
 	FirstName string `json:"first_name" msgpack:"first_name"`
 	// LastName is the user's last name.
 	LastName string `json:"last_name" msgpack:"last_name"`
+	// Age is the user's age.
+	Age int32 `json:"age" msgpack:"age"`
 	// RootUser indicates whether the user has root privileges.
 	RootUser bool `json:"root_user" msgpack:"root_user"`
 }

@@ -1,0 +1,15 @@
+struct Group {
+    field key uuid {
+        domain id
+    }
+
+    field name string
+
+    domain ts {
+        output "client/ts/src/ontology/group"
+    }
+
+    domain ontology {
+        type "group"
+    }
+}

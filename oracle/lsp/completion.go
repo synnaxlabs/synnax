@@ -99,6 +99,11 @@ var (
 	outputExpressionCompletions = []protocol.CompletionItem{
 		{Label: "output", Kind: protocol.CompletionItemKindValue, Detail: "Output path for generated code"},
 	}
+
+	tsExpressionCompletions = []protocol.CompletionItem{
+		{Label: "output", Kind: protocol.CompletionItemKindValue, Detail: "Output path for generated code"},
+		{Label: "use_input", Kind: protocol.CompletionItemKindValue, Detail: "Use z.input instead of z.infer for type"},
+	}
 )
 
 // Completion handles completion requests.
@@ -147,9 +152,12 @@ func getCompletionsForContext(linePrefix string) []protocol.CompletionItem {
 	if strings.Contains(linePrefix, "domain index") || isInsideDomain(linePrefix, "index") {
 		return indexExpressionCompletions
 	}
-	if strings.Contains(linePrefix, "domain go") || strings.Contains(linePrefix, "domain ts") ||
+	if strings.Contains(linePrefix, "domain ts") || isInsideDomain(linePrefix, "ts") {
+		return tsExpressionCompletions
+	}
+	if strings.Contains(linePrefix, "domain go") ||
 		strings.Contains(linePrefix, "domain python") || strings.Contains(linePrefix, "domain zod") ||
-		isInsideDomain(linePrefix, "go") || isInsideDomain(linePrefix, "ts") ||
+		isInsideDomain(linePrefix, "go") ||
 		isInsideDomain(linePrefix, "python") || isInsideDomain(linePrefix, "zod") {
 		return outputExpressionCompletions
 	}

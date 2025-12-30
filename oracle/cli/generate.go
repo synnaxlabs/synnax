@@ -30,6 +30,10 @@ var generateCmd = &cobra.Command{
 	Long: `Parse .oracle schema files, analyze types and imports, and generate
 code using configured plugins.
 
+By default, looks for schemas in schemas/*.oracle and runs all plugins.
+Each plugin only generates output for structs that have its domain declared
+with an output path.
+
 Output locations are declared per-struct in schema files using struct-level domains.
 For example:
 
@@ -39,9 +43,9 @@ For example:
         domain go { output "core/ranger" }
         domain ts { output "console/src/ranger" }
     }`,
-	Example: `  oracle generate --schemas "schema/*.oracle"
-  oracle generate -s "schema/*.oracle" -p ts/types
-  oracle generate -s "schema/*.oracle" -p go/types -p ts/types -v`,
+	Example: `  oracle generate
+  oracle generate -s "other/*.oracle"
+  oracle generate -p ts/types`,
 	RunE: runGenerate,
 }
 
@@ -57,7 +61,7 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 
 	schemaPatterns := viper.GetStringSlice(schemasFlag)
 	if len(schemaPatterns) == 0 {
-		return fmt.Errorf("no schemas specified (use --schemas)")
+		schemaPatterns = []string{"schemas/*.oracle"}
 	}
 
 	repoRoot, err := paths.RepoRoot()
@@ -119,6 +123,20 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to write generated files: %w", err)
 		}
 
+		// Run post-write hooks for plugins that implement PostWriter
+		for pluginName, files := range result.Files {
+			p := registry.Get(pluginName)
+			if pw, ok := p.(plugin.PostWriter); ok {
+				absPaths := make([]string, len(files))
+				for i, f := range files {
+					absPaths[i] = filepath.Join(repoRoot, f.Path)
+				}
+				if err := pw.PostWrite(absPaths); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: post-write hook for %s failed: %v\n", pluginName, err)
+				}
+			}
+		}
+
 		totalFiles := countGeneratedFiles(result)
 		if verbose {
 			printGeneratedFiles(result)
@@ -149,14 +167,31 @@ func expandGlobs(patterns []string, baseDir string) ([]string, error) {
 	return files, nil
 }
 
+// allPlugins returns all available plugins with default options.
+func allPlugins() []plugin.Plugin {
+	return []plugin.Plugin{
+		tstypes.New(tstypes.DefaultOptions()),
+		gotypes.New(gotypes.DefaultOptions()),
+		pytypes.New(pytypes.DefaultOptions()),
+	}
+}
+
 // buildPluginRegistry creates a registry with the specified plugins.
 // If no plugins are specified, all available plugins are loaded.
 func buildPluginRegistry(pluginNames []string) (*plugin.Registry, error) {
 	registry := plugin.NewRegistry()
+
+	// No plugins specified = run all plugins
 	if len(pluginNames) == 0 {
-		pluginNames = []string{"ts/types"}
+		for _, p := range allPlugins() {
+			if err := registry.Register(p); err != nil {
+				return nil, err
+			}
+		}
+		return registry, nil
 	}
 
+	// Otherwise, only run the specified plugins
 	for _, name := range pluginNames {
 		p, err := createPlugin(name)
 		if err != nil {

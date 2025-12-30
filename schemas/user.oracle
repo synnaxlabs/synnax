@@ -80,5 +80,6 @@ struct New {
 
     domain ts {
         output "client/ts/src/user"
+        use_input
     }
 }

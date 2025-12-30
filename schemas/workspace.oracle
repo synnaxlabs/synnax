@@ -1,0 +1,37 @@
+struct Workspace {
+    field key uuid {
+        domain id
+    }
+
+    field name string {
+        domain validate {
+            min_length 1
+        }
+    }
+
+    field layout json
+
+    domain ts {
+        output "client/ts/src/workspace"
+    }
+
+    domain ontology {
+        type "workspace"
+    }
+}
+
+struct New {
+    field key uuid?
+
+    field name string {
+        domain validate {
+            min_length 1
+        }
+    }
+
+    field layout json
+
+    domain ts {
+        output "client/ts/src/workspace"
+    }
+}

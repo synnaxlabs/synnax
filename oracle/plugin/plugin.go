@@ -102,6 +102,14 @@ type Response struct {
 	Files []File
 }
 
+// PostWriter is an optional interface plugins can implement to run post-processing
+// after files have been written to disk (e.g., formatting, linting).
+type PostWriter interface {
+	// PostWrite is called after all files have been written to disk.
+	// It receives the absolute paths of the files that were written.
+	PostWrite(files []string) error
+}
+
 // File represents a single generated file.
 type File struct {
 	// Path is the file path relative to the output directory

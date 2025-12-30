@@ -1,0 +1,27 @@
+import "schemas/label"
+
+struct Range {
+    field key uuid {
+        domain id
+    }
+
+    field name string {
+        domain validate {
+            min_length 1
+        }
+    }
+
+    field time_range time_range_bounded
+
+    field color string?
+
+    field labels label.Label[]?!
+
+    domain ts {
+        output "client/ts/src/ranger"
+    }
+
+    domain ontology {
+        type "range"
+    }
+}

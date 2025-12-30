@@ -1,0 +1,17 @@
+struct Label {
+    field key uuid {
+        domain id
+    }
+
+    field name string {
+        domain validate {
+            min_length 1
+        }
+    }
+
+    field color string
+
+    domain ts {
+        output "x/ts/src/label"
+    }
+}

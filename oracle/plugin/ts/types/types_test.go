@@ -260,9 +260,9 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`m: zod.float64Z`))
 			Expect(content).To(ContainSubstring(`n: TimeStamp.z`))
 			Expect(content).To(ContainSubstring(`o: TimeSpan.z`))
-			Expect(content).To(ContainSubstring(`p: z.record(z.string(), z.unknown())`))
+			Expect(content).To(ContainSubstring(`p: record.unknownZ.or(z.string().transform((s) => JSON.parse(s)))`))
 			Expect(content).To(ContainSubstring(`q: z.instanceof(Uint8Array)`))
-			Expect(content).To(ContainSubstring(`import { TimeSpan, TimeStamp, zod } from "@synnaxlabs/x"`))
+			Expect(content).To(ContainSubstring(`import { TimeSpan, TimeStamp, record, zod } from "@synnaxlabs/x"`))
 		})
 
 		It("Should convert snake_case to camelCase for field names", func() {
@@ -424,6 +424,84 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`operations: array.nullableZ(z.string()).optional()`))
+		})
+
+		It("Should generate error message for required validation", func() {
+			source := `
+				struct User {
+					field key uuid
+					field username string {
+						domain validate { required }
+					}
+					field first_name string {
+						domain validate { required }
+					}
+					domain ts { output "out" }
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`username: z.string().min(1, "Username is required")`))
+			Expect(content).To(ContainSubstring(`firstName: z.string().min(1, "First Name is required")`))
+		})
+
+		It("Should use z.input when use_input is specified in ts domain", func() {
+			source := `
+				struct New {
+					field key uuid?
+					field name string
+					domain ts {
+						output "out"
+						use_input
+					}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "workspace", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`export type New = z.input<typeof newZ>`))
+		})
+
+		It("Should use z.infer by default without use_input", func() {
+			source := `
+				struct Workspace {
+					field key uuid
+					field name string
+					domain ts { output "out" }
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "workspace", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`export type Workspace = z.infer<typeof workspaceZ>`))
 		})
 	})
 })

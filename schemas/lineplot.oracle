@@ -1,0 +1,29 @@
+struct LinePlot {
+    field key uuid {
+        domain id
+    }
+
+    field name string
+
+    field data json
+
+    domain ts {
+        output "client/ts/src/workspace/lineplot"
+    }
+
+    domain ontology {
+        type "lineplot"
+    }
+}
+
+struct New {
+    field key uuid?
+
+    field name string
+
+    field data json
+
+    domain ts {
+        output "client/ts/src/workspace/lineplot"
+    }
+}

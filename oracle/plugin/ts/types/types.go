@@ -12,6 +12,8 @@ package types
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -50,6 +52,46 @@ func (p *Plugin) Requires() []string { return nil }
 
 func (p *Plugin) Check(req *plugin.Request) error { return nil }
 
+// PostWrite runs eslint --fix on the generated TypeScript files to sort imports and format.
+// Files are grouped by their package directory (containing package.json).
+func (p *Plugin) PostWrite(files []string) error {
+	if len(files) == 0 {
+		return nil
+	}
+	// Group files by their package directory
+	byPackage := make(map[string][]string)
+	for _, file := range files {
+		pkgDir := findPackageDir(file)
+		if pkgDir != "" {
+			byPackage[pkgDir] = append(byPackage[pkgDir], file)
+		}
+	}
+	// Run eslint --fix for each package
+	for pkgDir, pkgFiles := range byPackage {
+		args := append([]string{"eslint", "--fix"}, pkgFiles...)
+		cmd := exec.Command("npx", args...)
+		cmd.Dir = pkgDir
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("eslint failed in %s: %w", pkgDir, err)
+		}
+	}
+	return nil
+}
+
+// findPackageDir finds the nearest directory containing package.json.
+func findPackageDir(file string) string {
+	dir := filepath.Dir(file)
+	for dir != "/" && dir != "." {
+		if _, err := os.Stat(filepath.Join(dir, "package.json")); err == nil {
+			return dir
+		}
+		dir = filepath.Dir(dir)
+	}
+	return ""
+}
+
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 	outputStructs := make(map[string][]*resolution.StructEntry)
@@ -77,19 +119,69 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
+// packageMapping defines the known TypeScript package mappings in the workspace.
+type packageMapping struct {
+	pathPrefix     string // e.g., "client/ts/src"
+	packageName    string // e.g., "@synnaxlabs/client"
+	internalPrefix string // e.g., "@/"
+}
+
+var knownPackages = []packageMapping{
+	{pathPrefix: "client/ts/src", packageName: "@synnaxlabs/client", internalPrefix: "@/"},
+	{pathPrefix: "x/ts/src", packageName: "@synnaxlabs/x", internalPrefix: "@/"},
+	{pathPrefix: "pluto/src", packageName: "@synnaxlabs/pluto", internalPrefix: "@/"},
+	{pathPrefix: "freighter/ts/src", packageName: "@synnaxlabs/freighter", internalPrefix: "@/"},
+	{pathPrefix: "alamos/ts/src", packageName: "@synnaxlabs/alamos", internalPrefix: "@/"},
+	{pathPrefix: "drift/src", packageName: "@synnaxlabs/drift", internalPrefix: "@/"},
+}
+
+// findPackage finds the package mapping for a given output path.
+func findPackage(outputPath string) *packageMapping {
+	for i := range knownPackages {
+		if strings.HasPrefix(outputPath, knownPackages[i].pathPrefix) {
+			return &knownPackages[i]
+		}
+	}
+	return nil
+}
+
+// calculateImportPath determines the correct import path for cross-namespace references.
+// Returns the import path and whether to use a named import (vs namespace import).
+func calculateImportPath(fromPath, toPath string) string {
+	fromPkg := findPackage(fromPath)
+	toPkg := findPackage(toPath)
+
+	if fromPkg == nil || toPkg == nil {
+		// Fallback to relative import if packages not recognized
+		return calculateRelativeImport(fromPath, toPath)
+	}
+
+	if fromPkg.packageName == toPkg.packageName {
+		// Same package - use internal absolute import
+		// e.g., "client/ts/src/ranger" importing "client/ts/src/label" → "@/label"
+		relativePath := strings.TrimPrefix(toPath, toPkg.pathPrefix)
+		relativePath = strings.TrimPrefix(relativePath, "/")
+		return toPkg.internalPrefix + relativePath
+	}
+
+	// Different package - use package name
+	// e.g., "client/ts/src/ranger" importing "x/ts/src/label" → "@synnaxlabs/x"
+	// The module path within the package (e.g., "/label") is handled by the package's exports
+	return toPkg.packageName
+}
+
 // calculateRelativeImport calculates the relative import path from one output
-// directory to another, including the file pattern (e.g., "types.gen").
-func calculateRelativeImport(from, to, filePattern string) string {
-	importFile := strings.TrimSuffix(filePattern, filepath.Ext(filePattern))
+// directory to another (fallback for unknown packages).
+func calculateRelativeImport(from, to string) string {
 	rel, err := filepath.Rel(from, to)
 	if err != nil {
-		return "./" + to + "/" + importFile
+		return "./" + to
 	}
 	rel = filepath.ToSlash(rel)
 	if !strings.HasPrefix(rel, ".") {
 		rel = "./" + rel
 	}
-	return rel + "/" + importFile
+	return rel
 }
 
 func (p *Plugin) generateFile(
@@ -199,6 +291,15 @@ func (p *Plugin) processEnum(enum *resolution.EnumEntry) enumData {
 
 func (p *Plugin) processStruct(entry *resolution.StructEntry, table *resolution.Table, data *templateData, idFields []idFieldData) structData {
 	sd := structData{Name: entry.Name, Fields: make([]fieldData, 0, len(entry.Fields))}
+	// Check if ts domain has use_input expression
+	if tsDomain, ok := entry.Domains["ts"]; ok {
+		for _, expr := range tsDomain.Expressions {
+			if expr.Name == "use_input" {
+				sd.UseInput = true
+				break
+			}
+		}
+	}
 	for _, field := range entry.Fields {
 		sd.Fields = append(sd.Fields, p.processField(field, table, data, idFields))
 	}
@@ -218,7 +319,7 @@ func (p *Plugin) processField(field *resolution.FieldEntry, table *resolution.Ta
 	} else {
 		fd.ZodType = p.typeToZod(field.TypeRef, table, data)
 		if validateDomain := plugin.GetFieldDomain(field, "validate"); validateDomain != nil {
-			fd.ZodType = p.applyValidation(fd.ZodType, validateDomain, field.TypeRef)
+			fd.ZodType = p.applyValidation(fd.ZodType, validateDomain, field.TypeRef, field.Name)
 		}
 	}
 
@@ -275,9 +376,10 @@ func (p *Plugin) typeToZod(typeRef *resolution.TypeRef, table *resolution.Table,
 				// Fallback if no output path defined
 				targetOutputPath = ns
 			}
-			// Calculate relative import path from current output to target output
-			relPath := calculateRelativeImport(data.OutputPath, targetOutputPath, p.Options.FileNamePattern)
-			data.addNamespaceImport(relPath, ns)
+			// Calculate import path using package-aware logic
+			importPath := calculateImportPath(data.OutputPath, targetOutputPath)
+			// Use named import with namespace as the import name
+			data.addNamedImport(importPath, ns)
 			return fmt.Sprintf("%s.%s", ns, schemaName)
 		}
 		return schemaName
@@ -294,8 +396,10 @@ func (p *Plugin) typeToZod(typeRef *resolution.TypeRef, table *resolution.Table,
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
-			relPath := calculateRelativeImport(data.OutputPath, targetOutputPath, p.Options.FileNamePattern)
-			data.addNamespaceImport(relPath, ns)
+			// Calculate import path using package-aware logic
+			importPath := calculateImportPath(data.OutputPath, targetOutputPath)
+			// Use named import with namespace as the import name
+			data.addNamedImport(importPath, ns)
 			return fmt.Sprintf("%s.%s", ns, enumName)
 		}
 		return enumName
@@ -310,24 +414,25 @@ type primitiveMapping struct {
 }
 
 var primitiveZodTypes = map[string]primitiveMapping{
-	"uuid":       {schema: "z.uuid()"},
-	"string":     {schema: "z.string()"},
-	"bool":       {schema: "z.boolean()"},
-	"int8":       {schema: "zod.int8Z", xImports: []string{"zod"}},
-	"int16":      {schema: "zod.int16Z", xImports: []string{"zod"}},
-	"int32":      {schema: "zod.int32Z", xImports: []string{"zod"}},
-	"int64":      {schema: "zod.int64Z", xImports: []string{"zod"}},
-	"uint8":      {schema: "zod.uint8Z", xImports: []string{"zod"}},
-	"uint16":     {schema: "zod.uint16Z", xImports: []string{"zod"}},
-	"uint32":     {schema: "zod.uint32Z", xImports: []string{"zod"}},
-	"uint64":     {schema: "zod.uint64Z", xImports: []string{"zod"}},
-	"float32":    {schema: "zod.float32Z", xImports: []string{"zod"}},
-	"float64":    {schema: "zod.float64Z", xImports: []string{"zod"}},
-	"timestamp":  {schema: "TimeStamp.z", xImports: []string{"TimeStamp"}},
-	"timespan":   {schema: "TimeSpan.z", xImports: []string{"TimeSpan"}},
-	"time_range": {schema: "TimeRange.z", xImports: []string{"TimeRange"}},
-	"json":       {schema: "z.record(z.string(), z.unknown())"},
-	"bytes":      {schema: "z.instanceof(Uint8Array)"},
+	"uuid":               {schema: "z.uuid()"},
+	"string":             {schema: "z.string()"},
+	"bool":               {schema: "z.boolean()"},
+	"int8":               {schema: "zod.int8Z", xImports: []string{"zod"}},
+	"int16":              {schema: "zod.int16Z", xImports: []string{"zod"}},
+	"int32":              {schema: "zod.int32Z", xImports: []string{"zod"}},
+	"int64":              {schema: "zod.int64Z", xImports: []string{"zod"}},
+	"uint8":              {schema: "zod.uint8Z", xImports: []string{"zod"}},
+	"uint16":             {schema: "zod.uint16Z", xImports: []string{"zod"}},
+	"uint32":             {schema: "zod.uint32Z", xImports: []string{"zod"}},
+	"uint64":             {schema: "zod.uint64Z", xImports: []string{"zod"}},
+	"float32":            {schema: "zod.float32Z", xImports: []string{"zod"}},
+	"float64":            {schema: "zod.float64Z", xImports: []string{"zod"}},
+	"timestamp":          {schema: "TimeStamp.z", xImports: []string{"TimeStamp"}},
+	"timespan":           {schema: "TimeSpan.z", xImports: []string{"TimeSpan"}},
+	"time_range":         {schema: "TimeRange.z", xImports: []string{"TimeRange"}},
+	"time_range_bounded": {schema: "TimeRange.boundedZ", xImports: []string{"TimeRange"}},
+	"json":               {schema: "record.unknownZ.or(z.string().transform((s) => JSON.parse(s)))", xImports: []string{"record"}},
+	"bytes":              {schema: "z.instanceof(Uint8Array)"},
 }
 
 const xImportPath = "@synnaxlabs/x"
@@ -342,12 +447,18 @@ func primitiveToZod(primitive string, data *templateData) string {
 	return "z.unknown()"
 }
 
-func (p *Plugin) applyValidation(zodType string, domain *resolution.DomainEntry, typeRef *resolution.TypeRef) string {
+func (p *Plugin) applyValidation(zodType string, domain *resolution.DomainEntry, typeRef *resolution.TypeRef, fieldName string) string {
 	isString := typeRef.Kind == resolution.TypeKindPrimitive && resolution.IsStringPrimitive(typeRef.Primitive)
 	isNumber := typeRef.Kind == resolution.TypeKindPrimitive && resolution.IsNumberPrimitive(typeRef.Primitive)
 	for _, expr := range domain.Expressions {
 		if len(expr.Values) == 0 {
 			switch expr.Name {
+			case "required":
+				if isString {
+					// Generate human-readable field name from snake_case
+					humanName := lo.Capitalize(strings.ReplaceAll(fieldName, "_", " "))
+					zodType = fmt.Sprintf("%s.min(1, \"%s is required\")", zodType, humanName)
+				}
 			case "email":
 				if isString {
 					zodType += ".email()"
@@ -419,8 +530,7 @@ type idFieldData struct {
 }
 
 type importSpec struct {
-	Names map[string]bool // named imports (e.g., "zod", "TimeStamp"), nil for namespace import
-	Alias string          // for namespace imports (e.g., "user")
+	Names map[string]bool // named imports (e.g., "zod", "TimeStamp", "label")
 }
 
 func (d *templateData) addNamedImport(path, name string) {
@@ -428,12 +538,6 @@ func (d *templateData) addNamedImport(path, name string) {
 		d.Imports[path] = &importSpec{Names: make(map[string]bool)}
 	}
 	d.Imports[path].Names[name] = true
-}
-
-func (d *templateData) addNamespaceImport(path, alias string) {
-	if d.Imports[path] == nil {
-		d.Imports[path] = &importSpec{Alias: alias}
-	}
 }
 
 func (d *templateData) NamedImports() []namedImportData {
@@ -452,11 +556,22 @@ func (d *templateData) NamedImports() []namedImportData {
 	return result
 }
 
-// ExternalNamedImports returns named imports from external packages (not starting with @/)
+// SynnaxImports returns named imports from @synnaxlabs/* packages
+func (d *templateData) SynnaxImports() []namedImportData {
+	var result []namedImportData
+	for _, imp := range d.NamedImports() {
+		if strings.HasPrefix(imp.Path, "@synnaxlabs/") {
+			result = append(result, imp)
+		}
+	}
+	return result
+}
+
+// ExternalNamedImports returns named imports from external packages (not @/ or @synnaxlabs/)
 func (d *templateData) ExternalNamedImports() []namedImportData {
 	var result []namedImportData
 	for _, imp := range d.NamedImports() {
-		if !strings.HasPrefix(imp.Path, "@/") {
+		if !strings.HasPrefix(imp.Path, "@/") && !strings.HasPrefix(imp.Path, "@synnaxlabs/") {
 			result = append(result, imp)
 		}
 	}
@@ -474,30 +589,15 @@ func (d *templateData) InternalNamedImports() []namedImportData {
 	return result
 }
 
-func (d *templateData) NamespaceImports() []namespaceImportData {
-	var result []namespaceImportData
-	for path, spec := range d.Imports {
-		if spec.Alias != "" {
-			result = append(result, namespaceImportData{Path: path, Alias: spec.Alias})
-		}
-	}
-	sort.Slice(result, func(i, j int) bool { return result[i].Alias < result[j].Alias })
-	return result
-}
-
 type namedImportData struct {
 	Path  string
 	Names []string
 }
 
-type namespaceImportData struct {
-	Path  string
-	Alias string
-}
-
 type structData struct {
-	Name   string
-	Fields []fieldData
+	Name     string
+	Fields   []fieldData
+	UseInput bool // If true, use z.input instead of z.infer for type derivation
 }
 
 type fieldData struct {
@@ -528,13 +628,12 @@ var templateFuncs = template.FuncMap{
 }
 
 var fileTemplate = template.Must(template.New("zod").Funcs(templateFuncs).Parse(`// Code generated by Oracle. DO NOT EDIT.
-
+{{range .SynnaxImports }}
+import { {{ range $i, $name := .Names }}{{ if $i }}, {{ end }}{{ $name }}{{ end }} } from "{{ .Path }}";
+{{- end }}
 import { z } from "zod";
 {{- range .ExternalNamedImports }}
 import { {{ range $i, $name := .Names }}{{ if $i }}, {{ end }}{{ $name }}{{ end }} } from "{{ .Path }}";
-{{- end }}
-{{- range .NamespaceImports }}
-import * as {{ .Alias }} from "{{ .Path }}";
 {{- end }}
 {{ if .InternalNamedImports }}
 {{- range .InternalNamedImports }}
@@ -568,11 +667,12 @@ export const {{ camelCase .Name }}Z = z.object({
 {{- end }}
 });
 {{- if $.GenerateTypes }}
-export type {{ .Name }} = z.infer<typeof {{ camelCase .Name }}Z>;
+export type {{ .Name }} = z.{{ if .UseInput }}input{{ else }}infer{{ end }}<typeof {{ camelCase .Name }}Z>;
 {{- end }}
 {{- end }}
 {{- if .Ontology }}
 
+export const ONTOLOGY_TYPE = "{{ .Ontology.TypeName }}";
 export const ontologyID = ontology.createIDFactory<{{ .Ontology.KeyType }}>("{{ .Ontology.TypeName }}");
 export const TYPE_ONTOLOGY_ID = ontologyID("");
 {{- end }}

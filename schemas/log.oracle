@@ -1,0 +1,29 @@
+struct Log {
+    field key uuid {
+        domain id
+    }
+
+    field name string
+
+    field data json
+
+    domain ts {
+        output "client/ts/src/workspace/log"
+    }
+
+    domain ontology {
+        type "log"
+    }
+}
+
+struct New {
+    field key uuid?
+
+    field name string
+
+    field data json
+
+    domain ts {
+        output "client/ts/src/workspace/log"
+    }
+}

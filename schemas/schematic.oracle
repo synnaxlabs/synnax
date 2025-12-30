@@ -1,0 +1,33 @@
+struct Schematic {
+    field key uuid {
+        domain id
+    }
+
+    field name string
+
+    field data json
+
+    field snapshot bool
+
+    domain ts {
+        output "client/ts/src/workspace/schematic"
+    }
+
+    domain ontology {
+        type "schematic"
+    }
+}
+
+struct New {
+    field key uuid?
+
+    field name string
+
+    field data json
+
+    field snapshot bool?
+
+    domain ts {
+        output "client/ts/src/workspace/schematic"
+    }
+}

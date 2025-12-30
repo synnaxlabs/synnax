@@ -128,7 +128,7 @@ var Primitives = map[string]bool{
 	"int8": true, "int16": true, "int32": true, "int64": true,
 	"uint8": true, "uint16": true, "uint32": true, "uint64": true,
 	"float32": true, "float64": true,
-	"timestamp": true, "timespan": true, "time_range": true,
+	"timestamp": true, "timespan": true, "time_range": true, "time_range_bounded": true,
 	"json": true, "bytes": true,
 }
 
