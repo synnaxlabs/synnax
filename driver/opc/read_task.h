@@ -342,7 +342,9 @@ public:
                 UA_DataValue &result = ua_res.get().results[j];
                 const auto &ch = this->cfg.channels[j];
                 if (res.error = opc::errors::parse(result.status); res.error) {
-                    const std::string node_id_str = opc::NodeId::to_string(ch->node.get());
+                    const std::string node_id_str = opc::NodeId::to_string(
+                        ch->node.get()
+                    );
                     res.error = xerrors::Error(
                         res.error,
                         ch->ch.name + " (" + node_id_str + "): " + res.error.data
@@ -356,8 +358,8 @@ public:
                 if (write_err) {
                     skip_sample = true;
                     res.warning = "Invalid OPC UA data detected for channel " +
-                                  ch->ch.name + ": " +
-                                  write_err.message() + ", skipping frame";
+                                  ch->ch.name + ": " + write_err.message() +
+                                  ", skipping frame";
                     break;
                 }
             }
