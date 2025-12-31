@@ -10,7 +10,7 @@ StatusDetails struct {
 Status = status.Status<StatusDetails>
 
 Rack struct {
-    key          uint32  @id
+    key          uint32  @key
     name         string  @validate required
     task_counter uint32?
     embedded     bool?

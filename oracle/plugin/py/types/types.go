@@ -21,7 +21,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/handwritten"
-	"github.com/synnaxlabs/oracle/domain/id"
+	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/ontology"
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/output"
@@ -136,17 +136,17 @@ func (p *Plugin) generateFile(
 ) ([]byte, error) {
 	data := &templateData{
 		Namespace: namespace,
-		IDFields:  make([]idFieldData, 0),
+		KeyFields: make([]keyFieldData, 0),
 		Structs:   make([]structData, 0, len(structs)),
 		Enums:     make([]enumData, 0, len(enums)),
 		imports:   newImportManager(),
 	}
 	data.imports.addPydantic("BaseModel")
 	skip := func(s *resolution.StructEntry) bool { return handwritten.IsStruct(s, "py") }
-	rawIDFields := id.Collect(structs, skip)
-	idFields := p.convertIDFields(rawIDFields, data)
-	data.IDFields = idFields
-	data.Ontology = p.extractOntology(structs, rawIDFields, idFields, skip)
+	rawKeyFields := key.Collect(structs, skip)
+	keyFields := p.convertKeyFields(rawKeyFields, data)
+	data.KeyFields = keyFields
+	data.Ontology = p.extractOntology(structs, rawKeyFields, keyFields, skip)
 	if data.Ontology != nil {
 		data.imports.addOntology("ID")
 	}
@@ -154,7 +154,7 @@ func (p *Plugin) generateFile(
 		data.Enums = append(data.Enums, p.processEnum(enum, data))
 	}
 	for _, entry := range structs {
-		data.Structs = append(data.Structs, p.processStruct(entry, table, data, idFields))
+		data.Structs = append(data.Structs, p.processStruct(entry, table, data, keyFields))
 	}
 	var buf bytes.Buffer
 	if err := fileTemplate.Execute(&buf, data); err != nil {
@@ -163,10 +163,10 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
-func (p *Plugin) convertIDFields(fields []id.Field, data *templateData) []idFieldData {
-	result := make([]idFieldData, 0, len(fields))
+func (p *Plugin) convertKeyFields(fields []key.Field, data *templateData) []keyFieldData {
+	result := make([]keyFieldData, 0, len(fields))
 	for _, f := range fields {
-		result = append(result, idFieldData{
+		result = append(result, keyFieldData{
 			Name:   f.Name,
 			PyType: primitiveToPython(f.Primitive, data),
 		})
@@ -174,14 +174,14 @@ func (p *Plugin) convertIDFields(fields []id.Field, data *templateData) []idFiel
 	return result
 }
 
-func (p *Plugin) extractOntology(structs []*resolution.StructEntry, rawFields []id.Field, idFields []idFieldData, skip ontology.SkipFunc) *ontologyData {
+func (p *Plugin) extractOntology(structs []*resolution.StructEntry, rawFields []key.Field, keyFields []keyFieldData, skip ontology.SkipFunc) *ontologyData {
 	data := ontology.Extract(structs, rawFields, skip)
-	if data == nil || len(idFields) == 0 {
+	if data == nil || len(keyFields) == 0 {
 		return nil
 	}
 	return &ontologyData{
 		TypeName:   data.TypeName,
-		KeyType:    idFields[0].PyType,
+		KeyType:    keyFields[0].PyType,
 		StructName: data.StructName,
 	}
 }
@@ -217,7 +217,7 @@ func (p *Plugin) processStruct(
 	entry *resolution.StructEntry,
 	table *resolution.Table,
 	data *templateData,
-	idFields []idFieldData,
+	keyFields []keyFieldData,
 ) structData {
 	sd := structData{
 		Name:   entry.Name,
@@ -258,7 +258,7 @@ func (p *Plugin) processStruct(
 		// For extends, only include child's own fields (not inherited)
 		sd.Fields = make([]fieldData, 0, len(entry.Fields))
 		for _, field := range entry.Fields {
-			sd.Fields = append(sd.Fields, p.processField(field, table, data, idFields))
+			sd.Fields = append(sd.Fields, p.processField(field, table, data, keyFields))
 		}
 		return sd
 	}
@@ -267,7 +267,7 @@ func (p *Plugin) processStruct(
 	allFields := entry.AllFields()
 	sd.Fields = make([]fieldData, 0, len(allFields))
 	for _, field := range allFields {
-		sd.Fields = append(sd.Fields, p.processField(field, table, data, idFields))
+		sd.Fields = append(sd.Fields, p.processField(field, table, data, keyFields))
 	}
 	return sd
 }
@@ -276,7 +276,7 @@ func (p *Plugin) processField(
 	field *resolution.FieldEntry,
 	table *resolution.Table,
 	data *templateData,
-	idFields []idFieldData,
+	keyFields []keyFieldData,
 ) fieldData {
 	fd := fieldData{
 		Name:           field.Name,
@@ -602,7 +602,7 @@ func (m *importManager) addModuleImport(parentPath, moduleName string) {
 
 type templateData struct {
 	Namespace string
-	IDFields  []idFieldData
+	KeyFields []keyFieldData
 	Structs   []structData
 	Enums     []enumData
 	imports   *importManager
@@ -669,7 +669,7 @@ func sortedKeys(m map[string]bool) []string {
 	return keys
 }
 
-type idFieldData struct {
+type keyFieldData struct {
 	Name   string
 	PyType string
 }
@@ -754,7 +754,7 @@ from {{ .Path }} import {{ .Alias }}
 {{- range .ModuleImports }}
 from {{ .Parent }} import {{ .Module }}
 {{- end }}
-{{- range .IDFields }}
+{{- range .KeyFields }}
 
 {{ .Name | title }} = {{ .PyType }}
 {{- end }}

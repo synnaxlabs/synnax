@@ -1,7 +1,7 @@
 @ts output "x/ts/src/label"
 
 Label struct {
-    key   uuid   @id
+    key   uuid   @key
     name  string @validate min_length 1
     color string
 }

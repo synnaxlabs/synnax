@@ -39,7 +39,7 @@ type StructEntry struct {
 	QualifiedName string
 	Fields        []*FieldEntry
 	Domains       map[string]*DomainEntry
-	HasIDDomain   bool
+	HasKeyDomain  bool
 	TypeParams    []*TypeParam // Generic type parameters (e.g., <T, U extends schema>)
 	AliasOf       *TypeRef     // If non-nil, this struct is an alias of another type
 	IsRecursive   bool         // True if this struct references itself in any field

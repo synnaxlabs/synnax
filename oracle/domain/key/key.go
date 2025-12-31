@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package id
+package key
 
 import "github.com/synnaxlabs/oracle/resolution"
 
@@ -26,7 +26,7 @@ func Collect(structs []*resolution.StructEntry, skip SkipFunc) []Field {
 			continue
 		}
 		for _, f := range s.Fields {
-			if _, hasID := f.Domains["id"]; hasID {
+			if _, hasKey := f.Domains["key"]; hasKey {
 				if !seen[f.Name] {
 					seen[f.Name] = true
 					result = append(result, Field{

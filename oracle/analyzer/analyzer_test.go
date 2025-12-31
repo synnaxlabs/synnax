@@ -34,7 +34,7 @@ var _ = Describe("Analyzer", func() {
 		It("Should analyze a simple struct", func() {
 			source := `
 				Range struct {
-					key uuid @id
+					key uuid @key
 					name string
 				}
 			`
@@ -47,7 +47,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(rangeStruct).NotTo(BeNil())
 			Expect(rangeStruct.Name).To(Equal("Range"))
 			Expect(rangeStruct.Namespace).To(Equal("ranger"))
-			Expect(rangeStruct.HasIDDomain).To(BeTrue())
+			Expect(rangeStruct.HasKeyDomain).To(BeTrue())
 			Expect(rangeStruct.Fields).To(HaveLen(2))
 
 			// Check key field
@@ -56,7 +56,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(keyField.TypeRef.RawType).To(Equal("uuid"))
 			Expect(keyField.TypeRef.Kind).To(Equal(resolution.TypeKindPrimitive))
 			Expect(keyField.TypeRef.Primitive).To(Equal("uuid"))
-			Expect(keyField.Domains).To(HaveKey("id"))
+			Expect(keyField.Domains).To(HaveKey("key"))
 
 			// Check name field
 			nameField := rangeStruct.Field("name")

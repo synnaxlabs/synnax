@@ -10,20 +10,20 @@
 package ontology
 
 import (
-	"github.com/synnaxlabs/oracle/domain/id"
+	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
 type Data struct {
 	TypeName   string
 	StructName string
-	IDField    *id.Field
+	KeyField   *key.Field
 }
 
 type SkipFunc func(*resolution.StructEntry) bool
 
-func Extract(structs []*resolution.StructEntry, idFields []id.Field, skip SkipFunc) *Data {
-	if len(idFields) == 0 {
+func Extract(structs []*resolution.StructEntry, keyFields []key.Field, skip SkipFunc) *Data {
+	if len(keyFields) == 0 {
 		return nil
 	}
 	for _, s := range structs {
@@ -47,7 +47,7 @@ func Extract(structs []*resolution.StructEntry, idFields []id.Field, skip SkipFu
 		return &Data{
 			TypeName:   typeName,
 			StructName: s.Name,
-			IDField:    &idFields[0],
+			KeyField:   &keyFields[0],
 		}
 	}
 	return nil

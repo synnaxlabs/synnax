@@ -1,7 +1,7 @@
 @ts output "client/ts/src/workspace/log"
 
 Log struct {
-    key  uuid   @id
+    key  uuid   @key
     name string
     data json
 

@@ -38,7 +38,7 @@ Spec struct {
 }
 
 Symbol struct {
-    key     uuid   @id
+    key     uuid   @key
     version uint32 @validate default 1
     name    string @validate min_length 1
     data    Spec
@@ -47,7 +47,7 @@ Symbol struct {
 }
 
 New struct {
-    key     uuid?  @id
+    key     uuid?  @key
     version uint32 @validate default 1
     name    string @validate min_length 1
     data    Spec

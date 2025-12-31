@@ -15,7 +15,7 @@ Device struct<
     Make extends string = string,
     Model extends string = string
 > {
-    key        string     @id
+    key        string     @key
     rack       uint32     @validate required
     location   string     @validate required
     make       Make       @validate required

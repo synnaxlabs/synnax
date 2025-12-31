@@ -224,7 +224,7 @@ while IFS= read -r file; do
     # Check file extension
     ext="${file##*.}"
     case "$ext" in
-        go | py | ts | tsx | js | jsx | cpp | hpp | h | cc | cxx | css)
+        go | py | ts | tsx | js | jsx | cpp | hpp | h | cc | cxx | css | oracle)
             # Check if file should be ignored per .copyrightignore
             if ! should_ignore_file "$abs_file"; then
                 [ -f "$abs_file" ] && FILES_TO_CHECK+=("$abs_file")

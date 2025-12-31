@@ -3,7 +3,7 @@
 @go output "core/pkg/service/user"
 
 User struct {
-    key        uuid   @id
+    key        uuid   @key
     username   string @validate required
     first_name string
     last_name  string

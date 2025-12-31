@@ -109,10 +109,10 @@ fieldOmit
 
 // Name-first field definitions with optional inline domains:
 //   key uint32
-//   key uint32 @id
+//   key uint32 @key
 //   name string @validate required
 //   name string @validate { required, min_length 1, max_length 255 }
-//   key uint32 @id @validate required
+//   key uint32 @key @validate required
 //   name string {
 //       @validate { required, min_length 1 }
 //   }
@@ -121,7 +121,7 @@ fieldDef
     ;
 
 // Inline domain on a field (after type, on same line)
-// Examples: @id, @validate required, @validate { required, min 1 }
+// Examples: @key, @validate required, @validate { required, min 1 }
 inlineDomain
     : AT IDENT domainContent?
     ;
@@ -136,7 +136,7 @@ fieldBody
 // =============================================================================
 
 // Domain definition with @ prefix:
-//   @id
+//   @key
 //   @ts output "client/ts/src/rack"
 //   @validate { required, min 1, max 255 }
 domain

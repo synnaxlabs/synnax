@@ -7,21 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package id_test
+package key_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/oracle/domain/id"
+	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
 var _ = Describe("Collect", func() {
 	It("should return empty for nil input", func() {
-		Expect(id.Collect(nil, nil)).To(BeEmpty())
+		Expect(key.Collect(nil, nil)).To(BeEmpty())
 	})
 
-	It("should return empty for structs without id domain", func() {
+	It("should return empty for structs without key domain", func() {
 		structs := []*resolution.StructEntry{{
 			Fields: []*resolution.FieldEntry{{
 				Name:    "name",
@@ -29,18 +29,18 @@ var _ = Describe("Collect", func() {
 				Domains: map[string]*resolution.DomainEntry{},
 			}},
 		}}
-		Expect(id.Collect(structs, nil)).To(BeEmpty())
+		Expect(key.Collect(structs, nil)).To(BeEmpty())
 	})
 
-	It("should collect field with id domain", func() {
+	It("should collect field with key domain", func() {
 		structs := []*resolution.StructEntry{{
 			Fields: []*resolution.FieldEntry{{
 				Name:    "key",
 				TypeRef: &resolution.TypeRef{Primitive: "uuid"},
-				Domains: map[string]*resolution.DomainEntry{"id": {}},
+				Domains: map[string]*resolution.DomainEntry{"key": {}},
 			}},
 		}}
-		result := id.Collect(structs, nil)
+		result := key.Collect(structs, nil)
 		Expect(result).To(HaveLen(1))
 		Expect(result[0].Name).To(Equal("key"))
 		Expect(result[0].Primitive).To(Equal("uuid"))
@@ -51,33 +51,33 @@ var _ = Describe("Collect", func() {
 			{Fields: []*resolution.FieldEntry{{
 				Name:    "key",
 				TypeRef: &resolution.TypeRef{Primitive: "uuid"},
-				Domains: map[string]*resolution.DomainEntry{"id": {}},
+				Domains: map[string]*resolution.DomainEntry{"key": {}},
 			}}},
 			{Fields: []*resolution.FieldEntry{{
 				Name:    "key",
 				TypeRef: &resolution.TypeRef{Primitive: "uuid"},
-				Domains: map[string]*resolution.DomainEntry{"id": {}},
+				Domains: map[string]*resolution.DomainEntry{"key": {}},
 			}}},
 		}
-		Expect(id.Collect(structs, nil)).To(HaveLen(1))
+		Expect(key.Collect(structs, nil)).To(HaveLen(1))
 	})
 
-	It("should collect multiple different id fields", func() {
+	It("should collect multiple different key fields", func() {
 		structs := []*resolution.StructEntry{{
 			Fields: []*resolution.FieldEntry{
 				{
 					Name:    "key",
 					TypeRef: &resolution.TypeRef{Primitive: "uuid"},
-					Domains: map[string]*resolution.DomainEntry{"id": {}},
+					Domains: map[string]*resolution.DomainEntry{"key": {}},
 				},
 				{
 					Name:    "rack",
 					TypeRef: &resolution.TypeRef{Primitive: "uint32"},
-					Domains: map[string]*resolution.DomainEntry{"id": {}},
+					Domains: map[string]*resolution.DomainEntry{"key": {}},
 				},
 			},
 		}}
-		result := id.Collect(structs, nil)
+		result := key.Collect(structs, nil)
 		Expect(result).To(HaveLen(2))
 	})
 
@@ -87,11 +87,11 @@ var _ = Describe("Collect", func() {
 			Fields: []*resolution.FieldEntry{{
 				Name:    "key",
 				TypeRef: &resolution.TypeRef{Primitive: "uuid"},
-				Domains: map[string]*resolution.DomainEntry{"id": {}},
+				Domains: map[string]*resolution.DomainEntry{"key": {}},
 			}},
 		}}
 		skip := func(s *resolution.StructEntry) bool { return s.Name == "Skipped" }
-		Expect(id.Collect(structs, skip)).To(BeEmpty())
+		Expect(key.Collect(structs, skip)).To(BeEmpty())
 	})
 
 	It("should not skip when skip function returns false", func() {
@@ -100,10 +100,10 @@ var _ = Describe("Collect", func() {
 			Fields: []*resolution.FieldEntry{{
 				Name:    "key",
 				TypeRef: &resolution.TypeRef{Primitive: "uuid"},
-				Domains: map[string]*resolution.DomainEntry{"id": {}},
+				Domains: map[string]*resolution.DomainEntry{"key": {}},
 			}},
 		}}
 		skip := func(s *resolution.StructEntry) bool { return s.Name == "Skipped" }
-		Expect(id.Collect(structs, skip)).To(HaveLen(1))
+		Expect(key.Collect(structs, skip)).To(HaveLen(1))
 	})
 })

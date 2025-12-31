@@ -1,7 +1,7 @@
 @ts output "client/ts/src/view"
 
 View struct {
-    key   uuid   @id
+    key   uuid   @key
     name  string
     type  string
     query json

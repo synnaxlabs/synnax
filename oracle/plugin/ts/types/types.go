@@ -21,7 +21,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/handwritten"
-	"github.com/synnaxlabs/oracle/domain/id"
+	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/ontology"
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/output"
@@ -230,17 +230,17 @@ func (p *Plugin) generateFile(
 		Namespace:     namespace,
 		OutputPath:    outputPath,
 		Request:       req,
-		IDFields:      make([]idFieldData, 0),
+		KeyFields:     make([]keyFieldData, 0),
 		Structs:       make([]structData, 0, len(structs)),
 		Enums:         make([]enumData, 0, len(enums)),
 		GenerateTypes: p.Options.GenerateTypes,
 		Imports:       make(map[string]*importSpec),
 	}
 	skip := func(s *resolution.StructEntry) bool { return handwritten.IsStruct(s, "ts") }
-	rawIDFields := id.Collect(structs, skip)
-	idFields := p.convertIDFields(rawIDFields, structs, data)
-	data.IDFields = idFields
-	data.Ontology = p.extractOntology(structs, rawIDFields, skip)
+	rawKeyFields := key.Collect(structs, skip)
+	keyFields := p.convertKeyFields(rawKeyFields, structs, data)
+	data.KeyFields = keyFields
+	data.Ontology = p.extractOntology(structs, rawKeyFields, skip)
 	if data.Ontology != nil {
 		data.addNamedImport("@/ontology", "ontology")
 	}
@@ -248,7 +248,7 @@ func (p *Plugin) generateFile(
 		data.Enums = append(data.Enums, p.processEnum(enum))
 	}
 	for _, entry := range structs {
-		data.Structs = append(data.Structs, p.processStruct(entry, req.Resolutions, data, idFields))
+		data.Structs = append(data.Structs, p.processStruct(entry, req.Resolutions, data, keyFields))
 	}
 	var buf bytes.Buffer
 	if err := fileTemplate.Execute(&buf, data); err != nil {
@@ -257,14 +257,14 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
-func (p *Plugin) convertIDFields(fields []id.Field, structs []*resolution.StructEntry, data *templateData) []idFieldData {
-	result := make([]idFieldData, 0, len(fields))
+func (p *Plugin) convertKeyFields(fields []key.Field, structs []*resolution.StructEntry, data *templateData) []keyFieldData {
+	result := make([]keyFieldData, 0, len(fields))
 	for _, f := range fields {
 		primitive := f.Primitive
 		if override := findFieldTypeOverride(structs, f.Name, "ts"); override != "" {
 			primitive = override
 		}
-		result = append(result, idFieldData{
+		result = append(result, keyFieldData{
 			Name:      f.Name,
 			TSName:    lo.CamelCase(f.Name),
 			ZodType:   primitiveToZod(primitive, data, false),
@@ -287,15 +287,15 @@ func findFieldTypeOverride(structs []*resolution.StructEntry, fieldName, domainN
 	return ""
 }
 
-func (p *Plugin) extractOntology(structs []*resolution.StructEntry, idFields []id.Field, skip ontology.SkipFunc) *ontologyData {
-	data := ontology.Extract(structs, idFields, skip)
+func (p *Plugin) extractOntology(structs []*resolution.StructEntry, keyFields []key.Field, skip ontology.SkipFunc) *ontologyData {
+	data := ontology.Extract(structs, keyFields, skip)
 	if data == nil {
 		return nil
 	}
-	keyType := lo.Capitalize(lo.CamelCase(data.IDField.Name))
-	// Check if there's a @ts type override for the ID field - if so, use that for the zero value
-	primitive := data.IDField.Primitive
-	if override := findFieldTypeOverride(structs, data.IDField.Name, "ts"); override != "" {
+	keyType := lo.Capitalize(lo.CamelCase(data.KeyField.Name))
+	// Check if there's a @ts type override for the key field - if so, use that for the zero value
+	primitive := data.KeyField.Primitive
+	if override := findFieldTypeOverride(structs, data.KeyField.Name, "ts"); override != "" {
 		primitive = override
 	}
 	keyZeroValue := primitiveZeroValue(primitive)
@@ -319,7 +319,7 @@ func (p *Plugin) processEnum(enum *resolution.EnumEntry) enumData {
 	return enumData{Name: enum.Name, Values: values, IsIntEnum: enum.IsIntEnum}
 }
 
-func (p *Plugin) processStruct(entry *resolution.StructEntry, table *resolution.Table, data *templateData, idFields []idFieldData) structData {
+func (p *Plugin) processStruct(entry *resolution.StructEntry, table *resolution.Table, data *templateData, keyFields []keyFieldData) structData {
 	sd := structData{
 		Name:          entry.Name,
 		TSName:        entry.Name,
@@ -397,10 +397,10 @@ func (p *Plugin) processStruct(entry *resolution.StructEntry, table *resolution.
 			parentField, existsInParent := parentFields[field.Name]
 			if existsInParent && isOnlyOptionalityChange(parentField.TypeRef, field.TypeRef) {
 				// Same base type, just made optional → use .partial()
-				sd.PartialFields = append(sd.PartialFields, p.processField(field, entry, table, data, idFields, sd.UseInput))
+				sd.PartialFields = append(sd.PartialFields, p.processField(field, entry, table, data, keyFields, sd.UseInput))
 			} else {
 				// New field or type change → use .extend()
-				sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, idFields, sd.UseInput))
+				sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, keyFields, sd.UseInput))
 			}
 		}
 		return sd
@@ -410,7 +410,7 @@ func (p *Plugin) processStruct(entry *resolution.StructEntry, table *resolution.
 	allFields := entry.AllFields()
 	sd.Fields = make([]fieldData, 0, len(allFields))
 	for _, field := range allFields {
-		sd.Fields = append(sd.Fields, p.processField(field, entry, table, data, idFields, sd.UseInput))
+		sd.Fields = append(sd.Fields, p.processField(field, entry, table, data, keyFields, sd.UseInput))
 	}
 	return sd
 }
@@ -544,7 +544,7 @@ func isSelfReference(t *resolution.TypeRef, parent *resolution.StructEntry) bool
 	return false
 }
 
-func (p *Plugin) processField(field *resolution.FieldEntry, parentStruct *resolution.StructEntry, table *resolution.Table, data *templateData, idFields []idFieldData, useInput bool) fieldData {
+func (p *Plugin) processField(field *resolution.FieldEntry, parentStruct *resolution.StructEntry, table *resolution.Table, data *templateData, keyFields []keyFieldData, useInput bool) fieldData {
 	fd := fieldData{
 		Name:           field.Name,
 		TSName:         lo.CamelCase(field.Name),
@@ -559,10 +559,10 @@ func (p *Plugin) processField(field *resolution.FieldEntry, parentStruct *resolu
 		if validateDomain := plugin.GetFieldDomain(field, "validate"); validateDomain != nil {
 			fd.ZodType = p.applyValidation(fd.ZodType, validateDomain, field.TypeRef, field.Name)
 		}
-	} else if _, hasID := field.Domains["id"]; hasID {
-		if idField := findIDField(field.Name, idFields); idField != nil {
-			fd.ZodType = idField.TSName + "Z"
-			fd.TSType = lo.Capitalize(lo.CamelCase(idField.Name))
+	} else if _, hasKey := field.Domains["key"]; hasKey {
+		if keyField := findKeyField(field.Name, keyFields); keyField != nil {
+			fd.ZodType = keyField.TSName + "Z"
+			fd.TSType = lo.Capitalize(lo.CamelCase(keyField.Name))
 		} else {
 			fd.ZodType = p.typeToZod(field.TypeRef, table, data, useInput)
 			fd.TSType = p.typeToTS(field.TypeRef, table, data)
@@ -590,10 +590,10 @@ func (p *Plugin) processField(field *resolution.FieldEntry, parentStruct *resolu
 	return fd
 }
 
-func findIDField(name string, idFields []idFieldData) *idFieldData {
-	for i := range idFields {
-		if idFields[i].Name == name {
-			return &idFields[i]
+func findKeyField(name string, keyFields []keyFieldData) *keyFieldData {
+	for i := range keyFields {
+		if keyFields[i].Name == name {
+			return &keyFields[i]
 		}
 	}
 	return nil
@@ -907,7 +907,7 @@ func (p *Plugin) applyValidation(zodType string, domain *resolution.DomainEntry,
 type templateData struct {
 	Namespace, OutputPath string
 	Request               *plugin.Request
-	IDFields              []idFieldData
+	KeyFields             []keyFieldData
 	Structs               []structData
 	Enums                 []enumData
 	GenerateTypes         bool
@@ -919,7 +919,7 @@ type ontologyData struct {
 	TypeName, KeyType, KeyZeroValue string
 }
 
-type idFieldData struct {
+type keyFieldData struct {
 	Name, TSName, ZodType, Primitive string
 }
 
@@ -1042,7 +1042,7 @@ import { {{ range $i, $name := .Names }}{{ if $i }}, {{ end }}{{ $name }}{{ end 
 import { {{ range $i, $name := .Names }}{{ if $i }}, {{ end }}{{ $name }}{{ end }} } from "{{ .Path }}";
 {{- end }}
 {{- end }}
-{{- range .IDFields }}
+{{- range .KeyFields }}
 
 export const {{ .TSName }}Z = {{ .ZodType }};
 {{- if $.GenerateTypes }}

@@ -14,6 +14,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/synnaxlabs/oracle/copyright"
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/paths"
 )
@@ -122,6 +123,12 @@ func formatFile(path string) (formatResult, error) {
 	}
 
 	formatted, err := formatter.Format(string(source))
+	if err != nil {
+		return formatResultUnchanged, err
+	}
+
+	// Ensure copyright header is present and up-to-date
+	formatted, err = copyright.Ensure(formatted)
 	if err != nil {
 		return formatResultUnchanged, err
 	}

@@ -425,12 +425,12 @@ func collectField(
 		Domains: make(map[string]*resolution.DomainEntry),
 	}
 
-	// Collect inline domains (e.g., @id, @validate required)
+	// Collect inline domains (e.g., @key, @validate required)
 	for _, inl := range def.AllInlineDomain() {
 		if de := collectInlineDomain(inl); de != nil {
 			entry.Domains[de.Name] = de
-			if de.Name == "id" {
-				s.HasIDDomain = true
+			if de.Name == "key" {
+				s.HasKeyDomain = true
 			}
 		}
 	}
@@ -440,8 +440,8 @@ func collectField(
 		for _, d := range fb.AllDomain() {
 			if de := collectDomain(d); de != nil {
 				entry.Domains[de.Name] = de
-				if de.Name == "id" {
-					s.HasIDDomain = true
+				if de.Name == "key" {
+					s.HasKeyDomain = true
 				}
 			}
 		}

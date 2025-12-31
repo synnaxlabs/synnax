@@ -412,7 +412,7 @@ var _ = Describe("Go Types Plugin", func() {
 				User struct {
 					@doc value "A User is a representation of a user in the Synnax cluster."
 
-					key uuid @id {
+					key uuid @key {
 						@doc value "Key is the unique identifier for the user."
 					}
 

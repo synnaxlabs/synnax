@@ -26,7 +26,7 @@ Task struct<
     Config extends json = json,
     StatusData extends json = json
 > {
-    key      uint64              @id @ts type string
+    key      uint64              @key @ts type string
     name     string
     type     Type
     config   Config

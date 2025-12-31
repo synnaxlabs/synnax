@@ -13,7 +13,7 @@ Variant enum {
 }
 
 Status struct<D?> {
-    key         uuid           @id
+    key         uuid           @key
     name        string         @validate default ""
     variant     Variant
     message     string

@@ -294,12 +294,12 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`my_long_field_name:`))
 		})
 
-		It("Should generate type alias for ID fields", func() {
+		It("Should generate type alias for key fields", func() {
 			source := `
 				@py output "out"
 
 				User struct {
-					key uuid @id
+					key uuid @key
 					username string
 				}
 			`

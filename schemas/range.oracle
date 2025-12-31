@@ -1,9 +1,10 @@
+// Copyright 2025 Synnax Labs, Inc.
 import "schemas/label"
 
 @ts output "client/ts/src/ranger"
 
 Range struct {
-    key        uuid               @id
+    key        uuid               @key
     name       string             @validate min_length 1
     time_range time_range_bounded
     color      string?

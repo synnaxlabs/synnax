@@ -1,7 +1,7 @@
 @ts output "client/ts/src/workspace"
 
 Workspace struct {
-    key    uuid   @id
+    key    uuid   @key
     name   string @validate required
     layout json
 

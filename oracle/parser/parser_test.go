@@ -216,7 +216,7 @@ var _ = Describe("Parser", func() {
 		It("Should parse a field with an inline domain", func() {
 			schema, diag := parser.Parse(`
 				Range struct {
-					key uuid @id
+					key uuid @key
 				}
 			`)
 			Expect(diag).To(BeNil())
@@ -224,7 +224,7 @@ var _ = Describe("Parser", func() {
 			field := structDef.StructBody().FieldDef(0)
 			inlineDomains := field.AllInlineDomain()
 			Expect(inlineDomains).To(HaveLen(1))
-			Expect(inlineDomains[0].IDENT().GetText()).To(Equal("id"))
+			Expect(inlineDomains[0].IDENT().GetText()).To(Equal("key"))
 			Expect(inlineDomains[0].DomainContent()).To(BeNil())
 		})
 
@@ -462,7 +462,7 @@ var _ = Describe("Parser", func() {
 				@ts output "client/ts/src/range"
 
 				Range struct {
-					key uuid @id
+					key uuid @key
 
 					name string @validate {
 						required

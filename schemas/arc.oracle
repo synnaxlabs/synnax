@@ -134,7 +134,7 @@ StatusDetails struct {
 Status = status.Status<StatusDetails>
 
 Arc struct {
-    key     uuid    @id
+    key     uuid    @key
     name    string
     graph   Graph
     text    Text
