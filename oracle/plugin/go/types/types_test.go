@@ -55,7 +55,8 @@ var _ = Describe("Go Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
-		It("Should generate struct for simple types", func() {
+		Context("basic struct generation", func() {
+			It("Should generate struct for simple types", func() {
 			source := `
 				@go output "core/pkg/service/user"
 
@@ -89,7 +90,10 @@ var _ = Describe("Go Types Plugin", func() {
 			Expect(content).To(ContainSubstring("Active bool `json:\"active\" msgpack:\"active\"`"))
 		})
 
-		It("Should handle soft optional types (zero value)", func() {
+		})
+
+		Context("optional fields", func() {
+			It("Should handle soft optional types (zero value)", func() {
 			source := `
 				@go output "core/ranger"
 
@@ -143,7 +147,10 @@ var _ = Describe("Go Types Plugin", func() {
 			Expect(content).To(ContainSubstring("Description *string `json:\"description,omitempty\" msgpack:\"description,omitempty\"`"))
 		})
 
-		It("Should handle array types", func() {
+		})
+
+		Context("array types", func() {
+			It("Should handle array types", func() {
 			source := `
 				@go output "core/ranger"
 
@@ -194,7 +201,10 @@ var _ = Describe("Go Types Plugin", func() {
 			Expect(content).To(ContainSubstring("Tags []string `json:\"tags,omitempty\" msgpack:\"tags,omitempty\"`"))
 		})
 
-		It("Should convert snake_case to PascalCase for field names", func() {
+		})
+
+		Context("naming conventions", func() {
+			It("Should convert snake_case to PascalCase for field names", func() {
 			source := `
 				@go output "core/ranger"
 
@@ -221,7 +231,10 @@ var _ = Describe("Go Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`MyLongFieldName string`))
 		})
 
-		It("Should handle all primitive type mappings", func() {
+		})
+
+		Context("primitive type mappings", func() {
+			It("Should handle all primitive type mappings", func() {
 			source := `
 				@go output "core/test"
 
@@ -280,7 +293,10 @@ var _ = Describe("Go Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`"github.com/synnaxlabs/x/telem"`))
 		})
 
-		It("Should skip structs without go domain", func() {
+		})
+
+		Context("skipping", func() {
+			It("Should skip structs without go domain", func() {
 			source := `
 				@ts output "client/ts/user"
 
@@ -302,7 +318,43 @@ var _ = Describe("Go Types Plugin", func() {
 			Expect(resp.Files).To(BeEmpty())
 		})
 
-		It("Should derive package name from output path", func() {
+			It("Should skip omitted structs", func() {
+				source := `
+					@go output "core/status"
+
+					Status struct {
+						key uuid
+						message string
+
+						@go omit
+					}
+
+					Other struct {
+						key uuid
+						name string
+					}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+				Expect(diag.HasErrors()).To(BeFalse())
+
+				req := &plugin.Request{
+					Resolutions: table,
+					OutputDir:   "out",
+				}
+
+				resp, err := goPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				content := string(resp.Files[0].Content)
+				// Status should be skipped
+				Expect(content).NotTo(ContainSubstring(`type Status struct {`))
+				// Other should still be generated
+				Expect(content).To(ContainSubstring(`type Other struct {`))
+			})
+		})
+
+		Context("output organization", func() {
+			It("Should derive package name from output path", func() {
 			source := `
 				@go output "core/pkg/service/user"
 
@@ -406,7 +458,10 @@ var _ = Describe("Go Types Plugin", func() {
 			Expect(content).NotTo(ContainSubstring(`import (`))
 		})
 
-		It("Should generate doc comments from doc domain", func() {
+		})
+
+		Context("documentation", func() {
+			It("Should generate doc comments from doc domain", func() {
 			source := `
 				@go output "core/user"
 
@@ -444,7 +499,10 @@ var _ = Describe("Go Types Plugin", func() {
 			Expect(content).NotTo(ContainSubstring(`// FirstName`))
 		})
 
-		It("Should generate string enum type and constants", func() {
+		})
+
+		Context("enums", func() {
+			It("Should generate string enum type and constants", func() {
 			source := `
 				@go output "core/status"
 
@@ -511,7 +569,10 @@ var _ = Describe("Go Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`PriorityHigh`))
 		})
 
-		It("Should generate map types", func() {
+		})
+
+		Context("map types", func() {
+			It("Should generate map types", func() {
 			source := `
 				@go output "core/config"
 
@@ -536,41 +597,10 @@ var _ = Describe("Go Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`Counts map[string]int32`))
 		})
 
-		It("Should skip omitted structs", func() {
-			source := `
-				@go output "core/status"
-
-				Status struct {
-					key uuid
-					message string
-
-					@go omit
-				}
-
-				Other struct {
-					key uuid
-					name string
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
-
-			req := &plugin.Request{
-				Resolutions: table,
-				OutputDir:   "out",
-			}
-
-			resp, err := goPlugin.Generate(req)
-			Expect(err).To(BeNil())
-
-			content := string(resp.Files[0].Content)
-			// Status should be skipped
-			Expect(content).NotTo(ContainSubstring(`type Status struct {`))
-			// Other should still be generated
-			Expect(content).To(ContainSubstring(`type Other struct {`))
 		})
 
-		It("Should generate generic struct with type parameters", func() {
+		Context("generics", func() {
+			It("Should generate generic struct with type parameters", func() {
 			source := `
 				@go output "core/container"
 
@@ -620,7 +650,10 @@ var _ = Describe("Go Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`Data D`))
 		})
 
-		It("Should generate type alias", func() {
+		})
+
+		Context("type aliases", func() {
+			It("Should generate type alias", func() {
 			source := `
 				@go output "core/alias"
 
@@ -647,7 +680,10 @@ var _ = Describe("Go Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`type Alias = Original`))
 		})
 
-		It("Should resolve same-namespace struct references", func() {
+		})
+
+		Context("type references", func() {
+			It("Should resolve same-namespace struct references", func() {
 			source := `
 				@go output "core/user"
 
@@ -773,7 +809,10 @@ var _ = Describe("Go Types Plugin", func() {
 			Expect(taskContent).To(ContainSubstring(`Variant status.Variant`))
 		})
 
-		It("Should generate struct embedding for basic extends", func() {
+		})
+
+		Context("struct embedding (extends)", func() {
+			It("Should generate struct embedding for basic extends", func() {
 			source := `
 				@go output "core/user"
 
@@ -957,7 +996,10 @@ var _ = Describe("Go Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`Timestamp telem.TimeStamp`))
 		})
 
-		It("Should preserve struct declaration order", func() {
+		})
+
+		Context("declaration ordering", func() {
+			It("Should preserve struct declaration order", func() {
 			source := `
 				@go output "core/animals"
 
@@ -1019,6 +1061,7 @@ var _ = Describe("Go Types Plugin", func() {
 			mangoIdx := strings.Index(content, "Mango bool")
 			Expect(zebraIdx).To(BeNumerically("<", appleIdx))
 			Expect(appleIdx).To(BeNumerically("<", mangoIdx))
+		})
 		})
 	})
 })

@@ -24,26 +24,26 @@ Variant enum {
     disabled = "disabled"
 }
 
-Status struct<D?> {
+Status struct<D?, V extends Variant = Variant> {
     key         string    @key
     name        string    @validate default ""
-    variant     Variant
+    variant     V
     message     string
     description string?
     time        timestamp
     details     D?
 
-    @ts omit
+    @ts concrete_types
     @py omit
     @cpp omit
-    @cpp include "x/cpp/status/status.h"
+    @cpp include       "x/cpp/status/status.h"
 }
 
-New struct<D> extends Status<D> {
-    key  uuid?
+New struct<D?, V extends Variant = Variant> extends Status<D, V> {
+    key  string?
     name string?
 
-    @ts omit
+    @ts concrete_types
     @pb omit
     @cpp omit
 }

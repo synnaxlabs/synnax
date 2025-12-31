@@ -433,8 +433,34 @@ func (p *Plugin) processStruct(entry resolution.Struct, table *resolution.Table,
 	// Non-extending struct: use all fields (flattened for compatibility)
 	allFields := entry.UnifiedFields()
 	sd.Fields = make([]fieldData, 0, len(allFields))
+
+	// Build map of optional type params for conditional field detection
+	optionalTypeParams := make(map[string]bool)
+	for _, tp := range entry.TypeParams {
+		if tp.Optional {
+			optionalTypeParams[tp.Name] = true
+		}
+	}
+
 	for _, field := range allFields {
-		sd.Fields = append(sd.Fields, p.processField(field, entry, table, data, keyFields, sd.UseInput))
+		fd := p.processField(field, entry, table, data, keyFields, sd.UseInput)
+		sd.Fields = append(sd.Fields, fd)
+
+		// For concrete_types: detect fields that reference optional type params
+		if sd.ConcreteTypes && field.TypeRef != nil &&
+			field.TypeRef.Kind == resolution.TypeKindTypeParam &&
+			field.TypeRef.TypeParamRef != nil &&
+			optionalTypeParams[field.TypeRef.TypeParamRef.Name] {
+			// This field depends on an optional type param - add to conditional fields
+			sd.ConditionalFields = append(sd.ConditionalFields, conditionalFieldData{
+				Field:         fd,
+				TypeParamName: field.TypeRef.TypeParamRef.Name,
+				NeverType:     "z.ZodNever",
+			})
+		} else {
+			// Regular field - always present
+			sd.BaseFields = append(sd.BaseFields, fd)
+		}
 	}
 	return sd
 }
@@ -491,11 +517,28 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, data *templateData) t
 	tpd := typeParamData{Name: tp.Name, Constraint: "z.ZodType"}
 	if tp.Constraint != nil {
 		tpd.IsJSON = tp.Constraint.Primitive == "json"
+		// Handle enum constraints
+		if tp.Constraint.Kind == resolution.TypeKindEnum && tp.Constraint.EnumRef != nil {
+			enumZodName := lo.CamelCase(tp.Constraint.EnumRef.Name) + "Z"
+			tpd.Constraint = "typeof " + enumZodName
+		}
 	}
 	if tp.Default != nil {
 		tpd.HasDefault = true
-		tpd.Default = defaultToTS(tp.Default.RawType)
-		tpd.DefaultValue = defaultValueToTS(tp.Default.RawType)
+		// Handle enum defaults
+		if tp.Default.Kind == resolution.TypeKindEnum && tp.Default.EnumRef != nil {
+			enumZodName := lo.CamelCase(tp.Default.EnumRef.Name) + "Z"
+			tpd.Default = "typeof " + enumZodName
+			tpd.DefaultValue = enumZodName
+		} else {
+			tpd.Default = defaultToTS(tp.Default.RawType)
+			tpd.DefaultValue = defaultValueToTS(tp.Default.RawType)
+		}
+	} else if tp.Optional {
+		// Optional type param with no explicit default -> default to never
+		tpd.HasDefault = true
+		tpd.Default = "z.ZodNever"
+		tpd.DefaultValue = "z.unknown()"
 	}
 	return tpd
 }
@@ -542,6 +585,10 @@ func defaultValueToTS(rawType string) string {
 func fallbackForConstraint(constraint *resolution.TypeRef) string {
 	if constraint == nil {
 		return "z.unknown()"
+	}
+	// Handle enum constraints
+	if constraint.Kind == resolution.TypeKindEnum && constraint.EnumRef != nil {
+		return lo.CamelCase(constraint.EnumRef.Name) + "Z"
 	}
 	return defaultValueToTS(constraint.Primitive)
 }
@@ -733,6 +780,13 @@ func (p *Plugin) typeToTS(typeRef *resolution.TypeRef, table *resolution.Table, 
 func (p *Plugin) typeToTSInternal(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData, forStructArg bool) string {
 	switch typeRef.Kind {
 	case resolution.TypeKindPrimitive:
+		// Add imports for special primitive types used in concrete type generation
+		switch typeRef.Primitive {
+		case "timestamp":
+			addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
+		case "timespan":
+			addXImport(data, xImport{name: "TimeSpan", submodule: "telem"})
+		}
 		return primitiveToTS(typeRef.Primitive)
 	case resolution.TypeKindTypeParam:
 		if typeRef.TypeParamRef != nil {
@@ -786,7 +840,7 @@ var primitiveTSTypes = map[string]string{
 	"int8": "number", "int16": "number", "int32": "number", "int64": "number",
 	"uint8": "number", "uint16": "number", "uint32": "number", "uint64": "number",
 	"float32": "number", "float64": "number",
-	"timestamp": "number", "timespan": "number",
+	"timestamp": "TimeStamp", "timespan": "TimeSpan",
 	"json": "unknown", "bytes": "Uint8Array",
 }
 
@@ -1021,6 +1075,10 @@ type structData struct {
 	OmittedFields           []string    // Fields omitted from parent via -fieldName
 	PartialFields           []fieldData // Fields that only need .partial() (just optionality change)
 	ExtendFields            []fieldData // Fields that need .extend() (new fields or type changes)
+
+	// Conditional field support for optional type params
+	ConditionalFields []conditionalFieldData // Fields to include conditionally based on type param
+	BaseFields        []fieldData            // Fields that are always present (non-conditional)
 }
 
 type typeParamData struct {
@@ -1031,6 +1089,12 @@ type typeParamData struct {
 type fieldData struct {
 	Name, TSName, ZodType, TSType                  string
 	IsOptional, IsHardOptional, IsArray, IsSelfRef bool
+}
+
+type conditionalFieldData struct {
+	Field         fieldData // The field data
+	TypeParamName string    // The type param this field depends on (e.g., "D")
+	NeverType     string    // The "never" type for this param (e.g., "z.ZodNever")
 }
 
 type enumData struct {
@@ -1218,20 +1282,28 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
 {{- if $.GenerateTypes }}
 {{- if .ConcreteTypes }}
 {{- if .HasExtends }}
-export interface {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> extends Omit<{{ .ExtendsTypeName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>, {{ range $i, $f := .OmittedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}{{ if and .OmittedFields (or .PartialFields .ExtendFields) }} | {{ end }}{{ range $i, $f := .PartialFields }}{{ if $i }} | {{ end }}"{{ $f.TSName }}"{{ end }}{{ if and .PartialFields .ExtendFields }} | {{ end }}{{ range $i, $f := .ExtendFields }}{{ if $i }} | {{ end }}"{{ $f.TSName }}"{{ end }}> {
+export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = Omit<{{ .ExtendsTypeName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>, {{ range $i, $f := .OmittedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}{{ if and .OmittedFields (or .PartialFields .ExtendFields) }} | {{ end }}{{ range $i, $f := .PartialFields }}{{ if $i }} | {{ end }}"{{ $f.TSName }}"{{ end }}{{ if and .PartialFields .ExtendFields }} | {{ end }}{{ range $i, $f := .ExtendFields }}{{ if $i }} | {{ end }}"{{ $f.TSName }}"{{ end }}> & {
 {{- range .PartialFields }}
   {{ .TSName }}?: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
 {{- range .ExtendFields }}
   {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
-}
+};
+{{- else }}
+{{- if .ConditionalFields }}
+export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = {
+{{- range .BaseFields }}
+  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
+{{- end }}
+}{{ range .ConditionalFields }} & ([{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}: {{ .Field.TSType }}{{ if .Field.IsArray }}[]{{ end }} }){{ end }};
 {{- else }}
 export interface {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> {
 {{- range .Fields }}
   {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
 }
+{{- end }}
 {{- end }}
 {{- else }}
 export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.{{ if .UseInput }}input{{ else }}infer{{ end }}<

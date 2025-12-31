@@ -11,6 +11,10 @@
 
 import { z } from "zod";
 
+import { TimeStamp } from "@/telem";
+
+export const keyZ = z.string();
+export type Key = z.infer<typeof keyZ>;
 export const VARIANTS = [
   "success",
   "info",
@@ -21,3 +25,57 @@ export const VARIANTS = [
 ] as const;
 export const variantZ = z.enum([...VARIANTS]);
 export type Variant = z.infer<typeof variantZ>;
+
+export interface StatusSchemas<
+  D extends z.ZodType = z.ZodNever,
+  V extends typeof variantZ = typeof variantZ,
+> {
+  d?: D;
+  v?: V;
+}
+
+export const statusZ = <
+  D extends z.ZodType = z.ZodNever,
+  V extends typeof variantZ = typeof variantZ,
+>({ d, v }: StatusSchemas<D, V> = {}) =>
+  z.object({
+    key: keyZ,
+    name: z.string().default(""),
+    variant: v ?? variantZ,
+    message: z.string(),
+    description: z.string().optional(),
+    time: TimeStamp.z,
+    details: d ?? z.unknown().optional(),
+  });
+export type Status<
+  D extends z.ZodType = z.ZodNever,
+  V extends typeof variantZ = typeof variantZ,
+> = {
+  key: Key;
+  name: string;
+  variant: z.infer<V>;
+  message: string;
+  description?: string;
+  time: TimeStamp;
+} & ([D] extends [z.ZodNever] ? {} : { details: z.infer<D> });
+
+export interface NewSchemas<
+  D extends z.ZodType = z.ZodNever,
+  V extends typeof variantZ = typeof variantZ,
+> {
+  d?: D;
+  v?: V;
+}
+
+export const newZ = <
+  D extends z.ZodType = z.ZodNever,
+  V extends typeof variantZ = typeof variantZ,
+>({ d, v }: NewSchemas<D, V> = {}) =>
+  statusZ({ d, v }).partial({ key: true, name: true });
+export type New<
+  D extends z.ZodType = z.ZodNever,
+  V extends typeof variantZ = typeof variantZ,
+> = Omit<Status<D, V>, "key" | "name"> & {
+  key?: string;
+  name?: string;
+};

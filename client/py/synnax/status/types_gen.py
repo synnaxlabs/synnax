@@ -11,14 +11,9 @@
 
 from __future__ import annotations
 
-from typing import Literal
-from uuid import UUID
-
 from pydantic import BaseModel
-
-Variant = Literal["success", "info", "warning", "error", "loading", "disabled"]
 
 
 class New(Status):
-    key: UUID | None = None
+    key: str | None = None
     name: str | None = None

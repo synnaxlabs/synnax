@@ -8,20 +8,10 @@ option go_package = "github.com/synnaxlabs/x/status/grpc/v1/status";
 
 import "google/protobuf/any.proto";
 
-enum PBVariant {
-  PB_VARIANT_UNSPECIFIED = 0;
-  PB_VARIANT_SUCCESS = 1;
-  PB_VARIANT_INFO = 2;
-  PB_VARIANT_WARNING = 3;
-  PB_VARIANT_ERROR = 4;
-  PB_VARIANT_LOADING = 5;
-  PB_VARIANT_DISABLED = 6;
-}
-
 message PBStatus {
   string key = 1;
   string name = 2;
-  PBVariant variant = 3;
+  google.protobuf.Any variant = 3;
   string message = 4;
   string description = 5;
   int64 time = 6;

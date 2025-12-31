@@ -25,7 +25,7 @@ export const statusDetailsZ = z.object({
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 
-export const statusZ = status.statusZ(statusDetailsZ);
+export const statusZ = status.statusZ({ d: statusDetailsZ });
 export interface Status extends z.infer<typeof statusZ> {}
 
 export const payloadZ = z.object({

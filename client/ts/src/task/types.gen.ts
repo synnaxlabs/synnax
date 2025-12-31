@@ -29,7 +29,7 @@ export type StatusDetails<Data extends z.ZodType = z.ZodType> = z.infer<
 >;
 
 export const statusZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
-  status.statusZ(statusDetailsZ(data));
+  status.statusZ({ d: statusDetailsZ(data) });
 export type Status<Data extends z.ZodType = z.ZodType> = z.infer<
   ReturnType<typeof statusZ<Data>>
 >;
@@ -46,7 +46,7 @@ export type NewStatusDetails<Data extends z.ZodType = z.ZodType> = z.infer<
 >;
 
 export const newStatusZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
-  status.newZ(newStatusDetailsZ(data));
+  status.newZ({ d: newStatusDetailsZ(data) });
 export type NewStatus<Data extends z.ZodType = z.ZodType> = z.infer<
   ReturnType<typeof newStatusZ<Data>>
 >;
@@ -110,17 +110,17 @@ export const newZ = <
     .extend({
       status: newStatusZ(statusData).optional(),
     });
-export interface New<
+export type New<
   Type extends z.ZodType = z.ZodString,
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
-> extends Omit<
+> = Omit<
   Payload<Type, Config, StatusData>,
   "internal" | "snapshot" | "key" | "status"
-> {
+> & {
   key?: string;
   status?: NewStatus<StatusData>;
-}
+};
 
 export const commandZ = z.object({
   task: z.string(),

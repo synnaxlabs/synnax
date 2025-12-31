@@ -18,12 +18,12 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin"
+	gointernal "github.com/synnaxlabs/oracle/plugin/go/internal"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
@@ -60,11 +60,8 @@ func (p *Plugin) Domains() []string { return []string{"api"} }
 // Requires returns plugin dependencies.
 func (p *Plugin) Requires() []string { return []string{"go/types", "pb/types"} }
 
-// Check verifies generated files are up-to-date.
-func (p *Plugin) Check(req *plugin.Request) error {
-	// TODO: Implement freshness check
-	return nil
-}
+// Check verifies generated files are up-to-date. Currently unimplemented.
+func (p *Plugin) Check(*plugin.Request) error { return nil }
 
 // Generate produces API type aliases and translator functions from the analyzed schemas.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
@@ -172,9 +169,9 @@ func (p *Plugin) generateAliasFile(
 	req *plugin.Request,
 ) ([]byte, error) {
 	data := &aliasTemplateData{
-		Package: derivePackageName(outputPath),
+		Package: gointernal.DerivePackageName(outputPath),
 		Aliases: make([]aliasData, 0, len(structs)),
-		imports: newImportManager(),
+		imports: gointernal.NewImportManager(),
 	}
 
 	for _, s := range structs {
@@ -184,8 +181,8 @@ func (p *Plugin) generateAliasFile(
 			return nil, errors.Wrapf(err, "failed to resolve import for %s", s.Name)
 		}
 
-		alias := derivePackageAlias(goOutput, data.Package)
-		data.imports.addInternal(alias, importPath)
+		alias := gointernal.DerivePackageAlias(goOutput, data.Package)
+		data.imports.AddInternal(alias, importPath)
 
 		// Check if there's a custom name via @go name "Name"
 		goName := getGoName(s)
@@ -283,14 +280,14 @@ func (p *Plugin) generateTranslatorFileForGroup(
 	}
 
 	data := &translatorTemplateData{
-		Package:            derivePackageName(outputPath),
+		Package:            gointernal.DerivePackageName(outputPath),
 		GroupName:          groupName,
 		Namespace:          namespace,
 		Translators:        make([]translatorData, 0, len(structs)),
 		GenericTranslators: make([]genericTranslatorData, 0),
 		EnumTranslators:    make([]enumTranslatorData, 0),
 		AnyHelpers:         make([]anyHelperData, 0),
-		imports:            newImportManager(),
+		imports:            gointernal.NewImportManager(),
 		repoRoot:           req.RepoRoot,
 		table:              req.Resolutions,
 		usedEnums:          make(map[string]*resolution.Enum),
@@ -298,7 +295,7 @@ func (p *Plugin) generateTranslatorFileForGroup(
 	}
 
 	// Always need context import
-	data.imports.addExternal("context")
+	data.imports.AddExternal("context")
 
 	for _, s := range structs {
 		if s.IsGeneric() {
@@ -370,18 +367,18 @@ func (p *Plugin) generateEnumTranslator(
 	}
 
 	// Get package aliases
-	goAlias := derivePackageName(goOutput)
-	pbAlias := derivePackageAlias(pbOutput, data.Package) + "v1"
+	goAlias := gointernal.DerivePackageName(goOutput)
+	pbAlias := gointernal.DerivePackageAlias(pbOutput, data.Package) + "v1"
 
-	data.imports.addInternal(goAlias, goImportPath)
-	data.imports.addInternal(pbAlias, pbImportPath)
+	data.imports.AddInternal(goAlias, goImportPath)
+	data.imports.AddInternal(pbAlias, pbImportPath)
 
 	// Build enum value translations
 	values := make([]enumValueTranslatorData, 0, len(enumRef.Values))
 	var goDefault string
 
 	for i, v := range enumRef.Values {
-		valueName := toPascalCase(v.Name)
+		valueName := gointernal.ToPascalCase(v.Name)
 
 		// Go enum value format: depends on whether it's hand-written or generated
 		// For hand-written enums like status.Variant: <Value>Variant (e.g., SuccessVariant)
@@ -426,86 +423,91 @@ func (p *Plugin) generateEnumTranslator(
 	}, nil
 }
 
+// structTypeInfo holds resolved type information for a struct being translated.
+type structTypeInfo struct {
+	goTypePrefix string // Package prefix for Go type (e.g., "rack." or "")
+	pbAlias      string // Package alias for protobuf type (e.g., "rackv1")
+	goName       string // Go type name
+	pbName       string // Protobuf type name
+}
+
+// resolveStructTypeInfo resolves import paths and type prefixes for a struct.
+// Returns nil if the struct cannot be translated (missing outputs).
+func (p *Plugin) resolveStructTypeInfo(
+	s resolution.Struct,
+	data *translatorTemplateData,
+	req *plugin.Request,
+) (*structTypeInfo, error) {
+	goOutput := output.GetPath(s, "go")
+	pbOutput := output.GetPath(s, "pb")
+	apiOutput := output.GetPath(s, "api")
+	if goOutput == "" || pbOutput == "" {
+		return nil, nil
+	}
+
+	// Determine Go type location based on omit status and API output
+	goTypeOutput := goOutput
+	if !omit.IsStruct(s, "go") && apiOutput != "" && apiOutput != goOutput {
+		goTypeOutput = apiOutput
+	}
+
+	translatorOutputPath := deriveTranslatorOutputPath(pbOutput)
+	goImportPath, err := resolveGoImportPath(goTypeOutput, req.RepoRoot)
+	if err != nil {
+		return nil, err
+	}
+	pbImportPath, err := resolveGoImportPath(pbOutput, req.RepoRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	var goTypePrefix string
+	if goTypeOutput != translatorOutputPath {
+		alias := gointernal.DerivePackageAlias(goTypeOutput, data.Package)
+		data.imports.AddInternal(alias, goImportPath)
+		goTypePrefix = alias + "."
+	}
+
+	pbAlias := gointernal.DerivePackageAlias(pbOutput, data.Package) + "v1"
+	data.imports.AddInternal(pbAlias, pbImportPath)
+
+	goName := getGoName(s)
+	if goName == "" {
+		goName = s.Name
+	}
+
+	return &structTypeInfo{
+		goTypePrefix: goTypePrefix,
+		pbAlias:      pbAlias,
+		goName:       goName,
+		pbName:       "PB" + s.Name,
+	}, nil
+}
+
 // processStructForTranslation processes a struct and generates translator data.
 func (p *Plugin) processStructForTranslation(
 	s resolution.Struct,
 	data *translatorTemplateData,
 	req *plugin.Request,
 ) (*translatorData, error) {
-	goOutput := output.GetPath(s, "go")
-	pbOutput := output.GetPath(s, "pb")
-	apiOutput := output.GetPath(s, "api")
-
-	if goOutput == "" || pbOutput == "" {
+	info, err := p.resolveStructTypeInfo(s, data, req)
+	if err != nil {
+		return nil, err
+	}
+	if info == nil {
 		return nil, nil
 	}
 
-	// Check if Go types are omitted (meaning they're hand-written, not generated)
-	isGoOmitted := omit.IsStruct(s, "go")
-
-	// Determine the Go type location:
-	// - If @go omit is set, use @go output (the hand-written type location)
-	// - If @api output != @go output, the API layer has its own type (use @api output)
-	// - Otherwise, use @go output
-	var goTypeOutput string
-	if isGoOmitted {
-		// Hand-written Go types - use @go output
-		goTypeOutput = goOutput
-	} else if apiOutput != "" && apiOutput != goOutput {
-		// Generated API layer type
-		goTypeOutput = apiOutput
-	} else {
-		goTypeOutput = goOutput
-	}
-
-	// Derive the translator output path to check if Go type is in same package
-	translatorOutputPath := deriveTranslatorOutputPath(pbOutput)
-
-	// Resolve import paths
-	goImportPath, err := resolveGoImportPath(goTypeOutput, req.RepoRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	pbImportPath, err := resolveGoImportPath(pbOutput, req.RepoRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	// Check if Go type is in the same package as the translator
-	goTypeInSamePackage := goTypeOutput == translatorOutputPath
-
-	var goAlias, goTypePrefix string
-	if goTypeInSamePackage {
-		// Don't import - the type is local (available via alias in types.gen.go)
-		goTypePrefix = ""
-	} else {
-		goAlias = derivePackageAlias(goTypeOutput, data.Package)
-		data.imports.addInternal(goAlias, goImportPath)
-		goTypePrefix = goAlias + "."
-	}
-
-	pbAlias := derivePackageAlias(pbOutput, data.Package) + "v1"
-	data.imports.addInternal(pbAlias, pbImportPath)
-
-	// Get type names
-	goName := getGoName(s)
-	if goName == "" {
-		goName = s.Name
-	}
-	pbName := "PB" + s.Name
-
 	translator := &translatorData{
 		Name:           s.Name,
-		GoType:         goTypePrefix + goName,
-		PBType:         fmt.Sprintf("%s.%s", pbAlias, pbName),
-		GoTypeShort:    goName,
-		PBTypeShort:    pbName,
+		GoType:         info.goTypePrefix + info.goName,
+		PBType:         fmt.Sprintf("%s.%s", info.pbAlias, info.pbName),
+		GoTypeShort:    info.goName,
+		PBTypeShort:    info.pbName,
 		Fields:         make([]fieldTranslatorData, 0),
 		OptionalFields: make([]fieldTranslatorData, 0),
 	}
 
-	// Process fields
 	for _, field := range s.UnifiedFields() {
 		fieldData := p.processFieldForTranslation(field, data, s)
 		if fieldData.IsOptional {
@@ -515,113 +517,54 @@ func (p *Plugin) processStructForTranslation(
 		}
 	}
 
-	// Check if any field uses context
 	translator.UsesContext = fieldUsesContext(translator.Fields) || fieldUsesContext(translator.OptionalFields)
-
 	return translator, nil
 }
 
 // processGenericStructForTranslation processes a generic struct and generates translator data
-// with type parameters. This creates translator functions that accept converter functions
-// for each type parameter, following the TypeScript Zod pattern:
-//
-//	func TranslateStatusForward[D any](ctx, s, translateD func(D) *anypb.Any) *PBStatus
+// with type parameters. Creates translator functions that accept converter functions for each
+// type parameter, following the TypeScript Zod pattern.
 func (p *Plugin) processGenericStructForTranslation(
 	s resolution.Struct,
 	data *translatorTemplateData,
 	req *plugin.Request,
 ) (*genericTranslatorData, error) {
-	goOutput := output.GetPath(s, "go")
-	pbOutput := output.GetPath(s, "pb")
-
-	if goOutput == "" || pbOutput == "" {
+	info, err := p.resolveStructTypeInfo(s, data, req)
+	if err != nil {
+		return nil, err
+	}
+	if info == nil {
 		return nil, nil
 	}
 
-	// Check if Go types are omitted (meaning they're hand-written, not generated)
-	isGoOmitted := omit.IsStruct(s, "go")
-
-	// Determine the Go type location
-	var goTypeOutput string
-	if isGoOmitted {
-		goTypeOutput = goOutput
-	} else {
-		goTypeOutput = goOutput
-	}
-
-	// Derive the translator output path
-	translatorOutputPath := deriveTranslatorOutputPath(pbOutput)
-
-	// Resolve import paths
-	goImportPath, err := resolveGoImportPath(goTypeOutput, req.RepoRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	pbImportPath, err := resolveGoImportPath(pbOutput, req.RepoRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	// Check if Go type is in the same package as the translator
-	goTypeInSamePackage := goTypeOutput == translatorOutputPath
-
-	var goAlias, goTypePrefix string
-	if goTypeInSamePackage {
-		goTypePrefix = ""
-	} else {
-		goAlias = derivePackageAlias(goTypeOutput, data.Package)
-		data.imports.addInternal(goAlias, goImportPath)
-		goTypePrefix = goAlias + "."
-	}
-
-	pbAlias := derivePackageAlias(pbOutput, data.Package) + "v1"
-	data.imports.addInternal(pbAlias, pbImportPath)
-
-	// Need anypb for generic type parameters
-	data.imports.addExternal("google.golang.org/protobuf/types/known/anypb")
-
-	// Get type names
-	goName := getGoName(s)
-	if goName == "" {
-		goName = s.Name
-	}
-	pbName := "PB" + s.Name
+	data.imports.AddExternal("google.golang.org/protobuf/types/known/anypb")
 
 	// Build type parameters
 	typeParams := make([]typeParamData, 0, len(s.TypeParams))
+	typeParamNames := make([]string, 0, len(s.TypeParams))
 	for _, tp := range s.TypeParams {
-		typeParams = append(typeParams, typeParamData{
-			Name:       tp.Name,
-			Constraint: "any", // Go uses 'any' as the unconstrained type
-		})
+		typeParams = append(typeParams, typeParamData{Name: tp.Name, Constraint: "any"})
+		typeParamNames = append(typeParamNames, tp.Name)
 	}
 
-	// Build Go type with type parameters: "status.Status[D]"
-	typeParamNames := make([]string, len(typeParams))
-	for i, tp := range typeParams {
-		typeParamNames[i] = tp.Name
-	}
-	goTypeWithParams := fmt.Sprintf("%s%s[%s]", goTypePrefix, goName, strings.Join(typeParamNames, ", "))
+	goTypeWithParams := fmt.Sprintf("%s%s[%s]", info.goTypePrefix, info.goName, strings.Join(typeParamNames, ", "))
 
 	translator := &genericTranslatorData{
 		Name:            s.Name,
 		GoType:          goTypeWithParams,
-		GoTypeBase:      goTypePrefix + goName,
-		PBType:          fmt.Sprintf("%s.%s", pbAlias, pbName),
-		GoTypeShort:     goName,
-		PBTypeShort:     pbName,
+		GoTypeBase:      info.goTypePrefix + info.goName,
+		PBType:          fmt.Sprintf("%s.%s", info.pbAlias, info.pbName),
+		GoTypeShort:     info.goName,
+		PBTypeShort:     info.pbName,
 		TypeParams:      typeParams,
 		Fields:          make([]fieldTranslatorData, 0),
 		TypeParamFields: make([]fieldTranslatorData, 0),
 		OptionalFields:  make([]fieldTranslatorData, 0),
 	}
 
-	// Process fields - need special handling for type parameter references
 	for _, field := range s.UnifiedFields() {
 		fieldData, isTypeParam := p.processGenericFieldForTranslation(field, data, s, typeParams)
 		if isTypeParam {
-			// Type param fields need error handling, put them in TypeParamFields
 			translator.TypeParamFields = append(translator.TypeParamFields, fieldData)
 		} else if fieldData.IsOptional {
 			translator.OptionalFields = append(translator.OptionalFields, fieldData)
@@ -630,7 +573,6 @@ func (p *Plugin) processGenericStructForTranslation(
 		}
 	}
 
-	// Check if any field uses context
 	translator.UsesContext = fieldUsesContext(translator.Fields) ||
 		fieldUsesContext(translator.OptionalFields) ||
 		fieldUsesContext(translator.TypeParamFields)
@@ -647,8 +589,8 @@ func (p *Plugin) processGenericFieldForTranslation(
 	parentStruct resolution.Struct,
 	typeParams []typeParamData,
 ) (fieldTranslatorData, bool) {
-	goName := toPascalCase(field.Name)
-	pbName := toPascalCase(field.Name)
+	goName := gointernal.ToPascalCase(field.Name)
+	pbName := gointernal.ToPascalCase(field.Name)
 	typeRef := field.TypeRef
 
 	isHardOptional := field.TypeRef.IsHardOptional
@@ -696,8 +638,8 @@ func (p *Plugin) processFieldForTranslation(
 	data *translatorTemplateData,
 	parentStruct resolution.Struct,
 ) fieldTranslatorData {
-	goName := toPascalCase(field.Name)
-	pbName := toPascalCase(field.Name)
+	goName := gointernal.ToPascalCase(field.Name)
+	pbName := gointernal.ToPascalCase(field.Name)
 
 	// Only hard optional (??) results in a pointer in Go
 	// Soft optional (?) results in a value type in Go but optional in proto
@@ -716,8 +658,8 @@ func (p *Plugin) processFieldForTranslation(
 		if goOutput != "" {
 			importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
 			if err == nil {
-				pkgAlias := derivePackageName(goOutput)
-				data.imports.addInternal(pkgAlias, importPath)
+				pkgAlias := gointernal.DerivePackageName(goOutput)
+				data.imports.AddInternal(pkgAlias, importPath)
 			}
 		}
 	}
@@ -743,7 +685,7 @@ func (p *Plugin) generateFieldConversion(
 	parentStruct resolution.Struct,
 ) (forward, backward, backwardCast string) {
 	typeRef := field.TypeRef
-	fieldName := toPascalCase(field.Name)
+	fieldName := gointernal.ToPascalCase(field.Name)
 	goFieldName := "r." + fieldName
 	pbFieldName := "pb." + fieldName
 
@@ -760,7 +702,7 @@ func (p *Plugin) generateFieldConversion(
 	// Only applies to numeric types that get wrapped, not uuid which has its own conversion
 	if isKeyField && typeRef.Kind == resolution.TypeKindPrimitive && isNumericPrimitive(typeRef.Primitive) {
 		goOutput := output.GetPath(parentStruct, "go")
-		pkgName := derivePackageName(goOutput)
+		pkgName := gointernal.DerivePackageName(goOutput)
 		protoType := primitiveToProtoType(typeRef.Primitive)
 		// Forward: uint32(r.Key), Backward: rack.Key(pb.Key)
 		return fmt.Sprintf("%s(%s)", protoType, goFieldName),
@@ -844,23 +786,23 @@ func (p *Plugin) generatePrimitiveConversion(
 ) (forward, backward string) {
 	switch primitive {
 	case "uuid":
-		data.imports.addExternal("github.com/google/uuid")
+		data.imports.AddExternal("github.com/google/uuid")
 		return fmt.Sprintf("%s.String()", goField),
 			fmt.Sprintf("uuid.MustParse(%s)", pbField)
 	case "timestamp":
-		data.imports.addExternal("github.com/synnaxlabs/x/telem")
+		data.imports.AddExternal("github.com/synnaxlabs/x/telem")
 		return fmt.Sprintf("int64(%s)", goField),
 			fmt.Sprintf("telem.TimeStamp(%s)", pbField)
 	case "timespan":
-		data.imports.addExternal("github.com/synnaxlabs/x/telem")
+		data.imports.AddExternal("github.com/synnaxlabs/x/telem")
 		return fmt.Sprintf("int64(%s)", goField),
 			fmt.Sprintf("telem.TimeSpan(%s)", pbField)
 	case "time_range":
-		data.imports.addExternal("github.com/synnaxlabs/x/telem")
+		data.imports.AddExternal("github.com/synnaxlabs/x/telem")
 		return fmt.Sprintf("telem.TranslateTimeRangeForward(%s)", goField),
 			fmt.Sprintf("telem.TranslateTimeRangeBackward(%s)", pbField)
 	case "json":
-		data.imports.addExternal("google.golang.org/protobuf/types/known/structpb")
+		data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
 		return fmt.Sprintf("structpb.NewValue(%s)", goField),
 			fmt.Sprintf("%s.AsInterface()", pbField)
 	default:
@@ -922,7 +864,7 @@ func (p *Plugin) generateStructConversion(
 				if err == nil {
 					// Create a package alias for the translator
 					alias := strings.ToLower(actualStruct.Namespace) + "grpc"
-					data.imports.addInternal(alias, importPath)
+					data.imports.AddInternal(alias, importPath)
 					translatorPrefix = alias + "."
 				}
 			}
@@ -966,7 +908,7 @@ func (p *Plugin) generateGenericStructConversion(
 				importPath, err := resolveGoImportPath(translatorPath, data.repoRoot)
 				if err == nil {
 					alias := strings.ToLower(actualStruct.Namespace) + "grpc"
-					data.imports.addInternal(alias, importPath)
+					data.imports.AddInternal(alias, importPath)
 					translatorPrefix = alias + "."
 				}
 			}
@@ -994,8 +936,8 @@ func (p *Plugin) generateGenericStructConversion(
 			if goOutput != "" {
 				importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
 				if err == nil {
-					alias := derivePackageAlias(goOutput, data.Package)
-					data.imports.addInternal(alias, importPath)
+					alias := gointernal.DerivePackageAlias(goOutput, data.Package)
+					data.imports.AddInternal(alias, importPath)
 					explicitTypeArgs = append(explicitTypeArgs, fmt.Sprintf("%s.%s", alias, argName))
 				} else {
 					explicitTypeArgs = append(explicitTypeArgs, argName)
@@ -1022,8 +964,8 @@ func (p *Plugin) generateGenericStructConversion(
 	if goOutput != "" {
 		importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
 		if err == nil {
-			alias := derivePackageAlias(goOutput, data.Package)
-			data.imports.addInternal(alias, importPath)
+			alias := gointernal.DerivePackageAlias(goOutput, data.Package)
+			data.imports.AddInternal(alias, importPath)
 			genericGoType = fmt.Sprintf("%s.%s[%s]", alias, structName, strings.Join(explicitTypeArgs, ", "))
 		}
 	}
@@ -1049,8 +991,8 @@ func (p *Plugin) generateGenericStructConversion(
 		if aliasGoOutput != "" {
 			importPath, err := resolveGoImportPath(aliasGoOutput, data.repoRoot)
 			if err == nil {
-				alias := derivePackageAlias(aliasGoOutput, data.Package)
-				data.imports.addInternal(alias, importPath)
+				alias := gointernal.DerivePackageAlias(aliasGoOutput, data.Package)
+				data.imports.AddInternal(alias, importPath)
 				aliasName := getGoName(*typeRef.StructRef)
 				if aliasName == "" {
 					aliasName = typeRef.StructRef.Name
@@ -1114,12 +1056,12 @@ func (p *Plugin) ensureAnyHelper(s *resolution.Struct, data *translatorTemplateD
 	}
 
 	// Add imports
-	goAlias := derivePackageAlias(goOutput, data.Package)
-	pbAlias := derivePackageAlias(pbOutput, data.Package) + "v1"
+	goAlias := gointernal.DerivePackageAlias(goOutput, data.Package)
+	pbAlias := gointernal.DerivePackageAlias(pbOutput, data.Package) + "v1"
 
-	data.imports.addInternal(goAlias, goImportPath)
-	data.imports.addInternal(pbAlias, pbImportPath)
-	data.imports.addExternal("google.golang.org/protobuf/types/known/anypb")
+	data.imports.AddInternal(goAlias, goImportPath)
+	data.imports.AddInternal(pbAlias, pbImportPath)
+	data.imports.AddExternal("google.golang.org/protobuf/types/known/anypb")
 
 	goName := getGoName(*s)
 	if goName == "" {
@@ -1170,8 +1112,8 @@ func (p *Plugin) generateArrayConversion(
 	if typeRef.Kind == resolution.TypeKindPrimitive {
 		switch typeRef.Primitive {
 		case "uuid":
-			data.imports.addExternal("github.com/google/uuid")
-			data.imports.addExternal("github.com/samber/lo")
+			data.imports.AddExternal("github.com/google/uuid")
+			data.imports.AddExternal("github.com/samber/lo")
 			return fmt.Sprintf("lo.Map(%s, func(u uuid.UUID, _ int) string { return u.String() })", goField),
 				fmt.Sprintf("lo.Map(%s, func(s string, _ int) uuid.UUID { return uuid.MustParse(s) })", pbField)
 		default:
@@ -1199,21 +1141,6 @@ func deriveTranslatorOutputPath(pbOutput string) string {
 	return ""
 }
 
-// derivePackageName extracts the package name from the output path.
-func derivePackageName(outputPath string) string {
-	return filepath.Base(outputPath)
-}
-
-// derivePackageAlias creates a unique alias for an imported package.
-func derivePackageAlias(outputPath, currentPackage string) string {
-	base := filepath.Base(outputPath)
-	if base == currentPackage {
-		parent := filepath.Base(filepath.Dir(outputPath))
-		return parent + base
-	}
-	return base
-}
-
 // getGoName gets the custom Go name from @go name annotation.
 func getGoName(s resolution.Struct) string {
 	if domain, ok := s.Domains["go"]; ok {
@@ -1224,11 +1151,6 @@ func getGoName(s resolution.Struct) string {
 		}
 	}
 	return ""
-}
-
-// toPascalCase converts snake_case to PascalCase.
-func toPascalCase(s string) string {
-	return lo.PascalCase(s)
 }
 
 // toScreamingSnake converts a name to SCREAMING_SNAKE_CASE.
@@ -1250,25 +1172,15 @@ func fieldUsesContext(fields []fieldTranslatorData) bool {
 type aliasTemplateData struct {
 	Package string
 	Aliases []aliasData
-	imports *importManager
+	imports *gointernal.ImportManager
 }
 
 // HasImports returns true if any imports are needed.
-func (d *aliasTemplateData) HasImports() bool {
-	return len(d.imports.external) > 0 || len(d.imports.internal) > 0
-}
+func (d *aliasTemplateData) HasImports() bool { return d.imports.HasImports() }
 
 // InternalImports returns sorted internal imports.
-func (d *aliasTemplateData) InternalImports() []internalImportData {
-	imports := make([]internalImportData, 0, len(d.imports.internal))
-	for _, imp := range d.imports.internal {
-		imports = append(imports, internalImportData{
-			Path:  imp.path,
-			Alias: imp.alias,
-		})
-	}
-	sort.Slice(imports, func(i, j int) bool { return imports[i].Path < imports[j].Path })
-	return imports
+func (d *aliasTemplateData) InternalImports() []gointernal.InternalImportData {
+	return d.imports.InternalImports()
 }
 
 // aliasData holds data for a single type alias.
@@ -1279,18 +1191,18 @@ type aliasData struct {
 
 // translatorTemplateData holds data for translator file generation.
 type translatorTemplateData struct {
-	Package            string
-	GroupName          string
-	Namespace          string
-	Translators        []translatorData
-	GenericTranslators []genericTranslatorData
-	EnumTranslators    []enumTranslatorData
-	AnyHelpers         []anyHelperData
-	imports            *importManager
-	repoRoot           string
-	table              *resolution.Table
-	usedEnums          map[string]*resolution.Enum // tracks which enums are used
-	generatedAnyHelpers map[string]bool            // tracks which toAny/fromAny helpers we've generated
+	Package             string
+	GroupName           string
+	Namespace           string
+	Translators         []translatorData
+	GenericTranslators  []genericTranslatorData
+	EnumTranslators     []enumTranslatorData
+	AnyHelpers          []anyHelperData
+	imports             *gointernal.ImportManager
+	repoRoot            string
+	table               *resolution.Table
+	usedEnums           map[string]*resolution.Enum
+	generatedAnyHelpers map[string]bool
 }
 
 // genericTranslatorData holds data for a generic type's translators.
@@ -1345,31 +1257,14 @@ type enumValueTranslatorData struct {
 }
 
 // HasImports returns true if any imports are needed.
-func (d *translatorTemplateData) HasImports() bool {
-	return len(d.imports.external) > 0 || len(d.imports.internal) > 0
-}
+func (d *translatorTemplateData) HasImports() bool { return d.imports.HasImports() }
 
 // ExternalImports returns sorted external imports.
-func (d *translatorTemplateData) ExternalImports() []string {
-	imports := make([]string, 0, len(d.imports.external))
-	for imp := range d.imports.external {
-		imports = append(imports, imp)
-	}
-	sort.Strings(imports)
-	return imports
-}
+func (d *translatorTemplateData) ExternalImports() []string { return d.imports.ExternalImports() }
 
 // InternalImports returns sorted internal imports.
-func (d *translatorTemplateData) InternalImports() []internalImportData {
-	imports := make([]internalImportData, 0, len(d.imports.internal))
-	for _, imp := range d.imports.internal {
-		imports = append(imports, internalImportData{
-			Path:  imp.path,
-			Alias: imp.alias,
-		})
-	}
-	sort.Slice(imports, func(i, j int) bool { return imports[i].Path < imports[j].Path })
-	return imports
+func (d *translatorTemplateData) InternalImports() []gointernal.InternalImportData {
+	return d.imports.InternalImports()
 }
 
 // translatorData holds data for a single type's translators.
@@ -1395,39 +1290,3 @@ type fieldTranslatorData struct {
 	IsOptionalStruct bool // True if optional AND struct type (needs error handling)
 }
 
-// internalImportData holds data for an internal import.
-type internalImportData struct {
-	Path  string
-	Alias string
-}
-
-// NeedsAlias returns true if the import needs an alias.
-func (i internalImportData) NeedsAlias() bool {
-	return i.Alias != "" && i.Alias != filepath.Base(i.Path)
-}
-
-// importManager tracks Go imports.
-type importManager struct {
-	external map[string]bool
-	internal map[string]*internalImport
-}
-
-type internalImport struct {
-	path  string
-	alias string
-}
-
-func newImportManager() *importManager {
-	return &importManager{
-		external: make(map[string]bool),
-		internal: make(map[string]*internalImport),
-	}
-}
-
-func (m *importManager) addExternal(path string) {
-	m.external[path] = true
-}
-
-func (m *importManager) addInternal(alias, path string) {
-	m.internal[alias] = &internalImport{path: path, alias: alias}
-}
