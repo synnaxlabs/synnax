@@ -122,6 +122,11 @@ func (p *Plugin) generateAliasFiles(
 			continue
 		}
 
+		// Skip generic types - they can't be aliased without instantiation
+		if s.IsGeneric() {
+			continue
+		}
+
 		apiOutput := output.GetPath(s, "api")
 		if apiOutput == "" {
 			continue
@@ -222,6 +227,11 @@ func (p *Plugin) generateTranslatorFiles(
 			continue
 		}
 
+		// Skip generic types - they need to be instantiated before translation
+		if s.IsGeneric() {
+			continue
+		}
+
 		// Need both @api and @pb for translator generation
 		pbOutput := output.GetPath(s, "pb")
 		if pbOutput == "" {
@@ -275,13 +285,15 @@ func (p *Plugin) generateTranslatorFileForGroup(
 	}
 
 	data := &translatorTemplateData{
-		Package:     derivePackageName(outputPath),
-		GroupName:   groupName,
-		Namespace:   namespace,
-		Translators: make([]translatorData, 0, len(structs)),
-		imports:     newImportManager(),
-		repoRoot:    req.RepoRoot,
-		table:       req.Resolutions,
+		Package:         derivePackageName(outputPath),
+		GroupName:       groupName,
+		Namespace:       namespace,
+		Translators:     make([]translatorData, 0, len(structs)),
+		EnumTranslators: make([]enumTranslatorData, 0),
+		imports:         newImportManager(),
+		repoRoot:        req.RepoRoot,
+		table:           req.Resolutions,
+		usedEnums:       make(map[string]*resolution.Enum),
 	}
 
 	// Always need context import
@@ -301,11 +313,104 @@ func (p *Plugin) generateTranslatorFileForGroup(
 		return nil, nil
 	}
 
+	// Generate enum translators for all used enums
+	for _, enumRef := range data.usedEnums {
+		enumTranslator, err := p.generateEnumTranslator(enumRef, data, req)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to generate enum translator for %s", enumRef.Name)
+		}
+		if enumTranslator != nil {
+			data.EnumTranslators = append(data.EnumTranslators, *enumTranslator)
+		}
+	}
+
 	var buf bytes.Buffer
 	if err := translatorFileTemplate.Execute(&buf, data); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// generateEnumTranslator generates translator data for an enum.
+func (p *Plugin) generateEnumTranslator(
+	enumRef *resolution.Enum,
+	data *translatorTemplateData,
+	req *plugin.Request,
+) (*enumTranslatorData, error) {
+	goOutput := output.GetEnumPath(*enumRef, "go")
+	pbOutput := output.GetEnumPath(*enumRef, "pb")
+
+	if goOutput == "" || pbOutput == "" {
+		return nil, nil
+	}
+
+	// Resolve Go import path for enum
+	goImportPath, err := resolveGoImportPath(goOutput, req.RepoRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	// Resolve proto import path
+	pbImportPath, err := resolveGoImportPath(pbOutput, req.RepoRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get package aliases
+	goAlias := derivePackageName(goOutput)
+	pbAlias := derivePackageAlias(pbOutput, data.Package) + "v1"
+
+	data.imports.addInternal(goAlias, goImportPath)
+	data.imports.addInternal(pbAlias, pbImportPath)
+
+	// Build enum value translations
+	values := make([]enumValueTranslatorData, 0, len(enumRef.Values))
+	var goDefault string
+
+	for i, v := range enumRef.Values {
+		valueName := toPascalCase(v.Name)
+
+		// Go enum value format: depends on whether it's hand-written or generated
+		// For hand-written enums like status.Variant: <Value>Variant (e.g., SuccessVariant)
+		// For generated enums: <Enum><Value> (e.g., VariantSuccess)
+		// Check if Go is omitted to determine pattern
+		isGoOmitted := omit.IsEnum(*enumRef, "go")
+		var goValue string
+		if isGoOmitted {
+			// Hand-written Go enum - try common patterns
+			// Pattern 1: <Value><Enum> (e.g., SuccessVariant)
+			goValue = fmt.Sprintf("%s.%s%s", goAlias, valueName, enumRef.Name)
+		} else {
+			// Generated Go enum: <Enum><Value>
+			goValue = fmt.Sprintf("%s.%s%s", goAlias, enumRef.Name, valueName)
+		}
+
+		// Proto enum value format: PB<Enum>_PB_<ENUM>_<VALUE>
+		pbEnumName := "PB" + enumRef.Name
+		pbValueName := fmt.Sprintf("%s_PB_%s_%s", pbEnumName, toScreamingSnake(enumRef.Name), toScreamingSnake(v.Name))
+		pbValue := fmt.Sprintf("%s.%s", pbAlias, pbValueName)
+
+		values = append(values, enumValueTranslatorData{
+			GoValue: goValue,
+			PBValue: pbValue,
+		})
+
+		if i == 0 {
+			goDefault = goValue
+		}
+	}
+
+	// Proto default is always UNSPECIFIED
+	pbDefault := fmt.Sprintf("%s.PB%s_PB_%s_UNSPECIFIED", pbAlias, enumRef.Name, toScreamingSnake(enumRef.Name))
+
+	return &enumTranslatorData{
+		Name:      enumRef.Name,
+		GoType:    fmt.Sprintf("%s.%s", goAlias, enumRef.Name),
+		PBType:    fmt.Sprintf("%s.PB%s", pbAlias, enumRef.Name),
+		Values:    values,
+		PBDefault: pbDefault,
+		GoDefault: goDefault,
+	}, nil
 }
 
 // processStructForTranslation processes a struct and generates translator data.
@@ -322,9 +427,19 @@ func (p *Plugin) processStructForTranslation(
 		return nil, nil
 	}
 
-	// Determine the Go type to use (API type if different from Go type, else Go type)
+	// Check if Go types are omitted (meaning they're hand-written, not generated)
+	isGoOmitted := omit.IsStruct(s, "go")
+
+	// Determine the Go type location:
+	// - If @go omit is set, use @go output (the hand-written type location)
+	// - If @api output != @go output, the API layer has its own type (use @api output)
+	// - Otherwise, use @go output
 	var goTypeOutput string
-	if apiOutput != "" && apiOutput != goOutput {
+	if isGoOmitted {
+		// Hand-written Go types - use @go output
+		goTypeOutput = goOutput
+	} else if apiOutput != "" && apiOutput != goOutput {
+		// Generated API layer type
 		goTypeOutput = apiOutput
 	} else {
 		goTypeOutput = goOutput
@@ -591,6 +706,14 @@ func (p *Plugin) generateStructConversion(
 		actualStruct = actualStruct.AliasOf.StructRef
 	}
 
+	// Skip generic types - we can't generate translators for them
+	// Just use direct assignment and let the developer handle it manually
+	if actualStruct.IsGeneric() {
+		// For generic types, just pass the field through directly
+		// This may need manual adjustment
+		return goField, pbField
+	}
+
 	structName := actualStruct.Name
 
 	// Check if referenced struct is from a different namespace
@@ -629,10 +752,16 @@ func (p *Plugin) generateStructConversion(
 // generateEnumConversion generates conversion for enum types.
 func (p *Plugin) generateEnumConversion(
 	typeRef *resolution.TypeRef,
-	_ *translatorTemplateData,
+	data *translatorTemplateData,
 	goField, pbField string,
 ) (forward, backward string) {
-	enumName := typeRef.EnumRef.Name
+	enumRef := typeRef.EnumRef
+	enumName := enumRef.Name
+
+	// Track this enum for translator generation
+	if _, exists := data.usedEnums[enumRef.QualifiedName]; !exists {
+		data.usedEnums[enumRef.QualifiedName] = enumRef
+	}
 
 	return fmt.Sprintf("translate%sForward(%s)", enumName, goField),
 		fmt.Sprintf("translate%sBackward(%s)", enumName, pbField)
@@ -718,6 +847,11 @@ func toPascalCase(s string) string {
 	return lo.PascalCase(s)
 }
 
+// toScreamingSnake converts a name to SCREAMING_SNAKE_CASE.
+func toScreamingSnake(s string) string {
+	return strings.ToUpper(lo.SnakeCase(s))
+}
+
 // aliasTemplateData holds data for type alias file generation.
 type aliasTemplateData struct {
 	Package string
@@ -751,13 +885,31 @@ type aliasData struct {
 
 // translatorTemplateData holds data for translator file generation.
 type translatorTemplateData struct {
-	Package     string
-	GroupName   string
-	Namespace   string
-	Translators []translatorData
-	imports     *importManager
-	repoRoot    string
-	table       *resolution.Table
+	Package         string
+	GroupName       string
+	Namespace       string
+	Translators     []translatorData
+	EnumTranslators []enumTranslatorData
+	imports         *importManager
+	repoRoot        string
+	table           *resolution.Table
+	usedEnums       map[string]*resolution.Enum // tracks which enums are used
+}
+
+// enumTranslatorData holds data for enum translator functions.
+type enumTranslatorData struct {
+	Name       string
+	GoType     string
+	PBType     string
+	Values     []enumValueTranslatorData
+	PBDefault  string // The default proto enum value (UNSPECIFIED)
+	GoDefault  string // The default Go enum value
+}
+
+// enumValueTranslatorData holds data for a single enum value translation.
+type enumValueTranslatorData struct {
+	GoValue string
+	PBValue string
 }
 
 // HasImports returns true if any imports are needed.

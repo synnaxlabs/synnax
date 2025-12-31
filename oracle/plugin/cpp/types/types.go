@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
+	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/output"
@@ -32,7 +33,8 @@ type Plugin struct{ Options Options }
 
 // Options configures the C++ types plugin.
 type Options struct {
-	FileNamePattern string
+	FileNamePattern  string
+	DisableFormatter bool // If true, skip running clang-format
 }
 
 // DefaultOptions returns the default plugin options.
@@ -41,6 +43,8 @@ func DefaultOptions() Options {
 		FileNamePattern: "types.gen.h",
 	}
 }
+
+var clangFormatCmd = []string{"clang-format", "-i"}
 
 // New creates a new C++ types plugin with the given options.
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
@@ -93,6 +97,28 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 
 	return resp, nil
+}
+
+// PostWrite implements plugin.PostWriter to run clang-format on generated files.
+func (p *Plugin) PostWrite(files []string) error {
+	if p.Options.DisableFormatter || len(files) == 0 {
+		return nil
+	}
+
+	// Filter to only C++ header files
+	var cppFiles []string
+	for _, f := range files {
+		if strings.HasSuffix(f, ".h") || strings.HasSuffix(f, ".hpp") ||
+			strings.HasSuffix(f, ".cpp") || strings.HasSuffix(f, ".cc") {
+			cppFiles = append(cppFiles, f)
+		}
+	}
+
+	if len(cppFiles) == 0 {
+		return nil
+	}
+
+	return exec.OnFiles(clangFormatCmd, cppFiles, "")
 }
 
 // generateFile generates the C++ header file for a set of structs.
@@ -197,12 +223,24 @@ func (p *Plugin) processStruct(entry resolution.Struct, data *templateData) stru
 		}
 	}
 
+	// Determine JSON generation mode
+	jsonMode := getJsonMode(entry.Domains)
+	generateParse := jsonMode == jsonModeAll || jsonMode == jsonModeParseOnly
+	generateToJson := jsonMode == jsonModeAll || jsonMode == jsonModeToJsonOnly
+
+	// If generating JSON methods, add xjson include
+	if generateParse || generateToJson {
+		data.includes.addInternal("x/cpp/xjson/xjson.h")
+	}
+
 	sd := structData{
-		Name:      name,
-		Doc:       doc.Get(entry.Domains),
-		Fields:    make([]fieldData, 0, len(entry.Fields)),
-		IsGeneric: entry.IsGeneric(),
-		IsAlias:   entry.IsAlias(),
+		Name:           name,
+		Doc:            doc.Get(entry.Domains),
+		Fields:         make([]fieldData, 0, len(entry.Fields)),
+		IsGeneric:      entry.IsGeneric(),
+		IsAlias:        entry.IsAlias(),
+		GenerateParse:  generateParse,
+		GenerateToJson: generateToJson,
 	}
 
 	// Process type parameters
@@ -219,7 +257,7 @@ func (p *Plugin) processStruct(entry resolution.Struct, data *templateData) stru
 	// For C++, we always flatten fields (no struct embedding like Go)
 	// This handles both extending and non-extending structs uniformly
 	for _, field := range entry.UnifiedFields() {
-		sd.Fields = append(sd.Fields, p.processField(field, data))
+		sd.Fields = append(sd.Fields, p.processField(field, entry, data))
 	}
 
 	return sd
@@ -233,13 +271,22 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam) typeParamData {
 }
 
 // processField converts a Field to template data.
-func (p *Plugin) processField(field resolution.Field, data *templateData) fieldData {
+func (p *Plugin) processField(field resolution.Field, entry resolution.Struct, data *templateData) fieldData {
 	cppType := p.typeToCpp(field.TypeRef, data)
 
+	// Generate JSON expressions
+	parseExpr := p.parseExprForField(field, cppType, data)
+	toJsonExpr := p.toJsonExprForField(field, data)
+
 	return fieldData{
-		Name:   field.Name,
-		CppType: cppType,
-		Doc:    doc.Get(field.Domains),
+		Name:         field.Name,
+		CppType:      cppType,
+		Doc:          doc.Get(field.Domains),
+		JsonName:     field.Name,
+		ParseExpr:    parseExpr,
+		ToJsonExpr:   toJsonExpr,
+		HasDefault:   field.TypeRef.IsOptional,
+		DefaultValue: p.defaultValueForType(field.TypeRef),
 	}
 }
 
@@ -516,15 +563,27 @@ func (d *templateData) InternalIncludes() []string {
 	return includes
 }
 
+// jsonMode represents the JSON generation mode for a struct.
+type jsonMode int
+
+const (
+	jsonModeAll       jsonMode = iota // Generate both parse and to_json
+	jsonModeOmit                      // Skip JSON generation entirely
+	jsonModeParseOnly                 // Generate only parse() method
+	jsonModeToJsonOnly                // Generate only to_json() method
+)
+
 // structData holds data for a single struct definition.
 type structData struct {
-	Name       string
-	Doc        string
-	Fields     []fieldData
-	TypeParams []typeParamData
-	IsGeneric  bool
-	IsAlias    bool
-	AliasOf    string
+	Name           string
+	Doc            string
+	Fields         []fieldData
+	TypeParams     []typeParamData
+	IsGeneric      bool
+	IsAlias        bool
+	AliasOf        string
+	GenerateParse  bool
+	GenerateToJson bool
 }
 
 // typeParamData holds data for a type parameter.
@@ -534,9 +593,14 @@ type typeParamData struct {
 
 // fieldData holds data for a single field definition.
 type fieldData struct {
-	Name    string
-	CppType string
-	Doc     string
+	Name         string
+	CppType      string
+	Doc          string
+	JsonName     string // JSON key name (snake_case from schema)
+	ParseExpr    string // Expression for parsing from JSON
+	ToJsonExpr   string // Expression for serializing to JSON
+	HasDefault   bool   // Whether field has a default value (soft optional)
+	DefaultValue string // C++ default value for the type
 }
 
 // enumData holds data for an enum definition.
@@ -551,6 +615,243 @@ type enumValueData struct {
 	Name     string
 	Value    string
 	IntValue int64
+}
+
+// getJsonMode extracts the JSON generation mode from @cpp domain annotations.
+// Supported annotations: @cpp json omit, @cpp json parse_only, @cpp json to_json_only
+func getJsonMode(domains map[string]resolution.Domain) jsonMode {
+	cppDomain, ok := domains["cpp"]
+	if !ok {
+		return jsonModeAll
+	}
+	for _, expr := range cppDomain.Expressions {
+		if expr.Name == "json" && len(expr.Values) > 0 {
+			switch expr.Values[0].StringValue {
+			case "omit":
+				return jsonModeOmit
+			case "parse_only":
+				return jsonModeParseOnly
+			case "to_json_only":
+				return jsonModeToJsonOnly
+			}
+		}
+	}
+	return jsonModeAll
+}
+
+// defaultValueForPrimitive returns the C++ default value for a primitive type.
+func defaultValueForPrimitive(primitive string) string {
+	switch primitive {
+	case "string", "uuid":
+		return `""`
+	case "bool":
+		return "false"
+	case "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64":
+		return "0"
+	case "float32", "float64":
+		return "0.0"
+	case "timestamp":
+		return "telem::TimeStamp(0)"
+	case "timespan":
+		return "telem::TimeSpan(0)"
+	case "time_range", "time_range_bounded":
+		return "telem::TimeRange{}"
+	case "json":
+		return "nlohmann::json{}"
+	case "bytes":
+		return "{}"
+	default:
+		return "{}"
+	}
+}
+
+// defaultValueForType returns the C++ default value for a type reference.
+func (p *Plugin) defaultValueForType(typeRef *resolution.TypeRef) string {
+	if typeRef.IsArray {
+		return "{}"
+	}
+	if typeRef.IsHardOptional {
+		return "std::nullopt"
+	}
+	switch typeRef.Kind {
+	case resolution.TypeKindPrimitive:
+		return defaultValueForPrimitive(typeRef.Primitive)
+	case resolution.TypeKindStruct:
+		return "{}"
+	case resolution.TypeKindEnum:
+		if typeRef.EnumRef != nil && typeRef.EnumRef.IsIntEnum {
+			return "static_cast<" + typeRef.EnumRef.Name + ">(0)"
+		}
+		return `""`
+	case resolution.TypeKindMap:
+		return "{}"
+	case resolution.TypeKindTypeParam:
+		return "{}"
+	default:
+		return "{}"
+	}
+}
+
+// parseExprForField generates the C++ expression to parse a field from JSON.
+func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data *templateData) string {
+	typeRef := field.TypeRef
+	jsonName := field.Name
+	hasDefault := typeRef.IsOptional
+
+	// Handle different type kinds
+	switch {
+	case typeRef.IsHardOptional:
+		// Hard optional uses std::optional, check if field exists
+		innerType := p.typeToCppWithoutOptional(typeRef, data)
+		innerExpr := p.parseExprForTypeRef(typeRef, innerType, jsonName, false, data)
+		return fmt.Sprintf(`parser.has("%s") ? std::make_optional(%s) : std::nullopt`, jsonName, innerExpr)
+
+	case typeRef.IsArray:
+		// Arrays are parsed directly via parser.field<std::vector<T>>
+		if hasDefault {
+			return fmt.Sprintf(`parser.field<%s>("%s", {})`, cppType, jsonName)
+		}
+		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
+
+	case typeRef.Kind == resolution.TypeKindStruct:
+		// Nested structs call their parse method via optional_child
+		// optional_child returns a noop parser if field is missing, which returns defaults
+		if typeRef.StructRef != nil {
+			structType := p.resolveStructType(typeRef, data)
+			if hasDefault {
+				return fmt.Sprintf(`%s::parse(parser.optional_child("%s"))`, structType, jsonName)
+			}
+			return fmt.Sprintf(`%s::parse(parser.child("%s"))`, structType, jsonName)
+		}
+		fallthrough
+
+	case typeRef.Kind == resolution.TypeKindTypeParam:
+		// Type parameters assume the type has a parse method
+		paramName := typeRef.TypeParamRef.Name
+		if hasDefault {
+			return fmt.Sprintf(`%s::parse(parser.optional_child("%s"))`, paramName, jsonName)
+		}
+		return fmt.Sprintf(`%s::parse(parser.child("%s"))`, paramName, jsonName)
+
+	case typeRef.Kind == resolution.TypeKindEnum:
+		// Enums need special handling based on int vs string
+		if typeRef.EnumRef != nil && typeRef.EnumRef.IsIntEnum {
+			enumType := typeRef.EnumRef.Name
+			if hasDefault {
+				return fmt.Sprintf(`static_cast<%s>(parser.field<int>("%s", 0))`, enumType, jsonName)
+			}
+			return fmt.Sprintf(`static_cast<%s>(parser.field<int>("%s"))`, enumType, jsonName)
+		}
+		// String enum - parse as string
+		if hasDefault {
+			return fmt.Sprintf(`parser.field<std::string>("%s", "")`, jsonName)
+		}
+		return fmt.Sprintf(`parser.field<std::string>("%s")`, jsonName)
+
+	default:
+		// Primitives and maps
+		if hasDefault {
+			defaultVal := p.defaultValueForType(typeRef)
+			return fmt.Sprintf(`parser.field<%s>("%s", %s)`, cppType, jsonName, defaultVal)
+		}
+		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
+	}
+}
+
+// parseExprForTypeRef generates a parse expression for a type reference.
+func (p *Plugin) parseExprForTypeRef(typeRef *resolution.TypeRef, cppType, jsonName string, hasDefault bool, data *templateData) string {
+	switch typeRef.Kind {
+	case resolution.TypeKindStruct:
+		if typeRef.StructRef != nil {
+			structType := p.resolveStructType(typeRef, data)
+			return fmt.Sprintf(`%s::parse(parser.child("%s"))`, structType, jsonName)
+		}
+	case resolution.TypeKindTypeParam:
+		if typeRef.TypeParamRef != nil {
+			return fmt.Sprintf(`%s::parse(parser.child("%s"))`, typeRef.TypeParamRef.Name, jsonName)
+		}
+	case resolution.TypeKindEnum:
+		if typeRef.EnumRef != nil && typeRef.EnumRef.IsIntEnum {
+			return fmt.Sprintf(`static_cast<%s>(parser.field<int>("%s"))`, typeRef.EnumRef.Name, jsonName)
+		}
+		return fmt.Sprintf(`parser.field<std::string>("%s")`, jsonName)
+	}
+	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
+}
+
+// typeToCppWithoutOptional converts a type to C++ without the optional wrapper.
+func (p *Plugin) typeToCppWithoutOptional(typeRef *resolution.TypeRef, data *templateData) string {
+	// Create a copy without the optional flags
+	tempRef := *typeRef
+	tempRef.IsHardOptional = false
+	tempRef.IsOptional = false
+	return p.typeToCpp(&tempRef, data)
+}
+
+// toJsonExprForField generates the C++ expression to serialize a field to JSON.
+func (p *Plugin) toJsonExprForField(field resolution.Field, data *templateData) string {
+	typeRef := field.TypeRef
+	jsonName := field.Name
+	fieldName := field.Name
+
+	// Handle different type kinds
+	switch {
+	case typeRef.IsHardOptional:
+		// Hard optional - only serialize if has value
+		innerExpr := p.toJsonValueExpr(typeRef, fieldName, data)
+		return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = %s;`, fieldName, jsonName, innerExpr)
+
+	case typeRef.IsArray && typeRef.Kind == resolution.TypeKindStruct:
+		// Array of structs - need to serialize each element
+		return p.toJsonArrayOfStructsExpr(typeRef, jsonName, fieldName, data)
+
+	case typeRef.Kind == resolution.TypeKindStruct:
+		// Nested structs call their to_json method
+		return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
+
+	case typeRef.Kind == resolution.TypeKindTypeParam:
+		// Type parameters assume the type has a to_json method
+		return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
+
+	case typeRef.Kind == resolution.TypeKindEnum:
+		// Enums need special handling based on int vs string
+		if typeRef.EnumRef != nil && typeRef.EnumRef.IsIntEnum {
+			return fmt.Sprintf(`j["%s"] = static_cast<int>(this->%s);`, jsonName, fieldName)
+		}
+		// String enum - serialize as string directly
+		return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
+
+	default:
+		// Primitives, arrays (of primitives), and maps - direct assignment
+		return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
+	}
+}
+
+// toJsonValueExpr generates the expression for the value part of to_json.
+func (p *Plugin) toJsonValueExpr(typeRef *resolution.TypeRef, fieldName string, data *templateData) string {
+	switch typeRef.Kind {
+	case resolution.TypeKindStruct:
+		return fmt.Sprintf("this->%s->to_json()", fieldName)
+	case resolution.TypeKindTypeParam:
+		return fmt.Sprintf("this->%s->to_json()", fieldName)
+	case resolution.TypeKindEnum:
+		if typeRef.EnumRef != nil && typeRef.EnumRef.IsIntEnum {
+			return fmt.Sprintf("static_cast<int>(*this->%s)", fieldName)
+		}
+		return fmt.Sprintf("*this->%s", fieldName)
+	default:
+		return fmt.Sprintf("*this->%s", fieldName)
+	}
+}
+
+// toJsonArrayOfStructsExpr generates the expression for serializing an array of structs.
+func (p *Plugin) toJsonArrayOfStructsExpr(typeRef *resolution.TypeRef, jsonName, fieldName string, data *templateData) string {
+	// For arrays of structs, we need to transform each element
+	return fmt.Sprintf(`{
+        auto arr = nlohmann::json::array();
+        for (const auto& item : this->%s) arr.push_back(item.to_json());
+        j["%s"] = arr;
+    }`, fieldName, jsonName)
 }
 
 var templateFuncs = template.FuncMap{
@@ -605,6 +906,26 @@ constexpr const char* {{$enum.Name}}{{.Name}} = "{{.Value}}";
     /// @brief {{.Doc}}
 {{- end}}
     {{.CppType}} {{.Name}};
+{{- end}}
+{{- if $s.GenerateParse}}
+
+    static {{$s.Name}} parse(xjson::Parser parser) {
+        return {{$s.Name}}{
+{{- range $j, $f := $s.Fields}}
+            .{{$f.Name}} = {{$f.ParseExpr}},
+{{- end}}
+        };
+    }
+{{- end}}
+{{- if $s.GenerateToJson}}
+
+    [[nodiscard]] json to_json() const {
+        json j;
+{{- range $s.Fields}}
+        {{.ToJsonExpr}}
+{{- end}}
+        return j;
+    }
 {{- end}}
 };
 {{- end}}

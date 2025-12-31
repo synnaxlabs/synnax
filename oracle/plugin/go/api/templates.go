@@ -149,4 +149,28 @@ func Translate{{.Name}}sBackward(ctx context.Context, pbs []*{{.PBType}}) ([]{{.
 	return result, nil
 }
 {{- end}}
+{{- range .EnumTranslators}}
+
+func translate{{.Name}}Forward(v {{.GoType}}) {{.PBType}} {
+	switch v {
+{{- range .Values}}
+	case {{.GoValue}}:
+		return {{.PBValue}}
+{{- end}}
+	default:
+		return {{.PBDefault}}
+	}
+}
+
+func translate{{.Name}}Backward(v {{.PBType}}) {{.GoType}} {
+	switch v {
+{{- range .Values}}
+	case {{.PBValue}}:
+		return {{.GoValue}}
+{{- end}}
+	default:
+		return {{.GoDefault}}
+	}
+}
+{{- end}}
 `))

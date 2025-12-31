@@ -70,7 +70,7 @@ struct Status {
     Details details = Details{};
 
     /// @brief parses a Status object from a JSON representation.
-    static Status parse(xjson::Parser &parser) {
+    static Status parse(xjson::Parser parser) {
         auto details = parser.child("details");
         return Status{
             .key = parser.field<std::string>("key"),
