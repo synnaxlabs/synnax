@@ -1,0 +1,80 @@
+{
+  "$schema": "jerky-state-v2",
+  "types": {
+    "Series": {
+      "type_name": "Series",
+      "package": "github.com/synnaxlabs/x/telem",
+      "current_version": 1,
+      "field_order": [
+        "TimeRange",
+        "DataType",
+        "Data",
+        "Alignment"
+      ],
+      "history": [
+        {
+          "version": 1,
+          "created_at": "2025-11-27T14:18:29.93117-07:00",
+          "struct_hash": "b07b8373d214",
+          "dependency_hashes": {
+            "github.com/synnaxlabs/x/telem.TimeRange": "v1:e1ff18b9197c"
+          },
+          "composite_hash": "5ecc751e0dcf",
+          "migration_type": "bootstrap",
+          "fields": {
+            "Alignment": {
+              "type": "telem.Alignment",
+              "tags": {
+                "json": "alignment",
+                "msgpack": "alignment"
+              },
+              "field_number": 4
+            },
+            "Data": {
+              "type": "[]byte",
+              "tags": {
+                "json": "data",
+                "msgpack": "data"
+              },
+              "field_number": 3
+            },
+            "DataType": {
+              "type": "telem.DataType",
+              "tags": {
+                "json": "data_type",
+                "msgpack": "data_type"
+              },
+              "field_number": 2
+            },
+            "TimeRange": {
+              "type": "telem.TimeRange",
+              "tags": {
+                "json": "time_range",
+                "msgpack": "time_range"
+              },
+              "field_number": 1
+            }
+          },
+          "nested_type_versions": {
+            "TimeRange": {
+              "type_name": "TimeRange",
+              "version": 1
+            }
+          }
+        }
+      ],
+      "field_numbers": {
+        "Alignment": 4,
+        "Data": 3,
+        "DataType": 2,
+        "TimeRange": 1
+      },
+      "next_field_number": 5,
+      "is_embedded": true
+    }
+  },
+  "metadata": {
+    "jerky_version": "1.0.0",
+    "last_generated": "2025-11-27T14:18:29.93117-07:00"
+  }
+}

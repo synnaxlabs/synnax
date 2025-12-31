@@ -1,0 +1,91 @@
+{
+  "$schema": "jerky-state-v2",
+  "types": {
+    "Address": {
+      "type_name": "Address",
+      "package": "github.com/synnaxlabs/x/jerky/example",
+      "current_version": 1,
+      "field_order": [
+        "Street",
+        "City",
+        "State",
+        "ZipCode",
+        "Country",
+        "County"
+      ],
+      "history": [
+        {
+          "version": 1,
+          "created_at": "2025-11-27T13:16:08.715792-07:00",
+          "struct_hash": "a71a2b517e4b",
+          "composite_hash": "e679d0dfb025",
+          "migration_type": "bootstrap",
+          "fields": {
+            "City": {
+              "type": "string",
+              "tags": {
+                "json": "city",
+                "msgpack": ""
+              },
+              "field_number": 2
+            },
+            "Country": {
+              "type": "string",
+              "tags": {
+                "json": "country",
+                "msgpack": ""
+              },
+              "field_number": 5
+            },
+            "County": {
+              "type": "string",
+              "tags": {
+                "json": "county",
+                "msgpack": ""
+              },
+              "field_number": 6
+            },
+            "State": {
+              "type": "string",
+              "tags": {
+                "json": "state",
+                "msgpack": ""
+              },
+              "field_number": 3
+            },
+            "Street": {
+              "type": "string",
+              "tags": {
+                "json": "street",
+                "msgpack": ""
+              },
+              "field_number": 1
+            },
+            "ZipCode": {
+              "type": "string",
+              "tags": {
+                "json": "zip_code",
+                "msgpack": ""
+              },
+              "field_number": 4
+            }
+          }
+        }
+      ],
+      "field_numbers": {
+        "City": 2,
+        "Country": 5,
+        "County": 6,
+        "State": 3,
+        "Street": 1,
+        "ZipCode": 4
+      },
+      "next_field_number": 7,
+      "is_embedded": true
+    }
+  },
+  "metadata": {
+    "jerky_version": "1.0.0",
+    "last_generated": "2025-11-27T14:09:35.025617-07:00"
+  }
+}

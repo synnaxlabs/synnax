@@ -10,6 +10,8 @@
 package table
 
 import (
+	"context"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/config"
@@ -50,19 +52,31 @@ func (c Config) Validate() error {
 }
 
 // Service is the primary service for retrieving and modifying tables from Synnax.
-type Service struct{ Config }
+type Service struct {
+	Config
+	entryManager *gorp.EntryManager[uuid.UUID, Table]
+}
 
-// NewService instantiates a new table service using the provided configurations. Each
+// OpenService instantiates a new table service using the provided configurations. Each
 // configuration will be used as an override for the previous configuration in the list.
 // See the Config struct for information on which fields should be set.
-func NewService(cfgs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{Config: cfg}
+	entryManager, err := gorp.OpenEntryManager[uuid.UUID, Table](ctx, cfg.DB)
+	if err != nil {
+		return nil, err
+	}
+	s := &Service{Config: cfg, entryManager: entryManager}
 	cfg.Ontology.RegisterService(s)
 	return s, nil
+}
+
+// Close closes the table service and releases any resources.
+func (s *Service) Close() error {
+	return s.entryManager.Close()
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting logs in Synnax. If

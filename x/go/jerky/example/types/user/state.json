@@ -1,0 +1,205 @@
+{
+  "$schema": "jerky-state-v2",
+  "types": {
+    "User": {
+      "type_name": "User",
+      "package": "github.com/synnaxlabs/x/jerky/example",
+      "current_version": 1,
+      "field_order": [
+        "Key",
+        "ID",
+        "Name",
+        "Email",
+        "Age",
+        "Active",
+        "Balance",
+        "CreatedAt",
+        "LastSeen",
+        "Tags",
+        "Role",
+        "Verified",
+        "Score",
+        "Department",
+        "Address",
+        "Addresses"
+      ],
+      "history": [
+        {
+          "version": 1,
+          "created_at": "2025-11-27T13:16:09.182899-07:00",
+          "struct_hash": "a2acf58afd7c",
+          "dependency_hashes": {
+            "github.com/synnaxlabs/x/jerky/example.Address": "v1:e679d0dfb025"
+          },
+          "composite_hash": "3caf8c10ea03",
+          "migration_type": "bootstrap",
+          "fields": {
+            "Active": {
+              "type": "bool",
+              "tags": {
+                "json": "active",
+                "msgpack": ""
+              },
+              "field_number": 6
+            },
+            "Address": {
+              "type": "example.Address",
+              "tags": {
+                "json": "address",
+                "msgpack": ""
+              },
+              "field_number": 15
+            },
+            "Addresses": {
+              "type": "[]example.Address",
+              "tags": {
+                "json": "addresses",
+                "msgpack": ""
+              },
+              "field_number": 16
+            },
+            "Age": {
+              "type": "int32",
+              "tags": {
+                "json": "age",
+                "msgpack": ""
+              },
+              "field_number": 5
+            },
+            "Balance": {
+              "type": "float64",
+              "tags": {
+                "json": "balance",
+                "msgpack": ""
+              },
+              "field_number": 7
+            },
+            "CreatedAt": {
+              "type": "time.Time",
+              "tags": {
+                "json": "created_at",
+                "msgpack": ""
+              },
+              "field_number": 8
+            },
+            "Department": {
+              "type": "string",
+              "tags": {
+                "json": "department",
+                "msgpack": ""
+              },
+              "field_number": 14
+            },
+            "Email": {
+              "type": "string",
+              "tags": {
+                "json": "email",
+                "msgpack": ""
+              },
+              "field_number": 4
+            },
+            "ID": {
+              "type": "example.UserID",
+              "tags": {
+                "json": "id",
+                "msgpack": ""
+              },
+              "field_number": 2
+            },
+            "Key": {
+              "type": "uuid.UUID",
+              "tags": {
+                "json": "key",
+                "msgpack": ""
+              },
+              "field_number": 1
+            },
+            "LastSeen": {
+              "type": "telem.TimeStamp",
+              "tags": {
+                "json": "last_seen",
+                "msgpack": ""
+              },
+              "field_number": 9
+            },
+            "Name": {
+              "type": "string",
+              "tags": {
+                "json": "name",
+                "msgpack": ""
+              },
+              "field_number": 3
+            },
+            "Role": {
+              "type": "string",
+              "tags": {
+                "json": "role",
+                "msgpack": ""
+              },
+              "field_number": 11
+            },
+            "Score": {
+              "type": "int64",
+              "tags": {
+                "json": "score",
+                "msgpack": ""
+              },
+              "field_number": 13
+            },
+            "Tags": {
+              "type": "[]string",
+              "tags": {
+                "json": "tags",
+                "msgpack": ""
+              },
+              "field_number": 10
+            },
+            "Verified": {
+              "type": "bool",
+              "tags": {
+                "json": "verified",
+                "msgpack": ""
+              },
+              "field_number": 12
+            }
+          },
+          "nested_type_versions": {
+            "Address": {
+              "type_name": "Address",
+              "version": 1
+            },
+            "Addresses": {
+              "type_name": "Address",
+              "version": 1,
+              "is_slice": true
+            }
+          }
+        }
+      ],
+      "field_numbers": {
+        "Active": 6,
+        "Address": 15,
+        "Addresses": 16,
+        "Age": 5,
+        "Balance": 7,
+        "CreatedAt": 8,
+        "Department": 14,
+        "Email": 4,
+        "ID": 2,
+        "Key": 1,
+        "LastSeen": 9,
+        "Name": 3,
+        "Role": 11,
+        "Score": 13,
+        "Tags": 10,
+        "Verified": 12
+      },
+      "next_field_number": 17,
+      "is_embedded": true
+    }
+  },
+  "metadata": {
+    "jerky_version": "1.0.0",
+    "last_generated": "2025-11-27T14:09:50.622579-07:00"
+  }
+}

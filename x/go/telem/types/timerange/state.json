@@ -1,0 +1,51 @@
+{
+  "$schema": "jerky-state-v2",
+  "types": {
+    "TimeRange": {
+      "type_name": "TimeRange",
+      "package": "github.com/synnaxlabs/x/telem",
+      "current_version": 1,
+      "field_order": [
+        "Start",
+        "End"
+      ],
+      "history": [
+        {
+          "version": 1,
+          "created_at": "2025-11-27T14:18:18.113144-07:00",
+          "struct_hash": "a82001b1ae34",
+          "composite_hash": "e1ff18b9197c",
+          "migration_type": "bootstrap",
+          "fields": {
+            "End": {
+              "type": "telem.TimeStamp",
+              "tags": {
+                "json": "end",
+                "msgpack": "end"
+              },
+              "field_number": 2
+            },
+            "Start": {
+              "type": "telem.TimeStamp",
+              "tags": {
+                "json": "start",
+                "msgpack": "start"
+              },
+              "field_number": 1
+            }
+          }
+        }
+      ],
+      "field_numbers": {
+        "End": 2,
+        "Start": 1
+      },
+      "next_field_number": 3,
+      "is_embedded": true
+    }
+  },
+  "metadata": {
+    "jerky_version": "1.0.0",
+    "last_generated": "2025-11-27T14:18:18.113145-07:00"
+  }
+}

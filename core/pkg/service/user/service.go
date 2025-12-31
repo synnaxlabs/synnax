@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/jerky/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -72,6 +73,12 @@ type Service struct {
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(defaultConfig, configs...)
 	if err != nil {
+		return nil, err
+	}
+	if err = migrate.Run(ctx, migrate.Config{
+		Migrator: &UserMigrator{},
+		DB:       cfg.DB,
+	}); err != nil {
 		return nil, err
 	}
 
