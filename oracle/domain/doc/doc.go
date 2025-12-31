@@ -15,7 +15,7 @@ import "github.com/synnaxlabs/oracle/resolution"
 // Get extracts documentation from a domain map.
 // It looks for a "doc" domain and returns the first expression's value or name.
 // Returns an empty string if no documentation is defined.
-func Get(domains map[string]*resolution.DomainEntry) string {
+func Get(domains map[string]*resolution.Domain) string {
 	if domain, ok := domains["doc"]; ok {
 		if len(domain.Expressions) > 0 {
 			expr := domain.Expressions[0]

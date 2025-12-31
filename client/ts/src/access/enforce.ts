@@ -9,8 +9,8 @@
 
 import { array } from "@synnaxlabs/x";
 
-import { type Action } from "@/access/types.gen";
 import { type Policy } from "@/access/policy/payload";
+import { type Action } from "@/access/types.gen";
 import { type ontology } from "@/ontology";
 
 /**

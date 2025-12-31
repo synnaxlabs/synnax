@@ -85,29 +85,25 @@ func generateHeader() (string, error) {
 }
 
 // replaceHeader replaces an existing copyright header with the new one.
+// It only removes consecutive // comment lines at the very start of the file,
+// plus one optional blank line after them.
 func replaceHeader(content, newHeader string) string {
 	lines := strings.Split(content, "\n")
 
-	// Find where the old header ends (first non-comment, non-blank line after copyright)
+	// Only strip consecutive // lines from the VERY START of the file
+	// Stop immediately when we hit a non-// line
 	headerEnd := 0
-	inHeader := false
 	for i, line := range lines {
-		if copyrightPattern.MatchString(line) {
-			inHeader = true
-		}
-		if inHeader {
-			trimmed := strings.TrimSpace(line)
-			// Header continues while we have comment lines or blank lines
-			if strings.HasPrefix(trimmed, "//") || trimmed == "" {
-				headerEnd = i + 1
-			} else {
-				break
-			}
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "//") {
+			headerEnd = i + 1
+		} else {
+			break
 		}
 	}
 
-	// Skip any blank lines after the old header
-	for headerEnd < len(lines) && strings.TrimSpace(lines[headerEnd]) == "" {
+	// Skip exactly ONE blank line after the comment block (if present)
+	if headerEnd < len(lines) && strings.TrimSpace(lines[headerEnd]) == "" {
 		headerEnd++
 	}
 

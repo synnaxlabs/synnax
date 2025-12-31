@@ -22,32 +22,32 @@ var _ = Describe("Parse", func() {
 	})
 
 	It("should parse required expression", func() {
-		domain := &resolution.DomainEntry{
-			Expressions: []*resolution.ExpressionEntry{{Name: "required"}},
+		domain := &resolution.Domain{
+			Expressions: []*resolution.Expression{{Name: "required"}},
 		}
 		rules := validation.Parse(domain)
 		Expect(rules.Required).To(BeTrue())
 	})
 
 	It("should parse email expression", func() {
-		domain := &resolution.DomainEntry{
-			Expressions: []*resolution.ExpressionEntry{{Name: "email"}},
+		domain := &resolution.Domain{
+			Expressions: []*resolution.Expression{{Name: "email"}},
 		}
 		rules := validation.Parse(domain)
 		Expect(rules.Email).To(BeTrue())
 	})
 
 	It("should parse url expression", func() {
-		domain := &resolution.DomainEntry{
-			Expressions: []*resolution.ExpressionEntry{{Name: "url"}},
+		domain := &resolution.Domain{
+			Expressions: []*resolution.Expression{{Name: "url"}},
 		}
 		rules := validation.Parse(domain)
 		Expect(rules.URL).To(BeTrue())
 	})
 
 	It("should parse min_length expression", func() {
-		domain := &resolution.DomainEntry{
-			Expressions: []*resolution.ExpressionEntry{{
+		domain := &resolution.Domain{
+			Expressions: []*resolution.Expression{{
 				Name:   "min_length",
 				Values: []resolution.ExpressionValue{{IntValue: 5}},
 			}},
@@ -58,8 +58,8 @@ var _ = Describe("Parse", func() {
 	})
 
 	It("should parse max_length expression", func() {
-		domain := &resolution.DomainEntry{
-			Expressions: []*resolution.ExpressionEntry{{
+		domain := &resolution.Domain{
+			Expressions: []*resolution.Expression{{
 				Name:   "max_length",
 				Values: []resolution.ExpressionValue{{IntValue: 100}},
 			}},
@@ -70,8 +70,8 @@ var _ = Describe("Parse", func() {
 	})
 
 	It("should parse pattern expression", func() {
-		domain := &resolution.DomainEntry{
-			Expressions: []*resolution.ExpressionEntry{{
+		domain := &resolution.Domain{
+			Expressions: []*resolution.Expression{{
 				Name:   "pattern",
 				Values: []resolution.ExpressionValue{{StringValue: "^[a-z]+$"}},
 			}},
@@ -82,8 +82,8 @@ var _ = Describe("Parse", func() {
 	})
 
 	It("should parse min expression with int", func() {
-		domain := &resolution.DomainEntry{
-			Expressions: []*resolution.ExpressionEntry{{
+		domain := &resolution.Domain{
+			Expressions: []*resolution.Expression{{
 				Name:   "min",
 				Values: []resolution.ExpressionValue{{Kind: resolution.ValueKindInt, IntValue: 10}},
 			}},
@@ -95,8 +95,8 @@ var _ = Describe("Parse", func() {
 	})
 
 	It("should parse min expression with float", func() {
-		domain := &resolution.DomainEntry{
-			Expressions: []*resolution.ExpressionEntry{{
+		domain := &resolution.Domain{
+			Expressions: []*resolution.Expression{{
 				Name:   "min",
 				Values: []resolution.ExpressionValue{{Kind: resolution.ValueKindFloat, FloatValue: 1.5}},
 			}},
@@ -108,8 +108,8 @@ var _ = Describe("Parse", func() {
 	})
 
 	It("should parse max expression", func() {
-		domain := &resolution.DomainEntry{
-			Expressions: []*resolution.ExpressionEntry{{
+		domain := &resolution.Domain{
+			Expressions: []*resolution.Expression{{
 				Name:   "max",
 				Values: []resolution.ExpressionValue{{Kind: resolution.ValueKindInt, IntValue: 100}},
 			}},
@@ -120,8 +120,8 @@ var _ = Describe("Parse", func() {
 	})
 
 	It("should parse default expression", func() {
-		domain := &resolution.DomainEntry{
-			Expressions: []*resolution.ExpressionEntry{{
+		domain := &resolution.Domain{
+			Expressions: []*resolution.Expression{{
 				Name:   "default",
 				Values: []resolution.ExpressionValue{{Kind: resolution.ValueKindString, StringValue: "test"}},
 			}},
@@ -132,8 +132,8 @@ var _ = Describe("Parse", func() {
 	})
 
 	It("should parse multiple expressions", func() {
-		domain := &resolution.DomainEntry{
-			Expressions: []*resolution.ExpressionEntry{
+		domain := &resolution.Domain{
+			Expressions: []*resolution.Expression{
 				{Name: "required"},
 				{Name: "min_length", Values: []resolution.ExpressionValue{{IntValue: 1}}},
 				{Name: "max_length", Values: []resolution.ExpressionValue{{IntValue: 50}}},

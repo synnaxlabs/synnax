@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package ontology provides utilities for extracting @ontology domain data.
+// The ontology domain defines how types integrate with the Synnax ontology system.
 package ontology
 
 import (
@@ -14,15 +16,19 @@ import (
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
+// Data contains the extracted ontology information for a schema.
 type Data struct {
 	TypeName   string
 	StructName string
 	KeyField   *key.Field
 }
 
-type SkipFunc func(*resolution.StructEntry) bool
+// SkipFunc is a predicate that determines whether to skip a struct.
+type SkipFunc func(*resolution.Struct) bool
 
-func Extract(structs []*resolution.StructEntry, keyFields []key.Field, skip SkipFunc) *Data {
+// Extract finds ontology metadata from structs with an @ontology domain.
+// Returns nil if no ontology domain is found or if there are no key fields.
+func Extract(structs []*resolution.Struct, keyFields []key.Field, skip SkipFunc) *Data {
 	if len(keyFields) == 0 {
 		return nil
 	}

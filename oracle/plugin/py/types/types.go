@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package types provides the Python types code generation plugin for Oracle.
+// It generates Pydantic model definitions from Oracle schemas.
 package types
 
 import (
 	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -24,20 +25,23 @@ import (
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/ontology"
 	"github.com/synnaxlabs/oracle/domain/validation"
-	"github.com/synnaxlabs/oracle/output"
+	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	pluginoutput "github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
+// Plugin generates Python Pydantic model definitions from Oracle schemas.
 type Plugin struct{ Options Options }
 
+// Options configures the Python types plugin.
 type Options struct {
 	OutputPath      string
 	FileNamePattern string
 }
 
+// DefaultOptions returns the default plugin options.
 func DefaultOptions() Options {
 	return Options{
 		OutputPath:      "{{.Namespace}}",
@@ -45,15 +49,25 @@ func DefaultOptions() Options {
 	}
 }
 
+// New creates a new Python types plugin with the given options.
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
+// Name returns the plugin identifier.
 func (p *Plugin) Name() string { return "py/types" }
 
+// Domains returns the domains this plugin handles.
 func (p *Plugin) Domains() []string { return nil }
 
+// Requires returns plugin dependencies.
 func (p *Plugin) Requires() []string { return nil }
 
+// Check verifies generated files are up-to-date.
 func (p *Plugin) Check(req *plugin.Request) error { return nil }
+
+var (
+	isortCommand = []string{"poetry", "run", "isort"}
+	blackCommand = []string{"poetry", "run", "black"}
+)
 
 // PostWrite runs isort and black on the generated Python files using Poetry.
 // Files are grouped by their Poetry project directory (containing pyproject.toml).
@@ -69,21 +83,11 @@ func (p *Plugin) PostWrite(files []string) error {
 		}
 	}
 	for projDir, projFiles := range byProject {
-		// Run isort first
-		output.PostWriteStep("isort", len(projFiles), "sorting imports")
-		isortArgs := append([]string{"run", "isort"}, projFiles...)
-		isortCmd := exec.Command("poetry", isortArgs...)
-		isortCmd.Dir = projDir
-		if err := isortCmd.Run(); err != nil {
-			return fmt.Errorf("isort failed in %s: %w", projDir, err)
+		if err := exec.OnFiles(isortCommand, projFiles, projDir); err != nil {
+			return err
 		}
-		// Then run black
-		output.PostWriteStep("black", len(projFiles), "formatting")
-		blackArgs := append([]string{"run", "black"}, projFiles...)
-		blackCmd := exec.Command("poetry", blackArgs...)
-		blackCmd.Dir = projDir
-		if err := blackCmd.Run(); err != nil {
-			return fmt.Errorf("black failed in %s: %w", projDir, err)
+		if err := exec.OnFiles(blackCommand, projFiles, projDir); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -101,9 +105,10 @@ func findPoetryDir(file string) string {
 	return ""
 }
 
+// Generate produces Python Pydantic model files from the analyzed schemas.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
-	outputStructs := make(map[string][]*resolution.StructEntry)
+	outputStructs := make(map[string][]*resolution.Struct)
 	for _, entry := range req.Resolutions.AllStructs() {
 		if outputPath := pluginoutput.GetPath(entry, "py"); outputPath != "" {
 			if req.RepoRoot != "" {
@@ -130,8 +135,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 func (p *Plugin) generateFile(
 	namespace string,
-	structs []*resolution.StructEntry,
-	enums []*resolution.EnumEntry,
+	structs []*resolution.Struct,
+	enums []*resolution.Enum,
 	table *resolution.Table,
 ) ([]byte, error) {
 	data := &templateData{
@@ -142,7 +147,7 @@ func (p *Plugin) generateFile(
 		imports:   newImportManager(),
 	}
 	data.imports.addPydantic("BaseModel")
-	skip := func(s *resolution.StructEntry) bool { return handwritten.IsStruct(s, "py") }
+	skip := func(s *resolution.Struct) bool { return handwritten.IsStruct(s, "py") }
 	rawKeyFields := key.Collect(structs, skip)
 	keyFields := p.convertKeyFields(rawKeyFields, data)
 	data.KeyFields = keyFields
@@ -174,7 +179,7 @@ func (p *Plugin) convertKeyFields(fields []key.Field, data *templateData) []keyF
 	return result
 }
 
-func (p *Plugin) extractOntology(structs []*resolution.StructEntry, rawFields []key.Field, keyFields []keyFieldData, skip ontology.SkipFunc) *ontologyData {
+func (p *Plugin) extractOntology(structs []*resolution.Struct, rawFields []key.Field, keyFields []keyFieldData, skip ontology.SkipFunc) *ontologyData {
 	data := ontology.Extract(structs, rawFields, skip)
 	if data == nil || len(keyFields) == 0 {
 		return nil
@@ -186,7 +191,7 @@ func (p *Plugin) extractOntology(structs []*resolution.StructEntry, rawFields []
 	}
 }
 
-func (p *Plugin) processEnum(enum *resolution.EnumEntry, data *templateData) enumData {
+func (p *Plugin) processEnum(enum *resolution.Enum, data *templateData) enumData {
 	values := make([]enumValueData, 0, len(enum.Values))
 	var literalValues []string
 	for _, v := range enum.Values {
@@ -214,7 +219,7 @@ func (p *Plugin) processEnum(enum *resolution.EnumEntry, data *templateData) enu
 }
 
 func (p *Plugin) processStruct(
-	entry *resolution.StructEntry,
+	entry *resolution.Struct,
 	table *resolution.Table,
 	data *templateData,
 	keyFields []keyFieldData,
@@ -264,7 +269,7 @@ func (p *Plugin) processStruct(
 	}
 
 	// Non-extending struct: use all fields (flattened for compatibility)
-	allFields := entry.AllFields()
+	allFields := entry.UnifiedFields()
 	sd.Fields = make([]fieldData, 0, len(allFields))
 	for _, field := range allFields {
 		sd.Fields = append(sd.Fields, p.processField(field, table, data, keyFields))
@@ -273,7 +278,7 @@ func (p *Plugin) processStruct(
 }
 
 func (p *Plugin) processField(
-	field *resolution.FieldEntry,
+	field *resolution.Field,
 	table *resolution.Table,
 	data *templateData,
 	keyFields []keyFieldData,
@@ -332,7 +337,7 @@ func (p *Plugin) buildDefault(
 }
 
 func (p *Plugin) collectValidation(
-	domain *resolution.DomainEntry,
+	domain *resolution.Domain,
 	typeRef *resolution.TypeRef,
 	data *templateData,
 ) []string {
@@ -587,12 +592,12 @@ func newImportManager() *importManager {
 	}
 }
 
-func (m *importManager) addUUID(name string)      { m.uuid[name] = true }
-func (m *importManager) addTyping(name string)    { m.typing[name] = true }
-func (m *importManager) addEnum(name string)      { m.enum[name] = true }
-func (m *importManager) addPydantic(name string)  { m.pydantic[name] = true }
-func (m *importManager) addSynnax(name string)    { m.synnax[name] = true }
-func (m *importManager) addOntology(name string)  { m.ontology[name] = true }
+func (m *importManager) addUUID(name string)     { m.uuid[name] = true }
+func (m *importManager) addTyping(name string)   { m.typing[name] = true }
+func (m *importManager) addEnum(name string)     { m.enum[name] = true }
+func (m *importManager) addPydantic(name string) { m.pydantic[name] = true }
+func (m *importManager) addSynnax(name string)   { m.synnax[name] = true }
+func (m *importManager) addOntology(name string) { m.ontology[name] = true }
 func (m *importManager) addNamespace(alias, path string) {
 	m.namespaces[alias] = path
 }

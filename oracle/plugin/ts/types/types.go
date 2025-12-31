@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package types provides the TypeScript types code generation plugin for Oracle.
+// It generates Zod schemas and TypeScript type definitions from Oracle schemas.
 package types
 
 import (
 	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -24,21 +25,24 @@ import (
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/ontology"
 	"github.com/synnaxlabs/oracle/domain/validation"
-	"github.com/synnaxlabs/oracle/output"
+	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	pluginoutput "github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
+// Plugin generates TypeScript type definitions and Zod schemas from Oracle schemas.
 type Plugin struct{ Options Options }
 
+// Options configures the TypeScript types plugin.
 type Options struct {
 	OutputPath      string
 	FileNamePattern string
 	GenerateTypes   bool
 }
 
+// DefaultOptions returns the default plugin options.
 func DefaultOptions() Options {
 	return Options{
 		OutputPath:      "{{.Namespace}}",
@@ -47,15 +51,25 @@ func DefaultOptions() Options {
 	}
 }
 
+// New creates a new TypeScript types plugin with the given options.
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
+// Name returns the plugin identifier.
 func (p *Plugin) Name() string { return "ts/types" }
 
+// Domains returns the domains this plugin handles.
 func (p *Plugin) Domains() []string { return nil }
 
+// Requires returns plugin dependencies.
 func (p *Plugin) Requires() []string { return nil }
 
+// Check verifies generated files are up-to-date.
 func (p *Plugin) Check(req *plugin.Request) error { return nil }
+
+var (
+	prettierCmd = []string{"npx", "prettier", "--write"}
+	eslintCmd   = []string{"npx", "eslint", "--fix"}
+)
 
 // PostWrite runs prettier and eslint on the generated TypeScript files.
 // Files are grouped by their package directory (containing package.json).
@@ -71,21 +85,11 @@ func (p *Plugin) PostWrite(files []string) error {
 		}
 	}
 	for pkgDir, pkgFiles := range byPackage {
-		// Run prettier first
-		output.PostWriteStep("prettier", len(pkgFiles), "formatting")
-		prettierArgs := append([]string{"prettier", "--write"}, pkgFiles...)
-		prettierCmd := exec.Command("npx", prettierArgs...)
-		prettierCmd.Dir = pkgDir
-		if err := prettierCmd.Run(); err != nil {
-			return fmt.Errorf("prettier failed in %s: %w", pkgDir, err)
+		if err := exec.OnFiles(prettierCmd, pkgFiles, pkgDir); err != nil {
+			return err
 		}
-		// Then run eslint --fix
-		output.PostWriteStep("eslint", len(pkgFiles), "fixing")
-		eslintArgs := append([]string{"eslint", "--fix"}, pkgFiles...)
-		eslintCmd := exec.Command("npx", eslintArgs...)
-		eslintCmd.Dir = pkgDir
-		if err := eslintCmd.Run(); err != nil {
-			return fmt.Errorf("eslint failed in %s: %w", pkgDir, err)
+		if err := exec.OnFiles(eslintCmd, pkgFiles, pkgDir); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -103,10 +107,11 @@ func findPackageDir(file string) string {
 	return ""
 }
 
+// Generate produces TypeScript type definition files from the analyzed schemas.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
-	outputStructs := make(map[string][]*resolution.StructEntry)
-	outputEnums := make(map[string][]*resolution.EnumEntry)
+	outputStructs := make(map[string][]*resolution.Struct)
+	outputEnums := make(map[string][]*resolution.Enum)
 	for _, entry := range req.Resolutions.AllStructs() {
 		if outputPath := pluginoutput.GetPath(entry, "ts"); outputPath != "" {
 			if req.RepoRoot != "" {
@@ -155,12 +160,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
-func mergeEnums(a, b []*resolution.EnumEntry) []*resolution.EnumEntry {
+func mergeEnums(a, b []*resolution.Enum) []*resolution.Enum {
 	seen := make(map[string]bool, len(a))
 	for _, e := range a {
 		seen[e.QualifiedName] = true
 	}
-	result := append([]*resolution.EnumEntry{}, a...)
+	result := append([]*resolution.Enum{}, a...)
 	for _, e := range b {
 		if !seen[e.QualifiedName] {
 			result = append(result, e)
@@ -222,8 +227,8 @@ func calculateRelativeImport(from, to string) string {
 func (p *Plugin) generateFile(
 	namespace string,
 	outputPath string,
-	structs []*resolution.StructEntry,
-	enums []*resolution.EnumEntry,
+	structs []*resolution.Struct,
+	enums []*resolution.Enum,
 	req *plugin.Request,
 ) ([]byte, error) {
 	data := &templateData{
@@ -236,7 +241,7 @@ func (p *Plugin) generateFile(
 		GenerateTypes: p.Options.GenerateTypes,
 		Imports:       make(map[string]*importSpec),
 	}
-	skip := func(s *resolution.StructEntry) bool { return handwritten.IsStruct(s, "ts") }
+	skip := func(s *resolution.Struct) bool { return handwritten.IsStruct(s, "ts") }
 	rawKeyFields := key.Collect(structs, skip)
 	keyFields := p.convertKeyFields(rawKeyFields, structs, data)
 	data.KeyFields = keyFields
@@ -257,7 +262,7 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
-func (p *Plugin) convertKeyFields(fields []key.Field, structs []*resolution.StructEntry, data *templateData) []keyFieldData {
+func (p *Plugin) convertKeyFields(fields []key.Field, structs []*resolution.Struct, data *templateData) []keyFieldData {
 	result := make([]keyFieldData, 0, len(fields))
 	for _, f := range fields {
 		primitive := f.Primitive
@@ -274,7 +279,7 @@ func (p *Plugin) convertKeyFields(fields []key.Field, structs []*resolution.Stru
 	return result
 }
 
-func findFieldTypeOverride(structs []*resolution.StructEntry, fieldName, domainName string) string {
+func findFieldTypeOverride(structs []*resolution.Struct, fieldName, domainName string) string {
 	for _, s := range structs {
 		for _, f := range s.Fields {
 			if f.Name == fieldName {
@@ -287,7 +292,7 @@ func findFieldTypeOverride(structs []*resolution.StructEntry, fieldName, domainN
 	return ""
 }
 
-func (p *Plugin) extractOntology(structs []*resolution.StructEntry, keyFields []key.Field, skip ontology.SkipFunc) *ontologyData {
+func (p *Plugin) extractOntology(structs []*resolution.Struct, keyFields []key.Field, skip ontology.SkipFunc) *ontologyData {
 	data := ontology.Extract(structs, keyFields, skip)
 	if data == nil {
 		return nil
@@ -306,7 +311,7 @@ func (p *Plugin) extractOntology(structs []*resolution.StructEntry, keyFields []
 	}
 }
 
-func (p *Plugin) processEnum(enum *resolution.EnumEntry) enumData {
+func (p *Plugin) processEnum(enum *resolution.Enum) enumData {
 	values := make([]enumValueData, 0, len(enum.Values))
 	for _, v := range enum.Values {
 		values = append(values, enumValueData{
@@ -319,7 +324,7 @@ func (p *Plugin) processEnum(enum *resolution.EnumEntry) enumData {
 	return enumData{Name: enum.Name, Values: values, IsIntEnum: enum.IsIntEnum}
 }
 
-func (p *Plugin) processStruct(entry *resolution.StructEntry, table *resolution.Table, data *templateData, keyFields []keyFieldData) structData {
+func (p *Plugin) processStruct(entry *resolution.Struct, table *resolution.Table, data *templateData, keyFields []keyFieldData) structData {
 	sd := structData{
 		Name:          entry.Name,
 		TSName:        entry.Name,
@@ -387,8 +392,8 @@ func (p *Plugin) processStruct(entry *resolution.StructEntry, table *resolution.
 		}
 
 		// Build map of parent fields for comparison
-		parentFields := make(map[string]*resolution.FieldEntry)
-		for _, pf := range parentStruct.AllFields() {
+		parentFields := make(map[string]*resolution.Field)
+		for _, pf := range parentStruct.UnifiedFields() {
 			parentFields[pf.Name] = pf
 		}
 
@@ -407,7 +412,7 @@ func (p *Plugin) processStruct(entry *resolution.StructEntry, table *resolution.
 	}
 
 	// Non-extending struct: use all fields (flattened for compatibility)
-	allFields := entry.AllFields()
+	allFields := entry.UnifiedFields()
 	sd.Fields = make([]fieldData, 0, len(allFields))
 	for _, field := range allFields {
 		sd.Fields = append(sd.Fields, p.processField(field, entry, table, data, keyFields, sd.UseInput))
@@ -476,10 +481,9 @@ func (p *Plugin) processTypeParam(tp *resolution.TypeParam, data *templateData) 
 	return tpd
 }
 
-
 type typeParamMapping struct {
-	zodType   string // e.g., "z.ZodNumber" for type constraints
-	zodValue  string // e.g., "z.number()" for runtime values
+	zodType  string // e.g., "z.ZodNumber" for type constraints
+	zodValue string // e.g., "z.number()" for runtime values
 }
 
 var typeParamMappings = map[string]typeParamMapping{
@@ -525,7 +529,7 @@ func fallbackForConstraint(constraint *resolution.TypeRef) string {
 
 // isSelfReference checks if a type reference points to the parent struct,
 // either directly or through arrays/optionals.
-func isSelfReference(t *resolution.TypeRef, parent *resolution.StructEntry) bool {
+func isSelfReference(t *resolution.TypeRef, parent *resolution.Struct) bool {
 	if t == nil || parent == nil {
 		return false
 	}
@@ -544,7 +548,7 @@ func isSelfReference(t *resolution.TypeRef, parent *resolution.StructEntry) bool
 	return false
 }
 
-func (p *Plugin) processField(field *resolution.FieldEntry, parentStruct *resolution.StructEntry, table *resolution.Table, data *templateData, keyFields []keyFieldData, useInput bool) fieldData {
+func (p *Plugin) processField(field *resolution.Field, parentStruct *resolution.Struct, table *resolution.Table, data *templateData, keyFields []keyFieldData, useInput bool) fieldData {
 	fd := fieldData{
 		Name:           field.Name,
 		TSName:         lo.CamelCase(field.Name),
@@ -599,7 +603,7 @@ func findKeyField(name string, keyFields []keyFieldData) *keyFieldData {
 	return nil
 }
 
-func getFieldTypeOverride(field *resolution.FieldEntry, domainName string) string {
+func getFieldTypeOverride(field *resolution.Field, domainName string) string {
 	domain := plugin.GetFieldDomain(field, domainName)
 	if domain == nil {
 		return ""
@@ -845,7 +849,7 @@ func primitiveToZod(primitive string, data *templateData, useInput bool) string 
 	return "z.unknown()"
 }
 
-func (p *Plugin) applyValidation(zodType string, domain *resolution.DomainEntry, typeRef *resolution.TypeRef, fieldName string) string {
+func (p *Plugin) applyValidation(zodType string, domain *resolution.Domain, typeRef *resolution.TypeRef, fieldName string) string {
 	rules := validation.Parse(domain)
 	if validation.IsEmpty(rules) {
 		return zodType
@@ -1006,7 +1010,7 @@ type typeParamData struct {
 }
 
 type fieldData struct {
-	Name, TSName, ZodType, TSType              string
+	Name, TSName, ZodType, TSType                  string
 	IsOptional, IsHardOptional, IsArray, IsSelfRef bool
 }
 

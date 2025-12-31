@@ -432,8 +432,8 @@ var _ = Describe("Analyzer", func() {
 			Expect(child.Fields).To(HaveLen(1))
 			Expect(child.Fields[0].Name).To(Equal("email"))
 
-			// AllFields should include inherited fields
-			allFields := child.AllFields()
+			// UnifiedFields should include inherited fields
+			allFields := child.UnifiedFields()
 			Expect(allFields).To(HaveLen(3))
 			fieldNames := []string{allFields[0].Name, allFields[1].Name, allFields[2].Name}
 			Expect(fieldNames).To(ContainElements("name", "age", "email"))
@@ -459,8 +459,8 @@ var _ = Describe("Analyzer", func() {
 			Expect(child.OmittedFields).To(HaveLen(1))
 			Expect(child.OmittedFields[0]).To(Equal("age"))
 
-			// AllFields should NOT include omitted field
-			allFields := child.AllFields()
+			// UnifiedFields should NOT include omitted field
+			allFields := child.UnifiedFields()
 			Expect(allFields).To(HaveLen(3))
 			fieldNames := []string{allFields[0].Name, allFields[1].Name, allFields[2].Name}
 			Expect(fieldNames).To(ContainElements("name", "status", "email"))
@@ -487,11 +487,11 @@ var _ = Describe("Analyzer", func() {
 			Expect(child.Fields[0].Name).To(Equal("name"))
 			Expect(child.Fields[0].TypeRef.IsOptional).To(BeTrue())
 
-			// AllFields should have child's version of name
-			allFields := child.AllFields()
+			// UnifiedFields should have child's version of name
+			allFields := child.UnifiedFields()
 			Expect(allFields).To(HaveLen(2))
 
-			var nameField *resolution.FieldEntry
+			var nameField *resolution.Field
 			for _, f := range allFields {
 				if f.Name == "name" {
 					nameField = f
@@ -525,11 +525,11 @@ var _ = Describe("Analyzer", func() {
 			Expect(rackStatus.Extends.TypeArgs).To(HaveLen(1))
 			Expect(rackStatus.Extends.TypeArgs[0].StructRef.Name).To(Equal("Details"))
 
-			// AllFields should substitute type parameters
-			allFields := rackStatus.AllFields()
+			// UnifiedFields should substitute type parameters
+			allFields := rackStatus.UnifiedFields()
 			Expect(allFields).To(HaveLen(3))
 
-			var dataField *resolution.FieldEntry
+			var dataField *resolution.Field
 			for _, f := range allFields {
 				if f.Name == "data" {
 					dataField = f
@@ -559,8 +559,8 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.HasErrors()).To(BeFalse())
 
 			child := table.MustGetStruct("test.Child")
-			// AllFields should include fields from all ancestors
-			allFields := child.AllFields()
+			// UnifiedFields should include fields from all ancestors
+			allFields := child.UnifiedFields()
 			Expect(allFields).To(HaveLen(3))
 			fieldNames := []string{allFields[0].Name, allFields[1].Name, allFields[2].Name}
 			Expect(fieldNames).To(ContainElements("a", "b", "c"))
@@ -589,7 +589,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(extended.Extends.StructRef.Name).To(Equal("Base"))
 			Expect(extended.Extends.StructRef.Namespace).To(Equal("base"))
 
-			allFields := extended.AllFields()
+			allFields := extended.UnifiedFields()
 			Expect(allFields).To(HaveLen(3))
 		})
 
@@ -660,10 +660,10 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.HasErrors()).To(BeFalse())
 
 			child := table.MustGetStruct("test.Child")
-			allFields := child.AllFields()
+			allFields := child.UnifiedFields()
 
 			// Find the key field
-			var keyField *resolution.FieldEntry
+			var keyField *resolution.Field
 			for _, f := range allFields {
 				if f.Name == "key" {
 					keyField = f
@@ -672,8 +672,8 @@ var _ = Describe("Analyzer", func() {
 			}
 
 			Expect(keyField).NotTo(BeNil())
-			Expect(keyField.TypeRef.IsOptional).To(BeTrue())  // Child's type
-			Expect(keyField.Domains).To(HaveKey("id"))        // Parent's domain inherited
+			Expect(keyField.TypeRef.IsOptional).To(BeTrue()) // Child's type
+			Expect(keyField.Domains).To(HaveKey("id"))       // Parent's domain inherited
 		})
 
 		It("Should allow child to override parent domain", func() {
@@ -700,10 +700,10 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.HasErrors()).To(BeFalse())
 
 			child := table.MustGetStruct("test.Child")
-			allFields := child.AllFields()
+			allFields := child.UnifiedFields()
 
 			// Find the name field
-			var nameField *resolution.FieldEntry
+			var nameField *resolution.Field
 			for _, f := range allFields {
 				if f.Name == "name" {
 					nameField = f
@@ -719,7 +719,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(validateDomain.Expressions).To(HaveLen(2))
 
 			// Find min_length expression
-			var minLengthExpr *resolution.ExpressionEntry
+			var minLengthExpr *resolution.Expression
 			for _, expr := range validateDomain.Expressions {
 				if expr.Name == "min_length" {
 					minLengthExpr = expr
@@ -744,9 +744,9 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.HasErrors()).To(BeFalse())
 
 			child := table.MustGetStruct("test.Child")
-			allFields := child.AllFields()
+			allFields := child.UnifiedFields()
 
-			var keyField *resolution.FieldEntry
+			var keyField *resolution.Field
 			for _, f := range allFields {
 				if f.Name == "key" {
 					keyField = f
@@ -774,9 +774,9 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.HasErrors()).To(BeFalse())
 
 			child := table.MustGetStruct("test.Child")
-			allFields := child.AllFields()
+			allFields := child.UnifiedFields()
 
-			var nameField *resolution.FieldEntry
+			var nameField *resolution.Field
 			for _, f := range allFields {
 				if f.Name == "name" {
 					nameField = f
@@ -789,7 +789,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(validateDomain.Expressions).To(HaveLen(2)) // Both min_length and max_length
 
 			// Build map for easy lookup
-			exprMap := make(map[string]*resolution.ExpressionEntry)
+			exprMap := make(map[string]*resolution.Expression)
 			for _, expr := range validateDomain.Expressions {
 				exprMap[expr.Name] = expr
 			}

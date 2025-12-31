@@ -22,22 +22,22 @@ var _ = Describe("Collect", func() {
 	})
 
 	It("should return empty for structs without key domain", func() {
-		structs := []*resolution.StructEntry{{
-			Fields: []*resolution.FieldEntry{{
+		structs := []*resolution.Struct{{
+			Fields: []*resolution.Field{{
 				Name:    "name",
 				TypeRef: &resolution.TypeRef{Primitive: "string"},
-				Domains: map[string]*resolution.DomainEntry{},
+				Domains: map[string]*resolution.Domain{},
 			}},
 		}}
 		Expect(key.Collect(structs, nil)).To(BeEmpty())
 	})
 
 	It("should collect field with key domain", func() {
-		structs := []*resolution.StructEntry{{
-			Fields: []*resolution.FieldEntry{{
+		structs := []*resolution.Struct{{
+			Fields: []*resolution.Field{{
 				Name:    "key",
 				TypeRef: &resolution.TypeRef{Primitive: "uuid"},
-				Domains: map[string]*resolution.DomainEntry{"key": {}},
+				Domains: map[string]*resolution.Domain{"key": {}},
 			}},
 		}}
 		result := key.Collect(structs, nil)
@@ -47,33 +47,33 @@ var _ = Describe("Collect", func() {
 	})
 
 	It("should deduplicate by field name", func() {
-		structs := []*resolution.StructEntry{
-			{Fields: []*resolution.FieldEntry{{
+		structs := []*resolution.Struct{
+			{Fields: []*resolution.Field{{
 				Name:    "key",
 				TypeRef: &resolution.TypeRef{Primitive: "uuid"},
-				Domains: map[string]*resolution.DomainEntry{"key": {}},
+				Domains: map[string]*resolution.Domain{"key": {}},
 			}}},
-			{Fields: []*resolution.FieldEntry{{
+			{Fields: []*resolution.Field{{
 				Name:    "key",
 				TypeRef: &resolution.TypeRef{Primitive: "uuid"},
-				Domains: map[string]*resolution.DomainEntry{"key": {}},
+				Domains: map[string]*resolution.Domain{"key": {}},
 			}}},
 		}
 		Expect(key.Collect(structs, nil)).To(HaveLen(1))
 	})
 
 	It("should collect multiple different key fields", func() {
-		structs := []*resolution.StructEntry{{
-			Fields: []*resolution.FieldEntry{
+		structs := []*resolution.Struct{{
+			Fields: []*resolution.Field{
 				{
 					Name:    "key",
 					TypeRef: &resolution.TypeRef{Primitive: "uuid"},
-					Domains: map[string]*resolution.DomainEntry{"key": {}},
+					Domains: map[string]*resolution.Domain{"key": {}},
 				},
 				{
 					Name:    "rack",
 					TypeRef: &resolution.TypeRef{Primitive: "uint32"},
-					Domains: map[string]*resolution.DomainEntry{"key": {}},
+					Domains: map[string]*resolution.Domain{"key": {}},
 				},
 			},
 		}}
@@ -82,28 +82,28 @@ var _ = Describe("Collect", func() {
 	})
 
 	It("should skip structs when skip function returns true", func() {
-		structs := []*resolution.StructEntry{{
+		structs := []*resolution.Struct{{
 			Name: "Skipped",
-			Fields: []*resolution.FieldEntry{{
+			Fields: []*resolution.Field{{
 				Name:    "key",
 				TypeRef: &resolution.TypeRef{Primitive: "uuid"},
-				Domains: map[string]*resolution.DomainEntry{"key": {}},
+				Domains: map[string]*resolution.Domain{"key": {}},
 			}},
 		}}
-		skip := func(s *resolution.StructEntry) bool { return s.Name == "Skipped" }
+		skip := func(s *resolution.Struct) bool { return s.Name == "Skipped" }
 		Expect(key.Collect(structs, skip)).To(BeEmpty())
 	})
 
 	It("should not skip when skip function returns false", func() {
-		structs := []*resolution.StructEntry{{
+		structs := []*resolution.Struct{{
 			Name: "NotSkipped",
-			Fields: []*resolution.FieldEntry{{
+			Fields: []*resolution.Field{{
 				Name:    "key",
 				TypeRef: &resolution.TypeRef{Primitive: "uuid"},
-				Domains: map[string]*resolution.DomainEntry{"key": {}},
+				Domains: map[string]*resolution.Domain{"key": {}},
 			}},
 		}}
-		skip := func(s *resolution.StructEntry) bool { return s.Name == "Skipped" }
+		skip := func(s *resolution.Struct) bool { return s.Name == "Skipped" }
 		Expect(key.Collect(structs, skip)).To(HaveLen(1))
 	})
 })

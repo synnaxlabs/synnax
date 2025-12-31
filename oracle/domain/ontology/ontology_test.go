@@ -19,9 +19,9 @@ import (
 
 var _ = Describe("Extract", func() {
 	It("should return nil for empty key fields", func() {
-		structs := []*resolution.StructEntry{{
-			Domains: map[string]*resolution.DomainEntry{
-				"ontology": {Expressions: []*resolution.ExpressionEntry{{
+		structs := []*resolution.Struct{{
+			Domains: map[string]*resolution.Domain{
+				"ontology": {Expressions: []*resolution.Expression{{
 					Name:   "type",
 					Values: []resolution.ExpressionValue{{StringValue: "user"}},
 				}}},
@@ -31,15 +31,15 @@ var _ = Describe("Extract", func() {
 	})
 
 	It("should return nil when no struct has ontology domain", func() {
-		structs := []*resolution.StructEntry{{Domains: map[string]*resolution.DomainEntry{}}}
+		structs := []*resolution.Struct{{Domains: map[string]*resolution.Domain{}}}
 		keyFields := []key.Field{{Name: "key", Primitive: "uuid"}}
 		Expect(ontology.Extract(structs, keyFields, nil)).To(BeNil())
 	})
 
 	It("should return nil when ontology has no type expression", func() {
-		structs := []*resolution.StructEntry{{
-			Domains: map[string]*resolution.DomainEntry{
-				"ontology": {Expressions: []*resolution.ExpressionEntry{}},
+		structs := []*resolution.Struct{{
+			Domains: map[string]*resolution.Domain{
+				"ontology": {Expressions: []*resolution.Expression{}},
 			},
 		}}
 		keyFields := []key.Field{{Name: "key", Primitive: "uuid"}}
@@ -47,10 +47,10 @@ var _ = Describe("Extract", func() {
 	})
 
 	It("should extract ontology data", func() {
-		structs := []*resolution.StructEntry{{
+		structs := []*resolution.Struct{{
 			Name: "User",
-			Domains: map[string]*resolution.DomainEntry{
-				"ontology": {Expressions: []*resolution.ExpressionEntry{{
+			Domains: map[string]*resolution.Domain{
+				"ontology": {Expressions: []*resolution.Expression{{
 					Name:   "type",
 					Values: []resolution.ExpressionValue{{StringValue: "user"}},
 				}}},
@@ -66,25 +66,25 @@ var _ = Describe("Extract", func() {
 	})
 
 	It("should skip structs when skip function returns true", func() {
-		structs := []*resolution.StructEntry{{
+		structs := []*resolution.Struct{{
 			Name: "Skipped",
-			Domains: map[string]*resolution.DomainEntry{
-				"ontology": {Expressions: []*resolution.ExpressionEntry{{
+			Domains: map[string]*resolution.Domain{
+				"ontology": {Expressions: []*resolution.Expression{{
 					Name:   "type",
 					Values: []resolution.ExpressionValue{{StringValue: "user"}},
 				}}},
 			},
 		}}
 		keyFields := []key.Field{{Name: "key", Primitive: "uuid"}}
-		skip := func(s *resolution.StructEntry) bool { return s.Name == "Skipped" }
+		skip := func(s *resolution.Struct) bool { return s.Name == "Skipped" }
 		Expect(ontology.Extract(structs, keyFields, skip)).To(BeNil())
 	})
 
 	It("should use first matching struct with ontology domain", func() {
-		structs := []*resolution.StructEntry{
-			{Name: "First", Domains: map[string]*resolution.DomainEntry{}},
-			{Name: "Second", Domains: map[string]*resolution.DomainEntry{
-				"ontology": {Expressions: []*resolution.ExpressionEntry{{
+		structs := []*resolution.Struct{
+			{Name: "First", Domains: map[string]*resolution.Domain{}},
+			{Name: "Second", Domains: map[string]*resolution.Domain{
+				"ontology": {Expressions: []*resolution.Expression{{
 					Name:   "type",
 					Values: []resolution.ExpressionValue{{StringValue: "task"}},
 				}}},

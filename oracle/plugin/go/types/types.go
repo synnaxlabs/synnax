@@ -65,7 +65,7 @@ func (p *Plugin) Check(req *plugin.Request) error {
 // Generate produces Go type definition files from the analyzed schemas.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
-	outputStructs := make(map[string][]*resolution.StructEntry)
+	outputStructs := make(map[string][]*resolution.Struct)
 
 	for _, entry := range req.Resolutions.AllStructs() {
 		if outputPath := output.GetPath(entry, "go"); outputPath != "" {
@@ -98,8 +98,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 // generateFile generates the Go source file for a set of structs.
 func (p *Plugin) generateFile(
 	outputPath string,
-	structs []*resolution.StructEntry,
-	enums []*resolution.EnumEntry,
+	structs []*resolution.Struct,
+	enums []*resolution.Enum,
 	table *resolution.Table,
 ) ([]byte, error) {
 	sort.Slice(structs, func(i, j int) bool { return structs[i].Name < structs[j].Name })
@@ -165,8 +165,8 @@ func derivePackageAlias(outputPath, currentPackage string) string {
 	return base
 }
 
-// processEnum converts an EnumEntry to template data.
-func (p *Plugin) processEnum(e *resolution.EnumEntry) enumData {
+// processEnum converts an Enum to template data.
+func (p *Plugin) processEnum(e *resolution.Enum) enumData {
 	values := make([]enumValueData, 0, len(e.Values))
 	for _, v := range e.Values {
 		values = append(values, enumValueData{
@@ -182,8 +182,8 @@ func (p *Plugin) processEnum(e *resolution.EnumEntry) enumData {
 	}
 }
 
-// processStruct converts a StructEntry to template data.
-func (p *Plugin) processStruct(entry *resolution.StructEntry, data *templateData) structData {
+// processStruct converts a Struct to template data.
+func (p *Plugin) processStruct(entry *resolution.Struct, data *templateData) structData {
 	sd := structData{
 		Name:      entry.Name,
 		Doc:       doc.Get(entry.Domains),
@@ -208,8 +208,8 @@ func (p *Plugin) processStruct(entry *resolution.StructEntry, data *templateData
 		// If omitting fields, fall back to field flattening
 		// since Go struct embedding can't exclude individual parent fields
 		if len(entry.OmittedFields) > 0 {
-			// Use AllFields() which respects OmittedFields
-			for _, field := range entry.AllFields() {
+			// Use UnifiedFields() which respects OmittedFields
+			for _, field := range entry.UnifiedFields() {
 				sd.Fields = append(sd.Fields, p.processField(field, data))
 			}
 			return sd
@@ -227,7 +227,7 @@ func (p *Plugin) processStruct(entry *resolution.StructEntry, data *templateData
 	}
 
 	// Process fields for non-extending structs
-	for _, field := range entry.AllFields() {
+	for _, field := range entry.UnifiedFields() {
 		sd.Fields = append(sd.Fields, p.processField(field, data))
 	}
 	return sd
@@ -264,8 +264,8 @@ func (p *Plugin) constraintToGo(constraint *resolution.TypeRef, data *templateDa
 	}
 }
 
-// processField converts a FieldEntry to template data.
-func (p *Plugin) processField(field *resolution.FieldEntry, data *templateData) fieldData {
+// processField converts a Field to template data.
+func (p *Plugin) processField(field *resolution.Field, data *templateData) fieldData {
 	goType := p.typeToGo(field.TypeRef, data)
 
 	return fieldData{
@@ -462,7 +462,7 @@ var primitiveGoTypes = map[string]primitiveMapping{
 
 // importManager tracks Go imports needed for the generated file.
 type importManager struct {
-	external map[string]bool           // External package imports (uuid, telem, etc.)
+	external map[string]bool            // External package imports (uuid, telem, etc.)
 	internal map[string]*internalImport // Synnax internal package imports
 }
 

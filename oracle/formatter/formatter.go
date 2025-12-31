@@ -100,21 +100,29 @@ func (f *formatter) newline() {
 }
 
 // emitLeadingComments emits any comments at the very start of the file.
-func (f *formatter) emitLeadingComments() {
+// Returns true if any comments were emitted.
+func (f *formatter) emitLeadingComments() bool {
 	// Get all tokens and look for leading comments
 	f.tokens.Fill()
 	allTokens := f.tokens.GetAllTokens()
+	emitted := false
 	for _, tok := range allTokens {
 		if tok.GetChannel() == hiddenChan {
 			if tok.GetTokenType() == commentLine || tok.GetTokenType() == commentBlk {
 				f.writeLine(tok.GetText())
 				f.lastTokenIdx = tok.GetTokenIndex()
+				emitted = true
 			}
 		} else if tok.GetChannel() == antlr.TokenDefaultChannel {
-			// Stop at first non-hidden token
+			// Newlines are on default channel - skip them to continue reading comments
+			if tok.GetTokenType() == parser.OracleLexerNEWLINE {
+				continue
+			}
+			// Stop at first non-newline default channel token
 			break
 		}
 	}
+	return emitted
 }
 
 // emitCommentsBefore emits any comments that appear before the given token index.
@@ -156,7 +164,12 @@ func (f *formatter) formatSchema(ctx parser.ISchemaContext) {
 	hasDefinitions := len(ctx.AllDefinition()) > 0
 
 	// Emit comments at start of file (before any content)
-	f.emitLeadingComments()
+	hadLeadingComments := f.emitLeadingComments()
+
+	// Blank line after leading comments (e.g., copyright header)
+	if hadLeadingComments && (hasImports || hasDomains || hasDefinitions) {
+		f.newline()
+	}
 
 	// Format imports
 	for _, imp := range ctx.AllImportStmt() {

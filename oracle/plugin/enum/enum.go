@@ -17,9 +17,9 @@ import (
 
 // CollectReferenced collects unique enums referenced by struct fields.
 // Returns a deduplicated slice based on QualifiedName.
-func CollectReferenced(structs []*resolution.StructEntry) []*resolution.EnumEntry {
+func CollectReferenced(structs []*resolution.Struct) []*resolution.Enum {
 	seen := make(map[string]bool)
-	var enums []*resolution.EnumEntry
+	var enums []*resolution.Enum
 	for _, s := range structs {
 		for _, f := range s.Fields {
 			if f.TypeRef.Kind == resolution.TypeKindEnum && f.TypeRef.EnumRef != nil {
@@ -37,7 +37,7 @@ func CollectReferenced(structs []*resolution.StructEntry) []*resolution.EnumEntr
 // First checks if the enum has its own output domain, then falls back to
 // searching for a struct in the same namespace that has an output domain.
 // domainName specifies which domain to look up (e.g., "ts", "py").
-func FindOutputPath(e *resolution.EnumEntry, table *resolution.Table, domainName string) string {
+func FindOutputPath(e *resolution.Enum, table *resolution.Table, domainName string) string {
 	// First check if enum has its own output path
 	if path := output.GetEnumPath(e, domainName); path != "" {
 		return path
@@ -55,8 +55,8 @@ func FindOutputPath(e *resolution.EnumEntry, table *resolution.Table, domainName
 
 // CollectWithOwnOutput collects enums that have their own output domain defined.
 // These are standalone enums not just referenced by structs.
-func CollectWithOwnOutput(allEnums []*resolution.EnumEntry, domainName string) []*resolution.EnumEntry {
-	var result []*resolution.EnumEntry
+func CollectWithOwnOutput(allEnums []*resolution.Enum, domainName string) []*resolution.Enum {
+	var result []*resolution.Enum
 	for _, e := range allEnums {
 		if output.GetEnumPath(e, domainName) != "" && !output.IsEnumHandwritten(e, domainName) {
 			result = append(result, e)

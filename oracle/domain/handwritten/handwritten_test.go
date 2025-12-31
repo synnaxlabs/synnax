@@ -18,32 +18,32 @@ import (
 
 var _ = Describe("IsStruct", func() {
 	It("should return true when handwritten expression exists", func() {
-		s := &resolution.StructEntry{
-			Domains: map[string]*resolution.DomainEntry{
-				"ts": {Expressions: []*resolution.ExpressionEntry{{Name: "handwritten"}}},
+		s := &resolution.Struct{
+			Domains: map[string]*resolution.Domain{
+				"ts": {Expressions: []*resolution.Expression{{Name: "handwritten"}}},
 			},
 		}
 		Expect(handwritten.IsStruct(s, "ts")).To(BeTrue())
 	})
 
 	It("should return false when domain missing", func() {
-		s := &resolution.StructEntry{Domains: map[string]*resolution.DomainEntry{}}
+		s := &resolution.Struct{Domains: map[string]*resolution.Domain{}}
 		Expect(handwritten.IsStruct(s, "ts")).To(BeFalse())
 	})
 
 	It("should return false when handwritten not in expressions", func() {
-		s := &resolution.StructEntry{
-			Domains: map[string]*resolution.DomainEntry{
-				"ts": {Expressions: []*resolution.ExpressionEntry{{Name: "output"}}},
+		s := &resolution.Struct{
+			Domains: map[string]*resolution.Domain{
+				"ts": {Expressions: []*resolution.Expression{{Name: "output"}}},
 			},
 		}
 		Expect(handwritten.IsStruct(s, "ts")).To(BeFalse())
 	})
 
 	It("should check correct domain", func() {
-		s := &resolution.StructEntry{
-			Domains: map[string]*resolution.DomainEntry{
-				"py": {Expressions: []*resolution.ExpressionEntry{{Name: "handwritten"}}},
+		s := &resolution.Struct{
+			Domains: map[string]*resolution.Domain{
+				"py": {Expressions: []*resolution.Expression{{Name: "handwritten"}}},
 			},
 		}
 		Expect(handwritten.IsStruct(s, "ts")).To(BeFalse())
@@ -53,23 +53,23 @@ var _ = Describe("IsStruct", func() {
 
 var _ = Describe("IsEnum", func() {
 	It("should return true when handwritten expression exists", func() {
-		e := &resolution.EnumEntry{
-			Domains: map[string]*resolution.DomainEntry{
-				"ts": {Expressions: []*resolution.ExpressionEntry{{Name: "handwritten"}}},
+		e := &resolution.Enum{
+			Domains: map[string]*resolution.Domain{
+				"ts": {Expressions: []*resolution.Expression{{Name: "handwritten"}}},
 			},
 		}
 		Expect(handwritten.IsEnum(e, "ts")).To(BeTrue())
 	})
 
 	It("should return false when domain missing", func() {
-		e := &resolution.EnumEntry{Domains: map[string]*resolution.DomainEntry{}}
+		e := &resolution.Enum{Domains: map[string]*resolution.Domain{}}
 		Expect(handwritten.IsEnum(e, "ts")).To(BeFalse())
 	})
 
 	It("should return false when handwritten not in expressions", func() {
-		e := &resolution.EnumEntry{
-			Domains: map[string]*resolution.DomainEntry{
-				"ts": {Expressions: []*resolution.ExpressionEntry{{Name: "output"}}},
+		e := &resolution.Enum{
+			Domains: map[string]*resolution.Domain{
+				"ts": {Expressions: []*resolution.Expression{{Name: "output"}}},
 			},
 		}
 		Expect(handwritten.IsEnum(e, "ts")).To(BeFalse())

@@ -7,11 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package handwritten provides utilities for detecting handwritten types.
+// Types marked with the "handwritten" expression in a domain are skipped
+// during code generation, allowing manual implementations.
 package handwritten
 
 import "github.com/synnaxlabs/oracle/resolution"
 
-func IsStruct(s *resolution.StructEntry, domainName string) bool {
+// IsStruct returns true if the struct has a "handwritten" expression in the domain.
+func IsStruct(s *resolution.Struct, domainName string) bool {
 	domain, ok := s.Domains[domainName]
 	if !ok {
 		return false
@@ -24,7 +28,8 @@ func IsStruct(s *resolution.StructEntry, domainName string) bool {
 	return false
 }
 
-func IsEnum(e *resolution.EnumEntry, domainName string) bool {
+// IsEnum returns true if the enum has a "handwritten" expression in the domain.
+func IsEnum(e *resolution.Enum, domainName string) bool {
 	domain, ok := e.Domains[domainName]
 	if !ok {
 		return false

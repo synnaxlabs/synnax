@@ -15,13 +15,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-type Workspace struct {
-	Key    uuid.UUID `json:"key" msgpack:"key"`
-	Name   string    `json:"name" msgpack:"name"`
-	Author uuid.UUID `json:"author" msgpack:"author"`
-	Layout string    `json:"layout" msgpack:"layout"`
-}
-
 var _ gorp.Entry[uuid.UUID] = Workspace{}
 
 // GorpKey implements gorp.Entry.

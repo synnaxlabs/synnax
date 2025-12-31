@@ -12,73 +12,64 @@ package resolution
 
 import (
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/parser"
 )
 
+// Table holds all resolved types from parsed Oracle schema files.
+// It serves as the central registry for struct and enum definitions
+// that plugins use for code generation.
 type Table struct {
-	Structs    []*StructEntry
-	Enums      []*EnumEntry
+	Structs    []Struct
+	Enums      []Enum
 	Imports    map[string]bool
 	Namespaces map[string]bool
 }
 
+// NewTable creates an empty resolution table.
 func NewTable() *Table {
-	return &Table{
-		Structs:    make([]*StructEntry, 0),
-		Enums:      make([]*EnumEntry, 0),
-		Imports:    make(map[string]bool),
-		Namespaces: make(map[string]bool),
-	}
+	return &Table{Imports: make(map[string]bool), Namespaces: make(map[string]bool)}
 }
 
-type StructEntry struct {
+// Struct represents a resolved struct definition from an Oracle schema.
+// It contains the struct's name, fields, domains, and metadata needed for
+// code generation including generic type parameters and inheritance.
+type Struct struct {
 	AST           parser.IStructDefContext
 	Name          string
 	Namespace     string
 	FilePath      string
 	QualifiedName string
-	Fields        []*FieldEntry
-	Domains       map[string]*DomainEntry
+	Fields        []Field
+	Domains       map[string]Domain
 	HasKeyDomain  bool
-	TypeParams    []*TypeParam // Generic type parameters (e.g., <T, U extends schema>)
-	AliasOf       *TypeRef     // If non-nil, this struct is an alias of another type
-	IsRecursive   bool         // True if this struct references itself in any field
-
-	// Extension support
-	Extends       *TypeRef // Parent struct reference (nil if no extension)
-	OmittedFields []string // Field names omitted from parent via -fieldName syntax
+	TypeParams    []TypeParam
+	AliasOf       *TypeRef
+	IsRecursive   bool
+	Extends       *TypeRef
+	OmittedFields []string
 }
 
-// TypeParam represents a generic type parameter declaration.
-// Examples: T, T?, T extends Foo, T? extends Foo, T = Bar, T? = Bar
-// The Optional flag (from ?) means fields using this type parameter are absent when not provided
 type TypeParam struct {
-	Name       string   // e.g., "T", "D"
-	Optional   bool     // from "?", fields using this type are absent when not provided
-	Constraint *TypeRef // from "extends X", nil = any
-	Default    *TypeRef // from "= X", nil = required
+	Name       string
+	Optional   bool
+	Constraint *TypeRef
+	Default    *TypeRef
 }
 
-func (s *StructEntry) Field(name string) *FieldEntry {
-	for _, f := range s.Fields {
-		if f.Name == name {
-			return f
-		}
-	}
-	return nil
+func (s *Struct) Field(name string) (Field, bool) {
+	return lo.Find(s.Fields, func(item Field) bool {
+		return item.Name == name
+	})
 }
 
-// IsGeneric returns true if this struct has type parameters.
-func (s *StructEntry) IsGeneric() bool { return len(s.TypeParams) > 0 }
+func (s *Struct) IsGeneric() bool { return len(s.TypeParams) > 0 }
 
-// IsAlias returns true if this struct is an alias of another type.
-func (s *StructEntry) IsAlias() bool { return s.AliasOf != nil }
+func (s *Struct) IsAlias() bool { return s.AliasOf != nil }
 
-// HasExtends returns true if this struct extends another struct.
-func (s *StructEntry) HasExtends() bool { return s.Extends != nil }
+func (s *Struct) HasExtends() bool { return s.Extends != nil }
 
-// IsFieldOmitted returns true if the field name is in the omitted fields list.
-func (s *StructEntry) IsFieldOmitted(name string) bool {
+func (s *Struct) IsFieldOmitted(name string) bool {
 	for _, f := range s.OmittedFields {
 		if f == name {
 			return true
@@ -87,43 +78,30 @@ func (s *StructEntry) IsFieldOmitted(name string) bool {
 	return false
 }
 
-// AllFields returns all effective fields including inherited ones from parent.
-// Returns fields in order: inherited parent fields (excluding omitted and overridden),
-// followed by this struct's own fields (with inherited domains for overrides).
-// For generic parents, type parameters are substituted with concrete type arguments.
-func (s *StructEntry) AllFields() []*FieldEntry {
+func (s *Struct) UnifiedFields() []Field {
 	if s.Extends == nil || s.Extends.StructRef == nil {
 		return s.Fields
 	}
-
-	parent := s.Extends.StructRef
-
-	// Build map of child's own fields
-	ownFields := make(map[string]*FieldEntry)
+	var (
+		parent         = s.Extends.StructRef
+		ownFields      = make(map[string]Field)
+		parentFieldMap = make(map[string]Field)
+		parentFields   = parent.UnifiedFields()
+		result         []Field
+	)
 	for _, f := range s.Fields {
 		ownFields[f.Name] = f
 	}
-
-	// Build map of parent fields for domain inheritance
-	parentFieldMap := make(map[string]*FieldEntry)
-	parentFields := parent.AllFields()
 	for _, pf := range parentFields {
 		parentFieldMap[pf.Name] = pf
 	}
-
-	var result []*FieldEntry
-
-	// Add parent fields (excluding omitted and overridden)
 	for _, pf := range parentFields {
-		// Skip if omitted
 		if s.IsFieldOmitted(pf.Name) {
 			continue
 		}
-		// Skip if overridden by child's own field
 		if _, isOverride := ownFields[pf.Name]; isOverride {
 			continue
 		}
-		// Substitute type parameters if parent is generic
 		result = append(result, s.substituteTypeParams(pf, parent))
 	}
 
@@ -144,15 +122,14 @@ func (s *StructEntry) AllFields() []*FieldEntry {
 // mergeFieldDomains creates a new field with child's type but merged domains.
 // Parent domains are inherited. When both have the same domain, expressions are merged
 // (child expressions override parent expressions with the same name).
-func (s *StructEntry) mergeFieldDomains(parentField, childField *FieldEntry, parent *StructEntry) *FieldEntry {
+func (s *Struct) mergeFieldDomains(parentField, childField Field, parent *Struct) Field {
 	// First substitute type params in parent field if needed
 	substitutedParent := s.substituteTypeParams(parentField, parent)
-
-	merged := &FieldEntry{
+	merged := Field{
 		AST:     childField.AST,
 		Name:    childField.Name,
 		TypeRef: childField.TypeRef, // Child's type wins
-		Domains: make(map[string]*DomainEntry),
+		Domains: make(map[string]*Domain),
 	}
 
 	// Copy parent domains first
@@ -162,6 +139,7 @@ func (s *StructEntry) mergeFieldDomains(parentField, childField *FieldEntry, par
 
 	// Merge child domains - if same domain exists, merge expressions
 	for name, childDomain := range childField.Domains {
+
 		if parentDomain, exists := merged.Domains[name]; exists {
 			// Merge expressions: parent first, child overlays
 			merged.Domains[name] = mergeDomainExpressions(parentDomain, childDomain)
@@ -175,14 +153,14 @@ func (s *StructEntry) mergeFieldDomains(parentField, childField *FieldEntry, par
 
 // mergeDomainExpressions merges two domains' expressions.
 // Parent expressions are kept, child expressions override on name conflict.
-func mergeDomainExpressions(parent, child *DomainEntry) *DomainEntry {
-	merged := &DomainEntry{
+func mergeDomainExpressions(parent, child *Domain) *Domain {
+	merged := &Domain{
 		AST:  child.AST, // Use child's AST for error reporting
 		Name: child.Name,
 	}
 
 	// Build map of expressions keyed by name
-	exprMap := make(map[string]*ExpressionEntry)
+	exprMap := make(map[string]*Expression)
 	for _, expr := range parent.Expressions {
 		exprMap[expr.Name] = expr
 	}
@@ -210,12 +188,11 @@ func mergeDomainExpressions(parent, child *DomainEntry) *DomainEntry {
 
 // substituteTypeParams creates a copy of the field with type parameters replaced
 // by the concrete type arguments from the Extends reference.
-func (s *StructEntry) substituteTypeParams(field *FieldEntry, parent *StructEntry) *FieldEntry {
+func (s *Struct) substituteTypeParams(field Field, parent *Struct) Field {
 	if len(parent.TypeParams) == 0 || len(s.Extends.TypeArgs) == 0 {
 		return field
 	}
 
-	// Build map from type param name to concrete type
 	typeArgMap := make(map[string]*TypeRef)
 	for i, tp := range parent.TypeParams {
 		if i < len(s.Extends.TypeArgs) {
@@ -223,14 +200,12 @@ func (s *StructEntry) substituteTypeParams(field *FieldEntry, parent *StructEntr
 		}
 	}
 
-	// If field type is a type parameter, substitute it
 	newTypeRef := substituteTypeRef(field.TypeRef, typeArgMap)
 	if newTypeRef == field.TypeRef {
 		return field // No substitution needed
 	}
 
-	// Create a new FieldEntry with substituted type
-	return &FieldEntry{
+	return Field{
 		AST:     field.AST,
 		Name:    field.Name,
 		TypeRef: newTypeRef,
@@ -238,13 +213,11 @@ func (s *StructEntry) substituteTypeParams(field *FieldEntry, parent *StructEntr
 	}
 }
 
-// substituteTypeRef recursively substitutes type parameters in a TypeRef.
 func substituteTypeRef(tr *TypeRef, typeArgMap map[string]*TypeRef) *TypeRef {
 	if tr == nil {
 		return nil
 	}
 
-	// If this is a type parameter reference, substitute it
 	if tr.Kind == TypeKindTypeParam && tr.TypeParamRef != nil {
 		if concrete, ok := typeArgMap[tr.TypeParamRef.Name]; ok {
 			// Create a copy with the same modifiers but substituted type
@@ -261,7 +234,6 @@ func substituteTypeRef(tr *TypeRef, typeArgMap map[string]*TypeRef) *TypeRef {
 				MapKeyType:     concrete.MapKeyType,
 				MapValueType:   concrete.MapValueType,
 			}
-			// Recursively substitute type args of the concrete type
 			if len(concrete.TypeArgs) > 0 {
 				result.TypeArgs = make([]*TypeRef, len(concrete.TypeArgs))
 				for i, arg := range concrete.TypeArgs {
@@ -324,7 +296,7 @@ func substituteTypeRef(tr *TypeRef, typeArgMap map[string]*TypeRef) *TypeRef {
 }
 
 // TypeParam returns the type parameter with the given name, or nil if not found.
-func (s *StructEntry) TypeParam(name string) *TypeParam {
+func (s *Struct) TypeParam(name string) TypeParam {
 	for _, tp := range s.TypeParams {
 		if tp.Name == name {
 			return tp
@@ -333,25 +305,30 @@ func (s *StructEntry) TypeParam(name string) *TypeParam {
 	return nil
 }
 
-type FieldEntry struct {
+// Field represents a resolved field within a struct.
+type Field struct {
 	AST     parser.IFieldDefContext
 	Name    string
 	TypeRef *TypeRef
-	Domains map[string]*DomainEntry
+	Domains map[string]*Domain
 }
 
-type DomainEntry struct {
-	AST         antlr.ParserRuleContext // Can be IDomainContext, IInlineDomainContext, or IFileDomainContext
+// Domain represents a domain annotation on a struct or field.
+// The AST can be IDomainContext, IInlineDomainContext, or IFileDomainContext.
+type Domain struct {
+	AST         antlr.ParserRuleContext
 	Name        string
-	Expressions []*ExpressionEntry
+	Expressions []*Expression
 }
 
-type ExpressionEntry struct {
+// Expression represents a single expression within a domain.
+type Expression struct {
 	AST    parser.IExpressionContext
 	Name   string
 	Values []ExpressionValue
 }
 
+// ExpressionValue holds a parsed value from a domain expression.
 type ExpressionValue struct {
 	Kind        ValueKind
 	StringValue string
@@ -361,6 +338,7 @@ type ExpressionValue struct {
 	BoolValue   bool
 }
 
+// ValueKind identifies the type of an expression value.
 type ValueKind int
 
 const (
@@ -371,34 +349,48 @@ const (
 	ValueKindIdent
 )
 
+// TypeRef represents a resolved type reference in a field or type parameter.
 type TypeRef struct {
-	Kind           TypeKind
-	Primitive      string
-	StructRef      *StructEntry
-	EnumRef        *EnumEntry
-	TypeParamRef   *TypeParam // If this references a type parameter (e.g., field value T)
-	TypeArgs       []*TypeRef // Type arguments when using a generic (e.g., Status<Foo>)
-	IsArray        bool
-	IsOptional     bool // Soft optional (?) - Go uses zero value + omitempty
-	IsHardOptional bool // Hard optional (??) - Go uses pointer + omitempty
+	Kind      TypeKind
+	Primitive string
+	StructRef *Struct
+	EnumRef   *Enum
+	// TypeParamRef points to the type parameter when Kind is TypeKindTypeParam.
+	TypeParamRef *TypeParam
+	// TypeArgs holds type arguments when using a generic type (e.g., Status<Foo>).
+	TypeArgs []*TypeRef
+	IsArray  bool
+	// IsOptional indicates soft optional (?) - Go uses zero value + omitempty.
+	IsOptional bool
+	// IsHardOptional indicates hard optional (??) - Go uses pointer + omitempty.
+	IsHardOptional bool
 	RawType        string
-	// Map type fields (used when Kind == TypeKindMap)
-	MapKeyType   *TypeRef // Key type for map<K, V>
-	MapValueType *TypeRef // Value type for map<K, V>
+	// MapKeyType is the key type for map<K, V> (used when Kind == TypeKindMap).
+	MapKeyType *TypeRef
+	// MapValueType is the value type for map<K, V> (used when Kind == TypeKindMap).
+	MapValueType *TypeRef
 }
 
+// TypeKind identifies the category of a type reference.
 type TypeKind int
 
 const (
+	// TypeKindPrimitive represents a built-in primitive type.
 	TypeKindPrimitive TypeKind = iota
+	// TypeKindStruct represents a struct type reference.
 	TypeKindStruct
+	// TypeKindEnum represents an enum type reference.
 	TypeKindEnum
-	TypeKindTypeParam  // References a type parameter within a generic struct
-	TypeKindMap        // Map type: map<K, V>
+	// TypeKindTypeParam represents a reference to a type parameter within a generic struct.
+	TypeKindTypeParam
+	// TypeKindMap represents a map type: map<K, V>.
+	TypeKindMap
+	// TypeKindUnresolved represents a type that could not be resolved.
 	TypeKindUnresolved
 )
 
-type EnumEntry struct {
+// Enum represents a resolved enum definition from an Oracle schema.
+type Enum struct {
 	AST           parser.IEnumDefContext
 	Name          string
 	Namespace     string
@@ -407,15 +399,17 @@ type EnumEntry struct {
 	Values        []*EnumValue
 	ValuesByName  map[string]*EnumValue
 	IsIntEnum     bool
-	Domains       map[string]*DomainEntry
+	Domains       map[string]*Domain
 }
 
+// EnumValue represents a single value within an enum.
 type EnumValue struct {
 	Name        string
 	IntValue    int64
 	StringValue string
 }
 
+// Primitives is the set of built-in primitive type names recognized by Oracle.
 var Primitives = map[string]bool{
 	"uuid": true, "string": true, "bool": true,
 	"int8": true, "int16": true, "int32": true, "int64": true,
@@ -425,6 +419,7 @@ var Primitives = map[string]bool{
 	"json": true, "bytes": true,
 }
 
+// IsPrimitive returns true if the name is a built-in primitive type.
 func IsPrimitive(name string) bool { return Primitives[name] }
 
 // StringPrimitives identifies primitives that map to string-like types.
@@ -443,15 +438,15 @@ func IsStringPrimitive(name string) bool { return StringPrimitives[name] }
 // IsNumberPrimitive checks if the primitive is a number type.
 func IsNumberPrimitive(name string) bool { return NumberPrimitives[name] }
 
-func (t *Table) LookupStruct(namespace, name string) (*StructEntry, bool) {
+// LookupStruct finds a struct by namespace and name.
+// It first tries an exact qualified name match, then falls back to name-only.
+func (t *Table) LookupStruct(namespace, name string) (*Struct, bool) {
 	qname := namespace + "." + name
-	// First pass: exact qualified name match (takes priority)
 	for _, e := range t.Structs {
 		if e.QualifiedName == qname {
 			return e, true
 		}
 	}
-	// Second pass: name-only match (fallback for unqualified references)
 	for _, e := range t.Structs {
 		if e.Name == name {
 			return e, true
@@ -460,15 +455,15 @@ func (t *Table) LookupStruct(namespace, name string) (*StructEntry, bool) {
 	return nil, false
 }
 
-func (t *Table) LookupEnum(namespace, name string) (*EnumEntry, bool) {
+// LookupEnum finds an enum by namespace and name.
+// It first tries an exact qualified name match, then falls back to name-only.
+func (t *Table) LookupEnum(namespace, name string) (*Enum, bool) {
 	qname := namespace + "." + name
-	// First pass: exact qualified name match (takes priority)
 	for _, e := range t.Enums {
 		if e.QualifiedName == qname {
 			return e, true
 		}
 	}
-	// Second pass: name-only match (fallback for unqualified references)
 	for _, e := range t.Enums {
 		if e.Name == name {
 			return e, true
@@ -477,7 +472,8 @@ func (t *Table) LookupEnum(namespace, name string) (*EnumEntry, bool) {
 	return nil, false
 }
 
-func (t *Table) GetStruct(qname string) (*StructEntry, bool) {
+// GetStruct returns the struct with the given qualified name.
+func (t *Table) GetStruct(qname string) (*Struct, bool) {
 	for _, e := range t.Structs {
 		if e.QualifiedName == qname {
 			return e, true
@@ -486,7 +482,8 @@ func (t *Table) GetStruct(qname string) (*StructEntry, bool) {
 	return nil, false
 }
 
-func (t *Table) MustGetStruct(qname string) *StructEntry {
+// MustGetStruct returns the struct with the given qualified name or panics.
+func (t *Table) MustGetStruct(qname string) *Struct {
 	e, ok := t.GetStruct(qname)
 	if !ok {
 		panic("struct not found: " + qname)
@@ -494,7 +491,8 @@ func (t *Table) MustGetStruct(qname string) *StructEntry {
 	return e
 }
 
-func (t *Table) GetEnum(qname string) (*EnumEntry, bool) {
+// GetEnum returns the enum with the given qualified name.
+func (t *Table) GetEnum(qname string) (*Enum, bool) {
 	for _, e := range t.Enums {
 		if e.QualifiedName == qname {
 			return e, true
@@ -503,7 +501,8 @@ func (t *Table) GetEnum(qname string) (*EnumEntry, bool) {
 	return nil, false
 }
 
-func (t *Table) MustGetEnum(qname string) *EnumEntry {
+// MustGetEnum returns the enum with the given qualified name or panics.
+func (t *Table) MustGetEnum(qname string) *Enum {
 	e, ok := t.GetEnum(qname)
 	if !ok {
 		panic("enum not found: " + qname)
@@ -511,16 +510,27 @@ func (t *Table) MustGetEnum(qname string) *EnumEntry {
 	return e
 }
 
-func (t *Table) AddStruct(e *StructEntry)    { t.Structs = append(t.Structs, e) }
-func (t *Table) AddEnum(e *EnumEntry)        { t.Enums = append(t.Enums, e) }
-func (t *Table) MarkImported(path string)    { t.Imports[path] = true }
+// AddStruct adds a struct entry to the table.
+func (t *Table) AddStruct(e *Struct) { t.Structs = append(t.Structs, e) }
+
+// AddEnum adds an enum entry to the table.
+func (t *Table) AddEnum(e *Enum) { t.Enums = append(t.Enums, e) }
+
+// MarkImported records that a file path has been imported.
+func (t *Table) MarkImported(path string) { t.Imports[path] = true }
+
+// IsImported returns true if the file path has been imported.
 func (t *Table) IsImported(path string) bool { return t.Imports[path] }
 
-func (t *Table) AllStructs() []*StructEntry { return t.Structs }
-func (t *Table) AllEnums() []*EnumEntry     { return t.Enums }
+// AllStructs returns all struct entries in the table.
+func (t *Table) AllStructs() []*Struct { return t.Structs }
 
-func (t *Table) StructsInNamespace(ns string) []*StructEntry {
-	var r []*StructEntry
+// AllEnums returns all enum entries in the table.
+func (t *Table) AllEnums() []*Enum { return t.Enums }
+
+// StructsInNamespace returns all structs in the given namespace.
+func (t *Table) StructsInNamespace(ns string) []*Struct {
+	var r []*Struct
 	for _, e := range t.Structs {
 		if e.Namespace == ns {
 			r = append(r, e)
@@ -529,8 +539,9 @@ func (t *Table) StructsInNamespace(ns string) []*StructEntry {
 	return r
 }
 
-func (t *Table) EnumsInNamespace(ns string) []*EnumEntry {
-	var r []*EnumEntry
+// EnumsInNamespace returns all enums in the given namespace.
+func (t *Table) EnumsInNamespace(ns string) []*Enum {
+	var r []*Enum
 	for _, e := range t.Enums {
 		if e.Namespace == ns {
 			r = append(r, e)

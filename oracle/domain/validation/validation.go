@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package validation provides utilities for parsing @validate domain expressions.
+// It extracts validation rules like required, min/max length, patterns, and defaults.
 package validation
 
 import "github.com/synnaxlabs/oracle/resolution"
 
+// Rules contains the parsed validation constraints from a @validate domain.
 type Rules struct {
 	Required  bool
 	MinLength *int64
@@ -23,13 +26,16 @@ type Rules struct {
 	Default   *resolution.ExpressionValue
 }
 
+// Number represents a numeric constraint value that can be int or float.
 type Number struct {
 	Int   int64
 	Float float64
 	IsInt bool
 }
 
-func Parse(domain *resolution.DomainEntry) *Rules {
+// Parse extracts validation rules from a @validate domain entry.
+// Returns nil if the domain is nil.
+func Parse(domain *resolution.Domain) *Rules {
 	if domain == nil {
 		return nil
 	}
@@ -73,6 +79,7 @@ func Parse(domain *resolution.DomainEntry) *Rules {
 	return rules
 }
 
+// IsEmpty returns true if the rules have no validation constraints set.
 func IsEmpty(r *Rules) bool {
 	if r == nil {
 		return true
