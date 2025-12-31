@@ -34,6 +34,16 @@ export const CLIENT_NAV: PageNavNode = {
       name: "Ranges",
     },
     {
+      key: "/reference/client/series-and-frames",
+      href: "/reference/client/series-and-frames",
+      name: "Series & Frames",
+    },
+    {
+      key: "/reference/client/time-types",
+      href: "/reference/client/time-types",
+      name: "Time Types",
+    },
+    {
       key: "/reference/client/read-data",
       href: "/reference/client/read-data",
       name: "Reading Data",
@@ -42,11 +52,6 @@ export const CLIENT_NAV: PageNavNode = {
       key: "/reference/client/write-data",
       href: "/reference/client/write-data",
       name: "Writing Data",
-    },
-    {
-      key: "/reference/client/series-and-frames",
-      href: "/reference/client/series-and-frames",
-      name: "Series & Frames",
     },
     {
       key: "advanced",
@@ -58,9 +63,9 @@ export const CLIENT_NAV: PageNavNode = {
           name: "Auto-Commit",
         },
         {
-          key: "/reference/client/advanced/delete-data",
-          href: "/reference/client/advanced/delete-data",
-          name: "Delete Data",
+          key: "/reference/client/advanced/write-authorities",
+          href: "/reference/client/advanced/write-authorities",
+          name: "Write Authorities",
         },
         {
           key: "/reference/client/advanced/iterators",
@@ -68,14 +73,9 @@ export const CLIENT_NAV: PageNavNode = {
           name: "Iterators",
         },
         {
-          key: "/reference/client/advanced/time-types",
-          href: "/reference/client/advanced/time-types",
-          name: "Time Types",
-        },
-        {
-          key: "/reference/client/advanced/write-authorities",
-          href: "/reference/client/advanced/write-authorities",
-          name: "Write Authorities",
+          key: "/reference/client/advanced/delete-data",
+          href: "/reference/client/advanced/delete-data",
+          name: "Delete Data",
         },
         {
           key: "/reference/client/advanced/build-device-driver",
