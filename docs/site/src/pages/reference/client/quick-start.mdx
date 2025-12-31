@@ -155,8 +155,7 @@ channel to
 
 <Note.Note variant="info" className="compact">
   Creating multiple channels, conditional creation, and detailed channel options are
-  covered in [Fundamentals -
-  Channels](/reference/client/fundamentals/channels#creating-channels)
+  covered in [Channels](/reference/client/channels#creating-channels)
 </Note.Note>
 
 <Divider.Divider x />
@@ -221,7 +220,7 @@ make sense to have a temperature reading without an associated timestamp.
 
 <Note.Note variant="info" className="compact">
   Writers, transactions, authorities, and advanced writing patterns are covered in{" "}
-  <a href="/reference/client/advanced/writers">Advanced Topics - Writers</a>.
+  <a href="/reference/client/working-with-data/writers">Writers</a>.
 </Note.Note>
 
 <Divider.Divider x />
@@ -242,7 +241,7 @@ object:
     data = channel.read(start, end)
     ```
 
-    The returned data is a [`Series`](/reference/client/working-with-data/series-and-frames#series) object, which contains the time-range occupied by the data. Notably, the `Series` can be treated exactly like a `numpy.ndarray`.
+    The returned data is a [`Series`](/reference/client/series-and-frames#series) object, which contains the time-range occupied by the data. Notably, the `Series` can be treated exactly like a `numpy.ndarray`.
 
     ```python
     data = data - 273.15
@@ -262,7 +261,7 @@ object:
     ```
 
 The returned data is a
-[`Series`](/reference/client/working-with-data/series-and-frames#series), which
+[`Series`](/reference/client/series-and-frames#series), which
 maintains a very similar interface to a JavaScript typed array (e.g. `Float32Array`,
 `Int32Array`, etc.). Convert the returned data to a JavaScript array easily:
 
@@ -275,10 +274,10 @@ const data = Array.from(series);
 
 <Note.Note variant="info" className="compact">
   Iterators and streamers are covered in
-  [Iterators](/reference/client/working-with-data/iterators) and [Streaming
+  [Iterators](/reference/client/advanced/iterators) and [Streaming
   Data](/reference/client/working-with-data/streaming-data), respectively. Range-based
   reading is covered in [Reading from
-  Ranges](/reference/client/working-with-data/ranges#reading-from-ranges).
+  Ranges](/reference/client/ranges#reading-from-ranges).
 </Note.Note>
 
 <Divider.Divider x />
@@ -289,11 +288,11 @@ Now that you've completed the quick start, here are some recommended next steps:
 
 - **[Authentication](/reference/client/authentication)** - Learn about authentication
   methods, connection parameters, and troubleshooting
-- **[Fundamentals > Channels](/reference/client/fundamentals/channels)** - Master
-  channel creation, retrieval, renaming, and deletion
-- **[Fundamentals > Reading Data](/reference/client/fundamentals/read-data)** - Explore
-  different ways to read data from Synnax
-- **[Fundamentals > Writing Data](/reference/client/fundamentals/write-data)** - Learn
-  best practices for writing data to Synnax
-- **[Examples](/reference/client/resources/examples)** - Browse full working examples
+- **[Channels](/reference/client/channels)** - Master channel creation, retrieval,
+  renaming, and deletion
+- **[Reading Data](/reference/client/read-data)** - Explore different ways to read data
+  from Synnax
+- **[Writing Data](/reference/client/write-data)** - Learn best practices for writing
+  data to Synnax
+- **[Examples](/reference/client/examples)** - Browse full working examples
   for common use cases

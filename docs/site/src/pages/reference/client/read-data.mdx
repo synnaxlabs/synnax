@@ -3,9 +3,9 @@ layout: "@/layouts/Reference.astro"
 title: "Reading Data"
 description: "Learn the fundamentals of reading data from channels in Synnax."
 next: "Writing Data"
-nextURL: "/reference/client/fundamentals/write-data"
-prev: "Channels"
-prevURL: "/reference/client/fundamentals/channels"
+nextURL: "/reference/client/write-data"
+prev: "Ranges"
+prevURL: "/reference/client/ranges"
 clients: ["python", "typescript"]
 ---
 
@@ -45,7 +45,7 @@ data = channel.read(start, end)
 ```
 
 The returned data is a
-[`Series`](/reference/client/working-with-data/series-and-frames#series) object, which
+[`Series`](/reference/client/series-and-frames#series) object, which
 contains the time-range occupied by the data. Notably, the `Series` can be treated
 exactly like a `numpy.ndarray`.
 
@@ -67,7 +67,7 @@ const series = await channel.read(start, end);
 ```
 
 The returned data is a
-[`Series`](/reference/client/working-with-data/series-and-frames#series), which
+[`Series`](/reference/client/series-and-frames#series), which
 maintains a very similar interface to a JavaScript typed array (e.g. `Float32Array`,
 `Int32Array`, etc.). Convert the returned data to a JavaScript array easily:
 
@@ -84,7 +84,7 @@ const data = Array.from(series);
 ## Reading from Multiple Channels
 
 The returned data is an instance of the
-[Frame](/reference/client/working-with-data/series-and-frames#frame) class.
+[Frame](/reference/client/series-and-frames#frames) class.
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 

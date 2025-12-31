@@ -2,10 +2,10 @@
 layout: "@/layouts/Reference.astro"
 title: "Streaming Data"
 description: "Real-time data streaming patterns for live telemetry."
-next: "Iterators"
-nextURL: "/reference/client/working-with-data/iterators"
-prev: "Ranges"
-prevURL: "/reference/client/working-with-data/ranges"
+next: "Writers"
+nextURL: "/reference/client/working-with-data/writers"
+prev: "Series & Frames"
+prevURL: "/reference/client/series-and-frames"
 clients: ["python", "typescript"]
 ---
 
@@ -40,7 +40,7 @@ streamer = client.open_streamer(["channel1", "channel2"])
   <Fragment slot="typescript">
 
 ```typescript
-const streamer = await client.openStreamer(["temperature1", "temperature2"]);
+const streamer = await client.openStreamer(["channel1", "channel2"]);
 ```
 
   </Fragment>
@@ -136,7 +136,7 @@ data for every channel—see [Handling Partial Frames](#handling-partial-frames)
 details.
 
 For more on working with frames, see
-[Series and Frames](/reference/client/working-with-data/series-and-frames).
+[Series and Frames](/reference/client/series-and-frames).
 
 ### Using a For Loop
 
