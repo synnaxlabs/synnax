@@ -1,7 +1,9 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Writing Data"
-description: "Learn the fundamentals of writing data to channels in Synnax."
+description:
+  "Learn how to write data to channels in Synnax, including real-time streaming and
+  historical writes."
 next: "Series & Frames"
 nextURL: "/reference/client/series-and-frames"
 prev: "Reading Data"
@@ -15,22 +17,307 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-This guide covers the fundamental patterns for writing data to Synnax channels, focusing
-on simple, straightforward writes.
+This guide covers writing data to Synnax channels. For live data acquisition, using a
+Writer is the recommended approach. Historical writes are useful for backfilling data or
+ingesting data from files.
 
 If you'd like a conceptual overview of how writes work in Synnax, check out the
 [writes concepts guide](/reference/concepts/writes). The
 [rules of writes](/reference/concepts/writes#rules-of-writes) are especially important
 to understand.
 
-<Note.Note variant="info">
-  Using writers, transactions, authorities, auto-commit, and streaming modes are covered
-  in [Writers](/reference/client/working-with-data/writers).
+<Divider.Divider x />
+
+## Writing with Writers
+
+Writers are designed for streaming data as it's acquired. This is the recommended
+approach for live data acquisition, control sequences, and real-time data processing.
+Writers maintain a file-like interface governed by transactions. To learn more about
+transactions and how writes work in Synnax, see the
+[concepts](/reference/concepts/writes) page.
+
+### Opening a Writer
+
+To open a writer, use the <Client.Var client:load py="open_writer" ts="openWriter" />
+method with a starting timestamp and a list of channels to write to.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+# Python's context manager is recommended
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["time", "temperature"],
+) as writer:
+    for i in range(100):
+        writer.write({
+            "time": sy.TimeStamp.now(),
+            "temperature": i * 0.1,
+        })
+        sy.sleep(0.1)
+    writer.commit()
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+});
+
+try {
+  for (let i = 0; i < 100; i++)
+    await writer.write({ time: TimeStamp.now(), temperature: i * 0.1 });
+  await writer.commit();
+} finally {
+  await writer.close();
+}
+```
+
+  </Fragment>
+</Client.Tabs>
+
+These examples write 100 samples to the `temperature` channel, each spaced roughly 100ms
+apart, and commit all writes when finished. It's typical to write and commit millions of
+samples over the course of hours or days, intermittently calling commit to persist data
+to the cluster.
+
+<Note.Note variant="info" className="compact">
+  For advanced writer configuration, see
+  [Auto-Commit](/reference/client/advanced/auto-commit) and [Write
+  Authorities](/reference/client/advanced/write-authorities).
 </Note.Note>
+
+### Persistence/Streaming Mode
+
+By default, writers are opened in stream + persist
+[mode](/reference/concepts/writes#persistencestreaming-modes). To change the mode of a
+writer, specify the `mode` argument when opening the writer. The available modes are:
+
+- `persist` - Only persist data to the database (no streaming to subscribers)
+- `stream` - Only stream data to subscribers (no persistence)
+- <Client.Var client:load py="persist_stream" ts="persistStream" /> - Both persist and
+  stream (default)
+
+For example, to open a writer that only persists data:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+writer = client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["time", "temperature"],
+    mode="persist",
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+  mode: "persist",
+});
+```
+
+  </Fragment>
+</Client.Tabs>
+
+### Writing Data
+
+The `write` method accepts several argument formats. Use the one that best fits your use
+case.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+# Write a single sample for a channel
+writer.write("temperature", 25.5)
+
+# Write multiple samples for a channel
+writer.write("temperature", [25.5, 26.0, 26.5])
+
+# Write a single sample for several channels
+writer.write({
+    "time": sy.TimeStamp.now(),
+    "temperature": 25.5,
+})
+
+# Write multiple samples using lists or numpy arrays
+import numpy as np
+start = sy.TimeStamp.now()
+writer.write({
+    "time": [start, start + sy.TimeSpan.SECOND],
+    "temperature": np.array([25.5, 26.0], dtype=np.float32),
+})
+
+# Write using a list of channels and corresponding series
+writer.write(
+    ["time", "temperature"],
+    [timestamps, temperatures],
+)
+
+# Write a pandas DataFrame
+import pandas as pd
+df = pd.DataFrame({
+    "time": [sy.TimeStamp.now(), sy.TimeStamp.now() + sy.TimeSpan.SECOND],
+    "temperature": [25.5, 26.0],
+})
+writer.write(df)
+
+# Write a Synnax Frame
+frame = sy.Frame({ "time": timestamps, "temperature": temperatures })
+writer.write(frame)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { Frame, Series, TimeSpan, TimeStamp } from "@synnaxlabs/client";
+
+// Write a single sample for a channel
+await writer.write("temperature", 25.5);
+
+// Write multiple samples for a channel
+await writer.write("temperature", [25.5, 26.0, 26.5]);
+
+// Write a single sample for several channels
+await writer.write({
+  time: TimeStamp.now(),
+  temperature: 25.5,
+});
+
+// Write multiple samples using arrays
+const start = TimeStamp.now();
+await writer.write({
+  time: [start, start.add(TimeSpan.seconds(1))],
+  temperature: [25.5, 26.0],
+});
+
+// Write using a list of channels and corresponding series
+await writer.write(["time", "temperature"], [timestamps, temperatures]);
+
+// Write a Frame with typed arrays (high-performance)
+const now = TimeStamp.now();
+await writer.write(
+  new Frame({
+    [timeChannel.key]: new Series({
+      data: new BigInt64Array([now.valueOf(), now.add(TimeSpan.seconds(1)).valueOf()]),
+    }),
+    [tempChannel.key]: new Series({
+      data: new Float32Array([25.5, 26.0]),
+    }),
+  }),
+);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+### Closing a Writer
+
+After you're done writing, it's essential to close the writer to release network
+connections and other resources. If a writer is not closed, other writers may not be
+able to write to the same channels.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+writer.close()
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+await writer.close();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+Using structured cleanup patterns ensures the writer is always closed, even if an
+exception is thrown.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+# Python's context manager is the recommended approach
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["time", "temperature"],
+) as writer:
+    # Write data here
+
+# Alternatively, use a try/finally block
+writer = client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["time", "temperature"],
+)
+try:
+    # Write data here
+finally:
+    writer.close()
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// TypeScript's try/finally block is the recommended approach
+
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+});
+
+try {
+  for (let i = 0; i < 100; i++)
+    await writer.write({ time: TimeStamp.now(), temperature: i * 0.1 });
+
+  await writer.commit();
+} finally {
+  await writer.close();
+}
+```
+
+  </Fragment>
+</Client.Tabs>
 
 <Divider.Divider x />
 
-## Writing to a Channel
+## Historical Writes
+
+Historical writes are useful for backfilling data, ingesting data from files, or writing
+data at specific timestamps that have already passed.
+
+<Note.Note variant="warning" className="compact">
+  These patterns should NOT be used for live writing to Synnax. Opening and closing
+  transactions for each sample has severe performance implications. For live data
+  writing, always use a Writer as described above.
+</Note.Note>
+
+### Writing to a Channel
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
@@ -80,7 +367,7 @@ await tempChannel.write(start, temperatures);
 
 </Client.Tabs>
 
-### Index and Data Alignment
+#### Index and Data Alignment
 
 Notice how the two arrays are aligned using the common `start` timestamp. This tells
 Synnax that the first sample in the `temperatures` array is associated with the first
@@ -90,20 +377,13 @@ Synnax will raise a `ValidationError` if the index channel does not contain a
 corresponding timestamp for every sample in the data channel. After all, it wouldn't
 make sense to have a temperature reading without an associated timestamp.
 
-<Note.Note variant="info" className="compact">
-  Writers, transactions, authorities, and advanced writing patterns are covered in{" "}
-  <a href="/reference/client/working-with-data/writers">Writers</a>.
-</Note.Note>
-
-<Divider.Divider x />
-
-## Writing Multiple Data Channels
+### Writing Multiple Data Channels
 
 It's common to have multiple data channels that share the same index. For example, a
 weather station might record temperature, humidity, and pressure all at the same
 timestamps.
 
-### Single Time Index
+#### Single Time Index
 
 When writing a single sample to multiple channels at the same instant, use a dictionary
 with scalar values.
@@ -144,7 +424,7 @@ await client.write(now, {
 
 </Client.Tabs>
 
-### Multiple Time Indices
+#### Multiple Time Indices
 
 When writing multiple samples over time, use arrays for both the timestamps and data
 values.
@@ -207,3 +487,137 @@ await client.write(start, {
 
 All data channels use the same `start` timestamp for alignment, which tells Synnax they
 share the same index. The arrays must all have the same length as the timestamps array.
+
+<Divider.Divider x />
+
+## Common Pitfalls
+
+There are several common pitfalls to avoid when writing data to Synnax. These can lead
+to performance degradation and/or control issues.
+
+### Using Many Individual Write Calls Instead of a Writer
+
+When writing large volumes of data in a streaming fashion (or in batches), use a writer
+instead of making individual write calls to a channel. Calls to `write` on a channel use
+an entirely new transaction for each call - constantly creating, committing, and closing
+transactions has a dramatic impact on performance.
+
+<span style={{ color: "red" }}>**Avoid this pattern**</span> - Writing directly to
+channels in a loop:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+time = client.channels.retrieve("time")
+temperature = client.channels.retrieve("temperature")
+
+for i in range(100):
+    ts = sy.TimeStamp.now()
+    time.write(ts, ts)
+    temperature.write(ts, i * 0.1)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const time = await client.channels.retrieve("time");
+const temperature = await client.channels.retrieve("temperature");
+for (let i = 0; i < 100; i++) {
+  const ts = TimeStamp.now();
+  await time.write(ts, ts);
+  await temperature.write(ts, i * 0.1);
+}
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<span style={{ color: "red" }}>**Also avoid this pattern**</span> - Opening and closing
+a writer for every write:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+for i in range(100):
+    # Open/close writer each iteration
+    with client.open_writer(
+        start=sy.TimeStamp.now(),
+        channels=["time", "temperature"],
+    ) as writer:
+        sy.sleep(0.1)
+        writer.write({
+            "time": sy.TimeStamp.now(),
+            "temperature": i * 0.1,
+        })
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+for (let i = 0; i < 100; i++) {
+  const writer = await client.openWriter({
+    start: TimeStamp.now(),
+    channels: ["time", "temperature"],
+  });
+  await writer.write({
+    time: TimeStamp.now(),
+    temperature: i * 0.1,
+  });
+  await writer.close();
+}
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<span style={{ color: "green" }}>**Recommended approach**</span> - Repeatedly call
+`write` on a single writer:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+# Open/close the writer once
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["time", "temperature"],
+) as writer:
+    sy.sleep(0.1)
+    for i in range(100):
+        writer.write({
+            "time": sy.TimeStamp.now(),
+            "temperature": i * 0.1,
+        })
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+});
+try {
+  for (let i = 0; i < 100; i++)
+    await writer.write({
+      time: TimeStamp.now(),
+      temperature: i * 0.1,
+    });
+} finally {
+  await writer.close();
+}
+```
+
+  </Fragment>
+</Client.Tabs>

@@ -49,25 +49,14 @@ export const CLIENT_NAV: PageNavNode = {
       name: "Series & Frames",
     },
     {
-      key: "working-with-data",
-      name: "Working with Data",
-      children: [
-        {
-          key: "/reference/client/working-with-data/streaming-data",
-          href: "/reference/client/working-with-data/streaming-data",
-          name: "Streaming Data",
-        },
-        {
-          key: "/reference/client/working-with-data/writers",
-          href: "/reference/client/working-with-data/writers",
-          name: "Writers",
-        },
-      ],
-    },
-    {
       key: "advanced",
       name: "Advanced Topics",
       children: [
+        {
+          key: "/reference/client/advanced/auto-commit",
+          href: "/reference/client/advanced/auto-commit",
+          name: "Auto-Commit",
+        },
         {
           key: "/reference/client/advanced/delete-data",
           href: "/reference/client/advanced/delete-data",
@@ -82,6 +71,11 @@ export const CLIENT_NAV: PageNavNode = {
           key: "/reference/client/advanced/time-types",
           href: "/reference/client/advanced/time-types",
           name: "Time Types",
+        },
+        {
+          key: "/reference/client/advanced/write-authorities",
+          href: "/reference/client/advanced/write-authorities",
+          name: "Write Authorities",
         },
         {
           key: "/reference/client/advanced/build-device-driver",

@@ -5,8 +5,8 @@ description:
   "Safe data deletion with idempotency guarantees and rollback considerations."
 next: "Iterators"
 nextURL: "/reference/client/advanced/iterators"
-prev: "Writers"
-prevURL: "/reference/client/working-with-data/writers"
+prev: "Auto-Commit"
+prevURL: "/reference/client/advanced/auto-commit"
 clients: ["python", "typescript"]
 ---
 
@@ -38,8 +38,8 @@ throughout Synnax, remember that a time range is **start-inclusive** and
 **end-exclusive**, i.e. data at the start time stamp is deleted and data at the end time
 stamp is not.
 
-For example, to remove data in the range `[00:01, 00:03)` on the `my_index_ch` and
-`my_tc` channels:
+For example, to remove data in the range `[00:01, 00:03)` on the `channel_1` and
+`channel_2` channels:
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 

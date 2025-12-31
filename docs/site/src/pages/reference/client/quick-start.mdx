@@ -220,7 +220,7 @@ make sense to have a temperature reading without an associated timestamp.
 
 <Note.Note variant="info" className="compact">
   Writers, transactions, authorities, and advanced writing patterns are covered in{" "}
-  <a href="/reference/client/working-with-data/writers">Writers</a>.
+  [Writing Data](/reference/client/write-data).
 </Note.Note>
 
 <Divider.Divider x />
@@ -260,8 +260,7 @@ object:
 
     ```
 
-The returned data is a
-[`Series`](/reference/client/series-and-frames#series), which
+The returned data is a [`Series`](/reference/client/series-and-frames#series), which
 maintains a very similar interface to a JavaScript typed array (e.g. `Float32Array`,
 `Int32Array`, etc.). Convert the returned data to a JavaScript array easily:
 
@@ -273,10 +272,9 @@ const data = Array.from(series);
 </Client.Tabs>
 
 <Note.Note variant="info" className="compact">
-  Iterators and streamers are covered in
-  [Iterators](/reference/client/advanced/iterators) and [Streaming
-  Data](/reference/client/working-with-data/streaming-data), respectively. Range-based
-  reading is covered in [Reading from
+  Reading and streamers are covered in [Iterators](/reference/client/advanced/iterators)
+  and [Streaming Data](/reference/client/read-data#streaming-data), respectively.
+  Range-based reading is covered in [Reading from
   Ranges](/reference/client/ranges#reading-from-ranges).
 </Note.Note>
 
@@ -294,5 +292,5 @@ Now that you've completed the quick start, here are some recommended next steps:
   from Synnax
 - **[Writing Data](/reference/client/write-data)** - Learn best practices for writing
   data to Synnax
-- **[Examples](/reference/client/examples)** - Browse full working examples
-  for common use cases
+- **[Examples](/reference/client/examples)** - Browse full working examples for common
+  use cases

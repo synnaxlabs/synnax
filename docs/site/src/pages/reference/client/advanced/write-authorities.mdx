@@ -1,0 +1,187 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Write Authorities"
+description: "Dynamic control handoff with write authorities for concurrent access."
+next: "Build a Device Driver"
+nextURL: "/reference/client/advanced/build-device-driver"
+prev: "Time Types"
+prevURL: "/reference/client/advanced/time-types"
+clients: ["python", "typescript"]
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Writers support dynamic control handoff. Multiple writers can be opened on a channel at
+the same time, but only one writer is allowed to write to the channel. To determine
+which writer has control, an authority from 0 to 255 is assigned to each writer (or,
+optionally, each channel in the writer). The writer with the highest authority will be
+allowed to write. If two writers have the same authority, the writer that opened first
+will be allowed to write. For more information, see the
+[concepts](/reference/concepts/writes#dynamic-control---write-authorities) page.
+
+By default, writers are opened with an authority of `ABSOLUTE` (255). This means that no
+other writers can write to the channel as long as the writer is open.
+
+<Divider.Divider x />
+
+## Same Authority on All Channels
+
+To open a writer with the same authority on all channels, pass the `authorities`
+parameter with an integer.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+writer = client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["time", "temperature"],
+    authorities=100,
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+  authorities: 100,
+});
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Different Authorities per Channel
+
+To open a writer with different authorities on each channel, pass the `authorities`
+parameter with a list of integers. This list must be the same length as the number of
+channels in the writer.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+writer = client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["time", "temperature"],
+    authorities=[100, 200],
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+  authorities: [100, 200],
+});
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Adjusting Authority After Open
+
+To change the authority of a writer during operation, use the <Client.Var client:load
+py="set_authority" ts="setAuthority" /> method.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+# Set the authority on all channels
+writer.set_authority(200)
+
+# Set the authority on specific channels
+writer.set_authority({
+    "time": 150,
+    "temperature": 250,
+})
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// Set the authority on all channels
+await writer.setAuthority(200);
+
+// Set the authority on specific channels
+await writer.setAuthority({
+  time: 150,
+  temperature: 250,
+});
+```
+
+  </Fragment>
+</Client.Tabs>
+
+Here's a complete example showing dynamic authority changes during a write session:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["time", "temperature"],
+    authorities=100,
+) as writer:
+    # Start with low authority
+    writer.write({"time": sy.TimeStamp.now(), "temperature": 25.0})
+
+    # Increase authority to take control from other writers
+    writer.set_authority(200)
+    writer.write({"time": sy.TimeStamp.now(), "temperature": 26.0})
+
+    # Release control by lowering authority
+    writer.set_authority(50)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+  authorities: 100,
+});
+try {
+  // Start with low authority
+  await writer.write({ time: TimeStamp.now(), temperature: 25.0 });
+
+  // Increase authority to take control from other writers
+  await writer.setAuthority(200);
+  await writer.write({ time: TimeStamp.now(), temperature: 26.0 });
+
+  // Release control by lowering authority
+  await writer.setAuthority(50);
+} finally {
+  await writer.close();
+}
+```
+
+  </Fragment>
+</Client.Tabs>
