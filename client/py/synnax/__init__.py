@@ -44,7 +44,9 @@ from synnax.rack import Rack
 from synnax.ranger import Range
 from synnax.status import Status
 from synnax.synnax import Synnax
-from synnax.task import Task, TaskStatus, TaskStatusDetails
+from synnax.task import Task
+from synnax.task import Status as TaskStatus
+from synnax.task import StatusDetails as TaskStatusDetails
 from synnax.telem import (
     Alignment,
     Authority,

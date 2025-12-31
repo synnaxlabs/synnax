@@ -1,82 +1,66 @@
 import "schemas/status"
 
-struct StatusDetails<Data extends json = json> {
-    field task string
-    field running bool
-    field cmd string?
-    field data Data
+@ts output "client/ts/src/task"
+@py output "client/py/synnax/task"
 
-    domain ts {
-        output "client/ts/src/task"
-    }
+StatusDetails struct<Data extends json = json> {
+    task    uint64? @ts type string
+    running bool?
+    cmd     string?
+    data    Data?
 }
 
-struct Status<Data extends json = json> = status.Status<StatusDetails<Data>> {
-    domain ts {
-        output "client/ts/src/task"
-    }
+Status<Data extends json = json> = status.Status<StatusDetails<Data>>
+
+NewStatusDetails struct<Data extends json = json> {
+    task    uint64? @ts type string
+    running bool
+    cmd     string?
+    data    Data
 }
 
-struct NewStatusDetails<Data extends json = json> {
-    field task string?
-    field running bool
-    field cmd string?
-    field data Data
+NewStatus<Data extends json = json> = status.New<NewStatusDetails<Data>>
 
-    domain ts {
-        output "client/ts/src/task"
-    }
-}
+Task struct<
+    Type extends string = string,
+    Config extends json = json,
+    StatusData extends json = json
+> {
+    key      uint64              @id @ts type string
+    name     string
+    type     Type
+    config   Config
+    internal bool?
+    snapshot bool?
+    status   Status<StatusData>?
 
-struct NewStatus<Data extends json = json> = status.New<NewStatusDetails<Data>> {
-    domain ts {
-        output "client/ts/src/task"
-    }
-}
-
-struct Task<Type extends string = string, Config extends json = json, StatusData extends json = json> {
-    field key string {
-        domain id
-    }
-    field name string
-    field type Type
-    field config Config
-    field internal bool?
-    field snapshot bool?
-    field status Status<StatusData>?!
-
-    domain ts {
-        output "client/ts/src/task"
+    @ts {
         name "Payload"
         concrete_types
     }
-
-    domain ontology {
-        type "task"
-    }
+    @py name "Payload"
+    @ontology type "task"
 }
 
-struct New<Type extends string = string, Config extends json = json, StatusData extends json = json> {
-    field key string?
-    field name string
-    field type Type
-    field config Config
-    field status NewStatus<StatusData>?!
+New struct<
+    Type extends string = string,
+    Config extends json = json,
+    StatusData extends json = json
+> extends Task<Type, Config, StatusData> {
+    key    uint64?                @ts type string
+    status NewStatus<StatusData>?
+    -internal
+    -snapshot
 
-    domain ts {
-        output "client/ts/src/task"
+    @ts {
         use_input
         concrete_types
     }
 }
 
-struct Command {
-    field task string
-    field type string
-    field key string
-    field args json?
-
-    domain ts {
-        output "client/ts/src/task"
-    }
+Command struct {
+    task uint64 @ts type string
+    type string
+    key  string
+    args json?
 }

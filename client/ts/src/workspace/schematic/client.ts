@@ -45,7 +45,7 @@ export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 export type CopyArgs = z.input<typeof copyReqZ>;
 
-const retrieveResZ = z.object({ schematics: array.nullableZ(schematicZ) });
+const retrieveResZ = z.object({ schematics: array.nullishToEmpty(schematicZ) });
 
 const createReqZ = z.object({
   workspace: workspaceKeyZ,

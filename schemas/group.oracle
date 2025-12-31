@@ -1,15 +1,8 @@
-struct Group {
-    field key uuid {
-        domain id
-    }
+@ts output "client/ts/src/ontology/group"
 
-    field name string
+Group struct {
+    key  uuid   @id
+    name string
 
-    domain ts {
-        output "client/ts/src/ontology/group"
-    }
-
-    domain ontology {
-        type "group"
-    }
+    @ontology type "group"
 }

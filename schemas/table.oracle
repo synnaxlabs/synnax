@@ -1,30 +1,15 @@
-struct Table {
-    field key uuid {
-        domain id
-    }
+@ts output "client/ts/src/workspace/table"
 
-    field name string
+Table struct {
+    key  uuid   @id
+    name string
+    data json
 
-    field data json
-
-    domain ts {
-        output "client/ts/src/workspace/table"
-    }
-
-    domain ontology {
-        type "table"
-    }
+    @ontology type "table"
 }
 
-struct New {
-    field key uuid?
+New struct extends Table {
+    key uuid?
 
-    field name string
-
-    field data json
-
-    domain ts {
-        output "client/ts/src/workspace/table"
-        use_input
-    }
+    @ts use_input
 }

@@ -27,6 +27,7 @@ const (
 	SemanticTokenTypeString
 	SemanticTokenTypeNumber
 	SemanticTokenTypeComment
+	SemanticTokenTypeFunction
 )
 
 var semanticTokenTypes = []string{
@@ -38,6 +39,7 @@ var semanticTokenTypes = []string{
 	"string",
 	"number",
 	"comment",
+	"function",
 }
 
 var primitiveTypes = map[string]bool{
@@ -66,11 +68,13 @@ func extractSemanticTokens(content string) []uint32 {
 	allTokens := stream.GetAllTokens()
 
 	var tokens []xlsp.Token
+	prevWasAt := false
 	for _, t := range allTokens {
 		if t.GetTokenType() == antlr.TokenEOF {
 			continue
 		}
-		tokenType := mapTokenType(t.GetTokenType(), t.GetText())
+		tokenType := mapTokenType(t.GetTokenType(), t.GetText(), prevWasAt)
+		prevWasAt = t.GetTokenType() == parser.OracleLexerAT
 		if tokenType == nil {
 			continue
 		}
@@ -84,12 +88,14 @@ func extractSemanticTokens(content string) []uint32 {
 	return xlsp.EncodeSemanticTokens(tokens)
 }
 
-func mapTokenType(antlrType int, text string) *uint32 {
+func mapTokenType(antlrType int, text string, prevWasAt bool) *uint32 {
 	var tokenType uint32
 	switch antlrType {
-	case parser.OracleLexerSTRUCT, parser.OracleLexerFIELD,
-		parser.OracleLexerDOMAIN, parser.OracleLexerENUM, parser.OracleLexerIMPORT:
+	case parser.OracleLexerSTRUCT, parser.OracleLexerENUM, parser.OracleLexerIMPORT,
+		parser.OracleLexerEXTENDS, parser.OracleLexerMAP:
 		tokenType = SemanticTokenTypeKeyword
+	case parser.OracleLexerAT:
+		tokenType = SemanticTokenTypeDecorator
 	case parser.OracleLexerSTRING_LIT:
 		tokenType = SemanticTokenTypeString
 	case parser.OracleLexerINT_LIT, parser.OracleLexerFLOAT_LIT:
@@ -99,7 +105,9 @@ func mapTokenType(antlrType int, text string) *uint32 {
 	case parser.OracleLexerLINE_COMMENT, parser.OracleLexerBLOCK_COMMENT:
 		tokenType = SemanticTokenTypeComment
 	case parser.OracleLexerIDENT:
-		if primitiveTypes[text] {
+		if prevWasAt {
+			tokenType = SemanticTokenTypeFunction
+		} else if primitiveTypes[text] {
 			tokenType = SemanticTokenTypeType
 		} else {
 			tokenType = SemanticTokenTypeProperty

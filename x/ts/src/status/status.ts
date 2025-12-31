@@ -23,7 +23,7 @@ export type StatusZodObject<DetailsSchema extends z.ZodType = z.ZodNever> = z.Zo
     variant: typeof variantZ;
     message: z.ZodString;
     description: z.ZodOptional<z.ZodString>;
-    labels: z.ZodOptional<ReturnType<typeof array.nullableZ<typeof label.labelZ>>>;
+    labels: ReturnType<typeof array.nullToUndefined<typeof label.labelZ>>;
     time: typeof TimeStamp.z;
   } & ([DetailsSchema] extends [z.ZodNever] ? {} : { details: DetailsSchema })
 >;
@@ -47,7 +47,7 @@ export const statusZ: StatusZFunction = <DetailsSchema extends z.ZodType>(
     message: z.string(),
     description: z.string().optional(),
     time: TimeStamp.z,
-    labels: array.nullableZ(label.labelZ).optional(),
+    labels: array.nullToUndefined(label.labelZ),
     details: details ?? z.unknown().optional(),
   });
 
@@ -59,7 +59,7 @@ export const newZ = <DetailsSchema extends z.ZodType>(details?: DetailsSchema) =
     message: z.string(),
     description: z.string().optional(),
     time: TimeStamp.z,
-    labels: array.nullableZ(label.labelZ).optional(),
+    labels: array.nullToUndefined(label.labelZ),
     details: details ?? z.unknown().optional(),
   });
 

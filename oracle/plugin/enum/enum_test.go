@@ -82,9 +82,11 @@ var _ = Describe("FindOutputPath", func() {
 	It("should find output path from struct in same namespace", func() {
 		e := &resolution.EnumEntry{Name: "TaskState", Namespace: "task"}
 		table := &resolution.Table{
-			Structs: map[string]*resolution.StructEntry{
-				"task.Task": {
-					Namespace: "task",
+			Structs: []*resolution.StructEntry{
+				{
+					Name:          "Task",
+					QualifiedName: "task.Task",
+					Namespace:     "task",
 					Domains: map[string]*resolution.DomainEntry{
 						"ts": {Expressions: []*resolution.ExpressionEntry{{
 							Name:   "output",
@@ -100,9 +102,11 @@ var _ = Describe("FindOutputPath", func() {
 	It("should return empty for enum with no matching namespace", func() {
 		e := &resolution.EnumEntry{Name: "TaskState", Namespace: "task"}
 		table := &resolution.Table{
-			Structs: map[string]*resolution.StructEntry{
-				"other.Other": {
-					Namespace: "other",
+			Structs: []*resolution.StructEntry{
+				{
+					Name:          "Other",
+					QualifiedName: "other.Other",
+					Namespace:     "other",
 					Domains: map[string]*resolution.DomainEntry{
 						"ts": {Expressions: []*resolution.ExpressionEntry{{
 							Name:   "output",
@@ -118,8 +122,13 @@ var _ = Describe("FindOutputPath", func() {
 	It("should return empty for struct without output domain", func() {
 		e := &resolution.EnumEntry{Name: "TaskState", Namespace: "task"}
 		table := &resolution.Table{
-			Structs: map[string]*resolution.StructEntry{
-				"task.Task": {Namespace: "task", Domains: map[string]*resolution.DomainEntry{}},
+			Structs: []*resolution.StructEntry{
+				{
+					Name:          "Task",
+					QualifiedName: "task.Task",
+					Namespace:     "task",
+					Domains:       map[string]*resolution.DomainEntry{},
+				},
 			},
 		}
 		Expect(enum.FindOutputPath(e, table, "ts")).To(BeEmpty())
@@ -128,9 +137,11 @@ var _ = Describe("FindOutputPath", func() {
 	It("should work with different domain names", func() {
 		e := &resolution.EnumEntry{Name: "State", Namespace: "test"}
 		table := &resolution.Table{
-			Structs: map[string]*resolution.StructEntry{
-				"test.Test": {
-					Namespace: "test",
+			Structs: []*resolution.StructEntry{
+				{
+					Name:          "Test",
+					QualifiedName: "test.Test",
+					Namespace:     "test",
 					Domains: map[string]*resolution.DomainEntry{
 						"go": {Expressions: []*resolution.ExpressionEntry{{
 							Name:   "output",

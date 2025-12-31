@@ -1,0 +1,56 @@
+import "schemas/spatial"
+
+@ts output "client/ts/src/workspace/schematic/symbol"
+
+Region struct {
+    key          string
+    name         string
+    selectors    string[]?
+    stroke_color string?
+    fill_color   string?
+}
+
+State struct {
+    key     string
+    name    string
+    regions Region[]
+}
+
+Handle struct {
+    key         string
+    position    spatial.XY
+    orientation spatial.OuterLocation
+}
+
+Viewport struct {
+    zoom     float64    @validate default 1
+    position spatial.XY
+}
+
+Spec struct {
+    svg              string    @validate min_length 1
+    states           State[]
+    variant          string    @validate min_length 1
+    handles          Handle[]
+    scale            float64   @validate default 1
+    scale_stroke     bool      @validate default false
+    preview_viewport Viewport?
+}
+
+Symbol struct {
+    key     uuid   @id
+    version uint32 @validate default 1
+    name    string @validate min_length 1
+    data    Spec
+
+    @ontology type "schematic_symbol"
+}
+
+New struct {
+    key     uuid?  @id
+    version uint32 @validate default 1
+    name    string @validate min_length 1
+    data    Spec
+
+    @ts use_input
+}

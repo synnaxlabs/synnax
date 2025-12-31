@@ -1,34 +1,17 @@
-struct Schematic {
-    field key uuid {
-        domain id
-    }
+@ts output "client/ts/src/workspace/schematic"
 
-    field name string
+Schematic struct {
+    key      uuid   @id
+    name     string
+    data     json
+    snapshot bool
 
-    field data json
-
-    field snapshot bool
-
-    domain ts {
-        output "client/ts/src/workspace/schematic"
-    }
-
-    domain ontology {
-        type "schematic"
-    }
+    @ontology type "schematic"
 }
 
-struct New {
-    field key uuid?
+New struct extends Schematic {
+    key      uuid?
+    snapshot bool?
 
-    field name string
-
-    field data json
-
-    field snapshot bool?
-
-    domain ts {
-        output "client/ts/src/workspace/schematic"
-        use_input
-    }
+    @ts use_input
 }

@@ -41,7 +41,7 @@ const setLayoutReqZ = z.object({
 });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveResZ = z.object({ workspaces: array.nullableZ(workspaceZ) });
+const retrieveResZ = z.object({ workspaces: array.nullishToEmpty(workspaceZ) });
 const createResZ = z.object({ workspaces: workspaceZ.array() });
 const emptyResZ = z.object({});
 

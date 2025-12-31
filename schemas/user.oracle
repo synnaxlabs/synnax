@@ -1,77 +1,23 @@
-struct User {
-    domain doc { value "User represents a user account in the Synnax cluster." }
+@ts output "client/ts/src/user"
+@py output "client/py/synnax/user"
+@go output "core/pkg/service/user"
 
-    field key uuid {
-        domain id
-        domain doc { value "Key is the unique identifier for the user." }
-    }
+User struct {
+    key        uuid   @id
+    username   string @validate required
+    first_name string
+    last_name  string
+    root_user  bool   @validate default false
 
-    field username string {
-        domain validate {
-            required
-        }
-        domain query {
-            eq
-        }
-        domain index {
-            lookup
-        }
-        domain doc { value "Username is the unique login name for the user." }
-    }
-
-    field first_name string {
-        domain doc { value "FirstName is the user's first name." }
-    }
-
-    field last_name string {
-        domain doc { value "LastName is the user's last name." }
-    }
-    
-    field root_user bool {
-        domain validate {
-            default false
-        }
-        domain doc { value "RootUser indicates whether the user has root privileges." }
-    }
-
-    domain go {
-        output "core/pkg/service/user"
-    }
-
-    domain ts {
-        output "client/ts/src/user"
-    }
-
-    domain ontology {
-        type "user"
-    }
-
-    domain py {
-        output "client/py/synnax/user"
-    }
+    @ontology type "user"
 }
 
-struct New {
-    field key uuid?
+New struct extends User {
+    key        uuid?
+    password   string  @validate min_length 1
+    first_name string?
+    last_name  string?
+    -root_user
 
-    field username string {
-        domain validate {
-            required
-        }
-    }
-
-    field password string {
-        domain validate {
-            min_length 1
-        }
-    }
-
-    field first_name string?
-
-    field last_name string?
-
-    domain ts {
-        output "client/ts/src/user"
-        use_input
-    }
+    @ts use_input
 }

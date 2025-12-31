@@ -7,7 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+package validation_test
 
-export const actionZ = z.enum(["create", "delete", "retrieve", "update"]);
-export type Action = z.infer<typeof actionZ>;
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestValidation(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Validation Suite")
+}

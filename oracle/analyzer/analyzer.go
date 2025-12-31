@@ -1,11 +1,11 @@
 // Copyright 2025 Synnax Labs, Inc.
 //
-// Use of this software is governed by the Business Source License included in
-// the file licenses/BSL.txt.
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
 //
-// As of the Change Date specified in that file, in accordance with the Business
-// Source License, use of this software will be governed by the Apache License,
-// Version 2.0, included in the file licenses/APL.txt.
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
 // Package analyzer provides semantic analysis for Oracle schema files.
 package analyzer
@@ -15,19 +15,20 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/oracle/parser"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/diagnostics"
 )
 
 type analysisCtx struct {
 	context.Context
-	diag      *diagnostics.Diagnostics
-	table     *resolution.Table
-	loader    FileLoader
-	ast       parser.ISchemaContext
-	filePath  string
-	namespace string
+	diag        *diagnostics.Diagnostics
+	table       *resolution.Table
+	loader      FileLoader
+	ast         parser.ISchemaContext
+	filePath    string
+	namespace   string
+	fileDomains map[string]*resolution.DomainEntry // file-level domains for inheritance
 }
 
 func Analyze(
@@ -61,19 +62,22 @@ func Analyze(
 			continue
 		}
 		c := &analysisCtx{
-			Context:   ctx,
-			diag:      diag,
-			table:     table,
-			loader:    loader,
-			ast:       ast,
-			filePath:  filePath,
-			namespace: DeriveNamespace(filePath),
+			Context:     ctx,
+			diag:        diag,
+			table:       table,
+			loader:      loader,
+			ast:         ast,
+			filePath:    filePath,
+			namespace:   DeriveNamespace(filePath),
+			fileDomains: make(map[string]*resolution.DomainEntry),
 		}
 		analyze(c)
 	}
 	if diag.HasErrors() {
 		return nil, diag
 	}
+	// Detect recursive types after all types are resolved
+	detectRecursiveTypes(table)
 	return table, diag
 }
 
@@ -91,18 +95,21 @@ func AnalyzeSource(
 		return nil, diag
 	}
 	c := &analysisCtx{
-		Context:   ctx,
-		diag:      diag,
-		table:     table,
-		loader:    loader,
-		ast:       ast,
-		filePath:  namespace + ".oracle",
-		namespace: namespace,
+		Context:     ctx,
+		diag:        diag,
+		table:       table,
+		loader:      loader,
+		ast:         ast,
+		filePath:    namespace + ".oracle",
+		namespace:   namespace,
+		fileDomains: make(map[string]*resolution.DomainEntry),
 	}
 	analyze(c)
 	if diag.HasErrors() {
 		return nil, diag
 	}
+	// Detect recursive types after all types are resolved
+	detectRecursiveTypes(table)
 	return table, diag
 }
 
@@ -110,6 +117,14 @@ func analyze(c *analysisCtx) {
 	if c.ast == nil {
 		return
 	}
+
+	// Collect file-level domains first (they apply to all definitions)
+	for _, fd := range c.ast.AllFileDomain() {
+		if de := collectFileDomain(fd); de != nil {
+			c.fileDomains[de.Name] = de
+		}
+	}
+
 	for _, def := range c.ast.AllDefinition() {
 		if s := def.StructDef(); s != nil {
 			collectStruct(c, s)
@@ -138,13 +153,14 @@ func analyze(c *analysisCtx) {
 			continue
 		}
 		ic := &analysisCtx{
-			Context:   c.Context,
-			diag:      c.diag,
-			table:     c.table,
-			loader:    c.loader,
-			ast:       ast,
-			filePath:  filePath,
-			namespace: DeriveNamespace(filePath),
+			Context:     c.Context,
+			diag:        c.diag,
+			table:       c.table,
+			loader:      c.loader,
+			ast:         ast,
+			filePath:    filePath,
+			namespace:   DeriveNamespace(filePath),
+			fileDomains: make(map[string]*resolution.DomainEntry),
 		}
 		analyze(ic)
 	}
@@ -165,6 +181,15 @@ func analyze(c *analysisCtx) {
 		if s.AliasOf != nil {
 			resolveType(c, s, s.AliasOf)
 		}
+		// Resolve extends parent type (pass s to resolve type param refs like Status<D>)
+		if s.Extends != nil {
+			resolveType(c, s, s.Extends)
+		}
+	}
+
+	// Validate extends relationships after all types are resolved
+	for _, s := range c.table.StructsInNamespace(c.namespace) {
+		validateExtends(c, s)
 	}
 }
 
@@ -194,13 +219,39 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 		Domains:       make(map[string]*resolution.DomainEntry),
 		TypeParams:    collectTypeParams(def.TypeParams()),
 	}
+
+	// Parse extends clause if present
+	if def.EXTENDS() != nil {
+		entry.Extends = collectTypeRef(def.TypeRef())
+	}
+
+	// Start with file-level domains (inherited)
+	for k, v := range c.fileDomains {
+		entry.Domains[k] = v
+	}
+
 	if body := def.StructBody(); body != nil {
 		for _, f := range body.AllFieldDef() {
 			collectField(c, entry, f)
 		}
-		for _, d := range body.AllDomainDef() {
+		// Collect field omissions (-fieldName syntax)
+		for _, fo := range body.AllFieldOmit() {
+			entry.OmittedFields = append(entry.OmittedFields, fo.IDENT().GetText())
+		}
+		// Struct-level domains merge with file-level domains (struct takes precedence)
+		for _, d := range body.AllDomain() {
 			if de := collectDomain(d); de != nil {
-				entry.Domains[de.Name] = de
+				if existing, ok := entry.Domains[de.Name]; ok {
+					// Merge expressions: existing (file-level) + new (struct-level)
+					merged := &resolution.DomainEntry{
+						AST:         de.AST,
+						Name:        de.Name,
+						Expressions: append(existing.Expressions, de.Expressions...),
+					}
+					entry.Domains[de.Name] = merged
+				} else {
+					entry.Domains[de.Name] = de
+				}
 			}
 		}
 	}
@@ -221,14 +272,30 @@ func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 		FilePath:      c.filePath,
 		QualifiedName: qname,
 		Domains:       make(map[string]*resolution.DomainEntry),
-		TypeParams:    collectTypeParams(def.TypeParams()),
 		AliasOf:       collectTypeRef(def.TypeRef()),
+		TypeParams:    collectTypeParams(def.TypeParams()),
 	}
-	// Collect domains from alias body if present
+
+	// Start with file-level domains (inherited)
+	for k, v := range c.fileDomains {
+		entry.Domains[k] = v
+	}
+
+	// Collect domains from alias body if present (merge with file-level)
 	if body := def.AliasBody(); body != nil {
-		for _, d := range body.AllDomainDef() {
+		for _, d := range body.AllDomain() {
 			if de := collectDomain(d); de != nil {
-				entry.Domains[de.Name] = de
+				if existing, ok := entry.Domains[de.Name]; ok {
+					// Merge expressions: existing (file-level) + new (alias-level)
+					merged := &resolution.DomainEntry{
+						AST:         de.AST,
+						Name:        de.Name,
+						Expressions: append(existing.Expressions, de.Expressions...),
+					}
+					entry.Domains[de.Name] = merged
+				} else {
+					entry.Domains[de.Name] = de
+				}
 			}
 		}
 	}
@@ -236,7 +303,7 @@ func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 }
 
 // collectTypeParams parses generic type parameters from a struct definition.
-// Examples: <T>, <T, U>, <T extends schema>, <T extends schema = never>
+// Examples: <T>, <T?>, <T extends Foo>, <T? extends Foo>, <T = Bar>, <T? = Bar>
 func collectTypeParams(params parser.ITypeParamsContext) []*resolution.TypeParam {
 	if params == nil {
 		return nil
@@ -244,8 +311,9 @@ func collectTypeParams(params parser.ITypeParamsContext) []*resolution.TypeParam
 	var result []*resolution.TypeParam
 	for _, p := range params.AllTypeParam() {
 		tp := &resolution.TypeParam{Name: p.IDENT().GetText()}
-		// Handle constraint (extends X) and default (= Y)
-		// TypeParam rule: IDENT (EXTENDS typeRef)? (EQUALS typeRef)?
+		// Handle optional marker (?), constraint (extends X), and default (= Y)
+		// TypeParam rule: IDENT QUESTION? (EXTENDS typeRef)? (EQUALS typeRef)?
+		tp.Optional = p.QUESTION() != nil
 		typeRefs := p.AllTypeRef()
 		hasExtends := p.EXTENDS() != nil
 		hasEquals := p.EQUALS() != nil
@@ -276,20 +344,59 @@ func collectTypeRef(tr parser.ITypeRefContext) *resolution.TypeRef {
 // parseTypeRefBasic creates a basic unresolved TypeRef from a parser context.
 // Used for type parameter constraints and defaults where we just need the raw type.
 func parseTypeRefBasic(tr parser.ITypeRefContext) *resolution.TypeRef {
-	isOptional, isNullable := extractTypeModifiers(tr)
+	// Check if this is a map type
+	if mapCtx, ok := tr.(*parser.TypeRefMapContext); ok {
+		return parseMapTypeRef(mapCtx)
+	}
+
+	// Normal type reference
+	normalCtx := tr.(*parser.TypeRefNormalContext)
+	isOptional, isHardOptional := extractTypeModifiersNormal(normalCtx)
 	return &resolution.TypeRef{
-		Kind:       resolution.TypeKindUnresolved,
-		IsArray:    tr.LBRACKET() != nil,
-		IsOptional: isOptional,
-		IsNullable: isNullable,
-		RawType:    extractType(tr),
-		TypeArgs:   collectTypeArgs(tr.TypeArgs()),
+		Kind:           resolution.TypeKindUnresolved,
+		IsArray:        normalCtx.LBRACKET() != nil,
+		IsOptional:     isOptional,
+		IsHardOptional: isHardOptional,
+		RawType:        extractTypeNormal(normalCtx),
+		TypeArgs:       collectTypeArgsNormal(normalCtx.TypeArgs()),
 	}
 }
 
-// collectTypeArgs parses type arguments from a type reference.
+// parseMapTypeRef creates a TypeRef for a map type.
+func parseMapTypeRef(mapCtx *parser.TypeRefMapContext) *resolution.TypeRef {
+	mt := mapCtx.MapType()
+	typeRefs := mt.AllTypeRef()
+
+	var keyType, valueType *resolution.TypeRef
+	if len(typeRefs) >= 2 {
+		keyType = parseTypeRefBasic(typeRefs[0])
+		valueType = parseTypeRefBasic(typeRefs[1])
+	}
+
+	isOptional, isHardOptional := false, false
+	if mods := mapCtx.TypeModifiers(); mods != nil {
+		// Count QUESTION tokens: 1 = soft optional (?), 2 = hard optional (??)
+		questionCount := len(mods.AllQUESTION())
+		if questionCount >= 2 {
+			isHardOptional = true
+		} else if questionCount >= 1 {
+			isOptional = true
+		}
+	}
+
+	return &resolution.TypeRef{
+		Kind:           resolution.TypeKindMap,
+		IsOptional:     isOptional,
+		IsHardOptional: isHardOptional,
+		MapKeyType:     keyType,
+		MapValueType:   valueType,
+		RawType:        "map",
+	}
+}
+
+// collectTypeArgsNormal parses type arguments from a normal type reference.
 // Example: Status<Foo, Bar> -> [Foo, Bar]
-func collectTypeArgs(args parser.ITypeArgsContext) []*resolution.TypeRef {
+func collectTypeArgsNormal(args parser.ITypeArgsContext) []*resolution.TypeRef {
 	if args == nil {
 		return nil
 	}
@@ -311,22 +418,26 @@ func collectField(
 		return
 	}
 	tr := def.TypeRef()
-	isOptional, isNullable := extractTypeModifiers(tr)
 	entry := &resolution.FieldEntry{
-		AST:  def,
-		Name: name,
-		TypeRef: &resolution.TypeRef{
-			Kind:       resolution.TypeKindUnresolved,
-			IsArray:    tr.LBRACKET() != nil,
-			IsOptional: isOptional,
-			IsNullable: isNullable,
-			RawType:    extractType(tr),
-			TypeArgs:   collectTypeArgs(tr.TypeArgs()),
-		},
+		AST:     def,
+		Name:    name,
+		TypeRef: parseTypeRefBasic(tr),
 		Domains: make(map[string]*resolution.DomainEntry),
 	}
+
+	// Collect inline domains (e.g., @id, @validate required)
+	for _, inl := range def.AllInlineDomain() {
+		if de := collectInlineDomain(inl); de != nil {
+			entry.Domains[de.Name] = de
+			if de.Name == "id" {
+				s.HasIDDomain = true
+			}
+		}
+	}
+
+	// Collect domains from field body if present
 	if fb := def.FieldBody(); fb != nil {
-		for _, d := range fb.AllDomainDef() {
+		for _, d := range fb.AllDomain() {
 			if de := collectDomain(d); de != nil {
 				entry.Domains[de.Name] = de
 				if de.Name == "id" {
@@ -338,18 +449,56 @@ func collectField(
 	s.Fields = append(s.Fields, entry)
 }
 
-func collectDomain(def parser.IDomainDefContext) *resolution.DomainEntry {
+// collectFileDomain collects a file-level domain declaration.
+func collectFileDomain(fd parser.IFileDomainContext) *resolution.DomainEntry {
+	entry := &resolution.DomainEntry{AST: fd, Name: fd.IDENT().GetText()}
+	if content := fd.DomainContent(); content != nil {
+		collectDomainContent(entry, content)
+	}
+	return entry
+}
+
+// collectDomain collects a domain definition (@domain syntax).
+func collectDomain(def parser.IDomainContext) *resolution.DomainEntry {
 	entry := &resolution.DomainEntry{AST: def, Name: def.IDENT().GetText()}
-	if body := def.DomainBody(); body != nil {
-		for _, e := range body.AllExpression() {
+	if content := def.DomainContent(); content != nil {
+		collectDomainContent(entry, content)
+	}
+	return entry
+}
+
+// collectInlineDomain collects an inline domain on a field.
+func collectInlineDomain(def parser.IInlineDomainContext) *resolution.DomainEntry {
+	entry := &resolution.DomainEntry{AST: def, Name: def.IDENT().GetText()}
+	if content := def.DomainContent(); content != nil {
+		collectDomainContent(entry, content)
+	}
+	return entry
+}
+
+// collectDomainContent populates a DomainEntry from its content.
+// Content can be either a single expression or a block of expressions.
+func collectDomainContent(entry *resolution.DomainEntry, content parser.IDomainContentContext) {
+	// Check if it's a block: @domain { expr1\n expr2 }
+	if block := content.DomainBlock(); block != nil {
+		for _, e := range block.AllExpression() {
 			expr := &resolution.ExpressionEntry{AST: e, Name: e.IDENT().GetText()}
 			for _, v := range e.AllExpressionValue() {
 				expr.Values = append(expr.Values, collectValue(v))
 			}
 			entry.Expressions = append(entry.Expressions, expr)
 		}
+		return
 	}
-	return entry
+
+	// Single expression: @domain expr
+	if e := content.Expression(); e != nil {
+		expr := &resolution.ExpressionEntry{AST: e, Name: e.IDENT().GetText()}
+		for _, v := range e.AllExpressionValue() {
+			expr.Values = append(expr.Values, collectValue(v))
+		}
+		entry.Expressions = append(entry.Expressions, expr)
+	}
 }
 
 func collectValue(v parser.IExpressionValueContext) resolution.ExpressionValue {
@@ -406,6 +555,12 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 		ValuesByName:  make(map[string]*resolution.EnumValue),
 		Domains:       make(map[string]*resolution.DomainEntry),
 	}
+
+	// Start with file-level domains (inherited)
+	for k, v := range c.fileDomains {
+		entry.Domains[k] = v
+	}
+
 	// Collect enum values and domains from enum body
 	if body := def.EnumBody(); body != nil {
 		vals := body.AllEnumValue()
@@ -423,9 +578,20 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 			entry.Values = append(entry.Values, ev)
 			entry.ValuesByName[ev.Name] = ev
 		}
-		for _, d := range body.AllDomainDef() {
+		// Enum-level domains merge with file-level domains (enum takes precedence)
+		for _, d := range body.AllDomain() {
 			if de := collectDomain(d); de != nil {
-				entry.Domains[de.Name] = de
+				if existing, ok := entry.Domains[de.Name]; ok {
+					// Merge expressions: existing (file-level) + new (enum-level)
+					merged := &resolution.DomainEntry{
+						AST:         de.AST,
+						Name:        de.Name,
+						Expressions: append(existing.Expressions, de.Expressions...),
+					}
+					entry.Domains[de.Name] = merged
+				} else {
+					entry.Domains[de.Name] = de
+				}
 			}
 		}
 	}
@@ -435,6 +601,17 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 // resolveType resolves a type reference to its concrete type.
 // The struct parameter provides context for resolving type parameters within generic structs.
 func resolveType(c *analysisCtx, currentStruct *resolution.StructEntry, t *resolution.TypeRef) {
+	// Map types are already resolved at parse time, but we need to resolve key and value types
+	if t.Kind == resolution.TypeKindMap {
+		if t.MapKeyType != nil {
+			resolveType(c, currentStruct, t.MapKeyType)
+		}
+		if t.MapValueType != nil {
+			resolveType(c, currentStruct, t.MapValueType)
+		}
+		return
+	}
+
 	parts := strings.Split(t.RawType, ".")
 	ns, name := c.namespace, parts[0]
 	if len(parts) == 2 {
@@ -468,7 +645,8 @@ func resolveType(c *analysisCtx, currentStruct *resolution.StructEntry, t *resol
 	c.diag.AddWarningf(nil, c.filePath, "unresolved type: %s", t.RawType)
 }
 
-func extractType(tr parser.ITypeRefContext) string {
+// extractTypeNormal extracts the type name from a normal type reference context.
+func extractTypeNormal(tr *parser.TypeRefNormalContext) string {
 	ids := tr.QualifiedIdent().AllIDENT()
 	if len(ids) == 2 {
 		return ids[0].GetText() + "." + ids[1].GetText()
@@ -476,10 +654,138 @@ func extractType(tr parser.ITypeRefContext) string {
 	return ids[0].GetText()
 }
 
-func extractTypeModifiers(tr parser.ITypeRefContext) (isOptional, isNullable bool) {
+// detectRecursiveTypes marks structs that reference themselves in any field.
+// This is called after all types are resolved.
+func detectRecursiveTypes(table *resolution.Table) {
+	for _, s := range table.AllStructs() {
+		if isRecursive(s) {
+			s.IsRecursive = true
+		}
+	}
+}
+
+// isRecursive checks if a struct references itself directly in any field.
+func isRecursive(s *resolution.StructEntry) bool {
+	for _, field := range s.Fields {
+		if typeRefersTo(field.TypeRef, s) {
+			return true
+		}
+	}
+	return false
+}
+
+// typeRefersTo checks if a type reference points to the target struct,
+// either directly or through type arguments.
+func typeRefersTo(t *resolution.TypeRef, target *resolution.StructEntry) bool {
+	if t == nil {
+		return false
+	}
+	switch t.Kind {
+	case resolution.TypeKindStruct:
+		if t.StructRef == target {
+			return true
+		}
+		// Check type arguments for generic recursive references (e.g., Node<K>[] where K wraps Node)
+		for _, arg := range t.TypeArgs {
+			if typeRefersTo(arg, target) {
+				return true
+			}
+		}
+	case resolution.TypeKindMap:
+		// Check map key and value types
+		if typeRefersTo(t.MapKeyType, target) || typeRefersTo(t.MapValueType, target) {
+			return true
+		}
+	}
+	return false
+}
+
+// extractTypeModifiersNormal extracts optional modifiers from a normal type reference context.
+// Returns isOptional (?) and isHardOptional (??)
+func extractTypeModifiersNormal(tr *parser.TypeRefNormalContext) (isOptional, isHardOptional bool) {
 	mods := tr.TypeModifiers()
 	if mods == nil {
 		return false, false
 	}
-	return mods.QUESTION() != nil, mods.BANG() != nil
+	// Count QUESTION tokens: 1 = soft optional (?), 2 = hard optional (??)
+	questionCount := len(mods.AllQUESTION())
+	if questionCount >= 2 {
+		return false, true // ?? = hard optional only
+	}
+	return questionCount >= 1, false // ? = soft optional only
+}
+
+// validateExtends validates the extends relationship for a struct.
+// It checks for:
+// 1. Parent struct exists and is resolved
+// 2. No circular inheritance (A extends B extends A)
+// 3. Omitted fields exist in the parent
+// 4. Self-extension (A extends A)
+func validateExtends(c *analysisCtx, s *resolution.StructEntry) {
+	if s.Extends == nil {
+		return
+	}
+
+	// Check that parent is resolved to a struct
+	if s.Extends.Kind != resolution.TypeKindStruct || s.Extends.StructRef == nil {
+		c.diag.AddErrorf(s.AST, c.filePath,
+			"struct %s extends unresolved or non-struct type: %s",
+			s.Name, s.Extends.RawType)
+		return
+	}
+
+	parent := s.Extends.StructRef
+
+	// Check for self-extension
+	if parent == s {
+		c.diag.AddErrorf(s.AST, c.filePath, "struct %s cannot extend itself", s.Name)
+		return
+	}
+
+	// Check for circular inheritance
+	if hasCircularInheritance(s, make(map[*resolution.StructEntry]bool)) {
+		c.diag.AddErrorf(s.AST, c.filePath,
+			"circular inheritance detected: struct %s", s.Name)
+		return
+	}
+
+	// Validate omitted fields exist in parent (checking all inherited fields)
+	parentFieldNames := make(map[string]bool)
+	for _, f := range parent.AllFields() {
+		parentFieldNames[f.Name] = true
+	}
+	for _, omitted := range s.OmittedFields {
+		if !parentFieldNames[omitted] {
+			c.diag.AddErrorf(s.AST, c.filePath,
+				"cannot omit field %q: not found in parent struct %s",
+				omitted, parent.Name)
+		}
+	}
+
+	// Validate type parameter count if parent is generic
+	if len(parent.TypeParams) > 0 {
+		requiredParams := 0
+		for _, tp := range parent.TypeParams {
+			if tp.Default == nil && !tp.Optional {
+				requiredParams++
+			}
+		}
+		if len(s.Extends.TypeArgs) < requiredParams {
+			c.diag.AddErrorf(s.AST, c.filePath,
+				"struct %s extends %s but provides %d type arguments (need at least %d)",
+				s.Name, parent.Name, len(s.Extends.TypeArgs), requiredParams)
+		}
+	}
+}
+
+// hasCircularInheritance checks if following the extends chain leads back to the start.
+func hasCircularInheritance(s *resolution.StructEntry, visited map[*resolution.StructEntry]bool) bool {
+	if visited[s] {
+		return true
+	}
+	if s.Extends == nil || s.Extends.StructRef == nil {
+		return false
+	}
+	visited[s] = true
+	return hasCircularInheritance(s.Extends.StructRef, visited)
 }

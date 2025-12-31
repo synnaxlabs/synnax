@@ -1,17 +1,7 @@
-struct Label {
-    field key uuid {
-        domain id
-    }
+@ts output "x/ts/src/label"
 
-    field name string {
-        domain validate {
-            min_length 1
-        }
-    }
-
-    field color string
-
-    domain ts {
-        output "x/ts/src/label"
-    }
+Label struct {
+    key   uuid   @id
+    name  string @validate min_length 1
+    color string
 }

@@ -17,14 +17,24 @@ from synnax.task.client import (
     Task,
     TaskProtocol,
 )
-from synnax.task.payload import TaskPayload, TaskStatus, TaskStatusDetails
+from synnax.task.types_gen import (
+    Key,
+    Payload,
+    Status,
+    StatusDetails,
+    TASK_ONTOLOGY_TYPE,
+    ontology_id,
+)
 
 __all__ = [
     "Client",
+    "Key",
     "Task",
-    "TaskPayload",
-    "TaskStatus",
-    "TaskStatusDetails",
+    "Payload",
+    "Status",
+    "StatusDetails",
+    "TASK_ONTOLOGY_TYPE",
+    "ontology_id",
     "BaseTaskConfig",
     "BaseReadTaskConfig",
     "BaseWriteTaskConfig",

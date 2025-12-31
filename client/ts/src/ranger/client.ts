@@ -189,7 +189,7 @@ const retrieveArgsZ = retrieveRequestZ
 
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
-const retrieveResZ = z.object({ ranges: array.nullableZ(payloadZ) });
+const retrieveResZ = z.object({ ranges: array.nullishToEmpty(payloadZ) });
 
 export class Client {
   readonly type: string = "range";

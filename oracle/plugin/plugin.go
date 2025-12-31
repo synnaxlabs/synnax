@@ -12,7 +12,6 @@
 package plugin
 
 import (
-	"github.com/synnaxlabs/oracle/parser"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
 )
@@ -84,16 +83,10 @@ func (r *Request) ValidateOutputPath(path string) error {
 	return paths.ValidateOutput(path, r.RepoRoot)
 }
 
-// SchemaFile represents a single parsed and analyzed schema file.
+// SchemaFile represents a single schema file.
 type SchemaFile struct {
-	// AST is the parsed schema
-	AST parser.ISchemaContext
-
 	// FilePath is the repo-relative path to the source file (e.g., "schema/core/user.oracle")
 	FilePath string
-
-	// Namespace is derived from the file path (e.g., "user" from "schema/core/user.oracle")
-	Namespace string
 }
 
 // Response contains the generated files from a plugin.

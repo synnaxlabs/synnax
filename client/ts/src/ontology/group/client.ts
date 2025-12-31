@@ -11,7 +11,7 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import z from "zod";
 
-import { type Group, groupZ, type Key, keyZ } from "@/ontology/group/payload";
+import { type Group, groupZ, type Key, keyZ } from "@/ontology/group/types.gen";
 import { idZ as ontologyIDZ } from "@/ontology/payload";
 
 export const SET_CHANNEL_NAME = "sy_group_set";

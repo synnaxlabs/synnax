@@ -8,4 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/ontology/group/client";
-export * from "@/ontology/group/payload";
+export * from "@/ontology/group/types.gen";

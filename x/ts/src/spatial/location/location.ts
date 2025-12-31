@@ -10,41 +10,41 @@
 import { z } from "zod";
 
 import { caseconv } from "@/caseconv";
+import { type AngularDirection, type CrudeLocation, crudeLocation } from "@/spatial/base";
 import {
-  type AngularDirection,
-  CENTER_LOCATIONS,
   type CenterLocation,
-  centerLocation,
-  type CrudeLocation,
-  crudeLocation,
+  centerLocationZ,
+  CENTER_LOCATIONS,
   type Direction,
   DIRECTIONS,
   type Location,
-  location,
-  OUTER_LOCATIONS,
+  locationZ,
+  LOCATIONS,
   type OuterLocation,
-  outerLocation,
-  X_LOCATIONS,
+  outerLocationZ,
+  OUTER_LOCATIONS,
   type XLocation,
-  xLocation,
-  Y_LOCATIONS,
+  xLocationZ,
+  X_LOCATIONS,
   type YLocation,
-  yLocation,
-} from "@/spatial/base";
+  yLocationZ,
+  Y_LOCATIONS,
+} from "@/spatial/types.gen";
 
 export {
   CENTER_LOCATIONS,
   type Location,
-  location,
-  outerLocation as outer,
+  locationZ,
+  LOCATIONS,
+  outerLocationZ,
   OUTER_LOCATIONS,
   X_LOCATIONS,
   Y_LOCATIONS,
 };
 
-export const x = xLocation;
-export const y = yLocation;
-export const center = centerLocation;
+export const x = xLocationZ;
+export const y = yLocationZ;
+export const center = centerLocationZ;
 
 export type X = XLocation;
 export type Y = YLocation;
@@ -88,10 +88,10 @@ export const direction = (cl: Crude): Direction => {
 };
 
 export const xy = z.object({
-  x: xLocation.or(centerLocation),
-  y: yLocation.or(centerLocation),
+  x: xLocationZ.or(centerLocationZ),
+  y: yLocationZ.or(centerLocationZ),
 });
-export const corner = z.object({ x: xLocation, y: yLocation });
+export const corner = z.object({ x: xLocationZ, y: yLocationZ });
 
 export type XY = z.infer<typeof xy>;
 export type CornerXY = z.infer<typeof corner>;

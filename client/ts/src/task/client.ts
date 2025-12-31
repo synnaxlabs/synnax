@@ -90,7 +90,7 @@ export class Task<
   type: z.infer<Type>;
   snapshot: boolean;
   config: z.infer<Config>;
-  status?: Status<StatusData> | null;
+  status?: Status<StatusData>;
 
   readonly schemas: Schemas<Type, Config, StatusData>;
   private readonly frameClient_?: framer.Client;
@@ -255,7 +255,7 @@ const retrieveResZ = <
   schemas?: Schemas<Type, Config, StatusData>,
 ) =>
   z.object({
-    tasks: array.nullableZ(payloadZ(schemas)),
+    tasks: array.nullishToEmpty(payloadZ(schemas)),
   });
 
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
@@ -409,7 +409,7 @@ export class Client {
       copyReqZ,
       copyRes,
     );
-    return this.sugar(response.task as Payload);
+    return this.sugar(response.task);
   }
 
   async list(rack?: number): Promise<Task[]> {

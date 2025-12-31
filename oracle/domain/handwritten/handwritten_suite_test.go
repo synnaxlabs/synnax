@@ -7,18 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cli
+package handwritten_test
 
-// Generate-specific flag constants
-const (
-	pluginsFlag = "plugin"
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func configureGenerateFlags() {
-	generateCmd.Flags().StringSliceP(
-		pluginsFlag,
-		"p",
-		nil,
-		"Plugins to run (e.g., 'go', 'zod', 'py'). If not specified, all available plugins are run.",
-	)
+func TestHandwritten(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Handwritten Suite")
 }

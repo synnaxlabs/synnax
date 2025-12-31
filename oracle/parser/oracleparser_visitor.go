@@ -1,6 +1,16 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 // Code generated from OracleParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // OracleParser
+
 import "github.com/antlr4-go/antlr/v4"
 
 // A complete Visitor for a parse tree produced by OracleParser.
@@ -15,6 +25,9 @@ type OracleParserVisitor interface {
 
 	// Visit a parse tree produced by OracleParser#importStmt.
 	VisitImportStmt(ctx *ImportStmtContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#fileDomain.
+	VisitFileDomain(ctx *FileDomainContext) interface{}
 
 	// Visit a parse tree produced by OracleParser#definition.
 	VisitDefinition(ctx *DefinitionContext) interface{}
@@ -37,20 +50,35 @@ type OracleParserVisitor interface {
 	// Visit a parse tree produced by OracleParser#structBody.
 	VisitStructBody(ctx *StructBodyContext) interface{}
 
+	// Visit a parse tree produced by OracleParser#fieldOmit.
+	VisitFieldOmit(ctx *FieldOmitContext) interface{}
+
 	// Visit a parse tree produced by OracleParser#fieldDef.
 	VisitFieldDef(ctx *FieldDefContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#inlineDomain.
+	VisitInlineDomain(ctx *InlineDomainContext) interface{}
 
 	// Visit a parse tree produced by OracleParser#fieldBody.
 	VisitFieldBody(ctx *FieldBodyContext) interface{}
 
-	// Visit a parse tree produced by OracleParser#domainDef.
-	VisitDomainDef(ctx *DomainDefContext) interface{}
+	// Visit a parse tree produced by OracleParser#domain.
+	VisitDomain(ctx *DomainContext) interface{}
 
-	// Visit a parse tree produced by OracleParser#domainBody.
-	VisitDomainBody(ctx *DomainBodyContext) interface{}
+	// Visit a parse tree produced by OracleParser#domainContent.
+	VisitDomainContent(ctx *DomainContentContext) interface{}
 
-	// Visit a parse tree produced by OracleParser#typeRef.
-	VisitTypeRef(ctx *TypeRefContext) interface{}
+	// Visit a parse tree produced by OracleParser#domainBlock.
+	VisitDomainBlock(ctx *DomainBlockContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#TypeRefMap.
+	VisitTypeRefMap(ctx *TypeRefMapContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#TypeRefNormal.
+	VisitTypeRefNormal(ctx *TypeRefNormalContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#mapType.
+	VisitMapType(ctx *MapTypeContext) interface{}
 
 	// Visit a parse tree produced by OracleParser#typeArgs.
 	VisitTypeArgs(ctx *TypeArgsContext) interface{}

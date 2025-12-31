@@ -53,7 +53,7 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
 export interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 
-const retrieveResZ = z.object({ users: array.nullableZ(userZ) });
+const retrieveResZ = z.object({ users: array.nullishToEmpty(userZ) });
 
 const createReqZ = z.object({ users: newZ.array() });
 const createResZ = z.object({ users: userZ.array() });

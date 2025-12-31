@@ -8,6 +8,21 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.device.client import Client
-from synnax.device.payload import Device
+from synnax.device.types_gen import (
+    DEVICE_ONTOLOGY_TYPE,
+    Device,
+    Key,
+    Status,
+    StatusDetails,
+    ontology_id,
+)
 
-__all__ = ["Client", "Device"]
+__all__ = [
+    "Client",
+    "Device",
+    "DEVICE_ONTOLOGY_TYPE",
+    "Key",
+    "Status",
+    "StatusDetails",
+    "ontology_id",
+]

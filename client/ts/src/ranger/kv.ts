@@ -25,7 +25,7 @@ export const kvPairKey = ({ range, key }: Omit<KVPair, "value">) =>
 const getReqZ = z.object({ range: keyZ, keys: z.string().array() });
 export interface GetRequest extends z.infer<typeof getReqZ> {}
 
-const getResZ = z.object({ pairs: array.nullableZ(kvPairZ) });
+const getResZ = z.object({ pairs: array.nullishToEmpty(kvPairZ) });
 
 const setReqZ = z.object({ range: keyZ, pairs: kvPairZ.array() });
 export interface SetRequest extends z.infer<typeof setReqZ> {}

@@ -12,14 +12,22 @@ package types
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 	"text/template"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/domain/handwritten"
+	"github.com/synnaxlabs/oracle/domain/id"
+	"github.com/synnaxlabs/oracle/domain/ontology"
+	"github.com/synnaxlabs/oracle/domain/validation"
+	"github.com/synnaxlabs/oracle/output"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/enum"
-	"github.com/synnaxlabs/oracle/plugin/output"
+	pluginoutput "github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
@@ -33,7 +41,7 @@ type Options struct {
 func DefaultOptions() Options {
 	return Options{
 		OutputPath:      "{{.Namespace}}",
-		FileNamePattern: "types.gen.py",
+		FileNamePattern: "types_gen.py",
 	}
 }
 
@@ -47,11 +55,57 @@ func (p *Plugin) Requires() []string { return nil }
 
 func (p *Plugin) Check(req *plugin.Request) error { return nil }
 
+// PostWrite runs isort and black on the generated Python files using Poetry.
+// Files are grouped by their Poetry project directory (containing pyproject.toml).
+// isort runs first to sort imports, then black to format.
+func (p *Plugin) PostWrite(files []string) error {
+	if len(files) == 0 {
+		return nil
+	}
+	byProject := make(map[string][]string)
+	for _, file := range files {
+		if projDir := findPoetryDir(file); projDir != "" {
+			byProject[projDir] = append(byProject[projDir], file)
+		}
+	}
+	for projDir, projFiles := range byProject {
+		// Run isort first
+		output.PostWriteStep("isort", len(projFiles), "sorting imports")
+		isortArgs := append([]string{"run", "isort"}, projFiles...)
+		isortCmd := exec.Command("poetry", isortArgs...)
+		isortCmd.Dir = projDir
+		if err := isortCmd.Run(); err != nil {
+			return fmt.Errorf("isort failed in %s: %w", projDir, err)
+		}
+		// Then run black
+		output.PostWriteStep("black", len(projFiles), "formatting")
+		blackArgs := append([]string{"run", "black"}, projFiles...)
+		blackCmd := exec.Command("poetry", blackArgs...)
+		blackCmd.Dir = projDir
+		if err := blackCmd.Run(); err != nil {
+			return fmt.Errorf("black failed in %s: %w", projDir, err)
+		}
+	}
+	return nil
+}
+
+// findPoetryDir finds the nearest directory containing pyproject.toml.
+func findPoetryDir(file string) string {
+	dir := filepath.Dir(file)
+	for dir != "/" && dir != "." {
+		if _, err := os.Stat(filepath.Join(dir, "pyproject.toml")); err == nil {
+			return dir
+		}
+		dir = filepath.Dir(dir)
+	}
+	return ""
+}
+
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 	outputStructs := make(map[string][]*resolution.StructEntry)
 	for _, entry := range req.Resolutions.AllStructs() {
-		if outputPath := output.GetPath(entry, "py"); outputPath != "" {
+		if outputPath := pluginoutput.GetPath(entry, "py"); outputPath != "" {
 			if req.RepoRoot != "" {
 				if err := req.ValidateOutputPath(outputPath); err != nil {
 					return nil, fmt.Errorf("invalid output path for struct %s: %w", entry.Name, err)
@@ -88,13 +142,14 @@ func (p *Plugin) generateFile(
 		imports:   newImportManager(),
 	}
 	data.imports.addPydantic("BaseModel")
-	idFields := collectIDFields(structs, data)
+	skip := func(s *resolution.StructEntry) bool { return handwritten.IsStruct(s, "py") }
+	rawIDFields := id.Collect(structs, skip)
+	idFields := p.convertIDFields(rawIDFields, data)
 	data.IDFields = idFields
-	data.Ontology = extractOntology(structs, idFields)
+	data.Ontology = p.extractOntology(structs, rawIDFields, idFields, skip)
 	if data.Ontology != nil {
 		data.imports.addOntology("ID")
 	}
-
 	for _, enum := range enums {
 		data.Enums = append(data.Enums, p.processEnum(enum, data))
 	}
@@ -108,57 +163,27 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
-func collectIDFields(structs []*resolution.StructEntry, data *templateData) []idFieldData {
-	seen := make(map[string]bool)
-	var result []idFieldData
-	for _, s := range structs {
-		for _, f := range s.Fields {
-			if _, hasID := f.Domains["id"]; hasID {
-				if !seen[f.Name] {
-					seen[f.Name] = true
-					result = append(result, idFieldData{
-						Name:   f.Name,
-						PyType: primitiveToPython(f.TypeRef.Primitive, data),
-					})
-				}
-			}
-		}
+func (p *Plugin) convertIDFields(fields []id.Field, data *templateData) []idFieldData {
+	result := make([]idFieldData, 0, len(fields))
+	for _, f := range fields {
+		result = append(result, idFieldData{
+			Name:   f.Name,
+			PyType: primitiveToPython(f.Primitive, data),
+		})
 	}
 	return result
 }
 
-// extractOntology extracts ontology data from structs if any has the ontology domain.
-// Returns nil if no struct has an ontology domain or if no ID field is found.
-func extractOntology(structs []*resolution.StructEntry, idFields []idFieldData) *ontologyData {
-	for _, s := range structs {
-		domain, ok := s.Domains["ontology"]
-		if !ok {
-			continue
-		}
-
-		var typeName string
-		for _, expr := range domain.Expressions {
-			if expr.Name == "type" && len(expr.Values) > 0 {
-				typeName = expr.Values[0].StringValue
-				break
-			}
-		}
-		if typeName == "" {
-			continue
-		}
-
-		if len(idFields) == 0 {
-			continue
-		}
-		keyType := idFields[0].PyType
-
-		return &ontologyData{
-			TypeName:   typeName,
-			KeyType:    keyType,
-			StructName: s.Name,
-		}
+func (p *Plugin) extractOntology(structs []*resolution.StructEntry, rawFields []id.Field, idFields []idFieldData, skip ontology.SkipFunc) *ontologyData {
+	data := ontology.Extract(structs, rawFields, skip)
+	if data == nil || len(idFields) == 0 {
+		return nil
 	}
-	return nil
+	return &ontologyData{
+		TypeName:   data.TypeName,
+		KeyType:    idFields[0].PyType,
+		StructName: data.StructName,
+	}
 }
 
 func (p *Plugin) processEnum(enum *resolution.EnumEntry, data *templateData) enumData {
@@ -194,8 +219,54 @@ func (p *Plugin) processStruct(
 	data *templateData,
 	idFields []idFieldData,
 ) structData {
-	sd := structData{Name: entry.Name, Fields: make([]fieldData, 0, len(entry.Fields))}
-	for _, field := range entry.Fields {
+	sd := structData{
+		Name:   entry.Name,
+		PyName: entry.Name, // Default to original name
+	}
+	// Check for py domain expressions (name, handwritten)
+	if pyDomain, ok := entry.Domains["py"]; ok {
+		for _, expr := range pyDomain.Expressions {
+			switch expr.Name {
+			case "handwritten":
+				sd.Skip = true
+				return sd
+			case "name":
+				if len(expr.Values) > 0 {
+					sd.PyName = expr.Values[0].StringValue
+				}
+			}
+		}
+	}
+	// Handle struct aliases: generate type alias expression
+	if entry.IsAlias() {
+		sd.IsAlias = true
+		sd.AliasOf = p.typeRefToPythonAlias(entry.AliasOf, table, data)
+		return sd
+	}
+
+	// Handle struct extension with Pydantic inheritance
+	if entry.HasExtends() && entry.Extends.StructRef != nil {
+		sd.HasExtends = true
+		sd.ExtendsName = entry.Extends.StructRef.Name
+		sd.OmittedFields = entry.OmittedFields
+
+		// Add ConfigDict import if we have omitted fields
+		if len(entry.OmittedFields) > 0 {
+			data.imports.addPydantic("ConfigDict")
+		}
+
+		// For extends, only include child's own fields (not inherited)
+		sd.Fields = make([]fieldData, 0, len(entry.Fields))
+		for _, field := range entry.Fields {
+			sd.Fields = append(sd.Fields, p.processField(field, table, data, idFields))
+		}
+		return sd
+	}
+
+	// Non-extending struct: use all fields (flattened for compatibility)
+	allFields := entry.AllFields()
+	sd.Fields = make([]fieldData, 0, len(allFields))
+	for _, field := range allFields {
 		sd.Fields = append(sd.Fields, p.processField(field, table, data, idFields))
 	}
 	return sd
@@ -208,10 +279,10 @@ func (p *Plugin) processField(
 	idFields []idFieldData,
 ) fieldData {
 	fd := fieldData{
-		Name:       field.Name,
-		IsOptional: field.TypeRef.IsOptional,
-		IsNullable: field.TypeRef.IsNullable,
-		IsArray:    field.TypeRef.IsArray,
+		Name:           field.Name,
+		IsOptional:     field.TypeRef.IsOptional,
+		IsHardOptional: field.TypeRef.IsHardOptional,
+		IsArray:        field.TypeRef.IsArray,
 	}
 
 	baseType := p.typeToPython(field.TypeRef, table, data)
@@ -226,7 +297,8 @@ func (p *Plugin) processField(
 		fd.PyType = baseType
 	}
 
-	if field.TypeRef.IsNullable || field.TypeRef.IsOptional {
+	// Both soft optional (?) and hard optional (??) become T | None in Python
+	if field.TypeRef.IsOptional || field.TypeRef.IsHardOptional {
 		fd.PyType = fd.PyType + " | None"
 	}
 
@@ -242,20 +314,13 @@ func (p *Plugin) buildDefault(
 ) string {
 	hasConstraints := len(constraints) > 0
 
-	if typeRef.IsOptional {
+	isAnyOptional := typeRef.IsOptional || typeRef.IsHardOptional
+	if isAnyOptional {
 		if hasConstraints {
 			data.imports.addPydantic("Field")
 			return fmt.Sprintf(" = Field(default=None, %s)", strings.Join(constraints, ", "))
 		}
 		return " = None"
-	}
-
-	if typeRef.IsNullable && typeRef.IsArray {
-		data.imports.addPydantic("Field")
-		if hasConstraints {
-			return fmt.Sprintf(" = Field(default_factory=list, %s)", strings.Join(constraints, ", "))
-		}
-		return " = Field(default_factory=list)"
 	}
 
 	if hasConstraints {
@@ -271,69 +336,60 @@ func (p *Plugin) collectValidation(
 	typeRef *resolution.TypeRef,
 	data *templateData,
 ) []string {
+	rules := validation.Parse(domain)
+	if validation.IsEmpty(rules) {
+		return nil
+	}
 	var constraints []string
 	isString := typeRef.Kind == resolution.TypeKindPrimitive && resolution.IsStringPrimitive(typeRef.Primitive)
 	isNumber := typeRef.Kind == resolution.TypeKindPrimitive && resolution.IsNumberPrimitive(typeRef.Primitive)
-
-	for _, expr := range domain.Expressions {
-		if len(expr.Values) == 0 {
-			switch expr.Name {
-			case "email":
-				if isString {
-					constraints = append(constraints, `pattern=r"^[\w\.-]+@[\w\.-]+\.\w+$"`)
-				}
-			case "url":
-				if isString {
-					constraints = append(constraints, `pattern=r"^https?://"`)
-				}
-			}
-			continue
+	if isString {
+		if rules.Email {
+			constraints = append(constraints, `pattern=r"^[\w\.-]+@[\w\.-]+\.\w+$"`)
 		}
-		v := expr.Values[0]
-		switch expr.Name {
-		case "min_length":
-			if isString {
-				constraints = append(constraints, fmt.Sprintf("min_length=%d", v.IntValue))
+		if rules.URL {
+			constraints = append(constraints, `pattern=r"^https?://"`)
+		}
+		if rules.MinLength != nil {
+			constraints = append(constraints, fmt.Sprintf("min_length=%d", *rules.MinLength))
+		}
+		if rules.MaxLength != nil {
+			constraints = append(constraints, fmt.Sprintf("max_length=%d", *rules.MaxLength))
+		}
+		if rules.Pattern != nil {
+			constraints = append(constraints, fmt.Sprintf("pattern=r%q", *rules.Pattern))
+		}
+	}
+	if isNumber {
+		if rules.Min != nil {
+			if rules.Min.IsInt {
+				constraints = append(constraints, fmt.Sprintf("ge=%d", rules.Min.Int))
+			} else {
+				constraints = append(constraints, fmt.Sprintf("ge=%f", rules.Min.Float))
 			}
-		case "max_length":
-			if isString {
-				constraints = append(constraints, fmt.Sprintf("max_length=%d", v.IntValue))
+		}
+		if rules.Max != nil {
+			if rules.Max.IsInt {
+				constraints = append(constraints, fmt.Sprintf("le=%d", rules.Max.Int))
+			} else {
+				constraints = append(constraints, fmt.Sprintf("le=%f", rules.Max.Float))
 			}
-		case "pattern":
-			if isString {
-				constraints = append(constraints, fmt.Sprintf("pattern=r%q", v.StringValue))
+		}
+	}
+	if rules.Default != nil {
+		switch rules.Default.Kind {
+		case resolution.ValueKindBool:
+			if rules.Default.BoolValue {
+				constraints = append(constraints, "default=True")
+			} else {
+				constraints = append(constraints, "default=False")
 			}
-		case "min":
-			if isNumber {
-				if v.Kind == resolution.ValueKindInt {
-					constraints = append(constraints, fmt.Sprintf("ge=%d", v.IntValue))
-				} else {
-					constraints = append(constraints, fmt.Sprintf("ge=%f", v.FloatValue))
-				}
-			}
-		case "max":
-			if isNumber {
-				if v.Kind == resolution.ValueKindInt {
-					constraints = append(constraints, fmt.Sprintf("le=%d", v.IntValue))
-				} else {
-					constraints = append(constraints, fmt.Sprintf("le=%f", v.FloatValue))
-				}
-			}
-		case "default":
-			switch v.Kind {
-			case resolution.ValueKindBool:
-				if v.BoolValue {
-					constraints = append(constraints, "default=True")
-				} else {
-					constraints = append(constraints, "default=False")
-				}
-			case resolution.ValueKindInt:
-				constraints = append(constraints, fmt.Sprintf("default=%d", v.IntValue))
-			case resolution.ValueKindFloat:
-				constraints = append(constraints, fmt.Sprintf("default=%f", v.FloatValue))
-			case resolution.ValueKindString:
-				constraints = append(constraints, fmt.Sprintf("default=%q", v.StringValue))
-			}
+		case resolution.ValueKindInt:
+			constraints = append(constraints, fmt.Sprintf("default=%d", rules.Default.IntValue))
+		case resolution.ValueKindFloat:
+			constraints = append(constraints, fmt.Sprintf("default=%f", rules.Default.FloatValue))
+		case resolution.ValueKindString:
+			constraints = append(constraints, fmt.Sprintf("default=%q", rules.Default.StringValue))
 		}
 	}
 	return constraints
@@ -355,7 +411,7 @@ func (p *Plugin) typeToPython(
 		structName := typeRef.StructRef.Name
 		if typeRef.StructRef.Namespace != data.Namespace {
 			ns := typeRef.StructRef.Namespace
-			outputPath := output.GetPath(typeRef.StructRef, "py")
+			outputPath := pluginoutput.GetPath(typeRef.StructRef, "py")
 			if outputPath == "" {
 				outputPath = ns
 			}
@@ -385,6 +441,57 @@ func (p *Plugin) typeToPython(
 		data.imports.addTyping("Any")
 		return "Any"
 	}
+}
+
+// typeRefToPythonAlias converts a TypeRef to a Python type alias expression.
+// For example: status.Status<StatusDetails> -> "status.Status[StatusDetails]"
+func (p *Plugin) typeRefToPythonAlias(
+	typeRef *resolution.TypeRef,
+	table *resolution.Table,
+	data *templateData,
+) string {
+	if typeRef.Kind != resolution.TypeKindStruct || typeRef.StructRef == nil {
+		return p.typeToPython(typeRef, table, data)
+	}
+
+	// Get the base type name with proper import handling
+	var baseName string
+	structRef := typeRef.StructRef
+	if structRef.Namespace != data.Namespace {
+		outputPath := pluginoutput.GetPath(structRef, "py")
+		if outputPath == "" {
+			outputPath = structRef.Namespace
+		}
+		modulePath := toPythonModulePath(outputPath)
+		// For cross-namespace struct references, we need to import the parent module
+		// and access the struct as module.StructName to avoid naming conflicts.
+		// e.g., "synnax.status" -> import "from synnax import status", use "status.Status"
+		parts := strings.Split(modulePath, ".")
+		if len(parts) >= 2 {
+			parentPath := strings.Join(parts[:len(parts)-1], ".")
+			moduleName := parts[len(parts)-1]
+			data.imports.addModuleImport(parentPath, moduleName)
+			baseName = fmt.Sprintf("%s.%s", moduleName, structRef.Name)
+		} else {
+			// Fallback for single-level module paths
+			data.imports.addNamespace(structRef.Namespace, modulePath)
+			baseName = fmt.Sprintf("%s.%s", structRef.Namespace, structRef.Name)
+		}
+	} else {
+		baseName = structRef.Name
+	}
+
+	// If no type arguments, just return the base name
+	if len(typeRef.TypeArgs) == 0 {
+		return baseName
+	}
+
+	// Build type arguments for generic: Status[Details] or Status[Details, Data]
+	var typeArgs []string
+	for _, arg := range typeRef.TypeArgs {
+		typeArgs = append(typeArgs, p.typeToPython(arg, table, data))
+	}
+	return fmt.Sprintf("%s[%s]", baseName, strings.Join(typeArgs, ", "))
 }
 
 // toPythonModulePath converts a repo-relative path to a Python module path.
@@ -464,6 +571,7 @@ type importManager struct {
 	synnax     map[string]bool
 	ontology   map[string]bool   // imports from synnax.ontology.payload
 	namespaces map[string]string // alias -> path
+	modules    map[string]string // module name -> parent path (for "from parent import module")
 }
 
 func newImportManager() *importManager {
@@ -475,6 +583,7 @@ func newImportManager() *importManager {
 		synnax:     make(map[string]bool),
 		ontology:   make(map[string]bool),
 		namespaces: make(map[string]string),
+		modules:    make(map[string]string),
 	}
 }
 
@@ -486,6 +595,9 @@ func (m *importManager) addSynnax(name string)    { m.synnax[name] = true }
 func (m *importManager) addOntology(name string)  { m.ontology[name] = true }
 func (m *importManager) addNamespace(alias, path string) {
 	m.namespaces[alias] = path
+}
+func (m *importManager) addModuleImport(parentPath, moduleName string) {
+	m.modules[moduleName] = parentPath
 }
 
 type templateData struct {
@@ -537,6 +649,17 @@ func (d *templateData) NamespaceImports() []namespaceImportData {
 	return result
 }
 
+// ModuleImports returns imports of the form "from parent import module"
+// e.g., "from synnax import status"
+func (d *templateData) ModuleImports() []moduleImportData {
+	var result []moduleImportData
+	for moduleName, parentPath := range d.imports.modules {
+		result = append(result, moduleImportData{Module: moduleName, Parent: parentPath})
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Module < result[j].Module })
+	return result
+}
+
 func sortedKeys(m map[string]bool) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
@@ -552,17 +675,26 @@ type idFieldData struct {
 }
 
 type structData struct {
-	Name   string
-	Fields []fieldData
+	Name    string // Original struct name from schema
+	PyName  string // Python name (can be overridden via py domain { name "..." })
+	Fields  []fieldData
+	Skip    bool   // If true, skip generating this struct (handwritten)
+	IsAlias bool   // If true, this struct is a type alias
+	AliasOf string // Python expression for the aliased type (e.g., "status.Status[StatusDetails]")
+
+	// Extension support
+	HasExtends    bool
+	ExtendsName   string   // Parent class name
+	OmittedFields []string // Fields to exclude from parent
 }
 
 type fieldData struct {
-	Name       string
-	PyType     string
-	Default    string
-	IsOptional bool
-	IsNullable bool
-	IsArray    bool
+	Name           string
+	PyType         string
+	Default        string
+	IsOptional     bool
+	IsHardOptional bool
+	IsArray        bool
 }
 
 type enumData struct {
@@ -582,6 +714,11 @@ type enumValueData struct {
 type namespaceImportData struct {
 	Alias string
 	Path  string
+}
+
+type moduleImportData struct {
+	Module string // module name to import (e.g., "status")
+	Parent string // parent path to import from (e.g., "synnax")
 }
 
 var templateFuncs = template.FuncMap{
@@ -614,6 +751,9 @@ from synnax.ontology.payload import {{ join .OntologyImports ", " }}
 {{- range .NamespaceImports }}
 from {{ .Path }} import {{ .Alias }}
 {{- end }}
+{{- range .ModuleImports }}
+from {{ .Parent }} import {{ .Module }}
+{{- end }}
 {{- range .IDFields }}
 
 {{ .Name | title }} = {{ .PyType }}
@@ -633,11 +773,40 @@ class {{ .Name }}(IntEnum):
 {{- end }}
 {{- end }}
 {{- range .Structs }}
+{{- if not .Skip }}
+{{- if .IsAlias }}
 
 
-class {{ .Name }}(BaseModel):
+{{ .PyName }} = {{ .AliasOf }}
+{{- else if .HasExtends }}
+
+
+class {{ .PyName }}({{ .ExtendsName }}):
+{{- if or .Fields .OmittedFields }}
 {{- range .Fields }}
     {{ .Name }}: {{ .PyType }}{{ .Default }}
+{{- end }}
+{{- if .OmittedFields }}
+
+    model_config = ConfigDict(
+        fields={
+{{- range .OmittedFields }}
+            "{{ . }}": {"exclude": True},
+{{- end }}
+        }
+    )
+{{- end }}
+{{- else }}
+    pass
+{{- end }}
+{{- else }}
+
+
+class {{ .PyName }}(BaseModel):
+{{- range .Fields }}
+    {{ .Name }}: {{ .PyType }}{{ .Default }}
+{{- end }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- if .Ontology }}

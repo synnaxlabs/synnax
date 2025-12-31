@@ -15,9 +15,12 @@ options { tokenVocab = OracleLexer; }
 // Entry Point
 // =============================================================================
 
-// A schema file consists of optional imports followed by definitions
+// A schema file consists of:
+// 1. Optional imports
+// 2. Optional file-level domains (apply to all definitions in file)
+// 3. Type definitions (structs, enums)
 schema
-    : nl* (importStmt nl*)* (definition nl*)* EOF
+    : nl* (importStmt nl*)* (fileDomain nl*)* (definition nl*)* EOF
     ;
 
 // Helper for optional/required newlines
@@ -30,6 +33,18 @@ nl  : NEWLINE ;
 // Import statement: import "schema/core/label"
 importStmt
     : IMPORT STRING_LIT
+    ;
+
+// =============================================================================
+// File-Level Domains
+// =============================================================================
+
+// File-level domain declarations apply to all definitions in the file
+// Examples:
+//   @ts output "client/ts/src/rack"
+//   @py output "client/py/synnax/rack"
+fileDomain
+    : AT IDENT domainContent?
     ;
 
 // =============================================================================
@@ -46,64 +61,96 @@ definition
 // Struct Definitions
 // =============================================================================
 
-// struct Range { ... }
-// struct Status<D extends schema> { ... }
-// struct RackStatus = status.Status<RackDetails>
-// struct RackStatus = status.Status<RackDetails> { domain ts { output "..." } }
-// struct Status<D extends json> = status.Status<StatusDetails<D>> { ... }
+// Name-first struct definitions:
+//   Rack struct { ... }
+//   Status struct<D extends schema> { ... }
+//   Child struct extends Parent { ... }
+//   Child struct extends Parent<T> { ... }
+//   RackStatus struct<D extends json> extends Status<D> { ... }
+//   RackStatus = status.Status<RackDetails>
+//   Status<D> = status.Status<D> { @ts output "..." }
 structDef
-    : STRUCT IDENT typeParams? nl* LBRACE nl* structBody RBRACE  # StructFull
-    | STRUCT IDENT typeParams? EQUALS typeRef aliasBody?          # StructAlias
+    : IDENT STRUCT typeParams? (EXTENDS typeRef)? nl* LBRACE nl* structBody RBRACE  # StructFull
+    | IDENT typeParams? EQUALS typeRef aliasBody?                                     # StructAlias
     ;
 
 // Optional body for struct aliases (domains only, no fields)
 aliasBody
-    : nl* LBRACE nl* (domainDef nl*)* RBRACE
+    : nl* LBRACE nl* (domain nl*)* RBRACE
     ;
 
 // Type parameters for generic structs: <T>, <T, U>, <T extends schema>
+// Supports multi-line formatting for long parameter lists
 typeParams
-    : LT typeParam (COMMA typeParam)* GT
+    : LT nl* typeParam (COMMA nl* typeParam)* nl* GT
     ;
 
-// Single type parameter with optional constraint and default
-// Examples: T, T extends schema, T extends schema = never
+// Single type parameter with optional marker, constraint, and default
+// Examples: T, T?, T extends Foo, T? extends Foo, T = Bar, T? = Bar
+// The ? marker means fields using this type parameter are absent when not provided
 typeParam
-    : IDENT (EXTENDS typeRef)? (EQUALS typeRef)?
+    : IDENT QUESTION? (EXTENDS typeRef)? (EQUALS typeRef)?
     ;
 
-// Struct body contains fields and/or struct-level domains
+// Struct body contains fields, field omissions, and/or struct-level domains
 structBody
-    : ((fieldDef | domainDef) nl*)*
+    : ((fieldDef | fieldOmit | domain) nl*)*
+    ;
+
+// Field omission: remove an inherited field from parent struct
+// Example: -parentFieldName
+fieldOmit
+    : MINUS IDENT
     ;
 
 // =============================================================================
 // Field Definitions
 // =============================================================================
 
-// field name string { ... }
-// field key uuid
+// Name-first field definitions with optional inline domains:
+//   key uint32
+//   key uint32 @id
+//   name string @validate required
+//   name string @validate { required, min_length 1, max_length 255 }
+//   key uint32 @id @validate required
+//   name string {
+//       @validate { required, min_length 1 }
+//   }
 fieldDef
-    : FIELD IDENT typeRef fieldBody?
+    : IDENT typeRef inlineDomain* fieldBody?
     ;
 
-// Optional field body containing domain definitions
+// Inline domain on a field (after type, on same line)
+// Examples: @id, @validate required, @validate { required, min 1 }
+inlineDomain
+    : AT IDENT domainContent?
+    ;
+
+// Optional field body containing domain definitions (multi-line)
 fieldBody
-    : nl* LBRACE nl* (domainDef nl*)* RBRACE
+    : nl* LBRACE nl* (domain nl*)* RBRACE
     ;
 
 // =============================================================================
 // Domain Definitions
 // =============================================================================
 
-// domain validate { required, max_length 255 }
-// domain sort (empty domain)
-domainDef
-    : DOMAIN IDENT domainBody?
+// Domain definition with @ prefix:
+//   @id
+//   @ts output "client/ts/src/rack"
+//   @validate { required, min 1, max 255 }
+domain
+    : AT IDENT domainContent?
     ;
 
-// Domain body contains newline-separated expressions
-domainBody
+// Domain content: either a single expression or a block of expressions
+domainContent
+    : domainBlock       // { required, min 1, max 255 }
+    | expression        // output "client/ts/src/rack"
+    ;
+
+// Domain block contains newline-separated expressions
+domainBlock
     : nl* LBRACE nl* (expression (nl+ expression)*)? nl* RBRACE
     ;
 
@@ -112,9 +159,15 @@ domainBody
 // =============================================================================
 
 // Type reference with optional type args, array, optional, and nullable modifiers
-// Examples: string, uuid, uuid[], string?, Status<D>, Result<T, E>[]?
+// Examples: string, uuid, uuid[], string?, Status<D>, Result<T, E>[]?, map<string, uint32>
 typeRef
-    : qualifiedIdent typeArgs? (LBRACKET RBRACKET)? typeModifiers?
+    : mapType typeModifiers?                                           # TypeRefMap
+    | qualifiedIdent typeArgs? (LBRACKET RBRACKET)? typeModifiers?     # TypeRefNormal
+    ;
+
+// Map type: map<KeyType, ValueType>
+mapType
+    : MAP LT typeRef COMMA typeRef GT
     ;
 
 // Type arguments when using a generic type: <string>, <Foo, Bar>
@@ -122,10 +175,10 @@ typeArgs
     : LT typeRef (COMMA typeRef)* GT
     ;
 
-// Type modifiers: optional (?), nullable (!), or both in any order
+// Type modifiers: soft optional (?) or hard optional (??)
 typeModifiers
-    : QUESTION BANG?   // ?  or ?!
-    | BANG QUESTION?   // !  or !?
+    : QUESTION QUESTION   // ?? (hard optional - pointer in Go)
+    | QUESTION            // ? (soft optional - zero value in Go)
     ;
 
 // Qualified identifier for type names
@@ -163,16 +216,16 @@ expressionValue
 // Enum Definitions
 // =============================================================================
 
-// enum TaskState { pending = 0, running = 1 }
-// enum DataType { float32 = "float32", int32 = "int32" }
-// enum Action { create = "create" domain ts { output "client/ts/src/access" } }
+// Name-first enum definition:
+//   TaskState enum { pending = 0, running = 1 }
+//   DataType enum { float32 = "float32", int32 = "int32" }
 enumDef
-    : ENUM IDENT nl* LBRACE nl* enumBody RBRACE
+    : IDENT ENUM nl* LBRACE nl* enumBody RBRACE
     ;
 
 // Enum body contains values and/or enum-level domains
 enumBody
-    : ((enumValue | domainDef) nl*)*
+    : ((enumValue | domain) nl*)*
     ;
 
 // Enum values require explicit values (integer or string)

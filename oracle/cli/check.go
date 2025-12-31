@@ -16,69 +16,80 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/oracle/analyzer"
+	"github.com/synnaxlabs/oracle/formatter"
+	"github.com/synnaxlabs/oracle/paths"
 )
 
 var checkCmd = &cobra.Command{
 	Use:   "check",
 	Short: "Validate schemas without generating code",
-	Long: `Parse and analyze .oracle schema files to check for errors
-without generating any code (dry run).
-
-By default, looks for schemas in schemas/*.oracle.
-
-This is useful for CI/CD pipelines or pre-commit hooks to validate
-schema changes before code generation.`,
-	Example: `  oracle check
-  oracle check -s "other/*.oracle"
-  oracle check -v`,
-	RunE: runCheck,
+	RunE:  runCheck,
 }
 
 func init() {
 	rootCmd.AddCommand(checkCmd)
-	configureCheckFlags()
-	bindFlags(checkCmd)
 }
 
 func runCheck(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
-	verbose := viper.GetBool(verboseFlag)
-	schemaPatterns := viper.GetStringSlice(schemasFlag)
-	if len(schemaPatterns) == 0 {
-		schemaPatterns = []string{"schemas/*.oracle"}
-	}
-	wd, err := os.Getwd()
+	_ = viper.GetBool(verboseFlag)
+
+	printBanner()
+
+	repoRoot, err := paths.RepoRoot()
 	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
+		printError("must be run within a git repository")
+		return err
 	}
-	schemaFiles, err := expandGlobs(schemaPatterns, wd)
+
+	schemaFiles, err := expandGlobs([]string{"schemas/*.oracle"}, repoRoot)
 	if err != nil {
 		return err
 	}
+
 	if len(schemaFiles) == 0 {
-		return fmt.Errorf("no schema files found matching patterns: %v", schemaPatterns)
+		printError("no schema files found")
+		return fmt.Errorf("no schema files found")
 	}
 
-	if verbose {
-		fmt.Printf("Checking %d schema file(s)...\n", len(schemaFiles))
-		for _, f := range schemaFiles {
-			fmt.Printf("  - %s\n", f)
+	printSchemaCount(len(schemaFiles))
+
+	// Check formatting
+	unformatted := 0
+	for _, f := range schemaFiles {
+		source, err := os.ReadFile(f)
+		if err != nil {
+			printError(fmt.Sprintf("failed to read %s: %v", f, err))
+			return err
+		}
+		result, err := formatter.Format(string(source))
+		if err != nil {
+			printError(fmt.Sprintf("failed to format %s: %v", f, err))
+			return err
+		}
+		if result != string(source) {
+			printInfo(fmt.Sprintf("needs formatting: %s", f))
+			unformatted++
 		}
 	}
+	if unformatted > 0 {
+		printError(fmt.Sprintf("%d file(s) need formatting (run 'oracle fmt')", unformatted))
+		return fmt.Errorf("formatting check failed")
+	}
 
-	loader := analyzer.NewStandardFileLoader(wd)
+	loader := analyzer.NewStandardFileLoader(repoRoot)
 	table, diag := analyzer.Analyze(ctx, schemaFiles, loader)
 	if diag != nil && !diag.Empty() {
-		fmt.Fprintln(os.Stderr, diag.String())
+		printDiagnostics(diag.String())
 	}
 
 	if diag != nil && diag.HasErrors() {
-		return fmt.Errorf("schema validation failed with %d error(s)", len(diag.Errors()))
+		printError(fmt.Sprintf("validation failed with %d error(s)", len(diag.Errors())))
+		return fmt.Errorf("validation failed")
 	}
+
 	if table != nil {
-		structCount := len(table.AllStructs())
-		enumCount := len(table.AllEnums())
-		fmt.Printf("Validation passed: %d struct(s), %d enum(s)\n", structCount, enumCount)
+		printValidationPassed(len(table.AllStructs()), len(table.AllEnums()))
 	}
 	return nil
 }

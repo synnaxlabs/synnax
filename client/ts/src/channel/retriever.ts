@@ -54,7 +54,7 @@ export interface RetrieveOptions extends Omit<
 > {}
 export interface PageOptions extends Omit<RetrieveOptions, "offset" | "limit"> {}
 
-const resZ = z.object({ channels: array.nullableZ(payloadZ) });
+const resZ = z.object({ channels: array.nullishToEmpty(payloadZ) });
 
 export const analyzeParams = (
   channels: Params,

@@ -11,7 +11,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -26,60 +25,34 @@ import (
 
 var generateCmd = &cobra.Command{
 	Use:   "generate",
-	Short: "Parse schemas and generate code via plugins",
-	Long: `Parse .oracle schema files, analyze types and imports, and generate
-code using configured plugins.
-
-By default, looks for schemas in schemas/*.oracle and runs all plugins.
-Each plugin only generates output for structs that have its domain declared
-with an output path.
-
-Output locations are declared per-struct in schema files using struct-level domains.
-For example:
-
-    struct Range {
-        field key uuid { domain id }
-
-        domain go { output "core/ranger" }
-        domain ts { output "console/src/ranger" }
-    }`,
-	Example: `  oracle generate
-  oracle generate -s "other/*.oracle"
-  oracle generate -p ts/types`,
-	RunE: runGenerate,
+	Short: "Parse schemas and generate code",
+	RunE:  runGenerate,
 }
 
 func init() {
 	rootCmd.AddCommand(generateCmd)
-	configureGenerateFlags()
-	bindFlags(generateCmd)
 }
 
 func runGenerate(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	verbose := viper.GetBool(verboseFlag)
 
-	schemaPatterns := viper.GetStringSlice(schemasFlag)
-	if len(schemaPatterns) == 0 {
-		schemaPatterns = []string{"schemas/*.oracle"}
-	}
+	printBanner()
 
 	repoRoot, err := paths.RepoRoot()
 	if err != nil {
-		return fmt.Errorf("oracle must be run within a git repository: %w", err)
+		printError("must be run within a git repository")
+		return err
 	}
 
-	if verbose {
-		fmt.Printf("Repository root: %s\n", repoRoot)
-	}
-
-	schemaFiles, err := expandGlobs(schemaPatterns, repoRoot)
+	schemaFiles, err := expandGlobs([]string{"schemas/*.oracle"}, repoRoot)
 	if err != nil {
 		return err
 	}
 
 	if len(schemaFiles) == 0 {
-		return fmt.Errorf("no schema files found matching patterns: %v", schemaPatterns)
+		printError("no schema files found")
+		return fmt.Errorf("no schema files found")
 	}
 
 	normalizedFiles := make([]string, 0, len(schemaFiles))
@@ -91,39 +64,32 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		normalizedFiles = append(normalizedFiles, relPath)
 	}
 
-	if verbose {
-		fmt.Printf("Found %d schema file(s):\n", len(normalizedFiles))
-		for _, f := range normalizedFiles {
-			fmt.Printf("  - %s\n", f)
-		}
-	}
+	printSchemaCount(len(normalizedFiles))
 
-	// Build plugin registry
-	pluginNames := viper.GetStringSlice(pluginsFlag)
-	registry, err := buildPluginRegistry(pluginNames)
-	if err != nil {
-		return err
-	}
-
-	if verbose {
-		fmt.Printf("Using %d plugin(s): %v\n", len(registry.Names()), registry.Names())
-	}
+	registry := buildPluginRegistry()
 
 	result, diag := oracle.Generate(ctx, normalizedFiles, repoRoot, registry, repoRoot)
 	if diag != nil && !diag.Empty() {
-		fmt.Fprintln(os.Stderr, diag.String())
+		printDiagnostics(diag.String())
 	}
 
 	if diag != nil && diag.HasErrors() {
-		return fmt.Errorf("generation failed with %d error(s)", len(diag.Errors()))
+		printError(fmt.Sprintf("generation failed with %d error(s)", len(diag.Errors())))
+		return fmt.Errorf("generation failed")
 	}
 
 	if result != nil {
-		if err := result.WriteFiles(repoRoot); err != nil {
-			return fmt.Errorf("failed to write generated files: %w", err)
+		writtenFiles, err := result.WriteFiles(repoRoot)
+		if err != nil {
+			printError("failed to write files")
+			return err
 		}
 
-		// Run post-write hooks for plugins that implement PostWriter
+		// Update license headers before running post-write hooks (e.g., eslint)
+		if err := oracle.UpdateLicenseHeaders(repoRoot, writtenFiles); err != nil {
+			printDim(fmt.Sprintf("license header update failed: %v", err))
+		}
+
 		for pluginName, files := range result.Files {
 			p := registry.Get(pluginName)
 			if pw, ok := p.(plugin.PostWriter); ok {
@@ -132,16 +98,20 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 					absPaths[i] = filepath.Join(repoRoot, f.Path)
 				}
 				if err := pw.PostWrite(absPaths); err != nil {
-					fmt.Fprintf(os.Stderr, "warning: post-write hook for %s failed: %v\n", pluginName, err)
+					printDim(fmt.Sprintf("post-write hook for %s failed: %v", pluginName, err))
 				}
 			}
 		}
 
-		totalFiles := countGeneratedFiles(result)
 		if verbose {
-			printGeneratedFiles(result)
+			for pluginName, files := range result.Files {
+				for _, f := range files {
+					printFileWritten(pluginName, f.Path)
+				}
+			}
 		}
-		fmt.Printf("Successfully generated %d file(s)\n", totalFiles)
+
+		printGeneratedCount(countGeneratedFiles(result))
 	}
 
 	return nil
@@ -167,56 +137,12 @@ func expandGlobs(patterns []string, baseDir string) ([]string, error) {
 	return files, nil
 }
 
-// allPlugins returns all available plugins with default options.
-func allPlugins() []plugin.Plugin {
-	return []plugin.Plugin{
-		tstypes.New(tstypes.DefaultOptions()),
-		gotypes.New(gotypes.DefaultOptions()),
-		pytypes.New(pytypes.DefaultOptions()),
-	}
-}
-
-// buildPluginRegistry creates a registry with the specified plugins.
-// If no plugins are specified, all available plugins are loaded.
-func buildPluginRegistry(pluginNames []string) (*plugin.Registry, error) {
+func buildPluginRegistry() *plugin.Registry {
 	registry := plugin.NewRegistry()
-
-	// No plugins specified = run all plugins
-	if len(pluginNames) == 0 {
-		for _, p := range allPlugins() {
-			if err := registry.Register(p); err != nil {
-				return nil, err
-			}
-		}
-		return registry, nil
-	}
-
-	// Otherwise, only run the specified plugins
-	for _, name := range pluginNames {
-		p, err := createPlugin(name)
-		if err != nil {
-			return nil, err
-		}
-		if err := registry.Register(p); err != nil {
-			return nil, err
-		}
-	}
-
-	return registry, nil
-}
-
-// createPlugin instantiates a plugin by name.
-func createPlugin(name string) (plugin.Plugin, error) {
-	switch name {
-	case "ts/types":
-		return tstypes.New(tstypes.DefaultOptions()), nil
-	case "go/types":
-		return gotypes.New(gotypes.DefaultOptions()), nil
-	case "py/types":
-		return pytypes.New(pytypes.DefaultOptions()), nil
-	default:
-		return nil, fmt.Errorf("unknown plugin: %s (available: ts/types, go/types, py/types)", name)
-	}
+	_ = registry.Register(tstypes.New(tstypes.DefaultOptions()))
+	_ = registry.Register(gotypes.New(gotypes.DefaultOptions()))
+	_ = registry.Register(pytypes.New(pytypes.DefaultOptions()))
+	return registry
 }
 
 func countGeneratedFiles(result *oracle.GenerateResult) int {
@@ -225,12 +151,4 @@ func countGeneratedFiles(result *oracle.GenerateResult) int {
 		count += len(files)
 	}
 	return count
-}
-
-func printGeneratedFiles(result *oracle.GenerateResult) {
-	for pluginName, files := range result.Files {
-		for _, f := range files {
-			fmt.Printf("  [%s] %s\n", pluginName, f.Path)
-		}
-	}
 }

@@ -1,33 +1,16 @@
-struct Role {
-    field key uuid {
-        domain id
-    }
+@ts output "client/ts/src/access/role"
 
-    field name string
+Role struct {
+    key         uuid    @id
+    name        string
+    description string?
+    internal    bool?
 
-    field description string?
-
-    field internal bool?
-
-    domain ts {
-        output "client/ts/src/access/role"
-    }
-
-    domain ontology {
-        type "role"
-    }
+    @ontology type "role"
 }
 
-struct New {
-    field key uuid?
+New struct extends Role {
+    key uuid?
 
-    field name string
-
-    field description string?
-
-    field internal bool?
-
-    domain ts {
-        output "client/ts/src/access/role"
-    }
+    @ts use_input
 }

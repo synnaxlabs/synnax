@@ -1,6 +1,16 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 // Code generated from OracleParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // OracleParser
+
 import "github.com/antlr4-go/antlr/v4"
 
 type BaseOracleParserVisitor struct {
@@ -16,6 +26,10 @@ func (v *BaseOracleParserVisitor) VisitNl(ctx *NlContext) interface{} {
 }
 
 func (v *BaseOracleParserVisitor) VisitImportStmt(ctx *ImportStmtContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitFileDomain(ctx *FileDomainContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -47,7 +61,15 @@ func (v *BaseOracleParserVisitor) VisitStructBody(ctx *StructBodyContext) interf
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseOracleParserVisitor) VisitFieldOmit(ctx *FieldOmitContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseOracleParserVisitor) VisitFieldDef(ctx *FieldDefContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitInlineDomain(ctx *InlineDomainContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -55,15 +77,27 @@ func (v *BaseOracleParserVisitor) VisitFieldBody(ctx *FieldBodyContext) interfac
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseOracleParserVisitor) VisitDomainDef(ctx *DomainDefContext) interface{} {
+func (v *BaseOracleParserVisitor) VisitDomain(ctx *DomainContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseOracleParserVisitor) VisitDomainBody(ctx *DomainBodyContext) interface{} {
+func (v *BaseOracleParserVisitor) VisitDomainContent(ctx *DomainContentContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseOracleParserVisitor) VisitTypeRef(ctx *TypeRefContext) interface{} {
+func (v *BaseOracleParserVisitor) VisitDomainBlock(ctx *DomainBlockContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitTypeRefMap(ctx *TypeRefMapContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitTypeRefNormal(ctx *TypeRefNormalContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitMapType(ctx *MapTypeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

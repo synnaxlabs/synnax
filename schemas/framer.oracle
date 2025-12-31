@@ -1,0 +1,8 @@
+@ts output "client/ts/src/framer"
+
+WriterCommand enum {
+    Open         = 0
+    Write        = 1
+    Commit       = 2
+    SetAuthority = 3
+}

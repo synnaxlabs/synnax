@@ -1,53 +1,29 @@
 import "schemas/status"
 
-struct StatusDetails {
-    field rack uint32
+@ts output "client/ts/src/rack"
+@py output "client/py/synnax/rack"
 
-    domain ts {
-        output "client/ts/src/rack"
-    }
+StatusDetails struct {
+    rack uint32
 }
 
-struct Status = status.Status<StatusDetails> {
-    domain ts {
-        output "client/ts/src/rack"
-    }
+Status = status.Status<StatusDetails>
+
+Rack struct {
+    key          uint32  @id
+    name         string  @validate required
+    task_counter uint32?
+    embedded     bool?
+    status       Status?
+
+    @ts name "Payload"
+    @ontology type "rack"
 }
 
-struct Rack {
-    field key uint32 {
-        domain id
-    }
-    field name string {
-        domain validate {
-            required
-        }
-    }
+New struct extends Rack {
+    key uint32?
+    -task_counter
+    -embedded
 
-    field status Status?
-
-    domain ts {
-        output "client/ts/src/rack"
-        name "Payload"
-    }
-
-    domain ontology {
-        type "rack"
-    }
-}
-
-struct New {
-    field key uint32?
-    field name string {
-        domain validate {
-            required
-        }
-    }
-
-    field status Status?
-
-    domain ts {
-        output "client/ts/src/rack"
-        use_input
-    }
+    @ts use_input
 }

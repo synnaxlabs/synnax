@@ -45,7 +45,7 @@ const retrieveRequestZ = z.object({
   offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
 });
-const retrieveResZ = z.object({ devices: array.nullableZ(deviceZ()) });
+const retrieveResZ = z.object({ devices: array.nullishToEmpty(deviceZ()) });
 
 const singleRetrieveArgsZ = z
   .object({

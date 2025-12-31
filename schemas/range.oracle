@@ -1,27 +1,14 @@
 import "schemas/label"
 
-struct Range {
-    field key uuid {
-        domain id
-    }
+@ts output "client/ts/src/ranger"
 
-    field name string {
-        domain validate {
-            min_length 1
-        }
-    }
+Range struct {
+    key        uuid               @id
+    name       string             @validate min_length 1
+    time_range time_range_bounded
+    color      string?
+    labels     label.Label[]?
+    parent     Range?
 
-    field time_range time_range_bounded
-
-    field color string?
-
-    field labels label.Label[]?!
-
-    domain ts {
-        output "client/ts/src/ranger"
-    }
-
-    domain ontology {
-        type "range"
-    }
+    @ontology type "range"
 }

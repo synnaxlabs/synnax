@@ -17,6 +17,7 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/oracle/analyzer"
+	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/parser"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -58,8 +59,9 @@ func New() *Server {
 				OpenClose: true,
 				Change:    protocol.TextDocumentSyncKindFull,
 			},
-			HoverProvider:      true,
-			CompletionProvider: &protocol.CompletionOptions{},
+			HoverProvider:              true,
+			CompletionProvider:         &protocol.CompletionOptions{},
+			DocumentFormattingProvider: true,
 			SemanticTokensProvider: map[string]interface{}{
 				"legend": protocol.SemanticTokensLegend{
 					TokenTypes: xlsp.ConvertToSemanticTokenTypes(semanticTokenTypes),
@@ -222,5 +224,44 @@ func (noopLoader) Load(path string) (source, filePath string, err error) {
 
 func (noopLoader) RepoRoot() string {
 	return ""
+}
+
+// Formatting handles document formatting requests.
+func (s *Server) Formatting(
+	_ context.Context,
+	params *protocol.DocumentFormattingParams,
+) ([]protocol.TextEdit, error) {
+	doc, ok := s.getDocument(params.TextDocument.URI)
+	if !ok {
+		return nil, nil
+	}
+
+	formatted, err := formatter.Format(doc.Content)
+	if err != nil {
+		return nil, err
+	}
+
+	// If no changes, return empty
+	if formatted == doc.Content {
+		return nil, nil
+	}
+
+	// Return a single edit that replaces the entire document
+	lines := strings.Split(doc.Content, "\n")
+	lastLine := uint32(len(lines) - 1)
+	lastChar := uint32(0)
+	if len(lines) > 0 {
+		lastChar = uint32(len(lines[lastLine]))
+	}
+
+	return []protocol.TextEdit{
+		{
+			Range: protocol.Range{
+				Start: protocol.Position{Line: 0, Character: 0},
+				End:   protocol.Position{Line: lastLine, Character: lastChar},
+			},
+			NewText: formatted,
+		},
+	}, nil
 }
 

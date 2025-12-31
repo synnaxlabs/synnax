@@ -50,6 +50,12 @@
           "description": "Enable verbose logging for the language server."
         }
       }
+    },
+    "configurationDefaults": {
+      "[oracle]": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "synnaxlabs.oracle-language"
+      }
     }
   },
   "scripts": {

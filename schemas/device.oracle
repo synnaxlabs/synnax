@@ -1,94 +1,40 @@
 import "schemas/status"
 
-struct StatusDetails {
-    field rack uint32
-    field device string
+@ts output "client/ts/src/device"
+@py output "client/py/synnax/device"
 
-    domain ts {
-        output "client/ts/src/device"
-    }
+StatusDetails struct {
+    rack   uint32
+    device string
 }
 
-struct Status = status.Status<StatusDetails> {
-    domain ts {
-        output "client/ts/src/device"
-    }
+Status = status.Status<StatusDetails>
+
+Device struct<
+    Properties extends json = json,
+    Make extends string = string,
+    Model extends string = string
+> {
+    key        string     @id
+    rack       uint32     @validate required
+    location   string     @validate required
+    make       Make       @validate required
+    model      Model      @validate required
+    name       string     @validate required
+    configured bool?
+    properties Properties
+    status     Status?
+
+    @ontology type "device"
 }
 
-struct Device<Properties extends json = json, Make extends string = string, Model extends string = string> {
-    field key string {
-        domain id
-    }
-    field rack uint32 {
-        domain validate {
-            required
-        }
-    }
-    field location string {
-        domain validate {
-            required
-        }
-    }
-    field make Make {
-        domain validate {
-            required
-        }
-    }
-    field model Model {
-        domain validate {
-            required
-        }
-    }
-    field name string {
-        domain validate {
-            required
-        }
-    }
-    field configured bool?
-    field properties Properties
-    field status Status?
+New struct<
+    Properties extends json = json,
+    Make extends string = string,
+    Model extends string = string
+> extends Device<Properties, Make, Model> {
+    key string?
+    -configured
 
-    domain ts {
-        output "client/ts/src/device"
-    }
-
-    domain ontology {
-        type "device"
-    }
-}
-
-struct New<Properties extends json = json, Make extends string = string, Model extends string = string> {
-    field key string?
-    field rack uint32 {
-        domain validate {
-            required
-        }
-    }
-    field name string {
-        domain validate {
-            required
-        }
-    }
-    field location string {
-        domain validate {
-            required
-        }
-    }
-    field make Make {
-        domain validate {
-            required
-        }
-    }
-    field model Model {
-        domain validate {
-            required
-        }
-    }
-    field properties Properties
-    field status Status?
-
-    domain ts {
-        output "client/ts/src/device"
-        use_input
-    }
+    @ts use_input
 }

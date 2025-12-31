@@ -18,11 +18,16 @@ import (
 	"text/template"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/domain/doc"
+	"github.com/synnaxlabs/oracle/domain/handwritten"
 	"github.com/synnaxlabs/oracle/plugin"
-	"github.com/synnaxlabs/oracle/plugin/doc"
+	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 )
+
+// goModulePrefix is the base import path for the Synnax monorepo.
+const goModulePrefix = "github.com/synnaxlabs/synnax/"
 
 // Plugin generates Go struct type definitions from Oracle schemas.
 type Plugin struct{ Options Options }
@@ -61,6 +66,7 @@ func (p *Plugin) Check(req *plugin.Request) error {
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 	outputStructs := make(map[string][]*resolution.StructEntry)
+
 	for _, entry := range req.Resolutions.AllStructs() {
 		if outputPath := output.GetPath(entry, "go"); outputPath != "" {
 			// Validate output path if RepoRoot is available
@@ -74,7 +80,9 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 
 	for outputPath, structs := range outputStructs {
-		content, err := p.generateFile(outputPath, structs)
+		// Collect enums referenced by these structs
+		enums := enum.CollectReferenced(structs)
+		content, err := p.generateFile(outputPath, structs, enums, req.Resolutions)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate %s: %w", outputPath, err)
 		}
@@ -88,16 +96,42 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 }
 
 // generateFile generates the Go source file for a set of structs.
-func (p *Plugin) generateFile(outputPath string, structs []*resolution.StructEntry) ([]byte, error) {
+func (p *Plugin) generateFile(
+	outputPath string,
+	structs []*resolution.StructEntry,
+	enums []*resolution.EnumEntry,
+	table *resolution.Table,
+) ([]byte, error) {
 	sort.Slice(structs, func(i, j int) bool { return structs[i].Name < structs[j].Name })
 
-	data := &templateData{
-		Package: derivePackageName(outputPath),
-		Structs: make([]structData, 0, len(structs)),
-		Imports: make(map[string]bool),
+	namespace := ""
+	if len(structs) > 0 {
+		namespace = structs[0].Namespace
 	}
 
+	data := &templateData{
+		Package:    derivePackageName(outputPath),
+		OutputPath: outputPath,
+		Namespace:  namespace,
+		Structs:    make([]structData, 0, len(structs)),
+		Enums:      make([]enumData, 0, len(enums)),
+		imports:    newImportManager(),
+		table:      table,
+	}
+
+	// Process enums that are in the same namespace
+	for _, e := range enums {
+		if e.Namespace == namespace && !handwritten.IsEnum(e, "go") {
+			data.Enums = append(data.Enums, p.processEnum(e))
+		}
+	}
+
+	// Process structs
 	for _, entry := range structs {
+		// Skip handwritten structs
+		if handwritten.IsStruct(entry, "go") {
+			continue
+		}
 		data.Structs = append(data.Structs, p.processStruct(entry, data))
 	}
 
@@ -114,17 +148,120 @@ func derivePackageName(outputPath string) string {
 	return filepath.Base(outputPath)
 }
 
+// toGoImportPath converts an Oracle output path to a Go import path.
+func toGoImportPath(outputPath string) string {
+	return goModulePrefix + outputPath
+}
+
+// derivePackageAlias extracts a unique alias from an output path.
+// Handles conflicts by using parent path segments.
+func derivePackageAlias(outputPath, currentPackage string) string {
+	base := filepath.Base(outputPath)
+	if base == currentPackage {
+		// Conflict with current package, use parent prefix
+		parent := filepath.Base(filepath.Dir(outputPath))
+		return parent + base
+	}
+	return base
+}
+
+// processEnum converts an EnumEntry to template data.
+func (p *Plugin) processEnum(e *resolution.EnumEntry) enumData {
+	values := make([]enumValueData, 0, len(e.Values))
+	for _, v := range e.Values {
+		values = append(values, enumValueData{
+			Name:     toPascalCase(v.Name), // Convert to PascalCase for Go
+			Value:    v.StringValue,
+			IntValue: v.IntValue,
+		})
+	}
+	return enumData{
+		Name:      e.Name,
+		Values:    values,
+		IsIntEnum: e.IsIntEnum,
+	}
+}
+
 // processStruct converts a StructEntry to template data.
 func (p *Plugin) processStruct(entry *resolution.StructEntry, data *templateData) structData {
 	sd := structData{
-		Name:   entry.Name,
-		Doc:    doc.Get(entry.Domains),
-		Fields: make([]fieldData, 0, len(entry.Fields)),
+		Name:      entry.Name,
+		Doc:       doc.Get(entry.Domains),
+		Fields:    make([]fieldData, 0, len(entry.Fields)),
+		IsGeneric: entry.IsGeneric(),
+		IsAlias:   entry.IsAlias(),
 	}
-	for _, field := range entry.Fields {
+
+	// Process type parameters
+	for _, tp := range entry.TypeParams {
+		sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, data))
+	}
+
+	// Handle alias types
+	if entry.IsAlias() {
+		sd.AliasOf = p.typeToGo(entry.AliasOf, data)
+		return sd
+	}
+
+	// Handle struct extension
+	if entry.HasExtends() && entry.Extends.StructRef != nil {
+		// If omitting fields, fall back to field flattening
+		// since Go struct embedding can't exclude individual parent fields
+		if len(entry.OmittedFields) > 0 {
+			// Use AllFields() which respects OmittedFields
+			for _, field := range entry.AllFields() {
+				sd.Fields = append(sd.Fields, p.processField(field, data))
+			}
+			return sd
+		}
+
+		// Use struct embedding (idiomatic Go pattern)
+		sd.HasExtends = true
+		sd.ExtendsType = p.resolveExtendsType(entry.Extends, data)
+
+		// Only include child's own fields (parent fields come via embedding)
+		for _, field := range entry.Fields {
+			sd.Fields = append(sd.Fields, p.processField(field, data))
+		}
+		return sd
+	}
+
+	// Process fields for non-extending structs
+	for _, field := range entry.AllFields() {
 		sd.Fields = append(sd.Fields, p.processField(field, data))
 	}
 	return sd
+}
+
+// processTypeParam converts a TypeParam to template data.
+func (p *Plugin) processTypeParam(tp *resolution.TypeParam, data *templateData) typeParamData {
+	tpd := typeParamData{
+		Name:       tp.Name,
+		Constraint: "any", // Default constraint
+	}
+
+	// Map constraint to Go type
+	if tp.Constraint != nil {
+		tpd.Constraint = p.constraintToGo(tp.Constraint, data)
+	}
+
+	return tpd
+}
+
+// constraintToGo converts a type constraint to a Go constraint string.
+func (p *Plugin) constraintToGo(constraint *resolution.TypeRef, data *templateData) string {
+	switch constraint.Primitive {
+	case "json":
+		return "any"
+	case "string":
+		return "~string"
+	case "int", "int8", "int16", "int32", "int64":
+		return "~int | ~int8 | ~int16 | ~int32 | ~int64"
+	case "uint", "uint8", "uint16", "uint32", "uint64":
+		return "~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64"
+	default:
+		return p.typeToGo(constraint, data)
+	}
 }
 
 // processField converts a FieldEntry to template data.
@@ -132,10 +269,11 @@ func (p *Plugin) processField(field *resolution.FieldEntry, data *templateData) 
 	goType := p.typeToGo(field.TypeRef, data)
 
 	return fieldData{
-		GoName:     toPascalCase(field.Name),
-		GoType:     goType,
-		JSONName:   field.Name,
-		IsOptional: field.TypeRef.IsOptional,
+		GoName:   toPascalCase(field.Name),
+		GoType:   goType,
+		JSONName: field.Name,
+		// Both soft optional (?) and hard optional (??) get omitempty
+		IsOptional: field.TypeRef.IsOptional || field.TypeRef.IsHardOptional,
 		Doc:        doc.Get(field.Domains),
 	}
 }
@@ -149,12 +287,16 @@ func (p *Plugin) typeToGo(typeRef *resolution.TypeRef, data *templateData) strin
 		mapping := primitiveGoTypes[typeRef.Primitive]
 		baseType = mapping.goType
 		if mapping.importPath != "" {
-			data.Imports[mapping.importPath] = true
+			data.imports.addExternal(mapping.importPath)
 		}
 	case resolution.TypeKindStruct:
-		baseType = "any"
+		baseType = p.resolveStructType(typeRef, data)
 	case resolution.TypeKindEnum:
-		baseType = "any"
+		baseType = p.resolveEnumType(typeRef, data)
+	case resolution.TypeKindMap:
+		baseType = p.resolveMapType(typeRef, data)
+	case resolution.TypeKindTypeParam:
+		baseType = p.resolveTypeParam(typeRef)
 	default:
 		baseType = "any"
 	}
@@ -162,11 +304,127 @@ func (p *Plugin) typeToGo(typeRef *resolution.TypeRef, data *templateData) strin
 	if typeRef.IsArray {
 		baseType = "[]" + baseType
 	}
-	if typeRef.IsOptional && !typeRef.IsArray {
+	// Hard optional (??) uses pointer type to distinguish nil from zero value
+	if typeRef.IsHardOptional && !typeRef.IsArray {
 		baseType = "*" + baseType
 	}
 
 	return baseType
+}
+
+// resolveStructType resolves a struct type reference to a Go type string.
+func (p *Plugin) resolveStructType(typeRef *resolution.TypeRef, data *templateData) string {
+	if typeRef.StructRef == nil {
+		return "any"
+	}
+
+	structRef := typeRef.StructRef
+
+	// Same namespace - use unqualified name
+	if structRef.Namespace == data.Namespace {
+		return p.buildGenericType(structRef.Name, typeRef.TypeArgs, data)
+	}
+
+	// Cross-namespace - need import
+	targetOutputPath := output.GetPath(structRef, "go")
+	if targetOutputPath == "" {
+		return "any" // No Go output defined
+	}
+
+	importPath := toGoImportPath(targetOutputPath)
+	alias := derivePackageAlias(targetOutputPath, data.Package)
+	data.imports.addInternal(alias, importPath)
+
+	typeName := p.buildGenericType(structRef.Name, typeRef.TypeArgs, data)
+	return fmt.Sprintf("%s.%s", alias, typeName)
+}
+
+// resolveEnumType resolves an enum type reference to a Go type string.
+func (p *Plugin) resolveEnumType(typeRef *resolution.TypeRef, data *templateData) string {
+	if typeRef.EnumRef == nil {
+		return "any"
+	}
+
+	enumRef := typeRef.EnumRef
+
+	// Same namespace - use unqualified name
+	if enumRef.Namespace == data.Namespace {
+		return enumRef.Name
+	}
+
+	// Cross-namespace - need import
+	targetOutputPath := enum.FindOutputPath(enumRef, data.table, "go")
+	if targetOutputPath == "" {
+		return "any" // No Go output defined
+	}
+
+	importPath := toGoImportPath(targetOutputPath)
+	alias := derivePackageAlias(targetOutputPath, data.Package)
+	data.imports.addInternal(alias, importPath)
+
+	return fmt.Sprintf("%s.%s", alias, enumRef.Name)
+}
+
+// resolveMapType resolves a map type reference to a Go type string.
+func (p *Plugin) resolveMapType(typeRef *resolution.TypeRef, data *templateData) string {
+	keyType := "string"
+	valueType := "any"
+
+	if typeRef.MapKeyType != nil {
+		keyType = p.typeToGo(typeRef.MapKeyType, data)
+	}
+	if typeRef.MapValueType != nil {
+		valueType = p.typeToGo(typeRef.MapValueType, data)
+	}
+
+	return fmt.Sprintf("map[%s]%s", keyType, valueType)
+}
+
+// resolveTypeParam resolves a type parameter reference to a Go type string.
+func (p *Plugin) resolveTypeParam(typeRef *resolution.TypeRef) string {
+	if typeRef.TypeParamRef != nil {
+		return typeRef.TypeParamRef.Name
+	}
+	return "any"
+}
+
+// buildGenericType builds a generic type string with type arguments.
+func (p *Plugin) buildGenericType(baseName string, typeArgs []*resolution.TypeRef, data *templateData) string {
+	if len(typeArgs) == 0 {
+		return baseName
+	}
+
+	args := make([]string, len(typeArgs))
+	for i, arg := range typeArgs {
+		args[i] = p.typeToGo(arg, data)
+	}
+	return fmt.Sprintf("%s[%s]", baseName, strings.Join(args, ", "))
+}
+
+// resolveExtendsType resolves the parent type for struct embedding.
+func (p *Plugin) resolveExtendsType(extendsRef *resolution.TypeRef, data *templateData) string {
+	if extendsRef == nil || extendsRef.StructRef == nil {
+		return ""
+	}
+
+	parent := extendsRef.StructRef
+
+	// Same namespace - use unqualified name
+	if parent.Namespace == data.Namespace {
+		return p.buildGenericType(parent.Name, extendsRef.TypeArgs, data)
+	}
+
+	// Cross-namespace - need import
+	targetOutputPath := output.GetPath(parent, "go")
+	if targetOutputPath == "" {
+		return parent.Name
+	}
+
+	importPath := toGoImportPath(targetOutputPath)
+	alias := derivePackageAlias(targetOutputPath, data.Package)
+	data.imports.addInternal(alias, importPath)
+
+	return fmt.Sprintf("%s.%s", alias, p.buildGenericType(parent.Name, extendsRef.TypeArgs, data))
 }
 
 // toPascalCase converts snake_case to PascalCase.
@@ -202,28 +460,104 @@ var primitiveGoTypes = map[string]primitiveMapping{
 	"bytes":      {goType: "[]byte"},
 }
 
-// templateData holds data for the Go file template.
-type templateData struct {
-	Package string
-	Structs []structData
-	Imports map[string]bool
+// importManager tracks Go imports needed for the generated file.
+type importManager struct {
+	external map[string]bool           // External package imports (uuid, telem, etc.)
+	internal map[string]*internalImport // Synnax internal package imports
 }
 
-// SortedImports returns imports sorted for deterministic output.
-func (d *templateData) SortedImports() []string {
-	imports := make([]string, 0, len(d.Imports))
-	for imp := range d.Imports {
+// internalImport represents an internal package import with optional alias.
+type internalImport struct {
+	path  string
+	alias string
+}
+
+// newImportManager creates a new import manager.
+func newImportManager() *importManager {
+	return &importManager{
+		external: make(map[string]bool),
+		internal: make(map[string]*internalImport),
+	}
+}
+
+// addExternal adds an external package import.
+func (m *importManager) addExternal(path string) {
+	m.external[path] = true
+}
+
+// addInternal adds an internal package import with an alias.
+func (m *importManager) addInternal(alias, path string) {
+	m.internal[alias] = &internalImport{path: path, alias: alias}
+}
+
+// templateData holds data for the Go file template.
+type templateData struct {
+	Package    string
+	OutputPath string
+	Namespace  string
+	Structs    []structData
+	Enums      []enumData
+	imports    *importManager
+	table      *resolution.Table
+}
+
+// HasImports returns true if any imports are needed.
+func (d *templateData) HasImports() bool {
+	return len(d.imports.external) > 0 || len(d.imports.internal) > 0
+}
+
+// ExternalImports returns sorted external imports.
+func (d *templateData) ExternalImports() []string {
+	imports := make([]string, 0, len(d.imports.external))
+	for imp := range d.imports.external {
 		imports = append(imports, imp)
 	}
 	sort.Strings(imports)
 	return imports
 }
 
+// InternalImports returns sorted internal imports.
+func (d *templateData) InternalImports() []internalImportData {
+	imports := make([]internalImportData, 0, len(d.imports.internal))
+	for _, imp := range d.imports.internal {
+		imports = append(imports, internalImportData{
+			Path:  imp.path,
+			Alias: imp.alias,
+		})
+	}
+	sort.Slice(imports, func(i, j int) bool { return imports[i].Path < imports[j].Path })
+	return imports
+}
+
+// internalImportData holds data for an internal import in the template.
+type internalImportData struct {
+	Path  string
+	Alias string
+}
+
+// NeedsAlias returns true if the import needs an alias.
+func (i internalImportData) NeedsAlias() bool {
+	return i.Alias != "" && i.Alias != filepath.Base(i.Path)
+}
+
 // structData holds data for a single struct definition.
 type structData struct {
-	Name   string
-	Doc    string
-	Fields []fieldData
+	Name       string
+	Doc        string
+	Fields     []fieldData
+	TypeParams []typeParamData
+	IsGeneric  bool
+	IsAlias    bool
+	AliasOf    string
+	// Extension support
+	HasExtends  bool
+	ExtendsType string // Parent type (may be qualified: "parent.Parent")
+}
+
+// typeParamData holds data for a type parameter.
+type typeParamData struct {
+	Name       string
+	Constraint string
 }
 
 // fieldData holds data for a single field definition.
@@ -235,12 +569,26 @@ type fieldData struct {
 	Doc        string
 }
 
-// tagSuffix returns the omitempty suffix if the field is optional.
+// TagSuffix returns the omitempty suffix if the field is optional.
 func (f fieldData) TagSuffix() string {
 	if f.IsOptional {
 		return ",omitempty"
 	}
 	return ""
+}
+
+// enumData holds data for an enum definition.
+type enumData struct {
+	Name      string
+	Values    []enumValueData
+	IsIntEnum bool
+}
+
+// enumValueData holds data for an enum value.
+type enumValueData struct {
+	Name     string
+	Value    string
+	IntValue int64
 }
 
 var templateFuncs = template.FuncMap{
@@ -250,20 +598,56 @@ var templateFuncs = template.FuncMap{
 var fileTemplate = template.Must(template.New("go-types").Funcs(templateFuncs).Parse(`// Code generated by oracle. DO NOT EDIT.
 
 package {{.Package}}
-{{- $imports := .SortedImports}}
-{{- if $imports}}
+{{- if .HasImports}}
 
 import (
-{{- range $imports}}
+{{- range .ExternalImports}}
 	"{{.}}"
+{{- end}}
+{{- range .InternalImports}}
+{{- if .NeedsAlias}}
+	{{.Alias}} "{{.Path}}"
+{{- else}}
+	"{{.Path}}"
+{{- end}}
 {{- end}}
 )
 {{- end}}
+{{- range $enum := .Enums}}
+
+{{- if $enum.IsIntEnum}}
+
+type {{$enum.Name}} int
+
+const (
+{{- range $i, $v := $enum.Values}}
+{{- if eq $i 0}}
+	{{$enum.Name}}{{$v.Name}} {{$enum.Name}} = iota
+{{- else}}
+	{{$enum.Name}}{{$v.Name}}
+{{- end}}
+{{- end}}
+)
+{{- else}}
+
+type {{$enum.Name}} string
+
+const (
+{{- range $enum.Values}}
+	{{$enum.Name}}{{.Name}} {{$enum.Name}} = "{{.Value}}"
+{{- end}}
+)
+{{- end}}
+{{- end}}
 {{range .Structs}}
-{{if .Doc}}
+{{if .Doc -}}
 // {{.Doc}}
 {{end -}}
-type {{.Name}} struct {
+{{if .IsAlias -}}
+type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}} = {{.AliasOf}}
+{{else if .HasExtends -}}
+type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}} struct {
+	{{.ExtendsType}}
 {{- range .Fields}}
 {{- if .Doc}}
 	// {{.Doc}}
@@ -271,5 +655,15 @@ type {{.Name}} struct {
 	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.TagSuffix}}" msgpack:"{{.JSONName}}{{.TagSuffix}}"` + "`" + `
 {{- end}}
 }
+{{else -}}
+type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}} struct {
+{{- range .Fields}}
+{{- if .Doc}}
+	// {{.Doc}}
 {{- end}}
+	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.TagSuffix}}" msgpack:"{{.JSONName}}{{.TagSuffix}}"` + "`" + `
+{{- end}}
+}
+{{end -}}
+{{end -}}
 `))

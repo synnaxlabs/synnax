@@ -37,7 +37,7 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
-const retrieveResZ = z.object({ tables: array.nullableZ(tableZ) });
+const retrieveResZ = z.object({ tables: array.nullishToEmpty(tableZ) });
 
 const createReqZ = z.object({ workspace: workspaceKeyZ, tables: newZ.array() });
 const createResZ = z.object({ tables: tableZ.array() });

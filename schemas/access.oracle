@@ -1,10 +1,8 @@
-enum Action {
-    create = "create"
-    delete = "delete"
+Action enum {
+    create   = "create"
+    delete   = "delete"
     retrieve = "retrieve"
-    update = "update"
+    update   = "update"
 
-    domain ts {
-        output "client/ts/src/access"
-    }
+    @ts output "client/ts/src/access"
 }

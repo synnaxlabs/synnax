@@ -12,7 +12,6 @@ package cli
 // Flag constants for type safety
 const (
 	verboseFlag = "verbose"
-	schemasFlag = "schemas"
 )
 
 func configureRootFlags() {
@@ -20,12 +19,6 @@ func configureRootFlags() {
 		verboseFlag,
 		"v",
 		false,
-		"Enable verbose output",
-	)
-	rootCmd.PersistentFlags().StringSliceP(
-		schemasFlag,
-		"s",
-		nil,
-		"Schema file glob patterns (e.g., 'schemas/*.oracle')",
+		"Verbose output",
 	)
 }

@@ -9,12 +9,18 @@
 
 import { z } from "zod";
 
-import { type Dimensions, dimensions, numberCouple, xy } from "@/spatial/base";
+import { numberCouple } from "@/spatial/base";
+import {
+  type Dimensions,
+  dimensionsZ,
+  type SignedDimensions,
+  signedDimensionsZ,
+  xyZ,
+} from "@/spatial/types.gen";
 
-export { type Dimensions, dimensions };
+export { type Dimensions, dimensionsZ, type SignedDimensions, signedDimensionsZ };
 
-export const signed = z.object({ signedWidth: z.number(), signedHeight: z.number() });
-export const crude = z.union([dimensions, signed, xy, numberCouple]);
+export const crude = z.union([dimensionsZ, signedDimensionsZ, xyZ, numberCouple]);
 export type Crude = z.infer<typeof crude>;
 
 export const ZERO = { width: 0, height: 0 };
@@ -29,7 +35,7 @@ export const construct = (width: number | Crude, height?: number): Dimensions =>
   return { ...width };
 };
 
-export type Signed = z.infer<typeof signed>;
+export type Signed = z.infer<typeof signedDimensionsZ>;
 
 export const equals = (ca: Crude, cb?: Crude | null): boolean => {
   if (cb == null) return false;

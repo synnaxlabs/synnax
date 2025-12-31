@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 // Code generated from OracleParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // OracleParser
@@ -37,6 +46,12 @@ func (s *BaseOracleParserListener) EnterImportStmt(ctx *ImportStmtContext) {}
 
 // ExitImportStmt is called when production importStmt is exited.
 func (s *BaseOracleParserListener) ExitImportStmt(ctx *ImportStmtContext) {}
+
+// EnterFileDomain is called when production fileDomain is entered.
+func (s *BaseOracleParserListener) EnterFileDomain(ctx *FileDomainContext) {}
+
+// ExitFileDomain is called when production fileDomain is exited.
+func (s *BaseOracleParserListener) ExitFileDomain(ctx *FileDomainContext) {}
 
 // EnterDefinition is called when production definition is entered.
 func (s *BaseOracleParserListener) EnterDefinition(ctx *DefinitionContext) {}
@@ -80,11 +95,23 @@ func (s *BaseOracleParserListener) EnterStructBody(ctx *StructBodyContext) {}
 // ExitStructBody is called when production structBody is exited.
 func (s *BaseOracleParserListener) ExitStructBody(ctx *StructBodyContext) {}
 
+// EnterFieldOmit is called when production fieldOmit is entered.
+func (s *BaseOracleParserListener) EnterFieldOmit(ctx *FieldOmitContext) {}
+
+// ExitFieldOmit is called when production fieldOmit is exited.
+func (s *BaseOracleParserListener) ExitFieldOmit(ctx *FieldOmitContext) {}
+
 // EnterFieldDef is called when production fieldDef is entered.
 func (s *BaseOracleParserListener) EnterFieldDef(ctx *FieldDefContext) {}
 
 // ExitFieldDef is called when production fieldDef is exited.
 func (s *BaseOracleParserListener) ExitFieldDef(ctx *FieldDefContext) {}
+
+// EnterInlineDomain is called when production inlineDomain is entered.
+func (s *BaseOracleParserListener) EnterInlineDomain(ctx *InlineDomainContext) {}
+
+// ExitInlineDomain is called when production inlineDomain is exited.
+func (s *BaseOracleParserListener) ExitInlineDomain(ctx *InlineDomainContext) {}
 
 // EnterFieldBody is called when production fieldBody is entered.
 func (s *BaseOracleParserListener) EnterFieldBody(ctx *FieldBodyContext) {}
@@ -92,23 +119,41 @@ func (s *BaseOracleParserListener) EnterFieldBody(ctx *FieldBodyContext) {}
 // ExitFieldBody is called when production fieldBody is exited.
 func (s *BaseOracleParserListener) ExitFieldBody(ctx *FieldBodyContext) {}
 
-// EnterDomainDef is called when production domainDef is entered.
-func (s *BaseOracleParserListener) EnterDomainDef(ctx *DomainDefContext) {}
+// EnterDomain is called when production domain is entered.
+func (s *BaseOracleParserListener) EnterDomain(ctx *DomainContext) {}
 
-// ExitDomainDef is called when production domainDef is exited.
-func (s *BaseOracleParserListener) ExitDomainDef(ctx *DomainDefContext) {}
+// ExitDomain is called when production domain is exited.
+func (s *BaseOracleParserListener) ExitDomain(ctx *DomainContext) {}
 
-// EnterDomainBody is called when production domainBody is entered.
-func (s *BaseOracleParserListener) EnterDomainBody(ctx *DomainBodyContext) {}
+// EnterDomainContent is called when production domainContent is entered.
+func (s *BaseOracleParserListener) EnterDomainContent(ctx *DomainContentContext) {}
 
-// ExitDomainBody is called when production domainBody is exited.
-func (s *BaseOracleParserListener) ExitDomainBody(ctx *DomainBodyContext) {}
+// ExitDomainContent is called when production domainContent is exited.
+func (s *BaseOracleParserListener) ExitDomainContent(ctx *DomainContentContext) {}
 
-// EnterTypeRef is called when production typeRef is entered.
-func (s *BaseOracleParserListener) EnterTypeRef(ctx *TypeRefContext) {}
+// EnterDomainBlock is called when production domainBlock is entered.
+func (s *BaseOracleParserListener) EnterDomainBlock(ctx *DomainBlockContext) {}
 
-// ExitTypeRef is called when production typeRef is exited.
-func (s *BaseOracleParserListener) ExitTypeRef(ctx *TypeRefContext) {}
+// ExitDomainBlock is called when production domainBlock is exited.
+func (s *BaseOracleParserListener) ExitDomainBlock(ctx *DomainBlockContext) {}
+
+// EnterTypeRefMap is called when production TypeRefMap is entered.
+func (s *BaseOracleParserListener) EnterTypeRefMap(ctx *TypeRefMapContext) {}
+
+// ExitTypeRefMap is called when production TypeRefMap is exited.
+func (s *BaseOracleParserListener) ExitTypeRefMap(ctx *TypeRefMapContext) {}
+
+// EnterTypeRefNormal is called when production TypeRefNormal is entered.
+func (s *BaseOracleParserListener) EnterTypeRefNormal(ctx *TypeRefNormalContext) {}
+
+// ExitTypeRefNormal is called when production TypeRefNormal is exited.
+func (s *BaseOracleParserListener) ExitTypeRefNormal(ctx *TypeRefNormalContext) {}
+
+// EnterMapType is called when production mapType is entered.
+func (s *BaseOracleParserListener) EnterMapType(ctx *MapTypeContext) {}
+
+// ExitMapType is called when production mapType is exited.
+func (s *BaseOracleParserListener) ExitMapType(ctx *MapTypeContext) {}
 
 // EnterTypeArgs is called when production typeArgs is entered.
 func (s *BaseOracleParserListener) EnterTypeArgs(ctx *TypeArgsContext) {}

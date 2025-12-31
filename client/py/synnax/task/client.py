@@ -26,7 +26,7 @@ from synnax.framer import Client as FrameClient
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
 from synnax.status import ERROR_VARIANT, SUCCESS_VARIANT
-from synnax.task.payload import TaskPayload, TaskStatus, ontology_id
+from synnax.task.types_gen import Payload as TaskPayload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
 from synnax.util.normalize import check_for_none, normalize, override
 
@@ -136,7 +136,8 @@ class Task:
     type: str = ""
     config: str = ""
     snapshot: bool = False
-    status: TaskStatus | None = None
+    internal: bool = False
+    status: Status | None = None
     _frame_client: FrameClient | None = None
 
     def __init__(
@@ -148,7 +149,8 @@ class Task:
         type: str = "",
         config: str = "",
         snapshot: bool = False,
-        status: TaskStatus | None = None,
+        internal: bool = False,
+        status: Status | None = None,
         _frame_client: FrameClient | None = None,
     ):
         if key == 0:
@@ -158,6 +160,7 @@ class Task:
         self.type = type
         self.config = config
         self.snapshot = snapshot
+        self.internal = internal
         self.status = status
         self._frame_client = _frame_client
 
@@ -175,6 +178,7 @@ class Task:
         self.type = task.type
         self.config = task.config
         self.snapshot = task.snapshot
+        self.internal = task.internal
         self._frame_client = task._frame_client
 
     @property
@@ -220,7 +224,7 @@ class Task:
         type_: str,
         args: dict | None = None,
         timeout: float | TimeSpan = 5,
-    ) -> TaskStatus:
+    ) -> Status:
         """Executes a command on the task and waits for the driver to acknowledge the
         command with a state.
 
@@ -241,7 +245,7 @@ class Task:
                     warnings.warn("task - unexpected missing state in frame")
                     continue
                 try:
-                    status = TaskStatus.model_validate(frame[_TASK_STATE_CHANNEL][0])
+                    status = Status.model_validate(frame[_TASK_STATE_CHANNEL][0])
                     if status.details.cmd is not None and status.details.cmd == key:
                         return status
                 except ValidationError as e:
@@ -438,7 +442,7 @@ class Client:
                 ):
                     warnings.warn("task - unexpected missing state in frame")
                     continue
-                status = TaskStatus.model_validate(frame[_TASK_STATE_CHANNEL][0])
+                status = Status.model_validate(frame[_TASK_STATE_CHANNEL][0])
                 if status.details.task != task.key:
                     continue
                 if status.variant == SUCCESS_VARIANT:
@@ -537,5 +541,5 @@ class Client:
         res = send_required(self._client, _COPY_ENDPOINT, req, _CopyResponse)
         return self.sugar([res.task])[0]
 
-    def sugar(self, tasks: list[Payload]):
+    def sugar(self, tasks: list[TaskPayload]):
         return [Task(**t.model_dump(), _frame_client=self._frame_client) for t in tasks]

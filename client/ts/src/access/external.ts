@@ -9,6 +9,6 @@
 
 export * from "@/access/client";
 export * from "@/access/enforce";
-export * from "@/access/payload";
+export * from "@/access/types.gen";
 export * from "@/access/policy";
 export * from "@/access/role";

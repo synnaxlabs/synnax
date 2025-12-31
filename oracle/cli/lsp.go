@@ -19,25 +19,14 @@ import (
 
 var lspCmd = &cobra.Command{
 	Use:   "lsp",
-	Short: "Start the Oracle language server",
-	Long: `Starts the Oracle Language Server Protocol (LSP) server.
-
-The LSP server communicates over stdin/stdout using JSON-RPC. It provides:
-- Syntax error diagnostics
-- Code completion for keywords, types, and domains
-- Hover information for built-in types and keywords
-- Semantic token highlighting
-
-This command is typically invoked by an IDE or editor extension.`,
+	Short: "Start the language server",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		server := lsp.New()
-		return server.Serve(context.Background(), os.Stdin, os.Stdout)
+		return lsp.New().Serve(context.Background(), os.Stdin, os.Stdout)
 	},
 }
 
 func init() {
-	// Accept --stdio flag (used by vscode-languageclient) but ignore it
-	// since we always use stdio transport
-	lspCmd.Flags().Bool("stdio", true, "Use stdio transport (default, always enabled)")
+	lspCmd.Flags().Bool("stdio", true, "")
+	_ = lspCmd.Flags().MarkHidden("stdio")
 	rootCmd.AddCommand(lspCmd)
 }

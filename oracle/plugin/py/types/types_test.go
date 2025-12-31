@@ -52,12 +52,13 @@ var _ = Describe("Python Types Plugin", func() {
 	Describe("Generate", func() {
 		It("Should generate Pydantic model for simple struct", func() {
 			source := `
-				struct User {
-					field key uuid
-					field name string
-					field age int32
-					field active bool
-					domain py { output "out" }
+				@py output "out"
+
+				User struct {
+					key uuid
+					name string
+					age int32
+					active bool
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
@@ -85,12 +86,13 @@ var _ = Describe("Python Types Plugin", func() {
 
 		It("Should handle optional and array types", func() {
 			source := `
-				struct Range {
-					field key uuid
-					field labels uuid[]
-					field parent uuid?
-					field tags string[]?
-					domain py { output "out" }
+				@py output "out"
+
+				Range struct {
+					key uuid
+					labels uuid[]
+					parent uuid?
+					tags string[]?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
@@ -112,20 +114,17 @@ var _ = Describe("Python Types Plugin", func() {
 
 		It("Should apply validation rules with Field constraints", func() {
 			source := `
-				struct User {
-					field name string {
-						domain validate {
-							min_length 1
-							max_length 255
-						}
+				@py output "out"
+
+				User struct {
+					name string @validate {
+						min_length 1
+						max_length 255
 					}
-					field age int32 {
-						domain validate {
-							min 0
-							max 150
-						}
+					age int32 @validate {
+						min 0
+						max 150
 					}
-					domain py { output "out" }
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
@@ -147,15 +146,16 @@ var _ = Describe("Python Types Plugin", func() {
 
 		It("Should generate IntEnum for integer enums", func() {
 			source := `
-				enum TaskState {
+				@py output "out"
+
+				TaskState enum {
 					pending = 0
 					running = 1
 					completed = 2
 				}
 
-				struct Task {
-					field state TaskState
-					domain py { output "out" }
+				Task struct {
+					state TaskState
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
@@ -180,15 +180,16 @@ var _ = Describe("Python Types Plugin", func() {
 
 		It("Should generate Literal type for string enums", func() {
 			source := `
-				enum DataType {
+				@py output "out"
+
+				DataType enum {
 					float32 = "float32"
 					float64 = "float64"
 					int32 = "int32"
 				}
 
-				struct Telem {
-					field data_type DataType
-					domain py { output "out" }
+				Telem struct {
+					data_type DataType
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "telem", loader)
@@ -210,25 +211,26 @@ var _ = Describe("Python Types Plugin", func() {
 
 		It("Should handle primitive type mappings", func() {
 			source := `
-				struct AllTypes {
-					field a uuid
-					field b string
-					field c bool
-					field d int8
-					field e int16
-					field f int32
-					field g int64
-					field h uint8
-					field i uint16
-					field j uint32
-					field k uint64
-					field l float32
-					field m float64
-					field n timestamp
-					field o timespan
-					field p json
-					field q bytes
-					domain py { output "out" }
+				@py output "out"
+
+				AllTypes struct {
+					a uuid
+					b string
+					c bool
+					d int8
+					e int16
+					f int32
+					g int64
+					h uint8
+					i uint16
+					j uint32
+					k uint64
+					l float32
+					m float64
+					n timestamp
+					o timespan
+					p json
+					q bytes
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
@@ -267,11 +269,12 @@ var _ = Describe("Python Types Plugin", func() {
 
 		It("Should keep snake_case for field names (Python convention)", func() {
 			source := `
-				struct Range {
-					field created_at timestamp
-					field time_range string
-					field my_long_field_name string
-					domain py { output "out" }
+				@py output "out"
+
+				Range struct {
+					created_at timestamp
+					time_range string
+					my_long_field_name string
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
@@ -293,12 +296,11 @@ var _ = Describe("Python Types Plugin", func() {
 
 		It("Should generate type alias for ID fields", func() {
 			source := `
-				struct User {
-					field key uuid {
-						domain id
-					}
-					field username string
-					domain py { output "out" }
+				@py output "out"
+
+				User struct {
+					key uuid @id
+					username string
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
@@ -318,17 +320,14 @@ var _ = Describe("Python Types Plugin", func() {
 
 		It("Should handle optional key and password fields", func() {
 			source := `
-				struct New {
-					field key uuid?
-					field username string
-					field password string {
-						domain validate {
-							min_length 1
-						}
-					}
-					field first_name string?
-					field last_name string?
-					domain py { output "out" }
+				@py output "out"
+
+				New struct {
+					key uuid?
+					username string
+					password string @validate min_length 1
+					first_name string?
+					last_name string?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
@@ -351,13 +350,14 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`last_name: str | None = None`))
 		})
 
-		It("Should handle nullable scalar types", func() {
+		It("Should handle soft optional types (?)", func() {
 			source := `
-				struct Device {
-					field key uuid
-					field name string
-					field status string!
-					domain py { output "out" }
+				@py output "out"
+
+				Device struct {
+					key uuid
+					name string
+					status string?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "device", loader)
@@ -372,19 +372,19 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`status: str | None`))
-			// Should NOT have " = None" since it's nullable but not optional
-			Expect(content).NotTo(ContainSubstring(`status: str | None = None`))
+			// Soft optional (?) becomes T | None = None in Python
+			Expect(content).To(ContainSubstring(`status: str | None = None`))
 		})
 
-		It("Should handle nullish types (optional + nullable)", func() {
+		It("Should handle hard optional types (??)", func() {
 			source := `
-				struct Task {
-					field key uuid
-					field name string
-					field status string?!
-					field description string!?
-					domain py { output "out" }
+				@py output "out"
+
+				Task struct {
+					key uuid
+					name string
+					status string??
+					description string??
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
@@ -399,17 +399,19 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
+			// Hard optional (??) also becomes T | None = None in Python (no pointer distinction)
 			Expect(content).To(ContainSubstring(`status: str | None = None`))
 			Expect(content).To(ContainSubstring(`description: str | None = None`))
 		})
 
-		It("Should handle nullable arrays with default factory", func() {
+		It("Should handle optional arrays", func() {
 			source := `
-				struct Policy {
-					field key uuid
-					field objects uuid[]!
-					field actions string[]!
-					domain py { output "out" }
+				@py output "out"
+
+				Policy struct {
+					key uuid
+					objects uuid[]?
+					actions string[]?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "policy", loader)
@@ -424,25 +426,19 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`from pydantic import BaseModel, Field`))
-			Expect(content).To(ContainSubstring(`objects: list[UUID] | None = Field(default_factory=list)`))
-			Expect(content).To(ContainSubstring(`actions: list[str] | None = Field(default_factory=list)`))
+			// Optional arrays in Python use None default (not default_factory)
+			// to distinguish "not provided" from "empty list"
+			Expect(content).To(ContainSubstring(`objects: list[UUID] | None = None`))
+			Expect(content).To(ContainSubstring(`actions: list[str] | None = None`))
 		})
 
 		It("Should handle default values", func() {
 			source := `
-				struct Config {
-					field enabled bool {
-						domain validate {
-							default false
-						}
-					}
-					field retries int32 {
-						domain validate {
-							default 3
-						}
-					}
-					domain py { output "out" }
+				@py output "out"
+
+				Config struct {
+					enabled bool @validate default false
+					retries int32 @validate default 3
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
@@ -459,6 +455,209 @@ var _ = Describe("Python Types Plugin", func() {
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`enabled: bool = Field(default=False)`))
 			Expect(content).To(ContainSubstring(`retries: int = Field(default=3)`))
+		})
+
+		It("Should generate class inheritance for basic struct extension", func() {
+			source := `
+				@py output "out"
+
+				Parent struct {
+					name string
+					age int32
+				}
+
+				Child struct extends Parent {
+					email string
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Parent should be a regular class
+			Expect(content).To(ContainSubstring(`class Parent(BaseModel):`))
+			Expect(content).To(ContainSubstring(`name: str`))
+			Expect(content).To(ContainSubstring(`age: int`))
+
+			// Child should inherit from Parent
+			Expect(content).To(ContainSubstring(`class Child(Parent):`))
+			Expect(content).To(ContainSubstring(`email: str`))
+		})
+
+		It("Should generate ConfigDict for field omissions", func() {
+			source := `
+				@py output "out"
+
+				Parent struct {
+					name string
+					age int32
+					status string
+				}
+
+				Child struct extends Parent {
+					-age
+					email string
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Child should have ConfigDict import
+			Expect(content).To(ContainSubstring(`from pydantic import`))
+			Expect(content).To(ContainSubstring(`ConfigDict`))
+
+			// Child should inherit and use model_config
+			Expect(content).To(ContainSubstring(`class Child(Parent):`))
+			Expect(content).To(ContainSubstring(`email: str`))
+			Expect(content).To(ContainSubstring(`model_config = ConfigDict(`))
+			Expect(content).To(ContainSubstring(`"age": {"exclude": True}`))
+		})
+
+		It("Should generate ConfigDict for multiple field omissions", func() {
+			source := `
+				@py output "out"
+
+				Parent struct {
+					a string
+					b string
+					c string
+					d string
+				}
+
+				Child struct extends Parent {
+					-a
+					-c
+					e string
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`class Child(Parent):`))
+			Expect(content).To(ContainSubstring(`model_config = ConfigDict(`))
+			Expect(content).To(ContainSubstring(`"a": {"exclude": True}`))
+			Expect(content).To(ContainSubstring(`"c": {"exclude": True}`))
+		})
+
+		It("Should handle field override to make it optional", func() {
+			source := `
+				@py output "out"
+
+				Parent struct {
+					name string
+					age int32
+				}
+
+				Child struct extends Parent {
+					name string?
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Child should override name to be optional
+			Expect(content).To(ContainSubstring(`class Child(Parent):`))
+			Expect(content).To(ContainSubstring(`name: str | None = None`))
+		})
+
+		It("Should handle extension without new fields (only omissions)", func() {
+			source := `
+				@py output "out"
+
+				Parent struct {
+					a string
+					b string
+					c string
+				}
+
+				Child struct extends Parent {
+					-b
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`class Child(Parent):`))
+			Expect(content).To(ContainSubstring(`model_config = ConfigDict(`))
+			Expect(content).To(ContainSubstring(`"b": {"exclude": True}`))
+		})
+
+		It("Should handle extension of generic struct with type arguments", func() {
+			source := `
+				@py output "out"
+
+				Details struct {
+					message string
+				}
+
+				Status struct<D extends schema> {
+					variant int32
+					data D
+				}
+
+				RackStatus struct extends Status<Details> {
+					timestamp timestamp
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// RackStatus should extend Status (generic type args are inherited via extends)
+			Expect(content).To(ContainSubstring(`class RackStatus(Status):`))
+			Expect(content).To(ContainSubstring(`timestamp: TimeStamp`))
 		})
 	})
 })

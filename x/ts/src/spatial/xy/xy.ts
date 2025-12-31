@@ -9,32 +9,29 @@
 
 import { z } from "zod";
 
+import { type AngularDirection, type CrudeDirection, type NumberCouple, numberCouple } from "@/spatial/base";
 import {
-  type AngularDirection,
   type ClientXY,
-  clientXY,
-  type CrudeDirection,
-  dimensions,
+  clientXyZ,
+  dimensionsZ,
   type Direction,
-  type NumberCouple,
-  numberCouple,
-  signedDimensions,
+  signedDimensionsZ,
   type XY,
-  xy,
-} from "@/spatial/base";
+  xyZ,
+} from "@/spatial/types.gen";
 import { direction as dir } from "@/spatial/direction";
 import { type location } from "@/spatial/location";
 
-export { type ClientXY as Client, clientXY, type XY, xy };
+export { type ClientXY as Client, clientXyZ, type XY, xyZ };
 
 /** A crude representation of a {@link XY} coordinate as a zod schema. */
 export const crudeZ = z.union([
   z.number(),
-  xy,
+  xyZ,
   numberCouple,
-  dimensions,
-  signedDimensions,
-  clientXY,
+  dimensionsZ,
+  signedDimensionsZ,
+  clientXyZ,
 ]);
 
 /** A crude representation of a {@link XY} coordinate. */

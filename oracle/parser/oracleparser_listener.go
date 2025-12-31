@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 // Code generated from OracleParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // OracleParser
@@ -15,6 +24,9 @@ type OracleParserListener interface {
 
 	// EnterImportStmt is called when entering the importStmt production.
 	EnterImportStmt(c *ImportStmtContext)
+
+	// EnterFileDomain is called when entering the fileDomain production.
+	EnterFileDomain(c *FileDomainContext)
 
 	// EnterDefinition is called when entering the definition production.
 	EnterDefinition(c *DefinitionContext)
@@ -37,20 +49,35 @@ type OracleParserListener interface {
 	// EnterStructBody is called when entering the structBody production.
 	EnterStructBody(c *StructBodyContext)
 
+	// EnterFieldOmit is called when entering the fieldOmit production.
+	EnterFieldOmit(c *FieldOmitContext)
+
 	// EnterFieldDef is called when entering the fieldDef production.
 	EnterFieldDef(c *FieldDefContext)
+
+	// EnterInlineDomain is called when entering the inlineDomain production.
+	EnterInlineDomain(c *InlineDomainContext)
 
 	// EnterFieldBody is called when entering the fieldBody production.
 	EnterFieldBody(c *FieldBodyContext)
 
-	// EnterDomainDef is called when entering the domainDef production.
-	EnterDomainDef(c *DomainDefContext)
+	// EnterDomain is called when entering the domain production.
+	EnterDomain(c *DomainContext)
 
-	// EnterDomainBody is called when entering the domainBody production.
-	EnterDomainBody(c *DomainBodyContext)
+	// EnterDomainContent is called when entering the domainContent production.
+	EnterDomainContent(c *DomainContentContext)
 
-	// EnterTypeRef is called when entering the typeRef production.
-	EnterTypeRef(c *TypeRefContext)
+	// EnterDomainBlock is called when entering the domainBlock production.
+	EnterDomainBlock(c *DomainBlockContext)
+
+	// EnterTypeRefMap is called when entering the TypeRefMap production.
+	EnterTypeRefMap(c *TypeRefMapContext)
+
+	// EnterTypeRefNormal is called when entering the TypeRefNormal production.
+	EnterTypeRefNormal(c *TypeRefNormalContext)
+
+	// EnterMapType is called when entering the mapType production.
+	EnterMapType(c *MapTypeContext)
 
 	// EnterTypeArgs is called when entering the typeArgs production.
 	EnterTypeArgs(c *TypeArgsContext)
@@ -85,6 +112,9 @@ type OracleParserListener interface {
 	// ExitImportStmt is called when exiting the importStmt production.
 	ExitImportStmt(c *ImportStmtContext)
 
+	// ExitFileDomain is called when exiting the fileDomain production.
+	ExitFileDomain(c *FileDomainContext)
+
 	// ExitDefinition is called when exiting the definition production.
 	ExitDefinition(c *DefinitionContext)
 
@@ -106,20 +136,35 @@ type OracleParserListener interface {
 	// ExitStructBody is called when exiting the structBody production.
 	ExitStructBody(c *StructBodyContext)
 
+	// ExitFieldOmit is called when exiting the fieldOmit production.
+	ExitFieldOmit(c *FieldOmitContext)
+
 	// ExitFieldDef is called when exiting the fieldDef production.
 	ExitFieldDef(c *FieldDefContext)
+
+	// ExitInlineDomain is called when exiting the inlineDomain production.
+	ExitInlineDomain(c *InlineDomainContext)
 
 	// ExitFieldBody is called when exiting the fieldBody production.
 	ExitFieldBody(c *FieldBodyContext)
 
-	// ExitDomainDef is called when exiting the domainDef production.
-	ExitDomainDef(c *DomainDefContext)
+	// ExitDomain is called when exiting the domain production.
+	ExitDomain(c *DomainContext)
 
-	// ExitDomainBody is called when exiting the domainBody production.
-	ExitDomainBody(c *DomainBodyContext)
+	// ExitDomainContent is called when exiting the domainContent production.
+	ExitDomainContent(c *DomainContentContext)
 
-	// ExitTypeRef is called when exiting the typeRef production.
-	ExitTypeRef(c *TypeRefContext)
+	// ExitDomainBlock is called when exiting the domainBlock production.
+	ExitDomainBlock(c *DomainBlockContext)
+
+	// ExitTypeRefMap is called when exiting the TypeRefMap production.
+	ExitTypeRefMap(c *TypeRefMapContext)
+
+	// ExitTypeRefNormal is called when exiting the TypeRefNormal production.
+	ExitTypeRefNormal(c *TypeRefNormalContext)
+
+	// ExitMapType is called when exiting the mapType production.
+	ExitMapType(c *MapTypeContext)
 
 	// ExitTypeArgs is called when exiting the typeArgs production.
 	ExitTypeArgs(c *TypeArgsContext)

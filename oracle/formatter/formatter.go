@@ -1,0 +1,820 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// Package formatter provides formatting functionality for Oracle schema files.
+// It reformats Oracle source code according to the canonical style defined in STYLE.md.
+package formatter
+
+import (
+	"strings"
+
+	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/oracle/parser"
+)
+
+const (
+	indent      = "    " // 4 spaces
+	maxLineLen  = 88
+	hiddenChan  = 1 // ANTLR hidden channel
+	commentLine = parser.OracleLexerLINE_COMMENT
+	commentBlk  = parser.OracleLexerBLOCK_COMMENT
+)
+
+// Format formats Oracle source code according to the canonical style.
+// Returns the formatted source code or an error if parsing fails.
+func Format(source string) (string, error) {
+	input := antlr.NewInputStream(source)
+	lexer := parser.NewOracleLexer(input)
+	stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
+	p := parser.NewOracleParser(stream)
+
+	// Track syntax errors
+	errListener := &errorListener{}
+	lexer.RemoveErrorListeners()
+	lexer.AddErrorListener(errListener)
+	p.RemoveErrorListeners()
+	p.AddErrorListener(errListener)
+
+	// Parse the schema
+	tree := p.Schema()
+	if errListener.hasErrors {
+		// Return original source if parsing fails
+		return source, nil
+	}
+
+	f := &formatter{
+		tokens: stream,
+		sb:     &strings.Builder{},
+	}
+
+	f.formatSchema(tree)
+	return f.sb.String(), nil
+}
+
+// errorListener tracks whether any syntax errors occurred.
+type errorListener struct {
+	*antlr.DefaultErrorListener
+	hasErrors bool
+}
+
+func (e *errorListener) SyntaxError(
+	_ antlr.Recognizer,
+	_ interface{},
+	_, _ int,
+	_ string,
+	_ antlr.RecognitionException,
+) {
+	e.hasErrors = true
+}
+
+type formatter struct {
+	tokens        *antlr.CommonTokenStream
+	sb            *strings.Builder
+	lastTokenIdx  int
+	currentIndent int
+}
+
+func (f *formatter) write(s string) {
+	f.sb.WriteString(s)
+}
+
+func (f *formatter) writeLine(s string) {
+	f.sb.WriteString(s)
+	f.sb.WriteString("\n")
+}
+
+func (f *formatter) writeIndent() {
+	for i := 0; i < f.currentIndent; i++ {
+		f.sb.WriteString(indent)
+	}
+}
+
+func (f *formatter) newline() {
+	f.sb.WriteString("\n")
+}
+
+// emitLeadingComments emits any comments at the very start of the file.
+func (f *formatter) emitLeadingComments() {
+	// Get all tokens and look for leading comments
+	f.tokens.Fill()
+	allTokens := f.tokens.GetAllTokens()
+	for _, tok := range allTokens {
+		if tok.GetChannel() == hiddenChan {
+			if tok.GetTokenType() == commentLine || tok.GetTokenType() == commentBlk {
+				f.writeLine(tok.GetText())
+				f.lastTokenIdx = tok.GetTokenIndex()
+			}
+		} else if tok.GetChannel() == antlr.TokenDefaultChannel {
+			// Stop at first non-hidden token
+			break
+		}
+	}
+}
+
+// emitCommentsBefore emits any comments that appear before the given token index.
+func (f *formatter) emitCommentsBefore(tokenIdx int) {
+	hiddenTokens := f.tokens.GetHiddenTokensToLeft(tokenIdx, hiddenChan)
+	for _, tok := range hiddenTokens {
+		if tok.GetTokenIndex() <= f.lastTokenIdx {
+			continue
+		}
+		text := tok.GetText()
+		f.writeIndent()
+		f.writeLine(text)
+		f.lastTokenIdx = tok.GetTokenIndex()
+	}
+}
+
+// emitCommentsAfter emits any trailing comments on the same line.
+func (f *formatter) emitTrailingComment(tokenIdx int) bool {
+	hiddenTokens := f.tokens.GetHiddenTokensToRight(tokenIdx, hiddenChan)
+	for _, tok := range hiddenTokens {
+		if tok.GetTokenIndex() <= f.lastTokenIdx {
+			continue
+		}
+		// Only emit if it's a line comment (trailing)
+		if tok.GetTokenType() == commentLine {
+			f.write("  ")
+			f.write(tok.GetText())
+			f.lastTokenIdx = tok.GetTokenIndex()
+			return true
+		}
+	}
+	return false
+}
+
+func (f *formatter) formatSchema(ctx parser.ISchemaContext) {
+	// Track what we've emitted for blank line logic
+	hasImports := len(ctx.AllImportStmt()) > 0
+	hasDomains := len(ctx.AllFileDomain()) > 0
+	hasDefinitions := len(ctx.AllDefinition()) > 0
+
+	// Emit comments at start of file (before any content)
+	f.emitLeadingComments()
+
+	// Format imports
+	for _, imp := range ctx.AllImportStmt() {
+		f.formatImport(imp)
+	}
+
+	// Blank line after imports
+	if hasImports && (hasDomains || hasDefinitions) {
+		f.newline()
+	}
+
+	// Format file-level domains
+	for _, dom := range ctx.AllFileDomain() {
+		f.formatFileDomain(dom)
+	}
+
+	// Blank line after file-level domains
+	if hasDomains && hasDefinitions {
+		f.newline()
+	}
+
+	// Format definitions with blank lines between
+	defs := ctx.AllDefinition()
+	for i, def := range defs {
+		if i > 0 {
+			f.newline()
+		}
+		f.emitCommentsBefore(def.GetStart().GetTokenIndex())
+		f.formatDefinition(def)
+	}
+
+	// Trailing newline
+	if f.sb.Len() > 0 && !strings.HasSuffix(f.sb.String(), "\n") {
+		f.newline()
+	}
+}
+
+func (f *formatter) formatImport(ctx parser.IImportStmtContext) {
+	f.emitCommentsBefore(ctx.GetStart().GetTokenIndex())
+	f.write("import ")
+	f.write(ctx.STRING_LIT().GetText())
+	f.newline()
+	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+}
+
+func (f *formatter) formatFileDomain(ctx parser.IFileDomainContext) {
+	f.emitCommentsBefore(ctx.GetStart().GetTokenIndex())
+	f.write("@")
+	f.write(ctx.IDENT().GetText())
+	if ctx.DomainContent() != nil {
+		f.write(" ")
+		f.formatDomainContent(ctx.DomainContent(), false)
+	}
+	f.newline()
+	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+}
+
+func (f *formatter) formatDefinition(ctx parser.IDefinitionContext) {
+	if ctx.StructDef() != nil {
+		f.formatStructDef(ctx.StructDef())
+	} else if ctx.EnumDef() != nil {
+		f.formatEnumDef(ctx.EnumDef())
+	}
+}
+
+func (f *formatter) formatStructDef(ctx parser.IStructDefContext) {
+	switch v := ctx.(type) {
+	case *parser.StructFullContext:
+		f.formatStructFull(v)
+	case *parser.StructAliasContext:
+		f.formatStructAlias(v)
+	}
+}
+
+func (f *formatter) formatStructFull(ctx *parser.StructFullContext) {
+	// Name struct<TypeParams> extends Parent {
+	f.write(ctx.IDENT().GetText())
+	f.write(" struct")
+
+	// Type params come before extends
+	if ctx.TypeParams() != nil {
+		f.formatTypeParams(ctx.TypeParams())
+	}
+
+	// Handle extends clause
+	if ctx.EXTENDS() != nil && ctx.TypeRef() != nil {
+		f.write(" extends ")
+		f.formatTypeRef(ctx.TypeRef())
+	}
+
+	// Check if struct is empty
+	body := ctx.StructBody()
+	if isEmptyStructBody(body) {
+		f.writeLine(" {}")
+		f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+		return
+	}
+
+	f.writeLine(" {")
+	f.currentIndent++
+	f.formatStructBody(body)
+	f.currentIndent--
+	f.writeLine("}")
+	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+}
+
+func isEmptyStructBody(ctx parser.IStructBodyContext) bool {
+	return len(ctx.AllFieldDef()) == 0 && len(ctx.AllDomain()) == 0 && len(ctx.AllFieldOmit()) == 0
+}
+
+func (f *formatter) formatStructAlias(ctx *parser.StructAliasContext) {
+	f.write(ctx.IDENT().GetText())
+	if ctx.TypeParams() != nil {
+		f.formatTypeParams(ctx.TypeParams())
+	}
+	f.write(" = ")
+	f.formatTypeRef(ctx.TypeRef())
+
+	if ctx.AliasBody() != nil {
+		f.formatAliasBody(ctx.AliasBody())
+	} else {
+		f.newline()
+	}
+	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+}
+
+func (f *formatter) formatAliasBody(ctx parser.IAliasBodyContext) {
+	domains := ctx.AllDomain()
+	if len(domains) == 0 {
+		f.newline()
+		return
+	}
+
+	f.writeLine(" {")
+	f.currentIndent++
+	for _, dom := range domains {
+		f.formatDomain(dom)
+	}
+	f.currentIndent--
+	f.writeLine("}")
+}
+
+func (f *formatter) formatTypeParams(ctx parser.ITypeParamsContext) {
+	// Try inline first
+	inlineStr := f.formatTypeParamsToString(ctx)
+	if f.currentLineLen()+len(inlineStr) <= maxLineLen {
+		f.write(inlineStr)
+		return
+	}
+
+	// Multi-line format
+	f.writeLine("<")
+	f.currentIndent++
+	params := ctx.AllTypeParam()
+	for i, param := range params {
+		f.writeIndent()
+		f.formatTypeParam(param)
+		if i < len(params)-1 {
+			f.write(",")
+		}
+		f.newline()
+	}
+	f.currentIndent--
+	f.writeIndent()
+	f.write(">")
+}
+
+func (f *formatter) formatTypeParamsToString(ctx parser.ITypeParamsContext) string {
+	var sb strings.Builder
+	sb.WriteString("<")
+	params := ctx.AllTypeParam()
+	for i, param := range params {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(f.formatTypeParamToString(param))
+	}
+	sb.WriteString(">")
+	return sb.String()
+}
+
+func (f *formatter) formatTypeParamToString(ctx parser.ITypeParamContext) string {
+	var sb strings.Builder
+	sb.WriteString(ctx.IDENT().GetText())
+	if ctx.QUESTION() != nil {
+		sb.WriteString("?")
+	}
+	typeRefs := ctx.AllTypeRef()
+	hasExtends := ctx.EXTENDS() != nil
+	if hasExtends && len(typeRefs) > 0 {
+		sb.WriteString(" extends ")
+		sb.WriteString(f.formatTypeRefToString(typeRefs[0]))
+	}
+	if ctx.EQUALS() != nil {
+		idx := 0
+		if hasExtends {
+			idx = 1
+		}
+		if idx < len(typeRefs) {
+			sb.WriteString(" = ")
+			sb.WriteString(f.formatTypeRefToString(typeRefs[idx]))
+		}
+	}
+	return sb.String()
+}
+
+func (f *formatter) formatTypeParam(ctx parser.ITypeParamContext) {
+	f.write(ctx.IDENT().GetText())
+	// Optional marker (?)
+	if ctx.QUESTION() != nil {
+		f.write("?")
+	}
+	typeRefs := ctx.AllTypeRef()
+	hasExtends := ctx.EXTENDS() != nil
+	if hasExtends && len(typeRefs) > 0 {
+		f.write(" extends ")
+		f.formatTypeRef(typeRefs[0])
+	}
+	// Default value (= X)
+	if ctx.EQUALS() != nil {
+		idx := 0
+		if hasExtends {
+			idx = 1
+		}
+		if idx < len(typeRefs) {
+			f.write(" = ")
+			f.formatTypeRef(typeRefs[idx])
+		}
+	}
+}
+
+func (f *formatter) formatStructBody(ctx parser.IStructBodyContext) {
+	fields := ctx.AllFieldDef()
+	fieldOmits := ctx.AllFieldOmit()
+	domains := ctx.AllDomain()
+
+	// Calculate alignment widths
+	maxNameLen := 0
+	maxTypeLen := 0
+	for _, field := range fields {
+		nameLen := len(field.IDENT().GetText())
+		if nameLen > maxNameLen {
+			maxNameLen = nameLen
+		}
+		typeLen := len(f.formatTypeRefToString(field.TypeRef()))
+		if typeLen > maxTypeLen {
+			maxTypeLen = typeLen
+		}
+	}
+
+	// Format fields with alignment
+	for _, field := range fields {
+		f.emitCommentsBefore(field.GetStart().GetTokenIndex())
+		f.formatFieldDefAligned(field, maxNameLen, maxTypeLen)
+	}
+
+	// Format field omissions (-fieldName)
+	for _, omit := range fieldOmits {
+		f.emitCommentsBefore(omit.GetStart().GetTokenIndex())
+		f.formatFieldOmit(omit)
+	}
+
+	// Blank line before struct-level domains if there are fields or omissions
+	if (len(fields) > 0 || len(fieldOmits) > 0) && len(domains) > 0 {
+		f.newline()
+	}
+
+	// Format struct-level domains
+	for _, dom := range domains {
+		f.formatDomain(dom)
+	}
+}
+
+func (f *formatter) formatFieldOmit(ctx parser.IFieldOmitContext) {
+	f.writeIndent()
+	f.write("-")
+	f.write(ctx.IDENT().GetText())
+	f.newline()
+	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+}
+
+func (f *formatter) formatFieldDefAligned(ctx parser.IFieldDefContext, nameWidth, typeWidth int) {
+	f.writeIndent()
+
+	// Write name with padding
+	name := ctx.IDENT().GetText()
+	f.write(name)
+	f.writePadding(nameWidth - len(name))
+	f.write(" ")
+
+	// Write type with padding (only if there are domains)
+	typeStr := f.formatTypeRefToString(ctx.TypeRef())
+	f.write(typeStr)
+
+	inlineDomains := ctx.AllInlineDomain()
+	hasDomains := len(inlineDomains) > 0 || ctx.FieldBody() != nil
+
+	if hasDomains {
+		f.writePadding(typeWidth - len(typeStr))
+
+		// Try inline first
+		inlineStr := f.formatInlineDomainsToString(inlineDomains)
+		lineLen := f.currentLineLen() + len(inlineStr)
+
+		if ctx.FieldBody() != nil || lineLen > maxLineLen {
+			// Use brace form
+			f.formatFieldWithBraces(inlineDomains, ctx.FieldBody())
+		} else {
+			// Use inline form
+			f.write(inlineStr)
+			f.newline()
+		}
+	} else {
+		f.newline()
+	}
+
+	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+}
+
+func (f *formatter) writePadding(n int) {
+	for i := 0; i < n; i++ {
+		f.write(" ")
+	}
+}
+
+func (f *formatter) formatTypeRefToString(ctx parser.ITypeRefContext) string {
+	var sb strings.Builder
+	switch v := ctx.(type) {
+	case *parser.TypeRefMapContext:
+		sb.WriteString("map<")
+		typeRefs := v.MapType().AllTypeRef()
+		sb.WriteString(f.formatTypeRefToString(typeRefs[0]))
+		sb.WriteString(", ")
+		sb.WriteString(f.formatTypeRefToString(typeRefs[1]))
+		sb.WriteString(">")
+		if v.TypeModifiers() != nil {
+			for range v.TypeModifiers().AllQUESTION() {
+				sb.WriteString("?")
+			}
+		}
+	case *parser.TypeRefNormalContext:
+		sb.WriteString(f.formatQualifiedIdentToString(v.QualifiedIdent()))
+		if v.TypeArgs() != nil {
+			sb.WriteString("<")
+			typeRefs := v.TypeArgs().AllTypeRef()
+			for i, ref := range typeRefs {
+				if i > 0 {
+					sb.WriteString(", ")
+				}
+				sb.WriteString(f.formatTypeRefToString(ref))
+			}
+			sb.WriteString(">")
+		}
+		if v.LBRACKET() != nil {
+			sb.WriteString("[]")
+		}
+		if v.TypeModifiers() != nil {
+			for range v.TypeModifiers().AllQUESTION() {
+				sb.WriteString("?")
+			}
+		}
+	}
+	return sb.String()
+}
+
+func (f *formatter) currentLineLen() int {
+	s := f.sb.String()
+	lastNewline := strings.LastIndex(s, "\n")
+	if lastNewline == -1 {
+		return len(s)
+	}
+	return len(s) - lastNewline - 1
+}
+
+func (f *formatter) formatInlineDomainsToString(domains []parser.IInlineDomainContext) string {
+	var sb strings.Builder
+	for _, dom := range domains {
+		sb.WriteString(" @")
+		sb.WriteString(dom.IDENT().GetText())
+		if dom.DomainContent() != nil {
+			content := f.formatDomainContentToString(dom.DomainContent())
+			if content != "" {
+				sb.WriteString(" ")
+				sb.WriteString(content)
+			}
+		}
+	}
+	return sb.String()
+}
+
+func (f *formatter) formatDomainContentToString(ctx parser.IDomainContentContext) string {
+	if ctx.Expression() != nil {
+		return f.formatExpressionToString(ctx.Expression())
+	}
+	// Block form - can't inline
+	return ""
+}
+
+func (f *formatter) formatExpressionToString(ctx parser.IExpressionContext) string {
+	var sb strings.Builder
+	sb.WriteString(ctx.IDENT().GetText())
+	for _, val := range ctx.AllExpressionValue() {
+		sb.WriteString(" ")
+		sb.WriteString(f.formatExpressionValueToString(val))
+	}
+	return sb.String()
+}
+
+func (f *formatter) formatExpressionValueToString(ctx parser.IExpressionValueContext) string {
+	if ctx.STRING_LIT() != nil {
+		return ctx.STRING_LIT().GetText()
+	}
+	if ctx.INT_LIT() != nil {
+		return ctx.INT_LIT().GetText()
+	}
+	if ctx.FLOAT_LIT() != nil {
+		return ctx.FLOAT_LIT().GetText()
+	}
+	if ctx.BOOL_LIT() != nil {
+		return ctx.BOOL_LIT().GetText()
+	}
+	if ctx.QualifiedIdent() != nil {
+		return f.formatQualifiedIdentToString(ctx.QualifiedIdent())
+	}
+	return ""
+}
+
+func (f *formatter) formatQualifiedIdentToString(ctx parser.IQualifiedIdentContext) string {
+	idents := ctx.AllIDENT()
+	if len(idents) == 1 {
+		return idents[0].GetText()
+	}
+	return idents[0].GetText() + "." + idents[1].GetText()
+}
+
+func (f *formatter) formatFieldWithBraces(
+	inlineDomains []parser.IInlineDomainContext,
+	fieldBody parser.IFieldBodyContext,
+) {
+	f.writeLine(" {")
+	f.currentIndent++
+
+	// Convert inline domains to regular domains
+	for _, dom := range inlineDomains {
+		f.writeIndent()
+		f.write("@")
+		f.write(dom.IDENT().GetText())
+		if dom.DomainContent() != nil {
+			f.write(" ")
+			f.formatDomainContent(dom.DomainContent(), true)
+		}
+		f.newline()
+	}
+
+	// Format field body domains
+	if fieldBody != nil {
+		for _, dom := range fieldBody.AllDomain() {
+			f.formatDomain(dom)
+		}
+	}
+
+	f.currentIndent--
+	f.writeIndent()
+	f.writeLine("}")
+}
+
+func (f *formatter) formatDomain(ctx parser.IDomainContext) {
+	f.emitCommentsBefore(ctx.GetStart().GetTokenIndex())
+	f.writeIndent()
+	f.write("@")
+	f.write(ctx.IDENT().GetText())
+	if ctx.DomainContent() != nil {
+		f.write(" ")
+		f.formatDomainContent(ctx.DomainContent(), true)
+	}
+	f.newline()
+	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+}
+
+func (f *formatter) formatDomainContent(ctx parser.IDomainContentContext, allowBlock bool) {
+	if ctx.Expression() != nil {
+		f.formatExpression(ctx.Expression())
+	} else if ctx.DomainBlock() != nil {
+		if allowBlock {
+			f.formatDomainBlock(ctx.DomainBlock())
+		} else {
+			// Shouldn't happen, but handle gracefully
+			f.formatDomainBlock(ctx.DomainBlock())
+		}
+	}
+}
+
+func (f *formatter) formatDomainBlock(ctx parser.IDomainBlockContext) {
+	exprs := ctx.AllExpression()
+
+	// Single expression - convert to inline (remove braces)
+	if len(exprs) == 1 {
+		f.formatExpression(exprs[0])
+		return
+	}
+
+	// Multiple expressions - use block form
+	f.writeLine("{")
+	f.currentIndent++
+	for _, expr := range exprs {
+		f.writeIndent()
+		f.formatExpression(expr)
+		f.newline()
+	}
+	f.currentIndent--
+	f.writeIndent()
+	f.write("}")
+}
+
+func (f *formatter) formatExpression(ctx parser.IExpressionContext) {
+	f.write(ctx.IDENT().GetText())
+	for _, val := range ctx.AllExpressionValue() {
+		f.write(" ")
+		f.formatExpressionValue(val)
+	}
+}
+
+func (f *formatter) formatExpressionValue(ctx parser.IExpressionValueContext) {
+	if ctx.STRING_LIT() != nil {
+		f.write(ctx.STRING_LIT().GetText())
+	} else if ctx.INT_LIT() != nil {
+		f.write(ctx.INT_LIT().GetText())
+	} else if ctx.FLOAT_LIT() != nil {
+		f.write(ctx.FLOAT_LIT().GetText())
+	} else if ctx.BOOL_LIT() != nil {
+		f.write(ctx.BOOL_LIT().GetText())
+	} else if ctx.QualifiedIdent() != nil {
+		f.formatQualifiedIdent(ctx.QualifiedIdent())
+	}
+}
+
+func (f *formatter) formatQualifiedIdent(ctx parser.IQualifiedIdentContext) {
+	idents := ctx.AllIDENT()
+	f.write(idents[0].GetText())
+	if len(idents) > 1 {
+		f.write(".")
+		f.write(idents[1].GetText())
+	}
+}
+
+func (f *formatter) formatTypeRef(ctx parser.ITypeRefContext) {
+	switch v := ctx.(type) {
+	case *parser.TypeRefMapContext:
+		f.formatMapType(v.MapType())
+		if v.TypeModifiers() != nil {
+			f.formatTypeModifiers(v.TypeModifiers())
+		}
+	case *parser.TypeRefNormalContext:
+		f.formatQualifiedIdent(v.QualifiedIdent())
+		if v.TypeArgs() != nil {
+			f.formatTypeArgs(v.TypeArgs())
+		}
+		if v.LBRACKET() != nil {
+			f.write("[]")
+		}
+		if v.TypeModifiers() != nil {
+			f.formatTypeModifiers(v.TypeModifiers())
+		}
+	}
+}
+
+func (f *formatter) formatMapType(ctx parser.IMapTypeContext) {
+	f.write("map<")
+	typeRefs := ctx.AllTypeRef()
+	f.formatTypeRef(typeRefs[0])
+	f.write(", ")
+	f.formatTypeRef(typeRefs[1])
+	f.write(">")
+}
+
+func (f *formatter) formatTypeArgs(ctx parser.ITypeArgsContext) {
+	f.write("<")
+	typeRefs := ctx.AllTypeRef()
+	for i, ref := range typeRefs {
+		if i > 0 {
+			f.write(", ")
+		}
+		f.formatTypeRef(ref)
+	}
+	f.write(">")
+}
+
+func (f *formatter) formatTypeModifiers(ctx parser.ITypeModifiersContext) {
+	questions := ctx.AllQUESTION()
+	for range questions {
+		f.write("?")
+	}
+}
+
+func (f *formatter) formatEnumDef(ctx parser.IEnumDefContext) {
+	f.write(ctx.IDENT().GetText())
+	f.write(" enum")
+
+	body := ctx.EnumBody()
+	values := body.AllEnumValue()
+	domains := body.AllDomain()
+
+	if len(values) == 0 && len(domains) == 0 {
+		f.writeLine(" {}")
+		f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+		return
+	}
+
+	f.writeLine(" {")
+	f.currentIndent++
+
+	// Calculate alignment for enum values
+	maxNameLen := 0
+	for _, val := range values {
+		nameLen := len(val.IDENT().GetText())
+		if nameLen > maxNameLen {
+			maxNameLen = nameLen
+		}
+	}
+
+	// Format enum values with alignment
+	for _, val := range values {
+		f.emitCommentsBefore(val.GetStart().GetTokenIndex())
+		f.formatEnumValue(val, maxNameLen)
+	}
+
+	// Blank line before enum-level domains if there are values
+	if len(values) > 0 && len(domains) > 0 {
+		f.newline()
+	}
+
+	// Format enum-level domains
+	for _, dom := range domains {
+		f.formatDomain(dom)
+	}
+
+	f.currentIndent--
+	f.writeLine("}")
+	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+}
+
+func (f *formatter) formatEnumValue(ctx parser.IEnumValueContext, alignTo int) {
+	f.writeIndent()
+	name := ctx.IDENT().GetText()
+	f.write(name)
+
+	// Pad for alignment
+	padding := alignTo - len(name)
+	for i := 0; i < padding; i++ {
+		f.write(" ")
+	}
+
+	f.write(" = ")
+	if ctx.INT_LIT() != nil {
+		f.write(ctx.INT_LIT().GetText())
+	} else if ctx.STRING_LIT() != nil {
+		f.write(ctx.STRING_LIT().GetText())
+	}
+	f.newline()
+	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+}

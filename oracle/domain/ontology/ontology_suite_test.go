@@ -7,9 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export enum WriterCommand {
-  Open = 0,
-  Write = 1,
-  Commit = 2,
-  SetAuthority = 3,
+package ontology_test
+
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestOntology(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Ontology Suite")
 }

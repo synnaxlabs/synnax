@@ -52,12 +52,13 @@ var _ = Describe("TS Types Plugin", func() {
 	Describe("Generate", func() {
 		It("Should generate schema for simple struct", func() {
 			source := `
-				struct User {
-					field key uuid
-					field name string
-					field age int32
-					field active bool
-					domain ts { output "out" }
+				@ts output "out"
+
+				User struct {
+					key uuid
+					name string
+					age int32
+					active bool
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
@@ -80,17 +81,18 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`name: z.string()`))
 			Expect(content).To(ContainSubstring(`age: zod.int32Z`))
 			Expect(content).To(ContainSubstring(`active: z.boolean()`))
-			Expect(content).To(ContainSubstring(`export type User = z.infer<typeof userZ>`))
+			Expect(content).To(ContainSubstring(`export interface User extends z.infer<typeof userZ> {}`))
 		})
 
 		It("Should handle optional and array types", func() {
 			source := `
-				struct Range {
-					field key uuid
-					field labels uuid[]
-					field parent uuid?
-					field tags string[]?
-					domain ts { output "out" }
+				@ts output "out"
+
+				Range struct {
+					key uuid
+					labels uuid[]
+					parent uuid?
+					tags string[]?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
@@ -105,32 +107,27 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`labels: z.array(z.uuid())`))
+			// Required arrays use nullishToEmpty to coerce nullish -> []
+			Expect(content).To(ContainSubstring(`labels: array.nullishToEmpty(z.uuid())`))
 			Expect(content).To(ContainSubstring(`parent: z.uuid().optional()`))
-			Expect(content).To(ContainSubstring(`tags: z.array(z.string()).optional()`))
+			// Optional arrays use nullToUndefined to preserve undefined vs []
+			Expect(content).To(ContainSubstring(`tags: array.nullToUndefined(z.string())`))
 		})
 
 		It("Should apply validation rules", func() {
 			source := `
-				struct User {
-					field name string {
-						domain validate {
-							min_length 1
-							max_length 255
-						}
+				@ts output "out"
+
+				User struct {
+					name string @validate {
+						min_length 1
+						max_length 255
 					}
-					field email string {
-						domain validate {
-							email
-						}
+					email string @validate email
+					age int32 @validate {
+						min 0
+						max 150
 					}
-					field age int32 {
-						domain validate {
-							min 0
-							max 150
-						}
-					}
-					domain ts { output "out" }
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
@@ -152,15 +149,16 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It("Should generate enums", func() {
 			source := `
-				enum TaskState {
+				@ts output "out"
+
+				TaskState enum {
 					pending = 0
 					running = 1
 					completed = 2
 				}
 
-				struct Task {
-					field state TaskState
-					domain ts { output "out" }
+				Task struct {
+					state TaskState
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
@@ -175,24 +173,27 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`export const taskStateZ = z.enum([`))
-			Expect(content).To(ContainSubstring(`"pending"`))
-			Expect(content).To(ContainSubstring(`"running"`))
-			Expect(content).To(ContainSubstring(`"completed"`))
+			// Int enums generate a TypeScript enum and z.enum(EnumName)
+			Expect(content).To(ContainSubstring(`export enum TaskState`))
+			Expect(content).To(ContainSubstring(`pending = 0`))
+			Expect(content).To(ContainSubstring(`running = 1`))
+			Expect(content).To(ContainSubstring(`completed = 2`))
+			Expect(content).To(ContainSubstring(`export const taskStateZ = z.enum(TaskState)`))
 			Expect(content).To(ContainSubstring(`state: taskStateZ`))
 		})
 
 		It("Should generate string enums", func() {
 			source := `
-				enum DataType {
+				@ts output "out"
+
+				DataType enum {
 					float32 = "float32"
 					float64 = "float64"
 					int32 = "int32"
 				}
 
-				struct Telem {
-					field data_type DataType
-					domain ts { output "out" }
+				Telem struct {
+					data_type DataType
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "telem", loader)
@@ -207,30 +208,33 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`export const dataTypeZ = z.enum(["float32", "float64", "int32"])`))
+			// String enums generate a const array and z.enum([...ARRAY])
+			Expect(content).To(ContainSubstring(`export const DATA_TYPES = ["float32", "float64", "int32"] as const`))
+			Expect(content).To(ContainSubstring(`export const dataTypeZ = z.enum([...DATA_TYPES])`))
 		})
 
 		It("Should handle primitive type mappings", func() {
 			source := `
-				struct AllTypes {
-					field a uuid
-					field b string
-					field c bool
-					field d int8
-					field e int16
-					field f int32
-					field g int64
-					field h uint8
-					field i uint16
-					field j uint32
-					field k uint64
-					field l float32
-					field m float64
-					field n timestamp
-					field o timespan
-					field p json
-					field q bytes
-					domain ts { output "out" }
+				@ts output "out"
+
+				AllTypes struct {
+					a uuid
+					b string
+					c bool
+					d int8
+					e int16
+					f int32
+					g int64
+					h uint8
+					i uint16
+					j uint32
+					k uint64
+					l float32
+					m float64
+					n timestamp
+					o timespan
+					p json
+					q bytes
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
@@ -267,11 +271,12 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It("Should convert snake_case to camelCase for field names", func() {
 			source := `
-				struct Range {
-					field created_at timestamp
-					field time_range string
-					field my_long_field_name string
-					domain ts { output "out" }
+				@ts output "out"
+
+				Range struct {
+					created_at timestamp
+					time_range string
+					my_long_field_name string
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
@@ -293,17 +298,14 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It("Should generate create request struct with optional key and password", func() {
 			source := `
-				struct New {
-					field key uuid?
-					field username string
-					field password string {
-						domain validate {
-							min_length 1
-						}
-					}
-					field first_name string?
-					field last_name string?
-					domain ts { output "out" }
+				@ts output "out"
+
+				New struct {
+					key uuid?
+					username string
+					password string @validate min_length 1
+					first_name string?
+					last_name string?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
@@ -324,16 +326,17 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`password: z.string().min(1)`))
 			Expect(content).To(ContainSubstring(`firstName: z.string().optional()`))
 			Expect(content).To(ContainSubstring(`lastName: z.string().optional()`))
-			Expect(content).To(ContainSubstring(`export type New = z.infer<typeof newZ>`))
+			Expect(content).To(ContainSubstring(`export interface New extends z.infer<typeof newZ> {}`))
 		})
 
-		It("Should handle nullable scalar types", func() {
+		It("Should handle soft optional types (?)", func() {
 			source := `
-				struct Device {
-					field key uuid
-					field name string
-					field status string!
-					domain ts { output "out" }
+				@ts output "out"
+
+				Device struct {
+					key uuid
+					name string
+					status string?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "device", loader)
@@ -348,17 +351,19 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`status: z.string().nullable()`))
+			// Soft optional (?) uses .optional() in TypeScript
+			Expect(content).To(ContainSubstring(`status: z.string().optional()`))
 		})
 
-		It("Should handle nullish types (optional + nullable)", func() {
+		It("Should handle hard optional types (??)", func() {
 			source := `
-				struct Task {
-					field key uuid
-					field name string
-					field status string?!
-					field description string!?
-					domain ts { output "out" }
+				@ts output "out"
+
+				Task struct {
+					key uuid
+					name string
+					status string??
+					description string??
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
@@ -373,17 +378,19 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`status: z.string().nullish()`))
-			Expect(content).To(ContainSubstring(`description: z.string().nullish()`))
+			// Hard optional (??) also uses .optional() in TypeScript (no distinction from ?)
+			Expect(content).To(ContainSubstring(`status: z.string().optional()`))
+			Expect(content).To(ContainSubstring(`description: z.string().optional()`))
 		})
 
-		It("Should handle nullable arrays with array.nullableZ", func() {
+		It("Should handle required arrays with array.nullishToEmpty", func() {
 			source := `
-				struct Policy {
-					field key uuid
-					field objects uuid[]!
-					field actions string[]!
-					domain ts { output "out" }
+				@ts output "out"
+
+				Policy struct {
+					key uuid
+					objects uuid[]
+					actions string[]
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "policy", loader)
@@ -399,16 +406,18 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`import { array } from "@synnaxlabs/x"`))
-			Expect(content).To(ContainSubstring(`objects: array.nullableZ(z.uuid())`))
-			Expect(content).To(ContainSubstring(`actions: array.nullableZ(z.string())`))
+			// Required arrays use nullishToEmpty to coerce nullish -> []
+			Expect(content).To(ContainSubstring(`objects: array.nullishToEmpty(z.uuid())`))
+			Expect(content).To(ContainSubstring(`actions: array.nullishToEmpty(z.string())`))
 		})
 
-		It("Should handle nullable optional arrays", func() {
+		It("Should handle optional arrays with array.nullToUndefined", func() {
 			source := `
-				struct Channel {
-					field key uuid
-					field operations string[]?!
-					domain ts { output "out" }
+				@ts output "out"
+
+				Channel struct {
+					key uuid
+					operations string[]?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "channel", loader)
@@ -423,20 +432,18 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`operations: array.nullableZ(z.string()).optional()`))
+			// Optional arrays use nullToUndefined to preserve undefined vs []
+			Expect(content).To(ContainSubstring(`operations: array.nullToUndefined(z.string())`))
 		})
 
 		It("Should generate error message for required validation", func() {
 			source := `
-				struct User {
-					field key uuid
-					field username string {
-						domain validate { required }
-					}
-					field first_name string {
-						domain validate { required }
-					}
-					domain ts { output "out" }
+				@ts output "out"
+
+				User struct {
+					key uuid
+					username string @validate required
+					first_name string @validate required
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
@@ -457,14 +464,14 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It("Should use z.input and jsonStringifier when use_input is specified in ts domain", func() {
 			source := `
-				struct New {
-					field key uuid?
-					field name string
-					field data json
-					domain ts {
-						output "out"
-						use_input
-					}
+				@ts output "out"
+
+				New struct {
+					key uuid?
+					name string
+					data json
+
+					@ts use_input
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "workspace", loader)
@@ -479,16 +486,17 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`export type New = z.input<typeof newZ>`))
+			Expect(content).To(ContainSubstring(`export interface New extends z.input<typeof newZ> {}`))
 			Expect(content).To(ContainSubstring(`data: zod.jsonStringifier`))
 		})
 
 		It("Should use z.infer by default without use_input", func() {
 			source := `
-				struct Workspace {
-					field key uuid
-					field name string
-					domain ts { output "out" }
+				@ts output "out"
+
+				Workspace struct {
+					key uuid
+					name string
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "workspace", loader)
@@ -503,7 +511,378 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`export type Workspace = z.infer<typeof workspaceZ>`))
+			Expect(content).To(ContainSubstring(`export interface Workspace extends z.infer<typeof workspaceZ> {}`))
+		})
+
+		It("Should generate getter for direct self-referencing struct", func() {
+			source := `
+				@ts output "out"
+
+				Kind enum {
+					string = 1
+					chan = 2
+				}
+
+				Type struct {
+					kind Kind
+					elem Type?
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "arc", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`export const typeZ = z.object({`))
+			Expect(content).To(ContainSubstring(`kind: kindZ`))
+			Expect(content).To(ContainSubstring(`get elem() {`))
+			Expect(content).To(ContainSubstring(`return typeZ.optional()`))
+			Expect(content).To(ContainSubstring(`export interface Type extends z.infer<typeof typeZ> {}`))
+		})
+
+		It("Should generate getter for array self-referencing struct", func() {
+			source := `
+				@ts output "out"
+
+				Node struct {
+					key string
+					children Node[]?
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "tree", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`export const nodeZ = z.object({`))
+			Expect(content).To(ContainSubstring(`get children() {`))
+			// Optional arrays use array.nullToUndefined
+			Expect(content).To(ContainSubstring(`return array.nullToUndefined(nodeZ)`))
+		})
+
+		It("Should generate getter for struct with multiple recursive fields", func() {
+			source := `
+				@ts output "out"
+
+				MosaicNode struct {
+					key int32
+					first MosaicNode?
+					last MosaicNode?
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "mosaic", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`export const mosaicNodeZ = z.object({`))
+			Expect(content).To(ContainSubstring(`get first() {`))
+			Expect(content).To(ContainSubstring(`return mosaicNodeZ.optional()`))
+			Expect(content).To(ContainSubstring(`get last() {`))
+		})
+
+		It("Should generate getter for generic recursive struct with single param", func() {
+			source := `
+				@ts output "out"
+
+				TreeNode struct<K extends schema = string> {
+					key K
+					children TreeNode<K>[]?
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "tree", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`export const treeNodeZ = <K extends z.ZodType = z.ZodString>(k?: K) =>`))
+			Expect(content).To(ContainSubstring(`get children() {`))
+			// Optional arrays use array.nullToUndefined
+			Expect(content).To(ContainSubstring(`return array.nullToUndefined(treeNodeZ(k))`))
+		})
+
+		It("Should generate getter for generic recursive struct with multiple params", func() {
+			source := `
+				@ts output "out"
+
+				MapNode struct<K extends schema = string, V extends schema = string> {
+					key K
+					value V
+					children MapNode<K, V>[]?
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "tree", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`export interface MapNodeSchemas<K extends z.ZodType = z.ZodString, V extends z.ZodType = z.ZodString>`))
+			Expect(content).To(ContainSubstring(`}: MapNodeSchemas<K, V> = {}) =>`))
+			Expect(content).To(ContainSubstring(`get children() {`))
+			// Optional arrays use array.nullToUndefined
+			Expect(content).To(ContainSubstring(`return array.nullToUndefined(mapNodeZ({k: k, v: v}))`))
+		})
+
+		It("Should NOT generate getter for non-recursive struct", func() {
+			source := `
+				@ts output "out"
+
+				Simple struct {
+					key uuid
+					name string
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "simple", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`export const simpleZ = z.object({`))
+			Expect(content).To(ContainSubstring(`key: z.uuid()`))
+			Expect(content).To(ContainSubstring(`name: z.string()`))
+			Expect(content).NotTo(ContainSubstring(`get `)) // No getters for non-recursive types
+		})
+
+		It("Should generate .extend() for basic struct extension", func() {
+			source := `
+				@ts output "out"
+
+				Parent struct {
+					name string
+					age int32
+				}
+
+				Child struct extends Parent {
+					email string
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Parent should be a regular z.object
+			Expect(content).To(ContainSubstring(`export const parentZ = z.object({`))
+			Expect(content).To(ContainSubstring(`name: z.string()`))
+			Expect(content).To(ContainSubstring(`age: zod.int32Z`))
+
+			// Child should use .extend()
+			Expect(content).To(ContainSubstring(`export const childZ = parentZ`))
+			Expect(content).To(ContainSubstring(`.extend({`))
+			Expect(content).To(ContainSubstring(`email: z.string()`))
+		})
+
+		It("Should generate .omit() for field omissions", func() {
+			source := `
+				@ts output "out"
+
+				Parent struct {
+					name string
+					age int32
+					status string
+				}
+
+				Child struct extends Parent {
+					-age
+					email string
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Child should use .omit() then .extend()
+			Expect(content).To(ContainSubstring(`export const childZ = parentZ`))
+			Expect(content).To(ContainSubstring(`.omit({ age: true })`))
+			Expect(content).To(ContainSubstring(`.extend({`))
+			Expect(content).To(ContainSubstring(`email: z.string()`))
+		})
+
+		It("Should generate .omit() for multiple field omissions", func() {
+			source := `
+				@ts output "out"
+
+				Parent struct {
+					a string
+					b string
+					c string
+					d string
+				}
+
+				Child struct extends Parent {
+					-a
+					-c
+					e string
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`export const childZ = parentZ`))
+			Expect(content).To(ContainSubstring(`.omit({`))
+			Expect(content).To(ContainSubstring(`a: true`))
+			Expect(content).To(ContainSubstring(`c: true`))
+		})
+
+		It("Should handle field override to make it optional", func() {
+			source := `
+				@ts output "out"
+
+				Parent struct {
+					name string
+					age int32
+				}
+
+				Child struct extends Parent {
+					name string?
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Child should use partial for optionality-only changes
+			Expect(content).To(ContainSubstring(`export const childZ = parentZ`))
+			Expect(content).To(ContainSubstring(`.partial({ name: true })`))
+		})
+
+		It("Should handle extension without new fields (only omissions)", func() {
+			source := `
+				@ts output "out"
+
+				Parent struct {
+					a string
+					b string
+					c string
+				}
+
+				Child struct extends Parent {
+					-b
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`export const childZ = parentZ`))
+			Expect(content).To(ContainSubstring(`.omit({ b: true })`))
+		})
+
+		It("Should handle extension of generic struct with type arguments", func() {
+			source := `
+				@ts output "out"
+
+				Details struct {
+					message string
+				}
+
+				Status struct<D extends schema> {
+					variant int32
+					data D
+				}
+
+				RackStatus struct extends Status<Details> {
+					timestamp timestamp
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// RackStatus should extend Status (generic type args are handled via extends)
+			Expect(content).To(ContainSubstring(`export const rackStatusZ = statusZ`))
+			Expect(content).To(ContainSubstring(`.extend({`))
+			Expect(content).To(ContainSubstring(`timestamp: TimeStamp.z`))
 		})
 	})
 })

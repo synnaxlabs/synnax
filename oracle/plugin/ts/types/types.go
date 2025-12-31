@@ -20,9 +20,14 @@ import (
 	"text/template"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/domain/handwritten"
+	"github.com/synnaxlabs/oracle/domain/id"
+	"github.com/synnaxlabs/oracle/domain/ontology"
+	"github.com/synnaxlabs/oracle/domain/validation"
+	"github.com/synnaxlabs/oracle/output"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/enum"
-	"github.com/synnaxlabs/oracle/plugin/output"
+	pluginoutput "github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
@@ -52,28 +57,34 @@ func (p *Plugin) Requires() []string { return nil }
 
 func (p *Plugin) Check(req *plugin.Request) error { return nil }
 
-// PostWrite runs eslint --fix on the generated TypeScript files to sort imports and format.
+// PostWrite runs prettier and eslint on the generated TypeScript files.
 // Files are grouped by their package directory (containing package.json).
+// Prettier runs first to format, then eslint --fix to sort imports and apply fixes.
 func (p *Plugin) PostWrite(files []string) error {
 	if len(files) == 0 {
 		return nil
 	}
-	// Group files by their package directory
 	byPackage := make(map[string][]string)
 	for _, file := range files {
-		pkgDir := findPackageDir(file)
-		if pkgDir != "" {
+		if pkgDir := findPackageDir(file); pkgDir != "" {
 			byPackage[pkgDir] = append(byPackage[pkgDir], file)
 		}
 	}
-	// Run eslint --fix for each package
 	for pkgDir, pkgFiles := range byPackage {
-		args := append([]string{"eslint", "--fix"}, pkgFiles...)
-		cmd := exec.Command("npx", args...)
-		cmd.Dir = pkgDir
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
+		// Run prettier first
+		output.PostWriteStep("prettier", len(pkgFiles), "formatting")
+		prettierArgs := append([]string{"prettier", "--write"}, pkgFiles...)
+		prettierCmd := exec.Command("npx", prettierArgs...)
+		prettierCmd.Dir = pkgDir
+		if err := prettierCmd.Run(); err != nil {
+			return fmt.Errorf("prettier failed in %s: %w", pkgDir, err)
+		}
+		// Then run eslint --fix
+		output.PostWriteStep("eslint", len(pkgFiles), "fixing")
+		eslintArgs := append([]string{"eslint", "--fix"}, pkgFiles...)
+		eslintCmd := exec.Command("npx", eslintArgs...)
+		eslintCmd.Dir = pkgDir
+		if err := eslintCmd.Run(); err != nil {
 			return fmt.Errorf("eslint failed in %s: %w", pkgDir, err)
 		}
 	}
@@ -96,10 +107,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 	outputStructs := make(map[string][]*resolution.StructEntry)
 	outputEnums := make(map[string][]*resolution.EnumEntry)
-
-	// Collect structs by output path
 	for _, entry := range req.Resolutions.AllStructs() {
-		if outputPath := output.GetPath(entry, "ts"); outputPath != "" {
+		if outputPath := pluginoutput.GetPath(entry, "ts"); outputPath != "" {
 			if req.RepoRoot != "" {
 				if err := req.ValidateOutputPath(outputPath); err != nil {
 					return nil, fmt.Errorf("invalid output path for struct %s: %w", entry.Name, err)
@@ -108,10 +117,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			outputStructs[outputPath] = append(outputStructs[outputPath], entry)
 		}
 	}
-
-	// Collect standalone enums (enums with their own output domain)
 	for _, e := range enum.CollectWithOwnOutput(req.Resolutions.AllEnums(), "ts") {
-		enumPath := output.GetEnumPath(e, "ts")
+		enumPath := pluginoutput.GetEnumPath(e, "ts")
 		if req.RepoRoot != "" {
 			if err := req.ValidateOutputPath(enumPath); err != nil {
 				return nil, fmt.Errorf("invalid output path for enum %s: %w", e.Name, err)
@@ -119,14 +126,11 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 		outputEnums[enumPath] = append(outputEnums[enumPath], e)
 	}
-
-	// Generate files for struct output paths
 	for outputPath, structs := range outputStructs {
 		enums := enum.CollectReferenced(structs)
-		// Add any standalone enums for this path
 		if standaloneEnums, ok := outputEnums[outputPath]; ok {
 			enums = mergeEnums(enums, standaloneEnums)
-			delete(outputEnums, outputPath) // Mark as handled
+			delete(outputEnums, outputPath)
 		}
 		content, err := p.generateFile(structs[0].Namespace, outputPath, structs, enums, req)
 		if err != nil {
@@ -137,8 +141,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			Content: content,
 		})
 	}
-
-	// Generate files for standalone enum-only output paths
 	for outputPath, enums := range outputEnums {
 		content, err := p.generateFile(enums[0].Namespace, outputPath, nil, enums, req)
 		if err != nil {
@@ -153,19 +155,14 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
-// mergeEnums merges two slices of enums, deduplicating by QualifiedName.
 func mergeEnums(a, b []*resolution.EnumEntry) []*resolution.EnumEntry {
-	seen := make(map[string]bool)
-	result := make([]*resolution.EnumEntry, 0, len(a)+len(b))
+	seen := make(map[string]bool, len(a))
 	for _, e := range a {
-		if !seen[e.QualifiedName] {
-			seen[e.QualifiedName] = true
-			result = append(result, e)
-		}
+		seen[e.QualifiedName] = true
 	}
+	result := append([]*resolution.EnumEntry{}, a...)
 	for _, e := range b {
 		if !seen[e.QualifiedName] {
-			seen[e.QualifiedName] = true
 			result = append(result, e)
 		}
 	}
@@ -198,33 +195,18 @@ func findPackage(outputPath string) *packageMapping {
 	return nil
 }
 
-// calculateImportPath determines the correct import path for cross-namespace references.
-// Returns the import path and whether to use a named import (vs namespace import).
 func calculateImportPath(fromPath, toPath string) string {
-	fromPkg := findPackage(fromPath)
-	toPkg := findPackage(toPath)
-
+	fromPkg, toPkg := findPackage(fromPath), findPackage(toPath)
 	if fromPkg == nil || toPkg == nil {
-		// Fallback to relative import if packages not recognized
 		return calculateRelativeImport(fromPath, toPath)
 	}
-
 	if fromPkg.packageName == toPkg.packageName {
-		// Same package - use internal absolute import
-		// e.g., "client/ts/src/ranger" importing "client/ts/src/label" → "@/label"
-		relativePath := strings.TrimPrefix(toPath, toPkg.pathPrefix)
-		relativePath = strings.TrimPrefix(relativePath, "/")
+		relativePath := strings.TrimPrefix(strings.TrimPrefix(toPath, toPkg.pathPrefix), "/")
 		return toPkg.internalPrefix + relativePath
 	}
-
-	// Different package - use package name
-	// e.g., "client/ts/src/ranger" importing "x/ts/src/label" → "@synnaxlabs/x"
-	// The module path within the package (e.g., "/label") is handled by the package's exports
 	return toPkg.packageName
 }
 
-// calculateRelativeImport calculates the relative import path from one output
-// directory to another (fallback for unknown packages).
 func calculateRelativeImport(from, to string) string {
 	rel, err := filepath.Rel(from, to)
 	if err != nil {
@@ -254,13 +236,14 @@ func (p *Plugin) generateFile(
 		GenerateTypes: p.Options.GenerateTypes,
 		Imports:       make(map[string]*importSpec),
 	}
-	idFields := collectIDFields(structs, data)
+	skip := func(s *resolution.StructEntry) bool { return handwritten.IsStruct(s, "ts") }
+	rawIDFields := id.Collect(structs, skip)
+	idFields := p.convertIDFields(rawIDFields, structs, data)
 	data.IDFields = idFields
-	data.Ontology = extractOntology(structs, idFields)
+	data.Ontology = p.extractOntology(structs, rawIDFields, skip)
 	if data.Ontology != nil {
 		data.addNamedImport("@/ontology", "ontology")
 	}
-
 	for _, enum := range enums {
 		data.Enums = append(data.Enums, p.processEnum(enum))
 	}
@@ -274,83 +257,53 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
-func collectIDFields(structs []*resolution.StructEntry, data *templateData) []idFieldData {
-	seen := make(map[string]bool)
-	var result []idFieldData
-	for _, s := range structs {
-		// Skip handwritten structs
-		if isHandwritten(s) {
-			continue
+func (p *Plugin) convertIDFields(fields []id.Field, structs []*resolution.StructEntry, data *templateData) []idFieldData {
+	result := make([]idFieldData, 0, len(fields))
+	for _, f := range fields {
+		primitive := f.Primitive
+		if override := findFieldTypeOverride(structs, f.Name, "ts"); override != "" {
+			primitive = override
 		}
-		for _, f := range s.Fields {
-			if _, hasID := f.Domains["id"]; hasID {
-				if !seen[f.Name] {
-					seen[f.Name] = true
-					result = append(result, idFieldData{
-						Name:      f.Name,
-						TSName:    lo.CamelCase(f.Name),
-						ZodType:   primitiveToZod(f.TypeRef.Primitive, data, false),
-						Primitive: f.TypeRef.Primitive,
-					})
-				}
-			}
-		}
+		result = append(result, idFieldData{
+			Name:      f.Name,
+			TSName:    lo.CamelCase(f.Name),
+			ZodType:   primitiveToZod(primitive, data, false),
+			Primitive: primitive,
+		})
 	}
 	return result
 }
 
-// isHandwritten checks if a struct has the "handwritten" expression in its ts domain.
-func isHandwritten(s *resolution.StructEntry) bool {
-	if tsDomain, ok := s.Domains["ts"]; ok {
-		for _, expr := range tsDomain.Expressions {
-			if expr.Name == "handwritten" {
-				return true
+func findFieldTypeOverride(structs []*resolution.StructEntry, fieldName, domainName string) string {
+	for _, s := range structs {
+		for _, f := range s.Fields {
+			if f.Name == fieldName {
+				if override := getFieldTypeOverride(f, domainName); override != "" {
+					return override
+				}
 			}
 		}
 	}
-	return false
+	return ""
 }
 
-// extractOntology extracts ontology data from structs if any has the ontology domain.
-// Returns nil if no struct has an ontology domain or if no ID field is found.
-func extractOntology(structs []*resolution.StructEntry, idFields []idFieldData) *ontologyData {
-	for _, s := range structs {
-		// Skip handwritten structs
-		if isHandwritten(s) {
-			continue
-		}
-		domain, ok := s.Domains["ontology"]
-		if !ok {
-			continue
-		}
-
-		// Find the type expression
-		var typeName string
-		for _, expr := range domain.Expressions {
-			if expr.Name == "type" && len(expr.Values) > 0 {
-				typeName = expr.Values[0].StringValue
-				break
-			}
-		}
-		if typeName == "" {
-			continue
-		}
-
-		// Find the ID field's TypeScript type name (capitalized) and zero value
-		if len(idFields) == 0 {
-			continue
-		}
-		idField := idFields[0]
-		keyType := lo.Capitalize(lo.CamelCase(idField.Name))
-		keyZeroValue := primitiveZeroValue(idField.Primitive)
-
-		return &ontologyData{
-			TypeName:     typeName,
-			KeyType:      keyType,
-			KeyZeroValue: keyZeroValue,
-		}
+func (p *Plugin) extractOntology(structs []*resolution.StructEntry, idFields []id.Field, skip ontology.SkipFunc) *ontologyData {
+	data := ontology.Extract(structs, idFields, skip)
+	if data == nil {
+		return nil
 	}
-	return nil
+	keyType := lo.Capitalize(lo.CamelCase(data.IDField.Name))
+	// Check if there's a @ts type override for the ID field - if so, use that for the zero value
+	primitive := data.IDField.Primitive
+	if override := findFieldTypeOverride(structs, data.IDField.Name, "ts"); override != "" {
+		primitive = override
+	}
+	keyZeroValue := primitiveZeroValue(primitive)
+	return &ontologyData{
+		TypeName:     data.TypeName,
+		KeyType:      keyType,
+		KeyZeroValue: keyZeroValue,
+	}
 }
 
 func (p *Plugin) processEnum(enum *resolution.EnumEntry) enumData {
@@ -370,12 +323,11 @@ func (p *Plugin) processStruct(entry *resolution.StructEntry, table *resolution.
 	sd := structData{
 		Name:          entry.Name,
 		TSName:        entry.Name,
-		Fields:        make([]fieldData, 0, len(entry.Fields)),
 		IsGeneric:     entry.IsGeneric(),
 		IsSingleParam: len(entry.TypeParams) == 1,
 		IsAlias:       entry.IsAlias(),
+		IsRecursive:   entry.IsRecursive,
 	}
-	// Check if ts domain has use_input, handwritten, concrete_types, or name expressions
 	if tsDomain, ok := entry.Domains["ts"]; ok {
 		for _, expr := range tsDomain.Expressions {
 			switch expr.Name {
@@ -392,36 +344,130 @@ func (p *Plugin) processStruct(entry *resolution.StructEntry, table *resolution.
 			}
 		}
 	}
-	// Skip processing fields for handwritten structs (no schema/types generated, no imports needed)
 	if sd.Handwritten {
 		return sd
 	}
-	// Process type parameters for generic structs (must happen before alias check)
 	for _, tp := range entry.TypeParams {
 		sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, data))
 	}
-	// Handle struct aliases: generate the aliased type expression
 	if entry.IsAlias() {
 		sd.AliasOf = p.typeToZod(entry.AliasOf, table, data, sd.UseInput)
 		return sd
 	}
-	for _, field := range entry.Fields {
-		sd.Fields = append(sd.Fields, p.processField(field, table, data, idFields, sd.UseInput))
+
+	// Handle struct extension with Zod's .omit().partial().extend() pattern
+	if entry.HasExtends() && entry.Extends.StructRef != nil {
+		sd.HasExtends = true
+		parentStruct := entry.Extends.StructRef
+
+		// Get parent's TSName (respecting @ts name domain)
+		parentTSName := parentStruct.Name
+		if tsDomain, ok := parentStruct.Domains["ts"]; ok {
+			for _, expr := range tsDomain.Expressions {
+				if expr.Name == "name" && len(expr.Values) > 0 {
+					parentTSName = expr.Values[0].StringValue
+					break
+				}
+			}
+		}
+		sd.ExtendsName = lo.CamelCase(parentTSName) + "Z"
+		sd.ExtendsTypeName = parentTSName
+		// Convert omitted field names to camelCase for TypeScript
+		for _, f := range entry.OmittedFields {
+			sd.OmittedFields = append(sd.OmittedFields, lo.CamelCase(f))
+		}
+
+		// Handle generic parent: need to call parent function with schema args
+		if parentStruct.IsGeneric() {
+			sd.ExtendsParentIsGeneric = true
+			// Build list of schema param names from parent's type params
+			for _, tp := range parentStruct.TypeParams {
+				sd.ExtendsParentSchemaArgs = append(sd.ExtendsParentSchemaArgs, lo.CamelCase(tp.Name))
+			}
+		}
+
+		// Build map of parent fields for comparison
+		parentFields := make(map[string]*resolution.FieldEntry)
+		for _, pf := range parentStruct.AllFields() {
+			parentFields[pf.Name] = pf
+		}
+
+		// Categorize child fields into partial vs extend
+		for _, field := range entry.Fields {
+			parentField, existsInParent := parentFields[field.Name]
+			if existsInParent && isOnlyOptionalityChange(parentField.TypeRef, field.TypeRef) {
+				// Same base type, just made optional → use .partial()
+				sd.PartialFields = append(sd.PartialFields, p.processField(field, entry, table, data, idFields, sd.UseInput))
+			} else {
+				// New field or type change → use .extend()
+				sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, idFields, sd.UseInput))
+			}
+		}
+		return sd
+	}
+
+	// Non-extending struct: use all fields (flattened for compatibility)
+	allFields := entry.AllFields()
+	sd.Fields = make([]fieldData, 0, len(allFields))
+	for _, field := range allFields {
+		sd.Fields = append(sd.Fields, p.processField(field, entry, table, data, idFields, sd.UseInput))
 	}
 	return sd
 }
 
-// processTypeParam converts a resolution.TypeParam to template data.
-func (p *Plugin) processTypeParam(tp *resolution.TypeParam, data *templateData) typeParamData {
-	tpd := typeParamData{Name: tp.Name}
-	// Map constraint to TypeScript
-	if tp.Constraint != nil {
-		tpd.Constraint = constraintToTS(tp.Constraint.RawType)
-		tpd.IsJSON = tp.Constraint.Primitive == "json"
-	} else {
-		tpd.Constraint = "z.ZodType" // Default constraint
+// isOnlyOptionalityChange returns true if the child type is the same as the parent type
+// except for being optional. This allows using .partial() instead of .extend().
+func isOnlyOptionalityChange(parent, child *resolution.TypeRef) bool {
+	if parent == nil || child == nil {
+		return false
 	}
-	// Map default to TypeScript (both type and runtime value)
+	// Child must be optional (or more optional than parent)
+	if !child.IsOptional && !child.IsHardOptional {
+		return false
+	}
+	// If parent is already optional at same level, no change needed
+	if parent.IsOptional == child.IsOptional && parent.IsHardOptional == child.IsHardOptional {
+		return false
+	}
+	// Compare base types (ignoring optionality)
+	return sameBaseType(parent, child)
+}
+
+// sameBaseType compares two TypeRefs ignoring optionality.
+func sameBaseType(a, b *resolution.TypeRef) bool {
+	if a.Kind != b.Kind {
+		return false
+	}
+	if a.Primitive != b.Primitive {
+		return false
+	}
+	if a.IsArray != b.IsArray {
+		return false
+	}
+	// For struct refs, compare by name
+	if a.StructRef != nil && b.StructRef != nil {
+		if a.StructRef.QualifiedName != b.StructRef.QualifiedName {
+			return false
+		}
+	} else if a.StructRef != nil || b.StructRef != nil {
+		return false
+	}
+	// For enum refs, compare by name
+	if a.EnumRef != nil && b.EnumRef != nil {
+		if a.EnumRef.QualifiedName != b.EnumRef.QualifiedName {
+			return false
+		}
+	} else if a.EnumRef != nil || b.EnumRef != nil {
+		return false
+	}
+	return true
+}
+
+func (p *Plugin) processTypeParam(tp *resolution.TypeParam, data *templateData) typeParamData {
+	tpd := typeParamData{Name: tp.Name, Constraint: "z.ZodType"}
+	if tp.Constraint != nil {
+		tpd.IsJSON = tp.Constraint.Primitive == "json"
+	}
 	if tp.Default != nil {
 		tpd.HasDefault = true
 		tpd.Default = defaultToTS(tp.Default.RawType)
@@ -430,91 +476,97 @@ func (p *Plugin) processTypeParam(tp *resolution.TypeParam, data *templateData) 
 	return tpd
 }
 
-// constraintToTS maps Oracle constraint types to TypeScript.
-func constraintToTS(rawType string) string {
-	switch rawType {
-	case "schema":
-		return "z.ZodType"
-	default:
-		return "z.ZodType"
-	}
+
+type typeParamMapping struct {
+	zodType   string // e.g., "z.ZodNumber" for type constraints
+	zodValue  string // e.g., "z.number()" for runtime values
 }
 
-// defaultToTS maps Oracle default types to TypeScript Zod type names.
+var typeParamMappings = map[string]typeParamMapping{
+	"never":     {zodType: "z.ZodNever", zodValue: "z.unknown()"},
+	"string":    {zodType: "z.ZodString", zodValue: "z.string()"},
+	"bool":      {zodType: "z.ZodBoolean", zodValue: "z.boolean()"},
+	"int8":      {zodType: "z.ZodNumber", zodValue: "z.number()"},
+	"int16":     {zodType: "z.ZodNumber", zodValue: "z.number()"},
+	"int32":     {zodType: "z.ZodNumber", zodValue: "z.number()"},
+	"int64":     {zodType: "z.ZodNumber", zodValue: "z.number()"},
+	"uint8":     {zodType: "z.ZodNumber", zodValue: "z.number()"},
+	"uint16":    {zodType: "z.ZodNumber", zodValue: "z.number()"},
+	"uint32":    {zodType: "z.ZodNumber", zodValue: "z.number()"},
+	"uint64":    {zodType: "z.ZodNumber", zodValue: "z.number()"},
+	"float32":   {zodType: "z.ZodNumber", zodValue: "z.number()"},
+	"float64":   {zodType: "z.ZodNumber", zodValue: "z.number()"},
+	"uuid":      {zodType: "z.ZodString", zodValue: "z.string()"},
+	"timestamp": {zodType: "z.ZodNumber", zodValue: "z.number()"},
+	"timespan":  {zodType: "z.ZodNumber", zodValue: "z.number()"},
+	"json":      {zodType: "z.ZodType", zodValue: ""},
+}
+
 func defaultToTS(rawType string) string {
-	switch rawType {
-	case "never":
-		return "z.ZodNever"
-	case "string":
-		return "z.ZodString"
-	case "bool":
-		return "z.ZodBoolean"
-	case "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64", "float32", "float64":
-		return "z.ZodNumber"
-	case "json":
-		return "z.ZodType"
-	case "uuid":
-		return "z.ZodString"
-	case "timestamp", "timespan":
-		return "z.ZodNumber"
-	default:
-		return "z.ZodType"
+	if m, ok := typeParamMappings[rawType]; ok {
+		return m.zodType
 	}
+	return "z.ZodType"
 }
 
-// defaultValueToTS maps Oracle default types to TypeScript Zod runtime schema values.
-// This is used for default parameter values in destructuring (e.g., { make = z.string() }).
 func defaultValueToTS(rawType string) string {
-	switch rawType {
-	case "string":
-		return "z.string()"
-	case "bool":
-		return "z.boolean()"
-	case "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64", "float32", "float64":
-		return "z.number()"
-	case "uuid":
-		return "z.string()"
-	case "json":
-		return "" // json params don't get a default value, they're wrapped with stringifiedJSON
-	default:
-		return "z.unknown()"
+	if m, ok := typeParamMappings[rawType]; ok && m.zodValue != "" {
+		return m.zodValue
 	}
+	return "z.unknown()"
 }
 
-// fallbackForConstraint returns the Zod schema fallback value for a type parameter constraint.
-// This is used when the caller doesn't provide a schema for the type parameter.
 func fallbackForConstraint(constraint *resolution.TypeRef) string {
 	if constraint == nil {
 		return "z.unknown()"
 	}
-	switch constraint.Primitive {
-	case "string":
-		return "z.string()"
-	case "bool":
-		return "z.boolean()"
-	case "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64", "float32", "float64":
-		return "z.number()"
-	case "uuid":
-		return "z.string()"
-	case "json":
-		// json constraints are handled specially in typeToZod, but provide fallback just in case
-		return "z.unknown()"
-	default:
-		return "z.unknown()"
-	}
+	return defaultValueToTS(constraint.Primitive)
 }
 
-func (p *Plugin) processField(field *resolution.FieldEntry, table *resolution.Table, data *templateData, idFields []idFieldData, useInput bool) fieldData {
-	fd := fieldData{
-		Name:       field.Name,
-		TSName:     lo.CamelCase(field.Name),
-		IsOptional: field.TypeRef.IsOptional,
-		IsNullable: field.TypeRef.IsNullable,
-		IsArray:    field.TypeRef.IsArray,
+// isSelfReference checks if a type reference points to the parent struct,
+// either directly or through arrays/optionals.
+func isSelfReference(t *resolution.TypeRef, parent *resolution.StructEntry) bool {
+	if t == nil || parent == nil {
+		return false
 	}
-	if idField := findIDField(field.Name, idFields); idField != nil {
-		fd.ZodType = idField.TSName + "Z"
-		fd.TSType = lo.Capitalize(lo.CamelCase(idField.Name)) // e.g., "Key"
+	switch t.Kind {
+	case resolution.TypeKindStruct:
+		if t.StructRef == parent {
+			return true
+		}
+		// Check type arguments for generic recursive references
+		for _, arg := range t.TypeArgs {
+			if isSelfReference(arg, parent) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (p *Plugin) processField(field *resolution.FieldEntry, parentStruct *resolution.StructEntry, table *resolution.Table, data *templateData, idFields []idFieldData, useInput bool) fieldData {
+	fd := fieldData{
+		Name:           field.Name,
+		TSName:         lo.CamelCase(field.Name),
+		IsOptional:     field.TypeRef.IsOptional,
+		IsHardOptional: field.TypeRef.IsHardOptional,
+		IsArray:        field.TypeRef.IsArray,
+		IsSelfRef:      isSelfReference(field.TypeRef, parentStruct),
+	}
+	if typeOverride := getFieldTypeOverride(field, "ts"); typeOverride != "" {
+		fd.ZodType = primitiveToZod(typeOverride, data, useInput)
+		fd.TSType = primitiveToTS(typeOverride)
+		if validateDomain := plugin.GetFieldDomain(field, "validate"); validateDomain != nil {
+			fd.ZodType = p.applyValidation(fd.ZodType, validateDomain, field.TypeRef, field.Name)
+		}
+	} else if _, hasID := field.Domains["id"]; hasID {
+		if idField := findIDField(field.Name, idFields); idField != nil {
+			fd.ZodType = idField.TSName + "Z"
+			fd.TSType = lo.Capitalize(lo.CamelCase(idField.Name))
+		} else {
+			fd.ZodType = p.typeToZod(field.TypeRef, table, data, useInput)
+			fd.TSType = p.typeToTS(field.TypeRef, table, data)
+		}
 	} else {
 		fd.ZodType = p.typeToZod(field.TypeRef, table, data, useInput)
 		fd.TSType = p.typeToTS(field.TypeRef, table, data)
@@ -522,30 +574,18 @@ func (p *Plugin) processField(field *resolution.FieldEntry, table *resolution.Ta
 			fd.ZodType = p.applyValidation(fd.ZodType, validateDomain, field.TypeRef, field.Name)
 		}
 	}
-
+	isAnyOptional := field.TypeRef.IsOptional || field.TypeRef.IsHardOptional
 	if field.TypeRef.IsArray {
-		if field.TypeRef.IsNullable {
-			// array.nullableZ transforms null/undefined to empty array
-			addXImport(data, xImport{name: "array", submodule: "array"})
-			fd.ZodType = fmt.Sprintf("array.nullableZ(%s)", fd.ZodType)
-			// If also optional, add .optional() after
-			if field.TypeRef.IsOptional {
-				fd.ZodType = fd.ZodType + ".optional()"
-			}
+		addXImport(data, xImport{name: "array", submodule: "array"})
+		if isAnyOptional {
+			// Optional array: null/undefined → undefined, [] stays []
+			fd.ZodType = fmt.Sprintf("array.nullToUndefined(%s)", fd.ZodType)
 		} else {
-			fd.ZodType = fmt.Sprintf("z.array(%s)", fd.ZodType)
-			if field.TypeRef.IsOptional {
-				fd.ZodType = fd.ZodType + ".optional()"
-			}
+			// Required array: coerce nullish → []
+			fd.ZodType = fmt.Sprintf("array.nullishToEmpty(%s)", fd.ZodType)
 		}
-	} else {
-		if field.TypeRef.IsOptional && field.TypeRef.IsNullable {
-			fd.ZodType = fd.ZodType + ".nullish()"
-		} else if field.TypeRef.IsNullable {
-			fd.ZodType = fd.ZodType + ".nullable()"
-		} else if field.TypeRef.IsOptional {
-			fd.ZodType = fd.ZodType + ".optional()"
-		}
+	} else if isAnyOptional {
+		fd.ZodType += ".optional()"
 	}
 	return fd
 }
@@ -559,26 +599,36 @@ func findIDField(name string, idFields []idFieldData) *idFieldData {
 	return nil
 }
 
+func getFieldTypeOverride(field *resolution.FieldEntry, domainName string) string {
+	domain := plugin.GetFieldDomain(field, domainName)
+	if domain == nil {
+		return ""
+	}
+	for _, expr := range domain.Expressions {
+		if expr.Name == "type" && len(expr.Values) > 0 {
+			if v := expr.Values[0].StringValue; v != "" {
+				return v
+			}
+			return expr.Values[0].IdentValue
+		}
+	}
+	return ""
+}
+
 func (p *Plugin) typeToZod(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData, useInput bool) string {
 	return p.typeToZodInternal(typeRef, table, data, useInput, false)
 }
 
-// typeToZodInternal generates the Zod schema expression for a type reference.
-// forStructArg indicates if this is being generated as an argument to pass to another struct's schema function.
-// When true, we don't wrap json type params - the wrapping happens inside the called struct.
 func (p *Plugin) typeToZodInternal(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData, useInput bool, forStructArg bool) string {
 	switch typeRef.Kind {
 	case resolution.TypeKindPrimitive:
 		return primitiveToZod(typeRef.Primitive, data, useInput)
 	case resolution.TypeKindTypeParam:
-		// Type parameter reference (e.g., field details D? in struct Status<D>)
 		if typeRef.TypeParamRef != nil {
 			paramName := lo.CamelCase(typeRef.TypeParamRef.Name)
-			// When passing as arg to another struct, don't wrap - the struct handles wrapping
 			if forStructArg {
 				return paramName
 			}
-			// Check if the constraint is json - if so, wrap with stringifiedJSON/jsonStringifier
 			if typeRef.TypeParamRef.Constraint != nil && typeRef.TypeParamRef.Constraint.Primitive == "json" {
 				addXImport(data, xImport{name: "zod", submodule: "zod"})
 				if useInput {
@@ -586,9 +636,7 @@ func (p *Plugin) typeToZodInternal(typeRef *resolution.TypeRef, table *resolutio
 				}
 				return fmt.Sprintf("zod.stringifiedJSON(%s)", paramName)
 			}
-			// For non-json type params, use ?? with fallback based on constraint
-			fallback := fallbackForConstraint(typeRef.TypeParamRef.Constraint)
-			return fmt.Sprintf("%s ?? %s", paramName, fallback)
+			return fmt.Sprintf("%s ?? %s", paramName, fallbackForConstraint(typeRef.TypeParamRef.Constraint))
 		}
 		return "z.unknown()"
 	case resolution.TypeKindStruct:
@@ -596,45 +644,33 @@ func (p *Plugin) typeToZodInternal(typeRef *resolution.TypeRef, table *resolutio
 			return "z.unknown()"
 		}
 		schemaName := lo.CamelCase(typeRef.StructRef.Name) + "Z"
-		// Handle generic struct references
 		if typeRef.StructRef.IsGeneric() {
 			if len(typeRef.TypeArgs) > 0 {
 				structParams := typeRef.StructRef.TypeParams
-				isSingleParam := len(structParams) == 1
-				// Generate type arguments, passing forStructArg=true to avoid double-wrapping
 				args := make([]string, len(typeRef.TypeArgs))
 				for i, arg := range typeRef.TypeArgs {
 					args[i] = p.typeToZodInternal(arg, table, data, useInput, true)
 				}
-				if isSingleParam {
-					// Single param: positional argument
+				if len(structParams) == 1 {
 					schemaName = fmt.Sprintf("%s(%s)", schemaName, args[0])
 				} else {
-					// Multiple params: object with named properties
 					namedArgs := make([]string, len(typeRef.TypeArgs))
 					for i, arg := range args {
-						paramName := lo.CamelCase(structParams[i].Name)
-						namedArgs[i] = fmt.Sprintf("%s: %s", paramName, arg)
+						namedArgs[i] = fmt.Sprintf("%s: %s", lo.CamelCase(structParams[i].Name), arg)
 					}
 					schemaName = fmt.Sprintf("%s({%s})", schemaName, strings.Join(namedArgs, ", "))
 				}
 			} else {
-				// Generic struct without type args: call with no arguments
-				schemaName = schemaName + "()"
+				schemaName += "()"
 			}
 		}
 		if typeRef.StructRef.Namespace != data.Namespace {
 			ns := typeRef.StructRef.Namespace
-			// Get target output path from the referenced struct's domain
-			targetOutputPath := output.GetPath(typeRef.StructRef, "ts")
+			targetOutputPath := pluginoutput.GetPath(typeRef.StructRef, "ts")
 			if targetOutputPath == "" {
-				// Fallback if no output path defined
 				targetOutputPath = ns
 			}
-			// Calculate import path using package-aware logic
-			importPath := calculateImportPath(data.OutputPath, targetOutputPath)
-			// Use named import with namespace as the import name
-			data.addNamedImport(importPath, ns)
+			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
 			return fmt.Sprintf("%s.%s", ns, schemaName)
 		}
 		return schemaName
@@ -645,44 +681,41 @@ func (p *Plugin) typeToZodInternal(typeRef *resolution.TypeRef, table *resolutio
 		enumName := lo.CamelCase(typeRef.EnumRef.Name) + "Z"
 		if typeRef.EnumRef.Namespace != data.Namespace {
 			ns := typeRef.EnumRef.Namespace
-			// For enums, look up the struct that references this enum to find its output path
-			// Or use namespace as fallback
 			targetOutputPath := enum.FindOutputPath(typeRef.EnumRef, table, "ts")
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
-			// Calculate import path using package-aware logic
-			importPath := calculateImportPath(data.OutputPath, targetOutputPath)
-			// Use named import with namespace as the import name
-			data.addNamedImport(importPath, ns)
+			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
 			return fmt.Sprintf("%s.%s", ns, enumName)
 		}
 		return enumName
+	case resolution.TypeKindMap:
+		keyZ, valueZ := "z.string()", "z.unknown()"
+		if typeRef.MapKeyType != nil {
+			keyZ = p.typeToZodInternal(typeRef.MapKeyType, table, data, useInput, false)
+		}
+		if typeRef.MapValueType != nil {
+			valueZ = p.typeToZodInternal(typeRef.MapValueType, table, data, useInput, false)
+		}
+		return fmt.Sprintf("z.record(%s, %s)", keyZ, valueZ)
 	default:
 		return "z.unknown()"
 	}
 }
 
-// typeToTS generates the concrete TypeScript type for a type reference.
-// Used when ConcreteTypes is enabled to generate explicit type definitions.
 func (p *Plugin) typeToTS(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData) string {
 	return p.typeToTSInternal(typeRef, table, data, false)
 }
 
-// typeToTSInternal generates the concrete TypeScript type.
-// forStructArg indicates this is being used as a type argument to another struct,
-// in which case type params should be passed as-is (not wrapped in z.infer).
 func (p *Plugin) typeToTSInternal(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData, forStructArg bool) string {
 	switch typeRef.Kind {
 	case resolution.TypeKindPrimitive:
 		return primitiveToTS(typeRef.Primitive)
 	case resolution.TypeKindTypeParam:
 		if typeRef.TypeParamRef != nil {
-			// When passing to another struct, pass the ZodType directly
 			if forStructArg {
 				return typeRef.TypeParamRef.Name
 			}
-			// Type params are Zod schemas, so we need z.infer to get the value type
 			return fmt.Sprintf("z.infer<%s>", typeRef.TypeParamRef.Name)
 		}
 		return "unknown"
@@ -694,49 +727,51 @@ func (p *Plugin) typeToTSInternal(typeRef *resolution.TypeRef, table *resolution
 		if typeRef.StructRef.IsGeneric() && len(typeRef.TypeArgs) > 0 {
 			args := make([]string, len(typeRef.TypeArgs))
 			for i, arg := range typeRef.TypeArgs {
-				// Pass true for forStructArg since these are arguments to a struct
 				args[i] = p.typeToTSInternal(arg, table, data, true)
 			}
 			typeName = fmt.Sprintf("%s<%s>", typeName, strings.Join(args, ", "))
 		}
 		if typeRef.StructRef.Namespace != data.Namespace {
-			ns := typeRef.StructRef.Namespace
-			return fmt.Sprintf("%s.%s", ns, typeName)
+			return fmt.Sprintf("%s.%s", typeRef.StructRef.Namespace, typeName)
 		}
 		return typeName
 	case resolution.TypeKindEnum:
 		if typeRef.EnumRef == nil {
 			return "unknown"
 		}
-		enumName := typeRef.EnumRef.Name
 		if typeRef.EnumRef.Namespace != data.Namespace {
-			ns := typeRef.EnumRef.Namespace
-			return fmt.Sprintf("%s.%s", ns, enumName)
+			return fmt.Sprintf("%s.%s", typeRef.EnumRef.Namespace, typeRef.EnumRef.Name)
 		}
-		return enumName
+		return typeRef.EnumRef.Name
+	case resolution.TypeKindMap:
+		keyType, valueType := "string", "unknown"
+		if typeRef.MapKeyType != nil {
+			keyType = p.typeToTSInternal(typeRef.MapKeyType, table, data, forStructArg)
+		}
+		if typeRef.MapValueType != nil {
+			valueType = p.typeToTSInternal(typeRef.MapValueType, table, data, forStructArg)
+		}
+		return fmt.Sprintf("Record<%s, %s>", keyType, valueType)
 	default:
 		return "unknown"
 	}
 }
 
-// primitiveToTS converts a primitive type to its TypeScript equivalent.
+var primitiveTSTypes = map[string]string{
+	"string": "string", "uuid": "string",
+	"bool": "boolean",
+	"int8": "number", "int16": "number", "int32": "number", "int64": "number",
+	"uint8": "number", "uint16": "number", "uint32": "number", "uint64": "number",
+	"float32": "number", "float64": "number",
+	"timestamp": "number", "timespan": "number",
+	"json": "unknown", "bytes": "Uint8Array",
+}
+
 func primitiveToTS(primitive string) string {
-	switch primitive {
-	case "string", "uuid":
-		return "string"
-	case "bool":
-		return "boolean"
-	case "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64", "float32", "float64":
-		return "number"
-	case "timestamp", "timespan":
-		return "number"
-	case "json":
-		return "unknown"
-	case "bytes":
-		return "Uint8Array"
-	default:
-		return "unknown"
+	if t, ok := primitiveTSTypes[primitive]; ok {
+		return t
 	}
+	return "unknown"
 }
 
 type xImport struct {
@@ -811,102 +846,83 @@ func primitiveToZod(primitive string, data *templateData, useInput bool) string 
 }
 
 func (p *Plugin) applyValidation(zodType string, domain *resolution.DomainEntry, typeRef *resolution.TypeRef, fieldName string) string {
+	rules := validation.Parse(domain)
+	if validation.IsEmpty(rules) {
+		return zodType
+	}
 	isString := typeRef.Kind == resolution.TypeKindPrimitive && resolution.IsStringPrimitive(typeRef.Primitive)
 	isNumber := typeRef.Kind == resolution.TypeKindPrimitive && resolution.IsNumberPrimitive(typeRef.Primitive)
-	for _, expr := range domain.Expressions {
-		if len(expr.Values) == 0 {
-			switch expr.Name {
-			case "required":
-				if isString {
-					// Generate human-readable field name from snake_case
-					humanName := lo.Capitalize(strings.ReplaceAll(fieldName, "_", " "))
-					zodType = fmt.Sprintf("%s.min(1, \"%s is required\")", zodType, humanName)
-				}
-			case "email":
-				if isString {
-					zodType += ".email()"
-				}
-			case "url":
-				if isString {
-					zodType += ".url()"
-				}
-			}
-			continue
+	if isString {
+		if rules.Required {
+			humanName := lo.Capitalize(strings.ReplaceAll(fieldName, "_", " "))
+			zodType = fmt.Sprintf("%s.min(1, \"%s is required\")", zodType, humanName)
 		}
-		v := expr.Values[0]
-		switch expr.Name {
-		case "min_length":
-			if isString {
-				zodType = fmt.Sprintf("%s.min(%d)", zodType, v.IntValue)
+		if rules.Email {
+			zodType += ".email()"
+		}
+		if rules.URL {
+			zodType += ".url()"
+		}
+		if rules.MinLength != nil {
+			zodType = fmt.Sprintf("%s.min(%d)", zodType, *rules.MinLength)
+		}
+		if rules.MaxLength != nil {
+			zodType = fmt.Sprintf("%s.max(%d)", zodType, *rules.MaxLength)
+		}
+		if rules.Pattern != nil {
+			zodType = fmt.Sprintf("%s.regex(/%s/)", zodType, *rules.Pattern)
+		}
+	}
+	if isNumber {
+		if rules.Min != nil {
+			if rules.Min.IsInt {
+				zodType = fmt.Sprintf("%s.min(%d)", zodType, rules.Min.Int)
+			} else {
+				zodType = fmt.Sprintf("%s.min(%f)", zodType, rules.Min.Float)
 			}
-		case "max_length":
-			if isString {
-				zodType = fmt.Sprintf("%s.max(%d)", zodType, v.IntValue)
+		}
+		if rules.Max != nil {
+			if rules.Max.IsInt {
+				zodType = fmt.Sprintf("%s.max(%d)", zodType, rules.Max.Int)
+			} else {
+				zodType = fmt.Sprintf("%s.max(%f)", zodType, rules.Max.Float)
 			}
-		case "pattern":
-			if isString {
-				zodType = fmt.Sprintf("%s.regex(/%s/)", zodType, v.StringValue)
-			}
-		case "min":
-			if isNumber {
-				if v.Kind == resolution.ValueKindInt {
-					zodType = fmt.Sprintf("%s.min(%d)", zodType, v.IntValue)
-				} else {
-					zodType = fmt.Sprintf("%s.min(%f)", zodType, v.FloatValue)
-				}
-			}
-		case "max":
-			if isNumber {
-				if v.Kind == resolution.ValueKindInt {
-					zodType = fmt.Sprintf("%s.max(%d)", zodType, v.IntValue)
-				} else {
-					zodType = fmt.Sprintf("%s.max(%f)", zodType, v.FloatValue)
-				}
-			}
-		case "default":
-			switch v.Kind {
-			case resolution.ValueKindString:
-				zodType = fmt.Sprintf("%s.default(%q)", zodType, v.StringValue)
-			case resolution.ValueKindInt:
-				zodType = fmt.Sprintf("%s.default(%d)", zodType, v.IntValue)
-			case resolution.ValueKindFloat:
-				zodType = fmt.Sprintf("%s.default(%f)", zodType, v.FloatValue)
-			case resolution.ValueKindBool:
-				zodType = fmt.Sprintf("%s.default(%t)", zodType, v.BoolValue)
-			}
+		}
+	}
+	if rules.Default != nil {
+		switch rules.Default.Kind {
+		case resolution.ValueKindString:
+			zodType = fmt.Sprintf("%s.default(%q)", zodType, rules.Default.StringValue)
+		case resolution.ValueKindInt:
+			zodType = fmt.Sprintf("%s.default(%d)", zodType, rules.Default.IntValue)
+		case resolution.ValueKindFloat:
+			zodType = fmt.Sprintf("%s.default(%f)", zodType, rules.Default.FloatValue)
+		case resolution.ValueKindBool:
+			zodType = fmt.Sprintf("%s.default(%t)", zodType, rules.Default.BoolValue)
 		}
 	}
 	return zodType
 }
 
 type templateData struct {
-	Namespace     string
-	OutputPath    string          // Current output path for calculating relative imports
-	Request       *plugin.Request // Request for access to helper methods
-	IDFields      []idFieldData
-	Structs       []structData
-	Enums         []enumData
-	GenerateTypes bool
-	Imports       map[string]*importSpec
-	Ontology      *ontologyData // Ontology data if domain ontology is present
+	Namespace, OutputPath string
+	Request               *plugin.Request
+	IDFields              []idFieldData
+	Structs               []structData
+	Enums                 []enumData
+	GenerateTypes         bool
+	Imports               map[string]*importSpec
+	Ontology              *ontologyData
 }
 
-// ontologyData holds data for generating ontology ID factory and constant.
 type ontologyData struct {
-	TypeName     string // e.g., "user" - from domain ontology { type "user" }
-	KeyType      string // e.g., "Key" - derived from the ID field
-	KeyZeroValue string // e.g., "\"00000000-0000-0000-0000-000000000000\"" for UUID, "0" for uint32
+	TypeName, KeyType, KeyZeroValue string
 }
 
 type idFieldData struct {
-	Name      string // e.g., "key"
-	TSName    string // e.g., "key"
-	ZodType   string // e.g., "z.uuid()"
-	Primitive string // e.g., "uuid", "uint32" - for zero value computation
+	Name, TSName, ZodType, Primitive string
 }
 
-// primitiveZeroValue returns the TypeScript zero value literal for a primitive type.
-// For ontology IDs, uuid uses empty string since ontologyID("") represents the type itself.
 func primitiveZeroValue(primitive string) string {
 	switch primitive {
 	case "uuid", "string":
@@ -921,7 +937,7 @@ func primitiveZeroValue(primitive string) string {
 }
 
 type importSpec struct {
-	Names map[string]bool // named imports (e.g., "zod", "TimeStamp", "label")
+	Names map[string]bool
 }
 
 func (d *templateData) addNamedImport(path, name string) {
@@ -931,10 +947,10 @@ func (d *templateData) addNamedImport(path, name string) {
 	d.Imports[path].Names[name] = true
 }
 
-func (d *templateData) NamedImports() []namedImportData {
+func (d *templateData) filterImports(filter func(string) bool) []namedImportData {
 	var result []namedImportData
 	for path, spec := range d.Imports {
-		if spec.Names != nil && len(spec.Names) > 0 {
+		if len(spec.Names) > 0 && filter(path) {
 			names := make([]string, 0, len(spec.Names))
 			for name := range spec.Names {
 				names = append(names, name)
@@ -947,37 +963,18 @@ func (d *templateData) NamedImports() []namedImportData {
 	return result
 }
 
-// SynnaxImports returns named imports from @synnaxlabs/* packages
 func (d *templateData) SynnaxImports() []namedImportData {
-	var result []namedImportData
-	for _, imp := range d.NamedImports() {
-		if strings.HasPrefix(imp.Path, "@synnaxlabs/") {
-			result = append(result, imp)
-		}
-	}
-	return result
+	return d.filterImports(func(p string) bool { return strings.HasPrefix(p, "@synnaxlabs/") })
 }
 
-// ExternalNamedImports returns named imports from external packages (not @/ or @synnaxlabs/)
 func (d *templateData) ExternalNamedImports() []namedImportData {
-	var result []namedImportData
-	for _, imp := range d.NamedImports() {
-		if !strings.HasPrefix(imp.Path, "@/") && !strings.HasPrefix(imp.Path, "@synnaxlabs/") {
-			result = append(result, imp)
-		}
-	}
-	return result
+	return d.filterImports(func(p string) bool {
+		return !strings.HasPrefix(p, "@/") && !strings.HasPrefix(p, "@synnaxlabs/")
+	})
 }
 
-// InternalNamedImports returns named imports from internal packages (starting with @/)
 func (d *templateData) InternalNamedImports() []namedImportData {
-	var result []namedImportData
-	for _, imp := range d.NamedImports() {
-		if strings.HasPrefix(imp.Path, "@/") {
-			result = append(result, imp)
-		}
-	}
-	return result
+	return d.filterImports(func(p string) bool { return strings.HasPrefix(p, "@/") })
 }
 
 type namedImportData struct {
@@ -986,37 +983,31 @@ type namedImportData struct {
 }
 
 type structData struct {
-	Name          string // Original struct name from schema
-	TSName        string // TypeScript name (can be overridden via ts domain { name "..." })
-	Fields        []fieldData
-	UseInput      bool            // If true, use z.input instead of z.infer for type derivation
-	Handwritten   bool            // If true, skip generating both schema and type (struct is handwritten)
-	ConcreteTypes bool            // If true, generate explicit type definitions instead of z.infer
-	TypeParams    []typeParamData // Generic type parameters
-	IsGeneric     bool            // True if struct has type parameters
-	IsSingleParam bool            // True if struct has exactly one type parameter (use positional arg)
-	IsAlias       bool            // True if struct is an alias of another type
-	AliasOf       string          // TypeScript expression for the aliased type schema
+	Name, TSName, AliasOf                          string
+	Fields                                         []fieldData
+	TypeParams                                     []typeParamData
+	UseInput, Handwritten, ConcreteTypes           bool
+	IsGeneric, IsSingleParam, IsAlias, IsRecursive bool
+
+	// Extension support
+	HasExtends              bool
+	ExtendsName             string      // Parent schema name (e.g., "payloadZ")
+	ExtendsTypeName         string      // Parent type name (e.g., "Payload")
+	ExtendsParentIsGeneric  bool        // True if parent has type params
+	ExtendsParentSchemaArgs []string    // Schema param names for calling generic parent (e.g., ["properties", "make", "model"])
+	OmittedFields           []string    // Fields omitted from parent via -fieldName
+	PartialFields           []fieldData // Fields that only need .partial() (just optionality change)
+	ExtendFields            []fieldData // Fields that need .extend() (new fields or type changes)
 }
 
-// typeParamData holds data for a generic type parameter.
 type typeParamData struct {
-	Name         string // e.g., "D"
-	Constraint   string // e.g., "z.ZodType" (TypeScript constraint)
-	Default      string // e.g., "z.ZodNever" (TypeScript default type)
-	DefaultValue string // e.g., "z.string()" (runtime default value for destructuring)
-	HasDefault   bool   // True if a default value is specified
-	IsJSON       bool   // True if the constraint is json (needs special wrapping)
+	Name, Constraint, Default, DefaultValue string
+	HasDefault, IsJSON                      bool
 }
 
 type fieldData struct {
-	Name       string
-	TSName     string
-	ZodType    string
-	TSType     string // Concrete TypeScript type (e.g., "z.infer<Type>", "string")
-	IsOptional bool
-	IsNullable bool
-	IsArray    bool
+	Name, TSName, ZodType, TSType              string
+	IsOptional, IsHardOptional, IsArray, IsSelfRef bool
 }
 
 type enumData struct {
@@ -1026,16 +1017,16 @@ type enumData struct {
 }
 
 type enumValueData struct {
-	Name      string
-	Value     string
-	IntValue  int64
-	IsIntEnum bool
+	Name, Value string
+	IntValue    int64
+	IsIntEnum   bool
 }
 
 var templateFuncs = template.FuncMap{
-	"camelCase": lo.CamelCase,
-	"title":     lo.Capitalize,
-	"lower":     strings.ToLower,
+	"camelCase":   lo.CamelCase,
+	"title":       lo.Capitalize,
+	"lower":       strings.ToLower,
+	"pluralUpper": func(name string) string { return strings.ToUpper(lo.SnakeCase(name)) + "S" },
 }
 
 var fileTemplate = template.Must(template.New("zod").Funcs(templateFuncs).Parse(`// Code generated by Oracle. DO NOT EDIT.
@@ -1061,12 +1052,17 @@ export type {{ .Name | camelCase | title }} = z.infer<typeof {{ .TSName }}Z>;
 {{- range .Enums }}
 
 {{- if .IsIntEnum }}
-export const {{ camelCase .Name }}Values = [{{ range $i, $v := .Values }}{{ if $i }}, {{ end }}{{ $v.IntValue }}{{ end }}] as const;
-export const {{ camelCase .Name }}Z = z.enum([{{ range $i, $v := .Values }}{{ if $i }}, {{ end }}"{{ $v.Name }}"{{ end }}]);
-{{- else }}
-export const {{ camelCase .Name }}Z = z.enum([{{ range $i, $v := .Values }}{{ if $i }}, {{ end }}"{{ $v.Value }}"{{ end }}]);
+export enum {{ .Name }} {
+{{- range $i, $v := .Values }}
+  {{ $v.Name }} = {{ $v.IntValue }},
 {{- end }}
-{{- if $.GenerateTypes }}
+}
+export const {{ camelCase .Name }}Z = z.enum({{ .Name }});
+{{- else }}
+export const {{ pluralUpper .Name }} = [{{ range $i, $v := .Values }}{{ if $i }}, {{ end }}"{{ $v.Value }}"{{ end }}] as const;
+export const {{ camelCase .Name }}Z = z.enum([...{{ pluralUpper .Name }}]);
+{{- end }}
+{{- if and $.GenerateTypes (not .IsIntEnum) }}
 export type {{ .Name }} = z.infer<typeof {{ camelCase .Name }}Z>;
 {{- end }}
 {{- end }}
@@ -1107,18 +1103,47 @@ export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }
 
 export const {{ camelCase .TSName }}Z = {{ .AliasOf }};
 {{- if $.GenerateTypes }}
-export type {{ .TSName }} = z.{{ if .UseInput }}input{{ else }}infer{{ end }}<typeof {{ camelCase .TSName }}Z>;
+export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{{ end }}<typeof {{ camelCase .TSName }}Z> {}
 {{- end }}
 {{- end }}
 {{- else if .IsGeneric }}
 {{- if .IsSingleParam }}
 
 export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}>({{ range $i, $p := .TypeParams }}{{ $p.Name | camelCase }}?: {{ $p.Name }}{{ end }}) =>
+{{- if .HasExtends }}
+  {{ .ExtendsName }}({{ if .ExtendsParentIsGeneric }}{{ range $i, $a := .ExtendsParentSchemaArgs }}{{ if $i }}, {{ end }}{{ $a }}{{ end }}{{ end }})
+{{- if .OmittedFields }}
+    .omit({ {{ range $i, $f := .OmittedFields }}{{ if $i }}, {{ end }}{{ $f }}: true{{ end }} })
+{{- end }}
+{{- if .PartialFields }}
+    .partial({ {{ range $i, $f := .PartialFields }}{{ if $i }}, {{ end }}{{ $f.TSName }}: true{{ end }} })
+{{- end }}
+{{- if .ExtendFields }}
+    .extend({
+{{- range .ExtendFields }}
+{{- if .IsSelfRef }}
+      get {{ .TSName }}() {
+        return {{ .ZodType }};
+      },
+{{- else }}
+      {{ .TSName }}: {{ .ZodType }},
+{{- end }}
+{{- end }}
+    })
+{{- end }};
+{{- else }}
   z.object({
 {{- range .Fields }}
+{{- if .IsSelfRef }}
+    get {{ .TSName }}() {
+      return {{ .ZodType }};
+    },
+{{- else }}
     {{ .TSName }}: {{ .ZodType }},
 {{- end }}
+{{- end }}
   });
+{{- end }}
 {{- else }}
 
 export interface {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> {
@@ -1132,34 +1157,105 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
   {{ $p.Name | camelCase }},
 {{- end }}
 }: {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}> = {}) =>
+{{- if .HasExtends }}
+  {{ .ExtendsName }}({{ if .ExtendsParentIsGeneric }}{ {{ range $i, $a := .ExtendsParentSchemaArgs }}{{ if $i }}, {{ end }}{{ $a }}{{ end }} }{{ end }})
+{{- if .OmittedFields }}
+    .omit({ {{ range $i, $f := .OmittedFields }}{{ if $i }}, {{ end }}{{ $f }}: true{{ end }} })
+{{- end }}
+{{- if .PartialFields }}
+    .partial({ {{ range $i, $f := .PartialFields }}{{ if $i }}, {{ end }}{{ $f.TSName }}: true{{ end }} })
+{{- end }}
+{{- if .ExtendFields }}
+    .extend({
+{{- range .ExtendFields }}
+{{- if .IsSelfRef }}
+      get {{ .TSName }}() {
+        return {{ .ZodType }};
+      },
+{{- else }}
+      {{ .TSName }}: {{ .ZodType }},
+{{- end }}
+{{- end }}
+    })
+{{- end }};
+{{- else }}
   z.object({
 {{- range .Fields }}
+{{- if .IsSelfRef }}
+    get {{ .TSName }}() {
+      return {{ .ZodType }};
+    },
+{{- else }}
     {{ .TSName }}: {{ .ZodType }},
+{{- end }}
 {{- end }}
   });
 {{- end }}
+{{- end }}
 {{- if $.GenerateTypes }}
 {{- if .ConcreteTypes }}
-export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = {
-{{- range .Fields }}
-  {{ .TSName }}{{ if .IsOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }}{{ if .IsNullable }} | null{{ end }};
+{{- if .HasExtends }}
+export interface {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> extends Omit<{{ .ExtendsTypeName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>, {{ range $i, $f := .OmittedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}{{ if and .OmittedFields (or .PartialFields .ExtendFields) }} | {{ end }}{{ range $i, $f := .PartialFields }}{{ if $i }} | {{ end }}"{{ $f.TSName }}"{{ end }}{{ if and .PartialFields .ExtendFields }} | {{ end }}{{ range $i, $f := .ExtendFields }}{{ if $i }} | {{ end }}"{{ $f.TSName }}"{{ end }}> {
+{{- range .PartialFields }}
+  {{ .TSName }}?: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
-};
+{{- range .ExtendFields }}
+  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
+{{- end }}
+}
+{{- else }}
+export interface {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> {
+{{- range .Fields }}
+  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
+{{- end }}
+}
+{{- end }}
 {{- else }}
 export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.{{ if .UseInput }}input{{ else }}infer{{ end }}<
   ReturnType<typeof {{ camelCase .TSName }}Z<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>>
 >;
 {{- end }}
 {{- end }}
+{{- else if .HasExtends }}
+
+export const {{ camelCase .TSName }}Z = {{ .ExtendsName }}
+{{- if .OmittedFields }}
+  .omit({ {{ range $i, $f := .OmittedFields }}{{ if $i }}, {{ end }}{{ $f }}: true{{ end }} })
+{{- end }}
+{{- if .PartialFields }}
+  .partial({ {{ range $i, $f := .PartialFields }}{{ if $i }}, {{ end }}{{ $f.TSName }}: true{{ end }} })
+{{- end }}
+{{- if .ExtendFields }}
+  .extend({
+{{- range .ExtendFields }}
+{{- if .IsSelfRef }}
+    get {{ .TSName }}() {
+      return {{ .ZodType }};
+    },
+{{- else }}
+    {{ .TSName }}: {{ .ZodType }},
+{{- end }}
+{{- end }}
+  })
+{{- end }};
+{{- if $.GenerateTypes }}
+export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{{ end }}<typeof {{ camelCase .TSName }}Z> {}
+{{- end }}
 {{- else }}
 
 export const {{ camelCase .TSName }}Z = z.object({
 {{- range .Fields }}
+{{- if .IsSelfRef }}
+  get {{ .TSName }}() {
+    return {{ .ZodType }};
+  },
+{{- else }}
   {{ .TSName }}: {{ .ZodType }},
+{{- end }}
 {{- end }}
 });
 {{- if $.GenerateTypes }}
-export type {{ .TSName }} = z.{{ if .UseInput }}input{{ else }}infer{{ end }}<typeof {{ camelCase .TSName }}Z>;
+export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{{ end }}<typeof {{ camelCase .TSName }}Z> {}
 {{- end }}
 {{- end }}
 {{- end }}

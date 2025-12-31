@@ -8,4 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/access/role/client";
-export * from "@/access/role/payload";
+export * from "@/access/role/types.gen";

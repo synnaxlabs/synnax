@@ -7,76 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package oracle provides a schema-first code generation system for Synnax metadata structures.
-//
-// Oracle parses .oracle schema files, analyzes imports and type references, and invokes
-// plugins to generate type-safe code across Go, TypeScript, and Python.
-//
-// Basic usage:
-//
-//	// Analyze schemas
-//	loader := analyzer.NewStandardFileLoader("/path/to/repo")
-//	table, diag := analyzer.Analyze(ctx, []string{"schema/core/ranger.oracle"}, loader)
-//	if diag.HasErrors() {
-//	    log.Fatal(diag)
-//	}
-//
-//	// Generate code with plugins
-//	registry := plugin.NewRegistry()
-//	registry.Register(myGoPlugin)
-//
-//	for _, p := range registry.All() {
-//	    resp, err := p.Generate(&plugin.Request{
-//	        Resolutions: table,
-//	        OutputDir:   "/path/to/output",
-//	    })
-//	    if err != nil {
-//	        log.Fatal(err)
-//	    }
-//	    // Write generated files...
-//	}
-//
-// Schema file example (.oracle):
-//
-//	import "schema/core/label"
-//
-//	struct Range {
-//	    field key uuid {
-//	        domain id
-//	    }
-//
-//	    field name string {
-//	        domain validate {
-//	            required
-//	            max_length 255
-//	        }
-//	        domain query {
-//	            eq
-//	            contains
-//	        }
-//	    }
-//
-//	    field labels uuid[] {
-//	        domain relation {
-//	            target label.Label
-//	            cardinality many_to_many
-//	        }
-//	    }
-//	}
-//
-// See the docs/tech/rfc/0026-251229-oracle-schema-system.md for the full specification.
+// Package oracle provides schema-first code generation for Synnax.
 package oracle
 
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/synnaxlabs/oracle/analyzer"
-	"github.com/synnaxlabs/x/diagnostics"
-	"github.com/synnaxlabs/oracle/parser"
+	"github.com/synnaxlabs/oracle/output"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/diagnostics"
 )
 
 // Generate analyzes schema files and runs code generation with the given plugins.
@@ -93,13 +38,14 @@ func Generate(
 		return nil, diag
 	}
 
-	schemaFiles := buildSchemaFiles(files, loader, table)
+	schemaFiles := buildSchemaFiles(files)
 	result := &GenerateResult{
 		Resolutions: table,
 		Files:       make(map[string][]plugin.File),
 	}
 
 	for _, p := range registry.All() {
+		output.PluginStart(p.Name())
 		req := &plugin.Request{
 			Schemas:     schemaFiles,
 			Resolutions: table,
@@ -132,6 +78,7 @@ func Generate(
 
 		if resp != nil {
 			result.Files[p.Name()] = resp.Files
+			output.PluginDone(p.Name(), len(resp.Files))
 		}
 	}
 
@@ -152,20 +99,23 @@ type GenerateResult struct {
 }
 
 // WriteFiles writes all generated files to disk.
-func (r *GenerateResult) WriteFiles(outputDir string) error {
+// Returns the absolute paths of all files that were written.
+func (r *GenerateResult) WriteFiles(outputDir string) ([]string, error) {
+	var written []string
 	for _, files := range r.Files {
 		for _, f := range files {
 			fullPath := filepath.Join(outputDir, f.Path)
 			dir := filepath.Dir(fullPath)
 			if err := os.MkdirAll(dir, 0755); err != nil {
-				return err
+				return nil, err
 			}
 			if err := os.WriteFile(fullPath, f.Content, 0644); err != nil {
-				return err
+				return nil, err
 			}
+			written = append(written, fullPath)
 		}
 	}
-	return nil
+	return written, nil
 }
 
 // SyncResult contains the results of a sync operation.
@@ -215,40 +165,85 @@ func (r *GenerateResult) SyncFiles(outputDir string) (*SyncResult, error) {
 	return result, nil
 }
 
-// buildSchemaFiles creates SchemaFile entries for each analyzed file.
-func buildSchemaFiles(
-	files []string,
-	loader analyzer.FileLoader,
-	_ *resolution.Table,
-) []plugin.SchemaFile {
-	result := make([]plugin.SchemaFile, 0, len(files))
-
-	for _, file := range files {
-		source, filePath, err := loader.Load(file)
-		if err != nil {
-			continue
-		}
-
-		parsedAST, err := parseSource(source)
-		if err != nil || parsedAST == nil {
-			continue
-		}
-
-		result = append(result, plugin.SchemaFile{
-			AST:       parsedAST,
-			FilePath:  filePath,
-			Namespace: analyzer.DeriveNamespace(filePath),
-		})
+func buildSchemaFiles(files []string) []plugin.SchemaFile {
+	result := make([]plugin.SchemaFile, len(files))
+	for i, file := range files {
+		result[i] = plugin.SchemaFile{FilePath: file}
 	}
-
 	return result
 }
 
-// parseSource is a helper to parse source without the full analyzer.
-func parseSource(source string) (parser.ISchemaContext, error) {
-	ast, diag := parser.Parse(source)
-	if diag != nil && diag.HasErrors() {
-		return nil, diag
+// UpdateLicenseHeaders runs the copyright update script on the given files.
+// files should be absolute paths to the generated files.
+// repoRoot is the absolute path to the repository root.
+func UpdateLicenseHeaders(repoRoot string, files []string) error {
+	if len(files) == 0 {
+		return nil
 	}
-	return ast, nil
+
+	scriptPath := filepath.Join(repoRoot, "scripts", "update_copyrights.sh")
+	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+		return nil // Script doesn't exist, skip silently
+	}
+
+	// Find common parent directory to limit script scope
+	commonDir := findCommonDirectory(files, repoRoot)
+
+	cmd := exec.Command(scriptPath, commonDir)
+	cmd.Dir = repoRoot
+
+	return cmd.Run()
+}
+
+// findCommonDirectory finds the common parent directory of all given files.
+// Returns a path relative to repoRoot.
+func findCommonDirectory(files []string, repoRoot string) string {
+	if len(files) == 0 {
+		return ""
+	}
+
+	// Convert to relative paths
+	relativePaths := make([]string, 0, len(files))
+	for _, f := range files {
+		rel, err := filepath.Rel(repoRoot, f)
+		if err != nil {
+			continue
+		}
+		relativePaths = append(relativePaths, filepath.Dir(rel))
+	}
+
+	if len(relativePaths) == 0 {
+		return ""
+	}
+
+	// Find common prefix of all directory paths
+	common := relativePaths[0]
+	for _, p := range relativePaths[1:] {
+		common = commonPathPrefix(common, p)
+		if common == "" || common == "." {
+			return ""
+		}
+	}
+
+	return common
+}
+
+// commonPathPrefix finds the common directory prefix of two paths.
+func commonPathPrefix(a, b string) string {
+	aParts := strings.Split(filepath.ToSlash(a), "/")
+	bParts := strings.Split(filepath.ToSlash(b), "/")
+
+	var common []string
+	for i := 0; i < len(aParts) && i < len(bParts); i++ {
+		if aParts[i] == bParts[i] {
+			common = append(common, aParts[i])
+		} else {
+			break
+		}
+	}
+
+	if len(common) == 0 {
+		return ""
+	}
+	return strings.Join(common, "/")
 }

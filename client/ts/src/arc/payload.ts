@@ -21,7 +21,7 @@ export const irNodeZ = z.object({
 });
 
 export const graphNodeZ = irNodeZ.extend({
-  position: xy.xy,
+  position: xy.xyZ,
 });
 
 export const handleZ = z.object({ param: z.string(), node: z.string() });

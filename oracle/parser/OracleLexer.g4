@@ -14,11 +14,10 @@ lexer grammar OracleLexer;
 // =============================================================================
 
 STRUCT      : 'struct' ;
-FIELD       : 'field' ;
-DOMAIN      : 'domain' ;
 ENUM        : 'enum' ;
 IMPORT      : 'import' ;
 EXTENDS     : 'extends' ;
+MAP         : 'map' ;
 
 // =============================================================================
 // Symbols
@@ -32,9 +31,10 @@ LT          : '<' ;
 GT          : '>' ;
 COMMA       : ',' ;
 QUESTION    : '?' ;
-BANG        : '!' ;
 DOT         : '.' ;
 EQUALS      : '=' ;
+AT          : '@' ;
+MINUS       : '-' ;
 
 // =============================================================================
 // Literals
@@ -70,11 +70,11 @@ IDENT       : [a-zA-Z_][a-zA-Z0-9_]* ;
 // Comments & Whitespace
 // =============================================================================
 
-// Single-line comment
-LINE_COMMENT    : '//' ~[\r\n]* -> skip ;
+// Single-line comment (sent to hidden channel for formatter preservation)
+LINE_COMMENT    : '//' ~[\r\n]* -> channel(HIDDEN) ;
 
-// Multi-line comment
-BLOCK_COMMENT   : '/*' .*? '*/' -> skip ;
+// Multi-line comment (sent to hidden channel for formatter preservation)
+BLOCK_COMMENT   : '/*' .*? '*/' -> channel(HIDDEN) ;
 
 // Newlines are significant for separating expressions in domains
 NEWLINE         : [\r\n]+ ;

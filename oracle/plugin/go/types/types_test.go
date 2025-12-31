@@ -56,12 +56,13 @@ var _ = Describe("Go Types Plugin", func() {
 	Describe("Generate", func() {
 		It("Should generate struct for simple types", func() {
 			source := `
-				struct User {
-					field key uuid
-					field name string
-					field age int32
-					field active bool
-					domain go { output "core/pkg/service/user" }
+				@go output "core/pkg/service/user"
+
+				User struct {
+					key uuid
+					name string
+					age int32
+					active bool
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
@@ -87,13 +88,14 @@ var _ = Describe("Go Types Plugin", func() {
 			Expect(content).To(ContainSubstring("Active bool `json:\"active\" msgpack:\"active\"`"))
 		})
 
-		It("Should handle optional types with pointer", func() {
+		It("Should handle soft optional types (zero value)", func() {
 			source := `
-				struct Range {
-					field key uuid
-					field parent uuid?
-					field description string?
-					domain go { output "core/ranger" }
+				@go output "core/ranger"
+
+				Range struct {
+					key uuid
+					parent uuid?
+					description string?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
@@ -108,17 +110,46 @@ var _ = Describe("Go Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
+			// Soft optional (?) uses value types with omitempty - zero value means not set
+			Expect(content).To(ContainSubstring("Parent uuid.UUID `json:\"parent,omitempty\" msgpack:\"parent,omitempty\"`"))
+			Expect(content).To(ContainSubstring("Description string `json:\"description,omitempty\" msgpack:\"description,omitempty\"`"))
+		})
+
+		It("Should handle hard optional types (pointer)", func() {
+			source := `
+				@go output "core/ranger"
+
+				Range struct {
+					key uuid
+					parent uuid??
+					description string??
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := goPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Hard optional (??) uses pointer types - can distinguish nil from zero value
 			Expect(content).To(ContainSubstring("Parent *uuid.UUID `json:\"parent,omitempty\" msgpack:\"parent,omitempty\"`"))
 			Expect(content).To(ContainSubstring("Description *string `json:\"description,omitempty\" msgpack:\"description,omitempty\"`"))
 		})
 
 		It("Should handle array types", func() {
 			source := `
-				struct Range {
-					field key uuid
-					field labels uuid[]
-					field tags string[]
-					domain go { output "core/ranger" }
+				@go output "core/ranger"
+
+				Range struct {
+					key uuid
+					labels uuid[]
+					tags string[]
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
@@ -139,10 +170,11 @@ var _ = Describe("Go Types Plugin", func() {
 
 		It("Should handle optional array types without pointer", func() {
 			source := `
-				struct Range {
-					field key uuid
-					field tags string[]?
-					domain go { output "core/ranger" }
+				@go output "core/ranger"
+
+				Range struct {
+					key uuid
+					tags string[]?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
@@ -163,11 +195,12 @@ var _ = Describe("Go Types Plugin", func() {
 
 		It("Should convert snake_case to PascalCase for field names", func() {
 			source := `
-				struct Range {
-					field created_at timestamp
-					field time_range string
-					field my_long_field_name string
-					domain go { output "core/ranger" }
+				@go output "core/ranger"
+
+				Range struct {
+					created_at timestamp
+					time_range string
+					my_long_field_name string
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
@@ -189,26 +222,27 @@ var _ = Describe("Go Types Plugin", func() {
 
 		It("Should handle all primitive type mappings", func() {
 			source := `
-				struct AllTypes {
-					field a uuid
-					field b string
-					field c bool
-					field d int8
-					field e int16
-					field f int32
-					field g int64
-					field h uint8
-					field i uint16
-					field j uint32
-					field k uint64
-					field l float32
-					field m float64
-					field n timestamp
-					field o timespan
-					field p time_range
-					field q json
-					field r bytes
-					domain go { output "core/test" }
+				@go output "core/test"
+
+				AllTypes struct {
+					a uuid
+					b string
+					c bool
+					d int8
+					e int16
+					f int32
+					g int64
+					h uint8
+					i uint16
+					j uint32
+					k uint64
+					l float32
+					m float64
+					n timestamp
+					o timespan
+					p time_range
+					q json
+					r bytes
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
@@ -247,10 +281,11 @@ var _ = Describe("Go Types Plugin", func() {
 
 		It("Should skip structs without go domain", func() {
 			source := `
-				struct User {
-					field key uuid
-					field name string
-					domain ts { output "client/ts/user" }
+				@ts output "client/ts/user"
+
+				User struct {
+					key uuid
+					name string
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
@@ -268,9 +303,10 @@ var _ = Describe("Go Types Plugin", func() {
 
 		It("Should derive package name from output path", func() {
 			source := `
-				struct User {
-					field key uuid
-					domain go { output "core/pkg/service/user" }
+				@go output "core/pkg/service/user"
+
+				User struct {
+					key uuid
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
@@ -292,16 +328,16 @@ var _ = Describe("Go Types Plugin", func() {
 
 		It("Should group multiple structs by output path", func() {
 			source := `
-				struct User {
-					field key uuid
-					field name string
-					domain go { output "core/user" }
+				@go output "core/user"
+
+				User struct {
+					key uuid
+					name string
 				}
 
-				struct Role {
-					field key uuid
-					field name string
-					domain go { output "core/user" }
+				Role struct {
+					key uuid
+					name string
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
@@ -323,8 +359,9 @@ var _ = Describe("Go Types Plugin", func() {
 
 		It("Should generate empty struct", func() {
 			source := `
-				struct Empty {
-					domain go { output "core/empty" }
+				@go output "core/empty"
+
+				Empty struct {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "empty", loader)
@@ -346,10 +383,11 @@ var _ = Describe("Go Types Plugin", func() {
 
 		It("Should not include import block when no imports needed", func() {
 			source := `
-				struct Simple {
-					field name string
-					field count int32
-					domain go { output "core/simple" }
+				@go output "core/simple"
+
+				Simple struct {
+					name string
+					count int32
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "simple", loader)
@@ -369,21 +407,20 @@ var _ = Describe("Go Types Plugin", func() {
 
 		It("Should generate doc comments from doc domain", func() {
 			source := `
-				struct User {
-					domain doc { value "A User is a representation of a user in the Synnax cluster." }
+				@go output "core/user"
 
-					field key uuid {
-						domain id
-						domain doc { value "Key is the unique identifier for the user." }
+				User struct {
+					@doc value "A User is a representation of a user in the Synnax cluster."
+
+					key uuid @id {
+						@doc value "Key is the unique identifier for the user."
 					}
 
-					field username string {
-						domain doc { value "Username is the unique username for the user." }
+					username string {
+						@doc value "Username is the unique username for the user."
 					}
 
-					field first_name string
-
-					domain go { output "core/user" }
+					first_name string
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
@@ -404,6 +441,519 @@ var _ = Describe("Go Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`// Username is the unique username for the user.`))
 			// first_name has no doc, so no comment for it
 			Expect(content).NotTo(ContainSubstring(`// FirstName`))
+		})
+
+		It("Should generate string enum type and constants", func() {
+			source := `
+				@go output "core/status"
+
+				Variant enum {
+					success = "success"
+					warning = "warning"
+					error = "error"
+				}
+
+				Status struct {
+					variant Variant
+					message string
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := goPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`type Variant string`))
+			Expect(content).To(ContainSubstring(`VariantSuccess Variant = "success"`))
+			Expect(content).To(ContainSubstring(`VariantWarning Variant = "warning"`))
+			Expect(content).To(ContainSubstring(`VariantError Variant = "error"`))
+			Expect(content).To(ContainSubstring(`Variant Variant`))
+		})
+
+		It("Should generate int enum type and iota constants", func() {
+			source := `
+				@go output "core/priority"
+
+				Priority enum {
+					low = 0
+					medium = 1
+					high = 2
+				}
+
+				Task struct {
+					priority Priority
+					name string
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "priority", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := goPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`type Priority int`))
+			Expect(content).To(ContainSubstring(`PriorityLow Priority = iota`))
+			Expect(content).To(ContainSubstring(`PriorityMedium`))
+			Expect(content).To(ContainSubstring(`PriorityHigh`))
+		})
+
+		It("Should generate map types", func() {
+			source := `
+				@go output "core/config"
+
+				Config struct {
+					settings map<string, string>
+					counts map<string, int32>
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := goPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`Settings map[string]string`))
+			Expect(content).To(ContainSubstring(`Counts map[string]int32`))
+		})
+
+		It("Should skip handwritten structs", func() {
+			source := `
+				@go output "core/status"
+
+				Status struct {
+					key uuid
+					message string
+
+					@go handwritten
+				}
+
+				Other struct {
+					key uuid
+					name string
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := goPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Status should be skipped
+			Expect(content).NotTo(ContainSubstring(`type Status struct {`))
+			// Other should still be generated
+			Expect(content).To(ContainSubstring(`type Other struct {`))
+		})
+
+		It("Should generate generic struct with type parameters", func() {
+			source := `
+				@go output "core/container"
+
+				Box struct<T> {
+					value T
+					label string
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "container", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := goPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`type Box[T any] struct {`))
+			Expect(content).To(ContainSubstring(`Value T`))
+		})
+
+		It("Should generate generic struct with constrained type parameter", func() {
+			source := `
+				@go output "core/container"
+
+				Container struct<D extends json> {
+					data D
+					name string
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "container", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := goPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`type Container[D any] struct {`))
+			Expect(content).To(ContainSubstring(`Data D`))
+		})
+
+		It("Should generate type alias", func() {
+			source := `
+				@go output "core/alias"
+
+				Original struct {
+					key uuid
+					name string
+				}
+
+				Alias = Original
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "alias", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := goPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`type Original struct {`))
+			Expect(content).To(ContainSubstring(`type Alias = Original`))
+		})
+
+		It("Should resolve same-namespace struct references", func() {
+			source := `
+				@go output "core/user"
+
+				Address struct {
+					street string
+					city string
+				}
+
+				User struct {
+					key uuid
+					name string
+					address Address?
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := goPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`type Address struct {`))
+			Expect(content).To(ContainSubstring(`type User struct {`))
+			Expect(content).To(ContainSubstring(`Address Address`))
+		})
+
+		It("Should resolve cross-namespace struct references with imports", func() {
+			loader.Add("schemas/status.oracle", `
+				@go output "core/status"
+
+				Status struct {
+					key uuid
+					message string
+				}
+			`)
+
+			source := `
+				import "schemas/status"
+
+				@go output "core/task"
+
+				Task struct {
+					key uuid
+					name string
+					status status.Status?
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := goPlugin.Generate(req)
+			Expect(err).To(BeNil())
+			Expect(resp.Files).To(HaveLen(2))
+
+			// Find the task file
+			var taskContent string
+			for _, f := range resp.Files {
+				if f.Path == "core/task/types.gen.go" {
+					taskContent = string(f.Content)
+					break
+				}
+			}
+			Expect(taskContent).NotTo(BeEmpty())
+			Expect(taskContent).To(ContainSubstring(`"github.com/synnaxlabs/synnax/core/status"`))
+			Expect(taskContent).To(ContainSubstring(`Status status.Status`))
+		})
+
+		It("Should resolve cross-namespace enum references with imports", func() {
+			loader.Add("schemas/status.oracle", `
+				@go output "core/status"
+
+				Variant enum {
+					success = "success"
+					error = "error"
+				}
+
+				Status struct {
+					variant Variant
+				}
+			`)
+
+			source := `
+				import "schemas/status"
+
+				@go output "core/task"
+
+				Task struct {
+					key uuid
+					variant status.Variant
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := goPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			// Find the task file
+			var taskContent string
+			for _, f := range resp.Files {
+				if f.Path == "core/task/types.gen.go" {
+					taskContent = string(f.Content)
+					break
+				}
+			}
+			Expect(taskContent).NotTo(BeEmpty())
+			Expect(taskContent).To(ContainSubstring(`"github.com/synnaxlabs/synnax/core/status"`))
+			Expect(taskContent).To(ContainSubstring(`Variant status.Variant`))
+		})
+
+		It("Should generate struct embedding for basic extends", func() {
+			source := `
+				@go output "core/user"
+
+				Parent struct {
+					name string
+					age int32
+				}
+
+				Child struct extends Parent {
+					email string
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := goPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Parent struct should be normal
+			Expect(content).To(ContainSubstring(`type Parent struct {`))
+			Expect(content).To(ContainSubstring(`Name string`))
+			Expect(content).To(ContainSubstring(`Age int32`))
+
+			// Child should use struct embedding
+			Expect(content).To(ContainSubstring(`type Child struct {`))
+			Expect(content).To(ContainSubstring("\tParent\n"))
+			Expect(content).To(ContainSubstring(`Email string`))
+		})
+
+		It("Should flatten fields when extends has omitted fields", func() {
+			source := `
+				@go output "core/user"
+
+				Parent struct {
+					name string
+					age int32
+					status string
+				}
+
+				Child struct extends Parent {
+					-age
+					email string
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := goPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Child should have flattened fields (no embedding due to omission)
+			Expect(content).To(ContainSubstring(`type Child struct {`))
+			Expect(content).NotTo(ContainSubstring("\tParent\n"))
+			Expect(content).To(ContainSubstring(`Name string`))
+			Expect(content).To(ContainSubstring(`Status string`))
+			Expect(content).To(ContainSubstring(`Email string`))
+			// Age should NOT be present (omitted)
+			Expect(content).NotTo(MatchRegexp(`Child struct \{[^}]*Age`))
+		})
+
+		It("Should generate cross-namespace struct embedding with import", func() {
+			loader.Add("schemas/parent.oracle", `
+				@go output "core/parent"
+
+				Parent struct {
+					name string
+					age int32
+				}
+			`)
+
+			source := `
+				import "schemas/parent"
+
+				@go output "core/child"
+
+				Child struct extends parent.Parent {
+					email string
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "child", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := goPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			// Find the child file
+			var childContent string
+			for _, f := range resp.Files {
+				if f.Path == "core/child/types.gen.go" {
+					childContent = string(f.Content)
+					break
+				}
+			}
+			Expect(childContent).NotTo(BeEmpty())
+			Expect(childContent).To(ContainSubstring(`"github.com/synnaxlabs/synnax/core/parent"`))
+			Expect(childContent).To(ContainSubstring(`type Child struct {`))
+			Expect(childContent).To(ContainSubstring("\tparent.Parent\n"))
+			Expect(childContent).To(ContainSubstring(`Email string`))
+		})
+
+		It("Should generate struct embedding for generic parent with type args", func() {
+			source := `
+				@go output "core/status"
+
+				Details struct {
+					message string
+				}
+
+				Status struct<D extends json> {
+					variant int32
+					data D
+				}
+
+				RackStatus struct extends Status<Details> {
+					timestamp timestamp
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := goPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// RackStatus should embed Status with type argument
+			Expect(content).To(ContainSubstring(`type RackStatus struct {`))
+			Expect(content).To(ContainSubstring("\tStatus[Details]\n"))
+			Expect(content).To(ContainSubstring(`Timestamp telem.TimeStamp`))
+		})
+
+		It("Should generate generic child extending generic parent with passed type param", func() {
+			source := `
+				@go output "core/status"
+
+				Status struct<D extends json> {
+					variant int32
+					data D
+				}
+
+				RackStatus struct<D extends json> extends Status<D> {
+					timestamp timestamp
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := goPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// RackStatus should be generic and embed Status with passed type param
+			Expect(content).To(ContainSubstring(`type RackStatus[D any] struct {`))
+			Expect(content).To(ContainSubstring("\tStatus[D]\n"))
+			Expect(content).To(ContainSubstring(`Timestamp telem.TimeStamp`))
 		})
 	})
 })

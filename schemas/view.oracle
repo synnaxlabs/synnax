@@ -1,33 +1,16 @@
-struct View {
-    field key uuid {
-        domain id
-    }
+@ts output "client/ts/src/view"
 
-    field name string
+View struct {
+    key   uuid   @id
+    name  string
+    type  string
+    query json
 
-    field type string
-
-    field query json
-
-    domain ts {
-        output "client/ts/src/view"
-    }
-
-    domain ontology {
-        type "view"
-    }
+    @ontology type "view"
 }
 
-struct New {
-    field key uuid?
+New struct extends View {
+    key uuid?
 
-    field name string
-
-    field type string
-
-    field query json
-
-    domain ts {
-        output "client/ts/src/view"
-    }
+    @ts use_input
 }

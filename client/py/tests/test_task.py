@@ -51,7 +51,7 @@ class TestTaskClient:
                 cmd = f["sy_task_cmd"][0]
                 client.statuses.set(
                     sy.TaskStatus(
-                        key=str(sy.task.payload.ontology_id(cmd["task"])),
+                        key=str(sy.task.ontology_id(cmd["task"])),
                         variant=sy.status.SUCCESS_VARIANT,
                         message="Command executed.",
                         details=sy.TaskStatusDetails(
@@ -78,7 +78,7 @@ class TestTaskClient:
                 key = f["sy_task_set"][0]
                 client.statuses.set(
                     sy.TaskStatus(
-                        key=str(sy.task.payload.ontology_id(int(key))),
+                        key=str(sy.task.ontology_id(int(key))),
                         variant=sy.status.SUCCESS_VARIANT,
                         message="Task configured.",
                         details=sy.TaskStatusDetails(task=int(key)),
@@ -103,7 +103,7 @@ class TestTaskClient:
                 key = f["sy_task_set"][0]
                 client.statuses.set(
                     sy.TaskStatus(
-                        key=str(sy.task.payload.ontology_id(int(key))),
+                        key=str(sy.task.ontology_id(int(key))),
                         variant=sy.status.ERROR_VARIANT,
                         message="Invalid Configuration.",
                         details=sy.TaskStatusDetails(task=int(key)),

@@ -1,38 +1,15 @@
-struct Workspace {
-    field key uuid {
-        domain id
-    }
+@ts output "client/ts/src/workspace"
 
-    field name string {
-        domain validate {
-            required
-        }
-    }
+Workspace struct {
+    key    uuid   @id
+    name   string @validate required
+    layout json
 
-    field layout json
-
-    domain ts {
-        output "client/ts/src/workspace"
-    }
-
-    domain ontology {
-        type "workspace"
-    }
+    @ontology type "workspace"
 }
 
-struct New {
-    field key uuid?
+New struct extends Workspace {
+    key uuid?
 
-    field name string {
-        domain validate {
-            required
-        }
-    }
-
-    field layout json
-
-    domain ts {
-        output "client/ts/src/workspace"
-        use_input
-    }
+    @ts use_input
 }

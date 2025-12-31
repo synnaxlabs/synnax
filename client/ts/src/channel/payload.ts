@@ -70,7 +70,7 @@ export const payloadZ = z.object({
   alias: z.string().optional(),
   expression: z.string().default(""),
   status: statusZ.optional(),
-  operations: array.nullableZ(operationZ),
+  operations: array.nullishToEmpty(operationZ),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
@@ -83,7 +83,7 @@ export const newZ = payloadZ.extend({
   internal: z.boolean().default(false),
   virtual: z.boolean().default(false),
   expression: z.string().default(""),
-  operations: array.nullableZ(operationZ).optional(),
+  operations: array.nullishToEmpty(operationZ).optional(),
 });
 
 export interface New extends Omit<

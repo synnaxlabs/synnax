@@ -1,124 +1,73 @@
-// Spatial primitives for x/ts/src/spatial
+@ts output "x/ts/src/spatial"
 
-enum Direction {
+Direction enum {
     x = "x"
     y = "y"
-
-    domain ts {
-        output "x/ts/src/spatial"
-    }
 }
 
-enum OuterLocation {
-    top = "top"
-    right = "right"
+OuterLocation enum {
+    top    = "top"
+    right  = "right"
     bottom = "bottom"
-    left = "left"
-
-    domain ts {
-        output "x/ts/src/spatial"
-    }
+    left   = "left"
 }
 
-enum XLocation {
-    left = "left"
+XLocation enum {
+    left  = "left"
     right = "right"
-
-    domain ts {
-        output "x/ts/src/spatial"
-    }
 }
 
-enum YLocation {
-    top = "top"
+YLocation enum {
+    top    = "top"
     bottom = "bottom"
-
-    domain ts {
-        output "x/ts/src/spatial"
-    }
 }
 
-enum CenterLocation {
+CenterLocation enum {
     center = "center"
-
-    domain ts {
-        output "x/ts/src/spatial"
-    }
 }
 
-enum Location {
-    top = "top"
-    right = "right"
+Location enum {
+    top    = "top"
+    right  = "right"
     bottom = "bottom"
-    left = "left"
+    left   = "left"
     center = "center"
-
-    domain ts {
-        output "x/ts/src/spatial"
-    }
 }
 
-enum Alignment {
-    start = "start"
+Alignment enum {
+    start  = "start"
     center = "center"
-    end = "end"
-
-    domain ts {
-        output "x/ts/src/spatial"
-    }
+    end    = "end"
 }
 
-enum Order {
+Order enum {
     first = "first"
-    last = "last"
-
-    domain ts {
-        output "x/ts/src/spatial"
-    }
+    last  = "last"
 }
 
-struct XY {
-    field x float64
-    field y float64
-
-    domain ts {
-        output "x/ts/src/spatial"
-    }
+XY struct {
+    x float64
+    y float64
 }
 
-struct ClientXY {
-    field client_x float64
-    field client_y float64
+ClientXY struct {
+    client_x float64
+    client_y float64
 
-    domain ts {
-        output "x/ts/src/spatial"
-        name "ClientXY"
-    }
+    @ts name "ClientXY"
 }
 
-struct Dimensions {
-    field width float64
-    field height float64
-
-    domain ts {
-        output "x/ts/src/spatial"
-    }
+Dimensions struct {
+    width  float64
+    height float64
 }
 
-struct SignedDimensions {
-    field signed_width float64
-    field signed_height float64
-
-    domain ts {
-        output "x/ts/src/spatial"
-    }
+SignedDimensions struct {
+    signed_width  float64
+    signed_height float64
 }
 
-struct Bounds {
-    field lower float64
-    field upper float64
-
-    domain ts {
-        output "x/ts/src/spatial"
-    }
+Bounds struct {
+    lower float64
+    upper float64
 }

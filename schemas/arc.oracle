@@ -1,0 +1,157 @@
+// Arc - Dataflow programming language types
+import "schemas/spatial"
+import "schemas/status"
+
+@ts output "client/ts/src/arc"
+
+Kind enum {
+    u8        = 1
+    u16       = 2
+    u32       = 3
+    u64       = 4
+    i8        = 5
+    i16       = 6
+    i32       = 7
+    i64       = 8
+    f32       = 9
+    f64       = 10
+    string    = 11
+    timestamp = 12
+    timespan  = 13
+    chan      = 14
+    series    = 15
+}
+
+Type struct {
+    kind Kind
+    elem Type?
+}
+
+Param struct {
+    name  string
+    type  Type
+    value json?
+}
+
+Handle struct {
+    node  string
+    param string
+}
+
+EdgeKind enum {
+    continuous = 1
+    one_shot   = 2
+}
+
+Edge struct {
+    source Handle
+    target Handle
+    kind   EdgeKind?
+}
+
+Stage struct {
+    key   string
+    nodes string[]
+}
+
+Sequence struct {
+    key    string
+    stages Stage[]
+}
+
+Body struct {
+    raw string
+}
+
+Channels struct {
+    read  map<uint32, string>
+    write map<uint32, string>
+}
+
+Function struct {
+    key      string
+    body     Body?
+    config   Param[]?
+    inputs   Param[]?
+    outputs  Param[]?
+    channels Channels?
+}
+
+Stratum struct {
+    nodes string[]
+}
+
+Node struct {
+    key      string
+    type     string
+    config   Param[]?
+    inputs   Param[]?
+    outputs  Param[]?
+    channels Channels?
+}
+
+IR struct {
+    functions Function[]?
+    nodes     Node[]?
+    edges     Edge[]?
+    strata    Stratum[]?
+    sequences Sequence[]?
+}
+
+Module struct {
+    ir                  IR
+    wasm                bytes
+    output_memory_bases map<string, uint32>
+}
+
+GraphNode struct {
+    key      string
+    type     string
+    config   json
+    position spatial.XY
+}
+
+Viewport struct {
+    position spatial.XY
+    zoom     float64
+}
+
+Graph struct {
+    viewport  Viewport?
+    functions Function[]?
+    edges     Edge[]?
+    nodes     GraphNode[]?
+}
+
+Text struct {
+    raw string
+}
+
+StatusDetails struct {
+    running bool
+}
+
+Status = status.Status<StatusDetails>
+
+Arc struct {
+    key     uuid    @id
+    name    string
+    graph   Graph
+    text    Text
+    deploy  bool
+    version string
+    status  Status?
+
+    @ontology type "arc"
+}
+
+New struct {
+    key     uuid?
+    name    string
+    graph   Graph
+    text    Text
+    deploy  bool
+    version string
+
+    @ts use_input
+}

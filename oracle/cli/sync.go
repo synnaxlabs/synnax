@@ -17,66 +17,41 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/oracle"
+	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/plugin"
 )
 
 var syncCmd = &cobra.Command{
 	Use:   "sync",
-	Short: "Sync generated code with schemas, only writing changed files",
-	Long: `Parse .oracle schema files and generate code, but only write files
-whose content has actually changed. This is useful for incremental builds
-and avoiding unnecessary file modifications.
-
-By default, looks for schemas in schemas/*.oracle and runs all plugins.
-Each plugin only generates output for structs that have its domain declared
-with an output path.`,
-	Example: `  oracle sync
-  oracle sync -s "other/*.oracle"
-  oracle sync -p ts/types -v`,
-	RunE: runSync,
+	Short: "Sync generated code, only writing changed files",
+	RunE:  runSync,
 }
 
 func init() {
 	rootCmd.AddCommand(syncCmd)
-	configureSyncFlags()
-	bindFlags(syncCmd)
-}
-
-func configureSyncFlags() {
-	syncCmd.Flags().StringSliceP(
-		pluginsFlag,
-		"p",
-		nil,
-		"Plugins to run (default: all)",
-	)
 }
 
 func runSync(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	verbose := viper.GetBool(verboseFlag)
 
-	schemaPatterns := viper.GetStringSlice(schemasFlag)
-	if len(schemaPatterns) == 0 {
-		schemaPatterns = []string{"schemas/*.oracle"}
-	}
+	printBanner()
 
 	repoRoot, err := paths.RepoRoot()
 	if err != nil {
-		return fmt.Errorf("oracle must be run within a git repository: %w", err)
+		printError("must be run within a git repository")
+		return err
 	}
 
-	if verbose {
-		fmt.Printf("Repository root: %s\n", repoRoot)
-	}
-
-	schemaFiles, err := expandGlobs(schemaPatterns, repoRoot)
+	schemaFiles, err := expandGlobs([]string{"schemas/*.oracle"}, repoRoot)
 	if err != nil {
 		return err
 	}
 
 	if len(schemaFiles) == 0 {
-		return fmt.Errorf("no schema files found matching patterns: %v", schemaPatterns)
+		printError("no schema files found")
+		return fmt.Errorf("no schema files found")
 	}
 
 	normalizedFiles := make([]string, 0, len(schemaFiles))
@@ -88,57 +63,71 @@ func runSync(cmd *cobra.Command, args []string) error {
 		normalizedFiles = append(normalizedFiles, relPath)
 	}
 
-	if verbose {
-		fmt.Printf("Found %d schema file(s):\n", len(normalizedFiles))
-		for _, f := range normalizedFiles {
-			fmt.Printf("  - %s\n", f)
+	printSchemaCount(len(normalizedFiles))
+
+	// Format schema files first
+	printFormattingStart(len(schemaFiles))
+	formatted := 0
+	for _, f := range schemaFiles {
+		source, err := os.ReadFile(f)
+		if err != nil {
+			printError(fmt.Sprintf("failed to read %s: %v", f, err))
+			return err
+		}
+		result, err := formatter.Format(string(source))
+		if err != nil {
+			printError(fmt.Sprintf("failed to format %s: %v", f, err))
+			return err
+		}
+		if result != string(source) {
+			if err := os.WriteFile(f, []byte(result), 0644); err != nil {
+				printError(fmt.Sprintf("failed to write %s: %v", f, err))
+				return err
+			}
+			formatted++
 		}
 	}
+	printFormattingDone(formatted)
 
-	// Build plugin registry
-	pluginNames := viper.GetStringSlice(pluginsFlag)
-	registry, err := buildPluginRegistry(pluginNames)
-	if err != nil {
-		return err
-	}
-
-	if verbose {
-		fmt.Printf("Using %d plugin(s): %v\n", len(registry.Names()), registry.Names())
-	}
+	registry := buildPluginRegistry()
 
 	result, diag := oracle.Generate(ctx, normalizedFiles, repoRoot, registry, repoRoot)
 	if diag != nil && !diag.Empty() {
-		fmt.Fprintln(os.Stderr, diag.String())
+		printDiagnostics(diag.String())
 	}
 
 	if diag != nil && diag.HasErrors() {
-		return fmt.Errorf("generation failed with %d error(s)", len(diag.Errors()))
+		printError(fmt.Sprintf("generation failed with %d error(s)", len(diag.Errors())))
+		return fmt.Errorf("generation failed")
 	}
 
 	if result != nil {
 		syncResult, err := result.SyncFiles(repoRoot)
 		if err != nil {
-			return fmt.Errorf("failed to sync files: %w", err)
+			printError("failed to sync files")
+			return err
 		}
 
-		if verbose {
-			if len(syncResult.Written) > 0 {
-				fmt.Println("Written files:")
-				for plugin, files := range syncResult.ByPlugin {
-					for _, f := range files {
-						fmt.Printf("  [%s] %s\n", plugin, f)
-					}
+		// Update license headers before running post-write hooks (e.g., eslint)
+		if len(syncResult.Written) > 0 {
+			absPaths := make([]string, len(syncResult.Written))
+			for i, f := range syncResult.Written {
+				absPaths[i] = filepath.Join(repoRoot, f)
+			}
+			if err := oracle.UpdateLicenseHeaders(repoRoot, absPaths); err != nil {
+				printDim(fmt.Sprintf("license header update failed: %v", err))
+			}
+		}
+
+		if verbose && len(syncResult.Written) > 0 {
+			for pluginName, files := range syncResult.ByPlugin {
+				for _, f := range files {
+					printFileWritten(pluginName, f)
 				}
 			}
-			if len(syncResult.Unchanged) > 0 {
-				fmt.Printf("Unchanged: %d file(s)\n", len(syncResult.Unchanged))
-			}
 		}
 
-		if len(syncResult.Written) == 0 {
-			fmt.Println("Already up to date")
-		} else {
-			// Run post-write hooks for plugins that implement PostWriter
+		if len(syncResult.Written) > 0 {
 			for pluginName, files := range syncResult.ByPlugin {
 				p := registry.Get(pluginName)
 				if pw, ok := p.(plugin.PostWriter); ok {
@@ -147,12 +136,13 @@ func runSync(cmd *cobra.Command, args []string) error {
 						absPaths[i] = filepath.Join(repoRoot, f)
 					}
 					if err := pw.PostWrite(absPaths); err != nil {
-						fmt.Fprintf(os.Stderr, "warning: post-write hook for %s failed: %v\n", pluginName, err)
+						printDim(fmt.Sprintf("post-write hook for %s failed: %v", pluginName, err))
 					}
 				}
 			}
-			fmt.Printf("Synced %d file(s)\n", len(syncResult.Written))
 		}
+
+		printSyncedCount(len(syncResult.Written), len(syncResult.Unchanged))
 	}
 
 	return nil

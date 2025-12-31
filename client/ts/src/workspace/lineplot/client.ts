@@ -37,7 +37,7 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
-const retrieveResZ = z.object({ linePlots: array.nullableZ(linePlotZ) });
+const retrieveResZ = z.object({ linePlots: array.nullishToEmpty(linePlotZ) });
 
 const createReqZ = z.object({ workspace: workspaceKeyZ, linePlots: newZ.array() });
 const createResZ = z.object({ linePlots: linePlotZ.array() });
