@@ -28,7 +28,7 @@ type analysisCtx struct {
 	ast         parser.ISchemaContext
 	filePath    string
 	namespace   string
-	fileDomains map[string]*resolution.Domain // file-level domains for inheritance
+	fileDomains map[string]resolution.Domain // file-level domains for inheritance
 }
 
 func Analyze(
@@ -69,7 +69,7 @@ func Analyze(
 			ast:         ast,
 			filePath:    filePath,
 			namespace:   DeriveNamespace(filePath),
-			fileDomains: make(map[string]*resolution.Domain),
+			fileDomains: make(map[string]resolution.Domain),
 		}
 		analyze(c)
 	}
@@ -102,7 +102,7 @@ func AnalyzeSource(
 		ast:         ast,
 		filePath:    namespace + ".oracle",
 		namespace:   namespace,
-		fileDomains: make(map[string]*resolution.Domain),
+		fileDomains: make(map[string]resolution.Domain),
 	}
 	analyze(c)
 	if diag.HasErrors() {
@@ -120,9 +120,8 @@ func analyze(c *analysisCtx) {
 
 	// Collect file-level domains first (they apply to all definitions)
 	for _, fd := range c.ast.AllFileDomain() {
-		if de := collectFileDomain(fd); de != nil {
-			c.fileDomains[de.Name] = de
-		}
+		de := collectFileDomain(fd)
+		c.fileDomains[de.Name] = de
 	}
 
 	for _, def := range c.ast.AllDefinition() {
@@ -160,11 +159,13 @@ func analyze(c *analysisCtx) {
 			ast:         ast,
 			filePath:    filePath,
 			namespace:   DeriveNamespace(filePath),
-			fileDomains: make(map[string]*resolution.Domain),
+			fileDomains: make(map[string]resolution.Domain),
 		}
 		analyze(ic)
 	}
-	for _, s := range c.table.StructsInNamespace(c.namespace) {
+	structs := c.table.StructsInNamespace(c.namespace)
+	for i := range structs {
+		s := &structs[i]
 		for _, f := range s.Fields {
 			resolveType(c, s, f.TypeRef)
 		}
@@ -188,8 +189,9 @@ func analyze(c *analysisCtx) {
 	}
 
 	// Validate extends relationships after all types are resolved
-	for _, s := range c.table.StructsInNamespace(c.namespace) {
-		validateExtends(c, s)
+	structs = c.table.StructsInNamespace(c.namespace)
+	for i := range structs {
+		validateExtends(c, &structs[i])
 	}
 }
 
@@ -209,14 +211,14 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 		c.diag.AddErrorf(def, c.filePath, "duplicate struct definition: %s", qname)
 		return
 	}
-	entry := &resolution.Struct{
+	entry := resolution.Struct{
 		AST:           def,
 		Name:          name,
 		Namespace:     c.namespace,
 		FilePath:      c.filePath,
 		QualifiedName: qname,
 		Fields:        nil,
-		Domains:       make(map[string]*resolution.Domain),
+		Domains:       make(map[string]resolution.Domain),
 		TypeParams:    collectTypeParams(def.TypeParams()),
 	}
 
@@ -232,7 +234,7 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 
 	if body := def.StructBody(); body != nil {
 		for _, f := range body.AllFieldDef() {
-			collectField(c, entry, f)
+			collectField(c, &entry, f)
 		}
 		// Collect field omissions (-fieldName syntax)
 		for _, fo := range body.AllFieldOmit() {
@@ -240,18 +242,17 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 		}
 		// Struct-level domains merge with file-level domains (struct takes precedence)
 		for _, d := range body.AllDomain() {
-			if de := collectDomain(d); de != nil {
-				if existing, ok := entry.Domains[de.Name]; ok {
-					// Merge expressions: existing (file-level) + new (struct-level)
-					merged := &resolution.Domain{
-						AST:         de.AST,
-						Name:        de.Name,
-						Expressions: append(existing.Expressions, de.Expressions...),
-					}
-					entry.Domains[de.Name] = merged
-				} else {
-					entry.Domains[de.Name] = de
+			de := collectDomain(d)
+			if existing, ok := entry.Domains[de.Name]; ok {
+				// Merge expressions: existing (file-level) + new (struct-level)
+				merged := resolution.Domain{
+					AST:         de.AST,
+					Name:        de.Name,
+					Expressions: append(existing.Expressions, de.Expressions...),
 				}
+				entry.Domains[de.Name] = merged
+			} else {
+				entry.Domains[de.Name] = de
 			}
 		}
 	}
@@ -265,13 +266,13 @@ func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 		c.diag.AddErrorf(def, c.filePath, "duplicate struct definition: %s", qname)
 		return
 	}
-	entry := &resolution.Struct{
+	entry := resolution.Struct{
 		AST:           def,
 		Name:          name,
 		Namespace:     c.namespace,
 		FilePath:      c.filePath,
 		QualifiedName: qname,
-		Domains:       make(map[string]*resolution.Domain),
+		Domains:       make(map[string]resolution.Domain),
 		AliasOf:       collectTypeRef(def.TypeRef()),
 		TypeParams:    collectTypeParams(def.TypeParams()),
 	}
@@ -284,18 +285,17 @@ func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 	// Collect domains from alias body if present (merge with file-level)
 	if body := def.AliasBody(); body != nil {
 		for _, d := range body.AllDomain() {
-			if de := collectDomain(d); de != nil {
-				if existing, ok := entry.Domains[de.Name]; ok {
-					// Merge expressions: existing (file-level) + new (alias-level)
-					merged := &resolution.Domain{
-						AST:         de.AST,
-						Name:        de.Name,
-						Expressions: append(existing.Expressions, de.Expressions...),
-					}
-					entry.Domains[de.Name] = merged
-				} else {
-					entry.Domains[de.Name] = de
+			de := collectDomain(d)
+			if existing, ok := entry.Domains[de.Name]; ok {
+				// Merge expressions: existing (file-level) + new (alias-level)
+				merged := resolution.Domain{
+					AST:         de.AST,
+					Name:        de.Name,
+					Expressions: append(existing.Expressions, de.Expressions...),
 				}
+				entry.Domains[de.Name] = merged
+			} else {
+				entry.Domains[de.Name] = de
 			}
 		}
 	}
@@ -304,13 +304,13 @@ func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 
 // collectTypeParams parses generic type parameters from a struct definition.
 // Examples: <T>, <T?>, <T extends Foo>, <T? extends Foo>, <T = Bar>, <T? = Bar>
-func collectTypeParams(params parser.ITypeParamsContext) []*resolution.TypeParam {
+func collectTypeParams(params parser.ITypeParamsContext) []resolution.TypeParam {
 	if params == nil {
 		return nil
 	}
-	var result []*resolution.TypeParam
+	var result []resolution.TypeParam
 	for _, p := range params.AllTypeParam() {
-		tp := &resolution.TypeParam{Name: p.IDENT().GetText()}
+		tp := resolution.TypeParam{Name: p.IDENT().GetText()}
 		// Handle optional marker (?), constraint (extends X), and default (= Y)
 		// TypeParam rule: IDENT QUESTION? (EXTENDS typeRef)? (EQUALS typeRef)?
 		tp.Optional = p.QUESTION() != nil
@@ -413,36 +413,34 @@ func collectField(
 	def parser.IFieldDefContext,
 ) {
 	name := def.IDENT().GetText()
-	if s.Field(name) != nil {
+	if _, found := s.Field(name); found {
 		c.diag.AddErrorf(def, c.filePath, "duplicate field: %s.%s", s.Name, name)
 		return
 	}
 	tr := def.TypeRef()
-	entry := &resolution.Field{
+	entry := resolution.Field{
 		AST:     def,
 		Name:    name,
 		TypeRef: parseTypeRefBasic(tr),
-		Domains: make(map[string]*resolution.Domain),
+		Domains: make(map[string]resolution.Domain),
 	}
 
 	// Collect inline domains (e.g., @key, @validate required)
 	for _, inl := range def.AllInlineDomain() {
-		if de := collectInlineDomain(inl); de != nil {
-			entry.Domains[de.Name] = de
-			if de.Name == "key" {
-				s.HasKeyDomain = true
-			}
+		de := collectInlineDomain(inl)
+		entry.Domains[de.Name] = de
+		if de.Name == "key" {
+			s.HasKeyDomain = true
 		}
 	}
 
 	// Collect domains from field body if present
 	if fb := def.FieldBody(); fb != nil {
 		for _, d := range fb.AllDomain() {
-			if de := collectDomain(d); de != nil {
-				entry.Domains[de.Name] = de
-				if de.Name == "key" {
-					s.HasKeyDomain = true
-				}
+			de := collectDomain(d)
+			entry.Domains[de.Name] = de
+			if de.Name == "key" {
+				s.HasKeyDomain = true
 			}
 		}
 	}
@@ -450,28 +448,28 @@ func collectField(
 }
 
 // collectFileDomain collects a file-level domain declaration.
-func collectFileDomain(fd parser.IFileDomainContext) *resolution.Domain {
-	entry := &resolution.Domain{AST: fd, Name: fd.IDENT().GetText()}
+func collectFileDomain(fd parser.IFileDomainContext) resolution.Domain {
+	entry := resolution.Domain{AST: fd, Name: fd.IDENT().GetText()}
 	if content := fd.DomainContent(); content != nil {
-		collectDomainContent(entry, content)
+		collectDomainContent(&entry, content)
 	}
 	return entry
 }
 
 // collectDomain collects a domain definition (@domain syntax).
-func collectDomain(def parser.IDomainContext) *resolution.Domain {
-	entry := &resolution.Domain{AST: def, Name: def.IDENT().GetText()}
+func collectDomain(def parser.IDomainContext) resolution.Domain {
+	entry := resolution.Domain{AST: def, Name: def.IDENT().GetText()}
 	if content := def.DomainContent(); content != nil {
-		collectDomainContent(entry, content)
+		collectDomainContent(&entry, content)
 	}
 	return entry
 }
 
 // collectInlineDomain collects an inline domain on a field.
-func collectInlineDomain(def parser.IInlineDomainContext) *resolution.Domain {
-	entry := &resolution.Domain{AST: def, Name: def.IDENT().GetText()}
+func collectInlineDomain(def parser.IInlineDomainContext) resolution.Domain {
+	entry := resolution.Domain{AST: def, Name: def.IDENT().GetText()}
 	if content := def.DomainContent(); content != nil {
-		collectDomainContent(entry, content)
+		collectDomainContent(&entry, content)
 	}
 	return entry
 }
@@ -482,7 +480,7 @@ func collectDomainContent(entry *resolution.Domain, content parser.IDomainConten
 	// Check if it's a block: @domain { expr1\n expr2 }
 	if block := content.DomainBlock(); block != nil {
 		for _, e := range block.AllExpression() {
-			expr := &resolution.Expression{AST: e, Name: e.IDENT().GetText()}
+			expr := resolution.Expression{AST: e, Name: e.IDENT().GetText()}
 			for _, v := range e.AllExpressionValue() {
 				expr.Values = append(expr.Values, collectValue(v))
 			}
@@ -493,7 +491,7 @@ func collectDomainContent(entry *resolution.Domain, content parser.IDomainConten
 
 	// Single expression: @domain expr
 	if e := content.Expression(); e != nil {
-		expr := &resolution.Expression{AST: e, Name: e.IDENT().GetText()}
+		expr := resolution.Expression{AST: e, Name: e.IDENT().GetText()}
 		for _, v := range e.AllExpressionValue() {
 			expr.Values = append(expr.Values, collectValue(v))
 		}
@@ -546,14 +544,13 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 		c.diag.AddErrorf(def, c.filePath, "duplicate enum definition: %s", qname)
 		return
 	}
-	entry := &resolution.Enum{
+	entry := resolution.Enum{
 		AST:           def,
 		Name:          name,
 		Namespace:     c.namespace,
 		FilePath:      c.filePath,
 		QualifiedName: qname,
-		ValuesByName:  make(map[string]*resolution.EnumValue),
-		Domains:       make(map[string]*resolution.Domain),
+		Domains:       make(map[string]resolution.Domain),
 	}
 
 	// Start with file-level domains (inherited)
@@ -568,30 +565,30 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 			entry.IsIntEnum = vals[0].INT_LIT() != nil
 		}
 		for _, v := range vals {
-			ev := &resolution.EnumValue{Name: v.IDENT().GetText()}
+			ev := resolution.EnumEntry{Name: v.IDENT().GetText()}
 			if i := v.INT_LIT(); i != nil {
-				ev.IntValue, _ = strconv.ParseInt(i.GetText(), 10, 64)
+				ev.ExpressionValue.Kind = resolution.ValueKindInt
+				ev.ExpressionValue.IntValue, _ = strconv.ParseInt(i.GetText(), 10, 64)
 			} else if s := v.STRING_LIT(); s != nil {
 				t := s.GetText()
-				ev.StringValue = t[1 : len(t)-1]
+				ev.ExpressionValue.Kind = resolution.ValueKindString
+				ev.ExpressionValue.StringValue = t[1 : len(t)-1]
 			}
 			entry.Values = append(entry.Values, ev)
-			entry.ValuesByName[ev.Name] = ev
 		}
 		// Enum-level domains merge with file-level domains (enum takes precedence)
 		for _, d := range body.AllDomain() {
-			if de := collectDomain(d); de != nil {
-				if existing, ok := entry.Domains[de.Name]; ok {
-					// Merge expressions: existing (file-level) + new (enum-level)
-					merged := &resolution.Domain{
-						AST:         de.AST,
-						Name:        de.Name,
-						Expressions: append(existing.Expressions, de.Expressions...),
-					}
-					entry.Domains[de.Name] = merged
-				} else {
-					entry.Domains[de.Name] = de
+			de := collectDomain(d)
+			if existing, ok := entry.Domains[de.Name]; ok {
+				// Merge expressions: existing (file-level) + new (enum-level)
+				merged := resolution.Domain{
+					AST:         de.AST,
+					Name:        de.Name,
+					Expressions: append(existing.Expressions, de.Expressions...),
 				}
+				entry.Domains[de.Name] = merged
+			} else {
+				entry.Domains[de.Name] = de
 			}
 		}
 	}
@@ -620,8 +617,8 @@ func resolveType(c *analysisCtx, currentStruct *resolution.Struct, t *resolution
 
 	// Check if this is a type parameter reference (e.g., field value T in struct Box<T>)
 	if currentStruct != nil && len(parts) == 1 {
-		if tp := currentStruct.TypeParam(name); tp != nil {
-			t.Kind, t.TypeParamRef = resolution.TypeKindTypeParam, tp
+		if tp, ok := currentStruct.TypeParam(name); ok {
+			t.Kind, t.TypeParamRef = resolution.TypeKindTypeParam, &tp
 			return
 		}
 	}
@@ -631,7 +628,7 @@ func resolveType(c *analysisCtx, currentStruct *resolution.Struct, t *resolution
 		return
 	}
 	if s, ok := c.table.LookupStruct(ns, name); ok {
-		t.Kind, t.StructRef = resolution.TypeKindStruct, s
+		t.Kind, t.StructRef = resolution.TypeKindStruct, &s
 		// Recursively resolve type arguments
 		for _, arg := range t.TypeArgs {
 			resolveType(c, currentStruct, arg)
@@ -639,7 +636,7 @@ func resolveType(c *analysisCtx, currentStruct *resolution.Struct, t *resolution
 		return
 	}
 	if e, ok := c.table.LookupEnum(ns, name); ok {
-		t.Kind, t.EnumRef = resolution.TypeKindEnum, e
+		t.Kind, t.EnumRef = resolution.TypeKindEnum, &e
 		return
 	}
 	c.diag.AddWarningf(nil, c.filePath, "unresolved type: %s", t.RawType)
@@ -657,9 +654,10 @@ func extractTypeNormal(tr *parser.TypeRefNormalContext) string {
 // detectRecursiveTypes marks structs that reference themselves in any field.
 // This is called after all types are resolved.
 func detectRecursiveTypes(table *resolution.Table) {
-	for _, s := range table.AllStructs() {
-		if isRecursive(s) {
-			s.IsRecursive = true
+	structs := table.AllStructs()
+	for i := range structs {
+		if isRecursive(&structs[i]) {
+			structs[i].IsRecursive = true
 		}
 	}
 }

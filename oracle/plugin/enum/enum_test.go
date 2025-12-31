@@ -18,8 +18,8 @@ import (
 
 var _ = Describe("CollectReferenced", func() {
 	It("should return empty for structs without enum fields", func() {
-		structs := []*resolution.Struct{{
-			Fields: []*resolution.Field{{
+		structs := []resolution.Struct{{
+			Fields: []resolution.Field{{
 				TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindPrimitive},
 			}},
 		}}
@@ -27,10 +27,10 @@ var _ = Describe("CollectReferenced", func() {
 	})
 
 	It("should collect enums from struct fields", func() {
-		taskState := &resolution.Enum{Name: "TaskState", QualifiedName: "task.TaskState"}
-		structs := []*resolution.Struct{{
-			Fields: []*resolution.Field{{
-				TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindEnum, EnumRef: taskState},
+		taskState := resolution.Enum{Name: "TaskState", QualifiedName: "task.TaskState"}
+		structs := []resolution.Struct{{
+			Fields: []resolution.Field{{
+				TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindEnum, EnumRef: &taskState},
 			}},
 		}}
 		result := enum.CollectReferenced(structs)
@@ -39,33 +39,33 @@ var _ = Describe("CollectReferenced", func() {
 	})
 
 	It("should deduplicate enums by qualified name", func() {
-		taskState := &resolution.Enum{Name: "TaskState", QualifiedName: "task.TaskState"}
-		structs := []*resolution.Struct{
-			{Fields: []*resolution.Field{{
-				TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindEnum, EnumRef: taskState},
+		taskState := resolution.Enum{Name: "TaskState", QualifiedName: "task.TaskState"}
+		structs := []resolution.Struct{
+			{Fields: []resolution.Field{{
+				TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindEnum, EnumRef: &taskState},
 			}}},
-			{Fields: []*resolution.Field{{
-				TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindEnum, EnumRef: taskState},
+			{Fields: []resolution.Field{{
+				TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindEnum, EnumRef: &taskState},
 			}}},
 		}
 		Expect(enum.CollectReferenced(structs)).To(HaveLen(1))
 	})
 
 	It("should collect multiple different enums", func() {
-		taskState := &resolution.Enum{Name: "TaskState", QualifiedName: "task.TaskState"}
-		dataType := &resolution.Enum{Name: "DataType", QualifiedName: "telem.DataType"}
-		structs := []*resolution.Struct{{
-			Fields: []*resolution.Field{
-				{TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindEnum, EnumRef: taskState}},
-				{TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindEnum, EnumRef: dataType}},
+		taskState := resolution.Enum{Name: "TaskState", QualifiedName: "task.TaskState"}
+		dataType := resolution.Enum{Name: "DataType", QualifiedName: "telem.DataType"}
+		structs := []resolution.Struct{{
+			Fields: []resolution.Field{
+				{TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindEnum, EnumRef: &taskState}},
+				{TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindEnum, EnumRef: &dataType}},
 			},
 		}}
 		Expect(enum.CollectReferenced(structs)).To(HaveLen(2))
 	})
 
 	It("should skip fields with nil EnumRef", func() {
-		structs := []*resolution.Struct{{
-			Fields: []*resolution.Field{{
+		structs := []resolution.Struct{{
+			Fields: []resolution.Field{{
 				TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindEnum, EnumRef: nil},
 			}},
 		}}
@@ -74,21 +74,21 @@ var _ = Describe("CollectReferenced", func() {
 
 	It("should handle empty structs slice", func() {
 		Expect(enum.CollectReferenced(nil)).To(BeEmpty())
-		Expect(enum.CollectReferenced([]*resolution.Struct{})).To(BeEmpty())
+		Expect(enum.CollectReferenced([]resolution.Struct{})).To(BeEmpty())
 	})
 })
 
 var _ = Describe("FindOutputPath", func() {
 	It("should find output path from struct in same namespace", func() {
-		e := &resolution.Enum{Name: "TaskState", Namespace: "task"}
+		e := resolution.Enum{Name: "TaskState", Namespace: "task"}
 		table := &resolution.Table{
-			Structs: []*resolution.Struct{
+			Structs: []resolution.Struct{
 				{
 					Name:          "Task",
 					QualifiedName: "task.Task",
 					Namespace:     "task",
-					Domains: map[string]*resolution.Domain{
-						"ts": {Expressions: []*resolution.Expression{{
+					Domains: map[string]resolution.Domain{
+						"ts": {Expressions: []resolution.Expression{{
 							Name:   "output",
 							Values: []resolution.ExpressionValue{{StringValue: "client/ts/task"}},
 						}}},
@@ -100,15 +100,15 @@ var _ = Describe("FindOutputPath", func() {
 	})
 
 	It("should return empty for enum with no matching namespace", func() {
-		e := &resolution.Enum{Name: "TaskState", Namespace: "task"}
+		e := resolution.Enum{Name: "TaskState", Namespace: "task"}
 		table := &resolution.Table{
-			Structs: []*resolution.Struct{
+			Structs: []resolution.Struct{
 				{
 					Name:          "Other",
 					QualifiedName: "other.Other",
 					Namespace:     "other",
-					Domains: map[string]*resolution.Domain{
-						"ts": {Expressions: []*resolution.Expression{{
+					Domains: map[string]resolution.Domain{
+						"ts": {Expressions: []resolution.Expression{{
 							Name:   "output",
 							Values: []resolution.ExpressionValue{{StringValue: "client/ts/other"}},
 						}}},
@@ -120,14 +120,14 @@ var _ = Describe("FindOutputPath", func() {
 	})
 
 	It("should return empty for struct without output domain", func() {
-		e := &resolution.Enum{Name: "TaskState", Namespace: "task"}
+		e := resolution.Enum{Name: "TaskState", Namespace: "task"}
 		table := &resolution.Table{
-			Structs: []*resolution.Struct{
+			Structs: []resolution.Struct{
 				{
 					Name:          "Task",
 					QualifiedName: "task.Task",
 					Namespace:     "task",
-					Domains:       map[string]*resolution.Domain{},
+					Domains:       map[string]resolution.Domain{},
 				},
 			},
 		}
@@ -135,19 +135,19 @@ var _ = Describe("FindOutputPath", func() {
 	})
 
 	It("should work with different domain names", func() {
-		e := &resolution.Enum{Name: "State", Namespace: "test"}
+		e := resolution.Enum{Name: "State", Namespace: "test"}
 		table := &resolution.Table{
-			Structs: []*resolution.Struct{
+			Structs: []resolution.Struct{
 				{
 					Name:          "Test",
 					QualifiedName: "test.Test",
 					Namespace:     "test",
-					Domains: map[string]*resolution.Domain{
-						"go": {Expressions: []*resolution.Expression{{
+					Domains: map[string]resolution.Domain{
+						"go": {Expressions: []resolution.Expression{{
 							Name:   "output",
 							Values: []resolution.ExpressionValue{{StringValue: "core/test"}},
 						}}},
-						"py": {Expressions: []*resolution.Expression{{
+						"py": {Expressions: []resolution.Expression{{
 							Name:   "output",
 							Values: []resolution.ExpressionValue{{StringValue: "client/py/test"}},
 						}}},

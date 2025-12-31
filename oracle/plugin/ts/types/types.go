@@ -110,8 +110,8 @@ func findPackageDir(file string) string {
 // Generate produces TypeScript type definition files from the analyzed schemas.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
-	outputStructs := make(map[string][]*resolution.Struct)
-	outputEnums := make(map[string][]*resolution.Enum)
+	outputStructs := make(map[string][]resolution.Struct)
+	outputEnums := make(map[string][]resolution.Enum)
 	for _, entry := range req.Resolutions.AllStructs() {
 		if outputPath := pluginoutput.GetPath(entry, "ts"); outputPath != "" {
 			if req.RepoRoot != "" {
@@ -160,12 +160,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
-func mergeEnums(a, b []*resolution.Enum) []*resolution.Enum {
+func mergeEnums(a, b []resolution.Enum) []resolution.Enum {
 	seen := make(map[string]bool, len(a))
 	for _, e := range a {
 		seen[e.QualifiedName] = true
 	}
-	result := append([]*resolution.Enum{}, a...)
+	result := append([]resolution.Enum{}, a...)
 	for _, e := range b {
 		if !seen[e.QualifiedName] {
 			result = append(result, e)
@@ -227,8 +227,8 @@ func calculateRelativeImport(from, to string) string {
 func (p *Plugin) generateFile(
 	namespace string,
 	outputPath string,
-	structs []*resolution.Struct,
-	enums []*resolution.Enum,
+	structs []resolution.Struct,
+	enums []resolution.Enum,
 	req *plugin.Request,
 ) ([]byte, error) {
 	data := &templateData{
@@ -241,7 +241,7 @@ func (p *Plugin) generateFile(
 		GenerateTypes: p.Options.GenerateTypes,
 		Imports:       make(map[string]*importSpec),
 	}
-	skip := func(s *resolution.Struct) bool { return handwritten.IsStruct(s, "ts") }
+	skip := func(s resolution.Struct) bool { return handwritten.IsStruct(s, "ts") }
 	rawKeyFields := key.Collect(structs, skip)
 	keyFields := p.convertKeyFields(rawKeyFields, structs, data)
 	data.KeyFields = keyFields
@@ -262,7 +262,7 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
-func (p *Plugin) convertKeyFields(fields []key.Field, structs []*resolution.Struct, data *templateData) []keyFieldData {
+func (p *Plugin) convertKeyFields(fields []key.Field, structs []resolution.Struct, data *templateData) []keyFieldData {
 	result := make([]keyFieldData, 0, len(fields))
 	for _, f := range fields {
 		primitive := f.Primitive
@@ -279,7 +279,7 @@ func (p *Plugin) convertKeyFields(fields []key.Field, structs []*resolution.Stru
 	return result
 }
 
-func findFieldTypeOverride(structs []*resolution.Struct, fieldName, domainName string) string {
+func findFieldTypeOverride(structs []resolution.Struct, fieldName, domainName string) string {
 	for _, s := range structs {
 		for _, f := range s.Fields {
 			if f.Name == fieldName {
@@ -292,7 +292,11 @@ func findFieldTypeOverride(structs []*resolution.Struct, fieldName, domainName s
 	return ""
 }
 
-func (p *Plugin) extractOntology(structs []*resolution.Struct, keyFields []key.Field, skip ontology.SkipFunc) *ontologyData {
+func (p *Plugin) extractOntology(
+	structs []resolution.Struct,
+	keyFields []key.Field,
+	skip ontology.SkipFunc,
+) *ontologyData {
 	data := ontology.Extract(structs, keyFields, skip)
 	if data == nil {
 		return nil
@@ -311,7 +315,7 @@ func (p *Plugin) extractOntology(structs []*resolution.Struct, keyFields []key.F
 	}
 }
 
-func (p *Plugin) processEnum(enum *resolution.Enum) enumData {
+func (p *Plugin) processEnum(enum resolution.Enum) enumData {
 	values := make([]enumValueData, 0, len(enum.Values))
 	for _, v := range enum.Values {
 		values = append(values, enumValueData{
@@ -324,7 +328,7 @@ func (p *Plugin) processEnum(enum *resolution.Enum) enumData {
 	return enumData{Name: enum.Name, Values: values, IsIntEnum: enum.IsIntEnum}
 }
 
-func (p *Plugin) processStruct(entry *resolution.Struct, table *resolution.Table, data *templateData, keyFields []keyFieldData) structData {
+func (p *Plugin) processStruct(entry resolution.Struct, table *resolution.Table, data *templateData, keyFields []keyFieldData) structData {
 	sd := structData{
 		Name:          entry.Name,
 		TSName:        entry.Name,
@@ -392,7 +396,7 @@ func (p *Plugin) processStruct(entry *resolution.Struct, table *resolution.Table
 		}
 
 		// Build map of parent fields for comparison
-		parentFields := make(map[string]*resolution.Field)
+		parentFields := make(map[string]resolution.Field)
 		for _, pf := range parentStruct.UnifiedFields() {
 			parentFields[pf.Name] = pf
 		}
@@ -468,7 +472,7 @@ func sameBaseType(a, b *resolution.TypeRef) bool {
 	return true
 }
 
-func (p *Plugin) processTypeParam(tp *resolution.TypeParam, data *templateData) typeParamData {
+func (p *Plugin) processTypeParam(tp resolution.TypeParam, data *templateData) typeParamData {
 	tpd := typeParamData{Name: tp.Name, Constraint: "z.ZodType"}
 	if tp.Constraint != nil {
 		tpd.IsJSON = tp.Constraint.Primitive == "json"
@@ -529,13 +533,13 @@ func fallbackForConstraint(constraint *resolution.TypeRef) string {
 
 // isSelfReference checks if a type reference points to the parent struct,
 // either directly or through arrays/optionals.
-func isSelfReference(t *resolution.TypeRef, parent *resolution.Struct) bool {
-	if t == nil || parent == nil {
+func isSelfReference(t *resolution.TypeRef, parent resolution.Struct) bool {
+	if t == nil {
 		return false
 	}
 	switch t.Kind {
 	case resolution.TypeKindStruct:
-		if t.StructRef == parent {
+		if t.StructRef.QualifiedName == parent.QualifiedName {
 			return true
 		}
 		// Check type arguments for generic recursive references
@@ -548,7 +552,7 @@ func isSelfReference(t *resolution.TypeRef, parent *resolution.Struct) bool {
 	return false
 }
 
-func (p *Plugin) processField(field *resolution.Field, parentStruct *resolution.Struct, table *resolution.Table, data *templateData, keyFields []keyFieldData, useInput bool) fieldData {
+func (p *Plugin) processField(field resolution.Field, parentStruct resolution.Struct, table *resolution.Table, data *templateData, keyFields []keyFieldData, useInput bool) fieldData {
 	fd := fieldData{
 		Name:           field.Name,
 		TSName:         lo.CamelCase(field.Name),
@@ -560,7 +564,7 @@ func (p *Plugin) processField(field *resolution.Field, parentStruct *resolution.
 	if typeOverride := getFieldTypeOverride(field, "ts"); typeOverride != "" {
 		fd.ZodType = primitiveToZod(typeOverride, data, useInput)
 		fd.TSType = primitiveToTS(typeOverride)
-		if validateDomain := plugin.GetFieldDomain(field, "validate"); validateDomain != nil {
+		if validateDomain, ok := plugin.GetFieldDomain(field, "validate"); ok {
 			fd.ZodType = p.applyValidation(fd.ZodType, validateDomain, field.TypeRef, field.Name)
 		}
 	} else if _, hasKey := field.Domains["key"]; hasKey {
@@ -574,7 +578,7 @@ func (p *Plugin) processField(field *resolution.Field, parentStruct *resolution.
 	} else {
 		fd.ZodType = p.typeToZod(field.TypeRef, table, data, useInput)
 		fd.TSType = p.typeToTS(field.TypeRef, table, data)
-		if validateDomain := plugin.GetFieldDomain(field, "validate"); validateDomain != nil {
+		if validateDomain, ok := plugin.GetFieldDomain(field, "validate"); ok {
 			fd.ZodType = p.applyValidation(fd.ZodType, validateDomain, field.TypeRef, field.Name)
 		}
 	}
@@ -603,9 +607,9 @@ func findKeyField(name string, keyFields []keyFieldData) *keyFieldData {
 	return nil
 }
 
-func getFieldTypeOverride(field *resolution.Field, domainName string) string {
-	domain := plugin.GetFieldDomain(field, domainName)
-	if domain == nil {
+func getFieldTypeOverride(field resolution.Field, domainName string) string {
+	domain, ok := plugin.GetFieldDomain(field, domainName)
+	if !ok {
 		return ""
 	}
 	for _, expr := range domain.Expressions {
@@ -670,7 +674,7 @@ func (p *Plugin) typeToZodInternal(typeRef *resolution.TypeRef, table *resolutio
 		}
 		if typeRef.StructRef.Namespace != data.Namespace {
 			ns := typeRef.StructRef.Namespace
-			targetOutputPath := pluginoutput.GetPath(typeRef.StructRef, "ts")
+			targetOutputPath := pluginoutput.GetPath(*typeRef.StructRef, "ts")
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
@@ -685,7 +689,7 @@ func (p *Plugin) typeToZodInternal(typeRef *resolution.TypeRef, table *resolutio
 		enumName := lo.CamelCase(typeRef.EnumRef.Name) + "Z"
 		if typeRef.EnumRef.Namespace != data.Namespace {
 			ns := typeRef.EnumRef.Namespace
-			targetOutputPath := enum.FindOutputPath(typeRef.EnumRef, table, "ts")
+			targetOutputPath := enum.FindOutputPath(*typeRef.EnumRef, table, "ts")
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
@@ -849,7 +853,7 @@ func primitiveToZod(primitive string, data *templateData, useInput bool) string 
 	return "z.unknown()"
 }
 
-func (p *Plugin) applyValidation(zodType string, domain *resolution.Domain, typeRef *resolution.TypeRef, fieldName string) string {
+func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeRef *resolution.TypeRef, fieldName string) string {
 	rules := validation.Parse(domain)
 	if validation.IsEmpty(rules) {
 		return zodType

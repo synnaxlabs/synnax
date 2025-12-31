@@ -65,7 +65,7 @@ func (p *Plugin) Check(req *plugin.Request) error {
 // Generate produces Go type definition files from the analyzed schemas.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
-	outputStructs := make(map[string][]*resolution.Struct)
+	outputStructs := make(map[string][]resolution.Struct)
 
 	for _, entry := range req.Resolutions.AllStructs() {
 		if outputPath := output.GetPath(entry, "go"); outputPath != "" {
@@ -98,8 +98,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 // generateFile generates the Go source file for a set of structs.
 func (p *Plugin) generateFile(
 	outputPath string,
-	structs []*resolution.Struct,
-	enums []*resolution.Enum,
+	structs []resolution.Struct,
+	enums []resolution.Enum,
 	table *resolution.Table,
 ) ([]byte, error) {
 	sort.Slice(structs, func(i, j int) bool { return structs[i].Name < structs[j].Name })
@@ -166,7 +166,7 @@ func derivePackageAlias(outputPath, currentPackage string) string {
 }
 
 // processEnum converts an Enum to template data.
-func (p *Plugin) processEnum(e *resolution.Enum) enumData {
+func (p *Plugin) processEnum(e resolution.Enum) enumData {
 	values := make([]enumValueData, 0, len(e.Values))
 	for _, v := range e.Values {
 		values = append(values, enumValueData{
@@ -183,7 +183,7 @@ func (p *Plugin) processEnum(e *resolution.Enum) enumData {
 }
 
 // processStruct converts a Struct to template data.
-func (p *Plugin) processStruct(entry *resolution.Struct, data *templateData) structData {
+func (p *Plugin) processStruct(entry resolution.Struct, data *templateData) structData {
 	sd := structData{
 		Name:      entry.Name,
 		Doc:       doc.Get(entry.Domains),
@@ -234,7 +234,7 @@ func (p *Plugin) processStruct(entry *resolution.Struct, data *templateData) str
 }
 
 // processTypeParam converts a TypeParam to template data.
-func (p *Plugin) processTypeParam(tp *resolution.TypeParam, data *templateData) typeParamData {
+func (p *Plugin) processTypeParam(tp resolution.TypeParam, data *templateData) typeParamData {
 	tpd := typeParamData{
 		Name:       tp.Name,
 		Constraint: "any", // Default constraint
@@ -265,7 +265,7 @@ func (p *Plugin) constraintToGo(constraint *resolution.TypeRef, data *templateDa
 }
 
 // processField converts a Field to template data.
-func (p *Plugin) processField(field *resolution.Field, data *templateData) fieldData {
+func (p *Plugin) processField(field resolution.Field, data *templateData) fieldData {
 	goType := p.typeToGo(field.TypeRef, data)
 
 	return fieldData{
@@ -326,7 +326,7 @@ func (p *Plugin) resolveStructType(typeRef *resolution.TypeRef, data *templateDa
 	}
 
 	// Cross-namespace - need import
-	targetOutputPath := output.GetPath(structRef, "go")
+	targetOutputPath := output.GetPath(*structRef, "go")
 	if targetOutputPath == "" {
 		return "any" // No Go output defined
 	}
@@ -353,7 +353,7 @@ func (p *Plugin) resolveEnumType(typeRef *resolution.TypeRef, data *templateData
 	}
 
 	// Cross-namespace - need import
-	targetOutputPath := enum.FindOutputPath(enumRef, data.table, "go")
+	targetOutputPath := enum.FindOutputPath(*enumRef, data.table, "go")
 	if targetOutputPath == "" {
 		return "any" // No Go output defined
 	}
@@ -415,7 +415,7 @@ func (p *Plugin) resolveExtendsType(extendsRef *resolution.TypeRef, data *templa
 	}
 
 	// Cross-namespace - need import
-	targetOutputPath := output.GetPath(parent, "go")
+	targetOutputPath := output.GetPath(*parent, "go")
 	if targetOutputPath == "" {
 		return parent.Name
 	}

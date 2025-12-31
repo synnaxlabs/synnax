@@ -20,12 +20,12 @@ type Field struct {
 }
 
 // SkipFunc is a predicate that determines whether to skip a struct when collecting keys.
-type SkipFunc func(*resolution.Struct) bool
+type SkipFunc func(resolution.Struct) bool
 
 // Collect gathers all unique key fields from the given structs.
 // Fields marked with @key domain are collected, and the skip function can
 // be used to exclude certain structs from collection.
-func Collect(structs []*resolution.Struct, skip SkipFunc) []Field {
+func Collect(structs []resolution.Struct, skip SkipFunc) []Field {
 	seen := make(map[string]bool)
 	var result []Field
 	for _, s := range structs {

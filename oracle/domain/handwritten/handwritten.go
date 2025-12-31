@@ -15,7 +15,7 @@ package handwritten
 import "github.com/synnaxlabs/oracle/resolution"
 
 // IsStruct returns true if the struct has a "handwritten" expression in the domain.
-func IsStruct(s *resolution.Struct, domainName string) bool {
+func IsStruct(s resolution.Struct, domainName string) bool {
 	domain, ok := s.Domains[domainName]
 	if !ok {
 		return false
@@ -29,7 +29,7 @@ func IsStruct(s *resolution.Struct, domainName string) bool {
 }
 
 // IsEnum returns true if the enum has a "handwritten" expression in the domain.
-func IsEnum(e *resolution.Enum, domainName string) bool {
+func IsEnum(e resolution.Enum, domainName string) bool {
 	domain, ok := e.Domains[domainName]
 	if !ok {
 		return false

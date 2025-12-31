@@ -170,10 +170,9 @@ func (e *DuplicatePluginError) Error() string {
 // FilterStructsForPlugin filters structs based on the plugin's domains.
 // If the plugin has no domain filter, all structs are returned.
 // Otherwise, only structs that have fields with matching domains are returned.
-func FilterStructsForPlugin(p Plugin, table *resolution.Table) []*resolution.Struct {
+func FilterStructsForPlugin(p Plugin, table *resolution.Table) []resolution.Struct {
 	domains := p.Domains()
 	if len(domains) == 0 {
-		// No filter - return all structs
 		return table.AllStructs()
 	}
 
@@ -182,7 +181,7 @@ func FilterStructsForPlugin(p Plugin, table *resolution.Table) []*resolution.Str
 		domainSet[d] = true
 	}
 
-	var result []*resolution.Struct
+	var result []resolution.Struct
 	for _, entry := range table.AllStructs() {
 		if structHasDomain(entry, domainSet) {
 			result = append(result, entry)
@@ -192,15 +191,12 @@ func FilterStructsForPlugin(p Plugin, table *resolution.Table) []*resolution.Str
 }
 
 // structHasDomain checks if a struct has any of the specified domains.
-func structHasDomain(entry *resolution.Struct, domains map[string]bool) bool {
-	// Check struct-level domains
+func structHasDomain(entry resolution.Struct, domains map[string]bool) bool {
 	for domainName := range entry.Domains {
 		if domains[domainName] {
 			return true
 		}
 	}
-
-	// Check field-level domains
 	for _, field := range entry.Fields {
 		for domainName := range field.Domains {
 			if domains[domainName] {
@@ -208,19 +204,13 @@ func structHasDomain(entry *resolution.Struct, domains map[string]bool) bool {
 			}
 		}
 	}
-
 	return false
 }
 
 // FilterFieldsWithDomain returns fields that have any of the specified domains.
-func FilterFieldsWithDomain(entry *resolution.Struct, domains []string) []*resolution.Field {
+func FilterFieldsWithDomain(entry resolution.Struct, domains []string) []resolution.Field {
 	if len(domains) == 0 {
-		// No filter - return all fields
-		result := make([]*resolution.Field, 0, len(entry.Fields))
-		for _, field := range entry.Fields {
-			result = append(result, field)
-		}
-		return result
+		return entry.Fields
 	}
 
 	domainSet := make(map[string]bool, len(domains))
@@ -228,7 +218,7 @@ func FilterFieldsWithDomain(entry *resolution.Struct, domains []string) []*resol
 		domainSet[d] = true
 	}
 
-	var result []*resolution.Field
+	var result []resolution.Field
 	for _, field := range entry.Fields {
 		for domainName := range field.Domains {
 			if domainSet[domainName] {
@@ -240,44 +230,44 @@ func FilterFieldsWithDomain(entry *resolution.Struct, domains []string) []*resol
 	return result
 }
 
-// GetFieldDomain returns a specific domain from a field, or nil if not present.
-func GetFieldDomain(field *resolution.Field, domainName string) *resolution.Domain {
-	return field.Domains[domainName]
+// GetFieldDomain returns a specific domain from a field, or zero value if not present.
+func GetFieldDomain(field resolution.Field, domainName string) (resolution.Domain, bool) {
+	d, ok := field.Domains[domainName]
+	return d, ok
 }
 
-// GetStructDomain returns a specific domain from a struct, or nil if not present.
-func GetStructDomain(entry *resolution.Struct, domainName string) *resolution.Domain {
-	return entry.Domains[domainName]
+// GetStructDomain returns a specific domain from a struct, or zero value if not present.
+func GetStructDomain(entry resolution.Struct, domainName string) (resolution.Domain, bool) {
+	d, ok := entry.Domains[domainName]
+	return d, ok
 }
 
 // HasDomain checks if a field has a specific domain.
-func HasDomain(field *resolution.Field, domainName string) bool {
+func HasDomain(field resolution.Field, domainName string) bool {
 	_, ok := field.Domains[domainName]
 	return ok
 }
 
 // GetExpressionValue returns the first value of an expression, or a zero value if none.
-func GetExpressionValue(expr *resolution.Expression) resolution.ExpressionValue {
+func GetExpressionValue(expr resolution.Expression) resolution.ExpressionValue {
 	if len(expr.Values) > 0 {
 		return expr.Values[0]
 	}
 	return resolution.ExpressionValue{}
 }
 
-// FindExpression finds an expression by name in a domain, or nil if not found.
-func FindExpression(domain *resolution.Domain, name string) *resolution.Expression {
-	if domain == nil {
-		return nil
-	}
+// FindExpression finds an expression by name in a domain.
+func FindExpression(domain resolution.Domain, name string) (resolution.Expression, bool) {
 	for _, expr := range domain.Expressions {
 		if expr.Name == name {
-			return expr
+			return expr, true
 		}
 	}
-	return nil
+	return resolution.Expression{}, false
 }
 
 // HasExpression checks if a domain has an expression with the given name.
-func HasExpression(domain *resolution.Domain, name string) bool {
-	return FindExpression(domain, name) != nil
+func HasExpression(domain resolution.Domain, name string) bool {
+	_, ok := FindExpression(domain, name)
+	return ok
 }

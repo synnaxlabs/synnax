@@ -24,11 +24,11 @@ type Data struct {
 }
 
 // SkipFunc is a predicate that determines whether to skip a struct.
-type SkipFunc func(*resolution.Struct) bool
+type SkipFunc func(resolution.Struct) bool
 
 // Extract finds ontology metadata from structs with an @ontology domain.
 // Returns nil if no ontology domain is found or if there are no key fields.
-func Extract(structs []*resolution.Struct, keyFields []key.Field, skip SkipFunc) *Data {
+func Extract(structs []resolution.Struct, keyFields []key.Field, skip SkipFunc) *Data {
 	if len(keyFields) == 0 {
 		return nil
 	}

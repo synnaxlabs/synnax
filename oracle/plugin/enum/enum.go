@@ -17,15 +17,15 @@ import (
 
 // CollectReferenced collects unique enums referenced by struct fields.
 // Returns a deduplicated slice based on QualifiedName.
-func CollectReferenced(structs []*resolution.Struct) []*resolution.Enum {
+func CollectReferenced(structs []resolution.Struct) []resolution.Enum {
 	seen := make(map[string]bool)
-	var enums []*resolution.Enum
+	var enums []resolution.Enum
 	for _, s := range structs {
 		for _, f := range s.Fields {
 			if f.TypeRef.Kind == resolution.TypeKindEnum && f.TypeRef.EnumRef != nil {
 				if !seen[f.TypeRef.EnumRef.QualifiedName] {
 					seen[f.TypeRef.EnumRef.QualifiedName] = true
-					enums = append(enums, f.TypeRef.EnumRef)
+					enums = append(enums, *f.TypeRef.EnumRef)
 				}
 			}
 		}
@@ -37,12 +37,10 @@ func CollectReferenced(structs []*resolution.Struct) []*resolution.Enum {
 // First checks if the enum has its own output domain, then falls back to
 // searching for a struct in the same namespace that has an output domain.
 // domainName specifies which domain to look up (e.g., "ts", "py").
-func FindOutputPath(e *resolution.Enum, table *resolution.Table, domainName string) string {
-	// First check if enum has its own output path
+func FindOutputPath(e resolution.Enum, table *resolution.Table, domainName string) string {
 	if path := output.GetEnumPath(e, domainName); path != "" {
 		return path
 	}
-	// Fall back to struct in same namespace
 	for _, s := range table.AllStructs() {
 		if s.Namespace == e.Namespace {
 			if path := output.GetPath(s, domainName); path != "" {
@@ -55,8 +53,8 @@ func FindOutputPath(e *resolution.Enum, table *resolution.Table, domainName stri
 
 // CollectWithOwnOutput collects enums that have their own output domain defined.
 // These are standalone enums not just referenced by structs.
-func CollectWithOwnOutput(allEnums []*resolution.Enum, domainName string) []*resolution.Enum {
-	var result []*resolution.Enum
+func CollectWithOwnOutput(allEnums []resolution.Enum, domainName string) []resolution.Enum {
+	var result []resolution.Enum
 	for _, e := range allEnums {
 		if output.GetEnumPath(e, domainName) != "" && !output.IsEnumHandwritten(e, domainName) {
 			result = append(result, e)

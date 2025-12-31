@@ -35,10 +35,7 @@ type Number struct {
 
 // Parse extracts validation rules from a @validate domain entry.
 // Returns nil if the domain is nil.
-func Parse(domain *resolution.Domain) *Rules {
-	if domain == nil {
-		return nil
-	}
+func Parse(domain resolution.Domain) *Rules {
 	rules := &Rules{}
 	for _, expr := range domain.Expressions {
 		if len(expr.Values) == 0 {

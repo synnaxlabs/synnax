@@ -108,7 +108,7 @@ func findPoetryDir(file string) string {
 // Generate produces Python Pydantic model files from the analyzed schemas.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
-	outputStructs := make(map[string][]*resolution.Struct)
+	outputStructs := make(map[string][]resolution.Struct)
 	for _, entry := range req.Resolutions.AllStructs() {
 		if outputPath := pluginoutput.GetPath(entry, "py"); outputPath != "" {
 			if req.RepoRoot != "" {
@@ -135,8 +135,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 func (p *Plugin) generateFile(
 	namespace string,
-	structs []*resolution.Struct,
-	enums []*resolution.Enum,
+	structs []resolution.Struct,
+	enums []resolution.Enum,
 	table *resolution.Table,
 ) ([]byte, error) {
 	data := &templateData{
@@ -147,7 +147,7 @@ func (p *Plugin) generateFile(
 		imports:   newImportManager(),
 	}
 	data.imports.addPydantic("BaseModel")
-	skip := func(s *resolution.Struct) bool { return handwritten.IsStruct(s, "py") }
+	skip := func(s resolution.Struct) bool { return handwritten.IsStruct(s, "py") }
 	rawKeyFields := key.Collect(structs, skip)
 	keyFields := p.convertKeyFields(rawKeyFields, data)
 	data.KeyFields = keyFields
@@ -179,7 +179,7 @@ func (p *Plugin) convertKeyFields(fields []key.Field, data *templateData) []keyF
 	return result
 }
 
-func (p *Plugin) extractOntology(structs []*resolution.Struct, rawFields []key.Field, keyFields []keyFieldData, skip ontology.SkipFunc) *ontologyData {
+func (p *Plugin) extractOntology(structs []resolution.Struct, rawFields []key.Field, keyFields []keyFieldData, skip ontology.SkipFunc) *ontologyData {
 	data := ontology.Extract(structs, rawFields, skip)
 	if data == nil || len(keyFields) == 0 {
 		return nil
@@ -191,7 +191,7 @@ func (p *Plugin) extractOntology(structs []*resolution.Struct, rawFields []key.F
 	}
 }
 
-func (p *Plugin) processEnum(enum *resolution.Enum, data *templateData) enumData {
+func (p *Plugin) processEnum(enum resolution.Enum, data *templateData) enumData {
 	values := make([]enumValueData, 0, len(enum.Values))
 	var literalValues []string
 	for _, v := range enum.Values {
@@ -219,7 +219,7 @@ func (p *Plugin) processEnum(enum *resolution.Enum, data *templateData) enumData
 }
 
 func (p *Plugin) processStruct(
-	entry *resolution.Struct,
+	entry resolution.Struct,
 	table *resolution.Table,
 	data *templateData,
 	keyFields []keyFieldData,
@@ -278,7 +278,7 @@ func (p *Plugin) processStruct(
 }
 
 func (p *Plugin) processField(
-	field *resolution.Field,
+	field resolution.Field,
 	table *resolution.Table,
 	data *templateData,
 	keyFields []keyFieldData,
@@ -292,7 +292,7 @@ func (p *Plugin) processField(
 
 	baseType := p.typeToPython(field.TypeRef, table, data)
 	var fieldConstraints []string
-	if validateDomain := plugin.GetFieldDomain(field, "validate"); validateDomain != nil {
+	if validateDomain, ok := plugin.GetFieldDomain(field, "validate"); ok {
 		fieldConstraints = p.collectValidation(validateDomain, field.TypeRef, data)
 	}
 
@@ -337,7 +337,7 @@ func (p *Plugin) buildDefault(
 }
 
 func (p *Plugin) collectValidation(
-	domain *resolution.Domain,
+	domain resolution.Domain,
 	typeRef *resolution.TypeRef,
 	data *templateData,
 ) []string {
@@ -416,7 +416,7 @@ func (p *Plugin) typeToPython(
 		structName := typeRef.StructRef.Name
 		if typeRef.StructRef.Namespace != data.Namespace {
 			ns := typeRef.StructRef.Namespace
-			outputPath := pluginoutput.GetPath(typeRef.StructRef, "py")
+			outputPath := pluginoutput.GetPath(*typeRef.StructRef, "py")
 			if outputPath == "" {
 				outputPath = ns
 			}
@@ -433,7 +433,7 @@ func (p *Plugin) typeToPython(
 		enumName := typeRef.EnumRef.Name
 		if typeRef.EnumRef.Namespace != data.Namespace {
 			ns := typeRef.EnumRef.Namespace
-			outputPath := enum.FindOutputPath(typeRef.EnumRef, table, "py")
+			outputPath := enum.FindOutputPath(*typeRef.EnumRef, table, "py")
 			if outputPath == "" {
 				outputPath = ns
 			}
@@ -463,7 +463,7 @@ func (p *Plugin) typeRefToPythonAlias(
 	var baseName string
 	structRef := typeRef.StructRef
 	if structRef.Namespace != data.Namespace {
-		outputPath := pluginoutput.GetPath(structRef, "py")
+		outputPath := pluginoutput.GetPath(*structRef, "py")
 		if outputPath == "" {
 			outputPath = structRef.Namespace
 		}

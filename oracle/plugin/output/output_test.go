@@ -18,43 +18,43 @@ import (
 
 var _ = Describe("GetPath", func() {
 	DescribeTable("extracts output path from struct domains",
-		func(domainName string, domains map[string]*resolution.Domain, expected string) {
-			entry := &resolution.Struct{Domains: domains}
+		func(domainName string, domains map[string]resolution.Domain, expected string) {
+			entry := resolution.Struct{Domains: domains}
 			Expect(output.GetPath(entry, domainName)).To(Equal(expected))
 		},
 		Entry("go domain with output", "go",
-			map[string]*resolution.Domain{
-				"go": {Expressions: []*resolution.Expression{{
+			map[string]resolution.Domain{
+				"go": {Expressions: []resolution.Expression{{
 					Name:   "output",
 					Values: []resolution.ExpressionValue{{StringValue: "core/pkg/user"}},
 				}}},
 			}, "core/pkg/user"),
 		Entry("ts domain with output", "ts",
-			map[string]*resolution.Domain{
-				"ts": {Expressions: []*resolution.Expression{{
+			map[string]resolution.Domain{
+				"ts": {Expressions: []resolution.Expression{{
 					Name:   "output",
 					Values: []resolution.ExpressionValue{{StringValue: "client/ts/user"}},
 				}}},
 			}, "client/ts/user"),
 		Entry("py domain with output", "py",
-			map[string]*resolution.Domain{
-				"py": {Expressions: []*resolution.Expression{{
+			map[string]resolution.Domain{
+				"py": {Expressions: []resolution.Expression{{
 					Name:   "output",
 					Values: []resolution.ExpressionValue{{StringValue: "client/py/user"}},
 				}}},
 			}, "client/py/user"),
-		Entry("missing domain", "go", map[string]*resolution.Domain{}, ""),
+		Entry("missing domain", "go", map[string]resolution.Domain{}, ""),
 		Entry("domain without output expression", "go",
-			map[string]*resolution.Domain{
-				"go": {Expressions: []*resolution.Expression{{Name: "other"}}},
+			map[string]resolution.Domain{
+				"go": {Expressions: []resolution.Expression{{Name: "other"}}},
 			}, ""),
 		Entry("output expression without values", "go",
-			map[string]*resolution.Domain{
-				"go": {Expressions: []*resolution.Expression{{Name: "output"}}},
+			map[string]resolution.Domain{
+				"go": {Expressions: []resolution.Expression{{Name: "output"}}},
 			}, ""),
 		Entry("multiple expressions takes first output", "go",
-			map[string]*resolution.Domain{
-				"go": {Expressions: []*resolution.Expression{
+			map[string]resolution.Domain{
+				"go": {Expressions: []resolution.Expression{
 					{Name: "package", Values: []resolution.ExpressionValue{{StringValue: "pkg"}}},
 					{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "first"}}},
 					{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "second"}}},

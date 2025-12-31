@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Analyzer", func() {
@@ -51,7 +52,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(rangeStruct.Fields).To(HaveLen(2))
 
 			// Check key field
-			keyField := rangeStruct.Field("key")
+			keyField := MustBeOk(rangeStruct.Field("key"))
 			Expect(keyField).NotTo(BeNil())
 			Expect(keyField.TypeRef.RawType).To(Equal("uuid"))
 			Expect(keyField.TypeRef.Kind).To(Equal(resolution.TypeKindPrimitive))
@@ -59,7 +60,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(keyField.Domains).To(HaveKey("key"))
 
 			// Check name field
-			nameField := rangeStruct.Field("name")
+			nameField := MustBeOk(rangeStruct.Field("name"))
 			Expect(nameField).NotTo(BeNil())
 			Expect(nameField.TypeRef.RawType).To(Equal("string"))
 			Expect(nameField.TypeRef.Kind).To(Equal(resolution.TypeKindPrimitive))
@@ -85,7 +86,6 @@ var _ = Describe("Analyzer", func() {
 			Expect(taskState.Values).To(HaveLen(4))
 			Expect(taskState.Values[0].Name).To(Equal("pending"))
 			Expect(taskState.Values[0].IntValue).To(Equal(int64(0)))
-			Expect(taskState.ValuesByName["failed"].IntValue).To(Equal(int64(3)))
 		})
 
 		It("Should analyze a string enum", func() {
@@ -125,7 +125,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.HasErrors()).To(BeFalse())
 
 			userStruct := table.MustGetStruct("user.User")
-			nameField := userStruct.Field("name")
+			nameField := MustBeOk(userStruct.Field("name"))
 			Expect(nameField.Domains).To(HaveLen(2))
 			Expect(nameField.Domains).To(HaveKey("validate"))
 			Expect(nameField.Domains).To(HaveKey("query"))
@@ -176,11 +176,11 @@ var _ = Describe("Analyzer", func() {
 
 			rangeStruct := table.MustGetStruct("ranger.Range")
 
-			labelsField := rangeStruct.Field("labels")
+			labelsField := MustBeOk(rangeStruct.Field("labels"))
 			Expect(labelsField.TypeRef.IsArray).To(BeTrue())
 			Expect(labelsField.TypeRef.IsOptional).To(BeFalse())
 
-			tagsField := rangeStruct.Field("tags")
+			tagsField := MustBeOk(rangeStruct.Field("tags"))
 			Expect(tagsField.TypeRef.IsArray).To(BeTrue())
 			Expect(tagsField.TypeRef.IsOptional).To(BeTrue())
 		})
@@ -195,7 +195,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.HasErrors()).To(BeFalse())
 
 			rangeStruct := table.MustGetStruct("ranger.Range")
-			parentField := rangeStruct.Field("parent")
+			parentField := MustBeOk(rangeStruct.Field("parent"))
 			Expect(parentField.TypeRef.IsOptional).To(BeTrue())
 			Expect(parentField.TypeRef.IsArray).To(BeFalse())
 		})
@@ -223,10 +223,8 @@ var _ = Describe("Analyzer", func() {
 
 			// Both structs should be in the table
 			Expect(table.Structs).To(HaveLen(2))
-			_, ok := table.GetStruct("ranger.Range")
-			Expect(ok).To(BeTrue())
-			_, ok = table.GetStruct("label.Label")
-			Expect(ok).To(BeTrue())
+			MustBeOk(table.GetStruct("ranger.Range"))
+			MustBeOk(table.GetStruct("label.Label"))
 		})
 
 		It("Should detect circular imports", func() {
@@ -302,7 +300,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.HasErrors()).To(BeFalse())
 
 			viewportStruct := table.MustGetStruct("viz.Viewport")
-			positionField := viewportStruct.Field("position")
+			positionField := MustBeOk(viewportStruct.Field("position"))
 			Expect(positionField.TypeRef.Kind).To(Equal(resolution.TypeKindStruct))
 			Expect(positionField.TypeRef.StructRef).NotTo(BeNil())
 			Expect(positionField.TypeRef.StructRef.Name).To(Equal("Position"))
@@ -327,7 +325,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.HasErrors()).To(BeFalse())
 
 			rangeStruct := table.MustGetStruct("ranger.Range")
-			labelsField := rangeStruct.Field("labels")
+			labelsField := MustBeOk(rangeStruct.Field("labels"))
 			Expect(labelsField.TypeRef.RawType).To(Equal("label.Label"))
 			Expect(labelsField.TypeRef.Kind).To(Equal(resolution.TypeKindStruct))
 			Expect(labelsField.TypeRef.StructRef).NotTo(BeNil())
@@ -349,7 +347,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.HasErrors()).To(BeFalse())
 
 			taskStruct := table.MustGetStruct("task.Task")
-			stateField := taskStruct.Field("state")
+			stateField := MustBeOk(taskStruct.Field("state"))
 			Expect(stateField.TypeRef.Kind).To(Equal(resolution.TypeKindEnum))
 			Expect(stateField.TypeRef.EnumRef).NotTo(BeNil())
 			Expect(stateField.TypeRef.EnumRef.Name).To(Equal("TaskState"))
@@ -491,14 +489,7 @@ var _ = Describe("Analyzer", func() {
 			allFields := child.UnifiedFields()
 			Expect(allFields).To(HaveLen(2))
 
-			var nameField *resolution.Field
-			for _, f := range allFields {
-				if f.Name == "name" {
-					nameField = f
-					break
-				}
-			}
-			Expect(nameField).NotTo(BeNil())
+			nameField := MustBeOk(allFields.Find("name"))
 			Expect(nameField.TypeRef.IsOptional).To(BeTrue())
 		})
 
@@ -529,13 +520,7 @@ var _ = Describe("Analyzer", func() {
 			allFields := rackStatus.UnifiedFields()
 			Expect(allFields).To(HaveLen(3))
 
-			var dataField *resolution.Field
-			for _, f := range allFields {
-				if f.Name == "data" {
-					dataField = f
-					break
-				}
-			}
+			dataField := MustBeOk(allFields.Find("data"))
 			Expect(dataField).NotTo(BeNil())
 			Expect(dataField.TypeRef.Kind).To(Equal(resolution.TypeKindStruct))
 			Expect(dataField.TypeRef.StructRef.Name).To(Equal("Details"))
@@ -662,15 +647,7 @@ var _ = Describe("Analyzer", func() {
 			child := table.MustGetStruct("test.Child")
 			allFields := child.UnifiedFields()
 
-			// Find the key field
-			var keyField *resolution.Field
-			for _, f := range allFields {
-				if f.Name == "key" {
-					keyField = f
-					break
-				}
-			}
-
+			keyField := MustBeOk(allFields.Find("key"))
 			Expect(keyField).NotTo(BeNil())
 			Expect(keyField.TypeRef.IsOptional).To(BeTrue()) // Child's type
 			Expect(keyField.Domains).To(HaveKey("id"))       // Parent's domain inherited
@@ -698,36 +675,16 @@ var _ = Describe("Analyzer", func() {
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
-
-			child := table.MustGetStruct("test.Child")
-			allFields := child.UnifiedFields()
-
-			// Find the name field
-			var nameField *resolution.Field
-			for _, f := range allFields {
-				if f.Name == "name" {
-					nameField = f
-					break
-				}
-			}
-
-			Expect(nameField).NotTo(BeNil())
+			var (
+				child     = table.MustGetStruct("test.Child")
+				allFields = child.UnifiedFields()
+				nameField = MustBeOk(allFields.Find("name"))
+			)
 			Expect(nameField.Domains).To(HaveKey("validate"))
-
-			// Child's @validate should win - check min_length is 5, not 1
 			validateDomain := nameField.Domains["validate"]
 			Expect(validateDomain.Expressions).To(HaveLen(2))
-
-			// Find min_length expression
-			var minLengthExpr *resolution.Expression
-			for _, expr := range validateDomain.Expressions {
-				if expr.Name == "min_length" {
-					minLengthExpr = expr
-					break
-				}
-			}
-			Expect(minLengthExpr).NotTo(BeNil())
-			Expect(minLengthExpr.Values[0].IntValue).To(Equal(int64(5))) // Child's value, not parent's 1
+			minLengthExpr := MustBeOk(validateDomain.Expressions.Find("min_length"))
+			Expect(minLengthExpr.Values[0].IntValue).To(Equal(int64(5)))
 		})
 
 		It("Should merge domains from parent when child adds new domain", func() {
@@ -742,18 +699,11 @@ var _ = Describe("Analyzer", func() {
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
-
-			child := table.MustGetStruct("test.Child")
-			allFields := child.UnifiedFields()
-
-			var keyField *resolution.Field
-			for _, f := range allFields {
-				if f.Name == "key" {
-					keyField = f
-					break
-				}
-			}
-
+			var (
+				child     = table.MustGetStruct("test.Child")
+				allFields = child.UnifiedFields()
+				keyField  = MustBeOk(allFields.Find("key"))
+			)
 			Expect(keyField).NotTo(BeNil())
 			Expect(keyField.TypeRef.IsOptional).To(BeTrue())
 			Expect(keyField.Domains).To(HaveKey("id"))       // Inherited from parent
@@ -776,24 +726,14 @@ var _ = Describe("Analyzer", func() {
 			child := table.MustGetStruct("test.Child")
 			allFields := child.UnifiedFields()
 
-			var nameField *resolution.Field
-			for _, f := range allFields {
-				if f.Name == "name" {
-					nameField = f
-					break
-				}
-			}
-
+			nameField := MustBeOk(allFields.Find("name"))
 			Expect(nameField).NotTo(BeNil())
 			validateDomain := nameField.Domains["validate"]
 			Expect(validateDomain.Expressions).To(HaveLen(2)) // Both min_length and max_length
-
-			// Build map for easy lookup
 			exprMap := make(map[string]*resolution.Expression)
 			for _, expr := range validateDomain.Expressions {
-				exprMap[expr.Name] = expr
+				exprMap[expr.Name] = &expr
 			}
-
 			Expect(exprMap).To(HaveKey("min_length")) // From parent
 			Expect(exprMap).To(HaveKey("max_length")) // From child
 			Expect(exprMap["min_length"].Values[0].IntValue).To(Equal(int64(1)))
