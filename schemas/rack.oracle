@@ -16,20 +16,21 @@ import "schemas/status"
 @pb package "rack.v1"
 
 StatusDetails struct {
-    rack uint32
+    rack uint32 @key
 
-    @go output "core/pkg/service/rack"
+    @go output  "core/pkg/service/rack"
     @go omit
+    @api output "core/pkg/api/grpc"
 }
 
 Status = status.Status<StatusDetails>
 
 Rack struct {
-    key          uint32  @key
-    name         string  @validate required
+    key          uint32   @key
+    name         string   @validate required
     task_counter uint32?
     embedded     bool?
-    status       Status?
+    status       Status??
 
     @ts name       "Payload"
     @ontology type "rack"

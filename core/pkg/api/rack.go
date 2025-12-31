@@ -45,10 +45,6 @@ func NewRackService(p Provider) *RackService {
 }
 
 type (
-	Rack = rack.Rack
-)
-
-type (
 	RackCreateRequest struct {
 		Racks []rack.Rack `json:"racks" msgpack:"racks"`
 	}

@@ -12,12 +12,14 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 
 #include "x/cpp/status/status.h"
 #include "x/cpp/xjson/xjson.h"
 
 namespace synnax::rack {
+using Rack = std::uint32_t;
 using Key = std::uint32_t;
 
 struct StatusDetails {
@@ -43,7 +45,7 @@ struct Payload {
     std::string name;
     std::uint32_t task_counter;
     bool embedded;
-    Status status;
+    std::optional<Status> status;
 
     static Payload parse(xjson::Parser parser) {
         return Payload{
@@ -51,7 +53,9 @@ struct Payload {
             .name = parser.field<std::string>("name"),
             .task_counter = parser.field<std::uint32_t>("task_counter", 0),
             .embedded = parser.field<bool>("embedded", false),
-            .status = Status::parse(parser.optional_child("status")),
+            .status = parser.has("status")
+                        ? std::make_optional(Status::parse(parser.child("status")))
+                        : std::nullopt,
         };
     }
 
@@ -61,7 +65,7 @@ struct Payload {
         j["name"] = this->name;
         j["task_counter"] = this->task_counter;
         j["embedded"] = this->embedded;
-        j["status"] = this->status.to_json();
+        if (this->status.has_value()) j["status"] = this->status->to_json();
         return j;
     }
 };

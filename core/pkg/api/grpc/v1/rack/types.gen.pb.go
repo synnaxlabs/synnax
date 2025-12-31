@@ -81,8 +81,8 @@ type PBRack struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           uint32                 `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	TaskCounter   *uint32                `protobuf:"varint,3,opt,name=task_counter,json=taskCounter,proto3,oneof" json:"task_counter,omitempty"`
-	Embedded      *bool                  `protobuf:"varint,4,opt,name=embedded,proto3,oneof" json:"embedded,omitempty"`
+	TaskCounter   uint32                 `protobuf:"varint,3,opt,name=task_counter,json=taskCounter,proto3" json:"task_counter,omitempty"`
+	Embedded      bool                   `protobuf:"varint,4,opt,name=embedded,proto3" json:"embedded,omitempty"`
 	Status        *status.PBStatus       `protobuf:"bytes,5,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -133,15 +133,15 @@ func (x *PBRack) GetName() string {
 }
 
 func (x *PBRack) GetTaskCounter() uint32 {
-	if x != nil && x.TaskCounter != nil {
-		return *x.TaskCounter
+	if x != nil {
+		return x.TaskCounter
 	}
 	return 0
 }
 
 func (x *PBRack) GetEmbedded() bool {
-	if x != nil && x.Embedded != nil {
-		return *x.Embedded
+	if x != nil {
+		return x.Embedded
 	}
 	return false
 }
@@ -159,15 +159,13 @@ const file_core_pkg_api_grpc_v1_rack_types_gen_proto_rawDesc = "" +
 	"\n" +
 	")core/pkg/api/grpc/v1/rack/types.gen.proto\x12\arack.v1\x1a*x/go/status/grpc/v1/status/types.gen.proto\"%\n" +
 	"\x0fPBStatusDetails\x12\x12\n" +
-	"\x04rack\x18\x01 \x01(\rR\x04rack\"\xd2\x01\n" +
+	"\x04rack\x18\x01 \x01(\rR\x04rack\"\xaa\x01\n" +
 	"\x06PBRack\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12&\n" +
-	"\ftask_counter\x18\x03 \x01(\rH\x00R\vtaskCounter\x88\x01\x01\x12\x1f\n" +
-	"\bembedded\x18\x04 \x01(\bH\x01R\bembedded\x88\x01\x01\x120\n" +
-	"\x06status\x18\x05 \x01(\v2\x13.status.v1.PBStatusH\x02R\x06status\x88\x01\x01B\x0f\n" +
-	"\r_task_counterB\v\n" +
-	"\t_embeddedB\t\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +
+	"\ftask_counter\x18\x03 \x01(\rR\vtaskCounter\x12\x1a\n" +
+	"\bembedded\x18\x04 \x01(\bR\bembedded\x120\n" +
+	"\x06status\x18\x05 \x01(\v2\x13.status.v1.PBStatusH\x00R\x06status\x88\x01\x01B\t\n" +
 	"\a_statusB\x8c\x01\n" +
 	"\vcom.rack.v1B\rTypesGenProtoP\x01Z1github.com/synnaxlabs/synnax/pkg/api/grpc/v1/rack\xa2\x02\x03RXX\xaa\x02\aRack.V1\xca\x02\aRack\\V1\xe2\x02\x13Rack\\V1\\GPBMetadata\xea\x02\bRack::V1b\x06proto3"
 

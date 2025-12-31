@@ -14,11 +14,14 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 
+export const rackZ = zod.uint32Z;
+export type Rack = z.infer<typeof rackZ>;
+
 export const keyZ = zod.uint32Z;
 export type Key = z.infer<typeof keyZ>;
 
 export const statusDetailsZ = z.object({
-  rack: zod.uint32Z,
+  rack: rackZ,
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 
@@ -39,5 +42,5 @@ export const newZ = payloadZ
   .partial({ key: true });
 export interface New extends z.input<typeof newZ> {}
 
-export const ontologyID = ontology.createIDFactory<Key>("rack");
+export const ontologyID = ontology.createIDFactory<Rack>("rack");
 export const TYPE_ONTOLOGY_ID = ontologyID(0);

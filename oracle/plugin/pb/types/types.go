@@ -363,11 +363,13 @@ func (p *Plugin) processStruct(entry resolution.Struct, data *templateData) mess
 func (p *Plugin) processField(field resolution.Field, number int, data *templateData) fieldData {
 	protoType := p.typeToProto(field.TypeRef, data)
 
+	// Only hard optional (??) types are optional in proto.
+	// Soft optional (?) types are regular fields in proto.
 	return fieldData{
 		Name:       toSnakeCase(field.Name),
 		Type:       protoType,
 		Number:     number,
-		IsOptional: field.TypeRef.IsOptional || field.TypeRef.IsHardOptional,
+		IsOptional: field.TypeRef.IsHardOptional,
 		IsRepeated: field.TypeRef.IsArray,
 	}
 }

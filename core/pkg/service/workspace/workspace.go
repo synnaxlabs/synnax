@@ -17,6 +17,13 @@ import (
 
 var _ gorp.Entry[uuid.UUID] = Workspace{}
 
+type Workspace struct {
+	Key    uuid.UUID `json:"key" msgpack:"key"`
+	Name   string    `json:"name" msgpack:"name"`
+	Author uuid.UUID `json:"author" msgpack:"author"`
+	Layout string    `json:"layout" msgpack:"layout"`
+}
+
 // GorpKey implements gorp.Entry.
 func (w Workspace) GorpKey() uuid.UUID { return w.Key }
 

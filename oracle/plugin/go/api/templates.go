@@ -67,12 +67,8 @@ import (
 var _ = context.Background
 {{range .Translators}}
 
-// Translate{{.Name}}Forward converts {{.GoTypeShort}} to {{.PBTypeShort}}.
-func Translate{{.Name}}Forward(ctx context.Context, r *{{.GoType}}) (*{{.PBType}}, error) {
-	_ = ctx // May be unused
-	if r == nil {
-		return nil, nil
-	}
+// {{.Name}}ToPB converts {{.GoTypeShort}} to {{.PBTypeShort}}.
+func {{.Name}}ToPB({{if .UsesContext}}ctx{{else}}_{{end}} context.Context, r {{.GoType}}) (*{{.PBType}}, error) {
 	pb := &{{.PBType}}{
 {{- range .Fields}}
 		{{.PBName}}: {{.ForwardExpr}},
@@ -94,25 +90,26 @@ func Translate{{.Name}}Forward(ctx context.Context, r *{{.GoType}}) (*{{.PBType}
 	return pb, nil
 }
 
-// Translate{{.Name}}Backward converts {{.PBTypeShort}} to {{.GoTypeShort}}.
-func Translate{{.Name}}Backward(ctx context.Context, pb *{{.PBType}}) (*{{.GoType}}, error) {
-	_ = ctx // May be unused
+// {{.Name}}FromPB converts {{.PBTypeShort}} to {{.GoTypeShort}}.
+func {{.Name}}FromPB({{if .UsesContext}}ctx{{else}}_{{end}} context.Context, pb *{{.PBType}}) (r {{.GoType}}, err error) {
 	if pb == nil {
-		return nil, nil
+		return r, nil
 	}
-	r := &{{.GoType}}{
 {{- range .Fields}}
-		{{.GoName}}: {{.BackwardExpr}},
+	r.{{.GoName}} = {{.BackwardExpr}}
 {{- end}}
-	}
 {{- range .OptionalFields}}
 	if pb.{{.PBName}} != nil {
 {{- if .IsOptionalStruct}}
 		val, err := {{.BackwardExpr}}
 		if err != nil {
-			return nil, err
+			return r, err
 		}
-		r.{{.GoName}} = val
+{{- if .BackwardCast}}
+		r.{{.GoName}} = {{.BackwardCast}}(&val)
+{{- else}}
+		r.{{.GoName}} = &val
+{{- end}}
 {{- else}}
 		r.{{.GoName}} = {{.BackwardExpr}}
 {{- end}}
@@ -121,12 +118,12 @@ func Translate{{.Name}}Backward(ctx context.Context, pb *{{.PBType}}) (*{{.GoTyp
 	return r, nil
 }
 
-// Translate{{.Name}}sForward converts a slice of {{.GoTypeShort}} to {{.PBTypeShort}}.
-func Translate{{.Name}}sForward(ctx context.Context, rs []{{.GoType}}) ([]*{{.PBType}}, error) {
+// {{.Name}}sToPB converts a slice of {{.GoTypeShort}} to {{.PBTypeShort}}.
+func {{.Name}}sToPB(ctx context.Context, rs []{{.GoType}}) ([]*{{.PBType}}, error) {
 	result := make([]*{{.PBType}}, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = Translate{{.Name}}Forward(ctx, &rs[i])
+		result[i], err = {{.Name}}ToPB(ctx, rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -134,16 +131,14 @@ func Translate{{.Name}}sForward(ctx context.Context, rs []{{.GoType}}) ([]*{{.PB
 	return result, nil
 }
 
-// Translate{{.Name}}sBackward converts a slice of {{.PBTypeShort}} to {{.GoTypeShort}}.
-func Translate{{.Name}}sBackward(ctx context.Context, pbs []*{{.PBType}}) ([]{{.GoType}}, error) {
+// {{.Name}}sFromPB converts a slice of {{.PBTypeShort}} to {{.GoTypeShort}}.
+func {{.Name}}sFromPB(ctx context.Context, pbs []*{{.PBType}}) ([]{{.GoType}}, error) {
 	result := make([]{{.GoType}}, len(pbs))
 	for i, pb := range pbs {
-		r, err := Translate{{.Name}}Backward(ctx, pb)
+		var err error
+		result[i], err = {{.Name}}FromPB(ctx, pb)
 		if err != nil {
 			return nil, err
-		}
-		if r != nil {
-			result[i] = *r
 		}
 	}
 	return result, nil
@@ -171,6 +166,89 @@ func translate{{.Name}}Backward(v {{.PBType}}) {{.GoType}} {
 	default:
 		return {{.GoDefault}}
 	}
+}
+{{- end}}
+{{- range .GenericTranslators}}
+
+// {{.Name}}ToPB converts {{.GoTypeShort}} to {{.PBTypeShort}} using provided type converters.
+func {{.Name}}ToPB[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}](
+	{{if .UsesContext}}ctx{{else}}_{{end}} context.Context,
+	r {{.GoType}},
+{{- range .TypeParams}}
+	translate{{.Name}} func(context.Context, {{.Name}}) (*anypb.Any, error),
+{{- end}}
+) (*{{.PBType}}, error) {
+{{- range .TypeParamFields}}
+	{{.GoName}}Any, err := {{.ForwardExpr}}
+	if err != nil {
+		return nil, err
+	}
+{{- end}}
+	pb := &{{.PBType}}{
+{{- range .Fields}}
+		{{.PBName}}: {{.ForwardExpr}},
+{{- end}}
+{{- range .TypeParamFields}}
+		{{.PBName}}: {{.GoName}}Any,
+{{- end}}
+	}
+{{- range .OptionalFields}}
+	if r.{{.GoName}} != nil {
+		pb.{{.PBName}} = {{.ForwardExpr}}
+	}
+{{- end}}
+	return pb, nil
+}
+
+// {{.Name}}FromPB converts {{.PBTypeShort}} to {{.GoTypeShort}} using provided type converters.
+func {{.Name}}FromPB[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}](
+	{{if .UsesContext}}ctx{{else}}_{{end}} context.Context,
+	pb *{{.PBType}},
+{{- range .TypeParams}}
+	translate{{.Name}} func(context.Context, *anypb.Any) ({{.Name}}, error),
+{{- end}}
+) (r {{.GoType}}, err error) {
+	if pb == nil {
+		return r, nil
+	}
+{{- range .TypeParamFields}}
+	r.{{.GoName}}, err = {{.BackwardExpr}}
+	if err != nil {
+		return r, err
+	}
+{{- end}}
+{{- range .Fields}}
+	r.{{.GoName}} = {{.BackwardExpr}}
+{{- end}}
+{{- range .OptionalFields}}
+	if pb.{{.PBName}} != nil {
+		r.{{.GoName}} = {{.BackwardExpr}}
+	}
+{{- end}}
+	return r, nil
+}
+{{- end}}
+{{- range .AnyHelpers}}
+
+// {{.TypeName}}ToPBAny converts {{.TypeName}} to *anypb.Any for use with generic translators.
+func {{.TypeName}}ToPBAny(ctx context.Context, v {{.GoType}}) (*anypb.Any, error) {
+	pb, err := {{.TypeName}}ToPB(ctx, v)
+	if err != nil {
+		return nil, err
+	}
+	return anypb.New(pb)
+}
+
+// {{.TypeName}}FromPBAny converts *anypb.Any to {{.TypeName}} for use with generic translators.
+func {{.TypeName}}FromPBAny(ctx context.Context, a *anypb.Any) ({{.GoType}}, error) {
+	if a == nil {
+		return {{.GoType}}{}, nil
+	}
+	var pb {{.PBType}}
+	if err := a.UnmarshalTo(&pb); err != nil {
+		return {{.GoType}}{}, err
+	}
+	return {{.TypeName}}FromPB(ctx, &pb)
 }
 {{- end}}
 `))

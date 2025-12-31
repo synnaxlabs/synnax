@@ -16,6 +16,8 @@ from pydantic import BaseModel, ConfigDict
 from synnax import status
 from synnax.ontology.payload import ID
 
+Rack = int
+
 Key = int
 
 

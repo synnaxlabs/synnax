@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/label"
-
 @ts output  "x/ts/src/status"
 @py output  "client/py/synnax/status"
 @go output  "x/go/status"
@@ -27,13 +25,12 @@ Variant enum {
 }
 
 Status struct<D?> {
-    key         uuid           @key
-    name        string         @validate default ""
+    key         string    @key
+    name        string    @validate default ""
     variant     Variant
     message     string
     description string?
     time        timestamp
-    labels      label.Label[]?
     details     D?
 
     @ts omit

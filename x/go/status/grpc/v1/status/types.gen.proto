@@ -23,8 +23,7 @@ message PBStatus {
   string name = 2;
   PBVariant variant = 3;
   string message = 4;
-  optional string description = 5;
+  string description = 5;
   int64 time = 6;
-  repeated bytes labels = 7;
-  optional google.protobuf.Any details = 8;
+  google.protobuf.Any details = 7;
 }

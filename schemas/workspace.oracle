@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 @ts output "client/ts/src/workspace"
-@go output "core/pkg/service/workspace"
 
 Workspace struct {
     key    uuid   @key

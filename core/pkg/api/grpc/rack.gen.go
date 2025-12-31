@@ -13,52 +13,103 @@ package grpc
 
 import (
 	"context"
+	"google.golang.org/protobuf/types/known/anypb"
 	rackv1 "github.com/synnaxlabs/synnax/pkg/api/grpc/v1/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/status"
+	statusgrpc "github.com/synnaxlabs/x/status/grpc"
 )
 
 // Suppress unused import warnings
 var _ = context.Background
 
 
-// TranslateRackForward converts Rack to PBRack.
-func TranslateRackForward(ctx context.Context, r *rack.Rack) (*rackv1.PBRack, error) {
-	_ = ctx // May be unused
-	if r == nil {
-		return nil, nil
-	}
-	pb := &rackv1.PBRack{
-		Key: uint32(r.Key),
-		Name: r.Name,
-		TaskCounter: &r.TaskCounter,
-		Embedded: &r.Embedded,
-		Status: r.Status,
+// StatusDetailsToPB converts StatusDetails to PBStatusDetails.
+func StatusDetailsToPB(_ context.Context, r rack.StatusDetails) (*rackv1.PBStatusDetails, error) {
+	pb := &rackv1.PBStatusDetails{
+		Rack: uint32(r.Rack),
 	}
 	return pb, nil
 }
 
-// TranslateRackBackward converts PBRack to Rack.
-func TranslateRackBackward(ctx context.Context, pb *rackv1.PBRack) (*rack.Rack, error) {
-	_ = ctx // May be unused
+// StatusDetailsFromPB converts PBStatusDetails to StatusDetails.
+func StatusDetailsFromPB(_ context.Context, pb *rackv1.PBStatusDetails) (r rack.StatusDetails, err error) {
 	if pb == nil {
-		return nil, nil
+		return r, nil
 	}
-	r := &rack.Rack{
-		Key: rack.Key(pb.Key),
-		Name: pb.Name,
-		TaskCounter: pb.GetTaskCounter(),
-		Embedded: pb.GetEmbedded(),
-		Status: pb.Status,
+	r.Rack = rack.Key(pb.Rack)
+	return r, nil
+}
+
+// StatusDetailssToPB converts a slice of StatusDetails to PBStatusDetails.
+func StatusDetailssToPB(ctx context.Context, rs []rack.StatusDetails) ([]*rackv1.PBStatusDetails, error) {
+	result := make([]*rackv1.PBStatusDetails, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = StatusDetailsToPB(ctx, rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StatusDetailssFromPB converts a slice of PBStatusDetails to StatusDetails.
+func StatusDetailssFromPB(ctx context.Context, pbs []*rackv1.PBStatusDetails) ([]rack.StatusDetails, error) {
+	result := make([]rack.StatusDetails, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = StatusDetailsFromPB(ctx, pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RackToPB converts Rack to PBRack.
+func RackToPB(ctx context.Context, r rack.Rack) (*rackv1.PBRack, error) {
+	pb := &rackv1.PBRack{
+		Key: uint32(r.Key),
+		Name: r.Name,
+		TaskCounter: r.TaskCounter,
+		Embedded: r.Embedded,
+	}
+	if r.Status != nil {
+		var err error
+		pb.Status, err = statusgrpc.StatusToPB[rack.StatusDetails](ctx, (status.Status[rack.StatusDetails])(*r.Status), StatusDetailsToPBAny)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// RackFromPB converts PBRack to Rack.
+func RackFromPB(ctx context.Context, pb *rackv1.PBRack) (r rack.Rack, err error) {
+	if pb == nil {
+		return r, nil
+	}
+	r.Key = rack.Key(pb.Key)
+	r.Name = pb.Name
+	r.TaskCounter = pb.TaskCounter
+	r.Embedded = pb.Embedded
+	if pb.Status != nil {
+		val, err := statusgrpc.StatusFromPB[rack.StatusDetails](ctx, pb.Status, StatusDetailsFromPBAny)
+		if err != nil {
+			return r, err
+		}
+		r.Status = (*rack.Status)(&val)
 	}
 	return r, nil
 }
 
-// TranslateRacksForward converts a slice of Rack to PBRack.
-func TranslateRacksForward(ctx context.Context, rs []rack.Rack) ([]*rackv1.PBRack, error) {
+// RacksToPB converts a slice of Rack to PBRack.
+func RacksToPB(ctx context.Context, rs []rack.Rack) ([]*rackv1.PBRack, error) {
 	result := make([]*rackv1.PBRack, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = TranslateRackForward(ctx, &rs[i])
+		result[i], err = RackToPB(ctx, rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -66,17 +117,36 @@ func TranslateRacksForward(ctx context.Context, rs []rack.Rack) ([]*rackv1.PBRac
 	return result, nil
 }
 
-// TranslateRacksBackward converts a slice of PBRack to Rack.
-func TranslateRacksBackward(ctx context.Context, pbs []*rackv1.PBRack) ([]rack.Rack, error) {
+// RacksFromPB converts a slice of PBRack to Rack.
+func RacksFromPB(ctx context.Context, pbs []*rackv1.PBRack) ([]rack.Rack, error) {
 	result := make([]rack.Rack, len(pbs))
 	for i, pb := range pbs {
-		r, err := TranslateRackBackward(ctx, pb)
+		var err error
+		result[i], err = RackFromPB(ctx, pb)
 		if err != nil {
 			return nil, err
 		}
-		if r != nil {
-			result[i] = *r
-		}
 	}
 	return result, nil
+}
+
+// StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic translators.
+func StatusDetailsToPBAny(ctx context.Context, v rack.StatusDetails) (*anypb.Any, error) {
+	pb, err := StatusDetailsToPB(ctx, v)
+	if err != nil {
+		return nil, err
+	}
+	return anypb.New(pb)
+}
+
+// StatusDetailsFromPBAny converts *anypb.Any to StatusDetails for use with generic translators.
+func StatusDetailsFromPBAny(ctx context.Context, a *anypb.Any) (rack.StatusDetails, error) {
+	if a == nil {
+		return rack.StatusDetails{}, nil
+	}
+	var pb rackv1.PBStatusDetails
+	if err := a.UnmarshalTo(&pb); err != nil {
+		return rack.StatusDetails{}, err
+	}
+	return StatusDetailsFromPB(ctx, &pb)
 }

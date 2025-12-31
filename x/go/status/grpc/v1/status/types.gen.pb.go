@@ -100,10 +100,9 @@ type PBStatus struct {
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Variant       PBVariant              `protobuf:"varint,3,opt,name=variant,proto3,enum=status.v1.PBVariant" json:"variant,omitempty"`
 	Message       string                 `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
-	Description   *string                `protobuf:"bytes,5,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	Description   string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
 	Time          int64                  `protobuf:"varint,6,opt,name=time,proto3" json:"time,omitempty"`
-	Labels        [][]byte               `protobuf:"bytes,7,rep,name=labels,proto3" json:"labels,omitempty"`
-	Details       *anypb.Any             `protobuf:"bytes,8,opt,name=details,proto3,oneof" json:"details,omitempty"`
+	Details       *anypb.Any             `protobuf:"bytes,7,opt,name=details,proto3" json:"details,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -167,8 +166,8 @@ func (x *PBStatus) GetMessage() string {
 }
 
 func (x *PBStatus) GetDescription() string {
-	if x != nil && x.Description != nil {
-		return *x.Description
+	if x != nil {
+		return x.Description
 	}
 	return ""
 }
@@ -178,13 +177,6 @@ func (x *PBStatus) GetTime() int64 {
 		return x.Time
 	}
 	return 0
-}
-
-func (x *PBStatus) GetLabels() [][]byte {
-	if x != nil {
-		return x.Labels
-	}
-	return nil
 }
 
 func (x *PBStatus) GetDetails() *anypb.Any {
@@ -198,19 +190,15 @@ var File_x_go_status_grpc_v1_status_types_gen_proto protoreflect.FileDescriptor
 
 const file_x_go_status_grpc_v1_status_types_gen_proto_rawDesc = "" +
 	"\n" +
-	"*x/go/status/grpc/v1/status/types.gen.proto\x12\tstatus.v1\x1a\x19google/protobuf/any.proto\"\x9e\x02\n" +
+	"*x/go/status/grpc/v1/status/types.gen.proto\x12\tstatus.v1\x1a\x19google/protobuf/any.proto\"\xe0\x01\n" +
 	"\bPBStatus\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12.\n" +
 	"\avariant\x18\x03 \x01(\x0e2\x14.status.v1.PBVariantR\avariant\x12\x18\n" +
-	"\amessage\x18\x04 \x01(\tR\amessage\x12%\n" +
-	"\vdescription\x18\x05 \x01(\tH\x00R\vdescription\x88\x01\x01\x12\x12\n" +
-	"\x04time\x18\x06 \x01(\x03R\x04time\x12\x16\n" +
-	"\x06labels\x18\a \x03(\fR\x06labels\x123\n" +
-	"\adetails\x18\b \x01(\v2\x14.google.protobuf.AnyH\x01R\adetails\x88\x01\x01B\x0e\n" +
-	"\f_descriptionB\n" +
-	"\n" +
-	"\b_details*\xb3\x01\n" +
+	"\amessage\x18\x04 \x01(\tR\amessage\x12 \n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x12\n" +
+	"\x04time\x18\x06 \x01(\x03R\x04time\x12.\n" +
+	"\adetails\x18\a \x01(\v2\x14.google.protobuf.AnyR\adetails*\xb3\x01\n" +
 	"\tPBVariant\x12\x1a\n" +
 	"\x16PB_VARIANT_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12PB_VARIANT_SUCCESS\x10\x01\x12\x13\n" +
@@ -256,7 +244,6 @@ func file_x_go_status_grpc_v1_status_types_gen_proto_init() {
 	if File_x_go_status_grpc_v1_status_types_gen_proto != nil {
 		return
 	}
-	file_x_go_status_grpc_v1_status_types_gen_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
