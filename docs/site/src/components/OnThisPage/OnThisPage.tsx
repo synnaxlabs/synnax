@@ -12,18 +12,21 @@ import { type MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
+import { Client } from "@/components/client";
 import { Platform } from "@/components/platform";
 
 const ON_THIS_PAGE_ID = "on-this-page-heading";
 
 export interface OnThisPageProps {
   headings?: MarkdownHeading[];
+  clients?: Client.Client[];
   platforms?: Platform.Platform[];
   url: string;
 }
 
 export const OnThisPage = ({
   headings = [],
+  clients = [],
   platforms = [],
 }: OnThisPageProps): ReactElement | null => {
   const toc = useRef<HTMLDivElement>(null);
@@ -87,6 +90,7 @@ export const OnThisPage = ({
   return (
     <>
       {platforms.length > 0 && <Platform.SelectButton platforms={platforms} />}
+      {clients.length > 0 && <Client.SelectButton clients={clients} />}
       <div ref={toc} style={{ flexGrow: 1 }}>
         <Menu.Menu value={currentID}>
           {headings

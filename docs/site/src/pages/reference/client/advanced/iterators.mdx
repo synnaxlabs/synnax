@@ -1,0 +1,191 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Iterators"
+description: "Lazy evaluation for efficiently reading large datasets."
+next: "Delete Data"
+nextURL: "/reference/client/advanced/delete-data"
+prev: "Write Authorities"
+prevURL: "/reference/client/advanced/write-authorities"
+clients: ["python", "typescript"]
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+This guide covers using iterators for efficient lazy evaluation when reading large
+datasets. Iterators allow you to process data in chunks without loading everything into
+memory.
+
+<Divider.Divider x />
+
+## What are Iterators?
+
+While standard read methods cover most use cases, there are situations where you need to
+process more data than can fit in memory. Iterators are processed server-side, reading
+data in consistently sized chunks and avoiding the need to load everything into memory
+at once.
+
+<Divider.Divider x />
+
+## Opening an Iterator
+
+To open an iterator, use the <Client.Var client:load py="open_iterator"
+ts="openIterator" /> method with a time range and channel specification.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+iterator = client.open_iterator(
+  start,
+  end,
+  ["temperature", "pressure"]
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const iterator = await client.openIterator({ start, end }, ["temperature", "humidity"]);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+### Chunk Size Option
+
+By default, Synnax uses a chunk size of 100,000 samples. To configure a custom chunk
+size, use the <Client.Var client:load py="chunk_size" ts="chunkSize" /> parameter with
+the desired number of samples per iteration.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+iterator = client.open_iterator(
+    start,
+    end,
+    "my_precise_tc",
+    chunk_size=100,
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const iterator = await client.openIterator(
+  { start, end },
+  ["temperature", "humidity"],
+  { chunkSize: 100 },
+);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+Smaller chunk sizes reduce memory usage but may increase the number of network requests.
+Larger chunk sizes can improve throughput but require more memory.
+
+<Divider.Divider x />
+
+## Iterating through Data
+
+Use a <Client.Var client:load py="for" ts="for await" /> loop to iterate through data in
+chunks. Each iteration yields a frame containing a portion of the data.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+for frame in iterator:
+    print(frame)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+for await (const frame of iterator) {
+  console.log(frame.get("temperature"));
+}
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Closing the Iterator
+
+After you're done iterating, it's essential to close the iterator to release the network
+connection and other related resources.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+iterator.close()
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+iterator.close();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+Using structured cleanup patterns ensures the iterator is always closed, even if an
+exception is thrown.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+# Python's context manager is the recommended approach
+with client.open_iterator(start, end, "my_precise_tc") as iterator:
+    for frame in iterator:
+        print(frame)
+
+# Alternatively, use a try/finally block
+iterator = client.open_iterator(start, end, "my_precise_tc")
+try:
+    for frame in iterator:
+        print(frame)
+finally:
+    iterator.close()
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const iterator = await client.openIterator({ start, end }, ["temperature", "humidity"]);
+try {
+  for await (const frame of iterator) {
+    console.log(frame.get("temperature"));
+  }
+} finally {
+  iterator.close();
+}
+```
+
+  </Fragment>
+</Client.Tabs>

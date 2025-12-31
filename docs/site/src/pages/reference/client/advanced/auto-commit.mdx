@@ -1,0 +1,188 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Auto-Commit"
+description: "Control when written data becomes visible with auto-commit settings."
+next: "Write Authorities"
+nextURL: "/reference/client/advanced/write-authorities"
+prev: "Writing Data"
+prevURL: "/reference/client/write-data"
+clients: ["python", "typescript"]
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+By default, writers are configured with auto-commit enabled, meaning each write is
+immediately committed and available for read access. This is ideal for real-time data
+acquisition where data should be immediately available for monitoring and analysis.
+
+<Divider.Divider x />
+
+## When to Disable Auto-Commit
+
+Disabling auto-commit may be beneficial in the following scenarios:
+
+- **Chunk-based file ingestion**: When loading historical data from files, committing
+  data in logical chunks (e.g., after processing each file) ensures atomic visibility of
+  complete datasets.
+- **Batch processing**: When ingesting large volumes of historical data where real-time
+  visibility is not required and performance optimization by reducing commit overhead is
+  desired.
+- **Atomic transactions**: When multiple writes need to appear together atomically to
+  maintain data consistency across channels.
+
+<Divider.Divider x />
+
+## Disabling Auto-Commit
+
+To disable auto-commit, set the <Client.Var client:load py="enable_auto_commit"
+ts="enableAutoCommit" /> option to <Client.Var client:load py="False" ts="false" /> when
+opening the writer.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["time", "temperature"],
+    enable_auto_commit=False,
+) as writer:
+
+    for chunk in range(10):
+        for i in range(1000):
+            writer.write({
+                "time": sy.TimeStamp.now(),
+                "temperature": i * 0.1,
+            })
+        # Commit the chunk
+        writer.commit()
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+  enableAutoCommit: false,
+});
+try {
+  for (let chunk = 0; chunk < 10; chunk++) {
+    for (let i = 0; i < 1000; i++)
+      await writer.write({ time: TimeStamp.now(), temperature: i });
+    await writer.commit();
+  }
+} finally {
+  await writer.close();
+}
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Commit Frequency Best Practices
+
+When auto-commit is disabled, call `commit` periodically to persist data. However,
+calling `commit` on every write is inefficient because it requires a round-trip to the
+cluster. This can be very slow when writing large volumes of data. Instead, commit every
+few seconds or use auto-commit (which is enabled by default).
+
+<span style={{ color: "red" }}>**Avoid this pattern**</span> - Committing on every
+write:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["time", "temperature"],
+    enable_auto_commit=False,
+) as writer:
+    for i in range(100):
+        writer.write({
+            "time": sy.TimeStamp.now(),
+            "temperature": i * 0.1,
+        })
+        writer.commit()
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+  enableAutoCommit: false,
+});
+try {
+  for (let i = 0; i < 100; i++) {
+    await writer.write({
+      time: TimeStamp.now(),
+      temperature: i * 0.1,
+    });
+    await writer.commit();
+  }
+} finally {
+  await writer.close();
+}
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<span style={{ color: "green" }}>**Recommended approach**</span> - Use auto-commit
+(enabled by default):
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["time", "temperature"],
+    # enable_auto_commit=True is the default
+) as writer:
+    for i in range(100):
+        writer.write({
+            "time": sy.TimeStamp.now(),
+            "temperature": i * 0.1,
+        })
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+  // enableAutoCommit: true is the default
+});
+try {
+  for (let i = 0; i < 100; i++)
+    await writer.write({
+      time: TimeStamp.now(),
+      temperature: i * 0.1,
+    });
+} finally {
+  await writer.close();
+}
+```
+
+  </Fragment>
+</Client.Tabs>

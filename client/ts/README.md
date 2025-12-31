@@ -6,7 +6,7 @@
 
 The Synnax TypeScript client library is used for interacting with a Synnax cluster. The
 client library can be used in both node and browser environments. The
-[Synnax documentation website](https://docs.synnaxlabs.com/reference/typescript-client/get-started)
+[Synnax documentation website](https://docs.synnaxlabs.com/reference/client/quick-start)
 contains more information about using the TypeScript client.
 
 ## Installation
