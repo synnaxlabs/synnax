@@ -25,3 +25,29 @@ func GetPath(entry *resolution.StructEntry, domainName string) string {
 	}
 	return ""
 }
+
+// GetEnumPath extracts the output path from an enum's domain.
+// domainName specifies which domain to look up (e.g., "go", "ts", "py").
+// Returns an empty string if no output path is defined.
+func GetEnumPath(entry *resolution.EnumEntry, domainName string) string {
+	if domain, ok := entry.Domains[domainName]; ok {
+		for _, expr := range domain.Expressions {
+			if expr.Name == "output" && len(expr.Values) > 0 {
+				return expr.Values[0].StringValue
+			}
+		}
+	}
+	return ""
+}
+
+// IsEnumHandwritten checks if an enum has the "handwritten" expression in its domain.
+func IsEnumHandwritten(entry *resolution.EnumEntry, domainName string) bool {
+	if domain, ok := entry.Domains[domainName]; ok {
+		for _, expr := range domain.Expressions {
+			if expr.Name == "handwritten" {
+				return true
+			}
+		}
+	}
+	return false
+}

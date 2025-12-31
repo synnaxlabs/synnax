@@ -25,6 +25,9 @@ type OracleParserVisitor interface {
 	// Visit a parse tree produced by OracleParser#StructAlias.
 	VisitStructAlias(ctx *StructAliasContext) interface{}
 
+	// Visit a parse tree produced by OracleParser#aliasBody.
+	VisitAliasBody(ctx *AliasBodyContext) interface{}
+
 	// Visit a parse tree produced by OracleParser#typeParams.
 	VisitTypeParams(ctx *TypeParamsContext) interface{}
 
@@ -66,6 +69,9 @@ type OracleParserVisitor interface {
 
 	// Visit a parse tree produced by OracleParser#enumDef.
 	VisitEnumDef(ctx *EnumDefContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#enumBody.
+	VisitEnumBody(ctx *EnumBodyContext) interface{}
 
 	// Visit a parse tree produced by OracleParser#enumValue.
 	VisitEnumValue(ctx *EnumValueContext) interface{}

@@ -33,10 +33,16 @@ func CollectReferenced(structs []*resolution.StructEntry) []*resolution.EnumEntr
 	return enums
 }
 
-// FindOutputPath finds the output path for an enum by namespace lookup.
-// It searches for a struct in the same namespace that has an output domain.
+// FindOutputPath finds the output path for an enum.
+// First checks if the enum has its own output domain, then falls back to
+// searching for a struct in the same namespace that has an output domain.
 // domainName specifies which domain to look up (e.g., "ts", "py").
 func FindOutputPath(e *resolution.EnumEntry, table *resolution.Table, domainName string) string {
+	// First check if enum has its own output path
+	if path := output.GetEnumPath(e, domainName); path != "" {
+		return path
+	}
+	// Fall back to struct in same namespace
 	for _, s := range table.AllStructs() {
 		if s.Namespace == e.Namespace {
 			if path := output.GetPath(s, domainName); path != "" {
@@ -45,4 +51,16 @@ func FindOutputPath(e *resolution.EnumEntry, table *resolution.Table, domainName
 		}
 	}
 	return ""
+}
+
+// CollectWithOwnOutput collects enums that have their own output domain defined.
+// These are standalone enums not just referenced by structs.
+func CollectWithOwnOutput(allEnums []*resolution.EnumEntry, domainName string) []*resolution.EnumEntry {
+	var result []*resolution.EnumEntry
+	for _, e := range allEnums {
+		if output.GetEnumPath(e, domainName) != "" && !output.IsEnumHandwritten(e, domainName) {
+			result = append(result, e)
+		}
+	}
+	return result
 }

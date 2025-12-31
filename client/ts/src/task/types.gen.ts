@@ -42,21 +42,17 @@ export type NewStatus<Data extends z.ZodType = z.ZodType> = z.infer<
   ReturnType<typeof newStatusZ<Data>>
 >;
 
-export interface PayloadSchemas<
-  Type extends z.ZodType = z.ZodString,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
-> {
+export interface PayloadSchemas<Type extends z.ZodType = z.ZodString, Config extends z.ZodType = z.ZodType, StatusData extends z.ZodType = z.ZodType> {
   type?: Type;
   config?: Config;
   statusData?: StatusData;
 }
 
-export const payloadZ = <
-  Type extends z.ZodType = z.ZodString,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
->({ type, config, statusData }: PayloadSchemas<Type, Config, StatusData> = {}) =>
+export const payloadZ = <Type extends z.ZodType = z.ZodString, Config extends z.ZodType = z.ZodType, StatusData extends z.ZodType = z.ZodType>({
+  type,
+  config,
+  statusData,
+}: PayloadSchemas<Type, Config, StatusData> = {}) =>
   z.object({
     key: keyZ,
     name: z.string(),
@@ -66,11 +62,7 @@ export const payloadZ = <
     snapshot: z.boolean().optional(),
     status: statusZ(statusData).nullish(),
   });
-export type Payload<
-  Type extends z.ZodType = z.ZodString,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
-> = {
+export type Payload<Type extends z.ZodType = z.ZodString, Config extends z.ZodType = z.ZodType, StatusData extends z.ZodType = z.ZodType> = {
   key: Key;
   name: string;
   type: z.infer<Type>;
@@ -80,21 +72,17 @@ export type Payload<
   status?: Status<StatusData> | null;
 };
 
-export interface NewSchemas<
-  Type extends z.ZodType = z.ZodString,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
-> {
+export interface NewSchemas<Type extends z.ZodType = z.ZodString, Config extends z.ZodType = z.ZodType, StatusData extends z.ZodType = z.ZodType> {
   type?: Type;
   config?: Config;
   statusData?: StatusData;
 }
 
-export const newZ = <
-  Type extends z.ZodType = z.ZodString,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
->({ type, config, statusData }: NewSchemas<Type, Config, StatusData> = {}) =>
+export const newZ = <Type extends z.ZodType = z.ZodString, Config extends z.ZodType = z.ZodType, StatusData extends z.ZodType = z.ZodType>({
+  type,
+  config,
+  statusData,
+}: NewSchemas<Type, Config, StatusData> = {}) =>
   z.object({
     key: keyZ.optional(),
     name: z.string(),
@@ -102,11 +90,7 @@ export const newZ = <
     config: zod.jsonStringifier(config),
     status: newStatusZ(statusData).nullish(),
   });
-export type New<
-  Type extends z.ZodType = z.ZodString,
-  Config extends z.ZodType = z.ZodType,
-  StatusData extends z.ZodType = z.ZodType,
-> = {
+export type New<Type extends z.ZodType = z.ZodString, Config extends z.ZodType = z.ZodType, StatusData extends z.ZodType = z.ZodType> = {
   key?: Key;
   name: string;
   type: z.infer<Type>;

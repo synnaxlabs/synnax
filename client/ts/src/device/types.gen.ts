@@ -64,7 +64,7 @@ export const newZ = <Properties extends z.ZodType = z.ZodType, Make extends z.Zo
     properties: zod.jsonStringifier(properties),
     status: statusZ.optional(),
   });
-export type New<Properties extends z.ZodType = z.ZodType, Make extends z.ZodType = z.ZodString, Model extends z.ZodType = z.ZodString> = z.infer<
+export type New<Properties extends z.ZodType = z.ZodType, Make extends z.ZodType = z.ZodString, Model extends z.ZodType = z.ZodString> = z.input<
   ReturnType<typeof newZ<Properties, Make, Model>>
 >;
 

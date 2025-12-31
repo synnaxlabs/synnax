@@ -95,6 +95,9 @@ func findPackageDir(file string) string {
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 	outputStructs := make(map[string][]*resolution.StructEntry)
+	outputEnums := make(map[string][]*resolution.EnumEntry)
+
+	// Collect structs by output path
 	for _, entry := range req.Resolutions.AllStructs() {
 		if outputPath := output.GetPath(entry, "ts"); outputPath != "" {
 			if req.RepoRoot != "" {
@@ -105,8 +108,26 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			outputStructs[outputPath] = append(outputStructs[outputPath], entry)
 		}
 	}
+
+	// Collect standalone enums (enums with their own output domain)
+	for _, e := range enum.CollectWithOwnOutput(req.Resolutions.AllEnums(), "ts") {
+		enumPath := output.GetEnumPath(e, "ts")
+		if req.RepoRoot != "" {
+			if err := req.ValidateOutputPath(enumPath); err != nil {
+				return nil, fmt.Errorf("invalid output path for enum %s: %w", e.Name, err)
+			}
+		}
+		outputEnums[enumPath] = append(outputEnums[enumPath], e)
+	}
+
+	// Generate files for struct output paths
 	for outputPath, structs := range outputStructs {
 		enums := enum.CollectReferenced(structs)
+		// Add any standalone enums for this path
+		if standaloneEnums, ok := outputEnums[outputPath]; ok {
+			enums = mergeEnums(enums, standaloneEnums)
+			delete(outputEnums, outputPath) // Mark as handled
+		}
 		content, err := p.generateFile(structs[0].Namespace, outputPath, structs, enums, req)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate %s: %w", outputPath, err)
@@ -116,7 +137,39 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			Content: content,
 		})
 	}
+
+	// Generate files for standalone enum-only output paths
+	for outputPath, enums := range outputEnums {
+		content, err := p.generateFile(enums[0].Namespace, outputPath, nil, enums, req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate %s: %w", outputPath, err)
+		}
+		resp.Files = append(resp.Files, plugin.File{
+			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
+			Content: content,
+		})
+	}
+
 	return resp, nil
+}
+
+// mergeEnums merges two slices of enums, deduplicating by QualifiedName.
+func mergeEnums(a, b []*resolution.EnumEntry) []*resolution.EnumEntry {
+	seen := make(map[string]bool)
+	result := make([]*resolution.EnumEntry, 0, len(a)+len(b))
+	for _, e := range a {
+		if !seen[e.QualifiedName] {
+			seen[e.QualifiedName] = true
+			result = append(result, e)
+		}
+	}
+	for _, e := range b {
+		if !seen[e.QualifiedName] {
+			seen[e.QualifiedName] = true
+			result = append(result, e)
+		}
+	}
+	return result
 }
 
 // packageMapping defines the known TypeScript package mappings in the workspace.
@@ -1026,7 +1079,7 @@ export type {{ .Name }} = z.infer<typeof {{ camelCase .Name }}Z>;
 export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}>({{ range $i, $p := .TypeParams }}{{ $p.Name | camelCase }}?: {{ $p.Name }}{{ end }}) =>
   {{ .AliasOf }};
 {{- if $.GenerateTypes }}
-export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.infer<
+export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.{{ if .UseInput }}input{{ else }}infer{{ end }}<
   ReturnType<typeof {{ camelCase .TSName }}Z<{{ range $i, $p := .TypeParams }}{{ $p.Name }}{{ end }}>>
 >;
 {{- end }}
@@ -1045,7 +1098,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
 }: {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}> = {}) =>
   {{ .AliasOf }};
 {{- if $.GenerateTypes }}
-export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.infer<
+export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.{{ if .UseInput }}input{{ else }}infer{{ end }}<
   ReturnType<typeof {{ camelCase .TSName }}Z<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>>
 >;
 {{- end }}
@@ -1054,7 +1107,7 @@ export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }
 
 export const {{ camelCase .TSName }}Z = {{ .AliasOf }};
 {{- if $.GenerateTypes }}
-export type {{ .TSName }} = z.infer<typeof {{ camelCase .TSName }}Z>;
+export type {{ .TSName }} = z.{{ if .UseInput }}input{{ else }}infer{{ end }}<typeof {{ camelCase .TSName }}Z>;
 {{- end }}
 {{- end }}
 {{- else if .IsGeneric }}
@@ -1093,7 +1146,7 @@ export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }
 {{- end }}
 };
 {{- else }}
-export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.infer<
+export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.{{ if .UseInput }}input{{ else }}infer{{ end }}<
   ReturnType<typeof {{ camelCase .TSName }}Z<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>>
 >;
 {{- end }}

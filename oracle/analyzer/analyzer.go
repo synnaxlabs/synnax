@@ -404,21 +404,30 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 		FilePath:      c.filePath,
 		QualifiedName: qname,
 		ValuesByName:  make(map[string]*resolution.EnumValue),
+		Domains:       make(map[string]*resolution.DomainEntry),
 	}
-	vals := def.AllEnumValue()
-	if len(vals) > 0 {
-		entry.IsIntEnum = vals[0].INT_LIT() != nil
-	}
-	for _, v := range vals {
-		ev := &resolution.EnumValue{Name: v.IDENT().GetText()}
-		if i := v.INT_LIT(); i != nil {
-			ev.IntValue, _ = strconv.ParseInt(i.GetText(), 10, 64)
-		} else if s := v.STRING_LIT(); s != nil {
-			t := s.GetText()
-			ev.StringValue = t[1 : len(t)-1]
+	// Collect enum values and domains from enum body
+	if body := def.EnumBody(); body != nil {
+		vals := body.AllEnumValue()
+		if len(vals) > 0 {
+			entry.IsIntEnum = vals[0].INT_LIT() != nil
 		}
-		entry.Values = append(entry.Values, ev)
-		entry.ValuesByName[ev.Name] = ev
+		for _, v := range vals {
+			ev := &resolution.EnumValue{Name: v.IDENT().GetText()}
+			if i := v.INT_LIT(); i != nil {
+				ev.IntValue, _ = strconv.ParseInt(i.GetText(), 10, 64)
+			} else if s := v.STRING_LIT(); s != nil {
+				t := s.GetText()
+				ev.StringValue = t[1 : len(t)-1]
+			}
+			entry.Values = append(entry.Values, ev)
+			entry.ValuesByName[ev.Name] = ev
+		}
+		for _, d := range body.AllDomainDef() {
+			if de := collectDomain(d); de != nil {
+				entry.Domains[de.Name] = de
+			}
+		}
 	}
 	c.table.AddEnum(entry)
 }

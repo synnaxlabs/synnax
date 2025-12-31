@@ -8,10 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type record } from "@synnaxlabs/x";
+import { array, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Device, deviceZ, type Key, keyZ, type New, newZ } from "@/device/payload";
+import {
+  type Device,
+  deviceZ,
+  type Key,
+  keyZ,
+  type New,
+  newZ,
+  ontologyID,
+} from "@/device/types.gen";
 import { ontology } from "@/ontology";
 import { keyZ as rackKeyZ } from "@/rack/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -19,8 +27,8 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 export const SET_CHANNEL_NAME = "sy_device_set";
 export const DELETE_CHANNEL_NAME = "sy_device_delete";
 
-const createReqZ = z.object({ devices: newZ.array() });
-const createResZ = z.object({ devices: deviceZ.array() });
+const createReqZ = z.object({ devices: zod.toArray(newZ()) });
+const createResZ = z.object({ devices: deviceZ().array() });
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
@@ -37,7 +45,7 @@ const retrieveRequestZ = z.object({
   offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
 });
-const retrieveResZ = z.object({ devices: array.nullableZ(deviceZ) });
+const retrieveResZ = z.object({ devices: array.nullableZ(deviceZ()) });
 
 const singleRetrieveArgsZ = z
   .object({
@@ -64,21 +72,21 @@ export class Client {
   }
 
   async retrieve<
-    Properties extends record.Unknown = record.Unknown,
-    Make extends string = string,
-    Model extends string = string,
+    Properties extends z.ZodType = z.ZodType,
+    Make extends z.ZodString = z.ZodString,
+    Model extends z.ZodString = z.ZodString,
   >(args: RetrieveSingleParams): Promise<Device<Properties, Make, Model>>;
 
   async retrieve<
-    Properties extends record.Unknown = record.Unknown,
-    Make extends string = string,
-    Model extends string = string,
+    Properties extends z.ZodType = z.ZodType,
+    Make extends z.ZodString = z.ZodString,
+    Model extends z.ZodString = z.ZodString,
   >(args: RetrieveMultipleParams): Promise<Array<Device<Properties, Make, Model>>>;
 
   async retrieve<
-    Properties extends record.Unknown = record.Unknown,
-    Make extends string = string,
-    Model extends string = string,
+    Properties extends z.ZodType = z.ZodType,
+    Make extends z.ZodString = z.ZodString,
+    Model extends z.ZodString = z.ZodString,
   >(
     args: RetrieveArgs,
   ): Promise<Device<Properties, Make, Model> | Array<Device<Properties, Make, Model>>> {
@@ -96,27 +104,29 @@ export class Client {
   }
 
   async create<
-    Properties extends record.Unknown = record.Unknown,
-    Make extends string = string,
-    Model extends string = string,
-  >(device: New<Properties, Make>): Promise<Device<Properties, Make, Model>>;
+    Properties extends z.ZodType = z.ZodType,
+    Make extends z.ZodString = z.ZodString,
+    Model extends z.ZodString = z.ZodString,
+  >(device: New<Properties, Make, Model>): Promise<Device<Properties, Make, Model>>;
   async create<
-    Properties extends record.Unknown = record.Unknown,
-    Make extends string = string,
-    Model extends string = string,
-  >(devices: New<Properties, Make>[]): Promise<Device<Properties, Make, Model>[]>;
-  async create<
-    Properties extends record.Unknown = record.Unknown,
-    Make extends string = string,
-    Model extends string = string,
+    Properties extends z.ZodType = z.ZodType,
+    Make extends z.ZodString = z.ZodString,
+    Model extends z.ZodString = z.ZodString,
   >(
-    devices: New<Properties, Make> | New<Properties, Make>[],
+    devices: New<Properties, Make, Model>[],
+  ): Promise<Device<Properties, Make, Model>[]>;
+  async create<
+    Properties extends z.ZodType = z.ZodType,
+    Make extends z.ZodString = z.ZodString,
+    Model extends z.ZodString = z.ZodString,
+  >(
+    devices: New<Properties, Make, Model> | New<Properties, Make, Model>[],
   ): Promise<Device<Properties, Make, Model> | Device<Properties, Make, Model>[]> {
     const isSingle = !Array.isArray(devices);
     const res = await sendRequired(
       this.client,
       "/device/create",
-      { devices: array.toArray(devices) },
+      { devices: devices as z.infer<typeof createReqZ>["devices"] },
       createReqZ,
       createResZ,
     );
@@ -134,8 +144,5 @@ export class Client {
     );
   }
 }
-
-export const ontologyID = ontology.createIDFactory<Key>("device");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
 
 export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));

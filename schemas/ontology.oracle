@@ -1,0 +1,58 @@
+enum ResourceType {
+    label = "label"
+    log = "log"
+    builtin = "builtin"
+    cluster = "cluster"
+    channel = "channel"
+    node = "node"
+    group = "group"
+    range = "range"
+    framer = "framer"
+    range_alias = "range-alias"
+    user = "user"
+    workspace = "workspace"
+    schematic = "schematic"
+    lineplot = "lineplot"
+    rack = "rack"
+    device = "device"
+    task = "task"
+    policy = "policy"
+    role = "role"
+    table = "table"
+    arc = "arc"
+    schematic_symbol = "schematic_symbol"
+    status = "status"
+    view = "view"
+}
+
+struct ID {
+    field type ResourceType
+    field key string
+
+    domain ts {
+        output "client/ts/src/ontology"
+        handwritten
+    }
+}
+
+struct Resource {
+    field id ID
+    field name string
+    field data json?!
+
+    domain ts {
+        output "client/ts/src/ontology"
+        handwritten
+    }
+}
+
+struct Relationship {
+    field from ID
+    field type string
+    field to ID
+
+    domain ts {
+        output "client/ts/src/ontology"
+        handwritten
+    }
+}

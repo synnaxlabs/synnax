@@ -31,6 +31,10 @@ func (v *BaseOracleParserVisitor) VisitStructAlias(ctx *StructAliasContext) inte
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseOracleParserVisitor) VisitAliasBody(ctx *AliasBodyContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseOracleParserVisitor) VisitTypeParams(ctx *TypeParamsContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -84,6 +88,10 @@ func (v *BaseOracleParserVisitor) VisitExpressionValue(ctx *ExpressionValueConte
 }
 
 func (v *BaseOracleParserVisitor) VisitEnumDef(ctx *EnumDefContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitEnumBody(ctx *EnumBodyContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

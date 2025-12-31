@@ -1,0 +1,10 @@
+enum Action {
+    create = "create"
+    delete = "delete"
+    retrieve = "retrieve"
+    update = "update"
+
+    domain ts {
+        output "client/ts/src/access"
+    }
+}

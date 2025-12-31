@@ -165,8 +165,14 @@ expressionValue
 
 // enum TaskState { pending = 0, running = 1 }
 // enum DataType { float32 = "float32", int32 = "int32" }
+// enum Action { create = "create" domain ts { output "client/ts/src/access" } }
 enumDef
-    : ENUM IDENT nl* LBRACE nl* (enumValue nl*)* RBRACE
+    : ENUM IDENT nl* LBRACE nl* enumBody RBRACE
+    ;
+
+// Enum body contains values and/or enum-level domains
+enumBody
+    : ((enumValue | domainDef) nl*)*
     ;
 
 // Enum values require explicit values (integer or string)

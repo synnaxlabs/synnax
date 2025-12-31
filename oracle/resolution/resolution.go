@@ -144,6 +144,7 @@ type EnumEntry struct {
 	Values        []*EnumValue
 	ValuesByName  map[string]*EnumValue
 	IsIntEnum     bool
+	Domains       map[string]*DomainEntry
 }
 
 type EnumValue struct {
