@@ -6,6 +6,7 @@ next: "Writing Data"
 nextURL: "/reference/client/fundamentals/write-data"
 prev: "Channels"
 prevURL: "/reference/client/fundamentals/channels"
+clients: ["python", "typescript"]
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
@@ -34,43 +35,48 @@ The simplest way to read data from Synnax is to use the `read` method on a `Chan
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
-    ```python
-    channel = client.channels.retrieve("my_temp_sensor")
-    start = sy.TimeStamp("2025-02-12 12:30:00")
-    end = sy.TimeStamp("2025-02-12 14:30:00")
 
-    data = channel.read(start, end)
-    ```
+```python
+channel = client.channels.retrieve("my_temp_sensor")
+start = sy.TimeStamp("2025-02-12 12:30:00")
+end = sy.TimeStamp("2025-02-12 14:30:00")
 
-    The returned data is a [`Series`](/reference/client/working-with-data/series-and-frames#series) object, which contains the time-range occupied by the data. Notably, the `Series` can be treated exactly like a `numpy.ndarray`.
+data = channel.read(start, end)
+```
 
-    ```python
-    data = data - 273.15
-    tr = data.time_range
-    ```
+The returned data is a
+[`Series`](/reference/client/working-with-data/series-and-frames#series) object, which
+contains the time-range occupied by the data. Notably, the `Series` can be treated
+exactly like a `numpy.ndarray`.
+
+```python
+data = data - 273.15
+tr = data.time_range
+```
 
   </Fragment>
 
   <Fragment slot="typescript">
-    ```typescript
-    const channel = await client.channels.retrieve("my_temp_sensor");
-    const start = new Date("2025-02-12T12:30:00Z");
-    const end = new Date("2025-02-12T14:30:00Z");
 
-    const series = await channel.read(start, end);
+```typescript
+const channel = await client.channels.retrieve("my_temp_sensor");
+const start = new Date("2025-02-12T12:30:00Z");
+const end = new Date("2025-02-12T14:30:00Z");
 
-    ```
+const series = await channel.read(start, end);
+```
 
-    The returned data is a
-    [`Series`](/reference/client/working-with-data/series-and-frames#series), which
-    maintains a very similar interface to a JavaScript typed array (e.g. `Float32Array`,
-    `Int32Array`, etc.). Convert the returned data to a JavaScript array easily:
+The returned data is a
+[`Series`](/reference/client/working-with-data/series-and-frames#series), which
+maintains a very similar interface to a JavaScript typed array (e.g. `Float32Array`,
+`Int32Array`, etc.). Convert the returned data to a JavaScript array easily:
 
-    ```typescript
-    const data = Array.from(series);
-    ```
+```typescript
+const data = Array.from(series);
+```
 
   </Fragment>
+
 </Client.Tabs>
 
 <Divider.Divider x />
@@ -78,13 +84,14 @@ The simplest way to read data from Synnax is to use the `read` method on a `Chan
 ## Reading from Multiple Channels
 
 The returned data is an instance of the
-["Frame"](/reference/client/working-with-data/series-and-frames#frame) class.
+[Frame](/reference/client/working-with-data/series-and-frames#frame) class.
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
-<Fragment slot="python">
-  Access the `Series` object using the `[]` operator. The `Frame` can also be converted
-  to a `pandas.DataFrame` by calling the `to_df` method.
+  <Fragment slot="python">
+
+Access the `Series` object using the `[]` operator. The `Frame` can also be converted to
+a `pandas.DataFrame` by calling the `to_df` method.
 
 ```python
 import synnax as sy
@@ -100,8 +107,9 @@ df = frame.to_df()
 
   </Fragment>
 
-<Fragment slot="typescript">
-  To access the data for a specific channel, use the `get` method.
+  <Fragment slot="typescript">
+
+To access the data for a specific channel, use the `get` method.
 
 ```typescript
 import { TimeStamp, TimeSpan } from "@synnaxlabs/client";
@@ -116,6 +124,7 @@ const humidity = frame.get("humidity");
 ```
 
   </Fragment>
+
 </Client.Tabs>
 
 <Divider.Divider x />
@@ -127,24 +136,23 @@ channels:
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
-<Fragment slot="python">
-  ```python
-  # Read the latest sample from a channel
-  latest_value = client.read_latest("my_tc", n=1)
+  <Fragment slot="python">
+
+```python
+# Read the latest sample from a channel
+latest_value = client.read_latest("my_tc", n=1)
 
 # Read the latest 10 samples from a channel
-
 latest_samples = client.read_latest("my_tc", n=10)
 
 # Read the latest 5 samples from multiple channels
-
 frame = client.read_latest(["my_tc", "my_sg", "my_pt"], n=5)
+```
 
-````
+  </Fragment>
 
-</Fragment>
+  <Fragment slot="typescript">
 
-<Fragment slot="typescript">
 ```typescript
 // Read the latest sample from a channel
 const latestValue = await client.readLatest("my_tc", 1);
@@ -154,9 +162,10 @@ const latestSamples = await client.readLatest("my_tc", 10);
 
 // Read the latest 5 samples from multiple channels
 const frame = await client.readLatest(["my_tc", "my_sg", "my_pt"], 5);
-````
+```
 
-</Fragment>
+  </Fragment>
+
 </Client.Tabs>
 
 The returned data follows the same conventions as regular reads - a `Series` for single

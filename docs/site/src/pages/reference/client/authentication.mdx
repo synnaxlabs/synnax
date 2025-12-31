@@ -6,7 +6,8 @@ next: "Fundamentals - Channels"
 nextURL: "/reference/client/fundamentals/channels"
 prev: "Quick Start"
 prevURL: "/reference/client/quick-start"
-platforms: ["Linux", "macOS", "Windows"]
+clients: ["python", "typescript"]
+platforms: ["Linux", "Windows", "macOS"]
 ---
 
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
@@ -92,7 +93,7 @@ Select your operating system below to see how to set environment variables:
 
 <Platform.Tabs client:only="react" exclude={["Docker"]}>
 
-<Fragment slot="Linux">
+  <Fragment slot="Linux">
 
 ```bash
 export SYNNAX_HOST="localhost"
@@ -102,21 +103,9 @@ export SYNNAX_PASSWORD="seldon"
 export SYNNAX_SECURE="false"
 ```
 
-</Fragment>
+  </Fragment>
 
-<Fragment slot="macOS">
-
-```bash
-export SYNNAX_HOST="localhost"
-export SYNNAX_PORT="9090"
-export SYNNAX_USERNAME="synnax"
-export SYNNAX_PASSWORD="seldon"
-export SYNNAX_SECURE="false"
-```
-
-</Fragment>
-
-<Fragment slot="Windows">
+  <Fragment slot="Windows">
 
 **PowerShell:**
 
@@ -138,41 +127,57 @@ set SYNNAX_PASSWORD=seldon
 set SYNNAX_SECURE=false
 ```
 
-</Fragment>
+  </Fragment>
+
+  <Fragment slot="macOS">
+
+```bash
+export SYNNAX_HOST="localhost"
+export SYNNAX_PORT="9090"
+export SYNNAX_USERNAME="synnax"
+export SYNNAX_PASSWORD="seldon"
+export SYNNAX_SECURE="false"
+```
+
+  </Fragment>
 
 </Platform.Tabs>
 
 #### Using Environment Variables in Code
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
-  <Fragment slot="python">
-    ```python
-    import os
-    import synnax as sy
 
-    client = sy.Synnax(
-        host=os.environ["SYNNAX_HOST"],
-        port=int(os.environ["SYNNAX_PORT"]),
-        username=os.environ["SYNNAX_USERNAME"],
-        password=os.environ["SYNNAX_PASSWORD"],
-        secure=os.environ.get("SYNNAX_SECURE", "false").lower() == "true"
-    )
-    ```
+  <Fragment slot="python">
+
+```python
+import os
+import synnax as sy
+
+client = sy.Synnax(
+    host=os.environ["SYNNAX_HOST"],
+    port=int(os.environ["SYNNAX_PORT"]),
+    username=os.environ["SYNNAX_USERNAME"],
+    password=os.environ["SYNNAX_PASSWORD"],
+    secure=os.environ.get("SYNNAX_SECURE", "false").lower() == "true"
+)
+```
 
   </Fragment>
 
   <Fragment slot="typescript">
-    ```typescript
-    import { Synnax } from "@synnaxlabs/client";
 
-    const client = new Synnax({
-      host: process.env.SYNNAX_HOST!,
-      port: parseInt(process.env.SYNNAX_PORT ?? "9090"),
-      username: process.env.SYNNAX_USERNAME!,
-      password: process.env.SYNNAX_PASSWORD!,
-      secure: process.env.SYNNAX_SECURE === "true",
-    });
-    ```
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax({
+  host: process.env.SYNNAX_HOST!,
+  port: parseInt(process.env.SYNNAX_PORT ?? "9090"),
+  username: process.env.SYNNAX_USERNAME!,
+  password: process.env.SYNNAX_PASSWORD!,
+  secure: process.env.SYNNAX_SECURE === "true",
+});
+```
 
   </Fragment>
+
 </Client.Tabs>

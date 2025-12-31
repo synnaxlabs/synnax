@@ -6,6 +6,7 @@ description:
   writing data."
 next: "Authentication"
 nextURL: "/reference/client/authentication"
+clients: ["python", "typescript"]
 ---
 
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
@@ -162,7 +163,7 @@ channel to
 
 ## Write Data
 
-Write data to `timeChannel` and `tempChannel`. The index channel must be written to
+Write data to the time and temperature channels. The index channel must be written to
 before writing to the data channel.
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>

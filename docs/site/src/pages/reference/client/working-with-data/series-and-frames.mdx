@@ -7,6 +7,7 @@ next: "Ranges"
 nextURL: "/reference/client/working-with-data/ranges"
 prev: "Writing Data"
 prevURL: "/reference/client/fundamentals/write-data"
+clients: ["python", "typescript"]
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
@@ -35,50 +36,46 @@ Here are a few simple ways to construct a series:
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
-<Fragment slot="python">
+  <Fragment slot="python">
+
 ```python
-import synnax as sy
 import numpy as np
 
-# Construct a series from a list of samples. In this case, the series
-
-# will automatically be assumed to be of type int64.
-
+# Construct a series from a list of samples. The data type is inferred
+# from the first element - in this case int64. All elements must be the
+# same type; mixed types won't throw an error but will cause undefined behavior.
 series = sy.Series([1, 2, 3, 4, 5])
 
 # Manually specify the data type of the series
-
 series = sy.Series([1, 2, 3, 4, 5], data_type=sy.DataType.INT32)
 
 # Construct a series from a numpy array. The type of the series
-
-# will be inferred from the numpy array.
-
+# will be inferred from the numpy array's dtype.
 series = sy.Series(np.array([1, 2, 3, 4, 5], dtype=np.int64))
 
-# Construct a series from a list of strings. In this case,
-
-# the series will automatically be of type string.
-
+# Construct a series from a list of strings. The data type is inferred
+# from the first element - in this case string.
 series = sy.Series(["apple", "banana", "cherry"])
 
-# Construct a series from dictionaries. In this case, the series
-
-# will automatically be assumed to be of type json.
-
-series = sy.Series([ {"red": "cherry" }, {"yellow": "banana" }, {"orange": "orange" },
+# Construct a series from dictionaries. The data type is inferred
+# from the first element - in this case json.
+series = sy.Series([
+    {"red": "cherry"},
+    {"yellow": "banana"},
+    {"orange": "orange"},
 ])
+```
 
-````
+  </Fragment>
 
-</Fragment>
+  <Fragment slot="typescript">
 
-<Fragment slot="typescript">
 ```typescript
 import { Series } from "@synnaxlabs/client";
 
-// Construct a series from an array of numbers. In this case, the series will
-// automatically be of type float64.
+// Construct a series from an array of numbers. The data type is inferred
+// from the first element - in this case float64. All elements must be the
+// same type; mixed types won't throw an error but will cause undefined behavior.
 const series = new Series([1, 2, 3, 4, 5]);
 
 // Manually specify the data type of the series
@@ -88,20 +85,21 @@ const series = new Series({ data: [1, 2, 3, 4, 5], dataType: "float32" });
 // construct a series from a large amount of data.
 const series = new Series(new Float32Array([1, 2, 3, 4, 5]));
 
-// Construct a series from an array of strings. In this case, the series will
-// automatically be of type string.
+// Construct a series from an array of strings. The data type is inferred
+// from the first element - in this case string.
 const series = new Series(["apple", "banana", "cherry"]);
 
-// Construct a series from an array of objects. In this case, the series
-// will automatically be of type json.
+// Construct a series from an array of objects. The data type is inferred
+// from the first element - in this case json.
 const series = new Series([
   { red: "cherry" },
   { yellow: "banana" },
   { orange: "orange" },
 ]);
-````
+```
 
   </Fragment>
+
 </Client.Tabs>
 
 The values passed to a series cannot have different data types. The constructor will not
@@ -221,10 +219,11 @@ console.log(series.at(-1)); // 5
 
 ### The Time Range Property
 
-Whenever you read a series from Synnax, it will have a `time_range`/`timeRange` property
-that represents the time range occupied by the samples in the Series. This property can
-be useful for getting a high-level understanding of when the samples were recorded
-without needing to query an index channel.
+Whenever you read a series from Synnax, it will have a <Client.Var client:load
+py="time_range" ts="timeRange" /> property that represents the time range occupied by
+the samples in the Series. This property can be useful for getting a high-level
+understanding of when the samples were recorded without needing to query an index
+channel.
 
 The `start` field represents the timestamp for the first sample, and the `end` field
 represents a timestamp just after the last sample (start-inclusive, end-exclusive).
@@ -564,6 +563,19 @@ If you know the series contains a specific JavaScript type (`number`, `string`,
 const series = new Series([1, 2, 3, 4, 5]);
 const typedSeries: Series<number> = series.as("number");
 const v: number = typedSeries.at(0); // Guaranteed to be a number
+```
+
+The `as` method validates that the series data type is compatible with the requested
+JavaScript type. If the types are incompatible, it throws an error:
+
+```typescript
+const stringSeries = new Series(["apple", "banana"]);
+// Throws: "cannot convert series of type string to number"
+stringSeries.as("number");
+
+const floatSeries = new Series([1.5, 2.5, 3.5]);
+// Throws: "cannot convert series of type float64 to bigint"
+floatSeries.as("bigint");
 ```
 
   </Fragment>

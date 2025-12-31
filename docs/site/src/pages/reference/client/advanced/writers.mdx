@@ -7,6 +7,7 @@ next: "Delete Data"
 nextURL: "/reference/client/advanced/delete-data"
 prev: "Iterators"
 prevURL: "/reference/client/working-with-data/iterators"
+clients: ["python", "typescript"]
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
@@ -34,8 +35,8 @@ Writers maintain a file-like interface governed by transactions. To learn more a
 transactions and how writes work in Synnax, see the
 [concepts](/reference/concepts/writes) page.
 
-To open a writer, use the `open_writer` / `openWriter` method with a starting timestamp
-and a list of channels to write to.
+To open a writer, use the <Client.Var client:load py="open_writer" ts="openWriter" />
+method with a starting timestamp and a list of channels to write to.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -102,8 +103,10 @@ You may want to disable auto-commit in the following scenarios:
 - **Atomic transactions**: When you need multiple writes to appear together atomically
   to maintain data consistency across channels.
 
-To disable auto-commit, set the `enable_auto_commit` / `enableAutoCommit` option to
-`False` / `false` when opening the writer.
+To disable auto-commit, set the <Client.Var client:load py="enable_auto_commit"
+ts="enableAutoCommit" /> option to
+
+<Client.Var client:load py="False" ts="false" /> when opening the writer.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -234,8 +237,8 @@ const writer = await client.openWriter({
 
 #### Adjusting Authority After Open
 
-To change the authority of a writer during operation, use the `set_authority` /
-`setAuthority` method.
+To change the authority of a writer during operation, use the <Client.Var client:load
+py="set_authority" ts="setAuthority" /> method.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -278,7 +281,8 @@ writer, specify the `mode` argument when opening the writer. The available modes
 
 - `persist` - Only persist data to the database (no streaming to subscribers)
 - `stream` - Only stream data to subscribers (no persistence)
-- `persist_stream` / `persistStream` - Both persist and stream (default)
+- <Client.Var client:load py="persist_stream" ts="persistStream" /> - Both persist and
+  stream (default)
 
 For example, to open a writer that only persists data:
 

@@ -6,6 +6,7 @@ next: "Examples"
 nextURL: "/reference/client/resources/examples"
 prev: "Delete Data"
 prevURL: "/reference/client/advanced/delete-data"
+clients: ["python", "typescript"]
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
@@ -89,8 +90,10 @@ const ts = TimeStamp.now().sub(TimeSpan.seconds(1));
 
 Any of these formats can be passed to common methods used throughout the Synnax client.
 The union of these formats is called a `CrudeTimeStamp`. Examples include `read`,
-`write`, `open_iterator`/`openIterator`, `open_streamer`/`openStreamer`, and
-`open_writer`/`openWriter`.
+`write`, <Client.Var client:load py="open_iterator" ts="openIterator" />, <Client.Var
+client:load py="open_streamer" ts="openStreamer" />, and
+
+<Client.Var client:load py="open_writer" ts="openWriter" />.
 
 ### Converting to a Date/Datetime
 

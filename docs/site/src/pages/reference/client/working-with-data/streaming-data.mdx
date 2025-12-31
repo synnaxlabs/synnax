@@ -6,6 +6,7 @@ next: "Iterators"
 nextURL: "/reference/client/working-with-data/iterators"
 prev: "Ranges"
 prevURL: "/reference/client/working-with-data/ranges"
+clients: ["python", "typescript"]
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
@@ -23,8 +24,8 @@ a conceptual overview of how streaming works in Synnax, check out the
 
 ## Opening a Streamer
 
-To start streaming data, call the `open_streamer`/`openStreamer` method on the client
-and provide a list of channels to stream.
+To start streaming data, call the <Client.Var client:load py="open_streamer"
+ts="openStreamer" /> method on the client and provide a list of channels to stream.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -47,9 +48,10 @@ const streamer = await client.openStreamer(["temperature1", "temperature2"]);
 
 ### Downsampling Option
 
-To stream data at a lower rate, use the `downsample_factor` / `downsampleFactor`
-parameter. The streamer will skip the specified number of samples in each series before
-returning the next frame. Note that this does not average values—it skips samples.
+To stream data at a lower rate, use the <Client.Var client:load py="downsample_factor"
+ts="downsampleFactor" /> parameter. The streamer will skip the specified number of
+samples in each series before returning the next frame. Note that this does not average
+values—it skips samples.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -270,8 +272,9 @@ if (frame === null) {
 
 ## Updating the Channel List
 
-To update the list of channels being streamed, call the `update_channels` / `update`
-method on the streamer. This will _replace_ the current list of channels, not add to it.
+To update the list of channels being streamed, call the <Client.Var client:load
+py="update*channels" ts="update" /> method on the streamer. This will \_replace* the
+current list of channels, not add to it.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
