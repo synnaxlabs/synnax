@@ -23,5 +23,5 @@ New struct extends Workspace {
     key uuid?
 
     @ts use_input
-    @go handwritten
+    @go omit
 }

@@ -21,7 +21,7 @@ import (
 	"text/template"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/oracle/domain/handwritten"
+	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/ontology"
 	"github.com/synnaxlabs/oracle/domain/validation"
@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	pluginoutput "github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // Plugin generates Python Pydantic model definitions from Oracle schemas.
@@ -109,21 +110,27 @@ func findPoetryDir(file string) string {
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 	outputStructs := make(map[string][]resolution.Struct)
+	var outputOrder []string
+
 	for _, entry := range req.Resolutions.AllStructs() {
 		if outputPath := pluginoutput.GetPath(entry, "py"); outputPath != "" {
 			if req.RepoRoot != "" {
 				if err := req.ValidateOutputPath(outputPath); err != nil {
-					return nil, fmt.Errorf("invalid output path for struct %s: %w", entry.Name, err)
+					return nil, errors.Wrapf(err, "invalid output path for struct %s", entry.Name)
 				}
+			}
+			if _, exists := outputStructs[outputPath]; !exists {
+				outputOrder = append(outputOrder, outputPath)
 			}
 			outputStructs[outputPath] = append(outputStructs[outputPath], entry)
 		}
 	}
-	for outputPath, structs := range outputStructs {
+	for _, outputPath := range outputOrder {
+		structs := outputStructs[outputPath]
 		enums := enum.CollectReferenced(structs)
 		content, err := p.generateFile(structs[0].Namespace, structs, enums, req.Resolutions)
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate %s: %w", outputPath, err)
+			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
 		resp.Files = append(resp.Files, plugin.File{
 			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
@@ -147,7 +154,7 @@ func (p *Plugin) generateFile(
 		imports:   newImportManager(),
 	}
 	data.imports.addPydantic("BaseModel")
-	skip := func(s resolution.Struct) bool { return handwritten.IsStruct(s, "py") }
+	skip := func(s resolution.Struct) bool { return omit.IsStruct(s, "py") }
 	rawKeyFields := key.Collect(structs, skip)
 	keyFields := p.convertKeyFields(rawKeyFields, data)
 	data.KeyFields = keyFields
@@ -228,11 +235,11 @@ func (p *Plugin) processStruct(
 		Name:   entry.Name,
 		PyName: entry.Name, // Default to original name
 	}
-	// Check for py domain expressions (name, handwritten)
+	// Check for py domain expressions (name, omit)
 	if pyDomain, ok := entry.Domains["py"]; ok {
 		for _, expr := range pyDomain.Expressions {
 			switch expr.Name {
-			case "handwritten":
+			case "omit":
 				sd.Skip = true
 				return sd
 			case "name":
@@ -683,7 +690,7 @@ type structData struct {
 	Name    string // Original struct name from schema
 	PyName  string // Python name (can be overridden via py domain { name "..." })
 	Fields  []fieldData
-	Skip    bool   // If true, skip generating this struct (handwritten)
+	Skip    bool   // If true, skip generating this struct (omit)
 	IsAlias bool   // If true, this struct is a type alias
 	AliasOf string // Python expression for the aliased type (e.g., "status.Status[StatusDetails]")
 

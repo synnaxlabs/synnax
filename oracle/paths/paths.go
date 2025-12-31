@@ -12,11 +12,12 @@
 package paths
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/synnaxlabs/x/errors"
 )
 
 // RepoRoot finds the git repository root from the current working directory.
@@ -34,7 +35,7 @@ func RepoRoot() (string, error) {
 	// Fallback: walk up looking for .git directory
 	cwd, err := os.Getwd()
 	if err != nil {
-		return "", fmt.Errorf("failed to get working directory: %w", err)
+		return "", errors.Wrap(err, "failed to get working directory")
 	}
 
 	return findGitRoot(cwd)
@@ -44,7 +45,7 @@ func RepoRoot() (string, error) {
 func RepoRootFrom(startPath string) (string, error) {
 	absPath, err := filepath.Abs(startPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve path: %w", err)
+		return "", errors.Wrap(err, "failed to resolve path")
 	}
 
 	return findGitRoot(absPath)
@@ -63,7 +64,7 @@ func findGitRoot(startPath string) (string, error) {
 		parent := filepath.Dir(current)
 		if parent == current {
 			// Reached filesystem root
-			return "", fmt.Errorf("oracle must be run within a git repository: no .git directory found in %s or any parent", startPath)
+			return "", errors.Newf("oracle must be run within a git repository: no .git directory found in %s or any parent", startPath)
 		}
 		current = parent
 	}
@@ -76,7 +77,7 @@ func findGitRoot(startPath string) (string, error) {
 // Returns an error if the path would escape the repository.
 func Normalize(path, repoRoot string) (string, error) {
 	if path == "" {
-		return "", fmt.Errorf("path cannot be empty")
+		return "", errors.New("path cannot be empty")
 	}
 
 	var absPath string
@@ -93,7 +94,7 @@ func Normalize(path, repoRoot string) (string, error) {
 			// Try resolving from cwd
 			cwd, err := os.Getwd()
 			if err != nil {
-				return "", fmt.Errorf("failed to get working directory: %w", err)
+				return "", errors.Wrap(err, "failed to get working directory")
 			}
 			absPath = filepath.Clean(filepath.Join(cwd, path))
 		}
@@ -102,12 +103,12 @@ func Normalize(path, repoRoot string) (string, error) {
 	// Make relative to repo root
 	relPath, err := filepath.Rel(repoRoot, absPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to compute relative path: %w", err)
+		return "", errors.Wrap(err, "failed to compute relative path")
 	}
 
 	// Check for path traversal (escaping repo)
 	if strings.HasPrefix(relPath, "..") {
-		return "", fmt.Errorf("path %q escapes repository root", path)
+		return "", errors.Newf("path %q escapes repository root", path)
 	}
 
 	return relPath, nil
@@ -125,33 +126,33 @@ func Resolve(repoRelative, repoRoot string) string {
 // It checks for path traversal attempts and invalid characters.
 func ValidateOutput(path, repoRoot string) error {
 	if path == "" {
-		return fmt.Errorf("output path cannot be empty")
+		return errors.New("output path cannot be empty")
 	}
 
 	// Check for path traversal patterns
 	if strings.Contains(path, "..") {
-		return fmt.Errorf("output path %q contains path traversal (..) which is not allowed", path)
+		return errors.Newf("output path %q contains path traversal (..) which is not allowed", path)
 	}
 
 	// Check for absolute paths (should be repo-relative)
 	if filepath.IsAbs(path) {
-		return fmt.Errorf("output path %q must be repo-relative, not absolute", path)
+		return errors.Newf("output path %q must be repo-relative, not absolute", path)
 	}
 
 	// Check for invalid prefixes
 	if strings.HasPrefix(path, "/") || strings.HasPrefix(path, "\\") {
-		return fmt.Errorf("output path %q must be repo-relative", path)
+		return errors.Newf("output path %q must be repo-relative", path)
 	}
 
 	// Verify the resolved path stays within repo
 	resolved := Resolve(path, repoRoot)
 	relPath, err := filepath.Rel(repoRoot, resolved)
 	if err != nil {
-		return fmt.Errorf("failed to validate output path: %w", err)
+		return errors.Wrap(err, "failed to validate output path")
 	}
 
 	if strings.HasPrefix(relPath, "..") {
-		return fmt.Errorf("output path %q would escape repository root", path)
+		return errors.Newf("output path %q would escape repository root", path)
 	}
 
 	return nil
@@ -167,7 +168,7 @@ func RelativeImport(from, to string) (string, error) {
 
 	rel, err := filepath.Rel(from, to)
 	if err != nil {
-		return "", fmt.Errorf("failed to compute relative import: %w", err)
+		return "", errors.Wrap(err, "failed to compute relative import")
 	}
 
 	// Ensure forward slashes for import paths

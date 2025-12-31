@@ -40,11 +40,11 @@ func GetEnumPath(entry resolution.Enum, domainName string) string {
 	return ""
 }
 
-// IsEnumHandwritten checks if an enum has the "handwritten" expression in its domain.
-func IsEnumHandwritten(entry resolution.Enum, domainName string) bool {
+// IsEnumOmitted checks if an enum has the "omit" expression in its domain.
+func IsEnumOmitted(entry resolution.Enum, domainName string) bool {
 	if domain, ok := entry.Domains[domainName]; ok {
 		for _, expr := range domain.Expressions {
-			if expr.Name == "handwritten" {
+			if expr.Name == "omit" {
 				return true
 			}
 		}

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/oracle/copyright"
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/paths"
+	"github.com/synnaxlabs/x/errors"
 )
 
 var fmtCmd = &cobra.Command{
@@ -68,7 +69,7 @@ func runFmt(cmd *cobra.Command, args []string) error {
 
 	if len(files) == 0 {
 		printError("no schema files found")
-		return fmt.Errorf("no schema files found")
+		return errors.New("no schema files found")
 	}
 
 	printSchemaCount(len(files))
@@ -97,12 +98,12 @@ func runFmt(cmd *cobra.Command, args []string) error {
 
 	if failed > 0 {
 		printError(fmt.Sprintf("%d file(s) failed to format", failed))
-		return fmt.Errorf("formatting failed")
+		return errors.New("formatting failed")
 	}
 
 	if fmtCheck && formatted > 0 {
 		printError(fmt.Sprintf("%d file(s) need formatting", formatted))
-		return fmt.Errorf("files need formatting")
+		return errors.New("files need formatting")
 	}
 
 	printFormatResult(formatted, unchanged)

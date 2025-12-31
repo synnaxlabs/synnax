@@ -19,8 +19,10 @@ import (
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/plugin"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
+	pbtypes "github.com/synnaxlabs/oracle/plugin/pb/types"
 	pytypes "github.com/synnaxlabs/oracle/plugin/py/types"
 	tstypes "github.com/synnaxlabs/oracle/plugin/ts/types"
+	"github.com/synnaxlabs/x/errors"
 )
 
 var generateCmd = &cobra.Command{
@@ -52,14 +54,14 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 
 	if len(schemaFiles) == 0 {
 		printError("no schema files found")
-		return fmt.Errorf("no schema files found")
+		return errors.New("no schema files found")
 	}
 
 	normalizedFiles := make([]string, 0, len(schemaFiles))
 	for _, f := range schemaFiles {
 		relPath, err := paths.Normalize(f, repoRoot)
 		if err != nil {
-			return fmt.Errorf("failed to normalize schema path %q: %w", f, err)
+			return errors.Wrapf(err, "failed to normalize schema path %q", f)
 		}
 		normalizedFiles = append(normalizedFiles, relPath)
 	}
@@ -75,7 +77,7 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 
 	if diag != nil && diag.HasErrors() {
 		printError(fmt.Sprintf("generation failed with %d error(s)", len(diag.Errors())))
-		return fmt.Errorf("generation failed")
+		return errors.New("generation failed")
 	}
 
 	if result != nil {
@@ -128,7 +130,7 @@ func expandGlobs(patterns []string, baseDir string) ([]string, error) {
 
 		matches, err := filepath.Glob(pattern)
 		if err != nil {
-			return nil, fmt.Errorf("invalid glob pattern %q: %w", pattern, err)
+			return nil, errors.Wrapf(err, "invalid glob pattern %q", pattern)
 		}
 
 		files = append(files, matches...)
@@ -142,6 +144,7 @@ func buildPluginRegistry() *plugin.Registry {
 	_ = registry.Register(tstypes.New(tstypes.DefaultOptions()))
 	_ = registry.Register(gotypes.New(gotypes.DefaultOptions()))
 	_ = registry.Register(pytypes.New(pytypes.DefaultOptions()))
+	_ = registry.Register(pbtypes.New(pbtypes.DefaultOptions()))
 	return registry
 }
 

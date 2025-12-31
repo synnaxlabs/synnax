@@ -119,9 +119,14 @@ func analyze(c *analysisCtx) {
 	}
 
 	// Collect file-level domains first (they apply to all definitions)
+	// Merge domains with the same name to support multiple @domain lines
 	for _, fd := range c.ast.AllFileDomain() {
 		de := collectFileDomain(fd)
-		c.fileDomains[de.Name] = de
+		if existing, ok := c.fileDomains[de.Name]; ok {
+			c.fileDomains[de.Name] = de.Merge(existing)
+		} else {
+			c.fileDomains[de.Name] = de
+		}
 	}
 
 	for _, def := range c.ast.AllDefinition() {
@@ -244,13 +249,8 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 		for _, d := range body.AllDomain() {
 			de := collectDomain(d)
 			if existing, ok := entry.Domains[de.Name]; ok {
-				// Merge expressions: existing (file-level) + new (struct-level)
-				merged := resolution.Domain{
-					AST:         de.AST,
-					Name:        de.Name,
-					Expressions: append(existing.Expressions, de.Expressions...),
-				}
-				entry.Domains[de.Name] = merged
+				// Merge: struct-level expressions override file-level ones
+				entry.Domains[de.Name] = de.Merge(existing)
 			} else {
 				entry.Domains[de.Name] = de
 			}

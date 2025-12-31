@@ -404,6 +404,95 @@ var _ = Describe("Analyzer", func() {
 		})
 	})
 
+	Describe("File-level Domain Merging", func() {
+		It("Should merge multiple file-level domains with the same name", func() {
+			source := `
+				@pb output "core/pkg/api/grpc/v1"
+				@pb package "api.v1"
+
+				User struct {
+					key uuid @key
+					name string
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			userStruct := table.MustGetStruct("user.User")
+			Expect(userStruct.Domains).To(HaveKey("pb"))
+
+			pbDomain := userStruct.Domains["pb"]
+			Expect(pbDomain.Expressions).To(HaveLen(2))
+
+			// Both output and package expressions should be present
+			outputExpr, found := pbDomain.Expressions.Find("output")
+			Expect(found).To(BeTrue())
+			Expect(outputExpr.Values[0].StringValue).To(Equal("core/pkg/api/grpc/v1"))
+
+			packageExpr, found := pbDomain.Expressions.Find("package")
+			Expect(found).To(BeTrue())
+			Expect(packageExpr.Values[0].StringValue).To(Equal("api.v1"))
+		})
+
+		It("Should merge file-level domains with struct-level domains", func() {
+			source := `
+				@go output "core/pkg/service/user"
+
+				User struct {
+					key uuid @key
+					name string
+
+					@go omit
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			userStruct := table.MustGetStruct("user.User")
+			Expect(userStruct.Domains).To(HaveKey("go"))
+
+			goDomain := userStruct.Domains["go"]
+			Expect(goDomain.Expressions).To(HaveLen(2))
+
+			// Both file-level output and struct-level omit should be present
+			outputExpr, found := goDomain.Expressions.Find("output")
+			Expect(found).To(BeTrue())
+			Expect(outputExpr.Values[0].StringValue).To(Equal("core/pkg/service/user"))
+
+			_, found = goDomain.Expressions.Find("omit")
+			Expect(found).To(BeTrue())
+		})
+
+		It("Should let struct-level domain override file-level domain expression", func() {
+			source := `
+				@ts output "client/ts/src/default"
+
+				User struct {
+					key uuid @key
+					@ts output "client/ts/src/user"
+				}
+
+				Admin struct {
+					key uuid @key
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			// User should have overridden output
+			userStruct := table.MustGetStruct("user.User")
+			userTsDomain := userStruct.Domains["ts"]
+			userOutput, _ := userTsDomain.Expressions.Find("output")
+			Expect(userOutput.Values[0].StringValue).To(Equal("client/ts/src/user"))
+
+			// Admin should have file-level output
+			adminStruct := table.MustGetStruct("user.Admin")
+			adminTsDomain := adminStruct.Domains["ts"]
+			adminOutput, _ := adminTsDomain.Expressions.Find("output")
+			Expect(adminOutput.Values[0].StringValue).To(Equal("client/ts/src/default"))
+		})
+	})
+
 	Describe("Struct Extension", func() {
 		It("Should parse basic struct extension", func() {
 			source := `

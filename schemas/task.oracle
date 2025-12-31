@@ -47,7 +47,7 @@ Task struct<
         name "Payload"
         concrete_types
     }
-    @py name "Payload"
+    @py name       "Payload"
     @ontology type "task"
 }
 

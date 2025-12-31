@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/oracle/paths"
+	"github.com/synnaxlabs/x/errors"
 )
 
 const (
@@ -59,13 +60,13 @@ func Ensure(content string) (string, error) {
 func generateHeader() (string, error) {
 	repoRoot, err := paths.RepoRoot()
 	if err != nil {
-		return "", fmt.Errorf("failed to find repo root: %w", err)
+		return "", errors.Wrap(err, "failed to find repo root")
 	}
 
 	templateFile := filepath.Join(repoRoot, templatePath)
 	templateBytes, err := os.ReadFile(templateFile)
 	if err != nil {
-		return "", fmt.Errorf("failed to read template: %w", err)
+		return "", errors.Wrap(err, "failed to read template")
 	}
 
 	currentYear := time.Now().Year()

@@ -11,6 +11,7 @@ package types_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -535,7 +536,7 @@ var _ = Describe("Go Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`Counts map[string]int32`))
 		})
 
-		It("Should skip handwritten structs", func() {
+		It("Should skip omitted structs", func() {
 			source := `
 				@go output "core/status"
 
@@ -543,7 +544,7 @@ var _ = Describe("Go Types Plugin", func() {
 					key uuid
 					message string
 
-					@go handwritten
+					@go omit
 				}
 
 				Other struct {
@@ -954,6 +955,70 @@ var _ = Describe("Go Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`type RackStatus[D any] struct {`))
 			Expect(content).To(ContainSubstring("\tStatus[D]\n"))
 			Expect(content).To(ContainSubstring(`Timestamp telem.TimeStamp`))
+		})
+
+		It("Should preserve struct declaration order", func() {
+			source := `
+				@go output "core/animals"
+
+				Zebra struct {
+					name string
+				}
+
+				Apple struct {
+					color string
+				}
+
+				Mango struct {
+					ripe bool
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "animals", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := goPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			zebraIdx := strings.Index(content, "type Zebra struct")
+			appleIdx := strings.Index(content, "type Apple struct")
+			mangoIdx := strings.Index(content, "type Mango struct")
+			Expect(zebraIdx).To(BeNumerically("<", appleIdx))
+			Expect(appleIdx).To(BeNumerically("<", mangoIdx))
+		})
+
+		It("Should preserve field declaration order", func() {
+			source := `
+				@go output "core/order"
+
+				Record struct {
+					zebra string
+					apple int32
+					mango bool
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "order", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := goPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			zebraIdx := strings.Index(content, "Zebra string")
+			appleIdx := strings.Index(content, "Apple int32")
+			mangoIdx := strings.Index(content, "Mango bool")
+			Expect(zebraIdx).To(BeNumerically("<", appleIdx))
+			Expect(appleIdx).To(BeNumerically("<", mangoIdx))
 		})
 	})
 })

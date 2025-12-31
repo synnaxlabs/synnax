@@ -15,18 +15,18 @@ import (
 	"github.com/google/uuid"
 )
 
-type New struct {
-	Username string `json:"username" msgpack:"username"`
-	Key uuid.UUID `json:"key,omitempty" msgpack:"key,omitempty"`
-	Password string `json:"password" msgpack:"password"`
-	FirstName string `json:"first_name,omitempty" msgpack:"first_name,omitempty"`
-	LastName string `json:"last_name,omitempty" msgpack:"last_name,omitempty"`
-}
-
 type User struct {
 	Key uuid.UUID `json:"key" msgpack:"key"`
 	Username string `json:"username" msgpack:"username"`
 	FirstName string `json:"first_name" msgpack:"first_name"`
 	LastName string `json:"last_name" msgpack:"last_name"`
 	RootUser bool `json:"root_user" msgpack:"root_user"`
+}
+
+type New struct {
+	Username string `json:"username" msgpack:"username"`
+	Key uuid.UUID `json:"key,omitempty" msgpack:"key,omitempty"`
+	Password string `json:"password" msgpack:"password"`
+	FirstName string `json:"first_name,omitempty" msgpack:"first_name,omitempty"`
+	LastName string `json:"last_name,omitempty" msgpack:"last_name,omitempty"`
 }

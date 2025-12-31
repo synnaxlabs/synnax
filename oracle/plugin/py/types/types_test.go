@@ -11,6 +11,7 @@ package types_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -658,6 +659,70 @@ var _ = Describe("Python Types Plugin", func() {
 			// RackStatus should extend Status (generic type args are inherited via extends)
 			Expect(content).To(ContainSubstring(`class RackStatus(Status):`))
 			Expect(content).To(ContainSubstring(`timestamp: TimeStamp`))
+		})
+
+		It("Should preserve struct declaration order", func() {
+			source := `
+				@py output "out"
+
+				Zebra struct {
+					name string
+				}
+
+				Apple struct {
+					color string
+				}
+
+				Mango struct {
+					ripe bool
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "animals", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			zebraIdx := strings.Index(content, "class Zebra")
+			appleIdx := strings.Index(content, "class Apple")
+			mangoIdx := strings.Index(content, "class Mango")
+			Expect(zebraIdx).To(BeNumerically("<", appleIdx))
+			Expect(appleIdx).To(BeNumerically("<", mangoIdx))
+		})
+
+		It("Should preserve field declaration order", func() {
+			source := `
+				@py output "out"
+
+				Record struct {
+					zebra string
+					apple int32
+					mango bool
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "order", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+				OutputDir:   "out",
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			zebraIdx := strings.Index(content, "zebra:")
+			appleIdx := strings.Index(content, "apple:")
+			mangoIdx := strings.Index(content, "mango:")
+			Expect(zebraIdx).To(BeNumerically("<", appleIdx))
+			Expect(appleIdx).To(BeNumerically("<", mangoIdx))
 		})
 	})
 })

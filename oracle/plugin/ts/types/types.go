@@ -21,7 +21,7 @@ import (
 	"text/template"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/oracle/domain/handwritten"
+	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/ontology"
 	"github.com/synnaxlabs/oracle/domain/validation"
@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	pluginoutput "github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // Plugin generates TypeScript type definitions and Zod schemas from Oracle schemas.
@@ -112,12 +113,18 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 	outputStructs := make(map[string][]resolution.Struct)
 	outputEnums := make(map[string][]resolution.Enum)
+	var structOrder []string
+	var enumOrder []string
+
 	for _, entry := range req.Resolutions.AllStructs() {
 		if outputPath := pluginoutput.GetPath(entry, "ts"); outputPath != "" {
 			if req.RepoRoot != "" {
 				if err := req.ValidateOutputPath(outputPath); err != nil {
-					return nil, fmt.Errorf("invalid output path for struct %s: %w", entry.Name, err)
+					return nil, errors.Wrapf(err, "invalid output path for struct %s", entry.Name)
 				}
+			}
+			if _, exists := outputStructs[outputPath]; !exists {
+				structOrder = append(structOrder, outputPath)
 			}
 			outputStructs[outputPath] = append(outputStructs[outputPath], entry)
 		}
@@ -126,12 +133,16 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		enumPath := pluginoutput.GetEnumPath(e, "ts")
 		if req.RepoRoot != "" {
 			if err := req.ValidateOutputPath(enumPath); err != nil {
-				return nil, fmt.Errorf("invalid output path for enum %s: %w", e.Name, err)
+				return nil, errors.Wrapf(err, "invalid output path for enum %s", e.Name)
 			}
+		}
+		if _, exists := outputEnums[enumPath]; !exists {
+			enumOrder = append(enumOrder, enumPath)
 		}
 		outputEnums[enumPath] = append(outputEnums[enumPath], e)
 	}
-	for outputPath, structs := range outputStructs {
+	for _, outputPath := range structOrder {
+		structs := outputStructs[outputPath]
 		enums := enum.CollectReferenced(structs)
 		if standaloneEnums, ok := outputEnums[outputPath]; ok {
 			enums = mergeEnums(enums, standaloneEnums)
@@ -139,17 +150,21 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 		content, err := p.generateFile(structs[0].Namespace, outputPath, structs, enums, req)
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate %s: %w", outputPath, err)
+			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
 		resp.Files = append(resp.Files, plugin.File{
 			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
 			Content: content,
 		})
 	}
-	for outputPath, enums := range outputEnums {
+	for _, outputPath := range enumOrder {
+		enums, ok := outputEnums[outputPath]
+		if !ok {
+			continue
+		}
 		content, err := p.generateFile(enums[0].Namespace, outputPath, nil, enums, req)
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate %s: %w", outputPath, err)
+			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
 		resp.Files = append(resp.Files, plugin.File{
 			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
@@ -241,7 +256,7 @@ func (p *Plugin) generateFile(
 		GenerateTypes: p.Options.GenerateTypes,
 		Imports:       make(map[string]*importSpec),
 	}
-	skip := func(s resolution.Struct) bool { return handwritten.IsStruct(s, "ts") }
+	skip := func(s resolution.Struct) bool { return omit.IsStruct(s, "ts") }
 	rawKeyFields := key.Collect(structs, skip)
 	keyFields := p.convertKeyFields(rawKeyFields, structs, data)
 	data.KeyFields = keyFields
@@ -342,7 +357,7 @@ func (p *Plugin) processStruct(entry resolution.Struct, table *resolution.Table,
 			switch expr.Name {
 			case "use_input":
 				sd.UseInput = true
-			case "handwritten":
+			case "omit":
 				sd.Handwritten = true
 			case "concrete_types":
 				sd.ConcreteTypes = true

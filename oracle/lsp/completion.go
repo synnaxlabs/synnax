@@ -71,7 +71,7 @@ var (
 
 	outputExpressionCompletions = []protocol.CompletionItem{
 		{Label: "output", Kind: protocol.CompletionItemKindValue, Detail: "Output path for generated code"},
-		{Label: "handwritten", Kind: protocol.CompletionItemKindValue, Detail: "Skip code generation for this struct/enum"},
+		{Label: "omit", Kind: protocol.CompletionItemKindValue, Detail: "Skip code generation for this struct/enum"},
 	}
 
 	ontologyExpressionCompletions = []protocol.CompletionItem{

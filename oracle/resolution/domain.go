@@ -23,8 +23,6 @@ type Domain struct {
 	Expressions Expressions
 }
 
-// mergeDomainExpressions merges two domains' expressions.
-// Parent expressions are kept, child expressions override on name conflict.
 func (d Domain) Merge(parent Domain) Domain {
 	merged := Domain{AST: d.AST, Name: d.Name}
 	exprMap := make(map[string]Expression)

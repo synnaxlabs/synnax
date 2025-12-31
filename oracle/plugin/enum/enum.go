@@ -56,7 +56,7 @@ func FindOutputPath(e resolution.Enum, table *resolution.Table, domainName strin
 func CollectWithOwnOutput(allEnums []resolution.Enum, domainName string) []resolution.Enum {
 	var result []resolution.Enum
 	for _, e := range allEnums {
-		if output.GetEnumPath(e, domainName) != "" && !output.IsEnumHandwritten(e, domainName) {
+		if output.GetEnumPath(e, domainName) != "" && !output.IsEnumOmitted(e, domainName) {
 			result = append(result, e)
 		}
 	}

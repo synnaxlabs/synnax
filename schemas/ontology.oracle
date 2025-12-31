@@ -40,7 +40,7 @@ ID struct {
     type ResourceType
     key  string
 
-    @ts handwritten
+    @ts omit
 }
 
 Resource struct {
@@ -48,7 +48,7 @@ Resource struct {
     name string
     data json?
 
-    @ts handwritten
+    @ts omit
 }
 
 Relationship struct {
@@ -56,5 +56,5 @@ Relationship struct {
     type string
     to   ID
 
-    @ts handwritten
+    @ts omit
 }

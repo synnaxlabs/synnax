@@ -9,8 +9,10 @@
 
 import "schemas/label"
 
-@ts output "x/ts/src/status"
-@py output "client/py/synnax/status"
+@ts output  "x/ts/src/status"
+@py output  "client/py/synnax/status"
+@pb output  "x/go/status"
+@pb package "status.v1"
 
 Variant enum {
     success  = "success"
@@ -31,13 +33,14 @@ Status struct<D?> {
     labels      label.Label[]?
     details     D?
 
-    @ts handwritten
-    @py handwritten
+    @ts omit
+    @py omit
 }
 
 New struct<D> extends Status<D> {
     key  uuid?
     name string?
 
-    @ts handwritten
+    @ts omit
+    @pb omit
 }

@@ -19,11 +19,12 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
-	"github.com/synnaxlabs/oracle/domain/handwritten"
+	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // goModulePrefix is the base import path for the Synnax monorepo.
@@ -66,25 +67,28 @@ func (p *Plugin) Check(req *plugin.Request) error {
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 	outputStructs := make(map[string][]resolution.Struct)
+	var outputOrder []string
 
 	for _, entry := range req.Resolutions.AllStructs() {
 		if outputPath := output.GetPath(entry, "go"); outputPath != "" {
-			// Validate output path if RepoRoot is available
 			if req.RepoRoot != "" {
 				if err := req.ValidateOutputPath(outputPath); err != nil {
-					return nil, fmt.Errorf("invalid output path for struct %s: %w", entry.Name, err)
+					return nil, errors.Wrapf(err, "invalid output path for struct %s", entry.Name)
 				}
+			}
+			if _, exists := outputStructs[outputPath]; !exists {
+				outputOrder = append(outputOrder, outputPath)
 			}
 			outputStructs[outputPath] = append(outputStructs[outputPath], entry)
 		}
 	}
 
-	for outputPath, structs := range outputStructs {
-		// Collect enums referenced by these structs
+	for _, outputPath := range outputOrder {
+		structs := outputStructs[outputPath]
 		enums := enum.CollectReferenced(structs)
 		content, err := p.generateFile(outputPath, structs, enums, req.Resolutions)
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate %s: %w", outputPath, err)
+			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
 		resp.Files = append(resp.Files, plugin.File{
 			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
@@ -102,8 +106,6 @@ func (p *Plugin) generateFile(
 	enums []resolution.Enum,
 	table *resolution.Table,
 ) ([]byte, error) {
-	sort.Slice(structs, func(i, j int) bool { return structs[i].Name < structs[j].Name })
-
 	namespace := ""
 	if len(structs) > 0 {
 		namespace = structs[0].Namespace
@@ -121,15 +123,15 @@ func (p *Plugin) generateFile(
 
 	// Process enums that are in the same namespace
 	for _, e := range enums {
-		if e.Namespace == namespace && !handwritten.IsEnum(e, "go") {
+		if e.Namespace == namespace && !omit.IsEnum(e, "go") {
 			data.Enums = append(data.Enums, p.processEnum(e))
 		}
 	}
 
 	// Process structs
 	for _, entry := range structs {
-		// Skip handwritten structs
-		if handwritten.IsStruct(entry, "go") {
+		// Skip omitted structs
+		if omit.IsStruct(entry, "go") {
 			continue
 		}
 		data.Structs = append(data.Structs, p.processStruct(entry, data))

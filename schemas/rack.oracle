@@ -9,8 +9,10 @@
 
 import "schemas/status"
 
-@ts output "client/ts/src/rack"
-@py output "client/py/synnax/rack"
+@ts output  "client/ts/src/rack"
+@py output  "client/py/synnax/rack"
+@pb output  "core/pkg/api/grpc/v1/rack"
+@pb package "rack.v1"
 
 StatusDetails struct {
     rack uint32
@@ -25,7 +27,7 @@ Rack struct {
     embedded     bool?
     status       Status?
 
-    @ts name "Payload"
+    @ts name       "Payload"
     @ontology type "rack"
 }
 
@@ -35,4 +37,5 @@ New struct extends Rack {
     -embedded
 
     @ts use_input
+    @pb omit
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/paths"
+	"github.com/synnaxlabs/x/errors"
 )
 
 var checkCmd = &cobra.Command{
@@ -49,7 +50,7 @@ func runCheck(cmd *cobra.Command, args []string) error {
 
 	if len(schemaFiles) == 0 {
 		printError("no schema files found")
-		return fmt.Errorf("no schema files found")
+		return errors.New("no schema files found")
 	}
 
 	printSchemaCount(len(schemaFiles))
@@ -74,7 +75,7 @@ func runCheck(cmd *cobra.Command, args []string) error {
 	}
 	if unformatted > 0 {
 		printError(fmt.Sprintf("%d file(s) need formatting (run 'oracle fmt')", unformatted))
-		return fmt.Errorf("formatting check failed")
+		return errors.New("formatting check failed")
 	}
 
 	loader := analyzer.NewStandardFileLoader(repoRoot)
@@ -85,7 +86,7 @@ func runCheck(cmd *cobra.Command, args []string) error {
 
 	if diag != nil && diag.HasErrors() {
 		printError(fmt.Sprintf("validation failed with %d error(s)", len(diag.Errors())))
-		return fmt.Errorf("validation failed")
+		return errors.New("validation failed")
 	}
 
 	if table != nil {

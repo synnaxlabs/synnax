@@ -181,10 +181,8 @@ func (f *formatter) formatSchema(ctx parser.ISchemaContext) {
 		f.newline()
 	}
 
-	// Format file-level domains
-	for _, dom := range ctx.AllFileDomain() {
-		f.formatFileDomain(dom)
-	}
+	// Format file-level domains with alignment
+	f.formatFileDomains(ctx.AllFileDomain())
 
 	// Blank line after file-level domains
 	if hasDomains && hasDefinitions {
@@ -215,16 +213,68 @@ func (f *formatter) formatImport(ctx parser.IImportStmtContext) {
 	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 }
 
-func (f *formatter) formatFileDomain(ctx parser.IFileDomainContext) {
-	f.emitCommentsBefore(ctx.GetStart().GetTokenIndex())
-	f.write("@")
-	f.write(ctx.IDENT().GetText())
-	if ctx.DomainContent() != nil {
-		f.write(" ")
-		f.formatDomainContent(ctx.DomainContent(), false)
+func (f *formatter) formatFileDomains(domains []parser.IFileDomainContext) {
+	if len(domains) == 0 {
+		return
 	}
-	f.newline()
-	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+
+	// Calculate alignment: max length of "@domain command"
+	maxPrefixLen := 0
+	for _, dom := range domains {
+		prefixLen := 1 + len(dom.IDENT().GetText()) // "@" + domain name
+		if dom.DomainContent() != nil && dom.DomainContent().Expression() != nil {
+			expr := dom.DomainContent().Expression()
+			prefixLen += 1 + len(expr.IDENT().GetText()) // " " + command
+		}
+		if prefixLen > maxPrefixLen {
+			maxPrefixLen = prefixLen
+		}
+	}
+
+	for _, dom := range domains {
+		f.emitCommentsBefore(dom.GetStart().GetTokenIndex())
+		f.write("@")
+		f.write(dom.IDENT().GetText())
+		if dom.DomainContent() != nil {
+			f.write(" ")
+			f.formatDomainContentAligned(dom.DomainContent(), false, maxPrefixLen, 1+len(dom.IDENT().GetText()))
+		}
+		f.newline()
+		f.lastTokenIdx = dom.GetStop().GetTokenIndex()
+	}
+}
+
+// formatDomainContentAligned formats domain content with alignment padding.
+// currentPrefixLen is the length of "@domain" so far, maxPrefixLen is the target.
+func (f *formatter) formatDomainContentAligned(ctx parser.IDomainContentContext, allowBlock bool, maxPrefixLen, currentPrefixLen int) {
+	if ctx.Expression() != nil {
+		f.formatExpressionAligned(ctx.Expression(), maxPrefixLen, currentPrefixLen)
+	} else if ctx.DomainBlock() != nil {
+		f.formatDomainBlock(ctx.DomainBlock())
+	}
+}
+
+func (f *formatter) formatExpressionAligned(ctx parser.IExpressionContext, maxPrefixLen, currentPrefixLen int) {
+	command := ctx.IDENT().GetText()
+	f.write(command)
+
+	values := ctx.AllExpressionValue()
+	if len(values) > 0 {
+		// Calculate padding needed to align values
+		fullPrefixLen := currentPrefixLen + 1 + len(command) // +1 for space after @domain
+		padding := maxPrefixLen - fullPrefixLen
+		if padding < 0 {
+			padding = 0
+		}
+		f.writePadding(padding)
+		f.write(" ")
+		for i, val := range values {
+			if i > 0 {
+				f.write(" ")
+			}
+			f.formatExpressionValue(val)
+		}
+	}
 }
 
 func (f *formatter) formatDefinition(ctx parser.IDefinitionContext) {
@@ -305,9 +355,7 @@ func (f *formatter) formatAliasBody(ctx parser.IAliasBodyContext) {
 
 	f.writeLine(" {")
 	f.currentIndent++
-	for _, dom := range domains {
-		f.formatDomain(dom)
-	}
+	f.formatDomains(domains)
 	f.currentIndent--
 	f.writeLine("}")
 }
@@ -437,10 +485,8 @@ func (f *formatter) formatStructBody(ctx parser.IStructBodyContext) {
 		f.newline()
 	}
 
-	// Format struct-level domains
-	for _, dom := range domains {
-		f.formatDomain(dom)
-	}
+	// Format struct-level domains with alignment
+	f.formatDomains(domains)
 }
 
 func (f *formatter) formatFieldOmit(ctx parser.IFieldOmitContext) {
@@ -612,28 +658,94 @@ func (f *formatter) formatFieldWithBraces(
 	f.writeLine(" {")
 	f.currentIndent++
 
-	// Convert inline domains to regular domains
+	// Calculate alignment: max length of "@domain command" across both inline and body domains
+	maxPrefixLen := 0
+	for _, dom := range inlineDomains {
+		prefixLen := 1 + len(dom.IDENT().GetText()) // "@" + domain name
+		if dom.DomainContent() != nil && dom.DomainContent().Expression() != nil {
+			expr := dom.DomainContent().Expression()
+			prefixLen += 1 + len(expr.IDENT().GetText()) // " " + command
+		}
+		if prefixLen > maxPrefixLen {
+			maxPrefixLen = prefixLen
+		}
+	}
+	if fieldBody != nil {
+		for _, dom := range fieldBody.AllDomain() {
+			prefixLen := 1 + len(dom.IDENT().GetText()) // "@" + domain name
+			if dom.DomainContent() != nil && dom.DomainContent().Expression() != nil {
+				expr := dom.DomainContent().Expression()
+				prefixLen += 1 + len(expr.IDENT().GetText()) // " " + command
+			}
+			if prefixLen > maxPrefixLen {
+				maxPrefixLen = prefixLen
+			}
+		}
+	}
+
+	// Convert inline domains to regular domains with alignment
 	for _, dom := range inlineDomains {
 		f.writeIndent()
 		f.write("@")
 		f.write(dom.IDENT().GetText())
 		if dom.DomainContent() != nil {
 			f.write(" ")
-			f.formatDomainContent(dom.DomainContent(), true)
+			f.formatDomainContentAligned(dom.DomainContent(), true, maxPrefixLen, 1+len(dom.IDENT().GetText()))
 		}
 		f.newline()
 	}
 
-	// Format field body domains
+	// Format field body domains with alignment
 	if fieldBody != nil {
 		for _, dom := range fieldBody.AllDomain() {
-			f.formatDomain(dom)
+			f.emitCommentsBefore(dom.GetStart().GetTokenIndex())
+			f.writeIndent()
+			f.write("@")
+			f.write(dom.IDENT().GetText())
+			if dom.DomainContent() != nil {
+				f.write(" ")
+				f.formatDomainContentAligned(dom.DomainContent(), true, maxPrefixLen, 1+len(dom.IDENT().GetText()))
+			}
+			f.newline()
+			f.lastTokenIdx = dom.GetStop().GetTokenIndex()
 		}
 	}
 
 	f.currentIndent--
 	f.writeIndent()
 	f.writeLine("}")
+}
+
+func (f *formatter) formatDomains(domains []parser.IDomainContext) {
+	if len(domains) == 0 {
+		return
+	}
+
+	// Calculate alignment: max length of "@domain command"
+	maxPrefixLen := 0
+	for _, dom := range domains {
+		prefixLen := 1 + len(dom.IDENT().GetText()) // "@" + domain name
+		if dom.DomainContent() != nil && dom.DomainContent().Expression() != nil {
+			expr := dom.DomainContent().Expression()
+			prefixLen += 1 + len(expr.IDENT().GetText()) // " " + command
+		}
+		if prefixLen > maxPrefixLen {
+			maxPrefixLen = prefixLen
+		}
+	}
+
+	for _, dom := range domains {
+		f.emitCommentsBefore(dom.GetStart().GetTokenIndex())
+		f.writeIndent()
+		f.write("@")
+		f.write(dom.IDENT().GetText())
+		if dom.DomainContent() != nil {
+			f.write(" ")
+			f.formatDomainContentAligned(dom.DomainContent(), true, maxPrefixLen, 1+len(dom.IDENT().GetText()))
+		}
+		f.newline()
+		f.lastTokenIdx = dom.GetStop().GetTokenIndex()
+	}
 }
 
 func (f *formatter) formatDomain(ctx parser.IDomainContext) {
@@ -801,10 +913,8 @@ func (f *formatter) formatEnumDef(ctx parser.IEnumDefContext) {
 		f.newline()
 	}
 
-	// Format enum-level domains
-	for _, dom := range domains {
-		f.formatDomain(dom)
-	}
+	// Format enum-level domains with alignment
+	f.formatDomains(domains)
 
 	f.currentIndent--
 	f.writeLine("}")
