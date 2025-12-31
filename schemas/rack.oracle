@@ -11,11 +11,15 @@ import "schemas/status"
 
 @ts output  "client/ts/src/rack"
 @py output  "client/py/synnax/rack"
+@cpp output "client/cpp/rack"
 @pb output  "core/pkg/api/grpc/v1/rack"
 @pb package "rack.v1"
 
 StatusDetails struct {
     rack uint32
+
+    @go output "core/pkg/service/rack"
+    @go omit
 }
 
 Status = status.Status<StatusDetails>
@@ -29,6 +33,10 @@ Rack struct {
 
     @ts name       "Payload"
     @ontology type "rack"
+    @go output     "core/pkg/service/rack"
+    @go omit
+    @api output    "core/pkg/api"
+    @cpp name      "Payload"
 }
 
 New struct extends Rack {
@@ -38,4 +46,5 @@ New struct extends Rack {
 
     @ts use_input
     @pb omit
+    @cpp omit
 }

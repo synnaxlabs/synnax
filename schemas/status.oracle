@@ -11,7 +11,10 @@ import "schemas/label"
 
 @ts output  "x/ts/src/status"
 @py output  "client/py/synnax/status"
-@pb output  "x/go/status"
+@go output  "x/go/status"
+@go omit
+@api output "x/go/status/grpc"
+@pb output  "x/go/status/grpc/v1/status"
 @pb package "status.v1"
 
 Variant enum {
@@ -35,6 +38,8 @@ Status struct<D?> {
 
     @ts omit
     @py omit
+    @cpp omit
+    @cpp include "x/cpp/status/status.h"
 }
 
 New struct<D> extends Status<D> {
@@ -43,4 +48,5 @@ New struct<D> extends Status<D> {
 
     @ts omit
     @pb omit
+    @cpp omit
 }

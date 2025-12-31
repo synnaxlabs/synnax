@@ -3,7 +3,10 @@ load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 cc_library(
     name = "rack",
     srcs = ["rack.cpp"],
-    hdrs = ["rack.h"],
+    hdrs = [
+        "rack.h",
+        "types.gen.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/errors",
@@ -12,8 +15,8 @@ cc_library(
         "//core/pkg/api/grpc/v1:api_grpc",
         "//freighter/cpp:freighter",
         "//x/cpp/status",
-        "//x/cpp/xjson",
         "//x/cpp/xerrors",
+        "//x/cpp/xjson",
     ],
 )
 

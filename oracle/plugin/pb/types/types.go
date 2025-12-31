@@ -10,8 +10,11 @@
 package types
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -26,8 +29,8 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// protoModulePrefix is the base import path for the Synnax monorepo.
-const protoModulePrefix = "github.com/synnaxlabs/synnax/"
+// defaultModulePrefix is the fallback import path when go.mod resolution fails.
+const defaultModulePrefix = "github.com/synnaxlabs/synnax/"
 
 // Plugin generates Protocol Buffer definitions from Oracle schemas.
 type Plugin struct{ Options Options }
@@ -61,6 +64,51 @@ func (p *Plugin) Requires() []string { return nil }
 // Check verifies generated files are up-to-date.
 func (p *Plugin) Check(req *plugin.Request) error { return nil }
 
+// PostWrite runs buf generate after proto files are written.
+// This generates the Go bindings from the proto files.
+func (p *Plugin) PostWrite(files []string) error {
+	if len(files) == 0 {
+		return nil
+	}
+
+	// Determine the repo root from the first file's path
+	// Files are absolute paths, we need to find the repo root
+	firstFile := files[0]
+	repoRoot := findRepoRoot(firstFile)
+	if repoRoot == "" {
+		return errors.New("could not determine repo root from file paths")
+	}
+
+	// Run buf generate from the repo root
+	cmd := exec.Command("buf", "generate")
+	cmd.Dir = repoRoot
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(err, "buf generate failed")
+	}
+
+	return nil
+}
+
+// findRepoRoot walks up from the given path to find the git repository root.
+func findRepoRoot(path string) string {
+	dir := filepath.Dir(path)
+	for {
+		gitPath := filepath.Join(dir, ".git")
+		if info, err := os.Stat(gitPath); err == nil && info.IsDir() {
+			return dir
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
+}
+
 // Generate produces protobuf definition files from the analyzed schemas.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
@@ -84,7 +132,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	for _, outputPath := range outputOrder {
 		structs := outputStructs[outputPath]
 		enums := enum.CollectReferenced(structs)
-		content, err := p.generateFile(outputPath, structs, enums, req.Resolutions)
+		content, err := p.generateFile(outputPath, structs, enums, req.Resolutions, req.RepoRoot)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
@@ -103,6 +151,7 @@ func (p *Plugin) generateFile(
 	structs []resolution.Struct,
 	enums []resolution.Enum,
 	table *resolution.Table,
+	repoRoot string,
 ) ([]byte, error) {
 	namespace := ""
 	if len(structs) > 0 {
@@ -111,7 +160,7 @@ func (p *Plugin) generateFile(
 
 	data := &templateData{
 		Package:    derivePackageName(outputPath, structs),
-		GoPackage:  deriveGoPackage(outputPath, structs),
+		GoPackage:  deriveGoPackage(outputPath, structs, repoRoot),
 		OutputPath: outputPath,
 		Namespace:  namespace,
 		Messages:   make([]messageData, 0, len(structs)),
@@ -119,6 +168,7 @@ func (p *Plugin) generateFile(
 		imports:    newImportManager(),
 		table:      table,
 		prefix:     p.Options.MessagePrefix,
+		repoRoot:   repoRoot,
 	}
 
 	// Process enums that are in the same namespace
@@ -167,7 +217,7 @@ func derivePackageName(outputPath string, structs []resolution.Struct) string {
 }
 
 // deriveGoPackage extracts or derives the Go package option.
-func deriveGoPackage(outputPath string, structs []resolution.Struct) string {
+func deriveGoPackage(outputPath string, structs []resolution.Struct, repoRoot string) string {
 	// Check for explicit go_package in domain
 	for _, s := range structs {
 		if domain, ok := s.Domains["pb"]; ok {
@@ -178,8 +228,87 @@ func deriveGoPackage(outputPath string, structs []resolution.Struct) string {
 			}
 		}
 	}
-	// Default: derive from output path
-	return protoModulePrefix + outputPath
+	// Resolve from go.mod if repoRoot is available
+	if repoRoot != "" {
+		if goPackage, err := resolveGoImportPath(outputPath, repoRoot); err == nil {
+			return goPackage
+		}
+	}
+	// Fallback: derive from output path with default prefix
+	return defaultModulePrefix + outputPath
+}
+
+// resolveGoImportPath resolves a repo-relative output path to a full Go import path
+// by walking up the directory tree to find the nearest go.mod file.
+func resolveGoImportPath(outputPath, repoRoot string) (string, error) {
+	absPath := filepath.Join(repoRoot, outputPath)
+
+	// Walk up from the output path to find go.mod
+	dir := absPath
+	for {
+		modPath := filepath.Join(dir, "go.mod")
+		if fileExists(modPath) {
+			moduleName, err := parseModuleName(modPath)
+			if err != nil {
+				return "", errors.Wrapf(err, "failed to parse go.mod at %s", modPath)
+			}
+
+			// Compute relative path from module root to output
+			relPath, err := filepath.Rel(dir, absPath)
+			if err != nil {
+				return "", errors.Wrapf(err, "failed to compute relative path")
+			}
+
+			// Combine module name with relative path
+			if relPath == "." {
+				return moduleName, nil
+			}
+			return moduleName + "/" + filepath.ToSlash(relPath), nil
+		}
+
+		// Move up one directory
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Reached root without finding go.mod
+			break
+		}
+		dir = parent
+	}
+
+	return "", errors.Newf("no go.mod found for path %s", outputPath)
+}
+
+// parseModuleName extracts the module name from a go.mod file.
+func parseModuleName(modPath string) (string, error) {
+	file, err := os.Open(modPath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, "module ") {
+			// Extract module name (handles both "module foo" and "module foo // comment")
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				return parts[1], nil
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+
+	return "", errors.Newf("no module directive found in %s", modPath)
+}
+
+// fileExists checks if a file exists.
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
 }
 
 // processEnum converts an Enum to template data.
@@ -418,6 +547,7 @@ type templateData struct {
 	imports    *importManager
 	table      *resolution.Table
 	prefix     string
+	repoRoot   string
 }
 
 // Imports returns sorted imports.

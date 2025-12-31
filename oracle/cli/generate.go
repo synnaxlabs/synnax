@@ -18,6 +18,8 @@ import (
 	"github.com/synnaxlabs/oracle"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/plugin"
+	cpptypes "github.com/synnaxlabs/oracle/plugin/cpp/types"
+	goapi "github.com/synnaxlabs/oracle/plugin/go/api"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
 	pbtypes "github.com/synnaxlabs/oracle/plugin/pb/types"
 	pytypes "github.com/synnaxlabs/oracle/plugin/py/types"
@@ -145,6 +147,8 @@ func buildPluginRegistry() *plugin.Registry {
 	_ = registry.Register(gotypes.New(gotypes.DefaultOptions()))
 	_ = registry.Register(pytypes.New(pytypes.DefaultOptions()))
 	_ = registry.Register(pbtypes.New(pbtypes.DefaultOptions()))
+	_ = registry.Register(cpptypes.New(cpptypes.DefaultOptions()))
+	_ = registry.Register(goapi.New(goapi.DefaultOptions()))
 	return registry
 }
 

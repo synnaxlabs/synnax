@@ -4,7 +4,7 @@ syntax = "proto3";
 
 package status.v1;
 
-option go_package = "github.com/synnaxlabs/synnax/x/go/status";
+option go_package = "github.com/synnaxlabs/x/status/grpc/v1/status";
 
 import "google/protobuf/any.proto";
 

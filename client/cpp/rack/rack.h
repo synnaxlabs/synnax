@@ -21,6 +21,7 @@
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/status/status.h"
 #include "x/cpp/xjson/xjson.h"
+#include "client/cpp/rack/types.gen.h"
 
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/rack.pb.h"
 
@@ -67,8 +68,7 @@ inline std::uint16_t rack_key_node(const RackKey key) {
 }
 
 /// @brief Specific status details for racks.
-struct RackStatusDetails {
-    /// @brief The rack that this status is for.
+struct RackStatusDetails: rack::StatusDetails {
     RackKey rack = 0;
 
     /// @brief Parses the rack status details from a JSON parser.

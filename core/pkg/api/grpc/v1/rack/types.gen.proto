@@ -4,9 +4,9 @@ syntax = "proto3";
 
 package rack.v1;
 
-option go_package = "github.com/synnaxlabs/synnax/core/pkg/api/grpc/v1/rack";
+option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/v1/rack";
 
-import "x/go/status/types.gen.proto";
+import "x/go/status/grpc/v1/status/types.gen.proto";
 
 message PBStatusDetails {
   uint32 rack = 1;
