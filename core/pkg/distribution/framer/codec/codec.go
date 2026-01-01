@@ -697,7 +697,6 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 	if fgs.equalAlignments && !fgs.zeroAlignments {
 		v, readErr := c.reader.Uint64()
 		if readErr != nil {
-			err = readErr
 			return framer.Frame{}, readErr
 		}
 		refAlignment = telem.Alignment(v)
@@ -747,14 +746,16 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 				return framer.Frame{}, err
 			}
 		}
-		return framer.Frame{}, nil
+		return fr, nil
 	}
 
 	for {
 		k, readErr := c.reader.Uint32()
 		if readErr != nil {
-			err = errors.Skip(readErr, io.EOF)
-			return framer.Frame{}, err
+			if errors.Is(readErr, io.EOF) {
+				return fr, nil
+			}
+			return framer.Frame{}, readErr
 		}
 		if err = decodeSeries(channel.Key(k)); err != nil {
 			return framer.Frame{}, err
