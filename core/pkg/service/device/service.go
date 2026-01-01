@@ -32,8 +32,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// Config is the configuration for creating a device service.
-type Config struct {
+// ServiceConfig is the configuration for creating a device service.
+type ServiceConfig struct {
 	// Instrumentation is used for logging, tracing, and metrics.
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
@@ -59,10 +59,10 @@ type Config struct {
 	Rack *rack.Service
 }
 
-var _ config.Config[Config] = Config{}
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override overrides parts of c with the valid parts of other.
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
@@ -74,7 +74,7 @@ func (c Config) Override(other Config) Config {
 
 // Validate determines whether the configuration can be used for creating a device
 // service.
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("hardware.device")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
@@ -84,13 +84,13 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-var DefaultConfig = Config{}
+var DefaultConfig = ServiceConfig{}
 
 // Service is the main entrypoint for managing devices within Synnax. It provides
 // mechanisms for creating, retrieving, updating, and deleting devices. It also
 // provides mechanisms for listening to changes in devices.
 type Service struct {
-	cfg                           Config
+	cfg                           ServiceConfig
 	shutdownSignals               io.Closer
 	group                         group.Group
 	disconnectSuspectRackObserver observe.Disconnect
@@ -99,7 +99,7 @@ type Service struct {
 // OpenService opens a new device service using the provided configuration. If error
 // is nil, the service is ready for use and must be closed by calling Close to
 // prevent resource leaks.
-func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err

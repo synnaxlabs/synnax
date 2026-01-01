@@ -31,7 +31,7 @@ import (
 )
 
 type leaseProxy struct {
-	Config
+	cfg                ServiceConfig
 	createRouter       proxy.BatchFactory[Channel]
 	renameRouter       proxy.BatchFactory[renameBatchEntry]
 	keyRouter          proxy.BatchFactory[Key]
@@ -53,7 +53,7 @@ const (
 
 func newLeaseProxy(
 	ctx context.Context,
-	cfg Config,
+	cfg ServiceConfig,
 	group group.Group,
 ) (*leaseProxy, error) {
 	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + leasedCounterSuffix)
@@ -74,7 +74,7 @@ func newLeaseProxy(
 	}
 
 	p := &leaseProxy{
-		Config:        cfg,
+		cfg:           cfg,
 		createRouter:  proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
 		keyRouter:     keyRouter,
 		renameRouter:  proxy.BatchFactory[renameBatchEntry]{Host: cfg.HostResolver.HostKey()},
@@ -90,14 +90,14 @@ func newLeaseProxy(
 		}
 		p.freeCounter = c
 	}
-	p.Transport.CreateServer().BindHandler(p.createHandler)
-	p.Transport.DeleteServer().BindHandler(p.deleteHandler)
-	p.Transport.RenameServer().BindHandler(p.renameHandler)
+	p.cfg.Transport.CreateServer().BindHandler(p.createHandler)
+	p.cfg.Transport.DeleteServer().BindHandler(p.deleteHandler)
+	p.cfg.Transport.RenameServer().BindHandler(p.renameHandler)
 	return p, nil
 }
 
 func (lp *leaseProxy) createHandler(ctx context.Context, msg CreateMessage) (CreateMessage, error) {
-	txn := lp.ClusterDB.OpenTx()
+	txn := lp.cfg.ClusterDB.OpenTx()
 	err := lp.create(ctx, txn, &msg.Channels, msg.Opts)
 	if err != nil {
 		return CreateMessage{}, err
@@ -106,7 +106,7 @@ func (lp *leaseProxy) createHandler(ctx context.Context, msg CreateMessage) (Cre
 }
 
 func (lp *leaseProxy) deleteHandler(ctx context.Context, msg DeleteRequest) (types.Nil, error) {
-	txn := lp.ClusterDB.OpenTx()
+	txn := lp.cfg.ClusterDB.OpenTx()
 	err := lp.delete(ctx, txn, msg.Keys, false)
 	if err != nil {
 		return types.Nil{}, err
@@ -115,7 +115,7 @@ func (lp *leaseProxy) deleteHandler(ctx context.Context, msg DeleteRequest) (typ
 }
 
 func (lp *leaseProxy) renameHandler(ctx context.Context, msg RenameRequest) (types.Nil, error) {
-	txn := lp.ClusterDB.OpenTx()
+	txn := lp.cfg.ClusterDB.OpenTx()
 	err := lp.rename(ctx, txn, msg.Keys, msg.Names, false)
 	if err != nil {
 		return types.Nil{}, err
@@ -125,7 +125,7 @@ func (lp *leaseProxy) renameHandler(ctx context.Context, msg RenameRequest) (typ
 
 func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, opts CreateOptions) error {
 	channels := *_channels
-	if *lp.ValidateNames {
+	if *lp.cfg.ValidateNames {
 		keys := KeysFromChannels(channels)
 		names := Names(channels)
 		if err := lp.validateChannelNames(ctx, tx, keys, names, opts.RetrieveIfNameExists || opts.OverwriteIfNameExistsAndDifferentProperties); err != nil {
@@ -134,7 +134,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	}
 	for i, ch := range channels {
 		if ch.Leaseholder == 0 {
-			channels[i].Leaseholder = lp.HostResolver.HostKey()
+			channels[i].Leaseholder = lp.cfg.HostResolver.HostKey()
 		}
 		if ch.IsCalculated() {
 			// Reject manually-specified indexes on calculated channels
@@ -188,7 +188,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 		oChannels = append(oChannels, remoteChannels...)
 	}
 	if len(batch.Free) > 0 {
-		if !lp.HostResolver.HostKey().IsBootstrapper() {
+		if !lp.cfg.HostResolver.HostKey().IsBootstrapper() {
 			remoteChannels, err := lp.createRemote(ctx, cluster.Bootstrapper, batch.Free, opts)
 			if err != nil {
 				return err
@@ -490,7 +490,7 @@ func (lp *leaseProxy) deleteOverwritten(
 		}).Exec(ctx, tx); err != nil {
 		return err
 	}
-	return lp.TSChannel.DeleteChannels(storageToDelete)
+	return lp.cfg.TSChannel.DeleteChannels(storageToDelete)
 }
 
 func (lp *leaseProxy) createGateway(
@@ -523,11 +523,11 @@ func (lp *leaseProxy) createGateway(
 	lp.mu.Lock()
 	defer lp.mu.Unlock()
 	count := lp.mu.externalNonVirtualSet.Size()
-	if err = lp.IntOverflowCheck(xtypes.Uint20(int(count) + len(externalCreatedKeys))); err != nil {
+	if err = lp.cfg.IntOverflowCheck(xtypes.Uint20(int(count) + len(externalCreatedKeys))); err != nil {
 		return err
 	}
 	storageChannels := toStorage(toCreate)
-	if err = lp.TSChannel.CreateChannel(ctx, storageChannels...); err != nil {
+	if err = lp.cfg.TSChannel.CreateChannel(ctx, storageChannels...); err != nil {
 		return err
 	}
 	if err = gorp.
@@ -546,13 +546,13 @@ func (lp *leaseProxy) maybeSetResources(
 	txn gorp.Tx,
 	channels []Channel,
 ) error {
-	if lp.Ontology == nil || lp.Group == nil {
+	if lp.cfg.Ontology == nil || lp.cfg.Group == nil {
 		return nil
 	}
 	externalIds := lo.FilterMap(channels, func(ch Channel, _ int) (ontology.ID, bool) {
 		return OntologyID(ch.Key()), !ch.Internal
 	})
-	w := lp.Ontology.NewWriter(txn)
+	w := lp.cfg.Ontology.NewWriter(txn)
 	if err := w.DefineManyResources(ctx, externalIds); err != nil {
 		return err
 	}
@@ -570,12 +570,12 @@ func (lp *leaseProxy) createRemote(
 	channels []Channel,
 	opts CreateOptions,
 ) ([]Channel, error) {
-	addr, err := lp.HostResolver.Resolve(target)
+	addr, err := lp.cfg.HostResolver.Resolve(target)
 	if err != nil {
 		return nil, err
 	}
 	cm := CreateMessage{Channels: channels, Opts: opts}
-	res, err := lp.Transport.CreateClient().Send(ctx, addr, cm)
+	res, err := lp.cfg.Transport.CreateClient().Send(ctx, addr, cm)
 	if err != nil {
 		return nil, err
 	}
@@ -647,7 +647,7 @@ func (lp *leaseProxy) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) 
 	}
 	// It's very important that this goes last, as it's the only operation that can fail
 	// without an atomic guarantee.
-	if err := lp.TSChannel.DeleteChannels(keys.Storage()); err != nil {
+	if err := lp.cfg.TSChannel.DeleteChannels(keys.Storage()); err != nil {
 		return err
 	}
 	lp.mu.Lock()
@@ -661,20 +661,20 @@ func (lp *leaseProxy) maybeDeleteResources(
 	tx gorp.Tx,
 	keys Keys,
 ) error {
-	if lp.Ontology == nil {
+	if lp.cfg.Ontology == nil {
 		return nil
 	}
 	ids := lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
-	w := lp.Ontology.NewWriter(tx)
+	w := lp.cfg.Ontology.NewWriter(tx)
 	return w.DeleteManyResources(ctx, ids)
 }
 
 func (lp *leaseProxy) deleteRemote(ctx context.Context, target cluster.NodeKey, keys Keys) error {
-	addr, err := lp.HostResolver.Resolve(target)
+	addr, err := lp.cfg.HostResolver.Resolve(target)
 	if err != nil {
 		return err
 	}
-	_, err = lp.Transport.DeleteClient().Send(ctx, addr, DeleteRequest{Keys: keys})
+	_, err = lp.cfg.Transport.DeleteClient().Send(ctx, addr, DeleteRequest{Keys: keys})
 	return err
 }
 
@@ -709,7 +709,7 @@ func (lp *leaseProxy) rename(
 	if len(keys) != len(names) {
 		return errors.Wrap(validate.Error, "keys and names must be the same length")
 	}
-	if *lp.ValidateNames {
+	if *lp.cfg.ValidateNames {
 		if err := lp.validateChannelNames(ctx, tx, keys, names, false); err != nil {
 			return err
 		}
@@ -736,11 +736,11 @@ func (lp *leaseProxy) rename(
 }
 
 func (lp *leaseProxy) renameRemote(ctx context.Context, target cluster.NodeKey, keys Keys, names []string) error {
-	addr, err := lp.HostResolver.Resolve(target)
+	addr, err := lp.cfg.HostResolver.Resolve(target)
 	if err != nil {
 		return err
 	}
-	_, err = lp.Transport.RenameClient().Send(ctx, addr, RenameRequest{Keys: keys, Names: names})
+	_, err = lp.cfg.Transport.RenameClient().Send(ctx, addr, RenameRequest{Keys: keys, Names: names})
 	return err
 }
 
@@ -768,5 +768,5 @@ func (lp *leaseProxy) renameGateway(ctx context.Context, tx gorp.Tx, keys Keys, 
 		Exec(ctx, tx); err != nil {
 		return err
 	}
-	return lp.TSChannel.RenameChannels(ctx, keys.Storage(), names)
+	return lp.cfg.TSChannel.RenameChannels(ctx, keys.Storage(), names)
 }

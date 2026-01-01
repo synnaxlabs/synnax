@@ -54,11 +54,14 @@ const ContextMenu = <C extends Channel>({
 }: ContextMenuProps<C>) => {
   const isSnapshot = useIsSnapshot();
   const handleRemove = () => onSelect(array.toArray(remove(keys)[0]));
-  const { set } = Form.useContext();
+  const { get, set } = Form.useContext();
   const channels = Form.useFieldValue<C[]>(path).filter(({ key }) =>
     keys.includes(key),
   );
-  const handleDuplicate = () => onDuplicate?.(channels, keys);
+  const handleDuplicate = () => {
+    const allChannels = get<C[]>(path).value;
+    onDuplicate?.(allChannels, keys);
+  };
   const handleDisable = () =>
     keys.forEach((key) => set(`${path}.${key}.enabled`, false));
   const handleEnable = () => keys.forEach((key) => set(`${path}.${key}.enabled`, true));

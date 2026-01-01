@@ -39,7 +39,7 @@ var _ = Describe("Streamer", Ordered, func() {
 	)
 	BeforeAll(func() {
 		dist = builder.Provision(ctx)
-		labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,

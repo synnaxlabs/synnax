@@ -48,16 +48,16 @@ var _ = BeforeSuite(func() {
 		EnableSearch: config.False(),
 		DB:           db,
 	}))
-	g := MustSucceed(group.OpenService(ctx, group.Config{
+	g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 	}))
-	svc = MustSucceed(workspace.OpenService(ctx, workspace.Config{
+	svc = MustSucceed(workspace.OpenService(ctx, workspace.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
 	}))
-	userSvc = MustSucceed(user.OpenService(ctx, user.Config{
+	userSvc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,

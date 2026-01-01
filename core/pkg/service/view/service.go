@@ -24,7 +24,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-type Config struct {
+type ServiceConfig struct {
 	alamos.Instrumentation
 	// DB is the underlying database that the service will use to store Views.
 	DB *gorp.DB
@@ -39,12 +39,12 @@ type Config struct {
 }
 
 var (
-	_             config.Config[Config] = (*Config)(nil)
-	DefaultConfig                       = Config{}
+	_             config.Config[ServiceConfig] = (*ServiceConfig)(nil)
+	DefaultConfig                              = ServiceConfig{}
 )
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
@@ -53,7 +53,7 @@ func (c Config) Override(other Config) Config {
 }
 
 // Validate implements config.Config
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("view.service")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
@@ -65,7 +65,7 @@ func (c Config) Validate() error {
 // mechanisms for creating, retrieving, updating, and deleting views. It also provides
 // mechanisms for listening to changes in views.
 type Service struct {
-	cfg             Config
+	cfg             ServiceConfig
 	group           group.Group
 	shutdownSignals io.Closer
 }
@@ -73,7 +73,7 @@ type Service struct {
 // OpenService opens a new Service with the provided configuration. If error is nil, the
 // service is ready for use and must be closed by calling Close to prevent resource
 // leaks.
-func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s := &Service{}
 	var err error
 	if s.cfg, err = config.New(DefaultConfig, cfgs...); err != nil {

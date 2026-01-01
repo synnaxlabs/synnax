@@ -50,7 +50,7 @@ var _ = Describe("Service", func() {
 				EnableSearch: config.False(),
 				DB:           testDB,
 			}))
-			testGroup := MustSucceed(group.OpenService(ctx, group.Config{
+			testGroup := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
 			}))

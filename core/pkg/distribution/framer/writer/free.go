@@ -44,7 +44,7 @@ func (s *Service) newFree(
 	channels []channel.Channel,
 ) StreamWriter {
 	w := &freeWriter{
-		freeWrites: s.FreeWrites,
+		freeWrites: s.cfg.FreeWrites,
 		mode:       mode,
 		sync:       sync,
 		indexes:    make(map[channel.Key]channel.Key),

@@ -71,7 +71,7 @@ func (w WriterConfig) Domain() telem.TimeRange {
 }
 
 func (w WriterConfig) Validate() error {
-	v := validate.New("domain.WriterConfig")
+	v := validate.New("domain.writer_config")
 	v.Ternary("end", w.End.Before(w.Start), "end timestamp must be after or equal to start timestamp")
 	return nil
 }
