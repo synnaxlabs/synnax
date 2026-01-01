@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/domain"
@@ -124,7 +125,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		closed:           &atomic.Bool{},
 		leadingAlignment: &atomic.Uint32{},
 	}
-	db.leadingAlignment.Store(channel.ZeroLeadingAlignment)
+	db.leadingAlignment.Store(alignment.ZeroLeading)
 	if cfg.Channel.IsIndex {
 		db._idx = &index.Domain{DB: domainDB, Instrumentation: cfg.Instrumentation, Channel: cfg.Channel}
 	}

@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
@@ -66,8 +67,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(t.Occurred()).To(BeTrue())
 					v, err := w.Write(telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4, 5))
 					Expect(err).ToNot(HaveOccurred())
-					Expect(v).To(Equal(channel.LeadingAlignment(1, 0)))
-					Expect(MustSucceed(w.Write(telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10, 11)))).To(Equal(channel.LeadingAlignment(1, 6)))
+					Expect(v).To(Equal(alignment.Leading(1, 0)))
+					Expect(MustSucceed(w.Write(telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10, 11)))).To(Equal(alignment.Leading(1, 6)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(11*telem.SecondTS + 1))
 					t = MustSucceed(w.Close())
 					Expect(t.Occurred()).To(BeTrue())
@@ -140,7 +141,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					By("Taking control of the DB")
 					Expect(dataDB.LeadingControlState().Subject).To(Equal(control.Subject{Key: "foo"}))
 					Expect(t.Occurred()).To(BeTrue())
-					Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})))).To(Equal(channel.LeadingAlignment(1, 0)))
+					Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})))).To(Equal(alignment.Leading(1, 0)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(20*telem.SecondTS + 1))
 					t = MustSucceed(w.Close())
 					Expect(t.Occurred()).To(BeTrue())
@@ -153,7 +154,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Start:   10 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo"},
 					}))
-					Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4})))).To(Equal(channel.LeadingAlignment(1, 0)))
+					Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4})))).To(Equal(alignment.Leading(1, 0)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(14*telem.SecondTS + 1))
 					_, err := w.Close()
 					Expect(err).ToNot(HaveOccurred())
@@ -443,14 +444,14 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Subject:   control.Subject{Key: "foo"},
 						}))
 						Expect(t.Occurred()).To(BeTrue())
-						Expect(MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4, 5)))).To(Equal(channel.LeadingAlignment(1, 0)))
+						Expect(MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4, 5)))).To(Equal(alignment.Leading(1, 0)))
 						w2, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 							Start:     10 * telem.SecondTS,
 							Authority: control.AuthorityAbsolute,
 							Subject:   control.Subject{Key: "bar"},
 						}))
 						Expect(t.Occurred()).To(BeTrue())
-						Expect(MustSucceed(w2.Write(telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10, 11)))).To(Equal(channel.LeadingAlignment(1, 6)))
+						Expect(MustSucceed(w2.Write(telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10, 11)))).To(Equal(alignment.Leading(1, 6)))
 						a, err := w1.Write(telem.NewSeriesSecondsTSV(12, 13, 14, 15, 16, 17))
 						Expect(err).To(MatchError(control.ErrUnauthorized))
 						Expect(a).To(Equal(telem.Alignment(0)))
@@ -458,7 +459,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(err).To(MatchError(control.ErrUnauthorized))
 						t = MustSucceed(w2.Close())
 						Expect(t.Occurred()).To(BeTrue())
-						Expect(MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(12, 13, 14, 15, 16, 17)))).To(Equal(channel.LeadingAlignment(1, 12)))
+						Expect(MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(12, 13, 14, 15, 16, 17)))).To(Equal(alignment.Leading(1, 12)))
 						Expect(MustSucceed(w1.Commit(ctx))).To(Equal(17*telem.SecondTS + 1))
 						t = MustSucceed(w1.Close())
 						Expect(t.Occurred()).To(BeTrue())

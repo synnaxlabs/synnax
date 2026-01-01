@@ -15,6 +15,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
@@ -32,7 +33,7 @@ type (
 var (
 	errDBClosed          = channel.NewErrResourceClosed("cesium.db")
 	ErrChannelNotFound   = channel.ErrNotFound
-	ZeroLeadingAlignment = channel.ZeroLeadingAlignment
+	ZeroLeadingAlignment = alignment.ZeroLeading
 )
 
 // Metrics contains statistics about the cesium database.
@@ -46,7 +47,7 @@ type Metrics struct {
 // LeadingAlignment returns an Alignment whose array index is the maximum possible value
 // and whose sample index is the provided value.
 func LeadingAlignment(domainIdx, sampleIdx uint32) telem.Alignment {
-	return channel.LeadingAlignment(domainIdx, sampleIdx)
+	return alignment.Leading(domainIdx, sampleIdx)
 }
 
 type DB struct {

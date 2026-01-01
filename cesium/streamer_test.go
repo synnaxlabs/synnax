@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/confluence"
@@ -82,7 +83,7 @@ var _ = Describe("Streamer Behavior", func() {
 
 					f := <-o.Outlet()
 					Expect(f.Frame.Count()).To(Equal(1))
-					d.Alignment = channel.LeadingAlignment(1, 0)
+					d.Alignment = alignment.Leading(1, 0)
 					Expect(f.Frame.SeriesAt(0)).To(Equal(d))
 					i.Close()
 					Expect(sCtx.Wait()).To(Succeed())
@@ -152,7 +153,7 @@ var _ = Describe("Streamer Behavior", func() {
 					var f cesium.StreamerResponse
 					Eventually(o.Outlet()).Should(Receive(&f))
 					Expect(f.Frame.Count()).To(Equal(1))
-					written.Alignment = channel.LeadingAlignment(1, 0)
+					written.Alignment = alignment.Leading(1, 0)
 					Expect(f.Frame.SeriesAt(0)).To(Equal(written))
 					i.Close()
 					Expect(sCtx.Wait()).To(Succeed())

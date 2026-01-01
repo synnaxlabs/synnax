@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/meta"
@@ -117,7 +118,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		leadingAlignment: &atomic.Uint32{},
 		openWriters:      &atomic.Int32{},
 	}
-	db.leadingAlignment.Store(channel.ZeroLeadingAlignment)
+	db.leadingAlignment.Store(alignment.ZeroLeading)
 	return db, nil
 }
 
