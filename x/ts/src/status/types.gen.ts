@@ -15,9 +15,6 @@ import { array } from "@/array";
 import { label } from "@/label";
 import { type optional } from "@/optional";
 import { TimeStamp } from "@/telem";
-
-export const keyZ = z.string();
-export type Key = z.infer<typeof keyZ>;
 export const VARIANTS = [
   "success",
   "info",
@@ -48,7 +45,7 @@ export const statusZ = <
   V extends z.ZodType<Variant> = typeof variantZ,
 >({ details, v }: StatusSchemas<Details, V> = {}) =>
   z.object({
-    key: keyZ,
+    key: z.string(),
     name: z.string().default(""),
     variant: v ?? variantZ,
     message: z.string(),
@@ -61,7 +58,7 @@ export type Status<
   Details extends z.ZodType = z.ZodNever,
   V extends z.ZodType<Variant> = typeof variantZ,
 > = {
-  key: Key;
+  key: string;
   name: string;
   variant: z.infer<V>;
   message: string;

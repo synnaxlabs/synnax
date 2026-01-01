@@ -82,8 +82,8 @@ var _ = Describe("Runtime", func() {
 					return false
 				}
 				return s.Variant == xstatus.LoadingVariant ||
-					s.Variant == xstatus.ErrorVariant ||
-					s.Variant == xstatus.SuccessVariant
+					s.Variant == xstatus.VariantError ||
+					s.Variant == xstatus.VariantSuccess
 			}).Should(BeTrue())
 
 			deleteTx := db.OpenTx()

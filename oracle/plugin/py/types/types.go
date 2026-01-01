@@ -110,7 +110,26 @@ func findPoetryDir(file string) string {
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 	outputStructs := make(map[string][]resolution.Struct)
-	var outputOrder []string
+	outputTypeDefs := make(map[string][]resolution.TypeDef)
+	var structOrder []string
+	var typeDefOrder []string
+
+	for _, entry := range req.Resolutions.AllTypeDefs() {
+		if outputPath := pluginoutput.GetTypeDefPath(entry, "py"); outputPath != "" {
+			if omit.IsTypeDef(entry, "py") {
+				continue
+			}
+			if req.RepoRoot != "" {
+				if err := req.ValidateOutputPath(outputPath); err != nil {
+					return nil, errors.Wrapf(err, "invalid output path for typedef %s", entry.Name)
+				}
+			}
+			if _, exists := outputTypeDefs[outputPath]; !exists {
+				typeDefOrder = append(typeDefOrder, outputPath)
+			}
+			outputTypeDefs[outputPath] = append(outputTypeDefs[outputPath], entry)
+		}
+	}
 
 	for _, entry := range req.Resolutions.AllStructs() {
 		if outputPath := pluginoutput.GetPath(entry, "py"); outputPath != "" {
@@ -120,15 +139,35 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 				}
 			}
 			if _, exists := outputStructs[outputPath]; !exists {
-				outputOrder = append(outputOrder, outputPath)
+				structOrder = append(structOrder, outputPath)
 			}
 			outputStructs[outputPath] = append(outputStructs[outputPath], entry)
 		}
 	}
-	for _, outputPath := range outputOrder {
+	for _, outputPath := range structOrder {
 		structs := outputStructs[outputPath]
 		enums := enum.CollectReferenced(structs)
-		content, err := p.generateFile(structs[0].Namespace, structs, enums, req.Resolutions)
+		var typeDefs []resolution.TypeDef
+		if tds, ok := outputTypeDefs[outputPath]; ok {
+			typeDefs = tds
+			delete(outputTypeDefs, outputPath)
+		}
+		content, err := p.generateFile(structs[0].Namespace, outputPath, structs, enums, typeDefs, req.Resolutions)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
+		}
+		resp.Files = append(resp.Files, plugin.File{
+			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
+			Content: content,
+		})
+	}
+	// Handle standalone typedef-only outputs
+	for _, outputPath := range typeDefOrder {
+		typeDefs, ok := outputTypeDefs[outputPath]
+		if !ok {
+			continue
+		}
+		content, err := p.generateFile(typeDefs[0].Namespace, outputPath, nil, nil, typeDefs, req.Resolutions)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
@@ -142,18 +181,24 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 func (p *Plugin) generateFile(
 	namespace string,
+	outputPath string,
 	structs []resolution.Struct,
 	enums []resolution.Enum,
+	typeDefs []resolution.TypeDef,
 	table *resolution.Table,
 ) ([]byte, error) {
 	data := &templateData{
-		Namespace: namespace,
-		KeyFields: make([]keyFieldData, 0),
-		Structs:   make([]structData, 0, len(structs)),
-		Enums:     make([]enumData, 0, len(enums)),
-		imports:   newImportManager(),
+		Namespace:  namespace,
+		OutputPath: outputPath,
+		KeyFields:  make([]keyFieldData, 0),
+		Structs:    make([]structData, 0, len(structs)),
+		Enums:      make([]enumData, 0, len(enums)),
+		TypeDefs:   make([]typeDefData, 0, len(typeDefs)),
+		imports:    newImportManager(),
 	}
-	data.imports.addPydantic("BaseModel")
+	if len(structs) > 0 {
+		data.imports.addPydantic("BaseModel")
+	}
 	skip := func(s resolution.Struct) bool { return omit.IsStruct(s, "py") }
 	rawKeyFields := key.Collect(structs, skip)
 	keyFields := p.convertKeyFields(rawKeyFields, data)
@@ -161,6 +206,9 @@ func (p *Plugin) generateFile(
 	data.Ontology = p.extractOntology(structs, rawKeyFields, keyFields, skip)
 	if data.Ontology != nil {
 		data.imports.addOntology("ID")
+	}
+	for _, td := range typeDefs {
+		data.TypeDefs = append(data.TypeDefs, p.processTypeDef(td, data))
 	}
 	for _, enum := range enums {
 		data.Enums = append(data.Enums, p.processEnum(enum, data))
@@ -222,6 +270,46 @@ func (p *Plugin) processEnum(enum resolution.Enum, data *templateData) enumData 
 		Values:        values,
 		IsIntEnum:     enum.IsIntEnum,
 		LiteralValues: strings.Join(literalValues, ", "),
+	}
+}
+
+func (p *Plugin) processTypeDef(td resolution.TypeDef, data *templateData) typeDefData {
+	data.imports.addTyping("NewType")
+	return typeDefData{
+		Name:     td.Name,
+		BaseType: p.typeDefBaseToPython(td.BaseType, data),
+	}
+}
+
+// typeDefBaseToPython converts a TypeDef's base type to a Python type string.
+func (p *Plugin) typeDefBaseToPython(typeRef *resolution.TypeRef, data *templateData) string {
+	if typeRef == nil {
+		data.imports.addTyping("Any")
+		return "Any"
+	}
+	switch typeRef.Kind {
+	case resolution.TypeKindPrimitive:
+		return primitiveToPython(typeRef.Primitive, data)
+	case resolution.TypeKindTypeDef:
+		// Another typedef - use its name (with namespace if different)
+		if typeRef.TypeDefRef == nil {
+			data.imports.addTyping("Any")
+			return "Any"
+		}
+		if typeRef.TypeDefRef.Namespace != data.Namespace {
+			ns := typeRef.TypeDefRef.Namespace
+			outputPath := pluginoutput.GetTypeDefPath(*typeRef.TypeDefRef, "py")
+			if outputPath == "" {
+				outputPath = ns
+			}
+			modulePath := toPythonModulePath(outputPath)
+			data.imports.addNamespace(ns, modulePath)
+			return fmt.Sprintf("%s.%s", ns, typeRef.TypeDefRef.Name)
+		}
+		return typeRef.TypeDefRef.Name
+	default:
+		data.imports.addTyping("Any")
+		return "Any"
 	}
 }
 
@@ -449,6 +537,23 @@ func (p *Plugin) typeToPython(
 			return fmt.Sprintf("%s.%s", ns, enumName)
 		}
 		return enumName
+	case resolution.TypeKindTypeDef:
+		// Use the typedef name for documentation (type aliases)
+		if typeRef.TypeDefRef == nil {
+			data.imports.addTyping("Any")
+			return "Any"
+		}
+		if typeRef.TypeDefRef.Namespace != data.Namespace {
+			ns := typeRef.TypeDefRef.Namespace
+			outputPath := pluginoutput.GetTypeDefPath(*typeRef.TypeDefRef, "py")
+			if outputPath == "" {
+				outputPath = ns
+			}
+			modulePath := toPythonModulePath(outputPath)
+			data.imports.addNamespace(ns, modulePath)
+			return fmt.Sprintf("%s.%s", ns, typeRef.TypeDefRef.Name)
+		}
+		return typeRef.TypeDefRef.Name
 	default:
 		data.imports.addTyping("Any")
 		return "Any"
@@ -613,12 +718,19 @@ func (m *importManager) addModuleImport(parentPath, moduleName string) {
 }
 
 type templateData struct {
-	Namespace string
-	KeyFields []keyFieldData
-	Structs   []structData
-	Enums     []enumData
-	imports   *importManager
-	Ontology  *ontologyData // Ontology data if domain ontology is present
+	Namespace  string
+	OutputPath string
+	KeyFields  []keyFieldData
+	Structs    []structData
+	Enums      []enumData
+	TypeDefs   []typeDefData
+	imports    *importManager
+	Ontology   *ontologyData // Ontology data if domain ontology is present
+}
+
+type typeDefData struct {
+	Name     string // Type definition name
+	BaseType string // Python base type (e.g., "int", "str")
 }
 
 // ontologyData holds data for generating ontology ID function and constant.
@@ -769,6 +881,10 @@ from {{ .Parent }} import {{ .Module }}
 {{- range .KeyFields }}
 
 {{ .Name | title }} = {{ .PyType }}
+{{- end }}
+{{- range .TypeDefs }}
+
+{{ .Name }} = NewType("{{ .Name }}", {{ .BaseType }})
 {{- end }}
 {{- range .Enums }}
 {{- if .IsIntEnum }}

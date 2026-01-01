@@ -103,6 +103,12 @@ type OracleParserListener interface {
 	// EnterEnumValue is called when entering the enumValue production.
 	EnterEnumValue(c *EnumValueContext)
 
+	// EnterTypeDefDef is called when entering the typeDefDef production.
+	EnterTypeDefDef(c *TypeDefDefContext)
+
+	// EnterTypeDefBody is called when entering the typeDefBody production.
+	EnterTypeDefBody(c *TypeDefBodyContext)
+
 	// ExitSchema is called when exiting the schema production.
 	ExitSchema(c *SchemaContext)
 
@@ -189,4 +195,10 @@ type OracleParserListener interface {
 
 	// ExitEnumValue is called when exiting the enumValue production.
 	ExitEnumValue(c *EnumValueContext)
+
+	// ExitTypeDefDef is called when exiting the typeDefDef production.
+	ExitTypeDefDef(c *TypeDefDefContext)
+
+	// ExitTypeDefBody is called when exiting the typeDefBody production.
+	ExitTypeDefBody(c *TypeDefBodyContext)
 }

@@ -11,6 +11,8 @@ import "schemas/status"
 
 @ts output "client/ts/src/device"
 @py output "client/py/synnax/device"
+@go output "core/pkg/service/device"
+@pb
 
 StatusDetails struct {
     rack   uint32
@@ -32,9 +34,19 @@ Device struct<
     name       string     @validate required
     configured bool?
     properties Properties
-    status     Status?
+    status     Status??
 
     @ontology type "device"
+    @go omit
+    @pb omit
+}
+
+GoDevice struct extends Device<json, string, string> {
+    properties string
+    -properties
+
+    @go name "Device"
+    @pb name "Device"
 }
 
 New struct<
@@ -46,4 +58,6 @@ New struct<
     -configured
 
     @ts use_input
+    @go omit
+    @pb omit
 }

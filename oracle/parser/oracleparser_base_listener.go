@@ -202,3 +202,15 @@ func (s *BaseOracleParserListener) EnterEnumValue(ctx *EnumValueContext) {}
 
 // ExitEnumValue is called when production enumValue is exited.
 func (s *BaseOracleParserListener) ExitEnumValue(ctx *EnumValueContext) {}
+
+// EnterTypeDefDef is called when production typeDefDef is entered.
+func (s *BaseOracleParserListener) EnterTypeDefDef(ctx *TypeDefDefContext) {}
+
+// ExitTypeDefDef is called when production typeDefDef is exited.
+func (s *BaseOracleParserListener) ExitTypeDefDef(ctx *TypeDefDefContext) {}
+
+// EnterTypeDefBody is called when production typeDefBody is entered.
+func (s *BaseOracleParserListener) EnterTypeDefBody(ctx *TypeDefBodyContext) {}
+
+// ExitTypeDefBody is called when production typeDefBody is exited.
+func (s *BaseOracleParserListener) ExitTypeDefBody(ctx *TypeDefBodyContext) {}

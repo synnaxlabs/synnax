@@ -26,6 +26,8 @@ type TypeRef struct {
 	Primitive string
 	StructRef *Struct
 	EnumRef   *Enum
+	// TypeDefRef points to the type definition when Kind is TypeKindTypeDef.
+	TypeDefRef *TypeDef
 	// TypeParamRef points to the type parameter when Kind is TypeKindTypeParam.
 	TypeParamRef *TypeParam
 	// TypeArgs holds type arguments when using a generic type (e.g., Status<Foo>).
@@ -56,6 +58,8 @@ const (
 	TypeKindTypeParam
 	// TypeKindMap represents a map type: map<K, V>.
 	TypeKindMap
+	// TypeKindTypeDef represents a reference to a top-level type definition.
+	TypeKindTypeDef
 	// TypeKindUnresolved represents a type that could not be resolved.
 	TypeKindUnresolved
 )

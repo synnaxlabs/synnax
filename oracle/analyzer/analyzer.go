@@ -136,6 +136,9 @@ func analyze(c *analysisCtx) {
 		if e := def.EnumDef(); e != nil {
 			collectEnum(c, e)
 		}
+		if td := def.TypeDefDef(); td != nil {
+			collectTypeDef(c, td)
+		}
 	}
 	for _, imp := range c.ast.AllImportStmt() {
 		path := strings.Trim(imp.STRING_LIT().GetText(), `"`)
@@ -191,6 +194,12 @@ func analyze(c *analysisCtx) {
 		if s.Extends != nil {
 			resolveType(c, s, s.Extends)
 		}
+	}
+
+	// Resolve typedef base types
+	typeDefs := c.table.TypeDefsInNamespace(c.namespace)
+	for i := range typeDefs {
+		resolveTypeDefBase(c, &typeDefs[i])
 	}
 
 	// Validate extends relationships after all types are resolved
@@ -639,6 +648,10 @@ func resolveType(c *analysisCtx, currentStruct *resolution.Struct, t *resolution
 		t.Kind, t.EnumRef = resolution.TypeKindEnum, &e
 		return
 	}
+	if td, ok := c.table.LookupTypeDef(ns, name); ok {
+		t.Kind, t.TypeDefRef = resolution.TypeKindTypeDef, &td
+		return
+	}
 	c.diag.AddWarningf(nil, c.filePath, "unresolved type: %s", t.RawType)
 }
 
@@ -786,4 +799,81 @@ func hasCircularInheritance(s *resolution.Struct, visited map[*resolution.Struct
 	}
 	visited[s] = true
 	return hasCircularInheritance(s.Extends.StructRef, visited)
+}
+
+// collectTypeDef collects a type definition from the AST.
+func collectTypeDef(c *analysisCtx, def parser.ITypeDefDefContext) {
+	name := def.IDENT().GetText()
+	qname := c.namespace + "." + name
+	if _, exists := c.table.GetTypeDef(qname); exists {
+		c.diag.AddErrorf(def, c.filePath, "duplicate typedef definition: %s", qname)
+		return
+	}
+
+	// Parse base type from qualified identifier
+	qi := def.QualifiedIdent()
+	ids := qi.AllIDENT()
+	rawType := ids[0].GetText()
+	if len(ids) == 2 {
+		rawType = ids[0].GetText() + "." + ids[1].GetText()
+	}
+
+	entry := resolution.TypeDef{
+		AST:           def,
+		Name:          name,
+		Namespace:     c.namespace,
+		FilePath:      c.filePath,
+		QualifiedName: qname,
+		Domains:       make(map[string]resolution.Domain),
+		BaseType: &resolution.TypeRef{
+			Kind:    resolution.TypeKindUnresolved,
+			RawType: rawType,
+		},
+	}
+
+	// Inherit file-level domains
+	for k, v := range c.fileDomains {
+		entry.Domains[k] = v
+	}
+
+	// Collect domains from body if present
+	if body := def.TypeDefBody(); body != nil {
+		for _, d := range body.AllDomain() {
+			de := collectDomain(d)
+			if existing, ok := entry.Domains[de.Name]; ok {
+				entry.Domains[de.Name] = de.Merge(existing)
+			} else {
+				entry.Domains[de.Name] = de
+			}
+		}
+	}
+
+	c.table.AddTypeDef(entry)
+}
+
+// resolveTypeDefBase resolves the base type of a type definition.
+// TypeDefs can only be based on primitives or other TypeDefs.
+func resolveTypeDefBase(c *analysisCtx, td *resolution.TypeDef) {
+	t := td.BaseType
+	parts := strings.Split(t.RawType, ".")
+	ns, name := c.namespace, parts[0]
+	if len(parts) == 2 {
+		ns, name = parts[0], parts[1]
+	}
+
+	// Check if it's a primitive
+	if resolution.IsPrimitive(name) && len(parts) == 1 {
+		t.Kind, t.Primitive = resolution.TypeKindPrimitive, name
+		return
+	}
+
+	// Check if it references another TypeDef
+	if otherTd, ok := c.table.LookupTypeDef(ns, name); ok {
+		t.Kind, t.TypeDefRef = resolution.TypeKindTypeDef, &otherTd
+		return
+	}
+
+	c.diag.AddErrorf(td.AST, c.filePath,
+		"typedef %s: base type must be primitive or another typedef, got: %s",
+		td.Name, t.RawType)
 }

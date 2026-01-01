@@ -51,10 +51,11 @@ fileDomain
 // Definitions
 // =============================================================================
 
-// Top-level definitions are either structs or enums
+// Top-level definitions are structs, enums, or type definitions
 definition
     : structDef
     | enumDef
+    | typeDefDef
     ;
 
 // =============================================================================
@@ -231,4 +232,23 @@ enumBody
 // Enum values require explicit values (integer or string)
 enumValue
     : IDENT EQUALS (INT_LIT | STRING_LIT)
+    ;
+
+// =============================================================================
+// Type Definitions
+// =============================================================================
+
+// Type definition creates a distinct named type based on a primitive or another typedef.
+// This is NOT an alias - it creates a new type (like Go's "type Key uint32").
+// Examples:
+//   Key uint32
+//   Key uint32 { @go output "core/pkg/service/rack" }
+//   DeviceKey rack.Key
+typeDefDef
+    : IDENT qualifiedIdent typeDefBody?
+    ;
+
+// Optional body for type definitions (domains only, no fields)
+typeDefBody
+    : nl* LBRACE nl* (domain nl*)* RBRACE
     ;

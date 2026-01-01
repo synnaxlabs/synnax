@@ -13,9 +13,6 @@ import { array, spatial, status, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
-
-export const keyZ = z.uuid();
-export type Key = z.infer<typeof keyZ>;
 export enum Kind {
   u8 = 1,
   u16 = 2,
@@ -168,7 +165,7 @@ export const statusZ = status.statusZ({ details: statusDetailsZ });
 export interface Status extends z.infer<typeof statusZ> {}
 
 export const arcZ = z.object({
-  key: keyZ,
+  key: z.uuid(),
   name: z.string(),
   graph: graphZ,
   text: textZ,

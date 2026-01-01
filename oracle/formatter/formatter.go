@@ -282,6 +282,8 @@ func (f *formatter) formatDefinition(ctx parser.IDefinitionContext) {
 		f.formatStructDef(ctx.StructDef())
 	} else if ctx.EnumDef() != nil {
 		f.formatEnumDef(ctx.EnumDef())
+	} else if ctx.TypeDefDef() != nil {
+		f.formatTypeDefDef(ctx.TypeDefDef())
 	}
 }
 
@@ -939,5 +941,27 @@ func (f *formatter) formatEnumValue(ctx parser.IEnumValueContext, alignTo int) {
 		f.write(ctx.STRING_LIT().GetText())
 	}
 	f.newline()
+	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+}
+
+func (f *formatter) formatTypeDefDef(ctx parser.ITypeDefDefContext) {
+	// Format: Name baseType { domains }
+	f.write(ctx.IDENT().GetText())
+	f.write(" ")
+	f.formatQualifiedIdent(ctx.QualifiedIdent())
+
+	body := ctx.TypeDefBody()
+	if body == nil || len(body.AllDomain()) == 0 {
+		f.newline()
+		f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+		return
+	}
+
+	// Has domains - use brace form
+	f.writeLine(" {")
+	f.currentIndent++
+	f.formatDomains(body.AllDomain())
+	f.currentIndent--
+	f.writeLine("}")
 	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 }

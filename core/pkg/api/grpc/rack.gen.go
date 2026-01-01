@@ -14,10 +14,10 @@ package grpc
 import (
 	"context"
 	"google.golang.org/protobuf/types/known/anypb"
+	"github.com/synnaxlabs/synnax/pkg/api"
 	rackv1 "github.com/synnaxlabs/synnax/pkg/api/grpc/v1/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/status"
-	statusgrpc "github.com/synnaxlabs/x/status/grpc"
 )
 
 // Suppress unused import warnings
@@ -68,16 +68,16 @@ func StatusDetailssFromPB(ctx context.Context, pbs []*rackv1.PBStatusDetails) ([
 }
 
 // RackToPB converts Rack to PBRack.
-func RackToPB(ctx context.Context, r rack.Rack) (*rackv1.PBRack, error) {
+func RackToPB(ctx context.Context, r api.Rack) (*rackv1.PBRack, error) {
 	pb := &rackv1.PBRack{
-		Key: uint32(r.Key),
+		Key: r.Key,
 		Name: r.Name,
 		TaskCounter: r.TaskCounter,
 		Embedded: r.Embedded,
 	}
 	if r.Status != nil {
 		var err error
-		pb.Status, err = statusgrpc.StatusToPB[rack.StatusDetails](ctx, (status.Status[rack.StatusDetails])(*r.Status), StatusDetailsToPBAny)
+		pb.Status, err = StatusToPB[rack.StatusDetails](ctx, (status.Status[rack.StatusDetails])(*r.Status), StatusDetailsToPBAny)
 		if err != nil {
 			return nil, err
 		}
@@ -86,16 +86,16 @@ func RackToPB(ctx context.Context, r rack.Rack) (*rackv1.PBRack, error) {
 }
 
 // RackFromPB converts PBRack to Rack.
-func RackFromPB(ctx context.Context, pb *rackv1.PBRack) (r rack.Rack, err error) {
+func RackFromPB(ctx context.Context, pb *rackv1.PBRack) (r api.Rack, err error) {
 	if pb == nil {
 		return r, nil
 	}
-	r.Key = rack.Key(pb.Key)
+	r.Key = pb.Key
 	r.Name = pb.Name
 	r.TaskCounter = pb.TaskCounter
 	r.Embedded = pb.Embedded
 	if pb.Status != nil {
-		val, err := statusgrpc.StatusFromPB[rack.StatusDetails](ctx, pb.Status, StatusDetailsFromPBAny)
+		val, err := StatusFromPB[rack.StatusDetails](ctx, pb.Status, StatusDetailsFromPBAny)
 		if err != nil {
 			return r, err
 		}
@@ -105,7 +105,7 @@ func RackFromPB(ctx context.Context, pb *rackv1.PBRack) (r rack.Rack, err error)
 }
 
 // RacksToPB converts a slice of Rack to PBRack.
-func RacksToPB(ctx context.Context, rs []rack.Rack) ([]*rackv1.PBRack, error) {
+func RacksToPB(ctx context.Context, rs []api.Rack) ([]*rackv1.PBRack, error) {
 	result := make([]*rackv1.PBRack, len(rs))
 	for i := range rs {
 		var err error
@@ -118,8 +118,8 @@ func RacksToPB(ctx context.Context, rs []rack.Rack) ([]*rackv1.PBRack, error) {
 }
 
 // RacksFromPB converts a slice of PBRack to Rack.
-func RacksFromPB(ctx context.Context, pbs []*rackv1.PBRack) ([]rack.Rack, error) {
-	result := make([]rack.Rack, len(pbs))
+func RacksFromPB(ctx context.Context, pbs []*rackv1.PBRack) ([]api.Rack, error) {
+	result := make([]api.Rack, len(pbs))
 	for i, pb := range pbs {
 		var err error
 		result[i], err = RackFromPB(ctx, pb)

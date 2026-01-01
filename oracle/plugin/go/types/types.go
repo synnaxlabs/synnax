@@ -13,8 +13,11 @@
 package types
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"text/template"
 
@@ -28,7 +31,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// goModulePrefix is the base import path for the Synnax monorepo.
+// goModulePrefix is the fallback import path prefix.
 const goModulePrefix = "github.com/synnaxlabs/synnax/"
 
 // Plugin generates Go struct type definitions from Oracle schemas.
@@ -65,8 +68,13 @@ func (p *Plugin) Check(*plugin.Request) error { return nil }
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 	outputStructs := make(map[string][]resolution.Struct)
-	var outputOrder []string
+	outputEnums := make(map[string][]resolution.Enum)
+	outputTypeDefs := make(map[string][]resolution.TypeDef)
+	var structOrder []string
+	var enumOrder []string
+	var typeDefOrder []string
 
+	// Collect structs by output path
 	for _, entry := range req.Resolutions.AllStructs() {
 		if outputPath := output.GetPath(entry, "go"); outputPath != "" {
 			if req.RepoRoot != "" {
@@ -75,16 +83,92 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 				}
 			}
 			if _, exists := outputStructs[outputPath]; !exists {
-				outputOrder = append(outputOrder, outputPath)
+				structOrder = append(structOrder, outputPath)
 			}
 			outputStructs[outputPath] = append(outputStructs[outputPath], entry)
 		}
 	}
 
-	for _, outputPath := range outputOrder {
+	// Collect typedefs by output path
+	for _, entry := range req.Resolutions.AllTypeDefs() {
+		if outputPath := output.GetTypeDefPath(entry, "go"); outputPath != "" {
+			if req.RepoRoot != "" {
+				if err := req.ValidateOutputPath(outputPath); err != nil {
+					return nil, errors.Wrapf(err, "invalid output path for typedef %s", entry.Name)
+				}
+			}
+			if _, exists := outputTypeDefs[outputPath]; !exists {
+				typeDefOrder = append(typeDefOrder, outputPath)
+			}
+			outputTypeDefs[outputPath] = append(outputTypeDefs[outputPath], entry)
+		}
+	}
+
+	// Collect standalone enums with their own @go output
+	for _, e := range enum.CollectWithOwnOutput(req.Resolutions.AllEnums(), "go") {
+		enumPath := output.GetEnumPath(e, "go")
+		if req.RepoRoot != "" {
+			if err := req.ValidateOutputPath(enumPath); err != nil {
+				return nil, errors.Wrapf(err, "invalid output path for enum %s", e.Name)
+			}
+		}
+		if _, exists := outputEnums[enumPath]; !exists {
+			enumOrder = append(enumOrder, enumPath)
+		}
+		outputEnums[enumPath] = append(outputEnums[enumPath], e)
+	}
+
+	// Generate files for structs (merging in enums and typedefs from same output path)
+	for _, outputPath := range structOrder {
 		structs := outputStructs[outputPath]
+		// Start with enums referenced by struct fields
 		enums := enum.CollectReferenced(structs)
-		content, err := p.generateFile(outputPath, structs, enums, req.Resolutions)
+		// Merge in standalone enums that share the same output path
+		if standaloneEnums, ok := outputEnums[outputPath]; ok {
+			enums = mergeEnums(enums, standaloneEnums)
+			delete(outputEnums, outputPath)
+		}
+		// Also include enums in the same namespace (inheriting file-level @go output)
+		enums = mergeEnums(enums, collectNamespaceEnums(structs, req.Resolutions, outputPath))
+		// Merge in typedefs that share the same output path
+		var typeDefs []resolution.TypeDef
+		if tds, ok := outputTypeDefs[outputPath]; ok {
+			typeDefs = tds
+			delete(outputTypeDefs, outputPath)
+		}
+		content, err := p.generateFile(outputPath, structs, enums, typeDefs, req.Resolutions, req.RepoRoot)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
+		}
+		resp.Files = append(resp.Files, plugin.File{
+			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
+			Content: content,
+		})
+	}
+
+	// Generate files for standalone typedefs not already handled
+	for _, outputPath := range typeDefOrder {
+		typeDefs, ok := outputTypeDefs[outputPath]
+		if !ok {
+			continue
+		}
+		content, err := p.generateFile(outputPath, nil, nil, typeDefs, req.Resolutions, req.RepoRoot)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
+		}
+		resp.Files = append(resp.Files, plugin.File{
+			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
+			Content: content,
+		})
+	}
+
+	// Generate files for standalone enums not already handled
+	for _, outputPath := range enumOrder {
+		enums, ok := outputEnums[outputPath]
+		if !ok {
+			continue
+		}
+		content, err := p.generateFile(outputPath, nil, enums, nil, req.Resolutions, req.RepoRoot)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
@@ -97,16 +181,55 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
+// mergeEnums combines two enum slices, deduplicating by QualifiedName.
+func mergeEnums(a, b []resolution.Enum) []resolution.Enum {
+	seen := make(map[string]bool, len(a))
+	for _, e := range a {
+		seen[e.QualifiedName] = true
+	}
+	result := append([]resolution.Enum{}, a...)
+	for _, e := range b {
+		if !seen[e.QualifiedName] {
+			result = append(result, e)
+		}
+	}
+	return result
+}
+
+// collectNamespaceEnums finds enums in the same namespace as the structs
+// that inherit their @go output from the file level (matching the output path).
+func collectNamespaceEnums(structs []resolution.Struct, table *resolution.Table, outputPath string) []resolution.Enum {
+	if len(structs) == 0 {
+		return nil
+	}
+	namespace := structs[0].Namespace
+	var result []resolution.Enum
+	for _, e := range table.AllEnums() {
+		if e.Namespace != namespace {
+			continue
+		}
+		// Check if this enum's @go output matches (via file-level inheritance)
+		if enumPath := enum.FindOutputPath(e, table, "go"); enumPath == outputPath {
+			result = append(result, e)
+		}
+	}
+	return result
+}
+
 // generateFile generates the Go source file for a set of structs.
 func (p *Plugin) generateFile(
 	outputPath string,
 	structs []resolution.Struct,
 	enums []resolution.Enum,
+	typeDefs []resolution.TypeDef,
 	table *resolution.Table,
+	repoRoot string,
 ) ([]byte, error) {
 	namespace := ""
 	if len(structs) > 0 {
 		namespace = structs[0].Namespace
+	} else if len(typeDefs) > 0 {
+		namespace = typeDefs[0].Namespace
 	}
 
 	data := &templateData{
@@ -115,8 +238,17 @@ func (p *Plugin) generateFile(
 		Namespace:  namespace,
 		Structs:    make([]structData, 0, len(structs)),
 		Enums:      make([]enumData, 0, len(enums)),
+		TypeDefs:   make([]typeDefData, 0, len(typeDefs)),
 		imports:    gointernal.NewImportManager(),
 		table:      table,
+		repoRoot:   repoRoot,
+	}
+
+	// Process typedefs
+	for _, td := range typeDefs {
+		if !omit.IsTypeDef(td, "go") {
+			data.TypeDefs = append(data.TypeDefs, p.processTypeDef(td, data))
+		}
 	}
 
 	// Process enums that are in the same namespace
@@ -142,8 +274,60 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
-// toGoImportPath converts an Oracle output path to a Go import path.
-func toGoImportPath(outputPath string) string { return goModulePrefix + outputPath }
+// resolveGoImportPath resolves a repo-relative output path to a full Go import path.
+// It searches for go.mod files to determine the correct module path.
+func resolveGoImportPath(outputPath, repoRoot string) string {
+	if repoRoot == "" {
+		return goModulePrefix + outputPath
+	}
+
+	absPath := filepath.Join(repoRoot, outputPath)
+	dir := absPath
+	for {
+		modPath := filepath.Join(dir, "go.mod")
+		if info, err := os.Stat(modPath); err == nil && !info.IsDir() {
+			moduleName, err := parseModuleName(modPath)
+			if err != nil {
+				break
+			}
+			relPath, err := filepath.Rel(dir, absPath)
+			if err != nil {
+				break
+			}
+			if relPath == "." {
+				return moduleName
+			}
+			return moduleName + "/" + filepath.ToSlash(relPath)
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return goModulePrefix + outputPath
+}
+
+// parseModuleName extracts the module name from a go.mod file.
+func parseModuleName(modPath string) (string, error) {
+	file, err := os.Open(modPath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, "module ") {
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				return parts[1], nil
+			}
+		}
+	}
+	return "", errors.Newf("no module directive found in %s", modPath)
+}
 
 // processEnum converts an Enum to template data.
 func (p *Plugin) processEnum(e resolution.Enum) enumData {
@@ -162,6 +346,14 @@ func (p *Plugin) processEnum(e resolution.Enum) enumData {
 	}
 }
 
+// processTypeDef converts a TypeDef to template data.
+func (p *Plugin) processTypeDef(td resolution.TypeDef, data *templateData) typeDefData {
+	return typeDefData{
+		Name:     td.Name,
+		BaseType: p.typeToGo(td.BaseType, data),
+	}
+}
+
 // processStruct converts a Struct to template data.
 func (p *Plugin) processStruct(entry resolution.Struct, data *templateData) structData {
 	sd := structData{
@@ -170,6 +362,15 @@ func (p *Plugin) processStruct(entry resolution.Struct, data *templateData) stru
 		Fields:    make([]fieldData, 0, len(entry.Fields)),
 		IsGeneric: entry.IsGeneric(),
 		IsAlias:   entry.IsAlias(),
+	}
+
+	// Check for @go name override
+	if goDomain, ok := entry.Domains["go"]; ok {
+		for _, expr := range goDomain.Expressions {
+			if expr.Name == "name" && len(expr.Values) > 0 {
+				sd.Name = expr.Values[0].StringValue
+			}
+		}
 	}
 
 	// Process type parameters
@@ -273,6 +474,8 @@ func (p *Plugin) typeToGo(typeRef *resolution.TypeRef, data *templateData) strin
 		baseType = p.resolveMapType(typeRef, data)
 	case resolution.TypeKindTypeParam:
 		baseType = p.resolveTypeParam(typeRef)
+	case resolution.TypeKindTypeDef:
+		baseType = p.resolveTypeDefType(typeRef, data)
 	default:
 		baseType = "any"
 	}
@@ -299,7 +502,7 @@ func (p *Plugin) resolveStructType(typeRef *resolution.TypeRef, data *templateDa
 		return "any"
 	}
 	alias := gointernal.DerivePackageAlias(targetOutputPath, data.Package)
-	data.imports.AddInternal(alias, toGoImportPath(targetOutputPath))
+	data.imports.AddInternal(alias, resolveGoImportPath(targetOutputPath, data.repoRoot))
 	return fmt.Sprintf("%s.%s", alias, p.buildGenericType(structRef.Name, typeRef.TypeArgs, data))
 }
 
@@ -317,7 +520,7 @@ func (p *Plugin) resolveEnumType(typeRef *resolution.TypeRef, data *templateData
 		return "any"
 	}
 	alias := gointernal.DerivePackageAlias(targetOutputPath, data.Package)
-	data.imports.AddInternal(alias, toGoImportPath(targetOutputPath))
+	data.imports.AddInternal(alias, resolveGoImportPath(targetOutputPath, data.repoRoot))
 	return fmt.Sprintf("%s.%s", alias, enumRef.Name)
 }
 
@@ -342,6 +545,24 @@ func (p *Plugin) resolveTypeParam(typeRef *resolution.TypeRef) string {
 		return typeRef.TypeParamRef.Name
 	}
 	return "any"
+}
+
+// resolveTypeDefType resolves a typedef reference to a Go type string.
+func (p *Plugin) resolveTypeDefType(typeRef *resolution.TypeRef, data *templateData) string {
+	if typeRef.TypeDefRef == nil {
+		return "any"
+	}
+	tdRef := typeRef.TypeDefRef
+	if tdRef.Namespace == data.Namespace {
+		return tdRef.Name
+	}
+	targetOutputPath := output.GetTypeDefPath(*tdRef, "go")
+	if targetOutputPath == "" {
+		return "any"
+	}
+	alias := gointernal.DerivePackageAlias(targetOutputPath, data.Package)
+	data.imports.AddInternal(alias, resolveGoImportPath(targetOutputPath, data.repoRoot))
+	return fmt.Sprintf("%s.%s", alias, tdRef.Name)
 }
 
 // buildGenericType builds a generic type string with type arguments.
@@ -371,7 +592,7 @@ func (p *Plugin) resolveExtendsType(extendsRef *resolution.TypeRef, data *templa
 		return parent.Name
 	}
 	alias := gointernal.DerivePackageAlias(targetOutputPath, data.Package)
-	data.imports.AddInternal(alias, toGoImportPath(targetOutputPath))
+	data.imports.AddInternal(alias, resolveGoImportPath(targetOutputPath, data.repoRoot))
 	return fmt.Sprintf("%s.%s", alias, p.buildGenericType(parent.Name, extendsRef.TypeArgs, data))
 }
 
@@ -410,8 +631,10 @@ type templateData struct {
 	Namespace  string
 	Structs    []structData
 	Enums      []enumData
+	TypeDefs   []typeDefData
 	imports    *gointernal.ImportManager
 	table      *resolution.Table
+	repoRoot   string
 }
 
 // HasImports returns true if any imports are needed.
@@ -476,6 +699,12 @@ type enumValueData struct {
 	IntValue int64
 }
 
+// typeDefData holds data for a type definition.
+type typeDefData struct {
+	Name     string
+	BaseType string
+}
+
 var templateFuncs = template.FuncMap{
 	"join": strings.Join,
 }
@@ -497,6 +726,10 @@ import (
 {{- end}}
 {{- end}}
 )
+{{- end}}
+{{- range .TypeDefs}}
+
+type {{.Name}} {{.BaseType}}
 {{- end}}
 {{- range $enum := .Enums}}
 

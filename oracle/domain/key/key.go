@@ -38,11 +38,28 @@ func Collect(structs []resolution.Struct, skip SkipFunc) []Field {
 					seen[f.Name] = true
 					result = append(result, Field{
 						Name:      f.Name,
-						Primitive: f.TypeRef.Primitive,
+						Primitive: resolvePrimitive(f.TypeRef),
 					})
 				}
 			}
 		}
 	}
 	return result
+}
+
+// resolvePrimitive extracts the underlying primitive from a TypeRef,
+// following TypeDef references to their base types.
+func resolvePrimitive(typeRef *resolution.TypeRef) string {
+	if typeRef == nil {
+		return ""
+	}
+	switch typeRef.Kind {
+	case resolution.TypeKindPrimitive:
+		return typeRef.Primitive
+	case resolution.TypeKindTypeDef:
+		if typeRef.TypeDefRef != nil && typeRef.TypeDefRef.BaseType != nil {
+			return resolvePrimitive(typeRef.TypeDefRef.BaseType)
+		}
+	}
+	return ""
 }

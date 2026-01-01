@@ -40,6 +40,20 @@ func GetEnumPath(entry resolution.Enum, domainName string) string {
 	return ""
 }
 
+// GetTypeDefPath extracts the output path from a typedef's domain.
+// domainName specifies which domain to look up (e.g., "go", "ts", "py").
+// Returns an empty string if no output path is defined.
+func GetTypeDefPath(entry resolution.TypeDef, domainName string) string {
+	if domain, ok := entry.Domains[domainName]; ok {
+		for _, expr := range domain.Expressions {
+			if expr.Name == "output" && len(expr.Values) > 0 {
+				return expr.Values[0].StringValue
+			}
+		}
+	}
+	return ""
+}
+
 // IsEnumOmitted checks if an enum has the "omit" expression in its domain.
 func IsEnumOmitted(entry resolution.Enum, domainName string) bool {
 	if domain, ok := entry.Domains[domainName]; ok {
@@ -50,4 +64,44 @@ func IsEnumOmitted(entry resolution.Enum, domainName string) bool {
 		}
 	}
 	return false
+}
+
+// HasPB checks if a struct has the @pb directive (flag, no parameters).
+// This enables pb/ subdirectory generation.
+func HasPB(entry resolution.Struct) bool {
+	_, hasPB := entry.Domains["pb"]
+	return hasPB
+}
+
+// HasPBEnum checks if an enum's containing struct has the @pb directive.
+func HasPBEnum(entry resolution.Enum) bool {
+	_, hasPB := entry.Domains["pb"]
+	return hasPB
+}
+
+// GetPBPath returns the pb output path for a struct.
+// When @pb flag is present, derives from @go output + "/pb/".
+// Returns empty string if @pb not present or @go output not defined.
+func GetPBPath(entry resolution.Struct) string {
+	if !HasPB(entry) {
+		return ""
+	}
+	goPath := GetPath(entry, "go")
+	if goPath == "" {
+		return ""
+	}
+	return goPath + "/pb"
+}
+
+// GetPBEnumPath returns the pb output path for an enum.
+// When @pb flag is present, derives from @go output + "/pb/".
+func GetPBEnumPath(entry resolution.Enum) string {
+	if !HasPBEnum(entry) {
+		return ""
+	}
+	goPath := GetEnumPath(entry, "go")
+	if goPath == "" {
+		return ""
+	}
+	return goPath + "/pb"
 }

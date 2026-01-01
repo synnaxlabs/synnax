@@ -41,3 +41,17 @@ func IsEnum(e resolution.Enum, domainName string) bool {
 	}
 	return false
 }
+
+// IsTypeDef returns true if the typedef has an "omit" expression in the domain.
+func IsTypeDef(td resolution.TypeDef, domainName string) bool {
+	domain, ok := td.Domains[domainName]
+	if !ok {
+		return false
+	}
+	for _, expr := range domain.Expressions {
+		if expr.Name == "omit" {
+			return true
+		}
+	}
+	return false
+}

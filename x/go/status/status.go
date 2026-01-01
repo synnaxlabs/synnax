@@ -12,39 +12,7 @@ package status
 import (
 	"fmt"
 	"strings"
-
-	"github.com/synnaxlabs/x/telem"
 )
-
-// Variant is a general classification mechanism for statuses.
-type Variant string
-
-const (
-	InfoVariant     Variant = "info"
-	SuccessVariant  Variant = "success"
-	ErrorVariant    Variant = "error"
-	WarningVariant  Variant = "warning"
-	DisabledVariant Variant = "disabled"
-	LoadingVariant  Variant = "loading"
-)
-
-// Status is a standardized payload used across Synnax.
-type Status[D any] struct {
-	// Key is a unique key for the status.
-	Key string `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the status.
-	Name string `json:"name" msgpack:"name"`
-	// Variant is the variant of the status.
-	Variant Variant `json:"variant" msgpack:"variant"`
-	// Message is the message of the status.
-	Message string `json:"message" msgpack:"message"`
-	// Description is the description of the status.
-	Description string `json:"description" msgpack:"description"`
-	// Time is the time the status was created.
-	Time telem.TimeStamp `json:"time" msgpack:"time"`
-	// Details are customizable details for component specific statuses.
-	Details D `json:"details" msgpack:"details"`
-}
 
 // String returns a formatted string representation of the Status.
 func (s Status[D]) String() string {
@@ -52,17 +20,17 @@ func (s Status[D]) String() string {
 
 	var variantIcon string
 	switch s.Variant {
-	case InfoVariant:
+	case VariantInfo:
 		variantIcon = "ℹ"
-	case SuccessVariant:
+	case VariantSuccess:
 		variantIcon = "✓"
-	case ErrorVariant:
+	case VariantError:
 		variantIcon = "✗"
-	case WarningVariant:
+	case VariantWarning:
 		variantIcon = "⚠"
-	case DisabledVariant:
+	case VariantDisabled:
 		variantIcon = "⊘"
-	case LoadingVariant:
+	case VariantLoading:
 		variantIcon = "◌"
 	default:
 		variantIcon = "•"

@@ -3,7 +3,7 @@ syntax = "proto3";
 package api.v1;
 
 import "google/protobuf/empty.proto";
-import "x/go/status/status.proto";
+import "x/go/status/pb/status.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/v1";
 
@@ -28,7 +28,7 @@ message Device {
   string model = 7;
   string properties = 8;
   bool configured = 9;
-  status.PBStatus status = 10;
+  synnax.status.Status status = 10;
 }
 
 message DeviceCreateRequest {

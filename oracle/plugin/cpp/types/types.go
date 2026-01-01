@@ -67,7 +67,26 @@ func (p *Plugin) Check(req *plugin.Request) error {
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 	outputStructs := make(map[string][]resolution.Struct)
-	var outputOrder []string
+	outputTypeDefs := make(map[string][]resolution.TypeDef)
+	var structOrder []string
+	var typeDefOrder []string
+
+	for _, entry := range req.Resolutions.AllTypeDefs() {
+		if outputPath := output.GetTypeDefPath(entry, "cpp"); outputPath != "" {
+			if omit.IsTypeDef(entry, "cpp") {
+				continue
+			}
+			if req.RepoRoot != "" {
+				if err := req.ValidateOutputPath(outputPath); err != nil {
+					return nil, errors.Wrapf(err, "invalid output path for typedef %s", entry.Name)
+				}
+			}
+			if _, exists := outputTypeDefs[outputPath]; !exists {
+				typeDefOrder = append(typeDefOrder, outputPath)
+			}
+			outputTypeDefs[outputPath] = append(outputTypeDefs[outputPath], entry)
+		}
+	}
 
 	for _, entry := range req.Resolutions.AllStructs() {
 		if outputPath := output.GetPath(entry, "cpp"); outputPath != "" {
@@ -77,16 +96,37 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 				}
 			}
 			if _, exists := outputStructs[outputPath]; !exists {
-				outputOrder = append(outputOrder, outputPath)
+				structOrder = append(structOrder, outputPath)
 			}
 			outputStructs[outputPath] = append(outputStructs[outputPath], entry)
 		}
 	}
 
-	for _, outputPath := range outputOrder {
+	for _, outputPath := range structOrder {
 		structs := outputStructs[outputPath]
 		enums := enum.CollectReferenced(structs)
-		content, err := p.generateFile(outputPath, structs, enums, req.Resolutions)
+		var typeDefs []resolution.TypeDef
+		if tds, ok := outputTypeDefs[outputPath]; ok {
+			typeDefs = tds
+			delete(outputTypeDefs, outputPath)
+		}
+		content, err := p.generateFile(outputPath, structs, enums, typeDefs, req.Resolutions)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
+		}
+		resp.Files = append(resp.Files, plugin.File{
+			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
+			Content: content,
+		})
+	}
+
+	// Handle standalone typedef-only outputs
+	for _, outputPath := range typeDefOrder {
+		typeDefs, ok := outputTypeDefs[outputPath]
+		if !ok {
+			continue
+		}
+		content, err := p.generateFile(outputPath, nil, nil, typeDefs, req.Resolutions)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
@@ -126,11 +166,14 @@ func (p *Plugin) generateFile(
 	outputPath string,
 	structs []resolution.Struct,
 	enums []resolution.Enum,
+	typeDefs []resolution.TypeDef,
 	table *resolution.Table,
 ) ([]byte, error) {
 	namespace := ""
 	if len(structs) > 0 {
 		namespace = structs[0].Namespace
+	} else if len(typeDefs) > 0 {
+		namespace = typeDefs[0].Namespace
 	}
 
 	data := &templateData{
@@ -139,6 +182,7 @@ func (p *Plugin) generateFile(
 		KeyFields:  make([]keyFieldData, 0),
 		Structs:    make([]structData, 0, len(structs)),
 		Enums:      make([]enumData, 0, len(enums)),
+		TypeDefs:   make([]typeDefData, 0, len(typeDefs)),
 		includes:   newIncludeManager(),
 		table:      table,
 		rawNs:      namespace,
@@ -149,6 +193,11 @@ func (p *Plugin) generateFile(
 	keyFields := key.Collect(structs, skip)
 	for _, kf := range keyFields {
 		data.KeyFields = append(data.KeyFields, p.processKeyField(kf, data))
+	}
+
+	// Process typedefs
+	for _, td := range typeDefs {
+		data.TypeDefs = append(data.TypeDefs, p.processTypeDef(td, data))
 	}
 
 	// Process enums that are in the same namespace
@@ -199,6 +248,43 @@ func (p *Plugin) processEnum(e resolution.Enum) enumData {
 		Name:      e.Name,
 		Values:    values,
 		IsIntEnum: e.IsIntEnum,
+	}
+}
+
+// processTypeDef converts a TypeDef to template data.
+func (p *Plugin) processTypeDef(td resolution.TypeDef, data *templateData) typeDefData {
+	return typeDefData{
+		Name:    td.Name,
+		CppType: p.typeDefBaseToCpp(td.BaseType, data),
+	}
+}
+
+// typeDefBaseToCpp converts a TypeDef's base type to a C++ type string.
+func (p *Plugin) typeDefBaseToCpp(typeRef *resolution.TypeRef, data *templateData) string {
+	if typeRef == nil {
+		return "void"
+	}
+	switch typeRef.Kind {
+	case resolution.TypeKindPrimitive:
+		return p.primitiveToCpp(typeRef.Primitive, data)
+	case resolution.TypeKindTypeDef:
+		// Another typedef - use its name (with namespace if different)
+		if typeRef.TypeDefRef == nil {
+			return "void"
+		}
+		if typeRef.TypeDefRef.Namespace != data.rawNs {
+			targetOutputPath := output.GetTypeDefPath(*typeRef.TypeDefRef, "cpp")
+			if targetOutputPath != "" {
+				includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
+				data.includes.addInternal(includePath)
+			}
+			// Use namespace-qualified name
+			ns := deriveNamespace(targetOutputPath)
+			return fmt.Sprintf("%s::%s", ns, typeRef.TypeDefRef.Name)
+		}
+		return typeRef.TypeDefRef.Name
+	default:
+		return "void"
 	}
 }
 
@@ -305,6 +391,8 @@ func (p *Plugin) typeToCpp(typeRef *resolution.TypeRef, data *templateData) stri
 		baseType = p.resolveMapType(typeRef, data)
 	case resolution.TypeKindTypeParam:
 		baseType = p.resolveTypeParam(typeRef)
+	case resolution.TypeKindTypeDef:
+		baseType = p.resolveTypeDefType(typeRef, data)
 	default:
 		baseType = "void"
 	}
@@ -448,6 +536,25 @@ func (p *Plugin) resolveTypeParam(typeRef *resolution.TypeRef) string {
 	return "void"
 }
 
+// resolveTypeDefType resolves a TypeDef type reference to a C++ type string.
+func (p *Plugin) resolveTypeDefType(typeRef *resolution.TypeRef, data *templateData) string {
+	if typeRef.TypeDefRef == nil {
+		return "void"
+	}
+	tdRef := typeRef.TypeDefRef
+	if tdRef.Namespace != data.rawNs {
+		targetOutputPath := output.GetTypeDefPath(*tdRef, "cpp")
+		if targetOutputPath != "" {
+			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
+			data.includes.addInternal(includePath)
+		}
+		// Use namespace-qualified name
+		ns := deriveNamespace(targetOutputPath)
+		return fmt.Sprintf("%s::%s", ns, tdRef.Name)
+	}
+	return tdRef.Name
+}
+
 // buildGenericType builds a generic type string with type arguments.
 func (p *Plugin) buildGenericType(baseName string, typeArgs []*resolution.TypeRef, data *templateData) string {
 	if len(typeArgs) == 0 {
@@ -527,6 +634,7 @@ type templateData struct {
 	KeyFields  []keyFieldData
 	Structs    []structData
 	Enums      []enumData
+	TypeDefs   []typeDefData
 	includes   *includeManager
 	table      *resolution.Table
 	rawNs      string // Original Oracle namespace for cross-reference detection
@@ -534,6 +642,12 @@ type templateData struct {
 
 // keyFieldData holds data for a key type alias.
 type keyFieldData struct {
+	Name    string // e.g., "Key"
+	CppType string // e.g., "std::uint32_t"
+}
+
+// typeDefData holds data for a type definition.
+type typeDefData struct {
 	Name    string // e.g., "Key"
 	CppType string // e.g., "std::uint32_t"
 }
@@ -873,6 +987,9 @@ var fileTemplate = template.Must(template.New("cpp-types").Funcs(templateFuncs).
 namespace {{.Namespace}} {
 {{- range $i, $kf := .KeyFields}}
 using {{$kf.Name}} = {{$kf.CppType}};
+{{- end}}
+{{- range $i, $td := .TypeDefs}}
+using {{$td.Name}} = {{$td.CppType}};
 {{- end}}
 {{- range $i, $enum := .Enums}}
 {{if $i}}

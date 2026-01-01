@@ -13,11 +13,8 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 
-export const keyZ = z.uuid();
-export type Key = z.infer<typeof keyZ>;
-
 export const groupZ = z.object({
-  key: keyZ,
+  key: z.uuid(),
   name: z.string(),
 });
 export interface Group extends z.infer<typeof groupZ> {}

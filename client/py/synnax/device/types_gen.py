@@ -41,6 +41,16 @@ class Device(BaseModel):
     status: Status | None = None
 
 
+class GoDevice(Device):
+    properties: str
+
+    model_config = ConfigDict(
+        fields={
+            "properties": {"exclude": True},
+        }
+    )
+
+
 class New(Device):
     key: str | None = None
 

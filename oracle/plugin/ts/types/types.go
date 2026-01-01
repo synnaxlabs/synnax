@@ -113,8 +113,27 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 	outputStructs := make(map[string][]resolution.Struct)
 	outputEnums := make(map[string][]resolution.Enum)
+	outputTypeDefs := make(map[string][]resolution.TypeDef)
 	var structOrder []string
 	var enumOrder []string
+	var typeDefOrder []string
+
+	for _, entry := range req.Resolutions.AllTypeDefs() {
+		if outputPath := pluginoutput.GetTypeDefPath(entry, "ts"); outputPath != "" {
+			if omit.IsTypeDef(entry, "ts") {
+				continue
+			}
+			if req.RepoRoot != "" {
+				if err := req.ValidateOutputPath(outputPath); err != nil {
+					return nil, errors.Wrapf(err, "invalid output path for typedef %s", entry.Name)
+				}
+			}
+			if _, exists := outputTypeDefs[outputPath]; !exists {
+				typeDefOrder = append(typeDefOrder, outputPath)
+			}
+			outputTypeDefs[outputPath] = append(outputTypeDefs[outputPath], entry)
+		}
+	}
 
 	for _, entry := range req.Resolutions.AllStructs() {
 		if outputPath := pluginoutput.GetPath(entry, "ts"); outputPath != "" {
@@ -148,7 +167,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			enums = mergeEnums(enums, standaloneEnums)
 			delete(outputEnums, outputPath)
 		}
-		content, err := p.generateFile(structs[0].Namespace, outputPath, structs, enums, req)
+		var typeDefs []resolution.TypeDef
+		if tds, ok := outputTypeDefs[outputPath]; ok {
+			typeDefs = tds
+			delete(outputTypeDefs, outputPath)
+		}
+		content, err := p.generateFile(structs[0].Namespace, outputPath, structs, enums, typeDefs, req)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
@@ -162,7 +186,27 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if !ok {
 			continue
 		}
-		content, err := p.generateFile(enums[0].Namespace, outputPath, nil, enums, req)
+		var typeDefs []resolution.TypeDef
+		if tds, ok := outputTypeDefs[outputPath]; ok {
+			typeDefs = tds
+			delete(outputTypeDefs, outputPath)
+		}
+		content, err := p.generateFile(enums[0].Namespace, outputPath, nil, enums, typeDefs, req)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
+		}
+		resp.Files = append(resp.Files, plugin.File{
+			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
+			Content: content,
+		})
+	}
+	// Handle standalone typedef-only outputs
+	for _, outputPath := range typeDefOrder {
+		typeDefs, ok := outputTypeDefs[outputPath]
+		if !ok {
+			continue
+		}
+		content, err := p.generateFile(typeDefs[0].Namespace, outputPath, nil, nil, typeDefs, req)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
@@ -244,54 +288,39 @@ func (p *Plugin) generateFile(
 	outputPath string,
 	structs []resolution.Struct,
 	enums []resolution.Enum,
+	typeDefs []resolution.TypeDef,
 	req *plugin.Request,
 ) ([]byte, error) {
 	data := &templateData{
 		Namespace:     namespace,
 		OutputPath:    outputPath,
 		Request:       req,
-		KeyFields:     make([]keyFieldData, 0),
 		Structs:       make([]structData, 0, len(structs)),
 		Enums:         make([]enumData, 0, len(enums)),
+		TypeDefs:      make([]typeDefData, 0, len(typeDefs)),
 		GenerateTypes: p.Options.GenerateTypes,
 		Imports:       make(map[string]*importSpec),
 	}
 	skip := func(s resolution.Struct) bool { return omit.IsStruct(s, "ts") }
 	rawKeyFields := key.Collect(structs, skip)
-	keyFields := p.convertKeyFields(rawKeyFields, structs, data)
-	data.KeyFields = keyFields
 	data.Ontology = p.extractOntology(structs, rawKeyFields, skip)
 	if data.Ontology != nil {
 		data.addNamedImport("@/ontology", "ontology")
+	}
+	for _, td := range typeDefs {
+		data.TypeDefs = append(data.TypeDefs, p.processTypeDef(td, data))
 	}
 	for _, enum := range enums {
 		data.Enums = append(data.Enums, p.processEnum(enum))
 	}
 	for _, entry := range structs {
-		data.Structs = append(data.Structs, p.processStruct(entry, req.Resolutions, data, keyFields))
+		data.Structs = append(data.Structs, p.processStruct(entry, req.Resolutions, data))
 	}
 	var buf bytes.Buffer
 	if err := fileTemplate.Execute(&buf, data); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
-}
-
-func (p *Plugin) convertKeyFields(fields []key.Field, structs []resolution.Struct, data *templateData) []keyFieldData {
-	result := make([]keyFieldData, 0, len(fields))
-	for _, f := range fields {
-		primitive := f.Primitive
-		if override := findFieldTypeOverride(structs, f.Name, "ts"); override != "" {
-			primitive = override
-		}
-		result = append(result, keyFieldData{
-			Name:      f.Name,
-			TSName:    lo.CamelCase(f.Name),
-			ZodType:   primitiveToZod(primitive, data, false),
-			Primitive: primitive,
-		})
-	}
-	return result
 }
 
 func findFieldTypeOverride(structs []resolution.Struct, fieldName, domainName string) string {
@@ -351,7 +380,80 @@ func (p *Plugin) processEnum(enum resolution.Enum) enumData {
 	return ed
 }
 
-func (p *Plugin) processStruct(entry resolution.Struct, table *resolution.Table, data *templateData, keyFields []keyFieldData) structData {
+func (p *Plugin) processTypeDef(td resolution.TypeDef, data *templateData) typeDefData {
+	return typeDefData{
+		Name:    td.Name,
+		TSName:  td.Name,
+		TSType:  p.typeDefBaseToTS(td.BaseType, data),
+		ZodType: p.typeDefBaseToZod(td.BaseType, data),
+	}
+}
+
+// typeDefBaseToZod converts a TypeDef's base type to a Zod schema string.
+func (p *Plugin) typeDefBaseToZod(typeRef *resolution.TypeRef, data *templateData) string {
+	if typeRef == nil {
+		return "z.unknown()"
+	}
+	switch typeRef.Kind {
+	case resolution.TypeKindPrimitive:
+		return primitiveToZod(typeRef.Primitive, data, false)
+	case resolution.TypeKindTypeDef:
+		// Another typedef - use its schema
+		if typeRef.TypeDefRef == nil {
+			return "z.unknown()"
+		}
+		schemaName := lo.CamelCase(typeRef.TypeDefRef.Name) + "Z"
+		if typeRef.TypeDefRef.Namespace != data.Namespace {
+			ns := typeRef.TypeDefRef.Namespace
+			targetOutputPath := pluginoutput.GetTypeDefPath(*typeRef.TypeDefRef, "ts")
+			if targetOutputPath == "" {
+				targetOutputPath = ns
+			}
+			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
+			return fmt.Sprintf("%s.%s", ns, schemaName)
+		}
+		return schemaName
+	default:
+		return "z.unknown()"
+	}
+}
+
+// typeDefBaseToTS converts a TypeDef's base type to a TypeScript type string.
+func (p *Plugin) typeDefBaseToTS(typeRef *resolution.TypeRef, data *templateData) string {
+	if typeRef == nil {
+		return "unknown"
+	}
+	switch typeRef.Kind {
+	case resolution.TypeKindPrimitive:
+		// Add imports for special primitive types
+		switch typeRef.Primitive {
+		case "timestamp":
+			addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
+		case "timespan":
+			addXImport(data, xImport{name: "TimeSpan", submodule: "telem"})
+		}
+		return primitiveToTS(typeRef.Primitive)
+	case resolution.TypeKindTypeDef:
+		// Another typedef - use its name (with namespace if different)
+		if typeRef.TypeDefRef == nil {
+			return "unknown"
+		}
+		if typeRef.TypeDefRef.Namespace != data.Namespace {
+			ns := typeRef.TypeDefRef.Namespace
+			targetOutputPath := pluginoutput.GetTypeDefPath(*typeRef.TypeDefRef, "ts")
+			if targetOutputPath == "" {
+				targetOutputPath = ns
+			}
+			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
+			return fmt.Sprintf("%s.%s", ns, typeRef.TypeDefRef.Name)
+		}
+		return typeRef.TypeDefRef.Name
+	default:
+		return "unknown"
+	}
+}
+
+func (p *Plugin) processStruct(entry resolution.Struct, table *resolution.Table, data *templateData) structData {
 	sd := structData{
 		Name:          entry.Name,
 		TSName:        entry.Name,
@@ -429,10 +531,10 @@ func (p *Plugin) processStruct(entry resolution.Struct, table *resolution.Table,
 			parentField, existsInParent := parentFields[field.Name]
 			if existsInParent && isOnlyOptionalityChange(parentField.TypeRef, field.TypeRef) {
 				// Same base type, just made optional → use .partial()
-				sd.PartialFields = append(sd.PartialFields, p.processField(field, entry, table, data, keyFields, sd.UseInput))
+				sd.PartialFields = append(sd.PartialFields, p.processField(field, entry, table, data, sd.UseInput))
 			} else {
 				// New field or type change → use .extend()
-				sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, keyFields, sd.UseInput))
+				sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, sd.UseInput))
 			}
 		}
 		// Add optional import for concrete types with partial fields
@@ -455,7 +557,7 @@ func (p *Plugin) processStruct(entry resolution.Struct, table *resolution.Table,
 	}
 
 	for _, field := range allFields {
-		fd := p.processField(field, entry, table, data, keyFields, sd.UseInput)
+		fd := p.processField(field, entry, table, data, sd.UseInput)
 		sd.Fields = append(sd.Fields, fd)
 
 		// For concrete_types: detect fields that reference optional type params
@@ -626,7 +728,7 @@ func isSelfReference(t *resolution.TypeRef, parent resolution.Struct) bool {
 	return false
 }
 
-func (p *Plugin) processField(field resolution.Field, parentStruct resolution.Struct, table *resolution.Table, data *templateData, keyFields []keyFieldData, useInput bool) fieldData {
+func (p *Plugin) processField(field resolution.Field, parentStruct resolution.Struct, table *resolution.Table, data *templateData, useInput bool) fieldData {
 	fd := fieldData{
 		Name:           field.Name,
 		TSName:         lo.CamelCase(field.Name),
@@ -640,14 +742,6 @@ func (p *Plugin) processField(field resolution.Field, parentStruct resolution.St
 		fd.TSType = primitiveToTS(typeOverride)
 		if validateDomain, ok := plugin.GetFieldDomain(field, "validate"); ok {
 			fd.ZodType = p.applyValidation(fd.ZodType, validateDomain, field.TypeRef, field.Name)
-		}
-	} else if _, hasKey := field.Domains["key"]; hasKey {
-		if keyField := findKeyField(field.Name, keyFields); keyField != nil {
-			fd.ZodType = keyField.TSName + "Z"
-			fd.TSType = lo.Capitalize(lo.CamelCase(keyField.Name))
-		} else {
-			fd.ZodType = p.typeToZod(field.TypeRef, table, data, useInput)
-			fd.TSType = p.typeToTS(field.TypeRef, table, data)
 		}
 	} else {
 		fd.ZodType = p.typeToZod(field.TypeRef, table, data, useInput)
@@ -672,14 +766,6 @@ func (p *Plugin) processField(field resolution.Field, parentStruct resolution.St
 	return fd
 }
 
-func findKeyField(name string, keyFields []keyFieldData) *keyFieldData {
-	for i := range keyFields {
-		if keyFields[i].Name == name {
-			return &keyFields[i]
-		}
-	}
-	return nil
-}
 
 func getFieldTypeOverride(field resolution.Field, domainName string) string {
 	domain, ok := plugin.GetFieldDomain(field, domainName)
@@ -780,6 +866,22 @@ func (p *Plugin) typeToZodInternal(typeRef *resolution.TypeRef, table *resolutio
 			valueZ = p.typeToZodInternal(typeRef.MapValueType, table, data, useInput, false)
 		}
 		return fmt.Sprintf("z.record(%s, %s)", keyZ, valueZ)
+	case resolution.TypeKindTypeDef:
+		// Use the typedef's schema name (e.g., keyZ)
+		if typeRef.TypeDefRef == nil {
+			return "z.unknown()"
+		}
+		schemaName := lo.CamelCase(typeRef.TypeDefRef.Name) + "Z"
+		if typeRef.TypeDefRef.Namespace != data.Namespace {
+			ns := typeRef.TypeDefRef.Namespace
+			targetOutputPath := pluginoutput.GetTypeDefPath(*typeRef.TypeDefRef, "ts")
+			if targetOutputPath == "" {
+				targetOutputPath = ns
+			}
+			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
+			return fmt.Sprintf("%s.%s", ns, schemaName)
+		}
+		return schemaName
 	default:
 		return "z.unknown()"
 	}
@@ -841,6 +943,21 @@ func (p *Plugin) typeToTSInternal(typeRef *resolution.TypeRef, table *resolution
 			valueType = p.typeToTSInternal(typeRef.MapValueType, table, data, forStructArg)
 		}
 		return fmt.Sprintf("Record<%s, %s>", keyType, valueType)
+	case resolution.TypeKindTypeDef:
+		// Use the typedef name for documentation (type aliases)
+		if typeRef.TypeDefRef == nil {
+			return "unknown"
+		}
+		if typeRef.TypeDefRef.Namespace != data.Namespace {
+			ns := typeRef.TypeDefRef.Namespace
+			targetOutputPath := pluginoutput.GetTypeDefPath(*typeRef.TypeDefRef, "ts")
+			if targetOutputPath == "" {
+				targetOutputPath = ns
+			}
+			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
+			return fmt.Sprintf("%s.%s", ns, typeRef.TypeDefRef.Name)
+		}
+		return typeRef.TypeDefRef.Name
 	default:
 		return "unknown"
 	}
@@ -996,20 +1113,23 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 type templateData struct {
 	Namespace, OutputPath string
 	Request               *plugin.Request
-	KeyFields             []keyFieldData
 	Structs               []structData
 	Enums                 []enumData
+	TypeDefs              []typeDefData
 	GenerateTypes         bool
 	Imports               map[string]*importSpec
 	Ontology              *ontologyData
 }
 
-type ontologyData struct {
-	TypeName, KeyType, KeyZeroValue string
+type typeDefData struct {
+	Name    string
+	TSName  string
+	TSType  string
+	ZodType string
 }
 
-type keyFieldData struct {
-	Name, TSName, ZodType, Primitive string
+type ontologyData struct {
+	TypeName, KeyType, KeyZeroValue string
 }
 
 func primitiveZeroValue(primitive string) string {
@@ -1142,12 +1262,10 @@ import { {{ range $i, $name := .Names }}{{ if $i }}, {{ end }}{{ $name }}{{ end 
 import { {{ range $i, $name := .Names }}{{ if $i }}, {{ end }}{{ $name }}{{ end }} } from "{{ .Path }}";
 {{- end }}
 {{- end }}
-{{- range .KeyFields }}
+{{- range .TypeDefs }}
 
-export const {{ .TSName }}Z = {{ .ZodType }};
-{{- if $.GenerateTypes }}
-export type {{ .Name | camelCase | title }} = z.infer<typeof {{ .TSName }}Z>;
-{{- end }}
+export const {{ .TSName | camelCase }}Z = {{ .ZodType }};
+export type {{ .TSName }} = z.infer<typeof {{ .TSName | camelCase }}Z>;
 {{- end }}
 {{- range .Enums }}
 

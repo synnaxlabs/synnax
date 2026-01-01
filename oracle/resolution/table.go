@@ -12,11 +12,12 @@ package resolution
 import "github.com/samber/lo"
 
 // Table holds all resolved types from parsed Oracle schema files.
-// It serves as the central registry for struct and enum definitions
+// It serves as the central registry for struct, enum, and typedef definitions
 // that plugins use for code generation.
 type Table struct {
 	Structs    []Struct
 	Enums      []Enum
+	TypeDefs   []TypeDef
 	Imports    map[string]bool
 	Namespaces map[string]bool
 }
@@ -102,6 +103,42 @@ func (t *Table) StructsInNamespace(ns string) []Struct {
 // EnumsInNamespace returns all enums in the given namespace.
 func (t *Table) EnumsInNamespace(ns string) []Enum {
 	return lo.Filter(t.Enums, func(item Enum, _ int) bool {
+		return item.Namespace == ns
+	})
+}
+
+// LookupTypeDef finds a type definition by namespace and name.
+// It first tries an exact qualified name match, then falls back to name-only.
+func (t *Table) LookupTypeDef(namespace, name string) (TypeDef, bool) {
+	qname := namespace + "." + name
+	td, ok := t.GetTypeDef(qname)
+	if ok {
+		return td, true
+	}
+	return lo.Find(t.TypeDefs, func(item TypeDef) bool {
+		return item.Name == name
+	})
+}
+
+// GetTypeDef returns the type definition with the given qualified name.
+func (t *Table) GetTypeDef(qname string) (TypeDef, bool) {
+	return lo.Find(t.TypeDefs, func(item TypeDef) bool {
+		return item.QualifiedName == qname
+	})
+}
+
+// MustGetTypeDef returns the type definition with the given qualified name or panics.
+func (t *Table) MustGetTypeDef(qname string) TypeDef { return lo.Must(t.GetTypeDef(qname)) }
+
+// AddTypeDef adds a type definition entry to the table.
+func (t *Table) AddTypeDef(e TypeDef) { t.TypeDefs = append(t.TypeDefs, e) }
+
+// AllTypeDefs returns all type definition entries in the table.
+func (t *Table) AllTypeDefs() []TypeDef { return t.TypeDefs }
+
+// TypeDefsInNamespace returns all type definitions in the given namespace.
+func (t *Table) TypeDefsInNamespace(ns string) []TypeDef {
+	return lo.Filter(t.TypeDefs, func(item TypeDef, _ int) bool {
 		return item.Namespace == ns
 	})
 }

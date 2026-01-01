@@ -13,9 +13,6 @@ import { array, spatial } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
-
-export const keyZ = z.uuid();
-export type Key = z.infer<typeof keyZ>;
 export const OUTER_LOCATIONS = ["top", "right", "bottom", "left"] as const;
 export const outerLocationZ = z.enum([...OUTER_LOCATIONS]);
 export type OuterLocation = z.infer<typeof outerLocationZ>;
@@ -61,7 +58,7 @@ export const specZ = z.object({
 export interface Spec extends z.infer<typeof specZ> {}
 
 export const symbolZ = z.object({
-  key: keyZ,
+  key: z.uuid(),
   version: z.uint32().default(1),
   name: z.string().min(1),
   data: specZ,
@@ -69,7 +66,7 @@ export const symbolZ = z.object({
 export interface Symbol extends z.infer<typeof symbolZ> {}
 
 export const newZ = z.object({
-  key: keyZ.optional(),
+  key: z.uuid().optional(),
   version: z.uint32().default(1),
   name: z.string().min(1),
   data: specZ,

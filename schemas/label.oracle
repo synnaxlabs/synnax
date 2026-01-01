@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 @ts output "x/ts/src/label"
+@go output "x/go/label"
+@pb
 
 Label struct {
     key   uuid   @key

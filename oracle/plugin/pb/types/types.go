@@ -38,14 +38,12 @@ type Plugin struct{ Options Options }
 // Options configures the protobuf types plugin.
 type Options struct {
 	FileNamePattern string
-	MessagePrefix   string
 }
 
 // DefaultOptions returns the default plugin options.
 func DefaultOptions() Options {
 	return Options{
 		FileNamePattern: "types.gen.proto",
-		MessagePrefix:   "PB",
 	}
 }
 
@@ -116,17 +114,20 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	var outputOrder []string
 
 	for _, entry := range req.Resolutions.AllStructs() {
-		if outputPath := output.GetPath(entry, "pb"); outputPath != "" {
-			if req.RepoRoot != "" {
-				if err := req.ValidateOutputPath(outputPath); err != nil {
-					return nil, errors.Wrapf(err, "invalid output path for struct %s", entry.Name)
-				}
-			}
-			if _, exists := outputStructs[outputPath]; !exists {
-				outputOrder = append(outputOrder, outputPath)
-			}
-			outputStructs[outputPath] = append(outputStructs[outputPath], entry)
+		// Use GetPBPath which derives from @go output when @pb flag present
+		outputPath := output.GetPBPath(entry)
+		if outputPath == "" {
+			continue
 		}
+		if req.RepoRoot != "" {
+			if err := req.ValidateOutputPath(outputPath); err != nil {
+				return nil, errors.Wrapf(err, "invalid output path for struct %s", entry.Name)
+			}
+		}
+		if _, exists := outputStructs[outputPath]; !exists {
+			outputOrder = append(outputOrder, outputPath)
+		}
+		outputStructs[outputPath] = append(outputStructs[outputPath], entry)
 	}
 
 	for _, outputPath := range outputOrder {
@@ -136,8 +137,14 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
+		// Use namespace-based filename: {namespace}.proto
+		namespace := ""
+		if len(structs) > 0 {
+			namespace = structs[0].Namespace
+		}
+		filename := namespace + ".proto"
 		resp.Files = append(resp.Files, plugin.File{
-			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
+			Path:    fmt.Sprintf("%s/%s", outputPath, filename),
 			Content: content,
 		})
 	}
@@ -167,7 +174,6 @@ func (p *Plugin) generateFile(
 		Enums:      make([]enumData, 0, len(enums)),
 		imports:    newImportManager(),
 		table:      table,
-		prefix:     p.Options.MessagePrefix,
 		repoRoot:   repoRoot,
 	}
 
@@ -196,38 +202,26 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
-// derivePackageName extracts or derives the proto package name.
+// derivePackageName derives the proto package name using synnax.{namespace} format.
 func derivePackageName(outputPath string, structs []resolution.Struct) string {
-	// Check for explicit package in domain
-	for _, s := range structs {
-		if domain, ok := s.Domains["pb"]; ok {
-			if expr, found := domain.Expressions.Find("package"); found {
-				if len(expr.Values) > 0 {
-					return expr.Values[0].StringValue
-				}
-			}
-		}
+	// Use namespace from first struct if available
+	if len(structs) > 0 {
+		return "synnax." + structs[0].Namespace
 	}
-	// Default: derive from output path
+	// Fallback: derive from output path (parent directory of pb/)
 	parts := strings.Split(outputPath, "/")
 	if len(parts) >= 2 {
-		return parts[len(parts)-2] + ".v1"
+		// If path ends with /pb, use parent directory
+		if parts[len(parts)-1] == "pb" {
+			return "synnax." + parts[len(parts)-2]
+		}
+		return "synnax." + parts[len(parts)-1]
 	}
-	return filepath.Base(outputPath) + ".v1"
+	return "synnax." + filepath.Base(outputPath)
 }
 
-// deriveGoPackage extracts or derives the Go package option.
+// deriveGoPackage derives the Go package option from the output path.
 func deriveGoPackage(outputPath string, structs []resolution.Struct, repoRoot string) string {
-	// Check for explicit go_package in domain
-	for _, s := range structs {
-		if domain, ok := s.Domains["pb"]; ok {
-			if expr, found := domain.Expressions.Find("go_package"); found {
-				if len(expr.Values) > 0 {
-					return expr.Values[0].StringValue
-				}
-			}
-		}
-	}
 	// Resolve from go.mod if repoRoot is available
 	if repoRoot != "" {
 		if goPackage, err := resolveGoImportPath(outputPath, repoRoot); err == nil {
@@ -314,21 +308,21 @@ func fileExists(path string) bool {
 // processEnum converts an Enum to template data.
 func (p *Plugin) processEnum(e resolution.Enum) enumData {
 	ed := enumData{
-		Name:   p.Options.MessagePrefix + e.Name,
+		Name:   e.Name,
 		Values: make([]enumValueData, 0, len(e.Values)+1),
 	}
 
 	// Add UNSPECIFIED as first value (proto3 best practice)
-	enumPrefix := toScreamingSnake(e.Name)
+	// Values don't need enum prefix since proto generates EnumName_VALUE format
 	ed.Values = append(ed.Values, enumValueData{
-		Name:   fmt.Sprintf("%s_%s_UNSPECIFIED", p.Options.MessagePrefix, enumPrefix),
+		Name:   "UNSPECIFIED",
 		Number: 0,
 	})
 
 	// Add actual enum values
 	for i, v := range e.Values {
 		ed.Values = append(ed.Values, enumValueData{
-			Name:   fmt.Sprintf("%s_%s_%s", p.Options.MessagePrefix, enumPrefix, toScreamingSnake(v.Name)),
+			Name:   toScreamingSnake(v.Name),
 			Number: i + 1,
 		})
 	}
@@ -343,8 +337,14 @@ func (p *Plugin) processStruct(entry resolution.Struct, data *templateData) mess
 		return messageData{Skip: true}
 	}
 
+	// Use @pb name if specified, otherwise fall back to struct name
+	name := getPBName(entry)
+	if name == "" {
+		name = entry.Name
+	}
+
 	md := messageData{
-		Name:   p.Options.MessagePrefix + entry.Name,
+		Name:   name,
 		Fields: make([]fieldData, 0),
 	}
 
@@ -393,6 +393,13 @@ func (p *Plugin) typeToProto(typeRef *resolution.TypeRef, data *templateData) st
 		// Generic type parameter -> google.protobuf.Any
 		data.imports.add("google/protobuf/any.proto")
 		return "google.protobuf.Any"
+	case resolution.TypeKindTypeDef:
+		// TypeDefs resolve to their underlying primitive type in protobuf
+		// (protobuf has no type definition support)
+		if typeRef.TypeDefRef == nil || typeRef.TypeDefRef.BaseType == nil {
+			return "bytes"
+		}
+		return p.typeToProto(typeRef.TypeDefRef.BaseType, data)
 	default:
 		return "bytes"
 	}
@@ -411,24 +418,24 @@ func (p *Plugin) resolveStructType(typeRef *resolution.TypeRef, data *templateDa
 		return p.typeToProto(structRef.AliasOf, data)
 	}
 
-	// Same namespace - use prefixed name
+	// Same namespace - use name directly
 	if structRef.Namespace == data.Namespace {
-		return p.Options.MessagePrefix + structRef.Name
+		return structRef.Name
 	}
 
 	// Cross-namespace - need import
-	targetOutputPath := output.GetPath(*structRef, "pb")
+	targetOutputPath := output.GetPBPath(*structRef)
 	if targetOutputPath == "" {
 		return "bytes" // No pb output defined
 	}
 
-	// Add import for cross-namespace reference
-	importPath := targetOutputPath + "/types.gen.proto"
+	// Add import for cross-namespace reference using {namespace}.proto pattern
+	importPath := targetOutputPath + "/" + structRef.Namespace + ".proto"
 	data.imports.add(importPath)
 
 	// Use fully qualified name with package prefix
 	pkg := derivePackageName(targetOutputPath, []resolution.Struct{*structRef})
-	return fmt.Sprintf("%s.%s%s", pkg, p.Options.MessagePrefix, structRef.Name)
+	return fmt.Sprintf("%s.%s", pkg, structRef.Name)
 }
 
 // resolveEnumType resolves an enum type reference to a protobuf type string.
@@ -439,24 +446,25 @@ func (p *Plugin) resolveEnumType(typeRef *resolution.TypeRef, data *templateData
 
 	enumRef := typeRef.EnumRef
 
-	// Same namespace - use prefixed name
+	// Same namespace - use name directly
 	if enumRef.Namespace == data.Namespace {
-		return p.Options.MessagePrefix + enumRef.Name
+		return enumRef.Name
 	}
 
-	// Cross-namespace - need import
-	targetOutputPath := enum.FindOutputPath(*enumRef, data.table, "pb")
+	// Cross-namespace - need import using new pb/ pattern
+	// Find the go output path for the enum and derive pb path
+	targetOutputPath := enum.FindPBOutputPath(*enumRef, data.table)
 	if targetOutputPath == "" {
 		return "int32" // No pb output defined
 	}
 
-	// Add import for cross-namespace reference
-	importPath := targetOutputPath + "/types.gen.proto"
+	// Add import for cross-namespace reference using {namespace}.proto pattern
+	importPath := targetOutputPath + "/" + enumRef.Namespace + ".proto"
 	data.imports.add(importPath)
 
 	// Use fully qualified name with package prefix
-	pkg := derivePackageName(targetOutputPath, nil)
-	return fmt.Sprintf("%s.%s%s", pkg, p.Options.MessagePrefix, enumRef.Name)
+	pkg := "synnax." + enumRef.Namespace
+	return fmt.Sprintf("%s.%s", pkg, enumRef.Name)
 }
 
 // resolveMapType resolves a map type reference to a protobuf type string.
@@ -472,6 +480,18 @@ func (p *Plugin) resolveMapType(typeRef *resolution.TypeRef, data *templateData)
 	}
 
 	return fmt.Sprintf("map<%s, %s>", keyType, valueType)
+}
+
+// getPBName gets the custom protobuf name from @pb name annotation.
+func getPBName(s resolution.Struct) string {
+	if domain, ok := s.Domains["pb"]; ok {
+		for _, expr := range domain.Expressions {
+			if expr.Name == "name" && len(expr.Values) > 0 {
+				return expr.Values[0].StringValue
+			}
+		}
+	}
+	return ""
 }
 
 // toSnakeCase converts a name to snake_case.
@@ -548,7 +568,6 @@ type templateData struct {
 	Enums      []enumData
 	imports    *importManager
 	table      *resolution.Table
-	prefix     string
 	repoRoot   string
 }
 

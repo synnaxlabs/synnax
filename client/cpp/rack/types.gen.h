@@ -19,15 +19,15 @@
 #include "x/cpp/xjson/xjson.h"
 
 namespace synnax::rack {
-using Rack = std::uint32_t;
+using Key = std::uint32_t;
 using Key = std::uint32_t;
 
 struct StatusDetails {
-    std::uint32_t rack;
+    Key rack;
 
     static StatusDetails parse(xjson::Parser parser) {
         return StatusDetails{
-            .rack = parser.field<std::uint32_t>("rack"),
+            .rack = parser.field<Key>("rack"),
         };
     }
 
@@ -41,7 +41,7 @@ struct StatusDetails {
 using Status = status::Status<StatusDetails>;
 
 struct Payload {
-    std::uint32_t key;
+    Key key;
     std::string name;
     std::uint32_t task_counter;
     bool embedded;
@@ -49,7 +49,7 @@ struct Payload {
 
     static Payload parse(xjson::Parser parser) {
         return Payload{
-            .key = parser.field<std::uint32_t>("key"),
+            .key = parser.field<Key>("key"),
             .name = parser.field<std::string>("name"),
             .task_counter = parser.field<std::uint32_t>("task_counter", 0),
             .embedded = parser.field<bool>("embedded", false),

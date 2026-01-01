@@ -11,25 +11,27 @@
 
 from __future__ import annotations
 
+from typing import NewType
+
 from pydantic import BaseModel, ConfigDict
 
 from synnax import status
 from synnax.ontology.payload import ID
 
-Rack = int
-
 Key = int
+
+Key = NewType("Key", int)
 
 
 class StatusDetails(BaseModel):
-    rack: int
+    rack: Key
 
 
 Status = status.Status[StatusDetails]
 
 
 class Rack(BaseModel):
-    key: int
+    key: Key
     name: str
     task_counter: int | None = None
     embedded: bool | None = None

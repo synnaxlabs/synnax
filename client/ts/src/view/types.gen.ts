@@ -14,11 +14,8 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 
-export const keyZ = z.uuid();
-export type Key = z.infer<typeof keyZ>;
-
 export const viewZ = z.object({
-  key: keyZ,
+  key: z.uuid(),
   name: z.string(),
   type: z.string(),
   query: zod.stringifiedJSON(),

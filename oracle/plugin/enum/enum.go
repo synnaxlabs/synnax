@@ -62,3 +62,17 @@ func CollectWithOwnOutput(allEnums []resolution.Enum, domainName string) []resol
 	}
 	return result
 }
+
+// FindPBOutputPath finds the pb output path for an enum using the new pb/ pattern.
+// Derives from @go output + "/pb/" for structs in the same namespace.
+func FindPBOutputPath(e resolution.Enum, table *resolution.Table) string {
+	// Check if enum's namespace has a struct with @pb flag
+	for _, s := range table.AllStructs() {
+		if s.Namespace == e.Namespace {
+			if path := output.GetPBPath(s); path != "" {
+				return path
+			}
+		}
+	}
+	return ""
+}
