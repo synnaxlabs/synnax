@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
@@ -285,7 +286,7 @@ var _ = Describe("Iterator Behavior", func() {
 					})).To(Succeed())
 					var (
 						i = MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []channel.Key{key}}))
-						e = channel.NewErrResourceClosed("cesium.iterator")
+						e = resource.NewErrClosed("cesium.iterator")
 					)
 					Expect(i.Close()).To(Succeed())
 					Expect(i.Valid()).To(BeFalse())
@@ -307,7 +308,7 @@ var _ = Describe("Iterator Behavior", func() {
 					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{key}})
-					Expect(err).To(HaveOccurredAs(channel.NewErrResourceClosed("cesium.db")))
+					Expect(err).To(HaveOccurredAs(resource.NewErrClosed("cesium.db")))
 
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})
@@ -324,7 +325,7 @@ var _ = Describe("Iterator Behavior", func() {
 					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.NewStreamIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{key}})
-					Expect(err).To(HaveOccurredAs(channel.NewErrResourceClosed("cesium.db")))
+					Expect(err).To(HaveOccurredAs(resource.NewErrClosed("cesium.db")))
 
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})
@@ -341,7 +342,7 @@ var _ = Describe("Iterator Behavior", func() {
 					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.Read(ctx, telem.TimeRangeMax, key)
-					Expect(err).To(HaveOccurredAs(channel.NewErrResourceClosed("cesium.db")))
+					Expect(err).To(HaveOccurredAs(resource.NewErrClosed("cesium.db")))
 
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})

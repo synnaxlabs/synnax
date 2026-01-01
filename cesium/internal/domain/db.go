@@ -18,7 +18,7 @@ import (
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
@@ -181,7 +181,7 @@ func (db *DB) Close() error {
 	count := db.resourceCount.Load()
 	if count > 0 {
 		err := errors.Wrapf(
-			channel.ErrOpenResource,
+			resource.ErrOpen,
 			"there are %d unclosed writers/iterators accessing it",
 			count,
 		)

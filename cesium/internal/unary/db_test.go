@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/meta"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/binary"
@@ -224,7 +225,7 @@ var _ = Describe("DB Metadata Operations", func() {
 			writer, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 				Subject: control.Subject{Key: "string"},
 			}))
-			Expect(db.Close()).To(MatchError(channel.ErrOpenResource))
+			Expect(db.Close()).To(MatchError(resource.ErrOpen))
 			_ = MustSucceed(writer.Close())
 			Expect(db.Close()).To(Succeed())
 		})

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/config"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
@@ -74,7 +75,7 @@ var (
 		AutoIndexPersistInterval: 1 * telem.Second,
 		ErrOnUnauthorizedOpen:    config.False(),
 	}
-	errWriterClosed = channel.NewErrResourceClosed("unary.writer")
+	errWriterClosed = resource.NewErrClosed("unary.writer")
 )
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1

@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
@@ -972,7 +973,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				It("Should not allow operations on a closed iterator", func() {
 					var (
 						i = MustSucceed(db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax}))
-						e = channel.NewErrResourceClosed("unary.iterator")
+						e = resource.NewErrClosed("unary.iterator")
 					)
 					Expect(i.Close()).To(Succeed())
 					Expect(i.SeekFirst(ctx)).To(BeFalse())

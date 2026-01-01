@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/control"
@@ -89,7 +90,7 @@ var _ = Describe("Channel", Ordered, func() {
 						subDB := openDBOnFS(sub)
 						Expect(subDB.Close()).To(Succeed())
 						err := subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.TimeStampT, IsIndex: true})
-						Expect(err).To(HaveOccurredAs(channel.NewErrResourceClosed("cesium.db")))
+						Expect(err).To(HaveOccurredAs(resource.NewErrClosed("cesium.db")))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
@@ -106,9 +107,9 @@ var _ = Describe("Channel", Ordered, func() {
 						Expect(subDB.Close()).To(Succeed())
 
 						_, err := subDB.RetrieveChannel(ctx, key)
-						Expect(err).To(HaveOccurredAs(channel.NewErrResourceClosed("cesium.db")))
+						Expect(err).To(HaveOccurredAs(resource.NewErrClosed("cesium.db")))
 						_, err = subDB.RetrieveChannels(ctx, key)
-						Expect(err).To(HaveOccurredAs(channel.NewErrResourceClosed("cesium.db")))
+						Expect(err).To(HaveOccurredAs(resource.NewErrClosed("cesium.db")))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})

@@ -14,8 +14,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/domain"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -661,7 +661,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						Instrumentation: PanicLogger(),
 					}))
 					Expect(db.Close()).To(Succeed())
-					Expect(db.GarbageCollect(ctx)).To(HaveOccurredAs(channel.NewErrResourceClosed("domain.db")))
+					Expect(db.GarbageCollect(ctx)).To(HaveOccurredAs(resource.NewErrClosed("domain.db")))
 				})
 			})
 		})

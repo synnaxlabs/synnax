@@ -16,35 +16,13 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-var (
-	// ErrNotFound is returned when a particular channel cannot be found in the
-	// DB.
-	ErrNotFound = errors.Wrap(query.NotFound, "channel not found")
-	// ErrOpenResource is returned when a resource cannot be closed because there are
-	// still open resources on it (readers, writers, etc.).
-	ErrOpenResource = errors.New(
-		"cannot close database because there are open resources on it",
-	)
-	// ErrClosedResource is returns when an operation cannot be completed because the
-	// resource being operator on is already closed.
-	ErrClosedResource = errors.New("resource closed")
-)
+// ErrNotFound is returned when a particular channel cannot be found in the DB.
+var ErrNotFound = errors.Wrap(query.NotFound, "channel not found")
 
 // NewErrNotFound returns a wrapper around ErrNotFound that includes the key of the the
 // missing channel.
 func NewErrNotFound(ch Key) error {
 	return errors.Wrapf(ErrNotFound, "channel with key %d not found", ch)
-}
-
-// NewErrResourceClosed returns a new error that wraps ErrClosedResource and includes
-// the name of the resource that is closed. This is used to indicate that an operation
-// cannot be completed because the resource is closed.
-func NewErrResourceClosed(resourceName string) error {
-	return errors.Wrapf(
-		ErrClosedResource,
-		"cannot complete operation on closed %s",
-		resourceName,
-	)
 }
 
 // NewErrWrapper returns a function that wraps an error with information about the

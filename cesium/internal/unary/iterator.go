@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -53,7 +54,7 @@ func IterRange(tr telem.TimeRange) IteratorConfig {
 	return IteratorConfig{Bounds: domain.IterRange(tr).Bounds, AutoChunkSize: 0}
 }
 
-var errIteratorClosed = channel.NewErrResourceClosed("unary.iterator")
+var errIteratorClosed = resource.NewErrClosed("unary.iterator")
 
 type Iterator struct {
 	alamos.Instrumentation

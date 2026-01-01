@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/meta"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -41,7 +42,7 @@ type DB struct {
 }
 
 // ErrDBClosed is returned when an operation is attempted on a closed unary database.
-var ErrDBClosed = channel.NewErrResourceClosed("unary.db")
+var ErrDBClosed = resource.NewErrClosed("unary.db")
 
 // Channel returns the channel for this unary database.
 func (db *DB) Channel() channel.Channel { return db.cfg.Channel }
@@ -120,7 +121,7 @@ func (db *DB) Close() error {
 		return nil
 	}
 	if err := db.domain.Close(); err != nil {
-		if errors.Is(err, channel.ErrOpenResource) {
+		if errors.Is(err, resource.ErrOpen) {
 			// If the close failed because of an open entity, the database should not be
 			// marked as closed and can still serve reads/writes.
 			db.closed.Store(false)

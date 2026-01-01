@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/alignment"
-	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
@@ -220,7 +220,7 @@ var _ = Describe("Streamer Behavior", func() {
 					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.NewStreamer(ctx, cesium.StreamerConfig{Channels: []cesium.ChannelKey{key}})
-					Expect(err).To(HaveOccurredAs(channel.NewErrResourceClosed("cesium.db")))
+					Expect(err).To(HaveOccurredAs(resource.NewErrClosed("cesium.db")))
 
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})

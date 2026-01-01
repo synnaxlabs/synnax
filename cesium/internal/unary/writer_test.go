@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/config"
@@ -539,7 +540,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Start:   10 * telem.SecondTS,
 							Subject: control.Subject{Key: "foo"}},
 						))
-						e = channel.NewErrResourceClosed("unary.writer")
+						e = resource.NewErrClosed("unary.writer")
 					)
 					Expect(t.Occurred()).To(BeTrue())
 					_, err := w.Close()
@@ -558,12 +559,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Start:   10 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo"}},
 					)
-					Expect(err).To(HaveOccurredAs(channel.NewErrResourceClosed("unary.db")))
+					Expect(err).To(HaveOccurredAs(resource.NewErrClosed("unary.db")))
 					Expect(err).To(MatchError(ContainSubstring("channel [gauss]<%d>", key)))
 				})
 				It("Should not write on a closed database", func() {
 					Expect(db.Close()).To(Succeed())
-					Expect(unary.Write(ctx, db, 0, telem.NewSeriesV[int64](0, 1, 2))).To(HaveOccurredAs(channel.NewErrResourceClosed("unary.db")))
+					Expect(unary.Write(ctx, db, 0, telem.NewSeriesV[int64](0, 1, 2))).To(HaveOccurredAs(resource.NewErrClosed("unary.db")))
 				})
 			})
 		})

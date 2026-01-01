@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/meta"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	xcontrol "github.com/synnaxlabs/x/control"
@@ -48,7 +49,7 @@ var (
 	// ErrNotVirtual is returned when the caller opens a DB on a non-virtual channel.
 	ErrNotVirtual = errors.New("channel is not virtual")
 	// ErrDBClosed is returned when an operation is attempted on a closed DB.
-	ErrDBClosed = channel.NewErrResourceClosed("virtual.db")
+	ErrDBClosed = resource.NewErrClosed("virtual.db")
 )
 
 // Config is the configuration for opening a DB.
@@ -136,7 +137,7 @@ func (db *DB) Close() error {
 	}
 	count := db.openWriters.Load()
 	if count > 0 {
-		err := db.wrapError(errors.Wrapf(channel.ErrOpenResource, "cannot close channel because there are %d unclosed writers accessing it", count))
+		err := db.wrapError(errors.Wrapf(resource.ErrOpen, "cannot close channel because there are %d unclosed writers accessing it", count))
 		db.closed.Store(false)
 		return err
 	}

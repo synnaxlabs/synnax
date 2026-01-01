@@ -15,6 +15,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/config"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/override"
@@ -22,7 +23,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var errWriterClosed = channel.NewErrResourceClosed("virtual.writer")
+var errWriterClosed = resource.NewErrClosed("virtual.writer")
 
 type WriterConfig struct {
 	Subject               xcontrol.Subject

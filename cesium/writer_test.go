@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -1553,7 +1554,7 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "Close 1", DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 						var (
 							w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []channel.Key{key}, Start: 10 * telem.SecondTS}))
-							e = channel.NewErrResourceClosed("cesium.writer")
+							e = resource.NewErrClosed("cesium.writer")
 						)
 						Expect(w.Close()).To(Succeed())
 						Expect(w.Close()).To(Succeed())
@@ -1578,7 +1579,7 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: k, Name: "Close 5", DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					var (
 						w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []channel.Key{k}, Start: 10 * telem.SecondTS}))
-						e = channel.NewErrResourceClosed("cesium.writer")
+						e = resource.NewErrClosed("cesium.writer")
 					)
 					Expect(w.Close()).To(Succeed())
 					Expect(w.Close()).To(Succeed())
@@ -1595,7 +1596,7 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(subDB.CreateChannel(ctx, cesium.Channel{Name: "It", Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{key}})
-					Expect(err).To(HaveOccurredAs(channel.NewErrResourceClosed("cesium.db")))
+					Expect(err).To(HaveOccurredAs(resource.NewErrClosed("cesium.db")))
 
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})
@@ -1607,7 +1608,7 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(subDB.CreateChannel(ctx, cesium.Channel{Name: "Our", Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.NewStreamWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{key}})
-					Expect(err).To(HaveOccurredAs(channel.NewErrResourceClosed("cesium.db")))
+					Expect(err).To(HaveOccurredAs(resource.NewErrClosed("cesium.db")))
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})
 
@@ -1618,9 +1619,9 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(subDB.CreateChannel(ctx, cesium.Channel{Name: "Was", Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					err := subDB.Write(ctx, 0, telem.MultiFrame([]cesium.ChannelKey{key}, []telem.Series{telem.NewSeriesV[int64](1, 2, 3)}))
-					Expect(err).To(HaveOccurredAs(channel.NewErrResourceClosed("cesium.db")))
+					Expect(err).To(HaveOccurredAs(resource.NewErrClosed("cesium.db")))
 					err = subDB.WriteSeries(ctx, key, 0, telem.NewSeriesV[int64](1, 2, 3))
-					Expect(err).To(HaveOccurredAs(channel.NewErrResourceClosed("cesium.db")))
+					Expect(err).To(HaveOccurredAs(resource.NewErrClosed("cesium.db")))
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})
 			})

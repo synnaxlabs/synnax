@@ -14,7 +14,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io"
@@ -51,7 +51,7 @@ type WriterConfig struct {
 }
 
 var (
-	errWriterClosed     = channel.NewErrResourceClosed("domain.writer")
+	errWriterClosed     = resource.NewErrClosed("domain.writer")
 	DefaultWriterConfig = WriterConfig{
 		EnableAutoCommit:         config.True(),
 		AutoIndexPersistInterval: 1 * telem.Second,

@@ -26,14 +26,6 @@ var _ = Describe("Errors", func() {
 		})
 	})
 
-	Describe("NewErrResourceClosed", func() {
-		It("Should return an error with the correct message", func() {
-			err := channel.NewErrResourceClosed("writer")
-			Expect(err).To(HaveOccurredAs(channel.ErrClosedResource))
-			Expect(err).To(MatchError(ContainSubstring("cannot complete operation on closed writer")))
-		})
-	})
-
 	Describe("NewErrWrapper", func() {
 		It("Should return an error with the correct message", func() {
 			ch := channel.Channel{Key: 1, Name: "foo"}

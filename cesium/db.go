@@ -17,6 +17,7 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
@@ -31,7 +32,7 @@ type (
 )
 
 var (
-	errDBClosed          = channel.NewErrResourceClosed("cesium.db")
+	errDBClosed          = resource.NewErrClosed("cesium.db")
 	ErrChannelNotFound   = channel.ErrNotFound
 	ZeroLeadingAlignment = alignment.ZeroLeading
 )

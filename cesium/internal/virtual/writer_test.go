@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
@@ -127,7 +128,7 @@ var _ = Describe("Write", func() {
 				t = MustSucceed(w.Close())
 				Expect(t.Occurred()).To(BeTrue())
 				_, err := w.Write(telem.NewSeriesSecondsTSV(10, 11, 12))
-				Expect(err).To(HaveOccurredAs(channel.ErrClosedResource))
+				Expect(err).To(HaveOccurredAs(resource.NewErrClosed("virtual.writer")))
 			})
 
 		})
