@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/io/fs"
@@ -62,7 +62,7 @@ var _ = Describe("Delete", func() {
 						Expect(subDB.Close()).To(Succeed())
 
 						err := subDB.DeleteChannel(key)
-						Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("cesium.db")))
+						Expect(err).To(HaveOccurredAs(channel.NewErrResourceClosed("cesium.db")))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
@@ -382,7 +382,7 @@ var _ = Describe("Delete", func() {
 					Expect(db.CreateChannel(ctx, channels...)).To(Succeed())
 				})
 				AfterEach(func() {
-					Expect(db.DeleteChannels(lo.Map(channels, func(c cesium.Channel, _ int) core.ChannelKey { return c.Key }))).To(Succeed())
+					Expect(db.DeleteChannels(lo.Map(channels, func(c cesium.Channel, _ int) channel.Key { return c.Key }))).To(Succeed())
 					for _, c := range channels {
 						Expect(fs.Exists(channelKeyToPath(c.Key))).To(BeFalse())
 						for _, f := range MustSucceed(fs.List("")) {
@@ -396,7 +396,7 @@ var _ = Describe("Delete", func() {
 						Expect(db.DeleteChannels([]cesium.ChannelKey{index1, data1})).To(Succeed())
 						Expect(db.DeleteChannels([]cesium.ChannelKey{index1, data1})).To(Succeed())
 					})
-					DescribeTable("Deleting permutations of channels", func(chs ...core.ChannelKey) {
+					DescribeTable("Deleting permutations of channels", func(chs ...channel.Key) {
 						Expect(db.DeleteChannels(chs)).To(Succeed())
 						for _, c := range chs {
 							_, err := db.RetrieveChannel(ctx, c)
@@ -424,15 +424,15 @@ var _ = Describe("Delete", func() {
 						Expect(subDB.Close()).To(Succeed())
 
 						err := subDB.DeleteChannels([]cesium.ChannelKey{key})
-						Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("cesium.db")))
+						Expect(err).To(HaveOccurredAs(channel.NewErrResourceClosed("cesium.db")))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
 				})
 				Describe("Interrupted deletion", func() {
 					It("Should delete all channels before encountering an error", func() {
-						w1 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 10 * telem.SecondTS, Channels: []core.ChannelKey{data2, data3}}))
-						w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 10 * telem.SecondTS, Channels: []core.ChannelKey{data2}}))
+						w1 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 10 * telem.SecondTS, Channels: []channel.Key{data2, data3}}))
+						w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 10 * telem.SecondTS, Channels: []channel.Key{data2}}))
 						Expect(db.DeleteChannels([]cesium.ChannelKey{data1, data2})).To(MatchError(ContainSubstring("1 unclosed writer")))
 						Expect(w1.Close()).To(Succeed())
 						Expect(fs.Exists(channelKeyToPath(data1))).To(BeFalse())
@@ -450,8 +450,8 @@ var _ = Describe("Delete", func() {
 						Expect(fs.Exists(channelKeyToPath(data1))).To(BeTrue())
 					})
 					It("Should delete all channels, but not index channels, before encountering an error", func() {
-						i1 := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []core.ChannelKey{data3}}))
-						i2 := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []core.ChannelKey{data3}}))
+						i1 := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []channel.Key{data3}}))
+						i2 := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []channel.Key{data3}}))
 						Expect(db.DeleteChannels([]cesium.ChannelKey{index1, index2, data1, data2, data3})).To(MatchError(ContainSubstring("2 unclosed writer")))
 						Expect(i1.Close()).To(Succeed())
 						Expect(i2.Close()).To(Succeed())
@@ -466,7 +466,7 @@ var _ = Describe("Delete", func() {
 						Expect(err).To(BeNil())
 					})
 					It("Should be interrupted when there is an error in deleting index channels", func() {
-						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []core.ChannelKey{index1}}))
+						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []channel.Key{index1}}))
 						Expect(db.DeleteChannels([]cesium.ChannelKey{data1, index1})).To(MatchError(ContainSubstring("1 unclosed")))
 						Expect(i.Close()).To(Succeed())
 						Expect(fs.Exists(channelKeyToPath(data1))).To(BeFalse())
@@ -486,7 +486,7 @@ var _ = Describe("Delete", func() {
 				)
 				Describe("Error paths", func() {
 					It("Should return an error for deleting a non-existent channel", func() {
-						Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{9999}, telem.TimeRangeMax)).To(MatchError(core.ErrChannelNotFound))
+						Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{9999}, telem.TimeRangeMax)).To(MatchError(channel.ErrNotFound))
 					})
 				})
 
@@ -743,7 +743,7 @@ var _ = Describe("Delete", func() {
 					})
 					It("Should not delete any data when one channel does not exist", func() {
 						Expect(db.Write(ctx, 0, telem.MultiFrame(
-							[]core.ChannelKey{data, index},
+							[]channel.Key{data, index},
 							[]telem.Series{telem.NewSeriesV[int64](0, 1, 2, 3), telem.NewSeriesSecondsTSV(0, 1, 2, 3)},
 						))).To(Succeed())
 						Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{data, index, math.MaxUint32 - 10}, (1 * telem.SecondTS).Range(2*telem.SecondTS))).To(MatchError(cesium.ErrChannelNotFound))

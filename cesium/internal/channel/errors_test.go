@@ -7,43 +7,42 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package core_test
+package channel_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
-
-	"github.com/synnaxlabs/cesium/internal/core"
 )
 
 var _ = Describe("Errors", func() {
-	Describe("NewErrChannelNotFound", func() {
+	Describe("NewErrNotFound", func() {
 		It("Should return an error with the correct message", func() {
-			err := core.NewErrChannelNotFound(1)
-			Expect(err).To(HaveOccurredAs(core.ErrChannelNotFound))
+			err := channel.NewErrNotFound(1)
+			Expect(err).To(HaveOccurredAs(channel.ErrNotFound))
 			Expect(err).To(MatchError(ContainSubstring("channel with key 1 not found")))
 		})
 	})
 
 	Describe("NewErrResourceClosed", func() {
 		It("Should return an error with the correct message", func() {
-			err := core.NewErrResourceClosed("writer")
-			Expect(err).To(HaveOccurredAs(core.ErrClosedResource))
+			err := channel.NewErrResourceClosed("writer")
+			Expect(err).To(HaveOccurredAs(channel.ErrClosedResource))
 			Expect(err).To(MatchError(ContainSubstring("cannot complete operation on closed writer")))
 		})
 	})
 
-	Describe("NewChannelErrWrapper", func() {
+	Describe("NewErrWrapper", func() {
 		It("Should return an error with the correct message", func() {
-			ch := core.Channel{Key: 1, Name: "foo"}
-			err := core.NewChannelErrWrapper(ch)(errors.Newf("bad error"))
+			ch := channel.Channel{Key: 1, Name: "foo"}
+			err := channel.NewErrWrapper(ch)(errors.Newf("bad error"))
 			Expect(err).To(MatchError(ContainSubstring("channel [foo]<1>: bad error")))
 		})
 		It("Should return nil if the error is nil", func() {
-			ch := core.Channel{Key: 1, Name: "foo"}
-			err := core.NewChannelErrWrapper(ch)(nil)
+			ch := channel.Channel{Key: 1, Name: "foo"}
+			err := channel.NewErrWrapper(ch)(nil)
 			Expect(err).To(BeNil())
 		})
 	})

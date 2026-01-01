@@ -12,13 +12,13 @@ package virtual_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/control"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -26,10 +26,10 @@ import (
 var _ = Describe("DB Metadata Operations", func() {
 	for fsName, makeFS := range fileSystems {
 		var (
-			fs      xfs.FS
+			fs      fs.FS
 			codec   = &binary.JSONCodec{}
 			cleanUp func() error
-			dbKey   core.ChannelKey
+			dbKey   channel.Key
 			db      *virtual.DB
 		)
 
@@ -40,7 +40,7 @@ var _ = Describe("DB Metadata Operations", func() {
 				db = MustSucceed(virtual.Open(ctx, virtual.Config{
 					FS:        fs,
 					MetaCodec: codec,
-					Channel: core.Channel{
+					Channel: channel.Channel{
 						Key:      dbKey,
 						Name:     "test",
 						DataType: telem.Int64T,
@@ -114,9 +114,9 @@ var _ = Describe("DB Metadata Operations", func() {
 		var db *virtual.DB
 		BeforeEach(func() {
 			db = MustSucceed(virtual.Open(ctx, virtual.Config{
-				FS:        xfs.NewMem(),
+				FS:        fs.NewMem(),
 				MetaCodec: &binary.JSONCodec{},
-				Channel: core.Channel{
+				Channel: channel.Channel{
 					Key:      testutil.GenerateChannelKey(),
 					Name:     "test",
 					DataType: telem.Int64T,
@@ -133,9 +133,9 @@ var _ = Describe("DB Metadata Operations", func() {
 
 		It("Should return an error when a DB is closed while writers are still accessing it", func() {
 			db := MustSucceed(virtual.Open(ctx, virtual.Config{
-				FS:        xfs.NewMem(),
+				FS:        fs.NewMem(),
 				MetaCodec: &binary.JSONCodec{},
-				Channel: core.Channel{
+				Channel: channel.Channel{
 					Key:      testutil.GenerateChannelKey(),
 					Name:     "test",
 					DataType: telem.Int64T,
@@ -145,7 +145,7 @@ var _ = Describe("DB Metadata Operations", func() {
 			writer, _ := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 				Subject: control.Subject{Key: "string"},
 			}))
-			Expect(db.Close()).To(HaveOccurredAs(core.ErrOpenResource))
+			Expect(db.Close()).To(HaveOccurredAs(channel.ErrOpenResource))
 			_ = MustSucceed(writer.Close())
 			Expect(db.Close()).To(Succeed())
 		})

@@ -14,7 +14,7 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/x/config"
@@ -53,15 +53,15 @@ func IterRange(tr telem.TimeRange) IteratorConfig {
 	return IteratorConfig{Bounds: domain.IterRange(tr).Bounds, AutoChunkSize: 0}
 }
 
-var errIteratorClosed = core.NewErrResourceClosed("unary.iterator")
+var errIteratorClosed = channel.NewErrResourceClosed("unary.iterator")
 
 type Iterator struct {
 	alamos.Instrumentation
 	IteratorConfig
-	Channel  core.Channel
+	Channel  channel.Channel
 	internal *domain.Iterator
 	view     telem.TimeRange
-	frame    core.Frame
+	frame    channel.Frame
 	idx      *index.Domain
 	bounds   telem.TimeRange
 	err      error
@@ -100,7 +100,7 @@ func (i *Iterator) SetBounds(tr telem.TimeRange) {
 
 func (i *Iterator) Bounds() telem.TimeRange { return i.bounds }
 
-func (i *Iterator) Value() core.Frame { return i.frame }
+func (i *Iterator) Value() channel.Frame { return i.frame }
 
 func (i *Iterator) View() telem.TimeRange { return i.view }
 
@@ -365,7 +365,7 @@ func (i *Iterator) Len() int64 { return i.frame.Len() }
 // Error returns the error that caused the iterator to stop moving. If the iterator is
 // still moving, Error returns nil.
 func (i *Iterator) Error() error {
-	wrap := core.NewChannelErrWrapper(i.Channel)
+	wrap := channel.NewErrWrapper(i.Channel)
 	return wrap(i.err)
 }
 
@@ -383,7 +383,7 @@ func (i *Iterator) Close() (err error) {
 		return nil
 	}
 	i.closed = true
-	wrap := core.NewChannelErrWrapper(i.Channel)
+	wrap := channel.NewErrWrapper(i.Channel)
 	return wrap(i.internal.Close())
 }
 
@@ -535,7 +535,7 @@ func (i *Iterator) satisfied() bool {
 func (i *Iterator) partiallySatisfied() bool { return i.frame.HasData() }
 
 func (i *Iterator) reset(nextView telem.TimeRange) {
-	i.frame = core.Frame{}
+	i.frame = channel.Frame{}
 	i.view = nextView
 }
 

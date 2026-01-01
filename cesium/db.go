@@ -15,7 +15,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
@@ -24,15 +24,15 @@ import (
 )
 
 type (
-	Channel    = core.Channel
-	ChannelKey = core.ChannelKey
-	Frame      = core.Frame
+	Channel    = channel.Channel
+	ChannelKey = channel.Key
+	Frame      = channel.Frame
 )
 
 var (
-	errDBClosed          = core.NewErrResourceClosed("cesium.db")
-	ErrChannelNotFound   = core.ErrChannelNotFound
-	ZeroLeadingAlignment = core.ZeroLeadingAlignment
+	errDBClosed          = channel.NewErrResourceClosed("cesium.db")
+	ErrChannelNotFound   = channel.ErrNotFound
+	ZeroLeadingAlignment = channel.ZeroLeadingAlignment
 )
 
 // Metrics contains statistics about the cesium database.
@@ -46,7 +46,7 @@ type Metrics struct {
 // LeadingAlignment returns an Alignment whose array index is the maximum possible value
 // and whose sample index is the provided value.
 func LeadingAlignment(domainIdx, sampleIdx uint32) telem.Alignment {
-	return core.LeadingAlignment(domainIdx, sampleIdx)
+	return channel.LeadingAlignment(domainIdx, sampleIdx)
 }
 
 type DB struct {
@@ -88,7 +88,7 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 }
 
 // WriteSeries writes a series into the specified channel at the specified start time.
-func (db *DB) WriteSeries(ctx context.Context, key core.ChannelKey, start telem.TimeStamp, series telem.Series) error {
+func (db *DB) WriteSeries(ctx context.Context, key channel.Key, start telem.TimeStamp, series telem.Series) error {
 	if db.closed.Load() {
 		return errDBClosed
 	}
@@ -96,7 +96,7 @@ func (db *DB) WriteSeries(ctx context.Context, key core.ChannelKey, start telem.
 }
 
 // Read reads from the database at the specified time range and outputs a frame.
-func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...core.ChannelKey) (frame Frame, err error) {
+func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...channel.Key) (frame Frame, err error) {
 	if db.closed.Load() {
 		return frame, errDBClosed
 	}

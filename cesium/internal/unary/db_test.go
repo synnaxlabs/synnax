@@ -12,7 +12,7 @@ package unary_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
@@ -30,10 +30,10 @@ var _ = Describe("DB Metadata Operations", func() {
 			codec      = &binary.JSONCodec{}
 			cleanUp    func() error
 			indexDBfs  xfs.FS
-			indexDBKey core.ChannelKey
+			indexDBKey channel.Key
 			indexDB    *unary.DB
 			dataDBfs   xfs.FS
-			dataDBKey  core.ChannelKey
+			dataDBKey  channel.Key
 			dataDB     *unary.DB
 		)
 		Context("FS: "+fsName, func() {
@@ -44,7 +44,7 @@ var _ = Describe("DB Metadata Operations", func() {
 				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        indexDBfs,
 					MetaCodec: codec,
-					Channel: core.Channel{
+					Channel: channel.Channel{
 						Key:      indexDBKey,
 						Name:     "test",
 						DataType: telem.TimeStampT,
@@ -56,7 +56,7 @@ var _ = Describe("DB Metadata Operations", func() {
 				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        dataDBfs,
 					MetaCodec: codec,
-					Channel: core.Channel{
+					Channel: channel.Channel{
 						Key:      dataDBKey,
 						Name:     "test",
 						DataType: telem.Int64T,
@@ -184,7 +184,7 @@ var _ = Describe("DB Metadata Operations", func() {
 			db = MustSucceed(unary.Open(ctx, unary.Config{
 				FS:        xfs.NewMem(),
 				MetaCodec: &binary.JSONCodec{},
-				Channel: core.Channel{
+				Channel: channel.Channel{
 					Key:      testutil.GenerateChannelKey(),
 					Name:     "test",
 					DataType: telem.TimeStampT,
@@ -214,7 +214,7 @@ var _ = Describe("DB Metadata Operations", func() {
 			db := MustSucceed(unary.Open(ctx, unary.Config{
 				FS:        xfs.NewMem(),
 				MetaCodec: &binary.JSONCodec{},
-				Channel: core.Channel{
+				Channel: channel.Channel{
 					Key:      testutil.GenerateChannelKey(),
 					Name:     "test",
 					DataType: telem.TimeStampT,
@@ -224,7 +224,7 @@ var _ = Describe("DB Metadata Operations", func() {
 			writer, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 				Subject: control.Subject{Key: "string"},
 			}))
-			Expect(db.Close()).To(MatchError(core.ErrOpenResource))
+			Expect(db.Close()).To(MatchError(channel.ErrOpenResource))
 			_ = MustSucceed(writer.Close())
 			Expect(db.Close()).To(Succeed())
 		})

@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/config"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/override"
@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var errWriterClosed = core.NewErrResourceClosed("virtual.writer")
+var errWriterClosed = channel.NewErrResourceClosed("virtual.writer")
 
 type WriterConfig struct {
 	Subject               xcontrol.Subject
@@ -63,7 +63,7 @@ type Writer struct {
 	WriterConfig
 	// Channel stores information about the channel being written to, most importantly
 	// the density and index.
-	Channel core.Channel
+	Channel channel.Channel
 	// onClose is called when the writer is closed.
 	onClose func()
 	// control stores the control gate held by the virtual writer, and used to track control

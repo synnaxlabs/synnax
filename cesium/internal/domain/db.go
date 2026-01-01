@@ -18,10 +18,10 @@ import (
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -61,13 +61,13 @@ type Config struct {
 	// root of the filesystem, so this should probably be a subdirectory. DB should have
 	// exclusive access, and it should be empty when the DB is first opened.
 	// [REQUIRED]
-	FS xfs.FS
+	FS fs.FS
 	// FileSize is the maximum size, in bytes, for a writer to be created on a file.
 	// Note while that a file's size may still exceed this value, it is not likely to
 	// exceed by much with frequent commits.
 	// [OPTIONAL] Default: 800 MB
 	FileSize telem.Size
-	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a GC.
+	// GCThreshold is the minimum tombstone proportion of the FileSize to trigger a GC.
 	// Must be in (0, 1].
 	// Note: Setting this value to 0 will have NO EFFECT as it is the default value.
 	// instead, set it to a very small number greater than 0.
@@ -181,7 +181,7 @@ func (db *DB) Close() error {
 	count := db.resourceCount.Load()
 	if count > 0 {
 		err := errors.Wrapf(
-			core.ErrOpenResource,
+			channel.ErrOpenResource,
 			"there are %d unclosed writers/iterators accessing it",
 			count,
 		)

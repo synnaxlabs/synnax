@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
@@ -82,7 +82,7 @@ var _ = Describe("Streamer Behavior", func() {
 
 					f := <-o.Outlet()
 					Expect(f.Frame.Count()).To(Equal(1))
-					d.Alignment = core.LeadingAlignment(1, 0)
+					d.Alignment = channel.LeadingAlignment(1, 0)
 					Expect(f.Frame.SeriesAt(0)).To(Equal(d))
 					i.Close()
 					Expect(sCtx.Wait()).To(Succeed())
@@ -152,7 +152,7 @@ var _ = Describe("Streamer Behavior", func() {
 					var f cesium.StreamerResponse
 					Eventually(o.Outlet()).Should(Receive(&f))
 					Expect(f.Frame.Count()).To(Equal(1))
-					written.Alignment = core.LeadingAlignment(1, 0)
+					written.Alignment = channel.LeadingAlignment(1, 0)
 					Expect(f.Frame.SeriesAt(0)).To(Equal(written))
 					i.Close()
 					Expect(sCtx.Wait()).To(Succeed())
@@ -219,7 +219,7 @@ var _ = Describe("Streamer Behavior", func() {
 					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.NewStreamer(ctx, cesium.StreamerConfig{Channels: []cesium.ChannelKey{key}})
-					Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("cesium.db")))
+					Expect(err).To(HaveOccurredAs(channel.NewErrResourceClosed("cesium.db")))
 
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})

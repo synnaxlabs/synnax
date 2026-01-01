@@ -14,9 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/domain"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -26,7 +26,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 		Context("FS: "+fsName, func() {
 			var (
 				db      *domain.DB
-				fs      xfs.FS
+				fs      fs.FS
 				cleanUp func() error
 			)
 			BeforeEach(func() {
@@ -114,7 +114,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(MustSucceed(fs.Stat("1.domain")).Size()).To(Equal(int64(6)))
 
 					By("Asserting that we can still write to the file")
-					// Opening two writers to force the first one to go to the mepty
+					// Opening two writers to force the first one to go to the empty
 					// 2.domain. This way, the second one can go to 1.domain.
 					w1 := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 50 * telem.SecondTS}))
 					w2 := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 50 * telem.SecondTS}))
@@ -661,7 +661,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						Instrumentation: PanicLogger(),
 					}))
 					Expect(db.Close()).To(Succeed())
-					Expect(db.GarbageCollect(ctx)).To(HaveOccurredAs(core.NewErrResourceClosed("domain.db")))
+					Expect(db.GarbageCollect(ctx)).To(HaveOccurredAs(channel.NewErrResourceClosed("domain.db")))
 				})
 			})
 		})

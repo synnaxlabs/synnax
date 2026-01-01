@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/confluence"
 	xcontrol "github.com/synnaxlabs/x/control"
@@ -40,7 +40,7 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey,
 		return errors.New("control update channel already configured")
 	}
 	ch, err := db.retrieveChannel(ctx, key)
-	if errors.Is(err, core.ErrChannelNotFound) {
+	if errors.Is(err, channel.ErrNotFound) {
 		ch.Key = key
 		ch.DataType = telem.StringT
 		ch.Virtual = true

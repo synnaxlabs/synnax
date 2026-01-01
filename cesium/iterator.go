@@ -12,7 +12,7 @@ package cesium
 import (
 	"context"
 
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -22,7 +22,7 @@ import (
 
 const AutoSpan = unary.AutoSpan
 
-var errIteratorClosed = core.NewErrResourceClosed("cesium.iterator")
+var errIteratorClosed = channel.NewErrResourceClosed("cesium.iterator")
 
 type Iterator struct {
 	inlet    confluence.Inlet[IteratorRequest]
