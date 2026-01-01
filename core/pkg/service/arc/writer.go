@@ -64,7 +64,7 @@ func (w Writer) Create(
 	return w.status.SetWithParent(ctx, &status.Status[core.StatusDetails]{
 		Name:    fmt.Sprintf("%s Status", a.Name),
 		Key:     a.Key.String(),
-		Variant: xstatus.LoadingVariant,
+		Variant: xstatus.VariantLoading,
 		Message: "Deploying",
 		Time:    telem.Now(),
 		Details: core.StatusDetails{Running: false},

@@ -193,7 +193,7 @@ func (s *Service) handleChange(
 		if err := s.updateCalculation(ctx, ch); err != nil {
 			s.setStatus(ctx, calculator.Status{
 				Key:         ch.Key().String(),
-				Variant:     status.ErrorVariant,
+				Variant:     status.VariantError,
 				Message:     fmt.Sprintf("failed to update calculation for %s", ch),
 				Description: err.Error(),
 			})

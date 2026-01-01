@@ -46,7 +46,7 @@ var _ = Describe("Writer", func() {
 
 				Expect(s.Key).To(Equal(statusKey))
 				Expect(s.Name).To(Equal(fmt.Sprintf("%s Status", a.Name)))
-				Expect(s.Variant).To(Equal(xstatus.LoadingVariant))
+				Expect(s.Variant).To(Equal(xstatus.VariantLoading))
 				Expect(s.Message).To(Equal("Deploying"))
 			})
 
