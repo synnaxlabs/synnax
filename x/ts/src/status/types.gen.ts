@@ -11,6 +11,9 @@
 
 import { z } from "zod";
 
+import { array } from "@/array";
+import { label } from "@/label";
+import { type optional } from "@/optional";
 import { TimeStamp } from "@/telem";
 
 export const keyZ = z.string();
@@ -24,20 +27,26 @@ export const VARIANTS = [
   "disabled",
 ] as const;
 export const variantZ = z.enum([...VARIANTS]);
+export const successVariantZ = z.literal("success");
+export const infoVariantZ = z.literal("info");
+export const warningVariantZ = z.literal("warning");
+export const errorVariantZ = z.literal("error");
+export const loadingVariantZ = z.literal("loading");
+export const disabledVariantZ = z.literal("disabled");
 export type Variant = z.infer<typeof variantZ>;
 
 export interface StatusSchemas<
-  D extends z.ZodType = z.ZodNever,
-  V extends typeof variantZ = typeof variantZ,
+  Details extends z.ZodType = z.ZodNever,
+  V extends z.ZodType<Variant> = typeof variantZ,
 > {
-  d?: D;
+  details?: Details;
   v?: V;
 }
 
 export const statusZ = <
-  D extends z.ZodType = z.ZodNever,
-  V extends typeof variantZ = typeof variantZ,
->({ d, v }: StatusSchemas<D, V> = {}) =>
+  Details extends z.ZodType = z.ZodNever,
+  V extends z.ZodType<Variant> = typeof variantZ,
+>({ details, v }: StatusSchemas<Details, V> = {}) =>
   z.object({
     key: keyZ,
     name: z.string().default(""),
@@ -45,11 +54,12 @@ export const statusZ = <
     message: z.string(),
     description: z.string().optional(),
     time: TimeStamp.z,
-    details: d ?? z.unknown().optional(),
+    details: details ?? z.unknown().optional(),
+    labels: array.nullToUndefined(label.labelZ),
   });
 export type Status<
-  D extends z.ZodType = z.ZodNever,
-  V extends typeof variantZ = typeof variantZ,
+  Details extends z.ZodType = z.ZodNever,
+  V extends z.ZodType<Variant> = typeof variantZ,
 > = {
   key: Key;
   name: string;
@@ -57,25 +67,23 @@ export type Status<
   message: string;
   description?: string;
   time: TimeStamp;
-} & ([D] extends [z.ZodNever] ? {} : { details: z.infer<D> });
+  labels?: label.Label[];
+} & ([Details] extends [z.ZodNever] ? {} : { details: z.infer<Details> });
 
 export interface NewSchemas<
-  D extends z.ZodType = z.ZodNever,
-  V extends typeof variantZ = typeof variantZ,
+  Details extends z.ZodType = z.ZodNever,
+  V extends z.ZodType<Variant> = typeof variantZ,
 > {
-  d?: D;
+  details?: Details;
   v?: V;
 }
 
 export const newZ = <
-  D extends z.ZodType = z.ZodNever,
-  V extends typeof variantZ = typeof variantZ,
->({ d, v }: NewSchemas<D, V> = {}) =>
-  statusZ({ d, v }).partial({ key: true, name: true });
+  Details extends z.ZodType = z.ZodNever,
+  V extends z.ZodType<Variant> = typeof variantZ,
+>({ details, v }: NewSchemas<Details, V> = {}) =>
+  statusZ({ details, v }).partial({ key: true, name: true });
 export type New<
-  D extends z.ZodType = z.ZodNever,
-  V extends typeof variantZ = typeof variantZ,
-> = Omit<Status<D, V>, "key" | "name"> & {
-  key?: string;
-  name?: string;
-};
+  Details extends z.ZodType = z.ZodNever,
+  V extends z.ZodType<Variant> = typeof variantZ,
+> = optional.Optional<Status<Details, V>, "key" | "name">;

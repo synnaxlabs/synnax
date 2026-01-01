@@ -16,4 +16,5 @@ message PBStatus {
   string description = 5;
   int64 time = 6;
   google.protobuf.Any details = 7;
+  repeated bytes labels = 8;
 }

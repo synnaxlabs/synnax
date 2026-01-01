@@ -11,7 +11,6 @@
 
 import { z } from "zod";
 
-import { zod } from "@/zod";
 export const DIRECTIONS = ["x", "y"] as const;
 export const directionZ = z.enum([...DIRECTIONS]);
 export type Direction = z.infer<typeof directionZ>;
@@ -38,31 +37,31 @@ export const orderZ = z.enum([...ORDERS]);
 export type Order = z.infer<typeof orderZ>;
 
 export const xyZ = z.object({
-  x: zod.float64Z,
-  y: zod.float64Z,
+  x: z.number(),
+  y: z.number(),
 });
 export interface XY extends z.infer<typeof xyZ> {}
 
 export const clientXyZ = z.object({
-  clientX: zod.float64Z,
-  clientY: zod.float64Z,
+  clientX: z.number(),
+  clientY: z.number(),
 });
 export interface ClientXY extends z.infer<typeof clientXyZ> {}
 
 export const dimensionsZ = z.object({
-  width: zod.float64Z,
-  height: zod.float64Z,
+  width: z.number(),
+  height: z.number(),
 });
 export interface Dimensions extends z.infer<typeof dimensionsZ> {}
 
 export const signedDimensionsZ = z.object({
-  signedWidth: zod.float64Z,
-  signedHeight: zod.float64Z,
+  signedWidth: z.number(),
+  signedHeight: z.number(),
 });
 export interface SignedDimensions extends z.infer<typeof signedDimensionsZ> {}
 
 export const boundsZ = z.object({
-  lower: zod.float64Z,
-  upper: zod.float64Z,
+  lower: z.number(),
+  upper: z.number(),
 });
 export interface Bounds extends z.infer<typeof boundsZ> {}

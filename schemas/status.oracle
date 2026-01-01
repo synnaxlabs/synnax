@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/label"
+
 @ts output  "x/ts/src/status"
 @py output  "client/py/synnax/status"
 @go output  "x/go/status"
@@ -22,16 +24,19 @@ Variant enum {
     error    = "error"
     loading  = "loading"
     disabled = "disabled"
+
+    @ts literals
 }
 
-Status struct<D?, V extends Variant = Variant> {
-    key         string    @key
-    name        string    @validate default ""
+Status struct<Details?, V extends Variant = Variant> {
+    key         string         @key
+    name        string         @validate default ""
     variant     V
     message     string
     description string?
     time        timestamp
-    details     D?
+    details     Details?
+    labels      label.Label[]?
 
     @ts concrete_types
     @py omit
@@ -39,7 +44,7 @@ Status struct<D?, V extends Variant = Variant> {
     @cpp include       "x/cpp/status/status.h"
 }
 
-New struct<D?, V extends Variant = Variant> extends Status<D, V> {
+New struct<Details?, V extends Variant = Variant> extends Status<Details, V> {
     key  string?
     name string?
 

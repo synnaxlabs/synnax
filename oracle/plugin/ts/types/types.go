@@ -21,8 +21,8 @@ import (
 	"text/template"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/domain/key"
+	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/domain/ontology"
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/exec"
@@ -340,7 +340,15 @@ func (p *Plugin) processEnum(enum resolution.Enum) enumData {
 			IsIntEnum: enum.IsIntEnum,
 		})
 	}
-	return enumData{Name: enum.Name, Values: values, IsIntEnum: enum.IsIntEnum}
+	ed := enumData{Name: enum.Name, Values: values, IsIntEnum: enum.IsIntEnum}
+	if tsDomain, ok := enum.Domains["ts"]; ok {
+		for _, expr := range tsDomain.Expressions {
+			if expr.Name == "literals" {
+				ed.GenerateLiterals = true
+			}
+		}
+	}
+	return ed
 }
 
 func (p *Plugin) processStruct(entry resolution.Struct, table *resolution.Table, data *templateData, keyFields []keyFieldData) structData {
@@ -426,6 +434,10 @@ func (p *Plugin) processStruct(entry resolution.Struct, table *resolution.Table,
 				// New field or type change → use .extend()
 				sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, keyFields, sd.UseInput))
 			}
+		}
+		// Add optional import for concrete types with partial fields
+		if sd.ConcreteTypes && len(sd.PartialFields) > 0 {
+			addXImport(data, xImport{name: "optional", submodule: "optional"})
 		}
 		return sd
 	}
@@ -517,10 +529,10 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, data *templateData) t
 	tpd := typeParamData{Name: tp.Name, Constraint: "z.ZodType"}
 	if tp.Constraint != nil {
 		tpd.IsJSON = tp.Constraint.Primitive == "json"
-		// Handle enum constraints
+		// Enum constraints use z.ZodType<EnumType> to allow literals and subset enums
 		if tp.Constraint.Kind == resolution.TypeKindEnum && tp.Constraint.EnumRef != nil {
-			enumZodName := lo.CamelCase(tp.Constraint.EnumRef.Name) + "Z"
-			tpd.Constraint = "typeof " + enumZodName
+			enumTypeName := lo.Capitalize(lo.CamelCase(tp.Constraint.EnumRef.Name))
+			tpd.Constraint = "z.ZodType<" + enumTypeName + ">"
 		}
 	}
 	if tp.Default != nil {
@@ -867,14 +879,14 @@ var primitiveZodTypes = map[string]primitiveMapping{
 	"bool":               {schema: "z.boolean()"},
 	"int8":               {schema: "zod.int8Z", xImports: []xImport{{name: "zod", submodule: "zod"}}},
 	"int16":              {schema: "zod.int16Z", xImports: []xImport{{name: "zod", submodule: "zod"}}},
-	"int32":              {schema: "zod.int32Z", xImports: []xImport{{name: "zod", submodule: "zod"}}},
-	"int64":              {schema: "zod.int64Z", xImports: []xImport{{name: "zod", submodule: "zod"}}},
+	"int32":              {schema: "z.int32()"},
+	"int64":              {schema: "z.int64()"},
 	"uint8":              {schema: "zod.uint8Z", xImports: []xImport{{name: "zod", submodule: "zod"}}},
 	"uint16":             {schema: "zod.uint16Z", xImports: []xImport{{name: "zod", submodule: "zod"}}},
-	"uint32":             {schema: "zod.uint32Z", xImports: []xImport{{name: "zod", submodule: "zod"}}},
-	"uint64":             {schema: "zod.uint64Z", xImports: []xImport{{name: "zod", submodule: "zod"}}},
-	"float32":            {schema: "zod.float32Z", xImports: []xImport{{name: "zod", submodule: "zod"}}},
-	"float64":            {schema: "zod.float64Z", xImports: []xImport{{name: "zod", submodule: "zod"}}},
+	"uint32":             {schema: "z.uint32()"},
+	"uint64":             {schema: "z.uint64()"},
+	"float32":            {schema: "z.number()"},
+	"float64":            {schema: "z.number()"},
 	"timestamp":          {schema: "TimeStamp.z", xImports: []xImport{{name: "TimeStamp", submodule: "telem"}}},
 	"timespan":           {schema: "TimeSpan.z", xImports: []xImport{{name: "TimeSpan", submodule: "telem"}}},
 	"time_range":         {schema: "TimeRange.z", xImports: []xImport{{name: "TimeRange", submodule: "telem"}}},
@@ -1098,9 +1110,10 @@ type conditionalFieldData struct {
 }
 
 type enumData struct {
-	Name      string
-	Values    []enumValueData
-	IsIntEnum bool
+	Name             string
+	Values           []enumValueData
+	IsIntEnum        bool
+	GenerateLiterals bool
 }
 
 type enumValueData struct {
@@ -1148,6 +1161,12 @@ export const {{ camelCase .Name }}Z = z.enum({{ .Name }});
 {{- else }}
 export const {{ pluralUpper .Name }} = [{{ range $i, $v := .Values }}{{ if $i }}, {{ end }}"{{ $v.Value }}"{{ end }}] as const;
 export const {{ camelCase .Name }}Z = z.enum([...{{ pluralUpper .Name }}]);
+{{- if .GenerateLiterals }}
+{{- $enumName := .Name }}
+{{- range $i, $v := .Values }}
+export const {{ camelCase $v.Name }}{{ $enumName }}Z = z.literal("{{ $v.Value }}");
+{{- end }}
+{{- end }}
 {{- end }}
 {{- if and $.GenerateTypes (not .IsIntEnum) }}
 export type {{ .Name }} = z.infer<typeof {{ camelCase .Name }}Z>;
@@ -1282,14 +1301,11 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
 {{- if $.GenerateTypes }}
 {{- if .ConcreteTypes }}
 {{- if .HasExtends }}
-export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = Omit<{{ .ExtendsTypeName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>, {{ range $i, $f := .OmittedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}{{ if and .OmittedFields (or .PartialFields .ExtendFields) }} | {{ end }}{{ range $i, $f := .PartialFields }}{{ if $i }} | {{ end }}"{{ $f.TSName }}"{{ end }}{{ if and .PartialFields .ExtendFields }} | {{ end }}{{ range $i, $f := .ExtendFields }}{{ if $i }} | {{ end }}"{{ $f.TSName }}"{{ end }}> & {
-{{- range .PartialFields }}
-  {{ .TSName }}?: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
-{{- end }}
+export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = {{ if .PartialFields }}optional.Optional<{{ end }}{{ if .OmittedFields }}Omit<{{ end }}{{ .ExtendsTypeName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>{{ if .OmittedFields }}, {{ range $i, $f := .OmittedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}>{{ end }}{{ if .PartialFields }}, {{ range $i, $f := .PartialFields }}{{ if $i }} | {{ end }}"{{ $f.TSName }}"{{ end }}>{{ end }}{{ if .ExtendFields }} & {
 {{- range .ExtendFields }}
   {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
-};
+}{{ end }};
 {{- else }}
 {{- if .ConditionalFields }}
 export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = {

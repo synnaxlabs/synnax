@@ -24,17 +24,17 @@ var _ = context.Background
 
 
 // StatusToPB converts Status to PBStatus using provided type converters.
-func StatusToPB[D any, V any](
+func StatusToPB[Details any, V any](
 	ctx context.Context,
-	r status.Status[D, V],
-	translateD func(context.Context, D) (*anypb.Any, error),
+	r status.Status[Details, V],
+	translateDetails func(context.Context, Details) (*anypb.Any, error),
 	translateV func(context.Context, V) (*anypb.Any, error),
 ) (*statusv1.PBStatus, error) {
 	VariantAny, err := translateV(ctx, r.Variant)
 	if err != nil {
 		return nil, err
 	}
-	DetailsAny, err := translateD(ctx, r.Details)
+	DetailsAny, err := translateDetails(ctx, r.Details)
 	if err != nil {
 		return nil, err
 	}
@@ -44,6 +44,7 @@ func StatusToPB[D any, V any](
 		Message: r.Message,
 		Description: r.Description,
 		Time: int64(r.Time),
+		Labels: LabelsToPB(ctx, r.Labels),
 		Variant: VariantAny,
 		Details: DetailsAny,
 	}
@@ -51,12 +52,12 @@ func StatusToPB[D any, V any](
 }
 
 // StatusFromPB converts PBStatus to Status using provided type converters.
-func StatusFromPB[D any, V any](
+func StatusFromPB[Details any, V any](
 	ctx context.Context,
 	pb *statusv1.PBStatus,
-	translateD func(context.Context, *anypb.Any) (D, error),
+	translateDetails func(context.Context, *anypb.Any) (Details, error),
 	translateV func(context.Context, *anypb.Any) (V, error),
-) (r status.Status[D, V], err error) {
+) (r status.Status[Details, V], err error) {
 	if pb == nil {
 		return r, nil
 	}
@@ -64,7 +65,7 @@ func StatusFromPB[D any, V any](
 	if err != nil {
 		return r, err
 	}
-	r.Details, err = translateD(ctx, pb.Details)
+	r.Details, err = translateDetails(ctx, pb.Details)
 	if err != nil {
 		return r, err
 	}
@@ -73,5 +74,6 @@ func StatusFromPB[D any, V any](
 	r.Message = pb.Message
 	r.Description = pb.Description
 	r.Time = telem.TimeStamp(pb.Time)
+	r.Labels = LabelsFromPB(ctx, pb.Labels)
 	return r, nil
 }

@@ -18,12 +18,12 @@ export const keyZ = z.string();
 export type Key = z.infer<typeof keyZ>;
 
 export const statusDetailsZ = z.object({
-  rack: zod.uint32Z,
+  rack: z.uint32(),
   device: z.string(),
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 
-export const statusZ = status.statusZ({ d: statusDetailsZ });
+export const statusZ = status.statusZ({ details: statusDetailsZ });
 export interface Status extends z.infer<typeof statusZ> {}
 
 export interface DeviceSchemas<
@@ -43,7 +43,7 @@ export const deviceZ = <
 >({ properties, make, model }: DeviceSchemas<Properties, Make, Model> = {}) =>
   z.object({
     key: keyZ,
-    rack: zod.uint32Z,
+    rack: z.uint32(),
     location: z.string().min(1, "Location is required"),
     make: make ?? z.string(),
     model: model ?? z.string(),

@@ -86,8 +86,8 @@ export const bodyZ = z.object({
 export interface Body extends z.infer<typeof bodyZ> {}
 
 export const channelsZ = z.object({
-  read: z.record(zod.uint32Z, z.string()),
-  write: z.record(zod.uint32Z, z.string()),
+  read: z.record(z.uint32(), z.string()),
+  write: z.record(z.uint32(), z.string()),
 });
 export interface Channels extends z.infer<typeof channelsZ> {}
 
@@ -128,7 +128,7 @@ export interface IR extends z.infer<typeof irZ> {}
 export const moduleZ = z.object({
   ir: irZ,
   wasm: z.instanceof(Uint8Array),
-  outputMemoryBases: z.record(z.string(), zod.uint32Z),
+  outputMemoryBases: z.record(z.string(), z.uint32()),
 });
 export interface Module extends z.infer<typeof moduleZ> {}
 
@@ -142,7 +142,7 @@ export interface GraphNode extends z.infer<typeof graphNodeZ> {}
 
 export const viewportZ = z.object({
   position: spatial.xyZ,
-  zoom: zod.float64Z,
+  zoom: z.number(),
 });
 export interface Viewport extends z.infer<typeof viewportZ> {}
 
@@ -164,7 +164,7 @@ export const statusDetailsZ = z.object({
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 
-export const statusZ = status.statusZ({ d: statusDetailsZ });
+export const statusZ = status.statusZ({ details: statusDetailsZ });
 export interface Status extends z.infer<typeof statusZ> {}
 
 export const arcZ = z.object({

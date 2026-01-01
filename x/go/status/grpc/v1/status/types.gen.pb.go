@@ -33,76 +33,16 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type PBVariant int32
-
-const (
-	PBVariant_PB_VARIANT_UNSPECIFIED PBVariant = 0
-	PBVariant_PB_VARIANT_SUCCESS     PBVariant = 1
-	PBVariant_PB_VARIANT_INFO        PBVariant = 2
-	PBVariant_PB_VARIANT_WARNING     PBVariant = 3
-	PBVariant_PB_VARIANT_ERROR       PBVariant = 4
-	PBVariant_PB_VARIANT_LOADING     PBVariant = 5
-	PBVariant_PB_VARIANT_DISABLED    PBVariant = 6
-)
-
-// Enum value maps for PBVariant.
-var (
-	PBVariant_name = map[int32]string{
-		0: "PB_VARIANT_UNSPECIFIED",
-		1: "PB_VARIANT_SUCCESS",
-		2: "PB_VARIANT_INFO",
-		3: "PB_VARIANT_WARNING",
-		4: "PB_VARIANT_ERROR",
-		5: "PB_VARIANT_LOADING",
-		6: "PB_VARIANT_DISABLED",
-	}
-	PBVariant_value = map[string]int32{
-		"PB_VARIANT_UNSPECIFIED": 0,
-		"PB_VARIANT_SUCCESS":     1,
-		"PB_VARIANT_INFO":        2,
-		"PB_VARIANT_WARNING":     3,
-		"PB_VARIANT_ERROR":       4,
-		"PB_VARIANT_LOADING":     5,
-		"PB_VARIANT_DISABLED":    6,
-	}
-)
-
-func (x PBVariant) Enum() *PBVariant {
-	p := new(PBVariant)
-	*p = x
-	return p
-}
-
-func (x PBVariant) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (PBVariant) Descriptor() protoreflect.EnumDescriptor {
-	return file_x_go_status_grpc_v1_status_types_gen_proto_enumTypes[0].Descriptor()
-}
-
-func (PBVariant) Type() protoreflect.EnumType {
-	return &file_x_go_status_grpc_v1_status_types_gen_proto_enumTypes[0]
-}
-
-func (x PBVariant) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use PBVariant.Descriptor instead.
-func (PBVariant) EnumDescriptor() ([]byte, []int) {
-	return file_x_go_status_grpc_v1_status_types_gen_proto_rawDescGZIP(), []int{0}
-}
-
 type PBStatus struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Variant       PBVariant              `protobuf:"varint,3,opt,name=variant,proto3,enum=status.v1.PBVariant" json:"variant,omitempty"`
+	Variant       *anypb.Any             `protobuf:"bytes,3,opt,name=variant,proto3" json:"variant,omitempty"`
 	Message       string                 `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
 	Description   string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
 	Time          int64                  `protobuf:"varint,6,opt,name=time,proto3" json:"time,omitempty"`
 	Details       *anypb.Any             `protobuf:"bytes,7,opt,name=details,proto3" json:"details,omitempty"`
+	Labels        [][]byte               `protobuf:"bytes,8,rep,name=labels,proto3" json:"labels,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -151,11 +91,11 @@ func (x *PBStatus) GetName() string {
 	return ""
 }
 
-func (x *PBStatus) GetVariant() PBVariant {
+func (x *PBStatus) GetVariant() *anypb.Any {
 	if x != nil {
 		return x.Variant
 	}
-	return PBVariant_PB_VARIANT_UNSPECIFIED
+	return nil
 }
 
 func (x *PBStatus) GetMessage() string {
@@ -186,27 +126,27 @@ func (x *PBStatus) GetDetails() *anypb.Any {
 	return nil
 }
 
+func (x *PBStatus) GetLabels() [][]byte {
+	if x != nil {
+		return x.Labels
+	}
+	return nil
+}
+
 var File_x_go_status_grpc_v1_status_types_gen_proto protoreflect.FileDescriptor
 
 const file_x_go_status_grpc_v1_status_types_gen_proto_rawDesc = "" +
 	"\n" +
-	"*x/go/status/grpc/v1/status/types.gen.proto\x12\tstatus.v1\x1a\x19google/protobuf/any.proto\"\xe0\x01\n" +
+	"*x/go/status/grpc/v1/status/types.gen.proto\x12\tstatus.v1\x1a\x19google/protobuf/any.proto\"\xf8\x01\n" +
 	"\bPBStatus\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12.\n" +
-	"\avariant\x18\x03 \x01(\x0e2\x14.status.v1.PBVariantR\avariant\x12\x18\n" +
+	"\avariant\x18\x03 \x01(\v2\x14.google.protobuf.AnyR\avariant\x12\x18\n" +
 	"\amessage\x18\x04 \x01(\tR\amessage\x12 \n" +
 	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x12\n" +
 	"\x04time\x18\x06 \x01(\x03R\x04time\x12.\n" +
-	"\adetails\x18\a \x01(\v2\x14.google.protobuf.AnyR\adetails*\xb3\x01\n" +
-	"\tPBVariant\x12\x1a\n" +
-	"\x16PB_VARIANT_UNSPECIFIED\x10\x00\x12\x16\n" +
-	"\x12PB_VARIANT_SUCCESS\x10\x01\x12\x13\n" +
-	"\x0fPB_VARIANT_INFO\x10\x02\x12\x16\n" +
-	"\x12PB_VARIANT_WARNING\x10\x03\x12\x14\n" +
-	"\x10PB_VARIANT_ERROR\x10\x04\x12\x16\n" +
-	"\x12PB_VARIANT_LOADING\x10\x05\x12\x17\n" +
-	"\x13PB_VARIANT_DISABLED\x10\x06B\x92\x01\n" +
+	"\adetails\x18\a \x01(\v2\x14.google.protobuf.AnyR\adetails\x12\x16\n" +
+	"\x06labels\x18\b \x03(\fR\x06labelsB\x92\x01\n" +
 	"\rcom.status.v1B\rTypesGenProtoP\x01Z-github.com/synnaxlabs/x/status/grpc/v1/status\xa2\x02\x03SXX\xaa\x02\tStatus.V1\xca\x02\tStatus\\V1\xe2\x02\x15Status\\V1\\GPBMetadata\xea\x02\n" +
 	"Status::V1b\x06proto3"
 
@@ -222,16 +162,14 @@ func file_x_go_status_grpc_v1_status_types_gen_proto_rawDescGZIP() []byte {
 	return file_x_go_status_grpc_v1_status_types_gen_proto_rawDescData
 }
 
-var file_x_go_status_grpc_v1_status_types_gen_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_x_go_status_grpc_v1_status_types_gen_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_x_go_status_grpc_v1_status_types_gen_proto_goTypes = []any{
-	(PBVariant)(0),    // 0: status.v1.PBVariant
-	(*PBStatus)(nil),  // 1: status.v1.PBStatus
-	(*anypb.Any)(nil), // 2: google.protobuf.Any
+	(*PBStatus)(nil),  // 0: status.v1.PBStatus
+	(*anypb.Any)(nil), // 1: google.protobuf.Any
 }
 var file_x_go_status_grpc_v1_status_types_gen_proto_depIdxs = []int32{
-	0, // 0: status.v1.PBStatus.variant:type_name -> status.v1.PBVariant
-	2, // 1: status.v1.PBStatus.details:type_name -> google.protobuf.Any
+	1, // 0: status.v1.PBStatus.variant:type_name -> google.protobuf.Any
+	1, // 1: status.v1.PBStatus.details:type_name -> google.protobuf.Any
 	2, // [2:2] is the sub-list for method output_type
 	2, // [2:2] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
@@ -249,14 +187,13 @@ func file_x_go_status_grpc_v1_status_types_gen_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_x_go_status_grpc_v1_status_types_gen_proto_rawDesc), len(file_x_go_status_grpc_v1_status_types_gen_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      0,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_x_go_status_grpc_v1_status_types_gen_proto_goTypes,
 		DependencyIndexes: file_x_go_status_grpc_v1_status_types_gen_proto_depIdxs,
-		EnumInfos:         file_x_go_status_grpc_v1_status_types_gen_proto_enumTypes,
 		MessageInfos:      file_x_go_status_grpc_v1_status_types_gen_proto_msgTypes,
 	}.Build()
 	File_x_go_status_grpc_v1_status_types_gen_proto = out.File

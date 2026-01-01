@@ -11,13 +11,13 @@ import { z } from "zod";
 
 import { id } from "@/id";
 import { type optional } from "@/optional";
-import { type Status, type Variant } from "@/status/types.gen";
+import { type Status, type Variant, type variantZ } from "@/status/types.gen";
 import { TimeStamp } from "@/telem";
 
-type Base<V extends Variant> = {
+type Base<V extends typeof variantZ> = {
   key: string;
   name: string;
-  variant: V;
+  variant: z.infer<V>;
   message: string;
   description?: string;
   time: TimeStamp;
@@ -25,7 +25,7 @@ type Base<V extends Variant> = {
 
 export type Crude<
   DetailsSchema extends z.ZodType = z.ZodNever,
-  V extends Variant = Variant,
+  V extends typeof variantZ = typeof variantZ,
 > = optional.Optional<Base<V>, "key" | "time" | "name"> &
   ([DetailsSchema] extends [z.ZodNever] ? {} : { details: z.output<DetailsSchema> });
 
@@ -39,7 +39,7 @@ export const fromException = (
   message?: string,
 ): Status<typeof exceptionDetailsSchema> => {
   if (!(exc instanceof Error)) throw exc;
-  return create<typeof exceptionDetailsSchema, "error">({
+  return create<typeof exceptionDetailsSchema>({
     variant: "error",
     message: message ?? exc.message,
     description: message != null ? exc.message : undefined,
@@ -49,16 +49,16 @@ export const fromException = (
 
 export const create = <
   DetailsSchema extends z.ZodType = z.ZodNever,
-  V extends Variant = Variant,
+  V extends typeof variantZ = typeof variantZ,
 >(
   spec: Crude<DetailsSchema, V>,
-): Status<DetailsSchema> =>
+): Status<DetailsSchema, V> =>
   ({
     key: id.create(),
     time: TimeStamp.now(),
     name: "",
     ...spec,
-  }) as Status<DetailsSchema>;
+  }) as Status<DetailsSchema, V>;
 
 export const keepVariants = (
   variant?: Variant,
