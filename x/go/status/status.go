@@ -20,12 +20,12 @@ import (
 type Variant string
 
 const (
-	InfoVariant     Variant = "info"
-	SuccessVariant  Variant = "success"
-	ErrorVariant    Variant = "error"
-	WarningVariant  Variant = "warning"
-	DisabledVariant Variant = "disabled"
-	LoadingVariant  Variant = "loading"
+	VariantInfo     Variant = "info"
+	VariantSuccess  Variant = "success"
+	VariantError    Variant = "error"
+	VariantWarning  Variant = "warning"
+	VariantDisabled Variant = "disabled"
+	VariantLoading  Variant = "loading"
 )
 
 // Status is a standardized payload used across Synnax.
@@ -52,17 +52,17 @@ func (s Status[D]) String() string {
 
 	var variantIcon string
 	switch s.Variant {
-	case InfoVariant:
+	case VariantInfo:
 		variantIcon = "ℹ"
-	case SuccessVariant:
+	case VariantSuccess:
 		variantIcon = "✓"
-	case ErrorVariant:
+	case VariantError:
 		variantIcon = "✗"
-	case WarningVariant:
+	case VariantWarning:
 		variantIcon = "⚠"
-	case DisabledVariant:
+	case VariantDisabled:
 		variantIcon = "⊘"
-	case LoadingVariant:
+	case VariantLoading:
 		variantIcon = "◌"
 	default:
 		variantIcon = "•"

@@ -40,7 +40,7 @@ func resolveStatus(d *Device, provided *Status) *Status {
 			Key:     OntologyID(d.Key).String(),
 			Name:    d.Name,
 			Time:    telem.Now(),
-			Variant: xstatus.WarningVariant,
+			Variant: xstatus.VariantWarning,
 			Message: fmt.Sprintf("%s state unknown", d.Name),
 			Details: StatusDetails{Rack: d.Rack, Device: d.Key},
 		}
