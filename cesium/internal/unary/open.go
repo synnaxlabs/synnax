@@ -69,8 +69,8 @@ var (
 // Validate implements config.GateConfig.
 func (cfg Config) Validate() error {
 	v := validate.New("cesium.unary")
-	validate.NotNil(v, "FS", cfg.FS)
-	validate.NotNil(v, "MetaCodec", cfg.MetaCodec)
+	validate.NotNil(v, "fs", cfg.FS)
+	validate.NotNil(v, "meta_codec", cfg.MetaCodec)
 	return v.Error()
 }
 

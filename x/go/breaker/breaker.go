@@ -48,9 +48,9 @@ func (c Config) Override(o Config) Config {
 
 func (c Config) Validate() error {
 	v := validate.New("breaker")
-	validate.GreaterThanEq(v, "BaseInterval", c.BaseInterval, 0)
-	validate.GreaterThanEq(v, "MaxRetries", c.MaxRetries, 0)
-	validate.GreaterThanEq(v, "Scale", c.Scale, 1)
+	validate.GreaterThanEq(v, "base_interval", c.BaseInterval, 0)
+	validate.GreaterThanEq(v, "max_retries", c.MaxRetries, 0)
+	validate.GreaterThanEq(v, "scale", c.Scale, 1)
 	return v.Error()
 }
 

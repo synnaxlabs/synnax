@@ -44,8 +44,8 @@ var _ = Describe("Status", Ordered, func() {
 			DB:           db,
 			EnableSearch: config.True(),
 		}))
-		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-		labelSvc = MustSucceed(label.OpenService(ctx, label.Config{
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+		labelSvc = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,

@@ -55,7 +55,7 @@ func (sc DBStreamingConfig) Override(other DBStreamingConfig) DBStreamingConfig 
 }
 
 func (sc DBStreamingConfig) Validate() error {
-	v := validate.New("cesium.DBStreamingConfig")
+	v := validate.New("cesium.db_streaming_config")
 	validate.Positive(v, "buffer_size", sc.BufferSize)
 	validate.Positive(v, "slow_consumer_timeout", sc.SlowConsumerTimeout)
 	return v.Error()

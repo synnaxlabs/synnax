@@ -85,8 +85,8 @@ func (s *Service) RetrieveFor(
 	tx gorp.Tx,
 ) ([]Label, error) {
 	var labelResources []ontology.Resource
-	tx = gorp.OverrideTx(s.DB, tx)
-	if err := s.Ontology.NewRetrieve().
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
+	if err := s.cfg.Ontology.NewRetrieve().
 		WhereIDs(id).
 		TraverseTo(Labels).
 		Entries(&labelResources).
