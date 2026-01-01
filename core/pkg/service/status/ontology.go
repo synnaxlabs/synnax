@@ -33,8 +33,6 @@ func OntologyIDs(keys []string) []ontology.ID {
 	return lo.Map(keys, func(k string, _ int) ontology.ID { return OntologyID(k) })
 }
 
-func KeyFromOntologyID(id ontology.ID) string { return id.Key }
-
 // KeysFromOntologyIDs converts a slice of ontology IDs to a slice of keys.
 func KeysFromOntologyIDs(ids []ontology.ID) []string {
 	return lo.Map(ids, func(id ontology.ID, _ int) string { return id.Key })
