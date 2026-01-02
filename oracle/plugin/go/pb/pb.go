@@ -260,7 +260,7 @@ func (p *Plugin) processFieldForTranslation(
 	isOptional := isHardOptional
 	isOptionalStruct := isOptional && field.TypeRef.Kind == resolution.TypeKindStruct
 
-	forwardExpr, backwardExpr, backwardCast, hasError := p.generateFieldConversion(field, data, parentStruct)
+	forwardExpr, backwardExpr, backwardCast, hasError, hasBackwardError := p.generateFieldConversion(field, data, parentStruct)
 
 	return fieldTranslatorData{
 		GoName:           goName,
@@ -271,6 +271,7 @@ func (p *Plugin) processFieldForTranslation(
 		IsOptional:       isOptional,
 		IsOptionalStruct: isOptionalStruct,
 		HasError:         hasError,
+		HasBackwardError: hasBackwardError,
 	}
 }
 
@@ -380,11 +381,12 @@ func (p *Plugin) processGenericFieldForTranslation(
 			IsOptional:       isOptional,
 			IsOptionalStruct: false,
 			HasError:         true, // Type param conversions return error
+			HasBackwardError: true, // Type param conversions return error
 		}, true // This is a type param field
 	}
 
 	// For non-type-param fields, use the regular field processing
-	forwardExpr, backwardExpr, backwardCast, hasError := p.generateFieldConversion(field, data, parentStruct)
+	forwardExpr, backwardExpr, backwardCast, hasError, hasBackwardError := p.generateFieldConversion(field, data, parentStruct)
 
 	return fieldTranslatorData{
 		GoName:           goName,
@@ -395,16 +397,17 @@ func (p *Plugin) processGenericFieldForTranslation(
 		IsOptional:       isOptional,
 		IsOptionalStruct: isOptional && typeRef.Kind == resolution.TypeKindStruct,
 		HasError:         hasError,
+		HasBackwardError: hasBackwardError,
 	}, false // Not a type param field
 }
 
 // generateFieldConversion generates the forward and backward conversion expressions.
-// Returns forward expr, backward expr, backward cast, and whether the conversion returns an error.
+// Returns forward expr, backward expr, backward cast, and whether forward/backward conversions return errors.
 func (p *Plugin) generateFieldConversion(
 	field resolution.Field,
 	data *templateData,
 	parentStruct resolution.Struct,
-) (forward, backward, backwardCast string, hasError bool) {
+) (forward, backward, backwardCast string, hasError, hasBackwardError bool) {
 	typeRef := field.TypeRef
 	fieldName := gointernal.ToPascalCase(field.Name)
 	goFieldName := "r." + fieldName
@@ -413,7 +416,7 @@ func (p *Plugin) generateFieldConversion(
 	// Handle arrays
 	if typeRef.IsArray {
 		f, b, e := p.generateArrayConversion(field, data, goFieldName, pbFieldName)
-		return f, b, "", e
+		return f, b, "", e, e
 	}
 
 	// Handle @key fields
@@ -421,59 +424,68 @@ func (p *Plugin) generateFieldConversion(
 		protoType := primitiveToProtoType(typeRef.Primitive)
 		return fmt.Sprintf("%s(%s)", protoType, goFieldName),
 			fmt.Sprintf("%s.Key(%s)", data.parentAlias, pbFieldName),
-			"", false
+			"", false, false
 	}
 
 	// Handle primitives
 	if typeRef.Kind == resolution.TypeKindPrimitive {
-		f, b := p.generatePrimitiveConversion(typeRef.Primitive, goFieldName, pbFieldName, data)
-		return f, b, "", false
+		f, b, e, be := p.generatePrimitiveConversion(typeRef.Primitive, goFieldName, pbFieldName, data)
+		return f, b, "", e, be
 	}
 
 	// Handle struct references
 	if typeRef.Kind == resolution.TypeKindStruct && typeRef.StructRef != nil {
 		f, b, c := p.generateStructConversion(typeRef, data, goFieldName, pbFieldName)
-		return f, b, c, true // Struct conversions return error
+		return f, b, c, true, true // Struct conversions return error in both directions
 	}
 
 	// Handle enums
 	if typeRef.Kind == resolution.TypeKindEnum && typeRef.EnumRef != nil {
 		f, b := p.generateEnumConversion(typeRef, data, goFieldName, pbFieldName)
-		return f, b, "", false
+		return f, b, "", false, false
+	}
+
+	// Handle type definitions (typedefs)
+	if typeRef.Kind == resolution.TypeKindTypeDef && typeRef.TypeDefRef != nil {
+		f, b := p.generateTypeDefConversion(typeRef, data, goFieldName, pbFieldName)
+		return f, b, "", false, false
 	}
 
 	// Default: direct copy
-	return goFieldName, pbFieldName, "", false
+	return goFieldName, pbFieldName, "", false, false
 }
 
 // generatePrimitiveConversion generates conversion for primitive types.
+// Returns forward expr, backward expr, and whether forward/backward conversions return errors.
 func (p *Plugin) generatePrimitiveConversion(
 	primitive, goField, pbField string,
 	data *templateData,
-) (forward, backward string) {
+) (forward, backward string, hasError, hasBackwardError bool) {
 	switch primitive {
 	case "uuid":
 		data.imports.AddExternal("github.com/google/uuid")
 		return fmt.Sprintf("%s.String()", goField),
-			fmt.Sprintf("uuid.MustParse(%s)", pbField)
+			fmt.Sprintf("uuid.MustParse(%s)", pbField), false, false
 	case "timestamp":
 		data.imports.AddExternal("github.com/synnaxlabs/x/telem")
 		return fmt.Sprintf("int64(%s)", goField),
-			fmt.Sprintf("telem.TimeStamp(%s)", pbField)
+			fmt.Sprintf("telem.TimeStamp(%s)", pbField), false, false
 	case "timespan":
 		data.imports.AddExternal("github.com/synnaxlabs/x/telem")
 		return fmt.Sprintf("int64(%s)", goField),
-			fmt.Sprintf("telem.TimeSpan(%s)", pbField)
+			fmt.Sprintf("telem.TimeSpan(%s)", pbField), false, false
 	case "time_range":
 		data.imports.AddExternal("github.com/synnaxlabs/x/telem")
 		return fmt.Sprintf("telem.TranslateTimeRangeForward(%s)", goField),
-			fmt.Sprintf("telem.TranslateTimeRangeBackward(%s)", pbField)
+			fmt.Sprintf("telem.TranslateTimeRangeBackward(%s)", pbField), false, false
 	case "json":
 		data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
-		return fmt.Sprintf("structpb.NewValue(%s)", goField),
-			fmt.Sprintf("%s.AsInterface()", pbField)
+		// structpb.NewStruct returns (*Struct, error) - needs error handling
+		// AsMap() does NOT return an error
+		return fmt.Sprintf("structpb.NewStruct(%s)", goField),
+			fmt.Sprintf("%s.AsMap()", pbField), true, false
 	default:
-		return goField, pbField
+		return goField, pbField, false, false
 	}
 }
 
@@ -575,17 +587,22 @@ func (p *Plugin) generateGenericStructConversion(
 	for _, typeArg := range typeArgs {
 		if typeArg.Kind == resolution.TypeKindStruct && typeArg.StructRef != nil {
 			argStruct := typeArg.StructRef
-			argName := argStruct.Name
+
+			// Get Go name (respecting @go name directive)
+			argGoName := getGoName(*argStruct)
+			if argGoName == "" {
+				argGoName = argStruct.Name
+			}
 
 			// Track and generate the Any helper for this type
 			p.ensureAnyHelper(argStruct, data)
 
 			// Add converter function calls
-			forwardConverters = append(forwardConverters, fmt.Sprintf("%sToPBAny", argName))
-			backwardConverters = append(backwardConverters, fmt.Sprintf("%sFromPBAny", argName))
+			forwardConverters = append(forwardConverters, fmt.Sprintf("%sToPBAny", argGoName))
+			backwardConverters = append(backwardConverters, fmt.Sprintf("%sFromPBAny", argGoName))
 
 			// Build explicit type arg - use parent alias since we're in pb package
-			explicitTypeArgs = append(explicitTypeArgs, fmt.Sprintf("%s.%s", data.parentAlias, argName))
+			explicitTypeArgs = append(explicitTypeArgs, fmt.Sprintf("%s.%s", data.parentAlias, argGoName))
 		} else {
 			// For non-struct type args (primitives, etc.), we'd need different handling
 			forwardConverters = append(forwardConverters, "nil")
@@ -613,6 +630,11 @@ func (p *Plugin) generateGenericStructConversion(
 
 	// Build the call with explicit type args, converters, and casts
 	// Type aliases require explicit casts because Go doesn't infer through aliases
+	// Get Go name for the alias struct (respecting @go name directive)
+	aliasGoName := getGoName(*typeRef.StructRef)
+	if aliasGoName == "" {
+		aliasGoName = typeRef.StructRef.Name
+	}
 	if typeRef.IsHardOptional {
 		if genericGoType != "" {
 			// Cast dereferenced value to concrete generic type
@@ -623,7 +645,7 @@ func (p *Plugin) generateGenericStructConversion(
 		// The backward expression is the FromPB call
 		backward = fmt.Sprintf("%s%sFromPB%s(ctx, %s, %s)", translatorPrefix, structName, typeArgsStr, pbField, backwardArgs)
 		// Cast result pointer back to alias type (e.g., (*rack.Status))
-		backwardCast = fmt.Sprintf("(*%s.%s)", data.parentAlias, typeRef.StructRef.Name)
+		backwardCast = fmt.Sprintf("(*%s.%s)", data.parentAlias, aliasGoName)
 	} else {
 		if genericGoType != "" {
 			forward = fmt.Sprintf("%s%sToPB%s(ctx, (%s)(%s), %s)", translatorPrefix, structName, typeArgsStr, genericGoType, goField, forwardArgs)
@@ -656,10 +678,15 @@ func (p *Plugin) ensureAnyHelper(s *resolution.Struct, data *templateData) {
 		goName = s.Name
 	}
 
+	pbName := getPBName(*s)
+	if pbName == "" {
+		pbName = s.Name
+	}
+
 	data.AnyHelpers = append(data.AnyHelpers, anyHelperData{
-		TypeName: s.Name,
+		TypeName: goName,
 		GoType:   fmt.Sprintf("%s.%s", data.parentAlias, goName),
-		PBType:   s.Name,
+		PBType:   pbName,
 	})
 }
 
@@ -679,6 +706,56 @@ func (p *Plugin) generateEnumConversion(
 
 	return fmt.Sprintf("translate%sForward(%s)", enumName, goField),
 		fmt.Sprintf("translate%sBackward(%s)", enumName, pbField)
+}
+
+// generateTypeDefConversion generates conversion for typedef references.
+// Typedefs are Go type definitions (type Key uint32) that need explicit casting.
+// Forward: cast Go typedef to proto primitive (e.g., uint32(r.Rack))
+// Backward: cast proto primitive to Go typedef (e.g., rack.Key(pb.Rack))
+func (p *Plugin) generateTypeDefConversion(
+	typeRef *resolution.TypeRef,
+	data *templateData,
+	goField, pbField string,
+) (forward, backward string) {
+	typedef := typeRef.TypeDefRef
+	if typedef == nil || typedef.BaseType == nil {
+		return goField, pbField
+	}
+
+	// Get the underlying primitive type for the proto cast
+	baseType := typedef.BaseType
+	if baseType.Kind != resolution.TypeKindPrimitive {
+		// If the base type is not a primitive, fall back to direct copy
+		return goField, pbField
+	}
+
+	// Determine the proto type (same as primitive for numeric types)
+	protoType := primitiveToProtoType(baseType.Primitive)
+
+	// Get the Go typedef name with package prefix
+	typedefPrefix := ""
+	if typedef.Namespace != data.Namespace {
+		// Import the typedef's package if from a different namespace
+		goOutput := output.GetTypeDefPath(*typedef, "go")
+		if goOutput != "" {
+			importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
+			if err == nil {
+				alias := gointernal.DerivePackageName(goOutput)
+				data.imports.AddInternal(alias, importPath)
+				typedefPrefix = alias + "."
+			}
+		}
+	} else {
+		// Same namespace, use parent alias
+		typedefPrefix = data.parentAlias + "."
+	}
+
+	// Forward: cast Go typedef to proto primitive type
+	forward = fmt.Sprintf("%s(%s)", protoType, goField)
+	// Backward: cast proto primitive to Go typedef
+	backward = fmt.Sprintf("%s%s(%s)", typedefPrefix, typedef.Name, pbField)
+
+	return forward, backward
 }
 
 // generateArrayConversion generates conversion for array types.
@@ -968,7 +1045,8 @@ type fieldTranslatorData struct {
 	BackwardCast     string // Optional cast for the backward assignment (e.g., "(*rack.Status)")
 	IsOptional       bool
 	IsOptionalStruct bool
-	HasError         bool // True if conversion returns (result, error)
+	HasError         bool // True if forward conversion returns (result, error)
+	HasBackwardError bool // True if backward conversion returns (result, error)
 }
 
 // enumTranslatorData holds data for enum translator functions.

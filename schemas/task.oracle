@@ -11,31 +11,65 @@ import "schemas/status"
 
 @ts output "client/ts/src/task"
 @py output "client/py/synnax/task"
+@go output "core/pkg/service/task"
+@pb
+
+Key uint64
 
 StatusDetails struct<Data extends json = json> {
-    task    uint64? @ts type string
+    task    Key?    @ts type string
     running bool?
     cmd     string?
     data    Data?
+
+    @go omit
+    @pb omit
 }
 
-Status<Data extends json = json> = status.Status<StatusDetails<Data>>
+GoStatusDetails struct extends StatusDetails<json> {
+    data json?
+    -data
+
+    @go name  "StatusDetails"
+    @pb name  "StatusDetails"
+    @ts omit
+    @py omit
+    @cpp omit
+}
+
+Status<Data extends json = json> = status.Status<StatusDetails<Data>> {
+    @go omit
+    @pb omit
+}
+
+GoStatus = status.Status<GoStatusDetails> {
+    @go name  "Status"
+    @ts omit
+    @py omit
+    @cpp omit
+}
 
 NewStatusDetails struct<Data extends json = json> {
-    task    uint64? @ts type string
+    task    Key?    @ts type string
     running bool
     cmd     string?
     data    Data
+
+    @go omit
+    @pb omit
 }
 
-NewStatus<Data extends json = json> = status.New<NewStatusDetails<Data>>
+NewStatus<Data extends json = json> = status.New<NewStatusDetails<Data>> {
+    @go omit
+    @pb omit
+}
 
 Task struct<
     Type extends string = string,
     Config extends json = json,
     StatusData extends json = json
 > {
-    key      uint64              @key @ts type string
+    key      Key                 @key @ts type string
     name     string
     type     Type
     config   Config
@@ -49,6 +83,21 @@ Task struct<
     }
     @py name       "Payload"
     @ontology type "task"
+    @go omit
+    @pb omit
+}
+
+GoTask struct extends Task<string, string, json> {
+    config string
+    status GoStatus??
+    -config
+    -status
+
+    @go name  "Task"
+    @pb name  "Task"
+    @ts omit
+    @py omit
+    @cpp omit
 }
 
 New struct<
@@ -56,7 +105,7 @@ New struct<
     Config extends json = json,
     StatusData extends json = json
 > extends Task<Type, Config, StatusData> {
-    key    uint64?                @ts type string
+    key    Key?                   @ts type string
     status NewStatus<StatusData>?
     -internal
     -snapshot
@@ -65,10 +114,12 @@ New struct<
         use_input
         concrete_types
     }
+    @go omit
+    @pb omit
 }
 
 Command struct {
-    task uint64 @ts type string
+    task Key    @ts type string
     type string
     key  string
     args json?

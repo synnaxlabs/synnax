@@ -201,7 +201,7 @@ func (s *Service) migrateStatusesForExistingRacks(ctx context.Context) error {
 	for i, r := range racks {
 		statusKeys[i] = OntologyID(r.Key).String()
 	}
-	var existingStatuses []Status
+	var existingStatuses []status.Status[StatusDetails]
 	if err := status.NewRetrieve[StatusDetails](s.Status).
 		WhereKeys(statusKeys...).
 		Entries(&existingStatuses).
@@ -212,11 +212,11 @@ func (s *Service) migrateStatusesForExistingRacks(ctx context.Context) error {
 	for _, stat := range existingStatuses {
 		existingKeys[stat.Key] = true
 	}
-	var missingStatuses []Status
+	var missingStatuses []status.Status[StatusDetails]
 	for _, r := range racks {
 		key := OntologyID(r.Key).String()
 		if !existingKeys[key] {
-			missingStatuses = append(missingStatuses, Status{
+			missingStatuses = append(missingStatuses, status.Status[StatusDetails]{
 				Key:     key,
 				Name:    r.Name,
 				Time:    telem.Now(),
@@ -243,13 +243,13 @@ func (s *Service) Close() error {
 	return c.Error()
 }
 
-func (s *Service) RetrieveStatus(ctx context.Context, key Key) (Status, error) {
-	var stat Status
+func (s *Service) RetrieveStatus(ctx context.Context, key Key) (status.Status[StatusDetails], error) {
+	var stat status.Status[StatusDetails]
 	if err := status.NewRetrieve[StatusDetails](s.Status).
 		WhereKeys(OntologyID(key).String()).
 		Entry(&stat).
 		Exec(ctx, nil); err != nil {
-		return Status{}, err
+		return status.Status[StatusDetails]{}, err
 	}
 	return stat, nil
 }

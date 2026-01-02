@@ -17,12 +17,13 @@ from pydantic import BaseModel, ConfigDict
 
 from synnax import status
 from synnax.ontology.payload import ID
+from synnax.rack import rack
 
 Key = str
 
 
 class StatusDetails(BaseModel):
-    rack: int
+    rack: rack.Key
     device: str
 
 
@@ -31,7 +32,7 @@ Status = status.Status[StatusDetails]
 
 class Device(BaseModel):
     key: str
-    rack: int
+    rack: rack.Key
     location: str
     make: Any
     model: Any

@@ -34,9 +34,9 @@ type Writer struct {
 	status status.Writer[StatusDetails]
 }
 
-func resolveStatus(d *Device, provided *Status) *Status {
+func resolveStatus(d *Device, provided *Status) *status.Status[StatusDetails] {
 	if provided == nil {
-		return &Status{
+		return &status.Status[StatusDetails]{
 			Key:     OntologyID(d.Key).String(),
 			Name:    d.Name,
 			Time:    telem.Now(),
@@ -45,11 +45,12 @@ func resolveStatus(d *Device, provided *Status) *Status {
 			Details: StatusDetails{Rack: d.Rack, Device: d.Key},
 		}
 	}
-	provided.Key = OntologyID(d.Key).String()
-	provided.Name = d.Name
-	provided.Details.Device = d.Key
-	provided.Details.Rack = d.Rack
-	return provided
+	stat := status.Status[StatusDetails](*provided)
+	stat.Key = OntologyID(d.Key).String()
+	stat.Name = d.Name
+	stat.Details.Device = d.Key
+	stat.Details.Rack = d.Rack
+	return &stat
 }
 
 // Create creates or updates the given device. Create will redefine ontology

@@ -13,9 +13,10 @@ import { status, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
+import { rack } from "@/rack";
 
 export const statusDetailsZ = z.object({
-  rack: z.uint32(),
+  rack: rack.keyZ,
   device: z.string(),
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
@@ -40,7 +41,7 @@ export const deviceZ = <
 >({ properties, make, model }: DeviceSchemas<Properties, Make, Model> = {}) =>
   z.object({
     key: z.string(),
-    rack: z.uint32(),
+    rack: rack.keyZ,
     location: z.string().min(1, "Location is required"),
     make: make ?? z.string(),
     model: model ?? z.string(),

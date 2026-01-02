@@ -5,3 +5,17 @@ syntax = "proto3";
 package synnax.rack;
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/rack/pb";
+
+import "x/go/status/pb/status.proto";
+
+message StatusDetails {
+  uint32 rack = 1;
+}
+
+message Rack {
+  uint32 key = 1;
+  string name = 2;
+  uint32 task_counter = 3;
+  bool embedded = 4;
+  optional synnax.status.Status status = 5;
+}

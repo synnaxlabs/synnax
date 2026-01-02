@@ -89,14 +89,20 @@ func {{.Name}}FromPB({{if .UsesContext}}ctx{{else}}_{{end}} context.Context, pb 
 	if pb == nil {
 		return r, nil
 	}
-{{- if .ErrorFields}}
+{{- $needsErr := false}}
+{{- range .ErrorFields}}{{if .HasBackwardError}}{{$needsErr = true}}{{end}}{{end}}
+{{- if $needsErr}}
 	var err error
 {{- end}}
 {{- range .ErrorFields}}
+{{- if .HasBackwardError}}
 	r.{{.GoName}}, err = {{.BackwardExpr}}
 	if err != nil {
 		return r, err
 	}
+{{- else}}
+	r.{{.GoName}} = {{.BackwardExpr}}
+{{- end}}
 {{- end}}
 {{- range .Fields}}
 	r.{{.GoName}} = {{.BackwardExpr}}
@@ -224,7 +230,10 @@ func {{.Name}}FromPB[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Nam
 	if pb == nil {
 		return r, nil
 	}
-{{- if or .TypeParamFields .ErrorFields}}
+{{- $needsErr := false}}
+{{- range .TypeParamFields}}{{$needsErr = true}}{{end}}
+{{- range .ErrorFields}}{{if .HasBackwardError}}{{$needsErr = true}}{{end}}{{end}}
+{{- if $needsErr}}
 	var err error
 {{- end}}
 {{- range .TypeParamFields}}
@@ -234,10 +243,14 @@ func {{.Name}}FromPB[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Nam
 	}
 {{- end}}
 {{- range .ErrorFields}}
+{{- if .HasBackwardError}}
 	r.{{.GoName}}, err = {{.BackwardExpr}}
 	if err != nil {
 		return r, err
 	}
+{{- else}}
+	r.{{.GoName}} = {{.BackwardExpr}}
+{{- end}}
 {{- end}}
 {{- range .Fields}}
 	r.{{.GoName}} = {{.BackwardExpr}}

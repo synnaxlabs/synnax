@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, NewType
 
 from pydantic import BaseModel, ConfigDict
 
@@ -20,9 +20,11 @@ from synnax.ontology.payload import ID
 
 Key = int
 
+Key = NewType("Key", int)
+
 
 class StatusDetails(BaseModel):
-    task: int | None = None
+    task: Key | None = None
     running: bool | None = None
     cmd: str | None = None
     data: Any | None = None
@@ -32,7 +34,7 @@ Status = status.Status[StatusDetails]
 
 
 class NewStatusDetails(BaseModel):
-    task: int | None = None
+    task: Key | None = None
     running: bool
     cmd: str | None = None
     data: Any
@@ -42,7 +44,7 @@ NewStatus = status.New[NewStatusDetails]
 
 
 class Payload(BaseModel):
-    key: int
+    key: Key
     name: str
     type: Any
     config: Any
@@ -52,7 +54,7 @@ class Payload(BaseModel):
 
 
 class New(Task):
-    key: int | None = None
+    key: Key | None = None
     status: NewStatus | None = None
 
     model_config = ConfigDict(
@@ -64,7 +66,7 @@ class New(Task):
 
 
 class Command(BaseModel):
-    task: int
+    task: Key
     type: str
     key: str
     args: dict[str, Any] | None = None

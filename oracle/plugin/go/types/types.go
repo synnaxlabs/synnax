@@ -494,8 +494,13 @@ func (p *Plugin) resolveStructType(typeRef *resolution.TypeRef, data *templateDa
 		return "any"
 	}
 	structRef := typeRef.StructRef
+	// Check for @go name override
+	typeName := getGoName(*structRef)
+	if typeName == "" {
+		typeName = structRef.Name
+	}
 	if structRef.Namespace == data.Namespace {
-		return p.buildGenericType(structRef.Name, typeRef.TypeArgs, data)
+		return p.buildGenericType(typeName, typeRef.TypeArgs, data)
 	}
 	targetOutputPath := output.GetPath(*structRef, "go")
 	if targetOutputPath == "" {
@@ -503,7 +508,7 @@ func (p *Plugin) resolveStructType(typeRef *resolution.TypeRef, data *templateDa
 	}
 	alias := gointernal.DerivePackageAlias(targetOutputPath, data.Package)
 	data.imports.AddInternal(alias, resolveGoImportPath(targetOutputPath, data.repoRoot))
-	return fmt.Sprintf("%s.%s", alias, p.buildGenericType(structRef.Name, typeRef.TypeArgs, data))
+	return fmt.Sprintf("%s.%s", alias, p.buildGenericType(typeName, typeRef.TypeArgs, data))
 }
 
 // resolveEnumType resolves an enum type reference to a Go type string.
@@ -785,3 +790,15 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{end -}}
 {{end -}}
 `))
+
+// getGoName gets the custom Go name from @go name annotation.
+func getGoName(s resolution.Struct) string {
+	if domain, ok := s.Domains["go"]; ok {
+		for _, expr := range domain.Expressions {
+			if expr.Name == "name" && len(expr.Values) > 0 {
+				return expr.Values[0].StringValue
+			}
+		}
+	}
+	return ""
+}

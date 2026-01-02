@@ -13,6 +13,7 @@ import "schemas/status"
 @py output  "client/py/synnax/rack"
 @cpp output "client/cpp/rack"
 @go output  "core/pkg/service/rack"
+@pb
 
 Key uint32
 

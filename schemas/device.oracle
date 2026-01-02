@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/status"
+import "schemas/rack"
 
 @ts output "client/ts/src/device"
 @py output "client/py/synnax/device"
@@ -15,7 +16,7 @@ import "schemas/status"
 @pb
 
 StatusDetails struct {
-    rack   uint32
+    rack   rack.Key
     device string
 }
 
@@ -27,7 +28,7 @@ Device struct<
     Model extends string = string
 > {
     key        string     @key
-    rack       uint32     @validate required
+    rack       rack.Key   @validate required
     location   string     @validate required
     make       Make       @validate required
     model      Model      @validate required
