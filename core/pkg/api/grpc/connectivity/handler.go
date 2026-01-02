@@ -24,19 +24,19 @@ type (
 		types.Nil,
 		*emptypb.Empty,
 		connectivity.CheckResponse,
-		*ConnectivityCheckResponse,
+		*CheckResponse,
 	]
 )
 
 type responseTranslator struct{}
 
-var _ fgrpc.Translator[connectivity.CheckResponse, *ConnectivityCheckResponse] = (*responseTranslator)(nil)
+var _ fgrpc.Translator[connectivity.CheckResponse, *CheckResponse] = (*responseTranslator)(nil)
 
 func (responseTranslator) Forward(
 	_ context.Context,
 	r connectivity.CheckResponse,
-) (*ConnectivityCheckResponse, error) {
-	return &ConnectivityCheckResponse{
+) (*CheckResponse, error) {
+	return &CheckResponse{
 		ClusterKey:  r.ClusterKey,
 		NodeVersion: r.NodeVersion,
 	}, nil
@@ -44,7 +44,7 @@ func (responseTranslator) Forward(
 
 func (responseTranslator) Backward(
 	_ context.Context,
-	r *ConnectivityCheckResponse,
+	r *CheckResponse,
 ) (connectivity.CheckResponse, error) {
 	return connectivity.CheckResponse{
 		ClusterKey:  r.ClusterKey,

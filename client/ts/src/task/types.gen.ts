@@ -17,17 +17,6 @@ import { ontology } from "@/ontology";
 export const keyZ = z.uint64();
 export type Key = z.infer<typeof keyZ>;
 
-export const newStatusDetailsZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
-  z.object({
-    task: z.string().optional(),
-    running: z.boolean(),
-    cmd: z.string().optional(),
-    data: zod.stringifiedJSON(data),
-  });
-export type NewStatusDetails<Data extends z.ZodType = z.ZodType> = z.infer<
-  ReturnType<typeof newStatusDetailsZ<Data>>
->;
-
 export const statusDetailsZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
   z.object({
     task: z.string().optional(),
@@ -39,6 +28,17 @@ export type StatusDetails<Data extends z.ZodType = z.ZodType> = z.infer<
   ReturnType<typeof statusDetailsZ<Data>>
 >;
 
+export const newStatusDetailsZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
+  z.object({
+    task: z.string().optional(),
+    running: z.boolean(),
+    cmd: z.string().optional(),
+    data: zod.stringifiedJSON(data),
+  });
+export type NewStatusDetails<Data extends z.ZodType = z.ZodType> = z.infer<
+  ReturnType<typeof newStatusDetailsZ<Data>>
+>;
+
 export const commandZ = z.object({
   task: z.string(),
   type: z.string(),
@@ -47,16 +47,16 @@ export const commandZ = z.object({
 });
 export interface Command extends z.infer<typeof commandZ> {}
 
-export const newStatusZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
-  status.newZ({ details: newStatusDetailsZ(data) });
-export type NewStatus<Data extends z.ZodType = z.ZodType> = z.infer<
-  ReturnType<typeof newStatusZ<Data>>
->;
-
 export const statusZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
   status.statusZ({ details: statusDetailsZ(data) });
 export type Status<Data extends z.ZodType = z.ZodType> = z.infer<
   ReturnType<typeof statusZ<Data>>
+>;
+
+export const newStatusZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
+  status.newZ({ details: newStatusDetailsZ(data) });
+export type NewStatus<Data extends z.ZodType = z.ZodType> = z.infer<
+  ReturnType<typeof newStatusZ<Data>>
 >;
 
 export interface PayloadSchemas<

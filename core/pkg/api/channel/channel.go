@@ -30,7 +30,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-
 // Service is the central service for all things Channel related.
 type Service struct {
 	db       *gorp.DB
@@ -159,15 +158,15 @@ func (s *Service) Retrieve(
 		}
 		// We can still do a best effort search without the range even if we don't find it.
 		if !isNotFound && hasSearch {
-			keys, err := resRng.SearchAliases(ctx, req.SearchTerm)
-			if err != nil {
-				return RetrieveResponse{}, err
-			}
-			aliasChannels = make([]channel.Channel, 0, len(keys))
-			err = s.internal.NewRetrieve().WhereKeys(keys...).Entries(&aliasChannels).Exec(ctx, nil)
-			if err != nil {
-				return RetrieveResponse{}, err
-			}
+			//keys, err := resRng.SearchAliases(ctx, req.SearchTerm)
+			//if err != nil {
+			//	return RetrieveResponse{}, err
+			//}
+			//aliasChannels = make([]channel.Channel, 0, len(keys))
+			//err = s.internal.NewRetrieve().WhereKeys(keys...).Entries(&aliasChannels).Exec(ctx, nil)
+			//if err != nil {
+			//	return RetrieveResponse{}, err
+			//}
 		}
 	}
 	if hasKeys {
@@ -214,12 +213,12 @@ func (s *Service) Retrieve(
 	}
 	oChannels := translateChannelsForward(resChannels)
 	if resRng.Key != uuid.Nil {
-		for i, ch := range resChannels {
-			al, err := resRng.RetrieveAlias(ctx, ch.Key())
-			if err == nil {
-				oChannels[i].Alias = al
-			}
-		}
+		//for i, ch := range resChannels {
+		//al, err := resRng.RetrieveAlias(ctx, ch.Key())
+		//if err == nil {
+		//	oChannels[i].Alias = al
+		//}
+		//}
 	}
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
@@ -235,41 +234,17 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 	translated := make([]Channel, len(channels))
 	for i, ch := range channels {
 		translated[i] = Channel{
-			Key:         Key(ch.Key()),
+			Key:         ch.Key(),
 			Name:        ch.Name,
 			Leaseholder: uint32(ch.Leaseholder),
 			DataType:    string(ch.DataType),
 			IsIndex:     ch.IsIndex,
-			Index:       Key(ch.Index()),
+			Index:       ch.Index(),
 			Density:     int64(ch.DataType.Density()),
 			Virtual:     ch.Virtual,
 			Internal:    ch.Internal,
 			Expression:  ch.Expression,
-			Operations:  translateOperationsForward(ch.Operations),
-		}
-	}
-	return translated
-}
-
-func translateOperationsForward(ops []channel.Operation) []Operation {
-	translated := make([]Operation, len(ops))
-	for i, op := range ops {
-		translated[i] = Operation{
-			Type:         op.Type,
-			ResetChannel: Key(op.ResetChannel),
-			Duration:     int64(op.Duration),
-		}
-	}
-	return translated
-}
-
-func translateOperationsBackward(ops []Operation) []channel.Operation {
-	translated := make([]channel.Operation, len(ops))
-	for i, op := range ops {
-		translated[i] = channel.Operation{
-			Type:         op.Type,
-			ResetChannel: channel.Key(op.ResetChannel),
-			Duration:     telem.TimeSpan(op.Duration),
+			Operations:  ch.Operations,
 		}
 	}
 	return translated
@@ -290,7 +265,7 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 			Virtual:     ch.Virtual,
 			Internal:    ch.Internal,
 			Expression:  ch.Expression,
-			Operations:  translateOperationsBackward(ch.Operations),
+			Operations:  ch.Operations,
 		}
 		if ch.IsIndex {
 			tCh.LocalIndex = tCh.LocalKey

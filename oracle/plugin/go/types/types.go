@@ -555,10 +555,11 @@ func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resoluti
 	if typeName == "" {
 		typeName = resolved.Name
 	}
-	if resolved.Namespace == data.Namespace {
+	targetOutputPath := output.GetPath(resolved, "go")
+	// Same namespace AND same output path -> use unqualified name
+	if resolved.Namespace == data.Namespace && (targetOutputPath == "" || targetOutputPath == data.OutputPath) {
 		return p.buildGenericType(typeName, typeArgs, data)
 	}
-	targetOutputPath := output.GetPath(resolved, "go")
 	if targetOutputPath == "" {
 		return "any"
 	}
@@ -569,10 +570,11 @@ func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resoluti
 
 // resolveEnumType resolves an enum type to a Go type string.
 func (p *Plugin) resolveEnumType(resolved resolution.Type, data *templateData) string {
-	if resolved.Namespace == data.Namespace {
+	targetOutputPath := enum.FindOutputPath(resolved, data.table, "go")
+	// Same namespace AND same output path -> use unqualified name
+	if resolved.Namespace == data.Namespace && (targetOutputPath == "" || targetOutputPath == data.OutputPath) {
 		return resolved.Name
 	}
-	targetOutputPath := enum.FindOutputPath(resolved, data.table, "go")
 	if targetOutputPath == "" {
 		return "any"
 	}
@@ -588,10 +590,11 @@ func (p *Plugin) resolveDistinctType(resolved resolution.Type, data *templateDat
 	if typeName == "" {
 		typeName = resolved.Name
 	}
-	if resolved.Namespace == data.Namespace {
+	targetOutputPath := output.GetPath(resolved, "go")
+	// Same namespace AND same output path -> use unqualified name
+	if resolved.Namespace == data.Namespace && (targetOutputPath == "" || targetOutputPath == data.OutputPath) {
 		return typeName
 	}
-	targetOutputPath := output.GetPath(resolved, "go")
 	if targetOutputPath == "" {
 		return "any"
 	}
@@ -608,10 +611,11 @@ func (p *Plugin) resolveAliasType(resolved resolution.Type, data *templateData) 
 	if typeName == "" {
 		typeName = resolved.Name
 	}
-	if resolved.Namespace == data.Namespace {
+	targetOutputPath := output.GetPath(resolved, "go")
+	// Same namespace AND same output path -> use unqualified name
+	if resolved.Namespace == data.Namespace && (targetOutputPath == "" || targetOutputPath == data.OutputPath) {
 		return typeName
 	}
-	targetOutputPath := output.GetPath(resolved, "go")
 	if targetOutputPath == "" {
 		return "any"
 	}

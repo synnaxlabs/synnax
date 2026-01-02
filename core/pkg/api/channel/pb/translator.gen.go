@@ -14,12 +14,14 @@ package pb
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
+	distributionchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	channelpb "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb"
 )
 
 
 // ChannelToPB converts Channel to Channel.
 func ChannelToPB(ctx context.Context, r channel.Channel) (*Channel, error) {
-	operationsVal, err := OperationsToPB(ctx, r.Operations)
+	operationsVal, err := channelpb.OperationsToPB(ctx, r.Operations)
 	if err != nil {
 		return nil, err
 	}
@@ -47,17 +49,17 @@ func ChannelFromPB(ctx context.Context, pb *Channel) (channel.Channel, error) {
 		return r, nil
 	}
 	var err error
-	r.Operations, err = OperationsFromPB(ctx, pb.Operations)
+	r.Operations, err = channelpb.OperationsFromPB(ctx, pb.Operations)
 	if err != nil {
 		return r, err
 	}
-	r.Key = channel.Key(pb.Key)
+	r.Key = distributionchannel.Key(pb.Key)
 	r.Name = pb.Name
 	r.Leaseholder = pb.Leaseholder
 	r.DataType = pb.DataType
 	r.Density = pb.Density
 	r.IsIndex = pb.IsIndex
-	r.Index = channel.Key(pb.Index)
+	r.Index = distributionchannel.Key(pb.Index)
 	r.Alias = pb.Alias
 	r.Virtual = pb.Virtual
 	r.Internal = pb.Internal

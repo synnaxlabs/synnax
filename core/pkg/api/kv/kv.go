@@ -25,16 +25,16 @@ import (
 )
 
 type Service struct {
-	db       *gorp.DB
-	access   *rbac.Service
-	internal *ranger.Service
+	db     *gorp.DB
+	access *rbac.Service
+	kv     *kv.Service
 }
 
 func NewService(cfg config.Config) *Service {
 	return &Service{
-		db:       cfg.Distribution.DB,
-		access:   cfg.Service.RBAC,
-		internal: cfg.Service.Ranger,
+		db:     cfg.Distribution.DB,
+		access: cfg.Service.RBAC,
+		kv:     cfg.Service.KV,
 	}
 }
 
@@ -59,28 +59,20 @@ func (s *Service) Get(
 	}); err != nil {
 		return GetResponse{}, err
 	}
-	var r ranger.Range
-	if err := s.
-		internal.
-		NewRetrieve().
-		Entry(&r).
-		WhereKeys(req.Range).
-		Exec(ctx, nil); err != nil {
-		return GetResponse{}, err
-	}
 
+	r := s.kv.NewReader(nil)
 	var (
 		res GetResponse
 		err error
 	)
 	if len(req.Keys) == 0 {
-		res.Pairs, err = r.ListKV(ctx)
+		res.Pairs, err = r.List(ctx, req.Range)
 		if err != nil {
 			return GetResponse{}, err
 		}
 		return res, nil
 	}
-	res.Pairs, err = r.GetManyKV(ctx, req.Keys)
+	res.Pairs, err = r.GetMany(ctx, req.Range, req.Keys)
 	if err != nil {
 		return GetResponse{}, err
 	}
@@ -104,17 +96,8 @@ func (s *Service) Set(
 		return types.Nil{}, err
 	}
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		var rng ranger.Range
-		if err := s.
-			internal.
-			NewRetrieve().
-			Entry(&rng).
-			WhereKeys(req.Range).
-			Exec(ctx, tx); err != nil {
-			return err
-		}
-		rng = rng.UseTx(tx)
-		return rng.SetManyKV(ctx, req.Pairs)
+		w := s.kv.NewWriter(tx)
+		return w.SetMany(ctx, req.Range, req.Pairs)
 	})
 }
 
@@ -135,18 +118,9 @@ func (s *Service) Delete(
 		return types.Nil{}, err
 	}
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		var rng ranger.Range
-		if err := s.
-			internal.
-			NewRetrieve().
-			Entry(&rng).
-			WhereKeys(req.Range).
-			Exec(ctx, tx); err != nil {
-			return err
-		}
-		rng = rng.UseTx(tx)
+		w := s.kv.NewWriter(tx)
 		for _, key := range req.Keys {
-			if err := rng.DeleteKV(ctx, key); err != nil {
+			if err := w.Delete(ctx, req.Range, key); err != nil {
 				return err
 			}
 		}

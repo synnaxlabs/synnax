@@ -11,17 +11,21 @@
 
 package channel
 
+import (
+	distributionchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+)
+
 type Channel struct {
-	Key Key `json:"key" msgpack:"key"`
+	Key distributionchannel.Key `json:"key" msgpack:"key"`
 	Name string `json:"name" msgpack:"name"`
 	Leaseholder uint32 `json:"leaseholder" msgpack:"leaseholder"`
 	DataType string `json:"data_type" msgpack:"data_type"`
 	Density int64 `json:"density" msgpack:"density"`
 	IsIndex bool `json:"is_index" msgpack:"is_index"`
-	Index Key `json:"index" msgpack:"index"`
+	Index distributionchannel.Key `json:"index" msgpack:"index"`
 	Alias string `json:"alias,omitempty" msgpack:"alias,omitempty"`
 	Virtual bool `json:"virtual,omitempty" msgpack:"virtual,omitempty"`
 	Internal bool `json:"internal,omitempty" msgpack:"internal,omitempty"`
 	Expression string `json:"expression,omitempty" msgpack:"expression,omitempty"`
-	Operations []Operation `json:"operations,omitempty" msgpack:"operations,omitempty"`
+	Operations []distributionchannel.Operation `json:"operations,omitempty" msgpack:"operations,omitempty"`
 }

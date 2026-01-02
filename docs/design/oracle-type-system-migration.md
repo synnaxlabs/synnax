@@ -164,7 +164,6 @@ for _, typ := range table.Types {
 
 **Updated files:**
 - `plugin/go/types/types.go` - Now handles both DistinctForm and AliasForm
-- `plugin/go/api/api.go`
 - `plugin/go/pb/pb.go`
 - `plugin/ts/types/types.go` - Now handles both DistinctForm and AliasForm
 - `plugin/py/types/types.go` - Now handles both DistinctForm and AliasForm

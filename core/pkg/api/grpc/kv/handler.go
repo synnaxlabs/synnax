@@ -25,19 +25,19 @@ import (
 type (
 	getServer = fgrpc.UnaryServer[
 		apikv.GetRequest,
-		*KVGetRequest,
+		*GetRequest,
 		apikv.GetResponse,
-		*KVGetResponse,
+		*GetResponse,
 	]
 	setServer = fgrpc.UnaryServer[
 		apikv.SetRequest,
-		*KVSetRequest,
+		*SetRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
 	deleteServer = fgrpc.UnaryServer[
 		apikv.DeleteRequest,
-		*KVDeleteRequest,
+		*DeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
@@ -51,10 +51,10 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[apikv.GetRequest, *KVGetRequest]       = (*getRequestTranslator)(nil)
-	_ fgrpc.Translator[apikv.GetResponse, *KVGetResponse]     = (*getResponseTranslator)(nil)
-	_ fgrpc.Translator[apikv.SetRequest, *KVSetRequest]       = (*setRequestTranslator)(nil)
-	_ fgrpc.Translator[apikv.DeleteRequest, *KVDeleteRequest] = (*deleteRequestTranslator)(nil)
+	_ fgrpc.Translator[apikv.GetRequest, *GetRequest]       = (*getRequestTranslator)(nil)
+	_ fgrpc.Translator[apikv.GetResponse, *GetResponse]     = (*getResponseTranslator)(nil)
+	_ fgrpc.Translator[apikv.SetRequest, *SetRequest]       = (*setRequestTranslator)(nil)
+	_ fgrpc.Translator[apikv.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(nil)
 )
 
 func translatePairsForward(ctx context.Context, p []svckv.Pair) ([]*kvpb.Pair, error) {
@@ -68,8 +68,8 @@ func translatePairsBackward(ctx context.Context, p []*kvpb.Pair) ([]svckv.Pair, 
 func (t getRequestTranslator) Forward(
 	_ context.Context,
 	r apikv.GetRequest,
-) (*KVGetRequest, error) {
-	return &KVGetRequest{
+) (*GetRequest, error) {
+	return &GetRequest{
 		Range: r.Range.String(),
 		Keys:  r.Keys,
 	}, nil
@@ -77,7 +77,7 @@ func (t getRequestTranslator) Forward(
 
 func (t getRequestTranslator) Backward(
 	_ context.Context,
-	r *KVGetRequest,
+	r *GetRequest,
 ) (apikv.GetRequest, error) {
 	key, err := uuid.Parse(r.Range)
 	return apikv.GetRequest{
@@ -89,17 +89,17 @@ func (t getRequestTranslator) Backward(
 func (t getResponseTranslator) Forward(
 	ctx context.Context,
 	r apikv.GetResponse,
-) (*KVGetResponse, error) {
+) (*GetResponse, error) {
 	pairs, err := translatePairsForward(ctx, r.Pairs)
 	if err != nil {
 		return nil, err
 	}
-	return &KVGetResponse{Pairs: pairs}, nil
+	return &GetResponse{Pairs: pairs}, nil
 }
 
 func (t getResponseTranslator) Backward(
 	ctx context.Context,
-	r *KVGetResponse,
+	r *GetResponse,
 ) (apikv.GetResponse, error) {
 	pairs, err := translatePairsBackward(ctx, r.Pairs)
 	if err != nil {
@@ -111,12 +111,12 @@ func (t getResponseTranslator) Backward(
 func (t setRequestTranslator) Forward(
 	ctx context.Context,
 	r apikv.SetRequest,
-) (*KVSetRequest, error) {
+) (*SetRequest, error) {
 	pairs, err := translatePairsForward(ctx, r.Pairs)
 	if err != nil {
 		return nil, err
 	}
-	return &KVSetRequest{
+	return &SetRequest{
 		Range: r.Range.String(),
 		Pairs: pairs,
 	}, nil
@@ -124,7 +124,7 @@ func (t setRequestTranslator) Forward(
 
 func (t setRequestTranslator) Backward(
 	ctx context.Context,
-	r *KVSetRequest,
+	r *SetRequest,
 ) (apikv.SetRequest, error) {
 	key, err := uuid.Parse(r.Range)
 	if err != nil {
@@ -143,8 +143,8 @@ func (t setRequestTranslator) Backward(
 func (t deleteRequestTranslator) Forward(
 	_ context.Context,
 	r apikv.DeleteRequest,
-) (*KVDeleteRequest, error) {
-	return &KVDeleteRequest{
+) (*DeleteRequest, error) {
+	return &DeleteRequest{
 		Range: r.Range.String(),
 		Keys:  r.Keys,
 	}, nil
@@ -152,7 +152,7 @@ func (t deleteRequestTranslator) Forward(
 
 func (t deleteRequestTranslator) Backward(
 	_ context.Context,
-	r *KVDeleteRequest,
+	r *DeleteRequest,
 ) (apikv.DeleteRequest, error) {
 	key, err := uuid.Parse(r.Range)
 	return apikv.DeleteRequest{

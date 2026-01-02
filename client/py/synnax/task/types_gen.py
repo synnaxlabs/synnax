@@ -27,18 +27,18 @@ class NewStatusDetails(BaseModel):
     data: Any
 
 
-class StatusDetails(BaseModel):
-    task: Key | None = None
-    running: bool | None = None
-    cmd: str | None = None
-    data: Any | None = None
-
-
 class Command(BaseModel):
     task: Key
     type: str
     key: str
     args: dict[str, Any] | None = None
+
+
+class StatusDetails(BaseModel):
+    task: Key | None = None
+    running: bool | None = None
+    cmd: str | None = None
+    data: Any | None = None
 
 
 NewStatus = NewType("NewStatus", Any)

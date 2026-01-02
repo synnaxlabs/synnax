@@ -77,10 +77,6 @@ func (w Writer) CreateWithParent(
 				ontology.ParentOf,
 				otgID,
 			); relAlreadyExists || err != nil {
-				if err == nil {
-					r.tx = w.tx
-					r.otg = w.otg
-				}
 				return err
 			}
 			if err = w.otgWriter.DeleteIncomingRelationshipsOfType(
@@ -100,8 +96,6 @@ func (w Writer) CreateWithParent(
 			return err
 		}
 	}
-	r.tx = w.tx
-	r.otg = w.otg
 	return nil
 }
 

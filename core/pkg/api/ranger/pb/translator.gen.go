@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	labelpb "github.com/synnaxlabs/synnax/pkg/service/label/pb"
+	serviceranger "github.com/synnaxlabs/synnax/pkg/service/ranger"
 )
 
 
@@ -35,7 +36,7 @@ func RangeToPB(ctx context.Context, r ranger.Range) (*Range, error) {
 	}
 	if r.Parent != nil {
 		var err error
-		pb.Parent, err = APIRangeToPB(ctx, *r.Parent)
+		pb.Parent, err = RangeToPB(ctx, *r.Parent)
 		if err != nil {
 			return nil, err
 		}
@@ -54,12 +55,12 @@ func RangeFromPB(ctx context.Context, pb *Range) (ranger.Range, error) {
 	if err != nil {
 		return r, err
 	}
-	r.Key = ranger.Key(uuid.MustParse(pb.Key))
+	r.Key = serviceranger.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
 	r.TimeRange = telem.TranslateTimeRangeBackward(pb.TimeRange)
 	r.Color = pb.Color
 	if pb.Parent != nil {
-		val, err := APIRangeFromPB(ctx, pb.Parent)
+		val, err := RangeFromPB(ctx, pb.Parent)
 		if err != nil {
 			return r, err
 		}

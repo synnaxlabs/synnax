@@ -53,6 +53,7 @@ type Service struct {
 	db       *gorp.DB
 	access   *rbac.Service
 	internal *ranger.Service
+	label    *label.Service
 }
 
 func NewService(cfg config.Config) *Service {
@@ -60,6 +61,7 @@ func NewService(cfg config.Config) *Service {
 		db:       cfg.Distribution.DB,
 		access:   cfg.Service.RBAC,
 		internal: cfg.Service.Ranger,
+		label:    cfg.Service.Label,
 	}
 }
 
@@ -163,7 +165,7 @@ func (s *Service) Retrieve(
 	var err error
 	if req.IncludeLabels {
 		for i, rng := range apiRanges {
-			if rng.Labels, err = rng.RetrieveLabels(ctx); err != nil {
+			if rng.Labels, err = s.label.RetrieveFor(ctx, rng.OntologyID(), nil); err != nil {
 				return RetrieveResponse{}, err
 			}
 			apiRanges[i] = rng
@@ -171,11 +173,15 @@ func (s *Service) Retrieve(
 	}
 	if req.IncludeParent {
 		for i, rng := range apiRanges {
-			parent, err := rng.RetrieveParent(ctx)
+			parentKey, err := s.internal.RetrieveParentKey(ctx, rng.Key, nil)
 			if errors.Is(err, query.NotFound) {
 				continue
 			}
 			if err != nil {
+				return RetrieveResponse{}, err
+			}
+			var parent ranger.Range
+			if err = s.internal.NewRetrieve().Entry(&parent).WhereKeys(parentKey).Exec(ctx, nil); err != nil {
 				return RetrieveResponse{}, err
 			}
 			rng.Parent = &Range{Range: parent}

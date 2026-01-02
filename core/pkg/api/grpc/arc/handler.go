@@ -39,36 +39,36 @@ type (
 	deleteRequestTranslator    struct{}
 	createServer               = fgrpc.UnaryServer[
 		apiarc.CreateRequest,
-		*ArcCreateRequest,
+		*CreateRequest,
 		apiarc.CreateResponse,
-		*ArcCreateResponse,
+		*CreateResponse,
 	]
 	retrieveServer = fgrpc.UnaryServer[
 		apiarc.RetrieveRequest,
-		*ArcRetrieveRequest,
+		*RetrieveRequest,
 		apiarc.RetrieveResponse,
-		*ArcRetrieveResponse,
+		*RetrieveResponse,
 	]
 	deleteServer = fgrpc.UnaryServer[
 		apiarc.DeleteRequest,
-		*ArcDeleteRequest,
+		*DeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
 )
 
 var (
-	_ fgrpc.Translator[apiarc.CreateRequest, *ArcCreateRequest]       = (*createRequestTranslator)(nil)
-	_ fgrpc.Translator[apiarc.CreateResponse, *ArcCreateResponse]     = (*createResponseTranslator)(nil)
-	_ fgrpc.Translator[apiarc.RetrieveRequest, *ArcRetrieveRequest]   = (*retrieveRequestTranslator)(nil)
-	_ fgrpc.Translator[apiarc.RetrieveResponse, *ArcRetrieveResponse] = (*retrieveResponseTranslator)(nil)
-	_ fgrpc.Translator[apiarc.DeleteRequest, *ArcDeleteRequest]       = (*deleteRequestTranslator)(nil)
+	_ fgrpc.Translator[apiarc.CreateRequest, *CreateRequest]       = (*createRequestTranslator)(nil)
+	_ fgrpc.Translator[apiarc.CreateResponse, *CreateResponse]     = (*createResponseTranslator)(nil)
+	_ fgrpc.Translator[apiarc.RetrieveRequest, *RetrieveRequest]   = (*retrieveRequestTranslator)(nil)
+	_ fgrpc.Translator[apiarc.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
+	_ fgrpc.Translator[apiarc.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
 )
 
 func (t createRequestTranslator) Forward(
 	_ context.Context,
 	msg apiarc.CreateRequest,
-) (*ArcCreateRequest, error) {
+) (*CreateRequest, error) {
 	arcs := make([]*Arc, len(msg.Arcs))
 	for i, arc := range msg.Arcs {
 		translated, err := translateArcForward(arc, i)
@@ -77,12 +77,12 @@ func (t createRequestTranslator) Forward(
 		}
 		arcs[i] = translated
 	}
-	return &ArcCreateRequest{Arcs: arcs}, nil
+	return &CreateRequest{Arcs: arcs}, nil
 }
 
 func (t createRequestTranslator) Backward(
 	_ context.Context,
-	msg *ArcCreateRequest,
+	msg *CreateRequest,
 ) (apiarc.CreateRequest, error) {
 	arcs := make([]apiarc.Arc, len(msg.Arcs))
 	for i, arc := range msg.Arcs {
@@ -98,7 +98,7 @@ func (t createRequestTranslator) Backward(
 func (t createResponseTranslator) Forward(
 	_ context.Context,
 	msg apiarc.CreateResponse,
-) (*ArcCreateResponse, error) {
+) (*CreateResponse, error) {
 	arcs := make([]*Arc, len(msg.Arcs))
 	for i, arc := range msg.Arcs {
 		translated, err := translateArcForward(arc, i)
@@ -107,12 +107,12 @@ func (t createResponseTranslator) Forward(
 		}
 		arcs[i] = translated
 	}
-	return &ArcCreateResponse{Arcs: arcs}, nil
+	return &CreateResponse{Arcs: arcs}, nil
 }
 
 func (t createResponseTranslator) Backward(
 	_ context.Context,
-	msg *ArcCreateResponse,
+	msg *CreateResponse,
 ) (apiarc.CreateResponse, error) {
 	arcs := make([]apiarc.Arc, len(msg.Arcs))
 	for i, arc := range msg.Arcs {
@@ -128,9 +128,9 @@ func (t createResponseTranslator) Backward(
 func (t retrieveRequestTranslator) Forward(
 	_ context.Context,
 	msg apiarc.RetrieveRequest,
-) (*ArcRetrieveRequest, error) {
+) (*RetrieveRequest, error) {
 	keys := lo.Map(msg.Keys, func(k uuid.UUID, _ int) string { return k.String() })
-	return &ArcRetrieveRequest{
+	return &RetrieveRequest{
 		Keys:          keys,
 		Names:         msg.Names,
 		SearchTerm:    msg.SearchTerm,
@@ -143,7 +143,7 @@ func (t retrieveRequestTranslator) Forward(
 
 func (t retrieveRequestTranslator) Backward(
 	_ context.Context,
-	msg *ArcRetrieveRequest,
+	msg *RetrieveRequest,
 ) (apiarc.RetrieveRequest, error) {
 	keys := make([]uuid.UUID, 0, len(msg.Keys))
 	for _, keyStr := range msg.Keys {
@@ -167,7 +167,7 @@ func (t retrieveRequestTranslator) Backward(
 func (t retrieveResponseTranslator) Forward(
 	_ context.Context,
 	msg apiarc.RetrieveResponse,
-) (*ArcRetrieveResponse, error) {
+) (*RetrieveResponse, error) {
 	arcs := make([]*Arc, len(msg.Arcs))
 	for i, arc := range msg.Arcs {
 		translated, err := translateArcForward(arc, i)
@@ -176,12 +176,12 @@ func (t retrieveResponseTranslator) Forward(
 		}
 		arcs[i] = translated
 	}
-	return &ArcRetrieveResponse{Arcs: arcs}, nil
+	return &RetrieveResponse{Arcs: arcs}, nil
 }
 
 func (t retrieveResponseTranslator) Backward(
 	_ context.Context,
-	msg *ArcRetrieveResponse,
+	msg *RetrieveResponse,
 ) (apiarc.RetrieveResponse, error) {
 	arcs := make([]apiarc.Arc, len(msg.Arcs))
 	for i, arc := range msg.Arcs {
@@ -197,14 +197,14 @@ func (t retrieveResponseTranslator) Backward(
 func (t deleteRequestTranslator) Forward(
 	_ context.Context,
 	msg apiarc.DeleteRequest,
-) (*ArcDeleteRequest, error) {
+) (*DeleteRequest, error) {
 	keys := lo.Map(msg.Keys, func(k uuid.UUID, _ int) string { return k.String() })
-	return &ArcDeleteRequest{Keys: keys}, nil
+	return &DeleteRequest{Keys: keys}, nil
 }
 
 func (t deleteRequestTranslator) Backward(
 	_ context.Context,
-	msg *ArcDeleteRequest,
+	msg *DeleteRequest,
 ) (apiarc.DeleteRequest, error) {
 	keys := make([]uuid.UUID, 0, len(msg.Keys))
 	for _, keyStr := range msg.Keys {

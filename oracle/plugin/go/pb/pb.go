@@ -442,8 +442,18 @@ func (p *Plugin) generateFieldConversion(
 	// Handle @key fields
 	if hasKeyDomain(field) && resolution.IsPrimitive(typeRef.Name) && isNumericPrimitive(typeRef.Name) {
 		protoType := primitiveToProtoType(typeRef.Name)
+		// Get the Key type's package - it may be in a different package than the parent
+		keyPkgAlias := data.parentAlias
+		goOutput := output.GetPath(parentStruct, "go")
+		if goOutput != "" && goOutput != data.ParentGoPath {
+			importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
+			if err == nil {
+				keyPkgAlias = gointernal.DerivePackageName(goOutput)
+				data.imports.AddInternal(keyPkgAlias, importPath)
+			}
+		}
 		return fmt.Sprintf("%s(%s)", protoType, goFieldName),
-			fmt.Sprintf("%s.Key(%s)", data.parentAlias, pbFieldName),
+			fmt.Sprintf("%s.Key(%s)", keyPkgAlias, pbFieldName),
 			"", false, false
 	}
 
@@ -802,19 +812,21 @@ func (p *Plugin) generateTypeDefConversion(
 
 	// Get the Go typedef name with package prefix
 	typedefPrefix := ""
-	if resolved.Namespace != data.Namespace {
-		// Import the typedef's package if from a different namespace
-		goOutput := output.GetPath(resolved, "go")
+	goOutput := output.GetPath(resolved, "go")
+	// Check if typedef is in a different package (different namespace OR different output path)
+	if resolved.Namespace != data.Namespace || (goOutput != "" && goOutput != data.ParentGoPath) {
+		// Import the typedef's package
 		if goOutput != "" {
 			importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
 			if err == nil {
-				alias := gointernal.DerivePackageName(goOutput)
+				// Use parent alias for conflict detection since we're in pb/ subdirectory
+				alias := gointernal.DerivePackageAlias(goOutput, data.parentAlias)
 				data.imports.AddInternal(alias, importPath)
 				typedefPrefix = alias + "."
 			}
 		}
 	} else {
-		// Same namespace, use parent alias
+		// Same namespace and output path, use parent alias
 		typedefPrefix = data.parentAlias + "."
 	}
 
@@ -850,12 +862,14 @@ func (p *Plugin) generateAliasConversion(
 
 	// Get the Go alias name with package prefix
 	aliasPrefix := ""
-	if resolved.Namespace != data.Namespace {
-		goOutput := output.GetPath(resolved, "go")
+	goOutput := output.GetPath(resolved, "go")
+	// Check if alias is in a different package (different namespace OR different output path)
+	if resolved.Namespace != data.Namespace || (goOutput != "" && goOutput != data.ParentGoPath) {
 		if goOutput != "" {
 			importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
 			if err == nil {
-				alias := gointernal.DerivePackageName(goOutput)
+				// Use parent alias for conflict detection since we're in pb/ subdirectory
+				alias := gointernal.DerivePackageAlias(goOutput, data.parentAlias)
 				data.imports.AddInternal(alias, importPath)
 				aliasPrefix = alias + "."
 			}
@@ -1105,10 +1119,14 @@ func (p *Plugin) resolvePBTranslatorInfo(
 		return "", structRef.Name
 	}
 
-	translatorStructName = pbStruct.Name
+	// Use @pb name if specified, otherwise use the struct name
+	translatorStructName = getPBName(*pbStruct)
+	if translatorStructName == "" {
+		translatorStructName = pbStruct.Name
+	}
 
-	// Check if we need a package prefix
-	if pbStruct.Namespace != data.Namespace {
+	// Check if we need a package prefix (different namespace OR different output path)
+	if pbStruct.Namespace != data.Namespace || (pbPath != "" && pbPath != data.OutputPath) {
 		importPath, err := resolveGoImportPath(pbPath, data.repoRoot)
 		if err == nil {
 			alias := strings.ToLower(pbStruct.Namespace) + "pb"

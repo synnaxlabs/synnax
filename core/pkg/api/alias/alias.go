@@ -18,26 +18,25 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 )
 
 type Service struct {
-	db       *gorp.DB
-	access   *rbac.Service
-	internal *ranger.Service
+	db     *gorp.DB
+	access *rbac.Service
+	alias  *alias.Service
 }
 
 func NewService(cfg config.Config) *Service {
 	return &Service{
-		db:       cfg.Distribution.DB,
-		access:   cfg.Service.RBAC,
-		internal: cfg.Service.Ranger,
+		db:     cfg.Distribution.DB,
+		access: cfg.Service.RBAC,
+		alias:  cfg.Service.Alias,
 	}
 }
 
@@ -54,23 +53,14 @@ func (s *Service) Set(
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: ranger.AliasOntologyIDs(req.Range, keys),
+		Objects: alias.OntologyIDs(req.Range, keys),
 	}); err != nil {
 		return types.Nil{}, err
 	}
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		var rng ranger.Range
-		if err := s.
-			internal.
-			NewRetrieve().
-			Entry(&rng).
-			WhereKeys(req.Range).
-			Exec(ctx, tx); err != nil {
-			return err
-		}
-		rng = rng.UseTx(tx)
+		w := s.alias.NewWriter(tx)
 		for k, v := range req.Aliases {
-			if err := rng.SetAlias(ctx, k, v); err != nil {
+			if err := w.Set(ctx, req.Range, k, v); err != nil {
 				return err
 			}
 		}
@@ -92,24 +82,16 @@ func (s *Service) Resolve(
 	ctx context.Context,
 	req ResolveRequest,
 ) (ResolveResponse, error) {
-	var r ranger.Range
-	if err := s.
-		internal.
-		NewRetrieve().
-		Entry(&r).
-		WhereKeys(req.Range).
-		Exec(ctx, nil); err != nil {
-		return ResolveResponse{}, err
-	}
+	r := s.alias.NewReader(nil)
 	aliases := make(map[string]channel.Key, len(req.Aliases))
 
-	for _, alias := range req.Aliases {
-		ch, err := r.ResolveAlias(ctx, alias)
+	for _, a := range req.Aliases {
+		ch, err := r.Resolve(ctx, req.Range, a)
 		if err != nil && !errors.Is(err, query.NotFound) {
 			return ResolveResponse{}, err
 		}
 		if ch != 0 {
-			aliases[alias] = ch
+			aliases[a] = ch
 		}
 	}
 
@@ -118,7 +100,7 @@ func (s *Service) Resolve(
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: ranger.AliasOntologyIDs(req.Range, keys),
+		Objects: alias.OntologyIDs(req.Range, keys),
 	}); err != nil {
 		return ResolveResponse{}, err
 	}
@@ -138,23 +120,14 @@ func (s *Service) Delete(
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
-		Objects: ranger.AliasOntologyIDs(req.Range, req.Channels),
+		Objects: alias.OntologyIDs(req.Range, req.Channels),
 	}); err != nil {
 		return types.Nil{}, err
 	}
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		var rng ranger.Range
-		if err := s.
-			internal.
-			NewRetrieve().
-			Entry(&rng).
-			WhereKeys(req.Range).
-			Exec(ctx, tx); err != nil {
-			return err
-		}
-		rng = rng.UseTx(tx)
-		for _, alias := range req.Channels {
-			if err := rng.DeleteAlias(ctx, alias); err != nil {
+		w := s.alias.NewWriter(tx)
+		for _, ch := range req.Channels {
+			if err := w.Delete(ctx, req.Range, ch); err != nil {
 				return err
 			}
 		}
@@ -175,16 +148,8 @@ func (s *Service) List(
 	ctx context.Context,
 	req ListRequest,
 ) (ListResponse, error) {
-	var r ranger.Range
-	if err := s.
-		internal.
-		NewRetrieve().
-		Entry(&r).
-		WhereKeys(req.Range).
-		Exec(ctx, nil); err != nil {
-		return ListResponse{}, err
-	}
-	aliases, err := r.RetrieveAliases(ctx)
+	r := s.alias.NewReader(nil)
+	aliases, err := r.List(ctx, req.Range)
 	if err != nil {
 		return ListResponse{}, err
 	}
@@ -192,7 +157,7 @@ func (s *Service) List(
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: ranger.AliasOntologyIDs(req.Range, keys),
+		Objects: alias.OntologyIDs(req.Range, keys),
 	}); err != nil {
 		return ListResponse{}, err
 	}
@@ -217,28 +182,20 @@ func (s *Service) Retrieve(
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: ranger.AliasOntologyIDs(req.Range, req.Channels),
+		Objects: alias.OntologyIDs(req.Range, req.Channels),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	var r ranger.Range
-	if err := s.
-		internal.
-		NewRetrieve().
-		Entry(&r).
-		WhereKeys(req.Range).
-		Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
 
+	r := s.alias.NewReader(nil)
 	aliases := make(map[channel.Key]string)
 	for _, ch := range req.Channels {
-		alias, err := r.RetrieveAlias(ctx, ch)
+		a, err := r.Retrieve(ctx, req.Range, ch)
 		if err != nil && !errors.Is(err, query.NotFound) {
 			return RetrieveResponse{}, err
 		}
-		if alias != "" {
-			aliases[ch] = alias
+		if a != "" {
+			aliases[ch] = a
 		}
 	}
 

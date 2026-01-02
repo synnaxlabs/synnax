@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/access"
+	"github.com/synnaxlabs/synnax/pkg/api/alias"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
@@ -23,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	framer2 "github.com/synnaxlabs/synnax/pkg/api/http/framer"
+	"github.com/synnaxlabs/synnax/pkg/api/kv"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
@@ -80,18 +82,18 @@ func New(router *fhttp.Router, cfg api.Config) api.Transport {
 		GroupRename: fhttp.UnaryServer[group.RenameRequest, types.Nil](router, "/api/v1/ontology/rename-group"),
 
 		// RANGE
-		RangeRetrieve:      fhttp.UnaryServer[ranger.RetrieveRequest, ranger.RetrieveResponse](router, "/api/v1/range/retrieve"),
-		RangeCreate:        fhttp.UnaryServer[ranger.CreateRequest, ranger.CreateResponse](router, "/api/v1/range/create"),
-		RangeDelete:        fhttp.UnaryServer[ranger.DeleteRequest, types.Nil](router, "/api/v1/range/delete"),
-		RangeRename:        fhttp.UnaryServer[ranger.RenameRequest, types.Nil](router, "/api/v1/range/rename"),
-		RangeKVGet:         fhttp.UnaryServer[ranger.KVGetRequest, ranger.KVGetResponse](router, "/api/v1/range/kv/get"),
-		RangeKVSet:         fhttp.UnaryServer[ranger.KVSetRequest, types.Nil](router, "/api/v1/range/kv/set"),
-		RangeKVDelete:      fhttp.UnaryServer[ranger.KVDeleteRequest, types.Nil](router, "/api/v1/range/kv/delete"),
-		RangeAliasSet:      fhttp.UnaryServer[ranger.AliasSetRequest, types.Nil](router, "/api/v1/range/alias/set"),
-		RangeAliasResolve:  fhttp.UnaryServer[ranger.AliasResolveRequest, ranger.AliasResolveResponse](router, "/api/v1/range/alias/resolve"),
-		RangeAliasRetrieve: fhttp.UnaryServer[ranger.AliasRetrieveRequest, ranger.AliasRetrieveResponse](router, "/api/v1/range/alias/retrieve"),
-		RangeAliasList:     fhttp.UnaryServer[ranger.AliasListRequest, ranger.AliasListResponse](router, "/api/v1/range/alias/list"),
-		RangeAliasDelete:   fhttp.UnaryServer[ranger.AliasDeleteRequest, types.Nil](router, "/api/v1/range/alias/delete"),
+		RangeRetrieve: fhttp.UnaryServer[ranger.RetrieveRequest, ranger.RetrieveResponse](router, "/api/v1/range/retrieve"),
+		RangeCreate:   fhttp.UnaryServer[ranger.CreateRequest, ranger.CreateResponse](router, "/api/v1/range/create"),
+		RangeDelete:   fhttp.UnaryServer[ranger.DeleteRequest, types.Nil](router, "/api/v1/range/delete"),
+		RangeRename:   fhttp.UnaryServer[ranger.RenameRequest, types.Nil](router, "/api/v1/range/rename"),
+		KVGet:         fhttp.UnaryServer[kv.GetRequest, kv.GetResponse](router, "/api/v1/range/kv/get"),
+		KVSet:         fhttp.UnaryServer[kv.SetRequest, types.Nil](router, "/api/v1/range/kv/set"),
+		KVDelete:      fhttp.UnaryServer[kv.DeleteRequest, types.Nil](router, "/api/v1/range/kv/delete"),
+		AliasSet:      fhttp.UnaryServer[alias.SetRequest, types.Nil](router, "/api/v1/range/alias/set"),
+		AliasResolve:  fhttp.UnaryServer[alias.ResolveRequest, alias.ResolveResponse](router, "/api/v1/range/alias/resolve"),
+		AliasRetrieve: fhttp.UnaryServer[alias.RetrieveRequest, alias.RetrieveResponse](router, "/api/v1/range/alias/retrieve"),
+		AliasList:     fhttp.UnaryServer[alias.ListRequest, alias.ListResponse](router, "/api/v1/range/alias/list"),
+		AliasDelete:   fhttp.UnaryServer[alias.DeleteRequest, types.Nil](router, "/api/v1/range/alias/delete"),
 
 		// WORKSPACE
 		WorkspaceCreate:    fhttp.UnaryServer[workspace.CreateRequest, workspace.CreateResponse](router, "/api/v1/workspace/create"),
