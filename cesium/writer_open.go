@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/config"
@@ -53,7 +53,7 @@ type WriterConfig struct {
 	Start telem.TimeStamp
 	// Channels sets the channels that the writer will write to. If a channel does not
 	// exist, the writer fill fail to open.
-	Channels []core.ChannelKey
+	Channels []channel.Key
 	// Authorities marks the starting control authorities of the writer. This value must
 	// be empty (so the default is applied), have a length of 1 (apply the same
 	// authority to all channels), or have a length equal to the number of channels
@@ -223,7 +223,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		u, isUnary := db.mu.unaryDBs[key]
 		v, isVirtual := db.mu.virtualDBs[key]
 		if !isVirtual && !isUnary {
-			return nil, core.NewErrChannelNotFound(key)
+			return nil, channel.NewErrNotFound(key)
 		}
 		var (
 			auth     = cfg.authority(i)
@@ -335,7 +335,7 @@ func (db *DB) openDomainIdxWriter(
 ) (*idxWriter, error) {
 	u, ok := db.mu.unaryDBs[idxKey]
 	if !ok {
-		return nil, core.NewErrChannelNotFound(idxKey)
+		return nil, channel.NewErrNotFound(idxKey)
 	}
 	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}
 	w.idx.ch = u.Channel()

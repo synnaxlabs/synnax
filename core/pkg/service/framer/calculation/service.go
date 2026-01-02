@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
@@ -166,7 +166,7 @@ func (s *Service) setStatus(
 	_ context.Context,
 	statuses ...calculator.Status,
 ) {
-	if _, err := s.writer.Write(core.UnaryFrame(
+	if _, err := s.writer.Write(frame.NewUnary(
 		s.stateKey,
 		telem.NewSeriesStaticJSONV(statuses...),
 	)); err != nil {

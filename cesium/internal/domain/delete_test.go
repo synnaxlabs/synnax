@@ -14,9 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/cesium/internal/resource"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -46,7 +46,7 @@ var _ = Describe("Delete", Ordered, func() {
 		Context("FS: "+fsName, func() {
 			var (
 				db      *domain.DB
-				fs      xfs.FS
+				fs      fs.FS
 				cleanUp func() error
 				density = telem.Uint8T.Density()
 			)
@@ -447,7 +447,7 @@ var _ = Describe("Delete", Ordered, func() {
 							telem.TimeRangeMin,
 							fixedOffset(0),
 							fixedOffset(0),
-						)).To(HaveOccurredAs(core.NewErrResourceClosed("domain.db")))
+						)).To(HaveOccurredAs(resource.NewErrClosed("domain.db")))
 					})
 				})
 

@@ -12,7 +12,7 @@ package cesium
 import (
 	"context"
 
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 )
@@ -21,13 +21,13 @@ import (
 // to.
 type StreamerRequest struct {
 	// Channels sets the channels the Streamer subscribes to.
-	Channels []core.ChannelKey
+	Channels []channel.Key
 }
 
 // StreamerConfig sets the configuration parameters used when opening the Streamer.
 type StreamerConfig struct {
 	// Channels sets the channels the Streamer subscribes to.
-	Channels []core.ChannelKey
+	Channels []channel.Key
 	// OnSuccessfulStart is closed when the Streamer is successfully opened.
 	SendOpenAck bool
 }

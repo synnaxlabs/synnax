@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -49,7 +49,7 @@ type Iterator struct {
 	shutdown    context.CancelFunc
 	wg          signal.WaitGroup
 	value       []Response
-	valueFrames []core.Frame
+	valueFrames []frame.Frame
 }
 
 // Next reads all channel data occupying the next span of time. Returns true
@@ -121,16 +121,16 @@ func (i *Iterator) SetBounds(bounds telem.TimeRange) bool {
 	return i.exec(Request{Command: SetBounds, Bounds: bounds})
 }
 
-func (i *Iterator) Value() core.Frame {
+func (i *Iterator) Value() frame.Frame {
 	if cap(i.valueFrames) < len(i.value) {
-		i.valueFrames = make([]core.Frame, len(i.value))
+		i.valueFrames = make([]frame.Frame, len(i.value))
 	} else {
 		i.valueFrames = i.valueFrames[:len(i.value)]
 	}
 	for idx, v := range i.value {
 		i.valueFrames[idx] = v.Frame
 	}
-	return core.MergeFrames(i.valueFrames)
+	return frame.Merge(i.valueFrames)
 }
 
 func (i *Iterator) exec(req Request) bool {

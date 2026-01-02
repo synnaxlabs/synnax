@@ -14,9 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -26,22 +26,22 @@ var _ = Describe("Garbage Collection", func() {
 		Context("FS: "+fsName, func() {
 			var (
 				dataDB   *unary.DB
-				dataFS   xfs.FS
+				dataFS   fs.FS
 				indexDB  *unary.DB
-				indexFS  xfs.FS
-				dataKey  core.ChannelKey = 2
-				indexKey core.ChannelKey = 3
+				indexFS  fs.FS
+				dataKey  channel.Key = 2
+				indexKey channel.Key = 3
 				cleanUp  func() error
 			)
 			Describe("Garbage collection without threshold", func() {
 				BeforeEach(func() {
-					var fs xfs.FS
+					var fs fs.FS
 					fs, cleanUp = makeFS()
 					indexFS = MustSucceed(fs.Sub("index"))
 					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        indexFS,
 						MetaCodec: codec,
-						Channel: core.Channel{
+						Channel: channel.Channel{
 							Name:     "Chin",
 							Key:      indexKey,
 							DataType: telem.TimeStampT,
@@ -56,7 +56,7 @@ var _ = Describe("Garbage Collection", func() {
 					dataDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        dataFS,
 						MetaCodec: codec,
-						Channel: core.Channel{
+						Channel: channel.Channel{
 							Name:     "Renan",
 							Key:      dataKey,
 							DataType: telem.Int64T,
@@ -85,7 +85,7 @@ var _ = Describe("Garbage Collection", func() {
 							index = append(index, telem.TimeStamp(i*10+j))
 						}
 						Expect(unary.Write(ctx, indexDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesSecondsTSV(index...))).To(Succeed())
-						Expect(unary.Write(ctx, dataDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesV[int64](data...))).To(Succeed())
+						Expect(unary.Write(ctx, dataDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesV(data...))).To(Succeed())
 					}
 
 					By("Deleting data from the channel")
@@ -120,13 +120,13 @@ var _ = Describe("Garbage Collection", func() {
 
 			Describe("GC with threshold and many files", func() {
 				BeforeEach(func() {
-					var fs xfs.FS
+					var fs fs.FS
 					fs, cleanUp = makeFS()
 					indexFS = MustSucceed(fs.Sub("index"))
 					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        indexFS,
 						MetaCodec: codec,
-						Channel: core.Channel{
+						Channel: channel.Channel{
 							Name:     "Wilkes",
 							Key:      indexKey,
 							DataType: telem.TimeStampT,
@@ -140,7 +140,7 @@ var _ = Describe("Garbage Collection", func() {
 					dataDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        dataFS,
 						MetaCodec: codec,
-						Channel: core.Channel{
+						Channel: channel.Channel{
 							Name:     "Lincoln",
 							Key:      dataKey,
 							DataType: telem.Int64T,

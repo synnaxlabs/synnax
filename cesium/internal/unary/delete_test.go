@@ -12,11 +12,11 @@ package unary_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -29,7 +29,7 @@ var _ = Describe("Delete", func() {
 				indexDB *unary.DB
 				index   uint32 = 1
 				data    uint32 = 2
-				fs      xfs.FS
+				fs      fs.FS
 				cleanUp func() error
 			)
 			BeforeEach(func() {
@@ -38,7 +38,7 @@ var _ = Describe("Delete", func() {
 				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("index")),
 					MetaCodec: codec,
-					Channel: core.Channel{
+					Channel: channel.Channel{
 						Name:     "John",
 						Key:      index,
 						DataType: telem.TimeStampT,
@@ -50,7 +50,7 @@ var _ = Describe("Delete", func() {
 				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("data")),
 					MetaCodec: codec,
-					Channel: core.Channel{
+					Channel: channel.Channel{
 						Name:     "Wilkes",
 						Key:      data,
 						DataType: telem.Int64T,
@@ -262,10 +262,10 @@ var _ = Describe("Delete", func() {
 					Context("Two pointers", func() {
 						BeforeEach(func() {
 							By("Writing data to the channel")
-							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesV[telem.TimeStamp](10*telem.SecondTS, 13*telem.SecondTS, 13*telem.SecondTS+500*telem.MillisecondTS, 18*telem.SecondTS, 19*telem.SecondTS))).To(Succeed())
+							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesV(10*telem.SecondTS, 13*telem.SecondTS, 13*telem.SecondTS+500*telem.MillisecondTS, 18*telem.SecondTS, 19*telem.SecondTS))).To(Succeed())
 							Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 13, 131, 18, 19))).To(Succeed())
 
-							Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesV[telem.TimeStamp](20*telem.SecondTS, 23500*telem.MillisecondTS, 23600*telem.MillisecondTS, 23800*telem.MillisecondTS, 25100*telem.MillisecondTS, 27800*telem.MillisecondTS))).To(Succeed())
+							Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesV(20*telem.SecondTS, 23500*telem.MillisecondTS, 23600*telem.MillisecondTS, 23800*telem.MillisecondTS, 25100*telem.MillisecondTS, 27800*telem.MillisecondTS))).To(Succeed())
 							Expect(unary.Write(ctx, dataDB, 20*telem.SecondTS, telem.NewSeriesV[int64](200, 235, 236, 238, 251, 278))).To(Succeed())
 						})
 						It("Should delete across two such domains", func() {
@@ -390,7 +390,7 @@ var _ = Describe("Delete", func() {
 									content = append(content, int64(i*100+j*10))
 								}
 								Expect(unary.Write(ctx, indexDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesSecondsTSV(index...))).To(Succeed())
-								Expect(unary.Write(ctx, dataDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesV[int64](content...))).To(Succeed())
+								Expect(unary.Write(ctx, dataDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesV(content...))).To(Succeed())
 							}
 
 							By("Deleting channel data")
@@ -424,7 +424,7 @@ var _ = Describe("Delete", func() {
 									content = append(content, int64(i*100+j*10))
 								}
 								Expect(unary.Write(ctx, indexDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesSecondsTSV(index...))).To(Succeed())
-								Expect(unary.Write(ctx, dataDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesV[int64](content...))).To(Succeed())
+								Expect(unary.Write(ctx, dataDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesV(content...))).To(Succeed())
 							}
 
 							timeRanges := []telem.TimeRange{
@@ -710,7 +710,7 @@ var _ = Describe("Delete", func() {
 						indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        MustSucceed(fs.Sub("index")),
 							MetaCodec: codec,
-							Channel: core.Channel{
+							Channel: channel.Channel{
 								Key:      iKey,
 								DataType: telem.TimeStampT,
 								IsIndex:  true,
@@ -722,7 +722,7 @@ var _ = Describe("Delete", func() {
 						db2 = MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        MustSucceed(fs.Sub("data")),
 							MetaCodec: codec,
-							Channel: core.Channel{
+							Channel: channel.Channel{
 								Key:      dbKey,
 								DataType: telem.Int64T,
 								Index:    iKey,
@@ -766,7 +766,7 @@ var _ = Describe("Delete", func() {
 						indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        MustSucceed(fs.Sub("index")),
 							MetaCodec: codec,
-							Channel: core.Channel{
+							Channel: channel.Channel{
 								Key:      iKey,
 								DataType: telem.TimeStampT,
 								IsIndex:  true,
@@ -778,7 +778,7 @@ var _ = Describe("Delete", func() {
 						db2 = MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        MustSucceed(fs.Sub("data")),
 							MetaCodec: codec,
-							Channel: core.Channel{
+							Channel: channel.Channel{
 								Key:      dbKey,
 								DataType: telem.Int64T,
 								Index:    iKey,
@@ -820,7 +820,7 @@ var _ = Describe("Delete", func() {
 						indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        MustSucceed(fs.Sub("index")),
 							MetaCodec: codec,
-							Channel: core.Channel{
+							Channel: channel.Channel{
 								Key:      iKey,
 								DataType: telem.TimeStampT,
 								IsIndex:  true,
@@ -832,7 +832,7 @@ var _ = Describe("Delete", func() {
 						db2 = MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        MustSucceed(fs.Sub("data")),
 							MetaCodec: codec,
-							Channel: core.Channel{
+							Channel: channel.Channel{
 								Key:      dbKey,
 								DataType: telem.Int64T,
 								Index:    iKey,
@@ -871,7 +871,7 @@ var _ = Describe("Delete", func() {
 						indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        MustSucceed(fs.Sub("index")),
 							MetaCodec: codec,
-							Channel: core.Channel{
+							Channel: channel.Channel{
 								Key:      iKey,
 								DataType: telem.TimeStampT,
 								IsIndex:  true,
@@ -883,7 +883,7 @@ var _ = Describe("Delete", func() {
 						db2 = MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        MustSucceed(fs.Sub("data")),
 							MetaCodec: codec,
-							Channel: core.Channel{
+							Channel: channel.Channel{
 								Key:      dbKey,
 								DataType: telem.Int64T,
 								Index:    iKey,
