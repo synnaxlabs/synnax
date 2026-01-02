@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 @ts output "client/ts/src/workspace/schematic"
+@go output "core/pkg/service/workspace/schematic"
+@pb
 
 Schematic struct {
     key      uuid   @key
@@ -16,6 +18,17 @@ Schematic struct {
     snapshot bool
 
     @ontology type "schematic"
+    @go omit
+    @pb omit
+}
+
+GoSchematic struct extends Schematic {
+    data string
+    -data
+
+    @go name "Schematic"
+    @pb name "Schematic"
+    @ts omit
 }
 
 New struct extends Schematic {
@@ -23,4 +36,6 @@ New struct extends Schematic {
     snapshot bool?
 
     @ts use_input
+    @go omit
+    @pb omit
 }

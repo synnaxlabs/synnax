@@ -3,7 +3,7 @@ syntax = "proto3";
 package api.v1;
 
 import "google/protobuf/empty.proto";
-import "x/go/status/pb/status.proto";
+import "core/pkg/service/rack/pb/rack.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/v1";
 
@@ -19,18 +19,12 @@ service RackDeleteService {
   rpc Exec(RackDeleteRequest) returns (google.protobuf.Empty);
 }
 
-message Rack {
-  uint32 key = 1;
-  string name = 2;
-  synnax.status.Status status = 3;
-}
-
 message RackCreateRequest {
-  repeated Rack racks = 1;
+  repeated synnax.rack.Rack racks = 1;
 }
 
 message RackCreateResponse {
-  repeated Rack racks = 1;
+  repeated synnax.rack.Rack racks = 1;
 }
 
 message RackRetrieveRequest {
@@ -39,7 +33,7 @@ message RackRetrieveRequest {
 }
 
 message RackRetrieveResponse {
-  repeated Rack racks = 1;
+  repeated synnax.rack.Rack racks = 1;
 }
 
 message RackDeleteRequest {

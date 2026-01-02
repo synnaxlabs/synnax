@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 @ts output "client/ts/src/workspace"
+@go output "core/pkg/service/workspace"
+@pb
 
 Workspace struct {
     key    uuid   @key
@@ -16,6 +18,17 @@ Workspace struct {
     layout json
 
     @ontology type "workspace"
+    @go omit
+    @pb omit
+}
+
+GoWorkspace struct extends Workspace {
+    layout string
+    -layout
+
+    @go name "Workspace"
+    @pb name "Workspace"
+    @ts omit
 }
 
 New struct extends Workspace {
@@ -23,4 +36,5 @@ New struct extends Workspace {
 
     @ts use_input
     @go omit
+    @pb omit
 }

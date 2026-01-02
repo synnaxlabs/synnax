@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 @ts output "client/ts/src/workspace/lineplot"
+@go output "core/pkg/service/workspace/lineplot"
+@pb
 
 LinePlot struct {
     key  uuid   @key
@@ -15,10 +17,23 @@ LinePlot struct {
     data json
 
     @ontology type "lineplot"
+    @go omit
+    @pb omit
+}
+
+GoLinePlot struct extends LinePlot {
+    data string
+    -data
+
+    @go name "LinePlot"
+    @pb name "LinePlot"
+    @ts omit
 }
 
 New struct extends LinePlot {
     key uuid?
 
     @ts use_input
+    @go omit
+    @pb omit
 }

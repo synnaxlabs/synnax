@@ -201,11 +201,12 @@ func start(cmd *cobra.Command) {
 			return err
 		}
 
-		if apiLayer, err = api.New(api.Config{
+		apiCfg := api.Config{
 			Instrumentation: ins.Child("api"),
 			Service:         serviceLayer,
 			Distribution:    distributionLayer,
-		}); !ok(err, nil) {
+		}
+		if apiLayer, err = api.New(apiCfg); !ok(err, nil) {
 			return err
 		}
 		creds := auth.InsecureCredentials{
@@ -226,7 +227,7 @@ func start(cmd *cobra.Command) {
 			Instrumentation:     ins,
 			StreamWriteDeadline: slowConsumerTimeout,
 		})
-		apiLayer.BindTo(httpapi.New(r, api.NewHTTPCodecResolver(distributionLayer.Channel)))
+		apiLayer.BindTo(httpapi.New(r, apiCfg))
 
 		// Configure the GRPC Layer AspenTransport.
 		grpcAPI, grpcAPITrans := grpcapi.New(distributionLayer.Channel)

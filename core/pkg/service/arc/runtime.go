@@ -48,7 +48,7 @@ func (s *Service) handleChange(
 					&status.Status[core.StatusDetails]{
 						Name:    existing.arc.Name,
 						Key:     a.Key.String(),
-						Variant: xstatus.DisabledVariant,
+						Variant: xstatus.VariantDisabled,
 						Message: "Stopped",
 						Time:    telem.Now(),
 						Details: core.StatusDetails{Running: false},

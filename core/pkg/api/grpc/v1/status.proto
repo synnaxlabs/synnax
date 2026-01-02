@@ -3,7 +3,7 @@ syntax = "proto3";
 package api.v1;
 
 import "google/protobuf/empty.proto";
-import "x/go/status/status.proto";
+import "x/go/status/pb/status.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/v1";
 
@@ -21,11 +21,11 @@ service StatusDeleteService {
 
 message StatusSetRequest {
   string parent = 1; // Optional parent ontology ID in format "type:key"
-  repeated status.PBStatus statuses = 2;
+  repeated synnax.status.Status statuses = 2;
 }
 
 message StatusSetResponse {
-  repeated status.PBStatus statuses = 1;
+  repeated synnax.status.Status statuses = 1;
 }
 
 message StatusRetrieveRequest {
@@ -38,7 +38,7 @@ message StatusRetrieveRequest {
 }
 
 message StatusRetrieveResponse {
-  repeated status.PBStatus statuses = 1;
+  repeated synnax.status.Status statuses = 1;
 }
 
 message StatusDeleteRequest {

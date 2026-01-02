@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 @ts output "client/ts/src/ontology/group"
+@go output "core/pkg/distribution/group"
+@pb
 
 Group struct {
     key  uuid   @key

@@ -47,7 +47,7 @@ var _ = Describe("Runtime", func() {
 					return ""
 				}
 				return s.Variant
-			}).Should(Equal(xstatus.LoadingVariant))
+			}).Should(Equal(xstatus.VariantLoading))
 
 			deleteTx := db.OpenTx()
 			Expect(svc.NewWriter(deleteTx).Delete(ctx, a.Key)).To(Succeed())
@@ -81,7 +81,7 @@ var _ = Describe("Runtime", func() {
 					Exec(ctx, db); err != nil {
 					return false
 				}
-				return s.Variant == xstatus.LoadingVariant ||
+				return s.Variant == xstatus.VariantLoading ||
 					s.Variant == xstatus.VariantError ||
 					s.Variant == xstatus.VariantSuccess
 			}).Should(BeTrue())

@@ -47,6 +47,14 @@ service RangeAliasListService {
   rpc Exec(RangeAliasListRequest) returns (RangeAliasListResponse) {}
 }
 
+service RangeRenameService {
+  rpc Exec(RangeRenameRequest) returns (google.protobuf.Empty) {}
+}
+
+service RangeAliasRetrieveService {
+  rpc Exec(RangeAliasRetrieveRequest) returns (RangeAliasRetrieveResponse) {}
+}
+
 message RangeAliasSetRequest {
   string range = 1;
   map<uint32, string> aliases = 2;
@@ -123,4 +131,18 @@ message RangeKVGetResponse {
 message RangeKVDeleteRequest {
   string range_key = 1;
   repeated string keys = 2;
+}
+
+message RangeRenameRequest {
+  string key = 1;
+  string name = 2;
+}
+
+message RangeAliasRetrieveRequest {
+  string range = 1;
+  repeated uint32 channels = 2;
+}
+
+message RangeAliasRetrieveResponse {
+  map<uint32, string> aliases = 1;
 }

@@ -112,9 +112,9 @@ Phase 6: Cleanup & Deprecation
 
 ---
 
-## Phase 1: Oracle Tool Updates
+## Phase 1: Oracle Tool Updates ✅ COMPLETE
 
-**Status**: Can be done first, no dependencies
+**Status**: Complete
 **Parallelizable**: No (foundational)
 
 ### Objective
@@ -212,33 +212,31 @@ Generate `buf.yaml` and `buf.gen.yaml` for each `pb/` directory, or update root 
 
 ---
 
-## Phase 2: x/go Layer Migration
+## Phase 2: x/go Layer Migration ✅ COMPLETE
 
-**Status**: Can start after Phase 1
+**Status**: Complete (status, label migrated; telem is independent)
 **Parallelizable**: Each domain can be done independently
 
 ### Domains to Migrate
 
-| Domain | Current Location | Has Proto | Priority |
-|--------|-----------------|-----------|----------|
-| `status` | `x/go/status/` | Yes (`status.proto` in root) | High |
-| `telem` | `x/go/telem/` | Yes (in api/grpc/v1/) | High |
-| `spatial` | `x/go/spatial/` | No | Low |
+| Domain | Current Location | Has Proto | Priority | Notes |
+|--------|-----------------|-----------|----------|-------|
+| `status` | `x/go/status/` | Yes | High | Migrated to pb/ subdirectory |
+| `label` | `x/go/label/` | Yes | High | Migrated to pb/ subdirectory |
+| `telem` | `x/go/telem/` | Yes | N/A | **Independent** - has own hand-written protos, not Oracle-generated |
+| `spatial` | `x/go/spatial/` | No | Low | No proto needed |
 
-### 2.1 Migrate `x/go/status`
+### Note on `telem`
 
-**Current**:
-```
-x/go/status/
-├── status.go
-├── types.gen.go
-├── status.proto           # In root
-├── status.pb.go           # In root
-└── grpc/
-    └── status.gen.go      # Translator here
-```
+The `telem` package (`x/go/telem/`) manages its own protobuf types independently of Oracle generation.
+These types (Series, Frame, TimeRange, etc.) have hand-written protos that predate the Oracle system.
+No Oracle migration is needed - just ensure imports reference the correct `x/go/telem` package paths.
 
-**Target**:
+### 2.1 Migrate `x/go/status` ✅ COMPLETE
+
+**Status**: Migrated via Oracle with `@pb` directive.
+
+**Current Structure**:
 ```
 x/go/status/
 ├── status.go
@@ -249,56 +247,44 @@ x/go/status/
     └── translator.gen.go
 ```
 
-**Steps**:
-1. Create `x/go/status/pb/` directory
-2. Move `status.proto` to `pb/status.proto`
-3. Update proto `go_package` option
-4. Regenerate `status.pb.go` with buf
-5. Update schema `status.oracle` with `@go pb` directive
-6. Run `oracle sync` to generate `translator.gen.go`
-7. Update all imports from `x/go/status/grpc` to `x/go/status/pb`
-8. Delete old `x/go/status/grpc/` directory
-9. Update Bazel BUILD files
+### 2.2 Migrate `x/go/label` ✅ COMPLETE
 
-**Import Changes**:
-```go
-// Before
-import statuspb "github.com/synnaxlabs/x/status/grpc"
+**Status**: Migrated via Oracle with `@pb` directive.
 
-// After
-import statuspb "github.com/synnaxlabs/x/status/pb"
+**Current Structure**:
 ```
-
-### 2.2 Migrate `x/go/telem`
-
-Similar process. Note: telem has more complex types (Series, Frame, TimeRange).
-
-**Current proto location**: `core/pkg/api/grpc/v1/telem.proto`
-**Target**: `x/go/telem/pb/telem.proto`
+x/go/label/
+├── label.go
+├── types.gen.go
+└── pb/
+    ├── label.proto
+    ├── label.pb.go
+    └── translator.gen.go
+```
 
 ---
 
-## Phase 3: Service Layer Migration
+## Phase 3: Service Layer Migration ✅ COMPLETE
 
-**Status**: Can start after Phase 2 (depends on x/go types)
+**Status**: Complete (all service domains migrated)
 **Parallelizable**: Each domain can be done independently
 
 ### Domains to Migrate
 
-| Domain | Schema File | Has Types | Notes |
-|--------|------------|-----------|-------|
-| `rack` | `schemas/rack.oracle` | Yes | Simple, good first candidate |
-| `task` | `schemas/task.oracle` | Yes | Depends on rack |
-| `device` | `schemas/device.oracle` | Yes | Depends on rack |
-| `user` | `schemas/user.oracle` | Yes | Independent |
-| `group` | `schemas/group.oracle` | Yes | Depends on user |
-| `access` | `schemas/access.oracle` | Yes | Independent |
-| `workspace` | `schemas/workspace.oracle` | Yes | Independent |
-| `label` | `schemas/label.oracle` | Yes | Independent |
-| `lineplot` | `schemas/lineplot.oracle` | Yes | Depends on workspace |
-| `schematic` | `schemas/schematic.oracle` | Yes | Depends on workspace |
-| `table` | `schemas/table.oracle` | Yes | Depends on workspace |
-| `log` | `schemas/log.oracle` | Yes | Depends on workspace |
+| Domain | Schema File | Has Types | Status | Notes |
+|--------|------------|-----------|--------|-------|
+| `rack` | `schemas/rack.oracle` | Yes | ✅ Complete | Simple, good first candidate |
+| `task` | `schemas/task.oracle` | Yes | ✅ Complete | Depends on rack |
+| `device` | `schemas/device.oracle` | Yes | ✅ Complete | Depends on rack |
+| `user` | `schemas/user.oracle` | Yes | ✅ Complete | Independent |
+| `group` | `schemas/group.oracle` | Yes | ✅ Complete | In distribution layer |
+| `access` | `schemas/access.oracle` | Yes | ✅ Complete | Enum only |
+| `workspace` | `schemas/workspace.oracle` | Yes | ✅ Complete | Independent |
+| `label` | `schemas/label.oracle` | Yes | ✅ Complete | In x/go layer |
+| `lineplot` | `schemas/lineplot.oracle` | Yes | ✅ Complete | Depends on workspace |
+| `schematic` | `schemas/schematic.oracle` | Yes | ✅ Complete | Depends on workspace |
+| `table` | `schemas/table.oracle` | Yes | ✅ Complete | Depends on workspace |
+| `log` | `schemas/log.oracle` | Yes | ✅ Complete | Depends on workspace |
 
 ### 3.1 Template: Service Domain Migration
 

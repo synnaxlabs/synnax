@@ -230,6 +230,8 @@ func (p *Plugin) generateFile(
 		namespace = structs[0].Namespace
 	} else if len(typeDefs) > 0 {
 		namespace = typeDefs[0].Namespace
+	} else if len(enums) > 0 {
+		namespace = enums[0].Namespace
 	}
 
 	data := &templateData{

@@ -3,7 +3,7 @@ syntax = "proto3";
 package api.v1;
 
 import "google/protobuf/empty.proto";
-import "x/go/status/pb/status.proto";
+import "core/pkg/service/device/pb/device.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/v1";
 
@@ -19,24 +19,12 @@ service DeviceDeleteService {
   rpc Exec(DeviceDeleteRequest) returns (google.protobuf.Empty);
 }
 
-message Device {
-  string key = 1;
-  string name = 2;
-  uint32 rack = 3;
-  string location = 4;
-  string make = 6;
-  string model = 7;
-  string properties = 8;
-  bool configured = 9;
-  synnax.status.Status status = 10;
-}
-
 message DeviceCreateRequest {
-  repeated Device devices = 1;
+  repeated synnax.device.Device devices = 1;
 }
 
 message DeviceCreateResponse {
-  repeated Device devices = 1;
+  repeated synnax.device.Device devices = 1;
 }
 
 message DeviceRetrieveRequest {
@@ -54,7 +42,7 @@ message DeviceRetrieveRequest {
 }
 
 message DeviceRetrieveResponse {
-  repeated Device devices = 1;
+  repeated synnax.device.Device devices = 1;
 }
 
 message DeviceDeleteRequest {

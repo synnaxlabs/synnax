@@ -3,7 +3,7 @@ syntax = "proto3";
 package api.v1;
 
 import "google/protobuf/empty.proto";
-import "x/go/status/status.proto";
+import "core/pkg/service/task/pb/task.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/v1";
 
@@ -23,22 +23,12 @@ service TaskCopyService {
   rpc Exec(TaskCopyRequest) returns (TaskCopyResponse);
 }
 
-message Task {
-  uint64 key = 1;
-  string name = 2;
-  string type = 3;
-  string config = 4;
-  bool internal = 5;
-  bool snapshot = 6;
-  status.PBStatus status = 7;
-}
-
 message TaskCreateRequest {
-  repeated Task tasks = 1;
+  repeated synnax.task.Task tasks = 1;
 }
 
 message TaskCreateResponse {
-  repeated Task tasks = 1;
+  repeated synnax.task.Task tasks = 1;
 }
 
 message TaskRetrieveRequest {
@@ -50,7 +40,7 @@ message TaskRetrieveRequest {
 }
 
 message TaskRetrieveResponse {
-  repeated Task tasks = 1;
+  repeated synnax.task.Task tasks = 1;
 }
 
 message TaskDeleteRequest {
@@ -64,5 +54,5 @@ message TaskCopyRequest {
 }
 
 message TaskCopyResponse {
-  Task task = 1;
+  synnax.task.Task task = 1;
 }

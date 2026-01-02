@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 @ts output "client/ts/src/workspace/log"
+@go output "core/pkg/service/workspace/log"
+@pb
 
 Log struct {
     key  uuid   @key
@@ -15,10 +17,23 @@ Log struct {
     data json
 
     @ontology type "log"
+    @go omit
+    @pb omit
+}
+
+GoLog struct extends Log {
+    data string
+    -data
+
+    @go name "Log"
+    @pb name "Log"
+    @ts omit
 }
 
 New struct extends Log {
     key uuid?
 
     @ts use_input
+    @go omit
+    @pb omit
 }
