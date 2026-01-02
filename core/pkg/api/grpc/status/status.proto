@@ -9,7 +9,7 @@
 
 syntax = "proto3";
 
-package synnax.api.grpc.status;
+package grpc.status;
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/status";
 

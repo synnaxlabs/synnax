@@ -9,7 +9,7 @@
 
 syntax = "proto3";
 
-package arc.v1.types;
+package x.arc.types;
 
 import "google/protobuf/struct.proto";
 

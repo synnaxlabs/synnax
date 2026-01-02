@@ -29,7 +29,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ChannelCreateService_Exec_FullMethodName = "/synnax.api.grpc.channel.ChannelCreateService/Exec"
+	ChannelCreateService_Exec_FullMethodName = "/grpc.channel.ChannelCreateService/Exec"
 )
 
 // ChannelCreateServiceClient is the client API for ChannelCreateService service.
@@ -116,7 +116,7 @@ func _ChannelCreateService_Exec_Handler(srv interface{}, ctx context.Context, de
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ChannelCreateService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "synnax.api.grpc.channel.ChannelCreateService",
+	ServiceName: "grpc.channel.ChannelCreateService",
 	HandlerType: (*ChannelCreateServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -129,7 +129,7 @@ var ChannelCreateService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	ChannelRetrieveService_Exec_FullMethodName = "/synnax.api.grpc.channel.ChannelRetrieveService/Exec"
+	ChannelRetrieveService_Exec_FullMethodName = "/grpc.channel.ChannelRetrieveService/Exec"
 )
 
 // ChannelRetrieveServiceClient is the client API for ChannelRetrieveService service.
@@ -216,7 +216,7 @@ func _ChannelRetrieveService_Exec_Handler(srv interface{}, ctx context.Context, 
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ChannelRetrieveService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "synnax.api.grpc.channel.ChannelRetrieveService",
+	ServiceName: "grpc.channel.ChannelRetrieveService",
 	HandlerType: (*ChannelRetrieveServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -229,7 +229,7 @@ var ChannelRetrieveService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	ChannelDeleteService_Exec_FullMethodName = "/synnax.api.grpc.channel.ChannelDeleteService/Exec"
+	ChannelDeleteService_Exec_FullMethodName = "/grpc.channel.ChannelDeleteService/Exec"
 )
 
 // ChannelDeleteServiceClient is the client API for ChannelDeleteService service.
@@ -316,7 +316,7 @@ func _ChannelDeleteService_Exec_Handler(srv interface{}, ctx context.Context, de
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ChannelDeleteService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "synnax.api.grpc.channel.ChannelDeleteService",
+	ServiceName: "grpc.channel.ChannelDeleteService",
 	HandlerType: (*ChannelDeleteServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

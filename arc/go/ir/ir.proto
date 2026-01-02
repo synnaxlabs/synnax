@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package arc.v1.ir;
+package x.arc.ir;
 
 import "arc/go/symbol/symbol.proto";
 import "arc/go/types/types.proto";

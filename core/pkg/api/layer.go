@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/falamos"
 	"github.com/synnaxlabs/synnax/pkg/api/access"
+	"github.com/synnaxlabs/synnax/pkg/api/alias"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
@@ -28,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
+	"github.com/synnaxlabs/synnax/pkg/api/kv"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
@@ -72,18 +74,20 @@ type Transport struct {
 	FrameStreamer freighter.StreamServer[framer.StreamerRequest, framer.StreamerResponse]
 	FrameDelete   freighter.UnaryServer[framer.DeleteRequest, types.Nil]
 	// RANGE
-	RangeCreate        freighter.UnaryServer[ranger.CreateRequest, ranger.CreateResponse]
-	RangeRetrieve      freighter.UnaryServer[ranger.RetrieveRequest, ranger.RetrieveResponse]
-	RangeDelete        freighter.UnaryServer[ranger.DeleteRequest, types.Nil]
-	RangeKVGet         freighter.UnaryServer[ranger.KVGetRequest, ranger.KVGetResponse]
-	RangeKVSet         freighter.UnaryServer[ranger.KVSetRequest, types.Nil]
-	RangeKVDelete      freighter.UnaryServer[ranger.KVDeleteRequest, types.Nil]
-	RangeAliasSet      freighter.UnaryServer[ranger.AliasSetRequest, types.Nil]
-	RangeAliasResolve  freighter.UnaryServer[ranger.AliasResolveRequest, ranger.AliasResolveResponse]
-	RangeAliasList     freighter.UnaryServer[ranger.AliasListRequest, ranger.AliasListResponse]
-	RangeAliasRetrieve freighter.UnaryServer[ranger.AliasRetrieveRequest, ranger.AliasRetrieveResponse]
-	RangeRename        freighter.UnaryServer[ranger.RenameRequest, types.Nil]
-	RangeAliasDelete   freighter.UnaryServer[ranger.AliasDeleteRequest, types.Nil]
+	RangeCreate   freighter.UnaryServer[ranger.CreateRequest, ranger.CreateResponse]
+	RangeRetrieve freighter.UnaryServer[ranger.RetrieveRequest, ranger.RetrieveResponse]
+	RangeDelete   freighter.UnaryServer[ranger.DeleteRequest, types.Nil]
+	RangeRename   freighter.UnaryServer[ranger.RenameRequest, types.Nil]
+	// KV
+	KVGet    freighter.UnaryServer[kv.GetRequest, kv.GetResponse]
+	KVSet    freighter.UnaryServer[kv.SetRequest, types.Nil]
+	KVDelete freighter.UnaryServer[kv.DeleteRequest, types.Nil]
+	// ALIAS
+	AliasSet      freighter.UnaryServer[alias.SetRequest, types.Nil]
+	AliasResolve  freighter.UnaryServer[alias.ResolveRequest, alias.ResolveResponse]
+	AliasDelete   freighter.UnaryServer[alias.DeleteRequest, types.Nil]
+	AliasList     freighter.UnaryServer[alias.ListRequest, alias.ListResponse]
+	AliasRetrieve freighter.UnaryServer[alias.RetrieveRequest, alias.RetrieveResponse]
 	// ONTOLOGY
 	OntologyRetrieve       freighter.UnaryServer[ontology.RetrieveRequest, ontology.RetrieveResponse]
 	OntologyAddChildren    freighter.UnaryServer[ontology.AddChildrenRequest, types.Nil]
@@ -184,6 +188,8 @@ type Layer struct {
 	Connectivity *connectivity.Service
 	Ontology     *ontology.Service
 	Range        *ranger.Service
+	KV           *kv.Service
+	Alias        *alias.Service
 	Group        *group.Service
 	Workspace    *workspace.Service
 	Schematic    *schematic.Service
@@ -258,15 +264,19 @@ func (a *Layer) BindTo(t Transport) {
 		t.RangeCreate,
 		t.RangeRetrieve,
 		t.RangeDelete,
-		t.RangeKVGet,
-		t.RangeKVSet,
-		t.RangeKVDelete,
-		t.RangeAliasSet,
-		t.RangeAliasResolve,
-		t.RangeAliasRetrieve,
-		t.RangeAliasList,
 		t.RangeRename,
-		t.RangeAliasDelete,
+
+		// KV
+		t.KVGet,
+		t.KVSet,
+		t.KVDelete,
+
+		// ALIAS
+		t.AliasSet,
+		t.AliasResolve,
+		t.AliasDelete,
+		t.AliasList,
+		t.AliasRetrieve,
 
 		// WORKSPACE
 		t.WorkspaceDelete,
@@ -401,14 +411,18 @@ func (a *Layer) BindTo(t Transport) {
 	t.RangeCreate.BindHandler(a.Range.Create)
 	t.RangeDelete.BindHandler(a.Range.Delete)
 	t.RangeRename.BindHandler(a.Range.Rename)
-	t.RangeKVGet.BindHandler(a.Range.KVGet)
-	t.RangeKVSet.BindHandler(a.Range.KVSet)
-	t.RangeKVDelete.BindHandler(a.Range.KVDelete)
-	t.RangeAliasSet.BindHandler(a.Range.AliasSet)
-	t.RangeAliasResolve.BindHandler(a.Range.AliasResolve)
-	t.RangeAliasRetrieve.BindHandler(a.Range.AliasRetrieve)
-	t.RangeAliasList.BindHandler(a.Range.AliasList)
-	t.RangeAliasDelete.BindHandler(a.Range.AliasDelete)
+
+	// KV
+	t.KVGet.BindHandler(a.KV.Get)
+	t.KVSet.BindHandler(a.KV.Set)
+	t.KVDelete.BindHandler(a.KV.Delete)
+
+	// ALIAS
+	t.AliasSet.BindHandler(a.Alias.Set)
+	t.AliasResolve.BindHandler(a.Alias.Resolve)
+	t.AliasDelete.BindHandler(a.Alias.Delete)
+	t.AliasList.BindHandler(a.Alias.List)
+	t.AliasRetrieve.BindHandler(a.Alias.Retrieve)
 
 	// WORKSPACE
 	t.WorkspaceCreate.BindHandler(a.Workspace.Create)
@@ -520,6 +534,8 @@ func New(cfgs ...config.Config) (*Layer, error) {
 		Connectivity: connectivity.NewService(cfg),
 		Ontology:     ontology.NewService(cfg),
 		Range:        ranger.NewService(cfg),
+		KV:           kv.NewService(cfg),
+		Alias:        alias.NewService(cfg),
 		Group:        group.NewService(cfg),
 		Workspace:    workspace.NewService(cfg),
 		Schematic:    schematic.NewService(cfg),

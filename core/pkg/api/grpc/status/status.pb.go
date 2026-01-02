@@ -304,13 +304,13 @@ var File_core_pkg_api_grpc_status_status_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_status_status_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/api/grpc/status/status.proto\x12\x16synnax.api.grpc.status\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1bx/go/status/pb/status.proto\"W\n" +
+	"%core/pkg/api/grpc/status/status.proto\x12\vgrpc.status\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1bx/go/status/pb/status.proto\"R\n" +
 	"\n" +
 	"SetRequest\x12\x16\n" +
-	"\x06parent\x18\x01 \x01(\tR\x06parent\x121\n" +
-	"\bstatuses\x18\x02 \x03(\v2\x15.synnax.status.StatusR\bstatuses\"@\n" +
-	"\vSetResponse\x121\n" +
-	"\bstatuses\x18\x01 \x03(\v2\x15.synnax.status.StatusR\bstatuses\"\xba\x01\n" +
+	"\x06parent\x18\x01 \x01(\tR\x06parent\x12,\n" +
+	"\bstatuses\x18\x02 \x03(\v2\x10.x.status.StatusR\bstatuses\";\n" +
+	"\vSetResponse\x12,\n" +
+	"\bstatuses\x18\x01 \x03(\v2\x10.x.status.StatusR\bstatuses\"\xba\x01\n" +
 	"\x0fRetrieveRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys\x12\x1f\n" +
 	"\vsearch_term\x18\x02 \x01(\tR\n" +
@@ -319,18 +319,18 @@ const file_core_pkg_api_grpc_status_status_proto_rawDesc = "" +
 	"\x05limit\x18\x04 \x01(\x05R\x05limit\x12%\n" +
 	"\x0einclude_labels\x18\x05 \x01(\bR\rincludeLabels\x12\x1d\n" +
 	"\n" +
-	"has_labels\x18\x06 \x03(\tR\thasLabels\"E\n" +
-	"\x10RetrieveResponse\x121\n" +
-	"\bstatuses\x18\x01 \x03(\v2\x15.synnax.status.StatusR\bstatuses\"#\n" +
+	"has_labels\x18\x06 \x03(\tR\thasLabels\"@\n" +
+	"\x10RetrieveResponse\x12,\n" +
+	"\bstatuses\x18\x01 \x03(\v2\x10.x.status.StatusR\bstatuses\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\tR\x04keys2e\n" +
-	"\x10StatusSetService\x12Q\n" +
-	"\x04Exec\x12\".synnax.api.grpc.status.SetRequest\x1a#.synnax.api.grpc.status.SetResponse\"\x002t\n" +
-	"\x15StatusRetrieveService\x12[\n" +
-	"\x04Exec\x12'.synnax.api.grpc.status.RetrieveRequest\x1a(.synnax.api.grpc.status.RetrieveResponse\"\x002^\n" +
-	"\x13StatusDeleteService\x12G\n" +
-	"\x04Exec\x12%.synnax.api.grpc.status.DeleteRequest\x1a\x16.google.protobuf.Empty\"\x00B\xd7\x01\n" +
-	"\x1acom.synnax.api.grpc.statusB\vStatusProtoP\x01Z0github.com/synnaxlabs/synnax/pkg/api/grpc/status\xa2\x02\x04SAGS\xaa\x02\x16Synnax.Api.Grpc.Status\xca\x02\x16Synnax\\Api\\Grpc\\Status\xe2\x02\"Synnax\\Api\\Grpc\\Status\\GPBMetadata\xea\x02\x19Synnax::Api::Grpc::Statusb\x06proto3"
+	"\x04keys\x18\x01 \x03(\tR\x04keys2O\n" +
+	"\x10StatusSetService\x12;\n" +
+	"\x04Exec\x12\x17.grpc.status.SetRequest\x1a\x18.grpc.status.SetResponse\"\x002^\n" +
+	"\x15StatusRetrieveService\x12E\n" +
+	"\x04Exec\x12\x1c.grpc.status.RetrieveRequest\x1a\x1d.grpc.status.RetrieveResponse\"\x002S\n" +
+	"\x13StatusDeleteService\x12<\n" +
+	"\x04Exec\x12\x1a.grpc.status.DeleteRequest\x1a\x16.google.protobuf.Empty\"\x00B\x9d\x01\n" +
+	"\x0fcom.grpc.statusB\vStatusProtoP\x01Z0github.com/synnaxlabs/synnax/pkg/api/grpc/status\xa2\x02\x03GSX\xaa\x02\vGrpc.Status\xca\x02\vGrpc\\Status\xe2\x02\x17Grpc\\Status\\GPBMetadata\xea\x02\fGrpc::Statusb\x06proto3"
 
 var (
 	file_core_pkg_api_grpc_status_status_proto_rawDescOnce sync.Once
@@ -346,24 +346,24 @@ func file_core_pkg_api_grpc_status_status_proto_rawDescGZIP() []byte {
 
 var file_core_pkg_api_grpc_status_status_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_core_pkg_api_grpc_status_status_proto_goTypes = []any{
-	(*SetRequest)(nil),       // 0: synnax.api.grpc.status.SetRequest
-	(*SetResponse)(nil),      // 1: synnax.api.grpc.status.SetResponse
-	(*RetrieveRequest)(nil),  // 2: synnax.api.grpc.status.RetrieveRequest
-	(*RetrieveResponse)(nil), // 3: synnax.api.grpc.status.RetrieveResponse
-	(*DeleteRequest)(nil),    // 4: synnax.api.grpc.status.DeleteRequest
-	(*pb.Status)(nil),        // 5: synnax.status.Status
+	(*SetRequest)(nil),       // 0: grpc.status.SetRequest
+	(*SetResponse)(nil),      // 1: grpc.status.SetResponse
+	(*RetrieveRequest)(nil),  // 2: grpc.status.RetrieveRequest
+	(*RetrieveResponse)(nil), // 3: grpc.status.RetrieveResponse
+	(*DeleteRequest)(nil),    // 4: grpc.status.DeleteRequest
+	(*pb.Status)(nil),        // 5: x.status.Status
 	(*emptypb.Empty)(nil),    // 6: google.protobuf.Empty
 }
 var file_core_pkg_api_grpc_status_status_proto_depIdxs = []int32{
-	5, // 0: synnax.api.grpc.status.SetRequest.statuses:type_name -> synnax.status.Status
-	5, // 1: synnax.api.grpc.status.SetResponse.statuses:type_name -> synnax.status.Status
-	5, // 2: synnax.api.grpc.status.RetrieveResponse.statuses:type_name -> synnax.status.Status
-	0, // 3: synnax.api.grpc.status.StatusSetService.Exec:input_type -> synnax.api.grpc.status.SetRequest
-	2, // 4: synnax.api.grpc.status.StatusRetrieveService.Exec:input_type -> synnax.api.grpc.status.RetrieveRequest
-	4, // 5: synnax.api.grpc.status.StatusDeleteService.Exec:input_type -> synnax.api.grpc.status.DeleteRequest
-	1, // 6: synnax.api.grpc.status.StatusSetService.Exec:output_type -> synnax.api.grpc.status.SetResponse
-	3, // 7: synnax.api.grpc.status.StatusRetrieveService.Exec:output_type -> synnax.api.grpc.status.RetrieveResponse
-	6, // 8: synnax.api.grpc.status.StatusDeleteService.Exec:output_type -> google.protobuf.Empty
+	5, // 0: grpc.status.SetRequest.statuses:type_name -> x.status.Status
+	5, // 1: grpc.status.SetResponse.statuses:type_name -> x.status.Status
+	5, // 2: grpc.status.RetrieveResponse.statuses:type_name -> x.status.Status
+	0, // 3: grpc.status.StatusSetService.Exec:input_type -> grpc.status.SetRequest
+	2, // 4: grpc.status.StatusRetrieveService.Exec:input_type -> grpc.status.RetrieveRequest
+	4, // 5: grpc.status.StatusDeleteService.Exec:input_type -> grpc.status.DeleteRequest
+	1, // 6: grpc.status.StatusSetService.Exec:output_type -> grpc.status.SetResponse
+	3, // 7: grpc.status.StatusRetrieveService.Exec:output_type -> grpc.status.RetrieveResponse
+	6, // 8: grpc.status.StatusDeleteService.Exec:output_type -> google.protobuf.Empty
 	6, // [6:9] is the sub-list for method output_type
 	3, // [3:6] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name

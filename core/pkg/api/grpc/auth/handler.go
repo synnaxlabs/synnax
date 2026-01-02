@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
-	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
@@ -27,9 +26,9 @@ import (
 type (
 	loginServer = fgrpc.UnaryServer[
 		apiauth.LoginRequest,
-		*gapi.LoginRequest,
+		*LoginRequest,
 		apiauth.LoginResponse,
-		*gapi.LoginResponse,
+		*LoginResponse,
 	]
 )
 
@@ -39,20 +38,20 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[apiauth.LoginRequest, *gapi.LoginRequest]   = (*loginRequestTranslator)(nil)
-	_ fgrpc.Translator[apiauth.LoginResponse, *gapi.LoginResponse] = (*loginResponseTranslator)(nil)
+	_ fgrpc.Translator[apiauth.LoginRequest, *LoginRequest]   = (*loginRequestTranslator)(nil)
+	_ fgrpc.Translator[apiauth.LoginResponse, *LoginResponse] = (*loginResponseTranslator)(nil)
 )
 
 func (l loginRequestTranslator) Forward(
 	_ context.Context,
 	req apiauth.LoginRequest,
-) (*gapi.LoginRequest, error) {
-	return &gapi.LoginRequest{Username: req.Username, Password: string(req.Password)}, nil
+) (*LoginRequest, error) {
+	return &LoginRequest{Username: req.Username, Password: string(req.Password)}, nil
 }
 
 func (l loginRequestTranslator) Backward(
 	_ context.Context,
-	req *gapi.LoginRequest,
+	req *LoginRequest,
 ) (apiauth.LoginRequest, error) {
 	creds := svcauth.InsecureCredentials{Username: req.Username, Password: password.Raw(req.Password)}
 	return apiauth.LoginRequest{InsecureCredentials: creds}, nil
@@ -61,14 +60,14 @@ func (l loginRequestTranslator) Backward(
 func (l loginResponseTranslator) Forward(
 	_ context.Context,
 	r apiauth.LoginResponse,
-) (*gapi.LoginResponse, error) {
-	return &gapi.LoginResponse{
+) (*LoginResponse, error) {
+	return &LoginResponse{
 		Token: r.Token,
-		User: &gapi.User{
+		User: &User{
 			Key:      r.User.Key.String(),
 			Username: r.User.Username,
 		},
-		ClusterInfo: &gapi.ClusterInfo{
+		ClusterInfo: &ClusterInfo{
 			ClusterKey:  r.ClusterInfo.ClusterKey,
 			NodeVersion: r.ClusterInfo.NodeVersion,
 			NodeKey:     uint32(r.ClusterInfo.NodeKey),
@@ -79,7 +78,7 @@ func (l loginResponseTranslator) Forward(
 
 func (l loginResponseTranslator) Backward(
 	_ context.Context,
-	r *gapi.LoginResponse,
+	r *LoginResponse,
 ) (apiauth.LoginResponse, error) {
 	key, err := uuid.Parse(r.User.Key)
 	return apiauth.LoginResponse{
@@ -101,7 +100,7 @@ func New(a *api.Transport) fgrpc.BindableTransport {
 	s := &loginServer{
 		RequestTranslator:  loginRequestTranslator{},
 		ResponseTranslator: loginResponseTranslator{},
-		ServiceDesc:        &gapi.AuthLoginService_ServiceDesc,
+		ServiceDesc:        &AuthLoginService_ServiceDesc,
 	}
 	a.AuthLogin = s
 	return s

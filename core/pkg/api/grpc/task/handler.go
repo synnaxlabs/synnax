@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
-	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskpb "github.com/synnaxlabs/synnax/pkg/service/task/pb"
@@ -27,27 +26,27 @@ import (
 type (
 	createServer = fgrpc.UnaryServer[
 		apitask.CreateRequest,
-		*gapi.TaskCreateRequest,
+		*CreateRequest,
 		apitask.CreateResponse,
-		*gapi.TaskCreateResponse,
+		*CreateResponse,
 	]
 	retrieveServer = fgrpc.UnaryServer[
 		apitask.RetrieveRequest,
-		*gapi.TaskRetrieveRequest,
+		*RetrieveRequest,
 		apitask.RetrieveResponse,
-		*gapi.TaskRetrieveResponse,
+		*RetrieveResponse,
 	]
 	deleteServer = fgrpc.UnaryServer[
 		apitask.DeleteRequest,
-		*gapi.TaskDeleteRequest,
+		*DeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
 	copyServer = fgrpc.UnaryServer[
 		apitask.CopyRequest,
-		*gapi.TaskCopyRequest,
+		*CopyRequest,
 		apitask.CopyResponse,
-		*gapi.TaskCopyResponse,
+		*CopyResponse,
 	]
 )
 
@@ -62,24 +61,24 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[apitask.CreateRequest, *gapi.TaskCreateRequest]       = createRequestTranslator{}
-	_ fgrpc.Translator[apitask.CreateResponse, *gapi.TaskCreateResponse]     = createResponseTranslator{}
-	_ fgrpc.Translator[apitask.RetrieveRequest, *gapi.TaskRetrieveRequest]   = retrieveRequestTranslator{}
-	_ fgrpc.Translator[apitask.RetrieveResponse, *gapi.TaskRetrieveResponse] = retrieveResponseTranslator{}
-	_ fgrpc.Translator[apitask.DeleteRequest, *gapi.TaskDeleteRequest]       = deleteRequestTranslator{}
-	_ fgrpc.Translator[apitask.CopyRequest, *gapi.TaskCopyRequest]           = copyRequestTranslator{}
-	_ fgrpc.Translator[apitask.CopyResponse, *gapi.TaskCopyResponse]         = copyResponseTranslator{}
+	_ fgrpc.Translator[apitask.CreateRequest, *CreateRequest]       = createRequestTranslator{}
+	_ fgrpc.Translator[apitask.CreateResponse, *CreateResponse]     = createResponseTranslator{}
+	_ fgrpc.Translator[apitask.RetrieveRequest, *RetrieveRequest]   = retrieveRequestTranslator{}
+	_ fgrpc.Translator[apitask.RetrieveResponse, *RetrieveResponse] = retrieveResponseTranslator{}
+	_ fgrpc.Translator[apitask.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
+	_ fgrpc.Translator[apitask.CopyRequest, *CopyRequest]           = copyRequestTranslator{}
+	_ fgrpc.Translator[apitask.CopyResponse, *CopyResponse]         = copyResponseTranslator{}
 )
 
-func (createRequestTranslator) Forward(ctx context.Context, req apitask.CreateRequest) (*gapi.TaskCreateRequest, error) {
+func (createRequestTranslator) Forward(ctx context.Context, req apitask.CreateRequest) (*CreateRequest, error) {
 	tasks, err := taskpb.TasksToPB(ctx, req.Tasks)
 	if err != nil {
 		return nil, err
 	}
-	return &gapi.TaskCreateRequest{Tasks: tasks}, nil
+	return &CreateRequest{Tasks: tasks}, nil
 }
 
-func (createRequestTranslator) Backward(ctx context.Context, req *gapi.TaskCreateRequest) (apitask.CreateRequest, error) {
+func (createRequestTranslator) Backward(ctx context.Context, req *CreateRequest) (apitask.CreateRequest, error) {
 	tasks, err := taskpb.TasksFromPB(ctx, req.Tasks)
 	if err != nil {
 		return apitask.CreateRequest{}, err
@@ -87,15 +86,15 @@ func (createRequestTranslator) Backward(ctx context.Context, req *gapi.TaskCreat
 	return apitask.CreateRequest{Tasks: tasks}, nil
 }
 
-func (createResponseTranslator) Forward(ctx context.Context, res apitask.CreateResponse) (*gapi.TaskCreateResponse, error) {
+func (createResponseTranslator) Forward(ctx context.Context, res apitask.CreateResponse) (*CreateResponse, error) {
 	tasks, err := taskpb.TasksToPB(ctx, res.Tasks)
 	if err != nil {
 		return nil, err
 	}
-	return &gapi.TaskCreateResponse{Tasks: tasks}, nil
+	return &CreateResponse{Tasks: tasks}, nil
 }
 
-func (createResponseTranslator) Backward(ctx context.Context, res *gapi.TaskCreateResponse) (apitask.CreateResponse, error) {
+func (createResponseTranslator) Backward(ctx context.Context, res *CreateResponse) (apitask.CreateResponse, error) {
 	tasks, err := taskpb.TasksFromPB(ctx, res.Tasks)
 	if err != nil {
 		return apitask.CreateResponse{}, err
@@ -103,8 +102,8 @@ func (createResponseTranslator) Backward(ctx context.Context, res *gapi.TaskCrea
 	return apitask.CreateResponse{Tasks: tasks}, nil
 }
 
-func (retrieveRequestTranslator) Forward(_ context.Context, req apitask.RetrieveRequest) (*gapi.TaskRetrieveRequest, error) {
-	return &gapi.TaskRetrieveRequest{
+func (retrieveRequestTranslator) Forward(_ context.Context, req apitask.RetrieveRequest) (*RetrieveRequest, error) {
+	return &RetrieveRequest{
 		Rack:          uint32(req.Rack),
 		Keys:          unsafe.ReinterpretSlice[task.Key, uint64](req.Keys),
 		Names:         req.Names,
@@ -113,7 +112,7 @@ func (retrieveRequestTranslator) Forward(_ context.Context, req apitask.Retrieve
 	}, nil
 }
 
-func (retrieveRequestTranslator) Backward(_ context.Context, req *gapi.TaskRetrieveRequest) (apitask.RetrieveRequest, error) {
+func (retrieveRequestTranslator) Backward(_ context.Context, req *RetrieveRequest) (apitask.RetrieveRequest, error) {
 	return apitask.RetrieveRequest{
 		Rack:          rack.Key(req.Rack),
 		Keys:          unsafe.ReinterpretSlice[uint64, task.Key](req.Keys),
@@ -123,15 +122,15 @@ func (retrieveRequestTranslator) Backward(_ context.Context, req *gapi.TaskRetri
 	}, nil
 }
 
-func (retrieveResponseTranslator) Forward(ctx context.Context, res apitask.RetrieveResponse) (*gapi.TaskRetrieveResponse, error) {
+func (retrieveResponseTranslator) Forward(ctx context.Context, res apitask.RetrieveResponse) (*RetrieveResponse, error) {
 	tasks, err := taskpb.TasksToPB(ctx, res.Tasks)
 	if err != nil {
 		return nil, err
 	}
-	return &gapi.TaskRetrieveResponse{Tasks: tasks}, nil
+	return &RetrieveResponse{Tasks: tasks}, nil
 }
 
-func (retrieveResponseTranslator) Backward(ctx context.Context, res *gapi.TaskRetrieveResponse) (apitask.RetrieveResponse, error) {
+func (retrieveResponseTranslator) Backward(ctx context.Context, res *RetrieveResponse) (apitask.RetrieveResponse, error) {
 	tasks, err := taskpb.TasksFromPB(ctx, res.Tasks)
 	if err != nil {
 		return apitask.RetrieveResponse{}, err
@@ -139,23 +138,23 @@ func (retrieveResponseTranslator) Backward(ctx context.Context, res *gapi.TaskRe
 	return apitask.RetrieveResponse{Tasks: tasks}, nil
 }
 
-func (deleteRequestTranslator) Forward(_ context.Context, req apitask.DeleteRequest) (*gapi.TaskDeleteRequest, error) {
-	return &gapi.TaskDeleteRequest{Keys: unsafe.ReinterpretSlice[task.Key, uint64](req.Keys)}, nil
+func (deleteRequestTranslator) Forward(_ context.Context, req apitask.DeleteRequest) (*DeleteRequest, error) {
+	return &DeleteRequest{Keys: unsafe.ReinterpretSlice[task.Key, uint64](req.Keys)}, nil
 }
 
-func (deleteRequestTranslator) Backward(_ context.Context, req *gapi.TaskDeleteRequest) (apitask.DeleteRequest, error) {
+func (deleteRequestTranslator) Backward(_ context.Context, req *DeleteRequest) (apitask.DeleteRequest, error) {
 	return apitask.DeleteRequest{Keys: unsafe.ReinterpretSlice[uint64, task.Key](req.Keys)}, nil
 }
 
-func (copyRequestTranslator) Forward(_ context.Context, req apitask.CopyRequest) (*gapi.TaskCopyRequest, error) {
-	return &gapi.TaskCopyRequest{
+func (copyRequestTranslator) Forward(_ context.Context, req apitask.CopyRequest) (*CopyRequest, error) {
+	return &CopyRequest{
 		Key:      uint64(req.Key),
 		Name:     req.Name,
 		Snapshot: req.Snapshot,
 	}, nil
 }
 
-func (copyRequestTranslator) Backward(_ context.Context, req *gapi.TaskCopyRequest) (apitask.CopyRequest, error) {
+func (copyRequestTranslator) Backward(_ context.Context, req *CopyRequest) (apitask.CopyRequest, error) {
 	return apitask.CopyRequest{
 		Key:      task.Key(req.Key),
 		Name:     req.Name,
@@ -163,15 +162,15 @@ func (copyRequestTranslator) Backward(_ context.Context, req *gapi.TaskCopyReque
 	}, nil
 }
 
-func (copyResponseTranslator) Forward(ctx context.Context, res apitask.CopyResponse) (*gapi.TaskCopyResponse, error) {
+func (copyResponseTranslator) Forward(ctx context.Context, res apitask.CopyResponse) (*CopyResponse, error) {
 	t, err := taskpb.TaskToPB(ctx, res.Task)
 	if err != nil {
 		return nil, err
 	}
-	return &gapi.TaskCopyResponse{Task: t}, nil
+	return &CopyResponse{Task: t}, nil
 }
 
-func (copyResponseTranslator) Backward(ctx context.Context, res *gapi.TaskCopyResponse) (apitask.CopyResponse, error) {
+func (copyResponseTranslator) Backward(ctx context.Context, res *CopyResponse) (apitask.CopyResponse, error) {
 	t, err := taskpb.TaskFromPB(ctx, res.Task)
 	if err != nil {
 		return apitask.CopyResponse{}, err
@@ -183,25 +182,25 @@ func New(a *api.Transport) fgrpc.BindableTransport {
 	create := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
-		ServiceDesc:        &gapi.TaskCreateService_ServiceDesc,
+		ServiceDesc:        &TaskCreateService_ServiceDesc,
 	}
 	a.TaskCreate = create
 	retrieve := &retrieveServer{
 		RequestTranslator:  retrieveRequestTranslator{},
 		ResponseTranslator: retrieveResponseTranslator{},
-		ServiceDesc:        &gapi.TaskRetrieveService_ServiceDesc,
+		ServiceDesc:        &TaskRetrieveService_ServiceDesc,
 	}
 	a.TaskRetrieve = retrieve
 	del := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: fgrpc.EmptyTranslator{},
-		ServiceDesc:        &gapi.TaskDeleteService_ServiceDesc,
+		ServiceDesc:        &TaskDeleteService_ServiceDesc,
 	}
 	a.TaskDelete = del
 	cpy := &copyServer{
 		RequestTranslator:  copyRequestTranslator{},
 		ResponseTranslator: copyResponseTranslator{},
-		ServiceDesc:        &gapi.TaskCopyService_ServiceDesc,
+		ServiceDesc:        &TaskCopyService_ServiceDesc,
 	}
 	a.TaskCopy = cpy
 

@@ -15,6 +15,7 @@ from freighter import URL
 from synnax.access import Client as AccessClient
 from synnax.access.policy.client import PolicyClient
 from synnax.access.role.client import RoleClient
+from synnax.alias import Client as AliasClient
 from synnax.auth import AuthenticationClient
 from synnax.channel import ChannelClient
 from synnax.channel.retrieve import CacheChannelRetriever, ClusterChannelRetriever
@@ -24,6 +25,7 @@ from synnax.control import Client as ControlClient
 from synnax.device import Client as DeviceClient
 from synnax.framer import Client
 from synnax.framer.deleter import Deleter
+from synnax.kv import Client as KVClient
 from synnax.ontology import Client as OntologyClient
 from synnax.ontology.group import Client as GroupClient
 from synnax.options import SynnaxOptions
@@ -71,6 +73,8 @@ class Synnax(Client):
     tasks: TaskClient
     ontology: OntologyClient
     statuses: StatusClient
+    kv: KVClient
+    aliases: AliasClient
 
     _transport: Transport
 
@@ -169,6 +173,8 @@ class Synnax(Client):
             roles=RoleClient(self._transport.unary, instrumentation),
             policies=PolicyClient(self._transport.unary, instrumentation),
         )
+        self.kv = KVClient(self._transport.unary)
+        self.aliases = AliasClient(self._transport.unary)
 
     @property
     def hardware(self) -> "Synnax":

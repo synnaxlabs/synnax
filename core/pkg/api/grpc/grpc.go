@@ -20,12 +20,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
+	aliasgrpc "github.com/synnaxlabs/synnax/pkg/api/grpc/alias"
 	arcgrpc "github.com/synnaxlabs/synnax/pkg/api/grpc/arc"
 	authgrpc "github.com/synnaxlabs/synnax/pkg/api/grpc/auth"
 	channelgrpc "github.com/synnaxlabs/synnax/pkg/api/grpc/channel"
 	connectivitygrpc "github.com/synnaxlabs/synnax/pkg/api/grpc/connectivity"
 	devicegrpc "github.com/synnaxlabs/synnax/pkg/api/grpc/device"
 	framergrpc "github.com/synnaxlabs/synnax/pkg/api/grpc/framer"
+	kvgrpc "github.com/synnaxlabs/synnax/pkg/api/grpc/kv"
 	rackgrpc "github.com/synnaxlabs/synnax/pkg/api/grpc/rack"
 	rangergrpc "github.com/synnaxlabs/synnax/pkg/api/grpc/ranger"
 	statusgrpc "github.com/synnaxlabs/synnax/pkg/api/grpc/status"
@@ -50,6 +52,8 @@ func New(channelSvc *distchannel.Service) (api.Transport, []fgrpc.BindableTransp
 		connectivitygrpc.New(&a),
 		authgrpc.New(&a),
 		rangergrpc.New(&a),
+		kvgrpc.New(&a),
+		aliasgrpc.New(&a),
 		rackgrpc.New(&a),
 		taskgrpc.New(&a),
 		devicegrpc.New(&a),

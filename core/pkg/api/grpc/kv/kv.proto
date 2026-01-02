@@ -1,0 +1,48 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+syntax = "proto3";
+
+package grpc.kv;
+
+import "google/protobuf/empty.proto";
+import "core/pkg/service/ranger/kv/pb/kv.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/kv";
+
+service KVGetService {
+  rpc Exec(GetRequest) returns (GetResponse) {}
+}
+
+service KVSetService {
+  rpc Exec(SetRequest) returns (google.protobuf.Empty) {}
+}
+
+service KVDeleteService {
+  rpc Exec(DeleteRequest) returns (google.protobuf.Empty) {}
+}
+
+message GetRequest {
+  string range = 1;
+  repeated string keys = 2;
+}
+
+message GetResponse {
+  repeated service.kv.Pair pairs = 1;
+}
+
+message SetRequest {
+  string range = 1;
+  repeated service.kv.Pair pairs = 2;
+}
+
+message DeleteRequest {
+  string range = 1;
+  repeated string keys = 2;
+}

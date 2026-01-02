@@ -745,7 +745,7 @@ import (
 {{- end}}
 {{- range .TypeDefs}}
 
-type {{.Name}} {{.BaseType}}
+type {{.Name}} = {{.BaseType}}
 {{- end}}
 {{- range $enum := .Enums}}
 

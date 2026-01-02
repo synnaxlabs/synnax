@@ -15,4 +15,5 @@ Pair struct {
     value string
 
     @go output "core/pkg/service/ranger/kv"
+    @pb
 }

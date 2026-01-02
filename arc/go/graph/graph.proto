@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package arc.v1.graph;
+package x.arc.graph;
 
 import "arc/go/ir/ir.proto";
 import "google/protobuf/struct.proto";

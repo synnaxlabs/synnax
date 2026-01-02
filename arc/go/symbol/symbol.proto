@@ -9,7 +9,7 @@
 
 syntax = "proto3";
 
-package arc.v1.symbol;
+package x.arc.symbol;
 
 option go_package = "github.com/synnaxlabs/arc/symbol";
 

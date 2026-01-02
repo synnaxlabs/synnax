@@ -9,14 +9,14 @@
 
 syntax = "proto3";
 
-package arc.v1.module;
+package x.arc.module;
 
 import "arc/go/ir/ir.proto";
 
 option go_package = "github.com/synnaxlabs/arc/module";
 
 message PBModule {
-  arc.v1.ir.PBIR ir = 1;
+  x.arc.ir.PBIR ir = 1;
   bytes wasm = 2;
   map<string, uint32> output_memory_bases = 3;
 }

@@ -1,0 +1,246 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package alias
+
+import (
+	"context"
+	"go/types"
+
+	"github.com/google/uuid"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/config"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
+)
+
+type Service struct {
+	db       *gorp.DB
+	access   *rbac.Service
+	internal *ranger.Service
+}
+
+func NewService(cfg config.Config) *Service {
+	return &Service{
+		db:       cfg.Distribution.DB,
+		access:   cfg.Service.RBAC,
+		internal: cfg.Service.Ranger,
+	}
+}
+
+type SetRequest struct {
+	Range   uuid.UUID              `json:"range" msgpack:"range"`
+	Aliases map[channel.Key]string `json:"aliases" msgpack:"aliases"`
+}
+
+func (s *Service) Set(
+	ctx context.Context,
+	req SetRequest,
+) (types.Nil, error) {
+	keys := lo.Keys(req.Aliases)
+	if err := s.access.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionCreate,
+		Objects: ranger.AliasOntologyIDs(req.Range, keys),
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		var rng ranger.Range
+		if err := s.
+			internal.
+			NewRetrieve().
+			Entry(&rng).
+			WhereKeys(req.Range).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+		rng = rng.UseTx(tx)
+		for k, v := range req.Aliases {
+			if err := rng.SetAlias(ctx, k, v); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+type (
+	ResolveRequest struct {
+		Range   uuid.UUID `json:"range" msgpack:"range"`
+		Aliases []string  `json:"aliases" msgpack:"aliases"`
+	}
+	ResolveResponse struct {
+		Aliases map[string]channel.Key `json:"aliases" msgpack:"aliases"`
+	}
+)
+
+func (s *Service) Resolve(
+	ctx context.Context,
+	req ResolveRequest,
+) (ResolveResponse, error) {
+	var r ranger.Range
+	if err := s.
+		internal.
+		NewRetrieve().
+		Entry(&r).
+		WhereKeys(req.Range).
+		Exec(ctx, nil); err != nil {
+		return ResolveResponse{}, err
+	}
+	aliases := make(map[string]channel.Key, len(req.Aliases))
+
+	for _, alias := range req.Aliases {
+		ch, err := r.ResolveAlias(ctx, alias)
+		if err != nil && !errors.Is(err, query.NotFound) {
+			return ResolveResponse{}, err
+		}
+		if ch != 0 {
+			aliases[alias] = ch
+		}
+	}
+
+	keys := lo.Values(aliases)
+
+	if err := s.access.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: ranger.AliasOntologyIDs(req.Range, keys),
+	}); err != nil {
+		return ResolveResponse{}, err
+	}
+
+	return ResolveResponse{Aliases: aliases}, nil
+}
+
+type DeleteRequest struct {
+	Range    uuid.UUID     `json:"range" msgpack:"range"`
+	Channels []channel.Key `json:"channels" msgpack:"channels"`
+}
+
+func (s *Service) Delete(
+	ctx context.Context,
+	req DeleteRequest,
+) (types.Nil, error) {
+	if err := s.access.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionDelete,
+		Objects: ranger.AliasOntologyIDs(req.Range, req.Channels),
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		var rng ranger.Range
+		if err := s.
+			internal.
+			NewRetrieve().
+			Entry(&rng).
+			WhereKeys(req.Range).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+		rng = rng.UseTx(tx)
+		for _, alias := range req.Channels {
+			if err := rng.DeleteAlias(ctx, alias); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+type (
+	ListRequest struct {
+		Range uuid.UUID `json:"range" msgpack:"range"`
+	}
+	ListResponse struct {
+		Aliases map[channel.Key]string `json:"aliases" msgpack:"aliases"`
+	}
+)
+
+func (s *Service) List(
+	ctx context.Context,
+	req ListRequest,
+) (ListResponse, error) {
+	var r ranger.Range
+	if err := s.
+		internal.
+		NewRetrieve().
+		Entry(&r).
+		WhereKeys(req.Range).
+		Exec(ctx, nil); err != nil {
+		return ListResponse{}, err
+	}
+	aliases, err := r.RetrieveAliases(ctx)
+	if err != nil {
+		return ListResponse{}, err
+	}
+	keys := lo.Keys(aliases)
+	if err := s.access.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: ranger.AliasOntologyIDs(req.Range, keys),
+	}); err != nil {
+		return ListResponse{}, err
+	}
+
+	return ListResponse{Aliases: aliases}, nil
+}
+
+type (
+	RetrieveRequest struct {
+		Range    uuid.UUID     `json:"range" msgpack:"range"`
+		Channels []channel.Key `json:"channels" msgpack:"channels"`
+	}
+	RetrieveResponse struct {
+		Aliases map[channel.Key]string `json:"aliases" msgpack:"aliases"`
+	}
+)
+
+func (s *Service) Retrieve(
+	ctx context.Context,
+	req RetrieveRequest,
+) (RetrieveResponse, error) {
+	if err := s.access.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: ranger.AliasOntologyIDs(req.Range, req.Channels),
+	}); err != nil {
+		return RetrieveResponse{}, err
+	}
+	var r ranger.Range
+	if err := s.
+		internal.
+		NewRetrieve().
+		Entry(&r).
+		WhereKeys(req.Range).
+		Exec(ctx, nil); err != nil {
+		return RetrieveResponse{}, err
+	}
+
+	aliases := make(map[channel.Key]string)
+	for _, ch := range req.Channels {
+		alias, err := r.RetrieveAlias(ctx, ch)
+		if err != nil && !errors.Is(err, query.NotFound) {
+			return RetrieveResponse{}, err
+		}
+		if alias != "" {
+			aliases[ch] = alias
+		}
+	}
+
+	return RetrieveResponse{Aliases: aliases}, nil
+}

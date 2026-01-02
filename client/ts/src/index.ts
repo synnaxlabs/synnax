@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export { access } from "@/access";
+export { alias } from "@/alias";
 export { arc } from "@/arc";
 export { channel } from "@/channel";
 export { Channel, isCalculated } from "@/channel/client";
@@ -35,6 +36,7 @@ export {
 } from "@/errors";
 export { framer } from "@/framer";
 export { Frame } from "@/framer/frame";
+export { kv } from "@/kv";
 export { label } from "@/label";
 export { ontology } from "@/ontology";
 export { group } from "@/ontology/group";

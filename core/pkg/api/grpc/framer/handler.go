@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apifra "github.com/synnaxlabs/synnax/pkg/api/framer"
-	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
@@ -47,38 +46,38 @@ type (
 	frameDeleteRequestTranslator struct{}
 	framerWriterServerCore       = fgrpc.StreamServerCore[
 		apifra.WriterRequest,
-		*gapi.FrameWriterRequest,
+		*FrameWriterRequest,
 		apifra.WriterResponse,
-		*gapi.FrameWriterResponse,
+		*FrameWriterResponse,
 	]
 	frameIteratorServerCore = fgrpc.StreamServerCore[
 		apifra.IteratorRequest,
-		*gapi.FrameIteratorRequest,
+		*FrameIteratorRequest,
 		apifra.IteratorResponse,
-		*gapi.FrameIteratorResponse,
+		*FrameIteratorResponse,
 	]
 	frameStreamerServerCore = fgrpc.StreamServerCore[
 		apifra.StreamerRequest,
-		*gapi.FrameStreamerRequest,
+		*FrameStreamerRequest,
 		apifra.StreamerResponse,
-		*gapi.FrameStreamerResponse,
+		*FrameStreamerResponse,
 	]
 	frameDeleteServer = fgrpc.UnaryServer[
 		apifra.DeleteRequest,
-		*gapi.FrameDeleteRequest,
+		*FrameDeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
 )
 
 var (
-	_ fgrpc.Translator[apifra.WriterRequest, *gapi.FrameWriterRequest]       = (*frameWriterRequestTranslator)(nil)
-	_ fgrpc.Translator[apifra.WriterResponse, *gapi.FrameWriterResponse]     = (*frameWriterResponseTranslator)(nil)
-	_ fgrpc.Translator[apifra.IteratorRequest, *gapi.FrameIteratorRequest]   = (*frameIteratorRequestTranslator)(nil)
-	_ fgrpc.Translator[apifra.IteratorResponse, *gapi.FrameIteratorResponse] = (*frameIteratorResponseTranslator)(nil)
-	_ fgrpc.Translator[apifra.StreamerRequest, *gapi.FrameStreamerRequest]   = (*frameStreamerRequestTranslator)(nil)
-	_ fgrpc.Translator[apifra.StreamerResponse, *gapi.FrameStreamerResponse] = (*frameStreamerResponseTranslator)(nil)
-	_ fgrpc.Translator[apifra.DeleteRequest, *gapi.FrameDeleteRequest]       = (*frameDeleteRequestTranslator)(nil)
+	_ fgrpc.Translator[apifra.WriterRequest, *FrameWriterRequest]       = (*frameWriterRequestTranslator)(nil)
+	_ fgrpc.Translator[apifra.WriterResponse, *FrameWriterResponse]     = (*frameWriterResponseTranslator)(nil)
+	_ fgrpc.Translator[apifra.IteratorRequest, *FrameIteratorRequest]   = (*frameIteratorRequestTranslator)(nil)
+	_ fgrpc.Translator[apifra.IteratorResponse, *FrameIteratorResponse] = (*frameIteratorResponseTranslator)(nil)
+	_ fgrpc.Translator[apifra.StreamerRequest, *FrameStreamerRequest]   = (*frameStreamerRequestTranslator)(nil)
+	_ fgrpc.Translator[apifra.StreamerResponse, *FrameStreamerResponse] = (*frameStreamerResponseTranslator)(nil)
+	_ fgrpc.Translator[apifra.DeleteRequest, *FrameDeleteRequest]       = (*frameDeleteRequestTranslator)(nil)
 )
 
 func translateChannelKeysForward(keys []channel.Key) []uint32 {
@@ -125,10 +124,10 @@ func translateControlSubjectBackward(cs *control.ControlSubject) (of control.Sub
 func (t frameWriterRequestTranslator) Forward(
 	ctx context.Context,
 	msg apifra.WriterRequest,
-) (*gapi.FrameWriterRequest, error) {
-	r := &gapi.FrameWriterRequest{
+) (*FrameWriterRequest, error) {
+	r := &FrameWriterRequest{
 		Command: int32(msg.Command),
-		Config: &gapi.FrameWriterConfig{
+		Config: &FrameWriterConfig{
 			Keys:                     translateChannelKeysForward(msg.Config.Keys),
 			Start:                    int64(msg.Config.Start),
 			Mode:                     int32(msg.Config.Mode),
@@ -150,7 +149,7 @@ func (t frameWriterRequestTranslator) Forward(
 
 func (t frameWriterRequestTranslator) Backward(
 	ctx context.Context,
-	msg *gapi.FrameWriterRequest,
+	msg *FrameWriterRequest,
 ) (r apifra.WriterRequest, err error) {
 	if msg == nil {
 		return
@@ -182,8 +181,8 @@ func (t frameWriterRequestTranslator) Backward(
 func (t frameWriterResponseTranslator) Forward(
 	ctx context.Context,
 	msg apifra.WriterResponse,
-) (*gapi.FrameWriterResponse, error) {
-	return &gapi.FrameWriterResponse{
+) (*FrameWriterResponse, error) {
+	return &FrameWriterResponse{
 		Command: int32(msg.Command),
 		End:     int64(msg.End),
 		Error:   errors.TranslatePayloadForward(msg.Err),
@@ -192,7 +191,7 @@ func (t frameWriterResponseTranslator) Forward(
 
 func (t frameWriterResponseTranslator) Backward(
 	ctx context.Context,
-	msg *gapi.FrameWriterResponse,
+	msg *FrameWriterResponse,
 ) (apifra.WriterResponse, error) {
 	return apifra.WriterResponse{
 		Command: writer.Command(msg.Command),
@@ -204,8 +203,8 @@ func (t frameWriterResponseTranslator) Backward(
 func (t frameIteratorRequestTranslator) Forward(
 	ctx context.Context,
 	msg apifra.IteratorRequest,
-) (*gapi.FrameIteratorRequest, error) {
-	return &gapi.FrameIteratorRequest{
+) (*FrameIteratorRequest, error) {
+	return &FrameIteratorRequest{
 		Command:   int32(msg.Command),
 		Span:      int64(msg.Span),
 		Range:     telem.TranslateTimeRangeForward(msg.Bounds),
@@ -217,7 +216,7 @@ func (t frameIteratorRequestTranslator) Forward(
 
 func (t frameIteratorRequestTranslator) Backward(
 	ctx context.Context,
-	msg *gapi.FrameIteratorRequest,
+	msg *FrameIteratorRequest,
 ) (apifra.IteratorRequest, error) {
 	return apifra.IteratorRequest{
 		Command:   iterator.Command(msg.Command),
@@ -232,8 +231,8 @@ func (t frameIteratorRequestTranslator) Backward(
 func (t frameIteratorResponseTranslator) Forward(
 	ctx context.Context,
 	msg apifra.IteratorResponse,
-) (*gapi.FrameIteratorResponse, error) {
-	return &gapi.FrameIteratorResponse{
+) (*FrameIteratorResponse, error) {
+	return &FrameIteratorResponse{
 		Variant: int32(msg.Variant),
 		Command: int32(msg.Command),
 		NodeKey: int32(msg.NodeKey),
@@ -246,7 +245,7 @@ func (t frameIteratorResponseTranslator) Forward(
 
 func (t frameIteratorResponseTranslator) Backward(
 	ctx context.Context,
-	msg *gapi.FrameIteratorResponse,
+	msg *FrameIteratorResponse,
 ) (apifra.IteratorResponse, error) {
 	return apifra.IteratorResponse{
 		Variant: iterator.ResponseVariant(msg.Variant),
@@ -262,8 +261,8 @@ func (t frameIteratorResponseTranslator) Backward(
 func (t frameStreamerRequestTranslator) Forward(
 	ctx context.Context,
 	msg apifra.StreamerRequest,
-) (*gapi.FrameStreamerRequest, error) {
-	return &gapi.FrameStreamerRequest{
+) (*FrameStreamerRequest, error) {
+	return &FrameStreamerRequest{
 		Keys:             translateChannelKeysForward(msg.Keys),
 		DownsampleFactor: int32(msg.DownsampleFactor),
 		ThrottleRateHz:   float64(msg.ThrottleRate),
@@ -272,7 +271,7 @@ func (t frameStreamerRequestTranslator) Forward(
 
 func (t frameStreamerRequestTranslator) Backward(
 	ctx context.Context,
-	msg *gapi.FrameStreamerRequest,
+	msg *FrameStreamerRequest,
 ) (apifra.StreamerRequest, error) {
 	rq := apifra.StreamerRequest{
 		Keys:             translateChannelKeysBackward(msg.Keys),
@@ -288,8 +287,8 @@ func (t frameStreamerRequestTranslator) Backward(
 func (t frameStreamerResponseTranslator) Forward(
 	ctx context.Context,
 	msg apifra.StreamerResponse,
-) (res *gapi.FrameStreamerResponse, err error) {
-	res = &gapi.FrameStreamerResponse{}
+) (res *FrameStreamerResponse, err error) {
+	res = &FrameStreamerResponse{}
 	if t.codec.Initialized() {
 		res.Buffer, err = t.codec.Encode(ctx, msg.Frame)
 		return
@@ -300,7 +299,7 @@ func (t frameStreamerResponseTranslator) Forward(
 
 func (t frameStreamerResponseTranslator) Backward(
 	_ context.Context,
-	msg *gapi.FrameStreamerResponse,
+	msg *FrameStreamerResponse,
 ) (apifra.StreamerResponse, error) {
 	return apifra.StreamerResponse{Frame: translateFrameBackward(msg.Frame)}, nil
 }
@@ -308,8 +307,8 @@ func (t frameStreamerResponseTranslator) Backward(
 func (t frameDeleteRequestTranslator) Forward(
 	_ context.Context,
 	msg apifra.DeleteRequest,
-) (*gapi.FrameDeleteRequest, error) {
-	return &gapi.FrameDeleteRequest{
+) (*FrameDeleteRequest, error) {
+	return &FrameDeleteRequest{
 		Keys:   msg.Keys.Uint32(),
 		Names:  msg.Names,
 		Bounds: telem.TranslateTimeRangeForward(msg.Bounds),
@@ -318,7 +317,7 @@ func (t frameDeleteRequestTranslator) Forward(
 
 func (t frameDeleteRequestTranslator) Backward(
 	_ context.Context,
-	msg *gapi.FrameDeleteRequest,
+	msg *FrameDeleteRequest,
 ) (apifra.DeleteRequest, error) {
 	return apifra.DeleteRequest{
 		Keys:   channel.KeysFromUint32(msg.Keys),
@@ -330,37 +329,37 @@ func (t frameDeleteRequestTranslator) Backward(
 type writerServer struct{ *framerWriterServerCore }
 
 func (f *writerServer) Exec(
-	server gapi.FrameWriterService_ExecServer,
+	server FrameWriterService_ExecServer,
 ) error {
 	return f.Handler(server.Context(), server)
 }
 
 func (f *writerServer) BindTo(reg grpc.ServiceRegistrar) {
-	gapi.RegisterFrameWriterServiceServer(reg, f)
+	RegisterFrameWriterServiceServer(reg, f)
 }
 
 type iteratorServer struct{ *frameIteratorServerCore }
 
 func (f *iteratorServer) Exec(
-	server gapi.FrameIteratorService_ExecServer,
+	server FrameIteratorService_ExecServer,
 ) error {
 	return f.Handler(server.Context(), server)
 }
 
 func (f *iteratorServer) BindTo(reg grpc.ServiceRegistrar) {
-	gapi.RegisterFrameIteratorServiceServer(reg, f)
+	RegisterFrameIteratorServiceServer(reg, f)
 }
 
 type streamerServer struct{ *frameStreamerServerCore }
 
 func (f *streamerServer) Exec(
-	stream gapi.FrameStreamerService_ExecServer,
+	stream FrameStreamerService_ExecServer,
 ) error {
 	return f.Handler(stream.Context(), stream)
 }
 
 func (f *streamerServer) BindTo(reg grpc.ServiceRegistrar) {
-	gapi.RegisterFrameStreamerServiceServer(reg, f)
+	RegisterFrameStreamerServiceServer(reg, f)
 }
 
 func New(a *api.Transport, channelSvc *channel.Service) fgrpc.BindableTransport {
@@ -369,34 +368,34 @@ func New(a *api.Transport, channelSvc *channel.Service) fgrpc.BindableTransport 
 			framerWriterServerCore: &framerWriterServerCore{
 				ResponseTranslator: frameWriterResponseTranslator{},
 				CreateTranslators: func() (
-					fgrpc.Translator[apifra.WriterRequest, *gapi.FrameWriterRequest],
-					fgrpc.Translator[apifra.WriterResponse, *gapi.FrameWriterResponse],
+					fgrpc.Translator[apifra.WriterRequest, *FrameWriterRequest],
+					fgrpc.Translator[apifra.WriterResponse, *FrameWriterResponse],
 				) {
 					codec := codec.NewDynamic(channelSvc)
 					return frameWriterRequestTranslator{codec: codec}, frameWriterResponseTranslator{}
 				},
-				ServiceDesc: &gapi.FrameWriterService_ServiceDesc,
+				ServiceDesc: &FrameWriterService_ServiceDesc,
 			},
 		}
 		is = &iteratorServer{
 			frameIteratorServerCore: &frameIteratorServerCore{
 				RequestTranslator:  frameIteratorRequestTranslator{},
 				ResponseTranslator: frameIteratorResponseTranslator{},
-				ServiceDesc:        &gapi.FrameIteratorService_ServiceDesc,
+				ServiceDesc:        &FrameIteratorService_ServiceDesc,
 			},
 		}
 		ss = &streamerServer{
 			frameStreamerServerCore: &frameStreamerServerCore{
-				CreateTranslators: func() (fgrpc.Translator[apifra.StreamerRequest, *gapi.FrameStreamerRequest], fgrpc.Translator[apifra.StreamerResponse, *gapi.FrameStreamerResponse]) {
+				CreateTranslators: func() (fgrpc.Translator[apifra.StreamerRequest, *FrameStreamerRequest], fgrpc.Translator[apifra.StreamerResponse, *FrameStreamerResponse]) {
 					codec := codec.NewDynamic(channelSvc)
 					return frameStreamerRequestTranslator{codec: codec}, frameStreamerResponseTranslator{codec: codec}
 				},
-				ServiceDesc: &gapi.FrameStreamerService_ServiceDesc,
+				ServiceDesc: &FrameStreamerService_ServiceDesc,
 			},
 		}
 		ds = &frameDeleteServer{
 			RequestTranslator: frameDeleteRequestTranslator{},
-			ServiceDesc:       &gapi.FrameDeleteService_ServiceDesc,
+			ServiceDesc:       &FrameDeleteService_ServiceDesc,
 		}
 	)
 	a.FrameStreamer = ss

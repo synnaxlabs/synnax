@@ -11,13 +11,13 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type CrudeTimeRange, type Series, TimeRange } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { Aliaser } from "@/alias/client";
 import { type channel } from "@/channel";
 import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
+import { KV } from "@/kv/client";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
-import { Aliaser } from "@/ranger/alias";
-import { KV } from "@/ranger/kv";
 import {
   type Key,
   type Keys,

@@ -11,6 +11,7 @@ import { breaker, TimeSpan, TimeStamp, URL } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { access } from "@/access";
+import { alias } from "@/alias";
 import { arc } from "@/arc";
 import { auth } from "@/auth";
 import { channel } from "@/channel";
@@ -19,6 +20,7 @@ import { control } from "@/control";
 import { device } from "@/device";
 import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
+import { kv } from "@/kv";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { rack } from "@/rack";
@@ -73,6 +75,8 @@ export default class Synnax extends framer.Client {
   readonly control: control.Client;
   readonly arcs: arc.Client;
   readonly views: view.Client;
+  readonly kv: kv.Client;
+  readonly aliases: alias.Client;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
@@ -156,6 +160,8 @@ export default class Synnax extends framer.Client {
     this.devices = new device.Client(this.transport.unary);
     this.arcs = new arc.Client(this.transport.unary, this.transport.stream);
     this.views = new view.Client(this.transport.unary);
+    this.kv = new kv.Client(this.transport.unary);
+    this.aliases = new alias.Client(this.transport.unary);
   }
 
   get key(): string {

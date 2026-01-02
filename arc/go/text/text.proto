@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package arc.v1.text;
+package x.arc.text;
 
 option go_package = "github.com/synnaxlabs/arc/text";
 

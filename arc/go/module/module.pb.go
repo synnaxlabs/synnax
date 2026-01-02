@@ -95,15 +95,15 @@ var File_arc_go_module_module_proto protoreflect.FileDescriptor
 
 const file_arc_go_module_module_proto_rawDesc = "" +
 	"\n" +
-	"\x1aarc/go/module/module.proto\x12\rarc.v1.module\x1a\x12arc/go/ir/ir.proto\"\xe5\x01\n" +
-	"\bPBModule\x12\x1f\n" +
-	"\x02ir\x18\x01 \x01(\v2\x0f.arc.v1.ir.PBIRR\x02ir\x12\x12\n" +
-	"\x04wasm\x18\x02 \x01(\fR\x04wasm\x12^\n" +
-	"\x13output_memory_bases\x18\x03 \x03(\v2..arc.v1.module.PBModule.OutputMemoryBasesEntryR\x11outputMemoryBases\x1aD\n" +
+	"\x1aarc/go/module/module.proto\x12\fx.arc.module\x1a\x12arc/go/ir/ir.proto\"\xe3\x01\n" +
+	"\bPBModule\x12\x1e\n" +
+	"\x02ir\x18\x01 \x01(\v2\x0e.x.arc.ir.PBIRR\x02ir\x12\x12\n" +
+	"\x04wasm\x18\x02 \x01(\fR\x04wasm\x12]\n" +
+	"\x13output_memory_bases\x18\x03 \x03(\v2-.x.arc.module.PBModule.OutputMemoryBasesEntryR\x11outputMemoryBases\x1aD\n" +
 	"\x16OutputMemoryBasesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\rR\x05value:\x028\x01B\x98\x01\n" +
-	"\x11com.arc.v1.moduleB\vModuleProtoP\x01Z github.com/synnaxlabs/arc/module\xa2\x02\x03AVM\xaa\x02\rArc.V1.Module\xca\x02\rArc\\V1\\Module\xe2\x02\x19Arc\\V1\\Module\\GPBMetadata\xea\x02\x0fArc::V1::Moduleb\x06proto3"
+	"\x05value\x18\x02 \x01(\rR\x05value:\x028\x01B\x93\x01\n" +
+	"\x10com.x.arc.moduleB\vModuleProtoP\x01Z github.com/synnaxlabs/arc/module\xa2\x02\x03XAM\xaa\x02\fX.Arc.Module\xca\x02\fX\\Arc\\Module\xe2\x02\x18X\\Arc\\Module\\GPBMetadata\xea\x02\x0eX::Arc::Moduleb\x06proto3"
 
 var (
 	file_arc_go_module_module_proto_rawDescOnce sync.Once
@@ -119,13 +119,13 @@ func file_arc_go_module_module_proto_rawDescGZIP() []byte {
 
 var file_arc_go_module_module_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_arc_go_module_module_proto_goTypes = []any{
-	(*PBModule)(nil), // 0: arc.v1.module.PBModule
-	nil,              // 1: arc.v1.module.PBModule.OutputMemoryBasesEntry
-	(*ir.PBIR)(nil),  // 2: arc.v1.ir.PBIR
+	(*PBModule)(nil), // 0: x.arc.module.PBModule
+	nil,              // 1: x.arc.module.PBModule.OutputMemoryBasesEntry
+	(*ir.PBIR)(nil),  // 2: x.arc.ir.PBIR
 }
 var file_arc_go_module_module_proto_depIdxs = []int32{
-	2, // 0: arc.v1.module.PBModule.ir:type_name -> arc.v1.ir.PBIR
-	1, // 1: arc.v1.module.PBModule.output_memory_bases:type_name -> arc.v1.module.PBModule.OutputMemoryBasesEntry
+	2, // 0: x.arc.module.PBModule.ir:type_name -> x.arc.ir.PBIR
+	1, // 1: x.arc.module.PBModule.output_memory_bases:type_name -> x.arc.module.PBModule.OutputMemoryBasesEntry
 	2, // [2:2] is the sub-list for method output_type
 	2, // [2:2] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name

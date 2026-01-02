@@ -128,7 +128,7 @@ var File_x_go_control_pb_control_proto protoreflect.FileDescriptor
 
 const file_x_go_control_pb_control_proto_rawDesc = "" +
 	"\n" +
-	"\x1dx/go/control/pb/control.proto\x12\x0esynnax.control\"/\n" +
+	"\x1dx/go/control/pb/control.proto\x12\tx.control\"/\n" +
 	"\aSubject\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name*9\n" +
@@ -136,8 +136,9 @@ const file_x_go_control_pb_control_proto_rawDesc = "" +
 	"\vUNSPECIFIED\x10\x00\x12\r\n" +
 	"\tEXCLUSIVE\x10\x01\x12\n" +
 	"\n" +
-	"\x06SHARED\x10\x02B\x9f\x01\n" +
-	"\x12com.synnax.controlB\fControlProtoP\x01Z\"github.com/synnaxlabs/x/control/pb\xa2\x02\x03SCX\xaa\x02\x0eSynnax.Control\xca\x02\x0eSynnax\\Control\xe2\x02\x1aSynnax\\Control\\GPBMetadata\xea\x02\x0fSynnax::Controlb\x06proto3"
+	"\x06SHARED\x10\x02B\x86\x01\n" +
+	"\rcom.x.controlB\fControlProtoP\x01Z\"github.com/synnaxlabs/x/control/pb\xa2\x02\x03XCX\xaa\x02\tX.Control\xca\x02\tX\\Control\xe2\x02\x15X\\Control\\GPBMetadata\xea\x02\n" +
+	"X::Controlb\x06proto3"
 
 var (
 	file_x_go_control_pb_control_proto_rawDescOnce sync.Once
@@ -154,8 +155,8 @@ func file_x_go_control_pb_control_proto_rawDescGZIP() []byte {
 var file_x_go_control_pb_control_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_x_go_control_pb_control_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_x_go_control_pb_control_proto_goTypes = []any{
-	(Concurrency)(0), // 0: synnax.control.Concurrency
-	(*Subject)(nil),  // 1: synnax.control.Subject
+	(Concurrency)(0), // 0: x.control.Concurrency
+	(*Subject)(nil),  // 1: x.control.Subject
 }
 var file_x_go_control_pb_control_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type

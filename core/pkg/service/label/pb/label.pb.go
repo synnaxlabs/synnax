@@ -87,13 +87,13 @@ var File_core_pkg_service_label_pb_label_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_label_pb_label_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/service/label/pb/label.proto\x12\fsynnax.label\"F\n" +
+	"%core/pkg/service/label/pb/label.proto\x12\rservice.label\"F\n" +
 	"\bSVCLabel\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
-	"\x05color\x18\x03 \x01(\tR\x05colorB\xa2\x01\n" +
-	"\x10com.synnax.labelB\n" +
-	"LabelProtoP\x01Z1github.com/synnaxlabs/synnax/pkg/service/label/pb\xa2\x02\x03SLX\xaa\x02\fSynnax.Label\xca\x02\fSynnax\\Label\xe2\x02\x18Synnax\\Label\\GPBMetadata\xea\x02\rSynnax::Labelb\x06proto3"
+	"\x05color\x18\x03 \x01(\tR\x05colorB\xa7\x01\n" +
+	"\x11com.service.labelB\n" +
+	"LabelProtoP\x01Z1github.com/synnaxlabs/synnax/pkg/service/label/pb\xa2\x02\x03SLX\xaa\x02\rService.Label\xca\x02\rService\\Label\xe2\x02\x19Service\\Label\\GPBMetadata\xea\x02\x0eService::Labelb\x06proto3"
 
 var (
 	file_core_pkg_service_label_pb_label_proto_rawDescOnce sync.Once
@@ -109,7 +109,7 @@ func file_core_pkg_service_label_pb_label_proto_rawDescGZIP() []byte {
 
 var file_core_pkg_service_label_pb_label_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_core_pkg_service_label_pb_label_proto_goTypes = []any{
-	(*SVCLabel)(nil), // 0: synnax.label.SVCLabel
+	(*SVCLabel)(nil), // 0: service.label.SVCLabel
 }
 var file_core_pkg_service_label_pb_label_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type

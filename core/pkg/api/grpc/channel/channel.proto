@@ -9,7 +9,7 @@
 
 syntax = "proto3";
 
-package api.grpc.channel;
+package grpc.channel;
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/channel";
 

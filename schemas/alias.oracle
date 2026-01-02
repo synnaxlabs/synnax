@@ -16,4 +16,5 @@ Alias struct {
     alias   string
 
     @go output "core/pkg/service/ranger/alias"
+    @pb
 }

@@ -1,0 +1,98 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+syntax = "proto3";
+
+package grpc.framer;
+
+import "google/protobuf/empty.proto";
+import "x/go/control/control.proto";
+import "x/go/errors/errors.proto";
+import "x/go/telem/telem.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/framer";
+
+service FrameIteratorService {
+  rpc Exec(stream IteratorRequest) returns (stream IteratorResponse) {}
+}
+
+service FrameWriterService {
+  rpc Exec(stream WriterRequest) returns (stream WriterResponse) {}
+}
+
+service FrameStreamerService {
+  rpc Exec(stream StreamerRequest) returns (stream StreamerResponse) {}
+}
+
+message IteratorRequest {
+  int32 command = 1;
+  int64 span = 2;
+  telem.PBTimeRange range = 3;
+  int64 stamp = 4;
+  repeated uint32 keys = 5;
+  int64 chunk_size = 6;
+}
+
+message IteratorResponse {
+  int32 variant = 1;
+  int32 command = 2;
+  telem.PBFrame frame = 3;
+  int32 node_key = 4;
+  bool ack = 5;
+  int32 seq_num = 6;
+  errors.PBPayload error = 7;
+}
+
+message WriterConfig {
+  repeated uint32 keys = 1;
+  repeated uint32 authorities = 2;
+  int64 start = 3;
+  control.ControlSubject control_subject = 4;
+  int32 mode = 5;
+  bool enable_auto_commit = 6;
+  int64 auto_index_persist_interval = 7;
+  bool err_on_unauthorized = 8;
+}
+
+message WriterRequest {
+  int32 command = 1;
+  WriterConfig config = 2;
+  telem.PBFrame frame = 3;
+  bytes buffer = 4;
+}
+
+message WriterResponse {
+  int32 command = 1;
+  int32 node_key = 2;
+  int32 counter = 3;
+  errors.PBPayload error = 4;
+  int64 end = 5;
+}
+
+message StreamerRequest {
+  repeated uint32 keys = 1;
+  int32 downsample_factor = 2;
+  bool enable_experimental_codec = 3;
+  double throttle_rate_hz = 4;
+}
+
+message StreamerResponse {
+  telem.PBFrame frame = 1;
+  bytes buffer = 2;
+}
+
+service FrameDeleteService {
+  rpc Exec(DeleteRequest) returns (google.protobuf.Empty) {}
+}
+
+message DeleteRequest {
+  repeated uint32 keys = 1;
+  repeated string names = 2;
+  telem.PBTimeRange bounds = 3;
+}

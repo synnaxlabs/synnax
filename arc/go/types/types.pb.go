@@ -121,7 +121,7 @@ func (PBKind) EnumDescriptor() ([]byte, []int) {
 
 type PBType struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Kind          PBKind                 `protobuf:"varint,1,opt,name=kind,proto3,enum=arc.v1.types.PBKind" json:"kind,omitempty"`
+	Kind          PBKind                 `protobuf:"varint,1,opt,name=kind,proto3,enum=x.arc.types.PBKind" json:"kind,omitempty"`
 	Elem          *PBType                `protobuf:"bytes,2,opt,name=elem,proto3" json:"elem,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -235,13 +235,13 @@ var File_arc_go_types_types_proto protoreflect.FileDescriptor
 
 const file_arc_go_types_types_proto_rawDesc = "" +
 	"\n" +
-	"\x18arc/go/types/types.proto\x12\farc.v1.types\x1a\x1cgoogle/protobuf/struct.proto\"\\\n" +
-	"\x06PBType\x12(\n" +
-	"\x04kind\x18\x01 \x01(\x0e2\x14.arc.v1.types.PBKindR\x04kind\x12(\n" +
-	"\x04elem\x18\x02 \x01(\v2\x14.arc.v1.types.PBTypeR\x04elem\"u\n" +
+	"\x18arc/go/types/types.proto\x12\vx.arc.types\x1a\x1cgoogle/protobuf/struct.proto\"Z\n" +
+	"\x06PBType\x12'\n" +
+	"\x04kind\x18\x01 \x01(\x0e2\x13.x.arc.types.PBKindR\x04kind\x12'\n" +
+	"\x04elem\x18\x02 \x01(\v2\x13.x.arc.types.PBTypeR\x04elem\"t\n" +
 	"\aPBParam\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12(\n" +
-	"\x04type\x18\x02 \x01(\v2\x14.arc.v1.types.PBTypeR\x04type\x12,\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12'\n" +
+	"\x04type\x18\x02 \x01(\v2\x13.x.arc.types.PBTypeR\x04type\x12,\n" +
 	"\x05value\x18\x03 \x01(\v2\x16.google.protobuf.ValueR\x05value*\xb0\x02\n" +
 	"\x06PBKind\x12\x17\n" +
 	"\x13PB_KIND_UNSPECIFIED\x10\x00\x12\x0e\n" +
@@ -262,9 +262,9 @@ const file_arc_go_types_types_proto_rawDesc = "" +
 	"\x11PB_KIND_TIMESTAMP\x10\f\x12\x14\n" +
 	"\x10PB_KIND_TIMESPAN\x10\r\x12\x10\n" +
 	"\fPB_KIND_CHAN\x10\x0e\x12\x12\n" +
-	"\x0ePB_KIND_SERIES\x10\x0fB\x91\x01\n" +
-	"\x10com.arc.v1.typesB\n" +
-	"TypesProtoP\x01Z\x1fgithub.com/synnaxlabs/arc/types\xa2\x02\x03AVT\xaa\x02\fArc.V1.Types\xca\x02\fArc\\V1\\Types\xe2\x02\x18Arc\\V1\\Types\\GPBMetadata\xea\x02\x0eArc::V1::Typesb\x06proto3"
+	"\x0ePB_KIND_SERIES\x10\x0fB\x8c\x01\n" +
+	"\x0fcom.x.arc.typesB\n" +
+	"TypesProtoP\x01Z\x1fgithub.com/synnaxlabs/arc/types\xa2\x02\x03XAT\xaa\x02\vX.Arc.Types\xca\x02\vX\\Arc\\Types\xe2\x02\x17X\\Arc\\Types\\GPBMetadata\xea\x02\rX::Arc::Typesb\x06proto3"
 
 var (
 	file_arc_go_types_types_proto_rawDescOnce sync.Once
@@ -281,16 +281,16 @@ func file_arc_go_types_types_proto_rawDescGZIP() []byte {
 var file_arc_go_types_types_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_arc_go_types_types_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_arc_go_types_types_proto_goTypes = []any{
-	(PBKind)(0),            // 0: arc.v1.types.PBKind
-	(*PBType)(nil),         // 1: arc.v1.types.PBType
-	(*PBParam)(nil),        // 2: arc.v1.types.PBParam
+	(PBKind)(0),            // 0: x.arc.types.PBKind
+	(*PBType)(nil),         // 1: x.arc.types.PBType
+	(*PBParam)(nil),        // 2: x.arc.types.PBParam
 	(*structpb.Value)(nil), // 3: google.protobuf.Value
 }
 var file_arc_go_types_types_proto_depIdxs = []int32{
-	0, // 0: arc.v1.types.PBType.kind:type_name -> arc.v1.types.PBKind
-	1, // 1: arc.v1.types.PBType.elem:type_name -> arc.v1.types.PBType
-	1, // 2: arc.v1.types.PBParam.type:type_name -> arc.v1.types.PBType
-	3, // 3: arc.v1.types.PBParam.value:type_name -> google.protobuf.Value
+	0, // 0: x.arc.types.PBType.kind:type_name -> x.arc.types.PBKind
+	1, // 1: x.arc.types.PBType.elem:type_name -> x.arc.types.PBType
+	1, // 2: x.arc.types.PBParam.type:type_name -> x.arc.types.PBType
+	3, // 3: x.arc.types.PBParam.value:type_name -> google.protobuf.Value
 	4, // [4:4] is the sub-list for method output_type
 	4, // [4:4] is the sub-list for method input_type
 	4, // [4:4] is the sub-list for extension type_name

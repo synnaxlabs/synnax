@@ -29,7 +29,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	StatusSetService_Exec_FullMethodName = "/synnax.api.grpc.status.StatusSetService/Exec"
+	StatusSetService_Exec_FullMethodName = "/grpc.status.StatusSetService/Exec"
 )
 
 // StatusSetServiceClient is the client API for StatusSetService service.
@@ -116,7 +116,7 @@ func _StatusSetService_Exec_Handler(srv interface{}, ctx context.Context, dec fu
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var StatusSetService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "synnax.api.grpc.status.StatusSetService",
+	ServiceName: "grpc.status.StatusSetService",
 	HandlerType: (*StatusSetServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -129,7 +129,7 @@ var StatusSetService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	StatusRetrieveService_Exec_FullMethodName = "/synnax.api.grpc.status.StatusRetrieveService/Exec"
+	StatusRetrieveService_Exec_FullMethodName = "/grpc.status.StatusRetrieveService/Exec"
 )
 
 // StatusRetrieveServiceClient is the client API for StatusRetrieveService service.
@@ -216,7 +216,7 @@ func _StatusRetrieveService_Exec_Handler(srv interface{}, ctx context.Context, d
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var StatusRetrieveService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "synnax.api.grpc.status.StatusRetrieveService",
+	ServiceName: "grpc.status.StatusRetrieveService",
 	HandlerType: (*StatusRetrieveServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -229,7 +229,7 @@ var StatusRetrieveService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	StatusDeleteService_Exec_FullMethodName = "/synnax.api.grpc.status.StatusDeleteService/Exec"
+	StatusDeleteService_Exec_FullMethodName = "/grpc.status.StatusDeleteService/Exec"
 )
 
 // StatusDeleteServiceClient is the client API for StatusDeleteService service.
@@ -316,7 +316,7 @@ func _StatusDeleteService_Exec_Handler(srv interface{}, ctx context.Context, dec
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var StatusDeleteService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "synnax.api.grpc.status.StatusDeleteService",
+	ServiceName: "grpc.status.StatusDeleteService",
 	HandlerType: (*StatusDeleteServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

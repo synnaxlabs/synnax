@@ -86,19 +86,19 @@ var File_arc_go_symbol_symbol_proto protoreflect.FileDescriptor
 
 const file_arc_go_symbol_symbol_proto_rawDesc = "" +
 	"\n" +
-	"\x1aarc/go/symbol/symbol.proto\x12\rarc.v1.symbol\"\xf4\x01\n" +
+	"\x1aarc/go/symbol/symbol.proto\x12\fx.arc.symbol\"\xf2\x01\n" +
 	"\n" +
-	"PBChannels\x127\n" +
-	"\x04read\x18\x01 \x03(\v2#.arc.v1.symbol.PBChannels.ReadEntryR\x04read\x12:\n" +
-	"\x05write\x18\x02 \x03(\v2$.arc.v1.symbol.PBChannels.WriteEntryR\x05write\x1a7\n" +
+	"PBChannels\x126\n" +
+	"\x04read\x18\x01 \x03(\v2\".x.arc.symbol.PBChannels.ReadEntryR\x04read\x129\n" +
+	"\x05write\x18\x02 \x03(\v2#.x.arc.symbol.PBChannels.WriteEntryR\x05write\x1a7\n" +
 	"\tReadEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a8\n" +
 	"\n" +
 	"WriteEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x98\x01\n" +
-	"\x11com.arc.v1.symbolB\vSymbolProtoP\x01Z github.com/synnaxlabs/arc/symbol\xa2\x02\x03AVS\xaa\x02\rArc.V1.Symbol\xca\x02\rArc\\V1\\Symbol\xe2\x02\x19Arc\\V1\\Symbol\\GPBMetadata\xea\x02\x0fArc::V1::Symbolb\x06proto3"
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x93\x01\n" +
+	"\x10com.x.arc.symbolB\vSymbolProtoP\x01Z github.com/synnaxlabs/arc/symbol\xa2\x02\x03XAS\xaa\x02\fX.Arc.Symbol\xca\x02\fX\\Arc\\Symbol\xe2\x02\x18X\\Arc\\Symbol\\GPBMetadata\xea\x02\x0eX::Arc::Symbolb\x06proto3"
 
 var (
 	file_arc_go_symbol_symbol_proto_rawDescOnce sync.Once
@@ -114,13 +114,13 @@ func file_arc_go_symbol_symbol_proto_rawDescGZIP() []byte {
 
 var file_arc_go_symbol_symbol_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_arc_go_symbol_symbol_proto_goTypes = []any{
-	(*PBChannels)(nil), // 0: arc.v1.symbol.PBChannels
-	nil,                // 1: arc.v1.symbol.PBChannels.ReadEntry
-	nil,                // 2: arc.v1.symbol.PBChannels.WriteEntry
+	(*PBChannels)(nil), // 0: x.arc.symbol.PBChannels
+	nil,                // 1: x.arc.symbol.PBChannels.ReadEntry
+	nil,                // 2: x.arc.symbol.PBChannels.WriteEntry
 }
 var file_arc_go_symbol_symbol_proto_depIdxs = []int32{
-	1, // 0: arc.v1.symbol.PBChannels.read:type_name -> arc.v1.symbol.PBChannels.ReadEntry
-	2, // 1: arc.v1.symbol.PBChannels.write:type_name -> arc.v1.symbol.PBChannels.WriteEntry
+	1, // 0: x.arc.symbol.PBChannels.read:type_name -> x.arc.symbol.PBChannels.ReadEntry
+	2, // 1: x.arc.symbol.PBChannels.write:type_name -> x.arc.symbol.PBChannels.WriteEntry
 	2, // [2:2] is the sub-list for method output_type
 	2, // [2:2] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name

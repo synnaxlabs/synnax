@@ -1,0 +1,68 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+syntax = "proto3";
+
+package grpc.arc;
+
+import "arc/go/graph/graph.proto";
+import "arc/go/module/module.proto";
+import "arc/go/text/text.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/arc";
+
+service ArcCreateService {
+  rpc Exec(CreateRequest) returns (CreateResponse) {}
+}
+
+service ArcRetrieveService {
+  rpc Exec(RetrieveRequest) returns (RetrieveResponse) {}
+}
+
+service ArcDeleteService {
+  rpc Exec(DeleteRequest) returns (google.protobuf.Empty) {}
+}
+
+// Arc represents an Arc automation program
+message Arc {
+  string key = 1;
+  string name = 2;
+  x.arc.graph.PBGraph graph = 3;
+  x.arc.text.PBText text = 4;
+  x.arc.module.PBModule module = 5;
+  bool deploy = 6;
+  string version = 7;
+}
+
+message CreateRequest {
+  repeated Arc arcs = 1;
+}
+
+message CreateResponse {
+  repeated Arc arcs = 1;
+}
+
+message RetrieveRequest {
+  repeated string keys = 1;
+  repeated string names = 2;
+  string search_term = 3;
+  int32 limit = 4;
+  int32 offset = 5;
+  bool include_status = 6;
+  bool compile = 7;
+}
+
+message RetrieveResponse {
+  repeated Arc arcs = 1;
+}
+
+message DeleteRequest {
+  repeated string keys = 1;
+}
