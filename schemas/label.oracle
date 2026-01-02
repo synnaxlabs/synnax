@@ -8,11 +8,17 @@
 // included in the file licenses/APL.txt.
 
 @ts output "x/ts/src/label"
-@go output "x/go/label"
-@pb
 
 Label struct {
     key   uuid   @key
     name  string @validate min_length 1
     color string
+
+    @go output "x/go/label"
+    @pb
+}
+
+SVCLabel struct extends Label {
+    @go output "core/pkg/service/label"
+    @go name   "Label"
 }

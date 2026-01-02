@@ -1,13 +1,13 @@
 syntax = "proto3";
 
-package ts.v1;
+package synnax.distribution.framer;
 
 import "google/protobuf/empty.proto";
 import "x/go/control/control.proto";
 import "x/go/errors/errors.proto";
 import "x/go/telem/telem.proto";
 
-option go_package = "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer/v1";
+option go_package = "github.com/synnaxlabs/synnax/pkg/distribution/framer/pb";
 
 service IteratorService {
   rpc Iterate(stream IteratorRequest) returns (stream IteratorResponse) {}

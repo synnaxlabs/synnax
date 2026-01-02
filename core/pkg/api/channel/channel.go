@@ -30,24 +30,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-type Key = channel.Key
-
-// Channel is an API-friendly version of the channel.Channel type. It is simplified for
-// use purely as a data container.
-type Channel struct {
-	Key         channel.Key         `json:"key" msgpack:"key"`
-	Name        string              `json:"name" msgpack:"name"`
-	Leaseholder cluster.NodeKey     `json:"leaseholder" msgpack:"leaseholder"`
-	DataType    telem.DataType      `json:"data_type" msgpack:"data_type"`
-	Density     telem.Density       `json:"density" msgpack:"density"`
-	IsIndex     bool                `json:"is_index" msgpack:"is_index"`
-	Index       channel.Key         `json:"index" msgpack:"index"`
-	Alias       string              `json:"alias" msgpack:"alias"`
-	Virtual     bool                `json:"virtual" msgpack:"virtual"`
-	Internal    bool                `json:"internal" msgpack:"internal"`
-	Expression  string              `json:"expression" msgpack:"expression"`
-	Operations  []channel.Operation `json:"operations" msgpack:"operations"`
-}
 
 // Service is the central service for all things Channel related.
 type Service struct {
@@ -253,17 +235,41 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 	translated := make([]Channel, len(channels))
 	for i, ch := range channels {
 		translated[i] = Channel{
-			Key:         ch.Key(),
+			Key:         Key(ch.Key()),
 			Name:        ch.Name,
-			Leaseholder: ch.Leaseholder,
-			DataType:    ch.DataType,
+			Leaseholder: uint32(ch.Leaseholder),
+			DataType:    string(ch.DataType),
 			IsIndex:     ch.IsIndex,
-			Index:       ch.Index(),
-			Density:     ch.DataType.Density(),
+			Index:       Key(ch.Index()),
+			Density:     int64(ch.DataType.Density()),
 			Virtual:     ch.Virtual,
 			Internal:    ch.Internal,
 			Expression:  ch.Expression,
-			Operations:  ch.Operations,
+			Operations:  translateOperationsForward(ch.Operations),
+		}
+	}
+	return translated
+}
+
+func translateOperationsForward(ops []channel.Operation) []Operation {
+	translated := make([]Operation, len(ops))
+	for i, op := range ops {
+		translated[i] = Operation{
+			Type:         op.Type,
+			ResetChannel: Key(op.ResetChannel),
+			Duration:     int64(op.Duration),
+		}
+	}
+	return translated
+}
+
+func translateOperationsBackward(ops []Operation) []channel.Operation {
+	translated := make([]channel.Operation, len(ops))
+	for i, op := range ops {
+		translated[i] = channel.Operation{
+			Type:         op.Type,
+			ResetChannel: channel.Key(op.ResetChannel),
+			Duration:     telem.TimeSpan(op.Duration),
 		}
 	}
 	return translated
@@ -276,15 +282,15 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 	for i, ch := range channels {
 		tCh := channel.Channel{
 			Name:        ch.Name,
-			Leaseholder: ch.Leaseholder,
-			DataType:    ch.DataType,
+			Leaseholder: cluster.NodeKey(ch.Leaseholder),
+			DataType:    telem.DataType(ch.DataType),
 			IsIndex:     ch.IsIndex,
-			LocalIndex:  ch.Index.LocalKey(),
-			LocalKey:    ch.Key.LocalKey(),
+			LocalIndex:  channel.Key(ch.Index).LocalKey(),
+			LocalKey:    channel.Key(ch.Key).LocalKey(),
 			Virtual:     ch.Virtual,
 			Internal:    ch.Internal,
 			Expression:  ch.Expression,
-			Operations:  ch.Operations,
+			Operations:  translateOperationsBackward(ch.Operations),
 		}
 		if ch.IsIndex {
 			tCh.LocalIndex = tCh.LocalKey

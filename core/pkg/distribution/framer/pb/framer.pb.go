@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: core/pkg/distribution/transport/grpc/framer/v1/ts.proto
+// source: core/pkg/distribution/framer/pb/framer.proto
 
-package v1
+package pb
 
 import (
 	control "github.com/synnaxlabs/x/control"
@@ -40,7 +40,7 @@ type IteratorRequest struct {
 
 func (x *IteratorRequest) Reset() {
 	*x = IteratorRequest{}
-	mi := &file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_msgTypes[0]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -52,7 +52,7 @@ func (x *IteratorRequest) String() string {
 func (*IteratorRequest) ProtoMessage() {}
 
 func (x *IteratorRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_msgTypes[0]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -65,7 +65,7 @@ func (x *IteratorRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IteratorRequest.ProtoReflect.Descriptor instead.
 func (*IteratorRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDescGZIP(), []int{0}
+	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *IteratorRequest) GetCommand() int32 {
@@ -132,7 +132,7 @@ type IteratorResponse struct {
 
 func (x *IteratorResponse) Reset() {
 	*x = IteratorResponse{}
-	mi := &file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_msgTypes[1]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -144,7 +144,7 @@ func (x *IteratorResponse) String() string {
 func (*IteratorResponse) ProtoMessage() {}
 
 func (x *IteratorResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_msgTypes[1]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -157,7 +157,7 @@ func (x *IteratorResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IteratorResponse.ProtoReflect.Descriptor instead.
 func (*IteratorResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDescGZIP(), []int{1}
+	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *IteratorResponse) GetVariant() int32 {
@@ -218,7 +218,7 @@ type RelayRequest struct {
 
 func (x *RelayRequest) Reset() {
 	*x = RelayRequest{}
-	mi := &file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_msgTypes[2]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -230,7 +230,7 @@ func (x *RelayRequest) String() string {
 func (*RelayRequest) ProtoMessage() {}
 
 func (x *RelayRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_msgTypes[2]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -243,7 +243,7 @@ func (x *RelayRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelayRequest.ProtoReflect.Descriptor instead.
 func (*RelayRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDescGZIP(), []int{2}
+	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *RelayRequest) GetKeys() []uint32 {
@@ -263,7 +263,7 @@ type RelayResponse struct {
 
 func (x *RelayResponse) Reset() {
 	*x = RelayResponse{}
-	mi := &file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_msgTypes[3]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -275,7 +275,7 @@ func (x *RelayResponse) String() string {
 func (*RelayResponse) ProtoMessage() {}
 
 func (x *RelayResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_msgTypes[3]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -288,7 +288,7 @@ func (x *RelayResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelayResponse.ProtoReflect.Descriptor instead.
 func (*RelayResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDescGZIP(), []int{3}
+	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *RelayResponse) GetFrame() *telem.PBFrame {
@@ -316,7 +316,7 @@ type WriterRequest struct {
 
 func (x *WriterRequest) Reset() {
 	*x = WriterRequest{}
-	mi := &file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_msgTypes[4]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -328,7 +328,7 @@ func (x *WriterRequest) String() string {
 func (*WriterRequest) ProtoMessage() {}
 
 func (x *WriterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_msgTypes[4]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -341,7 +341,7 @@ func (x *WriterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriterRequest.ProtoReflect.Descriptor instead.
 func (*WriterRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDescGZIP(), []int{4}
+	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *WriterRequest) GetCommand() int32 {
@@ -381,7 +381,7 @@ type WriterConfig struct {
 
 func (x *WriterConfig) Reset() {
 	*x = WriterConfig{}
-	mi := &file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_msgTypes[5]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -393,7 +393,7 @@ func (x *WriterConfig) String() string {
 func (*WriterConfig) ProtoMessage() {}
 
 func (x *WriterConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_msgTypes[5]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -406,7 +406,7 @@ func (x *WriterConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriterConfig.ProtoReflect.Descriptor instead.
 func (*WriterConfig) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDescGZIP(), []int{5}
+	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *WriterConfig) GetKeys() []uint32 {
@@ -478,7 +478,7 @@ type WriterResponse struct {
 
 func (x *WriterResponse) Reset() {
 	*x = WriterResponse{}
-	mi := &file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_msgTypes[6]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -490,7 +490,7 @@ func (x *WriterResponse) String() string {
 func (*WriterResponse) ProtoMessage() {}
 
 func (x *WriterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_msgTypes[6]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -503,7 +503,7 @@ func (x *WriterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriterResponse.ProtoReflect.Descriptor instead.
 func (*WriterResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDescGZIP(), []int{6}
+	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *WriterResponse) GetCommand() int32 {
@@ -552,7 +552,7 @@ type DeleteRequest struct {
 
 func (x *DeleteRequest) Reset() {
 	*x = DeleteRequest{}
-	mi := &file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_msgTypes[7]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -564,7 +564,7 @@ func (x *DeleteRequest) String() string {
 func (*DeleteRequest) ProtoMessage() {}
 
 func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_msgTypes[7]
+	mi := &file_core_pkg_distribution_framer_pb_framer_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -577,7 +577,7 @@ func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDescGZIP(), []int{7}
+	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *DeleteRequest) GetKeys() []uint32 {
@@ -601,11 +601,11 @@ func (x *DeleteRequest) GetBounds() *telem.PBTimeRange {
 	return nil
 }
 
-var File_core_pkg_distribution_transport_grpc_framer_v1_ts_proto protoreflect.FileDescriptor
+var File_core_pkg_distribution_framer_pb_framer_proto protoreflect.FileDescriptor
 
-const file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDesc = "" +
+const file_core_pkg_distribution_framer_pb_framer_proto_rawDesc = "" +
 	"\n" +
-	"7core/pkg/distribution/transport/grpc/framer/v1/ts.proto\x12\x05ts.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1ax/go/control/control.proto\x1a\x18x/go/errors/errors.proto\x1a\x16x/go/telem/telem.proto\"\xcd\x01\n" +
+	",core/pkg/distribution/framer/pb/framer.proto\x12\x1asynnax.distribution.framer\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1ax/go/control/control.proto\x1a\x18x/go/errors/errors.proto\x1a\x16x/go/telem/telem.proto\"\xcd\x01\n" +
 	"\x0fIteratorRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x14\n" +
 	"\x05stamp\x18\x02 \x01(\x03R\x05stamp\x12\x12\n" +
@@ -627,10 +627,10 @@ const file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDesc = "" 
 	"\x04keys\x18\x01 \x03(\rR\x04keys\"^\n" +
 	"\rRelayResponse\x12$\n" +
 	"\x05frame\x18\x01 \x01(\v2\x0e.telem.PBFrameR\x05frame\x12'\n" +
-	"\x05error\x18\x02 \x01(\v2\x11.errors.PBPayloadR\x05error\"|\n" +
+	"\x05error\x18\x02 \x01(\v2\x11.errors.PBPayloadR\x05error\"\x91\x01\n" +
 	"\rWriterRequest\x12\x18\n" +
-	"\acommand\x18\x01 \x01(\x05R\acommand\x12+\n" +
-	"\x06config\x18\x02 \x01(\v2\x13.ts.v1.WriterConfigR\x06config\x12$\n" +
+	"\acommand\x18\x01 \x01(\x05R\acommand\x12@\n" +
+	"\x06config\x18\x02 \x01(\v2(.synnax.distribution.framer.WriterConfigR\x06config\x12$\n" +
 	"\x05frame\x18\x03 \x01(\v2\x0e.telem.PBFrameR\x05frame\"\xcd\x02\n" +
 	"\fWriterConfig\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
@@ -652,63 +652,63 @@ const file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDesc = "" 
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
 	"\x05names\x18\x02 \x03(\tR\x05names\x12*\n" +
-	"\x06bounds\x18\x03 \x01(\v2\x12.telem.PBTimeRangeR\x06bounds2S\n" +
-	"\x0fIteratorService\x12@\n" +
-	"\aIterate\x12\x16.ts.v1.IteratorRequest\x1a\x17.ts.v1.IteratorResponse\"\x00(\x010\x012F\n" +
-	"\fRelayService\x126\n" +
-	"\x05Relay\x12\x13.ts.v1.RelayRequest\x1a\x14.ts.v1.RelayResponse(\x010\x012K\n" +
-	"\rWriterService\x12:\n" +
-	"\x05Write\x12\x14.ts.v1.WriterRequest\x1a\x15.ts.v1.WriterResponse\"\x00(\x010\x012G\n" +
-	"\rDeleteService\x126\n" +
-	"\x04Exec\x12\x14.ts.v1.DeleteRequest\x1a\x16.google.protobuf.Empty\"\x00B\x91\x01\n" +
-	"\tcom.ts.v1B\aTsProtoP\x01ZFgithub.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer/v1\xa2\x02\x03TXX\xaa\x02\x05Ts.V1\xca\x02\x05Ts\\V1\xe2\x02\x11Ts\\V1\\GPBMetadata\xea\x02\x06Ts::V1b\x06proto3"
+	"\x06bounds\x18\x03 \x01(\v2\x12.telem.PBTimeRangeR\x06bounds2}\n" +
+	"\x0fIteratorService\x12j\n" +
+	"\aIterate\x12+.synnax.distribution.framer.IteratorRequest\x1a,.synnax.distribution.framer.IteratorResponse\"\x00(\x010\x012p\n" +
+	"\fRelayService\x12`\n" +
+	"\x05Relay\x12(.synnax.distribution.framer.RelayRequest\x1a).synnax.distribution.framer.RelayResponse(\x010\x012u\n" +
+	"\rWriterService\x12d\n" +
+	"\x05Write\x12).synnax.distribution.framer.WriterRequest\x1a*.synnax.distribution.framer.WriterResponse\"\x00(\x010\x012\\\n" +
+	"\rDeleteService\x12K\n" +
+	"\x04Exec\x12).synnax.distribution.framer.DeleteRequest\x1a\x16.google.protobuf.Empty\"\x00B\xf0\x01\n" +
+	"\x1ecom.synnax.distribution.framerB\vFramerProtoP\x01Z7github.com/synnaxlabs/synnax/pkg/distribution/framer/pb\xa2\x02\x03SDF\xaa\x02\x1aSynnax.Distribution.Framer\xca\x02\x1aSynnax\\Distribution\\Framer\xe2\x02&Synnax\\Distribution\\Framer\\GPBMetadata\xea\x02\x1cSynnax::Distribution::Framerb\x06proto3"
 
 var (
-	file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDescOnce sync.Once
-	file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDescData []byte
+	file_core_pkg_distribution_framer_pb_framer_proto_rawDescOnce sync.Once
+	file_core_pkg_distribution_framer_pb_framer_proto_rawDescData []byte
 )
 
-func file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDescGZIP() []byte {
-	file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDescOnce.Do(func() {
-		file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDesc), len(file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDesc)))
+func file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP() []byte {
+	file_core_pkg_distribution_framer_pb_framer_proto_rawDescOnce.Do(func() {
+		file_core_pkg_distribution_framer_pb_framer_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_core_pkg_distribution_framer_pb_framer_proto_rawDesc), len(file_core_pkg_distribution_framer_pb_framer_proto_rawDesc)))
 	})
-	return file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDescData
+	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescData
 }
 
-var file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
-var file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_goTypes = []any{
-	(*IteratorRequest)(nil),        // 0: ts.v1.IteratorRequest
-	(*IteratorResponse)(nil),       // 1: ts.v1.IteratorResponse
-	(*RelayRequest)(nil),           // 2: ts.v1.RelayRequest
-	(*RelayResponse)(nil),          // 3: ts.v1.RelayResponse
-	(*WriterRequest)(nil),          // 4: ts.v1.WriterRequest
-	(*WriterConfig)(nil),           // 5: ts.v1.WriterConfig
-	(*WriterResponse)(nil),         // 6: ts.v1.WriterResponse
-	(*DeleteRequest)(nil),          // 7: ts.v1.DeleteRequest
+var file_core_pkg_distribution_framer_pb_framer_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_core_pkg_distribution_framer_pb_framer_proto_goTypes = []any{
+	(*IteratorRequest)(nil),        // 0: synnax.distribution.framer.IteratorRequest
+	(*IteratorResponse)(nil),       // 1: synnax.distribution.framer.IteratorResponse
+	(*RelayRequest)(nil),           // 2: synnax.distribution.framer.RelayRequest
+	(*RelayResponse)(nil),          // 3: synnax.distribution.framer.RelayResponse
+	(*WriterRequest)(nil),          // 4: synnax.distribution.framer.WriterRequest
+	(*WriterConfig)(nil),           // 5: synnax.distribution.framer.WriterConfig
+	(*WriterResponse)(nil),         // 6: synnax.distribution.framer.WriterResponse
+	(*DeleteRequest)(nil),          // 7: synnax.distribution.framer.DeleteRequest
 	(*telem.PBTimeRange)(nil),      // 8: telem.PBTimeRange
 	(*telem.PBFrame)(nil),          // 9: telem.PBFrame
 	(*errors.PBPayload)(nil),       // 10: errors.PBPayload
 	(*control.ControlSubject)(nil), // 11: control.ControlSubject
 	(*emptypb.Empty)(nil),          // 12: google.protobuf.Empty
 }
-var file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_depIdxs = []int32{
-	8,  // 0: ts.v1.IteratorRequest.bounds:type_name -> telem.PBTimeRange
-	9,  // 1: ts.v1.IteratorResponse.frame:type_name -> telem.PBFrame
-	10, // 2: ts.v1.IteratorResponse.error:type_name -> errors.PBPayload
-	9,  // 3: ts.v1.RelayResponse.frame:type_name -> telem.PBFrame
-	10, // 4: ts.v1.RelayResponse.error:type_name -> errors.PBPayload
-	5,  // 5: ts.v1.WriterRequest.config:type_name -> ts.v1.WriterConfig
-	9,  // 6: ts.v1.WriterRequest.frame:type_name -> telem.PBFrame
-	11, // 7: ts.v1.WriterConfig.control_subject:type_name -> control.ControlSubject
-	8,  // 8: ts.v1.DeleteRequest.bounds:type_name -> telem.PBTimeRange
-	0,  // 9: ts.v1.IteratorService.Iterate:input_type -> ts.v1.IteratorRequest
-	2,  // 10: ts.v1.RelayService.Relay:input_type -> ts.v1.RelayRequest
-	4,  // 11: ts.v1.WriterService.Write:input_type -> ts.v1.WriterRequest
-	7,  // 12: ts.v1.DeleteService.Exec:input_type -> ts.v1.DeleteRequest
-	1,  // 13: ts.v1.IteratorService.Iterate:output_type -> ts.v1.IteratorResponse
-	3,  // 14: ts.v1.RelayService.Relay:output_type -> ts.v1.RelayResponse
-	6,  // 15: ts.v1.WriterService.Write:output_type -> ts.v1.WriterResponse
-	12, // 16: ts.v1.DeleteService.Exec:output_type -> google.protobuf.Empty
+var file_core_pkg_distribution_framer_pb_framer_proto_depIdxs = []int32{
+	8,  // 0: synnax.distribution.framer.IteratorRequest.bounds:type_name -> telem.PBTimeRange
+	9,  // 1: synnax.distribution.framer.IteratorResponse.frame:type_name -> telem.PBFrame
+	10, // 2: synnax.distribution.framer.IteratorResponse.error:type_name -> errors.PBPayload
+	9,  // 3: synnax.distribution.framer.RelayResponse.frame:type_name -> telem.PBFrame
+	10, // 4: synnax.distribution.framer.RelayResponse.error:type_name -> errors.PBPayload
+	5,  // 5: synnax.distribution.framer.WriterRequest.config:type_name -> synnax.distribution.framer.WriterConfig
+	9,  // 6: synnax.distribution.framer.WriterRequest.frame:type_name -> telem.PBFrame
+	11, // 7: synnax.distribution.framer.WriterConfig.control_subject:type_name -> control.ControlSubject
+	8,  // 8: synnax.distribution.framer.DeleteRequest.bounds:type_name -> telem.PBTimeRange
+	0,  // 9: synnax.distribution.framer.IteratorService.Iterate:input_type -> synnax.distribution.framer.IteratorRequest
+	2,  // 10: synnax.distribution.framer.RelayService.Relay:input_type -> synnax.distribution.framer.RelayRequest
+	4,  // 11: synnax.distribution.framer.WriterService.Write:input_type -> synnax.distribution.framer.WriterRequest
+	7,  // 12: synnax.distribution.framer.DeleteService.Exec:input_type -> synnax.distribution.framer.DeleteRequest
+	1,  // 13: synnax.distribution.framer.IteratorService.Iterate:output_type -> synnax.distribution.framer.IteratorResponse
+	3,  // 14: synnax.distribution.framer.RelayService.Relay:output_type -> synnax.distribution.framer.RelayResponse
+	6,  // 15: synnax.distribution.framer.WriterService.Write:output_type -> synnax.distribution.framer.WriterResponse
+	12, // 16: synnax.distribution.framer.DeleteService.Exec:output_type -> google.protobuf.Empty
 	13, // [13:17] is the sub-list for method output_type
 	9,  // [9:13] is the sub-list for method input_type
 	9,  // [9:9] is the sub-list for extension type_name
@@ -716,26 +716,26 @@ var file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_depIdxs = []int
 	0,  // [0:9] is the sub-list for field type_name
 }
 
-func init() { file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_init() }
-func file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_init() {
-	if File_core_pkg_distribution_transport_grpc_framer_v1_ts_proto != nil {
+func init() { file_core_pkg_distribution_framer_pb_framer_proto_init() }
+func file_core_pkg_distribution_framer_pb_framer_proto_init() {
+	if File_core_pkg_distribution_framer_pb_framer_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDesc), len(file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_distribution_framer_pb_framer_proto_rawDesc), len(file_core_pkg_distribution_framer_pb_framer_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   4,
 		},
-		GoTypes:           file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_goTypes,
-		DependencyIndexes: file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_depIdxs,
-		MessageInfos:      file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_msgTypes,
+		GoTypes:           file_core_pkg_distribution_framer_pb_framer_proto_goTypes,
+		DependencyIndexes: file_core_pkg_distribution_framer_pb_framer_proto_depIdxs,
+		MessageInfos:      file_core_pkg_distribution_framer_pb_framer_proto_msgTypes,
 	}.Build()
-	File_core_pkg_distribution_transport_grpc_framer_v1_ts_proto = out.File
-	file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_goTypes = nil
-	file_core_pkg_distribution_transport_grpc_framer_v1_ts_proto_depIdxs = nil
+	File_core_pkg_distribution_framer_pb_framer_proto = out.File
+	file_core_pkg_distribution_framer_pb_framer_proto_goTypes = nil
+	file_core_pkg_distribution_framer_pb_framer_proto_depIdxs = nil
 }

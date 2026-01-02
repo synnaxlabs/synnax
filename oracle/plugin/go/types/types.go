@@ -591,11 +591,16 @@ func (p *Plugin) resolveExtendsType(extendsRef *resolution.TypeRef, data *templa
 		return ""
 	}
 	parent := extendsRef.StructRef
-	if parent.Namespace == data.Namespace {
+	targetOutputPath := output.GetPath(*parent, "go")
+
+	// Same namespace AND same output path (or no output path) -> use unqualified name
+	if parent.Namespace == data.Namespace && (targetOutputPath == "" || targetOutputPath == data.OutputPath) {
 		return p.buildGenericType(parent.Name, extendsRef.TypeArgs, data)
 	}
-	targetOutputPath := output.GetPath(*parent, "go")
+
+	// Different output path -> need qualified name with import
 	if targetOutputPath == "" {
+		// No output path but different namespace - can't resolve package, use unqualified
 		return parent.Name
 	}
 	alias := gointernal.DerivePackageAlias(targetOutputPath, data.Package)

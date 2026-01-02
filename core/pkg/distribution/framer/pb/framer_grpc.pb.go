@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.0
 // - protoc             (unknown)
-// source: core/pkg/distribution/transport/grpc/framer/v1/ts.proto
+// source: core/pkg/distribution/framer/pb/framer.proto
 
-package v1
+package pb
 
 import (
 	context "context"
@@ -20,7 +20,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	IteratorService_Iterate_FullMethodName = "/ts.v1.IteratorService/Iterate"
+	IteratorService_Iterate_FullMethodName = "/synnax.distribution.framer.IteratorService/Iterate"
 )
 
 // IteratorServiceClient is the client API for IteratorService service.
@@ -99,7 +99,7 @@ type IteratorService_IterateServer = grpc.BidiStreamingServer[IteratorRequest, I
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var IteratorService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "ts.v1.IteratorService",
+	ServiceName: "synnax.distribution.framer.IteratorService",
 	HandlerType: (*IteratorServiceServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
@@ -110,11 +110,11 @@ var IteratorService_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "core/pkg/distribution/transport/grpc/framer/v1/ts.proto",
+	Metadata: "core/pkg/distribution/framer/pb/framer.proto",
 }
 
 const (
-	RelayService_Relay_FullMethodName = "/ts.v1.RelayService/Relay"
+	RelayService_Relay_FullMethodName = "/synnax.distribution.framer.RelayService/Relay"
 )
 
 // RelayServiceClient is the client API for RelayService service.
@@ -193,7 +193,7 @@ type RelayService_RelayServer = grpc.BidiStreamingServer[RelayRequest, RelayResp
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var RelayService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "ts.v1.RelayService",
+	ServiceName: "synnax.distribution.framer.RelayService",
 	HandlerType: (*RelayServiceServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
@@ -204,11 +204,11 @@ var RelayService_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "core/pkg/distribution/transport/grpc/framer/v1/ts.proto",
+	Metadata: "core/pkg/distribution/framer/pb/framer.proto",
 }
 
 const (
-	WriterService_Write_FullMethodName = "/ts.v1.WriterService/Write"
+	WriterService_Write_FullMethodName = "/synnax.distribution.framer.WriterService/Write"
 )
 
 // WriterServiceClient is the client API for WriterService service.
@@ -287,7 +287,7 @@ type WriterService_WriteServer = grpc.BidiStreamingServer[WriterRequest, WriterR
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var WriterService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "ts.v1.WriterService",
+	ServiceName: "synnax.distribution.framer.WriterService",
 	HandlerType: (*WriterServiceServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
@@ -298,11 +298,11 @@ var WriterService_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "core/pkg/distribution/transport/grpc/framer/v1/ts.proto",
+	Metadata: "core/pkg/distribution/framer/pb/framer.proto",
 }
 
 const (
-	DeleteService_Exec_FullMethodName = "/ts.v1.DeleteService/Exec"
+	DeleteService_Exec_FullMethodName = "/synnax.distribution.framer.DeleteService/Exec"
 )
 
 // DeleteServiceClient is the client API for DeleteService service.
@@ -389,7 +389,7 @@ func _DeleteService_Exec_Handler(srv interface{}, ctx context.Context, dec func(
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var DeleteService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "ts.v1.DeleteService",
+	ServiceName: "synnax.distribution.framer.DeleteService",
 	HandlerType: (*DeleteServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -398,5 +398,5 @@ var DeleteService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "core/pkg/distribution/transport/grpc/framer/v1/ts.proto",
+	Metadata: "core/pkg/distribution/framer/pb/framer.proto",
 }

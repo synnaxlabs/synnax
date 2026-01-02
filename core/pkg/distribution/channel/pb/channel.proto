@@ -1,10 +1,10 @@
 syntax = "proto3";
 
-package channel.v1;
+package synnax.distribution.channel;
 
 import "google/protobuf/empty.proto";
 
-option go_package = "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel/v1";
+option go_package = "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb";
 
 service ChannelCreateService {
   rpc Exec(CreateMessage) returns (CreateMessage) {}

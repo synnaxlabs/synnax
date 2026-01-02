@@ -16,8 +16,21 @@ Range struct {
     name       string             @validate min_length 1
     time_range time_range_bounded
     color      string?
-    labels     label.Label[]?
-    parent     Range?
 
+    @go output "core/pkg/service/ranger"
+    @go omit
+}
+
+APIRange struct extends Range {
+    labels label.SVCLabel[]?
+    parent APIRange??
+
+    @go output     "core/pkg/api/ranger"
+    @go name       "Range"
     @ontology type "range"
+}
+
+KVPair struct {
+    key   string
+    value string
 }

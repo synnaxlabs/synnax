@@ -17,3 +17,6 @@ export const labelZ = z.object({
   color: z.string(),
 });
 export interface Label extends z.infer<typeof labelZ> {}
+
+export const svcLabelZ = labelZ;
+export interface SVCLabel extends z.infer<typeof svcLabelZ> {}

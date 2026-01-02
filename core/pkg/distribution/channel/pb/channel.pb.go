@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: core/pkg/distribution/transport/grpc/channel/v1/channel.proto
+// source: core/pkg/distribution/channel/pb/channel.proto
 
-package v1
+package pb
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -32,7 +32,7 @@ type CreateOptions struct {
 
 func (x *CreateOptions) Reset() {
 	*x = CreateOptions{}
-	mi := &file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_msgTypes[0]
+	mi := &file_core_pkg_distribution_channel_pb_channel_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -44,7 +44,7 @@ func (x *CreateOptions) String() string {
 func (*CreateOptions) ProtoMessage() {}
 
 func (x *CreateOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_msgTypes[0]
+	mi := &file_core_pkg_distribution_channel_pb_channel_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -57,7 +57,7 @@ func (x *CreateOptions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateOptions.ProtoReflect.Descriptor instead.
 func (*CreateOptions) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDescGZIP(), []int{0}
+	return file_core_pkg_distribution_channel_pb_channel_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *CreateOptions) GetRetrieveIfNameExists() bool {
@@ -84,7 +84,7 @@ type CreateMessage struct {
 
 func (x *CreateMessage) Reset() {
 	*x = CreateMessage{}
-	mi := &file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_msgTypes[1]
+	mi := &file_core_pkg_distribution_channel_pb_channel_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -96,7 +96,7 @@ func (x *CreateMessage) String() string {
 func (*CreateMessage) ProtoMessage() {}
 
 func (x *CreateMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_msgTypes[1]
+	mi := &file_core_pkg_distribution_channel_pb_channel_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -109,7 +109,7 @@ func (x *CreateMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateMessage.ProtoReflect.Descriptor instead.
 func (*CreateMessage) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDescGZIP(), []int{1}
+	return file_core_pkg_distribution_channel_pb_channel_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *CreateMessage) GetChannels() []*Channel {
@@ -135,7 +135,7 @@ type DeleteRequest struct {
 
 func (x *DeleteRequest) Reset() {
 	*x = DeleteRequest{}
-	mi := &file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_msgTypes[2]
+	mi := &file_core_pkg_distribution_channel_pb_channel_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -147,7 +147,7 @@ func (x *DeleteRequest) String() string {
 func (*DeleteRequest) ProtoMessage() {}
 
 func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_msgTypes[2]
+	mi := &file_core_pkg_distribution_channel_pb_channel_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -160,7 +160,7 @@ func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDescGZIP(), []int{2}
+	return file_core_pkg_distribution_channel_pb_channel_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *DeleteRequest) GetKeys() []uint32 {
@@ -180,7 +180,7 @@ type RenameRequest struct {
 
 func (x *RenameRequest) Reset() {
 	*x = RenameRequest{}
-	mi := &file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_msgTypes[3]
+	mi := &file_core_pkg_distribution_channel_pb_channel_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -192,7 +192,7 @@ func (x *RenameRequest) String() string {
 func (*RenameRequest) ProtoMessage() {}
 
 func (x *RenameRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_msgTypes[3]
+	mi := &file_core_pkg_distribution_channel_pb_channel_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -205,7 +205,7 @@ func (x *RenameRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenameRequest.ProtoReflect.Descriptor instead.
 func (*RenameRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDescGZIP(), []int{3}
+	return file_core_pkg_distribution_channel_pb_channel_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *RenameRequest) GetKeys() []uint32 {
@@ -239,7 +239,7 @@ type Channel struct {
 
 func (x *Channel) Reset() {
 	*x = Channel{}
-	mi := &file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_msgTypes[4]
+	mi := &file_core_pkg_distribution_channel_pb_channel_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -251,7 +251,7 @@ func (x *Channel) String() string {
 func (*Channel) ProtoMessage() {}
 
 func (x *Channel) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_msgTypes[4]
+	mi := &file_core_pkg_distribution_channel_pb_channel_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -264,7 +264,7 @@ func (x *Channel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Channel.ProtoReflect.Descriptor instead.
 func (*Channel) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDescGZIP(), []int{4}
+	return file_core_pkg_distribution_channel_pb_channel_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Channel) GetName() string {
@@ -330,18 +330,17 @@ func (x *Channel) GetInternal() bool {
 	return false
 }
 
-var File_core_pkg_distribution_transport_grpc_channel_v1_channel_proto protoreflect.FileDescriptor
+var File_core_pkg_distribution_channel_pb_channel_proto protoreflect.FileDescriptor
 
-const file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDesc = "" +
+const file_core_pkg_distribution_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
-	"=core/pkg/distribution/transport/grpc/channel/v1/channel.proto\x12\n" +
-	"channel.v1\x1a\x1bgoogle/protobuf/empty.proto\"\x7f\n" +
+	".core/pkg/distribution/channel/pb/channel.proto\x12\x1bsynnax.distribution.channel\x1a\x1bgoogle/protobuf/empty.proto\"\x7f\n" +
 	"\rCreateOptions\x125\n" +
 	"\x17retrieve_if_name_exists\x18\x01 \x01(\bR\x14retrieveIfNameExists\x127\n" +
-	"\x18overwrite_if_name_exists\x18\x02 \x01(\bR\x15overwriteIfNameExists\"o\n" +
-	"\rCreateMessage\x12/\n" +
-	"\bchannels\x18\x01 \x03(\v2\x13.channel.v1.ChannelR\bchannels\x12-\n" +
-	"\x04opts\x18\x02 \x01(\v2\x19.channel.v1.CreateOptionsR\x04opts\"#\n" +
+	"\x18overwrite_if_name_exists\x18\x02 \x01(\bR\x15overwriteIfNameExists\"\x91\x01\n" +
+	"\rCreateMessage\x12@\n" +
+	"\bchannels\x18\x01 \x03(\v2$.synnax.distribution.channel.ChannelR\bchannels\x12>\n" +
+	"\x04opts\x18\x02 \x01(\v2*.synnax.distribution.channel.CreateOptionsR\x04opts\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x03 \x03(\rR\x04keys\"9\n" +
 	"\rRenameRequest\x12\x12\n" +
@@ -357,47 +356,45 @@ const file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDesc
 	"localIndex\x12\x18\n" +
 	"\avirtual\x18\a \x01(\bR\avirtual\x12 \n" +
 	"\vconcurrency\x18\b \x01(\rR\vconcurrency\x12\x1a\n" +
-	"\binternal\x18\t \x01(\bR\binternal2V\n" +
-	"\x14ChannelCreateService\x12>\n" +
-	"\x04Exec\x12\x19.channel.v1.CreateMessage\x1a\x19.channel.v1.CreateMessage\"\x002S\n" +
-	"\x14ChannelDeleteService\x12;\n" +
-	"\x04Exec\x12\x19.channel.v1.DeleteRequest\x1a\x16.google.protobuf.Empty\"\x002S\n" +
-	"\x14ChannelRenameService\x12;\n" +
-	"\x04Exec\x12\x19.channel.v1.RenameRequest\x1a\x16.google.protobuf.Empty\"\x00B\xb0\x01\n" +
-	"\x0ecom.channel.v1B\fChannelProtoP\x01ZGgithub.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel/v1\xa2\x02\x03CXX\xaa\x02\n" +
-	"Channel.V1\xca\x02\n" +
-	"Channel\\V1\xe2\x02\x16Channel\\V1\\GPBMetadata\xea\x02\vChannel::V1b\x06proto3"
+	"\binternal\x18\t \x01(\bR\binternal2x\n" +
+	"\x14ChannelCreateService\x12`\n" +
+	"\x04Exec\x12*.synnax.distribution.channel.CreateMessage\x1a*.synnax.distribution.channel.CreateMessage\"\x002d\n" +
+	"\x14ChannelDeleteService\x12L\n" +
+	"\x04Exec\x12*.synnax.distribution.channel.DeleteRequest\x1a\x16.google.protobuf.Empty\"\x002d\n" +
+	"\x14ChannelRenameService\x12L\n" +
+	"\x04Exec\x12*.synnax.distribution.channel.RenameRequest\x1a\x16.google.protobuf.Empty\"\x00B\xf7\x01\n" +
+	"\x1fcom.synnax.distribution.channelB\fChannelProtoP\x01Z8github.com/synnaxlabs/synnax/pkg/distribution/channel/pb\xa2\x02\x03SDC\xaa\x02\x1bSynnax.Distribution.Channel\xca\x02\x1bSynnax\\Distribution\\Channel\xe2\x02'Synnax\\Distribution\\Channel\\GPBMetadata\xea\x02\x1dSynnax::Distribution::Channelb\x06proto3"
 
 var (
-	file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDescOnce sync.Once
-	file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDescData []byte
+	file_core_pkg_distribution_channel_pb_channel_proto_rawDescOnce sync.Once
+	file_core_pkg_distribution_channel_pb_channel_proto_rawDescData []byte
 )
 
-func file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDescGZIP() []byte {
-	file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDescOnce.Do(func() {
-		file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDesc), len(file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDesc)))
+func file_core_pkg_distribution_channel_pb_channel_proto_rawDescGZIP() []byte {
+	file_core_pkg_distribution_channel_pb_channel_proto_rawDescOnce.Do(func() {
+		file_core_pkg_distribution_channel_pb_channel_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_core_pkg_distribution_channel_pb_channel_proto_rawDesc), len(file_core_pkg_distribution_channel_pb_channel_proto_rawDesc)))
 	})
-	return file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDescData
+	return file_core_pkg_distribution_channel_pb_channel_proto_rawDescData
 }
 
-var file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
-var file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_goTypes = []any{
-	(*CreateOptions)(nil), // 0: channel.v1.CreateOptions
-	(*CreateMessage)(nil), // 1: channel.v1.CreateMessage
-	(*DeleteRequest)(nil), // 2: channel.v1.DeleteRequest
-	(*RenameRequest)(nil), // 3: channel.v1.RenameRequest
-	(*Channel)(nil),       // 4: channel.v1.Channel
+var file_core_pkg_distribution_channel_pb_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_core_pkg_distribution_channel_pb_channel_proto_goTypes = []any{
+	(*CreateOptions)(nil), // 0: synnax.distribution.channel.CreateOptions
+	(*CreateMessage)(nil), // 1: synnax.distribution.channel.CreateMessage
+	(*DeleteRequest)(nil), // 2: synnax.distribution.channel.DeleteRequest
+	(*RenameRequest)(nil), // 3: synnax.distribution.channel.RenameRequest
+	(*Channel)(nil),       // 4: synnax.distribution.channel.Channel
 	(*emptypb.Empty)(nil), // 5: google.protobuf.Empty
 }
-var file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_depIdxs = []int32{
-	4, // 0: channel.v1.CreateMessage.channels:type_name -> channel.v1.Channel
-	0, // 1: channel.v1.CreateMessage.opts:type_name -> channel.v1.CreateOptions
-	1, // 2: channel.v1.ChannelCreateService.Exec:input_type -> channel.v1.CreateMessage
-	2, // 3: channel.v1.ChannelDeleteService.Exec:input_type -> channel.v1.DeleteRequest
-	3, // 4: channel.v1.ChannelRenameService.Exec:input_type -> channel.v1.RenameRequest
-	1, // 5: channel.v1.ChannelCreateService.Exec:output_type -> channel.v1.CreateMessage
-	5, // 6: channel.v1.ChannelDeleteService.Exec:output_type -> google.protobuf.Empty
-	5, // 7: channel.v1.ChannelRenameService.Exec:output_type -> google.protobuf.Empty
+var file_core_pkg_distribution_channel_pb_channel_proto_depIdxs = []int32{
+	4, // 0: synnax.distribution.channel.CreateMessage.channels:type_name -> synnax.distribution.channel.Channel
+	0, // 1: synnax.distribution.channel.CreateMessage.opts:type_name -> synnax.distribution.channel.CreateOptions
+	1, // 2: synnax.distribution.channel.ChannelCreateService.Exec:input_type -> synnax.distribution.channel.CreateMessage
+	2, // 3: synnax.distribution.channel.ChannelDeleteService.Exec:input_type -> synnax.distribution.channel.DeleteRequest
+	3, // 4: synnax.distribution.channel.ChannelRenameService.Exec:input_type -> synnax.distribution.channel.RenameRequest
+	1, // 5: synnax.distribution.channel.ChannelCreateService.Exec:output_type -> synnax.distribution.channel.CreateMessage
+	5, // 6: synnax.distribution.channel.ChannelDeleteService.Exec:output_type -> google.protobuf.Empty
+	5, // 7: synnax.distribution.channel.ChannelRenameService.Exec:output_type -> google.protobuf.Empty
 	5, // [5:8] is the sub-list for method output_type
 	2, // [2:5] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
@@ -405,26 +402,26 @@ var file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_depIdxs =
 	0, // [0:2] is the sub-list for field type_name
 }
 
-func init() { file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_init() }
-func file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_init() {
-	if File_core_pkg_distribution_transport_grpc_channel_v1_channel_proto != nil {
+func init() { file_core_pkg_distribution_channel_pb_channel_proto_init() }
+func file_core_pkg_distribution_channel_pb_channel_proto_init() {
+	if File_core_pkg_distribution_channel_pb_channel_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDesc), len(file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_distribution_channel_pb_channel_proto_rawDesc), len(file_core_pkg_distribution_channel_pb_channel_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   3,
 		},
-		GoTypes:           file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_goTypes,
-		DependencyIndexes: file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_depIdxs,
-		MessageInfos:      file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_msgTypes,
+		GoTypes:           file_core_pkg_distribution_channel_pb_channel_proto_goTypes,
+		DependencyIndexes: file_core_pkg_distribution_channel_pb_channel_proto_depIdxs,
+		MessageInfos:      file_core_pkg_distribution_channel_pb_channel_proto_msgTypes,
 	}.Build()
-	File_core_pkg_distribution_transport_grpc_channel_v1_channel_proto = out.File
-	file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_goTypes = nil
-	file_core_pkg_distribution_transport_grpc_channel_v1_channel_proto_depIdxs = nil
+	File_core_pkg_distribution_channel_pb_channel_proto = out.File
+	file_core_pkg_distribution_channel_pb_channel_proto_goTypes = nil
+	file_core_pkg_distribution_channel_pb_channel_proto_depIdxs = nil
 }

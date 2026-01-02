@@ -6,10 +6,25 @@ described in `docs/claude/oracle-organization.md`.
 
 ## Executive Summary
 
-**Current State**: All protos centralized in `api/grpc/v1/`, translators in `api/grpc/`
+**Current State**: Partially migrated - service layer mostly done, distribution/API layers incomplete
 **Target State**: Layer-specific `pb/` subdirectories with protos and translators per domain
 
 **Estimated Scope**: ~15-20 domains across x/go, service, distribution, and api layers
+
+---
+
+## Quick Status (Updated 2026-01-01)
+
+| Phase | Status | Completion |
+|-------|--------|------------|
+| Phase 1: Oracle Tool | ✅ Complete | 100% |
+| Phase 2: x/go Layer | ✅ Complete | 100% |
+| Phase 3: Service Layer | ⏳ Partial | ~65% (9/14 domains) |
+| Phase 4: Distribution Layer | ✅ Complete | 100% (group, channel, framer) |
+| Phase 5: API Layer | ⏳ Partial | Handlers done, pb/ directories missing |
+| Phase 6: Cleanup | ❌ Not Started | 0% |
+
+See detailed status in each phase section below.
 
 ---
 

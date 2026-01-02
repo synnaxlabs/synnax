@@ -29,15 +29,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-type (
-	Range struct {
-		ranger.Range
-		Labels []label.Label `json:"labels" msgpack:"labels"`
-		Parent *ranger.Range `json:"parent" msgpack:"parent"`
-	}
-	KVPair = ranger.KVPair
-)
-
 func translateRangesToService(ranges []Range) []ranger.Range {
 	return lo.Map(ranges, func(r Range, _ int) ranger.Range { return r.Range })
 }
@@ -188,7 +179,7 @@ func (s *Service) Retrieve(
 			if err != nil {
 				return RetrieveResponse{}, err
 			}
-			rng.Parent = &parent
+			rng.Parent = &Range{Range: parent}
 			apiRanges[i] = rng
 		}
 	}
