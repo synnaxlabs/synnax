@@ -18,6 +18,7 @@ export const int64Z = z.int().min(math.MIN_INT64_NUMBER).max(math.MAX_INT64_NUMB
 export const uint8Z = z.int().min(0).max(math.MAX_UINT8);
 export const uint12Z = z.int().min(0).max(math.MAX_UINT12);
 export const uint16Z = z.int().min(0).max(math.MAX_UINT16);
+export const uint20Z = z.int().min(0).max(math.MAX_UINT20);
 
 // JSON utilities
 const defaultJSONSchema = z.record(z.string(), z.unknown());

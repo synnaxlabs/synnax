@@ -38,16 +38,6 @@ var (
 	ErrUnauthorized = errors.Wrap(Error, "unauthorized")
 )
 
-// Concurrency defines whether a resource can have multiple subjects acting on it at once.
-type Concurrency uint8
-
-const (
-	// Exclusive means that only a single subject has control over a resource at once.
-	Exclusive Concurrency = iota
-	// Shared means that multiple subjects can share control over a resource.
-	Shared
-)
-
 func encode(_ context.Context, err error) (errors.Payload, bool) {
 	if errors.Is(err, ErrUnauthorized) {
 		return errors.Payload{Type: unauthorized, Data: err.Error()}, true

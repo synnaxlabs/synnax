@@ -967,9 +967,9 @@ var primitiveTSTypes = map[string]string{
 	"string": "string", "uuid": "string",
 	"bool": "boolean",
 	"int8": "number", "int16": "number", "int32": "number", "int64": "number",
-	"uint8": "number", "uint16": "number", "uint32": "number", "uint64": "number",
+	"uint8": "number", "uint12": "number", "uint16": "number", "uint20": "number", "uint32": "number", "uint64": "number",
 	"float32": "number", "float64": "number",
-	"timestamp": "TimeStamp", "timespan": "TimeSpan",
+	"timestamp": "TimeStamp", "timespan": "TimeSpan", "data_type": "DataType",
 	"json": "unknown", "bytes": "Uint8Array",
 }
 
@@ -999,7 +999,9 @@ var primitiveZodTypes = map[string]primitiveMapping{
 	"int32":              {schema: "z.int32()"},
 	"int64":              {schema: "z.int64()"},
 	"uint8":              {schema: "zod.uint8Z", xImports: []xImport{{name: "zod", submodule: "zod"}}},
+	"uint12":             {schema: "zod.uint12Z", xImports: []xImport{{name: "zod", submodule: "zod"}}},
 	"uint16":             {schema: "zod.uint16Z", xImports: []xImport{{name: "zod", submodule: "zod"}}},
+	"uint20":             {schema: "zod.uint20Z", xImports: []xImport{{name: "zod", submodule: "zod"}}},
 	"uint32":             {schema: "z.uint32()"},
 	"uint64":             {schema: "z.uint64()"},
 	"float32":            {schema: "z.number()"},
@@ -1008,6 +1010,7 @@ var primitiveZodTypes = map[string]primitiveMapping{
 	"timespan":           {schema: "TimeSpan.z", xImports: []xImport{{name: "TimeSpan", submodule: "telem"}}},
 	"time_range":         {schema: "TimeRange.z", xImports: []xImport{{name: "TimeRange", submodule: "telem"}}},
 	"time_range_bounded": {schema: "TimeRange.boundedZ", xImports: []xImport{{name: "TimeRange", submodule: "telem"}}},
+	"data_type":          {schema: "DataType.z", xImports: []xImport{{name: "DataType", submodule: "telem"}}},
 	"json":               {schema: "record.unknownZ.or(z.string().transform((s) => JSON.parse(s)))", xImports: []xImport{{name: "record", submodule: "record"}}},
 	"bytes":              {schema: "z.instanceof(Uint8Array)"},
 }

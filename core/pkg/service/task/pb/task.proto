@@ -2,7 +2,7 @@
 
 syntax = "proto3";
 
-package synnax.task;
+package service.task;
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/task/pb";
 
@@ -23,7 +23,7 @@ message Task {
   bool internal = 4;
   bool snapshot = 5;
   string config = 6;
-  optional synnax.status.Status status = 7;
+  optional x.status.Status status = 7;
 }
 
 message Command {

@@ -24,11 +24,11 @@ service TaskCopyService {
 }
 
 message TaskCreateRequest {
-  repeated synnax.task.Task tasks = 1;
+  repeated service.task.Task tasks = 1;
 }
 
 message TaskCreateResponse {
-  repeated synnax.task.Task tasks = 1;
+  repeated service.task.Task tasks = 1;
 }
 
 message TaskRetrieveRequest {
@@ -40,7 +40,7 @@ message TaskRetrieveRequest {
 }
 
 message TaskRetrieveResponse {
-  repeated synnax.task.Task tasks = 1;
+  repeated service.task.Task tasks = 1;
 }
 
 message TaskDeleteRequest {
@@ -54,5 +54,5 @@ message TaskCopyRequest {
 }
 
 message TaskCopyResponse {
-  synnax.task.Task task = 1;
+  service.task.Task task = 1;
 }

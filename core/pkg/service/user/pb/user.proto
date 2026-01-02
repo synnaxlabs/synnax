@@ -2,7 +2,7 @@
 
 syntax = "proto3";
 
-package synnax.user;
+package service.user;
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/user/pb";
 

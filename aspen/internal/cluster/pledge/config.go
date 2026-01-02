@@ -12,7 +12,7 @@ package pledge
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/aspen/node"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"

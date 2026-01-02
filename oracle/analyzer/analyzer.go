@@ -12,6 +12,8 @@ package analyzer
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -271,6 +273,47 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 	name := def.IDENT().GetText()
 	qname := c.namespace + "." + name
+	aliasOf := collectTypeRef(def.TypeRef())
+
+	// If aliasing a primitive type (e.g., Key = uuid), treat as typedef not struct alias
+	if resolution.IsPrimitive(aliasOf.RawType) {
+		if _, exists := c.table.GetTypeDef(qname); exists {
+			c.diag.AddErrorf(def, c.filePath, "duplicate typedef definition: %s", qname)
+			return
+		}
+		entry := resolution.TypeDef{
+			AST:           nil, // StructAlias context, not TypeDefDef
+			Name:          name,
+			Namespace:     c.namespace,
+			FilePath:      c.filePath,
+			QualifiedName: qname,
+			Domains:       make(map[string]resolution.Domain),
+			BaseType:      collectTypeRef(def.TypeRef()),
+		}
+		// Start with file-level domains (inherited)
+		for k, v := range c.fileDomains {
+			entry.Domains[k] = v
+		}
+		// Collect domains from alias body if present
+		if body := def.AliasBody(); body != nil {
+			for _, d := range body.AllDomain() {
+				de := collectDomain(d)
+				if existing, ok := entry.Domains[de.Name]; ok {
+					merged := resolution.Domain{
+						AST:         de.AST,
+						Name:        de.Name,
+						Expressions: append(existing.Expressions, de.Expressions...),
+					}
+					entry.Domains[de.Name] = merged
+				} else {
+					entry.Domains[de.Name] = de
+				}
+			}
+		}
+		c.table.AddTypeDef(entry)
+		return
+	}
+
 	if _, exists := c.table.GetStruct(qname); exists {
 		c.diag.AddErrorf(def, c.filePath, "duplicate struct definition: %s", qname)
 		return
@@ -282,7 +325,7 @@ func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 		FilePath:      c.filePath,
 		QualifiedName: qname,
 		Domains:       make(map[string]resolution.Domain),
-		AliasOf:       collectTypeRef(def.TypeRef()),
+		AliasOf:       aliasOf,
 		TypeParams:    collectTypeParams(def.TypeParams()),
 	}
 
@@ -624,6 +667,10 @@ func resolveType(c *analysisCtx, currentStruct *resolution.Struct, t *resolution
 		ns, name = parts[0], parts[1]
 	}
 
+	if resolution.DebugTypeDef {
+		fmt.Fprintf(os.Stderr, "[RESOLVE] resolveType(%q) in ns=%q -> lookup ns=%q, name=%q\n", t.RawType, c.namespace, ns, name)
+	}
+
 	// Check if this is a type parameter reference (e.g., field value T in struct Box<T>)
 	if currentStruct != nil && len(parts) == 1 {
 		if tp, ok := currentStruct.TypeParam(name); ok {
@@ -637,6 +684,9 @@ func resolveType(c *analysisCtx, currentStruct *resolution.Struct, t *resolution
 		return
 	}
 	if s, ok := c.table.LookupStruct(ns, name); ok {
+		if resolution.DebugTypeDef {
+			fmt.Fprintf(os.Stderr, "[RESOLVE] resolveType(%q): found STRUCT %s.%s\n", t.RawType, s.Namespace, s.Name)
+		}
 		t.Kind, t.StructRef = resolution.TypeKindStruct, &s
 		// Recursively resolve type arguments
 		for _, arg := range t.TypeArgs {
@@ -645,10 +695,16 @@ func resolveType(c *analysisCtx, currentStruct *resolution.Struct, t *resolution
 		return
 	}
 	if e, ok := c.table.LookupEnum(ns, name); ok {
+		if resolution.DebugTypeDef {
+			fmt.Fprintf(os.Stderr, "[RESOLVE] resolveType(%q): found ENUM %s.%s\n", t.RawType, e.Namespace, e.Name)
+		}
 		t.Kind, t.EnumRef = resolution.TypeKindEnum, &e
 		return
 	}
 	if td, ok := c.table.LookupTypeDef(ns, name); ok {
+		if resolution.DebugTypeDef {
+			fmt.Fprintf(os.Stderr, "[RESOLVE] resolveType(%q): found TYPEDEF %s\n", t.RawType, td.QualifiedName)
+		}
 		t.Kind, t.TypeDefRef = resolution.TypeKindTypeDef, &td
 		return
 	}

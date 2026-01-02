@@ -12,7 +12,7 @@ package node_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/aspen/node"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/version"
 )

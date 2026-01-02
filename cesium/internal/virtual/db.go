@@ -103,7 +103,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		return nil, wrapError(ErrNotVirtual)
 	}
 	c, err := control.New[*controlResource](control.Config{
-		Concurrency:     xcontrol.Shared,
+		Concurrency:     xcontrol.ConcurrencyShared,
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {

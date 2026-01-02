@@ -18,24 +18,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/unsafe"
 	"github.com/synnaxlabs/x/validate"
 )
-
-// Key represents a unique identifier for a Channel. This value is guaranteed to be
-// unique across the entire cluster. It is composed of a uint32 Key representing the
-// node holding the lease on the channel, and a uint16 key representing a unique
-// node-local identifier.
-type Key uint32
-
-// LocalKey represents a unique identifier for a Channel with relation to its leaseholder.
-// It has a maximum addressable space of 2^20 (1,048,576) unique keys. This is the limiting
-// factor of the number of channels that can be created per node in Synnax.
-type LocalKey types.Uint20
 
 // NewKey generates a new Key from the provided components.
 func NewKey(nodeKey cluster.NodeKey, localKey LocalKey) (key Key) {
@@ -148,62 +134,6 @@ func (k Keys) Unique() Keys { return lo.Uniq(k) }
 // Difference compares two sets of keys and returns the keys that are absent in other
 // followed by the keys that are absent in k.
 func (k Keys) Difference(other Keys) (Keys, Keys) { return lo.Difference(k, other) }
-
-type Operation struct {
-	Type         string         `json:"type"`
-	ResetChannel Key            `json:"reset_channel"`
-	Duration     telem.TimeSpan `json:"duration"`
-}
-
-// Channel is a collection is a container representing a collection of samples across
-// a time range. The data within a channel typically arrives from a single source. This
-// can be a physical sensor, software sensor, metric, event, or any other entity that
-// emits regular, consistent, and time-ordered values.
-//
-// This Channel type (for the distribution layer) extends a cesium.DB's channel via
-// composition to add fields necessary for cluster wide distribution.
-//
-// Key Channel "belongs to" a specific Node. Because delta is oriented towards data collection
-// close to the hardware, it's natural to assume a sensor writes to one and only device.
-// For example, we may have a temperature sensor for a carbon fiber oven connected to a
-// Linux box. The temperature sensor is a Channel that writes to Node residing on the
-// Linux box.
-//
-// Series for a channel can only be written through the leaseholder. This helps solve a lot
-// of consistency and atomicity issues.
-type Channel struct {
-	// Name is a human-readable name for the channel. This name does not have to be
-	// unique.
-	Name string `json:"name" msgpack:"name"`
-	// Leaseholder is the leaseholder node for the channel.
-	Leaseholder cluster.NodeKey `json:"node_id" msgpack:"node_id"`
-	// DataType is the data type for the channel.
-	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// IsIndex is set to true if the channel is an index channel. LocalIndex channels must
-	// be int64 values written in ascending order. LocalIndex channels are most commonly
-	// unix nanosecond timestamps.
-	IsIndex bool `json:"is_index" msgpack:"is_index"`
-	// LocalKey is a unique identifier for the channel with relation to its leaseholder.
-	// When creating a channel, a unique key will be generated.
-	LocalKey LocalKey `json:"local_key" msgpack:"local_key"`
-	// LocalIndex is the channel used to index the channel's values. The LocalIndex is
-	// used to associate a value with a timestamp. If zero, the channel's data will be
-	// indexed using its rate. One of LocalIndex or Rate must be non-zero.
-	LocalIndex LocalKey `json:"local_index" msgpack:"local_index"`
-	// Virtual is set to true if the channel is a virtual channel. The data from virtual
-	// channels is not persisted into the DB.
-	Virtual bool `json:"virtual" msgpack:"virtual"`
-	// Concurrency sets the policy for concurrent writes to the same region of the
-	// channel's data. Only virtual channels can have a policy of control.Shared.
-	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
-	// Internal determines if a channel is a channel created by Synnax or
-	// created by the user.
-	Internal   bool        `json:"internal" msgpack:"internal"`
-	Operations []Operation `json:"operations" msgpack:"operations"`
-	// Expression is only used for calculated channels, and specifies the Arc expression
-	// to evaluate the calculated value.
-	Expression string `json:"expression" msgpack:"expression"`
-}
 
 func (c Channel) IsCalculated() bool {
 	return c.Expression != ""

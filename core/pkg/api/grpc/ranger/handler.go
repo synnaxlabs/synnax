@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	apiranger "github.com/synnaxlabs/synnax/pkg/api/ranger"
+	rangepb "github.com/synnaxlabs/synnax/pkg/api/ranger/pb"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/unsafe"
@@ -322,9 +323,13 @@ func (t kvSetRequestTranslator) Forward(
 	_ context.Context,
 	r apiranger.KVSetRequest,
 ) (*gapi.RangeKVSetRequest, error) {
+	pairs, err := rangepb.KVPairsToPB(r.Pairs)
+	if err != nil {
+		return nil, err
+	}
 	return &gapi.RangeKVSetRequest{
 		RangeKey: r.Range.String(),
-		Pairs:    translatePairsForward(r.Pairs),
+		Pairs:    pairs,
 	}, nil
 }
 

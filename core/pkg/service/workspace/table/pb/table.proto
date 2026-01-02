@@ -2,7 +2,7 @@
 
 syntax = "proto3";
 
-package synnax.table;
+package service.table;
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/workspace/table/pb";
 

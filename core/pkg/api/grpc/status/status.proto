@@ -30,11 +30,11 @@ service StatusDeleteService {
 
 message SetRequest {
   string parent = 1;
-  repeated synnax.status.Status statuses = 2;
+  repeated x.status.Status statuses = 2;
 }
 
 message SetResponse {
-  repeated synnax.status.Status statuses = 1;
+  repeated x.status.Status statuses = 1;
 }
 
 message RetrieveRequest {
@@ -47,7 +47,7 @@ message RetrieveRequest {
 }
 
 message RetrieveResponse {
-  repeated synnax.status.Status statuses = 1;
+  repeated x.status.Status statuses = 1;
 }
 
 message DeleteRequest {

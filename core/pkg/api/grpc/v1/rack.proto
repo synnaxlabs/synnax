@@ -20,11 +20,11 @@ service RackDeleteService {
 }
 
 message RackCreateRequest {
-  repeated synnax.rack.Rack racks = 1;
+  repeated service.rack.Rack racks = 1;
 }
 
 message RackCreateResponse {
-  repeated synnax.rack.Rack racks = 1;
+  repeated service.rack.Rack racks = 1;
 }
 
 message RackRetrieveRequest {
@@ -33,7 +33,7 @@ message RackRetrieveRequest {
 }
 
 message RackRetrieveResponse {
-  repeated synnax.rack.Rack racks = 1;
+  repeated service.rack.Rack racks = 1;
 }
 
 message RackDeleteRequest {

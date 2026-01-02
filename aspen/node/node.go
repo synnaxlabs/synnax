@@ -10,16 +10,14 @@
 package node
 
 import (
-	"github.com/synnaxlabs/x/math"
-	"github.com/synnaxlabs/x/types"
 	"strconv"
+
+	"github.com/synnaxlabs/x/math"
 
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/version"
 )
-
-type Key types.Uint12
 
 const (
 	Bootstrapper Key = 1

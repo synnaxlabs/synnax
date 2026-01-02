@@ -2,7 +2,7 @@
 
 syntax = "proto3";
 
-package synnax.schematic;
+package service.schematic;
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/workspace/schematic/pb";
 

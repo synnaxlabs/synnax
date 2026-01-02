@@ -2,7 +2,7 @@
 
 syntax = "proto3";
 
-package synnax.label;
+package x.label;
 
 option go_package = "github.com/synnaxlabs/x/label/pb";
 

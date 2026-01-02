@@ -20,11 +20,11 @@ service DeviceDeleteService {
 }
 
 message DeviceCreateRequest {
-  repeated synnax.device.Device devices = 1;
+  repeated service.device.Device devices = 1;
 }
 
 message DeviceCreateResponse {
-  repeated synnax.device.Device devices = 1;
+  repeated service.device.Device devices = 1;
 }
 
 message DeviceRetrieveRequest {
@@ -42,7 +42,7 @@ message DeviceRetrieveRequest {
 }
 
 message DeviceRetrieveResponse {
-  repeated synnax.device.Device devices = 1;
+  repeated service.device.Device devices = 1;
 }
 
 message DeviceDeleteRequest {

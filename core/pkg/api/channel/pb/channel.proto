@@ -2,15 +2,11 @@
 
 syntax = "proto3";
 
-package synnax.channel;
+package api.channel;
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/channel/pb";
 
-message Operation {
-  string type = 1;
-  uint32 reset_channel = 2;
-  int64 duration = 3;
-}
+import "core/pkg/distribution/channel/pb/channel.proto";
 
 message Channel {
   uint32 key = 1;
@@ -24,5 +20,5 @@ message Channel {
   bool virtual = 9;
   bool internal = 10;
   string expression = 11;
-  repeated Operation operations = 12;
+  repeated distribution.channel.Operation operations = 12;
 }

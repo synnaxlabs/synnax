@@ -2,7 +2,7 @@
 
 syntax = "proto3";
 
-package synnax.group;
+package distribution.group;
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/distribution/group/pb";
 

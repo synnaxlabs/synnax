@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package pb
+package arc
 
 import (
 	"context"
 
 	"github.com/synnaxlabs/freighter/fgrpc"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
@@ -26,20 +25,20 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[channel.CreateMessage, *CreateMessage] = (*CreateMessageTranslator)(nil)
-	_ fgrpc.Translator[channel.DeleteRequest, *DeleteRequest] = (*DeleteRequestTranslator)(nil)
-	_ fgrpc.Translator[channel.RenameRequest, *RenameRequest] = (*RenameMessageTranslator)(nil)
+	_ fgrpc.Translator[CreateMessage, *CreateMessage] = (*CreateMessageTranslator)(nil)
+	_ fgrpc.Translator[DeleteRequest, *DeleteRequest] = (*DeleteRequestTranslator)(nil)
+	_ fgrpc.Translator[RenameRequest, *RenameRequest] = (*RenameMessageTranslator)(nil)
 )
 
-func translateOptionsForward(opts channel.CreateOptions) *CreateOptions {
+func translateOptionsForward(opts CreateOptions) *CreateOptions {
 	return &CreateOptions{
 		RetrieveIfNameExists:  opts.RetrieveIfNameExists,
 		OverwriteIfNameExists: opts.OverwriteIfNameExistsAndDifferentProperties,
 	}
 }
 
-func translateOptionsBackward(opts *CreateOptions) channel.CreateOptions {
-	return channel.CreateOptions{
+func translateOptionsBackward(opts *CreateOptions) CreateOptions {
+	return CreateOptions{
 		RetrieveIfNameExists:                        opts.RetrieveIfNameExists,
 		OverwriteIfNameExistsAndDifferentProperties: opts.OverwriteIfNameExists,
 	}
@@ -47,7 +46,7 @@ func translateOptionsBackward(opts *CreateOptions) channel.CreateOptions {
 
 func (c CreateMessageTranslator) Forward(
 	_ context.Context,
-	msg channel.CreateMessage,
+	msg CreateMessage,
 ) (*CreateMessage, error) {
 	tr := &CreateMessage{Opts: translateOptionsForward(msg.Opts)}
 	for _, ch := range msg.Channels {
@@ -69,16 +68,16 @@ func (c CreateMessageTranslator) Forward(
 func (c CreateMessageTranslator) Backward(
 	_ context.Context,
 	msg *CreateMessage,
-) (channel.CreateMessage, error) {
-	tr := channel.CreateMessage{Opts: translateOptionsBackward(msg.Opts)}
+) (CreateMessage, error) {
+	tr := CreateMessage{Opts: translateOptionsBackward(msg.Opts)}
 	for _, ch := range msg.Channels {
-		tr.Channels = append(tr.Channels, channel.Channel{
+		tr.Channels = append(tr.Channels, Channel{
 			Name:        ch.Name,
 			Leaseholder: cluster.NodeKey(ch.Leaseholder),
 			DataType:    telem.DataType(ch.DataType),
 			IsIndex:     ch.IsIndex,
-			LocalKey:    channel.LocalKey(ch.LocalKey),
-			LocalIndex:  channel.LocalKey(ch.LocalIndex),
+			LocalKey:    LocalKey(ch.LocalKey),
+			LocalIndex:  LocalKey(ch.LocalIndex),
 			Virtual:     ch.Virtual,
 			Concurrency: control.Concurrency(ch.Concurrency),
 			Internal:    ch.Internal,
@@ -89,7 +88,7 @@ func (c CreateMessageTranslator) Backward(
 
 func (d DeleteRequestTranslator) Forward(
 	_ context.Context,
-	msg channel.DeleteRequest,
+	msg DeleteRequest,
 ) (*DeleteRequest, error) {
 	return &DeleteRequest{Keys: msg.Keys.Uint32()}, nil
 }
@@ -97,13 +96,13 @@ func (d DeleteRequestTranslator) Forward(
 func (d DeleteRequestTranslator) Backward(
 	_ context.Context,
 	msg *DeleteRequest,
-) (channel.DeleteRequest, error) {
-	return channel.DeleteRequest{Keys: channel.KeysFromUint32(msg.Keys)}, nil
+) (DeleteRequest, error) {
+	return DeleteRequest{Keys: KeysFromUint32(msg.Keys)}, nil
 }
 
 func (r RenameMessageTranslator) Forward(
 	_ context.Context,
-	msg channel.RenameRequest,
+	msg RenameRequest,
 ) (*RenameRequest, error) {
 	return &RenameRequest{
 		Names: msg.Names,
@@ -114,9 +113,9 @@ func (r RenameMessageTranslator) Forward(
 func (r RenameMessageTranslator) Backward(
 	_ context.Context,
 	msg *RenameRequest,
-) (channel.RenameRequest, error) {
-	return channel.RenameRequest{
+) (RenameRequest, error) {
+	return RenameRequest{
 		Names: msg.Names,
-		Keys:  channel.KeysFromUint32(msg.Keys),
+		Keys:  KeysFromUint32(msg.Keys),
 	}, nil
 }

@@ -21,11 +21,11 @@ service StatusDeleteService {
 
 message StatusSetRequest {
   string parent = 1; // Optional parent ontology ID in format "type:key"
-  repeated synnax.status.Status statuses = 2;
+  repeated x.status.Status statuses = 2;
 }
 
 message StatusSetResponse {
-  repeated synnax.status.Status statuses = 1;
+  repeated x.status.Status statuses = 1;
 }
 
 message StatusRetrieveRequest {
@@ -38,7 +38,7 @@ message StatusRetrieveRequest {
 }
 
 message StatusRetrieveResponse {
-  repeated synnax.status.Status statuses = 1;
+  repeated x.status.Status statuses = 1;
 }
 
 message StatusDeleteRequest {

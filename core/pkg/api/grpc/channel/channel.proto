@@ -9,7 +9,7 @@
 
 syntax = "proto3";
 
-package synnax.api.grpc.channel;
+package api.grpc.channel;
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/channel";
 
@@ -29,12 +29,12 @@ service ChannelDeleteService {
 }
 
 message CreateRequest {
-  repeated synnax.channel.Channel channels = 1;
+  repeated api.channel.Channel channels = 1;
   bool retrieve_if_name_exists = 2;
 }
 
 message CreateResponse {
-  repeated synnax.channel.Channel channels = 1;
+  repeated api.channel.Channel channels = 1;
 }
 
 message RetrieveRequest {
@@ -45,7 +45,7 @@ message RetrieveRequest {
 }
 
 message RetrieveResponse {
-  repeated synnax.channel.Channel channels = 1;
+  repeated api.channel.Channel channels = 1;
 }
 
 message DeleteRequest {

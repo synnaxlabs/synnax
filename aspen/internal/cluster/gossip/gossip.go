@@ -11,7 +11,7 @@ package gossip
 
 import (
 	"context"
-	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/aspen/node"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"

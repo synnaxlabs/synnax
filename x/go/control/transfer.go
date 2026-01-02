@@ -15,16 +15,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// Subject is digest-style information about a subject that is attempting to control a
-// particular resource.
-type Subject struct {
-	// Key is the key of the subject. This should be unique when compared to all other
-	// subjects attempting to control the same resource.
-	Key string `json:"key" msgpack:"key"`
-	// Name is a pretty name for the subject.
-	Name string `json:"name" msgpack:"name"`
-}
-
 // String implements fmt.Stringer to nicely print out information about the subject.
 func (s Subject) String() string {
 	if s.Name != "" {

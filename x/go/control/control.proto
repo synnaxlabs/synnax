@@ -8,3 +8,4 @@ message ControlSubject {
   string key = 1;
   string name = 2;
 }
+

@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/aspen/internal/cluster/store"
-	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/aspen/node"
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"

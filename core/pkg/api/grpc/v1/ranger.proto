@@ -4,6 +4,7 @@ package api.v1;
 
 import "google/protobuf/empty.proto";
 import "x/go/telem/telem.proto";
+import "core/pkg/api/ranger/pb/range.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/v1";
 
@@ -82,22 +83,16 @@ message RangeAliasListResponse {
   map<uint32, string> aliases = 1;
 }
 
-message Range {
-  string key = 1;
-  telem.PBTimeRange time_range = 2;
-  string name = 3;
-}
-
 message RangeDeleteRequest {
   repeated string keys = 1;
 }
 
 message RangeCreateRequest {
-  repeated Range ranges = 1;
+  repeated api.range.Range ranges = 1;
 }
 
 message RangeCreateResponse {
-  repeated Range ranges = 1;
+  repeated api.range.Range ranges = 1;
 }
 
 message RangeRetrieveRequest {
@@ -106,17 +101,12 @@ message RangeRetrieveRequest {
 }
 
 message RangeRetrieveResponse {
-  repeated Range ranges = 1;
+  repeated api.range.Range ranges = 1;
 }
 
 message RangeKVSetRequest {
   string range_key = 1;
-  repeated KVPair pairs = 2;
-}
-
-message KVPair {
-  string key = 1;
-  string value = 2;
+  repeated api.range.KVPair pairs = 2;
 }
 
 message RangeKVGetRequest {
@@ -125,7 +115,7 @@ message RangeKVGetRequest {
 }
 
 message RangeKVGetResponse {
-  repeated KVPair pairs = 1;
+  repeated synnax.range.KVPair pairs = 1;
 }
 
 message RangeKVDeleteRequest {

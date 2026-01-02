@@ -23,7 +23,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin"
-	"github.com/synnaxlabs/oracle/plugin/enum"
 	gointernal "github.com/synnaxlabs/oracle/plugin/go/internal"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -94,7 +93,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 	for _, outputPath := range outputOrder {
 		structs := outputStructs[outputPath]
-		enums := enum.CollectReferenced(structs)
+		// Get all enums in the namespace, not just referenced ones
+		namespace := ""
+		if len(structs) > 0 {
+			namespace = structs[0].Namespace
+		}
+		enums := req.Resolutions.EnumsInNamespace(namespace)
 		content, err := p.generateFile(outputPath, structs, enums, req)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
@@ -178,16 +182,25 @@ func (p *Plugin) generateFile(
 		}
 	}
 
-	if len(data.Translators) == 0 && len(data.GenericTranslators) == 0 {
-		return nil, nil
+	// Add all enums in namespace to usedEnums (not just those referenced by struct fields)
+	for i := range enums {
+		e := &enums[i]
+		if !omit.IsEnum(*e, "pb") {
+			data.usedEnums[e.QualifiedName] = e
+		}
 	}
 
-	// Generate enum translators for all used enums
+	// Generate enum translators for all enums in the namespace
 	for _, enumRef := range data.usedEnums {
 		enumTranslator := p.generateEnumTranslator(enumRef, data)
 		if enumTranslator != nil {
 			data.EnumTranslators = append(data.EnumTranslators, *enumTranslator)
 		}
+	}
+
+	// Skip file generation if no structs or enums to translate
+	if len(data.Translators) == 0 && len(data.GenericTranslators) == 0 && len(data.EnumTranslators) == 0 {
+		return nil, nil
 	}
 
 	var buf bytes.Buffer
@@ -474,7 +487,7 @@ func (p *Plugin) generatePrimitiveConversion(
 		data.imports.AddExternal("github.com/synnaxlabs/x/telem")
 		return fmt.Sprintf("int64(%s)", goField),
 			fmt.Sprintf("telem.TimeSpan(%s)", pbField), false, false
-	case "time_range":
+	case "time_range", "time_range_bounded":
 		data.imports.AddExternal("github.com/synnaxlabs/x/telem")
 		return fmt.Sprintf("telem.TranslateTimeRangeForward(%s)", goField),
 			fmt.Sprintf("telem.TranslateTimeRangeBackward(%s)", pbField), false, false
@@ -484,6 +497,18 @@ func (p *Plugin) generatePrimitiveConversion(
 		// AsMap() does NOT return an error
 		return fmt.Sprintf("structpb.NewStruct(%s)", goField),
 			fmt.Sprintf("%s.AsMap()", pbField), true, false
+	case "uint12":
+		data.imports.AddExternal("github.com/synnaxlabs/x/types")
+		return fmt.Sprintf("uint32(%s)", goField),
+			fmt.Sprintf("types.Uint12(%s)", pbField), false, false
+	case "uint20":
+		data.imports.AddExternal("github.com/synnaxlabs/x/types")
+		return fmt.Sprintf("uint32(%s)", goField),
+			fmt.Sprintf("types.Uint20(%s)", pbField), false, false
+	case "data_type":
+		data.imports.AddExternal("github.com/synnaxlabs/x/telem")
+		return fmt.Sprintf("string(%s)", goField),
+			fmt.Sprintf("telem.DataType(%s)", pbField), false, false
 	default:
 		return goField, pbField, false, false
 	}
@@ -528,30 +553,16 @@ func (p *Plugin) generateStructConversion(
 		return goField, pbField, ""
 	}
 
-	structName := actualStruct.Name
-
-	// Check if referenced struct is from a different namespace
-	translatorPrefix := ""
-	if actualStruct.Namespace != data.Namespace {
-		// Import the translator package for the referenced struct
-		pbOutput := output.GetPBPath(*actualStruct)
-		if pbOutput != "" {
-			importPath, err := resolveGoImportPath(pbOutput, data.repoRoot)
-			if err == nil {
-				alias := strings.ToLower(actualStruct.Namespace) + "pb"
-				data.imports.AddInternal(alias, importPath)
-				translatorPrefix = alias + "."
-			}
-		}
-	}
+	// Use the new helper to resolve translator info (handles extends chain)
+	translatorPrefix, translatorStructName := p.resolvePBTranslatorInfo(actualStruct, data)
 
 	if typeRef.IsHardOptional {
-		return fmt.Sprintf("%s%sToPB(ctx, *%s)", translatorPrefix, structName, goField),
-			fmt.Sprintf("%s%sFromPB(ctx, %s)", translatorPrefix, structName, pbField), ""
+		return fmt.Sprintf("%s%sToPB(ctx, *%s)", translatorPrefix, translatorStructName, goField),
+			fmt.Sprintf("%s%sFromPB(ctx, %s)", translatorPrefix, translatorStructName, pbField), ""
 	}
 
-	return fmt.Sprintf("%s%sToPB(ctx, %s)", translatorPrefix, structName, goField),
-		fmt.Sprintf("%s%sFromPB(ctx, %s)", translatorPrefix, structName, pbField), ""
+	return fmt.Sprintf("%s%sToPB(ctx, %s)", translatorPrefix, translatorStructName, goField),
+		fmt.Sprintf("%s%sFromPB(ctx, %s)", translatorPrefix, translatorStructName, pbField), ""
 }
 
 // generateGenericStructConversion generates conversion for generic struct types
@@ -565,21 +576,9 @@ func (p *Plugin) generateGenericStructConversion(
 	data *templateData,
 	goField, pbField string,
 ) (forward, backward, backwardCast string) {
+	// For generics, use the actual struct name but get the import from extends chain
 	structName := actualStruct.Name
-
-	// Find the translator package for the generic struct
-	translatorPrefix := ""
-	if actualStruct.Namespace != data.Namespace {
-		pbOutput := output.GetPBPath(*actualStruct)
-		if pbOutput != "" {
-			importPath, err := resolveGoImportPath(pbOutput, data.repoRoot)
-			if err == nil {
-				alias := strings.ToLower(actualStruct.Namespace) + "pb"
-				data.imports.AddInternal(alias, importPath)
-				translatorPrefix = alias + "."
-			}
-		}
-	}
+	translatorPrefix, _ := p.resolvePBTranslatorInfo(actualStruct, data)
 
 	// Build converter function arguments and explicit type args for each type arg
 	var forwardConverters, backwardConverters []string
@@ -691,6 +690,8 @@ func (p *Plugin) ensureAnyHelper(s *resolution.Struct, data *templateData) {
 }
 
 // generateEnumConversion generates conversion for enum types.
+// For same-namespace enums, generates local translator functions.
+// For cross-namespace enums, imports and uses the external pb package's translators.
 func (p *Plugin) generateEnumConversion(
 	typeRef *resolution.TypeRef,
 	data *templateData,
@@ -699,13 +700,41 @@ func (p *Plugin) generateEnumConversion(
 	enumRef := typeRef.EnumRef
 	enumName := enumRef.Name
 
-	// Track this enum for translator generation
+	// Check if this is a cross-namespace enum reference
+	if enumRef.Namespace != data.Namespace {
+		// Cross-namespace: import the pb package and use its translator
+		pbPath := findEnumPBPath(enumRef, data.table)
+		if pbPath != "" {
+			importPath, err := resolveGoImportPath(pbPath, data.repoRoot)
+			if err == nil {
+				alias := strings.ToLower(enumRef.Namespace) + "pb"
+				data.imports.AddInternal(alias, importPath)
+				return fmt.Sprintf("%s.Translate%sForward(%s)", alias, enumName, goField),
+					fmt.Sprintf("%s.Translate%sBackward(%s)", alias, enumName, pbField)
+			}
+		}
+	}
+
+	// Same namespace: track for local translator generation
 	if _, exists := data.usedEnums[enumRef.QualifiedName]; !exists {
 		data.usedEnums[enumRef.QualifiedName] = enumRef
 	}
 
-	return fmt.Sprintf("translate%sForward(%s)", enumName, goField),
-		fmt.Sprintf("translate%sBackward(%s)", enumName, pbField)
+	return fmt.Sprintf("Translate%sForward(%s)", enumName, goField),
+		fmt.Sprintf("Translate%sBackward(%s)", enumName, pbField)
+}
+
+// findEnumPBPath finds the pb output path for an enum by looking for a struct
+// in the same namespace that has @pb defined.
+func findEnumPBPath(e *resolution.Enum, table *resolution.Table) string {
+	for _, s := range table.AllStructs() {
+		if s.Namespace == e.Namespace {
+			if path := output.GetPBPath(s); path != "" {
+				return path
+			}
+		}
+	}
+	return ""
 }
 
 // generateTypeDefConversion generates conversion for typedef references.
@@ -769,27 +798,12 @@ func (p *Plugin) generateArrayConversion(
 
 	// For struct arrays, use slice helper
 	if typeRef.Kind == resolution.TypeKindStruct && typeRef.StructRef != nil {
-		structRef := typeRef.StructRef
-		structName := structRef.Name
-
-		// Check if referenced struct is from a different namespace
-		translatorPrefix := ""
-		if structRef.Namespace != data.Namespace {
-			// Import the translator package for the referenced struct
-			pbOutput := output.GetPBPath(*structRef)
-			if pbOutput != "" {
-				importPath, err := resolveGoImportPath(pbOutput, data.repoRoot)
-				if err == nil {
-					alias := strings.ToLower(structRef.Namespace) + "pb"
-					data.imports.AddInternal(alias, importPath)
-					translatorPrefix = alias + "."
-				}
-			}
-		}
+		// Use the helper to resolve translator info (handles extends chain)
+		translatorPrefix, translatorStructName := p.resolvePBTranslatorInfo(typeRef.StructRef, data)
 
 		// All slice translators return (result, error)
-		return fmt.Sprintf("%s%ssToPB(ctx, %s)", translatorPrefix, structName, goField),
-			fmt.Sprintf("%s%ssFromPB(ctx, %s)", translatorPrefix, structName, pbField),
+		return fmt.Sprintf("%s%ssToPB(ctx, %s)", translatorPrefix, translatorStructName, goField),
+			fmt.Sprintf("%s%ssFromPB(ctx, %s)", translatorPrefix, translatorStructName, pbField),
 			true
 	}
 
@@ -946,6 +960,56 @@ func getPBName(s resolution.Struct) string {
 	return ""
 }
 
+// findStructWithPB walks up the extends chain to find the struct that has @pb.
+// Returns the struct with @pb and its pb output path, or nil/"" if not found.
+// This is needed because a child struct (e.g., SVCLabel) may not have @pb,
+// but its parent (e.g., Label) does, and we need to use the parent's translators.
+func findStructWithPB(s *resolution.Struct) (*resolution.Struct, string) {
+	current := s
+	for current != nil {
+		pbPath := output.GetPBPath(*current)
+		if pbPath != "" {
+			return current, pbPath
+		}
+		// Walk up the extends chain
+		if current.Extends != nil && current.Extends.StructRef != nil {
+			current = current.Extends.StructRef
+		} else {
+			break
+		}
+	}
+	return nil, ""
+}
+
+// resolvePBTranslatorInfo resolves the translator package and function name for a struct.
+// It handles cross-package references and inheritance chains.
+// Returns: translatorPrefix (e.g., "labelpb."), translatorStructName (e.g., "Label")
+func (p *Plugin) resolvePBTranslatorInfo(
+	structRef *resolution.Struct,
+	data *templateData,
+) (translatorPrefix, translatorStructName string) {
+	// Find the struct that actually has @pb (may be a parent)
+	pbStruct, pbPath := findStructWithPB(structRef)
+	if pbStruct == nil {
+		// No @pb found in chain - use the struct's own name, no prefix
+		return "", structRef.Name
+	}
+
+	translatorStructName = pbStruct.Name
+
+	// Check if we need a package prefix
+	if pbStruct.Namespace != data.Namespace {
+		importPath, err := resolveGoImportPath(pbPath, data.repoRoot)
+		if err == nil {
+			alias := strings.ToLower(pbStruct.Namespace) + "pb"
+			data.imports.AddInternal(alias, importPath)
+			translatorPrefix = alias + "."
+		}
+	}
+
+	return translatorPrefix, translatorStructName
+}
+
 // hasKeyDomain checks if a field has the @key annotation.
 func hasKeyDomain(field resolution.Field) bool {
 	_, hasKey := field.Domains["key"]
@@ -966,11 +1030,11 @@ func isNumericPrimitive(primitive string) bool {
 // primitiveToProtoType returns the protobuf type name for a primitive.
 func primitiveToProtoType(primitive string) string {
 	switch primitive {
-	case "uint32":
+	case "uint8", "uint12", "uint16", "uint20", "uint32":
 		return "uint32"
 	case "uint64":
 		return "uint64"
-	case "int32":
+	case "int8", "int16", "int32":
 		return "int32"
 	case "int64":
 		return "int64"

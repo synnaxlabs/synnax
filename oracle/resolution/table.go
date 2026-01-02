@@ -9,7 +9,15 @@
 
 package resolution
 
-import "github.com/samber/lo"
+import (
+	"fmt"
+	"os"
+
+	"github.com/samber/lo"
+)
+
+// DebugTypeDef enables debug logging for typedef lookups
+var DebugTypeDef = os.Getenv("ORACLE_DEBUG_TYPEDEF") != ""
 
 // Table holds all resolved types from parsed Oracle schema files.
 // It serves as the central registry for struct, enum, and typedef definitions
@@ -111,13 +119,29 @@ func (t *Table) EnumsInNamespace(ns string) []Enum {
 // It first tries an exact qualified name match, then falls back to name-only.
 func (t *Table) LookupTypeDef(namespace, name string) (TypeDef, bool) {
 	qname := namespace + "." + name
+	if DebugTypeDef {
+		fmt.Fprintf(os.Stderr, "[TYPEDEF] LookupTypeDef(%q, %q) called, looking for %q\n", namespace, name, qname)
+	}
 	td, ok := t.GetTypeDef(qname)
 	if ok {
+		if DebugTypeDef {
+			fmt.Fprintf(os.Stderr, "[TYPEDEF] LookupTypeDef(%q, %q): exact match found -> %s\n", namespace, name, td.QualifiedName)
+		}
 		return td, true
 	}
-	return lo.Find(t.TypeDefs, func(item TypeDef) bool {
+	// Fallback to name-only search
+	fallback, found := lo.Find(t.TypeDefs, func(item TypeDef) bool {
 		return item.Name == name
 	})
+	if DebugTypeDef {
+		if found {
+			fmt.Fprintf(os.Stderr, "[TYPEDEF] LookupTypeDef(%q, %q): exact match FAILED for %q, fallback found -> %s (namespace=%s)\n",
+				namespace, name, qname, fallback.QualifiedName, fallback.Namespace)
+		} else {
+			fmt.Fprintf(os.Stderr, "[TYPEDEF] LookupTypeDef(%q, %q): NOT FOUND (no exact match, no fallback)\n", namespace, name)
+		}
+	}
+	return fallback, found
 }
 
 // GetTypeDef returns the type definition with the given qualified name.
@@ -131,7 +155,12 @@ func (t *Table) GetTypeDef(qname string) (TypeDef, bool) {
 func (t *Table) MustGetTypeDef(qname string) TypeDef { return lo.Must(t.GetTypeDef(qname)) }
 
 // AddTypeDef adds a type definition entry to the table.
-func (t *Table) AddTypeDef(e TypeDef) { t.TypeDefs = append(t.TypeDefs, e) }
+func (t *Table) AddTypeDef(e TypeDef) {
+	if DebugTypeDef {
+		fmt.Fprintf(os.Stderr, "[TYPEDEF] AddTypeDef: %s (namespace=%s)\n", e.QualifiedName, e.Namespace)
+	}
+	t.TypeDefs = append(t.TypeDefs, e)
+}
 
 // AllTypeDefs returns all type definition entries in the table.
 func (t *Table) AllTypeDefs() []TypeDef { return t.TypeDefs }

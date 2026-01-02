@@ -67,7 +67,7 @@ func (g *Gate[R]) Authorize() (r R, err error) {
 	}
 	// In the case of exclusive concurrency, we only need to check if the gate is the
 	// current gate.
-	if g.region.controller.Concurrency == control.Exclusive {
+	if g.region.controller.Concurrency == control.ConcurrencyExclusive {
 		if g.region.curr == g {
 			return g.region.resource, nil
 		}

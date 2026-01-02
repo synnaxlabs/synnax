@@ -155,7 +155,8 @@ func {{.Name}}sFromPB(ctx context.Context, pbs []*{{.PBType}}) ([]{{.GoType}}, e
 {{- end}}
 {{- range .EnumTranslators}}
 
-func translate{{.Name}}Forward(v {{.GoType}}) {{.PBType}} {
+// Translate{{.Name}}Forward converts {{.GoType}} to {{.PBType}}.
+func Translate{{.Name}}Forward(v {{.GoType}}) {{.PBType}} {
 	switch v {
 {{- range .Values}}
 	case {{.GoValue}}:
@@ -166,7 +167,8 @@ func translate{{.Name}}Forward(v {{.GoType}}) {{.PBType}} {
 	}
 }
 
-func translate{{.Name}}Backward(v {{.PBType}}) {{.GoType}} {
+// Translate{{.Name}}Backward converts {{.PBType}} to {{.GoType}}.
+func Translate{{.Name}}Backward(v {{.PBType}}) {{.GoType}} {
 	switch v {
 {{- range .Values}}
 	case {{.PBValue}}:

@@ -132,16 +132,17 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 	for _, outputPath := range outputOrder {
 		structs := outputStructs[outputPath]
-		enums := enum.CollectReferenced(structs)
+		// Get all enums in the namespace, not just referenced ones
+		namespace := ""
+		if len(structs) > 0 {
+			namespace = structs[0].Namespace
+		}
+		enums := req.Resolutions.EnumsInNamespace(namespace)
 		content, err := p.generateFile(outputPath, structs, enums, req.Resolutions, req.RepoRoot)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
 		// Use namespace-based filename: {namespace}.proto
-		namespace := ""
-		if len(structs) > 0 {
-			namespace = structs[0].Namespace
-		}
 		filename := namespace + ".proto"
 		resp.Files = append(resp.Files, plugin.File{
 			Path:    fmt.Sprintf("%s/%s", outputPath, filename),
@@ -202,22 +203,44 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
-// derivePackageName derives the proto package name using synnax.{namespace} format.
+// derivePackageName derives the proto package name using {layer}.{namespace} format.
+// For core/pkg/{layer}/... paths, uses the layer (distribution, api, service).
+// For other paths like x/go/... or aspen/..., uses the first path component.
 func derivePackageName(outputPath string, structs []resolution.Struct) string {
-	// Use namespace from first struct if available
+	namespace := ""
 	if len(structs) > 0 {
-		return "synnax." + structs[0].Namespace
-	}
-	// Fallback: derive from output path (parent directory of pb/)
-	parts := strings.Split(outputPath, "/")
-	if len(parts) >= 2 {
-		// If path ends with /pb, use parent directory
-		if parts[len(parts)-1] == "pb" {
-			return "synnax." + parts[len(parts)-2]
+		namespace = structs[0].Namespace
+	} else {
+		// Fallback: derive namespace from output path
+		parts := strings.Split(outputPath, "/")
+		if len(parts) >= 1 {
+			if parts[len(parts)-1] == "pb" && len(parts) >= 2 {
+				namespace = parts[len(parts)-2]
+			} else {
+				namespace = parts[len(parts)-1]
+			}
+		} else {
+			namespace = filepath.Base(outputPath)
 		}
-		return "synnax." + parts[len(parts)-1]
 	}
-	return "synnax." + filepath.Base(outputPath)
+	prefix := deriveLayerPrefix(outputPath)
+	return prefix + "." + namespace
+}
+
+// deriveLayerPrefix extracts the layer prefix from an output path.
+// For core/pkg/{layer}/... returns the layer (distribution, api, service).
+// For other paths returns the first component (x, aspen, cesium, etc.).
+func deriveLayerPrefix(outputPath string) string {
+	parts := strings.Split(outputPath, "/")
+	// For core/pkg/{layer}/... paths, use the layer as prefix
+	if len(parts) >= 3 && parts[0] == "core" && parts[1] == "pkg" {
+		return parts[2]
+	}
+	// For other paths, use the first component
+	if len(parts) >= 1 && parts[0] != "" {
+		return parts[0]
+	}
+	return "synnax"
 }
 
 // deriveGoPackage derives the Go package option from the output path.
@@ -418,13 +441,21 @@ func (p *Plugin) resolveStructType(typeRef *resolution.TypeRef, data *templateDa
 		return p.typeToProto(structRef.AliasOf, data)
 	}
 
-	// Same namespace - use name directly
-	if structRef.Namespace == data.Namespace {
-		return structRef.Name
+	// Get the protobuf name for this struct (use @pb name if set, else struct name)
+	pbName := getPBName(*structRef)
+	if pbName == "" {
+		pbName = structRef.Name
 	}
 
-	// Cross-namespace - need import
+	// Get target output path to compare with current file's output path
 	targetOutputPath := output.GetPBPath(*structRef)
+
+	// Same output path - use pb name directly (handles self-references and same-file structs)
+	if targetOutputPath == data.OutputPath {
+		return pbName
+	}
+
+	// Different output path - need import
 	if targetOutputPath == "" {
 		return "bytes" // No pb output defined
 	}
@@ -435,7 +466,7 @@ func (p *Plugin) resolveStructType(typeRef *resolution.TypeRef, data *templateDa
 
 	// Use fully qualified name with package prefix
 	pkg := derivePackageName(targetOutputPath, []resolution.Struct{*structRef})
-	return fmt.Sprintf("%s.%s", pkg, structRef.Name)
+	return fmt.Sprintf("%s.%s", pkg, pbName)
 }
 
 // resolveEnumType resolves an enum type reference to a protobuf type string.
@@ -463,7 +494,7 @@ func (p *Plugin) resolveEnumType(typeRef *resolution.TypeRef, data *templateData
 	data.imports.add(importPath)
 
 	// Use fully qualified name with package prefix
-	pkg := "synnax." + enumRef.Namespace
+	pkg := deriveLayerPrefix(targetOutputPath) + "." + enumRef.Namespace
 	return fmt.Sprintf("%s.%s", pkg, enumRef.Name)
 }
 
@@ -520,7 +551,9 @@ var primitiveProtoTypes = map[string]primitiveMapping{
 	"int32":              {protoType: "int32"},
 	"int64":              {protoType: "int64"},
 	"uint8":              {protoType: "uint32"},
+	"uint12":             {protoType: "uint32"},
 	"uint16":             {protoType: "uint32"},
+	"uint20":             {protoType: "uint32"},
 	"uint32":             {protoType: "uint32"},
 	"uint64":             {protoType: "uint64"},
 	"float32":            {protoType: "float"},
@@ -529,6 +562,7 @@ var primitiveProtoTypes = map[string]primitiveMapping{
 	"timespan":           {protoType: "int64"},
 	"time_range":         {protoType: "telem.PBTimeRange", importPath: "x/go/telem/telem.proto"},
 	"time_range_bounded": {protoType: "telem.PBTimeRange", importPath: "x/go/telem/telem.proto"},
+	"data_type":          {protoType: "string"},
 	"json":               {protoType: "google.protobuf.Struct", importPath: "google/protobuf/struct.proto"},
 	"bytes":              {protoType: "bytes"},
 }

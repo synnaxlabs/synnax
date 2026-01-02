@@ -624,15 +624,19 @@ var primitiveGoTypes = map[string]primitiveMapping{
 	"int32":      {goType: "int32"},
 	"int64":      {goType: "int64"},
 	"uint8":      {goType: "uint8"},
+	"uint12":     {goType: "types.Uint12", importPath: "github.com/synnaxlabs/x/types"},
 	"uint16":     {goType: "uint16"},
+	"uint20":     {goType: "types.Uint20", importPath: "github.com/synnaxlabs/x/types"},
 	"uint32":     {goType: "uint32"},
 	"uint64":     {goType: "uint64"},
 	"float32":    {goType: "float32"},
 	"float64":    {goType: "float64"},
 	"timestamp":  {goType: "telem.TimeStamp", importPath: "github.com/synnaxlabs/x/telem"},
 	"timespan":   {goType: "telem.TimeSpan", importPath: "github.com/synnaxlabs/x/telem"},
-	"time_range": {goType: "telem.TimeRange", importPath: "github.com/synnaxlabs/x/telem"},
-	"json":       {goType: "map[string]any"},
+	"time_range":         {goType: "telem.TimeRange", importPath: "github.com/synnaxlabs/x/telem"},
+	"time_range_bounded": {goType: "telem.TimeRange", importPath: "github.com/synnaxlabs/x/telem"},
+	"data_type":          {goType: "telem.DataType", importPath: "github.com/synnaxlabs/x/telem"},
+	"json":               {goType: "map[string]any"},
 	"bytes":      {goType: "[]byte"},
 }
 
@@ -747,7 +751,7 @@ type {{.Name}} {{.BaseType}}
 
 {{- if $enum.IsIntEnum}}
 
-type {{$enum.Name}} int
+type {{$enum.Name}} uint8
 
 const (
 {{- range $i, $v := $enum.Values}}

@@ -2,7 +2,7 @@
 
 syntax = "proto3";
 
-package synnax.rack;
+package service.rack;
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/rack/pb";
 
@@ -17,5 +17,5 @@ message Rack {
   string name = 2;
   uint32 task_counter = 3;
   bool embedded = 4;
-  optional synnax.status.Status status = 5;
+  optional x.status.Status status = 5;
 }
