@@ -23,20 +23,25 @@ type Data struct {
 	KeyField   *key.Field
 }
 
-// SkipFunc is a predicate that determines whether to skip a struct.
-type SkipFunc func(resolution.Struct) bool
+// SkipFunc is a predicate that determines whether to skip a type.
+type SkipFunc func(resolution.Type) bool
 
-// Extract finds ontology metadata from structs with an @ontology domain.
+// Extract finds ontology metadata from types with an @ontology domain.
 // Returns nil if no ontology domain is found or if there are no key fields.
-func Extract(structs []resolution.Struct, keyFields []key.Field, skip SkipFunc) *Data {
+func Extract(types []resolution.Type, keyFields []key.Field, skip SkipFunc) *Data {
 	if len(keyFields) == 0 {
 		return nil
 	}
-	for _, s := range structs {
-		if skip != nil && skip(s) {
+	for _, typ := range types {
+		if skip != nil && skip(typ) {
 			continue
 		}
-		domain, ok := s.Domains["ontology"]
+		// Only process struct types
+		_, ok := typ.Form.(resolution.StructForm)
+		if !ok {
+			continue
+		}
+		domain, ok := typ.Domains["ontology"]
 		if !ok {
 			continue
 		}
@@ -52,7 +57,7 @@ func Extract(structs []resolution.Struct, keyFields []key.Field, skip SkipFunc) 
 		}
 		return &Data{
 			TypeName:   typeName,
-			StructName: s.Name,
+			StructName: typ.Name,
 			KeyField:   &keyFields[0],
 		}
 	}

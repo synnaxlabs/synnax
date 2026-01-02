@@ -20,7 +20,6 @@
 
 namespace synnax::rack {
 using Key = std::uint32_t;
-using Key = std::uint32_t;
 
 struct StatusDetails {
     Key rack;
@@ -54,7 +53,7 @@ struct Payload {
             .task_counter = parser.field<std::uint32_t>("task_counter", 0),
             .embedded = parser.field<bool>("embedded", false),
             .status = parser.has("status")
-                        ? std::make_optional(Status::parse(parser.child("status")))
+                        ? std::make_optional(parser.field<Status>("status"))
                         : std::nullopt,
         };
     }
@@ -65,7 +64,7 @@ struct Payload {
         j["name"] = this->name;
         j["task_counter"] = this->task_counter;
         j["embedded"] = this->embedded;
-        if (this->status.has_value()) j["status"] = this->status->to_json();
+        if (this->status.has_value()) j["status"] = *this->status;
         return j;
     }
 };

@@ -13,6 +13,7 @@ package pb
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 )
@@ -21,7 +22,7 @@ import (
 // RangeToPB converts Range to Range.
 func RangeToPB(_ context.Context, r ranger.Range) (*Range, error) {
 	pb := &Range{
-		Key: uuid(r.Key),
+		Key: r.Key.String(),
 		Name: r.Name,
 		TimeRange: telem.TranslateTimeRangeForward(r.TimeRange),
 		Color: r.Color,
@@ -35,7 +36,7 @@ func RangeFromPB(_ context.Context, pb *Range) (ranger.Range, error) {
 	if pb == nil {
 		return r, nil
 	}
-	r.Key = ranger.Key(pb.Key)
+	r.Key = ranger.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
 	r.TimeRange = telem.TranslateTimeRangeBackward(pb.TimeRange)
 	r.Color = pb.Color

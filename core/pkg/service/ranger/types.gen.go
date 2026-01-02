@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-type Key uuid.UUID
+type Key = uuid.UUID
 
 type Range struct {
 	Key Key `json:"key" msgpack:"key"`

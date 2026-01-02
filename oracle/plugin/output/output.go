@@ -12,11 +12,9 @@ package output
 
 import "github.com/synnaxlabs/oracle/resolution"
 
-// GetPath extracts the output path from a struct's domain.
-// domainName specifies which domain to look up (e.g., "go", "ts", "py").
-// Returns an empty string if no output path is defined.
-func GetPath(entry resolution.Struct, domainName string) string {
-	if domain, ok := entry.Domains[domainName]; ok {
+// GetPath extracts the output path from a type's domain.
+func GetPath(typ resolution.Type, domainName string) string {
+	if domain, ok := typ.Domains[domainName]; ok {
 		for _, expr := range domain.Expressions {
 			if expr.Name == "output" && len(expr.Values) > 0 {
 				return expr.Values[0].StringValue
@@ -26,37 +24,9 @@ func GetPath(entry resolution.Struct, domainName string) string {
 	return ""
 }
 
-// GetEnumPath extracts the output path from an enum's domain.
-// domainName specifies which domain to look up (e.g., "go", "ts", "py").
-// Returns an empty string if no output path is defined.
-func GetEnumPath(entry resolution.Enum, domainName string) string {
-	if domain, ok := entry.Domains[domainName]; ok {
-		for _, expr := range domain.Expressions {
-			if expr.Name == "output" && len(expr.Values) > 0 {
-				return expr.Values[0].StringValue
-			}
-		}
-	}
-	return ""
-}
-
-// GetTypeDefPath extracts the output path from a typedef's domain.
-// domainName specifies which domain to look up (e.g., "go", "ts", "py").
-// Returns an empty string if no output path is defined.
-func GetTypeDefPath(entry resolution.TypeDef, domainName string) string {
-	if domain, ok := entry.Domains[domainName]; ok {
-		for _, expr := range domain.Expressions {
-			if expr.Name == "output" && len(expr.Values) > 0 {
-				return expr.Values[0].StringValue
-			}
-		}
-	}
-	return ""
-}
-
-// IsEnumOmitted checks if an enum has the "omit" expression in its domain.
-func IsEnumOmitted(entry resolution.Enum, domainName string) bool {
-	if domain, ok := entry.Domains[domainName]; ok {
+// IsOmitted checks if a type has the "omit" expression in its domain.
+func IsOmitted(typ resolution.Type, domainName string) bool {
+	if domain, ok := typ.Domains[domainName]; ok {
 		for _, expr := range domain.Expressions {
 			if expr.Name == "omit" {
 				return true
@@ -66,40 +36,18 @@ func IsEnumOmitted(entry resolution.Enum, domainName string) bool {
 	return false
 }
 
-// HasPB checks if a struct has the @pb directive (flag, no parameters).
-// This enables pb/ subdirectory generation.
-func HasPB(entry resolution.Struct) bool {
-	_, hasPB := entry.Domains["pb"]
+// HasPB checks if a type has the @pb directive.
+func HasPB(typ resolution.Type) bool {
+	_, hasPB := typ.Domains["pb"]
 	return hasPB
 }
 
-// HasPBEnum checks if an enum's containing struct has the @pb directive.
-func HasPBEnum(entry resolution.Enum) bool {
-	_, hasPB := entry.Domains["pb"]
-	return hasPB
-}
-
-// GetPBPath returns the pb output path for a struct.
-// When @pb flag is present, derives from @go output + "/pb/".
-// Returns empty string if @pb not present or @go output not defined.
-func GetPBPath(entry resolution.Struct) string {
-	if !HasPB(entry) {
+// GetPBPath returns the pb output path for a type.
+func GetPBPath(typ resolution.Type) string {
+	if !HasPB(typ) {
 		return ""
 	}
-	goPath := GetPath(entry, "go")
-	if goPath == "" {
-		return ""
-	}
-	return goPath + "/pb"
-}
-
-// GetPBEnumPath returns the pb output path for an enum.
-// When @pb flag is present, derives from @go output + "/pb/".
-func GetPBEnumPath(entry resolution.Enum) string {
-	if !HasPBEnum(entry) {
-		return ""
-	}
-	goPath := GetEnumPath(entry, "go")
+	goPath := GetPath(typ, "go")
 	if goPath == "" {
 		return ""
 	}

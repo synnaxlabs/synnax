@@ -563,7 +563,7 @@ var _ = Describe("Go Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`type Priority int`))
+			Expect(content).To(ContainSubstring(`type Priority uint8`))
 			Expect(content).To(ContainSubstring(`PriorityLow Priority = iota`))
 			Expect(content).To(ContainSubstring(`PriorityMedium`))
 			Expect(content).To(ContainSubstring(`PriorityHigh`))
@@ -1062,6 +1062,73 @@ var _ = Describe("Go Types Plugin", func() {
 			Expect(zebraIdx).To(BeNumerically("<", appleIdx))
 			Expect(appleIdx).To(BeNumerically("<", mangoIdx))
 		})
+		})
+
+		Context("regression tests", func() {
+			It("Should use alias type name in struct fields instead of expanded target", func() {
+				// Regression test: When a struct field references a type alias,
+				// the generated code should use the alias name, not expand to the target type.
+				source := `
+					@go output "core/rack"
+
+					StatusDetails struct {
+						rack uint32
+					}
+
+					// Alias to a local struct type
+					Details = StatusDetails
+
+					Payload struct {
+						key uint32
+						details Details
+					}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
+				Expect(diag.HasErrors()).To(BeFalse())
+
+				req := &plugin.Request{
+					Resolutions: table,
+					OutputDir:   "out",
+				}
+
+				resp, err := goPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				content := string(resp.Files[0].Content)
+				// Should use the alias name "Details", not expanded "StatusDetails"
+				Expect(content).To(ContainSubstring("Details Details"))
+				Expect(content).NotTo(MatchRegexp(`Details\s+StatusDetails`))
+			})
+
+			It("Should use distinct type name in struct fields", func() {
+				// Regression test: When a struct field references a distinct type,
+				// the generated code should use the distinct type name, not the underlying primitive.
+				source := `
+					@go output "core/channel"
+
+					Key int
+
+					Channel struct {
+						key Key
+						name string
+					}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "channel", loader)
+				Expect(diag.HasErrors()).To(BeFalse())
+
+				req := &plugin.Request{
+					Resolutions: table,
+					OutputDir:   "out",
+				}
+
+				resp, err := goPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				content := string(resp.Files[0].Content)
+				// Should use the distinct type name "Key", not expanded "int"
+				Expect(content).To(ContainSubstring("Key Key"))
+				Expect(content).NotTo(MatchRegexp(`Key\s+int`))
+			})
 		})
 	})
 })

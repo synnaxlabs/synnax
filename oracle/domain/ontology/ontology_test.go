@@ -19,7 +19,8 @@ import (
 
 var _ = Describe("Extract", func() {
 	It("should return nil for empty key fields", func() {
-		structs := []resolution.Struct{{
+		types := []resolution.Type{{
+			Form: resolution.StructForm{},
 			Domains: map[string]resolution.Domain{
 				"ontology": {Expressions: []resolution.Expression{{
 					Name:   "type",
@@ -27,28 +28,33 @@ var _ = Describe("Extract", func() {
 				}}},
 			},
 		}}
-		Expect(ontology.Extract(structs, nil, nil)).To(BeNil())
+		Expect(ontology.Extract(types, nil, nil)).To(BeNil())
 	})
 
-	It("should return nil when no struct has ontology domain", func() {
-		structs := []resolution.Struct{{Domains: map[string]resolution.Domain{}}}
+	It("should return nil when no type has ontology domain", func() {
+		types := []resolution.Type{{
+			Form:    resolution.StructForm{},
+			Domains: map[string]resolution.Domain{},
+		}}
 		keyFields := []key.Field{{Name: "key", Primitive: "uuid"}}
-		Expect(ontology.Extract(structs, keyFields, nil)).To(BeNil())
+		Expect(ontology.Extract(types, keyFields, nil)).To(BeNil())
 	})
 
 	It("should return nil when ontology has no type expression", func() {
-		structs := []resolution.Struct{{
+		types := []resolution.Type{{
+			Form: resolution.StructForm{},
 			Domains: map[string]resolution.Domain{
 				"ontology": {Expressions: []resolution.Expression{}},
 			},
 		}}
 		keyFields := []key.Field{{Name: "key", Primitive: "uuid"}}
-		Expect(ontology.Extract(structs, keyFields, nil)).To(BeNil())
+		Expect(ontology.Extract(types, keyFields, nil)).To(BeNil())
 	})
 
 	It("should extract ontology data", func() {
-		structs := []resolution.Struct{{
+		types := []resolution.Type{{
 			Name: "User",
+			Form: resolution.StructForm{},
 			Domains: map[string]resolution.Domain{
 				"ontology": {Expressions: []resolution.Expression{{
 					Name:   "type",
@@ -57,7 +63,7 @@ var _ = Describe("Extract", func() {
 			},
 		}}
 		keyFields := []key.Field{{Name: "key", Primitive: "uuid"}}
-		result := ontology.Extract(structs, keyFields, nil)
+		result := ontology.Extract(types, keyFields, nil)
 		Expect(result).NotTo(BeNil())
 		Expect(result.TypeName).To(Equal("user"))
 		Expect(result.StructName).To(Equal("User"))
@@ -65,9 +71,10 @@ var _ = Describe("Extract", func() {
 		Expect(result.KeyField.Primitive).To(Equal("uuid"))
 	})
 
-	It("should skip structs when skip function returns true", func() {
-		structs := []resolution.Struct{{
+	It("should skip types when skip function returns true", func() {
+		types := []resolution.Type{{
 			Name: "Skipped",
+			Form: resolution.StructForm{},
 			Domains: map[string]resolution.Domain{
 				"ontology": {Expressions: []resolution.Expression{{
 					Name:   "type",
@@ -76,14 +83,14 @@ var _ = Describe("Extract", func() {
 			},
 		}}
 		keyFields := []key.Field{{Name: "key", Primitive: "uuid"}}
-		skip := func(s resolution.Struct) bool { return s.Name == "Skipped" }
-		Expect(ontology.Extract(structs, keyFields, skip)).To(BeNil())
+		skip := func(t resolution.Type) bool { return t.Name == "Skipped" }
+		Expect(ontology.Extract(types, keyFields, skip)).To(BeNil())
 	})
 
-	It("should use first matching struct with ontology domain", func() {
-		structs := []resolution.Struct{
-			{Name: "First", Domains: map[string]resolution.Domain{}},
-			{Name: "Second", Domains: map[string]resolution.Domain{
+	It("should use first matching type with ontology domain", func() {
+		types := []resolution.Type{
+			{Name: "First", Form: resolution.StructForm{}, Domains: map[string]resolution.Domain{}},
+			{Name: "Second", Form: resolution.StructForm{}, Domains: map[string]resolution.Domain{
 				"ontology": {Expressions: []resolution.Expression{{
 					Name:   "type",
 					Values: []resolution.ExpressionValue{{StringValue: "task"}},
@@ -91,7 +98,7 @@ var _ = Describe("Extract", func() {
 			}},
 		}
 		keyFields := []key.Field{{Name: "key", Primitive: "uint32"}}
-		result := ontology.Extract(structs, keyFields, nil)
+		result := ontology.Extract(types, keyFields, nil)
 		Expect(result.StructName).To(Equal("Second"))
 		Expect(result.TypeName).To(Equal("task"))
 	})

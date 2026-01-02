@@ -18,92 +18,102 @@ import (
 
 var _ = Describe("Collect", func() {
 	It("should return empty for nil input", func() {
-		Expect(key.Collect(nil, nil)).To(BeEmpty())
+		Expect(key.Collect(nil, nil, nil)).To(BeEmpty())
 	})
 
 	It("should return empty for structs without key domain", func() {
-		structs := []resolution.Struct{{
-			Fields: []resolution.Field{{
-				Name:    "name",
-				TypeRef: &resolution.TypeRef{Primitive: "string"},
-				Domains: map[string]resolution.Domain{},
-			}},
+		types := []resolution.Type{{
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{{
+					Name:    "name",
+					Type:    resolution.TypeRef{Name: "string"},
+					Domains: map[string]resolution.Domain{},
+				}},
+			},
 		}}
-		Expect(key.Collect(structs, nil)).To(BeEmpty())
+		Expect(key.Collect(types, nil, nil)).To(BeEmpty())
 	})
 
 	It("should collect field with key domain", func() {
-		structs := []resolution.Struct{{
-			Fields: []resolution.Field{{
-				Name:    "key",
-				TypeRef: &resolution.TypeRef{Primitive: "uuid"},
-				Domains: map[string]resolution.Domain{"key": {}},
-			}},
+		types := []resolution.Type{{
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{{
+					Name:    "key",
+					Type:    resolution.TypeRef{Name: "uuid"},
+					Domains: map[string]resolution.Domain{"key": {}},
+				}},
+			},
 		}}
-		result := key.Collect(structs, nil)
+		result := key.Collect(types, nil, nil)
 		Expect(result).To(HaveLen(1))
 		Expect(result[0].Name).To(Equal("key"))
 		Expect(result[0].Primitive).To(Equal("uuid"))
 	})
 
 	It("should deduplicate by field name", func() {
-		structs := []resolution.Struct{
-			{Fields: []resolution.Field{{
+		types := []resolution.Type{
+			{Form: resolution.StructForm{Fields: []resolution.Field{{
 				Name:    "key",
-				TypeRef: &resolution.TypeRef{Primitive: "uuid"},
+				Type:    resolution.TypeRef{Name: "uuid"},
 				Domains: map[string]resolution.Domain{"key": {}},
-			}}},
-			{Fields: []resolution.Field{{
+			}}}},
+			{Form: resolution.StructForm{Fields: []resolution.Field{{
 				Name:    "key",
-				TypeRef: &resolution.TypeRef{Primitive: "uuid"},
+				Type:    resolution.TypeRef{Name: "uuid"},
 				Domains: map[string]resolution.Domain{"key": {}},
-			}}},
+			}}}},
 		}
-		Expect(key.Collect(structs, nil)).To(HaveLen(1))
+		Expect(key.Collect(types, nil, nil)).To(HaveLen(1))
 	})
 
 	It("should collect multiple different key fields", func() {
-		structs := []resolution.Struct{{
-			Fields: []resolution.Field{
-				{
-					Name:    "key",
-					TypeRef: &resolution.TypeRef{Primitive: "uuid"},
-					Domains: map[string]resolution.Domain{"key": {}},
-				},
-				{
-					Name:    "rack",
-					TypeRef: &resolution.TypeRef{Primitive: "uint32"},
-					Domains: map[string]resolution.Domain{"key": {}},
+		types := []resolution.Type{{
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{
+					{
+						Name:    "key",
+						Type:    resolution.TypeRef{Name: "uuid"},
+						Domains: map[string]resolution.Domain{"key": {}},
+					},
+					{
+						Name:    "rack",
+						Type:    resolution.TypeRef{Name: "uint32"},
+						Domains: map[string]resolution.Domain{"key": {}},
+					},
 				},
 			},
 		}}
-		result := key.Collect(structs, nil)
+		result := key.Collect(types, nil, nil)
 		Expect(result).To(HaveLen(2))
 	})
 
-	It("should skip structs when skip function returns true", func() {
-		structs := []resolution.Struct{{
+	It("should skip types when skip function returns true", func() {
+		types := []resolution.Type{{
 			Name: "Skipped",
-			Fields: []resolution.Field{{
-				Name:    "key",
-				TypeRef: &resolution.TypeRef{Primitive: "uuid"},
-				Domains: map[string]resolution.Domain{"key": {}},
-			}},
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{{
+					Name:    "key",
+					Type:    resolution.TypeRef{Name: "uuid"},
+					Domains: map[string]resolution.Domain{"key": {}},
+				}},
+			},
 		}}
-		skip := func(s resolution.Struct) bool { return s.Name == "Skipped" }
-		Expect(key.Collect(structs, skip)).To(BeEmpty())
+		skip := func(t resolution.Type) bool { return t.Name == "Skipped" }
+		Expect(key.Collect(types, nil, skip)).To(BeEmpty())
 	})
 
 	It("should not skip when skip function returns false", func() {
-		structs := []resolution.Struct{{
+		types := []resolution.Type{{
 			Name: "NotSkipped",
-			Fields: []resolution.Field{{
-				Name:    "key",
-				TypeRef: &resolution.TypeRef{Primitive: "uuid"},
-				Domains: map[string]resolution.Domain{"key": {}},
-			}},
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{{
+					Name:    "key",
+					Type:    resolution.TypeRef{Name: "uuid"},
+					Domains: map[string]resolution.Domain{"key": {}},
+				}},
+			},
 		}}
-		skip := func(s resolution.Struct) bool { return s.Name == "Skipped" }
-		Expect(key.Collect(structs, skip)).To(HaveLen(1))
+		skip := func(t resolution.Type) bool { return t.Name == "Skipped" }
+		Expect(key.Collect(types, nil, skip)).To(HaveLen(1))
 	})
 })

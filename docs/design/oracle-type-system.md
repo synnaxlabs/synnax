@@ -195,8 +195,8 @@ This is consistent with Q1 (primitives as first-class types) and more sustainabl
 
 ```go
 type TypeRef struct {
-    Type     *Type       // Points to Array, Map, or any type
-    TypeArgs []*TypeRef  // Uniform for all generics
+    Name     string      // "Array", "Map", or any type name
+    TypeArgs []TypeRef   // Uniform for all generics
 }
 ```
 
@@ -225,8 +225,9 @@ not a distinct type.
 type Field struct {
     Name           string
     Type           *TypeRef
-    IsOptional     bool  // ?
-    IsHardOptional bool  // ??
+    IsOptional     bool  // ? on concrete types (serialization)
+    IsHardOptional bool  // ?? (pointer + omitempty)
+    OmitIfUnset    bool  // ? on optional type param (omit if type param not provided)
 }
 ```
 
@@ -315,12 +316,12 @@ type Type struct {
 - Should we support re-exports?
 
 **Decision**: **Option A - Single global registry.** All types from all files live in
-one map, keyed by qualified name (`status.Status`, `rack.Rack`). Simple, works today,
+one slice, keyed by qualified name (`status.Status`, `rack.Rack`). Simple, works today,
 no need to complicate. Namespaces are just prefixes.
 
 ```go
 type Table struct {
-    Types map[string]*Type  // "status.Status" → *Type
+    Types []Type  // Single slice, lookup via lo.Find by QualifiedName
 }
 ```
 
@@ -440,15 +441,25 @@ Value semantics throughout - no pointers.
 
 ```go
 // TypeRef is a reference to a type, possibly with type arguments.
+// Exactly one of Name or TypeParam must be set (mutually exclusive).
+// This invariant is validated during analysis.
 type TypeRef struct {
-    // Qualified name of the referenced type. Use Table.Get() to resolve.
+    // Qualified name of a registered type. Use Table.Get() to resolve.
+    // Set when referencing a concrete type (e.g., "status.Status", "int32").
     Name string
 
-    // For references to type parameters within generics (mutually exclusive with Name)
+    // Reference to a type parameter within a generic definition.
+    // Set when referencing a type param (e.g., T in Status<T>).
+    // Type params are lexically scoped, not registered in Table.
     TypeParam *TypeParam
 
-    // Type arguments for generic instantiation
+    // Type arguments for generic instantiation (e.g., Status<Details>).
     TypeArgs []TypeRef
+}
+
+// IsTypeParam returns true if this references a type parameter.
+func (r TypeRef) IsTypeParam() bool {
+    return r.TypeParam != nil
 }
 
 // Note: Name and TypeParam are mutually exclusive. Type parameters are lexically
@@ -480,23 +491,47 @@ type Field struct {
     Name           string
     Type           TypeRef  // Value semantics
     Domains        map[string]Domain
-    IsOptional     bool  // ? - soft optional
-    IsHardOptional bool  // ?? - hard optional
+    IsOptional     bool  // ? on concrete types (serialization)
+    IsHardOptional bool  // ?? (pointer + omitempty)
+    OmitIfUnset    bool  // ? on optional type param (omit if type param not provided)
 }
 ```
 
-### 3.5 Type Parameters
+### 3.5 Enum Values
+
+```go
+// EnumValue represents a single value in an enumeration.
+type EnumValue struct {
+    Name    string
+    Value   any     // string or int depending on EnumForm.IsIntEnum
+    Domains map[string]Domain
+}
+```
+
+### 3.6 Domains
+
+```go
+// Domain represents language-specific annotations on a type, field, or enum value.
+type Domain struct {
+    Name       string            // e.g., "go", "ts", "py", "pb"
+    Properties map[string]string // e.g., {"output": "x/go/status", "name": "Status"}
+    Omit       bool              // If true, skip generation for this domain
+}
+```
+
+### 3.7 Type Parameters
 
 ```go
 // TypeParam represents a generic type parameter.
 type TypeParam struct {
-    Name    string
-    Bound   *TypeRef  // Optional: must extend this type (pointer for optionality)
-    Default *TypeRef  // Optional: default if not specified (pointer for optionality)
+    Name       string
+    Bound      *TypeRef  // Optional: must extend this type (pointer for optionality)
+    Default    *TypeRef  // Optional: default if not specified (pointer for optionality)
+    IsOptional bool      // True if declared with ? (e.g., <T?>)
 }
 ```
 
-### 3.6 Type Registry
+### 3.8 Type Registry
 
 Single slice of values. One source of truth. Definition order preserved.
 Lookups use `lo.Find` - simplicity over O(1) performance.
@@ -517,6 +552,12 @@ func NewTable() Table {
 }
 
 func (t *Table) registerBuiltins() {
+    mustAdd := func(typ Type) {
+        if err := t.Add(typ); err != nil {
+            panic(err) // Built-ins should never conflict
+        }
+    }
+
     for _, name := range []string{
         "int8", "int16", "int32", "int64",
         "uint8", "uint12", "uint16", "uint20", "uint32", "uint64",
@@ -525,19 +566,19 @@ func (t *Table) registerBuiltins() {
         "timestamp", "timespan", "time_range", "time_range_bounded",
         "json", "bytes", "data_type",
     } {
-        t.Add(Type{
+        mustAdd(Type{
             Name:          name,
             QualifiedName: name,
             Form:          PrimitiveForm{Name: name},
         })
     }
 
-    t.Add(Type{
+    mustAdd(Type{
         Name:          "Array",
         QualifiedName: "Array",
         Form:          BuiltinGenericForm{Name: "Array", Arity: 1},
     })
-    t.Add(Type{
+    mustAdd(Type{
         Name:          "Map",
         QualifiedName: "Map",
         Form:          BuiltinGenericForm{Name: "Map", Arity: 2},
@@ -780,8 +821,9 @@ They are lexically scoped to their generic definition. TypeRef has a separate fi
 
 ```go
 type TypeRef struct {
-    Type      *Type       // nil if TypeParam is set
+    Name      string      // Empty if TypeParam is set
     TypeParam *TypeParam  // For type parameter references
+    TypeArgs  []TypeRef
 }
 ```
 

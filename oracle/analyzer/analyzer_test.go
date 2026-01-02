@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/testutil"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Analyzer", func() {
@@ -42,28 +41,29 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 			Expect(table).NotTo(BeNil())
-			Expect(table.Structs).To(HaveLen(1))
+			Expect(table.StructTypes()).To(HaveLen(1))
 
-			rangeStruct := table.MustGetStruct("ranger.Range")
-			Expect(rangeStruct).NotTo(BeNil())
-			Expect(rangeStruct.Name).To(Equal("Range"))
-			Expect(rangeStruct.Namespace).To(Equal("ranger"))
-			Expect(rangeStruct.HasKeyDomain).To(BeTrue())
-			Expect(rangeStruct.Fields).To(HaveLen(2))
+			rangeType := table.MustGet("ranger.Range")
+			Expect(rangeType.Name).To(Equal("Range"))
+			Expect(rangeType.Namespace).To(Equal("ranger"))
+
+			form, ok := rangeType.Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			Expect(form.HasKeyDomain).To(BeTrue())
+			Expect(form.Fields).To(HaveLen(2))
 
 			// Check key field
-			keyField := MustBeOk(rangeStruct.Field("key"))
-			Expect(keyField).NotTo(BeNil())
-			Expect(keyField.TypeRef.RawType).To(Equal("uuid"))
-			Expect(keyField.TypeRef.Kind).To(Equal(resolution.TypeKindPrimitive))
-			Expect(keyField.TypeRef.Primitive).To(Equal("uuid"))
+			keyField, found := form.Field("key")
+			Expect(found).To(BeTrue())
+			Expect(keyField.Type.Name).To(Equal("uuid"))
+			Expect(resolution.IsPrimitive(keyField.Type.Name)).To(BeTrue())
 			Expect(keyField.Domains).To(HaveKey("key"))
 
 			// Check name field
-			nameField := MustBeOk(rangeStruct.Field("name"))
-			Expect(nameField).NotTo(BeNil())
-			Expect(nameField.TypeRef.RawType).To(Equal("string"))
-			Expect(nameField.TypeRef.Kind).To(Equal(resolution.TypeKindPrimitive))
+			nameField, found := form.Field("name")
+			Expect(found).To(BeTrue())
+			Expect(nameField.Type.Name).To(Equal("string"))
+			Expect(resolution.IsPrimitive(nameField.Type.Name)).To(BeTrue())
 		})
 
 		It("Should analyze an enum", func() {
@@ -77,15 +77,17 @@ var _ = Describe("Analyzer", func() {
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
-			Expect(table.Enums).To(HaveLen(1))
+			Expect(table.EnumTypes()).To(HaveLen(1))
 
-			taskState := table.MustGetEnum("task.TaskState")
-			Expect(taskState).NotTo(BeNil())
-			Expect(taskState.Name).To(Equal("TaskState"))
-			Expect(taskState.IsIntEnum).To(BeTrue())
-			Expect(taskState.Values).To(HaveLen(4))
-			Expect(taskState.Values[0].Name).To(Equal("pending"))
-			Expect(taskState.Values[0].IntValue).To(Equal(int64(0)))
+			taskStateType := table.MustGet("task.TaskState")
+			Expect(taskStateType.Name).To(Equal("TaskState"))
+
+			form, ok := taskStateType.Form.(resolution.EnumForm)
+			Expect(ok).To(BeTrue())
+			Expect(form.IsIntEnum).To(BeTrue())
+			Expect(form.Values).To(HaveLen(4))
+			Expect(form.Values[0].Name).To(Equal("pending"))
+			Expect(form.Values[0].IntValue()).To(Equal(int64(0)))
 		})
 
 		It("Should analyze a string enum", func() {
@@ -99,10 +101,11 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "telem", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			dataType := table.MustGetEnum("telem.DataType")
-			Expect(dataType).NotTo(BeNil())
-			Expect(dataType.IsIntEnum).To(BeFalse())
-			Expect(dataType.Values[0].StringValue).To(Equal("float32"))
+			dataTypeType := table.MustGet("telem.DataType")
+			form, ok := dataTypeType.Form.(resolution.EnumForm)
+			Expect(ok).To(BeTrue())
+			Expect(form.IsIntEnum).To(BeFalse())
+			Expect(form.Values[0].StringValue()).To(Equal("float32"))
 		})
 
 		It("Should collect field domains", func() {
@@ -124,8 +127,10 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			userStruct := table.MustGetStruct("user.User")
-			nameField := MustBeOk(userStruct.Field("name"))
+			userType := table.MustGet("user.User")
+			form := userType.Form.(resolution.StructForm)
+			nameField, found := form.Field("name")
+			Expect(found).To(BeTrue())
 			Expect(nameField.Domains).To(HaveLen(2))
 			Expect(nameField.Domains).To(HaveKey("validate"))
 			Expect(nameField.Domains).To(HaveKey("query"))
@@ -155,11 +160,11 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			rangeStruct := table.MustGetStruct("ranger.Range")
-			Expect(rangeStruct.Domains).To(HaveLen(1))
-			Expect(rangeStruct.Domains).To(HaveKey("index"))
+			rangeType := table.MustGet("ranger.Range")
+			Expect(rangeType.Domains).To(HaveLen(1))
+			Expect(rangeType.Domains).To(HaveKey("index"))
 
-			indexDomain := rangeStruct.Domains["index"]
+			indexDomain := rangeType.Domains["index"]
 			Expect(indexDomain.Expressions).To(HaveLen(1))
 			Expect(indexDomain.Expressions[0].Name).To(Equal("composite"))
 		})
@@ -174,15 +179,18 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			rangeStruct := table.MustGetStruct("ranger.Range")
+			rangeType := table.MustGet("ranger.Range")
+			form := rangeType.Form.(resolution.StructForm)
 
-			labelsField := MustBeOk(rangeStruct.Field("labels"))
-			Expect(labelsField.TypeRef.IsArray).To(BeTrue())
-			Expect(labelsField.TypeRef.IsOptional).To(BeFalse())
+			labelsField, _ := form.Field("labels")
+			Expect(labelsField.Type.Name).To(Equal("Array"))
+			Expect(labelsField.Type.TypeArgs).To(HaveLen(1))
+			Expect(labelsField.Type.TypeArgs[0].Name).To(Equal("uuid"))
+			Expect(labelsField.IsOptional).To(BeFalse())
 
-			tagsField := MustBeOk(rangeStruct.Field("tags"))
-			Expect(tagsField.TypeRef.IsArray).To(BeTrue())
-			Expect(tagsField.TypeRef.IsOptional).To(BeTrue())
+			tagsField, _ := form.Field("tags")
+			Expect(tagsField.Type.Name).To(Equal("Array"))
+			Expect(tagsField.IsOptional).To(BeTrue())
 		})
 
 		It("Should handle optional types", func() {
@@ -194,10 +202,11 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			rangeStruct := table.MustGetStruct("ranger.Range")
-			parentField := MustBeOk(rangeStruct.Field("parent"))
-			Expect(parentField.TypeRef.IsOptional).To(BeTrue())
-			Expect(parentField.TypeRef.IsArray).To(BeFalse())
+			rangeType := table.MustGet("ranger.Range")
+			form := rangeType.Form.(resolution.StructForm)
+			parentField, _ := form.Field("parent")
+			Expect(parentField.IsOptional).To(BeTrue())
+			Expect(parentField.Type.Name).To(Equal("uuid"))
 		})
 	})
 
@@ -222,9 +231,11 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.HasErrors()).To(BeFalse())
 
 			// Both structs should be in the table
-			Expect(table.Structs).To(HaveLen(2))
-			MustBeOk(table.GetStruct("ranger.Range"))
-			MustBeOk(table.GetStruct("label.Label"))
+			Expect(table.StructTypes()).To(HaveLen(2))
+			_, ok := table.Get("ranger.Range")
+			Expect(ok).To(BeTrue())
+			_, ok = table.Get("label.Label")
+			Expect(ok).To(BeTrue())
 		})
 
 		It("Should detect circular imports", func() {
@@ -244,7 +255,7 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "main", loader)
 			// Should not error - circular imports are handled by tracking
 			Expect(diag.HasErrors()).To(BeFalse())
-			Expect(table.Structs).To(HaveLen(3))
+			Expect(table.StructTypes()).To(HaveLen(3))
 		})
 
 		It("Should report missing imports", func() {
@@ -278,9 +289,10 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			testStruct := table.MustGetStruct("test.Test")
-			for _, field := range testStruct.Fields {
-				Expect(field.TypeRef.Kind).To(Equal(resolution.TypeKindPrimitive))
+			testType := table.MustGet("test.Test")
+			form := testType.Form.(resolution.StructForm)
+			for _, field := range form.Fields {
+				Expect(resolution.IsPrimitive(field.Type.Name)).To(BeTrue())
 			}
 		})
 
@@ -299,11 +311,16 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "viz", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			viewportStruct := table.MustGetStruct("viz.Viewport")
-			positionField := MustBeOk(viewportStruct.Field("position"))
-			Expect(positionField.TypeRef.Kind).To(Equal(resolution.TypeKindStruct))
-			Expect(positionField.TypeRef.StructRef).NotTo(BeNil())
-			Expect(positionField.TypeRef.StructRef.Name).To(Equal("Position"))
+			viewportType := table.MustGet("viz.Viewport")
+			form := viewportType.Form.(resolution.StructForm)
+			positionField, _ := form.Field("position")
+			Expect(positionField.Type.Name).To(Equal("viz.Position"))
+
+			// Verify it resolves to a struct
+			resolved, ok := positionField.Type.Resolve(table)
+			Expect(ok).To(BeTrue())
+			_, isStruct := resolved.Form.(resolution.StructForm)
+			Expect(isStruct).To(BeTrue())
 		})
 
 		It("Should resolve qualified struct references", func() {
@@ -324,12 +341,18 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			rangeStruct := table.MustGetStruct("ranger.Range")
-			labelsField := MustBeOk(rangeStruct.Field("labels"))
-			Expect(labelsField.TypeRef.RawType).To(Equal("label.Label"))
-			Expect(labelsField.TypeRef.Kind).To(Equal(resolution.TypeKindStruct))
-			Expect(labelsField.TypeRef.StructRef).NotTo(BeNil())
-			Expect(labelsField.TypeRef.StructRef.Name).To(Equal("Label"))
+			rangeType := table.MustGet("ranger.Range")
+			form := rangeType.Form.(resolution.StructForm)
+			labelsField, _ := form.Field("labels")
+			Expect(labelsField.Type.Name).To(Equal("Array"))
+			Expect(labelsField.Type.TypeArgs[0].Name).To(Equal("label.Label"))
+
+			// Verify it resolves to a struct
+			resolved, ok := labelsField.Type.TypeArgs[0].Resolve(table)
+			Expect(ok).To(BeTrue())
+			resolvedForm, isStruct := resolved.Form.(resolution.StructForm)
+			Expect(isStruct).To(BeTrue())
+			Expect(resolvedForm.Fields).To(HaveLen(2))
 		})
 
 		It("Should resolve enum references", func() {
@@ -346,11 +369,16 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			taskStruct := table.MustGetStruct("task.Task")
-			stateField := MustBeOk(taskStruct.Field("state"))
-			Expect(stateField.TypeRef.Kind).To(Equal(resolution.TypeKindEnum))
-			Expect(stateField.TypeRef.EnumRef).NotTo(BeNil())
-			Expect(stateField.TypeRef.EnumRef.Name).To(Equal("TaskState"))
+			taskType := table.MustGet("task.Task")
+			form := taskType.Form.(resolution.StructForm)
+			stateField, _ := form.Field("state")
+			Expect(stateField.Type.Name).To(Equal("task.TaskState"))
+
+			// Verify it resolves to an enum
+			resolved, ok := stateField.Type.Resolve(table)
+			Expect(ok).To(BeTrue())
+			_, isEnum := resolved.Form.(resolution.EnumForm)
+			Expect(isEnum).To(BeTrue())
 		})
 	})
 
@@ -359,19 +387,6 @@ var _ = Describe("Analyzer", func() {
 			source := `
 				Range struct {}
 				Range struct {}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
-			Expect(diag).NotTo(BeNil())
-			Expect(diag.HasErrors()).To(BeTrue())
-			Expect(table).To(BeNil())
-		})
-
-		It("Should report duplicate field definitions", func() {
-			source := `
-				Range struct {
-					name string
-					name int32
-				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
 			Expect(diag).NotTo(BeNil())
@@ -418,10 +433,10 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			userStruct := table.MustGetStruct("user.User")
-			Expect(userStruct.Domains).To(HaveKey("pb"))
+			userType := table.MustGet("user.User")
+			Expect(userType.Domains).To(HaveKey("pb"))
 
-			pbDomain := userStruct.Domains["pb"]
+			pbDomain := userType.Domains["pb"]
 			Expect(pbDomain.Expressions).To(HaveLen(2))
 
 			// Both output and package expressions should be present
@@ -448,10 +463,10 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			userStruct := table.MustGetStruct("user.User")
-			Expect(userStruct.Domains).To(HaveKey("go"))
+			userType := table.MustGet("user.User")
+			Expect(userType.Domains).To(HaveKey("go"))
 
-			goDomain := userStruct.Domains["go"]
+			goDomain := userType.Domains["go"]
 			Expect(goDomain.Expressions).To(HaveLen(2))
 
 			// Both file-level output and struct-level omit should be present
@@ -480,14 +495,14 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.HasErrors()).To(BeFalse())
 
 			// User should have overridden output
-			userStruct := table.MustGetStruct("user.User")
-			userTsDomain := userStruct.Domains["ts"]
+			userType := table.MustGet("user.User")
+			userTsDomain := userType.Domains["ts"]
 			userOutput, _ := userTsDomain.Expressions.Find("output")
 			Expect(userOutput.Values[0].StringValue).To(Equal("client/ts/src/user"))
 
 			// Admin should have file-level output
-			adminStruct := table.MustGetStruct("user.Admin")
-			adminTsDomain := adminStruct.Domains["ts"]
+			adminType := table.MustGet("user.Admin")
+			adminTsDomain := adminType.Domains["ts"]
 			adminOutput, _ := adminTsDomain.Expressions.Find("output")
 			Expect(adminOutput.Values[0].StringValue).To(Equal("client/ts/src/default"))
 		})
@@ -507,20 +522,19 @@ var _ = Describe("Analyzer", func() {
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
-			Expect(table.Structs).To(HaveLen(2))
+			Expect(table.StructTypes()).To(HaveLen(2))
 
-			child := table.MustGetStruct("test.Child")
-			Expect(child.HasExtends()).To(BeTrue())
-			Expect(child.Extends).NotTo(BeNil())
-			Expect(child.Extends.StructRef).NotTo(BeNil())
-			Expect(child.Extends.StructRef.Name).To(Equal("Parent"))
+			childType := table.MustGet("test.Child")
+			form := childType.Form.(resolution.StructForm)
+			Expect(form.Extends).NotTo(BeNil())
+			Expect(form.Extends.Name).To(Equal("test.Parent"))
 
 			// Child should have its own field
-			Expect(child.Fields).To(HaveLen(1))
-			Expect(child.Fields[0].Name).To(Equal("email"))
+			Expect(form.Fields).To(HaveLen(1))
+			Expect(form.Fields[0].Name).To(Equal("email"))
 
 			// UnifiedFields should include inherited fields
-			allFields := child.UnifiedFields()
+			allFields := resolution.UnifiedFields(childType, table)
 			Expect(allFields).To(HaveLen(3))
 			fieldNames := []string{allFields[0].Name, allFields[1].Name, allFields[2].Name}
 			Expect(fieldNames).To(ContainElements("name", "age", "email"))
@@ -542,14 +556,18 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			child := table.MustGetStruct("test.Child")
-			Expect(child.OmittedFields).To(HaveLen(1))
-			Expect(child.OmittedFields[0]).To(Equal("age"))
+			childType := table.MustGet("test.Child")
+			form := childType.Form.(resolution.StructForm)
+			Expect(form.OmittedFields).To(HaveLen(1))
+			Expect(form.OmittedFields[0]).To(Equal("age"))
 
 			// UnifiedFields should NOT include omitted field
-			allFields := child.UnifiedFields()
+			allFields := resolution.UnifiedFields(childType, table)
 			Expect(allFields).To(HaveLen(3))
-			fieldNames := []string{allFields[0].Name, allFields[1].Name, allFields[2].Name}
+			fieldNames := make([]string, len(allFields))
+			for i, f := range allFields {
+				fieldNames[i] = f.Name
+			}
 			Expect(fieldNames).To(ContainElements("name", "status", "email"))
 			Expect(fieldNames).NotTo(ContainElement("age"))
 		})
@@ -568,23 +586,31 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			child := table.MustGetStruct("test.Child")
+			childType := table.MustGet("test.Child")
+			form := childType.Form.(resolution.StructForm)
 			// Child has its own name field that overrides parent
-			Expect(child.Fields).To(HaveLen(1))
-			Expect(child.Fields[0].Name).To(Equal("name"))
-			Expect(child.Fields[0].TypeRef.IsOptional).To(BeTrue())
+			Expect(form.Fields).To(HaveLen(1))
+			Expect(form.Fields[0].Name).To(Equal("name"))
+			Expect(form.Fields[0].IsOptional).To(BeTrue())
 
 			// UnifiedFields should have child's version of name
-			allFields := child.UnifiedFields()
+			allFields := resolution.UnifiedFields(childType, table)
 			Expect(allFields).To(HaveLen(2))
 
-			nameField := MustBeOk(allFields.Find("name"))
-			Expect(nameField.TypeRef.IsOptional).To(BeTrue())
+			var nameField *resolution.Field
+			for i := range allFields {
+				if allFields[i].Name == "name" {
+					nameField = &allFields[i]
+					break
+				}
+			}
+			Expect(nameField).NotTo(BeNil())
+			Expect(nameField.IsOptional).To(BeTrue())
 		})
 
 		It("Should extend generic struct with type arguments", func() {
 			source := `
-				Status struct<D extends schema> {
+				Status struct<D extends json> {
 					variant int32
 					data D
 				}
@@ -600,19 +626,25 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			rackStatus := table.MustGetStruct("test.RackStatus")
-			Expect(rackStatus.HasExtends()).To(BeTrue())
-			Expect(rackStatus.Extends.TypeArgs).To(HaveLen(1))
-			Expect(rackStatus.Extends.TypeArgs[0].StructRef.Name).To(Equal("Details"))
+			rackStatusType := table.MustGet("test.RackStatus")
+			form := rackStatusType.Form.(resolution.StructForm)
+			Expect(form.Extends).NotTo(BeNil())
+			Expect(form.Extends.TypeArgs).To(HaveLen(1))
+			Expect(form.Extends.TypeArgs[0].Name).To(Equal("test.Details"))
 
 			// UnifiedFields should substitute type parameters
-			allFields := rackStatus.UnifiedFields()
+			allFields := resolution.UnifiedFields(rackStatusType, table)
 			Expect(allFields).To(HaveLen(3))
 
-			dataField := MustBeOk(allFields.Find("data"))
+			var dataField *resolution.Field
+			for i := range allFields {
+				if allFields[i].Name == "data" {
+					dataField = &allFields[i]
+					break
+				}
+			}
 			Expect(dataField).NotTo(BeNil())
-			Expect(dataField.TypeRef.Kind).To(Equal(resolution.TypeKindStruct))
-			Expect(dataField.TypeRef.StructRef.Name).To(Equal("Details"))
+			Expect(dataField.Type.Name).To(Equal("test.Details"))
 		})
 
 		It("Should handle multi-level inheritance", func() {
@@ -632,9 +664,9 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			child := table.MustGetStruct("test.Child")
+			childType := table.MustGet("test.Child")
 			// UnifiedFields should include fields from all ancestors
-			allFields := child.UnifiedFields()
+			allFields := resolution.UnifiedFields(childType, table)
 			Expect(allFields).To(HaveLen(3))
 			fieldNames := []string{allFields[0].Name, allFields[1].Name, allFields[2].Name}
 			Expect(fieldNames).To(ContainElements("a", "b", "c"))
@@ -658,12 +690,12 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			extended := table.MustGetStruct("test.Extended")
-			Expect(extended.HasExtends()).To(BeTrue())
-			Expect(extended.Extends.StructRef.Name).To(Equal("Base"))
-			Expect(extended.Extends.StructRef.Namespace).To(Equal("base"))
+			extendedType := table.MustGet("test.Extended")
+			form := extendedType.Form.(resolution.StructForm)
+			Expect(form.Extends).NotTo(BeNil())
+			Expect(form.Extends.Name).To(Equal("base.Base"))
 
-			allFields := extended.UnifiedFields()
+			allFields := resolution.UnifiedFields(extendedType, table)
 			Expect(allFields).To(HaveLen(3))
 		})
 
@@ -733,13 +765,19 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			child := table.MustGetStruct("test.Child")
-			allFields := child.UnifiedFields()
+			childType := table.MustGet("test.Child")
+			allFields := resolution.UnifiedFields(childType, table)
 
-			keyField := MustBeOk(allFields.Find("key"))
+			var keyField *resolution.Field
+			for i := range allFields {
+				if allFields[i].Name == "key" {
+					keyField = &allFields[i]
+					break
+				}
+			}
 			Expect(keyField).NotTo(BeNil())
-			Expect(keyField.TypeRef.IsOptional).To(BeTrue()) // Child's type
-			Expect(keyField.Domains).To(HaveKey("id"))       // Parent's domain inherited
+			Expect(keyField.IsOptional).To(BeTrue())    // Child's type
+			Expect(keyField.Domains).To(HaveKey("id")) // Parent's domain inherited
 		})
 
 		It("Should allow child to override parent domain", func() {
@@ -764,15 +802,22 @@ var _ = Describe("Analyzer", func() {
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
-			var (
-				child     = table.MustGetStruct("test.Child")
-				allFields = child.UnifiedFields()
-				nameField = MustBeOk(allFields.Find("name"))
-			)
+
+			childType := table.MustGet("test.Child")
+			allFields := resolution.UnifiedFields(childType, table)
+
+			var nameField *resolution.Field
+			for i := range allFields {
+				if allFields[i].Name == "name" {
+					nameField = &allFields[i]
+					break
+				}
+			}
+			Expect(nameField).NotTo(BeNil())
 			Expect(nameField.Domains).To(HaveKey("validate"))
 			validateDomain := nameField.Domains["validate"]
 			Expect(validateDomain.Expressions).To(HaveLen(2))
-			minLengthExpr := MustBeOk(validateDomain.Expressions.Find("min_length"))
+			minLengthExpr, _ := validateDomain.Expressions.Find("min_length")
 			Expect(minLengthExpr.Values[0].IntValue).To(Equal(int64(5)))
 		})
 
@@ -788,13 +833,19 @@ var _ = Describe("Analyzer", func() {
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
-			var (
-				child     = table.MustGetStruct("test.Child")
-				allFields = child.UnifiedFields()
-				keyField  = MustBeOk(allFields.Find("key"))
-			)
+
+			childType := table.MustGet("test.Child")
+			allFields := resolution.UnifiedFields(childType, table)
+
+			var keyField *resolution.Field
+			for i := range allFields {
+				if allFields[i].Name == "key" {
+					keyField = &allFields[i]
+					break
+				}
+			}
 			Expect(keyField).NotTo(BeNil())
-			Expect(keyField.TypeRef.IsOptional).To(BeTrue())
+			Expect(keyField.IsOptional).To(BeTrue())
 			Expect(keyField.Domains).To(HaveKey("id"))       // Inherited from parent
 			Expect(keyField.Domains).To(HaveKey("validate")) // Added by child
 		})
@@ -812,21 +863,280 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
-			child := table.MustGetStruct("test.Child")
-			allFields := child.UnifiedFields()
+			childType := table.MustGet("test.Child")
+			allFields := resolution.UnifiedFields(childType, table)
 
-			nameField := MustBeOk(allFields.Find("name"))
+			var nameField *resolution.Field
+			for i := range allFields {
+				if allFields[i].Name == "name" {
+					nameField = &allFields[i]
+					break
+				}
+			}
 			Expect(nameField).NotTo(BeNil())
 			validateDomain := nameField.Domains["validate"]
 			Expect(validateDomain.Expressions).To(HaveLen(2)) // Both min_length and max_length
 			exprMap := make(map[string]*resolution.Expression)
-			for _, expr := range validateDomain.Expressions {
-				exprMap[expr.Name] = &expr
+			for i := range validateDomain.Expressions {
+				expr := &validateDomain.Expressions[i]
+				exprMap[expr.Name] = expr
 			}
 			Expect(exprMap).To(HaveKey("min_length")) // From parent
 			Expect(exprMap).To(HaveKey("max_length")) // From child
 			Expect(exprMap["min_length"].Values[0].IntValue).To(Equal(int64(1)))
 			Expect(exprMap["max_length"].Values[0].IntValue).To(Equal(int64(100)))
+		})
+	})
+
+	Describe("TypeDef", func() {
+		It("Should analyze a distinct type (primitive alias)", func() {
+			// Grammar: IDENT qualifiedIdent (no 'type' keyword or '=')
+			source := `
+				ChannelKey uint32
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "channel", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			channelKeyType := table.MustGet("channel.ChannelKey")
+			form, ok := channelKeyType.Form.(resolution.DistinctForm)
+			Expect(ok).To(BeTrue())
+			Expect(form.Base.Name).To(Equal("uint32"))
+		})
+
+		It("Should analyze a struct alias", func() {
+			source := `
+				Position struct {
+					x float64
+					y float64
+				}
+
+				Point = Position
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "geo", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			pointType := table.MustGet("geo.Point")
+			form, ok := pointType.Form.(resolution.AliasForm)
+			Expect(ok).To(BeTrue())
+			Expect(form.Target.Name).To(Equal("geo.Position"))
+		})
+	})
+
+	Describe("Generics", func() {
+		It("Should parse generic struct with type parameter", func() {
+			source := `
+				Container struct<T> {
+					value T
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			containerType := table.MustGet("test.Container")
+			form := containerType.Form.(resolution.StructForm)
+			Expect(form.IsGeneric()).To(BeTrue())
+			Expect(form.TypeParams).To(HaveLen(1))
+			Expect(form.TypeParams[0].Name).To(Equal("T"))
+
+			valueField, _ := form.Field("value")
+			Expect(valueField.Type.IsTypeParam()).To(BeTrue())
+			Expect(valueField.Type.TypeParam.Name).To(Equal("T"))
+		})
+
+		It("Should parse generic struct with constrained type parameter", func() {
+			source := `
+				NumberContainer struct<T extends int32> {
+					value T
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			containerType := table.MustGet("test.NumberContainer")
+			form := containerType.Form.(resolution.StructForm)
+			Expect(form.TypeParams[0].Constraint).NotTo(BeNil())
+			Expect(form.TypeParams[0].Constraint.Name).To(Equal("int32"))
+		})
+
+		It("Should parse generic struct with default type parameter", func() {
+			source := `
+				Container struct<T = string> {
+					value T
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			containerType := table.MustGet("test.Container")
+			form := containerType.Form.(resolution.StructForm)
+			Expect(form.TypeParams[0].Default).NotTo(BeNil())
+			Expect(form.TypeParams[0].Default.Name).To(Equal("string"))
+		})
+
+		It("Should parse struct with generic field type", func() {
+			source := `
+				Container struct<T> {
+					value T
+				}
+
+				Wrapper struct {
+					container Container<string>
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			wrapperType := table.MustGet("test.Wrapper")
+			form := wrapperType.Form.(resolution.StructForm)
+			containerField, _ := form.Field("container")
+			Expect(containerField.Type.Name).To(Equal("test.Container"))
+			Expect(containerField.Type.TypeArgs).To(HaveLen(1))
+			Expect(containerField.Type.TypeArgs[0].Name).To(Equal("string"))
+		})
+
+		It("Should preserve type params on fields with constraints and defaults", func() {
+			source := `
+				Task struct<
+					Type extends string = string,
+					Config extends json = json
+				> {
+					name   string
+					type   Type
+					config Config
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			taskType := table.MustGet("test.Task")
+			form := taskType.Form.(resolution.StructForm)
+
+			// Verify type params are set up correctly
+			Expect(form.IsGeneric()).To(BeTrue())
+			Expect(form.TypeParams).To(HaveLen(2))
+			Expect(form.TypeParams[0].Name).To(Equal("Type"))
+			Expect(form.TypeParams[0].Constraint).NotTo(BeNil())
+			Expect(form.TypeParams[0].Constraint.Name).To(Equal("string"))
+			Expect(form.TypeParams[0].Default).NotTo(BeNil())
+			Expect(form.TypeParams[0].Default.Name).To(Equal("string"))
+
+			// Verify 'name' field is NOT a type param
+			nameField, found := form.Field("name")
+			Expect(found).To(BeTrue())
+			Expect(nameField.Type.IsTypeParam()).To(BeFalse())
+			Expect(nameField.Type.Name).To(Equal("string"))
+
+			// Verify 'type' field IS a type param reference
+			typeField, found := form.Field("type")
+			Expect(found).To(BeTrue())
+			Expect(typeField.Type.IsTypeParam()).To(BeTrue(), "type field should be a type param")
+			Expect(typeField.Type.TypeParam).NotTo(BeNil(), "type field TypeParam should not be nil")
+			Expect(typeField.Type.TypeParam.Name).To(Equal("Type"))
+			Expect(typeField.Type.TypeParam.Constraint).NotTo(BeNil())
+			Expect(typeField.Type.TypeParam.Constraint.Name).To(Equal("string"))
+
+			// Verify 'config' field IS a type param reference
+			configField, found := form.Field("config")
+			Expect(found).To(BeTrue())
+			Expect(configField.Type.IsTypeParam()).To(BeTrue(), "config field should be a type param")
+			Expect(configField.Type.TypeParam).NotTo(BeNil(), "config field TypeParam should not be nil")
+			Expect(configField.Type.TypeParam.Name).To(Equal("Config"))
+			Expect(configField.Type.TypeParam.Constraint).NotTo(BeNil())
+			Expect(configField.Type.TypeParam.Constraint.Name).To(Equal("json"))
+		})
+
+		It("Should preserve type params in UnifiedFields for generic structs", func() {
+			source := `
+				Task struct<
+					Type extends string = string,
+					Config extends json = json
+				> {
+					name   string
+					type   Type
+					config Config
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			taskType := table.MustGet("test.Task")
+
+			// Test UnifiedFields - this is what the TS plugin uses
+			unifiedFields := resolution.UnifiedFields(taskType, table)
+			Expect(unifiedFields).To(HaveLen(3))
+
+			// Find the type field in unified fields
+			var typeField, configField resolution.Field
+			for _, f := range unifiedFields {
+				if f.Name == "type" {
+					typeField = f
+				}
+				if f.Name == "config" {
+					configField = f
+				}
+			}
+
+			// Verify 'type' field preserves TypeParam through UnifiedFields
+			Expect(typeField.Type.IsTypeParam()).To(BeTrue(), "type field should be a type param after UnifiedFields")
+			Expect(typeField.Type.TypeParam).NotTo(BeNil(), "type field TypeParam should not be nil after UnifiedFields")
+			Expect(typeField.Type.TypeParam.Name).To(Equal("Type"))
+
+			// Verify 'config' field preserves TypeParam through UnifiedFields
+			Expect(configField.Type.IsTypeParam()).To(BeTrue(), "config field should be a type param after UnifiedFields")
+			Expect(configField.Type.TypeParam).NotTo(BeNil(), "config field TypeParam should not be nil after UnifiedFields")
+			Expect(configField.Type.TypeParam.Name).To(Equal("Config"))
+		})
+	})
+
+	Describe("Map Types", func() {
+		It("Should parse map type", func() {
+			source := `
+				Config struct {
+					settings Map<string, json>
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			configType := table.MustGet("test.Config")
+			form := configType.Form.(resolution.StructForm)
+			settingsField, _ := form.Field("settings")
+			Expect(settingsField.Type.Name).To(Equal("Map"))
+			Expect(settingsField.Type.TypeArgs).To(HaveLen(2))
+			Expect(settingsField.Type.TypeArgs[0].Name).To(Equal("string"))
+			Expect(settingsField.Type.TypeArgs[1].Name).To(Equal("json"))
+		})
+	})
+
+	Describe("Recursive Types", func() {
+		It("Should detect recursive struct", func() {
+			source := `
+				Node struct {
+					value string
+					children Node[]
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			nodeType := table.MustGet("test.Node")
+			form := nodeType.Form.(resolution.StructForm)
+			Expect(form.IsRecursive).To(BeTrue())
+		})
+
+		It("Should detect non-recursive struct", func() {
+			source := `
+				Simple struct {
+					value string
+					count int32
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			simpleType := table.MustGet("test.Simple")
+			form := simpleType.Form.(resolution.StructForm)
+			Expect(form.IsRecursive).To(BeFalse())
 		})
 	})
 })

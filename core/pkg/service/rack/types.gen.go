@@ -17,11 +17,11 @@ import (
 
 type Key uint32
 
+type Status = status.Status[StatusDetails]
+
 type StatusDetails struct {
 	Rack Key `json:"rack" msgpack:"rack"`
 }
-
-type Status = status.Status[StatusDetails]
 
 type Rack struct {
 	Key Key `json:"key" msgpack:"key"`

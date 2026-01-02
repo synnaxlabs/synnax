@@ -17,9 +17,9 @@ import (
 )
 
 var _ = Describe("GetPath", func() {
-	DescribeTable("extracts output path from struct domains",
+	DescribeTable("extracts output path from type domains",
 		func(domainName string, domains map[string]resolution.Domain, expected string) {
-			entry := resolution.Struct{Domains: domains}
+			entry := resolution.Type{Domains: domains, Form: resolution.StructForm{}}
 			Expect(output.GetPath(entry, domainName)).To(Equal(expected))
 		},
 		Entry("go domain with output", "go",

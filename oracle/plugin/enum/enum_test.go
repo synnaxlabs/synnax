@@ -18,143 +18,188 @@ import (
 
 var _ = Describe("CollectReferenced", func() {
 	It("should return empty for structs without enum fields", func() {
-		structs := []resolution.Struct{{
-			Fields: []resolution.Field{{
-				TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindPrimitive},
-			}},
+		table := resolution.NewTable()
+		structs := []resolution.Type{{
+			Name:          "Test",
+			QualifiedName: "test.Test",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{{
+					Name: "value",
+					Type: resolution.TypeRef{Name: "string"},
+				}},
+			},
 		}}
-		Expect(enum.CollectReferenced(structs)).To(BeEmpty())
+		Expect(enum.CollectReferenced(structs, table)).To(BeEmpty())
 	})
 
 	It("should collect enums from struct fields", func() {
-		taskState := resolution.Enum{Name: "TaskState", QualifiedName: "task.TaskState"}
-		structs := []resolution.Struct{{
-			Fields: []resolution.Field{{
-				TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindEnum, EnumRef: &taskState},
-			}},
+		table := resolution.NewTable()
+		taskStateType := resolution.Type{
+			Name:          "TaskState",
+			Namespace:     "task",
+			QualifiedName: "task.TaskState",
+			Form: resolution.EnumForm{
+				Values: []resolution.EnumValue{{Name: "active"}},
+			},
+		}
+		table.Add(taskStateType)
+
+		structs := []resolution.Type{{
+			Name:          "Task",
+			QualifiedName: "task.Task",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{{
+					Name: "state",
+					Type: resolution.TypeRef{Name: "task.TaskState"},
+				}},
+			},
 		}}
-		result := enum.CollectReferenced(structs)
+		result := enum.CollectReferenced(structs, table)
 		Expect(result).To(HaveLen(1))
-		Expect(result[0]).To(Equal(taskState))
+		Expect(result[0].Name).To(Equal("TaskState"))
 	})
 
 	It("should deduplicate enums by qualified name", func() {
-		taskState := resolution.Enum{Name: "TaskState", QualifiedName: "task.TaskState"}
-		structs := []resolution.Struct{
-			{Fields: []resolution.Field{{
-				TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindEnum, EnumRef: &taskState},
-			}}},
-			{Fields: []resolution.Field{{
-				TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindEnum, EnumRef: &taskState},
-			}}},
+		table := resolution.NewTable()
+		taskStateType := resolution.Type{
+			Name:          "TaskState",
+			Namespace:     "task",
+			QualifiedName: "task.TaskState",
+			Form: resolution.EnumForm{
+				Values: []resolution.EnumValue{{Name: "active"}},
+			},
 		}
-		Expect(enum.CollectReferenced(structs)).To(HaveLen(1))
+		table.Add(taskStateType)
+
+		structs := []resolution.Type{
+			{
+				Name:          "Task1",
+				QualifiedName: "task.Task1",
+				Form: resolution.StructForm{
+					Fields: []resolution.Field{{
+						Name: "state",
+						Type: resolution.TypeRef{Name: "task.TaskState"},
+					}},
+				},
+			},
+			{
+				Name:          "Task2",
+				QualifiedName: "task.Task2",
+				Form: resolution.StructForm{
+					Fields: []resolution.Field{{
+						Name: "state",
+						Type: resolution.TypeRef{Name: "task.TaskState"},
+					}},
+				},
+			},
+		}
+		Expect(enum.CollectReferenced(structs, table)).To(HaveLen(1))
 	})
 
 	It("should collect multiple different enums", func() {
-		taskState := resolution.Enum{Name: "TaskState", QualifiedName: "task.TaskState"}
-		dataType := resolution.Enum{Name: "DataType", QualifiedName: "telem.DataType"}
-		structs := []resolution.Struct{{
-			Fields: []resolution.Field{
-				{TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindEnum, EnumRef: &taskState}},
-				{TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindEnum, EnumRef: &dataType}},
+		table := resolution.NewTable()
+		table.Add(resolution.Type{
+			Name:          "TaskState",
+			Namespace:     "task",
+			QualifiedName: "task.TaskState",
+			Form:          resolution.EnumForm{Values: []resolution.EnumValue{{Name: "active"}}},
+		})
+		table.Add(resolution.Type{
+			Name:          "DataType",
+			Namespace:     "telem",
+			QualifiedName: "telem.DataType",
+			Form:          resolution.EnumForm{Values: []resolution.EnumValue{{Name: "float32"}}},
+		})
+
+		structs := []resolution.Type{{
+			Name:          "Record",
+			QualifiedName: "test.Record",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{
+					{Name: "state", Type: resolution.TypeRef{Name: "task.TaskState"}},
+					{Name: "dataType", Type: resolution.TypeRef{Name: "telem.DataType"}},
+				},
 			},
 		}}
-		Expect(enum.CollectReferenced(structs)).To(HaveLen(2))
-	})
-
-	It("should skip fields with nil EnumRef", func() {
-		structs := []resolution.Struct{{
-			Fields: []resolution.Field{{
-				TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindEnum, EnumRef: nil},
-			}},
-		}}
-		Expect(enum.CollectReferenced(structs)).To(BeEmpty())
+		Expect(enum.CollectReferenced(structs, table)).To(HaveLen(2))
 	})
 
 	It("should handle empty structs slice", func() {
-		Expect(enum.CollectReferenced(nil)).To(BeEmpty())
-		Expect(enum.CollectReferenced([]resolution.Struct{})).To(BeEmpty())
+		table := resolution.NewTable()
+		Expect(enum.CollectReferenced(nil, table)).To(BeEmpty())
+		Expect(enum.CollectReferenced([]resolution.Type{}, table)).To(BeEmpty())
 	})
 })
 
 var _ = Describe("FindOutputPath", func() {
 	It("should find output path from struct in same namespace", func() {
-		e := resolution.Enum{Name: "TaskState", Namespace: "task"}
-		table := &resolution.Table{
-			Structs: []resolution.Struct{
-				{
-					Name:          "Task",
-					QualifiedName: "task.Task",
-					Namespace:     "task",
-					Domains: map[string]resolution.Domain{
-						"ts": {Expressions: []resolution.Expression{{
-							Name:   "output",
-							Values: []resolution.ExpressionValue{{StringValue: "client/ts/task"}},
-						}}},
-					},
-				},
+		e := resolution.Type{Name: "TaskState", Namespace: "task", Form: resolution.EnumForm{}}
+		table := resolution.NewTable()
+		table.Add(resolution.Type{
+			Name:          "Task",
+			QualifiedName: "task.Task",
+			Namespace:     "task",
+			Form:          resolution.StructForm{},
+			Domains: map[string]resolution.Domain{
+				"ts": {Expressions: []resolution.Expression{{
+					Name:   "output",
+					Values: []resolution.ExpressionValue{{StringValue: "client/ts/task"}},
+				}}},
 			},
-		}
+		})
 		Expect(enum.FindOutputPath(e, table, "ts")).To(Equal("client/ts/task"))
 	})
 
 	It("should return empty for enum with no matching namespace", func() {
-		e := resolution.Enum{Name: "TaskState", Namespace: "task"}
-		table := &resolution.Table{
-			Structs: []resolution.Struct{
-				{
-					Name:          "Other",
-					QualifiedName: "other.Other",
-					Namespace:     "other",
-					Domains: map[string]resolution.Domain{
-						"ts": {Expressions: []resolution.Expression{{
-							Name:   "output",
-							Values: []resolution.ExpressionValue{{StringValue: "client/ts/other"}},
-						}}},
-					},
-				},
+		e := resolution.Type{Name: "TaskState", Namespace: "task", Form: resolution.EnumForm{}}
+		table := resolution.NewTable()
+		table.Add(resolution.Type{
+			Name:          "Other",
+			QualifiedName: "other.Other",
+			Namespace:     "other",
+			Form:          resolution.StructForm{},
+			Domains: map[string]resolution.Domain{
+				"ts": {Expressions: []resolution.Expression{{
+					Name:   "output",
+					Values: []resolution.ExpressionValue{{StringValue: "client/ts/other"}},
+				}}},
 			},
-		}
+		})
 		Expect(enum.FindOutputPath(e, table, "ts")).To(BeEmpty())
 	})
 
 	It("should return empty for struct without output domain", func() {
-		e := resolution.Enum{Name: "TaskState", Namespace: "task"}
-		table := &resolution.Table{
-			Structs: []resolution.Struct{
-				{
-					Name:          "Task",
-					QualifiedName: "task.Task",
-					Namespace:     "task",
-					Domains:       map[string]resolution.Domain{},
-				},
-			},
-		}
+		e := resolution.Type{Name: "TaskState", Namespace: "task", Form: resolution.EnumForm{}}
+		table := resolution.NewTable()
+		table.Add(resolution.Type{
+			Name:          "Task",
+			QualifiedName: "task.Task",
+			Namespace:     "task",
+			Form:          resolution.StructForm{},
+			Domains:       map[string]resolution.Domain{},
+		})
 		Expect(enum.FindOutputPath(e, table, "ts")).To(BeEmpty())
 	})
 
 	It("should work with different domain names", func() {
-		e := resolution.Enum{Name: "State", Namespace: "test"}
-		table := &resolution.Table{
-			Structs: []resolution.Struct{
-				{
-					Name:          "Test",
-					QualifiedName: "test.Test",
-					Namespace:     "test",
-					Domains: map[string]resolution.Domain{
-						"go": {Expressions: []resolution.Expression{{
-							Name:   "output",
-							Values: []resolution.ExpressionValue{{StringValue: "core/test"}},
-						}}},
-						"py": {Expressions: []resolution.Expression{{
-							Name:   "output",
-							Values: []resolution.ExpressionValue{{StringValue: "client/py/test"}},
-						}}},
-					},
-				},
+		e := resolution.Type{Name: "State", Namespace: "test", Form: resolution.EnumForm{}}
+		table := resolution.NewTable()
+		table.Add(resolution.Type{
+			Name:          "Test",
+			QualifiedName: "test.Test",
+			Namespace:     "test",
+			Form:          resolution.StructForm{},
+			Domains: map[string]resolution.Domain{
+				"go": {Expressions: []resolution.Expression{{
+					Name:   "output",
+					Values: []resolution.ExpressionValue{{StringValue: "core/test"}},
+				}}},
+				"py": {Expressions: []resolution.Expression{{
+					Name:   "output",
+					Values: []resolution.ExpressionValue{{StringValue: "client/py/test"}},
+				}}},
 			},
-		}
+		})
 		Expect(enum.FindOutputPath(e, table, "go")).To(Equal("core/test"))
 		Expect(enum.FindOutputPath(e, table, "py")).To(Equal("client/py/test"))
 		Expect(enum.FindOutputPath(e, table, "ts")).To(BeEmpty())

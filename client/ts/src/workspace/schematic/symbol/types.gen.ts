@@ -26,13 +26,6 @@ export const regionZ = z.object({
 });
 export interface Region extends z.infer<typeof regionZ> {}
 
-export const stateZ = z.object({
-  key: z.string(),
-  name: z.string(),
-  regions: array.nullishToEmpty(regionZ),
-});
-export interface State extends z.infer<typeof stateZ> {}
-
 export const handleZ = z.object({
   key: z.string(),
   position: spatial.xyZ,
@@ -45,6 +38,13 @@ export const viewportZ = z.object({
   position: spatial.xyZ,
 });
 export interface Viewport extends z.infer<typeof viewportZ> {}
+
+export const stateZ = z.object({
+  key: z.string(),
+  name: z.string(),
+  regions: array.nullishToEmpty(regionZ),
+});
+export interface State extends z.infer<typeof stateZ> {}
 
 export const specZ = z.object({
   svg: z.string().min(1),

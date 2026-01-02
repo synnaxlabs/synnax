@@ -11,163 +11,321 @@ package resolution
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/samber/lo"
 )
 
-// DebugTypeDef enables debug logging for typedef lookups
-var DebugTypeDef = os.Getenv("ORACLE_DEBUG_TYPEDEF") != ""
-
 // Table holds all resolved types from parsed Oracle schema files.
-// It serves as the central registry for struct, enum, and typedef definitions
-// that plugins use for code generation.
 type Table struct {
-	Structs    []Struct
-	Enums      []Enum
-	TypeDefs   []TypeDef
+	Types      []Type
 	Imports    map[string]bool
 	Namespaces map[string]bool
 }
 
-// NewTable creates an empty resolution table.
+// NewTable creates a new table with built-in types pre-registered.
 func NewTable() *Table {
-	return &Table{Imports: make(map[string]bool), Namespaces: make(map[string]bool)}
-}
-
-// LookupStruct finds a struct by namespace and name.
-// It first tries an exact qualified name match, then falls back to name-only.
-func (t *Table) LookupStruct(namespace, name string) (Struct, bool) {
-	qname := namespace + "." + name
-	strct, ok := t.GetStruct(qname)
-	if ok {
-		return strct, true
+	t := &Table{
+		Types:      make([]Type, 0),
+		Imports:    make(map[string]bool),
+		Namespaces: make(map[string]bool),
 	}
-	return lo.Find(t.Structs, func(item Struct) bool {
-		return item.Name == name
-	})
+	t.registerBuiltins()
+	return t
 }
 
-// LookupEnum finds an enum by namespace and name.
-// It first tries an exact qualified name match, then falls back to name-only.
-func (t *Table) LookupEnum(namespace, name string) (Enum, bool) {
-	qname := namespace + "." + name
-	enum, ok := t.GetEnum(qname)
-	if ok {
-		return enum, true
+func (t *Table) registerBuiltins() {
+	primitives := []string{
+		"int8", "int16", "int32", "int64",
+		"uint8", "uint12", "uint16", "uint20", "uint32", "uint64",
+		"float32", "float64",
+		"bool", "string", "uuid",
+		"timestamp", "timespan", "time_range", "time_range_bounded",
+		"json", "bytes", "data_type",
 	}
-	return lo.Find(t.Enums, func(item Enum) bool {
-		return item.Name == name
+	for _, name := range primitives {
+		t.Types = append(t.Types, Type{
+			Name:          name,
+			QualifiedName: name,
+			Form:          PrimitiveForm{Name: name},
+		})
+	}
+	t.Types = append(t.Types, Type{
+		Name:          "Array",
+		QualifiedName: "Array",
+		Form:          BuiltinGenericForm{Name: "Array", Arity: 1},
+	})
+	t.Types = append(t.Types, Type{
+		Name:          "Map",
+		QualifiedName: "Map",
+		Form:          BuiltinGenericForm{Name: "Map", Arity: 2},
 	})
 }
 
-// GetStruct returns the struct with the given qualified name.
-func (t *Table) GetStruct(qname string) (Struct, bool) {
-	return lo.Find(t.Structs, func(item Struct) bool {
-		return item.QualifiedName == qname
+func (t *Table) Get(qualifiedName string) (Type, bool) {
+	return lo.Find(t.Types, func(typ Type) bool {
+		return typ.QualifiedName == qualifiedName
 	})
 }
 
-// MustGetStruct returns the struct with the given qualified name or panics.
-func (t *Table) MustGetStruct(qname string) Struct { return lo.Must(t.GetStruct(qname)) }
+func (t *Table) MustGet(qualifiedName string) Type {
+	typ, ok := t.Get(qualifiedName)
+	if !ok {
+		panic("type not found: " + qualifiedName)
+	}
+	return typ
+}
 
-// GetEnum returns the enum with the given qualified name.
-func (t *Table) GetEnum(qname string) (Enum, bool) {
-	return lo.Find(t.Enums, func(item Enum) bool {
-		return item.QualifiedName == qname
+func (t *Table) Add(typ Type) error {
+	if _, ok := t.Get(typ.QualifiedName); ok {
+		return fmt.Errorf("duplicate type: %s", typ.QualifiedName)
+	}
+	t.Types = append(t.Types, typ)
+	return nil
+}
+
+// Lookup finds a type by namespace and name.
+func (t *Table) Lookup(namespace, name string) (Type, bool) {
+	qname := namespace + "." + name
+	if typ, ok := t.Get(qname); ok {
+		return typ, true
+	}
+	return lo.Find(t.Types, func(typ Type) bool {
+		return typ.Name == name
 	})
 }
 
-// MustGetEnum returns the enum with the given qualified name or panics.
-func (t *Table) MustGetEnum(qname string) Enum {
-	return lo.Must(t.GetEnum(qname))
+func (t *Table) TypesInNamespace(ns string) []Type {
+	return lo.Filter(t.Types, func(typ Type, _ int) bool {
+		return typ.Namespace == ns
+	})
 }
 
-// AddStruct adds a struct entry to the table.
-func (t *Table) AddStruct(e Struct) { t.Structs = append(t.Structs, e) }
+func (t *Table) TypesWithDomain(domain string) []Type {
+	return lo.Filter(t.Types, func(typ Type, _ int) bool {
+		_, ok := typ.Domains[domain]
+		return ok
+	})
+}
 
-// AddEnum adds an enum entry to the table.
-func (t *Table) AddEnum(e Enum) { t.Enums = append(t.Enums, e) }
+func (t *Table) StructTypes() []Type {
+	return lo.Filter(t.Types, func(typ Type, _ int) bool {
+		_, ok := typ.Form.(StructForm)
+		return ok
+	})
+}
 
-// MarkImported records that a file path has been imported.
+func (t *Table) EnumTypes() []Type {
+	return lo.Filter(t.Types, func(typ Type, _ int) bool {
+		_, ok := typ.Form.(EnumForm)
+		return ok
+	})
+}
+
+func (t *Table) AliasTypes() []Type {
+	return lo.Filter(t.Types, func(typ Type, _ int) bool {
+		_, ok := typ.Form.(AliasForm)
+		return ok
+	})
+}
+
+func (t *Table) DistinctTypes() []Type {
+	return lo.Filter(t.Types, func(typ Type, _ int) bool {
+		_, ok := typ.Form.(DistinctForm)
+		return ok
+	})
+}
+
+func (t *Table) IsPrimitiveType(name string) bool {
+	typ, ok := t.Get(name)
+	if !ok {
+		return false
+	}
+	_, isPrimitive := typ.Form.(PrimitiveForm)
+	return isPrimitive
+}
+
+func (t *Table) IsStringPrimitiveType(name string) bool {
+	return name == "string" || name == "uuid"
+}
+
+func (t *Table) IsNumberPrimitiveType(name string) bool {
+	return lo.Contains([]string{
+		"int8", "int16", "int32", "int64",
+		"uint8", "uint12", "uint16", "uint20", "uint32", "uint64",
+		"float32", "float64",
+	}, name)
+}
+
 func (t *Table) MarkImported(path string) { t.Imports[path] = true }
 
-// IsImported returns true if the file path has been imported.
 func (t *Table) IsImported(path string) bool { return t.Imports[path] }
 
-// AllStructs returns all struct entries in the table.
-func (t *Table) AllStructs() []Struct { return t.Structs }
-
-// AllEnums returns all enum entries in the table.
-func (t *Table) AllEnums() []Enum { return t.Enums }
-
-// StructsInNamespace returns all structs in the given namespace.
-func (t *Table) StructsInNamespace(ns string) []Struct {
-	return lo.Filter(t.Structs, func(item Struct, _ int) bool {
-		return item.Namespace == ns
-	})
-}
-
-// EnumsInNamespace returns all enums in the given namespace.
-func (t *Table) EnumsInNamespace(ns string) []Enum {
-	return lo.Filter(t.Enums, func(item Enum, _ int) bool {
-		return item.Namespace == ns
-	})
-}
-
-// LookupTypeDef finds a type definition by namespace and name.
-// It first tries an exact qualified name match, then falls back to name-only.
-func (t *Table) LookupTypeDef(namespace, name string) (TypeDef, bool) {
-	qname := namespace + "." + name
-	if DebugTypeDef {
-		fmt.Fprintf(os.Stderr, "[TYPEDEF] LookupTypeDef(%q, %q) called, looking for %q\n", namespace, name, qname)
-	}
-	td, ok := t.GetTypeDef(qname)
-	if ok {
-		if DebugTypeDef {
-			fmt.Fprintf(os.Stderr, "[TYPEDEF] LookupTypeDef(%q, %q): exact match found -> %s\n", namespace, name, td.QualifiedName)
+// EnumsInNamespace returns all enum types in the given namespace.
+func (t *Table) EnumsInNamespace(ns string) []Type {
+	return lo.Filter(t.Types, func(typ Type, _ int) bool {
+		if typ.Namespace != ns {
+			return false
 		}
-		return td, true
-	}
-	// Fallback to name-only search
-	fallback, found := lo.Find(t.TypeDefs, func(item TypeDef) bool {
-		return item.Name == name
+		_, ok := typ.Form.(EnumForm)
+		return ok
 	})
-	if DebugTypeDef {
-		if found {
-			fmt.Fprintf(os.Stderr, "[TYPEDEF] LookupTypeDef(%q, %q): exact match FAILED for %q, fallback found -> %s (namespace=%s)\n",
-				namespace, name, qname, fallback.QualifiedName, fallback.Namespace)
-		} else {
-			fmt.Fprintf(os.Stderr, "[TYPEDEF] LookupTypeDef(%q, %q): NOT FOUND (no exact match, no fallback)\n", namespace, name)
+}
+
+// StructsInNamespace returns all struct types in the given namespace.
+func (t *Table) StructsInNamespace(ns string) []Type {
+	return lo.Filter(t.Types, func(typ Type, _ int) bool {
+		if typ.Namespace != ns {
+			return false
+		}
+		_, ok := typ.Form.(StructForm)
+		return ok
+	})
+}
+
+// TopologicalSort returns a copy of the types slice sorted in topological order
+// such that types appear after all types they depend on (within the same namespace).
+// Cross-namespace dependencies are assumed to be resolved separately.
+// Types with no dependencies retain their original relative order.
+func (t *Table) TopologicalSort(types []Type) []Type {
+	if len(types) <= 1 {
+		return types
+	}
+
+	// Build a set of qualified names in the input list for quick lookup
+	inSet := make(map[string]bool, len(types))
+	for _, typ := range types {
+		inSet[typ.QualifiedName] = true
+	}
+
+	// Build adjacency list: dependencies[A] = types that A depends on
+	dependencies := make(map[string][]string, len(types))
+	for _, typ := range types {
+		deps := t.collectDependencies(typ)
+		// Filter to only include dependencies that are in our input set
+		var filteredDeps []string
+		for _, dep := range deps {
+			if inSet[dep] && dep != typ.QualifiedName {
+				filteredDeps = append(filteredDeps, dep)
+			}
+		}
+		dependencies[typ.QualifiedName] = filteredDeps
+	}
+
+	// Kahn's algorithm for topological sort
+	// First, count incoming edges (how many types depend on each type)
+	inDegree := make(map[string]int, len(types))
+	for _, typ := range types {
+		inDegree[typ.QualifiedName] = 0
+	}
+	for _, deps := range dependencies {
+		for _, dep := range deps {
+			inDegree[dep]++ // dep has one more type that depends on it
 		}
 	}
-	return fallback, found
-}
 
-// GetTypeDef returns the type definition with the given qualified name.
-func (t *Table) GetTypeDef(qname string) (TypeDef, bool) {
-	return lo.Find(t.TypeDefs, func(item TypeDef) bool {
-		return item.QualifiedName == qname
-	})
-}
+	// Wait, that's backwards. In Kahn's algorithm:
+	// - We want types with no dependencies first
+	// - A depends on B means B must come before A
+	// So inDegree[A] = number of dependencies A has
 
-// MustGetTypeDef returns the type definition with the given qualified name or panics.
-func (t *Table) MustGetTypeDef(qname string) TypeDef { return lo.Must(t.GetTypeDef(qname)) }
-
-// AddTypeDef adds a type definition entry to the table.
-func (t *Table) AddTypeDef(e TypeDef) {
-	if DebugTypeDef {
-		fmt.Fprintf(os.Stderr, "[TYPEDEF] AddTypeDef: %s (namespace=%s)\n", e.QualifiedName, e.Namespace)
+	// Recalculate: inDegree[A] = count of types A depends on
+	for qname := range inDegree {
+		inDegree[qname] = len(dependencies[qname])
 	}
-	t.TypeDefs = append(t.TypeDefs, e)
+
+	// Queue types with no dependencies
+	var queue []string
+	for qname, deg := range inDegree {
+		if deg == 0 {
+			queue = append(queue, qname)
+		}
+	}
+
+	// Process queue
+	var sorted []string
+	for len(queue) > 0 {
+		// Pop first element
+		qname := queue[0]
+		queue = queue[1:]
+		sorted = append(sorted, qname)
+
+		// For each type that depends on qname, reduce its inDegree
+		for _, typ := range types {
+			deps := dependencies[typ.QualifiedName]
+			for _, dep := range deps {
+				if dep == qname {
+					inDegree[typ.QualifiedName]--
+					if inDegree[typ.QualifiedName] == 0 {
+						queue = append(queue, typ.QualifiedName)
+					}
+					break
+				}
+			}
+		}
+	}
+
+	// If we couldn't sort all types, there's a cycle - return original order
+	if len(sorted) != len(types) {
+		return types
+	}
+
+	// Map qualified names back to types
+	typeMap := make(map[string]Type, len(types))
+	for _, typ := range types {
+		typeMap[typ.QualifiedName] = typ
+	}
+
+	result := make([]Type, 0, len(sorted))
+	for _, qname := range sorted {
+		result = append(result, typeMap[qname])
+	}
+	return result
 }
 
-// AllTypeDefs returns all type definition entries in the table.
-func (t *Table) AllTypeDefs() []TypeDef { return t.TypeDefs }
+// collectDependencies returns the qualified names of types that the given type depends on.
+func (t *Table) collectDependencies(typ Type) []string {
+	var deps []string
+	seen := make(map[string]bool)
 
-// TypeDefsInNamespace returns all type definitions in the given namespace.
-func (t *Table) TypeDefsInNamespace(ns string) []TypeDef {
-	return lo.Filter(t.TypeDefs, func(item TypeDef, _ int) bool {
-		return item.Namespace == ns
-	})
+	var addDep func(ref TypeRef)
+	addDep = func(ref TypeRef) {
+		if ref.Name == "" || ref.IsTypeParam() {
+			return
+		}
+		// Skip primitives and builtins
+		if IsPrimitive(ref.Name) || ref.Name == "Array" || ref.Name == "Map" {
+			// But still process type args
+			for _, arg := range ref.TypeArgs {
+				addDep(arg)
+			}
+			return
+		}
+		// Try to resolve to get qualified name
+		if resolved, ok := t.Get(ref.Name); ok {
+			if !seen[resolved.QualifiedName] {
+				seen[resolved.QualifiedName] = true
+				deps = append(deps, resolved.QualifiedName)
+			}
+		}
+		// Process type arguments
+		for _, arg := range ref.TypeArgs {
+			addDep(arg)
+		}
+	}
+
+	switch form := typ.Form.(type) {
+	case StructForm:
+		if form.Extends != nil {
+			addDep(*form.Extends)
+		}
+		for _, field := range form.Fields {
+			addDep(field.Type)
+		}
+	case AliasForm:
+		addDep(form.Target)
+	case DistinctForm:
+		addDep(form.Base)
+	}
+
+	return deps
 }

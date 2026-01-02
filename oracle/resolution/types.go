@@ -20,50 +20,6 @@ const (
 	ValueKindIdent
 )
 
-// TypeRef represents a resolved type reference in a field or type parameter.
-type TypeRef struct {
-	Kind      TypeKind
-	Primitive string
-	StructRef *Struct
-	EnumRef   *Enum
-	// TypeDefRef points to the type definition when Kind is TypeKindTypeDef.
-	TypeDefRef *TypeDef
-	// TypeParamRef points to the type parameter when Kind is TypeKindTypeParam.
-	TypeParamRef *TypeParam
-	// TypeArgs holds type arguments when using a generic type (e.g., Status<Foo>).
-	TypeArgs []*TypeRef
-	IsArray  bool
-	// IsOptional indicates soft optional (?) - Go uses zero value + omitempty.
-	IsOptional bool
-	// IsHardOptional indicates hard optional (??) - Go uses pointer + omitempty.
-	IsHardOptional bool
-	RawType        string
-	// MapKeyType is the key type for map<K, V> (used when Kind == TypeKindMap).
-	MapKeyType *TypeRef
-	// MapValueType is the value type for map<K, V> (used when Kind == TypeKindMap).
-	MapValueType *TypeRef
-}
-
-// TypeKind identifies the category of a type reference.
-type TypeKind int
-
-const (
-	// TypeKindPrimitive represents a built-in primitive type.
-	TypeKindPrimitive TypeKind = iota
-	// TypeKindStruct represents a struct type reference.
-	TypeKindStruct
-	// TypeKindEnum represents an enum type reference.
-	TypeKindEnum
-	// TypeKindTypeParam represents a reference to a type parameter within a generic struct.
-	TypeKindTypeParam
-	// TypeKindMap represents a map type: map<K, V>.
-	TypeKindMap
-	// TypeKindTypeDef represents a reference to a top-level type definition.
-	TypeKindTypeDef
-	// TypeKindUnresolved represents a type that could not be resolved.
-	TypeKindUnresolved
-)
-
 // Primitives is the set of built-in primitive type names recognized by Oracle.
 var Primitives = map[string]bool{
 	"uuid": true, "string": true, "bool": true,

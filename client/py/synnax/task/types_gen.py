@@ -15,22 +15,9 @@ from typing import Any, NewType
 
 from pydantic import BaseModel, ConfigDict
 
-from synnax import status
 from synnax.ontology.payload import ID
 
 Key = int
-
-Key = NewType("Key", int)
-
-
-class StatusDetails(BaseModel):
-    task: Key | None = None
-    running: bool | None = None
-    cmd: str | None = None
-    data: Any | None = None
-
-
-Status = status.Status[StatusDetails]
 
 
 class NewStatusDetails(BaseModel):
@@ -40,7 +27,23 @@ class NewStatusDetails(BaseModel):
     data: Any
 
 
-NewStatus = status.New[NewStatusDetails]
+class StatusDetails(BaseModel):
+    task: Key | None = None
+    running: bool | None = None
+    cmd: str | None = None
+    data: Any | None = None
+
+
+class Command(BaseModel):
+    task: Key
+    type: str
+    key: str
+    args: dict[str, Any] | None = None
+
+
+NewStatus = NewType("NewStatus", Any)
+
+Status = NewType("Status", Any)
 
 
 class Payload(BaseModel):
@@ -53,7 +56,7 @@ class Payload(BaseModel):
     status: Status | None = None
 
 
-class New(Task):
+class New(Payload):
     key: Key | None = None
     status: NewStatus | None = None
 
@@ -63,13 +66,6 @@ class New(Task):
             "snapshot": {"exclude": True},
         }
     )
-
-
-class Command(BaseModel):
-    task: Key
-    type: str
-    key: str
-    args: dict[str, Any] | None = None
 
 
 TASK_ONTOLOGY_TYPE = ID(type="task")

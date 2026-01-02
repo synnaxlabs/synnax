@@ -23,8 +23,6 @@ from synnax.telem import TimeSpan
 
 Key = int
 
-Key = NewType("Key", int)
-
 LocalKey = NewType("LocalKey", Any)
 
 

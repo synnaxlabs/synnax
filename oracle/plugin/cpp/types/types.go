@@ -66,14 +66,15 @@ func (p *Plugin) Check(req *plugin.Request) error {
 // Generate produces C++ type definition files from the analyzed schemas.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
-	outputStructs := make(map[string][]resolution.Struct)
-	outputTypeDefs := make(map[string][]resolution.TypeDef)
+	outputStructs := make(map[string][]resolution.Type)
+	outputTypeDefs := make(map[string][]resolution.Type)
+	outputAliases := make(map[string][]resolution.Type)
 	var structOrder []string
 	var typeDefOrder []string
 
-	for _, entry := range req.Resolutions.AllTypeDefs() {
-		if outputPath := output.GetTypeDefPath(entry, "cpp"); outputPath != "" {
-			if omit.IsTypeDef(entry, "cpp") {
+	for _, entry := range req.Resolutions.DistinctTypes() {
+		if outputPath := output.GetPath(entry, "cpp"); outputPath != "" {
+			if omit.IsType(entry, "cpp") {
 				continue
 			}
 			if req.RepoRoot != "" {
@@ -88,7 +89,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 	}
 
-	for _, entry := range req.Resolutions.AllStructs() {
+	for _, entry := range req.Resolutions.StructTypes() {
 		if outputPath := output.GetPath(entry, "cpp"); outputPath != "" {
 			if req.RepoRoot != "" {
 				if err := req.ValidateOutputPath(outputPath); err != nil {
@@ -102,15 +103,37 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 	}
 
+	// Collect alias types as well
+	for _, entry := range req.Resolutions.AliasTypes() {
+		if outputPath := output.GetPath(entry, "cpp"); outputPath != "" {
+			if omit.IsType(entry, "cpp") {
+				continue
+			}
+			if req.RepoRoot != "" {
+				if err := req.ValidateOutputPath(outputPath); err != nil {
+					return nil, errors.Wrapf(err, "invalid output path for alias %s", entry.Name)
+				}
+			}
+			// Associate aliases with their struct order if applicable
+			if _, exists := outputStructs[outputPath]; !exists {
+				if _, exists := outputTypeDefs[outputPath]; !exists {
+					structOrder = append(structOrder, outputPath)
+				}
+			}
+			outputAliases[outputPath] = append(outputAliases[outputPath], entry)
+		}
+	}
+
 	for _, outputPath := range structOrder {
 		structs := outputStructs[outputPath]
-		enums := enum.CollectReferenced(structs)
-		var typeDefs []resolution.TypeDef
+		enums := enum.CollectReferenced(structs, req.Resolutions)
+		var typeDefs []resolution.Type
 		if tds, ok := outputTypeDefs[outputPath]; ok {
 			typeDefs = tds
 			delete(outputTypeDefs, outputPath)
 		}
-		content, err := p.generateFile(outputPath, structs, enums, typeDefs, req.Resolutions)
+		aliases := outputAliases[outputPath]
+		content, err := p.generateFile(outputPath, structs, enums, typeDefs, aliases, req.Resolutions)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
@@ -126,7 +149,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if !ok {
 			continue
 		}
-		content, err := p.generateFile(outputPath, nil, nil, typeDefs, req.Resolutions)
+		content, err := p.generateFile(outputPath, nil, nil, typeDefs, nil, req.Resolutions)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
@@ -164,9 +187,10 @@ func (p *Plugin) PostWrite(files []string) error {
 // generateFile generates the C++ header file for a set of structs.
 func (p *Plugin) generateFile(
 	outputPath string,
-	structs []resolution.Struct,
-	enums []resolution.Enum,
-	typeDefs []resolution.TypeDef,
+	structs []resolution.Type,
+	enums []resolution.Type,
+	typeDefs []resolution.Type,
+	aliases []resolution.Type,
 	table *resolution.Table,
 ) ([]byte, error) {
 	namespace := ""
@@ -174,45 +198,88 @@ func (p *Plugin) generateFile(
 		namespace = structs[0].Namespace
 	} else if len(typeDefs) > 0 {
 		namespace = typeDefs[0].Namespace
+	} else if len(aliases) > 0 {
+		namespace = aliases[0].Namespace
 	}
 
 	data := &templateData{
-		OutputPath: outputPath,
-		Namespace:  deriveNamespace(outputPath),
-		KeyFields:  make([]keyFieldData, 0),
-		Structs:    make([]structData, 0, len(structs)),
-		Enums:      make([]enumData, 0, len(enums)),
-		TypeDefs:   make([]typeDefData, 0, len(typeDefs)),
-		includes:   newIncludeManager(),
-		table:      table,
-		rawNs:      namespace,
+		OutputPath:   outputPath,
+		Namespace:    deriveNamespace(outputPath),
+		KeyFields:    make([]keyFieldData, 0),
+		Structs:      make([]structData, 0, len(structs)),
+		Enums:        make([]enumData, 0, len(enums)),
+		TypeDefs:     make([]typeDefData, 0, len(typeDefs)),
+		Aliases:      make([]aliasData, 0, len(aliases)),
+		SortedDecls:  make([]sortedDeclData, 0),
+		includes:     newIncludeManager(),
+		table:        table,
+		rawNs:        namespace,
 	}
 
-	// Collect key fields from structs
-	skip := func(s resolution.Struct) bool { return omit.IsStruct(s, "cpp") }
-	keyFields := key.Collect(structs, skip)
+	// Track declared type names to avoid duplicates
+	declaredNames := make(map[string]bool)
+
+	// Collect key fields from structs - these are inferred 'using' declarations
+	skip := func(s resolution.Type) bool { return omit.IsType(s, "cpp") }
+	keyFields := key.Collect(structs, table, skip)
 	for _, kf := range keyFields {
-		data.KeyFields = append(data.KeyFields, p.processKeyField(kf, data))
+		kfd := p.processKeyField(kf, data)
+		// Only add if not already declared by a typedef
+		if !declaredNames[kfd.Name] {
+			declaredNames[kfd.Name] = true
+			data.KeyFields = append(data.KeyFields, kfd)
+		}
 	}
 
-	// Process typedefs
+	// Process typedefs (distinct types) - mark as declared
 	for _, td := range typeDefs {
-		data.TypeDefs = append(data.TypeDefs, p.processTypeDef(td, data))
+		tdd := p.processTypeDef(td, data)
+		if !declaredNames[tdd.Name] {
+			declaredNames[tdd.Name] = true
+			data.TypeDefs = append(data.TypeDefs, tdd)
+		}
 	}
 
 	// Process enums that are in the same namespace
 	for _, e := range enums {
-		if e.Namespace == namespace && !omit.IsEnum(e, "cpp") {
+		if e.Namespace == namespace && !omit.IsType(e, "cpp") {
 			data.Enums = append(data.Enums, p.processEnum(e))
 		}
 	}
 
-	// Process structs
-	for _, entry := range structs {
-		if omit.IsStruct(entry, "cpp") {
-			continue
+	// Combine aliases and structs for topological sorting
+	// These are the types that can have cross-dependencies
+	var combinedTypes []resolution.Type
+	for _, alias := range aliases {
+		if !omit.IsType(alias, "cpp") {
+			combinedTypes = append(combinedTypes, alias)
 		}
-		data.Structs = append(data.Structs, p.processStruct(entry, data))
+	}
+	for _, s := range structs {
+		if !omit.IsType(s, "cpp") {
+			combinedTypes = append(combinedTypes, s)
+		}
+	}
+
+	// Sort topologically so dependencies come before dependents
+	sortedTypes := table.TopologicalSort(combinedTypes)
+
+	// Process in sorted order, creating unified declarations
+	for _, typ := range sortedTypes {
+		switch typ.Form.(type) {
+		case resolution.AliasForm:
+			aliasData := p.processAlias(typ, data)
+			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
+				IsAlias: true,
+				Alias:   aliasData,
+			})
+		case resolution.StructForm:
+			structData := p.processStruct(typ, data)
+			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
+				IsStruct: true,
+				Struct:   structData,
+			})
+		}
 	}
 
 	var buf bytes.Buffer
@@ -234,58 +301,192 @@ func deriveNamespace(outputPath string) string {
 	return fmt.Sprintf("synnax::%s", subNs)
 }
 
-// processEnum converts an Enum to template data.
-func (p *Plugin) processEnum(e resolution.Enum) enumData {
-	values := make([]enumValueData, 0, len(e.Values))
-	for _, v := range e.Values {
+// processEnum converts an Enum type to template data.
+func (p *Plugin) processEnum(e resolution.Type) enumData {
+	form, ok := e.Form.(resolution.EnumForm)
+	if !ok {
+		return enumData{Name: e.Name}
+	}
+	values := make([]enumValueData, 0, len(form.Values))
+	for _, v := range form.Values {
 		values = append(values, enumValueData{
 			Name:     toPascalCase(v.Name),
-			Value:    v.StringValue,
-			IntValue: v.IntValue,
+			Value:    v.StringValue(),
+			IntValue: v.IntValue(),
 		})
 	}
 	return enumData{
 		Name:      e.Name,
 		Values:    values,
-		IsIntEnum: e.IsIntEnum,
+		IsIntEnum: form.IsIntEnum,
 	}
 }
 
-// processTypeDef converts a TypeDef to template data.
-func (p *Plugin) processTypeDef(td resolution.TypeDef, data *templateData) typeDefData {
+// processTypeDef converts a TypeDef type to template data.
+func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefData {
+	form, ok := td.Form.(resolution.DistinctForm)
+	if !ok {
+		return typeDefData{Name: td.Name, CppType: "void"}
+	}
 	return typeDefData{
 		Name:    td.Name,
-		CppType: p.typeDefBaseToCpp(td.BaseType, data),
+		CppType: p.typeDefBaseToCpp(form.Base, data),
 	}
 }
 
 // typeDefBaseToCpp converts a TypeDef's base type to a C++ type string.
-func (p *Plugin) typeDefBaseToCpp(typeRef *resolution.TypeRef, data *templateData) string {
-	if typeRef == nil {
+func (p *Plugin) typeDefBaseToCpp(typeRef resolution.TypeRef, data *templateData) string {
+	if resolution.IsPrimitive(typeRef.Name) {
+		return p.primitiveToCpp(typeRef.Name, data)
+	}
+	// Try to resolve as another type
+	resolved, ok := typeRef.Resolve(data.table)
+	if !ok {
 		return "void"
 	}
-	switch typeRef.Kind {
-	case resolution.TypeKindPrimitive:
-		return p.primitiveToCpp(typeRef.Primitive, data)
-	case resolution.TypeKindTypeDef:
+	switch resolved.Form.(type) {
+	case resolution.DistinctForm:
 		// Another typedef - use its name (with namespace if different)
-		if typeRef.TypeDefRef == nil {
-			return "void"
-		}
-		if typeRef.TypeDefRef.Namespace != data.rawNs {
-			targetOutputPath := output.GetTypeDefPath(*typeRef.TypeDefRef, "cpp")
+		if resolved.Namespace != data.rawNs {
+			targetOutputPath := output.GetPath(resolved, "cpp")
 			if targetOutputPath != "" {
 				includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
 				data.includes.addInternal(includePath)
 			}
 			// Use namespace-qualified name
 			ns := deriveNamespace(targetOutputPath)
-			return fmt.Sprintf("%s::%s", ns, typeRef.TypeDefRef.Name)
+			return fmt.Sprintf("%s::%s", ns, resolved.Name)
 		}
-		return typeRef.TypeDefRef.Name
+		return resolved.Name
 	default:
 		return "void"
 	}
+}
+
+// processAlias converts an Alias type to template data.
+func (p *Plugin) processAlias(alias resolution.Type, data *templateData) aliasData {
+	form, ok := alias.Form.(resolution.AliasForm)
+	if !ok {
+		return aliasData{Name: alias.Name, Target: "void"}
+	}
+
+	// Convert target type to C++ type string
+	target := p.aliasTargetToCpp(form.Target, data)
+
+	// Collect type parameters
+	var typeParams []string
+	for _, tp := range form.TypeParams {
+		typeParams = append(typeParams, tp.Name)
+	}
+
+	return aliasData{
+		Name:       alias.Name,
+		Target:     target,
+		IsGeneric:  len(typeParams) > 0,
+		TypeParams: typeParams,
+	}
+}
+
+// aliasTargetToCpp converts an alias target TypeRef to a C++ type string.
+func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData) string {
+	// Handle type parameters
+	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
+		return typeRef.TypeParam.Name
+	}
+
+	// Check for Array (built-in generic)
+	if typeRef.Name == "Array" {
+		data.includes.addSystem("vector")
+		elementType := "void"
+		if len(typeRef.TypeArgs) > 0 {
+			elementType = p.aliasTargetToCpp(typeRef.TypeArgs[0], data)
+		}
+		return fmt.Sprintf("std::vector<%s>", elementType)
+	}
+
+	// Check for Map (built-in generic)
+	if typeRef.Name == "Map" {
+		data.includes.addSystem("unordered_map")
+		keyType := "std::string"
+		valueType := "void"
+		if len(typeRef.TypeArgs) > 0 {
+			keyType = p.aliasTargetToCpp(typeRef.TypeArgs[0], data)
+		}
+		if len(typeRef.TypeArgs) > 1 {
+			valueType = p.aliasTargetToCpp(typeRef.TypeArgs[1], data)
+		}
+		return fmt.Sprintf("std::unordered_map<%s, %s>", keyType, valueType)
+	}
+
+	// Check if it's a primitive
+	if resolution.IsPrimitive(typeRef.Name) {
+		return p.primitiveToCpp(typeRef.Name, data)
+	}
+
+	// Try to resolve the type
+	resolved, ok := typeRef.Resolve(data.table)
+	if !ok {
+		return typeRef.Name
+	}
+
+	// Build the base name with namespace handling
+	name := resolved.Name
+	isOmitted := omit.IsType(resolved, "cpp")
+	targetOutputPath := output.GetPath(resolved, "cpp")
+
+	// Check for @cpp include and namespace overrides
+	var cppInclude string
+	var cppNamespace string
+	if cppDomain, ok := resolved.Domains["cpp"]; ok {
+		for _, expr := range cppDomain.Expressions {
+			switch expr.Name {
+			case "include":
+				if len(expr.Values) > 0 {
+					cppInclude = expr.Values[0].StringValue
+				}
+			case "namespace":
+				if len(expr.Values) > 0 {
+					cppNamespace = expr.Values[0].StringValue
+				}
+			case "name":
+				if len(expr.Values) > 0 {
+					name = expr.Values[0].StringValue
+				}
+			}
+		}
+	}
+
+	// Handle cross-namespace references
+	if resolved.Namespace != data.rawNs {
+		if isOmitted || targetOutputPath == "" {
+			// Handwritten type - use @cpp include and namespace
+			if cppInclude != "" {
+				data.includes.addInternal(cppInclude)
+			}
+			ns := cppNamespace
+			if ns == "" {
+				ns = resolved.Namespace
+			}
+			if ns != "" {
+				name = fmt.Sprintf("%s::%s", ns, name)
+			}
+		} else {
+			// Generated type - include the generated header
+			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
+			data.includes.addInternal(includePath)
+		}
+	}
+
+	// Build with type arguments
+	if len(typeRef.TypeArgs) == 0 {
+		return name
+	}
+
+	args := make([]string, len(typeRef.TypeArgs))
+	for i, arg := range typeRef.TypeArgs {
+		args[i] = p.aliasTargetToCpp(arg, data)
+	}
+	return fmt.Sprintf("%s<%s>", name, strings.Join(args, ", "))
 }
 
 // processKeyField converts a key field to a C++ type alias.
@@ -297,8 +498,13 @@ func (p *Plugin) processKeyField(kf key.Field, data *templateData) keyFieldData 
 	}
 }
 
-// processStruct converts a Struct to template data.
-func (p *Plugin) processStruct(entry resolution.Struct, data *templateData) structData {
+// processStruct converts a Type with StructForm to template data.
+func (p *Plugin) processStruct(entry resolution.Type, data *templateData) structData {
+	form, ok := entry.Form.(resolution.StructForm)
+	if !ok {
+		return structData{Name: entry.Name}
+	}
+
 	// Check for @cpp name override
 	name := entry.Name
 	if cppDomain, ok := entry.Domains["cpp"]; ok {
@@ -319,30 +525,33 @@ func (p *Plugin) processStruct(entry resolution.Struct, data *templateData) stru
 		data.includes.addInternal("x/cpp/xjson/xjson.h")
 	}
 
+	// Check if this is an alias type
+	aliasForm, isAlias := entry.Form.(resolution.AliasForm)
+
 	sd := structData{
 		Name:           name,
 		Doc:            doc.Get(entry.Domains),
-		Fields:         make([]fieldData, 0, len(entry.Fields)),
-		IsGeneric:      entry.IsGeneric(),
-		IsAlias:        entry.IsAlias(),
+		Fields:         make([]fieldData, 0, len(form.Fields)),
+		IsGeneric:      form.IsGeneric(),
+		IsAlias:        isAlias,
 		GenerateParse:  generateParse,
 		GenerateToJson: generateToJson,
 	}
 
 	// Process type parameters
-	for _, tp := range entry.TypeParams {
+	for _, tp := range form.TypeParams {
 		sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp))
 	}
 
 	// Handle alias types
-	if entry.IsAlias() {
-		sd.AliasOf = p.typeToCpp(entry.AliasOf, data)
+	if isAlias {
+		sd.AliasOf = p.typeRefToCpp(aliasForm.Target, data)
 		return sd
 	}
 
 	// For C++, we always flatten fields (no struct embedding like Go)
 	// This handles both extending and non-extending structs uniformly
-	for _, field := range entry.UnifiedFields() {
+	for _, field := range resolution.UnifiedFields(entry, data.table) {
 		sd.Fields = append(sd.Fields, p.processField(field, entry, data))
 	}
 
@@ -357,8 +566,14 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam) typeParamData {
 }
 
 // processField converts a Field to template data.
-func (p *Plugin) processField(field resolution.Field, entry resolution.Struct, data *templateData) fieldData {
-	cppType := p.typeToCpp(field.TypeRef, data)
+func (p *Plugin) processField(field resolution.Field, entry resolution.Type, data *templateData) fieldData {
+	cppType := p.typeRefToCpp(field.Type, data)
+
+	// Apply optional wrappers based on field flags
+	if field.IsHardOptional {
+		data.includes.addSystem("optional")
+		cppType = fmt.Sprintf("std::optional<%s>", cppType)
+	}
 
 	// Generate JSON expressions
 	parseExpr := p.parseExprForField(field, cppType, data)
@@ -371,46 +586,65 @@ func (p *Plugin) processField(field resolution.Field, entry resolution.Struct, d
 		JsonName:     field.Name,
 		ParseExpr:    parseExpr,
 		ToJsonExpr:   toJsonExpr,
-		HasDefault:   field.TypeRef.IsOptional,
-		DefaultValue: p.defaultValueForType(field.TypeRef),
+		HasDefault:   field.IsOptional,
+		DefaultValue: p.defaultValueForType(field.Type, field.IsHardOptional, data),
 	}
 }
 
-// typeToCpp converts an Oracle type reference to a C++ type string.
-func (p *Plugin) typeToCpp(typeRef *resolution.TypeRef, data *templateData) string {
-	var baseType string
-
-	switch typeRef.Kind {
-	case resolution.TypeKindPrimitive:
-		baseType = p.primitiveToCpp(typeRef.Primitive, data)
-	case resolution.TypeKindStruct:
-		baseType = p.resolveStructType(typeRef, data)
-	case resolution.TypeKindEnum:
-		baseType = p.resolveEnumType(typeRef, data)
-	case resolution.TypeKindMap:
-		baseType = p.resolveMapType(typeRef, data)
-	case resolution.TypeKindTypeParam:
-		baseType = p.resolveTypeParam(typeRef)
-	case resolution.TypeKindTypeDef:
-		baseType = p.resolveTypeDefType(typeRef, data)
-	default:
-		baseType = "void"
+// typeRefToCpp converts an Oracle type reference to a C++ type string.
+func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) string {
+	// Handle type parameters first
+	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
+		return typeRef.TypeParam.Name
 	}
 
-	// Handle arrays first
-	if typeRef.IsArray {
+	// Check for Array (built-in generic)
+	if typeRef.Name == "Array" {
 		data.includes.addSystem("vector")
-		baseType = fmt.Sprintf("std::vector<%s>", baseType)
+		elementType := "void"
+		if len(typeRef.TypeArgs) > 0 {
+			elementType = p.typeRefToCpp(typeRef.TypeArgs[0], data)
+		}
+		return fmt.Sprintf("std::vector<%s>", elementType)
 	}
 
-	// Only hard optionals (??) use std::optional in C++
-	// Soft optionals (?) are just the bare type
-	if typeRef.IsHardOptional {
-		data.includes.addSystem("optional")
-		baseType = fmt.Sprintf("std::optional<%s>", baseType)
+	// Check for Map (built-in generic)
+	if typeRef.Name == "Map" {
+		data.includes.addSystem("unordered_map")
+		keyType := "std::string"
+		valueType := "void"
+		if len(typeRef.TypeArgs) > 0 {
+			keyType = p.typeRefToCpp(typeRef.TypeArgs[0], data)
+		}
+		if len(typeRef.TypeArgs) > 1 {
+			valueType = p.typeRefToCpp(typeRef.TypeArgs[1], data)
+		}
+		return fmt.Sprintf("std::unordered_map<%s, %s>", keyType, valueType)
 	}
 
-	return baseType
+	// Check if it's a primitive
+	if resolution.IsPrimitive(typeRef.Name) {
+		return p.primitiveToCpp(typeRef.Name, data)
+	}
+
+	// Try to resolve the type from the table
+	resolved, ok := typeRef.Resolve(data.table)
+	if !ok {
+		return "void"
+	}
+
+	switch form := resolved.Form.(type) {
+	case resolution.StructForm:
+		return p.resolveStructType(resolved, typeRef.TypeArgs, data)
+	case resolution.EnumForm:
+		return p.resolveEnumType(resolved, form, data)
+	case resolution.DistinctForm:
+		return p.resolveDistinctType(resolved, data)
+	case resolution.AliasForm:
+		return p.resolveAliasType(resolved, typeRef.TypeArgs, data)
+	default:
+		return "void"
+	}
 }
 
 // primitiveToCpp converts an Oracle primitive to a C++ type.
@@ -430,21 +664,15 @@ func (p *Plugin) primitiveToCpp(primitive string, data *templateData) string {
 	return mapping.cppType
 }
 
-// resolveStructType resolves a struct type reference to a C++ type string.
-func (p *Plugin) resolveStructType(typeRef *resolution.TypeRef, data *templateData) string {
-	if typeRef.StructRef == nil {
-		return "void"
-	}
-
-	structRef := typeRef.StructRef
-
+// resolveStructType resolves a struct type to a C++ type string.
+func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resolution.TypeRef, data *templateData) string {
 	// Check if struct has a @cpp name override
-	name := structRef.Name
+	name := resolved.Name
 	var cppInclude string
 	var cppNamespace string
-	isOmitted := omit.IsStruct(*structRef, "cpp")
+	isOmitted := omit.IsType(resolved, "cpp")
 
-	if cppDomain, ok := structRef.Domains["cpp"]; ok {
+	if cppDomain, ok := resolved.Domains["cpp"]; ok {
 		for _, expr := range cppDomain.Expressions {
 			switch expr.Name {
 			case "name":
@@ -463,10 +691,10 @@ func (p *Plugin) resolveStructType(typeRef *resolution.TypeRef, data *templateDa
 		}
 	}
 
-	targetOutputPath := output.GetPath(*structRef, "cpp")
+	targetOutputPath := output.GetPath(resolved, "cpp")
 
 	// Handle cross-namespace references
-	if structRef.Namespace != data.rawNs {
+	if resolved.Namespace != data.rawNs {
 		if isOmitted || targetOutputPath == "" {
 			// This struct is omitted or has no @cpp output - it's handwritten.
 			// Use the @cpp include path if provided, otherwise we can't include it.
@@ -477,7 +705,7 @@ func (p *Plugin) resolveStructType(typeRef *resolution.TypeRef, data *templateDa
 			// If @cpp namespace is set, use it; otherwise derive from Oracle namespace.
 			ns := cppNamespace
 			if ns == "" {
-				ns = structRef.Namespace
+				ns = resolved.Namespace
 			}
 			if ns != "" {
 				name = fmt.Sprintf("%s::%s", ns, name)
@@ -489,81 +717,61 @@ func (p *Plugin) resolveStructType(typeRef *resolution.TypeRef, data *templateDa
 		}
 	}
 
-	return p.buildGenericType(name, typeRef.TypeArgs, data)
+	return p.buildGenericType(name, typeArgs, data)
 }
 
-// resolveEnumType resolves an enum type reference to a C++ type string.
-func (p *Plugin) resolveEnumType(typeRef *resolution.TypeRef, data *templateData) string {
-	if typeRef.EnumRef == nil {
-		return "int"
-	}
-
-	enumRef := typeRef.EnumRef
-
+// resolveEnumType resolves an enum type to a C++ type string.
+func (p *Plugin) resolveEnumType(resolved resolution.Type, form resolution.EnumForm, data *templateData) string {
 	// For cross-namespace references, we need to add an include
-	if enumRef.Namespace != data.rawNs {
-		targetOutputPath := enum.FindOutputPath(*enumRef, data.table, "cpp")
+	if resolved.Namespace != data.rawNs {
+		targetOutputPath := enum.FindOutputPath(resolved, data.table, "cpp")
 		if targetOutputPath != "" {
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
 			data.includes.addInternal(includePath)
 		}
 	}
 
-	return enumRef.Name
+	return resolved.Name
 }
 
-// resolveMapType resolves a map type reference to a C++ type string.
-func (p *Plugin) resolveMapType(typeRef *resolution.TypeRef, data *templateData) string {
-	keyType := "std::string"
-	valueType := "void"
-
-	if typeRef.MapKeyType != nil {
-		keyType = p.typeToCpp(typeRef.MapKeyType, data)
-	}
-	if typeRef.MapValueType != nil {
-		valueType = p.typeToCpp(typeRef.MapValueType, data)
-	}
-
-	data.includes.addSystem("unordered_map")
-	return fmt.Sprintf("std::unordered_map<%s, %s>", keyType, valueType)
-}
-
-// resolveTypeParam resolves a type parameter reference to a C++ type string.
-func (p *Plugin) resolveTypeParam(typeRef *resolution.TypeRef) string {
-	if typeRef.TypeParamRef != nil {
-		return typeRef.TypeParamRef.Name
-	}
-	return "void"
-}
-
-// resolveTypeDefType resolves a TypeDef type reference to a C++ type string.
-func (p *Plugin) resolveTypeDefType(typeRef *resolution.TypeRef, data *templateData) string {
-	if typeRef.TypeDefRef == nil {
-		return "void"
-	}
-	tdRef := typeRef.TypeDefRef
-	if tdRef.Namespace != data.rawNs {
-		targetOutputPath := output.GetTypeDefPath(*tdRef, "cpp")
+// resolveDistinctType resolves a distinct type to a C++ type string.
+func (p *Plugin) resolveDistinctType(resolved resolution.Type, data *templateData) string {
+	if resolved.Namespace != data.rawNs {
+		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
 			data.includes.addInternal(includePath)
 		}
 		// Use namespace-qualified name
 		ns := deriveNamespace(targetOutputPath)
-		return fmt.Sprintf("%s::%s", ns, tdRef.Name)
+		return fmt.Sprintf("%s::%s", ns, resolved.Name)
 	}
-	return tdRef.Name
+	return resolved.Name
+}
+
+// resolveAliasType resolves an alias type to a C++ type string.
+func (p *Plugin) resolveAliasType(resolved resolution.Type, typeArgs []resolution.TypeRef, data *templateData) string {
+	// Similar to struct handling for now
+	name := resolved.Name
+	if resolved.Namespace != data.rawNs {
+		targetOutputPath := output.GetPath(resolved, "cpp")
+		if targetOutputPath != "" {
+			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
+			data.includes.addInternal(includePath)
+		}
+	}
+	return p.buildGenericType(name, typeArgs, data)
 }
 
 // buildGenericType builds a generic type string with type arguments.
-func (p *Plugin) buildGenericType(baseName string, typeArgs []*resolution.TypeRef, data *templateData) string {
+func (p *Plugin) buildGenericType(baseName string, typeArgs []resolution.TypeRef, data *templateData) string {
 	if len(typeArgs) == 0 {
 		return baseName
 	}
 
 	args := make([]string, len(typeArgs))
 	for i, arg := range typeArgs {
-		args[i] = p.typeToCpp(arg, data)
+		args[i] = p.typeRefToCpp(arg, data)
 	}
 	return fmt.Sprintf("%s<%s>", baseName, strings.Join(args, ", "))
 }
@@ -629,15 +837,25 @@ func (m *includeManager) addInternal(path string) {
 
 // templateData holds data for the C++ file template.
 type templateData struct {
-	OutputPath string
-	Namespace  string
-	KeyFields  []keyFieldData
-	Structs    []structData
-	Enums      []enumData
-	TypeDefs   []typeDefData
-	includes   *includeManager
-	table      *resolution.Table
-	rawNs      string // Original Oracle namespace for cross-reference detection
+	OutputPath  string
+	Namespace   string
+	KeyFields   []keyFieldData
+	Structs     []structData
+	Enums       []enumData
+	TypeDefs    []typeDefData
+	Aliases     []aliasData
+	SortedDecls []sortedDeclData // Topologically sorted aliases and structs
+	includes    *includeManager
+	table       *resolution.Table
+	rawNs       string // Original Oracle namespace for cross-reference detection
+}
+
+// sortedDeclData holds a single declaration (either alias or struct) for sorted output.
+type sortedDeclData struct {
+	IsAlias  bool
+	IsStruct bool
+	Alias    aliasData
+	Struct   structData
 }
 
 // keyFieldData holds data for a key type alias.
@@ -650,6 +868,14 @@ type keyFieldData struct {
 type typeDefData struct {
 	Name    string // e.g., "Key"
 	CppType string // e.g., "std::uint32_t"
+}
+
+// aliasData holds data for a type alias.
+type aliasData struct {
+	Name       string   // e.g., "RackStatus"
+	Target     string   // e.g., "status::Status<StatusDetails>"
+	IsGeneric  bool     // Whether the alias has type parameters
+	TypeParams []string // e.g., ["T", "U"]
 }
 
 // HasIncludes returns true if any includes are needed.
@@ -780,26 +1006,32 @@ func defaultValueForPrimitive(primitive string) string {
 }
 
 // defaultValueForType returns the C++ default value for a type reference.
-func (p *Plugin) defaultValueForType(typeRef *resolution.TypeRef) string {
-	if typeRef.IsArray {
+func (p *Plugin) defaultValueForType(typeRef resolution.TypeRef, isHardOptional bool, data *templateData) string {
+	// Check for Array
+	if typeRef.Name == "Array" {
 		return "{}"
 	}
-	if typeRef.IsHardOptional {
+	if isHardOptional {
 		return "std::nullopt"
 	}
-	switch typeRef.Kind {
-	case resolution.TypeKindPrimitive:
-		return defaultValueForPrimitive(typeRef.Primitive)
-	case resolution.TypeKindStruct:
+	// Check if it's a primitive
+	if resolution.IsPrimitive(typeRef.Name) {
+		return defaultValueForPrimitive(typeRef.Name)
+	}
+	// Try to resolve the type
+	resolved, ok := typeRef.Resolve(data.table)
+	if !ok {
 		return "{}"
-	case resolution.TypeKindEnum:
-		if typeRef.EnumRef != nil && typeRef.EnumRef.IsIntEnum {
-			return "static_cast<" + typeRef.EnumRef.Name + ">(0)"
+	}
+	switch form := resolved.Form.(type) {
+	case resolution.StructForm:
+		return "{}"
+	case resolution.EnumForm:
+		if form.IsIntEnum {
+			return "static_cast<" + resolved.Name + ">(0)"
 		}
 		return `""`
-	case resolution.TypeKindMap:
-		return "{}"
-	case resolution.TypeKindTypeParam:
+	case resolution.DistinctForm, resolution.AliasForm:
 		return "{}"
 	default:
 		return "{}"
@@ -808,53 +1040,60 @@ func (p *Plugin) defaultValueForType(typeRef *resolution.TypeRef) string {
 
 // parseExprForField generates the C++ expression to parse a field from JSON.
 func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data *templateData) string {
-	typeRef := field.TypeRef
+	typeRef := field.Type
 	jsonName := field.Name
-	hasDefault := typeRef.IsOptional
+	hasDefault := field.IsOptional
 
-	// Handle different type kinds
-	switch {
-	case typeRef.IsHardOptional:
+	// Handle hard optional
+	if field.IsHardOptional {
 		// Hard optional uses std::optional, check if field exists
-		innerType := p.typeToCppWithoutOptional(typeRef, data)
+		innerType := p.typeRefToCpp(typeRef, data)
 		innerExpr := p.parseExprForTypeRef(typeRef, innerType, jsonName, false, data)
 		return fmt.Sprintf(`parser.has("%s") ? std::make_optional(%s) : std::nullopt`, jsonName, innerExpr)
+	}
 
-	case typeRef.IsArray:
-		// Arrays are parsed directly via parser.field<std::vector<T>>
+	// Handle arrays
+	if typeRef.Name == "Array" {
 		if hasDefault {
 			return fmt.Sprintf(`parser.field<%s>("%s", {})`, cppType, jsonName)
 		}
 		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
+	}
 
-	case typeRef.Kind == resolution.TypeKindStruct:
-		// Nested structs call their parse method via optional_child
-		// optional_child returns a noop parser if field is missing, which returns defaults
-		if typeRef.StructRef != nil {
-			structType := p.resolveStructType(typeRef, data)
-			if hasDefault {
-				return fmt.Sprintf(`%s::parse(parser.optional_child("%s"))`, structType, jsonName)
-			}
-			return fmt.Sprintf(`%s::parse(parser.child("%s"))`, structType, jsonName)
-		}
-		fallthrough
-
-	case typeRef.Kind == resolution.TypeKindTypeParam:
-		// Type parameters assume the type has a parse method
-		paramName := typeRef.TypeParamRef.Name
+	// Check if primitive
+	if resolution.IsPrimitive(typeRef.Name) {
 		if hasDefault {
-			return fmt.Sprintf(`%s::parse(parser.optional_child("%s"))`, paramName, jsonName)
+			defaultVal := p.defaultValueForType(typeRef, false, data)
+			return fmt.Sprintf(`parser.field<%s>("%s", %s)`, cppType, jsonName, defaultVal)
 		}
-		return fmt.Sprintf(`%s::parse(parser.child("%s"))`, paramName, jsonName)
+		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
+	}
 
-	case typeRef.Kind == resolution.TypeKindEnum:
+	// Try to resolve the type
+	resolved, ok := typeRef.Resolve(data.table)
+	if !ok {
+		if hasDefault {
+			return fmt.Sprintf(`parser.field<%s>("%s", {})`, cppType, jsonName)
+		}
+		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
+	}
+
+	switch form := resolved.Form.(type) {
+	case resolution.StructForm:
+		// Nested structs call their parse method via optional_child
+		structType := p.resolveStructType(resolved, typeRef.TypeArgs, data)
+		if hasDefault {
+			return fmt.Sprintf(`%s::parse(parser.optional_child("%s"))`, structType, jsonName)
+		}
+		return fmt.Sprintf(`%s::parse(parser.child("%s"))`, structType, jsonName)
+
+	case resolution.EnumForm:
 		// Enums need special handling based on int vs string
-		if typeRef.EnumRef != nil && typeRef.EnumRef.IsIntEnum {
-			enumType := typeRef.EnumRef.Name
+		if form.IsIntEnum {
 			if hasDefault {
-				return fmt.Sprintf(`static_cast<%s>(parser.field<int>("%s", 0))`, enumType, jsonName)
+				return fmt.Sprintf(`static_cast<%s>(parser.field<int>("%s", 0))`, resolved.Name, jsonName)
 			}
-			return fmt.Sprintf(`static_cast<%s>(parser.field<int>("%s"))`, enumType, jsonName)
+			return fmt.Sprintf(`static_cast<%s>(parser.field<int>("%s"))`, resolved.Name, jsonName)
 		}
 		// String enum - parse as string
 		if hasDefault {
@@ -863,9 +1102,8 @@ func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data 
 		return fmt.Sprintf(`parser.field<std::string>("%s")`, jsonName)
 
 	default:
-		// Primitives and maps
 		if hasDefault {
-			defaultVal := p.defaultValueForType(typeRef)
+			defaultVal := p.defaultValueForType(typeRef, false, data)
 			return fmt.Sprintf(`parser.field<%s>("%s", %s)`, cppType, jsonName, defaultVal)
 		}
 		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
@@ -873,83 +1111,111 @@ func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data 
 }
 
 // parseExprForTypeRef generates a parse expression for a type reference.
-func (p *Plugin) parseExprForTypeRef(typeRef *resolution.TypeRef, cppType, jsonName string, hasDefault bool, data *templateData) string {
-	switch typeRef.Kind {
-	case resolution.TypeKindStruct:
-		if typeRef.StructRef != nil {
-			structType := p.resolveStructType(typeRef, data)
-			return fmt.Sprintf(`%s::parse(parser.child("%s"))`, structType, jsonName)
-		}
-	case resolution.TypeKindTypeParam:
-		if typeRef.TypeParamRef != nil {
-			return fmt.Sprintf(`%s::parse(parser.child("%s"))`, typeRef.TypeParamRef.Name, jsonName)
-		}
-	case resolution.TypeKindEnum:
-		if typeRef.EnumRef != nil && typeRef.EnumRef.IsIntEnum {
-			return fmt.Sprintf(`static_cast<%s>(parser.field<int>("%s"))`, typeRef.EnumRef.Name, jsonName)
+func (p *Plugin) parseExprForTypeRef(typeRef resolution.TypeRef, cppType, jsonName string, hasDefault bool, data *templateData) string {
+	// Handle type parameters
+	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
+		return fmt.Sprintf(`%s::parse(parser.child("%s"))`, typeRef.TypeParam.Name, jsonName)
+	}
+
+	// Check if primitive
+	if resolution.IsPrimitive(typeRef.Name) {
+		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
+	}
+
+	// Try to resolve the type
+	resolved, ok := typeRef.Resolve(data.table)
+	if !ok {
+		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
+	}
+
+	switch form := resolved.Form.(type) {
+	case resolution.StructForm:
+		structType := p.resolveStructType(resolved, typeRef.TypeArgs, data)
+		return fmt.Sprintf(`%s::parse(parser.child("%s"))`, structType, jsonName)
+	case resolution.EnumForm:
+		if form.IsIntEnum {
+			return fmt.Sprintf(`static_cast<%s>(parser.field<int>("%s"))`, resolved.Name, jsonName)
 		}
 		return fmt.Sprintf(`parser.field<std::string>("%s")`, jsonName)
+	default:
+		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
 	}
-	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
-}
-
-// typeToCppWithoutOptional converts a type to C++ without the optional wrapper.
-func (p *Plugin) typeToCppWithoutOptional(typeRef *resolution.TypeRef, data *templateData) string {
-	// Create a copy without the optional flags
-	tempRef := *typeRef
-	tempRef.IsHardOptional = false
-	tempRef.IsOptional = false
-	return p.typeToCpp(&tempRef, data)
 }
 
 // toJsonExprForField generates the C++ expression to serialize a field to JSON.
 func (p *Plugin) toJsonExprForField(field resolution.Field, data *templateData) string {
-	typeRef := field.TypeRef
+	typeRef := field.Type
 	jsonName := field.Name
 	fieldName := field.Name
 
-	// Handle different type kinds
-	switch {
-	case typeRef.IsHardOptional:
-		// Hard optional - only serialize if has value
+	// Handle hard optional
+	if field.IsHardOptional {
 		innerExpr := p.toJsonValueExpr(typeRef, fieldName, data)
 		return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = %s;`, fieldName, jsonName, innerExpr)
+	}
 
-	case typeRef.IsArray && typeRef.Kind == resolution.TypeKindStruct:
-		// Array of structs - need to serialize each element
-		return p.toJsonArrayOfStructsExpr(typeRef, jsonName, fieldName, data)
+	// Handle arrays of structs
+	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
+		elementType := typeRef.TypeArgs[0]
+		if !resolution.IsPrimitive(elementType.Name) {
+			if resolved, ok := elementType.Resolve(data.table); ok {
+				if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
+					return p.toJsonArrayOfStructsExpr(jsonName, fieldName)
+				}
+			}
+		}
+		// Array of primitives or enums - direct assignment
+		return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
+	}
 
-	case typeRef.Kind == resolution.TypeKindStruct:
-		// Nested structs call their to_json method
+	// Check if primitive
+	if resolution.IsPrimitive(typeRef.Name) {
+		return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
+	}
+
+	// Try to resolve the type
+	resolved, ok := typeRef.Resolve(data.table)
+	if !ok {
+		return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
+	}
+
+	switch form := resolved.Form.(type) {
+	case resolution.StructForm:
 		return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
-
-	case typeRef.Kind == resolution.TypeKindTypeParam:
-		// Type parameters assume the type has a to_json method
-		return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
-
-	case typeRef.Kind == resolution.TypeKindEnum:
-		// Enums need special handling based on int vs string
-		if typeRef.EnumRef != nil && typeRef.EnumRef.IsIntEnum {
+	case resolution.EnumForm:
+		if form.IsIntEnum {
 			return fmt.Sprintf(`j["%s"] = static_cast<int>(this->%s);`, jsonName, fieldName)
 		}
 		// String enum - serialize as string directly
 		return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
-
 	default:
-		// Primitives, arrays (of primitives), and maps - direct assignment
 		return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
 	}
 }
 
 // toJsonValueExpr generates the expression for the value part of to_json.
-func (p *Plugin) toJsonValueExpr(typeRef *resolution.TypeRef, fieldName string, data *templateData) string {
-	switch typeRef.Kind {
-	case resolution.TypeKindStruct:
+func (p *Plugin) toJsonValueExpr(typeRef resolution.TypeRef, fieldName string, data *templateData) string {
+	// Handle type parameters
+	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
 		return fmt.Sprintf("this->%s->to_json()", fieldName)
-	case resolution.TypeKindTypeParam:
+	}
+
+	// Check if primitive
+	if resolution.IsPrimitive(typeRef.Name) {
+		return fmt.Sprintf("*this->%s", fieldName)
+	}
+
+	// Try to resolve the type
+	resolved, ok := typeRef.Resolve(data.table)
+	if !ok {
+		return fmt.Sprintf("*this->%s", fieldName)
+	}
+
+	switch form := resolved.Form.(type) {
+	case resolution.StructForm:
 		return fmt.Sprintf("this->%s->to_json()", fieldName)
-	case resolution.TypeKindEnum:
-		if typeRef.EnumRef != nil && typeRef.EnumRef.IsIntEnum {
+	case resolution.EnumForm:
+		if form.IsIntEnum {
 			return fmt.Sprintf("static_cast<int>(*this->%s)", fieldName)
 		}
 		return fmt.Sprintf("*this->%s", fieldName)
@@ -959,7 +1225,7 @@ func (p *Plugin) toJsonValueExpr(typeRef *resolution.TypeRef, fieldName string, 
 }
 
 // toJsonArrayOfStructsExpr generates the expression for serializing an array of structs.
-func (p *Plugin) toJsonArrayOfStructsExpr(typeRef *resolution.TypeRef, jsonName, fieldName string, data *templateData) string {
+func (p *Plugin) toJsonArrayOfStructsExpr(jsonName, fieldName string) string {
 	// For arrays of structs, we need to transform each element
 	return fmt.Sprintf(`{
         auto arr = nlohmann::json::array();
@@ -1006,8 +1272,16 @@ constexpr const char* {{$enum.Name}}{{.Name}} = "{{.Value}}";
 {{- end}}
 {{- end}}
 {{- end}}
-{{- range $i, $s := .Structs}}
-{{if or $i (gt (len $.KeyFields) 0) (gt (len $.Enums) 0)}}
+{{- range $i, $d := .SortedDecls}}
+{{- if $d.IsAlias}}
+{{- $a := $d.Alias}}
+{{if or $i (gt (len $.KeyFields) 0) (gt (len $.TypeDefs) 0) (gt (len $.Enums) 0)}}
+{{end}}
+{{- if $a.IsGeneric}}template <{{range $j, $p := $a.TypeParams}}{{if $j}}, {{end}}typename {{$p}}{{end}}>
+{{end}}using {{$a.Name}} = {{$a.Target}};
+{{- else if $d.IsStruct}}
+{{- $s := $d.Struct}}
+{{if or $i (gt (len $.KeyFields) 0) (gt (len $.TypeDefs) 0) (gt (len $.Enums) 0)}}
 {{end}}
 {{- if $s.Doc}}
 /// @brief {{$s.Doc}}
@@ -1045,6 +1319,7 @@ constexpr const char* {{$enum.Name}}{{.Name}} = "{{.Value}}";
     }
 {{- end}}
 };
+{{- end}}
 {{- end}}
 {{- end}}
 }

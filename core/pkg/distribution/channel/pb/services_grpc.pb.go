@@ -11,9 +11,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.0
 // - protoc             (unknown)
-// source: core/pkg/distribution/channel/pb/channel.proto
+// source: core/pkg/distribution/channel/pb/services.proto
 
-package arc
+package pb
 
 import (
 	context "context"
@@ -29,7 +29,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ChannelCreateService_Exec_FullMethodName = "/synnax.distribution.channel.ChannelCreateService/Exec"
+	ChannelCreateService_Exec_FullMethodName = "/distribution.channel.ChannelCreateService/Exec"
 )
 
 // ChannelCreateServiceClient is the client API for ChannelCreateService service.
@@ -116,7 +116,7 @@ func _ChannelCreateService_Exec_Handler(srv interface{}, ctx context.Context, de
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ChannelCreateService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "synnax.distribution.channel.ChannelCreateService",
+	ServiceName: "distribution.channel.ChannelCreateService",
 	HandlerType: (*ChannelCreateServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -125,11 +125,11 @@ var ChannelCreateService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "core/pkg/distribution/channel/pb/channel.proto",
+	Metadata: "core/pkg/distribution/channel/pb/services.proto",
 }
 
 const (
-	ChannelDeleteService_Exec_FullMethodName = "/synnax.distribution.channel.ChannelDeleteService/Exec"
+	ChannelDeleteService_Exec_FullMethodName = "/distribution.channel.ChannelDeleteService/Exec"
 )
 
 // ChannelDeleteServiceClient is the client API for ChannelDeleteService service.
@@ -216,7 +216,7 @@ func _ChannelDeleteService_Exec_Handler(srv interface{}, ctx context.Context, de
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ChannelDeleteService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "synnax.distribution.channel.ChannelDeleteService",
+	ServiceName: "distribution.channel.ChannelDeleteService",
 	HandlerType: (*ChannelDeleteServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -225,11 +225,11 @@ var ChannelDeleteService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "core/pkg/distribution/channel/pb/channel.proto",
+	Metadata: "core/pkg/distribution/channel/pb/services.proto",
 }
 
 const (
-	ChannelRenameService_Exec_FullMethodName = "/synnax.distribution.channel.ChannelRenameService/Exec"
+	ChannelRenameService_Exec_FullMethodName = "/distribution.channel.ChannelRenameService/Exec"
 )
 
 // ChannelRenameServiceClient is the client API for ChannelRenameService service.
@@ -316,7 +316,7 @@ func _ChannelRenameService_Exec_Handler(srv interface{}, ctx context.Context, de
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ChannelRenameService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "synnax.distribution.channel.ChannelRenameService",
+	ServiceName: "distribution.channel.ChannelRenameService",
 	HandlerType: (*ChannelRenameServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -325,5 +325,5 @@ var ChannelRenameService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "core/pkg/distribution/channel/pb/channel.proto",
+	Metadata: "core/pkg/distribution/channel/pb/services.proto",
 }

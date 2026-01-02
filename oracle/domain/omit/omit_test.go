@@ -16,62 +16,71 @@ import (
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
-var _ = Describe("IsStruct", func() {
-	It("should return true when omit expression exists", func() {
-		s := resolution.Struct{
+var _ = Describe("IsType", func() {
+	It("should return true when omit expression exists for struct", func() {
+		t := resolution.Type{
+			Form: resolution.StructForm{},
 			Domains: map[string]resolution.Domain{
 				"ts": {Expressions: []resolution.Expression{{Name: "omit"}}},
 			},
 		}
-		Expect(omit.IsStruct(s, "ts")).To(BeTrue())
+		Expect(omit.IsType(t, "ts")).To(BeTrue())
 	})
 
 	It("should return false when domain missing", func() {
-		s := resolution.Struct{Domains: map[string]resolution.Domain{}}
-		Expect(omit.IsStruct(s, "ts")).To(BeFalse())
+		t := resolution.Type{
+			Form:    resolution.StructForm{},
+			Domains: map[string]resolution.Domain{},
+		}
+		Expect(omit.IsType(t, "ts")).To(BeFalse())
 	})
 
 	It("should return false when omit not in expressions", func() {
-		s := resolution.Struct{
+		t := resolution.Type{
+			Form: resolution.StructForm{},
 			Domains: map[string]resolution.Domain{
 				"ts": {Expressions: []resolution.Expression{{Name: "output"}}},
 			},
 		}
-		Expect(omit.IsStruct(s, "ts")).To(BeFalse())
+		Expect(omit.IsType(t, "ts")).To(BeFalse())
 	})
 
 	It("should check correct domain", func() {
-		s := resolution.Struct{
+		t := resolution.Type{
+			Form: resolution.StructForm{},
 			Domains: map[string]resolution.Domain{
 				"py": {Expressions: []resolution.Expression{{Name: "omit"}}},
 			},
 		}
-		Expect(omit.IsStruct(s, "ts")).To(BeFalse())
-		Expect(omit.IsStruct(s, "py")).To(BeTrue())
+		Expect(omit.IsType(t, "ts")).To(BeFalse())
+		Expect(omit.IsType(t, "py")).To(BeTrue())
 	})
-})
 
-var _ = Describe("IsEnum", func() {
-	It("should return true when omit expression exists", func() {
-		e := resolution.Enum{
+	It("should return true when omit expression exists for enum", func() {
+		t := resolution.Type{
+			Form: resolution.EnumForm{},
 			Domains: map[string]resolution.Domain{
 				"ts": {Expressions: []resolution.Expression{{Name: "omit"}}},
 			},
 		}
-		Expect(omit.IsEnum(e, "ts")).To(BeTrue())
+		Expect(omit.IsType(t, "ts")).To(BeTrue())
 	})
 
-	It("should return false when domain missing", func() {
-		e := resolution.Enum{Domains: map[string]resolution.Domain{}}
-		Expect(omit.IsEnum(e, "ts")).To(BeFalse())
+	It("should return false when enum domain missing", func() {
+		t := resolution.Type{
+			Form:    resolution.EnumForm{},
+			Domains: map[string]resolution.Domain{},
+		}
+		Expect(omit.IsType(t, "ts")).To(BeFalse())
 	})
 
-	It("should return false when omit not in expressions", func() {
-		e := resolution.Enum{
+	It("should return false when omit not in enum expressions", func() {
+		t := resolution.Type{
+			Form: resolution.EnumForm{},
 			Domains: map[string]resolution.Domain{
 				"ts": {Expressions: []resolution.Expression{{Name: "output"}}},
 			},
 		}
-		Expect(omit.IsEnum(e, "ts")).To(BeFalse())
+		Expect(omit.IsType(t, "ts")).To(BeFalse())
 	})
 })

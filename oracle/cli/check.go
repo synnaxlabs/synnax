@@ -90,7 +90,7 @@ func runCheck(cmd *cobra.Command, args []string) error {
 	}
 
 	if table != nil {
-		printValidationPassed(len(table.AllStructs()), len(table.AllEnums()))
+		printValidationPassed(len(table.StructTypes()), len(table.EnumTypes()))
 	}
 	return nil
 }

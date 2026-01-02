@@ -110,10 +110,10 @@ func findRepoRoot(path string) string {
 // Generate produces protobuf definition files from the analyzed schemas.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
-	outputStructs := make(map[string][]resolution.Struct)
+	outputStructs := make(map[string][]resolution.Type)
 	var outputOrder []string
 
-	for _, entry := range req.Resolutions.AllStructs() {
+	for _, entry := range req.Resolutions.StructTypes() {
 		// Use GetPBPath which derives from @go output when @pb flag present
 		outputPath := output.GetPBPath(entry)
 		if outputPath == "" {
@@ -156,8 +156,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 // generateFile generates the protobuf file for a set of structs.
 func (p *Plugin) generateFile(
 	outputPath string,
-	structs []resolution.Struct,
-	enums []resolution.Enum,
+	structs []resolution.Type,
+	enums []resolution.Type,
 	table *resolution.Table,
 	repoRoot string,
 ) ([]byte, error) {
@@ -180,14 +180,14 @@ func (p *Plugin) generateFile(
 
 	// Process enums that are in the same namespace
 	for _, e := range enums {
-		if e.Namespace == namespace && !omit.IsEnum(e, "pb") {
+		if e.Namespace == namespace && !omit.IsType(e, "pb") {
 			data.Enums = append(data.Enums, p.processEnum(e))
 		}
 	}
 
 	// Process structs
 	for _, entry := range structs {
-		if omit.IsStruct(entry, "pb") {
+		if omit.IsType(entry, "pb") {
 			continue
 		}
 		msg := p.processStruct(entry, data)
@@ -206,7 +206,7 @@ func (p *Plugin) generateFile(
 // derivePackageName derives the proto package name using {layer}.{namespace} format.
 // For core/pkg/{layer}/... paths, uses the layer (distribution, api, service).
 // For other paths like x/go/... or aspen/..., uses the first path component.
-func derivePackageName(outputPath string, structs []resolution.Struct) string {
+func derivePackageName(outputPath string, structs []resolution.Type) string {
 	namespace := ""
 	if len(structs) > 0 {
 		namespace = structs[0].Namespace
@@ -244,7 +244,7 @@ func deriveLayerPrefix(outputPath string) string {
 }
 
 // deriveGoPackage derives the Go package option from the output path.
-func deriveGoPackage(outputPath string, structs []resolution.Struct, repoRoot string) string {
+func deriveGoPackage(outputPath string, structs []resolution.Type, repoRoot string) string {
 	// Resolve from go.mod if repoRoot is available
 	if repoRoot != "" {
 		if goPackage, err := resolveGoImportPath(outputPath, repoRoot); err == nil {
@@ -328,11 +328,16 @@ func fileExists(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
-// processEnum converts an Enum to template data.
-func (p *Plugin) processEnum(e resolution.Enum) enumData {
+// processEnum converts an Enum type to template data.
+func (p *Plugin) processEnum(e resolution.Type) enumData {
+	form, ok := e.Form.(resolution.EnumForm)
+	if !ok {
+		return enumData{Name: e.Name}
+	}
+
 	ed := enumData{
 		Name:   e.Name,
-		Values: make([]enumValueData, 0, len(e.Values)+1),
+		Values: make([]enumValueData, 0, len(form.Values)+1),
 	}
 
 	// Add UNSPECIFIED as first value (proto3 best practice)
@@ -343,7 +348,7 @@ func (p *Plugin) processEnum(e resolution.Enum) enumData {
 	})
 
 	// Add actual enum values
-	for i, v := range e.Values {
+	for i, v := range form.Values {
 		ed.Values = append(ed.Values, enumValueData{
 			Name:   toScreamingSnake(v.Name),
 			Number: i + 1,
@@ -353,10 +358,15 @@ func (p *Plugin) processEnum(e resolution.Enum) enumData {
 	return ed
 }
 
-// processStruct converts a Struct to template data.
-func (p *Plugin) processStruct(entry resolution.Struct, data *templateData) messageData {
-	// Skip type aliases - protobuf doesn't support them
-	if entry.IsAlias() {
+// processStruct converts a Struct type to template data.
+func (p *Plugin) processStruct(entry resolution.Type, data *templateData) messageData {
+	_, ok := entry.Form.(resolution.StructForm)
+	if !ok {
+		// Not a struct form - check if it's an alias
+		if _, isAlias := entry.Form.(resolution.AliasForm); isAlias {
+			// Skip type aliases - protobuf doesn't support them
+			return messageData{Skip: true}
+		}
 		return messageData{Skip: true}
 	}
 
@@ -373,7 +383,7 @@ func (p *Plugin) processStruct(entry resolution.Struct, data *templateData) mess
 
 	// Use UnifiedFields() to get flattened fields (handles inheritance)
 	fieldNumber := 1
-	for _, field := range entry.UnifiedFields() {
+	for _, field := range resolution.UnifiedFields(entry, data.table) {
 		fd := p.processField(field, fieldNumber, data)
 		md.Fields = append(md.Fields, fd)
 		fieldNumber++
@@ -384,7 +394,10 @@ func (p *Plugin) processStruct(entry resolution.Struct, data *templateData) mess
 
 // processField converts a Field to template data.
 func (p *Plugin) processField(field resolution.Field, number int, data *templateData) fieldData {
-	protoType := p.typeToProto(field.TypeRef, data)
+	protoType := p.typeToProto(field.Type, data)
+
+	// Check if the type is an array
+	isArray := field.Type.Name == "Array"
 
 	// Only hard optional (??) types are optional in proto.
 	// Soft optional (?) types are regular fields in proto.
@@ -392,63 +405,87 @@ func (p *Plugin) processField(field resolution.Field, number int, data *template
 		Name:       toSnakeCase(field.Name),
 		Type:       protoType,
 		Number:     number,
-		IsOptional: field.TypeRef.IsHardOptional,
-		IsRepeated: field.TypeRef.IsArray,
+		IsOptional: field.IsHardOptional,
+		IsRepeated: isArray,
 	}
 }
 
 // typeToProto converts an Oracle type reference to a protobuf type string.
-func (p *Plugin) typeToProto(typeRef *resolution.TypeRef, data *templateData) string {
-	switch typeRef.Kind {
-	case resolution.TypeKindPrimitive:
-		mapping := primitiveProtoTypes[typeRef.Primitive]
+func (p *Plugin) typeToProto(typeRef resolution.TypeRef, data *templateData) string {
+	// Check if it's a type parameter
+	if typeRef.IsTypeParam() {
+		// Generic type parameter -> google.protobuf.Any
+		data.imports.add("google/protobuf/any.proto")
+		return "google.protobuf.Any"
+	}
+
+	// Resolve the type from the table
+	resolved, ok := typeRef.Resolve(data.table)
+	if !ok {
+		return "bytes"
+	}
+
+	switch form := resolved.Form.(type) {
+	case resolution.PrimitiveForm:
+		mapping := primitiveProtoTypes[form.Name]
 		if mapping.importPath != "" {
 			data.imports.add(mapping.importPath)
 		}
 		return mapping.protoType
-	case resolution.TypeKindStruct:
-		return p.resolveStructType(typeRef, data)
-	case resolution.TypeKindEnum:
-		return p.resolveEnumType(typeRef, data)
-	case resolution.TypeKindMap:
-		return p.resolveMapType(typeRef, data)
-	case resolution.TypeKindTypeParam:
-		// Generic type parameter -> google.protobuf.Any
-		data.imports.add("google/protobuf/any.proto")
-		return "google.protobuf.Any"
-	case resolution.TypeKindTypeDef:
-		// TypeDefs resolve to their underlying primitive type in protobuf
-		// (protobuf has no type definition support)
-		if typeRef.TypeDefRef == nil || typeRef.TypeDefRef.BaseType == nil {
+
+	case resolution.BuiltinGenericForm:
+		if form.Name == "Array" {
+			// For arrays, return the element type (repeated is handled at field level)
+			if len(typeRef.TypeArgs) > 0 {
+				return p.typeToProto(typeRef.TypeArgs[0], data)
+			}
 			return "bytes"
 		}
-		return p.typeToProto(typeRef.TypeDefRef.BaseType, data)
+		if form.Name == "Map" {
+			return p.resolveMapType(typeRef, data)
+		}
+		return "bytes"
+
+	case resolution.StructForm:
+		return p.resolveStructType(typeRef, resolved, data)
+
+	case resolution.EnumForm:
+		return p.resolveEnumType(resolved, data)
+
+	case resolution.AliasForm:
+		// Type aliases resolve to their underlying type in protobuf
+		return p.typeToProto(form.Target, data)
+
+	case resolution.DistinctForm:
+		// Distinct types resolve to their underlying primitive type in protobuf
+		// (protobuf has no type definition support)
+		return p.typeToProto(form.Base, data)
+
 	default:
 		return "bytes"
 	}
 }
 
 // resolveStructType resolves a struct type reference to a protobuf type string.
-func (p *Plugin) resolveStructType(typeRef *resolution.TypeRef, data *templateData) string {
-	if typeRef.StructRef == nil {
+func (p *Plugin) resolveStructType(typeRef resolution.TypeRef, resolved resolution.Type, data *templateData) string {
+	form, ok := resolved.Form.(resolution.StructForm)
+	if !ok {
+		// Check if it's an alias and follow it
+		if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
+			return p.typeToProto(aliasForm.Target, data)
+		}
 		return "bytes"
 	}
-
-	structRef := typeRef.StructRef
-
-	// If the struct is a type alias, follow the alias to the underlying type
-	if structRef.IsAlias() && structRef.AliasOf != nil {
-		return p.typeToProto(structRef.AliasOf, data)
-	}
+	_ = form // form is available if needed
 
 	// Get the protobuf name for this struct (use @pb name if set, else struct name)
-	pbName := getPBName(*structRef)
+	pbName := getPBName(resolved)
 	if pbName == "" {
-		pbName = structRef.Name
+		pbName = resolved.Name
 	}
 
 	// Get target output path to compare with current file's output path
-	targetOutputPath := output.GetPBPath(*structRef)
+	targetOutputPath := output.GetPBPath(resolved)
 
 	// Same output path - use pb name directly (handles self-references and same-file structs)
 	if targetOutputPath == data.OutputPath {
@@ -461,61 +498,55 @@ func (p *Plugin) resolveStructType(typeRef *resolution.TypeRef, data *templateDa
 	}
 
 	// Add import for cross-namespace reference using {namespace}.proto pattern
-	importPath := targetOutputPath + "/" + structRef.Namespace + ".proto"
+	importPath := targetOutputPath + "/" + resolved.Namespace + ".proto"
 	data.imports.add(importPath)
 
 	// Use fully qualified name with package prefix
-	pkg := derivePackageName(targetOutputPath, []resolution.Struct{*structRef})
+	pkg := derivePackageName(targetOutputPath, []resolution.Type{resolved})
 	return fmt.Sprintf("%s.%s", pkg, pbName)
 }
 
 // resolveEnumType resolves an enum type reference to a protobuf type string.
-func (p *Plugin) resolveEnumType(typeRef *resolution.TypeRef, data *templateData) string {
-	if typeRef.EnumRef == nil {
-		return "int32"
-	}
-
-	enumRef := typeRef.EnumRef
-
+func (p *Plugin) resolveEnumType(resolved resolution.Type, data *templateData) string {
 	// Same namespace - use name directly
-	if enumRef.Namespace == data.Namespace {
-		return enumRef.Name
+	if resolved.Namespace == data.Namespace {
+		return resolved.Name
 	}
 
 	// Cross-namespace - need import using new pb/ pattern
 	// Find the go output path for the enum and derive pb path
-	targetOutputPath := enum.FindPBOutputPath(*enumRef, data.table)
+	targetOutputPath := enum.FindPBOutputPath(resolved, data.table)
 	if targetOutputPath == "" {
 		return "int32" // No pb output defined
 	}
 
 	// Add import for cross-namespace reference using {namespace}.proto pattern
-	importPath := targetOutputPath + "/" + enumRef.Namespace + ".proto"
+	importPath := targetOutputPath + "/" + resolved.Namespace + ".proto"
 	data.imports.add(importPath)
 
 	// Use fully qualified name with package prefix
-	pkg := deriveLayerPrefix(targetOutputPath) + "." + enumRef.Namespace
-	return fmt.Sprintf("%s.%s", pkg, enumRef.Name)
+	pkg := deriveLayerPrefix(targetOutputPath) + "." + resolved.Namespace
+	return fmt.Sprintf("%s.%s", pkg, resolved.Name)
 }
 
 // resolveMapType resolves a map type reference to a protobuf type string.
-func (p *Plugin) resolveMapType(typeRef *resolution.TypeRef, data *templateData) string {
+func (p *Plugin) resolveMapType(typeRef resolution.TypeRef, data *templateData) string {
 	keyType := "string"
 	valueType := "bytes"
 
-	if typeRef.MapKeyType != nil {
-		keyType = p.typeToProto(typeRef.MapKeyType, data)
+	if len(typeRef.TypeArgs) >= 1 {
+		keyType = p.typeToProto(typeRef.TypeArgs[0], data)
 	}
-	if typeRef.MapValueType != nil {
-		valueType = p.typeToProto(typeRef.MapValueType, data)
+	if len(typeRef.TypeArgs) >= 2 {
+		valueType = p.typeToProto(typeRef.TypeArgs[1], data)
 	}
 
 	return fmt.Sprintf("map<%s, %s>", keyType, valueType)
 }
 
 // getPBName gets the custom protobuf name from @pb name annotation.
-func getPBName(s resolution.Struct) string {
-	if domain, ok := s.Domains["pb"]; ok {
+func getPBName(typ resolution.Type) string {
+	if domain, ok := typ.Domains["pb"]; ok {
 		for _, expr := range domain.Expressions {
 			if expr.Name == "name" && len(expr.Values) > 0 {
 				return expr.Values[0].StringValue

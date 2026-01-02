@@ -17,14 +17,14 @@ import (
 
 type Key uint64
 
+type Status = status.Status[StatusDetails]
+
 type StatusDetails struct {
 	Task Key `json:"task,omitempty" msgpack:"task,omitempty"`
 	Running bool `json:"running,omitempty" msgpack:"running,omitempty"`
 	Cmd string `json:"cmd,omitempty" msgpack:"cmd,omitempty"`
 	Data map[string]any `json:"data,omitempty" msgpack:"data,omitempty"`
 }
-
-type Status = status.Status[StatusDetails]
 
 type Task struct {
 	Key Key `json:"key" msgpack:"key"`

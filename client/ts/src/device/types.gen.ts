@@ -22,7 +22,7 @@ export const statusDetailsZ = z.object({
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 
 export const statusZ = status.statusZ({ details: statusDetailsZ });
-export interface Status extends z.infer<typeof statusZ> {}
+export type Status = z.infer<typeof statusZ>;
 
 export interface DeviceSchemas<
   Properties extends z.ZodType = z.ZodType,

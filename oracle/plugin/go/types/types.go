@@ -67,15 +67,15 @@ func (p *Plugin) Check(*plugin.Request) error { return nil }
 // Generate produces Go type definition files from the analyzed schemas.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
-	outputStructs := make(map[string][]resolution.Struct)
-	outputEnums := make(map[string][]resolution.Enum)
-	outputTypeDefs := make(map[string][]resolution.TypeDef)
+	outputStructs := make(map[string][]resolution.Type)
+	outputEnums := make(map[string][]resolution.Type)
+	outputTypeDefs := make(map[string][]resolution.Type)
 	var structOrder []string
 	var enumOrder []string
 	var typeDefOrder []string
 
 	// Collect structs by output path
-	for _, entry := range req.Resolutions.AllStructs() {
+	for _, entry := range req.Resolutions.StructTypes() {
 		if outputPath := output.GetPath(entry, "go"); outputPath != "" {
 			if req.RepoRoot != "" {
 				if err := req.ValidateOutputPath(outputPath); err != nil {
@@ -89,9 +89,9 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 	}
 
-	// Collect typedefs by output path
-	for _, entry := range req.Resolutions.AllTypeDefs() {
-		if outputPath := output.GetTypeDefPath(entry, "go"); outputPath != "" {
+	// Collect distinct types and aliases by output path
+	for _, entry := range req.Resolutions.DistinctTypes() {
+		if outputPath := output.GetPath(entry, "go"); outputPath != "" {
 			if req.RepoRoot != "" {
 				if err := req.ValidateOutputPath(outputPath); err != nil {
 					return nil, errors.Wrapf(err, "invalid output path for typedef %s", entry.Name)
@@ -103,10 +103,23 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			outputTypeDefs[outputPath] = append(outputTypeDefs[outputPath], entry)
 		}
 	}
+	for _, entry := range req.Resolutions.AliasTypes() {
+		if outputPath := output.GetPath(entry, "go"); outputPath != "" {
+			if req.RepoRoot != "" {
+				if err := req.ValidateOutputPath(outputPath); err != nil {
+					return nil, errors.Wrapf(err, "invalid output path for alias %s", entry.Name)
+				}
+			}
+			if _, exists := outputTypeDefs[outputPath]; !exists {
+				typeDefOrder = append(typeDefOrder, outputPath)
+			}
+			outputTypeDefs[outputPath] = append(outputTypeDefs[outputPath], entry)
+		}
+	}
 
 	// Collect standalone enums with their own @go output
-	for _, e := range enum.CollectWithOwnOutput(req.Resolutions.AllEnums(), "go") {
-		enumPath := output.GetEnumPath(e, "go")
+	for _, e := range enum.CollectWithOwnOutput(req.Resolutions.EnumTypes(), "go") {
+		enumPath := output.GetPath(e, "go")
 		if req.RepoRoot != "" {
 			if err := req.ValidateOutputPath(enumPath); err != nil {
 				return nil, errors.Wrapf(err, "invalid output path for enum %s", e.Name)
@@ -122,7 +135,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	for _, outputPath := range structOrder {
 		structs := outputStructs[outputPath]
 		// Start with enums referenced by struct fields
-		enums := enum.CollectReferenced(structs)
+		enums := enum.CollectReferenced(structs, req.Resolutions)
 		// Merge in standalone enums that share the same output path
 		if standaloneEnums, ok := outputEnums[outputPath]; ok {
 			enums = mergeEnums(enums, standaloneEnums)
@@ -131,7 +144,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		// Also include enums in the same namespace (inheriting file-level @go output)
 		enums = mergeEnums(enums, collectNamespaceEnums(structs, req.Resolutions, outputPath))
 		// Merge in typedefs that share the same output path
-		var typeDefs []resolution.TypeDef
+		var typeDefs []resolution.Type
 		if tds, ok := outputTypeDefs[outputPath]; ok {
 			typeDefs = tds
 			delete(outputTypeDefs, outputPath)
@@ -182,12 +195,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 }
 
 // mergeEnums combines two enum slices, deduplicating by QualifiedName.
-func mergeEnums(a, b []resolution.Enum) []resolution.Enum {
+func mergeEnums(a, b []resolution.Type) []resolution.Type {
 	seen := make(map[string]bool, len(a))
 	for _, e := range a {
 		seen[e.QualifiedName] = true
 	}
-	result := append([]resolution.Enum{}, a...)
+	result := append([]resolution.Type{}, a...)
 	for _, e := range b {
 		if !seen[e.QualifiedName] {
 			result = append(result, e)
@@ -198,13 +211,13 @@ func mergeEnums(a, b []resolution.Enum) []resolution.Enum {
 
 // collectNamespaceEnums finds enums in the same namespace as the structs
 // that inherit their @go output from the file level (matching the output path).
-func collectNamespaceEnums(structs []resolution.Struct, table *resolution.Table, outputPath string) []resolution.Enum {
+func collectNamespaceEnums(structs []resolution.Type, table *resolution.Table, outputPath string) []resolution.Type {
 	if len(structs) == 0 {
 		return nil
 	}
 	namespace := structs[0].Namespace
-	var result []resolution.Enum
-	for _, e := range table.AllEnums() {
+	var result []resolution.Type
+	for _, e := range table.EnumTypes() {
 		if e.Namespace != namespace {
 			continue
 		}
@@ -216,12 +229,12 @@ func collectNamespaceEnums(structs []resolution.Struct, table *resolution.Table,
 	return result
 }
 
-// generateFile generates the Go source file for a set of structs.
+// generateFile generates the Go source file for a set of types.
 func (p *Plugin) generateFile(
 	outputPath string,
-	structs []resolution.Struct,
-	enums []resolution.Enum,
-	typeDefs []resolution.TypeDef,
+	structs []resolution.Type,
+	enums []resolution.Type,
+	typeDefs []resolution.Type,
 	table *resolution.Table,
 	repoRoot string,
 ) ([]byte, error) {
@@ -248,14 +261,14 @@ func (p *Plugin) generateFile(
 
 	// Process typedefs
 	for _, td := range typeDefs {
-		if !omit.IsTypeDef(td, "go") {
+		if !omit.IsType(td, "go") {
 			data.TypeDefs = append(data.TypeDefs, p.processTypeDef(td, data))
 		}
 	}
 
 	// Process enums that are in the same namespace
 	for _, e := range enums {
-		if e.Namespace == namespace && !omit.IsEnum(e, "go") {
+		if e.Namespace == namespace && !omit.IsType(e, "go") {
 			data.Enums = append(data.Enums, p.processEnum(e))
 		}
 	}
@@ -263,7 +276,7 @@ func (p *Plugin) generateFile(
 	// Process structs
 	for _, entry := range structs {
 		// Skip omitted structs
-		if omit.IsStruct(entry, "go") {
+		if omit.IsType(entry, "go") {
 			continue
 		}
 		data.Structs = append(data.Structs, p.processStruct(entry, data))
@@ -331,39 +344,59 @@ func parseModuleName(modPath string) (string, error) {
 	return "", errors.Newf("no module directive found in %s", modPath)
 }
 
-// processEnum converts an Enum to template data.
-func (p *Plugin) processEnum(e resolution.Enum) enumData {
-	values := make([]enumValueData, 0, len(e.Values))
-	for _, v := range e.Values {
+// processEnum converts an enum Type to template data.
+func (p *Plugin) processEnum(e resolution.Type) enumData {
+	form := e.Form.(resolution.EnumForm)
+	values := make([]enumValueData, 0, len(form.Values))
+	for _, v := range form.Values {
 		values = append(values, enumValueData{
 			Name:     gointernal.ToPascalCase(v.Name),
-			Value:    v.StringValue,
-			IntValue: v.IntValue,
+			Value:    v.StringValue(),
+			IntValue: v.IntValue(),
 		})
 	}
 	return enumData{
 		Name:      e.Name,
 		Values:    values,
-		IsIntEnum: e.IsIntEnum,
+		IsIntEnum: form.IsIntEnum,
 	}
 }
 
-// processTypeDef converts a TypeDef to template data.
-func (p *Plugin) processTypeDef(td resolution.TypeDef, data *templateData) typeDefData {
-	return typeDefData{
-		Name:     td.Name,
-		BaseType: p.typeToGo(td.BaseType, data),
+// processTypeDef converts a TypeDef/Alias Type to template data.
+func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefData {
+	// Check for @go name override
+	name := getGoName(td)
+	if name == "" {
+		name = td.Name
+	}
+
+	switch form := td.Form.(type) {
+	case resolution.DistinctForm:
+		return typeDefData{
+			Name:     name,
+			BaseType: p.typeRefToGo(form.Base, data),
+			IsAlias:  false, // DistinctForm → "type X Y" (distinct type)
+		}
+	case resolution.AliasForm:
+		return typeDefData{
+			Name:     name,
+			BaseType: p.typeRefToGo(form.Target, data),
+			IsAlias:  true, // AliasForm → "type X = Y" (transparent alias)
+		}
+	default:
+		return typeDefData{Name: name, BaseType: "any"}
 	}
 }
 
-// processStruct converts a Struct to template data.
-func (p *Plugin) processStruct(entry resolution.Struct, data *templateData) structData {
+// processStruct converts a struct Type to template data.
+func (p *Plugin) processStruct(entry resolution.Type, data *templateData) structData {
+	form := entry.Form.(resolution.StructForm)
 	sd := structData{
 		Name:      entry.Name,
 		Doc:       doc.Get(entry.Domains),
-		Fields:    make([]fieldData, 0, len(entry.Fields)),
-		IsGeneric: entry.IsGeneric(),
-		IsAlias:   entry.IsAlias(),
+		Fields:    make([]fieldData, 0, len(form.Fields)),
+		IsGeneric: form.IsGeneric(),
+		IsAlias:   false,
 	}
 
 	// Check for @go name override
@@ -376,41 +409,38 @@ func (p *Plugin) processStruct(entry resolution.Struct, data *templateData) stru
 	}
 
 	// Process type parameters
-	for _, tp := range entry.TypeParams {
+	for _, tp := range form.TypeParams {
 		sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, data))
 	}
 
-	// Handle alias types
-	if entry.IsAlias() {
-		sd.AliasOf = p.typeToGo(entry.AliasOf, data)
-		return sd
-	}
-
 	// Handle struct extension
-	if entry.HasExtends() && entry.Extends.StructRef != nil {
-		// If omitting fields, fall back to field flattening
-		// since Go struct embedding can't exclude individual parent fields
-		if len(entry.OmittedFields) > 0 {
-			// Use UnifiedFields() which respects OmittedFields
-			for _, field := range entry.UnifiedFields() {
+	if form.Extends != nil {
+		parent, ok := form.Extends.Resolve(data.table)
+		if ok {
+			// If omitting fields, fall back to field flattening
+			// since Go struct embedding can't exclude individual parent fields
+			if len(form.OmittedFields) > 0 {
+				// Use UnifiedFields() which respects OmittedFields
+				for _, field := range resolution.UnifiedFields(entry, data.table) {
+					sd.Fields = append(sd.Fields, p.processField(field, data))
+				}
+				return sd
+			}
+
+			// Use struct embedding (idiomatic Go pattern)
+			sd.HasExtends = true
+			sd.ExtendsType = p.resolveExtendsType(form.Extends, parent, data)
+
+			// Only include child's own fields (parent fields come via embedding)
+			for _, field := range form.Fields {
 				sd.Fields = append(sd.Fields, p.processField(field, data))
 			}
 			return sd
 		}
-
-		// Use struct embedding (idiomatic Go pattern)
-		sd.HasExtends = true
-		sd.ExtendsType = p.resolveExtendsType(entry.Extends, data)
-
-		// Only include child's own fields (parent fields come via embedding)
-		for _, field := range entry.Fields {
-			sd.Fields = append(sd.Fields, p.processField(field, data))
-		}
-		return sd
 	}
 
 	// Process fields for non-extending structs
-	for _, field := range entry.UnifiedFields() {
+	for _, field := range resolution.UnifiedFields(entry, data.table) {
 		sd.Fields = append(sd.Fields, p.processField(field, data))
 	}
 	return sd
@@ -425,173 +455,190 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, data *templateData) t
 
 	// Map constraint to Go type
 	if tp.Constraint != nil {
-		tpd.Constraint = p.constraintToGo(tp.Constraint, data)
+		tpd.Constraint = p.constraintToGo(*tp.Constraint, data)
 	}
 
 	return tpd
 }
 
 // constraintToGo converts a type constraint to a Go constraint string.
-func (p *Plugin) constraintToGo(constraint *resolution.TypeRef, data *templateData) string {
-	switch constraint.Primitive {
-	case "json":
-		return "any"
-	case "string":
-		return "~string"
-	case "int", "int8", "int16", "int32", "int64":
-		return "~int | ~int8 | ~int16 | ~int32 | ~int64"
-	case "uint", "uint8", "uint16", "uint32", "uint64":
-		return "~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64"
-	default:
-		return p.typeToGo(constraint, data)
+func (p *Plugin) constraintToGo(constraint resolution.TypeRef, data *templateData) string {
+	if resolution.IsPrimitive(constraint.Name) {
+		switch constraint.Name {
+		case "json":
+			return "any"
+		case "string":
+			return "~string"
+		case "int", "int8", "int16", "int32", "int64":
+			return "~int | ~int8 | ~int16 | ~int32 | ~int64"
+		case "uint", "uint8", "uint16", "uint32", "uint64":
+			return "~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64"
+		default:
+			return p.typeRefToGo(constraint, data)
+		}
 	}
+	return p.typeRefToGo(constraint, data)
 }
 
 // processField converts a Field to template data.
 func (p *Plugin) processField(field resolution.Field, data *templateData) fieldData {
+	goType := p.typeRefToGo(field.Type, data)
+	// Hard optional (??) fields become pointers in Go to distinguish nil from zero value.
+	// Arrays and maps are reference types and don't need pointers (nil is their zero value).
+	if field.IsHardOptional && !strings.HasPrefix(goType, "[]") && !strings.HasPrefix(goType, "map[") {
+		goType = "*" + goType
+	}
 	return fieldData{
 		GoName:     gointernal.ToPascalCase(field.Name),
-		GoType:     p.typeToGo(field.TypeRef, data),
+		GoType:     goType,
 		JSONName:   field.Name,
-		IsOptional: field.TypeRef.IsOptional || field.TypeRef.IsHardOptional,
+		IsOptional: field.IsOptional || field.IsHardOptional,
 		Doc:        doc.Get(field.Domains),
 	}
 }
 
-// typeToGo converts an Oracle type reference to a Go type string.
-func (p *Plugin) typeToGo(typeRef *resolution.TypeRef, data *templateData) string {
-	var baseType string
-	switch typeRef.Kind {
-	case resolution.TypeKindPrimitive:
-		mapping := primitiveGoTypes[typeRef.Primitive]
-		baseType = mapping.goType
+// typeRefToGo converts an Oracle type reference to a Go type string.
+func (p *Plugin) typeRefToGo(typeRef resolution.TypeRef, data *templateData) string {
+	// Handle type parameters
+	if typeRef.IsTypeParam() {
+		return typeRef.TypeParam.Name
+	}
+
+	// Handle Array<T>
+	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
+		elemType := p.typeRefToGo(typeRef.TypeArgs[0], data)
+		return "[]" + elemType
+	}
+
+	// Handle Map<K, V>
+	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
+		keyType := p.typeRefToGo(typeRef.TypeArgs[0], data)
+		valType := p.typeRefToGo(typeRef.TypeArgs[1], data)
+		return fmt.Sprintf("map[%s]%s", keyType, valType)
+	}
+
+	// Handle primitives
+	if resolution.IsPrimitive(typeRef.Name) {
+		mapping := primitiveGoTypes[typeRef.Name]
 		if mapping.importPath != "" {
 			data.imports.AddExternal(mapping.importPath)
 		}
-	case resolution.TypeKindStruct:
-		baseType = p.resolveStructType(typeRef, data)
-	case resolution.TypeKindEnum:
-		baseType = p.resolveEnumType(typeRef, data)
-	case resolution.TypeKindMap:
-		baseType = p.resolveMapType(typeRef, data)
-	case resolution.TypeKindTypeParam:
-		baseType = p.resolveTypeParam(typeRef)
-	case resolution.TypeKindTypeDef:
-		baseType = p.resolveTypeDefType(typeRef, data)
+		return mapping.goType
+	}
+
+	// Resolve named type
+	resolved, ok := typeRef.Resolve(data.table)
+	if !ok {
+		return "any"
+	}
+
+	switch resolved.Form.(type) {
+	case resolution.StructForm:
+		return p.resolveStructType(resolved, typeRef.TypeArgs, data)
+	case resolution.EnumForm:
+		return p.resolveEnumType(resolved, data)
+	case resolution.DistinctForm:
+		return p.resolveDistinctType(resolved, data)
+	case resolution.AliasForm:
+		// For aliases, use the alias name (like DistinctForm) so struct fields
+		// reference the defined alias type, not the expanded target
+		return p.resolveAliasType(resolved, data)
 	default:
-		baseType = "any"
-	}
-	if typeRef.IsArray {
-		baseType = "[]" + baseType
-	}
-	if typeRef.IsHardOptional && !typeRef.IsArray {
-		baseType = "*" + baseType
-	}
-	return baseType
-}
-
-// resolveStructType resolves a struct type reference to a Go type string.
-func (p *Plugin) resolveStructType(typeRef *resolution.TypeRef, data *templateData) string {
-	if typeRef.StructRef == nil {
 		return "any"
 	}
-	structRef := typeRef.StructRef
+}
+
+// resolveStructType resolves a struct type to a Go type string.
+func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resolution.TypeRef, data *templateData) string {
 	// Check for @go name override
-	typeName := getGoName(*structRef)
+	typeName := getGoName(resolved)
 	if typeName == "" {
-		typeName = structRef.Name
+		typeName = resolved.Name
 	}
-	if structRef.Namespace == data.Namespace {
-		return p.buildGenericType(typeName, typeRef.TypeArgs, data)
+	if resolved.Namespace == data.Namespace {
+		return p.buildGenericType(typeName, typeArgs, data)
 	}
-	targetOutputPath := output.GetPath(*structRef, "go")
+	targetOutputPath := output.GetPath(resolved, "go")
 	if targetOutputPath == "" {
 		return "any"
 	}
 	alias := gointernal.DerivePackageAlias(targetOutputPath, data.Package)
 	data.imports.AddInternal(alias, resolveGoImportPath(targetOutputPath, data.repoRoot))
-	return fmt.Sprintf("%s.%s", alias, p.buildGenericType(typeName, typeRef.TypeArgs, data))
+	return fmt.Sprintf("%s.%s", alias, p.buildGenericType(typeName, typeArgs, data))
 }
 
-// resolveEnumType resolves an enum type reference to a Go type string.
-func (p *Plugin) resolveEnumType(typeRef *resolution.TypeRef, data *templateData) string {
-	if typeRef.EnumRef == nil {
-		return "any"
+// resolveEnumType resolves an enum type to a Go type string.
+func (p *Plugin) resolveEnumType(resolved resolution.Type, data *templateData) string {
+	if resolved.Namespace == data.Namespace {
+		return resolved.Name
 	}
-	enumRef := typeRef.EnumRef
-	if enumRef.Namespace == data.Namespace {
-		return enumRef.Name
-	}
-	targetOutputPath := enum.FindOutputPath(*enumRef, data.table, "go")
+	targetOutputPath := enum.FindOutputPath(resolved, data.table, "go")
 	if targetOutputPath == "" {
 		return "any"
 	}
 	alias := gointernal.DerivePackageAlias(targetOutputPath, data.Package)
 	data.imports.AddInternal(alias, resolveGoImportPath(targetOutputPath, data.repoRoot))
-	return fmt.Sprintf("%s.%s", alias, enumRef.Name)
+	return fmt.Sprintf("%s.%s", alias, resolved.Name)
 }
 
-// resolveMapType resolves a map type reference to a Go type string.
-func (p *Plugin) resolveMapType(typeRef *resolution.TypeRef, data *templateData) string {
-	keyType := "string"
-	valueType := "any"
-
-	if typeRef.MapKeyType != nil {
-		keyType = p.typeToGo(typeRef.MapKeyType, data)
+// resolveDistinctType resolves a distinct type to a Go type string.
+func (p *Plugin) resolveDistinctType(resolved resolution.Type, data *templateData) string {
+	// Use @go name override if present
+	typeName := getGoName(resolved)
+	if typeName == "" {
+		typeName = resolved.Name
 	}
-	if typeRef.MapValueType != nil {
-		valueType = p.typeToGo(typeRef.MapValueType, data)
+	if resolved.Namespace == data.Namespace {
+		return typeName
 	}
-
-	return fmt.Sprintf("map[%s]%s", keyType, valueType)
-}
-
-// resolveTypeParam resolves a type parameter reference to a Go type string.
-func (p *Plugin) resolveTypeParam(typeRef *resolution.TypeRef) string {
-	if typeRef.TypeParamRef != nil {
-		return typeRef.TypeParamRef.Name
-	}
-	return "any"
-}
-
-// resolveTypeDefType resolves a typedef reference to a Go type string.
-func (p *Plugin) resolveTypeDefType(typeRef *resolution.TypeRef, data *templateData) string {
-	if typeRef.TypeDefRef == nil {
-		return "any"
-	}
-	tdRef := typeRef.TypeDefRef
-	if tdRef.Namespace == data.Namespace {
-		return tdRef.Name
-	}
-	targetOutputPath := output.GetTypeDefPath(*tdRef, "go")
+	targetOutputPath := output.GetPath(resolved, "go")
 	if targetOutputPath == "" {
 		return "any"
 	}
 	alias := gointernal.DerivePackageAlias(targetOutputPath, data.Package)
 	data.imports.AddInternal(alias, resolveGoImportPath(targetOutputPath, data.repoRoot))
-	return fmt.Sprintf("%s.%s", alias, tdRef.Name)
+	return fmt.Sprintf("%s.%s", alias, typeName)
+}
+
+// resolveAliasType resolves a type alias to a Go type string.
+// Unlike expanding the target, this uses the alias name directly.
+func (p *Plugin) resolveAliasType(resolved resolution.Type, data *templateData) string {
+	// Use @go name override if present
+	typeName := getGoName(resolved)
+	if typeName == "" {
+		typeName = resolved.Name
+	}
+	if resolved.Namespace == data.Namespace {
+		return typeName
+	}
+	targetOutputPath := output.GetPath(resolved, "go")
+	if targetOutputPath == "" {
+		return "any"
+	}
+	alias := gointernal.DerivePackageAlias(targetOutputPath, data.Package)
+	data.imports.AddInternal(alias, resolveGoImportPath(targetOutputPath, data.repoRoot))
+	return fmt.Sprintf("%s.%s", alias, typeName)
 }
 
 // buildGenericType builds a generic type string with type arguments.
-func (p *Plugin) buildGenericType(baseName string, typeArgs []*resolution.TypeRef, data *templateData) string {
+func (p *Plugin) buildGenericType(baseName string, typeArgs []resolution.TypeRef, data *templateData) string {
 	if len(typeArgs) == 0 {
 		return baseName
 	}
 
 	args := make([]string, len(typeArgs))
 	for i, arg := range typeArgs {
-		args[i] = p.typeToGo(arg, data)
+		args[i] = p.typeRefToGo(arg, data)
 	}
 	return fmt.Sprintf("%s[%s]", baseName, strings.Join(args, ", "))
 }
 
 // resolveExtendsType resolves the parent type for struct embedding.
-func (p *Plugin) resolveExtendsType(extendsRef *resolution.TypeRef, data *templateData) string {
-	if extendsRef == nil || extendsRef.StructRef == nil {
+func (p *Plugin) resolveExtendsType(extendsRef *resolution.TypeRef, parent resolution.Type, data *templateData) string {
+	if extendsRef == nil {
 		return ""
 	}
-	parent := extendsRef.StructRef
-	targetOutputPath := output.GetPath(*parent, "go")
+	targetOutputPath := output.GetPath(parent, "go")
 
 	// Same namespace AND same output path (or no output path) -> use unqualified name
 	if parent.Namespace == data.Namespace && (targetOutputPath == "" || targetOutputPath == data.OutputPath) {
@@ -616,28 +663,28 @@ type primitiveMapping struct {
 
 // primitiveGoTypes maps Oracle primitives to Go types.
 var primitiveGoTypes = map[string]primitiveMapping{
-	"uuid":       {goType: "uuid.UUID", importPath: "github.com/google/uuid"},
-	"string":     {goType: "string"},
-	"bool":       {goType: "bool"},
-	"int8":       {goType: "int8"},
-	"int16":      {goType: "int16"},
-	"int32":      {goType: "int32"},
-	"int64":      {goType: "int64"},
-	"uint8":      {goType: "uint8"},
-	"uint12":     {goType: "types.Uint12", importPath: "github.com/synnaxlabs/x/types"},
-	"uint16":     {goType: "uint16"},
-	"uint20":     {goType: "types.Uint20", importPath: "github.com/synnaxlabs/x/types"},
-	"uint32":     {goType: "uint32"},
-	"uint64":     {goType: "uint64"},
-	"float32":    {goType: "float32"},
-	"float64":    {goType: "float64"},
-	"timestamp":  {goType: "telem.TimeStamp", importPath: "github.com/synnaxlabs/x/telem"},
-	"timespan":   {goType: "telem.TimeSpan", importPath: "github.com/synnaxlabs/x/telem"},
+	"uuid":               {goType: "uuid.UUID", importPath: "github.com/google/uuid"},
+	"string":             {goType: "string"},
+	"bool":               {goType: "bool"},
+	"int8":               {goType: "int8"},
+	"int16":              {goType: "int16"},
+	"int32":              {goType: "int32"},
+	"int64":              {goType: "int64"},
+	"uint8":              {goType: "uint8"},
+	"uint12":             {goType: "types.Uint12", importPath: "github.com/synnaxlabs/x/types"},
+	"uint16":             {goType: "uint16"},
+	"uint20":             {goType: "types.Uint20", importPath: "github.com/synnaxlabs/x/types"},
+	"uint32":             {goType: "uint32"},
+	"uint64":             {goType: "uint64"},
+	"float32":            {goType: "float32"},
+	"float64":            {goType: "float64"},
+	"timestamp":          {goType: "telem.TimeStamp", importPath: "github.com/synnaxlabs/x/telem"},
+	"timespan":           {goType: "telem.TimeSpan", importPath: "github.com/synnaxlabs/x/telem"},
 	"time_range":         {goType: "telem.TimeRange", importPath: "github.com/synnaxlabs/x/telem"},
 	"time_range_bounded": {goType: "telem.TimeRange", importPath: "github.com/synnaxlabs/x/telem"},
 	"data_type":          {goType: "telem.DataType", importPath: "github.com/synnaxlabs/x/telem"},
 	"json":               {goType: "map[string]any"},
-	"bytes":      {goType: "[]byte"},
+	"bytes":              {goType: "[]byte"},
 }
 
 // templateData holds data for the Go file template.
@@ -719,6 +766,7 @@ type enumValueData struct {
 type typeDefData struct {
 	Name     string
 	BaseType string
+	IsAlias  bool // If true, use "type X = Y", otherwise "type X Y"
 }
 
 var templateFuncs = template.FuncMap{
@@ -744,8 +792,13 @@ import (
 )
 {{- end}}
 {{- range .TypeDefs}}
+{{- if .IsAlias}}
 
 type {{.Name}} = {{.BaseType}}
+{{- else}}
+
+type {{.Name}} {{.BaseType}}
+{{- end}}
 {{- end}}
 {{- range $enum := .Enums}}
 
@@ -803,8 +856,8 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 `))
 
 // getGoName gets the custom Go name from @go name annotation.
-func getGoName(s resolution.Struct) string {
-	if domain, ok := s.Domains["go"]; ok {
+func getGoName(t resolution.Type) string {
+	if domain, ok := t.Domains["go"]; ok {
 		for _, expr := range domain.Expressions {
 			if expr.Name == "name" && len(expr.Values) > 0 {
 				return expr.Values[0].StringValue

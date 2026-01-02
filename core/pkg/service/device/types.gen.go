@@ -16,12 +16,12 @@ import (
 	"github.com/synnaxlabs/x/status"
 )
 
+type Status = status.Status[StatusDetails]
+
 type StatusDetails struct {
 	Rack rack.Key `json:"rack" msgpack:"rack"`
 	Device string `json:"device" msgpack:"device"`
 }
-
-type Status = status.Status[StatusDetails]
 
 type Device struct {
 	Key string `json:"key" msgpack:"key"`

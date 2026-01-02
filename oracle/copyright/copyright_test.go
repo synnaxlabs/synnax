@@ -10,6 +10,7 @@
 package copyright_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -80,7 +81,7 @@ import "schemas/label"
 `
 			result, err := copyright.Ensure(content)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(ContainSubstring("Copyright 2025"))
+			Expect(result).To(ContainSubstring(fmt.Sprintf("Copyright %d", currentYear)))
 			Expect(result).ToNot(ContainSubstring("Copyright 2020"))
 			Expect(result).To(ContainSubstring(`import "schemas/label"`))
 		})

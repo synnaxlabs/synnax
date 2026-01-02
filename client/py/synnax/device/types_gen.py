@@ -11,11 +11,10 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, NewType
 
 from pydantic import BaseModel, ConfigDict
 
-from synnax import status
 from synnax.ontology.payload import ID
 from synnax.rack import rack
 
@@ -27,7 +26,7 @@ class StatusDetails(BaseModel):
     device: str
 
 
-Status = status.Status[StatusDetails]
+Status = NewType("Status", Any)
 
 
 class Device(BaseModel):

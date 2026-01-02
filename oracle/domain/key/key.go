@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 // Package key provides utilities for extracting key fields from Oracle schemas.
-// Key fields are marked with the @key domain and serve as primary identifiers.
 package key
 
 import "github.com/synnaxlabs/oracle/resolution"
@@ -19,26 +18,28 @@ type Field struct {
 	Primitive string
 }
 
-// SkipFunc is a predicate that determines whether to skip a struct when collecting keys.
-type SkipFunc func(resolution.Struct) bool
+// SkipFunc is a predicate that determines whether to skip a type when collecting keys.
+type SkipFunc func(resolution.Type) bool
 
-// Collect gathers all unique key fields from the given structs.
-// Fields marked with @key domain are collected, and the skip function can
-// be used to exclude certain structs from collection.
-func Collect(structs []resolution.Struct, skip SkipFunc) []Field {
+// Collect gathers all unique key fields from the given struct types.
+func Collect(types []resolution.Type, table *resolution.Table, skip SkipFunc) []Field {
 	seen := make(map[string]bool)
 	var result []Field
-	for _, s := range structs {
-		if skip != nil && skip(s) {
+	for _, typ := range types {
+		if skip != nil && skip(typ) {
 			continue
 		}
-		for _, f := range s.Fields {
+		form, ok := typ.Form.(resolution.StructForm)
+		if !ok {
+			continue
+		}
+		for _, f := range form.Fields {
 			if _, hasKey := f.Domains["key"]; hasKey {
 				if !seen[f.Name] {
 					seen[f.Name] = true
 					result = append(result, Field{
 						Name:      f.Name,
-						Primitive: resolvePrimitive(f.TypeRef),
+						Primitive: resolvePrimitive(f.Type, table),
 					})
 				}
 			}
@@ -47,18 +48,18 @@ func Collect(structs []resolution.Struct, skip SkipFunc) []Field {
 	return result
 }
 
-// resolvePrimitive extracts the underlying primitive from a TypeRef,
-// following TypeDef references to their base types.
-func resolvePrimitive(typeRef *resolution.TypeRef) string {
-	if typeRef == nil {
+// resolvePrimitive extracts the underlying primitive from a TypeRef.
+func resolvePrimitive(ref resolution.TypeRef, table *resolution.Table) string {
+	if ref.IsTypeParam() {
 		return ""
 	}
-	switch typeRef.Kind {
-	case resolution.TypeKindPrimitive:
-		return typeRef.Primitive
-	case resolution.TypeKindTypeDef:
-		if typeRef.TypeDefRef != nil && typeRef.TypeDefRef.BaseType != nil {
-			return resolvePrimitive(typeRef.TypeDefRef.BaseType)
+	if resolution.IsPrimitive(ref.Name) {
+		return ref.Name
+	}
+	// Follow DistinctForm to base type
+	if typ, ok := table.Get(ref.Name); ok {
+		if form, ok := typ.Form.(resolution.DistinctForm); ok {
+			return resolvePrimitive(form.Base, table)
 		}
 	}
 	return ""

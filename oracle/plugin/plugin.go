@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 // Package plugin provides the interface and types for Oracle code generation plugins.
-// Plugins receive parsed and analyzed schemas and generate language-specific code.
 package plugin
 
 import (
@@ -17,115 +16,65 @@ import (
 )
 
 // Plugin is the interface that code generators must implement.
-// Each plugin generates code for a specific target (Go, TypeScript, Python, etc.)
-// and may handle specific domains (validation, query, index, etc.).
 type Plugin interface {
-	// Name returns the plugin identifier (e.g., "go", "ts", "py")
 	Name() string
-
-	// Domains returns the domain names this plugin handles.
-	// An empty slice means the plugin processes all structs regardless of domains.
-	// If non-empty, the plugin will only receive structs/fields that have
-	// at least one of the specified domains.
 	Domains() []string
-
-	// Requires returns the names of plugins that must run before this one.
-	// Returns nil if this plugin has no dependencies.
-	// The orchestrator will call Check() on each required plugin before
-	// running this plugin's Generate().
 	Requires() []string
-
-	// Check verifies this plugin's output is up-to-date with the schemas.
-	// Uses mtime comparison: schema file mtime vs generated file mtime.
-	// Returns nil if all generated files are fresh, or an error describing
-	// which files are stale and why.
 	Check(req *Request) error
-
-	// Generate produces output files from the analyzed schemas.
-	// It receives all schemas and the resolution table with resolved types.
 	Generate(req *Request) (*Response, error)
 }
 
 // Request contains all data needed for code generation.
 type Request struct {
-	// Schemas contains all parsed schema files with repo-relative paths
-	Schemas []SchemaFile
-
-	// Resolutions contains the resolution table with all resolved types
+	Schemas     []SchemaFile
 	Resolutions *resolution.Table
-
-	// Options contains plugin-specific configuration from oracle.yaml
-	Options map[string]interface{}
-
-	// RepoRoot is the absolute path to the git repository root.
-	// All paths in Schemas and outputs should be relative to this.
-	RepoRoot string
-
-	// OutputDir is the base output directory for generated files.
-	// Deprecated: This is always equal to RepoRoot. Use RepoRoot instead.
-	OutputDir string
+	Options     map[string]interface{}
+	RepoRoot    string
+	OutputDir   string
 }
 
-// ResolvePath converts a repo-relative path to an absolute path.
 func (r *Request) ResolvePath(repoRelative string) string {
 	return paths.Resolve(repoRelative, r.RepoRoot)
 }
 
-// RelativeImport calculates the relative import path between two repo-relative directories.
-// Both from and to should be repo-relative directory paths.
-// Returns a path suitable for use in import statements.
 func (r *Request) RelativeImport(from, to string) (string, error) {
 	return paths.RelativeImport(from, to)
 }
 
-// ValidateOutputPath validates that an output path is valid and within repo bounds.
 func (r *Request) ValidateOutputPath(path string) error {
 	return paths.ValidateOutput(path, r.RepoRoot)
 }
 
 // SchemaFile represents a single schema file.
 type SchemaFile struct {
-	// FilePath is the repo-relative path to the source file (e.g., "schema/core/user.oracle")
 	FilePath string
 }
 
 // Response contains the generated files from a plugin.
 type Response struct {
-	// Files contains all generated files
 	Files []File
 }
 
-// PostWriter is an optional interface plugins can implement to run post-processing
-// after files have been written to disk (e.g., formatting, linting).
+// PostWriter is an optional interface for post-processing.
 type PostWriter interface {
-	// PostWrite is called after all files have been written to disk.
-	// It receives the absolute paths of the files that were written.
 	PostWrite(files []string) error
 }
 
 // File represents a single generated file.
 type File struct {
-	// Path is the file path relative to the output directory
-	Path string
-
-	// Content is the file contents
+	Path    string
 	Content []byte
 }
 
-// Registry holds registered plugins and provides plugin management.
+// Registry holds registered plugins.
 type Registry struct {
 	plugins map[string]Plugin
 }
 
-// NewRegistry creates a new empty plugin registry.
 func NewRegistry() *Registry {
-	return &Registry{
-		plugins: make(map[string]Plugin),
-	}
+	return &Registry{plugins: make(map[string]Plugin)}
 }
 
-// Register adds a plugin to the registry.
-// Returns an error if a plugin with the same name is already registered.
 func (r *Registry) Register(p Plugin) error {
 	name := p.Name()
 	if _, exists := r.plugins[name]; exists {
@@ -135,12 +84,10 @@ func (r *Registry) Register(p Plugin) error {
 	return nil
 }
 
-// Get returns a plugin by name, or nil if not found.
 func (r *Registry) Get(name string) Plugin {
 	return r.plugins[name]
 }
 
-// All returns all registered plugins.
 func (r *Registry) All() []Plugin {
 	result := make([]Plugin, 0, len(r.plugins))
 	for _, p := range r.plugins {
@@ -149,7 +96,6 @@ func (r *Registry) All() []Plugin {
 	return result
 }
 
-// Names returns the names of all registered plugins.
 func (r *Registry) Names() []string {
 	result := make([]string, 0, len(r.plugins))
 	for name := range r.plugins {
@@ -158,7 +104,6 @@ func (r *Registry) Names() []string {
 	return result
 }
 
-// DuplicatePluginError is returned when registering a plugin with a duplicate name.
 type DuplicatePluginError struct {
 	Name string
 }
@@ -167,13 +112,11 @@ func (e *DuplicatePluginError) Error() string {
 	return "duplicate plugin: " + e.Name
 }
 
-// FilterStructsForPlugin filters structs based on the plugin's domains.
-// If the plugin has no domain filter, all structs are returned.
-// Otherwise, only structs that have fields with matching domains are returned.
-func FilterStructsForPlugin(p Plugin, table *resolution.Table) []resolution.Struct {
+// FilterTypesForPlugin filters types based on the plugin's domains.
+func FilterTypesForPlugin(p Plugin, table *resolution.Table) []resolution.Type {
 	domains := p.Domains()
 	if len(domains) == 0 {
-		return table.AllStructs()
+		return table.Types
 	}
 
 	domainSet := make(map[string]bool, len(domains))
@@ -181,26 +124,27 @@ func FilterStructsForPlugin(p Plugin, table *resolution.Table) []resolution.Stru
 		domainSet[d] = true
 	}
 
-	var result []resolution.Struct
-	for _, entry := range table.AllStructs() {
-		if structHasDomain(entry, domainSet) {
-			result = append(result, entry)
+	var result []resolution.Type
+	for _, typ := range table.Types {
+		if typeHasDomain(typ, domainSet) {
+			result = append(result, typ)
 		}
 	}
 	return result
 }
 
-// structHasDomain checks if a struct has any of the specified domains.
-func structHasDomain(entry resolution.Struct, domains map[string]bool) bool {
-	for domainName := range entry.Domains {
+func typeHasDomain(typ resolution.Type, domains map[string]bool) bool {
+	for domainName := range typ.Domains {
 		if domains[domainName] {
 			return true
 		}
 	}
-	for _, field := range entry.Fields {
-		for domainName := range field.Domains {
-			if domains[domainName] {
-				return true
+	if form, ok := typ.Form.(resolution.StructForm); ok {
+		for _, field := range form.Fields {
+			for domainName := range field.Domains {
+				if domains[domainName] {
+					return true
+				}
 			}
 		}
 	}
@@ -208,9 +152,13 @@ func structHasDomain(entry resolution.Struct, domains map[string]bool) bool {
 }
 
 // FilterFieldsWithDomain returns fields that have any of the specified domains.
-func FilterFieldsWithDomain(entry resolution.Struct, domains []string) []resolution.Field {
+func FilterFieldsWithDomain(typ resolution.Type, domains []string) []resolution.Field {
+	form, ok := typ.Form.(resolution.StructForm)
+	if !ok {
+		return nil
+	}
 	if len(domains) == 0 {
-		return entry.Fields
+		return form.Fields
 	}
 
 	domainSet := make(map[string]bool, len(domains))
@@ -219,7 +167,7 @@ func FilterFieldsWithDomain(entry resolution.Struct, domains []string) []resolut
 	}
 
 	var result []resolution.Field
-	for _, field := range entry.Fields {
+	for _, field := range form.Fields {
 		for domainName := range field.Domains {
 			if domainSet[domainName] {
 				result = append(result, field)
@@ -230,15 +178,15 @@ func FilterFieldsWithDomain(entry resolution.Struct, domains []string) []resolut
 	return result
 }
 
-// GetFieldDomain returns a specific domain from a field, or zero value if not present.
+// GetFieldDomain returns a specific domain from a field.
 func GetFieldDomain(field resolution.Field, domainName string) (resolution.Domain, bool) {
 	d, ok := field.Domains[domainName]
 	return d, ok
 }
 
-// GetStructDomain returns a specific domain from a struct, or zero value if not present.
-func GetStructDomain(entry resolution.Struct, domainName string) (resolution.Domain, bool) {
-	d, ok := entry.Domains[domainName]
+// GetTypeDomain returns a specific domain from a type.
+func GetTypeDomain(typ resolution.Type, domainName string) (resolution.Domain, bool) {
+	d, ok := typ.Domains[domainName]
 	return d, ok
 }
 
@@ -248,7 +196,7 @@ func HasDomain(field resolution.Field, domainName string) bool {
 	return ok
 }
 
-// GetExpressionValue returns the first value of an expression, or a zero value if none.
+// GetExpressionValue returns the first value of an expression.
 func GetExpressionValue(expr resolution.Expression) resolution.ExpressionValue {
 	if len(expr.Values) > 0 {
 		return expr.Values[0]

@@ -25,6 +25,20 @@ func TestPBTypes(t *testing.T) {
 	RunSpecs(t, "PB Types Plugin Suite")
 }
 
+// pbDomains creates domains that enable pb generation with the given go output path.
+// The pb plugin derives its output from @go output + "/pb".
+func pbDomains(goOutputPath string) map[string]resolution.Domain {
+	return map[string]resolution.Domain{
+		"pb": {Name: "pb"}, // Just having @pb is enough to enable
+		"go": {
+			Name: "go",
+			Expressions: []resolution.Expression{
+				{Name: "output", Values: []resolution.ExpressionValue{{StringValue: goOutputPath}}},
+			},
+		},
+	}
+}
+
 var _ = Describe("Plugin", func() {
 	var p *types.Plugin
 
@@ -53,24 +67,18 @@ var _ = Describe("Plugin", func() {
 	Describe("Generate", func() {
 		It("Should generate proto file for simple struct", func() {
 			table := resolution.NewTable()
-			table.AddStruct(resolution.Struct{
+			table.Add(resolution.Type{
 				Name:          "User",
 				Namespace:     "user",
 				QualifiedName: "user.User",
-				Fields: resolution.Fields{
-					{Name: "key", TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindPrimitive, Primitive: "uuid"}},
-					{Name: "username", TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindPrimitive, Primitive: "string"}},
-					{Name: "email", TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindPrimitive, Primitive: "string", IsOptional: true}},
-				},
-				Domains: map[string]resolution.Domain{
-					"pb": {
-						Name: "pb",
-						Expressions: resolution.Expressions{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/pkg/api/grpc/v1"}}},
-							{Name: "package", Values: []resolution.ExpressionValue{{StringValue: "api.v1"}}},
-						},
+				Form: resolution.StructForm{
+					Fields: []resolution.Field{
+						{Name: "key", Type: resolution.TypeRef{Name: "uuid"}},
+						{Name: "username", Type: resolution.TypeRef{Name: "string"}},
+						{Name: "email", Type: resolution.TypeRef{Name: "string"}, IsOptional: true},
 					},
 				},
+				Domains: pbDomains("core/pkg/api/grpc/v1"),
 			})
 
 			req := &plugin.Request{
@@ -84,41 +92,38 @@ var _ = Describe("Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring("syntax = \"proto3\";"))
-			Expect(content).To(ContainSubstring("package api.v1;"))
-			Expect(content).To(ContainSubstring("message PBUser"))
+			Expect(content).To(ContainSubstring("package api.user;"))
+			Expect(content).To(ContainSubstring("message User"))
 			Expect(content).To(ContainSubstring("string key = 1;"))
 			Expect(content).To(ContainSubstring("string username = 2;"))
-			Expect(content).To(ContainSubstring("optional string email = 3;"))
+			// Soft optional (?) is a regular field in proto
+			Expect(content).To(ContainSubstring("string email = 3;"))
 		})
 
 		It("Should generate enum with UNSPECIFIED value", func() {
 			table := resolution.NewTable()
-			roleEnum := resolution.Enum{
+			table.Add(resolution.Type{
 				Name:          "Role",
 				Namespace:     "user",
 				QualifiedName: "user.Role",
-				Values: []resolution.EnumEntry{
-					{Name: "admin", ExpressionValue: resolution.ExpressionValue{StringValue: "admin"}},
-					{Name: "user", ExpressionValue: resolution.ExpressionValue{StringValue: "user"}},
+				Form: resolution.EnumForm{
+					Values: []resolution.EnumValue{
+						{Name: "admin"},
+						{Name: "user"},
+					},
 				},
 				Domains: map[string]resolution.Domain{},
-			}
-			table.AddEnum(roleEnum)
-			table.AddStruct(resolution.Struct{
+			})
+			table.Add(resolution.Type{
 				Name:          "User",
 				Namespace:     "user",
 				QualifiedName: "user.User",
-				Fields: resolution.Fields{
-					{Name: "role", TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindEnum, EnumRef: &roleEnum}},
-				},
-				Domains: map[string]resolution.Domain{
-					"pb": {
-						Name: "pb",
-						Expressions: resolution.Expressions{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/pkg/api/grpc/v1"}}},
-						},
+				Form: resolution.StructForm{
+					Fields: []resolution.Field{
+						{Name: "role", Type: resolution.TypeRef{Name: "user.Role"}},
 					},
 				},
+				Domains: pbDomains("core/pkg/api/grpc/v1"),
 			})
 
 			req := &plugin.Request{
@@ -131,29 +136,24 @@ var _ = Describe("Plugin", func() {
 			Expect(resp.Files).To(HaveLen(1))
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring("enum PBRole"))
-			Expect(content).To(ContainSubstring("PB_ROLE_UNSPECIFIED = 0;"))
-			Expect(content).To(ContainSubstring("PB_ROLE_ADMIN = 1;"))
-			Expect(content).To(ContainSubstring("PB_ROLE_USER = 2;"))
+			Expect(content).To(ContainSubstring("enum Role"))
+			Expect(content).To(ContainSubstring("UNSPECIFIED = 0;"))
+			Expect(content).To(ContainSubstring("ADMIN = 1;"))
+			Expect(content).To(ContainSubstring("USER = 2;"))
 		})
 
 		It("Should handle array fields as repeated", func() {
 			table := resolution.NewTable()
-			table.AddStruct(resolution.Struct{
+			table.Add(resolution.Type{
 				Name:          "User",
 				Namespace:     "user",
 				QualifiedName: "user.User",
-				Fields: resolution.Fields{
-					{Name: "tags", TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindPrimitive, Primitive: "string", IsArray: true}},
-				},
-				Domains: map[string]resolution.Domain{
-					"pb": {
-						Name: "pb",
-						Expressions: resolution.Expressions{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/pkg/api/grpc/v1"}}},
-						},
+				Form: resolution.StructForm{
+					Fields: []resolution.Field{
+						{Name: "tags", Type: resolution.TypeRef{Name: "Array", TypeArgs: []resolution.TypeRef{{Name: "string"}}}},
 					},
 				},
+				Domains: pbDomains("core/pkg/api/grpc/v1"),
 			})
 
 			req := &plugin.Request{
@@ -163,6 +163,7 @@ var _ = Describe("Plugin", func() {
 
 			resp, err := p.Generate(req)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.Files).To(HaveLen(1))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring("repeated string tags = 1;"))
@@ -170,28 +171,25 @@ var _ = Describe("Plugin", func() {
 
 		It("Should handle map fields", func() {
 			table := resolution.NewTable()
-			table.AddStruct(resolution.Struct{
+			table.Add(resolution.Type{
 				Name:          "Config",
 				Namespace:     "config",
 				QualifiedName: "config.Config",
-				Fields: resolution.Fields{
-					{
-						Name: "settings",
-						TypeRef: &resolution.TypeRef{
-							Kind:         resolution.TypeKindMap,
-							MapKeyType:   &resolution.TypeRef{Kind: resolution.TypeKindPrimitive, Primitive: "string"},
-							MapValueType: &resolution.TypeRef{Kind: resolution.TypeKindPrimitive, Primitive: "string"},
+				Form: resolution.StructForm{
+					Fields: []resolution.Field{
+						{
+							Name: "settings",
+							Type: resolution.TypeRef{
+								Name: "Map",
+								TypeArgs: []resolution.TypeRef{
+									{Name: "string"},
+									{Name: "string"},
+								},
+							},
 						},
 					},
 				},
-				Domains: map[string]resolution.Domain{
-					"pb": {
-						Name: "pb",
-						Expressions: resolution.Expressions{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/pkg/api/grpc/v1"}}},
-						},
-					},
-				},
+				Domains: pbDomains("core/pkg/api/grpc/v1"),
 			})
 
 			req := &plugin.Request{
@@ -201,6 +199,7 @@ var _ = Describe("Plugin", func() {
 
 			resp, err := p.Generate(req)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.Files).To(HaveLen(1))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring("map<string, string> settings = 1;"))
@@ -208,21 +207,16 @@ var _ = Describe("Plugin", func() {
 
 		It("Should import google.protobuf.Struct for json type", func() {
 			table := resolution.NewTable()
-			table.AddStruct(resolution.Struct{
+			table.Add(resolution.Type{
 				Name:          "Config",
 				Namespace:     "config",
 				QualifiedName: "config.Config",
-				Fields: resolution.Fields{
-					{Name: "data", TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindPrimitive, Primitive: "json"}},
-				},
-				Domains: map[string]resolution.Domain{
-					"pb": {
-						Name: "pb",
-						Expressions: resolution.Expressions{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/pkg/api/grpc/v1"}}},
-						},
+				Form: resolution.StructForm{
+					Fields: []resolution.Field{
+						{Name: "data", Type: resolution.TypeRef{Name: "json"}},
 					},
 				},
+				Domains: pbDomains("core/pkg/api/grpc/v1"),
 			})
 
 			req := &plugin.Request{
@@ -232,6 +226,7 @@ var _ = Describe("Plugin", func() {
 
 			resp, err := p.Generate(req)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.Files).To(HaveLen(1))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring("import \"google/protobuf/struct.proto\";"))
@@ -240,36 +235,25 @@ var _ = Describe("Plugin", func() {
 
 		It("Should skip type aliases", func() {
 			table := resolution.NewTable()
-			parentStruct := resolution.Struct{
+			table.Add(resolution.Type{
 				Name:          "Parent",
 				Namespace:     "user",
 				QualifiedName: "user.Parent",
-				Fields: resolution.Fields{
-					{Name: "id", TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindPrimitive, Primitive: "uuid"}},
-				},
-				Domains: map[string]resolution.Domain{
-					"pb": {
-						Name: "pb",
-						Expressions: resolution.Expressions{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/pkg/api/grpc/v1"}}},
-						},
+				Form: resolution.StructForm{
+					Fields: []resolution.Field{
+						{Name: "id", Type: resolution.TypeRef{Name: "uuid"}},
 					},
 				},
-			}
-			table.AddStruct(parentStruct)
-			table.AddStruct(resolution.Struct{
+				Domains: pbDomains("core/pkg/api/grpc/v1"),
+			})
+			table.Add(resolution.Type{
 				Name:          "Alias",
 				Namespace:     "user",
 				QualifiedName: "user.Alias",
-				AliasOf:       &resolution.TypeRef{Kind: resolution.TypeKindStruct, StructRef: &parentStruct},
-				Domains: map[string]resolution.Domain{
-					"pb": {
-						Name: "pb",
-						Expressions: resolution.Expressions{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/pkg/api/grpc/v1"}}},
-						},
-					},
+				Form: resolution.AliasForm{
+					Target: resolution.TypeRef{Name: "user.Parent"},
 				},
+				Domains: pbDomains("core/pkg/api/grpc/v1"),
 			})
 
 			req := &plugin.Request{
@@ -279,42 +263,42 @@ var _ = Describe("Plugin", func() {
 
 			resp, err := p.Generate(req)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.Files).To(HaveLen(1))
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring("message PBParent"))
+			Expect(content).To(ContainSubstring("message Parent"))
 			Expect(strings.Count(content, "message")).To(Equal(1)) // Only Parent, not Alias
 		})
 
 		It("Should preserve struct declaration order", func() {
 			table := resolution.NewTable()
-			pbDomain := map[string]resolution.Domain{
-				"pb": {
-					Name: "pb",
-					Expressions: resolution.Expressions{
-						{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/pkg/api/grpc/v1"}}},
-					},
-				},
-			}
-			table.AddStruct(resolution.Struct{
+			domains := pbDomains("core/pkg/api/grpc/v1")
+			table.Add(resolution.Type{
 				Name:          "Zebra",
 				Namespace:     "animals",
 				QualifiedName: "animals.Zebra",
-				Fields:        resolution.Fields{{Name: "name", TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindPrimitive, Primitive: "string"}}},
-				Domains:       pbDomain,
+				Form: resolution.StructForm{
+					Fields: []resolution.Field{{Name: "name", Type: resolution.TypeRef{Name: "string"}}},
+				},
+				Domains: domains,
 			})
-			table.AddStruct(resolution.Struct{
+			table.Add(resolution.Type{
 				Name:          "Apple",
 				Namespace:     "animals",
 				QualifiedName: "animals.Apple",
-				Fields:        resolution.Fields{{Name: "color", TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindPrimitive, Primitive: "string"}}},
-				Domains:       pbDomain,
+				Form: resolution.StructForm{
+					Fields: []resolution.Field{{Name: "color", Type: resolution.TypeRef{Name: "string"}}},
+				},
+				Domains: domains,
 			})
-			table.AddStruct(resolution.Struct{
+			table.Add(resolution.Type{
 				Name:          "Mango",
 				Namespace:     "animals",
 				QualifiedName: "animals.Mango",
-				Fields:        resolution.Fields{{Name: "ripe", TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindPrimitive, Primitive: "bool"}}},
-				Domains:       pbDomain,
+				Form: resolution.StructForm{
+					Fields: []resolution.Field{{Name: "ripe", Type: resolution.TypeRef{Name: "bool"}}},
+				},
+				Domains: domains,
 			})
 
 			req := &plugin.Request{
@@ -324,34 +308,30 @@ var _ = Describe("Plugin", func() {
 
 			resp, err := p.Generate(req)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.Files).To(HaveLen(1))
 
 			content := string(resp.Files[0].Content)
-			zebraIdx := strings.Index(content, "message PBZebra")
-			appleIdx := strings.Index(content, "message PBApple")
-			mangoIdx := strings.Index(content, "message PBMango")
+			zebraIdx := strings.Index(content, "message Zebra")
+			appleIdx := strings.Index(content, "message Apple")
+			mangoIdx := strings.Index(content, "message Mango")
 			Expect(zebraIdx).To(BeNumerically("<", appleIdx))
 			Expect(appleIdx).To(BeNumerically("<", mangoIdx))
 		})
 
 		It("Should preserve field declaration order", func() {
 			table := resolution.NewTable()
-			table.AddStruct(resolution.Struct{
+			table.Add(resolution.Type{
 				Name:          "Record",
 				Namespace:     "order",
 				QualifiedName: "order.Record",
-				Fields: resolution.Fields{
-					{Name: "zebra", TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindPrimitive, Primitive: "string"}},
-					{Name: "apple", TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindPrimitive, Primitive: "int32"}},
-					{Name: "mango", TypeRef: &resolution.TypeRef{Kind: resolution.TypeKindPrimitive, Primitive: "bool"}},
-				},
-				Domains: map[string]resolution.Domain{
-					"pb": {
-						Name: "pb",
-						Expressions: resolution.Expressions{
-							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/pkg/api/grpc/v1"}}},
-						},
+				Form: resolution.StructForm{
+					Fields: []resolution.Field{
+						{Name: "zebra", Type: resolution.TypeRef{Name: "string"}},
+						{Name: "apple", Type: resolution.TypeRef{Name: "int32"}},
+						{Name: "mango", Type: resolution.TypeRef{Name: "bool"}},
 					},
 				},
+				Domains: pbDomains("core/pkg/api/grpc/v1"),
 			})
 
 			req := &plugin.Request{
@@ -361,6 +341,7 @@ var _ = Describe("Plugin", func() {
 
 			resp, err := p.Generate(req)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.Files).To(HaveLen(1))
 
 			content := string(resp.Files[0].Content)
 			zebraIdx := strings.Index(content, "zebra = 1")

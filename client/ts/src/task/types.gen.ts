@@ -17,23 +17,6 @@ import { ontology } from "@/ontology";
 export const keyZ = z.uint64();
 export type Key = z.infer<typeof keyZ>;
 
-export const statusDetailsZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
-  z.object({
-    task: z.string().optional(),
-    running: z.boolean().optional(),
-    cmd: z.string().optional(),
-    data: zod.stringifiedJSON(data).optional(),
-  });
-export type StatusDetails<Data extends z.ZodType = z.ZodType> = z.infer<
-  ReturnType<typeof statusDetailsZ<Data>>
->;
-
-export const statusZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
-  status.statusZ({ details: statusDetailsZ(data) });
-export type Status<Data extends z.ZodType = z.ZodType> = z.infer<
-  ReturnType<typeof statusZ<Data>>
->;
-
 export const newStatusDetailsZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
   z.object({
     task: z.string().optional(),
@@ -45,10 +28,35 @@ export type NewStatusDetails<Data extends z.ZodType = z.ZodType> = z.infer<
   ReturnType<typeof newStatusDetailsZ<Data>>
 >;
 
+export const statusDetailsZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
+  z.object({
+    task: z.string().optional(),
+    running: z.boolean().optional(),
+    cmd: z.string().optional(),
+    data: zod.stringifiedJSON(data).optional(),
+  });
+export type StatusDetails<Data extends z.ZodType = z.ZodType> = z.infer<
+  ReturnType<typeof statusDetailsZ<Data>>
+>;
+
+export const commandZ = z.object({
+  task: z.string(),
+  type: z.string(),
+  key: z.string(),
+  args: zod.stringifiedJSON().optional(),
+});
+export interface Command extends z.infer<typeof commandZ> {}
+
 export const newStatusZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
   status.newZ({ details: newStatusDetailsZ(data) });
 export type NewStatus<Data extends z.ZodType = z.ZodType> = z.infer<
   ReturnType<typeof newStatusZ<Data>>
+>;
+
+export const statusZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
+  status.statusZ({ details: statusDetailsZ(data) });
+export type Status<Data extends z.ZodType = z.ZodType> = z.infer<
+  ReturnType<typeof statusZ<Data>>
 >;
 
 export interface PayloadSchemas<
@@ -73,7 +81,7 @@ export const payloadZ = <
     config: zod.stringifiedJSON(config),
     internal: z.boolean().optional(),
     snapshot: z.boolean().optional(),
-    status: statusZ(statusData).optional(),
+    status: status.statusZ({ details: statusDetailsZ(statusData) }).optional(),
   });
 export interface Payload<
   Type extends z.ZodType = z.ZodString,
@@ -108,7 +116,7 @@ export const newZ = <
     .omit({ internal: true, snapshot: true })
     .partial({ key: true })
     .extend({
-      status: newStatusZ(statusData).optional(),
+      status: status.newZ({ details: newStatusDetailsZ(statusData) }).optional(),
     });
 export type New<
   Type extends z.ZodType = z.ZodString,
@@ -120,14 +128,6 @@ export type New<
 > & {
   status?: NewStatus<StatusData>;
 };
-
-export const commandZ = z.object({
-  task: z.string(),
-  type: z.string(),
-  key: z.string(),
-  args: zod.stringifiedJSON().optional(),
-});
-export interface Command extends z.infer<typeof commandZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("task");
 export const TYPE_ONTOLOGY_ID = ontologyID("");
