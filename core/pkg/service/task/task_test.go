@@ -338,14 +338,14 @@ var _ = Describe("Task", Ordered, func() {
 				WhereKeys(task.OntologyID(m.Key).String()).
 				Entry(&taskStatus).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(taskStatus.Variant).To(Equal(xstatus.WarningVariant))
+			Expect(taskStatus.Variant).To(Equal(xstatus.VariantWarning))
 			Expect(taskStatus.Message).To(Equal("Status Test Task status unknown"))
 			Expect(taskStatus.Details.Task).To(Equal(m.Key))
 		})
 
 		It("Should use the provided status when creating a task", func() {
 			providedStatus := &task.Status{
-				Variant:     xstatus.SuccessVariant,
+				Variant:     xstatus.VariantSuccess,
 				Message:     "Custom task status",
 				Description: "Task is running",
 				Time:        telem.Now(),
@@ -365,7 +365,7 @@ var _ = Describe("Task", Ordered, func() {
 				WhereKeys(task.OntologyID(m.Key).String()).
 				Entry(&taskStatus).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(taskStatus.Variant).To(Equal(xstatus.SuccessVariant))
+			Expect(taskStatus.Variant).To(Equal(xstatus.VariantSuccess))
 			Expect(taskStatus.Message).To(Equal("Custom task status"))
 			Expect(taskStatus.Description).To(Equal("Task is running"))
 			// Key should be auto-assigned
@@ -405,7 +405,7 @@ var _ = Describe("Task", Ordered, func() {
 				WhereKeys(task.OntologyID(copied.Key).String()).
 				Entry(&copiedStatus).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(copiedStatus.Variant).To(Equal(xstatus.WarningVariant))
+			Expect(copiedStatus.Variant).To(Equal(xstatus.VariantWarning))
 			Expect(copiedStatus.Message).To(Equal("Copied Task status unknown"))
 			Expect(copiedStatus.Details.Task).To(Equal(copied.Key))
 		})
@@ -428,7 +428,7 @@ var _ = Describe("Task", Ordered, func() {
 					WhereKeys(task.OntologyID(t.Key).String()).
 					Entry(&taskStatus).
 					Exec(ctx, nil)).To(Succeed())
-				g.Expect(taskStatus.Variant).To(Equal(xstatus.WarningVariant))
+				g.Expect(taskStatus.Variant).To(Equal(xstatus.VariantWarning))
 				g.Expect(taskStatus.Message).To(ContainSubstring("not running"))
 				g.Expect(taskStatus.Details.Task).To(Equal(t.Key))
 			}).Should(Succeed())
@@ -490,7 +490,7 @@ var _ = Describe("Task", Ordered, func() {
 				WhereKeys(task.OntologyID(t.Key).String()).
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())
-			Expect(restoredStatus.Variant).To(Equal(xstatus.WarningVariant))
+			Expect(restoredStatus.Variant).To(Equal(xstatus.VariantWarning))
 			Expect(restoredStatus.Message).To(Equal("Migration Test Task status unknown"))
 			Expect(restoredStatus.Details.Task).To(Equal(t.Key))
 			Expect(svc.Close()).To(Succeed())
