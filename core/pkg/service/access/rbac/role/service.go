@@ -75,8 +75,7 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	if cfg.Ontology != nil {
 		cfg.Ontology.RegisterService(s)
 	}
-	s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Users", ontology.RootID)
-	if err != nil {
+	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Users", ontology.RootID); err != nil {
 		return nil, err
 	}
 	if cfg.Signals != nil {

@@ -12,7 +12,6 @@ package status
 import (
 	"context"
 	"io"
-	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
@@ -22,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -74,10 +72,6 @@ type Service struct {
 	cfg             ServiceConfig
 	group           group.Group
 	shutdownSignals io.Closer
-	mu              struct {
-		sync.RWMutex
-		statuses map[string]status.Status[any]
-	}
 }
 
 // OpenService opens a new status.Service with the provided configuration. If error is
@@ -93,7 +87,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{cfg: cfg, group: g}
-	s.mu.statuses = make(map[string]status.Status[any])
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
