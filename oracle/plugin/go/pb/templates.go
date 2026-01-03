@@ -291,7 +291,7 @@ func {{.TypeName}}FromPBAny(ctx context.Context, a *anypb.Any) ({{.GoType}}, err
 {{- range .DelegationTranslators}}
 
 // {{.Name}}ToPB delegates to the underlying type's translator.
-func {{.Name}}ToPB[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}](
+func {{.Name}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}}(
 	ctx context.Context,
 	r {{.GoType}},
 {{- range .TypeParams}}
@@ -302,7 +302,7 @@ func {{.Name}}ToPB[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}
 }
 
 // {{.Name}}FromPB delegates to the underlying type's translator.
-func {{.Name}}FromPB[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}](
+func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}}(
 	ctx context.Context,
 	pb *{{.UnderlyingPBType}},
 {{- range .TypeParams}}

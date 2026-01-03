@@ -13,7 +13,7 @@
 Label struct {
     key   uuid   @key
     name  string @validate min_length 1
-    color string
+    color color
 
     @go output "x/go/label"
     @pb

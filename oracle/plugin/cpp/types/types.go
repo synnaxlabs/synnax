@@ -807,6 +807,7 @@ var primitiveCppTypes = map[string]primitiveMapping{
 	"timespan":           {cppType: "telem::TimeSpan", internalIncludes: []string{"x/cpp/telem/telem.h"}},
 	"time_range":         {cppType: "telem::TimeRange", internalIncludes: []string{"x/cpp/telem/telem.h"}},
 	"time_range_bounded": {cppType: "telem::TimeRange", internalIncludes: []string{"x/cpp/telem/telem.h"}},
+	"color":              {cppType: "std::string", systemIncludes: []string{"string"}},
 	"json":               {cppType: "nlohmann::json", internalIncludes: []string{"nlohmann/json.hpp"}},
 	"bytes":              {cppType: "std::vector<std::uint8_t>", systemIncludes: []string{"vector", "cstdint"}},
 }

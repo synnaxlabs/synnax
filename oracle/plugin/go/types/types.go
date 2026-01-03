@@ -769,6 +769,7 @@ var primitiveGoTypes = map[string]primitiveMapping{
 	"time_range":         {goType: "telem.TimeRange", importPath: "github.com/synnaxlabs/x/telem"},
 	"time_range_bounded": {goType: "telem.TimeRange", importPath: "github.com/synnaxlabs/x/telem"},
 	"data_type":          {goType: "telem.DataType", importPath: "github.com/synnaxlabs/x/telem"},
+	"color":              {goType: "color.Color", importPath: "github.com/synnaxlabs/x/color"},
 	"json":               {goType: "map[string]any"},
 	"bytes":              {goType: "[]byte"},
 }

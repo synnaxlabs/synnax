@@ -22,7 +22,7 @@ export const statusDetailsZ = z.object({
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 
-export const statusZ = status.statusZ({details: statusDetailsZ});
+export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
 
 export const payloadZ = z.object({
@@ -34,11 +34,9 @@ export const payloadZ = z.object({
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
-export const newZ = payloadZ
-  .omit({ taskCounter: true, embedded: true })
-  .extend({
-    key: z.uint32().default(0),
-  });
+export const newZ = payloadZ.omit({ taskCounter: true, embedded: true }).extend({
+  key: z.uint32().default(0),
+});
 export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("rack");

@@ -27,7 +27,7 @@ var Primitives = map[string]bool{
 	"uint8": true, "uint12": true, "uint16": true, "uint20": true, "uint32": true, "uint64": true,
 	"float32": true, "float64": true,
 	"timestamp": true, "timespan": true, "time_range": true, "time_range_bounded": true,
-	"json": true, "bytes": true, "data_type": true,
+	"json": true, "bytes": true, "data_type": true, "color": true,
 }
 
 // IsPrimitive returns true if the name is a built-in primitive type.

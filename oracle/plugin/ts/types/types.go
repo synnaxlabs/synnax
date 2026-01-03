@@ -1038,6 +1038,8 @@ func (p *Plugin) typeRefToTSInternal(typeRef *resolution.TypeRef, table *resolut
 			addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
 		case "timespan":
 			addXImport(data, xImport{name: "TimeSpan", submodule: "telem"})
+		case "color":
+			addXImport(data, xImport{name: "Color", submodule: "color"})
 		}
 		return primitiveToTS(typeRef.Name)
 	}
@@ -1121,6 +1123,7 @@ var primitiveTSTypes = map[string]string{
 	"uint8": "number", "uint12": "number", "uint16": "number", "uint20": "number", "uint32": "number", "uint64": "number",
 	"float32": "number", "float64": "number",
 	"timestamp": "TimeStamp", "timespan": "TimeSpan", "data_type": "DataType",
+	"color": "Color",
 	"json": "unknown", "bytes": "Uint8Array",
 }
 
@@ -1162,6 +1165,7 @@ var primitiveZodTypes = map[string]primitiveMapping{
 	"time_range":         {schema: "TimeRange.z", xImports: []xImport{{name: "TimeRange", submodule: "telem"}}},
 	"time_range_bounded": {schema: "TimeRange.boundedZ", xImports: []xImport{{name: "TimeRange", submodule: "telem"}}},
 	"data_type":          {schema: "DataType.z", xImports: []xImport{{name: "DataType", submodule: "telem"}}},
+	"color":              {schema: "color.colorZ", xImports: []xImport{{name: "color", submodule: "color"}}},
 	"json":               {schema: "record.unknownZ.or(z.string().transform((s) => JSON.parse(s)))", xImports: []xImport{{name: "record", submodule: "record"}}},
 	"bytes":              {schema: "z.instanceof(Uint8Array)"},
 }

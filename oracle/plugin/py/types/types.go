@@ -881,6 +881,7 @@ var primitivePythonTypes = map[string]primitiveMapping{
 	"timespan":   {pyType: "TimeSpan", imports: []importEntry{{"synnax", "TimeSpan"}}},
 	"time_range": {pyType: "TimeRange", imports: []importEntry{{"synnax", "TimeRange"}}},
 	"data_type":  {pyType: "DataType", imports: []importEntry{{"synnax", "DataType"}}},
+	"color":      {pyType: "str"},
 	"json":       {pyType: "dict[str, Any]", imports: []importEntry{{"typing", "Any"}}},
 	"bytes":      {pyType: "bytes"},
 }
