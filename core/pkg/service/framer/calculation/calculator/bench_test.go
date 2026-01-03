@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -38,7 +38,7 @@ func newBenchEnv(b *testing.B) *benchEnv {
 	distB := mock.NewCluster()
 	dist := distB.Provision(ctx)
 
-	labelSvc, err := label.OpenService(ctx, label.Config{
+	labelSvc, err := label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,

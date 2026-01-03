@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -44,18 +44,6 @@ func OntologyIDsFromLinePlots(lps []LinePlot) []ontology.ID {
 	return lo.Map(lps, func(lp LinePlot, _ int) ontology.ID {
 		return OntologyID(lp.Key)
 	})
-}
-
-// KeysFromOntologyIDs extracts the keys of the schematics from the ontology IDs.
-func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
-	keys = make([]uuid.UUID, len(ids))
-	for i, id := range ids {
-		keys[i], err = uuid.Parse(id.Key)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return keys, nil
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -174,7 +174,8 @@ const PRO_OPTIONS: ProOptions = {
 };
 
 export interface DiagramProps
-  extends UseReturn,
+  extends
+    UseReturn,
     Omit<ComponentPropsWithoutRef<"div">, "onError">,
     Pick<z.infer<typeof diagram.Diagram.stateZ>, "visible" | "autoRenderInterval">,
     Aether.ComponentProps,
@@ -592,8 +593,10 @@ export const Background = (): ReactElement | null => {
   return editable ? <RFBackground /> : null;
 };
 
-export interface ToggleEditControlProps
-  extends Omit<Button.ToggleProps, "value" | "onChange" | "children"> {}
+export interface ToggleEditControlProps extends Omit<
+  Button.ToggleProps,
+  "value" | "onChange" | "children"
+> {}
 
 export const ToggleEditControl = ({
   onClick,
@@ -614,8 +617,10 @@ export const ToggleEditControl = ({
   );
 };
 
-export interface FitViewControlProps
-  extends Omit<Button.ToggleProps, "children" | "onChange" | "value"> {}
+export interface FitViewControlProps extends Omit<
+  Button.ToggleProps,
+  "children" | "onChange" | "value"
+> {}
 
 export const FitViewControl = ({
   onClick,

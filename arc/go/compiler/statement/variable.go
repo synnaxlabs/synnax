@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -127,6 +127,26 @@ func compileAssignment(
 		}
 		ctx.Writer.WriteCall(importIdx)
 		// Assignment complete - stack is empty
+	case symbol.KindChannel, symbol.KindConfig:
+		// Channel write (assignment syntax): channel = value
+		// Stack: [value]
+		// Need to rearrange to: [channelID, value] then call host function
+		chanValueType := varType.Unwrap()
+
+		// Push channel ID first, then value
+		// But value is already on stack, so store it temporarily using local index
+		// Use the variable's own index as temporary storage
+		ctx.Writer.WriteLocalTee(scope.ID)        // [value] -> tee -> [value], value in local
+		ctx.Writer.WriteI32Const(int32(scope.ID)) // Push channel ID
+		ctx.Writer.WriteLocalGet(scope.ID)        // Push value back
+		// Stack is now: [channelID, value]
+
+		importIdx, err := ctx.Imports.GetChannelWrite(chanValueType)
+		if err != nil {
+			return err
+		}
+		ctx.Writer.WriteCall(importIdx)
+		// Write complete - stack is empty
 	case symbol.KindOutput:
 		// Named output - needs special handling for multi-output routing
 		if err := compileOutputAssignment(ctx, name, scope); err != nil {

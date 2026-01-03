@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
 
@@ -176,6 +177,9 @@ func (d db) apply(ctx context.Context, txn *tx) error {
 func (d db) Report() alamos.Report {
 	return alamos.Report{"engine": "pebble"}
 }
+
+// Size implements kv.DB.
+func (d db) Size() telem.Size { return telem.Size(d.DB.Metrics().DiskSpaceUsage()) }
 
 // Close implement io.Closer.
 func (d db) Close() error { return d.DB.Close() }

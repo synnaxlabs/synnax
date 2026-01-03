@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,6 +17,12 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+// stageEntryKey computes the entry node key for a stage using the established
+// naming convention. This must match the key generation in text.KeyGenerator.Entry.
+func stageEntryKey(seqName, stageName string) string {
+	return "entry_" + seqName + "_" + stageName
+}
+
 // Stratify computes execution strata for nodes in a dataflow graph.
 // Stratification enables single-pass, glitch-free reactive execution.
 //
@@ -26,12 +32,17 @@ import (
 //     stratum(A) = max(stratum(A), stratum(B) + 1)
 //  3. Detect cycles: if iteration count exceeds node count, a cycle exists
 //
+// The sequences parameter provides stage information. Nodes within a stage
+// implicitly depend on their stage's entry node, ensuring they execute after
+// the stage is activated.
+//
 // Returns stratification data, or false if a cycle is detected.
 // Cycle errors are added to the diagnostics.
 func Stratify(
 	ctx context.Context,
 	nodes []ir.Node,
 	edges []ir.Edge,
+	sequences []ir.Sequence,
 	diag *diagnostics.Diagnostics,
 ) (ir.Strata, *diagnostics.Diagnostics) {
 	var (
@@ -43,6 +54,19 @@ func Stratify(
 	)
 	if len(nodes) == 0 {
 		return ir.Strata{}, nil
+	}
+
+	// Build implicit dependencies from stage membership.
+	// Each node in a stage implicitly depends on its entry node.
+	type dependency struct{ source, target string }
+	var implicitDeps []dependency
+	for _, seq := range sequences {
+		for _, stage := range seq.Stages {
+			entryKey := stageEntryKey(seq.Key, stage.Key)
+			for _, nodeKey := range stage.Nodes {
+				implicitDeps = append(implicitDeps, dependency{entryKey, nodeKey})
+			}
+		}
 	}
 
 	// Step 1: Initialize ALL nodes to stratum 0
@@ -66,14 +90,27 @@ func Stratify(
 			return ir.Strata{}, diag
 		}
 
+		// Process explicit edge dependencies
 		for _, edge := range edges {
 			sourceStratum := nodeStrata[edge.Source.Node]
 			targetStratum := nodeStrata[edge.Target.Node]
-			// If source stratum >= target stratum, we need to bump target up
 			if sourceStratum >= targetStratum {
 				newStratum := sourceStratum + 1
 				nodeStrata[edge.Target.Node] = newStratum
-				// Track maximum stratum
+				if newStratum > maxStratum {
+					maxStratum = newStratum
+				}
+				changed = true
+			}
+		}
+
+		// Process implicit stage dependencies
+		for _, dep := range implicitDeps {
+			sourceStratum := nodeStrata[dep.source]
+			targetStratum := nodeStrata[dep.target]
+			if sourceStratum >= targetStratum {
+				newStratum := sourceStratum + 1
+				nodeStrata[dep.target] = newStratum
 				if newStratum > maxStratum {
 					maxStratum = newStratum
 				}

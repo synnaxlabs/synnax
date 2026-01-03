@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -65,8 +65,8 @@ var (
 )
 
 type stat struct {
+	*state.Node
 	cfg           ConfigValues
-	state         *state.Node
 	resetIdx      int
 	reductionFn   func(telem.Series, int64, *telem.Series) int64
 	sampleCount   int64
@@ -77,13 +77,21 @@ type stat struct {
 func (r *stat) Init(_ node.Context) {
 }
 
+// Reset resets the stat node's accumulated state when its stage is activated.
+func (r *stat) Reset() {
+	r.Node.Reset()
+	r.sampleCount = 0
+	r.startTime = 0
+	r.lastResetTime = 0
+}
+
 func (r *stat) Next(ctx node.Context) {
-	if !r.state.RefreshInputs() {
+	if !r.RefreshInputs() {
 		return
 	}
 
 	// Initialize start time from first input data timestamp
-	inputTime := r.state.InputTime(0)
+	inputTime := r.InputTime(0)
 	if r.startTime == 0 && inputTime.Len() > 0 {
 		r.startTime = telem.ValueAt[telem.TimeStamp](inputTime, 0)
 	}
@@ -92,8 +100,8 @@ func (r *stat) Next(ctx node.Context) {
 
 	// Signal-based reset
 	if r.resetIdx >= 0 {
-		resetData := r.state.Input(r.resetIdx)
-		resetTime := r.state.InputTime(r.resetIdx)
+		resetData := r.Input(r.resetIdx)
+		resetTime := r.InputTime(r.resetIdx)
 		// Check if any NEW value in the reset series is 1 (catches fast pulses)
 		// Only look at values with timestamps > lastResetTime to avoid re-processing
 		for i := int64(0); i < resetData.Len(); i++ {
@@ -125,26 +133,26 @@ func (r *stat) Next(ctx node.Context) {
 
 	if shouldReset {
 		r.sampleCount = 0
-		r.state.Output(0).Resize(0)
+		r.Output(0).Resize(0)
 		// Re-read input time after reset
-		inputTime = r.state.InputTime(0)
+		inputTime = r.InputTime(0)
 	}
-	inputData := r.state.Input(0)
+	inputData := r.Input(0)
 	if inputData.Len() == 0 {
 		return
 	}
-	r.sampleCount = r.reductionFn(inputData, r.sampleCount, r.state.Output(0))
+	r.sampleCount = r.reductionFn(inputData, r.sampleCount, r.Output(0))
 	// Set output timestamp to the last (most recent) input timestamp
 	// Output has 1 value, so output time must also have 1 timestamp
 	if inputTime.Len() > 0 {
 		lastTimestamp := telem.ValueAt[telem.TimeStamp](inputTime, -1)
-		*r.state.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](lastTimestamp)
+		*r.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](lastTimestamp)
 	}
 	// Propagate alignment and time range from inputs to output
 	alignment := inputData.Alignment
 	timeRange := inputData.TimeRange
 	if r.resetIdx >= 0 {
-		resetData := r.state.Input(r.resetIdx)
+		resetData := r.Input(r.resetIdx)
 		alignment += resetData.Alignment
 		if !resetData.TimeRange.Start.IsZero() && (timeRange.Start.IsZero() || resetData.TimeRange.Start < timeRange.Start) {
 			timeRange.Start = resetData.TimeRange.Start
@@ -153,10 +161,10 @@ func (r *stat) Next(ctx node.Context) {
 			timeRange.End = resetData.TimeRange.End
 		}
 	}
-	r.state.Output(0).Alignment = alignment
-	r.state.Output(0).TimeRange = timeRange
-	r.state.OutputTime(0).Alignment = alignment
-	r.state.OutputTime(0).TimeRange = timeRange
+	r.Output(0).Alignment = alignment
+	r.Output(0).TimeRange = timeRange
+	r.OutputTime(0).Alignment = alignment
+	r.OutputTime(0).TimeRange = timeRange
 	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 
@@ -202,7 +210,7 @@ func (f *statFactory) Create(_ context.Context, nodeCfg node.Config) (node.Node,
 		return nil, err
 	}
 	return &stat{
-		state:       nodeCfg.State,
+		Node:        nodeCfg.State,
 		resetIdx:    resetIdx,
 		reductionFn: reductionFn,
 		sampleCount: 0,

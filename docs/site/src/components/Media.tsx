@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -23,7 +23,8 @@ interface MediaProps {
 }
 
 export interface VideoProps
-  extends MediaProps,
+  extends
+    MediaProps,
     Omit<
       DetailedHTMLProps<React.VideoHTMLAttributes<HTMLVideoElement>, HTMLVideoElement>,
       "id"
@@ -83,7 +84,8 @@ export const Video = ({ id, themed = true, ...rest }: VideoProps): ReactElement 
 };
 
 export interface ImageProps
-  extends MediaProps,
+  extends
+    MediaProps,
     Omit<
       DetailedHTMLProps<ImgHTMLAttributes<HTMLImageElement>, HTMLImageElement>,
       "id"

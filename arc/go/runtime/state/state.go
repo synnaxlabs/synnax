@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -210,6 +210,12 @@ type Node struct {
 	outputCache  []*value // Cached pointers to output values (avoids map lookups)
 }
 
+// Reset is called by the scheduler when the stage containing this node is activated.
+// Nodes that embed *state.Node inherit this behavior and can override to add
+// custom reset logic (calling the embedded Reset() first).
+// One-shot edge tracking is handled at the scheduler level, not per-node.
+func (n *Node) Reset() {}
+
 // RefreshInputs performs temporal alignment of node inputs and returns whether the node should execute.
 //
 // Algorithm:
@@ -328,6 +334,57 @@ func (n *Node) ReadChan(key uint32) (data telem.MultiSeries, time telem.MultiSer
 // If the channel has an index, the time series is automatically written to the index channel.
 func (n *Node) WriteChan(key uint32, value, time telem.Series) {
 	n.state.writeChannel(key, value, time)
+}
+
+// IsOutputTruthy checks if the output at the given param name is truthy.
+// Returns false if the param doesn't exist, if the output is empty,
+// or if the last element is zero. Returns true otherwise.
+// Used by the scheduler to evaluate one-shot edges - edges only fire
+// when the source output is truthy.
+func (n *Node) IsOutputTruthy(paramName string) bool {
+	for i, h := range n.outputs {
+		if h.Param == paramName {
+			series := &n.outputCache[i].data
+			return isSeriesTruthy(*series)
+		}
+	}
+	return false
+}
+
+// isSeriesTruthy checks if a series is truthy by examining its last element.
+// Empty series are falsy. A series with a last element of zero is falsy.
+func isSeriesTruthy(s telem.Series) bool {
+	if s.Len() == 0 {
+		return false
+	}
+	dt := s.DataType
+	switch dt {
+	case telem.Float64T:
+		return telem.ValueAt[float64](s, -1) != 0
+	case telem.Float32T:
+		return telem.ValueAt[float32](s, -1) != 0
+	case telem.Int64T:
+		return telem.ValueAt[int64](s, -1) != 0
+	case telem.Int32T:
+		return telem.ValueAt[int32](s, -1) != 0
+	case telem.Int16T:
+		return telem.ValueAt[int16](s, -1) != 0
+	case telem.Int8T:
+		return telem.ValueAt[int8](s, -1) != 0
+	case telem.Uint64T:
+		return telem.ValueAt[uint64](s, -1) != 0
+	case telem.Uint32T:
+		return telem.ValueAt[uint32](s, -1) != 0
+	case telem.Uint16T:
+		return telem.ValueAt[uint16](s, -1) != 0
+	case telem.Uint8T:
+		return telem.ValueAt[uint8](s, -1) != 0
+	case telem.TimeStampT:
+		return telem.ValueAt[telem.TimeStamp](s, -1) != 0
+	default:
+		// StringT and other types default to falsy
+		return false
+	}
 }
 
 // ReadChannelValue reads a single value from a channel (for WASM runtime bindings).

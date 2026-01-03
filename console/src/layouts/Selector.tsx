@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -24,8 +24,10 @@ export const useSelectorVisible = () => {
 
 export const SELECTOR_LAYOUT_TYPE = "layoutSelector";
 
-export interface CreateSelectorLayoutArgs
-  extends Omit<Layout.BaseState, "type" | "icon" | "location" | "name" | "key"> {}
+export interface CreateSelectorLayoutArgs extends Omit<
+  Layout.BaseState,
+  "type" | "icon" | "location" | "name" | "key"
+> {}
 
 export const createSelectorLayout = (
   args: CreateSelectorLayoutArgs = {},

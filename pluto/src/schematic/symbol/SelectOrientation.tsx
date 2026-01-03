@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -23,8 +23,7 @@ export interface OrientationValue {
 }
 
 export interface SelectOrientationProps
-  extends Input.Control<OrientationValue>,
-    Omit<Flex.BoxProps, "value" | "onChange"> {
+  extends Input.Control<OrientationValue>, Omit<Flex.BoxProps, "value" | "onChange"> {
   hideOuter?: boolean;
   showOuterCenter?: boolean;
   hideInner?: boolean;

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -135,8 +135,7 @@ const use = ({
   return editorContainerRef;
 };
 export interface EditorProps
-  extends Input.Control<string>,
-    Omit<Flex.BoxProps, "value" | "onChange"> {
+  extends Input.Control<string>, Omit<Flex.BoxProps, "value" | "onChange"> {
   language: string;
   isBlock?: boolean;
 }

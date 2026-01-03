@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -64,8 +64,7 @@ export const Entries = memo(
 Entries.displayName = "Legend.Entries";
 
 interface EntryProps
-  extends Omit<EntriesProps, "data">,
-    Omit<Flex.BoxProps, "background"> {
+  extends Omit<EntriesProps, "data">, Omit<Flex.BoxProps, "background"> {
   entry: EntryData;
 }
 

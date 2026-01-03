@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -86,17 +86,18 @@ func mapTokenType(antlrType int) *uint32 {
 	var tokenType uint32
 	switch antlrType {
 	case parser.ArcLexerFUNC, parser.ArcLexerIF,
-		parser.ArcLexerELSE, parser.ArcLexerRETURN, parser.ArcLexerNOW,
-		parser.ArcLexerLEN:
+		parser.ArcLexerELSE, parser.ArcLexerRETURN,
+		parser.ArcLexerSEQUENCE, parser.ArcLexerSTAGE,
+		parser.ArcLexerNEXT:
 		tokenType = SemanticTokenTypeKeyword
 	case parser.ArcLexerI8, parser.ArcLexerI16, parser.ArcLexerI32, parser.ArcLexerI64,
 		parser.ArcLexerU8, parser.ArcLexerU16, parser.ArcLexerU32, parser.ArcLexerU64,
 		parser.ArcLexerF32, parser.ArcLexerF64, parser.ArcLexerSTR,
 		parser.ArcLexerTIMESTAMP, parser.ArcLexerTIMESPAN, parser.ArcLexerSERIES,
-		parser.ArcLexerCHAN, parser.ArcLexerRECV_CHAN, parser.ArcLexerSEND_CHAN:
+		parser.ArcLexerCHAN:
 		tokenType = SemanticTokenTypeType
-	case parser.ArcLexerARROW, parser.ArcLexerRECV, parser.ArcLexerDECLARE,
-		parser.ArcLexerSTATE_DECLARE, parser.ArcLexerASSIGN,
+	case parser.ArcLexerARROW, parser.ArcLexerDECLARE,
+		parser.ArcLexerSTATE_DECLARE, parser.ArcLexerTRANSITION, parser.ArcLexerASSIGN,
 		parser.ArcLexerPLUS, parser.ArcLexerMINUS, parser.ArcLexerSTAR,
 		parser.ArcLexerSLASH, parser.ArcLexerPERCENT, parser.ArcLexerCARET,
 		parser.ArcLexerEQ, parser.ArcLexerNEQ, parser.ArcLexerLT, parser.ArcLexerGT,

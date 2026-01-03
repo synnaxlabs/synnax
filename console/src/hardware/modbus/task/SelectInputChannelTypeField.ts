@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -27,11 +27,10 @@ const DATA: InputChannelTypeEntry[] = [
   { key: REGISTER_INPUT_TYPE, name: "Register" },
 ];
 
-export interface SelectInputChannelTypeFieldProps
-  extends Omit<
-    Form.SelectFieldProps<InputChannelType, InputChannelTypeEntry>,
-    "data" | "entryRenderKey" | "columns"
-  > {}
+export interface SelectInputChannelTypeFieldProps extends Omit<
+  Form.SelectFieldProps<InputChannelType, InputChannelTypeEntry>,
+  "data" | "entryRenderKey" | "columns"
+> {}
 
 export const SelectInputChannelTypeField = Form.buildSelectField<
   InputChannelType,

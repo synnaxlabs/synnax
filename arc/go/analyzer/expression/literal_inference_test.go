@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -57,10 +57,8 @@ var _ = Describe("Literal Type Inference", func() {
 	Describe("Numeric literals should adapt to context", func() {
 		It("should allow 2 + abc where abc is f32", func() {
 			program := MustSucceed(parser.Parse(`
-func test{} () {
-	result f32
-} {
-	result = 2 + abc
+func test{} () f32 {
+	return 2 + abc
 }
 `))
 			ctx := acontext.CreateRoot(bCtx, program, testResolver)
@@ -69,10 +67,8 @@ func test{} () {
 
 		It("should allow abc + 2 where abc is f32", func() {
 			program := MustSucceed(parser.Parse(`
-func test{} () {
-	result f32
-} {
-	result = abc + 2
+func test{} () f32 {
+	return abc + 2
 }
 `))
 			ctx := acontext.CreateRoot(bCtx, program, testResolver)
@@ -81,10 +77,8 @@ func test{} () {
 
 		It("should allow 2.5 + abc where abc is f32", func() {
 			program := MustSucceed(parser.Parse(`
-func test{} () {
-	result f32
-} {
-	result = 2.5 + abc
+func test{} () f32 {
+	return 2.5 + abc
 }
 `))
 			ctx := acontext.CreateRoot(bCtx, program, testResolver)
@@ -93,10 +87,8 @@ func test{} () {
 
 		It("should allow 5 + xyz where xyz is i32", func() {
 			program := MustSucceed(parser.Parse(`
-func test{} () {
-	result i32
-} {
-	result = 5 + xyz
+func test{} () i32 {
+	return 5 + xyz
 }
 `))
 			ctx := acontext.CreateRoot(bCtx, program, testResolver)
@@ -105,10 +97,8 @@ func test{} () {
 
 		It("should infer correct type for expressions with multiple literals", func() {
 			program := MustSucceed(parser.Parse(`
-func test{} () {
-	result f32
-} {
-	result = 2 + abc + 3
+func test{} () f32 {
+	return 2 + abc + 3
 }
 `))
 			ctx := acontext.CreateRoot(bCtx, program, testResolver)
@@ -145,7 +135,7 @@ func test{} () {
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
-		It("Should infer the correct type for channel and several literal operations", func() {
+		It("Should reject float literal with incompatible integer channel type", func() {
 			program := MustSucceed(parser.Parse(`
 			func cat() f64 {
 				return 2.2 * integer_sensor

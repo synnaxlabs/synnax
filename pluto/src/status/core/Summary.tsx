@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,7 +16,8 @@ import { Icon } from "@/icon";
 import { Text as BaseText } from "@/text";
 
 export interface SummaryProps
-  extends Omit<BaseText.TextProps, "wrap" | "variant" | "status">,
+  extends
+    Omit<BaseText.TextProps, "wrap" | "variant" | "status">,
     Partial<Omit<status.Status, "key">> {
   hideIcon?: boolean;
   status?: status.Status;

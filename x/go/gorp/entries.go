@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -40,14 +40,6 @@ func entryKeys[K Key, E Entry[K]](entries []E) []K {
 	}
 	return keys
 }
-
-type nopEntry []struct{}
-
-var _ Entry[string] = nopEntry{}
-
-func (nopEntry) GorpKey() string { return "" }
-
-func (nopEntry) SetOptions() []any { return nil }
 
 const entriesOptKey query.Parameter = "entries"
 

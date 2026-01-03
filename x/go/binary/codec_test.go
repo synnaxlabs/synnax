@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -39,19 +39,7 @@ var _ = Describe("Codec", func() {
 		Entry("Gob", &binary.GobCodec{}),
 		Entry("JSON", &binary.JSONCodec{}),
 		Entry("MsgPack", &binary.MsgPackCodec{}),
-		Entry("PassThrough", &binary.PassThroughCodec{Codec: &binary.GobCodec{}}),
 	)
-	Describe("PassThrough encoding and decoding", func() {
-		It("Should pass through the encoding and decoding when a byte slice is provided", func() {
-			codec := &binary.PassThroughCodec{Codec: &binary.GobCodec{}}
-			b, err := codec.Encode(ctx, []byte{1, 2, 3})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(b).To(Equal([]byte{1, 2, 3}))
-			var d []byte
-			Expect(codec.Decode(ctx, b, &d)).To(Succeed())
-			Expect(d).To(Equal([]byte{1, 2, 3}))
-		})
-	})
 	Describe("Additional Error Info", func() {
 		DescribeTable("Standard Type", func(codec binary.Codec) {
 			_, err := codec.Encode(ctx, make(chan int))

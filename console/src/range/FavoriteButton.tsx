@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,8 +18,10 @@ import { useSelect } from "@/range/selectors";
 import { add, remove } from "@/range/slice";
 import { fromClientRange } from "@/range/translate";
 
-export interface FavoriteButtonProps
-  extends Omit<CoreProps, "isFavorite" | "onFavorite"> {
+export interface FavoriteButtonProps extends Omit<
+  CoreProps,
+  "isFavorite" | "onFavorite"
+> {
   range: ranger.Range;
 }
 

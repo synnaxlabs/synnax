@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -36,8 +36,10 @@ export interface ChannelKeyAndIDGetter<C extends Channel> {
   (channel: C): { id: string; key: channel.Key };
 }
 
-interface ChannelListItemProps<C extends Channel>
-  extends Omit<Common.Task.ChannelListItemProps, "children"> {
+interface ChannelListItemProps<C extends Channel> extends Omit<
+  Common.Task.ChannelListItemProps,
+  "children"
+> {
   children: Component.RenderProp<ExtraItemProps>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
 }
@@ -62,7 +64,14 @@ const ChannelListItem = <C extends Channel>({
         gap="small"
         className={CSS.BE("channel-name", "container")}
       >
-        <ChannelName weight={500} color={10} level="p" channel={channel} id={id} />
+        <ChannelName
+          weight={500}
+          color={10}
+          level="p"
+          channel={channel}
+          id={id}
+          namePath={`${path}.name`}
+        />
         <Flex.Box x align="center" gap="tiny">
           <Icon.Variable color={7} />
           <Text.Text
@@ -111,8 +120,10 @@ const filterHaulItem = (item: Haul.Item): boolean =>
 
 const canDrop = ({ items }: Haul.DraggingState): boolean => items.some(filterHaulItem);
 
-interface ChannelListProps<C extends Channel>
-  extends Pick<Common.Task.ChannelListProps<C>, "contextMenuItems"> {
+interface ChannelListProps<C extends Channel> extends Pick<
+  Common.Task.ChannelListProps<C>,
+  "contextMenuItems"
+> {
   children: Component.RenderProp<ExtraItemProps>;
   device: Device.Device;
   convertHaulItemToChannel: (item: Haul.Item) => C;
@@ -176,10 +187,9 @@ const ChannelList = <C extends Channel>({
   );
 };
 
-export interface FormProps<C extends Channel>
-  extends Required<
-    Pick<ChannelListProps<C>, "convertHaulItemToChannel" | "contextMenuItems">
-  > {
+export interface FormProps<C extends Channel> extends Required<
+  Pick<ChannelListProps<C>, "convertHaulItemToChannel" | "contextMenuItems">
+> {
   children?: Component.RenderProp<ExtraItemProps>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
 }

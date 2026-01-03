@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -118,48 +118,6 @@ func compileReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 		return expression.EmitCast(ctx, exprType, returnType)
 	}
 	return nil
-}
-
-func compileChannelOperation(ctx context.Context[parser.IChannelOperationContext]) error {
-	if chanWrite := ctx.AST.ChannelWrite(); chanWrite != nil {
-		return compileChannelWrite(context.Child(ctx, chanWrite))
-	}
-	if chanRead := ctx.AST.ChannelRead(); chanRead != nil {
-		return compileChannelRead(context.Child(ctx, chanRead))
-	}
-	return errors.New("unknown channel operation")
-}
-
-func compileChannelWrite(ctx context.Context[parser.IChannelWriteContext]) error {
-	var (
-		channelName string
-		valueExpr   parser.IExpressionContext
-	)
-	if ctx.AST.Expression() != nil && ctx.AST.IDENTIFIER() != nil {
-		valueExpr = ctx.AST.Expression()
-		channelName = ctx.AST.IDENTIFIER().GetText()
-	}
-	valueType, err := expression.Compile(context.Child(ctx, valueExpr))
-	if err != nil {
-		return errors.Wrap(err, "failed to compile channel write value")
-	}
-	sym, err := ctx.Scope.Resolve(ctx, channelName)
-	if err != nil {
-		return err
-	}
-	ctx.Writer.WriteLocalGet(sym.ID)
-	importIdx, err := ctx.Imports.GetChannelWrite(valueType)
-	if err != nil {
-		return errors.Wrap(err, "failed to compile channel write import")
-	}
-	ctx.Writer.WriteCall(importIdx)
-	return nil
-}
-
-func compileChannelRead(_ context.Context[parser.IChannelReadContext]) error {
-	// TODO: Implement this
-	// See https://linear.app/synnax/issue/SY-3178/handle-channel-reads-in-arc
-	return errors.New("standalone channel reads not implemented")
 }
 
 func compileFunctionCall(_ context.Context[parser.IFunctionCallContext]) (types.Type, error) {

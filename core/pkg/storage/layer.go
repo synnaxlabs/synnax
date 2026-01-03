@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -235,6 +235,15 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 func (s *Layer) Close() error {
 	return s.closer.Close()
 }
+
+// KVSize returns the disk space used by the key-value store in bytes.
+func (s *Layer) KVSize() telem.Size { return s.KV.Size() }
+
+// TSSize returns the disk space used by the time-series store in bytes.
+func (s *Layer) TSSize() telem.Size { return s.TS.Metrics().DiskSize }
+
+// Size returns the total disk space used by the storage layer in bytes.
+func (s *Layer) Size() telem.Size { return s.KVSize() + s.TSSize() }
 
 const (
 	kvDirname     = "kv"

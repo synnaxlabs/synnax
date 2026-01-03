@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -195,11 +195,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 
 	if needPeerRouting && needGatewayRouting {
 		routeInletTo = broadcasterAddr
-		plumber.SetSegment[Request, Request](
-			pipe,
-			broadcasterAddr,
-			newBroadcaster(),
-		)
+		plumber.SetSegment[Request, Request](pipe, broadcasterAddr, newBroadcaster())
 		plumber.MultiRouter[Request]{
 			SourceTargets: []address.Address{broadcasterAddr},
 			SinkTargets:   []address.Address{peerSenderAddr, gatewayIterAddr},

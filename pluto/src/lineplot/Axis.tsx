@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -35,7 +35,8 @@ import { Text } from "@/text";
 import { Theming } from "@/theming";
 
 export interface AxisProps
-  extends PropsWithChildren,
+  extends
+    PropsWithChildren,
     Omit<z.input<typeof lineplot.xAxisStateZ>, "position" | "size">,
     Omit<Flex.BoxProps, "color">,
     Aether.ComponentProps {

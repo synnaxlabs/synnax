@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -32,8 +32,7 @@ export type Variant =
   | "shadow";
 
 export interface ExtensionProps
-  extends Omit<Text.ExtensionProps, "variant">,
-    Tooltip.WrapProps {
+  extends Omit<Text.ExtensionProps, "variant">, Tooltip.WrapProps {
   variant?: Variant;
   trigger?: Triggers.Trigger;
   triggerIndicator?: boolean | Triggers.Trigger;

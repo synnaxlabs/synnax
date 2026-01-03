@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,6 +10,9 @@
 package iterator_test
 
 import (
+	"strconv"
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -34,7 +37,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 	)
 	BeforeAll(func() {
 		dist = builder.Provision(ctx)
-		labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
@@ -80,7 +83,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			MustSucceed(w.Write(fr))
 			Expect(w.Close()).To(Succeed())
 
-			iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 				Keys:   []channel.Key{ch.Key()},
 				Bounds: telem.TimeRangeMax,
 			}))
@@ -161,7 +164,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expression: "return sensor_1",
 				}
 				Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
-				iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+				iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 					Keys:   []channel.Key{calculation.Key(), calculation.Index()},
 					Bounds: telem.TimeRangeMax,
 				}))
@@ -202,7 +205,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(dist.Channel.Create(ctx, calcC)).To(Succeed())
 
 					// Open iterator requesting only the top-level calculated channel C
-					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calcC.Key(), calcC.Index()},
 						Bounds: telem.TimeRangeMax,
 					}))
@@ -259,7 +262,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(dist.Channel.Create(ctx, calcD)).To(Succeed())
 
 					// Open iterator requesting only the top-level calculated channel D
-					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calcD.Key(), calcD.Index()},
 						Bounds: telem.TimeRangeMax,
 					}))
@@ -323,7 +326,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(dist.Channel.Create(ctx, calcE)).To(Succeed())
 
 					// Open iterator requesting only the top-level calculated channel E
-					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calcE.Key(), calcE.Index()},
 						Bounds: telem.TimeRangeMax,
 					}))
@@ -378,7 +381,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(dist.Channel.Create(ctx, calcA)).To(Succeed())
 
 					// Now try to open an iterator - this should fail with circular dependency error
-					_, err := iteratorSvc.Open(ctx, framer.IteratorConfig{
+					_, err := iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calcA.Key()},
 						Bounds: telem.TimeRangeMax,
 					})
@@ -407,7 +410,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(dist.Channel.Create(ctx, calcMixedNested)).To(Succeed())
 
 					// Request both concrete channels (sensor_1, sensor_2) and calculated channels
-					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys: []channel.Key{
 							dataCh1.Key(),           // concrete: sensor_1
 							dataCh2.Key(),           // concrete: sensor_2
@@ -531,7 +534,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					}
 					Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
 
-					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calc.Key(), calc.Index()},
 						Bounds: telem.TimeRangeMax,
 					}))
@@ -583,7 +586,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					}
 					Expect(dist.Channel.Create(ctx, calcC)).To(Succeed())
 
-					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calcC.Key(), calcC.Index()},
 						Bounds: telem.TimeRangeMax,
 					}))
@@ -643,7 +646,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					}
 					Expect(dist.Channel.Create(ctx, calcE)).To(Succeed())
 
-					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calcE.Key(), calcE.Index()},
 						Bounds: telem.TimeRangeMax,
 					}))
@@ -682,7 +685,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(dist.Channel.Create(ctx, calcMixed)).To(Succeed())
 
 					// Request both concrete and calculated channels
-					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys: []channel.Key{
 							threeDomainDataCh.Key(),
 							calcMixed.Key(),
@@ -771,7 +774,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					}
 					Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
 
-					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calc.Key(), calc.Index()},
 						Bounds: telem.TimeRangeMax,
 					}))
@@ -816,7 +819,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					}
 					Expect(dist.Channel.Create(ctx, calcPlusTen)).To(Succeed())
 
-					iter := MustSucceed(iteratorSvc.Open(ctx, framer.IteratorConfig{
+					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 						Keys:   []channel.Key{calcDouble.Key(), calcSquare.Key(), calcPlusTen.Key()},
 						Bounds: telem.TimeRangeMax,
 					}))
@@ -858,6 +861,287 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(iter.Close()).To(Succeed())
 				})
 			})
+		})
+	})
+
+	Describe("Downsampling", func() {
+		It("Should correctly downsample with a factor of 2", func() {
+			indexCh := &channel.Channel{
+				Name:     "downsample_time_2",
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			}
+			Expect(dist.Channel.Create(ctx, indexCh)).To(Succeed())
+			dataCh := &channel.Channel{
+				Name:       "downsample_sensor_2",
+				DataType:   telem.Float32T,
+				LocalIndex: indexCh.LocalKey,
+			}
+			Expect(dist.Channel.Create(ctx, dataCh)).To(Succeed())
+			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start:            telem.SecondTS,
+				Keys:             keys,
+				EnableAutoCommit: config.True(),
+			}))
+			fr := core.MultiFrame(
+				keys,
+				[]telem.Series{
+					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8),
+					telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8),
+				},
+			)
+			Expect(w.Write(fr)).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+
+			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+				Keys:             keys,
+				Bounds:           telem.TimeRangeMax,
+				DownsampleFactor: 2,
+			}))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+
+			iterValue := iter.Value()
+
+			v := iterValue.Get(dataCh.Key())
+			Expect(v.Series).To(HaveLen(1))
+			Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](1, 3, 5, 7))
+
+			idxV := iterValue.Get(indexCh.Key())
+			Expect(idxV.Series).To(HaveLen(1))
+			Expect(idxV.Series[0]).
+				To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(1, 3, 5, 7)))
+
+			Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+			Expect(iter.Close()).To(Succeed())
+		})
+
+		It("Should correctly downsample with a factor of 3", func() {
+			indexCh := &channel.Channel{
+				Name:     "downsample_time_3",
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			}
+			Expect(dist.Channel.Create(ctx, indexCh)).To(Succeed())
+			dataCh := &channel.Channel{
+				Name:       "downsample_sensor_3",
+				DataType:   telem.Float32T,
+				LocalIndex: indexCh.LocalKey,
+			}
+			Expect(dist.Channel.Create(ctx, dataCh)).To(Succeed())
+			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start:            telem.SecondTS,
+				Keys:             keys,
+				EnableAutoCommit: config.True(),
+			}))
+			fr := core.MultiFrame(
+				keys,
+				[]telem.Series{
+					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8, 9),
+					telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8, 9),
+				},
+			)
+			Expect(w.Write(fr)).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+
+			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+				Keys:             keys,
+				Bounds:           telem.TimeRangeMax,
+				DownsampleFactor: 3,
+			}))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+
+			iterValue := iter.Value()
+
+			idxValue := iterValue.Get(indexCh.Key())
+			Expect(idxValue.Series).To(HaveLen(1))
+			Expect(idxValue.Series[0]).
+				To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(1, 4, 7)))
+
+			v := iterValue.Get(dataCh.Key())
+			Expect(v.Series).To(HaveLen(1))
+			Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](1, 4, 7))
+
+			Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+			Expect(iter.Close()).To(Succeed())
+		})
+		DescribeTable("Should not downsample when factor is 0 or 1 or negative", func(factor int) {
+			suffix := strconv.Itoa(factor)
+			if strings.HasPrefix(suffix, "-") {
+				suffix = "neg_" + suffix[1:]
+			}
+			indexCh := &channel.Channel{
+				Name:     "downsample_time" + suffix,
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			}
+			Expect(dist.Channel.Create(ctx, indexCh)).To(Succeed())
+			dataCh := &channel.Channel{
+				Name:       "downsample_sensor" + suffix,
+				DataType:   telem.Float32T,
+				LocalIndex: indexCh.LocalKey,
+			}
+			Expect(dist.Channel.Create(ctx, dataCh)).To(Succeed())
+			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start:            telem.SecondTS,
+				Keys:             keys,
+				EnableAutoCommit: config.True(),
+			}))
+			fr := core.MultiFrame(
+				keys,
+				[]telem.Series{
+					telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+					telem.NewSeriesV[float32](1, 2, 3, 4),
+				},
+			)
+			MustSucceed(w.Write(fr))
+			Expect(w.Close()).To(Succeed())
+
+			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+				Keys:             keys,
+				Bounds:           telem.TimeRangeMax,
+				DownsampleFactor: factor,
+			}))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+			v := iter.Value().Get(dataCh.Key())
+			Expect(v.Series).To(HaveLen(1))
+			Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](1, 2, 3, 4))
+			Expect(iter.Close()).To(Succeed())
+		},
+			Entry("factor is 0", 0),
+			Entry("factor is 1", 1),
+			Entry("factor is negative", -1),
+		)
+
+		It("Should correctly combine downsampling with calculations", func() {
+			indexCh := &channel.Channel{
+				Name:     "downsample_calc_time",
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			}
+			Expect(dist.Channel.Create(ctx, indexCh)).To(Succeed())
+			dataCh1 := &channel.Channel{
+				Name:       "downsample_calc_sensor1",
+				DataType:   telem.Float32T,
+				LocalIndex: indexCh.LocalKey,
+			}
+			Expect(dist.Channel.Create(ctx, dataCh1)).To(Succeed())
+			dataCh2 := &channel.Channel{
+				Name:       "downsample_calc_sensor2",
+				DataType:   telem.Float32T,
+				LocalIndex: indexCh.LocalKey,
+			}
+			Expect(dist.Channel.Create(ctx, dataCh2)).To(Succeed())
+
+			calculation := &channel.Channel{
+				Name:       "downsample_calc_output",
+				DataType:   telem.Float32T,
+				Expression: "return downsample_calc_sensor1 + downsample_calc_sensor2",
+			}
+			Expect(dist.Channel.Create(ctx, calculation)).To(Succeed())
+
+			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start:            telem.SecondTS,
+				Keys:             keys,
+				EnableAutoCommit: config.True(),
+			}))
+			fr := core.MultiFrame(
+				keys,
+				[]telem.Series{
+					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8),
+					telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8),
+					telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6, 7, 8),
+				},
+			)
+			Expect(w.Write(fr)).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+
+			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+				Keys:             []channel.Key{calculation.Key(), calculation.Index()},
+				Bounds:           telem.TimeRangeMax,
+				DownsampleFactor: 2,
+			}))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+
+			// sensor1 + sensor2 = [2, 4, 6, 8, 10, 12, 14, 16]
+			// downsampled by 2 = [2, 6, 10, 14]
+			v := iter.Value().Get(calculation.Key())
+			Expect(v.Series).To(HaveLen(1))
+			Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](2, 6, 10, 14))
+
+			Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+			Expect(iter.Close()).To(Succeed())
+		})
+
+		It("Should correctly downsample across multiple domains", func() {
+			indexCh := &channel.Channel{
+				Name:     "downsample_multi_time",
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			}
+			Expect(dist.Channel.Create(ctx, indexCh)).To(Succeed())
+			dataCh := &channel.Channel{
+				Name:       "downsample_multi_sensor",
+				DataType:   telem.Float32T,
+				LocalIndex: indexCh.LocalKey,
+			}
+			Expect(dist.Channel.Create(ctx, dataCh)).To(Succeed())
+			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
+
+			// First domain
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start:            telem.SecondTS,
+				Keys:             keys,
+				EnableAutoCommit: config.True(),
+			}))
+			Expect(w.Write(core.MultiFrame(
+				keys,
+				[]telem.Series{
+					telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+					telem.NewSeriesV[float32](1, 2, 3, 4),
+				},
+			))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+
+			// Second domain
+			w = MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start:            telem.SecondTS * 10,
+				Keys:             keys,
+				EnableAutoCommit: config.True(),
+			}))
+			Expect(w.Write(core.MultiFrame(
+				keys,
+				[]telem.Series{
+					telem.NewSeriesSecondsTSV(10, 11, 12, 13),
+					telem.NewSeriesV[float32](10, 11, 12, 13),
+				},
+			))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+
+			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+				Keys:             keys,
+				Bounds:           telem.TimeRangeMax,
+				DownsampleFactor: 2,
+			}))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+
+			v := iter.Value().Get(dataCh.Key())
+			Expect(v.Series).To(HaveLen(2))
+			// Domain 0: [1, 2, 3, 4] downsampled by 2 = [1, 3]
+			Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](1, 3))
+			// Domain 1: [10, 11, 12, 13] downsampled by 2 = [10, 12]
+			Expect(v.Series[1]).To(telem.MatchSeriesDataV[float32](10, 12))
+
+			Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+			Expect(iter.Close()).To(Succeed())
 		})
 	})
 })

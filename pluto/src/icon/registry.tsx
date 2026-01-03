@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -72,6 +72,7 @@ import {
   IoShapes,
   IoTerminal,
   IoTime,
+  IoTvOutline,
 } from "react-icons/io5";
 import {
   MdAlignHorizontalCenter,
@@ -241,6 +242,7 @@ export const Info = wrapSVGIcon(BsFillInfoSquareFill, "info");
 export const Warning = wrapSVGIcon(AiFillWarning, "warning");
 export const Check = wrapSVGIcon(AiOutlineCheck, "check");
 export const Refresh = wrapSVGIcon(IoMdRefresh, "refresh");
+export const View = wrapSVGIcon(IoTvOutline, "view");
 export const Delete = wrapSVGIcon(AiFillDelete, "delete");
 export const Time = wrapSVGIcon(IoTime, "time");
 export const Acquire = wrapSVGIcon(FaStream, "acquire");
@@ -564,6 +566,7 @@ const icons = {
   Guide,
   Focus,
   OpenInNewWindow,
+  View,
   MoveToMainWindow,
   SplitX,
   SplitY,

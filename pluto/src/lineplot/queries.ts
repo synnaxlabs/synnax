@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,7 +20,7 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
 > = { listeners: [] };
 
 export const FLUX_STORE_KEY = "lineplots";
-const RESOURCE_NAME = "Line Plot";
+const RESOURCE_NAME = "line plot";
 
 export interface FluxStore extends Flux.UnaryStore<lineplot.Key, lineplot.LinePlot> {}
 

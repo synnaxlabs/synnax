@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -106,10 +106,7 @@ func WithInstrumentation(i alamos.Instrumentation) Option {
 // InMemory sets aspen to use a memory-backed KV engine. This option is ignored if a
 // custom KV engine is set (using WithEngine).
 func InMemory() Option {
-	return func(o *options) {
-		o.dirname = ""
-		o.fs = vfs.NewMem()
-	}
+	return func(o *options) { o.dirname = ""; o.fs = vfs.NewMem() }
 }
 
 // PropagationConfig is a set of configurable values that tune how quickly state converges

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,6 +12,8 @@
 #include "client/cpp/transport.h"
 #include "freighter/cpp/fgrpc/fgrpc.h"
 
+#include "core/pkg/api/grpc/v1/arc.grpc.pb.h"
+#include "core/pkg/api/grpc/v1/arc.pb.h"
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/auth.grpc.pb.h"
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/auth.pb.h"
 #include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/channel.grpc.pb.h"
@@ -130,7 +132,19 @@ synnax::Transport synnax::Transport::configure(
         .status_delete = std::make_shared<fgrpc::UnaryClient<
             api::v1::StatusDeleteRequest,
             google::protobuf::Empty,
-            api::v1::StatusDeleteService>>(pool, base_target)
+            api::v1::StatusDeleteService>>(pool, base_target),
+        .arc_create = std::make_shared<fgrpc::UnaryClient<
+            api::v1::ArcCreateRequest,
+            api::v1::ArcCreateResponse,
+            api::v1::ArcCreateService>>(pool, base_target),
+        .arc_retrieve = std::make_shared<fgrpc::UnaryClient<
+            api::v1::ArcRetrieveRequest,
+            api::v1::ArcRetrieveResponse,
+            api::v1::ArcRetrieveService>>(pool, base_target),
+        .arc_delete = std::make_shared<fgrpc::UnaryClient<
+            api::v1::ArcDeleteRequest,
+            google::protobuf::Empty,
+            api::v1::ArcDeleteService>>(pool, base_target)
     };
 }
 
@@ -156,4 +170,7 @@ void synnax::Transport::use(const std::shared_ptr<freighter::Middleware> &mw) co
     status_retrieve->use(mw);
     status_set->use(mw);
     status_delete->use(mw);
+    arc_create->use(mw);
+    arc_retrieve->use(mw);
+    arc_delete->use(mw);
 }

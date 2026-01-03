@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,11 +19,13 @@ import { state } from "@/state";
 import { Status } from "@/status";
 
 export const FLUX_STORE_KEY = "tasks";
-export const RESOURCE_NAME = "Task";
-export const PLURAL_RESOURCE_NAME = "Tasks";
+export const RESOURCE_NAME = "task";
+export const PLURAL_RESOURCE_NAME = "tasks";
 
-export interface FluxStore
-  extends Flux.UnaryStore<task.Key, Omit<task.Task, "status">> {}
+export interface FluxStore extends Flux.UnaryStore<
+  task.Key,
+  Omit<task.Task, "status">
+> {}
 
 export interface FluxSubStore extends Ontology.FluxSubStore, Label.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;

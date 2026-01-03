@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -70,6 +70,41 @@ var resolver = symbol.MapResolver{
 		Kind: symbol.KindChannel,
 		Type: types.Chan(types.F64()),
 	},
+	"main": symbol.Symbol{
+		Name: "main",
+		Kind: symbol.KindSequence,
+		Type: types.Sequence(),
+	},
+	"initialization": symbol.Symbol{
+		Name: "initialization",
+		Kind: symbol.KindStage,
+		Type: types.Stage(),
+	},
+	"pressurization": symbol.Symbol{
+		Name: "pressurization",
+		Kind: symbol.KindStage,
+		Type: types.Stage(),
+	},
+	"abort": symbol.Symbol{
+		Name: "abort",
+		Kind: symbol.KindStage,
+		Type: types.Stage(),
+	},
+	"sensor": symbol.Symbol{
+		Name: "sensor",
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.F32()),
+	},
+	"pressure": symbol.Symbol{
+		Name: "pressure",
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.F32()),
+	},
+	"start_cmd": symbol.Symbol{
+		Name: "start_cmd",
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.U8()),
+	},
 }
 
 var _ = Describe("Flow Statements", func() {
@@ -97,12 +132,12 @@ var _ = Describe("Flow Statements", func() {
 			ast := MustSucceed(parser.Parse(`
 			func controller{
 				setpoint f64
-				input <-chan f64
-				output ->chan f64
+				input chan f64
+				output chan f64
 			} () {
-				value := <-input
+				value := input
 				if value > setpoint {
-					value -> output
+					output = value
 				}
 			}
 
@@ -121,12 +156,12 @@ var _ = Describe("Flow Statements", func() {
 			ast := MustSucceed(parser.Parse(`
 			func filter{
 				threshold f64
-				input <-chan f64
-				output ->chan f64
+				input chan f64
+				output chan f64
 			} () {
-				value := <-input
+				value := input
 				if value > threshold {
-					value -> output
+					output = value
 				}
 			}
 
@@ -148,9 +183,9 @@ var _ = Describe("Flow Statements", func() {
 		It("Should detect when func is invoked with extra parameters not in signature", func() {
 			ast := MustSucceed(parser.Parse(`
 			func simple{
-				input <-chan f64
+				input chan f64
 			} () {
-				value := <-input
+				value := input
 			}
 
 			// 'extra' is not a valid config parameter for 'simple'
@@ -171,9 +206,9 @@ var _ = Describe("Flow Statements", func() {
 				threshold f64
 				count u32
 				message str
-				input <-chan f64
+				input chan f64
 			} () {
-				value := <-input
+				value := input
 				if value > threshold {
 					// do something
 				}
@@ -211,9 +246,9 @@ var _ = Describe("Flow Statements", func() {
 				threshold f64
 				count u32
 				message str
-				input <-chan f64
+				input chan f64
 			} () {
-				value := <-input
+				value := input
 				if value > threshold {
 					// do something
 				}
@@ -234,12 +269,12 @@ var _ = Describe("Flow Statements", func() {
 		It("Should allow channels as both sources and targets in flow statements", func() {
 			ast := MustSucceed(parser.Parse(`
 			func process{
-				input <-chan f64
-				output ->chan f64
+				input chan f64
+				output chan f64
 			} () {
-				value := <-input
+				value := input
 				processed := value * 2.0
-				processed -> output
+				output = processed
 			}
 
 			// Channel as source -> func -> channel as target
@@ -265,17 +300,17 @@ var _ = Describe("Flow Statements", func() {
 		It("Should understand channel pass-through triggers tasks on new values", func() {
 			ast := MustSucceed(parser.Parse(`
 			func logger{
-				value <-chan f64
+				value chan f64
 			} () {
-				v := <-value
+				v := value
 				// Log the value
 			}
 
 			func controller{
-				temp <-chan f64
+				temp chan f64
 				setpoint f64
 			} () {
-				current := <-temp
+				current := temp
 				if current > setpoint {
 					// Take action
 				}
@@ -299,9 +334,9 @@ var _ = Describe("Flow Statements", func() {
 		It("Should implicitly convert channel sources to on{channel} func invocations", func() {
 			ast := MustSucceed(parser.Parse(`
 			func display{
-				input <-chan f64
+				input chan f64
 			} () {
-				value := <-input
+				value := input
 				// Display the value
 			}
 
@@ -331,9 +366,9 @@ var _ = Describe("Flow Statements", func() {
 
 			ast := MustSucceed(parser.Parse(`
 			func display{
-				input <-chan f64
+				input chan f64
 			} () {
-				value := <-input
+				value := input
 			}
 
 			// This should fail because "on" func is not available
@@ -398,10 +433,7 @@ sensor_chan > threshold -> alarm{}
 			ast := MustSucceed(parser.Parse(`
 			func demux{
 				threshold f64
-			} (value f32) {
-				high f32
-				low f32
-			} {
+			} (value f32) (high f32, low f32) {
 				if (value > f32(threshold)) {
 					high = value
 				} else {
@@ -434,10 +466,7 @@ sensor_chan > threshold -> alarm{}
 			ast := MustSucceed(parser.Parse(`
 			func demux{
 				threshold f64
-			} (value f64) {
-				high f64
-				low f64
-			} {
+			} (value f64) (high f64, low f64) {
 				if (value > threshold) {
 					high = value
 				} else {
@@ -477,10 +506,7 @@ sensor_chan > threshold -> alarm{}
 
 		It("Should detect when routing to non-existent output", func() {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) {
-				high f64
-				low f64
-			} {
+			func demux{} (value f64) (high f64, low f64) {
 				if (value > 100.0) {
 					high = value
 				} else {
@@ -503,10 +529,7 @@ sensor_chan > threshold -> alarm{}
 
 		It("Should type-check routing table targets", func() {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) {
-				high f64
-				low f64
-			} {
+			func demux{} (value f64) (high f64, low f64) {
 				if (value > 100.0) {
 					high = value
 				} else {
@@ -528,10 +551,7 @@ sensor_chan > threshold -> alarm{}
 
 		It("Should analyze routing table with chained nodes", func() {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) {
-				high f64
-				low f64
-			} {
+			func demux{} (value f64) (high f64, low f64) {
 				if (value > 100.0) {
 					high = value
 				} else {
@@ -557,10 +577,7 @@ sensor_chan > threshold -> alarm{}
 
 		It("Should route to channels in routing table", func() {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) {
-				high f64
-				low f64
-			} {
+			func demux{} (value f64) (high f64, low f64) {
 				if (value > 100.0) {
 					high = value
 				} else {
@@ -579,10 +596,7 @@ sensor_chan > threshold -> alarm{}
 
 		It("Should warn about unassigned outputs", func() {
 			ast := MustSucceed(parser.Parse(`
-			func incomplete{} (value f32) {
-				high f32
-				low f32
-			} {
+			func incomplete{} (value f32) (high f32, low f32) {
 				if (value > 100.0) {
 					high = value
 				}
@@ -599,10 +613,7 @@ sensor_chan > threshold -> alarm{}
 
 		It("Should validate config parameters in routing table targets", func() {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) {
-				high f64
-				low f64
-			} {
+			func demux{} (value f64) (high f64, low f64) {
 				if (value > 100.0) {
 					high = value
 				} else {
@@ -628,10 +639,7 @@ sensor_chan > threshold -> alarm{}
 
 		It("Should analyze routing table with parameter mapping", func() {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) {
-				high f64
-				low f64
-			} {
+			func demux{} (value f64) (high f64, low f64) {
 				if (value > 100.0) {
 					high = value
 				} else {
@@ -654,10 +662,7 @@ sensor_chan > threshold -> alarm{}
 
 		It("Should detect invalid parameter name in routing table", func() {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) {
-				high f64
-				low f64
-			} {
+			func demux{} (value f64) (high f64, low f64) {
 				if (value > 100.0) {
 					high = value
 				} else {
@@ -681,10 +686,7 @@ sensor_chan > threshold -> alarm{}
 
 		It("Should type-check parameter mapping", func() {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) {
-				high f64
-				low f64
-			} {
+			func demux{} (value f64) (high f64, low f64) {
 				if (value > 100.0) {
 					high = value
 				} else {
@@ -712,10 +714,7 @@ sensor_chan > threshold -> alarm{}
 
 		It("Should analyze routing table with chained processing and parameter mapping", func() {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) {
-				high f64
-				low f64
-			} {
+			func demux{} (value f64) (high f64, low f64) {
 				if (value > 100.0) {
 					high = value
 				} else {
@@ -746,10 +745,7 @@ sensor_chan > threshold -> alarm{}
 
 		It("Should require next func when using parameter mapping", func() {
 			ast := MustSucceed(parser.Parse(`
-			func demux{} (value f64) {
-				high f64
-				low f64
-			} {
+			func demux{} (value f64) (high f64, low f64) {
 				if (value > 100.0) {
 					high = value
 				} else {
@@ -765,6 +761,72 @@ sensor_chan > threshold -> alarm{}
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("parameter mapping requires a func after the routing table"))
+		})
+	})
+
+	Describe("Literal Type Inference", func() {
+		It("Should infer integer literal as f32 when target channel is f32", func() {
+			literalResolver := symbol.MapResolver{
+				"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.F32())},
+			}
+			ast := MustSucceed(parser.Parse(`1 -> output`))
+			ctx := context.CreateRoot(bCtx, ast, literalResolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should infer integer literal as i32 when target channel is i32", func() {
+			literalResolver := symbol.MapResolver{
+				"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.I32())},
+			}
+			ast := MustSucceed(parser.Parse(`1 -> output`))
+			ctx := context.CreateRoot(bCtx, ast, literalResolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should infer float literal as f64 when target channel is f64", func() {
+			literalResolver := symbol.MapResolver{
+				"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
+			}
+			ast := MustSucceed(parser.Parse(`1.5 -> output`))
+			ctx := context.CreateRoot(bCtx, ast, literalResolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+	})
+
+	Describe("Sequence Stages and Flow Operators", func() {
+		It("Should compile sequences with stage targets and mixed flow operators", func() {
+			ast := MustSucceed(parser.Parse(`
+			func threshold{} (val f32) u8 {
+				return val > 100
+			}
+
+			func prepare{} () u8 {
+				return 1
+			}
+
+			func recover{} () u8 {
+				return 1
+			}
+
+			sequence main {
+				stage initialization {
+					sensor -> prepare{} => next
+				}
+
+				stage pressurization {
+					sensor -> threshold{} => next,
+					pressure -> threshold{} => abort
+				}
+
+				stage abort {
+					recover{} => initialization
+				}
+			}
+
+			start_cmd => main
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 		})
 	})
 })

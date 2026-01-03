@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -137,6 +137,41 @@ var _ = Describe("DB Metadata Operations", func() {
 					ch, err := meta.Read(ctx, dataDBfs, codec)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(ch.Name).To(Equal("test"))
+				})
+			})
+
+			Describe("Size", func() {
+				It("Should return zero for an empty database", func() {
+					Expect(indexDB.Size()).To(Equal(telem.Size(0)))
+					Expect(dataDB.Size()).To(Equal(telem.Size(0)))
+				})
+
+				It("Should return the correct size after writing data", func() {
+					w, _ := MustSucceed2(indexDB.OpenWriter(ctx, unary.WriterConfig{
+						Start:   telem.TimeStamp(0),
+						Subject: control.Subject{Key: "size_test"},
+					}))
+					MustSucceed(w.Write(telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4)))
+					MustSucceed(w.Commit(ctx))
+					MustSucceed(w.Close())
+
+					expectedSize := telem.Size(5 * telem.TimeStampT.Density())
+					Expect(indexDB.Size()).To(Equal(expectedSize))
+				})
+
+				It("Should accumulate size across multiple writes", func() {
+					w, _ := MustSucceed2(indexDB.OpenWriter(ctx, unary.WriterConfig{
+						Start:   telem.TimeStamp(0),
+						Subject: control.Subject{Key: "size_test"},
+					}))
+					MustSucceed(w.Write(telem.NewSeriesSecondsTSV(0, 1, 2)))
+					MustSucceed(w.Commit(ctx))
+					MustSucceed(w.Write(telem.NewSeriesSecondsTSV(3, 4)))
+					MustSucceed(w.Commit(ctx))
+					MustSucceed(w.Close())
+
+					expectedSize := telem.Size(5 * telem.TimeStampT.Density())
+					Expect(indexDB.Size()).To(Equal(expectedSize))
 				})
 			})
 

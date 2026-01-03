@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -150,6 +150,58 @@ func (x *PBSeries) GetAlignment() uint64 {
 	return 0
 }
 
+type PBFrame struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Keys          []uint32               `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
+	Series        []*PBSeries            `protobuf:"bytes,2,rep,name=series,proto3" json:"series,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PBFrame) Reset() {
+	*x = PBFrame{}
+	mi := &file_x_go_telem_telem_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PBFrame) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PBFrame) ProtoMessage() {}
+
+func (x *PBFrame) ProtoReflect() protoreflect.Message {
+	mi := &file_x_go_telem_telem_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PBFrame.ProtoReflect.Descriptor instead.
+func (*PBFrame) Descriptor() ([]byte, []int) {
+	return file_x_go_telem_telem_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *PBFrame) GetKeys() []uint32 {
+	if x != nil {
+		return x.Keys
+	}
+	return nil
+}
+
+func (x *PBFrame) GetSeries() []*PBSeries {
+	if x != nil {
+		return x.Series
+	}
+	return nil
+}
+
 var File_x_go_telem_telem_proto protoreflect.FileDescriptor
 
 const file_x_go_telem_telem_proto_rawDesc = "" +
@@ -163,7 +215,10 @@ const file_x_go_telem_telem_proto_rawDesc = "" +
 	"time_range\x18\x01 \x01(\v2\x12.telem.PBTimeRangeR\ttimeRange\x12\x1b\n" +
 	"\tdata_type\x18\x02 \x01(\tR\bdataType\x12\x12\n" +
 	"\x04data\x18\x03 \x01(\fR\x04data\x12\x1c\n" +
-	"\talignment\x18\x04 \x01(\x04R\talignmentBj\n" +
+	"\talignment\x18\x04 \x01(\x04R\talignment\"F\n" +
+	"\aPBFrame\x12\x12\n" +
+	"\x04keys\x18\x01 \x03(\rR\x04keys\x12'\n" +
+	"\x06series\x18\x02 \x03(\v2\x0f.telem.PBSeriesR\x06seriesBj\n" +
 	"\tcom.telemB\n" +
 	"TelemProtoP\x01Z\x1dgithub.com/synnaxlabs/x/telem\xa2\x02\x03TXX\xaa\x02\x05Telem\xca\x02\x05Telem\xe2\x02\x11Telem\\GPBMetadata\xea\x02\x05Telemb\x06proto3"
 
@@ -179,18 +234,20 @@ func file_x_go_telem_telem_proto_rawDescGZIP() []byte {
 	return file_x_go_telem_telem_proto_rawDescData
 }
 
-var file_x_go_telem_telem_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_x_go_telem_telem_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_x_go_telem_telem_proto_goTypes = []any{
 	(*PBTimeRange)(nil), // 0: telem.PBTimeRange
 	(*PBSeries)(nil),    // 1: telem.PBSeries
+	(*PBFrame)(nil),     // 2: telem.PBFrame
 }
 var file_x_go_telem_telem_proto_depIdxs = []int32{
 	0, // 0: telem.PBSeries.time_range:type_name -> telem.PBTimeRange
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	1, // 1: telem.PBFrame.series:type_name -> telem.PBSeries
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_x_go_telem_telem_proto_init() }
@@ -204,7 +261,7 @@ func file_x_go_telem_telem_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_x_go_telem_telem_proto_rawDesc), len(file_x_go_telem_telem_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

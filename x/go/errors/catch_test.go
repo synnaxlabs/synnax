@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -64,13 +64,6 @@ var _ = Describe("Catcher", func() {
 			It("Should contain a non-nil error", func() {
 				Expect(catcher.Error()).ToNot(BeNil())
 			})
-			Describe("Reset", func() {
-				It("Should reset the catcher", func() {
-					catcher.Reset()
-					Expect(catcher.Error()).To(BeNil())
-				})
-			})
-
 		})
 		Context("Aggregation", func() {
 			var catcher = errors.NewCatcher(errors.WithAggregation())

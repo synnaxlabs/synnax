@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -32,4 +32,15 @@ type Node interface {
 	// Next executes the node's computational logic.
 	// Called each cycle when the node is in stratum-0 or when marked as changed.
 	Next(ctx Context)
+	// Reset is called when a stage containing this node is activated.
+	// It resets internal state (e.g., timers) and one-shot edge tracking.
+	// Nodes that embed *state.Node get a default implementation that clears
+	// one-shot state. Nodes with custom state should override and call the
+	// embedded Reset() first.
+	Reset()
+	// IsOutputTruthy checks if the output at the given param name is truthy.
+	// Used by the scheduler to evaluate one-shot edges - edges only fire
+	// when the source output is truthy (non-zero for numeric types).
+	// Nodes that embed *state.Node automatically inherit this implementation.
+	IsOutputTruthy(paramName string) bool
 }

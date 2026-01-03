@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -36,7 +36,8 @@ export interface UseDrawerReturn {
 }
 
 export interface DrawerProps
-  extends Omit<BarProps, "onSelect" | "onResize">,
+  extends
+    Omit<BarProps, "onSelect" | "onResize">,
     UseDrawerReturn,
     Partial<Pick<Resize.SingleProps, "onResize" | "collapseThreshold" | "onCollapse">> {
   eraseEnabled?: boolean;

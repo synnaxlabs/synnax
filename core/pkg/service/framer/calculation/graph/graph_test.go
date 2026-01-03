@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -34,7 +34,7 @@ var _ = BeforeSuite(func() {
 	ctx = context.Background()
 	distB := mock.NewCluster()
 	dist = distB.Provision(ctx)
-	labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+	labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,

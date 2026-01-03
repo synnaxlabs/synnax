@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -69,7 +69,6 @@ func passThroughStreamerResponseTranslator(res StreamerResponse) StreamerRespons
 // streamer, and cancelling it has no implications after NewStreamer returns.
 func (db *DB) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer[StreamerRequest, StreamerResponse], error) {
 	return NewTranslatedStreamer(
-		ctx,
 		db,
 		cfg,
 		passThroughStreamerRequestTranslator,
@@ -79,11 +78,10 @@ func (db *DB) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer[Str
 }
 
 func NewTranslatedStreamer[I any, O any](
-	_ context.Context,
 	db *DB,
 	cfg StreamerConfig,
 	translateRequest func(I) StreamerRequest,
-	translateResponse func(response StreamerResponse) O,
+	translateResponse func(StreamerResponse) O,
 ) (Streamer[I, O], error) {
 	if db.closed.Load() {
 		return nil, errDBClosed

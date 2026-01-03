@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -103,6 +103,9 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 	}
 	return frame, err
 }
+
+// Size returns the total size of all data stored in the database.
+func (db *DB) Size() telem.Size { return db.domain.Size() }
 
 // Close closes the unary database, releasing all resources associated with it. Close
 // will return an error if there are any unclosed writers, iterators, or delete

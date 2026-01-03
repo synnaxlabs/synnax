@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -92,30 +92,6 @@ var _ = Describe("Validate", func() {
 
 				It("Should catch non-positive numbers", func() {
 					Expect(validate.Positive(v, "field", 0)).To(BeTrue())
-					Expect(v.Error()).To(HaveOccurred())
-				})
-			})
-
-			Describe("Filtering", func() {
-				It("Should validate numbers greater than threshold", func() {
-					Expect(validate.GreaterThan(v, "field", 10, 5)).To(BeFalse())
-					Expect(v.Error()).NotTo(HaveOccurred())
-				})
-
-				It("Should catch numbers less than or equal to threshold", func() {
-					Expect(validate.GreaterThan(v, "field", 5, 5)).To(BeTrue())
-					Expect(v.Error()).To(HaveOccurred())
-				})
-			})
-
-			Describe("LessThan", func() {
-				It("Should validate numbers less than threshold", func() {
-					Expect(validate.LessThan(v, "field", 5, 10)).To(BeFalse())
-					Expect(v.Error()).NotTo(HaveOccurred())
-				})
-
-				It("Should catch numbers greater than or equal to threshold", func() {
-					Expect(validate.LessThan(v, "field", 10, 10)).To(BeTrue())
 					Expect(v.Error()).To(HaveOccurred())
 				})
 			})

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -59,11 +59,10 @@ const EmptyContent = ({ onAdd }: EmptyContentProps) => {
   );
 };
 
-export interface ChannelListProps<C extends Channel>
-  extends Omit<
-    CoreProps<C>,
-    "data" | "header" | "emptyContent" | "path" | "remove" | "onDuplicate"
-  > {
+export interface ChannelListProps<C extends Channel> extends Omit<
+  CoreProps<C>,
+  "data" | "header" | "emptyContent" | "path" | "remove" | "onDuplicate"
+> {
   createChannel: (channels: C[]) => C | null;
   createChannels?: (channels: C[], keys: string[]) => C[];
   path?: string;

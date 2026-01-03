@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -47,7 +47,6 @@ package bindings
 import (
 	"context"
 	"math"
-	"sync"
 
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/x/telem"
@@ -69,8 +68,6 @@ type Runtime struct {
 	// Key: (funcID << 32) | varID
 {{range .NumericTypes}}	state{{.IRType | title}} map[uint64]{{.GoType}}
 {{end}}	stateString map[uint64]string
-
-	mu sync.RWMutex
 }
 
 func NewRuntime(state *state.State, memory api.Memory) *Runtime {
@@ -86,8 +83,6 @@ func NewRuntime(state *state.State, memory api.Memory) *Runtime {
 
 // SetMemory updates the WASM memory reference (used after module instantiation).
 func (r *Runtime) SetMemory(memory api.Memory) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
 	r.memory = memory
 }
 
@@ -101,9 +96,6 @@ func stateKey(funcID uint32, varID uint32) uint64 {
 {{range .Types}}{{if ne .IRType "str"}}
 // ChannelRead{{.IRType | title}} reads the latest value from a channel.
 func (r *Runtime) ChannelRead{{.IRType | title}}(ctx context.Context, channelID uint32) {{.GoType}} {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return {{.GoType}}(0) // Default value
@@ -115,9 +107,6 @@ func (r *Runtime) ChannelRead{{.IRType | title}}(ctx context.Context, channelID 
 
 // ChannelWrite{{.IRType | title}} writes a value to a channel (queued for flush).
 func (r *Runtime) ChannelWrite{{.IRType | title}}(ctx context.Context, channelID uint32, value {{.GoType}}) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Create a single-value series
 	series := telem.NewSeriesV[{{.GoType}}](value)
 
@@ -131,9 +120,6 @@ func (r *Runtime) ChannelWrite{{.IRType | title}}(ctx context.Context, channelID
 {{range .Types}}{{if ne .IRType "str"}}
 // StateLoad{{.IRType | title}} loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoad{{.IRType | title}}(ctx context.Context, funcID uint32, varID uint32, initValue {{.GoType}}) {{.GoType}} {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	if value, ok := r.state{{.IRType | title}}[key]; ok {
 		return value
@@ -145,9 +131,6 @@ func (r *Runtime) StateLoad{{.IRType | title}}(ctx context.Context, funcID uint3
 
 // StateStore{{.IRType | title}} stores a stateful variable's value.
 func (r *Runtime) StateStore{{.IRType | title}}(ctx context.Context, funcID uint32, varID uint32, value {{.GoType}}) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	r.state{{.IRType | title}}[key] = value
 }
@@ -183,8 +166,8 @@ func (r *Runtime) MathPowF64(ctx context.Context, base float64, exponent float64
 }
 
 {{range .IntegerTypes}}
-// MathIntPow{{.IRType | title}} computes base^exponent for {{.IRType}} using integer exponentiation.
-func (r *Runtime) MathIntPow{{.IRType | title}}(ctx context.Context, base {{.GoType}}, exponent {{.GoType}}) {{.GoType}} {
+// MathPow{{.IRType | title}} computes base^exponent for {{.IRType}} using integer exponentiation.
+func (r *Runtime) MathPow{{.IRType | title}}(ctx context.Context, base {{.GoType}}, exponent {{.GoType}}) {{.GoType}} {
 	return xmath.IntPow(base, int(exponent))
 }
 {{end}}
@@ -193,9 +176,6 @@ func (r *Runtime) MathIntPow{{.IRType | title}}(ctx context.Context, base {{.GoT
 
 // StringFromLiteral creates a string from WASM memory and returns a handle.
 func (r *Runtime) StringFromLiteral(ctx context.Context, ptr uint32, length uint32) uint32 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Read string data from WASM memory
 	data, ok := r.memory.Read(ptr, length)
 	if !ok {
@@ -214,9 +194,6 @@ func (r *Runtime) StringFromLiteral(ctx context.Context, ptr uint32, length uint
 
 // StringLen returns the length of a string.
 func (r *Runtime) StringLen(ctx context.Context, handle uint32) uint32 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	if str, ok := r.strings[handle]; ok {
 		return uint32(len(str))
 	}
@@ -225,9 +202,6 @@ func (r *Runtime) StringLen(ctx context.Context, handle uint32) uint32 {
 
 // StringEqual compares two strings for equality.
 func (r *Runtime) StringEqual(ctx context.Context, handle1 uint32, handle2 uint32) uint32 {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
 	str1, ok1 := r.strings[handle1]
 	str2, ok2 := r.strings[handle2]
 
@@ -239,9 +213,6 @@ func (r *Runtime) StringEqual(ctx context.Context, handle1 uint32, handle2 uint3
 
 // ChannelReadStr reads the latest string from a channel and returns a handle.
 func (r *Runtime) ChannelReadStr(ctx context.Context, channelID uint32) uint32 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	series, ok := r.state.ReadChannelValue(channelID)
 	if !ok || series.Len() == 0 {
 		return 0 // Return null handle
@@ -266,9 +237,6 @@ func (r *Runtime) ChannelReadStr(ctx context.Context, channelID uint32) uint32 {
 
 // ChannelWriteStr writes a string to a channel (queued for flush).
 func (r *Runtime) ChannelWriteStr(ctx context.Context, channelID uint32, handle uint32) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Look up string by handle
 	str, ok := r.strings[handle]
 	if !ok {
@@ -288,9 +256,6 @@ func (r *Runtime) ChannelWriteStr(ctx context.Context, channelID uint32, handle 
 
 // StateLoadStr loads a stateful string variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadStr(ctx context.Context, funcID uint32, varID uint32, initHandle uint32) uint32 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	key := stateKey(funcID, varID)
 	str, ok := r.stateString[key]
 	if ok {
@@ -310,9 +275,6 @@ func (r *Runtime) StateLoadStr(ctx context.Context, funcID uint32, varID uint32,
 
 // StateStoreStr stores a stateful string variable's value.
 func (r *Runtime) StateStoreStr(ctx context.Context, funcID uint32, varID uint32, handle uint32) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	// Look up string by handle
 	str, ok := r.strings[handle]
 	if !ok {

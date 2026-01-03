@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -94,7 +94,7 @@ func (c Config) Override(other Config) Config {
 // Validate implements the config.Properties interface.
 func (c Config) Validate() error {
 	v := validate.New("server")
-	validate.NotEmptyString(v, "listenAddress", c.ListenAddress)
+	validate.NotEmptyString(v, "listen_address", c.ListenAddress)
 	return v.Error()
 }
 

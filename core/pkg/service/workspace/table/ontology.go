@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -37,18 +37,6 @@ func OntologyIDs(keys []uuid.UUID) []ontology.ID {
 	return lo.Map(keys, func(key uuid.UUID, _ int) ontology.ID {
 		return OntologyID(key)
 	})
-}
-
-// KeysFromOntologyIDs extracts the keys of the tables from the ontology IDs.
-func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
-	keys = make([]uuid.UUID, len(ids))
-	for i, id := range ids {
-		keys[i], err = uuid.Parse(id.Key)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return keys, nil
 }
 
 // OntologyIDsFromTables returns the ontology IDs of the tables.

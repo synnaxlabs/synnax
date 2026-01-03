@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,6 +11,8 @@ package plumber_test
 
 import (
 	"context"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/address"
@@ -18,7 +20,6 @@ import (
 	. "github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
-	"time"
 )
 
 var _ = Describe("Pipeline", func() {
@@ -39,14 +40,6 @@ var _ = Describe("Pipeline", func() {
 			sink, err := GetSink[int](pipe, "sink")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sink).To(Equal(unarySink))
-		})
-
-		It("Should set and get a segment", func() {
-			trans := &confluence.LinearTransform[int, int]{}
-			SetSegment[int, int](pipe, "segment", trans)
-			segment, err := GetSegment[int, int](pipe, "segment")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(segment).To(Equal(segment))
 		})
 
 	})
@@ -100,20 +93,9 @@ var _ = Describe("Pipeline", func() {
 			_, err := GetSink[int](pipe, "sink")
 			Expect(err).To(HaveOccurred())
 		})
-		It("Should return an error if the sink is of the wrong typer2", func() {
+		It("Should return an error if the sink is of the wrong type", func() {
 			SetSink[int](pipe, "sink", &confluence.UnarySink[int]{})
 			_, err := GetSink[[]int](pipe, "sink")
-			Expect(err).To(HaveOccurred())
-		})
-	})
-	Describe("GetSegment", func() {
-		It("Should return an error if the segment is not found", func() {
-			_, err := GetSegment[int, int](pipe, "segment")
-			Expect(err).To(HaveOccurred())
-		})
-		It("Should return an error if the segment is of the wrong type", func() {
-			SetSegment[int, int](pipe, "segment", &confluence.LinearTransform[int, int]{})
-			_, err := GetSegment[int, []int](pipe, "segment")
 			Expect(err).To(HaveOccurred())
 		})
 	})

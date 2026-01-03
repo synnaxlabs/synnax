@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -56,16 +56,21 @@ func (r Relationship) GorpKey() []byte {
 // SetOptions implements the gorp.Entry interface.
 func (r Relationship) SetOptions() []any { return nil }
 
-func ParseRelationship(key []byte) (r Relationship, err error) {
+func ParseRelationship(key []byte) (Relationship, error) {
 	split := strings.Split(string(key), "->")
 	if len(split) != 3 {
-		return r, errors.Wrapf(validate.Error, "invalid relationship key: %s", key)
+		return Relationship{}, errors.Wrapf(validate.Error, "invalid relationship key: %s", key)
 	}
-	r.From, err = ParseID(split[0])
-	if err != nil {
-		return r, err
+	var (
+		r   Relationship
+		err error
+	)
+	if r.From, err = ParseID(split[0]); err != nil {
+		return Relationship{}, err
 	}
 	r.Type = RelationshipType(split[1])
-	r.To, err = ParseID(split[2])
-	return r, err
+	if r.To, err = ParseID(split[2]); err != nil {
+		return Relationship{}, err
+	}
+	return r, nil
 }

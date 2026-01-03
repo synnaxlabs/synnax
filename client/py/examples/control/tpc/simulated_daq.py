@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -65,7 +65,7 @@ for sensor in SENSORS:
     )
     print(s.name, s.key)
 
-loop = sy.Loop(sy.Rate.HZ * 10, precise=True)
+loop = sy.Loop(sy.Rate.HZ * 50, precise=True)
 
 DAQ_STATE = {
     OX_VENT_CMD: 0,
@@ -128,6 +128,7 @@ FUEL_MPV_LAST_OPEN = None
 calc = client.channels.create(
     name="calc",
     expression=f"return ({OX_PT_1} + {OX_PT_2}) / 2",
+    retrieve_if_name_exists=True,
 )
 
 with client.open_streamer([cmd for cmd in VALVES.keys()]) as streamer:

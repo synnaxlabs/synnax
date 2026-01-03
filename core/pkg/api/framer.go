@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -24,11 +24,11 @@ import (
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/x/address"
 	xbinary "github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
@@ -127,10 +127,10 @@ func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 	// which case resources have already been freed and cancel does nothing).
 	defer cancel()
 
-	receiver := &freightfluence.Receiver[iterator.Request]{Receiver: stream}
-	sender := &freightfluence.TransformSender[iterator.Response, iterator.Response]{
-		Sender: freighter.SenderNopCloser[iterator.Response]{StreamSender: stream},
-		Transform: func(ctx context.Context, res iterator.Response) (iterator.Response, bool, error) {
+	receiver := &freightfluence.Receiver[framer.IteratorRequest]{Receiver: stream}
+	sender := &freightfluence.TransformSender[framer.IteratorResponse, framer.IteratorResponse]{
+		Sender: freighter.SenderNopCloser[framer.IteratorResponse]{StreamSender: stream},
+		Transform: func(ctx context.Context, res framer.IteratorResponse) (framer.IteratorResponse, bool, error) {
 			res.Error = errors.Encode(ctx, res.Error, false)
 			return res, true, nil
 		},
@@ -139,8 +139,8 @@ func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 	plumber.SetSegment(pipe, frameIteratorAddr, iter)
 	plumber.SetSink(pipe, frameSenderAddr, sender)
 	plumber.SetSource(pipe, frameReceiverAddr, receiver)
-	plumber.MustConnect[iterator.Response](pipe, frameIteratorAddr, frameSenderAddr, iteratorResponseBufferSize)
-	plumber.MustConnect[iterator.Request](pipe, frameReceiverAddr, frameIteratorAddr, iteratorRequestBufferSize)
+	plumber.MustConnect[framer.IteratorResponse](pipe, frameIteratorAddr, frameSenderAddr, iteratorResponseBufferSize)
+	plumber.MustConnect[framer.IteratorRequest](pipe, frameReceiverAddr, frameIteratorAddr, iteratorRequestBufferSize)
 
 	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	return sCtx.Wait()
@@ -159,9 +159,10 @@ func (s *FrameService) openIterator(ctx context.Context, srv FrameIteratorStream
 		return nil, err
 	}
 	iter, err := s.Internal.NewStreamIterator(ctx, framer.IteratorConfig{
-		Bounds:    req.Bounds,
-		Keys:      req.Keys,
-		ChunkSize: req.ChunkSize,
+		Bounds:           req.Bounds,
+		Keys:             req.Keys,
+		ChunkSize:        req.ChunkSize,
+		DownsampleFactor: req.DownsampleFactor,
 	})
 	if err != nil {
 		return nil, err

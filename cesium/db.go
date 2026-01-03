@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -34,6 +34,14 @@ var (
 	ErrChannelNotFound   = core.ErrChannelNotFound
 	ZeroLeadingAlignment = core.ZeroLeadingAlignment
 )
+
+// Metrics contains statistics about the cesium database.
+type Metrics struct {
+	// DiskSize is the total disk space used by all channel data.
+	DiskSize telem.Size
+	// ChannelCount is the number of channels in the database.
+	ChannelCount int
+}
 
 // LeadingAlignment returns an Alignment whose array index is the maximum possible value
 // and whose sample index is the provided value.
@@ -106,6 +114,20 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...core.Channel
 		frame = frame.Extend(iter.Value())
 	}
 	return frame, err
+}
+
+// Metrics returns current metrics for the database.
+func (db *DB) Metrics() Metrics {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	var size telem.Size
+	for _, u := range db.mu.unaryDBs {
+		size += u.Size()
+	}
+	return Metrics{
+		DiskSize:     size,
+		ChannelCount: len(db.mu.unaryDBs) + len(db.mu.virtualDBs),
+	}
 }
 
 // Close closes the database.

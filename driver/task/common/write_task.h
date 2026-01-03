@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -100,7 +100,7 @@ public:
         };
     }
 
-    void set_state(const synnax::Frame &frame) {
+    void set_state(const telem::Frame &frame) {
         std::lock_guard lock{this->chan_state_lock};
         this->chan_state_cv.notify_all();
         for (const auto &[cmd_key, s]: frame) {
@@ -111,7 +111,7 @@ public:
         }
     }
 
-    xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
         std::unique_lock lock(chan_state_lock);
         this->chan_state_cv.wait_for(lock, this->state_rate.period().chrono());
         fr.clear();
@@ -145,11 +145,11 @@ class WriteTask final : public task::Task {
             this->p.stop("", true);
         }
 
-        xerrors::Error read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+        xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
             return this->internal->read(breaker, fr);
         }
 
-        xerrors::Error write(const synnax::Frame &frame) override {
+        xerrors::Error write(const telem::Frame &frame) override {
             if (frame.empty()) return xerrors::NIL;
             auto err = this->internal->write(frame);
             if (!err)

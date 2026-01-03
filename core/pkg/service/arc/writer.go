@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -37,24 +37,24 @@ type Writer struct {
 // a new key will be generated.
 func (w Writer) Create(
 	ctx context.Context,
-	c *Arc,
+	a *Arc,
 ) error {
 	var (
 		exists bool
 		err    error
 	)
-	if c.Key == uuid.Nil {
-		c.Key = uuid.New()
+	if a.Key == uuid.Nil {
+		a.Key = uuid.New()
 	} else {
-		exists, err = gorp.NewRetrieve[uuid.UUID, Arc]().WhereKeys(c.Key).Exists(ctx, w.tx)
+		exists, err = gorp.NewRetrieve[uuid.UUID, Arc]().WhereKeys(a.Key).Exists(ctx, w.tx)
 		if err != nil {
 			return err
 		}
 	}
-	if err = gorp.NewCreate[uuid.UUID, Arc]().Entry(c).Exec(ctx, w.tx); err != nil {
+	if err = gorp.NewCreate[uuid.UUID, Arc]().Entry(a).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := OntologyID(c.Key)
+	otgID := OntologyID(a.Key)
 	if !exists {
 		if err = w.otg.DefineResource(ctx, otgID); err != nil {
 			return err
@@ -62,8 +62,8 @@ func (w Writer) Create(
 	}
 
 	return w.status.SetWithParent(ctx, &status.Status[core.StatusDetails]{
-		Name:    fmt.Sprintf("%s Status", c.Name),
-		Key:     c.Key.String(),
+		Name:    fmt.Sprintf("%s Status", a.Name),
+		Key:     a.Key.String(),
 		Variant: xstatus.LoadingVariant,
 		Message: "Deploying",
 		Time:    telem.Now(),

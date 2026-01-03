@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -28,7 +28,7 @@ var _ = Describe("KV", Ordered, Serial, func() {
 	)
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
-		authenticator = auth.MultiAuthenticator{&auth.KV{DB: db}}
+		authenticator = &auth.KV{DB: db}
 		creds = auth.InsecureCredentials{Username: "username", Password: "password"}
 		invalPassCreds = auth.InsecureCredentials{Username: creds.Username, Password: "invalid"}
 		invalUserCreds = auth.InsecureCredentials{Username: "invalid", Password: creds.Password}

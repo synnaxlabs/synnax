@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -93,8 +93,8 @@ var (
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("ontology")
-	validate.NotNil(v, "cesium", c.DB)
-	validate.NotNil(v, "EnableSearch", c.EnableSearch)
+	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "enable_search", c.EnableSearch)
 	return v.Error()
 }
 

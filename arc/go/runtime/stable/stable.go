@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -43,7 +43,7 @@ var (
 )
 
 type stableFor struct {
-	state       *state.Node
+	*state.Node
 	duration    telem.TimeSpan
 	value       *uint8
 	lastSent    *uint8
@@ -53,10 +53,18 @@ type stableFor struct {
 
 func (s *stableFor) Init(ctx node.Context) {}
 
+// Reset resets the stableFor timer state when its stage is activated.
+func (s *stableFor) Reset() {
+	s.Node.Reset()
+	s.value = nil
+	s.lastSent = nil
+	s.lastChanged = 0
+}
+
 func (s *stableFor) Next(ctx node.Context) {
-	if s.state.RefreshInputs() {
-		inputData := s.state.Input(0)
-		inputTime := s.state.InputTime(0)
+	if s.RefreshInputs() {
+		inputData := s.Input(0)
+		inputTime := s.InputTime(0)
 		if inputData.Len() > 0 {
 			for i := int64(0); i < inputData.Len(); i++ {
 				currentValue := telem.ValueAt[uint8](inputData, int(i))
@@ -75,8 +83,8 @@ func (s *stableFor) Next(ctx node.Context) {
 	currentValue := *s.value
 	if telem.TimeSpan(s.now()-s.lastChanged) >= s.duration {
 		if s.lastSent == nil || *s.lastSent != currentValue {
-			*s.state.Output(0) = telem.NewSeriesV[uint8](currentValue)
-			*s.state.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](s.now())
+			*s.Output(0) = telem.NewSeriesV[uint8](currentValue)
+			*s.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](s.now())
 			s.lastSent = &currentValue
 			ctx.MarkChanged(ir.DefaultOutputParam)
 		}
@@ -115,5 +123,5 @@ func (f *stableFactory) Create(_ context.Context, cfg node.Config) (node.Node, e
 	if now == nil {
 		now = telem.Now
 	}
-	return &stableFor{state: cfg.State, duration: configVals.Duration, now: now}, nil
+	return &stableFor{Node: cfg.State, duration: configVals.Duration, now: now}, nil
 }

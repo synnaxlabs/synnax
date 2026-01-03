@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -123,13 +123,13 @@ var _ = Describe("Types", func() {
 				Expect(t.Unwrap()).To(Equal(t))
 			})
 
-			It("should handle channel with nil ValueType", func() {
-				chanType := types.Type{Kind: types.KindChan, ValueType: nil}
+			It("should handle channel with nil Elem", func() {
+				chanType := types.Type{Kind: types.KindChan, Elem: nil}
 				Expect(chanType.Unwrap()).To(Equal(chanType))
 			})
 
-			It("should handle series with nil ValueType", func() {
-				seriesType := types.Type{Kind: types.KindSeries, ValueType: nil}
+			It("should handle series with nil Elem", func() {
+				seriesType := types.Type{Kind: types.KindSeries, Elem: nil}
 				Expect(seriesType.Unwrap()).To(Equal(seriesType))
 			})
 		})
@@ -364,9 +364,9 @@ var _ = Describe("Types", func() {
 			Expect(types.Equal(types.Chan(types.I32()), types.Chan(types.I64()))).To(BeFalse())
 		})
 
-		It("Should handle chan types with nil ValueType", func() {
-			chan1 := types.Type{Kind: types.KindChan, ValueType: nil}
-			chan2 := types.Type{Kind: types.KindChan, ValueType: nil}
+		It("Should handle chan types with nil Elem", func() {
+			chan1 := types.Type{Kind: types.KindChan, Elem: nil}
+			chan2 := types.Type{Kind: types.KindChan, Elem: nil}
 			Expect(types.Equal(chan1, chan2)).To(BeTrue())
 
 			chan3 := types.Chan(types.I32())
@@ -379,9 +379,9 @@ var _ = Describe("Types", func() {
 			Expect(types.Equal(types.Series(types.F32()), types.Series(types.F64()))).To(BeFalse())
 		})
 
-		It("Should handle series types with nil ValueType", func() {
-			series1 := types.Type{Kind: types.KindSeries, ValueType: nil}
-			series2 := types.Type{Kind: types.KindSeries, ValueType: nil}
+		It("Should handle series types with nil Elem", func() {
+			series1 := types.Type{Kind: types.KindSeries, Elem: nil}
+			series2 := types.Type{Kind: types.KindSeries, Elem: nil}
 			Expect(types.Equal(series1, series2)).To(BeTrue())
 
 			series3 := types.Series(types.F64())
@@ -540,8 +540,8 @@ var _ = Describe("Types", func() {
 			Entry("chan f64", types.Chan(types.F64()), "chan f64"),
 			Entry("series i32", types.Series(types.I32()), "series i32"),
 			Entry("series f64", types.Series(types.F64()), "series f64"),
-			Entry("chan with nil ValueType", types.Type{Kind: types.KindChan, ValueType: nil}, "chan <invalid>"),
-			Entry("series with nil ValueType", types.Type{Kind: types.KindSeries, ValueType: nil}, "series <invalid>"),
+			Entry("chan with nil Elem", types.Type{Kind: types.KindChan, Elem: nil}, "chan <invalid>"),
+			Entry("series with nil Elem", types.Type{Kind: types.KindSeries, Elem: nil}, "series <invalid>"),
 		)
 
 		DescribeTable("Should return correct strings for type variables and constraints",

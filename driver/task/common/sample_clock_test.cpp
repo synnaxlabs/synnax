@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -422,7 +422,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 /// @brief it should generate evenly spaced timestamps for single index channel.
 TEST(TestCommonReadTask, testGenerateIndexDataSingleIndex) {
-    synnax::Frame fr;
+    telem::Frame fr;
     fr.reserve(2); // 1 data channel + 1 index
     fr.emplace(1, telem::Series(telem::FLOAT64_T, 3)); // Data channel
     fr.emplace(2, telem::Series(telem::TIMESTAMP_T, 3)); // Index channel
@@ -443,7 +443,7 @@ TEST(TestCommonReadTask, testGenerateIndexDataSingleIndex) {
 
 /// @brief it should generate identical timestamps for multiple index channels.
 TEST(TestCommonReadTask, testGenerateIndexDataMultipleIndices) {
-    synnax::Frame fr;
+    telem::Frame fr;
     fr.reserve(3);
     fr.emplace(1, telem::Series(telem::FLOAT64_T, 3));
     fr.emplace(2, telem::Series(telem::TIMESTAMP_T, 3));
@@ -466,7 +466,7 @@ TEST(TestCommonReadTask, testGenerateIndexDataMultipleIndices) {
 
 /// @brief it should handle empty index keys without modification.
 TEST(TestCommonReadTask, testGenerateIndexDataEmptyIndices) {
-    synnax::Frame fr;
+    telem::Frame fr;
     fr.reserve(1);
     fr.emplace(1, telem::Series(telem::FLOAT64_T, 3));
 
@@ -482,7 +482,7 @@ TEST(TestCommonReadTask, testGenerateIndexDataEmptyIndices) {
 
 /// @brief it should generate inclusive timestamps including end point.
 TEST(TestCommonReadTask, testGenerateIndexDataInclusive) {
-    synnax::Frame fr;
+    telem::Frame fr;
     fr.reserve(2);
     fr.emplace(1, telem::Series(telem::FLOAT64_T, 3)); // Data channel
     fr.emplace(2, telem::Series(telem::TIMESTAMP_T, 3)); // Index channel

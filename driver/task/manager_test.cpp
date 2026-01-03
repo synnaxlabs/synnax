@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -254,7 +254,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     );
     cmd.key = "my_command";
     ASSERT_NIL(
-        writer.write(synnax::Frame(sy_task_cmd.key, telem::Series(cmd.to_json())))
+        writer.write(telem::Frame(sy_task_cmd.key, telem::Series(cmd.to_json())))
     );
     ASSERT_NIL(writer.close());
 

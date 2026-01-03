@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -71,7 +71,6 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error
 	ctx := ccontext.CreateRoot(ctx_, program.Symbols, program.TypeMap, o.disableHostImports)
 
 	outputMemoryCounter := uint32(0x1000)
-	hasMultiOutput := false
 	outputMemoryBases := make(map[string]uint32)
 
 	for _, i := range program.Functions {
@@ -85,7 +84,6 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error
 
 		var outputMemoryBase uint32
 		if hasNamedOutputs {
-			hasMultiOutput = true
 			outputMemoryBase = outputMemoryCounter
 			outputMemoryBases[i.Key] = outputMemoryBase
 			var size uint32 = 8 // dirty flags
@@ -100,9 +98,8 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error
 		}
 	}
 
-	if hasMultiOutput {
-		ctx.Module.EnableMemory()
-	}
+	ctx.Module.EnableMemory()
+	ctx.Module.AddExport("memory", wasm.ExportMemory, 0)
 
 	return Output{WASM: ctx.Module.Generate(), OutputMemoryBases: outputMemoryBases}, nil
 }

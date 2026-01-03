@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,14 +13,18 @@ import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Button as CoreButton } from "@/button";
+import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { List } from "@/list";
-import { Frame, type FrameProps, useContext, useItemState } from "@/select/Frame";
+import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
+import { Frame, type FrameProps, useItemState } from "@/select/Frame";
 
 export interface ButtonsProps<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K>,
-> extends Omit<Flex.BoxProps, "onSelect" | "onChange">,
+>
+  extends
+    Omit<Flex.BoxProps, "onSelect" | "onChange">,
     Omit<FrameProps<K, E>, "getItem" | "subscribe" | "data"> {
   keys: K[] | readonly K[];
 }
@@ -48,26 +52,26 @@ export const Buttons = <K extends record.Key = record.Key>({
   );
 };
 
-export interface ButtonProps<K extends record.Key = record.Key>
-  extends Omit<CoreButton.ToggleProps, "onChange" | "value"> {
+export interface ButtonProps<K extends record.Key = record.Key> extends Omit<
+  CoreButton.ToggleProps,
+  "onChange" | "value"
+> {
   itemKey: K;
 }
 
 export const Button = <K extends record.Key = record.Key>({
   itemKey,
+  className,
   ...rest
 }: ButtonProps<K>): ReactElement | null => {
-  const { setSelected } = useContext();
   const { selected, onSelect } = useItemState<K>(itemKey);
   return (
     <CoreButton.Toggle
       {...rest}
+      id={itemKey.toString()}
       onChange={onSelect}
       value={selected}
-      onContextMenu={(e) => {
-        setSelected([itemKey]);
-        e.preventDefault();
-      }}
+      className={CSS(className, selected && CONTEXT_SELECTED, CONTEXT_TARGET)}
     />
   );
 };

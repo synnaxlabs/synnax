@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -206,9 +206,6 @@ func compilePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) (type
 	}
 	if cast := ctx.AST.TypeCast(); cast != nil {
 		return compileTypeCast(context.Child(ctx, cast))
-	}
-	if builtin := ctx.AST.BuiltinFunction(); builtin != nil {
-		return types.Type{}, errors.New("builtin functions not yet implemented")
 	}
 	return types.Type{}, errors.New("unknown primary expression")
 }

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,6 +18,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -165,7 +166,7 @@ func (s *Scope) Add(ctx context.Context, sym Symbol) (*Scope, error) {
 		}
 	}
 	child := &Scope{Parent: s, Symbol: sym}
-	if sym.Kind == KindFunction {
+	if sym.Kind == KindFunction || sym.Kind == KindSequence {
 		child.Counter = new(int)
 	}
 	if sym.Kind == KindVariable ||
@@ -278,7 +279,7 @@ func (s *Scope) ClosestAncestorOfKind(kind Kind) (*Scope, error) {
 		return s, nil
 	}
 	if s.Parent == nil {
-		return nil, errors.Newf("undefined symbol")
+		return nil, errors.Wrap(query.NotFound, "undefined symbol")
 	}
 	return s.Parent.ClosestAncestorOfKind(kind)
 }
@@ -291,7 +292,7 @@ func (s *Scope) FirstChildOfKind(kind Kind) (*Scope, error) {
 			return child, nil
 		}
 	}
-	return nil, errors.Newf("undefined symbol")
+	return nil, errors.Wrap(query.NotFound, "undefined symbol")
 }
 
 func (s *Scope) stringWithIndent(indent string) string {

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -30,11 +30,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/log"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/table"
+	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
@@ -57,6 +59,10 @@ type Config struct {
 	//
 	// [REQUIRED]
 	Security security.Provider
+	// Storage is the storage layer used for disk usage metrics.
+	//
+	// [REQUIRED]
+	Storage *storage.Layer
 }
 
 var (
@@ -72,6 +78,7 @@ func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Distribution = override.Nil(c.Distribution, other.Distribution)
 	c.Security = override.Nil(c.Security, other.Security)
+	c.Storage = override.Nil(c.Storage, other.Storage)
 	return c
 }
 
@@ -125,6 +132,8 @@ type Layer struct {
 	Metrics *metrics.Service
 	// Status is used for tracking the statuses
 	Status *status.Service
+	// View is used for managing views
+	View *view.Service
 	// closer is for properly shutting down the service layer.
 	closer xio.MultiCloser
 }
@@ -147,7 +156,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		err = cleanup(err)
 	}()
 
-	if l.User, err = user.OpenService(ctx, user.Config{
+	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
@@ -171,7 +180,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.Label, err = label.OpenService(ctx, label.Config{
+	if l.Label, err = label.OpenService(ctx, label.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
@@ -179,7 +188,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}); !ok(err, l.Label) {
 		return nil, err
 	}
-	if l.Ranger, err = ranger.OpenService(ctx, ranger.Config{
+	if l.Ranger, err = ranger.OpenService(ctx, ranger.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
@@ -188,7 +197,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}); !ok(err, l.Ranger) {
 		return nil, err
 	}
-	if l.Workspace, err = workspace.OpenService(ctx, workspace.Config{
+	if l.Workspace, err = workspace.OpenService(ctx, workspace.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
@@ -246,7 +255,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}); !ok(err, l.Rack) {
 		return nil, err
 	}
-	if l.Device, err = device.OpenService(ctx, device.Config{
+	if l.Device, err = device.OpenService(ctx, device.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
@@ -282,10 +291,22 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	); !ok(err, l.Arc) {
 		return nil, err
 	}
+	if l.View, err = view.OpenService(
+		ctx,
+		view.ServiceConfig{
+			Instrumentation: cfg.Child("view"),
+			DB:              cfg.Distribution.DB,
+			Signals:         cfg.Distribution.Signals,
+			Ontology:        cfg.Distribution.Ontology,
+			Group:           cfg.Distribution.Group,
+		},
+	); !ok(err, l.View) {
+		return nil, err
+	}
 	cfg.Distribution.Channel.SetCalculationAnalyzer(l.Arc.AnalyzeCalculation)
 	if l.Framer, err = framer.OpenService(
 		ctx,
-		framer.Config{
+		framer.ServiceConfig{
 			DB:              cfg.Distribution.DB,
 			Instrumentation: cfg.Child("framer"),
 			Framer:          cfg.Distribution.Framer,
@@ -298,14 +319,14 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	l.Console = console.NewService()
 	if l.Metrics, err = metrics.OpenService(
 		ctx,
-		metrics.Config{
+		metrics.ServiceConfig{
 			Instrumentation: cfg.Child("metrics"),
 			Framer:          l.Framer,
 			Channel:         cfg.Distribution.Channel,
 			HostProvider:    cfg.Distribution.Cluster,
+			Storage:         cfg.Storage,
 		}); !ok(err, l.Metrics) {
 		return nil, err
 	}
-
 	return l, nil
 }

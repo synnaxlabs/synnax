@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -299,7 +299,7 @@ private:
         return this->cfg.writer();
     }
 
-    common::ReadResult read(breaker::Breaker &breaker, synnax::Frame &fr) override {
+    common::ReadResult read(breaker::Breaker &breaker, telem::Frame &fr) override {
         common::ReadResult res;
         const auto n_channels = this->cfg.channels.size();
         const auto n_samples = this->cfg.samples_per_chan;

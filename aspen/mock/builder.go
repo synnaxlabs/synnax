@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,7 +17,6 @@ import (
 
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/errors"
 )
 
 type Builder struct {
@@ -73,15 +72,6 @@ func (b *Builder) New(ctx context.Context, opts ...aspen.Option) (*aspen.DB, err
 	}
 	b.peerAddresses = append(b.peerAddresses, addr)
 	return db, nil
-}
-
-func (b *Builder) Close() error {
-	c := errors.NewCatcher(errors.WithAggregation())
-	for _, ni := range b.Nodes {
-		c.Exec(ni.DB.Close)
-	}
-	c.Exec(b.Cleanup)
-	return c.Error()
 }
 
 func (b *Builder) Cleanup() error {

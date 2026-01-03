@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,19 +21,19 @@ import (
 )
 
 type binary struct {
-	state *state.Node
-	op    op.Binary
+	*state.Node
+	op op.Binary
 }
 
 func (n *binary) Init(node.Context) {}
 
 func (n *binary) Next(ctx node.Context) {
-	if !n.state.RefreshInputs() {
+	if !n.RefreshInputs() {
 		return
 	}
-	lhs, rhs := n.state.Input(0), n.state.Input(1)
-	n.op(lhs, rhs, n.state.Output(0))
-	*n.state.OutputTime(0) = n.state.InputTime(0)
+	lhs, rhs := n.Input(0), n.Input(1)
+	n.op(lhs, rhs, n.Output(0))
+	*n.OutputTime(0) = n.InputTime(0)
 	// Propagate alignment and time range from inputs to output
 	alignment := lhs.Alignment + rhs.Alignment
 	timeRange := telem.TimeRange{Start: lhs.TimeRange.Start, End: lhs.TimeRange.End}
@@ -43,10 +43,10 @@ func (n *binary) Next(ctx node.Context) {
 	if rhs.TimeRange.End > timeRange.End {
 		timeRange.End = rhs.TimeRange.End
 	}
-	n.state.Output(0).Alignment = alignment
-	n.state.Output(0).TimeRange = timeRange
-	n.state.OutputTime(0).Alignment = alignment
-	n.state.OutputTime(0).TimeRange = timeRange
+	n.Output(0).Alignment = alignment
+	n.Output(0).TimeRange = timeRange
+	n.OutputTime(0).Alignment = alignment
+	n.OutputTime(0).TimeRange = timeRange
 	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 
@@ -77,11 +77,11 @@ type operatorFactory struct{}
 func (o operatorFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	cat, ok := typedOps[cfg.Node.Type]
 	if ok {
-		return &binary{state: cfg.State, op: cat[cfg.State.Input(0).DataType]}, nil
+		return &binary{Node: cfg.State, op: cat[cfg.State.Input(0).DataType]}, nil
 	}
 	opFn, ok := logicalOps[cfg.Node.Type]
 	if ok {
-		return &binary{state: cfg.State, op: opFn}, nil
+		return &binary{Node: cfg.State, op: opFn}, nil
 	}
 	unCat, ok := typedUnaryOps[cfg.Node.Type]
 	if ok {

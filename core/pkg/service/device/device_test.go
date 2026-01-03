@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -44,9 +44,9 @@ var _ = Describe("Device", func() {
 		ctx := context.Background()
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		groupSvc = MustSucceed(
-			group.OpenService(ctx, group.Config{DB: db, Ontology: otg}),
+			group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}),
 		)
-		label := MustSucceed(label.OpenService(ctx, label.Config{
+		label := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
@@ -64,7 +64,7 @@ var _ = Describe("Device", func() {
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       stat,
 		}))
-		svc = MustSucceed(device.OpenService(ctx, device.Config{
+		svc = MustSucceed(device.OpenService(ctx, device.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
@@ -402,8 +402,8 @@ var _ = Describe("Device", func() {
 			ctx := context.Background()
 			db := gorp.Wrap(memkv.New())
 			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-			groupSvc := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-			labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+			groupSvc := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+			labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    groupSvc,
@@ -422,7 +422,7 @@ var _ = Describe("Device", func() {
 				Status:              stat,
 				HealthCheckInterval: 10 * telem.Millisecond,
 			}))
-			svc := MustSucceed(device.OpenService(ctx, device.Config{
+			svc := MustSucceed(device.OpenService(ctx, device.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    groupSvc,
@@ -468,8 +468,8 @@ var _ = Describe("Device", func() {
 			ctx := context.Background()
 			db := gorp.Wrap(memkv.New())
 			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-			groupSvc := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-			labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+			groupSvc := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+			labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    groupSvc,
@@ -487,7 +487,7 @@ var _ = Describe("Device", func() {
 				HostProvider: mock.StaticHostKeyProvider(1),
 				Status:       stat,
 			}))
-			svc := MustSucceed(device.OpenService(ctx, device.Config{
+			svc := MustSucceed(device.OpenService(ctx, device.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    groupSvc,
@@ -508,7 +508,7 @@ var _ = Describe("Device", func() {
 				Entry(&deletedStatus).
 				Exec(ctx, nil)).To(MatchError(query.NotFound))
 			Expect(svc.Close()).To(Succeed())
-			svc = MustSucceed(device.OpenService(ctx, device.Config{
+			svc = MustSucceed(device.OpenService(ctx, device.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    groupSvc,

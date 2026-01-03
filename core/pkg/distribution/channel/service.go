@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
@@ -30,7 +29,7 @@ type CalculationAnalyzer = func(ctx context.Context, expr string) (telem.DataTyp
 // Service is the central entity for managing channels within Synnax's distribution
 // layer. It provides facilities for creating and retrieving channels.
 type Service struct {
-	cfg Config
+	cfg ServiceConfig
 	db  *gorp.DB
 	Writer
 	proxy *leaseProxy
@@ -44,16 +43,7 @@ func (s *Service) SetCalculationAnalyzer(analyzer CalculationAnalyzer) {
 
 type IntOverflowChecker = func(types.Uint20) error
 
-func FixedOverflowChecker(limit int) IntOverflowChecker {
-	return func(count types.Uint20) error {
-		if count > types.Uint20(limit) {
-			return errors.New("channel limit exceeded")
-		}
-		return nil
-	}
-}
-
-type Config struct {
+type ServiceConfig struct {
 	HostResolver     cluster.HostResolver
 	ClusterDB        *gorp.DB
 	TSChannel        *ts.DB
@@ -69,9 +59,9 @@ type Config struct {
 	ForceMigration *bool
 }
 
-var _ config.Config[Config] = Config{}
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("distribution.channel")
 	validate.NotNil(v, "host_resolver", c.HostResolver)
 	validate.NotNil(v, "cluster_db", c.ClusterDB)
@@ -83,7 +73,7 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.ClusterDB = override.Nil(c.ClusterDB, other.ClusterDB)
 	c.TSChannel = override.Nil(c.TSChannel, other.TSChannel)
@@ -96,9 +86,9 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-var DefaultConfig = Config{ValidateNames: config.True(), ForceMigration: config.False()}
+var DefaultConfig = ServiceConfig{ValidateNames: config.True(), ForceMigration: config.False()}
 
-func NewService(ctx context.Context, cfgs ...Config) (*Service, error) {
+func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
@@ -142,6 +132,12 @@ func (s *Service) NewRetrieve() Retrieve {
 	}
 }
 
+func (s *Service) CountExternalNonVirtual() int {
+	s.proxy.mu.RLock()
+	defer s.proxy.mu.RUnlock()
+	return int(s.proxy.mu.externalNonVirtualSet.Size())
+}
+
 func (s *Service) validateChannels(channels []Channel) ([]Channel, error) {
 	res := make([]Channel, 0, len(channels))
 	s.proxy.mu.RLock()
@@ -149,7 +145,7 @@ func (s *Service) validateChannels(channels []Channel) ([]Channel, error) {
 	for i, key := range KeysFromChannels(channels) {
 		if s.proxy.mu.externalNonVirtualSet.Contains(key) {
 			channelNumber := s.proxy.mu.externalNonVirtualSet.NumLessThan(key) + 1
-			if err := s.proxy.IntOverflowCheck(types.Uint20(channelNumber)); err != nil {
+			if err := s.cfg.IntOverflowCheck(types.Uint20(channelNumber)); err != nil {
 				return nil, err
 			}
 		}

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -104,8 +104,6 @@ var (
 	DataTypes           = slices.Concat([]DataType{ObjectT}, PrimitiveTypes)
 	AnyDataTypeSchema   = Enum(DataTypes...)
 )
-
-func Primitive() UnionZ { return Union(Number(), String(), Bool()) }
 
 // Schema is a schema that provides methods for validating and converting data.
 type Schema interface {

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -229,14 +229,14 @@ func (w relayResponseTranslator) Forward(
 	return &framerv1.RelayResponse{Frame: translateFrameBackward(res.Frame)}, nil
 }
 
-func translateFrameForward(frame *framerv1.Frame) framer.Frame {
+func translateFrameForward(frame *telem.PBFrame) framer.Frame {
 	keys := channel.KeysFromUint32(frame.Keys)
 	series := telem.TranslateManySeriesBackward(frame.Series)
 	return core.MultiFrame(keys, series)
 }
 
-func translateFrameBackward(frame framer.Frame) *framerv1.Frame {
-	return &framerv1.Frame{
+func translateFrameBackward(frame framer.Frame) *telem.PBFrame {
+	return &telem.PBFrame{
 		Keys:   channel.Keys(frame.KeysSlice()).Uint32(),
 		Series: telem.TranslateManySeriesForward(frame.SeriesSlice()),
 	}

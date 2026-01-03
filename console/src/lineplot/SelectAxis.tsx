@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,8 +14,10 @@ import { type ReactElement, useCallback } from "react";
 import { type AxisKey, axisLabel } from "@/lineplot/axis";
 import { Range } from "@/range";
 
-export interface SelectMultipleAxesInputItemProps
-  extends Omit<Input.ItemProps, "onChange" | "children"> {
+export interface SelectMultipleAxesInputItemProps extends Omit<
+  Input.ItemProps,
+  "onChange" | "children"
+> {
   axis: AxisKey;
   onChange: (key: AxisKey, v: channel.Key[]) => void;
   value: channel.Key[];

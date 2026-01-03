@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,11 +14,10 @@ import { type Theming } from "@/theming";
 import { Container, type ContainerProps } from "@/vis/legend/Container";
 import { Entries, type EntryData } from "@/vis/legend/Entries";
 
-export interface SimpleProps
-  extends Omit<
-    ContainerProps,
-    "value" | "onChange" | "background" | "draggable" | "gap"
-  > {
+export interface SimpleProps extends Omit<
+  ContainerProps,
+  "value" | "onChange" | "background" | "draggable" | "gap"
+> {
   data?: optional.Optional<EntryData, "visible">[];
   onEntryChange?: (value: EntryData) => void;
   position?: ContainerProps["value"];

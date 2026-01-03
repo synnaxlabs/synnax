@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,7 +22,8 @@ import { Text as CoreText } from "@/text";
 import { type Tooltip } from "@/tooltip";
 
 export interface TextProps
-  extends InputProps<string>,
+  extends
+    InputProps<string>,
     Omit<Button.ExtensionProps, "variant">,
     Tooltip.WrapProps {
   selectOnFocus?: boolean;

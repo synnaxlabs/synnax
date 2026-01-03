@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,8 +17,10 @@ import { Flex } from "@/flex";
 import { useData } from "@/list/Frame";
 import { type ItemRenderProp } from "@/list/Item";
 
-export interface ItemsProps<K extends record.Key = record.Key>
-  extends Omit<Flex.BoxProps, "children" | "ref"> {
+export interface ItemsProps<K extends record.Key = record.Key> extends Omit<
+  Flex.BoxProps,
+  "children" | "ref"
+> {
   children: ItemRenderProp<K>;
   emptyContent?: ReactNode;
   displayItems?: number;

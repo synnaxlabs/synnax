@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -179,7 +179,9 @@ export interface ConfigureProps<
   Properties extends record.Unknown,
   Make extends string,
   Model extends string,
-> extends Layout.RendererProps,
+>
+  extends
+    Layout.RendererProps,
     Pick<InternalProps<Properties, Make, Model>, "initialProperties"> {}
 
 export const Configure = <

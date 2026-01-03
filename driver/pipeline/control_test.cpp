@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,11 +16,11 @@
 
 /// @brief it should read frames from streamer and write to sink.
 TEST(ControlPipeline, testHappyPath) {
-    auto fr_1 = synnax::Frame(1);
+    auto fr_1 = telem::Frame(1);
     fr_1.emplace(1, telem::Series(1.0));
-    auto fr_2 = synnax::Frame(1);
+    auto fr_2 = telem::Frame(1);
     fr_2.emplace(1, telem::Series(2.0));
-    const auto reads = std::make_shared<std::vector<synnax::Frame>>();
+    const auto reads = std::make_shared<std::vector<telem::Frame>>();
     reads->push_back(std::move(fr_1));
     reads->push_back(std::move(fr_2));
     const auto read_errors = std::make_shared<std::vector<xerrors::Error>>(std::vector{
@@ -67,11 +67,11 @@ TEST(ControlPipeline, testUnknownErrOnOpen) {
 
 /// @brief it should retry opening streamer on unreachable error and succeed.
 TEST(ControlPipeline, testOpenRetrySuccessful) {
-    auto fr_1 = synnax::Frame(1);
+    auto fr_1 = telem::Frame(1);
     fr_1.emplace(1, telem::Series(1.0));
-    auto fr_2 = synnax::Frame(1);
+    auto fr_2 = telem::Frame(1);
     fr_2.emplace(1, telem::Series(2.0));
-    const auto reads = std::make_shared<std::vector<synnax::Frame>>();
+    const auto reads = std::make_shared<std::vector<telem::Frame>>();
     reads->push_back(std::move(fr_1));
     reads->push_back(std::move(fr_2));
     const auto read_errors = std::make_shared<std::vector<xerrors::Error>>(std::vector{

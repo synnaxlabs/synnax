@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -25,7 +25,7 @@ var _ = Describe("Stratification", func() {
 				nodes  = []ir.Node{{Key: "source", Type: "on"}}
 				edges  []ir.Edge
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 			Expect(strata.NodeCount()).To(Equal(1))
 			Expect(strata.Get("source")).To(Equal(0))
@@ -39,7 +39,7 @@ var _ = Describe("Stratification", func() {
 				}
 				edges  []ir.Edge
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 			Expect(strata.NodeCount()).To(Equal(2))
 			Expect(strata.Get("const1")).To(Equal(0))
@@ -59,7 +59,7 @@ var _ = Describe("Stratification", func() {
 					},
 				}
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 			Expect(strata.NodeCount()).To(Equal(2))
 			Expect(strata.Get("sensor")).To(Equal(0))
@@ -84,7 +84,7 @@ var _ = Describe("Stratification", func() {
 					},
 				}
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 			Expect(strata.NodeCount()).To(Equal(3))
 			Expect(strata.Get("sensor")).To(Equal(0))
@@ -125,7 +125,7 @@ var _ = Describe("Stratification", func() {
 					},
 				}
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 			Expect(strata.NodeCount()).To(Equal(6))
 			Expect(strata.Get("source")).To(Equal(0))
@@ -171,7 +171,7 @@ var _ = Describe("Stratification", func() {
 					},
 				}
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 			Expect(strata.NodeCount()).To(Equal(4))
 			Expect(strata.Get("source")).To(Equal(0))
@@ -218,7 +218,7 @@ var _ = Describe("Stratification", func() {
 					},
 				}
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 			Expect(strata.NodeCount()).To(Equal(5))
 			Expect(strata.Get("source")).To(Equal(0))
@@ -279,7 +279,7 @@ var _ = Describe("Stratification", func() {
 					},
 				}
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 			Expect(strata.NodeCount()).To(Equal(7))
 			Expect(strata.Get("source")).To(Equal(0))
@@ -312,7 +312,7 @@ var _ = Describe("Stratification", func() {
 					},
 				}
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 			Expect(strata.NodeCount()).To(Equal(4))
 			// All sources at stratum 0
@@ -356,7 +356,7 @@ var _ = Describe("Stratification", func() {
 					},
 				}
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 			Expect(strata.NodeCount()).To(Equal(6))
 			// Sources
@@ -398,7 +398,7 @@ var _ = Describe("Stratification", func() {
 					},
 				}
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 			Expect(strata.NodeCount()).To(Equal(4))
 			Expect(strata.Get("source")).To(Equal(0))
@@ -434,7 +434,7 @@ var _ = Describe("Stratification", func() {
 					},
 				}
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 			Expect(strata.NodeCount()).To(Equal(4))
 			Expect(strata.Get("source1")).To(Equal(0))
@@ -465,6 +465,7 @@ var _ = Describe("Stratification", func() {
 					ctx,
 					nodes,
 					edges,
+					nil,
 					&diagnostics.Diagnostics{},
 				)
 			)
@@ -485,6 +486,7 @@ var _ = Describe("Stratification", func() {
 					ctx,
 					nodes,
 					edges,
+					nil,
 					&diagnostics.Diagnostics{},
 				)
 			)
@@ -517,6 +519,7 @@ var _ = Describe("Stratification", func() {
 					ctx,
 					nodes,
 					edges,
+					nil,
 					&diagnostics.Diagnostics{},
 				)
 			)
@@ -569,6 +572,7 @@ var _ = Describe("Stratification", func() {
 					ctx,
 					nodes,
 					edges,
+					nil,
 					&diagnostics.Diagnostics{},
 				)
 			)
@@ -604,7 +608,7 @@ var _ = Describe("Stratification", func() {
 					},
 				}
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 			Expect(len(strata)).To(BeNumerically(">", 0))
 		})
@@ -616,7 +620,7 @@ var _ = Describe("Stratification", func() {
 				nodes  []ir.Node
 				edges  []ir.Edge
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 			Expect(strata.NodeCount()).To(Equal(0))
 		})
@@ -626,7 +630,7 @@ var _ = Describe("Stratification", func() {
 				nodes  = []ir.Node{{Key: "isolated", Type: "constant"}}
 				edges  []ir.Edge
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 			Expect(strata.NodeCount()).To(Equal(1))
 			Expect(strata.Get("isolated")).To(Equal(0))
@@ -641,7 +645,7 @@ var _ = Describe("Stratification", func() {
 				}
 				edges  []ir.Edge
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 			Expect(strata.NodeCount()).To(Equal(3))
 			Expect(strata.Get("island1")).To(Equal(0))
@@ -667,7 +671,7 @@ var _ = Describe("Stratification", func() {
 					},
 				}
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 			Expect(strata.Get("broadcaster")).To(Equal(0))
 			Expect(strata.Get("listener1")).To(Equal(1))
@@ -692,7 +696,7 @@ var _ = Describe("Stratification", func() {
 					},
 				}
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 			Expect(strata.Get("source1")).To(Equal(0))
 			Expect(strata.Get("source2")).To(Equal(0))
@@ -714,7 +718,7 @@ var _ = Describe("Stratification", func() {
 					},
 				}
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 			Expect(strata.Get("orphan")).To(Equal(0))
 			Expect(strata.Get("child")).To(Equal(1))
@@ -794,7 +798,7 @@ var _ = Describe("Stratification", func() {
 					},
 				}
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 
 			// Verify sensors are at stratum 0
@@ -890,7 +894,7 @@ var _ = Describe("Stratification", func() {
 					},
 				}
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 			Expect(strata.Get("temp")).To(Equal(0))
 			Expect(strata.Get("temp_high")).To(Equal(1))
@@ -924,7 +928,7 @@ var _ = Describe("Stratification", func() {
 					},
 				}
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 			Expect(strata.Get("source")).To(Equal(0))
 			Expect(strata.Get("splitter")).To(Equal(1))
@@ -964,7 +968,7 @@ var _ = Describe("Stratification", func() {
 					},
 				}
 				diag   = &diagnostics.Diagnostics{}
-				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, diag))
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, nil, diag))
 			)
 			Expect(strata.Get("input")).To(Equal(0))
 			Expect(strata.Get("router")).To(Equal(1))

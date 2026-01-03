@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -54,6 +54,12 @@ type setStatus struct {
 }
 
 func (s *setStatus) Init(node.Context) {}
+
+func (s *setStatus) Reset() {}
+
+func (s *setStatus) IsOutputTruthy(output string) bool {
+	return false
+}
 
 func (s *setStatus) Next(ctx node.Context) {
 	s.stat.Time = telem.Now()

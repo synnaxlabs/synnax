@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,7 +10,21 @@
 package ir
 
 import (
+	"fmt"
+
 	"github.com/samber/lo"
+)
+
+// EdgeKind distinguishes between continuous reactive flows and one-shot transitions.
+type EdgeKind int
+
+const (
+	// Continuous edges fire every tick while the source is active (-> operator).
+	// Data flows continuously from source to target.
+	Continuous EdgeKind = iota
+	// OneShot edges fire once when the condition becomes true (=> operator).
+	// Used for state transitions and one-time actions.
+	OneShot
 )
 
 // Parameter naming conventions for IR nodes and functions.
@@ -41,12 +55,15 @@ type Handle struct {
 
 // Edge represents a dataflow connection between two node parameters.
 // Data flows from the Source handle's output parameter to the Target handle's
-// input parameter.
+// input parameter. The Kind determines whether the edge is continuous (reactive)
+// or one-shot (transition).
 type Edge struct {
 	// Source is the output parameter that provides data.
 	Source Handle `json:"source"`
 	// Target is the input parameter that receives data.
 	Target Handle `json:"target"`
+	// Kind specifies whether this is a continuous reactive flow or a one-shot transition.
+	Kind EdgeKind `json:"kind"`
 }
 
 // Edges is a collection of dataflow edges.
@@ -109,4 +126,32 @@ func (e Edges) GetInputs(nodeKey string) []Edge {
 // GetOutputs returns all edges sourced from the given node.
 func (e Edges) GetOutputs(nodeKey string) []Edge {
 	return e.filter(sourceNodeEquals(nodeKey))
+}
+
+// GetByKind returns all edges with the specified kind.
+func (e Edges) GetByKind(kind EdgeKind) Edges {
+	return lo.Filter(e, func(edge Edge, _ int) bool { return edge.Kind == kind })
+}
+
+// String returns the string representation of the handle as "node.param".
+func (h Handle) String() string {
+	return h.Node + "." + h.Param
+}
+
+// String returns the string representation of the edge kind.
+func (k EdgeKind) String() string {
+	if k == OneShot {
+		return "oneshot"
+	}
+	return "continuous"
+}
+
+// String returns the string representation of the edge.
+// Format: "source.param -> target.param (continuous)" or "source.param => target.param (oneshot)"
+func (e Edge) String() string {
+	arrow := "->"
+	if e.Kind == OneShot {
+		arrow = "=>"
+	}
+	return fmt.Sprintf("%s %s %s (%s)", e.Source, arrow, e.Target, e.Kind)
 }

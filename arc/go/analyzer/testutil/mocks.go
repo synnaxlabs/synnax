@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -42,14 +42,6 @@ func NewMockAST(id int) *MockAST {
 	return &MockAST{
 		id:    id,
 		token: &MockToken{},
-	}
-}
-
-// NewMockASTWithLocation creates a new mock AST node with the given ID and source location.
-func NewMockASTWithLocation(id, line, column int) *MockAST {
-	return &MockAST{
-		id:    id,
-		token: &MockToken{line: line, column: column},
 	}
 }
 

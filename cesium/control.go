@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -155,9 +155,4 @@ func EncodeControlUpdate(ctx context.Context, u ControlUpdate) (s telem.Series, 
 	s.Data, err = (&binary.JSONCodec{}).Encode(ctx, u)
 	s.Data = append(s.Data, '\n')
 	return s, err
-}
-
-func DecodeControlUpdate(ctx context.Context, s telem.Series) (ControlUpdate, error) {
-	var u ControlUpdate
-	return u, (&binary.JSONCodec{}).Decode(ctx, s.Data, &u)
 }

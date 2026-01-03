@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -23,16 +23,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-func clientStreamsToSlice(
-	clients map[address.Address]freighter.StreamSenderCloser[int],
-) []freighter.StreamSenderCloser[int] {
-	slice := make([]freighter.StreamSenderCloser[int], 0, len(clients))
-	for _, client := range clients {
-		slice = append(slice, client)
-	}
-	return slice
-}
 
 var _ = Describe("Sender", func() {
 	var net *fmock.Network[int, int]
@@ -151,74 +141,6 @@ var _ = Describe("Sender", func() {
 			}
 		})
 		AfterEach(func() { cancel() })
-		Describe("MultiSender", func() {
-			It("Should forward values to all streams", func() {
-				sender := &freightfluence.MultiSender[int]{}
-				sender.Senders = clientStreamsToSlice(clientSender)
-				sender.InFrom(senderStream)
-				sender.Flow(sCtx)
-				senderStream.Inlet() <- 2
-				for addr := range clientSender {
-					v := <-receiverStreams[addr].Outlet()
-					Expect(v).To(Equal(2))
-				}
-				senderStream.Close()
-				Expect(sCtx.Wait()).To(Succeed())
-			})
-			It("Should exit when the context is canceled", func() {
-				sender := &freightfluence.MultiSender[int]{}
-				sender.Senders = clientStreamsToSlice(clientSender)
-				sender.InFrom(senderStream)
-				sender.Flow(sCtx)
-				senderStream.Inlet() <- 2
-				cancel()
-				Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
-			})
-		})
-		Describe("SwitchSender", func() {
-			It("Should route values to the correct stream", func() {
-				sender := &freightfluence.SwitchSender[int]{}
-				sender.Sender = clientSender
-				sender.Switch = func(ctx context.Context, v int) (address.Address, bool, error) {
-					addr := address.Newf("localhost:%v", v)
-					return addr, true, nil
-				}
-				sender.InFrom(senderStream)
-				sender.Flow(sCtx)
-				for i := range nStreams {
-					senderStream.Inlet() <- i
-					addr := address.Newf("localhost:%v", i)
-					v := <-receiverStreams[addr].Outlet()
-					Expect(v).To(Equal(i))
-				}
-				senderStream.Close()
-				Expect(sCtx.Wait()).To(Succeed())
-			})
-			It("Should exit when the context is canceled", func() {
-				sender := &freightfluence.SwitchSender[int]{}
-				sender.Sender = clientSender
-				sender.Switch = func(ctx context.Context, v int) (address.Address, bool, error) {
-					addr := address.Newf("localhost:%v", v)
-					return addr, true, nil
-				}
-				sender.InFrom(senderStream)
-				sender.Flow(sCtx)
-				senderStream.Inlet() <- 1
-				cancel()
-				Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
-			})
-			It("Should exit when the switch returns an error", func() {
-				sender := &freightfluence.SwitchSender[int]{}
-				sender.Sender = clientSender
-				sender.Switch = func(ctx context.Context, v int) (address.Address, bool, error) {
-					return "", false, errors.New("error")
-				}
-				sender.InFrom(senderStream)
-				sender.Flow(sCtx)
-				senderStream.Inlet() <- 1
-				Expect(sCtx.Wait()).To(HaveOccurred())
-			})
-		})
 		Describe("BatchSwitchSender", func() {
 			It("Should route values to the correct stream", func() {
 				sender := &freightfluence.BatchSwitchSender[int, int]{}

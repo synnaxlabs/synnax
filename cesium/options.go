@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -72,10 +72,3 @@ func WithInstrumentation(i alamos.Instrumentation) Option {
 // may still exceed this value, it is not likely to exceed by much with frequent
 // commits. Defaults to 1GB
 func WithFileSizeCap(cap telem.Size) Option { return func(o *options) { o.fileSize = cap } }
-
-// WithStreamingConfig sets the size of the channel buffer used inside the cesium
-// streaming relay mechanism. A larger buffer size will reduce the change of the relay
-// deadlocking, but will consume more memory. Defaults to 100.
-func WithStreamingConfig(cfg DBStreamingConfig) Option {
-	return func(o *options) { o.streamingConfig = cfg }
-}

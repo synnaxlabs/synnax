@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -164,7 +164,7 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 		}
 		g.Functions[0].Inputs = append(
 			g.Functions[0].Inputs,
-			types.Param{Name: sym.Name, Type: *sym.Type.ValueType},
+			types.Param{Name: sym.Name, Type: *sym.Type.Elem},
 		)
 		g.Nodes = append(g.Nodes, graph.Node{
 			Key:    sym.Name,

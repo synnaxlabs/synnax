@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -61,15 +61,6 @@ func Positive[T types.Numeric](v *Validator, field string, value T) bool {
 	return v.Ternary(field, value <= 0, "must be positive")
 }
 
-func GreaterThan[T types.Numeric](
-	v *Validator,
-	field string,
-	value T,
-	threshold T,
-) bool {
-	return v.Ternaryf(field, value <= threshold, "must be greater than %v", threshold)
-}
-
 func GreaterThanEq[T types.Numeric](
 	v *Validator,
 	field string,
@@ -82,10 +73,6 @@ func GreaterThanEq[T types.Numeric](
 		"must be greater than or equal to %v",
 		threshold,
 	)
-}
-
-func LessThan[T types.Numeric](v *Validator, field string, value T, threshold T) bool {
-	return v.Ternaryf(field, value >= threshold, "must be less than %v", threshold)
 }
 
 func LessThanEq[T types.Numeric](

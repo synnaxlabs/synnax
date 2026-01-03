@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -44,9 +44,3 @@ func (c Chain[I, O]) Exec(in I, finalizer Finalizer[I, O]) (out O, err error) {
 	}
 	return next(in)
 }
-
-// Collector allows middleware to be collected and executed in a chain.
-type Collector[I, O any] struct{ Chain[I, O] }
-
-// Use adds middleware to the collector.
-func (p *Collector[I, O]) Use(m ...Middleware[I, O]) { p.Chain = append(p.Chain, m...) }

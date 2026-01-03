@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -31,6 +31,12 @@ type mockNode struct {
 func (m *mockNode) Init(node.Context) { m.initCalled = true }
 
 func (m *mockNode) Next(node.Context) { m.nextCalled++ }
+
+func (m *mockNode) IsOutputTruthy(param string) bool {
+	return false
+}
+
+func (m *mockNode) Reset() {}
 
 type mockFactory struct {
 	nodeType     string

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,12 +22,12 @@ import (
 )
 
 type calculationTransform struct {
-	confluence.UnarySink[framer.IteratorResponse]
-	confluence.AbstractUnarySource[framer.IteratorResponse]
+	confluence.UnarySink[Response]
+	confluence.AbstractUnarySource[Response]
 	keepKeys         channel.Keys
 	calculators      []*calculator.Calculator
 	accumulatedError error
-	pendingFrames    []core.Frame
+	pendingFrames    []framer.Frame
 }
 
 func newCalculationTransform(
@@ -37,7 +37,7 @@ func newCalculationTransform(
 	return &calculationTransform{
 		calculators:   calculators,
 		keepKeys:      keepKeys,
-		pendingFrames: make([]core.Frame, 0, 8),
+		pendingFrames: make([]framer.Frame, 0, 8),
 	}
 }
 
@@ -67,7 +67,7 @@ func (t *calculationTransform) Flow(sCtx signal.Context, opts ...confluence.Opti
 	}, o.Signal...)
 }
 
-func (t *calculationTransform) processResponse(ctx context.Context, res framer.IteratorResponse) {
+func (t *calculationTransform) processResponse(ctx context.Context, res Response) {
 	if res.Command == Error {
 		res.Error = errors.Combine(res.Error, t.accumulatedError)
 		t.Out.Inlet() <- res
@@ -86,7 +86,7 @@ func (t *calculationTransform) processResponse(ctx context.Context, res framer.I
 	t.Out.Inlet() <- res
 }
 
-func (t *calculationTransform) processBufferedFrames(ctx context.Context, ackRes framer.IteratorResponse) {
+func (t *calculationTransform) processBufferedFrames(ctx context.Context, ackRes Response) {
 	defer func() { t.pendingFrames = t.pendingFrames[:0] }()
 	if len(t.pendingFrames) == 0 {
 		if t.accumulatedError != nil {
@@ -106,7 +106,7 @@ func (t *calculationTransform) processBufferedFrames(ctx context.Context, ackRes
 	}
 	mergedFrame = mergedFrame.KeepKeys(t.keepKeys)
 	if mergedFrame.Count() > 0 {
-		t.Out.Inlet() <- framer.IteratorResponse{
+		t.Out.Inlet() <- Response{
 			Variant: DataResponse,
 			Command: ackRes.Command,
 			SeqNum:  ackRes.SeqNum,

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -94,11 +94,11 @@ var (
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("domain")
-	validate.Positive(v, "fileSize", c.FileSize)
-	validate.Positive(v, "maxDescriptors", c.MaxDescriptors)
+	validate.Positive(v, "file_size", c.FileSize)
+	validate.Positive(v, "max_descriptors", c.MaxDescriptors)
 	validate.NotNil(v, "fs", c.FS)
-	validate.GreaterThanEq(v, "gcThreshold", c.GCThreshold, 0)
-	validate.LessThanEq(v, "gcThreshold", c.GCThreshold, 1)
+	validate.GreaterThanEq(v, "gc_threshold", c.GCThreshold, 0)
+	validate.LessThanEq(v, "gc_threshold", c.GCThreshold, 1)
 	return v.Error()
 }
 
@@ -156,6 +156,18 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 		return true, i.Close()
 	}
 	return i.SeekLE(ctx, tr.End) && i.TimeRange().OverlapsWith(tr), i.Close()
+}
+
+// Size returns the total size of all data stored in the database by summing the sizes
+// of all pointers in the index.
+func (db *DB) Size() telem.Size {
+	db.idx.mu.RLock()
+	defer db.idx.mu.RUnlock()
+	var total telem.Size
+	for _, p := range db.idx.mu.pointers {
+		total += telem.Size(p.size)
+	}
+	return total
 }
 
 // Close closes the DB. Close should not be called concurrently with any other DB

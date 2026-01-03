@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,11 +22,6 @@ type Update[K Key, E Entry[K]] struct{ retrieve Retrieve[K, E] }
 // NewUpdate opens a new Update query.
 func NewUpdate[K Key, E Entry[K]]() Update[K, E] {
 	return Update[K, E]{retrieve: NewRetrieve[K, E]()}
-}
-
-func (u Update[K, E]) Where(filter FilterFunc[K, E]) Update[K, E] {
-	u.retrieve = u.retrieve.Where(filter)
-	return u
 }
 
 func (u Update[K, E]) WhereKeys(keys ...K) Update[K, E] {

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -180,7 +180,7 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 	// each handler in the observable chain. This is necessary because the transaction
 	// reader can be exhausted.
 	observable := confluence.NewGeneratorTransformObservable[TxRequest, xkv.TxReader](
-		func(ctx context.Context, tx TxRequest) (func() xkv.TxReader, bool, error) {
+		func(_ context.Context, tx TxRequest) (func() xkv.TxReader, bool, error) {
 			return func() xkv.TxReader { return tx.reader() }, true, nil
 		})
 	plumber.SetSink[TxRequest](pipe, observableAddr, observable)

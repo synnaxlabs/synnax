@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -24,7 +24,8 @@ import { Status } from "@/status/core";
 import { Canvas } from "@/vis/canvas";
 
 export interface LogProps
-  extends optional.Optional<
+  extends
+    optional.Optional<
       Omit<
         z.input<typeof log.logState>,
         "region" | "scrollPosition" | "scrollback" | "empty" | "scrolling" | "wheelPos"

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -49,7 +49,7 @@ type (
 	Deleter          = deleter.Deleter
 )
 
-type Config struct {
+type ServiceConfig struct {
 	alamos.Instrumentation
 	DB *gorp.DB
 	//  Distribution layer framer service.
@@ -59,12 +59,12 @@ type Config struct {
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	_             config.Config[ServiceConfig] = ServiceConfig{}
+	DefaultConfig                              = ServiceConfig{}
 )
 
 // Validate implements config.Config.
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("framer")
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "channel", c.Channel)
@@ -74,7 +74,7 @@ func (c Config) Validate() error {
 }
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
@@ -84,30 +84,30 @@ func (c Config) Override(other Config) Config {
 }
 
 type Service struct {
-	Config
+	cfg      ServiceConfig
 	Streamer *streamer.Service
 	Iterator *iterator.Service
 	closer   io.Closer
 }
 
-func (s *Service) OpenIterator(ctx context.Context, cfg framer.IteratorConfig) (*Iterator, error) {
+func (s *Service) OpenIterator(ctx context.Context, cfg IteratorConfig) (*Iterator, error) {
 	return s.Iterator.Open(ctx, cfg)
 }
 
-func (s *Service) NewStreamIterator(ctx context.Context, cfg framer.IteratorConfig) (StreamIterator, error) {
+func (s *Service) NewStreamIterator(ctx context.Context, cfg IteratorConfig) (StreamIterator, error) {
 	return s.Iterator.NewStream(ctx, cfg)
 }
 
-func (s *Service) NewStreamWriter(ctx context.Context, cfg framer.WriterConfig) (StreamWriter, error) {
-	return s.Framer.NewStreamWriter(ctx, cfg)
+func (s *Service) NewStreamWriter(ctx context.Context, cfg WriterConfig) (StreamWriter, error) {
+	return s.cfg.Framer.NewStreamWriter(ctx, cfg)
 }
 
 func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
-	return s.Framer.OpenWriter(ctx, cfg)
+	return s.cfg.Framer.OpenWriter(ctx, cfg)
 }
 
 func (s *Service) NewDeleter() framer.Deleter {
-	return s.Framer.NewDeleter()
+	return s.cfg.Framer.NewDeleter()
 }
 
 func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, error) {
@@ -118,7 +118,7 @@ func (s *Service) Close() error {
 	return s.closer.Close()
 }
 
-func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
@@ -153,7 +153,7 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		Config:   cfg,
+		cfg:      cfg,
 		Streamer: streamerSvc,
 		Iterator: iteratorSvc,
 		closer:   xio.MultiCloser{calcSvc},
