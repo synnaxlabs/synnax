@@ -36,18 +36,6 @@ export const ORDERS = ["first", "last"] as const;
 export const orderZ = z.enum([...ORDERS]);
 export type Order = z.infer<typeof orderZ>;
 
-export const signedDimensionsZ = z.object({
-  signedWidth: z.number(),
-  signedHeight: z.number(),
-});
-export interface SignedDimensions extends z.infer<typeof signedDimensionsZ> {}
-
-export const boundsZ = z.object({
-  lower: z.number(),
-  upper: z.number(),
-});
-export interface Bounds extends z.infer<typeof boundsZ> {}
-
 export const xyZ = z.object({
   x: z.number(),
   y: z.number(),
@@ -65,3 +53,15 @@ export const dimensionsZ = z.object({
   height: z.number(),
 });
 export interface Dimensions extends z.infer<typeof dimensionsZ> {}
+
+export const signedDimensionsZ = z.object({
+  signedWidth: z.number(),
+  signedHeight: z.number(),
+});
+export interface SignedDimensions extends z.infer<typeof signedDimensionsZ> {}
+
+export const boundsZ = z.object({
+  lower: z.number(),
+  upper: z.number(),
+});
+export interface Bounds extends z.infer<typeof boundsZ> {}

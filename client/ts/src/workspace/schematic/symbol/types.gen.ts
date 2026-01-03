@@ -17,6 +17,12 @@ export const OUTER_LOCATIONS = ["top", "right", "bottom", "left"] as const;
 export const outerLocationZ = z.enum([...OUTER_LOCATIONS]);
 export type OuterLocation = z.infer<typeof outerLocationZ>;
 
+export const viewportZ = z.object({
+  zoom: z.number().default(1),
+  position: spatial.xyZ,
+});
+export interface Viewport extends z.infer<typeof viewportZ> {}
+
 export const regionZ = z.object({
   key: z.string(),
   name: z.string(),
@@ -32,12 +38,6 @@ export const handleZ = z.object({
   orientation: spatial.outerLocationZ,
 });
 export interface Handle extends z.infer<typeof handleZ> {}
-
-export const viewportZ = z.object({
-  zoom: z.number().default(1),
-  position: spatial.xyZ,
-});
-export interface Viewport extends z.infer<typeof viewportZ> {}
 
 export const stateZ = z.object({
   key: z.string(),

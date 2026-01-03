@@ -810,6 +810,10 @@ func (p *Plugin) generatePrimitiveConversion(
 		data.imports.AddExternal("github.com/synnaxlabs/x/telem")
 		return fmt.Sprintf("string(%s)", goField),
 			fmt.Sprintf("telem.DataType(%s)", pbField), false, false
+	case "color":
+		data.imports.AddExternal("github.com/synnaxlabs/x/color")
+		return fmt.Sprintf("string(%s)", goField),
+			fmt.Sprintf("color.Color(%s)", pbField), false, false
 	default:
 		return goField, pbField, false, false
 	}

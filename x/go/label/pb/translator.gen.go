@@ -14,6 +14,7 @@ package pb
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/label"
 )
 
@@ -23,7 +24,7 @@ func LabelToPB(_ context.Context, r label.Label) (*Label, error) {
 	pb := &Label{
 		Key: r.Key.String(),
 		Name: r.Name,
-		Color: r.Color,
+		Color: string(r.Color),
 	}
 	return pb, nil
 }
@@ -36,7 +37,7 @@ func LabelFromPB(_ context.Context, pb *Label) (label.Label, error) {
 	}
 	r.Key = uuid.MustParse(pb.Key)
 	r.Name = pb.Name
-	r.Color = pb.Color
+	r.Color = color.Color(pb.Color)
 	return r, nil
 }
 
