@@ -24,7 +24,7 @@ import { kv } from "@/kv";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { rack } from "@/rack";
-import { ranger } from "@/ranger";
+import { range } from "@/range";
 import { status } from "@/status";
 import { task } from "@/task";
 import { Transport } from "@/transport";
@@ -59,7 +59,7 @@ export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
 export default class Synnax extends framer.Client {
   readonly createdAt: TimeStamp;
   readonly params: ParsedSynnaxParams;
-  readonly ranges: ranger.Client;
+  readonly ranges: range.Client;
   readonly channels: channel.Client;
   readonly auth: auth.Client;
   readonly users: user.Client;
@@ -136,10 +136,10 @@ export default class Synnax extends framer.Client {
     );
     this.control = new control.Client(this);
     this.ontology = new ontology.Client(transport.unary, this);
-    const rangeWriter = new ranger.Writer(this.transport.unary);
+    const rangeWriter = new range.Writer(this.transport.unary);
     this.labels = new label.Client(this.transport.unary);
     this.statuses = new status.Client(this.transport.unary);
-    this.ranges = new ranger.Client(
+    this.ranges = new range.Client(
       this,
       rangeWriter,
       this.transport.unary,

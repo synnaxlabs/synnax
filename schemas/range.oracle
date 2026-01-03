@@ -9,7 +9,7 @@
 
 import "schemas/label"
 
-@ts output "client/ts/src/ranger"
+@ts output "client/ts/src/range"
 
 Key = uuid {
     @go output "core/pkg/service/ranger"

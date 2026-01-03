@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp, uuid } from "@synnaxlabs/x";
+import { status as xStatus, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import z from "zod";
 
@@ -254,13 +254,15 @@ describe("Status", () => {
     it("should delete multiple statuses", async () => {
       const keys = ["del-1", "del-2", "del-3"];
       await client.statuses.set(
-        keys.map((key) => ({
-          name: `Delete ${key}`,
-          key,
-          variant: "info" as status.Status["variant"],
-          message: "To be deleted",
-          time: TimeStamp.now(),
-        })),
+        keys.map((key) =>
+          xStatus.create({
+            name: `Delete ${key}`,
+            key,
+            variant: "info",
+            message: "To be deleted",
+            time: TimeStamp.now(),
+          }),
+        ),
       );
 
       await client.statuses.delete(keys);
@@ -324,7 +326,7 @@ describe("Status", () => {
 
   describe("status variants", () => {
     it("should support all status variants", async () => {
-      const variants: status.Status["variant"][] = [
+      const variants: xStatus.Variant[] = [
         "success",
         "info",
         "warning",

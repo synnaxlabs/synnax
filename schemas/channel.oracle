@@ -69,8 +69,8 @@ APIChannel struct {
     is_index    bool
     index       Key
     alias       string?
-    virtual     bool?
-    internal    bool?
+    virtual     bool                 @validate default false
+    internal    bool                 @validate default false
     expression  string               @validate default ""
     operations  Operation[]?
     concurrency control.Concurrency?
@@ -78,7 +78,7 @@ APIChannel struct {
     @go output     "core/pkg/api/channel"
     @ontology type "channel"
     @py name       "Payload"
-    @ts name       "Channel"
+    @ts name       "Payload"
     @pb name       "Channel"
     @go name       "Channel"
 }
@@ -90,10 +90,11 @@ NewChannel struct extends APIChannel {
     is_index    bool?
     internal    bool?
     virtual     bool?
-    expression  string               @validate default ""
+    expression  string?              @validate default ""
     operations  Operation[]?
     concurrency control.Concurrency?
 
-    @py name "New"
-    @ts name "New"
+    @py name      "New"
+    @ts name      "New"
+    @ts use_input
 }

@@ -13,6 +13,7 @@ package pb
 
 import (
 	"context"
+	"google.golang.org/protobuf/types/known/anypb"
 	"github.com/synnaxlabs/x/control"
 )
 
@@ -85,4 +86,49 @@ func ConcurrencyFromPB(v Concurrency) control.Concurrency {
 	default:
 		return control.ConcurrencyExclusive
 	}
+}
+
+// StateToPB converts State to State using provided type converters.
+func StateToPB[R any](
+	ctx context.Context,
+	r control.State[R],
+	translateR func(context.Context, R) (*anypb.Any, error),
+) (*State, error) {
+	resourceAny, err := translateR(ctx, r.Resource)
+	if err != nil {
+		return nil, err
+	}
+	subjectVal, err := SubjectToPB(ctx, r.Subject)
+	if err != nil {
+		return nil, err
+	}
+	pb := &State{
+		Authority: uint32(r.Authority),
+		Resource: resourceAny,
+		Subject: subjectVal,
+	}
+	return pb, nil
+}
+
+// StateFromPB converts State to State using provided type converters.
+func StateFromPB[R any](
+	ctx context.Context,
+	pb *State,
+	translateR func(context.Context, *anypb.Any) (R, error),
+) (control.State[R], error) {
+	var r control.State[R]
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Resource, err = translateR(ctx, pb.Resource)
+	if err != nil {
+		return r, err
+	}
+	r.Subject, err = SubjectFromPB(ctx, pb.Subject)
+	if err != nil {
+		return r, err
+	}
+	r.Authority = control.Authority(pb.Authority)
+	return r, nil
 }

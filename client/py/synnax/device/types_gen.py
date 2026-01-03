@@ -12,13 +12,16 @@
 from __future__ import annotations
 
 from typing import Any, TypeAlias
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from synnax import rack, status
 from synnax.ontology.payload import ID
 
-Key = str
+Key = Any
+
+Key: TypeAlias = UUID
 
 
 class StatusDetails(BaseModel):
@@ -30,7 +33,7 @@ Status: TypeAlias = status.Status[StatusDetails]
 
 
 class Device(BaseModel):
-    key: str
+    key: Key
     rack: rack.Key
     location: str
     make: Any
@@ -45,12 +48,12 @@ class Device(BaseModel):
 
 
 class New(Device):
-    key: str | None = None
+    key: Key | None = None
     configured: bool | None = Field(default=None, exclude=True)
 
 
 ONTOLOGY_TYPE = ID(type="device")
 
 
-def ontology_id(key: str) -> ID:
+def ontology_id(key: Any) -> ID:
     return ID(type="device", key=str(key))

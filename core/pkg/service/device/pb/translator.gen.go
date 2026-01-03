@@ -13,6 +13,7 @@ package pb
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/anypb"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -70,7 +71,7 @@ func StatusDetailssFromPB(ctx context.Context, pbs []*StatusDetails) ([]device.S
 // DeviceToPB converts Device to Device.
 func DeviceToPB(ctx context.Context, r device.Device) (*Device, error) {
 	pb := &Device{
-		Key: r.Key,
+		Key: r.Key.String(),
 		Rack: uint32(r.Rack),
 		Location: r.Location,
 		Make: r.Make,
@@ -95,7 +96,7 @@ func DeviceFromPB(ctx context.Context, pb *Device) (device.Device, error) {
 	if pb == nil {
 		return r, nil
 	}
-	r.Key = pb.Key
+	r.Key = device.Key(uuid.MustParse(pb.Key))
 	r.Rack = rack.Key(pb.Rack)
 	r.Location = pb.Location
 	r.Make = pb.Make

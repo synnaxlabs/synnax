@@ -11,7 +11,7 @@
 
 import { z } from "zod";
 
-import { range } from "@/ranger";
+import { range } from "@/range";
 
 export const pairZ = z.object({
   range: range.keyZ,

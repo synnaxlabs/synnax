@@ -34,7 +34,7 @@ func TableFromPB(_ context.Context, pb *Table) (table.Table, error) {
 	if pb == nil {
 		return r, nil
 	}
-	r.Key = uuid.MustParse(pb.Key)
+	r.Key = table.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
 	r.Data = pb.Data
 	return r, nil

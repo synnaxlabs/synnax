@@ -11,6 +11,8 @@
 
 package control
 
+type Authority = uint8
+
 type Concurrency uint8
 
 const (
@@ -21,4 +23,10 @@ const (
 type Subject struct {
 	Key string `json:"key" msgpack:"key"`
 	Name string `json:"name" msgpack:"name"`
+}
+
+type State[R any] struct {
+	Subject Subject `json:"subject" msgpack:"subject"`
+	Resource R `json:"resource" msgpack:"resource"`
+	Authority Authority `json:"authority" msgpack:"authority"`
 }

@@ -17,6 +17,9 @@ export const OUTER_LOCATIONS = ["top", "right", "bottom", "left"] as const;
 export const outerLocationZ = z.enum([...OUTER_LOCATIONS]);
 export type OuterLocation = z.infer<typeof outerLocationZ>;
 
+export const keyZ = z.uuid();
+export type Key = z.infer<typeof keyZ>;
+
 export const handleZ = z.object({
   key: z.string(),
   position: spatial.xyZ,
@@ -58,7 +61,7 @@ export const specZ = z.object({
 export interface Spec extends z.infer<typeof specZ> {}
 
 export const symbolZ = z.object({
-  key: z.uuid(),
+  key: keyZ,
   version: z.uint32().default(1),
   name: z.string().min(1),
   data: specZ,
@@ -66,7 +69,7 @@ export const symbolZ = z.object({
 export interface Symbol extends z.infer<typeof symbolZ> {}
 
 export const newZ = z.object({
-  key: z.uuid().optional(),
+  key: keyZ.optional(),
   version: z.uint32().default(1),
   name: z.string().min(1),
   data: specZ,

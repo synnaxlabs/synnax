@@ -36,7 +36,7 @@ func UserFromPB(_ context.Context, pb *User) (user.User, error) {
 	if pb == nil {
 		return r, nil
 	}
-	r.Key = uuid.MustParse(pb.Key)
+	r.Key = user.Key(uuid.MustParse(pb.Key))
 	r.Username = pb.Username
 	r.FirstName = pb.FirstName
 	r.LastName = pb.LastName

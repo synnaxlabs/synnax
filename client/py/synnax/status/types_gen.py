@@ -11,15 +11,16 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypeAlias
+from typing import Literal
 
 from pydantic import BaseModel
 
-Variant = Literal["success", "info", "warning", "error", "loading", "disabled"]
+from synnax.telem import TimeStamp
 
-GoSVCStatus: TypeAlias = Status[Any]
+Variant = Literal["success", "info", "warning", "error", "loading", "disabled"]
 
 
 class New(Status):
     key: str | None = None
     name: str | None = None
+    time: TimeStamp | None = None

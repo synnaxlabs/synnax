@@ -6,6 +6,8 @@ package x.control;
 
 option go_package = "github.com/synnaxlabs/x/control/pb";
 
+import "google/protobuf/any.proto";
+
 enum Concurrency {
   UNSPECIFIED = 0;
   EXCLUSIVE = 1;
@@ -15,4 +17,10 @@ enum Concurrency {
 message Subject {
   string key = 1;
   string name = 2;
+}
+
+message State {
+  Subject subject = 1;
+  google.protobuf.Any resource = 2;
+  uint32 authority = 3;
 }

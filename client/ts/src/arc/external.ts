@@ -8,4 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/arc/client";
-export * from "@/arc/payload";
+export * from "@/arc/types.gen";

@@ -10,7 +10,8 @@
 import { DataType } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { escapeInvalidName, nameZ, newZ } from "@/channel/payload";
+import { escapeInvalidName, nameZ } from "@/channel/payload";
+import { newZ } from "@/channel/types.gen";
 
 describe("nameZ", () => {
   describe("valid names", () => {

@@ -21,8 +21,8 @@ import {
   retrieveResponseZ,
   setRequestZ,
 } from "@/alias/payload";
-import { channel } from "@/channel";
-import { ranger } from "@/ranger";
+import { type channel } from "@/channel";
+import { type range } from "@/range";
 
 export const SET_CHANNEL_NAME = "sy_range_alias_set";
 export const DELETE_CHANNEL_NAME = "sy_range_alias_delete";
@@ -33,9 +33,9 @@ export const DELETE_CHANNEL_NAME = "sy_range_alias_delete";
 export class Aliaser {
   private readonly cache = new Map<string, channel.Key>();
   private readonly client: UnaryClient;
-  private readonly rangeKey: ranger.Key;
+  private readonly rangeKey: range.Key;
 
-  constructor(rangeKey: ranger.Key, client: UnaryClient) {
+  constructor(rangeKey: range.Key, client: UnaryClient) {
     this.rangeKey = rangeKey;
     this.cache = new Map();
     this.client = client;
@@ -167,7 +167,7 @@ export class Client {
    * @param rangeKey - The range key to scope the alias operations to.
    * @returns An Aliaser instance for the specified range.
    */
-  get(rangeKey: ranger.Key): Aliaser {
+  get(rangeKey: range.Key): Aliaser {
     return new Aliaser(rangeKey, this.client);
   }
 }

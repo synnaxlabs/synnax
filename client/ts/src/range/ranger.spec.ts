@@ -11,15 +11,15 @@ import { DataType, id, math, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
-import { ranger } from "@/ranger";
+import { range } from "@/range";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
 
-describe("Ranger", () => {
+describe("range", () => {
   describe("payload", () => {
     it("should validate the time range", () => {
-      const payload = ranger.payloadZ.parse({
+      const payload = range.payloadZ.parse({
         name: "My New One Second Range",
         key: uuid.create(),
         timeRange: { start: 0, end: 1 },
@@ -34,7 +34,7 @@ describe("Ranger", () => {
         key: uuid.create(),
         timeRange: { start: 1, end: 0 },
       };
-      expect(() => ranger.payloadZ.parse(input)).toThrow(
+      expect(() => range.payloadZ.parse(input)).toThrow(
         "Time range start time must be before or equal to time range end time",
       );
     });
@@ -44,7 +44,7 @@ describe("Ranger", () => {
         key: uuid.create(),
         timeRange: { start: 1, end: math.MAX_INT64 },
       };
-      const payload = ranger.payloadZ.parse(input);
+      const payload = range.payloadZ.parse(input);
       expect(payload).toBeDefined();
       expect(payload.timeRange.end.valueOf()).toBe(math.MAX_INT64);
     });
@@ -54,7 +54,7 @@ describe("Ranger", () => {
         key: uuid.create(),
         timeRange: { start: 1, end: math.MAX_INT64 + 1n },
       };
-      expect(() => ranger.payloadZ.parse(input)).toThrow(
+      expect(() => range.payloadZ.parse(input)).toThrow(
         "Time range end time must be less than or equal to the maximum value of an int64",
       );
     });
@@ -64,7 +64,7 @@ describe("Ranger", () => {
         key: uuid.create(),
         timeRange: { start: math.MIN_INT64, end: 0 },
       };
-      const payload = ranger.payloadZ.parse(input);
+      const payload = range.payloadZ.parse(input);
       expect(payload).toBeDefined();
       expect(payload.timeRange.start.valueOf()).toBe(math.MIN_INT64);
       expect(payload.timeRange.end.valueOf()).toBe(0n);
@@ -75,7 +75,7 @@ describe("Ranger", () => {
         key: uuid.create(),
         timeRange: { start: -1n * 2n ** 63n - 1n, end: 0 },
       };
-      expect(() => ranger.payloadZ.parse(input)).toThrow(
+      expect(() => range.payloadZ.parse(input)).toThrow(
         "Time range start time must be greater than or equal to the minimum value of an int64",
       );
     });
@@ -93,7 +93,7 @@ describe("Ranger", () => {
       expect(range.color).toEqual("#E774D0");
     });
     it("should create multiple ranges", async () => {
-      const ranges: ranger.New[] = [
+      const ranges: range.New[] = [
         {
           name: "My New One Second Range",
           timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),

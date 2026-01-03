@@ -18,7 +18,7 @@ import {
   type Pair,
   setRequestZ,
 } from "@/kv/payload";
-import { ranger } from "@/ranger";
+import { range } from "@/range";
 
 export const SET_CHANNEL = "sy_range_kv_set";
 export const DELETE_CHANNEL = "sy_range_kv_delete";
@@ -27,10 +27,10 @@ export const DELETE_CHANNEL = "sy_range_kv_delete";
  * KV provides key-value storage operations scoped to a range.
  */
 export class KV {
-  private readonly rangeKey: ranger.Key;
+  private readonly rangeKey: range.Key;
   private readonly client: UnaryClient;
 
-  constructor(rangeKey: ranger.Key, client: UnaryClient) {
+  constructor(rangeKey: range.Key, client: UnaryClient) {
     this.rangeKey = rangeKey;
     this.client = client;
   }
@@ -127,7 +127,7 @@ export class Client {
    * @param rangeKey - The range key to scope the KV operations to.
    * @returns A KV instance for the specified range.
    */
-  get(rangeKey: ranger.Key): KV {
+  get(rangeKey: range.Key): KV {
     return new KV(rangeKey, this.client);
   }
 }

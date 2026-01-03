@@ -11,7 +11,7 @@ import { TimeRange } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { AuthError, NotFoundError } from "@/errors";
-import { ranger } from "@/ranger";
+import { range } from "@/range";
 import { createTestClientWithPolicy } from "@/testutil/access";
 import { createTestClient } from "@/testutil/client";
 
@@ -38,7 +38,7 @@ describe("range", () => {
     it("should allow the caller to retrieve ranges with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [ranger.ontologyID("")],
+        objects: [range.ontologyID("")],
         actions: ["retrieve"],
       });
       const randomRange = await client.ranges.create({
@@ -54,7 +54,7 @@ describe("range", () => {
     it("should allow the caller to create ranges with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [ranger.ontologyID("")],
+        objects: [range.ontologyID("")],
         actions: ["create"],
       });
       await userClient.ranges.create({
@@ -67,7 +67,7 @@ describe("range", () => {
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [ranger.ontologyID("")],
+        objects: [range.ontologyID("")],
         actions: [],
       });
       await expect(
@@ -82,7 +82,7 @@ describe("range", () => {
     it("should allow the caller to delete ranges with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [ranger.ontologyID("")],
+        objects: [range.ontologyID("")],
         actions: ["delete"],
       });
       const randomRange = await client.ranges.create({
@@ -99,7 +99,7 @@ describe("range", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [ranger.ontologyID("")],
+        objects: [range.ontologyID("")],
         actions: [],
       });
       const randomRange = await client.ranges.create({

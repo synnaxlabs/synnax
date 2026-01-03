@@ -11,8 +11,10 @@
 @go output "core/pkg/distribution/group"
 @pb
 
+Key = uuid
+
 Group struct {
-    key  uuid   @key
+    key  Key    @key
     name string
 
     @ontology type "group"

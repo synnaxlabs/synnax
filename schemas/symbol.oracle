@@ -11,6 +11,8 @@ import "schemas/spatial"
 
 @ts output "client/ts/src/workspace/schematic/symbol"
 
+Key = uuid
+
 Region struct {
     key          string
     name         string
@@ -47,7 +49,7 @@ Spec struct {
 }
 
 Symbol struct {
-    key     uuid   @key
+    key     Key    @key
     version uint32 @validate default 1
     name    string @validate min_length 1
     data    Spec
@@ -56,7 +58,7 @@ Symbol struct {
 }
 
 New struct {
-    key     uuid?  @key
+    key     Key?   @key
     version uint32 @validate default 1
     name    string @validate min_length 1
     data    Spec

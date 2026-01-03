@@ -35,7 +35,7 @@ func SchematicFromPB(_ context.Context, pb *Schematic) (schematic.Schematic, err
 	if pb == nil {
 		return r, nil
 	}
-	r.Key = uuid.MustParse(pb.Key)
+	r.Key = schematic.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
 	r.Snapshot = pb.Snapshot
 	r.Data = pb.Data

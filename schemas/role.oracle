@@ -10,8 +10,10 @@
 @ts output "client/ts/src/access/role"
 @py output "client/py/synnax/access/role"
 
+Key = uuid
+
 Role struct {
-    key         uuid    @key
+    key         Key     @key
     name        string
     description string?
     internal    bool?
@@ -21,7 +23,7 @@ Role struct {
 }
 
 New struct extends Role {
-    key uuid?
+    key Key?
 
     @ts use_input
     @py name      "Role"

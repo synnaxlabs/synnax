@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/ranger/alias";
-export * from "@/ranger/client";
-export * from "@/ranger/kv";
-export * from "@/ranger/payload";
-export * from "@/ranger/writer";
+export * from "@/range/alias";
+export * from "@/range/client";
+export * from "@/range/kv";
+export * from "@/range/payload";
+export * from "@/range/writer";

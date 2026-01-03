@@ -12,11 +12,14 @@
 package device
 
 import (
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/status"
 )
 
 type Status = status.Status[StatusDetails]
+
+type Key = uuid.UUID
 
 type StatusDetails struct {
 	Rack rack.Key `json:"rack" msgpack:"rack"`
@@ -24,7 +27,7 @@ type StatusDetails struct {
 }
 
 type Device struct {
-	Key string `json:"key" msgpack:"key"`
+	Key Key `json:"key" msgpack:"key"`
 	Rack rack.Key `json:"rack" msgpack:"rack"`
 	Location string `json:"location" msgpack:"location"`
 	Make string `json:"make" msgpack:"make"`

@@ -455,6 +455,15 @@ func (p *Plugin) processEnum(e resolution.Type) enumData {
 func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefData {
 	switch form := td.Form.(type) {
 	case resolution.DistinctForm:
+		// Check for @ts type override on the distinct type itself
+		if typeOverride := getTypeTypeOverride(td, "ts"); typeOverride != "" {
+			return typeDefData{
+				Name:    td.Name,
+				TSName:  td.Name,
+				TSType:  primitiveToTS(typeOverride),
+				ZodType: primitiveToZod(typeOverride, data, false),
+			}
+		}
 		return typeDefData{
 			Name:    td.Name,
 			TSName:  td.Name,
@@ -489,12 +498,14 @@ func (p *Plugin) typeDefBaseToZod(typeRef *resolution.TypeRef, data *templateDat
 
 // typeDefBaseToTS converts a TypeDef's base type to a TypeScript type string.
 // This handles primitives, distinct types, and generic struct references with type args.
+// TypeDefs use z.infer so they don't need concrete type imports.
 func (p *Plugin) typeDefBaseToTS(typeRef *resolution.TypeRef, data *templateData) string {
 	if typeRef == nil {
 		return "unknown"
 	}
 	// Use the full typeRefToTS logic which handles all cases
-	return p.typeRefToTS(typeRef, data.Request.Resolutions, data)
+	// TypeDefs don't need type imports since they use z.infer<typeof ...Z>
+	return p.typeRefToTS(typeRef, data.Request.Resolutions, data, false)
 }
 
 func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, data *templateData) structData {
@@ -526,6 +537,14 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 		}
 		for _, tp := range aliasForm.TypeParams {
 			sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, table, data))
+		}
+		// Check if all type params are optional (have defaults or are marked optional)
+		sd.AllParamsOptional = true
+		for _, tp := range sd.TypeParams {
+			if !tp.HasDefault {
+				sd.AllParamsOptional = false
+				break
+			}
 		}
 		sd.AliasOf = p.typeRefToZod(&aliasForm.Target, table, data, sd.UseInput)
 		return sd
@@ -565,6 +584,15 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 	}
 	for _, tp := range form.TypeParams {
 		sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, table, data))
+	}
+
+	// Check if all type params are optional (have defaults or are marked optional)
+	sd.AllParamsOptional = true
+	for _, tp := range sd.TypeParams {
+		if !tp.HasDefault {
+			sd.AllParamsOptional = false
+			break
+		}
 	}
 
 	// Handle struct extension with Zod's .omit().partial().extend() pattern
@@ -612,10 +640,10 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 					parentField, existsInParent := parentFields[field.Name]
 					if existsInParent && isOnlyOptionalityChange(parentField, field) {
 						// Same base type, just made optional -> use .partial()
-						sd.PartialFields = append(sd.PartialFields, p.processField(field, entry, table, data, sd.UseInput))
+						sd.PartialFields = append(sd.PartialFields, p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes))
 					} else {
 						// New field or type change -> use .extend()
-						sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, sd.UseInput))
+						sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes))
 					}
 				}
 				// Add optional import for concrete types with partial fields
@@ -640,7 +668,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 	}
 
 	for _, field := range allFields {
-		fd := p.processField(field, entry, table, data, sd.UseInput)
+		fd := p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes)
 		sd.Fields = append(sd.Fields, fd)
 
 		// For concrete_types: detect fields that reference optional type params
@@ -810,7 +838,7 @@ func isSelfReference(t resolution.TypeRef, parent resolution.Type) bool {
 	return false
 }
 
-func (p *Plugin) processField(field resolution.Field, parentType resolution.Type, table *resolution.Table, data *templateData, useInput bool) fieldData {
+func (p *Plugin) processField(field resolution.Field, parentType resolution.Type, table *resolution.Table, data *templateData, useInput bool, needsTypeImports bool) fieldData {
 	isArray := field.Type.Name == "Array"
 	fd := fieldData{
 		Name:           field.Name,
@@ -834,9 +862,21 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			typeRefToProcess = &field.Type.TypeArgs[0]
 		}
 		fd.ZodType = p.typeRefToZod(typeRefToProcess, table, data, useInput)
-		fd.TSType = p.typeRefToTS(typeRefToProcess, table, data)
+		fd.TSType = p.typeRefToTS(typeRefToProcess, table, data, needsTypeImports)
 		if validateDomain, ok := plugin.GetFieldDomain(field, "validate"); ok {
 			fd.ZodType = p.applyValidation(fd.ZodType, validateDomain, field.Type, field.Name, table)
+		}
+	}
+	// Handle @key generate for auto-generating IDs
+	if key.HasGenerate(field) {
+		primitive := key.ResolvePrimitive(field.Type, table)
+		switch primitive {
+		case "string":
+			addXImport(data, xImport{name: "id", submodule: "id"})
+			fd.ZodType = fmt.Sprintf("%s.default(() => id.create())", fd.ZodType)
+		case "uuid":
+			addXImport(data, xImport{name: "uuid", submodule: "uuid"})
+			fd.ZodType = fmt.Sprintf("%s.default(() => uuid.create())", fd.ZodType)
 		}
 	}
 	isAnyOptional := field.IsOptional || field.IsHardOptional
@@ -857,6 +897,22 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 
 func getFieldTypeOverride(field resolution.Field, domainName string) string {
 	domain, ok := plugin.GetFieldDomain(field, domainName)
+	if !ok {
+		return ""
+	}
+	for _, expr := range domain.Expressions {
+		if expr.Name == "type" && len(expr.Values) > 0 {
+			if v := expr.Values[0].StringValue; v != "" {
+				return v
+			}
+			return expr.Values[0].IdentValue
+		}
+	}
+	return ""
+}
+
+func getTypeTypeOverride(typ resolution.Type, domainName string) string {
+	domain, ok := plugin.GetTypeDomain(typ, domainName)
 	if !ok {
 		return ""
 	}
@@ -893,7 +949,11 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 			}
 			return fmt.Sprintf("zod.stringifiedJSON(%s)", paramName)
 		}
-		return fmt.Sprintf("%s ?? %s", paramName, fallbackForConstraint(typeRef.TypeParam.Constraint, table))
+		// Only add fallback if the type param has a default or is optional
+		if typeRef.TypeParam.Default != nil || typeRef.TypeParam.Optional {
+			return fmt.Sprintf("%s ?? %s", paramName, fallbackForConstraint(typeRef.TypeParam.Constraint, table))
+		}
+		return paramName
 	}
 
 	// Handle primitives
@@ -1013,11 +1073,11 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 	}
 }
 
-func (p *Plugin) typeRefToTS(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData) string {
-	return p.typeRefToTSInternal(typeRef, table, data, false)
+func (p *Plugin) typeRefToTS(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData, needsTypeImports bool) string {
+	return p.typeRefToTSInternal(typeRef, table, data, false, needsTypeImports)
 }
 
-func (p *Plugin) typeRefToTSInternal(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData, forStructArg bool) string {
+func (p *Plugin) typeRefToTSInternal(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData, forStructArg bool, needsTypeImports bool) string {
 	if typeRef == nil {
 		return "unknown"
 	}
@@ -1033,27 +1093,29 @@ func (p *Plugin) typeRefToTSInternal(typeRef *resolution.TypeRef, table *resolut
 	// Handle primitives
 	if resolution.IsPrimitive(typeRef.Name) {
 		// Add imports for special primitive types used in concrete type generation
-		switch typeRef.Name {
-		case "timestamp":
-			addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
-		case "timespan":
-			addXImport(data, xImport{name: "TimeSpan", submodule: "telem"})
-		case "color":
-			addXImport(data, xImport{name: "Color", submodule: "color"})
+		if needsTypeImports {
+			switch typeRef.Name {
+			case "timestamp":
+				addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
+			case "timespan":
+				addXImport(data, xImport{name: "TimeSpan", submodule: "telem"})
+			case "color":
+				addXImport(data, xImport{name: "Color", submodule: "color"})
+			}
 		}
 		return primitiveToTS(typeRef.Name)
 	}
 
 	// Handle Array type
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		elemTS := p.typeRefToTSInternal(&typeRef.TypeArgs[0], table, data, forStructArg)
+		elemTS := p.typeRefToTSInternal(&typeRef.TypeArgs[0], table, data, forStructArg, needsTypeImports)
 		return elemTS + "[]"
 	}
 
 	// Handle Map type
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		keyType := p.typeRefToTSInternal(&typeRef.TypeArgs[0], table, data, forStructArg)
-		valueType := p.typeRefToTSInternal(&typeRef.TypeArgs[1], table, data, forStructArg)
+		keyType := p.typeRefToTSInternal(&typeRef.TypeArgs[0], table, data, forStructArg, needsTypeImports)
+		valueType := p.typeRefToTSInternal(&typeRef.TypeArgs[1], table, data, forStructArg, needsTypeImports)
 		return fmt.Sprintf("Record<%s, %s>", keyType, valueType)
 	}
 
@@ -1069,7 +1131,7 @@ func (p *Plugin) typeRefToTSInternal(typeRef *resolution.TypeRef, table *resolut
 		if form.IsGeneric() && len(typeRef.TypeArgs) > 0 {
 			args := make([]string, len(typeRef.TypeArgs))
 			for i, arg := range typeRef.TypeArgs {
-				args[i] = p.typeRefToTSInternal(&arg, table, data, true)
+				args[i] = p.typeRefToTSInternal(&arg, table, data, true, needsTypeImports)
 			}
 			typeName = fmt.Sprintf("%s<%s>", typeName, strings.Join(args, ", "))
 		}
@@ -1102,7 +1164,7 @@ func (p *Plugin) typeRefToTSInternal(typeRef *resolution.TypeRef, table *resolut
 		if form.IsGeneric() && len(typeRef.TypeArgs) > 0 {
 			args := make([]string, len(typeRef.TypeArgs))
 			for i, arg := range typeRef.TypeArgs {
-				args[i] = p.typeRefToTSInternal(&arg, table, data, true)
+				args[i] = p.typeRefToTSInternal(&arg, table, data, true, needsTypeImports)
 			}
 			typeName = fmt.Sprintf("%s<%s>", typeName, strings.Join(args, ", "))
 		}
@@ -1258,11 +1320,28 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 		case resolution.ValueKindString:
 			zodType = fmt.Sprintf("%s.default(%q)", zodType, rules.Default.StringValue)
 		case resolution.ValueKindInt:
-			zodType = fmt.Sprintf("%s.default(%d)", zodType, rules.Default.IntValue)
+			// Special handling for timestamp/timespan with default of 0
+			if rules.Default.IntValue == 0 {
+				switch typeRef.Name {
+				case "timestamp":
+					zodType = fmt.Sprintf("%s.default(TimeStamp.ZERO)", zodType)
+				case "timespan":
+					zodType = fmt.Sprintf("%s.default(TimeSpan.ZERO)", zodType)
+				default:
+					zodType = fmt.Sprintf("%s.default(%d)", zodType, rules.Default.IntValue)
+				}
+			} else {
+				zodType = fmt.Sprintf("%s.default(%d)", zodType, rules.Default.IntValue)
+			}
 		case resolution.ValueKindFloat:
 			zodType = fmt.Sprintf("%s.default(%f)", zodType, rules.Default.FloatValue)
 		case resolution.ValueKindBool:
 			zodType = fmt.Sprintf("%s.default(%t)", zodType, rules.Default.BoolValue)
+		case resolution.ValueKindIdent:
+			// Handle identifier-based defaults like "now" for timestamps
+			if rules.Default.IdentValue == "now" && typeRef.Name == "timestamp" {
+				zodType = fmt.Sprintf("%s.default(() => TimeStamp.now())", zodType)
+			}
 		}
 	}
 	return zodType
@@ -1364,6 +1443,7 @@ type structData struct {
 	TypeParams                                     []typeParamData
 	UseInput, Handwritten, ConcreteTypes           bool
 	IsGeneric, IsSingleParam, IsAlias, IsRecursive bool
+	AllParamsOptional                              bool // True if all type params have defaults or are optional
 
 	// Extension support
 	HasExtends              bool
@@ -1469,7 +1549,7 @@ export type {{ .TypeDef.TSName }} = z.infer<typeof {{ .TypeDef.TSName | camelCas
 {{- if .IsGeneric }}
 {{- if .IsSingleParam }}
 
-export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}>({{ range $i, $p := .TypeParams }}{{ $p.Name | camelCase }}?: {{ $p.Name }}{{ end }}) =>
+export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}>({{ range $i, $p := .TypeParams }}{{ $p.Name | camelCase }}{{ if $p.HasDefault }}?{{ end }}: {{ $p.Name }}{{ end }}) =>
   {{ .AliasOf }};
 {{- if $.GenerateTypes }}
 export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.{{ if .UseInput }}input{{ else }}infer{{ end }}<
@@ -1480,7 +1560,7 @@ export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends
 
 export interface {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> {
 {{- range $i, $p := .TypeParams }}
-  {{ $p.Name | camelCase }}?: {{ $p.Name }};
+  {{ $p.Name | camelCase }}{{ if $p.HasDefault }}?{{ end }}: {{ $p.Name }};
 {{- end }}
 }
 
@@ -1488,7 +1568,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
 {{- range $i, $p := .TypeParams }}
   {{ $p.Name | camelCase }},
 {{- end }}
-}: {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}> = {}) =>
+}: {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>{{ if .AllParamsOptional }} = {}{{ end }}) =>
   {{ .AliasOf }};
 {{- if $.GenerateTypes }}
 export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.{{ if .UseInput }}input{{ else }}infer{{ end }}<
@@ -1506,7 +1586,7 @@ export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{
 {{- else if .IsGeneric }}
 {{- if .IsSingleParam }}
 
-export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}>({{ range $i, $p := .TypeParams }}{{ $p.Name | camelCase }}?: {{ $p.Name }}{{ end }}) =>
+export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}>({{ range $i, $p := .TypeParams }}{{ $p.Name | camelCase }}{{ if $p.HasDefault }}?{{ end }}: {{ $p.Name }}{{ end }}) =>
 {{- if .HasExtends }}
   {{ .ExtendsName }}({{ if .ExtendsParentIsGeneric }}{{ range $i, $a := .ExtendsParentSchemaArgs }}{{ if $i }}, {{ end }}{{ $a }}{{ end }}{{ end }})
 {{- if .OmittedFields }}
@@ -1545,7 +1625,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ $p.
 
 export interface {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> {
 {{- range $i, $p := .TypeParams }}
-  {{ $p.Name | camelCase }}?: {{ $p.Name }};
+  {{ $p.Name | camelCase }}{{ if $p.HasDefault }}?{{ end }}: {{ $p.Name }};
 {{- end }}
 }
 
@@ -1553,7 +1633,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
 {{- range $i, $p := .TypeParams }}
   {{ $p.Name | camelCase }},
 {{- end }}
-}: {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}> = {}) =>
+}: {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>{{ if .AllParamsOptional }} = {}{{ end }}) =>
 {{- if .HasExtends }}
   {{ .ExtendsName }}({{ if .ExtendsParentIsGeneric }}{ {{ range $i, $a := .ExtendsParentSchemaArgs }}{{ if $i }}, {{ end }}{{ $a }}{{ end }} }{{ end }})
 {{- if .OmittedFields }}

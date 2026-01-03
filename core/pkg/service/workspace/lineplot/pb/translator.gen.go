@@ -34,7 +34,7 @@ func LinePlotFromPB(_ context.Context, pb *LinePlot) (lineplot.LinePlot, error) 
 	if pb == nil {
 		return r, nil
 	}
-	r.Key = uuid.MustParse(pb.Key)
+	r.Key = lineplot.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
 	r.Data = pb.Data
 	return r, nil

@@ -11,8 +11,10 @@
 @go output "core/pkg/service/workspace/lineplot"
 @pb
 
+Key = uuid
+
 LinePlot struct {
-    key  uuid   @key
+    key  Key    @key
     name string
     data json
 
@@ -31,7 +33,7 @@ GoLinePlot struct extends LinePlot {
 }
 
 New struct extends LinePlot {
-    key uuid?
+    key Key?
 
     @ts use_input
     @go omit

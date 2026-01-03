@@ -28,8 +28,8 @@ import {
   type Params,
   type Payload,
   payloadZ,
-} from "@/ranger/payload";
-import { type CreateOptions, type Writer } from "@/ranger/writer";
+} from "@/range/payload";
+import { type CreateOptions, type Writer } from "@/range/writer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_range_set";

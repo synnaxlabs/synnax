@@ -41,7 +41,7 @@ export { label } from "@/label";
 export { ontology } from "@/ontology";
 export { group } from "@/ontology/group";
 export { rack } from "@/rack";
-export { ranger } from "@/ranger";
+export { range } from "@/range";
 export { status } from "@/status";
 export { task } from "@/task";
 export { createTestClientWithPolicy } from "@/testutil/access";

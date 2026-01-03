@@ -11,8 +11,10 @@
 @go output "core/pkg/service/workspace/schematic"
 @pb
 
+Key = uuid
+
 Schematic struct {
-    key      uuid   @key
+    key      Key    @key
     name     string
     data     json
     snapshot bool
@@ -32,7 +34,7 @@ GoSchematic struct extends Schematic {
 }
 
 New struct extends Schematic {
-    key      uuid?
+    key      Key?
     snapshot bool?
 
     @ts use_input

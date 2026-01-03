@@ -9,8 +9,10 @@
 
 @py output "client/py/synnax/x/control"
 @go output "x/go/control"
-@ts output "client/ts/src/control"
+@ts output "x/ts/src/control"
 @pb
+
+Authority = uint8
 
 Concurrency enum {
     exclusive = 0
@@ -20,4 +22,12 @@ Concurrency enum {
 Subject struct {
     key  string
     name string
+}
+
+State struct<R> {
+    subject   Subject
+    resource  R
+    authority Authority
+
+    @ts concrete_types
 }

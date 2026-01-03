@@ -13,26 +13,23 @@ import { Mutex } from "async-mutex";
 import { z } from "zod";
 
 import {
-  type Key,
   type KeyOrName,
   type Keys,
   type KeysOrNames,
-  keyZ,
   type Name,
   type Names,
   type Params,
-  type Payload,
-  payloadZ,
 } from "@/channel/payload";
+import { type Key, keyZ, type Payload, payloadZ } from "@/channel/types.gen";
 import { QueryError } from "@/errors";
-import { keyZ as rangeKeyZ } from "@/ranger/payload";
+import { keyZ as rangeKeyZ } from "@/range/payload";
 import {
   analyzeParams as analyzeParameters,
   type ParamAnalysisResult,
 } from "@/util/retrieve";
 
 const reqZ = z.object({
-  nodeKey: zod.uint12.optional(),
+  nodeKey: zod.uint12Z.optional(),
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
   searchTerm: z.string().optional(),

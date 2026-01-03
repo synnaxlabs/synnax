@@ -11,10 +11,10 @@ import { type change } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { ranger } from "@/ranger";
+import { range } from "@/range";
 
 export const resolveRequestZ = z.object({
-  range: ranger.keyZ,
+  range: range.keyZ,
   aliases: z.string().array(),
 });
 export interface ResolveRequest extends z.infer<typeof resolveRequestZ> {}
@@ -25,18 +25,18 @@ export const resolveResponseZ = z.object({
 export interface ResolveResponse extends z.infer<typeof resolveResponseZ> {}
 
 export const setRequestZ = z.object({
-  range: ranger.keyZ,
+  range: range.keyZ,
   aliases: z.record(channel.keyZ, z.string()),
 });
 export interface SetRequest extends z.infer<typeof setRequestZ> {}
 
 export const deleteRequestZ = z.object({
-  range: ranger.keyZ,
+  range: range.keyZ,
   channels: channel.keyZ.array(),
 });
 export interface DeleteRequest extends z.infer<typeof deleteRequestZ> {}
 
-export const listRequestZ = z.object({ range: ranger.keyZ });
+export const listRequestZ = z.object({ range: range.keyZ });
 export interface ListRequest extends z.infer<typeof listRequestZ> {}
 
 export const listResponseZ = z.object({
@@ -45,7 +45,7 @@ export const listResponseZ = z.object({
 export interface ListResponse extends z.infer<typeof listResponseZ> {}
 
 export const retrieveRequestZ = z.object({
-  range: ranger.keyZ,
+  range: range.keyZ,
   channels: channel.keyZ.array(),
 });
 export interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
@@ -58,7 +58,7 @@ export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 export const aliasZ = z.object({
   alias: z.string().optional(),
   channel: channel.keyZ,
-  range: ranger.keyZ,
+  range: range.keyZ,
 });
 export interface Alias extends z.infer<typeof aliasZ> {}
 
@@ -70,7 +70,7 @@ export const aliasKey = (alias: Pick<Alias, "range" | "channel">): string =>
   `${alias.range}${SEPARATOR}${alias.channel}`;
 
 export interface DecodedDeleteAliasChange {
-  range: ranger.Key;
+  range: range.Key;
   channel: channel.Key;
 }
 

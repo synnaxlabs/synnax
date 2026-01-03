@@ -15,8 +15,10 @@ import (
 	"github.com/google/uuid"
 )
 
+type Key = uuid.UUID
+
 type LinePlot struct {
-	Key uuid.UUID `json:"key" msgpack:"key"`
+	Key Key `json:"key" msgpack:"key"`
 	Name string `json:"name" msgpack:"name"`
 	Data string `json:"data" msgpack:"data"`
 }

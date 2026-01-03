@@ -13,8 +13,11 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 
+export const keyZ = z.uuid();
+export type Key = z.infer<typeof keyZ>;
+
 export const userZ = z.object({
-  key: z.uuid(),
+  key: keyZ,
   username: z.string().min(1, "Username is required"),
   firstName: z.string(),
   lastName: z.string(),

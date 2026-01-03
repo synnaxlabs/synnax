@@ -14,10 +14,12 @@ import "schemas/status"
 @go output "core/pkg/service/task"
 @pb
 
-Key uint64
+Key uint64 {
+    @ts type string
+}
 
 StatusDetails struct<Data extends json = json> {
-    task    Key?    @ts type string
+    task    Key?
     running bool?
     cmd     string?
     data    Data?

@@ -11,17 +11,20 @@
 
 from __future__ import annotations
 
+from typing import Any, TypeAlias
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from synnax.ontology.payload import ID
 
-Key = UUID
+Key = Any
+
+Key: TypeAlias = UUID
 
 
 class User(BaseModel):
-    key: UUID
+    key: Key
     username: str
     first_name: str
     last_name: str
@@ -32,7 +35,7 @@ class User(BaseModel):
 
 
 class New(User):
-    key: UUID | None = None
+    key: Key | None = None
     password: str = Field(min_length=1)
     first_name: str | None = None
     last_name: str | None = None
@@ -42,5 +45,5 @@ class New(User):
 ONTOLOGY_TYPE = ID(type="user")
 
 
-def ontology_id(key: UUID) -> ID:
+def ontology_id(key: Any) -> ID:
     return ID(type="user", key=str(key))

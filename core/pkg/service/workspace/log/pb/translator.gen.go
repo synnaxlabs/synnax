@@ -34,7 +34,7 @@ func LogFromPB(_ context.Context, pb *Log) (log.Log, error) {
 	if pb == nil {
 		return r, nil
 	}
-	r.Key = uuid.MustParse(pb.Key)
+	r.Key = log.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
 	r.Data = pb.Data
 	return r, nil

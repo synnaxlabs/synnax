@@ -11,7 +11,7 @@
 
 import { z } from "zod";
 
-import { Color, color } from "@/color";
+import { color } from "@/color";
 
 export const labelZ = z.object({
   key: z.uuid(),

@@ -9,8 +9,10 @@
 
 @ts output "client/ts/src/view"
 
+Key = uuid
+
 View struct {
-    key   uuid   @key
+    key   Key    @key
     name  string
     type  string
     query json
@@ -19,7 +21,7 @@ View struct {
 }
 
 New struct extends View {
-    key uuid?
+    key Key?
 
     @ts use_input
 }

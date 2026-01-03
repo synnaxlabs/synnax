@@ -11,8 +11,10 @@
 @go output "core/pkg/service/workspace/log"
 @pb
 
+Key = uuid
+
 Log struct {
-    key  uuid   @key
+    key  Key    @key
     name string
     data json
 
@@ -31,7 +33,7 @@ GoLog struct extends Log {
 }
 
 New struct extends Log {
-    key uuid?
+    key Key?
 
     @ts use_input
     @go omit

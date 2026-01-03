@@ -11,8 +11,10 @@
 @go output "core/pkg/service/workspace/table"
 @pb
 
+Key = uuid
+
 Table struct {
-    key  uuid   @key
+    key  Key    @key
     name string
     data json
 
@@ -31,7 +33,7 @@ GoTable struct extends Table {
 }
 
 New struct extends Table {
-    key uuid?
+    key Key?
 
     @ts use_input
     @go omit

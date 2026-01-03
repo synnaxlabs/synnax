@@ -15,6 +15,9 @@ import { z } from "zod";
 import { ontology } from "@/ontology";
 import { rack } from "@/rack";
 
+export const keyZ = z.uuid();
+export type Key = z.infer<typeof keyZ>;
+
 export const statusDetailsZ = z.object({
   rack: rack.keyZ,
   device: z.string(),
@@ -40,7 +43,7 @@ export const deviceZ = <
   Model extends z.ZodType = z.ZodString,
 >({ properties, make, model }: DeviceSchemas<Properties, Make, Model> = {}) =>
   z.object({
-    key: z.string(),
+    key: keyZ,
     rack: rack.keyZ,
     location: z.string().min(1, "Location is required"),
     make: make ?? z.string(),

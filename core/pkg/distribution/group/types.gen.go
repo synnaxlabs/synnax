@@ -15,7 +15,9 @@ import (
 	"github.com/google/uuid"
 )
 
+type Key = uuid.UUID
+
 type Group struct {
-	Key uuid.UUID `json:"key" msgpack:"key"`
+	Key Key `json:"key" msgpack:"key"`
 	Name string `json:"name" msgpack:"name"`
 }

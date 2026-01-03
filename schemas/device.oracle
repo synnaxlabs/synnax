@@ -22,12 +22,14 @@ StatusDetails struct {
 
 Status = status.Status<StatusDetails>
 
+Key = uuid
+
 Device struct<
     Properties extends json = json,
     Make extends string = string,
     Model extends string = string
 > {
-    key        string     @key
+    key        Key        @key
     rack       rack.Key   @validate required
     location   string     @validate required
     make       Make       @validate required
@@ -57,7 +59,7 @@ New struct<
     Make extends string = string,
     Model extends string = string
 > extends Device<Properties, Make, Model> {
-    key string?
+    key Key?
     -configured
 
     @ts use_input

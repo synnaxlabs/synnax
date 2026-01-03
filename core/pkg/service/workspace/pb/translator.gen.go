@@ -35,7 +35,7 @@ func WorkspaceFromPB(_ context.Context, pb *Workspace) (workspace.Workspace, err
 	if pb == nil {
 		return r, nil
 	}
-	r.Key = uuid.MustParse(pb.Key)
+	r.Key = workspace.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
 	r.Author = uuid.MustParse(pb.Author)
 	r.Layout = pb.Layout

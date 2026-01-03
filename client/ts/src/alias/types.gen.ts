@@ -12,7 +12,7 @@
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { range } from "@/ranger";
+import { range } from "@/range";
 
 export const aliasZ = z.object({
   range: range.keyZ,

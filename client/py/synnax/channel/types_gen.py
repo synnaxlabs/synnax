@@ -45,8 +45,8 @@ class Payload(BaseModel):
     is_index: bool
     index: Key
     alias: str | None = None
-    virtual: bool | None = None
-    internal: bool | None = None
+    virtual: bool = Field(default=False)
+    internal: bool = Field(default=False)
     expression: str = Field(default="")
     operations: list[Operation] | None = None
     concurrency: control.Concurrency | None = None
@@ -62,7 +62,7 @@ class New(Payload):
     is_index: bool | None = None
     internal: bool | None = None
     virtual: bool | None = None
-    expression: str = Field(default="")
+    expression: str | None = Field(default=None, default="")
     operations: list[Operation] | None = None
     concurrency: control.Concurrency | None = None
 

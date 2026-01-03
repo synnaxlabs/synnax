@@ -14,15 +14,18 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 
+export const keyZ = z.uuid();
+export type Key = z.infer<typeof keyZ>;
+
 export const workspaceZ = z.object({
-  key: z.uuid(),
+  key: keyZ,
   name: z.string().min(1, "Name is required"),
   author: z.uuid(),
   layout: zod.stringifiedJSON(),
 });
 export interface Workspace extends z.infer<typeof workspaceZ> {}
 
-export const newZ = workspaceZ.partial({ key: true });
+export const newZ = workspaceZ.omit({ author: true }).partial({ key: true });
 export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("workspace");

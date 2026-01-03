@@ -11,8 +11,10 @@
 @py output "client/py/synnax/user"
 @go output "core/pkg/service/user"
 
+Key = uuid
+
 User struct {
-    key        uuid   @key
+    key        Key    @key
     username   string @validate required
     first_name string
     last_name  string
@@ -23,7 +25,7 @@ User struct {
 }
 
 New struct extends User {
-    key        uuid?
+    key        Key?
     password   string  @validate min_length 1
     first_name string?
     last_name  string?

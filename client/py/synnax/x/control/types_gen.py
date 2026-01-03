@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
+from typing import Any, TypeAlias
 
 from pydantic import BaseModel
 
@@ -21,6 +22,15 @@ class Concurrency(IntEnum):
     shared = 1
 
 
+Authority: TypeAlias = int
+
+
 class Subject(BaseModel):
     key: str
     name: str
+
+
+class State(BaseModel):
+    subject: Subject
+    resource: Any
+    authority: Authority

@@ -11,13 +11,18 @@ import { z } from "zod";
 
 import { id } from "@/id";
 import { type optional } from "@/optional";
-import { type Status, type Variant, type variantZ } from "@/status/types.gen";
+import {
+  type Status,
+  type Variant,
+  variantZ,
+} from "@/status/types.gen";
 import { TimeStamp } from "@/telem";
 
-type Base<V extends typeof variantZ> = {
+// Input type for creating statuses - uses conditional typing for optional details
+type Base<V extends Variant> = {
   key: string;
   name: string;
-  variant: z.infer<V>;
+  variant: V;
   message: string;
   description?: string;
   time: TimeStamp;
@@ -25,7 +30,7 @@ type Base<V extends typeof variantZ> = {
 
 export type Crude<
   DetailsSchema extends z.ZodType = z.ZodNever,
-  V extends typeof variantZ = typeof variantZ,
+  V extends Variant = Variant,
 > = optional.Optional<Base<V>, "key" | "time" | "name"> &
   ([DetailsSchema] extends [z.ZodNever] ? {} : { details: z.output<DetailsSchema> });
 
@@ -51,14 +56,14 @@ export const create = <
   DetailsSchema extends z.ZodType = z.ZodNever,
   V extends typeof variantZ = typeof variantZ,
 >(
-  spec: Crude<DetailsSchema, V>,
+  spec: Crude<DetailsSchema, z.infer<V>>,
 ): Status<DetailsSchema, V> =>
   ({
     key: id.create(),
     time: TimeStamp.now(),
     name: "",
     ...spec,
-  }) as Status<DetailsSchema, V>;
+  }) as unknown as Status<DetailsSchema, V>;
 
 export const keepVariants = (
   variant?: Variant,

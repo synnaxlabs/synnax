@@ -15,8 +15,10 @@ import (
 	"github.com/google/uuid"
 )
 
+type Key = uuid.UUID
+
 type User struct {
-	Key uuid.UUID `json:"key" msgpack:"key"`
+	Key Key `json:"key" msgpack:"key"`
 	Username string `json:"username" msgpack:"username"`
 	FirstName string `json:"first_name" msgpack:"first_name"`
 	LastName string `json:"last_name" msgpack:"last_name"`
@@ -25,7 +27,7 @@ type User struct {
 
 type New struct {
 	Username string `json:"username" msgpack:"username"`
-	Key uuid.UUID `json:"key" msgpack:"key"`
+	Key Key `json:"key" msgpack:"key"`
 	Password string `json:"password" msgpack:"password"`
 	FirstName string `json:"first_name" msgpack:"first_name"`
 	LastName string `json:"last_name" msgpack:"last_name"`

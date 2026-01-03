@@ -11,24 +11,26 @@ import { binary, control, type observe } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
-import { keyZ } from "@/channel/payload";
+import { keyZ } from "@/channel/types.gen";
 import { framer } from "@/framer";
 
 export type Authority = control.Authority;
 export const ABSOLUTE_AUTHORITY = control.ABSOLUTE_AUTHORITY;
 export const ZERO_AUTHORITY = control.ZERO_AUTHORITY;
-export type Transfer = control.Transfer<channel.Key>;
-export interface State extends control.State<channel.Key> {}
+export type Transfer = control.Transfer<typeof channel.keyZ>;
+export interface State extends control.State<typeof channel.keyZ> {}
 export interface Subject extends control.Subject {}
 export const stateZ = control.stateZ(z.number());
 
 export const transferString = (t: Transfer): string => {
-  if (t.to == null) return `${t.from?.resource} - ${t.from?.subject.name} -> released`;
+  const fromResource = t.from?.resource;
+  const toResource = t.to?.resource;
+  if (t.to == null) return `${fromResource} - ${t.from?.subject.name} -> released`;
   if (t.from == null)
-    return `${t.to.resource} - released -> ${
+    return `${toResource} - released -> ${
       t.to.subject.name
     } (${t.to.authority.toString()})`;
-  return `${t.to.resource} - ${t.from.subject.name} -> ${
+  return `${toResource} - ${t.from.subject.name} -> ${
     t.to.subject.name
   } (${t.to.authority.toString()})`;
 };

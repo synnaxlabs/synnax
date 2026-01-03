@@ -33,7 +33,7 @@ func GroupFromPB(_ context.Context, pb *Group) (group.Group, error) {
 	if pb == nil {
 		return r, nil
 	}
-	r.Key = uuid.MustParse(pb.Key)
+	r.Key = group.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
 	return r, nil
 }
