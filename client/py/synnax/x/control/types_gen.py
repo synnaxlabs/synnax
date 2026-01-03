@@ -22,12 +22,12 @@ class Concurrency(IntEnum):
     shared = 1
 
 
-Authority: TypeAlias = int
-
-
 class Subject(BaseModel):
     key: str
     name: str
+
+
+Authority: TypeAlias = int
 
 
 class State(BaseModel):

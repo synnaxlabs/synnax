@@ -44,19 +44,7 @@ export interface StatusSchemas<
 export type StatusZodObject<
   Details extends z.ZodType = z.ZodNever,
   V extends z.ZodType<Variant> = typeof variantZ,
-> = z.ZodObject<
-  {
-    key: z.ZodDefault<z.ZodString>;
-    name: z.ZodDefault<z.ZodString>;
-    variant: V;
-    message: z.ZodString;
-    description: z.ZodOptional<z.ZodString>;
-    time: z.ZodDefault<typeof TimeStamp.z>;
-    labels: ReturnType<typeof array.nullToUndefined<typeof label.labelZ>>;
-  } & ([Details] extends [z.ZodNever]
-    ? { details: z.ZodOptional<z.ZodUnknown> }
-    : { details: Details })
->;
+> = Omit<z.ZodObject<z.ZodRawShape>, "_output"> & { _output: Status<Details, V> };
 
 export const statusZ = <
   Details extends z.ZodType = z.ZodNever,
@@ -71,7 +59,7 @@ export const statusZ = <
     time: TimeStamp.z.default(() => TimeStamp.now()),
     details: details ?? z.unknown().optional(),
     labels: array.nullToUndefined(label.labelZ),
-  }) as StatusZodObject<Details, V>;
+  }) as unknown as StatusZodObject<Details, V>;
 export type Status<
   Details extends z.ZodType = z.ZodNever,
   V extends z.ZodType<Variant> = typeof variantZ,
@@ -93,31 +81,11 @@ export interface NewSchemas<
   v?: V;
 }
 
-export type NewZodObject<
-  Details extends z.ZodType = z.ZodNever,
-  V extends z.ZodType<Variant> = typeof variantZ,
-> = z.ZodObject<
-  {
-    key: z.ZodOptional<z.ZodDefault<z.ZodString>>;
-    name: z.ZodOptional<z.ZodDefault<z.ZodString>>;
-    variant: V;
-    message: z.ZodString;
-    description: z.ZodOptional<z.ZodString>;
-    time: z.ZodOptional<z.ZodDefault<typeof TimeStamp.z>>;
-    labels: ReturnType<typeof array.nullToUndefined<typeof label.labelZ>>;
-  } & ([Details] extends [z.ZodNever]
-    ? { details: z.ZodOptional<z.ZodUnknown> }
-    : { details: Details })
->;
-
 export const newZ = <
   Details extends z.ZodType = z.ZodNever,
   V extends z.ZodType<Variant> = typeof variantZ,
->({ details, v }: NewSchemas<Details, V> = {}): NewZodObject<Details, V> =>
-  statusZ({ details, v }).partial({ key: true, name: true, time: true }) as NewZodObject<
-    Details,
-    V
-  >;
+>({ details, v }: NewSchemas<Details, V> = {}) =>
+  statusZ({ details, v }).partial({ key: true, name: true, time: true });
 export type New<
   Details extends z.ZodType = z.ZodNever,
   V extends z.ZodType<Variant> = typeof variantZ,

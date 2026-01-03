@@ -52,6 +52,7 @@ export const payloadZ = z.object({
 export interface Payload extends z.infer<typeof payloadZ> {}
 
 export const newZ = payloadZ
+  .omit({ operations: true, concurrency: true })
   .partial({
     key: true,
     leaseholder: true,
