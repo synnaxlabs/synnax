@@ -61,8 +61,8 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"internal": zyn.Bool(),
 })
 
-func newResource(l Policy) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(l.Key), l.Name, l)
+func newResource(p Policy) ontology.Resource {
+	return ontology.NewResource(schema, OntologyID(p.Key), p.Name, p)
 }
 
 type change = xchange.Change[uuid.UUID, Policy]

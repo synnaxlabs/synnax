@@ -62,8 +62,8 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"configured": zyn.Bool(),
 })
 
-func newResource(r Device) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(r.Key), r.Name, r)
+func newResource(d Device) ontology.Resource {
+	return ontology.NewResource(schema, OntologyID(d.Key), d.Name, d)
 }
 
 var _ ontology.Service = (*Service)(nil)

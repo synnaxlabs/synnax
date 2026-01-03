@@ -34,7 +34,7 @@ func (t Type) String() string { return string(t) }
 //	    Type: "user",
 //	}
 //
-// The Id has two elements for several reasons. First, by storing the Type we know which
+// The ID has two elements for several reasons. First, by storing the Type we know which
 // service to query for additional info on the Resource. Second, while a Key may be
 // unique for a particular resource (e.g. channel), it might not be unique across all
 // resources. We need something universally unique across the entire Synnax Core.
