@@ -70,7 +70,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		if err != nil {
 			return err
 		}
-		keys, err := KeysFromOntologyIds(ids)
+		keys, err := KeysFromOntologyIDs(ids)
 		if err != nil {
 			return err
 		}

@@ -110,7 +110,7 @@ func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
 	if err != nil {
 		return r, err
 	}
-	keys, err := KeysFromOntologyIds(ids)
+	keys, err := KeysFromOntologyIDs(ids)
 	if err != nil {
 		return r, err
 	}

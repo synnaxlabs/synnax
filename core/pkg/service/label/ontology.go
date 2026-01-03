@@ -54,8 +54,8 @@ func OntologyIDsFromLabels(labels []Label) []ontology.ID {
 	return lo.Map(labels, func(l Label, _ int) ontology.ID { return OntologyID(l.Key) })
 }
 
-// KeysFromOntologyIds extracts the label keys from the given ontology.IDs.
-func KeysFromOntologyIds(ids []ontology.ID) ([]uuid.UUID, error) {
+// KeysFromOntologyIDs extracts the label keys from the given ontology.IDs.
+func KeysFromOntologyIDs(ids []ontology.ID) ([]uuid.UUID, error) {
 	keys := make([]uuid.UUID, len(ids))
 	var err error
 	for i, id := range ids {

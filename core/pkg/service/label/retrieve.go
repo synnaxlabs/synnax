@@ -67,7 +67,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		if err != nil {
 			return err
 		}
-		keys, err := KeysFromOntologyIds(ids)
+		keys, err := KeysFromOntologyIDs(ids)
 		if err != nil {
 			return err
 		}
@@ -93,7 +93,7 @@ func (s *Service) RetrieveFor(
 		Exec(ctx, tx); err != nil {
 		return nil, err
 	}
-	keys, err := KeysFromOntologyIds(ontology.ResourceIDs(labelResources))
+	keys, err := KeysFromOntologyIDs(ontology.ResourceIDs(labelResources))
 	if err != nil {
 		return nil, err
 	}
