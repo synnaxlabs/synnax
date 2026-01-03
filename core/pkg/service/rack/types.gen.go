@@ -12,7 +12,7 @@
 package rack
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/status"
 )
 
 type Key uint32

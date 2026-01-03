@@ -15,4 +15,4 @@ import (
 	golabel "github.com/synnaxlabs/x/label"
 )
 
-type Label golabel.Label
+type Label = golabel.Label

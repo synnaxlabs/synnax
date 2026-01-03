@@ -15,8 +15,8 @@ import (
 	"context"
 	"google.golang.org/protobuf/types/known/anypb"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	servicestatus_pb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
-	status_pb "github.com/synnaxlabs/x/status/pb"
+	"github.com/synnaxlabs/x/status"
+	statuspb "github.com/synnaxlabs/x/status/pb"
 )
 
 
@@ -74,7 +74,7 @@ func RackToPB(ctx context.Context, r rack.Rack) (*Rack, error) {
 	}
 	if r.Status != nil {
 		var err error
-		pb.Status, err = StatusToPB(ctx, *r.Status)
+		pb.Status, err = statuspb.StatusToPB[rack.StatusDetails](ctx, (status.Status[rack.StatusDetails])(*r.Status), StatusDetailsToPBAny)
 		if err != nil {
 			return nil, err
 		}
@@ -93,11 +93,11 @@ func RackFromPB(ctx context.Context, pb *Rack) (rack.Rack, error) {
 	r.TaskCounter = pb.TaskCounter
 	r.Embedded = pb.Embedded
 	if pb.Status != nil {
-		val, err := StatusFromPB(ctx, pb.Status)
+		val, err := statuspb.StatusFromPB[rack.StatusDetails](ctx, pb.Status, StatusDetailsFromPBAny)
 		if err != nil {
 			return r, err
 		}
-		r.Status = &val
+		r.Status = (*rack.Status)(&val)
 	}
 	return r, nil
 }
@@ -147,14 +147,4 @@ func StatusDetailsFromPBAny(ctx context.Context, a *anypb.Any) (rack.StatusDetai
 		return rack.StatusDetails{}, err
 	}
 	return StatusDetailsFromPB(ctx, &pb)
-}
-
-// StatusToPB wraps the @go use type's translator for the local alias.
-func StatusToPB(ctx context.Context, r rack.Status) (*status_pb.Status, error) {
-	return servicestatus_pb.StatusToPB[rack.StatusDetails](ctx, r, StatusDetailsToPBAny)
-}
-
-// StatusFromPB wraps the @go use type's translator for the local alias.
-func StatusFromPB(ctx context.Context, pb *status_pb.Status) (rack.Status, error) {
-	return servicestatus_pb.StatusFromPB[rack.StatusDetails](ctx, pb, StatusDetailsFromPBAny)
 }

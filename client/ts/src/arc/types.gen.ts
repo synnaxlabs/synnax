@@ -43,16 +43,6 @@ export const stageZ = z.object({
 });
 export interface Stage extends z.infer<typeof stageZ> {}
 
-export const stratumZ = z.object({
-  nodes: array.nullishToEmpty(z.string()),
-});
-export interface Stratum extends z.infer<typeof stratumZ> {}
-
-export const statusDetailsZ = z.object({
-  running: z.boolean(),
-});
-export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
-
 export const bodyZ = z.object({
   raw: z.string(),
 });
@@ -64,10 +54,13 @@ export const channelsZ = z.object({
 });
 export interface Channels extends z.infer<typeof channelsZ> {}
 
-export const textZ = z.object({
-  raw: z.string(),
+export const graphNodeZ = z.object({
+  key: z.string(),
+  type: z.string(),
+  config: zod.stringifiedJSON(),
+  position: spatial.xyZ,
 });
-export interface Text extends z.infer<typeof textZ> {}
+export interface GraphNode extends z.infer<typeof graphNodeZ> {}
 
 export const typeZ = z.object({
   kind: kindZ,
@@ -77,19 +70,26 @@ export const typeZ = z.object({
 });
 export interface Type extends z.infer<typeof typeZ> {}
 
-export const graphNodeZ = z.object({
-  key: z.string(),
-  type: z.string(),
-  config: zod.stringifiedJSON(),
-  position: spatial.xyZ,
-});
-export interface GraphNode extends z.infer<typeof graphNodeZ> {}
-
 export const viewportZ = z.object({
   position: spatial.xyZ,
   zoom: z.number(),
 });
 export interface Viewport extends z.infer<typeof viewportZ> {}
+
+export const textZ = z.object({
+  raw: z.string(),
+});
+export interface Text extends z.infer<typeof textZ> {}
+
+export const stratumZ = z.object({
+  nodes: array.nullishToEmpty(z.string()),
+});
+export interface Stratum extends z.infer<typeof stratumZ> {}
+
+export const statusDetailsZ = z.object({
+  running: z.boolean(),
+});
+export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 
 export const handleZ = z.object({
   node: z.string(),
@@ -103,15 +103,15 @@ export const sequenceZ = z.object({
 });
 export interface Sequence extends z.infer<typeof sequenceZ> {}
 
-export const statusZ = status.statusZ({ details: statusDetailsZ });
-export type Status = z.infer<typeof statusZ>;
-
 export const paramZ = z.object({
   name: z.string(),
   type: typeZ,
   value: zod.stringifiedJSON().optional(),
 });
 export interface Param extends z.infer<typeof paramZ> {}
+
+export const statusZ = status.statusZ({ details: statusDetailsZ });
+export type Status = z.infer<typeof statusZ>;
 
 export const edgeZ = z.object({
   source: handleZ,

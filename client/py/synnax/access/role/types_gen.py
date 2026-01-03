@@ -20,7 +20,7 @@ from synnax.ontology.payload import ID
 Key = UUID
 
 
-class Role(BaseModel):
+class Base(BaseModel):
     key: UUID
     name: str
     description: str | None = None
@@ -30,7 +30,7 @@ class Role(BaseModel):
         return hash(self.key)
 
 
-class New(Role):
+class Role(Base):
     key: UUID | None = None
 
 

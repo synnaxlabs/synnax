@@ -44,7 +44,7 @@ Status<Data extends json = json> = status.Status<StatusDetails<Data>> {
 
 GoStatus = status.GoStatus<GoStatusDetails> {
     @go name  "Status"
-    @go use   status.GoServiceStatus
+    @pb name  "Status"
     @ts omit
     @py omit
     @cpp omit

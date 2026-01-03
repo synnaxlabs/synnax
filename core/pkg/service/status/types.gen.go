@@ -15,4 +15,4 @@ import (
 	gostatus "github.com/synnaxlabs/x/status"
 )
 
-type Status[Details any] gostatus.Status[Details]
+type Status[Details any] = gostatus.Status[Details]

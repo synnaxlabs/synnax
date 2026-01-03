@@ -101,7 +101,7 @@ func (w Writer) Clear(
 	return w.otg.DeleteOutgoingRelationshipsOfType(ctx, target, LabeledBy)
 }
 
-// RemoveLabel removes a set of labels from the target resource. RemoveLabel is idempotent,
+// Removelabel.Label removes a set of labels from the target resource. Removelabel.Label is idempotent,
 // and will not return an error if the target resource does not have the specified labels.
 func (w Writer) RemoveLabel(
 	ctx context.Context,

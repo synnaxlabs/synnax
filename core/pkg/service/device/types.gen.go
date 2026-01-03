@@ -13,7 +13,7 @@ package device
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/status"
 )
 
 type Status = status.Status[StatusDetails]

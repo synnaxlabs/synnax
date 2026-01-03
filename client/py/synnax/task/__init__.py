@@ -18,11 +18,11 @@ from synnax.task.client import (
     TaskProtocol,
 )
 from synnax.task.types_gen import (
+    ONTOLOGY_TYPE,
     Key,
     Payload,
     Status,
     StatusDetails,
-    ONTOLOGY_TYPE,
     ontology_id,
 )
 

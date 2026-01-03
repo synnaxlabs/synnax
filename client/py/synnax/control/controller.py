@@ -372,9 +372,7 @@ class Controller:
         if self._receiver_opt is not None:
             self._receiver.stop()
 
-    def __setitem__(
-        self, ch: ChannelKey | ChannelName | Payload, value: int | float
-    ):
+    def __setitem__(self, ch: ChannelKey | ChannelName | Payload, value: int | float):
         self.set(ch, value)
 
     @property

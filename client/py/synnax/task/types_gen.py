@@ -21,18 +21,18 @@ from synnax.ontology.payload import ID
 Key = int
 
 
-class StatusDetails(BaseModel):
-    task: Key | None = None
-    running: bool | None = None
-    cmd: str | None = None
-    data: Any | None = None
-
-
 class Command(BaseModel):
     task: Key
     type: str
     key: str
     args: dict[str, Any] | None = None
+
+
+class StatusDetails(BaseModel):
+    task: Key | None = None
+    running: bool | None = None
+    cmd: str | None = None
+    data: Any | None = None
 
 
 Status: TypeAlias = status.Status[StatusDetails]

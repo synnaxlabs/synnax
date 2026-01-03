@@ -16,8 +16,9 @@ from synnax.channel.payload import (
     ChannelParams,
     normalize_channel_params,
 )
-from synnax.channel.types_gen import New, Payload as ChannelPayload
 from synnax.channel.retrieve import CacheChannelRetriever
+from synnax.channel.types_gen import New
+from synnax.channel.types_gen import Payload as ChannelPayload
 
 
 class _CreateRequest(Payload):

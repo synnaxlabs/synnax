@@ -314,9 +314,7 @@ class Range(RangePayload):
         self._tasks = _tasks
         self._ontology = _ontology
 
-    def _get_scoped_channel(
-        self, channels: list[Payload], query: str
-    ) -> ScopedChannel:
+    def _get_scoped_channel(self, channels: list[Payload], query: str) -> ScopedChannel:
         if len(channels) == 0:
             raise QueryError(f"Channel matching {query} not found")
         return ScopedChannel(query, self.__splice_cached(channels))
@@ -337,9 +335,7 @@ class Range(RangePayload):
             return self._get_scoped_channel(channels, name.__str__())
         return self.__getattr__(name)
 
-    def __splice_cached(
-        self, channels: list[Payload]
-    ) -> list[_InternalScopedChannel]:
+    def __splice_cached(self, channels: list[Payload]) -> list[_InternalScopedChannel]:
         results = list()
         for pld in channels:
             cached = self._cache.get(pld.key, None)
@@ -413,9 +409,7 @@ class Range(RangePayload):
         return RangePayload(name=self.name, time_range=self.time_range, key=self.key)
 
     @overload
-    def write(
-        self, to: ChannelKey | ChannelName | Payload, data: CrudeSeries
-    ): ...
+    def write(self, to: ChannelKey | ChannelName | Payload, data: CrudeSeries): ...
 
     @overload
     def write(

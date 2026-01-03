@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 @ts output "x/ts/src/label"
-@py output "client/py/synnax/label"
 
 Label struct {
     key   uuid   @key
@@ -19,8 +18,16 @@ Label struct {
     @pb
 }
 
-SVCLabel Label {
+New struct extends Label {
+    key uuid?
+
+    @ts use_input
+    @go omit
+    @pb omit
+}
+
+GoSVCLabel = Label {
     @go output "core/pkg/service/label"
     @go name   "Label"
-    @pb
+    @ts omit
 }

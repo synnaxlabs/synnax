@@ -8,4 +8,3 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.x.control.types_gen import *
-

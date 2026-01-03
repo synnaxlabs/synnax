@@ -26,7 +26,7 @@ Range struct {
 }
 
 APIRange struct extends Range {
-    labels label.SVCLabel[]?
+    labels label.Label[]?
     parent APIRange??
 
     @go output     "core/pkg/api/ranger"

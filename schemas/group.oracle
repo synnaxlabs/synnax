@@ -9,7 +9,6 @@
 
 @ts output "client/ts/src/ontology/group"
 @go output "core/pkg/distribution/group"
-@py output "client/py/synnax/group"
 @pb
 
 Group struct {

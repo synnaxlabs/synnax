@@ -13,12 +13,12 @@ import { z } from "zod";
 
 import { Color, color } from "@/color";
 
-export const svcLabelZ = labelZ;
-export type SVCLabel = z.infer<typeof svcLabelZ>;
-
 export const labelZ = z.object({
   key: z.uuid(),
   name: z.string().min(1),
   color: color.colorZ,
 });
 export interface Label extends z.infer<typeof labelZ> {}
+
+export const newZ = labelZ.partial({ key: true });
+export interface New extends z.input<typeof newZ> {}

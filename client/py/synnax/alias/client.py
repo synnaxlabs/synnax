@@ -45,12 +45,10 @@ class Aliaser:
         self._cache = {}
 
     @overload
-    def resolve(self, alias: str) -> ChannelKey:
-        ...
+    def resolve(self, alias: str) -> ChannelKey: ...
 
     @overload
-    def resolve(self, aliases: list[str]) -> dict[str, ChannelKey]:
-        ...
+    def resolve(self, aliases: list[str]) -> dict[str, ChannelKey]: ...
 
     def resolve(self, aliases: str | list[str]) -> dict[str, ChannelKey] | ChannelKey:
         """Resolve one or more aliases to channel keys.
@@ -75,7 +73,7 @@ class Aliaser:
             return results
 
         req = ResolveRequest(range=self._rng, aliases=to_fetch)
-        res = send_required(self._client, "/alias/resolve", req, ResolveResponse)
+        res = send_required(self._client, "/range/alias/resolve", req, ResolveResponse)
 
         for alias, key in res.aliases.items():
             self._cache[alias] = key
@@ -90,7 +88,7 @@ class Aliaser:
         :param aliases: A dict mapping channel keys to their aliases.
         """
         req = SetRequest(range=self._rng, aliases=aliases)
-        send_required(self._client, "/alias/set", req, EmptyResponse)
+        send_required(self._client, "/range/alias/set", req, EmptyResponse)
 
     def list_(self) -> dict[ChannelKey, str]:
         """List all aliases for the range.
@@ -98,20 +96,16 @@ class Aliaser:
         :returns: A dict mapping channel keys to aliases.
         """
         req = ListRequest(range=self._rng)
-        res = send_required(self._client, "/alias/list", req, ListResponse)
+        res = send_required(self._client, "/range/alias/list", req, ListResponse)
         return res.aliases
 
     @overload
-    def retrieve(self, channel: ChannelKey) -> str:
-        ...
+    def retrieve(self, channel: ChannelKey) -> str: ...
 
     @overload
-    def retrieve(self, channels: list[ChannelKey]) -> dict[ChannelKey, str]:
-        ...
+    def retrieve(self, channels: list[ChannelKey]) -> dict[ChannelKey, str]: ...
 
-    def retrieve(
-        self, channels: ChannelKey
-    ) -> str | dict[ChannelKey, str]:
+    def retrieve(self, channels: ChannelKey) -> str | dict[ChannelKey, str]:
         """Retrieve aliases for one or more channels.
 
         :param channels: A single channel key or list of channel keys.
@@ -120,7 +114,9 @@ class Aliaser:
         """
         is_single = isinstance(channels, int)
         req = RetrieveRequest(range=self._rng, channels=normalize(channels))
-        res = send_required(self._client, "/alias/retrieve", req, RetrieveResponse)
+        res = send_required(
+            self._client, "/range/alias/retrieve", req, RetrieveResponse
+        )
         if is_single:
             return res.aliases[str(channels)]
         return res.aliases
@@ -131,7 +127,7 @@ class Aliaser:
         :param channels: A single channel key or list of channel keys to delete aliases for.
         """
         req = DeleteRequest(range=self._rng, channels=normalize(channels))
-        send_required(self._client, "/alias/delete", req, EmptyResponse)
+        send_required(self._client, "/range/alias/delete", req, EmptyResponse)
 
 
 class Client:

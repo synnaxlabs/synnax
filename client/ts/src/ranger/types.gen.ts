@@ -26,7 +26,7 @@ export const rangeZ = z.object({
 export interface Range extends z.infer<typeof rangeZ> {}
 
 export const apiRangeZ = rangeZ.extend({
-  labels: array.nullToUndefined(label.svcLabelZ),
+  labels: array.nullToUndefined(label.labelZ),
   get parent() {
     return apiRangeZ.optional();
   },

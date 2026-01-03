@@ -12,14 +12,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, cast
 
-from synnax.util.normalize import normalize
 from synnax.channel.types_gen import Payload
+from synnax.util.normalize import normalize
 
 ChannelKey = int
 ChannelName = str
 ChannelKeys = list[int]
 ChannelNames = list[str]
 ChannelParams = ChannelKeys | ChannelNames | ChannelKey | ChannelName
+
 
 @dataclass
 class NormalizedChannelKeyResult:

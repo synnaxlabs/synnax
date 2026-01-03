@@ -20,7 +20,9 @@ from synnax.channel.payload import (
     ChannelName,
     ChannelNames,
     ChannelParams,
-    Payload as ChannelPayload,
+)
+from synnax.channel.payload import Payload as ChannelPayload
+from synnax.channel.payload import (
     normalize_channel_params,
 )
 from synnax.exceptions import NotFoundError
@@ -198,9 +200,7 @@ class CacheChannelRetriever:
         return retrieved
 
 
-def retrieve_required(
-    r: ChannelRetriever, channels: ChannelParams
-) -> list[Payload]:
+def retrieve_required(r: ChannelRetriever, channels: ChannelParams) -> list[Payload]:
     normal = normalize_channel_params(channels)
     results = r.retrieve(channels)
     not_found = list()

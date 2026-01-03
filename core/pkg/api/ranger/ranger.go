@@ -244,4 +244,3 @@ func (s *Service) Delete(
 		return nil
 	})
 }
-

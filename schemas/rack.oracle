@@ -23,9 +23,7 @@ StatusDetails struct {
     @api output "core/pkg/api/grpc"
 }
 
-Status = status.Status<StatusDetails> {
-    @go use status.GoServiceStatus
-}
+Status = status.Status<StatusDetails>
 
 Rack struct {
     key          Key      @key

@@ -22,19 +22,18 @@ from synnax.channel.payload import (
     ChannelParams,
     normalize_channel_params,
 )
-from synnax.channel.types_gen import (
-    Payload,
-    ONTOLOGY_TYPE,
-    Operation,
-    ontology_id,
-    New,
-)
 from synnax.channel.retrieve import ChannelRetriever
+from synnax.channel.types_gen import (
+    ONTOLOGY_TYPE,
+    New,
+    Operation,
+    Payload,
+    ontology_id,
+)
 from synnax.channel.writer import ChannelWriter
 from synnax.exceptions import MultipleFoundError, NotFoundError, ValidationError
 from synnax.framer.client import Client as FrameClient
 from synnax.ontology.payload import ID
-from synnax.x import control
 from synnax.telem import (
     CrudeDataType,
     CrudeTimeStamp,
@@ -44,6 +43,7 @@ from synnax.telem import (
     TimeRange,
 )
 from synnax.util.normalize import normalize
+from synnax.x import control
 
 
 class Channel(Payload):
@@ -121,16 +121,14 @@ class Channel(Payload):
     def read(
         self,
         start_or_range: TimeRange,
-    ) -> MultiSeries:
-        ...
+    ) -> MultiSeries: ...
 
     @overload
     def read(
         self,
         start_or_range: CrudeTimeStamp,
         end: CrudeTimeStamp,
-    ) -> MultiSeries:
-        ...
+    ) -> MultiSeries: ...
 
     def read(
         self,
@@ -233,20 +231,17 @@ class ChannelClient:
         expression: str | None = None,
         operations: list[Operation] | None = None,
         retrieve_if_name_exists: bool = False,
-    ) -> Channel:
-        ...
+    ) -> Channel: ...
 
     @overload
     def create(
         self, channels: Channel, *, retrieve_if_name_exists: bool = False
-    ) -> Channel:
-        ...
+    ) -> Channel: ...
 
     @overload
     def create(
         self, channels: list[Channel], *, retrieve_if_name_exists: bool = False
-    ) -> list[Channel]:
-        ...
+    ) -> list[Channel]: ...
 
     def create(
         self,
@@ -331,15 +326,13 @@ class ChannelClient:
         return created if isinstance(channels, list) else created[0]
 
     @overload
-    def retrieve(self, channel: ChannelKey | ChannelName) -> Channel:
-        ...
+    def retrieve(self, channel: ChannelKey | ChannelName) -> Channel: ...
 
     @overload
     def retrieve(
         self,
         channel: ChannelKeys | ChannelNames,
-    ) -> list[Channel]:
-        ...
+    ) -> list[Channel]: ...
 
     def retrieve(self, channel: ChannelParams) -> Channel | list[Channel]:
         """Retrieves a channel or set of channels from the cluster.

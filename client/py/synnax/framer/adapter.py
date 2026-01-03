@@ -129,9 +129,7 @@ class WriteFrameAdapter:
     def keys(self):
         return self._keys
 
-    def __adapt_to_key(
-        self, ch: Payload | ChannelKey | ChannelName
-    ) -> ChannelKey:
+    def __adapt_to_key(self, ch: Payload | ChannelKey | ChannelName) -> ChannelKey:
         if isinstance(ch, ChannelKey):
             return ch
         if isinstance(ch, Payload):
@@ -141,18 +139,14 @@ class WriteFrameAdapter:
         # (either cache or server)
         return self.__adapt_ch(ch).key
 
-    def __adapt_ch(
-        self, ch: ChannelKey | ChannelName | Payload
-    ) -> Payload:
+    def __adapt_ch(self, ch: ChannelKey | ChannelName | Payload) -> Payload:
         if isinstance(ch, (ChannelKey, ChannelName)):
             return self.retriever.retrieve_one(ch)
         return ch
 
     def adapt(
         self,
-        channels_or_data: (
-            Payload | list[Payload] | ChannelParams | CrudeFrame
-        ),
+        channels_or_data: Payload | list[Payload] | ChannelParams | CrudeFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ):
         frame = self._adapt(channels_or_data, series)
@@ -189,9 +183,7 @@ class WriteFrameAdapter:
 
     def _adapt(
         self,
-        channels_or_data: (
-            Payload | list[Payload] | ChannelParams | CrudeFrame
-        ),
+        channels_or_data: Payload | list[Payload] | ChannelParams | CrudeFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
         if isinstance(channels_or_data, (ChannelName, ChannelKey, Payload)):

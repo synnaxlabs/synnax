@@ -39,8 +39,7 @@ class KV:
         self._rng_key = rng
 
     @overload
-    def get(self, keys: str) -> str:
-        ...
+    def get(self, keys: str) -> str: ...
 
     def get(self, keys: str | list[str]) -> dict[str, str] | str:
         """Get one or more values by key.
@@ -49,18 +48,16 @@ class KV:
         :returns: The value if a single key was provided, otherwise a dict of keys to values.
         """
         req = GetRequest(range=self._rng_key, keys=normalize(keys))
-        res = send_required(self._client, "/kv/get", req, GetResponse)
+        res = send_required(self._client, "/range/kv/get", req, GetResponse)
         if isinstance(keys, str):
             return res.pairs[0].value
         return {pair.key: pair.value for pair in res.pairs}
 
     @overload
-    def set(self, key: str, value: Any):
-        ...
+    def set(self, key: str, value: Any): ...
 
     @overload
-    def set(self, key: dict[str, Any]):
-        ...
+    def set(self, key: dict[str, Any]): ...
 
     def set(self, key: str | dict[str, Any], value: Any = None) -> None:
         """Set one or more key-value pairs.
@@ -75,7 +72,7 @@ class KV:
             for k, v in key.items():
                 pairs.append(Pair(range=self._rng_key, key=k, value=v))
         req = SetRequest(range=self._rng_key, pairs=pairs)
-        send_required(self._client, "/kv/set", req, EmptyResponse)
+        send_required(self._client, "/range/kv/set", req, EmptyResponse)
 
     def delete(self, keys: str | list[str]) -> None:
         """Delete one or more keys.
@@ -83,7 +80,7 @@ class KV:
         :param keys: A single key or list of keys to delete.
         """
         req = DeleteRequest(range=self._rng_key, keys=normalize(keys))
-        send_required(self._client, "/kv/delete", req, EmptyResponse)
+        send_required(self._client, "/range/kv/delete", req, EmptyResponse)
 
     def __getitem__(self, key: str) -> str:
         """Get a value by key using bracket notation."""

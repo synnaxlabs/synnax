@@ -26,7 +26,8 @@ from synnax.framer import Client as FrameClient
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
 from synnax.status import ERROR_VARIANT, SUCCESS_VARIANT
-from synnax.task.types_gen import Payload as TaskPayload, Status, ontology_id
+from synnax.task.types_gen import Payload as TaskPayload
+from synnax.task.types_gen import Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
 from synnax.util.normalize import check_for_none, normalize, override
 

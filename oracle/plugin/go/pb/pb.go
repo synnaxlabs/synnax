@@ -1071,9 +1071,9 @@ func (p *Plugin) generateGenericStructConversion(
 	goField, pbField string,
 	isHardOptional bool,
 ) (forward, backward, backwardCast string) {
-	// For generics, use the actual struct name but get the import from extends chain
-	structName := actualStruct.Name
-	translatorPrefix, _ := p.resolvePBTranslatorInfo(actualStruct, data)
+	// For generics, use resolvePBTranslatorInfo to get both the import prefix and the
+	// correct struct name (respecting @pb name annotation)
+	translatorPrefix, structName := p.resolvePBTranslatorInfo(actualStruct, data)
 
 	// Build converter function arguments and explicit type args for each type arg
 	var forwardConverters, backwardConverters []string
@@ -1345,6 +1345,19 @@ func (p *Plugin) generateArrayConversion(
 	}
 	elemType := typeRef.TypeArgs[0]
 
+	// Check for @go use directive on the field - redirects to a different type's translator
+	if goDomain, ok := field.Domains["go"]; ok {
+		if useExpr, found := goDomain.Expressions.Find("use"); found && len(useExpr.Values) > 0 {
+			useName := useExpr.Values[0].IdentValue
+			if useName == "" {
+				useName = useExpr.Values[0].StringValue
+			}
+			if useName != "" {
+				return p.generateArrayConversionWithUse(useName, elemType, data, goField, pbField)
+			}
+		}
+	}
+
 	// For struct arrays, use slice helper
 	elemResolved, ok := elemType.Resolve(data.table)
 	if ok {
@@ -1372,6 +1385,69 @@ func (p *Plugin) generateArrayConversion(
 	}
 
 	return goField, pbField, false
+}
+
+// generateArrayConversionWithUse handles array conversion when @go use is specified on the field.
+func (p *Plugin) generateArrayConversionWithUse(
+	useName string,
+	elemType resolution.TypeRef,
+	data *templateData,
+	goField, pbField string,
+) (forward, backward string, hasError bool) {
+	// Resolve the use type
+	var useType resolution.Type
+	var found bool
+
+	// Try to resolve the element type first to get its namespace
+	elemResolved, elemOk := elemType.Resolve(data.table)
+
+	// Try same namespace as element type
+	if elemOk {
+		qualifiedName := elemResolved.Namespace + "." + useName
+		useType, found = data.table.Get(qualifiedName)
+	}
+	if !found {
+		// Try as fully qualified name
+		useType, found = data.table.Get(useName)
+	}
+	if !found {
+		// Fall back to default handling
+		return goField, pbField, false
+	}
+
+	// Get the translator name from the use type
+	translatorName := getGoName(useType)
+	if translatorName == "" {
+		translatorName = useType.Name
+	}
+
+	// Find the pb package for the use type
+	pbPath := output.GetPBPath(useType)
+	if pbPath == "" {
+		// For DistinctForm, find underlying struct's pb
+		if distinctForm, ok := useType.Form.(resolution.DistinctForm); ok {
+			if baseResolved, ok := distinctForm.Base.Resolve(data.table); ok {
+				_, pbPath = findStructWithPB(baseResolved, data.table)
+			}
+		}
+	}
+	if pbPath == "" {
+		return goField, pbField, false
+	}
+
+	// Import the pb package
+	importPath, err := resolveGoImportPath(pbPath, data.repoRoot)
+	if err != nil {
+		return goField, pbField, false
+	}
+	goOutput := output.GetPath(useType, "go")
+	pbAlias := gointernal.DerivePackageAlias(goOutput+"pb", data.Package)
+	data.imports.AddInternal(pbAlias, importPath)
+
+	// All slice translators return (result, error)
+	return fmt.Sprintf("%s.%ssToPB(ctx, %s)", pbAlias, translatorName, goField),
+		fmt.Sprintf("%s.%ssFromPB(ctx, %s)", pbAlias, translatorName, pbField),
+		true
 }
 
 // generateEnumTranslator generates translator data for an enum.

@@ -100,7 +100,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if cfg.Signals == nil {
 		return
 	}
-	signalsCfg := signals.GorpPublisherConfigString[Status[any]](cfg.DB)
+	signalsCfg := signals.GorpPublisherConfigString[status.Status[any]](cfg.DB)
 	signalsCfg.SetName = "sy_status_set"
 	signalsCfg.DeleteName = "sy_status_delete"
 	statusSignals, err := signals.PublishFromGorp(

@@ -76,7 +76,7 @@ type SetResponse struct {
 func statusAccessOntologyIDs(statuses []Status) []ontology.ID {
 	ids := make([]ontology.ID, 0, len(statuses))
 	for _, s := range statuses {
-		ids = append(ids, s.OntologyID())
+		ids = append(ids, status.OntologyID(s.Key))
 		ids = append(ids, label.OntologyIDsFromLabels(s.Labels)...)
 	}
 	return ids
@@ -159,7 +159,7 @@ func (s *Service) Retrieve(
 	ids := statusAccessOntologyIDs(res.Statuses)
 	if req.IncludeLabels {
 		for i, stat := range res.Statuses {
-			labels, err := s.label.RetrieveFor(ctx, stat.OntologyID(), nil)
+			labels, err := s.label.RetrieveFor(ctx, status.OntologyID(stat.Key), nil)
 			if err != nil {
 				return RetrieveResponse{}, err
 			}

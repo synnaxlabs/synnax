@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/gorp"
+	xlabel "github.com/synnaxlabs/x/label"
 )
 
 // Retrieve is used to retrieve statuses from the cluster using a builder pattern.
@@ -62,7 +63,7 @@ func (r Retrieve[D]) WhereHasLabels(matchLabels ...uuid.UUID) Retrieve[D] {
 		if err != nil {
 			return false, err
 		}
-		labelKeys := lo.Map(labels, func(l label.Label, _ int) uuid.UUID { return l.Key })
+		labelKeys := lo.Map(labels, func(l xlabel.Label, _ int) uuid.UUID { return l.Key })
 		return lo.ContainsBy(labelKeys, func(l uuid.UUID) bool {
 			return lo.Contains(matchLabels, l)
 		}), nil

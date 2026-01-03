@@ -26,8 +26,8 @@ from synnax.channel.payload import (
     ChannelKeys,
     ChannelName,
     ChannelNames,
-    Payload,
 )
+from synnax.channel.payload import Payload as ChannelPayload
 from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.codec import (
     HIGH_PERF_SPECIAL_CHAR,
@@ -308,7 +308,7 @@ class Writer:
     @overload
     def set_authority(
         self,
-        value: dict[ChannelKey | ChannelName | Payload, CrudeAuthority],
+        value: dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority],
     ) -> None:
         """Sets the authority level for multiple channels.
 
@@ -319,7 +319,7 @@ class Writer:
     def set_authority(
         self,
         value: (
-            dict[ChannelKey | ChannelName | Payload, CrudeAuthority]
+            dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority]
             | ChannelKey
             | ChannelName
             | CrudeAuthority

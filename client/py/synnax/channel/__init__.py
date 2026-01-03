@@ -17,5 +17,5 @@ from synnax.channel.payload import (
     Payload,
     normalize_channel_params,
 )
-from synnax.channel.types_gen import Operation
 from synnax.channel.retrieve import ChannelRetriever
+from synnax.channel.types_gen import Operation

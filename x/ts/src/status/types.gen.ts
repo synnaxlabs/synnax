@@ -67,6 +67,13 @@ export type Status<
   labels?: label.Label[];
 } & ([Details] extends [z.ZodNever] ? {} : { details: z.infer<Details> });
 
+export const goSvcStatusZ = <Details extends z.ZodType = z.ZodNever>(
+  details?: Details,
+) => statusZ({ details });
+export type GoSVCStatus<Details extends z.ZodType = z.ZodNever> = z.infer<
+  ReturnType<typeof goSvcStatusZ<Details>>
+>;
+
 export interface NewSchemas<
   Details extends z.ZodType = z.ZodNever,
   V extends z.ZodType<Variant> = typeof variantZ,

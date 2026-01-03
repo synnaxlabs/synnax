@@ -17,10 +17,12 @@ Role struct {
     internal    bool?
 
     @ontology type "role"
+    @py name       "Base"
 }
 
 New struct extends Role {
     key uuid?
 
     @ts use_input
+    @py name      "Role"
 }
