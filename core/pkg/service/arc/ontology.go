@@ -17,8 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
-	changex "github.com/synnaxlabs/x/change"
+	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -40,11 +39,11 @@ func OntologyIDs(keys []uuid.UUID) []ontology.ID {
 }
 
 // KeysFromOntologyIDs extracts the keys of the arcs from the ontology IDs.
-func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
-	keys = make([]uuid.UUID, len(ids))
+func KeysFromOntologyIDs(ids []ontology.ID) ([]uuid.UUID, error) {
+	keys := make([]uuid.UUID, len(ids))
+	var err error
 	for i, id := range ids {
-		keys[i], err = uuid.Parse(id.Key)
-		if err != nil {
+		if keys[i], err = uuid.Parse(id.Key); err != nil {
 			return nil, err
 		}
 	}
@@ -53,22 +52,18 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
 
 // OntologyIDsFromArcs returns the ontology IDs of the arcs.
 func OntologyIDsFromArcs(arcs []Arc) []ontology.ID {
-	return lo.Map(arcs, func(c Arc, _ int) ontology.ID {
-		return OntologyID(c.Key)
-	})
+	return lo.Map(arcs, func(a Arc, _ int) ontology.ID { return OntologyID(a.Key) })
 }
 
-var schema = zyn.Object(map[string]zyn.Schema{
-	"key": zyn.UUID(),
-})
+var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.UUID()})
 
-func newResource(c Arc) core.Resource {
-	return core.NewResource(schema, OntologyID(c.Key), c.Name, c)
+func newResource(a Arc) ontology.Resource {
+	return ontology.NewResource(schema, OntologyID(a.Key), a.Name, a)
 }
 
 var _ ontology.Service = (*Service)(nil)
 
-type change = changex.Change[uuid.UUID, Arc]
+type change = xchange.Change[uuid.UUID, Arc]
 
 func (s *Service) Type() ontology.Type { return OntologyType }
 
@@ -76,15 +71,20 @@ func (s *Service) Type() ontology.Type { return OntologyType }
 func (s *Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
-func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (core.Resource, error) {
-	k := uuid.MustParse(key)
+func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
+	k, err := uuid.Parse(key)
+	if err != nil {
+		return ontology.Resource{}, err
+	}
 	var arc Arc
-	err := s.NewRetrieve().WhereKeys(k).Entry(&arc).Exec(ctx, tx)
-	return newResource(arc), err
+	if err = s.NewRetrieve().WhereKeys(k).Entry(&arc).Exec(ctx, tx); err != nil {
+		return ontology.Resource{}, err
+	}
+	return newResource(arc), nil
 }
 
-func translateChange(c change) core.Change {
-	return core.Change{
+func translateChange(c change) ontology.Change {
+	return ontology.Change{
 		Variant: c.Variant,
 		Key:     OntologyID(c.Key),
 		Value:   newResource(c.Value),
@@ -92,7 +92,7 @@ func translateChange(c change) core.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(context.Context, iter.Seq[core.Change])) observe.Disconnect {
+func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Arc]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
@@ -100,7 +100,10 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[core.Change])) obser
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[core.Resource], io.Closer, error) {
+func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := gorp.WrapReader[uuid.UUID, Arc](s.cfg.DB).OpenNexter(ctx)
-	return xiter.Map(n, newResource), closer, err
+	if err != nil {
+		return nil, nil, err
+	}
+	return xiter.Map(n, newResource), closer, nil
 }

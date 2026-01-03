@@ -14,9 +14,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -105,14 +103,14 @@ func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
 	if r.searchTerm == "" {
 		return r, nil
 	}
-	ids, err := r.otg.SearchIDs(ctx, search.Request{
+	ids, err := r.otg.SearchIDs(ctx, ontology.SearchRequest{
 		Type: OntologyType,
 		Term: r.searchTerm,
 	})
 	if err != nil {
 		return r, err
 	}
-	keys, err := KeysFromOntologyIds(ids)
+	keys, err := KeysFromOntologyIDs(ids)
 	if err != nil {
 		return r, err
 	}

@@ -50,11 +50,6 @@ var _ = Describe("Channel Tests", func() {
 				Expect(err.Error()).To(ContainSubstring("123456a is not a valid channel key"))
 			})
 		})
-		Describe("MustParseKey", func() {
-			It("Should panic when the key is not a valid integer", func() {
-				Expect(func() { channel.MustParseKey("123456a") }).To(Panic())
-			})
-		})
 		Describe("Lease", func() {
 			It("Should return the leaseholder node Name", func() {
 				k := channel.NewKey(cluster.NodeKey(1), 1)

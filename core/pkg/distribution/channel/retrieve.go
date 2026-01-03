@@ -17,7 +17,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
@@ -134,7 +133,7 @@ func (r Retrieve) Offset(offset int) Retrieve { r.gorp.Offset(offset); return r 
 // Exec executes the query, binding
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	if r.searchTerm != "" {
-		ids, err := r.otg.SearchIDs(ctx, search.Request{
+		ids, err := r.otg.SearchIDs(ctx, ontology.SearchRequest{
 			Type: OntologyType,
 			Term: r.searchTerm,
 		})
