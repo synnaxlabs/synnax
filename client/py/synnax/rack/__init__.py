@@ -13,7 +13,7 @@ from synnax.rack.types_gen import (
     Rack,
     Status,
     StatusDetails,
-    RACK_ONTOLOGY_TYPE,
+    ONTOLOGY_TYPE,
     ontology_id,
 )
 
@@ -23,6 +23,6 @@ __all__ = [
     "Rack",
     "Status",
     "StatusDetails",
-    "RACK_ONTOLOGY_TYPE",
+    "ONTOLOGY_TYPE",
     "ontology_id",
 ]

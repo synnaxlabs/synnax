@@ -33,9 +33,64 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type OperationType int32
+
+const (
+	OperationType_UNSPECIFIED OperationType = 0
+	OperationType_MIN         OperationType = 1
+	OperationType_MAX         OperationType = 2
+	OperationType_AVG         OperationType = 3
+	OperationType_NONE        OperationType = 4
+)
+
+// Enum value maps for OperationType.
+var (
+	OperationType_name = map[int32]string{
+		0: "UNSPECIFIED",
+		1: "MIN",
+		2: "MAX",
+		3: "AVG",
+		4: "NONE",
+	}
+	OperationType_value = map[string]int32{
+		"UNSPECIFIED": 0,
+		"MIN":         1,
+		"MAX":         2,
+		"AVG":         3,
+		"NONE":        4,
+	}
+)
+
+func (x OperationType) Enum() *OperationType {
+	p := new(OperationType)
+	*p = x
+	return p
+}
+
+func (x OperationType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (OperationType) Descriptor() protoreflect.EnumDescriptor {
+	return file_core_pkg_distribution_channel_pb_channel_proto_enumTypes[0].Descriptor()
+}
+
+func (OperationType) Type() protoreflect.EnumType {
+	return &file_core_pkg_distribution_channel_pb_channel_proto_enumTypes[0]
+}
+
+func (x OperationType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use OperationType.Descriptor instead.
+func (OperationType) EnumDescriptor() ([]byte, []int) {
+	return file_core_pkg_distribution_channel_pb_channel_proto_rawDescGZIP(), []int{0}
+}
+
 type Operation struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Type          string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	Type          OperationType          `protobuf:"varint,1,opt,name=type,proto3,enum=distribution.channel.OperationType" json:"type,omitempty"`
 	ResetChannel  uint32                 `protobuf:"varint,2,opt,name=reset_channel,json=resetChannel,proto3" json:"reset_channel,omitempty"`
 	Duration      int64                  `protobuf:"varint,3,opt,name=duration,proto3" json:"duration,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -72,11 +127,11 @@ func (*Operation) Descriptor() ([]byte, []int) {
 	return file_core_pkg_distribution_channel_pb_channel_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *Operation) GetType() string {
+func (x *Operation) GetType() OperationType {
 	if x != nil {
 		return x.Type
 	}
-	return ""
+	return OperationType_UNSPECIFIED
 }
 
 func (x *Operation) GetResetChannel() uint32 {
@@ -221,9 +276,9 @@ var File_core_pkg_distribution_channel_pb_channel_proto protoreflect.FileDescrip
 
 const file_core_pkg_distribution_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
-	".core/pkg/distribution/channel/pb/channel.proto\x12\x14distribution.channel\x1a\x1dx/go/control/pb/control.proto\"`\n" +
-	"\tOperation\x12\x12\n" +
-	"\x04type\x18\x01 \x01(\tR\x04type\x12#\n" +
+	".core/pkg/distribution/channel/pb/channel.proto\x12\x14distribution.channel\x1a\x1dx/go/control/pb/control.proto\"\x85\x01\n" +
+	"\tOperation\x127\n" +
+	"\x04type\x18\x01 \x01(\x0e2#.distribution.channel.OperationTypeR\x04type\x12#\n" +
 	"\rreset_channel\x18\x02 \x01(\rR\fresetChannel\x12\x1a\n" +
 	"\bduration\x18\x03 \x01(\x03R\bduration\"\x86\x03\n" +
 	"\aChannel\x12\x12\n" +
@@ -243,7 +298,13 @@ const file_core_pkg_distribution_channel_pb_channel_proto_rawDesc = "" +
 	"operations\x12\x1e\n" +
 	"\n" +
 	"expression\x18\v \x01(\tR\n" +
-	"expressionB\xd3\x01\n" +
+	"expression*E\n" +
+	"\rOperationType\x12\x0f\n" +
+	"\vUNSPECIFIED\x10\x00\x12\a\n" +
+	"\x03MIN\x10\x01\x12\a\n" +
+	"\x03MAX\x10\x02\x12\a\n" +
+	"\x03AVG\x10\x03\x12\b\n" +
+	"\x04NONE\x10\x04B\xd3\x01\n" +
 	"\x18com.distribution.channelB\fChannelProtoP\x01Z8github.com/synnaxlabs/synnax/pkg/distribution/channel/pb\xa2\x02\x03DCX\xaa\x02\x14Distribution.Channel\xca\x02\x14Distribution\\Channel\xe2\x02 Distribution\\Channel\\GPBMetadata\xea\x02\x15Distribution::Channelb\x06proto3"
 
 var (
@@ -258,20 +319,23 @@ func file_core_pkg_distribution_channel_pb_channel_proto_rawDescGZIP() []byte {
 	return file_core_pkg_distribution_channel_pb_channel_proto_rawDescData
 }
 
+var file_core_pkg_distribution_channel_pb_channel_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_core_pkg_distribution_channel_pb_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_core_pkg_distribution_channel_pb_channel_proto_goTypes = []any{
-	(*Operation)(nil),   // 0: distribution.channel.Operation
-	(*Channel)(nil),     // 1: distribution.channel.Channel
-	(pb.Concurrency)(0), // 2: x.control.Concurrency
+	(OperationType)(0),  // 0: distribution.channel.OperationType
+	(*Operation)(nil),   // 1: distribution.channel.Operation
+	(*Channel)(nil),     // 2: distribution.channel.Channel
+	(pb.Concurrency)(0), // 3: x.control.Concurrency
 }
 var file_core_pkg_distribution_channel_pb_channel_proto_depIdxs = []int32{
-	2, // 0: distribution.channel.Channel.concurrency:type_name -> x.control.Concurrency
-	0, // 1: distribution.channel.Channel.operations:type_name -> distribution.channel.Operation
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	0, // 0: distribution.channel.Operation.type:type_name -> distribution.channel.OperationType
+	3, // 1: distribution.channel.Channel.concurrency:type_name -> x.control.Concurrency
+	1, // 2: distribution.channel.Channel.operations:type_name -> distribution.channel.Operation
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_distribution_channel_pb_channel_proto_init() }
@@ -284,13 +348,14 @@ func file_core_pkg_distribution_channel_pb_channel_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_distribution_channel_pb_channel_proto_rawDesc), len(file_core_pkg_distribution_channel_pb_channel_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_core_pkg_distribution_channel_pb_channel_proto_goTypes,
 		DependencyIndexes: file_core_pkg_distribution_channel_pb_channel_proto_depIdxs,
+		EnumInfos:         file_core_pkg_distribution_channel_pb_channel_proto_enumTypes,
 		MessageInfos:      file_core_pkg_distribution_channel_pb_channel_proto_msgTypes,
 	}.Build()
 	File_core_pkg_distribution_channel_pb_channel_proto = out.File

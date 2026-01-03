@@ -23,7 +23,9 @@ StatusDetails struct {
     @api output "core/pkg/api/grpc"
 }
 
-Status = status.Status<StatusDetails>
+Status = status.Status<StatusDetails> {
+    @go use status.GoServiceStatus
+}
 
 Rack struct {
     key          Key      @key
@@ -36,10 +38,11 @@ Rack struct {
     @ontology type "rack"
     @api output    "core/pkg/api"
     @cpp name      "Payload"
+    @py name       "Base"
 }
 
 New struct extends Rack {
-    key uint32?
+    key uint32 @validate default 0
     -task_counter
     -embedded
 
@@ -47,4 +50,5 @@ New struct extends Rack {
     @go omit
     @pb omit
     @cpp omit
+    @py name      "Rack"
 }

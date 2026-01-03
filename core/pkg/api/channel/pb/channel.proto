@@ -7,18 +7,27 @@ package api.channel;
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/channel/pb";
 
 import "core/pkg/distribution/channel/pb/channel.proto";
+import "x/go/control/pb/control.proto";
+
+enum OperationType {
+  UNSPECIFIED = 0;
+  MIN = 1;
+  MAX = 2;
+  AVG = 3;
+  NONE = 4;
+}
 
 message Channel {
   uint32 key = 1;
   string name = 2;
   uint32 leaseholder = 3;
   string data_type = 4;
-  int64 density = 5;
-  bool is_index = 6;
-  uint32 index = 7;
-  string alias = 8;
-  bool virtual = 9;
-  bool internal = 10;
-  string expression = 11;
-  repeated distribution.channel.Operation operations = 12;
+  bool is_index = 5;
+  uint32 index = 6;
+  string alias = 7;
+  bool virtual = 8;
+  bool internal = 9;
+  string expression = 10;
+  repeated distribution.channel.Operation operations = 11;
+  x.control.Concurrency concurrency = 12;
 }

@@ -42,8 +42,9 @@ Status<Data extends json = json> = status.Status<StatusDetails<Data>> {
     @pb omit
 }
 
-GoStatus = status.Status<GoStatusDetails> {
+GoStatus = status.GoStatus<GoStatusDetails> {
     @go name  "Status"
+    @go use   status.GoServiceStatus
     @ts omit
     @py omit
     @cpp omit
@@ -57,11 +58,13 @@ NewStatusDetails struct<Data extends json = json> {
 
     @go omit
     @pb omit
+    @py omit
 }
 
 NewStatus<Data extends json = json> = status.New<NewStatusDetails<Data>> {
     @go omit
     @pb omit
+    @py omit
 }
 
 Task struct<
@@ -116,6 +119,7 @@ New struct<
     }
     @go omit
     @pb omit
+    @py omit
 }
 
 Command struct {

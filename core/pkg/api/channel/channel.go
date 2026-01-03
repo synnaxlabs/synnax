@@ -13,6 +13,8 @@ import (
 	"context"
 	"go/types"
 
+	xtypes "github.com/synnaxlabs/x/types"
+
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -236,11 +238,10 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 		translated[i] = Channel{
 			Key:         ch.Key(),
 			Name:        ch.Name,
-			Leaseholder: uint32(ch.Leaseholder),
-			DataType:    string(ch.DataType),
+			Leaseholder: xtypes.Uint12(ch.Leaseholder),
+			DataType:    ch.DataType,
 			IsIndex:     ch.IsIndex,
 			Index:       ch.Index(),
-			Density:     int64(ch.DataType.Density()),
 			Virtual:     ch.Virtual,
 			Internal:    ch.Internal,
 			Expression:  ch.Expression,

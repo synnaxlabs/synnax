@@ -21,7 +21,8 @@ export const tableZ = z.object({
 });
 export interface Table extends z.infer<typeof tableZ> {}
 
-export const newZ = tableZ.partial({ key: true });
+export const newZ = tableZ
+  .partial({ key: true });
 export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("table");

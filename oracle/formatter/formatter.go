@@ -945,10 +945,13 @@ func (f *formatter) formatEnumValue(ctx parser.IEnumValueContext, alignTo int) {
 }
 
 func (f *formatter) formatTypeDefDef(ctx parser.ITypeDefDefContext) {
-	// Format: Name baseType { domains }
+	// Format: Name<TypeParams> baseType { domains }
 	f.write(ctx.IDENT().GetText())
+	if ctx.TypeParams() != nil {
+		f.formatTypeParams(ctx.TypeParams())
+	}
 	f.write(" ")
-	f.formatQualifiedIdent(ctx.QualifiedIdent())
+	f.formatTypeRef(ctx.TypeRef())
 
 	body := ctx.TypeDefBody()
 	if body == nil || len(body.AllDomain()) == 0 {

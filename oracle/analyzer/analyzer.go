@@ -563,12 +563,9 @@ func collectTypeDef(c *analysisCtx, def parser.ITypeDefDefContext) {
 		return
 	}
 
-	qi := def.QualifiedIdent()
-	ids := qi.AllIDENT()
-	rawType := ids[0].GetText()
-	if len(ids) == 2 {
-		rawType = ids[0].GetText() + "." + ids[1].GetText()
-	}
+	// Collect type params first so they can be used when parsing the base type
+	typeParams := collectTypeParams(def.TypeParams())
+	base := collectTypeRef(def.TypeRef(), typeParams)
 
 	domains := make(map[string]resolution.Domain)
 	for k, v := range c.fileDomains {
@@ -591,7 +588,7 @@ func collectTypeDef(c *analysisCtx, def parser.ITypeDefDefContext) {
 		Namespace:     c.namespace,
 		QualifiedName: qname,
 		FilePath:      c.filePath,
-		Form:          resolution.DistinctForm{Base: resolution.TypeRef{Name: rawType}},
+		Form:          resolution.DistinctForm{Base: base, TypeParams: typeParams},
 		Domains:       domains,
 		AST:           def,
 	})
@@ -620,6 +617,14 @@ func resolveTypeRefs(c *analysisCtx, typ *resolution.Type) {
 		typ.Form = form
 	case resolution.DistinctForm:
 		resolveTypeRef(c, typ, &form.Base)
+		for i := range form.TypeParams {
+			if form.TypeParams[i].Constraint != nil {
+				resolveTypeRef(c, typ, form.TypeParams[i].Constraint)
+			}
+			if form.TypeParams[i].Default != nil {
+				resolveTypeRef(c, typ, form.TypeParams[i].Default)
+			}
+		}
 		typ.Form = form
 	}
 }
@@ -635,7 +640,7 @@ func resolveTypeRef(c *analysisCtx, currentType *resolution.Type, ref *resolutio
 		ns, name = parts[0], parts[1]
 	}
 
-	// Check if it's a type parameter (for generic structs and aliases)
+	// Check if it's a type parameter (for generic structs, aliases, and distinct types)
 	// We need to find the index and take the address of the slice element,
 	// not a copy, since TypeParam() returns a copy.
 	if currentType != nil && len(parts) == 1 {
@@ -649,6 +654,14 @@ func resolveTypeRef(c *analysisCtx, currentType *resolution.Type, ref *resolutio
 				}
 			}
 		case resolution.AliasForm:
+			for i := range form.TypeParams {
+				if form.TypeParams[i].Name == name {
+					ref.TypeParam = &form.TypeParams[i]
+					ref.Name = ""
+					return
+				}
+			}
+		case resolution.DistinctForm:
 			for i := range form.TypeParams {
 				if form.TypeParams[i].Name == name {
 					ref.TypeParam = &form.TypeParams[i]

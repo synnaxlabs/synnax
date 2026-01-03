@@ -14,14 +14,14 @@ from synnax.channel.payload import (
     ChannelKeys,
     ChannelNames,
     ChannelParams,
-    ChannelPayload,
     normalize_channel_params,
 )
+from synnax.channel.types_gen import New, Payload as ChannelPayload
 from synnax.channel.retrieve import CacheChannelRetriever
 
 
 class _CreateRequest(Payload):
-    channels: list[ChannelPayload]
+    channels: list[New | ChannelPayload]
 
 
 _Response = _CreateRequest
@@ -55,8 +55,8 @@ class ChannelWriter:
     @trace("debug")
     def create(
         self,
-        channels: list[ChannelPayload],
-    ) -> list[ChannelPayload]:
+        channels: list[New],
+    ) -> list[New]:
         req = _CreateRequest(channels=channels)
         res = send_required(self._client, "/channel/create", req, _Response)
         if self._cache is not None:

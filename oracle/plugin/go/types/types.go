@@ -372,17 +372,29 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 
 	switch form := td.Form.(type) {
 	case resolution.DistinctForm:
-		return typeDefData{
-			Name:     name,
-			BaseType: p.typeRefToGo(form.Base, data),
-			IsAlias:  false, // DistinctForm → "type X Y" (distinct type)
+		result := typeDefData{
+			Name:      name,
+			BaseType:  p.typeRefToGo(form.Base, data),
+			IsAlias:   false, // DistinctForm → "type X Y" (distinct type)
+			IsGeneric: len(form.TypeParams) > 0,
 		}
+		for _, tp := range form.TypeParams {
+			result.TypeParams = append(result.TypeParams, p.processTypeParam(tp, data))
+		}
+		return result
 	case resolution.AliasForm:
-		return typeDefData{
-			Name:     name,
-			BaseType: p.typeRefToGo(form.Target, data),
-			IsAlias:  true, // AliasForm → "type X = Y" (transparent alias)
+		// Check for @go use directive - changes the import path for the base type
+		baseType := p.typeRefToGoWithUse(form.Target, td, data)
+		result := typeDefData{
+			Name:      name,
+			BaseType:  baseType,
+			IsAlias:   true, // AliasForm → "type X = Y" (transparent alias)
+			IsGeneric: len(form.TypeParams) > 0,
 		}
+		for _, tp := range form.TypeParams {
+			result.TypeParams = append(result.TypeParams, p.processTypeParam(tp, data))
+		}
+		return result
 	default:
 		return typeDefData{Name: name, BaseType: "any"}
 	}
@@ -624,6 +636,76 @@ func (p *Plugin) resolveAliasType(resolved resolution.Type, data *templateData) 
 	return fmt.Sprintf("%s.%s", alias, typeName)
 }
 
+// typeRefToGoWithUse converts a type reference to Go, but respects @go use directive
+// on the aliasType to change the import path.
+func (p *Plugin) typeRefToGoWithUse(typeRef resolution.TypeRef, aliasType resolution.Type, data *templateData) string {
+	// Check for @go use directive
+	var useType *resolution.Type
+	if goDomain, ok := aliasType.Domains["go"]; ok {
+		if useExpr, found := goDomain.Expressions.Find("use"); found && len(useExpr.Values) > 0 {
+			useName := useExpr.Values[0].IdentValue
+			if useName == "" {
+				useName = useExpr.Values[0].StringValue
+			}
+			if useName != "" {
+				useType = p.lookupUseType(useName, aliasType, data)
+			}
+		}
+	}
+
+	// If no @go use or lookup failed, use standard resolution
+	if useType == nil {
+		return p.typeRefToGo(typeRef, data)
+	}
+
+	// Use the @go use type's output path for the import
+	targetOutputPath := output.GetPath(*useType, "go")
+	if targetOutputPath == "" {
+		return p.typeRefToGo(typeRef, data)
+	}
+
+	// Get the Go name from the use type (respecting @go name)
+	typeName := getGoName(*useType)
+	if typeName == "" {
+		typeName = useType.Name
+	}
+
+	// Import from the use type's output path
+	alias := gointernal.DerivePackageAlias(targetOutputPath, data.Package)
+	data.imports.AddInternal(alias, resolveGoImportPath(targetOutputPath, data.repoRoot))
+
+	// Build with type arguments from the original reference
+	return fmt.Sprintf("%s.%s", alias, p.buildGenericType(typeName, typeRef.TypeArgs, data))
+}
+
+// lookupUseType finds the type referenced by @go use directive.
+func (p *Plugin) lookupUseType(useName string, aliasType resolution.Type, data *templateData) *resolution.Type {
+	// Try same namespace first
+	qualifiedName := aliasType.Namespace + "." + useName
+	if useType, found := data.table.Get(qualifiedName); found {
+		return &useType
+	}
+
+	// Try the target's namespace (for cross-namespace @go use references)
+	if aliasForm, ok := aliasType.Form.(resolution.AliasForm); ok {
+		targetName := aliasForm.Target.Name
+		if dotIdx := strings.LastIndex(targetName, "."); dotIdx >= 0 {
+			targetNamespace := targetName[:dotIdx]
+			qualifiedName = targetNamespace + "." + useName
+			if useType, found := data.table.Get(qualifiedName); found {
+				return &useType
+			}
+		}
+	}
+
+	// Try as fully qualified name
+	if useType, found := data.table.Get(useName); found {
+		return &useType
+	}
+
+	return nil
+}
+
 // buildGenericType builds a generic type string with type arguments.
 func (p *Plugin) buildGenericType(baseName string, typeArgs []resolution.TypeRef, data *templateData) string {
 	if len(typeArgs) == 0 {
@@ -746,9 +828,6 @@ type fieldData struct {
 
 // TagSuffix returns the omitempty suffix if the field is optional.
 func (f fieldData) TagSuffix() string {
-	if f.IsOptional {
-		return ",omitempty"
-	}
 	return ""
 }
 
@@ -768,9 +847,11 @@ type enumValueData struct {
 
 // typeDefData holds data for a type definition.
 type typeDefData struct {
-	Name     string
-	BaseType string
-	IsAlias  bool // If true, use "type X = Y", otherwise "type X Y"
+	Name       string
+	BaseType   string
+	IsAlias    bool // If true, use "type X = Y", otherwise "type X Y"
+	TypeParams []typeParamData
+	IsGeneric  bool
 }
 
 var templateFuncs = template.FuncMap{
@@ -798,10 +879,10 @@ import (
 {{- range .TypeDefs}}
 {{- if .IsAlias}}
 
-type {{.Name}} = {{.BaseType}}
+type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}} = {{.BaseType}}
 {{- else}}
 
-type {{.Name}} {{.BaseType}}
+type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}} {{.BaseType}}
 {{- end}}
 {{- end}}
 {{- range $enum := .Enums}}

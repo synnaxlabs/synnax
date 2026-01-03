@@ -20,7 +20,9 @@ StatusDetails struct {
     device string
 }
 
-Status = status.Status<StatusDetails>
+Status = status.Status<StatusDetails> {
+    @go use status.GoServiceStatus
+}
 
 Device struct<
     Properties extends json = json,
@@ -48,6 +50,8 @@ GoDevice struct extends Device<json, string, string> {
 
     @go name "Device"
     @pb name "Device"
+    @py omit
+    @ts omit
 }
 
 New struct<

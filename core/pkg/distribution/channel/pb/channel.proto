@@ -8,8 +8,16 @@ option go_package = "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb";
 
 import "x/go/control/pb/control.proto";
 
+enum OperationType {
+  UNSPECIFIED = 0;
+  MIN = 1;
+  MAX = 2;
+  AVG = 3;
+  NONE = 4;
+}
+
 message Operation {
-  string type = 1;
+  OperationType type = 1;
   uint32 reset_channel = 2;
   int64 duration = 3;
 }

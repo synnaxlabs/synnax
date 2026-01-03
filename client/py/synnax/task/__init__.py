@@ -22,7 +22,7 @@ from synnax.task.types_gen import (
     Payload,
     Status,
     StatusDetails,
-    TASK_ONTOLOGY_TYPE,
+    ONTOLOGY_TYPE,
     ontology_id,
 )
 
@@ -33,7 +33,7 @@ __all__ = [
     "Payload",
     "Status",
     "StatusDetails",
-    "TASK_ONTOLOGY_TYPE",
+    "ONTOLOGY_TYPE",
     "ontology_id",
     "BaseTaskConfig",
     "BaseReadTaskConfig",

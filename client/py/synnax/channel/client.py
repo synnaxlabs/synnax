@@ -20,16 +20,21 @@ from synnax.channel.payload import (
     ChannelName,
     ChannelNames,
     ChannelParams,
-    ChannelPayload,
-    Operation,
     normalize_channel_params,
+)
+from synnax.channel.types_gen import (
+    Payload,
+    ONTOLOGY_TYPE,
+    Operation,
     ontology_id,
+    New,
 )
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.channel.writer import ChannelWriter
 from synnax.exceptions import MultipleFoundError, NotFoundError, ValidationError
 from synnax.framer.client import Client as FrameClient
 from synnax.ontology.payload import ID
+from synnax.x import control
 from synnax.telem import (
     CrudeDataType,
     CrudeTimeStamp,
@@ -41,7 +46,7 @@ from synnax.telem import (
 from synnax.util.normalize import normalize
 
 
-class Channel(ChannelPayload):
+class Channel(Payload):
     """A channel is a logical collection of samples emitted by or representing the
     values of a single source. See
     https://docs.synnaxlabs.com/reference/concepts/channels for an introduction to
@@ -64,6 +69,8 @@ class Channel(ChannelPayload):
         internal: bool = False,
         expression: str = "",
         operations: list[Operation] | None = None,
+        alias: str | None = None,
+        concurrency: control.Concurrency | None = None,
         _frame_client: FrameClient | None = None,
         _client: ChannelClient | None = None,
     ) -> None:
@@ -114,14 +121,16 @@ class Channel(ChannelPayload):
     def read(
         self,
         start_or_range: TimeRange,
-    ) -> MultiSeries: ...
+    ) -> MultiSeries:
+        ...
 
     @overload
     def read(
         self,
         start_or_range: CrudeTimeStamp,
         end: CrudeTimeStamp,
-    ) -> MultiSeries: ...
+    ) -> MultiSeries:
+        ...
 
     def read(
         self,
@@ -175,8 +184,8 @@ class Channel(ChannelPayload):
     def __eq__(self, other) -> bool:
         return self.key == other.key
 
-    def to_payload(self) -> ChannelPayload:
-        return ChannelPayload(
+    def to_payload(self) -> Payload:
+        return Payload(
             data_type=self.data_type,
             name=self.name,
             leaseholder=self.leaseholder,
@@ -224,17 +233,20 @@ class ChannelClient:
         expression: str | None = None,
         operations: list[Operation] | None = None,
         retrieve_if_name_exists: bool = False,
-    ) -> Channel: ...
+    ) -> Channel:
+        ...
 
     @overload
     def create(
         self, channels: Channel, *, retrieve_if_name_exists: bool = False
-    ) -> Channel: ...
+    ) -> Channel:
+        ...
 
     @overload
     def create(
         self, channels: list[Channel], *, retrieve_if_name_exists: bool = False
-    ) -> list[Channel]: ...
+    ) -> list[Channel]:
+        ...
 
     def create(
         self,
@@ -290,7 +302,7 @@ class ChannelClient:
             if is_index and data_type == DataType.UNKNOWN:
                 data_type = DataType.TIMESTAMP
             _channels = [
-                ChannelPayload(
+                New(
                     name=name,
                     leaseholder=leaseholder,
                     data_type=DataType(data_type),
@@ -319,13 +331,15 @@ class ChannelClient:
         return created if isinstance(channels, list) else created[0]
 
     @overload
-    def retrieve(self, channel: ChannelKey | ChannelName) -> Channel: ...
+    def retrieve(self, channel: ChannelKey | ChannelName) -> Channel:
+        ...
 
     @overload
     def retrieve(
         self,
         channel: ChannelKeys | ChannelNames,
-    ) -> list[Channel]: ...
+    ) -> list[Channel]:
+        ...
 
     def retrieve(self, channel: ChannelParams) -> Channel | list[Channel]:
         """Retrieves a channel or set of channels from the cluster.
@@ -379,7 +393,7 @@ class ChannelClient:
         """
         self._creator.rename(normalize(keys), normalize(names))
 
-    def __sugar(self, channels: list[ChannelPayload]) -> list[Channel]:
+    def __sugar(self, channels: list[Payload]) -> list[Channel]:
         return [
             Channel(**c.model_dump(), _frame_client=self._frame_client)
             for c in channels
@@ -388,7 +402,7 @@ class ChannelClient:
 
 def _multiple_results_error(
     channel: ChannelParams,
-    results: list[ChannelPayload],
+    results: list[Payload],
 ) -> MultipleFoundError:
     msg = f"""
 

@@ -54,6 +54,13 @@ GoStatus struct<Details?> extends Status<Details, Variant> {
     @pb name  "Status"
 }
 
+GoServiceStatus<Details?> GoStatus<Details> {
+    @go name   "Status"
+    @go output "core/pkg/service/status"
+    @ts omit
+    @pb
+}
+
 New struct<Details?, V extends Variant = Variant> extends Status<Details, V> {
     key  string?
     name string?

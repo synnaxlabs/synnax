@@ -111,8 +111,10 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 	outputStructs := make(map[string][]resolution.Type)
 	outputTypeDefs := make(map[string][]resolution.Type)
+	outputEnums := make(map[string][]resolution.Type)
 	var structOrder []string
 	var typeDefOrder []string
+	var enumOrder []string
 
 	// Collect distinct types and aliases
 	for _, entry := range req.Resolutions.DistinctTypes() {
@@ -161,9 +163,27 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			outputStructs[outputPath] = append(outputStructs[outputPath], entry)
 		}
 	}
+	// Collect standalone enums with their own output path
+	for _, e := range enum.CollectWithOwnOutput(req.Resolutions.EnumTypes(), "py") {
+		enumPath := output.GetPath(e, "py")
+		if req.RepoRoot != "" {
+			if err := req.ValidateOutputPath(enumPath); err != nil {
+				return nil, errors.Wrapf(err, "invalid output path for enum %s", e.Name)
+			}
+		}
+		if _, exists := outputEnums[enumPath]; !exists {
+			enumOrder = append(enumOrder, enumPath)
+		}
+		outputEnums[enumPath] = append(outputEnums[enumPath], e)
+	}
 	for _, outputPath := range structOrder {
 		structs := outputStructs[outputPath]
 		enums := enum.CollectReferenced(structs, req.Resolutions)
+		// Merge standalone enums that share the same output path
+		if standaloneEnums, ok := outputEnums[outputPath]; ok {
+			enums = mergeEnums(enums, standaloneEnums)
+			delete(outputEnums, outputPath)
+		}
 		var typeDefs []resolution.Type
 		if tds, ok := outputTypeDefs[outputPath]; ok {
 			typeDefs = tds
@@ -193,7 +213,36 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			Content: content,
 		})
 	}
+	// Handle standalone enum-only outputs
+	for _, outputPath := range enumOrder {
+		enums, ok := outputEnums[outputPath]
+		if !ok {
+			continue
+		}
+		content, err := p.generateFile(enums[0].Namespace, outputPath, nil, enums, nil, req.Resolutions)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
+		}
+		resp.Files = append(resp.Files, plugin.File{
+			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
+			Content: content,
+		})
+	}
 	return resp, nil
+}
+
+// mergeEnums combines two enum slices, avoiding duplicates by name.
+func mergeEnums(base, additional []resolution.Type) []resolution.Type {
+	seen := make(map[string]bool)
+	for _, e := range base {
+		seen[e.Name] = true
+	}
+	for _, e := range additional {
+		if !seen[e.Name] {
+			base = append(base, e)
+		}
+	}
+	return base
 }
 
 func (p *Plugin) generateFile(
@@ -347,20 +396,26 @@ func (p *Plugin) processEnum(typ resolution.Type, data *templateData) enumData {
 }
 
 func (p *Plugin) processTypeDef(typ resolution.Type, table *resolution.Table, data *templateData) typeDefData {
-	data.imports.addTyping("NewType")
 	switch form := typ.Form.(type) {
 	case resolution.DistinctForm:
+		data.imports.addTyping("NewType")
 		return typeDefData{
-			Name:     typ.Name,
-			BaseType: p.typeDefBaseToPython(form.Base, typ.Namespace, table, data),
+			Name:       typ.Name,
+			BaseType:   p.typeDefBaseToPython(form.Base, typ.Namespace, table, data),
+			IsDistinct: true,
 		}
 	case resolution.AliasForm:
+		// For alias types, use typeRefToPythonAlias to properly handle struct references
+		// with type arguments (e.g., status.Status<StatusDetails> -> status.Status[StatusDetails])
+		data.imports.addTyping("TypeAlias")
 		return typeDefData{
-			Name:     typ.Name,
-			BaseType: p.typeDefBaseToPython(form.Target, typ.Namespace, table, data),
+			Name:       typ.Name,
+			BaseType:   p.typeRefToPythonAlias(form.Target, table, data),
+			IsDistinct: false,
 		}
 	default:
-		return typeDefData{Name: typ.Name, BaseType: "Any"}
+		data.imports.addTyping("NewType")
+		return typeDefData{Name: typ.Name, BaseType: "Any", IsDistinct: true}
 	}
 }
 
@@ -437,17 +492,51 @@ func (p *Plugin) processStruct(
 		if parentOk {
 			sd.HasExtends = true
 			sd.ExtendsName = getPyName(parent)
-			sd.OmittedFields = form.OmittedFields
-
-			// Add ConfigDict import if we have omitted fields
-			if len(form.OmittedFields) > 0 {
-				data.imports.addPydantic("ConfigDict")
-			}
+			parentFields := resolution.UnifiedFields(parent, table)
 
 			// For extends, only include child's own fields (not inherited)
-			sd.Fields = make([]fieldData, 0, len(form.Fields))
+			// Pass OmittedFields so excluded fields get Field(exclude=True)
+			sd.Fields = make([]fieldData, 0, len(form.Fields)+len(form.OmittedFields))
+			redefinedFields := make(map[string]bool)
 			for _, field := range form.Fields {
-				sd.Fields = append(sd.Fields, p.processField(field, table, data, keyFields))
+				redefinedFields[field.Name] = true
+				sd.Fields = append(sd.Fields, p.processField(field, table, data, keyFields, form.OmittedFields))
+				// Check if this field has @key annotation for __hash__ generation
+				if key.HasKey(field) {
+					sd.KeyField = field.Name
+				}
+			}
+			// Also check parent fields for @key if not redefined
+			for _, pf := range parentFields {
+				if !redefinedFields[pf.Name] && key.HasKey(pf) {
+					sd.KeyField = pf.Name
+				}
+			}
+
+			// For omitted fields that aren't redefined, we need to explicitly
+			// add them with Field(exclude=True) to exclude from serialization
+			for _, omittedName := range form.OmittedFields {
+				if redefinedFields[omittedName] {
+					continue // Already handled above
+				}
+				// Find the field type from parent
+				for _, pf := range parentFields {
+					if pf.Name == omittedName {
+						data.imports.addPydantic("Field")
+						fd := fieldData{
+							Name:   pf.Name,
+							PyType: p.typeToPython(pf.Type, table, data),
+						}
+						if pf.IsOptional || pf.IsHardOptional {
+							fd.PyType = fd.PyType + " | None"
+							fd.Default = " = Field(default=None, exclude=True)"
+						} else {
+							fd.Default = " = Field(exclude=True)"
+						}
+						sd.Fields = append(sd.Fields, fd)
+						break
+					}
+				}
 			}
 			return sd
 		}
@@ -457,7 +546,11 @@ func (p *Plugin) processStruct(
 	allFields := resolution.UnifiedFields(entry, table)
 	sd.Fields = make([]fieldData, 0, len(allFields))
 	for _, field := range allFields {
-		sd.Fields = append(sd.Fields, p.processField(field, table, data, keyFields))
+		sd.Fields = append(sd.Fields, p.processField(field, table, data, keyFields, nil))
+		// Check if this field has @key annotation for __hash__ generation
+		if key.HasKey(field) {
+			sd.KeyField = field.Name
+		}
 	}
 	return sd
 }
@@ -479,6 +572,7 @@ func (p *Plugin) processField(
 	table *resolution.Table,
 	data *templateData,
 	keyFields []keyFieldData,
+	excludedFields []string,
 ) fieldData {
 	fd := fieldData{
 		Name:           field.Name,
@@ -491,6 +585,12 @@ func (p *Plugin) processField(
 	var fieldConstraints []string
 	if validateDomain, ok := plugin.GetFieldDomain(field, "validate"); ok {
 		fieldConstraints = p.collectValidation(validateDomain, field.Type, table, data)
+	}
+
+	// Check if this field should be excluded from serialization (Pydantic v2)
+	isExcluded := lo.Contains(excludedFields, field.Name)
+	if isExcluded {
+		fieldConstraints = append(fieldConstraints, "exclude=True")
 	}
 
 	if fd.IsArray {
@@ -598,6 +698,22 @@ func (p *Plugin) collectValidation(
 	return constraints
 }
 
+// addCrossNamespaceImport adds the appropriate import for a cross-namespace type reference.
+// It uses the "from parent import module" pattern (e.g., "from synnax import rack")
+// and returns the qualified type name (e.g., "rack.Key").
+func addCrossNamespaceImport(modulePath string, typeName string, data *templateData) string {
+	parts := strings.Split(modulePath, ".")
+	if len(parts) >= 2 {
+		parentPath := strings.Join(parts[:len(parts)-1], ".")
+		moduleName := parts[len(parts)-1]
+		data.imports.addModuleImport(parentPath, moduleName)
+		return fmt.Sprintf("%s.%s", moduleName, typeName)
+	}
+	// Fallback for single-level module path (rare case)
+	data.imports.addModuleImport("", modulePath)
+	return fmt.Sprintf("%s.%s", modulePath, typeName)
+}
+
 func (p *Plugin) typeToPython(
 	typeRef resolution.TypeRef,
 	table *resolution.Table,
@@ -624,53 +740,45 @@ func (p *Plugin) typeToPython(
 	switch resolved.Form.(type) {
 	case resolution.StructForm:
 		if resolved.Namespace != data.Namespace {
-			ns := resolved.Namespace
 			outputPath := output.GetPath(resolved, "py")
 			if outputPath == "" {
-				outputPath = ns
+				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			data.imports.addNamespace(ns, modulePath)
-			return fmt.Sprintf("%s.%s", ns, resolved.Name)
+			return addCrossNamespaceImport(modulePath, resolved.Name, data)
 		}
 		return resolved.Name
 
 	case resolution.EnumForm:
 		if resolved.Namespace != data.Namespace {
-			ns := resolved.Namespace
 			outputPath := enum.FindOutputPath(resolved, table, "py")
 			if outputPath == "" {
-				outputPath = ns
+				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			data.imports.addNamespace(ns, modulePath)
-			return fmt.Sprintf("%s.%s", ns, resolved.Name)
+			return addCrossNamespaceImport(modulePath, resolved.Name, data)
 		}
 		return resolved.Name
 
 	case resolution.DistinctForm:
 		if resolved.Namespace != data.Namespace {
-			ns := resolved.Namespace
 			outputPath := output.GetPath(resolved, "py")
 			if outputPath == "" {
-				outputPath = ns
+				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			data.imports.addNamespace(ns, modulePath)
-			return fmt.Sprintf("%s.%s", ns, resolved.Name)
+			return addCrossNamespaceImport(modulePath, resolved.Name, data)
 		}
 		return resolved.Name
 
 	case resolution.AliasForm:
 		if resolved.Namespace != data.Namespace {
-			ns := resolved.Namespace
 			outputPath := output.GetPath(resolved, "py")
 			if outputPath == "" {
-				outputPath = ns
+				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			data.imports.addNamespace(ns, modulePath)
-			return fmt.Sprintf("%s.%s", ns, resolved.Name)
+			return addCrossNamespaceImport(modulePath, resolved.Name, data)
 		}
 		return resolved.Name
 
@@ -705,20 +813,7 @@ func (p *Plugin) typeRefToPythonAlias(
 			outputPath = resolved.Namespace
 		}
 		modulePath := toPythonModulePath(outputPath)
-		// For cross-namespace struct references, we need to import the parent module
-		// and access the struct as module.StructName to avoid naming conflicts.
-		// e.g., "synnax.status" -> import "from synnax import status", use "status.Status"
-		parts := strings.Split(modulePath, ".")
-		if len(parts) >= 2 {
-			parentPath := strings.Join(parts[:len(parts)-1], ".")
-			moduleName := parts[len(parts)-1]
-			data.imports.addModuleImport(parentPath, moduleName)
-			baseName = fmt.Sprintf("%s.%s", moduleName, resolved.Name)
-		} else {
-			// Fallback for single-level module paths
-			data.imports.addNamespace(resolved.Namespace, modulePath)
-			baseName = fmt.Sprintf("%s.%s", resolved.Namespace, resolved.Name)
-		}
+		baseName = addCrossNamespaceImport(modulePath, resolved.Name, data)
 	} else {
 		baseName = resolved.Name
 	}
@@ -775,7 +870,9 @@ var primitivePythonTypes = map[string]primitiveMapping{
 	"int32":      {pyType: "int"},
 	"int64":      {pyType: "int"},
 	"uint8":      {pyType: "int"},
+	"uint12":     {pyType: "int"},
 	"uint16":     {pyType: "int"},
+	"uint20":     {pyType: "int"},
 	"uint32":     {pyType: "int"},
 	"uint64":     {pyType: "int"},
 	"float32":    {pyType: "float"},
@@ -783,6 +880,7 @@ var primitivePythonTypes = map[string]primitiveMapping{
 	"timestamp":  {pyType: "TimeStamp", imports: []importEntry{{"synnax", "TimeStamp"}}},
 	"timespan":   {pyType: "TimeSpan", imports: []importEntry{{"synnax", "TimeSpan"}}},
 	"time_range": {pyType: "TimeRange", imports: []importEntry{{"synnax", "TimeRange"}}},
+	"data_type":  {pyType: "DataType", imports: []importEntry{{"synnax", "DataType"}}},
 	"json":       {pyType: "dict[str, Any]", imports: []importEntry{{"typing", "Any"}}},
 	"bytes":      {pyType: "bytes"},
 }
@@ -863,8 +961,9 @@ type sortedDeclData struct {
 }
 
 type typeDefData struct {
-	Name     string // Type definition name
-	BaseType string // Python base type (e.g., "int", "str")
+	Name       string // Type definition name
+	BaseType   string // Python base type (e.g., "int", "str")
+	IsDistinct bool   // If true, use NewType; if false, use TypeAlias
 }
 
 // ontologyData holds data for generating ontology ID function and constant.
@@ -941,9 +1040,11 @@ type structData struct {
 	AliasOf string // Python expression for the aliased type (e.g., "status.Status[StatusDetails]")
 
 	// Extension support
-	HasExtends    bool
-	ExtendsName   string   // Parent class name
-	OmittedFields []string // Fields to exclude from parent
+	HasExtends  bool
+	ExtendsName string // Parent class name
+
+	// Key field support for __hash__ generation
+	KeyField string // Name of the key field (if any) for generating __hash__
 }
 
 type fieldData struct {
@@ -1017,8 +1118,13 @@ from {{ .Parent }} import {{ .Module }}
 {{ .Name | title }} = {{ .PyType }}
 {{- end }}
 {{- range .TypeDefs }}
+{{- if .IsDistinct }}
 
 {{ .Name }} = NewType("{{ .Name }}", {{ .BaseType }})
+{{- else }}
+
+{{ .Name }}: TypeAlias = {{ .BaseType }}
+{{- end }}
 {{- end }}
 {{- range .Enums }}
 {{- if .IsIntEnum }}
@@ -1036,8 +1142,13 @@ class {{ .Name }}(IntEnum):
 {{- end }}
 {{- range .SortedDecls }}
 {{- if .IsTypeDef }}
+{{- if .TypeDef.IsDistinct }}
 
 {{ .TypeDef.Name }} = NewType("{{ .TypeDef.Name }}", {{ .TypeDef.BaseType }})
+{{- else }}
+
+{{ .TypeDef.Name }}: TypeAlias = {{ .TypeDef.BaseType }}
+{{- end }}
 {{- else if .IsStruct }}
 {{- with .Struct }}
 {{- if not .Skip }}
@@ -1049,19 +1160,14 @@ class {{ .Name }}(IntEnum):
 
 
 class {{ .PyName }}({{ .ExtendsName }}):
-{{- if or .Fields .OmittedFields }}
+{{- if or .Fields .KeyField }}
 {{- range .Fields }}
     {{ .Name }}: {{ .PyType }}{{ .Default }}
 {{- end }}
-{{- if .OmittedFields }}
+{{- if .KeyField }}
 
-    model_config = ConfigDict(
-        fields={
-{{- range .OmittedFields }}
-            "{{ . }}": {"exclude": True},
-{{- end }}
-        }
-    )
+    def __hash__(self) -> int:
+        return hash(self.{{ .KeyField }})
 {{- end }}
 {{- else }}
     pass
@@ -1073,6 +1179,11 @@ class {{ .PyName }}(BaseModel):
 {{- range .Fields }}
     {{ .Name }}: {{ .PyType }}{{ .Default }}
 {{- end }}
+{{- if .KeyField }}
+
+    def __hash__(self) -> int:
+        return hash(self.{{ .KeyField }})
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
@@ -1081,7 +1192,7 @@ class {{ .PyName }}(BaseModel):
 {{- if .Ontology }}
 
 
-{{ .Ontology.StructName | upper }}_ONTOLOGY_TYPE = ID(type="{{ .Ontology.TypeName }}")
+ONTOLOGY_TYPE = ID(type="{{ .Ontology.TypeName }}")
 
 
 def ontology_id(key: {{ .Ontology.KeyType }}) -> ID:

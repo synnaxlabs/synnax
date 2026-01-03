@@ -6,7 +6,7 @@ package api.range;
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/ranger/pb";
 
-import "core/pkg/service/label/pb/label.proto";
+import "x/go/label/pb/label.proto";
 import "x/go/telem/telem.proto";
 
 message Range {
@@ -14,6 +14,6 @@ message Range {
   string name = 2;
   telem.PBTimeRange time_range = 3;
   string color = 4;
-  repeated service.label.SVCLabel labels = 5;
+  repeated x.label.Label labels = 5;
   optional Range parent = 6;
 }

@@ -15,7 +15,7 @@ from synnax.channel.payload import (
     ChannelKey,
     ChannelName,
     ChannelParams,
-    ChannelPayload,
+    Payload,
     normalize_channel_params,
 )
 from synnax.channel.retrieve import ChannelRetriever, retrieve_required
@@ -118,7 +118,7 @@ class WriteFrameAdapter:
         )
 
     def adapt_dict_keys(
-        self, data: dict[ChannelPayload | ChannelKey | ChannelName, any]
+        self, data: dict[Payload | ChannelKey | ChannelName, any]
     ) -> dict[ChannelKey, any]:
         out = dict()
         for k in data.keys():
@@ -130,11 +130,11 @@ class WriteFrameAdapter:
         return self._keys
 
     def __adapt_to_key(
-        self, ch: ChannelPayload | ChannelKey | ChannelName
+        self, ch: Payload | ChannelKey | ChannelName
     ) -> ChannelKey:
         if isinstance(ch, ChannelKey):
             return ch
-        if isinstance(ch, ChannelPayload):
+        if isinstance(ch, Payload):
             return ch.key
         # If it's not a payload or key already, it has to be a name,
         # which means we need to resolve the key from a remote source
@@ -142,8 +142,8 @@ class WriteFrameAdapter:
         return self.__adapt_ch(ch).key
 
     def __adapt_ch(
-        self, ch: ChannelKey | ChannelName | ChannelPayload
-    ) -> ChannelPayload:
+        self, ch: ChannelKey | ChannelName | Payload
+    ) -> Payload:
         if isinstance(ch, (ChannelKey, ChannelName)):
             return self.retriever.retrieve_one(ch)
         return ch
@@ -151,7 +151,7 @@ class WriteFrameAdapter:
     def adapt(
         self,
         channels_or_data: (
-            ChannelPayload | list[ChannelPayload] | ChannelParams | CrudeFrame
+            Payload | list[Payload] | ChannelParams | CrudeFrame
         ),
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ):
@@ -190,11 +190,11 @@ class WriteFrameAdapter:
     def _adapt(
         self,
         channels_or_data: (
-            ChannelPayload | list[ChannelPayload] | ChannelParams | CrudeFrame
+            Payload | list[Payload] | ChannelParams | CrudeFrame
         ),
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
-        if isinstance(channels_or_data, (ChannelName, ChannelKey, ChannelPayload)):
+        if isinstance(channels_or_data, (ChannelName, ChannelKey, Payload)):
             if series is None:
                 raise ValidationError(
                     f"""

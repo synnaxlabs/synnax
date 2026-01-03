@@ -18,7 +18,7 @@
 package pb
 
 import (
-	pb "github.com/synnaxlabs/synnax/pkg/service/label/pb"
+	pb "github.com/synnaxlabs/x/label/pb"
 	telem "github.com/synnaxlabs/x/telem"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -40,7 +40,7 @@ type Range struct {
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	TimeRange     *telem.PBTimeRange     `protobuf:"bytes,3,opt,name=time_range,json=timeRange,proto3" json:"time_range,omitempty"`
 	Color         string                 `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
-	Labels        []*pb.SVCLabel         `protobuf:"bytes,5,rep,name=labels,proto3" json:"labels,omitempty"`
+	Labels        []*pb.Label            `protobuf:"bytes,5,rep,name=labels,proto3" json:"labels,omitempty"`
 	Parent        *Range                 `protobuf:"bytes,6,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -104,7 +104,7 @@ func (x *Range) GetColor() string {
 	return ""
 }
 
-func (x *Range) GetLabels() []*pb.SVCLabel {
+func (x *Range) GetLabels() []*pb.Label {
 	if x != nil {
 		return x.Labels
 	}
@@ -122,14 +122,14 @@ var File_core_pkg_api_ranger_pb_range_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_ranger_pb_range_proto_rawDesc = "" +
 	"\n" +
-	"\"core/pkg/api/ranger/pb/range.proto\x12\tapi.range\x1a%core/pkg/service/label/pb/label.proto\x1a\x16x/go/telem/telem.proto\"\xe1\x01\n" +
+	"\"core/pkg/api/ranger/pb/range.proto\x12\tapi.range\x1a\x19x/go/label/pb/label.proto\x1a\x16x/go/telem/telem.proto\"\xd8\x01\n" +
 	"\x05Range\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x121\n" +
 	"\n" +
 	"time_range\x18\x03 \x01(\v2\x12.telem.PBTimeRangeR\ttimeRange\x12\x14\n" +
-	"\x05color\x18\x04 \x01(\tR\x05color\x12/\n" +
-	"\x06labels\x18\x05 \x03(\v2\x17.service.label.SVCLabelR\x06labels\x12-\n" +
+	"\x05color\x18\x04 \x01(\tR\x05color\x12&\n" +
+	"\x06labels\x18\x05 \x03(\v2\x0e.x.label.LabelR\x06labels\x12-\n" +
 	"\x06parent\x18\x06 \x01(\v2\x10.api.range.RangeH\x00R\x06parent\x88\x01\x01B\t\n" +
 	"\a_parentB\x90\x01\n" +
 	"\rcom.api.rangeB\n" +
@@ -152,11 +152,11 @@ var file_core_pkg_api_ranger_pb_range_proto_msgTypes = make([]protoimpl.MessageI
 var file_core_pkg_api_ranger_pb_range_proto_goTypes = []any{
 	(*Range)(nil),             // 0: api.range.Range
 	(*telem.PBTimeRange)(nil), // 1: telem.PBTimeRange
-	(*pb.SVCLabel)(nil),       // 2: service.label.SVCLabel
+	(*pb.Label)(nil),          // 2: x.label.Label
 }
 var file_core_pkg_api_ranger_pb_range_proto_depIdxs = []int32{
 	1, // 0: api.range.Range.time_range:type_name -> telem.PBTimeRange
-	2, // 1: api.range.Range.labels:type_name -> service.label.SVCLabel
+	2, // 1: api.range.Range.labels:type_name -> x.label.Label
 	0, // 2: api.range.Range.parent:type_name -> api.range.Range
 	3, // [3:3] is the sub-list for method output_type
 	3, // [3:3] is the sub-list for method input_type

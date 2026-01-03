@@ -19,6 +19,7 @@ package pb
 
 import (
 	pb "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb"
+	pb1 "github.com/synnaxlabs/x/control/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -33,20 +34,75 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type OperationType int32
+
+const (
+	OperationType_UNSPECIFIED OperationType = 0
+	OperationType_MIN         OperationType = 1
+	OperationType_MAX         OperationType = 2
+	OperationType_AVG         OperationType = 3
+	OperationType_NONE        OperationType = 4
+)
+
+// Enum value maps for OperationType.
+var (
+	OperationType_name = map[int32]string{
+		0: "UNSPECIFIED",
+		1: "MIN",
+		2: "MAX",
+		3: "AVG",
+		4: "NONE",
+	}
+	OperationType_value = map[string]int32{
+		"UNSPECIFIED": 0,
+		"MIN":         1,
+		"MAX":         2,
+		"AVG":         3,
+		"NONE":        4,
+	}
+)
+
+func (x OperationType) Enum() *OperationType {
+	p := new(OperationType)
+	*p = x
+	return p
+}
+
+func (x OperationType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (OperationType) Descriptor() protoreflect.EnumDescriptor {
+	return file_core_pkg_api_channel_pb_channel_proto_enumTypes[0].Descriptor()
+}
+
+func (OperationType) Type() protoreflect.EnumType {
+	return &file_core_pkg_api_channel_pb_channel_proto_enumTypes[0]
+}
+
+func (x OperationType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use OperationType.Descriptor instead.
+func (OperationType) EnumDescriptor() ([]byte, []int) {
+	return file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP(), []int{0}
+}
+
 type Channel struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           uint32                 `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Leaseholder   uint32                 `protobuf:"varint,3,opt,name=leaseholder,proto3" json:"leaseholder,omitempty"`
 	DataType      string                 `protobuf:"bytes,4,opt,name=data_type,json=dataType,proto3" json:"data_type,omitempty"`
-	Density       int64                  `protobuf:"varint,5,opt,name=density,proto3" json:"density,omitempty"`
-	IsIndex       bool                   `protobuf:"varint,6,opt,name=is_index,json=isIndex,proto3" json:"is_index,omitempty"`
-	Index         uint32                 `protobuf:"varint,7,opt,name=index,proto3" json:"index,omitempty"`
-	Alias         string                 `protobuf:"bytes,8,opt,name=alias,proto3" json:"alias,omitempty"`
-	Virtual       bool                   `protobuf:"varint,9,opt,name=virtual,proto3" json:"virtual,omitempty"`
-	Internal      bool                   `protobuf:"varint,10,opt,name=internal,proto3" json:"internal,omitempty"`
-	Expression    string                 `protobuf:"bytes,11,opt,name=expression,proto3" json:"expression,omitempty"`
-	Operations    []*pb.Operation        `protobuf:"bytes,12,rep,name=operations,proto3" json:"operations,omitempty"`
+	IsIndex       bool                   `protobuf:"varint,5,opt,name=is_index,json=isIndex,proto3" json:"is_index,omitempty"`
+	Index         uint32                 `protobuf:"varint,6,opt,name=index,proto3" json:"index,omitempty"`
+	Alias         string                 `protobuf:"bytes,7,opt,name=alias,proto3" json:"alias,omitempty"`
+	Virtual       bool                   `protobuf:"varint,8,opt,name=virtual,proto3" json:"virtual,omitempty"`
+	Internal      bool                   `protobuf:"varint,9,opt,name=internal,proto3" json:"internal,omitempty"`
+	Expression    string                 `protobuf:"bytes,10,opt,name=expression,proto3" json:"expression,omitempty"`
+	Operations    []*pb.Operation        `protobuf:"bytes,11,rep,name=operations,proto3" json:"operations,omitempty"`
+	Concurrency   pb1.Concurrency        `protobuf:"varint,12,opt,name=concurrency,proto3,enum=x.control.Concurrency" json:"concurrency,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -109,13 +165,6 @@ func (x *Channel) GetDataType() string {
 	return ""
 }
 
-func (x *Channel) GetDensity() int64 {
-	if x != nil {
-		return x.Density
-	}
-	return 0
-}
-
 func (x *Channel) GetIsIndex() bool {
 	if x != nil {
 		return x.IsIndex
@@ -165,29 +214,42 @@ func (x *Channel) GetOperations() []*pb.Operation {
 	return nil
 }
 
+func (x *Channel) GetConcurrency() pb1.Concurrency {
+	if x != nil {
+		return x.Concurrency
+	}
+	return pb1.Concurrency(0)
+}
+
 var File_core_pkg_api_channel_pb_channel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/api/channel/pb/channel.proto\x12\vapi.channel\x1a.core/pkg/distribution/channel/pb/channel.proto\"\xe6\x02\n" +
+	"%core/pkg/api/channel/pb/channel.proto\x12\vapi.channel\x1a.core/pkg/distribution/channel/pb/channel.proto\x1a\x1dx/go/control/pb/control.proto\"\x86\x03\n" +
 	"\aChannel\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
 	"\vleaseholder\x18\x03 \x01(\rR\vleaseholder\x12\x1b\n" +
-	"\tdata_type\x18\x04 \x01(\tR\bdataType\x12\x18\n" +
-	"\adensity\x18\x05 \x01(\x03R\adensity\x12\x19\n" +
-	"\bis_index\x18\x06 \x01(\bR\aisIndex\x12\x14\n" +
-	"\x05index\x18\a \x01(\rR\x05index\x12\x14\n" +
-	"\x05alias\x18\b \x01(\tR\x05alias\x12\x18\n" +
-	"\avirtual\x18\t \x01(\bR\avirtual\x12\x1a\n" +
-	"\binternal\x18\n" +
-	" \x01(\bR\binternal\x12\x1e\n" +
+	"\tdata_type\x18\x04 \x01(\tR\bdataType\x12\x19\n" +
+	"\bis_index\x18\x05 \x01(\bR\aisIndex\x12\x14\n" +
+	"\x05index\x18\x06 \x01(\rR\x05index\x12\x14\n" +
+	"\x05alias\x18\a \x01(\tR\x05alias\x12\x18\n" +
+	"\avirtual\x18\b \x01(\bR\avirtual\x12\x1a\n" +
+	"\binternal\x18\t \x01(\bR\binternal\x12\x1e\n" +
 	"\n" +
-	"expression\x18\v \x01(\tR\n" +
+	"expression\x18\n" +
+	" \x01(\tR\n" +
 	"expression\x12?\n" +
 	"\n" +
-	"operations\x18\f \x03(\v2\x1f.distribution.channel.OperationR\n" +
-	"operationsB\x9d\x01\n" +
+	"operations\x18\v \x03(\v2\x1f.distribution.channel.OperationR\n" +
+	"operations\x128\n" +
+	"\vconcurrency\x18\f \x01(\x0e2\x16.x.control.ConcurrencyR\vconcurrency*E\n" +
+	"\rOperationType\x12\x0f\n" +
+	"\vUNSPECIFIED\x10\x00\x12\a\n" +
+	"\x03MIN\x10\x01\x12\a\n" +
+	"\x03MAX\x10\x02\x12\a\n" +
+	"\x03AVG\x10\x03\x12\b\n" +
+	"\x04NONE\x10\x04B\x9d\x01\n" +
 	"\x0fcom.api.channelB\fChannelProtoP\x01Z/github.com/synnaxlabs/synnax/pkg/api/channel/pb\xa2\x02\x03ACX\xaa\x02\vApi.Channel\xca\x02\vApi\\Channel\xe2\x02\x17Api\\Channel\\GPBMetadata\xea\x02\fApi::Channelb\x06proto3"
 
 var (
@@ -202,18 +264,22 @@ func file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP() []byte {
 	return file_core_pkg_api_channel_pb_channel_proto_rawDescData
 }
 
+var file_core_pkg_api_channel_pb_channel_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_core_pkg_api_channel_pb_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_core_pkg_api_channel_pb_channel_proto_goTypes = []any{
-	(*Channel)(nil),      // 0: api.channel.Channel
-	(*pb.Operation)(nil), // 1: distribution.channel.Operation
+	(OperationType)(0),   // 0: api.channel.OperationType
+	(*Channel)(nil),      // 1: api.channel.Channel
+	(*pb.Operation)(nil), // 2: distribution.channel.Operation
+	(pb1.Concurrency)(0), // 3: x.control.Concurrency
 }
 var file_core_pkg_api_channel_pb_channel_proto_depIdxs = []int32{
-	1, // 0: api.channel.Channel.operations:type_name -> distribution.channel.Operation
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	2, // 0: api.channel.Channel.operations:type_name -> distribution.channel.Operation
+	3, // 1: api.channel.Channel.concurrency:type_name -> x.control.Concurrency
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_api_channel_pb_channel_proto_init() }
@@ -226,13 +292,14 @@ func file_core_pkg_api_channel_pb_channel_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_api_channel_pb_channel_proto_rawDesc), len(file_core_pkg_api_channel_pb_channel_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_core_pkg_api_channel_pb_channel_proto_goTypes,
 		DependencyIndexes: file_core_pkg_api_channel_pb_channel_proto_depIdxs,
+		EnumInfos:         file_core_pkg_api_channel_pb_channel_proto_enumTypes,
 		MessageInfos:      file_core_pkg_api_channel_pb_channel_proto_msgTypes,
 	}.Build()
 	File_core_pkg_api_channel_pb_channel_proto = out.File

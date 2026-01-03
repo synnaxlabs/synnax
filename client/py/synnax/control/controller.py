@@ -20,7 +20,7 @@ from synnax.channel.payload import (
     ChannelKey,
     ChannelName,
     ChannelParams,
-    ChannelPayload,
+    Payload,
 )
 from synnax.channel.retrieve import ChannelRetriever, retrieve_required
 from synnax.exceptions import ValidationError
@@ -212,7 +212,7 @@ class Controller:
     def set_authority(
         self,
         value: (
-            dict[ChannelKey | ChannelName | ChannelPayload, CrudeAuthority]
+            dict[ChannelKey | ChannelName | Payload, CrudeAuthority]
             | ChannelKey
             | ChannelName
             | CrudeAuthority
@@ -373,7 +373,7 @@ class Controller:
             self._receiver.stop()
 
     def __setitem__(
-        self, ch: ChannelKey | ChannelName | ChannelPayload, value: int | float
+        self, ch: ChannelKey | ChannelName | Payload, value: int | float
     ):
         self.set(ch, value)
 

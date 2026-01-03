@@ -48,6 +48,12 @@ func Collect(types []resolution.Type, table *resolution.Table, skip SkipFunc) []
 	return result
 }
 
+// HasKey checks if a field has the @key annotation.
+func HasKey(field resolution.Field) bool {
+	_, hasKey := field.Domains["key"]
+	return hasKey
+}
+
 // resolvePrimitive extracts the underlying primitive from a TypeRef.
 func resolvePrimitive(ref resolution.TypeRef, table *resolution.Table) string {
 	if ref.IsTypeParam() {

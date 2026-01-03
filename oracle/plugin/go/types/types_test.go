@@ -1129,6 +1129,80 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring("Key Key"))
 				Expect(content).NotTo(MatchRegexp(`Key\s+int`))
 			})
+
+			It("Should use @go use type instead of the alias type", func() {
+				// Regression test: When an alias has @go use directive, struct fields
+				// referencing that alias should use the "use" type from the correct package.
+				loader.Add("schemas/status.oracle", `
+					@go output "x/go/status"
+
+					StatusDetails struct {
+						code int32
+					}
+
+					// Generic status struct
+					Status struct<Details?> {
+						key string
+						message string
+						details Details?
+					}
+
+					// A typedef in the service layer
+					ServiceStatus<Details?> Status<Details> {
+						@go name   "Status"
+						@go output "core/pkg/service/status"
+					}
+				`)
+
+				source := `
+					import "schemas/status"
+
+					@go output "core/pkg/service/rack"
+
+					RackDetails struct {
+						rack uint32
+					}
+
+					// This alias uses @go use to redirect to ServiceStatus
+					RackStatus = status.Status<RackDetails> {
+						@go use ServiceStatus
+					}
+
+					Rack struct {
+						key uint32
+						name string
+						status RackStatus??
+					}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
+				Expect(diag.HasErrors()).To(BeFalse())
+
+				req := &plugin.Request{
+					Resolutions: table,
+					OutputDir:   "out",
+				}
+
+				resp, err := goPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				// Find the rack types file
+				var rackContent string
+				for _, f := range resp.Files {
+					if f.Path == "core/pkg/service/rack/types.gen.go" {
+						rackContent = string(f.Content)
+						break
+					}
+				}
+				Expect(rackContent).NotTo(BeEmpty())
+
+				// Should NOT generate the RackStatus alias (it uses @go use)
+				// The field should use the ServiceStatus type from service/status package
+				Expect(rackContent).To(ContainSubstring(`"github.com/synnaxlabs/synnax/core/pkg/service/status"`))
+				Expect(rackContent).To(ContainSubstring("Status *status.Status[RackDetails]"))
+				// Should NOT have *any or generate local RackStatus
+				Expect(rackContent).NotTo(ContainSubstring("*any"))
+				Expect(rackContent).NotTo(ContainSubstring("type RackStatus"))
+			})
 		})
 	})
 })

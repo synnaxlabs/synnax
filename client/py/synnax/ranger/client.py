@@ -26,7 +26,7 @@ from synnax.channel.payload import (
     ChannelName,
     ChannelNames,
     ChannelParams,
-    ChannelPayload,
+    Payload,
 )
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import QueryError
@@ -66,7 +66,7 @@ from synnax.util.params import require_named_params
 RANGE_SET_CHANNEL = "sy_range_set"
 
 
-class _InternalScopedChannel(ChannelPayload):
+class _InternalScopedChannel(Payload):
     __range: Range | None = PrivateAttr(None)
     """The range that this channel belongs to."""
     __frame_client: Client | None = PrivateAttr(None)
@@ -88,7 +88,7 @@ class _InternalScopedChannel(ChannelPayload):
         frame_client: Client,
         tasks: TaskClient,
         ontology: OntologyClient,
-        payload: ChannelPayload,
+        payload: Payload,
         aliaser: Aliaser | None = None,
     ):
         super().__init__(**payload.model_dump())
@@ -315,7 +315,7 @@ class Range(RangePayload):
         self._ontology = _ontology
 
     def _get_scoped_channel(
-        self, channels: list[ChannelPayload], query: str
+        self, channels: list[Payload], query: str
     ) -> ScopedChannel:
         if len(channels) == 0:
             raise QueryError(f"Channel matching {query} not found")
@@ -338,7 +338,7 @@ class Range(RangePayload):
         return self.__getattr__(name)
 
     def __splice_cached(
-        self, channels: list[ChannelPayload]
+        self, channels: list[Payload]
     ) -> list[_InternalScopedChannel]:
         results = list()
         for pld in channels:
@@ -414,13 +414,13 @@ class Range(RangePayload):
 
     @overload
     def write(
-        self, to: ChannelKey | ChannelName | ChannelPayload, data: CrudeSeries
+        self, to: ChannelKey | ChannelName | Payload, data: CrudeSeries
     ): ...
 
     @overload
     def write(
         self,
-        to: ChannelKeys | ChannelNames | list[ChannelPayload],
+        to: ChannelKeys | ChannelNames | list[Payload],
         series: list[CrudeSeries],
     ): ...
 
@@ -429,7 +429,7 @@ class Range(RangePayload):
 
     def write(
         self,
-        to: ChannelParams | ChannelPayload | list[ChannelPayload] | CrudeFrame,
+        to: ChannelParams | Payload | list[Payload] | CrudeFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> None:
         start = self.time_range.start

@@ -20,17 +20,24 @@ Key uint32 {
 
 LocalKey uint20 {
     @go output "core/pkg/distribution/channel"
+    @py omit
+}
+
+OperationType enum {
+    min  = "min"
+    max  = "max"
+    avg  = "avg"
+    none = "none"
+
+    @go output "core/pkg/distribution/channel"
+    @pb
 }
 
 Operation struct {
-    type          string
-    reset_channel Key
-    duration      timespan
+    type          OperationType
+    reset_channel Key           @validate default 0
+    duration      timespan      @validate default 0
 
-    @json {
-        reset_channel "reset_channel"
-        duration "duration"
-    }
     @go output "core/pkg/distribution/channel"
     @pb
 }
@@ -49,27 +56,44 @@ Channel struct {
     expression  string
 
     @go output "core/pkg/distribution/channel"
+    @py omit
+    @ts omit
     @pb
 }
 
 APIChannel struct {
-    key         Key          @key
+    key         Key                  @key
     name        string
-    leaseholder uint32
-    data_type   string
-    density     int64
+    leaseholder uint12
+    data_type   data_type
     is_index    bool
     index       Key
     alias       string?
     virtual     bool?
     internal    bool?
-    expression  string?
+    expression  string               @validate default ""
     operations  Operation[]?
+    concurrency control.Concurrency?
 
-    @ontology type "channel"
     @go output     "core/pkg/api/channel"
+    @ontology type "channel"
+    @py name       "Payload"
     @ts name       "Channel"
-    @py name       "Channel"
     @pb name       "Channel"
     @go name       "Channel"
+}
+
+NewChannel struct extends APIChannel {
+    key         Key?
+    leaseholder uint12?
+    index       Key?
+    is_index    bool?
+    internal    bool?
+    virtual     bool?
+    expression  string               @validate default ""
+    operations  Operation[]?
+    concurrency control.Concurrency?
+
+    @py name "New"
+    @ts name "New"
 }

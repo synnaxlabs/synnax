@@ -139,7 +139,7 @@ func (svc *Service) Retrieve(
 	}
 
 	if req.IncludeStatus {
-		statuses := make([]status.Status[task.StatusDetails], 0, len(res.Tasks))
+		statuses := make([]task.Status, 0, len(res.Tasks))
 		if err = status.NewRetrieve[task.StatusDetails](svc.status).
 			WhereKeys(ontology.IDsToString(task.OntologyIDsFromTasks(res.Tasks))...).
 			Entries(&statuses).

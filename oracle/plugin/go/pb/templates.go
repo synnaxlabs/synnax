@@ -155,8 +155,8 @@ func {{.Name}}sFromPB(ctx context.Context, pbs []*{{.PBType}}) ([]{{.GoType}}, e
 {{- end}}
 {{- range .EnumTranslators}}
 
-// Translate{{.Name}}Forward converts {{.GoType}} to {{.PBType}}.
-func Translate{{.Name}}Forward(v {{.GoType}}) {{.PBType}} {
+// {{.Name}}ToPB converts {{.GoType}} to {{.PBType}}.
+func {{.Name}}ToPB(v {{.GoType}}) {{.PBType}} {
 	switch v {
 {{- range .Values}}
 	case {{.GoValue}}:
@@ -167,8 +167,8 @@ func Translate{{.Name}}Forward(v {{.GoType}}) {{.PBType}} {
 	}
 }
 
-// Translate{{.Name}}Backward converts {{.PBType}} to {{.GoType}}.
-func Translate{{.Name}}Backward(v {{.PBType}}) {{.GoType}} {
+// {{.Name}}FromPB converts {{.PBType}} to {{.GoType}}.
+func {{.Name}}FromPB(v {{.PBType}}) {{.GoType}} {
 	switch v {
 {{- range .Values}}
 	case {{.PBValue}}:
@@ -286,6 +286,51 @@ func {{.TypeName}}FromPBAny(ctx context.Context, a *anypb.Any) ({{.GoType}}, err
 		return {{.GoType}}{}, err
 	}
 	return {{.TypeName}}FromPB(ctx, &pb)
+}
+{{- end}}
+{{- range .DelegationTranslators}}
+
+// {{.Name}}ToPB delegates to the underlying type's translator.
+func {{.Name}}ToPB[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}](
+	ctx context.Context,
+	r {{.GoType}},
+{{- range .TypeParams}}
+	translate{{.Name}} func(context.Context, {{.Name}}) (*anypb.Any, error),
+{{- end}}
+) (*{{.UnderlyingPBType}}, error) {
+	return {{.UnderlyingTranslatorPrefix}}{{.UnderlyingName}}ToPB(ctx, {{.UnderlyingGoType}}(r){{range .TypeParams}}, translate{{.Name}}{{end}})
+}
+
+// {{.Name}}FromPB delegates to the underlying type's translator.
+func {{.Name}}FromPB[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}](
+	ctx context.Context,
+	pb *{{.UnderlyingPBType}},
+{{- range .TypeParams}}
+	translate{{.Name}} func(context.Context, *anypb.Any) ({{.Name}}, error),
+{{- end}}
+) ({{.GoType}}, error) {
+	result, err := {{.UnderlyingTranslatorPrefix}}{{.UnderlyingName}}FromPB(ctx, pb{{range .TypeParams}}, translate{{.Name}}{{end}})
+	return {{.GoType}}(result), err
+}
+{{- end}}
+{{- range .AliasUseTranslators}}
+
+// {{.Name}}ToPB wraps the @go use type's translator for the local alias.
+func {{.Name}}ToPB(ctx context.Context, r {{.GoType}}) (*{{.PBType}}, error) {
+{{- if gt (len .TypeArgs) 0}}
+	return {{.UseTranslatorPrefix}}{{.UseTypeName}}ToPB[{{join .TypeArgs ", "}}](ctx, r, {{join .ConverterFuncs ", "}})
+{{- else}}
+	return {{.UseTranslatorPrefix}}{{.UseTypeName}}ToPB(ctx, r)
+{{- end}}
+}
+
+// {{.Name}}FromPB wraps the @go use type's translator for the local alias.
+func {{.Name}}FromPB(ctx context.Context, pb *{{.PBType}}) ({{.GoType}}, error) {
+{{- if gt (len .TypeArgs) 0}}
+	return {{.UseTranslatorPrefix}}{{.UseTypeName}}FromPB[{{join .TypeArgs ", "}}](ctx, pb, {{join .BackConverterFuncs ", "}})
+{{- else}}
+	return {{.UseTranslatorPrefix}}{{.UseTypeName}}FromPB(ctx, pb)
+{{- end}}
 }
 {{- end}}
 `))

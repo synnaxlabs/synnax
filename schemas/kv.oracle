@@ -9,11 +9,12 @@
 
 import "schemas/range"
 
+@go output "core/pkg/service/ranger/kv"
+@ts output "client/ts/src/kv"
+@pb
+
 Pair struct {
     range range.Key
     key   string
     value string
-
-    @go output "core/pkg/service/ranger/kv"
-    @pb
 }

@@ -21,24 +21,20 @@ export const statusDetailsZ = z.object({
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 
-export const statusZ = status.statusZ({ details: statusDetailsZ });
+export const statusZ = status.statusZ({details: statusDetailsZ});
 export type Status = z.infer<typeof statusZ>;
 
-export interface DeviceSchemas<
-  Properties extends z.ZodType = z.ZodType,
-  Make extends z.ZodType = z.ZodString,
-  Model extends z.ZodType = z.ZodString,
-> {
+export interface DeviceSchemas<Properties extends z.ZodType = z.ZodType, Make extends z.ZodType = z.ZodString, Model extends z.ZodType = z.ZodString> {
   properties?: Properties;
   make?: Make;
   model?: Model;
 }
 
-export const deviceZ = <
-  Properties extends z.ZodType = z.ZodType,
-  Make extends z.ZodType = z.ZodString,
-  Model extends z.ZodType = z.ZodString,
->({ properties, make, model }: DeviceSchemas<Properties, Make, Model> = {}) =>
+export const deviceZ = <Properties extends z.ZodType = z.ZodType, Make extends z.ZodType = z.ZodString, Model extends z.ZodType = z.ZodString>({
+  properties,
+  make,
+  model,
+}: DeviceSchemas<Properties, Make, Model> = {}) =>
   z.object({
     key: z.string(),
     rack: rack.keyZ,
@@ -50,40 +46,27 @@ export const deviceZ = <
     properties: zod.stringifiedJSON(properties),
     status: statusZ.optional(),
   });
-export type Device<
-  Properties extends z.ZodType = z.ZodType,
-  Make extends z.ZodType = z.ZodString,
-  Model extends z.ZodType = z.ZodString,
-> = z.infer<ReturnType<typeof deviceZ<Properties, Make, Model>>>;
+export type Device<Properties extends z.ZodType = z.ZodType, Make extends z.ZodType = z.ZodString, Model extends z.ZodType = z.ZodString> = z.infer<
+  ReturnType<typeof deviceZ<Properties, Make, Model>>
+>;
 
-export const goDeviceZ = deviceZ.omit({ properties: true }).extend({
-  properties: z.string(),
-});
-export interface GoDevice extends z.infer<typeof goDeviceZ> {}
-
-export interface NewSchemas<
-  Properties extends z.ZodType = z.ZodType,
-  Make extends z.ZodType = z.ZodString,
-  Model extends z.ZodType = z.ZodString,
-> {
+export interface NewSchemas<Properties extends z.ZodType = z.ZodType, Make extends z.ZodType = z.ZodString, Model extends z.ZodType = z.ZodString> {
   properties?: Properties;
   make?: Make;
   model?: Model;
 }
 
-export const newZ = <
-  Properties extends z.ZodType = z.ZodType,
-  Make extends z.ZodType = z.ZodString,
-  Model extends z.ZodType = z.ZodString,
->({ properties, make, model }: NewSchemas<Properties, Make, Model> = {}) =>
+export const newZ = <Properties extends z.ZodType = z.ZodType, Make extends z.ZodType = z.ZodString, Model extends z.ZodType = z.ZodString>({
+  properties,
+  make,
+  model,
+}: NewSchemas<Properties, Make, Model> = {}) =>
   deviceZ({ properties, make, model })
     .omit({ configured: true })
     .partial({ key: true });
-export type New<
-  Properties extends z.ZodType = z.ZodType,
-  Make extends z.ZodType = z.ZodString,
-  Model extends z.ZodType = z.ZodString,
-> = z.input<ReturnType<typeof newZ<Properties, Make, Model>>>;
+export type New<Properties extends z.ZodType = z.ZodType, Make extends z.ZodType = z.ZodString, Model extends z.ZodType = z.ZodString> = z.input<
+  ReturnType<typeof newZ<Properties, Make, Model>>
+>;
 
 export const ontologyID = ontology.createIDFactory<Key>("device");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

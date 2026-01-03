@@ -132,7 +132,7 @@ func (svc *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retr
 	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
 
 	if req.IncludeStatus {
-		statuses := make([]status.Status[device.StatusDetails], 0, len(res.Devices))
+		statuses := make([]device.Status, len(res.Devices))
 		if err := status.NewRetrieve[device.StatusDetails](svc.status).
 			WhereKeys(ontology.IDsToString(device.OntologyIDsFromDevices(res.Devices))...).
 			Entries(&statuses).
@@ -140,7 +140,7 @@ func (svc *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retr
 			return res, err
 		}
 		for i, stat := range statuses {
-			res.Devices[i].Status = (*device.Status)(&stat)
+			res.Devices[i].Status = &stat
 		}
 	}
 

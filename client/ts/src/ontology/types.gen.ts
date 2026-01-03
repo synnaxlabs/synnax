@@ -11,31 +11,6 @@
 
 import { z } from "zod";
 
-export const RESOURCE_TYPES = [
-  "label",
-  "log",
-  "builtin",
-  "cluster",
-  "channel",
-  "node",
-  "group",
-  "range",
-  "framer",
-  "range-alias",
-  "user",
-  "workspace",
-  "schematic",
-  "lineplot",
-  "rack",
-  "device",
-  "task",
-  "policy",
-  "role",
-  "table",
-  "arc",
-  "schematic_symbol",
-  "status",
-  "view",
-] as const;
+export const RESOURCE_TYPES = ["label", "log", "builtin", "cluster", "channel", "node", "group", "range", "framer", "range-alias", "user", "workspace", "schematic", "lineplot", "rack", "device", "task", "policy", "role", "table", "arc", "schematic_symbol", "status", "view"] as const;
 export const resourceTypeZ = z.enum([...RESOURCE_TYPES]);
 export type ResourceType = z.infer<typeof resourceTypeZ>;

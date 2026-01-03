@@ -48,8 +48,6 @@ import (
 
 type Config = config.Config
 
-var DefaultConfig = config.Default
-
 type Transport struct {
 	// AUTH
 	AuthLogin          freighter.UnaryServer[auth.LoginRequest, auth.LoginResponse]

@@ -118,7 +118,7 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 			nextKey := fmt.Sprintf("op_%d", i)
 			g.Nodes = append(g.Nodes, graph.Node{
 				Key:  fmt.Sprintf("op_%d", i),
-				Type: o.Type,
+				Type: string(o.Type),
 				Config: map[string]any{
 					"duration": o.Duration,
 				},

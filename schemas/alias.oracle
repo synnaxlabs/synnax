@@ -10,11 +10,11 @@
 import "schemas/range"
 import "schemas/channel"
 
+@go output "core/pkg/service/ranger/alias"
+@pb
+
 Alias struct {
     range   range.Key
     channel channel.Key
     alias   string
-
-    @go output "core/pkg/service/ranger/alias"
-    @pb
 }

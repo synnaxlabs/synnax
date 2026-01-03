@@ -92,7 +92,7 @@ class Aliaser:
         req = SetRequest(range=self._rng, aliases=aliases)
         send_required(self._client, "/alias/set", req, EmptyResponse)
 
-    def list(self) -> dict[ChannelKey, str]:
+    def list_(self) -> dict[ChannelKey, str]:
         """List all aliases for the range.
 
         :returns: A dict mapping channel keys to aliases.
@@ -110,7 +110,7 @@ class Aliaser:
         ...
 
     def retrieve(
-        self, channels: ChannelKey | list[ChannelKey]
+        self, channels: ChannelKey
     ) -> str | dict[ChannelKey, str]:
         """Retrieve aliases for one or more channels.
 

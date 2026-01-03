@@ -9,7 +9,7 @@
 
 from synnax.device.client import Client
 from synnax.device.types_gen import (
-    DEVICE_ONTOLOGY_TYPE,
+    ONTOLOGY_TYPE,
     Device,
     Key,
     Status,
@@ -20,7 +20,7 @@ from synnax.device.types_gen import (
 __all__ = [
     "Client",
     "Device",
-    "DEVICE_ONTOLOGY_TYPE",
+    "ONTOLOGY_TYPE",
     "Key",
     "Status",
     "StatusDetails",

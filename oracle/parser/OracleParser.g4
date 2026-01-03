@@ -244,8 +244,9 @@ enumValue
 //   Key uint32
 //   Key uint32 { @go output "core/pkg/service/rack" }
 //   DeviceKey rack.Key
+//   GoServiceStatus<Details?> Status<Details, Variant>
 typeDefDef
-    : IDENT qualifiedIdent typeDefBody?
+    : IDENT typeParams? typeRef typeDefBody?
     ;
 
 // Optional body for type definitions (domains only, no fields)
