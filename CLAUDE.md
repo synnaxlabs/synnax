@@ -30,10 +30,10 @@ telemetry systems. The monorepo includes:
 
 ### Build Tools
 
-- **PNPM** for TypeScript packages
+- **pnpm** for TypeScript packages
 - **Turbo** for build orchestration
 - **Go workspace** for Go modules
-- **Poetry** for Python packages
+- **uv** for Python packages
 - **Bazel** for C++ components
 
 ## Most Common Commands
@@ -60,9 +60,9 @@ cd <module> && go build ./...  # Build module
 
 ```bash
 cd client/py
-poetry install     # Install dependencies
-poetry run pytest  # Run tests
-poetry run black . # Format code
+uv sync        # Install dependencies
+uv run pytest  # Run tests
+uv run black . # Format code
 ```
 
 ### C++ Development
@@ -108,7 +108,7 @@ bazel build //driver/cmd:driver # Build driver binary
 - Type hints everywhere (mypy strict)
 - Pydantic models for validation
 - pytest with custom markers
-- Poetry for package management
+- uv for package management
 
 ### C++
 

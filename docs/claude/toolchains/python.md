@@ -9,18 +9,35 @@ Python packages in the monorepo:
 - `/freighter/py/` - Transport layer
 - `/integration/` - Integration test conductor framework
 
-All packages use **Poetry** for dependency management.
+All packages use **uv** for dependency management with a workspace configuration.
 
 ## Package Management
 
-### Poetry Commands
+### uv Commands
 
 ```bash
 cd client/py
-poetry install          # Install dependencies
-poetry add package-name # Add a dependency
-poetry run pytest       # Run tests
-poetry build            # Build distribution
+uv sync             # Install dependencies
+uv add package-name # Add a dependency
+uv run pytest       # Run tests
+uv build            # Build distribution
+```
+
+### Workspace Configuration
+
+The monorepo uses uv workspaces defined in the root `pyproject.toml`:
+
+```toml
+[tool.uv]
+managed = true
+
+[tool.uv.workspace]
+members = ["alamos/py", "freighter/py", "client/py", "integration"]
+
+[tool.uv.sources]
+alamos = { workspace = true }
+synnax-freighter = { workspace = true }
+synnax = { workspace = true }
 ```
 
 ### pyproject.toml Structure
@@ -28,24 +45,16 @@ poetry build            # Build distribution
 ```toml
 [project]
 name = "synnax"
-version = "0.46.0"
-requires-python = ">=3.11,<4"
+version = "0.49.0"
+requires-python = ">=3.12,<4"
+dependencies = ["alamos", "synnax-freighter", "pydantic>=2.12.5", "numpy>=2.3.5"]
 
-[tool.poetry.dependencies]
-alamos = { path = "../../alamos/py", develop = true }
-pydantic = "^2.11.9"
-numpy = "^2.3.3"
-
-[tool.poetry.group.dev.dependencies]
-black = "^25.1.0"
-isort = "^6.0.1"
-mypy = "^1.18.1"
-pytest = "^8.4.2"
-pytest-asyncio = "^1.2.0"
+[dependency-groups]
+dev = ["black>=25.12.0", "isort>=7.0.0", "mypy>=1.19.0", "pytest>=9.0.2"]
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 ```
 
 ## Code Style
@@ -54,13 +63,13 @@ build-backend = "poetry.core.masonry.api"
 
 - 88 character line length
 - Automatically formats code
-- Run: `poetry run black .`
+- Run: `uv run black .`
 
 ### isort (Import Sorter)
 
 - Configured with `profile = "black"` for compatibility
 - Automatically organizes imports
-- Run: `poetry run isort .`
+- Run: `uv run isort .`
 
 ### mypy (Type Checker)
 
@@ -72,7 +81,7 @@ strict = true
 
 - Strict type checking enabled
 - Pydantic plugin for model validation
-- Run: `poetry run mypy .`
+- Run: `uv run mypy .`
 
 ### Pydantic Models
 
@@ -216,9 +225,9 @@ async def test_async_operation(client: sy.Synnax):
 
 ## Common Gotchas
 
-- **Python version**: Requires Python 3.11+
-- **Poetry**: Use `poetry run` prefix for all commands
-- **Path dependencies**: Local packages use `{ path = "...", develop = true }`
+- **Python version**: Requires Python 3.12+
+- **uv**: Use `uv run` prefix for all commands
+- **Workspace dependencies**: Internal packages use workspace sources
 - **Type checking**: mypy strict mode catches many errors - fix type issues early
 - **Pydantic**: Models validate at runtime - use for API boundaries
 - **Async**: pytest-asyncio required for async test support
@@ -238,7 +247,7 @@ async def test_async_operation(client: sy.Synnax):
 The Python client includes a CLI tool:
 
 ```bash
-poetry run sy --help
+uv run sy --help
 ```
 
 Defined in `pyproject.toml`:

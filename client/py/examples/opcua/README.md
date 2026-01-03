@@ -9,7 +9,7 @@ This directory contains example scripts for working with OPC UA servers in Synna
    - Synnax server running
    - Synnax driver running
    - For testing: OPC UA test server (included in `examples/opcua/server.py`)
-3. **Authentication**: Logged in to Synnax CLI (`poetry run sy login`)
+3. **Authentication**: Logged in to Synnax CLI (`uv run sy login`)
 
 ## Quick Start Guide
 
@@ -22,7 +22,7 @@ Follow these scripts in order:
 If you don't have a real OPC UA server, start the included test server:
 
 ```bash
-poetry run python examples/opcua/server.py
+uv run python examples/opcua/server.py
 ```
 
 This server simulates:
@@ -41,7 +41,7 @@ startup.
 Register your OPC UA server with Synnax:
 
 ```bash
-poetry run python examples/opcua/connect_server.py
+uv run python examples/opcua/connect_server.py
 ```
 
 This script will:
@@ -61,7 +61,7 @@ server:
 Read scalar float values from the server:
 
 ```bash
-poetry run python examples/opcua/read_task.py
+uv run python examples/opcua/read_task.py
 ```
 
 This example:
@@ -81,7 +81,7 @@ These IDs are printed by `server_extended.py` on startup.
 Read array data in high-performance array mode:
 
 ```bash
-poetry run python examples/opcua/read_task_array.py
+uv run python examples/opcua/read_task_array.py
 ```
 
 This example:
@@ -102,7 +102,7 @@ in array format with consistent size.
 Read boolean (digital) values from the server:
 
 ```bash
-poetry run python examples/opcua/read_task_boolean.py
+uv run python examples/opcua/read_task_boolean.py
 ```
 
 This example:
@@ -121,7 +121,7 @@ This example:
 Send commands to writable OPC UA nodes:
 
 ```bash
-poetry run python examples/opcua/write_task.py
+uv run python examples/opcua/write_task.py
 ```
 
 This example:
@@ -141,7 +141,7 @@ your server.
 When finished, remove the server registration:
 
 ```bash
-poetry run python examples/opcua/delete_server.py
+uv run python examples/opcua/delete_server.py
 ```
 
 This will remove the server and all associated tasks from Synnax.

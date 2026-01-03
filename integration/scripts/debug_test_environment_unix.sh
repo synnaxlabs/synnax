@@ -13,10 +13,9 @@ set -euo pipefail
 
 echo "Test failed - debugging info:"
 
-echo "=== Python/Poetry environment ==="
-export PATH="$HOME/.local/bin:$PATH"
+echo "=== Python/uv environment ==="
 python --version || echo "Python not found"
-poetry --version || echo "Poetry not found"
+uv --version || echo "uv not found"
 
 echo "=== Synnax connectivity ==="
 if command -v nc &> /dev/null; then

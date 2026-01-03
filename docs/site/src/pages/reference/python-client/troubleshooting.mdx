@@ -239,15 +239,14 @@ that `/opt/homebrew/bin` is in your `PATH` variable.
 
 ### If Synnax Is Installed in a Virtual Environment
 
-If you've installed Synnax in a virtual environment, you'll need to activate that
-environment before running the `synnax` command. For example, if you're using `poetry`,
-you'll need to run this command:
+If you've installed Synnax in a virtual environment, you'll need to use `uv run` to run
+commands within that environment. For example:
 
 ```bash
-poetry shell
+uv run sy --help
 ```
 
-before running the `synnax` command.
+This ensures the command runs within the correct virtual environment.
 
 </Fragment>
 

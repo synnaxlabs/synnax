@@ -12,12 +12,9 @@ rem included in the file licenses/APL.txt.
 echo 🔍 Test failed - debugging info:
 echo Matrix OS: windows
 
-echo === Python/Poetry environment ===
-rem Set Poetry PATH (try both common locations)
-set PATH=%APPDATA%\Python\Scripts;%APPDATA%\pypoetry\venv\Scripts;%PATH%
-
+echo === Python/uv environment ===
 python --version 2>nul || echo Python not found
-poetry --version 2>nul || echo Poetry not found
+uv --version 2>nul || echo uv not found
 
 echo === Synnax connectivity ===
 rem Test port connectivity using PowerShell

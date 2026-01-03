@@ -1,0 +1,16 @@
+[project]
+name = "synnax-workspace"
+version = "0.0.0"
+description = "Synnax Python Workspace"
+requires-python = ">=3.12"
+
+[tool.uv]
+managed = true
+
+[tool.uv.workspace]
+members = ["alamos/py", "freighter/py", "client/py", "integration"]
+
+[tool.uv.sources]
+alamos = { workspace = true }
+synnax-freighter = { workspace = true }
+synnax = { workspace = true }

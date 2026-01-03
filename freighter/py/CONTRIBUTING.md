@@ -5,11 +5,11 @@ implementations in HTTP and a streaming implementation using WebSockets.
 
 ## Developing
 
-Freighter uses Python 3.11 and [Poetry](https://python-poetry.org/) for dependency
-management. To install Poetry and the freighter dependencies, run:
+Freighter uses Python 3.12+ and [uv](https://docs.astral.sh/uv/) for dependency
+management. To install the dependencies, run:
 
 ```sh
-pip install poetry && poetry install
+uv sync
 ```
 
 ## Testing
@@ -20,5 +20,5 @@ running instance of the [Freighter integration server](../integration/README.md)
 Once the integration server is running, you can run the test suite with:
 
 ```sh
-poetry run pytest
+uv run pytest
 ```

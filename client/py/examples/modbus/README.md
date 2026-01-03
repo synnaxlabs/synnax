@@ -9,7 +9,7 @@ This directory contains example scripts for working with Modbus TCP devices in S
    - Synnax server running
    - Synnax driver running
    - For testing: Modbus TCP test server (included in `examples/modbus/server.py`)
-3. **Authentication**: Logged in to Synnax CLI (`poetry run sy login`)
+3. **Authentication**: Logged in to Synnax CLI (`uv run sy login`)
 
 ## Quick Start Guide
 
@@ -22,7 +22,7 @@ Follow these scripts in order:
 If you don't have a real Modbus device, start the included test server:
 
 ```bash
-poetry run python examples/modbus/server.py
+uv run python examples/modbus/server.py
 ```
 
 This server simulates:
@@ -39,7 +39,7 @@ The server runs on `localhost:5020` by default.
 Register your Modbus TCP server with Synnax:
 
 ```bash
-poetry run python examples/modbus/connect_server.py
+uv run python examples/modbus/connect_server.py
 ```
 
 This script will:
@@ -60,7 +60,7 @@ server:
 Read data from input registers:
 
 ```bash
-poetry run python examples/modbus/read_task.py
+uv run python examples/modbus/read_task.py
 ```
 
 This example:
@@ -78,7 +78,7 @@ test server).
 Send commands to coils and holding registers:
 
 ```bash
-poetry run python examples/modbus/write_task.py
+uv run python examples/modbus/write_task.py
 ```
 
 This example:
@@ -96,7 +96,7 @@ registers) outputs.
 Verify your Modbus setup:
 
 ```bash
-poetry run python examples/modbus/check_connection.py
+uv run python examples/modbus/check_connection.py
 ```
 
 This diagnostic script checks:
@@ -111,7 +111,7 @@ This diagnostic script checks:
 When finished, remove the server registration:
 
 ```bash
-poetry run python examples/modbus/delete_server.py
+uv run python examples/modbus/delete_server.py
 ```
 
 This will remove the server and all associated tasks from Synnax.
