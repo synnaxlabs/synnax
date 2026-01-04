@@ -116,12 +116,3 @@ func FileModTime(path string) time.Time {
 	}
 	return info.ModTime()
 }
-
-// SchemaModTimes returns a map of schema file paths to their modification times.
-func SchemaModTimes(req *Request) map[string]time.Time {
-	result := make(map[string]time.Time, len(req.Schemas))
-	for _, schema := range req.Schemas {
-		result[schema.FilePath] = FileModTime(schema.FilePath)
-	}
-	return result
-}

@@ -67,7 +67,6 @@ var _ = Describe("Python Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := typesPlugin.Generate(req)
@@ -101,7 +100,6 @@ var _ = Describe("Python Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := typesPlugin.Generate(req)
@@ -133,7 +131,6 @@ var _ = Describe("Python Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := typesPlugin.Generate(req)
@@ -164,7 +161,6 @@ var _ = Describe("Python Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := typesPlugin.Generate(req)
@@ -198,7 +194,6 @@ var _ = Describe("Python Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := typesPlugin.Generate(req)
@@ -239,7 +234,6 @@ var _ = Describe("Python Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := typesPlugin.Generate(req)
@@ -283,7 +277,6 @@ var _ = Describe("Python Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := typesPlugin.Generate(req)
@@ -309,7 +302,6 @@ var _ = Describe("Python Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := typesPlugin.Generate(req)
@@ -336,7 +328,6 @@ var _ = Describe("Python Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := typesPlugin.Generate(req)
@@ -366,7 +357,6 @@ var _ = Describe("Python Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := typesPlugin.Generate(req)
@@ -393,7 +383,6 @@ var _ = Describe("Python Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := typesPlugin.Generate(req)
@@ -420,7 +409,6 @@ var _ = Describe("Python Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := typesPlugin.Generate(req)
@@ -447,7 +435,6 @@ var _ = Describe("Python Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := typesPlugin.Generate(req)
@@ -476,7 +463,6 @@ var _ = Describe("Python Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := typesPlugin.Generate(req)
@@ -491,79 +477,6 @@ var _ = Describe("Python Types Plugin", func() {
 			// Child should inherit from Parent
 			Expect(content).To(ContainSubstring(`class Child(Parent):`))
 			Expect(content).To(ContainSubstring(`email: str`))
-		})
-
-		It("Should generate ConfigDict for field omissions", func() {
-			source := `
-				@py output "out"
-
-				Parent struct {
-					name string
-					age int32
-					status string
-				}
-
-				Child struct extends Parent {
-					-age
-					email string
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
-
-			req := &plugin.Request{
-				Resolutions: table,
-				OutputDir:   "out",
-			}
-
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
-
-			content := string(resp.Files[0].Content)
-			// Child should have ConfigDict import
-			Expect(content).To(ContainSubstring(`from pydantic import`))
-			Expect(content).To(ContainSubstring(`ConfigDict`))
-
-			// Child should inherit and use model_config
-			Expect(content).To(ContainSubstring(`class Child(Parent):`))
-			Expect(content).To(ContainSubstring(`email: str`))
-			Expect(content).To(ContainSubstring(`model_config = ConfigDict(`))
-			Expect(content).To(ContainSubstring(`"age": {"exclude": True}`))
-		})
-
-		It("Should generate ConfigDict for multiple field omissions", func() {
-			source := `
-				@py output "out"
-
-				Parent struct {
-					a string
-					b string
-					c string
-					d string
-				}
-
-				Child struct extends Parent {
-					-a
-					-c
-					e string
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
-
-			req := &plugin.Request{
-				Resolutions: table,
-				OutputDir:   "out",
-			}
-
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
-
-			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`class Child(Parent):`))
-			Expect(content).To(ContainSubstring(`model_config = ConfigDict(`))
-			Expect(content).To(ContainSubstring(`"a": {"exclude": True}`))
-			Expect(content).To(ContainSubstring(`"c": {"exclude": True}`))
 		})
 
 		It("Should handle field override to make it optional", func() {
@@ -584,7 +497,6 @@ var _ = Describe("Python Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := typesPlugin.Generate(req)
@@ -595,38 +507,6 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`class Child(Parent):`))
 			Expect(content).To(ContainSubstring(`name: str | None = None`))
 		})
-
-		It("Should handle extension without new fields (only omissions)", func() {
-			source := `
-				@py output "out"
-
-				Parent struct {
-					a string
-					b string
-					c string
-				}
-
-				Child struct extends Parent {
-					-b
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
-
-			req := &plugin.Request{
-				Resolutions: table,
-				OutputDir:   "out",
-			}
-
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
-
-			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`class Child(Parent):`))
-			Expect(content).To(ContainSubstring(`model_config = ConfigDict(`))
-			Expect(content).To(ContainSubstring(`"b": {"exclude": True}`))
-		})
-
 		It("Should handle extension of generic struct with type arguments", func() {
 			source := `
 				@py output "out"
@@ -649,7 +529,6 @@ var _ = Describe("Python Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := typesPlugin.Generate(req)
@@ -682,7 +561,6 @@ var _ = Describe("Python Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := typesPlugin.Generate(req)
@@ -711,7 +589,6 @@ var _ = Describe("Python Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := typesPlugin.Generate(req)

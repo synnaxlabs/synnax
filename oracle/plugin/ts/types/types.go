@@ -110,15 +110,16 @@ func findPackageDir(file string) string {
 
 // Generate produces TypeScript type definition files from the analyzed schemas.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
-	resp := &plugin.Response{Files: make([]plugin.File, 0)}
-	outputStructs := make(map[string][]resolution.Type)
-	outputEnums := make(map[string][]resolution.Type)
-	outputTypeDefs := make(map[string][]resolution.Type)
-	var structOrder []string
-	var enumOrder []string
-	var typeDefOrder []string
+	var (
+		resp           = &plugin.Response{Files: make([]plugin.File, 0)}
+		outputStructs  = make(map[string][]resolution.Type)
+		outputEnums    = make(map[string][]resolution.Type)
+		outputTypeDefs = make(map[string][]resolution.Type)
+		structOrder    []string
+		enumOrder      []string
+		typeDefOrder   []string
+	)
 
-	// Collect distinct types and aliases
 	for _, entry := range req.Resolutions.DistinctTypes() {
 		if outputPath := output.GetPath(entry, "ts"); outputPath != "" {
 			if omit.IsType(entry, "ts") {
@@ -864,7 +865,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 	if typeOverride := getFieldTypeOverride(field, "ts"); typeOverride != "" {
 		fd.ZodType = primitiveToZod(typeOverride, data, useInput)
 		fd.TSType = primitiveToTS(typeOverride)
-		if validateDomain, ok := plugin.GetFieldDomain(field, "validate"); ok {
+		if validateDomain, ok := field.Domains["validate"]; ok {
 			fd.ZodType = p.applyValidation(fd.ZodType, validateDomain, field.Type, field.Name, table)
 		}
 	} else {
@@ -876,7 +877,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		}
 		fd.ZodType = p.typeRefToZod(typeRefToProcess, table, data, useInput)
 		fd.TSType = p.typeRefToTS(typeRefToProcess, table, data, needsTypeImports)
-		if validateDomain, ok := plugin.GetFieldDomain(field, "validate"); ok {
+		if validateDomain, ok := field.Domains["validate"]; ok {
 			fd.ZodType = p.applyValidation(fd.ZodType, validateDomain, field.Type, field.Name, table)
 		}
 	}
@@ -909,7 +910,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 }
 
 func getFieldTypeOverride(field resolution.Field, domainName string) string {
-	domain, ok := plugin.GetFieldDomain(field, domainName)
+	domain, ok := field.Domains[domainName]
 	if !ok {
 		return ""
 	}
@@ -925,7 +926,7 @@ func getFieldTypeOverride(field resolution.Field, domainName string) string {
 }
 
 func getTypeTypeOverride(typ resolution.Type, domainName string) string {
-	domain, ok := plugin.GetTypeDomain(typ, domainName)
+	domain, ok := typ.Domains[domainName]
 	if !ok {
 		return ""
 	}
@@ -1339,7 +1340,7 @@ var primitiveTSTypes = map[string]string{
 	"float32": "number", "float64": "number",
 	"timestamp": "TimeStamp", "timespan": "TimeSpan", "data_type": "DataType",
 	"color": "Color",
-	"json": "unknown", "bytes": "Uint8Array",
+	"json":  "unknown", "bytes": "Uint8Array",
 }
 
 func primitiveToTS(primitive string) string {

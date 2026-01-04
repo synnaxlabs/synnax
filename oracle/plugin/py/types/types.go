@@ -583,7 +583,7 @@ func (p *Plugin) processField(
 
 	baseType := p.typeToPython(field.Type, table, data)
 	var fieldConstraints []string
-	if validateDomain, ok := plugin.GetFieldDomain(field, "validate"); ok {
+	if validateDomain, ok := field.Domains["validate"]; ok {
 		fieldConstraints = p.collectValidation(validateDomain, field.Type, table, data)
 	}
 

@@ -14,7 +14,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -22,6 +21,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
+	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/output"
@@ -62,32 +62,18 @@ func (p *Plugin) Requires() []string { return nil }
 // Check verifies generated files are up-to-date.
 func (p *Plugin) Check(req *plugin.Request) error { return nil }
 
-// PostWrite runs buf generate after proto files are written.
-// This generates the Go bindings from the proto files.
+var bufGenerateCmd = []string{"buf", "generate"}
+
 func (p *Plugin) PostWrite(files []string) error {
 	if len(files) == 0 {
 		return nil
 	}
-
-	// Determine the repo root from the first file's path
-	// Files are absolute paths, we need to find the repo root
 	firstFile := files[0]
 	repoRoot := findRepoRoot(firstFile)
 	if repoRoot == "" {
 		return errors.New("could not determine repo root from file paths")
 	}
-
-	// Run buf generate from the repo root
-	cmd := exec.Command("buf", "generate")
-	cmd.Dir = repoRoot
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return errors.Wrap(err, "buf generate failed")
-	}
-
-	return nil
+	return exec.OnFiles(bufGenerateCmd, nil, repoRoot)
 }
 
 // findRepoRoot walks up from the given path to find the git repository root.

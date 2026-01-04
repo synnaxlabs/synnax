@@ -20,29 +20,38 @@ import (
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/plugin"
+	cpptypes "github.com/synnaxlabs/oracle/plugin/cpp/types"
+	gopb "github.com/synnaxlabs/oracle/plugin/go/pb"
+	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
+	pbtypes "github.com/synnaxlabs/oracle/plugin/pb/types"
+	pytypes "github.com/synnaxlabs/oracle/plugin/py/types"
+	tstypes "github.com/synnaxlabs/oracle/plugin/ts/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
 var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Sync generated code, only writing changed files",
-	RunE:  runSync,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := runSync(cmd); err != nil {
+			printError(err.Error())
+			return err
+		}
+		return nil
+	},
 }
 
 func init() {
 	rootCmd.AddCommand(syncCmd)
 }
 
-func runSync(cmd *cobra.Command, args []string) error {
+func runSync(cmd *cobra.Command) error {
 	ctx := cmd.Context()
 	verbose := viper.GetBool(verboseFlag)
-
 	printBanner()
-
 	repoRoot, err := paths.RepoRoot()
 	if err != nil {
-		printError("must be run within a git repository")
-		return err
+		return errors.Wrap(err, "sync must be run within a git repository")
 	}
 
 	schemaFiles, err := expandGlobs([]string{"schemas/*.oracle"}, repoRoot)
@@ -51,7 +60,6 @@ func runSync(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(schemaFiles) == 0 {
-		printError("no schema files found")
 		return errors.New("no schema files found")
 	}
 
@@ -65,25 +73,21 @@ func runSync(cmd *cobra.Command, args []string) error {
 	}
 
 	printSchemaCount(len(normalizedFiles))
-
-	// Format schema files first
 	printFormattingStart(len(schemaFiles))
+
 	formatted := 0
 	for _, f := range schemaFiles {
 		source, err := os.ReadFile(f)
 		if err != nil {
-			printError(fmt.Sprintf("failed to read %s: %v", f, err))
-			return err
+			return errors.Wrapf(err, "failed to read %s", f)
 		}
 		result, err := formatter.Format(string(source))
 		if err != nil {
-			printError(fmt.Sprintf("failed to format %s: %v", f, err))
-			return err
+			return errors.Wrapf(err, "failed to format %s", err)
 		}
 		if result != string(source) {
 			if err := os.WriteFile(f, []byte(result), 0644); err != nil {
-				printError(fmt.Sprintf("failed to write %s: %v", f, err))
-				return err
+				return errors.Wrapf(err, "failed to write %s", f)
 			}
 			formatted++
 		}
@@ -92,59 +96,74 @@ func runSync(cmd *cobra.Command, args []string) error {
 
 	registry := buildPluginRegistry()
 
-	result, diag := oracle.Generate(ctx, normalizedFiles, repoRoot, registry, repoRoot)
-	if diag != nil && !diag.Empty() {
+	result, diag := oracle.Generate(ctx, normalizedFiles, repoRoot, registry)
+	if diag != nil {
 		printDiagnostics(diag.String())
-	}
-
-	if diag != nil && diag.HasErrors() {
-		printError(fmt.Sprintf("generation failed with %d error(s)", len(diag.Errors())))
-		return errors.New("generation failed")
-	}
-
-	if result != nil {
-		syncResult, err := result.SyncFiles(repoRoot)
-		if err != nil {
-			printError("failed to sync files")
-			return err
+		if diag.HasErrors() {
+			return errors.New("generation failed")
 		}
+	}
 
-		// Update license headers before running post-write hooks (e.g., eslint)
-		if len(syncResult.Written) > 0 {
-			absPaths := make([]string, len(syncResult.Written))
-			for i, f := range syncResult.Written {
+	syncResult, err := result.SyncFiles(repoRoot)
+	if err != nil {
+		return errors.Wrap(err, "failed to sync files")
+	}
+	if len(syncResult.Written) > 0 {
+		absPaths := make([]string, len(syncResult.Written))
+		for i, f := range syncResult.Written {
+			absPaths[i] = filepath.Join(repoRoot, f)
+		}
+		if err = oracle.UpdateLicenseHeaders(repoRoot, absPaths); err != nil {
+			return errors.Wrapf(err, "failed to update license headers")
+		}
+	}
+	if verbose && len(syncResult.Written) > 0 {
+		for pluginName, files := range syncResult.ByPlugin {
+			for _, f := range files {
+				printFileWritten(pluginName, f)
+			}
+		}
+	}
+	for pluginName, files := range syncResult.ByPlugin {
+		p := registry.Get(pluginName)
+		if pw, ok := p.(plugin.PostWriter); ok {
+			absPaths := make([]string, len(files))
+			for i, f := range files {
 				absPaths[i] = filepath.Join(repoRoot, f)
 			}
-			if err := oracle.UpdateLicenseHeaders(repoRoot, absPaths); err != nil {
-				printDim(fmt.Sprintf("license header update failed: %v", err))
+			if err := pw.PostWrite(absPaths); err != nil {
+				printDim(fmt.Sprintf("post-write hook for %s failed: %v", pluginName, err))
 			}
 		}
-
-		if verbose && len(syncResult.Written) > 0 {
-			for pluginName, files := range syncResult.ByPlugin {
-				for _, f := range files {
-					printFileWritten(pluginName, f)
-				}
-			}
-		}
-
-		if len(syncResult.Written) > 0 {
-			for pluginName, files := range syncResult.ByPlugin {
-				p := registry.Get(pluginName)
-				if pw, ok := p.(plugin.PostWriter); ok {
-					absPaths := make([]string, len(files))
-					for i, f := range files {
-						absPaths[i] = filepath.Join(repoRoot, f)
-					}
-					if err := pw.PostWrite(absPaths); err != nil {
-						printDim(fmt.Sprintf("post-write hook for %s failed: %v", pluginName, err))
-					}
-				}
-			}
-		}
-
-		printSyncedCount(len(syncResult.Written), len(syncResult.Unchanged))
 	}
-
+	printSyncedCount(len(syncResult.Written), len(syncResult.Unchanged))
 	return nil
+}
+
+// expandGlobs expands glob patterns to actual file paths.
+func expandGlobs(patterns []string, baseDir string) ([]string, error) {
+	var files []string
+	for _, pattern := range patterns {
+		if !filepath.IsAbs(pattern) {
+			pattern = filepath.Join(baseDir, pattern)
+		}
+		matches, err := filepath.Glob(pattern)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid glob pattern %q", pattern)
+		}
+
+		files = append(files, matches...)
+	}
+	return files, nil
+}
+
+func buildPluginRegistry() *plugin.Registry {
+	registry := plugin.NewRegistry()
+	_ = registry.Register(tstypes.New(tstypes.DefaultOptions()))
+	_ = registry.Register(gotypes.New(gotypes.DefaultOptions()))
+	_ = registry.Register(pytypes.New(pytypes.DefaultOptions()))
+	_ = registry.Register(pbtypes.New(pbtypes.DefaultOptions()))
+	_ = registry.Register(cpptypes.New(cpptypes.DefaultOptions()))
+	_ = registry.Register(gopb.New(gopb.DefaultOptions()))
+	return registry
 }

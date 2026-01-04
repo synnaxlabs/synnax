@@ -70,7 +70,6 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := cppPlugin.Generate(req)
@@ -106,7 +105,6 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := cppPlugin.Generate(req)
@@ -133,7 +131,6 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := cppPlugin.Generate(req)
@@ -160,7 +157,6 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := cppPlugin.Generate(req)
@@ -186,7 +182,6 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := cppPlugin.Generate(req)
@@ -211,7 +206,6 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := cppPlugin.Generate(req)
@@ -238,7 +232,6 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := cppPlugin.Generate(req)
@@ -265,7 +258,6 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := cppPlugin.Generate(req)
@@ -290,7 +282,6 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := cppPlugin.Generate(req)
@@ -321,7 +312,6 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := cppPlugin.Generate(req)
@@ -351,7 +341,6 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := cppPlugin.Generate(req)
@@ -382,7 +371,6 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := cppPlugin.Generate(req)
@@ -407,7 +395,6 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := cppPlugin.Generate(req)
@@ -434,7 +421,6 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := cppPlugin.Generate(req)
@@ -458,7 +444,6 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := cppPlugin.Generate(req)
@@ -487,7 +472,6 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := cppPlugin.Generate(req)
@@ -535,7 +519,6 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := cppPlugin.Generate(req)
@@ -565,7 +548,6 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			req := &plugin.Request{
 				Resolutions: table,
-				OutputDir:   "out",
 			}
 
 			resp, err := cppPlugin.Generate(req)
