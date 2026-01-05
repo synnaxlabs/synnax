@@ -830,7 +830,7 @@ func main() {
 
 	// Custom template functions
 	funcMap := template.FuncMap{
-		"title": strings.Title,
+		"title": strings.ToTitle,
 	}
 
 	tmpl := template.Must(template.New("runtime").Funcs(funcMap).Parse(runtimeTemplate))
