@@ -23,9 +23,6 @@ func compileLiteral(
 	if num := ctx.AST.NumericLiteral(); num != nil {
 		return compileNumericLiteral(context.Child(ctx, num))
 	}
-	if temp := ctx.AST.TemporalLiteral(); temp != nil {
-		return types.TimeSpan(), nil
-	}
 	if str := ctx.AST.STR_LITERAL(); str != nil {
 		return types.Type{}, errors.New("str literals are not yet supported")
 	}
@@ -54,6 +51,11 @@ func compileNumericLiteral(
 			}
 		}
 	}
+
+	// Clear the unit from target type - unit literals should always convert to SI base units.
+	// The unit is preserved in the TypeMap for dimensional analysis but should not affect
+	// the numeric value emitted (which is always in SI base units).
+	targetType.Unit = nil
 
 	// Use shared literal parser to parse and validate the value
 	// This enforces Go-like semantics: no truncation for literal constants

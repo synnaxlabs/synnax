@@ -139,7 +139,7 @@ var _ = Describe("Stage", func() {
 			*sourceNode.Output(0) = telem.NewSeriesV[uint8](1)
 			*sourceNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
 
-			// Execute stage entry node with context that tracks activations
+			activationCount := 0
 			nodeCtx := node.Context{
 				Context:     ctx,
 				MarkChanged: func(string) {},
@@ -166,7 +166,7 @@ var _ = Describe("Stage", func() {
 			*sourceNode.Output(0) = telem.NewSeriesV[uint8](0)
 			*sourceNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
 
-			// Execute stage entry node
+			activationCount := 0
 			nodeCtx := node.Context{
 				Context:     ctx,
 				MarkChanged: func(string) {},

@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/runtime/time"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -285,5 +286,18 @@ sequence main {
 
 		oneShotEdges := mod.Edges.GetByKind(ir.OneShot)
 		Expect(len(oneShotEdges)).To(BeNumerically(">=", 2))
+	})
+
+	It("Should correctly compile a node with a unit literal", func() {
+		mod := compile(`
+			sequence main {
+				stage initial {
+					wait{duration=5s} => next
+				}
+				stage end {
+				}
+			}
+		`, time.SymbolResolver)
+		Expect(mod.Nodes).To(HaveLen(3))
 	})
 })

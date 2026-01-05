@@ -133,6 +133,9 @@ type ArcParserListener interface {
 	// EnterType is called when entering the type production.
 	EnterType(c *TypeContext)
 
+	// EnterUnitSuffix is called when entering the unitSuffix production.
+	EnterUnitSuffix(c *UnitSuffixContext)
+
 	// EnterPrimitiveType is called when entering the primitiveType production.
 	EnterPrimitiveType(c *PrimitiveTypeContext)
 
@@ -144,9 +147,6 @@ type ArcParserListener interface {
 
 	// EnterFloatType is called when entering the floatType production.
 	EnterFloatType(c *FloatTypeContext)
-
-	// EnterTemporalType is called when entering the temporalType production.
-	EnterTemporalType(c *TemporalTypeContext)
 
 	// EnterChannelType is called when entering the channelType production.
 	EnterChannelType(c *ChannelTypeContext)
@@ -201,9 +201,6 @@ type ArcParserListener interface {
 
 	// EnterNumericLiteral is called when entering the numericLiteral production.
 	EnterNumericLiteral(c *NumericLiteralContext)
-
-	// EnterTemporalLiteral is called when entering the temporalLiteral production.
-	EnterTemporalLiteral(c *TemporalLiteralContext)
 
 	// EnterSeriesLiteral is called when entering the seriesLiteral production.
 	EnterSeriesLiteral(c *SeriesLiteralContext)
@@ -328,6 +325,9 @@ type ArcParserListener interface {
 	// ExitType is called when exiting the type production.
 	ExitType(c *TypeContext)
 
+	// ExitUnitSuffix is called when exiting the unitSuffix production.
+	ExitUnitSuffix(c *UnitSuffixContext)
+
 	// ExitPrimitiveType is called when exiting the primitiveType production.
 	ExitPrimitiveType(c *PrimitiveTypeContext)
 
@@ -339,9 +339,6 @@ type ArcParserListener interface {
 
 	// ExitFloatType is called when exiting the floatType production.
 	ExitFloatType(c *FloatTypeContext)
-
-	// ExitTemporalType is called when exiting the temporalType production.
-	ExitTemporalType(c *TemporalTypeContext)
 
 	// ExitChannelType is called when exiting the channelType production.
 	ExitChannelType(c *ChannelTypeContext)
@@ -396,9 +393,6 @@ type ArcParserListener interface {
 
 	// ExitNumericLiteral is called when exiting the numericLiteral production.
 	ExitNumericLiteral(c *NumericLiteralContext)
-
-	// ExitTemporalLiteral is called when exiting the temporalLiteral production.
-	ExitTemporalLiteral(c *TemporalLiteralContext)
 
 	// ExitSeriesLiteral is called when exiting the seriesLiteral production.
 	ExitSeriesLiteral(c *SeriesLiteralContext)

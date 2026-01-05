@@ -11,9 +11,10 @@ package types
 
 import (
 	"fmt"
-	"strings"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 )
@@ -173,6 +174,9 @@ func inferPrimaryType(ctx context.Context[parser.IPrimaryExpressionContext]) typ
 }
 
 func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
+	if numLit := ctx.AST.NumericLiteral(); numLit != nil {
+		return inferNumericLiteralType(ctx, numLit)
+	}
 	text := ctx.AST.GetText()
 	if len(text) > 0 && (text[0] == '"' || text[0] == '\'') {
 		t := types.String()
@@ -184,69 +188,36 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 		ctx.TypeMap[ctx.AST] = t
 		return t
 	}
-	// For numeric literals, create a type variable with appropriate constraint
-	// This allows the literal to adapt to the context
-	if isDecimalLiteral(text) {
-		// Float literal - create type variable with float constraint
-		line := ctx.AST.GetStart().GetLine()
-		col := ctx.AST.GetStart().GetColumn()
-		tvName := fmt.Sprintf("lit_%d_%d", line, col)
-
-		constraint := types.FloatConstraint()
-		tv := types.Variable(tvName, &constraint)
-
-		// Record the type variable in the constraint system
-		ctx.Constraints.AddEquality(tv, tv, ctx.AST, "literal type variable")
-
-		// Store type variable in map (will be substituted later)
-		ctx.TypeMap[ctx.AST] = tv
-		return tv
-	}
-	if isIntegerLiteral(text) {
-		// Integer literal - create type variable with integer constraint
-		line := ctx.AST.GetStart().GetLine()
-		col := ctx.AST.GetStart().GetColumn()
-		tvName := fmt.Sprintf("lit_%d_%d", line, col)
-
-		constraint := types.IntegerConstraint()
-		tv := types.Variable(tvName, &constraint)
-
-		// Record the type variable in the constraint system
-		ctx.Constraints.AddEquality(tv, tv, ctx.AST, "literal type variable")
-
-		// Store type variable in map (will be substituted later)
-		ctx.TypeMap[ctx.AST] = tv
-		return tv
-	}
-	// Fallback for non-numeric literals
+	// Fallback for unknown literals
 	t := types.I64()
 	ctx.TypeMap[ctx.AST] = t
 	return t
 }
 
-func isIntegerLiteral(text string) bool {
-	if len(text) == 0 {
-		return false
-	}
-	// Not a decimal literal means it's an integer
-	return !isDecimalLiteral(text) && isNumericText(text)
-}
+func inferNumericLiteralType(
+	ctx context.Context[parser.ILiteralContext],
+	numLit parser.INumericLiteralContext,
+) types.Type {
+	// Determine constraint based on literal form (integer vs float)
+	// This applies to both plain numeric literals AND unit literals
+	var (
+		isFloat    = numLit.FLOAT_LITERAL() != nil
+		line       = ctx.AST.GetStart().GetLine()
+		col        = ctx.AST.GetStart().GetColumn()
+		tvName     = fmt.Sprintf("lit_%d_%d", line, col)
+		constraint = lo.Ternary(isFloat, types.FloatConstraint(), types.IntegerConstraint())
+		tv         = types.Variable(tvName, &constraint)
+	)
 
-func isNumericText(text string) bool {
-	if len(text) == 0 {
-		return false
-	}
-	for _, c := range text {
-		if c < '0' || c > '9' {
-			return false
+	// Check for unit suffix (e.g., 5psi, 3s, 100Hz)
+	if unitID := numLit.IDENTIFIER(); unitID != nil {
+		unitName := unitID.GetText()
+		if unit, ok := units.Resolve(unitName); ok {
+			tv.Unit = unit
 		}
 	}
-	return true
-}
 
-func isDecimalLiteral(text string) bool {
-	if len(text) == 0 {
-		return false
-	}
-	return strings.ContainsAny(text, ".eE")
+	ctx.Constraints.AddEquality(tv, tv, ctx.AST, "literal type variable")
+	ctx.TypeMap[ctx.AST] = tv
+	return tv
 }
