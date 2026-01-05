@@ -27,7 +27,7 @@ clients. If you're looking for a quick start, check out the
 
 There are three ways to authenticate with a Synnax Core: using the CLI to permanently
 store your credentials, passing your credentials directly to the client, or configuring
-environment variables..
+environment variables.
 
 - For instructions on direct authentication, see
   [Create a Client](/reference/client/quick-start#create-a-client).
@@ -81,13 +81,15 @@ from synnax import Synnax
 client = Synnax()
 ```
 
+<Divider.Divider x />
+
 ### Environment Variables
 
 You can store your connection parameters as environment variables to keep them out of
 your code. This is useful for production deployments or when working with multiple
 environments.
 
-#### Setting Environment Variables
+#### Setting environment variables
 
 Select your operating system below to see how to set environment variables:
 
@@ -143,7 +145,7 @@ export SYNNAX_SECURE="false"
 
 </Platform.Tabs>
 
-#### Using Environment Variables in Code
+#### Using environment variables in code
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 

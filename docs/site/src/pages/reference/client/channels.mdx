@@ -17,7 +17,7 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 Channels are the fundamental building blocks for storing and organizing data in Synnax.
-This guide covers all the basic CRUD operations you need to work with Synnax channels.
+This guide covers all the basic operations you need to work with Synnax channels.
 
 If you're unfamiliar with what channels are and how they work, check out the
 [channels concepts guide](/reference/concepts/channels).
@@ -26,14 +26,14 @@ If you're unfamiliar with what channels are and how they work, check out the
 
 ## Creating Channels
 
-| Parameter                                               | Type                                              | Default  | Description                                                                                                                           |
-| ------------------------------------------------------- | ------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`                                                  | <Client.Var client:load py="str" ts="string" />   | Required | A human-readable name for the channel. This name is not guaranteed to be unique.                                                      |
-| <Client.Var client:load py="data_type" ts="dataType" /> | `DataType`                                        | Required | The data type of the samples stored in the channel (e.g., `DataType.FLOAT32`, `DataType.TIMESTAMP`).                                  |
-| <Client.Var client:load py="is_index" ts="isIndex" />   | <Client.Var client:load py="bool" ts="boolean" /> | `false`  | Set to `true` if the channel is an index channel, `false` otherwise. Index channels must have a data type of `DataType.TIMESTAMP`.    |
-| `index`                                                 | <Client.Var client:load py="int" ts="number" />   | `0`      | The key of the index channel that this channel is associated with. Not required for index channels.                                   |
-| `virtual`                                               | <Client.Var client:load py="bool" ts="boolean" /> | `false`  | Set to `true` if the channel is virtual. Virtual channels do not store data in the database and are used for streaming purposes only. |
-| `retrieve_if_name_exists`                               | <Client.Var client:load py="bool" ts="boolean" /> | `false`  | If `true`, retrieves the channel if one with the same name already exists instead of creating a duplicate.                            |
+| Parameter                                                                        | Type                                              | Default                                          | Description                                                                                                                                                                                                         |
+| -------------------------------------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                                                                           | <Client.Var client:load py="str" ts="string" />   | Required                                         | A human-readable name for the channel. This name is not guaranteed to be unique.                                                                                                                                    |
+| <Client.Var client:load py="data_type" ts="dataType" />                          | `DataType`                                        | Required                                         | The data type of the samples stored in the channel (e.g., `DataType.FLOAT32`, `DataType.TIMESTAMP`).                                                                                                                |
+| <Client.Var client:load py="is_index" ts="isIndex" />                            | <Client.Var client:load py="bool" ts="boolean" /> | <Client.Var client:load py="False" ts="false" /> | Set to <Client.Var client:load py="True" ts="true" /> if the channel is an index channel, <Client.Var client:load py="False" ts="false" /> otherwise. Index channels must have a data type of `DataType.TIMESTAMP`. |
+| `index`                                                                          | <Client.Var client:load py="int" ts="number" />   | `0`                                              | The key of the index channel that this channel is associated with. Not required for index channels.                                                                                                                 |
+| `virtual`                                                                        | <Client.Var client:load py="bool" ts="boolean" /> | <Client.Var client:load py="False" ts="false" /> | Set to <Client.Var client:load py="True" ts="true" /> if the channel is virtual. Virtual channels do not store data in the database and are used for streaming purposes only.                                       |
+| <Client.Var client:load py="retrieve_if_name_exists" ts="retrieveIfNameExists"/> | <Client.Var client:load py="bool" ts="boolean" /> | <Client.Var client:load py="False" ts="false" /> | If <Client.Var client:load py="True" ts="true" />, retrieves the channel if one with the same name already exists instead of creating a duplicate.                                                                  |
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
@@ -75,11 +75,13 @@ const tempChannel = await client.channels.create({
 
 </Client.Tabs>
 
-### Only Create if Channel Does Not Exist
+### Retrieving the Channel if it Already Exists
 
-There are situations where you want to ensure a channel with a particular name exists,
-but don't want it duplicated. To accomplish this, use the `retrieve_if_name_exists`
-flag.
+{/* prettier-ignore-start */} There are situations where you want to ensure a channel
+with a particular name exists, but don't want it duplicated. To accomplish this, use the
+
+<Client.Var client:load py="retrieve_if_name_exists" ts="retrieveIfNameExists" /> flag.
+{/* prettier-ignore-end */}
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
@@ -225,8 +227,8 @@ Retrieving by key is faster than retrieving by name, and is recommended whenever
 possible.
 
 <Note.Note variant="info" className="compact">
-  To retrieve channels using ranges see, [Ranges - Working with
-  Channels](/reference/client/ranges#working-with-channels).
+  Channels can also be retrieved using
+  [ranges](/reference/client/ranges#working-with-channels).
 </Note.Note>
 
 ### Retrieving a Single Channel
@@ -432,6 +434,5 @@ Deleting a channel by name will delete **all** channels with that name.
 
 ## Aliasing Channels
 
-Channels can be aliased to give them a more descriptive name for a specific test or
-operation. Aliasing is a feature of ranges, and is covered in
-[Ranges - Working with Channels](/reference/client/ranges#working-with-channels).
+Channels can be [aliased](/reference/client/ranges#working-with-channels) to give them a
+more descriptive name for a specific test or operation.

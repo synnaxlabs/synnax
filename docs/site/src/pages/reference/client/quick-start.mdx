@@ -15,7 +15,7 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Synnax provides first-class Python support and Typescript support. Our client delivers
+Synnax provides first-class Python support and TypeScript support. Our client delivers
 many capabilities, including
 
 - Direct integration with [pandas](https://pandas.pydata.org/) and
@@ -58,22 +58,22 @@ many capabilities, including
 
 ## Create a Client
 
-To authenticate with a Synnax Core, simply instantiate a new client with your connection
-parameters and credentials.
+To
+[authenticate with a Synnax Core](/reference/client/authentication#authentication-methods),
+simply instantiate a new client with your connection parameters and credentials:
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
 
   <Fragment slot="python">
     ```python
-    import os
     import synnax as sy
-  
+
     client = sy.Synnax(
         host="demo.synnaxlabs.com",
         port=9090,
         username="synnax",
         password="seldon",
-        secure=True
+        secure=True,
     )
     ```
 
@@ -97,17 +97,12 @@ parameters and credentials.
   </Fragment>
 </Client.Tabs>
 
-<Note.Note variant="info" className="compact">
-  The CLI and environment variable authentication are covered in [Authentication
-  Methods](/reference/client/authentication#authentication-methods)
-</Note.Note>
-
 <Divider.Divider x />
 
-## Create Your First Channel
+## Create a Channel
 
-Create a channel using the `channels.create` client method. First create an "index"
-channel to
+[Create a channel](/reference/client/channels#creating-channels) using the
+`channels.create` client method. First create an "index" channel to
 [store timestamps for your data channel](/reference/concepts/channels#index-channels).
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
@@ -153,20 +148,14 @@ channel to
   </Fragment>
 </Client.Tabs>
 
-<Note.Note variant="info" className="compact">
-  Creating multiple channels, conditional creation, and detailed channel options are
-  covered in [Channels](/reference/client/channels#creating-channels)
-</Note.Note>
-
 <Divider.Divider x />
 
 ## Write Data
 
-Write data to the time and temperature channels. The index channel must be written to
-before writing to the data channel.
+[Write data](/reference/client/write-data) to the time and temperature channels. The
+index channel must be written to before writing to the data channel.
 
 <Client.Tabs client:load exclude={["console", "cpp"]}>
-
   <Fragment slot="python">
       ```python
       start = sy.TimeStamp.now()
@@ -218,11 +207,6 @@ Synnax will raise a `ValidationError` if the index channel does not contain a
 corresponding timestamp for every sample in the data channel. After all, it wouldn't
 make sense to have a temperature reading without an associated timestamp.
 
-<Note.Note variant="info" className="compact">
-  Writers, transactions, authorities, and advanced writing patterns are covered in{" "}
-  [Writing Data](/reference/client/write-data).
-</Note.Note>
-
 <Divider.Divider x />
 
 ## Read Data
@@ -272,10 +256,9 @@ const data = Array.from(series);
 </Client.Tabs>
 
 <Note.Note variant="info" className="compact">
-  Reading and streamers are covered in [Iterators](/reference/client/advanced/iterators)
-  and [Streaming Data](/reference/client/read-data#streaming-data), respectively.
-  Range-based reading is covered in [Reading from
-  Ranges](/reference/client/ranges#reading-from-ranges).
+  Data can also be read in chunks with [iterators](/reference/client/advanced/iterators)
+  or live-streamed with [streamers](/reference/client/read-data#streaming-data). Data
+  can also be read from a specific time range with [ranges](/reference/client/ranges).
 </Note.Note>
 
 <Divider.Divider x />
@@ -284,13 +267,13 @@ const data = Array.from(series);
 
 Now that you've completed the quick start, here are some recommended next steps:
 
-- **[Authentication](/reference/client/authentication)** - Learn about authentication
-  methods, connection parameters, and troubleshooting
-- **[Channels](/reference/client/channels)** - Master channel creation, retrieval,
-  renaming, and deletion
-- **[Reading Data](/reference/client/read-data)** - Explore different ways to read data
-  from Synnax
-- **[Writing Data](/reference/client/write-data)** - Learn best practices for writing
-  data to Synnax
-- **[Examples](/reference/client/examples)** - Browse full working examples for common
-  use cases
+- **[Authentication](/reference/client/authentication)**: Learn about authentication
+  methods, connection parameters, and troubleshooting.
+- **[Channels](/reference/client/channels)**: Master channel creation, retrieval,
+  renaming, and deletion.
+- **[Reading Data](/reference/client/read-data)**: Explore different ways to read data
+  from Synnax.
+- **[Writing Data](/reference/client/write-data)**: Learn best practices for writing
+  data to Synnax.
+- **[Examples](/reference/client/examples)**: Browse full working examples for common
+  use cases.
