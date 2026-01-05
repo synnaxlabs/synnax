@@ -10,7 +10,7 @@
 package cesium
 
 import (
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -53,7 +53,7 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (*streamIterator, error) {
 					vdb.Channel,
 				)
 			}
-			return nil, core.NewErrChannelNotFound(key)
+			return nil, channel.NewErrNotFound(key)
 		}
 		internal[i], err = uDB.OpenIterator(unary.IteratorConfig{Bounds: cfg.Bounds, AutoChunkSize: cfg.AutoChunkSize})
 		if err != nil {

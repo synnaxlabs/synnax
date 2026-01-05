@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -27,7 +27,7 @@ type IteratorConfig struct {
 	Bounds telem.TimeRange
 }
 
-var errIteratorClosed = core.NewErrResourceClosed("domain.iterator")
+var errIteratorClosed = resource.NewErrClosed("domain.iterator")
 
 // IterRange generates an IteratorConfig that iterates over the provided time domain.
 func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds: tr} }

@@ -12,7 +12,7 @@ package cesium
 import (
 	"context"
 
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
@@ -132,7 +132,7 @@ type IteratorConfig struct {
 	// the upper bound is exclusive.
 	Bounds telem.TimeRange
 	// Channels is a list of channels to iterate over.
-	Channels []core.ChannelKey
+	Channels []channel.Key
 	// AutoChunkSize sets the default chunk size to iterator over when sending a Next()
 	// or Prev() request it IteratorAutoSpan as the span.
 	AutoChunkSize int64
