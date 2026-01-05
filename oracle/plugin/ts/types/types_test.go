@@ -1056,5 +1056,96 @@ var _ = Describe("TS Types Plugin", func() {
 			// Make sure we don't have the double-wrapped version
 			Expect(content).NotTo(ContainSubstring(`z.array(operationZ)`))
 		})
+
+		Context("map types", func() {
+			It("Should handle map with primitive key and value types", func() {
+				source := `
+					@ts output "out"
+
+					Config struct {
+						settings map<string, string>
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "config", loader, typesPlugin)
+				testutil.ExpectContent(resp, "types.gen.ts").
+					ToContain(
+						`settings: z.record(z.string(), z.string())`,
+					)
+			})
+
+			It("Should handle map with different primitive types", func() {
+				source := `
+					@ts output "out"
+
+					Metrics struct {
+						counts map<string, int64>
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "metrics", loader, typesPlugin)
+				testutil.ExpectContent(resp, "types.gen.ts").
+					ToContain(`counts: z.record(z.string(), z.int64())`)
+			})
+
+			It("Should handle map with struct value type", func() {
+				source := `
+					@ts output "out"
+
+					Entry struct {
+						value int32
+					}
+
+					Store struct {
+						entries map<string, Entry>
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "store", loader, typesPlugin)
+				testutil.ExpectContent(resp, "types.gen.ts").
+					ToContain(`entries: z.record(z.string(), entryZ)`)
+			})
+		})
+
+		Context("@omit directive", func() {
+			It("Should skip types with @ts omit directive", func() {
+				source := `
+					@ts output "out"
+
+					User struct {
+						key uuid
+						name string
+					}
+
+					InternalState struct {
+						cache json
+						@ts omit
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "user", loader, typesPlugin)
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`export const userZ`))
+				Expect(content).NotTo(ContainSubstring(`internalStateZ`))
+				Expect(content).NotTo(ContainSubstring(`InternalState`))
+			})
+
+			It("Should skip enums with @ts omit directive", func() {
+				source := `
+					@ts output "out"
+
+					Status enum {
+						active = 1
+						inactive = 2
+					}
+
+					DebugLevel enum {
+						verbose = 0
+						trace = 1
+						@ts omit
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "status", loader, typesPlugin)
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`export enum Status`))
+				Expect(content).NotTo(ContainSubstring(`DebugLevel`))
+			})
+		})
 	})
 })

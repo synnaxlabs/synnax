@@ -427,5 +427,54 @@ var _ = Describe("Plugin", func() {
 			Expect(zebraIdx).To(BeNumerically("<", appleIdx))
 			Expect(appleIdx).To(BeNumerically("<", mangoIdx))
 		})
+
+		Context("@omit directive", func() {
+			It("Should skip types with @pb omit directive", func() {
+				source := `
+					@go output "core/pkg/api/grpc/v1"
+					@pb
+
+					User struct {
+						key uuid
+						name string
+					}
+
+					InternalState struct {
+						cache json
+						@pb omit
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "user", loader, p)
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`message User`))
+				Expect(content).NotTo(ContainSubstring(`InternalState`))
+			})
+
+			It("Should skip enums with @pb omit directive", func() {
+				source := `
+					@go output "core/pkg/api/grpc/v1"
+					@pb
+
+					Status enum {
+						active = 1
+						inactive = 2
+					}
+
+					DebugLevel enum {
+						verbose = 0
+						trace = 1
+						@pb omit
+					}
+
+					Task struct {
+						status Status
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "status", loader, p)
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`enum Status`))
+				Expect(content).NotTo(ContainSubstring(`DebugLevel`))
+			})
+		})
 	})
 })

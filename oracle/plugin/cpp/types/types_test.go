@@ -11,6 +11,7 @@ package types_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -598,6 +599,70 @@ var _ = Describe("C++ Types Plugin", func() {
 			resp, err := cppPlugin.Generate(req)
 			Expect(err).To(BeNil())
 			Expect(resp.Files).To(HaveLen(0))
+		})
+
+		Context("declaration and field order", func() {
+			It("Should preserve struct declaration order", func() {
+				source := `
+					@cpp output "client/cpp/animals"
+
+					Zebra struct {
+						name string
+					}
+
+					Apple struct {
+						color string
+					}
+
+					Mango struct {
+						ripe bool
+					}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "animals", loader)
+				Expect(diag.HasErrors()).To(BeFalse())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp, err := cppPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				content := string(resp.Files[0].Content)
+				zebraIdx := strings.Index(content, "struct Zebra")
+				appleIdx := strings.Index(content, "struct Apple")
+				mangoIdx := strings.Index(content, "struct Mango")
+				Expect(zebraIdx).To(BeNumerically("<", appleIdx))
+				Expect(appleIdx).To(BeNumerically("<", mangoIdx))
+			})
+
+			It("Should preserve field declaration order", func() {
+				source := `
+					@cpp output "client/cpp/order"
+
+					Record struct {
+						zebra string
+						apple int32
+						mango bool
+					}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "order", loader)
+				Expect(diag.HasErrors()).To(BeFalse())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp, err := cppPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				content := string(resp.Files[0].Content)
+				zebraIdx := strings.Index(content, "zebra;")
+				appleIdx := strings.Index(content, "apple;")
+				mangoIdx := strings.Index(content, "mango;")
+				Expect(zebraIdx).To(BeNumerically("<", appleIdx))
+				Expect(appleIdx).To(BeNumerically("<", mangoIdx))
+			})
 		})
 	})
 })

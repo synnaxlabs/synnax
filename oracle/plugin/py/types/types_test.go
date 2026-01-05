@@ -592,5 +592,123 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(zebraIdx).To(BeNumerically("<", appleIdx))
 			Expect(appleIdx).To(BeNumerically("<", mangoIdx))
 		})
+
+		Context("@omit directive", func() {
+			It("Should skip types with @py omit directive", func() {
+				source := `
+					@py output "out"
+
+					User struct {
+						key uuid
+						name string
+					}
+
+					InternalState struct {
+						cache json
+						@py omit
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "user", loader, typesPlugin)
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`class User(BaseModel):`))
+				Expect(content).NotTo(ContainSubstring(`InternalState`))
+			})
+
+			It("Should skip enums with @py omit directive", func() {
+				source := `
+					@py output "out"
+
+					Status enum {
+						active = 1
+						inactive = 2
+					}
+
+					DebugLevel enum {
+						verbose = 0
+						trace = 1
+						@py omit
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "status", loader, typesPlugin)
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`class Status(IntEnum):`))
+				Expect(content).NotTo(ContainSubstring(`DebugLevel`))
+			})
+		})
+
+		Context("type aliases", func() {
+			It("Should generate TypeAlias for simple type alias", func() {
+				source := `
+					@py output "out"
+
+					UserID = uuid
+				`
+				resp := testutil.MustGenerate(ctx, source, "user", loader, typesPlugin)
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`from typing import TypeAlias`))
+				Expect(content).To(ContainSubstring(`UserID: TypeAlias = UUID`))
+			})
+
+			It("Should generate NewType for distinct type", func() {
+				source := `
+					@py output "out"
+
+					UserKey uuid
+				`
+				resp := testutil.MustGenerate(ctx, source, "user", loader, typesPlugin)
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`from typing import NewType`))
+				Expect(content).To(ContainSubstring(`UserKey = NewType("UserKey", UUID)`))
+			})
+		})
+
+		Context("field omission in extensions", func() {
+			It("Should handle field omission with minus prefix", func() {
+				source := `
+					@py output "out"
+
+					Parent struct {
+						name string
+						age int32
+						status string
+					}
+
+					Child struct extends Parent {
+						-age
+						email string
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, typesPlugin)
+				content := string(resp.Files[0].Content)
+				// Parent should have all fields
+				Expect(content).To(ContainSubstring(`class Parent(BaseModel):`))
+				// Child inherits from Parent but should set age to None
+				Expect(content).To(ContainSubstring(`class Child(Parent):`))
+				Expect(content).To(ContainSubstring(`email: str`))
+			})
+
+			It("Should handle multiple field omissions", func() {
+				source := `
+					@py output "out"
+
+					Parent struct {
+						a string
+						b string
+						c string
+						d string
+					}
+
+					Child struct extends Parent {
+						-a
+						-c
+						e string
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, typesPlugin)
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`class Child(Parent):`))
+				Expect(content).To(ContainSubstring(`e: str`))
+			})
+		})
 	})
 })
