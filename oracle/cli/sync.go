@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -147,6 +148,7 @@ func runSync(cmd *cobra.Command) error {
 }
 
 // expandGlobs expands glob patterns to actual file paths.
+// Results are sorted to ensure deterministic ordering across runs.
 func expandGlobs(patterns []string, baseDir string) ([]string, error) {
 	var files []string
 	for _, pattern := range patterns {
@@ -160,6 +162,7 @@ func expandGlobs(patterns []string, baseDir string) ([]string, error) {
 
 		files = append(files, matches...)
 	}
+	sort.Strings(files)
 	return files, nil
 }
 

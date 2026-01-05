@@ -7,16 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package types provides the Python types code generation plugin for Oracle.
-// It generates Pydantic model definitions from Oracle schemas.
 package types
 
 import (
 	"bytes"
 	"fmt"
-	"os"
-	"path/filepath"
-	"sort"
 	"strings"
 	"text/template"
 
@@ -27,6 +22,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/output"
@@ -35,16 +31,13 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Plugin generates Python Pydantic model definitions from Oracle schemas.
 type Plugin struct{ Options Options }
 
-// Options configures the Python types plugin.
 type Options struct {
 	OutputPath      string
 	FileNamePattern string
 }
 
-// DefaultOptions returns the default plugin options.
 func DefaultOptions() Options {
 	return Options{
 		OutputPath:      "{{.Namespace}}",
@@ -52,63 +45,28 @@ func DefaultOptions() Options {
 	}
 }
 
-// New creates a new Python types plugin with the given options.
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
-// Name returns the plugin identifier.
 func (p *Plugin) Name() string { return "py/types" }
 
-// Domains returns the domains this plugin handles.
 func (p *Plugin) Domains() []string { return nil }
 
-// Requires returns plugin dependencies.
 func (p *Plugin) Requires() []string { return nil }
 
-// Check verifies generated files are up-to-date.
 func (p *Plugin) Check(req *plugin.Request) error { return nil }
 
-var (
-	isortCommand = []string{"poetry", "run", "isort"}
-	blackCommand = []string{"poetry", "run", "black"}
-)
+var postWriter = &exec.PostWriter{
+	ConfigFile: "pyproject.toml",
+	Commands: [][]string{
+		{"poetry", "run", "isort"},
+		{"poetry", "run", "black"},
+	},
+}
 
-// PostWrite runs isort and black on the generated Python files using Poetry.
-// Files are grouped by their Poetry project directory (containing pyproject.toml).
-// isort runs first to sort imports, then black to format.
 func (p *Plugin) PostWrite(files []string) error {
-	if len(files) == 0 {
-		return nil
-	}
-	byProject := make(map[string][]string)
-	for _, file := range files {
-		if projDir := findPoetryDir(file); projDir != "" {
-			byProject[projDir] = append(byProject[projDir], file)
-		}
-	}
-	for projDir, projFiles := range byProject {
-		if err := exec.OnFiles(isortCommand, projFiles, projDir); err != nil {
-			return err
-		}
-		if err := exec.OnFiles(blackCommand, projFiles, projDir); err != nil {
-			return err
-		}
-	}
-	return nil
+	return postWriter.PostWrite(files)
 }
 
-// findPoetryDir finds the nearest directory containing pyproject.toml.
-func findPoetryDir(file string) string {
-	dir := filepath.Dir(file)
-	for dir != "/" && dir != "." {
-		if _, err := os.Stat(filepath.Join(dir, "pyproject.toml")); err == nil {
-			return dir
-		}
-		dir = filepath.Dir(dir)
-	}
-	return ""
-}
-
-// Generate produces Python Pydantic model files from the analyzed schemas.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
@@ -370,7 +328,6 @@ func (p *Plugin) processTypeDef(typ resolution.Type, table *resolution.Table, da
 	}
 }
 
-// typeDefBaseToPython converts a TypeDef's base type to a Python type string.
 func (p *Plugin) typeDefBaseToPython(typeRef resolution.TypeRef, currentNamespace string, table *resolution.Table, data *templateData) string {
 	if resolution.IsPrimitive(typeRef.Name) {
 		return primitiveToPython(typeRef.Name, data)
@@ -415,19 +372,14 @@ func (p *Plugin) processStruct(
 		return sd
 	}
 
-	// Check for py domain expressions (name, omit)
-	if pyDomain, ok := entry.Domains["py"]; ok {
-		for _, expr := range pyDomain.Expressions {
-			switch expr.Name {
-			case "omit":
-				sd.Skip = true
-				return sd
-			case "name":
-				if len(expr.Values) > 0 {
-					sd.PyName = expr.Values[0].StringValue
-				}
-			}
-		}
+	// Check for py domain omit
+	if domain.HasExprFromType(entry, "py", "omit") {
+		sd.Skip = true
+		return sd
+	}
+	// Check for py domain name override
+	if name := domain.GetStringFromType(entry, "py", "name"); name != "" {
+		sd.PyName = name
 	}
 
 	// Handle struct aliases (AliasForm)
@@ -506,16 +458,8 @@ func (p *Plugin) processStruct(
 	return sd
 }
 
-// getPyName returns the Python name for a type, checking for @py name override.
 func getPyName(typ resolution.Type) string {
-	if pyDomain, ok := typ.Domains["py"]; ok {
-		for _, expr := range pyDomain.Expressions {
-			if expr.Name == "name" && len(expr.Values) > 0 {
-				return expr.Values[0].StringValue
-			}
-		}
-	}
-	return typ.Name
+	return domain.GetName(typ, "py")
 }
 
 func (p *Plugin) processField(
@@ -640,9 +584,6 @@ func (p *Plugin) collectValidation(
 	return constraints
 }
 
-// addCrossNamespaceImport adds the appropriate import for a cross-namespace type reference.
-// It uses the "from parent import module" pattern (e.g., "from synnax import rack")
-// and returns the qualified type name (e.g., "rack.Key").
 func addCrossNamespaceImport(modulePath string, typeName string, data *templateData) string {
 	parts := strings.Split(modulePath, ".")
 	if len(parts) >= 2 {
@@ -730,8 +671,6 @@ func (p *Plugin) typeToPython(
 	}
 }
 
-// typeRefToPythonAlias converts a TypeRef to a Python type alias expression.
-// For example: status.Status<StatusDetails> -> "status.Status[StatusDetails]"
 func (p *Plugin) typeRefToPythonAlias(
 	typeRef resolution.TypeRef,
 	table *resolution.Table,
@@ -773,8 +712,6 @@ func (p *Plugin) typeRefToPythonAlias(
 	return fmt.Sprintf("%s[%s]", baseName, strings.Join(typeArgs, ", "))
 }
 
-// toPythonModulePath converts a repo-relative path to a Python module path.
-// For example: "client/py/synnax/user" -> "synnax.user"
 func toPythonModulePath(repoPath string) string {
 	prefixes := []string{
 		"client/py/",
@@ -813,40 +750,59 @@ func primitiveToPython(primitive string, data *templateData) string {
 }
 
 type importManager struct {
-	uuid       map[string]bool
-	typing     map[string]bool
-	enum       map[string]bool
-	pydantic   map[string]bool
-	synnax     map[string]bool
-	ontology   map[string]bool   // imports from synnax.ontology.payload
-	namespaces map[string]string // alias -> path
-	modules    map[string]string // module name -> parent path (for "from parent import module")
+	uuid       []string
+	typing     []string
+	enum       []string
+	pydantic   []string
+	synnax     []string
+	ontology   []string              // imports from synnax.ontology.payload
+	namespaces []namespaceImportData // alias -> path
+	modules    []moduleImportData    // module name -> parent path (for "from parent import module")
 }
 
 func newImportManager() *importManager {
-	return &importManager{
-		uuid:       make(map[string]bool),
-		typing:     make(map[string]bool),
-		enum:       make(map[string]bool),
-		pydantic:   make(map[string]bool),
-		synnax:     make(map[string]bool),
-		ontology:   make(map[string]bool),
-		namespaces: make(map[string]string),
-		modules:    make(map[string]string),
-	}
+	return &importManager{}
 }
 
-func (m *importManager) addUUID(name string)     { m.uuid[name] = true }
-func (m *importManager) addTyping(name string)   { m.typing[name] = true }
-func (m *importManager) addEnum(name string)     { m.enum[name] = true }
-func (m *importManager) addPydantic(name string) { m.pydantic[name] = true }
-func (m *importManager) addSynnax(name string)   { m.synnax[name] = true }
-func (m *importManager) addOntology(name string) { m.ontology[name] = true }
+func (m *importManager) addUUID(name string) {
+	if !lo.Contains(m.uuid, name) {
+		m.uuid = append(m.uuid, name)
+	}
+}
+func (m *importManager) addTyping(name string) {
+	if !lo.Contains(m.typing, name) {
+		m.typing = append(m.typing, name)
+	}
+}
+func (m *importManager) addEnum(name string) {
+	if !lo.Contains(m.enum, name) {
+		m.enum = append(m.enum, name)
+	}
+}
+func (m *importManager) addPydantic(name string) {
+	if !lo.Contains(m.pydantic, name) {
+		m.pydantic = append(m.pydantic, name)
+	}
+}
+func (m *importManager) addSynnax(name string) {
+	if !lo.Contains(m.synnax, name) {
+		m.synnax = append(m.synnax, name)
+	}
+}
+func (m *importManager) addOntology(name string) {
+	if !lo.Contains(m.ontology, name) {
+		m.ontology = append(m.ontology, name)
+	}
+}
 func (m *importManager) addNamespace(alias, path string) {
-	m.namespaces[alias] = path
+	if !lo.ContainsBy(m.namespaces, func(n namespaceImportData) bool { return n.Alias == alias }) {
+		m.namespaces = append(m.namespaces, namespaceImportData{Alias: alias, Path: path})
+	}
 }
 func (m *importManager) addModuleImport(parentPath, moduleName string) {
-	m.modules[moduleName] = parentPath
+	if !lo.ContainsBy(m.modules, func(mod moduleImportData) bool { return mod.Module == moduleName }) {
+		m.modules = append(m.modules, moduleImportData{Module: moduleName, Parent: parentPath})
+	}
 }
 
 type templateData struct {
@@ -861,7 +817,6 @@ type templateData struct {
 	Ontology    *ontologyData // Ontology data if domain ontology is present
 }
 
-// sortedDeclData holds a single declaration (typedef or struct) for sorted output.
 type sortedDeclData struct {
 	IsTypeDef bool
 	IsStruct  bool
@@ -875,65 +830,22 @@ type typeDefData struct {
 	IsDistinct bool   // If true, use NewType; if false, use TypeAlias
 }
 
-// ontologyData holds data for generating ontology ID function and constant.
 type ontologyData struct {
-	TypeName   string // e.g., "user" - from domain ontology { type "user" }
-	KeyType    string // e.g., "UUID" - derived from the ID field
-	StructName string // e.g., "User" - the struct name for naming the constant
+	TypeName   string
+	KeyType    string
+	StructName string
 }
 
-func (d *templateData) UUIDImports() []string {
-	return sortedKeys(d.imports.uuid)
-}
+func (d *templateData) UUIDImports() []string     { return d.imports.uuid }
+func (d *templateData) TypingImports() []string   { return d.imports.typing }
+func (d *templateData) EnumImports() []string     { return d.imports.enum }
+func (d *templateData) PydanticImports() []string { return d.imports.pydantic }
+func (d *templateData) SynnaxImports() []string   { return d.imports.synnax }
+func (d *templateData) OntologyImports() []string { return d.imports.ontology }
 
-func (d *templateData) TypingImports() []string {
-	return sortedKeys(d.imports.typing)
-}
+func (d *templateData) NamespaceImports() []namespaceImportData { return d.imports.namespaces }
 
-func (d *templateData) EnumImports() []string {
-	return sortedKeys(d.imports.enum)
-}
-
-func (d *templateData) PydanticImports() []string {
-	return sortedKeys(d.imports.pydantic)
-}
-
-func (d *templateData) SynnaxImports() []string {
-	return sortedKeys(d.imports.synnax)
-}
-
-func (d *templateData) OntologyImports() []string {
-	return sortedKeys(d.imports.ontology)
-}
-
-func (d *templateData) NamespaceImports() []namespaceImportData {
-	var result []namespaceImportData
-	for alias, path := range d.imports.namespaces {
-		result = append(result, namespaceImportData{Alias: alias, Path: path})
-	}
-	sort.Slice(result, func(i, j int) bool { return result[i].Alias < result[j].Alias })
-	return result
-}
-
-// ModuleImports returns imports of the form "from parent import module"
-// e.g., "from synnax import status"
-func (d *templateData) ModuleImports() []moduleImportData {
-	var result []moduleImportData
-	for moduleName, parentPath := range d.imports.modules {
-		result = append(result, moduleImportData{Module: moduleName, Parent: parentPath})
-	}
-	sort.Slice(result, func(i, j int) bool { return result[i].Module < result[j].Module })
-	return result
-}
-
-func sortedKeys(m map[string]bool) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
-}
+func (d *templateData) ModuleImports() []moduleImportData { return d.imports.modules }
 
 type keyFieldData struct {
 	Name   string

@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package analyzer provides semantic analysis for Oracle schema files.
 package analyzer
 
 import (
@@ -114,7 +113,6 @@ func analyze(c *analysisCtx) {
 		return
 	}
 
-	// Collect file-level domains
 	for _, fd := range c.ast.AllFileDomain() {
 		de := collectFileDomain(fd)
 		if existing, ok := c.fileDomains[de.Name]; ok {
@@ -124,7 +122,6 @@ func analyze(c *analysisCtx) {
 		}
 	}
 
-	// Collect all definitions
 	for _, def := range c.ast.AllDefinition() {
 		if s := def.StructDef(); s != nil {
 			collectStruct(c, s)
@@ -137,7 +134,6 @@ func analyze(c *analysisCtx) {
 		}
 	}
 
-	// Handle imports
 	for _, imp := range c.ast.AllImportStmt() {
 		path := strings.Trim(imp.STRING_LIT().GetText(), `"`)
 		if c.table.IsImported(path) {
@@ -170,13 +166,11 @@ func analyze(c *analysisCtx) {
 		analyze(ic)
 	}
 
-	// Resolve types in this namespace
 	types := c.table.TypesInNamespace(c.namespace)
 	for i := range types {
 		typ := &types[i]
 		resolveTypeRefs(c, typ)
 	}
-	// Update the types in the table
 	for _, typ := range types {
 		for i, t := range c.table.Types {
 			if t.QualifiedName == typ.QualifiedName {
@@ -186,7 +180,6 @@ func analyze(c *analysisCtx) {
 		}
 	}
 
-	// Validate extends relationships
 	for _, typ := range c.table.TypesInNamespace(c.namespace) {
 		validateExtends(c, typ)
 	}
@@ -261,7 +254,7 @@ func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 		return
 	}
 
-	// Collect type params first so they can be used when parsing the target
+	// Collect type params first so they're available when parsing the target type.
 	typeParams := collectTypeParams(def.TypeParams())
 	target := collectTypeRef(def.TypeRef(), typeParams)
 	domains := make(map[string]resolution.Domain)
@@ -279,8 +272,6 @@ func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 		}
 	}
 
-	// Always create AliasForm for "Name = Type" syntax (struct alias)
-	// The grammar distinguishes: "Name = Type" → AliasForm, "Name Type" → DistinctForm
 	c.table.Add(resolution.Type{
 		Name:          name,
 		Namespace:     c.namespace,
@@ -335,7 +326,6 @@ func collectTypeRef(tr parser.ITypeRefContext, typeParams []resolution.TypeParam
 
 	ref := resolution.TypeRef{Name: rawType}
 
-	// Check if it's a type parameter
 	for i := range typeParams {
 		if typeParams[i].Name == rawType {
 			ref.TypeParam = &typeParams[i]
@@ -344,7 +334,6 @@ func collectTypeRef(tr parser.ITypeRefContext, typeParams []resolution.TypeParam
 		}
 	}
 
-	// Collect type arguments
 	if args := normalCtx.TypeArgs(); args != nil {
 		for _, arg := range args.AllTypeRef() {
 			ref.TypeArgs = append(ref.TypeArgs, collectTypeRef(arg, typeParams))
@@ -382,7 +371,6 @@ func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []reso
 
 	typeRef := collectTypeRef(tr, typeParams)
 
-	// Handle array syntax - wrap in Array<T>
 	if isArray {
 		typeRef = resolution.TypeRef{
 			Name:     "Array",
@@ -563,7 +551,7 @@ func collectTypeDef(c *analysisCtx, def parser.ITypeDefDefContext) {
 		return
 	}
 
-	// Collect type params first so they can be used when parsing the base type
+	// Collect type params first so they're available when parsing the base type.
 	typeParams := collectTypeParams(def.TypeParams())
 	base := collectTypeRef(def.TypeRef(), typeParams)
 
@@ -631,7 +619,7 @@ func resolveTypeRefs(c *analysisCtx, typ *resolution.Type) {
 
 func resolveTypeRef(c *analysisCtx, currentType *resolution.Type, ref *resolution.TypeRef) {
 	if ref.TypeParam != nil {
-		return // Already a type param reference
+		return
 	}
 
 	parts := strings.Split(ref.Name, ".")
@@ -640,9 +628,7 @@ func resolveTypeRef(c *analysisCtx, currentType *resolution.Type, ref *resolutio
 		ns, name = parts[0], parts[1]
 	}
 
-	// Check if it's a type parameter (for generic structs, aliases, and distinct types)
-	// We need to find the index and take the address of the slice element,
-	// not a copy, since TypeParam() returns a copy.
+	// Must use slice index to get pointer to actual TypeParam, not a copy.
 	if currentType != nil && len(parts) == 1 {
 		switch form := currentType.Form.(type) {
 		case resolution.StructForm:
@@ -672,7 +658,6 @@ func resolveTypeRef(c *analysisCtx, currentType *resolution.Type, ref *resolutio
 		}
 	}
 
-	// Resolve to qualified name
 	if resolution.IsPrimitive(name) && len(parts) == 1 {
 		ref.Name = name
 	} else if typ, ok := c.table.Lookup(ns, name); ok {
@@ -681,7 +666,6 @@ func resolveTypeRef(c *analysisCtx, currentType *resolution.Type, ref *resolutio
 		c.diag.AddWarningf(nil, c.filePath, "unresolved type: %s", ref.Name)
 	}
 
-	// Resolve type arguments recursively
 	for i := range ref.TypeArgs {
 		resolveTypeRef(c, currentType, &ref.TypeArgs[i])
 	}
@@ -775,7 +759,6 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 		return
 	}
 
-	// Validate omitted fields exist in parent
 	parentFieldNames := make(map[string]bool)
 	for _, f := range resolution.UnifiedFields(parent, c.table) {
 		parentFieldNames[f.Name] = true
@@ -788,7 +771,6 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 		}
 	}
 
-	// Validate type parameter count
 	if len(parentForm.TypeParams) > 0 {
 		requiredParams := 0
 		for _, tp := range parentForm.TypeParams {

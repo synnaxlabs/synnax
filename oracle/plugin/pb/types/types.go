@@ -13,7 +13,6 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
-	"sort"
 	"strings"
 	"text/template"
 
@@ -21,6 +20,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
@@ -30,37 +30,28 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// defaultModulePrefix is the fallback import path when go.mod resolution fails.
 const defaultModulePrefix = "github.com/synnaxlabs/synnax/"
 
-// Plugin generates Protocol Buffer definitions from Oracle schemas.
 type Plugin struct{ Options Options }
 
-// Options configures the protobuf types plugin.
 type Options struct {
 	FileNamePattern string
 }
 
-// DefaultOptions returns the default plugin options.
 func DefaultOptions() Options {
 	return Options{
 		FileNamePattern: "types.gen.proto",
 	}
 }
 
-// New creates a new protobuf types plugin with the given options.
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
-// Name returns the plugin identifier.
 func (p *Plugin) Name() string { return "pb/types" }
 
-// Domains returns the domains this plugin handles.
 func (p *Plugin) Domains() []string { return []string{"pb"} }
 
-// Requires returns plugin dependencies (none for this plugin).
 func (p *Plugin) Requires() []string { return nil }
 
-// Check verifies generated files are up-to-date.
 func (p *Plugin) Check(req *plugin.Request) error { return nil }
 
 var bufGenerateCmd = []string{"buf", "generate"}
@@ -77,7 +68,6 @@ func (p *Plugin) PostWrite(files []string) error {
 	return exec.OnFiles(bufGenerateCmd, nil, repoRoot)
 }
 
-// Generate produces protobuf definition files from the analyzed schemas.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
@@ -115,7 +105,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
-// generateFile generates the protobuf file for a set of structs.
 func (p *Plugin) generateFile(
 	outputPath string,
 	structs []resolution.Type,
@@ -168,9 +157,6 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
-// derivePackageName derives the proto package name using {layer}.{namespace} format.
-// For core/pkg/{layer}/... paths, uses the layer (distribution, api, service).
-// For other paths like x/go/... or aspen/..., uses the first path component.
 func derivePackageName(outputPath string, structs []resolution.Type) string {
 	namespace := ""
 	if len(structs) > 0 {
@@ -192,9 +178,6 @@ func derivePackageName(outputPath string, structs []resolution.Type) string {
 	return prefix + "." + namespace
 }
 
-// deriveLayerPrefix extracts the layer prefix from an output path.
-// For core/pkg/{layer}/... returns the layer (distribution, api, service).
-// For other paths returns the first component (x, aspen, cesium, etc.).
 func deriveLayerPrefix(outputPath string) string {
 	parts := strings.Split(outputPath, "/")
 	// For core/pkg/{layer}/... paths, use the layer as prefix
@@ -208,12 +191,10 @@ func deriveLayerPrefix(outputPath string) string {
 	return "synnax"
 }
 
-// deriveGoPackage derives the Go package option from the output path.
 func deriveGoPackage(outputPath string, structs []resolution.Type, repoRoot string) string {
 	return gomod.ResolveImportPath(outputPath, repoRoot, defaultModulePrefix)
 }
 
-// processEnum converts an Enum type to template data.
 func (p *Plugin) processEnum(e resolution.Type) enumData {
 	form, ok := e.Form.(resolution.EnumForm)
 	if !ok {
@@ -243,7 +224,6 @@ func (p *Plugin) processEnum(e resolution.Type) enumData {
 	return ed
 }
 
-// processStruct converts a Struct type to template data.
 func (p *Plugin) processStruct(entry resolution.Type, data *templateData) (messageData, error) {
 	_, ok := entry.Form.(resolution.StructForm)
 	if !ok {
@@ -280,7 +260,6 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) (messa
 	return md, nil
 }
 
-// processField converts a Field to template data.
 func (p *Plugin) processField(field resolution.Field, number int, data *templateData) (fieldData, error) {
 	protoType, err := p.typeToProto(field.Type, data)
 	if err != nil {
@@ -301,8 +280,6 @@ func (p *Plugin) processField(field resolution.Field, number int, data *template
 	}, nil
 }
 
-// typeToProto converts an Oracle type reference to a protobuf type string.
-// Returns an error if the type cannot be mapped to a protobuf type.
 func (p *Plugin) typeToProto(typeRef resolution.TypeRef, data *templateData) (string, error) {
 	// Check if it's a type parameter
 	if typeRef.IsTypeParam() {
@@ -361,7 +338,6 @@ func (p *Plugin) typeToProto(typeRef resolution.TypeRef, data *templateData) (st
 	}
 }
 
-// resolveStructType resolves a struct type reference to a protobuf type string.
 func (p *Plugin) resolveStructType(typeRef resolution.TypeRef, resolved resolution.Type, data *templateData) (string, error) {
 	form, ok := resolved.Form.(resolution.StructForm)
 	if !ok {
@@ -401,7 +377,6 @@ func (p *Plugin) resolveStructType(typeRef resolution.TypeRef, resolved resoluti
 	return fmt.Sprintf("%s.%s", pkg, pbName), nil
 }
 
-// resolveEnumType resolves an enum type reference to a protobuf type string.
 func (p *Plugin) resolveEnumType(resolved resolution.Type, data *templateData) string {
 	// Same namespace - use name directly
 	if resolved.Namespace == data.Namespace {
@@ -424,7 +399,6 @@ func (p *Plugin) resolveEnumType(resolved resolution.Type, data *templateData) s
 	return fmt.Sprintf("%s.%s", pkg, resolved.Name)
 }
 
-// resolveMapType resolves a map type reference to a protobuf type string.
 func (p *Plugin) resolveMapType(typeRef resolution.TypeRef, data *templateData) (string, error) {
 	if len(typeRef.TypeArgs) < 2 {
 		return "", errors.Newf("Map type requires 2 type arguments, got %d", len(typeRef.TypeArgs))
@@ -443,54 +417,32 @@ func (p *Plugin) resolveMapType(typeRef resolution.TypeRef, data *templateData) 
 	return fmt.Sprintf("map<%s, %s>", keyType, valueType), nil
 }
 
-// getPBName gets the custom protobuf name from @pb name annotation.
 func getPBName(typ resolution.Type) string {
-	if domain, ok := typ.Domains["pb"]; ok {
-		for _, expr := range domain.Expressions {
-			if expr.Name == "name" && len(expr.Values) > 0 {
-				return expr.Values[0].StringValue
-			}
-		}
-	}
-	return ""
+	return domain.GetStringFromType(typ, "pb", "name")
 }
 
-// toSnakeCase converts a name to snake_case.
 func toSnakeCase(s string) string {
 	return lo.SnakeCase(s)
 }
 
-// toScreamingSnake converts a name to SCREAMING_SNAKE_CASE.
 func toScreamingSnake(s string) string {
 	return strings.ToUpper(lo.SnakeCase(s))
 }
 
-// importManager tracks protobuf imports needed for the generated file.
 type importManager struct {
-	imports map[string]bool
+	imports []string
 }
 
-// newImportManager creates a new import manager.
 func newImportManager() *importManager {
-	return &importManager{imports: make(map[string]bool)}
+	return &importManager{}
 }
 
-// add adds an import path.
 func (m *importManager) add(path string) {
-	m.imports[path] = true
-}
-
-// sorted returns sorted imports.
-func (m *importManager) sorted() []string {
-	imports := make([]string, 0, len(m.imports))
-	for imp := range m.imports {
-		imports = append(imports, imp)
+	if !lo.Contains(m.imports, path) {
+		m.imports = append(m.imports, path)
 	}
-	sort.Strings(imports)
-	return imports
 }
 
-// templateData holds data for the protobuf file template.
 type templateData struct {
 	Package    string
 	GoPackage  string
@@ -503,19 +455,16 @@ type templateData struct {
 	repoRoot   string
 }
 
-// Imports returns sorted imports.
 func (d *templateData) Imports() []string {
-	return d.imports.sorted()
+	return d.imports.imports
 }
 
-// messageData holds data for a single message definition.
 type messageData struct {
 	Name   string
 	Fields []fieldData
 	Skip   bool
 }
 
-// fieldData holds data for a single field definition.
 type fieldData struct {
 	Name       string
 	Type       string
@@ -524,13 +473,11 @@ type fieldData struct {
 	IsRepeated bool
 }
 
-// enumData holds data for an enum definition.
 type enumData struct {
 	Name   string
 	Values []enumValueData
 }
 
-// enumValueData holds data for an enum value.
 type enumValueData struct {
 	Name   string
 	Number int

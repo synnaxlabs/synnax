@@ -12,7 +12,6 @@ package types
 import (
 	"bytes"
 	"fmt"
-	"sort"
 	"strings"
 	"text/template"
 
@@ -22,6 +21,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/output"
@@ -30,16 +30,13 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Plugin generates C++ struct type definitions from Oracle schemas.
 type Plugin struct{ Options Options }
 
-// Options configures the C++ types plugin.
 type Options struct {
 	FileNamePattern  string
 	DisableFormatter bool // If true, skip running clang-format
 }
 
-// DefaultOptions returns the default plugin options.
 func DefaultOptions() Options {
 	return Options{
 		FileNamePattern: "types.gen.h",
@@ -48,24 +45,18 @@ func DefaultOptions() Options {
 
 var clangFormatCmd = []string{"clang-format", "-i"}
 
-// New creates a new C++ types plugin with the given options.
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
-// Name returns the plugin identifier.
 func (p *Plugin) Name() string { return "cpp/types" }
 
-// Domains returns the domains this plugin handles.
 func (p *Plugin) Domains() []string { return []string{"cpp"} }
 
-// Requires returns plugin dependencies (none for this plugin).
 func (p *Plugin) Requires() []string { return nil }
 
-// Check verifies generated files are up-to-date.
 func (p *Plugin) Check(req *plugin.Request) error {
 	return nil
 }
 
-// Generate produces C++ type definition files from the analyzed schemas.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
@@ -132,7 +123,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
-// PostWrite implements plugin.PostWriter to run clang-format on generated files.
 func (p *Plugin) PostWrite(files []string) error {
 	if p.Options.DisableFormatter || len(files) == 0 {
 		return nil
@@ -154,7 +144,6 @@ func (p *Plugin) PostWrite(files []string) error {
 	return exec.OnFiles(clangFormatCmd, cppFiles, "")
 }
 
-// generateFile generates the C++ header file for a set of structs.
 func (p *Plugin) generateFile(
 	outputPath string,
 	structs []resolution.Type,
@@ -259,9 +248,6 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
-// deriveNamespace extracts the C++ namespace from the output path.
-// "client/cpp/rack" -> "synnax::rack"
-// "x/cpp/status" -> "synnax::status"
 func deriveNamespace(outputPath string) string {
 	parts := strings.Split(outputPath, "/")
 	if len(parts) == 0 {
@@ -271,7 +257,6 @@ func deriveNamespace(outputPath string) string {
 	return fmt.Sprintf("synnax::%s", subNs)
 }
 
-// processEnum converts an Enum type to template data.
 func (p *Plugin) processEnum(e resolution.Type) enumData {
 	form, ok := e.Form.(resolution.EnumForm)
 	if !ok {
@@ -292,7 +277,6 @@ func (p *Plugin) processEnum(e resolution.Type) enumData {
 	}
 }
 
-// processTypeDef converts a TypeDef type to template data.
 func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefData {
 	form, ok := td.Form.(resolution.DistinctForm)
 	if !ok {
@@ -304,7 +288,6 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 	}
 }
 
-// typeDefBaseToCpp converts a TypeDef's base type to a C++ type string.
 func (p *Plugin) typeDefBaseToCpp(typeRef resolution.TypeRef, data *templateData) string {
 	if resolution.IsPrimitive(typeRef.Name) {
 		return p.primitiveToCpp(typeRef.Name, data)
@@ -333,7 +316,6 @@ func (p *Plugin) typeDefBaseToCpp(typeRef resolution.TypeRef, data *templateData
 	}
 }
 
-// processAlias converts an Alias type to template data.
 func (p *Plugin) processAlias(alias resolution.Type, data *templateData) aliasData {
 	form, ok := alias.Form.(resolution.AliasForm)
 	if !ok {
@@ -357,7 +339,6 @@ func (p *Plugin) processAlias(alias resolution.Type, data *templateData) aliasDa
 	}
 }
 
-// aliasTargetToCpp converts an alias target TypeRef to a C++ type string.
 func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData) string {
 	// Handle type parameters
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
@@ -450,7 +431,6 @@ func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData
 	return fmt.Sprintf("%s<%s>", name, strings.Join(args, ", "))
 }
 
-// processKeyField converts a key field to a C++ type alias.
 func (p *Plugin) processKeyField(kf key.Field, data *templateData) keyFieldData {
 	cppType := p.primitiveToCpp(kf.Primitive, data)
 	return keyFieldData{
@@ -459,7 +439,6 @@ func (p *Plugin) processKeyField(kf key.Field, data *templateData) keyFieldData 
 	}
 }
 
-// processStruct converts a Type with StructForm to template data.
 func (p *Plugin) processStruct(entry resolution.Type, data *templateData) structData {
 	form, ok := entry.Form.(resolution.StructForm)
 	if !ok {
@@ -467,14 +446,7 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 	}
 
 	// Check for @cpp name override
-	name := entry.Name
-	if cppDomain, ok := entry.Domains["cpp"]; ok {
-		for _, expr := range cppDomain.Expressions {
-			if expr.Name == "name" && len(expr.Values) > 0 {
-				name = expr.Values[0].StringValue
-			}
-		}
-	}
+	name := domain.GetName(entry, "cpp")
 
 	// Always generate JSON parse and to_json methods
 	data.includes.addInternal("x/cpp/xjson/xjson.h")
@@ -512,14 +484,12 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 	return sd
 }
 
-// processTypeParam converts a TypeParam to template data.
 func (p *Plugin) processTypeParam(tp resolution.TypeParam) typeParamData {
 	return typeParamData{
 		Name: tp.Name,
 	}
 }
 
-// processField converts a Field to template data.
 func (p *Plugin) processField(field resolution.Field, entry resolution.Type, data *templateData) fieldData {
 	cppType := p.typeRefToCpp(field.Type, data)
 
@@ -545,7 +515,6 @@ func (p *Plugin) processField(field resolution.Field, entry resolution.Type, dat
 	}
 }
 
-// typeRefToCpp converts an Oracle type reference to a C++ type string.
 func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) string {
 	// Handle type parameters first
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
@@ -601,7 +570,6 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 	}
 }
 
-// primitiveToCpp converts an Oracle primitive to a C++ type.
 func (p *Plugin) primitiveToCpp(primitive string, data *templateData) string {
 	mapping := primitives.GetMapping(primitive, "cpp")
 	if mapping.TargetType == "any" {
@@ -619,7 +587,6 @@ func (p *Plugin) primitiveToCpp(primitive string, data *templateData) string {
 	return mapping.TargetType
 }
 
-// resolveStructType resolves a struct type to a C++ type string.
 func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resolution.TypeRef, data *templateData) string {
 	// Check if struct has a @cpp name override
 	name := resolved.Name
@@ -665,7 +632,6 @@ func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resoluti
 	return p.buildGenericType(name, typeArgs, data)
 }
 
-// resolveEnumType resolves an enum type to a C++ type string.
 func (p *Plugin) resolveEnumType(resolved resolution.Type, form resolution.EnumForm, data *templateData) string {
 	// For cross-namespace references, we need to add an include
 	if resolved.Namespace != data.rawNs {
@@ -679,7 +645,6 @@ func (p *Plugin) resolveEnumType(resolved resolution.Type, form resolution.EnumF
 	return resolved.Name
 }
 
-// resolveDistinctType resolves a distinct type to a C++ type string.
 func (p *Plugin) resolveDistinctType(resolved resolution.Type, data *templateData) string {
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
@@ -694,7 +659,6 @@ func (p *Plugin) resolveDistinctType(resolved resolution.Type, data *templateDat
 	return resolved.Name
 }
 
-// resolveAliasType resolves an alias type to a C++ type string.
 func (p *Plugin) resolveAliasType(resolved resolution.Type, typeArgs []resolution.TypeRef, data *templateData) string {
 	// Similar to struct handling for now
 	name := resolved.Name
@@ -708,7 +672,6 @@ func (p *Plugin) resolveAliasType(resolved resolution.Type, typeArgs []resolutio
 	return p.buildGenericType(name, typeArgs, data)
 }
 
-// buildGenericType builds a generic type string with type arguments.
 func (p *Plugin) buildGenericType(baseName string, typeArgs []resolution.TypeRef, data *templateData) string {
 	if len(typeArgs) == 0 {
 		return baseName
@@ -721,36 +684,31 @@ func (p *Plugin) buildGenericType(baseName string, typeArgs []resolution.TypeRef
 	return fmt.Sprintf("%s<%s>", baseName, strings.Join(args, ", "))
 }
 
-// toPascalCase converts snake_case to PascalCase.
 func toPascalCase(s string) string {
 	return lo.PascalCase(s)
 }
 
-// includeManager tracks C++ includes needed for the generated file.
 type includeManager struct {
-	system   map[string]bool // System includes like <string>, <vector>
-	internal map[string]bool // Internal includes like "x/cpp/telem/telem.h"
+	system   []string
+	internal []string
 }
 
-// newIncludeManager creates a new include manager.
 func newIncludeManager() *includeManager {
-	return &includeManager{
-		system:   make(map[string]bool),
-		internal: make(map[string]bool),
+	return &includeManager{}
+}
+
+func (m *includeManager) addSystem(name string) {
+	if !lo.Contains(m.system, name) {
+		m.system = append(m.system, name)
 	}
 }
 
-// addSystem adds a system include.
-func (m *includeManager) addSystem(name string) {
-	m.system[name] = true
-}
-
-// addInternal adds an internal include.
 func (m *includeManager) addInternal(path string) {
-	m.internal[path] = true
+	if !lo.Contains(m.internal, path) {
+		m.internal = append(m.internal, path)
+	}
 }
 
-// templateData holds data for the C++ file template.
 type templateData struct {
 	OutputPath  string
 	Namespace   string
@@ -765,7 +723,6 @@ type templateData struct {
 	rawNs       string // Original Oracle namespace for cross-reference detection
 }
 
-// sortedDeclData holds a single declaration (either alias or struct) for sorted output.
 type sortedDeclData struct {
 	IsAlias  bool
 	IsStruct bool
@@ -773,53 +730,32 @@ type sortedDeclData struct {
 	Struct   structData
 }
 
-// keyFieldData holds data for a key type alias.
 type keyFieldData struct {
-	Name    string // e.g., "Key"
-	CppType string // e.g., "std::uint32_t"
+	Name    string
+	CppType string
 }
 
-// typeDefData holds data for a type definition.
 type typeDefData struct {
-	Name    string // e.g., "Key"
-	CppType string // e.g., "std::uint32_t"
+	Name    string
+	CppType string
 }
 
-// aliasData holds data for a type alias.
 type aliasData struct {
-	Name       string   // e.g., "RackStatus"
-	Target     string   // e.g., "status::Status<StatusDetails>"
-	IsGeneric  bool     // Whether the alias has type parameters
-	TypeParams []string // e.g., ["T", "U"]
+	Name       string
+	Target     string
+	IsGeneric  bool
+	TypeParams []string
 }
 
-// HasIncludes returns true if any includes are needed.
 func (d *templateData) HasIncludes() bool {
 	return len(d.includes.system) > 0 || len(d.includes.internal) > 0
 }
 
-// SystemIncludes returns sorted system includes.
-func (d *templateData) SystemIncludes() []string {
-	includes := make([]string, 0, len(d.includes.system))
-	for inc := range d.includes.system {
-		includes = append(includes, inc)
-	}
-	sort.Strings(includes)
-	return includes
-}
+func (d *templateData) SystemIncludes() []string { return d.includes.system }
 
-// InternalIncludes returns sorted internal includes.
-func (d *templateData) InternalIncludes() []string {
-	includes := make([]string, 0, len(d.includes.internal))
-	for inc := range d.includes.internal {
-		includes = append(includes, inc)
-	}
-	sort.Strings(includes)
-	return includes
-}
+func (d *templateData) InternalIncludes() []string { return d.includes.internal }
 
 
-// structData holds data for a single struct definition.
 type structData struct {
 	Name           string
 	Doc            string
@@ -832,38 +768,33 @@ type structData struct {
 	GenerateToJson bool
 }
 
-// typeParamData holds data for a type parameter.
 type typeParamData struct {
 	Name string
 }
 
-// fieldData holds data for a single field definition.
 type fieldData struct {
 	Name         string
 	CppType      string
 	Doc          string
-	JsonName     string // JSON key name (snake_case from schema)
-	ParseExpr    string // Expression for parsing from JSON
-	ToJsonExpr   string // Expression for serializing to JSON
-	HasDefault   bool   // Whether field has a default value (soft optional)
-	DefaultValue string // C++ default value for the type
+	JsonName     string
+	ParseExpr    string
+	ToJsonExpr   string
+	HasDefault   bool
+	DefaultValue string
 }
 
-// enumData holds data for an enum definition.
 type enumData struct {
 	Name      string
 	Values    []enumValueData
 	IsIntEnum bool
 }
 
-// enumValueData holds data for an enum value.
 type enumValueData struct {
 	Name     string
 	Value    string
 	IntValue int64
 }
 
-// defaultValueForPrimitive returns the C++ default value for a primitive type.
 func defaultValueForPrimitive(primitive string) string {
 	switch primitive {
 	case "string", "uuid":
@@ -889,7 +820,6 @@ func defaultValueForPrimitive(primitive string) string {
 	}
 }
 
-// defaultValueForType returns the C++ default value for a type reference.
 func (p *Plugin) defaultValueForType(typeRef resolution.TypeRef, isHardOptional bool, data *templateData) string {
 	// Check for Array
 	if typeRef.Name == "Array" {
@@ -922,7 +852,6 @@ func (p *Plugin) defaultValueForType(typeRef resolution.TypeRef, isHardOptional 
 	}
 }
 
-// parseExprForField generates the C++ expression to parse a field from JSON.
 func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data *templateData) string {
 	typeRef := field.Type
 	jsonName := field.Name
@@ -994,7 +923,6 @@ func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data 
 	}
 }
 
-// parseExprForTypeRef generates a parse expression for a type reference.
 func (p *Plugin) parseExprForTypeRef(typeRef resolution.TypeRef, cppType, jsonName string, hasDefault bool, data *templateData) string {
 	// Handle type parameters
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
@@ -1026,7 +954,6 @@ func (p *Plugin) parseExprForTypeRef(typeRef resolution.TypeRef, cppType, jsonNa
 	}
 }
 
-// toJsonExprForField generates the C++ expression to serialize a field to JSON.
 func (p *Plugin) toJsonExprForField(field resolution.Field, data *templateData) string {
 	typeRef := field.Type
 	jsonName := field.Name
@@ -1077,7 +1004,6 @@ func (p *Plugin) toJsonExprForField(field resolution.Field, data *templateData) 
 	}
 }
 
-// toJsonValueExpr generates the expression for the value part of to_json.
 func (p *Plugin) toJsonValueExpr(typeRef resolution.TypeRef, fieldName string, data *templateData) string {
 	// Handle type parameters
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
@@ -1108,7 +1034,6 @@ func (p *Plugin) toJsonValueExpr(typeRef resolution.TypeRef, fieldName string, d
 	}
 }
 
-// toJsonArrayOfStructsExpr generates the expression for serializing an array of structs.
 func (p *Plugin) toJsonArrayOfStructsExpr(jsonName, fieldName string) string {
 	// For arrays of structs, we need to transform each element
 	return fmt.Sprintf(`{

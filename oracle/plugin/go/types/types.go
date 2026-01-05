@@ -7,9 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package types provides an Oracle plugin that generates Go struct type definitions
-// from Oracle schema files. It handles primitive type mapping, struct embedding for
-// extends relationships, generic type parameters, and cross-namespace imports.
 package types
 
 import (
@@ -21,6 +18,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	gointernal "github.com/synnaxlabs/oracle/plugin/go/internal"
@@ -31,40 +29,30 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// goModulePrefix is the fallback import path prefix.
 const goModulePrefix = "github.com/synnaxlabs/synnax/"
 
-// Plugin generates Go struct type definitions from Oracle schemas.
 type Plugin struct{ Options Options }
 
-// Options configures the Go types plugin.
 type Options struct {
 	FileNamePattern string
 }
 
-// DefaultOptions returns the default plugin options.
 func DefaultOptions() Options {
 	return Options{
 		FileNamePattern: "types.gen.go",
 	}
 }
 
-// New creates a new Go types plugin with the given options.
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
-// Name returns the plugin identifier.
 func (p *Plugin) Name() string { return "go/types" }
 
-// Domains returns the domains this plugin handles.
 func (p *Plugin) Domains() []string { return []string{"go"} }
 
-// Requires returns plugin dependencies (none for this plugin).
 func (p *Plugin) Requires() []string { return nil }
 
-// Check verifies generated files are up-to-date. Currently unimplemented.
 func (p *Plugin) Check(*plugin.Request) error { return nil }
 
-// Generate produces Go type definition files from the analyzed schemas.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
@@ -156,8 +144,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 }
 
 
-// collectNamespaceEnums finds enums in the same namespace as the structs
-// that inherit their @go output from the file level (matching the output path).
 func collectNamespaceEnums(structs []resolution.Type, table *resolution.Table, outputPath string) []resolution.Type {
 	if len(structs) == 0 {
 		return nil
@@ -176,7 +162,6 @@ func collectNamespaceEnums(structs []resolution.Type, table *resolution.Table, o
 	return result
 }
 
-// generateFile generates the Go source file for a set of types.
 func (p *Plugin) generateFile(
 	outputPath string,
 	structs []resolution.Type,
@@ -236,13 +221,10 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
-// resolveGoImportPath resolves a repo-relative output path to a full Go import path.
-// It searches for go.mod files to determine the correct module path.
 func resolveGoImportPath(outputPath, repoRoot string) string {
 	return gomod.ResolveImportPath(outputPath, repoRoot, goModulePrefix)
 }
 
-// processEnum converts an enum Type to template data.
 func (p *Plugin) processEnum(e resolution.Type) enumData {
 	form := e.Form.(resolution.EnumForm)
 	values := make([]enumValueData, 0, len(form.Values))
@@ -260,7 +242,6 @@ func (p *Plugin) processEnum(e resolution.Type) enumData {
 	}
 }
 
-// processTypeDef converts a TypeDef/Alias Type to template data.
 func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefData {
 	// Check for @go name override
 	name := getGoName(td)
@@ -297,7 +278,6 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 	}
 }
 
-// processStruct converts a struct Type to template data.
 func (p *Plugin) processStruct(entry resolution.Type, data *templateData) structData {
 	form := entry.Form.(resolution.StructForm)
 	sd := structData{
@@ -309,12 +289,8 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 	}
 
 	// Check for @go name override
-	if goDomain, ok := entry.Domains["go"]; ok {
-		for _, expr := range goDomain.Expressions {
-			if expr.Name == "name" && len(expr.Values) > 0 {
-				sd.Name = expr.Values[0].StringValue
-			}
-		}
+	if name := domain.GetStringFromType(entry, "go", "name"); name != "" {
+		sd.Name = name
 	}
 
 	// Process type parameters
@@ -355,7 +331,6 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 	return sd
 }
 
-// processTypeParam converts a TypeParam to template data.
 func (p *Plugin) processTypeParam(tp resolution.TypeParam, data *templateData) typeParamData {
 	tpd := typeParamData{
 		Name:       tp.Name,
@@ -370,7 +345,6 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, data *templateData) t
 	return tpd
 }
 
-// constraintToGo converts a type constraint to a Go constraint string.
 func (p *Plugin) constraintToGo(constraint resolution.TypeRef, data *templateData) string {
 	if resolution.IsPrimitive(constraint.Name) {
 		switch constraint.Name {
@@ -389,7 +363,6 @@ func (p *Plugin) constraintToGo(constraint resolution.TypeRef, data *templateDat
 	return p.typeRefToGo(constraint, data)
 }
 
-// processField converts a Field to template data.
 func (p *Plugin) processField(field resolution.Field, data *templateData) fieldData {
 	goType := p.typeRefToGo(field.Type, data)
 	// Hard optional (??) fields become pointers in Go to distinguish nil from zero value.
@@ -406,7 +379,6 @@ func (p *Plugin) processField(field resolution.Field, data *templateData) fieldD
 	}
 }
 
-// typeRefToGo converts an Oracle type reference to a Go type string.
 func (p *Plugin) typeRefToGo(typeRef resolution.TypeRef, data *templateData) string {
 	// Handle type parameters
 	if typeRef.IsTypeParam() {
@@ -461,7 +433,6 @@ func (p *Plugin) typeRefToGo(typeRef resolution.TypeRef, data *templateData) str
 	}
 }
 
-// resolveStructType resolves a struct type to a Go type string.
 func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resolution.TypeRef, data *templateData) string {
 	// Check for @go name override
 	typeName := getGoName(resolved)
@@ -481,7 +452,6 @@ func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resoluti
 	return fmt.Sprintf("%s.%s", alias, p.buildGenericType(typeName, typeArgs, data))
 }
 
-// resolveEnumType resolves an enum type to a Go type string.
 func (p *Plugin) resolveEnumType(resolved resolution.Type, data *templateData) string {
 	targetOutputPath := enum.FindOutputPath(resolved, data.table, "go")
 	// Same namespace AND same output path -> use unqualified name
@@ -496,7 +466,6 @@ func (p *Plugin) resolveEnumType(resolved resolution.Type, data *templateData) s
 	return fmt.Sprintf("%s.%s", alias, resolved.Name)
 }
 
-// resolveDistinctType resolves a distinct type to a Go type string.
 func (p *Plugin) resolveDistinctType(resolved resolution.Type, data *templateData) string {
 	// Use @go name override if present
 	typeName := getGoName(resolved)
@@ -516,8 +485,6 @@ func (p *Plugin) resolveDistinctType(resolved resolution.Type, data *templateDat
 	return fmt.Sprintf("%s.%s", alias, typeName)
 }
 
-// resolveAliasType resolves a type alias to a Go type string.
-// Unlike expanding the target, this uses the alias name directly.
 func (p *Plugin) resolveAliasType(resolved resolution.Type, data *templateData) string {
 	// Use @go name override if present
 	typeName := getGoName(resolved)
@@ -537,7 +504,6 @@ func (p *Plugin) resolveAliasType(resolved resolution.Type, data *templateData) 
 	return fmt.Sprintf("%s.%s", alias, typeName)
 }
 
-// buildGenericType builds a generic type string with type arguments.
 func (p *Plugin) buildGenericType(baseName string, typeArgs []resolution.TypeRef, data *templateData) string {
 	if len(typeArgs) == 0 {
 		return baseName
@@ -550,7 +516,6 @@ func (p *Plugin) buildGenericType(baseName string, typeArgs []resolution.TypeRef
 	return fmt.Sprintf("%s[%s]", baseName, strings.Join(args, ", "))
 }
 
-// resolveExtendsType resolves the parent type for struct embedding.
 func (p *Plugin) resolveExtendsType(extendsRef *resolution.TypeRef, parent resolution.Type, data *templateData) string {
 	if extendsRef == nil {
 		return ""
@@ -572,7 +537,6 @@ func (p *Plugin) resolveExtendsType(extendsRef *resolution.TypeRef, parent resol
 	return fmt.Sprintf("%s.%s", alias, p.buildGenericType(parent.Name, extendsRef.TypeArgs, data))
 }
 
-// templateData holds data for the Go file template.
 type templateData struct {
 	Package    string
 	OutputPath string
@@ -585,18 +549,14 @@ type templateData struct {
 	repoRoot   string
 }
 
-// HasImports returns true if any imports are needed.
 func (d *templateData) HasImports() bool { return d.imports.HasImports() }
 
-// ExternalImports returns sorted external imports.
 func (d *templateData) ExternalImports() []string { return d.imports.ExternalImports() }
 
-// InternalImports returns sorted internal imports.
 func (d *templateData) InternalImports() []gointernal.InternalImportData {
 	return d.imports.InternalImports()
 }
 
-// structData holds data for a single struct definition.
 type structData struct {
 	Name       string
 	Doc        string
@@ -610,13 +570,11 @@ type structData struct {
 	ExtendsType string // Parent type (may be qualified: "parent.Parent")
 }
 
-// typeParamData holds data for a type parameter.
 type typeParamData struct {
 	Name       string
 	Constraint string
 }
 
-// fieldData holds data for a single field definition.
 type fieldData struct {
 	GoName     string
 	GoType     string
@@ -625,26 +583,22 @@ type fieldData struct {
 	Doc        string
 }
 
-// TagSuffix returns the omitempty suffix if the field is optional.
 func (f fieldData) TagSuffix() string {
 	return ""
 }
 
-// enumData holds data for an enum definition.
 type enumData struct {
 	Name      string
 	Values    []enumValueData
 	IsIntEnum bool
 }
 
-// enumValueData holds data for an enum value.
 type enumValueData struct {
 	Name     string
 	Value    string
 	IntValue int64
 }
 
-// typeDefData holds data for a type definition.
 type typeDefData struct {
 	Name       string
 	BaseType   string
@@ -739,14 +693,6 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{end -}}
 `))
 
-// getGoName gets the custom Go name from @go name annotation.
 func getGoName(t resolution.Type) string {
-	if domain, ok := t.Domains["go"]; ok {
-		for _, expr := range domain.Expressions {
-			if expr.Name == "name" && len(expr.Values) > 0 {
-				return expr.Values[0].StringValue
-			}
-		}
-	}
-	return ""
+	return domain.GetStringFromType(t, "go", "name")
 }

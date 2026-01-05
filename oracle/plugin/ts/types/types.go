@@ -7,14 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package types provides the TypeScript types code generation plugin for Oracle.
-// It generates Zod schemas and TypeScript type definitions from Oracle schemas.
 package types
 
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -27,6 +24,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/output"
@@ -34,17 +32,14 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Plugin generates TypeScript type definitions and Zod schemas from Oracle schemas.
 type Plugin struct{ Options Options }
 
-// Options configures the TypeScript types plugin.
 type Options struct {
 	OutputPath      string
 	FileNamePattern string
 	GenerateTypes   bool
 }
 
-// DefaultOptions returns the default plugin options.
 func DefaultOptions() Options {
 	return Options{
 		OutputPath:      "{{.Namespace}}",
@@ -53,63 +48,28 @@ func DefaultOptions() Options {
 	}
 }
 
-// New creates a new TypeScript types plugin with the given options.
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
-// Name returns the plugin identifier.
 func (p *Plugin) Name() string { return "ts/types" }
 
-// Domains returns the domains this plugin handles.
 func (p *Plugin) Domains() []string { return nil }
 
-// Requires returns plugin dependencies.
 func (p *Plugin) Requires() []string { return nil }
 
-// Check verifies generated files are up-to-date.
 func (p *Plugin) Check(req *plugin.Request) error { return nil }
 
-var (
-	prettierCmd = []string{"npx", "prettier", "--write"}
-	eslintCmd   = []string{"npx", "eslint", "--fix"}
-)
+var postWriter = &exec.PostWriter{
+	ConfigFile: "package.json",
+	Commands: [][]string{
+		{"npx", "prettier", "--write"},
+		{"npx", "eslint", "--fix"},
+	},
+}
 
-// PostWrite runs prettier and eslint on the generated TypeScript files.
-// Files are grouped by their package directory (containing package.json).
-// Prettier runs first to format, then eslint --fix to sort imports and apply fixes.
 func (p *Plugin) PostWrite(files []string) error {
-	if len(files) == 0 {
-		return nil
-	}
-	byPackage := make(map[string][]string)
-	for _, file := range files {
-		if pkgDir := findPackageDir(file); pkgDir != "" {
-			byPackage[pkgDir] = append(byPackage[pkgDir], file)
-		}
-	}
-	for pkgDir, pkgFiles := range byPackage {
-		if err := exec.OnFiles(prettierCmd, pkgFiles, pkgDir); err != nil {
-			return err
-		}
-		if err := exec.OnFiles(eslintCmd, pkgFiles, pkgDir); err != nil {
-			return err
-		}
-	}
-	return nil
+	return postWriter.PostWrite(files)
 }
 
-// findPackageDir finds the nearest directory containing package.json.
-func findPackageDir(file string) string {
-	dir := filepath.Dir(file)
-	for dir != "/" && dir != "." {
-		if _, err := os.Stat(filepath.Join(dir, "package.json")); err == nil {
-			return dir
-		}
-		dir = filepath.Dir(dir)
-	}
-	return ""
-}
-
-// Generate produces TypeScript type definition files from the analyzed schemas.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
@@ -201,7 +161,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 }
 
 
-// packageMapping defines the known TypeScript package mappings in the workspace.
 type packageMapping struct {
 	pathPrefix     string // e.g., "client/ts/src"
 	packageName    string // e.g., "@synnaxlabs/client"
@@ -217,7 +176,6 @@ var knownPackages = []packageMapping{
 	{pathPrefix: "drift/src", packageName: "@synnaxlabs/drift", internalPrefix: "@/"},
 }
 
-// findPackage finds the package mapping for a given output path.
 func findPackage(outputPath string) *packageMapping {
 	for i := range knownPackages {
 		if strings.HasPrefix(outputPath, knownPackages[i].pathPrefix) {
@@ -433,8 +391,6 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 	}
 }
 
-// typeDefBaseToZod converts a TypeDef's base type to a Zod schema string.
-// This handles primitives, distinct types, and generic struct references with type args.
 func (p *Plugin) typeDefBaseToZod(typeRef *resolution.TypeRef, data *templateData) string {
 	if typeRef == nil {
 		return "z.unknown()"
@@ -447,9 +403,6 @@ func (p *Plugin) typeDefBaseToZod(typeRef *resolution.TypeRef, data *templateDat
 	return p.typeRefToZod(typeRef, data.Request.Resolutions, data, false)
 }
 
-// typeDefBaseToTS converts a TypeDef's base type to a TypeScript type string.
-// This handles primitives, distinct types, and generic struct references with type args.
-// TypeDefs use z.infer so they don't need concrete type imports.
 func (p *Plugin) typeDefBaseToTS(typeRef *resolution.TypeRef, data *templateData) string {
 	if typeRef == nil {
 		return "unknown"
@@ -503,7 +456,6 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 		// We check len(aliasForm.TypeParams) == 0 because IsGeneric() checks the target, not the alias
 		if len(aliasForm.TypeParams) == 0 && len(aliasForm.Target.TypeArgs) > 0 {
 			sd.AliasTypeRef = p.typeRefToTSType(&aliasForm.Target, table, data)
-			fmt.Printf("DEBUG SET: %s -> AliasTypeRef: '%s'\n", sd.Name, sd.AliasTypeRef)
 		}
 		return sd
 	}
@@ -562,15 +514,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 				sd.HasExtends = true
 
 				// Get parent's TSName (respecting @ts name domain)
-				parentTSName := parentType.Name
-				if tsDomain, ok := parentType.Domains["ts"]; ok {
-					for _, expr := range tsDomain.Expressions {
-						if expr.Name == "name" && len(expr.Values) > 0 {
-							parentTSName = expr.Values[0].StringValue
-							break
-						}
-					}
-				}
+				parentTSName := domain.GetName(parentType, "ts")
 				sd.ExtendsName = lo.CamelCase(parentTSName) + "Z"
 				sd.ExtendsTypeName = parentTSName
 				// Convert omitted field names to camelCase for TypeScript
@@ -653,14 +597,11 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 	return sd
 }
 
-// isAliasType checks if a type has AliasForm.
 func isAliasType(typ resolution.Type) bool {
 	_, ok := typ.Form.(resolution.AliasForm)
 	return ok
 }
 
-// isOnlyOptionalityChange returns true if the child field is the same as the parent field
-// except for being optional. This allows using .partial() instead of .extend().
 func isOnlyOptionalityChange(parent, child resolution.Field) bool {
 	// Child must be optional and parent must NOT be optional
 	childIsOptional := child.IsOptional || child.IsHardOptional
@@ -672,12 +613,10 @@ func isOnlyOptionalityChange(parent, child resolution.Field) bool {
 	return sameBaseType(parent.Type, child.Type)
 }
 
-// isArrayTypeRef checks if a TypeRef is an Array type.
 func isArrayTypeRef(r resolution.TypeRef) bool {
 	return r.Name == "Array"
 }
 
-// sameBaseType compares two TypeRefs ignoring optionality.
 func sameBaseType(a, b resolution.TypeRef) bool {
 	if a.Name != b.Name {
 		return false
@@ -787,8 +726,6 @@ func fallbackForConstraint(constraint *resolution.TypeRef, table *resolution.Tab
 	return defaultValueToTS(constraint.Name)
 }
 
-// isSelfReference checks if a type reference points to the parent struct,
-// either directly or through arrays/optionals.
 func isSelfReference(t resolution.TypeRef, parent resolution.Type) bool {
 	if t.Name == parent.QualifiedName {
 		return true
@@ -876,43 +813,17 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 }
 
 func getFieldTypeOverride(field resolution.Field, domainName string) string {
-	domain, ok := field.Domains[domainName]
-	if !ok {
-		return ""
-	}
-	for _, expr := range domain.Expressions {
-		if expr.Name == "type" && len(expr.Values) > 0 {
-			if v := expr.Values[0].StringValue; v != "" {
-				return v
-			}
-			return expr.Values[0].IdentValue
-		}
-	}
-	return ""
+	return domain.GetFieldType(field, domainName)
 }
 
 func getTypeTypeOverride(typ resolution.Type, domainName string) string {
-	domain, ok := typ.Domains[domainName]
-	if !ok {
-		return ""
-	}
-	for _, expr := range domain.Expressions {
-		if expr.Name == "type" && len(expr.Values) > 0 {
-			if v := expr.Values[0].StringValue; v != "" {
-				return v
-			}
-			return expr.Values[0].IdentValue
-		}
-	}
-	return ""
+	return domain.GetType(typ, domainName)
 }
 
 func (p *Plugin) typeRefToZod(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData, useInput bool) string {
 	return p.typeRefToZodInternal(typeRef, table, data, useInput, false)
 }
 
-// typeRefToTSType generates an explicit TypeScript type reference for a type reference.
-// For example, status.Status<StatusDetails> becomes status.Status<typeof statusDetailsZ>
 func (p *Plugin) typeRefToTSType(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData) string {
 	if typeRef == nil {
 		return "unknown"
@@ -968,8 +879,6 @@ func (p *Plugin) typeRefToTSType(typeRef *resolution.TypeRef, table *resolution.
 	return "unknown"
 }
 
-// typeArgToTSType converts a type argument to its TypeScript type reference.
-// For struct types, it returns typeof schemaZ to get the Zod schema type.
 func (p *Plugin) typeArgToTSType(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData) string {
 	if typeRef == nil {
 		return "unknown"
@@ -1033,7 +942,6 @@ func (p *Plugin) typeArgToTSType(typeRef *resolution.TypeRef, table *resolution.
 	return "unknown"
 }
 
-// primitiveToTSType converts a primitive type name to its TypeScript type equivalent.
 func primitiveToTSType(name string) string {
 	switch name {
 	case "string", "uuid":
@@ -1355,8 +1263,6 @@ var primitiveZodTypes = map[string]primitiveMapping{
 const xPackageName = "@synnaxlabs/x"
 const xPathPrefix = "x/ts/src"
 
-// primitiveZodSchemaTypes maps primitive type names to their Zod TYPE (not expression).
-// e.g., "string" -> "z.ZodString" (not "z.string()")
 var primitiveZodSchemaTypes = map[string]string{
 	"uuid":               "z.ZodString",
 	"string":             "z.ZodString",
@@ -1391,8 +1297,6 @@ func primitiveToZodSchemaType(primitive string) string {
 	return "z.ZodType"
 }
 
-// typeRefToZodSchemaType converts a type reference to its Zod schema TYPE (not expression).
-// For example: string -> z.ZodString, Status<D> -> StatusZodObject<D>, Array<T> -> z.ZodArray<T>
 func (p *Plugin) typeRefToZodSchemaType(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData) string {
 	if typeRef == nil {
 		return "z.ZodType"
@@ -1476,12 +1380,10 @@ func (p *Plugin) typeRefToZodSchemaType(typeRef *resolution.TypeRef, table *reso
 	return "z.ZodType"
 }
 
-// isInXPackage checks if the output path is within the x package.
 func isInXPackage(outputPath string) bool {
 	return strings.HasPrefix(outputPath, xPathPrefix)
 }
 
-// addXImport adds an import from the x package, using the correct path based on output location.
 func addXImport(data *templateData, imp xImport) {
 	if isInXPackage(data.OutputPath) {
 		// Internal import: @/submodule
@@ -1597,7 +1499,6 @@ type templateData struct {
 	Ontology              *ontologyData
 }
 
-// sortedDeclData holds a single declaration (typedef or struct) for sorted output.
 type sortedDeclData struct {
 	IsTypeDef bool
 	IsStruct  bool

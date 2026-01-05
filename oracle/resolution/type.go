@@ -11,7 +11,6 @@ package resolution
 
 import "github.com/samber/lo"
 
-// Type is the universal representation of any type in Oracle.
 type Type struct {
 	Name          string
 	Namespace     string
@@ -22,12 +21,10 @@ type Type struct {
 	AST           any
 }
 
-// TypeForm is the interface for all type forms.
 type TypeForm interface {
 	typeForm()
 }
 
-// StructForm represents a struct with fields.
 type StructForm struct {
 	Fields        []Field
 	TypeParams    []TypeParam
@@ -53,7 +50,6 @@ func (f StructForm) IsFieldOmitted(name string) bool {
 	return lo.Contains(f.OmittedFields, name)
 }
 
-// EnumForm represents an enumeration.
 type EnumForm struct {
 	Values    []EnumValue
 	IsIntEnum bool
@@ -61,7 +57,6 @@ type EnumForm struct {
 
 func (EnumForm) typeForm() {}
 
-// DistinctForm represents a distinct named type wrapping another type.
 type DistinctForm struct {
 	Base       TypeRef
 	TypeParams []TypeParam
@@ -69,7 +64,6 @@ type DistinctForm struct {
 
 func (DistinctForm) typeForm() {}
 
-// AliasForm represents a transparent type alias.
 type AliasForm struct {
 	Target     TypeRef
 	TypeParams []TypeParam
@@ -83,14 +77,12 @@ func (f AliasForm) TypeParam(name string) (TypeParam, bool) {
 	return lo.Find(f.TypeParams, func(tp TypeParam) bool { return tp.Name == name })
 }
 
-// PrimitiveForm represents a built-in primitive type.
 type PrimitiveForm struct {
 	Name string
 }
 
 func (PrimitiveForm) typeForm() {}
 
-// BuiltinGenericForm represents a built-in generic type (Array, Map).
 type BuiltinGenericForm struct {
 	Name  string
 	Arity int
@@ -98,7 +90,6 @@ type BuiltinGenericForm struct {
 
 func (BuiltinGenericForm) typeForm() {}
 
-// Field represents a field within a struct.
 type Field struct {
 	Name           string
 	Type           TypeRef
@@ -109,7 +100,6 @@ type Field struct {
 	AST            any
 }
 
-// EnumValue represents a single value in an enumeration.
 type EnumValue struct {
 	Name    string
 	Value   any
@@ -130,7 +120,6 @@ func (v EnumValue) IntValue() int64 {
 	return 0
 }
 
-// TypeRef is a reference to a type, possibly with type arguments.
 type TypeRef struct {
 	Name      string
 	TypeParam *TypeParam
@@ -149,7 +138,6 @@ func (r TypeRef) MustResolve(table *Table) Type {
 	return table.MustGet(r.Name)
 }
 
-// TypeParam represents a generic type parameter.
 type TypeParam struct {
 	Name       string
 	Constraint *TypeRef
@@ -157,8 +145,6 @@ type TypeParam struct {
 	Optional   bool
 }
 
-// UnifiedFields returns all fields including inherited ones.
-// Child fields override parent fields with the same name, but inherit domains.
 func UnifiedFields(typ Type, table *Table) []Field {
 	form, ok := typ.Form.(StructForm)
 	if !ok {
@@ -177,7 +163,6 @@ func UnifiedFields(typ Type, table *Table) []Field {
 		return form.Fields
 	}
 
-	// Build map of child fields for override detection
 	childFieldMap := make(map[string]*Field, len(form.Fields))
 	for i := range form.Fields {
 		childFieldMap[form.Fields[i].Name] = &form.Fields[i]
@@ -190,13 +175,10 @@ func UnifiedFields(typ Type, table *Table) []Field {
 		}
 	}
 
-	// Build parent field map for domain inheritance
-	// IMPORTANT: We must make copies of parent fields before modifying them,
-	// otherwise we mutate the original struct's fields which corrupts the table.
+	// Copy parent fields before modifying to avoid mutating the table.
 	parentFieldsOrig := UnifiedFields(parent, table)
 	parentFields := make([]Field, len(parentFieldsOrig))
 	for i, pf := range parentFieldsOrig {
-		// Copy the field and substitute type refs
 		parentFields[i] = pf
 		parentFields[i].Type = SubstituteTypeRef(pf.Type, typeArgMap)
 	}
@@ -207,17 +189,14 @@ func UnifiedFields(typ Type, table *Table) []Field {
 
 	var result []Field
 	for _, pf := range parentFields {
-		// Skip if omitted or overridden by child
 		if form.IsFieldOmitted(pf.Name) || childFieldMap[pf.Name] != nil {
 			continue
 		}
 		result = append(result, pf)
 	}
 
-	// Add child fields, merging domains from parent if overriding
 	for _, cf := range form.Fields {
 		if pf, isOverride := parentFieldMap[cf.Name]; isOverride {
-			// Merge parent domains into child (child takes precedence)
 			mergedDomains := make(map[string]Domain, len(pf.Domains)+len(cf.Domains))
 			for k, v := range pf.Domains {
 				mergedDomains[k] = v
@@ -236,7 +215,6 @@ func UnifiedFields(typ Type, table *Table) []Field {
 	return result
 }
 
-// SubstituteTypeRef replaces type parameters with concrete types.
 func SubstituteTypeRef(ref TypeRef, typeArgMap map[string]TypeRef) TypeRef {
 	if ref.IsTypeParam() && ref.TypeParam != nil {
 		if sub, ok := typeArgMap[ref.TypeParam.Name]; ok {
