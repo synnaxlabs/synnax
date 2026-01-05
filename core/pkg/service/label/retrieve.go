@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -61,14 +60,14 @@ func (r Retrieve) WhereNames(names ...string) Retrieve {
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.baseTx, tx)
 	if r.searchTerm != "" {
-		ids, err := r.otg.SearchIDs(ctx, search.Request{
+		ids, err := r.otg.SearchIDs(ctx, ontology.SearchRequest{
 			Type: OntologyType,
 			Term: r.searchTerm,
 		})
 		if err != nil {
 			return err
 		}
-		keys, err := KeysFromOntologyIds(ids)
+		keys, err := KeysFromOntologyIDs(ids)
 		if err != nil {
 			return err
 		}
@@ -94,7 +93,7 @@ func (s *Service) RetrieveFor(
 		Exec(ctx, tx); err != nil {
 		return nil, err
 	}
-	keys, err := KeysFromOntologyIds(ontology.ResourceIDs(labelResources))
+	keys, err := KeysFromOntologyIDs(ontology.ResourceIDs(labelResources))
 	if err != nil {
 		return nil, err
 	}

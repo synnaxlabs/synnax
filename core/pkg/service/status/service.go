@@ -12,7 +12,6 @@ package status
 import (
 	"context"
 	"io"
-	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
@@ -21,9 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -37,7 +34,8 @@ type ServiceConfig struct {
 	// Group is used to create the top level "Statuses" group that will be the default
 	// parent of all statuses.
 	Group *group.Service
-	// Signals is used to publish signals when statuses are created, updated, or deleted.
+	// Signals is used to publish signals when statuses are created, updated, or
+	// deleted.
 	Signals *signals.Provider
 	Label   *label.Service
 }
@@ -74,45 +72,36 @@ type Service struct {
 	cfg             ServiceConfig
 	group           group.Group
 	shutdownSignals io.Closer
-	mu              struct {
-		sync.RWMutex
-		statuses map[string]status.Status[any]
-	}
 }
 
-const groupName = "Statuses"
-
-// OpenService opens a new status.Service with the provided configuration. If error
-// is nil, the service is ready for use and must be closed by calling Close to
-// prevent resource leaks.
-func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
+// OpenService opens a new status.Service with the provided configuration. If error is
+// nil, the service is ready for use and must be closed by calling Close to prevent
+// resource leaks.
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
+	g, err := cfg.Group.CreateOrRetrieve(ctx, "Statuses", ontology.RootID)
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, group: g}
-	s.mu.statuses = make(map[string]status.Status[any])
+	s := &Service{cfg: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals == nil {
-		return
+		return s, nil
 	}
 	signalsCfg := signals.GorpPublisherConfigString[Status[any]](cfg.DB)
 	signalsCfg.SetName = "sy_status_set"
 	signalsCfg.DeleteName = "sy_status_delete"
-	statusSignals, err := signals.PublishFromGorp(
+	if s.shutdownSignals, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
 		signalsCfg,
-	)
-	if err != nil {
-		return
+	); err != nil {
+		return nil, err
 	}
-	s.shutdownSignals = xio.MultiCloser{statusSignals}
-	return
+	return s, nil
 }
 
 // Close closes the service and releases any resources that it may have acquired. Close
@@ -125,17 +114,13 @@ func (s *Service) Close() error {
 	return nil
 }
 
-// NewWriter opens a new Writer to create, update, and delete statuses. If tx is not nil,
-// the writer will use it to execute all operations. If tx is nil, the writer will execute
-// all operations directly against the underlying gorp.DB.
-func (s *Service) NewWriter(tx gorp.Tx) Writer[any] {
-	return NewWriter[any](s, tx)
-}
+// NewWriter opens a new Writer to create, update, and delete statuses. If tx is not
+// nil, the writer will use it to execute all operations. If tx is nil, the writer will
+// execute all operations directly against the underlying gorp.DB.
+func (s *Service) NewWriter(tx gorp.Tx) Writer[any] { return NewWriter[any](s, tx) }
 
 // NewRetrieve opens a new Retrieve query to fetch statuses from the database.
-func (s *Service) NewRetrieve() Retrieve[any] {
-	return NewRetrieve[any](s)
-}
+func (s *Service) NewRetrieve() Retrieve[any] { return NewRetrieve[any](s) }
 
 func NewWriter[D any](s *Service, tx gorp.Tx) Writer[D] {
 	return Writer[D]{

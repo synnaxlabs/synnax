@@ -14,7 +14,6 @@ import (
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -54,7 +53,9 @@ func (o *OntologyService) Retrieve(
 	req OntologyRetrieveRequest,
 ) (OntologyRetrieveResponse, error) {
 	if req.SearchTerm != "" {
-		resources, err := o.ontology.Search(ctx, search.Request{Term: req.SearchTerm})
+		resources, err := o.ontology.Search(ctx, ontology.SearchRequest{
+			Term: req.SearchTerm,
+		})
 		if err != nil {
 			return OntologyRetrieveResponse{}, err
 		}

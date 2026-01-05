@@ -46,10 +46,6 @@ func NewKey(nodeKey cluster.NodeKey, localKey LocalKey) (key Key) {
 	return Key(k1 | k2)
 }
 
-// MustParseKey is a convenience function that wraps ParseKey and panics if the key
-// has an invalid format.
-func MustParseKey(key string) Key { return lo.Must(ParseKey(key)) }
-
 // ParseKey attempts to parse the string representation of a Key into a Key.
 func ParseKey(s string) (Key, error) {
 	k, err := strconv.Atoi(s)

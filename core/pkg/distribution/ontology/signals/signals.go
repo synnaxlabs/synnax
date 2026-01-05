@@ -26,7 +26,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// Publish publishes changes from the provided ontology into the provided signals.Provider.
+// Publish publishes changes from the provided ontology into the provided
+// signals.Provider.
 func Publish(
 	ctx context.Context,
 	prov *signals.Provider,
