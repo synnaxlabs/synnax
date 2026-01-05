@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,8 +12,8 @@ package cesium
 import (
 	"context"
 
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
@@ -336,7 +336,7 @@ type idxWriter struct {
 		// Index is the index used to resolve timestamps for domains in the DB.
 		*index.Domain
 		// Key is the channel key of the index.
-		ch core.Channel
+		ch channel.Channel
 		// highWaterMark is the highest timestamp written to the index. This watermark
 		// is only relevant when writingToIdx is true.
 		highWaterMark telem.TimeStamp
@@ -586,7 +586,7 @@ func (w *idxWriter) resolveCommitEnd(ctx context.Context) (index.TimeStampApprox
 
 type virtualWriter struct {
 	internal  map[ChannelKey]*virtual.Writer
-	digestKey core.ChannelKey
+	digestKey channel.Key
 }
 
 func (w virtualWriter) write(filterUnauthorized *[]ChannelKey, fr Frame) (Frame, error) {

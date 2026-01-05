@@ -40,7 +40,10 @@ on:
       - pluto/**
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
+      - pyproject.toml
       - turbo.json
+      - uv.lock
+      - uv.toml
       - vendor
       - x/cpp/**
       - x/go/**
@@ -85,31 +88,24 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
-      - name: Set up Poetry
-        run: pipx install poetry
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version-file: integration/pyproject.toml
-          cache: poetry
-          cache-dependency-path: integration/poetry.lock
-
-      - name: Install Dependencies
-        run: |
-          poetry install
-        working-directory: integration
 
       - name: Check Import Order
-        run: poetry run isort -c .
+        run: uv run isort -c .
         working-directory: integration
 
       - name: Check Formatting (Black)
-        run: poetry run black --check --diff --color .
+        run: uv run black --check --diff --color .
         working-directory: integration
 
       - name: Type Check (mypy)
-        run: poetry run mypy .
+        run: uv run mypy .
         working-directory: integration
 
   setup:
@@ -233,21 +229,18 @@ jobs:
       - name: Update Submodules
         run: git submodule update --init --recursive
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version-file: integration/pyproject.toml
 
-      - name: Install Poetry & Dependencies
-        shell: cmd
-        run: integration/scripts/InstallPoetryDepsWindows.cmd
-
       - name: Install Playwright
         shell: cmd
         working-directory: integration
-        run: |
-          set PATH=%APPDATA%\Python\Scripts;%APPDATA%\pypoetry\venv\Scripts;%PATH%
-          poetry run playwright install --with-deps
+        run: uv run playwright install --with-deps
 
       - name: Start Core
         timeout-minutes: 1
@@ -263,9 +256,7 @@ jobs:
         working-directory: integration
         env:
           PYTHONIOENCODING: utf-8
-        run: |
-          set PATH=%APPDATA%\Python\Scripts;%APPDATA%\pypoetry\venv\Scripts;%PATH%
-          poetry run test-conductor --name tc_win ${{ needs.setup.outputs.SEQUENCE_ARG }}
+        run: uv run test-conductor --name tc_win ${{ needs.setup.outputs.SEQUENCE_ARG }}
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v6
@@ -309,13 +300,13 @@ jobs:
       - name: Update Submodules
         run: git submodule update --init --recursive
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version-file: integration/pyproject.toml
-
-      - name: Install Poetry & Dependencies
-        run: integration/scripts/install_poetry_deps_unix.sh
 
       - name: Install Playwright
         run: integration/scripts/install_playwright_unix.sh
@@ -331,8 +322,7 @@ jobs:
         timeout-minutes: 20
         working-directory: integration
         run:
-          poetry run test-conductor --name tc_unix ${{ needs.setup.outputs.SEQUENCE_ARG
-          }}
+          uv run test-conductor --name tc_unix ${{ needs.setup.outputs.SEQUENCE_ARG }}
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v6

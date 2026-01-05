@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -44,7 +44,7 @@ var _ = Describe("Codec", func() {
 		Entry("All Channels Present, In Order",
 			channel.Keys{1, 2, 3},
 			[]telem.DataType{telem.Int64T, telem.Float32T, telem.Float64T},
-			core.MultiFrame(
+			frame.NewMulti(
 				channel.Keys{1, 2, 3},
 				[]telem.Series{
 					telem.NewSeriesV[int64](1, 2, 3),
@@ -56,7 +56,7 @@ var _ = Describe("Codec", func() {
 		Entry("All Channels Present, Out of Order",
 			channel.Keys{3, 1, 2},
 			[]telem.DataType{telem.Float64T, telem.Int64T, telem.Float32T},
-			core.MultiFrame(
+			frame.NewMulti(
 				channel.Keys{2, 3, 1},
 				[]telem.Series{
 					telem.NewSeriesV[float32](3, 2, 1),
@@ -68,7 +68,7 @@ var _ = Describe("Codec", func() {
 		Entry("Some Channels Present, In Order",
 			channel.Keys{1, 2, 3},
 			[]telem.DataType{telem.Uint8T, telem.Float32T, telem.Float64T},
-			core.MultiFrame(
+			frame.NewMulti(
 				channel.Keys{1, 3},
 				[]telem.Series{
 					telem.NewSeriesV[uint8](1, 2, 3),
@@ -79,7 +79,7 @@ var _ = Describe("Codec", func() {
 		Entry("Some Channels Present, Out of Order",
 			channel.Keys{1, 2, 3},
 			[]telem.DataType{telem.Uint8T, telem.Float32T, telem.Float64T},
-			core.MultiFrame(
+			frame.NewMulti(
 				channel.Keys{3, 1},
 				[]telem.Series{
 					telem.NewSeriesV[float64](7, 8, 9),
@@ -90,7 +90,7 @@ var _ = Describe("Codec", func() {
 		Entry("All Same Time Range",
 			channel.Keys{1, 2},
 			[]telem.DataType{telem.Uint8T, telem.Float32T},
-			core.MultiFrame(
+			frame.NewMulti(
 				channel.Keys{1, 2},
 				[]telem.Series{
 					{
@@ -109,7 +109,7 @@ var _ = Describe("Codec", func() {
 		Entry("Different Time Ranges",
 			channel.Keys{1, 2},
 			[]telem.DataType{telem.Uint8T, telem.Float32T},
-			core.MultiFrame(
+			frame.NewMulti(
 				channel.Keys{1, 2},
 				[]telem.Series{
 					{
@@ -128,7 +128,7 @@ var _ = Describe("Codec", func() {
 		Entry("Partial Present, Different Lengths",
 			channel.Keys{1, 2, 3},
 			[]telem.DataType{telem.Uint8T, telem.Float32T, telem.Float64T},
-			core.MultiFrame(
+			frame.NewMulti(
 				channel.Keys{1, 3},
 				[]telem.Series{
 					telem.NewSeriesV[uint8](1),
@@ -139,7 +139,7 @@ var _ = Describe("Codec", func() {
 		Entry("Same Alignments",
 			channel.Keys{1, 2},
 			[]telem.DataType{telem.Uint8T, telem.Float32T},
-			core.MultiFrame(
+			frame.NewMulti(
 				channel.Keys{1, 2},
 				[]telem.Series{
 					{
@@ -158,7 +158,7 @@ var _ = Describe("Codec", func() {
 		Entry("Different Alignments",
 			channel.Keys{1, 2},
 			[]telem.DataType{telem.Uint8T, telem.Float32T},
-			core.MultiFrame(
+			frame.NewMulti(
 				channel.Keys{1, 2},
 				[]telem.Series{
 					{
@@ -177,7 +177,7 @@ var _ = Describe("Codec", func() {
 		Entry("Variable Data Types",
 			channel.Keys{1, 2, 3},
 			[]telem.DataType{telem.Uint8T, telem.StringT, telem.JSONT},
-			core.MultiFrame(
+			frame.NewMulti(
 				channel.Keys{1, 2, 3},
 				[]telem.Series{
 					telem.NewSeriesV[uint8](1, 2, 3),
@@ -192,7 +192,7 @@ var _ = Describe("Codec", func() {
 		Entry("Multiple Series for the Same Channel",
 			channel.Keys{1, 2},
 			[]telem.DataType{telem.Uint8T, telem.Float32T},
-			core.MultiFrame(
+			frame.NewMulti(
 				channel.Keys{1, 2, 2, 1, 2},
 				[]telem.Series{
 					telem.NewSeriesV[uint8](1, 2, 3),
@@ -225,7 +225,7 @@ var _ = Describe("Codec", func() {
 			s4 := telem.MakeSeries(telem.Uint8T, 5000)
 			s4.Alignment = cesium.LeadingAlignment(5000, 5)
 			s4.TimeRange = telem.NewRangeSeconds(9999999, 999999999)
-			originalFrame := core.MultiFrame(
+			originalFrame := frame.NewMulti(
 				keys,
 				[]telem.Series{s1, s2, s3, s4},
 			)
@@ -243,7 +243,7 @@ var _ = Describe("Codec", func() {
 				[]channel.Key{1},
 				[]telem.DataType{telem.Uint8T},
 			)
-			fr := core.UnaryFrame(1, telem.NewSeriesSecondsTSV(1, 2, 3))
+			fr := frame.NewUnary(1, telem.NewSeriesSecondsTSV(1, 2, 3))
 			encoded, err := c.Encode(ctx, fr)
 			Expect(encoded).To(HaveLen(0))
 			Expect(err).To(HaveOccurredAs(validate.Error))
@@ -283,7 +283,7 @@ var _ = Describe("Codec", func() {
 		It("Should allow the caller to update the list of channels", func() {
 			codec := codec.NewDynamic(channelSvc)
 			Expect(codec.Update(ctx, []channel.Key{dataCh.Key(), idxCh.Key()})).To(Succeed())
-			fr := core.MultiFrame(
+			fr := frame.NewMulti(
 				channel.Keys{dataCh.Key(), idxCh.Key()},
 				[]telem.Series{
 					telem.NewSeriesV[float32](1, 2, 3, 4),
@@ -323,7 +323,7 @@ var _ = Describe("Codec", func() {
 			Expect(decoder.Update(ctx, []channel.Key{idxCh.Key()})).To(Succeed())
 			Expect(encoder.Update(ctx, []channel.Key{idxCh.Key()})).To(Succeed())
 
-			frame1 := core.UnaryFrame(idxCh.Key(), telem.NewSeriesSecondsTSV(1, 2, 3))
+			frame1 := frame.NewUnary(idxCh.Key(), telem.NewSeriesSecondsTSV(1, 2, 3))
 			encoded := MustSucceed(encoder.Encode(ctx, frame1))
 			decoded := MustSucceed(decoder.Decode(encoded))
 			Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
@@ -341,7 +341,7 @@ var _ = Describe("Codec", func() {
 			decoded = MustSucceed(decoder.Decode(encoded))
 			Expect(decoded.Frame.SeriesSlice()).To(HaveLen(0))
 
-			frame2 := core.UnaryFrame(dataCh.Key(), telem.NewSeriesV[float32](1, 2, 3, 4))
+			frame2 := frame.NewUnary(dataCh.Key(), telem.NewSeriesV[float32](1, 2, 3, 4))
 			encoded = MustSucceed(encoder.Encode(ctx, frame2))
 			decoded = MustSucceed(decoder.Decode(encoded))
 			Expect(decoded.Frame).To(telem.MatchFrame(frame2.Frame))
@@ -361,7 +361,7 @@ var _ = Describe("Codec", func() {
 					Expect(decoder.Update(ctx, []channel.Key{idxCh.Key()})).To(Succeed())
 					Expect(encoder.Update(ctx, []channel.Key{idxCh.Key()})).To(Succeed())
 
-					frame1 := core.UnaryFrame(
+					frame1 := frame.NewUnary(
 						idxCh.Key(),
 						telem.NewSeriesSecondsTSV(1, 2, 3),
 					)
@@ -371,7 +371,7 @@ var _ = Describe("Codec", func() {
 
 					Expect(decoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
 					Expect(encoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
-					delayedFrame1 := core.UnaryFrame(
+					delayedFrame1 := frame.NewUnary(
 						idxCh.Key(),
 						telem.NewSeriesV[float32](1, 2, 3, 4),
 					)
@@ -390,7 +390,7 @@ var _ = Describe("Codec", func() {
 					Expect(decoder.Update(ctx, keys)).To(Succeed())
 					Expect(encoder.Update(ctx, keys)).To(Succeed())
 
-					frame1 := core.MultiFrame(
+					frame1 := frame.NewMulti(
 						keys,
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(1, 2, 3),
@@ -403,7 +403,7 @@ var _ = Describe("Codec", func() {
 
 					Expect(decoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
 					Expect(encoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
-					delayedFrame1 := core.MultiFrame(
+					delayedFrame1 := frame.NewMulti(
 						keys,
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(1, 2, 3),
@@ -424,7 +424,7 @@ var _ = Describe("Codec", func() {
 			dataTypes := []telem.DataType{telem.Int32T, telem.Float32T, telem.Int64T, telem.Uint8T, telem.Float64T}
 			codec := codec.NewStatic(keys, dataTypes)
 
-			largeFrame := core.MultiFrame(
+			largeFrame := frame.NewMulti(
 				channel.Keys{5, 3, 1, 4, 2},
 				[]telem.Series{
 					telem.NewSeriesV(1.1, 2.2, 3.3),
@@ -438,7 +438,7 @@ var _ = Describe("Codec", func() {
 			decoded1 := MustSucceed(codec.Decode(encoded1))
 			Expect(largeFrame.Frame).To(telem.MatchFrame(decoded1.Frame))
 
-			smallFrame := core.MultiFrame(
+			smallFrame := frame.NewMulti(
 				channel.Keys{2, 4},
 				[]telem.Series{
 					telem.NewSeriesV[float32](7.7, 8.8),
@@ -449,7 +449,7 @@ var _ = Describe("Codec", func() {
 			decoded2 := MustSucceed(codec.Decode(encoded2))
 			Expect(smallFrame.Frame).To(telem.MatchFrame(decoded2.Frame))
 
-			anotherLargeFrame := core.MultiFrame(
+			anotherLargeFrame := frame.NewMulti(
 				channel.Keys{4, 2, 1, 3},
 				[]telem.Series{
 					telem.NewSeriesV[uint8](60, 70, 80, 90),
@@ -462,7 +462,7 @@ var _ = Describe("Codec", func() {
 			decoded3 := MustSucceed(codec.Decode(encoded3))
 			Expect(anotherLargeFrame.Frame).To(telem.MatchFrame(decoded3.Frame))
 
-			emptyFrame := core.Frame{}
+			emptyFrame := frame.Frame{}
 			encoded4 := MustSucceed(codec.Encode(ctx, emptyFrame))
 			decoded4 := MustSucceed(codec.Decode(encoded4))
 			Expect(emptyFrame.Frame).To(telem.MatchFrame(decoded4.Frame))
@@ -476,7 +476,7 @@ var _ = Describe("Codec", func() {
 			codec := codec.NewStatic(keys, dataTypes)
 
 			// Create frame with multiple series for the same channels in random order
-			frame := core.MultiFrame(
+			frame := frame.NewMulti(
 				channel.Keys{20, 10, 30, 10, 20, 30, 10},
 				[]telem.Series{
 					telem.NewSeriesV(1.1, 2.2),                  // channel 20
@@ -511,7 +511,7 @@ var _ = Describe("Codec", func() {
 			dataTypes := []telem.DataType{telem.Int32T, telem.Float32T, telem.Uint64T}
 			codec := codec.NewStatic(keys, dataTypes)
 
-			frame := core.MultiFrame(
+			frame := frame.NewMulti(
 				channel.Keys{channel.Key(^uint32(0) - 1), channel.Key(^uint32(0)), channel.Key(1)},
 				[]telem.Series{
 					telem.NewSeriesV[float32](1.1, 2.2, 3.3),
@@ -530,7 +530,7 @@ var _ = Describe("Codec", func() {
 			dataTypes := []telem.DataType{telem.Int32T, telem.Float32T, telem.Uint8T}
 			codec := codec.NewStatic(keys, dataTypes)
 
-			frame1 := core.MultiFrame(
+			frame1 := frame.NewMulti(
 				channel.Keys{15, 5, 10},
 				[]telem.Series{
 					telem.NewSeriesV[uint8](1, 2, 3),
@@ -542,12 +542,12 @@ var _ = Describe("Codec", func() {
 			decoded1 := MustSucceed(codec.Decode(encoded1))
 			Expect(frame1.Frame).To(telem.MatchFrame(decoded1.Frame))
 
-			emptyFrame := core.Frame{}
+			emptyFrame := frame.Frame{}
 			encoded2 := MustSucceed(codec.Encode(ctx, emptyFrame))
 			decoded2 := MustSucceed(codec.Decode(encoded2))
 			Expect(decoded2.Empty()).To(BeTrue())
 
-			frame3 := core.MultiFrame(
+			frame3 := frame.NewMulti(
 				channel.Keys{10, 5},
 				[]telem.Series{
 					telem.NewSeriesV[float32](4.5, 5.5),
@@ -564,7 +564,7 @@ var _ = Describe("Codec", func() {
 			dataTypes := []telem.DataType{telem.Int64T, telem.Float64T, telem.StringT}
 			codec := codec.NewStatic(keys, dataTypes)
 
-			multiFrame := core.MultiFrame(
+			multiFrame := frame.NewMulti(
 				channel.Keys{300, 100, 200},
 				[]telem.Series{
 					telem.NewSeriesStringsV("hello", "world"),
@@ -576,7 +576,7 @@ var _ = Describe("Codec", func() {
 			decoded1 := MustSucceed(codec.Decode(encoded1))
 			Expect(multiFrame.Frame).To(telem.MatchFrame(decoded1.Frame))
 
-			singleFrame := core.UnaryFrame(200, telem.NewSeriesV(9.999))
+			singleFrame := frame.NewUnary(200, telem.NewSeriesV(9.999))
 			encoded2 := MustSucceed(codec.Encode(ctx, singleFrame))
 			decoded2 := MustSucceed(codec.Decode(encoded2))
 			Expect(singleFrame.Frame).To(telem.MatchFrame(decoded2.Frame))
@@ -598,7 +598,7 @@ var _ = Describe("Codec", func() {
 			s2 := telem.NewSeriesV[int32](4, 5)
 			s2.Alignment = 3
 
-			frame := core.MultiFrame(
+			frame := frame.NewMulti(
 				channel.Keys{1, 1},
 				[]telem.Series{s1, s2},
 			)
@@ -631,7 +631,7 @@ var _ = Describe("Codec", func() {
 			s3 := telem.NewSeriesV[uint8](6)
 			s3.Alignment = 5
 
-			frame := core.MultiFrame(
+			frame := frame.NewMulti(
 				channel.Keys{1, 1, 1},
 				[]telem.Series{s1, s2, s3},
 			)
@@ -657,7 +657,7 @@ var _ = Describe("Codec", func() {
 			s2 := telem.NewSeriesV[int32](4, 5)
 			s2.Alignment = 5 // Gap! Previous ends at 3
 
-			frame := core.MultiFrame(
+			frame := frame.NewMulti(
 				channel.Keys{1, 1},
 				[]telem.Series{s1, s2},
 			)
@@ -688,7 +688,7 @@ var _ = Describe("Codec", func() {
 			s4 := telem.NewSeriesV[int32](6)
 			s4.Alignment = 11 // Contiguous with s3
 
-			frame := core.MultiFrame(
+			frame := frame.NewMulti(
 				channel.Keys{1, 1, 1, 1},
 				[]telem.Series{s1, s2, s3, s4},
 			)
@@ -727,7 +727,7 @@ var _ = Describe("Codec", func() {
 			s2_ch2 := telem.NewSeriesV[float32](4.4)
 			s2_ch2.Alignment = 8
 
-			frame := core.MultiFrame(
+			frame := frame.NewMulti(
 				channel.Keys{1, 1, 2, 2},
 				[]telem.Series{s1_ch1, s2_ch1, s1_ch2, s2_ch2},
 			)
@@ -762,7 +762,7 @@ var _ = Describe("Codec", func() {
 			s2 := telem.NewSeriesV[int32](4, 5)
 			s2.Alignment = 0 // Both zero, should still merge if data is contiguous
 
-			frame := core.MultiFrame(
+			frame := frame.NewMulti(
 				channel.Keys{1, 1},
 				[]telem.Series{s1, s2},
 			)
@@ -795,7 +795,7 @@ var _ = Describe("Codec", func() {
 				End:   telem.TimeStamp(300),
 			}
 
-			frame := core.MultiFrame(
+			frame := frame.NewMulti(
 				channel.Keys{1, 1},
 				[]telem.Series{s1, s2},
 			)
@@ -824,7 +824,7 @@ var _ = Describe("Codec", func() {
 			s2 := telem.NewSeriesStringsV("foo")
 			s2.Alignment = 2
 
-			frame := core.MultiFrame(
+			frame := frame.NewMulti(
 				channel.Keys{1, 1},
 				[]telem.Series{s1, s2},
 			)
@@ -846,7 +846,7 @@ var _ = Describe("Codec", func() {
 func BenchmarkEncode(b *testing.B) {
 	dataTypes := []telem.DataType{"int32"}
 	keys := channel.Keys{1}
-	fr := core.MultiFrame(
+	fr := frame.NewMulti(
 		keys,
 		[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
 	)
@@ -865,7 +865,7 @@ func BenchmarkEncode(b *testing.B) {
 
 func BenchmarkJSONEncode(b *testing.B) {
 	keys := channel.Keys{1}
-	fr := core.MultiFrame(
+	fr := frame.NewMulti(
 		keys,
 		[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
 	)
@@ -880,7 +880,7 @@ func BenchmarkDecode(b *testing.B) {
 	var (
 		dataTypes = []telem.DataType{"int32"}
 		keys      = channel.Keys{1}
-		fr        = core.MultiFrame(
+		fr        = frame.NewMulti(
 			keys,
 			[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
 		)
@@ -900,7 +900,7 @@ func BenchmarkDecode(b *testing.B) {
 
 func BenchmarkJSONDecode(b *testing.B) {
 	keys := channel.Keys{1}
-	encoded, err := json.Marshal(core.MultiFrame(
+	encoded, err := json.Marshal(frame.NewMulti(
 		keys,
 		[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
 	))
@@ -919,7 +919,7 @@ func BenchmarkJSONDecode(b *testing.B) {
 func BenchmarkAlignmentCompression_SingleSeries(b *testing.B) {
 	keys := channel.Keys{1}
 	dataTypes := []telem.DataType{telem.Int32T}
-	frame := core.UnaryFrame(1, telem.NewSeriesV[int32](1, 2, 3, 4, 5))
+	frame := frame.NewUnary(1, telem.NewSeriesV[int32](1, 2, 3, 4, 5))
 
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
@@ -950,7 +950,7 @@ func BenchmarkAlignmentCompression_TwoContiguous(b *testing.B) {
 	s2 := telem.NewSeriesV[int32](4, 5, 6)
 	s2.Alignment = 3
 
-	frame := core.MultiFrame(channel.Keys{1, 1}, []telem.Series{s1, s2})
+	frame := frame.NewMulti(channel.Keys{1, 1}, []telem.Series{s1, s2})
 
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
@@ -981,12 +981,12 @@ func BenchmarkAlignmentCompression_ManyContiguous(b *testing.B) {
 	seriesList := make([]telem.Series, 100)
 	for i := 0; i < 100; i++ {
 		seriesKeys[i] = 1
-		s := telem.NewSeriesV[int32](int32(i*10), int32(i*10+1), int32(i*10+2))
+		s := telem.NewSeriesV(int32(i*10), int32(i*10+1), int32(i*10+2))
 		s.Alignment = telem.Alignment(i * 3)
 		seriesList[i] = s
 	}
 
-	frame := core.MultiFrame(seriesKeys, seriesList)
+	frame := frame.NewMulti(seriesKeys, seriesList)
 
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
@@ -1018,7 +1018,7 @@ func BenchmarkAlignmentCompression_MixedContiguity(b *testing.B) {
 	alignment := telem.Alignment(0)
 	for i := 0; i < 50; i++ {
 		seriesKeys[i] = 1
-		s := telem.NewSeriesV[int32](int32(i*10), int32(i*10+1))
+		s := telem.NewSeriesV(int32(i*10), int32(i*10+1))
 		s.Alignment = alignment
 		seriesList[i] = s
 
@@ -1030,7 +1030,7 @@ func BenchmarkAlignmentCompression_MixedContiguity(b *testing.B) {
 		}
 	}
 
-	frame := core.MultiFrame(seriesKeys, seriesList)
+	frame := frame.NewMulti(seriesKeys, seriesList)
 
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
@@ -1069,11 +1069,11 @@ func BenchmarkAlignmentCompression_MultiChannel(b *testing.B) {
 			var s telem.Series
 			switch ch {
 			case 0:
-				s = telem.NewSeriesV[int32](int32(i), int32(i+1))
+				s = telem.NewSeriesV(int32(i), int32(i+1))
 			case 1:
-				s = telem.NewSeriesV[float32](float32(i), float32(i+1))
+				s = telem.NewSeriesV(float32(i), float32(i+1))
 			case 2:
-				s = telem.NewSeriesV[uint8](uint8(i), uint8(i+1))
+				s = telem.NewSeriesV(uint8(i), uint8(i+1))
 			}
 			s.Alignment = alignment
 			alignment += 2
@@ -1081,7 +1081,7 @@ func BenchmarkAlignmentCompression_MultiChannel(b *testing.B) {
 		}
 	}
 
-	frame := core.MultiFrame(seriesKeys, seriesList)
+	frame := frame.NewMulti(seriesKeys, seriesList)
 
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
@@ -1112,12 +1112,12 @@ func BenchmarkAlignmentCompression_BandwidthSavings(b *testing.B) {
 	seriesList := make([]telem.Series, 100)
 	for i := 0; i < 100; i++ {
 		seriesKeys[i] = 1
-		s := telem.NewSeriesV[int32](int32(i*10), int32(i*10+1), int32(i*10+2))
+		s := telem.NewSeriesV(int32(i*10), int32(i*10+1), int32(i*10+2))
 		s.Alignment = telem.Alignment(i * 3)
 		seriesList[i] = s
 	}
 
-	frame := core.MultiFrame(seriesKeys, seriesList)
+	frame := frame.NewMulti(seriesKeys, seriesList)
 
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)

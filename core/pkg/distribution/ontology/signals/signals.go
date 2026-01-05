@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -26,7 +26,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// Publish publishes changes from the provided ontology into the provided signals.Provider.
+// Publish publishes changes from the provided ontology into the provided
+// signals.Provider.
 func Publish(
 	ctx context.Context,
 	prov *signals.Provider,
