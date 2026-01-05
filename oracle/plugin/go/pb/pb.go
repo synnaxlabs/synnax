@@ -68,12 +68,9 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	outputStructs := make(map[string][]resolution.Type)
 	// Group DistinctForm types that wrap structs by their pb output path
 	outputTypeDefs := make(map[string][]resolution.Type)
-	// Group AliasForm types with @go use directive by their pb output path
-	outputAliasUses := make(map[string][]resolution.Type)
 	var outputOrder []string
 
 	for _, entry := range req.Resolutions.StructTypes() {
-		// Use GetPBPath which derives from @go output when @pb flag present
 		outputPath := output.GetPBPath(entry)
 		if outputPath == "" {
 			continue
@@ -127,59 +124,18 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		outputTypeDefs[outputPath] = append(outputTypeDefs[outputPath], entry)
 	}
 
-	// Collect AliasForm types with @go use directive (for wrapper translators)
-	for _, entry := range req.Resolutions.AliasTypes() {
-		// Check if this alias has @go use directive
-		if !hasGoUseDirective(entry) {
-			continue
-		}
-		outputPath := output.GetPBPath(entry)
-		if outputPath == "" {
-			continue
-		}
-		if omit.IsType(entry, "pb") {
-			continue
-		}
-
-		// Check if this alias points to a struct type
-		form, ok := entry.Form.(resolution.AliasForm)
-		if !ok {
-			continue
-		}
-		if !p.isStructWrappingTypedef(form.Target, req.Resolutions) {
-			continue
-		}
-
-		if req.RepoRoot != "" {
-			if err := req.ValidateOutputPath(outputPath); err != nil {
-				return nil, errors.Wrapf(err, "invalid output path for alias %s", entry.Name)
-			}
-		}
-		if _, exists := outputStructs[outputPath]; !exists {
-			if _, exists := outputTypeDefs[outputPath]; !exists {
-				if _, exists := outputAliasUses[outputPath]; !exists {
-					outputOrder = append(outputOrder, outputPath)
-				}
-			}
-		}
-		outputAliasUses[outputPath] = append(outputAliasUses[outputPath], entry)
-	}
-
 	for _, outputPath := range outputOrder {
 		structs := outputStructs[outputPath]
 		typeDefs := outputTypeDefs[outputPath]
-		aliasUses := outputAliasUses[outputPath]
 		// Get all enums in the namespace, not just referenced ones
 		namespace := ""
 		if len(structs) > 0 {
 			namespace = structs[0].Namespace
 		} else if len(typeDefs) > 0 {
 			namespace = typeDefs[0].Namespace
-		} else if len(aliasUses) > 0 {
-			namespace = aliasUses[0].Namespace
 		}
 		enums := req.Resolutions.EnumsInNamespace(namespace)
-		content, err := p.generateFile(outputPath, structs, typeDefs, aliasUses, enums, req)
+		content, err := p.generateFile(outputPath, structs, typeDefs, enums, req)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
@@ -216,18 +172,15 @@ func (p *Plugin) generateFile(
 	outputPath string,
 	structs []resolution.Type,
 	typeDefs []resolution.Type,
-	aliasUses []resolution.Type,
 	enums []resolution.Type,
 	req *plugin.Request,
 ) ([]byte, error) {
-	// Get namespace from first struct, typedef, or alias
+	// Get namespace from first struct or typedef
 	namespace := ""
 	if len(structs) > 0 {
 		namespace = structs[0].Namespace
 	} else if len(typeDefs) > 0 {
 		namespace = typeDefs[0].Namespace
-	} else if len(aliasUses) > 0 {
-		namespace = aliasUses[0].Namespace
 	}
 
 	// Get parent Go package path (outputPath minus /pb)
@@ -243,7 +196,6 @@ func (p *Plugin) generateFile(
 		EnumTranslators:       make([]enumTranslatorData, 0),
 		AnyHelpers:            make([]anyHelperData, 0),
 		DelegationTranslators: make([]delegationTranslatorData, 0),
-		AliasUseTranslators:   make([]aliasUseTranslatorData, 0),
 		imports:               gointernal.NewImportManager(),
 		repoRoot:              req.RepoRoot,
 		table:                 req.Resolutions,
@@ -332,26 +284,8 @@ func (p *Plugin) generateFile(
 		}
 	}
 
-	// Process alias types with @go use directive (alias wrapper translators)
-	for _, alias := range aliasUses {
-		if omit.IsType(alias, "pb") {
-			continue
-		}
-		form, ok := alias.Form.(resolution.AliasForm)
-		if !ok {
-			continue
-		}
-		wrapper, err := p.processAliasUseTranslator(alias, form, data, req)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to process alias use translator %s", alias.Name)
-		}
-		if wrapper != nil {
-			data.AliasUseTranslators = append(data.AliasUseTranslators, *wrapper)
-		}
-	}
-
 	// Skip file generation if no translators of any kind
-	if len(data.Translators) == 0 && len(data.GenericTranslators) == 0 && len(data.EnumTranslators) == 0 && len(data.DelegationTranslators) == 0 && len(data.AliasUseTranslators) == 0 {
+	if len(data.Translators) == 0 && len(data.GenericTranslators) == 0 && len(data.EnumTranslators) == 0 && len(data.DelegationTranslators) == 0 {
 		return nil, nil
 	}
 
@@ -828,21 +762,6 @@ func (p *Plugin) generateStructConversion(
 	data *templateData,
 	goField, pbField string,
 ) (forward, backward, backwardCast string) {
-	// Check for @go use directive on alias types - redirects to a different type's translator
-	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
-		if goDomain, ok := resolved.Domains["go"]; ok {
-			if useExpr, found := goDomain.Expressions.Find("use"); found && len(useExpr.Values) > 0 {
-				useName := useExpr.Values[0].IdentValue
-				if useName == "" {
-					useName = useExpr.Values[0].StringValue
-				}
-				if useName != "" {
-					return p.generateUseTypeConversion(useName, resolved, aliasForm, isHardOptional, data, goField, pbField)
-				}
-			}
-		}
-	}
-
 	// Follow alias chain to find the actual underlying struct and collect type args
 	actualStruct := resolved
 	var typeArgs []resolution.TypeRef
@@ -896,165 +815,6 @@ func (p *Plugin) generateStructConversion(
 
 	return fmt.Sprintf("%s%sToPB(ctx, %s)", translatorPrefix, translatorStructName, goField),
 		fmt.Sprintf("%s%sFromPB(ctx, %s)", translatorPrefix, translatorStructName, pbField), ""
-}
-
-// generateUseTypeConversion generates conversion for types with @go use directive.
-// If the alias is in the same namespace/output, it uses the local wrapper functions.
-// Otherwise, it inlines the call to the @go use type's translator.
-func (p *Plugin) generateUseTypeConversion(
-	useName string,
-	aliasType resolution.Type,
-	aliasForm resolution.AliasForm,
-	isHardOptional bool,
-	data *templateData,
-	goField, pbField string,
-) (forward, backward, backwardCast string) {
-	// Check if the alias is in the same namespace and has a local wrapper translator
-	// If so, use the local wrapper function instead of inlining
-	aliasPBPath := output.GetPBPath(aliasType)
-	if aliasPBPath == data.OutputPath {
-		// Same output path - use local wrapper functions
-		aliasName := getGoName(aliasType)
-		if aliasName == "" {
-			aliasName = aliasType.Name
-		}
-
-		if isHardOptional {
-			forward = fmt.Sprintf("%sToPB(ctx, *%s)", aliasName, goField)
-			backward = fmt.Sprintf("%sFromPB(ctx, %s)", aliasName, pbField)
-		} else {
-			forward = fmt.Sprintf("%sToPB(ctx, %s)", aliasName, goField)
-			backward = fmt.Sprintf("%sFromPB(ctx, %s)", aliasName, pbField)
-		}
-		return forward, backward, ""
-	}
-
-	// Different output path - resolve and inline the call
-	// Try to resolve the use type - first in same namespace, then fully qualified
-	var useType resolution.Type
-	var found bool
-
-	// Try same namespace first
-	qualifiedName := aliasType.Namespace + "." + useName
-	useType, found = data.table.Get(qualifiedName)
-	if !found {
-		// Try as fully qualified name
-		useType, found = data.table.Get(useName)
-	}
-	if !found {
-		// Fallback to direct copy if type not found
-		return goField, pbField, ""
-	}
-
-	// Get the type name to use (check for @go name override on use type)
-	typeName := getGoName(useType)
-	if typeName == "" {
-		typeName = useType.Name
-	}
-
-	// Get pb name for the use type (check for @pb name override)
-	pbName := getPBName(useType)
-	if pbName == "" {
-		pbName = useType.Name
-	}
-
-	// Get type arguments from the alias's target
-	typeArgs := aliasForm.Target.TypeArgs
-
-	// Get the pb output path for the use type
-	pbPath := output.GetPBPath(useType)
-	if pbPath == "" {
-		// If use type has no pb path, try to find it via the type it wraps
-		if form, ok := useType.Form.(resolution.DistinctForm); ok {
-			if baseResolved, ok := form.Base.Resolve(data.table); ok {
-				_, pbPath = findStructWithPB(baseResolved, data.table)
-			}
-		}
-	}
-
-	if pbPath == "" {
-		// No pb path found - fallback
-		return goField, pbField, ""
-	}
-
-	// Import the use type's pb package
-	importPath, err := resolveGoImportPath(pbPath, data.repoRoot)
-	if err != nil {
-		return goField, pbField, ""
-	}
-
-	// Derive alias for the pb package
-	goOutput := output.GetPath(useType, "go")
-	pbAlias := gointernal.DerivePackageName(goOutput) + "_pb"
-	data.imports.AddInternal(pbAlias, importPath)
-
-	translatorPrefix := pbAlias + "."
-
-	// Check if the use type is generic (has type params)
-	var useTypeParams []resolution.TypeParam
-	switch form := useType.Form.(type) {
-	case resolution.DistinctForm:
-		useTypeParams = form.TypeParams
-	case resolution.AliasForm:
-		useTypeParams = form.TypeParams
-	case resolution.StructForm:
-		useTypeParams = form.TypeParams
-	}
-
-	// If generic and we have type args, generate generic call
-	if len(useTypeParams) > 0 && len(typeArgs) > 0 {
-		// Build converter function arguments
-		var forwardConverters, backwardConverters []string
-		var explicitTypeArgs []string
-
-		for _, typeArg := range typeArgs {
-			argResolved, ok := typeArg.Resolve(data.table)
-			if ok {
-				if _, isStruct := argResolved.Form.(resolution.StructForm); isStruct {
-					argGoName := getGoName(argResolved)
-					if argGoName == "" {
-						argGoName = argResolved.Name
-					}
-
-					// Track and generate the Any helper
-					p.ensureAnyHelper(argResolved, data)
-
-					forwardConverters = append(forwardConverters, fmt.Sprintf("%sToPBAny", argGoName))
-					backwardConverters = append(backwardConverters, fmt.Sprintf("%sFromPBAny", argGoName))
-
-					explicitTypeArgs = append(explicitTypeArgs, fmt.Sprintf("%s.%s", data.parentAlias, argGoName))
-					continue
-				}
-			}
-			forwardConverters = append(forwardConverters, "nil")
-			backwardConverters = append(backwardConverters, "nil")
-			explicitTypeArgs = append(explicitTypeArgs, "any")
-		}
-
-		forwardArgs := strings.Join(forwardConverters, ", ")
-		backwardArgs := strings.Join(backwardConverters, ", ")
-		typeArgsStr := "[" + strings.Join(explicitTypeArgs, ", ") + "]"
-
-		if isHardOptional {
-			forward = fmt.Sprintf("%s%sToPB%s(ctx, *%s, %s)", translatorPrefix, pbName, typeArgsStr, goField, forwardArgs)
-			backward = fmt.Sprintf("%s%sFromPB%s(ctx, %s, %s)", translatorPrefix, pbName, typeArgsStr, pbField, backwardArgs)
-		} else {
-			forward = fmt.Sprintf("%s%sToPB%s(ctx, %s, %s)", translatorPrefix, pbName, typeArgsStr, goField, forwardArgs)
-			backward = fmt.Sprintf("%s%sFromPB%s(ctx, %s, %s)", translatorPrefix, pbName, typeArgsStr, pbField, backwardArgs)
-		}
-		return forward, backward, ""
-	}
-
-	// Non-generic case
-	if isHardOptional {
-		forward = fmt.Sprintf("%s%sToPB(ctx, *%s)", translatorPrefix, pbName, goField)
-		backward = fmt.Sprintf("%s%sFromPB(ctx, %s)", translatorPrefix, pbName, pbField)
-	} else {
-		forward = fmt.Sprintf("%s%sToPB(ctx, %s)", translatorPrefix, pbName, goField)
-		backward = fmt.Sprintf("%s%sFromPB(ctx, %s)", translatorPrefix, pbName, pbField)
-	}
-
-	return forward, backward, ""
 }
 
 // generateGenericStructConversion generates conversion for generic struct types
@@ -1345,19 +1105,6 @@ func (p *Plugin) generateArrayConversion(
 	}
 	elemType := typeRef.TypeArgs[0]
 
-	// Check for @go use directive on the field - redirects to a different type's translator
-	if goDomain, ok := field.Domains["go"]; ok {
-		if useExpr, found := goDomain.Expressions.Find("use"); found && len(useExpr.Values) > 0 {
-			useName := useExpr.Values[0].IdentValue
-			if useName == "" {
-				useName = useExpr.Values[0].StringValue
-			}
-			if useName != "" {
-				return p.generateArrayConversionWithUse(useName, elemType, data, goField, pbField)
-			}
-		}
-	}
-
 	// For struct arrays, use slice helper
 	elemResolved, ok := elemType.Resolve(data.table)
 	if ok {
@@ -1385,69 +1132,6 @@ func (p *Plugin) generateArrayConversion(
 	}
 
 	return goField, pbField, false
-}
-
-// generateArrayConversionWithUse handles array conversion when @go use is specified on the field.
-func (p *Plugin) generateArrayConversionWithUse(
-	useName string,
-	elemType resolution.TypeRef,
-	data *templateData,
-	goField, pbField string,
-) (forward, backward string, hasError bool) {
-	// Resolve the use type
-	var useType resolution.Type
-	var found bool
-
-	// Try to resolve the element type first to get its namespace
-	elemResolved, elemOk := elemType.Resolve(data.table)
-
-	// Try same namespace as element type
-	if elemOk {
-		qualifiedName := elemResolved.Namespace + "." + useName
-		useType, found = data.table.Get(qualifiedName)
-	}
-	if !found {
-		// Try as fully qualified name
-		useType, found = data.table.Get(useName)
-	}
-	if !found {
-		// Fall back to default handling
-		return goField, pbField, false
-	}
-
-	// Get the translator name from the use type
-	translatorName := getGoName(useType)
-	if translatorName == "" {
-		translatorName = useType.Name
-	}
-
-	// Find the pb package for the use type
-	pbPath := output.GetPBPath(useType)
-	if pbPath == "" {
-		// For DistinctForm, find underlying struct's pb
-		if distinctForm, ok := useType.Form.(resolution.DistinctForm); ok {
-			if baseResolved, ok := distinctForm.Base.Resolve(data.table); ok {
-				_, pbPath = findStructWithPB(baseResolved, data.table)
-			}
-		}
-	}
-	if pbPath == "" {
-		return goField, pbField, false
-	}
-
-	// Import the pb package
-	importPath, err := resolveGoImportPath(pbPath, data.repoRoot)
-	if err != nil {
-		return goField, pbField, false
-	}
-	goOutput := output.GetPath(useType, "go")
-	pbAlias := gointernal.DerivePackageAlias(goOutput+"pb", data.Package)
-	data.imports.AddInternal(pbAlias, importPath)
-
-	// All slice translators return (result, error)
-	return fmt.Sprintf("%s.%ssToPB(ctx, %s)", pbAlias, translatorName, goField),
-		fmt.Sprintf("%s.%ssFromPB(ctx, %s)", pbAlias, translatorName, pbField),
-		true
 }
 
 // generateEnumTranslator generates translator data for an enum.
@@ -1731,7 +1415,6 @@ type templateData struct {
 	EnumTranslators       []enumTranslatorData
 	AnyHelpers            []anyHelperData
 	DelegationTranslators []delegationTranslatorData
-	AliasUseTranslators   []aliasUseTranslatorData
 	imports               *gointernal.ImportManager
 	repoRoot              string
 	table                 *resolution.Table
@@ -1839,194 +1522,3 @@ type delegationTranslatorData struct {
 	UnderlyingTranslatorPrefix string          // e.g., "gostatus_pb." (import prefix for translator)
 }
 
-// aliasUseTranslatorData holds data for translators that wrap an alias with @go use directive.
-// Used for AliasForm types like `Status = status.Status<StatusDetails> { @go use status.GoServiceStatus }`
-// These generate wrapper functions that call the @go use type's translator.
-type aliasUseTranslatorData struct {
-	Name                 string   // e.g., "Status" (the alias name)
-	GoType               string   // e.g., "rack.Status" (local alias type)
-	PBType               string   // e.g., "status_pb.Status" (proto type from @go use)
-	UseTypeName          string   // e.g., "GoServiceStatus" (the @go use type's translator name)
-	UseTranslatorPrefix  string   // e.g., "status_pb." (import prefix for translator)
-	TypeArgs             []string // Explicit type arguments for generic calls (e.g., "rack.StatusDetails")
-	ConverterFuncs       []string // Converter function names (e.g., "StatusDetailsToPBAny")
-	BackConverterFuncs   []string // Back-converter function names (e.g., "StatusDetailsFromPBAny")
-}
-
-// hasGoUseDirective checks if a type has the @go use directive.
-func hasGoUseDirective(t resolution.Type) bool {
-	goDomain, ok := t.Domains["go"]
-	if !ok {
-		return false
-	}
-	_, found := goDomain.Expressions.Find("use")
-	return found
-}
-
-// getGoUseValue extracts the @go use value from a type.
-func getGoUseValue(t resolution.Type) string {
-	goDomain, ok := t.Domains["go"]
-	if !ok {
-		return ""
-	}
-	useExpr, found := goDomain.Expressions.Find("use")
-	if !found || len(useExpr.Values) == 0 {
-		return ""
-	}
-	useName := useExpr.Values[0].IdentValue
-	if useName == "" {
-		useName = useExpr.Values[0].StringValue
-	}
-	return useName
-}
-
-// processAliasUseTranslator processes an alias with @go use directive to generate wrapper translators.
-func (p *Plugin) processAliasUseTranslator(
-	alias resolution.Type,
-	form resolution.AliasForm,
-	data *templateData,
-	req *plugin.Request,
-) (*aliasUseTranslatorData, error) {
-	useName := getGoUseValue(alias)
-	if useName == "" {
-		return nil, nil
-	}
-
-	// Look up the @go use type
-	var useType resolution.Type
-	var found bool
-
-	// Try same namespace first
-	qualifiedName := alias.Namespace + "." + useName
-	useType, found = data.table.Get(qualifiedName)
-	if !found {
-		// Try the target's namespace
-		targetName := form.Target.Name
-		if dotIdx := strings.LastIndex(targetName, "."); dotIdx >= 0 {
-			targetNamespace := targetName[:dotIdx]
-			qualifiedName = targetNamespace + "." + useName
-			useType, found = data.table.Get(qualifiedName)
-		}
-	}
-	if !found {
-		// Try as fully qualified name
-		useType, found = data.table.Get(useName)
-	}
-	if !found {
-		return nil, nil
-	}
-
-	// Get the alias name
-	aliasName := getGoName(alias)
-	if aliasName == "" {
-		aliasName = alias.Name
-	}
-
-	// Get the use type's translator name (for calling GoServiceStatusToPB, etc.)
-	useTypeName := getGoName(useType)
-	if useTypeName == "" {
-		useTypeName = useType.Name
-	}
-
-	// Find the underlying struct that has the actual proto definition
-	// For DistinctForm types like GoServiceStatus, we need to find the actual struct (GoStatus)
-	var underlyingStruct *resolution.Type
-	var underlyingPBPath string
-
-	if distinctForm, ok := useType.Form.(resolution.DistinctForm); ok {
-		if baseResolved, ok := distinctForm.Base.Resolve(data.table); ok {
-			structWithPB, pbPath := findStructWithPB(baseResolved, data.table)
-			if structWithPB != nil {
-				underlyingStruct = structWithPB
-				underlyingPBPath = pbPath
-			}
-		}
-	} else if aliasFormUse, ok := useType.Form.(resolution.AliasForm); ok {
-		if targetResolved, ok := aliasFormUse.Target.Resolve(data.table); ok {
-			structWithPB, pbPath := findStructWithPB(targetResolved, data.table)
-			if structWithPB != nil {
-				underlyingStruct = structWithPB
-				underlyingPBPath = pbPath
-			}
-		}
-	}
-
-	if underlyingStruct == nil || underlyingPBPath == "" {
-		return nil, nil
-	}
-
-	// Import the underlying struct's pb package (where the actual proto is)
-	underlyingPBImportPath, err := resolveGoImportPath(underlyingPBPath, data.repoRoot)
-	if err != nil {
-		return nil, err
-	}
-	underlyingGoOutput := output.GetPath(*underlyingStruct, "go")
-	underlyingPBAlias := gointernal.DerivePackageAlias(underlyingGoOutput+"_pb", data.Package)
-	data.imports.AddInternal(underlyingPBAlias, underlyingPBImportPath)
-
-	// Also import the use type's pb package for calling the translator
-	useTypePBPath := output.GetPBPath(useType)
-	if useTypePBPath == "" {
-		useTypePBPath = underlyingPBPath
-	}
-	useTypePBImportPath, err := resolveGoImportPath(useTypePBPath, data.repoRoot)
-	if err != nil {
-		return nil, err
-	}
-	useTypeGoOutput := output.GetPath(useType, "go")
-	// Use a different base name to ensure unique aliases
-	useTypePBAlias := gointernal.DerivePackageAlias(useTypeGoOutput+"_pb", underlyingPBAlias)
-	if useTypePBImportPath != underlyingPBImportPath {
-		data.imports.AddInternal(useTypePBAlias, useTypePBImportPath)
-	} else {
-		// Same package - use the same alias
-		useTypePBAlias = underlyingPBAlias
-	}
-
-	// Get the pb type name from the underlying struct
-	pbTypeName := getPBName(*underlyingStruct)
-	if pbTypeName == "" {
-		pbTypeName = underlyingStruct.Name
-	}
-
-	// Build type arguments and converter function names from the alias's Target.TypeArgs
-	var typeArgs, converterFuncs, backConverterFuncs []string
-	typeArgs = make([]string, 0, len(form.Target.TypeArgs))
-	converterFuncs = make([]string, 0, len(form.Target.TypeArgs))
-	backConverterFuncs = make([]string, 0, len(form.Target.TypeArgs))
-
-	for _, typeArg := range form.Target.TypeArgs {
-		argResolved, ok := typeArg.Resolve(data.table)
-		if ok {
-			if _, isStruct := argResolved.Form.(resolution.StructForm); isStruct {
-				argGoName := getGoName(argResolved)
-				if argGoName == "" {
-					argGoName = argResolved.Name
-				}
-
-				// Track and generate the Any helper
-				p.ensureAnyHelper(argResolved, data)
-
-				// Add explicit type arg with parent alias
-				typeArgs = append(typeArgs, fmt.Sprintf("%s.%s", data.parentAlias, argGoName))
-				converterFuncs = append(converterFuncs, fmt.Sprintf("%sToPBAny", argGoName))
-				backConverterFuncs = append(backConverterFuncs, fmt.Sprintf("%sFromPBAny", argGoName))
-				continue
-			}
-		}
-		typeArgs = append(typeArgs, "any")
-		converterFuncs = append(converterFuncs, "nil")
-		backConverterFuncs = append(backConverterFuncs, "nil")
-	}
-
-	return &aliasUseTranslatorData{
-		Name:                aliasName,
-		GoType:              fmt.Sprintf("%s.%s", data.parentAlias, aliasName),
-		PBType:              fmt.Sprintf("%s.%s", underlyingPBAlias, pbTypeName),
-		UseTypeName:         useTypeName,
-		UseTranslatorPrefix: useTypePBAlias + ".",
-		TypeArgs:            typeArgs,
-		ConverterFuncs:      converterFuncs,
-		BackConverterFuncs:  backConverterFuncs,
-	}, nil
-}

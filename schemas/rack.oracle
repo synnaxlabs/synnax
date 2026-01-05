@@ -19,8 +19,6 @@ Key uint32
 
 StatusDetails struct {
     rack Key
-
-    @api output "core/pkg/api/grpc"
 }
 
 Status = status.Status<StatusDetails>
@@ -34,7 +32,6 @@ Rack struct {
 
     @ts name       "Payload"
     @ontology type "rack"
-    @api output    "core/pkg/api"
     @cpp name      "Payload"
     @py name       "Base"
 }

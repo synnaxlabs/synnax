@@ -647,20 +647,11 @@ func (p *Plugin) collectValidation(
 	isString := resolution.IsPrimitive(typeRef.Name) && resolution.IsStringPrimitive(typeRef.Name)
 	isNumber := resolution.IsPrimitive(typeRef.Name) && resolution.IsNumberPrimitive(typeRef.Name)
 	if isString {
-		if rules.Email {
-			constraints = append(constraints, `pattern=r"^[\w\.-]+@[\w\.-]+\.\w+$"`)
-		}
-		if rules.URL {
-			constraints = append(constraints, `pattern=r"^https?://"`)
-		}
 		if rules.MinLength != nil {
 			constraints = append(constraints, fmt.Sprintf("min_length=%d", *rules.MinLength))
 		}
 		if rules.MaxLength != nil {
 			constraints = append(constraints, fmt.Sprintf("max_length=%d", *rules.MaxLength))
-		}
-		if rules.Pattern != nil {
-			constraints = append(constraints, fmt.Sprintf("pattern=r%q", *rules.Pattern))
 		}
 	}
 	if isNumber {

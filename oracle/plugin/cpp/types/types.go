@@ -434,19 +434,14 @@ func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData
 	isOmitted := omit.IsType(resolved, "cpp")
 	targetOutputPath := output.GetPath(resolved, "cpp")
 
-	// Check for @cpp include and namespace overrides
+	// Check for @cpp include and name overrides
 	var cppInclude string
-	var cppNamespace string
 	if cppDomain, ok := resolved.Domains["cpp"]; ok {
 		for _, expr := range cppDomain.Expressions {
 			switch expr.Name {
 			case "include":
 				if len(expr.Values) > 0 {
 					cppInclude = expr.Values[0].StringValue
-				}
-			case "namespace":
-				if len(expr.Values) > 0 {
-					cppNamespace = expr.Values[0].StringValue
 				}
 			case "name":
 				if len(expr.Values) > 0 {
@@ -459,16 +454,12 @@ func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData
 	// Handle cross-namespace references
 	if resolved.Namespace != data.rawNs {
 		if isOmitted || targetOutputPath == "" {
-			// Handwritten type - use @cpp include and namespace
+			// Handwritten type - use @cpp include and resolved namespace
 			if cppInclude != "" {
 				data.includes.addInternal(cppInclude)
 			}
-			ns := cppNamespace
-			if ns == "" {
-				ns = resolved.Namespace
-			}
-			if ns != "" {
-				name = fmt.Sprintf("%s::%s", ns, name)
+			if resolved.Namespace != "" {
+				name = fmt.Sprintf("%s::%s", resolved.Namespace, name)
 			}
 		} else {
 			// Generated type - include the generated header
@@ -515,15 +506,8 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 		}
 	}
 
-	// Determine JSON generation mode
-	jsonMode := getJsonMode(entry.Domains)
-	generateParse := jsonMode == jsonModeAll || jsonMode == jsonModeParseOnly
-	generateToJson := jsonMode == jsonModeAll || jsonMode == jsonModeToJsonOnly
-
-	// If generating JSON methods, add xjson include
-	if generateParse || generateToJson {
-		data.includes.addInternal("x/cpp/xjson/xjson.h")
-	}
+	// Always generate JSON parse and to_json methods
+	data.includes.addInternal("x/cpp/xjson/xjson.h")
 
 	// Check if this is an alias type
 	aliasForm, isAlias := entry.Form.(resolution.AliasForm)
@@ -534,8 +518,8 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 		Fields:         make([]fieldData, 0, len(form.Fields)),
 		IsGeneric:      form.IsGeneric(),
 		IsAlias:        isAlias,
-		GenerateParse:  generateParse,
-		GenerateToJson: generateToJson,
+		GenerateParse:  true,
+		GenerateToJson: true,
 	}
 
 	// Process type parameters
@@ -669,7 +653,6 @@ func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resoluti
 	// Check if struct has a @cpp name override
 	name := resolved.Name
 	var cppInclude string
-	var cppNamespace string
 	isOmitted := omit.IsType(resolved, "cpp")
 
 	if cppDomain, ok := resolved.Domains["cpp"]; ok {
@@ -682,10 +665,6 @@ func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resoluti
 			case "include":
 				if len(expr.Values) > 0 {
 					cppInclude = expr.Values[0].StringValue
-				}
-			case "namespace":
-				if len(expr.Values) > 0 {
-					cppNamespace = expr.Values[0].StringValue
 				}
 			}
 		}
@@ -702,13 +681,8 @@ func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resoluti
 				data.includes.addInternal(cppInclude)
 			}
 			// Use namespace prefix for handwritten types.
-			// If @cpp namespace is set, use it; otherwise derive from Oracle namespace.
-			ns := cppNamespace
-			if ns == "" {
-				ns = resolved.Namespace
-			}
-			if ns != "" {
-				name = fmt.Sprintf("%s::%s", ns, name)
+			if resolved.Namespace != "" {
+				name = fmt.Sprintf("%s::%s", resolved.Namespace, name)
 			}
 		} else {
 			// Generated type - include the generated header
@@ -904,15 +878,6 @@ func (d *templateData) InternalIncludes() []string {
 	return includes
 }
 
-// jsonMode represents the JSON generation mode for a struct.
-type jsonMode int
-
-const (
-	jsonModeAll       jsonMode = iota // Generate both parse and to_json
-	jsonModeOmit                      // Skip JSON generation entirely
-	jsonModeParseOnly                 // Generate only parse() method
-	jsonModeToJsonOnly                // Generate only to_json() method
-)
 
 // structData holds data for a single struct definition.
 type structData struct {
@@ -956,28 +921,6 @@ type enumValueData struct {
 	Name     string
 	Value    string
 	IntValue int64
-}
-
-// getJsonMode extracts the JSON generation mode from @cpp domain annotations.
-// Supported annotations: @cpp json omit, @cpp json parse_only, @cpp json to_json_only
-func getJsonMode(domains map[string]resolution.Domain) jsonMode {
-	cppDomain, ok := domains["cpp"]
-	if !ok {
-		return jsonModeAll
-	}
-	for _, expr := range cppDomain.Expressions {
-		if expr.Name == "json" && len(expr.Values) > 0 {
-			switch expr.Values[0].StringValue {
-			case "omit":
-				return jsonModeOmit
-			case "parse_only":
-				return jsonModeParseOnly
-			case "to_json_only":
-				return jsonModeToJsonOnly
-			}
-		}
-	}
-	return jsonModeAll
 }
 
 // defaultValueForPrimitive returns the C++ default value for a primitive type.

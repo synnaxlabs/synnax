@@ -25,22 +25,6 @@ var _ = Describe("Parse", func() {
 		Expect(rules.Required).To(BeTrue())
 	})
 
-	It("should parse email expression", func() {
-		domain := resolution.Domain{
-			Expressions: []resolution.Expression{{Name: "email"}},
-		}
-		rules := validation.Parse(domain)
-		Expect(rules.Email).To(BeTrue())
-	})
-
-	It("should parse url expression", func() {
-		domain := resolution.Domain{
-			Expressions: []resolution.Expression{{Name: "url"}},
-		}
-		rules := validation.Parse(domain)
-		Expect(rules.URL).To(BeTrue())
-	})
-
 	It("should parse min_length expression", func() {
 		domain := resolution.Domain{
 			Expressions: []resolution.Expression{{
@@ -63,18 +47,6 @@ var _ = Describe("Parse", func() {
 		rules := validation.Parse(domain)
 		Expect(rules.MaxLength).NotTo(BeNil())
 		Expect(*rules.MaxLength).To(Equal(int64(100)))
-	})
-
-	It("should parse pattern expression", func() {
-		domain := resolution.Domain{
-			Expressions: []resolution.Expression{{
-				Name:   "pattern",
-				Values: []resolution.ExpressionValue{{StringValue: "^[a-z]+$"}},
-			}},
-		}
-		rules := validation.Parse(domain)
-		Expect(rules.Pattern).NotTo(BeNil())
-		Expect(*rules.Pattern).To(Equal("^[a-z]+$"))
 	})
 
 	It("should parse min expression with int", func() {

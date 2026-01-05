@@ -383,8 +383,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 		}
 		return result
 	case resolution.AliasForm:
-		// Check for @go use directive - changes the import path for the base type
-		baseType := p.typeRefToGoWithUse(form.Target, td, data)
+		baseType := p.typeRefToGo(form.Target, data)
 		result := typeDefData{
 			Name:      name,
 			BaseType:  baseType,
@@ -634,76 +633,6 @@ func (p *Plugin) resolveAliasType(resolved resolution.Type, data *templateData) 
 	alias := gointernal.DerivePackageAlias(targetOutputPath, data.Package)
 	data.imports.AddInternal(alias, resolveGoImportPath(targetOutputPath, data.repoRoot))
 	return fmt.Sprintf("%s.%s", alias, typeName)
-}
-
-// typeRefToGoWithUse converts a type reference to Go, but respects @go use directive
-// on the aliasType to change the import path.
-func (p *Plugin) typeRefToGoWithUse(typeRef resolution.TypeRef, aliasType resolution.Type, data *templateData) string {
-	// Check for @go use directive
-	var useType *resolution.Type
-	if goDomain, ok := aliasType.Domains["go"]; ok {
-		if useExpr, found := goDomain.Expressions.Find("use"); found && len(useExpr.Values) > 0 {
-			useName := useExpr.Values[0].IdentValue
-			if useName == "" {
-				useName = useExpr.Values[0].StringValue
-			}
-			if useName != "" {
-				useType = p.lookupUseType(useName, aliasType, data)
-			}
-		}
-	}
-
-	// If no @go use or lookup failed, use standard resolution
-	if useType == nil {
-		return p.typeRefToGo(typeRef, data)
-	}
-
-	// Use the @go use type's output path for the import
-	targetOutputPath := output.GetPath(*useType, "go")
-	if targetOutputPath == "" {
-		return p.typeRefToGo(typeRef, data)
-	}
-
-	// Get the Go name from the use type (respecting @go name)
-	typeName := getGoName(*useType)
-	if typeName == "" {
-		typeName = useType.Name
-	}
-
-	// Import from the use type's output path
-	alias := gointernal.DerivePackageAlias(targetOutputPath, data.Package)
-	data.imports.AddInternal(alias, resolveGoImportPath(targetOutputPath, data.repoRoot))
-
-	// Build with type arguments from the original reference
-	return fmt.Sprintf("%s.%s", alias, p.buildGenericType(typeName, typeRef.TypeArgs, data))
-}
-
-// lookupUseType finds the type referenced by @go use directive.
-func (p *Plugin) lookupUseType(useName string, aliasType resolution.Type, data *templateData) *resolution.Type {
-	// Try same namespace first
-	qualifiedName := aliasType.Namespace + "." + useName
-	if useType, found := data.table.Get(qualifiedName); found {
-		return &useType
-	}
-
-	// Try the target's namespace (for cross-namespace @go use references)
-	if aliasForm, ok := aliasType.Form.(resolution.AliasForm); ok {
-		targetName := aliasForm.Target.Name
-		if dotIdx := strings.LastIndex(targetName, "."); dotIdx >= 0 {
-			targetNamespace := targetName[:dotIdx]
-			qualifiedName = targetNamespace + "." + useName
-			if useType, found := data.table.Get(qualifiedName); found {
-				return &useType
-			}
-		}
-	}
-
-	// Try as fully qualified name
-	if useType, found := data.table.Get(useName); found {
-		return &useType
-	}
-
-	return nil
 }
 
 // buildGenericType builds a generic type string with type arguments.

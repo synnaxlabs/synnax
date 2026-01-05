@@ -1580,20 +1580,11 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 			humanName := lo.Capitalize(strings.ReplaceAll(fieldName, "_", " "))
 			zodType = fmt.Sprintf("%s.min(1, \"%s is required\")", zodType, humanName)
 		}
-		if rules.Email {
-			zodType += ".email()"
-		}
-		if rules.URL {
-			zodType += ".url()"
-		}
 		if rules.MinLength != nil {
 			zodType = fmt.Sprintf("%s.min(%d)", zodType, *rules.MinLength)
 		}
 		if rules.MaxLength != nil {
 			zodType = fmt.Sprintf("%s.max(%d)", zodType, *rules.MaxLength)
-		}
-		if rules.Pattern != nil {
-			zodType = fmt.Sprintf("%s.regex(/%s/)", zodType, *rules.Pattern)
 		}
 	}
 	if isNumber {

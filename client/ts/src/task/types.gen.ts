@@ -17,14 +17,6 @@ import { ontology } from "@/ontology";
 export const keyZ = z.string();
 export type Key = z.infer<typeof keyZ>;
 
-export const commandZ = z.object({
-  task: z.string(),
-  type: z.string(),
-  key: z.string(),
-  args: zod.stringifiedJSON().optional(),
-});
-export interface Command extends z.infer<typeof commandZ> {}
-
 export const statusDetailsZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
   z.object({
     task: keyZ.optional(),
@@ -46,6 +38,14 @@ export const newStatusDetailsZ = <Data extends z.ZodType = z.ZodType>(data?: Dat
 export type NewStatusDetails<Data extends z.ZodType = z.ZodType> = z.infer<
   ReturnType<typeof newStatusDetailsZ<Data>>
 >;
+
+export const commandZ = z.object({
+  task: z.string(),
+  type: z.string(),
+  key: z.string(),
+  args: zod.stringifiedJSON().optional(),
+});
+export interface Command extends z.infer<typeof commandZ> {}
 
 export const statusZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
   status.statusZ({ details: statusDetailsZ(data) });

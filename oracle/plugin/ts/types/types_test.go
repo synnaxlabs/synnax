@@ -118,7 +118,7 @@ var _ = Describe("TS Types Plugin", func() {
 						min_length 1
 						max_length 255
 					}
-					email string @validate email
+					email string
 					age int32 @validate {
 						min 0
 						max 150
@@ -137,7 +137,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`name: z.string().min(1).max(255)`))
-			Expect(content).To(ContainSubstring(`email: z.string().email()`))
+			Expect(content).To(ContainSubstring(`email: z.string()`))
 			Expect(content).To(ContainSubstring(`age: z.int32().min(0).max(150)`))
 		})
 

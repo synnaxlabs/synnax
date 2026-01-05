@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 // Package validation provides utilities for parsing @validate domain expressions.
-// It extracts validation rules like required, min/max length, patterns, and defaults.
+// It extracts validation rules like required, min/max length, and defaults.
 package validation
 
 import "github.com/synnaxlabs/oracle/resolution"
@@ -18,11 +18,8 @@ type Rules struct {
 	Required  bool
 	MinLength *int64
 	MaxLength *int64
-	Pattern   *string
 	Min       *Number
 	Max       *Number
-	Email     bool
-	URL       bool
 	Default   *resolution.ExpressionValue
 }
 
@@ -42,10 +39,6 @@ func Parse(domain resolution.Domain) *Rules {
 			switch expr.Name {
 			case "required":
 				rules.Required = true
-			case "email":
-				rules.Email = true
-			case "url":
-				rules.URL = true
 			}
 			continue
 		}
@@ -55,8 +48,6 @@ func Parse(domain resolution.Domain) *Rules {
 			rules.MinLength = &v.IntValue
 		case "max_length":
 			rules.MaxLength = &v.IntValue
-		case "pattern":
-			rules.Pattern = &v.StringValue
 		case "min":
 			rules.Min = &Number{
 				Int:   v.IntValue,
@@ -82,6 +73,5 @@ func IsEmpty(r *Rules) bool {
 		return true
 	}
 	return !r.Required && r.MinLength == nil && r.MaxLength == nil &&
-		r.Pattern == nil && r.Min == nil && r.Max == nil &&
-		!r.Email && !r.URL && r.Default == nil
+		r.Min == nil && r.Max == nil && r.Default == nil
 }

@@ -313,24 +313,4 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 	return {{.GoType}}(result), err
 }
 {{- end}}
-{{- range .AliasUseTranslators}}
-
-// {{.Name}}ToPB wraps the @go use type's translator for the local alias.
-func {{.Name}}ToPB(ctx context.Context, r {{.GoType}}) (*{{.PBType}}, error) {
-{{- if gt (len .TypeArgs) 0}}
-	return {{.UseTranslatorPrefix}}{{.UseTypeName}}ToPB[{{join .TypeArgs ", "}}](ctx, r, {{join .ConverterFuncs ", "}})
-{{- else}}
-	return {{.UseTranslatorPrefix}}{{.UseTypeName}}ToPB(ctx, r)
-{{- end}}
-}
-
-// {{.Name}}FromPB wraps the @go use type's translator for the local alias.
-func {{.Name}}FromPB(ctx context.Context, pb *{{.PBType}}) ({{.GoType}}, error) {
-{{- if gt (len .TypeArgs) 0}}
-	return {{.UseTranslatorPrefix}}{{.UseTypeName}}FromPB[{{join .TypeArgs ", "}}](ctx, pb, {{join .BackConverterFuncs ", "}})
-{{- else}}
-	return {{.UseTranslatorPrefix}}{{.UseTypeName}}FromPB(ctx, pb)
-{{- end}}
-}
-{{- end}}
 `))
