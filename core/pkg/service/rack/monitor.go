@@ -93,7 +93,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 		stat := Status{
 			Key:         OntologyID(r.Key).String(),
 			Name:        r.Name,
-			Variant:     xstatus.WarningVariant,
+			Variant:     xstatus.VariantWarning,
 			Time:        state.lastUpdated,
 			Message:     fmt.Sprintf("Synnax Driver on %s not running", r.Name),
 			Description: fmt.Sprintf("Driver was last alive %s seconds ago", timeSinceAlive),
@@ -130,8 +130,8 @@ func (m *monitor) handleChange(ctx context.Context, t gorp.TxReader[string, stat
 			delete(m.mu.racks, key)
 			continue
 		}
-		isHealthy := ch.Value.Variant == xstatus.SuccessVariant ||
-			ch.Value.Variant == xstatus.InfoVariant
+		isHealthy := ch.Value.Variant == xstatus.VariantSuccess ||
+			ch.Value.Variant == xstatus.VariantInfo
 		if isHealthy || !lo.HasKey(m.mu.racks, key) {
 			m.mu.racks[key] = rackState{lastUpdated: telem.Now(), deadCheckCount: 0}
 		}

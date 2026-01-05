@@ -12,7 +12,7 @@ This example demonstrates how to read data from the test OPC UA server (server_e
 
 Before running this example:
 1. Start the test server:
-   poetry run python driver/opc/dev/server_extended.py
+   uv run python driver/opc/dev/server_extended.py
 
 2. Connect the OPC UA server device in Synnax:
    - Endpoint: opc.tcp://127.0.0.1:4841/

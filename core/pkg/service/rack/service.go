@@ -143,7 +143,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		s.shutdownSignals, err = signals.PublishFromGorp[Key](
+		s.shutdownSignals, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
 			signals.GorpPublisherConfigNumeric[Key, Rack](cfg.DB, telem.Uint32T),
@@ -220,7 +220,7 @@ func (s *Service) migrateStatusesForExistingRacks(ctx context.Context) error {
 				Key:     key,
 				Name:    r.Name,
 				Time:    telem.Now(),
-				Variant: xstatus.WarningVariant,
+				Variant: xstatus.VariantWarning,
 				Message: "Status unknown",
 				Details: StatusDetails{Rack: r.Key},
 			})

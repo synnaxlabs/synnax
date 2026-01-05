@@ -85,37 +85,38 @@ You should see something like
 Python 3.11.x
 ```
 
-## 4.0 - Install Poetry
+## 4.0 - Install uv
 
-Poetry is a Python package manager that we use to manage our Python dependencies for the
-various projects in Synnax. To install poetry, run
+uv is a fast Python package manager that we use to manage our Python dependencies for
+the various projects in Synnax. To install uv, run:
 
-```bash
-(Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | py -
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
 Then, run
 
 ```bash
-poetry --version
+uv --version
 ```
 
 You should see something like
 
 ```bash
-Poetry version 1.x.x
+uv 0.5.x
 ```
 
-If you run into trouble, check out the [poetry docs](https://python-poetry.org/docs/)
-for more information.
+If you run into trouble, check out the [uv docs](https://docs.astral.sh/uv/) for more
+information.
 
 ## 4.1 - Install Dependencies
 
-Synnax has three Python projects: `freighter/py`, `client/py`, and `alamos/py`. To
-install the dependencies for each project, move into the project directory and run
+Synnax uses a uv workspace with four Python projects: `alamos/py`, `freighter/py`,
+`client/py`, and `integration`. To install the dependencies for all projects, run from
+the repository root:
 
 ```bash
-poetry install
+uv sync
 ```
 
 # 5 - Front End Build System

@@ -17,13 +17,13 @@ Before running this example:
 1. Start the Synnax Driver (if not already running).
 
 2. Start the OPC UA test server:
-   poetry run python driver/opc/dev/server_extended.py
+   uv run python driver/opc/dev/server_extended.py
 
 3. Login to Synnax (if not already logged in):
-   poetry run sy login
+   uv run sy login
 
 4. Run this script:
-   poetry run python examples/opcua/connect_opc_server.py
+   uv run python examples/opcua/connect_opc_server.py
 
 Configuration:
     Modify the constants below to match your OPC UA server configuration.

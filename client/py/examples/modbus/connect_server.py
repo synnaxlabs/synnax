@@ -20,10 +20,10 @@ Before running this example:
    python driver/modbus/dev/server.py
 
 3. Login to Synnax (if not already logged in):
-   poetry run sy login
+   uv run sy login
 
 4. Run this script:
-   poetry run python examples/modbus/connect_modbus_server.py
+   uv run python examples/modbus/connect_modbus_server.py
 
 Configuration:
     Modify the constants below to match your Modbus server configuration.
