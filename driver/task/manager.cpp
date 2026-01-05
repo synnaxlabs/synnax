@@ -62,29 +62,38 @@ xerrors::Error task::Manager::configure_initial_tasks() {
     auto [tasks, tasks_err] = this->rack.tasks.list();
     if (tasks_err) return tasks_err;
     VLOG(1) << "retrieved " << tasks.size() << " tasks from cluster";
-    for (const auto &task: tasks) {
-        VLOG(1) << "configuring task " << task;
-        if (task.snapshot) {
-            VLOG(1) << "ignoring snapshot task " << task;
-            continue;
+    size_t queued = 0;
+    {
+        std::lock_guard lock(this->mu);
+        for (const auto &task: tasks) {
+            if (task.snapshot) {
+                VLOG(1) << "ignoring snapshot task " << task;
+                continue;
+            }
+            VLOG(1) << "queuing configure for task " << task;
+            this->entries[task.key] = std::make_shared<Entry>();
+            this->op_queue.push_back(Op{OpType::CONFIGURE, task.key, task, {}});
+            queued++;
         }
-        auto [driver_task, handled] = this->factory->configure_task(this->ctx, task);
-        if (handled && driver_task != nullptr)
-            this->tasks[task.key] = std::move(driver_task);
-        else if (handled && driver_task == nullptr)
-            VLOG(1) << "nullptr returned by factory for " << task;
     }
+    if (queued > 0) this->cv.notify_all();
     VLOG(1) << "configuring initial tasks from factories";
     auto initial_tasks = this->factory->configure_initial_tasks(this->ctx, this->rack);
-    for (auto &[sy_task, driver_task]: initial_tasks) {
-        if (driver_task == nullptr)
-            LOG(WARNING) << "unexpected nullptr returned by factory for "
-                            "initial task"
-                         << sy_task;
-        else
-            this->tasks[sy_task.key] = std::move(driver_task);
+    {
+        std::lock_guard lock(this->mu);
+        for (auto &[sy_task, driver_task]: initial_tasks) {
+            if (driver_task == nullptr)
+                LOG(WARNING) << "unexpected nullptr returned by factory for "
+                                "initial task"
+                             << sy_task;
+            else {
+                auto &entry = this->entries[sy_task.key];
+                if (!entry) entry = std::make_shared<Entry>();
+                entry->task = std::move(driver_task);
+            }
+        }
     }
-    VLOG(1) << "configured tasks";
+    VLOG(1) << "queued " << queued << " initial tasks";
     return xerrors::NIL;
 }
 
@@ -109,18 +118,24 @@ xerrors::Error task::Manager::run(std::function<void()> on_started) {
         VLOG(1) << "exiting early";
         return xerrors::NIL;
     }
-    if (const auto err = this->configure_initial_tasks()) return err;
+    this->start_workers();
+    if (const auto err = this->configure_initial_tasks()) {
+        this->stop_workers();
+        return err;
+    }
     if (this->exit_early) {
         VLOG(1) << "exiting early";
+        this->stop_workers();
         this->stop_all_tasks();
         return xerrors::NIL;
     }
-    if (const auto err = this->open_streamer()) return err;
+    if (const auto err = this->open_streamer()) {
+        this->stop_workers();
+        return err;
+    }
     LOG(INFO) << xlog::GREEN() << "started successfully" << xlog::RESET();
     if (on_started) on_started();
     do {
-        // no need to lock the streamer here, as it's safe to call close_send()
-        // and read() concurrently.
         auto [frame, read_err] = this->streamer->read();
         if (read_err) break;
         for (size_t i = 0; i < frame.size(); i++) {
@@ -134,6 +149,7 @@ xerrors::Error task::Manager::run(std::function<void()> on_started) {
                 process_task_cmd(series);
         }
     } while (true);
+    this->stop_workers();
     this->stop_all_tasks();
     std::lock_guard lock{this->mu};
     const auto c_err = this->streamer->close();
@@ -145,28 +161,21 @@ void task::Manager::process_task_set(const telem::Series &series) {
     const auto task_keys = series.values<std::uint64_t>();
     for (const auto task_key: task_keys) {
         if (this->skip_foreign_rack(task_key)) continue;
-
-        auto task_iter = this->tasks.find(task_key);
-        if (task_iter != this->tasks.end()) {
-            task_iter->second->stop(true);
-            this->tasks.erase(task_iter);
-        }
-
-        auto [sy_task, err] = this->rack.tasks.retrieve(task_key);
-        if (sy_task.snapshot) {
-            VLOG(1) << "ignoring snapshot task " << sy_task;
-            continue;
-        }
+        auto [tsk, err] = this->rack.tasks.retrieve(task_key);
         if (err) {
             LOG(WARNING) << "failed to retrieve task: " << err;
             continue;
         }
-        LOG(INFO) << "configuring task " << sy_task;
-        auto [driver_task, handled] = this->factory->configure_task(this->ctx, sy_task);
-        if (handled && driver_task != nullptr)
-            this->tasks[task_key] = std::move(driver_task);
-        else
-            LOG(ERROR) << "failed to configure task: " << sy_task.name;
+        if (tsk.snapshot) {
+            VLOG(1) << "ignoring snapshot task " << tsk;
+            continue;
+        }
+        LOG(INFO) << "queuing configure for task " << tsk;
+        std::lock_guard lock(this->mu);
+        if (!this->entries[task_key])
+            this->entries[task_key] = std::make_shared<Entry>();
+        this->op_queue.push_back(Op{OpType::CONFIGURE, tsk.key, tsk, {}});
+        this->cv.notify_one();
     }
 }
 
@@ -179,38 +188,172 @@ void task::Manager::process_task_cmd(const telem::Series &series) {
             LOG(WARNING) << "failed to parse command: " << parser.error_json().dump();
             continue;
         }
-
         if (this->skip_foreign_rack(cmd.task)) continue;
-        auto it = this->tasks.find(cmd.task);
-        if (it == this->tasks.end()) {
-            LOG(WARNING) << "could not find task to execute command: " << cmd.task;
-            continue;
-        }
-        const std::unique_ptr<Task> &tsk = it->second;
-        LOG(INFO) << "processing " << cmd.type << " command for task " << tsk->name()
-                  << " (" << cmd.task << ")";
-        tsk->exec(cmd);
+        LOG(INFO) << "queuing " << cmd.type << " command for task " << cmd.task;
+        std::lock_guard lock(this->mu);
+        if (!this->entries[cmd.task])
+            this->entries[cmd.task] = std::make_shared<Entry>();
+        this->op_queue.push_back(Op{OpType::COMMAND, cmd.task, {}, cmd});
+        this->cv.notify_one();
     }
 }
 
 void task::Manager::stop_all_tasks() {
-    for (auto &[task_key, task]: this->tasks) {
-        VLOG(1) << "stopping task " << task->name();
-        task->stop(false);
+    std::vector<std::thread> stop_threads;
+    std::vector<std::shared_ptr<std::atomic<bool>>> done_flags;
+    for (auto &[key, entry]: this->entries) {
+        if (!entry || entry->task == nullptr) continue;
+        VLOG(1) << "stopping task " << entry->task->name();
+        auto done = std::make_shared<std::atomic<bool>>(false);
+        done_flags.push_back(done);
+        stop_threads.emplace_back([entry, done] {
+            entry->task->stop(false);
+            *done = true;
+        });
     }
-    this->tasks.clear();
+    const auto deadline = telem::TimeStamp::now() + this->shutdown_timeout;
+    for (size_t i = 0; i < stop_threads.size(); i++) {
+        auto &t = stop_threads[i];
+        auto &done = done_flags[i];
+        if (!t.joinable()) continue;
+        while (!done->load() && telem::TimeStamp::now() < deadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        if (done->load()) {
+            t.join();
+        } else {
+            LOG(WARNING) << "task stop thread did not finish in time, detaching";
+            t.detach();
+        }
+    }
+    this->entries.clear();
 }
 
 void task::Manager::process_task_delete(const telem::Series &series) {
     const auto task_keys = series.values<synnax::TaskKey>();
     for (const auto task_key: task_keys) {
         if (this->skip_foreign_rack(task_key)) continue;
-        const auto it = this->tasks.find(task_key);
-        if (it != this->tasks.end()) {
-            LOG(INFO) << "stopping task " << it->second->name();
-            it->second->stop(false);
-            this->tasks.erase(it);
-        } else
-            LOG(WARNING) << "could not find task for " << task_key << " to delete";
+        std::lock_guard lock(this->mu);
+        if (!this->entries[task_key])
+            this->entries[task_key] = std::make_shared<Entry>();
+        this->op_queue.push_back(Op{OpType::DELETE, task_key, {}, {}});
+        this->cv.notify_one();
+    }
+}
+
+void task::Manager::start_workers() {
+    this->breaker.start();
+    for (size_t i = 0; i < 4; i++)
+        this->workers.emplace_back([this] { this->worker_loop(); });
+    this->monitor_thread = std::thread([this] { this->monitor_loop(); });
+}
+
+void task::Manager::stop_workers() {
+    this->breaker.stop();
+    this->cv.notify_all();
+    // Workers check breaker.running() and should exit promptly.
+    // Give them a reasonable time to finish, then detach any stragglers.
+    const auto deadline = telem::TimeStamp::now() + this->shutdown_timeout;
+    for (auto &w: this->workers) {
+        if (!w.joinable()) continue;
+        // Try joining with a short timeout by polling - C++ lacks timed join
+        while (telem::TimeStamp::now() < deadline) {
+            // Workers should exit quickly once breaker stops, so we just
+            // give them a brief window then try to join
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            break; // Attempt join after brief wait
+        }
+        if (w.joinable()) {
+            if (telem::TimeStamp::now() >= deadline) {
+                LOG(WARNING) << "worker thread did not finish in time, detaching";
+                w.detach();
+            } else {
+                w.join();
+            }
+        }
+    }
+    this->workers.clear();
+    if (this->monitor_thread.joinable()) this->monitor_thread.join();
+}
+
+void task::Manager::worker_loop() {
+    while (this->breaker.running()) {
+        std::unique_lock lock(this->mu);
+        this->cv.wait(lock, [this] {
+            return !this->breaker.running() || !this->op_queue.empty();
+        });
+        if (!this->breaker.running()) break;
+        for (auto it = this->op_queue.begin(); it != this->op_queue.end(); ++it) {
+            auto entry = this->entries[it->task_key];
+            if (!entry->processing.exchange(true)) {
+                Op op = std::move(*it);
+                this->op_queue.erase(it);
+                entry->op_started = telem::TimeStamp::now();
+                lock.unlock();
+                this->execute_op(op, entry);
+                entry->op_started = telem::TimeStamp(0);
+                entry->processing = false;
+                this->cv.notify_all();
+                break;
+            }
+        }
+    }
+}
+
+void task::Manager::monitor_loop() {
+    while (this->breaker.running()) {
+        this->breaker.wait_for(this->poll_interval);
+        if (!this->breaker.running()) break;
+        std::lock_guard lock(this->mu);
+        for (auto &[key, entry]: this->entries) {
+            if (!entry->processing) continue;
+            auto started = entry->op_started.load();
+            if (started.nanoseconds() == 0) continue;
+            if (telem::TimeStamp::now() - started > this->op_timeout) {
+                LOG(ERROR) << "task " << key << " operation timed out";
+                synnax::TaskStatus status;
+                status.key = synnax::task_ontology_id(key).string();
+                status.variant = status::variant::ERR;
+                status.message = "operation timed out";
+                status.details.task = key;
+                this->ctx->set_status(status);
+            }
+        }
+    }
+}
+
+void task::Manager::execute_op(const Op &op, std::shared_ptr<Entry> entry) const {
+    switch (op.type) {
+        case OpType::CONFIGURE: {
+            if (entry->task != nullptr) entry->task->stop(true);
+            auto [driver_task, handled] = this->factory->configure_task(
+                this->ctx,
+                op.task
+            );
+            if (!handled)
+                LOG(INFO) << "failed to find integration to handle task" << op.task;
+            if (driver_task != nullptr)
+                entry->task = std::move(driver_task);
+            else
+                LOG(ERROR) << "failed to configure task: " << op.task;
+            break;
+        }
+        case OpType::COMMAND: {
+            if (entry->task == nullptr) {
+                LOG(WARNING) << "no task for command: " << op.task_key;
+                return;
+            }
+            auto cmd = op.cmd;
+            entry->task->exec(cmd);
+            break;
+        }
+        case OpType::STOP: {
+            if (entry->task != nullptr) entry->task->stop(false);
+            break;
+        }
+        case OpType::DELETE: {
+            if (entry->task == nullptr) return;
+            entry->task->stop(false);
+            entry->task = nullptr;
+        }
     }
 }

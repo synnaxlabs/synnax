@@ -21,21 +21,16 @@ using json = nlohmann::json;
 
 class MockEchoTask final : public task::Task {
     const std::shared_ptr<task::Context> ctx;
-    const synnax::Task task;
+    const synnax::Task sy_task;
 
 public:
-    explicit MockEchoTask(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
-    ):
-        ctx(ctx), task(task) {
+    MockEchoTask(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task):
+        ctx(ctx), sy_task(task) {
         synnax::TaskStatus status{
             .key = task.status_key(),
             .variant = status::variant::SUCCESS,
-            .message = "task configured successfully",
-            .details = synnax::TaskStatusDetails{
-                .task = task.key,
-            }
+            .message = "configured",
+            .details = {.task = task.key}
         };
         ctx->set_status(status);
     }
@@ -44,27 +39,20 @@ public:
 
     void exec(task::Command &cmd) override {
         synnax::TaskStatus status{
-            .key = task.status_key(),
+            .key = sy_task.status_key(),
             .variant = status::variant::SUCCESS,
-            .details = synnax::TaskStatusDetails{
-                .task = task.key,
-                .cmd = cmd.key,
-                .running = true,
-                .data = cmd.args,
-            },
+            .details =
+                {.task = sy_task.key, .cmd = cmd.key, .running = true, .data = cmd.args}
         };
         ctx->set_status(status);
     }
 
-    void stop(bool will_reconfigure) override {
+    void stop(bool) override {
         synnax::TaskStatus status{
-            .key = task.status_key(),
+            .key = sy_task.status_key(),
             .variant = status::variant::SUCCESS,
-            .message = "task stopped successfully",
-            .details = synnax::TaskStatusDetails{
-                .task = task.key,
-                .running = false,
-            },
+            .message = "stopped",
+            .details = {.task = sy_task.key, .running = false}
         };
         ctx->set_status(status);
     }
@@ -72,8 +60,6 @@ public:
 
 class EchoTaskFactory final : public task::Factory {
 public:
-    bool configured = false;
-
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
@@ -83,71 +69,179 @@ public:
     }
 };
 
-class TaskManagerTestFixture : public testing::Test {
-protected:
-    std::shared_ptr<synnax::Synnax> client;
-    std::unique_ptr<task::Manager> task_manager;
-    synnax::Rack rack;
-    std::thread task_thread;
-    synnax::Channel status_chan;
-    synnax::Streamer status_streamer;
-
-    void SetUp() override {
-        client = std::make_shared<synnax::Synnax>(new_test_client());
-        this->rack = ASSERT_NIL_P(client->racks.create("test_rack"));
-        this->status_chan = ASSERT_NIL_P(
-            client->channels.retrieve(synnax::STATUS_SET_CHANNEL_NAME)
-        );
-        this->status_streamer = ASSERT_NIL_P(client->telem.open_streamer(
-            synnax::StreamerConfig{.channels = {this->status_chan.key}}
-        ));
-
-        auto factory = std::make_unique<EchoTaskFactory>();
-        task_manager = std::make_unique<task::Manager>(
-            rack,
-            client,
-            std::move(factory)
-        );
-
-        std::promise<void> started_promise;
-        const auto started_future = started_promise.get_future();
-        task_thread = std::thread([&] {
-            ASSERT_NIL(task_manager->run([&started_promise]() {
-                started_promise.set_value();
-            }));
-        });
-        const auto status = started_future.wait_for(std::chrono::seconds(5));
-        ASSERT_EQ(status, std::future_status::ready)
-            << "Manager failed to start within timeout";
+class BlockingTask final : public task::Task {
+public:
+    BlockingTask(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task,
+        std::atomic<bool> &started,
+        std::atomic<bool> &done,
+        std::condition_variable &cv,
+        std::mutex &mu
+    ) {
+        started = true;
+        cv.notify_all();
+        std::unique_lock lock(mu);
+        cv.wait(lock, [&] { return done.load(); });
+        synnax::TaskStatus status{
+            .key = task.status_key(),
+            .variant = status::variant::SUCCESS,
+            .message = "configured",
+            .details = {.task = task.key}
+        };
+        ctx->set_status(status);
     }
 
-    void TearDown() override {
-        ASSERT_NIL(this->status_streamer.close());
-        if (task_manager != nullptr) {
-            task_manager->stop();
-            if (task_thread.joinable()) task_thread.join();
-            task_manager.reset();
-        }
+    std::string name() const override { return "blocking"; }
+    void exec(task::Command &) override {}
+    void stop(bool) override {}
+};
+
+class BlockingTaskFactory final : public task::Factory {
+public:
+    std::atomic<bool> started{false};
+    std::atomic<bool> done{false};
+    std::condition_variable cv;
+    std::mutex mu;
+
+    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
+    ) override {
+        if (task.type == "blocking")
+            return {
+                std::make_unique<BlockingTask>(ctx, task, started, done, cv, mu),
+                true
+            };
+        if (task.type == "echo")
+            return {std::make_unique<MockEchoTask>(ctx, task), true};
+        return {nullptr, false};
+    }
+
+    void release() {
+        done = true;
+        cv.notify_all();
     }
 };
 
-/// @brief Helper to wait for a task status matching specific criteria.
-synnax::TaskStatus wait_for_task_status(
+class TrackingTask final : public task::Task {
+    std::mutex mu;
+
+public:
+    synnax::Task sy_task;
+    std::atomic<int> exec_count{0};
+    std::vector<std::string> cmd_order;
+    std::atomic<bool> stopped{false};
+    std::atomic<bool> stop_will_reconfigure{false};
+
+    TrackingTask(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task):
+        sy_task(task) {
+        synnax::TaskStatus status{
+            .key = task.status_key(),
+            .variant = status::variant::SUCCESS,
+            .message = "configured",
+            .details = {.task = task.key}
+        };
+        ctx->set_status(status);
+    }
+
+    std::string name() const override { return "tracking"; }
+
+    void exec(task::Command &cmd) override {
+        exec_count++;
+        std::lock_guard lock(mu);
+        cmd_order.push_back(cmd.key);
+    }
+
+    void stop(bool will_reconfigure) override {
+        stopped = true;
+        stop_will_reconfigure = will_reconfigure;
+    }
+
+    std::vector<std::string> get_cmd_order() {
+        std::lock_guard lock(mu);
+        return cmd_order;
+    }
+};
+
+class TrackingTaskFactory final : public task::Factory {
+public:
+    std::vector<TrackingTask *> tasks;
+    std::mutex mu;
+
+    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
+    ) override {
+        if (task.type == "tracking") {
+            auto t = std::make_unique<TrackingTask>(ctx, task);
+            std::lock_guard lock(mu);
+            tasks.push_back(t.get());
+            return {std::move(t), true};
+        }
+        return {nullptr, false};
+    }
+};
+
+class TimeoutTask final : public task::Task {
+public:
+    std::atomic<bool> &release;
+    std::condition_variable &cv;
+    std::mutex &mu;
+
+    TimeoutTask(
+        const std::shared_ptr<task::Context> &,
+        const synnax::Task &,
+        std::atomic<bool> &release,
+        std::condition_variable &cv,
+        std::mutex &mu
+    ):
+        release(release), cv(cv), mu(mu) {
+        std::unique_lock lock(mu);
+        cv.wait(lock, [&] { return this->release.load(); });
+    }
+
+    std::string name() const override { return "timeout"; }
+    void exec(task::Command &) override {}
+    void stop(bool) override {}
+};
+
+class TimeoutTaskFactory final : public task::Factory {
+public:
+    std::atomic<bool> release{false};
+    std::condition_variable cv;
+    std::mutex mu;
+
+    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
+    ) override {
+        if (task.type == "timeout")
+            return {std::make_unique<TimeoutTask>(ctx, task, release, cv, mu), true};
+        return {nullptr, false};
+    }
+
+    void release_all() {
+        release = true;
+        cv.notify_all();
+    }
+};
+
+synnax::TaskStatus wait_for_status(
     synnax::Streamer &streamer,
     const synnax::Task &task,
-    const std::function<bool(const synnax::TaskStatus &)> &predicate,
-    const std::chrono::milliseconds timeout = std::chrono::seconds(5)
+    const std::function<bool(const synnax::TaskStatus &)> &pred,
+    std::chrono::milliseconds timeout = std::chrono::seconds(5)
 ) {
     synnax::TaskStatus result;
     xtest::eventually(
         [&]() {
             auto [frame, err] = streamer.read();
             if (err) return false;
-            auto json_values = frame.series->at(0).json_values();
-            for (const auto &j: json_values) {
-                auto p = xjson::Parser(j);
-                auto s = synnax::TaskStatus::parse(p);
-                if (s.details.task == task.key && predicate(s)) {
+            for (const auto &j: frame.series->at(0).json_values()) {
+                auto parser = xjson::Parser(j);
+                auto s = synnax::TaskStatus::parse(parser);
+                if (s.details.task == task.key && pred(s)) {
                     result = s;
                     return true;
                 }
@@ -160,192 +254,527 @@ synnax::TaskStatus wait_for_task_status(
     return result;
 }
 
-/// @brief it should correctly configure an echo task.
-TEST_F(TaskManagerTestFixture, testEchoTask) {
-    auto echo_task = synnax::Task(rack.key, "echo_task", "echo", "");
-    ASSERT_NIL(rack.tasks.create(echo_task));
+class TaskManagerTest : public testing::Test {
+protected:
+    std::shared_ptr<synnax::Synnax> client;
+    std::unique_ptr<task::Manager> manager;
+    synnax::Rack rack;
+    std::thread thread;
+    synnax::Streamer streamer;
 
-    // Wait for the successful configuration status
-    auto status = wait_for_task_status(
-        this->status_streamer,
-        echo_task,
-        [](const synnax::TaskStatus &s) {
-            return s.variant == status::variant::SUCCESS &&
-                   s.message == "task configured successfully";
+    void SetUp() override {
+        client = std::make_shared<synnax::Synnax>(new_test_client());
+        rack = ASSERT_NIL_P(client->racks.create("test_rack"));
+        auto ch = ASSERT_NIL_P(
+            client->channels.retrieve(synnax::STATUS_SET_CHANNEL_NAME)
+        );
+        streamer = ASSERT_NIL_P(client->telem.open_streamer({.channels = {ch.key}}));
+    }
+
+    void start_manager(
+        std::unique_ptr<task::Factory> factory,
+        telem::TimeSpan timeout = 60 * telem::SECOND,
+        telem::TimeSpan poll = 1 * telem::SECOND
+    ) {
+        manager = std::make_unique<task::Manager>(
+            rack,
+            client,
+            std::move(factory),
+            timeout,
+            poll
+        );
+        std::promise<void> started;
+        thread = std::thread([&] {
+            ASSERT_NIL(manager->run([&] { started.set_value(); }));
+        });
+        ASSERT_EQ(
+            started.get_future().wait_for(std::chrono::seconds(5)),
+            std::future_status::ready
+        );
+    }
+
+    void TearDown() override {
+        ASSERT_NIL(streamer.close());
+        if (manager) {
+            manager->stop();
+            if (thread.joinable()) thread.join();
         }
-    );
-    ASSERT_EQ(status.details.task, echo_task.key);
-    ASSERT_EQ(status.variant, status::variant::SUCCESS);
-    ASSERT_EQ(status.message, "task configured successfully");
+    }
+};
+
+TEST_F(TaskManagerTest, Configure) {
+    start_manager(std::make_unique<EchoTaskFactory>());
+    auto task = synnax::Task(rack.key, "t", "echo", "");
+    ASSERT_NIL(rack.tasks.create(task));
+    auto s = wait_for_status(streamer, task, [](auto &s) {
+        return s.variant == status::variant::SUCCESS && s.message == "configured";
+    });
+    ASSERT_EQ(s.details.task, task.key);
 }
 
-/// @brief it should stop and remove the task.
-TEST_F(TaskManagerTestFixture, testEchoTaskDelete) {
-    auto echo_task = synnax::Task(rack.key, "echo_task", "echo", "");
-    ASSERT_NIL(rack.tasks.create(echo_task));
-
-    // Wait for task to be configured
-    wait_for_task_status(
-        this->status_streamer,
-        echo_task,
-        [](const synnax::TaskStatus &s) {
-            return s.variant == status::variant::SUCCESS &&
-                   s.message == "task configured successfully";
-        }
-    );
-
-    // Delete the task
-    ASSERT_NIL(rack.tasks.del(echo_task.key));
-
-    // Wait for the stop status
-    auto state = wait_for_task_status(
-        this->status_streamer,
-        echo_task,
-        [](const synnax::TaskStatus &s) {
-            return s.variant == status::variant::SUCCESS &&
-                   s.message == "task stopped successfully";
-        }
-    );
-    ASSERT_EQ(state.details.task, echo_task.key);
-    ASSERT_EQ(state.variant, status::variant::SUCCESS);
-    ASSERT_EQ(state.message, "task stopped successfully");
+TEST_F(TaskManagerTest, Delete) {
+    start_manager(std::make_unique<EchoTaskFactory>());
+    auto task = synnax::Task(rack.key, "t", "echo", "");
+    ASSERT_NIL(rack.tasks.create(task));
+    wait_for_status(streamer, task, [](auto &s) { return s.message == "configured"; });
+    ASSERT_NIL(rack.tasks.del(task.key));
+    auto s = wait_for_status(streamer, task, [](auto &s) {
+        return s.message == "stopped";
+    });
+    ASSERT_EQ(s.details.task, task.key);
 }
 
-/// @brief it should execute an echo command on the task.
-TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
-    auto sy_task_cmd = ASSERT_NIL_P(client->channels.retrieve("sy_task_cmd"));
+TEST_F(TaskManagerTest, Command) {
+    start_manager(std::make_unique<EchoTaskFactory>());
+    auto cmd_ch = ASSERT_NIL_P(client->channels.retrieve("sy_task_cmd"));
     auto writer = ASSERT_NIL_P(client->telem.open_writer(
-        synnax::WriterConfig{
-            .channels = {sy_task_cmd.key},
-            .start = telem::TimeStamp::now(),
-        }
+        {.channels = {cmd_ch.key}, .start = telem::TimeStamp::now()}
     ));
-    auto echo_task = synnax::Task(rack.key, "echo_task", "echo", "");
-    ASSERT_NIL(rack.tasks.create(echo_task));
+    auto task = synnax::Task(rack.key, "t", "echo", "");
+    ASSERT_NIL(rack.tasks.create(task));
+    wait_for_status(streamer, task, [](auto &s) { return s.message == "configured"; });
 
-    // Wait for task to be configured
-    wait_for_task_status(
-        this->status_streamer,
-        echo_task,
-        [](const synnax::TaskStatus &s) {
-            return s.variant == status::variant::SUCCESS &&
-                   s.message == "task configured successfully";
-        }
-    );
-
-    // Create and send a command
-    auto cmd = task::Command(
-        echo_task.key,
-        "test_command",
-        json{{"message", "hello world"}}
-    );
-    cmd.key = "my_command";
-    ASSERT_NIL(
-        writer.write(synnax::Frame(sy_task_cmd.key, telem::Series(cmd.to_json())))
-    );
+    auto cmd = task::Command(task.key, "test", json{{"msg", "hi"}});
+    cmd.key = "cmd1";
+    ASSERT_NIL(writer.write(synnax::Frame(cmd_ch.key, telem::Series(cmd.to_json()))));
     ASSERT_NIL(writer.close());
 
-    // Wait for command execution status
-    auto status = wait_for_task_status(
-        this->status_streamer,
-        echo_task,
-        [&cmd](const synnax::TaskStatus &s) { return s.details.cmd == cmd.key; }
-    );
-    ASSERT_EQ(status.details.task, echo_task.key);
-    ASSERT_EQ(status.key, echo_task.status_key());
-    ASSERT_EQ(status.details.cmd, cmd.key);
-    ASSERT_EQ(status.variant, status::variant::SUCCESS);
-    ASSERT_EQ(status.details.data["message"], "hello world");
+    auto s = wait_for_status(streamer, task, [](auto &s) {
+        return s.details.cmd == "cmd1";
+    });
+    ASSERT_EQ(s.details.data["msg"], "hi");
 }
 
-/// @brief should ignore tasks for a different rack.
-TEST_F(TaskManagerTestFixture, testIgnoreDifferentRackTask) {
-    // Create a different rack
-    auto other_rack = ASSERT_NIL_P(client->racks.create("other_rack"));
+TEST_F(TaskManagerTest, IgnoresForeignRack) {
+    start_manager(std::make_unique<EchoTaskFactory>());
+    auto other = ASSERT_NIL_P(client->racks.create("other"));
+    auto task = synnax::Task(other.key, "t", "echo", "");
+    ASSERT_NIL(other.tasks.create(task));
 
-    // Create a task for the other rack
-    auto echo_task = synnax::Task(other_rack.key, "echo_task", "echo", "");
-    ASSERT_NIL(other_rack.tasks.create(echo_task));
-
-    // Set up variables for thread communication
-    std::atomic received_state = false;
-
-    // Start reading thread
+    std::atomic<bool> received = false;
     std::thread reader([&] {
-        auto [frame, err] = this->status_streamer.read();
-        auto json_vs = frame.series->at(0).json_values();
-        for (const auto &j: json_vs) {
+        auto [frame, err] = streamer.read();
+        for (const auto &j: frame.series->at(0).json_values()) {
             auto parser = xjson::Parser(j);
-            auto status = synnax::TaskStatus::parse(parser);
-            if (status.variant != status::variant::WARNING) received_state = true;
+            auto s = synnax::TaskStatus::parse(parser);
+            if (s.variant != status::variant::WARNING) received = true;
         }
     });
-
-    // Signal thread to stop and wait for it
-    this->status_streamer.close_send();
+    streamer.close_send();
     reader.join();
-
-    // Verify no state changes were received
-    ASSERT_FALSE(received_state)
-        << "Received unexpected state change for different rack's task";
+    ASSERT_FALSE(received);
 }
 
-/// @brief it should stop all tasks when the manager is shut down.
-TEST_F(TaskManagerTestFixture, testStopTaskOnShutdown) {
-    auto echo_task = synnax::Task(rack.key, "echo_task", "echo", "");
-    ASSERT_NIL(rack.tasks.create(echo_task));
-
-    // Wait for task to be configured
-    wait_for_task_status(
-        this->status_streamer,
-        echo_task,
-        [](const synnax::TaskStatus &s) {
-            return s.variant == status::variant::SUCCESS &&
-                   s.message == "task configured successfully";
-        }
-    );
-
-    // Stop the task manager
-    task_manager->stop();
-    task_thread.join();
-
-    // Wait for the stop status
-    auto state = wait_for_task_status(
-        this->status_streamer,
-        echo_task,
-        [](const synnax::TaskStatus &s) {
-            return s.variant == status::variant::SUCCESS &&
-                   s.message == "task stopped successfully";
-        }
-    );
-    ASSERT_EQ(state.details.task, echo_task.key);
-    ASSERT_EQ(state.variant, status::variant::SUCCESS);
-    ASSERT_EQ(state.message, "task stopped successfully");
+TEST_F(TaskManagerTest, StopOnShutdown) {
+    start_manager(std::make_unique<EchoTaskFactory>());
+    auto task = synnax::Task(rack.key, "t", "echo", "");
+    ASSERT_NIL(rack.tasks.create(task));
+    wait_for_status(streamer, task, [](auto &s) { return s.message == "configured"; });
+    manager->stop();
+    thread.join();
+    auto s = wait_for_status(streamer, task, [](auto &s) {
+        return s.message == "stopped";
+    });
+    ASSERT_EQ(s.details.task, task.key);
 }
 
-/// @brief it should ignore snapshot tasks during configuration.
-TEST_F(TaskManagerTestFixture, testIgnoresSnapshot) {
-    auto snapshot_task = synnax::Task(rack.key, "snapshot_task", "echo", "");
-    snapshot_task.snapshot = true;
-    ASSERT_NIL(rack.tasks.create(snapshot_task));
-    std::atomic received_state = false;
+TEST_F(TaskManagerTest, IgnoresSnapshot) {
+    start_manager(std::make_unique<EchoTaskFactory>());
+    auto task = synnax::Task(rack.key, "t", "echo", "");
+    task.snapshot = true;
+    ASSERT_NIL(rack.tasks.create(task));
+
+    std::atomic<bool> received = false;
     std::thread reader([&] {
-        auto [frame, err] = this->status_streamer.read();
+        auto [frame, err] = streamer.read();
         if (err) return;
-        auto json_vs = frame.series->at(0).json_values();
-        for (const auto &j: json_vs) {
+        for (const auto &j: frame.series->at(0).json_values()) {
             auto parser = xjson::Parser(j);
-            auto status = synnax::TaskStatus::parse(parser);
-            if (status.variant != status::variant::WARNING &&
-                status.details.task == snapshot_task.key) {
-                received_state = true;
-                break;
-            }
+            auto s = synnax::TaskStatus::parse(parser);
+            if (s.variant != status::variant::WARNING && s.details.task == task.key)
+                received = true;
         }
     });
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    this->status_streamer.close_send();
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    streamer.close_send();
     reader.join();
-    ASSERT_FALSE(received_state)
-        << "Received unexpected state change for snapshot task";
+    ASSERT_FALSE(received);
+}
+
+TEST_F(TaskManagerTest, ParallelConfig) {
+    auto factory = std::make_unique<BlockingTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+
+    auto blocking = synnax::Task(rack.key, "b", "blocking", "");
+    ASSERT_NIL(rack.tasks.create(blocking));
+    xtest::eventually([&] { return f->started.load(); }, [] { return "not started"; });
+
+    auto echo = synnax::Task(rack.key, "e", "echo", "");
+    ASSERT_NIL(rack.tasks.create(echo));
+    auto s = wait_for_status(streamer, echo, [](auto &s) {
+        return s.message == "configured";
+    });
+    ASSERT_EQ(s.details.task, echo.key);
+
+    f->release();
+    wait_for_status(streamer, blocking, [](auto &s) {
+        return s.message == "configured";
+    });
+}
+
+TEST_F(TaskManagerTest, CommandForUnconfigured) {
+    start_manager(std::make_unique<EchoTaskFactory>());
+    auto cmd_ch = ASSERT_NIL_P(client->channels.retrieve("sy_task_cmd"));
+    auto writer = ASSERT_NIL_P(client->telem.open_writer(
+        {.channels = {cmd_ch.key}, .start = telem::TimeStamp::now()}
+    ));
+
+    auto fake_key = synnax::create_task_key(rack.key, 99999);
+    auto cmd = task::Command(fake_key, "test", json{});
+    ASSERT_NIL(writer.write(synnax::Frame(cmd_ch.key, telem::Series(cmd.to_json()))));
+    ASSERT_NIL(writer.close());
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
+    auto task = synnax::Task(rack.key, "t", "echo", "");
+    ASSERT_NIL(rack.tasks.create(task));
+    wait_for_status(streamer, task, [](auto &s) { return s.message == "configured"; });
+}
+
+TEST_F(TaskManagerTest, RapidReconfigure) {
+    start_manager(std::make_unique<EchoTaskFactory>());
+    auto task = synnax::Task(rack.key, "t", "echo", "");
+    ASSERT_NIL(rack.tasks.create(task));
+    wait_for_status(streamer, task, [](auto &s) { return s.message == "configured"; });
+
+    for (int i = 0; i < 5; i++) {
+        task.config = "{\"v\":" + std::to_string(i) + "}";
+        ASSERT_NIL(rack.tasks.create(task));
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    auto cmd_ch = ASSERT_NIL_P(client->channels.retrieve("sy_task_cmd"));
+    auto writer = ASSERT_NIL_P(client->telem.open_writer(
+        {.channels = {cmd_ch.key}, .start = telem::TimeStamp::now()}
+    ));
+    auto cmd = task::Command(task.key, "test", json{});
+    cmd.key = "final";
+    ASSERT_NIL(writer.write(synnax::Frame(cmd_ch.key, telem::Series(cmd.to_json()))));
+    ASSERT_NIL(writer.close());
+    wait_for_status(streamer, task, [](auto &s) { return s.details.cmd == "final"; });
+}
+
+TEST_F(TaskManagerTest, Timeout) {
+    auto factory = std::make_unique<TimeoutTaskFactory>();
+    auto *f = factory.get();
+    // 500ms timeout, 100ms poll for fast test
+    start_manager(
+        std::move(factory),
+        500 * telem::MILLISECOND,
+        100 * telem::MILLISECOND
+    );
+
+    auto task = synnax::Task(rack.key, "t", "timeout", "");
+    ASSERT_NIL(rack.tasks.create(task));
+
+    auto s = wait_for_status(
+        streamer,
+        task,
+        [](auto &s) {
+            return s.variant == status::variant::ERR &&
+                   s.message == "operation timed out";
+        },
+        std::chrono::seconds(5)
+    );
+    ASSERT_EQ(s.details.task, task.key);
+
+    f->release_all();
+}
+
+TEST_F(TaskManagerTest, CommandFIFO) {
+    auto factory = std::make_unique<TrackingTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+
+    auto cmd_ch = ASSERT_NIL_P(client->channels.retrieve("sy_task_cmd"));
+    auto writer = ASSERT_NIL_P(client->telem.open_writer(
+        {.channels = {cmd_ch.key}, .start = telem::TimeStamp::now()}
+    ));
+
+    auto task = synnax::Task(rack.key, "t", "tracking", "");
+    ASSERT_NIL(rack.tasks.create(task));
+    xtest::eventually(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return !f->tasks.empty();
+        },
+        [] { return "task not created"; }
+    );
+
+    std::vector<std::string> expected = {"c1", "c2", "c3", "c4", "c5"};
+    for (const auto &k: expected) {
+        auto cmd = task::Command(task.key, "test", json{});
+        cmd.key = k;
+        ASSERT_NIL(
+            writer.write(synnax::Frame(cmd_ch.key, telem::Series(cmd.to_json())))
+        );
+    }
+    ASSERT_NIL(writer.close());
+
+    xtest::eventually(
+        [&] { return f->tasks[0]->exec_count.load() >= 5; },
+        [] { return "cmds not executed"; }
+    );
+    ASSERT_EQ(f->tasks[0]->get_cmd_order(), expected);
+}
+
+TEST_F(TaskManagerTest, ReconfigureStopsOld) {
+    auto factory = std::make_unique<TrackingTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+
+    auto task = synnax::Task(rack.key, "t", "tracking", "");
+    ASSERT_NIL(rack.tasks.create(task));
+
+    TrackingTask *first = nullptr;
+    xtest::eventually(
+        [&] {
+            std::lock_guard lock(f->mu);
+            if (f->tasks.empty()) return false;
+            first = f->tasks[0];
+            return true;
+        },
+        [] { return "first not created"; }
+    );
+
+    task.config = "{\"v\":2}";
+    ASSERT_NIL(rack.tasks.create(task));
+
+    xtest::eventually(
+        [&] { return first->stopped.load(); },
+        [] { return "not stopped"; }
+    );
+    ASSERT_TRUE(first->stop_will_reconfigure.load());
+
+    xtest::eventually(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return f->tasks.size() >= 2;
+        },
+        [] { return "second not created"; }
+    );
+}
+
+class ShutdownTest : public testing::Test {
+protected:
+    std::shared_ptr<synnax::Synnax> client;
+    synnax::Rack rack;
+
+    void SetUp() override {
+        client = std::make_shared<synnax::Synnax>(new_test_client());
+        rack = ASSERT_NIL_P(client->racks.create("shutdown_rack"));
+    }
+};
+
+TEST_F(ShutdownTest, DuringConfiguration) {
+    auto factory = std::make_unique<BlockingTaskFactory>();
+    auto *f = factory.get();
+    auto manager = std::make_unique<task::Manager>(rack, client, std::move(factory));
+
+    std::promise<void> started;
+    std::thread thread([&] { manager->run([&] { started.set_value(); }); });
+    started.get_future().wait_for(std::chrono::seconds(5));
+
+    auto task = synnax::Task(rack.key, "t", "blocking", "");
+    ASSERT_NIL(rack.tasks.create(task));
+    xtest::eventually([&] { return f->started.load(); }, [] { return "not started"; });
+
+    manager->stop();
+    f->release();
+
+    auto join = std::async(std::launch::async, [&] { thread.join(); });
+    ASSERT_EQ(join.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+}
+
+TEST_F(ShutdownTest, WithPendingOps) {
+    auto factory = std::make_unique<BlockingTaskFactory>();
+    auto *f = factory.get();
+    auto manager = std::make_unique<task::Manager>(rack, client, std::move(factory));
+
+    std::promise<void> started;
+    std::thread thread([&] { manager->run([&] { started.set_value(); }); });
+    started.get_future().wait_for(std::chrono::seconds(5));
+
+    for (int i = 0; i < 3; i++) {
+        auto task = synnax::Task(rack.key, "t" + std::to_string(i), "blocking", "");
+        ASSERT_NIL(rack.tasks.create(task));
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    manager->stop();
+    f->release();
+
+    auto join = std::async(std::launch::async, [&] { thread.join(); });
+    ASSERT_EQ(join.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+}
+
+/// @brief Task that blocks forever on stop() - used to test shutdown timeout.
+class BlockingStopTask final : public task::Task {
+    std::atomic<bool> &stop_called;
+    std::atomic<bool> &release;
+    std::condition_variable &cv;
+    std::mutex &mu;
+
+public:
+    BlockingStopTask(
+        std::atomic<bool> &stop_called,
+        std::atomic<bool> &release,
+        std::condition_variable &cv,
+        std::mutex &mu
+    ):
+        stop_called(stop_called), release(release), cv(cv), mu(mu) {}
+
+    std::string name() const override { return "blocking_stop"; }
+    void exec(task::Command &) override {}
+
+    void stop(bool) override {
+        stop_called = true;
+        std::unique_lock lock(mu);
+        cv.wait(lock, [&] { return release.load(); });
+    }
+};
+
+class BlockingStopFactory final : public task::Factory {
+public:
+    std::atomic<bool> stop_called{false};
+    std::atomic<bool> release{false};
+    std::condition_variable cv;
+    std::mutex mu;
+
+    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
+        const std::shared_ptr<task::Context> &,
+        const synnax::Task &task
+    ) override {
+        if (task.type == "blocking_stop")
+            return {
+                std::make_unique<BlockingStopTask>(stop_called, release, cv, mu),
+                true
+            };
+        return {nullptr, false};
+    }
+
+    void release_all() {
+        release = true;
+        cv.notify_all();
+    }
+};
+
+TEST_F(ShutdownTest, TimeoutDetachesStuckWorkers) {
+    auto factory = std::make_unique<BlockingStopFactory>();
+    auto *f = factory.get();
+    // Very short shutdown timeout (500ms) for fast test
+    auto manager = std::make_unique<task::Manager>(
+        rack,
+        client,
+        std::move(factory),
+        60 * telem::SECOND, // op_timeout
+        1 * telem::SECOND, // poll_interval
+        500 * telem::MILLISECOND // shutdown_timeout
+    );
+
+    std::promise<void> started;
+    std::thread thread([&] { manager->run([&] { started.set_value(); }); });
+    started.get_future().wait_for(std::chrono::seconds(5));
+
+    auto task = synnax::Task(rack.key, "t", "blocking_stop", "");
+    ASSERT_NIL(rack.tasks.create(task));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    manager->stop();
+
+    // Manager should shut down within ~1s even though stop() blocks forever
+    auto join = std::async(std::launch::async, [&] { thread.join(); });
+    ASSERT_EQ(join.wait_for(std::chrono::seconds(3)), std::future_status::ready);
+
+    // Release the blocking stop so the detached thread can exit cleanly
+    f->release_all();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+}
+
+/// @brief Task that takes a fixed time to stop - used to test parallel stopping.
+class SlowStopTask final : public task::Task {
+    telem::TimeSpan stop_duration;
+    std::atomic<bool> &stopped;
+
+public:
+    SlowStopTask(telem::TimeSpan duration, std::atomic<bool> &stopped):
+        stop_duration(duration), stopped(stopped) {}
+
+    std::string name() const override { return "slow_stop"; }
+    void exec(task::Command &) override {}
+
+    void stop(bool) override {
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(
+                static_cast<int64_t>(stop_duration.milliseconds())
+            )
+        );
+        stopped = true;
+    }
+};
+
+class SlowStopFactory final : public task::Factory {
+public:
+    std::vector<std::atomic<bool> *> stopped_flags;
+    std::mutex mu;
+    telem::TimeSpan stop_duration;
+
+    explicit SlowStopFactory(telem::TimeSpan duration): stop_duration(duration) {}
+
+    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
+        const std::shared_ptr<task::Context> &,
+        const synnax::Task &task
+    ) override {
+        if (task.type == "slow_stop") {
+            auto flag = new std::atomic<bool>(false);
+            std::lock_guard lock(mu);
+            stopped_flags.push_back(flag);
+            return {std::make_unique<SlowStopTask>(stop_duration, *flag), true};
+        }
+        return {nullptr, false};
+    }
+
+    ~SlowStopFactory() override {
+        for (auto *f: stopped_flags)
+            delete f;
+    }
+};
+
+TEST_F(ShutdownTest, ParallelTaskStop) {
+    // Each task takes 200ms to stop
+    auto factory = std::make_unique<SlowStopFactory>(200 * telem::MILLISECOND);
+    auto manager = std::make_unique<task::Manager>(rack, client, std::move(factory));
+
+    std::promise<void> started;
+    std::thread thread([&] { manager->run([&] { started.set_value(); }); });
+    started.get_future().wait_for(std::chrono::seconds(5));
+
+    // Create 4 tasks that each take 200ms to stop
+    for (int i = 0; i < 4; i++) {
+        auto task = synnax::Task(rack.key, "t" + std::to_string(i), "slow_stop", "");
+        ASSERT_NIL(rack.tasks.create(task));
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
+    auto before = std::chrono::steady_clock::now();
+    manager->stop();
+    thread.join();
+    auto elapsed = std::chrono::steady_clock::now() - before;
+
+    // With parallel stopping, 4 tasks × 200ms should take ~200-400ms, not 800ms
+    // Allow some overhead but it should definitely be under 700ms
+    ASSERT_LT(
+        std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count(),
+        700
+    );
 }
