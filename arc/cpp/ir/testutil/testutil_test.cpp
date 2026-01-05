@@ -27,7 +27,7 @@ TEST(BuilderTest, SequenceCollectsNodesFromStrata) {
     EXPECT_EQ(stage.nodes[0], "A");
     EXPECT_EQ(stage.nodes[1], "B");
     EXPECT_EQ(stage.nodes[2], "C");
-    ASSERT_EQ(stage.strata.strata.size(), 2);
+    ASSERT_EQ(stage.strata.size(), 2);
 }
 
 /// @brief sequence() should handle multiple stages

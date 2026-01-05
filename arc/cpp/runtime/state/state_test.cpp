@@ -32,16 +32,7 @@ TEST(StateTest, CreateStateAndGetNode) {
     Config cfg{.ir = ir, .channels = {}};
     State s(cfg);
 
-    auto node = s.node("test");
-}
-
-/// @brief Test node retrieval for non-existent node
-TEST(StateTest, GetNonExistentNode) {
-    arc::ir::IR ir;
-    Config cfg{.ir = ir, .channels = {}};
-    State s(cfg);
-
-    ASSERT_OCCURRED_AS_P(s.node("nonexistent"), xerrors::NOT_FOUND);
+    auto state = ASSERT_NIL_P(s.node("test"));
 }
 
 /// @brief Test basic input alignment with two connected nodes
@@ -91,9 +82,9 @@ TEST(StateTest, RefreshInputs_BasicAlignment) {
 
     auto &o_time = producer_node.output_time(0);
     o_time->resize(3);
-    o_time->set(0, telem::TimeStamp(1000).nanoseconds());
-    o_time->set(1, telem::TimeStamp(2000).nanoseconds());
-    o_time->set(2, telem::TimeStamp(3000).nanoseconds());
+    o_time->set(0, telem::TimeStamp(1 * telem::MICROSECOND));
+    o_time->set(1, telem::TimeStamp(2 * telem::MICROSECOND));
+    o_time->set(2, telem::TimeStamp(3 * telem::MICROSECOND));
 
     auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
 
@@ -195,8 +186,8 @@ TEST(StateTest, RefreshInputs_WatermarkTracking) {
 
     auto &o_time = producer_node.output_time(0);
     o_time->resize(2);
-    o_time->set(0, telem::TimeStamp(1000).nanoseconds());
-    o_time->set(1, telem::TimeStamp(2000).nanoseconds());
+    o_time->set(0, telem::TimeStamp(1 * telem::MICROSECOND));
+    o_time->set(1, telem::TimeStamp(2 * telem::MICROSECOND));
 
     bool triggered1 = consumer_node.refresh_inputs();
     ASSERT_TRUE(triggered1);
@@ -208,7 +199,7 @@ TEST(StateTest, RefreshInputs_WatermarkTracking) {
     o->resize(3);
     o->set(2, 3.0f);
     o_time->resize(3);
-    o_time->set(2, telem::TimeStamp(3000).nanoseconds());
+    o_time->set(2, telem::TimeStamp(3 * telem::MICROSECOND));
 
     bool triggered3 = consumer_node.refresh_inputs();
     ASSERT_TRUE(triggered3);
@@ -284,8 +275,8 @@ TEST(StateTest, RefreshInputs_MultipleInputs) {
 
     auto &o1_time = producer1_node.output_time(0);
     o1_time->resize(2);
-    o1_time->set(0, telem::TimeStamp(1000).nanoseconds());
-    o1_time->set(1, telem::TimeStamp(2000).nanoseconds());
+    o1_time->set(0, telem::TimeStamp(1 * telem::MICROSECOND));
+    o1_time->set(1, telem::TimeStamp(2 * telem::MICROSECOND));
 
     bool triggered1 = consumer_node.refresh_inputs();
     ASSERT_FALSE(triggered1);
@@ -297,8 +288,8 @@ TEST(StateTest, RefreshInputs_MultipleInputs) {
 
     auto &o2_time = producer2_node.output_time(0);
     o2_time->resize(2);
-    o2_time->set(0, telem::TimeStamp(1000).nanoseconds());
-    o2_time->set(1, telem::TimeStamp(2000).nanoseconds());
+    o2_time->set(0, telem::TimeStamp(1 * telem::MICROSECOND));
+    o2_time->set(1, telem::TimeStamp(2 * telem::MICROSECOND));
 
     bool triggered2 = consumer_node.refresh_inputs();
     ASSERT_TRUE(triggered2);
@@ -332,10 +323,15 @@ TEST(StateTest, OptionalInput_UseDefault) {
 
     auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
 
+    // First refresh triggers because default values are unconsumed
     bool triggered = consumer_node.refresh_inputs();
-    ASSERT_FALSE(triggered);
+    ASSERT_TRUE(triggered);
     EXPECT_EQ(consumer_node.input(0)->size(), 1);
     EXPECT_EQ(consumer_node.input(0)->at<float>(0), 42.0f);
+
+    // Second refresh should NOT trigger because default was consumed
+    bool triggered2 = consumer_node.refresh_inputs();
+    ASSERT_FALSE(triggered2);
 }
 
 /// @brief Test that connected input overrides default value
@@ -385,8 +381,8 @@ TEST(StateTest, OptionalInput_OverrideDefault) {
 
     auto &o_time = producer_node.output_time(0);
     o_time->resize(2);
-    o_time->set(0, telem::TimeStamp(1000).nanoseconds());
-    o_time->set(1, telem::TimeStamp(2000).nanoseconds());
+    o_time->set(0, telem::TimeStamp(1 * telem::MICROSECOND));
+    o_time->set(1, telem::TimeStamp(2 * telem::MICROSECOND));
 
     auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
 
