@@ -89,7 +89,7 @@ public:
     ) {
         for (auto &[key, node]: node_impls)
             this->nodes[key] = Node{
-                .output_edges = prog.outgoing_edges(key),
+                .output_edges = prog.edges_from(key),
                 .node = std::move(node),
             };
         this->global_strata = prog.strata;
@@ -132,7 +132,7 @@ private:
     void execute_strata(const ir::Strata &strata) {
         this->changed.clear();
         bool first_stratum = true;
-        for (const auto &stratum: strata.strata) {
+        for (const auto &stratum: strata) {
             for (const auto &key: stratum)
                 if (first_stratum || this->changed.contains(key)) {
                     this->curr_node_key = key;
@@ -180,7 +180,7 @@ private:
 
     /// @brief Resets all nodes in a strata to their initial state.
     void reset_strata(const ir::Strata &strata) {
-        for (auto &stratum: strata.strata)
+        for (const auto &stratum: strata)
             for (const auto &key: stratum)
                 this->nodes[key].node->reset();
     }
