@@ -226,11 +226,10 @@ func (s *System) unifyTypeVariableWithVisited(
 		tv.Constraint.Kind == types.KindNumericConstant)
 
 	if !isConstraintKind && tv.Constraint != nil && !types.Equal(*tv.Constraint, other) {
-		if source.Kind == KindCompatible && tv.Constraint.IsNumeric() && other.IsNumeric() {
-			other = promoteNumericTypes(*tv.Constraint, other)
-		} else {
+		if source.Kind != KindCompatible || !tv.Constraint.IsNumeric() || !other.IsNumeric() {
 			return errors.Wrapf(ErrConstraintViolation, "%v does not satisfy %v constraint", other, tv.Constraint)
 		}
+		other = promoteNumericTypes(*tv.Constraint, other)
 	}
 	s.Substitutions[tv.Name] = other
 	return nil

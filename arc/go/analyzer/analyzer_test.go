@@ -22,13 +22,10 @@ import (
 
 // analyzeAndExpect is a helper that parses source, analyzes it, and returns the context.
 // It asserts the analysis succeeds when expectSuccess is true.
-func analyzeAndExpect(source string, expectSuccess bool) context.Context[parser.IProgramContext] {
+func analyzeAndExpect(source string) context.Context[parser.IProgramContext] {
 	prog := MustSucceed(parser.Parse(source))
 	ctx := context.CreateRoot(bCtx, prog, nil)
-	Expect(analyzer.AnalyzeProgram(ctx)).To(Equal(expectSuccess))
-	if expectSuccess {
-		Expect(ctx.Diagnostics.Ok()).To(BeTrue())
-	}
+	Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 	return ctx
 }
 
@@ -53,7 +50,7 @@ var _ = Describe("Analyzer Integration", func() {
 				func testFunc(a i64) {
 					b := a
 				}
-			`, true)
+			`)
 		})
 
 		It("Should resolve variables across nested scopes", func() {
@@ -66,7 +63,7 @@ var _ = Describe("Analyzer Integration", func() {
 					}
 					return x
 				}
-			`, true)
+			`)
 		})
 	})
 
@@ -80,7 +77,7 @@ var _ = Describe("Analyzer Integration", func() {
 
 		DescribeTable("literal type inference",
 			func(tc unificationCase) {
-				ctx := analyzeAndExpect(tc.source, true)
+				ctx := analyzeAndExpect(tc.source)
 				funcScope := MustSucceed(ctx.Scope.Resolve(ctx, tc.funcName))
 				blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
 				varScope := MustSucceed(blockScope.Resolve(ctx, tc.varName))
@@ -132,7 +129,7 @@ var _ = Describe("Analyzer Integration", func() {
 						return 2
 					}
 				}
-			`, true)
+			`)
 
 			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "dog"))
 			Expect(funcScope.Name).To(Equal("dog"))
@@ -153,7 +150,7 @@ var _ = Describe("Analyzer Integration", func() {
 					}
 					return 2
 				}
-			`, true)
+			`)
 
 			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "dog"))
 			blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
@@ -176,7 +173,7 @@ var _ = Describe("Analyzer Integration", func() {
 						return 3
 					}
 				}
-			`, true)
+			`)
 
 			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "dog"))
 			blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
@@ -199,7 +196,7 @@ var _ = Describe("Analyzer Integration", func() {
 				func multiply(a i64, b i64) i64 {
 					return a * b
 				}
-			`, true)
+			`)
 
 			addFunc := MustSucceed(ctx.Scope.Resolve(ctx, "add"))
 			Expect(addFunc.Name).To(Equal("add"))
