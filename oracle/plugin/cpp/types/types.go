@@ -23,7 +23,9 @@ import (
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/enum"
+	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/primitives"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -66,73 +68,41 @@ func (p *Plugin) Check(req *plugin.Request) error {
 // Generate produces C++ type definition files from the analyzed schemas.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
-	outputStructs := make(map[string][]resolution.Type)
-	outputTypeDefs := make(map[string][]resolution.Type)
-	outputAliases := make(map[string][]resolution.Type)
-	var structOrder []string
-	var typeDefOrder []string
 
-	for _, entry := range req.Resolutions.DistinctTypes() {
-		if outputPath := output.GetPath(entry, "cpp"); outputPath != "" {
-			if omit.IsType(entry, "cpp") {
-				continue
-			}
-			if req.RepoRoot != "" {
-				if err := req.ValidateOutputPath(outputPath); err != nil {
-					return nil, errors.Wrapf(err, "invalid output path for typedef %s", entry.Name)
-				}
-			}
-			if _, exists := outputTypeDefs[outputPath]; !exists {
-				typeDefOrder = append(typeDefOrder, outputPath)
-			}
-			outputTypeDefs[outputPath] = append(outputTypeDefs[outputPath], entry)
+	// Collect types using framework collectors
+	typeDefCollector, err := framework.CollectDistinct("cpp", req)
+	if err != nil {
+		return nil, err
+	}
+
+	structCollector, err := framework.CollectStructs("cpp", req)
+	if err != nil {
+		return nil, err
+	}
+
+	aliasCollector, err := framework.CollectAliases("cpp", req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build combined order - structs first, then aliases that don't share path with structs
+	var combinedOrder []string
+	combinedOrder = append(combinedOrder, structCollector.Paths()...)
+	for _, path := range aliasCollector.Paths() {
+		if !structCollector.Has(path) && !typeDefCollector.Has(path) {
+			combinedOrder = append(combinedOrder, path)
 		}
 	}
 
-	for _, entry := range req.Resolutions.StructTypes() {
-		if outputPath := output.GetPath(entry, "cpp"); outputPath != "" {
-			if req.RepoRoot != "" {
-				if err := req.ValidateOutputPath(outputPath); err != nil {
-					return nil, errors.Wrapf(err, "invalid output path for struct %s", entry.Name)
-				}
-			}
-			if _, exists := outputStructs[outputPath]; !exists {
-				structOrder = append(structOrder, outputPath)
-			}
-			outputStructs[outputPath] = append(outputStructs[outputPath], entry)
-		}
-	}
-
-	// Collect alias types as well
-	for _, entry := range req.Resolutions.AliasTypes() {
-		if outputPath := output.GetPath(entry, "cpp"); outputPath != "" {
-			if omit.IsType(entry, "cpp") {
-				continue
-			}
-			if req.RepoRoot != "" {
-				if err := req.ValidateOutputPath(outputPath); err != nil {
-					return nil, errors.Wrapf(err, "invalid output path for alias %s", entry.Name)
-				}
-			}
-			// Associate aliases with their struct order if applicable
-			if _, exists := outputStructs[outputPath]; !exists {
-				if _, exists := outputTypeDefs[outputPath]; !exists {
-					structOrder = append(structOrder, outputPath)
-				}
-			}
-			outputAliases[outputPath] = append(outputAliases[outputPath], entry)
-		}
-	}
-
-	for _, outputPath := range structOrder {
-		structs := outputStructs[outputPath]
+	// Generate files for structs and standalone aliases
+	for _, outputPath := range combinedOrder {
+		structs := structCollector.Get(outputPath)
 		enums := enum.CollectReferenced(structs, req.Resolutions)
 		var typeDefs []resolution.Type
-		if tds, ok := outputTypeDefs[outputPath]; ok {
-			typeDefs = tds
-			delete(outputTypeDefs, outputPath)
+		if typeDefCollector.Has(outputPath) {
+			typeDefs = typeDefCollector.Remove(outputPath)
 		}
-		aliases := outputAliases[outputPath]
+		aliases := aliasCollector.Get(outputPath)
 		content, err := p.generateFile(outputPath, structs, enums, typeDefs, aliases, req.Resolutions)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
@@ -144,19 +114,19 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 
 	// Handle standalone typedef-only outputs
-	for _, outputPath := range typeDefOrder {
-		typeDefs, ok := outputTypeDefs[outputPath]
-		if !ok {
-			continue
-		}
+	err = typeDefCollector.ForEach(func(outputPath string, typeDefs []resolution.Type) error {
 		content, err := p.generateFile(outputPath, nil, nil, typeDefs, nil, req.Resolutions)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
+			return errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
 		resp.Files = append(resp.Files, plugin.File{
 			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
 			Content: content,
 		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return resp, nil
@@ -633,19 +603,20 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 
 // primitiveToCpp converts an Oracle primitive to a C++ type.
 func (p *Plugin) primitiveToCpp(primitive string, data *templateData) string {
-	mapping, ok := primitiveCppTypes[primitive]
-	if !ok {
+	mapping := primitives.GetMapping(primitive, "cpp")
+	if mapping.TargetType == "any" {
 		return "void"
 	}
 
-	for _, inc := range mapping.systemIncludes {
-		data.includes.addSystem(inc)
-	}
-	for _, inc := range mapping.internalIncludes {
-		data.includes.addInternal(inc)
+	for _, imp := range mapping.Imports {
+		if imp.Category == "system" {
+			data.includes.addSystem(imp.Path)
+		} else if imp.Category == "internal" {
+			data.includes.addInternal(imp.Path)
+		}
 	}
 
-	return mapping.cppType
+	return mapping.TargetType
 }
 
 // resolveStructType resolves a struct type to a C++ type string.
@@ -753,37 +724,6 @@ func (p *Plugin) buildGenericType(baseName string, typeArgs []resolution.TypeRef
 // toPascalCase converts snake_case to PascalCase.
 func toPascalCase(s string) string {
 	return lo.PascalCase(s)
-}
-
-// primitiveMapping defines how an Oracle primitive maps to C++.
-type primitiveMapping struct {
-	cppType          string
-	systemIncludes   []string
-	internalIncludes []string
-}
-
-// primitiveCppTypes maps Oracle primitives to C++ types.
-var primitiveCppTypes = map[string]primitiveMapping{
-	"uuid":               {cppType: "std::string", systemIncludes: []string{"string"}},
-	"string":             {cppType: "std::string", systemIncludes: []string{"string"}},
-	"bool":               {cppType: "bool"},
-	"int8":               {cppType: "std::int8_t", systemIncludes: []string{"cstdint"}},
-	"int16":              {cppType: "std::int16_t", systemIncludes: []string{"cstdint"}},
-	"int32":              {cppType: "std::int32_t", systemIncludes: []string{"cstdint"}},
-	"int64":              {cppType: "std::int64_t", systemIncludes: []string{"cstdint"}},
-	"uint8":              {cppType: "std::uint8_t", systemIncludes: []string{"cstdint"}},
-	"uint16":             {cppType: "std::uint16_t", systemIncludes: []string{"cstdint"}},
-	"uint32":             {cppType: "std::uint32_t", systemIncludes: []string{"cstdint"}},
-	"uint64":             {cppType: "std::uint64_t", systemIncludes: []string{"cstdint"}},
-	"float32":            {cppType: "float"},
-	"float64":            {cppType: "double"},
-	"timestamp":          {cppType: "telem::TimeStamp", internalIncludes: []string{"x/cpp/telem/telem.h"}},
-	"timespan":           {cppType: "telem::TimeSpan", internalIncludes: []string{"x/cpp/telem/telem.h"}},
-	"time_range":         {cppType: "telem::TimeRange", internalIncludes: []string{"x/cpp/telem/telem.h"}},
-	"time_range_bounded": {cppType: "telem::TimeRange", internalIncludes: []string{"x/cpp/telem/telem.h"}},
-	"color":              {cppType: "std::string", systemIncludes: []string{"string"}},
-	"json":               {cppType: "nlohmann::json", internalIncludes: []string{"nlohmann/json.hpp"}},
-	"bytes":              {cppType: "std::vector<std::uint8_t>", systemIncludes: []string{"vector", "cstdint"}},
 }
 
 // includeManager tracks C++ includes needed for the generated file.

@@ -10,10 +10,8 @@
 package types
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -24,7 +22,10 @@ import (
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/enum"
+	"github.com/synnaxlabs/oracle/plugin/framework"
+	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/primitives"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -69,55 +70,26 @@ func (p *Plugin) PostWrite(files []string) error {
 		return nil
 	}
 	firstFile := files[0]
-	repoRoot := findRepoRoot(firstFile)
+	repoRoot := gomod.FindRepoRoot(firstFile)
 	if repoRoot == "" {
 		return errors.New("could not determine repo root from file paths")
 	}
 	return exec.OnFiles(bufGenerateCmd, nil, repoRoot)
 }
 
-// findRepoRoot walks up from the given path to find the git repository root.
-func findRepoRoot(path string) string {
-	dir := filepath.Dir(path)
-	for {
-		gitPath := filepath.Join(dir, ".git")
-		if info, err := os.Stat(gitPath); err == nil && info.IsDir() {
-			return dir
-		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return ""
-		}
-		dir = parent
-	}
-}
-
 // Generate produces protobuf definition files from the analyzed schemas.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
-	outputStructs := make(map[string][]resolution.Type)
-	var outputOrder []string
 
-	for _, entry := range req.Resolutions.StructTypes() {
-		// Use GetPBPath which derives from @go output when @pb flag present
-		outputPath := output.GetPBPath(entry)
-		if outputPath == "" {
-			continue
-		}
-		if req.RepoRoot != "" {
-			if err := req.ValidateOutputPath(outputPath); err != nil {
-				return nil, errors.Wrapf(err, "invalid output path for struct %s", entry.Name)
-			}
-		}
-		if _, exists := outputStructs[outputPath]; !exists {
-			outputOrder = append(outputOrder, outputPath)
-		}
-		outputStructs[outputPath] = append(outputStructs[outputPath], entry)
+	// Collect structs using the framework collector with custom PB path function
+	structCollector := framework.NewCollector("pb", req).
+		WithPathFunc(output.GetPBPath).
+		WithSkipFunc(nil) // Don't skip - handle omit at generation time
+	if err := structCollector.AddAll(req.Resolutions.StructTypes()); err != nil {
+		return nil, err
 	}
 
-	for _, outputPath := range outputOrder {
-		structs := outputStructs[outputPath]
+	err := structCollector.ForEach(func(outputPath string, structs []resolution.Type) error {
 		// Get all enums in the namespace, not just referenced ones
 		namespace := ""
 		if len(structs) > 0 {
@@ -126,7 +98,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		enums := req.Resolutions.EnumsInNamespace(namespace)
 		content, err := p.generateFile(outputPath, structs, enums, req.Resolutions, req.RepoRoot)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
+			return errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
 		// Use namespace-based filename: {namespace}.proto
 		filename := namespace + ".proto"
@@ -134,6 +106,10 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			Path:    fmt.Sprintf("%s/%s", outputPath, filename),
 			Content: content,
 		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return resp, nil
@@ -234,87 +210,7 @@ func deriveLayerPrefix(outputPath string) string {
 
 // deriveGoPackage derives the Go package option from the output path.
 func deriveGoPackage(outputPath string, structs []resolution.Type, repoRoot string) string {
-	// Resolve from go.mod if repoRoot is available
-	if repoRoot != "" {
-		if goPackage, err := resolveGoImportPath(outputPath, repoRoot); err == nil {
-			return goPackage
-		}
-	}
-	// Fallback: derive from output path with default prefix
-	return defaultModulePrefix + outputPath
-}
-
-// resolveGoImportPath resolves a repo-relative output path to a full Go import path
-// by walking up the directory tree to find the nearest go.mod file.
-func resolveGoImportPath(outputPath, repoRoot string) (string, error) {
-	absPath := filepath.Join(repoRoot, outputPath)
-
-	// Walk up from the output path to find go.mod
-	dir := absPath
-	for {
-		modPath := filepath.Join(dir, "go.mod")
-		if fileExists(modPath) {
-			moduleName, err := parseModuleName(modPath)
-			if err != nil {
-				return "", errors.Wrapf(err, "failed to parse go.mod at %s", modPath)
-			}
-
-			// Compute relative path from module root to output
-			relPath, err := filepath.Rel(dir, absPath)
-			if err != nil {
-				return "", errors.Wrapf(err, "failed to compute relative path")
-			}
-
-			// Combine module name with relative path
-			if relPath == "." {
-				return moduleName, nil
-			}
-			return moduleName + "/" + filepath.ToSlash(relPath), nil
-		}
-
-		// Move up one directory
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			// Reached root without finding go.mod
-			break
-		}
-		dir = parent
-	}
-
-	return "", errors.Newf("no go.mod found for path %s", outputPath)
-}
-
-// parseModuleName extracts the module name from a go.mod file.
-func parseModuleName(modPath string) (string, error) {
-	file, err := os.Open(modPath)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if strings.HasPrefix(line, "module ") {
-			// Extract module name (handles both "module foo" and "module foo // comment")
-			parts := strings.Fields(line)
-			if len(parts) >= 2 {
-				return parts[1], nil
-			}
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return "", err
-	}
-
-	return "", errors.Newf("no module directive found in %s", modPath)
-}
-
-// fileExists checks if a file exists.
-func fileExists(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && !info.IsDir()
+	return gomod.ResolveImportPath(outputPath, repoRoot, defaultModulePrefix)
 }
 
 // processEnum converts an Enum type to template data.
@@ -423,14 +319,14 @@ func (p *Plugin) typeToProto(typeRef resolution.TypeRef, data *templateData) (st
 
 	switch form := resolved.Form.(type) {
 	case resolution.PrimitiveForm:
-		mapping, ok := primitiveProtoTypes[form.Name]
-		if !ok {
+		mapping := primitives.GetMapping(form.Name, "pb")
+		if mapping.TargetType == "any" {
 			return "", errors.Newf("primitive type %q has no protobuf mapping", form.Name)
 		}
-		if mapping.importPath != "" {
-			data.imports.add(mapping.importPath)
+		for _, imp := range mapping.Imports {
+			data.imports.add(imp.Path)
 		}
-		return mapping.protoType, nil
+		return mapping.TargetType, nil
 
 	case resolution.BuiltinGenericForm:
 		if form.Name == "Array" {
@@ -567,39 +463,6 @@ func toSnakeCase(s string) string {
 // toScreamingSnake converts a name to SCREAMING_SNAKE_CASE.
 func toScreamingSnake(s string) string {
 	return strings.ToUpper(lo.SnakeCase(s))
-}
-
-// primitiveMapping defines how an Oracle primitive maps to protobuf.
-type primitiveMapping struct {
-	protoType  string
-	importPath string
-}
-
-// primitiveProtoTypes maps Oracle primitives to protobuf types.
-var primitiveProtoTypes = map[string]primitiveMapping{
-	"uuid":               {protoType: "string"},
-	"string":             {protoType: "string"},
-	"bool":               {protoType: "bool"},
-	"int8":               {protoType: "int32"},
-	"int16":              {protoType: "int32"},
-	"int32":              {protoType: "int32"},
-	"int64":              {protoType: "int64"},
-	"uint8":              {protoType: "uint32"},
-	"uint12":             {protoType: "uint32"},
-	"uint16":             {protoType: "uint32"},
-	"uint20":             {protoType: "uint32"},
-	"uint32":             {protoType: "uint32"},
-	"uint64":             {protoType: "uint64"},
-	"float32":            {protoType: "float"},
-	"float64":            {protoType: "double"},
-	"timestamp":          {protoType: "int64"},
-	"timespan":           {protoType: "int64"},
-	"time_range":         {protoType: "telem.PBTimeRange", importPath: "x/go/telem/telem.proto"},
-	"time_range_bounded": {protoType: "telem.PBTimeRange", importPath: "x/go/telem/telem.proto"},
-	"data_type":          {protoType: "string"},
-	"color":              {protoType: "string"},
-	"json":               {protoType: "google.protobuf.Struct", importPath: "google/protobuf/struct.proto"},
-	"bytes":              {protoType: "bytes"},
 }
 
 // importManager tracks protobuf imports needed for the generated file.

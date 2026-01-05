@@ -28,7 +28,9 @@ import (
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/enum"
+	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/primitives"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -109,141 +111,90 @@ func findPoetryDir(file string) string {
 // Generate produces Python Pydantic model files from the analyzed schemas.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
-	outputStructs := make(map[string][]resolution.Type)
-	outputTypeDefs := make(map[string][]resolution.Type)
-	outputEnums := make(map[string][]resolution.Type)
-	var structOrder []string
-	var typeDefOrder []string
-	var enumOrder []string
 
-	// Collect distinct types and aliases
-	for _, entry := range req.Resolutions.DistinctTypes() {
-		if outputPath := output.GetPath(entry, "py"); outputPath != "" {
-			if omit.IsType(entry, "py") {
-				continue
-			}
-			if req.RepoRoot != "" {
-				if err := req.ValidateOutputPath(outputPath); err != nil {
-					return nil, errors.Wrapf(err, "invalid output path for typedef %s", entry.Name)
-				}
-			}
-			if _, exists := outputTypeDefs[outputPath]; !exists {
-				typeDefOrder = append(typeDefOrder, outputPath)
-			}
-			outputTypeDefs[outputPath] = append(outputTypeDefs[outputPath], entry)
-		}
+	// Collect types using framework collectors
+	typeDefCollector := framework.NewCollector("py", req)
+	if err := typeDefCollector.AddAll(req.Resolutions.DistinctTypes()); err != nil {
+		return nil, err
 	}
-	for _, entry := range req.Resolutions.AliasTypes() {
-		if outputPath := output.GetPath(entry, "py"); outputPath != "" {
-			if omit.IsType(entry, "py") {
-				continue
-			}
-			if req.RepoRoot != "" {
-				if err := req.ValidateOutputPath(outputPath); err != nil {
-					return nil, errors.Wrapf(err, "invalid output path for alias %s", entry.Name)
-				}
-			}
-			if _, exists := outputTypeDefs[outputPath]; !exists {
-				typeDefOrder = append(typeDefOrder, outputPath)
-			}
-			outputTypeDefs[outputPath] = append(outputTypeDefs[outputPath], entry)
-		}
+	if err := typeDefCollector.AddAll(req.Resolutions.AliasTypes()); err != nil {
+		return nil, err
 	}
 
-	for _, entry := range req.Resolutions.StructTypes() {
-		if outputPath := output.GetPath(entry, "py"); outputPath != "" {
-			if req.RepoRoot != "" {
-				if err := req.ValidateOutputPath(outputPath); err != nil {
-					return nil, errors.Wrapf(err, "invalid output path for struct %s", entry.Name)
-				}
-			}
-			if _, exists := outputStructs[outputPath]; !exists {
-				structOrder = append(structOrder, outputPath)
-			}
-			outputStructs[outputPath] = append(outputStructs[outputPath], entry)
-		}
+	structCollector, err := framework.CollectStructs("py", req)
+	if err != nil {
+		return nil, err
 	}
-	// Collect standalone enums with their own output path
+
+	enumCollector := framework.NewCollector("py", req).
+		WithPathFunc(func(typ resolution.Type) string { return output.GetPath(typ, "py") }).
+		WithSkipFunc(nil)
 	for _, e := range enum.CollectWithOwnOutput(req.Resolutions.EnumTypes(), "py") {
-		enumPath := output.GetPath(e, "py")
-		if req.RepoRoot != "" {
-			if err := req.ValidateOutputPath(enumPath); err != nil {
-				return nil, errors.Wrapf(err, "invalid output path for enum %s", e.Name)
-			}
+		if err := enumCollector.Add(e); err != nil {
+			return nil, err
 		}
-		if _, exists := outputEnums[enumPath]; !exists {
-			enumOrder = append(enumOrder, enumPath)
-		}
-		outputEnums[enumPath] = append(outputEnums[enumPath], e)
 	}
-	for _, outputPath := range structOrder {
-		structs := outputStructs[outputPath]
+
+	// Generate files for structs (merging in enums and typedefs from same output path)
+	err = structCollector.ForEach(func(outputPath string, structs []resolution.Type) error {
 		enums := enum.CollectReferenced(structs, req.Resolutions)
 		// Merge standalone enums that share the same output path
-		if standaloneEnums, ok := outputEnums[outputPath]; ok {
-			enums = mergeEnums(enums, standaloneEnums)
-			delete(outputEnums, outputPath)
+		if enumCollector.Has(outputPath) {
+			enums = framework.MergeTypesByName(enums, enumCollector.Remove(outputPath))
 		}
 		var typeDefs []resolution.Type
-		if tds, ok := outputTypeDefs[outputPath]; ok {
-			typeDefs = tds
-			delete(outputTypeDefs, outputPath)
+		if typeDefCollector.Has(outputPath) {
+			typeDefs = typeDefCollector.Remove(outputPath)
 		}
 		content, err := p.generateFile(structs[0].Namespace, outputPath, structs, enums, typeDefs, req.Resolutions)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
+			return errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
 		resp.Files = append(resp.Files, plugin.File{
 			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
 			Content: content,
 		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
+
 	// Handle standalone typedef-only outputs
-	for _, outputPath := range typeDefOrder {
-		typeDefs, ok := outputTypeDefs[outputPath]
-		if !ok {
-			continue
-		}
+	err = typeDefCollector.ForEach(func(outputPath string, typeDefs []resolution.Type) error {
 		content, err := p.generateFile(typeDefs[0].Namespace, outputPath, nil, nil, typeDefs, req.Resolutions)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
+			return errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
 		resp.Files = append(resp.Files, plugin.File{
 			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
 			Content: content,
 		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
+
 	// Handle standalone enum-only outputs
-	for _, outputPath := range enumOrder {
-		enums, ok := outputEnums[outputPath]
-		if !ok {
-			continue
-		}
+	err = enumCollector.ForEach(func(outputPath string, enums []resolution.Type) error {
 		content, err := p.generateFile(enums[0].Namespace, outputPath, nil, enums, nil, req.Resolutions)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
+			return errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
 		resp.Files = append(resp.Files, plugin.File{
 			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
 			Content: content,
 		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
+
 	return resp, nil
 }
 
-// mergeEnums combines two enum slices, avoiding duplicates by name.
-func mergeEnums(base, additional []resolution.Type) []resolution.Type {
-	seen := make(map[string]bool)
-	for _, e := range base {
-		seen[e.Name] = true
-	}
-	for _, e := range additional {
-		if !seen[e.Name] {
-			base = append(base, e)
-		}
-	}
-	return base
-}
 
 func (p *Plugin) generateFile(
 	namespace string,
@@ -842,57 +793,23 @@ func toPythonModulePath(repoPath string) string {
 	return strings.ReplaceAll(path, "/", ".")
 }
 
-type primitiveMapping struct {
-	pyType  string
-	imports []importEntry
-}
-
-type importEntry struct {
-	category string // "uuid", "typing", "synnax"
-	name     string
-}
-
-var primitivePythonTypes = map[string]primitiveMapping{
-	"uuid":       {pyType: "UUID", imports: []importEntry{{"uuid", "UUID"}}},
-	"string":     {pyType: "str"},
-	"bool":       {pyType: "bool"},
-	"int8":       {pyType: "int"},
-	"int16":      {pyType: "int"},
-	"int32":      {pyType: "int"},
-	"int64":      {pyType: "int"},
-	"uint8":      {pyType: "int"},
-	"uint12":     {pyType: "int"},
-	"uint16":     {pyType: "int"},
-	"uint20":     {pyType: "int"},
-	"uint32":     {pyType: "int"},
-	"uint64":     {pyType: "int"},
-	"float32":    {pyType: "float"},
-	"float64":    {pyType: "float"},
-	"timestamp":  {pyType: "TimeStamp", imports: []importEntry{{"synnax", "TimeStamp"}}},
-	"timespan":   {pyType: "TimeSpan", imports: []importEntry{{"synnax", "TimeSpan"}}},
-	"time_range": {pyType: "TimeRange", imports: []importEntry{{"synnax", "TimeRange"}}},
-	"data_type":  {pyType: "DataType", imports: []importEntry{{"synnax", "DataType"}}},
-	"color":      {pyType: "str"},
-	"json":       {pyType: "dict[str, Any]", imports: []importEntry{{"typing", "Any"}}},
-	"bytes":      {pyType: "bytes"},
-}
-
 func primitiveToPython(primitive string, data *templateData) string {
-	if mapping, ok := primitivePythonTypes[primitive]; ok {
-		for _, imp := range mapping.imports {
-			switch imp.category {
-			case "uuid":
-				data.imports.addUUID(imp.name)
-			case "typing":
-				data.imports.addTyping(imp.name)
-			case "synnax":
-				data.imports.addSynnax(imp.name)
-			}
-		}
-		return mapping.pyType
+	mapping := primitives.GetMapping(primitive, "py")
+	if mapping.TargetType == "any" {
+		data.imports.addTyping("Any")
+		return "Any"
 	}
-	data.imports.addTyping("Any")
-	return "Any"
+	for _, imp := range mapping.Imports {
+		switch imp.Category {
+		case "uuid":
+			data.imports.addUUID(imp.Name)
+		case "typing":
+			data.imports.addTyping(imp.Name)
+		case "synnax":
+			data.imports.addSynnax(imp.Name)
+		}
+	}
+	return mapping.TargetType
 }
 
 type importManager struct {

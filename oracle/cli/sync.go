@@ -136,6 +136,12 @@ func runSync(cmd *cobra.Command) error {
 			}
 		}
 	}
+	// Update copyright headers on protobuf-generated files
+	if _, hasPB := syncResult.ByPlugin["pb/types"]; hasPB {
+		if err = oracle.UpdateLicenseHeaders(repoRoot, []string{"*.pb.go"}); err != nil {
+			return errors.Wrapf(err, "failed to update license headers on .pb.go files")
+		}
+	}
 	printSyncedCount(len(syncResult.Written), len(syncResult.Unchanged))
 	return nil
 }

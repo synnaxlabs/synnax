@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/enum"
+	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
@@ -110,146 +111,95 @@ func findPackageDir(file string) string {
 
 // Generate produces TypeScript type definition files from the analyzed schemas.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
-	var (
-		resp           = &plugin.Response{Files: make([]plugin.File, 0)}
-		outputStructs  = make(map[string][]resolution.Type)
-		outputEnums    = make(map[string][]resolution.Type)
-		outputTypeDefs = make(map[string][]resolution.Type)
-		structOrder    []string
-		enumOrder      []string
-		typeDefOrder   []string
-	)
+	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
-	for _, entry := range req.Resolutions.DistinctTypes() {
-		if outputPath := output.GetPath(entry, "ts"); outputPath != "" {
-			if omit.IsType(entry, "ts") {
-				continue
-			}
-			if req.RepoRoot != "" {
-				if err := req.ValidateOutputPath(outputPath); err != nil {
-					return nil, errors.Wrapf(err, "invalid output path for typedef %s", entry.Name)
-				}
-			}
-			if _, exists := outputTypeDefs[outputPath]; !exists {
-				typeDefOrder = append(typeDefOrder, outputPath)
-			}
-			outputTypeDefs[outputPath] = append(outputTypeDefs[outputPath], entry)
-		}
+	// Collect types using framework collectors
+	typeDefCollector := framework.NewCollector("ts", req)
+	if err := typeDefCollector.AddAll(req.Resolutions.DistinctTypes()); err != nil {
+		return nil, err
 	}
-	for _, entry := range req.Resolutions.AliasTypes() {
-		if outputPath := output.GetPath(entry, "ts"); outputPath != "" {
-			if omit.IsType(entry, "ts") {
-				continue
-			}
-			if req.RepoRoot != "" {
-				if err := req.ValidateOutputPath(outputPath); err != nil {
-					return nil, errors.Wrapf(err, "invalid output path for alias %s", entry.Name)
-				}
-			}
-			if _, exists := outputTypeDefs[outputPath]; !exists {
-				typeDefOrder = append(typeDefOrder, outputPath)
-			}
-			outputTypeDefs[outputPath] = append(outputTypeDefs[outputPath], entry)
-		}
+	if err := typeDefCollector.AddAll(req.Resolutions.AliasTypes()); err != nil {
+		return nil, err
 	}
 
-	for _, entry := range req.Resolutions.StructTypes() {
-		if outputPath := output.GetPath(entry, "ts"); outputPath != "" {
-			if req.RepoRoot != "" {
-				if err := req.ValidateOutputPath(outputPath); err != nil {
-					return nil, errors.Wrapf(err, "invalid output path for struct %s", entry.Name)
-				}
-			}
-			if _, exists := outputStructs[outputPath]; !exists {
-				structOrder = append(structOrder, outputPath)
-			}
-			outputStructs[outputPath] = append(outputStructs[outputPath], entry)
-		}
+	structCollector, err := framework.CollectStructs("ts", req)
+	if err != nil {
+		return nil, err
 	}
+
+	enumCollector := framework.NewCollector("ts", req).
+		WithPathFunc(func(typ resolution.Type) string { return output.GetPath(typ, "ts") }).
+		WithSkipFunc(nil)
 	for _, e := range enum.CollectWithOwnOutput(req.Resolutions.EnumTypes(), "ts") {
-		enumPath := output.GetPath(e, "ts")
-		if req.RepoRoot != "" {
-			if err := req.ValidateOutputPath(enumPath); err != nil {
-				return nil, errors.Wrapf(err, "invalid output path for enum %s", e.Name)
-			}
+		if err := enumCollector.Add(e); err != nil {
+			return nil, err
 		}
-		if _, exists := outputEnums[enumPath]; !exists {
-			enumOrder = append(enumOrder, enumPath)
-		}
-		outputEnums[enumPath] = append(outputEnums[enumPath], e)
 	}
-	for _, outputPath := range structOrder {
-		structs := outputStructs[outputPath]
+
+	// Generate files for structs (merging in enums and typedefs from same output path)
+	err = structCollector.ForEach(func(outputPath string, structs []resolution.Type) error {
 		enums := enum.CollectReferenced(structs, req.Resolutions)
-		if standaloneEnums, ok := outputEnums[outputPath]; ok {
-			enums = mergeEnums(enums, standaloneEnums)
-			delete(outputEnums, outputPath)
+		// Merge standalone enums that share the same output path
+		if enumCollector.Has(outputPath) {
+			enums = framework.MergeTypesByName(enums, enumCollector.Remove(outputPath))
 		}
 		var typeDefs []resolution.Type
-		if tds, ok := outputTypeDefs[outputPath]; ok {
-			typeDefs = tds
-			delete(outputTypeDefs, outputPath)
+		if typeDefCollector.Has(outputPath) {
+			typeDefs = typeDefCollector.Remove(outputPath)
 		}
 		content, err := p.generateFile(structs[0].Namespace, outputPath, structs, enums, typeDefs, req)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
+			return errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
 		resp.Files = append(resp.Files, plugin.File{
 			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
 			Content: content,
 		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
-	for _, outputPath := range enumOrder {
-		enums, ok := outputEnums[outputPath]
-		if !ok {
-			continue
-		}
+
+	// Handle standalone enum-only outputs
+	err = enumCollector.ForEach(func(outputPath string, enums []resolution.Type) error {
 		var typeDefs []resolution.Type
-		if tds, ok := outputTypeDefs[outputPath]; ok {
-			typeDefs = tds
-			delete(outputTypeDefs, outputPath)
+		if typeDefCollector.Has(outputPath) {
+			typeDefs = typeDefCollector.Remove(outputPath)
 		}
 		content, err := p.generateFile(enums[0].Namespace, outputPath, nil, enums, typeDefs, req)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
+			return errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
 		resp.Files = append(resp.Files, plugin.File{
 			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
 			Content: content,
 		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
+
 	// Handle standalone typedef-only outputs
-	for _, outputPath := range typeDefOrder {
-		typeDefs, ok := outputTypeDefs[outputPath]
-		if !ok {
-			continue
-		}
+	err = typeDefCollector.ForEach(func(outputPath string, typeDefs []resolution.Type) error {
 		content, err := p.generateFile(typeDefs[0].Namespace, outputPath, nil, nil, typeDefs, req)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
+			return errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
 		resp.Files = append(resp.Files, plugin.File{
 			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
 			Content: content,
 		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return resp, nil
 }
 
-func mergeEnums(a, b []resolution.Type) []resolution.Type {
-	seen := make(map[string]bool, len(a))
-	for _, e := range a {
-		seen[e.QualifiedName] = true
-	}
-	result := append([]resolution.Type{}, a...)
-	for _, e := range b {
-		if !seen[e.QualifiedName] {
-			result = append(result, e)
-		}
-	}
-	return result
-}
 
 // packageMapping defines the known TypeScript package mappings in the workspace.
 type packageMapping struct {

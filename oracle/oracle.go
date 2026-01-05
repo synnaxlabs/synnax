@@ -142,8 +142,8 @@ func (r *GenerateResult) SyncFiles(outputDir string) (*SyncResult, error) {
 
 var updateLicenseHeadersCmd = []string{"./update_copyrights.sh"}
 
-// UpdateLicenseHeaders runs the copyright update script on the given files.
-// files should be absolute paths to the generated files.
+// UpdateLicenseHeaders runs the copyright update script on the given files and patterns.
+// files can be absolute paths or glob patterns like "*.pb.go".
 // repoRoot is the absolute path to the repository root.
 func UpdateLicenseHeaders(repoRoot string, files []string) error {
 	if len(files) == 0 {

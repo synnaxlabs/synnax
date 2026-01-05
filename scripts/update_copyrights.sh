@@ -13,36 +13,37 @@ set -euo pipefail
 # Find git repository root
 GIT_ROOT=$(git rev-parse --show-toplevel 2> /dev/null || echo ".")
 
-# Determine mode: file list or directory search
-MODE="directory"
-declare -a FILE_LIST
-SEARCH_PATH="$GIT_ROOT"
+# Collect search inputs: files, directories, and patterns
+declare -a EXPLICIT_FILES
+declare -a SEARCH_DIRS
+declare -a PATTERNS
 
 if [ $# -gt 0 ]; then
-    # Check if first argument is a file
-    if [ -f "$1" ]; then
-        MODE="files"
-        for arg in "$@"; do
-            if [ -f "$arg" ]; then
-                # Convert to absolute path if relative
-                if [[ "$arg" = /* ]]; then
-                    FILE_LIST+=("$arg")
-                else
-                    FILE_LIST+=("$GIT_ROOT/$arg")
-                fi
+    for arg in "$@"; do
+        if [ -f "$arg" ]; then
+            # Explicit file path
+            if [[ "$arg" = /* ]]; then
+                EXPLICIT_FILES+=("$arg")
             else
-                echo "Warning: '$arg' is not a file, skipping"
+                EXPLICIT_FILES+=("$GIT_ROOT/$arg")
             fi
-        done
-    else
-        # Treat as subdirectory
-        SUBDIR="$1"
-        # Remove leading ./ if present
-        SUBDIR="${SUBDIR#./}"
-        if [ -n "$SUBDIR" ]; then
-            SEARCH_PATH="$GIT_ROOT/$SUBDIR"
+        elif [ -d "$arg" ]; then
+            # Directory to search
+            if [[ "$arg" = /* ]]; then
+                SEARCH_DIRS+=("$arg")
+            else
+                SEARCH_DIRS+=("$GIT_ROOT/$arg")
+            fi
+        elif [[ "$arg" == *"*"* ]] || [[ "$arg" == *"?"* ]] || [[ "$arg" == *"["* ]]; then
+            # Glob pattern
+            PATTERNS+=("$arg")
+        else
+            echo "Warning: '$arg' is not a file, directory, or pattern, skipping"
         fi
-    fi
+    done
+else
+    # Default: search entire repo
+    SEARCH_DIRS+=("$GIT_ROOT")
 fi
 
 # Get the current year
@@ -240,60 +241,57 @@ update_file() {
 # Find and update all files
 echo "Updating copyright headers in source files..."
 echo "Git root: $GIT_ROOT"
-if [ "$MODE" = "files" ]; then
-    echo "Mode: file list (${#FILE_LIST[@]} files)"
-else
-    echo "Search path: $SEARCH_PATH"
-fi
+[ ${#EXPLICIT_FILES[@]} -gt 0 ] && echo "Files: ${#EXPLICIT_FILES[@]}"
+[ ${#SEARCH_DIRS[@]} -gt 0 ] && echo "Directories: ${SEARCH_DIRS[*]}"
+[ ${#PATTERNS[@]} -gt 0 ] && echo "Patterns: ${PATTERNS[*]}"
 echo "Current year: $CURRENT_YEAR"
 echo ""
+
+# Helper to check if file has a supported extension
+has_supported_extension() {
+    local file="$1"
+    local ext="${file##*.}"
+    case "$ext" in
+        go | py | ts | tsx | js | jsx | cpp | hpp | h | cc | cxx | css | oracle) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Helper to add file if it passes all checks
+try_add_file() {
+    local abs_file="$1"
+    if [ -f "$abs_file" ] && has_supported_extension "$abs_file" && ! should_ignore_file "$abs_file"; then
+        FILES_TO_UPDATE+=("$abs_file")
+    fi
+}
 
 # First pass: count total files to process
 echo -n "Counting files..."
 cd "$GIT_ROOT" || exit 1
 declare -a FILES_TO_UPDATE
 
-if [ "$MODE" = "files" ]; then
-    # Use provided file list
-    for abs_file in "${FILE_LIST[@]}"; do
-        # Check file extension
-        ext="${abs_file##*.}"
-        case "$ext" in
-            go | py | ts | tsx | js | jsx | cpp | hpp | h | cc | cxx | css | oracle)
-                # Check if file should be ignored per .copyrightignore
-                if ! should_ignore_file "$abs_file"; then
-                    [ -f "$abs_file" ] && FILES_TO_UPDATE+=("$abs_file")
-                fi
-                ;;
-            *)
-                echo ""
-                echo "Warning: '$abs_file' has unsupported extension '$ext', skipping"
-                ;;
-        esac
-    done
-else
-    # Directory search mode
+# 1. Add explicit files
+for abs_file in ${EXPLICIT_FILES[@]+"${EXPLICIT_FILES[@]}"}; do
+    try_add_file "$abs_file"
+done
+
+# 2. Search directories using git ls-files
+for search_dir in ${SEARCH_DIRS[@]+"${SEARCH_DIRS[@]}"}; do
     while IFS= read -r file; do
-        # Convert relative path to absolute
         abs_file="$GIT_ROOT/$file"
-
-        # Check if file is in the search path
-        if [[ "$abs_file" != "$SEARCH_PATH"* ]]; then
-            continue
+        # Check if file is within the search directory
+        if [[ "$abs_file" == "$search_dir"* ]]; then
+            try_add_file "$abs_file"
         fi
-
-        # Check file extension
-        ext="${file##*.}"
-        case "$ext" in
-            go | py | ts | tsx | js | jsx | cpp | hpp | h | cc | cxx | css | oracle)
-                # Check if file should be ignored per .copyrightignore
-                if ! should_ignore_file "$abs_file"; then
-                    [ -f "$abs_file" ] && FILES_TO_UPDATE+=("$abs_file")
-                fi
-                ;;
-        esac
     done < <(git ls-files)
-fi
+done
+
+# 3. Find files matching patterns
+for pattern in ${PATTERNS[@]+"${PATTERNS[@]}"}; do
+    while IFS= read -r abs_file; do
+        try_add_file "$abs_file"
+    done < <(find "$GIT_ROOT" -type f -name "$pattern" 2>/dev/null)
+done
 
 TOTAL_TO_UPDATE=${#FILES_TO_UPDATE[@]}
 echo -e "\r\033[KFound $TOTAL_TO_UPDATE files to process"
