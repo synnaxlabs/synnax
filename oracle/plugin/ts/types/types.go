@@ -865,8 +865,13 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 	if typeOverride := getFieldTypeOverride(field, "ts"); typeOverride != "" {
 		fd.ZodType = primitiveToZod(typeOverride, data, useInput)
 		fd.TSType = primitiveToTS(typeOverride)
+		fd.ZodSchemaType = primitiveToZodSchemaType(typeOverride)
 		if validateDomain, ok := field.Domains["validate"]; ok {
-			fd.ZodType = p.applyValidation(fd.ZodType, validateDomain, field.Type, field.Name, table)
+			result := p.applyValidation(fd.ZodType, validateDomain, field.Type, field.Name, table)
+			fd.ZodType = result.ZodType
+			if result.HasDefault {
+				fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
+			}
 		}
 	} else {
 		// For arrays, process just the element type - the array wrapper is added later
@@ -877,8 +882,13 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		}
 		fd.ZodType = p.typeRefToZod(typeRefToProcess, table, data, useInput)
 		fd.TSType = p.typeRefToTS(typeRefToProcess, table, data, needsTypeImports)
+		fd.ZodSchemaType = p.typeRefToZodSchemaType(typeRefToProcess, table, data)
 		if validateDomain, ok := field.Domains["validate"]; ok {
-			fd.ZodType = p.applyValidation(fd.ZodType, validateDomain, field.Type, field.Name, table)
+			result := p.applyValidation(fd.ZodType, validateDomain, field.Type, field.Name, table)
+			fd.ZodType = result.ZodType
+			if result.HasDefault {
+				fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
+			}
 		}
 	}
 	// Handle @key generate for auto-generating IDs
@@ -888,9 +898,11 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		case "string":
 			addXImport(data, xImport{name: "id", submodule: "id"})
 			fd.ZodType = fmt.Sprintf("%s.default(() => id.create())", fd.ZodType)
+			fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
 		case "uuid":
 			addXImport(data, xImport{name: "uuid", submodule: "uuid"})
 			fd.ZodType = fmt.Sprintf("%s.default(() => uuid.create())", fd.ZodType)
+			fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
 		}
 	}
 	isAnyOptional := field.IsOptional || field.IsHardOptional
@@ -898,13 +910,17 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		addXImport(data, xImport{name: "array", submodule: "array"})
 		if isAnyOptional {
 			// Optional array: null/undefined -> undefined, [] stays []
+			// nullToUndefined already returns ZodOptional, so don't double-wrap
 			fd.ZodType = fmt.Sprintf("array.nullToUndefined(%s)", fd.ZodType)
+			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof array.nullToUndefined<%s>>", fd.ZodSchemaType)
 		} else {
 			// Required array: coerce nullish -> []
 			fd.ZodType = fmt.Sprintf("array.nullishToEmpty(%s)", fd.ZodType)
+			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof array.nullishToEmpty<%s>>", fd.ZodSchemaType)
 		}
 	} else if isAnyOptional {
 		fd.ZodType += ".optional()"
+		fd.ZodSchemaType = fmt.Sprintf("z.ZodOptional<%s>", fd.ZodSchemaType)
 	}
 	return fd
 }
@@ -1389,6 +1405,127 @@ var primitiveZodTypes = map[string]primitiveMapping{
 const xPackageName = "@synnaxlabs/x"
 const xPathPrefix = "x/ts/src"
 
+// primitiveZodSchemaTypes maps primitive type names to their Zod TYPE (not expression).
+// e.g., "string" -> "z.ZodString" (not "z.string()")
+var primitiveZodSchemaTypes = map[string]string{
+	"uuid":               "z.ZodString",
+	"string":             "z.ZodString",
+	"bool":               "z.ZodBoolean",
+	"int8":               "z.ZodNumber",
+	"int16":              "z.ZodNumber",
+	"int32":              "z.ZodNumber",
+	"int64":              "z.ZodBigInt",
+	"uint8":              "z.ZodNumber",
+	"uint12":             "z.ZodNumber",
+	"uint16":             "z.ZodNumber",
+	"uint20":             "z.ZodNumber",
+	"uint32":             "z.ZodNumber",
+	"uint64":             "z.ZodBigInt",
+	"float32":            "z.ZodNumber",
+	"float64":            "z.ZodNumber",
+	"timestamp":          "typeof TimeStamp.z",
+	"timespan":           "typeof TimeSpan.z",
+	"time_range":         "typeof TimeRange.z",
+	"time_range_bounded": "typeof TimeRange.boundedZ",
+	"data_type":          "typeof DataType.z",
+	"color":              "typeof color.colorZ",
+	"json":               "z.ZodType",
+	"bytes":              "z.ZodType<Uint8Array>",
+}
+
+// primitiveToZodSchemaType returns the Zod TYPE for a primitive (e.g., "z.ZodString").
+func primitiveToZodSchemaType(primitive string) string {
+	if t, ok := primitiveZodSchemaTypes[primitive]; ok {
+		return t
+	}
+	return "z.ZodType"
+}
+
+// typeRefToZodSchemaType converts a type reference to its Zod schema TYPE (not expression).
+// For example: string -> z.ZodString, Status<D> -> StatusZodObject<D>, Array<T> -> z.ZodArray<T>
+func (p *Plugin) typeRefToZodSchemaType(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData) string {
+	if typeRef == nil {
+		return "z.ZodType"
+	}
+
+	// Handle type parameter reference - just return the param name since it's already a Zod type
+	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
+		return typeRef.TypeParam.Name
+	}
+
+	// Handle primitives
+	if resolution.IsPrimitive(typeRef.Name) {
+		return primitiveToZodSchemaType(typeRef.Name)
+	}
+
+	// Handle Array type
+	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
+		elemZodType := p.typeRefToZodSchemaType(&typeRef.TypeArgs[0], table, data)
+		return fmt.Sprintf("z.ZodArray<%s>", elemZodType)
+	}
+
+	// Handle Map type
+	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
+		keyType := p.typeRefToZodSchemaType(&typeRef.TypeArgs[0], table, data)
+		valueType := p.typeRefToZodSchemaType(&typeRef.TypeArgs[1], table, data)
+		return fmt.Sprintf("z.ZodRecord<%s, %s>", keyType, valueType)
+	}
+
+	// Try to resolve the type
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return "z.ZodType"
+	}
+
+	prefix := ""
+	if resolved.Namespace != data.Namespace {
+		prefix = resolved.Namespace + "."
+	}
+
+	switch form := resolved.Form.(type) {
+	case resolution.StructForm:
+		// For generic structs, check if they have ConcreteTypes (which generates ZodObject type)
+		if form.IsGeneric() && len(typeRef.TypeArgs) > 0 {
+			// Check if the struct has @ts concrete_types directive
+			hasConcreteTypes := false
+			if domain, ok := resolved.Domains["ts"]; ok {
+				for _, expr := range domain.Expressions {
+					if expr.Name == "concrete_types" {
+						hasConcreteTypes = true
+						break
+					}
+				}
+			}
+
+			if hasConcreteTypes {
+				// Use the ZodObject type
+				args := make([]string, len(typeRef.TypeArgs))
+				for i, arg := range typeRef.TypeArgs {
+					args[i] = p.typeRefToZodSchemaType(&arg, table, data)
+				}
+				return fmt.Sprintf("%s%sZodObject<%s>", prefix, resolved.Name, strings.Join(args, ", "))
+			}
+
+			// For regular generic structs, use ReturnType<typeof schemaZ<Args>>
+			args := make([]string, len(typeRef.TypeArgs))
+			for i, arg := range typeRef.TypeArgs {
+				args[i] = p.typeRefToZodSchemaType(&arg, table, data)
+			}
+			return fmt.Sprintf("ReturnType<typeof %s%sZ<%s>>", prefix, lo.CamelCase(resolved.Name), strings.Join(args, ", "))
+		}
+		// Non-generic struct - use typeof schemaZ
+		return fmt.Sprintf("typeof %s%sZ", prefix, lo.CamelCase(resolved.Name))
+
+	case resolution.EnumForm:
+		return fmt.Sprintf("typeof %s%sZ", prefix, lo.CamelCase(resolved.Name))
+
+	case resolution.DistinctForm:
+		return fmt.Sprintf("typeof %s%sZ", prefix, lo.CamelCase(resolved.Name))
+	}
+
+	return "z.ZodType"
+}
+
 // isInXPackage checks if the output path is within the x package.
 func isInXPackage(outputPath string) bool {
 	return strings.HasPrefix(outputPath, xPathPrefix)
@@ -1425,11 +1562,17 @@ func primitiveToZod(primitive string, data *templateData, useInput bool) string 
 	return "z.unknown()"
 }
 
-func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeRef resolution.TypeRef, fieldName string, table *resolution.Table) string {
+type validationResult struct {
+	ZodType    string
+	HasDefault bool
+}
+
+func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeRef resolution.TypeRef, fieldName string, table *resolution.Table) validationResult {
 	rules := validation.Parse(domain)
 	if validation.IsEmpty(rules) {
-		return zodType
+		return validationResult{ZodType: zodType, HasDefault: false}
 	}
+	hasDefault := rules.Default != nil
 	isString := resolution.IsPrimitive(typeRef.Name) && resolution.IsStringPrimitive(typeRef.Name)
 	isNumber := resolution.IsPrimitive(typeRef.Name) && resolution.IsNumberPrimitive(typeRef.Name)
 	if isString {
@@ -1498,7 +1641,7 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 			}
 		}
 	}
-	return zodType
+	return validationResult{ZodType: zodType, HasDefault: hasDefault}
 }
 
 type templateData struct {
@@ -1620,7 +1763,7 @@ type typeParamData struct {
 }
 
 type fieldData struct {
-	Name, TSName, ZodType, TSType                  string
+	Name, TSName, ZodType, TSType, ZodSchemaType   string
 	IsOptional, IsHardOptional, IsArray, IsSelfRef bool
 }
 
@@ -1745,10 +1888,28 @@ export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{
 {{- if .IsSingleParam }}
 {{- if and .ConcreteTypes .ConditionalFields }}
 
-export type {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = Omit<z.ZodObject<z.ZodRawShape>, "_output"> & { _output: {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ $p.Name }}{{ end }}> };
+export type {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.ZodObject<
+  {
+{{- range .BaseFields }}
+    {{ .TSName }}: {{ .ZodSchemaType }};
 {{- end }}
+  }{{ range .ConditionalFields }} & ([{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}: {{ .TypeParamName }} }){{ end }}
+>;
 
-export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}>({{ range $i, $p := .TypeParams }}{{ $p.Name | camelCase }}{{ if $p.HasDefault }}?{{ end }}: {{ $p.Name }}{{ end }}){{ if and .ConcreteTypes .ConditionalFields }}: {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ $p.Name }}{{ end }}>{{ end }} =>
+export interface {{ .TSName }}ZFunction {
+  <{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ end }}>(
+    {{ range $i, $p := .TypeParams }}{{ $p.Name | camelCase }}: {{ $p.Name }}{{ end }}
+  ): {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ $p.Name }}{{ end }}>;
+  <{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}>(
+    {{ range $i, $p := .TypeParams }}{{ $p.Name | camelCase }}?: {{ $p.Name }}{{ end }}
+  ): {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ $p.Name }}{{ end }}>;
+}
+
+export const {{ camelCase .TSName }}Z: {{ .TSName }}ZFunction = <{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ end }}>({{ range $i, $p := .TypeParams }}{{ $p.Name | camelCase }}?: {{ $p.Name }}{{ end }}) =>
+{{- else }}
+
+export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}>({{ range $i, $p := .TypeParams }}{{ $p.Name | camelCase }}{{ if $p.HasDefault }}?{{ end }}: {{ $p.Name }}{{ end }}) =>
+{{- end }}
 {{- if .HasExtends }}
   {{ .ExtendsName }}({{ if .ExtendsParentIsGeneric }}{{ range $i, $a := .ExtendsParentSchemaArgs }}{{ if $i }}, {{ end }}{{ $a }}{{ end }}{{ end }})
 {{- if .OmittedFields }}
@@ -1768,7 +1929,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ $p.
       {{ .TSName }}: {{ .ZodType }},
 {{- end }}
 {{- end }}
-    }){{ if and .ConcreteTypes .ConditionalFields }} as unknown as {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ $p.Name }}{{ end }}>{{ end }}
+    })
 {{- end }};
 {{- else }}
   z.object({
@@ -1781,7 +1942,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ $p.
     {{ .TSName }}: {{ .ZodType }},
 {{- end }}
 {{- end }}
-  }){{ if and .ConcreteTypes .ConditionalFields }} as unknown as {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ $p.Name }}{{ end }}>{{ end }};
+  });
 {{- end }}
 {{- else }}
 
@@ -1792,14 +1953,36 @@ export interface {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i 
 }
 {{- if and .ConcreteTypes .ConditionalFields }}
 
-export type {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = Omit<z.ZodObject<z.ZodRawShape>, "_output"> & { _output: {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}> };
+export type {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = z.ZodObject<
+  {
+{{- range .BaseFields }}
+    {{ .TSName }}: {{ .ZodSchemaType }};
 {{- end }}
+  }{{ range .ConditionalFields }} & ([{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}: {{ .TypeParamName }} }){{ end }}
+>;
+
+export interface {{ .TSName }}ZFunction {
+  <{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if not $p.HasDefault }}{{ else if $p.Default }} = {{ $p.Default }}{{ end }}{{ end }}>(
+    args: { {{ range $i, $p := .TypeParams }}{{ if $i }}; {{ end }}{{ $p.Name | camelCase }}{{ if $p.HasDefault }}?{{ end }}: {{ $p.Name }}{{ end }} }
+  ): {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>;
+  <{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}>(
+    args?: {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>
+  ): {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>;
+}
+
+export const {{ camelCase .TSName }}Z: {{ .TSName }}ZFunction = <{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ end }}>({
+{{- range $i, $p := .TypeParams }}
+  {{ $p.Name | camelCase }},
+{{- end }}
+}: {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}> = {} as {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>) =>
+{{- else }}
 
 export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}>({
 {{- range $i, $p := .TypeParams }}
   {{ $p.Name | camelCase }},
 {{- end }}
-}: {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>{{ if .AllParamsOptional }} = {}{{ end }}){{ if and .ConcreteTypes .ConditionalFields }}: {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>{{ end }} =>
+}: {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>{{ if .AllParamsOptional }} = {}{{ end }}) =>
+{{- end }}
 {{- if .HasExtends }}
   {{ .ExtendsName }}({{ if .ExtendsParentIsGeneric }}{ {{ range $i, $a := .ExtendsParentSchemaArgs }}{{ if $i }}, {{ end }}{{ $a }}{{ end }} }{{ end }})
 {{- if .OmittedFields }}
@@ -1819,7 +2002,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
       {{ .TSName }}: {{ .ZodType }},
 {{- end }}
 {{- end }}
-    }){{ if and .ConcreteTypes .ConditionalFields }} as unknown as {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>{{ end }}
+    })
 {{- end }};
 {{- else }}
   z.object({
@@ -1832,7 +2015,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
     {{ .TSName }}: {{ .ZodType }},
 {{- end }}
 {{- end }}
-  }){{ if and .ConcreteTypes .ConditionalFields }} as unknown as {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>{{ end }};
+  });
 {{- end }}
 {{- end }}
 {{- if $.GenerateTypes }}

@@ -51,37 +51,33 @@ var _ = Describe("Python Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
-		It("Should generate Pydantic model for simple struct", func() {
-			source := `
-				@py output "out"
+		Context("basic struct generation", func() {
+			It("Should generate Pydantic model for simple struct", func() {
+				source := `
+					@py output "out"
 
-				User struct {
-					key uuid
-					name string
-					age int32
-					active bool
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+					User struct {
+						key uuid
+						name string
+						age int32
+						active bool
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "user", loader, typesPlugin)
+				Expect(resp.Files).To(HaveLen(1))
 
-			req := &plugin.Request{
-				Resolutions: table,
-			}
-
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
-			Expect(resp.Files).To(HaveLen(1))
-
-			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`from __future__ import annotations`))
-			Expect(content).To(ContainSubstring(`from uuid import UUID`))
-			Expect(content).To(ContainSubstring(`from pydantic import BaseModel`))
-			Expect(content).To(ContainSubstring(`class User(BaseModel):`))
-			Expect(content).To(ContainSubstring(`key: UUID`))
-			Expect(content).To(ContainSubstring(`name: str`))
-			Expect(content).To(ContainSubstring(`age: int`))
-			Expect(content).To(ContainSubstring(`active: bool`))
+				testutil.ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`from __future__ import annotations`,
+						`from uuid import UUID`,
+						`from pydantic import BaseModel`,
+						`class User(BaseModel):`,
+						`key: UUID`,
+						`name: str`,
+						`age: int`,
+						`active: bool`,
+					)
+			})
 		})
 
 		It("Should handle optional and array types", func() {
@@ -205,61 +201,56 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`data_type: DataType`))
 		})
 
-		It("Should handle primitive type mappings", func() {
-			source := `
-				@py output "out"
+		Context("primitive type mappings", func() {
+			DescribeTable("should generate correct Python type",
+				func(oracleType, expectedPyType string) {
+					source := `
+						@py output "out"
 
-				AllTypes struct {
-					a uuid
-					b string
-					c bool
-					d int8
-					e int16
-					f int32
-					g int64
-					h uint8
-					i uint16
-					j uint32
-					k uint64
-					l float32
-					m float64
-					n timestamp
-					o timespan
-					p json
-					q bytes
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+						Test struct {
+							field ` + oracleType + `
+						}
+					`
+					resp := testutil.MustGenerate(ctx, source, "test", loader, typesPlugin)
+					testutil.ExpectContent(resp, "types_gen.py").ToContain("field: " + expectedPyType)
+				},
+				Entry("uuid", "uuid", "UUID"),
+				Entry("string", "string", "str"),
+				Entry("bool", "bool", "bool"),
+				Entry("int8", "int8", "int"),
+				Entry("int16", "int16", "int"),
+				Entry("int32", "int32", "int"),
+				Entry("int64", "int64", "int"),
+				Entry("uint8", "uint8", "int"),
+				Entry("uint16", "uint16", "int"),
+				Entry("uint32", "uint32", "int"),
+				Entry("uint64", "uint64", "int"),
+				Entry("float32", "float32", "float"),
+				Entry("float64", "float64", "float"),
+				Entry("timestamp", "timestamp", "TimeStamp"),
+				Entry("timespan", "timespan", "TimeSpan"),
+				Entry("json", "json", "dict[str, Any]"),
+				Entry("bytes", "bytes", "bytes"),
+			)
 
-			req := &plugin.Request{
-				Resolutions: table,
-			}
+			It("Should import required packages for special types", func() {
+				source := `
+					@py output "out"
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
-
-			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`a: UUID`))
-			Expect(content).To(ContainSubstring(`b: str`))
-			Expect(content).To(ContainSubstring(`c: bool`))
-			Expect(content).To(ContainSubstring(`d: int`))
-			Expect(content).To(ContainSubstring(`e: int`))
-			Expect(content).To(ContainSubstring(`f: int`))
-			Expect(content).To(ContainSubstring(`g: int`))
-			Expect(content).To(ContainSubstring(`h: int`))
-			Expect(content).To(ContainSubstring(`i: int`))
-			Expect(content).To(ContainSubstring(`j: int`))
-			Expect(content).To(ContainSubstring(`k: int`))
-			Expect(content).To(ContainSubstring(`l: float`))
-			Expect(content).To(ContainSubstring(`m: float`))
-			Expect(content).To(ContainSubstring(`n: TimeStamp`))
-			Expect(content).To(ContainSubstring(`o: TimeSpan`))
-			Expect(content).To(ContainSubstring(`p: dict[str, Any]`))
-			Expect(content).To(ContainSubstring(`q: bytes`))
-			Expect(content).To(ContainSubstring(`from uuid import UUID`))
-			Expect(content).To(ContainSubstring(`from typing import Any`))
-			Expect(content).To(ContainSubstring(`from synnax.telem import TimeSpan, TimeStamp`))
+					Test struct {
+						a uuid
+						b timestamp
+						c json
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, typesPlugin)
+				testutil.ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`from uuid import UUID`,
+						`from typing import Any`,
+						`from synnax.telem import`,
+					)
+			})
 		})
 
 		It("Should keep snake_case for field names (Python convention)", func() {

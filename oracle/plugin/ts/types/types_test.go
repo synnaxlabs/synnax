@@ -51,36 +51,32 @@ var _ = Describe("TS Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
-		It("Should generate schema for simple struct", func() {
-			source := `
-				@ts output "out"
+		Context("basic struct generation", func() {
+			It("Should generate schema for simple struct", func() {
+				source := `
+					@ts output "out"
 
-				User struct {
-					key uuid
-					name string
-					age int32
-					active bool
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+					User struct {
+						key uuid
+						name string
+						age int32
+						active bool
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "user", loader, typesPlugin)
+				Expect(resp.Files).To(HaveLen(1))
 
-			req := &plugin.Request{
-				Resolutions: table,
-			}
-
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
-			Expect(resp.Files).To(HaveLen(1))
-
-			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`import { z } from "zod"`))
-			Expect(content).To(ContainSubstring(`export const userZ = z.object(`))
-			Expect(content).To(ContainSubstring(`key: z.uuid()`))
-			Expect(content).To(ContainSubstring(`name: z.string()`))
-			Expect(content).To(ContainSubstring(`age: z.int32()`))
-			Expect(content).To(ContainSubstring(`active: z.boolean()`))
-			Expect(content).To(ContainSubstring(`export interface User extends z.infer<typeof userZ> {}`))
+				testutil.ExpectContent(resp, "types.gen.ts").
+					ToContain(
+						`import { z } from "zod"`,
+						`export const userZ = z.object(`,
+						`key: z.uuid()`,
+						`name: z.string()`,
+						`age: z.int32()`,
+						`active: z.boolean()`,
+						`export interface User extends z.infer<typeof userZ> {}`,
+					)
+			})
 		})
 
 		It("Should handle optional and array types", func() {
@@ -209,59 +205,52 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`export const dataTypeZ = z.enum([...DATA_TYPES])`))
 		})
 
-		It("Should handle primitive type mappings", func() {
-			source := `
-				@ts output "out"
+		Context("primitive type mappings", func() {
+			DescribeTable("should generate correct Zod schema",
+				func(oracleType, expectedZodType string) {
+					source := `
+						@ts output "out"
 
-				AllTypes struct {
-					a uuid
-					b string
-					c bool
-					d int8
-					e int16
-					f int32
-					g int64
-					h uint8
-					i uint16
-					j uint32
-					k uint64
-					l float32
-					m float64
-					n timestamp
-					o timespan
-					p json
-					q bytes
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+						Test struct {
+							field ` + oracleType + `
+						}
+					`
+					resp := testutil.MustGenerate(ctx, source, "test", loader, typesPlugin)
+					testutil.ExpectContent(resp, "types.gen.ts").ToContain("field: " + expectedZodType)
+				},
+				Entry("uuid", "uuid", "z.uuid()"),
+				Entry("string", "string", "z.string()"),
+				Entry("bool", "bool", "z.boolean()"),
+				Entry("int8", "int8", "zod.int8Z"),
+				Entry("int16", "int16", "zod.int16Z"),
+				Entry("int32", "int32", "z.int32()"),
+				Entry("int64", "int64", "z.int64()"),
+				Entry("uint8", "uint8", "zod.uint8Z"),
+				Entry("uint16", "uint16", "zod.uint16Z"),
+				Entry("uint32", "uint32", "z.uint32()"),
+				Entry("uint64", "uint64", "z.uint64()"),
+				Entry("float32", "float32", "z.number()"),
+				Entry("float64", "float64", "z.number()"),
+				Entry("timestamp", "timestamp", "TimeStamp.z"),
+				Entry("timespan", "timespan", "TimeSpan.z"),
+				Entry("json", "json", "zod.stringifiedJSON()"),
+				Entry("bytes", "bytes", "z.instanceof(Uint8Array)"),
+			)
 
-			req := &plugin.Request{
-				Resolutions: table,
-			}
+			It("Should import required packages for special types", func() {
+				source := `
+					@ts output "out"
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
-
-			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`a: z.uuid()`))
-			Expect(content).To(ContainSubstring(`b: z.string()`))
-			Expect(content).To(ContainSubstring(`c: z.boolean()`))
-			Expect(content).To(ContainSubstring(`d: zod.int8Z`))
-			Expect(content).To(ContainSubstring(`e: zod.int16Z`))
-			Expect(content).To(ContainSubstring(`f: z.int32()`))
-			Expect(content).To(ContainSubstring(`g: z.int64()`))
-			Expect(content).To(ContainSubstring(`h: zod.uint8Z`))
-			Expect(content).To(ContainSubstring(`i: zod.uint16Z`))
-			Expect(content).To(ContainSubstring(`j: z.uint32()`))
-			Expect(content).To(ContainSubstring(`k: z.uint64()`))
-			Expect(content).To(ContainSubstring(`l: z.number()`))
-			Expect(content).To(ContainSubstring(`m: z.number()`))
-			Expect(content).To(ContainSubstring(`n: TimeStamp.z`))
-			Expect(content).To(ContainSubstring(`o: TimeSpan.z`))
-			Expect(content).To(ContainSubstring(`p: zod.stringifiedJSON()`))
-			Expect(content).To(ContainSubstring(`q: z.instanceof(Uint8Array)`))
-			Expect(content).To(ContainSubstring(`import { TimeSpan, TimeStamp, zod } from "@synnaxlabs/x"`))
+					Test struct {
+						a timestamp
+						b timespan
+						c int8
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, typesPlugin)
+				testutil.ExpectContent(resp, "types.gen.ts").
+					ToContain(`import { TimeSpan, TimeStamp, zod } from "@synnaxlabs/x"`)
+			})
 		})
 
 		It("Should convert snake_case to camelCase for field names", func() {

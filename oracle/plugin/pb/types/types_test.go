@@ -10,6 +10,7 @@
 package types_test
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/pb/types"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/oracle/testutil"
 )
 
 func TestPBTypes(t *testing.T) {
@@ -40,9 +42,15 @@ func pbDomains(goOutputPath string) map[string]resolution.Domain {
 }
 
 var _ = Describe("Plugin", func() {
-	var p *types.Plugin
+	var (
+		ctx    context.Context
+		loader *testutil.MockFileLoader
+		p      *types.Plugin
+	)
 
 	BeforeEach(func() {
+		ctx = context.Background()
+		loader = testutil.NewMockFileLoader()
 		p = types.New(types.DefaultOptions())
 	})
 
@@ -65,6 +73,75 @@ var _ = Describe("Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("primitive type mappings", func() {
+			DescribeTable("should generate correct proto type",
+				func(oracleType, expectedProtoType string) {
+					source := `
+						@go output "core/pkg/api/grpc/v1"
+						@pb
+
+						Test struct {
+							field ` + oracleType + `
+						}
+					`
+					resp := testutil.MustGenerate(ctx, source, "test", loader, p)
+					testutil.ExpectContent(resp, "test.proto").ToContain(expectedProtoType + " field = 1;")
+				},
+				Entry("string", "string", "string"),
+				Entry("bool", "bool", "bool"),
+				Entry("int32", "int32", "int32"),
+				Entry("int64", "int64", "int64"),
+				Entry("uint32", "uint32", "uint32"),
+				Entry("uint64", "uint64", "uint64"),
+				Entry("float32", "float32", "float"),
+				Entry("float64", "float64", "double"),
+				Entry("bytes", "bytes", "bytes"),
+			)
+
+			It("Should map uuid to string", func() {
+				source := `
+					@go output "core/pkg/api/grpc/v1"
+					@pb
+
+					Test struct {
+						key uuid
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, p)
+				testutil.ExpectContent(resp, "test.proto").ToContain("string key = 1;")
+			})
+
+			It("Should map timestamp to int64", func() {
+				source := `
+					@go output "core/pkg/api/grpc/v1"
+					@pb
+
+					Test struct {
+						created_at timestamp
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, p)
+				testutil.ExpectContent(resp, "test.proto").ToContain("int64 created_at = 1;")
+			})
+
+			It("Should map json to google.protobuf.Struct", func() {
+				source := `
+					@go output "core/pkg/api/grpc/v1"
+					@pb
+
+					Test struct {
+						data json
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, p)
+				testutil.ExpectContent(resp, "test.proto").
+					ToContain(
+						`import "google/protobuf/struct.proto";`,
+						`google.protobuf.Struct data = 1;`,
+					)
+			})
+		})
+
 		It("Should generate proto file for simple struct", func() {
 			table := resolution.NewTable()
 			table.Add(resolution.Type{

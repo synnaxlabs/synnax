@@ -15,14 +15,14 @@ import { z } from "zod";
 import { ontology } from "@/ontology";
 import { rack } from "@/rack";
 
-export const keyZ = z.uuid();
-export type Key = z.infer<typeof keyZ>;
-
 export const statusDetailsZ = z.object({
   rack: rack.keyZ,
   device: z.string(),
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
+
+export const keyZ = z.uuid();
+export type Key = z.infer<typeof keyZ>;
 
 export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
