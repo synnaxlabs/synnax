@@ -210,7 +210,7 @@ func (s *Service) migrateStatusesForExistingTasks(ctx context.Context) error {
 				Key:     key,
 				Name:    t.Name,
 				Time:    telem.Now(),
-				Variant: xstatus.WarningVariant,
+				Variant: xstatus.VariantWarning,
 				Message: fmt.Sprintf("%s status unknown", t.Name),
 				Details: StatusDetails{Task: t.Key},
 			})

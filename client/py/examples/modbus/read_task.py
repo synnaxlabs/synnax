@@ -12,7 +12,7 @@ This example demonstrates how to read data from the test Modbus TCP server (serv
 
 Before running this example:
 1. Start the test server:
-   poetry run python driver/modbus/dev/server.py
+   uv run python driver/modbus/dev/server.py
 
 2. Connect the Modbus device in Synnax:
    - Host: localhost (127.0.0.1)

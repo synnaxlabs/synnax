@@ -23,7 +23,7 @@ Key features demonstrated:
 
 Before running this example:
 1. Start the Modbus simulator server:
-   poetry run python driver/modbus/dev/server.py
+   uv run python driver/modbus/dev/server.py
 
 2. Connect the Modbus device in Synnax Console:
    - Host: localhost (127.0.0.1)

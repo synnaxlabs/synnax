@@ -193,7 +193,7 @@ func (s *Service) migrateStatusesForExistingDevices(ctx context.Context) error {
 				Key:     key,
 				Name:    d.Name,
 				Time:    telem.Now(),
-				Variant: xstatus.WarningVariant,
+				Variant: xstatus.VariantWarning,
 				Message: fmt.Sprintf("%s state unknown", d.Name),
 				Details: StatusDetails{Rack: d.Rack, Device: d.Key},
 			})
