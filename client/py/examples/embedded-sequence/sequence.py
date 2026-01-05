@@ -27,7 +27,7 @@ https://docs.synnaxlabs.com/reference/control/embedded.
 """
 
 # We've logged in via the command-line interface, so there's no need to provide
-# credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
+# credentials here. See https://docs.synnaxlabs.com/reference/client/quick-start.
 client = sy.Synnax()
 
 # Create the channels for the first sequence. Note that both channels will need
