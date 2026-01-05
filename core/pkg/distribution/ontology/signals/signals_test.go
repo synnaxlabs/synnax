@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
@@ -62,7 +61,7 @@ func (s *changeService) RetrieveResource(
 	key string,
 	_ gorp.Tx,
 ) (ontology.Resource, error) {
-	return core.NewResource(
+	return ontology.NewResource(
 		s.Schema(),
 		newChangeID(key),
 		"",
@@ -111,7 +110,7 @@ var _ = Describe("Signals", Ordered, func() {
 					{
 						Variant: change.Set,
 						Key:     newChangeID(key),
-						Value: core.NewResource(
+						Value: ontology.NewResource(
 							svc.Schema(),
 							newChangeID(key),
 							"empty",

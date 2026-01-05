@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -830,7 +830,7 @@ func main() {
 
 	// Custom template functions
 	funcMap := template.FuncMap{
-		"title": strings.Title,
+		"title": strings.ToTitle,
 	}
 
 	tmpl := template.Must(template.New("runtime").Funcs(funcMap).Parse(runtimeTemplate))

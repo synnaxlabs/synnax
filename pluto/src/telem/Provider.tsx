@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,7 +16,7 @@ export interface ProviderProps extends PropsWithChildren<any> {}
 
 export const Provider = ({ children }: ProviderProps): ReactElement => {
   const { path } = Aether.useUnidirectional({
-    type: telem.BaseProvider.TYPE,
+    type: telem.PROVIDER_TYPE,
     schema: telem.providerStateZ,
     state: {},
   });

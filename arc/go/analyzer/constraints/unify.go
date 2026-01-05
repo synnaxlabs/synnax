@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -97,18 +97,16 @@ func (s *System) unifyTypesWithVisited(t1, t2 types.Type, source Constraint, vis
 			return nil
 		}
 		visiting[t1.Name] = true
-		err := s.unifyTypeVariableWithVisited(t1, t2, source, visiting)
-		delete(visiting, t1.Name)
-		return err
+		defer delete(visiting, t1.Name)
+		return s.unifyTypeVariableWithVisited(t1, t2, source, visiting)
 	}
 	if t2.Kind == types.KindVariable {
 		if visiting[t2.Name] {
 			return nil
 		}
 		visiting[t2.Name] = true
-		err := s.unifyTypeVariableWithVisited(t2, t1, source, visiting)
-		delete(visiting, t2.Name)
-		return err
+		defer delete(visiting, t2.Name)
+		return s.unifyTypeVariableWithVisited(t2, t1, source, visiting)
 	}
 
 	// Now apply substitutions for non-type-variable types
@@ -228,11 +226,10 @@ func (s *System) unifyTypeVariableWithVisited(
 		tv.Constraint.Kind == types.KindNumericConstant)
 
 	if !isConstraintKind && tv.Constraint != nil && !types.Equal(*tv.Constraint, other) {
-		if source.Kind == KindCompatible && tv.Constraint.IsNumeric() && other.IsNumeric() {
-			other = promoteNumericTypes(*tv.Constraint, other)
-		} else {
+		if source.Kind != KindCompatible || !tv.Constraint.IsNumeric() || !other.IsNumeric() {
 			return errors.Wrapf(ErrConstraintViolation, "%v does not satisfy %v constraint", other, tv.Constraint)
 		}
+		other = promoteNumericTypes(*tv.Constraint, other)
 	}
 	s.Substitutions[tv.Name] = other
 	return nil

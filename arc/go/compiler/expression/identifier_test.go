@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -26,8 +26,10 @@ var _ = Describe("Identifier Compilation", func() {
 	Context("Local Variables", func() {
 		It("Should compile local variable references", func() {
 			ctx := NewContext(bCtx)
-			scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
-			Expect(scope).ToNot(BeNil())
+			Expect(ctx.Scope.Add(
+				ctx,
+				symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()},
+			)).ToNot(BeNil())
 			byteCode, exprType := compileWithCtx(ctx, "x")
 			Expect(byteCode).To(MatchOpcodes(OpLocalGet, 0))
 			Expect(exprType).To(Equal(types.I32()))

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,7 +17,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/control"
@@ -89,7 +90,7 @@ var _ = Describe("Channel", Ordered, func() {
 						subDB := openDBOnFS(sub)
 						Expect(subDB.Close()).To(Succeed())
 						err := subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.TimeStampT, IsIndex: true})
-						Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("cesium.db")))
+						Expect(err).To(HaveOccurredAs(resource.NewErrClosed("cesium.db")))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
@@ -106,9 +107,9 @@ var _ = Describe("Channel", Ordered, func() {
 						Expect(subDB.Close()).To(Succeed())
 
 						_, err := subDB.RetrieveChannel(ctx, key)
-						Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("cesium.db")))
+						Expect(err).To(HaveOccurredAs(resource.NewErrClosed("cesium.db")))
 						_, err = subDB.RetrieveChannels(ctx, key)
-						Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("cesium.db")))
+						Expect(err).To(HaveOccurredAs(resource.NewErrClosed("cesium.db")))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
@@ -186,7 +187,7 @@ var _ = Describe("Channel", Ordered, func() {
 
 					By("Asserting the old channel no longer exists")
 					_, err := db.RetrieveChannel(ctx, unaryKey)
-					Expect(err).To(MatchError(core.ErrChannelNotFound))
+					Expect(err).To(MatchError(channel.ErrNotFound))
 					Expect(MustSucceed(fs.Exists(channelKeyToPath(unaryKey)))).To(BeFalse())
 
 					By("Asserting the channel can be found at the new key")
@@ -224,7 +225,7 @@ var _ = Describe("Channel", Ordered, func() {
 
 					By("Asserting the old channel no longer exists")
 					_, err := db.RetrieveChannel(ctx, virtualKey)
-					Expect(err).To(MatchError(core.ErrChannelNotFound))
+					Expect(err).To(MatchError(channel.ErrNotFound))
 					Expect(MustSucceed(fs.Exists(channelKeyToPath(virtualKey)))).To(BeFalse())
 
 					By("Asserting the channel and data can be found at the new key")
@@ -254,7 +255,7 @@ var _ = Describe("Channel", Ordered, func() {
 					data2Series1 := telem.NewSeriesV[int64](20, 30, 50, 70, 110)
 
 					Expect(db.Write(ctx, 2*telem.SecondTS, telem.MultiFrame(
-						[]core.ChannelKey{indexKey, dataKey, data2Key},
+						[]channel.Key{indexKey, dataKey, data2Key},
 						[]telem.Series{indexSeries1, dataSeries1, data2Series1},
 					))).To(Succeed())
 
@@ -263,7 +264,7 @@ var _ = Describe("Channel", Ordered, func() {
 
 					By("Asserting the old channel no longer exists")
 					_, err := db.RetrieveChannel(ctx, indexKey)
-					Expect(err).To(MatchError(core.ErrChannelNotFound))
+					Expect(err).To(MatchError(channel.ErrNotFound))
 					Expect(MustSucceed(fs.Exists(channelKeyToPath(indexKey)))).To(BeFalse())
 
 					By("Asserting the channel can be found at the new key")
@@ -276,7 +277,7 @@ var _ = Describe("Channel", Ordered, func() {
 					data2Series2 := telem.NewSeriesV[int64](130, 170, 190, 230, 290)
 
 					Expect(db.Write(ctx, 13*telem.SecondTS, telem.MultiFrame(
-						[]core.ChannelKey{indexKeyNew, dataKey, data2Key},
+						[]channel.Key{indexKeyNew, dataKey, data2Key},
 						[]telem.Series{indexSeries2, dataSeries2, data2Series2},
 					))).To(Succeed())
 
@@ -329,7 +330,7 @@ var _ = Describe("Channel", Ordered, func() {
 
 						By("Asserting the old channel no longer exists")
 						_, err := db.RetrieveChannel(ctx, errorKey1)
-						Expect(err).To(MatchError(core.ErrChannelNotFound))
+						Expect(err).To(MatchError(channel.ErrNotFound))
 						Expect(MustSucceed(fs.Exists(channelKeyToPath(errorKey1)))).To(BeFalse())
 
 						By("Asserting the channel can be found at the new key")
@@ -373,7 +374,7 @@ var _ = Describe("Channel", Ordered, func() {
 
 						By("Asserting the old channel no longer exists")
 						_, err := db.RetrieveChannel(ctx, errorKey2)
-						Expect(err).To(MatchError(core.ErrChannelNotFound))
+						Expect(err).To(MatchError(channel.ErrNotFound))
 						Expect(MustSucceed(fs.Exists(channelKeyToPath(errorKey2)))).To(BeFalse())
 
 						By("Asserting the channel can be found at the new key")

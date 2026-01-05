@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -415,8 +415,7 @@ var _ = Describe("Compiler", func() {
 			debug := mod.ExportedFunction("debug")
 			Expect(debug).ToNot(BeNil())
 
-			results := MustSucceed(debug.Call(ctx, 10, 3))
-			Expect(results).ToNot(BeNil())
+			Expect(debug.Call(ctx, 10, 3)).ToNot(BeNil())
 
 			mem := mod.Memory()
 			dirtyFlags, ok := mem.ReadUint64Le(0x1000)
