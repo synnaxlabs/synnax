@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -119,7 +119,7 @@ func (s *System) ApplySubstitutions(t types.Type) types.Type {
 
 func (s *System) applySubstitutionsToParams(t types.Params, visited map[string]bool) types.Params {
 	t2 := slices.Clone(t)
-	for i, p := range t {
+	for i, p := range t2 {
 		t2[i].Type = s.applySubstitutions(p.Type, visited)
 	}
 	return t2

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -190,8 +190,9 @@ uint64_t Bindings::series_len(const uint32_t handle) {
     if (it == series.end()) return 0;
     return it->second.size();
 }
-uint32_t Bindings::series_slice(const uint32_t handle, uint32_t start, uint32_t end) {
-    auto it = series.find(handle);
+auto Bindings::series_slice(const uint32_t handle, const uint32_t start, uint32_t end)
+    -> uint32_t {
+    const auto it = series.find(handle);
     if (it == series.end()) return 0;
     const auto &src = it->second;
     const auto src_size = src.size();
@@ -439,9 +440,7 @@ std::string Bindings::string_get(const uint32_t handle) {
         auto it = series.find(handle);                                                 \
         if (it != series.end()) {                                                      \
             const auto key = state_key(func_id, var_id);                               \
-            auto state_it = state_series.find(key);                                    \
-            if (state_it != state_series.end()) { state_series.erase(state_it); }      \
-            state_series.emplace(key, it->second.deep_copy());                         \
+            state_series.insert_or_assign(key, it->second.deep_copy());                \
         }                                                                              \
     }
 
@@ -480,11 +479,11 @@ IMPL_SERIES_NEGATE(f64)
 
 #undef IMPL_SERIES_NEGATE
 
-// Boolean NOT (U8 only - for logical negation)
+// Logical NOT (U8 only - for boolean negation: 0 -> 1, non-zero -> 0)
 uint32_t Bindings::series_not_u8(uint32_t handle) {
     auto it = series.find(handle);
     if (it == series.end()) return 0;
-    auto result = ~it->second;
+    auto result = it->second.logical_not();
     const uint32_t new_handle = series_handle_counter++;
     series.emplace(new_handle, std::move(result));
     return new_handle;
@@ -887,7 +886,6 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
 
 #undef REGISTER_MATH_POW
     imports.push_back(wasmtime::Func::wrap(store, wrap(runtime, &Bindings::panic)));
-    std::printf("Created %zu host function imports\n", imports.size());
     return imports;
 }
 }

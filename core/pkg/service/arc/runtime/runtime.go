@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -27,7 +27,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/wasm"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -156,7 +156,7 @@ func (r *Runtime) processFrame(ctx context.Context, res framer.StreamerResponse)
 	if !changed {
 		return nil
 	}
-	return r.writer.Write(ctx, core.NewFrameFromStorage(fr))
+	return r.writer.Write(ctx, frame.NewFromStorage(fr))
 }
 
 func retrieveChannels(

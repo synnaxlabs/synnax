@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,9 +12,9 @@ package domain_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/cesium/internal/resource"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -24,7 +24,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 		Context("FS: "+fsName, Ordered, func() {
 			var (
 				db      *domain.DB
-				fs      xfs.FS
+				fs      fs.FS
 				cleanUp func() error
 			)
 			BeforeEach(func() {
@@ -324,7 +324,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				It("Should not allow operations on a closed iterator", func() {
 					var (
 						i = db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
-						e = core.NewErrResourceClosed("domain.iterator")
+						e = resource.NewErrClosed("domain.iterator")
 					)
 					Expect(i.Close()).To(Succeed())
 					Expect(i.SeekFirst(ctx)).To(BeFalse())

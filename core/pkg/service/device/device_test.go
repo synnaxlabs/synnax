@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -44,9 +44,9 @@ var _ = Describe("Device", func() {
 		ctx := context.Background()
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		groupSvc = MustSucceed(
-			group.OpenService(ctx, group.Config{DB: db, Ontology: otg}),
+			group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}),
 		)
-		label := MustSucceed(label.OpenService(ctx, label.Config{
+		label := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
@@ -64,7 +64,7 @@ var _ = Describe("Device", func() {
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       stat,
 		}))
-		svc = MustSucceed(device.OpenService(ctx, device.Config{
+		svc = MustSucceed(device.OpenService(ctx, device.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
@@ -213,7 +213,7 @@ var _ = Describe("Device", func() {
 
 		It("Should use the provided status when creating a device", func() {
 			providedStatus := &device.Status{
-				Variant:     xstatus.SuccessVariant,
+				Variant:     xstatus.VariantSuccess,
 				Time:        telem.Now(),
 				Message:     "Device is connected",
 				Description: "Custom device description",
@@ -232,7 +232,7 @@ var _ = Describe("Device", func() {
 				WhereKeys(device.OntologyID(d.Key).String()).
 				Entry(&deviceStatus).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(deviceStatus.Variant).To(Equal(xstatus.SuccessVariant))
+			Expect(deviceStatus.Variant).To(Equal(xstatus.VariantSuccess))
 			Expect(deviceStatus.Message).To(Equal("Device is connected"))
 			Expect(deviceStatus.Description).To(Equal("Custom device description"))
 			// Key should be auto-assigned
@@ -402,8 +402,8 @@ var _ = Describe("Device", func() {
 			ctx := context.Background()
 			db := gorp.Wrap(memkv.New())
 			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-			groupSvc := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-			labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+			groupSvc := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+			labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    groupSvc,
@@ -422,7 +422,7 @@ var _ = Describe("Device", func() {
 				Status:              stat,
 				HealthCheckInterval: 10 * telem.Millisecond,
 			}))
-			svc := MustSucceed(device.OpenService(ctx, device.Config{
+			svc := MustSucceed(device.OpenService(ctx, device.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    groupSvc,
@@ -456,7 +456,7 @@ var _ = Describe("Device", func() {
 					WhereKeys(device.OntologyID(d.Key).String()).
 					Entry(&deviceStatus).
 					Exec(ctx, nil)).To(Succeed())
-				g.Expect(deviceStatus.Variant).To(Equal(xstatus.WarningVariant))
+				g.Expect(deviceStatus.Variant).To(Equal(xstatus.VariantWarning))
 				g.Expect(deviceStatus.Message).To(ContainSubstring("not running"))
 				g.Expect(deviceStatus.Details.Device).To(Equal(d.Key))
 				g.Expect(deviceStatus.Details.Rack).To(Equal(r.Key))
@@ -468,8 +468,8 @@ var _ = Describe("Device", func() {
 			ctx := context.Background()
 			db := gorp.Wrap(memkv.New())
 			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-			groupSvc := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-			labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+			groupSvc := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+			labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    groupSvc,
@@ -487,7 +487,7 @@ var _ = Describe("Device", func() {
 				HostProvider: mock.StaticHostKeyProvider(1),
 				Status:       stat,
 			}))
-			svc := MustSucceed(device.OpenService(ctx, device.Config{
+			svc := MustSucceed(device.OpenService(ctx, device.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    groupSvc,
@@ -508,7 +508,7 @@ var _ = Describe("Device", func() {
 				Entry(&deletedStatus).
 				Exec(ctx, nil)).To(MatchError(query.NotFound))
 			Expect(svc.Close()).To(Succeed())
-			svc = MustSucceed(device.OpenService(ctx, device.Config{
+			svc = MustSucceed(device.OpenService(ctx, device.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    groupSvc,
@@ -520,7 +520,7 @@ var _ = Describe("Device", func() {
 				WhereKeys(device.OntologyID(d.Key).String()).
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())
-			Expect(restoredStatus.Variant).To(Equal(xstatus.WarningVariant))
+			Expect(restoredStatus.Variant).To(Equal(xstatus.VariantWarning))
 			Expect(restoredStatus.Message).To(Equal("Migration Test Device state unknown"))
 			Expect(restoredStatus.Details.Device).To(Equal(d.Key))
 			Expect(restoredStatus.Details.Rack).To(Equal(rackSvc.EmbeddedKey))

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -38,8 +38,8 @@ var (
 
 // Validate implements config.Config.
 func (r ReporterConfig) Validate() error {
-	v := validate.New("alamos.ReporterConfig")
-	validate.NotNil(v, "Filter", r.Filter)
+	v := validate.New("alamos.reporter_config")
+	validate.NotNil(v, "filter", r.Filter)
 	return v.Error()
 }
 
