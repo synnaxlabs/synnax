@@ -20,7 +20,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -221,7 +220,7 @@ func (r Range) RetrieveParent(ctx context.Context) (Range, error) {
 func (r Range) SearchAliases(ctx context.Context, term string) ([]channel.Key, error) {
 	ids, err := r.otg.SearchIDs(
 		ctx,
-		search.Request{Term: term, Type: AliasOntologyType},
+		ontology.SearchRequest{Term: term, Type: OntologyTypeAlias},
 	)
 	if err != nil {
 		return nil, err

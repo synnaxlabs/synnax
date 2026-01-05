@@ -13,11 +13,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -31,7 +32,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					indexDB *unary.DB
 					index   uint32 = 1
 					data    uint32 = 2
-					fs      xfs.FS
+					fs      fs.FS
 					cleanUp func() error
 				)
 				BeforeEach(func() {
@@ -39,7 +40,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(fs.Sub("index")),
 						MetaCodec: codec,
-						Channel: core.Channel{
+						Channel: channel.Channel{
 							Name:     "Alex",
 							Key:      index,
 							DataType: telem.TimeStampT,
@@ -51,7 +52,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					db = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(fs.Sub("data")),
 						MetaCodec: codec,
-						Channel: core.Channel{
+						Channel: channel.Channel{
 							Name:     "Megos",
 							Key:      data,
 							DataType: telem.Int64T,
@@ -506,7 +507,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							var i telem.TimeStamp
 							for i = 1; i < 6; i++ {
 								Expect(unary.Write(ctx, indexDB, telem.SecondTS*i, telem.NewSeriesSecondsTSV(i))).To(Succeed())
-								Expect(unary.Write(ctx, db, telem.SecondTS*i, telem.NewSeriesV[int64](int64(i)))).To(Succeed())
+								Expect(unary.Write(ctx, db, telem.SecondTS*i, telem.NewSeriesV(int64(i)))).To(Succeed())
 							}
 							iter := MustSucceed(db.OpenIterator(unary.IteratorConfig{
 								Bounds:        telem.TimeRangeMax,
@@ -782,7 +783,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(s.Alignment).To(Equal(telem.NewAlignment(1, 0)))
 					})
 
-					// This test case is added due to a behaviour change in the iterator.
+					// This test case is added due to a behavior change in the iterator.
 					// Originally, when SeekGE finds a domain that is greater than the
 					// provided timestamp but does not contain it, it leaves the iterator's
 					// view at the provided timestamp.
@@ -793,7 +794,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					// following a seek call should read data, in this case, from
 					// [25, 28).
 					//
-					// A similar behaviour adjustment is put in place for SeekLE as well.
+					// A similar behavior adjustment is put in place for SeekLE as well.
 					It("Should bound an iterator's view to a sought domain", func() {
 						Expect(unary.Write(ctx, indexDB, 0*telem.SecondTS, telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4, 5))).To(Succeed())
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13))).To(Succeed())
@@ -820,7 +821,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
 								FS:        MustSucceed(fs.Sub("index")),
 								MetaCodec: codec,
-								Channel: core.Channel{
+								Channel: channel.Channel{
 									Key:      iKey,
 									DataType: telem.TimeStampT,
 									IsIndex:  true,
@@ -832,7 +833,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							dataDB2 = MustSucceed(unary.Open(ctx, unary.Config{
 								FS:        MustSucceed(fs.Sub("data")),
 								MetaCodec: codec,
-								Channel: core.Channel{
+								Channel: channel.Channel{
 									Key:      dbKey,
 									DataType: telem.Int64T,
 									Index:    iKey,
@@ -871,7 +872,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
 								FS:        MustSucceed(fs.Sub("index3")),
 								MetaCodec: codec,
-								Channel: core.Channel{
+								Channel: channel.Channel{
 									Name:     "Ozturk",
 									Key:      iKey,
 									DataType: telem.TimeStampT,
@@ -892,7 +893,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						// The following regression test is used to assert that upon reading
 						// the second auto-span in a domain that begins with an inexact
 						// start (cut off), the iterator behaves properly. The broken
-						// behaviour was that it was unable to find the correct start/end
+						// behavior was that it was unable to find the correct start/end
 						// approximations due to the inexact start.
 						It("Should auto-span with a cut-off domain", func() {
 
@@ -909,7 +910,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						// The following regression test is used to assert that upon reading
 						// the second auto-span in a domain that begins with an inexact
 						// start (cut off), the iterator behaves properly. The broken
-						// behaviour was that it was unable to find the correct start/end
+						// behavior was that it was unable to find the correct start/end
 						// approximations due to the inexact start.
 						It("Should call next properly with a cut-off domain", func() {
 							i := MustSucceed(indexDB2.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax, AutoChunkSize: 7}))
@@ -945,7 +946,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 			})
 			Describe("Close", func() {
 				var (
-					fs      xfs.FS
+					fs      fs.FS
 					cleanUp func() error
 					db      *unary.DB
 					key     cesium.ChannelKey
@@ -956,7 +957,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					db = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        fs,
 						MetaCodec: codec,
-						Channel: core.Channel{
+						Channel: channel.Channel{
 							Key:      key,
 							Name:     "ludwig",
 							DataType: telem.TimeStampT,
@@ -972,7 +973,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				It("Should not allow operations on a closed iterator", func() {
 					var (
 						i = MustSucceed(db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax}))
-						e = core.NewErrResourceClosed("unary.iterator")
+						e = resource.NewErrClosed("unary.iterator")
 					)
 					Expect(i.Close()).To(Succeed())
 					Expect(i.SeekFirst(ctx)).To(BeFalse())
@@ -1017,13 +1018,13 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					dataKey  cesium.ChannelKey = 2
 				)
 				fileSizeLimit := 8 * 4 * telem.Byte
-				fs := xfs.NewMem()
+				fs := fs.NewMem()
 				indexFS := MustSucceed(fs.Sub("index"))
 				unaryFS := MustSucceed(fs.Sub("data"))
 				indexDB := MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        indexFS,
 					MetaCodec: codec,
-					Channel: core.Channel{
+					Channel: channel.Channel{
 						Name:     "Fred",
 						Key:      indexKey,
 						DataType: telem.TimeStampT,
@@ -1036,7 +1037,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				db := MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        unaryFS,
 					MetaCodec: codec,
-					Channel: core.Channel{
+					Channel: channel.Channel{
 						Name:     "Armisen",
 						Key:      dataKey,
 						DataType: telem.Float32T,
@@ -1105,14 +1106,14 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				)
 				// 4 timestamps sample file size
 				fileSizeLimit := 8 * 4 * telem.Byte
-				fs := xfs.NewMem()
+				fs := fs.NewMem()
 				indexFS := MustSucceed(fs.Sub("index"))
 				uFS1 := MustSucceed(fs.Sub("data1"))
 				uFS2 := MustSucceed(fs.Sub("data2"))
 				indexDB := MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        indexFS,
 					MetaCodec: codec,
-					Channel: core.Channel{
+					Channel: channel.Channel{
 						Name:     "GI",
 						Key:      indexKey,
 						DataType: telem.TimeStampT,
@@ -1123,7 +1124,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				db1 := MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        uFS1,
 					MetaCodec: codec,
-					Channel: core.Channel{
+					Channel: channel.Channel{
 						Name:     "Joe",
 						Key:      data1Key,
 						DataType: telem.Float32T,
@@ -1135,7 +1136,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				db2 := MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        uFS2,
 					MetaCodec: codec,
-					Channel: core.Channel{
+					Channel: channel.Channel{
 						Name:     "Jon",
 						Key:      data2Key,
 						DataType: telem.Uint8T,

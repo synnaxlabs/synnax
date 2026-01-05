@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -79,7 +79,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Start: telem.SecondTS,
 				Keys:  []channel.Key{ch.Key()},
 			}))
-			fr := core.UnaryFrame(ch.Key(), telem.NewSeriesSecondsTSV(1, 2, 3))
+			fr := frame.NewUnary(ch.Key(), telem.NewSeriesSecondsTSV(1, 2, 3))
 			MustSucceed(w.Write(fr))
 			Expect(w.Close()).To(Succeed())
 
@@ -130,7 +130,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
 					telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10),
 				}}
-				fr := core.MultiFrame(
+				fr := frame.NewMulti(
 					keys,
 					[]telem.Series{
 						idxData.Series[0],
@@ -145,7 +145,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Keys:             keys,
 					EnableAutoCommit: config.True(),
 				}))
-				fr = core.MultiFrame(
+				fr = frame.NewMulti(
 					keys,
 					[]telem.Series{
 						idxData.Series[1],
@@ -483,7 +483,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Keys:             keys,
 						EnableAutoCommit: config.True(),
 					}))
-					fr := core.MultiFrame(
+					fr := frame.NewMulti(
 						keys,
 						[]telem.Series{
 							threeDomainIdxData.Series[0],
@@ -499,7 +499,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Keys:             keys,
 						EnableAutoCommit: config.True(),
 					}))
-					fr = core.MultiFrame(
+					fr = frame.NewMulti(
 						keys,
 						[]telem.Series{
 							threeDomainIdxData.Series[1],
@@ -515,7 +515,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Keys:             keys,
 						EnableAutoCommit: config.True(),
 					}))
-					fr = core.MultiFrame(
+					fr = frame.NewMulti(
 						keys,
 						[]telem.Series{
 							threeDomainIdxData.Series[2],
@@ -743,7 +743,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Keys:             keys,
 						EnableAutoCommit: config.True(),
 					}))
-					MustSucceed(w.Write(core.MultiFrame(
+					MustSucceed(w.Write(frame.NewMulti(
 						keys,
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(1, 2, 3),
@@ -758,7 +758,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Keys:             keys,
 						EnableAutoCommit: config.True(),
 					}))
-					MustSucceed(w.Write(core.MultiFrame(
+					MustSucceed(w.Write(frame.NewMulti(
 						keys,
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(1000, 1001, 1002),
@@ -884,7 +884,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Keys:             keys,
 				EnableAutoCommit: config.True(),
 			}))
-			fr := core.MultiFrame(
+			fr := frame.NewMulti(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8),
@@ -936,7 +936,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Keys:             keys,
 				EnableAutoCommit: config.True(),
 			}))
-			fr := core.MultiFrame(
+			fr := frame.NewMulti(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8, 9),
@@ -991,7 +991,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Keys:             keys,
 				EnableAutoCommit: config.True(),
 			}))
-			fr := core.MultiFrame(
+			fr := frame.NewMulti(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4),
@@ -1051,7 +1051,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Keys:             keys,
 				EnableAutoCommit: config.True(),
 			}))
-			fr := core.MultiFrame(
+			fr := frame.NewMulti(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8),
@@ -1101,7 +1101,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Keys:             keys,
 				EnableAutoCommit: config.True(),
 			}))
-			Expect(w.Write(core.MultiFrame(
+			Expect(w.Write(frame.NewMulti(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4),
@@ -1116,7 +1116,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Keys:             keys,
 				EnableAutoCommit: config.True(),
 			}))
-			Expect(w.Write(core.MultiFrame(
+			Expect(w.Write(frame.NewMulti(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(10, 11, 12, 13),

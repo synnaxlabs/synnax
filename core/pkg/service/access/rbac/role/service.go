@@ -66,8 +66,6 @@ func (s *Service) Close() error {
 	return nil
 }
 
-const groupName = "Users"
-
 func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
@@ -77,12 +75,11 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	if cfg.Ontology != nil {
 		cfg.Ontology.RegisterService(s)
 	}
-	s.group, err = cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
-	if err != nil {
+	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Users", ontology.RootID); err != nil {
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		if s.signals, err = signals.PublishFromGorp[uuid.UUID, Role](
+		if s.signals, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
 			signals.GorpPublisherConfigUUID[Role](cfg.DB),

@@ -16,7 +16,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -37,8 +36,8 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"internal": zyn.Bool(),
 })
 
-func newResource(l Role) ontology.Resource {
-	return core.NewResource(schema, OntologyID(l.Key), l.Name, l)
+func newResource(r Role) ontology.Resource {
+	return ontology.NewResource(schema, OntologyID(r.Key), r.Name, r)
 }
 
 type change = xchange.Change[uuid.UUID, Role]
@@ -58,11 +57,11 @@ func (s *Service) RetrieveResource(
 	if err != nil {
 		return ontology.Resource{}, err
 	}
-	var l Role
-	if err := s.NewRetrieve().WhereKeys(k).Entry(&l).Exec(ctx, tx); err != nil {
+	var r Role
+	if err := s.NewRetrieve().WhereKeys(k).Entry(&r).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
-	return newResource(l), nil
+	return newResource(r), nil
 }
 
 func translateChange(c change) ontology.Change {
@@ -84,5 +83,8 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := gorp.WrapReader[uuid.UUID, Role](s.cfg.DB).OpenNexter(ctx)
-	return xiter.Map(n, newResource), closer, err
+	if err != nil {
+		return nil, nil, err
+	}
+	return xiter.Map(n, newResource), closer, nil
 }

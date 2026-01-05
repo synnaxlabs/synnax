@@ -12,8 +12,8 @@ package control_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/config"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
@@ -28,7 +28,7 @@ type testResource struct {
 
 var _ control.Resource = (*testResource)(nil)
 
-func (t testResource) ChannelKey() core.ChannelKey { return core.ChannelKey(0) }
+func (t testResource) ChannelKey() channel.Key { return channel.Key(0) }
 
 func createResourceNoErr(value int) (func() (t testResource, err error), func() int) {
 	var count int

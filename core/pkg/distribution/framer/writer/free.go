@@ -16,7 +16,7 @@ import (
 
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -80,7 +80,7 @@ type freeWriter struct {
 	sync bool
 }
 
-func (w *freeWriter) alignFrame(fr core.Frame) core.Frame {
+func (w *freeWriter) alignFrame(fr frame.Frame) frame.Frame {
 	var (
 		idx channel.Key
 		ok  bool

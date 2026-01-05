@@ -112,25 +112,21 @@ type Service struct {
 	monitor         *monitor
 }
 
-const localKeyCounterSuffix = ".rack.counter"
-
-const groupName = "Devices"
-
-func OpenService(ctx context.Context, configs ...Config) (s *Service, err error) {
+func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
+	g, err := cfg.Group.CreateOrRetrieve(ctx, "Devices", ontology.RootID)
 	if err != nil {
-		return
+		return nil, err
 	}
-	counterKey := []byte(cfg.HostProvider.HostKey().String() + localKeyCounterSuffix)
+	counterKey := []byte(cfg.HostProvider.HostKey().String() + ".rack.counter")
 	c, err := kv.OpenCounter(ctx, cfg.DB, counterKey)
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{Config: cfg, localKeyCounter: c, group: g, keyMu: &sync.Mutex{}}
+	s := &Service{Config: cfg, localKeyCounter: c, group: g, keyMu: &sync.Mutex{}}
 	if err = s.loadEmbeddedRack(ctx); err != nil {
 		return nil, err
 	}
@@ -138,17 +134,15 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
-	s.monitor, err = openMonitor(s.Child("monitor"), s)
-	if err != nil {
+	if s.monitor, err = openMonitor(s.Child("monitor"), s); err != nil {
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		s.shutdownSignals, err = signals.PublishFromGorp(
+		if s.shutdownSignals, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
 			signals.GorpPublisherConfigNumeric[Key, Rack](cfg.DB, telem.Uint32T),
-		)
-		if err != nil {
+		); err != nil {
 			return nil, err
 		}
 	}

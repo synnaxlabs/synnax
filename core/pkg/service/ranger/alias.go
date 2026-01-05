@@ -20,7 +20,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -65,10 +64,10 @@ func (a Alias) GorpKey() string { return aliasKey(a.Range, a.Channel) }
 // SetOptions implements gorp.Entry.
 func (a Alias) SetOptions() []any { return nil }
 
-const AliasOntologyType ontology.Type = "range-alias"
+const OntologyTypeAlias ontology.Type = "range-alias"
 
 func AliasOntologyID(r uuid.UUID, ch channel.Key) ontology.ID {
-	return ontology.ID{Type: AliasOntologyType, Key: aliasKey(r, ch)}
+	return ontology.ID{Type: OntologyTypeAlias, Key: aliasKey(r, ch)}
 }
 
 func AliasOntologyIDs(r uuid.UUID, chs []channel.Key) []ontology.ID {
@@ -84,7 +83,7 @@ var aliasSchema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newAliasResource(a Alias) ontology.Resource {
-	return core.NewResource(
+	return ontology.NewResource(
 		aliasSchema,
 		AliasOntologyID(a.Range, a.Channel),
 		a.Alias,
@@ -94,13 +93,12 @@ func newAliasResource(a Alias) ontology.Resource {
 
 type (
 	aliasOntologyService struct{ db *gorp.DB }
-
-	aliasChange = xchange.Change[string, Alias]
+	aliasChange          = xchange.Change[string, Alias]
 )
 
 var _ ontology.Service = (*aliasOntologyService)(nil)
 
-func (a *aliasOntologyService) Type() ontology.Type { return AliasOntologyType }
+func (a *aliasOntologyService) Type() ontology.Type { return OntologyTypeAlias }
 
 // Schema implements ontology.Service.
 func (s *aliasOntologyService) Schema() zyn.Schema { return aliasSchema }
@@ -144,5 +142,8 @@ func (s *aliasOntologyService) OnChange(f func(context.Context, iter.Seq[ontolog
 // OpenNexter implements ontology.Service.
 func (s *aliasOntologyService) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := gorp.WrapReader[string, Alias](s.db).OpenNexter(ctx)
-	return xiter.Map(n, newAliasResource), closer, err
+	if err != nil {
+		return nil, nil, err
+	}
+	return xiter.Map(n, newAliasResource), closer, nil
 }

@@ -14,10 +14,10 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -51,7 +51,7 @@ type WriterConfig struct {
 }
 
 var (
-	errWriterClosed     = core.NewErrResourceClosed("domain.writer")
+	errWriterClosed     = resource.NewErrClosed("domain.writer")
 	DefaultWriterConfig = WriterConfig{
 		EnableAutoCommit:         config.True(),
 		AutoIndexPersistInterval: 1 * telem.Second,
@@ -133,7 +133,7 @@ type Writer struct {
 	// len is the number of bytes written by all internal writers of the domain writer.
 	len int64
 	// internal is a TrackedWriteCloser used to write telemetry to FS.
-	internal xio.TrackedWriteCloser
+	internal io.TrackedWriteCloser
 	// presetEnd denotes whether the writer has a preset end as part of its
 	// WriterConfig. If it does, then commits to the writer will use that end as the end
 	// of the domain.

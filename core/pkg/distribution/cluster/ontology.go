@@ -20,25 +20,23 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	xio "github.com/synnaxlabs/x/io"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	ontologycore "github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/zyn"
 	"go.uber.org/zap"
 )
 
 const (
-	NodeOntologyType ontology.Type = "node"
+	OntologyTypeNode ontology.Type = "node"
 	OntologyType     ontology.Type = "cluster"
 )
 
 // NodeOntologyID returns a unique identifier for a Node to use within a resource
 // Ontology.
 func NodeOntologyID(key NodeKey) ontology.ID {
-	return ontology.ID{Type: NodeOntologyType, Key: strconv.Itoa(int(key))}
+	return ontology.ID{Type: OntologyTypeNode, Key: strconv.Itoa(int(key))}
 }
 
 // OntologyID returns a unique identifier for a Cluster to use with a
@@ -66,7 +64,7 @@ type NodeOntologyService struct {
 
 var _ ontology.Service = (*NodeOntologyService)(nil)
 
-func (s *NodeOntologyService) Type() ontology.Type { return NodeOntologyType }
+func (s *NodeOntologyService) Type() ontology.Type { return OntologyTypeNode }
 
 // ListenForChanges starts listening for changes to the cluster topology (nodes leaving,
 // joining, changing state, etc.) and updates the ontology accordingly.
@@ -119,7 +117,7 @@ func (s *NodeOntologyService) RetrieveResource(_ context.Context, key string, _ 
 }
 
 func newNodeResource(n Node) ontology.Resource {
-	return ontologycore.NewResource(
+	return ontology.NewResource(
 		nodeSchema,
 		NodeOntologyID(n.Key),
 		fmt.Sprintf("Node %v", n.Key),
@@ -153,7 +151,7 @@ func (s *OntologyService) OpenNexter(context.Context) (iter.Seq[ontology.Resourc
 }
 
 func newClusterResource(key uuid.UUID) ontology.Resource {
-	return ontologycore.NewResource(
+	return ontology.NewResource(
 		schema,
 		OntologyID(key),
 		"Cluster",

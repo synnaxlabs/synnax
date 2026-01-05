@@ -15,12 +15,12 @@ import (
 	"strconv"
 	"sync/atomic"
 
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/errors"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -46,8 +46,8 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 		return nil, err
 	}
 	db := &DB{options: o, closed: &atomic.Bool{}}
-	db.mu.unaryDBs = make(map[core.ChannelKey]unary.DB, len(info))
-	db.mu.virtualDBs = make(map[core.ChannelKey]virtual.DB, len(info))
+	db.mu.unaryDBs = make(map[channel.Key]unary.DB, len(info))
+	db.mu.virtualDBs = make(map[channel.Key]virtual.DB, len(info))
 	for _, i := range info {
 		if !i.IsDir() {
 			db.L.Warn(fmt.Sprintf(
@@ -78,7 +78,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	return db, nil
 }
 
-func (db *DB) openVirtual(ctx context.Context, ch Channel, fs xfs.FS) error {
+func (db *DB) openVirtual(ctx context.Context, ch Channel, fs fs.FS) error {
 	if _, isOpen := db.mu.virtualDBs[ch.Key]; isOpen {
 		return nil
 	}
@@ -95,7 +95,7 @@ func (db *DB) openVirtual(ctx context.Context, ch Channel, fs xfs.FS) error {
 	return nil
 }
 
-func (db *DB) openUnary(ctx context.Context, ch Channel, fs xfs.FS) error {
+func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
 	if _, isOpen := db.mu.unaryDBs[ch.Key]; isOpen {
 		return nil
 	}

@@ -7,16 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package core_test
+package resource_test
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium/internal/resource"
 )
 
-func TestCore(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Core Suite")
-}
+var _ = Describe("Resource", func() {
+	Describe("NewErrClosed", func() {
+		It("Should return an error with the correct message", func() {
+			Expect(resource.NewErrClosed("test")).To(And(
+				MatchError(resource.ErrClosed),
+				MatchError(ContainSubstring("cannot complete operation on closed test")),
+			))
+		})
+	})
+
+})

@@ -21,8 +21,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// Service represents a service that exposes a set of entities to the ontology (such
-// as a channel, node, user, etc.). Because the ontology only stores the relationships
+// Service represents a service that exposes a set of entities to the ontology (such as
+// a channel, node, user, etc.). Because the ontology only stores the relationships
 // between entities, it is a service's responsibility to provide the entities themselves
 // when the ontology requests them.
 type Service interface {
@@ -38,7 +38,7 @@ type Service interface {
 	observe.Observable[iter.Seq[Change]]
 	// OpenNexter opens a Nexter type iterator that allows the caller to iterate over
 	// all resources held by the Service.
-	OpenNexter(ctx context.Context) (iter.Seq[Resource], io.Closer, error)
+	OpenNexter(context.Context) (iter.Seq[Resource], io.Closer, error)
 }
 
 type serviceRegistrar map[Type]Service
