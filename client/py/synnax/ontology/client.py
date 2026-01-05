@@ -65,7 +65,7 @@ class Client:
         children: bool = False,
         parents: bool = False,
         include_schema: bool = False,
-        exclude_field_data: bool = False
+        exclude_field_data: bool = False,
     ) -> Resource: ...
 
     @overload
@@ -76,7 +76,7 @@ class Client:
         children: bool = False,
         parents: bool = False,
         include_schema: bool = False,
-        exclude_field_data: bool = False
+        exclude_field_data: bool = False,
     ) -> list[Resource]: ...
 
     def retrieve(
@@ -86,7 +86,7 @@ class Client:
         children: bool = False,
         parents: bool = False,
         include_schema: bool = False,
-        exclude_field_data: bool = False
+        exclude_field_data: bool = False,
     ) -> Resource | list[Resource]:
         is_single = False
         if not isinstance(id, list):

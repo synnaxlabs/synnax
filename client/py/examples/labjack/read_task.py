@@ -14,12 +14,12 @@ Before running this example:
 1. Connect your LabJack device (T4, T7, T7-Pro, T8, or Digit) to your computer
 
 2. Register the device in Synnax:
-   poetry run python examples/labjack/connect_device.py
+   uv run python examples/labjack/connect_device.py
 
 3. Connect analog sensors to AIN0 and AIN1 (or update channel configuration below)
 
 4. Run this script:
-   poetry run python examples/labjack/read_task.py
+   uv run python examples/labjack/read_task.py
 
 This example reads from two analog input channels at 100 Hz.
 """

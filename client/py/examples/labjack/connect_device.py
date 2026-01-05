@@ -19,10 +19,10 @@ Before running this example:
 2. Connect your LabJack device via USB, Ethernet, or WiFi.
 
 3. Login to Synnax (if not already logged in):
-   poetry run sy login
+   uv run sy login
 
 4. Run this script:
-   poetry run python examples/labjack/connect_device.py
+   uv run python examples/labjack/connect_device.py
 
 Configuration:
     Modify the constants below to match your LabJack device configuration.
