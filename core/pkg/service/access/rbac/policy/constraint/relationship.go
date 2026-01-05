@@ -25,7 +25,11 @@ func init() { Register(TypeRelationship, func() Constraint { return &Relationshi
 // Examples:
 //   - resource created_by subject (creator-only access)
 //   - resource labeled_by any of [label1, label2]
+//   - subject labeled_by "la" (user must have label)
 type Relationship struct {
+	// Target specifies which entity's relationships to check: "subject" or "resource".
+	// Defaults to "resource" if empty.
+	Target string `json:"target,omitempty" msgpack:"target,omitempty"`
 	// Relationship is the ontology edge type to traverse.
 	Relationship ontology.RelationshipType `json:"relationship" msgpack:"relationship"`
 	// Operator specifies how to match relationships (contains_any, contains_all,
@@ -47,7 +51,19 @@ func (c Relationship) Type() Type { return TypeRelationship }
 
 // Enforce checks if the constraint is satisfied.
 func (c Relationship) Enforce(ctx context.Context, params EnforceParams) bool {
-	relatedIDs := resolveRelationship(ctx, params, c.Relationship)
+	// Determine which entity's relationships to check
+	var fromID ontology.ID
+	switch c.Target {
+	case "subject":
+		fromID = params.Request.Subject
+	default: // "resource" or empty
+		if len(params.Request.Objects) == 0 {
+			return false
+		}
+		fromID = params.Request.Objects[0]
+	}
+
+	relatedIDs := resolveRelationship(ctx, params, fromID, c.Relationship)
 
 	var targetIDs []ontology.ID
 	if c.MatchSubject {
@@ -83,15 +99,16 @@ func (c Relationship) Enforce(ctx context.Context, params EnforceParams) bool {
 	}
 }
 
-func resolveRelationship(ctx context.Context, params EnforceParams, relType ontology.RelationshipType) []ontology.ID {
-	if len(params.Request.Objects) == 0 {
-		return nil
-	}
-	obj := params.Request.Objects[0]
+func resolveRelationship(
+	ctx context.Context,
+	params EnforceParams,
+	from ontology.ID,
+	relType ontology.RelationshipType,
+) []ontology.ID {
 	var relationships []ontology.Relationship
 	if err := gorp.NewRetrieve[[]byte, ontology.Relationship]().
 		Where(func(_ gorp.Context, rel *ontology.Relationship) (bool, error) {
-			return rel.From == obj && rel.Type == relType, nil
+			return rel.From == from && rel.Type == relType, nil
 		}).
 		Entries(&relationships).
 		Exec(ctx, params.Tx); err != nil {

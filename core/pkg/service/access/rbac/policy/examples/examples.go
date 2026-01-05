@@ -14,12 +14,16 @@ package examples
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/constraint"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -137,12 +141,14 @@ func TasksForSpecificRack(rackKey string) policy.Policy {
 	return policy.Policy{
 		Key:     uuid.New(),
 		Name:    "tasks-for-rack-" + rackKey,
-		Objects: []ontology.ID{{Type: "task"}},
+		Objects: []ontology.ID{{Type: task.OntologyType}},
 		Actions: []access.Action{access.ActionRetrieve},
 		Effect:  policy.EffectAllow,
 		Constraints: []constraint.Constraint{
 			// this requires registering a custom computation function for the rack
 			// property.
+			// The other way of doing this would be checking for ontology relationships
+			// between the task an the rack.
 			constraint.Computed{
 				Property: "rack",
 				Source:   []string{"resource", "key"},
@@ -159,7 +165,7 @@ func RangesWithLabels(allowedLabels []ontology.ID) policy.Policy {
 	return policy.Policy{
 		Key:     uuid.New(),
 		Name:    "ranges-with-labels",
-		Objects: []ontology.ID{{Type: "range"}},
+		Objects: []ontology.ID{{Type: ranger.OntologyType}},
 		Actions: []access.Action{access.ActionRetrieve},
 		Effect:  policy.EffectAllow,
 		Constraints: []constraint.Constraint{
@@ -175,44 +181,22 @@ func RangesWithLabels(allowedLabels []ontology.ID) policy.Policy {
 // DenyAllWritesDuringTest blocks all write operations when system is in test mode. This
 // is a DENY policy that takes precedence over allow policies. Uses FieldConstraint to
 // check the system's mode field.
-var DenyAllWritesDuringTest = policy.Policy{
-	Key:     uuid.New(),
-	Name:    "deny-writes-during-test",
-	Objects: []ontology.ID{}, // Empty = all objects
-	Actions: []access.Action{access.ActionCreate, access.ActionUpdate, access.ActionDelete},
-	Effect:  policy.EffectDeny,
-	Constraints: []constraint.Constraint{
-		constraint.Field{
-			Target:   "system",
-			Field:    []string{"mode"},
-			Operator: constraint.OpEqual,
-			Value:    "test",
+func DenyAllWritesDuringTest(testTime telem.TimeRange) policy.Policy {
+	return policy.Policy{
+		Key:     uuid.New(),
+		Name:    "deny-writes-during-test",
+		Objects: []ontology.ID{}, // Empty = all objects
+		Actions: []access.Action{access.ActionCreate, access.ActionUpdate, access.ActionDelete},
+		Effect:  policy.EffectDeny,
+		Constraints: []constraint.Constraint{
+			constraint.Field{
+				Target:   "system",
+				Field:    []string{"time"},
+				Operator: constraint.OpWithin,
+				Value:    testTime,
+			},
 		},
-	},
-}
-
-// CombinedConstraints shows multiple constraints that must ALL be satisfied. User can
-// only update draft schematics they created. Uses both RelationshipConstraint and
-// FieldConstraint.
-var CombinedConstraints = policy.Policy{
-	Key:     uuid.New(),
-	Name:    "update-own-draft-schematics",
-	Objects: []ontology.ID{{Type: "schematic"}},
-	Actions: []access.Action{access.ActionUpdate},
-	Effect:  policy.EffectAllow,
-	Constraints: []constraint.Constraint{
-		constraint.Relationship{
-			Relationship: "created_by",
-			Operator:     constraint.OpContainsAny,
-			MatchSubject: true,
-		},
-		constraint.Field{
-			Target:   "resource",
-			Field:    []string{"status"},
-			Operator: constraint.OpEqual,
-			Value:    "draft",
-		},
-	},
+	}
 }
 
 // =============================================================================
@@ -262,6 +246,7 @@ var LAEngineerSchematicAccess = policy.Policy{
 	Effect:  policy.EffectAllow,
 	Constraints: []constraint.Constraint{
 		constraint.Relationship{
+			Target:       "subject",
 			Relationship: label.LabeledBy,
 			Operator:     constraint.OpContainsAny,
 			Value:        []ontology.ID{{Type: label.OntologyType, Key: "la"}},
@@ -283,17 +268,16 @@ var DenyTexasSchematicsForLA = policy.Policy{
 	Actions: []access.Action{access.ActionUpdate, access.ActionDelete},
 	Effect:  policy.EffectDeny,
 	Constraints: []constraint.Constraint{
-		constraint.Field{
-			Target:   "subject",
-			Field:    []string{"location"},
-			Operator: constraint.OpEqual,
-			Value:    "la",
+		constraint.Relationship{
+			Target:       "subject",
+			Relationship: label.LabeledBy,
+			Operator:     constraint.OpContainsAny,
+			Value:        []ontology.ID{{Type: label.OntologyType, Key: "la"}},
 		},
-		constraint.Field{
-			Target:   "resource",
-			Field:    []string{"workspace"},
-			Operator: constraint.OpEqual,
-			Value:    "texas",
+		constraint.Relationship{
+			Relationship: label.LabeledBy,
+			Operator:     constraint.OpContainsNone,
+			Value:        []ontology.ID{{Type: label.OntologyType, Key: "texas"}},
 		},
 	},
 }
@@ -301,11 +285,11 @@ var DenyTexasSchematicsForLA = policy.Policy{
 // -----------------------------------------------------------------------------
 // Scenario: Top secret clearance can read/write "top-secret", only read "secret"
 // Type: Security (ABAC)
-// Status: SOLVED - uses FieldConstraint on subject.clearance
+// Status: REVISED - uses labels on subject and resource instead of field constraints
 // -----------------------------------------------------------------------------
 
-// TopSecretFullAccess allows users with top-secret clearance to read/write
-// top-secret classified data.
+// TopSecretFullAccess allows subjects labeled "top-secret" (clearance) to read/write
+// objects labeled "top-secret" (classification).
 var TopSecretFullAccess = policy.Policy{
 	Key:     uuid.New(),
 	Name:    "top-secret-full-access",
@@ -313,17 +297,19 @@ var TopSecretFullAccess = policy.Policy{
 	Actions: []access.Action{access.ActionRetrieve, access.ActionUpdate, access.ActionCreate},
 	Effect:  policy.EffectAllow,
 	Constraints: []constraint.Constraint{
-		constraint.Field{
-			Target:   "subject",
-			Field:    []string{"clearance"},
-			Operator: constraint.OpEqual,
-			Value:    "top-secret",
+		// Subject must be labeled as "top-secret"
+		constraint.Relationship{
+			Target:       "subject",
+			Relationship: label.LabeledBy,
+			Operator:     constraint.OpContainsAny,
+			Value:        []ontology.ID{{Type: label.OntologyType, Key: "top-secret"}},
 		},
-		constraint.Field{
-			Target:   "resource",
-			Field:    []string{"classification"},
-			Operator: constraint.OpEqual,
-			Value:    "top-secret",
+		// Resource (object) must be labeled as "top-secret"
+		constraint.Relationship{
+			Target:       "resource",
+			Relationship: label.LabeledBy,
+			Operator:     constraint.OpContainsAny,
+			Value:        []ontology.ID{{Type: label.OntologyType, Key: "top-secret"}},
 		},
 	},
 }
@@ -337,17 +323,17 @@ var TopSecretReadSecret = policy.Policy{
 	Actions: []access.Action{access.ActionRetrieve},
 	Effect:  policy.EffectAllow,
 	Constraints: []constraint.Constraint{
-		constraint.Field{
-			Target:   "subject",
-			Field:    []string{"clearance"},
-			Operator: constraint.OpEqual,
-			Value:    "top-secret",
+		constraint.Relationship{
+			Target:       "subject",
+			Relationship: label.LabeledBy,
+			Operator:     constraint.OpContainsAny,
+			Value:        []ontology.ID{{Type: label.OntologyType, Key: "top-secret"}},
 		},
-		constraint.Field{
-			Target:   "resource",
-			Field:    []string{"classification"},
-			Operator: constraint.OpEqual,
-			Value:    "secret",
+		constraint.Relationship{
+			Target:       "resource",
+			Relationship: label.LabeledBy,
+			Operator:     constraint.OpContainsAny,
+			Value:        []ontology.ID{{Type: label.OntologyType, Key: "secret"}},
 		},
 	},
 }
@@ -367,17 +353,17 @@ var SecretFullAccess = policy.Policy{
 	Actions: []access.Action{access.ActionRetrieve, access.ActionUpdate, access.ActionCreate},
 	Effect:  policy.EffectAllow,
 	Constraints: []constraint.Constraint{
-		constraint.Field{
-			Target:   "subject",
-			Field:    []string{"clearance"},
-			Operator: constraint.OpEqual,
-			Value:    "secret",
+		constraint.Relationship{
+			Target:       "subject",
+			Relationship: label.LabeledBy,
+			Operator:     constraint.OpContainsAny,
+			Value:        []ontology.ID{{Type: label.OntologyType, Key: "secret"}},
 		},
-		constraint.Field{
-			Target:   "resource",
-			Field:    []string{"classification"},
-			Operator: constraint.OpEqual,
-			Value:    "secret",
+		constraint.Relationship{
+			Target:       "resource",
+			Relationship: label.LabeledBy,
+			Operator:     constraint.OpContainsAny,
+			Value:        []ontology.ID{{Type: label.OntologyType, Key: "secret"}},
 		},
 	},
 }
@@ -391,17 +377,17 @@ var DenySecretWriteTopSecret = policy.Policy{
 	Actions: []access.Action{access.ActionUpdate, access.ActionCreate},
 	Effect:  policy.EffectDeny,
 	Constraints: []constraint.Constraint{
-		constraint.Field{
-			Target:   "subject",
-			Field:    []string{"clearance"},
-			Operator: constraint.OpEqual,
-			Value:    "secret",
+		constraint.Relationship{
+			Target:       "subject",
+			Relationship: label.LabeledBy,
+			Operator:     constraint.OpContainsAny,
+			Value:        []ontology.ID{{Type: label.OntologyType, Key: "secret"}},
 		},
-		constraint.Field{
-			Target:   "resource",
-			Field:    []string{"classification"},
-			Operator: constraint.OpEqual,
-			Value:    "top-secret",
+		constraint.Relationship{
+			Target:       "resource",
+			Relationship: label.LabeledBy,
+			Operator:     constraint.OpContainsAny,
+			Value:        []ontology.ID{{Type: label.OntologyType, Key: "top-secret"}},
 		},
 	},
 }
@@ -417,7 +403,7 @@ var DenyIteratorsDuringTest = policy.Policy{
 	Key:     uuid.New(),
 	Name:    "deny-iterators-during-test",
 	Objects: []ontology.ID{{Type: "channel"}},
-	Actions: []access.Action{access.ActionRetrieve},
+	Actions: []access.Action{"iterator"},
 	Effect:  policy.EffectDeny,
 	Constraints: []constraint.Constraint{
 		constraint.Field{
@@ -446,7 +432,7 @@ func DenyAccessDuringHoliday(holidayPeriod telem.TimeRange) policy.Policy {
 		Constraints: []constraint.Constraint{
 			constraint.Field{
 				Target:   "system",
-				Field:    []string{"current_time"},
+				Field:    []string{"time"},
 				Operator: constraint.OpWithin,
 				Value:    holidayPeriod,
 			},
@@ -468,11 +454,10 @@ var DenyEditBuiltinGroups = policy.Policy{
 	Actions: []access.Action{access.ActionUpdate, access.ActionDelete},
 	Effect:  policy.EffectDeny,
 	Constraints: []constraint.Constraint{
-		constraint.Field{
-			Target:   "resource",
-			Field:    []string{"internal"},
-			Operator: constraint.OpEqual,
-			Value:    true,
+		constraint.Relationship{
+			Relationship: ontology.CreatedBy,
+			Operator:     constraint.OpContainsNone,
+			Value:        []ontology.ID{{Type: ontology.TypeBuiltIn}},
 		},
 	},
 }
@@ -491,11 +476,10 @@ var DenyEditTaskStatusRelationships = policy.Policy{
 	Actions: []access.Action{access.ActionUpdate, access.ActionDelete},
 	Effect:  policy.EffectDeny,
 	Constraints: []constraint.Constraint{
-		constraint.Field{
-			Target:   "resource",
-			Field:    []string{"owner_type"},
-			Operator: constraint.OpIn,
-			Value:    []string{"task", "arc"},
+		constraint.Relationship{
+			Relationship: ontology.CreatedBy,
+			Operator:     constraint.OpContainsAny,
+			Value:        []ontology.ID{{Type: task.OntologyType}, {Type: arc.OntologyType}},
 		},
 	},
 }
@@ -543,17 +527,10 @@ var DenyRenameNodeChannels = policy.Policy{
 	Actions: []access.Action{access.ActionUpdate},
 	Effect:  policy.EffectDeny,
 	Constraints: []constraint.Constraint{
-		constraint.Field{
-			Target:   "resource",
-			Field:    []string{"owner"},
-			Operator: constraint.OpEqual,
-			Value:    "node1",
-		},
-		constraint.Field{
-			Target:   "request",
-			Field:    []string{"properties"},
-			Operator: constraint.OpContains,
-			Value:    "name",
+		constraint.Relationship{
+			Relationship: ontology.CreatedBy,
+			Operator:     constraint.OpContainsAny,
+			Value:        []ontology.ID{{Type: cluster.OntologyTypeNode}},
 		},
 	},
 }
@@ -628,12 +605,6 @@ var AllowTaskStatusUpdateFromDriver = policy.Policy{
 	Effect:  policy.EffectAllow,
 	Constraints: []constraint.Constraint{
 		constraint.Field{
-			Target:   "resource",
-			Field:    []string{"owner_type"},
-			Operator: constraint.OpEqual,
-			Value:    "task",
-		},
-		constraint.Field{
 			Target:   "request",
 			Field:    []string{"source"},
 			Operator: constraint.OpEqual,
@@ -656,11 +627,10 @@ var AllowUserVisibleChannels = policy.Policy{
 	Actions: []access.Action{access.ActionRetrieve},
 	Effect:  policy.EffectAllow,
 	Constraints: []constraint.Constraint{
-		constraint.Field{
-			Target:   "resource",
-			Field:    []string{"owner_type"},
-			Operator: constraint.OpNotIn,
-			Value:    []string{"builtin", "system"},
+		constraint.Relationship{
+			Relationship: ontology.CreatedBy,
+			Operator:     constraint.OpContainsNone,
+			Value:        []ontology.ID{{Type: ontology.TypeBuiltIn}, {Type: cluster.OntologyTypeNode}},
 		},
 	},
 }
