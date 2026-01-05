@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/cesium/internal/virtual"
@@ -78,7 +78,7 @@ func (db *DB) retrieveChannel(_ context.Context, key ChannelKey) (Channel, error
 	if vOk {
 		return vCh.Channel(), nil
 	}
-	return Channel{}, core.NewErrChannelNotFound(key)
+	return Channel{}, channel.NewErrNotFound(key)
 }
 
 // RenameChannels finds the specified keys in the database and renames them to the new
@@ -132,7 +132,7 @@ func (db *DB) renameChannel(ctx context.Context, key ChannelKey, newName string)
 		return nil
 	}
 
-	return core.NewErrChannelNotFound(key)
+	return channel.NewErrNotFound(key)
 }
 
 func (db *DB) createChannel(ctx context.Context, ch Channel) (err error) {
@@ -192,7 +192,7 @@ func (db *DB) validateNewChannel(ch Channel) error {
 // RekeyChannel changes the key of channel oldKey into newKey. This operation is
 // idempotent and does not return an error if the channel does not exist. RekeyChannel
 // returns an error if there are open iterators/writers on the given channel.
-func (db *DB) RekeyChannel(ctx context.Context, oldKey ChannelKey, newKey core.ChannelKey) error {
+func (db *DB) RekeyChannel(ctx context.Context, oldKey ChannelKey, newKey channel.Key) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 

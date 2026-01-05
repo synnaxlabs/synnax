@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,7 +12,7 @@ package cesium
 import (
 	"io"
 
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
@@ -29,7 +29,7 @@ type Writer struct {
 
 const unexpectedSteamClosure = "unexpected early closure of response stream"
 
-var errWriterClosed = core.NewErrResourceClosed("cesium.writer")
+var errWriterClosed = resource.NewErrClosed("cesium.writer")
 
 func wrapStreamWriter(cfg WriterConfig, internal StreamWriter) *Writer {
 	sCtx, cancel := signal.Isolated()

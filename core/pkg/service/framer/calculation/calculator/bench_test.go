@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,13 +16,13 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -38,7 +38,7 @@ func newBenchEnv(b *testing.B) *benchEnv {
 	distB := mock.NewCluster()
 	dist := distB.Provision(ctx)
 
-	labelSvc, err := label.OpenService(ctx, label.Config{
+	labelSvc, err := label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
@@ -48,7 +48,7 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		b.Fatalf("failed to open label service: %v", err)
 	}
 
-	statusSvc, err := svcstatus.OpenService(ctx, svcstatus.ServiceConfig{
+	statusSvc, err := status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
 		Label:    labelSvc,
 		Ontology: dist.Ontology,
@@ -143,8 +143,8 @@ func BenchmarkCalculator_SingleInput(b *testing.B) {
 		}
 	}()
 
-	inputFrame := core.UnaryFrame(base[0].Key(), telem.NewSeriesV[int64](10, 20, 30))
-	outputFrame := core.Frame{}
+	inputFrame := frame.NewUnary(base[0].Key(), telem.NewSeriesV[int64](10, 20, 30))
+	outputFrame := frame.Frame{}
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -177,14 +177,14 @@ func BenchmarkCalculator_TwoInputs_Add(b *testing.B) {
 		}
 	}()
 
-	inputFrame := core.MultiFrame(
+	inputFrame := frame.NewMulti(
 		[]channel.Key{bases[0].Key(), bases[1].Key()},
 		[]telem.Series{
 			telem.NewSeriesV[float32](1.0, 2.0, 3.0),
 			telem.NewSeriesV[float32](4.0, 5.0, 6.0),
 		},
 	)
-	outputFrame := core.Frame{}
+	outputFrame := frame.Frame{}
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -219,16 +219,16 @@ func BenchmarkCalculator_MultipleInputs(b *testing.B) {
 		}
 	}()
 
-	inputFrame := core.MultiFrame(
+	inputFrame := frame.NewMulti(
 		[]channel.Key{bases[0].Key(), bases[1].Key(), bases[2].Key(), bases[3].Key()},
 		[]telem.Series{
-			telem.NewSeriesV[float64](1.0, 2.0, 3.0),
-			telem.NewSeriesV[float64](4.0, 5.0, 6.0),
-			telem.NewSeriesV[float64](7.0, 8.0, 9.0),
-			telem.NewSeriesV[float64](10.0, 11.0, 12.0),
+			telem.NewSeriesV(1.0, 2.0, 3.0),
+			telem.NewSeriesV(4.0, 5.0, 6.0),
+			telem.NewSeriesV(7.0, 8.0, 9.0),
+			telem.NewSeriesV(10.0, 11.0, 12.0),
 		},
 	)
-	outputFrame := core.Frame{}
+	outputFrame := frame.Frame{}
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -267,7 +267,7 @@ func BenchmarkCalculator_NestedTwoLevel(b *testing.B) {
 		}
 	}()
 
-	inputFrame := core.UnaryFrame(base[0].Key(), telem.NewSeriesV[int64](10, 20, 30))
+	inputFrame := frame.NewUnary(base[0].Key(), telem.NewSeriesV[int64](10, 20, 30))
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -309,11 +309,11 @@ func BenchmarkCalculator_SampleCount(b *testing.B) {
 				bData[i] = float64(i + 1)
 			}
 
-			inputFrame := core.MultiFrame(
+			inputFrame := frame.NewMulti(
 				[]channel.Key{bases[0].Key(), bases[1].Key()},
 				[]telem.Series{telem.NewSeriesV(aData...), telem.NewSeriesV(bData...)},
 			)
-			outputFrame := core.Frame{}
+			outputFrame := frame.Frame{}
 
 			b.ReportAllocs()
 			b.ResetTimer()
@@ -348,14 +348,14 @@ func BenchmarkCalculator_ComplexExpression(b *testing.B) {
 		}
 	}()
 
-	inputFrame := core.MultiFrame(
+	inputFrame := frame.NewMulti(
 		[]channel.Key{bases[0].Key(), bases[1].Key()},
 		[]telem.Series{
-			telem.NewSeriesV[float64](10.0, 5.0, 15.0),
-			telem.NewSeriesV[float64](5.0, 10.0, 10.0),
+			telem.NewSeriesV(10.0, 5.0, 15.0),
+			telem.NewSeriesV(5.0, 10.0, 10.0),
 		},
 	)
-	outputFrame := core.Frame{}
+	outputFrame := frame.Frame{}
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -397,7 +397,7 @@ func BenchmarkCalculator_GroupScaling(b *testing.B) {
 				}
 			}()
 
-			inputFrame := core.UnaryFrame(base[0].Key(), telem.NewSeriesV[int64](10, 20, 30))
+			inputFrame := frame.NewUnary(base[0].Key(), telem.NewSeriesV[int64](10, 20, 30))
 
 			b.ReportAllocs()
 			b.ResetTimer()

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,7 +14,7 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
@@ -26,16 +26,16 @@ import (
 
 type (
 	// State is the control State of a gate over a channel-bound resource.
-	State = control.State[core.ChannelKey]
+	State = control.State[channel.Key]
 	// Transfer is a transfer of control over a channel-bound resource.
-	Transfer = control.Transfer[core.ChannelKey]
+	Transfer = control.Transfer[channel.Key]
 )
 
 // Resource represents some resource that can be controlled by a Gate. A Resource must have
 // a ChannelKey that represents the resource that is being controlled.
 type Resource interface {
 	// ChannelKey returns the key of the channel that is being controlled.
-	ChannelKey() core.ChannelKey
+	ChannelKey() channel.Key
 }
 
 // Config is the configuration for opening a controller.

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,8 +12,7 @@ package writer
 import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -44,7 +43,7 @@ type Request struct {
 	// when an open command is sent.
 	Config Config `json:"config" msgpack:"config"`
 	// Frame is the telemetry frame. This field is only acknowledged during Write commands.
-	Frame core.Frame `json:"frame" msgpack:"keys"`
+	Frame frame.Frame `json:"frame" msgpack:"keys"`
 	// SeqNum is used to match the request with the response.
 	SeqNum int `json:"seq_num" msgpack:"seq_num"`
 }
