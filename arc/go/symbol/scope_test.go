@@ -125,11 +125,10 @@ var _ = Describe("Scope", func() {
 				symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()},
 			))
 			Expect(scope1).ToNot(BeNil())
-			scope2 := MustSucceed(rootScope.Add(
+			Expect(rootScope.Add(
 				bCtx,
 				symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I64()},
-			))
-			Expect(scope2).ToNot(BeNil())
+			)).ToNot(BeNil())
 		})
 		It("Should allow shadowing global symbols from resolver", func() {
 			globalResolver := symbol.MapResolver{

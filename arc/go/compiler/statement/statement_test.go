@@ -27,8 +27,7 @@ func compile(source string) []byte {
 	aCtx := acontext.CreateRoot(bCtx, stmt, nil)
 	Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
 	ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, true)
-	diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
-	Expect(diverged).To(BeFalse()) // Normal statements don't diverge control flow
+	Expect(MustSucceed(statement.Compile(context.Child(ctx, stmt)))).To(BeFalse())
 	return ctx.Writer.Bytes()
 }
 

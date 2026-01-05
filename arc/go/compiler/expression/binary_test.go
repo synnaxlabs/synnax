@@ -7,13 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 package expression_test
 
 import (
@@ -23,7 +16,6 @@ import (
 	. "github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Binary Operations", func() {
@@ -576,12 +568,11 @@ var _ = Describe("Binary Operations", func() {
 	Describe("Literal Coercion", func() {
 		It("Should coerce a literal type", func() {
 			ctx := NewContext(bCtx)
-			scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+			Expect(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: "x",
 				Kind: symbol.KindVariable,
 				Type: types.F32(),
-			}))
-			Expect(scope).ToNot(BeNil())
+			})).ToNot(BeNil())
 			compiled, t := compileWithCtx(ctx, "x + 1")
 			Expect(t).To(Equal(types.F32()))
 			Expect(compiled).To(MatchOpcodes(
