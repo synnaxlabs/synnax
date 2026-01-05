@@ -231,7 +231,7 @@ synnax::TaskStatus wait_for_status(
     synnax::Streamer &streamer,
     const synnax::Task &task,
     const std::function<bool(const synnax::TaskStatus &)> &pred,
-    std::chrono::milliseconds timeout = std::chrono::seconds(5)
+    telem::TimeSpan timeout = 5 * telem::SECOND
 ) {
     synnax::TaskStatus result;
     xtest::eventually(
@@ -249,7 +249,7 @@ synnax::TaskStatus wait_for_status(
             return false;
         },
         [&]() { return "Timed out waiting for task status"; },
-        timeout
+        std::chrono::duration_cast<std::chrono::milliseconds>(timeout.chrono())
     );
     return result;
 }
@@ -273,22 +273,20 @@ protected:
 
     void start_manager(
         std::unique_ptr<task::Factory> factory,
-        telem::TimeSpan timeout = 60 * telem::SECOND,
-        telem::TimeSpan poll = 1 * telem::SECOND
+        task::ManagerConfig cfg = {}
     ) {
         manager = std::make_unique<task::Manager>(
             rack,
             client,
             std::move(factory),
-            timeout,
-            poll
+            cfg
         );
         std::promise<void> started;
         thread = std::thread([&] {
             ASSERT_NIL(manager->run([&] { started.set_value(); }));
         });
         ASSERT_EQ(
-            started.get_future().wait_for(std::chrono::seconds(5)),
+            started.get_future().wait_for((5 * telem::SECOND).chrono()),
             std::future_status::ready
         );
     }
@@ -395,7 +393,7 @@ TEST_F(TaskManagerTest, IgnoresSnapshot) {
                 received = true;
         }
     });
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    std::this_thread::sleep_for((300 * telem::MILLISECOND).chrono());
     streamer.close_send();
     reader.join();
     ASSERT_FALSE(received);
@@ -434,7 +432,7 @@ TEST_F(TaskManagerTest, CommandForUnconfigured) {
     auto cmd = task::Command(fake_key, "test", json{});
     ASSERT_NIL(writer.write(synnax::Frame(cmd_ch.key, telem::Series(cmd.to_json()))));
     ASSERT_NIL(writer.close());
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    std::this_thread::sleep_for((200 * telem::MILLISECOND).chrono());
 
     auto task = synnax::Task(rack.key, "t", "echo", "");
     ASSERT_NIL(rack.tasks.create(task));
@@ -451,7 +449,7 @@ TEST_F(TaskManagerTest, RapidReconfigure) {
         task.config = "{\"v\":" + std::to_string(i) + "}";
         ASSERT_NIL(rack.tasks.create(task));
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    std::this_thread::sleep_for((500 * telem::MILLISECOND).chrono());
 
     auto cmd_ch = ASSERT_NIL_P(client->channels.retrieve("sy_task_cmd"));
     auto writer = ASSERT_NIL_P(client->telem.open_writer(
@@ -470,8 +468,8 @@ TEST_F(TaskManagerTest, Timeout) {
     // 500ms timeout, 100ms poll for fast test
     start_manager(
         std::move(factory),
-        500 * telem::MILLISECOND,
-        100 * telem::MILLISECOND
+        {.op_timeout = 500 * telem::MILLISECOND,
+         .poll_interval = 100 * telem::MILLISECOND}
     );
 
     auto task = synnax::Task(rack.key, "t", "timeout", "");
@@ -484,7 +482,7 @@ TEST_F(TaskManagerTest, Timeout) {
             return s.variant == status::variant::ERR &&
                    s.message == "operation timed out";
         },
-        std::chrono::seconds(5)
+        5 * telem::SECOND
     );
     ASSERT_EQ(s.details.task, task.key);
 
@@ -583,7 +581,7 @@ TEST_F(ShutdownTest, DuringConfiguration) {
 
     std::promise<void> started;
     std::thread thread([&] { manager->run([&] { started.set_value(); }); });
-    started.get_future().wait_for(std::chrono::seconds(5));
+    started.get_future().wait_for((5 * telem::SECOND).chrono());
 
     auto task = synnax::Task(rack.key, "t", "blocking", "");
     ASSERT_NIL(rack.tasks.create(task));
@@ -593,7 +591,7 @@ TEST_F(ShutdownTest, DuringConfiguration) {
     f->release();
 
     auto join = std::async(std::launch::async, [&] { thread.join(); });
-    ASSERT_EQ(join.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+    ASSERT_EQ(join.wait_for((5 * telem::SECOND).chrono()), std::future_status::ready);
 }
 
 TEST_F(ShutdownTest, WithPendingOps) {
@@ -603,19 +601,19 @@ TEST_F(ShutdownTest, WithPendingOps) {
 
     std::promise<void> started;
     std::thread thread([&] { manager->run([&] { started.set_value(); }); });
-    started.get_future().wait_for(std::chrono::seconds(5));
+    started.get_future().wait_for((5 * telem::SECOND).chrono());
 
     for (int i = 0; i < 3; i++) {
         auto task = synnax::Task(rack.key, "t" + std::to_string(i), "blocking", "");
         ASSERT_NIL(rack.tasks.create(task));
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for((50 * telem::MILLISECOND).chrono());
 
     manager->stop();
     f->release();
 
     auto join = std::async(std::launch::async, [&] { thread.join(); });
-    ASSERT_EQ(join.wait_for(std::chrono::seconds(5)), std::future_status::ready);
+    ASSERT_EQ(join.wait_for((5 * telem::SECOND).chrono()), std::future_status::ready);
 }
 
 /// @brief Task that blocks forever on stop() - used to test shutdown timeout.
@@ -677,28 +675,30 @@ TEST_F(ShutdownTest, TimeoutDetachesStuckWorkers) {
         rack,
         client,
         std::move(factory),
-        60 * telem::SECOND, // op_timeout
-        1 * telem::SECOND, // poll_interval
-        500 * telem::MILLISECOND // shutdown_timeout
+        task::ManagerConfig{
+            .op_timeout = 60 * telem::SECOND,
+            .poll_interval = 1 * telem::SECOND,
+            .shutdown_timeout = 500 * telem::MILLISECOND
+        }
     );
 
     std::promise<void> started;
     std::thread thread([&] { manager->run([&] { started.set_value(); }); });
-    started.get_future().wait_for(std::chrono::seconds(5));
+    started.get_future().wait_for((5 * telem::SECOND).chrono());
 
     auto task = synnax::Task(rack.key, "t", "blocking_stop", "");
     ASSERT_NIL(rack.tasks.create(task));
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for((100 * telem::MILLISECOND).chrono());
 
     manager->stop();
 
     // Manager should shut down within ~1s even though stop() blocks forever
     auto join = std::async(std::launch::async, [&] { thread.join(); });
-    ASSERT_EQ(join.wait_for(std::chrono::seconds(3)), std::future_status::ready);
+    ASSERT_EQ(join.wait_for((3 * telem::SECOND).chrono()), std::future_status::ready);
 
     // Release the blocking stop so the detached thread can exit cleanly
     f->release_all();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for((100 * telem::MILLISECOND).chrono());
 }
 
 /// @brief Task that takes a fixed time to stop - used to test parallel stopping.
@@ -714,11 +714,7 @@ public:
     void exec(task::Command &) override {}
 
     void stop(bool) override {
-        std::this_thread::sleep_for(
-            std::chrono::milliseconds(
-                static_cast<int64_t>(stop_duration.milliseconds())
-            )
-        );
+        std::this_thread::sleep_for(stop_duration.chrono());
         stopped = true;
     }
 };
@@ -757,24 +753,21 @@ TEST_F(ShutdownTest, ParallelTaskStop) {
 
     std::promise<void> started;
     std::thread thread([&] { manager->run([&] { started.set_value(); }); });
-    started.get_future().wait_for(std::chrono::seconds(5));
+    started.get_future().wait_for((5 * telem::SECOND).chrono());
 
     // Create 4 tasks that each take 200ms to stop
     for (int i = 0; i < 4; i++) {
         auto task = synnax::Task(rack.key, "t" + std::to_string(i), "slow_stop", "");
         ASSERT_NIL(rack.tasks.create(task));
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    std::this_thread::sleep_for((200 * telem::MILLISECOND).chrono());
 
-    auto before = std::chrono::steady_clock::now();
+    auto before = telem::TimeStamp::now();
     manager->stop();
     thread.join();
-    auto elapsed = std::chrono::steady_clock::now() - before;
+    auto elapsed = telem::TimeStamp::now() - before;
 
     // With parallel stopping, 4 tasks × 200ms should take ~200-400ms, not 800ms
     // Allow some overhead but it should definitely be under 700ms
-    ASSERT_LT(
-        std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count(),
-        700
-    );
+    ASSERT_LT(elapsed.milliseconds(), 700);
 }

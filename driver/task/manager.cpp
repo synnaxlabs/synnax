@@ -217,7 +217,7 @@ void task::Manager::stop_all_tasks() {
         auto &done = done_flags[i];
         if (!t.joinable()) continue;
         while (!done->load() && telem::TimeStamp::now() < deadline)
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            std::this_thread::sleep_for((50 * telem::MILLISECOND).chrono());
         if (done->load()) {
             t.join();
         } else {
@@ -242,7 +242,7 @@ void task::Manager::process_task_delete(const telem::Series &series) {
 
 void task::Manager::start_workers() {
     this->breaker.start();
-    for (size_t i = 0; i < 4; i++)
+    for (size_t i = 0; i < this->worker_count; i++)
         this->workers.emplace_back([this] { this->worker_loop(); });
     this->monitor_thread = std::thread([this] { this->monitor_loop(); });
 }
@@ -259,7 +259,7 @@ void task::Manager::stop_workers() {
         while (telem::TimeStamp::now() < deadline) {
             // Workers should exit quickly once breaker stops, so we just
             // give them a brief window then try to join
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            std::this_thread::sleep_for((50 * telem::MILLISECOND).chrono());
             break; // Attempt join after brief wait
         }
         if (w.joinable()) {
@@ -321,7 +321,7 @@ void task::Manager::monitor_loop() {
     }
 }
 
-void task::Manager::execute_op(const Op &op, std::shared_ptr<Entry> entry) const {
+void task::Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) const {
     switch (op.type) {
         case OpType::CONFIGURE: {
             if (entry->task != nullptr) entry->task->stop(true);
@@ -334,7 +334,7 @@ void task::Manager::execute_op(const Op &op, std::shared_ptr<Entry> entry) const
             if (driver_task != nullptr)
                 entry->task = std::move(driver_task);
             else
-                LOG(ERROR) << "failed to configure task: " << op.task;
+                VLOG(1) << "failed to configure task: " << op.task;
             break;
         }
         case OpType::COMMAND: {

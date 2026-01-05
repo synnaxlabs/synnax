@@ -25,6 +25,7 @@
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/xjson/xjson.h"
+#include "x/cpp/xlog/xlog.h"
 
 using json = nlohmann::json;
 
@@ -185,6 +186,56 @@ public:
     }
 };
 
+/// @brief configuration for the task manager.
+struct ManagerConfig {
+    /// @brief duration before reporting stuck operations.
+    telem::TimeSpan op_timeout = 60 * telem::SECOND;
+    /// @brief interval between timeout checks.
+    telem::TimeSpan poll_interval = 1 * telem::SECOND;
+    /// @brief max time to wait for workers during shutdown before detaching.
+    telem::TimeSpan shutdown_timeout = 30 * telem::SECOND;
+    /// @brief number of worker threads for task operations.
+    size_t worker_count = 4;
+
+    template<typename Parser>
+    void override(Parser &p) {
+        const auto op_timeout_s = p.field(
+            "op_timeout",
+            static_cast<double>(this->op_timeout.seconds())
+        );
+        this->op_timeout = telem::TimeSpan(static_cast<int64_t>(op_timeout_s * 1e9));
+        const auto poll_interval_s = p.field(
+            "poll_interval",
+            static_cast<double>(this->poll_interval.seconds())
+        );
+        this->poll_interval = telem::TimeSpan(
+            static_cast<int64_t>(poll_interval_s * 1e9)
+        );
+        const auto shutdown_timeout_s = p.field(
+            "shutdown_timeout",
+            static_cast<double>(this->shutdown_timeout.seconds())
+        );
+        this->shutdown_timeout = telem::TimeSpan(
+            static_cast<int64_t>(shutdown_timeout_s * 1e9)
+        );
+        this->worker_count = p.field("worker_count", static_cast<int>(this->worker_count));
+        if (this->worker_count < 1) this->worker_count = 1;
+        if (this->worker_count > 64) this->worker_count = 64;
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const ManagerConfig &cfg) {
+        os << "  " << xlog::SHALE() << "op timeout" << xlog::RESET() << ": "
+           << cfg.op_timeout.seconds() << "s\n"
+           << "  " << xlog::SHALE() << "poll interval" << xlog::RESET() << ": "
+           << cfg.poll_interval.seconds() << "s\n"
+           << "  " << xlog::SHALE() << "shutdown timeout" << xlog::RESET() << ": "
+           << cfg.shutdown_timeout.seconds() << "s\n"
+           << "  " << xlog::SHALE() << "worker count" << xlog::RESET() << ": "
+           << cfg.worker_count;
+        return os;
+    }
+};
+
 /// @brief TaskManager is responsible for configuring, executing, and commanding
 /// data acquisition and control tasks.
 class Manager {
@@ -193,16 +244,15 @@ public:
         synnax::Rack rack,
         const std::shared_ptr<synnax::Synnax> &client,
         std::unique_ptr<task::Factory> factory,
-        telem::TimeSpan op_timeout = 60 * telem::SECOND,
-        telem::TimeSpan poll_interval = 1 * telem::SECOND,
-        telem::TimeSpan shutdown_timeout = 30 * telem::SECOND
+        const ManagerConfig &cfg = {}
     ):
         rack(std::move(rack)),
         ctx(std::make_shared<SynnaxContext>(client)),
         factory(std::move(factory)),
-        op_timeout(op_timeout),
-        poll_interval(poll_interval),
-        shutdown_timeout(shutdown_timeout) {}
+        op_timeout(cfg.op_timeout),
+        poll_interval(cfg.poll_interval),
+        shutdown_timeout(cfg.shutdown_timeout),
+        worker_count(cfg.worker_count) {}
 
     /// @brief runs the main task manager loop, blocking until stop() is called.
     /// Safe to call stop() from another thread.
@@ -224,6 +274,8 @@ private:
     telem::TimeSpan poll_interval;
     /// @brief max time to wait for workers during shutdown before detaching.
     telem::TimeSpan shutdown_timeout;
+    /// @brief number of worker threads for task operations.
+    size_t worker_count;
 
     /// @brief types of operations that can be queued.
     enum class OpType { CONFIGURE, COMMAND, STOP, DELETE };
