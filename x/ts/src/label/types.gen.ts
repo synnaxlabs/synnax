@@ -20,6 +20,5 @@ export const labelZ = z.object({
 });
 export interface Label extends z.infer<typeof labelZ> {}
 
-export const newZ = labelZ
-  .partial({ key: true });
+export const newZ = labelZ.partial({ key: true });
 export interface New extends z.input<typeof newZ> {}

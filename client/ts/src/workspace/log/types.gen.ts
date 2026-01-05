@@ -24,8 +24,7 @@ export const logZ = z.object({
 });
 export interface Log extends z.infer<typeof logZ> {}
 
-export const newZ = logZ
-  .partial({ key: true });
+export const newZ = logZ.partial({ key: true });
 export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("log");

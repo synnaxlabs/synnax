@@ -21,13 +21,13 @@ from synnax.ontology.payload import ID
 
 Key = Any
 
-Key: TypeAlias = UUID
-
 
 class StatusDetails(BaseModel):
     rack: rack.Key
     device: str
 
+
+Key: TypeAlias = UUID
 
 Status: TypeAlias = status.Status[StatusDetails]
 

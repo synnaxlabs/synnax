@@ -24,8 +24,7 @@ export const linePlotZ = z.object({
 });
 export interface LinePlot extends z.infer<typeof linePlotZ> {}
 
-export const newZ = linePlotZ
-  .partial({ key: true });
+export const newZ = linePlotZ.partial({ key: true });
 export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("lineplot");

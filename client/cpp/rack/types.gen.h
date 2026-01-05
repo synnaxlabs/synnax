@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+
 #include "x/cpp/status/status.h"
 #include "x/cpp/xjson/xjson.h"
 
@@ -51,7 +52,9 @@ struct Payload {
             .name = parser.field<std::string>("name"),
             .task_counter = parser.field<std::uint32_t>("task_counter", 0),
             .embedded = parser.field<bool>("embedded", false),
-            .status = parser.has("status") ? std::make_optional(parser.field<Status>("status")) : std::nullopt,
+            .status = parser.has("status")
+                        ? std::make_optional(parser.field<Status>("status"))
+                        : std::nullopt,
         };
     }
 
