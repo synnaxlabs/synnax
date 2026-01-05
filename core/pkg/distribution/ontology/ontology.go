@@ -41,6 +41,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/x/zyn"
 	"go.uber.org/zap"
 )
 
@@ -58,15 +59,18 @@ type (
 	SearchRequest = search.Request
 )
 
-var (
-	ParseID     = resource.ParseID
-	ResourceIDs = resource.IDs
-	IDsToString = resource.IDsToKeys
-	// NewResource creates a new entity with the given schema and name and an empty set
-	// of field data. NewResource panics if the provided data value does not fit the
-	// ontology schema.
-	NewResource = resource.New
-)
+func ParseID(key string) (ID, error) { return resource.ParseID(key) }
+
+func ResourceIDs(resources []Resource) []ID { return resource.IDs(resources) }
+
+func IDsToKeys(ids []ID) []string { return resource.IDsToKeys(ids) }
+
+// NewResource creates a new entity with the given schema and name and an empty set of
+// field data. NewResource panics if the provided data value does not fit the ontology
+// schema.
+func NewResource(schema zyn.Schema, id ID, name string, data any) Resource {
+	return resource.New(schema, id, name, data)
+}
 
 // Ontology exposes an ontology stored in a key-value database for reading and writing.
 type Ontology struct {

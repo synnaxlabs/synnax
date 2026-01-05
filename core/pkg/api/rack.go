@@ -147,7 +147,7 @@ func (svc *RackService) Retrieve(
 		}
 		statuses := make([]rack.Status, 0, len(resRacks))
 		if err := status.NewRetrieve[rack.StatusDetails](svc.status.status).
-			WhereKeys(ontology.IDsToString(rack.OntologyIDsFromRacks(resRacks))...).
+			WhereKeys(ontology.IDsToKeys(rack.OntologyIDsFromRacks(resRacks))...).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return res, err
