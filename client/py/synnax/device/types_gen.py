@@ -12,7 +12,6 @@
 from __future__ import annotations
 
 from typing import Any, TypeAlias
-from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -21,7 +20,7 @@ from synnax.ontology.payload import ID
 
 Key = Any
 
-Key: TypeAlias = UUID
+Key: TypeAlias = str
 
 
 class StatusDetails(BaseModel):

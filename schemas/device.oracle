@@ -22,7 +22,7 @@ StatusDetails struct {
 
 Status = status.Status<StatusDetails>
 
-Key = uuid
+Key = string
 
 Device struct<
     Properties extends json = json,

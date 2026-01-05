@@ -15,7 +15,7 @@ import { z } from "zod";
 import { ontology } from "@/ontology";
 import { rack } from "@/rack";
 
-export const keyZ = z.uuid();
+export const keyZ = z.string();
 export type Key = z.infer<typeof keyZ>;
 
 export const statusDetailsZ = z.object({

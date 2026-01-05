@@ -17,12 +17,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Authority is an 8-bit unsigned integer that represents the authority that a
-// particular controlling subject has over a resource. A higher authority means higher
-// precedence over the resource. AuthorityAbsolute authority (255) maintains exclusive control
-// over the resource.
-type Authority uint8
-
 const (
 	errorPrefix  = "sy.control"
 	unauthorized = errorPrefix + ".unauthorized"

@@ -66,7 +66,8 @@ func (m *ImportManager) AddInternal(alias, path string) {
 // AddImport implements resolver.ImportAdder interface.
 // It routes imports to AddExternal or AddInternal based on category.
 func (m *ImportManager) AddImport(category, path, alias string) {
-	if category == "external" {
+	if category == "external" || alias == "" {
+		// External imports and imports without aliases go to external list
 		m.AddExternal(path)
 	} else {
 		m.AddInternal(alias, path)
