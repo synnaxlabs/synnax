@@ -97,18 +97,16 @@ func (s *System) unifyTypesWithVisited(t1, t2 types.Type, source Constraint, vis
 			return nil
 		}
 		visiting[t1.Name] = true
-		err := s.unifyTypeVariableWithVisited(t1, t2, source, visiting)
-		delete(visiting, t1.Name)
-		return err
+		defer delete(visiting, t1.Name)
+		return s.unifyTypeVariableWithVisited(t1, t2, source, visiting)
 	}
 	if t2.Kind == types.KindVariable {
 		if visiting[t2.Name] {
 			return nil
 		}
 		visiting[t2.Name] = true
-		err := s.unifyTypeVariableWithVisited(t2, t1, source, visiting)
-		delete(visiting, t2.Name)
-		return err
+		defer delete(visiting, t2.Name)
+		return s.unifyTypeVariableWithVisited(t2, t1, source, visiting)
 	}
 
 	// Now apply substitutions for non-type-variable types
