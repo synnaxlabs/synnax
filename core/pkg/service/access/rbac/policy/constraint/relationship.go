@@ -84,10 +84,14 @@ func (c Relationship) Enforce(ctx context.Context, params EnforceParams) bool {
 }
 
 func resolveRelationship(ctx context.Context, params EnforceParams, relType ontology.RelationshipType) []ontology.ID {
+	if len(params.Request.Objects) == 0 {
+		return nil
+	}
+	obj := params.Request.Objects[0]
 	var relationships []ontology.Relationship
 	if err := gorp.NewRetrieve[[]byte, ontology.Relationship]().
 		Where(func(_ gorp.Context, rel *ontology.Relationship) (bool, error) {
-			return rel.From == params.Object && rel.Type == relType, nil
+			return rel.From == obj && rel.Type == relType, nil
 		}).
 		Entries(&relationships).
 		Exec(ctx, params.Tx); err != nil {

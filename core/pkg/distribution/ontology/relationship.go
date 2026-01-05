@@ -31,6 +31,11 @@ const (
 	// examining a Relationship of type ParentOf, the Start field will be the parent and
 	// the to field will be the child i.e. (Start is the ParentOf To).
 	ParentOf RelationshipType = "parent"
+	// CreatedBy indicates that a resource was created by another resource. When
+	// examining a Relationship of type CreatedBy, the Start field will be the creator
+	// and the To field will be the resource that was created i.e. (Start is the
+	// CreatedBy To).
+	CreatedBy RelationshipType = "created_by"
 )
 
 // Relationship is a struct that represents a relationship between two resources in the

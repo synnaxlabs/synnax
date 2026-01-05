@@ -267,10 +267,11 @@ func (e *Enforcer) constraintsSatisfied(
 	if len(constraints) == 0 {
 		return true
 	}
-	// Build the enforce params
+	// Build the enforce params with a single-element Objects slice
+	singleObjReq := req
+	singleObjReq.Objects = []ontology.ID{obj}
 	params := constraint.EnforceParams{
-		Request:  req,
-		Object:   obj,
+		Request:  singleObjReq,
 		Ontology: e.cfg.Ontology,
 		Tx:       e.tx,
 	}

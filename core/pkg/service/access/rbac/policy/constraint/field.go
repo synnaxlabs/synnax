@@ -112,12 +112,12 @@ func resolveRequestField(req access.Request, field []string) (any, bool) {
 }
 
 func resolveResourceField(ctx context.Context, params EnforceParams, field []string) (any, bool) {
-	if len(field) == 0 {
+	if len(field) == 0 || len(params.Request.Objects) == 0 {
 		return nil, false
 	}
 	var resources []ontology.Resource
 	if err := params.Ontology.NewRetrieve().
-		WhereIDs(params.Object).
+		WhereIDs(params.Request.Objects[0]).
 		Entries(&resources).
 		Exec(ctx, params.Tx); err != nil || len(resources) == 0 {
 		return nil, false

@@ -13,10 +13,14 @@ package examples
 
 import (
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/constraint"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -33,35 +37,30 @@ import (
 //    Example: request.time_range duration <= 24h
 // =============================================================================
 
-// =============================================================================
-// ORIGINAL EXAMPLES
-// =============================================================================
-
-// CreatorOnlySchematicUpdate allows users to only update schematics they created.
-// Uses RelationshipConstraint to check the "created_by" ontology relationship.
-var CreatorOnlySchematicUpdate = policy.Policy{
+// PolicyOnlyUpdateSchematicsCreatedByUsers allows users to only update schematics they
+// created.
+var PolicyOnlyUpdateSchematicsCreatedByUsers = policy.Policy{
 	Key:     uuid.New(),
-	Name:    "creator-only-schematic-update",
-	Objects: []ontology.ID{{Type: "schematic"}},
+	Name:    "Schematics can only be updated by their creator",
+	Objects: []ontology.ID{{Type: schematic.OntologyType}},
 	Actions: []access.Action{access.ActionUpdate, access.ActionDelete},
 	Effect:  policy.EffectAllow,
 	Constraints: []constraint.Constraint{
 		constraint.Relationship{
-			Relationship: "created_by",
+			Relationship: ontology.CreatedBy,
 			Operator:     constraint.OpContainsAny,
 			MatchSubject: true,
 		},
 	},
 }
 
-// TimeRangeChannelRead restricts channel data access to a specific time range.
-// Uses FieldConstraint to check the request's time_range field.
-func TimeRangeChannelRead(channelKey string, allowedRange telem.TimeRange) policy.Policy {
+// PolicyTimeRangeChannelRead restricts channel data access to a specific time range.
+func PolicyTimeRangeChannelRead(channelKey channel.Key, allowedRange telem.TimeRange) policy.Policy {
 	return policy.Policy{
 		Key:     uuid.New(),
-		Name:    "time-range-channel-read",
-		Objects: []ontology.ID{{Type: "channel", Key: channelKey}},
-		Actions: []access.Action{access.ActionRetrieve},
+		Name:    "Channel data can only be read within a specific time range",
+		Objects: []ontology.ID{channel.OntologyID(channelKey)},
+		Actions: []access.Action{"read_data"},
 		Effect:  policy.EffectAllow,
 		Constraints: []constraint.Constraint{
 			constraint.Field{
@@ -74,26 +73,30 @@ func TimeRangeChannelRead(channelKey string, allowedRange telem.TimeRange) polic
 	}
 }
 
-// PropertyRestrictedStatusUpdate allows updating only specific properties on a status.
-// Uses FieldConstraint to check the request's properties field.
-var PropertyRestrictedStatusUpdate = policy.Policy{
+// PolicyDenyBuiltinStatusNameKeyEdit prevents editing Name or Key on builtin-owned
+// statuses.
+var PolicyDenyBuiltinStatusNameKeyEdit = policy.Policy{
 	Key:     uuid.New(),
-	Name:    "property-restricted-status-update",
-	Objects: []ontology.ID{{Type: "status"}},
+	Name:    "Cannot edit Name or Key on builtin-owned statuses",
+	Objects: []ontology.ID{{Type: status.OntologyType}},
 	Actions: []access.Action{access.ActionUpdate},
-	Effect:  policy.EffectAllow,
+	Effect:  policy.EffectDeny,
 	Constraints: []constraint.Constraint{
+		constraint.Relationship{
+			Relationship: ontology.CreatedBy,
+			Operator:     constraint.OpContainsAny,
+			Value:        []ontology.ID{{Type: ontology.TypeBuiltIn}},
+		},
 		constraint.Field{
 			Target:   "request",
 			Field:    []string{"properties"},
-			Operator: constraint.OpSubsetOf,
-			Value:    []string{"details", "variant"},
+			Operator: constraint.OpContainsAny,
+			Value:    []string{"Name", "Key"},
 		},
 	},
 }
 
 // ErrorStatusesOnly restricts retrieval to statuses in error state.
-// Uses FieldConstraint to check the resource's status field.
 var ErrorStatusesOnly = policy.Policy{
 	Key:     uuid.New(),
 	Name:    "error-statuses-only",
@@ -110,8 +113,8 @@ var ErrorStatusesOnly = policy.Policy{
 	},
 }
 
-// OPCScanTasksOnly restricts task retrieval to opc_scan type tasks.
-// Uses FieldConstraint to check the resource's type field.
+// OPCScanTasksOnly restricts task retrieval to opc_scan type tasks. Uses
+// FieldConstraint to check the resource's type field.
 var OPCScanTasksOnly = policy.Policy{
 	Key:     uuid.New(),
 	Name:    "opc-scan-tasks-only",
@@ -138,9 +141,11 @@ func TasksForSpecificRack(rackKey string) policy.Policy {
 		Actions: []access.Action{access.ActionRetrieve},
 		Effect:  policy.EffectAllow,
 		Constraints: []constraint.Constraint{
-			constraint.Field{
-				Target:   "resource",
-				Field:    []string{"rack"},
+			// this requires registering a custom computation function for the rack
+			// property.
+			constraint.Computed{
+				Property: "rack",
+				Source:   []string{"resource", "key"},
 				Operator: constraint.OpEqual,
 				Value:    rackKey,
 			},
@@ -148,8 +153,8 @@ func TasksForSpecificRack(rackKey string) policy.Policy {
 	}
 }
 
-// RangesWithLabels restricts range retrieval to ranges with specific labels.
-// Uses RelationshipConstraint to check the "labeled_by" ontology relationship.
+// RangesWithLabels restricts range retrieval to ranges with specific labels. Uses
+// RelationshipConstraint to check the "labeled_by" ontology relationship.
 func RangesWithLabels(allowedLabels []ontology.ID) policy.Policy {
 	return policy.Policy{
 		Key:     uuid.New(),
@@ -159,7 +164,7 @@ func RangesWithLabels(allowedLabels []ontology.ID) policy.Policy {
 		Effect:  policy.EffectAllow,
 		Constraints: []constraint.Constraint{
 			constraint.Relationship{
-				Relationship: "labeled_by",
+				Relationship: label.LabeledBy,
 				Operator:     constraint.OpContainsAny,
 				Value:        allowedLabels,
 			},
@@ -167,9 +172,9 @@ func RangesWithLabels(allowedLabels []ontology.ID) policy.Policy {
 	}
 }
 
-// DenyAllWritesDuringTest blocks all write operations when system is in test mode.
-// This is a DENY policy that takes precedence over allow policies.
-// Uses FieldConstraint to check the system's mode field.
+// DenyAllWritesDuringTest blocks all write operations when system is in test mode. This
+// is a DENY policy that takes precedence over allow policies. Uses FieldConstraint to
+// check the system's mode field.
 var DenyAllWritesDuringTest = policy.Policy{
 	Key:     uuid.New(),
 	Name:    "deny-writes-during-test",
@@ -186,9 +191,9 @@ var DenyAllWritesDuringTest = policy.Policy{
 	},
 }
 
-// CombinedConstraints shows multiple constraints that must ALL be satisfied.
-// User can only update draft schematics they created.
-// Uses both RelationshipConstraint and FieldConstraint.
+// CombinedConstraints shows multiple constraints that must ALL be satisfied. User can
+// only update draft schematics they created. Uses both RelationshipConstraint and
+// FieldConstraint.
 var CombinedConstraints = policy.Policy{
 	Key:     uuid.New(),
 	Name:    "update-own-draft-schematics",
@@ -248,6 +253,7 @@ func VendorTuesdayChannelAccess(channelKey string, tuesdayWindow telem.TimeRange
 
 // LAEngineerSchematicAccess allows engineers at LA location to edit
 // schematics in LA workspaces only.
+// TODO: use labeled_by constraint instead
 var LAEngineerSchematicAccess = policy.Policy{
 	Key:     uuid.New(),
 	Name:    "la-engineer-schematic-access",
@@ -255,17 +261,15 @@ var LAEngineerSchematicAccess = policy.Policy{
 	Actions: []access.Action{access.ActionUpdate, access.ActionDelete},
 	Effect:  policy.EffectAllow,
 	Constraints: []constraint.Constraint{
-		constraint.Field{
-			Target:   "subject",
-			Field:    []string{"location"},
-			Operator: constraint.OpEqual,
-			Value:    "la",
+		constraint.Relationship{
+			Relationship: label.LabeledBy,
+			Operator:     constraint.OpContainsAny,
+			Value:        []ontology.ID{{Type: label.OntologyType, Key: "la"}},
 		},
-		constraint.Field{
-			Target:   "resource",
-			Field:    []string{"workspace"},
-			Operator: constraint.OpEqual,
-			Value:    "la",
+		constraint.Relationship{
+			Relationship: ontology.CreatedBy,
+			Operator:     constraint.OpContainsAny,
+			MatchSubject: true,
 		},
 	},
 }

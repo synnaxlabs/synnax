@@ -25,10 +25,9 @@ type Type string
 
 // EnforceParams provides the context needed for constraint evaluation.
 type EnforceParams struct {
-	// Request is the access request being evaluated.
+	// Request is the access request being evaluated. When enforcing, Request.Objects
+	// contains a single element - the specific object being checked.
 	Request access.Request
-	// Object is the specific object being accessed.
-	Object ontology.ID
 	// Ontology provides access to the ontology graph for relationship lookups.
 	Ontology *ontology.Ontology
 	// Tx is the database transaction for queries.
