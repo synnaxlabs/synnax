@@ -149,40 +149,110 @@ func (s *Service) NewEnforcer(tx gorp.Tx) *Enforcer {
 // Enforce implements the access.Enforcer interface. It checks both direct user policies
 // and policies from all roles assigned to the user.
 func (e *Enforcer) Enforce(ctx context.Context, req access.Request) error {
-	v, err := e.retrievePolicies(ctx, req.Subject)
+	policies, err := e.retrievePolicies(ctx, req.Subject)
 	if err != nil {
 		return err
 	}
-	if allowRequest(req, v) {
-		return nil
-	}
-	return access.ErrDenied
-}
 
-func allowRequest(req access.Request, policies []policy.Policy) bool {
 	for _, requestedObj := range req.Objects {
-		found := false
+		// Check DENY policies first - any match means access denied
 		for _, p := range policies {
-			hasAction := lo.Contains(p.Actions, req.Action)
-			if !hasAction {
+			if p.Effect != policy.EffectDeny {
 				continue
 			}
-			for _, policyObj := range p.Objects {
-				if policyObj.IsType() {
-					if policyObj.Type == requestedObj.Type {
-						found = true
-						break
-					}
-				} else if policyObj.Type == requestedObj.Type && policyObj.Key == requestedObj.Key {
-					found = true
-					break
-				}
+			if e.policyMatches(ctx, p, req, requestedObj) {
+				return access.ErrDenied
 			}
-			if found {
+		}
+
+		// Check ALLOW policies - need at least one match
+		allowed := false
+		for _, p := range policies {
+			if p.Effect == policy.EffectDeny {
+				continue
+			}
+			if e.policyMatches(ctx, p, req, requestedObj) {
+				allowed = true
 				break
 			}
 		}
-		if !found {
+
+		if !allowed {
+			return access.ErrDenied
+		}
+	}
+
+	return nil
+}
+
+// policyMatches checks if a policy matches the request for a specific object.
+// It checks: action match, object match, and constraint satisfaction.
+func (e *Enforcer) policyMatches(
+	ctx context.Context,
+	p policy.Policy,
+	req access.Request,
+	obj ontology.ID,
+) bool {
+	// Check action
+	if !lo.Contains(p.Actions, req.Action) {
+		return false
+	}
+
+	// Check object
+	if !e.objectMatches(p, obj) {
+		return false
+	}
+
+	// Check constraints
+	if !e.constraintsSatisfied(ctx, p.Constraints, req, obj) {
+		return false
+	}
+
+	return true
+}
+
+// objectMatches checks if the policy covers the requested object.
+func (e *Enforcer) objectMatches(p policy.Policy, obj ontology.ID) bool {
+	// Empty objects list matches all (for system-wide policies)
+	if len(p.Objects) == 0 {
+		return true
+	}
+
+	for _, policyObj := range p.Objects {
+		if policyObj.IsType() {
+			if policyObj.Type == obj.Type {
+				return true
+			}
+		} else if policyObj.Type == obj.Type && policyObj.Key == obj.Key {
+			return true
+		}
+	}
+	return false
+}
+
+// constraintsSatisfied checks if all constraints in the policy are satisfied.
+func (e *Enforcer) constraintsSatisfied(
+	ctx context.Context,
+	constraints []policy.Constraint,
+	req access.Request,
+	obj ontology.ID,
+) bool {
+	// No constraints = always satisfied
+	if len(constraints) == 0 {
+		return true
+	}
+
+	// Build the enforce params
+	params := policy.EnforceParams{
+		Request:  req,
+		Object:   obj,
+		Ontology: e.cfg.Ontology,
+		Tx:       e.tx,
+	}
+
+	// All constraints must pass (AND logic)
+	for _, c := range constraints {
+		if err := c.Enforce(ctx, params); err != nil {
 			return false
 		}
 	}
