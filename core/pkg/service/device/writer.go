@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -40,7 +40,7 @@ func resolveStatus(d *Device, provided *Status) *Status {
 			Key:     OntologyID(d.Key).String(),
 			Name:    d.Name,
 			Time:    telem.Now(),
-			Variant: xstatus.WarningVariant,
+			Variant: xstatus.VariantWarning,
 			Message: fmt.Sprintf("%s state unknown", d.Name),
 			Details: StatusDetails{Rack: d.Rack, Device: d.Key},
 		}

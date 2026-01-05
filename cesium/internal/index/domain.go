@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,7 +15,7 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -30,7 +30,7 @@ type Domain struct {
 	// DB is the database to query for timestamp values.
 	DB *domain.DB
 	// Channel is the channel definition for the index.
-	Channel core.Channel
+	Channel channel.Channel
 }
 
 var sampleDensity = telem.TimeStampT.Density()
@@ -231,7 +231,7 @@ func (i *Domain) zeroStamp(
 		return
 	}
 	s, err := readStamp(r, byteSize(startApprox.Upper))
-	approx = Exactly[telem.TimeStamp](s)
+	approx = Exactly(s)
 	return approx, err
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/core"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -90,7 +89,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
-	v := validate.New("Arc")
+	v := validate.New("arc")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "channel", c.Channel)
@@ -201,7 +200,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:     gorp.OverrideTx(s.cfg.DB, tx),
 		otg:    s.cfg.Ontology.NewWriter(tx),
-		status: status.NewWriter[core.StatusDetails](s.cfg.Status, tx),
+		status: status.NewWriter[StatusDetails](s.cfg.Status, tx),
 	}
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -156,7 +156,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		err = cleanup(err)
 	}()
 
-	if l.User, err = user.OpenService(ctx, user.Config{
+	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
@@ -180,7 +180,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if l.Label, err = label.OpenService(ctx, label.Config{
+	if l.Label, err = label.OpenService(ctx, label.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
@@ -188,7 +188,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}); !ok(err, l.Label) {
 		return nil, err
 	}
-	if l.Ranger, err = ranger.OpenService(ctx, ranger.Config{
+	if l.Ranger, err = ranger.OpenService(ctx, ranger.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
@@ -197,7 +197,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}); !ok(err, l.Ranger) {
 		return nil, err
 	}
-	if l.Workspace, err = workspace.OpenService(ctx, workspace.Config{
+	if l.Workspace, err = workspace.OpenService(ctx, workspace.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
@@ -255,7 +255,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}); !ok(err, l.Rack) {
 		return nil, err
 	}
-	if l.Device, err = device.OpenService(ctx, device.Config{
+	if l.Device, err = device.OpenService(ctx, device.ServiceConfig{
 		DB:       cfg.Distribution.DB,
 		Ontology: cfg.Distribution.Ontology,
 		Group:    cfg.Distribution.Group,
@@ -293,7 +293,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	}
 	if l.View, err = view.OpenService(
 		ctx,
-		view.Config{
+		view.ServiceConfig{
 			Instrumentation: cfg.Child("view"),
 			DB:              cfg.Distribution.DB,
 			Signals:         cfg.Distribution.Signals,
@@ -306,7 +306,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	cfg.Distribution.Channel.SetCalculationAnalyzer(l.Arc.AnalyzeCalculation)
 	if l.Framer, err = framer.OpenService(
 		ctx,
-		framer.Config{
+		framer.ServiceConfig{
 			DB:              cfg.Distribution.DB,
 			Instrumentation: cfg.Child("framer"),
 			Framer:          cfg.Distribution.Framer,
@@ -319,7 +319,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	l.Console = console.NewService()
 	if l.Metrics, err = metrics.OpenService(
 		ctx,
-		metrics.Config{
+		metrics.ServiceConfig{
 			Instrumentation: cfg.Child("metrics"),
 			Framer:          l.Framer,
 			Channel:         cfg.Distribution.Channel,

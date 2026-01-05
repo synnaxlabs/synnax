@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,8 +13,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -75,7 +74,7 @@ type Response struct {
 	// Command is non-zero when the
 	Command Command `json:"command" msgpack:"command"`
 	// Frame is only relevant for DataResponse. It is the data returned by the Iterator.
-	Frame core.Frame `json:"frame" msgpack:"frame"`
+	Frame frame.Frame `json:"frame" msgpack:"frame"`
 	// NodeKey is the node Name where the remote Iterator lives.
 	NodeKey cluster.NodeKey `json:"node_key" msgpack:"node_key"`
 	// Ack is only relevant for variant AckResponse. Is true if the Iterator successfully

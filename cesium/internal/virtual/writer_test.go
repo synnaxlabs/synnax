@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,11 +12,12 @@ package virtual_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -27,13 +28,13 @@ var _ = Describe("Write", func() {
 	BeforeEach(func() {
 		db = MustSucceed(virtual.Open(ctx, virtual.Config{
 			MetaCodec: codec,
-			Channel: core.Channel{
+			Channel: channel.Channel{
 				Name:     "Ray",
 				Key:      2,
 				DataType: telem.TimeStampT,
 				Virtual:  true,
 			},
-			FS: xfs.NewMem(),
+			FS: fs.NewMem(),
 		}))
 	})
 	AfterEach(func() {
@@ -127,7 +128,7 @@ var _ = Describe("Write", func() {
 				t = MustSucceed(w.Close())
 				Expect(t.Occurred()).To(BeTrue())
 				_, err := w.Write(telem.NewSeriesSecondsTSV(10, 11, 12))
-				Expect(err).To(HaveOccurredAs(core.ErrClosedResource))
+				Expect(err).To(HaveOccurredAs(resource.NewErrClosed("virtual.writer")))
 			})
 
 		})

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -142,7 +142,7 @@ func (svc *TaskService) Retrieve(
 	if req.IncludeStatus {
 		statuses := make([]task.Status, 0, len(res.Tasks))
 		if err = status.NewRetrieve[task.StatusDetails](svc.status.status).
-			WhereKeys(ontology.IDsToString(task.OntologyIDsFromTasks(res.Tasks))...).
+			WhereKeys(ontology.IDsToKeys(task.OntologyIDsFromTasks(res.Tasks))...).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return res, err

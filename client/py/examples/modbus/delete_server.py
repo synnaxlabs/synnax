@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -17,10 +17,10 @@ Before running this example:
 1. Start the Synnax Driver (if not already running).
 
 2. Login to Synnax (if not already logged in):
-   poetry run sy login
+   uv run sy login
 
 3. Run this script:
-   poetry run python examples/modbus/delete_modbus_server.py
+   uv run python examples/modbus/delete_modbus_server.py
 
 Note: You do NOT need the Modbus TCP server running to delete the server registration.
       This script only removes the server registration from Synnax.

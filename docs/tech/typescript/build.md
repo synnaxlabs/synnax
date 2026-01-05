@@ -1,4 +1,4 @@
-# The Synnax Front End Build System - PNPM and Turbo Repo
+# The Synnax Front End Build System - pnpm and Turbo Repo
 
 ## How the Build System Works
 
@@ -44,7 +44,7 @@ dependency hierarchy for these packages is as follows:
 **Understanding/referencing this dependency graph is critical when developing Synnax
 front end software.** We'll revisit this graph in a moment.
 
-## PNPM
+## pnpm
 
 We use [pnpm](https://pnpm.js.org/) to manage all of our front end dependencies. This
 includes both internal dependencies and those from external sources (e.g. npm).
