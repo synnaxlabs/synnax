@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,8 +16,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
-	changex "github.com/synnaxlabs/x/change"
+	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -27,28 +26,16 @@ import (
 const OntologyType ontology.Type = "status"
 
 // OntologyID returns the unique ID to identify the status within the Synnax ontology.
-func OntologyID(k string) ontology.ID {
-	return ontology.ID{Type: OntologyType, Key: k}
-}
+func OntologyID(k string) ontology.ID { return ontology.ID{Type: OntologyType, Key: k} }
 
 // OntologyIDs converts a slice of keys to a slice of ontology IDs.
-func OntologyIDs(keys []string) (ids []ontology.ID) {
-	return lo.Map(keys, func(k string, _ int) ontology.ID {
-		return OntologyID(k)
-	})
-}
-
-func KeyFromOntologyID(id ontology.ID) string {
-	return id.Key
+func OntologyIDs(keys []string) []ontology.ID {
+	return lo.Map(keys, func(k string, _ int) ontology.ID { return OntologyID(k) })
 }
 
 // KeysFromOntologyIDs converts a slice of ontology IDs to a slice of keys.
-func KeysFromOntologyIDs(ids []ontology.ID) (keys []string) {
-	keys = make([]string, len(ids))
-	for i, id := range ids {
-		keys[i] = KeyFromOntologyID(id)
-	}
-	return keys
+func KeysFromOntologyIDs(ids []ontology.ID) []string {
+	return lo.Map(ids, func(id ontology.ID, _ int) string { return id.Key })
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
@@ -61,12 +48,12 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(s Status[any]) ontology.Resource {
-	return core.NewResource(schema, OntologyID(s.Key), s.Name, s)
+	return ontology.NewResource(schema, OntologyID(s.Key), s.Name, s)
 }
 
 var _ ontology.Service = (*Service)(nil)
 
-type change = changex.Change[string, Status[any]]
+type change = xchange.Change[string, Status[any]]
 
 func (s *Service) Type() ontology.Type { return OntologyType }
 
@@ -76,8 +63,10 @@ func (s *Service) Schema() zyn.Schema { return schema }
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
 	var st Status[any]
-	err := s.NewRetrieve().WhereKeys(key).Entry(&st).Exec(ctx, tx)
-	return newResource(st), err
+	if err := s.NewRetrieve().WhereKeys(key).Entry(&st).Exec(ctx, tx); err != nil {
+		return ontology.Resource{}, err
+	}
+	return newResource(st), nil
 }
 
 func translateChange(c change) ontology.Change {
@@ -99,5 +88,8 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := gorp.WrapReader[string, Status[any]](s.cfg.DB).OpenNexter(ctx)
-	return xiter.Map(n, newResource), closer, err
+	if err != nil {
+		return nil, nil, err
+	}
+	return xiter.Map(n, newResource), closer, nil
 }

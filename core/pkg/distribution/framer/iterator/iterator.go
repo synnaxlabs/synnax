@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,7 +12,7 @@ package iterator
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -97,12 +97,12 @@ func (i *Iterator) SetBounds(bounds telem.TimeRange) bool {
 	return i.exec(Request{Command: SetBounds, Bounds: bounds})
 }
 
-func (i *Iterator) Value() core.Frame {
-	frames := make([]core.Frame, len(i.value))
+func (i *Iterator) Value() frame.Frame {
+	frames := make([]frame.Frame, len(i.value))
 	for i, v := range i.value {
 		frames[i] = v.Frame
 	}
-	return core.MergeFrames(frames)
+	return frame.Merge(frames)
 }
 
 func (i *Iterator) exec(req Request) bool {

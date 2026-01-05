@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,7 +16,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -71,7 +70,7 @@ func ToPayload(c Channel) map[string]any {
 }
 
 func newResource(c Channel) ontology.Resource {
-	return core.NewResource(schema, OntologyID(c.Key()), c.Name, ToPayload(c))
+	return ontology.NewResource(schema, OntologyID(c.Key()), c.Name, ToPayload(c))
 }
 
 var _ ontology.Service = (*Service)(nil)
@@ -85,7 +84,10 @@ func (s *Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
-	k := MustParseKey(key)
+	k, err := ParseKey(key)
+	if err != nil {
+		return ontology.Resource{}, err
+	}
 	var ch Channel
 	if err := s.NewRetrieve().WhereKeys(k).Entry(&ch).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
@@ -116,5 +118,8 @@ func (s *Service) NewObservable() observe.Observable[gorp.TxReader[Key, Channel]
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := gorp.WrapReader[Key, Channel](s.db).OpenNexter(ctx)
-	return xiter.Map(n, newResource), closer, err
+	if err != nil {
+		return nil, nil, err
+	}
+	return xiter.Map(n, newResource), closer, nil
 }

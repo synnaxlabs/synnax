@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -59,10 +59,10 @@ var (
 
 // Validate implements config.Config.
 func (c TracingConfig) Validate() error {
-	v := validate.New("alamos.TracingConfig")
-	validate.NotNil(v, "OtelProvider", c.OtelProvider)
-	validate.NotNil(v, "OtelPropagator", c.OtelPropagator)
-	validate.NotNil(v, "Filter", c.Filter)
+	v := validate.New("alamos.tracing_config")
+	validate.NotNil(v, "otel_provider", c.OtelProvider)
+	validate.NotNil(v, "otel_propagator", c.OtelPropagator)
+	validate.NotNil(v, "filter", c.Filter)
 	return v.Error()
 }
 

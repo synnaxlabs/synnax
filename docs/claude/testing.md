@@ -357,7 +357,7 @@ pnpm test
 go test ./...
 
 # Python
-poetry run pytest
+uv run pytest
 
 # C++
 bazel test //...
@@ -373,7 +373,7 @@ pnpm test:console
 go test ./cesium/...
 
 # Python
-poetry run pytest -m channel
+uv run pytest -m channel
 
 # C++
 bazel test //driver/modbus:modbus_test
@@ -389,7 +389,7 @@ pnpm test --coverage
 go test -cover ./...
 
 # Python
-poetry run pytest --cov
+uv run pytest --cov
 
 # C++
 bazel coverage //...

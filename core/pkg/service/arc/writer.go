@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,7 +16,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/core"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	xstatus "github.com/synnaxlabs/x/status"
@@ -30,7 +29,7 @@ import (
 type Writer struct {
 	tx     gorp.Tx
 	otg    ontology.Writer
-	status status.Writer[core.StatusDetails]
+	status status.Writer[StatusDetails]
 }
 
 // Create creates the given Arc. If the Arc does not have a key,
@@ -61,13 +60,13 @@ func (w Writer) Create(
 		}
 	}
 
-	return w.status.SetWithParent(ctx, &status.Status[core.StatusDetails]{
+	return w.status.SetWithParent(ctx, &status.Status[StatusDetails]{
 		Name:    fmt.Sprintf("%s Status", a.Name),
 		Key:     a.Key.String(),
-		Variant: xstatus.LoadingVariant,
+		Variant: xstatus.VariantLoading,
 		Message: "Deploying",
 		Time:    telem.Now(),
-		Details: core.StatusDetails{Running: false},
+		Details: StatusDetails{Running: false},
 	}, otgID)
 }
 

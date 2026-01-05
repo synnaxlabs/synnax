@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,11 +12,10 @@ package domain_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/cesium/internal/resource"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
-
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -26,7 +25,7 @@ var _ = Describe("DB", func() {
 			Describe("HasDataFor", func() {
 				var (
 					db      *domain.DB
-					fs      xfs.FS
+					fs      fs.FS
 					cleanUp func() error
 				)
 				BeforeEach(func() {
@@ -67,7 +66,7 @@ var _ = Describe("DB", func() {
 						Instrumentation: PanicLogger(),
 					}))
 					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{}))
-					Expect(db.Close()).To(MatchError(core.ErrOpenResource))
+					Expect(db.Close()).To(MatchError(resource.ErrOpen))
 					Expect(w.Close()).To(Succeed())
 					Expect(db.Close()).To(Succeed())
 					Expect(cleanUp()).To(Succeed())
@@ -78,7 +77,7 @@ var _ = Describe("DB", func() {
 			Describe("Size", func() {
 				var (
 					db      *domain.DB
-					fs      xfs.FS
+					fs      fs.FS
 					cleanUp func() error
 				)
 				BeforeEach(func() {
@@ -124,7 +123,7 @@ var _ = Describe("DB", func() {
 		Describe("HasDataFor", func() {
 			It("Should return ErrDBClosed", func() {
 				db := MustSucceed(domain.Open(domain.Config{
-					FS:              xfs.NewMem(),
+					FS:              fs.NewMem(),
 					Instrumentation: PanicLogger(),
 				}))
 				Expect(db.Close()).To(Succeed())
