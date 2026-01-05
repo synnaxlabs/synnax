@@ -11,12 +11,16 @@ package constraint
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/x/telem"
 )
+
+// TypeField is the type discriminator for Field constraints.
+const TypeField Type = "field"
+
+func init() { Register(TypeField, func() Constraint { return &Field{} }) }
 
 // Operator defines how a constraint compares values.
 type Operator string
@@ -36,6 +40,10 @@ const (
 	OpContains Operator = "contains"
 	// OpContainsAny checks if the list contains any of the expected values.
 	OpContainsAny Operator = "contains_any"
+	// OpContainsAll checks if the list contains all of the expected values.
+	OpContainsAll Operator = "contains_all"
+	// OpContainsNone checks if the list contains none of the expected values.
+	OpContainsNone Operator = "contains_none"
 	// OpWithin checks if the time range is within the expected range.
 	OpWithin Operator = "within"
 	// OpSubsetOf checks if the list is a subset of the expected list.
@@ -69,15 +77,6 @@ type Field struct {
 
 // Type implements Constraint.
 func (c Field) Type() Type { return TypeField }
-
-// MarshalJSON implements json.Marshaler.
-func (c Field) MarshalJSON() ([]byte, error) {
-	type fc Field
-	return json.Marshal(struct {
-		Type Type `json:"type"`
-		fc
-	}{Type: TypeField, fc: fc(c)})
-}
 
 // Enforce checks if the constraint is satisfied.
 func (c Field) Enforce(ctx context.Context, params EnforceParams) bool {

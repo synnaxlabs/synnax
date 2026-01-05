@@ -74,6 +74,36 @@ func applyOperator(op Operator, actual any, expected any, subject ontology.ID) b
 			}
 		}
 		return false
+	case OpContainsAll:
+		actualList, ok := toStringSlice(actual)
+		if !ok {
+			return false
+		}
+		expectedList, ok := toStringSlice(expected)
+		if !ok {
+			return false
+		}
+		for _, exp := range expectedList {
+			if !lo.Contains(actualList, exp) {
+				return false
+			}
+		}
+		return true
+	case OpContainsNone:
+		actualList, ok := toStringSlice(actual)
+		if !ok {
+			return false
+		}
+		expectedList, ok := toStringSlice(expected)
+		if !ok {
+			return false
+		}
+		for _, exp := range expectedList {
+			if lo.Contains(actualList, exp) {
+				return false
+			}
+		}
+		return true
 	case OpWithin:
 		actualTR, ok := actual.(telem.TimeRange)
 		if !ok {

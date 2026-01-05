@@ -48,7 +48,7 @@ var CreatorOnlySchematicUpdate = policy.Policy{
 	Constraints: []constraint.Constraint{
 		constraint.Relationship{
 			Relationship: "created_by",
-			Operator:     constraint.RelOpContainsSome,
+			Operator:     constraint.OpContainsAny,
 			MatchSubject: true,
 		},
 	},
@@ -160,7 +160,7 @@ func RangesWithLabels(allowedLabels []ontology.ID) policy.Policy {
 		Constraints: []constraint.Constraint{
 			constraint.Relationship{
 				Relationship: "labeled_by",
-				Operator:     constraint.RelOpContainsSome,
+				Operator:     constraint.OpContainsAny,
 				Value:        allowedLabels,
 			},
 		},
@@ -198,7 +198,7 @@ var CombinedConstraints = policy.Policy{
 	Constraints: []constraint.Constraint{
 		constraint.Relationship{
 			Relationship: "created_by",
-			Operator:     constraint.RelOpContainsSome,
+			Operator:     constraint.OpContainsAny,
 			MatchSubject: true,
 		},
 		constraint.Field{
@@ -576,7 +576,7 @@ var LockedWorkspaceCreatorOnly = policy.Policy{
 		},
 		constraint.Relationship{
 			Relationship: "created_by",
-			Operator:     constraint.RelOpContainsSome,
+			Operator:     constraint.OpContainsAny,
 			MatchSubject: true,
 		},
 	},
@@ -693,12 +693,12 @@ func MaxDurationDataRead(maxDuration telem.TimeSpan) policy.Policy {
 //   Target: "resource" | "subject" | "request" | "system"
 //   Field:  []string path to the field (e.g., ["status"], ["clearance"])
 //   Operators: OpEqual, OpNotEqual, OpIn, OpNotIn, OpContains, OpContainsAny,
-//              OpWithin, OpSubsetOf, OpLessThan, OpLessThanOrEqual,
-//              OpGreaterThan, OpGreaterThanOrEqual
+//              OpContainsAll, OpContainsNone, OpWithin, OpSubsetOf,
+//              OpLessThan, OpLessThanOrEqual, OpGreaterThan, OpGreaterThanOrEqual
 //
 // RelationshipConstraint:
 //   Relationship: "created_by" | "labeled_by" | "parent_of" | "member_of" | etc.
-//   Operators: RelOpContainsSome, RelOpContainsAll, RelOpContainsNone
+//   Operators: OpContainsAny, OpContainsAll, OpContainsNone
 //   Value: []ontology.ID - the IDs to match against
 //   MatchSubject: bool - when true, matches against the requesting subject instead of Value
 //
@@ -832,7 +832,7 @@ func MaxDurationDataRead(maxDuration telem.TimeSpan) policy.Policy {
 //       Constraints: []constraint.Constraint{
 //           constraint.Relationship{
 //               Relationship: "created_by",
-//               Operator:     constraint.RelOpContainsSome,
+//               Operator:     constraint.OpContainsAny,
 //               MatchSubject: true,
 //           },
 //       },

@@ -10,12 +10,14 @@
 package policy
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/constraint"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -29,11 +31,12 @@ const (
 	EffectDeny Effect = "deny"
 )
 
-// Policy is an access control policy in the RBAC model. A policy sets an action
-// that is allowed or denied. All accesses not explicitly allowed by a policy are denied
-// by default.
+// Policy is an access control policy in the RBAC model. A policy sets an action that is
+// allowed or denied. All accesses not explicitly allowed by a policy are denied by
+// default.
 //
-// Policies are attached to roles, and roles are assigned to users via ontology relationships.
+// Policies are attached to roles, and roles are assigned to users via ontology
+// relationships.
 type Policy struct {
 	// Name is a human-readable name for the policy.
 	Name string `json:"name" msgpack:"name"`
@@ -43,12 +46,14 @@ type Policy struct {
 	Objects []ontology.ID `json:"objects" msgpack:"objects"`
 	// Actions is the list of actions that the policy applies to.
 	Actions []access.Action `json:"actions" msgpack:"actions"`
-	// Effect determines whether this policy allows or denies access. Defaults to allow.
+	// Effect determines whether this policy allows or denies access.
 	Effect Effect `json:"effect" msgpack:"effect"`
-	// Constraints specifies additional conditions that must all be met for this policy to apply.
-	// If empty, the policy applies unconditionally (based on objects/actions match).
+	// Constraints specifies additional conditions that must all be met for this policy
+	// to apply. If empty, the policy applies unconditionally (based on objects/actions
+	// match).
 	Constraints []constraint.Constraint `json:"constraints,omitempty" msgpack:"constraints,omitempty"`
 	// Internal indicates whether the policy is built-in to the system.
+	//
 	// TODO: remove this and replace with ontology relationship created_by.
 	Internal bool `json:"internal" msgpack:"internal"`
 }
@@ -75,8 +80,9 @@ func (p *Policy) UnmarshalJSON(data []byte) error {
 	}
 
 	p.Constraints = nil
+	dec := &binary.JSONCodec{}
 	for _, raw := range aux.Constraints {
-		c, err := constraint.Unmarshal(raw)
+		c, err := constraint.Unmarshal(context.Background(), dec, raw)
 		if err != nil {
 			return err
 		}

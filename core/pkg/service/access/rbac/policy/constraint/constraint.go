@@ -12,25 +12,16 @@ package constraint
 
 import (
 	"context"
-	"encoding/json"
-	"sync"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 // Type discriminates between constraint kinds for serialization.
 type Type string
-
-const (
-	// TypeField represents a field-based constraint.
-	TypeField Type = "field"
-	// TypeRelationship represents an ontology relationship constraint.
-	TypeRelationship Type = "relationship"
-	// TypeComputed represents a computed/derived value constraint.
-	TypeComputed Type = "computed"
-)
 
 // EnforceParams provides the context needed for constraint evaluation.
 type EnforceParams struct {
@@ -56,77 +47,47 @@ type Constraint interface {
 }
 
 // registry maps constraint types to factory functions for deserialization.
-var (
-	registry   = make(map[Type]func() Constraint)
-	registryMu sync.RWMutex
-)
+var registry = make(map[Type]func() Constraint)
 
-// Register registers a custom constraint type for deserialization.
-// This allows users to define custom constraint implementations that can be
-// serialized and deserialized alongside built-in types.
-func Register(t Type, factory func() Constraint) {
-	registryMu.Lock()
-	defer registryMu.Unlock()
-	registry[t] = factory
-}
+// Register registers a constraint type for deserialization.
+func Register(t Type, factory func() Constraint) { registry[t] = factory }
 
-// Unmarshal deserializes a JSON constraint using the type discriminator.
-func Unmarshal(data []byte) (Constraint, error) {
+// Unmarshal deserializes a constraint using the provided decoder and type
+// discriminator.
+func Unmarshal(
+	ctx context.Context,
+	decoder binary.Decoder,
+	data []byte,
+) (Constraint, error) {
 	var typed struct {
-		Type Type `json:"type"`
+		Type Type `json:"type" msgpack:"type"`
 	}
-	if err := json.Unmarshal(data, &typed); err != nil {
+	if err := decoder.Decode(ctx, data, &typed); err != nil {
 		return nil, err
 	}
-
-	switch typed.Type {
-	case TypeField:
-		var c Field
-		if err := json.Unmarshal(data, &c); err != nil {
-			return nil, err
-		}
-		return c, nil
-	case TypeRelationship:
-		var c Relationship
-		if err := json.Unmarshal(data, &c); err != nil {
-			return nil, err
-		}
-		return c, nil
-	case TypeComputed:
-		var c Computed
-		if err := json.Unmarshal(data, &c); err != nil {
-			return nil, err
-		}
-		return c, nil
-	default:
-		// For custom constraints, use the registry
-		registryMu.RLock()
-		factory, ok := registry[typed.Type]
-		registryMu.RUnlock()
-		if !ok {
-			return nil, &json.UnmarshalTypeError{Value: string(typed.Type), Type: nil}
-		}
-		c := factory()
-		if err := json.Unmarshal(data, c); err != nil {
-			return nil, err
-		}
-		return c, nil
+	factory, ok := registry[typed.Type]
+	if !ok {
+		return nil, errors.Newf("unknown constraint type: %s", typed.Type)
 	}
+	c := factory()
+	if err := decoder.Decode(ctx, data, c); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
-// UnmarshalMany deserializes a JSON array of constraints.
-func UnmarshalMany(data []byte) ([]Constraint, error) {
-	var rawConstraints []json.RawMessage
-	if err := json.Unmarshal(data, &rawConstraints); err != nil {
-		return nil, err
-	}
+// UnmarshalMany deserializes a slice of raw constraint data using the provided decoder.
+func UnmarshalMany(
+	ctx context.Context,
+	decoder binary.Decoder,
+	rawConstraints [][]byte,
+) ([]Constraint, error) {
 	constraints := make([]Constraint, len(rawConstraints))
+	var err error
 	for i, raw := range rawConstraints {
-		c, err := Unmarshal(raw)
-		if err != nil {
-			return nil, err
+		if constraints[i], err = Unmarshal(ctx, decoder, raw); err != nil {
+			return nil, errors.Wrapf(err, "failed to unmarshal constraint %d", i)
 		}
-		constraints[i] = c
 	}
 	return constraints, nil
 }
