@@ -13,14 +13,36 @@ set -euo pipefail
 # Find git repository root
 GIT_ROOT=$(git rev-parse --show-toplevel 2> /dev/null || echo ".")
 
-# Get search path: git_root + optional subdirectory argument
-SUBDIR="${1:-}"
-# Remove leading ./ if present
-SUBDIR="${SUBDIR#./}"
-if [ -z "$SUBDIR" ]; then
-    SEARCH_PATH="$GIT_ROOT"
-else
-    SEARCH_PATH="$GIT_ROOT/$SUBDIR"
+# Determine mode: file list or directory search
+MODE="directory"
+declare -a FILE_LIST
+SEARCH_PATH="$GIT_ROOT"
+
+if [ $# -gt 0 ]; then
+    # Check if first argument is a file
+    if [ -f "$1" ]; then
+        MODE="files"
+        for arg in "$@"; do
+            if [ -f "$arg" ]; then
+                # Convert to absolute path if relative
+                if [[ "$arg" = /* ]]; then
+                    FILE_LIST+=("$arg")
+                else
+                    FILE_LIST+=("$GIT_ROOT/$arg")
+                fi
+            else
+                echo "Warning: '$arg' is not a file, skipping"
+            fi
+        done
+    else
+        # Treat as subdirectory
+        SUBDIR="$1"
+        # Remove leading ./ if present
+        SUBDIR="${SUBDIR#./}"
+        if [ -n "$SUBDIR" ]; then
+            SEARCH_PATH="$GIT_ROOT/$SUBDIR"
+        fi
+    fi
 fi
 
 # Get the current year
@@ -218,7 +240,11 @@ update_file() {
 # Find and update all files
 echo "Updating copyright headers in source files..."
 echo "Git root: $GIT_ROOT"
-echo "Search path: $SEARCH_PATH"
+if [ "$MODE" = "files" ]; then
+    echo "Mode: file list (${#FILE_LIST[@]} files)"
+else
+    echo "Search path: $SEARCH_PATH"
+fi
 echo "Current year: $CURRENT_YEAR"
 echo ""
 
@@ -226,26 +252,48 @@ echo ""
 echo -n "Counting files..."
 cd "$GIT_ROOT" || exit 1
 declare -a FILES_TO_UPDATE
-while IFS= read -r file; do
-    # Convert relative path to absolute
-    abs_file="$GIT_ROOT/$file"
 
-    # Check if file is in the search path
-    if [[ "$abs_file" != "$SEARCH_PATH"* ]]; then
-        continue
-    fi
+if [ "$MODE" = "files" ]; then
+    # Use provided file list
+    for abs_file in "${FILE_LIST[@]}"; do
+        # Check file extension
+        ext="${abs_file##*.}"
+        case "$ext" in
+            go | py | ts | tsx | js | jsx | cpp | hpp | h | cc | cxx | css | oracle)
+                # Check if file should be ignored per .copyrightignore
+                if ! should_ignore_file "$abs_file"; then
+                    [ -f "$abs_file" ] && FILES_TO_UPDATE+=("$abs_file")
+                fi
+                ;;
+            *)
+                echo ""
+                echo "Warning: '$abs_file' has unsupported extension '$ext', skipping"
+                ;;
+        esac
+    done
+else
+    # Directory search mode
+    while IFS= read -r file; do
+        # Convert relative path to absolute
+        abs_file="$GIT_ROOT/$file"
 
-    # Check file extension
-    ext="${file##*.}"
-    case "$ext" in
-        go | py | ts | tsx | js | jsx | cpp | hpp | h | cc | cxx | css | oracle)
-            # Check if file should be ignored per .copyrightignore
-            if ! should_ignore_file "$abs_file"; then
-                [ -f "$abs_file" ] && FILES_TO_UPDATE+=("$abs_file")
-            fi
-            ;;
-    esac
-done < <(git ls-files)
+        # Check if file is in the search path
+        if [[ "$abs_file" != "$SEARCH_PATH"* ]]; then
+            continue
+        fi
+
+        # Check file extension
+        ext="${file##*.}"
+        case "$ext" in
+            go | py | ts | tsx | js | jsx | cpp | hpp | h | cc | cxx | css | oracle)
+                # Check if file should be ignored per .copyrightignore
+                if ! should_ignore_file "$abs_file"; then
+                    [ -f "$abs_file" ] && FILES_TO_UPDATE+=("$abs_file")
+                fi
+                ;;
+        esac
+    done < <(git ls-files)
+fi
 
 TOTAL_TO_UPDATE=${#FILES_TO_UPDATE[@]}
 echo -e "\r\033[KFound $TOTAL_TO_UPDATE files to process"
