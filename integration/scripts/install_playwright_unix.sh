@@ -11,16 +11,13 @@
 
 set -euo pipefail
 
-echo "📦 Installing Playwright browsers on Unix..."
+echo "Installing Playwright browsers on Unix..."
 
 # Change to the integration test directory
 cd integration
 
-# Ensure Poetry is in PATH
-export PATH="$HOME/.local/bin:$PATH"
-
 # Install Playwright browsers with system dependencies
 echo "Installing Playwright browsers..."
-poetry run playwright install --with-deps
+uv run playwright install --with-deps
 
-echo "✅ Playwright browsers installed successfully"
+echo "Playwright browsers installed successfully"

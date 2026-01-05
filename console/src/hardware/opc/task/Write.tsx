@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,7 +9,7 @@
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, type Haul, Icon, Menu, Text } from "@synnaxlabs/pluto";
-import { caseconv } from "@synnaxlabs/x";
+import { caseconv, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
@@ -58,6 +58,7 @@ const convertHaulItemToChannel = ({ data }: Haul.Item): WriteChannel => {
     key: nodeId,
     nodeName,
     nodeId,
+    name: "",
     cmdChannel: 0,
     enabled: true,
     dataType,
@@ -78,7 +79,7 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
   if (keys.length !== 1) return null;
   const key = keys[0];
   const cmdChannel = channels.find((ch) => ch.key === key)?.cmdChannel;
-  if (cmdChannel == null || cmdChannel == 0) return null;
+  if (cmdChannel == null) return null;
   const handleRename = () => Text.edit(Common.Task.getChannelNameID(key, "cmd"));
   return (
     <>
@@ -125,51 +126,58 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   const dev = await client.devices.retrieve<Device.Properties, Device.Make>({
     key: config.device,
   });
-  dev.properties = Device.migrateProperties(dev.properties);
-  const commandsToCreate: WriteChannel[] = [];
-  for (const channel of config.channels) {
-    const key = getChannelByNodeID(dev.properties, channel.nodeId);
-    if (!key) {
-      commandsToCreate.push(channel);
-      continue;
+  try {
+    dev.properties = Device.migrateProperties(dev.properties);
+    const commandsToCreate: WriteChannel[] = [];
+    for (const channel of config.channels) {
+      const key = getChannelByNodeID(dev.properties, channel.nodeId);
+      if (!key) {
+        commandsToCreate.push(channel);
+        continue;
+      }
+      try {
+        await client.channels.retrieve(key);
+      } catch (e) {
+        if (NotFoundError.matches(e)) commandsToCreate.push(channel);
+        else throw e;
+      }
     }
-    try {
-      await client.channels.retrieve(key);
-    } catch (e) {
-      if (NotFoundError.matches(e)) commandsToCreate.push(channel);
-      else throw e;
+    if (commandsToCreate.length > 0) {
+      if (
+        dev.properties.write.channels == null ||
+        Array.isArray(dev.properties.write.channels)
+      )
+        dev.properties.write.channels = {};
+      const commandIndexes = await client.channels.create(
+        commandsToCreate.map(({ name, nodeName }) => ({
+          name: primitive.isNonZero(name)
+            ? `${name}_time`
+            : `${channel.escapeInvalidName(nodeName)}_cmd_time`,
+          dataType: "timestamp",
+          isIndex: true,
+        })),
+      );
+      const commands = await client.channels.create(
+        commandsToCreate.map(({ dataType, name, nodeName }, i) => ({
+          name: primitive.isNonZero(name)
+            ? name
+            : `${channel.escapeInvalidName(nodeName)}_cmd`,
+          dataType,
+          index: commandIndexes[i].key,
+        })),
+      );
+      commands.forEach(({ key }, i) => {
+        const nodeID = commandsToCreate[i].nodeId;
+        dev.properties.write.channels[nodeID] = key;
+      });
     }
+    config.channels = config.channels.map((c) => ({
+      ...c,
+      cmdChannel: getChannelByNodeID(dev.properties, c.nodeId),
+    }));
+  } finally {
+    await client.devices.create(dev);
   }
-  if (commandsToCreate.length > 0) {
-    if (
-      dev.properties.write.channels == null ||
-      Array.isArray(dev.properties.write.channels)
-    )
-      dev.properties.write.channels = {};
-    const commandIndexes = await client.channels.create(
-      commandsToCreate.map(({ nodeName }) => ({
-        name: `${channel.escapeInvalidName(nodeName)}_cmd_time`,
-        dataType: "timestamp",
-        isIndex: true,
-      })),
-    );
-    const commands = await client.channels.create(
-      commandsToCreate.map(({ dataType, nodeName }, i) => ({
-        name: `${channel.escapeInvalidName(nodeName)}_cmd`,
-        dataType,
-        index: commandIndexes[i].key,
-      })),
-    );
-    commands.forEach(({ key }, i) => {
-      const nodeID = commandsToCreate[i].nodeId;
-      dev.properties.write.channels[nodeID] = key;
-    });
-  }
-  config.channels = config.channels.map((c) => ({
-    ...c,
-    cmdChannel: getChannelByNodeID(dev.properties, c.nodeId),
-  }));
-  await client.devices.create(dev);
   return [config, dev.rack];
 };
 

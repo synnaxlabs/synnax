@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -59,7 +59,7 @@ func (cfg GCConfig) Override(other GCConfig) GCConfig {
 
 // Validate implements config.Config.
 func (cfg GCConfig) Validate() error {
-	v := validate.New("cesium.GCConfig")
+	v := validate.New("cesium.gc_config")
 	validate.Positive(v, "gc_try_interval", cfg.TryInterval)
 	validate.Positive(v, "gc_threshold", cfg.Threshold)
 	validate.Positive(v, "max_goroutine", cfg.MaxGoroutine)

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -43,8 +43,8 @@ type Config struct {
 
 // Validate implements config.Config
 func (cfg Config) Validate() error {
-	v := validate.New("falamos.Properties")
-	validate.NotNil(v, "Instrumentation", cfg.Instrumentation)
+	v := validate.New("falamos.config")
+	validate.NotNil(v, "instrumentation", cfg.Instrumentation)
 	return v.Error()
 }
 

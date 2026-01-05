@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
+import { scheduler } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -175,6 +176,101 @@ class SecondaryContextSetter extends aether.Composite<
 const shouldNotCallCreate = () => {
   throw new Error("should not call create");
 };
+
+const invokeMethodsSchema = {
+  increment: z.function({ input: z.tuple([z.number()]), output: z.number() }),
+  greet: z.function({
+    input: z.tuple([z.object({ name: z.string() })]),
+    output: z.string(),
+  }),
+  noArgs: z.function(),
+  asyncMethod: z.function({
+    input: z.tuple([z.number()]),
+    output: z.promise(z.number()),
+  }),
+  throwError: z.function(),
+} satisfies aether.MethodsSchema;
+
+class InvokeLeaf
+  extends aether.Leaf<typeof exampleProps, {}, typeof invokeMethodsSchema>
+  implements aether.HandlersFromSchema<typeof invokeMethodsSchema>
+{
+  schema = exampleProps;
+  methods = invokeMethodsSchema;
+
+  // Track calls for testing
+  incrementSpy = vi.fn((n: number) => n + 1);
+  greetSpy = vi.fn((args: { name: string }) => `Hello, ${args.name}!`);
+  noArgsSpy = vi.fn(() => {});
+  asyncMethodSpy = vi.fn(async (n: number) => {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    return n * 2;
+  });
+  throwErrorSpy = vi.fn(() => {
+    throw new Error("Test error");
+  });
+
+  // Methods matching the schema
+  increment(n: number): number {
+    return this.incrementSpy(n);
+  }
+
+  greet(args: { name: string }): string {
+    return this.greetSpy(args);
+  }
+
+  noArgs(): void {
+    this.noArgsSpy();
+  }
+
+  asyncMethod(n: number): Promise<number> {
+    return this.asyncMethodSpy(n);
+  }
+
+  throwError(): void {
+    this.throwErrorSpy();
+  }
+
+  afterUpdate(): void {}
+  afterDelete(): void {}
+}
+
+const createInvokeLeaf = (
+  key: string,
+  parentCtxValues: aether.ContextMap | null = null,
+) =>
+  new InvokeLeaf({
+    key,
+    type: "invoke-leaf",
+    sender: MockSender,
+    instrumentation: alamos.Instrumentation.NOOP,
+    parentCtxValues,
+  });
+
+class InvokeComposite extends aether.Composite<
+  typeof exampleProps,
+  {},
+  InvokeLeaf,
+  aether.EmptyMethodsSchema
+> {
+  schema = exampleProps;
+  methods = undefined;
+
+  afterUpdate(): void {}
+  afterDelete(): void {}
+}
+
+const createInvokeComposite = (
+  key: string,
+  parentCtxValues: aether.ContextMap | null = null,
+) =>
+  new InvokeComposite({
+    key,
+    type: "invoke-composite",
+    sender: MockSender,
+    instrumentation: alamos.Instrumentation.NOOP,
+    parentCtxValues,
+  });
 
 describe("Aether Worker", () => {
   describe("AetherLeaf", () => {
@@ -508,6 +604,196 @@ describe("Aether Worker", () => {
       expect(c2.testingChildCtxValues.size).toEqual(0);
       expect(c2.testingParentCtxValues.get("key")).toEqual(5);
       expect(c2.testingParentCtxValues.get("key2")).toEqual(6);
+    });
+  });
+
+  describe("invoke", () => {
+    let leaf: InvokeLeaf;
+    beforeEach(() => {
+      MockSender.send.mockClear();
+      leaf = createInvokeLeaf("invoke-test");
+      leaf._updateState({
+        path: ["invoke-test"],
+        state: { x: 1 },
+        type: "invoke-leaf",
+        create: shouldNotCallCreate,
+      });
+    });
+
+    describe("_invokeMethod", () => {
+      it("should invoke the handler with the provided args and send response", async () => {
+        leaf._invokeMethod({
+          key: "req-1",
+          path: [],
+          args: [5],
+          method: "increment",
+        });
+        await scheduler.flushTaskQueue();
+
+        expect(leaf.incrementSpy).toHaveBeenCalledWith(5);
+        expect(MockSender.send).toHaveBeenCalledWith({
+          variant: "invoke_response",
+          key: "req-1",
+          result: 6,
+        });
+      });
+
+      it("should handle methods with object args", async () => {
+        leaf._invokeMethod({
+          key: "req-2",
+          path: [],
+          args: [{ name: "World" }],
+          method: "greet",
+        });
+        await scheduler.flushTaskQueue();
+
+        expect(leaf.greetSpy).toHaveBeenCalledWith({ name: "World" });
+        expect(MockSender.send).toHaveBeenCalledWith({
+          variant: "invoke_response",
+          key: "req-2",
+          result: "Hello, World!",
+        });
+      });
+
+      it("should handle methods with no args (fire-and-forget)", async () => {
+        leaf._invokeMethod({
+          path: [],
+          args: [],
+          method: "noArgs",
+        });
+        await scheduler.flushTaskQueue();
+
+        expect(leaf.noArgsSpy).toHaveBeenCalled();
+        expect(MockSender.send).not.toHaveBeenCalled();
+      });
+
+      it("should handle async methods", async () => {
+        leaf._invokeMethod({
+          key: "req-4",
+          path: [],
+          args: [10],
+          method: "asyncMethod",
+        });
+
+        await new Promise((resolve) => setTimeout(resolve, 20));
+
+        expect(leaf.asyncMethodSpy).toHaveBeenCalledWith(10);
+        expect(MockSender.send).toHaveBeenCalledWith({
+          variant: "invoke_response",
+          key: "req-4",
+          result: 20,
+        });
+      });
+
+      it("should send error response when handler throws (key defined)", async () => {
+        leaf._invokeMethod({
+          key: "req-5",
+          path: [],
+          args: [],
+          method: "throwError",
+        });
+
+        await scheduler.flushTaskQueue();
+
+        expect(leaf.throwErrorSpy).toHaveBeenCalled();
+        expect(MockSender.send).toHaveBeenCalledWith({
+          variant: "invoke_response",
+          key: "req-5",
+          result: undefined,
+          error: expect.objectContaining({
+            name: "Error",
+            message:
+              "Failed to execute throwError(req-5) with args [] on invoke-leaf(invoke-test): Test error",
+          }),
+        });
+      });
+
+      it("should log error but not send response when handler throws (fire-and-forget)", async () => {
+        const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+        leaf._invokeMethod({
+          path: [],
+          args: [],
+          method: "throwError",
+        });
+        await scheduler.flushTaskQueue();
+
+        expect(leaf.throwErrorSpy).toHaveBeenCalled();
+        expect(MockSender.send).not.toHaveBeenCalled();
+        expect(consoleSpy).toHaveBeenCalled();
+        consoleSpy.mockRestore();
+      });
+
+      it("should send error response for unknown method when key defined", () => {
+        leaf._invokeMethod({
+          key: "req-6",
+          path: [],
+          args: [],
+          method: "unknownMethod",
+        });
+
+        expect(MockSender.send).toHaveBeenCalledWith({
+          variant: "invoke_response",
+          key: "req-6",
+          result: undefined,
+          error: expect.objectContaining({
+            message: expect.stringContaining("unknownMethod"),
+          }),
+        });
+      });
+
+      it("should not invoke method if component is deleted", () => {
+        leaf._delete(["invoke-test"]);
+        MockSender.send.mockClear();
+
+        leaf._invokeMethod({
+          key: "req-7",
+          path: [],
+          args: [5],
+          method: "increment",
+        });
+
+        expect(leaf.incrementSpy).not.toHaveBeenCalled();
+        expect(MockSender.send).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("Composite invoke propagation", () => {
+      let composite: InvokeComposite;
+      let childLeaf: InvokeLeaf;
+
+      beforeEach(() => {
+        MockSender.send.mockClear();
+        composite = createInvokeComposite("parent");
+        composite._updateState({
+          path: ["parent"],
+          state: { x: 1 },
+          type: "invoke-composite",
+          create: shouldNotCallCreate,
+        });
+        composite._updateState({
+          path: ["parent", "child"],
+          state: { x: 2 },
+          type: "invoke-leaf",
+          create: () => createInvokeLeaf("child"),
+        });
+        childLeaf = composite.children[0];
+        MockSender.send.mockClear();
+      });
+
+      it("should find child at path using findChildAtPath", () => {
+        const found = composite.findChildAtPath(["child"]);
+        expect(found).toBe(childLeaf);
+      });
+
+      it("should return null for non-existent path", () => {
+        const found = composite.findChildAtPath(["non-existent"]);
+        expect(found).toBeNull();
+      });
+
+      it("should return null for empty path", () => {
+        const found = composite.findChildAtPath([]);
+        expect(found).toBeNull();
+      });
     });
   });
 });

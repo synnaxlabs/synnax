@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -99,7 +99,7 @@ func (r Rack) SetOptions() []any { return []any{r.Key.Node()} }
 // Validate implements config.Config.
 func (r Rack) Validate() error {
 	v := validate.New("rack")
-	validate.NonZero(v, "Key", r.Key)
-	validate.NotEmptyString(v, "Name", r.Name)
+	validate.NonZero(v, "key", r.Key)
+	validate.NotEmptyString(v, "name", r.Name)
 	return v.Error()
 }

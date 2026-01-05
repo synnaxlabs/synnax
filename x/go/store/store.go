@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -122,9 +122,9 @@ func (o ObservableConfig[S, O]) Override(
 }
 
 func (o ObservableConfig[S, O]) Validate() error {
-	v := validate.New("Observable")
-	validate.NotNil(v, "Store", o.Store)
-	validate.NotNil(v, "Transform", o.Transform)
+	v := validate.New("observable")
+	validate.NotNil(v, "store", o.Store)
+	validate.NotNil(v, "transform", o.Transform)
 	return v.Error()
 }
 

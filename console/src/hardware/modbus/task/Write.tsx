@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,7 +20,7 @@ import {
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { caseconv, deep, id } from "@synnaxlabs/x";
+import { caseconv, deep, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { CSS } from "@/css";
@@ -112,6 +112,7 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
       <Flex.Box x align="center" grow justify="end">
         <Common.Task.ChannelName
           channel={channel}
+          namePath={`${path}.name`}
           id={Common.Task.getChannelNameID(itemKey)}
         />
         <Common.Task.EnableDisableButton path={`${path}.enabled`} />
@@ -128,11 +129,13 @@ const getOpenChannel = (channels: OutputChannel[]): OutputChannel => {
       channel: 0,
       enabled: true,
       key: id.create(),
+      name: "",
     };
   const channelToCopy = channels[channels.length - 1];
   return {
     ...channelToCopy,
     key: id.create(),
+    name: "",
     address: channelToCopy.address + 1,
   };
 };
@@ -146,7 +149,7 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
   if (keys.length !== 1) return null;
   const key = keys[0];
   const cmdChannel = channels.find((ch) => ch.key === key)?.channel;
-  if (cmdChannel == null || cmdChannel == 0) return null;
+  if (cmdChannel == null) return null;
   const handleRename = () => Text.edit(Common.Task.getChannelNameID(key));
   return (
     <>
@@ -215,14 +218,18 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   if (commandsToCreate.length > 0) {
     const commandIndexes = await client.channels.create(
       commandsToCreate.map((c) => ({
-        name: `${safeName}_${c.type}_${c.address}_cmd_time`,
+        name: primitive.isNonZero(c.name)
+          ? `${c.name}_time`
+          : `${safeName}_${c.type}_${c.address}_cmd_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commands = await client.channels.create(
       commandsToCreate.map((c, i) => ({
-        name: `${safeName}_${c.type}_${c.address}_cmd`,
+        name: primitive.isNonZero(c.name)
+          ? c.name
+          : `${safeName}_${c.type}_${c.address}_cmd`,
         dataType: c.type === "holding_register_output" ? c.dataType : "uint8",
         index: commandIndexes[i].key,
       })),

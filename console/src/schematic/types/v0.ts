@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -51,7 +51,6 @@ export const stateZ = z.object({
     return p;
   }),
   control: control.statusZ,
-  controlAcquireTrigger: z.number(),
 });
 export interface State extends z.infer<typeof stateZ> {}
 export const ZERO_STATE: State = {
@@ -64,7 +63,6 @@ export const ZERO_STATE: State = {
   viewport: { position: xy.ZERO, zoom: 1 },
   editable: true,
   control: "released",
-  controlAcquireTrigger: 0,
   fitViewOnResize: false,
 };
 

@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -17,10 +17,10 @@ Before running this example:
 1. Start the Synnax Driver (if not already running).
 
 2. Login to Synnax (if not already logged in):
-   poetry run sy login
+   uv run sy login
 
 3. Run this script:
-   poetry run python examples/labjack/delete_device.py
+   uv run python examples/labjack/delete_device.py
 
 Note: You do NOT need the LabJack device connected to delete the device registration.
       This script only removes the device registration from Synnax.
@@ -83,7 +83,7 @@ if response in ("y", "yes"):
         print("The LabJack device has been disconnected from Synnax.")
         print("All associated tasks have been removed.")
         print()
-        print("To reconnect, run: poetry run python examples/labjack/connect_device.py")
+        print("To reconnect, run: uv run python examples/labjack/connect_device.py")
         print("=" * 70)
         exit(0)
 

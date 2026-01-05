@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,13 +16,10 @@ import { type ReadChannel } from "@/hardware/common/task/types";
 export interface ReadChannelContextMenuItemProps extends ContextMenuItemProps<ReadChannel> {}
 
 export const ReadChannelContextMenuItem: React.FC<ReadChannelContextMenuItemProps> = ({
-  channels,
   keys,
 }) => {
   if (keys.length !== 1) return null;
   const key = keys[0];
-  const channel = channels.find((ch) => ch.key === key)?.channel;
-  if (channel == null || channel == 0) return null;
   const handleRename = () => Text.edit(getChannelNameID(key));
   return (
     <>

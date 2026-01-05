@@ -1,0 +1,5 @@
+# uv workspace configuration
+# See: https://docs.astral.sh/uv/reference/settings/
+
+# Use managed Python installations
+python-preference = "managed"

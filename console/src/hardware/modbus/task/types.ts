@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -57,6 +57,7 @@ export const ZERO_INPUT_CHANNELS = {
     channel: 0,
     enabled: true,
     key: id.create(),
+    name: "",
   },
   [DISCRETE_INPUT_TYPE]: {
     type: DISCRETE_INPUT_TYPE,
@@ -64,6 +65,7 @@ export const ZERO_INPUT_CHANNELS = {
     channel: 0,
     enabled: true,
     key: id.create(),
+    name: "",
   },
   [HOLDING_REGISTER_INPUT_TYPE]: {
     type: HOLDING_REGISTER_INPUT_TYPE,
@@ -72,6 +74,7 @@ export const ZERO_INPUT_CHANNELS = {
     enabled: true,
     key: id.create(),
     dataType: DataType.UINT8.toString(),
+    name: "",
   },
   [REGISTER_INPUT_TYPE]: {
     type: REGISTER_INPUT_TYPE,
@@ -80,6 +83,7 @@ export const ZERO_INPUT_CHANNELS = {
     channel: 0,
     enabled: true,
     key: id.create(),
+    name: "",
   },
 } as const satisfies Record<InputChannelType, InputChannel>;
 
@@ -163,6 +167,7 @@ export const SCAN_TYPE = `${PREFIX}_scan`;
 const baseOutputZ = Common.Task.channelZ.extend({
   address: z.number(),
   channel: z.number(),
+  name: Common.Task.nameZ,
 });
 
 const coilOutputZ = baseOutputZ.extend({ type: z.literal(COIL_OUTPUT_TYPE) });
@@ -183,6 +188,7 @@ export const ZERO_OUTPUT_CHANNELS = {
     channel: 0,
     enabled: true,
     key: id.create(),
+    name: "",
   },
   [HOLDING_REGISTER_OUTPUT_TYPE]: {
     type: HOLDING_REGISTER_OUTPUT_TYPE,
@@ -191,6 +197,7 @@ export const ZERO_OUTPUT_CHANNELS = {
     enabled: true,
     key: id.create(),
     dataType: DataType.UINT8.toString(),
+    name: "",
   },
 } as const satisfies Record<OutputChannelType, OutputChannel>;
 

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,7 +18,14 @@ import {
   type TimeSpan,
   type xy,
 } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  type ReactElement,
+  type Ref,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 
 import { HAUL_TYPE } from "@/channel/types";
 import { CSS } from "@/css";
@@ -74,7 +81,7 @@ export interface RuleProps {
   units?: string;
 }
 
-export interface LinePlotProps extends Core.LinePlotProps {
+export interface LinePlotProps extends Omit<Core.LinePlotProps, "ref"> {
   axes: AxisProps[];
   onAxisChannelDrop?: (axis: string, channels: channel.Key[]) => void;
   onAxisChange?: (axis: Partial<AxisProps> & { key: string }) => void;
@@ -99,6 +106,7 @@ export interface LinePlotProps extends Core.LinePlotProps {
   rangeProviderProps?: Range.ProviderProps;
   measureMode?: measure.Mode;
   onMeasureModeChange?: (mode: measure.Mode) => void;
+  ref?: Ref<Core.LinePlotRef>;
 }
 
 const canDrop = Haul.canDropOfType(HAUL_TYPE);
@@ -133,20 +141,21 @@ export const LinePlot = ({
   measureMode,
   onMeasureModeChange,
   children,
+  ref,
   ...rest
 }: LinePlotProps): ReactElement => {
   const xAxes = axes.filter(({ location: l }) => loc.isY(l));
-  const ref = useRef<Viewport.UseRefValue | null>(null);
+  const viewportRef = useRef<Viewport.UseRefValue | null>(null);
   const prevLinesLength = usePrevious(lines.length);
   const prevHold = usePrevious(rest.hold);
   const shouldResetViewport =
     (prevLinesLength === 0 && lines.length !== 0) ||
     (prevHold === true && rest.hold === false);
   useEffect(() => {
-    if (shouldResetViewport) ref.current?.reset();
+    if (shouldResetViewport) viewportRef.current?.reset();
   }, [shouldResetViewport]);
   return (
-    <Core.LinePlot {...rest}>
+    <Core.LinePlot ref={ref} {...rest}>
       {xAxes.map((a, i) => {
         const axisLines = lines.filter((l) => l.axes.x === a.key);
         const yAxes = axes.filter(({ location: l }) => loc.isX(l));
@@ -184,7 +193,7 @@ export const LinePlot = ({
         initial={initialViewport}
         onChange={onViewportChange}
         triggers={viewportTriggers}
-        ref={ref}
+        ref={viewportRef}
       >
         {enableTooltip && <Tooltip.Tooltip />}
         {enableMeasure && (

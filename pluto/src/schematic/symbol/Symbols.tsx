@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -160,7 +160,7 @@ export const createToggle = <P extends object = record.Unknown>(
     position: _,
     ...rest
   }: SymbolProps<ToggleProps<P>>): ReactElement => {
-    const { enabled, triggered, toggle } = Toggle.use({
+    const { enabled, toggle } = Toggle.use({
       aetherKey: symbolKey,
       source,
       sink,
@@ -196,7 +196,6 @@ export const createToggle = <P extends object = record.Unknown>(
         {/* @ts-expect-error - typescript with HOCs */}
         <BaseSymbol
           enabled={enabled}
-          triggered={triggered}
           onClick={toggle}
           orientation={orientation}
           {...rest}

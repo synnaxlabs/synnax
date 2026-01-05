@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -40,9 +40,9 @@ var (
 )
 
 func (cfg WriterConfig) Validate() error {
-	v := validate.New("virtual.WriterConfig")
-	validate.NotEmptyString(v, "Subject.Key", cfg.Subject.Key)
-	validate.NotNil(v, "ErrOnUnauthorizedOpen", cfg.ErrOnUnauthorizedOpen)
+	v := validate.New("virtual.writer_config")
+	validate.NotEmptyString(v, "subject.key", cfg.Subject.Key)
+	validate.NotNil(v, "err_on_unauthorized_open", cfg.ErrOnUnauthorizedOpen)
 	return v.Error()
 }
 

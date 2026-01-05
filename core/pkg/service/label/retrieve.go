@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -86,8 +86,8 @@ func (s *Service) RetrieveFor(
 	tx gorp.Tx,
 ) ([]Label, error) {
 	var labelResources []ontology.Resource
-	tx = gorp.OverrideTx(s.DB, tx)
-	if err := s.Ontology.NewRetrieve().
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
+	if err := s.cfg.Ontology.NewRetrieve().
 		WhereIDs(id).
 		TraverseTo(Labels).
 		Entries(&labelResources).

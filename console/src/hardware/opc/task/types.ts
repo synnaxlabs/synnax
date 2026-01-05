@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,6 +19,7 @@ const baseChannelZ = Common.Task.channelZ.extend({
   channel: channel.keyZ,
   nodeId: z.string(),
   nodeName: z.string(),
+  name: Common.Task.nameZ,
   dataType: z.string().default("float32"),
 });
 

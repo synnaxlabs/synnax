@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,7 +11,7 @@ import "@/hardware/modbus/task/Task.css";
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon, Select, Telem } from "@synnaxlabs/pluto";
-import { DataType, deep, id } from "@synnaxlabs/x";
+import { DataType, deep, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { CSS } from "@/css";
@@ -119,6 +119,7 @@ const ChannelListItem = (props: Common.Task.ChannelListItemProps) => {
       <Flex.Box x align="center" grow justify="end">
         <Common.Task.ChannelName
           channel={channel}
+          namePath={`${path}.name`}
           id={Common.Task.getChannelNameID(itemKey)}
         />
         <Common.Task.EnableDisableButton path={`${path}.enabled`} />
@@ -135,10 +136,12 @@ const getOpenChannel = (channels: InputChannel[]): InputChannel => {
       channel: 0,
       key: id.create(),
       enabled: true,
+      name: "",
     };
   const channelToCopy = channels[channels.length - 1];
   return {
     ...channelToCopy,
+    ...Common.Task.READ_CHANNEL_OVERRIDE,
     key: id.create(),
     address: channelToCopy.address + 1,
   };
@@ -203,46 +206,48 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   else shouldCreateIndex = true;
   let modified = false;
   const safeName = channel.escapeInvalidName(dev.name);
-  if (shouldCreateIndex) {
-    modified = true;
-    const index = await client.channels.create({
-      name: `${safeName}_time`,
-      dataType: "timestamp",
-      isIndex: true,
-    });
-    dev.properties.read.index = index.key;
-  }
+  try {
+    if (shouldCreateIndex) {
+      modified = true;
+      const index = await client.channels.create({
+        name: `${safeName}_time`,
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      dev.properties.read.index = index.key;
+    }
 
-  const toCreate: InputChannel[] = [];
-  for (const c of config.channels) {
-    const key = readMapKey(c);
-    const existing = dev.properties.read.channels[key];
-    if (existing == null) toCreate.push(c);
-    else
-      try {
-        await client.channels.retrieve(existing.toString());
-      } catch (e) {
-        if (NotFoundError.matches(e)) toCreate.push(c);
-        else throw e;
-      }
-  }
-  if (toCreate.length > 0) {
-    modified = true;
-    const channels = await client.channels.create(
-      toCreate.map((c) => ({
-        name: channelName(safeName, c),
-        dataType: (c as TypedInput).dataType ?? DataType.UINT8.toString(),
-        index: dev.properties.read.index,
-      })),
-    );
+    const toCreate: InputChannel[] = [];
+    for (const c of config.channels) {
+      const key = readMapKey(c);
+      const existing = dev.properties.read.channels[key];
+      if (existing == null) toCreate.push(c);
+      else
+        try {
+          await client.channels.retrieve(existing.toString());
+        } catch (e) {
+          if (NotFoundError.matches(e)) toCreate.push(c);
+          else throw e;
+        }
+    }
+    if (toCreate.length > 0) {
+      modified = true;
+      const channels = await client.channels.create(
+        toCreate.map((c) => ({
+          name: primitive.isNonZero(c.name) ? c.name : channelName(safeName, c),
+          dataType: (c as TypedInput).dataType ?? DataType.UINT8.toString(),
+          index: dev.properties.read.index,
+        })),
+      );
 
-    channels.forEach((c, i) => {
-      const channel = toCreate[i];
-      dev.properties.read.channels[readMapKey(channel)] = c.key;
-    });
+      channels.forEach((c, i) => {
+        const channel = toCreate[i];
+        dev.properties.read.channels[readMapKey(channel)] = c.key;
+      });
+    }
+  } finally {
+    if (modified) await client.devices.create(dev);
   }
-
-  if (modified) await client.devices.create(dev);
 
   config.channels.forEach((c) => {
     c.channel = dev.properties.read.channels[readMapKey(c)];

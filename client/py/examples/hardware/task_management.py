@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -23,7 +23,7 @@ Key features demonstrated:
 
 Before running this example:
 1. Start the Modbus simulator server:
-   poetry run python driver/modbus/dev/server.py
+   uv run python driver/modbus/dev/server.py
 
 2. Connect the Modbus device in Synnax Console:
    - Host: localhost (127.0.0.1)

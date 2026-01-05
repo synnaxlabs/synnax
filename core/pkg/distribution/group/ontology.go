@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -75,10 +75,10 @@ func (s *Service) OnChange(
 	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Group]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
-	return gorp.Observe[uuid.UUID, Group](s.DB).OnChange(handleChange)
+	return gorp.Observe[uuid.UUID, Group](s.cfg.DB).OnChange(handleChange)
 }
 
 func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
-	n, closer, err := gorp.WrapReader[uuid.UUID, Group](s.DB).OpenNexter(ctx)
+	n, closer, err := gorp.WrapReader[uuid.UUID, Group](s.cfg.DB).OpenNexter(ctx)
 	return xiter.Map(n, newResource), closer, err
 }

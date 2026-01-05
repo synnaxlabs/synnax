@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -41,8 +41,8 @@ var _ = Describe("View", func() {
 			DB:           db,
 			EnableSearch: config.True(),
 		}))
-		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-		svc = MustSucceed(view.OpenService(ctx, view.Config{
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+		svc = MustSucceed(view.OpenService(ctx, view.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,

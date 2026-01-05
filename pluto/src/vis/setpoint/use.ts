@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -27,30 +27,17 @@ export interface UseReturn extends Pick<z.infer<typeof setpoint.stateZ>, "value"
 
 export const use = ({ aetherKey, source, sink }: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqual({ source, sink });
-  const [, { value }, setState] = Aether.use({
+  const [, { value }, setState, methods] = Aether.use({
     aetherKey,
     type: setpoint.Setpoint.TYPE,
     schema: setpoint.stateZ,
-    initialState: {
-      trigger: 0,
-      value: 0,
-      ...memoProps,
-    },
+    initialState: { value: 0, ...memoProps },
+    methods: setpoint.methodsZ,
   });
 
   useEffect(() => {
     setState((state) => ({ ...state, ...memoProps }));
   }, [memoProps, setState]);
 
-  const handleSet = useCallback(
-    (value: number) =>
-      setState((state) => ({
-        ...state,
-        trigger: state.trigger + 1,
-        command: value,
-      })),
-    [setState],
-  );
-
-  return { set: handleSet, value };
+  return { set: methods.set, value };
 };

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -90,7 +90,7 @@ func (w Writer) DeleteMany(ctx context.Context, keys ...uuid.UUID) error {
 }
 
 func (w Writer) validate(v View) error {
-	vld := validate.New("view.View")
+	vld := validate.New("view.view")
 	validate.NotEmptyString(vld, "name", v.Name)
 	validate.NotEmptyString(vld, "type", v.Type)
 	return vld.Error()

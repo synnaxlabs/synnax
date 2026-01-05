@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -48,9 +48,9 @@ func (c Config) Override(o Config) Config {
 
 func (c Config) Validate() error {
 	v := validate.New("breaker")
-	validate.GreaterThanEq(v, "BaseInterval", c.BaseInterval, 0)
-	validate.GreaterThanEq(v, "MaxRetries", c.MaxRetries, 0)
-	validate.GreaterThanEq(v, "Scale", c.Scale, 1)
+	validate.GreaterThanEq(v, "base_interval", c.BaseInterval, 0)
+	validate.GreaterThanEq(v, "max_retries", c.MaxRetries, 0)
+	validate.GreaterThanEq(v, "scale", c.Scale, 1)
 	return v.Error()
 }
 

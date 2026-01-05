@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -46,7 +46,7 @@ var _ = Describe("Writer", func() {
 
 				Expect(s.Key).To(Equal(statusKey))
 				Expect(s.Name).To(Equal(fmt.Sprintf("%s Status", a.Name)))
-				Expect(s.Variant).To(Equal(xstatus.LoadingVariant))
+				Expect(s.Variant).To(Equal(xstatus.VariantLoading))
 				Expect(s.Message).To(Equal("Deploying"))
 			})
 

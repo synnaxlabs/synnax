@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -73,8 +73,8 @@ var (
 // Validate implements config.Config.
 func (cfg Config) Validate() error {
 	v := validate.New("cesium.virtual")
-	validate.NotNil(v, "FS", cfg.FS)
-	validate.NotNil(v, "MetaCodec", cfg.MetaCodec)
+	validate.NotNil(v, "fs", cfg.FS)
+	validate.NotNil(v, "meta_codec", cfg.MetaCodec)
 	return v.Error()
 }
 

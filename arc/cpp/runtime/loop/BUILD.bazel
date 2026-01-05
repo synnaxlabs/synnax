@@ -1,0 +1,51 @@
+# Copyright 2025 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in
+# the file licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business
+# Source License, use of this software will be governed by the Apache License,
+# Version 2.0, included in the file licenses/APL.txt.
+
+cc_library(
+    name = "loop",
+    hdrs = ["loop.h"],
+    srcs = select({
+        "@platforms//os:linux": ["loop_linux.cpp"],
+        "@platforms//os:macos": ["loop_darwin.cpp"],
+        "@platforms//os:windows": ["loop_windows.cpp"],
+        "//conditions:default": ["loop_polling.cpp"],
+    }),
+    deps = [
+        "//x/cpp/loop",
+        "//x/cpp/breaker",
+        "//x/cpp/xerrors",
+        "//x/cpp/telem",
+        "@glog",
+    ],
+    linkopts = select({
+        "@platforms//os:linux": ["-lpthread"],
+        "@platforms//os:windows": [],
+        "//conditions:default": [],
+    }),
+    copts = select({
+        "@platforms//os:windows": [
+            "/D_WIN32_WINNT=0x0601",
+            "/DWIN32_LEAN_AND_MEAN",
+            "/DNOMINMAX",
+        ],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+)
+
+cc_test(
+    name = "loop_test",
+    srcs = ["loop_test.cpp"],
+    deps = [
+        ":loop",
+        "//x/cpp/breaker",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

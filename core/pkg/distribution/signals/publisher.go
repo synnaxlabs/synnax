@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -65,14 +65,14 @@ const (
 
 // Validate implements config.Config.
 func (c ObservablePublisherConfig) Validate() error {
-	v := validate.New("signals.ObservablePublisherConfig")
-	validate.NotEmptyString(v, "Label.Name", c.SetChannel.Name)
-	validate.NotEmptyString(v, "DeleteChannel.Name", c.DeleteChannel.Name)
-	v.Ternaryf("setChannel.leaseholder", !c.SetChannel.Free(), nonFree, c.SetChannel.Leaseholder)
-	v.Ternaryf("deleteChannel.leaseholder", !c.DeleteChannel.Free(), nonFree, c.DeleteChannel.Leaseholder)
-	v.Ternaryf("setChannel.virtual", !c.SetChannel.Virtual, nonVirtual, c.SetChannel.Name)
-	v.Ternaryf("deleteChannel.virtual", !c.DeleteChannel.Virtual, nonVirtual, c.DeleteChannel.Name)
-	validate.NotNil(v, "ObservableSubscriber", c.Observable)
+	v := validate.New("signals.observable_publisher_config")
+	validate.NotEmptyString(v, "set_channel.name", c.SetChannel.Name)
+	validate.NotEmptyString(v, "delete_channel.name", c.DeleteChannel.Name)
+	v.Ternaryf("set_channel.leaseholder", !c.SetChannel.Free(), nonFree, c.SetChannel.Leaseholder)
+	v.Ternaryf("delete_channel.leaseholder", !c.DeleteChannel.Free(), nonFree, c.DeleteChannel.Leaseholder)
+	v.Ternaryf("set_channel.virtual", !c.SetChannel.Virtual, nonVirtual, c.SetChannel.Name)
+	v.Ternaryf("delete_channel.virtual", !c.DeleteChannel.Virtual, nonVirtual, c.DeleteChannel.Name)
+	validate.NotNil(v, "observable", c.Observable)
 	return v.Error()
 }
 

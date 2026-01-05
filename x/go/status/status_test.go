@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -26,7 +26,7 @@ var _ = Describe("Status", func() {
 		Context("Basic status formatting", func() {
 			It("Should format a basic info status", func() {
 				s := status.Status[any]{
-					Variant: status.InfoVariant,
+					Variant: status.VariantInfo,
 					Name:    "Information",
 					Message: "This is an info message",
 				}
@@ -35,7 +35,7 @@ var _ = Describe("Status", func() {
 
 			It("Should format a success status with key", func() {
 				s := status.Status[any]{
-					Variant: status.SuccessVariant,
+					Variant: status.VariantSuccess,
 					Key:     "op.success",
 					Name:    "Operation Complete",
 					Message: "Successfully completed operation",
@@ -45,7 +45,7 @@ var _ = Describe("Status", func() {
 
 			It("Should format an error status with description", func() {
 				s := status.Status[any]{
-					Variant:     status.ErrorVariant,
+					Variant:     status.VariantError,
 					Name:        "Database Error",
 					Message:     "Failed to connect",
 					Description: "Connection timeout after 30 seconds. Check network settings.",
@@ -55,7 +55,7 @@ var _ = Describe("Status", func() {
 
 			It("Should format a warning status with timestamp", func() {
 				s := status.Status[any]{
-					Variant: status.WarningVariant,
+					Variant: status.VariantWarning,
 					Name:    "Memory Warning",
 					Message: "High memory usage detected",
 					Time:    telem.TimeStamp(1234567890000000000),
@@ -65,14 +65,14 @@ var _ = Describe("Status", func() {
 
 			It("Should format a disabled status minimal", func() {
 				s := status.Status[any]{
-					Variant: status.DisabledVariant,
+					Variant: status.VariantDisabled,
 				}
 				Expect(s.String()).To(Equal("[⊘ disabled]"))
 			})
 
 			It("Should format a loading status with all fields", func() {
 				s := status.Status[any]{
-					Variant:     status.LoadingVariant,
+					Variant:     status.VariantLoading,
 					Key:         "task.load",
 					Name:        "Loading Data",
 					Message:     "Processing files",
@@ -86,7 +86,7 @@ var _ = Describe("Status", func() {
 		Context("Status with custom details", func() {
 			It("Should format status with struct details", func() {
 				s := status.Status[CustomDetails]{
-					Variant: status.ErrorVariant,
+					Variant: status.VariantError,
 					Name:    "API Error",
 					Message: "Request failed",
 					Details: CustomDetails{
@@ -99,7 +99,7 @@ var _ = Describe("Status", func() {
 
 			It("Should format status with int details", func() {
 				s := status.Status[int]{
-					Variant: status.InfoVariant,
+					Variant: status.VariantInfo,
 					Name:    "Count",
 					Message: "Total items",
 					Details: 42,
@@ -109,7 +109,7 @@ var _ = Describe("Status", func() {
 
 			It("Should omit zero int details", func() {
 				s := status.Status[int]{
-					Variant: status.InfoVariant,
+					Variant: status.VariantInfo,
 					Name:    "Count",
 					Message: "No items",
 					Details: 0,
@@ -119,7 +119,7 @@ var _ = Describe("Status", func() {
 
 			It("Should format status with string details", func() {
 				s := status.Status[string]{
-					Variant: status.WarningVariant,
+					Variant: status.VariantWarning,
 					Name:    "Configuration",
 					Message: "Using default",
 					Details: "production",
@@ -129,7 +129,7 @@ var _ = Describe("Status", func() {
 
 			It("Should omit empty string details", func() {
 				s := status.Status[string]{
-					Variant: status.InfoVariant,
+					Variant: status.VariantInfo,
 					Name:    "Status",
 					Message: "Ready",
 					Details: "",
@@ -139,7 +139,7 @@ var _ = Describe("Status", func() {
 
 			It("Should format status with map details", func() {
 				s := status.Status[map[string]interface{}]{
-					Variant:     status.ErrorVariant,
+					Variant:     status.VariantError,
 					Key:         "sys.critical.db",
 					Name:        "Critical Database Failure",
 					Message:     "Unable to write to primary database",
@@ -159,7 +159,7 @@ var _ = Describe("Status", func() {
 				}
 
 				s := status.Status[*PtrDetails]{
-					Variant: status.InfoVariant,
+					Variant: status.VariantInfo,
 					Name:    "Nil Test",
 					Message: "Testing nil details",
 					Details: nil,
@@ -180,7 +180,7 @@ var _ = Describe("Status", func() {
 
 			It("Should omit key when same as name", func() {
 				s := status.Status[any]{
-					Variant: status.InfoVariant,
+					Variant: status.VariantInfo,
 					Key:     "SystemStatus",
 					Name:    "SystemStatus",
 					Message: "All systems operational",
@@ -190,7 +190,7 @@ var _ = Describe("Status", func() {
 
 			It("Should format status with only variant", func() {
 				s := status.Status[any]{
-					Variant: status.SuccessVariant,
+					Variant: status.VariantSuccess,
 				}
 				Expect(s.String()).To(Equal("[✓ success]"))
 			})
@@ -203,7 +203,7 @@ var _ = Describe("Status", func() {
 				s := status.Status[any]{
 					Key:         "test-key",
 					Name:        "Test Status",
-					Variant:     status.InfoVariant,
+					Variant:     status.VariantInfo,
 					Message:     "Test message",
 					Description: "Test description",
 					Time:        telem.TimeStamp(1609459200000000000),
@@ -222,7 +222,7 @@ var _ = Describe("Status", func() {
 				s := status.Status[CustomDetails]{
 					Key:     "detail-key",
 					Name:    "Detail Status",
-					Variant: status.ErrorVariant,
+					Variant: status.VariantError,
 					Details: CustomDetails{Code: 500, Context: "server error"},
 				}
 				pb, err := status.TranslateToPB(s)
@@ -233,7 +233,7 @@ var _ = Describe("Status", func() {
 			It("Should marshal primitive details to JSON", func() {
 				s := status.Status[int]{
 					Key:     "int-key",
-					Variant: status.InfoVariant,
+					Variant: status.VariantInfo,
 					Details: 42,
 				}
 				pb, err := status.TranslateToPB(s)
@@ -257,7 +257,7 @@ var _ = Describe("Status", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(s.Key).To(Equal("pb-key"))
 				Expect(s.Name).To(Equal("PB Status"))
-				Expect(s.Variant).To(Equal(status.WarningVariant))
+				Expect(s.Variant).To(Equal(status.VariantWarning))
 				Expect(s.Message).To(Equal("Warning message"))
 				Expect(s.Description).To(Equal("Warning description"))
 				Expect(s.Time).To(Equal(telem.TimeStamp(1609459200000000000)))
@@ -302,7 +302,7 @@ var _ = Describe("Status", func() {
 				original := status.Status[CustomDetails]{
 					Key:         "round-trip-key",
 					Name:        "Round Trip",
-					Variant:     status.SuccessVariant,
+					Variant:     status.VariantSuccess,
 					Message:     "Success message",
 					Description: "Detailed description",
 					Time:        telem.TimeStamp(1609459200000000000),

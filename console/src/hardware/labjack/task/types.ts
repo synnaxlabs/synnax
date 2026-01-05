@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -312,6 +312,8 @@ export const writeConfigZ = Common.Task.baseConfigZ.extend({
       channels.map<OutputChannel>(({ cmdKey, stateKey, ...rest }) => ({
         cmdChannel: cmdKey,
         stateChannel: stateKey,
+        cmdChannelName: "",
+        stateChannelName: "",
         ...rest,
       })),
     )

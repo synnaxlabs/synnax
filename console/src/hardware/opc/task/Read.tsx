@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,7 +9,7 @@
 
 import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, type Haul, Icon } from "@synnaxlabs/pluto";
-import { caseconv, DataType } from "@synnaxlabs/x";
+import { caseconv, DataType, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 import { type z } from "zod";
 
@@ -118,6 +118,7 @@ const convertHaulItemToChannel = ({ data }: Haul.Item): ReadChannel => {
     enabled: true,
     useAsIndex: false,
     dataType,
+    name: "",
   };
 };
 
@@ -208,13 +209,13 @@ const determineIndexChannel = async ({
   }
 
   // there is not an index channel in the task config, so just create a new channel
-  const idx = await client.channels.create({
+  const idxCh = await client.channels.create({
     name: `${channel.escapeInvalidName(device.name)}_time_for_${channel.escapeInvalidName(taskName)}`,
     dataType: "timestamp",
     isIndex: true,
   });
-  device.properties.read.indexes.push(idx.key);
-  return idx.key;
+  device.properties.read.indexes.push(idxCh.key);
+  return idxCh.key;
 };
 
 const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
@@ -257,9 +258,11 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   }
   if (toCreate.length > 0) {
     const channels = await client.channels.create(
-      toCreate.map(({ nodeName, dataType }) => ({
+      toCreate.map(({ name, nodeName, dataType }) => ({
         dataType,
-        name: channel.escapeInvalidName(nodeName, true),
+        name: primitive.isNonZero(name)
+          ? name
+          : channel.escapeInvalidName(nodeName, true),
         index,
       })),
     );

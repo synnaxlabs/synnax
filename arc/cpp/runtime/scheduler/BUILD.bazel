@@ -1,0 +1,14 @@
+cc_library(
+    name = "scheduler",
+    hdrs = [
+        "scheduler.h",
+    ],
+    visibility = ["//arc/cpp/runtime:__subpackages__"],
+    deps = [
+        "//arc/cpp/runtime/node",
+        "//arc/cpp/runtime/state",
+        "//arc/cpp/runtime/time",
+        "//x/cpp/xerrors",
+        "@glog//:glog",
+    ],
+)

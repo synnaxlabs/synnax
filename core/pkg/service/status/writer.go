@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -142,9 +142,9 @@ func (w Writer[D]) DeleteMany(ctx context.Context, keys ...string) error {
 }
 
 func (w Writer[D]) validate(s Status[D]) error {
-	v := validate.New("status.Status")
-	validate.NotEmptyString(v, "Key", s.Key)
-	validate.Positive(v, "Time", s.Time)
-	validate.NotEmptyString(v, "Variant", s.Variant)
+	v := validate.New("status.status")
+	validate.NotEmptyString(v, "key", s.Key)
+	validate.Positive(v, "time", s.Time)
+	validate.NotEmptyString(v, "variant", s.Variant)
 	return v.Error()
 }

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -90,7 +90,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
-	v := validate.New("Arc")
+	v := validate.New("arc")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "channel", c.Channel)

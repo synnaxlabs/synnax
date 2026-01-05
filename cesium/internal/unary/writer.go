@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -81,11 +81,11 @@ const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 
 // Validate implements config.Config.
 func (c WriterConfig) Validate() error {
-	v := validate.New("unary.WriterConfig")
-	validate.NotEmptyString(v, "Subject.Key", c.Subject.Key)
-	validate.NotNil(v, "ErrOnUnauthorizedOpen", c.ErrOnUnauthorizedOpen)
-	validate.NotNil(v, "Persist", c.Persist)
-	validate.NotNil(v, "EnableAutoCommit", c.EnableAutoCommit)
+	v := validate.New("unary.writer_config")
+	validate.NotEmptyString(v, "subject.key", c.Subject.Key)
+	validate.NotNil(v, "err_on_unauthorized_open", c.ErrOnUnauthorizedOpen)
+	validate.NotNil(v, "persist", c.Persist)
+	validate.NotNil(v, "enable_auto_commit", c.EnableAutoCommit)
 	v.Ternary("end", !c.End.IsZero() && c.End.Before(c.Start), "end timestamp must be after or equal to start timestamp")
 	return v.Error()
 }

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -179,6 +179,7 @@ const getOpenChannel = (
       channelToCopy,
       INPUT_CHANNEL_SCHEMAS[channelTypeUsed],
     ),
+    ...Common.Task.READ_CHANNEL_OVERRIDE,
     key: id.create(),
     port: port.key,
     channel: device.properties[port.type].channels[port.key] ?? 0,
@@ -270,45 +271,48 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   else shouldCreateIndex = true;
   let modified = false;
   const identifier = channel.escapeInvalidName(dev.properties.identifier);
-  if (shouldCreateIndex) {
-    modified = true;
-    const index = await client.channels.create({
-      name: `${identifier}_time`,
-      dataType: "timestamp",
-      isIndex: true,
-    });
-    dev.properties.readIndex = index.key;
+  try {
+    if (shouldCreateIndex) {
+      modified = true;
+      const index = await client.channels.create({
+        name: `${identifier}_time`,
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      dev.properties.readIndex = index.key;
+    }
+    const toCreate: InputChannel[] = [];
+    for (const c of config.channels) {
+      const type = convertChannelTypeToPortType(c.type);
+      const existing = dev.properties[type].channels[c.port];
+      // check if the channel is in properties
+      if (primitive.isZero(existing)) toCreate.push(c);
+      else
+        try {
+          await client.channels.retrieve(existing.toString());
+        } catch (e) {
+          if (NotFoundError.matches(e)) toCreate.push(c);
+          else throw e;
+        }
+    }
+    if (toCreate.length > 0) {
+      modified = true;
+      const channels = await client.channels.create(
+        toCreate.map((c) => ({
+          name: primitive.isNonZero(c.name) ? c.name : `${identifier}_${c.port}`,
+          dataType: c.type === DI_CHANNEL_TYPE ? "uint8" : "float32",
+          index: dev.properties.readIndex,
+        })),
+      );
+      channels.forEach((c, i) => {
+        const toCreateC = toCreate[i];
+        const type = convertChannelTypeToPortType(toCreateC.type);
+        dev.properties[type].channels[toCreateC.port] = c.key;
+      });
+    }
+  } finally {
+    if (modified) await client.devices.create(dev);
   }
-  const toCreate: InputChannel[] = [];
-  for (const c of config.channels) {
-    const type = convertChannelTypeToPortType(c.type);
-    const existing = dev.properties[type].channels[c.port];
-    // check if the channel is in properties
-    if (primitive.isZero(existing)) toCreate.push(c);
-    else
-      try {
-        await client.channels.retrieve(existing.toString());
-      } catch (e) {
-        if (NotFoundError.matches(e)) toCreate.push(c);
-        else throw e;
-      }
-  }
-  if (toCreate.length > 0) {
-    modified = true;
-    const channels = await client.channels.create(
-      toCreate.map((c) => ({
-        name: `${identifier}_${c.port}`,
-        dataType: c.type === DI_CHANNEL_TYPE ? "uint8" : "float32",
-        index: dev.properties.readIndex,
-      })),
-    );
-    channels.forEach((c, i) => {
-      const toCreateC = toCreate[i];
-      const type = convertChannelTypeToPortType(toCreateC.type);
-      dev.properties[type].channels[toCreateC.port] = c.key;
-    });
-  }
-  if (modified) await client.devices.create(dev);
   config.channels.forEach(
     (c) =>
       (c.channel =

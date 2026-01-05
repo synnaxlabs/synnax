@@ -30,6 +30,10 @@ build:linux --copt=-Werror
 # Allow protobuf deprecation warnings without treating them as errors
 build:linux --copt=-Wno-error=deprecated-declarations
 
+# Allow sequence-point warnings without treating them as errors
+# (wasmtime headers use storage++ in pack expansion which triggers this)
+build:linux --copt=-Wno-error=sequence-point
+
 # Windows (MSVC)
 # Note: MSVC uses /std:c++latest for C++23 features (not /std:c++23)
 build:windows --enable_runfiles

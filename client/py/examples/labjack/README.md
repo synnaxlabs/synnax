@@ -11,7 +11,7 @@ This directory contains example scripts for working with LabJack devices in Synn
      [LabJack downloads](https://labjack.com/pages/support?doc=/software-driver/installer-downloads/ljm-software-installers-t4-t7-digit/))
    - Synnax server running
    - Synnax driver running
-3. **Authentication**: Logged in to Synnax CLI (`poetry run sy login`)
+3. **Authentication**: Logged in to Synnax CLI (`uv run sy login`)
 
 ## Quick Start Guide
 
@@ -22,7 +22,7 @@ Follow these scripts in order:
 First, register your LabJack device with Synnax:
 
 ```bash
-poetry run python examples/labjack/connect_device.py
+uv run python examples/labjack/connect_device.py
 ```
 
 This script will:
@@ -46,7 +46,7 @@ device:
 Read analog voltages from your LabJack:
 
 ```bash
-poetry run python examples/labjack/read_task.py
+uv run python examples/labjack/read_task.py
 ```
 
 This example:
@@ -63,7 +63,7 @@ This example:
 For temperature measurements with K-type thermocouples:
 
 ```bash
-poetry run python examples/labjack/thermocouple_read_task.py
+uv run python examples/labjack/thermocouple_read_task.py
 ```
 
 This example:
@@ -81,7 +81,7 @@ This example:
 Send commands to analog and digital outputs:
 
 ```bash
-poetry run python examples/labjack/write_task.py
+uv run python examples/labjack/write_task.py
 ```
 
 This example:
@@ -99,7 +99,7 @@ outputs.
 When finished, remove the device registration:
 
 ```bash
-poetry run python examples/labjack/delete_device.py
+uv run python examples/labjack/delete_device.py
 ```
 
 This will remove the device and all associated tasks from Synnax.

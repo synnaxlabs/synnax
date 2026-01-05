@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -42,8 +42,8 @@ func TestAuth(t *testing.T) {
 var _ = BeforeSuite(func() {
 	db = gorp.Wrap(memkv.New())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-	g = MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-	userSvc := MustSucceed(user.OpenService(ctx, user.Config{
+	g = MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+	userSvc := MustSucceed(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,

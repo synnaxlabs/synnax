@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,7 +12,7 @@ import { array, deep, type destructor, id, type observe } from "@synnaxlabs/x";
 
 import { type aether } from "@/aether/aether";
 import {
-  CompoundTelemFactory,
+  CompoundFactory,
   type CreateOptions,
   type Factory,
 } from "@/telem/aether/factory";
@@ -23,18 +23,18 @@ import { type Sink, type Source, type Spec } from "@/telem/aether/telem";
  * Provides utilities for creating and managing telemetry sources and sinks.
  */
 export class Context {
-  private factory: CompoundTelemFactory;
+  private factory: CompoundFactory;
   readonly key: string;
   readonly parent?: Context;
 
-  constructor(factory: CompoundTelemFactory, parent?: Context) {
+  constructor(factory: CompoundFactory, parent?: Context) {
     this.factory = factory;
     this.key = id.create();
     this.parent = parent;
   }
 
   child(factories: Factory | Factory[], parent?: Context): Context {
-    const next = new CompoundTelemFactory([
+    const next = new CompoundFactory([
       ...this.factory.factories,
       ...array.toArray(factories),
     ]);
