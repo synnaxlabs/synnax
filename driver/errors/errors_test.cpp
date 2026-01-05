@@ -54,3 +54,21 @@ TEST(ErrorsTest, LibraryInfoWithoutURL) {
     EXPECT_NE(err.data.find("is not installed"), std::string::npos);
     EXPECT_EQ(err.data.find("Download here:"), std::string::npos);
 }
+
+/// @brief it should wrap error with channel name and hardware location.
+TEST(ErrorsTest, WrapChannelError) {
+    auto base_err = xerrors::Error(
+        driver::CRITICAL_HARDWARE_ERROR,
+        "some hardware error"
+    );
+
+    auto wrapped = driver::wrap_channel_error(base_err, "my_channel", "AIN0");
+
+    EXPECT_EQ(wrapped.type, base_err.type);
+    EXPECT_NE(wrapped.data.find("my_channel"), std::string::npos)
+        << "Expected channel name in error. Got: " << wrapped.data;
+    EXPECT_NE(wrapped.data.find("AIN0"), std::string::npos)
+        << "Expected hardware location in error. Got: " << wrapped.data;
+    EXPECT_NE(wrapped.data.find("some hardware error"), std::string::npos)
+        << "Expected original error message in error. Got: " << wrapped.data;
+}
