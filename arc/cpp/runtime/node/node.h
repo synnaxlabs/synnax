@@ -37,10 +37,9 @@ public:
     /// @brief Checks if the output at the given param name is truthy.
     /// Used by the scheduler to evaluate one-shot edges - edges only fire
     /// when the source output is truthy.
-    /// @param param_name The name of the output parameter to check.
+    /// @param param The name of the output parameter to check.
     /// @returns true if the output exists and its last value is non-zero, false
     /// otherwise.
-    [[nodiscard]] virtual bool
-    is_output_truthy(const std::string &param_name) const = 0;
+    [[nodiscard]] virtual bool is_output_truthy(const std::string &param) const = 0;
 };
 }

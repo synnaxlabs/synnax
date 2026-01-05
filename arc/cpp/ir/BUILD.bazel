@@ -6,13 +6,11 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//arc/cpp/proto",
         "//arc/cpp/types",
         "//arc/go/ir:ir_grpc",
         "//arc/go/symbol:symbol_grpc",
         "//arc/go/types:types_grpc",
         "//x/cpp/telem",
-        "@nlohmann_json//:json",
     ],
 )
 
