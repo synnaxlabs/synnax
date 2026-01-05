@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,12 +19,11 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
@@ -72,7 +71,7 @@ var _ = Describe("Relay", func() {
 					defer GinkgoRecover()
 					Expect(w.Close()).To(Succeed())
 				}()
-				writeF := core.MultiFrame(
+				writeF := frame.NewMulti(
 					keys,
 					[]telem.Series{
 						telem.NewSeriesV[int64](1, 2, 3),
@@ -85,7 +84,7 @@ var _ = Describe("Relay", func() {
 				for range s.resCount {
 					var res relay.Response
 					Eventually(readerRes.Outlet()).Should(Receive(&res))
-					f = core.MergeFrames([]core.Frame{f, res.Frame})
+					f = frame.Merge([]frame.Frame{f, res.Frame})
 				}
 				Expect(f.Count()).To(Equal(3))
 				for i, k := range f.KeysSlice() {

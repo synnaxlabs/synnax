@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -1711,6 +1711,53 @@ TEST(SeriesOperators, DoubleBitwiseNot) {
     ASSERT_EQ(result.at<uint8_t>(0), 0x00);
     ASSERT_EQ(result.at<uint8_t>(1), 0xFF);
     ASSERT_EQ(result.at<uint8_t>(2), 0xAA);
+}
+
+/// @brief Tests logical NOT with uint8 (0 -> 1, non-zero -> 0).
+TEST(SeriesOperators, LogicalNotUint8) {
+    auto a = telem::Series(std::vector<uint8_t>{0, 1, 255, 0, 42});
+    auto result = a.logical_not();
+    ASSERT_EQ(result.data_type(), telem::UINT8_T);
+    ASSERT_EQ(result.at<uint8_t>(0), 1); // 0 -> 1
+    ASSERT_EQ(result.at<uint8_t>(1), 0); // 1 -> 0
+    ASSERT_EQ(result.at<uint8_t>(2), 0); // 255 -> 0
+    ASSERT_EQ(result.at<uint8_t>(3), 1); // 0 -> 1
+    ASSERT_EQ(result.at<uint8_t>(4), 0); // 42 -> 0
+}
+
+/// @brief Tests logical NOT with int32.
+TEST(SeriesOperators, LogicalNotInt32) {
+    auto a = telem::Series(std::vector<int32_t>{0, 1, -1, 100, 0});
+    auto result = a.logical_not();
+    ASSERT_EQ(result.data_type(), telem::UINT8_T);
+    ASSERT_EQ(result.at<uint8_t>(0), 1); // 0 -> 1
+    ASSERT_EQ(result.at<uint8_t>(1), 0); // 1 -> 0
+    ASSERT_EQ(result.at<uint8_t>(2), 0); // -1 -> 0
+    ASSERT_EQ(result.at<uint8_t>(3), 0); // 100 -> 0
+    ASSERT_EQ(result.at<uint8_t>(4), 1); // 0 -> 1
+}
+
+/// @brief Tests logical NOT with float64.
+TEST(SeriesOperators, LogicalNotFloat64) {
+    auto a = telem::Series(std::vector<double>{0.0, 1.0, -1.0, 0.5, 0.0});
+    auto result = a.logical_not();
+    ASSERT_EQ(result.data_type(), telem::UINT8_T);
+    ASSERT_EQ(result.at<uint8_t>(0), 1); // 0.0 -> 1
+    ASSERT_EQ(result.at<uint8_t>(1), 0); // 1.0 -> 0
+    ASSERT_EQ(result.at<uint8_t>(2), 0); // -1.0 -> 0
+    ASSERT_EQ(result.at<uint8_t>(3), 0); // 0.5 -> 0
+    ASSERT_EQ(result.at<uint8_t>(4), 1); // 0.0 -> 1
+}
+
+/// @brief Tests double logical NOT preserves truthiness.
+TEST(SeriesOperators, DoubleLogicalNot) {
+    auto a = telem::Series(std::vector<uint8_t>{0, 1, 0, 255});
+    auto result = a.logical_not().logical_not();
+    // Double NOT should give 0 for false, 1 for true (normalized)
+    ASSERT_EQ(result.at<uint8_t>(0), 0); // 0 -> 1 -> 0
+    ASSERT_EQ(result.at<uint8_t>(1), 1); // 1 -> 0 -> 1
+    ASSERT_EQ(result.at<uint8_t>(2), 0); // 0 -> 1 -> 0
+    ASSERT_EQ(result.at<uint8_t>(3), 1); // 255 -> 0 -> 1
 }
 
 /// @brief Tests negation can be chained with other operations.

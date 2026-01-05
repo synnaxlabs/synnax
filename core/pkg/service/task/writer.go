@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -37,7 +37,7 @@ func resolveStatus(t *Task, provided *Status) *Status {
 			Time:    telem.Now(),
 			Name:    t.Name,
 			Message: fmt.Sprintf("%s status unknown", t.Name),
-			Variant: xstatus.WarningVariant,
+			Variant: xstatus.VariantWarning,
 			Details: StatusDetails{Task: t.Key},
 		}
 	}

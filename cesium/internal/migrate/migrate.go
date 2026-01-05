@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,9 +12,9 @@ package migrate
 import (
 	"fmt"
 
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/version"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/migrate"
 	xversion "github.com/synnaxlabs/x/version"
 )
@@ -23,10 +23,10 @@ import (
 // structure is passed into migration functions on bootup.
 type DBState struct {
 	// Channel is the channel specification for the DB.
-	Channel core.Channel
+	Channel channel.Channel
 	// FS is the file-system for that channel in the DB. This is not the
 	// top level cesium directory, but the channel-specific directory itself.
-	FS xfs.FS
+	FS fs.FS
 	// ShouldIgnoreChannel can be set to true by the migration function if the channel
 	// should be ignored on database startup.
 	ShouldIgnoreChannel bool

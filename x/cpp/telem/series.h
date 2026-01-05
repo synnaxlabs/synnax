@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -1353,6 +1353,12 @@ public:
                 return a;
             }
         });
+    }
+
+    /// @brief Logical NOT. Returns a UINT8_T Series where each element is
+    /// 1 if the original was 0, and 0 if the original was non-zero.
+    [[nodiscard]] Series logical_not() const {
+        return apply_scalar_comparison_op(0, [](auto a, auto b) { return a == b; });
     }
 
     /// @brief deep copies the series, including all of its data_. This function

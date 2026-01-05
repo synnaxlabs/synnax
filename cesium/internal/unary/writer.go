@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,10 +14,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/config"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
@@ -74,18 +75,18 @@ var (
 		AutoIndexPersistInterval: 1 * telem.Second,
 		ErrOnUnauthorizedOpen:    config.False(),
 	}
-	errWriterClosed = core.NewErrResourceClosed("unary.writer")
+	errWriterClosed = resource.NewErrClosed("unary.writer")
 )
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 
 // Validate implements config.Config.
 func (c WriterConfig) Validate() error {
-	v := validate.New("unary.WriterConfig")
-	validate.NotEmptyString(v, "Subject.Key", c.Subject.Key)
-	validate.NotNil(v, "ErrOnUnauthorizedOpen", c.ErrOnUnauthorizedOpen)
-	validate.NotNil(v, "Persist", c.Persist)
-	validate.NotNil(v, "EnableAutoCommit", c.EnableAutoCommit)
+	v := validate.New("unary.writer_config")
+	validate.NotEmptyString(v, "subject.key", c.Subject.Key)
+	validate.NotNil(v, "err_on_unauthorized_open", c.ErrOnUnauthorizedOpen)
+	validate.NotNil(v, "persist", c.Persist)
+	validate.NotNil(v, "enable_auto_commit", c.EnableAutoCommit)
 	v.Ternary("end", !c.End.IsZero() && c.End.Before(c.Start), "end timestamp must be after or equal to start timestamp")
 	return v.Error()
 }
@@ -125,20 +126,20 @@ func (c WriterConfig) controlTimeRange() telem.TimeRange {
 // information are consistent.
 type controlledWriter struct {
 	*domain.Writer
-	channelKey core.ChannelKey
+	channelKey channel.Key
 	alignment  telem.Alignment
 }
 
 var _ control.Resource = controlledWriter{}
 
 // ChannelKey implements controller.Resource.
-func (w controlledWriter) ChannelKey() core.ChannelKey { return w.channelKey }
+func (w controlledWriter) ChannelKey() channel.Key { return w.channelKey }
 
 type Writer struct {
 	cfg WriterConfig
 	// Channel stores information about the channel this writer is writing to, including
 	// but not limited to density and index.
-	Channel core.Channel
+	Channel channel.Channel
 	// control stores the gate held by the writer in the controller of the unaryDB.
 	control *control.Gate[*controlledWriter]
 	// idx stores the index of the unaryDB (rate or domain).
