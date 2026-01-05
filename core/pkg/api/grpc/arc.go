@@ -522,8 +522,8 @@ func translateTypeFromPB(pb *arctypes.PBType) (arctypes.Type, error) {
 	return typ, nil
 }
 
-// translateTypeKindToPB converts arctypes.TypeKind to arctypes.PBKind
-func translateTypeKindToPB(k arctypes.TypeKind) arctypes.PBKind {
+// translateTypeKindToPB converts arctypes.Kind to arctypes.PBKind
+func translateTypeKindToPB(k arctypes.Kind) arctypes.PBKind {
 	switch k {
 	case arctypes.KindInvalid:
 		return arctypes.PBKind_PB_KIND_UNSPECIFIED
@@ -558,8 +558,8 @@ func translateTypeKindToPB(k arctypes.TypeKind) arctypes.PBKind {
 	}
 }
 
-// translateTypeKindFromPB converts arctypes.PBKind to arctypes.TypeKind
-func translateTypeKindFromPB(k arctypes.PBKind) arctypes.TypeKind {
+// translateTypeKindFromPB converts arctypes.PBKind to arctypes.Kind
+func translateTypeKindFromPB(k arctypes.PBKind) arctypes.Kind {
 	switch k {
 	case arctypes.PBKind_PB_KIND_UNSPECIFIED:
 		return arctypes.KindInvalid

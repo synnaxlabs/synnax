@@ -96,4 +96,17 @@ var _ = Describe("Registry", func() {
 			Entry("empty", ""),
 		)
 	})
+
+	Describe("MustResolve", func() {
+		It("should return unit for valid name", func() {
+			u := units.MustResolve("m")
+			Expect(u.Name).To(Equal("m"))
+		})
+
+		It("should panic for invalid name", func() {
+			Expect(func() {
+				units.MustResolve("invalid_unit")
+			}).To(PanicWith(ContainSubstring("failed to resolve invalid_unit")))
+		})
+	})
 })

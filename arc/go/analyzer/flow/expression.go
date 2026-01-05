@@ -28,7 +28,7 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 	t.Outputs = append(t.Outputs, types.Param{Name: ir.DefaultOutputParam, Type: exprType})
 
 	// Pure literals become constants - no code to compile
-	if expression.IsPureLiteral(ctx.AST) {
+	if expression.IsLiteral(ctx.AST) {
 		t.Config = append(t.Config, types.Param{Name: "value", Type: exprType})
 		scope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
 			Kind: symbol.KindConstant,
@@ -54,6 +54,7 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 		return false
 	}
 	fnScope = fnScope.AutoName("expression_")
+	fnScope.AccumulateReadChannels()
 
 	blockScope, err := fnScope.Add(ctx, symbol.Symbol{
 		Kind: symbol.KindBlock,

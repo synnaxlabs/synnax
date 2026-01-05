@@ -157,7 +157,7 @@ start_seq_cmd => main
 sequence main {
     stage press {
         1 -> press_vlv_cmd,
-        press_pt -> press_pt > 50 => next
+        press_pt > 50 => next
     }
     stage stop {
         0 -> press_vlv_cmd
