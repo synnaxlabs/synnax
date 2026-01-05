@@ -205,10 +205,11 @@ func (t *Table) TopologicalSort(types []Type) []Type {
 		inDegree[qname] = len(dependencies[qname])
 	}
 
+	// Build initial queue in declaration order by iterating over original slice
 	var queue []string
-	for qname, deg := range inDegree {
-		if deg == 0 {
-			queue = append(queue, qname)
+	for _, typ := range types {
+		if inDegree[typ.QualifiedName] == 0 {
+			queue = append(queue, typ.QualifiedName)
 		}
 	}
 

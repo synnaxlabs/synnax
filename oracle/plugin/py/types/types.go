@@ -26,10 +26,12 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/output"
-	"github.com/synnaxlabs/oracle/plugin/primitives"
+	pyprimitives "github.com/synnaxlabs/oracle/plugin/py/primitives"
 	"github.com/synnaxlabs/oracle/resolution"
-	"github.com/synnaxlabs/x/errors"
 )
+
+// primitiveMapper is the Python-specific primitive type mapper.
+var primitiveMapper = &pyprimitives.Mapper{}
 
 type Plugin struct{ Options Options }
 
@@ -68,93 +70,30 @@ func (p *Plugin) PostWrite(files []string) error {
 }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
-	resp := &plugin.Response{Files: make([]plugin.File, 0)}
-
-	// Collect types using framework collectors
-	typeDefCollector := framework.NewCollector("py", req)
-	if err := typeDefCollector.AddAll(req.Resolutions.DistinctTypes()); err != nil {
-		return nil, err
+	gen := &framework.Generator{
+		Domain:          "py",
+		FilePattern:     p.Options.FileNamePattern,
+		FileGenerator:   &pyFileGenerator{},
+		MergeByName:     true,
+		CollectTypeDefs: true,
+		CollectEnums:    true,
 	}
-	if err := typeDefCollector.AddAll(req.Resolutions.AliasTypes()); err != nil {
-		return nil, err
-	}
+	return gen.Generate(req)
+}
 
-	structCollector, err := framework.CollectStructs("py", req)
+// pyFileGenerator implements framework.FileGenerator for Python code generation.
+type pyFileGenerator struct{}
+
+func (g *pyFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
+	content, err := generatePyFile(ctx.Namespace, ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Table)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-
-	enumCollector := framework.NewCollector("py", req).
-		WithPathFunc(func(typ resolution.Type) string { return output.GetPath(typ, "py") }).
-		WithSkipFunc(nil)
-	for _, e := range enum.CollectWithOwnOutput(req.Resolutions.EnumTypes(), "py") {
-		if err := enumCollector.Add(e); err != nil {
-			return nil, err
-		}
-	}
-
-	// Generate files for structs (merging in enums and typedefs from same output path)
-	err = structCollector.ForEach(func(outputPath string, structs []resolution.Type) error {
-		enums := enum.CollectReferenced(structs, req.Resolutions)
-		// Merge standalone enums that share the same output path
-		if enumCollector.Has(outputPath) {
-			enums = framework.MergeTypesByName(enums, enumCollector.Remove(outputPath))
-		}
-		var typeDefs []resolution.Type
-		if typeDefCollector.Has(outputPath) {
-			typeDefs = typeDefCollector.Remove(outputPath)
-		}
-		content, err := p.generateFile(structs[0].Namespace, outputPath, structs, enums, typeDefs, req.Resolutions)
-		if err != nil {
-			return errors.Wrapf(err, "failed to generate %s", outputPath)
-		}
-		resp.Files = append(resp.Files, plugin.File{
-			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
-			Content: content,
-		})
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// Handle standalone typedef-only outputs
-	err = typeDefCollector.ForEach(func(outputPath string, typeDefs []resolution.Type) error {
-		content, err := p.generateFile(typeDefs[0].Namespace, outputPath, nil, nil, typeDefs, req.Resolutions)
-		if err != nil {
-			return errors.Wrapf(err, "failed to generate %s", outputPath)
-		}
-		resp.Files = append(resp.Files, plugin.File{
-			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
-			Content: content,
-		})
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// Handle standalone enum-only outputs
-	err = enumCollector.ForEach(func(outputPath string, enums []resolution.Type) error {
-		content, err := p.generateFile(enums[0].Namespace, outputPath, nil, enums, nil, req.Resolutions)
-		if err != nil {
-			return errors.Wrapf(err, "failed to generate %s", outputPath)
-		}
-		resp.Files = append(resp.Files, plugin.File{
-			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
-			Content: content,
-		})
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
+	return string(content), nil
 }
 
 
-func (p *Plugin) generateFile(
+func generatePyFile(
 	namespace string,
 	outputPath string,
 	structs []resolution.Type,
@@ -181,9 +120,9 @@ func (p *Plugin) generateFile(
 
 	skip := func(typ resolution.Type) bool { return omit.IsType(typ, "py") }
 	rawKeyFields := key.Collect(structs, table, skip)
-	keyFields := p.convertKeyFields(rawKeyFields, data)
+	keyFields := convertKeyFields(rawKeyFields, data)
 	data.KeyFields = keyFields
-	data.Ontology = p.extractOntology(structs, rawKeyFields, keyFields, skip)
+	data.Ontology = extractOntology(structs, rawKeyFields, keyFields, skip)
 	if data.Ontology != nil {
 		data.imports.addOntology("ID")
 	}
@@ -211,12 +150,12 @@ func (p *Plugin) generateFile(
 	for _, td := range distinctTypeDefs {
 		if !declaredNames[td.Name] {
 			declaredNames[td.Name] = true
-			data.TypeDefs = append(data.TypeDefs, p.processTypeDef(td, table, data))
+			data.TypeDefs = append(data.TypeDefs, processTypeDef(td, table, data))
 		}
 	}
 
 	for _, e := range enums {
-		data.Enums = append(data.Enums, p.processEnum(e, data))
+		data.Enums = append(data.Enums, processEnum(e, data))
 	}
 
 	// Combine aliases and structs for topological sorting
@@ -233,12 +172,12 @@ func (p *Plugin) generateFile(
 		case resolution.AliasForm:
 			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
 				IsTypeDef: true,
-				TypeDef:   p.processTypeDef(typ, table, data),
+				TypeDef:   processTypeDef(typ, table, data),
 			})
 		case resolution.StructForm:
 			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
 				IsStruct: true,
-				Struct:   p.processStruct(typ, table, data, keyFields),
+				Struct:   processStruct(typ, table, data, keyFields),
 			})
 		}
 	}
@@ -250,7 +189,7 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
-func (p *Plugin) convertKeyFields(fields []key.Field, data *templateData) []keyFieldData {
+func convertKeyFields(fields []key.Field, data *templateData) []keyFieldData {
 	result := make([]keyFieldData, 0, len(fields))
 	for _, f := range fields {
 		result = append(result, keyFieldData{
@@ -261,7 +200,7 @@ func (p *Plugin) convertKeyFields(fields []key.Field, data *templateData) []keyF
 	return result
 }
 
-func (p *Plugin) extractOntology(types []resolution.Type, rawFields []key.Field, keyFields []keyFieldData, skip ontology.SkipFunc) *ontologyData {
+func extractOntology(types []resolution.Type, rawFields []key.Field, keyFields []keyFieldData, skip ontology.SkipFunc) *ontologyData {
 	data := ontology.Extract(types, rawFields, skip)
 	if data == nil || len(keyFields) == 0 {
 		return nil
@@ -273,7 +212,7 @@ func (p *Plugin) extractOntology(types []resolution.Type, rawFields []key.Field,
 	}
 }
 
-func (p *Plugin) processEnum(typ resolution.Type, data *templateData) enumData {
+func processEnum(typ resolution.Type, data *templateData) enumData {
 	form, ok := typ.Form.(resolution.EnumForm)
 	if !ok {
 		return enumData{Name: typ.Name}
@@ -304,13 +243,13 @@ func (p *Plugin) processEnum(typ resolution.Type, data *templateData) enumData {
 	}
 }
 
-func (p *Plugin) processTypeDef(typ resolution.Type, table *resolution.Table, data *templateData) typeDefData {
+func processTypeDef(typ resolution.Type, table *resolution.Table, data *templateData) typeDefData {
 	switch form := typ.Form.(type) {
 	case resolution.DistinctForm:
 		data.imports.addTyping("NewType")
 		return typeDefData{
 			Name:       typ.Name,
-			BaseType:   p.typeDefBaseToPython(form.Base, typ.Namespace, table, data),
+			BaseType:   typeDefBaseToPython(form.Base, typ.Namespace, table, data),
 			IsDistinct: true,
 		}
 	case resolution.AliasForm:
@@ -319,7 +258,7 @@ func (p *Plugin) processTypeDef(typ resolution.Type, table *resolution.Table, da
 		data.imports.addTyping("TypeAlias")
 		return typeDefData{
 			Name:       typ.Name,
-			BaseType:   p.typeRefToPythonAlias(form.Target, table, data),
+			BaseType:   typeRefToPythonAlias(form.Target, table, data),
 			IsDistinct: false,
 		}
 	default:
@@ -328,7 +267,7 @@ func (p *Plugin) processTypeDef(typ resolution.Type, table *resolution.Table, da
 	}
 }
 
-func (p *Plugin) typeDefBaseToPython(typeRef resolution.TypeRef, currentNamespace string, table *resolution.Table, data *templateData) string {
+func typeDefBaseToPython(typeRef resolution.TypeRef, currentNamespace string, table *resolution.Table, data *templateData) string {
 	if resolution.IsPrimitive(typeRef.Name) {
 		return primitiveToPython(typeRef.Name, data)
 	}
@@ -355,7 +294,7 @@ func (p *Plugin) typeDefBaseToPython(typeRef resolution.TypeRef, currentNamespac
 	return "Any"
 }
 
-func (p *Plugin) processStruct(
+func processStruct(
 	entry resolution.Type,
 	table *resolution.Table,
 	data *templateData,
@@ -385,7 +324,7 @@ func (p *Plugin) processStruct(
 	// Handle struct aliases (AliasForm)
 	if aliasForm, isAlias := entry.Form.(resolution.AliasForm); isAlias {
 		sd.IsAlias = true
-		sd.AliasOf = p.typeRefToPythonAlias(aliasForm.Target, table, data)
+		sd.AliasOf = typeRefToPythonAlias(aliasForm.Target, table, data)
 		return sd
 	}
 
@@ -403,7 +342,7 @@ func (p *Plugin) processStruct(
 			redefinedFields := make(map[string]bool)
 			for _, field := range form.Fields {
 				redefinedFields[field.Name] = true
-				sd.Fields = append(sd.Fields, p.processField(field, table, data, keyFields, form.OmittedFields))
+				sd.Fields = append(sd.Fields, processField(field, table, data, keyFields, form.OmittedFields))
 				// Check if this field has @key annotation for __hash__ generation
 				if key.HasKey(field) {
 					sd.KeyField = field.Name
@@ -428,7 +367,7 @@ func (p *Plugin) processStruct(
 						data.imports.addPydantic("Field")
 						fd := fieldData{
 							Name:   pf.Name,
-							PyType: p.typeToPython(pf.Type, table, data),
+							PyType: typeToPython(pf.Type, table, data),
 						}
 						if pf.IsOptional || pf.IsHardOptional {
 							fd.PyType = fd.PyType + " | None"
@@ -449,7 +388,7 @@ func (p *Plugin) processStruct(
 	allFields := resolution.UnifiedFields(entry, table)
 	sd.Fields = make([]fieldData, 0, len(allFields))
 	for _, field := range allFields {
-		sd.Fields = append(sd.Fields, p.processField(field, table, data, keyFields, nil))
+		sd.Fields = append(sd.Fields, processField(field, table, data, keyFields, nil))
 		// Check if this field has @key annotation for __hash__ generation
 		if key.HasKey(field) {
 			sd.KeyField = field.Name
@@ -462,7 +401,7 @@ func getPyName(typ resolution.Type) string {
 	return domain.GetName(typ, "py")
 }
 
-func (p *Plugin) processField(
+func processField(
 	field resolution.Field,
 	table *resolution.Table,
 	data *templateData,
@@ -476,10 +415,10 @@ func (p *Plugin) processField(
 		IsArray:        field.Type.Name == "Array",
 	}
 
-	baseType := p.typeToPython(field.Type, table, data)
+	baseType := typeToPython(field.Type, table, data)
 	var fieldConstraints []string
 	if validateDomain, ok := field.Domains["validate"]; ok {
-		fieldConstraints = p.collectValidation(validateDomain, field.Type, table, data)
+		fieldConstraints = collectValidation(validateDomain, field.Type, table, data)
 	}
 
 	// Check if this field should be excluded from serialization (Pydantic v2)
@@ -499,12 +438,12 @@ func (p *Plugin) processField(
 		fd.PyType = fd.PyType + " | None"
 	}
 
-	fd.Default = p.buildDefault(field, fieldConstraints, data)
+	fd.Default = buildDefault(field, fieldConstraints, data)
 
 	return fd
 }
 
-func (p *Plugin) buildDefault(
+func buildDefault(
 	field resolution.Field,
 	constraints []string,
 	data *templateData,
@@ -528,7 +467,7 @@ func (p *Plugin) buildDefault(
 	return ""
 }
 
-func (p *Plugin) collectValidation(
+func collectValidation(
 	domain resolution.Domain,
 	typeRef resolution.TypeRef,
 	table *resolution.Table,
@@ -597,7 +536,7 @@ func addCrossNamespaceImport(modulePath string, typeName string, data *templateD
 	return fmt.Sprintf("%s.%s", modulePath, typeName)
 }
 
-func (p *Plugin) typeToPython(
+func typeToPython(
 	typeRef resolution.TypeRef,
 	table *resolution.Table,
 	data *templateData,
@@ -609,7 +548,7 @@ func (p *Plugin) typeToPython(
 
 	// Handle Array type
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		elemType := p.typeToPython(typeRef.TypeArgs[0], table, data)
+		elemType := typeToPython(typeRef.TypeArgs[0], table, data)
 		return elemType
 	}
 
@@ -671,19 +610,19 @@ func (p *Plugin) typeToPython(
 	}
 }
 
-func (p *Plugin) typeRefToPythonAlias(
+func typeRefToPythonAlias(
 	typeRef resolution.TypeRef,
 	table *resolution.Table,
 	data *templateData,
 ) string {
 	resolved, ok := typeRef.Resolve(table)
 	if !ok {
-		return p.typeToPython(typeRef, table, data)
+		return typeToPython(typeRef, table, data)
 	}
 
 	_, isStruct := resolved.Form.(resolution.StructForm)
 	if !isStruct {
-		return p.typeToPython(typeRef, table, data)
+		return typeToPython(typeRef, table, data)
 	}
 
 	// Get the base type name with proper import handling
@@ -707,7 +646,7 @@ func (p *Plugin) typeRefToPythonAlias(
 	// Build type arguments for generic: Status[Details] or Status[Details, Data]
 	var typeArgs []string
 	for _, arg := range typeRef.TypeArgs {
-		typeArgs = append(typeArgs, p.typeToPython(arg, table, data))
+		typeArgs = append(typeArgs, typeToPython(arg, table, data))
 	}
 	return fmt.Sprintf("%s[%s]", baseName, strings.Join(typeArgs, ", "))
 }
@@ -731,7 +670,7 @@ func toPythonModulePath(repoPath string) string {
 }
 
 func primitiveToPython(primitive string, data *templateData) string {
-	mapping := primitives.GetMapping(primitive, "py")
+	mapping := primitiveMapper.Map(primitive)
 	if mapping.TargetType == "any" {
 		data.imports.addTyping("Any")
 		return "Any"
@@ -802,6 +741,28 @@ func (m *importManager) addNamespace(alias, path string) {
 func (m *importManager) addModuleImport(parentPath, moduleName string) {
 	if !lo.ContainsBy(m.modules, func(mod moduleImportData) bool { return mod.Module == moduleName }) {
 		m.modules = append(m.modules, moduleImportData{Module: moduleName, Parent: parentPath})
+	}
+}
+
+// AddImport implements resolver.ImportAdder interface.
+// It routes imports to the appropriate category-specific method.
+func (m *importManager) AddImport(category, path, name string) {
+	switch category {
+	case "uuid":
+		m.addUUID(name)
+	case "typing":
+		m.addTyping(name)
+	case "enum":
+		m.addEnum(name)
+	case "pydantic":
+		m.addPydantic(name)
+	case "synnax":
+		m.addSynnax(name)
+	case "ontology":
+		m.addOntology(name)
+	case "internal":
+		// For cross-namespace imports, use module imports
+		m.addModuleImport(path, name)
 	}
 }
 

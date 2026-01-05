@@ -33,6 +33,10 @@ type FileGenerator interface {
 	GenerateFile(ctx *GenerateContext) (string, error)
 }
 
+// ExtraEnumsFunc is a callback for collecting additional enums beyond the standard
+// referenced and standalone enums. This is used by Go to collect namespace-level enums.
+type ExtraEnumsFunc func(structs []resolution.Type, table *resolution.Table, outputPath string) []resolution.Type
+
 type Generator struct {
 	Domain          string
 	FilePattern     string
@@ -40,6 +44,7 @@ type Generator struct {
 	MergeByName     bool
 	CollectTypeDefs bool
 	CollectEnums    bool
+	ExtraEnumsFunc  ExtraEnumsFunc
 }
 
 func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
@@ -81,6 +86,10 @@ func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
 			} else {
 				enums = MergeTypes(enums, enumCollector.Remove(outputPath))
 			}
+		}
+		// Call the extra enums callback if provided (used by Go for namespace-level enums)
+		if g.ExtraEnumsFunc != nil {
+			enums = MergeTypes(enums, g.ExtraEnumsFunc(structs, req.Resolutions, outputPath))
 		}
 		var typeDefs []resolution.Type
 		if typeDefCollector != nil && typeDefCollector.Has(outputPath) {

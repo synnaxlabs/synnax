@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/oracle/plugin/primitives"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 )
@@ -85,6 +86,33 @@ func (m *MockImportResolver) ResolveImport(outputPath string, ctx *resolver.Cont
 	return m.ImportPath, m.Qualifier, m.ShouldImport
 }
 
+// MockPrimitiveMapper implements primitives.Mapper for testing.
+type MockPrimitiveMapper struct{}
+
+func (m *MockPrimitiveMapper) Map(name string) primitives.Mapping {
+	// Return simple Go-like mappings for testing
+	switch name {
+	case "string":
+		return primitives.Mapping{TargetType: "string"}
+	case "int32":
+		return primitives.Mapping{TargetType: "int32"}
+	case "bool":
+		return primitives.Mapping{TargetType: "bool"}
+	case "uuid":
+		return primitives.Mapping{
+			TargetType: "uuid.UUID",
+			Imports:    []primitives.Import{{Category: "external", Path: "github.com/google/uuid"}},
+		}
+	case "timestamp":
+		return primitives.Mapping{
+			TargetType: "telem.TimeStamp",
+			Imports:    []primitives.Import{{Category: "internal", Path: "github.com/synnaxlabs/x/telem"}},
+		}
+	default:
+		return primitives.Mapping{TargetType: "any"}
+	}
+}
+
 var _ = Describe("Resolver", func() {
 	var (
 		r     *resolver.Resolver
@@ -104,10 +132,10 @@ var _ = Describe("Resolver", func() {
 			DomainName: "go",
 		}
 		r = &resolver.Resolver{
-			Formatter:      &MockTypeFormatter{},
-			ImportResolver: &MockImportResolver{ShouldImport: false},
-			ImportAdder:    adder,
-			Lang:           "go",
+			Formatter:       &MockTypeFormatter{},
+			ImportResolver:  &MockImportResolver{ShouldImport: false},
+			ImportAdder:     adder,
+			PrimitiveMapper: &MockPrimitiveMapper{},
 		}
 	})
 

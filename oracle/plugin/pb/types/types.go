@@ -25,12 +25,15 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
-	"github.com/synnaxlabs/oracle/plugin/primitives"
+	pbprimitives "github.com/synnaxlabs/oracle/plugin/pb/primitives"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 )
 
 const defaultModulePrefix = "github.com/synnaxlabs/synnax/"
+
+// primitiveMapper is the Protobuf-specific primitive type mapper.
+var primitiveMapper = &pbprimitives.Mapper{}
 
 type Plugin struct{ Options Options }
 
@@ -296,7 +299,7 @@ func (p *Plugin) typeToProto(typeRef resolution.TypeRef, data *templateData) (st
 
 	switch form := resolved.Form.(type) {
 	case resolution.PrimitiveForm:
-		mapping := primitives.GetMapping(form.Name, "pb")
+		mapping := primitiveMapper.Map(form.Name)
 		if mapping.TargetType == "any" {
 			return "", errors.Newf("primitive type %q has no protobuf mapping", form.Name)
 		}

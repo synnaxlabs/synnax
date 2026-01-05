@@ -44,10 +44,10 @@ type ImportResolver interface {
 
 // Resolver resolves Oracle type references to language-specific type strings.
 type Resolver struct {
-	Formatter      TypeFormatter
-	ImportResolver ImportResolver
-	ImportAdder    ImportAdder
-	Lang           string // Language name for primitive mapping lookup
+	Formatter       TypeFormatter
+	ImportResolver  ImportResolver
+	ImportAdder     ImportAdder
+	PrimitiveMapper primitives.Mapper
 }
 
 // ResolveTypeRef converts a TypeRef to a language-specific type string.
@@ -72,7 +72,7 @@ func (r *Resolver) ResolveTypeRef(typeRef resolution.TypeRef, ctx *Context) stri
 
 	// Handle primitives
 	if primitives.IsPrimitive(typeRef.Name) {
-		mapping := primitives.GetMapping(typeRef.Name, r.Lang)
+		mapping := r.PrimitiveMapper.Map(typeRef.Name)
 		for _, imp := range mapping.Imports {
 			r.ImportAdder.AddImport(imp.Category, imp.Path, imp.Name)
 		}

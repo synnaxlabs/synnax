@@ -108,85 +108,9 @@ var _ = Describe("Primitives", func() {
 	})
 })
 
-var _ = Describe("Mapping", func() {
-	Describe("GetMapping", func() {
-		It("Should return Go mapping for primitives", func() {
-			m := primitives.GetMapping("uuid", "go")
-			Expect(m.TargetType).To(Equal("uuid.UUID"))
-			Expect(m.Imports).To(HaveLen(1))
-			Expect(m.Imports[0].Path).To(Equal("github.com/google/uuid"))
-		})
-
-		It("Should return Python mapping for primitives", func() {
-			m := primitives.GetMapping("uuid", "py")
-			Expect(m.TargetType).To(Equal("UUID"))
-			Expect(m.Imports).To(HaveLen(1))
-			Expect(m.Imports[0].Name).To(Equal("UUID"))
-		})
-
-		It("Should return TypeScript Zod mapping for primitives", func() {
-			m := primitives.GetMapping("uuid", "ts")
-			Expect(m.TargetType).To(Equal("z.string().uuid()"))
-		})
-
-		It("Should return C++ mapping for primitives", func() {
-			m := primitives.GetMapping("uuid", "cpp")
-			Expect(m.TargetType).To(Equal("std::string"))
-		})
-
-		It("Should return Protobuf mapping for primitives", func() {
-			m := primitives.GetMapping("uuid", "pb")
-			Expect(m.TargetType).To(Equal("string"))
-		})
-
-		It("Should return any for unknown language", func() {
-			m := primitives.GetMapping("uuid", "unknown")
-			Expect(m.TargetType).To(Equal("any"))
-		})
-
-		It("Should return any for unknown primitive", func() {
-			m := primitives.GetMapping("unknown", "go")
-			Expect(m.TargetType).To(Equal("any"))
-		})
-	})
-
-	Describe("Go mappings", func() {
-		It("Should have correct temporal type mappings", func() {
-			Expect(primitives.GoMapping["timestamp"].TargetType).To(Equal("telem.TimeStamp"))
-			Expect(primitives.GoMapping["timespan"].TargetType).To(Equal("telem.TimeSpan"))
-			Expect(primitives.GoMapping["time_range"].TargetType).To(Equal("telem.TimeRange"))
-		})
-
-		It("Should have correct number type mappings", func() {
-			Expect(primitives.GoMapping["int8"].TargetType).To(Equal("int8"))
-			Expect(primitives.GoMapping["int64"].TargetType).To(Equal("int64"))
-			Expect(primitives.GoMapping["float64"].TargetType).To(Equal("float64"))
-		})
-	})
-
-	Describe("Python mappings", func() {
-		It("Should map integers to int", func() {
-			Expect(primitives.PythonMapping["int8"].TargetType).To(Equal("int"))
-			Expect(primitives.PythonMapping["int64"].TargetType).To(Equal("int"))
-			Expect(primitives.PythonMapping["uint32"].TargetType).To(Equal("int"))
-		})
-
-		It("Should map floats to float", func() {
-			Expect(primitives.PythonMapping["float32"].TargetType).To(Equal("float"))
-			Expect(primitives.PythonMapping["float64"].TargetType).To(Equal("float"))
-		})
-	})
-
-	Describe("C++ mappings", func() {
-		It("Should use fixed-width integer types", func() {
-			Expect(primitives.CppMapping["int8"].TargetType).To(Equal("std::int8_t"))
-			Expect(primitives.CppMapping["int64"].TargetType).To(Equal("std::int64_t"))
-			Expect(primitives.CppMapping["uint32"].TargetType).To(Equal("std::uint32_t"))
-		})
-
-		It("Should have correct system includes", func() {
-			Expect(primitives.CppMapping["string"].Imports[0].Path).To(Equal("string"))
-			Expect(primitives.CppMapping["string"].Imports[0].Category).To(Equal("system"))
-		})
-	})
-})
+// NOTE: Language-specific mapping tests have been moved to per-language test files:
+// - oracle/plugin/go/primitives/mapping_test.go
+// - oracle/plugin/py/primitives/mapping_test.go
+// - oracle/plugin/ts/primitives/mapping_test.go
+// - oracle/plugin/cpp/primitives/mapping_test.go
+// - oracle/plugin/pb/primitives/mapping_test.go

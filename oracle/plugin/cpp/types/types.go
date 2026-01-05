@@ -24,11 +24,14 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
+	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
 	"github.com/synnaxlabs/oracle/plugin/output"
-	"github.com/synnaxlabs/oracle/plugin/primitives"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 )
+
+// primitiveMapper is the C++-specific primitive type mapper.
+var primitiveMapper = &cppprimitives.Mapper{}
 
 type Plugin struct{ Options Options }
 
@@ -571,7 +574,7 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 }
 
 func (p *Plugin) primitiveToCpp(primitive string, data *templateData) string {
-	mapping := primitives.GetMapping(primitive, "cpp")
+	mapping := primitiveMapper.Map(primitive)
 	if mapping.TargetType == "any" {
 		return "void"
 	}

@@ -37,11 +37,8 @@ export enum EdgeKind {
 }
 export const edgeKindZ = z.enum(EdgeKind);
 
-export const stageZ = z.object({
-  key: z.string(),
-  nodes: array.nullishToEmpty(z.string()),
-});
-export interface Stage extends z.infer<typeof stageZ> {}
+export const keyZ = z.uuid();
+export type Key = z.infer<typeof keyZ>;
 
 export const typeZ = z.object({
   kind: kindZ,
@@ -51,46 +48,33 @@ export const typeZ = z.object({
 });
 export interface Type extends z.infer<typeof typeZ> {}
 
-export const stratumZ = z.object({
-  nodes: array.nullishToEmpty(z.string()),
-});
-export interface Stratum extends z.infer<typeof stratumZ> {}
-
-export const textZ = z.object({
-  raw: z.string(),
-});
-export interface Text extends z.infer<typeof textZ> {}
-
 export const handleZ = z.object({
   node: z.string(),
   param: z.string(),
 });
 export interface Handle extends z.infer<typeof handleZ> {}
 
+export const stageZ = z.object({
+  key: z.string(),
+  nodes: array.nullishToEmpty(z.string()),
+});
+export interface Stage extends z.infer<typeof stageZ> {}
+
 export const bodyZ = z.object({
   raw: z.string(),
 });
 export interface Body extends z.infer<typeof bodyZ> {}
-
-export const statusDetailsZ = z.object({
-  running: z.boolean(),
-});
-export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
-
-export const viewportZ = z.object({
-  position: spatial.xyZ,
-  zoom: z.number(),
-});
-export interface Viewport extends z.infer<typeof viewportZ> {}
-
-export const keyZ = z.uuid();
-export type Key = z.infer<typeof keyZ>;
 
 export const channelsZ = z.object({
   read: z.record(z.uint32(), z.string()),
   write: z.record(z.uint32(), z.string()),
 });
 export interface Channels extends z.infer<typeof channelsZ> {}
+
+export const stratumZ = z.object({
+  nodes: array.nullishToEmpty(z.string()),
+});
+export interface Stratum extends z.infer<typeof stratumZ> {}
 
 export const graphNodeZ = z.object({
   key: z.string(),
@@ -100,11 +84,21 @@ export const graphNodeZ = z.object({
 });
 export interface GraphNode extends z.infer<typeof graphNodeZ> {}
 
-export const sequenceZ = z.object({
-  key: z.string(),
-  stages: array.nullishToEmpty(stageZ),
+export const viewportZ = z.object({
+  position: spatial.xyZ,
+  zoom: z.number(),
 });
-export interface Sequence extends z.infer<typeof sequenceZ> {}
+export interface Viewport extends z.infer<typeof viewportZ> {}
+
+export const textZ = z.object({
+  raw: z.string(),
+});
+export interface Text extends z.infer<typeof textZ> {}
+
+export const statusDetailsZ = z.object({
+  running: z.boolean(),
+});
+export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 
 export const paramZ = z.object({
   name: z.string(),
@@ -119,6 +113,12 @@ export const edgeZ = z.object({
   kind: edgeKindZ.optional(),
 });
 export interface Edge extends z.infer<typeof edgeZ> {}
+
+export const sequenceZ = z.object({
+  key: z.string(),
+  stages: array.nullishToEmpty(stageZ),
+});
+export interface Sequence extends z.infer<typeof sequenceZ> {}
 
 export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
