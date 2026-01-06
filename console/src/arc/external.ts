@@ -18,7 +18,6 @@ export * from "@/arc/export";
 export * from "@/arc/middleware";
 export * from "@/arc/selectors";
 export * from "@/arc/slice";
-export * from "@/arc/task";
 export * from "@/arc/Toolbar";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {

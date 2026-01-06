@@ -167,13 +167,17 @@ export const useForm = Flux.createForm<
   },
 });
 
-export const { useUpdate: useCreate } = Flux.createUpdate<arc.New, FluxSubStore>({
+export const { useUpdate: useCreate } = Flux.createUpdate<
+  arc.New,
+  FluxSubStore,
+  arc.Arc
+>({
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const arc = await client.arcs.create(data);
     rollbacks.push(store.arcs.set(arc));
-    return data;
+    return arc;
   },
 });
 

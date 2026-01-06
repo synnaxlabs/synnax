@@ -85,6 +85,27 @@ start_seq_cmd = client.channels.create(
     virtual=True,
 )
 
+hold_cmd = client.channels.create(
+    name="hold_cmd",
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+    virtual=True,
+)
+
+abort_cmd = client.channels.create(
+    name="abort_cmd",
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+    virtual=True,
+)
+
+resume_cmd = client.channels.create(
+    name="resume_cmd",
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+    virtual=True,
+)
+
 loop = sy.Loop(sy.Rate.HZ * 100)
 
 state = {

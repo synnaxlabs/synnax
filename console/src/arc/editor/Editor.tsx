@@ -17,21 +17,28 @@ import {
   Button,
   Diagram,
   Flex,
+  type Flux,
   Haul,
   Icon,
   Menu as PMenu,
+  Ontology,
   Rack,
   Status,
-  Synnax,
   Task,
   Theming,
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
 import { box, deep, id, uuid, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
+import {
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useDispatch } from "react-redux";
-import { z } from "zod";
 
 import {
   select,
@@ -57,7 +64,6 @@ import {
   type State,
   ZERO_STATE,
 } from "@/arc/slice";
-import { createArcTask, deleteArcTask, useArcTask } from "@/arc/task";
 import { translateGraphToConsole, translateGraphToServer } from "@/arc/types/translate";
 import { TYPE } from "@/arc/types/v0";
 import { Controls as CoreControls } from "@/components";
@@ -128,60 +134,68 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
 );
 
 interface ControlsProps {
-  arc: State;
+  state: State;
 }
 
-const statusDetailsSchema = z.object({
-  running: z.boolean(),
-});
-
-const { useRetrieve: useRetrieveStatus } = Status.createRetrieve(statusDetailsSchema);
-
-export const Controls = ({ arc }: ControlsProps) => {
-  const client = Synnax.use();
-  const name = Layout.useSelectRequiredName(arc.key);
-  const arcTask = useArcTask(arc.key);
-  const [selectedRack, setSelectedRack] = useState<rack.Key | undefined>(
-    arcTask != null ? task.rackKey(arcTask.key) : undefined,
-  );
-  const addStatus = Status.useAdder();
-
-  const taskStatus = useRetrieveStatus(
-    { key: arcTask?.key?.toString() ?? "" },
+export const Controls = ({ state }: ControlsProps) => {
+  const name = Layout.useSelectRequiredName(state.key);
+  const children = Ontology.useRetrieveChildren({
+    id: arc.ontologyID(state.key),
+    types: ["task"],
+  });
+  const tsk = Task.useRetrieve(
+    { key: children.data?.[0]?.id.key ?? 0 },
     { addStatusOnFailure: false },
   );
-  const isRunning = taskStatus.data?.details?.running ?? false;
+  const [selectedRack, setSelectedRack] = useState<rack.Key | undefined>();
+  useEffect(() => {
+    if (tsk.data?.key == null) return;
+    setSelectedRack(task.rackKey(tsk.data.key));
+  }, [tsk.data?.key]);
+  const { update } = Arc.useCreate({
+    afterSuccess: useCallback(
+      async ({ client, data }: Flux.AfterSuccessParams<arc.Arc, false>) => {
+        const { key } = data;
+        if (selectedRack == null) return;
+        let taskKey = tsk.data?.key;
+        taskKey ??= task.newKey(selectedRack, 0);
+        const newTsk = await client.tasks.create({
+          key: taskKey,
+          name,
+          type: "arc",
+          config: {
+            arc_key: key,
+          },
+        });
+        if (tsk.data?.key == null)
+          await client.ontology.addChildren(
+            arc.ontologyID(key),
+            task.ontologyID(newTsk.key),
+          );
 
-  const { update: runCommand } = Task.useCommand();
+        await client.tasks.executeCommand({ task: taskKey, type: "start" });
+      },
+      [name, selectedRack, tsk.data?.key],
+    ),
+  });
+  const cmd = Task.useCommand();
+  const handleStop = useCallback(() => {
+    if (tsk.data?.key == null) return;
+    cmd.update([{ task: tsk.data.key, type: "stop" }]);
+  }, [cmd, tsk.data?.key]);
 
-  const handleDeploy = useCallback(async () => {
-    if (client == null || selectedRack === undefined) return;
-
-    try {
-      let taskKey = arcTask?.key;
-      const currentTaskRack = arcTask != null ? task.rackKey(arcTask.key) : null;
-
-      if (taskKey != null && currentTaskRack !== selectedRack) {
-        if (isRunning) await runCommand([{ task: taskKey, type: "stop" }]);
-
-        await deleteArcTask(client, taskKey);
-        taskKey = undefined;
-      }
-
-      if (taskKey == null) {
-        const newTask = await createArcTask(client, arc.key, selectedRack, name);
-        taskKey = newTask.key;
-      }
-
-      await runCommand([{ task: taskKey, type: isRunning ? "stop" : "start" }]);
-    } catch (e) {
-      addStatus({
-        variant: "error",
-        message: `Failed to ${isRunning ? "stop" : "start"} Arc task`,
-        description: e instanceof Error ? e.message : String(e),
+  const isRunning = tsk.data?.status?.details.running ?? false;
+  const handleDeploy = useCallback(() => {
+    if (isRunning) handleStop();
+    else
+      update({
+        name,
+        key: state.key,
+        text: state.text,
+        version: "0.0.0",
+        graph: translateGraphToServer(state.graph),
       });
-    }
-  }, [client, selectedRack, arcTask, arc.key, name, isRunning, runCommand, addStatus]);
+  }, [state, update, handleStop, isRunning]);
 
   return (
     <Flex.Box
@@ -216,7 +230,7 @@ export const Controls = ({ arc }: ControlsProps) => {
           <Status.Summary
             variant="disabled"
             message="Not deployed"
-            status={taskStatus.data}
+            status={tsk.data?.status}
           />
         </Flex.Box>
         <Button.Button
@@ -427,7 +441,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           {hasEditPermission && <Diagram.ToggleEditControl />}
         </CoreControls>
       </Core.Arc>
-      <Controls arc={state} />
+      <Controls state={state} />
     </div>
   );
 };

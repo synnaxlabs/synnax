@@ -13,7 +13,6 @@ import { arc, UnexpectedError } from "@synnaxlabs/client";
 import {
   Access,
   Arc,
-  Button,
   Flex,
   type Flux,
   Icon,
@@ -21,7 +20,6 @@ import {
   Menu as PMenu,
   Select,
   Status,
-  stopPropagation,
   Text,
 } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
@@ -30,7 +28,6 @@ import { useDispatch } from "react-redux";
 
 import { Editor } from "@/arc/editor";
 import { remove } from "@/arc/slice";
-import { useArcTask } from "@/arc/task";
 import { translateGraphToConsole } from "@/arc/types/translate";
 import { EmptyAction, Menu, Toolbar } from "@/components";
 import { CSS } from "@/css";
@@ -218,11 +215,9 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
   const { itemKey } = rest;
   const arcItem = List.useItem<arc.Key, arc.Arc>(itemKey);
   const hasEditPermission = Access.useUpdateGranted(arc.ontologyID(itemKey));
-  const arcTask = useArcTask(itemKey);
 
   const variant = arcItem?.status?.variant;
   const isRunning = arcItem?.status?.details?.running === true;
-  const hasTask = arcTask != null;
 
   return (
     <Select.ListItem {...rest} justify="between" align="center">
@@ -241,11 +236,11 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
             weight={500}
           />
         </Flex.Box>
-        <Text.Text level="small" color={10}>
+        {/* <Text.Text level="small" color={10}>
           {arcItem?.status?.message ?? (hasTask ? (isRunning ? "Running" : "Stopped") : "Not deployed")}
-        </Text.Text>
+        </Text.Text> */}
       </Flex.Box>
-      {hasEditPermission && (
+      {/* {hasEditPermission && (
         <Button.Button
           variant="outlined"
           onClick={onEdit}
@@ -254,7 +249,7 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
         >
           {isRunning ? <Icon.Pause /> : <Icon.Play />}
         </Button.Button>
-      )}
+      )} */}
     </Select.ListItem>
   );
 };
@@ -266,12 +261,7 @@ interface ContextMenuProps {
   onEdit: (key: arc.Key) => void;
 }
 
-const ContextMenu = ({
-  keys,
-  arcs,
-  onDelete,
-  onEdit,
-}: ContextMenuProps) => {
+const ContextMenu = ({ keys, arcs, onDelete, onEdit }: ContextMenuProps) => {
   const ids = arc.ontologyID(keys);
   const canDeleteAccess = Access.useDeleteGranted(ids);
   const canEditAccess = Access.useUpdateGranted(ids);
