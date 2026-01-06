@@ -42,7 +42,7 @@ xerrors::Error task::Manager::open_streamer() {
             this->channels.task_cmd = channel;
 
     if (this->exit_early) return xerrors::NIL;
-    std::lock_guard lock{this->mu};
+    std::lock_guard<std::mutex> lock{this->mu};
     auto [s, open_err] = this->ctx->client->telem.open_streamer(
         synnax::StreamerConfig{
             .channels = {
@@ -64,7 +64,7 @@ xerrors::Error task::Manager::configure_initial_tasks() {
     VLOG(1) << "retrieved " << tasks.size() << " tasks from cluster";
     size_t queued = 0;
     {
-        std::lock_guard lock(this->mu);
+        std::lock_guard<std::mutex> lock(this->mu);
         for (const auto &task: tasks) {
             if (task.snapshot) {
                 VLOG(1) << "ignoring snapshot task " << task;
@@ -80,7 +80,7 @@ xerrors::Error task::Manager::configure_initial_tasks() {
     VLOG(1) << "configuring initial tasks from factories";
     auto initial_tasks = this->factory->configure_initial_tasks(this->ctx, this->rack);
     {
-        std::lock_guard lock(this->mu);
+        std::lock_guard<std::mutex> lock(this->mu);
         for (auto &[sy_task, driver_task]: initial_tasks) {
             if (driver_task == nullptr)
                 LOG(WARNING) << "unexpected nullptr returned by factory for "
@@ -99,7 +99,7 @@ xerrors::Error task::Manager::configure_initial_tasks() {
 
 void task::Manager::stop() {
     this->exit_early = true;
-    std::lock_guard lock{this->mu};
+    std::lock_guard<std::mutex> lock{this->mu};
     // Very important that we do NOT set the streamer to a nullptr here, as the run()
     // method still needs access before shutting down.
     if (this->streamer != nullptr) this->streamer->close_send();
@@ -149,9 +149,9 @@ xerrors::Error task::Manager::run(std::function<void()> on_started) {
                 process_task_cmd(series);
         }
     } while (true);
-    this->stop_workers();
     this->stop_all_tasks();
-    std::lock_guard lock{this->mu};
+    this->stop_workers();
+    std::lock_guard<std::mutex> lock{this->mu};
     const auto c_err = this->streamer->close();
     this->streamer = nullptr;
     return c_err;
@@ -171,7 +171,7 @@ void task::Manager::process_task_set(const telem::Series &series) {
             continue;
         }
         VLOG(1) << "queuing configure for task " << tsk;
-        std::lock_guard lock(this->mu);
+        std::lock_guard<std::mutex> lock(this->mu);
         if (!this->entries[task_key])
             this->entries[task_key] = std::make_shared<Entry>();
         this->op_queue.push_back(Op{Op::Type::CONFIGURE, tsk.key, tsk, {}});
@@ -190,7 +190,7 @@ void task::Manager::process_task_cmd(const telem::Series &series) {
         }
         if (this->skip_foreign_rack(cmd.task)) continue;
         VLOG(1) << "queuing " << cmd.type << " command for task " << cmd.task;
-        std::lock_guard lock(this->mu);
+        std::lock_guard<std::mutex> lock(this->mu);
         if (!this->entries[cmd.task])
             this->entries[cmd.task] = std::make_shared<Entry>();
         this->op_queue.push_back(Op{Op::Type::COMMAND, cmd.task, {}, cmd});
@@ -199,31 +199,31 @@ void task::Manager::process_task_cmd(const telem::Series &series) {
 }
 
 void task::Manager::stop_all_tasks() {
-    std::vector<std::thread> stop_threads;
-    std::vector<std::shared_ptr<std::atomic<bool>>> done_flags;
-    for (auto &[key, entry]: this->entries) {
-        if (!entry || entry->task == nullptr) continue;
-        VLOG(1) << "stopping task " << entry->task->name();
-        auto done = std::make_shared<std::atomic<bool>>(false);
-        done_flags.push_back(done);
-        stop_threads.emplace_back([entry, done] {
-            entry->task->stop(false);
-            *done = true;
-        });
-    }
-    const auto deadline = telem::TimeStamp::now() + this->shutdown_timeout;
-    for (size_t i = 0; i < stop_threads.size(); i++) {
-        auto &t = stop_threads[i];
-        auto &done = done_flags[i];
-        if (!t.joinable()) continue;
-        while (!done->load() && telem::TimeStamp::now() < deadline)
-            std::this_thread::sleep_for((50 * telem::MILLISECOND).chrono());
-        if (done->load()) {
-            t.join();
-        } else {
-            LOG(WARNING) << "task stop thread did not finish in time, detaching";
-            t.detach();
+    {
+        std::lock_guard<std::mutex> lock(this->mu);
+        this->op_queue.clear();
+        for (auto &[key, entry]: this->entries) {
+            if (!entry) continue;
+            this->op_queue.push_back(Op{Op::Type::STOP, key, {}, {}});
         }
+    }
+    this->cv.notify_all();
+    const auto deadline = telem::TimeStamp::now() + this->shutdown_timeout;
+    while (telem::TimeStamp::now() < deadline) {
+        {
+            std::lock_guard<std::mutex> lock(this->mu);
+            if (this->op_queue.empty()) {
+                bool any_processing = false;
+                for (auto &[key, entry]: this->entries) {
+                    if (entry && entry->processing) {
+                        any_processing = true;
+                        break;
+                    }
+                }
+                if (!any_processing) break;
+            }
+        }
+        std::this_thread::sleep_for((50 * telem::MILLISECOND).chrono());
     }
     this->entries.clear();
 }
@@ -232,7 +232,7 @@ void task::Manager::process_task_delete(const telem::Series &series) {
     const auto task_keys = series.values<synnax::TaskKey>();
     for (const auto task_key: task_keys) {
         if (this->skip_foreign_rack(task_key)) continue;
-        std::lock_guard lock(this->mu);
+        std::lock_guard<std::mutex> lock(this->mu);
         if (!this->entries[task_key])
             this->entries[task_key] = std::make_shared<Entry>();
         this->op_queue.push_back(Op{Op::Type::DELETE, task_key, {}, {}});
@@ -276,7 +276,7 @@ void task::Manager::stop_workers() {
 
 void task::Manager::worker_loop() {
     while (this->breaker.running()) {
-        std::unique_lock lock(this->mu);
+        std::unique_lock<std::mutex> lock(this->mu);
         this->cv.wait(lock, [this] {
             return !this->breaker.running() || !this->op_queue.empty();
         });
@@ -302,7 +302,7 @@ void task::Manager::monitor_loop() {
     while (this->breaker.running()) {
         this->breaker.wait_for(this->poll_interval);
         if (!this->breaker.running()) break;
-        std::lock_guard lock(this->mu);
+        std::lock_guard<std::mutex> lock(this->mu);
         for (auto &[key, entry]: this->entries) {
             if (!entry->processing) continue;
             auto started = entry->op_started.load();
@@ -362,6 +362,7 @@ void task::Manager::execute_op(
             LOG(INFO) << "deleting task " << entry->task->name();
             entry->task->stop(false);
             entry->task = nullptr;
+            break;
         }
     }
 }
