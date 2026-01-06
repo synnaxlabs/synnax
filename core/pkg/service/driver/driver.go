@@ -165,7 +165,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "debug", c.Debug)
 	validate.NotEmptyString(v, "parent_dirname", c.ParentDirname)
 	validate.Positive(v, "task_worker_count", c.TaskWorkerCount)
-	v.Ternaryf("task_worker_count", c.TaskWorkerCount <= 64, "must be <= 64, got %d", c.TaskWorkerCount)
+	v.Ternaryf("task_worker_count", c.TaskWorkerCount > 64, "must be <= 64, got %d", c.TaskWorkerCount)
 	return v.Error()
 }
 
