@@ -290,7 +290,7 @@ void task::Manager::worker_loop() {
         // but ops whose entries aren't currently being processed by another worker.
         this->cv.wait(lock, [this] {
             if (!this->breaker.running()) return true;
-            for (const auto &op : this->op_queue) {
+            for (const auto &op: this->op_queue) {
                 const auto it = this->entries.find(op.task_key);
                 if (it != this->entries.end() && !it->second->processing.load())
                     return true;
