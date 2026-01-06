@@ -285,12 +285,11 @@ private:
     /// @brief number of worker threads for task operations.
     size_t worker_count;
 
-    /// @brief types of operations that can be queued.
-    enum class OpType { CONFIGURE, COMMAND, STOP, DELETE };
-
     /// @brief an operation to be executed by a worker.
     struct Op {
-        OpType type;
+        /// @brief types of operations that can be queued.
+        enum class Type { CONFIGURE, COMMAND, STOP, DELETE };
+        Type type;
         synnax::TaskKey task_key;
         synnax::Task task;
         Command cmd;

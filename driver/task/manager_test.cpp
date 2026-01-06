@@ -771,3 +771,76 @@ TEST_F(ShutdownTest, ParallelTaskStop) {
     // Allow some overhead but it should definitely be under 700ms
     ASSERT_LT(elapsed.milliseconds(), 700);
 }
+
+/// @brief Factory where configure_task blocks forever, simulating a stuck hardware
+/// call. This does NOT respond to breaker.stop() or cv.notify_all() - it only unblocks
+/// when explicitly released. This tests that stop_workers() properly detaches stuck
+/// workers.
+class StuckWorkerFactory final : public task::Factory {
+public:
+    std::atomic<bool> configure_started{false};
+    std::atomic<bool> release{false};
+    std::condition_variable cv;
+    std::mutex mu;
+
+    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
+        const std::shared_ptr<task::Context> &,
+        const synnax::Task &task
+    ) override {
+        if (task.type == "stuck_worker") {
+            configure_started = true;
+            std::unique_lock lock(mu);
+            cv.wait(lock, [&] { return release.load(); });
+            return {nullptr, true};
+        }
+        return {nullptr, false};
+    }
+
+    void release_all() {
+        release = true;
+        cv.notify_all();
+    }
+};
+
+/// @brief Regression test for stop_workers() timeout logic.
+/// Previously, stop_workers() had two bugs:
+/// 1. The polling loop had an immediate `break`, so it only waited 50ms
+/// 2. It then called join() which blocks forever if the worker is stuck
+/// This test verifies that stuck workers are properly detached after shutdown_timeout.
+TEST_F(ShutdownTest, StuckWorkerDetach) {
+    auto factory = std::make_unique<StuckWorkerFactory>();
+    auto *f = factory.get();
+    auto manager = std::make_unique<task::Manager>(
+        rack,
+        client,
+        std::move(factory),
+        task::ManagerConfig{
+            .op_timeout = 60 * telem::SECOND,
+            .poll_interval = 1 * telem::SECOND,
+            .shutdown_timeout = 500 * telem::MILLISECOND
+        }
+    );
+
+    std::promise<void> started;
+    std::thread thread([&] { manager->run([&] { started.set_value(); }); });
+    started.get_future().wait_for((5 * telem::SECOND).chrono());
+
+    auto task = synnax::Task(rack.key, "t", "stuck_worker", "");
+    ASSERT_NIL(rack.tasks.create(task));
+
+    xtest::eventually(
+        [&] { return f->configure_started.load(); },
+        [] { return "configure not started"; }
+    );
+
+    auto before = telem::TimeStamp::now();
+    manager->stop();
+    thread.join();
+    auto elapsed = telem::TimeStamp::now() - before;
+
+    // Should shut down within ~1s (500ms timeout + overhead), not hang forever
+    ASSERT_LT(elapsed.milliseconds(), 2000);
+
+    f->release_all();
+    std::this_thread::sleep_for((100 * telem::MILLISECOND).chrono());
+}

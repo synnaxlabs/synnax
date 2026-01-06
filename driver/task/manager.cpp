@@ -72,7 +72,7 @@ xerrors::Error task::Manager::configure_initial_tasks() {
             }
             VLOG(1) << "queuing configure for task " << task;
             this->entries[task.key] = std::make_shared<Entry>();
-            this->op_queue.push_back(Op{OpType::CONFIGURE, task.key, task, {}});
+            this->op_queue.push_back(Op{Op::Type::CONFIGURE, task.key, task, {}});
             queued++;
         }
     }
@@ -174,7 +174,7 @@ void task::Manager::process_task_set(const telem::Series &series) {
         std::lock_guard lock(this->mu);
         if (!this->entries[task_key])
             this->entries[task_key] = std::make_shared<Entry>();
-        this->op_queue.push_back(Op{OpType::CONFIGURE, tsk.key, tsk, {}});
+        this->op_queue.push_back(Op{Op::Type::CONFIGURE, tsk.key, tsk, {}});
         this->cv.notify_one();
     }
 }
@@ -193,7 +193,7 @@ void task::Manager::process_task_cmd(const telem::Series &series) {
         std::lock_guard lock(this->mu);
         if (!this->entries[cmd.task])
             this->entries[cmd.task] = std::make_shared<Entry>();
-        this->op_queue.push_back(Op{OpType::COMMAND, cmd.task, {}, cmd});
+        this->op_queue.push_back(Op{Op::Type::COMMAND, cmd.task, {}, cmd});
         this->cv.notify_one();
     }
 }
@@ -235,7 +235,7 @@ void task::Manager::process_task_delete(const telem::Series &series) {
         std::lock_guard lock(this->mu);
         if (!this->entries[task_key])
             this->entries[task_key] = std::make_shared<Entry>();
-        this->op_queue.push_back(Op{OpType::DELETE, task_key, {}, {}});
+        this->op_queue.push_back(Op{Op::Type::DELETE, task_key, {}, {}});
         this->cv.notify_one();
     }
 }
@@ -325,7 +325,7 @@ void task::Manager::execute_op(
     const std::shared_ptr<Entry> &entry
 ) const {
     switch (op.type) {
-        case OpType::CONFIGURE: {
+        case Op::Type::CONFIGURE: {
             if (entry->task != nullptr) entry->task->stop(true);
             LOG(INFO) << "configuring task " << op.task;
             auto [driver_task, handled] = this->factory->configure_task(
@@ -340,7 +340,7 @@ void task::Manager::execute_op(
                 VLOG(1) << "failed to configure task: " << op.task;
             break;
         }
-        case OpType::COMMAND: {
+        case Op::Type::COMMAND: {
             if (entry->task == nullptr) {
                 LOG(WARNING) << "no task for command " << op.task_key;
                 return;
@@ -351,13 +351,13 @@ void task::Manager::execute_op(
             entry->task->exec(cmd);
             break;
         }
-        case OpType::STOP: {
+        case Op::Type::STOP: {
             if (entry->task == nullptr) return;
             LOG(INFO) << "stopping task " << entry->task->name();
             if (entry->task != nullptr) entry->task->stop(false);
             break;
         }
-        case OpType::DELETE: {
+        case Op::Type::DELETE: {
             if (entry->task == nullptr) return;
             LOG(INFO) << "deleting task " << entry->task->name();
             entry->task->stop(false);
