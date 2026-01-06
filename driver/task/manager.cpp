@@ -235,7 +235,7 @@ void task::Manager::process_task_delete(const telem::Series &series) {
         std::lock_guard<std::mutex> lock(this->mu);
         if (!this->entries[task_key])
             this->entries[task_key] = std::make_shared<Entry>();
-        this->op_queue.push_back(Op{Op::Type::DELETE, task_key, {}, {}});
+        this->op_queue.push_back(Op{Op::Type::REMOVE, task_key, {}, {}});
         this->cv.notify_one();
     }
 }
@@ -357,7 +357,7 @@ void task::Manager::execute_op(
             if (entry->task != nullptr) entry->task->stop(false);
             break;
         }
-        case Op::Type::DELETE: {
+        case Op::Type::REMOVE: {
             if (entry->task == nullptr) return;
             LOG(INFO) << "deleting task " << entry->task->name();
             entry->task->stop(false);
