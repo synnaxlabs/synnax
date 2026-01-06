@@ -164,24 +164,24 @@ synnax start -l localhost:9090 -im
       option: "--task-op-timeout",
       default: '"60s"',
       description:
-        "Duration before reporting stuck task operations in the embedded driver. This is useful for debugging tasks that may be blocking.",
+        "Duration before reporting stuck task operations in the embedded Driver. This is useful for debugging tasks that may be blocking.",
     },
     {
       option: "--task-poll-interval",
       default: '"1s"',
-      description: "Interval between task timeout checks in the embedded driver.",
+      description: "Interval between task timeout checks in the embedded Driver.",
     },
     {
       option: "--task-shutdown-timeout",
       default: '"30s"',
       description:
-        "Maximum time to wait for task workers during embedded driver shutdown. After this timeout, stuck workers will be detached.",
+        "Maximum time to wait for task workers during embedded Driver shutdown. After this timeout, stuck workers will be detached.",
     },
     {
       option: "--task-worker-count",
       default: "4",
       description:
-        "Number of worker threads for task operations in the embedded driver. Valid range is 1-64.",
+        "Number of worker threads for task operations in the embedded Driver. Valid range is 1-64.",
     },
     {
       option: "--log-file-path",

@@ -288,7 +288,7 @@ private:
     /// @brief an operation to be executed by a worker.
     struct Op {
         /// @brief types of operations that can be queued.
-        enum class Type { CONFIGURE, COMMAND, STOP, REMOVE };
+        enum class Type { CONFIGURE, COMMAND, SHUTDOWN, REMOVE };
         Type type;
         synnax::TaskKey task_key;
         synnax::Task task;

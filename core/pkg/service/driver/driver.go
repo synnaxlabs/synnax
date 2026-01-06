@@ -70,7 +70,7 @@ type Config struct {
 	// TaskShutdownTimeout sets the max time to wait for task workers during shutdown.
 	TaskShutdownTimeout time.Duration `json:"task_shutdown_timeout"`
 	// TaskWorkerCount sets the number of worker threads for task operations.
-	TaskWorkerCount int `json:"task_worker_count"`
+	TaskWorkerCount uint `json:"task_worker_count"`
 }
 
 func (c Config) format() map[string]any {
@@ -164,8 +164,7 @@ func (c Config) Validate() error {
 	validate.NotEmptyString(v, "address", c.Address)
 	validate.NotNil(v, "debug", c.Debug)
 	validate.NotEmptyString(v, "parent_dirname", c.ParentDirname)
-	validate.Positive(v, "task_worker_count", c.TaskWorkerCount)
-	v.Ternaryf("task_worker_count", c.TaskWorkerCount > 64, "must be <= 64, got %d", c.TaskWorkerCount)
+	validate.InBounds(v, "task_worker_count", c.TaskWorkerCount, 1, 64)
 	return v.Error()
 }
 

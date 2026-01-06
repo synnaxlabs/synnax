@@ -204,7 +204,7 @@ void task::Manager::stop_all_tasks() {
         this->op_queue.clear();
         for (auto &[key, entry]: this->entries) {
             if (!entry) continue;
-            this->op_queue.push_back(Op{Op::Type::STOP, key, {}, {}});
+            this->op_queue.push_back(Op{Op::Type::SHUTDOWN, key, {}, {}});
         }
     }
     this->cv.notify_all();
@@ -374,9 +374,9 @@ void task::Manager::execute_op(
             entry->task->exec(cmd);
             break;
         }
-        case Op::Type::STOP: {
+        case Op::Type::SHUTDOWN: {
             if (entry->task == nullptr) return;
-            LOG(INFO) << "stopping task " << entry->task->name();
+            LOG(INFO) << "shutting down task " << entry->task->name();
             if (entry->task != nullptr) entry->task->stop(false);
             break;
         }
