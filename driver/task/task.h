@@ -58,6 +58,11 @@ struct Command {
     [[nodiscard]] json to_json() const {
         return {{"task", task}, {"type", type}, {"key", key}, {"args", args}};
     }
+
+    friend std::ostream &operator<<(std::ostream &os, const Command &cmd) {
+        os << cmd.type << " (key=" << cmd.key << ",task=" << cmd.task << ")";
+        return os;
+    }
 };
 
 /// @brief interface for a task that can be executed by the driver. Tasks should be
@@ -218,7 +223,10 @@ struct ManagerConfig {
         this->shutdown_timeout = telem::TimeSpan(
             static_cast<int64_t>(shutdown_timeout_s * 1e9)
         );
-        this->worker_count = p.field("worker_count", static_cast<int>(this->worker_count));
+        this->worker_count = p.field(
+            "worker_count",
+            static_cast<int>(this->worker_count)
+        );
         if (this->worker_count < 1) this->worker_count = 1;
         if (this->worker_count > 64) this->worker_count = 64;
     }
@@ -303,8 +311,13 @@ private:
     std::list<Op> op_queue;
     /// @brief notified when ops are queued or workers should wake.
     std::condition_variable cv;
+    /// @brief a worker thread and its completion flag.
+    struct Worker {
+        std::thread thread;
+        std::shared_ptr<std::atomic<bool>> done;
+    };
     /// @brief worker threads that execute operations.
-    std::vector<std::thread> workers;
+    std::vector<Worker> workers;
     /// @brief thread that checks for stuck operations.
     std::thread monitor_thread;
     /// @brief controls worker and monitor thread lifecycle.
@@ -347,6 +360,6 @@ private:
     /// @brief checks for operations that have exceeded op_timeout.
     void monitor_loop();
     /// @brief executes a single operation on an entry.
-    void execute_op(const Op &op, std::shared_ptr<Entry> entry) const;
+    void execute_op(const Op &op, const std::shared_ptr<Entry> &entry) const;
 };
 }

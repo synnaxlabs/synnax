@@ -170,7 +170,7 @@ void task::Manager::process_task_set(const telem::Series &series) {
             VLOG(1) << "ignoring snapshot task " << tsk;
             continue;
         }
-        LOG(INFO) << "queuing configure for task " << tsk;
+        VLOG(1) << "queuing configure for task " << tsk;
         std::lock_guard lock(this->mu);
         if (!this->entries[task_key])
             this->entries[task_key] = std::make_shared<Entry>();
@@ -189,7 +189,7 @@ void task::Manager::process_task_cmd(const telem::Series &series) {
             continue;
         }
         if (this->skip_foreign_rack(cmd.task)) continue;
-        LOG(INFO) << "queuing " << cmd.type << " command for task " << cmd.task;
+        VLOG(1) << "queuing " << cmd.type << " command for task " << cmd.task;
         std::lock_guard lock(this->mu);
         if (!this->entries[cmd.task])
             this->entries[cmd.task] = std::make_shared<Entry>();
@@ -242,33 +242,32 @@ void task::Manager::process_task_delete(const telem::Series &series) {
 
 void task::Manager::start_workers() {
     this->breaker.start();
-    for (size_t i = 0; i < this->worker_count; i++)
-        this->workers.emplace_back([this] { this->worker_loop(); });
+    for (size_t i = 0; i < this->worker_count; i++) {
+        auto done = std::make_shared<std::atomic<bool>>(false);
+        this->workers.push_back(
+            {std::thread([this, done] {
+                 this->worker_loop();
+                 *done = true;
+             }),
+             done}
+        );
+    }
     this->monitor_thread = std::thread([this] { this->monitor_loop(); });
 }
 
 void task::Manager::stop_workers() {
     this->breaker.stop();
     this->cv.notify_all();
-    // Workers check breaker.running() and should exit promptly.
-    // Give them a reasonable time to finish, then detach any stragglers.
     const auto deadline = telem::TimeStamp::now() + this->shutdown_timeout;
     for (auto &w: this->workers) {
-        if (!w.joinable()) continue;
-        // Try joining with a short timeout by polling - C++ lacks timed join
-        while (telem::TimeStamp::now() < deadline) {
-            // Workers should exit quickly once breaker stops, so we just
-            // give them a brief window then try to join
+        if (!w.thread.joinable()) continue;
+        while (!w.done->load() && telem::TimeStamp::now() < deadline)
             std::this_thread::sleep_for((50 * telem::MILLISECOND).chrono());
-            break; // Attempt join after brief wait
-        }
-        if (w.joinable()) {
-            if (telem::TimeStamp::now() >= deadline) {
-                LOG(WARNING) << "worker thread did not finish in time, detaching";
-                w.detach();
-            } else {
-                w.join();
-            }
+        if (w.done->load())
+            w.thread.join();
+        else {
+            LOG(WARNING) << "worker thread did not finish in time, detaching";
+            w.thread.detach();
         }
     }
     this->workers.clear();
@@ -321,16 +320,20 @@ void task::Manager::monitor_loop() {
     }
 }
 
-void task::Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) const {
+void task::Manager::execute_op(
+    const Op &op,
+    const std::shared_ptr<Entry> &entry
+) const {
     switch (op.type) {
         case OpType::CONFIGURE: {
             if (entry->task != nullptr) entry->task->stop(true);
+            LOG(INFO) << "configuring task " << op.task;
             auto [driver_task, handled] = this->factory->configure_task(
                 this->ctx,
                 op.task
             );
             if (!handled)
-                LOG(INFO) << "failed to find integration to handle task" << op.task;
+                LOG(WARNING) << "failed to find integration to handle task" << op.task;
             if (driver_task != nullptr)
                 entry->task = std::move(driver_task);
             else
@@ -339,19 +342,24 @@ void task::Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry
         }
         case OpType::COMMAND: {
             if (entry->task == nullptr) {
-                LOG(WARNING) << "no task for command: " << op.task_key;
+                LOG(WARNING) << "no task for command " << op.task_key;
                 return;
             }
             auto cmd = op.cmd;
+            LOG(INFO) << "executing command " << cmd << " on task "
+                      << entry->task->name();
             entry->task->exec(cmd);
             break;
         }
         case OpType::STOP: {
+            if (entry->task == nullptr) return;
+            LOG(INFO) << "stopping task " << entry->task->name();
             if (entry->task != nullptr) entry->task->stop(false);
             break;
         }
         case OpType::DELETE: {
             if (entry->task == nullptr) return;
+            LOG(INFO) << "deleting task " << entry->task->name();
             entry->task->stop(false);
             entry->task = nullptr;
         }
