@@ -41,13 +41,11 @@ const (
 	startedMessage      = "started successfully"
 )
 
-var (
-	startTimeoutErr = errors.New(
-		`timed out waiting for embedded driver to start. This occurs either because
-		the driver could not reach the core or a task took an unusual amount of time to
-		start. Check logs above categorized 'driver' for more information.
-		`,
-	)
+var errStartTimeout = errors.New(
+	`timed out waiting for embedded Driver to start. This occurs either because
+the Driver could not reach the Core or a task took an unusual amount of time to
+start. Check logs above categorized 'driver' for more information.
+`,
 )
 
 const (
@@ -186,9 +184,9 @@ func (d *Driver) start(ctx context.Context) error {
 	sCtx.Go(mf)
 	if _, err = signal.RecvUnderContext(ctx, d.started); err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return startTimeoutErr
+			return errStartTimeout
 		}
-		return errors.Wrap(err, "failed to start driver")
+		return errors.Wrap(err, "failed to start Embedded Driver")
 	}
 	return nil
 }
