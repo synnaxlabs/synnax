@@ -99,7 +99,7 @@ func start(cmd *cobra.Command) {
 		taskOpTimeout       = viper.GetDuration(taskOpTimeoutFlag)
 		taskPollInterval    = viper.GetDuration(taskPollIntervalFlag)
 		taskShutdownTimeout = viper.GetDuration(taskShutdownTimeoutFlag)
-		taskWorkerCount     = viper.GetInt(taskWorkerCountFlag)
+		taskWorkerCount     = viper.GetUint8(taskWorkerCountFlag)
 		ins                 = configureInstrumentation()
 	)
 	defer cleanupInstrumentation(ctx, ins)

@@ -70,7 +70,7 @@ type Config struct {
 	// TaskShutdownTimeout sets the max time to wait for task workers during shutdown.
 	TaskShutdownTimeout time.Duration `json:"task_shutdown_timeout"`
 	// TaskWorkerCount sets the number of worker threads for task operations.
-	TaskWorkerCount uint `json:"task_worker_count"`
+	TaskWorkerCount uint8 `json:"task_worker_count"`
 }
 
 func (c Config) format() map[string]any {
