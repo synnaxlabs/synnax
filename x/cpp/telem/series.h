@@ -414,6 +414,21 @@ public:
         other.data_ = nullptr;
     }
 
+    /// @brief move assignment operator.
+    Series &operator=(Series &&other) noexcept {
+        if (this != &other) {
+            data_type_ = std::move(other.data_type_);
+            cap_ = other.cap_;
+            cached_byte_size = other.cached_byte_size;
+            size_ = other.size_;
+            data_ = std::move(other.data_);
+            time_range = other.time_range;
+            alignment = other.alignment;
+            other.data_ = nullptr;
+        }
+        return *this;
+    }
+
     /// @brief returns a raw pointer to the underlying buffer backing the series. This
     /// buffer is only safe for use through the lifetime of the series.
     [[nodiscard]] std::byte *data() const { return this->data_.get(); }
