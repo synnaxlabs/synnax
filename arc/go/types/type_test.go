@@ -310,6 +310,31 @@ var _ = Describe("Types", func() {
 			)
 		})
 
+		Describe("IsSigned", func() {
+			DescribeTable("Should return true for signed types",
+				func(t types.Type) {
+					Expect(t.IsSigned()).To(BeTrue())
+				},
+				Entry("I8", types.I8()),
+				Entry("I16", types.I16()),
+				Entry("I32", types.I32()),
+				Entry("I64", types.I64()),
+				Entry("F32", types.F32()),
+				Entry("F64", types.F64()),
+			)
+
+			DescribeTable("Should return false for unsigned types",
+				func(t types.Type) {
+					Expect(t.IsSigned()).To(BeFalse())
+				},
+				Entry("U8", types.U8()),
+				Entry("U16", types.U16()),
+				Entry("U32", types.U32()),
+				Entry("U64", types.U64()),
+				Entry("String", types.String()),
+			)
+		})
+
 		Describe("IntegerMaxValue", func() {
 			DescribeTable("Should return correct max value for integer types",
 				func(t types.Type, expected int64) {

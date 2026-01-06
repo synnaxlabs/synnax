@@ -11,8 +11,6 @@ package wasm
 
 import (
 	"bytes"
-
-	"github.com/synnaxlabs/x/binary"
 )
 
 // FunctionType represents a function signature
@@ -183,14 +181,14 @@ func (m *Module) Generate() []byte {
 
 func (m *Module) writeTypeSection() {
 	var section bytes.Buffer
-	binary.WriteLEB128Unsigned(&section, uint64(len(m.types)))
+	writeUnsignedLeb128(&section, uint64(len(m.types)))
 	for _, ft := range m.types {
 		section.WriteByte(byte(FuncType))
-		binary.WriteLEB128Unsigned(&section, uint64(len(ft.Params)))
+		writeUnsignedLeb128(&section, uint64(len(ft.Params)))
 		for _, param := range ft.Params {
 			section.WriteByte(byte(param))
 		}
-		binary.WriteLEB128Unsigned(&section, uint64(len(ft.Results)))
+		writeUnsignedLeb128(&section, uint64(len(ft.Results)))
 		for _, result := range ft.Results {
 			section.WriteByte(byte(result))
 		}
@@ -202,15 +200,15 @@ func (m *Module) writeTypeSection() {
 func (m *Module) writeImportSection() {
 	var section bytes.Buffer
 
-	binary.WriteLEB128Unsigned(&section, uint64(len(m.imports)))
+	writeUnsignedLeb128(&section, uint64(len(m.imports)))
 
 	for _, imp := range m.imports {
-		binary.WriteLEB128Unsigned(&section, uint64(len(imp.Module)))
+		writeUnsignedLeb128(&section, uint64(len(imp.Module)))
 		section.WriteString(imp.Module)
-		binary.WriteLEB128Unsigned(&section, uint64(len(imp.Name)))
+		writeUnsignedLeb128(&section, uint64(len(imp.Name)))
 		section.WriteString(imp.Name)
 		section.WriteByte(byte(ExportFunc))
-		binary.WriteLEB128Unsigned(&section, uint64(imp.TypeIdx))
+		writeUnsignedLeb128(&section, uint64(imp.TypeIdx))
 	}
 
 	m.writeSection(SectionImport, section.Bytes())
@@ -218,9 +216,9 @@ func (m *Module) writeImportSection() {
 
 func (m *Module) writeFunctionSection() {
 	var section bytes.Buffer
-	binary.WriteLEB128Unsigned(&section, uint64(len(m.functions)))
+	writeUnsignedLeb128(&section, uint64(len(m.functions)))
 	for _, fn := range m.functions {
-		binary.WriteLEB128Unsigned(&section, uint64(fn.TypeIdx))
+		writeUnsignedLeb128(&section, uint64(fn.TypeIdx))
 	}
 	m.writeSection(SectionFunc, section.Bytes())
 }
@@ -230,43 +228,43 @@ func (m *Module) writeMemorySection() {
 	// Number of memories (1)
 	section.WriteByte(1)
 	// Memory limits (min 1 page, no max)
-	section.WriteByte(0)                    // no max
-	binary.WriteLEB128Unsigned(&section, 1) // min 1 page
+	section.WriteByte(0)             // no max
+	writeUnsignedLeb128(&section, 1) // min 1 page
 	m.writeSection(SectionMemory, section.Bytes())
 }
 
 func (m *Module) writeExportSection() {
 	var section bytes.Buffer
-	binary.WriteLEB128Unsigned(&section, uint64(len(m.exports)))
+	writeUnsignedLeb128(&section, uint64(len(m.exports)))
 	for _, exp := range m.exports {
-		binary.WriteLEB128Unsigned(&section, uint64(len(exp.Name)))
+		writeUnsignedLeb128(&section, uint64(len(exp.Name)))
 		section.WriteString(exp.Name)
 		section.WriteByte(byte(exp.Kind))
-		binary.WriteLEB128Unsigned(&section, uint64(exp.Index))
+		writeUnsignedLeb128(&section, uint64(exp.Index))
 	}
 	m.writeSection(SectionExport, section.Bytes())
 }
 
 func (m *Module) writeCodeSection() {
 	var section bytes.Buffer
-	binary.WriteLEB128Unsigned(&section, uint64(len(m.functions)))
+	writeUnsignedLeb128(&section, uint64(len(m.functions)))
 	for _, fn := range m.functions {
 		var code bytes.Buffer
 		// Write local declarations
 		if len(fn.Locals) > 0 {
 			// Group locals by type for efficiency
 			grouped := groupLocalsByType(fn.Locals)
-			binary.WriteLEB128Unsigned(&code, uint64(len(grouped)))
+			writeUnsignedLeb128(&code, uint64(len(grouped)))
 			for _, group := range grouped {
-				binary.WriteLEB128Unsigned(&code, uint64(group.count))
+				writeUnsignedLeb128(&code, uint64(group.count))
 				code.WriteByte(byte(group.typ))
 			}
 		} else {
-			binary.WriteLEB128Unsigned(&code, 0) // no locals
+			writeUnsignedLeb128(&code, 0) // no locals
 		}
 		code.Write(fn.Body)
 		code.WriteByte(byte(OpEnd))
-		binary.WriteLEB128Unsigned(&section, uint64(code.Len()))
+		writeUnsignedLeb128(&section, uint64(code.Len()))
 		section.Write(code.Bytes())
 	}
 	m.writeSection(SectionCode, section.Bytes())
@@ -275,16 +273,16 @@ func (m *Module) writeCodeSection() {
 func (m *Module) writeDataSection() {
 	var section bytes.Buffer
 	// Number of data segments
-	binary.WriteLEB128Unsigned(&section, uint64(len(m.data)))
+	writeUnsignedLeb128(&section, uint64(len(m.data)))
 	for _, seg := range m.data {
 		// Memory index (always 0 for single memory)
 		section.WriteByte(0)
 		// Offset expression: i32.const <offset>, end
 		section.WriteByte(byte(OpI32Const))
-		binary.WriteLEB128Signed(&section, int64(seg.Offset))
+		writeSignedLeb128(&section, int64(seg.Offset))
 		section.WriteByte(byte(OpEnd))
 		// Data length and bytes
-		binary.WriteLEB128Unsigned(&section, uint64(len(seg.Bytes)))
+		writeUnsignedLeb128(&section, uint64(len(seg.Bytes)))
 		section.Write(seg.Bytes)
 	}
 	m.writeSection(SectionData, section.Bytes())
@@ -292,7 +290,7 @@ func (m *Module) writeDataSection() {
 
 func (m *Module) writeSection(sectionType byte, data []byte) {
 	m.buf.WriteByte(sectionType)
-	binary.WriteLEB128Unsigned(&m.buf, uint64(len(data)))
+	writeUnsignedLeb128(&m.buf, uint64(len(data)))
 	m.buf.Write(data)
 }
 

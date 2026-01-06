@@ -347,6 +347,12 @@ var _ = Describe("Literal Parser", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("cannot assign string to"))
 		})
+
+		It("Should return error for malformed string literal (missing closing quote)", func() {
+			Expect(
+				literal.ParseString(`"hello`, types.String()),
+			).Error().To(MatchError(ContainSubstring("invalid string literal")))
+		})
 	})
 
 	Describe("Series literals", func() {

@@ -121,18 +121,15 @@ var _ = Describe("Compiler", func() {
 			Expect(dog).ToNot(BeNil())
 			// Test case 1: b == 2 should return 1
 			results := MustSucceed(dog.Call(ctx, 2))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(1)))
+			Expect(results).To(ConsistOf(uint64(1)))
 
 			// Test case 2: b > 2 (e.g., 5) should return 2
 			results = MustSucceed(dog.Call(ctx, 5))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(2)))
+			Expect(results).To(ConsistOf(uint64(2)))
 
 			// Test case 3: b < 2 (e.g., 1) should return 0 (default/unspecified path)
 			results = MustSucceed(dog.Call(ctx, 1))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(1)))
+			Expect(results).To(ConsistOf(uint64(1)))
 		})
 
 		It("should execute a simple addition function", func() {
@@ -147,8 +144,7 @@ var _ = Describe("Compiler", func() {
 			Expect(add).ToNot(BeNil())
 
 			results := MustSucceed(add.Call(ctx, 10, 32))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(42)))
+			Expect(results).To(ConsistOf(uint64(42)))
 		})
 
 		It("Should compile a function with an else statement", func() {
@@ -166,8 +162,7 @@ var _ = Describe("Compiler", func() {
 			add := mod.ExportedFunction("add")
 			Expect(add).ToNot(BeNil())
 			results := MustSucceed(add.Call(ctx, 10, 32))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(10)))
+			Expect(results).To(ConsistOf(uint64(10)))
 		})
 
 		It("Should compile nested if-else where all branches return", func() {
@@ -195,23 +190,19 @@ var _ = Describe("Compiler", func() {
 
 			// Test a > 0, b > 0
 			results := MustSucceed(nested.Call(ctx, 10, 5))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(15)))
+			Expect(results).To(ConsistOf(uint64(15)))
 
 			// Test a > 0, b <= 0
 			results = MustSucceed(nested.Call(ctx, 10, 0))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(10)))
+			Expect(results).To(ConsistOf(uint64(10)))
 
 			// Test a <= 0, b > 0
 			results = MustSucceed(nested.Call(ctx, 0, 5))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(5)))
+			Expect(results).To(ConsistOf(uint64(5)))
 
 			// Test a <= 0, b <= 0
 			results = MustSucceed(nested.Call(ctx, 0, 0))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(0)))
+			Expect(results).To(ConsistOf(uint64(0)))
 		})
 
 		It("Should compile if-else where only some branches return", func() {
@@ -236,18 +227,15 @@ var _ = Describe("Compiler", func() {
 
 			// Test early return
 			results := MustSucceed(partial.Call(ctx, 10, 5))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(15)))
+			Expect(results).To(ConsistOf(uint64(15)))
 
 			// Test fall-through with a > 0, b <= 0
 			results = MustSucceed(partial.Call(ctx, 10, 0))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(10)))
+			Expect(results).To(ConsistOf(uint64(10)))
 
 			// Test fall-through with a <= 0
 			results = MustSucceed(partial.Call(ctx, 0, 7))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(7)))
+			Expect(results).To(ConsistOf(uint64(7)))
 		})
 
 		It("Should compile deeply nested if-else with all returns", func() {
@@ -275,23 +263,19 @@ var _ = Describe("Compiler", func() {
 
 			// Test all positive
 			results := MustSucceed(deep.Call(ctx, 1, 2, 3))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(6)))
+			Expect(results).To(ConsistOf(uint64(6)))
 
 			// Test c <= 0
 			results = MustSucceed(deep.Call(ctx, 1, 2, 0))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(3)))
+			Expect(results).To(ConsistOf(uint64(3)))
 
 			// Test b <= 0
 			results = MustSucceed(deep.Call(ctx, 1, 0, 3))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(1)))
+			Expect(results).To(ConsistOf(uint64(1)))
 
 			// Test a <= 0
 			results = MustSucceed(deep.Call(ctx, 0, 2, 3))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(0)))
+			Expect(results).To(ConsistOf(uint64(0)))
 		})
 
 		It("Should compile mixed nested returns with variables", func() {
@@ -321,23 +305,19 @@ var _ = Describe("Compiler", func() {
 
 			// Test early return
 			results := MustSucceed(mixed.Call(ctx, 20, 30))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(600)))
+			Expect(results).To(ConsistOf(uint64(600)))
 
 			// Test a > 10, b <= 10
 			results = MustSucceed(mixed.Call(ctx, 20, 5))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(21)))
+			Expect(results).To(ConsistOf(uint64(21)))
 
 			// Test a <= 10, b > 10
 			results = MustSucceed(mixed.Call(ctx, 5, 20))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(21)))
+			Expect(results).To(ConsistOf(uint64(21)))
 
 			// Test a <= 10, b <= 10
 			results = MustSucceed(mixed.Call(ctx, 5, 3))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(9)))
+			Expect(results).To(ConsistOf(uint64(9)))
 		})
 	})
 
@@ -354,8 +334,7 @@ var _ = Describe("Compiler", func() {
 			add := mod.ExportedFunction("add")
 			Expect(add).ToNot(BeNil())
 			results := MustSucceed(add.Call(ctx, 10, 32))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(42)))
+			Expect(results).To(ConsistOf(uint64(42)))
 		})
 	})
 
@@ -436,8 +415,7 @@ var _ = Describe("Compiler", func() {
 			Expect(readAndDouble).ToNot(BeNil())
 
 			results := MustSucceed(readAndDouble.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(84))) // 42 * 2
+			Expect(results).To(ConsistOf(uint64(84))) // 42 * 2
 		})
 
 		It("Should execute a channel read in a comparison expression", func() {
@@ -782,9 +760,8 @@ var _ = Describe("Compiler", func() {
 
 			// Call with 3.5, expect 5.5
 			results := MustSucceed(addTwo.Call(ctx, uint64(math.Float32bits(3.5))))
-			Expect(results).To(HaveLen(1))
 			// Result should be 5.5 as f32
-			Expect(results[0]).To(Equal(uint64(math.Float32bits(5.5))))
+			Expect(results).To(ConsistOf(uint64(math.Float32bits(5.5))))
 		})
 
 		It("Should compile decimal literal with i32 variable", func() {
@@ -800,13 +777,11 @@ var _ = Describe("Compiler", func() {
 
 			// Test with 10, should return 1 (true)
 			results := MustSucceed(compare.Call(ctx, 10))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(1)))
+			Expect(results).To(ConsistOf(uint64(1)))
 
 			// Test with 3, should return 0 (false)
 			results = MustSucceed(compare.Call(ctx, 3))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(0)))
+			Expect(results).To(ConsistOf(uint64(0)))
 		})
 
 		It("Should compile expression with multiple literals and f32 variable", func() {
@@ -822,13 +797,11 @@ var _ = Describe("Compiler", func() {
 
 			// Convert 0°C to °F, should be 32°F
 			results := MustSucceed(celsiusToFahrenheit.Call(ctx, uint64(math.Float32bits(0.0))))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(math.Float32bits(32.0))))
+			Expect(results).To(ConsistOf(uint64(math.Float32bits(32.0))))
 
 			// Convert 100°C to °F, should be 212°F
 			results = MustSucceed(celsiusToFahrenheit.Call(ctx, uint64(math.Float32bits(100.0))))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(math.Float32bits(212.0))))
+			Expect(results).To(ConsistOf(uint64(math.Float32bits(212.0))))
 		})
 
 		It("Should compile literals in variable declarations", func() {
@@ -846,8 +819,7 @@ var _ = Describe("Compiler", func() {
 
 			// calculate(4.0) = 4.0 * 2.5 + 10 = 20.0
 			results := MustSucceed(calculate.Call(ctx, uint64(math.Float32bits(4.0))))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(math.Float32bits(20.0))))
+			Expect(results).To(ConsistOf(uint64(math.Float32bits(20.0))))
 		})
 
 		It("Should compile literals with i64 variables", func() {
@@ -862,8 +834,7 @@ var _ = Describe("Compiler", func() {
 			Expect(increment).ToNot(BeNil())
 
 			results := MustSucceed(increment.Call(ctx, 41))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(42)))
+			Expect(results).To(ConsistOf(uint64(42)))
 		})
 
 		It("Should compile complex arithmetic with mixed literal types", func() {
@@ -884,8 +855,7 @@ var _ = Describe("Compiler", func() {
 				math.Float64bits(5.0),
 				math.Float64bits(2.0),
 			))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(math.Float64bits(7.0)))
+			Expect(results).To(ConsistOf(math.Float64bits(7.0)))
 		})
 
 		It("Should compile literals in return statements", func() {
@@ -900,9 +870,8 @@ var _ = Describe("Compiler", func() {
 			Expect(getConstant).ToNot(BeNil())
 
 			results := MustSucceed(getConstant.Call(ctx))
-			Expect(results).To(HaveLen(1))
 			// Should be approximately 3.14159 as f32
-			Expect(results[0]).To(Equal(uint64(math.Float32bits(3.14159))))
+			Expect(results).To(ConsistOf(uint64(math.Float32bits(3.14159))))
 		})
 
 		It("Should compile literals with i32 variables in assignments", func() {
@@ -921,8 +890,7 @@ var _ = Describe("Compiler", func() {
 
 			// process(3) = (3 + 5) * 2 = 16
 			results := MustSucceed(process.Call(ctx, 3))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(16)))
+			Expect(results).To(ConsistOf(uint64(16)))
 		})
 
 		It("Should default integer literals to i64 when unconstrained", func() {
@@ -938,8 +906,7 @@ var _ = Describe("Compiler", func() {
 			Expect(getAnswer).ToNot(BeNil())
 
 			results := MustSucceed(getAnswer.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(42)))
+			Expect(results).To(ConsistOf(uint64(42)))
 		})
 
 		It("Should default float literals to f64 when unconstrained", func() {
@@ -955,9 +922,8 @@ var _ = Describe("Compiler", func() {
 			Expect(getPi).ToNot(BeNil())
 
 			results := MustSucceed(getPi.Call(ctx))
-			Expect(results).To(HaveLen(1))
 			// 3.14 as f64 bits
-			Expect(results[0]).To(Equal(math.Float64bits(3.14)))
+			Expect(results).To(ConsistOf(math.Float64bits(3.14)))
 		})
 
 		It("Should allow float literals in comparisons with i64", func() {
@@ -973,18 +939,15 @@ var _ = Describe("Compiler", func() {
 
 			// Test positive value
 			results := MustSucceed(isPositive.Call(ctx, 50))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(1)))
+			Expect(results).To(ConsistOf(uint64(1)))
 
 			// Test zero
 			results = MustSucceed(isPositive.Call(ctx, 0))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(0)))
+			Expect(results).To(ConsistOf(uint64(0)))
 
 			// Test another positive
 			results = MustSucceed(isPositive.Call(ctx, 100))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(1)))
+			Expect(results).To(ConsistOf(uint64(1)))
 		})
 
 		It("Should allow mixed f32 and integer literal arithmetic", func() {
@@ -1002,8 +965,7 @@ var _ = Describe("Compiler", func() {
 
 			// scaleAndOffset(5.0) = 5.0 * 2 + 10 = 20.0
 			results := MustSucceed(scaleAndOffset.Call(ctx, uint64(math.Float32bits(5.0))))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(math.Float32bits(20.0))))
+			Expect(results).To(ConsistOf(uint64(math.Float32bits(20.0))))
 		})
 
 		It("Should execute complex literal inference with nested operations", func() {
@@ -1024,13 +986,11 @@ var _ = Describe("Compiler", func() {
 
 			// Test a > threshold: calculate(15, 5) = 15 * 2 + 5 = 35
 			results := MustSucceed(calculate.Call(ctx, 15, 5))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(35)))
+			Expect(results).To(ConsistOf(uint64(35)))
 
 			// Test a <= threshold: calculate(8, 5) = 5
 			results = MustSucceed(calculate.Call(ctx, 8, 5))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(5)))
+			Expect(results).To(ConsistOf(uint64(5)))
 		})
 
 		It("Should correctly execute signed comparison with negative numbers", func() {
@@ -1047,14 +1007,12 @@ var _ = Describe("Compiler", func() {
 			// Test: -5 > -10 should be true (signed comparison)
 			negFive := int32(-5)
 			results := MustSucceed(test.Call(ctx, uint64(uint32(negFive))))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(1))) // true
+			Expect(results).To(ConsistOf(uint64(1))) // true
 
 			// Test: -15 > -10 should be false
 			negFifteen := int32(-15)
 			results = MustSucceed(test.Call(ctx, uint64(uint32(negFifteen))))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(0))) // false
+			Expect(results).To(ConsistOf(uint64(0))) // false
 		})
 
 		It("Should infer f32 from conditional return with integer constant and f32 value", func() {
@@ -1075,13 +1033,11 @@ var _ = Describe("Compiler", func() {
 
 			// Test case 1: condition == 1, should return 0.0 (as f32)
 			results := MustSucceed(conditionalReturn.Call(ctx, 1, uint64(math.Float32bits(42.5))))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(math.Float32bits(0.0))))
+			Expect(results).To(ConsistOf(uint64(math.Float32bits(0.0))))
 
 			// Test case 2: condition != 1, should return the f32 value (42.5)
 			results = MustSucceed(conditionalReturn.Call(ctx, 0, uint64(math.Float32bits(42.5))))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(math.Float32bits(42.5))))
+			Expect(results).To(ConsistOf(uint64(math.Float32bits(42.5))))
 		})
 	})
 
@@ -1263,8 +1219,7 @@ var _ = Describe("Compiler", func() {
 			Expect(power).ToNot(BeNil())
 
 			results := MustSucceed(power.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(8)))
+			Expect(results).To(ConsistOf(uint64(8)))
 		})
 
 		It("Should execute i64 power: 2^10 = 1024", func() {
@@ -1279,8 +1234,7 @@ var _ = Describe("Compiler", func() {
 			Expect(power).ToNot(BeNil())
 
 			results := MustSucceed(power.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(1024)))
+			Expect(results).To(ConsistOf(uint64(1024)))
 		})
 
 		It("Should execute u32 power: 3^4 = 81", func() {
@@ -1295,8 +1249,7 @@ var _ = Describe("Compiler", func() {
 			Expect(power).ToNot(BeNil())
 
 			results := MustSucceed(power.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(81)))
+			Expect(results).To(ConsistOf(uint64(81)))
 		})
 
 		It("Should execute u64 power: 5^3 = 125", func() {
@@ -1311,8 +1264,7 @@ var _ = Describe("Compiler", func() {
 			Expect(power).ToNot(BeNil())
 
 			results := MustSucceed(power.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(125)))
+			Expect(results).To(ConsistOf(uint64(125)))
 		})
 
 		It("Should execute f32 power: 2.0^3.0 = 8.0", func() {
@@ -1327,8 +1279,7 @@ var _ = Describe("Compiler", func() {
 			Expect(power).ToNot(BeNil())
 
 			results := MustSucceed(power.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(math.Float32bits(8.0))))
+			Expect(results).To(ConsistOf(uint64(math.Float32bits(8.0))))
 		})
 
 		It("Should execute f64 power: 2.5^2.0 = 6.25", func() {
@@ -1343,8 +1294,7 @@ var _ = Describe("Compiler", func() {
 			Expect(power).ToNot(BeNil())
 
 			results := MustSucceed(power.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(math.Float64bits(6.25)))
+			Expect(results).To(ConsistOf(math.Float64bits(6.25)))
 		})
 
 		It("Should execute right-associative power: 2^3^2 = 2^(3^2) = 2^9 = 512", func() {
@@ -1359,8 +1309,7 @@ var _ = Describe("Compiler", func() {
 			Expect(power).ToNot(BeNil())
 
 			results := MustSucceed(power.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(512)))
+			Expect(results).To(ConsistOf(uint64(512)))
 		})
 
 		It("Should execute power with higher precedence than addition: 2 + 3^2 = 2 + 9 = 11", func() {
@@ -1375,8 +1324,7 @@ var _ = Describe("Compiler", func() {
 			Expect(power).ToNot(BeNil())
 
 			results := MustSucceed(power.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(11)))
+			Expect(results).To(ConsistOf(uint64(11)))
 		})
 
 		It("Should execute power with parentheses: (2 + 3)^2 = 5^2 = 25", func() {
@@ -1391,8 +1339,7 @@ var _ = Describe("Compiler", func() {
 			Expect(power).ToNot(BeNil())
 
 			results := MustSucceed(power.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(25)))
+			Expect(results).To(ConsistOf(uint64(25)))
 		})
 
 		It("Should execute power with multiplication: 2 * 3^2 = 2 * 9 = 18", func() {
@@ -1407,8 +1354,7 @@ var _ = Describe("Compiler", func() {
 			Expect(power).ToNot(BeNil())
 
 			results := MustSucceed(power.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(18)))
+			Expect(results).To(ConsistOf(uint64(18)))
 		})
 
 		It("Should execute power with variable base and exponent", func() {
@@ -1424,13 +1370,11 @@ var _ = Describe("Compiler", func() {
 
 			// Test 4^3 = 64
 			results := MustSucceed(power.Call(ctx, 4, 3))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(64)))
+			Expect(results).To(ConsistOf(uint64(64)))
 
 			// Test 10^2 = 100
 			results = MustSucceed(power.Call(ctx, 10, 2))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(100)))
+			Expect(results).To(ConsistOf(uint64(100)))
 		})
 
 		It("Should execute power with zero exponent: 5^0 = 1", func() {
@@ -1445,8 +1389,7 @@ var _ = Describe("Compiler", func() {
 			Expect(power).ToNot(BeNil())
 
 			results := MustSucceed(power.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(1)))
+			Expect(results).To(ConsistOf(uint64(1)))
 		})
 
 		It("Should execute power with exponent one: 42^1 = 42", func() {
@@ -1461,8 +1404,7 @@ var _ = Describe("Compiler", func() {
 			Expect(power).ToNot(BeNil())
 
 			results := MustSucceed(power.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(42)))
+			Expect(results).To(ConsistOf(uint64(42)))
 		})
 
 		It("Should execute negative base with even exponent: (-2)^4 = 16", func() {
@@ -1477,9 +1419,8 @@ var _ = Describe("Compiler", func() {
 			Expect(power).ToNot(BeNil())
 
 			results := MustSucceed(power.Call(ctx))
-			Expect(results).To(HaveLen(1))
 			// -2^4 = 16 (even exponent, positive result)
-			Expect(results[0]).To(Equal(uint64(16)))
+			Expect(results).To(ConsistOf(uint64(16)))
 		})
 
 		It("Should execute negative base with odd exponent: (-2)^3 = -8", func() {
@@ -1530,9 +1471,8 @@ var _ = Describe("Compiler", func() {
 			Expect(power).ToNot(BeNil())
 
 			results := MustSucceed(power.Call(ctx))
-			Expect(results).To(HaveLen(1))
 			// 0.5^(-1) = 1/0.5 = 2.0
-			Expect(results[0]).To(Equal(math.Float64bits(2.0)))
+			Expect(results).To(ConsistOf(math.Float64bits(2.0)))
 		})
 	})
 
@@ -1558,9 +1498,8 @@ var _ = Describe("Compiler", func() {
 			Expect(power).ToNot(BeNil())
 
 			results := MustSucceed(power.Call(ctx))
-			Expect(results).To(HaveLen(1))
 			// 3.0^2 = 9.0
-			Expect(results[0]).To(Equal(uint64(math.Float32bits(9.0))))
+			Expect(results).To(ConsistOf(uint64(math.Float32bits(9.0))))
 		})
 
 		It("Should execute f64 variable with integer literal: x^3", func() {
@@ -1576,9 +1515,8 @@ var _ = Describe("Compiler", func() {
 			Expect(power).ToNot(BeNil())
 
 			results := MustSucceed(power.Call(ctx))
-			Expect(results).To(HaveLen(1))
 			// 2.0^3 = 8.0
-			Expect(results[0]).To(Equal(math.Float64bits(8.0)))
+			Expect(results).To(ConsistOf(math.Float64bits(8.0)))
 		})
 
 		It("Should execute i32 variable with integer literal: x^2", func() {
@@ -2031,8 +1969,7 @@ var _ = Describe("Compiler", func() {
 			arcRuntime.SetMemory(mod.Memory())
 			concat := mod.ExportedFunction("concat")
 			results := MustSucceed(concat.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(1)))
+			Expect(results).To(ConsistOf(uint64(1)))
 		})
 
 		It("Should execute string equality - equal strings", func() {
@@ -2047,8 +1984,7 @@ var _ = Describe("Compiler", func() {
 			arcRuntime.SetMemory(mod.Memory())
 			equal := mod.ExportedFunction("equal")
 			results := MustSucceed(equal.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(1)))
+			Expect(results).To(ConsistOf(uint64(1)))
 		})
 
 		It("Should execute string equality - different strings", func() {
@@ -2063,8 +1999,7 @@ var _ = Describe("Compiler", func() {
 			arcRuntime.SetMemory(mod.Memory())
 			notEqual := mod.ExportedFunction("notEqual")
 			results := MustSucceed(notEqual.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(0)))
+			Expect(results).To(ConsistOf(uint64(0)))
 		})
 
 		It("Should execute string inequality", func() {
@@ -2079,8 +2014,7 @@ var _ = Describe("Compiler", func() {
 			arcRuntime.SetMemory(mod.Memory())
 			notEqual := mod.ExportedFunction("notEqual")
 			results := MustSucceed(notEqual.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(1)))
+			Expect(results).To(ConsistOf(uint64(1)))
 		})
 
 		It("Should verify concatenated string matches expected value", func() {
@@ -2096,8 +2030,7 @@ var _ = Describe("Compiler", func() {
 			arcRuntime.SetMemory(mod.Memory())
 			concatMatch := mod.ExportedFunction("concatMatch")
 			results := MustSucceed(concatMatch.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0]).To(Equal(uint64(1)))
+			Expect(results).To(ConsistOf(uint64(1)))
 		})
 
 		It("Should execute string compound concatenation", func() {
