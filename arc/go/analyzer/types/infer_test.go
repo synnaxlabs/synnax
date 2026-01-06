@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -156,6 +156,26 @@ var _ = Describe("Type Inference", func() {
 			It("should handle series indexing", func() {
 				t := inferExprType(bCtx, testResolver, "data_series[0]")
 				Expect(t.Kind).To(Equal(types.KindI64))
+			})
+		})
+
+		Context("series in additive expressions", func() {
+			It("should infer series type for series + scalar", func() {
+				t := inferExprType(bCtx, testResolver, "data_series + 10")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Unwrap().Kind).To(Equal(types.KindI64))
+			})
+
+			It("should infer series type for scalar + series", func() {
+				t := inferExprType(bCtx, testResolver, "10 + data_series")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Unwrap().Kind).To(Equal(types.KindI64))
+			})
+
+			It("should infer series type for series - scalar", func() {
+				t := inferExprType(bCtx, testResolver, "data_series - 5")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Unwrap().Kind).To(Equal(types.KindI64))
 			})
 		})
 	})

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -57,8 +57,8 @@ func (g Group) Next(
 		if err != nil {
 			statuses = append(statuses, Status{
 				Key:         c.Channel().Key().String(),
-				Variant:     status.ErrorVariant,
-				Message:     fmt.Sprintf("calcualtion for %s failed", c.Channel()),
+				Variant:     status.VariantError,
+				Message:     fmt.Sprintf("calculation for %s failed", c.Channel()),
 				Description: err.Error(),
 			})
 			continue

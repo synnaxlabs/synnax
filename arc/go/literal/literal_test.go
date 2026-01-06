@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -346,6 +346,12 @@ var _ = Describe("Literal Parser", func() {
 			_, err := literal.Parse(lit, types.I32())
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("cannot assign string to"))
+		})
+
+		It("Should return error for malformed string literal (missing closing quote)", func() {
+			Expect(
+				literal.ParseString(`"hello`, types.String()),
+			).Error().To(MatchError(ContainSubstring("invalid string literal")))
 		})
 	})
 

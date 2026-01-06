@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -196,10 +196,10 @@ func test() {
 			diagnosticCase{
 				source: `
 func test() {
-	x := "hello" - "world"
+	x := "hello" + 12
 }`,
-				expectedMsg:    "cannot use str in - operation",
-				expectedLine:   3,
+				expectedMsg:    "+ operands must be compatible",
+				expectedLine:   2,
 				expectedColumn: -1,
 				expectedSev:    0,
 			}),

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,7 +15,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/x/confluence"
@@ -48,9 +48,9 @@ func (c *collector) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			case <-c.stop:
 				return nil
 			case currTime := <-t.C:
-				frame := core.UnaryFrame(
+				frame := frame.NewUnary(
 					c.idx.Key(),
-					telem.NewSeriesV[telem.TimeStamp](telem.NewTimeStamp(currTime)),
+					telem.NewSeriesV(telem.NewTimeStamp(currTime)),
 				)
 				for _, metric := range c.metrics {
 					value, err := metric.collect()

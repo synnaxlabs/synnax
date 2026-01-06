@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,7 +16,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/types"
-	xbinary "github.com/synnaxlabs/x/binary"
 )
 
 // Writer handles low-level WASM instruction encoding
@@ -187,12 +186,12 @@ func (e *Writer) writeBlockType(bt BlockType) {
 
 // WriteLEB128Unsigned writes an unsigned LEB128 encoded integer
 func (e *Writer) WriteLEB128Unsigned(val uint64) {
-	xbinary.WriteLEB128Unsigned(&e.buf, val)
+	writeUnsignedLeb128(&e.buf, val)
 }
 
 // WriteLEB128Signed writes a signed LEB128 encoded integer
 func (e *Writer) WriteLEB128Signed(val int64) {
-	xbinary.WriteLEB128Signed(&e.buf, val)
+	writeSignedLeb128(&e.buf, val)
 }
 
 // Bytes returns the accumulated bytecode

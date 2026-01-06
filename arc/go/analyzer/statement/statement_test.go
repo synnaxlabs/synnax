@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -586,6 +586,52 @@ var _ = Describe("Statement", func() {
 			Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot assign i32 to f32"))
+		})
+	})
+
+	Describe("Indexed Assignment", func() {
+		It("should allow indexed assignment to series", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				data series i64 := [1, 2, 3]
+				data[0] = 10
+			}`))
+			ctx := context.CreateRoot(bCtx, block, nil)
+			setupFunctionContext(ctx)
+			Expect(statement.AnalyzeBlock(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			Expect(*ctx.Diagnostics).To(BeEmpty())
+		})
+
+		It("should detect indexed assignment on non-series type", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				x i64 := 42
+				x[0] = 10
+			}`))
+			ctx := context.CreateRoot(bCtx, block, nil)
+			setupFunctionContext(ctx)
+			Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("indexed assignment only supported on series types"))
+		})
+
+		It("should detect slice assignment (not supported)", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				data series i64 := [1, 2, 3]
+				data[0:2] = 10
+			}`))
+			ctx := context.CreateRoot(bCtx, block, nil)
+			setupFunctionContext(ctx)
+			Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("slice assignment not supported"))
+		})
+
+		It("should detect type mismatch in indexed assignment", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				data series i64 := [1, 2, 3]
+				data[0] = "hello"
+			}`))
+			ctx := context.CreateRoot(bCtx, block, nil)
+			setupFunctionContext(ctx)
+			Expect(statement.AnalyzeBlock(ctx)).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
 		})
 	})
 })

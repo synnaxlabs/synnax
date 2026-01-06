@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -1354,6 +1354,107 @@ var _ = Describe("Expressions", func() {
 					y := x^2^undefinedVar
 				}
 			`, nil, "undefined symbol")
+		})
+	})
+
+	Describe("Power Expressions with Units", func() {
+		It("Should accept power expression with literal integer exponent", func() {
+			ast := MustSucceed(parser.Parse(`
+				func testFunc() {
+					x f64 m := 5m
+					y := x^2
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should accept power expression with negative literal integer exponent", func() {
+			ast := MustSucceed(parser.Parse(`
+				func testFunc() {
+					x f64 m := 5m
+					y := x^-2
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should accept power expression with zero exponent", func() {
+			ast := MustSucceed(parser.Parse(`
+				func testFunc() {
+					x f64 m := 5m
+					y := x^0
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should accept dimensionless base with any exponent", func() {
+			ast := MustSucceed(parser.Parse(`
+				func testFunc() {
+					x f64 := 5.0
+					y i32 := 2
+					z := x^y
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should reject dimensioned base with variable exponent", func() {
+			ast := MustSucceed(parser.Parse(`
+				func testFunc() {
+					x f64 m := 5m
+					n i32 := 2
+					y := x^n
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("literal integer exponent"))
+		})
+
+		It("Should reject dimensioned exponent", func() {
+			ast := MustSucceed(parser.Parse(`
+				func testFunc() {
+					x f64 := 5.0
+					n f64 s := 2s
+					y := x^n
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("dimensionless"))
+		})
+
+		It("Should reject dimensioned base with float literal exponent", func() {
+			ast := MustSucceed(parser.Parse(`
+				func testFunc() {
+					x f64 m := 5m
+					y := x^2.0
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("literal integer exponent"))
+		})
+
+		It("Should reject dimensioned base with unit-suffixed literal exponent", func() {
+			ast := MustSucceed(parser.Parse(`
+				func testFunc() {
+					x f64 m := 5m
+					y := x^2s
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, ast, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("dimensionless"))
 		})
 	})
 })

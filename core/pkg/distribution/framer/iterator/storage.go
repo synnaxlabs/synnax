@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 )
 
@@ -28,7 +28,7 @@ func newStorageResponseTranslator(
 			NodeKey: host,
 			Error:   res.Err,
 			Command: Command(res.Command),
-			Frame:   core.NewFrameFromStorage(res.Frame),
+			Frame:   frame.NewFromStorage(res.Frame),
 		}, true, nil
 	}
 }
