@@ -1,3 +1,12 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -7,6 +16,8 @@ extern crate objc2;
 extern crate objc2_app_kit;
 #[cfg(target_os = "macos")]
 extern crate objc2_foundation;
+
+mod perf;
 
 #[cfg(target_os = "macos")]
 use device_query::{DeviceEvents, DeviceQuery, DeviceState, MouseState};
@@ -18,7 +29,6 @@ use std::time::Duration;
 use tauri::Emitter;
 
 use tauri::Window;
-
 use tauri_plugin_prevent_default::KeyboardShortcut;
 use tauri_plugin_prevent_default::ModifierKey::MetaKey;
 
@@ -66,7 +76,13 @@ fn main() {
     let prevent = tauri_plugin_prevent_default::Builder::new()
         .shortcut(KeyboardShortcut::with_modifiers("W", &[MetaKey]))
         .build();
+
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![
+            perf::get_memory_usage,
+            perf::get_cpu_usage,
+            perf::get_gpu_usage,
+        ])
         .on_page_load(|window, _| {
             set_transparent_titlebar(&window.window(), true);
         })
@@ -99,26 +115,29 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_os::init())
         .setup(|app| {
             #[cfg(desktop)]
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
+
             #[cfg(target_os = "macos")]
-            let app_handle = app.handle().clone();
-            #[cfg(target_os = "macos")]
-            thread::spawn(move || {
-                let app_handle = app_handle.clone();
-                let device_state = DeviceState::new();
-                let _guard = device_state.on_mouse_up(move |_pos| {
-                    let state: MouseState = DeviceState::new().get_mouse();
-                    app_handle
-                        .emit("mouse_up", state.coords)
-                        .expect("Failed to emit event");
+            {
+                let app_handle = app.handle().clone();
+                thread::spawn(move || {
+                    let device_state = DeviceState::new();
+                    let _guard = device_state.on_mouse_up(move |_pos| {
+                        let state: MouseState = DeviceState::new().get_mouse();
+                        app_handle
+                            .emit("mouse_up", state.coords)
+                            .expect("Failed to emit event");
+                    });
+                    loop {
+                        thread::sleep(Duration::from_secs(1));
+                    }
                 });
-                loop {
-                    thread::sleep(Duration::from_secs(1));
-                }
-            });
+            }
+
             Ok(())
         })
         .run(tauri::generate_context!())
