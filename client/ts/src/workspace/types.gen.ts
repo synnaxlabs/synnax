@@ -25,7 +25,12 @@ export const workspaceZ = z.object({
 });
 export interface Workspace extends z.infer<typeof workspaceZ> {}
 
-export const newZ = workspaceZ.omit({ author: true }).partial({ key: true });
+export const newZ = workspaceZ
+  .omit({ author: true, layout: true })
+  .partial({ key: true })
+  .extend({
+    layout: zod.jsonStringifier(),
+  });
 export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("workspace");

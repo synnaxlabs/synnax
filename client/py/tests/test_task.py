@@ -19,6 +19,7 @@ import synnax as sy
 class TestTaskClient:
     def test_create_single(self, client: sy.Synnax):
         task = client.tasks.create(name="test", type="test")
+        print(task.key)
         assert task.key != 0
 
     def test_create_multiple(self, client: sy.Synnax):

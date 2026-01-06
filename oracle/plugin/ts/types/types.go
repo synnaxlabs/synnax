@@ -597,6 +597,34 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 						sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes))
 					}
 				}
+
+				// When UseInput is true, inherited JSON fields need to be re-processed
+				// with jsonStringifier instead of stringifiedJSON. We omit them from
+				// the parent and re-add them with the correct serialization.
+				if sd.UseInput {
+					processedFields := make(map[string]bool)
+					for _, f := range sd.OmittedFields {
+						processedFields[f] = true
+					}
+					for _, f := range sd.PartialFields {
+						processedFields[f.TSName] = true
+					}
+					for _, f := range sd.ExtendFields {
+						processedFields[f.TSName] = true
+					}
+
+					for _, parentField := range resolution.UnifiedFields(parentType, table) {
+						tsName := lo.CamelCase(parentField.Name)
+						if processedFields[tsName] {
+							continue
+						}
+						if isJSONTypedField(parentField) {
+							sd.OmittedFields = append(sd.OmittedFields, tsName)
+							sd.ExtendFields = append(sd.ExtendFields, p.processField(parentField, entry, table, data, sd.UseInput, sd.ConcreteTypes))
+						}
+					}
+				}
+
 				// Add optional import for concrete types with partial fields
 				if sd.ConcreteTypes && len(sd.PartialFields) > 0 {
 					addXImport(data, xImport{name: "optional", submodule: "optional"})
@@ -776,6 +804,22 @@ func isSelfReference(t resolution.TypeRef, parent resolution.Type) bool {
 	// Check type arguments for generic recursive references
 	for _, arg := range t.TypeArgs {
 		if isSelfReference(arg, parent) {
+			return true
+		}
+	}
+	return false
+}
+
+// isJSONTypedField checks if a field has a JSON type (either primitive json or
+// a type parameter constrained to json).
+func isJSONTypedField(field resolution.Field) bool {
+	// Direct json primitive
+	if field.Type.Name == "json" {
+		return true
+	}
+	// Type parameter constrained to json
+	if field.Type.IsTypeParam() && field.Type.TypeParam != nil {
+		if field.Type.TypeParam.Constraint != nil && field.Type.TypeParam.Constraint.Name == "json" {
 			return true
 		}
 	}

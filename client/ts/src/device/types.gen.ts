@@ -75,8 +75,11 @@ export const newZ = <
   Model extends z.ZodType = z.ZodString,
 >({ properties, make, model }: NewSchemas<Properties, Make, Model> = {}) =>
   deviceZ({ properties, make, model })
-    .omit({ configured: true })
-    .partial({ key: true });
+    .omit({ configured: true, properties: true })
+    .partial({ key: true })
+    .extend({
+      properties: zod.jsonStringifier(properties),
+    });
 export type New<
   Properties extends z.ZodType = z.ZodType,
   Make extends z.ZodType = z.ZodString,

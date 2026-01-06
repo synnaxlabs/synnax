@@ -25,7 +25,9 @@ export const viewZ = z.object({
 });
 export interface View extends z.infer<typeof viewZ> {}
 
-export const newZ = viewZ.partial({ key: true });
+export const newZ = viewZ.omit({ query: true }).partial({ key: true }).extend({
+  query: zod.jsonStringifier(),
+});
 export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("view");

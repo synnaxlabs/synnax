@@ -30,7 +30,7 @@ export type StatusDetails<Data extends z.ZodType = z.ZodType> = z.infer<
 
 export const newStatusDetailsZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
   z.object({
-    task: z.string().optional(),
+    task: keyZ.optional(),
     running: z.boolean(),
     cmd: z.string().optional(),
     data: zod.stringifiedJSON(data),
@@ -40,7 +40,7 @@ export type NewStatusDetails<Data extends z.ZodType = z.ZodType> = z.infer<
 >;
 
 export const commandZ = z.object({
-  task: z.string(),
+  task: keyZ,
   type: z.string(),
   key: z.string(),
   args: zod.stringifiedJSON().optional(),
@@ -75,7 +75,7 @@ export const payloadZ = <
   StatusData extends z.ZodType = z.ZodType,
 >({ type, config, statusData }: PayloadSchemas<Type, Config, StatusData> = {}) =>
   z.object({
-    key: z.string(),
+    key: keyZ,
     name: z.string(),
     type: type ?? z.string(),
     config: zod.stringifiedJSON(config),
@@ -88,7 +88,7 @@ export interface Payload<
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 > {
-  key: string;
+  key: Key;
   name: string;
   type: z.infer<Type>;
   config: z.infer<Config>;
@@ -113,21 +113,26 @@ export const newZ = <
   StatusData extends z.ZodType = z.ZodType,
 >({ type, config, statusData }: NewSchemas<Type, Config, StatusData> = {}) =>
   payloadZ({ type, config, statusData })
-    .omit({ internal: true, snapshot: true, status: true })
+    .omit({ internal: true, snapshot: true, status: true, config: true })
     .partial({ key: true })
     .extend({
       status: status.newZ({ details: newStatusDetailsZ(statusData) }).optional(),
+      config: zod.jsonStringifier(config),
     });
 export type New<
   Type extends z.ZodType = z.ZodString,
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 > = optional.Optional<
-  Omit<Payload<Type, Config, StatusData>, "internal" | "snapshot" | "status">,
+  Omit<
+    Payload<Type, Config, StatusData>,
+    "internal" | "snapshot" | "status" | "config"
+  >,
   "key"
 > & {
   status?: NewStatus<StatusData>;
+  config: z.infer<Config>;
 };
 
 export const ontologyID = ontology.createIDFactory<Key>("task");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
+export const TYPE_ONTOLOGY_ID = ontologyID(0);

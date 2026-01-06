@@ -25,7 +25,12 @@ export const schematicZ = z.object({
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}
 
-export const newZ = schematicZ.partial({ key: true, snapshot: true });
+export const newZ = schematicZ
+  .omit({ data: true })
+  .partial({ key: true, snapshot: true })
+  .extend({
+    data: zod.jsonStringifier(),
+  });
 export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("schematic");

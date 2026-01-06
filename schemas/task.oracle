@@ -53,7 +53,7 @@ GoStatus = status.GoStatus<GoStatusDetails> {
 }
 
 NewStatusDetails struct<Data extends json = json> {
-    task    Key?    @ts type string
+    task    Key?
     running bool
     cmd     string?
     data    Data
@@ -74,7 +74,7 @@ Task struct<
     Config extends json = json,
     StatusData extends json = json
 > {
-    key      Key                 @key @ts type string
+    key      Key                 @key
     name     string
     type     Type
     config   Config
@@ -110,7 +110,7 @@ New struct<
     Config extends json = json,
     StatusData extends json = json
 > extends Task<Type, Config, StatusData> {
-    key    Key?                   @ts type string
+    key    Key?
     status NewStatus<StatusData>?
     -internal
     -snapshot
@@ -125,7 +125,7 @@ New struct<
 }
 
 Command struct {
-    task Key    @ts type string
+    task Key
     type string
     key  string
     args json?

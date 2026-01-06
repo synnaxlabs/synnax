@@ -19,7 +19,7 @@ const client = createTestClient();
 describe("Task", async () => {
   const testRack = await client.racks.create({ name: "test" });
   describe("create", () => {
-    it("should create a task on a rack", async () => {
+    it.only("should create a task on a rack", async () => {
       const m = await testRack.createTask({
         name: "test",
         config: { a: "dog" },

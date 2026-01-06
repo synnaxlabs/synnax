@@ -65,7 +65,7 @@ class New(Payload):
     is_index: bool | None = None
     internal: bool | None = None
     virtual: bool | None = None
-    expression: str | None = Field(default=None, default="")
+    expression: str | None = Field(default="")
     operations: list[Operation] | None = None
     concurrency: control.Concurrency | None = None
 
