@@ -96,7 +96,7 @@ func (t *Task) start(ctx context.Context) error {
 	// Build state config
 	stateCfg, err := NewStateConfig(ctx, t.factoryCfg.Channel, mod)
 	if err != nil {
-		t.setStatus(status.ErrorVariant, false, err.Error())
+		t.setStatus(status.VariantError, false, err.Error())
 		return err
 	}
 	t.state = state.New(stateCfg.State)
@@ -125,13 +125,13 @@ func (t *Task) start(ctx context.Context) error {
 			State:  t.state,
 		})
 		if err != nil {
-			t.setStatus(status.ErrorVariant, false, err.Error())
+			t.setStatus(status.VariantError, false, err.Error())
 			return err
 		}
 		closers = append(closers, wasmMod)
 		wasmFactory, err := wasm.NewFactory(wasmMod)
 		if err != nil {
-			t.setStatus(status.ErrorVariant, false, err.Error())
+			t.setStatus(status.VariantError, false, err.Error())
 			return err
 		}
 		f = append(f, wasmFactory)
@@ -146,7 +146,7 @@ func (t *Task) start(ctx context.Context) error {
 			State:  t.state.Node(irNode.Key),
 		})
 		if err != nil {
-			t.setStatus(status.ErrorVariant, false, err.Error())
+			t.setStatus(status.VariantError, false, err.Error())
 			return err
 		}
 		nodes[irNode.Key] = n
@@ -165,7 +165,7 @@ func (t *Task) start(ctx context.Context) error {
 		ctx, t, t.factoryCfg.Framer, stateCfg.Reads.Keys(),
 	)
 	if err != nil {
-		t.setStatus(status.ErrorVariant, false, err.Error())
+		t.setStatus(status.VariantError, false, err.Error())
 		return err
 	}
 	t.streamer.requests = requests
@@ -177,7 +177,7 @@ func (t *Task) start(ctx context.Context) error {
 			ctx, t.prog.Name, t, t.factoryCfg.Framer, stateCfg.Writes.Keys(),
 		)
 		if err != nil {
-			t.setStatus(status.ErrorVariant, false, err.Error())
+			t.setStatus(status.VariantError, false, err.Error())
 			return err
 		}
 	}
@@ -199,7 +199,7 @@ func (t *Task) start(ctx context.Context) error {
 	t.closer = append(closers, signal.NewGracefulShutdown(sCtx, cancel))
 
 	t.running = true
-	t.setStatus(status.SuccessVariant, true, "Arc started")
+	t.setStatus(status.VariantSuccess, true, "Arc started")
 	return nil
 }
 
@@ -211,7 +211,7 @@ func (t *Task) processFrame(ctx context.Context, res framer.StreamerResponse) er
 	if !changed {
 		return nil
 	}
-	return t.writer.Write(ctx, core.NewFrameFromStorage(fr))
+	return t.writer.Write(ctx, frame.NewFromStorage(fr))
 }
 
 func (t *Task) stop(context.Context, bool) error {
@@ -239,10 +239,10 @@ func (t *Task) stop(context.Context, bool) error {
 	t.running = false
 
 	if err := c.Error(); err != nil {
-		t.setStatus(status.ErrorVariant, false, err.Error())
+		t.setStatus(status.VariantError, false, err.Error())
 		return err
 	}
-	t.setStatus(status.SuccessVariant, false, "Arc stopped")
+	t.setStatus(status.VariantSuccess, false, "Arc stopped")
 	return nil
 }
 
