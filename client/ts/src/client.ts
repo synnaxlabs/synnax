@@ -20,6 +20,7 @@ import { control } from "@/control";
 import { device } from "@/device";
 import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
+import { group } from "@/group";
 import { kv } from "@/kv";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
@@ -77,6 +78,7 @@ export default class Synnax extends framer.Client {
   readonly views: view.Client;
   readonly kv: kv.Client;
   readonly aliases: alias.Client;
+  readonly groups: group.Client;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
@@ -162,6 +164,7 @@ export default class Synnax extends framer.Client {
     this.views = new view.Client(this.transport.unary);
     this.kv = new kv.Client(this.transport.unary);
     this.aliases = new alias.Client(this.transport.unary);
+    this.groups = new group.Client(this.transport.unary);
   }
 
   get key(): string {
