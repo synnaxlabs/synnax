@@ -11,28 +11,51 @@ import os
 import random
 from typing import cast
 
-import synnax as sy
-from playwright.sync_api import Browser, BrowserType, Page, sync_playwright
+from playwright.sync_api import Browser, BrowserContext, BrowserType, Page, sync_playwright
 
 from console.console import Console
+from console.profiling import CDPProfiler, ProfilerConfig
 from framework.test_case import TestCase
 
 
 class ConsoleCase(TestCase):
-    """
-    Console TestCase implementation using Playwright
+    """Console TestCase implementation using Playwright.
+
+    Provides a Playwright browser session with optional performance profiling
+    via Chrome DevTools Protocol (CDP).
 
     Environment Variables:
-    - PLAYWRIGHT_CONSOLE_HEADED: Run in headed mode (default: False)
-      Can be set via command line: --console-headed or -ch
+        PLAYWRIGHT_CONSOLE_HEADED: Run in headed mode (default: False)
+            Can be set via command line: --console-headed or -ch
+        PLAYWRIGHT_CONSOLE_PROFILE: Enable CPU profiling via CDP (default: True)
+            Profiles are saved to integration/profiles/<test_name>.cpuprofile
+            Load in Chrome DevTools > JavaScript Profiler
+        PLAYWRIGHT_CONSOLE_TRACE: Enable Playwright tracing (default: True)
+            Traces are saved to integration/profiles/<test_name>.trace.zip
+            View with: npx playwright show-trace <path-to-trace.zip>
+        PLAYWRIGHT_CONSOLE_HEAP: Enable heap snapshot via CDP (default: True)
+            Snapshots are saved to integration/profiles/<test_name>.heapsnapshot
+            Load in Chrome DevTools > Memory panel
+        PLAYWRIGHT_CONSOLE_METRICS: Enable performance metrics via CDP (default: True)
+            Metrics are saved to integration/profiles/<test_name>.metrics.json
+        PLAYWRIGHT_CONSOLE_COVERAGE: Enable code coverage via CDP (default: True)
+            Coverage is saved to integration/profiles/<test_name>.coverage.json
+
+    Attributes:
+        browser: The Playwright browser instance.
+        context: The browser context.
+        page: The active page.
+        console: The Console interface for interacting with the application.
     """
 
     browser: Browser
+    context: BrowserContext
     page: Page
     headed: bool
     default_timeout: int
     default_nav_timeout: int
     console: Console
+    _profiler: CDPProfiler | None
 
     def setup(self) -> None:
         env_headed = os.environ.get("PLAYWRIGHT_CONSOLE_HEADED", "0") == "1"
@@ -47,11 +70,30 @@ class ConsoleCase(TestCase):
         browser_engine = self.determine_browser()
         self.browser = browser_engine.launch(headless=not headed, slow_mo=slow_mo)
         # Use larger viewport to reduce element overlap
-        self.page = self.browser.new_page(viewport={"width": 1920, "height": 1080})
+        self.context = self.browser.new_context(viewport={"width": 1920, "height": 1080})
+
+        # Initialize profiler config
+        profiler_config = ProfilerConfig.from_params(self.params)
+        self._profiler = None
+
+        # Start Playwright tracing before page creation to capture everything
+        if profiler_config.tracing:
+            self.context.tracing.start(screenshots=True, snapshots=True, sources=True)
+
+        self.page = self.context.new_page()
 
         # Set timeouts
-        self.page.set_default_timeout(default_timeout)  # 1s
-        self.page.set_default_navigation_timeout(default_nav_timeout)  # 1s
+        self.page.set_default_timeout(default_timeout)  # 15s
+        self.page.set_default_navigation_timeout(default_nav_timeout)  # 15s
+
+        # Create profiler after page is ready and start CDP-based profiling
+        if profiler_config.requires_cdp or profiler_config.tracing:
+            self._profiler = CDPProfiler(
+                page=self.page,
+                context=self.context,
+                config=profiler_config,
+            )
+            self._profiler.start_cdp_profiling()
 
         # Try embedded console first, fallback to dev server if no console found
         host = self.synnax_connection.server_address
@@ -86,6 +128,12 @@ class ConsoleCase(TestCase):
         self.page.wait_for_selector("text=Get Started", timeout=5000)
 
     def teardown(self) -> None:
+        # Stop profiling and save results
+        if self._profiler is not None:
+            self._profiler.stop(self.name)
+            self._profiler.close()
+
+        self.context.close()
         self.browser.close()
         self.playwright.stop()
 
