@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -132,9 +132,9 @@ func (svc *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retr
 	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
 
 	if req.IncludeStatus {
-		statuses := make([]device.Status, len(res.Devices))
+		statuses := make([]device.Status, 0, len(res.Devices))
 		if err := status.NewRetrieve[device.StatusDetails](svc.status).
-			WhereKeys(ontology.IDsToString(device.OntologyIDsFromDevices(res.Devices))...).
+			WhereKeys(ontology.IDsToKeys(device.OntologyIDsFromDevices(res.Devices))...).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return res, err

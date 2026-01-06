@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,25 +14,27 @@ import (
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium/internal/alignment"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/meta"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
 type controlResource struct {
-	ck        core.ChannelKey
+	ck        channel.Key
 	alignment telem.Alignment
 }
 
-func (r *controlResource) ChannelKey() core.ChannelKey { return r.ck }
+func (r *controlResource) ChannelKey() channel.Key { return r.ck }
 
 type DB struct {
 	cfg              Config
@@ -47,7 +49,7 @@ var (
 	// ErrNotVirtual is returned when the caller opens a DB on a non-virtual channel.
 	ErrNotVirtual = errors.New("channel is not virtual")
 	// ErrDBClosed is returned when an operation is attempted on a closed DB.
-	ErrDBClosed = core.NewErrResourceClosed("virtual.db")
+	ErrDBClosed = resource.NewErrClosed("virtual.db")
 )
 
 // Config is the configuration for opening a DB.
@@ -56,13 +58,13 @@ type Config struct {
 	// Channel that the database will operate on. This only needs to be set when creating
 	// a new database. If the database already exists, this field will be read from the
 	// DB's meta file.
-	Channel core.Channel
+	Channel channel.Channel
 	// MetaCodec is used to encode and decode the channel metadata.
 	// [REQUIRED]
 	MetaCodec binary.Codec
 	// FS is the filesystem that the DB will use to store metadata about the channel.
 	// [REQUIRED]
-	FS xfs.FS
+	FS fs.FS
 }
 
 var (
@@ -98,7 +100,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	wrapError := core.NewChannelErrWrapper(cfg.Channel)
+	wrapError := channel.NewErrWrapper(cfg.Channel)
 	if !cfg.Channel.Virtual {
 		return nil, wrapError(ErrNotVirtual)
 	}
@@ -117,11 +119,11 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		leadingAlignment: &atomic.Uint32{},
 		openWriters:      &atomic.Int32{},
 	}
-	db.leadingAlignment.Store(core.ZeroLeadingAlignment)
+	db.leadingAlignment.Store(alignment.ZeroLeading)
 	return db, nil
 }
 
-func (db *DB) Channel() core.Channel {
+func (db *DB) Channel() channel.Channel {
 	return db.cfg.Channel
 }
 
@@ -135,7 +137,7 @@ func (db *DB) Close() error {
 	}
 	count := db.openWriters.Load()
 	if count > 0 {
-		err := db.wrapError(errors.Wrapf(core.ErrOpenResource, "cannot close channel because there are %d unclosed writers accessing it", count))
+		err := db.wrapError(errors.Wrapf(resource.ErrOpen, "cannot close channel because there are %d unclosed writers accessing it", count))
 		db.closed.Store(false)
 		return err
 	}
@@ -157,7 +159,7 @@ func (db *DB) RenameChannel(ctx context.Context, newName string) error {
 
 // SetChannelKeyInMeta sets the key of the channel for this DB, and persists that change
 // to the DB's meta file in the underlying filesystem.
-func (db *DB) SetChannelKeyInMeta(ctx context.Context, key core.ChannelKey) error {
+func (db *DB) SetChannelKeyInMeta(ctx context.Context, key channel.Key) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}

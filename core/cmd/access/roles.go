@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -41,7 +41,7 @@ var allObjects = []ontology.ID{
 	{Type: label.OntologyType},
 	{Type: log.OntologyType},
 	{Type: cluster.OntologyType},
-	{Type: cluster.NodeOntologyType},
+	{Type: cluster.OntologyTypeNode},
 	{Type: channel.OntologyType},
 	{Type: group.OntologyType},
 	{Type: ranger.OntologyType},
@@ -60,7 +60,7 @@ var allObjects = []ontology.ID{
 	{Type: status.OntologyType},
 	{Type: role.OntologyType},
 	{Type: policy.OntologyType},
-	{Type: ontology.BuiltInType},
+	{Type: ontology.TypeBuiltIn},
 	{Type: view.OntologyType},
 }
 
@@ -95,7 +95,7 @@ var (
 				{Type: label.OntologyType},
 				{Type: log.OntologyType},
 				{Type: cluster.OntologyType},
-				{Type: cluster.NodeOntologyType},
+				{Type: cluster.OntologyTypeNode},
 				{Type: channel.OntologyType},
 				{Type: group.OntologyType},
 				{Type: ranger.OntologyType},

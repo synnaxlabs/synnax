@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,7 +17,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -27,16 +26,16 @@ import (
 
 const OntologyType ontology.Type = "group"
 
-func OntologyID(key uuid.UUID) core.ID {
+func OntologyID(key uuid.UUID) ontology.ID {
 	return ontology.ID{Type: OntologyType, Key: key.String()}
 }
 
-func OntologyIDs(keys []uuid.UUID) []core.ID {
-	return lo.Map(keys, func(k uuid.UUID, _ int) core.ID { return OntologyID(k) })
+func OntologyIDs(keys []uuid.UUID) []ontology.ID {
+	return lo.Map(keys, func(k uuid.UUID, _ int) ontology.ID { return OntologyID(k) })
 }
 
 func newResource(g Group) ontology.Resource {
-	return core.NewResource(schema, OntologyID(g.Key), g.Name, g)
+	return ontology.NewResource(schema, OntologyID(g.Key), g.Name, g)
 }
 
 type change = xchange.Change[uuid.UUID, Group]
@@ -80,5 +79,8 @@ func (s *Service) OnChange(
 
 func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := gorp.WrapReader[uuid.UUID, Group](s.cfg.DB).OpenNexter(ctx)
-	return xiter.Map(n, newResource), closer, err
+	if err != nil {
+		return nil, nil, err
+	}
+	return xiter.Map(n, newResource), closer, nil
 }

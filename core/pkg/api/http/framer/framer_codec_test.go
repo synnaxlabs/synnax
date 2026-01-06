@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/binary"
@@ -52,7 +52,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 			}
 			req := framer.WriterRequest{
 				Command: writer.Write,
-				Frame:   core.MultiFrame(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
+				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
 			}
 			msg := fhttp.WSMessage[framer.WriterRequest]{Type: "data", Payload: req}
 			encoded := MustSucceed(v.Encode(ctx, msg))
@@ -74,7 +74,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 			}
 			req := framer.WriterRequest{
 				Command: writer.Write,
-				Frame: core.MultiFrame(keys, []telem.Series{
+				Frame: frame.NewMulti(keys, []telem.Series{
 					telem.NewSeriesV[int32](1, 2),
 					telem.NewSeriesV[float32](1.1, 2.2),
 					telem.NewSeriesV[uint64](100, 200),
@@ -203,7 +203,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 				LowerPerfCodec: &binary.JSONCodec{},
 			}
 			res := framer.StreamerResponse{
-				Frame: core.MultiFrame(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
+				Frame: frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
 			}
 			msg := fhttp.WSMessage[framer.StreamerResponse]{Type: "data", Payload: res}
 			encoded := MustSucceed(v.Encode(ctx, msg))
@@ -223,7 +223,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 				LowerPerfCodec: &binary.JSONCodec{},
 			}
 			res := framer.StreamerResponse{
-				Frame: core.MultiFrame(keys, []telem.Series{
+				Frame: frame.NewMulti(keys, []telem.Series{
 					telem.NewSeriesV(1.5, 2.5, 3.5),
 					telem.NewSeriesV[int64](1000, 2000, 3000),
 				}),
@@ -242,7 +242,7 @@ var _ = Describe("FramerCodec", Ordered, func() {
 				Codec:          codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"}),
 				LowerPerfCodec: &binary.JSONCodec{},
 			}
-			res := framer.StreamerResponse{Frame: core.Frame{}}
+			res := framer.StreamerResponse{Frame: frame.Frame{}}
 			msg := fhttp.WSMessage[framer.StreamerResponse]{Type: "data", Payload: res}
 			encoded := MustSucceed(v.Encode(ctx, msg))
 			var resMsg fhttp.WSMessage[framer.StreamerResponse]

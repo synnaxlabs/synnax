@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -60,14 +60,12 @@ type Service struct {
 	shutdownSignals io.Closer
 }
 
-const groupName = "Workspaces"
-
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
+	g, err := cfg.Group.CreateOrRetrieve(ctx, "Workspaces", ontology.RootID)
 	if err != nil {
 		return nil, err
 	}
@@ -76,16 +74,17 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	s.shutdownSignals, err = signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Workspace](cfg.DB))
-	if err != nil {
+	if s.shutdownSignals, err = signals.PublishFromGorp(
+		ctx,
+		cfg.Signals,
+		signals.GorpPublisherConfigUUID[Workspace](cfg.DB),
+	); err != nil {
 		return nil, err
 	}
 	return s, nil
 }
 
-func (s *Service) Close() error {
-	return s.shutdownSignals.Close()
-}
+func (s *Service) Close() error { return s.shutdownSignals.Close() }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{

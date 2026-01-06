@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -227,10 +227,10 @@ func (w RelayResponseTranslator) Forward(
 	return &RelayResponse{Frame: translateFrameBackward(res.Frame)}, nil
 }
 
-func translateFrameForward(frame *telem.PBFrame) framer.Frame {
-	keys := channel.KeysFromUint32(frame.Keys)
-	series := telem.TranslateManySeriesBackward(frame.Series)
-	return core.MultiFrame(keys, series)
+func translateFrameForward(fr *telem.PBFrame) framer.Frame {
+	keys := channel.KeysFromUint32(fr.Keys)
+	series := telem.TranslateManySeriesBackward(fr.Series)
+	return frame.NewMulti(keys, series)
 }
 
 func translateFrameBackward(frame framer.Frame) *telem.PBFrame {

@@ -18,7 +18,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/zyn"
@@ -76,7 +75,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(a Alias) ontology.Resource {
-	return core.NewResource(
+	return ontology.NewResource(
 		schema,
 		OntologyID(a.Range, a.Channel),
 		a.Alias,

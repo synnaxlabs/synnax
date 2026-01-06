@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,8 +17,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -46,7 +46,7 @@ var _ = Describe("Deleter", Ordered, func() {
 						Keys:  s.keys,
 						Start: 10 * telem.SecondTS,
 					}))
-					Expect(writer.Write(core.MultiFrame(
+					Expect(writer.Write(frame.NewMulti(
 						s.keys,
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(10, 11, 12),

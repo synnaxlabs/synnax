@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -97,18 +97,16 @@ type Service struct {
 	disconnectSuspectRackObserver observe.Disconnect
 }
 
-const groupName = "Tasks"
-
-func OpenService(ctx context.Context, configs ...Config) (s *Service, err error) {
+func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
-		return
+		return nil, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
+	g, err := cfg.Group.CreateOrRetrieve(ctx, "Tasks", ontology.RootID)
 	if err != nil {
-		return
+		return nil, err
 	}
-	s = &Service{cfg: cfg, group: g}
+	s := &Service{cfg: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
 	s.cleanupInternalOntologyResources(ctx)
 	if err := s.migrateStatusesForExistingTasks(ctx); err != nil {
@@ -126,18 +124,16 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	}
 	s.disconnectSuspectRackObserver = cfg.Rack.OnSuspect(s.onSuspectRack)
 	if cfg.Signals == nil {
-		return
+		return s, nil
 	}
-	cdcS, err := signals.PublishFromGorp(
+	if s.shutdownSignals, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
 		signals.GorpPublisherConfigPureNumeric[Key, Task](cfg.DB, telem.Uint64T),
-	)
-	if err != nil {
-		return
+	); err != nil {
+		return nil, err
 	}
-	s.shutdownSignals = cdcS
-	return
+	return s, nil
 }
 
 // cleanupInternalOntologyResources purges existing internal task resources from the ontology.

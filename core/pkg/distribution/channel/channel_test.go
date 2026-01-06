@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -48,11 +48,6 @@ var _ = Describe("Channel Tests", func() {
 				_, err := channel.ParseKey("123456a")
 				Expect(err).To(HaveOccurredAs(validate.Error))
 				Expect(err.Error()).To(ContainSubstring("123456a is not a valid channel key"))
-			})
-		})
-		Describe("MustParseKey", func() {
-			It("Should panic when the key is not a valid integer", func() {
-				Expect(func() { channel.MustParseKey("123456a") }).To(Panic())
 			})
 		})
 		Describe("Lease", func() {

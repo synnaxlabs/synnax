@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -146,7 +146,7 @@ func (svc *Service) Retrieve(
 		}
 		statuses := make([]rack.Status, 0, len(resRacks))
 		if err := status.NewRetrieve[rack.StatusDetails](svc.status).
-			WhereKeys(ontology.IDsToString(rack.OntologyIDsFromRacks(resRacks))...).
+			WhereKeys(ontology.IDsToKeys(rack.OntologyIDsFromRacks(resRacks))...).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return res, err

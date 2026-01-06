@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,7 +12,7 @@ package writer
 import (
 	"io"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -31,7 +31,7 @@ type Writer struct {
 }
 
 // Write implements Writer.
-func (w *Writer) Write(frame core.Frame) (authorized bool, err error) {
+func (w *Writer) Write(frame frame.Frame) (authorized bool, err error) {
 	res, err := w.exec(Request{Frame: frame, Command: Write}, *w.cfg.Sync)
 	if err != nil {
 		return false, err

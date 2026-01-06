@@ -16,7 +16,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -133,7 +132,7 @@ func (r Reader) listAliases(
 func (r Reader) Search(ctx context.Context, rng uuid.UUID, term string) ([]channel.Key, error) {
 	ids, err := r.otg.SearchIDs(
 		ctx,
-		search.Request{Term: term, Type: OntologyType},
+		ontology.SearchRequest{Term: term, Type: OntologyType},
 	)
 	if err != nil {
 		return nil, err
