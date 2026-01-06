@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,5 +19,5 @@ import (
 type Range struct {
 	serviceranger.Range
 	Labels []label.Label `json:"labels" msgpack:"labels"`
-	Parent *Range `json:"parent" msgpack:"parent"`
+	Parent *Range `json:"parent,omitempty" msgpack:"parent,omitempty"`
 }

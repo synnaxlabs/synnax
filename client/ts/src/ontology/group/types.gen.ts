@@ -11,10 +11,16 @@
 
 import { z } from "zod";
 
-export enum WriterCommand {
-  Open = 0,
-  Write = 1,
-  Commit = 2,
-  SetAuthority = 3,
-}
-export const writerCommandZ = z.enum(WriterCommand);
+import { ontology } from "@/ontology";
+
+export const keyZ = z.uuid();
+export type Key = z.infer<typeof keyZ>;
+
+export const groupZ = z.object({
+  key: keyZ,
+  name: z.string(),
+});
+export interface Group extends z.infer<typeof groupZ> {}
+
+export const ontologyID = ontology.createIDFactory<Key>("group");
+export const TYPE_ONTOLOGY_ID = ontologyID("");

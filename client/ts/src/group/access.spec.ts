@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { AuthError } from "@/errors";
 import { ontology } from "@/ontology";
-import { group } from "@/ontology/group";
+import { group } from "@/group";
 import { createTestClientWithPolicy } from "@/testutil/access";
 import { createTestClient } from "@/testutil/client";
 

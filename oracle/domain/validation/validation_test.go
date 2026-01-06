@@ -112,6 +112,36 @@ var _ = Describe("Parse", func() {
 		Expect(*rules.MinLength).To(Equal(int64(1)))
 		Expect(*rules.MaxLength).To(Equal(int64(50)))
 	})
+
+	It("should parse pattern expression without message", func() {
+		domain := resolution.Domain{
+			Expressions: []resolution.Expression{{
+				Name:   "pattern",
+				Values: []resolution.ExpressionValue{{Kind: resolution.ValueKindString, StringValue: "^[a-zA-Z_][a-zA-Z0-9_]*$"}},
+			}},
+		}
+		rules := validation.Parse(domain)
+		Expect(rules.Pattern).NotTo(BeNil())
+		Expect(*rules.Pattern).To(Equal("^[a-zA-Z_][a-zA-Z0-9_]*$"))
+		Expect(rules.PatternMessage).To(BeNil())
+	})
+
+	It("should parse pattern expression with message", func() {
+		domain := resolution.Domain{
+			Expressions: []resolution.Expression{{
+				Name: "pattern",
+				Values: []resolution.ExpressionValue{
+					{Kind: resolution.ValueKindString, StringValue: "^[a-zA-Z_][a-zA-Z0-9_]*$"},
+					{Kind: resolution.ValueKindString, StringValue: "Name must be a valid identifier"},
+				},
+			}},
+		}
+		rules := validation.Parse(domain)
+		Expect(rules.Pattern).NotTo(BeNil())
+		Expect(*rules.Pattern).To(Equal("^[a-zA-Z_][a-zA-Z0-9_]*$"))
+		Expect(rules.PatternMessage).NotTo(BeNil())
+		Expect(*rules.PatternMessage).To(Equal("Name must be a valid identifier"))
+	})
 })
 
 var _ = Describe("IsEmpty", func() {
@@ -130,5 +160,10 @@ var _ = Describe("IsEmpty", func() {
 	It("should return false when any field is set", func() {
 		minLen := int64(1)
 		Expect(validation.IsEmpty(&validation.Rules{MinLength: &minLen})).To(BeFalse())
+	})
+
+	It("should return false when pattern is set", func() {
+		pattern := "^[a-z]+$"
+		Expect(validation.IsEmpty(&validation.Rules{Pattern: &pattern})).To(BeFalse())
 	})
 })

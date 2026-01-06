@@ -361,12 +361,15 @@ func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []reso
 	tr := def.TypeRef()
 
 	normalCtx, isNormal := tr.(*parser.TypeRefNormalContext)
+	mapCtx, isMap := tr.(*parser.TypeRefMapContext)
 	isOptional, isHardOptional := false, false
 	isArray := false
 
 	if isNormal {
 		isOptional, isHardOptional = extractTypeModifiersNormal(normalCtx)
 		isArray = normalCtx.LBRACKET() != nil
+	} else if isMap {
+		isOptional, isHardOptional = extractTypeModifiersMap(mapCtx)
 	}
 
 	typeRef := collectTypeRef(tr, typeParams)
@@ -680,6 +683,18 @@ func extractTypeNormal(tr *parser.TypeRefNormalContext) string {
 }
 
 func extractTypeModifiersNormal(tr *parser.TypeRefNormalContext) (isOptional, isHardOptional bool) {
+	mods := tr.TypeModifiers()
+	if mods == nil {
+		return false, false
+	}
+	questionCount := len(mods.AllQUESTION())
+	if questionCount >= 2 {
+		return false, true
+	}
+	return questionCount >= 1, false
+}
+
+func extractTypeModifiersMap(tr *parser.TypeRefMapContext) (isOptional, isHardOptional bool) {
 	mods := tr.TypeModifiers()
 	if mods == nil {
 		return false, false

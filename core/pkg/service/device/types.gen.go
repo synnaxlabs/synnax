@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -33,6 +33,6 @@ type Device struct {
 	Model string `json:"model" msgpack:"model"`
 	Name string `json:"name" msgpack:"name"`
 	Configured bool `json:"configured" msgpack:"configured"`
-	Status *Status `json:"status" msgpack:"status"`
+	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 	Properties string `json:"properties" msgpack:"properties"`
 }

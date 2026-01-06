@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,7 +14,13 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 
-export const keyZ = z.uint32();
+export const keyZ = z.uint32().or(
+  z
+    .string()
+    .refine((v) => !isNaN(Number(v)), { message: "Channel key must be a valid uint32" })
+    .transform(Number)
+    .pipe(z.uint32()),
+);
 export type Key = z.infer<typeof keyZ>;
 
 export const localKeyZ = zod.uint20Z;
@@ -28,6 +34,15 @@ export enum Concurrency {
 }
 export const concurrencyZ = z.enum(Concurrency);
 
+export const nameZ = z
+  .string()
+  .min(1, "Name is required")
+  .regex(
+    /^[a-zA-Z_][a-zA-Z0-9_]*$/,
+    "Name can only contain letters, digits, and underscores, and cannot start with a digit",
+  );
+export type Name = z.infer<typeof nameZ>;
+
 export const operationZ = z.object({
   type: operationTypeZ,
   resetChannel: keyZ.default(0),
@@ -37,7 +52,7 @@ export interface Operation extends z.infer<typeof operationZ> {}
 
 export const payloadZ = z.object({
   key: keyZ,
-  name: z.string(),
+  name: nameZ,
   leaseholder: zod.uint12Z,
   dataType: DataType.z,
   isIndex: z.boolean(),

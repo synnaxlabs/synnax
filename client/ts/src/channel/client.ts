@@ -20,7 +20,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type KeyOrName, type Name, type Params } from "@/channel/payload";
+import { type KeyOrName, type Params } from "@/channel/payload";
 import {
   analyzeParams,
   CacheRetriever,
@@ -33,6 +33,7 @@ import {
 import {
   type Key,
   keyZ,
+  type Name,
   type New,
   ontologyID,
   type Operation,
@@ -42,8 +43,8 @@ import {
 import { type Writer } from "@/channel/writer";
 import { ValidationError } from "@/errors";
 import { type framer } from "@/framer";
+import { group } from "@/group";
 import { type ontology } from "@/ontology";
-import { group } from "@/ontology/group";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 interface CreateOptions {

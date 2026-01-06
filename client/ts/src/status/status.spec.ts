@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import z from "zod";
 
 import { ontology } from "@/ontology";
-import { group } from "@/ontology/group";
+import { group } from "@/group";
 import { status } from "@/status";
 import { createTestClient } from "@/testutil/client";
 

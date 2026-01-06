@@ -15,12 +15,14 @@ import "github.com/synnaxlabs/oracle/resolution"
 
 // Rules contains the parsed validation constraints from a @validate domain.
 type Rules struct {
-	Required  bool
-	MinLength *int64
-	MaxLength *int64
-	Min       *Number
-	Max       *Number
-	Default   *resolution.ExpressionValue
+	Required       bool
+	MinLength      *int64
+	MaxLength      *int64
+	Min            *Number
+	Max            *Number
+	Default        *resolution.ExpressionValue
+	Pattern        *string
+	PatternMessage *string
 }
 
 // Number represents a numeric constraint value that can be int or float.
@@ -62,6 +64,11 @@ func Parse(domain resolution.Domain) *Rules {
 			}
 		case "default":
 			rules.Default = &v
+		case "pattern":
+			rules.Pattern = &v.StringValue
+			if len(expr.Values) > 1 {
+				rules.PatternMessage = &expr.Values[1].StringValue
+			}
 		}
 	}
 	return rules
@@ -73,5 +80,5 @@ func IsEmpty(r *Rules) bool {
 		return true
 	}
 	return !r.Required && r.MinLength == nil && r.MaxLength == nil &&
-		r.Min == nil && r.Max == nil && r.Default == nil
+		r.Min == nil && r.Max == nil && r.Default == nil && r.Pattern == nil
 }

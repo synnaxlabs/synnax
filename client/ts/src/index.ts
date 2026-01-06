@@ -39,7 +39,7 @@ export { Frame } from "@/framer/frame";
 export { kv } from "@/kv";
 export { label } from "@/label";
 export { ontology } from "@/ontology";
-export { group } from "@/ontology/group";
+export { group } from "@/group";
 export { rack } from "@/rack";
 export { range } from "@/range";
 export { status } from "@/status";

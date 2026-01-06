@@ -10,10 +10,10 @@
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { range } from "@/range";
+import { keyZ as rangeKeyZ } from "@/range/payload";
 
 export const pairZ = z.object({
-  range: range.keyZ,
+  range: rangeKeyZ,
   key: z.string(),
   value: z.string(),
 });
@@ -23,7 +23,7 @@ export const pairKey = ({ range, key }: Omit<Pair, "value">): string =>
   `${range}<--->${key}`;
 
 export const getRequestZ = z.object({
-  range: range.keyZ,
+  range: rangeKeyZ,
   keys: z.string().array(),
 });
 export interface GetRequest extends z.infer<typeof getRequestZ> {}
@@ -32,13 +32,13 @@ export const getResponseZ = z.object({ pairs: array.nullishToEmpty(pairZ) });
 export interface GetResponse extends z.infer<typeof getResponseZ> {}
 
 export const setRequestZ = z.object({
-  range: range.keyZ,
+  range: rangeKeyZ,
   pairs: pairZ.array(),
 });
 export interface SetRequest extends z.infer<typeof setRequestZ> {}
 
 export const deleteRequestZ = z.object({
-  range: range.keyZ,
+  range: rangeKeyZ,
   keys: z.string().array(),
 });
 export interface DeleteRequest extends z.infer<typeof deleteRequestZ> {}

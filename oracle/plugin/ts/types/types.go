@@ -362,29 +362,72 @@ func (p *Plugin) processEnum(e resolution.Type) enumData {
 }
 
 func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefData {
+	// Check for @ts transform_string directive with optional error message
+	var transformStringMsg *string
+	if tsDomain, ok := td.Domains["ts"]; ok {
+		for _, expr := range tsDomain.Expressions {
+			if expr.Name == "transform_string" {
+				// Default error message based on type name
+				defaultMsg := fmt.Sprintf("%s must be a valid number", td.Name)
+				if len(expr.Values) > 0 && expr.Values[0].StringValue != "" {
+					transformStringMsg = &expr.Values[0].StringValue
+				} else {
+					transformStringMsg = &defaultMsg
+				}
+				break
+			}
+		}
+	}
+
 	switch form := td.Form.(type) {
 	case resolution.DistinctForm:
 		// Check for @ts type override on the distinct type itself
 		if typeOverride := getTypeTypeOverride(td, "ts"); typeOverride != "" {
+			zodType := primitiveToZod(typeOverride, data, false)
+			// Apply validation rules if present
+			if validateDomain, ok := td.Domains["validate"]; ok {
+				result := p.applyValidation(zodType, validateDomain, form.Base, td.Name, data.Request.Resolutions)
+				zodType = result.ZodType
+			}
+			// Apply @ts transform_string if present
+			if transformStringMsg != nil {
+				zodType = fmt.Sprintf("%s.or(z.string().refine((v) => !isNaN(Number(v)), { message: %q }).transform(Number).pipe(%s))", zodType, *transformStringMsg, zodType)
+			}
 			return typeDefData{
 				Name:    td.Name,
 				TSName:  td.Name,
 				TSType:  primitiveToTS(typeOverride),
-				ZodType: primitiveToZod(typeOverride, data, false),
+				ZodType: zodType,
 			}
+		}
+		zodType := p.typeDefBaseToZod(&form.Base, data)
+		// Apply validation rules if present
+		if validateDomain, ok := td.Domains["validate"]; ok {
+			result := p.applyValidation(zodType, validateDomain, form.Base, td.Name, data.Request.Resolutions)
+			zodType = result.ZodType
+		}
+		// Apply @ts transform_string if present
+		if transformStringMsg != nil {
+			zodType = fmt.Sprintf("%s.or(z.string().refine((v) => !isNaN(Number(v)), { message: %q }).transform(Number).pipe(%s))", zodType, *transformStringMsg, zodType)
 		}
 		return typeDefData{
 			Name:    td.Name,
 			TSName:  td.Name,
 			TSType:  p.typeDefBaseToTS(&form.Base, data),
-			ZodType: p.typeDefBaseToZod(&form.Base, data),
+			ZodType: zodType,
 		}
 	case resolution.AliasForm:
+		zodType := p.typeDefBaseToZod(&form.Target, data)
+		// Apply validation rules if present
+		if validateDomain, ok := td.Domains["validate"]; ok {
+			result := p.applyValidation(zodType, validateDomain, form.Target, td.Name, data.Request.Resolutions)
+			zodType = result.ZodType
+		}
 		return typeDefData{
 			Name:    td.Name,
 			TSName:  td.Name,
 			TSType:  p.typeDefBaseToTS(&form.Target, data),
-			ZodType: p.typeDefBaseToZod(&form.Target, data),
+			ZodType: zodType,
 		}
 	default:
 		return typeDefData{Name: td.Name, TSName: td.Name, TSType: "unknown", ZodType: "z.unknown()"}
@@ -1437,6 +1480,13 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 		}
 		if rules.MaxLength != nil {
 			zodType = fmt.Sprintf("%s.max(%d)", zodType, *rules.MaxLength)
+		}
+		if rules.Pattern != nil {
+			if rules.PatternMessage != nil {
+				zodType = fmt.Sprintf("%s.regex(/%s/, %q)", zodType, *rules.Pattern, *rules.PatternMessage)
+			} else {
+				zodType = fmt.Sprintf("%s.regex(/%s/)", zodType, *rules.Pattern)
+			}
 		}
 	}
 	if isNumber {

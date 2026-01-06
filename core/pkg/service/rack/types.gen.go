@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -28,5 +28,5 @@ type Rack struct {
 	Name string `json:"name" msgpack:"name"`
 	TaskCounter uint32 `json:"task_counter" msgpack:"task_counter"`
 	Embedded bool `json:"embedded" msgpack:"embedded"`
-	Status *Status `json:"status" msgpack:"status"`
+	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }

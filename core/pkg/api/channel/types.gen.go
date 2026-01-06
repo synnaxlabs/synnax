@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,7 +20,7 @@ import (
 
 type Channel struct {
 	Key distributionchannel.Key `json:"key" msgpack:"key"`
-	Name string `json:"name" msgpack:"name"`
+	Name distributionchannel.Name `json:"name" msgpack:"name"`
 	Leaseholder types.Uint12 `json:"leaseholder" msgpack:"leaseholder"`
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	IsIndex bool `json:"is_index" msgpack:"is_index"`

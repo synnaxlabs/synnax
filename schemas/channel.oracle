@@ -15,12 +15,21 @@ import "schemas/control"
 @pb
 
 Key uint32 {
-    @go output "core/pkg/distribution/channel"
+    @go output           "core/pkg/distribution/channel"
+    @ts transform_string "Channel key must be a valid uint32"
 }
 
 LocalKey uint20 {
     @go output "core/pkg/distribution/channel"
     @py omit
+}
+
+Name = string {
+    @validate {
+        required
+        pattern "^[a-zA-Z_][a-zA-Z0-9_]*$" "Name can only contain letters, digits, and underscores, and cannot start with a digit"
+    }
+    @go output "core/pkg/distribution/channel"
 }
 
 OperationType enum {
@@ -43,7 +52,7 @@ Operation struct {
 }
 
 Channel struct {
-    name        string
+    name        Name
     leaseholder node.Key
     data_type   data_type
     is_index    bool
@@ -63,7 +72,7 @@ Channel struct {
 
 APIChannel struct {
     key         Key                  @key
-    name        string
+    name        Name
     leaseholder uint12
     data_type   data_type
     is_index    bool

@@ -12,7 +12,7 @@ import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
-import { group } from "@/ontology/group";
+import { group } from "@/group";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import {
   type Key,

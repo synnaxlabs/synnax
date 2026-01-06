@@ -47,7 +47,7 @@ else
 fi
 
 # Get the current year
-CURRENT_YEAR=2025
+CURRENT_YEAR=$(date +%Y)
 
 # Read the base header template from licenses/headers/template.txt
 HEADER_TEMPLATE_FILE="$GIT_ROOT/licenses/headers/template.txt"

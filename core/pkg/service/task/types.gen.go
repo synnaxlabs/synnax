@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -33,7 +33,7 @@ type Task struct {
 	Internal bool `json:"internal" msgpack:"internal"`
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	Config string `json:"config" msgpack:"config"`
-	Status *Status `json:"status" msgpack:"status"`
+	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }
 
 type Command struct {

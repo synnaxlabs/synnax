@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -75,7 +75,7 @@ func ChannelToPB(ctx context.Context, r channel.Channel) (*Channel, error) {
 		return nil, err
 	}
 	pb := &Channel{
-		Name: r.Name,
+		Name: string(r.Name),
 		Leaseholder: uint32(r.Leaseholder),
 		DataType: string(r.DataType),
 		IsIndex: r.IsIndex,
@@ -101,7 +101,7 @@ func ChannelFromPB(ctx context.Context, pb *Channel) (channel.Channel, error) {
 	if err != nil {
 		return r, err
 	}
-	r.Name = pb.Name
+	r.Name = channel.Name(pb.Name)
 	r.Leaseholder = node.Key(pb.Leaseholder)
 	r.DataType = telem.DataType(pb.DataType)
 	r.IsIndex = pb.IsIndex

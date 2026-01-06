@@ -936,6 +936,87 @@ var _ = Describe("Go Types Plugin", func() {
 			})
 		})
 
+		Context("hard optional fields", func() {
+			It("Should generate pointer type with omitempty for hard optional fields", func() {
+				source := `
+				@go output "core/user"
+
+				User struct {
+					key uuid
+					name string
+					nickname string??
+					age int32??
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				Expect(diag.HasErrors()).To(BeFalse())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp, err := goPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				content := string(resp.Files[0].Content)
+				// Required fields should not have omitempty
+				Expect(content).To(ContainSubstring("Key uuid.UUID `json:\"key\" msgpack:\"key\"`"))
+				Expect(content).To(ContainSubstring("Name string `json:\"name\" msgpack:\"name\"`"))
+				// Hard optional fields should have pointer type and omitempty
+				Expect(content).To(ContainSubstring("Nickname *string `json:\"nickname,omitempty\" msgpack:\"nickname,omitempty\"`"))
+				Expect(content).To(ContainSubstring("Age *int32 `json:\"age,omitempty\" msgpack:\"age,omitempty\"`"))
+			})
+
+			It("Should not use pointer for hard optional arrays", func() {
+				source := `
+				@go output "core/config"
+
+				Config struct {
+					tags string[]??
+					counts int32[]??
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+				Expect(diag.HasErrors()).To(BeFalse())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp, err := goPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				content := string(resp.Files[0].Content)
+				// Arrays should not be pointers but should still have omitempty
+				Expect(content).To(ContainSubstring("Tags []string `json:\"tags,omitempty\" msgpack:\"tags,omitempty\"`"))
+				Expect(content).To(ContainSubstring("Counts []int32 `json:\"counts,omitempty\" msgpack:\"counts,omitempty\"`"))
+			})
+
+			It("Should not use pointer for hard optional maps", func() {
+				source := `
+				@go output "core/config"
+
+				Config struct {
+					settings map<string, string>??
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+				Expect(diag.HasErrors()).To(BeFalse())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp, err := goPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				content := string(resp.Files[0].Content)
+				// Maps should not be pointers but should still have omitempty
+				Expect(content).To(ContainSubstring("Settings map[string]string `json:\"settings,omitempty\" msgpack:\"settings,omitempty\"`"))
+			})
+
+		})
+
 		Context("regression tests", func() {
 			It("Should use alias type name in struct fields instead of expanded target", func() {
 				// Regression test: When a struct field references a type alias,

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,6 +22,8 @@ type Key uint32
 
 type LocalKey types.Uint20
 
+type Name = string
+
 type OperationType string
 
 const (
@@ -38,7 +40,7 @@ type Operation struct {
 }
 
 type Channel struct {
-	Name string `json:"name" msgpack:"name"`
+	Name Name `json:"name" msgpack:"name"`
 	Leaseholder node.Key `json:"leaseholder" msgpack:"leaseholder"`
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	IsIndex bool `json:"is_index" msgpack:"is_index"`

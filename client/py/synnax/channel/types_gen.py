@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Literal
+from typing import Literal, TypeAlias
 
 from pydantic import BaseModel, Field
 
@@ -31,6 +31,9 @@ class Concurrency(IntEnum):
     shared = 1
 
 
+Name: TypeAlias = str
+
+
 class Operation(BaseModel):
     type: OperationType
     reset_channel: Key = Field(default=0)
@@ -39,7 +42,7 @@ class Operation(BaseModel):
 
 class Payload(BaseModel):
     key: Key
-    name: str
+    name: Name
     leaseholder: int
     data_type: DataType
     is_index: bool

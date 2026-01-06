@@ -10,26 +10,16 @@
 import { zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Key, keyZ, type Payload, payloadZ } from "@/channel/types.gen";
+import {
+  type Key,
+  keyZ,
+  type Name,
+  nameZ,
+  type Payload,
+  payloadZ,
+} from "@/channel/types.gen";
 
-// const errorMessage = "Channel key must be a valid uint32.";
-// export const keyZ = z.uint32().or(
-//   z
-//     .string()
-//     .refine((val) => !isNaN(Number(val)), { message: errorMessage })
-//     .transform(Number)
-//     .refine((val) => val < math.MAX_UINT32, { message: errorMessage }),
-// );
-export type PrimitiveParams = Key | Name | Keys | Names;
-const VALID_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-export const nameZ = z
-  .string()
-  .min(1, "Name must not be empty")
-  .regex(
-    VALID_NAME_PATTERN,
-    "Name can only contain letters, digits, and underscores, and cannot start with a digit",
-  );
-export type Name = z.infer<typeof nameZ>;
+export type PrimitiveParams = Key | Keys | Names;
 
 export const paramsZ = z.union([
   zod.toArray(keyZ),
@@ -43,6 +33,7 @@ export type KeysOrNames = Key | Name | Keys | Names;
 export type Params = Key | Name | Keys | Names | Payload | Payload[];
 export type KeyOrName = Key | Name;
 
+const VALID_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 const CHAR_REGEX = /[a-zA-Z0-9_]/;
 
 export const escapeInvalidName = (name: string, changeEmptyToUnderscore = false) => {

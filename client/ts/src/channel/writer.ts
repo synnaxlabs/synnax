@@ -11,11 +11,11 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { type DataType } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { nameZ } from "@/channel/payload";
 import { type CacheRetriever } from "@/channel/retriever";
 import {
   type Key,
   keyZ,
+  nameZ,
   type New,
   newZ,
   type Payload,

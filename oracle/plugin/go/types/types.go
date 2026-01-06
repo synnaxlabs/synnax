@@ -330,11 +330,12 @@ func processField(field resolution.Field, data *templateData) fieldData {
 		goType = "*" + goType
 	}
 	return fieldData{
-		GoName:     gointernal.ToPascalCase(field.Name),
-		GoType:     goType,
-		JSONName:   field.Name,
-		IsOptional: field.IsOptional || field.IsHardOptional,
-		Doc:        doc.Get(field.Domains),
+		GoName:         gointernal.ToPascalCase(field.Name),
+		GoType:         goType,
+		JSONName:       field.Name,
+		IsOptional:     field.IsOptional || field.IsHardOptional,
+		IsHardOptional: field.IsHardOptional,
+		Doc:            doc.Get(field.Domains),
 	}
 }
 
@@ -412,14 +413,18 @@ type typeParamData struct {
 }
 
 type fieldData struct {
-	GoName     string
-	GoType     string
-	JSONName   string
-	IsOptional bool
-	Doc        string
+	GoName         string
+	GoType         string
+	JSONName       string
+	IsOptional     bool
+	IsHardOptional bool
+	Doc            string
 }
 
 func (f fieldData) TagSuffix() string {
+	if f.IsHardOptional {
+		return ",omitempty"
+	}
 	return ""
 }
 
