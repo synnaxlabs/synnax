@@ -96,6 +96,10 @@ func start(cmd *cobra.Command) {
 		rootPassword        = viper.GetString(passwordFlag)
 		noDriver            = viper.GetBool(noDriverFlag)
 		keySize             = viper.GetInt(keySizeFlag)
+		taskOpTimeout       = viper.GetDuration(taskOpTimeoutFlag)
+		taskPollInterval    = viper.GetDuration(taskPollIntervalFlag)
+		taskShutdownTimeout = viper.GetDuration(taskShutdownTimeoutFlag)
+		taskWorkerCount     = viper.GetUint8(taskWorkerCountFlag)
 		ins                 = configureInstrumentation()
 	)
 	defer cleanupInstrumentation(ctx, ins)
@@ -269,20 +273,24 @@ func start(cmd *cobra.Command) {
 		if embeddedDriver, err = driver.OpenDriver(
 			ctx,
 			driver.Config{
-				Enabled:         config.Bool(!noDriver),
-				Insecure:        config.Bool(insecure),
-				Integrations:    parseIntegrationsFlag(),
-				Instrumentation: ins.Child("driver"),
-				Address:         listenAddress,
-				RackKey:         serviceLayer.Rack.EmbeddedKey,
-				ClusterKey:      distributionLayer.Cluster.Key(),
-				Username:        rootUsername,
-				Password:        rootPassword,
-				Debug:           config.Bool(debug),
-				CACertPath:      certLoaderConfig.AbsoluteCACertPath(),
-				ClientCertFile:  certLoaderConfig.AbsoluteNodeCertPath(),
-				ClientKeyFile:   certLoaderConfig.AbsoluteNodeKeyPath(),
-				ParentDirname:   workDir,
+				Enabled:             config.Bool(!noDriver),
+				Insecure:            config.Bool(insecure),
+				Integrations:        parseIntegrationsFlag(),
+				Instrumentation:     ins.Child("driver"),
+				Address:             listenAddress,
+				RackKey:             serviceLayer.Rack.EmbeddedKey,
+				ClusterKey:          distributionLayer.Cluster.Key(),
+				Username:            rootUsername,
+				Password:            rootPassword,
+				Debug:               config.Bool(debug),
+				CACertPath:          certLoaderConfig.AbsoluteCACertPath(),
+				ClientCertFile:      certLoaderConfig.AbsoluteNodeCertPath(),
+				ClientKeyFile:       certLoaderConfig.AbsoluteNodeKeyPath(),
+				ParentDirname:       workDir,
+				TaskOpTimeout:       taskOpTimeout,
+				TaskPollInterval:    taskPollInterval,
+				TaskShutdownTimeout: taskShutdownTimeout,
+				TaskWorkerCount:     taskWorkerCount,
 			},
 		); !ok(err, embeddedDriver) {
 			return err

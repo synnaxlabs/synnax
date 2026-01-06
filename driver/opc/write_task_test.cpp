@@ -496,7 +496,7 @@ TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
     ASSERT_NIL(sink->start());
 
     // Attempt to write to the invalid node
-    auto fr = telem::Frame(1);
+    auto fr = synnax::Frame(1);
     fr.emplace(
         invalid_cmd_channel.key,
         telem::Series(static_cast<uint32_t>(12345), telem::UINT32_T)
