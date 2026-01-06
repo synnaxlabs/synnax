@@ -1,0 +1,240 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Delete Data"
+description:
+  "Safe data deletion with idempotency guarantees and rollback considerations."
+next: "Build a Device Driver"
+nextURL: "/reference/client/advanced/build-device-driver"
+prev: "Iterators"
+prevURL: "/reference/client/advanced/iterators"
+clients: ["python", "typescript"]
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The Synnax client allows deletion of time ranges of data in any channel: after each
+deletion operation is complete, all future reads will no longer include the deleted
+data. However, it may take a while before the underlying file sizes decrease - this
+allows deletion operations to be served in a rapid manner and only actually collect the
+unwanted data when the load on the cluster is low.
+
+Note the differences between deleting data and deleting a channel - once a channel is
+deleted, it no longer exists; whereas when some data in a channel is deleted, that time
+range can be written over with new data or even more data can be deleted. Even if an
+entire channel's data is deleted, the channel is still in the database, albeit empty.
+
+<Divider.Divider x />
+
+## Deleting Data From a Channel
+
+The `delete` method of the client allows deletion of data (not to be confused with the
+`delete` method of the `Channel` class, which deletes channels). To delete a chunk of
+data, simply pass in the channel name(s) or key(s) and the time range to delete. As
+throughout Synnax, remember that a time range is **start-inclusive** and
+**end-exclusive**, i.e. data at the start time stamp is deleted and data at the end time
+stamp is not.
+
+For example, to remove data in the range `[00:01, 00:03)` on the `channel_1` and
+`channel_2` channels:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+client.delete(
+    ["channel_1", "channel_2"],
+    sy.TimeStamp(1 * sy.TimeSpan.SECOND).range(sy.TimeStamp(3 * sy.TimeSpan.SECOND))
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+await client.delete(
+  ["channel_1", "channel_2"],
+  TimeStamp.seconds(1).range(TimeStamp.seconds(3)),
+);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Note.Note variant="warning">
+  Using channel name(s) to delete data will delete data in **all** channels with the
+  given name(s). Using keys to delete is preferable to prevent accidental deletion.
+</Note.Note>
+
+### Idempotency
+
+The `delete` method is idempotent, meaning consecutive calls to `delete` on overlapping
+time ranges are allowed:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+# No additional data deleted after previous example call
+client.delete(
+    ["channel_1", "channel_2"],
+    sy.TimeStamp(1 * sy.TimeSpan.SECOND).range(sy.TimeStamp(3 * sy.TimeSpan.SECOND))
+)
+
+# 00:01 to 00:10 deleted
+client.delete(
+    ["channel_1", "channel_2"],
+    sy.TimeStamp(1 * sy.TimeSpan.SECOND).range(sy.TimeStamp(10 * sy.TimeSpan.SECOND))
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// No additional data deleted after previous example call
+await client.delete(
+  ["channel_1", "channel_2"],
+  TimeStamp.seconds(1).range(TimeStamp.seconds(3)),
+);
+
+// 00:01 to 00:10 deleted
+await client.delete(
+  ["channel_1", "channel_2"],
+  TimeStamp.seconds(1).range(TimeStamp.seconds(10)),
+);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Limitations of Deletions
+
+In some situations, `delete` raises an error. If some channel keys or names do not exist
+in the database, the entirety of the `delete` operation fails, no data is deleted, and a
+`NotFound` error is returned:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+# Suppose 111 and 112 are keys to channels that do exist. Since 113
+# does not exist, none of these channels' data get deleted.
+client.delete([111, 112, 113], time_range_to_delete)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// Suppose 111 and 112 are keys to channels that do exist. Since 113
+// does not exist, none of these channels' data get deleted.
+await client.delete([111, 112, 113], timeRangeToDelete);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+In the case where a requested channel is not found, `delete` is atomic: no data will be
+deleted and the operation will fail. However, in all other cases, `delete` is **not**
+atomic: failure in deleting data on one channel halts the entire operation and raises an
+error immediately.
+
+### Index Channel Dependencies
+
+If a `delete` call is made to an index channel that other channels depend on in the
+requested time range, an error is raised:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+# If my_tc is indexed by my_index_ch from 1 second to 3 seconds,
+# my_index_ch cannot be deleted. This call raises an error.
+client.delete(
+    ["my_index_ch"],
+    sy.TimeStamp(1 * sy.TimeSpan.SECOND).range(sy.TimeStamp(3 * sy.TimeSpan.SECOND))
+)
+
+# If my_tc, the dependent, is deleted at the same time as my_index_ch,
+# no errors are raised.
+client.delete(
+    ["my_tc", "my_index_ch"],
+    sy.TimeStamp(1 * sy.TimeSpan.SECOND).range(sy.TimeStamp(3 * sy.TimeSpan.SECOND))
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// If my_tc is indexed by my_index_ch from 1 second to 3 seconds,
+// my_index_ch cannot be deleted. This call raises an error.
+await client.delete(["my_index_ch"], TimeStamp.seconds(1).range(TimeStamp.seconds(3)));
+
+// If my_tc, the dependent, is deleted at the same time as my_index_ch,
+// no errors are raised.
+await client.delete(
+  ["my_tc", "my_index_ch"],
+  TimeStamp.seconds(1).range(TimeStamp.seconds(3)),
+);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+### Active Writer Conflicts
+
+`delete` calls on any channel with a writer whose start time is before the deleting time
+range will raise an error. This is to ensure that the writer and the deleter do not
+contend over data in the same region.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+writer = client.open_writer(
+    start=sy.TimeStamp(10 * sy.TimeSpan.SECOND),
+    channels=["my_tc"],
+)
+
+# Error raised since writer start 00:10 is before deleting time range [00:12 - 00:30)
+client.delete(
+    ["my_tc"],
+    sy.TimeStamp(12 * sy.TimeSpan.SECOND).range(sy.TimeStamp(30 * sy.TimeSpan.SECOND))
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const writer = await client.openWriter({
+  start: TimeStamp.seconds(10),
+  channels: ["my_tc"],
+});
+
+// Error raised since writer start 00:10 is before deleting time range [00:12 - 00:30)
+await client.delete(["my_tc"], TimeStamp.seconds(12).range(TimeStamp.seconds(30)));
+```
+
+  </Fragment>
+</Client.Tabs>
+
+Once writers starting before the deleting time range are closed, calls to `delete` may
+proceed normally.
