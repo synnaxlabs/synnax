@@ -266,6 +266,15 @@ void task::Manager::stop_workers() {
         if (w.done->load())
             w.thread.join();
         else {
+            // NOTE: C++ has no safe way to forcibly terminate threads. Detaching here
+            // means the thread may access freed Manager resources (use-after-free).
+            // This is acceptable because:
+            // 1. Manager destruction only occurs during process shutdown
+            // 2. The OS will terminate all threads when the process exits
+            // 3. The alternative (waiting forever) would hang shutdown
+            // If this becomes a mid-process operation, we'd need to either:
+            // - Ensure all tasks respect stop() within the timeout
+            // - Move tasks to child processes that can be safely killed
             LOG(WARNING) << "worker thread did not finish in time, detaching";
             w.thread.detach();
         }
@@ -277,24 +286,38 @@ void task::Manager::stop_workers() {
 void task::Manager::worker_loop() {
     while (this->breaker.running()) {
         std::unique_lock<std::mutex> lock(this->mu);
+        // Wait until there's work we can actually process - not just ops in the queue,
+        // but ops whose entries aren't currently being processed by another worker.
         this->cv.wait(lock, [this] {
-            return !this->breaker.running() || !this->op_queue.empty();
+            if (!this->breaker.running()) return true;
+            for (const auto &op : this->op_queue) {
+                const auto it = this->entries.find(op.task_key);
+                if (it != this->entries.end() && !it->second->processing.load())
+                    return true;
+            }
+            return false;
         });
         if (!this->breaker.running()) break;
+
+        // Find and claim the first available op.
+        std::shared_ptr<Entry> entry;
+        Op op;
         for (auto it = this->op_queue.begin(); it != this->op_queue.end(); ++it) {
-            auto entry = this->entries[it->task_key];
-            if (!entry->processing.exchange(true)) {
-                Op op = std::move(*it);
-                this->op_queue.erase(it);
-                entry->op_started = telem::TimeStamp::now();
-                lock.unlock();
-                this->execute_op(op, entry);
-                entry->op_started = telem::TimeStamp(0);
-                entry->processing = false;
-                this->cv.notify_all();
-                break;
-            }
+            const auto e = this->entries[it->task_key];
+            if (e->processing.exchange(true)) continue;
+            entry = e;
+            op = std::move(*it);
+            this->op_queue.erase(it);
+            break;
         }
+        if (!entry) continue;
+
+        entry->op_started = telem::TimeStamp::now();
+        lock.unlock();
+        this->execute_op(op, entry);
+        entry->op_started = telem::TimeStamp(0);
+        entry->processing = false;
+        this->cv.notify_all();
     }
 }
 
