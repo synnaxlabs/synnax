@@ -49,10 +49,10 @@ Function ServiceOptionsPage
     ${NSD_CreateLabel} 0 45u 100% 12u "Data directory:"
     Pop $DataDirLabel
 
-    ${NSD_CreateText} 0 58u 100% 12u "$LOCALAPPDATA\Synnax\data"
+    ${NSD_CreateText} 0 58u 100% 12u "C:\ProgramData\Synnax\data"
     Pop $DataDirText
 
-    ${NSD_CreateLabel} 0 78u 100% 36u "If checked, Synnax will run in the background as a Windows Service. The service can be managed via 'synnax service' commands or the Windows Services console (services.msc)."
+    ${NSD_CreateLabel} 0 78u 100% 48u "If checked, Synnax will run in the background as a Windows Service. The service can be managed via 'synnax service' commands (install, uninstall, start, stop, status) or the Windows Services console (services.msc)."
 
     nsDialogs::Show
 FunctionEnd
@@ -73,8 +73,8 @@ Section "MainSection" SEC01
     DetailPrint "Checking for existing service..."
     nsExec::ExecToStack '"$INSTDIR\synnax-server.exe" service stop'
     Pop $0
-    ; Wait for graceful shutdown
-    Sleep 6000
+    ; Wait for graceful shutdown (service has 30s timeout, we wait 10s)
+    Sleep 10000
     nsExec::ExecToStack '"$INSTDIR\synnax-server.exe" service uninstall'
     Pop $0
 
@@ -143,8 +143,8 @@ Section "Uninstall"
     DetailPrint "Stopping Synnax service..."
     nsExec::ExecToStack '"$INSTDIR\synnax-server.exe" service stop'
     Pop $0
-    ; Wait for graceful shutdown
-    Sleep 6000
+    ; Wait for graceful shutdown (service has 30s timeout, we wait 10s)
+    Sleep 10000
 
     DetailPrint "Uninstalling Synnax service..."
     nsExec::ExecToStack '"$INSTDIR\synnax-server.exe" service uninstall'

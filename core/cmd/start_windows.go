@@ -12,34 +12,19 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
-
-	"golang.org/x/sys/windows/svc"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/cmd/svc"
 )
 
 func disablePermissionBits() {}
 
-// RunMain is the entry point for the Synnax CLI on Windows.
-// It detects whether the process is running as a Windows Service or as a console application
-// and routes to the appropriate startup path.
+// RunMain is the entry point for the Synnax CLI on Windows. It detects whether the
+// process is running as a Windows Service or as an application and routes to the
+// appropriate startup path.
 func RunMain() {
-	isService, err := svc.IsWindowsService()
-	if err != nil {
-		// If we can't determine, assume console mode
-		fmt.Fprintf(os.Stderr, "Warning: failed to detect service mode: %v\n", err)
-		Execute()
+	if lo.Must(svc.IsService()) {
+		lo.Must0(svc.RunAsService(startServer))
 		return
 	}
-
-	if isService {
-		// Running as a Windows Service
-		if err := runAsWindowsService(); err != nil {
-			fmt.Fprintf(os.Stderr, "Service error: %v\n", err)
-			os.Exit(1)
-		}
-	} else {
-		// Running as a console application
-		Execute()
-	}
+	Execute()
 }

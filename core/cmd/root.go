@@ -15,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/synnaxlabs/synnax/cmd/svc"
 	"go.uber.org/zap"
 )
 
@@ -46,6 +47,9 @@ func Execute() {
 func init() {
 	configureRootFlags()
 	bindFlags(root)
+	if err := svc.RegisterCommands(root); err != nil {
+		panic(err)
+	}
 	cobra.OnInitialize(initConfig)
 }
 

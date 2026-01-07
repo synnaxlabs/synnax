@@ -395,3 +395,138 @@ You'll see output similar to the following:
 ### Flags
 
 This command has no flags.
+
+<Divider.Divider x />
+
+## Service (Windows Only)
+
+The `service` command manages Synnax as a Windows Service. These commands are only
+available on Windows and require administrator privileges.
+
+When running as a Windows Service, Synnax will:
+- Start automatically when Windows boots (if configured)
+- Receive proper shutdown signals for graceful termination
+- Log events to the Windows Event Log
+- Automatically restart on failure
+
+### service install
+
+Installs Synnax as a Windows Service. Server configuration flags are stored in the
+service configuration and used when the service starts.
+
+#### Examples
+
+Install with default settings (auto-start enabled, insecure mode):
+
+```cmd
+synnax service install --insecure
+```
+
+Install with custom data directory and listen address:
+
+```cmd
+synnax service install --listen 0.0.0.0:9090 --data C:\ProgramData\Synnax\data --insecure
+```
+
+Install without auto-start:
+
+```cmd
+synnax service install --auto-start=false --insecure
+```
+
+#### Flags
+
+<Table
+  columns={[
+    { key: "option", name: "Flag", type: "code", width: 180 },
+    { key: "default", name: "Default", type: "code" },
+    { key: "description", name: "Description", type: "html" },
+  ]}
+  data={[
+    {
+      option: "--auto-start",
+      default: "true",
+      description: "Start the service automatically when Windows starts.",
+    },
+    {
+      option: "--delayed-start",
+      default: "false",
+      description: "Delay service start until after Windows startup completes.",
+    },
+    {
+      option: "--listen/-l",
+      default: '"localhost:9090"',
+      description: "The address to listen for client connections.",
+    },
+    {
+      option: "--data/-d",
+      default: '"C:\\ProgramData\\Synnax\\data"',
+      description: "Directory where Synnax will store its data.",
+    },
+    {
+      option: "--insecure/-i",
+      default: "false",
+      description: "Disable encryption, authentication, and authorization.",
+    },
+    {
+      option: "--username",
+      default: '"synnax"',
+      description: "Username for the admin user.",
+    },
+    {
+      option: "--password",
+      default: '"seldon"',
+      description: "Password for the admin user.",
+    },
+    {
+      option: "--auto-cert",
+      default: "false",
+      description: "Automatically generate self-signed certificates.",
+    },
+    {
+      option: "--no-driver",
+      default: "false",
+      description: "Disable the embedded Synnax driver.",
+    },
+    {
+      option: "--enable-integrations",
+      default: "[]",
+      description: "Device integrations to enable (labjack, modbus, ni, opc, sequence).",
+    },
+    {
+      option: "--disable-integrations",
+      default: "[]",
+      description: "Device integrations to disable (labjack, modbus, ni, opc, sequence).",
+    },
+    {
+      option: "--peers/-p",
+      default: "[]",
+      description: "Addresses of additional peers in the cluster.",
+    },
+  ]}
+/>
+
+### service uninstall
+
+Removes the Synnax Windows Service. This will stop the service if it is running
+and remove it from the system.
+
+```cmd
+synnax service uninstall
+```
+
+### service start
+
+Starts the installed Synnax Windows Service.
+
+```cmd
+synnax service start
+```
+
+### service stop
+
+Stops the running Synnax Windows Service.
+
+```cmd
+synnax service stop
+```
