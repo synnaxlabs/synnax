@@ -13,10 +13,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/synnaxlabs/synnax/cmd/svc"
+	"github.com/synnaxlabs/synnax/cmd/service"
 	"go.uber.org/zap"
 )
 
@@ -48,7 +47,7 @@ func Execute() {
 func init() {
 	configureRootFlags()
 	bindFlags(root)
-	lo.Must0(svc.RegisterCommands(root))
+	service.RegisterCommands(root)
 	cobra.OnInitialize(initConfig)
 }
 

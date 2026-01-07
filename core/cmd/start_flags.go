@@ -18,7 +18,7 @@ import (
 )
 
 func configureStartFlags() {
-	flags.ConfigureServerFlags(startCmd)
+	flags.ConfigureServer(startCmd)
 }
 
 func parseIntegrationsFlag() []string {

@@ -37,9 +37,9 @@ const (
 	TaskWorkerCount     = "task-worker-count"
 )
 
-// ConfigureServerFlags adds the common server configuration flags to the given command.
-// This is used by both the start command and the service install command.
-func ConfigureServerFlags(cmd *cobra.Command) {
+// ConfigureServer adds the common server configuration flags to the given command. This
+// is used by both the start command and the service install command.
+func ConfigureServer(cmd *cobra.Command) {
 	cmd.Flags().StringP(
 		Listen,
 		"l",

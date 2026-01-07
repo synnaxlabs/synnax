@@ -9,7 +9,7 @@
 
 //go:build windows
 
-package svc
+package service
 
 import (
 	"github.com/spf13/cobra"
@@ -33,7 +33,7 @@ enabling graceful shutdown of both the Core and embedded Driver.`,
 	Args: cobra.NoArgs,
 }
 
-var serviceInstallCmd = &cobra.Command{
+var installCmd = &cobra.Command{
 	Use:   "install [flags]",
 	Short: "Install Synnax as a Windows Service",
 	Long: `Install Synnax as a Windows Service.
@@ -46,7 +46,7 @@ Example:
 	RunE: runInstall,
 }
 
-var serviceUninstallCmd = &cobra.Command{
+var uninstallCmd = &cobra.Command{
 	Use:   "uninstall",
 	Short: "Uninstall Synnax Windows Service",
 	Long: `Uninstall the Synnax Windows Service.
@@ -56,43 +56,38 @@ This will stop the service if it is running and remove it from the system.`,
 	RunE: runUninstall,
 }
 
-var serviceStartCmd = &cobra.Command{
+var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start the Synnax Windows Service",
 	Args:  cobra.NoArgs,
 	RunE:  runStart,
 }
 
-var serviceStopCmd = &cobra.Command{
+var stopCmd = &cobra.Command{
 	Use:   "stop",
 	Short: "Stop the Synnax Windows Service",
 	Args:  cobra.NoArgs,
 	RunE:  runStop,
 }
 
-// RegisterCommands registers the service command and all subcommands with the given
-// root command.
-func RegisterCommands(root *cobra.Command) {
-	root.AddCommand(serviceCmd)
-	serviceCmd.AddCommand(serviceInstallCmd)
-	serviceCmd.AddCommand(serviceUninstallCmd)
-	serviceCmd.AddCommand(serviceStartCmd)
-	serviceCmd.AddCommand(serviceStopCmd)
-	configureServiceInstallFlags()
-}
-
-func configureServiceInstallFlags() {
-	serviceInstallCmd.Flags().Bool(
+// RegisterCommands registers the service subcommand to the given parent command.
+func RegisterCommands(cmd *cobra.Command) {
+	cmd.AddCommand(serviceCmd)
+	serviceCmd.AddCommand(installCmd)
+	installCmd.Flags().Bool(
 		autoStartFlag,
 		true,
 		"Start the service automatically when Windows starts",
 	)
-	serviceInstallCmd.Flags().Bool(
+	installCmd.Flags().Bool(
 		delayedStartFlag,
 		false,
 		"Delay service start until after Windows startup completes",
 	)
-	flags.ConfigureServerFlags(serviceInstallCmd)
+	flags.ConfigureServer(installCmd)
+	serviceCmd.AddCommand(uninstallCmd)
+	serviceCmd.AddCommand(startCmd)
+	serviceCmd.AddCommand(stopCmd)
 }
 
 func buildConfigFromFlags(c *cobra.Command) (Config, error) {

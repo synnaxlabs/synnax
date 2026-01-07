@@ -9,13 +9,13 @@
 
 //go:build windows
 
-package svc_test
+package service_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/viper"
-	"github.com/synnaxlabs/synnax/cmd/svc"
+	"github.com/synnaxlabs/synnax/cmd/service"
 )
 
 var _ = Describe("ParseServiceArgs", func() {
@@ -25,28 +25,28 @@ var _ = Describe("ParseServiceArgs", func() {
 
 	Describe("key=value format", func() {
 		It("should parse correctly", func() {
-			Expect(svc.ParseServiceArgs([]string{"--listen=0.0.0.0:9090"})).To(Succeed())
+			Expect(service.ParseServiceArgs([]string{"--listen=0.0.0.0:9090"})).To(Succeed())
 			Expect(viper.GetString("listen")).To(Equal("0.0.0.0:9090"))
 		})
 	})
 
 	Describe("key value format", func() {
 		It("should parse correctly", func() {
-			Expect(svc.ParseServiceArgs([]string{"--listen", "0.0.0.0:9090"})).To(Succeed())
+			Expect(service.ParseServiceArgs([]string{"--listen", "0.0.0.0:9090"})).To(Succeed())
 			Expect(viper.GetString("listen")).To(Equal("0.0.0.0:9090"))
 		})
 	})
 
 	Describe("boolean flag", func() {
 		It("should parse correctly", func() {
-			Expect(svc.ParseServiceArgs([]string{"--insecure"})).To(Succeed())
+			Expect(service.ParseServiceArgs([]string{"--insecure"})).To(Succeed())
 			Expect(viper.GetString("insecure")).To(Equal("true"))
 		})
 	})
 
 	Describe("multiple flags", func() {
 		It("should parse all flags correctly", func() {
-			Expect(svc.ParseServiceArgs([]string{
+			Expect(service.ParseServiceArgs([]string{
 				"--listen", "0.0.0.0:9090",
 				"--insecure",
 				"--data", "/path/to/data",
@@ -59,7 +59,7 @@ var _ = Describe("ParseServiceArgs", func() {
 
 	Describe("mixed formats", func() {
 		It("should parse all formats correctly", func() {
-			Expect(svc.ParseServiceArgs([]string{
+			Expect(service.ParseServiceArgs([]string{
 				"--listen=localhost:9090",
 				"--insecure",
 				"--data", "/data",
@@ -72,13 +72,13 @@ var _ = Describe("ParseServiceArgs", func() {
 
 	Describe("empty args", func() {
 		It("should not error", func() {
-			Expect(svc.ParseServiceArgs([]string{})).To(Succeed())
+			Expect(service.ParseServiceArgs([]string{})).To(Succeed())
 		})
 	})
 
 	Describe("args without dashes", func() {
 		It("should ignore non-flag arguments", func() {
-			Expect(svc.ParseServiceArgs([]string{"notaflag", "--listen", "0.0.0.0:9090"})).To(Succeed())
+			Expect(service.ParseServiceArgs([]string{"notaflag", "--listen", "0.0.0.0:9090"})).To(Succeed())
 			Expect(viper.GetString("listen")).To(Equal("0.0.0.0:9090"))
 		})
 	})

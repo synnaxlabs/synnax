@@ -10,7 +10,7 @@
 // Package svc provides service management functionality for Synnax. This package
 // encapsulates all service-related operations including installation, uninstallation,
 // starting, and stopping. Currently, only Windows service is supported.
-package svc
+package service
 
 // Config holds the configuration for installing the Synnax service. These settings are
 // stored in the service configuration and used when the service starts.

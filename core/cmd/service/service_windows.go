@@ -9,7 +9,7 @@
 
 //go:build windows
 
-package svc
+package service
 
 import (
 	"context"

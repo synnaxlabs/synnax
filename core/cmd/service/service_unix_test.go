@@ -7,16 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package svc_test
+//go:build !windows
+
+package service_test
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/cmd/service"
 )
 
-func TestSvc(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Svc Suite")
-}
+var _ = Describe("Svc", func() {
+	It("RegisterCommands", func() {
+		It("should be a no-op on non-Windows platforms", func() {
+			Expect(func() { service.RegisterCommands(nil) }).ToNot(Panic())
+		})
+	})
+})

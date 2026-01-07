@@ -9,18 +9,10 @@
 
 //go:build !windows
 
-package svc_test
+package service
 
-import (
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/cmd/svc"
-)
+import "github.com/spf13/cobra"
 
-var _ = Describe("Svc", func() {
-	It("RegisterCommands", func() {
-		It("should be a no-op on non-Windows platforms", func() {
-			Expect(func() { svc.RegisterCommands(nil) }).ToNot(Panic())
-		})
-	})
-})
+// RegisterCommands is a no-op on non-Windows platforms. Service commands are only
+// available on Windows.
+func RegisterCommands(*cobra.Command) {}

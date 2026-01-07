@@ -13,7 +13,7 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/synnaxlabs/synnax/cmd/svc"
+	"github.com/synnaxlabs/synnax/cmd/service"
 )
 
 func disablePermissionBits() {}
@@ -22,10 +22,10 @@ func disablePermissionBits() {}
 // process is running as a Windows Service or as an application and routes to the
 // appropriate startup path.
 func RunMain() {
-	isService, err := svc.IsService()
+	isService, err := service.IsService()
 	cobra.CheckErr(err)
 	if isService {
-		cobra.CheckErr(svc.RunAsService(startServer))
+		cobra.CheckErr(service.RunAsService(startServer))
 		return
 	}
 	Execute()
