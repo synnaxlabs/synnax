@@ -83,7 +83,7 @@ spinner() {
     local frames='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
     local i=0
 
-    while kill -0 "$pid" 2>/dev/null; do
+    while kill -0 "$pid" 2> /dev/null; do
         printf "\r       ${CYAN}${frames:i++%${#frames}:1}${NC}  ${DIM}$msg${NC}"
         sleep 0.08
     done
@@ -93,7 +93,7 @@ spinner() {
 run() {
     local msg=$1
     shift
-    "$@" &>/dev/null &
+    "$@" &> /dev/null &
     spinner $! "$msg"
     wait $!
 }
@@ -114,8 +114,8 @@ elapsed() {
 
 acquire_lock() {
     if [ -f "$LOCK_FILE" ]; then
-        local pid=$(cat "$LOCK_FILE" 2>/dev/null)
-        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+        local pid=$(cat "$LOCK_FILE" 2> /dev/null)
+        if [ -n "$pid" ] && kill -0 "$pid" 2> /dev/null; then
             fail "Another installation is running (PID: $pid)"
             exit 1
         fi
@@ -171,23 +171,29 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --cli-only)
             INSTALL_EXTENSION=false
-            shift ;;
+            shift
+            ;;
         --extension-only)
             INSTALL_CLI=false
             ADD_TO_PATH=false
-            shift ;;
+            shift
+            ;;
         --no-path)
             ADD_TO_PATH=false
-            shift ;;
+            shift
+            ;;
         --install-dir)
             INSTALL_DIR="$2"
-            shift 2 ;;
-        -h|--help)
-            show_help ;;
+            shift 2
+            ;;
+        -h | --help)
+            show_help
+            ;;
         *)
             fail "Unknown option: $1"
             info "Run ./install.sh --help for usage"
-            exit 1 ;;
+            exit 1
+            ;;
     esac
 done
 
@@ -196,9 +202,9 @@ done
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 TOTAL=0
-$INSTALL_CLI && ((TOTAL+=1))
-$ADD_TO_PATH && ((TOTAL+=1))
-$INSTALL_EXTENSION && ((TOTAL+=4))
+$INSTALL_CLI && ((TOTAL += 1))
+$ADD_TO_PATH && ((TOTAL += 1))
+$INSTALL_EXTENSION && ((TOTAL += 4))
 STEP=0
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -211,7 +217,7 @@ acquire_lock
 # Prerequisites
 section "Prerequisites"
 
-if ! command -v go &>/dev/null; then
+if ! command -v go &> /dev/null; then
     fail "Go not found"
     info "Install from https://go.dev/dl"
     exit 1
@@ -219,7 +225,7 @@ fi
 ok "Go $(go version | awk '{print $3}' | sed 's/go//')"
 
 if $INSTALL_EXTENSION; then
-    if ! command -v npm &>/dev/null; then
+    if ! command -v npm &> /dev/null; then
         fail "npm not found"
         info "Install from https://nodejs.org"
         exit 1
@@ -229,7 +235,7 @@ fi
 
 # Build CLI
 if $INSTALL_CLI; then
-    ((STEP+=1))
+    ((STEP += 1))
     step $STEP $TOTAL "Build CLI"
 
     cd "$ORACLE_ROOT"
@@ -252,7 +258,7 @@ fi
 
 # Configure PATH
 if $ADD_TO_PATH; then
-    ((STEP+=1))
+    ((STEP += 1))
     step $STEP $TOTAL "Configure PATH"
 
     SHELL_CONFIG=""
@@ -263,7 +269,7 @@ if $ADD_TO_PATH; then
     PATH_LINE="export PATH=\"$INSTALL_DIR:\$PATH\""
 
     if [ -n "$SHELL_CONFIG" ]; then
-        if grep -q "$INSTALL_DIR" "$SHELL_CONFIG" 2>/dev/null; then
+        if grep -q "$INSTALL_DIR" "$SHELL_CONFIG" 2> /dev/null; then
             ok "Already in PATH"
             info "$SHELL_CONFIG"
         else
@@ -282,20 +288,20 @@ fi
 if $INSTALL_EXTENSION; then
     cd "$EXTENSION_DIR"
 
-    ((STEP+=1))
+    ((STEP += 1))
     step $STEP $TOTAL "Install Dependencies"
     run "npm install..." npm install --silent
     ok "Dependencies ready"
 
-    ((STEP+=1))
+    ((STEP += 1))
     step $STEP $TOTAL "Compile Extension"
     run "Compiling TypeScript..." npm run compile --silent
     ok "Compiled"
 
-    ((STEP+=1))
+    ((STEP += 1))
     step $STEP $TOTAL "Package Extension"
-    yes 2>/dev/null | npx @vscode/vsce package \
-        --allow-missing-repository -o oracle-language.vsix &>/dev/null
+    yes 2> /dev/null | npx @vscode/vsce package \
+        --allow-missing-repository -o oracle-language.vsix &> /dev/null
 
     if [ -f "oracle-language.vsix" ]; then
         SIZE=$(du -h oracle-language.vsix | cut -f1 | tr -d ' ')
@@ -305,33 +311,33 @@ if $INSTALL_EXTENSION; then
         exit 1
     fi
 
-    ((STEP+=1))
+    ((STEP += 1))
     step $STEP $TOTAL "Install to Editors"
 
     EDITORS=()
 
     # Cursor
     CURSOR=""
-    command -v cursor &>/dev/null && CURSOR="cursor"
-    [ -z "$CURSOR" ] && [ -f "/Applications/Cursor.app/Contents/Resources/app/bin/cursor" ] && \
-        CURSOR="/Applications/Cursor.app/Contents/Resources/app/bin/cursor"
-    [ -z "$CURSOR" ] && [ -f "$HOME/Applications/Cursor.app/Contents/Resources/app/bin/cursor" ] && \
-        CURSOR="$HOME/Applications/Cursor.app/Contents/Resources/app/bin/cursor"
+    command -v cursor &> /dev/null && CURSOR="cursor"
+    [ -z "$CURSOR" ] && [ -f "/Applications/Cursor.app/Contents/Resources/app/bin/cursor" ] \
+        && CURSOR="/Applications/Cursor.app/Contents/Resources/app/bin/cursor"
+    [ -z "$CURSOR" ] && [ -f "$HOME/Applications/Cursor.app/Contents/Resources/app/bin/cursor" ] \
+        && CURSOR="$HOME/Applications/Cursor.app/Contents/Resources/app/bin/cursor"
 
     if [ -n "$CURSOR" ]; then
-        "$CURSOR" --install-extension "$EXTENSION_DIR/oracle-language.vsix" &>/dev/null && \
-            EDITORS+=("Cursor")
+        "$CURSOR" --install-extension "$EXTENSION_DIR/oracle-language.vsix" &> /dev/null \
+            && EDITORS+=("Cursor")
     fi
 
     # VS Code
     VSCODE=""
-    command -v code &>/dev/null && VSCODE="code"
-    [ -z "$VSCODE" ] && [ -f "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" ] && \
-        VSCODE="/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
+    command -v code &> /dev/null && VSCODE="code"
+    [ -z "$VSCODE" ] && [ -f "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" ] \
+        && VSCODE="/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
 
     if [ -n "$VSCODE" ]; then
-        "$VSCODE" --install-extension "$EXTENSION_DIR/oracle-language.vsix" &>/dev/null && \
-            EDITORS+=("VS Code")
+        "$VSCODE" --install-extension "$EXTENSION_DIR/oracle-language.vsix" &> /dev/null \
+            && EDITORS+=("VS Code")
     fi
 
     if [ ${#EDITORS[@]} -gt 0 ]; then

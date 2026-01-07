@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -39,7 +39,7 @@ type StatusDetails struct {
 	Task          uint64                 `protobuf:"varint,1,opt,name=task,proto3" json:"task,omitempty"`
 	Running       bool                   `protobuf:"varint,2,opt,name=running,proto3" json:"running,omitempty"`
 	Cmd           string                 `protobuf:"bytes,3,opt,name=cmd,proto3" json:"cmd,omitempty"`
-	Data          *structpb.Struct       `protobuf:"bytes,4,opt,name=data,proto3" json:"data,omitempty"`
+	Data          *structpb.Struct       `protobuf:"bytes,4,opt,name=data,proto3,oneof" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -266,12 +266,13 @@ var File_core_pkg_service_task_pb_task_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"\n" +
-	"#core/pkg/service/task/pb/task.proto\x12\fservice.task\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/status/pb/status.proto\"|\n" +
+	"#core/pkg/service/task/pb/task.proto\x12\fservice.task\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/status/pb/status.proto\"\x8a\x01\n" +
 	"\rStatusDetails\x12\x12\n" +
 	"\x04task\x18\x01 \x01(\x04R\x04task\x12\x18\n" +
 	"\arunning\x18\x02 \x01(\bR\arunning\x12\x10\n" +
-	"\x03cmd\x18\x03 \x01(\tR\x03cmd\x12+\n" +
-	"\x04data\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x04data\"\xca\x01\n" +
+	"\x03cmd\x18\x03 \x01(\tR\x03cmd\x120\n" +
+	"\x04data\x18\x04 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
+	"\x05_data\"\xca\x01\n" +
 	"\x04Task\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\x04R\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
@@ -324,6 +325,7 @@ func file_core_pkg_service_task_pb_task_proto_init() {
 	if File_core_pkg_service_task_pb_task_proto != nil {
 		return
 	}
+	file_core_pkg_service_task_pb_task_proto_msgTypes[0].OneofWrappers = []any{}
 	file_core_pkg_service_task_pb_task_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

@@ -17,12 +17,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 )
 
-
 // WorkspaceToPB converts Workspace to Workspace.
 func WorkspaceToPB(_ context.Context, r workspace.Workspace) (*Workspace, error) {
 	pb := &Workspace{
-		Key: r.Key.String(),
-		Name: r.Name,
+		Key:    r.Key.String(),
+		Name:   r.Name,
 		Author: r.Author.String(),
 		Layout: r.Layout,
 	}

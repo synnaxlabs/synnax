@@ -603,32 +603,9 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 					}
 				}
 
-				// When UseInput is true, inherited JSON fields need to be re-processed
-				// with jsonStringifier instead of stringifiedJSON. We omit them from
-				// the parent and re-add them with the correct serialization.
-				if sd.UseInput {
-					processedFields := make(map[string]bool)
-					for _, f := range sd.OmittedFields {
-						processedFields[f] = true
-					}
-					for _, f := range sd.PartialFields {
-						processedFields[f.TSName] = true
-					}
-					for _, f := range sd.ExtendFields {
-						processedFields[f.TSName] = true
-					}
-
-					for _, parentField := range resolution.UnifiedFields(parentType, table) {
-						tsName := lo.CamelCase(parentField.Name)
-						if processedFields[tsName] {
-							continue
-						}
-						if isJSONTypedField(parentField) {
-							sd.OmittedFields = append(sd.OmittedFields, tsName)
-							sd.ExtendFields = append(sd.ExtendFields, p.processField(parentField, entry, table, data, sd.UseInput, sd.ConcreteTypes))
-						}
-					}
-				}
+				// Note: With the new @ts stringify directive, inherited JSON fields are NOT
+				// automatically re-processed. Users must explicitly override fields with
+				// @ts stringify if they want them to use jsonStringifier.
 
 				// Add optional import for concrete types with partial fields
 				if sd.ConcreteTypes && len(sd.PartialFields) > 0 {
@@ -833,6 +810,18 @@ func isJSONTypedField(field resolution.Field) bool {
 
 func (p *Plugin) processField(field resolution.Field, parentType resolution.Type, table *resolution.Table, data *templateData, useInput bool, needsTypeImports bool) fieldData {
 	isArray := field.Type.Name == "Array"
+	// Check if field has @ts stringify directive - only use jsonStringifier when
+	// BOTH the struct has @ts use_input AND the field has @ts stringify
+	hasStringify := false
+	if tsDomain, ok := field.Domains["ts"]; ok {
+		for _, expr := range tsDomain.Expressions {
+			if expr.Name == "stringify" {
+				hasStringify = true
+				break
+			}
+		}
+	}
+	shouldStringify := useInput && hasStringify
 	fd := fieldData{
 		Name:           field.Name,
 		TSName:         lo.CamelCase(field.Name),
@@ -842,7 +831,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		IsSelfRef:      isSelfReference(field.Type, parentType),
 	}
 	if typeOverride := getFieldTypeOverride(field, "ts"); typeOverride != "" {
-		fd.ZodType = primitiveToZod(typeOverride, data, useInput)
+		fd.ZodType = primitiveToZod(typeOverride, data, shouldStringify)
 		fd.TSType = primitiveToTS(typeOverride)
 		fd.ZodSchemaType = primitiveToZodSchemaType(typeOverride)
 		if validateDomain, ok := field.Domains["validate"]; ok {
@@ -859,7 +848,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		if isArray && len(field.Type.TypeArgs) > 0 {
 			typeRefToProcess = &field.Type.TypeArgs[0]
 		}
-		fd.ZodType = p.typeRefToZod(typeRefToProcess, table, data, useInput)
+		fd.ZodType = p.typeRefToZod(typeRefToProcess, table, data, shouldStringify)
 		fd.TSType = p.typeRefToTS(typeRefToProcess, table, data, needsTypeImports)
 		fd.ZodSchemaType = p.typeRefToZodSchemaType(typeRefToProcess, table, data)
 		if validateDomain, ok := field.Domains["validate"]; ok {
@@ -912,8 +901,8 @@ func getTypeTypeOverride(typ resolution.Type, domainName string) string {
 	return domain.GetType(typ, domainName)
 }
 
-func (p *Plugin) typeRefToZod(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData, useInput bool) string {
-	return p.typeRefToZodInternal(typeRef, table, data, useInput, false)
+func (p *Plugin) typeRefToZod(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData, stringify bool) string {
+	return p.typeRefToZodInternal(typeRef, table, data, stringify, false)
 }
 
 func (p *Plugin) typeRefToTSType(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData) string {
@@ -1051,7 +1040,7 @@ func primitiveToTSType(name string) string {
 	}
 }
 
-func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData, useInput bool, forStructArg bool) string {
+func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData, stringify bool, forStructArg bool) string {
 	if typeRef == nil {
 		return "z.unknown()"
 	}
@@ -1064,7 +1053,8 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 		}
 		if typeRef.TypeParam.Constraint != nil && typeRef.TypeParam.Constraint.Name == "json" {
 			addXImport(data, xImport{name: "zod", submodule: "zod"})
-			if useInput {
+			// stringify is true only when BOTH struct has @ts use_input AND field has @ts stringify
+			if stringify {
 				return fmt.Sprintf("zod.jsonStringifier(%s)", paramName)
 			}
 			return fmt.Sprintf("zod.stringifiedJSON(%s)", paramName)
@@ -1078,19 +1068,19 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 
 	// Handle primitives
 	if resolution.IsPrimitive(typeRef.Name) {
-		return primitiveToZod(typeRef.Name, data, useInput)
+		return primitiveToZod(typeRef.Name, data, stringify)
 	}
 
 	// Handle Array type
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		elemZod := p.typeRefToZodInternal(&typeRef.TypeArgs[0], table, data, useInput, false)
+		elemZod := p.typeRefToZodInternal(&typeRef.TypeArgs[0], table, data, stringify, false)
 		return fmt.Sprintf("z.array(%s)", elemZod)
 	}
 
 	// Handle Map type
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		keyZ := p.typeRefToZodInternal(&typeRef.TypeArgs[0], table, data, useInput, false)
-		valueZ := p.typeRefToZodInternal(&typeRef.TypeArgs[1], table, data, useInput, false)
+		keyZ := p.typeRefToZodInternal(&typeRef.TypeArgs[0], table, data, stringify, false)
+		valueZ := p.typeRefToZodInternal(&typeRef.TypeArgs[1], table, data, stringify, false)
 		return fmt.Sprintf("z.record(%s, %s)", keyZ, valueZ)
 	}
 
@@ -1107,7 +1097,7 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 			if len(typeRef.TypeArgs) > 0 {
 				args := make([]string, len(typeRef.TypeArgs))
 				for i, arg := range typeRef.TypeArgs {
-					args[i] = p.typeRefToZodInternal(&arg, table, data, useInput, true)
+					args[i] = p.typeRefToZodInternal(&arg, table, data, stringify, true)
 				}
 				if len(form.TypeParams) == 1 {
 					schemaName = fmt.Sprintf("%s(%s)", schemaName, args[0])
@@ -1186,7 +1176,7 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 			}
 			target = resolution.SubstituteTypeRef(target, typeArgMap)
 		}
-		return p.typeRefToZodInternal(&target, table, data, useInput, forStructArg)
+		return p.typeRefToZodInternal(&target, table, data, stringify, forStructArg)
 
 	default:
 		return "z.unknown()"
@@ -1486,15 +1476,16 @@ func addXImport(data *templateData, imp xImport) {
 	}
 }
 
-func primitiveToZod(primitive string, data *templateData, useInput bool) string {
-	// Special handling for JSON based on useInput
+func primitiveToZod(primitive string, data *templateData, stringify bool) string {
+	// Special handling for JSON based on stringify flag
+	// stringify is true only when BOTH struct has @ts use_input AND field has @ts stringify
 	if primitive == "json" {
 		addXImport(data, xImport{name: "zod", submodule: "zod"})
-		if useInput {
-			// For input types, stringify JSON when sending to server
+		if stringify {
+			// For fields marked with @ts stringify, convert JSON to string when sending to server
 			return "zod.jsonStringifier()"
 		}
-		// For output types, parse JSON when receiving from server
+		// Default: parse JSON when receiving from server
 		return "zod.stringifiedJSON()"
 	}
 	if mapping, ok := primitiveZodTypes[primitive]; ok {

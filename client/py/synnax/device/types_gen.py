@@ -48,6 +48,7 @@ class Device(BaseModel):
 
 class New(Device):
     key: Key | None = None
+    properties: Any
     configured: bool | None = Field(default=None, exclude=True)
 
 

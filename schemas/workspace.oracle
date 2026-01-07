@@ -34,7 +34,8 @@ GoWorkspace struct extends Workspace {
 }
 
 New struct extends Workspace {
-    key Key?
+    key    Key?
+    layout json @ts stringify
     -author
 
     @ts use_input

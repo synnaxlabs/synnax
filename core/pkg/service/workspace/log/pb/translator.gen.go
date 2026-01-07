@@ -17,11 +17,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/log"
 )
 
-
 // LogToPB converts Log to Log.
 func LogToPB(_ context.Context, r log.Log) (*Log, error) {
 	pb := &Log{
-		Key: r.Key.String(),
+		Key:  r.Key.String(),
 		Name: r.Name,
 		Data: r.Data,
 	}

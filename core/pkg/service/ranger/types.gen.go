@@ -19,8 +19,8 @@ import (
 type Key = uuid.UUID
 
 type Range struct {
-	Key Key `json:"key" msgpack:"key"`
-	Name string `json:"name" msgpack:"name"`
+	Key       Key             `json:"key" msgpack:"key"`
+	Name      string          `json:"name" msgpack:"name"`
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
-	Color string `json:"color" msgpack:"color"`
+	Color     string          `json:"color" msgpack:"color"`
 }

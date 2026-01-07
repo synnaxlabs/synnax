@@ -113,11 +113,11 @@ export const newZ = <
   StatusData extends z.ZodType = z.ZodType,
 >({ type, config, statusData }: NewSchemas<Type, Config, StatusData> = {}) =>
   payloadZ({ type, config, statusData })
-    .omit({ internal: true, snapshot: true, status: true, config: true })
+    .omit({ internal: true, snapshot: true, config: true, status: true })
     .partial({ key: true })
     .extend({
-      status: status.newZ({ details: newStatusDetailsZ(statusData) }).optional(),
       config: zod.jsonStringifier(config),
+      status: status.newZ({ details: newStatusDetailsZ(statusData) }).optional(),
     });
 export type New<
   Type extends z.ZodType = z.ZodString,
@@ -126,12 +126,12 @@ export type New<
 > = optional.Optional<
   Omit<
     Payload<Type, Config, StatusData>,
-    "internal" | "snapshot" | "status" | "config"
+    "internal" | "snapshot" | "config" | "status"
   >,
   "key"
 > & {
-  status?: NewStatus<StatusData>;
   config: z.infer<Config>;
+  status?: NewStatus<StatusData>;
 };
 
 export const ontologyID = ontology.createIDFactory<Key>("task");

@@ -21,7 +21,8 @@ View struct {
 }
 
 New struct extends View {
-    key Key?
+    key   Key?
+    query json
 
     @ts use_input
 }

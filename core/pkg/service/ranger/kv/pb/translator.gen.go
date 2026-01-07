@@ -18,12 +18,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 )
 
-
 // PairToPB converts Pair to Pair.
 func PairToPB(_ context.Context, r kv.Pair) (*Pair, error) {
 	pb := &Pair{
 		Range: r.Range.String(),
-		Key: r.Key,
+		Key:   r.Key,
 		Value: r.Value,
 	}
 	return pb, nil

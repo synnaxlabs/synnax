@@ -17,11 +17,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 )
 
-
 // GroupToPB converts Group to Group.
 func GroupToPB(_ context.Context, r group.Group) (*Group, error) {
 	pb := &Group{
-		Key: r.Key.String(),
+		Key:  r.Key.String(),
 		Name: r.Name,
 	}
 	return pb, nil

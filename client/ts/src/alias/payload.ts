@@ -11,10 +11,10 @@ import { type change } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { range } from "@/range";
+import { type Key as RangeKey, keyZ as rangeKeyZ } from "@/range/types.gen";
 
 export const resolveRequestZ = z.object({
-  range: range.keyZ,
+  range: rangeKeyZ,
   aliases: z.string().array(),
 });
 export interface ResolveRequest extends z.infer<typeof resolveRequestZ> {}
@@ -25,18 +25,18 @@ export const resolveResponseZ = z.object({
 export interface ResolveResponse extends z.infer<typeof resolveResponseZ> {}
 
 export const setRequestZ = z.object({
-  range: range.keyZ,
+  range: rangeKeyZ,
   aliases: z.record(channel.keyZ, z.string()),
 });
 export interface SetRequest extends z.infer<typeof setRequestZ> {}
 
 export const deleteRequestZ = z.object({
-  range: range.keyZ,
+  range: rangeKeyZ,
   channels: channel.keyZ.array(),
 });
 export interface DeleteRequest extends z.infer<typeof deleteRequestZ> {}
 
-export const listRequestZ = z.object({ range: range.keyZ });
+export const listRequestZ = z.object({ range: rangeKeyZ });
 export interface ListRequest extends z.infer<typeof listRequestZ> {}
 
 export const listResponseZ = z.object({
@@ -45,7 +45,7 @@ export const listResponseZ = z.object({
 export interface ListResponse extends z.infer<typeof listResponseZ> {}
 
 export const retrieveRequestZ = z.object({
-  range: range.keyZ,
+  range: rangeKeyZ,
   channels: channel.keyZ.array(),
 });
 export interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
@@ -58,7 +58,7 @@ export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 export const aliasZ = z.object({
   alias: z.string().optional(),
   channel: channel.keyZ,
-  range: range.keyZ,
+  range: rangeKeyZ,
 });
 export interface Alias extends z.infer<typeof aliasZ> {}
 
@@ -70,7 +70,7 @@ export const aliasKey = (alias: Pick<Alias, "range" | "channel">): string =>
   `${alias.range}${SEPARATOR}${alias.channel}`;
 
 export interface DecodedDeleteAliasChange {
-  range: range.Key;
+  range: RangeKey;
   channel: channel.Key;
 }
 

@@ -18,6 +18,6 @@ import (
 type Key = uuid.UUID
 
 type Group struct {
-	Key Key `json:"key" msgpack:"key"`
+	Key  Key    `json:"key" msgpack:"key"`
 	Name string `json:"name" msgpack:"name"`
 }

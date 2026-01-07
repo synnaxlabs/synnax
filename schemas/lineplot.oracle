@@ -33,7 +33,8 @@ GoLinePlot struct extends LinePlot {
 }
 
 New struct extends LinePlot {
-    key Key?
+    key  Key?
+    data json @ts stringify
 
     @ts use_input
     @go omit

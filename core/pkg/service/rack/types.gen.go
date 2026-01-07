@@ -24,9 +24,9 @@ type StatusDetails struct {
 }
 
 type Rack struct {
-	Key Key `json:"key" msgpack:"key"`
-	Name string `json:"name" msgpack:"name"`
-	TaskCounter uint32 `json:"task_counter" msgpack:"task_counter"`
-	Embedded bool `json:"embedded" msgpack:"embedded"`
-	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
+	Key         Key     `json:"key" msgpack:"key"`
+	Name        string  `json:"name" msgpack:"name"`
+	TaskCounter uint32  `json:"task_counter" msgpack:"task_counter"`
+	Embedded    bool    `json:"embedded" msgpack:"embedded"`
+	Status      *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }

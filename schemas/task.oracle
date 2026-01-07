@@ -23,14 +23,14 @@ StatusDetails struct<Data extends json = json> {
     task    Key?
     running bool?
     cmd     string?
-    data    Data?
+    data    Data??
 
     @go omit
     @pb omit
 }
 
 GoStatusDetails struct extends StatusDetails<json> {
-    data json?
+    data json??
     -data
 
     @go name  "StatusDetails"
@@ -112,6 +112,7 @@ New struct<
     StatusData extends json = json
 > extends Task<Type, Config, StatusData> {
     key    Key?
+    config Config                 @ts stringify
     status NewStatus<StatusData>?
     -internal
     -snapshot

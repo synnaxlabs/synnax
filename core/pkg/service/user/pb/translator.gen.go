@@ -17,15 +17,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 )
 
-
 // UserToPB converts User to User.
 func UserToPB(_ context.Context, r user.User) (*User, error) {
 	pb := &User{
-		Key: r.Key.String(),
-		Username: r.Username,
+		Key:       r.Key.String(),
+		Username:  r.Username,
 		FirstName: r.FirstName,
-		LastName: r.LastName,
-		RootUser: r.RootUser,
+		LastName:  r.LastName,
+		RootUser:  r.RootUser,
 	}
 	return pb, nil
 }

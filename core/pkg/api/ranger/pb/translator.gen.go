@@ -14,12 +14,11 @@ package pb
 import (
 	"context"
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	serviceranger "github.com/synnaxlabs/synnax/pkg/service/ranger"
 	labelpb "github.com/synnaxlabs/x/label/pb"
+	"github.com/synnaxlabs/x/telem"
 )
-
 
 // RangeToPB converts Range to Range.
 func RangeToPB(ctx context.Context, r ranger.Range) (*Range, error) {
@@ -28,11 +27,11 @@ func RangeToPB(ctx context.Context, r ranger.Range) (*Range, error) {
 		return nil, err
 	}
 	pb := &Range{
-		Key: r.Key.String(),
-		Name: r.Name,
+		Key:       r.Key.String(),
+		Name:      r.Name,
 		TimeRange: telem.TranslateTimeRangeForward(r.TimeRange),
-		Color: r.Color,
-		Labels: labelsVal,
+		Color:     r.Color,
+		Labels:    labelsVal,
 	}
 	if r.Parent != nil {
 		var err error

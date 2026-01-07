@@ -13,12 +13,11 @@ package pb
 
 import (
 	"context"
-	"google.golang.org/protobuf/types/known/anypb"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/status"
 	statuspb "github.com/synnaxlabs/x/status/pb"
+	"google.golang.org/protobuf/types/known/anypb"
 )
-
 
 // StatusDetailsToPB converts StatusDetails to StatusDetails.
 func StatusDetailsToPB(_ context.Context, r rack.StatusDetails) (*StatusDetails, error) {
@@ -67,10 +66,10 @@ func StatusDetailssFromPB(ctx context.Context, pbs []*StatusDetails) ([]rack.Sta
 // RackToPB converts Rack to Rack.
 func RackToPB(ctx context.Context, r rack.Rack) (*Rack, error) {
 	pb := &Rack{
-		Key: uint32(r.Key),
-		Name: r.Name,
+		Key:         uint32(r.Key),
+		Name:        r.Name,
 		TaskCounter: r.TaskCounter,
-		Embedded: r.Embedded,
+		Embedded:    r.Embedded,
 	}
 	if r.Status != nil {
 		var err error

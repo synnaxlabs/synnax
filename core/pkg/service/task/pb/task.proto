@@ -13,7 +13,7 @@ message StatusDetails {
   uint64 task = 1;
   bool running = 2;
   string cmd = 3;
-  google.protobuf.Struct data = 4;
+  optional google.protobuf.Struct data = 4;
 }
 
 message Task {

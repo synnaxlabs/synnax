@@ -20,25 +20,25 @@ type Key uint64
 type Status = status.Status[StatusDetails]
 
 type StatusDetails struct {
-	Task Key `json:"task" msgpack:"task"`
-	Running bool `json:"running" msgpack:"running"`
-	Cmd string `json:"cmd" msgpack:"cmd"`
-	Data map[string]any `json:"data" msgpack:"data"`
+	Task    Key            `json:"task" msgpack:"task"`
+	Running bool           `json:"running" msgpack:"running"`
+	Cmd     string         `json:"cmd" msgpack:"cmd"`
+	Data    map[string]any `json:"data,omitempty" msgpack:"data,omitempty"`
 }
 
 type Task struct {
-	Key Key `json:"key" msgpack:"key"`
-	Name string `json:"name" msgpack:"name"`
-	Type string `json:"type" msgpack:"type"`
-	Internal bool `json:"internal" msgpack:"internal"`
-	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
-	Config string `json:"config" msgpack:"config"`
-	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
+	Key      Key     `json:"key" msgpack:"key"`
+	Name     string  `json:"name" msgpack:"name"`
+	Type     string  `json:"type" msgpack:"type"`
+	Internal bool    `json:"internal" msgpack:"internal"`
+	Snapshot bool    `json:"snapshot" msgpack:"snapshot"`
+	Config   string  `json:"config" msgpack:"config"`
+	Status   *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }
 
 type Command struct {
-	Task Key `json:"task" msgpack:"task"`
-	Type string `json:"type" msgpack:"type"`
-	Key string `json:"key" msgpack:"key"`
+	Task Key            `json:"task" msgpack:"task"`
+	Type string         `json:"type" msgpack:"type"`
+	Key  string         `json:"key" msgpack:"key"`
 	Args map[string]any `json:"args" msgpack:"args"`
 }

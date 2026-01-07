@@ -21,18 +21,18 @@ type Status = status.Status[StatusDetails]
 type Key = string
 
 type StatusDetails struct {
-	Rack rack.Key `json:"rack" msgpack:"rack"`
-	Device string `json:"device" msgpack:"device"`
+	Rack   rack.Key `json:"rack" msgpack:"rack"`
+	Device string   `json:"device" msgpack:"device"`
 }
 
 type Device struct {
-	Key Key `json:"key" msgpack:"key"`
-	Rack rack.Key `json:"rack" msgpack:"rack"`
-	Location string `json:"location" msgpack:"location"`
-	Make string `json:"make" msgpack:"make"`
-	Model string `json:"model" msgpack:"model"`
-	Name string `json:"name" msgpack:"name"`
-	Configured bool `json:"configured" msgpack:"configured"`
-	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
-	Properties string `json:"properties" msgpack:"properties"`
+	Key        Key      `json:"key" msgpack:"key"`
+	Rack       rack.Key `json:"rack" msgpack:"rack"`
+	Location   string   `json:"location" msgpack:"location"`
+	Make       string   `json:"make" msgpack:"make"`
+	Model      string   `json:"model" msgpack:"model"`
+	Name       string   `json:"name" msgpack:"name"`
+	Configured bool     `json:"configured" msgpack:"configured"`
+	Status     *Status  `json:"status,omitempty" msgpack:"status,omitempty"`
+	Properties string   `json:"properties" msgpack:"properties"`
 }

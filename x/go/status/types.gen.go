@@ -12,28 +12,28 @@
 package status
 
 import (
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/label"
+	"github.com/synnaxlabs/x/telem"
 )
 
 type Variant string
 
 const (
-	VariantSuccess Variant = "success"
-	VariantInfo Variant = "info"
-	VariantWarning Variant = "warning"
-	VariantError Variant = "error"
-	VariantLoading Variant = "loading"
+	VariantSuccess  Variant = "success"
+	VariantInfo     Variant = "info"
+	VariantWarning  Variant = "warning"
+	VariantError    Variant = "error"
+	VariantLoading  Variant = "loading"
 	VariantDisabled Variant = "disabled"
 )
 
 type Status[Details any] struct {
-	Key string `json:"key" msgpack:"key"`
-	Name string `json:"name" msgpack:"name"`
-	Message string `json:"message" msgpack:"message"`
-	Description string `json:"description" msgpack:"description"`
-	Time telem.TimeStamp `json:"time" msgpack:"time"`
-	Details Details `json:"details" msgpack:"details"`
-	Labels []label.Label `json:"labels" msgpack:"labels"`
-	Variant Variant `json:"variant" msgpack:"variant"`
+	Key         string          `json:"key" msgpack:"key"`
+	Name        string          `json:"name" msgpack:"name"`
+	Message     string          `json:"message" msgpack:"message"`
+	Description string          `json:"description" msgpack:"description"`
+	Time        telem.TimeStamp `json:"time" msgpack:"time"`
+	Details     Details         `json:"details" msgpack:"details"`
+	Labels      []label.Label   `json:"labels" msgpack:"labels"`
+	Variant     Variant         `json:"variant" msgpack:"variant"`
 }

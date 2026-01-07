@@ -89,7 +89,7 @@ markers = [
     "calculations: mark test as a calculated channels test",
     "delete: mark test as a data deletion test",
     "focus: marker to temporarily focus a test",
-    "user: marker to temporarily focus a user test"
+    "user: marker to temporarily focus a user test",
 ]
 
 [build-system]

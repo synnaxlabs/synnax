@@ -17,7 +17,7 @@ import (
 )
 
 type Alias struct {
-	Range ranger.Key `json:"range" msgpack:"range"`
+	Range   ranger.Key  `json:"range" msgpack:"range"`
 	Channel channel.Key `json:"channel" msgpack:"channel"`
-	Alias string `json:"alias" msgpack:"alias"`
+	Alias   string      `json:"alias" msgpack:"alias"`
 }

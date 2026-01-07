@@ -69,7 +69,7 @@ func {{.Name}}ToPB({{if .UsesContext}}ctx{{else}}_{{end}} context.Context, r {{.
 	}
 {{- range .OptionalFields}}
 	if r.{{.GoName}} != nil {
-{{- if .IsOptionalStruct}}
+{{- if .HasError}}
 		var err error
 		pb.{{.PBName}}, err = {{.ForwardExpr}}
 		if err != nil {

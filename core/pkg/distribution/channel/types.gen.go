@@ -12,10 +12,10 @@
 package channel
 
 import (
-	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/aspen/node"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/types"
 )
 
 type Key uint32
@@ -27,28 +27,28 @@ type Name = string
 type OperationType string
 
 const (
-	OperationTypeMin OperationType = "min"
-	OperationTypeMax OperationType = "max"
-	OperationTypeAvg OperationType = "avg"
+	OperationTypeMin  OperationType = "min"
+	OperationTypeMax  OperationType = "max"
+	OperationTypeAvg  OperationType = "avg"
 	OperationTypeNone OperationType = "none"
 )
 
 type Operation struct {
-	Type OperationType `json:"type" msgpack:"type"`
-	ResetChannel Key `json:"reset_channel" msgpack:"reset_channel"`
-	Duration telem.TimeSpan `json:"duration" msgpack:"duration"`
+	Type         OperationType  `json:"type" msgpack:"type"`
+	ResetChannel Key            `json:"reset_channel" msgpack:"reset_channel"`
+	Duration     telem.TimeSpan `json:"duration" msgpack:"duration"`
 }
 
 type Channel struct {
-	Name Name `json:"name" msgpack:"name"`
-	Leaseholder node.Key `json:"leaseholder" msgpack:"leaseholder"`
-	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	IsIndex bool `json:"is_index" msgpack:"is_index"`
-	LocalKey LocalKey `json:"local_key" msgpack:"local_key"`
-	LocalIndex LocalKey `json:"local_index" msgpack:"local_index"`
-	Virtual bool `json:"virtual" msgpack:"virtual"`
+	Name        Name                `json:"name" msgpack:"name"`
+	Leaseholder node.Key            `json:"leaseholder" msgpack:"leaseholder"`
+	DataType    telem.DataType      `json:"data_type" msgpack:"data_type"`
+	IsIndex     bool                `json:"is_index" msgpack:"is_index"`
+	LocalKey    LocalKey            `json:"local_key" msgpack:"local_key"`
+	LocalIndex  LocalKey            `json:"local_index" msgpack:"local_index"`
+	Virtual     bool                `json:"virtual" msgpack:"virtual"`
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
-	Internal bool `json:"internal" msgpack:"internal"`
-	Operations []Operation `json:"operations" msgpack:"operations"`
-	Expression string `json:"expression" msgpack:"expression"`
+	Internal    bool                `json:"internal" msgpack:"internal"`
+	Operations  []Operation         `json:"operations" msgpack:"operations"`
+	Expression  string              `json:"expression" msgpack:"expression"`
 }

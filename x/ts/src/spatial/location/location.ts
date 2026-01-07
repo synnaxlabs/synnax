@@ -10,34 +10,38 @@
 import { z } from "zod";
 
 import { caseconv } from "@/caseconv";
-import { type AngularDirection, type CrudeLocation, crudeLocation } from "@/spatial/base";
 import {
+  type AngularDirection,
+  type CrudeLocation,
+  crudeLocation,
+} from "@/spatial/base";
+import {
+  CENTER_LOCATIONS,
   type CenterLocation,
   centerLocationZ,
-  CENTER_LOCATIONS,
   type Direction,
   DIRECTIONS,
   type Location,
-  locationZ,
   LOCATIONS,
+  locationZ,
+  OUTER_LOCATIONS,
   type OuterLocation,
   outerLocationZ,
-  OUTER_LOCATIONS,
+  X_LOCATIONS,
   type XLocation,
   xLocationZ,
-  X_LOCATIONS,
+  Y_LOCATIONS,
   type YLocation,
   yLocationZ,
-  Y_LOCATIONS,
 } from "@/spatial/types.gen";
 
 export {
   CENTER_LOCATIONS,
   type Location,
-  locationZ,
   LOCATIONS,
-  outerLocationZ,
+  locationZ,
   OUTER_LOCATIONS,
+  outerLocationZ,
   X_LOCATIONS,
   Y_LOCATIONS,
 };

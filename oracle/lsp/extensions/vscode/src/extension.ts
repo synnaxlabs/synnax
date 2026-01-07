@@ -10,12 +10,7 @@
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
-import {
-  ExtensionContext,
-  workspace,
-  window,
-  OutputChannel,
-} from "vscode";
+import { ExtensionContext, workspace, window, OutputChannel } from "vscode";
 import {
   LanguageClient,
   LanguageClientOptions,
@@ -33,7 +28,7 @@ export function activate(context: ExtensionContext): void {
   const serverPath = findOracleBinary(context);
   if (!serverPath) {
     window.showErrorMessage(
-      "Oracle CLI not found. Please install it or set oracle.lsp.path in settings."
+      "Oracle CLI not found. Please install it or set oracle.lsp.path in settings.",
     );
     return;
   }
@@ -65,7 +60,7 @@ export function activate(context: ExtensionContext): void {
     "oracle-lsp",
     "Oracle Language Server",
     serverOptions,
-    clientOptions
+    clientOptions,
   );
 
   client.start();
@@ -103,7 +98,7 @@ function findOracleBinary(context: ExtensionContext): string | undefined {
   if (process.platform === "win32") {
     searchPaths.push(
       path.join(context.extensionPath, "bin", "oracle.exe"),
-      path.join(os.homedir(), "go", "bin", "oracle.exe")
+      path.join(os.homedir(), "go", "bin", "oracle.exe"),
     );
   }
 

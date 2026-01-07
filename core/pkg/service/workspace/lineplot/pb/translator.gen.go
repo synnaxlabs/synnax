@@ -17,11 +17,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
 )
 
-
 // LinePlotToPB converts LinePlot to LinePlot.
 func LinePlotToPB(_ context.Context, r lineplot.LinePlot) (*LinePlot, error) {
 	pb := &LinePlot{
-		Key: r.Key.String(),
+		Key:  r.Key.String(),
 		Name: r.Name,
 		Data: r.Data,
 	}

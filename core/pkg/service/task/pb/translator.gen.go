@@ -13,25 +13,26 @@ package pb
 
 import (
 	"context"
-	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/structpb"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/status"
 	statuspb "github.com/synnaxlabs/x/status/pb"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 )
-
 
 // StatusDetailsToPB converts StatusDetails to StatusDetails.
 func StatusDetailsToPB(_ context.Context, r task.StatusDetails) (*StatusDetails, error) {
-	dataVal, err := structpb.NewStruct(r.Data)
-	if err != nil {
-		return nil, err
-	}
 	pb := &StatusDetails{
-		Task: uint64(r.Task),
+		Task:    uint64(r.Task),
 		Running: r.Running,
-		Cmd: r.Cmd,
-		Data: dataVal,
+		Cmd:     r.Cmd,
+	}
+	if r.Data != nil {
+		var err error
+		pb.Data, err = structpb.NewStruct(r.Data)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return pb, nil
 }
@@ -42,10 +43,12 @@ func StatusDetailsFromPB(_ context.Context, pb *StatusDetails) (task.StatusDetai
 	if pb == nil {
 		return r, nil
 	}
-	r.Data = pb.Data.AsMap()
 	r.Task = task.Key(pb.Task)
 	r.Running = pb.Running
 	r.Cmd = pb.Cmd
+	if pb.Data != nil {
+		r.Data = pb.Data.AsMap()
+	}
 	return r, nil
 }
 
@@ -78,12 +81,12 @@ func StatusDetailssFromPB(ctx context.Context, pbs []*StatusDetails) ([]task.Sta
 // TaskToPB converts Task to Task.
 func TaskToPB(ctx context.Context, r task.Task) (*Task, error) {
 	pb := &Task{
-		Key: uint64(r.Key),
-		Name: r.Name,
-		Type: r.Type,
+		Key:      uint64(r.Key),
+		Name:     r.Name,
+		Type:     r.Type,
 		Internal: r.Internal,
 		Snapshot: r.Snapshot,
-		Config: r.Config,
+		Config:   r.Config,
 	}
 	if r.Status != nil {
 		var err error
@@ -152,7 +155,7 @@ func CommandToPB(_ context.Context, r task.Command) (*Command, error) {
 	pb := &Command{
 		Task: uint64(r.Task),
 		Type: r.Type,
-		Key: r.Key,
+		Key:  r.Key,
 		Args: argsVal,
 	}
 	return pb, nil

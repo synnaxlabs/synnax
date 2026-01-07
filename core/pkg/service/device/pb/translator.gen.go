@@ -13,18 +13,17 @@ package pb
 
 import (
 	"context"
-	"google.golang.org/protobuf/types/known/anypb"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/status"
 	statuspb "github.com/synnaxlabs/x/status/pb"
+	"google.golang.org/protobuf/types/known/anypb"
 )
-
 
 // StatusDetailsToPB converts StatusDetails to StatusDetails.
 func StatusDetailsToPB(_ context.Context, r device.StatusDetails) (*StatusDetails, error) {
 	pb := &StatusDetails{
-		Rack: uint32(r.Rack),
+		Rack:   uint32(r.Rack),
 		Device: r.Device,
 	}
 	return pb, nil
@@ -70,12 +69,12 @@ func StatusDetailssFromPB(ctx context.Context, pbs []*StatusDetails) ([]device.S
 // DeviceToPB converts Device to Device.
 func DeviceToPB(ctx context.Context, r device.Device) (*Device, error) {
 	pb := &Device{
-		Key: string(r.Key),
-		Rack: uint32(r.Rack),
-		Location: r.Location,
-		Make: r.Make,
-		Model: r.Model,
-		Name: r.Name,
+		Key:        string(r.Key),
+		Rack:       uint32(r.Rack),
+		Location:   r.Location,
+		Make:       r.Make,
+		Model:      r.Model,
+		Name:       r.Name,
 		Configured: r.Configured,
 		Properties: r.Properties,
 	}

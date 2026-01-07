@@ -13,19 +13,18 @@ package pb
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/aspen/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	controlpb "github.com/synnaxlabs/x/control/pb"
+	"github.com/synnaxlabs/x/telem"
 )
-
 
 // OperationToPB converts Operation to Operation.
 func OperationToPB(_ context.Context, r channel.Operation) (*Operation, error) {
 	pb := &Operation{
-		Type: OperationTypeToPB(r.Type),
+		Type:         OperationTypeToPB(r.Type),
 		ResetChannel: uint32(r.ResetChannel),
-		Duration: int64(r.Duration),
+		Duration:     int64(r.Duration),
 	}
 	return pb, nil
 }
@@ -75,17 +74,17 @@ func ChannelToPB(ctx context.Context, r channel.Channel) (*Channel, error) {
 		return nil, err
 	}
 	pb := &Channel{
-		Name: string(r.Name),
+		Name:        string(r.Name),
 		Leaseholder: uint32(r.Leaseholder),
-		DataType: string(r.DataType),
-		IsIndex: r.IsIndex,
-		LocalKey: uint32(r.LocalKey),
-		LocalIndex: uint32(r.LocalIndex),
-		Virtual: r.Virtual,
+		DataType:    string(r.DataType),
+		IsIndex:     r.IsIndex,
+		LocalKey:    uint32(r.LocalKey),
+		LocalIndex:  uint32(r.LocalIndex),
+		Virtual:     r.Virtual,
 		Concurrency: controlpb.ConcurrencyToPB(r.Concurrency),
-		Internal: r.Internal,
-		Expression: r.Expression,
-		Operations: operationsVal,
+		Internal:    r.Internal,
+		Expression:  r.Expression,
+		Operations:  operationsVal,
 	}
 	return pb, nil
 }

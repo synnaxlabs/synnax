@@ -9,15 +9,15 @@
 
 // Re-export from the top-level kv module for backward compatibility
 export {
-  DELETE_CHANNEL as KV_DELETE_CHANNEL,
   KV,
+  DELETE_CHANNEL as KV_DELETE_CHANNEL,
   SET_CHANNEL as KV_SET_CHANNEL,
 } from "@/kv/client";
 export {
   type DeleteRequest,
   type GetRequest,
-  pairKey as kvPairKey,
   type Pair as KVPair,
+  pairKey as kvPairKey,
   pairZ as kvPairZ,
   type SetRequest,
 } from "@/kv/payload";

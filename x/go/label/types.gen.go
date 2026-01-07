@@ -17,7 +17,7 @@ import (
 )
 
 type Label struct {
-	Key uuid.UUID `json:"key" msgpack:"key"`
-	Name string `json:"name" msgpack:"name"`
+	Key   uuid.UUID   `json:"key" msgpack:"key"`
+	Name  string      `json:"name" msgpack:"name"`
 	Color color.Color `json:"color" msgpack:"color"`
 }

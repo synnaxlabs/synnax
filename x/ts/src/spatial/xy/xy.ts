@@ -9,7 +9,14 @@
 
 import { z } from "zod";
 
-import { type AngularDirection, type CrudeDirection, type NumberCouple, numberCouple } from "@/spatial/base";
+import {
+  type AngularDirection,
+  type CrudeDirection,
+  type NumberCouple,
+  numberCouple,
+} from "@/spatial/base";
+import { direction as dir } from "@/spatial/direction";
+import { type location } from "@/spatial/location";
 import {
   type ClientXY,
   clientXyZ,
@@ -19,8 +26,6 @@ import {
   type XY,
   xyZ,
 } from "@/spatial/types.gen";
-import { direction as dir } from "@/spatial/direction";
-import { type location } from "@/spatial/location";
 
 export { type ClientXY as Client, clientXyZ, type XY, xyZ };
 

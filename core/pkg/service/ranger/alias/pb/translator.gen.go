@@ -19,13 +19,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 )
 
-
 // AliasToPB converts Alias to Alias.
 func AliasToPB(_ context.Context, r alias.Alias) (*Alias, error) {
 	pb := &Alias{
-		Range: r.Range.String(),
+		Range:   r.Range.String(),
 		Channel: uint32(r.Channel),
-		Alias: r.Alias,
+		Alias:   r.Alias,
 	}
 	return pb, nil
 }

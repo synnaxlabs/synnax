@@ -11,11 +11,7 @@ import { z } from "zod";
 
 import { id } from "@/id";
 import { type optional } from "@/optional";
-import {
-  type Status,
-  type Variant,
-  variantZ,
-} from "@/status/types.gen";
+import { type Status, type Variant, type variantZ } from "@/status/types.gen";
 import { TimeStamp } from "@/telem";
 
 // Input type for creating statuses - uses conditional typing for optional details

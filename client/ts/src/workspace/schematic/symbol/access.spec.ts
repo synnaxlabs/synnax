@@ -10,8 +10,8 @@
 import { describe, expect, it } from "vitest";
 
 import { AuthError, NotFoundError } from "@/errors";
-import { ontology } from "@/ontology";
 import { group } from "@/group";
+import { ontology } from "@/ontology";
 import { createTestClientWithPolicy } from "@/testutil/access";
 import { createTestClient } from "@/testutil/client";
 import { symbol } from "@/workspace/schematic/symbol";

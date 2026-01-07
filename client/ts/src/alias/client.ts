@@ -72,7 +72,7 @@ export class Aliaser {
     if (toFetch.length === 0) return cached;
     const res = await sendRequired<typeof resolveRequestZ, typeof resolveResponseZ>(
       this.client,
-      "/alias/resolve",
+      "/range/alias/resolve",
       { range: this.rangeKey, aliases: toFetch },
       resolveRequestZ,
       resolveResponseZ,
@@ -88,7 +88,7 @@ export class Aliaser {
   async set(aliases: Record<channel.Key, string>): Promise<void> {
     await sendRequired(
       this.client,
-      "/alias/set",
+      "/range/alias/set",
       { range: this.rangeKey, aliases },
       setRequestZ,
       z.unknown(),
@@ -103,7 +103,7 @@ export class Aliaser {
     return (
       await sendRequired<typeof listRequestZ, typeof listResponseZ>(
         this.client,
-        "/alias/list",
+        "/range/alias/list",
         { range: this.rangeKey },
         listRequestZ,
         listResponseZ,
@@ -129,7 +129,7 @@ export class Aliaser {
     const isSingle = typeof alias === "number";
     const res = await sendRequired<typeof retrieveRequestZ, typeof retrieveResponseZ>(
       this.client,
-      "/alias/retrieve",
+      "/range/alias/retrieve",
       { range: this.rangeKey, channels: array.toArray(alias) },
       retrieveRequestZ,
       retrieveResponseZ,
@@ -144,7 +144,7 @@ export class Aliaser {
   async delete(channels: channel.Key | channel.Key[]): Promise<void> {
     await sendRequired(
       this.client,
-      "/alias/delete",
+      "/range/alias/delete",
       { range: this.rangeKey, channels: array.toArray(channels) },
       deleteRequestZ,
       z.unknown(),

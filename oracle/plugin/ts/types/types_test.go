@@ -469,7 +469,34 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`firstName: z.string().min(1, "First Name is required")`))
 		})
 
-		It("Should use z.input and jsonStringifier when use_input is specified in ts domain", func() {
+		It("Should use z.input and jsonStringifier when use_input and stringify are specified", func() {
+			source := `
+				@ts output "out"
+
+				New struct {
+					key uuid?
+					name string
+					data json @ts stringify
+
+					@ts use_input
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "workspace", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`export interface New extends z.input<typeof newZ> {}`))
+			Expect(content).To(ContainSubstring(`data: zod.jsonStringifier`))
+		})
+
+		It("Should use stringifiedJSON for json fields without @ts stringify even when use_input is specified", func() {
 			source := `
 				@ts output "out"
 
@@ -493,10 +520,44 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export interface New extends z.input<typeof newZ> {}`))
-			Expect(content).To(ContainSubstring(`data: zod.jsonStringifier`))
+			// Without @ts stringify on the field, should use stringifiedJSON
+			Expect(content).To(ContainSubstring(`data: zod.stringifiedJSON()`))
 		})
 
-		It("Should use jsonStringifier for inherited JSON fields when use_input is specified on child struct", func() {
+		It("Should use jsonStringifier for overridden JSON fields with @ts stringify in child struct", func() {
+			source := `
+				@ts output "out"
+
+				Parent struct<Properties extends json = json> {
+					name string
+					properties Properties
+				}
+
+				Child struct<Properties extends json = json> extends Parent<Properties> {
+					key uuid?
+					properties Properties @ts stringify
+					@ts use_input
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Child should omit properties from parent and re-extend with jsonStringifier
+			Expect(content).To(ContainSubstring(`.omit({ properties: true })`))
+			Expect(content).To(ContainSubstring(`properties: zod.jsonStringifier(properties)`))
+			// Type should use z.input
+			Expect(content).To(ContainSubstring(`z.input<`))
+		})
+
+		It("Should NOT auto-stringify inherited JSON fields without @ts stringify", func() {
 			source := `
 				@ts output "out"
 
@@ -521,11 +582,9 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			// Child should omit properties from parent and re-extend with jsonStringifier
-			Expect(content).To(ContainSubstring(`.omit({ properties: true })`))
-			Expect(content).To(ContainSubstring(`properties: zod.jsonStringifier(properties)`))
-			// Type should use z.input
-			Expect(content).To(ContainSubstring(`z.input<`))
+			// Child should NOT automatically omit and re-extend properties
+			// The inherited properties field should use parent's stringifiedJSON
+			Expect(content).NotTo(ContainSubstring(`properties: zod.jsonStringifier`))
 		})
 
 		It("Should use z.infer by default without use_input", func() {

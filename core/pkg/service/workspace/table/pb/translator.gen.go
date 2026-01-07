@@ -17,11 +17,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/table"
 )
 
-
 // TableToPB converts Table to Table.
 func TableToPB(_ context.Context, r table.Table) (*Table, error) {
 	pb := &Table{
-		Key: r.Key.String(),
+		Key:  r.Key.String(),
 		Name: r.Name,
 		Data: r.Data,
 	}

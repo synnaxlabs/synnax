@@ -18,7 +18,7 @@ import {
   type Pair,
   setRequestZ,
 } from "@/kv/payload";
-import { range } from "@/range";
+import { type range } from "@/range";
 
 export const SET_CHANNEL = "sy_range_kv_set";
 export const DELETE_CHANNEL = "sy_range_kv_delete";
@@ -50,7 +50,7 @@ export class KV {
   async get(keys: string | string[]): Promise<string | Record<string, string>> {
     const res = await sendRequired(
       this.client,
-      "/kv/get",
+      "/range/kv/get",
       { range: this.rangeKey, keys: array.toArray(keys) },
       getRequestZ,
       getResponseZ,
@@ -90,7 +90,7 @@ export class KV {
 
     await sendRequired(
       this.client,
-      "/kv/set",
+      "/range/kv/set",
       { range: this.rangeKey, pairs },
       setRequestZ,
       z.unknown(),
@@ -104,7 +104,7 @@ export class KV {
   async delete(key: string | string[]): Promise<void> {
     await sendRequired(
       this.client,
-      "/kv/delete",
+      "/range/kv/delete",
       { range: this.rangeKey, keys: array.toArray(key) },
       deleteRequestZ,
       z.unknown(),

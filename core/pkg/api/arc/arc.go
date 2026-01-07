@@ -32,7 +32,7 @@ import (
 
 type Arc struct {
 	arc.Arc
-	Status *status.Status[arc.StatusDetails] `json:"status" msgpack:"status"`
+	Status *status.Status[arc.StatusDetails] `json:"status,omitempty" msgpack:"status,omitempty"`
 }
 
 type Service struct {

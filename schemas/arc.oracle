@@ -144,13 +144,13 @@ Status = status.Status<StatusDetails>
 Key = uuid
 
 Arc struct {
-    key     Key     @key
+    key     Key      @key
     name    string
     graph   Graph
     text    Text
     deploy  bool
     version string
-    status  Status?
+    status  Status??
 
     @ontology type "arc"
 }

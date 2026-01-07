@@ -17,14 +17,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
 )
 
-
 // SchematicToPB converts Schematic to Schematic.
 func SchematicToPB(_ context.Context, r schematic.Schematic) (*Schematic, error) {
 	pb := &Schematic{
-		Key: r.Key.String(),
-		Name: r.Name,
+		Key:      r.Key.String(),
+		Name:     r.Name,
 		Snapshot: r.Snapshot,
-		Data: r.Data,
+		Data:     r.Data,
 	}
 	return pb, nil
 }

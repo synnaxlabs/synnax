@@ -18,6 +18,6 @@ export {
   type AliasChange,
   aliasKey,
   aliasZ,
-  decodeDeleteAliasChange,
   type DecodedDeleteAliasChange,
+  decodeDeleteAliasChange,
 } from "@/alias/payload";

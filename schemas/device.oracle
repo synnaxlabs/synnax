@@ -59,7 +59,8 @@ New struct<
     Make extends string = string,
     Model extends string = string
 > extends Device<Properties, Make, Model> {
-    key Key?
+    key        Key?
+    properties Properties @ts stringify
     -configured
 
     @ts use_input

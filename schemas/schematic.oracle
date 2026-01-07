@@ -35,6 +35,7 @@ GoSchematic struct extends Schematic {
 
 New struct extends Schematic {
     key      Key?
+    data     json  @ts stringify
     snapshot bool?
 
     @ts use_input

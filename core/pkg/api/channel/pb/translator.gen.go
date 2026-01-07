@@ -13,14 +13,13 @@ package pb
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	distributionchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	channelpb "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb"
 	controlpb "github.com/synnaxlabs/x/control/pb"
+	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/types"
 )
-
 
 // ChannelToPB converts Channel to Channel.
 func ChannelToPB(ctx context.Context, r channel.Channel) (*Channel, error) {
@@ -29,18 +28,18 @@ func ChannelToPB(ctx context.Context, r channel.Channel) (*Channel, error) {
 		return nil, err
 	}
 	pb := &Channel{
-		Key: uint32(r.Key),
-		Name: string(r.Name),
+		Key:         uint32(r.Key),
+		Name:        string(r.Name),
 		Leaseholder: uint32(r.Leaseholder),
-		DataType: string(r.DataType),
-		IsIndex: r.IsIndex,
-		Index: uint32(r.Index),
-		Alias: r.Alias,
-		Virtual: r.Virtual,
-		Internal: r.Internal,
-		Expression: r.Expression,
+		DataType:    string(r.DataType),
+		IsIndex:     r.IsIndex,
+		Index:       uint32(r.Index),
+		Alias:       r.Alias,
+		Virtual:     r.Virtual,
+		Internal:    r.Internal,
+		Expression:  r.Expression,
 		Concurrency: controlpb.ConcurrencyToPB(r.Concurrency),
-		Operations: operationsVal,
+		Operations:  operationsVal,
 	}
 	return pb, nil
 }

@@ -9,8 +9,8 @@
 
 import { describe, expect, it, test } from "vitest";
 
-import { ontology } from "@/ontology";
 import { group } from "@/group";
+import { ontology } from "@/ontology";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();

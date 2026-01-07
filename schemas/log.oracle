@@ -33,7 +33,8 @@ GoLog struct extends Log {
 }
 
 New struct extends Log {
-    key Key?
+    key  Key?
+    data json @ts stringify
 
     @ts use_input
     @go omit

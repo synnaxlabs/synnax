@@ -33,7 +33,8 @@ GoTable struct extends Table {
 }
 
 New struct extends Table {
-    key Key?
+    key  Key?
+    data json @ts stringify
 
     @ts use_input
     @go omit

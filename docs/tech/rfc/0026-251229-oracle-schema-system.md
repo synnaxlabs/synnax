@@ -59,8 +59,8 @@ RFC 0025 identifies several problems with the current meta-data toolchain:
 5. **Inefficient Queries** - Gorp uses O(n) full scans for any non-key lookup; no
    secondary indexes
 
-Oracle solves these by making the schema the single source of truth from which all
-code is derived.
+Oracle solves these by making the schema the single source of truth from which all code
+is derived.
 
 ---
 
@@ -234,13 +234,13 @@ struct Range {
 
 Only these are reserved by the language:
 
-| Keyword | Purpose |
-|---------|---------|
-| `struct` | Define a data structure |
-| `field` | Define a field within a struct |
+| Keyword  | Purpose                                      |
+| -------- | -------------------------------------------- |
+| `struct` | Define a data structure                      |
+| `field`  | Define a field within a struct               |
 | `domain` | Define a domain block with rules/expressions |
-| `enum` | Define an enumeration type |
-| `import` | Import other schema files |
+| `enum`   | Define an enumeration type                   |
+| `import` | Import other schema files                    |
 
 Everything else (like `validate`, `query`, `index`, `relation`) are just identifiers
 that plugins look for - they are not reserved by the language.
@@ -249,35 +249,35 @@ that plugins look for - they are not reserved by the language.
 
 All primitives are lowercase:
 
-| Type | Go | TypeScript | Python |
-|------|-----|------------|--------|
-| `uuid` | `uuid.UUID` | `string` | `UUID` |
-| `string` | `string` | `string` | `str` |
-| `bool` | `bool` | `boolean` | `bool` |
-| `int8` | `int8` | `number` | `int` |
-| `int16` | `int16` | `number` | `int` |
-| `int32` | `int32` | `number` | `int` |
-| `int64` | `int64` | `number` | `int` |
-| `uint8` | `uint8` | `number` | `int` |
-| `uint16` | `uint16` | `number` | `int` |
-| `uint32` | `uint32` | `number` | `int` |
-| `uint64` | `uint64` | `number` | `int` |
-| `float32` | `float32` | `number` | `float` |
-| `float64` | `float64` | `number` | `float` |
-| `timestamp` | `telem.TimeStamp` | `number` | `int` |
-| `timespan` | `telem.TimeSpan` | `number` | `int` |
-| `time_range` | `telem.TimeRange` | `TimeRange` | `TimeRange` |
-| `json` | `map[string]any` | `Record<string, unknown>` | `dict[str, Any]` |
-| `bytes` | `[]byte` | `Uint8Array` | `bytes` |
+| Type         | Go                | TypeScript                | Python           |
+| ------------ | ----------------- | ------------------------- | ---------------- |
+| `uuid`       | `uuid.UUID`       | `string`                  | `UUID`           |
+| `string`     | `string`          | `string`                  | `str`            |
+| `bool`       | `bool`            | `boolean`                 | `bool`           |
+| `int8`       | `int8`            | `number`                  | `int`            |
+| `int16`      | `int16`           | `number`                  | `int`            |
+| `int32`      | `int32`           | `number`                  | `int`            |
+| `int64`      | `int64`           | `number`                  | `int`            |
+| `uint8`      | `uint8`           | `number`                  | `int`            |
+| `uint16`     | `uint16`          | `number`                  | `int`            |
+| `uint32`     | `uint32`          | `number`                  | `int`            |
+| `uint64`     | `uint64`          | `number`                  | `int`            |
+| `float32`    | `float32`         | `number`                  | `float`          |
+| `float64`    | `float64`         | `number`                  | `float`          |
+| `timestamp`  | `telem.TimeStamp` | `number`                  | `int`            |
+| `timespan`   | `telem.TimeSpan`  | `number`                  | `int`            |
+| `time_range` | `telem.TimeRange` | `TimeRange`               | `TimeRange`      |
+| `json`       | `map[string]any`  | `Record<string, unknown>` | `dict[str, Any]` |
+| `bytes`      | `[]byte`          | `Uint8Array`              | `bytes`          |
 
 ## 3.4 - Type Modifiers
 
-| Syntax | Meaning |
-|--------|---------|
-| `type` | Required (default) |
-| `type?` | Optional (nullable) |
-| `type[]` | List/array |
-| `type[]?` | Optional list |
+| Syntax    | Meaning             |
+| --------- | ------------------- |
+| `type`    | Required (default)  |
+| `type?`   | Optional (nullable) |
+| `type[]`  | List/array          |
+| `type[]?` | Optional list       |
 
 ## 3.5 - Field Syntax
 
@@ -433,8 +433,8 @@ struct Range {
 }
 ```
 
-File at `schema/label.oracle` → namespace `label`
-File at `schema/schematic.oracle` → namespace `schematic`
+File at `schema/label.oracle` → namespace `label` File at `schema/schematic.oracle` →
+namespace `schematic`
 
 ## 3.10 - Embedded Structs
 
@@ -491,8 +491,8 @@ struct Schematic {
 
 ## 3.11 - Cross-Cutting Concerns
 
-For concerns that span multiple fields (composite indexes, multi-field validation),
-use struct-level domain blocks:
+For concerns that span multiple fields (composite indexes, multi-field validation), use
+struct-level domain blocks:
 
 ```oracle
 struct Range {
@@ -603,28 +603,28 @@ runs plugins in topological order based on their dependencies.
 
 ### Go Plugins
 
-| Plugin | Domains | Requires | Output |
-|--------|---------|----------|--------|
-| `go/types` | `go`, `id` | - | `types.gen.go` |
-| `go/query` | `query` | `go/types` | `query.gen.go` |
-| `go/index` | `index` | `go/types` | `index.gen.go` |
+| Plugin        | Domains    | Requires   | Output                       |
+| ------------- | ---------- | ---------- | ---------------------------- |
+| `go/types`    | `go`, `id` | -          | `types.gen.go`               |
+| `go/query`    | `query`    | `go/types` | `query.gen.go`               |
+| `go/index`    | `index`    | `go/types` | `index.gen.go`               |
 | `go/validate` | `validate` | `go/types` | validation in `types.gen.go` |
 
 ### TypeScript Plugins
 
-| Plugin | Domains | Requires | Output |
-|--------|---------|----------|--------|
-| `ts/types` | `ts` | - | `types.gen.ts` |
-| `zod` | `ts`, `validate` | - | `schema.gen.ts` |
-| `ts/query` | `query` | `ts/types` | `query.gen.ts` |
+| Plugin     | Domains          | Requires   | Output          |
+| ---------- | ---------------- | ---------- | --------------- |
+| `ts/types` | `ts`             | -          | `types.gen.ts`  |
+| `zod`      | `ts`, `validate` | -          | `schema.gen.ts` |
+| `ts/query` | `query`          | `ts/types` | `query.gen.ts`  |
 
 ### Python Plugins
 
-| Plugin | Domains | Requires | Output |
-|--------|---------|----------|--------|
-| `py/types` | `python` | - | `types.gen.py` |
-| `py/pydantic` | `python`, `validate` | - | Pydantic models |
-| `py/query` | `query` | `py/types` | `query.gen.py` |
+| Plugin        | Domains              | Requires   | Output          |
+| ------------- | -------------------- | ---------- | --------------- |
+| `py/types`    | `python`             | -          | `types.gen.py`  |
+| `py/pydantic` | `python`, `validate` | -          | Pydantic models |
+| `py/query`    | `query`              | `py/types` | `query.gen.py`  |
 
 ### Output Configuration
 
@@ -660,23 +660,23 @@ func (p *GoQueryPlugin) Requires() []string { return []string{"go/types"} }
 
 ## 4.2 - Core Responsibilities
 
-| Responsibility | Description |
-|----------------|-------------|
-| Parsing | Lex and parse `.oracle` files using ANTLR |
-| Import Resolution | Load and merge imported schema files |
+| Responsibility       | Description                                 |
+| -------------------- | ------------------------------------------- |
+| Parsing              | Lex and parse `.oracle` files using ANTLR   |
+| Import Resolution    | Load and merge imported schema files        |
 | Reference Resolution | Resolve `label.Label` to actual definitions |
-| Plugin Invocation | Pass parse tree + resolutions to plugins |
+| Plugin Invocation    | Pass parse tree + resolutions to plugins    |
 
 ## 4.3 - Plugin Responsibilities
 
-| Responsibility | Description |
-|----------------|-------------|
-| Domain Handling | Define which domains the plugin processes |
-| Type Mapping | `uuid` → `uuid.UUID` (Go), `string` (TS), `UUID` (Py) |
-| Naming Conventions | `created_at` → `CreatedAt` (Go), `createdAt` (TS) |
-| Code Generation | Structs, interfaces, classes, validators |
-| File Structure | One file per struct, directory layout |
-| Language Idioms | Struct tags, Zod schemas, Pydantic models |
+| Responsibility     | Description                                           |
+| ------------------ | ----------------------------------------------------- |
+| Domain Handling    | Define which domains the plugin processes             |
+| Type Mapping       | `uuid` → `uuid.UUID` (Go), `string` (TS), `UUID` (Py) |
+| Naming Conventions | `created_at` → `CreatedAt` (Go), `createdAt` (TS)     |
+| Code Generation    | Structs, interfaces, classes, validators              |
+| File Structure     | One file per struct, directory layout                 |
+| Language Idioms    | Struct tags, Zod schemas, Pydantic models             |
 
 ## 4.4 - Plugin Interface
 
@@ -899,12 +899,12 @@ export const keyZ = z.string().uuid();
 export type Key = z.infer<typeof keyZ>;
 
 export const rangeZ = z.object({
-    key: keyZ,
-    name: z.string().min(1).max(255),
-    labels: z.array(z.string().uuid()),
-    timeRange: timeRangeZ,
-    createdAt: z.number(),
-    parent: keyZ.nullable().optional(),
+  key: keyZ,
+  name: z.string().min(1).max(255),
+  labels: z.array(z.string().uuid()),
+  timeRange: timeRangeZ,
+  createdAt: z.number(),
+  parent: keyZ.nullable().optional(),
 });
 
 export type Range = z.infer<typeof rangeZ>;
@@ -922,62 +922,77 @@ export type LabelsOp = "has_any" | "has_all" | "has_none";
 export type CreatedAtOp = "eq" | "gt" | "gte" | "lt" | "lte" | "between";
 
 export interface NameFilter {
-    readonly field: "name";
-    readonly op: NameOp;
-    readonly value: string;
+  readonly field: "name";
+  readonly op: NameOp;
+  readonly value: string;
 }
 
 export interface LabelsFilter {
-    readonly field: "labels";
-    readonly op: LabelsOp;
-    readonly value: string[];
+  readonly field: "labels";
+  readonly op: LabelsOp;
+  readonly value: string[];
 }
 
 export interface CreatedAtFilter {
-    readonly field: "created_at";
-    readonly op: CreatedAtOp;
-    readonly value: number | [number, number];
+  readonly field: "created_at";
+  readonly op: CreatedAtOp;
+  readonly value: number | [number, number];
 }
 
 export type RangeFilter =
-    | NameFilter
-    | LabelsFilter
-    | CreatedAtFilter
-    | { readonly and: RangeFilter[] }
-    | { readonly or: RangeFilter[] };
+  | NameFilter
+  | LabelsFilter
+  | CreatedAtFilter
+  | { readonly and: RangeFilter[] }
+  | { readonly or: RangeFilter[] };
 
 class NameBuilder {
-    constructor(private value: string) {}
-    eq(): NameFilter { return { field: "name", op: "eq", value: this.value }; }
-    neq(): NameFilter { return { field: "name", op: "neq", value: this.value }; }
-    contains(): NameFilter { return { field: "name", op: "contains", value: this.value }; }
-    startsWith(): NameFilter { return { field: "name", op: "starts_with", value: this.value }; }
+  constructor(private value: string) {}
+  eq(): NameFilter {
+    return { field: "name", op: "eq", value: this.value };
+  }
+  neq(): NameFilter {
+    return { field: "name", op: "neq", value: this.value };
+  }
+  contains(): NameFilter {
+    return { field: "name", op: "contains", value: this.value };
+  }
+  startsWith(): NameFilter {
+    return { field: "name", op: "starts_with", value: this.value };
+  }
 }
 
 class LabelsBuilder {
-    constructor(private values: string[]) {}
-    hasAny(): LabelsFilter { return { field: "labels", op: "has_any", value: this.values }; }
-    hasAll(): LabelsFilter { return { field: "labels", op: "has_all", value: this.values }; }
-    hasNone(): LabelsFilter { return { field: "labels", op: "has_none", value: this.values }; }
+  constructor(private values: string[]) {}
+  hasAny(): LabelsFilter {
+    return { field: "labels", op: "has_any", value: this.values };
+  }
+  hasAll(): LabelsFilter {
+    return { field: "labels", op: "has_all", value: this.values };
+  }
+  hasNone(): LabelsFilter {
+    return { field: "labels", op: "has_none", value: this.values };
+  }
 }
 
 export const Range = {
-    name: (v: string) => new NameBuilder(v),
-    labels: (...v: string[]) => new LabelsBuilder(v),
-    createdAt: (v: number | Date) => new CreatedAtBuilder(typeof v === "number" ? v : v.getTime()),
-    and: (...f: RangeFilter[]): { and: RangeFilter[] } => ({ and: f }),
-    or: (...f: RangeFilter[]): { or: RangeFilter[] } => ({ or: f }),
+  name: (v: string) => new NameBuilder(v),
+  labels: (...v: string[]) => new LabelsBuilder(v),
+  createdAt: (v: number | Date) =>
+    new CreatedAtBuilder(typeof v === "number" ? v : v.getTime()),
+  and: (...f: RangeFilter[]): { and: RangeFilter[] } => ({ and: f }),
+  or: (...f: RangeFilter[]): { or: RangeFilter[] } => ({ or: f }),
 } as const;
 
 export type RangeSortField = "created_at";
 export type SortDir = "asc" | "desc";
 
 export interface RangeRetrieveParams {
-    where?: RangeFilter;
-    orderBy?: RangeSortField;
-    orderDir?: SortDir;
-    cursor?: string;
-    limit?: number;
+  where?: RangeFilter;
+  orderBy?: RangeSortField;
+  orderDir?: SortDir;
+  cursor?: string;
+  limit?: number;
 }
 ```
 

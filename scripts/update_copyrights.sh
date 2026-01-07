@@ -290,7 +290,7 @@ done
 for pattern in ${PATTERNS[@]+"${PATTERNS[@]}"}; do
     while IFS= read -r abs_file; do
         try_add_file "$abs_file"
-    done < <(find "$GIT_ROOT" -type f -name "$pattern" 2>/dev/null)
+    done < <(find "$GIT_ROOT" -type f -name "$pattern" 2> /dev/null)
 done
 
 TOTAL_TO_UPDATE=${#FILES_TO_UPDATE[@]}
