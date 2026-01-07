@@ -85,6 +85,7 @@ jobs:
   test-cpp:
     name: Test C++
     runs-on: ubuntu-build-bot
+    needs: [server]
     services:
       synnax:
         image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
