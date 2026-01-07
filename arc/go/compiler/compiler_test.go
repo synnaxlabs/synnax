@@ -1845,5 +1845,765 @@ var _ = Describe("Compiler", func() {
 			results := MustSucceed(concatMatch.Call(ctx))
 			Expect(results).To(ConsistOf(uint64(1)))
 		})
+
+		It("Should execute string compound concatenation", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func build() u8 {
+				s str := "hello"
+				s += " "
+				s += "world"
+				return s == "hello world"
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			arcRuntime.SetMemory(mod.Memory())
+			build := mod.ExportedFunction("build")
+			results := MustSucceed(build.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1)))
+		})
+
+		It("Should execute string compound concatenation with variable", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func build() u8 {
+				s str := "a"
+				suffix str := "b"
+				s += suffix
+				return s == "ab"
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			arcRuntime.SetMemory(mod.Memory())
+			build := mod.ExportedFunction("build")
+			results := MustSucceed(build.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1)))
+		})
+
+		DescribeTable("indexed compound assignments",
+			func(body string, expected any) {
+				source := fmt.Sprintf(`func test() %s %s`, inferReturnType(expected), body)
+				output := MustSucceed(compileWithHostImports(source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				results := MustSucceed(test.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				assertResult(results[0], expected)
+			},
+			Entry("i32 indexed +=", `{
+				arr series i32 := [1, 2, 3]
+				arr[0] += 10
+				return arr[0]
+			}`, int32(11)),
+			Entry("i64 indexed -=", `{
+				arr series i64 := [100, 200, 300]
+				arr[1] -= 50
+				return arr[1]
+			}`, int64(150)),
+			Entry("f64 indexed *=", `{
+				arr series f64 := [2.0, 3.0, 4.0]
+				arr[2] *= 2.5
+				return arr[2]
+			}`, float64(10.0)),
+			Entry("f32 indexed /=", `{
+				arr series f32 := [10.0, 20.0]
+				arr[0] /= 2.0
+				return arr[0]
+			}`, float32(5.0)),
+			Entry("i64 indexed %=", `{
+				arr series i64 := [17, 23]
+				arr[0] %= 5
+				return arr[0]
+			}`, int64(2)),
+			Entry("indexed compound with variable index", `{
+				arr series i32 := [10, 20, 30]
+				i i32 := 1
+				arr[i] += 5
+				return arr[1]
+			}`, int32(25)),
+			Entry("indexed compound with expression index", `{
+				arr series i32 := [10, 20, 30]
+				arr[1 + 1] += 7
+				return arr[2]
+			}`, int32(37)),
+			Entry("indexed compound with variable value", `{
+				arr series i32 := [10, 20, 30]
+				delta i32 := 15
+				arr[0] += delta
+				return arr[0]
+			}`, int32(25)),
+			Entry("chained indexed compound assignments", `{
+				arr series i32 := [100, 200, 300]
+				arr[0] += 10
+				arr[0] *= 2
+				return arr[0]
+			}`, int32(220)),
+			Entry("multiple elements indexed compound", `{
+				arr series i64 := [10, 20, 30]
+				arr[0] += 1
+				arr[1] += 2
+				arr[2] += 3
+				return arr[0] + arr[1] + arr[2]
+			}`, int64(66)),
+		)
+
+		DescribeTable("whole-series compound assignments",
+			func(body string, expected any) {
+				source := fmt.Sprintf(`func test() %s %s`, inferReturnType(expected), body)
+				output := MustSucceed(compileWithHostImports(source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				results := MustSucceed(test.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				assertResult(results[0], expected)
+			},
+			// series += scalar (broadcast)
+			Entry("series += scalar f64", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				s += 10.0
+				return s[1]
+			}`, float64(12.0)),
+			Entry("series -= scalar i32", `{
+				s series i32 := [10, 20, 30]
+				s -= 5
+				return s[0]
+			}`, int32(5)),
+			Entry("series *= scalar", `{
+				s series f64 := [2.0, 3.0, 4.0]
+				s *= 10.0
+				return s[0]
+			}`, float64(20.0)),
+			Entry("series /= scalar", `{
+				s series f64 := [100.0, 200.0]
+				s /= 10.0
+				return s[1]
+			}`, float64(20.0)),
+			Entry("series %= scalar", `{
+				s series i64 := [17, 23]
+				s %= 5
+				return s[0]
+			}`, int64(2)),
+
+			// series += series (element-wise)
+			Entry("series += series f64", `{
+				a series f64 := [1.0, 2.0, 3.0]
+				b series f64 := [10.0, 20.0, 30.0]
+				a += b
+				return a[1]
+			}`, float64(22.0)),
+			Entry("series -= series i32", `{
+				a series i32 := [100, 200, 300]
+				b series i32 := [10, 20, 30]
+				a -= b
+				return a[2]
+			}`, int32(270)),
+			Entry("series *= series", `{
+				a series f64 := [2.0, 3.0]
+				b series f64 := [4.0, 5.0]
+				a *= b
+				return a[1]
+			}`, float64(15.0)),
+			Entry("series /= series", `{
+				a series f64 := [100.0, 200.0]
+				b series f64 := [10.0, 20.0]
+				a /= b
+				return a[0]
+			}`, float64(10.0)),
+
+			// Chained operations
+			Entry("chained series compound assignments", `{
+				s series f64 := [10.0, 20.0]
+				s += 5.0
+				s *= 2.0
+				return s[0]
+			}`, float64(30.0)),
+
+			// Multiple series modifications
+			Entry("multiple series compound operations", `{
+				a series i64 := [10, 20]
+				b series i64 := [1, 2]
+				a += b
+				b += a
+				return a[0] + b[0]
+			}`, int64(23)), // a[0]=11, b[0]=12, sum=23
+		)
+	})
+
+	Describe("Compound Assignment Operators", func() {
+		DescribeTable("numeric compound assignments",
+			func(body string, expected any) {
+				source := fmt.Sprintf(`func test() %s %s`, inferReturnType(expected), body)
+				output := MustSucceed(compile(source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				results := MustSucceed(test.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				assertResult(results[0], expected)
+			},
+			Entry("i64 plus equals", `{
+				x i64 := 10
+				x += 5
+				return x
+			}`, int64(15)),
+			Entry("i64 minus equals", `{
+				x i64 := 10
+				x -= 3
+				return x
+			}`, int64(7)),
+			Entry("i64 multiply equals", `{
+				x i64 := 10
+				x *= 4
+				return x
+			}`, int64(40)),
+			Entry("i64 divide equals", `{
+				x i64 := 20
+				x /= 4
+				return x
+			}`, int64(5)),
+			Entry("i64 modulo equals", `{
+				x i64 := 17
+				x %= 5
+				return x
+			}`, int64(2)),
+			Entry("f64 plus equals", `{
+				x f64 := 10.5
+				x += 2.5
+				return x
+			}`, float64(13.0)),
+			Entry("f64 minus equals", `{
+				x f64 := 10.0
+				x -= 3.5
+				return x
+			}`, float64(6.5)),
+			Entry("f64 multiply equals", `{
+				x f64 := 2.5
+				x *= 4.0
+				return x
+			}`, float64(10.0)),
+			Entry("f64 divide equals", `{
+				x f64 := 15.0
+				x /= 3.0
+				return x
+			}`, float64(5.0)),
+			Entry("i32 plus equals", `{
+				x i32 := 100
+				x += 50
+				return x
+			}`, int32(150)),
+			Entry("i32 multiply equals", `{
+				x i32 := 7
+				x *= 6
+				return x
+			}`, int32(42)),
+			Entry("f32 plus equals", `{
+				x f32 := 1.5
+				x += 2.5
+				return x
+			}`, float32(4.0)),
+			Entry("multiple compound assignments", `{
+				x i64 := 10
+				x += 5
+				x *= 2
+				x -= 10
+				return x
+			}`, int64(20)),
+			Entry("compound assignment with expression", `{
+				x i64 := 10
+				y i64 := 3
+				x += y * 2
+				return x
+			}`, int64(16)),
+			Entry("compound assignment in conditional", `{
+				x i64 := 10
+				if x > 5 {
+					x += 100
+				}
+				return x
+			}`, int64(110)),
+			Entry("compound assignment with parameter", `{
+				x i64 := 5
+				x *= x
+				return x
+			}`, int64(25)),
+		)
+	})
+
+	Describe("Function Calls", func() {
+		It("Should call another function and return its result", func() {
+			output := MustSucceed(compile(`
+			func add(a i64, b i64) i64 {
+				return a + b
+			}
+
+			func main() i64 {
+				return add(10, 32)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			results := MustSucceed(main.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(42)))
+		})
+
+		It("Should call functions with f64 arguments and return values", func() {
+			output := MustSucceed(compile(`
+			func multiply(x f64, y f64) f64 {
+				return x * y
+			}
+
+			func main() f64 {
+				return multiply(3.5, 2.0)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			results := MustSucceed(main.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(math.Float64bits(7.0)))
+		})
+
+		It("Should handle nested function calls", func() {
+			output := MustSucceed(compile(`
+			func double(x i64) i64 {
+				return x * 2
+			}
+
+			func addOne(x i64) i64 {
+				return x + 1
+			}
+
+			func main() i64 {
+				return double(addOne(10))
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			// double(addOne(10)) = double(11) = 22
+			results := MustSucceed(main.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(22)))
+		})
+
+		It("Should handle function calls in expressions", func() {
+			output := MustSucceed(compile(`
+			func square(x i64) i64 {
+				return x * x
+			}
+
+			func main() i64 {
+				a := square(3)
+				b := square(4)
+				return a + b
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			// 3^2 + 4^2 = 9 + 16 = 25
+			results := MustSucceed(main.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(25)))
+		})
+
+		It("Should handle function calls as operands in binary expressions", func() {
+			output := MustSucceed(compile(`
+			func getX() i64 {
+				return 10
+			}
+
+			func getY() i64 {
+				return 5
+			}
+
+			func main() i64 {
+				return getX() + getY() * 2
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			// 10 + 5 * 2 = 10 + 10 = 20
+			results := MustSucceed(main.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(20)))
+		})
+
+		It("Should handle recursive function calls", func() {
+			output := MustSucceed(compile(`
+			func factorial(n i64) i64 {
+				if n <= 1 {
+					return 1
+				}
+				return n * factorial(n - 1)
+			}
+
+			func main() i64 {
+				return factorial(5)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			// 5! = 120
+			results := MustSucceed(main.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(120)))
+		})
+
+		It("Should handle forward function references", func() {
+			output := MustSucceed(compile(`
+			func caller() i64 {
+				return callee(42)
+			}
+
+			func callee(x i64) i64 {
+				return x * 2
+			}
+
+			func main() i64 {
+				return caller()
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			results := MustSucceed(main.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(84)))
+		})
+
+		It("Should handle function calls with type coercion", func() {
+			output := MustSucceed(compile(`
+			func processFloat(x f64) f64 {
+				return x * 2.0
+			}
+
+			func main() f64 {
+				return processFloat(5)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			// 5 coerced to 5.0, * 2.0 = 10.0
+			results := MustSucceed(main.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(math.Float64bits(10.0)))
+		})
+
+		It("Should handle multiple function calls in a single expression", func() {
+			output := MustSucceed(compile(`
+			func add(a i64, b i64) i64 {
+				return a + b
+			}
+
+			func main() i64 {
+				return add(add(1, 2), add(3, 4))
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			// add(add(1, 2), add(3, 4)) = add(3, 7) = 10
+			results := MustSucceed(main.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(10)))
+		})
+
+		It("Should handle function calls with no arguments", func() {
+			output := MustSucceed(compile(`
+			func getConstant() i64 {
+				return 42
+			}
+
+			func main() i64 {
+				return getConstant()
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			results := MustSucceed(main.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(42)))
+		})
+
+		It("Should handle function calls with many arguments", func() {
+			output := MustSucceed(compile(`
+			func sum4(a i64, b i64, c i64, d i64) i64 {
+				return a + b + c + d
+			}
+
+			func main() i64 {
+				return sum4(1, 2, 3, 4)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			results := MustSucceed(main.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(10)))
+		})
+
+		It("Should handle function calls in conditional expressions", func() {
+			output := MustSucceed(compile(`
+			func isPositive(x i64) u8 {
+				return x > 0
+			}
+
+			func abs(x i64) i64 {
+				if isPositive(x) {
+					return x
+				}
+				return -x
+			}
+
+			func main() i64 {
+				return abs(-42)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			results := MustSucceed(main.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(42)))
+		})
+
+		It("Should use default value when optional argument omitted", func() {
+			output := MustSucceed(compile(`
+			func add(x i64, y i64 = 10) i64 {
+				return x + y
+			}
+
+			func main() i64 {
+				return add(5)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			results := MustSucceed(main.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(15))) // 5 + 10 (default)
+		})
+
+		It("Should override default when optional argument provided", func() {
+			output := MustSucceed(compile(`
+			func add(x i64, y i64 = 10) i64 {
+				return x + y
+			}
+
+			func main() i64 {
+				return add(5, 20)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			results := MustSucceed(main.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(25))) // 5 + 20 (overridden)
+		})
+
+		It("Should handle multiple optional parameters", func() {
+			output := MustSucceed(compile(`
+			func sum(a i64, b i64 = 100, c i64 = 200) i64 {
+				return a + b + c
+			}
+
+			func main() i64 {
+				x := sum(1)
+				y := sum(1, 2)
+				z := sum(1, 2, 3)
+				return x + y + z
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			// x = 1 + 100 + 200 = 301
+			// y = 1 + 2 + 200 = 203
+			// z = 1 + 2 + 3 = 6
+			// total = 510
+			results := MustSucceed(main.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(510)))
+		})
+
+		It("Should handle f64 default values", func() {
+			output := MustSucceed(compile(`
+			func scale(x f64, factor f64 = 2.5) f64 {
+				return x * factor
+			}
+
+			func main() f64 {
+				return scale(4.0)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			// 4.0 * 2.5 = 10.0
+			results := MustSucceed(main.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(math.Float64bits(10.0)))
+		})
+
+		It("Should handle i32 default values", func() {
+			output := MustSucceed(compile(`
+			func offset(x i32, delta i32 = 5) i32 {
+				return x + delta
+			}
+
+			func main() i32 {
+				return offset(10)
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			results := MustSucceed(main.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(15))) // 10 + 5
+		})
+
+		It("Should handle all optional parameters omitted", func() {
+			output := MustSucceed(compile(`
+			func defaults(a i64 = 1, b i64 = 2) i64 {
+				return a + b
+			}
+
+			func main() i64 {
+				return defaults()
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			results := MustSucceed(main.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(3))) // 1 + 2
+		})
+	})
+
+	Describe("String Functions", func() {
+		var arcRuntime *runtimebindings.Runtime
+
+		BeforeEach(func() {
+			// Setup bindings for string operations with actual runtime implementations
+			b := bindings.NewBindings()
+			arcRuntime = runtimebindings.NewRuntime(nil, nil)
+			runtimebindings.BindRuntime(arcRuntime, b)
+			Expect(b.Bind(ctx, r)).To(Succeed())
+		})
+
+		It("Should compare strings with default", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func isDefault(s str = "default") u8 {
+				return s == "default"
+			}
+
+			func main() u8 {
+				return isDefault()
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			arcRuntime.SetMemory(mod.Memory())
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			results := MustSucceed(main.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1))) // true
+		})
+
+		It("Should compare overridden string parameter", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func isHello(s str = "default") u8 {
+				return s == "hello"
+			}
+
+			func main() u8 {
+				return isHello("hello")
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			arcRuntime.SetMemory(mod.Memory())
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			results := MustSucceed(main.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(1))) // true
+		})
+
+		It("Should return false when default string doesn't match", func() {
+			output := MustSucceed(compileWithHostImports(`
+			func isHello(s str = "world") u8 {
+				return s == "hello"
+			}
+
+			func main() u8 {
+				return isHello()
+			}
+			`, nil))
+
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			arcRuntime.SetMemory(mod.Memory())
+			main := mod.ExportedFunction("main")
+			Expect(main).ToNot(BeNil())
+
+			// Default is "world", comparing to "hello" should be false
+			results := MustSucceed(main.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0]).To(Equal(uint64(0))) // false
+		})
 	})
 })

@@ -174,8 +174,18 @@ statefulVariable
     ;
 
 assignment
-    : IDENTIFIER ASSIGN expression                    // Variable assignment
-    | IDENTIFIER indexOrSlice ASSIGN expression       // Indexed assignment
+    : IDENTIFIER ASSIGN expression
+    | IDENTIFIER indexOrSlice ASSIGN expression
+    | IDENTIFIER compoundOp expression
+    | IDENTIFIER indexOrSlice compoundOp expression
+    ;
+
+compoundOp
+    : PLUS_ASSIGN
+    | MINUS_ASSIGN
+    | STAR_ASSIGN
+    | SLASH_ASSIGN
+    | PERCENT_ASSIGN
     ;
 
 ifStatement

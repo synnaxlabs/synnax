@@ -16,6 +16,7 @@ cc_library(
         "//x/go/control:control_grpc",
         "//x/go/telem:telem_grpc",
         "@nlohmann_json//:json",
+        "@protobuf//:protobuf",
     ],
 )
 

@@ -48,6 +48,131 @@ func analyzeExpectError(src string, resolver symbol.Resolver, msgMatcher OmegaMa
 }
 
 var _ = Describe("Function Analyzer", func() {
+	Describe("CollectDeclarations", func() {
+		Describe("basic declaration collection", func() {
+			It("should handle empty program", func() {
+				ctx := analyzeExpectSuccess(``, nil)
+				Expect(ctx.Scope.Children).To(BeEmpty())
+			})
+			It("should collect function with no parameters", func() {
+				ctx := analyzeExpectSuccess(`func foo() {}`, nil)
+				Expect(ctx.Scope.Children).To(HaveLen(1))
+				fn := ctx.Scope.Children[0]
+				Expect(fn.Name).To(Equal("foo"))
+				Expect(fn.Kind).To(Equal(symbol.KindFunction))
+				Expect(fn.Type.Config).To(BeEmpty())
+				Expect(fn.Type.Inputs).To(BeEmpty())
+				Expect(fn.Type.Outputs).To(BeEmpty())
+			})
+			It("should collect multiple functions before body analysis", func() {
+				ctx := analyzeExpectSuccess(`
+					func first() i32 { return second() }
+					func second() i32 { return 42 }
+				`, nil)
+				Expect(ctx.Scope.Children).To(HaveLen(2))
+				Expect(ctx.Scope.Children[0].Name).To(Equal("first"))
+				Expect(ctx.Scope.Children[1].Name).To(Equal("second"))
+			})
+		})
+		Describe("config parameter collection", func() {
+			It("should collect function with only config params", func() {
+				ctx := analyzeExpectSuccess(`func foo{x i32}() {}`, nil)
+				fn := ctx.Scope.Children[0]
+				Expect(fn.Type.Config).To(HaveLen(1))
+				Expect(fn.Type.Config[0]).To(Equal(types.Param{Name: "x", Type: types.I32()}))
+				Expect(fn.Type.Inputs).To(BeEmpty())
+				Expect(fn.Type.Outputs).To(BeEmpty())
+			})
+			It("should collect config with channel type", func() {
+				ctx := analyzeExpectSuccess(`func foo{sensor chan f64}() {}`, nil)
+				fn := ctx.Scope.Children[0]
+				Expect(fn.Type.Config).To(HaveLen(1))
+				Expect(fn.Type.Config[0]).To(Equal(types.Param{Name: "sensor", Type: types.Chan(types.F64())}))
+			})
+			It("should handle empty config block", func() {
+				ctx := analyzeExpectSuccess(`func foo{}() {}`, nil)
+				fn := ctx.Scope.Children[0]
+				Expect(fn.Type.Config).To(BeEmpty())
+			})
+		})
+		Describe("input parameter collection", func() {
+			It("should collect multiple inputs without defaults", func() {
+				ctx := analyzeExpectSuccess(`func foo(a i32, b f64, c u8) {}`, nil)
+				fn := ctx.Scope.Children[0]
+				Expect(fn.Type.Inputs).To(HaveLen(3))
+				Expect(fn.Type.Inputs[0]).To(Equal(types.Param{Name: "a", Type: types.I32()}))
+				Expect(fn.Type.Inputs[1]).To(Equal(types.Param{Name: "b", Type: types.F64()}))
+				Expect(fn.Type.Inputs[2]).To(Equal(types.Param{Name: "c", Type: types.U8()}))
+			})
+			It("should collect all optional inputs", func() {
+				ctx := analyzeExpectSuccess(`func foo(x i32 = 1, y i32 = 2) {}`, nil)
+				fn := ctx.Scope.Children[0]
+				Expect(fn.Type.Inputs).To(HaveLen(2))
+				Expect(fn.Type.Inputs[0].Name).To(Equal("x"))
+				Expect(fn.Type.Inputs[0].Value).To(Equal(int32(1)))
+				Expect(fn.Type.Inputs[1].Name).To(Equal("y"))
+				Expect(fn.Type.Inputs[1].Value).To(Equal(int32(2)))
+			})
+			It("should preserve order of mixed required and optional", func() {
+				ctx := analyzeExpectSuccess(`func foo(a i32, b i32, c i32 = 10) {}`, nil)
+				fn := ctx.Scope.Children[0]
+				Expect(fn.Type.Inputs).To(HaveLen(3))
+				Expect(fn.Type.Inputs[0].Value).To(BeNil())
+				Expect(fn.Type.Inputs[1].Value).To(BeNil())
+				Expect(fn.Type.Inputs[2].Value).To(Equal(int32(10)))
+			})
+		})
+		Describe("output parameter collection", func() {
+			It("should handle void function", func() {
+				ctx := analyzeExpectSuccess(`func foo() {}`, nil)
+				fn := ctx.Scope.Children[0]
+				Expect(fn.Type.Outputs).To(BeEmpty())
+			})
+			It("should collect unnamed output with default param name", func() {
+				ctx := analyzeExpectSuccess(`func foo() i32 { return 0 }`, nil)
+				fn := ctx.Scope.Children[0]
+				Expect(fn.Type.Outputs).To(HaveLen(1))
+				Expect(fn.Type.Outputs[0].Name).To(Equal(ir.DefaultOutputParam))
+				Expect(fn.Type.Outputs[0].Type).To(Equal(types.I32()))
+			})
+			It("should collect single named output without parens", func() {
+				ctx := analyzeExpectSuccess(`func foo() result i32 { result = 0 }`, nil)
+				fn := ctx.Scope.Children[0]
+				Expect(fn.Type.Outputs).To(HaveLen(1))
+				Expect(fn.Type.Outputs[0].Name).To(Equal("result"))
+				Expect(fn.Type.Outputs[0].Type).To(Equal(types.I32()))
+			})
+			It("should collect single named output with parens", func() {
+				ctx := analyzeExpectSuccess(`func foo() (result i32) { result = 0 }`, nil)
+				fn := ctx.Scope.Children[0]
+				Expect(fn.Type.Outputs).To(HaveLen(1))
+				Expect(fn.Type.Outputs[0].Name).To(Equal("result"))
+				Expect(fn.Type.Outputs[0].Type).To(Equal(types.I32()))
+			})
+			It("should collect multiple outputs in order", func() {
+				ctx := analyzeExpectSuccess(`func foo() (a i32, b f64) { a = 0 b = 0.0 }`, nil)
+				fn := ctx.Scope.Children[0]
+				Expect(fn.Type.Outputs).To(HaveLen(2))
+				Expect(fn.Type.Outputs[0]).To(Equal(types.Param{Name: "a", Type: types.I32()}))
+				Expect(fn.Type.Outputs[1]).To(Equal(types.Param{Name: "b", Type: types.F64()}))
+			})
+		})
+		Describe("error conditions", func() {
+			It("should fail on duplicate function names", func() {
+				ctx := analyzeProgram(`func foo() {} func foo() {}`, nil)
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("conflicts with existing symbol"))
+			})
+			It("should add functions to root scope", func() {
+				ctx := analyzeExpectSuccess(`func outer() { } func inner() { }`, nil)
+				Expect(ctx.Scope.Children).To(HaveLen(2))
+				for _, child := range ctx.Scope.Children {
+					Expect(child.Kind).To(Equal(symbol.KindFunction))
+				}
+			})
+		})
+	})
+
 	Describe("Declaration Validation", func() {
 		Context("duplicate declarations", func() {
 			It("should diagnose duplicate function names", func() {

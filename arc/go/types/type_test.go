@@ -835,6 +835,48 @@ var _ = Describe("Types", func() {
 				Expect(valueMap["b"]).To(Equal(1.5))
 			})
 		})
+		Describe("RequiredCount", func() {
+			It("Should return total count when no parameters have defaults", func() {
+				requiredOnly := types.Params{
+					{Name: "a", Type: types.I32(), Value: nil},
+					{Name: "b", Type: types.F64(), Value: nil},
+					{Name: "c", Type: types.U8(), Value: nil},
+				}
+				Expect(requiredOnly.RequiredCount()).To(Equal(3))
+			})
+			It("Should return zero when all parameters have defaults", func() {
+				allOptional := types.Params{
+					{Name: "a", Type: types.I32(), Value: int32(10)},
+					{Name: "b", Type: types.F64(), Value: 3.14},
+				}
+				Expect(allOptional.RequiredCount()).To(Equal(0))
+			})
+			It("Should return count of parameters without defaults (mixed)", func() {
+				mixed := types.Params{
+					{Name: "required1", Type: types.I64(), Value: nil},
+					{Name: "required2", Type: types.I64(), Value: nil},
+					{Name: "optional1", Type: types.I64(), Value: int64(100)},
+					{Name: "optional2", Type: types.I64(), Value: int64(200)},
+				}
+				Expect(mixed.RequiredCount()).To(Equal(2))
+			})
+			It("Should return zero for empty params", func() {
+				empty := types.Params{}
+				Expect(empty.RequiredCount()).To(Equal(0))
+			})
+			It("Should count correctly with single required parameter", func() {
+				single := types.Params{
+					{Name: "x", Type: types.I32(), Value: nil},
+				}
+				Expect(single.RequiredCount()).To(Equal(1))
+			})
+			It("Should count correctly with single optional parameter", func() {
+				single := types.Params{
+					{Name: "x", Type: types.I32(), Value: int32(42)},
+				}
+				Expect(single.RequiredCount()).To(Equal(0))
+			})
+		})
 	})
 
 	Describe("Dimensions", func() {

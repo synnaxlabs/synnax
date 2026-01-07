@@ -113,6 +113,12 @@ func (m *Module) AddExport(name string, kind ExportKind, index uint32) {
 	})
 }
 
+// ImportCount returns the number of imported functions in the module.
+// This is used to calculate function indices for call instructions.
+func (m *Module) ImportCount() uint32 {
+	return uint32(len(m.imports))
+}
+
 // Debug returns debug info about the module
 func (m *Module) Debug() (types, functions, exports int) {
 	return len(m.types), len(m.functions), len(m.exports)

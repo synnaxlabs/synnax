@@ -44,6 +44,13 @@ STATE_DECLARE: '$='; // Stateful variable declaration
 TRANSITION  : '=>';  // Stage transition operator
 ASSIGN      : '=';   // Assignment to existing variable
 
+// Compound assignment
+PLUS_ASSIGN     : '+=';
+MINUS_ASSIGN    : '-=';
+STAR_ASSIGN     : '*=';
+SLASH_ASSIGN    : '/=';
+PERCENT_ASSIGN  : '%=';
+
 // Arithmetic
 PLUS        : '+';
 MINUS       : '-';

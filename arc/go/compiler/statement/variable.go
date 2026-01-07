@@ -20,6 +20,23 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+func compoundOpToString(compoundOp parser.ICompoundOpContext) string {
+	switch {
+	case compoundOp.PLUS_ASSIGN() != nil:
+		return "+"
+	case compoundOp.MINUS_ASSIGN() != nil:
+		return "-"
+	case compoundOp.STAR_ASSIGN() != nil:
+		return "*"
+	case compoundOp.SLASH_ASSIGN() != nil:
+		return "/"
+	case compoundOp.PERCENT_ASSIGN() != nil:
+		return "%"
+	default:
+		return ""
+	}
+}
+
 func compileVariableDeclaration(ctx context.Context[parser.IVariableDeclarationContext]) error {
 	if localVar := ctx.AST.LocalVariable(); localVar != nil {
 		return compileLocalVariable(context.Child(ctx, localVar))
@@ -136,7 +153,191 @@ func compileIndexedAssignment(
 	return nil
 }
 
-// compileAssignment handles variable assignments (x = expr) and indexed assignments (s[i] = expr)
+// compileIndexedCompoundAssignment handles indexed compound assignment statements (series[i] += value)
+// Equivalent to: arr[i] = arr[i] op expr
+func compileIndexedCompoundAssignment(
+	ctx context.Context[parser.IAssignmentContext],
+	scope *symbol.Scope,
+	indexOrSlice parser.IIndexOrSliceContext,
+	compoundOp parser.ICompoundOpContext,
+) error {
+	elemType := scope.Type.Unwrap()
+	indexExprs := indexOrSlice.AllExpression()
+	op := compoundOpToString(compoundOp)
+
+	// Step 1: Push handle and index for eventual set_element call
+	ctx.Writer.WriteLocalGet(scope.ID)
+	if _, err := expression.Compile(
+		context.Child(ctx, indexExprs[0]).WithHint(types.I32()),
+	); err != nil {
+		return errors.Wrap(err, "failed to compile index expression")
+	}
+	// Stack: [handle, index]
+
+	// Step 2: Read current value via series_index(handle, index)
+	// We compile the index expression again (safe since index expressions are pure)
+	ctx.Writer.WriteLocalGet(scope.ID)
+	if _, err := expression.Compile(
+		context.Child(ctx, indexExprs[0]).WithHint(types.I32()),
+	); err != nil {
+		return errors.Wrap(err, "failed to compile index expression")
+	}
+	indexImport, err := ctx.Imports.GetSeriesIndex(elemType)
+	if err != nil {
+		return err
+	}
+	ctx.Writer.WriteCall(indexImport)
+	// Stack: [handle, index, current_value]
+
+	// Step 3: Compile RHS expression
+	exprType, err := expression.Compile(
+		context.Child(ctx, ctx.AST.Expression()).WithHint(elemType),
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to compile value expression")
+	}
+	if !types.Equal(elemType, exprType) {
+		if err = expression.EmitCast(ctx, exprType, elemType); err != nil {
+			return err
+		}
+	}
+	// Stack: [handle, index, current_value, expr_value]
+
+	// Step 4: Apply binary operation
+	if elemType.Kind == types.KindString && op == "+" {
+		ctx.Writer.WriteCall(ctx.Imports.StringConcat)
+	} else {
+		if err = ctx.Writer.WriteBinaryOpInferred(op, elemType); err != nil {
+			return err
+		}
+	}
+	// Stack: [handle, index, new_value]
+
+	// Step 5: Call series_set_element and drop result
+	setImport, err := ctx.Imports.GetSeriesSetElement(elemType)
+	if err != nil {
+		return err
+	}
+	ctx.Writer.WriteCall(setImport)
+	ctx.Writer.WriteOpcode(wasm.OpDrop)
+	// Stack: []
+
+	return nil
+}
+
+// compileSeriesCompoundAssignment handles whole-series compound assignment (series += value)
+// Equivalent to: series = series op expr (broadcast or element-wise)
+func compileSeriesCompoundAssignment(
+	ctx context.Context[parser.IAssignmentContext],
+	scope *symbol.Scope,
+	compoundOp parser.ICompoundOpContext,
+) error {
+	sym := scope.Symbol
+	varType := sym.Type
+	elemType := *varType.Elem
+	op := compoundOpToString(compoundOp)
+
+	ctx.Writer.WriteLocalGet(scope.ID)
+
+	exprType, err := expression.Compile(
+		context.Child(ctx, ctx.AST.Expression()).WithHint(elemType),
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to compile value expression")
+	}
+
+	isScalar := exprType.Kind != types.KindSeries
+	funcIdx, err := ctx.Imports.GetSeriesArithmetic(op, elemType, isScalar)
+	if err != nil {
+		return err
+	}
+	ctx.Writer.WriteCall(funcIdx)
+
+	switch sym.Kind {
+	case symbol.KindVariable, symbol.KindInput:
+		ctx.Writer.WriteLocalSet(scope.ID)
+	case symbol.KindStatefulVariable:
+		ctx.Writer.WriteLocalSet(scope.ID)
+		ctx.Writer.WriteI32Const(0)
+		ctx.Writer.WriteI32Const(int32(scope.ID))
+		ctx.Writer.WriteLocalGet(scope.ID)
+		importIdx, err := ctx.Imports.GetStateStoreSeries(elemType)
+		if err != nil {
+			return err
+		}
+		ctx.Writer.WriteCall(importIdx)
+	default:
+		return errors.Newf("compound assignment not supported for %v", sym.Kind)
+	}
+
+	return nil
+}
+
+func compileCompoundAssignment(
+	ctx context.Context[parser.IAssignmentContext],
+	scope *symbol.Scope,
+	compoundOp parser.ICompoundOpContext,
+) error {
+	// Handle indexed compound assignment (arr[i] += value)
+	if indexOrSlice := ctx.AST.IndexOrSlice(); indexOrSlice != nil {
+		return compileIndexedCompoundAssignment(ctx, scope, indexOrSlice, compoundOp)
+	}
+
+	sym := scope.Symbol
+	varType := sym.Type
+
+	// Handle whole-series compound assignment
+	if varType.Kind == types.KindSeries {
+		return compileSeriesCompoundAssignment(ctx, scope, compoundOp)
+	}
+
+	op := compoundOpToString(compoundOp)
+	ctx.Writer.WriteLocalGet(scope.ID)
+
+	exprType, err := expression.Compile(context.Child(ctx, ctx.AST.Expression()).WithHint(varType))
+	if err != nil {
+		return err
+	}
+
+	if !types.Equal(varType, exprType) {
+		if err = expression.EmitCast(ctx, exprType, varType); err != nil {
+			return err
+		}
+	}
+
+	if varType.Kind == types.KindString && op == "+" {
+		ctx.Writer.WriteCall(ctx.Imports.StringConcat)
+	} else {
+		if err = ctx.Writer.WriteBinaryOpInferred(op, varType); err != nil {
+			return err
+		}
+	}
+
+	switch sym.Kind {
+	case symbol.KindVariable, symbol.KindInput:
+		ctx.Writer.WriteLocalSet(scope.ID)
+	case symbol.KindStatefulVariable:
+		ctx.Writer.WriteLocalSet(scope.ID)
+		ctx.Writer.WriteI32Const(0)
+		ctx.Writer.WriteI32Const(int32(scope.ID))
+		ctx.Writer.WriteLocalGet(scope.ID)
+		resolveImportF := lo.Ternary(
+			varType.Kind == types.KindSeries,
+			ctx.Imports.GetStateStoreSeries,
+			ctx.Imports.GetStateStore,
+		)
+		importIdx, err := resolveImportF(varType.Unwrap())
+		if err != nil {
+			return err
+		}
+		ctx.Writer.WriteCall(importIdx)
+	default:
+		return errors.Newf("compound assignment not supported for %v", sym.Kind)
+	}
+
+	return nil
+}
+
 func compileAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 ) error {
@@ -146,7 +347,10 @@ func compileAssignment(
 		return err
 	}
 
-	// Check for indexed assignment (series[i] = value)
+	if compoundOp := ctx.AST.CompoundOp(); compoundOp != nil {
+		return compileCompoundAssignment(ctx, scope, compoundOp)
+	}
+
 	if indexOrSlice := ctx.AST.IndexOrSlice(); indexOrSlice != nil {
 		return compileIndexedAssignment(ctx, scope, indexOrSlice)
 	}

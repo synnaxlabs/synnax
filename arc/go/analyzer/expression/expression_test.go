@@ -678,6 +678,133 @@ var _ = Describe("Expressions", func() {
 					result := add(undefinedVar, 10)
 				}
 			`, "undefined symbol"),
+			Entry("too few arguments", `
+				func add(x i32, y i32) i32 {
+					return x + y
+				}
+
+				func testFunc() {
+					result := add(5)
+				}
+			`, "expects 2 argument(s), got 1"),
+			Entry("too many arguments", `
+				func add(x i32, y i32) i32 {
+					return x + y
+				}
+
+				func testFunc() {
+					result := add(5, 10, 15)
+				}
+			`, "expects 2 argument(s), got 3"),
+			Entry("no arguments when expected", `
+				func getValue(x i32) i32 {
+					return x
+				}
+
+				func testFunc() {
+					result := getValue()
+				}
+			`, "expects 1 argument(s), got 0"),
+			Entry("wrong argument type - string instead of i32", `
+				func add(x i32, y i32) i32 {
+					return x + y
+				}
+
+				func testFunc() {
+					result := add(5, "hello")
+				}
+			`, "argument 2 of add"),
+			Entry("wrong argument type - i32 vs f32 variable", `
+				func process(x f32) f32 {
+					return x * 2.0
+				}
+
+				func testFunc() {
+					x i32 := 5
+					result := process(x)
+				}
+			`, "argument 1 of process"),
+			Entry("nested call type mismatch", `
+				func getFloat() f32 {
+					return 3.14
+				}
+
+				func needsInt(x i32) i32 {
+					return x + 1
+				}
+
+				func testFunc() {
+					result := needsInt(getFloat())
+				}
+			`, "argument 1 of needsInt"),
+			Entry("wrong arg count in nested call", `
+				func double(x i32) i32 {
+					return x * 2
+				}
+
+				func testFunc() {
+					result := double(double())
+				}
+			`, "expects 1 argument(s), got 0"),
+			Entry("calling a variable as a function", `
+				func testFunc() {
+					x i32 := 42
+					result := x()
+				}
+			`, "cannot call non-function"),
+			Entry("calling a parameter as a function", `
+				func testFunc(x i32) i32 {
+					return x()
+				}
+			`, "cannot call non-function"),
+		)
+	})
+
+	Describe("Optional Parameter Function Calls", func() {
+		DescribeTable("valid optional parameter calls",
+			func(code string) { expectSuccess(code, nil) },
+			Entry("omit single optional parameter", `
+				func add(x i64, y i64 = 0) i64 { return x + y }
+				func testFunc() { result := add(10) }
+			`),
+			Entry("provide all arguments including optional", `
+				func add(x i64, y i64 = 0) i64 { return x + y }
+				func testFunc() { result := add(10, 20) }
+			`),
+			Entry("omit multiple optional parameters", `
+				func sum(a i64, b i64 = 1, c i64 = 2) i64 { return a + b + c }
+				func testFunc() {
+					x := sum(10)
+					y := sum(10, 20)
+					z := sum(10, 20, 30)
+				}
+			`),
+			Entry("string default parameter", `
+				func greet(name str = "world") str { return name }
+				func testFunc() { result := greet() }
+			`),
+			Entry("all optional parameters", `
+				func defaults(a i64 = 1, b i64 = 2) i64 { return a + b }
+				func testFunc() { result := defaults() }
+			`),
+			Entry("f64 default parameter", `
+				func scale(x f64, factor f64 = 2.5) f64 { return x * factor }
+				func testFunc() { result := scale(4.0) }
+			`),
+		)
+
+		DescribeTable("invalid optional parameter calls",
+			func(code string, expectedErrSubstring string) {
+				expectFailure(code, nil, expectedErrSubstring)
+			},
+			Entry("missing required argument", `
+				func add(x i64, y i64 = 0) i64 { return x + y }
+				func testFunc() { result := add() }
+			`, "expects 1 to 2 argument(s), got 0"),
+			Entry("too many arguments", `
+				func add(x i64, y i64 = 0) i64 { return x + y }
+				func testFunc() { result := add(1, 2, 3) }
+			`, "expects 1 to 2 argument(s), got 3"),
 		)
 	})
 

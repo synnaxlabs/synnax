@@ -228,6 +228,12 @@ func (s *BaseArcParserListener) EnterAssignment(ctx *AssignmentContext) {}
 // ExitAssignment is called when production assignment is exited.
 func (s *BaseArcParserListener) ExitAssignment(ctx *AssignmentContext) {}
 
+// EnterCompoundOp is called when production compoundOp is entered.
+func (s *BaseArcParserListener) EnterCompoundOp(ctx *CompoundOpContext) {}
+
+// ExitCompoundOp is called when production compoundOp is exited.
+func (s *BaseArcParserListener) ExitCompoundOp(ctx *CompoundOpContext) {}
+
 // EnterIfStatement is called when production ifStatement is entered.
 func (s *BaseArcParserListener) EnterIfStatement(ctx *IfStatementContext) {}
 

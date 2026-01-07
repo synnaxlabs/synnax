@@ -11,12 +11,16 @@
 package expression
 
 import (
+	"fmt"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/analyzer/units"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	basetypes "github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -477,13 +481,103 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) bool 
 			}
 		}
 	}
-	for _, funcCall := range ctx.AST.AllFunctionCallSuffix() {
+
+	funcCalls := ctx.AST.AllFunctionCallSuffix()
+
+	for _, funcCall := range funcCalls {
 		if argList := funcCall.ArgumentList(); argList != nil {
 			for _, expr := range argList.AllExpression() {
 				if !Analyze(context.Child(ctx, expr)) {
 					return false
 				}
 			}
+		}
+	}
+
+	if len(funcCalls) == 0 {
+		return true
+	}
+	primary := ctx.AST.PrimaryExpression()
+	if id := primary.IDENTIFIER(); id != nil {
+		funcName := id.GetText()
+		scope, err := ctx.Scope.Resolve(ctx, funcName)
+		if err != nil {
+			ctx.Diagnostics.AddError(err, primary)
+			return false
+		}
+		if scope.Kind == symbol.KindFunction {
+			if !validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0]) {
+				return false
+			}
+		} else {
+			ctx.Diagnostics.AddError(
+				errors.Newf("cannot call non-function %s of type %s", funcName, scope.Type),
+				funcCalls[0],
+			)
+			return false
+		}
+	}
+	return true
+}
+
+func validateFunctionCall(
+	ctx context.Context[parser.IPostfixExpressionContext],
+	funcType basetypes.Type,
+	funcName string,
+	funcCall parser.IFunctionCallSuffixContext,
+) bool {
+	_, hasDefaultOutput := funcType.Outputs.Get(ir.DefaultOutputParam)
+	hasMultipleOutputs := len(funcType.Outputs) > 1 || (len(funcType.Outputs) == 1 && !hasDefaultOutput)
+	if hasMultipleOutputs {
+		ctx.Diagnostics.AddError(
+			errors.Newf("cannot call function %s: functions with multiple named outputs are not callable", funcName),
+			funcCall,
+		)
+		return false
+	}
+
+	var args []parser.IExpressionContext
+	if argList := funcCall.ArgumentList(); argList != nil {
+		args = argList.AllExpression()
+	}
+
+	totalCount := len(funcType.Inputs)
+	requiredCount := funcType.Inputs.RequiredCount()
+	actualCount := len(args)
+
+	if actualCount < requiredCount || actualCount > totalCount {
+		if requiredCount == totalCount {
+			// No optional params - use existing message format
+			ctx.Diagnostics.AddError(
+				errors.Newf("function %s expects %d argument(s), got %d",
+					funcName, totalCount, actualCount),
+				funcCall,
+			)
+		} else {
+			ctx.Diagnostics.AddError(
+				errors.Newf("function %s expects %d to %d argument(s), got %d",
+					funcName, requiredCount, totalCount, actualCount),
+				funcCall,
+			)
+		}
+		return false
+	}
+
+	for i, arg := range args {
+		paramType := funcType.Inputs[i].Type
+		argType := types.InferFromExpression(context.Child(ctx, arg)).Unwrap()
+		if paramType.Kind == basetypes.KindVariable || argType.Kind == basetypes.KindVariable {
+			ctx.Constraints.AddCompatible(argType, paramType, arg,
+				fmt.Sprintf("argument %d of %s", i+1, funcName))
+			continue
+		}
+		if !types.Compatible(argType, paramType) {
+			ctx.Diagnostics.AddError(
+				errors.Newf("argument %d of %s: expected %s, got %s",
+					i+1, funcName, paramType, argType),
+				arg,
+			)
+			return false
 		}
 	}
 	return true
