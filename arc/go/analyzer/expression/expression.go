@@ -270,6 +270,11 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 	firstType := infer(context.Child(ctx, items[0])).Unwrap()
 	opName := getOperator(ctx.AST)
 
+	// If first operand is Invalid, skip validation (error already reported upstream)
+	if firstType.Kind == basetypes.KindInvalid {
+		return true
+	}
+
 	if firstType.Kind != basetypes.KindVariable && !check(firstType) {
 		ctx.Diagnostics.AddError(
 			errors.Newf("cannot use %s in %s operation", firstType, opName),
@@ -280,6 +285,11 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 
 	for i := 1; i < len(items); i++ {
 		nextType := infer(context.Child(ctx, items[i]).WithTypeHint(firstType)).Unwrap()
+
+		// Skip if this operand is Invalid (error already reported upstream)
+		if nextType.Kind == basetypes.KindInvalid {
+			continue
+		}
 
 		// Check dimensional compatibility first if either operand has units
 		// This must be checked even for type variables since the unit is known at parse time

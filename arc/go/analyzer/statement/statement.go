@@ -35,12 +35,13 @@ func AnalyzeBlock(ctx context.Context[parser.IBlockContext]) bool {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
+	ok := true
 	for _, stmt := range ctx.AST.AllStatement() {
 		if !Analyze(context.Child(ctx, stmt).WithScope(blockScope)) {
-			return false
+			ok = false
 		}
 	}
-	return true
+	return ok
 }
 
 // Analyze validates a statement and dispatches to specialized handlers based on statement type.
@@ -189,6 +190,12 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) boo
 
 	if expr != nil {
 		if !expression.Analyze(context.Child(ctx, expr)) {
+			// Add poisoned symbol to prevent cascade "undefined" errors
+			ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: name,
+				Type: types.Type{}, // Invalid type
+				AST:  ctx.AST,
+			})
 			return false
 		}
 	}
@@ -198,6 +205,12 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) boo
 		ctx.AST.Type_(),
 	)
 	if !ok {
+		// Add poisoned symbol to prevent cascade "undefined" errors
+		ctx.Scope.Add(ctx, symbol.Symbol{
+			Name: name,
+			Type: types.Type{}, // Invalid type
+			AST:  ctx.AST,
+		})
 		return false
 	}
 	_, err := ctx.Scope.Add(ctx, symbol.Symbol{
@@ -245,6 +258,13 @@ func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext
 		ctx.AST.Type_(),
 	)
 	if !ok {
+		// Add poisoned symbol to prevent cascade "undefined" errors
+		ctx.Scope.Add(ctx, symbol.Symbol{
+			Name: name,
+			Kind: symbol.KindStatefulVariable,
+			Type: types.Type{}, // Invalid type
+			AST:  ctx.AST,
+		})
 		return false
 	}
 	_, err := ctx.Scope.Add(ctx, symbol.Symbol{
@@ -264,27 +284,28 @@ func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext
 }
 
 func analyzeIfStatement(ctx context.Context[parser.IIfStatementContext]) bool {
+	ok := true
 	if expr := ctx.AST.Expression(); expr != nil {
 		if !expression.Analyze(context.Child(ctx, expr)) {
-			return false
+			ok = false
 		}
 	}
 
 	if block := ctx.AST.Block(); block != nil {
 		if !AnalyzeBlock(context.Child(ctx, block)) {
-			return false
+			ok = false
 		}
 	}
 
 	for _, elseIfClause := range ctx.AST.AllElseIfClause() {
 		if expr := elseIfClause.Expression(); expr != nil {
 			if !expression.Analyze(context.Child(ctx, expr)) {
-				return false
+				ok = false
 			}
 		}
 		if block := elseIfClause.Block(); block != nil {
 			if !AnalyzeBlock(context.Child(ctx, block)) {
-				return false
+				ok = false
 			}
 		}
 	}
@@ -292,11 +313,11 @@ func analyzeIfStatement(ctx context.Context[parser.IIfStatementContext]) bool {
 	if elseClause := ctx.AST.ElseClause(); elseClause != nil {
 		if block := elseClause.Block(); block != nil {
 			if !AnalyzeBlock(context.Child(ctx, block)) {
-				return false
+				ok = false
 			}
 		}
 	}
-	return true
+	return ok
 }
 
 func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext]) bool {

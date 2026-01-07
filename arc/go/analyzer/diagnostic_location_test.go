@@ -265,7 +265,7 @@ func test() {
 	)
 
 	Describe("Error Recovery", func() {
-		It("Should report first error with correct location", func() {
+		It("Should report all independent errors with correct locations", func() {
 			prog := MustSucceed(parser.Parse(`
 func test() {
 	a := undefined1
@@ -273,11 +273,16 @@ func test() {
 }`))
 			ctx := context.CreateRoot(bCtx, prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			// Complete analysis: report all errors, not just the first one
+			Expect(*ctx.Diagnostics).To(HaveLen(2))
 
 			diag := (*ctx.Diagnostics)[0]
 			Expect(diag.Message).To(ContainSubstring("undefined symbol: undefined1"))
 			Expect(diag.Line).To(Equal(3))
+
+			diag2 := (*ctx.Diagnostics)[1]
+			Expect(diag2.Message).To(ContainSubstring("undefined symbol: undefined2"))
+			Expect(diag2.Line).To(Equal(4))
 		})
 	})
 })

@@ -297,4 +297,61 @@ var _ = Describe("Analyzer Integration", func() {
 			Expect(blockCtx.Diagnostics.Ok()).To(BeTrue())
 		})
 	})
+
+	Describe("Complete Analysis", func() {
+		It("Should report multiple independent errors in different functions", func() {
+			prog := MustSucceed(parser.Parse(`
+				func a() { x := undefined1 }
+				func b() { y := undefined2 }
+			`))
+			ctx := context.CreateRoot(bCtx, prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(2))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined1"))
+			Expect((*ctx.Diagnostics)[1].Message).To(ContainSubstring("undefined2"))
+		})
+
+		It("Should not cascade undefined errors for poisoned symbols", func() {
+			prog := MustSucceed(parser.Parse(`
+				func test() {
+					x := undefined_var
+					y := x + 1
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			// Only the original error - no "undefined x" cascade
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined_var"))
+		})
+
+		It("Should not cascade type errors when operands are Invalid", func() {
+			prog := MustSucceed(parser.Parse(`
+				func test() {
+					x := undefined_var
+					y := x + "string"
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			// Only the original error - no type mismatch cascade
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined_var"))
+		})
+
+		It("Should report all errors in if/else branches", func() {
+			prog := MustSucceed(parser.Parse(`
+				func test() {
+					if 1 > 0 {
+						x := undefined1
+					} else {
+						y := undefined2
+					}
+				}
+			`))
+			ctx := context.CreateRoot(bCtx, prog, nil)
+			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(2))
+		})
+	})
 })

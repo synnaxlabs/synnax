@@ -21,11 +21,12 @@ import (
 // This is called during the first pass of AnalyzeProgram to establish scopes before
 // analyzing function bodies that may reference sequences or stages.
 func CollectDeclarations(ctx context.Context[parser.IProgramContext]) bool {
+	ok := true
 	// First pass: collect all sequence names to establish their scopes
 	for _, item := range ctx.AST.AllTopLevelItem() {
 		if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
 			if !collectSequenceName(context.Child(ctx, seqDecl)) {
-				return false
+				ok = false
 			}
 		}
 	}
@@ -34,11 +35,11 @@ func CollectDeclarations(ctx context.Context[parser.IProgramContext]) bool {
 	for _, item := range ctx.AST.AllTopLevelItem() {
 		if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
 			if !collectSequenceStages(context.Child(ctx, seqDecl)) {
-				return false
+				ok = false
 			}
 		}
 	}
-	return true
+	return ok
 }
 
 // collectSequenceName registers a sequence in the symbol table (first pass).
@@ -98,12 +99,13 @@ func Analyze(ctx context.Context[parser.ISequenceDeclarationContext]) bool {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
+	ok := true
 	for _, stageDecl := range ctx.AST.AllStageDeclaration() {
 		if !analyzeStage(context.Child(ctx, stageDecl).WithScope(seqScope)) {
-			return false
+			ok = false
 		}
 	}
-	return true
+	return ok
 }
 
 // analyzeStage performs semantic analysis on a stage declaration.
@@ -115,12 +117,13 @@ func analyzeStage(
 	if stageBody == nil {
 		return true
 	}
+	ok := true
 	for _, item := range stageBody.AllStageItem() {
 		if flowStmt := item.FlowStatement(); flowStmt != nil {
 			if !flow.Analyze(context.Child(ctx, flowStmt)) {
-				return false
+				ok = false
 			}
 		}
 	}
-	return true
+	return ok
 }

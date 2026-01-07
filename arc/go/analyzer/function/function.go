@@ -42,6 +42,7 @@ import (
 // the first pass of AnalyzeProgram to establish scopes and signatures before
 // analyzing function bodies that may reference other functions.
 func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) bool {
+	ok := true
 	for _, item := range ctx.AST.AllTopLevelItem() {
 		if fn := item.FunctionDeclaration(); fn != nil {
 			name := fn.IDENTIFIER().GetText()
@@ -49,13 +50,16 @@ func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) bool {
 			// Collect signature (config, inputs, outputs) without adding params to scope
 			var config, inputs, outputs types.Params
 			if !collectConfig(ctx, fn.ConfigBlock(), &config) {
-				return false
+				ok = false
+				continue
 			}
 			if !collectInputs(acontext.Child(ctx, fn.InputList()), &inputs) {
-				return false
+				ok = false
+				continue
 			}
 			if !collectOutputs(ctx, fn.OutputType(), &outputs) {
-				return false
+				ok = false
+				continue
 			}
 
 			if _, err := ctx.Scope.Add(ctx, symbol.Symbol{
@@ -69,11 +73,11 @@ func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) bool {
 				AST: fn,
 			}); err != nil {
 				ctx.Diagnostics.AddError(err, fn)
-				return false
+				ok = false
 			}
 		}
 	}
-	return true
+	return ok
 }
 
 // collectConfig extracts config parameter types without adding them to scope.
@@ -196,22 +200,23 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) bool {
 		return false
 	}
 
+	ok := true
 	// Add config, inputs, and outputs to the function's scope
 	// (types are already populated by CollectDeclarations)
 	if !addConfigToScope(ctx, ctx.AST.ConfigBlock(), fn) {
-		return false
+		ok = false
 	}
 	if !addInputsToScope(acontext.Child(ctx, ctx.AST.InputList()).WithScope(fn)) {
-		return false
+		ok = false
 	}
 	if !addOutputsToScope(ctx, ctx.AST.OutputType(), fn) {
-		return false
+		ok = false
 	}
 
 	if block := ctx.AST.Block(); block != nil {
 		fn.AccumulateReadChannels()
 		if !statement.AnalyzeBlock(acontext.Child(ctx, block).WithScope(fn)) {
-			return false
+			ok = false
 		}
 		oParam, hasOutput := fn.Type.Outputs.Get(ir.DefaultOutputParam)
 		if hasOutput && !blockAlwaysReturns(block) {
@@ -220,7 +225,7 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) bool {
 				name,
 				oParam.Type,
 			), ctx.AST)
-			return false
+			ok = false
 		}
 		for _, output := range fn.Type.Outputs {
 			if output.Name != ir.DefaultOutputParam && !checkOutputAssignedInBlock(block, output.Name) {
@@ -232,7 +237,7 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) bool {
 			}
 		}
 	}
-	return true
+	return ok
 }
 
 // addOutputsToScope adds named output parameters to the function's scope.

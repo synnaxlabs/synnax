@@ -47,32 +47,34 @@ func substituteTypeMap(ctx acontext.Context[parser.IProgramContext]) {
 }
 
 func collectDeclarations(ctx acontext.Context[parser.IProgramContext]) bool {
+	ok := true
 	if !function.CollectDeclarations(ctx) {
-		return false
+		ok = false
 	}
 	if !sequence.CollectDeclarations(ctx) {
-		return false
+		ok = false
 	}
-	return true
+	return ok
 }
 
 func analyzeDeclarations(ctx acontext.Context[parser.IProgramContext]) bool {
+	ok := true
 	for _, item := range ctx.AST.AllTopLevelItem() {
 		if funcDecl := item.FunctionDeclaration(); funcDecl != nil {
 			if !function.Analyze(acontext.Child(ctx, funcDecl)) {
-				return false
+				ok = false
 			}
 		} else if flowStmt := item.FlowStatement(); flowStmt != nil {
 			if !flow.Analyze(acontext.Child(ctx, flowStmt)) {
-				return false
+				ok = false
 			}
 		} else if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
 			if !sequence.Analyze(acontext.Child(ctx, seqDecl)) {
-				return false
+				ok = false
 			}
 		}
 	}
-	return true
+	return ok
 }
 
 func AnalyzeStatement(ctx acontext.Context[parser.IStatementContext]) bool {
