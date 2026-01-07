@@ -712,7 +712,7 @@ var _ = Context("Name Validation Disabled", func() {
 		var mockCluster *mock.Cluster
 		BeforeAll(func() {
 			mockCluster = mock.ProvisionCluster(ctx, 1, distribution.Config{
-				ValidateChannelNames: config.True(),
+				ValidateChannelNames: config.False(),
 			})
 		})
 		AfterAll(func() {
@@ -727,13 +727,11 @@ var _ = Context("Name Validation Disabled", func() {
 			}
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
 			Expect(ch.Key()).ToNot(BeZero())
-
 			var retrieved channel.Channel
-			err := mockCluster.Nodes[1].Channel.NewRetrieve().
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
 				WhereKeys(ch.Key()).
 				Entry(&retrieved).
-				Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+				Exec(ctx, nil)).To(Succeed())
 			Expect(retrieved.Name).To(Equal("my channel with spaces"))
 		})
 		It("Should create a channel with special characters in the name", func() {
@@ -745,13 +743,11 @@ var _ = Context("Name Validation Disabled", func() {
 			}
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
 			Expect(ch.Key()).ToNot(BeZero())
-
 			var retrieved channel.Channel
-			err := mockCluster.Nodes[1].Channel.NewRetrieve().
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
 				WhereKeys(ch.Key()).
 				Entry(&retrieved).
-				Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+				Exec(ctx, nil)).To(Succeed())
 			Expect(retrieved.Name).To(Equal("sensor!@#$%"))
 		})
 		It("Should create a channel with a name starting with a digit", func() {
@@ -763,13 +759,11 @@ var _ = Context("Name Validation Disabled", func() {
 			}
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
 			Expect(ch.Key()).ToNot(BeZero())
-
 			var retrieved channel.Channel
-			err := mockCluster.Nodes[1].Channel.NewRetrieve().
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
 				WhereKeys(ch.Key()).
 				Entry(&retrieved).
-				Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+				Exec(ctx, nil)).To(Succeed())
 			Expect(retrieved.Name).To(Equal("1sensor"))
 		})
 		It("Should still reject empty names", func() {
@@ -790,15 +784,12 @@ var _ = Context("Name Validation Disabled", func() {
 				Leaseholder: 1,
 			}
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
-
 			Expect(mockCluster.Nodes[1].Channel.Rename(ctx, ch.Key(), "new name with spaces!", false)).To(Succeed())
-
 			var retrieved channel.Channel
-			err := mockCluster.Nodes[1].Channel.NewRetrieve().
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
 				WhereKeys(ch.Key()).
 				Entry(&retrieved).
-				Exec(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+				Exec(ctx, nil)).To(Succeed())
 			Expect(retrieved.Name).To(Equal("new name with spaces!"))
 		})
 	})

@@ -286,7 +286,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			cfg.TestingIntOverflowCheck,
 			l.Verification.IsOverflowed,
 		),
-		ValidateNames: config.Bool(!*cfg.ValidateChannelNames),
+		ValidateNames: cfg.ValidateChannelNames,
 	}); !ok(err, nil) {
 		return nil, err
 	}
