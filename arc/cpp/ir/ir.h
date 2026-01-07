@@ -604,6 +604,7 @@ struct IR {
         for (const auto &n: nodes)
             if (n.key == key) return n;
         assert(false && "Node not found");
+        std::unreachable();
     }
 
     /// @brief Returns the function with the given key.
@@ -614,6 +615,7 @@ struct IR {
         for (const auto &fn: functions)
             if (fn.key == key) return fn;
         assert(false && "Function not found");
+        std::unreachable();
     }
 
     /// @brief Returns the sequence with the given key.
@@ -624,6 +626,7 @@ struct IR {
         for (const auto &seq: sequences)
             if (seq.key == key) return seq;
         assert(false && "Sequence not found");
+        std::unreachable();
     }
 
     /// @brief Returns the edge targeting the given handle, if one exists.
