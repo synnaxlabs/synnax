@@ -24,8 +24,6 @@ func disablePermissionBits() {
 	unix.Umask(mask)
 }
 
-// RunMain is the entry point for the Synnax CLI on non-Windows platforms.
-// It simply delegates to Execute() since Windows Service mode is not applicable.
-func RunMain() {
-	Execute()
-}
+// RunMain is the entry point for the Synnax CLI on non-Windows platforms. It simply
+// delegates to Execute() since Windows Service mode is not applicable.
+func RunMain() { Execute() }

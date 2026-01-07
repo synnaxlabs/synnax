@@ -13,6 +13,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/synnax/cmd/svc"
@@ -47,9 +48,7 @@ func Execute() {
 func init() {
 	configureRootFlags()
 	bindFlags(root)
-	if err := svc.RegisterCommands(root); err != nil {
-		panic(err)
-	}
+	lo.Must0(svc.RegisterCommands(root))
 	cobra.OnInitialize(initConfig)
 }
 

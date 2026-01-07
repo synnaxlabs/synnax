@@ -12,7 +12,6 @@ package cmd
 import (
 	"bufio"
 	"context"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
@@ -20,7 +19,6 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	aspentransport "github.com/synnaxlabs/aspen/transport/grpc"
@@ -43,6 +41,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding/base64"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	xservice "github.com/synnaxlabs/x/service"
@@ -77,8 +76,8 @@ will bootstrap a new cluster.
 	Run:     func(cmd *cobra.Command, _ []string) { start(cmd) },
 }
 
-// start is the console-mode entrypoint for starting a Synnax node.
-// It handles signal interrupts and delegates to startServer for the actual startup.
+// start is the entrypoint for starting a Synnax Core. It handles signal interrupts and
+// delegates to startServer for the actual startup.
 func start(cmd *cobra.Command) {
 	ctx := cmd.Context()
 	ins := configureInstrumentation()
@@ -95,34 +94,36 @@ func start(cmd *cobra.Command) {
 	go scanForStopKeyword(interruptC)
 
 	// Start the server in a goroutine
-	sCtx.Go(func(ctx context.Context) error {
-		return startServer(ctx)
-	},
+	sCtx.Go(func(ctx context.Context) error { return startServer(ctx) },
 		xsignal.WithKey("start"),
 		xsignal.RecoverWithErrOnPanic(),
 	)
 
 	select {
 	case <-interruptC:
-		ins.L.Info("\033[33mSynnax is shutting down. This can take up to 5 seconds. Please be patient\033[0m")
+		ins.L.Info(
+			"\033[33mSynnax is shutting down. This can take up to 5 seconds. Please be patient\033[0m",
+		)
 		cancel()
 	case <-sCtx.Stopped():
 	}
 
 	if err := sCtx.Wait(); err != nil && !errors.Is(err, context.Canceled) {
-		ins.L.Zap().Sugar().Errorf("\033[31mSynnax has encountered an error and is shutting down: %v\033[0m", err)
+		ins.L.Zap().Sugar().Errorf(
+			"\033[31mSynnax has encountered an error and is shutting down: %v\033[0m",
+			err,
+		)
 		ins.L.Fatal("synnax failed", zap.Error(err))
 	}
 	ins.L.Info("\033[34mSynnax has shut down\033[0m")
 }
 
-// startServer contains the core server startup logic, shared between console mode
-// and Windows Service mode. It reads configuration from viper and starts all
-// server components.
+// startServer contains the most important Core startup logic. It reads configuration
+// from viper and starts all server components.
 func startServer(ctx context.Context) error {
 	var (
 		vers                = version.Get()
-		verifierFlag        = lo.Must(base64.StdEncoding.DecodeString("bGljZW5zZS1rZXk="))
+		verifierFlag        = base64.MustDecode("bGljZW5zZS1rZXk=")
 		insecure            = viper.GetBool(insecureFlag)
 		debug               = viper.GetBool(debugFlag)
 		autoCert            = viper.GetBool(autoCertFlag)
@@ -156,191 +157,176 @@ func startServer(ctx context.Context) error {
 	// permission mask for all files appropriately.
 	disablePermissionBits()
 
-	sCtx, cancel := xsignal.WithCancel(ctx, xsignal.WithInstrumentation(ins))
-	defer cancel()
+	var (
+		err               error
+		closer            xio.MultiCloser
+		peers             = parsePeerAddressFlag()
+		securityProvider  security.Provider
+		storageLayer      *storage.Layer
+		distributionLayer *distribution.Layer
+		serviceLayer      *service.Layer
+		apiLayer          *api.Layer
+		rootServer        *server.Server
+		embeddedDriver    *driver.Driver
+		certLoaderConfig  = buildCertLoaderConfig(ins)
+	)
+	cleanup, ok := xservice.NewOpener(ctx, &closer)
+	defer func() {
+		err = cleanup(err)
+	}()
 
-	var serverErr error
-	sCtx.Go(func(ctx context.Context) error {
-		var (
-			err               error
-			closer            xio.MultiCloser
-			peers             = parsePeerAddressFlag()
-			securityProvider  security.Provider
-			storageLayer      *storage.Layer
-			distributionLayer *distribution.Layer
-			serviceLayer      *service.Layer
-			apiLayer          *api.Layer
-			rootServer        *server.Server
-			embeddedDriver    *driver.Driver
-			certLoaderConfig  = buildCertLoaderConfig(ins)
-		)
-		cleanup, ok := xservice.NewOpener(ctx, &closer)
-		defer func() {
-			err = cleanup(err)
-		}()
-
-		if securityProvider, err = security.NewProvider(security.ProviderConfig{
-			LoaderConfig: certLoaderConfig,
-			Insecure:     config.Bool(insecure),
-			KeySize:      keySize,
-		}); !ok(err, nil) {
-			return err
-		}
-
-		workDir, err := resolveWorkDir()
-		if err != nil {
-			return errors.Wrapf(err, "failed to resolve working directory")
-		}
-		ins.L.Info("using working directory", zap.String("dir", workDir))
-
-		if storageLayer, err = storage.Open(ctx, storage.Config{
-			Instrumentation: ins.Child("storage"),
-			InMemory:        config.Bool(memBacked),
-			Dirname:         dataPath,
-		}); !ok(err, storageLayer) {
-			return err
-		}
-
-		var (
-			grpcClientPool         = configureClientGRPC(securityProvider, insecure)
-			aspenTransport         = aspentransport.New(grpcClientPool)
-			frameTransport         = framertransport.New(grpcClientPool)
-			channelTransport       = channeltransport.New(grpcClientPool)
-			distributionTransports = []fgrpc.BindableTransport{
-				aspenTransport,
-				frameTransport,
-				channelTransport,
-			}
-		)
-
-		if distributionLayer, err = distribution.Open(ctx, distribution.Config{
-			Instrumentation:  ins.Child("distribution"),
-			AdvertiseAddress: listenAddress,
-			PeerAddresses:    peers,
-			AspenTransport:   aspenTransport,
-			FrameTransport:   frameTransport,
-			ChannelTransport: channelTransport,
-			Verifier:         verifier,
-			Storage:          storageLayer,
-		}); !ok(err, distributionLayer) {
-			return err
-		}
-
-		if serviceLayer, err = service.Open(ctx, service.Config{
-			Instrumentation: ins.Child("service"),
-			Distribution:    distributionLayer,
-			Security:        securityProvider,
-		}); !ok(err, serviceLayer) {
-			return err
-		}
-
-		if apiLayer, err = api.New(api.Config{
-			Instrumentation: ins.Child("api"),
-			Service:         serviceLayer,
-			Distribution:    distributionLayer,
-		}); !ok(err, nil) {
-			return err
-		}
-		creds := auth.InsecureCredentials{
-			Username: viper.GetString(usernameFlag),
-			Password: password.Raw(viper.GetString(passwordFlag)),
-		}
-		if err = cmdauth.ProvisionRootUser(
-			ctx,
-			creds,
-			distributionLayer,
-			serviceLayer,
-		); !ok(err, nil) {
-			return err
-		}
-
-		// Configure the HTTP Layer AspenTransport.
-		r := fhttp.NewRouter(fhttp.RouterConfig{
-			Instrumentation:     ins,
-			StreamWriteDeadline: slowConsumerTimeout,
-		})
-		apiLayer.BindTo(httpapi.New(r, api.NewHTTPCodecResolver(distributionLayer.Channel)))
-
-		// Configure the GRPC Layer AspenTransport.
-		grpcAPI, grpcAPITrans := grpcapi.New(distributionLayer.Channel)
-		apiLayer.BindTo(grpcAPI)
-
-		if rootServer, err = server.Serve(
-			server.Config{
-				Branches: []server.Branch{
-					&server.SecureHTTPBranch{Transports: []fhttp.BindableTransport{r, serviceLayer.Console}},
-					&server.GRPCBranch{Transports: slices.Concat(
-						grpcAPITrans,
-						distributionTransports,
-					)},
-					server.NewHTTPRedirectBranch(),
-				},
-				Debug:           config.Bool(debug),
-				ListenAddress:   listenAddress,
-				Instrumentation: ins.Child("server"),
-				Security: server.SecurityConfig{
-					TLS:      securityProvider.TLS(),
-					Insecure: config.Bool(insecure),
-				},
-			},
-		); !ok(err, rootServer) {
-			return err
-		}
-
-		// We run startup searching indexing after all services have been
-		// registered within the ontology. We used to fork a new goroutine for
-		// every service at registration time, but this caused a race condition
-		// where bleve would concurrently read and write to a map.
-		// See https://linear.app/synnax/issue/SY-1116/race-condition-on-server-startup
-		// for more details on this issue.
-		if stopSearchIndexing := runStartupSearchIndexing(
-			sCtx,
-			distributionLayer,
-		); !ok(nil, stopSearchIndexing) {
-			return nil
-		}
-
-		if embeddedDriver, err = driver.OpenDriver(
-			ctx,
-			driver.Config{
-				Enabled:             config.Bool(!noDriver),
-				Insecure:            config.Bool(insecure),
-				Integrations:        parseIntegrationsFlag(),
-				Instrumentation:     ins.Child("driver"),
-				Address:             listenAddress,
-				RackKey:             serviceLayer.Rack.EmbeddedKey,
-				ClusterKey:          distributionLayer.Cluster.Key(),
-				Username:            rootUsername,
-				Password:            rootPassword,
-				Debug:               config.Bool(debug),
-				CACertPath:          certLoaderConfig.AbsoluteCACertPath(),
-				ClientCertFile:      certLoaderConfig.AbsoluteNodeCertPath(),
-				ClientKeyFile:       certLoaderConfig.AbsoluteNodeKeyPath(),
-				ParentDirname:       workDir,
-				TaskOpTimeout:       taskOpTimeout,
-				TaskPollInterval:    taskPollInterval,
-				TaskShutdownTimeout: taskShutdownTimeout,
-				TaskWorkerCount:     taskWorkerCount,
-			},
-		); !ok(err, embeddedDriver) {
-			return err
-		}
-
-		ins.L.Info(fmt.Sprintf("\033[32mSynnax is running and available at %v \033[0m", listenAddress))
-
-		<-ctx.Done()
+	if securityProvider, err = security.NewProvider(security.ProviderConfig{
+		LoaderConfig: certLoaderConfig,
+		Insecure:     config.Bool(insecure),
+		KeySize:      keySize,
+	}); !ok(err, nil) {
 		return err
-	},
-		xsignal.WithKey("start"),
-		xsignal.RecoverWithErrOnPanic(),
+	}
+
+	workDir, err := resolveWorkDir()
+	if err != nil {
+		return errors.Wrapf(err, "failed to resolve working directory")
+	}
+	ins.L.Info("using working directory", zap.String("dir", workDir))
+
+	if storageLayer, err = storage.Open(ctx, storage.Config{
+		Instrumentation: ins.Child("storage"),
+		InMemory:        config.Bool(memBacked),
+		Dirname:         dataPath,
+	}); !ok(err, storageLayer) {
+		return err
+	}
+
+	var (
+		grpcClientPool         = configureClientGRPC(securityProvider, insecure)
+		aspenTransport         = aspentransport.New(grpcClientPool)
+		frameTransport         = framertransport.New(grpcClientPool)
+		channelTransport       = channeltransport.New(grpcClientPool)
+		distributionTransports = []fgrpc.BindableTransport{
+			aspenTransport,
+			frameTransport,
+			channelTransport,
+		}
 	)
 
-	serverErr = sCtx.Wait()
-	if serverErr != nil && !errors.Is(serverErr, context.Canceled) {
-		ins.L.Error("server error", zap.Error(serverErr))
+	if distributionLayer, err = distribution.Open(ctx, distribution.Config{
+		Instrumentation:  ins.Child("distribution"),
+		AdvertiseAddress: listenAddress,
+		PeerAddresses:    peers,
+		AspenTransport:   aspenTransport,
+		FrameTransport:   frameTransport,
+		ChannelTransport: channelTransport,
+		Verifier:         verifier,
+		Storage:          storageLayer,
+	}); !ok(err, distributionLayer) {
+		return err
 	}
-	ins.L.Info("\033[34mSynnax has shut down\033[0m")
-	return serverErr
+
+	if serviceLayer, err = service.Open(ctx, service.Config{
+		Instrumentation: ins.Child("service"),
+		Distribution:    distributionLayer,
+		Security:        securityProvider,
+	}); !ok(err, serviceLayer) {
+		return err
+	}
+
+	if apiLayer, err = api.New(api.Config{
+		Instrumentation: ins.Child("api"),
+		Service:         serviceLayer,
+		Distribution:    distributionLayer,
+	}); !ok(err, nil) {
+		return err
+	}
+	creds := auth.InsecureCredentials{
+		Username: viper.GetString(usernameFlag),
+		Password: password.Raw(viper.GetString(passwordFlag)),
+	}
+	if err = cmdauth.ProvisionRootUser(
+		ctx,
+		creds,
+		distributionLayer,
+		serviceLayer,
+	); !ok(err, nil) {
+		return err
+	}
+
+	// Configure the HTTP Layer AspenTransport.
+	r := fhttp.NewRouter(fhttp.RouterConfig{
+		Instrumentation:     ins,
+		StreamWriteDeadline: slowConsumerTimeout,
+	})
+	apiLayer.BindTo(httpapi.New(r, api.NewHTTPCodecResolver(distributionLayer.Channel)))
+
+	// Configure the GRPC Layer AspenTransport.
+	grpcAPI, grpcAPITrans := grpcapi.New(distributionLayer.Channel)
+	apiLayer.BindTo(grpcAPI)
+
+	if rootServer, err = server.Serve(
+		server.Config{
+			Branches: []server.Branch{
+				&server.SecureHTTPBranch{Transports: []fhttp.BindableTransport{r, serviceLayer.Console}},
+				&server.GRPCBranch{Transports: slices.Concat(
+					grpcAPITrans,
+					distributionTransports,
+				)},
+				server.NewHTTPRedirectBranch(),
+			},
+			Debug:           config.Bool(debug),
+			ListenAddress:   listenAddress,
+			Instrumentation: ins.Child("server"),
+			Security: server.SecurityConfig{
+				TLS:      securityProvider.TLS(),
+				Insecure: config.Bool(insecure),
+			},
+		},
+	); !ok(err, rootServer) {
+		return err
+	}
+
+	// We run startup searching indexing after all services have been
+	// registered within the ontology. We used to fork a new goroutine for
+	// every service at registration time, but this caused a race condition
+	// where bleve would concurrently read and write to a map.
+	// See https://linear.app/synnax/issue/SY-1116/race-condition-on-server-startup
+	// for more details on this issue.
+	if stopSearchIndexing := runStartupSearchIndexing(
+		ctx,
+		distributionLayer,
+	); !ok(nil, stopSearchIndexing) {
+		return nil
+	}
+
+	if embeddedDriver, err = driver.OpenDriver(
+		ctx,
+		driver.Config{
+			Enabled:             config.Bool(!noDriver),
+			Insecure:            config.Bool(insecure),
+			Integrations:        parseIntegrationsFlag(),
+			Instrumentation:     ins.Child("driver"),
+			Address:             listenAddress,
+			RackKey:             serviceLayer.Rack.EmbeddedKey,
+			ClusterKey:          distributionLayer.Cluster.Key(),
+			Username:            rootUsername,
+			Password:            rootPassword,
+			Debug:               config.Bool(debug),
+			CACertPath:          certLoaderConfig.AbsoluteCACertPath(),
+			ClientCertFile:      certLoaderConfig.AbsoluteNodeCertPath(),
+			ClientKeyFile:       certLoaderConfig.AbsoluteNodeKeyPath(),
+			ParentDirname:       workDir,
+			TaskOpTimeout:       taskOpTimeout,
+			TaskPollInterval:    taskPollInterval,
+			TaskShutdownTimeout: taskShutdownTimeout,
+			TaskWorkerCount:     taskWorkerCount,
+		},
+	); !ok(err, embeddedDriver) {
+		return err
+	}
+
+	ins.L.Info(fmt.Sprintf("\033[32mSynnax is running and available at %v \033[0m", listenAddress))
+
+	<-ctx.Done()
+	return err
+
 }
 
 func init() {

@@ -7,27 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package svc provides Windows Service management functionality for Synnax.
-// This package encapsulates all service-related operations including installation,
-// uninstallation, starting, stopping, and status checking.
+// Package svc provides service management functionality for Synnax. This package
+// encapsulates all service-related operations including installation, uninstallation,
+// starting, and stopping. Currently, only Windows service is supported.
 package svc
 
-// Config holds the configuration for installing the Synnax Windows Service.
-// These settings are stored in the service configuration and used when the service starts.
+// Config holds the configuration for installing the Synnax service. These settings are
+// stored in the service configuration and used when the service starts.
 type Config struct {
-	// ListenAddress is the address to listen for client connections (e.g., "localhost:9090").
+	// ListenAddress is the address to listen for client connections (e.g.,
+	// "localhost:9090").
 	ListenAddress string
 	// DataDir is the directory where Synnax will store its data.
 	DataDir string
 	// Insecure disables encryption, authentication, and authorization.
 	Insecure bool
-	// Username for the admin user.
+	// Username is the username for the admin user.
 	Username string
-	// Password for the admin user.
+	// Password is the password for the admin user.
 	Password string
 	// AutoCert enables automatic generation of self-signed certificates.
 	AutoCert bool
-	// NoDriver disables the embedded Synnax driver.
+	// NoDriver disables the embedded Driver.
 	NoDriver bool
 	// Peers is a list of peer addresses in the cluster.
 	Peers []string
@@ -35,8 +36,8 @@ type Config struct {
 	EnableIntegrations []string
 	// DisableIntegrations is a list of device integrations to disable.
 	DisableIntegrations []string
-	// AutoStart enables automatic service start when Windows starts.
+	// AutoStart enables automatic service start on machine bootup.
 	AutoStart bool
-	// DelayedStart delays service start until after Windows startup completes.
+	// DelayedStart delays service start until after OS startup completes.
 	DelayedStart bool
 }
