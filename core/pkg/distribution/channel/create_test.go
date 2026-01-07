@@ -712,7 +712,7 @@ var _ = Context("Name Validation Disabled", func() {
 		var mockCluster *mock.Cluster
 		BeforeAll(func() {
 			mockCluster = mock.ProvisionCluster(ctx, 1, distribution.Config{
-				DisableChannelNameValidation: config.True(),
+				ValidateChannelNames: config.True(),
 			})
 		})
 		AfterAll(func() {

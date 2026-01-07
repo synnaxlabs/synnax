@@ -185,15 +185,15 @@ func start(cmd *cobra.Command) {
 		)
 
 		if distributionLayer, err = distribution.Open(ctx, distribution.Config{
-			Instrumentation:              ins.Child("distribution"),
-			AdvertiseAddress:             listenAddress,
-			PeerAddresses:                peers,
-			AspenTransport:               aspenTransport,
-			FrameTransport:               frameTransport,
-			ChannelTransport:             channelTransport,
-			Verifier:                     verifier,
-			Storage:                      storageLayer,
-			DisableChannelNameValidation: config.Bool(disableChannelNameValidation),
+			Instrumentation:      ins.Child("distribution"),
+			AdvertiseAddress:     listenAddress,
+			PeerAddresses:        peers,
+			AspenTransport:       aspenTransport,
+			FrameTransport:       frameTransport,
+			ChannelTransport:     channelTransport,
+			Verifier:             verifier,
+			Storage:              storageLayer,
+			ValidateChannelNames: config.Bool(!disableChannelNameValidation),
 		}); !ok(err, distributionLayer) {
 			return err
 		}

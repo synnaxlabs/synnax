@@ -103,11 +103,11 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to true.
 	EnableServiceSignals *bool
-	// DisableChannelNameValidation disables channel name validation when true.
+	// ValidateChannelNames disables channel name validation when true.
 	// This allows channels with special characters, spaces, etc.
 	//
 	// [OPTIONAL] - Defaults to false (validation enabled)
-	DisableChannelNameValidation *bool
+	ValidateChannelNames *bool
 }
 
 var (
@@ -116,10 +116,10 @@ var (
 	// This configuration is not valid on its own and must be overridden by the
 	// required fields specific in Config.
 	DefaultConfig = Config{
-		EnableSearch:                 config.True(),
-		GorpCodec:                    &binary.MsgPackCodec{},
-		EnableServiceSignals:         config.True(),
-		DisableChannelNameValidation: config.False(),
+		EnableSearch:         config.True(),
+		GorpCodec:            &binary.MsgPackCodec{},
+		EnableServiceSignals: config.True(),
+		ValidateChannelNames: config.True(),
 	}
 )
 
@@ -138,7 +138,7 @@ func (c Config) Override(other Config) Config {
 	c.EnableSearch = override.Nil(c.EnableSearch, other.EnableSearch)
 	c.GorpCodec = override.Nil(c.GorpCodec, other.GorpCodec)
 	c.EnableServiceSignals = override.Nil(c.EnableServiceSignals, other.EnableServiceSignals)
-	c.DisableChannelNameValidation = override.Nil(c.DisableChannelNameValidation, other.DisableChannelNameValidation)
+	c.ValidateChannelNames = override.Nil(c.ValidateChannelNames, other.ValidateChannelNames)
 	return c
 }
 
@@ -154,7 +154,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "enable_search", c.EnableSearch)
 	validate.NotNil(v, "codec", c.GorpCodec)
 	validate.NotNil(v, "enable_channel_signals", c.EnableServiceSignals)
-	validate.NotNil(v, "disable_channel_name_validation", c.DisableChannelNameValidation)
+	validate.NotNil(v, "disable_channel_name_validation", c.ValidateChannelNames)
 	return v.Error()
 }
 
@@ -286,7 +286,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			cfg.TestingIntOverflowCheck,
 			l.Verification.IsOverflowed,
 		),
-		ValidateNames: config.Bool(!*cfg.DisableChannelNameValidation),
+		ValidateNames: config.Bool(!*cfg.ValidateChannelNames),
 	}); !ok(err, nil) {
 		return nil, err
 	}
