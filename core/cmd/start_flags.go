@@ -117,6 +117,30 @@ func configureStartFlags() {
 		"Terminate slow consumers of the relay after this timeout.",
 	)
 
+	startCmd.Flags().Duration(
+		taskOpTimeoutFlag,
+		60*time.Second,
+		"Duration before reporting stuck task operations in the driver.",
+	)
+
+	startCmd.Flags().Duration(
+		taskPollIntervalFlag,
+		1*time.Second,
+		"Interval between task timeout checks in the driver.",
+	)
+
+	startCmd.Flags().Duration(
+		taskShutdownTimeoutFlag,
+		30*time.Second,
+		"Max time to wait for task workers during driver shutdown.",
+	)
+
+	startCmd.Flags().Int(
+		taskWorkerCountFlag,
+		4,
+		"Number of worker threads for task operations in the driver (1-64).",
+	)
+
 	decodedName, _ := base64.StdEncoding.DecodeString("bGljZW5zZS1rZXk=")
 	decodedUsage, _ := base64.StdEncoding.DecodeString("TGljZW5zZSBrZXkgaW4gZm9ybSAiIyMjIyMjLSMjIyMjIyMjLSMjIyMjIyMjIyMiLg==")
 

@@ -81,20 +81,20 @@ will bootstrap a new cluster.
 // environment variables, and configuration files.
 func start(cmd *cobra.Command) {
 	var (
-		ctx                 = cmd.Context()
-		vers                = version.Get()
-		verifierFlag        = lo.Must(base64.StdEncoding.DecodeString("bGljZW5zZS1rZXk="))
-		insecure            = viper.GetBool(insecureFlag)
-		debug               = viper.GetBool(debugFlag)
-		autoCert            = viper.GetBool(autoCertFlag)
-		verifier            = viper.GetString(string(verifierFlag))
-		memBacked           = viper.GetBool(memFlag)
-		listenAddress       = address.Address(viper.GetString(listenFlag))
-		dataPath            = viper.GetString(dataFlag)
-		slowConsumerTimeout = viper.GetDuration(slowConsumerTimeoutFlag)
-		rootUsername        = viper.GetString(usernameFlag)
-		rootPassword        = viper.GetString(passwordFlag)
-		noDriver            = viper.GetBool(noDriverFlag)
+		ctx                          = cmd.Context()
+		vers                         = version.Get()
+		verifierFlag                 = lo.Must(base64.StdEncoding.DecodeString("bGljZW5zZS1rZXk="))
+		insecure                     = viper.GetBool(insecureFlag)
+		debug                        = viper.GetBool(debugFlag)
+		autoCert                     = viper.GetBool(autoCertFlag)
+		verifier                     = viper.GetString(string(verifierFlag))
+		memBacked                    = viper.GetBool(memFlag)
+		listenAddress                = address.Address(viper.GetString(listenFlag))
+		dataPath                     = viper.GetString(dataFlag)
+		slowConsumerTimeout          = viper.GetDuration(slowConsumerTimeoutFlag)
+		rootUsername                 = viper.GetString(usernameFlag)
+		rootPassword                 = viper.GetString(passwordFlag)
+		noDriver                     = viper.GetBool(noDriverFlag)
 		keySize                      = viper.GetInt(keySizeFlag)
 		taskOpTimeout                = viper.GetDuration(taskOpTimeoutFlag)
 		taskPollInterval             = viper.GetDuration(taskPollIntervalFlag)
@@ -275,20 +275,24 @@ func start(cmd *cobra.Command) {
 		if embeddedDriver, err = driver.OpenDriver(
 			ctx,
 			driver.Config{
-				Enabled:         config.Bool(!noDriver),
-				Insecure:        config.Bool(insecure),
-				Integrations:    parseIntegrationsFlag(),
-				Instrumentation: ins.Child("driver"),
-				Address:         listenAddress,
-				RackKey:         serviceLayer.Rack.EmbeddedKey,
-				ClusterKey:      distributionLayer.Cluster.Key(),
-				Username:        rootUsername,
-				Password:        rootPassword,
-				Debug:           config.Bool(debug),
-				CACertPath:      certLoaderConfig.AbsoluteCACertPath(),
-				ClientCertFile:  certLoaderConfig.AbsoluteNodeCertPath(),
-				ClientKeyFile:   certLoaderConfig.AbsoluteNodeKeyPath(),
-				ParentDirname:   workDir,
+				Enabled:             config.Bool(!noDriver),
+				Insecure:            config.Bool(insecure),
+				Integrations:        parseIntegrationsFlag(),
+				Instrumentation:     ins.Child("driver"),
+				Address:             listenAddress,
+				RackKey:             serviceLayer.Rack.EmbeddedKey,
+				ClusterKey:          distributionLayer.Cluster.Key(),
+				Username:            rootUsername,
+				Password:            rootPassword,
+				Debug:               config.Bool(debug),
+				CACertPath:          certLoaderConfig.AbsoluteCACertPath(),
+				ClientCertFile:      certLoaderConfig.AbsoluteNodeCertPath(),
+				ClientKeyFile:       certLoaderConfig.AbsoluteNodeKeyPath(),
+				ParentDirname:       workDir,
+				TaskOpTimeout:       taskOpTimeout,
+				TaskPollInterval:    taskPollInterval,
+				TaskShutdownTimeout: taskShutdownTimeout,
+				TaskWorkerCount:     taskWorkerCount,
 			},
 		); !ok(err, embeddedDriver) {
 			return err
