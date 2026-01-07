@@ -92,6 +92,24 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	for _, outputPath := range combinedOrder {
 		structs := structCollector.Get(outputPath)
 		enums := enum.CollectReferenced(structs, req.Resolutions)
+
+		// If no structs to reference enums from, collect enums in the same namespace
+		// This handles cases where all structs are omitted but enums should still be generated
+		if len(structs) == 0 {
+			aliases := aliasCollector.Get(outputPath)
+			var namespace string
+			if len(aliases) > 0 {
+				namespace = aliases[0].Namespace
+			}
+			if namespace != "" {
+				for _, e := range req.Resolutions.EnumTypes() {
+					if e.Namespace == namespace && !omit.IsType(e, "cpp") {
+						enums = append(enums, e)
+					}
+				}
+			}
+		}
+
 		var typeDefs []resolution.Type
 		if typeDefCollector.Has(outputPath) {
 			typeDefs = typeDefCollector.Remove(outputPath)
@@ -109,7 +127,17 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 	// Handle standalone typedef-only outputs
 	err = typeDefCollector.ForEach(func(outputPath string, typeDefs []resolution.Type) error {
-		content, err := p.generateFile(outputPath, nil, nil, typeDefs, nil, req.Resolutions)
+		// Collect enums in the same namespace as the typedefs
+		var enums []resolution.Type
+		if len(typeDefs) > 0 {
+			namespace := typeDefs[0].Namespace
+			for _, e := range req.Resolutions.EnumTypes() {
+				if e.Namespace == namespace && !omit.IsType(e, "cpp") {
+					enums = append(enums, e)
+				}
+			}
+		}
+		content, err := p.generateFile(outputPath, nil, enums, typeDefs, nil, req.Resolutions)
 		if err != nil {
 			return errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
@@ -285,8 +313,10 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 	if !ok {
 		return typeDefData{Name: td.Name, CppType: "void"}
 	}
+	// Check for @cpp name override
+	name := domain.GetName(td, "cpp")
 	return typeDefData{
-		Name:    td.Name,
+		Name:    name,
 		CppType: p.typeDefBaseToCpp(form.Base, data),
 	}
 }
@@ -645,10 +675,19 @@ func (p *Plugin) resolveEnumType(resolved resolution.Type, form resolution.EnumF
 		}
 	}
 
+	// String enums in C++ are represented as std::string, not as an enum class
+	if !form.IsIntEnum {
+		data.includes.addSystem("string")
+		return "std::string"
+	}
+
 	return resolved.Name
 }
 
 func (p *Plugin) resolveDistinctType(resolved resolution.Type, data *templateData) string {
+	// Check for @cpp name override
+	name := domain.GetName(resolved, "cpp")
+
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
@@ -657,9 +696,9 @@ func (p *Plugin) resolveDistinctType(resolved resolution.Type, data *templateDat
 		}
 		// Use namespace-qualified name
 		ns := deriveNamespace(targetOutputPath)
-		return fmt.Sprintf("%s::%s", ns, resolved.Name)
+		return fmt.Sprintf("%s::%s", ns, name)
 	}
-	return resolved.Name
+	return name
 }
 
 func (p *Plugin) resolveAliasType(resolved resolution.Type, typeArgs []resolution.TypeRef, data *templateData) string {

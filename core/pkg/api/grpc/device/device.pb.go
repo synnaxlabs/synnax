@@ -336,7 +336,7 @@ var File_core_pkg_api_grpc_device_device_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_device_device_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/api/grpc/device/device.proto\x12\vgrpc.device\x1a\x1bgoogle/protobuf/empty.proto\x1a'core/pkg/service/device/pb/device.proto\"A\n" +
+	"%core/pkg/api/grpc/device/device.proto\x12\vgrpc.device\x1a'core/pkg/service/device/pb/device.proto\x1a\x1bgoogle/protobuf/empty.proto\"A\n" +
 	"\rCreateRequest\x120\n" +
 	"\adevices\x18\x01 \x03(\v2\x16.service.device.DeviceR\adevices\"B\n" +
 	"\x0eCreateResponse\x120\n" +

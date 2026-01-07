@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/plugin"
+	cpppb "github.com/synnaxlabs/oracle/plugin/cpp/pb"
 	cpptypes "github.com/synnaxlabs/oracle/plugin/cpp/types"
 	gopb "github.com/synnaxlabs/oracle/plugin/go/pb"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
@@ -173,6 +174,7 @@ func buildPluginRegistry() *plugin.Registry {
 	_ = registry.Register(pytypes.New(pytypes.DefaultOptions()))
 	_ = registry.Register(pbtypes.New(pbtypes.DefaultOptions()))
 	_ = registry.Register(cpptypes.New(cpptypes.DefaultOptions()))
+	_ = registry.Register(cpppb.New(cpppb.DefaultOptions()))
 	_ = registry.Register(gopb.New(gopb.DefaultOptions()))
 	return registry
 }

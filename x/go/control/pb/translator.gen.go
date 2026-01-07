@@ -67,20 +67,20 @@ func SubjectsFromPB(ctx context.Context, pbs []*Subject) ([]control.Subject, err
 func ConcurrencyToPB(v control.Concurrency) Concurrency {
 	switch v {
 	case control.ConcurrencyExclusive:
-		return Concurrency_EXCLUSIVE
+		return Concurrency_CONCURRENCY_EXCLUSIVE
 	case control.ConcurrencyShared:
-		return Concurrency_SHARED
+		return Concurrency_CONCURRENCY_SHARED
 	default:
-		return Concurrency_UNSPECIFIED
+		return Concurrency_CONCURRENCY_UNSPECIFIED
 	}
 }
 
 // ConcurrencyFromPB converts Concurrency to control.Concurrency.
 func ConcurrencyFromPB(v Concurrency) control.Concurrency {
 	switch v {
-	case Concurrency_EXCLUSIVE:
+	case Concurrency_CONCURRENCY_EXCLUSIVE:
 		return control.ConcurrencyExclusive
-	case Concurrency_SHARED:
+	case Concurrency_CONCURRENCY_SHARED:
 		return control.ConcurrencyShared
 	default:
 		return control.ConcurrencyExclusive

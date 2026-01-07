@@ -29,8 +29,9 @@ func OnFiles(
 	eslintArgs := append(command[1:], files...)
 	eslintCmd := exec.Command(command[0], eslintArgs...)
 	eslintCmd.Dir = dir
-	if err := eslintCmd.Run(); err != nil {
-		return errors.Wrapf(err, "failed to run %s", command[0])
+	cmdOutput, err := eslintCmd.CombinedOutput()
+	if err != nil {
+		return errors.Wrapf(err, "failed to run %s: %s", command[0], string(cmdOutput))
 	}
 	return nil
 }

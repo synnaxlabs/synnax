@@ -143,28 +143,28 @@ func ChannelsFromPB(ctx context.Context, pbs []*Channel) ([]channel.Channel, err
 func OperationTypeToPB(v channel.OperationType) OperationType {
 	switch v {
 	case channel.OperationTypeMin:
-		return OperationType_MIN
+		return OperationType_OPERATION_TYPE_MIN
 	case channel.OperationTypeMax:
-		return OperationType_MAX
+		return OperationType_OPERATION_TYPE_MAX
 	case channel.OperationTypeAvg:
-		return OperationType_AVG
+		return OperationType_OPERATION_TYPE_AVG
 	case channel.OperationTypeNone:
-		return OperationType_NONE
+		return OperationType_OPERATION_TYPE_NONE
 	default:
-		return OperationType_UNSPECIFIED
+		return OperationType_OPERATION_TYPE_UNSPECIFIED
 	}
 }
 
 // OperationTypeFromPB converts OperationType to channel.OperationType.
 func OperationTypeFromPB(v OperationType) channel.OperationType {
 	switch v {
-	case OperationType_MIN:
+	case OperationType_OPERATION_TYPE_MIN:
 		return channel.OperationTypeMin
-	case OperationType_MAX:
+	case OperationType_OPERATION_TYPE_MAX:
 		return channel.OperationTypeMax
-	case OperationType_AVG:
+	case OperationType_OPERATION_TYPE_AVG:
 		return channel.OperationTypeAvg
-	case OperationType_NONE:
+	case OperationType_OPERATION_TYPE_NONE:
 		return channel.OperationTypeNone
 	default:
 		return channel.OperationTypeMin

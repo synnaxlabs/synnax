@@ -264,7 +264,7 @@ var File_core_pkg_api_grpc_rack_rack_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_rack_rack_proto_rawDesc = "" +
 	"\n" +
-	"!core/pkg/api/grpc/rack/rack.proto\x12\tgrpc.rack\x1a\x1bgoogle/protobuf/empty.proto\x1a#core/pkg/service/rack/pb/rack.proto\"9\n" +
+	"!core/pkg/api/grpc/rack/rack.proto\x12\tgrpc.rack\x1a#core/pkg/service/rack/pb/rack.proto\x1a\x1bgoogle/protobuf/empty.proto\"9\n" +
 	"\rCreateRequest\x12(\n" +
 	"\x05racks\x18\x01 \x03(\v2\x12.service.rack.RackR\x05racks\":\n" +
 	"\x0eCreateResponse\x12(\n" +

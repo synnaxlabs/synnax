@@ -392,7 +392,7 @@ var File_core_pkg_api_grpc_task_task_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_task_task_proto_rawDesc = "" +
 	"\n" +
-	"!core/pkg/api/grpc/task/task.proto\x12\tgrpc.task\x1a\x1bgoogle/protobuf/empty.proto\x1a#core/pkg/service/task/pb/task.proto\"9\n" +
+	"!core/pkg/api/grpc/task/task.proto\x12\tgrpc.task\x1a#core/pkg/service/task/pb/task.proto\x1a\x1bgoogle/protobuf/empty.proto\"9\n" +
 	"\rCreateRequest\x12(\n" +
 	"\x05tasks\x18\x01 \x03(\v2\x12.service.task.TaskR\x05tasks\":\n" +
 	"\x0eCreateResponse\x12(\n" +

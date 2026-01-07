@@ -236,7 +236,7 @@ var File_core_pkg_api_grpc_kv_kv_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_kv_kv_proto_rawDesc = "" +
 	"\n" +
-	"\x1dcore/pkg/api/grpc/kv/kv.proto\x12\agrpc.kv\x1a\x1bgoogle/protobuf/empty.proto\x1a&core/pkg/service/ranger/kv/pb/kv.proto\"6\n" +
+	"\x1dcore/pkg/api/grpc/kv/kv.proto\x12\agrpc.kv\x1a&core/pkg/service/ranger/kv/pb/kv.proto\x1a\x1bgoogle/protobuf/empty.proto\"6\n" +
 	"\n" +
 	"GetRequest\x12\x14\n" +
 	"\x05range\x18\x01 \x01(\tR\x05range\x12\x12\n" +

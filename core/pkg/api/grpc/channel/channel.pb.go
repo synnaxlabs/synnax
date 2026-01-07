@@ -304,7 +304,7 @@ var File_core_pkg_api_grpc_channel_channel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_channel_channel_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/api/grpc/channel/channel.proto\x12\fgrpc.channel\x1a\x1bgoogle/protobuf/empty.proto\x1a%core/pkg/api/channel/pb/channel.proto\"x\n" +
+	"'core/pkg/api/grpc/channel/channel.proto\x12\fgrpc.channel\x1a%core/pkg/api/channel/pb/channel.proto\x1a\x1bgoogle/protobuf/empty.proto\"x\n" +
 	"\rCreateRequest\x120\n" +
 	"\bchannels\x18\x01 \x03(\v2\x14.api.channel.ChannelR\bchannels\x125\n" +
 	"\x17retrieve_if_name_exists\x18\x02 \x01(\bR\x14retrieveIfNameExists\"B\n" +

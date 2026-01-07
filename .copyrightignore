@@ -10,5 +10,5 @@
 vendor/**
 
 # Generation Code
-./oracle/copyright/copyright.go
-./oracle/copyright/copyright_test.go
+oracle/copyright/copyright.go
+oracle/copyright/copyright_test.go

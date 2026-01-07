@@ -1183,9 +1183,11 @@ func (p *Plugin) generateEnumTranslator(
 			goValue = fmt.Sprintf("%s.%s%s", goAlias, enumRef.Name, valueName)
 		}
 
-		// Proto enum value format: <EnumName>_<VALUE>
-		// Go protoc generates: Variant_SUCCESS, not VARIANT_SUCCESS
-		pbValueName := fmt.Sprintf("%s_%s", enumRef.Name, toScreamingSnake(v.Name))
+		// Proto enum value format in .proto file: ENUM_NAME_VALUE (e.g., VARIANT_SUCCESS)
+		// Go protoc generates constants: EnumName_PROTO_VALUE (e.g., Variant_VARIANT_SUCCESS)
+		// The pb/types plugin adds the enum name prefix to values, so we must include it here too
+		enumPrefix := toScreamingSnake(enumRef.Name) + "_"
+		pbValueName := fmt.Sprintf("%s_%s%s", enumRef.Name, enumPrefix, toScreamingSnake(v.Name))
 
 		values = append(values, enumValueTranslatorData{
 			GoValue: goValue,
@@ -1197,8 +1199,8 @@ func (p *Plugin) generateEnumTranslator(
 		}
 	}
 
-	// Proto default is always UNSPECIFIED
-	pbDefault := fmt.Sprintf("%s_UNSPECIFIED", enumRef.Name)
+	// Proto default is always UNSPECIFIED (with enum name prefix from pb/types)
+	pbDefault := fmt.Sprintf("%s_%s_UNSPECIFIED", enumRef.Name, toScreamingSnake(enumRef.Name))
 
 	return &enumTranslatorData{
 		Name:      enumRef.Name,

@@ -23,36 +23,36 @@ import (
 func VariantToPB(v status.Variant) Variant {
 	switch v {
 	case status.VariantSuccess:
-		return Variant_SUCCESS
+		return Variant_VARIANT_SUCCESS
 	case status.VariantInfo:
-		return Variant_INFO
+		return Variant_VARIANT_INFO
 	case status.VariantWarning:
-		return Variant_WARNING
+		return Variant_VARIANT_WARNING
 	case status.VariantError:
-		return Variant_ERROR
+		return Variant_VARIANT_ERROR
 	case status.VariantLoading:
-		return Variant_LOADING
+		return Variant_VARIANT_LOADING
 	case status.VariantDisabled:
-		return Variant_DISABLED
+		return Variant_VARIANT_DISABLED
 	default:
-		return Variant_UNSPECIFIED
+		return Variant_VARIANT_UNSPECIFIED
 	}
 }
 
 // VariantFromPB converts Variant to status.Variant.
 func VariantFromPB(v Variant) status.Variant {
 	switch v {
-	case Variant_SUCCESS:
+	case Variant_VARIANT_SUCCESS:
 		return status.VariantSuccess
-	case Variant_INFO:
+	case Variant_VARIANT_INFO:
 		return status.VariantInfo
-	case Variant_WARNING:
+	case Variant_VARIANT_WARNING:
 		return status.VariantWarning
-	case Variant_ERROR:
+	case Variant_VARIANT_ERROR:
 		return status.VariantError
-	case Variant_LOADING:
+	case Variant_VARIANT_LOADING:
 		return status.VariantLoading
-	case Variant_DISABLED:
+	case Variant_VARIANT_DISABLED:
 		return status.VariantDisabled
 	default:
 		return status.VariantSuccess

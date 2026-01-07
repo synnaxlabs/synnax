@@ -19,7 +19,7 @@ import {
   payloadZ,
 } from "@/channel/types.gen";
 
-export type PrimitiveParams = Key | Keys | Names;
+export type PrimitiveParams = Key | Keys | Names | Name;
 
 export const paramsZ = z.union([
   zod.toArray(keyZ),

@@ -235,7 +235,7 @@ var File_core_pkg_distribution_channel_pb_services_proto protoreflect.FileDescri
 
 const file_core_pkg_distribution_channel_pb_services_proto_rawDesc = "" +
 	"\n" +
-	"/core/pkg/distribution/channel/pb/services.proto\x12\x14distribution.channel\x1a\x1bgoogle/protobuf/empty.proto\x1a.core/pkg/distribution/channel/pb/channel.proto\"\x7f\n" +
+	"/core/pkg/distribution/channel/pb/services.proto\x12\x14distribution.channel\x1a.core/pkg/distribution/channel/pb/channel.proto\x1a\x1bgoogle/protobuf/empty.proto\"\x7f\n" +
 	"\rCreateOptions\x125\n" +
 	"\x17retrieve_if_name_exists\x18\x01 \x01(\bR\x14retrieveIfNameExists\x127\n" +
 	"\x18overwrite_if_name_exists\x18\x02 \x01(\bR\x15overwriteIfNameExists\"\x83\x01\n" +

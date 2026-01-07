@@ -10,18 +10,21 @@
 import "schemas/node"
 import "schemas/control"
 
-@ts output "client/ts/src/channel"
-@py output "client/py/synnax/channel"
+@ts output  "client/ts/src/channel"
+@py output  "client/py/synnax/channel"
+@cpp output "client/cpp/channel"
 @pb
 
 Key uint32 {
     @go output    "core/pkg/distribution/channel"
+    @cpp name     "ChannelKey"
     @ts to_number
 }
 
 LocalKey uint20 {
     @go output "core/pkg/distribution/channel"
     @py omit
+    @cpp omit
 }
 
 Name = string {
@@ -67,6 +70,7 @@ Channel struct {
     @go output "core/pkg/distribution/channel"
     @py omit
     @ts omit
+    @cpp omit
     @pb
 }
 
@@ -90,6 +94,7 @@ APIChannel struct {
     @ts name       "Payload"
     @pb name       "Channel"
     @go name       "Channel"
+    @cpp omit
 }
 
 NewChannel struct extends APIChannel {
@@ -106,4 +111,5 @@ NewChannel struct extends APIChannel {
     @py name      "New"
     @ts name      "New"
     @ts use_input
+    @cpp omit
 }

@@ -135,4 +135,4 @@ export type New<
 };
 
 export const ontologyID = ontology.createIDFactory<Key>("task");
-export const TYPE_ONTOLOGY_ID = ontologyID(0);
+export const TYPE_ONTOLOGY_ID = ontologyID("");

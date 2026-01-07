@@ -316,7 +316,7 @@ var File_core_pkg_api_grpc_ranger_ranger_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_ranger_ranger_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/api/grpc/ranger/ranger.proto\x12\vgrpc.ranger\x1a\x1bgoogle/protobuf/empty.proto\x1a\"core/pkg/api/ranger/pb/range.proto\"#\n" +
+	"%core/pkg/api/grpc/ranger/ranger.proto\x12\vgrpc.ranger\x1a\"core/pkg/api/ranger/pb/range.proto\x1a\x1bgoogle/protobuf/empty.proto\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys\"9\n" +
 	"\rCreateRequest\x12(\n" +

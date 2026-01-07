@@ -229,7 +229,7 @@ func (p *Plugin) generateFile(
 	}
 	skip := func(s resolution.Type) bool { return omit.IsType(s, "ts") }
 	rawKeyFields := key.Collect(structs, req.Resolutions, skip)
-	data.Ontology = p.extractOntology(structs, rawKeyFields, skip)
+	data.Ontology = p.extractOntology(structs, rawKeyFields, skip, req.Resolutions)
 	if data.Ontology != nil {
 		data.addNamedImport("@/ontology", "ontology")
 	}
@@ -316,6 +316,7 @@ func (p *Plugin) extractOntology(
 	structs []resolution.Type,
 	keyFields []key.Field,
 	skip ontology.SkipFunc,
+	table *resolution.Table,
 ) *ontologyData {
 	data := ontology.Extract(structs, keyFields, skip)
 	if data == nil {
@@ -327,12 +328,35 @@ func (p *Plugin) extractOntology(
 	if override := findFieldTypeOverride(structs, data.KeyField.Name, "ts"); override != "" {
 		primitive = override
 	}
+	// Also check if the key field's type itself has a @ts type override (e.g., Key uint64 { @ts type string })
+	if override := findKeyTypeTypeOverride(structs, data.KeyField.Name, table); override != "" {
+		primitive = override
+	}
 	keyZeroValue := primitiveZeroValue(primitive)
 	return &ontologyData{
 		TypeName:     data.TypeName,
 		KeyType:      keyType,
 		KeyZeroValue: keyZeroValue,
 	}
+}
+
+func findKeyTypeTypeOverride(structs []resolution.Type, keyFieldName string, table *resolution.Table) string {
+	for _, s := range structs {
+		form, ok := s.Form.(resolution.StructForm)
+		if !ok {
+			continue
+		}
+		for _, f := range form.Fields {
+			if f.Name == keyFieldName {
+				// Found the key field, now look up its type
+				if typ, ok := table.Get(f.Type.Name); ok {
+					// Check if the type has a @ts type override
+					return getTypeTypeOverride(typ, "ts")
+				}
+			}
+		}
+	}
+	return ""
 }
 
 func (p *Plugin) processEnum(e resolution.Type) enumData {
