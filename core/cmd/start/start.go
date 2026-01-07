@@ -10,19 +10,14 @@
 package start
 
 import (
-	"bufio"
 	"context"
-	"fmt"
 	"io"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"slices"
 	"time"
 
 	"github.com/samber/lo"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"github.com/synnaxlabs/alamos"
 	aspentransport "github.com/synnaxlabs/aspen/transport/grpc"
 	"github.com/synnaxlabs/freighter/fgrpc"
@@ -47,7 +42,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/encoding/base64"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
@@ -57,114 +51,28 @@ import (
 	"go.uber.org/zap"
 )
 
-func scanForStopKeyword(interruptC chan os.Signal) {
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		if scanner.Text() == "stop" {
-			interruptC <- os.Interrupt
-		}
-	}
-}
-
-// start is the entrypoint for starting a Synnax Core. It handles signal interrupts and
-// delegates to startServer for the actual startup.
-func start(cmd *cobra.Command) {
-	ctx := cmd.Context()
-	ins := instrumentation.Configure()
-	defer instrumentation.Cleanup(ctx, ins)
-
-	interruptC := make(chan os.Signal, 1)
-	signal.Notify(interruptC, os.Interrupt)
-
-	sCtx, cancel := xsignal.WithCancel(ctx, xsignal.WithInstrumentation(ins))
-	defer cancel()
-
-	// Listen for a custom stop keyword that can be used in place of a Ctrl+C signal.
-	// It's fine to let this get garbage collected.
-	go scanForStopKeyword(interruptC)
-
-	sCtx.Go(func(ctx context.Context) error {
-		return BootupCore(ctx, GetCoreConfigFromViper(ins))
-	}, xsignal.WithKey("start"), xsignal.RecoverWithErrOnPanic())
-
-	select {
-	case <-interruptC:
-		ins.L.Info(
-			"\033[33mSynnax is shutting down. This can take up to 5 seconds. Please be patient\033[0m",
-		)
-		cancel()
-	case <-sCtx.Stopped():
-	}
-
-	if err := sCtx.Wait(); err != nil && !errors.Is(err, context.Canceled) {
-		ins.L.Zap().Sugar().Errorf(
-			"\033[31mSynnax has encountered an error and is shutting down: %v\033[0m",
-			err,
-		)
-		ins.L.Fatal("synnax failed", zap.Error(err))
-	}
-	ins.L.Info("\033[34mSynnax has shut down\033[0m")
-}
-
-func GetCoreConfigFromViper(ins alamos.Instrumentation) CoreConfig {
-	listenAddress := address.Address(viper.GetString(FlagListen))
-	integrations := viper.GetStringSlice(FlagEnableIntegrations)
-	disabledIntegrations := viper.GetStringSlice(FlagDisableIntegrations)
-	if len(integrations) == 0 {
-		integrations = lo.Filter(driver.AllIntegrations, func(integration string, _ int) bool {
-			return !lo.Contains(disabledIntegrations, integration)
-		})
-	}
-	peers := lo.Map(viper.GetStringSlice(FlagPeers), func(peer string, _ int) address.Address {
-		return address.Address(peer)
-	})
-	return CoreConfig{
-		Instrumentation:     ins,
-		insecure:            config.Bool(viper.GetBool(FlagInsecure)),
-		debug:               config.Bool(viper.GetBool(instrumentation.FlagDebug)),
-		autoCert:            config.Bool(viper.GetBool(FlagAutoCert)),
-		verifier:            viper.GetString(string(base64.MustDecode("bGljZW5zZS1rZXk="))),
-		memBacked:           config.Bool(viper.GetBool(FlagMem)),
-		listenAddress:       listenAddress,
-		peers:               peers,
-		dataPath:            viper.GetString(FlagData),
-		slowConsumerTimeout: viper.GetDuration(FlagSlowConsumerTimeout),
-		rootUsername:        viper.GetString(FlagUsername),
-		rootPassword:        viper.GetString(FlagPassword),
-		noDriver:            config.Bool(viper.GetBool(FlagNoDriver)),
-		keySize:             viper.GetInt(cmdcert.FlagKeySize),
-		taskOpTimeout:       viper.GetDuration(FlagTaskOpTimeout),
-		taskPollInterval:    viper.GetDuration(FlagTaskPollInterval),
-		taskShutdownTimeout: viper.GetDuration(FlagTaskShutdownTimeout),
-		taskWorkerCount:     viper.GetUint8(FlagTaskWorkerCount),
-		certFactoryConfig:   cmdcert.BuildCertFactoryConfig(ins, listenAddress),
-		certLoaderConfig:    cmdcert.BuildLoaderConfig(ins),
-		integrations:        integrations,
-	}
-}
-
 type CoreConfig struct {
 	alamos.Instrumentation
-	insecure            *bool
-	debug               *bool
-	autoCert            *bool
-	verifier            string
-	memBacked           *bool
-	listenAddress       address.Address
-	peers               []address.Address
-	dataPath            string
-	slowConsumerTimeout time.Duration
-	rootUsername        string
-	rootPassword        string
-	noDriver            *bool
-	keySize             int
-	taskOpTimeout       time.Duration
-	taskPollInterval    time.Duration
-	taskShutdownTimeout time.Duration
-	taskWorkerCount     uint8
-	certFactoryConfig   cert.FactoryConfig
-	certLoaderConfig    cert.LoaderConfig
-	integrations        []string
+	insecure             *bool
+	debug                *bool
+	autoCert             *bool
+	verifier             string
+	memBacked            *bool
+	listenAddress        address.Address
+	peers                []address.Address
+	dataPath             string
+	slowConsumerTimeout  time.Duration
+	rootUsername         string
+	rootPassword         string
+	noDriver             *bool
+	taskOpTimeout        time.Duration
+	taskPollInterval     time.Duration
+	taskShutdownTimeout  time.Duration
+	taskWorkerCount      uint8
+	certFactoryConfig    cert.FactoryConfig
+	certLoaderConfig     cert.LoaderConfig
+	enabledIntegrations  []string
+	disabledIntegrations []string
 }
 
 var _ config.Config[CoreConfig] = CoreConfig{}
@@ -177,42 +85,48 @@ func (c CoreConfig) Validate() error {
 	validate.NotNil(v, "mem_backed", c.memBacked)
 	validate.NotEmptyString(v, "listen_address", c.listenAddress)
 	validate.NotEmptyString(v, "data_path", c.dataPath)
+	validate.NonZero(v, "slow_consumer_timeout", c.slowConsumerTimeout)
 	validate.NotEmptyString(v, "root_username", c.rootUsername)
 	validate.NotEmptyString(v, "root_password", c.rootPassword)
 	validate.NotNil(v, "no_driver", c.noDriver)
+	validate.NonZero(v, "task_op_timeout", c.taskOpTimeout)
+	validate.NonZero(v, "task_poll_interval", c.taskPollInterval)
+	validate.NonZero(v, "task_shutdown_timeout", c.taskShutdownTimeout)
+	validate.NonZero(v, "task_worker_count", c.taskWorkerCount)
+	v.Catcher.Exec(c.certFactoryConfig.Validate)
+	v.Catcher.Exec(c.certLoaderConfig.Validate)
 	return v.Error()
 }
 
 func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 	return CoreConfig{
-		Instrumentation:     override.Zero(c.Instrumentation, other.Instrumentation),
-		insecure:            override.Nil(c.insecure, other.insecure),
-		debug:               override.Nil(c.debug, other.debug),
-		autoCert:            override.Nil(c.autoCert, other.autoCert),
-		verifier:            override.String(c.verifier, other.verifier),
-		memBacked:           override.Nil(c.memBacked, other.memBacked),
-		listenAddress:       override.String(c.listenAddress, other.listenAddress),
-		peers:               override.Slice(c.peers, other.peers),
-		dataPath:            override.String(c.dataPath, other.dataPath),
-		slowConsumerTimeout: override.Numeric(c.slowConsumerTimeout, other.slowConsumerTimeout),
-		rootUsername:        override.String(c.rootUsername, other.rootUsername),
-		rootPassword:        override.String(c.rootPassword, other.rootPassword),
-		noDriver:            override.Nil(c.noDriver, other.noDriver),
-		keySize:             override.Numeric(c.keySize, other.keySize),
-		taskOpTimeout:       override.Numeric(c.taskOpTimeout, other.taskOpTimeout),
-		taskPollInterval:    override.Numeric(c.taskPollInterval, other.taskPollInterval),
-		taskShutdownTimeout: override.Numeric(c.taskShutdownTimeout, other.taskShutdownTimeout),
-		taskWorkerCount:     override.Numeric(c.taskWorkerCount, other.taskWorkerCount),
-		certFactoryConfig:   c.certFactoryConfig.Override(other.certFactoryConfig),
-		certLoaderConfig:    c.certLoaderConfig.Override(other.certLoaderConfig),
-		integrations:        override.Slice(c.integrations, other.integrations),
+		Instrumentation:      override.Zero(c.Instrumentation, other.Instrumentation),
+		insecure:             override.Nil(c.insecure, other.insecure),
+		debug:                override.Nil(c.debug, other.debug),
+		autoCert:             override.Nil(c.autoCert, other.autoCert),
+		verifier:             override.String(c.verifier, other.verifier),
+		memBacked:            override.Nil(c.memBacked, other.memBacked),
+		listenAddress:        override.String(c.listenAddress, other.listenAddress),
+		peers:                override.Slice(c.peers, other.peers),
+		dataPath:             override.String(c.dataPath, other.dataPath),
+		slowConsumerTimeout:  override.Numeric(c.slowConsumerTimeout, other.slowConsumerTimeout),
+		rootUsername:         override.String(c.rootUsername, other.rootUsername),
+		rootPassword:         override.String(c.rootPassword, other.rootPassword),
+		noDriver:             override.Nil(c.noDriver, other.noDriver),
+		taskOpTimeout:        override.Numeric(c.taskOpTimeout, other.taskOpTimeout),
+		taskPollInterval:     override.Numeric(c.taskPollInterval, other.taskPollInterval),
+		taskShutdownTimeout:  override.Numeric(c.taskShutdownTimeout, other.taskShutdownTimeout),
+		taskWorkerCount:      override.Numeric(c.taskWorkerCount, other.taskWorkerCount),
+		certFactoryConfig:    c.certFactoryConfig.Override(other.certFactoryConfig),
+		certLoaderConfig:     c.certLoaderConfig.Override(other.certLoaderConfig),
+		enabledIntegrations:  override.Slice(c.enabledIntegrations, other.enabledIntegrations),
+		disabledIntegrations: override.Slice(c.disabledIntegrations, other.disabledIntegrations),
 	}
-
 }
 
 // BootupCore contains the most important Core startup logic. It does and should not
-// read any variables from viper, and instead should be called with a fully configured
-// CoreConfig.
+// read any variables from viper, and instead should be called with  fully configured
+// CoreConfigs.
 func BootupCore(ctx context.Context, cfgs ...CoreConfig) error {
 	cfg, err := config.New(CoreConfig{}, cfgs...)
 	if err != nil {
@@ -228,7 +142,12 @@ func BootupCore(ctx context.Context, cfgs ...CoreConfig) error {
 
 	vsn := version.Get()
 	cfg.L.Zap().Sugar().Infof("\033[34mSynnax version %s starting\033[0m", vsn)
-	cfg.L.Info("starting synnax node", zap.String("version", vsn), zap.String("commit", version.Commit()), zap.Time("build", version.Time()))
+	cfg.L.Info(
+		"starting synnax node",
+		zap.String("version", vsn),
+		zap.String("commit", version.Commit()),
+		zap.Time("build", version.Time()),
+	)
 
 	// Any data stored on the node is considered sensitive, so we need to set the
 	// permission mask for all files appropriately.
@@ -252,7 +171,7 @@ func BootupCore(ctx context.Context, cfgs ...CoreConfig) error {
 	if securityProvider, err = security.NewProvider(security.ProviderConfig{
 		LoaderConfig: cfg.certLoaderConfig,
 		Insecure:     cfg.insecure,
-		KeySize:      cfg.keySize,
+		KeySize:      cfg.certFactoryConfig.KeySize,
 	}); !ok(err, nil) {
 		return err
 	}
@@ -338,7 +257,9 @@ func BootupCore(ctx context.Context, cfgs ...CoreConfig) error {
 	if rootServer, err = server.Serve(
 		server.Config{
 			Branches: []server.Branch{
-				&server.SecureHTTPBranch{Transports: []fhttp.BindableTransport{r, serviceLayer.Console}},
+				&server.SecureHTTPBranch{
+					Transports: []fhttp.BindableTransport{r, serviceLayer.Console},
+				},
 				&server.GRPCBranch{Transports: slices.Concat(
 					grpcAPITrans,
 					distributionTransports,
@@ -375,7 +296,7 @@ func BootupCore(ctx context.Context, cfgs ...CoreConfig) error {
 		driver.Config{
 			Enabled:             config.Bool(!*cfg.noDriver),
 			Insecure:            cfg.insecure,
-			Integrations:        cfg.integrations,
+			Integrations:        parseIntegrations(cfg.enabledIntegrations, cfg.disabledIntegrations),
 			Instrumentation:     cfg.Instrumentation.Child("driver"),
 			Address:             cfg.listenAddress,
 			RackKey:             serviceLayer.Rack.EmbeddedKey,
@@ -396,7 +317,10 @@ func BootupCore(ctx context.Context, cfgs ...CoreConfig) error {
 		return err
 	}
 
-	cfg.L.Info(fmt.Sprintf("\033[32mSynnax is running and available at %v \033[0m", cfg.listenAddress))
+	cfg.L.Infof(
+		"\033[32mSynnax is running and available at %v \033[0m",
+		cfg.listenAddress,
+	)
 
 	<-ctx.Done()
 	return err
@@ -424,4 +348,13 @@ func runStartupSearchIndexing(
 		xsignal.WithKey("startup_search_indexing"),
 	)
 	return xsignal.NewHardShutdown(searchIndexCtx, cancelIndexing)
+}
+
+func parseIntegrations(enabled, disabled []string) []string {
+	if len(enabled) > 0 {
+		return enabled
+	}
+	return lo.Filter(driver.AllIntegrations, func(integration string, _ int) bool {
+		return !lo.Contains(disabled, integration)
+	})
 }

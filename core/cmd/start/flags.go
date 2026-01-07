@@ -108,12 +108,12 @@ func BindFlags(cmd *cobra.Command) {
 		4,
 		"Number of worker threads for task operations in the embedded Driver (1-64)",
 	)
-	cmd.Flags().String(decodedName, "", decodedUsage)
+	cmd.Flags().String(FlagDecoded, "", usage)
 }
 
 var (
-	decodedName  = base64.MustDecode("bGljZW5zZS1rZXk=")
-	decodedUsage = base64.MustDecode(
+	FlagDecoded = base64.MustDecode("bGljZW5zZS1rZXk=")
+	usage       = base64.MustDecode(
 		"TGljZW5zZSBrZXkgaW4gZm9ybSAiIyMjIyMjLSMjIyMjIyMjLSMjIyMjIyMjIyMi",
 	)
 )
