@@ -29,7 +29,7 @@ horizontally, and can be deployed on edge devices (data acquisition) in highly d
 environments with intermittent network connectivity, or in cloud environments (data
 processing) for high performance analysis.`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		if viper.GetBool(versionFlag) {
+		if viper.GetBool(flagVersion) {
 			version.Run()
 			return nil
 		}
@@ -53,7 +53,7 @@ func init() {
 }
 
 func initConfig() {
-	cfgFile := viper.GetString(configFlag)
+	cfgFile := viper.GetString(flagConfig)
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {

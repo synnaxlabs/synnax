@@ -12,120 +12,58 @@ package cmd
 import "github.com/synnaxlabs/synnax/pkg/security/cert"
 
 const (
-	configFlag            = "config"
-	versionFlag           = "version"
-	certsDirFlag          = "certs-dir"
-	caKeyFlag             = "ca-key"
-	caCertFlag            = "ca-cert"
-	nodeKeyFlag           = "node-key"
-	nodeCertFlag          = "node-cert"
-	allowKeyReuseFlag     = "allow-key-reuse"
-	keySizeFlag           = "key-size"
-	verboseFlag           = "verbose"
-	debugFlag             = "debug"
-	logFilePathFlag       = "log-file-path"
-	logFileMaxSizeFlag    = "log-file-max-size"
-	logFileMaxBackupsFlag = "log-file-max-backups"
-	logFileMaxAgeFlag     = "log-file-max-age"
-	logFileCompressFlag   = "log-file-compress"
+	flagConfig        = "config"
+	flagVersion       = "version"
+	flagCertsDir      = "certs-dir"
+	flagCAKey         = "ca-key"
+	flagCACert        = "ca-cert"
+	flagNodeKey       = "node-key"
+	flagNodeCert      = "node-cert"
+	flagAllowKeyReuse = "allow-key-reuse"
+	flagKeySize       = "key-size"
 )
 
 func configureRootFlags() {
 	root.PersistentFlags().StringP(
-		configFlag,
+		flagConfig,
 		"c",
 		"/usr/local/synnax/config.yaml",
 		"config file",
 	)
-
-	root.Flags().Bool(
-		versionFlag,
-		false,
-		"Print the version of Synnax",
-	)
-
+	root.Flags().Bool(flagVersion, false, "Print the version of Synnax")
 	root.PersistentFlags().String(
-		certsDirFlag,
+		flagCertsDir,
 		cert.DefaultLoaderConfig.CertsDir,
 		"The directory where certificates should be stored and/or written to.",
 	)
-
 	root.PersistentFlags().String(
-		caKeyFlag,
+		flagCAKey,
 		cert.DefaultLoaderConfig.CAKeyPath,
 		"The path to the CA key. This is relative to certs-dir.",
 	)
-
 	root.PersistentFlags().String(
-		caCertFlag,
+		flagCACert,
 		cert.DefaultLoaderConfig.CACertPath,
 		"The path to the CA certificate. This is relative to certs-dir.",
 	)
-
 	root.PersistentFlags().String(
-		nodeKeyFlag,
+		flagNodeKey,
 		cert.DefaultLoaderConfig.NodeKeyPath,
 		"The path to the node key. This is relative to certs-dir.",
 	)
-
 	root.PersistentFlags().String(
-		nodeCertFlag,
+		flagNodeCert,
 		cert.DefaultLoaderConfig.NodeCertPath,
 		"The path to the node certificate. This is relative to certs-dir.",
 	)
-
 	root.PersistentFlags().Bool(
-		allowKeyReuseFlag,
+		flagAllowKeyReuse,
 		*cert.DefaultFactoryConfig.AllowKeyReuse,
 		"Whether to allow the reuse of CA keys for certificate generation.",
 	)
-
 	root.PersistentFlags().Int(
-		keySizeFlag,
+		flagKeySize,
 		cert.DefaultFactoryConfig.KeySize,
 		"The size to use for certificate key generation.",
-	)
-
-	root.PersistentFlags().BoolP(
-		verboseFlag,
-		"v",
-		false,
-		"Enable verbose debugging.",
-	)
-
-	root.PersistentFlags().Bool(
-		debugFlag,
-		false,
-		"Enable debug logging.",
-	)
-
-	root.PersistentFlags().String(
-		logFilePathFlag,
-		"./synnax-logs/synnax.log",
-		"Log file path",
-	)
-
-	root.PersistentFlags().Int(
-		logFileMaxSizeFlag,
-		50,
-		"Maximum size of log file in megabytes",
-	)
-
-	root.PersistentFlags().Int(
-		logFileMaxBackupsFlag,
-		5,
-		"Maximum number of log files to retain",
-	)
-
-	root.PersistentFlags().Int(
-		logFileMaxAgeFlag,
-		30,
-		"Maximum age of log files to retain",
-	)
-
-	root.PersistentFlags().Bool(
-		logFileCompressFlag,
-		false,
-		"Compress log files",
 	)
 }

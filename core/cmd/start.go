@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/freighter/fhttp"
 	cmdauth "github.com/synnaxlabs/synnax/cmd/auth"
 	"github.com/synnaxlabs/synnax/cmd/flags"
+	"github.com/synnaxlabs/synnax/cmd/instrumentation"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
 	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
@@ -81,8 +82,8 @@ will bootstrap a new cluster.
 // delegates to startServer for the actual startup.
 func start(cmd *cobra.Command) {
 	ctx := cmd.Context()
-	ins := configureInstrumentation()
-	defer cleanupInstrumentation(ctx, ins)
+	ins := instrumentation.Configure()
+	defer instrumentation.Cleanup(ctx, ins)
 
 	interruptC := make(chan os.Signal, 1)
 	signal.Notify(interruptC, os.Interrupt)
@@ -122,7 +123,7 @@ func startServer(ctx context.Context) error {
 		vers                = version.Get()
 		verifierFlag        = base64.MustDecode("bGljZW5zZS1rZXk=")
 		insecure            = viper.GetBool(flags.Insecure)
-		debug               = viper.GetBool(debugFlag)
+		debug               = viper.GetBool(instrumentation.FlagDebug)
 		autoCert            = viper.GetBool(flags.AutoCert)
 		verifier            = viper.GetString(string(verifierFlag))
 		memBacked           = viper.GetBool(flags.Mem)
@@ -132,14 +133,14 @@ func startServer(ctx context.Context) error {
 		rootUsername        = viper.GetString(flags.Username)
 		rootPassword        = viper.GetString(flags.Password)
 		noDriver            = viper.GetBool(flags.NoDriver)
-		keySize             = viper.GetInt(keySizeFlag)
+		keySize             = viper.GetInt(flagKeySize)
 		taskOpTimeout       = viper.GetDuration(flags.TaskOpTimeout)
 		taskPollInterval    = viper.GetDuration(flags.TaskPollInterval)
 		taskShutdownTimeout = viper.GetDuration(flags.TaskShutdownTimeout)
 		taskWorkerCount     = viper.GetUint8(flags.TaskWorkerCount)
-		ins                 = configureInstrumentation()
+		ins                 = instrumentation.Configure()
 	)
-	defer cleanupInstrumentation(ctx, ins)
+	defer instrumentation.Cleanup(ctx, ins)
 
 	if autoCert {
 		if err := generateAutoCerts(ins); err != nil {
@@ -329,6 +330,7 @@ func startServer(ctx context.Context) error {
 func init() {
 	root.AddCommand(startCmd)
 	configureStartFlags()
+	instrumentation.AddFlags(startCmd)
 	bindFlags(startCmd)
 }
 
