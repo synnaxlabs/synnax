@@ -61,7 +61,6 @@ export const arcZ = z.object({
   name: z.string(),
   graph: graphZ,
   text: textZ,
-  deploy: z.boolean(),
   version: z.string(),
   status: statusZ.optional().nullable(),
 });

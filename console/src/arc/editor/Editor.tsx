@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
-import { arc } from "@synnaxlabs/client";
+import { arc, type rack, task } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
@@ -17,18 +17,28 @@ import {
   Button,
   Diagram,
   Flex,
+  type Flux,
   Haul,
   Icon,
   Menu as PMenu,
+  Ontology,
+  Rack,
   Status,
+  Task,
   Theming,
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
 import { box, deep, id, uuid, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo, useRef } from "react";
+import {
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useDispatch } from "react-redux";
-import { z } from "zod";
 
 import {
   select,
@@ -123,31 +133,69 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
   </PMenu.Menu>
 );
 
-interface StatusChipProps {
-  arc: State;
+interface ControlsProps {
+  state: State;
 }
 
-const statusDetailsSchema = z.object({
-  running: z.boolean(),
-});
+export const Controls = ({ state }: ControlsProps) => {
+  const name = Layout.useSelectRequiredName(state.key);
+  const children = Ontology.useRetrieveChildren({
+    id: arc.ontologyID(state.key),
+    types: ["task"],
+  });
+  const tsk = Task.useRetrieve(
+    { key: children.data?.[0]?.id.key ?? 0 },
+    { addStatusOnFailure: false },
+  );
+  const [selectedRack, setSelectedRack] = useState<rack.Key | undefined>();
+  useEffect(() => {
+    if (tsk.data?.key == null) return;
+    setSelectedRack(task.rackKey(tsk.data.key));
+  }, [tsk.data?.key]);
+  const { update } = Arc.useCreate({
+    afterSuccess: useCallback(
+      async ({ client, data }: Flux.AfterSuccessParams<arc.Arc, false>) => {
+        const { key } = data;
+        if (selectedRack == null) return;
+        let taskKey = tsk.data?.key;
+        taskKey ??= task.newKey(selectedRack, 0);
+        const newTsk = await client.tasks.create({
+          key: taskKey,
+          name,
+          type: "arc",
+          config: {
+            arc_key: key,
+          },
+        });
+        if (tsk.data?.key == null)
+          await client.ontology.addChildren(
+            arc.ontologyID(key),
+            task.ontologyID(newTsk.key),
+          );
 
-const { useRetrieve } = Status.createRetrieve(statusDetailsSchema);
+        await client.tasks.executeCommand({ task: taskKey, type: "start" });
+      },
+      [name, selectedRack, tsk.data?.key],
+    ),
+  });
+  const cmd = Task.useCommand();
+  const handleStop = useCallback(() => {
+    if (tsk.data?.key == null) return;
+    cmd.update([{ task: tsk.data.key, type: "stop" }]);
+  }, [cmd, tsk.data?.key]);
 
-export const Controls = ({ arc }: StatusChipProps) => {
-  const name = Layout.useSelectRequiredName(arc.key);
-  const status = useRetrieve({ key: arc.key }, { addStatusOnFailure: false });
-  const { update: create } = Arc.useCreate();
-  const isRunning = status.data?.details?.running ?? false;
+  const isRunning = tsk.data?.status?.details.running ?? false;
   const handleDeploy = useCallback(() => {
-    create({
-      key: arc.key,
-      name,
-      graph: translateGraphToServer(arc.graph),
-      text: arc.text,
-      deploy: !isRunning,
-      version: arc.version,
-    });
-  }, [arc, name, create, isRunning]);
+    if (isRunning) handleStop();
+    else
+      update({
+        name,
+        key: state.key,
+        text: state.text,
+        version: "0.0.0",
+        graph: translateGraphToServer(state.graph),
+      });
+  }, [state, update, handleStop, isRunning]);
 
   return (
     <Flex.Box
@@ -170,13 +218,26 @@ export const Controls = ({ arc }: StatusChipProps) => {
         grow
         rounded={2}
         justify="between"
+        gap="medium"
       >
-        <Status.Summary
-          variant="disabled"
-          message="Arc not started"
-          status={status.data}
-        />
-        <Button.Button onClick={handleDeploy} variant="filled">
+        <Flex.Box x gap="small" align="center" grow>
+          <Rack.SelectSingle
+            value={selectedRack}
+            onChange={setSelectedRack}
+            allowNone
+            style={{ minWidth: 150 }}
+          />
+          <Status.Summary
+            variant="disabled"
+            message="Not deployed"
+            status={tsk.data?.status}
+          />
+        </Flex.Box>
+        <Button.Button
+          onClick={handleDeploy}
+          variant="filled"
+          disabled={selectedRack === undefined}
+        >
           {isRunning ? <Icon.Pause /> : <Icon.Play />}
           {isRunning ? "Stop" : "Start"}
         </Button.Button>
@@ -380,7 +441,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           {hasEditPermission && <Diagram.ToggleEditControl />}
         </CoreControls>
       </Core.Arc>
-      <Controls arc={state} />
+      <Controls state={state} />
     </div>
   );
 };

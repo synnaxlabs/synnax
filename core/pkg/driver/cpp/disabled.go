@@ -7,22 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//go:build driver && windows
+//go:build !driver
 
-package driver
+package cpp
 
 import (
-	"embed"
-	"os/exec"
-	"syscall"
+	"context"
+
+	"github.com/synnaxlabs/x/config"
 )
 
-//go:embed assets/driver.exe
-var executable embed.FS
-
-// driverPath is the path to the driver executable
-const driverName = "driver.exe"
-
-func configureSysProcAttr(cmd *exec.Cmd) {
-	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP}
+func Open(_ context.Context, cfgs ...Config) (*Driver, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	cfg.L.Info("server built without embedded driver")
+	return &Driver{}, nil
 }
+
+func (d *Driver) Close() error { return nil }
