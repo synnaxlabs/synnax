@@ -16,10 +16,10 @@ import (
 	"github.com/synnaxlabs/x/encoding/leb128"
 )
 
-func writeUnsignedLeb128(w io.ByteWriter, val uint64) {
+func writeUnsignedLEB128(w io.ByteWriter, val uint64) {
 	lo.Must0(leb128.WriteUnsigned(w, val))
 }
 
-func writeSignedLeb128(w io.ByteWriter, val int64) {
+func writeSignedLEB128(w io.ByteWriter, val int64) {
 	lo.Must0(leb128.WriteSigned(w, val))
 }
