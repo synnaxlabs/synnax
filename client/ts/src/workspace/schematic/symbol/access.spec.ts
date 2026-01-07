@@ -26,7 +26,7 @@ describe("schematic_symbol", () => {
         objects: [],
         actions: [],
       });
-      const symbolGroup = await client.ontology.groups.create({
+      const symbolGroup = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "Test Symbols",
       });
@@ -51,7 +51,7 @@ describe("schematic_symbol", () => {
         objects: [symbol.ontologyID("")],
         actions: ["retrieve"],
       });
-      const symbolGroup = await client.ontology.groups.create({
+      const symbolGroup = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "Test Symbols",
       });
@@ -78,7 +78,7 @@ describe("schematic_symbol", () => {
         objects: [symbol.ontologyID("")],
         actions: ["create"],
       });
-      const symbolGroup = await client.ontology.groups.create({
+      const symbolGroup = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "Test Symbols",
       });
@@ -100,7 +100,7 @@ describe("schematic_symbol", () => {
         objects: [symbol.ontologyID("")],
         actions: [],
       });
-      const symbolGroup = await client.ontology.groups.create({
+      const symbolGroup = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "Test Symbols",
       });
@@ -124,7 +124,7 @@ describe("schematic_symbol", () => {
         objects: [symbol.ontologyID("")],
         actions: ["delete", "retrieve"],
       });
-      const symbolGroup = await client.ontology.groups.create({
+      const symbolGroup = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "Test Symbols",
       });
@@ -150,7 +150,7 @@ describe("schematic_symbol", () => {
         objects: [symbol.ontologyID("")],
         actions: [],
       });
-      const symbolGroup = await client.ontology.groups.create({
+      const symbolGroup = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "Test Symbols",
       });

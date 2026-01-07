@@ -468,7 +468,7 @@ describe("queries", () => {
         type: "testType",
         config: { value: "original" },
       });
-      const parentGroup = await client.ontology.groups.create({
+      const parentGroup = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "snapshot_parent",
       });
@@ -508,7 +508,7 @@ describe("queries", () => {
         type: "testType",
         config: { id: 2 },
       });
-      const parentGroup = await client.ontology.groups.create({
+      const parentGroup = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "multi_snapshot_parent",
       });
@@ -554,7 +554,7 @@ describe("queries", () => {
         type: "testType",
         config: {},
       });
-      const parentGroup = await client.ontology.groups.create({
+      const parentGroup = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "ontology_parent",
       });
@@ -599,7 +599,7 @@ describe("queries", () => {
         type: "complexType",
         config: complexConfig,
       });
-      const parentGroup = await client.ontology.groups.create({
+      const parentGroup = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "config_parent",
       });

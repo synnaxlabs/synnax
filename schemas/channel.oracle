@@ -15,8 +15,8 @@ import "schemas/control"
 @pb
 
 Key uint32 {
-    @go output           "core/pkg/distribution/channel"
-    @ts transform_string "Channel key must be a valid uint32"
+    @go output    "core/pkg/distribution/channel"
+    @ts to_number
 }
 
 LocalKey uint20 {

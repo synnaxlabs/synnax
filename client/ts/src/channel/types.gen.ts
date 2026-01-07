@@ -17,9 +17,8 @@ import { ontology } from "@/ontology";
 export const keyZ = z.uint32().or(
   z
     .string()
-    .refine((v) => !isNaN(Number(v)), { message: "Channel key must be a valid uint32" })
-    .transform(Number)
-    .pipe(z.uint32()),
+    .refine((v) => !isNaN(Number(v)))
+    .transform(Number),
 );
 export type Key = z.infer<typeof keyZ>;
 

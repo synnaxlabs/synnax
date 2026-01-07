@@ -167,9 +167,8 @@ export class Rack {
     task: task.New<Type, Config, StatusData>,
     schemas?: task.PayloadSchemas<Type, Config, StatusData>,
   ): Promise<task.Task<Type, Config, StatusData>> {
-    task.key = (
-      (BigInt(this.key) << 32n) +
-      (BigInt(task.key ?? 0) & 0xffffffffn)
+    task.key = Number(
+      (BigInt(this.key) << 32n) + (BigInt(task.key ?? 0) & 0xffffffffn),
     ).toString();
     return await this.tasks.create(
       task,

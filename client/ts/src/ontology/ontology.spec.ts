@@ -126,15 +126,15 @@ describe("Ontology", () => {
   describe("retrieve", () => {
     test("retrieve", async () => {
       const name = randomName();
-      const g = await client.ontology.groups.create({ parent: ontology.ROOT_ID, name });
+      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       const g2 = await client.ontology.retrieve(group.ontologyID(g.key));
       expect(g2.name).toEqual(name);
     });
     test("retrieve children", async () => {
       const name = randomName();
-      const g = await client.ontology.groups.create({ parent: ontology.ROOT_ID, name });
+      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       const name2 = randomName();
-      await client.ontology.groups.create({
+      await client.groups.create({
         parent: group.ontologyID(g.key),
         name: name2,
       });
@@ -144,9 +144,9 @@ describe("Ontology", () => {
     });
     test("retrieve parents", async () => {
       const name = randomName();
-      const g = await client.ontology.groups.create({ parent: ontology.ROOT_ID, name });
+      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       const name2 = randomName();
-      const g2 = await client.ontology.groups.create({
+      const g2 = await client.groups.create({
         parent: group.ontologyID(g.key),
         name: name2,
       });
@@ -159,9 +159,9 @@ describe("Ontology", () => {
   describe("write", () => {
     test("add children", async () => {
       const name = randomName();
-      const g = await client.ontology.groups.create({ parent: ontology.ROOT_ID, name });
+      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       const name2 = randomName();
-      const g2 = await client.ontology.groups.create({
+      const g2 = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: name2,
       });
@@ -175,9 +175,9 @@ describe("Ontology", () => {
     });
     test("remove children", async () => {
       const name = randomName();
-      const g = await client.ontology.groups.create({ parent: ontology.ROOT_ID, name });
+      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       const name2 = randomName();
-      const g2 = await client.ontology.groups.create({
+      const g2 = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: name2,
       });
@@ -194,9 +194,9 @@ describe("Ontology", () => {
     });
     test("move children", async () => {
       const name = randomName();
-      const g = await client.ontology.groups.create({ parent: ontology.ROOT_ID, name });
+      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       const name2 = randomName();
-      const g2 = await client.ontology.groups.create({
+      const g2 = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: name2,
       });

@@ -18,6 +18,8 @@ from pydantic import BaseModel
 
 from synnax.ontology.payload import ID
 
+Key = Any
+
 Key: TypeAlias = UUID
 
 

@@ -15,7 +15,8 @@ import "schemas/status"
 @pb
 
 Key uint64 {
-    @ts type string
+    @ts type      string
+    @ts to_string
 }
 
 StatusDetails struct<Data extends json = json> {

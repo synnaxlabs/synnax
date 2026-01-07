@@ -253,6 +253,36 @@ var _ = Describe("TS Types Plugin", func() {
 			})
 		})
 
+		Context("@ts to_number directive", func() {
+			It("Should generate schema that accepts strings and converts to number with NaN validation", func() {
+				source := `
+					@ts output "out"
+
+					Key uint32 {
+						@ts to_number
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "channel", loader, typesPlugin)
+				testutil.ExpectContent(resp, "types.gen.ts").
+					ToContain(`export const keyZ = z.uint32().or(z.string().refine((v) => !isNaN(Number(v))).transform(Number))`)
+			})
+		})
+
+		Context("@ts to_string directive", func() {
+			It("Should generate schema that accepts numbers and converts to string", func() {
+				source := `
+					@ts output "out"
+
+					Name string {
+						@ts to_string
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "user", loader, typesPlugin)
+				testutil.ExpectContent(resp, "types.gen.ts").
+					ToContain(`export const nameZ = z.string().or(z.number().transform(String))`)
+			})
+		})
+
 		It("Should convert snake_case to camelCase for field names", func() {
 			source := `
 				@ts output "out"

@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 
-export const keyZ = z.string();
+export const keyZ = z.string().or(z.number().transform(String));
 export type Key = z.infer<typeof keyZ>;
 
 export const statusDetailsZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>

@@ -18,7 +18,7 @@ const client = createTestClient();
 describe("Symbol Client", () => {
   let symbolGroup: group.Group;
   beforeAll(async () => {
-    symbolGroup = await client.ontology.groups.create({
+    symbolGroup = await client.groups.create({
       parent: ontology.ROOT_ID,
       name: "Test Symbols",
     });

@@ -400,7 +400,7 @@ export class Client {
     return isSingle ? sugared[0] : sugared;
   }
 
-  async copy(key: string, name: string, snapshot: boolean): Promise<Task> {
+  async copy(key: Key, name: string, snapshot: boolean): Promise<Task> {
     const copyRes = copyResZ();
     const response = await sendRequired(
       this.client,
@@ -654,7 +654,7 @@ const formatTimeoutError = async (
   } catch (e) {
     console.error("Failed to retrieve task name for timeout error:", e);
     return new Error(
-      `${formattedType} command to task with key ${strings.naturalLanguageJoin(key)} timed out after ${formattedTimeout}`,
+      `${formattedType} command to task with key ${strings.naturalLanguageJoin(array.toArray(key).map((k) => k.toString()))} timed out after ${formattedTimeout}`,
     );
   }
 };

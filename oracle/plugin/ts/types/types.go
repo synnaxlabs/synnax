@@ -362,19 +362,16 @@ func (p *Plugin) processEnum(e resolution.Type) enumData {
 }
 
 func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefData {
-	// Check for @ts transform_string directive with optional error message
-	var transformStringMsg *string
+	// Check for @ts to_number or to_string directives
+	toNumber := false
+	toString := false
 	if tsDomain, ok := td.Domains["ts"]; ok {
 		for _, expr := range tsDomain.Expressions {
-			if expr.Name == "transform_string" {
-				// Default error message based on type name
-				defaultMsg := fmt.Sprintf("%s must be a valid number", td.Name)
-				if len(expr.Values) > 0 && expr.Values[0].StringValue != "" {
-					transformStringMsg = &expr.Values[0].StringValue
-				} else {
-					transformStringMsg = &defaultMsg
-				}
-				break
+			switch expr.Name {
+			case "to_number":
+				toNumber = true
+			case "to_string":
+				toString = true
 			}
 		}
 	}
@@ -389,9 +386,13 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 				result := p.applyValidation(zodType, validateDomain, form.Base, td.Name, data.Request.Resolutions)
 				zodType = result.ZodType
 			}
-			// Apply @ts transform_string if present
-			if transformStringMsg != nil {
-				zodType = fmt.Sprintf("%s.or(z.string().refine((v) => !isNaN(Number(v)), { message: %q }).transform(Number).pipe(%s))", zodType, *transformStringMsg, zodType)
+			// Apply @ts to_number: accept strings and convert to number (with NaN validation)
+			if toNumber {
+				zodType = fmt.Sprintf("%s.or(z.string().refine((v) => !isNaN(Number(v))).transform(Number))", zodType)
+			}
+			// Apply @ts to_string: accept numbers and convert to string
+			if toString {
+				zodType = fmt.Sprintf("%s.or(z.number().transform(String))", zodType)
 			}
 			return typeDefData{
 				Name:    td.Name,
@@ -406,9 +407,13 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			result := p.applyValidation(zodType, validateDomain, form.Base, td.Name, data.Request.Resolutions)
 			zodType = result.ZodType
 		}
-		// Apply @ts transform_string if present
-		if transformStringMsg != nil {
-			zodType = fmt.Sprintf("%s.or(z.string().refine((v) => !isNaN(Number(v)), { message: %q }).transform(Number).pipe(%s))", zodType, *transformStringMsg, zodType)
+		// Apply @ts to_number: accept strings and convert to number (with NaN validation)
+		if toNumber {
+			zodType = fmt.Sprintf("%s.or(z.string().refine((v) => !isNaN(Number(v))).transform(Number))", zodType)
+		}
+		// Apply @ts to_string: accept numbers and convert to string
+		if toString {
+			zodType = fmt.Sprintf("%s.or(z.number().transform(String))", zodType)
 		}
 		return typeDefData{
 			Name:    td.Name,
