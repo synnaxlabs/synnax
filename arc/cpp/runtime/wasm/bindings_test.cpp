@@ -19,8 +19,13 @@ namespace arc::runtime::wasm {
 
 class BindingsTest : public testing::Test {
 protected:
-    void SetUp() override { bindings = std::make_unique<Bindings>(nullptr, nullptr); }
+    void SetUp() override {
+        state::Config cfg{.ir = ir::IR{}, .channels = {}};
+        state = std::make_shared<state::State>(cfg);
+        bindings = std::make_unique<Bindings>(state, nullptr);
+    }
 
+    std::shared_ptr<state::State> state;
     std::unique_ptr<Bindings> bindings;
 };
 
@@ -969,7 +974,7 @@ TEST_F(BindingsTest, ClearTransientHandlesClearsSeriesHandles) {
     EXPECT_EQ(bindings->series_len(h1), 3);
     EXPECT_EQ(bindings->series_len(h2), 2);
 
-    bindings->clear_transient_handles();
+    state->clear_transient_handles();
 
     EXPECT_EQ(bindings->series_len(h1), 0);
     EXPECT_EQ(bindings->series_len(h2), 0);
@@ -982,7 +987,7 @@ TEST_F(BindingsTest, ClearTransientHandlesClearsStringHandles) {
     EXPECT_EQ(bindings->string_get(h1), "hello");
     EXPECT_EQ(bindings->string_get(h2), "world");
 
-    bindings->clear_transient_handles();
+    state->clear_transient_handles();
 
     EXPECT_EQ(bindings->string_get(h1), "");
     EXPECT_EQ(bindings->string_get(h2), "");
@@ -995,7 +1000,7 @@ TEST_F(BindingsTest, ClearTransientHandlesResetsCounters) {
     bindings->string_create("a");
     bindings->string_create("b");
 
-    bindings->clear_transient_handles();
+    state->clear_transient_handles();
 
     const uint32_t new_series = bindings->series_create_empty_f64(1);
     const uint32_t new_string = bindings->string_create("new");
@@ -1010,7 +1015,7 @@ TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulSeries) {
     bindings->series_set_element_f64(h1, 1, 200.0);
     bindings->state_store_series_f64(1, 1, h1);
 
-    bindings->clear_transient_handles();
+    state->clear_transient_handles();
 
     EXPECT_EQ(bindings->series_len(h1), 0);
 
@@ -1026,7 +1031,7 @@ TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulStrings) {
     const uint32_t h1 = bindings->string_create("persistent");
     bindings->state_store_str(2, 2, h1);
 
-    bindings->clear_transient_handles();
+    state->clear_transient_handles();
 
     EXPECT_EQ(bindings->string_get(h1), "");
 
@@ -1041,7 +1046,7 @@ TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulPrimitives) {
     bindings->state_store_i32(1, 2, -42);
     bindings->state_store_u64(1, 3, 9999999999ULL);
 
-    bindings->clear_transient_handles();
+    state->clear_transient_handles();
 
     EXPECT_DOUBLE_EQ(bindings->state_load_f64(1, 1, 0.0), 3.14159);
     EXPECT_EQ(bindings->state_load_i32(1, 2, 0), -42);
@@ -1057,7 +1062,7 @@ TEST_F(BindingsTest, MultipleClearCycles) {
         EXPECT_EQ(bindings->series_len(h1), 2);
         EXPECT_NE(bindings->string_get(h2), "");
 
-        bindings->clear_transient_handles();
+        state->clear_transient_handles();
     }
 
     const uint32_t final_series = bindings->series_create_empty_f64(1);
@@ -1073,11 +1078,11 @@ protected:
     void SetUp() override {
         // Create a minimal State configuration
         state::Config cfg{.ir = ir::IR{}, .channels = {}};
-        state = std::make_unique<state::State>(cfg);
-        bindings = std::make_unique<Bindings>(state.get(), nullptr);
+        state = std::make_shared<state::State>(cfg);
+        bindings = std::make_unique<Bindings>(state, nullptr);
     }
 
-    std::unique_ptr<state::State> state;
+    std::shared_ptr<state::State> state;
     std::unique_ptr<Bindings> bindings;
 };
 
