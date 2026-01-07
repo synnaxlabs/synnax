@@ -7,16 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package service_test
+//go:build !windows
+
+package start
 
 import (
-	"testing"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/io/fs"
+	"golang.org/x/sys/unix"
 )
 
-func TestService(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Suite")
+func disablePermissionBits() {
+	// Mask the permission bits so all files are readable and writable by the user and
+	// readable by the group.
+	mask := unix.Umask(0)
+	mask |= int(fs.OthersReadWriteExecute)
+	unix.Umask(mask)
 }

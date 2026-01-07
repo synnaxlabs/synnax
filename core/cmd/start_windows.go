@@ -16,16 +16,14 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/service"
 )
 
-func disablePermissionBits() {}
-
 // RunMain is the entry point for the Synnax CLI on Windows. It detects whether the
 // process is running as a Windows Service or as an application and routes to the
 // appropriate startup path.
 func RunMain() {
-	isService, err := service.IsService()
+	isService, err := service.Is()
 	cobra.CheckErr(err)
 	if isService {
-		cobra.CheckErr(service.RunAsService(startServer))
+		cobra.CheckErr(service.Run())
 		return
 	}
 	Execute()

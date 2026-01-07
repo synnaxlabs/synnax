@@ -12,18 +12,8 @@ package version
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/synnax/pkg/version"
 )
 
-var command = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version of Synnax",
-	Run:   func(*cobra.Command, []string) { Run() },
-}
-
-// RegisterCommand registers the version command to the given parent command.
-func RegisterCommand(cmd *cobra.Command) { cmd.AddCommand(command) }
-
-// Run prints the version of Synnax.
-func Run() { fmt.Printf("Synnax %s\n", version.Full()) }
+// Print prints the version of Synnax.
+func Print() { fmt.Printf("Synnax %s\n", version.Full()) }

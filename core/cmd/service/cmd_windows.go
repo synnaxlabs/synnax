@@ -14,7 +14,7 @@ package service
 import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/synnaxlabs/synnax/cmd/flags"
+	"github.com/synnaxlabs/synnax/cmd/start"
 )
 
 const (
@@ -70,8 +70,8 @@ var stopCmd = &cobra.Command{
 	RunE:  runStop,
 }
 
-// RegisterCommand registers the service subcommand to the given parent command.
-func RegisterCommand(cmd *cobra.Command) {
+// AddCommand adds the service subcommand to the given parent command.
+func AddCommand(cmd *cobra.Command) {
 	cmd.AddCommand(serviceCmd)
 	serviceCmd.AddCommand(installCmd)
 	installCmd.Flags().Bool(
@@ -84,23 +84,23 @@ func RegisterCommand(cmd *cobra.Command) {
 		false,
 		"Delay service start until after Windows startup completes",
 	)
-	flags.ConfigureServer(installCmd)
+	start.BindFlags(installCmd)
 	serviceCmd.AddCommand(uninstallCmd)
 	serviceCmd.AddCommand(startCmd)
 	serviceCmd.AddCommand(stopCmd)
 }
 
 func buildConfigFromFlags(c *cobra.Command) (Config, error) {
-	listen := viper.GetString(flags.Listen)
-	data := viper.GetString(flags.Data)
-	insecure := viper.GetBool(flags.Insecure)
-	username := viper.GetString(flags.Username)
-	password := viper.GetString(flags.Password)
-	autoCert := viper.GetBool(flags.AutoCert)
-	noDriver := viper.GetBool(flags.NoDriver)
-	peers := viper.GetStringSlice(flags.Peers)
-	enableInt := viper.GetStringSlice(flags.EnableIntegrations)
-	disableInt := viper.GetStringSlice(flags.DisableIntegrations)
+	listen := viper.GetString(start.FlagListen)
+	data := viper.GetString(start.FlagData)
+	insecure := viper.GetBool(start.FlagInsecure)
+	username := viper.GetString(start.FlagUsername)
+	password := viper.GetString(start.FlagPassword)
+	autoCert := viper.GetBool(start.FlagAutoCert)
+	noDriver := viper.GetBool(start.FlagNoDriver)
+	peers := viper.GetStringSlice(start.FlagPeers)
+	enableInt := viper.GetStringSlice(start.FlagEnableIntegrations)
+	disableInt := viper.GetStringSlice(start.FlagDisableIntegrations)
 	autoStart := viper.GetBool(autoStartFlag)
 	delayedStart := viper.GetBool(delayedStartFlag)
 	return Config{

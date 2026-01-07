@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cmd
+package start
 
 import (
 	"bufio"
@@ -24,9 +24,9 @@ import (
 	aspentransport "github.com/synnaxlabs/aspen/transport/grpc"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/freighter/fhttp"
-	cmdauth "github.com/synnaxlabs/synnax/cmd/auth"
-	"github.com/synnaxlabs/synnax/cmd/flags"
+	"github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/instrumentation"
+	cmdauth "github.com/synnaxlabs/synnax/cmd/start/auth"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
 	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
@@ -62,22 +62,6 @@ func scanForStopKeyword(interruptC chan os.Signal) {
 	}
 }
 
-// startCmd represents the start command
-var startCmd = &cobra.Command{
-	Use:   "start",
-	Short: "Starts a Synnax Node",
-	Long: `
-Starts a Synnax Node using the data directory specified by the --data flag,
-and listening on the address specified by the --listen flag. If --peers
-is specified and no existing data is found, the node will attempt to join the cluster
-formed by its peers. If no peers are specified and no existing data is found, the node
-will bootstrap a new cluster.
-	`,
-	Example: `synnax start --listen [host:port] --data /mnt/ssd1 --peers [host:port],[host:port] --insecure`,
-	Args:    cobra.NoArgs,
-	Run:     func(cmd *cobra.Command, _ []string) { start(cmd) },
-}
-
 // start is the entrypoint for starting a Synnax Core. It handles signal interrupts and
 // delegates to startServer for the actual startup.
 func start(cmd *cobra.Command) {
@@ -95,7 +79,7 @@ func start(cmd *cobra.Command) {
 	// It's fine to let this get garbage collected.
 	go scanForStopKeyword(interruptC)
 
-	sCtx.Go(startServer, xsignal.WithKey("start"), xsignal.RecoverWithErrOnPanic())
+	sCtx.Go(StartServer, xsignal.WithKey("start"), xsignal.RecoverWithErrOnPanic())
 
 	select {
 	case <-interruptC:
@@ -118,32 +102,32 @@ func start(cmd *cobra.Command) {
 
 // startServer contains the most important Core startup logic. It reads configuration
 // from viper and starts all server components.
-func startServer(ctx context.Context) error {
+func StartServer(ctx context.Context) error {
 	var (
 		vers                = version.Get()
 		verifierFlag        = base64.MustDecode("bGljZW5zZS1rZXk=")
-		insecure            = viper.GetBool(flags.Insecure)
+		insecure            = viper.GetBool(FlagInsecure)
 		debug               = viper.GetBool(instrumentation.FlagDebug)
-		autoCert            = viper.GetBool(flags.AutoCert)
+		autoCert            = viper.GetBool(FlagAutoCert)
 		verifier            = viper.GetString(string(verifierFlag))
-		memBacked           = viper.GetBool(flags.Mem)
-		listenAddress       = address.Address(viper.GetString(flags.Listen))
-		dataPath            = viper.GetString(flags.Data)
-		slowConsumerTimeout = viper.GetDuration(flags.SlowConsumerTimeout)
-		rootUsername        = viper.GetString(flags.Username)
-		rootPassword        = viper.GetString(flags.Password)
-		noDriver            = viper.GetBool(flags.NoDriver)
-		keySize             = viper.GetInt(flagKeySize)
-		taskOpTimeout       = viper.GetDuration(flags.TaskOpTimeout)
-		taskPollInterval    = viper.GetDuration(flags.TaskPollInterval)
-		taskShutdownTimeout = viper.GetDuration(flags.TaskShutdownTimeout)
-		taskWorkerCount     = viper.GetUint8(flags.TaskWorkerCount)
+		memBacked           = viper.GetBool(FlagMem)
+		listenAddress       = address.Address(viper.GetString(FlagListen))
+		dataPath            = viper.GetString(FlagData)
+		slowConsumerTimeout = viper.GetDuration(FlagSlowConsumerTimeout)
+		rootUsername        = viper.GetString(FlagUsername)
+		rootPassword        = viper.GetString(FlagPassword)
+		noDriver            = viper.GetBool(FlagNoDriver)
+		keySize             = viper.GetInt(cert.FlagKeySize)
+		taskOpTimeout       = viper.GetDuration(FlagTaskOpTimeout)
+		taskPollInterval    = viper.GetDuration(FlagTaskPollInterval)
+		taskShutdownTimeout = viper.GetDuration(FlagTaskShutdownTimeout)
+		taskWorkerCount     = viper.GetUint8(FlagTaskWorkerCount)
 		ins                 = instrumentation.Configure()
 	)
 	defer instrumentation.Cleanup(ctx, ins)
 
 	if autoCert {
-		if err := generateAutoCerts(ins); err != nil {
+		if err := cert.GenerateAuto(ins, listenAddress); err != nil {
 			return errors.Wrap(err, "failed to generate auto certs")
 		}
 	}
@@ -166,7 +150,7 @@ func startServer(ctx context.Context) error {
 		apiLayer          *api.Layer
 		rootServer        *server.Server
 		embeddedDriver    *driver.Driver
-		certLoaderConfig  = buildCertLoaderConfig(ins)
+		certLoaderConfig  = cert.BuildLoaderConfig(ins)
 	)
 	cleanup, ok := xservice.NewOpener(ctx, &closer)
 	defer func() {
@@ -236,8 +220,8 @@ func startServer(ctx context.Context) error {
 		return err
 	}
 	creds := auth.InsecureCredentials{
-		Username: viper.GetString(flags.Username),
-		Password: password.Raw(viper.GetString(flags.Password)),
+		Username: viper.GetString(FlagUsername),
+		Password: password.Raw(viper.GetString(FlagPassword)),
 	}
 	if err = cmdauth.ProvisionRootUser(
 		ctx,
@@ -325,13 +309,6 @@ func startServer(ctx context.Context) error {
 	<-ctx.Done()
 	return err
 
-}
-
-func init() {
-	root.AddCommand(startCmd)
-	configureStartFlags()
-	instrumentation.AddFlags(startCmd)
-	bindFlags(startCmd)
 }
 
 func resolveWorkDir() (string, error) {

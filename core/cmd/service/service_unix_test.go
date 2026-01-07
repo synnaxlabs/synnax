@@ -17,10 +17,10 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/service"
 )
 
-var _ = Describe("Svc", func() {
+var _ = Describe("Service", func() {
 	It("RegisterCommands", func() {
 		It("should be a no-op on non-Windows platforms", func() {
-			Expect(func() { service.RegisterCommand(nil) }).ToNot(Panic())
+			Expect(func() { service.AddCommand(nil) }).ToNot(Panic())
 		})
 	})
 })

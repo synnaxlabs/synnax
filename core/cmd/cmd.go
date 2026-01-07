@@ -15,12 +15,14 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/service"
+	"github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/synnax/cmd/version"
 	"go.uber.org/zap"
 )
 
-var root = &cobra.Command{
+var cmd = &cobra.Command{
 	Use:   "synnax",
 	Short: "The telemetry engine for operating large scale hardware systems with ease.",
 	Long: `Synnax is a distributed telemetry engine designed to acquire and store data
@@ -30,7 +32,7 @@ environments with intermittent network connectivity, or in cloud environments (d
 processing) for high performance analysis.`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		if viper.GetBool(flagVersion) {
-			version.Run()
+			version.Print()
 			return nil
 		}
 		return cmd.Help()
@@ -39,16 +41,17 @@ processing) for high performance analysis.`,
 
 // Execute is the entrypoint for the CLI.
 func Execute() {
-	if err := root.Execute(); err != nil {
+	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }
 
 func init() {
-	configureRootFlags()
-	bindFlags(root)
-	service.RegisterCommand(root)
-	version.RegisterCommand(root)
+	bindFlags(cmd)
+	service.AddCommand(cmd)
+	version.AddCommand(cmd)
+	start.AddCommand(cmd)
+	cert.AddCommand(cmd)
 	cobra.OnInitialize(initConfig)
 }
 

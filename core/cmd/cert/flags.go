@@ -7,62 +7,57 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cmd
+package cert
 
-import "github.com/synnaxlabs/synnax/pkg/security/cert"
-
-const (
-	flagConfig        = "config"
-	flagVersion       = "version"
-	flagCertsDir      = "certs-dir"
-	flagCAKey         = "ca-key"
-	flagCACert        = "ca-cert"
-	flagNodeKey       = "node-key"
-	flagNodeCert      = "node-cert"
-	flagAllowKeyReuse = "allow-key-reuse"
-	flagKeySize       = "key-size"
+import (
+	"github.com/spf13/cobra"
+	"github.com/synnaxlabs/synnax/pkg/security/cert"
 )
 
-func configureRootFlags() {
-	root.PersistentFlags().StringP(
-		flagConfig,
-		"c",
-		"/usr/local/synnax/config.yaml",
-		"config file",
-	)
-	root.Flags().Bool(flagVersion, false, "Print the version of Synnax")
-	root.PersistentFlags().String(
-		flagCertsDir,
+const (
+	FlagCertsDir      = "certs-dir"
+	FlagCAKey         = "ca-key"
+	FlagCACert        = "ca-cert"
+	FlagNodeKey       = "node-key"
+	FlagNodeCert      = "node-cert"
+	FlagAllowKeyReuse = "allow-key-reuse"
+	FlagKeySize       = "key-size"
+)
+
+// BindFlags binds the cert flags to the given command.
+func BindFlags(cmd *cobra.Command) {
+	cmd.Flags().String(
+		FlagCertsDir,
 		cert.DefaultLoaderConfig.CertsDir,
 		"The directory where certificates should be stored and/or written to.",
 	)
-	root.PersistentFlags().String(
-		flagCAKey,
+	cmd.Flags().String(
+		FlagCAKey,
 		cert.DefaultLoaderConfig.CAKeyPath,
 		"The path to the CA key. This is relative to certs-dir.",
 	)
-	root.PersistentFlags().String(
-		flagCACert,
+	cmd.Flags().String(
+		FlagCACert,
 		cert.DefaultLoaderConfig.CACertPath,
 		"The path to the CA certificate. This is relative to certs-dir.",
 	)
-	root.PersistentFlags().String(
-		flagNodeKey,
+	cmd.Flags().String(
+		FlagNodeKey,
 		cert.DefaultLoaderConfig.NodeKeyPath,
 		"The path to the node key. This is relative to certs-dir.",
 	)
-	root.PersistentFlags().String(
-		flagNodeCert,
+	cmd.Flags().String(
+		FlagNodeCert,
 		cert.DefaultLoaderConfig.NodeCertPath,
 		"The path to the node certificate. This is relative to certs-dir.",
 	)
-	root.PersistentFlags().Bool(
-		flagAllowKeyReuse,
+	cmd.Flags().Bool(
+		FlagAllowKeyReuse,
 		*cert.DefaultFactoryConfig.AllowKeyReuse,
 		"Whether to allow the reuse of CA keys for certificate generation.",
 	)
-	root.PersistentFlags().Int(
-		flagKeySize,
+	cmd.Flags().Int(
+		FlagKeySize,
 		cert.DefaultFactoryConfig.KeySize,
 		"The size to use for certificate key generation.",
 	)

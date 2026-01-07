@@ -7,26 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cmd
+package cert
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/cmd/flags"
 	"github.com/synnaxlabs/synnax/cmd/instrumentation"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/config"
 )
 
-var certCmd = &cobra.Command{
+var command = &cobra.Command{
 	Use:   "cert",
 	Short: "Generate self-signed certificates for securing a Synnax cluster.",
 	Args:  cobra.NoArgs,
 }
 
-var certCACmd = &cobra.Command{
+var caCmd = &cobra.Command{
 	Use:   "ca",
 	Short: "Generate a self-signed CA certificate.",
 	Args:  cobra.NoArgs,
@@ -41,7 +37,7 @@ var certCACmd = &cobra.Command{
 	},
 }
 
-var certNodeCmd = &cobra.Command{
+var nodeCmd = &cobra.Command{
 	Use:   "node",
 	Short: "Generate a self-signed node certificate.",
 	Args:  cobra.MinimumNArgs(1),
@@ -62,42 +58,12 @@ var certNodeCmd = &cobra.Command{
 	},
 }
 
-func init() {
-	root.AddCommand(certCmd)
-	instrumentation.AddFlags(certCACmd)
-	certCmd.AddCommand(certCACmd)
-	instrumentation.AddFlags(certNodeCmd)
-	certCmd.AddCommand(certNodeCmd)
-}
-
-func buildCertLoaderConfig(ins alamos.Instrumentation) cert.LoaderConfig {
-	return cert.LoaderConfig{
-		Instrumentation: ins,
-		CertsDir:        viper.GetString(flagCertsDir),
-		CAKeyPath:       viper.GetString(flagCAKey),
-		CACertPath:      viper.GetString(flagCACert),
-		NodeKeyPath:     viper.GetString(flagNodeKey),
-		NodeCertPath:    viper.GetString(flagNodeCert),
-	}
-}
-
-func buildCertFactoryConfig(ins alamos.Instrumentation) cert.FactoryConfig {
-	return cert.FactoryConfig{
-		LoaderConfig:  buildCertLoaderConfig(ins),
-		AllowKeyReuse: config.Bool(viper.GetBool(flagAllowKeyReuse)),
-		KeySize:       viper.GetInt(flagKeySize),
-	}
-}
-
-func generateAutoCerts(ins alamos.Instrumentation) error {
-	cfg := buildCertFactoryConfig(ins)
-	cfg.Hosts = []address.Address{address.Address(viper.GetString(flags.Listen))}
-	factory, err := cert.NewFactory(cfg)
-	if err != nil {
-		return err
-	}
-	if err = factory.CreateCAPairIfMissing(); err != nil {
-		return err
-	}
-	return factory.CreateNodePairIfMissing()
+func AddCommand(cmd *cobra.Command) {
+	cmd.AddCommand(command)
+	instrumentation.BindFlags(caCmd)
+	BindFlags(caCmd)
+	command.AddCommand(caCmd)
+	instrumentation.BindFlags(nodeCmd)
+	BindFlags(nodeCmd)
+	command.AddCommand(nodeCmd)
 }

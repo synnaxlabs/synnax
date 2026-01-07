@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
-	"github.com/synnaxlabs/synnax/cmd/flags"
+	"github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/x/errors"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/eventlog"
@@ -38,8 +38,8 @@ const (
 	description = "Synnax telemetry engine for hardware systems"
 )
 
-// IsService returns true if the current process is running as a Windows Service.
-func IsService() (bool, error) { return svc.IsWindowsService() }
+// Is returns true if the current process is running as a Windows Service.
+func Is() (bool, error) { return svc.IsWindowsService() }
 
 func install(cfg Config) error {
 	exePath, err := os.Executable()
@@ -272,9 +272,8 @@ func (s *synnaxService) Execute(
 	}
 }
 
-// RunAsService runs Synnax as a Windows Service. The startServer function should
-// block until the context is cancelled.
-func RunAsService(startServer func(context.Context) error) error {
+// Run runs Synnax as a Windows Service.
+func Run() error {
 	// Best-effort install of event log source. This often fails because the source was
 	// already registered during service installation.
 	if err := eventlog.InstallAsEventCreate(name, eventlog.Error|eventlog.Warning|eventlog.Info); err != nil {
@@ -297,49 +296,49 @@ func RunAsService(startServer func(context.Context) error) error {
 		return errors.Wrap(err, "failed to parse service arguments")
 	}
 
-	return svc.Run(name, &synnaxService{startServer: startServer})
+	return svc.Run(name, &synnaxService{startServer: start.StartServer})
 }
 
 // buildServiceArgs builds command-line arguments from the service configuration.
 func buildServiceArgs(cfg Config) []string {
 	var args []string
 	if cfg.ListenAddress != "" {
-		args = append(args, "--"+flags.Listen, cfg.ListenAddress)
+		args = append(args, "--"+start.FlagListen, cfg.ListenAddress)
 	}
 
 	if cfg.DataDir != "" {
-		args = append(args, "--"+flags.Data, cfg.DataDir)
+		args = append(args, "--"+start.FlagData, cfg.DataDir)
 	} else {
 		programData := os.Getenv("ProgramData")
 		if programData == "" {
 			programData = `C:\ProgramData`
 		}
-		args = append(args, "--"+flags.Data, filepath.Join(programData, "Synnax", "data"))
+		args = append(args, "--"+start.FlagData, filepath.Join(programData, "Synnax", "data"))
 	}
 
 	if cfg.Insecure {
-		args = append(args, "--"+flags.Insecure)
+		args = append(args, "--"+start.FlagInsecure)
 	}
 	if cfg.Username != "" {
-		args = append(args, "--"+flags.Username, cfg.Username)
+		args = append(args, "--"+start.FlagUsername, cfg.Username)
 	}
 	if cfg.Password != "" {
-		args = append(args, "--"+flags.Password, cfg.Password)
+		args = append(args, "--"+start.FlagPassword, cfg.Password)
 	}
 	if cfg.AutoCert {
-		args = append(args, "--"+flags.AutoCert)
+		args = append(args, "--"+start.FlagAutoCert)
 	}
 	if cfg.NoDriver {
-		args = append(args, "--"+flags.NoDriver)
+		args = append(args, "--"+start.FlagNoDriver)
 	}
 	if len(cfg.Peers) > 0 {
-		args = append(args, "--"+flags.Peers, strings.Join(cfg.Peers, ","))
+		args = append(args, "--"+start.FlagPeers, strings.Join(cfg.Peers, ","))
 	}
 	if len(cfg.EnableIntegrations) > 0 {
-		args = append(args, "--"+flags.EnableIntegrations, strings.Join(cfg.EnableIntegrations, ","))
+		args = append(args, "--"+start.FlagEnableIntegrations, strings.Join(cfg.EnableIntegrations, ","))
 	}
 	if len(cfg.DisableIntegrations) > 0 {
-		args = append(args, "--"+flags.DisableIntegrations, strings.Join(cfg.DisableIntegrations, ","))
+		args = append(args, "--"+start.FlagDisableIntegrations, strings.Join(cfg.DisableIntegrations, ","))
 	}
 
 	return args
