@@ -167,16 +167,7 @@ void State::ingest(const telem::Frame &frame) {
         );
 }
 
-std::vector<std::pair<types::ChannelKey, Series>> State::flush_writes() {
-    std::vector<std::pair<types::ChannelKey, Series>> result;
-    result.reserve(writes.size());
-    for (const auto &[key, data]: writes)
-        result.push_back({key, data});
-    writes.clear();
-    return result;
-}
-
-void State::clear_reads() {
+std::vector<std::pair<types::ChannelKey, Series>> State::flush() {
     for (auto &series_vec: reads | std::views::values) {
         if (series_vec.size() <= 1) continue;
         // Keep only the last series to preserve the latest value for each channel.
@@ -186,6 +177,17 @@ void State::clear_reads() {
         series_vec.clear();
         series_vec.push_back(std::move(last));
     }
+    this->series_handles.clear();
+    this->series_handle_counter = 1;
+    this->strings.clear();
+    this->string_handle_counter = 1;
+
+    std::vector<std::pair<types::ChannelKey, Series>> result;
+    result.reserve(writes.size());
+    for (const auto &[key, data]: writes)
+        result.push_back({key, data});
+    writes.clear();
+    return result;
 }
 
 void State::write_channel(
@@ -280,17 +282,6 @@ bool Node::is_output_truthy(const std::string &param_name) const {
     return s != nullptr && this->is_series_truthy(*s);
 }
 
-// ==================== Transient Handle Management ====================
-
-void State::clear_transient_handles() {
-    this->series_handles.clear();
-    this->series_handle_counter = 1;
-    this->strings.clear();
-    this->string_handle_counter = 1;
-}
-
-// ==================== String Handle Operations ====================
-
 uint32_t State::string_from_memory(const uint8_t *data, const uint32_t len) {
     const std::string str(reinterpret_cast<const char *>(data), len);
     const uint32_t handle = this->string_handle_counter++;
@@ -314,8 +305,6 @@ bool State::string_exists(const uint32_t handle) const {
     return this->strings.contains(handle);
 }
 
-// ==================== Series Handle Operations ====================
-
 telem::Series *State::series_get(const uint32_t handle) {
     const auto it = this->series_handles.find(handle);
     if (it == this->series_handles.end()) return nullptr;
@@ -333,8 +322,6 @@ uint32_t State::series_store(telem::Series series) {
     this->series_handles.emplace(handle, std::move(series));
     return handle;
 }
-
-// ==================== Stateful Variable Operations ====================
 
 #define IMPL_VAR_OPS(suffix, cpptype)                                                  \
     cpptype State::var_load_##suffix(                                                  \

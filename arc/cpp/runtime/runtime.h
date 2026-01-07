@@ -79,11 +79,10 @@ public:
         this->loop->watch(this->inputs.notifier());
     }
 
-    std::vector<telem::TimeSpan> run() {
+    void run() {
         this->start_time = telem::TimeStamp::now();
         xthread::set_name("runtime");
         this->loop->start();
-        std::vector<telem::TimeSpan> results;
         while (this->breaker.running()) {
             this->loop->wait(this->breaker);
             telem::Frame frame;
@@ -93,18 +92,14 @@ public:
                 this->state->ingest(frame);
                 const auto elapsed = telem::TimeStamp::now() - this->start_time;
                 this->scheduler.next(elapsed);
-                this->state->clear_reads();
-                results.push_back(elapsed);
-                if (auto writes = this->state->flush_writes(); !writes.empty()) {
+                if (auto writes = this->state->flush(); !writes.empty()) {
                     telem::Frame out_frame(writes.size());
                     for (auto &[key, series]: writes)
                         out_frame.emplace(key, series->deep_copy());
                     this->outputs.push(std::move(out_frame));
                 }
-                this->state->clear_transient_handles();
             }
         }
-        return results;
     }
 
     bool start() {

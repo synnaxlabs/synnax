@@ -175,12 +175,7 @@ public:
     explicit State(const Config &cfg);
     std::pair<Node, xerrors::Error> node(const std::string &key);
     void ingest(const telem::Frame &frame);
-    std::vector<std::pair<types::ChannelKey, Series>> flush_writes();
-    void clear_reads();
-
-    /// @brief Clears transient string and series handles at the end of each execution
-    /// cycle. Stateful variables are NOT cleared as they must persist across cycles.
-    void clear_transient_handles();
+    std::vector<std::pair<types::ChannelKey, Series>> flush();
 
     /// @brief Creates a string handle from raw memory pointer and length.
     uint32_t string_from_memory(const uint8_t *data, uint32_t len);
