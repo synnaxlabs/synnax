@@ -304,11 +304,11 @@ func addInputsToScope(
 		var defaultValue any
 		if lit := input.Literal(); lit != nil {
 			value, err := literal.Parse(acontext.Child(ctx, lit).AST, inputType)
-			if err == nil {
+			if err != nil {
+				ctx.Diagnostics.AddError(errors.Wrapf(err, "invalid default value for parameter %s", inputName), lit)
+			} else {
 				defaultValue = value.Value
 			}
-			// Error was already reported in collectInputs, but we still add
-			// the parameter to scope to prevent cascade "undefined symbol" errors.
 		}
 
 		if _, err := ctx.Scope.Add(ctx, symbol.Symbol{

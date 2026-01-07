@@ -25,7 +25,7 @@ func Check(
 	source antlr.ParserRuleContext,
 	reason string,
 ) error {
-	// Skip constraint if either type is Invalid - error already reported upstream
+	// Skip constraint if either type is Invalid - we can't constrain types we don't know
 	if t1.Kind == types.KindInvalid || t2.Kind == types.KindInvalid {
 		return nil
 	}

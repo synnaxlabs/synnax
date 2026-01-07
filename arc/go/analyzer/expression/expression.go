@@ -269,7 +269,7 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 	firstType := infer(context.Child(ctx, items[0])).Unwrap()
 	opName := getOperator(ctx.AST)
 
-	// If first operand is Invalid, skip validation (error already reported upstream)
+	// If first operand is Invalid, skip validation - we can't check types we don't know
 	if firstType.Kind == basetypes.KindInvalid {
 		return
 	}
@@ -285,7 +285,7 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 	for i := 1; i < len(items); i++ {
 		nextType := infer(context.Child(ctx, items[i]).WithTypeHint(firstType)).Unwrap()
 
-		// Skip if this operand is Invalid (error already reported upstream)
+		// Skip if this operand is Invalid - we can't check types we don't know
 		if nextType.Kind == basetypes.KindInvalid {
 			continue
 		}
@@ -483,7 +483,7 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		funcName := id.GetText()
 		scope, err := ctx.Scope.Resolve(ctx, funcName)
 		if err != nil {
-			// Error already reported by analyzePrimary
+			ctx.Diagnostics.AddError(err, primary)
 			return
 		}
 		if scope.Kind == symbol.KindFunction {
