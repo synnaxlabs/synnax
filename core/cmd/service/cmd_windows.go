@@ -71,7 +71,7 @@ var stopCmd = &cobra.Command{
 }
 
 // AddCommand adds the service subcommand to the given parent command.
-func AddCommand(cmd *cobra.Command) {
+func AddCommand(cmd *cobra.Command) error {
 	cmd.AddCommand(serviceCmd)
 	serviceCmd.AddCommand(installCmd)
 	installCmd.Flags().Bool(
@@ -88,6 +88,7 @@ func AddCommand(cmd *cobra.Command) {
 	serviceCmd.AddCommand(uninstallCmd)
 	serviceCmd.AddCommand(startCmd)
 	serviceCmd.AddCommand(stopCmd)
+	return viper.BindPFlags(installCmd.Flags())
 }
 
 func buildConfigFromFlags(c *cobra.Command) (Config, error) {

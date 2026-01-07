@@ -12,12 +12,8 @@ package start
 import (
 	"time"
 
-	"github.com/samber/lo"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"github.com/synnaxlabs/synnax/cmd/cert"
-	"github.com/synnaxlabs/synnax/pkg/service/driver"
-	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding/base64"
 )
 
@@ -121,21 +117,3 @@ var (
 		"TGljZW5zZSBrZXkgaW4gZm9ybSAiIyMjIyMjLSMjIyMjIyMjLSMjIyMjIyMjIyMi",
 	)
 )
-
-func parseIntegrationsFlag() []string {
-	enabled := viper.GetStringSlice(FlagEnableIntegrations)
-	disabled := viper.GetStringSlice(FlagDisableIntegrations)
-	if len(enabled) > 0 {
-		return enabled
-	}
-	return lo.Filter(driver.AllIntegrations, func(integration string, _ int) bool {
-		return !lo.Contains(disabled, integration)
-	})
-}
-
-func parsePeerAddressFlag() []address.Address {
-	peers := viper.GetStringSlice(FlagPeers)
-	return lo.Map(peers, func(peer string, _ int) address.Address {
-		return address.Address(peer)
-	})
-}

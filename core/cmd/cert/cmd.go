@@ -11,6 +11,7 @@ package cert
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/synnaxlabs/synnax/cmd/instrumentation"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/x/address"
@@ -63,10 +64,17 @@ var coreCmd = &cobra.Command{
 }
 
 // AddCommand adds the cert subcommand to the given parent command.
-func AddCommand(cmd *cobra.Command) {
+func AddCommand(cmd *cobra.Command) error {
 	cmd.AddCommand(certCmd)
 	BindFlags(caCmd)
+	if err := viper.BindPFlags(caCmd.Flags()); err != nil {
+		return err
+	}
+	if err := viper.BindPFlags(caCmd.PersistentFlags()); err != nil {
+		return err
+	}
 	certCmd.AddCommand(caCmd)
 	BindFlags(coreCmd)
 	certCmd.AddCommand(coreCmd)
+	return nil
 }

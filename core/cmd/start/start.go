@@ -20,6 +20,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/alamos"
@@ -107,6 +108,16 @@ func start(cmd *cobra.Command) {
 
 func GetCoreConfigFromViper(ins alamos.Instrumentation) CoreConfig {
 	listenAddress := address.Address(viper.GetString(FlagListen))
+	integrations := viper.GetStringSlice(FlagEnableIntegrations)
+	disabledIntegrations := viper.GetStringSlice(FlagDisableIntegrations)
+	if len(integrations) == 0 {
+		integrations = lo.Filter(driver.AllIntegrations, func(integration string, _ int) bool {
+			return !lo.Contains(disabledIntegrations, integration)
+		})
+	}
+	peers := lo.Map(viper.GetStringSlice(FlagPeers), func(peer string, _ int) address.Address {
+		return address.Address(peer)
+	})
 	return CoreConfig{
 		Instrumentation:     ins,
 		insecure:            config.Bool(viper.GetBool(FlagInsecure)),
@@ -115,7 +126,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) CoreConfig {
 		verifier:            viper.GetString(string(base64.MustDecode("bGljZW5zZS1rZXk="))),
 		memBacked:           config.Bool(viper.GetBool(FlagMem)),
 		listenAddress:       listenAddress,
-		peers:               parsePeerAddressFlag(),
+		peers:               peers,
 		dataPath:            viper.GetString(FlagData),
 		slowConsumerTimeout: viper.GetDuration(FlagSlowConsumerTimeout),
 		rootUsername:        viper.GetString(FlagUsername),
@@ -128,7 +139,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) CoreConfig {
 		taskWorkerCount:     viper.GetUint8(FlagTaskWorkerCount),
 		certFactoryConfig:   cmdcert.BuildCertFactoryConfig(ins, listenAddress),
 		certLoaderConfig:    cmdcert.BuildLoaderConfig(ins),
-		integrations:        parseIntegrationsFlag(),
+		integrations:        integrations,
 	}
 }
 

@@ -10,7 +10,6 @@
 package start
 
 import (
-	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -26,10 +25,8 @@ var startCmd = &cobra.Command{
 }
 
 // AddCommand adds the start command to the given parent command.
-func AddCommand(cmd *cobra.Command) {
-	cmd.AddCommand(startCmd)
+func AddCommand(cmd *cobra.Command) error {
 	BindFlags(startCmd)
-	// todo: maybe edit this stuff
-	lo.Must0(viper.BindPFlags(startCmd.PersistentFlags()))
-	lo.Must0(viper.BindPFlags(startCmd.Flags()))
+	cmd.AddCommand(startCmd)
+	return viper.BindPFlags(startCmd.Flags())
 }

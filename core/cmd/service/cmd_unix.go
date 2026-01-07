@@ -15,4 +15,4 @@ import "github.com/spf13/cobra"
 
 // AddCommand is a no-op on non-Windows platforms. Service commands are only available
 // on Windows.
-func AddCommand(*cobra.Command) {}
+func AddCommand(*cobra.Command) error { return nil }

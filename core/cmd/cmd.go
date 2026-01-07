@@ -13,6 +13,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/synnax/cmd/cert"
@@ -44,10 +45,10 @@ func Execute() {
 
 func init() {
 	bindFlags(cmd)
-	service.AddCommand(cmd)
+	lo.Must0(service.AddCommand(cmd))
 	version.AddCommand(cmd)
-	start.AddCommand(cmd)
-	cert.AddCommand(cmd)
+	lo.Must0(start.AddCommand(cmd))
+	lo.Must0(cert.AddCommand(cmd))
 	cobra.OnInitialize(initConfig)
 }
 
