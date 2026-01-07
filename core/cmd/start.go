@@ -30,17 +30,19 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
 	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
+	"github.com/synnaxlabs/synnax/pkg/console"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	framertransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
+	"github.com/synnaxlabs/synnax/pkg/driver"
+	cppdriver "github.com/synnaxlabs/synnax/pkg/driver/cpp"
+	godriver "github.com/synnaxlabs/synnax/pkg/driver/go"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	arcruntime "github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/driver/cpp"
-	godriver "github.com/synnaxlabs/synnax/pkg/service/driver/go"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/address"
@@ -139,8 +141,7 @@ func start(cmd *cobra.Command) {
 			serviceLayer      *service.Layer
 			apiLayer          *api.Layer
 			rootServer        *server.Server
-			embeddedDriver    *cpp.Driver
-			coreDriver        *godriver.Driver
+			embeddedDriver    *driver.Driver
 			certLoaderConfig  = buildCertLoaderConfig(ins)
 		)
 		cleanup, ok := xservice.NewOpener(ctx, &closer)
@@ -224,21 +225,27 @@ func start(cmd *cobra.Command) {
 			return err
 		}
 
-		// Configure the HTTP Layer AspenTransport.
-		r := fhttp.NewRouter(fhttp.RouterConfig{
+		httpRouter := fhttp.NewRouter(fhttp.RouterConfig{
 			Instrumentation:     ins,
 			StreamWriteDeadline: slowConsumerTimeout,
 		})
-		apiLayer.BindTo(httpapi.New(r, api.NewHTTPCodecResolver(distributionLayer.Channel)))
+		apiLayer.BindTo(httpapi.New(
+			httpRouter,
+			api.NewHTTPCodecResolver(distributionLayer.Channel)),
+		)
 
-		// Configure the GRPC Layer AspenTransport.
 		grpcAPI, grpcAPITrans := grpcapi.New(distributionLayer.Channel)
 		apiLayer.BindTo(grpcAPI)
+
+		embeddedConsole := console.NewService()
 
 		if rootServer, err = server.Serve(
 			server.Config{
 				Branches: []server.Branch{
-					&server.SecureHTTPBranch{Transports: []fhttp.BindableTransport{r, serviceLayer.Console}},
+					&server.SecureHTTPBranch{Transports: []fhttp.BindableTransport{
+						httpRouter,
+						embeddedConsole,
+					}},
 					&server.GRPCBranch{Transports: slices.Concat(
 						grpcAPITrans,
 						distributionTransports,
@@ -270,50 +277,46 @@ func start(cmd *cobra.Command) {
 			return nil
 		}
 
-		if embeddedDriver, err = cpp.OpenDriver(
+		driverIns := ins.Child("driver")
+		if embeddedDriver, err = driver.Open(
 			ctx,
-			cpp.Config{
-				Enabled:         config.Bool(!noDriver),
-				Insecure:        config.Bool(insecure),
-				Integrations:    parseIntegrationsFlag(),
-				Instrumentation: ins.Child("driver"),
-				Address:         listenAddress,
-				RackKey:         serviceLayer.Rack.EmbeddedKey,
-				ClusterKey:      distributionLayer.Cluster.Key(),
-				Username:        rootUsername,
-				Password:        rootPassword,
-				Debug:           config.Bool(debug),
-				CACertPath:      certLoaderConfig.AbsoluteCACertPath(),
-				ClientCertFile:  certLoaderConfig.AbsoluteNodeCertPath(),
-				ClientKeyFile:   certLoaderConfig.AbsoluteNodeKeyPath(),
-				ParentDirname:   workDir,
+			driver.Config{
+				Go: godriver.Config{
+					Instrumentation: driverIns.Child("go"),
+					DB:              distributionLayer.DB,
+					Rack:            serviceLayer.Rack,
+					Task:            serviceLayer.Task,
+					Framer:          distributionLayer.Framer,
+					Channel:         distributionLayer.Channel,
+					Status:          serviceLayer.Status,
+					Factory: godriver.NewMultiFactory(
+						arcruntime.NewFactory(arcruntime.FactoryConfig{
+							Channel:   distributionLayer.Channel,
+							Framer:    distributionLayer.Framer,
+							Status:    serviceLayer.Status,
+							GetModule: serviceLayer.Arc.GetModule,
+						}),
+					),
+					Host: distributionLayer.Cluster,
+				},
+				CPP: cppdriver.Config{
+					Enabled:         config.Bool(!noDriver),
+					Insecure:        config.Bool(insecure),
+					Integrations:    parseIntegrationsFlag(),
+					Instrumentation: driverIns.Child("cpp"),
+					Address:         listenAddress,
+					RackKey:         serviceLayer.Rack.EmbeddedKey,
+					ClusterKey:      distributionLayer.Cluster.Key(),
+					Username:        rootUsername,
+					Password:        rootPassword,
+					Debug:           config.Bool(debug),
+					CACertPath:      certLoaderConfig.AbsoluteCACertPath(),
+					ClientCertFile:  certLoaderConfig.AbsoluteNodeCertPath(),
+					ClientKeyFile:   certLoaderConfig.AbsoluteNodeKeyPath(),
+					ParentDirname:   workDir,
+				},
 			},
 		); !ok(err, embeddedDriver) {
-			return err
-		}
-
-		// Open the Go task executor with Arc factory
-		if coreDriver, err = godriver.Open(
-			ctx,
-			godriver.Config{
-				Instrumentation: ins.Child("godriver"),
-				DB:              distributionLayer.DB,
-				Rack:            serviceLayer.Rack,
-				Task:            serviceLayer.Task,
-				Framer:          distributionLayer.Framer,
-				Channel:         distributionLayer.Channel,
-				Status:          serviceLayer.Status,
-				Factory: godriver.NewMultiFactory(
-					arcruntime.NewFactory(arcruntime.FactoryConfig{
-						Channel:   distributionLayer.Channel,
-						Framer:    distributionLayer.Framer,
-						Status:    serviceLayer.Status,
-						GetModule: serviceLayer.Arc.GetModule,
-					}),
-				),
-				Host: distributionLayer.Cluster,
-			},
-		); !ok(err, coreDriver) {
 			return err
 		}
 

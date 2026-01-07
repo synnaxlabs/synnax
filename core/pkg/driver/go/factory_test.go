@@ -15,16 +15,16 @@ import (
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	godriver "github.com/synnaxlabs/synnax/pkg/service/driver/go"
+	godriver2 "github.com/synnaxlabs/synnax/pkg/driver/go"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 )
 
 type mockFactory struct {
-	configureFunc func(t task.Task) (godriver.Task, bool, error)
+	configureFunc func(t task.Task) (godriver2.Task, bool, error)
 	name          string
 }
 
-func (f *mockFactory) ConfigureTask(_ context.Context, t task.Task) (godriver.Task, bool, error) {
+func (f *mockFactory) ConfigureTask(_ context.Context, t task.Task) (godriver2.Task, bool, error) {
 	if f.configureFunc != nil {
 		return f.configureFunc(t)
 	}
@@ -61,19 +61,19 @@ var _ = Describe("MultiFactory", func() {
 			expectedTask := &mockTask{key: 1}
 			f1 := &mockFactory{
 				name: "first",
-				configureFunc: func(_ task.Task) (godriver.Task, bool, error) {
+				configureFunc: func(_ task.Task) (godriver2.Task, bool, error) {
 					return expectedTask, true, nil
 				},
 			}
 			f2 := &mockFactory{
 				name: "second",
-				configureFunc: func(_ task.Task) (godriver.Task, bool, error) {
+				configureFunc: func(_ task.Task) (godriver2.Task, bool, error) {
 					Fail("second factory should not be called")
 					return nil, false, nil
 				},
 			}
 
-			mf := godriver.NewMultiFactory(f1, f2)
+			mf := godriver2.NewMultiFactory(f1, f2)
 			result, ok, err := mf.ConfigureTask(ctx, task.Task{Type: "test"})
 
 			Expect(err).ToNot(HaveOccurred())
@@ -85,18 +85,18 @@ var _ = Describe("MultiFactory", func() {
 			expectedTask := &mockTask{key: 2}
 			f1 := &mockFactory{
 				name: "first",
-				configureFunc: func(_ task.Task) (godriver.Task, bool, error) {
+				configureFunc: func(_ task.Task) (godriver2.Task, bool, error) {
 					return nil, false, nil
 				},
 			}
 			f2 := &mockFactory{
 				name: "second",
-				configureFunc: func(_ task.Task) (godriver.Task, bool, error) {
+				configureFunc: func(_ task.Task) (godriver2.Task, bool, error) {
 					return expectedTask, true, nil
 				},
 			}
 
-			mf := godriver.NewMultiFactory(f1, f2)
+			mf := godriver2.NewMultiFactory(f1, f2)
 			result, ok, err := mf.ConfigureTask(ctx, task.Task{Type: "test"})
 
 			Expect(err).ToNot(HaveOccurred())
@@ -108,19 +108,19 @@ var _ = Describe("MultiFactory", func() {
 			expectedErr := errors.New("config error")
 			f1 := &mockFactory{
 				name: "first",
-				configureFunc: func(_ task.Task) (godriver.Task, bool, error) {
+				configureFunc: func(_ task.Task) (godriver2.Task, bool, error) {
 					return nil, true, expectedErr
 				},
 			}
 			f2 := &mockFactory{
 				name: "second",
-				configureFunc: func(_ task.Task) (godriver.Task, bool, error) {
+				configureFunc: func(_ task.Task) (godriver2.Task, bool, error) {
 					Fail("second factory should not be called")
 					return nil, false, nil
 				},
 			}
 
-			mf := godriver.NewMultiFactory(f1, f2)
+			mf := godriver2.NewMultiFactory(f1, f2)
 			_, ok, err := mf.ConfigureTask(ctx, task.Task{Type: "test"})
 
 			Expect(err).To(MatchError(expectedErr))
@@ -130,18 +130,18 @@ var _ = Describe("MultiFactory", func() {
 		It("should return not handled when no factory matches", func() {
 			f1 := &mockFactory{
 				name: "first",
-				configureFunc: func(_ task.Task) (godriver.Task, bool, error) {
+				configureFunc: func(_ task.Task) (godriver2.Task, bool, error) {
 					return nil, false, nil
 				},
 			}
 			f2 := &mockFactory{
 				name: "second",
-				configureFunc: func(_ task.Task) (godriver.Task, bool, error) {
+				configureFunc: func(_ task.Task) (godriver2.Task, bool, error) {
 					return nil, false, nil
 				},
 			}
 
-			mf := godriver.NewMultiFactory(f1, f2)
+			mf := godriver2.NewMultiFactory(f1, f2)
 			result, ok, err := mf.ConfigureTask(ctx, task.Task{Type: "test"})
 
 			Expect(err).ToNot(HaveOccurred())
@@ -150,7 +150,7 @@ var _ = Describe("MultiFactory", func() {
 		})
 
 		It("should handle empty factory list", func() {
-			mf := godriver.NewMultiFactory()
+			mf := godriver2.NewMultiFactory()
 			result, ok, err := mf.ConfigureTask(ctx, task.Task{Type: "test"})
 
 			Expect(err).ToNot(HaveOccurred())
@@ -161,7 +161,7 @@ var _ = Describe("MultiFactory", func() {
 
 	Describe("Name", func() {
 		It("should return multi", func() {
-			mf := godriver.NewMultiFactory()
+			mf := godriver2.NewMultiFactory()
 			Expect(mf.Name()).To(Equal("multi"))
 		})
 	})

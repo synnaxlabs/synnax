@@ -52,7 +52,7 @@ const (
 
 var configCodec = &binary.JSONCodec{}
 
-func OpenDriver(ctx context.Context, cfgs ...Config) (*Driver, error) {
+func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err

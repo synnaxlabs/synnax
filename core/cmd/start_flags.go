@@ -15,7 +15,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/spf13/viper"
-	"github.com/synnaxlabs/synnax/pkg/service/driver/cpp"
+	"github.com/synnaxlabs/synnax/pkg/driver/cpp"
 	"github.com/synnaxlabs/x/address"
 )
 

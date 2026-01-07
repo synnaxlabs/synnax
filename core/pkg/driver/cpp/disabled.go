@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 )
 
-func OpenDriver(_ context.Context, cfgs ...Config) (*Driver, error) {
+func Open(_ context.Context, cfgs ...Config) (*Driver, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
