@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -893,10 +893,11 @@ TEST_F(BindingsTest, SeriesNotU8) {
     const uint32_t h2 = bindings->series_not_u8(h1);
     EXPECT_NE(h2, 0);
     EXPECT_NE(h2, h1);
-    EXPECT_EQ(bindings->series_index_u8(h2, 0), 0xFF);
-    EXPECT_EQ(bindings->series_index_u8(h2, 1), 0x00);
-    EXPECT_EQ(bindings->series_index_u8(h2, 2), 0xF0);
-    EXPECT_EQ(bindings->series_index_u8(h2, 3), 0x0F);
+    // Logical NOT: !0 = 1, !non-zero = 0
+    EXPECT_EQ(bindings->series_index_u8(h2, 0), 1);
+    EXPECT_EQ(bindings->series_index_u8(h2, 1), 0);
+    EXPECT_EQ(bindings->series_index_u8(h2, 2), 0);
+    EXPECT_EQ(bindings->series_index_u8(h2, 3), 0);
 
     // Original unchanged
     EXPECT_EQ(bindings->series_index_u8(h1, 0), 0x00);
@@ -911,12 +912,11 @@ TEST_F(BindingsTest, SeriesNotU8BooleanValues) {
     bindings->series_set_element_u8(h1, 3, 0); // false
 
     const uint32_t h2 = bindings->series_not_u8(h1);
-    // For boolean NOT, we expect bitwise NOT
-    // NOT 0 = 255, NOT 1 = 254
-    EXPECT_EQ(bindings->series_index_u8(h2, 0), 0xFF);
-    EXPECT_EQ(bindings->series_index_u8(h2, 1), 0xFE);
-    EXPECT_EQ(bindings->series_index_u8(h2, 2), 0xFE);
-    EXPECT_EQ(bindings->series_index_u8(h2, 3), 0xFF);
+    // Logical NOT: !0 = 1, !1 = 0
+    EXPECT_EQ(bindings->series_index_u8(h2, 0), 1);
+    EXPECT_EQ(bindings->series_index_u8(h2, 1), 0);
+    EXPECT_EQ(bindings->series_index_u8(h2, 2), 0);
+    EXPECT_EQ(bindings->series_index_u8(h2, 3), 1);
 }
 
 TEST_F(BindingsTest, SeriesNotU8InvalidHandle) {
@@ -931,19 +931,21 @@ TEST_F(BindingsTest, SeriesNotU8Empty) {
 }
 
 TEST_F(BindingsTest, SeriesNotU8DoubleNot) {
+    // With logical NOT, double negation normalizes to 0/1
     const uint32_t h1 = bindings->series_create_empty_u8(4);
-    bindings->series_set_element_u8(h1, 0, 0x00);
-    bindings->series_set_element_u8(h1, 1, 0xFF);
-    bindings->series_set_element_u8(h1, 2, 0xAB);
-    bindings->series_set_element_u8(h1, 3, 0x55);
+    bindings->series_set_element_u8(h1, 0, 0); // false
+    bindings->series_set_element_u8(h1, 1, 1); // true
+    bindings->series_set_element_u8(h1, 2, 0); // false
+    bindings->series_set_element_u8(h1, 3, 1); // true
 
-    const uint32_t h2 = bindings->series_not_u8(h1);
-    const uint32_t h3 = bindings->series_not_u8(h2);
+    const uint32_t h2 = bindings->series_not_u8(h1); // 1, 0, 1, 0
+    const uint32_t h3 = bindings->series_not_u8(h2); // 0, 1, 0, 1
 
-    EXPECT_EQ(bindings->series_index_u8(h3, 0), 0x00);
-    EXPECT_EQ(bindings->series_index_u8(h3, 1), 0xFF);
-    EXPECT_EQ(bindings->series_index_u8(h3, 2), 0xAB);
-    EXPECT_EQ(bindings->series_index_u8(h3, 3), 0x55);
+    // Double logical NOT returns original boolean values
+    EXPECT_EQ(bindings->series_index_u8(h3, 0), 0);
+    EXPECT_EQ(bindings->series_index_u8(h3, 1), 1);
+    EXPECT_EQ(bindings->series_index_u8(h3, 2), 0);
+    EXPECT_EQ(bindings->series_index_u8(h3, 3), 1);
 }
 
 TEST_F(BindingsTest, StringLenInvalidHandle) {
