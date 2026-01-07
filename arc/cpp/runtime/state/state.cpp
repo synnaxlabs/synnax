@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstring>
 #include <utility>
 
 #include "x/cpp/xerrors/errors.h"
@@ -166,16 +167,7 @@ void State::ingest(const telem::Frame &frame) {
         );
 }
 
-std::vector<std::pair<types::ChannelKey, Series>> State::flush_writes() {
-    std::vector<std::pair<types::ChannelKey, Series>> result;
-    result.reserve(writes.size());
-    for (const auto &[key, data]: writes)
-        result.push_back({key, data});
-    writes.clear();
-    return result;
-}
-
-void State::clear_reads() {
+std::vector<std::pair<types::ChannelKey, Series>> State::flush() {
     for (auto &series_vec: reads | std::views::values) {
         if (series_vec.size() <= 1) continue;
         // Keep only the last series to preserve the latest value for each channel.
@@ -185,6 +177,17 @@ void State::clear_reads() {
         series_vec.clear();
         series_vec.push_back(std::move(last));
     }
+    this->series_handles.clear();
+    this->series_handle_counter = 1;
+    this->strings.clear();
+    this->string_handle_counter = 1;
+
+    std::vector<std::pair<types::ChannelKey, Series>> result;
+    result.reserve(writes.size());
+    for (const auto &[key, data]: writes)
+        result.push_back({key, data});
+    writes.clear();
+    return result;
 }
 
 void State::write_channel(
@@ -277,5 +280,139 @@ bool Node::is_output_truthy(const std::string &param_name) const {
     if (it == this->output_name_idx.end()) return false;
     const auto *s = this->state.values[this->output_idx[it->second]].data.get();
     return s != nullptr && this->is_series_truthy(*s);
+}
+
+uint32_t State::string_from_memory(const uint8_t *data, const uint32_t len) {
+    const std::string str(reinterpret_cast<const char *>(data), len);
+    const uint32_t handle = this->string_handle_counter++;
+    this->strings[handle] = str;
+    return handle;
+}
+
+uint32_t State::string_create(const std::string &str) {
+    const uint32_t handle = this->string_handle_counter++;
+    this->strings[handle] = str;
+    return handle;
+}
+
+std::string State::string_get(const uint32_t handle) const {
+    const auto it = this->strings.find(handle);
+    if (it == this->strings.end()) return "";
+    return it->second;
+}
+
+bool State::string_exists(const uint32_t handle) const {
+    return this->strings.contains(handle);
+}
+
+telem::Series *State::series_get(const uint32_t handle) {
+    const auto it = this->series_handles.find(handle);
+    if (it == this->series_handles.end()) return nullptr;
+    return &it->second;
+}
+
+const telem::Series *State::series_get(const uint32_t handle) const {
+    const auto it = this->series_handles.find(handle);
+    if (it == this->series_handles.end()) return nullptr;
+    return &it->second;
+}
+
+uint32_t State::series_store(telem::Series series) {
+    const uint32_t handle = this->series_handle_counter++;
+    this->series_handles.emplace(handle, std::move(series));
+    return handle;
+}
+
+#define IMPL_VAR_OPS(suffix, cpptype)                                                  \
+    cpptype State::var_load_##suffix(                                                  \
+        const uint32_t func_id,                                                        \
+        const uint32_t var_id,                                                         \
+        const cpptype init_value                                                       \
+    ) {                                                                                \
+        const auto key = state_key(func_id, var_id);                                   \
+        const auto it = this->var_##suffix.find(key);                                  \
+        if (it != this->var_##suffix.end()) return it->second;                         \
+        this->var_##suffix[key] = init_value;                                          \
+        return init_value;                                                             \
+    }                                                                                  \
+    void State::var_store_##suffix(                                                    \
+        const uint32_t func_id,                                                        \
+        const uint32_t var_id,                                                         \
+        const cpptype value                                                            \
+    ) {                                                                                \
+        this->var_##suffix[state_key(func_id, var_id)] = value;                        \
+    }
+
+IMPL_VAR_OPS(u8, uint8_t)
+IMPL_VAR_OPS(u16, uint16_t)
+IMPL_VAR_OPS(u32, uint32_t)
+IMPL_VAR_OPS(u64, uint64_t)
+IMPL_VAR_OPS(i8, int8_t)
+IMPL_VAR_OPS(i16, int16_t)
+IMPL_VAR_OPS(i32, int32_t)
+IMPL_VAR_OPS(i64, int64_t)
+IMPL_VAR_OPS(f32, float)
+IMPL_VAR_OPS(f64, double)
+
+#undef IMPL_VAR_OPS
+
+uint32_t State::var_load_str(
+    const uint32_t func_id,
+    const uint32_t var_id,
+    const uint32_t init_handle
+) {
+    const auto key = state_key(func_id, var_id);
+    if (const auto it = this->var_string.find(key); it != this->var_string.end()) {
+        this->strings[this->string_handle_counter] = it->second;
+        return this->string_handle_counter++;
+    }
+    if (const auto init_it = this->strings.find(init_handle);
+        init_it != this->strings.end())
+        this->var_string[key] = init_it->second;
+    else
+        this->var_string[key] = "";
+    this->strings[this->string_handle_counter] = this->var_string[key];
+    return this->string_handle_counter++;
+}
+
+void State::var_store_str(
+    const uint32_t func_id,
+    const uint32_t var_id,
+    const uint32_t str_handle
+) {
+    if (const auto it = this->strings.find(str_handle); it != this->strings.end())
+        this->var_string[state_key(func_id, var_id)] = it->second;
+}
+
+uint32_t State::var_load_series(
+    const uint32_t func_id,
+    const uint32_t var_id,
+    const uint32_t init_handle
+) {
+    const auto key = state_key(func_id, var_id);
+    if (const auto state_it = this->var_series.find(key);
+        state_it != this->var_series.end()) {
+        auto copy = state_it->second.deep_copy();
+        const uint32_t handle = this->series_handle_counter++;
+        this->series_handles.emplace(handle, std::move(copy));
+        return handle;
+    }
+    if (const auto init_it = this->series_handles.find(init_handle);
+        init_it != this->series_handles.end()) {
+        this->var_series.emplace(key, init_it->second.deep_copy());
+    }
+    return init_handle;
+}
+
+void State::var_store_series(
+    const uint32_t func_id,
+    const uint32_t var_id,
+    const uint32_t handle
+) {
+    if (const auto it = this->series_handles.find(handle);
+        it != this->series_handles.end()) {
+        const auto key = state_key(func_id, var_id);
+        this->var_series.insert_or_assign(key, it->second.deep_copy());
+    }
 }
 }

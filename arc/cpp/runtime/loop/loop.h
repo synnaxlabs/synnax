@@ -116,16 +116,13 @@ struct Loop {
 
     /// @brief Registers an external notifier for multiplexed waiting.
     /// When the notifier is signaled, wait() will return.
+    /// Cleanup is automatic when the loop is destroyed (no unwatch needed).
     /// @param notifier The notifier to watch (must have valid fd() on Linux/macOS).
-    /// @return Handle for unwatch(), or 0 if:
+    /// @return true if registration succeeded, false if:
     ///         - notifier.fd() returns -1 (no file descriptor)
     ///         - Platform doesn't support multiplexed watching (Windows, Polling)
     ///         - Registration failed (logged as ERROR)
-    virtual uint64_t watch(notify::Notifier &notifier) = 0;
-
-    /// @brief Unregisters a previously watched notifier.
-    /// @param handle The handle returned by watch(). 0 is a no-op.
-    virtual void unwatch(uint64_t handle) = 0;
+    virtual bool watch(notify::Notifier &notifier) = 0;
 };
 
 /// @brief Creates a platform-specific loop implementation.

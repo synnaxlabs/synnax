@@ -127,7 +127,7 @@ const auto INITIALIZATION_ERROR = BASE_ERROR.sub("initialization");
 
 struct ModuleConfig {
     module::Module module;
-    Bindings *bindings = nullptr;
+    std::shared_ptr<Bindings> bindings;
     std::uint32_t stack_size = 2 * 1024 * 1024; // 2MB (Wasmtime default)
     std::uint32_t host_managed_heap_size = 10 * 1024 * 1024; // 10MB
 };

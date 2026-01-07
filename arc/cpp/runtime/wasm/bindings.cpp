@@ -63,12 +63,8 @@ auto wrap(C *obj, R (C::*fn)(Args...)) {
     return MethodWrapper<C, R, Args...>{obj, fn};
 }
 
-Bindings::Bindings(state::State *state, wasmtime::Store *store):
-    state(state),
-    store(store),
-    memory(nullptr),
-    string_handle_counter(1),
-    series_handle_counter(1) {}
+Bindings::Bindings(const std::shared_ptr<state::State> &state, wasmtime::Store *store):
+    state(state), store(store), memory(nullptr) {}
 
 #define IMPL_CHANNEL_OPS(suffix, cpptype, default_val, data_type_const)                \
     cpptype Bindings::channel_read_##suffix(uint32_t channel_id) {                     \
@@ -116,9 +112,9 @@ uint32_t Bindings::channel_read_str(uint32_t channel_id) {
 
 void Bindings::channel_write_str(uint32_t channel_id, uint32_t str_handle) {
     if (this->state == nullptr) return;
-    const auto it = strings.find(str_handle);
-    if (it == strings.end()) return;
-    const auto data = xmemory::make_local_shared<telem::Series>(it->second);
+    std::string str_value = this->state->string_get(str_handle);
+    if (str_value.empty()) return;
+    const auto data = xmemory::make_local_shared<telem::Series>(str_value);
     const auto time = xmemory::make_local_shared<telem::Series>(
         telem::TimeStamp::now()
     );
@@ -131,18 +127,16 @@ void Bindings::channel_write_str(uint32_t channel_id, uint32_t str_handle) {
         uint32_t var_id,                                                               \
         cpptype init_value                                                             \
     ) {                                                                                \
-        auto key = state_key(func_id, var_id);                                         \
-        auto it = state_##suffix.find(key);                                            \
-        if (it != state_##suffix.end()) return it->second;                             \
-        state_##suffix[key] = init_value;                                              \
-        return init_value;                                                             \
+        if (this->state == nullptr) return init_value;                                 \
+        return this->state->var_load_##suffix(func_id, var_id, init_value);            \
     }                                                                                  \
     void Bindings::state_store_##suffix(                                               \
         uint32_t func_id,                                                              \
         uint32_t var_id,                                                               \
         cpptype value                                                                  \
     ) {                                                                                \
-        state_##suffix[state_key(func_id, var_id)] = value;                            \
+        if (this->state == nullptr) return;                                            \
+        this->state->var_store_##suffix(func_id, var_id, value);                       \
     }
 
 IMPL_STATE_OPS(u8, uint8_t)
@@ -163,48 +157,42 @@ uint32_t Bindings::state_load_str(
     const uint32_t var_id,
     const uint32_t init_handle
 ) {
-    const auto key = state_key(func_id, var_id);
-    if (const auto it = this->state_string.find(key); it != this->state_string.end()) {
-        this->strings[string_handle_counter] = it->second;
-        return this->string_handle_counter++;
-    }
-    if (const auto init_it = this->strings.find(init_handle); init_it != strings.end())
-        this->state_string[key] = init_it->second;
-    else
-        this->state_string[key] = "";
-    this->strings[this->string_handle_counter] = this->state_string[key];
-    return this->string_handle_counter++;
+    if (this->state == nullptr) return init_handle;
+    return this->state->var_load_str(func_id, var_id, init_handle);
 }
 
-auto Bindings::state_store_str(
+void Bindings::state_store_str(
     const uint32_t func_id,
     const uint32_t var_id,
     const uint32_t str_handle
-) -> void {
-    if (const auto it = strings.find(str_handle); it != strings.end())
-        state_string[state_key(func_id, var_id)] = it->second;
+) {
+    if (this->state == nullptr) return;
+    this->state->var_store_str(func_id, var_id, str_handle);
 }
 
 uint64_t Bindings::series_len(const uint32_t handle) {
-    const auto it = series.find(handle);
-    if (it == series.end()) return 0;
-    return it->second.size();
+    if (this->state == nullptr) return 0;
+    const auto *s = this->state->series_get(handle);
+    if (s == nullptr) return 0;
+    return s->size();
 }
-auto Bindings::series_slice(const uint32_t handle, const uint32_t start, uint32_t end)
-    -> uint32_t {
-    const auto it = series.find(handle);
-    if (it == series.end()) return 0;
-    const auto &src = it->second;
-    const auto src_size = src.size();
+
+uint32_t Bindings::series_slice(
+    const uint32_t handle,
+    const uint32_t start,
+    const uint32_t end
+) {
+    if (this->state == nullptr) return 0;
+    const auto *src = this->state->series_get(handle);
+    if (src == nullptr) return 0;
+    const auto src_size = src->size();
     if (start >= src_size || end > src_size || start >= end) return 0;
     const auto slice_len = end - start;
-    auto sliced = telem::Series(src.data_type(), slice_len);
-    const auto density = src.data_type().density();
-    std::memcpy(sliced.data(), src.data() + start * density, slice_len * density);
+    auto sliced = telem::Series(src->data_type(), slice_len);
+    const auto density = src->data_type().density();
+    std::memcpy(sliced.data(), src->data() + start * density, slice_len * density);
     sliced.resize(slice_len);
-    const uint32_t new_handle = series_handle_counter++;
-    series.emplace(new_handle, std::move(sliced));
-    return new_handle;
+    return this->state->series_store(std::move(sliced));
 }
 
 uint32_t Bindings::string_from_literal(const uint32_t ptr, const uint32_t len) {
@@ -215,6 +203,7 @@ uint32_t Bindings::string_from_literal(const uint32_t ptr, const uint32_t len) {
         );
         return 0;
     }
+    if (this->state == nullptr) return 0;
 
     const auto mem_span = memory->data(*store);
     const uint8_t *mem_data = mem_span.data();
@@ -230,129 +219,119 @@ uint32_t Bindings::string_from_literal(const uint32_t ptr, const uint32_t len) {
         return 0;
     }
 
-    const std::string str(reinterpret_cast<const char *>(mem_data + ptr), len);
-    const uint32_t handle = string_handle_counter++;
-    strings[handle] = str;
-    return handle;
+    return this->state->string_from_memory(mem_data + ptr, len);
 }
 
 uint32_t Bindings::string_concat(const uint32_t handle1, const uint32_t handle2) {
-    const auto it1 = strings.find(handle1);
-    const auto it2 = strings.find(handle2);
-    if (it1 == strings.end() || it2 == strings.end()) return 0;
-    const std::string result = it1->second + it2->second;
-    const uint32_t new_handle = string_handle_counter++;
-    strings[new_handle] = result;
-    return new_handle;
+    if (this->state == nullptr) return 0;
+    const std::string s1 = this->state->string_get(handle1);
+    const std::string s2 = this->state->string_get(handle2);
+    if (s1.empty() && s2.empty()) return 0;
+    return this->state->string_create(s1 + s2);
 }
 
 uint32_t Bindings::string_equal(const uint32_t handle1, const uint32_t handle2) {
-    const auto it1 = strings.find(handle1);
-    const auto it2 = strings.find(handle2);
-    if (it1 == strings.end() || it2 == strings.end()) return 0;
-    return it1->second == it2->second ? 1 : 0;
+    if (this->state == nullptr) return 0;
+    if (!this->state->string_exists(handle1) || !this->state->string_exists(handle2))
+        return 0;
+    const std::string s1 = this->state->string_get(handle1);
+    const std::string s2 = this->state->string_get(handle2);
+    return s1 == s2 ? 1 : 0;
 }
 
 uint32_t Bindings::string_len(const uint32_t handle) {
-    const auto it = strings.find(handle);
-    if (it == strings.end()) return 0;
-    return static_cast<uint32_t>(it->second.length());
+    if (this->state == nullptr) return 0;
+    const std::string s = this->state->string_get(handle);
+    return static_cast<uint32_t>(s.length());
 }
 
 uint32_t Bindings::string_create(const std::string &str) {
-    const uint32_t handle = string_handle_counter++;
-    strings[handle] = str;
-    return handle;
+    if (this->state == nullptr) return 0;
+    return this->state->string_create(str);
 }
 
-std::string Bindings::string_get(const uint32_t handle) {
-    const auto it = strings.find(handle);
-    if (it == strings.end()) return "";
-    return it->second;
+std::string Bindings::string_get(const uint32_t handle) const {
+    if (this->state == nullptr) return "";
+    return this->state->string_get(handle);
 }
 
 #define IMPL_SERIES_SCALAR_OP(suffix, cpptype, name, op)                               \
     uint32_t Bindings::series_element_##name##_##suffix(uint32_t handle, cpptype v) {  \
-        auto it = series.find(handle);                                                 \
-        if (it == series.end()) return 0;                                              \
-        auto result = it->second op v;                                                 \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
+        if (this->state == nullptr) return 0;                                          \
+        auto *s = this->state->series_get(handle);                                     \
+        if (s == nullptr) return 0;                                                    \
+        auto result = *s op v;                                                         \
+        return this->state->series_store(std::move(result));                           \
     }
 
 #define IMPL_SERIES_BINARY_OP(suffix, cpptype, prefix, name, op)                       \
     uint32_t Bindings::prefix##_##name##_##suffix(uint32_t a, uint32_t b) {            \
-        auto it_a = series.find(a);                                                    \
-        auto it_b = series.find(b);                                                    \
-        if (it_a == series.end() || it_b == series.end()) return 0;                    \
-        if (it_a->second.size() != it_b->second.size())                                \
+        if (this->state == nullptr) return 0;                                          \
+        auto *sa = this->state->series_get(a);                                         \
+        auto *sb = this->state->series_get(b);                                         \
+        if (sa == nullptr || sb == nullptr) return 0;                                  \
+        if (sa->size() != sb->size())                                                  \
             throw std::runtime_error("arc panic: series length mismatch in " #name);   \
-        auto result = it_a->second op it_b->second;                                    \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
+        auto result = *sa op *sb;                                                      \
+        return this->state->series_store(std::move(result));                           \
     }
 
 #define IMPL_SERIES_OPS(suffix, cpptype, data_type_const)                              \
     uint32_t Bindings::series_create_empty_##suffix(uint32_t length) {                 \
+        if (this->state == nullptr) return 0;                                          \
         auto s = telem::Series(data_type_const, static_cast<size_t>(length));          \
         s.resize(length);                                                              \
-        const uint32_t handle = series_handle_counter++;                               \
-        series.emplace(handle, std::move(s));                                          \
-        return handle;                                                                 \
+        return this->state->series_store(std::move(s));                                \
     }                                                                                  \
     uint32_t Bindings::series_set_element_##suffix(                                    \
         uint32_t handle,                                                               \
         uint32_t index,                                                                \
         cpptype value                                                                  \
     ) {                                                                                \
-        auto it = series.find(handle);                                                 \
-        if (it == series.end()) return handle;                                         \
-        it->second.set(static_cast<int>(index), value);                                \
+        if (this->state == nullptr) return handle;                                     \
+        auto *s = this->state->series_get(handle);                                     \
+        if (s == nullptr) return handle;                                               \
+        s->set(static_cast<int>(index), value);                                        \
         return handle;                                                                 \
     }                                                                                  \
     cpptype Bindings::series_index_##suffix(uint32_t handle, uint32_t index) {         \
-        auto it = series.find(handle);                                                 \
-        if (it == series.end()) return cpptype{};                                      \
-        return it->second.at<cpptype>(static_cast<int>(index));                        \
+        if (this->state == nullptr) return cpptype{};                                  \
+        auto *s = this->state->series_get(handle);                                     \
+        if (s == nullptr) return cpptype{};                                            \
+        return s->at<cpptype>(static_cast<int>(index));                                \
     }                                                                                  \
     IMPL_SERIES_SCALAR_OP(suffix, cpptype, add, +)                                     \
     IMPL_SERIES_SCALAR_OP(suffix, cpptype, mul, *)                                     \
     IMPL_SERIES_SCALAR_OP(suffix, cpptype, sub, -)                                     \
     uint32_t Bindings::series_element_div_##suffix(uint32_t handle, cpptype value) {   \
-        auto it = series.find(handle);                                                 \
-        if (it == series.end()) return 0;                                              \
+        if (this->state == nullptr) return 0;                                          \
+        auto *s = this->state->series_get(handle);                                     \
+        if (s == nullptr) return 0;                                                    \
         if (value == 0) return 0;                                                      \
-        auto result = it->second / value;                                              \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
+        auto result = *s / value;                                                      \
+        return this->state->series_store(std::move(result));                           \
     }                                                                                  \
     uint32_t Bindings::series_element_rsub_##suffix(cpptype value, uint32_t handle) {  \
-        auto it = series.find(handle);                                                 \
-        if (it == series.end()) return 0;                                              \
-        auto result = value - it->second;                                              \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
+        if (this->state == nullptr) return 0;                                          \
+        auto *s = this->state->series_get(handle);                                     \
+        if (s == nullptr) return 0;                                                    \
+        auto result = value - *s;                                                      \
+        return this->state->series_store(std::move(result));                           \
     }                                                                                  \
     uint32_t Bindings::series_element_rdiv_##suffix(cpptype value, uint32_t handle) {  \
-        auto it = series.find(handle);                                                 \
-        if (it == series.end()) return 0;                                              \
-        auto result = value / it->second;                                              \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
+        if (this->state == nullptr) return 0;                                          \
+        auto *s = this->state->series_get(handle);                                     \
+        if (s == nullptr) return 0;                                                    \
+        auto result = value / *s;                                                      \
+        return this->state->series_store(std::move(result));                           \
     }                                                                                  \
     uint32_t Bindings::series_element_mod_##suffix(uint32_t handle, cpptype value) {   \
-        auto it = series.find(handle);                                                 \
-        if (it == series.end()) return 0;                                              \
+        if (this->state == nullptr) return 0;                                          \
+        auto *s = this->state->series_get(handle);                                     \
+        if (s == nullptr) return 0;                                                    \
         if (value == 0) return 0;                                                      \
-        auto result = it->second % value;                                              \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
+        auto result = *s % value;                                                      \
+        return this->state->series_store(std::move(result));                           \
     }                                                                                  \
     IMPL_SERIES_BINARY_OP(suffix, cpptype, series_series, add, +)                      \
     IMPL_SERIES_BINARY_OP(suffix, cpptype, series_series, mul, *)                      \
@@ -366,82 +345,62 @@ std::string Bindings::string_get(const uint32_t handle) {
     IMPL_SERIES_BINARY_OP(suffix, cpptype, series_compare, eq, ==)                     \
     IMPL_SERIES_BINARY_OP(suffix, cpptype, series_compare, ne, !=)                     \
     uint32_t Bindings::series_compare_gt_scalar_##suffix(uint32_t handle, cpptype v) { \
-        auto it = series.find(handle);                                                 \
-        if (it == series.end()) return 0;                                              \
-        auto result = it->second > v;                                                  \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
+        if (this->state == nullptr) return 0;                                          \
+        auto *s = this->state->series_get(handle);                                     \
+        if (s == nullptr) return 0;                                                    \
+        auto result = *s > v;                                                          \
+        return this->state->series_store(std::move(result));                           \
     }                                                                                  \
     uint32_t Bindings::series_compare_lt_scalar_##suffix(uint32_t handle, cpptype v) { \
-        auto it = series.find(handle);                                                 \
-        if (it == series.end()) return 0;                                              \
-        auto result = it->second < v;                                                  \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
+        if (this->state == nullptr) return 0;                                          \
+        auto *s = this->state->series_get(handle);                                     \
+        if (s == nullptr) return 0;                                                    \
+        auto result = *s < v;                                                          \
+        return this->state->series_store(std::move(result));                           \
     }                                                                                  \
     uint32_t Bindings::series_compare_ge_scalar_##suffix(uint32_t handle, cpptype v) { \
-        auto it = series.find(handle);                                                 \
-        if (it == series.end()) return 0;                                              \
-        auto result = it->second >= v;                                                 \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
+        if (this->state == nullptr) return 0;                                          \
+        auto *s = this->state->series_get(handle);                                     \
+        if (s == nullptr) return 0;                                                    \
+        auto result = *s >= v;                                                         \
+        return this->state->series_store(std::move(result));                           \
     }                                                                                  \
     uint32_t Bindings::series_compare_le_scalar_##suffix(uint32_t handle, cpptype v) { \
-        auto it = series.find(handle);                                                 \
-        if (it == series.end()) return 0;                                              \
-        auto result = it->second <= v;                                                 \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
+        if (this->state == nullptr) return 0;                                          \
+        auto *s = this->state->series_get(handle);                                     \
+        if (s == nullptr) return 0;                                                    \
+        auto result = *s <= v;                                                         \
+        return this->state->series_store(std::move(result));                           \
     }                                                                                  \
     uint32_t Bindings::series_compare_eq_scalar_##suffix(uint32_t handle, cpptype v) { \
-        auto it = series.find(handle);                                                 \
-        if (it == series.end()) return 0;                                              \
-        auto result = it->second == v;                                                 \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
+        if (this->state == nullptr) return 0;                                          \
+        auto *s = this->state->series_get(handle);                                     \
+        if (s == nullptr) return 0;                                                    \
+        auto result = *s == v;                                                         \
+        return this->state->series_store(std::move(result));                           \
     }                                                                                  \
     uint32_t Bindings::series_compare_ne_scalar_##suffix(uint32_t handle, cpptype v) { \
-        auto it = series.find(handle);                                                 \
-        if (it == series.end()) return 0;                                              \
-        auto result = it->second != v;                                                 \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
+        if (this->state == nullptr) return 0;                                          \
+        auto *s = this->state->series_get(handle);                                     \
+        if (s == nullptr) return 0;                                                    \
+        auto result = *s != v;                                                         \
+        return this->state->series_store(std::move(result));                           \
     }                                                                                  \
     uint32_t Bindings::state_load_series_##suffix(                                     \
         uint32_t func_id,                                                              \
         uint32_t var_id,                                                               \
         uint32_t init_handle                                                           \
     ) {                                                                                \
-        const auto key = state_key(func_id, var_id);                                   \
-        auto state_it = state_series.find(key);                                        \
-        if (state_it != state_series.end()) {                                          \
-            auto copy = state_it->second.deep_copy();                                  \
-            const uint32_t handle = series_handle_counter++;                           \
-            series.emplace(handle, std::move(copy));                                   \
-            return handle;                                                             \
-        }                                                                              \
-        auto init_it = series.find(init_handle);                                       \
-        if (init_it != series.end()) {                                                 \
-            state_series.emplace(key, init_it->second.deep_copy());                    \
-        }                                                                              \
-        return init_handle;                                                            \
+        if (this->state == nullptr) return init_handle;                                \
+        return this->state->var_load_series(func_id, var_id, init_handle);             \
     }                                                                                  \
     void Bindings::state_store_series_##suffix(                                        \
         uint32_t func_id,                                                              \
         uint32_t var_id,                                                               \
         uint32_t handle                                                                \
     ) {                                                                                \
-        auto it = series.find(handle);                                                 \
-        if (it != series.end()) {                                                      \
-            const auto key = state_key(func_id, var_id);                               \
-            state_series.insert_or_assign(key, it->second.deep_copy());                \
-        }                                                                              \
+        if (this->state == nullptr) return;                                            \
+        this->state->var_store_series(func_id, var_id, handle);                        \
     }
 
 IMPL_SERIES_OPS(u8, uint8_t, telem::UINT8_T)
@@ -462,12 +421,11 @@ IMPL_SERIES_OPS(f64, double, telem::FLOAT64_T)
 // Unary negate operations (signed types only)
 #define IMPL_SERIES_NEGATE(suffix)                                                     \
     uint32_t Bindings::series_negate_##suffix(uint32_t handle) {                       \
-        auto it = series.find(handle);                                                 \
-        if (it == series.end()) return 0;                                              \
-        auto result = -it->second;                                                     \
-        const uint32_t new_handle = series_handle_counter++;                           \
-        series.emplace(new_handle, std::move(result));                                 \
-        return new_handle;                                                             \
+        if (this->state == nullptr) return 0;                                          \
+        auto *s = this->state->series_get(handle);                                     \
+        if (s == nullptr) return 0;                                                    \
+        auto result = -*s;                                                             \
+        return this->state->series_store(std::move(result));                           \
     }
 
 IMPL_SERIES_NEGATE(i8)
@@ -481,12 +439,11 @@ IMPL_SERIES_NEGATE(f64)
 
 // Logical NOT (U8 only - for boolean negation: 0 -> 1, non-zero -> 0)
 uint32_t Bindings::series_not_u8(uint32_t handle) {
-    auto it = series.find(handle);
-    if (it == series.end()) return 0;
-    auto result = it->second.logical_not();
-    const uint32_t new_handle = series_handle_counter++;
-    series.emplace(new_handle, std::move(result));
-    return new_handle;
+    if (this->state == nullptr) return 0;
+    auto *s = this->state->series_get(handle);
+    if (s == nullptr) return 0;
+    auto result = s->logical_not();
+    return this->state->series_store(std::move(result));
 }
 
 uint64_t Bindings::now() {
@@ -563,32 +520,18 @@ IMPL_MATH_POW_INT(i64, int64_t)
 #undef IMPL_MATH_POW_FLOAT
 #undef IMPL_MATH_POW_INT
 
-void Bindings::clear_transient_handles() {
-    // Clear transient series storage and reset counter.
-    // state_series is NOT cleared as it holds stateful variables.
-    this->series.clear();
-    this->series_handle_counter = 1;
-
-    // Clear transient string storage and reset counter.
-    // state_string is NOT cleared as it holds stateful variables.
-    this->strings.clear();
-    this->string_handle_counter = 1;
-}
-
-// ===== Import Creation =====
-
 std::vector<wasmtime::Extern>
-create_imports(wasmtime::Store &store, Bindings *runtime) {
+create_imports(wasmtime::Store &store, std::shared_ptr<Bindings> runtime) {
     std::vector<wasmtime::Extern> imports;
 
 /// Channel ops use wrap() which auto-converts C++ types to WASM types via WasmType
 /// trait
 #define REGISTER_CHANNEL_OPS(suffix)                                                   \
     imports.push_back(                                                                 \
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::channel_read_##suffix))   \
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::channel_read_##suffix))   \
     );                                                                                 \
     imports.push_back(                                                                 \
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::channel_write_##suffix))  \
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::channel_write_##suffix))  \
     );
 
     REGISTER_CHANNEL_OPS(u8)
@@ -605,182 +548,182 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
 #undef REGISTER_CHANNEL_OPS
 
     imports.push_back(
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::channel_read_str))
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::channel_read_str))
     );
     imports.push_back(
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::channel_write_str))
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::channel_write_str))
     );
 
 #define REGISTER_SERIES_OPS(suffix)                                                    \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_create_empty_##suffix)                     \
+            wrap(runtime.get(), &Bindings::series_create_empty_##suffix)                     \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_set_element_##suffix)                      \
+            wrap(runtime.get(), &Bindings::series_set_element_##suffix)                      \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::series_index_##suffix))   \
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::series_index_##suffix))   \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_element_add_##suffix)                      \
-        )                                                                              \
-    );                                                                                 \
-    imports.push_back(                                                                 \
-        wasmtime::Func::wrap(                                                          \
-            store,                                                                     \
-            wrap(runtime, &Bindings::series_element_mul_##suffix)                      \
+            wrap(runtime.get(), &Bindings::series_element_add_##suffix)                      \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_element_sub_##suffix)                      \
+            wrap(runtime.get(), &Bindings::series_element_mul_##suffix)                      \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_element_div_##suffix)                      \
+            wrap(runtime.get(), &Bindings::series_element_sub_##suffix)                      \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_element_mod_##suffix)                      \
+            wrap(runtime.get(), &Bindings::series_element_div_##suffix)                      \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_element_rsub_##suffix)                     \
+            wrap(runtime.get(), &Bindings::series_element_mod_##suffix)                      \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_element_rdiv_##suffix)                     \
+            wrap(runtime.get(), &Bindings::series_element_rsub_##suffix)                     \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_series_add_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_element_rdiv_##suffix)                     \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_series_mul_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_series_add_##suffix)                       \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_series_sub_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_series_mul_##suffix)                       \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_series_div_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_series_sub_##suffix)                       \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_series_mod_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_series_div_##suffix)                       \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_compare_gt_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_series_mod_##suffix)                       \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_compare_lt_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_compare_gt_##suffix)                       \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_compare_ge_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_compare_lt_##suffix)                       \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_compare_le_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_compare_ge_##suffix)                       \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_compare_eq_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_compare_le_##suffix)                       \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_compare_ne_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_compare_eq_##suffix)                       \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_compare_gt_scalar_##suffix)                \
+            wrap(runtime.get(), &Bindings::series_compare_ne_##suffix)                       \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_compare_lt_scalar_##suffix)                \
+            wrap(runtime.get(), &Bindings::series_compare_gt_scalar_##suffix)                \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_compare_ge_scalar_##suffix)                \
+            wrap(runtime.get(), &Bindings::series_compare_lt_scalar_##suffix)                \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_compare_le_scalar_##suffix)                \
+            wrap(runtime.get(), &Bindings::series_compare_ge_scalar_##suffix)                \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_compare_eq_scalar_##suffix)                \
+            wrap(runtime.get(), &Bindings::series_compare_le_scalar_##suffix)                \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::series_compare_ne_scalar_##suffix)                \
+            wrap(runtime.get(), &Bindings::series_compare_eq_scalar_##suffix)                \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::state_load_series_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_compare_ne_scalar_##suffix)                \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime, &Bindings::state_store_series_##suffix)                      \
+            wrap(runtime.get(), &Bindings::state_load_series_##suffix)                       \
+        )                                                                              \
+    );                                                                                 \
+    imports.push_back(                                                                 \
+        wasmtime::Func::wrap(                                                          \
+            store,                                                                     \
+            wrap(runtime.get(), &Bindings::state_store_series_##suffix)                      \
         )                                                                              \
     );
 
@@ -800,33 +743,33 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
     // Register unary operations (negate for signed types, NOT for boolean)
     // Order matches Go: F64, F32, I64, I32, I16, I8 for negate, then U8 for NOT
     imports.push_back(
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::series_negate_f64))
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::series_negate_f64))
     );
     imports.push_back(
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::series_negate_f32))
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::series_negate_f32))
     );
     imports.push_back(
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::series_negate_i64))
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::series_negate_i64))
     );
     imports.push_back(
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::series_negate_i32))
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::series_negate_i32))
     );
     imports.push_back(
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::series_negate_i16))
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::series_negate_i16))
     );
     imports.push_back(
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::series_negate_i8))
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::series_negate_i8))
     );
     imports.push_back(
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::series_not_u8))
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::series_not_u8))
     );
 
 #define REGISTER_STATE_OPS(suffix)                                                     \
     imports.push_back(                                                                 \
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::state_load_##suffix))     \
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::state_load_##suffix))     \
     );                                                                                 \
     imports.push_back(                                                                 \
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::state_store_##suffix))    \
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::state_store_##suffix))    \
     );
 
     REGISTER_STATE_OPS(u8)
@@ -842,35 +785,35 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
 
 #undef REGISTER_STATE_OPS
     imports.push_back(
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::state_load_str))
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::state_load_str))
     );
     imports.push_back(
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::state_store_str))
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::state_store_str))
     );
     imports.push_back(
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::series_len))
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::series_len))
     );
     imports.push_back(
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::series_slice))
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::series_slice))
     );
     imports.push_back(
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::string_from_literal))
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::string_from_literal))
     );
     imports.push_back(
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::string_concat))
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::string_concat))
     );
     imports.push_back(
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::string_equal))
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::string_equal))
     );
     imports.push_back(
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::string_len))
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::string_len))
     );
     imports.push_back(wasmtime::Func::wrap(store, &Bindings::now));
-    imports.push_back(wasmtime::Func::wrap(store, wrap(runtime, &Bindings::len)));
+    imports.push_back(wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::len)));
 
 #define REGISTER_MATH_POW(suffix)                                                      \
     imports.push_back(                                                                 \
-        wasmtime::Func::wrap(store, wrap(runtime, &Bindings::math_pow_##suffix))       \
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::math_pow_##suffix))       \
     );
 
     REGISTER_MATH_POW(f32)
@@ -885,7 +828,7 @@ create_imports(wasmtime::Store &store, Bindings *runtime) {
     REGISTER_MATH_POW(i64)
 
 #undef REGISTER_MATH_POW
-    imports.push_back(wasmtime::Func::wrap(store, wrap(runtime, &Bindings::panic)));
+    imports.push_back(wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::panic)));
     return imports;
 }
 }

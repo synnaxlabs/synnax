@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,8 +19,13 @@ namespace arc::runtime::wasm {
 
 class BindingsTest : public testing::Test {
 protected:
-    void SetUp() override { bindings = std::make_unique<Bindings>(nullptr, nullptr); }
+    void SetUp() override {
+        state::Config cfg{.ir = ir::IR{}, .channels = {}};
+        state = std::make_shared<state::State>(cfg);
+        bindings = std::make_unique<Bindings>(state, nullptr);
+    }
 
+    std::shared_ptr<state::State> state;
     std::unique_ptr<Bindings> bindings;
 };
 
@@ -888,10 +893,11 @@ TEST_F(BindingsTest, SeriesNotU8) {
     const uint32_t h2 = bindings->series_not_u8(h1);
     EXPECT_NE(h2, 0);
     EXPECT_NE(h2, h1);
-    EXPECT_EQ(bindings->series_index_u8(h2, 0), 0xFF);
-    EXPECT_EQ(bindings->series_index_u8(h2, 1), 0x00);
-    EXPECT_EQ(bindings->series_index_u8(h2, 2), 0xF0);
-    EXPECT_EQ(bindings->series_index_u8(h2, 3), 0x0F);
+    // Logical NOT: !0 = 1, !non-zero = 0
+    EXPECT_EQ(bindings->series_index_u8(h2, 0), 1);
+    EXPECT_EQ(bindings->series_index_u8(h2, 1), 0);
+    EXPECT_EQ(bindings->series_index_u8(h2, 2), 0);
+    EXPECT_EQ(bindings->series_index_u8(h2, 3), 0);
 
     // Original unchanged
     EXPECT_EQ(bindings->series_index_u8(h1, 0), 0x00);
@@ -906,12 +912,11 @@ TEST_F(BindingsTest, SeriesNotU8BooleanValues) {
     bindings->series_set_element_u8(h1, 3, 0); // false
 
     const uint32_t h2 = bindings->series_not_u8(h1);
-    // For boolean NOT, we expect bitwise NOT
-    // NOT 0 = 255, NOT 1 = 254
-    EXPECT_EQ(bindings->series_index_u8(h2, 0), 0xFF);
-    EXPECT_EQ(bindings->series_index_u8(h2, 1), 0xFE);
-    EXPECT_EQ(bindings->series_index_u8(h2, 2), 0xFE);
-    EXPECT_EQ(bindings->series_index_u8(h2, 3), 0xFF);
+    // Logical NOT: !0 = 1, !1 = 0
+    EXPECT_EQ(bindings->series_index_u8(h2, 0), 1);
+    EXPECT_EQ(bindings->series_index_u8(h2, 1), 0);
+    EXPECT_EQ(bindings->series_index_u8(h2, 2), 0);
+    EXPECT_EQ(bindings->series_index_u8(h2, 3), 1);
 }
 
 TEST_F(BindingsTest, SeriesNotU8InvalidHandle) {
@@ -926,19 +931,21 @@ TEST_F(BindingsTest, SeriesNotU8Empty) {
 }
 
 TEST_F(BindingsTest, SeriesNotU8DoubleNot) {
+    // With logical NOT, double negation normalizes to 0/1
     const uint32_t h1 = bindings->series_create_empty_u8(4);
-    bindings->series_set_element_u8(h1, 0, 0x00);
-    bindings->series_set_element_u8(h1, 1, 0xFF);
-    bindings->series_set_element_u8(h1, 2, 0xAB);
-    bindings->series_set_element_u8(h1, 3, 0x55);
+    bindings->series_set_element_u8(h1, 0, 0); // false
+    bindings->series_set_element_u8(h1, 1, 1); // true
+    bindings->series_set_element_u8(h1, 2, 0); // false
+    bindings->series_set_element_u8(h1, 3, 1); // true
 
-    const uint32_t h2 = bindings->series_not_u8(h1);
-    const uint32_t h3 = bindings->series_not_u8(h2);
+    const uint32_t h2 = bindings->series_not_u8(h1); // 1, 0, 1, 0
+    const uint32_t h3 = bindings->series_not_u8(h2); // 0, 1, 0, 1
 
-    EXPECT_EQ(bindings->series_index_u8(h3, 0), 0x00);
-    EXPECT_EQ(bindings->series_index_u8(h3, 1), 0xFF);
-    EXPECT_EQ(bindings->series_index_u8(h3, 2), 0xAB);
-    EXPECT_EQ(bindings->series_index_u8(h3, 3), 0x55);
+    // Double logical NOT returns original boolean values
+    EXPECT_EQ(bindings->series_index_u8(h3, 0), 0);
+    EXPECT_EQ(bindings->series_index_u8(h3, 1), 1);
+    EXPECT_EQ(bindings->series_index_u8(h3, 2), 0);
+    EXPECT_EQ(bindings->series_index_u8(h3, 3), 1);
 }
 
 TEST_F(BindingsTest, StringLenInvalidHandle) {
@@ -969,7 +976,7 @@ TEST_F(BindingsTest, ClearTransientHandlesClearsSeriesHandles) {
     EXPECT_EQ(bindings->series_len(h1), 3);
     EXPECT_EQ(bindings->series_len(h2), 2);
 
-    bindings->clear_transient_handles();
+    state->flush();
 
     EXPECT_EQ(bindings->series_len(h1), 0);
     EXPECT_EQ(bindings->series_len(h2), 0);
@@ -982,7 +989,7 @@ TEST_F(BindingsTest, ClearTransientHandlesClearsStringHandles) {
     EXPECT_EQ(bindings->string_get(h1), "hello");
     EXPECT_EQ(bindings->string_get(h2), "world");
 
-    bindings->clear_transient_handles();
+    state->flush();
 
     EXPECT_EQ(bindings->string_get(h1), "");
     EXPECT_EQ(bindings->string_get(h2), "");
@@ -995,7 +1002,7 @@ TEST_F(BindingsTest, ClearTransientHandlesResetsCounters) {
     bindings->string_create("a");
     bindings->string_create("b");
 
-    bindings->clear_transient_handles();
+    state->flush();
 
     const uint32_t new_series = bindings->series_create_empty_f64(1);
     const uint32_t new_string = bindings->string_create("new");
@@ -1010,7 +1017,7 @@ TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulSeries) {
     bindings->series_set_element_f64(h1, 1, 200.0);
     bindings->state_store_series_f64(1, 1, h1);
 
-    bindings->clear_transient_handles();
+    state->flush();
 
     EXPECT_EQ(bindings->series_len(h1), 0);
 
@@ -1026,7 +1033,7 @@ TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulStrings) {
     const uint32_t h1 = bindings->string_create("persistent");
     bindings->state_store_str(2, 2, h1);
 
-    bindings->clear_transient_handles();
+    state->flush();
 
     EXPECT_EQ(bindings->string_get(h1), "");
 
@@ -1041,7 +1048,7 @@ TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulPrimitives) {
     bindings->state_store_i32(1, 2, -42);
     bindings->state_store_u64(1, 3, 9999999999ULL);
 
-    bindings->clear_transient_handles();
+    state->flush();
 
     EXPECT_DOUBLE_EQ(bindings->state_load_f64(1, 1, 0.0), 3.14159);
     EXPECT_EQ(bindings->state_load_i32(1, 2, 0), -42);
@@ -1057,7 +1064,7 @@ TEST_F(BindingsTest, MultipleClearCycles) {
         EXPECT_EQ(bindings->series_len(h1), 2);
         EXPECT_NE(bindings->string_get(h2), "");
 
-        bindings->clear_transient_handles();
+        state->flush();
     }
 
     const uint32_t final_series = bindings->series_create_empty_f64(1);
@@ -1073,11 +1080,11 @@ protected:
     void SetUp() override {
         // Create a minimal State configuration
         state::Config cfg{.ir = ir::IR{}, .channels = {}};
-        state = std::make_unique<state::State>(cfg);
-        bindings = std::make_unique<Bindings>(state.get(), nullptr);
+        state = std::make_shared<state::State>(cfg);
+        bindings = std::make_unique<Bindings>(state, nullptr);
     }
 
-    std::unique_ptr<state::State> state;
+    std::shared_ptr<state::State> state;
     std::unique_ptr<Bindings> bindings;
 };
 
@@ -1091,7 +1098,6 @@ TEST_F(BindingsChannelTest, ChannelReadNoDataReturnsDefault) {
 }
 
 TEST_F(BindingsChannelTest, ChannelReadF64WithData) {
-    // Create a frame with data for channel 1
     const telem::Frame frame(1);
     auto series = telem::Series(telem::FLOAT64_T, 3);
     series.write(1.5);
@@ -1099,18 +1105,16 @@ TEST_F(BindingsChannelTest, ChannelReadF64WithData) {
     series.write(3.5);
     frame.emplace(1, std::move(series));
 
-    // Ingest the frame into state
     state->ingest(frame);
 
-    // Read should return the last value (3.5)
     EXPECT_DOUBLE_EQ(bindings->channel_read_f64(1), 3.5);
 }
 
 TEST_F(BindingsChannelTest, ChannelReadI32WithData) {
     const telem::Frame frame(1);
     auto series = telem::Series(telem::INT32_T, 2);
-    series.write(static_cast<int32_t>(42));
-    series.write(static_cast<int32_t>(-100));
+    series.write(42);
+    series.write(-100);
     frame.emplace(2, std::move(series));
 
     state->ingest(frame);
@@ -1131,11 +1135,9 @@ TEST_F(BindingsChannelTest, ChannelReadU8WithData) {
 }
 
 TEST_F(BindingsChannelTest, ChannelWriteF64) {
-    // Write a value to channel 10
     bindings->channel_write_f64(10, 99.5);
 
-    // Flush writes and verify
-    const auto writes = state->flush_writes();
+    const auto writes = state->flush();
     EXPECT_EQ(writes.size(), 1);
     EXPECT_EQ(writes[0].first, 10);
     EXPECT_EQ(writes[0].second->size(), 1);
@@ -1145,7 +1147,7 @@ TEST_F(BindingsChannelTest, ChannelWriteF64) {
 TEST_F(BindingsChannelTest, ChannelWriteI32) {
     bindings->channel_write_i32(20, -42);
 
-    const auto writes = state->flush_writes();
+    const auto writes = state->flush();
     EXPECT_EQ(writes.size(), 1);
     EXPECT_EQ(writes[0].first, 20);
     EXPECT_EQ(writes[0].second->at<int32_t>(0), -42);
@@ -1154,7 +1156,7 @@ TEST_F(BindingsChannelTest, ChannelWriteI32) {
 TEST_F(BindingsChannelTest, ChannelWriteU64) {
     bindings->channel_write_u64(30, 18446744073709551615ULL);
 
-    const auto writes = state->flush_writes();
+    const auto writes = state->flush();
     EXPECT_EQ(writes.size(), 1);
     EXPECT_EQ(writes[0].first, 30);
     EXPECT_EQ(writes[0].second->at<uint64_t>(0), 18446744073709551615ULL);
@@ -1168,43 +1170,34 @@ TEST_F(BindingsChannelTest, ChannelReadDifferentChannelReturnsDefault) {
     frame.emplace(1, std::move(series));
     state->ingest(frame);
 
-    // Read from channel 1 should return the data
     EXPECT_DOUBLE_EQ(bindings->channel_read_f64(1), 123.456);
-
-    // Read from channel 2 (no data) should return default
     EXPECT_EQ(bindings->channel_read_f64(2), 0.0);
 }
 
 TEST_F(BindingsChannelTest, ChannelMultipleWrites) {
-    // Multiple writes to different channels
     bindings->channel_write_f64(1, 1.0);
     bindings->channel_write_f64(2, 2.0);
     bindings->channel_write_i32(3, 3);
 
-    const auto writes = state->flush_writes();
+    const auto writes = state->flush();
     EXPECT_EQ(writes.size(), 3);
 }
 
 TEST_F(BindingsChannelTest, ChannelReadStrNoData) {
-    // String read with no data should return 0 (invalid handle)
     EXPECT_EQ(bindings->channel_read_str(1), 0);
 }
 
 TEST_F(BindingsChannelTest, ChannelWriteStr) {
-    // Create a string handle first
     const uint32_t str_handle = bindings->string_create("hello world");
 
-    // Write the string to a channel
     bindings->channel_write_str(40, str_handle);
 
-    const auto writes = state->flush_writes();
+    const auto writes = state->flush();
     EXPECT_EQ(writes.size(), 1);
     EXPECT_EQ(writes[0].first, 40);
-    // The written series should contain the string
     EXPECT_EQ(writes[0].second->size(), 1);
 }
 
-// Test that channel operations with null state don't crash
 TEST(BindingsNullStateTest, ChannelReadWithNullStateReturnsDefault) {
     const auto bindings = std::make_unique<Bindings>(nullptr, nullptr);
 
@@ -1216,7 +1209,6 @@ TEST(BindingsNullStateTest, ChannelReadWithNullStateReturnsDefault) {
 TEST(BindingsNullStateTest, ChannelWriteWithNullStateDoesNotCrash) {
     const auto bindings = std::make_unique<Bindings>(nullptr, nullptr);
 
-    // These should not crash
     bindings->channel_write_f64(1, 123.0);
     bindings->channel_write_i32(2, 456);
     bindings->channel_write_str(3, 0);

@@ -186,12 +186,12 @@ func (e *Writer) writeBlockType(bt BlockType) {
 
 // WriteLEB128Unsigned writes an unsigned LEB128 encoded integer
 func (e *Writer) WriteLEB128Unsigned(val uint64) {
-	writeUnsignedLeb128(&e.buf, val)
+	writeUnsignedLEB128(&e.buf, val)
 }
 
 // WriteLEB128Signed writes a signed LEB128 encoded integer
 func (e *Writer) WriteLEB128Signed(val int64) {
-	writeSignedLeb128(&e.buf, val)
+	writeSignedLEB128(&e.buf, val)
 }
 
 // Bytes returns the accumulated bytecode
