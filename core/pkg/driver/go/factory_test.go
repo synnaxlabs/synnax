@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	godriver "github.com/synnaxlabs/synnax/pkg/driver/go"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 type mockFactory struct {
@@ -74,7 +75,7 @@ var _ = Describe("MultiFactory", func() {
 			}
 
 			mf := godriver.MultiFactory{f1, f2}
-			result, ok, err := mf.ConfigureTask(ctx, task.Task{Type: "test"})
+			result, ok, err := mf.ConfigureTask(godriver.Context{Context: ctx}, task.Task{Type: "test"})
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
@@ -120,8 +121,8 @@ var _ = Describe("MultiFactory", func() {
 				},
 			}
 
-			mf := godriver.NewMultiFactory(f1, f2)
-			_, ok, err := mf.ConfigureTask(ctx, task.Task{Type: "test"})
+			mf := godriver.MultiFactory{f1, f2}
+			_, ok, err := mf.ConfigureTask(godriver.Context{Context: ctx}, task.Task{Type: "test"})
 
 			Expect(err).To(MatchError(expectedErr))
 			Expect(ok).To(BeTrue())
@@ -142,7 +143,7 @@ var _ = Describe("MultiFactory", func() {
 			}
 
 			mf := godriver.MultiFactory{f1, f2}
-			result, ok, err := mf.ConfigureTask(ctx, task.Task{Type: "test"})
+			result, ok, err := mf.ConfigureTask(godriver.Context{Context: ctx}, task.Task{Type: "test"})
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeFalse())
@@ -151,9 +152,7 @@ var _ = Describe("MultiFactory", func() {
 
 		It("should handle empty factory list", func() {
 			mf := godriver.MultiFactory{}
-			result, ok, err := mf.ConfigureTask(ctx, task.Task{Type: "test"})
-
-			Expect(err).ToNot(HaveOccurred())
+			result, ok := MustSucceed2(mf.ConfigureTask(godriver.Context{Context: ctx}, task.Task{Type: "test"}))
 			Expect(ok).To(BeFalse())
 			Expect(result).To(BeNil())
 		})

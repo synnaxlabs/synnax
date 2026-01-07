@@ -45,8 +45,8 @@ var _ = Describe("Config", Ordered, func() {
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
 		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-		labelSvc := MustSucceed(label.OpenService(ctx, label.Config{DB: db, Ontology: otg, Group: g}))
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{DB: db, Ontology: otg, Group: g}))
 		stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{Ontology: otg, DB: db, Group: g, Label: labelSvc}))
 		rackService = MustSucceed(rack.OpenService(ctx, rack.Config{
 			DB:           db,
@@ -133,6 +133,7 @@ var _ = Describe("Driver", Ordered, func() {
 		taskService  *task.Service
 		channelSvc   *channel.Service
 		framerSvc    *framer.Service
+		statusSvc    *status.Service
 		hostProvider = mock.StaticHostKeyProvider(1)
 	)
 
@@ -144,6 +145,7 @@ var _ = Describe("Driver", Ordered, func() {
 			Task:    taskService,
 			Framer:  framerSvc,
 			Channel: channelSvc,
+			Status:  statusSvc,
 			Factory: factory,
 			Host:    hostProvider,
 		}))
@@ -166,13 +168,13 @@ var _ = Describe("Driver", Ordered, func() {
 		dist = distB.Provision(ctx)
 		labelSvc := MustSucceed(label.OpenService(
 			ctx,
-			label.Config{
+			label.ServiceConfig{
 				DB:       dist.DB,
 				Ontology: dist.Ontology,
 				Group:    dist.Group,
 			}),
 		)
-		stat := MustSucceed(status.OpenService(
+		statusSvc = MustSucceed(status.OpenService(
 			ctx,
 			status.ServiceConfig{
 				Ontology: dist.Ontology,
@@ -186,14 +188,14 @@ var _ = Describe("Driver", Ordered, func() {
 			Ontology:     dist.Ontology,
 			Group:        dist.Group,
 			HostProvider: mock.StaticHostKeyProvider(1),
-			Status:       stat,
+			Status:       statusSvc,
 		}))
 		taskService = MustSucceed(task.OpenService(ctx, task.Config{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 			Rack:     rackService,
-			Status:   stat,
+			Status:   statusSvc,
 		}))
 		channelSvc = dist.Channel
 		framerSvc = dist.Framer
@@ -440,6 +442,7 @@ var _ = Describe("Driver", Ordered, func() {
 				Task:    taskService,
 				Framer:  framerSvc,
 				Channel: channelSvc,
+				Status:  statusSvc,
 				Factory: factory,
 				Host:    hostProvider,
 			}))
@@ -479,6 +482,7 @@ var _ = Describe("Driver", Ordered, func() {
 				Task:    taskService,
 				Framer:  framerSvc,
 				Channel: channelSvc,
+				Status:  statusSvc,
 				Factory: factory,
 				Host:    hostProvider,
 			}))

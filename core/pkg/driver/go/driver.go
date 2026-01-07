@@ -222,6 +222,8 @@ func (d *Driver) Close() error {
 	d.mu.tasks = make(map[task.Key]Task)
 	d.mu.Unlock()
 	d.disconnectObserver()
-	d.streamerRequests.Close()
+	if d.streamerRequests != nil {
+		d.streamerRequests.Close()
+	}
 	return d.shutdown.Close()
 }

@@ -32,7 +32,7 @@ type MultiFactory []Factory
 func (m MultiFactory) ConfigureTask(ctx Context, t task.Task) (Task, bool, error) {
 	for _, f := range m {
 		if tsk, ok, err := f.ConfigureTask(ctx, t); ok {
-			return tsk, ok, nil
+			return tsk, ok, err
 		} else if err != nil {
 			return nil, true, err
 		}
