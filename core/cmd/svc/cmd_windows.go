@@ -82,12 +82,10 @@ var serviceStopCmd = &cobra.Command{
 // root command.
 func RegisterCommands(root *cobra.Command) error {
 	root.AddCommand(serviceCmd)
-
 	serviceCmd.AddCommand(serviceInstallCmd)
 	serviceCmd.AddCommand(serviceUninstallCmd)
 	serviceCmd.AddCommand(serviceStartCmd)
 	serviceCmd.AddCommand(serviceStopCmd)
-
 	return configureServiceInstallFlags()
 }
 
@@ -163,20 +161,56 @@ func configureServiceInstallFlags() error {
 	return nil
 }
 
-func buildConfigFromFlags(c *cobra.Command) Config {
+func buildConfigFromFlags(c *cobra.Command) (Config, error) {
 	flags := c.Flags()
-	listen, _ := flags.GetString(listenFlag)
-	data, _ := flags.GetString(dataFlag)
-	insecure, _ := flags.GetBool(insecureFlag)
-	username, _ := flags.GetString(usernameFlag)
-	password, _ := flags.GetString(passwordFlag)
-	autoCert, _ := flags.GetBool(autoCertFlag)
-	noDriver, _ := flags.GetBool(noDriverFlag)
-	peers, _ := flags.GetStringSlice(peersFlag)
-	enableInt, _ := flags.GetStringSlice(enableIntegrations)
-	disableInt, _ := flags.GetStringSlice(disableIntegrations)
-	autoStart, _ := flags.GetBool(autoStartFlag)
-	delayedStart, _ := flags.GetBool(delayedStartFlag)
+	listen, err := flags.GetString(listenFlag)
+	if err != nil {
+		return Config{}, err
+	}
+	data, err := flags.GetString(dataFlag)
+	if err != nil {
+		return Config{}, err
+	}
+	insecure, err := flags.GetBool(insecureFlag)
+	if err != nil {
+		return Config{}, err
+	}
+	username, err := flags.GetString(usernameFlag)
+	if err != nil {
+		return Config{}, err
+	}
+	password, err := flags.GetString(passwordFlag)
+	if err != nil {
+		return Config{}, err
+	}
+	autoCert, err := flags.GetBool(autoCertFlag)
+	if err != nil {
+		return Config{}, err
+	}
+	noDriver, err := flags.GetBool(noDriverFlag)
+	if err != nil {
+		return Config{}, err
+	}
+	peers, err := flags.GetStringSlice(peersFlag)
+	if err != nil {
+		return Config{}, err
+	}
+	enableInt, err := flags.GetStringSlice(enableIntegrations)
+	if err != nil {
+		return Config{}, err
+	}
+	disableInt, err := flags.GetStringSlice(disableIntegrations)
+	if err != nil {
+		return Config{}, err
+	}
+	autoStart, err := flags.GetBool(autoStartFlag)
+	if err != nil {
+		return Config{}, err
+	}
+	delayedStart, err := flags.GetBool(delayedStartFlag)
+	if err != nil {
+		return Config{}, err
+	}
 
 	return Config{
 		ListenAddress:       listen,
@@ -191,15 +225,18 @@ func buildConfigFromFlags(c *cobra.Command) Config {
 		DisableIntegrations: disableInt,
 		AutoStart:           autoStart,
 		DelayedStart:        delayedStart,
-	}
+	}, nil
 }
 
 func serviceInstall(c *cobra.Command, _ []string) error {
-	cfg := buildConfigFromFlags(c)
+	cfg, err := buildConfigFromFlags(c)
+	if err != nil {
+		return err
+	}
 	if err := Install(cfg); err != nil {
 		return err
 	}
-	c.Printf("Service %s installed successfully.\n", Name)
+	c.Printf("Windows Service %s installed successfully.\n", Name)
 	c.Printf("Use 'synnax service start' or 'net start %s' to start the service.\n", Name)
 	return nil
 }
@@ -208,7 +245,7 @@ func serviceUninstall(c *cobra.Command, _ []string) error {
 	if err := Uninstall(); err != nil {
 		return err
 	}
-	c.Printf("Service %s uninstalled successfully.\n", Name)
+	c.Printf("Windows Service %s uninstalled successfully.\n", Name)
 	return nil
 }
 
@@ -216,7 +253,7 @@ func serviceStart(c *cobra.Command, _ []string) error {
 	if err := Start(); err != nil {
 		return err
 	}
-	c.Printf("Service %s started.\n", Name)
+	c.Printf("%s started.\n", Name)
 	return nil
 }
 
@@ -224,6 +261,6 @@ func serviceStop(c *cobra.Command, _ []string) error {
 	if err := Stop(); err != nil {
 		return err
 	}
-	c.Printf("Service %s stopped.\n", Name)
+	c.Printf("%s stopped.\n", Name)
 	return nil
 }
