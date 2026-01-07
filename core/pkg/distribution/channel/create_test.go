@@ -707,97 +707,99 @@ var _ = Describe("Create", Ordered, func() {
 
 })
 
-var _ = Describe("Create with name validation disabled", Ordered, func() {
-	var mockCluster *mock.Cluster
-	BeforeAll(func() {
-		mockCluster = mock.ProvisionCluster(ctx, 2, distribution.Config{
-			DisableChannelNameValidation: config.True(),
+var _ = Context("Name Validation Disabled", func() {
+	Describe("Channel Creation", Ordered, func() {
+		var mockCluster *mock.Cluster
+		BeforeAll(func() {
+			mockCluster = mock.ProvisionCluster(ctx, 1, distribution.Config{
+				DisableChannelNameValidation: config.True(),
+			})
 		})
-	})
-	AfterAll(func() {
-		Expect(mockCluster.Close()).To(Succeed())
-	})
-	It("Should create a channel with spaces in the name", func() {
-		ch := channel.Channel{
-			Name:        "my channel with spaces",
-			DataType:    telem.TimeStampT,
-			IsIndex:     true,
-			Leaseholder: 1,
-		}
-		Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
-		Expect(ch.Key()).ToNot(BeZero())
+		AfterAll(func() {
+			Expect(mockCluster.Close()).To(Succeed())
+		})
+		It("Should create a channel with spaces in the name", func() {
+			ch := channel.Channel{
+				Name:        "my channel with spaces",
+				DataType:    telem.TimeStampT,
+				IsIndex:     true,
+				Leaseholder: 1,
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
+			Expect(ch.Key()).ToNot(BeZero())
 
-		var retrieved channel.Channel
-		err := mockCluster.Nodes[1].Channel.NewRetrieve().
-			WhereKeys(ch.Key()).
-			Entry(&retrieved).
-			Exec(ctx, nil)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(retrieved.Name).To(Equal("my channel with spaces"))
-	})
-	It("Should create a channel with special characters in the name", func() {
-		ch := channel.Channel{
-			Name:        "sensor!@#$%",
-			DataType:    telem.Float64T,
-			Virtual:     true,
-			Leaseholder: cluster.Free,
-		}
-		Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
-		Expect(ch.Key()).ToNot(BeZero())
+			var retrieved channel.Channel
+			err := mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereKeys(ch.Key()).
+				Entry(&retrieved).
+				Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(retrieved.Name).To(Equal("my channel with spaces"))
+		})
+		It("Should create a channel with special characters in the name", func() {
+			ch := channel.Channel{
+				Name:        "sensor!@#$%",
+				DataType:    telem.Float64T,
+				Virtual:     true,
+				Leaseholder: cluster.Free,
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
+			Expect(ch.Key()).ToNot(BeZero())
 
-		var retrieved channel.Channel
-		err := mockCluster.Nodes[1].Channel.NewRetrieve().
-			WhereKeys(ch.Key()).
-			Entry(&retrieved).
-			Exec(ctx, nil)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(retrieved.Name).To(Equal("sensor!@#$%"))
-	})
-	It("Should create a channel with a name starting with a digit", func() {
-		ch := channel.Channel{
-			Name:        "1sensor",
-			DataType:    telem.TimeStampT,
-			IsIndex:     true,
-			Leaseholder: 1,
-		}
-		Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
-		Expect(ch.Key()).ToNot(BeZero())
+			var retrieved channel.Channel
+			err := mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereKeys(ch.Key()).
+				Entry(&retrieved).
+				Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(retrieved.Name).To(Equal("sensor!@#$%"))
+		})
+		It("Should create a channel with a name starting with a digit", func() {
+			ch := channel.Channel{
+				Name:        "1sensor",
+				DataType:    telem.TimeStampT,
+				IsIndex:     true,
+				Leaseholder: 1,
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
+			Expect(ch.Key()).ToNot(BeZero())
 
-		var retrieved channel.Channel
-		err := mockCluster.Nodes[1].Channel.NewRetrieve().
-			WhereKeys(ch.Key()).
-			Entry(&retrieved).
-			Exec(ctx, nil)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(retrieved.Name).To(Equal("1sensor"))
-	})
-	It("Should still reject empty names", func() {
-		ch := channel.Channel{
-			Name:        "",
-			DataType:    telem.Float64T,
-			Virtual:     true,
-			Leaseholder: cluster.Free,
-		}
-		Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).
-			To(MatchError(ContainSubstring("name cannot be empty")))
-	})
-	It("Should allow renaming to a name with special characters", func() {
-		ch := channel.Channel{
-			Name:        "original_name",
-			DataType:    telem.TimeStampT,
-			IsIndex:     true,
-			Leaseholder: 1,
-		}
-		Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
+			var retrieved channel.Channel
+			err := mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereKeys(ch.Key()).
+				Entry(&retrieved).
+				Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(retrieved.Name).To(Equal("1sensor"))
+		})
+		It("Should still reject empty names", func() {
+			ch := channel.Channel{
+				Name:        "",
+				DataType:    telem.Float64T,
+				Virtual:     true,
+				Leaseholder: cluster.Free,
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).
+				To(MatchError(ContainSubstring("name: required")))
+		})
+		It("Should allow renaming to a name with special characters", func() {
+			ch := channel.Channel{
+				Name:        "original_name",
+				DataType:    telem.TimeStampT,
+				IsIndex:     true,
+				Leaseholder: 1,
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
 
-		Expect(mockCluster.Nodes[1].Channel.Rename(ctx, ch.Key(), "new name with spaces!", false)).To(Succeed())
+			Expect(mockCluster.Nodes[1].Channel.Rename(ctx, ch.Key(), "new name with spaces!", false)).To(Succeed())
 
-		var retrieved channel.Channel
-		err := mockCluster.Nodes[1].Channel.NewRetrieve().
-			WhereKeys(ch.Key()).
-			Entry(&retrieved).
-			Exec(ctx, nil)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(retrieved.Name).To(Equal("new name with spaces!"))
+			var retrieved channel.Channel
+			err := mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereKeys(ch.Key()).
+				Entry(&retrieved).
+				Exec(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(retrieved.Name).To(Equal("new name with spaces!"))
+		})
 	})
 })

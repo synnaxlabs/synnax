@@ -59,7 +59,14 @@ func ProvisionCluster(ctx context.Context, n int, cfgs ...distribution.Config) *
 }
 
 func NewCluster(cfgs ...distribution.Config) *Cluster {
-	cfg, _ := config.New(distribution.Config{}, cfgs...)
+	// NOTE: We don't use config.New here because it returns a zero-value when
+	// validation fails (which it will since we don't have required fields).
+	// Instead, we manually merge the configs to preserve values like
+	// DisableChannelNameValidation.
+	var cfg distribution.Config
+	for _, c := range cfgs {
+		cfg = cfg.Override(c)
+	}
 	return &Cluster{
 		cfg:         cfg,
 		storage:     mock.NewCluster(),
