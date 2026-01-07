@@ -189,11 +189,10 @@ func getSignedIntegerLiteral(node antlr.ParserRuleContext) (int, bool) {
 }
 
 // Analyze validates type correctness of an expression and accumulates constraints.
-func Analyze(ctx context.Context[parser.IExpressionContext]) bool {
+func Analyze(ctx context.Context[parser.IExpressionContext]) {
 	if logicalOr := ctx.AST.LogicalOrExpression(); logicalOr != nil {
-		return analyzeLogicalOr(context.Child(ctx, logicalOr))
+		analyzeLogicalOr(context.Child(ctx, logicalOr))
 	}
-	return true
 }
 
 func getLogicalOrOperator(antlr.ParserRuleContext) string { return "or" }
@@ -263,16 +262,16 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 	getOperator func(ctx antlr.ParserRuleContext) string,
 	infer func(ctx context.Context[T]) basetypes.Type,
 	check func(t basetypes.Type) bool,
-) bool {
+) {
 	if len(items) <= 1 {
-		return true
+		return
 	}
 	firstType := infer(context.Child(ctx, items[0])).Unwrap()
 	opName := getOperator(ctx.AST)
 
 	// If first operand is Invalid, skip validation (error already reported upstream)
 	if firstType.Kind == basetypes.KindInvalid {
-		return true
+		return
 	}
 
 	if firstType.Kind != basetypes.KindVariable && !check(firstType) {
@@ -280,7 +279,7 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 			errors.Newf("cannot use %s in %s operation", firstType, opName),
 			ctx.AST,
 		)
-		return false
+		return
 	}
 
 	for i := 1; i < len(items); i++ {
@@ -296,7 +295,7 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 		// Note: Power operations (^) are handled separately in analyzePower via ValidatePowerOp.
 		if firstType.Unit != nil || nextType.Unit != nil {
 			if !units.ValidateBinaryOp(ctx, opName, firstType, nextType) {
-				return false
+				return
 			}
 		}
 
@@ -309,21 +308,18 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 					errors.Newf("type mismatch: cannot use %s and %s in %s operation", firstType, nextType, opName),
 					ctx.AST,
 				)
-				return false
+				return
 			}
 		}
 	}
-	return true
 }
 
-func analyzeLogicalOr(ctx context.Context[parser.ILogicalOrExpressionContext]) bool {
+func analyzeLogicalOr(ctx context.Context[parser.ILogicalOrExpressionContext]) {
 	logicalAnds := ctx.AST.AllLogicalAndExpression()
 	for _, logicalAnd := range logicalAnds {
-		if !analyzeLogicalAnd(context.Child(ctx, logicalAnd)) {
-			return false
-		}
+		analyzeLogicalAnd(context.Child(ctx, logicalAnd))
 	}
-	return validateType(
+	validateType(
 		ctx,
 		logicalAnds,
 		getLogicalOrOperator,
@@ -332,24 +328,20 @@ func analyzeLogicalOr(ctx context.Context[parser.ILogicalOrExpressionContext]) b
 	)
 }
 
-func analyzeLogicalAnd(ctx context.Context[parser.ILogicalAndExpressionContext]) bool {
+func analyzeLogicalAnd(ctx context.Context[parser.ILogicalAndExpressionContext]) {
 	equalities := ctx.AST.AllEqualityExpression()
 	for _, equality := range equalities {
-		if !analyzeEquality(context.Child(ctx, equality)) {
-			return false
-		}
+		analyzeEquality(context.Child(ctx, equality))
 	}
-	return validateType(ctx, equalities, getLogicalAndOperator, types.InferEquality, isBool)
+	validateType(ctx, equalities, getLogicalAndOperator, types.InferEquality, isBool)
 }
 
-func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) bool {
+func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) {
 	relExpressions := ctx.AST.AllRelationalExpression()
 	for _, relational := range relExpressions {
-		if !analyzeRelational(context.Child(ctx, relational)) {
-			return false
-		}
+		analyzeRelational(context.Child(ctx, relational))
 	}
-	return validateType(
+	validateType(
 		ctx,
 		relExpressions,
 		getEqualityOperator,
@@ -358,14 +350,12 @@ func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) boo
 	)
 }
 
-func analyzeRelational(ctx context.Context[parser.IRelationalExpressionContext]) bool {
+func analyzeRelational(ctx context.Context[parser.IRelationalExpressionContext]) {
 	additives := ctx.AST.AllAdditiveExpression()
 	for _, additive := range additives {
-		if !analyzeAdditive(context.Child(ctx, additive)) {
-			return false
-		}
+		analyzeAdditive(context.Child(ctx, additive))
 	}
-	return validateType(
+	validateType(
 		ctx,
 		additives,
 		getRelationalOperator,
@@ -374,12 +364,10 @@ func analyzeRelational(ctx context.Context[parser.IRelationalExpressionContext])
 	)
 }
 
-func analyzeAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) bool {
+func analyzeAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) {
 	mults := ctx.AST.AllMultiplicativeExpression()
 	for _, multiplicative := range mults {
-		if !analyzeMultiplicative(context.Child(ctx, multiplicative)) {
-			return false
-		}
+		analyzeMultiplicative(context.Child(ctx, multiplicative))
 	}
 	// Determine the operator - strings are only allowed for + (concatenation)
 	op := getAdditiveOperator(ctx.AST)
@@ -389,7 +377,7 @@ func analyzeAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) boo
 	} else {
 		check = isNumeric
 	}
-	return validateType[parser.IMultiplicativeExpressionContext](
+	validateType[parser.IMultiplicativeExpressionContext](
 		ctx,
 		mults,
 		getAdditiveOperator,
@@ -398,14 +386,12 @@ func analyzeAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) boo
 	)
 }
 
-func analyzeMultiplicative(ctx context.Context[parser.IMultiplicativeExpressionContext]) bool {
+func analyzeMultiplicative(ctx context.Context[parser.IMultiplicativeExpressionContext]) {
 	powers := ctx.AST.AllPowerExpression()
 	for _, power := range powers {
-		if !analyzePower(context.Child(ctx, power)) {
-			return false
-		}
+		analyzePower(context.Child(ctx, power))
 	}
-	return validateType[parser.IPowerExpressionContext](
+	validateType[parser.IPowerExpressionContext](
 		ctx,
 		powers,
 		getMultiplicativeOperator,
@@ -414,17 +400,13 @@ func analyzeMultiplicative(ctx context.Context[parser.IMultiplicativeExpressionC
 	)
 }
 
-func analyzePower(ctx context.Context[parser.IPowerExpressionContext]) bool {
+func analyzePower(ctx context.Context[parser.IPowerExpressionContext]) {
 	if unary := ctx.AST.UnaryExpression(); unary != nil {
-		if !analyzeUnary(context.Child(ctx, unary)) {
-			return false
-		}
+		analyzeUnary(context.Child(ctx, unary))
 	}
 	power := ctx.AST.PowerExpression()
 	if power != nil {
-		if !analyzePower(context.Child(ctx, power)) {
-			return false
-		}
+		analyzePower(context.Child(ctx, power))
 	}
 
 	if ctx.AST.CARET() != nil && power != nil {
@@ -435,20 +417,16 @@ func analyzePower(ctx context.Context[parser.IPowerExpressionContext]) bool {
 			_, isLiteral := getSignedIntegerLiteral(power)
 			if err := units.ValidatePowerOp(baseType, expType, isLiteral); err != nil {
 				ctx.Diagnostics.AddError(err, ctx.AST)
-				return false
+				return
 			}
 		}
 	}
-
-	return true
 }
 
-func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) bool {
+func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 	if innerUnary := ctx.AST.UnaryExpression(); innerUnary != nil {
 		childCtx := context.Child(ctx, innerUnary)
-		if !analyzeUnary(childCtx) {
-			return false
-		}
+		analyzeUnary(childCtx)
 		operandType := types.InferFromUnaryExpression(childCtx)
 		if ctx.AST.MINUS() != nil {
 			if !operandType.IsNumeric() {
@@ -456,7 +434,7 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) bool {
 					errors.Newf("operator - not supported for type %s", operandType),
 					ctx.AST,
 				)
-				return false
+				return
 			}
 		} else if ctx.AST.NOT() != nil {
 			if !operandType.IsBool() {
@@ -467,28 +445,23 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) bool {
 					),
 					ctx.AST,
 				)
-				return false
+				return
 			}
 		}
-		return true
+		return
 	}
 	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
-		return analyzePostfix(context.Child(ctx, postfix))
+		analyzePostfix(context.Child(ctx, postfix))
 	}
-	return true
 }
 
-func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) bool {
+func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 	if primary := ctx.AST.PrimaryExpression(); primary != nil {
-		if !analyzePrimary(context.Child(ctx, primary)) {
-			return false
-		}
+		analyzePrimary(context.Child(ctx, primary))
 	}
 	for _, indexOrSlice := range ctx.AST.AllIndexOrSlice() {
 		for _, expr := range indexOrSlice.AllExpression() {
-			if !Analyze(context.Child(ctx, expr)) {
-				return false
-			}
+			Analyze(context.Child(ctx, expr))
 		}
 	}
 
@@ -497,37 +470,31 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) bool 
 	for _, funcCall := range funcCalls {
 		if argList := funcCall.ArgumentList(); argList != nil {
 			for _, expr := range argList.AllExpression() {
-				if !Analyze(context.Child(ctx, expr)) {
-					return false
-				}
+				Analyze(context.Child(ctx, expr))
 			}
 		}
 	}
 
 	if len(funcCalls) == 0 {
-		return true
+		return
 	}
 	primary := ctx.AST.PrimaryExpression()
 	if id := primary.IDENTIFIER(); id != nil {
 		funcName := id.GetText()
 		scope, err := ctx.Scope.Resolve(ctx, funcName)
 		if err != nil {
-			ctx.Diagnostics.AddError(err, primary)
-			return false
+			// Error already reported by analyzePrimary
+			return
 		}
 		if scope.Kind == symbol.KindFunction {
-			if !validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0]) {
-				return false
-			}
+			validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0])
 		} else {
 			ctx.Diagnostics.AddError(
 				errors.Newf("cannot call non-function %s of type %s", funcName, scope.Type),
 				funcCalls[0],
 			)
-			return false
 		}
 	}
-	return true
 }
 
 func validateFunctionCall(
@@ -535,7 +502,7 @@ func validateFunctionCall(
 	funcType basetypes.Type,
 	funcName string,
 	funcCall parser.IFunctionCallSuffixContext,
-) bool {
+) {
 	_, hasDefaultOutput := funcType.Outputs.Get(ir.DefaultOutputParam)
 	hasMultipleOutputs := len(funcType.Outputs) > 1 || (len(funcType.Outputs) == 1 && !hasDefaultOutput)
 	if hasMultipleOutputs {
@@ -543,7 +510,7 @@ func validateFunctionCall(
 			errors.Newf("cannot call function %s: functions with multiple named outputs are not callable", funcName),
 			funcCall,
 		)
-		return false
+		return
 	}
 
 	var args []parser.IExpressionContext
@@ -570,7 +537,7 @@ func validateFunctionCall(
 				funcCall,
 			)
 		}
-		return false
+		return
 	}
 
 	for i, arg := range args {
@@ -587,31 +554,28 @@ func validateFunctionCall(
 					i+1, funcName, paramType, argType),
 				arg,
 			)
-			return false
+			return
 		}
 	}
-	return true
 }
 
-func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) bool {
+func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		if _, err := ctx.Scope.Resolve(ctx, id.GetText()); err != nil {
 			ctx.Diagnostics.AddError(err, ctx.AST)
-			return false
 		}
-		return true
+		return
 	}
 	if ctx.AST.Literal() != nil {
-		return true
+		return
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
-		return Analyze(context.Child(ctx, expr))
+		Analyze(context.Child(ctx, expr))
+		return
 	}
 	if typeCast := ctx.AST.TypeCast(); typeCast != nil {
 		if expr := typeCast.Expression(); expr != nil {
-			if !Analyze(context.Child(ctx, expr)) {
-				return false
-			}
+			Analyze(context.Child(ctx, expr))
 			// Validate that the cast is allowed
 			sourceType := types.InferFromExpression(context.Child(ctx, expr)).Unwrap()
 			if typeCtx := typeCast.Type_(); typeCtx != nil {
@@ -621,12 +585,10 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) bool 
 						errors.Newf("cannot cast %s to %s", sourceType, targetType),
 						ctx.AST,
 					)
-					return false
 				}
 			}
 		}
 	}
-	return true
 }
 
 func isValidCast(source, target basetypes.Type) bool {

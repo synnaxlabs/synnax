@@ -61,9 +61,15 @@ type Diagnostics []Diagnostic
 
 var _ error = (*Diagnostics)(nil)
 
-// Ok returns true if there are no diagnostics.
+// Ok returns true if there are no error-level diagnostics.
+// Warnings, info, and hints are allowed.
 func (d Diagnostics) Ok() bool {
-	return len(d) == 0
+	for _, diag := range d {
+		if diag.Severity == Error {
+			return false
+		}
+	}
+	return true
 }
 
 // Error implements the error interface.
