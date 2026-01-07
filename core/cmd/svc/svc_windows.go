@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
+	"github.com/synnaxlabs/synnax/cmd/flags"
 	"github.com/synnaxlabs/x/errors"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/eventlog"
@@ -60,8 +61,7 @@ func Install(cfg Config) error {
 	}()
 
 	if s, sErr := m.OpenService(name); sErr == nil {
-		_ = s.Close()
-		return errors.Newf("service %s already exists; use 'synnax service uninstall' first", name)
+		return errors.Combine(errors.Newf("service %s already exists; use 'synnax service uninstall' first", name), s.Close())
 	}
 
 	startType := uint32(mgr.StartAutomatic)
@@ -76,10 +76,10 @@ func Install(cfg Config) error {
 		Description:  description,
 	}, buildServiceArgs(cfg)...)
 	if err != nil {
-		return errors.Wrap(err, "failed to create service")
+		return err
 	}
 	defer func() {
-		err = errors.Combine(err, errors.Wrap(s.Close(), "failed to close service handle"))
+		err = errors.Combine(err, s.Close())
 	}()
 
 	if cfg.DelayedStart {
@@ -99,14 +99,10 @@ func Install(cfg Config) error {
 		{Type: mgr.ServiceRestart, Delay: 30 * time.Second},
 		{Type: mgr.ServiceRestart, Delay: 60 * time.Second},
 	}, 86400); err != nil {
-		return errors.Wrap(err, "failed to set recovery actions")
+		return err
 	}
 
-	if err = eventlog.InstallAsEventCreate(name, eventlog.Error|eventlog.Warning|eventlog.Info); err != nil {
-		return errors.Wrap(err, "failed to install event log source")
-	}
-
-	return nil
+	return eventlog.InstallAsEventCreate(name, eventlog.Error|eventlog.Warning|eventlog.Info)
 }
 
 // Uninstall removes the Synnax Windows Service.
@@ -312,43 +308,43 @@ func RunAsService(startServer func(context.Context) error) error {
 func buildServiceArgs(cfg Config) []string {
 	var args []string
 
-	if cfg.ListenAddress != "" && cfg.ListenAddress != "localhost:9090" {
-		args = append(args, "--listen", cfg.ListenAddress)
+	if cfg.ListenAddress != "" {
+		args = append(args, "--"+flags.Listen, cfg.ListenAddress)
 	}
 
 	if cfg.DataDir != "" {
-		args = append(args, "--data", cfg.DataDir)
+		args = append(args, "--"+flags.Data, cfg.DataDir)
 	} else {
 		programData := os.Getenv("ProgramData")
 		if programData == "" {
 			programData = `C:\ProgramData`
 		}
-		args = append(args, "--data", filepath.Join(programData, "Synnax", "data"))
+		args = append(args, "--"+flags.Data, filepath.Join(programData, "Synnax", "data"))
 	}
 
 	if cfg.Insecure {
-		args = append(args, "--insecure")
+		args = append(args, "--"+flags.Insecure)
 	}
-	if cfg.Username != "" && cfg.Username != "synnax" {
-		args = append(args, "--username", cfg.Username)
+	if cfg.Username != "" {
+		args = append(args, "--"+flags.Username, cfg.Username)
 	}
-	if cfg.Password != "" && cfg.Password != "seldon" {
-		args = append(args, "--password", cfg.Password)
+	if cfg.Password != "" {
+		args = append(args, "--"+flags.Password, cfg.Password)
 	}
 	if cfg.AutoCert {
-		args = append(args, "--auto-cert")
+		args = append(args, "--"+flags.AutoCert)
 	}
 	if cfg.NoDriver {
-		args = append(args, "--no-driver")
+		args = append(args, "--"+flags.NoDriver)
 	}
 	if len(cfg.Peers) > 0 {
-		args = append(args, "--peers", strings.Join(cfg.Peers, ","))
+		args = append(args, "--"+flags.Peers, strings.Join(cfg.Peers, ","))
 	}
 	if len(cfg.EnableIntegrations) > 0 {
-		args = append(args, "--enable-integrations", strings.Join(cfg.EnableIntegrations, ","))
+		args = append(args, "--"+flags.EnableIntegrations, strings.Join(cfg.EnableIntegrations, ","))
 	}
 	if len(cfg.DisableIntegrations) > 0 {
-		args = append(args, "--disable-integrations", strings.Join(cfg.DisableIntegrations, ","))
+		args = append(args, "--"+flags.DisableIntegrations, strings.Join(cfg.DisableIntegrations, ","))
 	}
 
 	return args
@@ -361,7 +357,6 @@ func ParseServiceArgs(args []string) error {
 		if !strings.HasPrefix(arg, "--") {
 			continue
 		}
-
 		key := strings.TrimPrefix(arg, "--")
 		var value string
 
