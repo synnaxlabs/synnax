@@ -16,7 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	godriver2 "github.com/synnaxlabs/synnax/pkg/driver/go"
+	godriver "github.com/synnaxlabs/synnax/pkg/driver/go"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -63,7 +63,7 @@ func NewFactory(cfg FactoryConfig) *Factory {
 }
 
 // ConfigureTask creates an Arc task if this factory handles the task type.
-func (f *Factory) ConfigureTask(ctx godriver2.Context, t task.Task) (godriver2.Task, bool, error) {
+func (f *Factory) ConfigureTask(ctx godriver.Context, t task.Task) (godriver.Task, bool, error) {
 	if t.Type != TaskType {
 		return nil, false, nil
 	}

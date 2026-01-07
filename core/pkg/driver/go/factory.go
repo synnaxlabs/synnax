@@ -20,28 +20,21 @@ type Factory interface {
 	// Returns (nil, false, nil) if this factory does not handle the task type.
 	// Returns (nil, true, err) if the factory handles this type but configuration failed.
 	ConfigureTask(ctx Context, t task.Task) (Task, bool, error)
-
 	// Name returns the factory name for logging.
 	Name() string
 }
 
 // MultiFactory chains multiple factories together, trying each one in order
 // until one handles the task.
-type MultiFactory struct {
-	factories []Factory
-}
-
-// NewMultiFactory creates a new MultiFactory with the given factories.
-func NewMultiFactory(factories ...Factory) *MultiFactory {
-	return &MultiFactory{factories: factories}
-}
+type MultiFactory []Factory
 
 // ConfigureTask tries each factory in order until one handles the task.
-func (m *MultiFactory) ConfigureTask(ctx Context, t task.Task) (Task, bool, error) {
-	for _, f := range m.factories {
-		task, ok, err := f.ConfigureTask(ctx, t)
-		if ok || err != nil {
-			return task, ok, err
+func (m MultiFactory) ConfigureTask(ctx Context, t task.Task) (Task, bool, error) {
+	for _, f := range m {
+		if tsk, ok, err := f.ConfigureTask(ctx, t); ok {
+			return tsk, ok, nil
+		} else if err != nil {
+			return nil, true, err
 		}
 	}
 	return nil, false, nil

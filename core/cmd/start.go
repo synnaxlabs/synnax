@@ -289,14 +289,12 @@ func start(cmd *cobra.Command) {
 					Framer:          distributionLayer.Framer,
 					Channel:         distributionLayer.Channel,
 					Status:          serviceLayer.Status,
-					Factory: godriver.NewMultiFactory(
-						arcruntime.NewFactory(arcruntime.FactoryConfig{
-							Channel:   distributionLayer.Channel,
-							Framer:    distributionLayer.Framer,
-							Status:    serviceLayer.Status,
-							GetModule: serviceLayer.Arc.GetModule,
-						}),
-					),
+					Factory: arcruntime.NewFactory(arcruntime.FactoryConfig{
+						Channel:   distributionLayer.Channel,
+						Framer:    distributionLayer.Framer,
+						Status:    serviceLayer.Status,
+						GetModule: serviceLayer.Arc.GetModule,
+					}),
 					Host: distributionLayer.Cluster,
 				},
 				CPP: cppdriver.Config{

@@ -27,8 +27,5 @@ func NewContext(ctx context.Context, statusSvc *status.Service) Context {
 }
 
 func (c Context) SetStatus(stat task.Status) error {
-	return status.NewWriter[task.StatusDetails](c.status, nil).Set(
-		c.Context,
-		(*status.Status[task.StatusDetails])(&stat),
-	)
+	return status.NewWriter[task.StatusDetails](c.status, nil).Set(c.Context, &stat)
 }

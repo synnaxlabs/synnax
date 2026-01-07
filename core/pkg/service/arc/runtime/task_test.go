@@ -24,7 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	godriver2 "github.com/synnaxlabs/synnax/pkg/driver/go"
+	godriver "github.com/synnaxlabs/synnax/pkg/driver/go"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
@@ -68,8 +68,8 @@ var _ = Describe("Task", Ordered, func() {
 		Expect(dist.Close()).To(Succeed())
 	})
 
-	newContext := func() godriver2.Context {
-		return godriver2.NewContext(ctx, statusSvc)
+	newContext := func() godriver.Context {
+		return godriver.NewContext(ctx, statusSvc)
 	}
 
 	newFactory := func(g graph.Graph) *runtime.Factory {
@@ -85,7 +85,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	}
 
-	newTask := func(factory *runtime.Factory) godriver2.Task {
+	newTask := func(factory *runtime.Factory) godriver.Task {
 		cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
 		svcTask := task.Task{
 			Key:    task.NewKey(rack.NewKey(1, 1), 1),
@@ -174,7 +174,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Task Lifecycle", func() {
-		var arcTask godriver2.Task
+		var arcTask godriver.Task
 
 		BeforeEach(func() {
 			ch := &channel.Channel{

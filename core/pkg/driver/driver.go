@@ -13,13 +13,13 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/driver/cpp"
-	godriver2 "github.com/synnaxlabs/synnax/pkg/driver/go"
+	godriver "github.com/synnaxlabs/synnax/pkg/driver/go"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 )
 
 type Config struct {
-	Go  godriver2.Config
+	Go  godriver.Config
 	CPP cpp.Config
 }
 
@@ -37,7 +37,7 @@ func (c Config) Override(other Config) Config {
 }
 
 type Driver struct {
-	go_ *godriver2.Driver
+	go_ *godriver.Driver
 	cpp *cpp.Driver
 }
 
@@ -56,7 +56,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	}
 	d := &Driver{}
 
-	if d.go_, err = godriver2.Open(ctx, cfg.Go); err != nil {
+	if d.go_, err = godriver.Open(ctx, cfg.Go); err != nil {
 		return nil, err
 	}
 	if d.cpp, err = cpp.Open(ctx, cfg.CPP); err != nil {
