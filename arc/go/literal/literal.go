@@ -40,14 +40,28 @@ func Parse(
 		return ParseNumeric(num, targetType)
 	}
 	if str := literal.STR_LITERAL(); str != nil {
-		// TODO: Parse string literals when needed
-		// https://linear.app/synnax/issue/SY-3242/implement-string-literal-parsing-in-arc
-		return ParsedValue{}, errors.New("string literals not yet supported")
+		return ParseString(str.GetText(), targetType)
 	}
 	if series := literal.SeriesLiteral(); series != nil {
 		return ParsedValue{}, errors.New("series literals not supported for default values")
 	}
 	return ParsedValue{}, errors.New("unknown literal type")
+}
+
+// ParseString parses a string literal and returns its value and type.
+// It handles escape sequences according to the Arc grammar:
+// - \b, \t, \n, \f, \r, \", \\
+// - \uXXXX (4-digit Unicode escape)
+// The text parameter should include the surrounding double quotes.
+func ParseString(text string, targetType types.Type) (ParsedValue, error) {
+	if targetType.IsValid() && targetType.Kind != types.KindString {
+		return ParsedValue{}, errors.Newf("cannot assign string to %s", targetType)
+	}
+	unquoted, err := strconv.Unquote(text)
+	if err != nil {
+		return ParsedValue{}, errors.Wrapf(err, "invalid string literal: %s", text)
+	}
+	return ParsedValue{Value: unquoted, Type: types.String()}, nil
 }
 
 // ParseNumeric parses a numeric literal (integer or float, with optional unit suffix) and returns its value and type.

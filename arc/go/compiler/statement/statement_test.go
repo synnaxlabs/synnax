@@ -19,6 +19,8 @@ import (
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -588,4 +590,42 @@ var _ = Describe("Statement Compiler", func() {
 			OpLocalSet, 1,
 		),
 	)
+
+	Describe("Indexed Assignment", func() {
+		It("Should compile indexed assignment to series", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				data series i64 := [1, 2, 3]
+				data[0] = 42
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+
+			// Set up function scope BEFORE analysis (required for indexed assignment)
+			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
+				Name: "testFunc",
+				Kind: symbol.KindFunction,
+			}))
+			Expect(fnScope).ToNot(BeNil())
+			fn := MustSucceed(aCtx.Scope.Resolve(aCtx, "testFunc"))
+			aCtx.Scope = fn
+
+			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue(), aCtx.Diagnostics.String())
+
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			// Get the import indices we need to verify
+			seriesCreateIdx := ctx.Imports.SeriesCreateEmpty[types.I64().String()]
+			seriesSetElementIdx := ctx.Imports.SeriesSetElement[types.I64().String()]
+
+			// Verify that bytecode contains correct sequence for indexed assignment:
+			// 1. Create series and store in local
+			// 2. For indexed assignment: get local, push index, push value, call set_element
+			bytecode := ctx.Writer.Bytes()
+
+			Expect(bytecode).To(ContainSubstring(string([]byte{byte(OpLocalGet)})))
+			Expect(seriesCreateIdx).ToNot(Equal(uint32(0)))
+			Expect(seriesSetElementIdx).ToNot(Equal(uint32(0)))
+		})
+	})
 })

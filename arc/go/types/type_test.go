@@ -192,6 +192,11 @@ var _ = Describe("Types", func() {
 				Expect(types.Chan(types.String()).IsNumeric()).To(BeFalse())
 			})
 
+			It("Should check value type for series", func() {
+				Expect(types.Series(types.F64()).IsNumeric()).To(BeTrue())
+				Expect(types.Series(types.String()).IsNumeric()).To(BeFalse())
+			})
+
 			It("Should handle type variables with numeric constraint", func() {
 				constraint := types.NumericConstraint()
 				tv := types.Variable("N", &constraint)
@@ -305,6 +310,31 @@ var _ = Describe("Types", func() {
 			)
 		})
 
+		Describe("IsSigned", func() {
+			DescribeTable("Should return true for signed types",
+				func(t types.Type) {
+					Expect(t.IsSigned()).To(BeTrue())
+				},
+				Entry("I8", types.I8()),
+				Entry("I16", types.I16()),
+				Entry("I32", types.I32()),
+				Entry("I64", types.I64()),
+				Entry("F32", types.F32()),
+				Entry("F64", types.F64()),
+			)
+
+			DescribeTable("Should return false for unsigned types",
+				func(t types.Type) {
+					Expect(t.IsSigned()).To(BeFalse())
+				},
+				Entry("U8", types.U8()),
+				Entry("U16", types.U16()),
+				Entry("U32", types.U32()),
+				Entry("U64", types.U64()),
+				Entry("String", types.String()),
+			)
+		})
+
 		Describe("IntegerMaxValue", func() {
 			DescribeTable("Should return correct max value for integer types",
 				func(t types.Type, expected int64) {
@@ -390,6 +420,16 @@ var _ = Describe("Types", func() {
 			It("Should return false for other types", func() {
 				Expect(types.I32().IsBool()).To(BeFalse())
 				Expect(types.String().IsBool()).To(BeFalse())
+			})
+
+			It("Should check value type for channels", func() {
+				Expect(types.Chan(types.U8()).IsBool()).To(BeTrue())
+				Expect(types.Chan(types.I32()).IsBool()).To(BeFalse())
+			})
+
+			It("Should check value type for series", func() {
+				Expect(types.Series(types.U8()).IsBool()).To(BeTrue())
+				Expect(types.Series(types.I32()).IsBool()).To(BeFalse())
 			})
 		})
 

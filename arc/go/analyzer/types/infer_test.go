@@ -158,6 +158,26 @@ var _ = Describe("Type Inference", func() {
 				Expect(t.Kind).To(Equal(types.KindI64))
 			})
 		})
+
+		Context("series in additive expressions", func() {
+			It("should infer series type for series + scalar", func() {
+				t := inferExprType(bCtx, testResolver, "data_series + 10")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Unwrap().Kind).To(Equal(types.KindI64))
+			})
+
+			It("should infer series type for scalar + series", func() {
+				t := inferExprType(bCtx, testResolver, "10 + data_series")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Unwrap().Kind).To(Equal(types.KindI64))
+			})
+
+			It("should infer series type for series - scalar", func() {
+				t := inferExprType(bCtx, testResolver, "data_series - 5")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Unwrap().Kind).To(Equal(types.KindI64))
+			})
+		})
 	})
 
 	Describe("Compatible", func() {

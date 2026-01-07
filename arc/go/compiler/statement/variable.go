@@ -10,6 +10,7 @@
 package statement
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/expression"
 	"github.com/synnaxlabs/arc/compiler/wasm"
@@ -36,7 +37,8 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 		return err
 	}
 	varType := varScope.Type
-	exprType, err := expression.Compile(context.Child(ctx, ctx.AST.Expression()).WithHint(varType))
+	exprCtx := context.Child(ctx, ctx.AST.Expression()).WithHint(varType)
+	exprType, err := expression.Compile(exprCtx)
 	if err != nil {
 		return errors.Wrapf(err, "failed to compile initialization expression for '%s'", name)
 	}
@@ -59,43 +61,98 @@ func compileStatefulVariable(
 		return err
 	}
 	varType := scope.Type
+
 	// Emit state load-or-initialize operation
 	// Push func ID (0 for now - runtime will provide actual ID)
 	ctx.Writer.WriteI32Const(0)
 	// Push state key
 	ctx.Writer.WriteI32Const(int32(scope.ID))
+
 	// Compile the initialization expression (analyzer guarantees type correctness)
-	_, err = expression.Compile(context.Child(ctx, ctx.AST.Expression()).WithHint(varType))
+	exprCtx := context.Child(ctx, ctx.AST.Expression()).WithHint(varType)
+	_, err = expression.Compile(exprCtx)
 	if err != nil {
 		return errors.Wrapf(err, "failed to compile initialization for stateful variable '%s'", name)
 	}
-	// Stack is now: [funcID, varID, initValue]
-	// Call state load function (runtime implements load-or-initialize logic)
-	importIdx, err := ctx.Imports.GetStateLoad(varType)
+
+	// Stack is now: [funcID, varID, initValue/initHandle]
+	// Call appropriate state load function based on type
+	var importIdx uint32
+	if varType.Kind == types.KindSeries {
+		// Series types use handle-based state operations
+		importIdx, err = ctx.Imports.GetStateLoadSeries(*varType.Elem)
+	} else {
+		// Primitive types use value-based state operations
+		importIdx, err = ctx.Imports.GetStateLoad(varType)
+	}
 	if err != nil {
 		return err
 	}
 	ctx.Writer.WriteCall(importIdx)
-	// Stack is now: [value]
+
+	// Stack is now: [value/handle]
 	// Store in local variable
 	ctx.Writer.WriteLocalSet(scope.ID)
 	return nil
 }
 
-// compileAssignment handles variable assignments (x = expr)
+// compileIndexedAssignment handles indexed assignment statements (series[i] = value)
+func compileIndexedAssignment(
+	ctx context.Context[parser.IAssignmentContext],
+	scope *symbol.Scope,
+	indexOrSlice parser.IIndexOrSliceContext,
+) error {
+	elemType := scope.Type.Unwrap()
+
+	// Step 1: Push series handle onto stack
+	ctx.Writer.WriteLocalGet(scope.ID)
+
+	// Step 2: Compile and push index expression
+	indexExpressions := indexOrSlice.AllExpression()
+	if _, err := expression.Compile(
+		context.Child(ctx, indexExpressions[0]).WithHint(types.I32()),
+	); err != nil {
+		return errors.Wrap(err, "failed to compile index expression")
+	}
+
+	// Step 3: Compile and push value expression
+	if _, err := expression.Compile(
+		context.Child(ctx, ctx.AST.Expression()).WithHint(elemType),
+	); err != nil {
+		return errors.Wrap(err, "failed to compile value expression")
+	}
+
+	// Stack is now: [series_handle, index, value]
+	// Step 4: Call series_set_element_<type>(handle, index, value) -> handle
+	importIdx, err := ctx.Imports.GetSeriesSetElement(elemType)
+	if err != nil {
+		return err
+	}
+	ctx.Writer.WriteCall(importIdx)
+
+	// Drop the returned handle since we don't need it for assignment
+	ctx.Writer.WriteOpcode(wasm.OpDrop)
+
+	return nil
+}
+
+// compileAssignment handles variable assignments (x = expr) and indexed assignments (s[i] = expr)
 func compileAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 ) error {
-	// Resolve the variable name
 	name := ctx.AST.IDENTIFIER().GetText()
-	// Look up the symbol
 	scope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		return err
 	}
+
+	// Check for indexed assignment (series[i] = value)
+	if indexOrSlice := ctx.AST.IndexOrSlice(); indexOrSlice != nil {
+		return compileIndexedAssignment(ctx, scope, indexOrSlice)
+	}
+
 	sym := scope.Symbol
 	varType := sym.Type
-	// Compile the expression (analyzer guarantees type correctness)
 	exprType, err := expression.Compile(context.Child(ctx, ctx.AST.Expression()).WithHint(varType))
 	if err != nil {
 		return errors.Wrapf(err, "failed to compile assignment expression for '%s'", name)
@@ -111,8 +168,8 @@ func compileAssignment(
 		// Regular local variable or input
 		ctx.Writer.WriteLocalSet(scope.ID)
 	case symbol.KindStatefulVariable:
-		// Value is on stack from expression compilation
-		// Need to rearrange to: [funcID, varID, value]
+		// Value/handle is on stack from expression compilation
+		// Need to rearrange to: [funcID, varID, value/handle]
 		// First store value temporarily in local
 		ctx.Writer.WriteLocalSet(scope.ID)
 		// Push funcID and varID
@@ -120,13 +177,17 @@ func compileAssignment(
 		ctx.Writer.WriteI32Const(int32(scope.ID))
 		// Push value back from local
 		ctx.Writer.WriteLocalGet(scope.ID)
-		// Stack is now: [funcID, varID, value]
-		importIdx, err := ctx.Imports.GetStateStore(varType)
+		// Stack is now: [funcID, varID, value/handle]
+		resolveImportF := lo.Ternary(
+			varType.Kind == types.KindSeries,
+			ctx.Imports.GetStateStoreSeries,
+			ctx.Imports.GetStateStore,
+		)
+		importIdx, err := resolveImportF(varType.Unwrap())
 		if err != nil {
 			return err
 		}
 		ctx.Writer.WriteCall(importIdx)
-		// Assignment complete - stack is empty
 	case symbol.KindChannel, symbol.KindConfig:
 		// Channel write (assignment syntax): channel = value
 		// Stack: [value]

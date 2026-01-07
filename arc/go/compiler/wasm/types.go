@@ -25,6 +25,7 @@ const (
 	SectionMemory = 0x05
 	SectionExport = 0x07
 	SectionCode   = 0x0a
+	SectionData   = 0x0b
 	FuncType      = 0x60
 )
 
