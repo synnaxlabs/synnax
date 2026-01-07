@@ -16,15 +16,18 @@ import (
 	"github.com/synnaxlabs/x/address"
 )
 
-var command = &cobra.Command{
+var certCmd = &cobra.Command{
 	Use:   "cert",
-	Short: "Generate self-signed certificates for securing a Synnax cluster.",
-	Args:  cobra.NoArgs,
+	Short: "Generate self-signed certificates for a Synnax Core",
+	Long: `Generate self-signed certificates for a Synnax Core.
+See each sub-command's help for details on how to use them.`,
+	Args: cobra.NoArgs,
 }
 
 var caCmd = &cobra.Command{
 	Use:   "ca",
-	Short: "Generate a self-signed CA certificate.",
+	Short: "Generate a self-signed CA certificate",
+	Long:  "Generate a self-signed CA certificate.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		ins := instrumentation.Configure()
@@ -37,9 +40,10 @@ var caCmd = &cobra.Command{
 	},
 }
 
-var nodeCmd = &cobra.Command{
-	Use:   "node",
-	Short: "Generate a self-signed node certificate.",
+var coreCmd = &cobra.Command{
+	Use:   "core",
+	Short: "Generate a self-signed certificate for a Synnax Core",
+	Long:  "Generate a self-signed certificate for a Synnax Core.",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, hosts []string) error {
 		ins := instrumentation.Configure()
@@ -58,10 +62,11 @@ var nodeCmd = &cobra.Command{
 	},
 }
 
+// AddCommand adds the cert subcommand to the given parent command.
 func AddCommand(cmd *cobra.Command) {
-	cmd.AddCommand(command)
+	cmd.AddCommand(certCmd)
 	BindFlags(caCmd)
-	command.AddCommand(caCmd)
-	BindFlags(nodeCmd)
-	command.AddCommand(nodeCmd)
+	certCmd.AddCommand(caCmd)
+	BindFlags(coreCmd)
+	certCmd.AddCommand(coreCmd)
 }

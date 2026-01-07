@@ -11,11 +11,12 @@ package version
 
 import "github.com/spf13/cobra"
 
-var command = &cobra.Command{
+var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print the version of Synnax",
+	Long:  "Print the version of Synnax.",
 	Run:   func(*cobra.Command, []string) { Print() },
 }
 
 // AddCommand registers the version command to the given parent command.
-func AddCommand(cmd *cobra.Command) { cmd.AddCommand(command) }
+func AddCommand(cmd *cobra.Command) { cmd.AddCommand(versionCmd) }

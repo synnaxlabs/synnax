@@ -15,12 +15,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 )
 
+// Flag names used for creating certificates.
 const (
 	FlagCertsDir      = "certs-dir"
 	FlagCAKey         = "ca-key"
 	FlagCACert        = "ca-cert"
-	FlagNodeKey       = "node-key"
-	FlagNodeCert      = "node-cert"
+	FlagCoreKey       = "core-key"
+	FlagCoreCert      = "core-cert"
 	FlagAllowKeyReuse = "allow-key-reuse"
 	FlagKeySize       = "key-size"
 )
@@ -31,36 +32,36 @@ func BindFlags(cmd *cobra.Command) {
 	cmd.Flags().String(
 		FlagCertsDir,
 		cert.DefaultLoaderConfig.CertsDir,
-		"The directory where certificates should be stored and/or written to.",
+		"The directory where certificates should be stored and/or written to",
 	)
 	cmd.Flags().String(
 		FlagCAKey,
 		cert.DefaultLoaderConfig.CAKeyPath,
-		"The path to the CA key. This is relative to certs-dir.",
+		"The path to the CA key, relative to certs-dir",
 	)
 	cmd.Flags().String(
 		FlagCACert,
 		cert.DefaultLoaderConfig.CACertPath,
-		"The path to the CA certificate. This is relative to certs-dir.",
+		"The path to the CA certificate, relative to certs-dir",
 	)
 	cmd.Flags().String(
-		FlagNodeKey,
+		FlagCoreKey,
 		cert.DefaultLoaderConfig.NodeKeyPath,
-		"The path to the node key. This is relative to certs-dir.",
+		"The path to the Core key, relative to certs-dir",
 	)
 	cmd.Flags().String(
-		FlagNodeCert,
+		FlagCoreCert,
 		cert.DefaultLoaderConfig.NodeCertPath,
-		"The path to the node certificate. This is relative to certs-dir.",
+		"The path to the Core certificate, relative to certs-dir",
 	)
 	cmd.Flags().Bool(
 		FlagAllowKeyReuse,
 		*cert.DefaultFactoryConfig.AllowKeyReuse,
-		"Whether to allow the reuse of CA keys for certificate generation.",
+		"Whether to allow the reuse of CA keys for certificate generation",
 	)
 	cmd.Flags().Int(
 		FlagKeySize,
 		cert.DefaultFactoryConfig.KeySize,
-		"The size to use for certificate key generation.",
+		"The size to use for certificate key generation",
 	)
 }

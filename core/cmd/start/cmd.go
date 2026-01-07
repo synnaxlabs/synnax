@@ -17,16 +17,10 @@ import (
 
 // startCmd represents the start command
 var startCmd = &cobra.Command{
-	Use:   "start",
-	Short: "Starts a Synnax Node",
-	Long: `
-Starts a Synnax Node using the data directory specified by the --data flag,
-and listening on the address specified by the --listen flag. If --peers
-is specified and no existing data is found, the node will attempt to join the cluster
-formed by its peers. If no peers are specified and no existing data is found, the node
-will bootstrap a new cluster.
-	`,
-	Example: `synnax start --listen [host:port] --data /mnt/ssd1 --peers [host:port],[host:port] --insecure`,
+	Use:     "start",
+	Short:   "Starts a Synnax Core",
+	Long:    "Starts a Synnax Core using the data directory specified by the --data flag, and listening on the address specified by the --listen flag. If --peers is specified and no existing data is found, the Core will attempt to join the cluster formed by its peers. If no peers are specified and no existing data is found, the Core will bootstrap a new cluster.",
+	Example: "synnax start --listen localhost:9091 --data /mnt/ssd1 --peers localhost:9092,localhost:9093 --insecure",
 	Args:    cobra.NoArgs,
 	Run:     func(cmd *cobra.Command, _ []string) { start(cmd) },
 }
@@ -35,6 +29,7 @@ will bootstrap a new cluster.
 func AddCommand(cmd *cobra.Command) {
 	cmd.AddCommand(startCmd)
 	BindFlags(startCmd)
+	// todo: maybe edit this stuff
 	lo.Must0(viper.BindPFlags(startCmd.PersistentFlags()))
 	lo.Must0(viper.BindPFlags(startCmd.Flags()))
 }

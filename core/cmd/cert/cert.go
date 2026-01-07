@@ -24,13 +24,16 @@ func BuildLoaderConfig(ins alamos.Instrumentation) cert.LoaderConfig {
 		CertsDir:        viper.GetString(FlagCertsDir),
 		CAKeyPath:       viper.GetString(FlagCAKey),
 		CACertPath:      viper.GetString(FlagCACert),
-		NodeKeyPath:     viper.GetString(FlagNodeKey),
-		NodeCertPath:    viper.GetString(FlagNodeCert),
+		NodeKeyPath:     viper.GetString(FlagCoreKey),
+		NodeCertPath:    viper.GetString(FlagCoreCert),
 	}
 }
 
 // BuildCertFactoryConfig builds a cert.FactoryConfig using the viper configuration.
-func BuildCertFactoryConfig(ins alamos.Instrumentation, hosts ...address.Address) cert.FactoryConfig {
+func BuildCertFactoryConfig(
+	ins alamos.Instrumentation,
+	hosts ...address.Address,
+) cert.FactoryConfig {
 	return cert.FactoryConfig{
 		LoaderConfig:  BuildLoaderConfig(ins),
 		AllowKeyReuse: config.Bool(viper.GetBool(FlagAllowKeyReuse)),

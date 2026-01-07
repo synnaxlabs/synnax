@@ -317,7 +317,7 @@ func buildServiceArgs(cfg Config) []string {
 	} else {
 		programData := os.Getenv("ProgramData")
 		if programData == "" {
-			programData = `C:\ProgramData`
+			programData = "C:\\ProgramData"
 		}
 		args = append(args, "--"+start.FlagData, filepath.Join(programData, "Synnax", "data"))
 	}
@@ -361,7 +361,7 @@ func ParseServiceArgs(args []string) error {
 		SilenceErrors: true,
 	}
 
-	// Reuse the same flag definitions used by `synnax start`.
+	// Reuse the same flag definitions used by start.
 	start.BindFlags(cmd)
 
 	// Windows SCM passes service args through os.Args; parse them using Cobra so

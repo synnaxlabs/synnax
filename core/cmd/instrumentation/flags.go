@@ -11,6 +11,7 @@ package instrumentation
 
 import "github.com/spf13/cobra"
 
+// Flag names used for configuring instrumentation.
 const (
 	FlagVerbose           = "verbose"
 	FlagDebug             = "debug"
@@ -23,8 +24,8 @@ const (
 
 // BindFlags binds the instrumentation flags to the given command.
 func BindFlags(cmd *cobra.Command) {
-	cmd.Flags().BoolP(FlagVerbose, "v", false, "Enable verbose debugging.")
-	cmd.Flags().Bool(FlagDebug, false, "Enable debug logging.")
+	cmd.Flags().BoolP(FlagVerbose, "v", false, "Enable verbose debugging")
+	cmd.Flags().Bool(FlagDebug, false, "Enable debug logging")
 	cmd.Flags().String(FlagLogFilePath, "./synnax-logs/synnax.log", "Log file path")
 	cmd.Flags().Int(FlagLogFileMaxSize, 50, "Maximum size of log file in MB")
 	cmd.Flags().Int(FlagLogFileMaxBackups, 5, "Maximum number of log files to keep")

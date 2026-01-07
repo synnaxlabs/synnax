@@ -24,7 +24,8 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-// Configure configures the instrumentation for the application.
+// Configure configures the instrumentation for the application. Configure requires
+// access to Viper to parse flags.
 func Configure() alamos.Instrumentation {
 	logger, err := configureLogger()
 	if err != nil {

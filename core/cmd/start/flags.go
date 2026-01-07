@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/base64"
 )
 
+// Flag names used for starting a Synnax Core.
 const (
 	FlagListen              = "listen"
 	FlagPeers               = "peers"
@@ -47,13 +48,13 @@ func BindFlags(cmd *cobra.Command) {
 		FlagListen,
 		"l",
 		"localhost:9090",
-		`The address to listen for client connections.`,
+		"The address to listen for client connections",
 	)
 	cmd.Flags().StringSliceP(
 		FlagPeers,
 		"p",
 		nil,
-		"Addresses of additional peers in the cluster.",
+		"Addresses of additional peers in the cluster",
 	)
 	cmd.Flags().StringSlice(
 		FlagEnableIntegrations,
@@ -69,47 +70,47 @@ func BindFlags(cmd *cobra.Command) {
 		FlagData,
 		"d",
 		"synnax-data",
-		"Directory where the synnax Core will store its data.",
+		"Directory where the Core will store its data",
 	)
 	cmd.Flags().BoolP(FlagMem, "m", false, "Use in-memory storage")
 	cmd.Flags().BoolP(
 		FlagInsecure,
 		"i",
 		false,
-		"Disable encryption, authentication, and authorization.",
+		"Disable encryption, authentication, and authorization",
 	)
-	cmd.Flags().String(FlagUsername, "synnax", "Username for the admin user.")
-	cmd.Flags().String(FlagPassword, "seldon", "Password for the admin user.")
+	cmd.Flags().String(FlagUsername, "synnax", "Username for the admin user")
+	cmd.Flags().String(FlagPassword, "seldon", "Password for the admin user")
 	cmd.Flags().Bool(
 		FlagAutoCert,
 		false,
-		"Automatically generate self-signed certificates.",
+		"Automatically generate self-signed certificates",
 	)
 	cmd.Flags().Bool(FlagNoDriver, false, "Disable the embedded Driver")
 	cmd.Flags().Duration(
 		FlagSlowConsumerTimeout,
 		2500*time.Millisecond,
-		"Terminate slow consumers of the relay after this timeout.",
+		"Terminate slow consumers of the relay after this timeout",
 	)
 	cmd.Flags().Duration(
 		FlagTaskOpTimeout,
 		60*time.Second,
-		"Duration before reporting stuck task operations in the embedded Driver.",
+		"Duration before reporting stuck task operations in the embedded Driver",
 	)
 	cmd.Flags().Duration(
 		FlagTaskPollInterval,
 		1*time.Second,
-		"Interval between task timeout checks in the embedded Driver.",
+		"Interval between task timeout checks in the embedded Driver",
 	)
 	cmd.Flags().Duration(
 		FlagTaskShutdownTimeout,
 		30*time.Second,
-		"Max time to wait for task workers during embedded Driver shutdown.",
+		"Max time to wait for task workers during embedded Driver shutdown",
 	)
 	cmd.Flags().Int(
 		FlagTaskWorkerCount,
 		4,
-		"Number of worker threads for task operations in the embedded Driver (1-64).",
+		"Number of worker threads for task operations in the embedded Driver (1-64)",
 	)
 	cmd.Flags().String(decodedName, "", decodedUsage)
 }
@@ -117,7 +118,7 @@ func BindFlags(cmd *cobra.Command) {
 var (
 	decodedName  = base64.MustDecode("bGljZW5zZS1rZXk=")
 	decodedUsage = base64.MustDecode(
-		"TGljZW5zZSBrZXkgaW4gZm9ybSAiIyMjIyMjLSMjIyMjIyMjLSMjIyMjIyMjIyMiLg==",
+		"TGljZW5zZSBrZXkgaW4gZm9ybSAiIyMjIyMjLSMjIyMjIyMjLSMjIyMjIyMjIyMi",
 	)
 )
 
