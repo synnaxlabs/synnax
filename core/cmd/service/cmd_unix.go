@@ -13,6 +13,6 @@ package service
 
 import "github.com/spf13/cobra"
 
-// RegisterCommands is a no-op on non-Windows platforms. Service commands are only
+// RegisterCommand is a no-op on non-Windows platforms. Service commands are only
 // available on Windows.
-func RegisterCommands(*cobra.Command) {}
+func RegisterCommand(*cobra.Command) {}

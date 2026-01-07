@@ -70,8 +70,8 @@ var stopCmd = &cobra.Command{
 	RunE:  runStop,
 }
 
-// RegisterCommands registers the service subcommand to the given parent command.
-func RegisterCommands(cmd *cobra.Command) {
+// RegisterCommand registers the service subcommand to the given parent command.
+func RegisterCommand(cmd *cobra.Command) {
 	cmd.AddCommand(serviceCmd)
 	serviceCmd.AddCommand(installCmd)
 	installCmd.Flags().Bool(

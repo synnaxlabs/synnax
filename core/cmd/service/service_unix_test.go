@@ -20,7 +20,7 @@ import (
 var _ = Describe("Svc", func() {
 	It("RegisterCommands", func() {
 		It("should be a no-op on non-Windows platforms", func() {
-			Expect(func() { service.RegisterCommands(nil) }).ToNot(Panic())
+			Expect(func() { service.RegisterCommand(nil) }).ToNot(Panic())
 		})
 	})
 })

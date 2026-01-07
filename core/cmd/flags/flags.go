@@ -37,8 +37,7 @@ const (
 	TaskWorkerCount     = "task-worker-count"
 )
 
-// ConfigureServer adds the common server configuration flags to the given command. This
-// is used by both the start command and the service install command.
+// ConfigureServer adds the common server configuration flags to the given command.
 func ConfigureServer(cmd *cobra.Command) {
 	cmd.Flags().StringP(
 		Listen,
@@ -46,88 +45,74 @@ func ConfigureServer(cmd *cobra.Command) {
 		"localhost:9090",
 		`The address to listen for client connections.`,
 	)
-
 	cmd.Flags().StringSliceP(
 		Peers,
 		"p",
 		nil,
 		"Addresses of additional peers in the cluster.",
 	)
-
 	cmd.Flags().StringSlice(
 		EnableIntegrations,
 		nil,
 		"Device integrations to enable (labjack, modbus, ni, opc, sequence)",
 	)
-
 	cmd.Flags().StringSlice(
 		DisableIntegrations,
 		nil,
 		"Device integrations to disable (labjack, modbus, ni, opc, sequence)",
 	)
-
 	cmd.Flags().StringP(
 		Data,
 		"d",
 		"synnax-data",
-		"Directory where the synnax node will store its data.",
+		"Directory where the synnax Core will store its data.",
 	)
-
 	cmd.Flags().BoolP(Mem, "m", false, "Use in-memory storage")
-
 	cmd.Flags().BoolP(
 		Insecure,
 		"i",
 		false,
 		"Disable encryption, authentication, and authorization.",
 	)
-
 	cmd.Flags().String(Username, "synnax", "Username for the admin user.")
-
 	cmd.Flags().String(Password, "seldon", "Password for the admin user.")
-
 	cmd.Flags().Bool(
 		AutoCert,
 		false,
 		"Automatically generate self-signed certificates.",
 	)
-
-	cmd.Flags().Bool(NoDriver, false, "Disable the embedded synnax Driver")
-
+	cmd.Flags().Bool(NoDriver, false, "Disable the embedded Driver")
 	cmd.Flags().Duration(
 		SlowConsumerTimeout,
 		2500*time.Millisecond,
 		"Terminate slow consumers of the relay after this timeout.",
 	)
-
 	cmd.Flags().Duration(
 		TaskOpTimeout,
 		60*time.Second,
-		"Duration before reporting stuck task operations in the driver.",
+		"Duration before reporting stuck task operations in the embedded Driver.",
 	)
-
 	cmd.Flags().Duration(
 		TaskPollInterval,
 		1*time.Second,
-		"Interval between task timeout checks in the driver.",
+		"Interval between task timeout checks in the embedded Driver.",
 	)
-
 	cmd.Flags().Duration(
 		TaskShutdownTimeout,
 		30*time.Second,
-		"Max time to wait for task workers during driver shutdown.",
+		"Max time to wait for task workers during embedded Driver shutdown.",
 	)
-
 	cmd.Flags().Int(
 		TaskWorkerCount,
 		4,
-		"Number of worker threads for task operations in the driver (1-64).",
+		"Number of worker threads for task operations in the embedded Driver (1-64).",
 	)
-
 	cmd.Flags().String(decodedName, "", decodedUsage)
 }
 
 var (
 	decodedName  = base64.MustDecode("bGljZW5zZS1rZXk=")
-	decodedUsage = base64.MustDecode("TGljZW5zZSBrZXkgaW4gZm9ybSAiIyMjIyMjLSMjIyMjIyMjLSMjIyMjIyMjIyMiLg==")
+	decodedUsage = base64.MustDecode(
+		"TGljZW5zZSBrZXkgaW4gZm9ybSAiIyMjIyMjLSMjIyMjIyMjLSMjIyMjIyMjIyMiLg==",
+	)
 )
