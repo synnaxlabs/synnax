@@ -106,7 +106,7 @@ type Config struct {
 	// ValidateChannelNames disables channel name validation when true.
 	// This allows channels with special characters, spaces, etc.
 	//
-	// [OPTIONAL] - Defaults to false (validation enabled)
+	// [OPTIONAL] - Defaults to true (validation enabled)
 	ValidateChannelNames *bool
 }
 
