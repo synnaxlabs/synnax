@@ -94,11 +94,7 @@ func start(cmd *cobra.Command) {
 	// It's fine to let this get garbage collected.
 	go scanForStopKeyword(interruptC)
 
-	// Start the server in a goroutine
-	sCtx.Go(func(ctx context.Context) error { return startServer(ctx) },
-		xsignal.WithKey("start"),
-		xsignal.RecoverWithErrOnPanic(),
-	)
+	sCtx.Go(startServer, xsignal.WithKey("start"), xsignal.RecoverWithErrOnPanic())
 
 	select {
 	case <-interruptC:

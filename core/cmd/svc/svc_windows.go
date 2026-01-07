@@ -32,7 +32,6 @@ const (
 	stopPollTimeout = 30 * time.Second
 )
 
-// Service metadata constants.
 const (
 	name        = "SynnaxCore"
 	displayName = "Synnax Core"
@@ -42,8 +41,7 @@ const (
 // IsService returns true if the current process is running as a Windows Service.
 func IsService() (bool, error) { return svc.IsWindowsService() }
 
-// Install installs Synnax as a Windows Service with the given configuration.
-func Install(cfg Config) error {
+func install(cfg Config) error {
 	exePath, err := os.Executable()
 	if err != nil {
 		return errors.Wrap(err, "failed to get executable path")
@@ -105,8 +103,7 @@ func Install(cfg Config) error {
 	return eventlog.InstallAsEventCreate(name, eventlog.Error|eventlog.Warning|eventlog.Info)
 }
 
-// Uninstall removes the Synnax Windows Service.
-func Uninstall() error {
+func uninstall() error {
 	m, err := mgr.Connect()
 	if err != nil {
 		return errors.Wrap(err, "failed to connect to service manager (are you running as administrator?)")
@@ -166,8 +163,7 @@ func Start() error {
 	return nil
 }
 
-// Stop stops the Synnax Windows Service.
-func Stop() error {
+func stop() error {
 	m, err := mgr.Connect()
 	if err != nil {
 		return errors.Wrap(err, "failed to connect to service manager (are you running as administrator?)")

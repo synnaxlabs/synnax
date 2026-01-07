@@ -12,18 +12,11 @@
 package svc_test
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/synnax/cmd/svc"
 )
-
-func TestSvc(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Svc Suite")
-}
 
 var _ = Describe("ParseServiceArgs", func() {
 	BeforeEach(func() {

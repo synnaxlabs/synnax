@@ -13,10 +13,10 @@ package svc
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/synnaxlabs/synnax/cmd/flags"
 )
 
-// Service-specific flag constants.
 const (
 	autoStartFlag    = "auto-start"
 	delayedStartFlag = "delayed-start"
@@ -43,7 +43,7 @@ in the service configuration and used when the service starts.
 
 Example:
   synnax service install --listen 0.0.0.0:9090 --data C:\ProgramData\Synnax\data --insecure`,
-	RunE: serviceInstall,
+	RunE: runInstall,
 }
 
 var serviceUninstallCmd = &cobra.Command{
@@ -53,36 +53,35 @@ var serviceUninstallCmd = &cobra.Command{
 
 This will stop the service if it is running and remove it from the system.`,
 	Args: cobra.NoArgs,
-	RunE: serviceUninstall,
+	RunE: runUninstall,
 }
 
 var serviceStartCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start the Synnax Windows Service",
 	Args:  cobra.NoArgs,
-	RunE:  serviceStart,
+	RunE:  runStart,
 }
 
 var serviceStopCmd = &cobra.Command{
 	Use:   "stop",
 	Short: "Stop the Synnax Windows Service",
 	Args:  cobra.NoArgs,
-	RunE:  serviceStop,
+	RunE:  runStop,
 }
 
 // RegisterCommands registers the service command and all subcommands with the given
 // root command.
-func RegisterCommands(root *cobra.Command) error {
+func RegisterCommands(root *cobra.Command) {
 	root.AddCommand(serviceCmd)
 	serviceCmd.AddCommand(serviceInstallCmd)
 	serviceCmd.AddCommand(serviceUninstallCmd)
 	serviceCmd.AddCommand(serviceStartCmd)
 	serviceCmd.AddCommand(serviceStopCmd)
-	return configureServiceInstallFlags()
+	configureServiceInstallFlags()
 }
 
-func configureServiceInstallFlags() error {
-	// Service-specific flags
+func configureServiceInstallFlags() {
 	serviceInstallCmd.Flags().Bool(
 		autoStartFlag,
 		true,
@@ -93,64 +92,22 @@ func configureServiceInstallFlags() error {
 		false,
 		"Delay service start until after Windows startup completes",
 	)
-
-	// Add the common server configuration flags (shared with start command)
 	flags.ConfigureServerFlags(serviceInstallCmd)
-
-	return nil
 }
 
 func buildConfigFromFlags(c *cobra.Command) (Config, error) {
-	cmdFlags := c.Flags()
-	listen, err := cmdFlags.GetString(flags.Listen)
-	if err != nil {
-		return Config{}, err
-	}
-	data, err := cmdFlags.GetString(flags.Data)
-	if err != nil {
-		return Config{}, err
-	}
-	insecure, err := cmdFlags.GetBool(flags.Insecure)
-	if err != nil {
-		return Config{}, err
-	}
-	username, err := cmdFlags.GetString(flags.Username)
-	if err != nil {
-		return Config{}, err
-	}
-	password, err := cmdFlags.GetString(flags.Password)
-	if err != nil {
-		return Config{}, err
-	}
-	autoCert, err := cmdFlags.GetBool(flags.AutoCert)
-	if err != nil {
-		return Config{}, err
-	}
-	noDriver, err := cmdFlags.GetBool(flags.NoDriver)
-	if err != nil {
-		return Config{}, err
-	}
-	peers, err := cmdFlags.GetStringSlice(flags.Peers)
-	if err != nil {
-		return Config{}, err
-	}
-	enableInt, err := cmdFlags.GetStringSlice(flags.EnableIntegrations)
-	if err != nil {
-		return Config{}, err
-	}
-	disableInt, err := cmdFlags.GetStringSlice(flags.DisableIntegrations)
-	if err != nil {
-		return Config{}, err
-	}
-	autoStart, err := cmdFlags.GetBool(autoStartFlag)
-	if err != nil {
-		return Config{}, err
-	}
-	delayedStart, err := cmdFlags.GetBool(delayedStartFlag)
-	if err != nil {
-		return Config{}, err
-	}
-
+	listen := viper.GetString(flags.Listen)
+	data := viper.GetString(flags.Data)
+	insecure := viper.GetBool(flags.Insecure)
+	username := viper.GetString(flags.Username)
+	password := viper.GetString(flags.Password)
+	autoCert := viper.GetBool(flags.AutoCert)
+	noDriver := viper.GetBool(flags.NoDriver)
+	peers := viper.GetStringSlice(flags.Peers)
+	enableInt := viper.GetStringSlice(flags.EnableIntegrations)
+	disableInt := viper.GetStringSlice(flags.DisableIntegrations)
+	autoStart := viper.GetBool(autoStartFlag)
+	delayedStart := viper.GetBool(delayedStartFlag)
 	return Config{
 		ListenAddress:       listen,
 		DataDir:             data,
@@ -167,12 +124,12 @@ func buildConfigFromFlags(c *cobra.Command) (Config, error) {
 	}, nil
 }
 
-func serviceInstall(c *cobra.Command, _ []string) error {
+func runInstall(c *cobra.Command, _ []string) error {
 	cfg, err := buildConfigFromFlags(c)
 	if err != nil {
 		return err
 	}
-	if err := Install(cfg); err != nil {
+	if err := install(cfg); err != nil {
 		return err
 	}
 	c.Printf("Windows Service %s installed successfully.\n", name)
@@ -180,15 +137,15 @@ func serviceInstall(c *cobra.Command, _ []string) error {
 	return nil
 }
 
-func serviceUninstall(c *cobra.Command, _ []string) error {
-	if err := Uninstall(); err != nil {
+func runUninstall(c *cobra.Command, _ []string) error {
+	if err := uninstall(); err != nil {
 		return err
 	}
 	c.Printf("Windows Service %s uninstalled successfully.\n", name)
 	return nil
 }
 
-func serviceStart(c *cobra.Command, _ []string) error {
+func runStart(c *cobra.Command, _ []string) error {
 	if err := Start(); err != nil {
 		return err
 	}
@@ -196,8 +153,8 @@ func serviceStart(c *cobra.Command, _ []string) error {
 	return nil
 }
 
-func serviceStop(c *cobra.Command, _ []string) error {
-	if err := Stop(); err != nil {
+func runStop(c *cobra.Command, _ []string) error {
+	if err := stop(); err != nil {
 		return err
 	}
 	c.Printf("%s stopped.\n", name)
