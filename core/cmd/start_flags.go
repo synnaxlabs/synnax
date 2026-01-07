@@ -31,7 +31,8 @@ const (
 	noDriverFlag            = "no-driver"
 	slowConsumerTimeoutFlag = "slow-consumer-timeout"
 	enableIntegrationsFlag  = "enable-integrations"
-	disableIntegrationsFlag = "disable-integrations"
+	disableIntegrationsFlag              = "disable-integrations"
+	disableChannelNameValidationFlag = "disable-channel-name-validation"
 )
 
 func configureStartFlags() {
@@ -119,6 +120,12 @@ func configureStartFlags() {
 		string(decodedName),
 		"",
 		string(decodedUsage),
+	)
+
+	startCmd.Flags().Bool(
+		disableChannelNameValidationFlag,
+		false,
+		"Disable channel name validation (allows special characters, spaces, etc.)",
 	)
 }
 

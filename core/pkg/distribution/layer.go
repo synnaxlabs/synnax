@@ -103,6 +103,11 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to true.
 	EnableServiceSignals *bool
+	// DisableChannelNameValidation disables channel name validation when true.
+	// This allows channels with special characters, spaces, etc.
+	//
+	// [OPTIONAL] - Defaults to false (validation enabled)
+	DisableChannelNameValidation *bool
 }
 
 var (
@@ -111,9 +116,10 @@ var (
 	// This configuration is not valid on its own and must be overridden by the
 	// required fields specific in Config.
 	DefaultConfig = Config{
-		EnableSearch:         config.True(),
-		GorpCodec:            &binary.MsgPackCodec{},
-		EnableServiceSignals: config.True(),
+		EnableSearch:                 config.True(),
+		GorpCodec:                    &binary.MsgPackCodec{},
+		EnableServiceSignals:         config.True(),
+		DisableChannelNameValidation: config.False(),
 	}
 )
 
@@ -132,6 +138,7 @@ func (c Config) Override(other Config) Config {
 	c.EnableSearch = override.Nil(c.EnableSearch, other.EnableSearch)
 	c.GorpCodec = override.Nil(c.GorpCodec, other.GorpCodec)
 	c.EnableServiceSignals = override.Nil(c.EnableServiceSignals, other.EnableServiceSignals)
+	c.DisableChannelNameValidation = override.Nil(c.DisableChannelNameValidation, other.DisableChannelNameValidation)
 	return c
 }
 
@@ -278,6 +285,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			cfg.TestingIntOverflowCheck,
 			l.Verification.IsOverflowed,
 		),
+		ValidateNames: config.Bool(!*cfg.DisableChannelNameValidation),
 	}); !ok(err, nil) {
 		return nil, err
 	}

@@ -95,8 +95,9 @@ func start(cmd *cobra.Command) {
 		rootUsername        = viper.GetString(usernameFlag)
 		rootPassword        = viper.GetString(passwordFlag)
 		noDriver            = viper.GetBool(noDriverFlag)
-		keySize             = viper.GetInt(keySizeFlag)
-		ins                 = configureInstrumentation()
+		keySize                      = viper.GetInt(keySizeFlag)
+		disableChannelNameValidation = viper.GetBool(disableChannelNameValidationFlag)
+		ins                          = configureInstrumentation()
 	)
 	defer cleanupInstrumentation(ctx, ins)
 
@@ -180,14 +181,15 @@ func start(cmd *cobra.Command) {
 		)
 
 		if distributionLayer, err = distribution.Open(ctx, distribution.Config{
-			Instrumentation:  ins.Child("distribution"),
-			AdvertiseAddress: listenAddress,
-			PeerAddresses:    peers,
-			AspenTransport:   aspenTransport,
-			FrameTransport:   frameTransport,
-			ChannelTransport: channelTransport,
-			Verifier:         verifier,
-			Storage:          storageLayer,
+			Instrumentation:              ins.Child("distribution"),
+			AdvertiseAddress:             listenAddress,
+			PeerAddresses:                peers,
+			AspenTransport:               aspenTransport,
+			FrameTransport:               frameTransport,
+			ChannelTransport:             channelTransport,
+			Verifier:                     verifier,
+			Storage:                      storageLayer,
+			DisableChannelNameValidation: config.Bool(disableChannelNameValidation),
 		}); !ok(err, distributionLayer) {
 			return err
 		}

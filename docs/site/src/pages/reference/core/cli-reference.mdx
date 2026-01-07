@@ -188,6 +188,12 @@ synnax start -l localhost:9090 -im
       default: "false",
       description: "Whether to compress log files on disk.",
     },
+    {
+      option: "--disable-channel-name-validation",
+      default: "false",
+      description:
+        "Disables channel name validation. When enabled, channels can be created with any name including special characters and spaces. By default, channel names must contain only letters, digits, and underscores, and cannot start with a digit.",
+    },
   ]}
 />
 
@@ -226,6 +232,7 @@ Command line flags will take precedence over environment variables.
     { option: "--log-file-max-backups", env: "SYNNAX_LOG_FILE_MAX_BACKUPS" },
     { option: "--log-file-max-age", env: "SYNNAX_LOG_FILE_MAX_AGE" },
     { option: "--log-file-compress", env: "SYNNAX_LOG_FILE_COMPRESS" },
+    { option: "--disable-channel-name-validation", env: "SYNNAX_DISABLE_CHANNEL_NAME_VALIDATION" },
   ]}
 />
 
@@ -275,7 +282,8 @@ Here are example configuration files in various formats:
     "log-file-max-size": 50,
     "log-file-max-backups": 5,
     "log-file-max-age": 30,
-    "log-file-compress": true
+    "log-file-compress": true,
+    "disable-channel-name-validation": false
 }
 ```
 </slot>
@@ -305,6 +313,7 @@ log-file-max-size: 50
 log-file-max-backups: 5
 log-file-max-age: 30
 log-file-compress: true
+disable-channel-name-validation: false
 ```
 </slot>
 <slot slot="toml">
@@ -331,6 +340,7 @@ log-file-max-size = 50
 log-file-max-backups = 5
 log-file-max-age = 30
 log-file-compress = true
+disable-channel-name-validation = false
 ```
 </slot>
 </Tabs>
