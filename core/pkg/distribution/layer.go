@@ -154,6 +154,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "enable_search", c.EnableSearch)
 	validate.NotNil(v, "codec", c.GorpCodec)
 	validate.NotNil(v, "enable_channel_signals", c.EnableServiceSignals)
+	validate.NotNil(v, "disable_channel_name_validation", c.DisableChannelNameValidation)
 	return v.Error()
 }
 
