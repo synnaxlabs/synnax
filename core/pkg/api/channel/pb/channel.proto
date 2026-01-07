@@ -10,11 +10,11 @@ import "core/pkg/distribution/channel/pb/channel.proto";
 import "x/go/control/pb/control.proto";
 
 enum OperationType {
-  UNSPECIFIED = 0;
-  MIN = 1;
-  MAX = 2;
-  AVG = 3;
-  NONE = 4;
+  OPERATION_TYPE_UNSPECIFIED = 0;
+  OPERATION_TYPE_MIN = 1;
+  OPERATION_TYPE_MAX = 2;
+  OPERATION_TYPE_AVG = 3;
+  OPERATION_TYPE_NONE = 4;
 }
 
 message Channel {

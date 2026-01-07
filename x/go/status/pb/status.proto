@@ -10,13 +10,13 @@ import "google/protobuf/any.proto";
 import "x/go/label/pb/label.proto";
 
 enum Variant {
-  UNSPECIFIED = 0;
-  SUCCESS = 1;
-  INFO = 2;
-  WARNING = 3;
-  ERROR = 4;
-  LOADING = 5;
-  DISABLED = 6;
+  VARIANT_UNSPECIFIED = 0;
+  VARIANT_SUCCESS = 1;
+  VARIANT_INFO = 2;
+  VARIANT_WARNING = 3;
+  VARIANT_ERROR = 4;
+  VARIANT_LOADING = 5;
+  VARIANT_DISABLED = 6;
 }
 
 message Status {

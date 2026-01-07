@@ -177,7 +177,7 @@ var _ = Describe("Plugin", func() {
 			Expect(content).To(ContainSubstring("string email = 3;"))
 		})
 
-		It("Should generate enum with UNSPECIFIED value", func() {
+		It("Should generate enum with prefixed values per protobuf style guide", func() {
 			table := resolution.NewTable()
 			table.Add(resolution.Type{
 				Name:          "Role",
@@ -214,9 +214,10 @@ var _ = Describe("Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring("enum Role"))
-			Expect(content).To(ContainSubstring("UNSPECIFIED = 0;"))
-			Expect(content).To(ContainSubstring("ADMIN = 1;"))
-			Expect(content).To(ContainSubstring("USER = 2;"))
+			// Enum values should be prefixed with enum name per protobuf style guide
+			Expect(content).To(ContainSubstring("ROLE_UNSPECIFIED = 0;"))
+			Expect(content).To(ContainSubstring("ROLE_ADMIN = 1;"))
+			Expect(content).To(ContainSubstring("ROLE_USER = 2;"))
 		})
 
 		It("Should handle array fields as repeated", func() {

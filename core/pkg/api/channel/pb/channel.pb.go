@@ -37,28 +37,28 @@ const (
 type OperationType int32
 
 const (
-	OperationType_UNSPECIFIED OperationType = 0
-	OperationType_MIN         OperationType = 1
-	OperationType_MAX         OperationType = 2
-	OperationType_AVG         OperationType = 3
-	OperationType_NONE        OperationType = 4
+	OperationType_OPERATION_TYPE_UNSPECIFIED OperationType = 0
+	OperationType_OPERATION_TYPE_MIN         OperationType = 1
+	OperationType_OPERATION_TYPE_MAX         OperationType = 2
+	OperationType_OPERATION_TYPE_AVG         OperationType = 3
+	OperationType_OPERATION_TYPE_NONE        OperationType = 4
 )
 
 // Enum value maps for OperationType.
 var (
 	OperationType_name = map[int32]string{
-		0: "UNSPECIFIED",
-		1: "MIN",
-		2: "MAX",
-		3: "AVG",
-		4: "NONE",
+		0: "OPERATION_TYPE_UNSPECIFIED",
+		1: "OPERATION_TYPE_MIN",
+		2: "OPERATION_TYPE_MAX",
+		3: "OPERATION_TYPE_AVG",
+		4: "OPERATION_TYPE_NONE",
 	}
 	OperationType_value = map[string]int32{
-		"UNSPECIFIED": 0,
-		"MIN":         1,
-		"MAX":         2,
-		"AVG":         3,
-		"NONE":        4,
+		"OPERATION_TYPE_UNSPECIFIED": 0,
+		"OPERATION_TYPE_MIN":         1,
+		"OPERATION_TYPE_MAX":         2,
+		"OPERATION_TYPE_AVG":         3,
+		"OPERATION_TYPE_NONE":        4,
 	}
 )
 
@@ -243,13 +243,13 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
 	"operations\x18\v \x03(\v2\x1f.distribution.channel.OperationR\n" +
 	"operations\x128\n" +
-	"\vconcurrency\x18\f \x01(\x0e2\x16.x.control.ConcurrencyR\vconcurrency*E\n" +
-	"\rOperationType\x12\x0f\n" +
-	"\vUNSPECIFIED\x10\x00\x12\a\n" +
-	"\x03MIN\x10\x01\x12\a\n" +
-	"\x03MAX\x10\x02\x12\a\n" +
-	"\x03AVG\x10\x03\x12\b\n" +
-	"\x04NONE\x10\x04B\x9d\x01\n" +
+	"\vconcurrency\x18\f \x01(\x0e2\x16.x.control.ConcurrencyR\vconcurrency*\x90\x01\n" +
+	"\rOperationType\x12\x1e\n" +
+	"\x1aOPERATION_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +
+	"\x12OPERATION_TYPE_MIN\x10\x01\x12\x16\n" +
+	"\x12OPERATION_TYPE_MAX\x10\x02\x12\x16\n" +
+	"\x12OPERATION_TYPE_AVG\x10\x03\x12\x17\n" +
+	"\x13OPERATION_TYPE_NONE\x10\x04B\x9d\x01\n" +
 	"\x0fcom.api.channelB\fChannelProtoP\x01Z/github.com/synnaxlabs/synnax/pkg/api/channel/pb\xa2\x02\x03ACX\xaa\x02\vApi.Channel\xca\x02\vApi\\Channel\xe2\x02\x17Api\\Channel\\GPBMetadata\xea\x02\fApi::Channelb\x06proto3"
 
 var (

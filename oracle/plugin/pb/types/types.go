@@ -209,17 +209,20 @@ func (p *Plugin) processEnum(e resolution.Type) enumData {
 		Values: make([]enumValueData, 0, len(form.Values)+1),
 	}
 
+	// Generate prefix from enum name (e.g., "OperationType" -> "OPERATION_TYPE_")
+	prefix := toScreamingSnake(e.Name) + "_"
+
 	// Add UNSPECIFIED as first value (proto3 best practice)
-	// Values don't need enum prefix since proto generates EnumName_VALUE format
+	// Prefix with enum name per protobuf style guide
 	ed.Values = append(ed.Values, enumValueData{
-		Name:   "UNSPECIFIED",
+		Name:   prefix + "UNSPECIFIED",
 		Number: 0,
 	})
 
-	// Add actual enum values
+	// Add actual enum values with prefix
 	for i, v := range form.Values {
 		ed.Values = append(ed.Values, enumValueData{
-			Name:   toScreamingSnake(v.Name),
+			Name:   prefix + toScreamingSnake(v.Name),
 			Number: i + 1,
 		})
 	}

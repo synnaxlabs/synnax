@@ -8,3 +8,7 @@
 **/nisyscfg.h
 **/nidaqmx.h
 vendor/**
+
+# Generation Code
+./oracle/copyright/copyright.go
+./oracle/copyright/copyright_test.go
