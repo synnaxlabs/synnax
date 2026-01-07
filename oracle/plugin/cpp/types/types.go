@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,10 +21,10 @@ import (
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
+	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
-	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
@@ -165,17 +165,17 @@ func (p *Plugin) generateFile(
 	}
 
 	data := &templateData{
-		OutputPath:   outputPath,
-		Namespace:    deriveNamespace(outputPath),
-		KeyFields:    make([]keyFieldData, 0),
-		Structs:      make([]structData, 0, len(structs)),
-		Enums:        make([]enumData, 0, len(enums)),
-		TypeDefs:     make([]typeDefData, 0, len(typeDefs)),
-		Aliases:      make([]aliasData, 0, len(aliases)),
-		SortedDecls:  make([]sortedDeclData, 0),
-		includes:     newIncludeManager(),
-		table:        table,
-		rawNs:        namespace,
+		OutputPath:  outputPath,
+		Namespace:   deriveNamespace(outputPath),
+		KeyFields:   make([]keyFieldData, 0),
+		Structs:     make([]structData, 0, len(structs)),
+		Enums:       make([]enumData, 0, len(enums)),
+		TypeDefs:    make([]typeDefData, 0, len(typeDefs)),
+		Aliases:     make([]aliasData, 0, len(aliases)),
+		SortedDecls: make([]sortedDeclData, 0),
+		includes:    newIncludeManager(),
+		table:       table,
+		rawNs:       namespace,
 	}
 
 	// Track declared type names to avoid duplicates
@@ -757,7 +757,6 @@ func (d *templateData) HasIncludes() bool {
 func (d *templateData) SystemIncludes() []string { return d.includes.system }
 
 func (d *templateData) InternalIncludes() []string { return d.includes.internal }
-
 
 type structData struct {
 	Name           string

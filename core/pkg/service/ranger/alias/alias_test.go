@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -33,13 +33,13 @@ import (
 
 var _ = Describe("Alias", Ordered, func() {
 	var (
-		db         *gorp.DB
-		rangerSvc  *ranger.Service
-		aliasSvc   *alias.Service
-		ctx        context.Context
-		otg        *ontology.Ontology
-		tx         gorp.Tx
-		closer     io.Closer
+		db        *gorp.DB
+		rangerSvc *ranger.Service
+		aliasSvc  *alias.Service
+		ctx       context.Context
+		otg       *ontology.Ontology
+		tx        gorp.Tx
+		closer    io.Closer
 	)
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())

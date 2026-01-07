@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -1541,4 +1541,3 @@ type delegationTranslatorData struct {
 	UnderlyingPBType           string          // e.g., "gostatus_pb.Status" (proto type)
 	UnderlyingTranslatorPrefix string          // e.g., "gostatus_pb." (import prefix for translator)
 }
-

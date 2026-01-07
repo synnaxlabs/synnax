@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -23,9 +23,9 @@ import (
 )
 
 const (
-	templatePath   = "licenses/headers/template.txt"
-	headerLines    = 8 // Number of lines in the copyright header (without trailing blank)
-	commentPrefix  = "//"
+	templatePath    = "licenses/headers/template.txt"
+	headerLines     = 8 // Number of lines in the copyright header (without trailing blank)
+	commentPrefix   = "//"
 	yearPlaceholder = "{{YEAR}}"
 )
 

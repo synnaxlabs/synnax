@@ -12,8 +12,8 @@ package stratifier
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 )
 

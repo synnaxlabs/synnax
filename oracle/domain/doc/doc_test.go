@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -23,7 +23,7 @@ var _ = Describe("Get", func() {
 		},
 		Entry("doc domain with string value",
 			map[string]resolution.Domain{
-				"doc": {Expressions:[]resolution.Expression{{
+				"doc": {Expressions: []resolution.Expression{{
 					Name:   "value",
 					Values: []resolution.ExpressionValue{{StringValue: "User represents a system user."}},
 				}}},
@@ -46,9 +46,9 @@ var _ = Describe("Get", func() {
 			}, "fallback"),
 		Entry("takes first expression when multiple present",
 			map[string]resolution.Domain{
-				"doc": {Expressions:[]resolution.Expression{
-				{Name: "first", Values: []resolution.ExpressionValue{{StringValue: "First doc"}}},
-				{Name: "second", Values: []resolution.ExpressionValue{{StringValue: "Second doc"}}},
+				"doc": {Expressions: []resolution.Expression{
+					{Name: "first", Values: []resolution.ExpressionValue{{StringValue: "First doc"}}},
+					{Name: "second", Values: []resolution.ExpressionValue{{StringValue: "Second doc"}}},
 				}},
 			}, "First doc"),
 	)

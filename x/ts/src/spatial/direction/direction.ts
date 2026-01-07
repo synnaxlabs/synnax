@@ -25,7 +25,7 @@ import {
   type YLocation,
 } from "@/spatial/types.gen";
 
-export { type Direction, DIRECTIONS,directionZ };
+export { type Direction, DIRECTIONS, directionZ };
 
 export const crude = crudeDirection;
 

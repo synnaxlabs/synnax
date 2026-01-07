@@ -112,4 +112,3 @@ func mapTokenType(antlrType int) *uint32 {
 	}
 	return &tokenType
 }
-

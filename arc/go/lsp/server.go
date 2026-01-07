@@ -17,12 +17,12 @@ import (
 	"github.com/synnaxlabs/alamos"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
-	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/diagnostics"
 	xlsp "github.com/synnaxlabs/x/lsp"
 	"github.com/synnaxlabs/x/override"
 	"go.lsp.dev/protocol"
@@ -265,4 +265,3 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 		)
 	}
 }
-

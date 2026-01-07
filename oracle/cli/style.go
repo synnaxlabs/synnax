@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,14 +18,14 @@ import (
 
 var (
 	// Colors
-	purple    = lipgloss.Color("#9D4EDD")
-	pink      = lipgloss.Color("#FF6B9D")
-	cyan      = lipgloss.Color("#00D9FF")
-	green     = lipgloss.Color("#39FF14")
-	yellow    = lipgloss.Color("#FFE66D")
-	orange    = lipgloss.Color("#FF9F1C")
-	red       = lipgloss.Color("#FF4757")
-	dimGray   = lipgloss.Color("#6B7280")
+	purple  = lipgloss.Color("#9D4EDD")
+	pink    = lipgloss.Color("#FF6B9D")
+	cyan    = lipgloss.Color("#00D9FF")
+	green   = lipgloss.Color("#39FF14")
+	yellow  = lipgloss.Color("#FFE66D")
+	orange  = lipgloss.Color("#FF9F1C")
+	red     = lipgloss.Color("#FF4757")
+	dimGray = lipgloss.Color("#6B7280")
 
 	// Styles
 	titleStyle = lipgloss.NewStyle().

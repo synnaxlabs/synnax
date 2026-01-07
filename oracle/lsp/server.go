@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -201,7 +201,6 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 	})
 }
 
-
 // deriveNamespaceFromURI extracts a namespace from the document URI.
 func deriveNamespaceFromURI(uri protocol.DocumentURI) string {
 	path := string(uri)
@@ -264,4 +263,3 @@ func (s *Server) Formatting(
 		},
 	}, nil
 }
-

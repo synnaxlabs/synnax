@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -88,24 +88,24 @@ import "schema/core/label"
 	"json":       "**json**\n\nArbitrary JSON data.",
 	"bytes":      "**bytes**\n\nByte array / binary data.",
 
-	"id":       "**domain id**\n\nMarks this field as the primary key for the struct.",
-	"validate": "**domain validate**\n\nValidation constraints for the field.\n\nExpressions: `required`, `min_length`, `max_length`, `pattern`, `min`, `max`, `email`, `url`, `default`, `immutable`",
-	"query":    "**domain query**\n\nQuery operators available for this field.\n\nExpressions: `eq`, `neq`, `contains`, `starts_with`, `ends_with`, `has_any`, `has_all`, `overlaps`, `between`, `lt`, `lte`, `gt`, `gte`",
-	"index":    "**domain index**\n\nIndex configuration for the field.\n\nExpressions: `lookup`, `sorted`, `range`, `composite`",
-	"relation": "**domain relation**\n\nDefines a relationship to another struct.",
-	"sort":     "**domain sort**\n\nMarks this field as sortable in queries.",
-	"go":       "**domain go**\n\nGo output configuration.\n\nUse `output \"path\"` to specify the output directory.",
+	"id":        "**domain id**\n\nMarks this field as the primary key for the struct.",
+	"validate":  "**domain validate**\n\nValidation constraints for the field.\n\nExpressions: `required`, `min_length`, `max_length`, `pattern`, `min`, `max`, `email`, `url`, `default`, `immutable`",
+	"query":     "**domain query**\n\nQuery operators available for this field.\n\nExpressions: `eq`, `neq`, `contains`, `starts_with`, `ends_with`, `has_any`, `has_all`, `overlaps`, `between`, `lt`, `lte`, `gt`, `gte`",
+	"index":     "**domain index**\n\nIndex configuration for the field.\n\nExpressions: `lookup`, `sorted`, `range`, `composite`",
+	"relation":  "**domain relation**\n\nDefines a relationship to another struct.",
+	"sort":      "**domain sort**\n\nMarks this field as sortable in queries.",
+	"go":        "**domain go**\n\nGo output configuration.\n\nUse `output \"path\"` to specify the output directory.",
 	"ts":        "**domain ts**\n\nTypeScript output configuration.\n\nExpressions:\n- `output \"path\"` - Output directory\n- `use_input` - Use `z.input` instead of `z.infer` for type derivation\n- `name \"TypeName\"` - Override the generated TypeScript type/schema name",
 	"use_input": "**use_input**\n\nUse `z.input` instead of `z.infer` for the generated TypeScript type.\n\nUseful for schemas with transforms where you want the input type.",
-	"name":      "**name** *\"TypeName\"*\n\nOverride the generated TypeScript type and schema name.\n\n" + "```oracle" + `
+	"name": "**name** *\"TypeName\"*\n\nOverride the generated TypeScript type and schema name.\n\n" + "```oracle" + `
 struct New {
     domain ts {
         name "WorkspaceNew"
     }
 }
 ` + "```",
-	"python":   "**domain python**\n\nPython output configuration.\n\nUse `output \"path\"` to specify the output directory.",
-	"zod":      "**domain zod**\n\nZod schema output configuration.\n\nUse `output \"path\"` to specify the output directory.",
+	"python": "**domain python**\n\nPython output configuration.\n\nUse `output \"path\"` to specify the output directory.",
+	"zod":    "**domain zod**\n\nZod schema output configuration.\n\nUse `output \"path\"` to specify the output directory.",
 
 	"required":   "**required**\n\nField must have a non-null value.",
 	"min_length": "**min_length** *value*\n\nMinimum string length.",

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -25,11 +25,11 @@ var (
 	dimGray = lipgloss.Color("#6B7280")
 
 	// Styles
-	pluginStyle = lipgloss.NewStyle().Foreground(pink)
-	actionStyle = lipgloss.NewStyle().Foreground(cyan)
-	countStyle  = lipgloss.NewStyle().Bold(true).Foreground(purple)
+	pluginStyle  = lipgloss.NewStyle().Foreground(pink)
+	actionStyle  = lipgloss.NewStyle().Foreground(cyan)
+	countStyle   = lipgloss.NewStyle().Bold(true).Foreground(purple)
 	successStyle = lipgloss.NewStyle().Foreground(green)
-	dimStyle    = lipgloss.NewStyle().Foreground(dimGray)
+	dimStyle     = lipgloss.NewStyle().Foreground(dimGray)
 )
 
 const (
@@ -68,4 +68,3 @@ func PostWriteStep(tool string, fileCount int, action string) {
 	a := dimStyle.Render(action)
 	fmt.Printf("    %s %s %s %s %s\n", t, symbolArrow, a, c, word)
 }
-

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -159,7 +159,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 	return resp, nil
 }
-
 
 type packageMapping struct {
 	pathPrefix     string // e.g., "client/ts/src"
