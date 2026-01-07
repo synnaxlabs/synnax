@@ -190,6 +190,7 @@ struct Params {
         for (const auto &p: this->params)
             if (p.name == name) return p;
         assert(false && "Param not found");
+        std::unreachable();
     }
 
     [[nodiscard]] std::vector<std::string> keys() const {
@@ -521,6 +522,7 @@ struct Sequence {
         for (const auto &stage: stages)
             if (stage.key == stage_key) return stage;
         assert(false && "Stage not found");
+        std::unreachable();
     }
 
     /// @brief Returns the stage that follows the given stage in definition order.
