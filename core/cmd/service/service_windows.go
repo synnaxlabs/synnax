@@ -303,7 +303,6 @@ func RunAsService(startServer func(context.Context) error) error {
 // buildServiceArgs builds command-line arguments from the service configuration.
 func buildServiceArgs(cfg Config) []string {
 	var args []string
-
 	if cfg.ListenAddress != "" {
 		args = append(args, "--"+flags.Listen, cfg.ListenAddress)
 	}

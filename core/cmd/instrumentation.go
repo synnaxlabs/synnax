@@ -41,7 +41,7 @@ func cleanupInstrumentation(ctx context.Context, i alamos.Instrumentation) {
 	}
 }
 
-func configureLogger() (logger *alamos.Logger, err error) {
+func configureLogger() (*alamos.Logger, error) {
 	var (
 		verbose              = viper.GetBool(verboseFlag)
 		debug                = viper.GetBool(debugFlag)
@@ -74,11 +74,12 @@ func configureLogger() (logger *alamos.Logger, err error) {
 		alamos.CustomZapCore(zapcore.NewCore(consoleEncoder, consoleOutput, level)),
 		alamos.CustomZapCore(zapcore.NewCore(fileEncoder, fileOutput, level)),
 	)
-	if logger, err = alamos.NewLogger(alamos.LoggerConfig{
+	logger, err := alamos.NewLogger(alamos.LoggerConfig{
 		ZapLogger: zap.New(core, opts...),
-	}); err != nil {
-		return
+	})
+	if err != nil {
+		return nil, err
 	}
 	zap.ReplaceGlobals(logger.Zap())
-	return
+	return logger, nil
 }

@@ -62,7 +62,6 @@ var certNode = &cobra.Command{
 
 func init() {
 	root.AddCommand(certCmd)
-
 	certCmd.AddCommand(certCA)
 	certCmd.AddCommand(certNode)
 }
@@ -93,8 +92,7 @@ func generateAutoCerts(ins alamos.Instrumentation) error {
 	if err != nil {
 		return err
 	}
-	err = factory.CreateCAPairIfMissing()
-	if err != nil {
+	if err = factory.CreateCAPairIfMissing(); err != nil {
 		return err
 	}
 	return factory.CreateNodePairIfMissing()
