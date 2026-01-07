@@ -40,4 +40,6 @@ type Config struct {
 	AutoStart bool
 	// DelayedStart delays service start until after OS startup completes.
 	DelayedStart bool
+	// Verifier
+	Verifier string
 }

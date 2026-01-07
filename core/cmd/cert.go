@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/cmd/flags"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -87,7 +88,7 @@ func buildCertFactoryConfig(ins alamos.Instrumentation) cert.FactoryConfig {
 
 func generateAutoCerts(ins alamos.Instrumentation) error {
 	cfg := buildCertFactoryConfig(ins)
-	cfg.Hosts = []address.Address{address.Address(viper.GetString(listenFlag))}
+	cfg.Hosts = []address.Address{address.Address(viper.GetString(flags.Listen))}
 	factory, err := cert.NewFactory(cfg)
 	if err != nil {
 		return err

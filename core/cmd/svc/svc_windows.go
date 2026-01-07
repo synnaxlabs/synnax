@@ -33,16 +33,16 @@ const (
 
 // Service metadata constants.
 const (
-	Name        = "SynnaxServer"
-	DisplayName = "Synnax Server"
-	Description = "Synnax telemetry engine for hardware systems"
+	name        = "SynnaxCore"
+	displayName = "Synnax Core"
+	description = "Synnax telemetry engine for hardware systems"
 )
 
 // IsService returns true if the current process is running as a Windows Service.
 func IsService() (bool, error) { return svc.IsWindowsService() }
 
 // Install installs Synnax as a Windows Service with the given configuration.
-func Install(cfg Config) (err error) {
+func Install(cfg Config) error {
 	exePath, err := os.Executable()
 	if err != nil {
 		return errors.Wrap(err, "failed to get executable path")
@@ -59,9 +59,9 @@ func Install(cfg Config) (err error) {
 		err = errors.Combine(err, errors.Wrap(m.Disconnect(), "failed to disconnect from service manager"))
 	}()
 
-	if s, sErr := m.OpenService(Name); sErr == nil {
+	if s, sErr := m.OpenService(name); sErr == nil {
 		_ = s.Close()
-		return errors.Newf("service %s already exists; use 'synnax service uninstall' first", Name)
+		return errors.Newf("service %s already exists; use 'synnax service uninstall' first", name)
 	}
 
 	startType := uint32(mgr.StartAutomatic)
@@ -69,11 +69,11 @@ func Install(cfg Config) (err error) {
 		startType = uint32(mgr.StartManual)
 	}
 
-	s, err := m.CreateService(Name, exePath, mgr.Config{
+	s, err := m.CreateService(name, exePath, mgr.Config{
 		StartType:    startType,
 		ErrorControl: mgr.ErrorNormal,
-		DisplayName:  DisplayName,
-		Description:  Description,
+		DisplayName:  displayName,
+		Description:  description,
 	}, buildServiceArgs(cfg)...)
 	if err != nil {
 		return errors.Wrap(err, "failed to create service")
@@ -86,8 +86,8 @@ func Install(cfg Config) (err error) {
 		if err = s.UpdateConfig(mgr.Config{
 			StartType:        uint32(mgr.StartAutomatic),
 			ErrorControl:     mgr.ErrorNormal,
-			DisplayName:      DisplayName,
-			Description:      Description,
+			DisplayName:      displayName,
+			Description:      description,
 			DelayedAutoStart: true,
 		}); err != nil {
 			return errors.Wrap(err, "failed to set delayed start")
@@ -102,7 +102,7 @@ func Install(cfg Config) (err error) {
 		return errors.Wrap(err, "failed to set recovery actions")
 	}
 
-	if err = eventlog.InstallAsEventCreate(Name, eventlog.Error|eventlog.Warning|eventlog.Info); err != nil {
+	if err = eventlog.InstallAsEventCreate(name, eventlog.Error|eventlog.Warning|eventlog.Info); err != nil {
 		return errors.Wrap(err, "failed to install event log source")
 	}
 
@@ -110,7 +110,7 @@ func Install(cfg Config) (err error) {
 }
 
 // Uninstall removes the Synnax Windows Service.
-func Uninstall() (err error) {
+func Uninstall() error {
 	m, err := mgr.Connect()
 	if err != nil {
 		return errors.Wrap(err, "failed to connect to service manager (are you running as administrator?)")
@@ -119,9 +119,9 @@ func Uninstall() (err error) {
 		err = errors.Combine(err, errors.Wrap(m.Disconnect(), "failed to disconnect from service manager"))
 	}()
 
-	s, err := m.OpenService(Name)
+	s, err := m.OpenService(name)
 	if err != nil {
-		return errors.Wrapf(err, "service %s is not installed", Name)
+		return errors.Wrapf(err, "service %s is not installed", name)
 	}
 	defer func() {
 		err = errors.Combine(err, errors.Wrap(s.Close(), "failed to close service handle"))
@@ -142,12 +142,12 @@ func Uninstall() (err error) {
 		return errors.Wrap(err, "failed to delete service")
 	}
 
-	err = errors.Combine(err, errors.Wrap(eventlog.Remove(Name), "failed to remove event log source"))
-	return
+	err = errors.Combine(err, errors.Wrap(eventlog.Remove(name), "failed to remove event log source"))
+	return err
 }
 
 // Start starts the Synnax Windows Service.
-func Start() (err error) {
+func Start() error {
 	m, err := mgr.Connect()
 	if err != nil {
 		return errors.Wrap(err, "failed to connect to service manager (are you running as administrator?)")
@@ -156,9 +156,9 @@ func Start() (err error) {
 		err = errors.Combine(err, errors.Wrap(m.Disconnect(), "failed to disconnect from service manager"))
 	}()
 
-	s, err := m.OpenService(Name)
+	s, err := m.OpenService(name)
 	if err != nil {
-		return errors.Wrapf(err, "service %s is not installed", Name)
+		return errors.Wrapf(err, "service %s is not installed", name)
 	}
 	defer func() {
 		err = errors.Combine(err, errors.Wrap(s.Close(), "failed to close service handle"))
@@ -171,7 +171,7 @@ func Start() (err error) {
 }
 
 // Stop stops the Synnax Windows Service.
-func Stop() (err error) {
+func Stop() error {
 	m, err := mgr.Connect()
 	if err != nil {
 		return errors.Wrap(err, "failed to connect to service manager (are you running as administrator?)")
@@ -180,9 +180,9 @@ func Stop() (err error) {
 		err = errors.Combine(err, errors.Wrap(m.Disconnect(), "failed to disconnect from service manager"))
 	}()
 
-	s, err := m.OpenService(Name)
+	s, err := m.OpenService(name)
 	if err != nil {
-		return errors.Wrapf(err, "service %s is not installed", Name)
+		return errors.Wrapf(err, "service %s is not installed", name)
 	}
 	defer func() {
 		err = errors.Combine(err, errors.Wrap(s.Close(), "failed to close service handle"))
@@ -221,10 +221,10 @@ func (s *synnaxService) Execute(
 	_ []string,
 	r <-chan svc.ChangeRequest,
 	changes chan<- svc.Status,
-) (ssec bool, errno uint32) {
+) (bool, uint32) {
 	const acceptedCmds = svc.AcceptStop | svc.AcceptShutdown
 
-	elog, err := eventlog.Open(Name)
+	elog, err := eventlog.Open(name)
 	if err != nil {
 		return false, 1
 	}
@@ -283,12 +283,12 @@ func (s *synnaxService) Execute(
 // RunAsService runs Synnax as a Windows Service. The startServer function should
 // block until the context is cancelled.
 func RunAsService(startServer func(context.Context) error) error {
-	// Best-effort install of event log source. This often fails because the source
-	// was already registered during service installation.
-	if err := eventlog.InstallAsEventCreate(Name, eventlog.Error|eventlog.Warning|eventlog.Info); err != nil {
+	// Best-effort install of event log source. This often fails because the source was
+	// already registered during service installation.
+	if err := eventlog.InstallAsEventCreate(name, eventlog.Error|eventlog.Warning|eventlog.Info); err != nil {
 		// Only warn if it's not the expected "already exists" error.
 		if !strings.Contains(err.Error(), "already exists") {
-			if elog, openErr := eventlog.Open(Name); openErr == nil {
+			if elog, openErr := eventlog.Open(name); openErr == nil {
 				_ = elog.Warning(1, fmt.Sprintf("failed to install event log source: %v", err))
 				_ = elog.Close()
 			}
@@ -297,7 +297,7 @@ func RunAsService(startServer func(context.Context) error) error {
 
 	// Parse command line args since Windows passes service args via os.Args.
 	// Log the args for debugging.
-	if elog, err := eventlog.Open(Name); err == nil {
+	if elog, err := eventlog.Open(name); err == nil {
 		_ = elog.Info(1, fmt.Sprintf("os.Args: %v", os.Args))
 		_ = elog.Close()
 	}
@@ -305,7 +305,7 @@ func RunAsService(startServer func(context.Context) error) error {
 		return errors.Wrap(err, "failed to parse service arguments")
 	}
 
-	return svc.Run(Name, &synnaxService{startServer: startServer})
+	return svc.Run(name, &synnaxService{startServer: startServer})
 }
 
 // buildServiceArgs builds command-line arguments from the service configuration.

@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/freighter/fhttp"
 	cmdauth "github.com/synnaxlabs/synnax/cmd/auth"
+	"github.com/synnaxlabs/synnax/cmd/flags"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
 	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
@@ -124,22 +125,22 @@ func startServer(ctx context.Context) error {
 	var (
 		vers                = version.Get()
 		verifierFlag        = base64.MustDecode("bGljZW5zZS1rZXk=")
-		insecure            = viper.GetBool(insecureFlag)
+		insecure            = viper.GetBool(flags.Insecure)
 		debug               = viper.GetBool(debugFlag)
-		autoCert            = viper.GetBool(autoCertFlag)
+		autoCert            = viper.GetBool(flags.AutoCert)
 		verifier            = viper.GetString(string(verifierFlag))
-		memBacked           = viper.GetBool(memFlag)
-		listenAddress       = address.Address(viper.GetString(listenFlag))
-		dataPath            = viper.GetString(dataFlag)
-		slowConsumerTimeout = viper.GetDuration(slowConsumerTimeoutFlag)
-		rootUsername        = viper.GetString(usernameFlag)
-		rootPassword        = viper.GetString(passwordFlag)
-		noDriver            = viper.GetBool(noDriverFlag)
+		memBacked           = viper.GetBool(flags.Mem)
+		listenAddress       = address.Address(viper.GetString(flags.Listen))
+		dataPath            = viper.GetString(flags.Data)
+		slowConsumerTimeout = viper.GetDuration(flags.SlowConsumerTimeout)
+		rootUsername        = viper.GetString(flags.Username)
+		rootPassword        = viper.GetString(flags.Password)
+		noDriver            = viper.GetBool(flags.NoDriver)
 		keySize             = viper.GetInt(keySizeFlag)
-		taskOpTimeout       = viper.GetDuration(taskOpTimeoutFlag)
-		taskPollInterval    = viper.GetDuration(taskPollIntervalFlag)
-		taskShutdownTimeout = viper.GetDuration(taskShutdownTimeoutFlag)
-		taskWorkerCount     = viper.GetUint8(taskWorkerCountFlag)
+		taskOpTimeout       = viper.GetDuration(flags.TaskOpTimeout)
+		taskPollInterval    = viper.GetDuration(flags.TaskPollInterval)
+		taskShutdownTimeout = viper.GetDuration(flags.TaskShutdownTimeout)
+		taskWorkerCount     = viper.GetUint8(flags.TaskWorkerCount)
 		ins                 = configureInstrumentation()
 	)
 	defer cleanupInstrumentation(ctx, ins)
@@ -238,8 +239,8 @@ func startServer(ctx context.Context) error {
 		return err
 	}
 	creds := auth.InsecureCredentials{
-		Username: viper.GetString(usernameFlag),
-		Password: password.Raw(viper.GetString(passwordFlag)),
+		Username: viper.GetString(flags.Username),
+		Password: password.Raw(viper.GetString(flags.Password)),
 	}
 	if err = cmdauth.ProvisionRootUser(
 		ctx,

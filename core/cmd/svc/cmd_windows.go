@@ -11,22 +11,15 @@
 
 package svc
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/spf13/cobra"
+	"github.com/synnaxlabs/synnax/cmd/flags"
+)
 
-// Flag constants for service configuration.
+// Service-specific flag constants.
 const (
-	autoStartFlag       = "auto-start"
-	delayedStartFlag    = "delayed-start"
-	listenFlag          = "listen"
-	dataFlag            = "data"
-	insecureFlag        = "insecure"
-	usernameFlag        = "username"
-	passwordFlag        = "password"
-	autoCertFlag        = "auto-cert"
-	noDriverFlag        = "no-driver"
-	enableIntegrations  = "enable-integrations"
-	disableIntegrations = "disable-integrations"
-	peersFlag           = "peers"
+	autoStartFlag    = "auto-start"
+	delayedStartFlag = "delayed-start"
 )
 
 var serviceCmd = &cobra.Command{
@@ -41,7 +34,7 @@ enabling graceful shutdown of both the Core and embedded Driver.`,
 }
 
 var serviceInstallCmd = &cobra.Command{
-	Use:   "install",
+	Use:   "install [flags]",
 	Short: "Install Synnax as a Windows Service",
 	Long: `Install Synnax as a Windows Service.
 
@@ -50,7 +43,6 @@ in the service configuration and used when the service starts.
 
 Example:
   synnax service install --listen 0.0.0.0:9090 --data C:\ProgramData\Synnax\data --insecure`,
-	Args: cobra.NoArgs,
 	RunE: serviceInstall,
 }
 
@@ -102,112 +94,59 @@ func configureServiceInstallFlags() error {
 		"Delay service start until after Windows startup completes",
 	)
 
-	// Server configuration flags (same as start command)
-	serviceInstallCmd.Flags().StringP(
-		listenFlag,
-		"l",
-		"localhost:9090",
-		"The address to listen for client connections",
-	)
-	serviceInstallCmd.Flags().StringP(
-		dataFlag,
-		"d",
-		"",
-		"Directory where the Synnax node will store its data (default: C:\\ProgramData\\Synnax\\data)",
-	)
-	serviceInstallCmd.Flags().BoolP(
-		insecureFlag,
-		"i",
-		false,
-		"Disable encryption, authentication, and authorization",
-	)
-	serviceInstallCmd.Flags().String(
-		usernameFlag,
-		"synnax",
-		"Username for the admin user",
-	)
-	serviceInstallCmd.Flags().String(
-		passwordFlag,
-		"seldon",
-		"Password for the admin user",
-	)
-	serviceInstallCmd.Flags().Bool(
-		autoCertFlag,
-		false,
-		"Automatically generate self-signed certificates",
-	)
-	serviceInstallCmd.Flags().Bool(
-		noDriverFlag,
-		false,
-		"Disable the embedded Synnax driver",
-	)
-	serviceInstallCmd.Flags().StringSlice(
-		enableIntegrations,
-		nil,
-		"Device integrations to enable (labjack, modbus, ni, opc, sequence)",
-	)
-	serviceInstallCmd.Flags().StringSlice(
-		disableIntegrations,
-		nil,
-		"Device integrations to disable (labjack, modbus, ni, opc, sequence)",
-	)
-	serviceInstallCmd.Flags().StringSliceP(
-		peersFlag,
-		"p",
-		nil,
-		"Addresses of additional peers in the cluster",
-	)
+	// Add the common server configuration flags (shared with start command)
+	flags.ConfigureServerFlags(serviceInstallCmd)
 
 	return nil
 }
 
 func buildConfigFromFlags(c *cobra.Command) (Config, error) {
-	flags := c.Flags()
-	listen, err := flags.GetString(listenFlag)
+	cmdFlags := c.Flags()
+	listen, err := cmdFlags.GetString(flags.Listen)
 	if err != nil {
 		return Config{}, err
 	}
-	data, err := flags.GetString(dataFlag)
+	data, err := cmdFlags.GetString(flags.Data)
 	if err != nil {
 		return Config{}, err
 	}
-	insecure, err := flags.GetBool(insecureFlag)
+	insecure, err := cmdFlags.GetBool(flags.Insecure)
 	if err != nil {
 		return Config{}, err
 	}
-	username, err := flags.GetString(usernameFlag)
+	username, err := cmdFlags.GetString(flags.Username)
 	if err != nil {
 		return Config{}, err
 	}
-	password, err := flags.GetString(passwordFlag)
+	password, err := cmdFlags.GetString(flags.Password)
 	if err != nil {
 		return Config{}, err
 	}
-	autoCert, err := flags.GetBool(autoCertFlag)
+	autoCert, err := cmdFlags.GetBool(flags.AutoCert)
 	if err != nil {
 		return Config{}, err
 	}
-	noDriver, err := flags.GetBool(noDriverFlag)
+	noDriver, err := cmdFlags.GetBool(flags.NoDriver)
 	if err != nil {
 		return Config{}, err
 	}
-	peers, err := flags.GetStringSlice(peersFlag)
+	peers, err := cmdFlags.GetStringSlice(flags.Peers)
 	if err != nil {
 		return Config{}, err
 	}
-	enableInt, err := flags.GetStringSlice(enableIntegrations)
+	enableInt, err := cmdFlags.GetStringSlice(flags.EnableIntegrations)
 	if err != nil {
 		return Config{}, err
 	}
-	disableInt, err := flags.GetStringSlice(disableIntegrations)
+	disableInt, err := cmdFlags.GetStringSlice(flags.DisableIntegrations)
 	if err != nil {
 		return Config{}, err
 	}
-	autoStart, err := flags.GetBool(autoStartFlag)
+	autoStart, err := cmdFlags.GetBool(autoStartFlag)
 	if err != nil {
 		return Config{}, err
 	}
-	delayedStart, err := flags.GetBool(delayedStartFlag)
+	delayedStart, err := cmdFlags.GetBool(delayedStartFlag)
 	if err != nil {
 		return Config{}, err
 	}
@@ -236,8 +175,8 @@ func serviceInstall(c *cobra.Command, _ []string) error {
 	if err := Install(cfg); err != nil {
 		return err
 	}
-	c.Printf("Windows Service %s installed successfully.\n", Name)
-	c.Printf("Use 'synnax service start' or 'net start %s' to start the service.\n", Name)
+	c.Printf("Windows Service %s installed successfully.\n", name)
+	c.Printf("Use 'synnax service start' or 'net start %s' to start the service.\n", name)
 	return nil
 }
 
@@ -245,7 +184,7 @@ func serviceUninstall(c *cobra.Command, _ []string) error {
 	if err := Uninstall(); err != nil {
 		return err
 	}
-	c.Printf("Windows Service %s uninstalled successfully.\n", Name)
+	c.Printf("Windows Service %s uninstalled successfully.\n", name)
 	return nil
 }
 
@@ -253,7 +192,7 @@ func serviceStart(c *cobra.Command, _ []string) error {
 	if err := Start(); err != nil {
 		return err
 	}
-	c.Printf("%s started.\n", Name)
+	c.Printf("%s started.\n", name)
 	return nil
 }
 
@@ -261,6 +200,6 @@ func serviceStop(c *cobra.Command, _ []string) error {
 	if err := Stop(); err != nil {
 		return err
 	}
-	c.Printf("%s stopped.\n", Name)
+	c.Printf("%s stopped.\n", name)
 	return nil
 }
