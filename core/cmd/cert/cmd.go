@@ -29,7 +29,7 @@ var caCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		ins := instrumentation.Configure()
 		defer instrumentation.Cleanup(cmd.Context(), ins)
-		factory, err := cert.NewFactory(buildCertFactoryConfig(ins))
+		factory, err := cert.NewFactory(BuildCertFactoryConfig(ins))
 		if err != nil {
 			return err
 		}
@@ -48,7 +48,7 @@ var nodeCmd = &cobra.Command{
 		for i, host := range hosts {
 			addresses[i] = address.Address(host)
 		}
-		cfg := buildCertFactoryConfig(ins)
+		cfg := BuildCertFactoryConfig(ins)
 		cfg.Hosts = addresses
 		factory, err := cert.NewFactory(cfg)
 		if err != nil {
@@ -60,10 +60,8 @@ var nodeCmd = &cobra.Command{
 
 func AddCommand(cmd *cobra.Command) {
 	cmd.AddCommand(command)
-	instrumentation.BindFlags(caCmd)
 	BindFlags(caCmd)
 	command.AddCommand(caCmd)
-	instrumentation.BindFlags(nodeCmd)
 	BindFlags(nodeCmd)
 	command.AddCommand(nodeCmd)
 }

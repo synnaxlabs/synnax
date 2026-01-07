@@ -29,18 +29,18 @@ func BuildLoaderConfig(ins alamos.Instrumentation) cert.LoaderConfig {
 	}
 }
 
-func buildCertFactoryConfig(ins alamos.Instrumentation) cert.FactoryConfig {
+// BuildCertFactoryConfig builds a cert.FactoryConfig using the viper configuration.
+func BuildCertFactoryConfig(ins alamos.Instrumentation, hosts ...address.Address) cert.FactoryConfig {
 	return cert.FactoryConfig{
 		LoaderConfig:  BuildLoaderConfig(ins),
 		AllowKeyReuse: config.Bool(viper.GetBool(FlagAllowKeyReuse)),
 		KeySize:       viper.GetInt(FlagKeySize),
+		Hosts:         hosts,
 	}
 }
 
 // GenerateAuto generates a CA certificate and a certificate for the Core.
-func GenerateAuto(ins alamos.Instrumentation, host address.Address) error {
-	cfg := buildCertFactoryConfig(ins)
-	cfg.Hosts = []address.Address{host}
+func GenerateAuto(cfg cert.FactoryConfig) error {
 	factory, err := cert.NewFactory(cfg)
 	if err != nil {
 		return err

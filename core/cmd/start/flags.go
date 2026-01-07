@@ -15,6 +15,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding/base64"
@@ -39,7 +40,9 @@ const (
 	FlagTaskWorkerCount     = "task-worker-count"
 )
 
+// BindFlags binds the start flags to the given command.
 func BindFlags(cmd *cobra.Command) {
+	cert.BindFlags(cmd)
 	cmd.Flags().StringP(
 		FlagListen,
 		"l",

@@ -12,6 +12,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/synnax/cmd/service"
 )
@@ -23,6 +25,7 @@ func RunMain() {
 	isService, err := service.Is()
 	cobra.CheckErr(err)
 	if isService {
+		fmt.Println("Running as service")
 		cobra.CheckErr(service.Run())
 		return
 	}

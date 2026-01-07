@@ -11,6 +11,7 @@ package cert
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/synnaxlabs/synnax/cmd/instrumentation"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 )
 
@@ -26,6 +27,7 @@ const (
 
 // BindFlags binds the cert flags to the given command.
 func BindFlags(cmd *cobra.Command) {
+	instrumentation.BindFlags(cmd)
 	cmd.Flags().String(
 		FlagCertsDir,
 		cert.DefaultLoaderConfig.CertsDir,

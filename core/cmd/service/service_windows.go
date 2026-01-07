@@ -19,7 +19,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/synnaxlabs/synnax/cmd/instrumentation"
 	"github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/x/errors"
 	"golang.org/x/sys/windows/svc"
@@ -296,7 +298,11 @@ func Run() error {
 		return errors.Wrap(err, "failed to parse service arguments")
 	}
 
-	return svc.Run(name, &synnaxService{startServer: start.StartServer})
+	return svc.Run(name, &synnaxService{startServer: func(ctx context.Context) error {
+		ins := instrumentation.Configure()
+		defer instrumentation.Cleanup(ctx, ins)
+		return start.BootupCore(ctx, start.GetCoreConfigFromViper(ins))
+	}})
 }
 
 // buildServiceArgs builds command-line arguments from the service configuration.
@@ -344,27 +350,28 @@ func buildServiceArgs(cfg Config) []string {
 	return args
 }
 
-// ParseServiceArgs parses command-line arguments and applies them to viper.
+// ParseServiceArgs parses command-line arguments and applies them to viper by reusing
+// the same Cobra flag definitions as the CLI.
 func ParseServiceArgs(args []string) error {
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		if !strings.HasPrefix(arg, "--") {
-			continue
-		}
-		key := strings.TrimPrefix(arg, "--")
-		var value string
-
-		if idx := strings.Index(key, "="); idx != -1 {
-			value = key[idx+1:]
-			key = key[:idx]
-		} else if i+1 < len(args) && !strings.HasPrefix(args[i+1], "--") {
-			i++
-			value = args[i]
-		} else {
-			value = "true"
-		}
-
-		viper.Set(key, value)
+	// Create a throwaway cobra command purely to register the same flags that the
+	// CLI uses, then parse the service args into that flag set.
+	cmd := &cobra.Command{
+		Use:           "synnax-service",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
-	return nil
+
+	// Reuse the same flag definitions used by `synnax start`.
+	start.BindFlags(cmd)
+
+	// Windows SCM passes service args through os.Args; parse them using Cobra so
+	// persistent/local flag behavior matches the CLI.
+	cmd.SetArgs(args)
+	if err := cmd.ParseFlags(args); err != nil {
+		return err
+	}
+	if err := viper.BindPFlags(cmd.PersistentFlags()); err != nil {
+		return err
+	}
+	return viper.BindPFlags(cmd.Flags())
 }

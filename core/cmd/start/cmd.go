@@ -13,8 +13,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/synnaxlabs/synnax/cmd/cert"
-	"github.com/synnaxlabs/synnax/cmd/instrumentation"
 )
 
 // startCmd represents the start command
@@ -36,8 +34,6 @@ will bootstrap a new cluster.
 // AddCommand adds the start command to the given parent command.
 func AddCommand(cmd *cobra.Command) {
 	cmd.AddCommand(startCmd)
-	cert.BindFlags(startCmd)
-	instrumentation.BindFlags(startCmd)
 	BindFlags(startCmd)
 	lo.Must0(viper.BindPFlags(startCmd.PersistentFlags()))
 	lo.Must0(viper.BindPFlags(startCmd.Flags()))
