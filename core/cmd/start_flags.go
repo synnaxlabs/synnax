@@ -20,22 +20,23 @@ import (
 )
 
 const (
-	listenFlag              = "listen"
-	peersFlag               = "peers"
-	dataFlag                = "data"
-	memFlag                 = "mem"
-	insecureFlag            = "insecure"
-	usernameFlag            = "username"
-	passwordFlag            = "password"
-	autoCertFlag            = "auto-cert"
-	noDriverFlag            = "no-driver"
-	slowConsumerTimeoutFlag = "slow-consumer-timeout"
-	enableIntegrationsFlag  = "enable-integrations"
-	disableIntegrationsFlag = "disable-integrations"
-	taskOpTimeoutFlag       = "task-op-timeout"
-	taskPollIntervalFlag    = "task-poll-interval"
-	taskShutdownTimeoutFlag = "task-shutdown-timeout"
-	taskWorkerCountFlag     = "task-worker-count"
+	listenFlag                       = "listen"
+	peersFlag                        = "peers"
+	dataFlag                         = "data"
+	memFlag                          = "mem"
+	insecureFlag                     = "insecure"
+	usernameFlag                     = "username"
+	passwordFlag                     = "password"
+	autoCertFlag                     = "auto-cert"
+	noDriverFlag                     = "no-driver"
+	slowConsumerTimeoutFlag          = "slow-consumer-timeout"
+	enableIntegrationsFlag           = "enable-integrations"
+	disableIntegrationsFlag          = "disable-integrations"
+	taskOpTimeoutFlag                = "task-op-timeout"
+	taskPollIntervalFlag             = "task-poll-interval"
+	taskShutdownTimeoutFlag          = "task-shutdown-timeout"
+	taskWorkerCountFlag              = "task-worker-count"
+	disableChannelNameValidationFlag = "disable-channel-name-validation"
 )
 
 func configureStartFlags() {
@@ -147,6 +148,12 @@ func configureStartFlags() {
 		string(decodedName),
 		"",
 		string(decodedUsage),
+	)
+
+	startCmd.Flags().Bool(
+		disableChannelNameValidationFlag,
+		false,
+		"Disable channel name validation (allows special characters, spaces, etc.)",
 	)
 }
 

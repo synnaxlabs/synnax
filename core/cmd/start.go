@@ -81,26 +81,27 @@ will bootstrap a new cluster.
 // environment variables, and configuration files.
 func start(cmd *cobra.Command) {
 	var (
-		ctx                 = cmd.Context()
-		vers                = version.Get()
-		verifierFlag        = lo.Must(base64.StdEncoding.DecodeString("bGljZW5zZS1rZXk="))
-		insecure            = viper.GetBool(insecureFlag)
-		debug               = viper.GetBool(debugFlag)
-		autoCert            = viper.GetBool(autoCertFlag)
-		verifier            = viper.GetString(string(verifierFlag))
-		memBacked           = viper.GetBool(memFlag)
-		listenAddress       = address.Address(viper.GetString(listenFlag))
-		dataPath            = viper.GetString(dataFlag)
-		slowConsumerTimeout = viper.GetDuration(slowConsumerTimeoutFlag)
-		rootUsername        = viper.GetString(usernameFlag)
-		rootPassword        = viper.GetString(passwordFlag)
-		noDriver            = viper.GetBool(noDriverFlag)
-		keySize             = viper.GetInt(keySizeFlag)
-		taskOpTimeout       = viper.GetDuration(taskOpTimeoutFlag)
-		taskPollInterval    = viper.GetDuration(taskPollIntervalFlag)
-		taskShutdownTimeout = viper.GetDuration(taskShutdownTimeoutFlag)
-		taskWorkerCount     = viper.GetUint8(taskWorkerCountFlag)
-		ins                 = configureInstrumentation()
+		ctx                          = cmd.Context()
+		vers                         = version.Get()
+		verifierFlag                 = lo.Must(base64.StdEncoding.DecodeString("bGljZW5zZS1rZXk="))
+		insecure                     = viper.GetBool(insecureFlag)
+		debug                        = viper.GetBool(debugFlag)
+		autoCert                     = viper.GetBool(autoCertFlag)
+		verifier                     = viper.GetString(string(verifierFlag))
+		memBacked                    = viper.GetBool(memFlag)
+		listenAddress                = address.Address(viper.GetString(listenFlag))
+		dataPath                     = viper.GetString(dataFlag)
+		slowConsumerTimeout          = viper.GetDuration(slowConsumerTimeoutFlag)
+		rootUsername                 = viper.GetString(usernameFlag)
+		rootPassword                 = viper.GetString(passwordFlag)
+		noDriver                     = viper.GetBool(noDriverFlag)
+		keySize                      = viper.GetInt(keySizeFlag)
+		taskOpTimeout                = viper.GetDuration(taskOpTimeoutFlag)
+		taskPollInterval             = viper.GetDuration(taskPollIntervalFlag)
+		taskShutdownTimeout          = viper.GetDuration(taskShutdownTimeoutFlag)
+		taskWorkerCount              = viper.GetUint8(taskWorkerCountFlag)
+		disableChannelNameValidation = viper.GetBool(disableChannelNameValidationFlag)
+		ins                          = configureInstrumentation()
 	)
 	defer cleanupInstrumentation(ctx, ins)
 
@@ -184,14 +185,15 @@ func start(cmd *cobra.Command) {
 		)
 
 		if distributionLayer, err = distribution.Open(ctx, distribution.Config{
-			Instrumentation:  ins.Child("distribution"),
-			AdvertiseAddress: listenAddress,
-			PeerAddresses:    peers,
-			AspenTransport:   aspenTransport,
-			FrameTransport:   frameTransport,
-			ChannelTransport: channelTransport,
-			Verifier:         verifier,
-			Storage:          storageLayer,
+			Instrumentation:      ins.Child("distribution"),
+			AdvertiseAddress:     listenAddress,
+			PeerAddresses:        peers,
+			AspenTransport:       aspenTransport,
+			FrameTransport:       frameTransport,
+			ChannelTransport:     channelTransport,
+			Verifier:             verifier,
+			Storage:              storageLayer,
+			ValidateChannelNames: config.Bool(!disableChannelNameValidation),
 		}); !ok(err, distributionLayer) {
 			return err
 		}
