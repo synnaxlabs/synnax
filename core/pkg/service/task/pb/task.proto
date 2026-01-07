@@ -4,10 +4,10 @@ syntax = "proto3";
 
 package service.task;
 
-option go_package = "github.com/synnaxlabs/synnax/pkg/service/task/pb";
-
 import "google/protobuf/struct.proto";
 import "x/go/status/pb/status.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/service/task/pb";
 
 message StatusDetails {
   uint64 task = 1;

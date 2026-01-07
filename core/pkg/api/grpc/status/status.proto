@@ -11,10 +11,10 @@ syntax = "proto3";
 
 package grpc.status;
 
-option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/status";
-
 import "google/protobuf/empty.proto";
 import "x/go/status/pb/status.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/status";
 
 service StatusSetService {
   rpc Exec(SetRequest) returns (SetResponse) {}

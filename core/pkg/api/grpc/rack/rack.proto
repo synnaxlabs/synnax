@@ -11,8 +11,8 @@ syntax = "proto3";
 
 package grpc.rack;
 
-import "google/protobuf/empty.proto";
 import "core/pkg/service/rack/pb/rack.proto";
+import "google/protobuf/empty.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/rack";
 

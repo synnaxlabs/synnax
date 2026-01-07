@@ -11,8 +11,8 @@ syntax = "proto3";
 
 package distribution.channel;
 
-import "google/protobuf/empty.proto";
 import "core/pkg/distribution/channel/pb/channel.proto";
+import "google/protobuf/empty.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb";
 

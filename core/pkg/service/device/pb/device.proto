@@ -4,9 +4,9 @@ syntax = "proto3";
 
 package service.device;
 
-option go_package = "github.com/synnaxlabs/synnax/pkg/service/device/pb";
-
 import "x/go/status/pb/status.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/service/device/pb";
 
 message StatusDetails {
   uint32 rack = 1;

@@ -11,10 +11,10 @@ syntax = "proto3";
 
 package grpc.channel;
 
-option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/channel";
-
-import "google/protobuf/empty.proto";
 import "core/pkg/api/channel/pb/channel.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/channel";
 
 service ChannelCreateService {
   rpc Exec(CreateRequest) returns (CreateResponse) {}

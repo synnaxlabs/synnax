@@ -4,9 +4,9 @@ syntax = "proto3";
 
 package distribution.channel;
 
-option go_package = "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb";
-
 import "x/go/control/pb/control.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb";
 
 enum OperationType {
   OPERATION_TYPE_UNSPECIFIED = 0;

@@ -4,10 +4,10 @@ syntax = "proto3";
 
 package api.channel;
 
-option go_package = "github.com/synnaxlabs/synnax/pkg/api/channel/pb";
-
 import "core/pkg/distribution/channel/pb/channel.proto";
 import "x/go/control/pb/control.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/api/channel/pb";
 
 enum OperationType {
   OPERATION_TYPE_UNSPECIFIED = 0;

@@ -11,8 +11,8 @@ syntax = "proto3";
 
 package grpc.task;
 
-import "google/protobuf/empty.proto";
 import "core/pkg/service/task/pb/task.proto";
+import "google/protobuf/empty.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/task";
 

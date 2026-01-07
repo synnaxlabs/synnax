@@ -11,8 +11,8 @@ syntax = "proto3";
 
 package grpc.kv;
 
-import "google/protobuf/empty.proto";
 import "core/pkg/service/ranger/kv/pb/kv.proto";
+import "google/protobuf/empty.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/kv";
 

@@ -11,8 +11,8 @@ syntax = "proto3";
 
 package grpc.ranger;
 
-import "google/protobuf/empty.proto";
 import "core/pkg/api/ranger/pb/range.proto";
+import "google/protobuf/empty.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/ranger";
 

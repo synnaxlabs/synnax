@@ -4,10 +4,10 @@ syntax = "proto3";
 
 package api.range;
 
-option go_package = "github.com/synnaxlabs/synnax/pkg/api/ranger/pb";
-
-import "x/go/telem/telem.proto";
 import "x/go/label/pb/label.proto";
+import "x/go/telem/telem.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/api/ranger/pb";
 
 message Range {
   string key = 1;

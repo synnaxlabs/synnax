@@ -4,9 +4,9 @@ syntax = "proto3";
 
 package x.control;
 
-option go_package = "github.com/synnaxlabs/x/control/pb";
-
 import "google/protobuf/any.proto";
+
+option go_package = "github.com/synnaxlabs/x/control/pb";
 
 enum Concurrency {
   CONCURRENCY_UNSPECIFIED = 0;
