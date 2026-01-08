@@ -194,7 +194,7 @@ func (s *synnaxService) Execute(
 	r <-chan svc.ChangeRequest,
 	changes chan<- svc.Status,
 ) (bool, uint32) {
-	const accepts = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptInterrogate
+	const accepts = svc.AcceptStop | svc.AcceptShutdown
 	defer func() { changes <- svc.Status{State: svc.Stopped} }()
 	status := svc.Status{State: svc.StartPending}
 	changes <- status
@@ -231,8 +231,11 @@ o:
 				break o
 			case svc.Interrogate:
 				changes <- status
+			default:
+				s.ins.L.Warn("unhandled service control command", zap.Uint32("cmd", uint32(c.Cmd)))
 			}
 		case <-sCtx.Stopped():
+			s.ins.L.Error("service shutdown unexpectedly")
 			break o
 		}
 	}
