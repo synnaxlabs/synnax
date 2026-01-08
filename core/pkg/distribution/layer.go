@@ -60,6 +60,15 @@ type Config struct {
 	//
 	// [REQUIRED]
 	AspenTransport aspen.Transport
+	// EnableSearch sets whether search indexing is enabled for cluster resources.
+	//
+	// [OPTIONAL] - Defaults to true
+	EnableSearch *bool
+	// TestingIntOverflowCheck is used for overriding default verifier behavior
+	// for testing purposes only.
+	//
+	// [OPTIONAL] - Defaults to nil
+	TestingIntOverflowCheck channel.IntOverflowChecker
 	// Instrumentation is for logging, tracing, and metrics.
 	//
 	// Storage is the storage layer that the distribution layer will use for persisting
@@ -67,20 +76,16 @@ type Config struct {
 	//
 	// [REQUIRED]
 	Storage *storage.Layer
-	// TestingIntOverflowCheck is used for overriding default verifier behavior
-	// for testing purposes only.
-	//
-	// [OPTIONAL] - Defaults to nil
-	TestingIntOverflowCheck channel.IntOverflowChecker
-	// EnableSearch sets whether search indexing is enabled for cluster resources.
-	//
-	// [OPTIONAL] - Defaults to true
-	EnableSearch *bool
 	// EnableServiceSignals sets whether to enable CDC signal propagation for changes
 	// to distribution layer data structures (channels, groups, etc.)
 	//
 	// [OPTIONAL] - Defaults to true.
 	EnableServiceSignals *bool
+	// ValidateChannelNames disables channel name validation when true.
+	// This allows channels with special characters, spaces, etc.
+	//
+	// [OPTIONAL] - Defaults to true (validation enabled)
+	ValidateChannelNames *bool
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 	// Verifier is for verifying. Magic.
@@ -103,11 +108,6 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to []
 	PeerAddresses []address.Address
-	// ValidateChannelNames disables channel name validation when true.
-	// This allows channels with special characters, spaces, etc.
-	//
-	// [OPTIONAL] - Defaults to true (validation enabled)
-	ValidateChannelNames *bool
 }
 
 var (
