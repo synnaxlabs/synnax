@@ -7,8 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package main
+//go:build !windows
 
-import "github.com/synnaxlabs/synnax/cmd"
+package start
 
-func main() { cmd.RunMain() }
+import (
+	"github.com/synnaxlabs/x/io/fs"
+	"golang.org/x/sys/unix"
+)
+
+func disablePermissionBits() {
+	// Mask the permission bits so all files are readable and writable by the user and
+	// readable by the group.
+	mask := unix.Umask(0)
+	mask |= int(fs.OthersReadWriteExecute)
+	unix.Umask(mask)
+}

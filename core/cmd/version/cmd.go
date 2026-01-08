@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "x/cpp/xenv/xenv.h"
+package version
 
-#include "driver/rack/rack.h"
+import "github.com/spf13/cobra"
 
-const std::string ENV_PREFIX = "SYNNAX_DRIVER_";
-
-xerrors::Error rack::Config::load_env() {
-    xenv::Parser p(ENV_PREFIX);
-    this->connection.override(p);
-    this->timing.override(p);
-    this->manager.override(p);
-    this->remote_info.override(p);
-    return xerrors::NIL;
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print the version of Synnax",
+	Long:  "Print the version of Synnax.",
+	Run:   func(*cobra.Command, []string) { Print() },
 }
+
+// AddCommand registers the version command to the given parent command.
+func AddCommand(cmd *cobra.Command) { cmd.AddCommand(versionCmd) }

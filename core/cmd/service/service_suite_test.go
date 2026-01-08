@@ -7,23 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cmd
+package service_test
 
 import (
-	"fmt"
+	"testing"
 
-	"github.com/spf13/cobra"
-	"github.com/synnaxlabs/synnax/pkg/version"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version of Synnax",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("Synnax %s\n", version.Full())
-	},
-}
-
-func init() {
-	root.AddCommand(versionCmd)
+func TestService(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Suite")
 }

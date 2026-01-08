@@ -7,8 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package main
+//go:build !windows
 
-import "github.com/synnaxlabs/synnax/cmd"
+package service_test
 
-func main() { cmd.RunMain() }
+import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/cmd/service"
+)
+
+var _ = Describe("Service", func() {
+	Describe("RegisterCommands", func() {
+		It("should be a no-op on non-Windows platforms", func() {
+			Expect(func() { _ = service.AddCommand(nil) }).ToNot(Panic())
+		})
+	})
+})

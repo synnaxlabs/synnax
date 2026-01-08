@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cmd
+package instrumentation
 
 import (
 	"context"
@@ -24,7 +24,9 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-func configureInstrumentation() alamos.Instrumentation {
+// Configure configures the instrumentation for the application. Configure requires
+// access to Viper to parse flags.
+func Configure() alamos.Instrumentation {
 	logger, err := configureLogger()
 	if err != nil {
 		log.Fatal(err)
@@ -32,33 +34,36 @@ func configureInstrumentation() alamos.Instrumentation {
 	return alamos.New("sy", alamos.WithLogger(logger))
 }
 
-func cleanupInstrumentation(ctx context.Context, i alamos.Instrumentation) {
+// Cleanup cleans up the instrumentation for the application.
+func Cleanup(ctx context.Context, ins alamos.Instrumentation) {
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
 	defer cancel()
 	// Force flush to uptrace, so we can trace the shutdown life cycle
 	if err := uptrace.ForceFlush(ctx); err != nil {
-		i.L.Info("failed to flush instrumentation", zap.Error(err))
+		ins.L.Info("failed to flush instrumentation", zap.Error(err))
 	}
 }
 
-func configureLogger() (logger *alamos.Logger, err error) {
+func configureLogger() (*alamos.Logger, error) {
 	var (
-		verbose              = viper.GetBool(verboseFlag)
-		debug                = viper.GetBool(debugFlag)
-		opts                 = []zap.Option{zap.AddStacktrace(zap.ErrorLevel), zap.AddCaller()}
+		verbose = viper.GetBool(FlagVerbose)
+		debug   = viper.GetBool(FlagDebug)
+		opts    = []zap.Option{
+			zap.AddStacktrace(zap.ErrorLevel),
+			zap.AddCaller(),
+		}
 		consoleEncoderConfig = zap.NewProductionEncoderConfig()
 		fileEncoderConfig    = zap.NewProductionEncoderConfig()
 		consoleOutput        = zapcore.Lock(os.Stdout)
 		fileOutput           = zapcore.AddSync(&lumberjack.Logger{
-			Filename:   viper.GetString(logFilePathFlag),
-			MaxSize:    viper.GetInt(logFileMaxSizeFlag),
-			MaxBackups: viper.GetInt(logFileMaxBackupsFlag),
-			MaxAge:     viper.GetInt(logFileMaxAgeFlag),
-			Compress:   viper.GetBool(logFileCompressFlag),
+			Filename:   viper.GetString(FlagLogFilePath),
+			MaxSize:    viper.GetInt(FlagLogFileMaxSize),
+			MaxBackups: viper.GetInt(FlagLogFileMaxBackups),
+			MaxAge:     viper.GetInt(FlagLogFileMaxAge),
+			Compress:   viper.GetBool(FlagLogFileCompress),
 		})
 		level = lo.Ternary(verbose, zap.DebugLevel, zap.InfoLevel)
 	)
-
 	if debug {
 		opts = append(opts, zap.Development())
 	}
@@ -74,11 +79,12 @@ func configureLogger() (logger *alamos.Logger, err error) {
 		alamos.CustomZapCore(zapcore.NewCore(consoleEncoder, consoleOutput, level)),
 		alamos.CustomZapCore(zapcore.NewCore(fileEncoder, fileOutput, level)),
 	)
-	if logger, err = alamos.NewLogger(alamos.LoggerConfig{
+	logger, err := alamos.NewLogger(alamos.LoggerConfig{
 		ZapLogger: zap.New(core, opts...),
-	}); err != nil {
-		return
+	})
+	if err != nil {
+		return nil, err
 	}
 	zap.ReplaceGlobals(logger.Zap())
-	return
+	return logger, nil
 }

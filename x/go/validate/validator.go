@@ -61,6 +61,16 @@ func Positive[T types.Numeric](v *Validator, field string, value T) bool {
 	return v.Ternary(field, value <= 0, "must be positive")
 }
 
+func InBounds[T types.Numeric](v *Validator, field string, value, lower, upper T) bool {
+	return v.Ternaryf(
+		field,
+		value < lower || value >= upper,
+		"must be in bounds [%v, %v)",
+		lower,
+		upper,
+	)
+}
+
 func GreaterThan[T types.Numeric](
 	v *Validator,
 	field string,
