@@ -16,7 +16,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -221,19 +220,19 @@ func runStatus(c *cobra.Command, _ []string) error {
 
 // logEntry represents a parsed JSON log entry from zap.
 type logEntry struct {
-	Level   string  `json:"level"`
-	TS      float64 `json:"ts"`
-	Logger  string  `json:"logger"`
-	Caller  string  `json:"caller"`
-	Msg     string  `json:"msg"`
-	Error   string  `json:"error"`
+	Level  string  `json:"level"`
+	TS     float64 `json:"ts"`
+	Logger string  `json:"logger"`
+	Caller string  `json:"caller"`
+	Msg    string  `json:"msg"`
+	Error  string  `json:"error"`
 }
 
 // ANSI color codes for log levels.
 const (
-	colorReset  = "\033[0m"
-	colorYellow = "\033[33m"
-	colorRed    = "\033[31m"
+	colorReset   = "\033[0m"
+	colorYellow  = "\033[33m"
+	colorRed     = "\033[31m"
 	colorBoldRed = "\033[1;31m"
 )
 
