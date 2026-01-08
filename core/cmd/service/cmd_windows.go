@@ -12,7 +12,12 @@
 package service
 
 import (
+	"bufio"
+	"encoding/json"
+	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -115,6 +120,7 @@ func AddCommand(cmd *cobra.Command) error {
 }
 
 func runInstall(c *cobra.Command, _ []string) error {
+	c.SilenceUsage = true
 	if err := install(); err != nil {
 		return err
 	}
@@ -125,6 +131,7 @@ func runInstall(c *cobra.Command, _ []string) error {
 }
 
 func runUninstall(c *cobra.Command, _ []string) error {
+	c.SilenceUsage = true
 	if err := uninstall(); err != nil {
 		return err
 	}
@@ -133,6 +140,7 @@ func runUninstall(c *cobra.Command, _ []string) error {
 }
 
 func runStart(c *cobra.Command, _ []string) error {
+	c.SilenceUsage = true
 	if err := start(); err != nil {
 		return err
 	}
@@ -141,6 +149,7 @@ func runStart(c *cobra.Command, _ []string) error {
 }
 
 func runStop(c *cobra.Command, _ []string) error {
+	c.SilenceUsage = true
 	if err := stop(); err != nil {
 		return err
 	}
@@ -149,6 +158,7 @@ func runStop(c *cobra.Command, _ []string) error {
 }
 
 func runStatus(c *cobra.Command, _ []string) error {
+	c.SilenceUsage = true
 	info, err := status()
 	if err != nil {
 		return err
@@ -161,6 +171,13 @@ func runStatus(c *cobra.Command, _ []string) error {
 		c.Printf("Status:  %s (PID: %d)\n", info.State, info.ProcessID)
 	} else {
 		c.Printf("Status:  %s\n", info.State)
+		if info.State == "Stopped" && (info.Win32ExitCode != 0 || info.ServiceSpecificExitCode != 0) {
+			if info.ServiceSpecificExitCode != 0 {
+				c.Printf("Exit:    Service error code %d\n", info.ServiceSpecificExitCode)
+			} else {
+				c.Printf("Exit:    Win32 error code %d\n", info.Win32ExitCode)
+			}
+		}
 	}
 
 	c.Println()
@@ -187,5 +204,36 @@ func runStatus(c *cobra.Command, _ []string) error {
 		c.Println("  (No config file found)")
 	}
 
+	// Show recent log entries when stopped (especially useful for debugging failures)
+	if info.Installed && info.State == "Stopped" && info.LogFile != "" {
+		lines, err := readLastLines(info.LogFile, 10)
+		if err == nil && len(lines) > 0 {
+			c.Println()
+			c.Println("Recent logs:")
+			for _, line := range lines {
+				c.Printf("  %s\n", line)
+			}
+		}
+	}
+
 	return nil
+}
+
+// readLastLines reads the last n lines from a file.
+func readLastLines(filePath string, n int) ([]string, error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var lines []string
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+		if len(lines) > n {
+			lines = lines[1:]
+		}
+	}
+	return lines, scanner.Err()
 }

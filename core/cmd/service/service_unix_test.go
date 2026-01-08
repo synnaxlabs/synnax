@@ -18,7 +18,7 @@ import (
 )
 
 var _ = Describe("Service", func() {
-	It("RegisterCommands", func() {
+	Describe("RegisterCommands", func() {
 		It("should be a no-op on non-Windows platforms", func() {
 			Expect(func() { _ = service.AddCommand(nil) }).ToNot(Panic())
 		})

@@ -185,16 +185,18 @@ func stop() error {
 
 // StatusInfo contains information about the service status and configuration.
 type StatusInfo struct {
-	Installed   bool
-	State       string
-	ProcessID   uint32
-	ConfigPath  string
-	DataDir     string
-	LogFile     string
-	CertsDir    string
-	Listen      string
-	Insecure    bool
-	ConfigError error
+	Installed               bool
+	State                   string
+	ProcessID               uint32
+	Win32ExitCode           uint32
+	ServiceSpecificExitCode uint32
+	ConfigPath              string
+	DataDir                 string
+	LogFile                 string
+	CertsDir                string
+	Listen                  string
+	Insecure                bool
+	ConfigError             error
 }
 
 func stateToString(state svc.State) string {
@@ -230,11 +232,11 @@ func status() (StatusInfo, error) {
 		if err := v.ReadInConfig(); err != nil {
 			info.ConfigError = err
 		} else {
-			info.DataDir = v.GetString("data")
-			info.LogFile = v.GetString("log-file")
-			info.CertsDir = v.GetString("certs-dir")
-			info.Listen = v.GetString("listen")
-			info.Insecure = v.GetBool("insecure")
+			info.DataDir = v.GetString(cmdstart.FlagData)
+			info.LogFile = v.GetString(cmdinst.FlagLogFilePath)
+			info.CertsDir = v.GetString(cert.FlagCertsDir)
+			info.Listen = v.GetString(cmdstart.FlagListen)
+			info.Insecure = v.GetBool(cmdstart.FlagInsecure)
 		}
 	}
 
@@ -260,6 +262,8 @@ func status() (StatusInfo, error) {
 
 	info.State = stateToString(st.State)
 	info.ProcessID = st.ProcessId
+	info.Win32ExitCode = st.Win32ExitCode
+	info.ServiceSpecificExitCode = st.ServiceSpecificExitCode
 
 	return info, nil
 }
