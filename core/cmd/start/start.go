@@ -228,7 +228,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	}
 
 	if apiLayer, err = api.New(api.Config{
-		Instrumentation: cfg.Instrumentation.Child("api"),
+		Instrumentation: cfg.Child("api"),
 		Service:         serviceLayer,
 		Distribution:    distributionLayer,
 	}); !ok(err, nil) {
@@ -301,7 +301,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 			Enabled:             config.Bool(!*cfg.noDriver),
 			Insecure:            cfg.insecure,
 			Integrations:        parseIntegrations(cfg.enabledIntegrations, cfg.disabledIntegrations),
-			Instrumentation:     cfg.Instrumentation.Child("driver"),
+			Instrumentation:     cfg.Child("driver"),
 			Address:             cfg.listenAddress,
 			RackKey:             serviceLayer.Rack.EmbeddedKey,
 			ClusterKey:          distributionLayer.Cluster.Key(),
