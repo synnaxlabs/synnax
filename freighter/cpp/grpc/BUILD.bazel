@@ -1,7 +1,7 @@
 cc_library(
-    name = "fgrpc",
+    name = "grpc",
     srcs = [],
-    hdrs = ["fgrpc.h"],
+    hdrs = ["grpc.h"],
     visibility = ["//visibility:public"],
     deps = [
         "//freighter/cpp:freighter",
@@ -12,13 +12,12 @@ cc_library(
 )
 
 cc_test(
-    name = "fgrpc_test",
-    size = "small",
-    srcs = ["fgrpc_test.cpp"],
+    name = "grpc_test",
+    srcs = ["grpc_test.cpp"],
     deps = [
-        "//freighter/cpp/fgrpc/mock:server",
-        "//freighter/cpp/fgrpc/mock:service_grpc",
-        "//x/cpp/xtest",
+        "//freighter/cpp/grpc/mock:server",
+        "//freighter/cpp/grpc/mock:service_grpc",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

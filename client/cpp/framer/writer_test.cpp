@@ -13,7 +13,7 @@
 
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 /// @brief it should correctly write a frame of telemetry to the DB.
 TEST(WriterTests, testWriteBasic) {

@@ -11,7 +11,7 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/errors/errors.h"
 #include "driver/labjack/errors.h"

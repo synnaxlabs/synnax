@@ -22,10 +22,6 @@
 #include "x/cpp/telem/telem.h"
 
 namespace x::status {
-class Status;
-}
-
-namespace synnax::status {
 
 constexpr const char *VARIANT_SUCCESS = "success";
 constexpr const char *VARIANT_INFO = "info";
@@ -40,9 +36,9 @@ struct Status {
     std::string name;
     std::string message;
     std::string description;
-    telem::TimeStamp time;
+    x::telem::TimeStamp time;
     Details details;
-    std::vector<synnax::label::Label> labels;
+    std::vector<x::label::Label> labels;
     std::string variant;
 
     static Status parse(x::json::Parser parser) {
@@ -53,31 +49,31 @@ struct Status {
             .description = parser.field<std::string>("description", ""),
             .time = telem::TimeStamp(parser.field<std::int64_t>("time")),
             .details = [&]() -> Details {
-                if constexpr (std::is_same_v<Details, nlohmann::json>) {
-                    return parser.field<nlohmann::json>("details", nlohmann::json{});
+                if constexpr (std::is_same_v<Details, x::json::json>) {
+                    return parser.field<x::json::json>("details", x::json::json{});
                 } else {
                     return Details::parse(parser.optional_child("details"));
                 }
             }(),
-            .labels = parser.field<std::vector<synnax::label::Label>>("labels", {}),
+            .labels = parser.field<std::vector<x::label::Label>>("labels", {}),
             .variant = parser.field<std::string>("variant"),
         };
     }
 
-    [[nodiscard]] json to_json() const {
-        json j;
+    [[nodiscard]] x::json::json to_json() const {
+        x::json::json j;
         j["key"] = this->key;
         j["name"] = this->name;
         j["message"] = this->message;
         j["description"] = this->description;
         j["time"] = this->time.nanoseconds();
-        if constexpr (std::is_same_v<Details, nlohmann::json>) {
+        if constexpr (std::is_same_v<Details, x::json::json>) {
             j["details"] = this->details;
         } else {
             j["details"] = this->details.to_json();
         }
         {
-            auto arr = nlohmann::json::array();
+            auto arr = x::json::json::array();
             for (const auto &item: this->labels)
                 arr.push_back(item.to_json());
             j["labels"] = arr;
@@ -88,6 +84,6 @@ struct Status {
 
     using proto_type = x::status::Status;
     [[nodiscard]] x::status::Status to_proto() const;
-    static std::pair<Status, errors::Error> from_proto(const x::status::Status &pb);
+    static std::pair<Status, x::errors::Error> from_proto(const x::status::Status &pb);
 };
 }

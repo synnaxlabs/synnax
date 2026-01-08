@@ -46,7 +46,7 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/ni",
         "//driver/pipeline/mock",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

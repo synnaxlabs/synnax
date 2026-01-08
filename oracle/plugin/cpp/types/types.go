@@ -12,7 +12,6 @@ package types
 import (
 	"bytes"
 	"fmt"
-	"sort"
 	"strings"
 	"text/template"
 
@@ -307,8 +306,6 @@ func (p *Plugin) generateFile(
 		}
 	}
 
-	data.buildProtoForwardDecls()
-
 	var buf bytes.Buffer
 	if err := fileTemplate.Execute(&buf, data); err != nil {
 		return nil, err
@@ -566,7 +563,7 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 	}
 
 	if sd.GenerateParse {
-		data.includes.addInternal("x/cpp/xjson/xjson.h")
+		data.includes.addInternal("x/cpp/json/json.h")
 	}
 
 	// Generic structs need type_traits for if constexpr checks
@@ -583,7 +580,6 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 			sd.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, pbName)
 			sd.ProtoNamespace = pbNamespace
 			sd.ProtoClass = pbName
-			data.addProtoForwardDecl(pbNamespace, pbName)
 			data.includes.addSystem("utility")
 			data.includes.addInternal("x/cpp/errors/errors.h")
 		}
@@ -858,50 +854,17 @@ func (m *includeManager) addInternal(path string) {
 }
 
 type templateData struct {
-	OutputPath       string
-	Namespace        string
-	KeyFields        []keyFieldData
-	Structs          []structData
-	Enums            []enumData
-	TypeDefs         []typeDefData
-	Aliases          []aliasData
-	SortedDecls      []sortedDeclData
-	ProtoForwardDecls []protoForwardDeclData
-	includes         *includeManager
-	table            *resolution.Table
-	rawNs            string
-	protoDecls       map[string][]string
-}
-
-type protoForwardDeclData struct {
-	Namespace string
-	Classes   []string
-}
-
-func (d *templateData) addProtoForwardDecl(namespace, class string) {
-	if d.protoDecls == nil {
-		d.protoDecls = make(map[string][]string)
-	}
-	if !lo.Contains(d.protoDecls[namespace], class) {
-		d.protoDecls[namespace] = append(d.protoDecls[namespace], class)
-	}
-}
-
-func (d *templateData) buildProtoForwardDecls() {
-	if d.protoDecls == nil {
-		return
-	}
-	var namespaces []string
-	for ns := range d.protoDecls {
-		namespaces = append(namespaces, ns)
-	}
-	sort.Strings(namespaces)
-	for _, ns := range namespaces {
-		d.ProtoForwardDecls = append(d.ProtoForwardDecls, protoForwardDeclData{
-			Namespace: ns,
-			Classes:   d.protoDecls[ns],
-		})
-	}
+	OutputPath  string
+	Namespace   string
+	KeyFields   []keyFieldData
+	Structs     []structData
+	Enums       []enumData
+	TypeDefs    []typeDefData
+	Aliases     []aliasData
+	SortedDecls []sortedDeclData
+	includes    *includeManager
+	table       *resolution.Table
+	rawNs       string
 }
 
 type sortedDeclData struct {
@@ -1002,7 +965,7 @@ func defaultValueForPrimitive(primitive string) string {
 	case "time_range", "time_range_bounded":
 		return "x::telem::TimeRange{}"
 	case "json":
-		return "nlohmann::json{}"
+		return "x::json::json{}"
 	case "bytes":
 		return "{}"
 	default:
@@ -1199,15 +1162,15 @@ func (p *Plugin) genericParseExprsForField(field resolution.Field, data *templat
 
 	if field.IsHardOptional {
 		// Hard optional with type parameter
-		jsonParseExpr = fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<nlohmann::json>("%s")) : std::nullopt`, jsonName, jsonName)
+		jsonParseExpr = fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<x::json::json>("%s")) : std::nullopt`, jsonName, jsonName)
 		structParseExpr = fmt.Sprintf(`parser.has("%s") ? std::make_optional(%s::parse(parser.child("%s"))) : std::nullopt`, jsonName, typeParamName, jsonName)
 	} else if field.IsOptional {
 		// Soft optional with type parameter (has default)
-		jsonParseExpr = fmt.Sprintf(`parser.field<nlohmann::json>("%s", nlohmann::json{})`, jsonName)
+		jsonParseExpr = fmt.Sprintf(`parser.field<x::json::json>("%s", x::json::json{})`, jsonName)
 		structParseExpr = fmt.Sprintf(`%s::parse(parser.optional_child("%s"))`, typeParamName, jsonName)
 	} else {
 		// Required with type parameter
-		jsonParseExpr = fmt.Sprintf(`parser.field<nlohmann::json>("%s")`, jsonName)
+		jsonParseExpr = fmt.Sprintf(`parser.field<x::json::json>("%s")`, jsonName)
 		structParseExpr = fmt.Sprintf(`%s::parse(parser.child("%s"))`, typeParamName, jsonName)
 	}
 
@@ -1324,7 +1287,7 @@ func (p *Plugin) toJsonValueExpr(typeRef resolution.TypeRef, fieldName string, d
 func (p *Plugin) toJsonArrayOfStructsExpr(jsonName, fieldName string) string {
 	// For arrays of structs, we need to transform each element
 	return fmt.Sprintf(`{
-        auto arr = nlohmann::json::array();
+        auto arr = x::json::json::array();
         for (const auto& item : this->%s) arr.push_back(item.to_json());
         j["%s"] = arr;
     }`, fieldName, jsonName)
@@ -1386,9 +1349,6 @@ var fileTemplate = template.Must(template.New("cpp-types").Funcs(templateFuncs).
 #include "{{.}}"
 {{end}}
 {{- end}}
-{{- range .ProtoForwardDecls}}
-namespace {{.Namespace}} { {{range .Classes}}class {{.}}; {{end}}}
-{{- end}}
 
 namespace {{.Namespace}} {
 {{- range $i, $kf := .KeyFields}}
@@ -1440,13 +1400,13 @@ constexpr const char* {{$enum.Name | toScreamingSnake}}_{{.Name | toScreamingSna
 {{- end}}
 {{- if $s.GenerateParse}}
 
-    static {{$s.Name}} parse(x::xjson::Parser parser) {
+    static {{$s.Name}} parse(x::json::Parser parser) {
         return {{$s.Name}}{
 {{- range $j, $f := $s.Fields}}
 {{- if $f.IsGenericField}}
 {{- if $f.IsHardOptional}}
             .{{$f.Name}} = [&]() -> std::optional<{{$f.TypeParamName}}> {
-                if constexpr (std::is_same_v<{{$f.TypeParamName}}, nlohmann::json>) {
+                if constexpr (std::is_same_v<{{$f.TypeParamName}}, x::json::json>) {
                     return {{$f.JsonParseExpr}};
                 } else {
                     return {{$f.StructParseExpr}};
@@ -1454,7 +1414,7 @@ constexpr const char* {{$enum.Name | toScreamingSnake}}_{{.Name | toScreamingSna
             }(),
 {{- else}}
             .{{$f.Name}} = [&]() -> {{$f.TypeParamName}} {
-                if constexpr (std::is_same_v<{{$f.TypeParamName}}, nlohmann::json>) {
+                if constexpr (std::is_same_v<{{$f.TypeParamName}}, x::json::json>) {
                     return {{$f.JsonParseExpr}};
                 } else {
                     return {{$f.StructParseExpr}};
@@ -1470,20 +1430,20 @@ constexpr const char* {{$enum.Name | toScreamingSnake}}_{{.Name | toScreamingSna
 {{- end}}
 {{- if $s.GenerateToJson}}
 
-    [[nodiscard]] json to_json() const {
-        json j;
+    [[nodiscard]] x::json::json to_json() const {
+        x::json::json j;
 {{- range $s.Fields}}
 {{- if .IsGenericField}}
 {{- if .IsHardOptional}}
         if (this->{{.Name}}.has_value()) {
-            if constexpr (std::is_same_v<{{.TypeParamName}}, nlohmann::json>) {
+            if constexpr (std::is_same_v<{{.TypeParamName}}, x::json::json>) {
                 j["{{.JsonName}}"] = *this->{{.Name}};
             } else {
                 j["{{.JsonName}}"] = this->{{.Name}}->to_json();
             }
         }
 {{- else}}
-        if constexpr (std::is_same_v<{{.TypeParamName}}, nlohmann::json>) {
+        if constexpr (std::is_same_v<{{.TypeParamName}}, x::json::json>) {
             j["{{.JsonName}}"] = this->{{.Name}};
         } else {
             j["{{.JsonName}}"] = this->{{.Name}}.to_json();

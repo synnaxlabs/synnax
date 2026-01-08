@@ -36,7 +36,7 @@ cc_test(
         "//driver/modbus",
         "//driver/modbus/mock",
         "//driver/pipeline/mock",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

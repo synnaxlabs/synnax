@@ -10,7 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/task/common/factory.h"
 #include "driver/task/task.h"

@@ -31,7 +31,7 @@ cc_test(
         "//driver/pipeline/mock",
         "//driver/sequence/plugins",
         "//driver/sequence/plugins/mock",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

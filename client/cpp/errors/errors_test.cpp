@@ -11,7 +11,7 @@
 
 #include "client/cpp/errors/errors.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 /// @brief it should create an unexpected missing error with correct type and message.
 TEST(ErrorsTest, UnexpectedMissingError) {

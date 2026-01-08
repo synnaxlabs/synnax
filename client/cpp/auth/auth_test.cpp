@@ -9,11 +9,11 @@
 
 #include <memory>
 
-#include <gtest/gtest.h>
+#include "gtest/gtest.h"
 
 #include "client/cpp/auth/auth.h"
 #include "freighter/cpp/mock/mock.h"
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "core/pkg/api/grpc/auth/auth.pb.h"
 

@@ -19,7 +19,7 @@
 
 #include "x/go/label/pb/label.pb.h"
 
-namespace synnax::label {
+namespace x::label {
 
 inline x::label::Label Label::to_proto() const {
     x::label::Label pb;
@@ -29,12 +29,12 @@ inline x::label::Label Label::to_proto() const {
     return pb;
 }
 
-inline std::pair<Label, errors::Error> Label::from_proto(const x::label::Label &pb) {
+inline std::pair<Label, x::errors::Error> Label::from_proto(const x::label::Label &pb) {
     Label cpp;
     cpp.key = pb.key();
     cpp.name = pb.name();
     cpp.color = pb.color();
-    return {cpp, errors::NIL};
+    return {cpp, x::errors::NIL};
 }
 
 }

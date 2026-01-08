@@ -16,14 +16,9 @@
 #include <string>
 #include <utility>
 
-#include "x/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-
-namespace service::rack {
-class StatusDetails;
-class Rack;
-}
+#include "x/cpp/status/types.gen.h"
 
 namespace synnax::rack {
 using Key = std::uint32_t;
@@ -37,8 +32,8 @@ struct StatusDetails {
         };
     }
 
-    [[nodiscard]] json to_json() const {
-        json j;
+    [[nodiscard]] x::json::json to_json() const {
+        x::json::json j;
         j["rack"] = this->rack;
         return j;
     }
@@ -49,7 +44,7 @@ struct StatusDetails {
     from_proto(const service::rack::StatusDetails &pb);
 };
 
-using Status = synnax::status::Status<StatusDetails>;
+using Status = x::status::Status<StatusDetails>;
 
 struct Payload {
     Key key;
@@ -70,8 +65,8 @@ struct Payload {
         };
     }
 
-    [[nodiscard]] json to_json() const {
-        json j;
+    [[nodiscard]] x::json::json to_json() const {
+        x::json::json j;
         j["key"] = this->key;
         j["name"] = this->name;
         j["task_counter"] = this->task_counter;
@@ -82,6 +77,7 @@ struct Payload {
 
     using proto_type = service::rack::Rack;
     [[nodiscard]] service::rack::Rack to_proto() const;
-    static std::pair<Payload, x::errors::Error> from_proto(const service::rack::Rack &pb);
+    static std::pair<Payload, x::errors::Error>
+    from_proto(const service::rack::Rack &pb);
 };
 }

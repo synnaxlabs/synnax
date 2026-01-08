@@ -12,7 +12,7 @@
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/defer/defer.h"
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/modbus/mock/slave.h"
 #include "driver/modbus/scan_task.h"

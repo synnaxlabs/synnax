@@ -20,8 +20,9 @@
 #include <grpcpp/server_builder.h>
 #include <grpcpp/server_context.h>
 
-#include "freighter/cpp/fgrpc/mock/freighter/cpp/fgrpc/mock/service.grpc.pb.h"
+#include "freighter/cpp/grpc/mock/freighter/cpp/grpc/mock/service.grpc.pb.h"
 
+namespace freighter::grpc::mock {
 /// @brief Used to awake main thread when we are
 /// done processing messages.
 inline std::mutex mut;
@@ -32,8 +33,8 @@ inline bool end_session = false;
 class unaryServiceImpl final : public test::UnaryMessageService::Service {
 public:
     /// @brief The implementation on the server side of unary communication.
-    grpc::Status Exec(
-        grpc::ServerContext *context,
+    ::grpc::Status Exec(
+        ::grpc::ServerContext *context,
         const test::Message *request,
         test::Message *reply
     ) override {
@@ -45,17 +46,15 @@ public:
             context->AddInitialMetadata("test", "dog");
         }
         reply->set_payload(rep + request->payload());
-        return grpc::Status::OK;
+        return ::grpc::Status::OK;
     }
-
-private:
 };
 
 class myStreamServiceImpl final : public test::StreamMessageService::Service {
     /// @brief The implementation of the server side stream.
-    grpc::Status Exec(
-        grpc::ServerContext *context,
-        grpc::ServerReaderWriter<test::Message, test::Message> *stream
+    ::grpc::Status Exec(
+        ::grpc::ServerContext *context,
+        ::grpc::ServerReaderWriter<test::Message, test::Message> *stream
     ) override {
         // Send initial metadata
         context->AddInitialMetadata("test", "dog");
@@ -69,7 +68,7 @@ class myStreamServiceImpl final : public test::StreamMessageService::Service {
             stream->Write(res);
         }
 
-        return grpc::Status::OK;
+        return ::grpc::Status::OK;
     }
 };
 
@@ -81,12 +80,12 @@ inline void server(const std::string &target) {
     unaryServiceImpl u_service;
     myStreamServiceImpl s_service;
 
-    grpc::ServerBuilder builder;
-    builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
+    ::grpc::ServerBuilder builder;
+    builder.AddListeningPort(server_address, ::grpc::InsecureServerCredentials());
     builder.RegisterService(&u_service);
     builder.RegisterService(&s_service);
 
-    std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
+    std::unique_ptr<::grpc::Server> server(builder.BuildAndStart());
 
     std::unique_lock<std::mutex> lck(mut);
     while (!end_session) {
@@ -101,4 +100,5 @@ inline void server(const std::string &target) {
 inline void stop_servers() {
     end_session = true;
     cond.notify_all();
+}
 }

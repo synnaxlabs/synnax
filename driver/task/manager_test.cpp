@@ -13,7 +13,7 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/status/status.h"
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/task/task.h"
 

@@ -11,7 +11,7 @@
 
 #include "client/cpp/channel/channel.h"
 #include "client/cpp/framer/framer.h"
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/sequence/plugins/mock/plugins.h"

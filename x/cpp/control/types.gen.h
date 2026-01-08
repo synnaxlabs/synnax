@@ -13,7 +13,7 @@
 
 #include <cstdint>
 
-namespace synnax::control {
+namespace x::control {
 
 enum class Concurrency {
     Exclusive = 0,

@@ -10,7 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/synnax.h"
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/errors/errors.h"

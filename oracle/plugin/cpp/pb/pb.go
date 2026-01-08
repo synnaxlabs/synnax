@@ -280,7 +280,7 @@ func (p *Plugin) processStructForTranslation(
 	}
 
 	if form.IsGeneric() {
-		data.includes.addInternal("x/cpp/xjson/any.h")
+		data.includes.addInternal("x/cpp/json/any.h")
 	}
 
 	for _, field := range resolution.UnifiedFields(s, data.table) {
@@ -373,16 +373,16 @@ func (p *Plugin) generateJsonFieldConversion(
 ) (forward, backward string) {
 	fieldName := field.Name
 	if field.IsHardOptional {
-		forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = x::xjson::to_any(*this->%s)", fieldName, fieldName, fieldName)
+		forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = x::json::to_any(*this->%s)", fieldName, fieldName, fieldName)
 		backward = fmt.Sprintf(`if (pb.has_%s()) {
-        auto [val, err] = x::xjson::from_any(pb.%s());
+        auto [val, err] = x::json::from_any(pb.%s());
         if (err) return {{}, err};
         cpp.%s = val;
     }`, fieldName, fieldName, fieldName)
 	} else {
-		forward = fmt.Sprintf("*pb.mutable_%s() = x::xjson::to_any(this->%s)", fieldName, fieldName)
+		forward = fmt.Sprintf("*pb.mutable_%s() = x::json::to_any(this->%s)", fieldName, fieldName)
 		backward = fmt.Sprintf(`{
-        auto [val, err] = x::xjson::from_any(pb.%s());
+        auto [val, err] = x::json::from_any(pb.%s());
         if (err) return {{}, err};
         cpp.%s = val;
     }`, fieldName, fieldName)
@@ -409,18 +409,18 @@ func (p *Plugin) generatePrimitiveConversion(
 		return fmt.Sprintf("%s(std::string(this->%s))", pbSetter, fieldName),
 			fmt.Sprintf("cpp.%s = x::telem::DataType(pb.%s());", fieldName, fieldName)
 	case "json":
-		data.includes.addInternal("x/cpp/xjson/struct.h")
+		data.includes.addInternal("x/cpp/json/struct.h")
 		if isOptional {
-			forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = x::xjson::to_struct(*this->%s).first", fieldName, fieldName, fieldName)
+			forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = x::json::to_struct(*this->%s).first", fieldName, fieldName, fieldName)
 			backward = fmt.Sprintf(`if (pb.has_%s()) {
-        auto [val, err] = x::xjson::from_struct(pb.%s());
+        auto [val, err] = x::json::from_struct(pb.%s());
         if (err) return {{}, err};
         cpp.%s = val;
     }`, fieldName, fieldName, fieldName)
 		} else {
-			forward = fmt.Sprintf("*pb.mutable_%s() = x::xjson::to_struct(this->%s).first", fieldName, fieldName)
+			forward = fmt.Sprintf("*pb.mutable_%s() = x::json::to_struct(this->%s).first", fieldName, fieldName)
 			backward = fmt.Sprintf(`{
-        auto [val, err] = x::xjson::from_struct(pb.%s());
+        auto [val, err] = x::json::from_struct(pb.%s());
         if (err) return {{}, err};
         cpp.%s = val;
     }`, fieldName, fieldName)

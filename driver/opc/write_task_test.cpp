@@ -14,7 +14,7 @@
 #include "nlohmann/json.hpp"
 
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/opc/mock/server.h"
 #include "driver/opc/opc.h"

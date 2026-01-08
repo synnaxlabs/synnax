@@ -13,7 +13,7 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/errors/errors.h"
 #include "driver/ni/hardware/hardware.h"

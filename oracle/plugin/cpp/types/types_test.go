@@ -114,7 +114,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Entry("timestamp", "timestamp", "telem::TimeStamp"),
 				Entry("timespan", "timespan", "telem::TimeSpan"),
 				Entry("time_range", "time_range", "telem::TimeRange"),
-				Entry("json", "json", "nlohmann::json"),
+				Entry("json", "json", "x::json::json"),
 			)
 
 			It("Should import required headers for special types", func() {
@@ -130,7 +130,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				testutil.ExpectContent(resp, "types.gen.h").
 					ToContain(
 						`#include "x/cpp/telem/telem.h"`,
-						`#include "nlohmann/json.hpp"`,
+						`#include "x/cpp/json/json.h"`,
 					)
 			})
 		})
@@ -310,8 +310,8 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`#include "nlohmann/json.hpp"`))
-			Expect(content).To(ContainSubstring(`nlohmann::json config;`))
+			Expect(content).To(ContainSubstring(`#include "x/cpp/json/json.h"`))
+			Expect(content).To(ContainSubstring(`x::json::json config;`))
 		})
 
 		It("Should handle map types", func() {
@@ -472,8 +472,8 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`if constexpr (std::is_same_v<D, nlohmann::json>)`))
-			Expect(content).To(ContainSubstring(`parser.field<nlohmann::json>("details")`))
+			Expect(content).To(ContainSubstring(`if constexpr (std::is_same_v<D, x::json::json>)`))
+			Expect(content).To(ContainSubstring(`parser.field<x::json::json>("details")`))
 			Expect(content).To(ContainSubstring(`D::parse(`))
 		})
 
@@ -497,7 +497,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`if constexpr (std::is_same_v<D, nlohmann::json>)`))
+			Expect(content).To(ContainSubstring(`if constexpr (std::is_same_v<D, x::json::json>)`))
 			Expect(content).To(ContainSubstring(`j["details"] = this->details;`))
 			Expect(content).To(ContainSubstring(`j["details"] = this->details.to_json();`))
 		})
@@ -523,7 +523,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`std::optional<D> details;`))
-			Expect(content).To(ContainSubstring(`if constexpr (std::is_same_v<D, nlohmann::json>)`))
+			Expect(content).To(ContainSubstring(`if constexpr (std::is_same_v<D, x::json::json>)`))
 			// Check that hard optional parse returns std::optional
 			Expect(content).To(ContainSubstring(`-> std::optional<D>`))
 		})
@@ -592,7 +592,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			// GoStatus should have if constexpr for the inherited details field
-			Expect(content).To(ContainSubstring(`if constexpr (std::is_same_v<Details, nlohmann::json>)`))
+			Expect(content).To(ContainSubstring(`if constexpr (std::is_same_v<Details, x::json::json>)`))
 			Expect(content).To(ContainSubstring(`#include <type_traits>`))
 		})
 

@@ -64,7 +64,7 @@ public:
     void close_send() override {
         if (this->config.read_errors == nullptr)
             this->config.read_errors = std::make_shared<std::vector<x::errors::Error>>();
-        this->config.read_errors->push_back(freighter::STREAM_CLOSED);
+        this->config.read_errors->push_back(freighter::ERR_STREAM_CLOSED);
     }
 };
 

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include "client/cpp/ontology/id.h"
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 /// @brief it should construct an synnax::ontology::ID with type and key.
 TEST(OntologyID, testConstruction) {

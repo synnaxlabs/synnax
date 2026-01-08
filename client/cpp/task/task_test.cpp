@@ -11,7 +11,7 @@
 
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 std::mt19937 gen_rand_task = random_generator("Task Tests");
 

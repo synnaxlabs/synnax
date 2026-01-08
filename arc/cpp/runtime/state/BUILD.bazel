@@ -23,7 +23,7 @@ cc_test(
     ],
     deps = [
         ":state",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

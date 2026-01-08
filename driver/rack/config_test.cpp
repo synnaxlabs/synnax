@@ -12,7 +12,7 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/env/xenv.h"
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/rack/rack.h"
 
@@ -75,7 +75,7 @@ TEST_F(RackConfigTest, saveConnParamsToPersistedState) {
         }
     );
     auto [cfg, err] = driver::rack::Config::load(args, brk);
-    ASSERT_OCCURRED_AS(err, freighter::UNREACHABLE);
+    ASSERT_OCCURRED_AS(err, freighter::ERR_UNREACHABLE);
     ASSERT_EQ(cfg.connection.host, "dog");
     ASSERT_EQ(cfg.connection.port, 450);
     ASSERT_EQ(cfg.connection.username, "cat");

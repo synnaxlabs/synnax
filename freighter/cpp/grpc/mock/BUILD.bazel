@@ -21,7 +21,7 @@ cc_library(
     hdrs = ["server.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//freighter/cpp/fgrpc",
-        "//freighter/cpp/fgrpc/mock:service_grpc",
+        "//freighter/cpp/grpc",
+        "//freighter/cpp/grpc/mock:service_grpc",
     ],
 )

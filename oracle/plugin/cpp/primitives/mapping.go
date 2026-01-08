@@ -35,7 +35,7 @@ var mapping = map[string]primitives.Mapping{
 	"time_range_bounded": {TargetType: "x::telem::TimeRange", Imports: []primitives.Import{{Category: "internal", Path: "x/cpp/telem/telem.h"}}},
 	"data_type":          {TargetType: "x::telem::DataType", Imports: []primitives.Import{{Category: "internal", Path: "x/cpp/telem/telem.h"}}},
 	"color":              {TargetType: "std::string", Imports: []primitives.Import{{Category: "system", Path: "string"}}},
-	"json":               {TargetType: "nlohmann::json", Imports: []primitives.Import{{Category: "internal", Path: "nlohmann/json.hpp"}}},
+	"json":               {TargetType: "x::json::json", Imports: []primitives.Import{{Category: "internal", Path: "x/cpp/json/json.h"}}},
 	"bytes":              {TargetType: "std::vector<std::uint8_t>", Imports: []primitives.Import{{Category: "system", Path: "vector"}, {Category: "system", Path: "cstdint"}}},
 }
 

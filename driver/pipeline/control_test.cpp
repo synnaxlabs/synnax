@@ -9,7 +9,7 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/pipeline/control.h"
 #include "driver/pipeline/mock/pipeline.h"
@@ -80,7 +80,7 @@ TEST(ControlPipeline, testOpenRetrySuccessful) {
     });
     const auto streamer_config = synnax::StreamerConfig{.channels = {1}};
     const auto streamer_factory = std::make_shared<driver::pipeline::mock::StreamerFactory>(
-        std::vector{freighter::UNREACHABLE, freighter::UNREACHABLE, x::errors::NIL},
+        std::vector{freighter::ERR_UNREACHABLE, freighter::ERR_UNREACHABLE, x::errors::NIL},
         std::make_shared<std::vector<driver::pipeline::mock::StreamerConfig>>(std::vector{
             driver::pipeline::mock::StreamerConfig{
                 reads,

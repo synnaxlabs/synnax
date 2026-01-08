@@ -16,17 +16,9 @@
 #include <string>
 #include <utility>
 
-#include "nlohmann/json.hpp"
-
-#include "x/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-
-namespace service::task {
-class StatusDetails;
-class Command;
-class Task;
-}
+#include "x/cpp/status/types.gen.h"
 
 namespace synnax::task {
 using Key = std::uint64_t;
@@ -35,7 +27,7 @@ struct StatusDetails {
     Key task;
     bool running;
     std::string cmd;
-    std::optional<nlohmann::json> data;
+    std::optional<x::json::json> data;
 
     static StatusDetails parse(x::json::Parser parser) {
         return StatusDetails{
@@ -43,13 +35,13 @@ struct StatusDetails {
             .running = parser.field<bool>("running", false),
             .cmd = parser.field<std::string>("cmd", ""),
             .data = parser.has("data")
-                      ? std::make_optional(parser.field<nlohmann::json>("data"))
+                      ? std::make_optional(parser.field<x::json::json>("data"))
                       : std::nullopt,
         };
     }
 
-    [[nodiscard]] json to_json() const {
-        json j;
+    [[nodiscard]] x::json::json to_json() const {
+        x::json::json j;
         j["task"] = this->task;
         j["running"] = this->running;
         j["cmd"] = this->cmd;
@@ -67,19 +59,19 @@ struct Command {
     Key task;
     std::string type;
     std::string key;
-    nlohmann::json args;
+    x::json::json args;
 
     static Command parse(x::json::Parser parser) {
         return Command{
             .task = parser.field<Key>("task"),
             .type = parser.field<std::string>("type"),
             .key = parser.field<std::string>("key"),
-            .args = parser.field<nlohmann::json>("args", nlohmann::json{}),
+            .args = parser.field<x::json::json>("args", x::json::json{}),
         };
     }
 
-    [[nodiscard]] json to_json() const {
-        json j;
+    [[nodiscard]] x::json::json to_json() const {
+        x::json::json j;
         j["task"] = this->task;
         j["type"] = this->type;
         j["key"] = this->key;
@@ -93,7 +85,7 @@ struct Command {
     from_proto(const service::task::Command &pb);
 };
 
-using Status = synnax::status::Status<StatusDetails>;
+using Status = x::status::Status<StatusDetails>;
 
 struct Payload {
     Key key;
@@ -118,8 +110,8 @@ struct Payload {
         };
     }
 
-    [[nodiscard]] json to_json() const {
-        json j;
+    [[nodiscard]] x::json::json to_json() const {
+        x::json::json j;
         j["key"] = this->key;
         j["name"] = this->name;
         j["type"] = this->type;
@@ -132,6 +124,7 @@ struct Payload {
 
     using proto_type = service::task::Task;
     [[nodiscard]] service::task::Task to_proto() const;
-    static std::pair<Payload, x::errors::Error> from_proto(const service::task::Task &pb);
+    static std::pair<Payload, x::errors::Error>
+    from_proto(const service::task::Task &pb);
 };
 }

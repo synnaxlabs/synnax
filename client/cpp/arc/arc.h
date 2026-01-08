@@ -22,21 +22,21 @@
 #include "arc/cpp/text/text.h"
 #include "core/pkg/api/grpc/arc/arc.pb.h"
 
-namespace synnax {
+namespace synnax::arc {
 
 /// @brief Freighter client for creating Arc programs.
-using ArcCreateClient = freighter::
+using CreateClient = freighter::
     UnaryClient<grpc::arc::CreateRequest, grpc::arc::CreateResponse>;
 
 /// @brief Freighter client for retrieving Arc programs.
-using ArcRetrieveClient = freighter::
+using RetrieveClient = freighter::
     UnaryClient<grpc::arc::RetrieveRequest, grpc::arc::RetrieveResponse>;
 
 /// @brief Freighter client for deleting Arc programs.
-using ArcDeleteClient = freighter::
+using DeleteClient = freighter::
     UnaryClient<grpc::arc::DeleteRequest, google::protobuf::Empty>;
 
-class ArcClient;
+class Client;
 
 /// @brief Options for retrieving Arc programs.
 struct RetrieveOptions {
@@ -77,13 +77,13 @@ struct Arc {
     std::string name;
 
     /// @brief Visual graph representation of the Arc program.
-    arc::graph::Graph graph;
+    ::arc::graph::Graph graph;
 
     /// @brief Text-based source code representation.
-    arc::text::Text text;
+    ::arc::text::Text text;
 
     /// @brief Compiled module with IR and WASM bytecode.
-    arc::module::Module module;
+    ::arc::module::Module module;
 
     /// @brief Whether the Arc program should be deployed and running.
     bool deploy = false;
@@ -107,25 +107,25 @@ private:
     /// @param pb Pointer to protobuf message to populate.
     void to_proto(grpc::arc::Arc *pb) const;
 
-    friend class ArcClient;
+    friend class Client;
 };
 
 /// @brief Client for managing Arc automation programs in a Synnax cluster.
 /// @details Provides methods to create, retrieve, and delete Arc programs.
 /// Arc programs can contain visual graph representations and/or text-based source code.
-class ArcClient {
+class Client {
 public:
     /// @brief Constructs an empty Arc client (invalid).
-    ArcClient() = default;
+    Client() = default;
 
     /// @brief Constructs an Arc client with the given transport clients.
     /// @param retrieve_client Client for retrieving Arc programs.
     /// @param create_client Client for creating Arc programs.
     /// @param delete_client Client for deleting Arc programs.
-    ArcClient(
-        std::shared_ptr<ArcRetrieveClient> retrieve_client,
-        std::shared_ptr<ArcCreateClient> create_client,
-        std::shared_ptr<ArcDeleteClient> delete_client
+    Client(
+        std::shared_ptr<RetrieveClient> retrieve_client,
+        std::shared_ptr<CreateClient> create_client,
+        std::shared_ptr<DeleteClient> delete_client
     );
 
     /// @brief Creates a new Arc program in the Synnax cluster.
@@ -200,13 +200,13 @@ public:
 
 private:
     /// @brief Client for retrieving Arc programs.
-    std::shared_ptr<ArcRetrieveClient> retrieve_client;
+    std::shared_ptr<RetrieveClient> retrieve_client;
 
     /// @brief Client for creating Arc programs.
-    std::shared_ptr<ArcCreateClient> create_client;
+    std::shared_ptr<CreateClient> create_client;
 
     /// @brief Client for deleting Arc programs.
-    std::shared_ptr<ArcDeleteClient> delete_client;
+    std::shared_ptr<DeleteClient> delete_client;
 };
 
 }

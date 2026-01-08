@@ -12,7 +12,7 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/task/common/scan_task.h"

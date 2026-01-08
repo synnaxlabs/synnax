@@ -10,7 +10,7 @@
 /// GTest
 #include "gtest/gtest.h"
 
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
@@ -67,7 +67,7 @@ TEST(AcquisitionPipeline, testUnreachableRetrySuccess) {
     auto writes = std::make_shared<std::vector<x::telem::Frame>>();
     const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(
         writes,
-        std::vector{freighter::UNREACHABLE, freighter::UNREACHABLE, x::errors::NIL}
+        std::vector{freighter::ERR_UNREACHABLE, freighter::ERR_UNREACHABLE, x::errors::NIL}
     );
     const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
     auto pipeline = driver::pipeline::Acquisition(
@@ -117,7 +117,7 @@ TEST(AcquisitionPipeline, testWriteRetrySuccess) {
     const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(
         writes,
         std::vector<x::errors::Error>{},
-        std::vector{freighter::UNREACHABLE},
+        std::vector{freighter::ERR_UNREACHABLE},
         std::vector{1}
     );
     const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());

@@ -21,7 +21,7 @@
 
 #include "x/go/status/pb/status.pb.h"
 
-namespace synnax::status {
+namespace x::status {
 
 inline x::status::Variant VariantToPB(const std::string &cpp) {
     if (cpp == VARIANT_SUCCESS) return x::status::VARIANT_SUCCESS;
@@ -60,7 +60,7 @@ inline x::status::Status Status<Details>::to_proto() const {
     pb.set_message(this->message);
     pb.set_description(this->description);
     pb.set_time(this->time.nanoseconds());
-    if constexpr (std::is_same_v<Details, nlohmann::json>) {
+    if constexpr (std::is_same_v<Details, x::json::json>) {
         *pb.mutable_details() = x::json::to_any(this->details);
     } else {
         pb.mutable_details()->PackFrom(this->details.to_proto());
@@ -72,15 +72,15 @@ inline x::status::Status Status<Details>::to_proto() const {
 }
 
 template<typename Details>
-inline std::pair<Status<Details>, errors::Error>
+inline std::pair<Status<Details>, x::errors::Error>
 Status<Details>::from_proto(const x::status::Status &pb) {
     Status<Details> cpp;
     cpp.key = pb.key();
     cpp.name = pb.name();
     cpp.message = pb.message();
     cpp.description = pb.description();
-    cpp.time = telem::TimeStamp(pb.time());
-    if constexpr (std::is_same_v<Details, nlohmann::json>) {
+    cpp.time = x::telem::TimeStamp(pb.time());
+    if constexpr (std::is_same_v<Details, x::json::json>) {
         {
             auto [val, err] = x::json::from_any(pb.details());
             if (err) return {{}, err};
@@ -90,19 +90,19 @@ Status<Details>::from_proto(const x::status::Status &pb) {
         {
             typename Details::proto_type pb_val;
             if (!pb.details().UnpackTo(&pb_val))
-                return {{}, errors::Error("failed to unpack details")};
+                return {{}, x::errors::Error("failed to unpack details")};
             auto [val, err] = Details::from_proto(pb_val);
             if (err) return {{}, err};
             cpp.details = val;
         }
     }
     for (const auto &item: pb.labels()) {
-        auto [v, err] = synnax::label::Label::from_proto(item);
+        auto [v, err] = x::label::Label::from_proto(item);
         if (err) return {{}, err};
         cpp.labels.push_back(v);
     }
     cpp.variant = VariantFromPB(pb.variant());
-    return {cpp, errors::NIL};
+    return {cpp, x::errors::NIL};
 }
 
 }

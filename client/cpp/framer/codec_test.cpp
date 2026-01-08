@@ -14,7 +14,7 @@
 
 #include "client/cpp/framer/framer.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 x::telem::Frame create_test_frame() {
     auto frame = x::telem::Frame(3);

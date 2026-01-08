@@ -6,11 +6,11 @@ cc_library(
     deps = [
         "//client/cpp/errors",
         "//client/cpp/ontology",
-        "//freighter/cpp:freighter",
-        "//freighter/cpp/fgrpc",
         "//core/pkg/api/grpc:api_grpc",
-        "//x/cpp/telem",
+        "//freighter/cpp:freighter",
+        "//freighter/cpp/grpc",
         "//x/cpp/errors",
+        "//x/cpp/telem",
         "//x/go/telem:telem_grpc",
         "@grpc//:grpc++",
     ],
@@ -23,7 +23,7 @@ cc_test(
         "//client/cpp:synnax",
         "//client/cpp/testutil",
         "//x/cpp/errors",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

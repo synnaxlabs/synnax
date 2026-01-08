@@ -11,7 +11,7 @@
 
 //// internal
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 synnax::Synnax new_test_client() {
     return synnax::Synnax(test_client_config);

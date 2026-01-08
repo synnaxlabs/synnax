@@ -13,7 +13,7 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/mock/slave.h"

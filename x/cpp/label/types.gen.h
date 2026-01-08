@@ -18,10 +18,6 @@
 #include "x/cpp/json/json.h"
 
 namespace x::label {
-class Label;
-}
-
-namespace synnax::label {
 using Key = std::string;
 
 struct Label {
@@ -37,8 +33,8 @@ struct Label {
         };
     }
 
-    [[nodiscard]] json to_json() const {
-        json j;
+    [[nodiscard]] x::json::json to_json() const {
+        x::json::json j;
         j["key"] = this->key;
         j["name"] = this->name;
         j["color"] = this->color;
@@ -47,6 +43,6 @@ struct Label {
 
     using proto_type = x::label::Label;
     [[nodiscard]] x::label::Label to_proto() const;
-    static std::pair<Label, errors::Error> from_proto(const x::label::Label &pb);
+    static std::pair<Label, x::errors::Error> from_proto(const x::label::Label &pb);
 };
 }

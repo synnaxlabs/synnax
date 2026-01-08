@@ -16,31 +16,30 @@
 #include "grpcpp/client_context.h"
 #include "grpcpp/security/credentials.h"
 
-/// internal.
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/fs/fs.h"
 
+namespace freighter::grpc {
 namespace details {
 const std::string PROTOCOL = "grpc";
 const std::string ERROR_KEY = "error";
 
-/// @brief converts a grpc::Status to a x::errors::Error.
-inline x::errors::Error err_from_status(const grpc::Status &status) {
+/// @brief converts a ::grpc::Status to a x::errors::Error.
+inline x::errors::Error err_from_status(const ::grpc::Status &status) {
     if (status.ok()) return x::errors::NIL;
-    if (status.error_code() == grpc::StatusCode::UNAVAILABLE)
-        return {freighter::UNREACHABLE.type, status.error_message()};
+    if (status.error_code() == ::grpc::StatusCode::UNAVAILABLE)
+        return {freighter::ERR_UNREACHABLE.type, status.error_message()};
     return x::errors::Error(status.error_message());
 }
 }
 
-namespace fgrpc {
 class Pool {
     std::mutex mu;
     /// @brief A map of channels to targets.
-    std::unordered_map<std::string, std::shared_ptr<grpc::Channel>> channels{};
+    std::unordered_map<std::string, std::shared_ptr<::grpc::Channel>> channels{};
     /// @brief GRPC credentials to provide when connecting to a target.
-    std::shared_ptr<grpc::ChannelCredentials>
-        credentials = grpc::InsecureChannelCredentials();
+    std::shared_ptr<::grpc::ChannelCredentials>
+        credentials = ::grpc::InsecureChannelCredentials();
 
 public:
     Pool() = default;
@@ -54,8 +53,8 @@ public:
     /// @brief Instantiates the GRPC pool to use TLS encryption where the CA
     /// certificate is located at the provided path.
     explicit Pool(const std::string &ca_path) {
-        grpc::SslCredentialsOptions opts;
-        auto [pem_root_certs, err] = fs::read_file(ca_path);
+        ::grpc::SslCredentialsOptions opts;
+        auto [pem_root_certs, err] = x::fs::read_file(ca_path);
         if (err)
             LOG(ERROR) << "Failed to read CA certificate from " << ca_path << ": "
                        << err.message();
@@ -71,19 +70,19 @@ public:
         const std::string &cert_path,
         const std::string &key_path
     ) {
-        grpc::SslCredentialsOptions opts;
+        ::grpc::SslCredentialsOptions opts;
         bool secure = false;
         if (!ca_path.empty()) {
-            auto [pem_root_certs, err] = fs::read_file(ca_path);
+            auto [pem_root_certs, err] = x::fs::read_file(ca_path);
             if (err) { LOG(ERROR) << "Failed to read CA certificate: " << err; }
             opts.pem_root_certs = pem_root_certs;
             secure = true;
         }
         if (!cert_path.empty() && !key_path.empty()) {
-            auto [pem_cert_chain, err] = fs::read_file(cert_path);
+            auto [pem_cert_chain, err] = x::fs::read_file(cert_path);
             if (err) LOG(ERROR) << "Failed to read client certificate: " << err;
             opts.pem_cert_chain = pem_cert_chain;
-            auto [pem_private_key, pem_priv_key_err] = fs::read_file(key_path);
+            auto [pem_private_key, pem_priv_key_err] = x::fs::read_file(key_path);
             if (pem_priv_key_err)
                 LOG(ERROR) << "Failed to read client private key from " << err;
             opts.pem_private_key = pem_private_key;
@@ -93,13 +92,13 @@ public:
     }
 
     /// @brief instantiates a GRPC pool with the provided credentials.
-    explicit Pool(const std::shared_ptr<grpc::ChannelCredentials> &credentials):
+    explicit Pool(const std::shared_ptr<::grpc::ChannelCredentials> &credentials):
         credentials(credentials) {}
 
     /// @brief Get a channel for a given target.
     /// @param target The target to connect to.
     /// @returns A channel to the target.
-    std::shared_ptr<grpc::Channel> get_channel(const x::url::URL &target) {
+    std::shared_ptr<::grpc::Channel> get_channel(const x::url::URL &target) {
         std::lock_guard lock(this->mu);
         const auto host_addr = target.host_address();
         const auto it = this->channels.find(host_addr);
@@ -110,7 +109,7 @@ public:
             else
                 return channel;
         }
-        const grpc::ChannelArguments args;
+        const ::grpc::ChannelArguments args;
         auto channel = CreateCustomChannel(host_addr, this->credentials, args);
         this->channels[host_addr] = channel;
         return channel;
@@ -161,7 +160,7 @@ public:
     freighter::FinalizerReturn<RS>
     operator()(freighter::Context req_ctx, RQ &req) override {
         // Set outbound metadata.
-        grpc::ClientContext grpc_ctx;
+        ::grpc::ClientContext grpc_ctx;
         for (const auto &[k, v]: req_ctx.params)
             grpc_ctx.AddMetadata(k, v);
 
@@ -195,9 +194,9 @@ class Stream final
             mw;
 
     /// @brief the underlying grpc stream.
-    std::unique_ptr<grpc::ClientReaderWriter<RQ, RS>> stream;
+    std::unique_ptr<::grpc::ClientReaderWriter<RQ, RS>> stream;
     /// GRPC requires us to keep these around so the stream doesn't die.
-    grpc::ClientContext grpc_ctx;
+    ::grpc::ClientContext grpc_ctx;
     /// @brief the RPC stub used to instantiate the connection.
     const std::unique_ptr<typename RPC::Stub> stub;
 
@@ -210,7 +209,7 @@ class Stream final
 
 public:
     Stream(
-        std::shared_ptr<grpc::Channel> ch,
+        std::shared_ptr<::grpc::Channel> ch,
         const freighter::MiddlewareCollector<
             std::nullptr_t,
             std::unique_ptr<freighter::Stream<RQ, RS>>> &mw,
@@ -229,7 +228,7 @@ public:
     /// @brief implements Stream::send.
     x::errors::Error send(RQ &request) const override {
         if (this->stream->Write(request)) return x::errors::NIL;
-        return freighter::STREAM_CLOSED;
+        return freighter::ERR_STREAM_CLOSED;
     }
 
     /// @brief implements Stream::receive.
@@ -256,9 +255,9 @@ public:
     freighter::FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS>>>
     operator()(freighter::Context outbound, std::nullptr_t &_) override {
         if (this->closed) return {outbound, this->close_err};
-        const grpc::Status status = this->stream->Finish();
+        const ::grpc::Status status = this->stream->Finish();
         this->closed = true;
-        this->close_err = status.ok() ? freighter::EOF_ERR
+        this->close_err = status.ok() ? freighter::ERR_EOF
                                       : details::err_from_status(status);
         return {outbound, this->close_err, nullptr};
     }

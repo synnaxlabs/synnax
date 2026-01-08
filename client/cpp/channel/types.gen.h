@@ -15,13 +15,9 @@
 #include <string>
 #include <utility>
 
-#include "x/cpp/telem/telem.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-
-namespace distribution::channel {
-class Operation;
-}
+#include "x/cpp/telem/telem.h"
 
 namespace synnax::channel {
 using ChannelKey = std::uint32_t;
@@ -42,12 +38,12 @@ struct Operation {
         return Operation{
             .type = parser.field<std::string>("type"),
             .reset_channel = parser.field<ChannelKey>("reset_channel"),
-            .duration = x::telem::TimeSpan(parser.field<std::int64_t>("duration")),
+            .duration = telem::TimeSpan(parser.field<std::int64_t>("duration")),
         };
     }
 
-    [[nodiscard]] json to_json() const {
-        json j;
+    [[nodiscard]] x::json::json to_json() const {
+        x::json::json j;
         j["type"] = this->type;
         j["reset_channel"] = this->reset_channel;
         j["duration"] = this->duration.nanoseconds();

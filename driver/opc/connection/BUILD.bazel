@@ -35,7 +35,7 @@ cc_test(
         ":connection",
         "//driver/opc/mock",
         "//driver/opc/testutil",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

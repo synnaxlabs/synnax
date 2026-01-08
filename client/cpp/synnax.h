@@ -146,7 +146,7 @@ public:
     /// @brief Client for managing statuses.
     StatusClient statuses = StatusClient();
     /// @brief Client for managing Arc automation programs.
-    ArcClient arcs = ArcClient(nullptr, nullptr, nullptr);
+    arc::Client arcs = arc::Client(nullptr, nullptr, nullptr);
     std::shared_ptr<AuthMiddleware> auth = nullptr;
 
     /// @brief constructs the Synnax client from the provided configuration.

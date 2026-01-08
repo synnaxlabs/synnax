@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 #include "nlohmann/json.hpp"
-#include <gtest/gtest.h>
+#include "gtest/gtest.h"
 
 #include "x/cpp/json/json.h"
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/ni/channel/scale.h"
 

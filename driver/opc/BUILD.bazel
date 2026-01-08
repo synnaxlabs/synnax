@@ -51,7 +51,7 @@ cc_test(
         "//driver/opc/testutil",
         "//driver/pipeline/mock",
         "//x/cpp/json",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

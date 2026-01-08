@@ -12,7 +12,7 @@ cc_library(
         "//client/cpp/ontology",
         "//core/pkg/api/grpc:api_grpc",
         "//freighter/cpp:freighter",
-        "//freighter/cpp/fgrpc",
+        "//freighter/cpp/grpc",
         "//x/cpp/control",
         "//x/cpp/errors",
         "//x/cpp/json",
@@ -35,7 +35,7 @@ cc_test(
         ":channel",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

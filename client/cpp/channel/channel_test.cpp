@@ -15,7 +15,7 @@
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 std::mt19937 gen_rand = random_generator(std::move("Channel Tests"));
 

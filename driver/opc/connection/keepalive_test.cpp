@@ -13,7 +13,7 @@
 #include "open62541/client.h"
 #include "open62541/client_highlevel.h"
 
-#include "x/cpp/test/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/mock/server.h"

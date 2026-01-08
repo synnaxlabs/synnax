@@ -11,9 +11,9 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/channel",
-        "//freighter/cpp:freighter",
-        "//freighter/cpp/fgrpc",
         "//core/pkg/api/grpc:api_grpc",
+        "//freighter/cpp:freighter",
+        "//freighter/cpp/grpc",
         "//x/cpp/binary",
         "//x/cpp/telem",
         "//x/go/telem:telem_grpc",
@@ -31,7 +31,7 @@ cc_test(
     deps = [
         "//client/cpp:synnax",
         "//client/cpp/testutil",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

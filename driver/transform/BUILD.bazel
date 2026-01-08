@@ -14,7 +14,7 @@ cc_test(
     srcs = ["transform_test.cpp"],
     deps = [
         "//driver/transform",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )
