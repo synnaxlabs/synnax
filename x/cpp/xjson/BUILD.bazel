@@ -10,6 +10,33 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "struct",
+    hdrs = [
+        "struct.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/xerrors",
+        "@nlohmann_json//:json",
+        "@protobuf//:protobuf",
+    ],
+)
+
+cc_library(
+    name = "any",
+    hdrs = [
+        "any.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":struct",
+        "//x/cpp/xerrors",
+        "@nlohmann_json//:json",
+        "@protobuf//:protobuf",
+    ],
+)
+
 cc_test(
     name = "xjson_test",
     srcs = [

@@ -14,7 +14,8 @@ Label struct {
     name  string @validate min_length 1
     color color
 
-    @go output "x/go/label"
+    @go output  "x/go/label"
+    @cpp output "x/cpp/label"
     @pb
 }
 

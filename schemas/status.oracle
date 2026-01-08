@@ -9,9 +9,10 @@
 
 import "schemas/label"
 
-@ts output "x/ts/src/status"
-@py output "client/py/synnax/status"
-@go output "x/go/status"
+@ts output  "x/ts/src/status"
+@py output  "client/py/synnax/status"
+@go output  "x/go/status"
+@cpp output "x/cpp/status"
 @pb
 
 Variant enum {
@@ -37,10 +38,9 @@ Status struct<Details?, V extends Variant = Variant> {
 
     @ts concrete_types
     @py omit
-    @cpp omit
-    @cpp include       "x/cpp/status/status.h"
     @go omit
     @pb omit
+    @cpp omit
 }
 
 GoStatus struct<Details?> extends Status<Details, Variant> {
@@ -49,9 +49,10 @@ GoStatus struct<Details?> extends Status<Details, Variant> {
 
     @ts omit
     @py omit
-    @cpp omit
-    @go name  "Status"
-    @pb name  "Status"
+    @go name    "Status"
+    @pb name    "Status"
+    @cpp output "x/cpp/status"
+    @cpp name   "Status"
 }
 
 GoSVCStatus<Details?> = Status<Details?> {

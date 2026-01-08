@@ -1,11 +1,19 @@
 cc_library(
     name = "status",
     srcs = ["status.h"],
+    hdrs = [
+        "proto.gen.h",
+        "types.gen.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/label",
         "//x/cpp/telem",
+        "//x/cpp/xerrors",
         "//x/cpp/xjson",
+        "//x/cpp/xjson:any",
         "//x/go/status:status_grpc",
+        "@protobuf//:protobuf",
     ],
 )
 

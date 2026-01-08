@@ -412,13 +412,31 @@ public:
     }
 };
 
-/// @brief Type trait to detect if a type can be constructed from a Parser
+template<typename T, typename = void>
+struct has_static_parse : std::false_type {};
+
+template<typename T>
+struct has_static_parse<
+    T,
+    std::enable_if_t<std::is_same_v<T, decltype(T::parse(std::declval<Parser>()))>>>
+    : std::true_type {};
+
+template<typename T>
+inline constexpr bool has_static_parse_v = has_static_parse<T>::value;
+
 template<typename T>
 inline constexpr bool
     is_parser_constructible_v = std::is_constructible_v<T, Parser> ||
                                 std::is_constructible_v<T, Parser &> ||
                                 std::is_constructible_v<T, const Parser &> ||
                                 std::is_constructible_v<T, Parser &&>;
+
+template<typename T>
+inline constexpr bool is_json_type_v = std::is_same_v<std::decay_t<T>, nlohmann::json>;
+
+template<typename T>
+inline constexpr bool is_parseable_v =
+    !is_json_type_v<T> && (is_parser_constructible_v<T> || has_static_parse_v<T>);
 
 // Implementation of parse_value - the single source of truth for all type conversions
 template<typename T>
@@ -451,14 +469,18 @@ T Parser::parse_value(const std::string &path, const json &j) {
             values.push_back(parse_value<U>(child_path, j[i]));
         }
         return values;
-    } else if constexpr (is_parser_constructible_v<T>) {
+    } else if constexpr (is_parseable_v<T>) {
         if (!j.is_object() && !j.is_array()) {
             field_err(path, "expected an object or array");
             return T();
         }
         const auto child_prefix = path.empty() ? path_prefix : path_prefix + path + ".";
         Parser child_parser(j, errors, child_prefix);
-        return T(child_parser);
+        if constexpr (is_parser_constructible_v<T>) {
+            return T(child_parser);
+        } else {
+            return T::parse(child_parser);
+        }
     } else {
         try {
             if constexpr (std::is_arithmetic_v<T>) {

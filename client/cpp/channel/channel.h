@@ -15,7 +15,8 @@
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/telem.h"
 
-#include "core/pkg/api/grpc/v1/channel.pb.h"
+#include "core/pkg/api/channel/pb/channel.pb.h"
+#include "core/pkg/api/grpc/channel/channel.pb.h"
 
 namespace synnax {
 /// @brief an alias for the type of channel's key.
@@ -23,11 +24,11 @@ using ChannelKey = std::uint32_t;
 
 /// @brief freighter retrieve transport.
 using ChannelRetrieveClient = freighter::
-    UnaryClient<api::v1::ChannelRetrieveRequest, api::v1::ChannelRetrieveResponse>;
+    UnaryClient<grpc::channel::RetrieveRequest, grpc::channel::RetrieveResponse>;
 
 /// @brief freighter create transport.
 using ChannelCreateClient = freighter::
-    UnaryClient<api::v1::ChannelCreateRequest, api::v1::ChannelCreateResponse>;
+    UnaryClient<grpc::channel::CreateRequest, grpc::channel::CreateResponse>;
 
 class ChannelClient;
 
@@ -81,11 +82,11 @@ struct Channel {
     Channel(std::string name, telem::DataType data_type, bool is_virtual);
 
     /// @brief constructs the channel from its protobuf type.
-    explicit Channel(const api::v1::Channel &ch);
+    explicit Channel(const api::channel::Channel &ch);
 
 private:
     /// @brief binds the channel's fields to the protobuf type.
-    void to_proto(api::v1::Channel *ch) const;
+    void to_proto(api::channel::Channel *ch) const;
 
     friend class ChannelClient;
 };

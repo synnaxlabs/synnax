@@ -19,7 +19,7 @@ cc_library(
         "//client/cpp/status",
         "//freighter/cpp:freighter",
         "//freighter/cpp/fgrpc",
-        "//core/pkg/api/grpc/v1:api_grpc",
+        "//core/pkg/api/grpc:api_grpc",
         "//x/cpp/telem",
         "//x/cpp/xjson",
         "//x/cpp/xlog",

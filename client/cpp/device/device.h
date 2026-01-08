@@ -24,7 +24,8 @@
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xjson/xjson.h"
 
-#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/device.pb.h"
+#include "core/pkg/service/device/pb/device.pb.h"
+#include "core/pkg/api/grpc/device/device.pb.h"
 
 namespace synnax {
 const std::string DEVICE_SET_CHANNEL = "sy_device_set";
@@ -35,15 +36,15 @@ using RackKey = std::uint32_t;
 
 /// @brief Type alias for the transport used to create a device.
 using DeviceCreateClient = freighter::
-    UnaryClient<api::v1::DeviceCreateRequest, api::v1::DeviceCreateResponse>;
+    UnaryClient<grpc::device::CreateRequest, grpc::device::CreateResponse>;
 
 /// @brief Type alias for the transport used to retrieve a device.
 using DeviceRetrieveClient = freighter::
-    UnaryClient<api::v1::DeviceRetrieveRequest, api::v1::DeviceRetrieveResponse>;
+    UnaryClient<grpc::device::RetrieveRequest, grpc::device::RetrieveResponse>;
 
 /// @brief Type alias for the transport used to delete a device.
 using DeviceDeleteClient = freighter::
-    UnaryClient<api::v1::DeviceDeleteRequest, google::protobuf::Empty>;
+    UnaryClient<grpc::device::DeleteRequest, google::protobuf::Empty>;
 
 /// @brief Converts a device key to an ontology ID.
 /// @param key The device key.
@@ -89,7 +90,7 @@ struct DeviceStatusDetails {
 };
 
 /// @brief status information about a device.
-using DeviceStatus = status::Status<DeviceStatusDetails>;
+using DeviceStatus = synnax::status::Status<json>;
 
 /// @brief A Device represents a physical hardware device connected to a rack.
 struct Device {
@@ -141,7 +142,7 @@ struct Device {
     /// @brief Constructs a device from its protobuf representation.
     /// @param device The protobuf representation of the device.
     /// @returns A pair containing the device and an error if one occurred.
-    static std::pair<Device, xerrors::Error> from_proto(const api::v1::Device &device);
+    static std::pair<Device, xerrors::Error> from_proto(const service::device::Device &device);
 
     /// @brief Parses a device from a JSON parser.
     /// @param parser The JSON parser containing device data.
@@ -149,7 +150,7 @@ struct Device {
     static Device parse(xjson::Parser &parser);
 
 private:
-    void to_proto(api::v1::Device *device) const;
+    void to_proto(service::device::Device *device) const;
 
     friend class DeviceClient;
 };
@@ -186,7 +187,7 @@ struct DeviceRetrieveRequest {
     bool ignore_not_found = false;
     bool include_status = false;
 
-    void to_proto(api::v1::DeviceRetrieveRequest &request) const {
+    void to_proto(grpc::device::RetrieveRequest &request) const {
         request.set_ignore_not_found(ignore_not_found);
         request.set_limit(limit);
         request.set_offset(offset);

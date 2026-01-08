@@ -12,6 +12,7 @@ package types
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -88,23 +89,56 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 	}
 
+	// Collect standalone enum output paths (for schemas where all structs are omitted but enums exist)
+	enumOutputPaths := make(map[string][]resolution.Type)
+	for _, e := range req.Resolutions.EnumTypes() {
+		if omit.IsType(e, "cpp") {
+			continue
+		}
+		enumPath := enum.FindOutputPath(e, req.Resolutions, "cpp")
+		if enumPath == "" {
+			continue
+		}
+		// Only add if not already covered by structs, aliases, or typedefs
+		if !structCollector.Has(enumPath) && !aliasCollector.Has(enumPath) && !typeDefCollector.Has(enumPath) {
+			enumOutputPaths[enumPath] = append(enumOutputPaths[enumPath], e)
+		}
+	}
+	for path := range enumOutputPaths {
+		found := false
+		for _, p := range combinedOrder {
+			if p == path {
+				found = true
+				break
+			}
+		}
+		if !found {
+			combinedOrder = append(combinedOrder, path)
+		}
+	}
+
 	// Generate files for structs and standalone aliases
 	for _, outputPath := range combinedOrder {
 		structs := structCollector.Get(outputPath)
 		enums := enum.CollectReferenced(structs, req.Resolutions)
 
-		// If no structs to reference enums from, collect enums in the same namespace
-		// This handles cases where all structs are omitted but enums should still be generated
+		// If no structs to reference enums from, check for standalone enums or namespace-based enums
 		if len(structs) == 0 {
-			aliases := aliasCollector.Get(outputPath)
-			var namespace string
-			if len(aliases) > 0 {
-				namespace = aliases[0].Namespace
-			}
-			if namespace != "" {
-				for _, e := range req.Resolutions.EnumTypes() {
-					if e.Namespace == namespace && !omit.IsType(e, "cpp") {
-						enums = append(enums, e)
+			// First check if we have standalone enums collected for this path
+			if standaloneEnums, ok := enumOutputPaths[outputPath]; ok {
+				enums = append(enums, standaloneEnums...)
+			} else {
+				// Fall back to namespace-based collection from aliases
+				aliases := aliasCollector.Get(outputPath)
+				var namespace string
+				if len(aliases) > 0 {
+					namespace = aliases[0].Namespace
+				}
+				if namespace != "" {
+					for _, e := range req.Resolutions.EnumTypes() {
+						if e.Namespace == namespace && !omit.IsType(e, "cpp") {
+							enums = append(enums, e)
+						}
 					}
 				}
 			}
@@ -190,6 +224,8 @@ func (p *Plugin) generateFile(
 		namespace = typeDefs[0].Namespace
 	} else if len(aliases) > 0 {
 		namespace = aliases[0].Namespace
+	} else if len(enums) > 0 {
+		namespace = enums[0].Namespace
 	}
 
 	data := &templateData{
@@ -254,7 +290,6 @@ func (p *Plugin) generateFile(
 	// Sort topologically so dependencies come before dependents
 	sortedTypes := table.TopologicalSort(combinedTypes)
 
-	// Process in sorted order, creating unified declarations
 	for _, typ := range sortedTypes {
 		switch typ.Form.(type) {
 		case resolution.AliasForm:
@@ -271,6 +306,8 @@ func (p *Plugin) generateFile(
 			})
 		}
 	}
+
+	data.buildProtoForwardDecls()
 
 	var buf bytes.Buffer
 	if err := fileTemplate.Execute(&buf, data); err != nil {
@@ -295,8 +332,13 @@ func (p *Plugin) processEnum(e resolution.Type) enumData {
 	}
 	values := make([]enumValueData, 0, len(form.Values))
 	for _, v := range form.Values {
+		// Use snake_case for string enum constants, PascalCase for int enums
+		name := toPascalCase(v.Name)
+		if !form.IsIntEnum {
+			name = toSnakeCase(v.Name)
+		}
 		values = append(values, enumValueData{
-			Name:     toPascalCase(v.Name),
+			Name:     name,
 			Value:    v.StringValue(),
 			IntValue: v.IntValue(),
 		})
@@ -355,6 +397,9 @@ func (p *Plugin) processAlias(alias resolution.Type, data *templateData) aliasDa
 		return aliasData{Name: alias.Name, Target: "void"}
 	}
 
+	// Get the C++ name (respects @cpp name directive)
+	name := domain.GetName(alias, "cpp")
+
 	// Convert target type to C++ type string
 	target := p.aliasTargetToCpp(form.Target, data)
 
@@ -365,7 +410,7 @@ func (p *Plugin) processAlias(alias resolution.Type, data *templateData) aliasDa
 	}
 
 	return aliasData{
-		Name:       alias.Name,
+		Name:       name,
 		Target:     target,
 		IsGeneric:  len(typeParams) > 0,
 		TypeParams: typeParams,
@@ -443,12 +488,14 @@ func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData
 				data.includes.addInternal(cppInclude)
 			}
 			if resolved.Namespace != "" {
-				name = fmt.Sprintf("%s::%s", resolved.Namespace, name)
+				name = fmt.Sprintf("::%s::%s", resolved.Namespace, name)
 			}
 		} else {
-			// Generated type - include the generated header
+			// Generated type - include the generated header and add namespace prefix
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
 			data.includes.addInternal(includePath)
+			ns := deriveNamespace(targetOutputPath)
+			name = fmt.Sprintf("%s::%s", ns, name)
 		}
 	}
 
@@ -478,13 +525,7 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 		return structData{Name: entry.Name}
 	}
 
-	// Check for @cpp name override
 	name := domain.GetName(entry, "cpp")
-
-	// Always generate JSON parse and to_json methods
-	data.includes.addInternal("x/cpp/xjson/xjson.h")
-
-	// Check if this is an alias type
 	aliasForm, isAlias := entry.Form.(resolution.AliasForm)
 
 	sd := structData{
@@ -497,21 +538,36 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 		GenerateToJson: true,
 	}
 
-	// Process type parameters
 	for _, tp := range form.TypeParams {
 		sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp))
 	}
 
-	// Handle alias types
 	if isAlias {
 		sd.AliasOf = p.typeRefToCpp(aliasForm.Target, data)
 		return sd
 	}
 
-	// For C++, we always flatten fields (no struct embedding like Go)
-	// This handles both extending and non-extending structs uniformly
 	for _, field := range resolution.UnifiedFields(entry, data.table) {
 		sd.Fields = append(sd.Fields, p.processField(field, entry, data))
+	}
+
+	if sd.GenerateParse {
+		data.includes.addInternal("x/cpp/xjson/xjson.h")
+	}
+
+	if hasPBFlag(entry) && !omit.IsType(entry, "pb") {
+		pbOutputPath := output.GetPBPath(entry)
+		if pbOutputPath != "" {
+			pbName := getPBName(entry)
+			pbNamespace := deriveProtoNamespace(pbOutputPath)
+			sd.HasProto = true
+			sd.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, pbName)
+			sd.ProtoNamespace = pbNamespace
+			sd.ProtoClass = pbName
+			data.addProtoForwardDecl(pbNamespace, pbName)
+			data.includes.addSystem("utility")
+			data.includes.addInternal("x/cpp/xerrors/errors.h")
+		}
 	}
 
 	return sd
@@ -648,17 +704,21 @@ func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resoluti
 		if isOmitted || targetOutputPath == "" {
 			// This struct is omitted or has no @cpp output - it's handwritten.
 			// Use the @cpp include path if provided, otherwise we can't include it.
+			// Use global namespace prefix :: to avoid ambiguity with synnax::* namespaces
 			if cppInclude != "" {
 				data.includes.addInternal(cppInclude)
 			}
 			// Use namespace prefix for handwritten types.
 			if resolved.Namespace != "" {
-				name = fmt.Sprintf("%s::%s", resolved.Namespace, name)
+				name = fmt.Sprintf("::%s::%s", resolved.Namespace, name)
 			}
 		} else {
 			// Generated type - include the generated header
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
 			data.includes.addInternal(includePath)
+			// Use namespace prefix for cross-namespace generated types
+			ns := deriveNamespace(targetOutputPath)
+			name = fmt.Sprintf("%s::%s", ns, name)
 		}
 	}
 
@@ -702,13 +762,14 @@ func (p *Plugin) resolveDistinctType(resolved resolution.Type, data *templateDat
 }
 
 func (p *Plugin) resolveAliasType(resolved resolution.Type, typeArgs []resolution.TypeRef, data *templateData) string {
-	// Similar to struct handling for now
-	name := resolved.Name
+	name := domain.GetName(resolved, "cpp")
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
 			data.includes.addInternal(includePath)
+			ns := deriveNamespace(targetOutputPath)
+			name = fmt.Sprintf("%s::%s", ns, name)
 		}
 	}
 	return p.buildGenericType(name, typeArgs, data)
@@ -728,6 +789,14 @@ func (p *Plugin) buildGenericType(baseName string, typeArgs []resolution.TypeRef
 
 func toPascalCase(s string) string {
 	return lo.PascalCase(s)
+}
+
+func toScreamingSnake(s string) string {
+	return strings.ToUpper(lo.SnakeCase(s))
+}
+
+func toSnakeCase(s string) string {
+	return lo.SnakeCase(s)
 }
 
 type includeManager struct {
@@ -752,17 +821,50 @@ func (m *includeManager) addInternal(path string) {
 }
 
 type templateData struct {
-	OutputPath  string
-	Namespace   string
-	KeyFields   []keyFieldData
-	Structs     []structData
-	Enums       []enumData
-	TypeDefs    []typeDefData
-	Aliases     []aliasData
-	SortedDecls []sortedDeclData // Topologically sorted aliases and structs
-	includes    *includeManager
-	table       *resolution.Table
-	rawNs       string // Original Oracle namespace for cross-reference detection
+	OutputPath       string
+	Namespace        string
+	KeyFields        []keyFieldData
+	Structs          []structData
+	Enums            []enumData
+	TypeDefs         []typeDefData
+	Aliases          []aliasData
+	SortedDecls      []sortedDeclData
+	ProtoForwardDecls []protoForwardDeclData
+	includes         *includeManager
+	table            *resolution.Table
+	rawNs            string
+	protoDecls       map[string][]string
+}
+
+type protoForwardDeclData struct {
+	Namespace string
+	Classes   []string
+}
+
+func (d *templateData) addProtoForwardDecl(namespace, class string) {
+	if d.protoDecls == nil {
+		d.protoDecls = make(map[string][]string)
+	}
+	if !lo.Contains(d.protoDecls[namespace], class) {
+		d.protoDecls[namespace] = append(d.protoDecls[namespace], class)
+	}
+}
+
+func (d *templateData) buildProtoForwardDecls() {
+	if d.protoDecls == nil {
+		return
+	}
+	var namespaces []string
+	for ns := range d.protoDecls {
+		namespaces = append(namespaces, ns)
+	}
+	sort.Strings(namespaces)
+	for _, ns := range namespaces {
+		d.ProtoForwardDecls = append(d.ProtoForwardDecls, protoForwardDeclData{
+			Namespace: ns,
+			Classes:   d.protoDecls[ns],
+		})
+	}
 }
 
 type sortedDeclData struct {
@@ -807,6 +909,10 @@ type structData struct {
 	AliasOf        string
 	GenerateParse  bool
 	GenerateToJson bool
+	HasProto       bool
+	ProtoType      string
+	ProtoNamespace string
+	ProtoClass     string
 }
 
 type typeParamData struct {
@@ -906,6 +1012,14 @@ func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data 
 		return fmt.Sprintf(`parser.has("%s") ? std::make_optional(%s) : std::nullopt`, jsonName, innerExpr)
 	}
 
+	// Handle type parameters - call their parse method since they're assumed to be structs
+	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
+		if hasDefault {
+			return fmt.Sprintf(`%s::parse(parser.optional_child("%s"))`, typeRef.TypeParam.Name, jsonName)
+		}
+		return fmt.Sprintf(`%s::parse(parser.child("%s"))`, typeRef.TypeParam.Name, jsonName)
+	}
+
 	// Handle arrays
 	if typeRef.Name == "Array" {
 		if hasDefault {
@@ -916,11 +1030,25 @@ func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data 
 
 	// Check if primitive
 	if resolution.IsPrimitive(typeRef.Name) {
-		if hasDefault {
-			defaultVal := p.defaultValueForType(typeRef, false, data)
-			return fmt.Sprintf(`parser.field<%s>("%s", %s)`, cppType, jsonName, defaultVal)
+		// Handle time types that need special parsing (parse as int64, construct from that)
+		switch typeRef.Name {
+		case "timestamp":
+			if hasDefault {
+				return fmt.Sprintf(`telem::TimeStamp(parser.field<std::int64_t>("%s", 0))`, jsonName)
+			}
+			return fmt.Sprintf(`telem::TimeStamp(parser.field<std::int64_t>("%s"))`, jsonName)
+		case "timespan":
+			if hasDefault {
+				return fmt.Sprintf(`telem::TimeSpan(parser.field<std::int64_t>("%s", 0))`, jsonName)
+			}
+			return fmt.Sprintf(`telem::TimeSpan(parser.field<std::int64_t>("%s"))`, jsonName)
+		default:
+			if hasDefault {
+				defaultVal := p.defaultValueForType(typeRef, false, data)
+				return fmt.Sprintf(`parser.field<%s>("%s", %s)`, cppType, jsonName, defaultVal)
+			}
+			return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
 		}
-		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
 	}
 
 	// Try to resolve the type
@@ -954,6 +1082,23 @@ func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data 
 			return fmt.Sprintf(`parser.field<std::string>("%s", "")`, jsonName)
 		}
 		return fmt.Sprintf(`parser.field<std::string>("%s")`, jsonName)
+
+	case resolution.AliasForm:
+		// Follow through to the underlying type
+		if targetResolved, ok := form.Target.Resolve(data.table); ok {
+			if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
+				// Alias to struct - call parse on the alias type
+				if hasDefault {
+					return fmt.Sprintf(`%s::parse(parser.optional_child("%s"))`, cppType, jsonName)
+				}
+				return fmt.Sprintf(`%s::parse(parser.child("%s"))`, cppType, jsonName)
+			}
+		}
+		if hasDefault {
+			defaultVal := p.defaultValueForType(typeRef, false, data)
+			return fmt.Sprintf(`parser.field<%s>("%s", %s)`, cppType, jsonName, defaultVal)
+		}
+		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
 
 	default:
 		if hasDefault {
@@ -990,6 +1135,14 @@ func (p *Plugin) parseExprForTypeRef(typeRef resolution.TypeRef, cppType, jsonNa
 			return fmt.Sprintf(`static_cast<%s>(parser.field<int>("%s"))`, resolved.Name, jsonName)
 		}
 		return fmt.Sprintf(`parser.field<std::string>("%s")`, jsonName)
+	case resolution.AliasForm:
+		// Follow through to the underlying type
+		if targetResolved, ok := form.Target.Resolve(data.table); ok {
+			if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
+				return fmt.Sprintf(`%s::parse(parser.child("%s"))`, cppType, jsonName)
+			}
+		}
+		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
 	default:
 		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
 	}
@@ -1004,6 +1157,11 @@ func (p *Plugin) toJsonExprForField(field resolution.Field, data *templateData) 
 	if field.IsHardOptional {
 		innerExpr := p.toJsonValueExpr(typeRef, fieldName, data)
 		return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = %s;`, fieldName, jsonName, innerExpr)
+	}
+
+	// Handle type parameters - call to_json() on them since they're assumed to be structs
+	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
+		return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
 	}
 
 	// Handle arrays of structs
@@ -1022,7 +1180,13 @@ func (p *Plugin) toJsonExprForField(field resolution.Field, data *templateData) 
 
 	// Check if primitive
 	if resolution.IsPrimitive(typeRef.Name) {
-		return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
+		// Handle time types that need .nanoseconds() conversion
+		switch typeRef.Name {
+		case "timestamp", "timespan":
+			return fmt.Sprintf(`j["%s"] = this->%s.nanoseconds();`, jsonName, fieldName)
+		default:
+			return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
+		}
 	}
 
 	// Try to resolve the type
@@ -1039,6 +1203,14 @@ func (p *Plugin) toJsonExprForField(field resolution.Field, data *templateData) 
 			return fmt.Sprintf(`j["%s"] = static_cast<int>(this->%s);`, jsonName, fieldName)
 		}
 		// String enum - serialize as string directly
+		return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
+	case resolution.AliasForm:
+		// Follow through to the underlying type
+		if targetResolved, ok := form.Target.Resolve(data.table); ok {
+			if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
+				return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
+			}
+		}
 		return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
 	default:
 		return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
@@ -1070,6 +1242,14 @@ func (p *Plugin) toJsonValueExpr(typeRef resolution.TypeRef, fieldName string, d
 			return fmt.Sprintf("static_cast<int>(*this->%s)", fieldName)
 		}
 		return fmt.Sprintf("*this->%s", fieldName)
+	case resolution.AliasForm:
+		// Follow through to the underlying type
+		if targetResolved, ok := form.Target.Resolve(data.table); ok {
+			if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
+				return fmt.Sprintf("this->%s->to_json()", fieldName)
+			}
+		}
+		return fmt.Sprintf("*this->%s", fieldName)
 	default:
 		return fmt.Sprintf("*this->%s", fieldName)
 	}
@@ -1084,8 +1264,48 @@ func (p *Plugin) toJsonArrayOfStructsExpr(jsonName, fieldName string) string {
     }`, fieldName, jsonName)
 }
 
+func hasPBFlag(t resolution.Type) bool {
+	_, hasPB := t.Domains["pb"]
+	return hasPB
+}
+
+func getPBName(s resolution.Type) string {
+	if domain, ok := s.Domains["pb"]; ok {
+		for _, expr := range domain.Expressions {
+			if expr.Name == "name" && len(expr.Values) > 0 {
+				return expr.Values[0].StringValue
+			}
+		}
+	}
+	return s.Name
+}
+
+func deriveProtoNamespace(pbOutputPath string) string {
+	if pbOutputPath == "" {
+		return ""
+	}
+	parts := strings.Split(pbOutputPath, "/")
+	for i, part := range parts {
+		switch part {
+		case "distribution", "api", "service":
+			if i+1 < len(parts) && parts[i+1] != "pb" {
+				return fmt.Sprintf("%s::%s", part, parts[i+1])
+			}
+			return part
+		case "x":
+			if i+2 < len(parts) && parts[i+2] != "pb" {
+				return fmt.Sprintf("x::%s", parts[i+2])
+			}
+		}
+	}
+	return ""
+}
+
 var templateFuncs = template.FuncMap{
-	"join": strings.Join,
+	"join":             strings.Join,
+	"toUpper":          strings.ToUpper,
+	"toScreamingSnake": toScreamingSnake,
+	"toSnakeCase":      toSnakeCase,
 }
 
 var fileTemplate = template.Must(template.New("cpp-types").Funcs(templateFuncs).Parse(`// Code generated by oracle. DO NOT EDIT.
@@ -1100,6 +1320,10 @@ var fileTemplate = template.Must(template.New("cpp-types").Funcs(templateFuncs).
 #include "{{.}}"
 {{end}}
 {{- end}}
+{{- range .ProtoForwardDecls}}
+namespace {{.Namespace}} { {{range .Classes}}class {{.}}; {{end}}}
+{{- end}}
+
 namespace {{.Namespace}} {
 {{- range $i, $kf := .KeyFields}}
 using {{$kf.Name}} = {{$kf.CppType}};
@@ -1118,7 +1342,7 @@ enum class {{$enum.Name}} {
 };
 {{- else}}
 {{- range $enum.Values}}
-constexpr const char* {{$enum.Name}}{{.Name}} = "{{.Value}}";
+constexpr const char* {{$enum.Name | toScreamingSnake}}_{{.Name | toScreamingSnake}} = "{{.Value}}";
 {{- end}}
 {{- end}}
 {{- end}}
@@ -1167,6 +1391,12 @@ constexpr const char* {{$enum.Name}}{{.Name}} = "{{.Value}}";
 {{- end}}
         return j;
     }
+{{- end}}
+{{- if $s.HasProto}}
+
+    using proto_type = {{$s.ProtoType}};
+    [[nodiscard]] {{$s.ProtoType}} to_proto() const;
+    static std::pair<{{$s.Name}}, xerrors::Error> from_proto(const {{$s.ProtoType}}& pb);
 {{- end}}
 };
 {{- end}}

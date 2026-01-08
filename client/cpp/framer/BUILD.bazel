@@ -13,7 +13,7 @@ cc_library(
         "//client/cpp/channel",
         "//freighter/cpp:freighter",
         "//freighter/cpp/fgrpc",
-        "//core/pkg/api/grpc/v1:api_grpc",
+        "//core/pkg/api/grpc:api_grpc",
         "//x/cpp/binary",
         "//x/cpp/telem",
         "//x/go/telem:telem_grpc",

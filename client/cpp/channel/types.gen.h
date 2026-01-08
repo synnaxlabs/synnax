@@ -13,17 +13,23 @@
 
 #include <cstdint>
 #include <string>
+#include <utility>
 
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xjson/xjson.h"
+
+namespace distribution::channel {
+class Operation;
+}
 
 namespace synnax::channel {
 using ChannelKey = std::uint32_t;
 
-constexpr const char *OperationTypeMin = "min";
-constexpr const char *OperationTypeMax = "max";
-constexpr const char *OperationTypeAvg = "avg";
-constexpr const char *OperationTypeNone = "none";
+constexpr const char *OPERATION_TYPE_MIN = "min";
+constexpr const char *OPERATION_TYPE_MAX = "max";
+constexpr const char *OPERATION_TYPE_AVG = "avg";
+constexpr const char *OPERATION_TYPE_NONE = "none";
 
 using Name = std::string;
 
@@ -36,7 +42,7 @@ struct Operation {
         return Operation{
             .type = parser.field<std::string>("type"),
             .reset_channel = parser.field<ChannelKey>("reset_channel"),
-            .duration = parser.field<telem::TimeSpan>("duration"),
+            .duration = telem::TimeSpan(parser.field<std::int64_t>("duration")),
         };
     }
 
@@ -44,8 +50,13 @@ struct Operation {
         json j;
         j["type"] = this->type;
         j["reset_channel"] = this->reset_channel;
-        j["duration"] = this->duration;
+        j["duration"] = this->duration.nanoseconds();
         return j;
     }
+
+    using proto_type = distribution::channel::Operation;
+    [[nodiscard]] distribution::channel::Operation to_proto() const;
+    static std::pair<Operation, xerrors::Error>
+    from_proto(const distribution::channel::Operation &pb);
 };
 }

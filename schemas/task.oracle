@@ -9,9 +9,10 @@
 
 import "schemas/status"
 
-@ts output "client/ts/src/task"
-@py output "client/py/synnax/task"
-@go output "core/pkg/service/task"
+@ts output  "client/ts/src/task"
+@py output  "client/py/synnax/task"
+@go output  "core/pkg/service/task"
+@cpp output "client/cpp/task"
 @pb
 
 Key uint64 {
@@ -27,6 +28,7 @@ StatusDetails struct<Data extends json = json> {
 
     @go omit
     @pb omit
+    @cpp omit
 }
 
 GoStatusDetails struct extends StatusDetails<json> {
@@ -37,20 +39,21 @@ GoStatusDetails struct extends StatusDetails<json> {
     @pb name  "StatusDetails"
     @ts omit
     @py omit
-    @cpp omit
+    @cpp name "StatusDetails"
 }
 
 Status<Data extends json = json> = status.Status<StatusDetails<Data>> {
     @go omit
     @pb omit
+    @cpp omit
 }
 
 GoStatus = status.GoStatus<GoStatusDetails> {
     @go name  "Status"
     @pb name  "Status"
+    @cpp name "Status"
     @ts omit
     @py omit
-    @cpp omit
 }
 
 NewStatusDetails struct<Data extends json = json> {
@@ -62,12 +65,14 @@ NewStatusDetails struct<Data extends json = json> {
     @go omit
     @pb omit
     @py omit
+    @cpp omit
 }
 
 NewStatus<Data extends json = json> = status.New<NewStatusDetails<Data>> {
     @go omit
     @pb omit
     @py omit
+    @cpp omit
 }
 
 Task struct<
@@ -91,6 +96,7 @@ Task struct<
     @ontology type "task"
     @go omit
     @pb omit
+    @cpp omit
 }
 
 GoTask struct extends Task<string, string, json> {
@@ -101,9 +107,9 @@ GoTask struct extends Task<string, string, json> {
 
     @go name  "Task"
     @pb name  "Task"
+    @cpp name "Payload"
     @ts omit
     @py omit
-    @cpp omit
 }
 
 New struct<
@@ -124,6 +130,7 @@ New struct<
     @go omit
     @pb omit
     @py omit
+    @cpp omit
 }
 
 Command struct {

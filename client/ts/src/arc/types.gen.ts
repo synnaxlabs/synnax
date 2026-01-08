@@ -120,7 +120,7 @@ export const sequenceZ = z.object({
 });
 export interface Sequence extends z.infer<typeof sequenceZ> {}
 
-export const statusZ = status.statusZ({ details: statusDetailsZ });
+export const statusZ = status.goStatusZ(statusDetailsZ);
 export type Status = z.infer<typeof statusZ>;
 
 export const functionZ = z.object({

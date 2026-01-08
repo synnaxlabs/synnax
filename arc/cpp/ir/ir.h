@@ -21,8 +21,8 @@
 #include "arc/cpp/ir/format.h"
 #include "arc/cpp/proto/proto.h"
 #include "arc/cpp/types/types.h"
-#include "arc/go/ir/arc/go/ir/ir.pb.h"
-#include "arc/go/symbol/arc/go/symbol/symbol.pb.h"
+#include "arc/go/ir/ir.pb.h"
+#include "arc/go/symbol/symbol.pb.h"
 
 namespace arc::ir {
 constexpr std::string default_output_param = "output";
@@ -39,12 +39,12 @@ struct Handle {
     Handle(std::string node, std::string param):
         node(std::move(node)), param(std::move(param)) {}
 
-    explicit Handle(const v1::ir::PBHandle &pb) {
+    explicit Handle(const x::arc::ir::PBHandle &pb) {
         this->node = pb.node();
         this->param = pb.param();
     }
 
-    void to_proto(v1::ir::PBHandle *pb) const {
+    void to_proto(x::arc::ir::PBHandle *pb) const {
         pb->set_node(node);
         pb->set_param(param);
     }
@@ -73,16 +73,16 @@ struct Edge {
     Handle source, target;
     EdgeKind kind = EdgeKind::Continuous;
 
-    explicit Edge(const arc::v1::ir::PBEdge &pb) {
+    explicit Edge(const x::arc::ir::PBEdge &pb) {
         if (pb.has_source()) this->source = Handle(pb.source());
         if (pb.has_target()) this->target = Handle(pb.target());
         this->kind = static_cast<EdgeKind>(pb.kind());
     }
 
-    void to_proto(arc::v1::ir::PBEdge *pb) const {
+    void to_proto(x::arc::ir::PBEdge *pb) const {
         source.to_proto(pb->mutable_source());
         target.to_proto(pb->mutable_target());
-        pb->set_kind(static_cast<arc::v1::ir::PBEdgeKind>(kind));
+        pb->set_kind(static_cast<x::arc::ir::PBEdgeKind>(kind));
     }
 
     Edge() = default;
@@ -120,13 +120,13 @@ struct Param {
     types::Type type;
     nlohmann::json value;
 
-    explicit Param(const arc::v1::types::PBParam &pb) {
+    explicit Param(const x::arc::types::PBParam &pb) {
         this->name = pb.name();
         if (pb.has_type()) this->type = types::Type(pb.type());
         if (pb.has_value()) this->value = arc::proto::pb_value_to_json(pb.value());
     }
 
-    void to_proto(arc::v1::types::PBParam *pb) const {
+    void to_proto(x::arc::types::PBParam *pb) const {
         pb->set_name(name);
         type.to_proto(pb->mutable_type());
         if (!value.is_null()) arc::proto::json_to_pb_value(value, pb->mutable_value());
@@ -205,14 +205,14 @@ struct Channels {
     std::map<types::ChannelKey, std::string> read;
     std::map<types::ChannelKey, std::string> write;
 
-    explicit Channels(const arc::v1::symbol::PBChannels &pb) {
+    explicit Channels(const x::arc::symbol::PBChannels &pb) {
         for (const auto &[key, value]: pb.read())
             read[key] = value;
         for (const auto &[key, value]: pb.write())
             write[key] = value;
     }
 
-    void to_proto(arc::v1::symbol::PBChannels *pb) const {
+    void to_proto(x::arc::symbol::PBChannels *pb) const {
         auto *read_map = pb->mutable_read();
         for (const auto &[key, value]: read)
             (*read_map)[key] = value;
@@ -237,7 +237,7 @@ struct Node {
     Channels channels;
     Params config, inputs, outputs;
 
-    explicit Node(const arc::v1::ir::PBNode &pb) {
+    explicit Node(const x::arc::ir::PBNode &pb) {
         this->key = pb.key();
         this->type = pb.type();
         if (pb.has_channels()) this->channels = Channels(pb.channels());
@@ -246,7 +246,7 @@ struct Node {
         this->outputs = Params(pb.outputs());
     }
 
-    void to_proto(arc::v1::ir::PBNode *pb) const {
+    void to_proto(x::arc::ir::PBNode *pb) const {
         pb->set_key(key);
         pb->set_type(type);
         channels.to_proto(pb->mutable_channels());
@@ -303,7 +303,7 @@ struct Function {
     Channels channels;
     Params config, inputs, outputs;
 
-    explicit Function(const arc::v1::ir::PBFunction &pb) {
+    explicit Function(const x::arc::ir::PBFunction &pb) {
         this->key = pb.key();
         if (pb.has_channels()) this->channels = Channels(pb.channels());
         this->config = Params(pb.config());
@@ -311,7 +311,7 @@ struct Function {
         this->outputs = Params(pb.outputs());
     }
 
-    void to_proto(arc::v1::ir::PBFunction *pb) const {
+    void to_proto(x::arc::ir::PBFunction *pb) const {
         pb->set_key(key);
         channels.to_proto(pb->mutable_channels());
         config.to_proto(pb->mutable_config());
@@ -421,13 +421,13 @@ struct Stage {
 
     Stage() = default;
 
-    explicit Stage(const arc::v1::ir::PBStage &pb) {
+    explicit Stage(const x::arc::ir::PBStage &pb) {
         this->key = pb.key();
         for (const auto &node: pb.nodes())
             this->nodes.push_back(node);
     }
 
-    void to_proto(arc::v1::ir::PBStage *pb) const {
+    void to_proto(x::arc::ir::PBStage *pb) const {
         pb->set_key(key);
         for (const auto &node: nodes)
             pb->add_nodes(node);
@@ -456,13 +456,13 @@ struct Sequence {
 
     Sequence() = default;
 
-    explicit Sequence(const arc::v1::ir::PBSequence &pb) {
+    explicit Sequence(const x::arc::ir::PBSequence &pb) {
         this->key = pb.key();
         for (const auto &stage_pb: pb.stages())
             this->stages.emplace_back(stage_pb);
     }
 
-    void to_proto(arc::v1::ir::PBSequence *pb) const {
+    void to_proto(x::arc::ir::PBSequence *pb) const {
         pb->set_key(key);
         for (const auto &stage: stages)
             stage.to_proto(pb->add_stages());
@@ -515,7 +515,7 @@ struct IR {
 
     IR() = default;
 
-    explicit IR(const v1::ir::PBIR &pb) {
+    explicit IR(const x::arc::ir::PBIR &pb) {
         functions.reserve(pb.functions_size());
         for (const auto &fn_pb: pb.functions())
             functions.emplace_back(fn_pb);
@@ -531,7 +531,7 @@ struct IR {
             sequences.emplace_back(seq_pb);
     }
 
-    void to_proto(arc::v1::ir::PBIR *pb) const {
+    void to_proto(x::arc::ir::PBIR *pb) const {
         pb->mutable_functions()->Reserve(static_cast<int>(functions.size()));
         for (const auto &fn: functions)
             fn.to_proto(pb->add_functions());

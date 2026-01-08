@@ -13,7 +13,7 @@
 
 #include "x/cpp/telem/telem.h"
 
-#include "arc/go/types/arc/go/types/types.pb.h"
+#include "arc/go/types/types.pb.h"
 
 namespace arc::types {
 using ChannelKey = std::uint32_t;
@@ -41,13 +41,13 @@ struct Type {
     Kind kind = Kind::Invalid;
     std::unique_ptr<Type> elem;
 
-    explicit Type(const arc::v1::types::PBType &pb) {
+    explicit Type(const x::arc::types::PBType &pb) {
         this->kind = static_cast<Kind>(pb.kind());
         if (pb.has_elem()) this->elem = std::make_unique<Type>(pb.elem());
     }
 
-    void to_proto(arc::v1::types::PBType *pb) const {
-        pb->set_kind(static_cast<arc::v1::types::PBKind>(kind));
+    void to_proto(x::arc::types::PBType *pb) const {
+        pb->set_kind(static_cast<x::arc::types::PBKind>(kind));
         if (elem) elem->to_proto(pb->mutable_elem());
     }
 

@@ -23,7 +23,7 @@ namespace synnax {
 
 Arc::Arc(std::string name): name(std::move(name)) {}
 
-Arc::Arc(const api::v1::Arc &pb):
+Arc::Arc(const grpc::arc::Arc &pb):
     key(pb.key()),
     name(pb.name()),
     graph(pb.has_graph() ? arc::graph::Graph(pb.graph()) : arc::graph::Graph()),
@@ -32,7 +32,7 @@ Arc::Arc(const api::v1::Arc &pb):
     deploy(pb.deploy()),
     version(pb.version()) {}
 
-void Arc::to_proto(api::v1::Arc *pb) const {
+void Arc::to_proto(grpc::arc::Arc *pb) const {
     // Only set key if it's not empty (server generates UUID for new Arcs)
     if (!key.empty()) pb->set_key(key);
     pb->set_name(name);
@@ -53,7 +53,7 @@ ArcClient::ArcClient(
     delete_client(std::move(delete_client)) {}
 
 xerrors::Error ArcClient::create(Arc &arc) const {
-    auto req = api::v1::ArcCreateRequest();
+    auto req = grpc::arc::CreateRequest();
     arc.to_proto(req.add_arcs());
     auto [res, err] = create_client->send(ARC_CREATE_ENDPOINT, req);
     if (err) return err;
@@ -72,7 +72,7 @@ xerrors::Error ArcClient::create(Arc &arc) const {
 }
 
 xerrors::Error ArcClient::create(std::vector<Arc> &arcs) const {
-    auto req = api::v1::ArcCreateRequest();
+    auto req = grpc::arc::CreateRequest();
     req.mutable_arcs()->Reserve(static_cast<int>(arcs.size()));
     for (const auto &arc: arcs)
         arc.to_proto(req.add_arcs());
@@ -104,7 +104,7 @@ std::pair<Arc, xerrors::Error> ArcClient::retrieve_by_name(
     const std::string &name,
     const RetrieveOptions &options
 ) const {
-    auto req = api::v1::ArcRetrieveRequest();
+    auto req = grpc::arc::RetrieveRequest();
     req.add_names(name);
     options.apply(req);
 
@@ -120,7 +120,7 @@ std::pair<Arc, xerrors::Error> ArcClient::retrieve_by_key(
     const std::string &key,
     const RetrieveOptions &options
 ) const {
-    auto req = api::v1::ArcRetrieveRequest();
+    auto req = grpc::arc::RetrieveRequest();
     req.add_keys(key);
     options.apply(req);
 
@@ -135,7 +135,7 @@ std::pair<std::vector<Arc>, xerrors::Error> ArcClient::retrieve(
     const std::vector<std::string> &names,
     const RetrieveOptions &options
 ) const {
-    auto req = api::v1::ArcRetrieveRequest();
+    auto req = grpc::arc::RetrieveRequest();
     for (const auto &name: names)
         req.add_names(name);
     options.apply(req);
@@ -155,7 +155,7 @@ std::pair<std::vector<Arc>, xerrors::Error> ArcClient::retrieve_by_keys(
     const std::vector<std::string> &keys,
     const RetrieveOptions &options
 ) const {
-    auto req = api::v1::ArcRetrieveRequest();
+    auto req = grpc::arc::RetrieveRequest();
     for (const auto &key: keys)
         req.add_keys(key);
     options.apply(req);
@@ -172,7 +172,7 @@ std::pair<std::vector<Arc>, xerrors::Error> ArcClient::retrieve_by_keys(
 }
 
 xerrors::Error ArcClient::delete_arc(const std::string &key) const {
-    auto req = api::v1::ArcDeleteRequest();
+    auto req = grpc::arc::DeleteRequest();
     req.add_keys(key);
 
     auto [_, err] = delete_client->send(ARC_DELETE_ENDPOINT, req);
@@ -180,7 +180,7 @@ xerrors::Error ArcClient::delete_arc(const std::string &key) const {
 }
 
 xerrors::Error ArcClient::delete_arc(const std::vector<std::string> &keys) const {
-    auto req = api::v1::ArcDeleteRequest();
+    auto req = grpc::arc::DeleteRequest();
     for (const auto &key: keys)
         req.add_keys(key);
 

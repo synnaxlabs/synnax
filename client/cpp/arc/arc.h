@@ -20,21 +20,21 @@
 #include "arc/cpp/graph/graph.h"
 #include "arc/cpp/module/module.h"
 #include "arc/cpp/text/text.h"
-#include "core/pkg/api/grpc/v1/arc.pb.h"
+#include "core/pkg/api/grpc/arc/arc.pb.h"
 
 namespace synnax {
 
 /// @brief Freighter client for creating Arc programs.
 using ArcCreateClient = freighter::
-    UnaryClient<api::v1::ArcCreateRequest, api::v1::ArcCreateResponse>;
+    UnaryClient<grpc::arc::CreateRequest, grpc::arc::CreateResponse>;
 
 /// @brief Freighter client for retrieving Arc programs.
 using ArcRetrieveClient = freighter::
-    UnaryClient<api::v1::ArcRetrieveRequest, api::v1::ArcRetrieveResponse>;
+    UnaryClient<grpc::arc::RetrieveRequest, grpc::arc::RetrieveResponse>;
 
 /// @brief Freighter client for deleting Arc programs.
 using ArcDeleteClient = freighter::
-    UnaryClient<api::v1::ArcDeleteRequest, google::protobuf::Empty>;
+    UnaryClient<grpc::arc::DeleteRequest, google::protobuf::Empty>;
 
 class ArcClient;
 
@@ -56,7 +56,7 @@ struct RetrieveOptions {
     std::string search_term;
 
     /// @brief Applies these options to a protobuf retrieve request.
-    void apply(api::v1::ArcRetrieveRequest &req) const {
+    void apply(grpc::arc::RetrieveRequest &req) const {
         req.set_compile(compile);
         req.set_include_status(include_status);
         if (limit > 0) req.set_limit(limit);
@@ -100,12 +100,12 @@ struct Arc {
 
     /// @brief Constructs an Arc program from its protobuf representation.
     /// @param pb Protobuf message representing the Arc program.
-    explicit Arc(const api::v1::Arc &pb);
+    explicit Arc(const grpc::arc::Arc &pb);
 
 private:
     /// @brief Converts the Arc program to its protobuf representation.
     /// @param pb Pointer to protobuf message to populate.
-    void to_proto(api::v1::Arc *pb) const;
+    void to_proto(grpc::arc::Arc *pb) const;
 
     friend class ArcClient;
 };

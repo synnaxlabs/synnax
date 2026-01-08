@@ -10,12 +10,12 @@
 #include "gtest/gtest.h"
 
 #include "arc/cpp/ir/ir.h"
-#include "arc/go/ir/arc/go/ir/ir.pb.h"
+#include "arc/go/ir/ir.pb.h"
 
 /// @brief it should correctly round-trip Handle through protobuf
 TEST(IRTest, testHandleProtobufRoundTrip) {
     const arc::ir::Handle original("node1", "param1");
-    arc::v1::ir::PBHandle pb;
+    x::arc::ir::PBHandle pb;
     original.to_proto(&pb);
     const arc::ir::Handle reconstructed(pb);
     ASSERT_EQ(reconstructed.node, "node1");
@@ -27,7 +27,7 @@ TEST(IRTest, testEdgeProtobufRoundTrip) {
     arc::ir::Handle src("src_node", "output");
     arc::ir::Handle tgt("tgt_node", "input");
     arc::ir::Edge original(src, tgt);
-    arc::v1::ir::PBEdge pb;
+    x::arc::ir::PBEdge pb;
     original.to_proto(&pb);
     arc::ir::Edge reconstructed(pb);
     ASSERT_EQ(reconstructed.source.node, "src_node");
@@ -42,7 +42,7 @@ TEST(IRTest, testChannelsProtobufRoundTrip) {
     original.read[1] = "channel_a";
     original.read[2] = "channel_b";
     original.write[3] = "channel_c";
-    arc::v1::symbol::PBChannels pb;
+    x::arc::symbol::PBChannels pb;
     original.to_proto(&pb);
     arc::ir::Channels reconstructed(pb);
     ASSERT_EQ(reconstructed.read.size(), 2);
@@ -58,7 +58,7 @@ TEST(IRTest, testParamProtobufRoundTrip) {
     original.name = "test_param";
     original.type = arc::types::Type(arc::types::Kind::F64);
     original.value = nlohmann::json(42.5);
-    arc::v1::types::PBParam pb;
+    x::arc::types::PBParam pb;
     original.to_proto(&pb);
     arc::ir::Param reconstructed(pb);
     ASSERT_EQ(reconstructed.name, "test_param");
@@ -83,7 +83,7 @@ TEST(IRTest, testIRProtobufRoundTrip) {
     arc::ir::Edge edge(arc::ir::Handle("node1", "out"), arc::ir::Handle("node2", "in"));
     original.edges.push_back(edge);
 
-    arc::v1::ir::PBIR pb;
+    x::arc::ir::PBIR pb;
     original.to_proto(&pb);
 
     arc::ir::IR reconstructed(pb);

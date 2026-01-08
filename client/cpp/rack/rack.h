@@ -23,21 +23,22 @@
 #include "x/cpp/xjson/xjson.h"
 #include "client/cpp/rack/types.gen.h"
 
-#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/rack.pb.h"
+#include "core/pkg/service/rack/pb/rack.pb.h"
+#include "core/pkg/api/grpc/rack/rack.pb.h"
 
 namespace synnax {
 
 /// @brief Type alias for the transport used to create a rack.
 using RackCreateClient = freighter::
-    UnaryClient<api::v1::RackCreateRequest, api::v1::RackCreateResponse>;
+    UnaryClient<grpc::rack::CreateRequest, grpc::rack::CreateResponse>;
 
 /// @brief Type alias for the transport used to retrieve a rack.
 using RackRetrieveClient = freighter::
-    UnaryClient<api::v1::RackRetrieveRequest, api::v1::RackRetrieveResponse>;
+    UnaryClient<grpc::rack::RetrieveRequest, grpc::rack::RetrieveResponse>;
 
 /// @brief Type alias for the transport used to delete a rack.
 using RackDeleteClient = freighter::
-    UnaryClient<api::v1::RackDeleteRequest, google::protobuf::Empty>;
+    UnaryClient<grpc::rack::DeleteRequest, google::protobuf::Empty>;
 
 /// @brief An alias for the type of rack's key.
 using RackKey = std::uint32_t;
@@ -67,27 +68,8 @@ inline std::uint16_t rack_key_node(const RackKey key) {
     return key >> 12;
 }
 
-/// @brief Specific status details for racks.
-struct RackStatusDetails: rack::StatusDetails {
-    RackKey rack = 0;
-
-    /// @brief Parses the rack status details from a JSON parser.
-    static RackStatusDetails parse(xjson::Parser parser) {
-        return RackStatusDetails{
-            .rack = parser.field<RackKey>("rack"),
-        };
-    }
-
-    /// @brief Converts the rack status details to JSON.
-    [[nodiscard]] json to_json() const {
-        json j;
-        j["rack"] = this->rack;
-        return j;
-    }
-};
-
 /// @brief Status information for a rack.
-using RackStatus = status::Status<RackStatusDetails>;
+using RackStatus = rack::Status;
 
 /// @brief A Rack represents a physical or logical grouping of hardware devices.
 /// Racks contain tasks that can be used to interact with hardware.
@@ -121,7 +103,7 @@ public:
     /// @brief Constructs a rack from its protobuf representation.
     /// @param rack The protobuf representation of the rack.
     /// @returns A pair containing the rack and an error if one occurred.
-    static std::pair<Rack, xerrors::Error> from_proto(const api::v1::Rack &rack);
+    static std::pair<Rack, xerrors::Error> from_proto(const service::rack::Rack &rack);
 
     /// @brief Equality operator for racks.
     /// @param rack The rack to compare with.
@@ -131,7 +113,7 @@ public:
 private:
     /// @brief Converts the rack to its protobuf representation.
     /// @param rack The protobuf object to populate.
-    void to_proto(api::v1::Rack *rack) const;
+    void to_proto(service::rack::Rack *rack) const;
 
     friend class RackClient;
 };

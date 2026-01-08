@@ -10,7 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "arc/cpp/module/module.h"
-#include "arc/go/module/arc/go/module/module.pb.h"
+#include "arc/go/module/module.pb.h"
 
 /// @brief it should correctly round-trip Module through protobuf
 TEST(ModuleTest, testModuleProtobufRoundTrip) {
@@ -29,7 +29,7 @@ TEST(ModuleTest, testModuleProtobufRoundTrip) {
     original.output_memory_bases["output1"] = 1024;
     original.output_memory_bases["output2"] = 2048;
 
-    arc::v1::module::PBModule pb;
+    x::arc::module::PBModule pb;
     original.to_proto(&pb);
 
     arc::module::Module reconstructed(pb);

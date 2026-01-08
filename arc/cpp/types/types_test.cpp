@@ -10,13 +10,13 @@
 #include "gtest/gtest.h"
 
 #include "arc/cpp/types/types.h"
-#include "arc/go/types/arc/go/types/types.pb.h"
+#include "arc/go/types/types.pb.h"
 
 /// @brief it should correctly round-trip a simple Type through protobuf
 TEST(TypesTest, testTypeProtobufRoundTrip) {
     arc::types::Type original(arc::types::Kind::F32);
 
-    arc::v1::types::PBType pb;
+    x::arc::types::PBType pb;
     original.to_proto(&pb);
 
     arc::types::Type reconstructed(pb);
@@ -30,7 +30,7 @@ TEST(TypesTest, testTypeWithElemProtobufRoundTrip) {
     arc::types::Type elem_type(arc::types::Kind::U64);
     arc::types::Type original(arc::types::Kind::Series, std::move(elem_type));
 
-    arc::v1::types::PBType pb;
+    x::arc::types::PBType pb;
     original.to_proto(&pb);
 
     arc::types::Type reconstructed(pb);
@@ -63,7 +63,7 @@ TEST(TypesTest, testAllKindValues) {
 
     for (const auto kind: kinds) {
         arc::types::Type original(kind);
-        arc::v1::types::PBType pb;
+        x::arc::types::PBType pb;
         original.to_proto(&pb);
         arc::types::Type reconstructed(pb);
         ASSERT_EQ(reconstructed.kind, kind);

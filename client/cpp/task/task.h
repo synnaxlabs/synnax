@@ -16,12 +16,15 @@
 #include <vector>
 
 #include "client/cpp/ontology/id.h"
+#include "client/cpp/task/types.gen.h"
+#include "client/cpp/task/proto.gen.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/status/status.h"
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xjson/xjson.h"
 
-#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/task.pb.h"
+#include "core/pkg/service/task/pb/task.pb.h"
+#include "core/pkg/api/grpc/task/task.pb.h"
 
 namespace synnax {
 // Forward declaration for RackKey (needed for task key utilities)
@@ -29,18 +32,18 @@ using RackKey = std::uint32_t;
 
 /// @brief Type alias for the transport used to create a task.
 using TaskCreateClient = freighter::
-    UnaryClient<api::v1::TaskCreateRequest, api::v1::TaskCreateResponse>;
+    UnaryClient<grpc::task::CreateRequest, grpc::task::CreateResponse>;
 
 /// @brief Type alias for the transport used to retrieve a task.
 using TaskRetrieveClient = freighter::
-    UnaryClient<api::v1::TaskRetrieveRequest, api::v1::TaskRetrieveResponse>;
+    UnaryClient<grpc::task::RetrieveRequest, grpc::task::RetrieveResponse>;
 
 /// @brief Type alias for the transport used to delete a task.
 using TaskDeleteClient = freighter::
-    UnaryClient<api::v1::TaskDeleteRequest, google::protobuf::Empty>;
+    UnaryClient<grpc::task::DeleteRequest, google::protobuf::Empty>;
 
 /// @brief An alias for the type of task's key.
-using TaskKey = std::uint64_t;
+using TaskKey = task::Key;
 
 /// @brief Converts a task key to an ontology ID.
 /// @param key The task key.
@@ -82,40 +85,14 @@ inline std::uint32_t local_task_key(const TaskKey key) {
     return key & 0xFFFFFFFF;
 }
 
-/// @brief specific status details for tasks.
-struct TaskStatusDetails {
-    /// @brief The key of the task that this status is for.
-    TaskKey task;
-    /// @brief Is a non-empty string if the status is an explicit response to a command.
-    std::string cmd;
-    /// @brief whether the task is currently running.
-    bool running;
-    /// @brief additional data associated with the task.
-    json data;
+/// @brief Alias for task status details (uses generated type).
+using TaskStatusDetails = task::StatusDetails;
 
-    /// @brief parses the task status details from a JSON parser.
-    static TaskStatusDetails parse(xjson::Parser parser) {
-        return TaskStatusDetails{
-            .task = parser.field<TaskKey>("task"),
-            .cmd = parser.field<std::string>("cmd", ""),
-            .running = parser.field<bool>("running"),
-            .data = parser.field<json>("data"),
-        };
-    }
+/// @brief Status information for a task.
+using TaskStatus = synnax::status::Status<json>;
 
-    /// @brief converts the task status details to JSON.
-    [[nodiscard]] json to_json() const {
-        json j;
-        j["task"] = this->task;
-        j["running"] = this->running;
-        j["data"] = this->data;
-        j["cmd"] = this->cmd;
-        return j;
-    }
-};
-
-/// @brief status information for a task.
-using TaskStatus = status::Status<TaskStatusDetails>;
+/// @brief Alias for the generated task payload type.
+using TaskPayload = task::Payload;
 
 /// @brief Options for retrieving tasks.
 struct TaskRetrieveOptions {
@@ -126,23 +103,22 @@ struct TaskRetrieveOptions {
 /// @brief A Task is a data structure used to configure and execute operations on a
 /// hardware device. Tasks are associated with a specific rack and can be created,
 /// retrieved, and deleted.
-class Task {
+///
+/// Task extends the generated task::Payload struct, adding convenience constructors
+/// and utility methods while leveraging generated code for data fields and
+/// protobuf translation.
+class Task : public task::Payload {
 public:
-    /// @brief The unique identifier for the task.
-    TaskKey key = 0;
-    /// @brief A human-readable name for the task.
-    std::string name;
-    /// @brief The type of the task, which determines its behavior.
-    std::string type;
-    /// @brief Configuration data for the task, typically in JSON format.
-    std::string config;
-    /// @brief Whether the task is internal to the system.
-    bool internal = false;
-    /// @brief Whether the task is a snapshot.
-    bool snapshot = false;
+    /// @brief Default constructor for an empty task.
+    Task() = default;
 
-    /// @brief Status information for the task.
-    TaskStatus status;
+    /// @brief Converting constructor from generated Payload type.
+    /// @param payload The generated payload to convert from.
+    Task(task::Payload &&payload) : task::Payload(std::move(payload)) {}
+
+    /// @brief Converting constructor from generated Payload type (const ref).
+    /// @param payload The generated payload to convert from.
+    Task(const task::Payload &payload) : task::Payload(payload) {}
 
     /// @brief Constructs a new task with the given properties.
     /// @param name A human-readable name for the task.
@@ -190,14 +166,6 @@ public:
         bool snapshot = false
     );
 
-    /// @brief Constructs a task from its protobuf representation.
-    /// @param task The protobuf representation of the task.
-    /// @returns A pair containing the task and an error if one occurred.
-    static std::pair<Task, xerrors::Error> from_proto(const api::v1::Task &task);
-
-    /// @brief Default constructor for an empty task.
-    Task() = default;
-
     friend std::ostream &operator<<(std::ostream &os, const Task &task) {
         return os << task.name << " (" << task.key << ")";
     }
@@ -207,14 +175,10 @@ public:
         return task_ontology_id(this->key).string();
     }
 
+    /// @brief Returns the rack key that this task belongs to.
     [[nodiscard]] synnax::RackKey rack() const {
         return rack_key_from_task_key(this->key);
     }
-
-private:
-    /// @brief Converts the task to its protobuf representation.
-    /// @param task The protobuf object to populate.
-    void to_proto(api::v1::Task *task) const;
 
     friend class TaskClient;
 };

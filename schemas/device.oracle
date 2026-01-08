@@ -20,7 +20,7 @@ StatusDetails struct {
     device string
 }
 
-Status = status.Status<StatusDetails>
+Status = status.GoStatus<StatusDetails>
 
 Key = string
 

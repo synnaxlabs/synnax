@@ -11,7 +11,7 @@
 
 #include <string>
 
-#include "arc/go/text/arc/go/text/text.pb.h"
+#include "arc/go/text/text.pb.h"
 
 namespace arc::text {
 
@@ -29,10 +29,10 @@ struct Text {
 
     /// @brief Constructs a Text from its protobuf representation
     /// @param pb The protobuf message
-    explicit Text(const v1::text::PBText &pb): raw(pb.raw()) {}
+    explicit Text(const x::arc::text::PBText &pb): raw(pb.raw()) {}
 
     /// @brief Converts the Text to its protobuf representation
     /// @param pb Pointer to protobuf message to populate
-    void to_proto(v1::text::PBText *pb) const { pb->set_raw(raw); }
+    void to_proto(x::arc::text::PBText *pb) const { pb->set_raw(raw); }
 };
 }

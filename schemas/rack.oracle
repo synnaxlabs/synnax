@@ -21,7 +21,7 @@ StatusDetails struct {
     rack Key
 }
 
-Status = status.Status<StatusDetails>
+Status = status.GoStatus<StatusDetails>
 
 Rack struct {
     key          Key      @key

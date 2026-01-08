@@ -21,7 +21,7 @@
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xos/xos.h"
 
-#include "core/pkg/api/grpc/v1/auth.pb.h"
+#include "core/pkg/api/grpc/auth/auth.pb.h"
 
 /// @brief auth metadata key. NOTE: This must be lowercase, GRPC will panic on
 /// capitalized or uppercase keys.
@@ -31,7 +31,7 @@ const std::string HEADER_VALUE_PREFIX = "Bearer ";
 
 /// @brief type alias for the auth login transport.
 using AuthLoginClient = freighter::
-    UnaryClient<api::v1::LoginRequest, api::v1::LoginResponse>;
+    UnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>;
 
 const xerrors::Error AUTH_ERROR = xerrors::SY.sub("auth");
 const xerrors::Error INVALID_TOKEN = AUTH_ERROR.sub("invalid_token");
@@ -53,7 +53,7 @@ struct ClusterInfo {
 
     ClusterInfo() = default;
 
-    explicit ClusterInfo(const api::v1::ClusterInfo &info):
+    explicit ClusterInfo(const grpc::auth::ClusterInfo &info):
         cluster_key(info.cluster_key()),
         node_version(info.node_version()),
         node_key(info.node_key()),
@@ -100,7 +100,7 @@ public:
     /// Synnax client.
     xerrors::Error authenticate() {
         std::lock_guard lock(mu);
-        api::v1::LoginRequest req;
+        grpc::auth::LoginRequest req;
         req.set_username(this->username);
         req.set_password(this->password);
         auto skew_calc = telem::ClockSkewCalculator();

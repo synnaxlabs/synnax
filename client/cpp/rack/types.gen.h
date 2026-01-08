@@ -14,9 +14,16 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <utility>
 
-#include "x/cpp/status/status.h"
+#include "x/cpp/status/types.gen.h"
+#include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xjson/xjson.h"
+
+namespace service::rack {
+class StatusDetails;
+class Rack;
+}
 
 namespace synnax::rack {
 using Key = std::uint32_t;
@@ -35,9 +42,14 @@ struct StatusDetails {
         j["rack"] = this->rack;
         return j;
     }
+
+    using proto_type = service::rack::StatusDetails;
+    [[nodiscard]] service::rack::StatusDetails to_proto() const;
+    static std::pair<StatusDetails, xerrors::Error>
+    from_proto(const service::rack::StatusDetails &pb);
 };
 
-using Status = status::Status<StatusDetails>;
+using Status = synnax::status::Status<StatusDetails>;
 
 struct Payload {
     Key key;
@@ -53,7 +65,7 @@ struct Payload {
             .task_counter = parser.field<std::uint32_t>("task_counter", 0),
             .embedded = parser.field<bool>("embedded", false),
             .status = parser.has("status")
-                        ? std::make_optional(parser.field<Status>("status"))
+                        ? std::make_optional(Status::parse(parser.child("status")))
                         : std::nullopt,
         };
     }
@@ -64,8 +76,12 @@ struct Payload {
         j["name"] = this->name;
         j["task_counter"] = this->task_counter;
         j["embedded"] = this->embedded;
-        if (this->status.has_value()) j["status"] = *this->status;
+        if (this->status.has_value()) j["status"] = this->status->to_json();
         return j;
     }
+
+    using proto_type = service::rack::Rack;
+    [[nodiscard]] service::rack::Rack to_proto() const;
+    static std::pair<Payload, xerrors::Error> from_proto(const service::rack::Rack &pb);
 };
 }

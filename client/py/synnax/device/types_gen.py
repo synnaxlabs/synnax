@@ -28,7 +28,7 @@ class StatusDetails(BaseModel):
     device: str
 
 
-Status: TypeAlias = status.Status[StatusDetails]
+Status: TypeAlias = status.GoStatus[StatusDetails]
 
 
 class Device(BaseModel):

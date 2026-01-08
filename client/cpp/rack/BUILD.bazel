@@ -12,7 +12,7 @@ cc_library(
         "//client/cpp/errors",
         "//client/cpp/ontology",
         "//client/cpp/task",
-        "//core/pkg/api/grpc/v1:api_grpc",
+        "//core/pkg/api/grpc:api_grpc",
         "//freighter/cpp:freighter",
         "//x/cpp/status",
         "//x/cpp/xerrors",

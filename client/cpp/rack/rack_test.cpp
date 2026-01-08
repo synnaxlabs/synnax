@@ -59,7 +59,7 @@ TEST(RackTests, testCreateRackWithStatus) {
     const auto client = new_test_client();
     auto r = Rack("test_rack_with_status");
     r.status.key = "rack-status-key";
-    r.status.variant = status::variant::SUCCESS;
+    r.status.variant = ::status::variant::SUCCESS;
     r.status.message = "Rack is healthy";
     r.status.time = telem::TimeStamp::now();
     r.status.details.rack = 123;
@@ -68,7 +68,7 @@ TEST(RackTests, testCreateRackWithStatus) {
     ASSERT_EQ(r2.name, "test_rack_with_status");
     ASSERT_FALSE(r2.status.is_zero());
     ASSERT_EQ(r2.status.key, "rack-status-key");
-    ASSERT_EQ(r2.status.variant, status::variant::SUCCESS);
+    ASSERT_EQ(r2.status.variant, ::status::variant::SUCCESS);
     ASSERT_EQ(r2.status.message, "Rack is healthy");
 }
 

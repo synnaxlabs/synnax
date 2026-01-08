@@ -3,16 +3,23 @@ load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 cc_library(
     name = "task",
     srcs = ["task.cpp"],
-    hdrs = ["task.h"],
+    hdrs = [
+        "proto.gen.h",
+        "task.h",
+        "types.gen.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/errors",
         "//client/cpp/ontology",
-        "//core/pkg/api/grpc/v1:api_grpc",
+        "//core/pkg/api/grpc:api_grpc",
+        "//core/pkg/service/task:task_grpc",
         "//freighter/cpp:freighter",
         "//x/cpp/status",
         "//x/cpp/xjson",
+        "//x/cpp/xjson:struct",
         "//x/cpp/xerrors",
+        "@nlohmann_json//:json",
     ],
 )
 

@@ -25,7 +25,7 @@ class StatusDetails(BaseModel):
     rack: Key
 
 
-Status: TypeAlias = status.Status[StatusDetails]
+Status: TypeAlias = status.GoStatus[StatusDetails]
 
 
 class Base(BaseModel):

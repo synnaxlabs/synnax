@@ -21,24 +21,24 @@
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
-#include "core/pkg/api/grpc/v1/framer.pb.h"
+#include "core/pkg/api/grpc/framer/framer.pb.h"
 
 namespace synnax {
 /// @brief type alias for streamer network transport stream.
 using StreamerStream = freighter::
-    Stream<api::v1::FrameStreamerRequest, api::v1::FrameStreamerResponse>;
+    Stream<grpc::framer::StreamerRequest, grpc::framer::StreamerResponse>;
 
 /// @brief type alias for frame writer network transport.
 using StreamerClient = freighter::
-    StreamClient<api::v1::FrameStreamerRequest, api::v1::FrameStreamerResponse>;
+    StreamClient<grpc::framer::StreamerRequest, grpc::framer::StreamerResponse>;
 
 /// @brief type alias for writer network transports stream.
 using WriterStream = freighter::
-    Stream<api::v1::FrameWriterRequest, api::v1::FrameWriterResponse>;
+    Stream<grpc::framer::WriterRequest, grpc::framer::WriterResponse>;
 
 /// @brief type alias for writer network transport.
 using WriterClient = freighter::
-    StreamClient<api::v1::FrameWriterRequest, api::v1::FrameWriterResponse>;
+    StreamClient<grpc::framer::WriterRequest, grpc::framer::WriterResponse>;
 
 const auto FRAMER_ERROR = xerrors::Error("framer");
 const xerrors::Error FRAMER_CLOSED = FRAMER_ERROR.sub("closed");
@@ -152,7 +152,7 @@ public:
 
 private:
     /// @brief binds the configuration fields to it's protobuf representation.
-    void to_proto(api::v1::FrameStreamerRequest &f) const;
+    void to_proto(grpc::framer::StreamerRequest &f) const;
 
     friend class FrameClient;
     friend class Streamer;
@@ -300,7 +300,7 @@ struct WriterConfig {
 
 private:
     /// @brief binds the configuration fields to it's protobuf representation.
-    void to_proto(api::v1::FrameWriterConfig *f) const;
+    void to_proto(grpc::framer::WriterConfig *f) const;
 
     friend class FrameClient;
 
@@ -395,14 +395,14 @@ private:
     std::unique_ptr<WriterStream> stream;
 
     /// @brief cached request for reuse during writes
-    std::unique_ptr<api::v1::FrameWriterRequest> cached_write_req;
+    std::unique_ptr<grpc::framer::WriterRequest> cached_write_req;
     /// @brief cached frame within the request for reuse
     telem::PBFrame *cached_frame = nullptr;
 
     /// @brief internal function that waits until an ack is received for a
     /// particular command.
-    std::pair<api::v1::FrameWriterResponse, xerrors::Error>
-    exec(api::v1::FrameWriterRequest &req, bool ack);
+    std::pair<grpc::framer::WriterResponse, xerrors::Error>
+    exec(grpc::framer::WriterRequest &req, bool ack);
 
     /// @brief opens a writer to the Synnax cluster.
     explicit Writer(

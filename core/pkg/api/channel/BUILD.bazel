@@ -1,0 +1,23 @@
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
+
+proto_library(
+    name = "channel_proto",
+    srcs = ["pb/channel.proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//core/pkg/distribution/channel:channel_proto",
+        "//x/go/control:control_pb_proto",
+    ],
+)
+
+cpp_grpc_library(
+    name = "channel_grpc",
+    output_mode = "NO_PREFIX",
+    protos = [":channel_proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//core/pkg/distribution/channel:channel_grpc",
+        "//x/go/control:control_pb_grpc",
+    ],
+)

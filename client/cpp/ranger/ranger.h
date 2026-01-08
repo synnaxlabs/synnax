@@ -19,30 +19,32 @@
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/telem.h"
 
-#include "core/pkg/api/grpc/v1/ranger.pb.h"
+#include "core/pkg/api/ranger/pb/range.pb.h"
+#include "core/pkg/api/grpc/ranger/ranger.pb.h"
+#include "core/pkg/api/grpc/kv/kv.pb.h"
 
 using Key = std::string;
 
 namespace synnax {
 /// @brief type alias for the transport used to retrieve ranges.
 using RangeRetrieveClient = freighter::
-    UnaryClient<api::v1::RangeRetrieveRequest, api::v1::RangeRetrieveResponse>;
+    UnaryClient<grpc::ranger::RetrieveRequest, grpc::ranger::RetrieveResponse>;
 
 /// @brief type alias for the transport used to create ranges.
 using RangeCreateClient = freighter::
-    UnaryClient<api::v1::RangeCreateRequest, api::v1::RangeCreateResponse>;
+    UnaryClient<grpc::ranger::CreateRequest, grpc::ranger::CreateResponse>;
 
 /// @brief type alias for the transport used to get range-scoped key-values.
 using RangeKVGetClient = freighter::
-    UnaryClient<api::v1::RangeKVGetRequest, api::v1::RangeKVGetResponse>;
+    UnaryClient<grpc::kv::GetRequest, grpc::kv::GetResponse>;
 
 /// @brief type alias for the transport used to set range-scoped key-values.
 using RangeKVSetClient = freighter::
-    UnaryClient<api::v1::RangeKVSetRequest, google::protobuf::Empty>;
+    UnaryClient<grpc::kv::SetRequest, google::protobuf::Empty>;
 
 /// @brief type alias for the transport used to delete range-scoped key-values.
 using RangeKVDeleteClient = freighter::
-    UnaryClient<api::v1::RangeKVDeleteRequest, google::protobuf::Empty>;
+    UnaryClient<grpc::kv::DeleteRequest, google::protobuf::Empty>;
 
 /// @brief a range-scoped key-value store for storing metadata and configuration
 /// about a range.
@@ -113,11 +115,11 @@ public:
     Range(std::string name, telem::TimeRange time_range);
 
     /// @brief constructs the range from its protobuf type.
-    explicit Range(const api::v1::Range &rng);
+    explicit Range(const api::range::Range &rng);
 
 private:
     /// @brief binds the range's fields to the given proto.
-    void to_proto(api::v1::Range *rng) const;
+    void to_proto(api::range::Range *rng) const;
 
     /// @brief constructs an empty, invalid range.
     Range() = default;
@@ -229,6 +231,6 @@ private:
 
     /// @brief retrieves multiple ranges.
     std::pair<std::vector<Range>, xerrors::Error>
-    retrieve_many(api::v1::RangeRetrieveRequest &req) const;
+    retrieve_many(grpc::ranger::RetrieveRequest &req) const;
 };
 }

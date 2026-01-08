@@ -139,7 +139,7 @@ StatusDetails struct {
     running bool
 }
 
-Status = status.Status<StatusDetails>
+Status = status.GoStatus<StatusDetails>
 
 Key = uuid
 

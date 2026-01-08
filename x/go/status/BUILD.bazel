@@ -20,3 +20,16 @@ cpp_grpc_library(
         "//x/go/label:label_grpc",
     ],
 )
+
+# Alias for packages that reference status_pb_proto
+alias(
+    name = "status_pb_proto",
+    actual = ":status_proto",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "status_pb_grpc",
+    actual = ":status_grpc",
+    visibility = ["//visibility:public"],
+)
