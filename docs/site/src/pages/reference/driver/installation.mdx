@@ -296,7 +296,21 @@ file with the following format:
   "timing": {
     // Enable automatic skew correction for the Driver.
     "correct_skew": true
-  }
+  },
+  "manager": {
+    // Duration in seconds before reporting stuck task operations.
+    "op_timeout": 60,
+    // Interval in seconds between task timeout checks.
+    "poll_interval": 1,
+    // Maximum time in seconds to wait for task workers during shutdown.
+    "shutdown_timeout": 30,
+    // Number of worker threads for task operations (1-64).
+    "worker_count": 4
+  },
+  // List of device integrations to enable (overrides defaults).
+  "enable_integrations": ["labjack", "ni", "opc", "modbus", "sequence"],
+  // List of device integrations to disable.
+  "disable_integrations": []
 }
 ```
 
@@ -328,6 +342,18 @@ export SYNNAX_DRIVER_CLIENT_CERT_FILE=/path/to/client.crt
 export SYNNAX_DRIVER_CLIENT_KEY_FILE=/path/to/client.key
 # Enable automatic clock skew correction for the Driver.
 export SYNNAX_DRIVER_CORRECT_SKEW=true
+# Duration in seconds before reporting stuck task operations.
+export SYNNAX_DRIVER_OP_TIMEOUT=60
+# Interval in seconds between task timeout checks.
+export SYNNAX_DRIVER_POLL_INTERVAL=1
+# Maximum time in seconds to wait for task workers during shutdown.
+export SYNNAX_DRIVER_SHUTDOWN_TIMEOUT=30
+# Number of worker threads for task operations (1-64).
+export SYNNAX_DRIVER_WORKER_COUNT=4
+# Comma-separated list of device integrations to enable.
+export SYNNAX_DRIVER_ENABLE_INTEGRATIONS=labjack,ni,opc
+# Comma-separated list of device integrations to disable.
+export SYNNAX_DRIVER_DISABLE_INTEGRATIONS=modbus
 ```
 
 <Divider.Divider x />
@@ -416,6 +442,40 @@ synnax-driver start --standalone
       option: "--correct-skew",
       default: "true",
       description: "Enable automatic clock skew correction for the Driver.",
+    },
+    {
+      option: "--op-timeout",
+      default: "60",
+      description:
+        "Duration in seconds before reporting stuck task operations. Useful for debugging tasks that may be blocking.",
+    },
+    {
+      option: "--poll-interval",
+      default: "1",
+      description: "Interval in seconds between task timeout checks.",
+    },
+    {
+      option: "--shutdown-timeout",
+      default: "30",
+      description:
+        "Maximum time in seconds to wait for task workers during shutdown. After this timeout, stuck workers will be detached.",
+    },
+    {
+      option: "--worker-count",
+      default: "4",
+      description: "Number of worker threads for task operations. Valid range is 1-64.",
+    },
+    {
+      option: "--enable-integrations",
+      default: "[]",
+      description:
+        "Comma-separated list of device integrations to enable. Options: labjack, modbus, ni, opc, sequence.",
+    },
+    {
+      option: "--disable-integrations",
+      default: "[]",
+      description:
+        "Comma-separated list of device integrations to disable. Options: labjack, modbus, ni, opc, sequence.",
     },
   ]}
 />
