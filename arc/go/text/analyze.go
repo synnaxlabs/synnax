@@ -290,7 +290,8 @@ func Analyze(
 		ctx = acontext.CreateRoot(ctx_, t.AST, resolver)
 		i   = ir.IR{Symbols: ctx.Scope, TypeMap: ctx.TypeMap}
 	)
-	if !analyzer.AnalyzeProgram(ctx) {
+	analyzer.AnalyzeProgram(ctx)
+	if !ctx.Diagnostics.Ok() {
 		return i, ctx.Diagnostics
 	}
 

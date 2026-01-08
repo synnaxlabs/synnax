@@ -61,19 +61,41 @@ type Diagnostics []Diagnostic
 
 var _ error = (*Diagnostics)(nil)
 
-// Ok returns true if there are no diagnostics.
+// Ok returns true if there are no error-level diagnostics.
+// Warnings, info, and hints are allowed.
 func (d Diagnostics) Ok() bool {
-	return len(d) == 0
+	for _, diag := range d {
+		if diag.Severity == Error {
+			return false
+		}
+	}
+	return true
 }
 
 // Error implements the error interface.
 func (d Diagnostics) Error() string { return d.String() }
 
 func (d *Diagnostics) Add(diag Diagnostic) {
+	if d.contains(diag) {
+		return
+	}
 	*d = append(*d, diag)
 }
 
+// contains checks if a diagnostic with the same location and message already exists.
+func (d *Diagnostics) contains(diag Diagnostic) bool {
+	for _, existing := range *d {
+		if existing.Line == diag.Line &&
+			existing.Column == diag.Column &&
+			existing.Message == diag.Message {
+			return true
+		}
+	}
+	return false
+}
+
 // AddError adds an error-level diagnostic with the given message and source location.
+// Duplicate diagnostics (same location and message) are automatically filtered.
 func (d *Diagnostics) AddError(
 	err error,
 	ctx antlr.ParserRuleContext,
@@ -83,10 +105,11 @@ func (d *Diagnostics) AddError(
 		diag.Line = ctx.GetStart().GetLine()
 		diag.Column = ctx.GetStart().GetColumn()
 	}
-	*d = append(*d, diag)
+	d.Add(diag)
 }
 
 // AddWarning adds a warning-level diagnostic with the given message and source location.
+// Duplicate diagnostics (same location and message) are automatically filtered.
 func (d *Diagnostics) AddWarning(
 	err error,
 	ctx antlr.ParserRuleContext,
@@ -96,10 +119,11 @@ func (d *Diagnostics) AddWarning(
 		diag.Line = ctx.GetStart().GetLine()
 		diag.Column = ctx.GetStart().GetColumn()
 	}
-	*d = append(*d, diag)
+	d.Add(diag)
 }
 
 // AddInfo adds an info-level diagnostic with the given message and source location.
+// Duplicate diagnostics (same location and message) are automatically filtered.
 func (d *Diagnostics) AddInfo(
 	err error,
 	ctx antlr.ParserRuleContext,
@@ -109,10 +133,11 @@ func (d *Diagnostics) AddInfo(
 		diag.Line = ctx.GetStart().GetLine()
 		diag.Column = ctx.GetStart().GetColumn()
 	}
-	*d = append(*d, diag)
+	d.Add(diag)
 }
 
 // AddHint adds a hint-level diagnostic with the given message and source location.
+// Duplicate diagnostics (same location and message) are automatically filtered.
 func (d *Diagnostics) AddHint(
 	err error,
 	ctx antlr.ParserRuleContext,
@@ -122,7 +147,7 @@ func (d *Diagnostics) AddHint(
 		diag.Line = ctx.GetStart().GetLine()
 		diag.Column = ctx.GetStart().GetColumn()
 	}
-	*d = append(*d, diag)
+	d.Add(diag)
 }
 
 // Errors returns only error-level diagnostics.

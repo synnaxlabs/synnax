@@ -52,7 +52,8 @@ func compileWithCtx(ctx ccontext.Context[antlr.ParserRuleContext], source string
 func compileWithAnalyzer(exprSource string, resolver symbol.Resolver) ([]byte, types.Type) {
 	expr := MustSucceed(parser.ParseExpression(exprSource))
 	analyzerCtx := acontext.CreateRoot(bCtx, expr, resolver)
-	Expect(aexpression.Analyze(analyzerCtx)).To(BeTrue(), analyzerCtx.Diagnostics.String())
+	aexpression.Analyze(analyzerCtx)
+	Expect(analyzerCtx.Diagnostics.Ok()).To(BeTrue(), analyzerCtx.Diagnostics.String())
 	if analyzerCtx.Constraints.HasTypeVariables() {
 		Expect(analyzerCtx.Constraints.Unify()).To(Succeed())
 		for node, typ := range analyzerCtx.TypeMap {

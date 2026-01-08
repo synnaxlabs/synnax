@@ -25,6 +25,10 @@ func Check(
 	source antlr.ParserRuleContext,
 	reason string,
 ) error {
+	// Skip constraint if either type is Invalid - we can't constrain types we don't know
+	if t1.Kind == types.KindInvalid || t2.Kind == types.KindInvalid {
+		return nil
+	}
 	if t1.Kind == types.KindVariable || t2.Kind == types.KindVariable {
 		cs.AddEquality(t1, t2, source, reason)
 		return nil

@@ -77,7 +77,8 @@ func Analyze(
 				ctx.Diagnostics.AddError(errors.New("function body must be a block"), fn.Body.AST)
 				return ir.IR{}, ctx.Diagnostics
 			}
-			if !analyzer.AnalyzeBlock(acontext.Child(ctx, blockCtx).WithScope(funcScope)) {
+			analyzer.AnalyzeBlock(acontext.Child(ctx, blockCtx).WithScope(funcScope))
+			if !ctx.Diagnostics.Ok() {
 				return ir.IR{}, ctx.Diagnostics
 			}
 		}
