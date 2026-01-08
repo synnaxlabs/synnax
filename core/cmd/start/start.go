@@ -52,25 +52,26 @@ import (
 
 type CoreConfig struct {
 	alamos.Instrumentation
-	insecure             *bool
-	debug                *bool
-	autoCert             *bool
-	verifier             string
-	memBacked            *bool
-	listenAddress        address.Address
-	peers                []address.Address
-	dataPath             string
-	slowConsumerTimeout  time.Duration
-	rootUsername         string
-	rootPassword         string
-	noDriver             *bool
-	taskOpTimeout        time.Duration
-	taskPollInterval     time.Duration
-	taskShutdownTimeout  time.Duration
-	taskWorkerCount      uint8
-	certFactoryConfig    cert.FactoryConfig
-	enabledIntegrations  []string
-	disabledIntegrations []string
+	insecure                     *bool
+	debug                        *bool
+	autoCert                     *bool
+	verifier                     string
+	memBacked                    *bool
+	listenAddress                address.Address
+	peers                        []address.Address
+	dataPath                     string
+	slowConsumerTimeout          time.Duration
+	rootUsername                 string
+	rootPassword                 string
+	noDriver                     *bool
+	taskOpTimeout                time.Duration
+	taskPollInterval             time.Duration
+	taskShutdownTimeout          time.Duration
+	taskWorkerCount              uint8
+	certFactoryConfig            cert.FactoryConfig
+	enabledIntegrations          []string
+	disabledIntegrations         []string
+	disableChannelNameValidation *bool
 }
 
 var _ config.Config[CoreConfig] = CoreConfig{}
@@ -95,32 +96,34 @@ func (c CoreConfig) Validate() error {
 	validate.NonZero(v, "task_poll_interval", c.taskPollInterval)
 	validate.NonZero(v, "task_shutdown_timeout", c.taskShutdownTimeout)
 	validate.NonZero(v, "task_worker_count", c.taskWorkerCount)
+	validate.NotNil(v, "disable_channel_name_validation", c.disableChannelNameValidation)
 	v.Catcher.Exec(c.certFactoryConfig.Validate)
 	return v.Error()
 }
 
 func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 	return CoreConfig{
-		Instrumentation:      override.Zero(c.Instrumentation, other.Instrumentation),
-		insecure:             override.Nil(c.insecure, other.insecure),
-		debug:                override.Nil(c.debug, other.debug),
-		autoCert:             override.Nil(c.autoCert, other.autoCert),
-		verifier:             override.String(c.verifier, other.verifier),
-		memBacked:            override.Nil(c.memBacked, other.memBacked),
-		listenAddress:        override.String(c.listenAddress, other.listenAddress),
-		peers:                override.Slice(c.peers, other.peers),
-		dataPath:             override.String(c.dataPath, other.dataPath),
-		slowConsumerTimeout:  override.Numeric(c.slowConsumerTimeout, other.slowConsumerTimeout),
-		rootUsername:         override.String(c.rootUsername, other.rootUsername),
-		rootPassword:         override.String(c.rootPassword, other.rootPassword),
-		noDriver:             override.Nil(c.noDriver, other.noDriver),
-		taskOpTimeout:        override.Numeric(c.taskOpTimeout, other.taskOpTimeout),
-		taskPollInterval:     override.Numeric(c.taskPollInterval, other.taskPollInterval),
-		taskShutdownTimeout:  override.Numeric(c.taskShutdownTimeout, other.taskShutdownTimeout),
-		taskWorkerCount:      override.Numeric(c.taskWorkerCount, other.taskWorkerCount),
-		certFactoryConfig:    c.certFactoryConfig.Override(other.certFactoryConfig),
-		enabledIntegrations:  override.Slice(c.enabledIntegrations, other.enabledIntegrations),
-		disabledIntegrations: override.Slice(c.disabledIntegrations, other.disabledIntegrations),
+		Instrumentation:              override.Zero(c.Instrumentation, other.Instrumentation),
+		insecure:                     override.Nil(c.insecure, other.insecure),
+		debug:                        override.Nil(c.debug, other.debug),
+		autoCert:                     override.Nil(c.autoCert, other.autoCert),
+		verifier:                     override.String(c.verifier, other.verifier),
+		memBacked:                    override.Nil(c.memBacked, other.memBacked),
+		listenAddress:                override.String(c.listenAddress, other.listenAddress),
+		peers:                        override.Slice(c.peers, other.peers),
+		dataPath:                     override.String(c.dataPath, other.dataPath),
+		slowConsumerTimeout:          override.Numeric(c.slowConsumerTimeout, other.slowConsumerTimeout),
+		rootUsername:                 override.String(c.rootUsername, other.rootUsername),
+		rootPassword:                 override.String(c.rootPassword, other.rootPassword),
+		noDriver:                     override.Nil(c.noDriver, other.noDriver),
+		taskOpTimeout:                override.Numeric(c.taskOpTimeout, other.taskOpTimeout),
+		taskPollInterval:             override.Numeric(c.taskPollInterval, other.taskPollInterval),
+		taskShutdownTimeout:          override.Numeric(c.taskShutdownTimeout, other.taskShutdownTimeout),
+		taskWorkerCount:              override.Numeric(c.taskWorkerCount, other.taskWorkerCount),
+		certFactoryConfig:            c.certFactoryConfig.Override(other.certFactoryConfig),
+		enabledIntegrations:          override.Slice(c.enabledIntegrations, other.enabledIntegrations),
+		disabledIntegrations:         override.Slice(c.disabledIntegrations, other.disabledIntegrations),
+		disableChannelNameValidation: override.Nil(c.disableChannelNameValidation, other.disableChannelNameValidation),
 	}
 }
 
@@ -203,14 +206,15 @@ func BootupCore(ctx context.Context, onServerStarted func(), cfgs ...CoreConfig)
 	)
 
 	if distributionLayer, err = distribution.Open(ctx, distribution.Config{
-		Instrumentation:  cfg.Instrumentation.Child("distribution"),
-		AdvertiseAddress: cfg.listenAddress,
-		PeerAddresses:    cfg.peers,
-		AspenTransport:   aspenTransport,
-		FrameTransport:   frameTransport,
-		ChannelTransport: channelTransport,
-		Verifier:         cfg.verifier,
-		Storage:          storageLayer,
+		Instrumentation:      cfg.Instrumentation.Child("distribution"),
+		AdvertiseAddress:     cfg.listenAddress,
+		PeerAddresses:        cfg.peers,
+		AspenTransport:       aspenTransport,
+		FrameTransport:       frameTransport,
+		ChannelTransport:     channelTransport,
+		Verifier:             cfg.verifier,
+		Storage:              storageLayer,
+		ValidateChannelNames: cfg.disableChannelNameValidation,
 	}); !ok(err, distributionLayer) {
 		return err
 	}

@@ -19,22 +19,23 @@ import (
 
 // Flag names used for starting a Synnax Core.
 const (
-	FlagListen              = "listen"
-	FlagPeers               = "peers"
-	FlagData                = "data"
-	FlagMem                 = "mem"
-	FlagInsecure            = "insecure"
-	FlagUsername            = "username"
-	FlagPassword            = "password"
-	FlagAutoCert            = "auto-cert"
-	FlagNoDriver            = "no-driver"
-	FlagSlowConsumerTimeout = "slow-consumer-timeout"
-	FlagEnableIntegrations  = "enable-integrations"
-	FlagDisableIntegrations = "disable-integrations"
-	FlagTaskOpTimeout       = "task-op-timeout"
-	FlagTaskPollInterval    = "task-poll-interval"
-	FlagTaskShutdownTimeout = "task-shutdown-timeout"
-	FlagTaskWorkerCount     = "task-worker-count"
+	FlagListen                       = "listen"
+	FlagPeers                        = "peers"
+	FlagData                         = "data"
+	FlagMem                          = "mem"
+	FlagInsecure                     = "insecure"
+	FlagUsername                     = "username"
+	FlagPassword                     = "password"
+	FlagAutoCert                     = "auto-cert"
+	FlagNoDriver                     = "no-driver"
+	FlagSlowConsumerTimeout          = "slow-consumer-timeout"
+	FlagEnableIntegrations           = "enable-integrations"
+	FlagDisableIntegrations          = "disable-integrations"
+	FlagTaskOpTimeout                = "task-op-timeout"
+	FlagTaskPollInterval             = "task-poll-interval"
+	FlagTaskShutdownTimeout          = "task-shutdown-timeout"
+	FlagTaskWorkerCount              = "task-worker-count"
+	FlagDisableChannelNameValidation = "disable-channel-name-validation"
 )
 
 // BindFlags binds the start flags to the given command.
@@ -107,6 +108,11 @@ func BindFlags(cmd *cobra.Command) {
 		FlagTaskWorkerCount,
 		4,
 		"Number of worker threads for task operations in the embedded Driver (1-64)",
+	)
+	cmd.Flags().Bool(
+		FlagDisableChannelNameValidation,
+		false,
+		"Disable channel name validation (allows special characters, spaces, etc.)",
 	)
 	cmd.Flags().String(FlagDecoded, "", usage)
 }
