@@ -19,9 +19,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/synnaxlabs/synnax/cmd/instrumentation"
+	"github.com/synnaxlabs/synnax/cmd/cert"
+	cmdinst "github.com/synnaxlabs/synnax/cmd/instrumentation"
 	"github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/x/errors"
 	"golang.org/x/sys/windows/svc"
@@ -52,6 +52,28 @@ func install(cfg Config) error {
 		return errors.Wrap(err, "failed to get absolute executable path")
 	}
 
+	// For services, always use absolute paths for directories.
+	// If the user specified a relative path or didn't specify one (using the default),
+	// set them to appropriate paths under C:\ProgramData\Synnax.
+	dataDir := viper.GetString(start.FlagData)
+	if dataDir == "" || dataDir == "synnax-data" || !filepath.IsAbs(dataDir) {
+		viper.Set(start.FlagData, filepath.Join(ConfigDir(), "data"))
+	}
+
+	logPath := viper.GetString(cmdinst.FlagLogFilePath)
+	if logPath == "" || strings.HasPrefix(logPath, "./") || !filepath.IsAbs(logPath) {
+		viper.Set(cmdinst.FlagLogFilePath, filepath.Join(ConfigDir(), "logs", "synnax.log"))
+	}
+
+	certsDir := viper.GetString(cert.FlagCertsDir)
+	if certsDir == "" || strings.HasPrefix(certsDir, "/") || !filepath.IsAbs(certsDir) {
+		viper.Set(cert.FlagCertsDir, filepath.Join(ConfigDir(), "certs"))
+	}
+
+	if err = WriteConfig(); err != nil {
+		return err
+	}
+
 	m, err := mgr.Connect()
 	if err != nil {
 		return errors.Wrap(err, "failed to connect to service manager (are you running as administrator?)")
@@ -74,7 +96,7 @@ func install(cfg Config) error {
 		ErrorControl: mgr.ErrorNormal,
 		DisplayName:  displayName,
 		Description:  description,
-	}, buildServiceArgs(cfg)...)
+	})
 	if err != nil {
 		return err
 	}
@@ -236,6 +258,23 @@ func (s *synnaxService) Execute(
 		errCh <- s.startServer(ctx)
 	}()
 
+	// Give the server a moment to fail during startup before declaring Running.
+	// This allows early startup errors to be caught before we tell SCM we're ready.
+	select {
+	case err := <-errCh:
+		if err != nil {
+			elog.Error(1, fmt.Sprintf("server failed during startup: %v", err))
+			changes <- svc.Status{State: svc.Stopped}
+			return false, 1
+		}
+		// Server exited cleanly during startup (unusual but possible)
+		elog.Info(1, "server exited during startup without error")
+		changes <- svc.Status{State: svc.Stopped}
+		return false, 0
+	case <-time.After(2 * time.Second):
+		// Server didn't fail immediately, assume it's starting up
+	}
+
 	changes <- svc.Status{State: svc.Running, Accepts: acceptedCmds}
 	elog.Info(1, "Synnax service started, entering main loop")
 
@@ -288,90 +327,18 @@ func Run() error {
 		}
 	}
 
-	// Parse command line args since Windows passes service args via os.Args.
-	// Log the args for debugging.
-	if elog, err := eventlog.Open(name); err == nil {
-		_ = elog.Info(1, fmt.Sprintf("os.Args: %v", os.Args))
-		_ = elog.Close()
-	}
-	if err := ParseServiceArgs(os.Args[1:]); err != nil {
-		return errors.Wrap(err, "failed to parse service arguments")
+	// Load configuration from the YAML config file.
+	viper.SetConfigFile(ConfigPath())
+	if err := viper.ReadInConfig(); err != nil {
+
+		return errors.Wrap(err, "failed to read service configuration")
 	}
 
 	return svc.Run(name, &synnaxService{startServer: func(ctx context.Context) error {
-		ins := instrumentation.Configure()
-		defer instrumentation.Cleanup(ctx, ins)
-		return start.BootupCore(ctx, start.GetCoreConfigFromViper(ins))
+		ins := cmdinst.Configure()
+		defer cmdinst.Cleanup(ctx, ins)
+		// TODO: connect elog and instrumentation somehow?
+		cfg := start.GetCoreConfigFromViper(ins)
+		return start.BootupCore(ctx, cfg)
 	}})
-}
-
-// buildServiceArgs builds command-line arguments from the service configuration.
-func buildServiceArgs(cfg Config) []string {
-	var args []string
-	if cfg.ListenAddress != "" {
-		args = append(args, "--"+start.FlagListen, cfg.ListenAddress)
-	}
-
-	if cfg.DataDir != "" {
-		args = append(args, "--"+start.FlagData, cfg.DataDir)
-	} else {
-		programData := os.Getenv("ProgramData")
-		if programData == "" {
-			programData = "C:\\ProgramData"
-		}
-		args = append(args, "--"+start.FlagData, filepath.Join(programData, "Synnax", "data"))
-	}
-
-	if cfg.Insecure {
-		args = append(args, "--"+start.FlagInsecure)
-	}
-	if cfg.Username != "" {
-		args = append(args, "--"+start.FlagUsername, cfg.Username)
-	}
-	if cfg.Password != "" {
-		args = append(args, "--"+start.FlagPassword, cfg.Password)
-	}
-	if cfg.AutoCert {
-		args = append(args, "--"+start.FlagAutoCert)
-	}
-	if cfg.NoDriver {
-		args = append(args, "--"+start.FlagNoDriver)
-	}
-	if len(cfg.Peers) > 0 {
-		args = append(args, "--"+start.FlagPeers, strings.Join(cfg.Peers, ","))
-	}
-	if len(cfg.EnableIntegrations) > 0 {
-		args = append(args, "--"+start.FlagEnableIntegrations, strings.Join(cfg.EnableIntegrations, ","))
-	}
-	if len(cfg.DisableIntegrations) > 0 {
-		args = append(args, "--"+start.FlagDisableIntegrations, strings.Join(cfg.DisableIntegrations, ","))
-	}
-
-	return args
-}
-
-// ParseServiceArgs parses command-line arguments and applies them to viper by reusing
-// the same Cobra flag definitions as the CLI.
-func ParseServiceArgs(args []string) error {
-	// Create a throwaway cobra command purely to register the same flags that the
-	// CLI uses, then parse the service args into that flag set.
-	cmd := &cobra.Command{
-		Use:           "synnax-service",
-		SilenceUsage:  true,
-		SilenceErrors: true,
-	}
-
-	// Reuse the same flag definitions used by start.
-	start.BindFlags(cmd)
-
-	// Windows SCM passes service args through os.Args; parse them using Cobra so
-	// persistent/local flag behavior matches the CLI.
-	cmd.SetArgs(args)
-	if err := cmd.ParseFlags(args); err != nil {
-		return err
-	}
-	if err := viper.BindPFlags(cmd.PersistentFlags()); err != nil {
-		return err
-	}
-	return viper.BindPFlags(cmd.Flags())
 }

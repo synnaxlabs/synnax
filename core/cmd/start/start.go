@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/freighter/fhttp"
 	cmdcert "github.com/synnaxlabs/synnax/cmd/cert"
-	"github.com/synnaxlabs/synnax/cmd/instrumentation"
 	cmdauth "github.com/synnaxlabs/synnax/cmd/start/auth"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
@@ -70,12 +69,15 @@ type CoreConfig struct {
 	taskShutdownTimeout  time.Duration
 	taskWorkerCount      uint8
 	certFactoryConfig    cert.FactoryConfig
-	certLoaderConfig     cert.LoaderConfig
 	enabledIntegrations  []string
 	disabledIntegrations []string
 }
 
 var _ config.Config[CoreConfig] = CoreConfig{}
+
+var DefaultCoreConfig = CoreConfig{
+	certFactoryConfig: cert.DefaultFactoryConfig,
+}
 
 func (c CoreConfig) Validate() error {
 	v := validate.New("core.config")
@@ -94,7 +96,6 @@ func (c CoreConfig) Validate() error {
 	validate.NonZero(v, "task_shutdown_timeout", c.taskShutdownTimeout)
 	validate.NonZero(v, "task_worker_count", c.taskWorkerCount)
 	v.Catcher.Exec(c.certFactoryConfig.Validate)
-	v.Catcher.Exec(c.certLoaderConfig.Validate)
 	return v.Error()
 }
 
@@ -118,7 +119,6 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 		taskShutdownTimeout:  override.Numeric(c.taskShutdownTimeout, other.taskShutdownTimeout),
 		taskWorkerCount:      override.Numeric(c.taskWorkerCount, other.taskWorkerCount),
 		certFactoryConfig:    c.certFactoryConfig.Override(other.certFactoryConfig),
-		certLoaderConfig:     c.certLoaderConfig.Override(other.certLoaderConfig),
 		enabledIntegrations:  override.Slice(c.enabledIntegrations, other.enabledIntegrations),
 		disabledIntegrations: override.Slice(c.disabledIntegrations, other.disabledIntegrations),
 	}
@@ -128,11 +128,10 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 // read any variables from viper, and instead should be called with  fully configured
 // CoreConfigs.
 func BootupCore(ctx context.Context, cfgs ...CoreConfig) error {
-	cfg, err := config.New(CoreConfig{}, cfgs...)
+	cfg, err := config.New(DefaultCoreConfig, cfgs...)
 	if err != nil {
 		return err
 	}
-	defer instrumentation.Cleanup(ctx, cfg.Instrumentation)
 
 	if *cfg.autoCert {
 		if err := cmdcert.GenerateAuto(cfg.certFactoryConfig); err != nil {
@@ -141,6 +140,7 @@ func BootupCore(ctx context.Context, cfgs ...CoreConfig) error {
 	}
 
 	vsn := version.Get()
+
 	cfg.L.Zap().Sugar().Infof("\033[34mSynnax version %s starting\033[0m", vsn)
 	cfg.L.Info(
 		"starting synnax node",
@@ -169,7 +169,7 @@ func BootupCore(ctx context.Context, cfgs ...CoreConfig) error {
 	}()
 
 	if securityProvider, err = security.NewProvider(security.ProviderConfig{
-		LoaderConfig: cfg.certLoaderConfig,
+		LoaderConfig: cfg.certFactoryConfig.LoaderConfig,
 		Insecure:     cfg.insecure,
 		KeySize:      cfg.certFactoryConfig.KeySize,
 	}); !ok(err, nil) {
@@ -304,9 +304,9 @@ func BootupCore(ctx context.Context, cfgs ...CoreConfig) error {
 			Username:            cfg.rootUsername,
 			Password:            cfg.rootPassword,
 			Debug:               cfg.debug,
-			CACertPath:          cfg.certLoaderConfig.AbsoluteCACertPath(),
-			ClientCertFile:      cfg.certLoaderConfig.AbsoluteNodeCertPath(),
-			ClientKeyFile:       cfg.certLoaderConfig.AbsoluteNodeKeyPath(),
+			CACertPath:          cfg.certFactoryConfig.LoaderConfig.AbsoluteCACertPath(),
+			ClientCertFile:      cfg.certFactoryConfig.LoaderConfig.AbsoluteNodeCertPath(),
+			ClientKeyFile:       cfg.certFactoryConfig.LoaderConfig.AbsoluteNodeKeyPath(),
 			ParentDirname:       workDir,
 			TaskOpTimeout:       cfg.taskOpTimeout,
 			TaskPollInterval:    cfg.taskPollInterval,

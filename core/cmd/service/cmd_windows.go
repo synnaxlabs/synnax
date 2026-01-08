@@ -39,11 +39,14 @@ var installCmd = &cobra.Command{
 	Long: `Install Synnax as a Windows Service.
 
 Core configuration flags (--listen, --data, --insecure, etc.) will be stored
-in the service configuration and used when the service starts.
+in a YAML config file at C:\ProgramData\Synnax\config.yaml and used when the
+service starts. You can edit this file to change the configuration without
+reinstalling the service.
 
 Example:
-  synnax service install --listen 0.0.0.0:9090 --data C:\ProgramData\Synnax\data --insecure`,
+  synnax service install --listen 0.0.0.0:9090 --insecure`,
 	RunE: runInstall,
+	Args: cobra.NoArgs,
 }
 
 var uninstallCmd = &cobra.Command{
@@ -91,44 +94,16 @@ func AddCommand(cmd *cobra.Command) error {
 	return viper.BindPFlags(installCmd.Flags())
 }
 
-func buildConfigFromFlags(c *cobra.Command) (Config, error) {
-	listen := viper.GetString(start.FlagListen)
-	data := viper.GetString(start.FlagData)
-	insecure := viper.GetBool(start.FlagInsecure)
-	username := viper.GetString(start.FlagUsername)
-	password := viper.GetString(start.FlagPassword)
-	autoCert := viper.GetBool(start.FlagAutoCert)
-	noDriver := viper.GetBool(start.FlagNoDriver)
-	peers := viper.GetStringSlice(start.FlagPeers)
-	enableInt := viper.GetStringSlice(start.FlagEnableIntegrations)
-	disableInt := viper.GetStringSlice(start.FlagDisableIntegrations)
-	autoStart := viper.GetBool(autoStartFlag)
-	delayedStart := viper.GetBool(delayedStartFlag)
-	return Config{
-		ListenAddress:       listen,
-		DataDir:             data,
-		Insecure:            insecure,
-		Username:            username,
-		Password:            password,
-		AutoCert:            autoCert,
-		NoDriver:            noDriver,
-		Peers:               peers,
-		EnableIntegrations:  enableInt,
-		DisableIntegrations: disableInt,
-		AutoStart:           autoStart,
-		DelayedStart:        delayedStart,
-	}, nil
-}
-
 func runInstall(c *cobra.Command, _ []string) error {
-	cfg, err := buildConfigFromFlags(c)
-	if err != nil {
-		return err
+	cfg := Config{
+		AutoStart:    viper.GetBool(autoStartFlag),
+		DelayedStart: viper.GetBool(delayedStartFlag),
 	}
 	if err := install(cfg); err != nil {
 		return err
 	}
 	c.Printf("Windows Service %s installed successfully.\n", name)
+	c.Printf("Configuration saved to: %s\n", ConfigPath())
 	c.Printf("Use 'synnax service start' or 'net start %s' to start the service.\n", name)
 	return nil
 }
