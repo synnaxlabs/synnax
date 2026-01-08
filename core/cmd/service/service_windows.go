@@ -183,6 +183,87 @@ func stop() error {
 	return nil
 }
 
+// StatusInfo contains information about the service status and configuration.
+type StatusInfo struct {
+	Installed   bool
+	State       string
+	ProcessID   uint32
+	ConfigPath  string
+	DataDir     string
+	LogFile     string
+	CertsDir    string
+	Listen      string
+	Insecure    bool
+	ConfigError error
+}
+
+func stateToString(state svc.State) string {
+	switch state {
+	case svc.Stopped:
+		return "Stopped"
+	case svc.StartPending:
+		return "Starting"
+	case svc.StopPending:
+		return "Stopping"
+	case svc.Running:
+		return "Running"
+	case svc.ContinuePending:
+		return "Continuing"
+	case svc.PausePending:
+		return "Pausing"
+	case svc.Paused:
+		return "Paused"
+	default:
+		return "Unknown"
+	}
+}
+
+func status() (StatusInfo, error) {
+	info := StatusInfo{
+		ConfigPath: ConfigPath(),
+	}
+
+	// Try to read config file for paths
+	if _, err := os.Stat(info.ConfigPath); err == nil {
+		v := viper.New()
+		v.SetConfigFile(info.ConfigPath)
+		if err := v.ReadInConfig(); err != nil {
+			info.ConfigError = err
+		} else {
+			info.DataDir = v.GetString("data")
+			info.LogFile = v.GetString("log-file")
+			info.CertsDir = v.GetString("certs-dir")
+			info.Listen = v.GetString("listen")
+			info.Insecure = v.GetBool("insecure")
+		}
+	}
+
+	m, err := mgr.Connect()
+	if err != nil {
+		return info, errors.Wrap(err, "failed to connect to service manager")
+	}
+	defer m.Disconnect()
+
+	s, err := m.OpenService(name)
+	if err != nil {
+		// Service not installed
+		return info, nil
+	}
+	defer s.Close()
+
+	info.Installed = true
+
+	st, err := s.Query()
+	if err != nil {
+		return info, errors.Wrap(err, "failed to query service status")
+	}
+
+	info.State = stateToString(st.State)
+	info.ProcessID = st.ProcessId
+
+	return info, nil
+}
+
 // synnaxService implements svc.Handler for running Synnax as a Windows Service.
 type synnaxService struct {
 	ins alamos.Instrumentation

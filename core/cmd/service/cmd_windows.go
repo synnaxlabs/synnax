@@ -73,6 +73,16 @@ var stopCmd = &cobra.Command{
 	RunE:  runStop,
 }
 
+var statusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Show Synnax Windows service status",
+	Long: `Show the current status of the Synnax Windows service.
+
+Displays whether the service is installed and running, along with configuration details like data directory, log file location, and listen address.`,
+	Args: cobra.NoArgs,
+	RunE: runStatus,
+}
+
 // syncFlagsToViper syncs changed cobra flags to viper. This is necessary because
 // viper.BindPFlags doesn't properly pick up flag values after cobra parses them.
 func syncFlagsToViper(cmd *cobra.Command, _ []string) {
@@ -100,6 +110,7 @@ func AddCommand(cmd *cobra.Command) error {
 	serviceCmd.AddCommand(uninstallCmd)
 	serviceCmd.AddCommand(startCmd)
 	serviceCmd.AddCommand(stopCmd)
+	serviceCmd.AddCommand(statusCmd)
 	return viper.BindPFlags(cmd.Flags())
 }
 
@@ -134,5 +145,47 @@ func runStop(c *cobra.Command, _ []string) error {
 		return err
 	}
 	c.Printf("%s stopped.\n", name)
+	return nil
+}
+
+func runStatus(c *cobra.Command, _ []string) error {
+	info, err := status()
+	if err != nil {
+		return err
+	}
+
+	c.Printf("Service: %s\n", name)
+	if !info.Installed {
+		c.Println("Status:  Not installed")
+	} else if info.ProcessID > 0 {
+		c.Printf("Status:  %s (PID: %d)\n", info.State, info.ProcessID)
+	} else {
+		c.Printf("Status:  %s\n", info.State)
+	}
+
+	c.Println()
+	c.Println("Configuration:")
+	c.Printf("  Config file:  %s\n", info.ConfigPath)
+
+	if info.ConfigError != nil {
+		c.Printf("  (Error reading config: %v)\n", info.ConfigError)
+	} else if info.DataDir != "" || info.LogFile != "" {
+		if info.DataDir != "" {
+			c.Printf("  Data dir:     %s\n", info.DataDir)
+		}
+		if info.LogFile != "" {
+			c.Printf("  Log file:     %s\n", info.LogFile)
+		}
+		if info.CertsDir != "" {
+			c.Printf("  Certs dir:    %s\n", info.CertsDir)
+		}
+		if info.Listen != "" {
+			c.Printf("  Listen:       %s\n", info.Listen)
+		}
+		c.Printf("  Insecure:     %t\n", info.Insecure)
+	} else {
+		c.Println("  (No config file found)")
+	}
+
 	return nil
 }
