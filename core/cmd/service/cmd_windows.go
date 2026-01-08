@@ -204,12 +204,12 @@ func runStatus(c *cobra.Command, _ []string) error {
 		c.Println("  (No config file found)")
 	}
 
-	// Show recent log entries when stopped (especially useful for debugging failures)
+	// Show recent warnings/errors when stopped (useful for debugging failures)
 	if info.Installed && info.State == "Stopped" && info.LogFile != "" {
-		lines, err := readLastLines(info.LogFile, 10)
+		lines, err := readRecentLogs(info.LogFile, 10)
 		if err == nil && len(lines) > 0 {
 			c.Println()
-			c.Println("Recent logs:")
+			c.Println("Recent warnings/errors:")
 			for _, line := range lines {
 				c.Printf("  %s\n", line)
 			}
@@ -219,21 +219,78 @@ func runStatus(c *cobra.Command, _ []string) error {
 	return nil
 }
 
-// readLastLines reads the last n lines from a file.
-func readLastLines(filePath string, n int) ([]string, error) {
+// logEntry represents a parsed JSON log entry from zap.
+type logEntry struct {
+	Level   string  `json:"level"`
+	TS      float64 `json:"ts"`
+	Logger  string  `json:"logger"`
+	Caller  string  `json:"caller"`
+	Msg     string  `json:"msg"`
+	Error   string  `json:"error"`
+}
+
+// ANSI color codes for log levels.
+const (
+	colorReset  = "\033[0m"
+	colorYellow = "\033[33m"
+	colorRed    = "\033[31m"
+	colorBoldRed = "\033[1;31m"
+)
+
+// logLevelInfo contains display information for each log level.
+type logLevelInfo struct {
+	color string
+	label string
+}
+
+// importantLogLevels maps log levels to their display info.
+var importantLogLevels = map[string]logLevelInfo{
+	"warn":   {color: colorYellow, label: "WARN"},
+	"error":  {color: colorRed, label: "ERROR"},
+	"fatal":  {color: colorBoldRed, label: "FATAL"},
+	"panic":  {color: colorBoldRed, label: "PANIC"},
+	"dpanic": {color: colorBoldRed, label: "DPANIC"},
+}
+
+// readRecentLogs reads the log file and returns formatted important log entries.
+func readRecentLogs(filePath string, maxEntries int) ([]string, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
-	var lines []string
+	var entries []logEntry
 	scanner := bufio.NewScanner(f)
+	// Increase buffer size for long log lines
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
+
 	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-		if len(lines) > n {
-			lines = lines[1:]
+		line := scanner.Text()
+		var entry logEntry
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			continue // Skip non-JSON lines
 		}
+		if _, ok := importantLogLevels[entry.Level]; ok {
+			entries = append(entries, entry)
+			if len(entries) > maxEntries {
+				entries = entries[1:]
+			}
+		}
+	}
+
+	// Format entries for display
+	var lines []string
+	for _, e := range entries {
+		ts := time.Unix(int64(e.TS), int64((e.TS-float64(int64(e.TS)))*1e9))
+		info := importantLogLevels[e.Level]
+		msg := e.Msg
+		if e.Error != "" {
+			msg += ": " + e.Error
+		}
+		line := ts.Format("2006-01-02 15:04:05") + " " + info.color + info.label + colorReset + " " + msg
+		lines = append(lines, line)
 	}
 	return lines, scanner.Err()
 }
