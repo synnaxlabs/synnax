@@ -9,9 +9,9 @@ cc_library(
     visibility = ["//arc/cpp/runtime:__subpackages__"],
     deps = [
         "//arc/cpp/ir",
+        "//x/cpp/errors",
+        "//x/cpp/memory",
         "//x/cpp/telem",
-        "//x/cpp/xerrors",
-        "//x/cpp/xmemory",
         "@glog",
     ],
 )

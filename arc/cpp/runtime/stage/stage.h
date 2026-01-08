@@ -12,7 +12,7 @@
 #include <memory>
 #include <string>
 
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/node/factory.h"
@@ -31,12 +31,12 @@ public:
     StageEntry(std::string node_key, state::Node state):
         node_key(std::move(node_key)), state(std::move(state)) {}
 
-    xerrors::Error next(node::Context &ctx) override {
-        if (!state.refresh_inputs()) return xerrors::NIL;
+    x::errors::Error next(node::Context &ctx) override {
+        if (!state.refresh_inputs()) return x::errors::NIL;
         auto &input = state.input(0);
-        if (input->size() == 0) return xerrors::NIL;
+        if (input->size() == 0) return x::errors::NIL;
         if (input->at<std::uint8_t>(0) == 1) ctx.activate_stage(node_key);
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
@@ -47,10 +47,10 @@ public:
 /// Factory creates StageEntry nodes for "stage_entry" type nodes in the IR.
 class Factory : public node::Factory {
 public:
-    std::pair<std::unique_ptr<node::Node>, xerrors::Error>
+    std::pair<std::unique_ptr<node::Node>, x::errors::Error>
     create(const node::Config &cfg) override {
-        if (cfg.node.type != "stage_entry") return {nullptr, xerrors::NOT_FOUND};
-        return {std::make_unique<StageEntry>(cfg.node.key, cfg.state), xerrors::NIL};
+        if (cfg.node.type != "stage_entry") return {nullptr, x::errors::NOT_FOUND};
+        return {std::make_unique<StageEntry>(cfg.node.key, cfg.state), x::errors::NIL};
     }
 };
 

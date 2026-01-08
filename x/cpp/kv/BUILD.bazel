@@ -4,7 +4,7 @@ cc_library(
     hdrs = ["kv.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
         "@nlohmann_json//:json",
     ],
 )
@@ -15,7 +15,7 @@ cc_test(
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/kv",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
         "@nlohmann_json//:json",
     ],

@@ -15,7 +15,7 @@
 #include "freighter/cpp/fgrpc/mock/freighter/cpp/fgrpc/mock/service.grpc.pb.h"
 #include "freighter/cpp/fgrpc/mock/server.h"
 #include "freighter/cpp/freighter.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/xtest.h"
 
 /// Internal response type uses message.
 using RQ = test::Message;
@@ -51,7 +51,7 @@ class myMiddleware : public freighter::PassthroughMiddleware {
 public:
     bool ack = false;
 
-    std::pair<freighter::Context, xerrors::Error>
+    std::pair<freighter::Context, x::errors::Error>
     operator()(freighter::Context context, freighter::Next &next) override {
         context.set("test", "5");
         auto [outContext, exc] = next(context);

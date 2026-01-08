@@ -21,8 +21,8 @@
 #include "client/cpp/ontology/id.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/status/status.h"
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
 
 #include "core/pkg/service/device/pb/device.pb.h"
 #include "core/pkg/api/grpc/device/device.pb.h"
@@ -73,7 +73,7 @@ struct DeviceStatusDetails {
     std::string device;
 
     /// @brief parses the device status details from a JSON parser.
-    static DeviceStatusDetails parse(xjson::Parser parser) {
+    static DeviceStatusDetails parse(x::json::Parser parser) {
         return DeviceStatusDetails{
             .rack = parser.field<RackKey>("rack"),
             .device = parser.field<std::string>("device"),
@@ -142,12 +142,12 @@ struct Device {
     /// @brief Constructs a device from its protobuf representation.
     /// @param device The protobuf representation of the device.
     /// @returns A pair containing the device and an error if one occurred.
-    static std::pair<Device, xerrors::Error> from_proto(const service::device::Device &device);
+    static std::pair<Device, x::errors::Error> from_proto(const service::device::Device &device);
 
     /// @brief Parses a device from a JSON parser.
     /// @param parser The JSON parser containing device data.
     /// @returns The parsed device.
-    static Device parse(xjson::Parser &parser);
+    static Device parse(x::json::Parser &parser);
 
 private:
     void to_proto(service::device::Device *device) const;
@@ -220,7 +220,7 @@ public:
     /// @returns A pair containing the retrieved device and an error if one
     /// occurred.
     [[nodiscard]]
-    std::pair<Device, xerrors::Error> retrieve(const std::string &key) const;
+    std::pair<Device, x::errors::Error> retrieve(const std::string &key) const;
 
     /// @brief Retrieves a device by its key with options.
     /// @param key The key of the device to retrieve.
@@ -228,7 +228,7 @@ public:
     /// @returns A pair containing the retrieved device and an error if one
     /// occurred.
     [[nodiscard]]
-    std::pair<Device, xerrors::Error>
+    std::pair<Device, x::errors::Error>
     retrieve(const std::string &key, const DeviceRetrieveOptions &options) const;
 
     /// @brief Retrieves multiple devices by their keys.
@@ -236,7 +236,7 @@ public:
     /// @returns A pair containing the retrieved devices and an error if one
     /// occurred.
     [[nodiscard]]
-    std::pair<std::vector<Device>, xerrors::Error>
+    std::pair<std::vector<Device>, x::errors::Error>
     retrieve(const std::vector<std::string> &keys) const;
 
     /// @brief Retrieves multiple devices by their keys with options.
@@ -245,7 +245,7 @@ public:
     /// @returns A pair containing the retrieved devices and an error if one
     /// occurred.
     [[nodiscard]]
-    std::pair<std::vector<Device>, xerrors::Error> retrieve(
+    std::pair<std::vector<Device>, x::errors::Error> retrieve(
         const std::vector<std::string> &keys,
         const DeviceRetrieveOptions &options
     ) const;
@@ -254,32 +254,32 @@ public:
     /// @param req The retrieve request with filter criteria.
     /// @returns A pair containing the retrieved devices and an error if one occurred.
     [[nodiscard]]
-    std::pair<std::vector<Device>, xerrors::Error>
+    std::pair<std::vector<Device>, x::errors::Error>
     retrieve(DeviceRetrieveRequest &req) const;
 
     /// @brief Creates a device in the cluster.
     /// @param device The device to create. Will be updated with the assigned key.
     /// @returns An error if the creation failed.
     [[nodiscard]]
-    xerrors::Error create(Device &device) const;
+    x::errors::Error create(Device &device) const;
 
     /// @brief Creates multiple devices in the cluster.
     /// @param devs The devices to create. Will be updated with the assigned keys.
     /// @returns An error if the creation failed.
     [[nodiscard]]
-    xerrors::Error create(const std::vector<Device> &devs) const;
+    x::errors::Error create(const std::vector<Device> &devs) const;
 
     /// @brief Deletes a device by its key.
     /// @param key The key of the device to delete.
     /// @returns An error if the deletion failed.
     [[nodiscard]]
-    xerrors::Error del(const std::string &key) const;
+    x::errors::Error del(const std::string &key) const;
 
     /// @brief Deletes multiple devices by their keys.
     /// @param keys The keys of the devices to delete.
     /// @returns An error if the deletion failed.
     [[nodiscard]]
-    xerrors::Error del(const std::vector<std::string> &keys) const;
+    x::errors::Error del(const std::vector<std::string> &keys) const;
 
 private:
     /// @brief Device creation transport.

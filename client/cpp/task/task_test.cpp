@@ -11,7 +11,7 @@
 
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/xtest.h"
 
 std::mt19937 gen_rand_task = random_generator("Task Tests");
 
@@ -90,7 +90,7 @@ TEST(TaskTests, testDeleteTask) {
     auto t = Task(r.key, "test_module", "mock", "config");
     ASSERT_NIL(r.tasks.create(t));
     ASSERT_NIL(r.tasks.del(t.key));
-    ASSERT_OCCURRED_AS_P(r.tasks.retrieve(t.key), xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS_P(r.tasks.retrieve(t.key), x::errors::NOT_FOUND);
 }
 
 /// @brief it should convert a task key to an ontology ID
@@ -131,7 +131,7 @@ TEST(TaskTests, testCreateTaskWithStatus) {
     t.status->key = "task-status-key";
     t.status->variant = synnax::status::variant_success;
     t.status->message = "Task is running";
-    t.status->time = telem::TimeStamp::now();
+    t.status->time = x::telem::TimeStamp::now();
     t.status->details.task = 0;
     t.status->details.running = true;
     t.status->details.cmd = "start";
@@ -156,7 +156,7 @@ TEST(TaskTests, testRetrieveTaskWithStatusByName) {
     t.status->key = "task-status-by-name";
     t.status->variant = synnax::status::variant_warning;
     t.status->message = "Task warning";
-    t.status->time = telem::TimeStamp::now();
+    t.status->time = x::telem::TimeStamp::now();
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(rand_name, {.include_status = true}));
     ASSERT_EQ(t2.name, rand_name);
@@ -175,7 +175,7 @@ TEST(TaskTests, testListTasksWithStatus) {
     t.status->key = "task-list-status";
     t.status->variant = synnax::status::variant_info;
     t.status->message = "Task info";
-    t.status->time = telem::TimeStamp::now();
+    t.status->time = x::telem::TimeStamp::now();
     ASSERT_NIL(r.tasks.create(t));
     const auto tasks = ASSERT_NIL_P(r.tasks.list({.include_status = true}));
     ASSERT_EQ(tasks.size(), 1);
@@ -237,7 +237,7 @@ TEST(TaskTests, testRetrieveTasksByTypes) {
 //         {"running", true},
 //         {"data", {{"key", "value"}}}
 //     };
-//     xjson::Parser parser(j);
+//     x::json::Parser parser(j);
 //     auto details = TaskStatusDetails::parse(parser);
 //     ASSERT_NIL(parser.error());
 //     ASSERT_EQ(details.task, 123456789);
@@ -270,7 +270,7 @@ TEST(TaskTests, testRetrieveTasksByTypes) {
 //         .data = {{"config", "test"}, {"version", 2}},
 //     };
 //     const auto j = original.to_json();
-//     xjson::Parser parser(j);
+//     x::json::Parser parser(j);
 //     auto recovered = TaskStatusDetails::parse(parser);
 //     ASSERT_NIL(parser.error());
 //     ASSERT_EQ(recovered.task, original.task);
@@ -283,7 +283,7 @@ TEST(TaskTests, testRetrieveTasksByTypes) {
 // /// @brief it should handle empty cmd field correctly.
 // TEST(TaskStatusDetailsTests, testEmptyCmd) {
 //     json j = {{"task", 111}, {"cmd", ""}, {"running", true}, {"data", json::object()}};
-//     xjson::Parser parser(j);
+//     x::json::Parser parser(j);
 //     auto details = TaskStatusDetails::parse(parser);
 //     ASSERT_NIL(parser.error());
 //     ASSERT_EQ(details.task, 111);

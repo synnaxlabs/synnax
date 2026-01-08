@@ -11,7 +11,7 @@
 
 #include "client/cpp/status/status.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/xtest.h"
 
 using namespace synnax;
 
@@ -22,7 +22,7 @@ TEST(StatusTest, SetSingleStatus) {
     s.key = "test-status-1";
     s.variant = ::status::variant::INFO;
     s.message = "Test message";
-    s.time = telem::TimeStamp::now();
+    s.time = x::telem::TimeStamp::now();
     ASSERT_NIL(client.statuses.set(s));
     EXPECT_EQ(s.key, "test-status-1");
 }
@@ -34,7 +34,7 @@ TEST(StatusTest, RetrieveStatus) {
     s.key = "test-status-retrieve";
     s.variant = ::status::variant::SUCCESS;
     s.message = "Retrievable";
-    s.time = telem::TimeStamp::now();
+    s.time = x::telem::TimeStamp::now();
     ASSERT_NIL(client.statuses.set(s));
     const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(s.key));
     EXPECT_EQ(retrieved.key, s.key);
@@ -49,10 +49,10 @@ TEST(StatusTest, DeleteStatus) {
     s.key = "test-status-delete";
     s.variant = ::status::variant::INFO;
     s.message = "To delete";
-    s.time = telem::TimeStamp::now();
+    s.time = x::telem::TimeStamp::now();
     ASSERT_NIL(client.statuses.set(s));
     ASSERT_NIL(client.statuses.del(s.key));
-    ASSERT_OCCURRED_AS_P(client.statuses.retrieve(s.key), xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS_P(client.statuses.retrieve(s.key), x::errors::NOT_FOUND);
 }
 
 /// @brief it should set multiple statuses in a batch.
@@ -64,7 +64,7 @@ TEST(StatusTest, SetMultipleStatuses) {
         s.key = "test-batch-" + std::to_string(i);
         s.variant = ::status::variant::INFO;
         s.message = "Batch status " + std::to_string(i);
-        s.time = telem::TimeStamp::now();
+        s.time = x::telem::TimeStamp::now();
         statuses.push_back(s);
     }
     ASSERT_NIL(client.statuses.set(statuses));
@@ -82,7 +82,7 @@ TEST(StatusTest, RetrieveMultipleStatuses) {
         s.key = "test-multi-retrieve-" + std::to_string(i);
         s.variant = ::status::variant::SUCCESS;
         s.message = "Multi retrieve " + std::to_string(i);
-        s.time = telem::TimeStamp::now();
+        s.time = x::telem::TimeStamp::now();
         to_create.push_back(s);
     }
     ASSERT_NIL(client.statuses.set(to_create));
@@ -106,12 +106,12 @@ TEST(StatusTest, UpdateExistingStatus) {
     s.key = "test-status-update";
     s.variant = ::status::variant::INFO;
     s.message = "Original message";
-    s.time = telem::TimeStamp::now();
+    s.time = x::telem::TimeStamp::now();
     ASSERT_NIL(client.statuses.set(s));
     s.variant = ::status::variant::WARNING;
     s.message = "Updated message";
     s.description = "Added description";
-    s.time = telem::TimeStamp::now();
+    s.time = x::telem::TimeStamp::now();
     ASSERT_NIL(client.statuses.set(s));
     const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(s.key));
     EXPECT_EQ(retrieved.key, "test-status-update");
@@ -125,7 +125,7 @@ TEST(StatusTest, RetrieveNonExistentStatus) {
     const auto client = new_test_client();
     ASSERT_OCCURRED_AS_P(
         client.statuses.retrieve("non-existent-status-key"),
-        xerrors::NOT_FOUND
+        x::errors::NOT_FOUND
     );
 }
 
@@ -138,7 +138,7 @@ TEST(StatusTest, DeleteMultipleStatuses) {
         s.key = "test-multi-delete-" + std::to_string(i);
         s.variant = ::status::variant::INFO;
         s.message = "To be deleted " + std::to_string(i);
-        s.time = telem::TimeStamp::now();
+        s.time = x::telem::TimeStamp::now();
         to_create.push_back(s);
     }
     ASSERT_NIL(client.statuses.set(to_create));
@@ -148,7 +148,7 @@ TEST(StatusTest, DeleteMultipleStatuses) {
         "test-multi-delete-2"
     };
     ASSERT_NIL(client.statuses.del(keys));
-    ASSERT_OCCURRED_AS_P(client.statuses.retrieve(keys), xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS_P(client.statuses.retrieve(keys), x::errors::NOT_FOUND);
 }
 
 /// @brief it should round-trip status details through JSON.
@@ -158,7 +158,7 @@ TEST(StatusTest, DetailsRoundTrip) {
     s.key = "test-status-details";
     s.variant = ::status::variant::INFO;
     s.message = "Testing details";
-    s.time = telem::TimeStamp::now();
+    s.time = x::telem::TimeStamp::now();
     ASSERT_NIL(client.statuses.set(s));
     const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(s.key));
     EXPECT_EQ(retrieved.key, s.key);
@@ -182,7 +182,7 @@ struct CustomStatusDetails {
         };
     }
 
-    static CustomStatusDetails parse(xjson::Parser &parser) {
+    static CustomStatusDetails parse(x::json::Parser &parser) {
         return CustomStatusDetails{
             .device_id = parser.field<std::string>("device_id", ""),
             .error_code = parser.field<int>("error_code", 0),
@@ -199,7 +199,7 @@ TEST(StatusTest, CustomDetailsSetAndRetrieve) {
     s.variant = ::status::variant::ERR;
     s.message = "Device error occurred";
     s.description = "Critical device failure";
-    s.time = telem::TimeStamp::now();
+    s.time = x::telem::TimeStamp::now();
     s.details.device_id = "device-alpha-123";
     s.details.error_code = 42;
     s.details.critical = true;
@@ -228,7 +228,7 @@ TEST(StatusTest, CustomDetailsSetMultiple) {
         s.key = "test-custom-batch-" + std::to_string(i);
         s.variant = ::status::variant::WARNING;
         s.message = "Warning " + std::to_string(i);
-        s.time = telem::TimeStamp::now();
+        s.time = x::telem::TimeStamp::now();
         s.details.device_id = "device-" + std::to_string(i);
         s.details.error_code = i * 10;
         s.details.critical = (i % 2 == 0);
@@ -263,7 +263,7 @@ TEST(StatusTest, CustomDetailsUpdate) {
     s.key = "test-custom-update";
     s.variant = ::status::variant::WARNING;
     s.message = "Initial warning";
-    s.time = telem::TimeStamp::now();
+    s.time = x::telem::TimeStamp::now();
     s.details.device_id = "device-xyz";
     s.details.error_code = 100;
     s.details.critical = false;
@@ -296,7 +296,7 @@ TEST(StatusTest, CustomDetailsEmptyFields) {
     s.key = "test-custom-empty";
     s.variant = ::status::variant::INFO;
     s.message = "Empty details test";
-    s.time = telem::TimeStamp::now();
+    s.time = x::telem::TimeStamp::now();
     // Leave details with default values
 
     ASSERT_NIL(client.statuses.set<CustomStatusDetails>(s));

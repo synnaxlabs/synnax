@@ -16,14 +16,14 @@
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xmemory/local_shared.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/memory/local_shared.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/types/types.h"
 
 namespace arc::runtime::state {
-using Series = xmemory::local_shared<telem::Series>;
+using Series = x::memory::local_shared<x::telem::Series>;
 
 struct Value {
     Series data;
@@ -32,7 +32,7 @@ struct Value {
 
 struct ChannelDigest {
     types::ChannelKey key;
-    telem::DataType data_type;
+    x::telem::DataType data_type;
     types::ChannelKey index;
 };
 
@@ -54,7 +54,7 @@ class Node {
     struct InputEntry {
         Series data;
         Series time;
-        telem::TimeStamp last_timestamp;
+        x::telem::TimeStamp last_timestamp;
         bool consumed;
 
         InputEntry(): data(), time(), last_timestamp(0), consumed(false) {}
@@ -107,7 +107,7 @@ public:
 
     /// Reads buffered data and time series from a channel. Returns (data, index_data,
     /// ok). If the channel has an associated index, both data and time are returned.
-    std::tuple<telem::MultiSeries, telem::MultiSeries, bool>
+    std::tuple<x::telem::MultiSeries, x::telem::MultiSeries, bool>
     read_chan(types::ChannelKey key);
 
     /// Writes data and time series to a channel buffer.
@@ -129,7 +129,7 @@ public:
 
     /// @brief Checks if a series is truthy by examining its last element.
     /// Empty series are falsy. A series with a last element of zero is falsy.
-    [[nodiscard]] static bool is_series_truthy(const telem::Series &series) {
+    [[nodiscard]] static bool is_series_truthy(const x::telem::Series &series) {
         if (series.empty()) return false;
         const auto last_value = series.at(-1);
         return std::visit(
@@ -137,7 +137,7 @@ public:
                 using T = std::decay_t<decltype(v)>;
                 if constexpr (std::is_same_v<T, std::string>)
                     return !v.empty();
-                else if constexpr (std::is_same_v<T, telem::TimeStamp>)
+                else if constexpr (std::is_same_v<T, x::telem::TimeStamp>)
                     return v.nanoseconds() != 0;
                 else
                     return v != 0;
@@ -157,14 +157,14 @@ class State {
     std::unordered_map<types::ChannelKey, Series> writes;
 
     void write_channel(types::ChannelKey key, const Series &data, const Series &time);
-    std::pair<telem::MultiSeries, bool> read_channel(types::ChannelKey key);
+    std::pair<x::telem::MultiSeries, bool> read_channel(types::ChannelKey key);
 
 public:
     explicit State(const Config &cfg);
 
-    std::pair<Node, xerrors::Error> node(const std::string &key);
+    std::pair<Node, x::errors::Error> node(const std::string &key);
 
-    void ingest(const telem::Frame &frame);
+    void ingest(const x::telem::Frame &frame);
 
     std::vector<std::pair<types::ChannelKey, Series>> flush_writes();
 

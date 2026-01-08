@@ -21,14 +21,14 @@
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/json/json.h"
 
-namespace transform {
+namespace driver::transform {
 class Transform {
 public:
     virtual ~Transform() = default;
 
-    virtual xerrors::Error transform(telem::Frame &frame) = 0;
+    virtual x::errors::Error transform(x::telem::Frame &frame) = 0;
 };
 
 class Chain final : public Transform {
@@ -37,11 +37,11 @@ public:
         this->transforms.push_back(transforms);
     }
 
-    xerrors::Error transform(telem::Frame &frame) override {
-        if (transforms.empty()) return xerrors::NIL;
+    x::errors::Error transform(x::telem::Frame &frame) override {
+        if (transforms.empty()) return x::errors::NIL;
         for (const auto &t: this->transforms)
             if (const auto err = t->transform(frame)) return err;
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
 private:
@@ -63,8 +63,8 @@ public:
     explicit Tare(const std::vector<synnax::Channel> &channels):
         tare_channels(map_channel_Keys(channels)), tare_all(false) {}
 
-    xerrors::Error tare(json &arg) {
-        xjson::Parser parser(arg);
+    x::errors::Error tare(json &arg) {
+        x::json::Parser parser(arg);
         const auto channels = parser.field<std::vector<synnax::ChannelKey>>(
             "keys",
             std::vector<synnax::ChannelKey>{}
@@ -75,7 +75,7 @@ public:
         if (channels.empty()) {
             tare_all = true;
             channels_to_tare.clear();
-            return xerrors::NIL;
+            return x::errors::NIL;
         }
 
         for (auto &key: channels) {
@@ -90,10 +90,10 @@ public:
             channels_to_tare.insert(key);
         }
         tare_all = false;
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
-    xerrors::Error transform(telem::Frame &frame) override {
+    x::errors::Error transform(x::telem::Frame &frame) override {
         std::lock_guard lock(mutex);
         if (tare_all || !channels_to_tare.empty()) {
             for (const auto &[ch_key, series]: frame)
@@ -108,25 +108,25 @@ public:
             if (tare_it == tare_values.end()) continue;
             series.sub_inplace(tare_it->second);
         }
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 };
 
 class UnaryLinearScale {
     double slope;
     double offset;
-    telem::DataType dt;
+    x::telem::DataType dt;
 
 public:
-    explicit UnaryLinearScale(xjson::Parser &parser, const telem::DataType &dt):
+    explicit UnaryLinearScale(x::json::Parser &parser, const x::telem::DataType &dt):
         slope(parser.field<double>("slope")),
         offset(parser.field<double>("offset")),
         dt(dt) {}
 
-    xerrors::Error transform_inplace(const telem::Series &series) const {
+    x::errors::Error transform_inplace(const x::telem::Series &series) const {
         if (this->dt != series.data_type())
-            return xerrors::Error(
-                xerrors::VALIDATION,
+            return x::errors::Error(
+                x::errors::VALIDATION,
                 "series data type " + series.data_type().name() +
                     " does not match scale data type " + this->dt.name()
             );
@@ -135,7 +135,7 @@ public:
         series.multiply_inplace(slope);
         series.add_inplace(offset);
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 };
 
@@ -144,20 +144,20 @@ class UnaryMapScale {
     double prescaled_max;
     double scaled_min;
     double scaled_max;
-    telem::DataType dt;
+    x::telem::DataType dt;
 
 public:
-    explicit UnaryMapScale(xjson::Parser &parser, const telem::DataType &dt):
+    explicit UnaryMapScale(x::json::Parser &parser, const x::telem::DataType &dt):
         prescaled_min(parser.field<double>("pre_scaled_min")),
         prescaled_max(parser.field<double>("pre_scaled_max")),
         scaled_min(parser.field<double>("scaled_min")),
         scaled_max(parser.field<double>("scaled_max")),
         dt(dt) {}
 
-    xerrors::Error transform_inplace(const telem::Series &series) const {
+    x::errors::Error transform_inplace(const x::telem::Series &series) const {
         if (this->dt != series.data_type())
-            return xerrors::Error(
-                xerrors::VALIDATION,
+            return x::errors::Error(
+                x::errors::VALIDATION,
                 "series data type " + series.data_type().name() +
                     " does not match scale data type " + this->dt.name()
             );
@@ -169,7 +169,7 @@ public:
         series.multiply_inplace(scaled_max - scaled_min); // * (scaled_max - scaled_min)
         series.add_inplace(scaled_min);
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 };
 
@@ -178,10 +178,10 @@ class Scale final : public Transform {
 
 public:
     explicit Scale(
-        const xjson::Parser &parser,
+        const x::json::Parser &parser,
         const std::unordered_map<synnax::ChannelKey, synnax::Channel> &channels
     ) {
-        parser.iter("channels", [this, &channels](xjson::Parser &channel_parser) {
+        parser.iter("channels", [this, &channels](x::json::Parser &channel_parser) {
             const auto key = channel_parser.field<synnax::ChannelKey>("channel");
             const auto enabled = channel_parser.field<bool>("enabled", true);
             auto scale_parser = channel_parser.optional_child("scale");
@@ -206,20 +206,20 @@ public:
         });
     }
 
-    xerrors::Error transform(telem::Frame &frame) override {
-        if (frame.empty()) return xerrors::NIL;
+    x::errors::Error transform(x::telem::Frame &frame) override {
+        if (frame.empty()) return x::errors::NIL;
         for (const auto [key, series]: frame) {
             auto it = scales.find(key);
             if (it == scales.end()) continue;
-            xerrors::Error err = std::visit(
-                [&series](const auto &scale) -> xerrors::Error {
+            x::errors::Error err = std::visit(
+                [&series](const auto &scale) -> x::errors::Error {
                     return scale.transform_inplace(series);
                 },
                 it->second
             );
             if (err) return err;
         }
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 };
 }

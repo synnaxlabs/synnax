@@ -6,8 +6,8 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//x/cpp/xerrors",
-        "//x/cpp/xjson",
+        "//x/cpp/errors",
+        "//x/cpp/json",
         "//x/go/label:label_grpc",
     ],
 )

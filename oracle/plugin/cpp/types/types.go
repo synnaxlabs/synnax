@@ -321,8 +321,22 @@ func deriveNamespace(outputPath string) string {
 	if len(parts) == 0 {
 		return "synnax"
 	}
+
+	// Determine the top-level namespace based on the path prefix
+	var topLevel string
+	switch {
+	case len(parts) >= 2 && parts[0] == "x" && parts[1] == "cpp":
+		topLevel = "x"
+	case len(parts) >= 2 && parts[0] == "client" && parts[1] == "cpp":
+		topLevel = "synnax"
+	case len(parts) >= 1 && parts[0] == "driver":
+		topLevel = "driver"
+	default:
+		topLevel = "synnax"
+	}
+
 	subNs := parts[len(parts)-1]
-	return fmt.Sprintf("synnax::%s", subNs)
+	return fmt.Sprintf("%s::%s", topLevel, subNs)
 }
 
 func (p *Plugin) processEnum(e resolution.Type) enumData {
@@ -555,6 +569,11 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 		data.includes.addInternal("x/cpp/xjson/xjson.h")
 	}
 
+	// Generic structs need type_traits for if constexpr checks
+	if form.IsGeneric() {
+		data.includes.addSystem("type_traits")
+	}
+
 	if hasPBFlag(entry) && !omit.IsType(entry, "pb") {
 		pbOutputPath := output.GetPBPath(entry)
 		if pbOutputPath != "" {
@@ -566,7 +585,7 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 			sd.ProtoClass = pbName
 			data.addProtoForwardDecl(pbNamespace, pbName)
 			data.includes.addSystem("utility")
-			data.includes.addInternal("x/cpp/xerrors/errors.h")
+			data.includes.addInternal("x/cpp/errors/errors.h")
 		}
 	}
 
@@ -582,6 +601,13 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam) typeParamData {
 func (p *Plugin) processField(field resolution.Field, entry resolution.Type, data *templateData) fieldData {
 	cppType := p.typeRefToCpp(field.Type, data)
 
+	// Check if this is a generic type parameter field
+	isGenericField := field.Type.IsTypeParam() && field.Type.TypeParam != nil
+	typeParamName := ""
+	if isGenericField {
+		typeParamName = field.Type.TypeParam.Name
+	}
+
 	// Apply optional wrappers based on field flags
 	if field.IsHardOptional {
 		data.includes.addSystem("optional")
@@ -592,15 +618,26 @@ func (p *Plugin) processField(field resolution.Field, entry resolution.Type, dat
 	parseExpr := p.parseExprForField(field, cppType, data)
 	toJsonExpr := p.toJsonExprForField(field, data)
 
+	// For generic fields, generate separate expressions for JSON vs struct
+	var jsonParseExpr, structParseExpr string
+	if isGenericField {
+		jsonParseExpr, structParseExpr = p.genericParseExprsForField(field, data)
+	}
+
 	return fieldData{
-		Name:         field.Name,
-		CppType:      cppType,
-		Doc:          doc.Get(field.Domains),
-		JsonName:     field.Name,
-		ParseExpr:    parseExpr,
-		ToJsonExpr:   toJsonExpr,
-		HasDefault:   field.IsOptional,
-		DefaultValue: p.defaultValueForType(field.Type, field.IsHardOptional, data),
+		Name:            field.Name,
+		CppType:         cppType,
+		Doc:             doc.Get(field.Domains),
+		JsonName:        field.Name,
+		ParseExpr:       parseExpr,
+		ToJsonExpr:      toJsonExpr,
+		HasDefault:      field.IsOptional,
+		DefaultValue:    p.defaultValueForType(field.Type, field.IsHardOptional, data),
+		IsGenericField:  isGenericField,
+		TypeParamName:   typeParamName,
+		IsHardOptional:  field.IsHardOptional,
+		JsonParseExpr:   jsonParseExpr,
+		StructParseExpr: structParseExpr,
 	}
 }
 
@@ -920,14 +957,20 @@ type typeParamData struct {
 }
 
 type fieldData struct {
-	Name         string
-	CppType      string
-	Doc          string
-	JsonName     string
-	ParseExpr    string
-	ToJsonExpr   string
-	HasDefault   bool
-	DefaultValue string
+	Name           string
+	CppType        string
+	Doc            string
+	JsonName       string
+	ParseExpr      string
+	ToJsonExpr     string
+	HasDefault     bool
+	DefaultValue   string
+	IsGenericField bool
+	TypeParamName  string
+	IsHardOptional bool
+	// For generic fields, we need separate expressions for JSON vs struct type params
+	JsonParseExpr   string
+	StructParseExpr string
 }
 
 type enumData struct {
@@ -953,11 +996,11 @@ func defaultValueForPrimitive(primitive string) string {
 	case "float32", "float64":
 		return "0.0"
 	case "timestamp":
-		return "telem::TimeStamp(0)"
+		return "x::telem::TimeStamp(0)"
 	case "timespan":
-		return "telem::TimeSpan(0)"
+		return "x::telem::TimeSpan(0)"
 	case "time_range", "time_range_bounded":
-		return "telem::TimeRange{}"
+		return "x::telem::TimeRange{}"
 	case "json":
 		return "nlohmann::json{}"
 	case "bytes":
@@ -1146,6 +1189,29 @@ func (p *Plugin) parseExprForTypeRef(typeRef resolution.TypeRef, cppType, jsonNa
 	default:
 		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
 	}
+}
+
+// genericParseExprsForField generates separate parse expressions for JSON vs struct type parameters.
+// Returns (jsonParseExpr, structParseExpr) for use in if constexpr blocks.
+func (p *Plugin) genericParseExprsForField(field resolution.Field, data *templateData) (jsonParseExpr, structParseExpr string) {
+	jsonName := field.Name
+	typeParamName := field.Type.TypeParam.Name
+
+	if field.IsHardOptional {
+		// Hard optional with type parameter
+		jsonParseExpr = fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<nlohmann::json>("%s")) : std::nullopt`, jsonName, jsonName)
+		structParseExpr = fmt.Sprintf(`parser.has("%s") ? std::make_optional(%s::parse(parser.child("%s"))) : std::nullopt`, jsonName, typeParamName, jsonName)
+	} else if field.IsOptional {
+		// Soft optional with type parameter (has default)
+		jsonParseExpr = fmt.Sprintf(`parser.field<nlohmann::json>("%s", nlohmann::json{})`, jsonName)
+		structParseExpr = fmt.Sprintf(`%s::parse(parser.optional_child("%s"))`, typeParamName, jsonName)
+	} else {
+		// Required with type parameter
+		jsonParseExpr = fmt.Sprintf(`parser.field<nlohmann::json>("%s")`, jsonName)
+		structParseExpr = fmt.Sprintf(`%s::parse(parser.child("%s"))`, typeParamName, jsonName)
+	}
+
+	return jsonParseExpr, structParseExpr
 }
 
 func (p *Plugin) toJsonExprForField(field resolution.Field, data *templateData) string {
@@ -1374,10 +1440,30 @@ constexpr const char* {{$enum.Name | toScreamingSnake}}_{{.Name | toScreamingSna
 {{- end}}
 {{- if $s.GenerateParse}}
 
-    static {{$s.Name}} parse(xjson::Parser parser) {
+    static {{$s.Name}} parse(x::xjson::Parser parser) {
         return {{$s.Name}}{
 {{- range $j, $f := $s.Fields}}
+{{- if $f.IsGenericField}}
+{{- if $f.IsHardOptional}}
+            .{{$f.Name}} = [&]() -> std::optional<{{$f.TypeParamName}}> {
+                if constexpr (std::is_same_v<{{$f.TypeParamName}}, nlohmann::json>) {
+                    return {{$f.JsonParseExpr}};
+                } else {
+                    return {{$f.StructParseExpr}};
+                }
+            }(),
+{{- else}}
+            .{{$f.Name}} = [&]() -> {{$f.TypeParamName}} {
+                if constexpr (std::is_same_v<{{$f.TypeParamName}}, nlohmann::json>) {
+                    return {{$f.JsonParseExpr}};
+                } else {
+                    return {{$f.StructParseExpr}};
+                }
+            }(),
+{{- end}}
+{{- else}}
             .{{$f.Name}} = {{$f.ParseExpr}},
+{{- end}}
 {{- end}}
         };
     }
@@ -1387,7 +1473,25 @@ constexpr const char* {{$enum.Name | toScreamingSnake}}_{{.Name | toScreamingSna
     [[nodiscard]] json to_json() const {
         json j;
 {{- range $s.Fields}}
+{{- if .IsGenericField}}
+{{- if .IsHardOptional}}
+        if (this->{{.Name}}.has_value()) {
+            if constexpr (std::is_same_v<{{.TypeParamName}}, nlohmann::json>) {
+                j["{{.JsonName}}"] = *this->{{.Name}};
+            } else {
+                j["{{.JsonName}}"] = this->{{.Name}}->to_json();
+            }
+        }
+{{- else}}
+        if constexpr (std::is_same_v<{{.TypeParamName}}, nlohmann::json>) {
+            j["{{.JsonName}}"] = this->{{.Name}};
+        } else {
+            j["{{.JsonName}}"] = this->{{.Name}}.to_json();
+        }
+{{- end}}
+{{- else}}
         {{.ToJsonExpr}}
+{{- end}}
 {{- end}}
         return j;
     }
@@ -1396,7 +1500,7 @@ constexpr const char* {{$enum.Name | toScreamingSnake}}_{{.Name | toScreamingSna
 
     using proto_type = {{$s.ProtoType}};
     [[nodiscard]] {{$s.ProtoType}} to_proto() const;
-    static std::pair<{{$s.Name}}, xerrors::Error> from_proto(const {{$s.ProtoType}}& pb);
+    static std::pair<{{$s.Name}}, x::errors::Error> from_proto(const {{$s.ProtoType}}& pb);
 {{- end}}
 };
 {{- end}}

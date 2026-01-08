@@ -14,7 +14,7 @@
 #include <vector>
 
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
@@ -25,7 +25,7 @@ class Node : public node::Node {
     ir::Node ir;
     state::Node state;
     Module::Function func;
-    std::vector<telem::SampleValue> inputs;
+    std::vector<x::telem::SampleValue> inputs;
     std::vector<int> offsets;
 
 public:
@@ -35,8 +35,8 @@ public:
         offsets.resize(node.inputs.size());
     }
 
-    xerrors::Error next(node::Context &ctx) override {
-        if (!state.refresh_inputs()) return xerrors::NIL;
+    x::errors::Error next(node::Context &ctx) override {
+        if (!state.refresh_inputs()) return x::errors::NIL;
 
         int64_t max_length = 0;
         int64_t longest_input_idx = 0;
@@ -49,7 +49,7 @@ public:
         }
 
         if (this->ir.inputs.empty()) max_length = 1;
-        if (max_length <= 0) return xerrors::NIL;
+        if (max_length <= 0) return x::errors::NIL;
         for (auto &offset: this->offsets)
             offset = 0;
 
@@ -72,7 +72,7 @@ public:
             auto [results, err] = this->func.call(this->inputs);
             if (err) {
                 ctx.report_error(
-                    xerrors::Error(
+                    x::errors::Error(
                         "WASM execution failed in node " + this->ir.key +
                         " at sample " + std::to_string(i) + "/" +
                         std::to_string(max_length) + ": " + err.message()
@@ -81,11 +81,11 @@ public:
                 continue;
             }
 
-            telem::TimeStamp ts;
+            x::telem::TimeStamp ts;
             if (!this->ir.inputs.empty() && longest_input_time)
-                ts = longest_input_time->at<telem::TimeStamp>(i);
+                ts = longest_input_time->at<x::telem::TimeStamp>(i);
             else
-                ts = telem::TimeStamp::now();
+                ts = x::telem::TimeStamp::now();
 
             for (size_t j = 0; j < results.size(); j++) {
                 auto [value, changed] = results[j];
@@ -103,7 +103,7 @@ public:
             if (off > 0) ctx.mark_changed(this->ir.outputs[j].name);
         }
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {

@@ -1,0 +1,27 @@
+cc_library(
+    name = "json",
+    hdrs = [
+        "any.h",
+        "json.h",
+        "struct.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/errors",
+        "@nlohmann_json//:json",
+        "@protobuf",
+    ],
+)
+
+cc_test(
+    name = "json_test",
+    srcs = [
+        "json_test.cpp",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/json",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
+    ],
+)

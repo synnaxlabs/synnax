@@ -6,7 +6,7 @@ cc_library(
     hdrs = ["id.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
         "@nlohmann_json//:json",
     ],
 )

@@ -40,9 +40,9 @@ using WriterStream = freighter::
 using WriterClient = freighter::
     StreamClient<grpc::framer::WriterRequest, grpc::framer::WriterResponse>;
 
-const auto FRAMER_ERROR = xerrors::Error("framer");
-const xerrors::Error FRAMER_CLOSED = FRAMER_ERROR.sub("closed");
-const xerrors::Error WRITER_CLOSED = FRAMER_CLOSED.sub("writer");
+const auto FRAMER_ERROR = x::errors::Error("framer");
+const x::errors::Error FRAMER_CLOSED = FRAMER_ERROR.sub("closed");
+const x::errors::Error WRITER_CLOSED = FRAMER_CLOSED.sub("writer");
 
 /// @brief Bit positions for flags in the frame codec
 enum class FlagPosition : uint8_t {
@@ -80,7 +80,7 @@ class Codec {
         /// @brief the ordered set of channel keys for the codec.
         std::set<ChannelKey> keys;
         /// @brief the data types for each channel in keys.
-        std::unordered_map<ChannelKey, telem::DataType> key_data_types;
+        std::unordered_map<ChannelKey, x::telem::DataType> key_data_types;
         /// @brief whether the codec has any channels with variable density data types.
         bool has_variable_data_types = false;
     };
@@ -109,7 +109,7 @@ public:
     /// @param channels The channel keys
     Codec(
         const std::vector<ChannelKey> &channels,
-        const std::vector<telem::DataType> &data_types
+        const std::vector<x::telem::DataType> &data_types
     );
 
     /// @brief instantiates a dynamic codec that uses the provided function to look up
@@ -119,24 +119,24 @@ public:
 
     /// @brief updates the codec to use the given channels. If the channels do not
     /// exist, the codec will return a query::NOT_FOUND error.
-    xerrors::Error update(const std::vector<ChannelKey> &keys);
+    x::errors::Error update(const std::vector<ChannelKey> &keys);
 
     /// @brief Encodes a frame into a byte array
     /// @param frame The frame to encode
     /// @param output The byte array to encode the frame into.
     /// @return The encoded frame as a byte vector
-    xerrors::Error encode(const telem::Frame &frame, std::vector<uint8_t> &output);
+    x::errors::Error encode(const x::telem::Frame &frame, std::vector<uint8_t> &output);
 
     /// @brief Decodes a frame from a byte vector.
     /// @param data The byte vector to decode.
     /// @return The decoded frame.
-    [[nodiscard]] std::pair<telem::Frame, xerrors::Error>
+    [[nodiscard]] std::pair<x::telem::Frame, x::errors::Error>
     decode(const std::vector<std::uint8_t> &data) const;
 
     /// @brief decodes a frame from the provided byte array and size.
     /// @param data The byte array to decode.
     /// @param size The size of the byte array.
-    [[nodiscard]] std::pair<telem::Frame, xerrors::Error>
+    [[nodiscard]] std::pair<x::telem::Frame, x::errors::Error>
     decode(const std::uint8_t *data, std::size_t size) const;
 };
 
@@ -178,7 +178,7 @@ public:
     /// closed.
     /// @note read is not safe to call concurrently with itself or with close(), but
     /// it is safe to call concurrently with setChannels().
-    [[nodiscard]] std::pair<telem::Frame, xerrors::Error> read() const;
+    [[nodiscard]] std::pair<x::telem::Frame, x::errors::Error> read() const;
 
     /// @brief sets the channels to stream from the Synnax cluster, replacing any
     /// channels set during construction or a previous call to setChannels().
@@ -187,7 +187,7 @@ public:
     /// @param channels - the channels to stream.
     /// @note setChannels is not safe to call concurrently with itself or with
     /// close(), but it is safe to call concurrently with read().
-    [[nodiscard]] xerrors::Error set_channels(const std::vector<ChannelKey> &channels);
+    [[nodiscard]] x::errors::Error set_channels(const std::vector<ChannelKey> &channels);
 
     /// @brief closes the streamer and releases any resources associated with it. If
     /// any errors occurred during the stream, they will be returned. A streamer
@@ -197,7 +197,7 @@ public:
     /// error during operation.
     /// @note close() is not safe to call concurrently with itself or any other
     /// streamer methods.
-    [[nodiscard]] xerrors::Error close() const;
+    [[nodiscard]] x::errors::Error close() const;
 
     /// @brief closes the sending end of the streamer. Subsequence calls to
     /// receive() will exhaust the stream and eventually return an EOF.
@@ -249,17 +249,17 @@ struct WriterConfig {
     /// @brief sets the starting timestamp for the first sample in the writer. If
     /// this timestamp overlaps with existing data for ANY of the provided channels,
     /// the writer will fail to open.
-    telem::TimeStamp start;
+    x::telem::TimeStamp start;
 
     /// @brief The control authority to set for each channel. If this vector is of
     /// length 1, then the same authority is set for all channels. Otherwise, the
     /// vector must be the same length as the channels vector. If this vector
     /// is empty, then all writes are executed with AUTH_ABSOLUTE authority.
-    std::vector<telem::Authority> authorities;
+    std::vector<x::telem::Authority> authorities;
 
     /// @brief sets identifying information for the writer. The subject's key and
     /// name will be used to identify the writer in control transfer scenarios.
-    telem::ControlSubject subject;
+    x::telem::ControlSubject subject;
 
     /// @brief sets whether the writer is configured to persist data, stream it, or
     /// both. Options are:
@@ -282,7 +282,7 @@ struct WriterConfig {
     /// durable when auto commit is enabled. Setting this value to zero will make
     /// all writes durable immediately. Lower values will decrease write throughput.
     /// Defaults to 1s when auto-commit is enabled.
-    telem::TimeSpan auto_index_persist_interval = 1 * telem::SECOND;
+    x::telem::TimeSpan auto_index_persist_interval = 1 * x::telem::SECOND;
 
     /// @brief enable protobuf frame caching for the writer. This allows
     /// the writer to avoid repeated allocation and deallocation of protobuf frames,
@@ -337,13 +337,13 @@ public:
     /// @returns false if an error occurred in the write pipeline. After an error
     /// occurs, the caller must acknowledge the error by calling error() or close() on
     /// the writer.
-    xerrors::Error write(const telem::Frame &fr);
+    x::errors::Error write(const x::telem::Frame &fr);
 
     /// @brief changes the authority of all channels in the writer to the given
     /// authority level.
     /// @returns true if the authority was set successfully.
     /// @param auth the authority level to set all channels to.
-    [[nodiscard]] xerrors::Error set_authority(const telem::Authority &auth);
+    [[nodiscard]] x::errors::Error set_authority(const x::telem::Authority &auth);
 
     /// @brief changes the authority of the given channel to the given authority
     /// level. This does not affect the authority levels of any other channels in
@@ -351,17 +351,17 @@ public:
     /// @returns true if the authority was set successfully.
     /// @param key the channel to set the authority of.
     /// @param authority the authority level to set the channel to.
-    [[nodiscard]] xerrors::Error
-    set_authority(const ChannelKey &key, const telem::Authority &authority);
+    [[nodiscard]] x::errors::Error
+    set_authority(const ChannelKey &key, const x::telem::Authority &authority);
 
     /// @brief changes the authority of the given channels to the given authority
     /// levels.
     /// @returns true if the authority was set successfully.
     /// @param keys the channels to set the authority of.
     /// @param authorities the authority levels to set the channels to.
-    [[nodiscard]] xerrors::Error set_authority(
+    [[nodiscard]] x::errors::Error set_authority(
         const std::vector<ChannelKey> &keys,
-        const std::vector<telem::Authority> &authorities
+        const std::vector<x::telem::Authority> &authorities
     );
 
     /// @brief commits all pending writes to the Synnax cluster. Commit can be
@@ -369,18 +369,18 @@ public:
     ///
     /// @returns false if the commit failed. After a commit fails, the caller must
     /// acknowledge the error by calling error() or close() on the writer.
-    std::pair<telem::TimeStamp, xerrors::Error> commit();
+    std::pair<x::telem::TimeStamp, x::errors::Error> commit();
 
     /// @brief closes the writer and releases any resources associated with it. A
     /// writer MUST be closed after use, or the caller risks leaking resources.
     /// Calling any method on a closed writer will throw a runtime_error.
-    [[nodiscard]] xerrors::Error close();
+    [[nodiscard]] x::errors::Error close();
 
 private:
-    [[nodiscard]] xerrors::Error close(const xerrors::Error &close_err);
+    [[nodiscard]] x::errors::Error close(const x::errors::Error &close_err);
 
     /// @brief the error accumulated if the writer has closed with an error.
-    xerrors::Error close_err = xerrors::NIL;
+    x::errors::Error close_err = x::errors::NIL;
 
     /// @brief the configuration used to open the writer.
     WriterConfig cfg;
@@ -397,11 +397,11 @@ private:
     /// @brief cached request for reuse during writes
     std::unique_ptr<grpc::framer::WriterRequest> cached_write_req;
     /// @brief cached frame within the request for reuse
-    telem::PBFrame *cached_frame = nullptr;
+    x::telem::PBFrame *cached_frame = nullptr;
 
     /// @brief internal function that waits until an ack is received for a
     /// particular command.
-    std::pair<grpc::framer::WriterResponse, xerrors::Error>
+    std::pair<grpc::framer::WriterResponse, x::errors::Error>
     exec(grpc::framer::WriterRequest &req, bool ack);
 
     /// @brief opens a writer to the Synnax cluster.
@@ -412,7 +412,7 @@ private:
     );
 
     /// @brief initializes the cached request with the frame structure
-    xerrors::Error init_request(const telem::Frame &fr);
+    x::errors::Error init_request(const x::telem::Frame &fr);
 
     friend class FrameClient;
 };
@@ -434,7 +434,7 @@ public:
     /// if the writer could not be opened. In the case where ok() is false, the
     /// writer will be in an invalid state and does not need to be closed. If ok()
     /// is true, The writer must be closed after use to avoid leaking resources.
-    [[nodiscard]] std::pair<Writer, xerrors::Error>
+    [[nodiscard]] std::pair<Writer, x::errors::Error>
     open_writer(const WriterConfig &cfg) const;
 
     /// @brief opens a new frame streamer using the given configuration. For
@@ -444,7 +444,7 @@ public:
     /// the streamer will be in an invalid state and does not need to be closed. If
     /// ok() is true, the streamer must be closed after use to avoid leaking
     /// resources.
-    [[nodiscard]] std::pair<Streamer, xerrors::Error>
+    [[nodiscard]] std::pair<Streamer, x::errors::Error>
     open_streamer(const StreamerConfig &config) const;
 
 private:

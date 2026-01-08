@@ -452,6 +452,150 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`D details;`))
 		})
 
+		It("Should generate if constexpr for generic field in parse()", func() {
+			source := `
+				@cpp output "client/cpp/status"
+
+				Status struct<D> {
+					key uint32
+					details D
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := cppPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`if constexpr (std::is_same_v<D, nlohmann::json>)`))
+			Expect(content).To(ContainSubstring(`parser.field<nlohmann::json>("details")`))
+			Expect(content).To(ContainSubstring(`D::parse(`))
+		})
+
+		It("Should generate if constexpr for generic field in to_json()", func() {
+			source := `
+				@cpp output "client/cpp/status"
+
+				Status struct<D> {
+					key uint32
+					details D
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := cppPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`if constexpr (std::is_same_v<D, nlohmann::json>)`))
+			Expect(content).To(ContainSubstring(`j["details"] = this->details;`))
+			Expect(content).To(ContainSubstring(`j["details"] = this->details.to_json();`))
+		})
+
+		It("Should handle optional generic fields with if constexpr", func() {
+			source := `
+				@cpp output "client/cpp/status"
+
+				Status struct<D?> {
+					key uint32
+					details D??
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := cppPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`std::optional<D> details;`))
+			Expect(content).To(ContainSubstring(`if constexpr (std::is_same_v<D, nlohmann::json>)`))
+			// Check that hard optional parse returns std::optional
+			Expect(content).To(ContainSubstring(`-> std::optional<D>`))
+		})
+
+		It("Should include type_traits for generic structs", func() {
+			source := `
+				@cpp output "client/cpp/status"
+
+				Status struct<D> {
+					key uint32
+					details D
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := cppPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`#include <type_traits>`))
+		})
+
+		It("Should generate if constexpr for inherited generic fields", func() {
+			source := `
+				@cpp output "x/cpp/status"
+
+				Variant enum {
+					success = "success"
+					error   = "error"
+				}
+
+				Status struct<Details?, V extends Variant = Variant> {
+					key     string
+					variant V
+					details Details?
+
+					@cpp omit
+				}
+
+				GoStatus struct<Details?> extends Status<Details, Variant> {
+					variant Variant
+					-variant
+
+					@cpp name "Status"
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+			if diag.HasErrors() {
+				for _, e := range diag.Errors() {
+					GinkgoWriter.Printf("Error: %s\n", e)
+				}
+			}
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := cppPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// GoStatus should have if constexpr for the inherited details field
+			Expect(content).To(ContainSubstring(`if constexpr (std::is_same_v<Details, nlohmann::json>)`))
+			Expect(content).To(ContainSubstring(`#include <type_traits>`))
+		})
+
 		It("Should handle type aliases", func() {
 			source := `
 				@cpp output "client/cpp/rack"

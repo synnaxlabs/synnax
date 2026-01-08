@@ -9,7 +9,7 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/xtest.h"
 
 extern "C" {
 #include <lualib.h>
@@ -24,12 +24,12 @@ TEST(ChannelReceive, Basic) {
     synnax::Channel ch;
     ch.key = 1;
     ch.name = "my_channel";
-    ch.data_type = telem::FLOAT64_T;
-    auto fr_1 = telem::Frame(1);
-    fr_1.emplace(1, telem::Series(1.0, telem::FLOAT64_T));
-    const auto reads = std::make_shared<std::vector<telem::Frame>>();
+    ch.data_type = x::telem::FLOAT64_T;
+    auto fr_1 = x::telem::Frame(1);
+    fr_1.emplace(1, x::telem::Series(1.0, x::telem::FLOAT64_T));
+    const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     reads->push_back(std::move(fr_1));
-    const auto factory = pipeline::mock::simple_streamer_factory({ch.key}, reads);
+    const auto factory = driver::pipeline::mock::simple_streamer_factory({ch.key}, reads);
     auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
     const auto L = luaL_newstate();
     luaL_openlibs(L);
@@ -49,10 +49,10 @@ TEST(ChannelReceive, StopBeforeStart) {
     synnax::Channel ch;
     ch.key = 1;
     ch.name = "my_channel";
-    ch.data_type = telem::FLOAT64_T;
-    const auto factory = pipeline::mock::simple_streamer_factory(
+    ch.data_type = x::telem::FLOAT64_T;
+    const auto factory = driver::pipeline::mock::simple_streamer_factory(
         {ch.key},
-        std::make_shared<std::vector<telem::Frame>>()
+        std::make_shared<std::vector<x::telem::Frame>>()
     );
     auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
     const auto L = luaL_newstate();
@@ -67,10 +67,10 @@ TEST(ChannelReceive, DoubleStart) {
     synnax::Channel ch;
     ch.key = 1;
     ch.name = "my_channel";
-    ch.data_type = telem::FLOAT64_T;
-    const auto factory = pipeline::mock::simple_streamer_factory(
+    ch.data_type = x::telem::FLOAT64_T;
+    const auto factory = driver::pipeline::mock::simple_streamer_factory(
         {ch.key},
-        std::make_shared<std::vector<telem::Frame>>()
+        std::make_shared<std::vector<x::telem::Frame>>()
     );
     auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
     const auto L = luaL_newstate();
@@ -87,10 +87,10 @@ TEST(ChannelReceive, DoubleStop) {
     synnax::Channel ch;
     ch.key = 1;
     ch.name = "my_channel";
-    ch.data_type = telem::FLOAT64_T;
-    const auto factory = pipeline::mock::simple_streamer_factory(
+    ch.data_type = x::telem::FLOAT64_T;
+    const auto factory = driver::pipeline::mock::simple_streamer_factory(
         {ch.key},
-        std::make_shared<std::vector<telem::Frame>>()
+        std::make_shared<std::vector<x::telem::Frame>>()
     );
     auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
     const auto L = luaL_newstate();

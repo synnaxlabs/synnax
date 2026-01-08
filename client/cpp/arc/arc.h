@@ -132,7 +132,7 @@ public:
     /// @param arc The Arc program to create. The key will be assigned by the server.
     /// @modifies arc Assigns a unique key to the Arc program.
     /// @returns An error if the Arc program could not be created.
-    [[nodiscard]] xerrors::Error create(Arc &arc) const;
+    [[nodiscard]] x::errors::Error create(Arc &arc) const;
 
     /// @brief Creates multiple Arc programs in the Synnax cluster.
     /// @details More efficient than calling create() individually and provides
@@ -140,13 +140,13 @@ public:
     /// @param arcs Vector of Arc programs to create.
     /// @modifies arcs Assigns unique keys to each Arc program.
     /// @returns An error if the Arc programs could not be created.
-    [[nodiscard]] xerrors::Error create(std::vector<Arc> &arcs) const;
+    [[nodiscard]] x::errors::Error create(std::vector<Arc> &arcs) const;
 
     /// @brief Creates a new Arc program with the given name.
     /// @param name Human-readable name for the Arc program.
     /// @returns A pair containing the created Arc program and an error.
     /// In case of error, the returned Arc will be invalid.
-    [[nodiscard]] std::pair<Arc, xerrors::Error> create(const std::string &name) const;
+    [[nodiscard]] std::pair<Arc, x::errors::Error> create(const std::string &name) const;
 
     /// @brief Retrieves an Arc program by its name.
     /// @param name The name of the Arc program to retrieve.
@@ -154,7 +154,7 @@ public:
     /// @returns A pair containing the retrieved Arc program and an error.
     /// If the Arc program does not exist or multiple programs have the same name,
     /// an error is returned.
-    [[nodiscard]] std::pair<Arc, xerrors::Error> retrieve_by_name(
+    [[nodiscard]] std::pair<Arc, x::errors::Error> retrieve_by_name(
         const std::string &name,
         const RetrieveOptions &options = {}
     ) const;
@@ -164,7 +164,7 @@ public:
     /// @param options Optional retrieve options (compile, include_status, etc.).
     /// @returns A pair containing the retrieved Arc program and an error.
     /// If the Arc program does not exist, an error is returned.
-    [[nodiscard]] std::pair<Arc, xerrors::Error>
+    [[nodiscard]] std::pair<Arc, x::errors::Error>
     retrieve_by_key(const std::string &key, const RetrieveOptions &options = {}) const;
 
     /// @brief Retrieves Arc programs by their names.
@@ -173,7 +173,7 @@ public:
     /// @returns A pair containing a vector of retrieved Arc programs and an error.
     /// If an Arc program with a given name does not exist, it will not be in the
     /// result.
-    [[nodiscard]] std::pair<std::vector<Arc>, xerrors::Error> retrieve(
+    [[nodiscard]] std::pair<std::vector<Arc>, x::errors::Error> retrieve(
         const std::vector<std::string> &names,
         const RetrieveOptions &options = {}
     ) const;
@@ -183,7 +183,7 @@ public:
     /// @param options Optional retrieve options (compile, include_status, etc.).
     /// @returns A pair containing a vector of retrieved Arc programs and an error.
     /// If an Arc program with a given key does not exist, it will not be in the result.
-    [[nodiscard]] std::pair<std::vector<Arc>, xerrors::Error> retrieve_by_keys(
+    [[nodiscard]] std::pair<std::vector<Arc>, x::errors::Error> retrieve_by_keys(
         const std::vector<std::string> &keys,
         const RetrieveOptions &options = {}
     ) const;
@@ -191,12 +191,12 @@ public:
     /// @brief Deletes an Arc program by its key.
     /// @param key The key of the Arc program to delete.
     /// @returns An error if the Arc program could not be deleted.
-    [[nodiscard]] xerrors::Error delete_arc(const std::string &key) const;
+    [[nodiscard]] x::errors::Error delete_arc(const std::string &key) const;
 
     /// @brief Deletes multiple Arc programs by their keys.
     /// @param keys Vector of keys of Arc programs to delete.
     /// @returns An error if the Arc programs could not be deleted.
-    [[nodiscard]] xerrors::Error delete_arc(const std::vector<std::string> &keys) const;
+    [[nodiscard]] x::errors::Error delete_arc(const std::vector<std::string> &keys) const;
 
 private:
     /// @brief Client for retrieving Arc programs.

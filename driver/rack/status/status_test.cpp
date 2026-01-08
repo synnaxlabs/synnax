@@ -11,7 +11,7 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/xtest.h"
 
 #include "driver/rack/status/status.h"
 
@@ -20,14 +20,14 @@ TEST(stateTests, testNominal) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     auto ch = ASSERT_NIL_P(client->channels.retrieve(synnax::STATUS_SET_CHANNEL_NAME));
-    auto ctx = std::make_shared<task::SynnaxContext>(client);
-    auto hb = rack::status::Task::configure(
+    auto ctx = std::make_shared<driver::task::SynnaxContext>(client);
+    auto hb = driver::rack::status::Task::configure(
         ctx,
         synnax::Task(rack.key, "state", "state", "", true)
     );
-    auto cmd = task::Command(0, "start", {});
+    auto cmd = driver::task::Command(0, "start", {});
     hb->exec(cmd);
-    x::defer stop([&hb]() { hb->stop(false); });
+    x::defer::defer stop([&hb]() { hb->stop(false); });
     auto streamer = ASSERT_NIL_P(client->telem.open_streamer(
         synnax::StreamerConfig{
             .channels = {ch.key},

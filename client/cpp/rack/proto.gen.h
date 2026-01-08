@@ -15,7 +15,7 @@
 #include <utility>
 
 #include "client/cpp/rack/types.gen.h"
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "core/pkg/service/rack/pb/rack.pb.h"
 
@@ -27,11 +27,11 @@ inline service::rack::StatusDetails StatusDetails::to_proto() const {
     return pb;
 }
 
-inline std::pair<StatusDetails, xerrors::Error>
+inline std::pair<StatusDetails, x::errors::Error>
 StatusDetails::from_proto(const service::rack::StatusDetails &pb) {
     StatusDetails cpp;
     cpp.rack = Key(pb.rack());
-    return {cpp, xerrors::NIL};
+    return {cpp, x::errors::NIL};
 }
 
 inline service::rack::Rack Payload::to_proto() const {
@@ -44,7 +44,7 @@ inline service::rack::Rack Payload::to_proto() const {
     return pb;
 }
 
-inline std::pair<Payload, xerrors::Error>
+inline std::pair<Payload, x::errors::Error>
 Payload::from_proto(const service::rack::Rack &pb) {
     Payload cpp;
     cpp.key = Key(pb.key());
@@ -56,7 +56,7 @@ Payload::from_proto(const service::rack::Rack &pb) {
         if (err) return {{}, err};
         cpp.status = val;
     }
-    return {cpp, xerrors::NIL};
+    return {cpp, x::errors::NIL};
 }
 
 }

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "x/cpp/xlua/xlua.h"
+#include "x/cpp/lua/xlua.h"
 
 #include "driver/sequence/plugins/plugins.h"
 
@@ -18,28 +18,28 @@ plugins::SynnaxFrameSink::SynnaxFrameSink(
 ):
     client(client), cfg(std::move(cfg)) {}
 
-xerrors::Error plugins::SynnaxFrameSink::open() {
-    if (this->writer != nullptr) return xerrors::NIL;
+x::errors::Error plugins::SynnaxFrameSink::open() {
+    if (this->writer != nullptr) return x::errors::NIL;
     auto [w, err] = this->client->telem.open_writer(this->cfg);
     if (err) return err;
     this->writer = std::make_unique<synnax::Writer>(std::move(w));
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
-xerrors::Error plugins::SynnaxFrameSink::write(const telem::Frame &frame) {
-    if (frame.empty()) return xerrors::NIL;
+x::errors::Error plugins::SynnaxFrameSink::write(const x::telem::Frame &frame) {
+    if (frame.empty()) return x::errors::NIL;
     return this->writer->write(frame);
 }
 
-xerrors::Error plugins::SynnaxFrameSink::set_authority(
+x::errors::Error plugins::SynnaxFrameSink::set_authority(
     const std::vector<synnax::ChannelKey> &keys,
-    const std::vector<telem::Authority> &authorities
+    const std::vector<x::telem::Authority> &authorities
 ) {
     return this->writer->set_authority(keys, authorities);
 }
 
-xerrors::Error plugins::SynnaxFrameSink::close() {
-    if (this->writer == nullptr) return xerrors::NIL;
+x::errors::Error plugins::SynnaxFrameSink::close() {
+    if (this->writer == nullptr) return x::errors::NIL;
     const auto err = this->writer->close();
     this->writer = nullptr;
     return err;
@@ -49,7 +49,7 @@ plugins::ChannelWrite::ChannelWrite(
     std::shared_ptr<plugins::FrameSink> sink,
     const std::vector<synnax::Channel> &channels
 ):
-    frame(telem::Frame(channels.size())),
+    frame(x::telem::Frame(channels.size())),
     sink(std::move(sink)),
     channels(channels.size()),
     names_to_keys(channels.size()) {
@@ -66,9 +66,9 @@ plugins::ChannelWrite::resolve(const std::string &name) {
     return {this->channels[it->second], true};
 }
 
-/// @brief implements sequence::Operator to bind channel set functions to the
+/// @brief implements driver::sequence::Operator to bind channel set functions to the
 /// sequence on startup.
-xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
+x::errors::Error plugins::ChannelWrite::before_all(lua_State *L) {
     if (const auto err = this->sink->open()) return err;
     // Configuring the "set" closure used to set a channel value.
     lua_pushlightuserdata(L, this);
@@ -89,7 +89,7 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
             // Use nested scope to ensure Series destructor runs before lua_error
             bool had_error = false;
             {
-                auto result = xlua::to_series(cL, 2, channel.data_type);
+                auto result = x::lua::to_series(cL, 2, channel.data_type);
                 if (result.second) {
                     // Push error to Lua stack while result is still alive
                     lua_pushstring(cL, result.second.message().c_str());
@@ -122,12 +122,12 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
             );
 
             std::vector<synnax::ChannelKey> keys;
-            std::vector<telem::Authority> authorities;
+            std::vector<x::telem::Authority> authorities;
 
             // Switching against the various possible overloads.
             if (lua_gettop(cL) == 1 && lua_isnumber(cL, 1)) {
                 // set_authority(auth number)
-                auto auth = static_cast<telem::Authority>(lua_tonumber(cL, 1));
+                auto auth = static_cast<x::telem::Authority>(lua_tonumber(cL, 1));
                 for (const auto &[key, _]: op->channels) {
                     keys.push_back(key);
                     authorities.push_back(auth);
@@ -136,7 +136,7 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
                        lua_isnumber(cL, 2)) {
                 // set_authority(channel_name string, auth number)
                 const char *channel_name = lua_tostring(cL, 1);
-                auto auth = static_cast<telem::Authority>(lua_tonumber(cL, 2));
+                auto auth = static_cast<x::telem::Authority>(lua_tonumber(cL, 2));
                 const auto [channel, found] = op->resolve(channel_name);
                 if (!found) {
                     lua_pushfstring(cL, "Channel %s not found", channel_name);
@@ -148,7 +148,7 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
             } else if (lua_gettop(cL) == 2 && lua_istable(cL, 1) &&
                        lua_isnumber(cL, 2)) {
                 // set_authority(channel_names table, auth number)
-                auto auth = static_cast<telem::Authority>(lua_tonumber(cL, 2));
+                auto auth = static_cast<x::telem::Authority>(lua_tonumber(cL, 2));
 
                 lua_pushnil(cL);
                 while (lua_next(cL, 1) != 0) {
@@ -168,7 +168,7 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
                 lua_pushnil(cL);
                 while (lua_next(cL, 1) != 0) {
                     const char *channel_name = lua_tostring(cL, -2);
-                    auto auth = static_cast<telem::Authority>(lua_tonumber(cL, -1));
+                    auto auth = static_cast<x::telem::Authority>(lua_tonumber(cL, -1));
 
                     const auto [channel, found] = op->resolve(channel_name);
                     if (!found) {
@@ -197,35 +197,35 @@ xerrors::Error plugins::ChannelWrite::before_all(lua_State *L) {
         1
     );
     lua_setglobal(L, "set_authority");
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
 /// @brief implements plugins::Plugin to close the sink after the sequence
 /// is complete.
-xerrors::Error plugins::ChannelWrite::after_all(lua_State *L) {
+x::errors::Error plugins::ChannelWrite::after_all(lua_State *L) {
     return this->sink->close();
 }
 
 /// @brief clears out the previous written frame before the next iteration.
-xerrors::Error plugins::ChannelWrite::before_next(lua_State *L) {
+x::errors::Error plugins::ChannelWrite::before_next(lua_State *L) {
     this->frame.clear();
     this->frame.reserve(this->channels.size());
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
 /// @brief writes the frame to the sink after the iteration.
-xerrors::Error plugins::ChannelWrite::after_next(lua_State *L) {
-    if (this->frame.empty()) return xerrors::NIL;
-    const auto now = telem::TimeStamp::now();
+x::errors::Error plugins::ChannelWrite::after_next(lua_State *L) {
+    if (this->frame.empty()) return x::errors::NIL;
+    const auto now = x::telem::TimeStamp::now();
     std::vector<synnax::ChannelKey> index_keys;
     for (const auto key: *this->frame.channels) {
         auto it = this->channels.find(key);
         if (it == this->channels.end())
-            return xerrors::Error(xerrors::NOT_FOUND, "channel not found");
+            return x::errors::Error(x::errors::NOT_FOUND, "channel not found");
         synnax::Channel ch = it->second;
         if (!ch.is_virtual) index_keys.push_back(ch.index);
     }
     for (const auto index: index_keys)
-        frame.emplace(index, telem::Series(now));
+        frame.emplace(index, x::telem::Series(now));
     return this->sink->write(this->frame);
 }

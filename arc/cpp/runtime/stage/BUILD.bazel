@@ -6,6 +6,6 @@ cc_library(
         "//arc/cpp/ir",
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
     ],
 )

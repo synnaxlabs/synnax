@@ -17,7 +17,7 @@
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/status/status.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "core/pkg/api/grpc/status/status.pb.h"
 
@@ -59,7 +59,7 @@ public:
     /// @returns An error where ok() is false if the status could not be created.
     /// Use err.message() to get the error message or err.type to get the error type.
     template<typename Details = json>
-    [[nodiscard]] xerrors::Error set(status::Status<Details> &status) const {
+    [[nodiscard]] x::errors::Error set(status::Status<Details> &status) const {
         grpc::status::SetRequest req;
         *req.add_statuses() = status.to_proto();
         auto [res, err] = this->set_client->send("/status/set", req);
@@ -70,7 +70,7 @@ public:
         );
         if (decode_err) return decode_err;
         status = decoded;
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     /// @brief Creates or updates the given statuses in the Synnax cluster.
@@ -81,7 +81,7 @@ public:
     /// @returns An error where ok() is false if the statuses could not be created.
     /// Use err.message() to get the error message or err.type to get the error type.
     template<typename Details = json>
-    [[nodiscard]] xerrors::Error
+    [[nodiscard]] x::errors::Error
     set(std::vector<status::Status<Details>> &statuses) const {
         grpc::status::SetRequest req;
         req.mutable_statuses()->Reserve(static_cast<int>(statuses.size()));
@@ -96,7 +96,7 @@ public:
             if (decode_err) return decode_err;
             statuses[i] = decoded;
         }
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     /// @brief Retrieves a status with the given key.
@@ -107,14 +107,14 @@ public:
     /// returned status will be invalid. Use err.message() to get the error message
     /// or err.type to get the error type.
     template<typename Details = json>
-    [[nodiscard]] std::pair<status::Status<Details>, xerrors::Error>
+    [[nodiscard]] std::pair<status::Status<Details>, x::errors::Error>
     retrieve(const std::string &key) const {
         auto [statuses, err] = this->retrieve<Details>(std::vector{key});
         if (err) return {status::Status<Details>{}, err};
         if (statuses.empty()) {
             return {status::Status<Details>(), not_found_error("status", "key " + key)};
         }
-        return {statuses[0], xerrors::NIL};
+        return {statuses[0], x::errors::NIL};
     }
 
     /// @brief Retrieves statuses with the given keys.
@@ -124,7 +124,7 @@ public:
     /// where ok() is false if the statuses could not be retrieved. Statuses that
     /// don't exist will not be in the returned vector.
     template<typename Details = json>
-    [[nodiscard]] std::pair<std::vector<status::Status<Details>>, xerrors::Error>
+    [[nodiscard]] std::pair<std::vector<status::Status<Details>>, x::errors::Error>
     retrieve(const std::vector<std::string> &keys) const {
         grpc::status::RetrieveRequest req;
         req.mutable_keys()->Add(keys.begin(), keys.end());
@@ -137,7 +137,7 @@ public:
             if (decode_err) return {std::vector<status::Status<Details>>(), decode_err};
             statuses.push_back(decoded);
         }
-        return {statuses, xerrors::NIL};
+        return {statuses, x::errors::NIL};
     }
 
     /// @brief Deletes a status with the given key.
@@ -146,7 +146,7 @@ public:
     /// @param key The key of the status to delete.
     /// @returns An error where ok() is false if the status could not be deleted.
     /// Use err.message() to get the error message or err.type to get the error type.
-    [[nodiscard]] xerrors::Error del(const std::string &key) const {
+    [[nodiscard]] x::errors::Error del(const std::string &key) const {
         return this->del(std::vector{key});
     }
 
@@ -156,7 +156,7 @@ public:
     /// @param keys The keys of the statuses to delete.
     /// @returns An error where ok() is false if the statuses could not be deleted.
     /// Use err.message() to get the error message or err.type to get the error type.
-    [[nodiscard]] xerrors::Error del(const std::vector<std::string> &keys) const {
+    [[nodiscard]] x::errors::Error del(const std::vector<std::string> &keys) const {
         grpc::status::DeleteRequest req;
         req.mutable_keys()->Add(keys.begin(), keys.end());
         return this->delete_client->send("/status/delete", req).second;

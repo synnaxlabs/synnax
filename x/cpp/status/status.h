@@ -9,5 +9,5 @@
 
 #pragma once
 
-#include "x/cpp/status/types.gen.h"
 #include "x/cpp/status/proto.gen.h"
+#include "x/cpp/status/types.gen.h"

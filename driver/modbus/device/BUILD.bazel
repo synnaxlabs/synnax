@@ -5,9 +5,9 @@ cc_library(
     deps = [
         "//driver/errors",
         "//vendor/libmodbus",
-        "//x/cpp/xerrors",
-        "//x/cpp/xjson",
-        "@glog//:glog",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+        "@glog",
     ],
 )
 

@@ -14,10 +14,10 @@
 #include <type_traits>
 #include <utility>
 
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/any.h"
 #include "x/cpp/label/proto.gen.h"
 #include "x/cpp/status/types.gen.h"
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xjson/any.h"
 
 #include "x/go/status/pb/status.pb.h"
 
@@ -61,7 +61,7 @@ inline x::status::Status Status<Details>::to_proto() const {
     pb.set_description(this->description);
     pb.set_time(this->time.nanoseconds());
     if constexpr (std::is_same_v<Details, nlohmann::json>) {
-        *pb.mutable_details() = xjson::to_any(this->details);
+        *pb.mutable_details() = x::json::to_any(this->details);
     } else {
         pb.mutable_details()->PackFrom(this->details.to_proto());
     }
@@ -72,7 +72,7 @@ inline x::status::Status Status<Details>::to_proto() const {
 }
 
 template<typename Details>
-inline std::pair<Status<Details>, xerrors::Error>
+inline std::pair<Status<Details>, errors::Error>
 Status<Details>::from_proto(const x::status::Status &pb) {
     Status<Details> cpp;
     cpp.key = pb.key();
@@ -82,7 +82,7 @@ Status<Details>::from_proto(const x::status::Status &pb) {
     cpp.time = telem::TimeStamp(pb.time());
     if constexpr (std::is_same_v<Details, nlohmann::json>) {
         {
-            auto [val, err] = xjson::from_any(pb.details());
+            auto [val, err] = x::json::from_any(pb.details());
             if (err) return {{}, err};
             cpp.details = val;
         }
@@ -90,7 +90,7 @@ Status<Details>::from_proto(const x::status::Status &pb) {
         {
             typename Details::proto_type pb_val;
             if (!pb.details().UnpackTo(&pb_val))
-                return {{}, xerrors::Error("failed to unpack details")};
+                return {{}, errors::Error("failed to unpack details")};
             auto [val, err] = Details::from_proto(pb_val);
             if (err) return {{}, err};
             cpp.details = val;
@@ -102,7 +102,7 @@ Status<Details>::from_proto(const x::status::Status &pb) {
         cpp.labels.push_back(v);
     }
     cpp.variant = VariantFromPB(pb.variant());
-    return {cpp, xerrors::NIL};
+    return {cpp, errors::NIL};
 }
 
 }

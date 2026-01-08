@@ -18,13 +18,13 @@
 #include "driver/opc/connection/connection.h"
 
 /// module
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 /// internal
 #include "driver/opc/errors/errors.h"
 #include "driver/task/task.h"
 
-namespace opc::connection {
+namespace driver::opc::connection {
 using ClientDeleter = void (*)(UA_Client *);
 
 ClientDeleter client_deleter() {
@@ -160,7 +160,7 @@ priv_key_pass_callback(UA_ClientConfig *_, [[maybe_unused]] UA_ByteString *__) {
 
 const std::string SECURITY_URI_BASE = "http://opcfoundation.org/UA/SecurityPolicy#";
 
-xerrors::Error
+x::errors::Error
 configure_encryption(const Config &cfg, const std::shared_ptr<UA_Client> &client) {
     const auto client_config = UA_Client_getConfig(client.get());
     if (cfg.security_mode == "Sign")
@@ -169,7 +169,7 @@ configure_encryption(const Config &cfg, const std::shared_ptr<UA_Client> &client
         client_config->securityMode = UA_MESSAGESECURITYMODE_SIGNANDENCRYPT;
     else
         client_config->securityMode = UA_MESSAGESECURITYMODE_NONE;
-    if (cfg.security_policy == "None") return xerrors::NIL;
+    if (cfg.security_policy == "None") return x::errors::NIL;
 
     client_config->privateKeyPasswordCallback = priv_key_pass_callback;
 
@@ -217,7 +217,7 @@ configure_encryption(const Config &cfg, const std::shared_ptr<UA_Client> &client
             "Failed to configure encryption: " + std::string(status_name)
         };
     }
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
 void fetch_endpoint_diagnostic_info(
@@ -273,7 +273,7 @@ void fetch_endpoint_diagnostic_info(
     }
 }
 
-std::pair<std::shared_ptr<UA_Client>, xerrors::Error>
+std::pair<std::shared_ptr<UA_Client>, x::errors::Error>
 connect(const Config &cfg, std::string log_prefix) {
     auto client = std::shared_ptr<UA_Client>(UA_Client_new(), client_deleter());
     UA_ClientConfig *config = UA_Client_getConfig(client.get());
@@ -307,10 +307,10 @@ connect(const Config &cfg, std::string log_prefix) {
     return {std::move(client), err};
 }
 
-xerrors::Error
+x::errors::Error
 reconnect(const std::shared_ptr<UA_Client> &client, const std::string &endpoint) {
     const auto err = errors::parse(UA_Client_connect(client.get(), endpoint.c_str()));
-    if (!err) return xerrors::NIL;
+    if (!err) return x::errors::NIL;
     return errors::parse(UA_Client_connect(client.get(), endpoint.c_str()));
 }
 }

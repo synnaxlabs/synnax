@@ -11,7 +11,7 @@
 
 #include "x/cpp/telem/telem.h"
 
-namespace telem {
+namespace x::telem {
 /// @brief - it should initialize a timestamp from a long.
 TEST(TimeStampTests, testConstructor) {
     const auto ts = TimeStamp(5);
@@ -327,8 +327,8 @@ TEST(TimeSpanTests, testScalarAssignments) {
 /// @brief it should convert a timespan to a human-readable string.
 TEST(TimeSpanTests, testToString) {
     const auto ts = TimeSpan(
-        _priv::DAY + _priv::HOUR + _priv::MINUTE + _priv::SECOND + _priv::MILLISECOND +
-        _priv::MICROSECOND + 1
+        details::DAY + details::HOUR + details::MINUTE + details::SECOND +
+        details::MILLISECOND + details::MICROSECOND + 1
     ); // 1 day, 1 hour, 1 minute, 1 second, 1ms, 1us, 1ns
     const auto str = ts.to_string();
     ASSERT_EQ(str, "1d 1h 1m 1s 1ms 1us 1ns");
@@ -340,9 +340,9 @@ TEST(TimeSpanTests, testToString) {
 
 /// @brief it should convert a timespan to a std::chrono duration.
 TEST(TimeSpanTests, testChronoConversion) {
-    const auto ts = TimeSpan(_priv::SECOND);
+    const auto ts = TimeSpan(details::SECOND);
     const auto chrono_duration = ts.chrono();
-    ASSERT_EQ(chrono_duration.count(), _priv::SECOND);
+    ASSERT_EQ(chrono_duration.count(), details::SECOND);
 }
 
 /// @brief it should return a zero timespan from the static method.

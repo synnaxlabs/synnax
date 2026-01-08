@@ -14,8 +14,8 @@
 #include <string>
 #include <utility>
 
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
 
 namespace x::label {
 class Label;
@@ -29,7 +29,7 @@ struct Label {
     std::string name;
     std::string color;
 
-    static Label parse(xjson::Parser parser) {
+    static Label parse(x::json::Parser parser) {
         return Label{
             .key = parser.field<std::string>("key"),
             .name = parser.field<std::string>("name"),
@@ -47,6 +47,6 @@ struct Label {
 
     using proto_type = x::label::Label;
     [[nodiscard]] x::label::Label to_proto() const;
-    static std::pair<Label, xerrors::Error> from_proto(const x::label::Label &pb);
+    static std::pair<Label, errors::Error> from_proto(const x::label::Label &pb);
 };
 }

@@ -20,7 +20,7 @@ extern "C" {
 }
 
 #include "client/cpp/synnax.h"
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 /// internal.
 #include "driver/sequence/plugins/plugins.h"
@@ -28,22 +28,22 @@ extern "C" {
 
 using json = nlohmann::json;
 
-namespace sequence {
+namespace driver::sequence {
 /// @brief integration name for use in driver configuration.
 const std::string INTEGRATION_NAME = "sequence";
 /// @brief task type for use in driver configuration.
 const std::string TASK_TYPE = INTEGRATION_NAME;
 /// @brief base error for all sequencing problems.
-const xerrors::Error BASE_ERROR = xerrors::SY.sub("sequence");
+const x::errors::Error BASE_ERROR = x::errors::SY.sub("sequence");
 /// @brief returned when a sequence fails to compile.
-const xerrors::Error COMPILATION_ERROR = BASE_ERROR.sub("compilation");
+const x::errors::Error COMPILATION_ERROR = BASE_ERROR.sub("compilation");
 /// @brief returned when the sequence encounters a runtime error.
-const xerrors::Error RUNTIME_ERROR = BASE_ERROR.sub("runtime");
+const x::errors::Error RUNTIME_ERROR = BASE_ERROR.sub("runtime");
 
 /// @brief TaskConfig is the configuration for creating a sequence task.
 struct TaskConfig {
     /// @brief rate is the rate at which the script loop will execute.
-    telem::Rate rate;
+    x::telem::Rate rate;
     /// @brief script is the lua scrip that will be executed ihn the fixed rate
     /// loop.
     std::string script;
@@ -57,16 +57,16 @@ struct TaskConfig {
     /// available within the Lua script.
     json globals;
     /// @brief authority is the base authority level that the sequence will have;
-    telem::Authority authority;
+    x::telem::Authority authority;
 
-    explicit TaskConfig(xjson::Parser &parser):
+    explicit TaskConfig(x::json::Parser &parser):
         // this comment keeps the formatter happy
-        rate(telem::Rate(parser.field<float>("rate"))),
+        rate(x::telem::Rate(parser.field<float>("rate"))),
         script(parser.field<std::string>("script")),
         read(parser.field<std::vector<synnax::ChannelKey>>("read")),
         write(parser.field<std::vector<synnax::ChannelKey>>("write")),
         globals(parser.field<json>("globals", json::object())),
-        authority(parser.field<telem::Authority>("authority", 150)) {}
+        authority(parser.field<x::telem::Authority>("authority", 150)) {}
 };
 
 /// @brief deleted used to clean up lua unique pointers to ensure resources are
@@ -86,17 +86,17 @@ public:
     /// @brief compiles the script in the sequence. It is not strictly necessary to
     /// run this before calling start(), although it can be used to check for
     /// compilation errors early.
-    [[nodiscard]] xerrors::Error compile();
+    [[nodiscard]] x::errors::Error compile();
 
     /// @brief starts the sequence, initializing all plugins. Note that this
     /// function does not actually run the sequence, but prepares it for execution.
-    [[nodiscard]] xerrors::Error begin();
+    [[nodiscard]] x::errors::Error begin();
 
     /// @brief executes the next iteration in the sequence.
-    [[nodiscard]] xerrors::Error next() const;
+    [[nodiscard]] x::errors::Error next() const;
 
     /// @brief ends the sequence, cleaning up any resources that were allocated.
-    [[nodiscard]] xerrors::Error end() const;
+    [[nodiscard]] x::errors::Error end() const;
 
 private:
     /// @brief source is used to bind relevant variables to the lua state.
@@ -111,20 +111,20 @@ private:
 
 /// @brief an implementation of a driver task used for configuring and running
 /// automated sequences.
-class Task final : public task::Task {
+class Task final : public driver::task::Task {
     /// @brief cfg is the configuration for the task.
     const TaskConfig cfg;
     /// @brief task is the synnax task configuration.
     const synnax::Task task;
     /// @brief the list of channels that the task will write to.
-    breaker::Breaker breaker;
+    x::breaker::Breaker breaker;
     /// @brief thread is the thread that will execute the sequence.
     std::thread thread;
     /// @brief ctx is the task execution context for communicating with the Synnax
     /// cluster and updating the task state.
-    std::shared_ptr<task::Context> ctx;
+    std::shared_ptr<driver::task::Context> ctx;
     /// @brief the compiled sequence that will be executed within the task.
-    std::unique_ptr<sequence::Sequence> seq;
+    std::unique_ptr<driver::sequence::Sequence> seq;
     /// @brief the current task state.
     synnax::TaskStatus status;
 
@@ -133,15 +133,15 @@ public:
     /// @returns the configured sequence if configuration was successful, otherwise
     /// returns a nullptr. Configuration errors are communicated through the task
     /// context.
-    static std::unique_ptr<task::Task>
-    configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task);
+    static std::unique_ptr<driver::task::Task>
+    configure(const std::shared_ptr<driver::task::Context> &ctx, const synnax::Task &task);
 
     Task(
-        const std::shared_ptr<task::Context> &ctx,
+        const std::shared_ptr<driver::task::Context> &ctx,
         synnax::Task task,
         TaskConfig cfg,
-        std::unique_ptr<sequence::Sequence> seq,
-        const breaker::Config &breaker_config
+        std::unique_ptr<driver::sequence::Sequence> seq,
+        const x::breaker::Config &breaker_config
     );
 
     /// @brief returns the name of the task for logging.
@@ -150,15 +150,15 @@ public:
     /// @brief main run loop that will execute in a separate thread.
     void run();
 
-    /// @brief stops the task, implementing task::Task.
+    /// @brief stops the task, implementing driver::task::Task.
     void stop(bool will_reconfigure) override;
 
     /// @brief stops the task, using the provided key as the key of the command that
     /// was executed.
     void stop(const std::string &key, bool will_reconfigure);
 
-    /// @brief executes a command on the task, implementing task::Task.
-    void exec(task::Command &cmd) override;
+    /// @brief executes a command on the task, implementing driver::task::Task.
+    void exec(driver::task::Command &cmd) override;
 
     /// @brief starts the task, using the provided key as the key of the command
     /// that was executed.
@@ -167,16 +167,16 @@ public:
 
 /// @brief factory used to configure control sequences from within the driver's task
 /// manager.
-class Factory final : public task::Factory {
+class Factory final : public driver::task::Factory {
 public:
     Factory() = default;
 
-    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
-        const std::shared_ptr<task::Context> &ctx,
+    std::pair<std::unique_ptr<driver::task::Task>, bool> configure_task(
+        const std::shared_ptr<driver::task::Context> &ctx,
         const synnax::Task &task
     ) override {
         if (task.type != TASK_TYPE) return {nullptr, false};
-        return {sequence::Task::configure(ctx, task), true};
+        return {driver::sequence::Task::configure(ctx, task), true};
     }
 
     std::string name() override { return INTEGRATION_NAME; }

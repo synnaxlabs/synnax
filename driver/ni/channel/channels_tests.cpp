@@ -9,7 +9,7 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/json/json.h"
 
 #include "driver/ni/channel/channels.h"
 
@@ -35,7 +35,7 @@ TEST(ChannelsTest, ParseAIAccelChan) {
         {"device", "cDAQ1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -73,7 +73,7 @@ TEST(ChannelsTest, ParseAIBridgeChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -105,7 +105,7 @@ TEST(ChannelsTest, ParseAICurrentChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -143,7 +143,7 @@ TEST(ChannelsTest, ParseAIForceBridgeTableChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -191,7 +191,7 @@ TEST(ChannelsTest, ParseAIForceBridgeTwoPointLinChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -231,7 +231,7 @@ TEST(ChannelsTest, ParseAIForceIEPEChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -265,7 +265,7 @@ TEST(ChannelsTest, ParseAIMicrophoneChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -303,7 +303,7 @@ TEST(ChannelsTest, ParseAIPressureBridgeTableChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -352,7 +352,7 @@ TEST(ChannelsTest, ParseAIPressureBridgeTwoPointLinChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -395,7 +395,7 @@ TEST(ChannelsTest, ParseAIRTDChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -435,7 +435,7 @@ TEST(ChannelsTest, ParseAIStrainGaugeChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -467,7 +467,7 @@ TEST(ChannelsTest, ParseAITempBuiltInChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -497,7 +497,7 @@ TEST(ChannelsTest, ParseAIThermoChan) {
           {"device", "cdaq1Mod2"}}}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     auto child = p.child("channels.0");
     const auto chan = channel::parse_input(child);
     ASSERT_FALSE(p.error()) << p.error();
@@ -537,7 +537,7 @@ TEST(ChannelsTest, ParseAITorqueBridgeTableChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -583,7 +583,7 @@ TEST(ChannelsTest, ParseAITorqueBridgeTwoPointLinChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -623,7 +623,7 @@ TEST(ChannelsTest, ParseAIVelocityIEPEChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -655,7 +655,7 @@ TEST(ChannelsTest, ParseAIVoltageChan) {
         {"device", "cdaq1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -683,7 +683,7 @@ TEST(ChannelsTest, ParseAOVoltageChan) {
         {"units", "Volts"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_output(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -709,7 +709,7 @@ TEST(ChannelsTest, ParseAOFuncGenChan) {
         {"offset", 0}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_output(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -734,7 +734,7 @@ TEST(ChannelsTest, ParseDIChan) {
         {"device", "cDAQ1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -759,7 +759,7 @@ TEST(ChannelsTest, ParseDOChan) {
         {"device", "cDAQ1Mod2"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_output(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -792,7 +792,7 @@ TEST(ChannelsTest, ParseCIFrequencyChanHz) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -832,7 +832,7 @@ TEST(ChannelsTest, ParseCIFrequencyChanTicks) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -867,7 +867,7 @@ TEST(ChannelsTest, ParseCIEdgeCountChanRising) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -898,7 +898,7 @@ TEST(ChannelsTest, ParseCIEdgeCountChanFalling) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -934,7 +934,7 @@ TEST(ChannelsTest, ParseCIPeriodChanSeconds) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -969,7 +969,7 @@ TEST(ChannelsTest, ParseCIPeriodChanTicks) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1001,7 +1001,7 @@ TEST(ChannelsTest, ParseCIPulseWidthChanSeconds) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1032,7 +1032,7 @@ TEST(ChannelsTest, ParseCIPulseWidthChanTicks) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1061,7 +1061,7 @@ TEST(ChannelsTest, ParseCISemiPeriodChanSeconds) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1088,7 +1088,7 @@ TEST(ChannelsTest, ParseCISemiPeriodChanTicks) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1117,7 +1117,7 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanSeconds) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1148,7 +1148,7 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanTicks) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1181,7 +1181,7 @@ TEST(ChannelsTest, ParseCILinearVelocityChanMetersPerSecond) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1219,7 +1219,7 @@ TEST(ChannelsTest, ParseCILinearVelocityChanInchesPerSecond) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1257,7 +1257,7 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRPM) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1295,7 +1295,7 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRadiansPerSecond) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1338,7 +1338,7 @@ TEST(ChannelsTest, ParseCILinearPositionChanMeters) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1386,7 +1386,7 @@ TEST(ChannelsTest, ParseCILinearPositionChanInches) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1434,7 +1434,7 @@ TEST(ChannelsTest, ParseCIAngularPositionChanDegrees) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1482,7 +1482,7 @@ TEST(ChannelsTest, ParseCIAngularPositionChanRadians) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1522,7 +1522,7 @@ TEST(ChannelsTest, ParseCIDutyCycleChanRising) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
@@ -1554,7 +1554,7 @@ TEST(ChannelsTest, ParseCIDutyCycleChanFalling) {
         {"device", "cDAQ1Mod3"}
     };
 
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto chan = channel::parse_input(p);
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);

@@ -12,8 +12,8 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/xjson/xjson.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/json/json.h"
+#include "x/cpp/test/xtest.h"
 
 #include "driver/labjack/read_task.h"
 
@@ -28,10 +28,10 @@ TEST(TestInputChannelParse, testAIChan) {
         {"range", 5},
         {"scale", {{"type", "linear"}, {"slope", 1}, {"offset", 2}}}
     };
-    auto p = xjson::Parser(cfg);
-    const auto chan = labjack::parse_input_chan(p);
+    auto p = x::json::Parser(cfg);
+    const auto chan = driver::labjack::parse_input_chan(p);
     ASSERT_NIL(p.error());
-    const auto ai_chan = dynamic_cast<labjack::AIChan *>(chan.get());
+    const auto ai_chan = dynamic_cast<driver::labjack::AIChan *>(chan.get());
     ASSERT_NE(ai_chan, nullptr);
     ASSERT_EQ(ai_chan->port, "AIN0");
     ASSERT_EQ(ai_chan->enabled, true);
@@ -48,10 +48,10 @@ TEST(TestInputChannelParse, testDIChan) {
         {"channel", 1},
         {"type", "DI"}
     };
-    auto p = xjson::Parser(cfg);
-    const auto chan = labjack::parse_input_chan(p);
+    auto p = x::json::Parser(cfg);
+    const auto chan = driver::labjack::parse_input_chan(p);
     ASSERT_NIL(p.error());
-    const auto di_chan = dynamic_cast<labjack::DIChan *>(chan.get());
+    const auto di_chan = dynamic_cast<driver::labjack::DIChan *>(chan.get());
     ASSERT_NE(di_chan, nullptr);
     ASSERT_EQ(di_chan->port, "DIO0");
     ASSERT_EQ(di_chan->enabled, true);
@@ -76,10 +76,10 @@ TEST(TestInputChannelParse, testTCChan) {
         {"cjc_slope", 1},
         {"cjc_offset", 0}
     };
-    auto p = xjson::Parser(cfg);
-    const auto chan = labjack::parse_input_chan(p);
+    auto p = x::json::Parser(cfg);
+    const auto chan = driver::labjack::parse_input_chan(p);
     ASSERT_NIL(p.error());
-    const auto tc_chan = dynamic_cast<labjack::ThermocoupleChan *>(chan.get());
+    const auto tc_chan = dynamic_cast<driver::labjack::ThermocoupleChan *>(chan.get());
     ASSERT_NE(tc_chan, nullptr);
     ASSERT_EQ(tc_chan->port, "AIN0_EF_READ_A");
     ASSERT_EQ(tc_chan->enabled, true);
@@ -87,7 +87,7 @@ TEST(TestInputChannelParse, testTCChan) {
     ASSERT_EQ(tc_chan->type, LJM_ttK);
     ASSERT_EQ(tc_chan->pos_chan, 0);
     ASSERT_EQ(tc_chan->neg_chan, 199);
-    ASSERT_EQ(tc_chan->units, labjack::LJM_KELVIN);
+    ASSERT_EQ(tc_chan->units, driver::labjack::LJM_KELVIN);
     ASSERT_EQ(tc_chan->cjc_addr, LJM_TEMPERATURE_DEVICE_K_ADDRESS);
     ASSERT_EQ(tc_chan->cjc_slope, 1);
     ASSERT_EQ(tc_chan->cjc_offset, 0);
@@ -104,9 +104,9 @@ TEST(TestInputChannelParse, testInvalidChannelType) {
         {"range", 5},
         {"scale", {{"type", "linear"}, {"slope", 1}, {"offset", 2}}}
     };
-    auto p = xjson::Parser(cfg);
-    const auto chan = labjack::parse_input_chan(p);
-    ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
+    auto p = x::json::Parser(cfg);
+    const auto chan = driver::labjack::parse_input_chan(p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
 json basic_read_task_config() {
@@ -165,17 +165,17 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     // Create channels for each input type
     auto tc_ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("tc_channel"),
-        telem::FLOAT64_T,
+        x::telem::FLOAT64_T,
         true
     ));
     auto di_ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("di_channel"),
-        telem::UINT8_T,
+        x::telem::UINT8_T,
         true
     ));
     auto ai_ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("ai_channel"),
-        telem::FLOAT64_T,
+        x::telem::FLOAT64_T,
         true
     ));
 
@@ -184,16 +184,16 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     j["channels"][1]["channel"] = di_ch.key;
     j["channels"][2]["channel"] = ai_ch.key;
 
-    auto p = xjson::Parser(j);
-    auto cfg = std::make_unique<labjack::ReadTaskConfig>(client, p);
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<driver::labjack::ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
-    ASSERT_EQ(cfg->sample_rate, telem::HERTZ * 10);
-    ASSERT_EQ(cfg->stream_rate, telem::HERTZ * 5);
+    ASSERT_EQ(cfg->sample_rate, x::telem::HERTZ * 10);
+    ASSERT_EQ(cfg->stream_rate, x::telem::HERTZ * 5);
     ASSERT_EQ(cfg->data_saving, true);
     ASSERT_EQ(cfg->channels.size(), 3);
 
-    const auto tc_chan = dynamic_cast<labjack::ThermocoupleChan *>(
+    const auto tc_chan = dynamic_cast<driver::labjack::ThermocoupleChan *>(
         cfg->channels[0].get()
     );
     ASSERT_NE(tc_chan, nullptr);
@@ -203,18 +203,18 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     ASSERT_EQ(tc_chan->type, LJM_ttK);
     ASSERT_EQ(tc_chan->pos_chan, 0);
     ASSERT_EQ(tc_chan->neg_chan, 199);
-    ASSERT_EQ(tc_chan->units, labjack::LJM_KELVIN);
+    ASSERT_EQ(tc_chan->units, driver::labjack::LJM_KELVIN);
     ASSERT_EQ(tc_chan->cjc_addr, LJM_TEMPERATURE_DEVICE_K_ADDRESS);
     ASSERT_EQ(tc_chan->cjc_slope, 1);
     ASSERT_EQ(tc_chan->cjc_offset, 0);
 
-    const auto di_chan = dynamic_cast<labjack::DIChan *>(cfg->channels[1].get());
+    const auto di_chan = dynamic_cast<driver::labjack::DIChan *>(cfg->channels[1].get());
     ASSERT_NE(di_chan, nullptr);
     ASSERT_EQ(di_chan->port, "DIO4");
     ASSERT_EQ(di_chan->enabled, true);
     ASSERT_EQ(di_chan->synnax_key, di_ch.key);
 
-    const auto ai_chan = dynamic_cast<labjack::AIChan *>(cfg->channels[2].get());
+    const auto ai_chan = dynamic_cast<driver::labjack::AIChan *>(cfg->channels[2].get());
     ASSERT_NE(ai_chan, nullptr);
     ASSERT_EQ(ai_chan->port, "AIN6");
     ASSERT_EQ(ai_chan->enabled, true);
@@ -240,7 +240,7 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     // Create a channel
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("test_channel"),
-        telem::FLOAT64_T,
+        x::telem::FLOAT64_T,
         true
     ));
 
@@ -255,10 +255,10 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
           {"range", 5}}}
     );
 
-    auto p = xjson::Parser(j);
-    auto cfg = std::make_unique<labjack::ReadTaskConfig>(client, p);
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<driver::labjack::ReadTaskConfig>(client, p);
 
-    ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
 /// @brief it should enable auto commit in writer config for data availability.
@@ -277,7 +277,7 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("test_channel"),
-        telem::FLOAT64_T,
+        x::telem::FLOAT64_T,
         true
     ));
 
@@ -293,8 +293,8 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
           {"scale", {{"type", "none"}}}}}
     );
 
-    auto p = xjson::Parser(j);
-    auto cfg = std::make_unique<labjack::ReadTaskConfig>(client, p);
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<driver::labjack::ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
     // Verify that writer_config has enable_auto_commit set to true

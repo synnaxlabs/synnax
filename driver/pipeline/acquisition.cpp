@@ -18,32 +18,32 @@
 
 using json = nlohmann::json;
 
-namespace pipeline {
+namespace driver::pipeline {
 SynnaxWriter::SynnaxWriter(synnax::Writer internal): internal(std::move(internal)) {}
 
-xerrors::Error SynnaxWriter::write(const telem::Frame &fr) {
+x::errors::Error SynnaxWriter::write(const x::telem::Frame &fr) {
     return this->internal.write(fr);
 }
 
-xerrors::Error SynnaxWriter::close() {
+x::errors::Error SynnaxWriter::close() {
     return this->internal.close();
 }
 
 SynnaxWriterFactory::SynnaxWriterFactory(std::shared_ptr<synnax::Synnax> client):
     client(std::move(client)) {}
 
-std::pair<std::unique_ptr<pipeline::Writer>, xerrors::Error>
+std::pair<std::unique_ptr<driver::pipeline::Writer>, x::errors::Error>
 SynnaxWriterFactory::open_writer(const synnax::WriterConfig &config) {
     auto [sw, err] = client->telem.open_writer(config);
     if (err) return {nullptr, err};
-    return {std::make_unique<SynnaxWriter>(std::move(sw)), xerrors::NIL};
+    return {std::make_unique<SynnaxWriter>(std::move(sw)), x::errors::NIL};
 }
 
 Acquisition::Acquisition(
     std::shared_ptr<synnax::Synnax> client,
     synnax::WriterConfig writer_config,
     std::shared_ptr<Source> source,
-    const breaker::Config &breaker_config,
+    const x::breaker::Config &breaker_config,
     std::string thread_name
 ):
     Acquisition(
@@ -58,7 +58,7 @@ Acquisition::Acquisition(
     std::shared_ptr<WriterFactory> factory,
     synnax::WriterConfig writer_config,
     std::shared_ptr<Source> source,
-    const breaker::Config &breaker_config,
+    const x::breaker::Config &breaker_config,
     std::string thread_name
 ):
     Base(breaker_config, std::move(thread_name)),
@@ -69,22 +69,22 @@ Acquisition::Acquisition(
 /// @brief attempts to resolve the start timestamp for the writer from a series in
 /// the frame with a timestamp data type. If that can't be found, resolveStart falls
 /// back to the
-telem::TimeStamp resolve_start(const telem::Frame &frame) {
+x::telem::TimeStamp resolve_start(const x::telem::Frame &frame) {
     for (size_t i = 0; i < frame.size(); i++)
-        if (frame.series->at(i).data_type() == telem::TIMESTAMP_T) {
+        if (frame.series->at(i).data_type() == x::telem::TIMESTAMP_T) {
             const auto ts = frame.series->at(i).at<int64_t>(0);
-            if (ts != 0) return telem::TimeStamp(ts);
+            if (ts != 0) return x::telem::TimeStamp(ts);
         }
-    return telem::TimeStamp::now();
+    return x::telem::TimeStamp::now();
 }
 
 void Acquisition::run() {
     std::unique_ptr<Writer> writer;
     bool writer_opened = false;
-    xerrors::Error writer_err;
-    xerrors::Error source_err;
+    x::errors::Error writer_err;
+    x::errors::Error source_err;
     // A running breaker means the pipeline user has not called stop.
-    telem::Frame frame(0);
+    x::telem::Frame frame(0);
     while (this->breaker.running()) {
 
         if (auto source_err_i = this->source->read(this->breaker, frame)) {
@@ -98,7 +98,7 @@ void Acquisition::run() {
                 continue;
             break;
         }
-        if (source_err) source_err = xerrors::NIL;
+        if (source_err) source_err = x::errors::NIL;
         if (frame.empty()) continue;
         // Open the writer after receiving the first frame so we can resolve the
         // start timestamp from the data. This helps to account for clock drift

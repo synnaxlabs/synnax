@@ -13,9 +13,9 @@
 
 #include "glog/logging.h"
 
-#include "x/cpp/xjson/xjson.h"
-#include "x/cpp/xlog/xlog.h"
-#include "x/cpp/xos/xos.h"
+#include "x/cpp/json/json.h"
+#include "x/cpp/log/log.h"
+#include "x/cpp/os/xos.h"
 
 #include "driver/task/task.h"
 
@@ -23,14 +23,14 @@ const std::string TASK_SET_CHANNEL = "sy_task_set";
 const std::string TASK_DELETE_CHANNEL = "sy_task_delete";
 const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
 
-xerrors::Error task::Manager::open_streamer() {
+x::errors::Error driver::task::Manager::open_streamer() {
     VLOG(1) << "opening streamer";
     auto [channels, task_set_err] = this->ctx->client->channels.retrieve(
         {TASK_SET_CHANNEL, TASK_DELETE_CHANNEL, TASK_CMD_CHANNEL}
     );
     if (task_set_err) return task_set_err;
     if (channels.size() != 3)
-        return xerrors::Error(
+        return x::errors::Error(
             "expected 3 channels, got " + std::to_string(channels.size())
         );
     for (const auto &channel: channels)
@@ -41,7 +41,7 @@ xerrors::Error task::Manager::open_streamer() {
         else if (channel.name == TASK_CMD_CHANNEL)
             this->channels.task_cmd = channel;
 
-    if (this->exit_early) return xerrors::NIL;
+    if (this->exit_early) return x::errors::NIL;
     std::lock_guard lock{this->mu};
     auto [s, open_err] = this->ctx->client->telem.open_streamer(
         synnax::StreamerConfig{
@@ -54,10 +54,10 @@ xerrors::Error task::Manager::open_streamer() {
     );
     if (open_err) return open_err;
     this->streamer = std::make_unique<synnax::Streamer>(std::move(s));
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
-xerrors::Error task::Manager::configure_initial_tasks() {
+x::errors::Error driver::task::Manager::configure_initial_tasks() {
     VLOG(1) << "configuring initial tasks";
     auto [tasks, tasks_err] = this->rack.tasks.list();
     if (tasks_err) return tasks_err;
@@ -83,10 +83,10 @@ xerrors::Error task::Manager::configure_initial_tasks() {
             this->tasks[sy_task.key] = std::move(driver_task);
     }
     VLOG(1) << "configured tasks";
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
-void task::Manager::stop() {
+void driver::task::Manager::stop() {
     this->exit_early = true;
     std::lock_guard lock{this->mu};
     // Very important that we do NOT set the streamer to a nullptr here, as the run()
@@ -94,7 +94,7 @@ void task::Manager::stop() {
     if (this->streamer != nullptr) this->streamer->close_send();
 }
 
-bool task::Manager::skip_foreign_rack(const synnax::TaskKey &task_key) const {
+bool driver::task::Manager::skip_foreign_rack(const synnax::TaskKey &task_key) const {
     if (synnax::rack_key_from_task_key(task_key) != this->rack.key) {
         VLOG(1) << "received task for foreign rack: " << task_key << ", skipping";
         return true;
@@ -102,19 +102,19 @@ bool task::Manager::skip_foreign_rack(const synnax::TaskKey &task_key) const {
     return false;
 }
 
-xerrors::Error task::Manager::run(std::function<void()> on_started) {
+x::errors::Error driver::task::Manager::run(std::function<void()> on_started) {
     if (this->exit_early) {
         VLOG(1) << "exiting early";
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
     if (const auto err = this->configure_initial_tasks()) return err;
     if (this->exit_early) {
         VLOG(1) << "exiting early";
         this->stop_all_tasks();
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
     if (const auto err = this->open_streamer()) return err;
-    LOG(INFO) << xlog::GREEN() << "started successfully" << xlog::RESET();
+    LOG(INFO) << x::log::GREEN() << "started successfully" << x::log::RESET();
     if (on_started) on_started();
     do {
         // no need to lock the streamer here, as it's safe to call close_send()
@@ -139,7 +139,7 @@ xerrors::Error task::Manager::run(std::function<void()> on_started) {
     return c_err;
 }
 
-void task::Manager::process_task_set(const telem::Series &series) {
+void driver::task::Manager::process_task_set(const x::telem::Series &series) {
     const auto task_keys = series.values<std::uint64_t>();
     for (const auto task_key: task_keys) {
         if (this->skip_foreign_rack(task_key)) continue;
@@ -168,11 +168,11 @@ void task::Manager::process_task_set(const telem::Series &series) {
     }
 }
 
-void task::Manager::process_task_cmd(const telem::Series &series) {
+void driver::task::Manager::process_task_cmd(const x::telem::Series &series) {
     const auto commands = series.strings();
     for (const auto &cmd_str: commands) {
-        auto parser = xjson::Parser(cmd_str);
-        auto cmd = task::Command(parser);
+        auto parser = x::json::Parser(cmd_str);
+        auto cmd = driver::task::Command(parser);
         if (!parser.ok()) {
             LOG(WARNING) << "failed to parse command: " << parser.error_json().dump();
             continue;
@@ -191,7 +191,7 @@ void task::Manager::process_task_cmd(const telem::Series &series) {
     }
 }
 
-void task::Manager::stop_all_tasks() {
+void driver::task::Manager::stop_all_tasks() {
     for (auto &[task_key, task]: this->tasks) {
         VLOG(1) << "stopping task " << task->name();
         task->stop(false);
@@ -199,7 +199,7 @@ void task::Manager::stop_all_tasks() {
     this->tasks.clear();
 }
 
-void task::Manager::process_task_delete(const telem::Series &series) {
+void driver::task::Manager::process_task_delete(const x::telem::Series &series) {
     const auto task_keys = series.values<synnax::TaskKey>();
     for (const auto task_key: task_keys) {
         if (this->skip_foreign_rack(task_key)) continue;

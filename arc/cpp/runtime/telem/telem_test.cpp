@@ -10,7 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/series.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/xtest.h"
 
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/telem/telem.h"
@@ -36,7 +36,7 @@ TEST(TelemFactoryTest, CreateSourceNode) {
     arc::ir::IR ir;
     ir.nodes.push_back(ir_node);
 
-    state::Config cfg{.ir = ir, .channels = {{10, telem::FLOAT32_T, 11}}};
+    state::Config cfg{.ir = ir, .channels = {{10, x::telem::FLOAT32_T, 11}}};
     state::State s(cfg);
 
     io::Factory factory;
@@ -98,7 +98,7 @@ TEST(TelemFactoryTest, UnknownNodeType) {
     auto state_node = ASSERT_NIL_P(s.node("unknown"));
     node::Config node_cfg{.node = ir_node, .state = state_node};
     auto [node, create_err] = factory.create(node_cfg);
-    ASSERT_OCCURRED_AS(create_err, xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS(create_err, x::errors::NOT_FOUND);
     EXPECT_EQ(node, nullptr);
 }
 
@@ -142,7 +142,7 @@ TEST(OnNodeTest, ReadChannelData) {
     arc::ir::IR ir;
     ir.nodes.push_back(ir_node);
 
-    state::Config cfg{.ir = ir, .channels = {{10, telem::FLOAT32_T, 11}}};
+    state::Config cfg{.ir = ir, .channels = {{10, x::telem::FLOAT32_T, 11}}};
     state::State s(cfg);
 
     auto state_node = ASSERT_NIL_P(s.node("source"));
@@ -151,18 +151,18 @@ TEST(OnNodeTest, ReadChannelData) {
     node::Config node_cfg{.node = ir_node, .state = state_node};
     auto node = ASSERT_NIL_P(factory.create(node_cfg));
 
-    telem::Frame frame;
+    x::telem::Frame frame;
     frame.channels = std::make_unique<std::vector<uint32_t>>();
-    frame.series = std::make_unique<std::vector<telem::Series>>();
+    frame.series = std::make_unique<std::vector<x::telem::Series>>();
     frame.channels->push_back(10);
-    frame.series->push_back(telem::Series(std::vector<float>{1.5f, 2.5f, 3.5f}));
+    frame.series->push_back(x::telem::Series(std::vector<float>{1.5f, 2.5f, 3.5f}));
     frame.channels->push_back(11);
     frame.series->push_back(
-        telem::Series(
-            std::vector<telem::TimeStamp>{
-                telem::TimeStamp(100),
-                telem::TimeStamp(101),
-                telem::TimeStamp(102)
+        x::telem::Series(
+            std::vector<x::telem::TimeStamp>{
+                x::telem::TimeStamp(100),
+                x::telem::TimeStamp(101),
+                x::telem::TimeStamp(102)
             }
         )
     );
@@ -170,9 +170,9 @@ TEST(OnNodeTest, ReadChannelData) {
 
     bool output_changed = false;
     node::Context ctx{
-        .elapsed = telem::TimeSpan(0),
+        .elapsed = x::telem::TimeSpan(0),
         .mark_changed = [&](const std::string &) { output_changed = true; },
-        .report_error = [](const xerrors::Error &) {}
+        .report_error = [](const x::errors::Error &) {}
     };
     ASSERT_NIL(node->next(ctx));
     EXPECT_TRUE(output_changed);
@@ -197,7 +197,7 @@ TEST(OnNodeTest, ChannelWithoutIndex) {
     arc::ir::IR ir;
     ir.nodes.push_back(ir_node);
 
-    state::Config cfg{.ir = ir, .channels = {{20, telem::INT32_T, 0}}};
+    state::Config cfg{.ir = ir, .channels = {{20, x::telem::INT32_T, 0}}};
     state::State s(cfg);
 
     auto state_node = ASSERT_NIL_P(s.node("source"));
@@ -206,18 +206,18 @@ TEST(OnNodeTest, ChannelWithoutIndex) {
     node::Config node_cfg{.node = ir_node, .state = state_node};
     auto node = ASSERT_NIL_P(factory.create(node_cfg));
 
-    telem::Frame frame;
+    x::telem::Frame frame;
     frame.channels = std::make_unique<std::vector<uint32_t>>();
-    frame.series = std::make_unique<std::vector<telem::Series>>();
+    frame.series = std::make_unique<std::vector<x::telem::Series>>();
     frame.channels->push_back(20);
-    frame.series->push_back(telem::Series(std::vector<int32_t>{100, 200}));
+    frame.series->push_back(x::telem::Series(std::vector<int32_t>{100, 200}));
     s.ingest(std::move(frame));
 
     bool output_changed = false;
     node::Context ctx{
-        .elapsed = telem::TimeSpan(0),
+        .elapsed = x::telem::TimeSpan(0),
         .mark_changed = [&](const std::string &) { output_changed = true; },
-        .report_error = [](const xerrors::Error &) {}
+        .report_error = [](const x::errors::Error &) {}
     };
     ASSERT_NIL(node->next(ctx));
     EXPECT_TRUE(output_changed);
@@ -242,7 +242,7 @@ TEST(OnNodeTest, EmptyChannel) {
     arc::ir::IR ir;
     ir.nodes.push_back(ir_node);
 
-    state::Config cfg{.ir = ir, .channels = {{999, telem::FLOAT32_T, 0}}};
+    state::Config cfg{.ir = ir, .channels = {{999, x::telem::FLOAT32_T, 0}}};
     state::State s(cfg);
 
     auto state_node = ASSERT_NIL_P(s.node("source"));
@@ -253,9 +253,9 @@ TEST(OnNodeTest, EmptyChannel) {
 
     bool output_changed = false;
     node::Context ctx{
-        .elapsed = telem::TimeSpan(0),
+        .elapsed = x::telem::TimeSpan(0),
         .mark_changed = [&](const std::string &) { output_changed = true; },
-        .report_error = [](const xerrors::Error &) {}
+        .report_error = [](const x::errors::Error &) {}
     };
     ASSERT_NIL(node->next(ctx));
     EXPECT_FALSE(output_changed);
@@ -296,7 +296,7 @@ TEST(WriteNodeTest, WriteChannelData) {
     ir.nodes.push_back(sink);
     ir.edges.push_back(edge);
 
-    state::Config cfg{.ir = ir, .channels = {{100, telem::FLOAT32_T, 101}}};
+    state::Config cfg{.ir = ir, .channels = {{100, x::telem::FLOAT32_T, 101}}};
     state::State s(cfg);
 
     auto producer_node = ASSERT_NIL_P(s.node("producer"));
@@ -309,17 +309,17 @@ TEST(WriteNodeTest, WriteChannelData) {
 
     auto &output_time = producer_node.output_time(0);
     output_time->resize(2);
-    output_time->set(0, telem::TimeStamp(500).nanoseconds());
-    output_time->set(1, telem::TimeStamp(501).nanoseconds());
+    output_time->set(0, x::telem::TimeStamp(500).nanoseconds());
+    output_time->set(1, x::telem::TimeStamp(501).nanoseconds());
 
     io::Factory factory;
     node::Config node_cfg{.node = sink, .state = sink_node};
     auto node = ASSERT_NIL_P(factory.create(node_cfg));
 
     node::Context ctx{
-        .elapsed = telem::TimeSpan(0),
+        .elapsed = x::telem::TimeSpan(0),
         .mark_changed = [](const std::string &) {},
-        .report_error = [](const xerrors::Error &) {}
+        .report_error = [](const x::errors::Error &) {}
     };
     ASSERT_NIL(node->next(ctx));
 
@@ -346,7 +346,7 @@ TEST(WriteNodeTest, RefreshInputsGuard) {
     arc::ir::IR ir;
     ir.nodes.push_back(sink);
 
-    state::Config cfg{.ir = ir, .channels = {{100, telem::FLOAT32_T, 101}}};
+    state::Config cfg{.ir = ir, .channels = {{100, x::telem::FLOAT32_T, 101}}};
     state::State s(cfg);
 
     auto sink_node = ASSERT_NIL_P(s.node("sink"));
@@ -356,9 +356,9 @@ TEST(WriteNodeTest, RefreshInputsGuard) {
     auto node = ASSERT_NIL_P(factory.create(node_cfg));
 
     node::Context ctx{
-        .elapsed = telem::TimeSpan(0),
+        .elapsed = x::telem::TimeSpan(0),
         .mark_changed = [](const std::string &) {},
-        .report_error = [](const xerrors::Error &) {}
+        .report_error = [](const x::errors::Error &) {}
     };
     ASSERT_NIL(node->next(ctx));
 
@@ -408,7 +408,7 @@ TEST(TelemIntegrationTest, SourceToSinkFlow) {
 
     state::Config cfg{
         .ir = ir,
-        .channels = {{1, telem::INT32_T, 2}, {3, telem::INT32_T, 4}}
+        .channels = {{1, x::telem::INT32_T, 2}, {3, x::telem::INT32_T, 4}}
     };
     state::State s(cfg);
 
@@ -422,23 +422,23 @@ TEST(TelemIntegrationTest, SourceToSinkFlow) {
     node::Config sink_cfg{.node = sink, .state = sink_state};
     auto sink_node = ASSERT_NIL_P(factory.create(sink_cfg));
 
-    telem::Frame frame;
+    x::telem::Frame frame;
     frame.channels = std::make_unique<std::vector<uint32_t>>();
-    frame.series = std::make_unique<std::vector<telem::Series>>();
+    frame.series = std::make_unique<std::vector<x::telem::Series>>();
     frame.channels->push_back(1);
-    frame.series->push_back(telem::Series(std::vector<int32_t>{42, 99}));
+    frame.series->push_back(x::telem::Series(std::vector<int32_t>{42, 99}));
     frame.channels->push_back(2);
     frame.series->push_back(
-        telem::Series(
-            std::vector<telem::TimeStamp>{telem::TimeStamp(10), telem::TimeStamp(20)}
+        x::telem::Series(
+            std::vector<x::telem::TimeStamp>{x::telem::TimeStamp(10), x::telem::TimeStamp(20)}
         )
     );
     s.ingest(std::move(frame));
 
     node::Context ctx{
-        .elapsed = telem::TimeSpan(0),
+        .elapsed = x::telem::TimeSpan(0),
         .mark_changed = [](const std::string &) {},
-        .report_error = [](const xerrors::Error &) {}
+        .report_error = [](const x::errors::Error &) {}
     };
 
     ASSERT_NIL(source_node->next(ctx));

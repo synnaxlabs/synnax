@@ -13,14 +13,14 @@
 #include <string>
 
 #include "client/cpp/synnax.h"
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/json/json.h"
 
 #include "driver/ni/channel/scale.h"
 #include "driver/ni/channel/units.h"
 #include "driver/ni/daqmx/sugared.h"
 
 namespace channel {
-static int32_t parse_terminal_config(xjson::Parser &p) {
+static int32_t parse_terminal_config(x::json::Parser &p) {
     const auto s = p.field<std::string>("terminal_config");
     if (s == "PseudoDiff") return DAQmx_Val_PseudoDiff;
     if (s == "Diff") return DAQmx_Val_Diff;
@@ -29,7 +29,7 @@ static int32_t parse_terminal_config(xjson::Parser &p) {
     return DAQmx_Val_Cfg_Default;
 }
 
-static int32_t parse_bridge_config(xjson::Parser &p) {
+static int32_t parse_bridge_config(x::json::Parser &p) {
     const auto s = p.field<std::string>("bridge_config");
     if (s == "FullBridge") return DAQmx_Val_FullBridge;
     if (s == "HalfBridge") return DAQmx_Val_HalfBridge;
@@ -37,7 +37,7 @@ static int32_t parse_bridge_config(xjson::Parser &p) {
     return DAQmx_Val_FullBridge;
 }
 
-static int32_t parse_resistance_config(xjson::Parser &p) {
+static int32_t parse_resistance_config(x::json::Parser &p) {
     const auto s = p.field<std::string>("resistance_config");
     if (s == "2Wire") return DAQmx_Val_2Wire;
     if (s == "3Wire") return DAQmx_Val_3Wire;
@@ -126,7 +126,7 @@ struct ExcitationConfig {
     const double max_val_for_excitation; // optional
     const bool32 use_excit_for_scaling; // optional
 
-    explicit ExcitationConfig(xjson::Parser &cfg, const std::string &prefix):
+    explicit ExcitationConfig(x::json::Parser &cfg, const std::string &prefix):
         source(get_excitation_src(cfg.field<std::string>(prefix + "_excit_source"))),
         val(cfg.field<double>(prefix + "_excit_val")),
         min_val_for_excitation(cfg.field<double>("min_val_for_excitation", 0)),
@@ -143,7 +143,7 @@ struct BridgeConfig {
     const double voltage_excit_val;
     const double nominal_bridge_resistance;
 
-    explicit BridgeConfig(xjson::Parser &cfg):
+    explicit BridgeConfig(x::json::Parser &cfg):
         ni_bridge_config(parse_bridge_config(cfg)),
         voltage_excit_source(
             get_excitation_src(cfg.field<std::string>("voltage_excit_source"))
@@ -160,7 +160,7 @@ struct PolynomialConfig {
     int32_t electrical_units;
     int32_t physical_units;
 
-    explicit PolynomialConfig(xjson::Parser &cfg):
+    explicit PolynomialConfig(x::json::Parser &cfg):
         num_forward_coeffs(cfg.field<uint32_t>("num_forward_coeffs")),
         num_reverse_coeffs(cfg.field<uint32_t>("num_reverse_coeffs")) {
         const auto eu = cfg.field<std::string>("electrical_units");
@@ -200,7 +200,7 @@ struct TableConfig {
 
     TableConfig() = default;
 
-    explicit TableConfig(xjson::Parser &cfg) {
+    explicit TableConfig(x::json::Parser &cfg) {
         const auto eu = cfg.field<std::string>("electrical_units");
         const auto pu = cfg.field<std::string>("physical_units");
 
@@ -238,7 +238,7 @@ struct TwoPointLinConfig {
 
     TwoPointLinConfig() = default;
 
-    explicit TwoPointLinConfig(xjson::Parser &cfg):
+    explicit TwoPointLinConfig(x::json::Parser &cfg):
         first_electrical_val(cfg.field<double>("first_electrical_val")),
         second_electrical_val(cfg.field<double>("second_electrical_val")),
         electrical_units(UNITS_MAP.at(cfg.field<std::string>("electrical_units"))),
@@ -281,13 +281,13 @@ struct Base {
 
     virtual ~Base() = default;
 
-    explicit Base(xjson::Parser &cfg):
+    explicit Base(x::json::Parser &cfg):
         enabled(cfg.field<bool>("enabled", true)),
         dev_key(cfg.field<std::string>("device", "")),
         cfg_path(format_cfg_path(cfg.path_prefix)) {}
 
     /// @brief applies the channel configuration to the DAQmx task.
-    virtual xerrors::Error apply(
+    virtual x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const = 0;
@@ -302,7 +302,7 @@ struct Input : virtual Base {
     /// for the task.
     synnax::Channel ch;
 
-    explicit Input(xjson::Parser &cfg):
+    explicit Input(x::json::Parser &cfg):
         Base(cfg), synnax_key(cfg.field<synnax::ChannelKey>("channel")) {}
 
     /// @brief binds remotely fetched information to the channel.
@@ -324,7 +324,7 @@ struct Output : virtual Base {
     /// channels for the task.
     synnax::Channel state_ch;
 
-    explicit Output(xjson::Parser &cfg):
+    explicit Output(x::json::Parser &cfg):
         Base(cfg),
         cmd_ch_key(cfg.field<synnax::ChannelKey>("cmd_channel")),
         state_ch_key(cfg.field<synnax::ChannelKey>("state_channel")) {}
@@ -341,7 +341,7 @@ struct Digital : virtual Base {
     const int port;
     const int line;
 
-    explicit Digital(xjson::Parser &cfg):
+    explicit Digital(x::json::Parser &cfg):
         port(cfg.field<int>("port")), line(cfg.field<int>("line")) {}
 
     [[nodiscard]] std::string loc() const {
@@ -352,9 +352,9 @@ struct Digital : virtual Base {
 
 /// @brief configuration for a digital input channel.
 struct DI final : Digital, Input {
-    explicit DI(xjson::Parser &cfg): Base(cfg), Digital(cfg), Input(cfg) {}
+    explicit DI(x::json::Parser &cfg): Base(cfg), Digital(cfg), Input(cfg) {}
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
@@ -369,9 +369,9 @@ struct DI final : Digital, Input {
 
 /// @brief configuration for a digital output channel.
 struct DO final : Digital, Output {
-    explicit DO(xjson::Parser &cfg): Base(cfg), Digital(cfg), Output(cfg) {}
+    explicit DO(x::json::Parser &cfg): Base(cfg), Digital(cfg), Output(cfg) {}
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
@@ -391,7 +391,7 @@ struct Analog : virtual Base {
     const double max_val;
     int32_t units;
 
-    explicit Analog(xjson::Parser &cfg):
+    explicit Analog(x::json::Parser &cfg):
         port(cfg.field<int>("port")),
         min_val(cfg.field<double>("min_val", 0)),
         max_val(cfg.field<double>("max_val", 0)),
@@ -402,12 +402,12 @@ struct Analog : virtual Base {
 struct AnalogCustomScale : virtual Analog {
     const std::unique_ptr<Scale> scale;
 
-    explicit AnalogCustomScale(xjson::Parser &cfg):
+    explicit AnalogCustomScale(x::json::Parser &cfg):
         Analog(cfg), scale(parse_scale(cfg, "custom_scale")) {
         if (!this->scale->is_none()) units = DAQmx_Val_FromCustomScale;
     }
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
@@ -417,7 +417,7 @@ struct AnalogCustomScale : virtual Analog {
             ->apply(dmx, task_handle, scale_key.empty() ? nullptr : scale_key.c_str());
     }
 
-    virtual xerrors::Error apply(
+    virtual x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -426,7 +426,7 @@ struct AnalogCustomScale : virtual Analog {
 
 /// @brief base class for analog input channels.
 struct AI : virtual Analog, Input {
-    explicit AI(xjson::Parser &cfg): Analog(cfg), Input(cfg) {}
+    explicit AI(x::json::Parser &cfg): Analog(cfg), Input(cfg) {}
 
     [[nodiscard]] std::string loc() const {
         return this->dev_loc + "/ai" + std::to_string(this->port);
@@ -435,7 +435,7 @@ struct AI : virtual Analog, Input {
 
 /// @brief base class for analog output channels.
 struct AO : virtual Analog, Output {
-    explicit AO(xjson::Parser &cfg): Analog(cfg), Output(cfg) {}
+    explicit AO(x::json::Parser &cfg): Analog(cfg), Output(cfg) {}
 
     [[nodiscard]] std::string loc() const {
         return this->dev_loc + "/ao" + std::to_string(this->port);
@@ -444,12 +444,12 @@ struct AO : virtual Analog, Output {
 
 /// @brief base class for analog channels that can have a custom scale applied.
 struct AICustomScale : AI, AnalogCustomScale {
-    explicit AICustomScale(xjson::Parser &cfg): AI(cfg), AnalogCustomScale(cfg) {}
+    explicit AICustomScale(x::json::Parser &cfg): AI(cfg), AnalogCustomScale(cfg) {}
 };
 
 /// @brief base class for analog channels that can have a custom scale applied.
 struct AOCustomScale : AO, AnalogCustomScale {
-    explicit AOCustomScale(xjson::Parser &cfg): AO(cfg), AnalogCustomScale(cfg) {}
+    explicit AOCustomScale(x::json::Parser &cfg): AO(cfg), AnalogCustomScale(cfg) {}
 };
 
 /// @brief base class for a counter channel (CI, CO)
@@ -459,7 +459,7 @@ struct Counter : virtual Base {
     const double max_val;
     int32_t units;
 
-    explicit Counter(xjson::Parser &cfg):
+    explicit Counter(x::json::Parser &cfg):
         port(cfg.field<int>("port")),
         min_val(cfg.field<double>("min_val", 0)),
         max_val(cfg.field<double>("max_val", 0)),
@@ -474,12 +474,12 @@ struct Counter : virtual Base {
 struct CounterCustomScale : virtual Counter {
     const std::unique_ptr<Scale> scale;
 
-    explicit CounterCustomScale(xjson::Parser &cfg):
+    explicit CounterCustomScale(x::json::Parser &cfg):
         Counter(cfg), scale(parse_scale(cfg, "custom_scale")) {
         if (!this->scale->is_none()) units = DAQmx_Val_FromCustomScale;
     }
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
@@ -489,7 +489,7 @@ struct CounterCustomScale : virtual Counter {
             ->apply(dmx, task_handle, scale_key.empty() ? nullptr : scale_key.c_str());
     }
 
-    virtual xerrors::Error apply(
+    virtual x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -498,19 +498,19 @@ struct CounterCustomScale : virtual Counter {
 
 /// @brief base class for counter input channels.
 struct CI : virtual Counter, Input {
-    explicit CI(xjson::Parser &cfg): Counter(cfg), Input(cfg) {}
+    explicit CI(x::json::Parser &cfg): Counter(cfg), Input(cfg) {}
 };
 
 /// @brief base class for counter input channels that can have a custom scale applied.
 struct CICustomScale : CI, CounterCustomScale {
-    explicit CICustomScale(xjson::Parser &cfg):
+    explicit CICustomScale(x::json::Parser &cfg):
         Counter(cfg), CI(cfg), CounterCustomScale(cfg) {}
 };
 
 struct AIVoltage : AICustomScale {
     const int32_t terminal_config = 0;
 
-    explicit AIVoltage(xjson::Parser &cfg):
+    explicit AIVoltage(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
@@ -518,7 +518,7 @@ struct AIVoltage : AICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -537,9 +537,9 @@ struct AIVoltage : AICustomScale {
 };
 
 struct AIVoltageRMS final : AIVoltage {
-    explicit AIVoltageRMS(xjson::Parser &cfg): Base(cfg), Analog(cfg), AIVoltage(cfg) {}
+    explicit AIVoltageRMS(x::json::Parser &cfg): Base(cfg), Analog(cfg), AIVoltage(cfg) {}
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -561,7 +561,7 @@ struct AIVoltageWithExcit final : AIVoltage {
     const int32_t bridge_config;
     const ExcitationConfig excitation_config;
 
-    explicit AIVoltageWithExcit(xjson::Parser &cfg):
+    explicit AIVoltageWithExcit(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AIVoltage(cfg),
@@ -570,7 +570,7 @@ struct AIVoltageWithExcit final : AIVoltage {
 
     ~AIVoltageWithExcit() override = default;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -603,7 +603,7 @@ struct AICurrent : AICustomScale {
         return DAQmx_Val_Default;
     }
 
-    explicit AICurrent(xjson::Parser &cfg):
+    explicit AICurrent(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
@@ -615,7 +615,7 @@ struct AICurrent : AICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -636,9 +636,9 @@ struct AICurrent : AICustomScale {
 };
 
 struct AICurrentRMS final : AICurrent {
-    explicit AICurrentRMS(xjson::Parser &cfg): Base(cfg), Analog(cfg), AICurrent(cfg) {}
+    explicit AICurrentRMS(x::json::Parser &cfg): Base(cfg), Analog(cfg), AICurrent(cfg) {}
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -675,7 +675,7 @@ struct AIRTD final : AI {
         return DAQmx_Val_Pt3750;
     }
 
-    explicit AIRTD(xjson::Parser &cfg):
+    explicit AIRTD(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AI(cfg),
@@ -684,7 +684,7 @@ struct AIRTD final : AI {
         excitation_config(cfg, CURR_EXCIT_PREFIX),
         r0(cfg.field<double>("r0")) {}
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
@@ -710,7 +710,7 @@ struct AIThermocouple final : AI {
     const double cjc_val;
     std::string cjc_port;
 
-    [[nodiscard]] int32_t static parse_type(xjson::Parser &cfg) {
+    [[nodiscard]] int32_t static parse_type(x::json::Parser &cfg) {
         const auto type = cfg.field<std::string>("thermocouple_type");
         if (type == "J") return DAQmx_Val_J_Type_TC;
         if (type == "K") return DAQmx_Val_K_Type_TC;
@@ -724,7 +724,7 @@ struct AIThermocouple final : AI {
         return DAQmx_Val_J_Type_TC;
     }
 
-    [[nodiscard]] int32_t static parse_cjc_source(xjson::Parser &cfg) {
+    [[nodiscard]] int32_t static parse_cjc_source(x::json::Parser &cfg) {
         const auto source = cfg.field<std::string>("cjc_source");
         if (source == "BuiltIn") return DAQmx_Val_BuiltIn;
         if (source == "ConstVal") return DAQmx_Val_ConstVal;
@@ -733,7 +733,7 @@ struct AIThermocouple final : AI {
         return DAQmx_Val_BuiltIn;
     }
 
-    explicit AIThermocouple(xjson::Parser &cfg):
+    explicit AIThermocouple(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AI(cfg),
@@ -747,7 +747,7 @@ struct AIThermocouple final : AI {
         );
     }
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
@@ -767,9 +767,9 @@ struct AIThermocouple final : AI {
 };
 
 struct AITempBuiltIn final : AI {
-    explicit AITempBuiltIn(xjson::Parser &cfg): Base(cfg), Analog(cfg), AI(cfg) {}
+    explicit AITempBuiltIn(x::json::Parser &cfg): Base(cfg), Analog(cfg), AI(cfg) {}
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
@@ -790,7 +790,7 @@ struct AIThermistorIEX final : AI {
     const double b;
     const double c;
 
-    explicit AIThermistorIEX(xjson::Parser &cfg):
+    explicit AIThermistorIEX(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AI(cfg),
@@ -800,7 +800,7 @@ struct AIThermistorIEX final : AI {
         b(cfg.field<double>("b")),
         c(cfg.field<double>("c")) {}
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
@@ -829,7 +829,7 @@ struct AIThermistorVex final : AI {
     const double c;
     const double r1;
 
-    explicit AIThermistorVex(xjson::Parser &cfg):
+    explicit AIThermistorVex(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AI(cfg),
@@ -840,7 +840,7 @@ struct AIThermistorVex final : AI {
         c(cfg.field<double>("c")),
         r1(cfg.field<double>("r1")) {}
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
@@ -868,7 +868,7 @@ struct AIAccel : AICustomScale {
     const ExcitationConfig excitation_config;
     const int32 terminal_config;
 
-    explicit AIAccel(xjson::Parser &cfg):
+    explicit AIAccel(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
@@ -881,7 +881,7 @@ struct AIAccel : AICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -904,10 +904,10 @@ struct AIAccel : AICustomScale {
 };
 
 struct AIAccel4WireDCVoltage final : AIAccel {
-    explicit AIAccel4WireDCVoltage(xjson::Parser &cfg):
+    explicit AIAccel4WireDCVoltage(x::json::Parser &cfg):
         Base(cfg), Analog(cfg), AIAccel(cfg) {}
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -935,7 +935,7 @@ struct AIAccelCharge final : AICustomScale {
     const int32_t sensitivity_units;
     const int32 terminal_config;
 
-    explicit AIAccelCharge(xjson::Parser &cfg):
+    explicit AIAccelCharge(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
@@ -945,7 +945,7 @@ struct AIAccelCharge final : AICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -969,7 +969,7 @@ struct AIResistance final : AICustomScale {
     const int32_t resistance_config;
     const ExcitationConfig excitation_config;
 
-    explicit AIResistance(xjson::Parser &cfg):
+    explicit AIResistance(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
@@ -978,7 +978,7 @@ struct AIResistance final : AICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -1001,12 +1001,12 @@ struct AIResistance final : AICustomScale {
 struct AIBridge final : AICustomScale {
     const BridgeConfig bridge_config;
 
-    explicit AIBridge(xjson::Parser &cfg):
+    explicit AIBridge(x::json::Parser &cfg):
         Base(cfg), Analog(cfg), AICustomScale(cfg), bridge_config(cfg) {}
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -1036,7 +1036,7 @@ struct AIStrainGauge final : AICustomScale {
     const double poisson_ratio;
     const double lead_wire_resistance;
 
-    explicit AIStrainGauge(xjson::Parser &cfg):
+    explicit AIStrainGauge(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
@@ -1050,7 +1050,7 @@ struct AIStrainGauge final : AICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -1086,7 +1086,7 @@ struct AIRosetteStrainGauge final : AI {
     const double poisson_ratio;
     const double lead_wire_resistance;
 
-    explicit AIRosetteStrainGauge(xjson::Parser &cfg):
+    explicit AIRosetteStrainGauge(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AI(cfg),
@@ -1102,7 +1102,7 @@ struct AIRosetteStrainGauge final : AI {
         poisson_ratio(cfg.field<double>("poisson_ratio")),
         lead_wire_resistance(cfg.field<double>("lead_wire_resistance")) {}
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
@@ -1133,7 +1133,7 @@ struct AIMicrophone final : AICustomScale {
     const ExcitationConfig excitation_config;
     const int32 terminal_config = 0;
 
-    explicit AIMicrophone(xjson::Parser &cfg):
+    explicit AIMicrophone(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
@@ -1144,7 +1144,7 @@ struct AIMicrophone final : AICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -1168,7 +1168,7 @@ struct AIFrequencyVoltage final : AICustomScale {
     const double threshold_level;
     const double hysteresis;
 
-    explicit AIFrequencyVoltage(xjson::Parser &cfg):
+    explicit AIFrequencyVoltage(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
@@ -1177,7 +1177,7 @@ struct AIFrequencyVoltage final : AICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -1207,7 +1207,7 @@ struct CIFrequency final : CICustomScale {
     const uint32_t divisor;
     const std::string terminal;
 
-    explicit CIFrequency(xjson::Parser &cfg):
+    explicit CIFrequency(x::json::Parser &cfg):
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
@@ -1219,7 +1219,7 @@ struct CIFrequency final : CICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -1262,7 +1262,7 @@ struct CIEdgeCount final : CI {
     const uint32_t initial_count;
     const std::string terminal;
 
-    explicit CIEdgeCount(xjson::Parser &cfg):
+    explicit CIEdgeCount(x::json::Parser &cfg):
         Base(cfg),
         Counter(cfg),
         CI(cfg),
@@ -1273,7 +1273,7 @@ struct CIEdgeCount final : CI {
         initial_count(cfg.field<uint32_t>("initial_count", 0)),
         terminal(cfg.field<std::string>("terminal", "")) {}
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
@@ -1311,7 +1311,7 @@ struct CIPeriod final : CICustomScale {
     const uint32_t divisor;
     const std::string terminal;
 
-    explicit CIPeriod(xjson::Parser &cfg):
+    explicit CIPeriod(x::json::Parser &cfg):
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
@@ -1323,7 +1323,7 @@ struct CIPeriod final : CICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -1363,7 +1363,7 @@ struct CIPulseWidth final : CICustomScale {
     const int32_t edge;
     const std::string terminal;
 
-    explicit CIPulseWidth(xjson::Parser &cfg):
+    explicit CIPulseWidth(x::json::Parser &cfg):
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
@@ -1372,7 +1372,7 @@ struct CIPulseWidth final : CICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -1408,7 +1408,7 @@ struct CIPulseWidth final : CICustomScale {
 struct CISemiPeriod final : CICustomScale {
     const std::string terminal;
 
-    explicit CISemiPeriod(xjson::Parser &cfg):
+    explicit CISemiPeriod(x::json::Parser &cfg):
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
@@ -1416,7 +1416,7 @@ struct CISemiPeriod final : CICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -1455,7 +1455,7 @@ struct CITwoEdgeSep final : CICustomScale {
     const std::string first_terminal;
     const std::string second_terminal;
 
-    explicit CITwoEdgeSep(xjson::Parser &cfg):
+    explicit CITwoEdgeSep(x::json::Parser &cfg):
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
@@ -1466,7 +1466,7 @@ struct CITwoEdgeSep final : CICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -1518,7 +1518,7 @@ struct CILinearVelocity final : CICustomScale {
     const std::string terminal_a;
     const std::string terminal_b;
 
-    explicit CILinearVelocity(xjson::Parser &cfg):
+    explicit CILinearVelocity(x::json::Parser &cfg):
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
@@ -1529,7 +1529,7 @@ struct CILinearVelocity final : CICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -1581,7 +1581,7 @@ struct CIAngularVelocity final : CICustomScale {
     const std::string terminal_a;
     const std::string terminal_b;
 
-    explicit CIAngularVelocity(xjson::Parser &cfg):
+    explicit CIAngularVelocity(x::json::Parser &cfg):
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
@@ -1592,7 +1592,7 @@ struct CIAngularVelocity final : CICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -1649,7 +1649,7 @@ struct CILinearPosition final : CICustomScale {
     const std::string terminal_b;
     const std::string terminal_z;
 
-    explicit CILinearPosition(xjson::Parser &cfg):
+    explicit CILinearPosition(x::json::Parser &cfg):
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
@@ -1667,7 +1667,7 @@ struct CILinearPosition final : CICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -1737,7 +1737,7 @@ struct CIAngularPosition final : CICustomScale {
     const std::string terminal_b;
     const std::string terminal_z;
 
-    explicit CIAngularPosition(xjson::Parser &cfg):
+    explicit CIAngularPosition(x::json::Parser &cfg):
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
@@ -1755,7 +1755,7 @@ struct CIAngularPosition final : CICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -1817,7 +1817,7 @@ struct CIDutyCycle final : CICustomScale {
     const int32_t edge;
     const std::string terminal;
 
-    explicit CIDutyCycle(xjson::Parser &cfg):
+    explicit CIDutyCycle(x::json::Parser &cfg):
         Base(cfg),
         Counter(cfg),
         CICustomScale(cfg),
@@ -1826,7 +1826,7 @@ struct CIDutyCycle final : CICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -1859,7 +1859,7 @@ struct AIPressureBridgeTwoPointLin final : AICustomScale {
     const BridgeConfig bridge_config;
     const TwoPointLinConfig two_point_lin_config;
 
-    explicit AIPressureBridgeTwoPointLin(xjson::Parser &cfg):
+    explicit AIPressureBridgeTwoPointLin(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
@@ -1868,7 +1868,7 @@ struct AIPressureBridgeTwoPointLin final : AICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -1899,7 +1899,7 @@ struct AIPressureBridgeTable final : AICustomScale {
     const BridgeConfig bridge_config;
     const TableConfig table_config;
 
-    explicit AIPressureBridgeTable(xjson::Parser &cfg):
+    explicit AIPressureBridgeTable(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
@@ -1908,7 +1908,7 @@ struct AIPressureBridgeTable final : AICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -1939,7 +1939,7 @@ struct AIPressureBridgePolynomial final : AICustomScale {
     const BridgeConfig bridge_config;
     const PolynomialConfig polynomial_config;
 
-    explicit AIPressureBridgePolynomial(xjson::Parser &cfg):
+    explicit AIPressureBridgePolynomial(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
@@ -1948,7 +1948,7 @@ struct AIPressureBridgePolynomial final : AICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -1979,7 +1979,7 @@ struct AIForceBridgePolynomial final : AICustomScale {
     const BridgeConfig bridge_config;
     const PolynomialConfig polynomial_config;
 
-    explicit AIForceBridgePolynomial(xjson::Parser &cfg):
+    explicit AIForceBridgePolynomial(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
@@ -1988,7 +1988,7 @@ struct AIForceBridgePolynomial final : AICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -2019,7 +2019,7 @@ struct AIForceBridgeTable final : AICustomScale {
     const BridgeConfig bridge_config;
     const TableConfig table_config;
 
-    explicit AIForceBridgeTable(xjson::Parser &cfg):
+    explicit AIForceBridgeTable(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
@@ -2028,7 +2028,7 @@ struct AIForceBridgeTable final : AICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -2059,7 +2059,7 @@ struct AIForceBridgeTwoPointLin final : AICustomScale {
     BridgeConfig bridge_config;
     TwoPointLinConfig two_point_lin_config;
 
-    explicit AIForceBridgeTwoPointLin(xjson::Parser &cfg):
+    explicit AIForceBridgeTwoPointLin(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
@@ -2068,7 +2068,7 @@ struct AIForceBridgeTwoPointLin final : AICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
 
@@ -2102,7 +2102,7 @@ struct AIVelocityIEPE final : AICustomScale {
     const ExcitationConfig excitation_config;
     const int32_t terminal_config;
 
-    explicit AIVelocityIEPE(xjson::Parser &cfg):
+    explicit AIVelocityIEPE(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
@@ -2113,7 +2113,7 @@ struct AIVelocityIEPE final : AICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -2139,7 +2139,7 @@ struct AITorqueBridgeTwoPointLin final : AICustomScale {
     const BridgeConfig bridge_config;
     const TwoPointLinConfig two_point_lin_config;
 
-    explicit AITorqueBridgeTwoPointLin(xjson::Parser &cfg):
+    explicit AITorqueBridgeTwoPointLin(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
@@ -2148,7 +2148,7 @@ struct AITorqueBridgeTwoPointLin final : AICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -2179,7 +2179,7 @@ struct AITorqueBridgePolynomial final : AICustomScale {
     const BridgeConfig bridge_config;
     const PolynomialConfig polynomial_config;
 
-    explicit AITorqueBridgePolynomial(xjson::Parser &cfg):
+    explicit AITorqueBridgePolynomial(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
@@ -2188,7 +2188,7 @@ struct AITorqueBridgePolynomial final : AICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -2219,7 +2219,7 @@ struct AITorqueBridgeTable final : AICustomScale {
     const BridgeConfig bridge_config;
     const TableConfig table_config;
 
-    explicit AITorqueBridgeTable(xjson::Parser &cfg):
+    explicit AITorqueBridgeTable(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
@@ -2228,7 +2228,7 @@ struct AITorqueBridgeTable final : AICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -2261,7 +2261,7 @@ struct AIForceIEPE final : AICustomScale {
     const ExcitationConfig excitation_config;
     const int32 terminal_config;
 
-    explicit AIForceIEPE(xjson::Parser &cfg):
+    explicit AIForceIEPE(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
@@ -2272,7 +2272,7 @@ struct AIForceIEPE final : AICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -2297,7 +2297,7 @@ struct AIForceIEPE final : AICustomScale {
 struct AICharge final : AICustomScale {
     const int32 terminal_config;
 
-    explicit AICharge(xjson::Parser &cfg):
+    explicit AICharge(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AICustomScale(cfg),
@@ -2305,7 +2305,7 @@ struct AICharge final : AICustomScale {
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -2324,12 +2324,12 @@ struct AICharge final : AICustomScale {
 };
 
 struct AOVoltage final : AOCustomScale {
-    explicit AOVoltage(xjson::Parser &cfg):
+    explicit AOVoltage(x::json::Parser &cfg):
         Base(cfg), Analog(cfg), AOCustomScale(cfg) {}
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -2347,12 +2347,12 @@ struct AOVoltage final : AOCustomScale {
 };
 
 struct AOCurrent final : AOCustomScale {
-    explicit AOCurrent(xjson::Parser &cfg):
+    explicit AOCurrent(x::json::Parser &cfg):
         Base(cfg), Analog(cfg), AOCustomScale(cfg) {}
 
     using Base::apply;
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle,
         const char *scale_key
@@ -2375,7 +2375,7 @@ struct AOFunctionGenerator final : AO {
     const double offset;
     const int32 wave_type;
 
-    int32_t static get_type(const std::string &type, const xjson::Parser &cfg) {
+    int32_t static get_type(const std::string &type, const x::json::Parser &cfg) {
         if (type == "Sine") return DAQmx_Val_Sine;
         if (type == "Triangle") return DAQmx_Val_Triangle;
         if (type == "Square") return DAQmx_Val_Square;
@@ -2384,7 +2384,7 @@ struct AOFunctionGenerator final : AO {
         return DAQmx_Val_Sine;
     }
 
-    explicit AOFunctionGenerator(xjson::Parser &cfg):
+    explicit AOFunctionGenerator(x::json::Parser &cfg):
         Base(cfg),
         Analog(cfg),
         AO(cfg),
@@ -2393,7 +2393,7 @@ struct AOFunctionGenerator final : AO {
         offset(cfg.field<double>("offset")),
         wave_type(get_type(cfg.field<std::string>("wave_type"), cfg)) {}
 
-    xerrors::Error apply(
+    x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
     ) const override {
@@ -2410,10 +2410,10 @@ struct AOFunctionGenerator final : AO {
 };
 
 template<typename T>
-using Factory = std::function<std::unique_ptr<T>(xjson::Parser &cfg)>;
+using Factory = std::function<std::unique_ptr<T>(x::json::Parser &cfg)>;
 
 #define INPUT_CHAN_FACTORY(type, class)                                                \
-    {type, [](xjson::Parser &cfg) { return std::make_unique<class>(cfg); }}
+    {type, [](x::json::Parser &cfg) { return std::make_unique<class>(cfg); }}
 
 static const std::map<std::string, Factory<Output>> OUTPUTS = {
     INPUT_CHAN_FACTORY("ao_current", AOCurrent),
@@ -2461,7 +2461,7 @@ static const std::map<std::string, Factory<Input>> INPUTS = {
     INPUT_CHAN_FACTORY("digital_input", DI)
 };
 
-inline std::unique_ptr<Input> parse_input(xjson::Parser &cfg) {
+inline std::unique_ptr<Input> parse_input(x::json::Parser &cfg) {
     const auto type = cfg.field<std::string>("type");
     const auto input = INPUTS.find(type);
     if (input != INPUTS.end()) return input->second(cfg);
@@ -2469,7 +2469,7 @@ inline std::unique_ptr<Input> parse_input(xjson::Parser &cfg) {
     return nullptr;
 }
 
-inline std::unique_ptr<Output> parse_output(xjson::Parser &cfg) {
+inline std::unique_ptr<Output> parse_output(x::json::Parser &cfg) {
     const auto type = cfg.field<std::string>("type");
     const auto output = OUTPUTS.find(type);
     if (output != OUTPUTS.end()) return output->second(cfg);

@@ -21,13 +21,13 @@
 #include "client/cpp/ranger/ranger.h"
 #include "client/cpp/status/status.h"
 #include "client/cpp/transport.h"
-#include "x/cpp/xjson/xjson.h"
-#include "x/cpp/xlog/xlog.h"
-#include "x/cpp/xpath/xpath.h"
+#include "x/cpp/json/json.h"
+#include "x/cpp/log/log.h"
+#include "x/cpp/path/path.h"
 
 namespace synnax {
 ///// @brief Internal namespace. Do not use.
-namespace priv {
+namespace details {
 /// @brief Does a best effort check to ensure the machine is little endian, and
 /// warns the user if it is not.
 inline void check_little_endian() {
@@ -62,7 +62,7 @@ struct Config {
     /// or using username/password authentication.
     std::string client_key_file;
     /// @brief sets the clock skew threshold at which a warning will be logged.
-    telem::TimeSpan clock_skew_threshold = telem::SECOND * 1;
+    x::telem::TimeSpan clock_skew_threshold = x::telem::SECOND * 1;
     /// @brief sets the maximum number of login retries before giving up.
     std::uint32_t max_retries = 5;
 
@@ -78,7 +78,7 @@ struct Config {
         );
         this->client_key_file = parser.field("client_key_file", this->client_key_file);
         this->ca_cert_file = parser.field("ca_cert_file", this->ca_cert_file);
-        this->clock_skew_threshold = telem::TimeSpan(parser.field(
+        this->clock_skew_threshold = x::telem::TimeSpan(parser.field(
             "clock_skew_threshold",
             this->clock_skew_threshold.nanoseconds()
         ));
@@ -86,21 +86,21 @@ struct Config {
     }
 
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
-        os << xlog::SHALE() << "  " << "cluster address" << xlog::RESET() << ": "
+        os << x::log::SHALE() << "  " << "cluster address" << x::log::RESET() << ": "
            << cfg.address() << "\n"
-           << "  " << xlog::SHALE() << "username" << xlog::RESET() << ": "
+           << "  " << x::log::SHALE() << "username" << x::log::RESET() << ": "
            << cfg.username << "\n"
-           << "  " << xlog::SHALE() << "password" << xlog::RESET() << ": "
-           << xlog::sensitive_string(cfg.password) << "\n"
-           << "  " << xlog::SHALE() << "secure" << xlog::RESET() << ": "
-           << xlog::bool_to_str(cfg.is_secure()) << "\n";
+           << "  " << x::log::SHALE() << "password" << x::log::RESET() << ": "
+           << x::log::sensitive_string(cfg.password) << "\n"
+           << "  " << x::log::SHALE() << "secure" << x::log::RESET() << ": "
+           << x::log::bool_to_str(cfg.is_secure()) << "\n";
         if (!cfg.is_secure()) return os;
-        os << "  " << xlog::SHALE() << "ca_cert_file" << xlog::RESET() << ": "
-           << xpath::resolve_relative(cfg.ca_cert_file) << "\n"
-           << "  " << xlog::SHALE() << "client_cert_file" << xlog::RESET() << ": "
-           << xpath::resolve_relative(cfg.client_cert_file) << "\n"
-           << "  " << xlog::SHALE() << "client_key_file" << xlog::RESET() << ": "
-           << xpath::resolve_relative(cfg.client_key_file) << "\n";
+        os << "  " << x::log::SHALE() << "ca_cert_file" << x::log::RESET() << ": "
+           << x::path::resolve_relative(cfg.ca_cert_file) << "\n"
+           << "  " << x::log::SHALE() << "client_cert_file" << x::log::RESET() << ": "
+           << x::path::resolve_relative(cfg.client_cert_file) << "\n"
+           << "  " << x::log::SHALE() << "client_key_file" << x::log::RESET() << ": "
+           << x::path::resolve_relative(cfg.client_key_file) << "\n";
         return os;
     }
 
@@ -158,7 +158,7 @@ public:
             cfg.client_cert_file,
             cfg.client_key_file
         );
-        priv::check_little_endian();
+        details::check_little_endian();
         this->auth = std::make_shared<AuthMiddleware>(
             std::move(t.auth_login),
             cfg.username,

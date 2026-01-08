@@ -9,7 +9,7 @@ cc_library(
         "//freighter/cpp/fgrpc",
         "//x/cpp/status",
         "//x/cpp/telem",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
         "@grpc//:grpc++",
     ],
 )

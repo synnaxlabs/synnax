@@ -192,7 +192,7 @@ func (p *Plugin) generateProto(
 	data.includes.addSystem("type_traits")
 	data.includes.addSystem("utility")
 	data.includes.addInternal(fmt.Sprintf("%s/types.gen.h", outputPath))
-	data.includes.addInternal("x/cpp/xerrors/errors.h")
+	data.includes.addInternal("x/cpp/errors/errors.h")
 
 	pbOutputPaths := make(map[string]bool)
 	for _, s := range structs {
@@ -373,16 +373,16 @@ func (p *Plugin) generateJsonFieldConversion(
 ) (forward, backward string) {
 	fieldName := field.Name
 	if field.IsHardOptional {
-		forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = xjson::to_any(*this->%s)", fieldName, fieldName, fieldName)
+		forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = x::xjson::to_any(*this->%s)", fieldName, fieldName, fieldName)
 		backward = fmt.Sprintf(`if (pb.has_%s()) {
-        auto [val, err] = xjson::from_any(pb.%s());
+        auto [val, err] = x::xjson::from_any(pb.%s());
         if (err) return {{}, err};
         cpp.%s = val;
     }`, fieldName, fieldName, fieldName)
 	} else {
-		forward = fmt.Sprintf("*pb.mutable_%s() = xjson::to_any(this->%s)", fieldName, fieldName)
+		forward = fmt.Sprintf("*pb.mutable_%s() = x::xjson::to_any(this->%s)", fieldName, fieldName)
 		backward = fmt.Sprintf(`{
-        auto [val, err] = xjson::from_any(pb.%s());
+        auto [val, err] = x::xjson::from_any(pb.%s());
         if (err) return {{}, err};
         cpp.%s = val;
     }`, fieldName, fieldName)
@@ -401,26 +401,26 @@ func (p *Plugin) generatePrimitiveConversion(
 			fmt.Sprintf("cpp.%s = pb.%s();", fieldName, fieldName)
 	case "timestamp":
 		return fmt.Sprintf("%s(this->%s.nanoseconds())", pbSetter, fieldName),
-			fmt.Sprintf("cpp.%s = telem::TimeStamp(pb.%s());", fieldName, fieldName)
+			fmt.Sprintf("cpp.%s = x::telem::TimeStamp(pb.%s());", fieldName, fieldName)
 	case "timespan":
 		return fmt.Sprintf("%s(this->%s.nanoseconds())", pbSetter, fieldName),
-			fmt.Sprintf("cpp.%s = telem::TimeSpan(pb.%s());", fieldName, fieldName)
+			fmt.Sprintf("cpp.%s = x::telem::TimeSpan(pb.%s());", fieldName, fieldName)
 	case "data_type":
 		return fmt.Sprintf("%s(std::string(this->%s))", pbSetter, fieldName),
-			fmt.Sprintf("cpp.%s = telem::DataType(pb.%s());", fieldName, fieldName)
+			fmt.Sprintf("cpp.%s = x::telem::DataType(pb.%s());", fieldName, fieldName)
 	case "json":
 		data.includes.addInternal("x/cpp/xjson/struct.h")
 		if isOptional {
-			forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = xjson::to_struct(*this->%s).first", fieldName, fieldName, fieldName)
+			forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = x::xjson::to_struct(*this->%s).first", fieldName, fieldName, fieldName)
 			backward = fmt.Sprintf(`if (pb.has_%s()) {
-        auto [val, err] = xjson::from_struct(pb.%s());
+        auto [val, err] = x::xjson::from_struct(pb.%s());
         if (err) return {{}, err};
         cpp.%s = val;
     }`, fieldName, fieldName, fieldName)
 		} else {
-			forward = fmt.Sprintf("*pb.mutable_%s() = xjson::to_struct(this->%s).first", fieldName, fieldName)
+			forward = fmt.Sprintf("*pb.mutable_%s() = x::xjson::to_struct(this->%s).first", fieldName, fieldName)
 			backward = fmt.Sprintf(`{
-        auto [val, err] = xjson::from_struct(pb.%s());
+        auto [val, err] = x::xjson::from_struct(pb.%s());
         if (err) return {{}, err};
         cpp.%s = val;
     }`, fieldName, fieldName)
@@ -515,7 +515,7 @@ func (p *Plugin) generateTypeParamConversion(
 		forward = fmt.Sprintf("if (this->%s.has_value()) pb.mutable_%s()->PackFrom(this->%s->to_proto())", fieldName, fieldName, fieldName)
 		backward = fmt.Sprintf(`if (pb.has_%s()) {
         typename %s::proto_type pb_val;
-        if (!pb.%s().UnpackTo(&pb_val)) return {{}, xerrors::Error("failed to unpack %s")};
+        if (!pb.%s().UnpackTo(&pb_val)) return {{}, x::errors::Error("failed to unpack %s")};
         auto [val, err] = %s::from_proto(pb_val);
         if (err) return {{}, err};
         cpp.%s = val;
@@ -524,7 +524,7 @@ func (p *Plugin) generateTypeParamConversion(
 		forward = fmt.Sprintf("pb.mutable_%s()->PackFrom(this->%s.to_proto())", fieldName, fieldName)
 		backward = fmt.Sprintf(`{
         typename %s::proto_type pb_val;
-        if (!pb.%s().UnpackTo(&pb_val)) return {{}, xerrors::Error("failed to unpack %s")};
+        if (!pb.%s().UnpackTo(&pb_val)) return {{}, x::errors::Error("failed to unpack %s")};
         auto [val, err] = %s::from_proto(pb_val);
         if (err) return {{}, err};
         cpp.%s = val;
@@ -709,8 +709,22 @@ func deriveNamespace(outputPath string) string {
 	if len(parts) == 0 {
 		return "synnax"
 	}
+
+	// Determine the top-level namespace based on the path prefix
+	var topLevel string
+	switch {
+	case len(parts) >= 2 && parts[0] == "x" && parts[1] == "cpp":
+		topLevel = "x"
+	case len(parts) >= 2 && parts[0] == "client" && parts[1] == "cpp":
+		topLevel = "synnax"
+	case len(parts) >= 1 && parts[0] == "driver":
+		topLevel = "driver"
+	default:
+		topLevel = "synnax"
+	}
+
 	subNs := parts[len(parts)-1]
-	return fmt.Sprintf("synnax::%s", subNs)
+	return fmt.Sprintf("%s::%s", topLevel, subNs)
 }
 
 func deriveProtoInclude(pbOutputPath, namespace string) string {

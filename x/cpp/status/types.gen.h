@@ -12,13 +12,14 @@
 #pragma once
 
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
 #include "x/cpp/label/types.gen.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xjson/xjson.h"
 
 namespace x::status {
 class Status;
@@ -44,14 +45,20 @@ struct Status {
     std::vector<synnax::label::Label> labels;
     std::string variant;
 
-    static Status parse(xjson::Parser parser) {
+    static Status parse(x::json::Parser parser) {
         return Status{
             .key = parser.field<std::string>("key"),
             .name = parser.field<std::string>("name"),
             .message = parser.field<std::string>("message"),
             .description = parser.field<std::string>("description", ""),
             .time = telem::TimeStamp(parser.field<std::int64_t>("time")),
-            .details = Details::parse(parser.optional_child("details")),
+            .details = [&]() -> Details {
+                if constexpr (std::is_same_v<Details, nlohmann::json>) {
+                    return parser.field<nlohmann::json>("details", nlohmann::json{});
+                } else {
+                    return Details::parse(parser.optional_child("details"));
+                }
+            }(),
             .labels = parser.field<std::vector<synnax::label::Label>>("labels", {}),
             .variant = parser.field<std::string>("variant"),
         };
@@ -64,7 +71,11 @@ struct Status {
         j["message"] = this->message;
         j["description"] = this->description;
         j["time"] = this->time.nanoseconds();
-        j["details"] = this->details.to_json();
+        if constexpr (std::is_same_v<Details, nlohmann::json>) {
+            j["details"] = this->details;
+        } else {
+            j["details"] = this->details.to_json();
+        }
         {
             auto arr = nlohmann::json::array();
             for (const auto &item: this->labels)
@@ -77,6 +88,6 @@ struct Status {
 
     using proto_type = x::status::Status;
     [[nodiscard]] x::status::Status to_proto() const;
-    static std::pair<Status, xerrors::Error> from_proto(const x::status::Status &pb);
+    static std::pair<Status, errors::Error> from_proto(const x::status::Status &pb);
 };
 }

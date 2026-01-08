@@ -1,5 +1,0 @@
-cc_library(
-    name = "xpath",
-    hdrs = ["xpath.h"],
-    visibility = ["//visibility:public"],
-)

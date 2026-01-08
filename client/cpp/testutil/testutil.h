@@ -31,7 +31,7 @@ extern std::string make_unique_channel_name(const std::string &base_name);
 
 synnax::Channel create_virtual_channel(
     const synnax::Synnax &client,
-    const telem::DataType &data_type = telem::FLOAT32_T
+    const x::telem::DataType &data_type = x::telem::FLOAT32_T
 );
 
 std::pair<synnax::Channel, synnax::Channel> create_indexed_pair(synnax::Synnax &client);

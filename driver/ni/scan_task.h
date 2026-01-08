@@ -32,14 +32,14 @@
 #include "driver/ni/syscfg/sugared.h"
 #include "driver/task/common/scan_task.h"
 
-namespace ni {
+namespace driver::ni {
 const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task] ";
 const std::string RESET_DEVICE_CMD = "reset_device";
 
 struct ResetDeviceCommandArgs {
     std::vector<std::string> device_keys;
 
-    explicit ResetDeviceCommandArgs(xjson::Parser &parser):
+    explicit ResetDeviceCommandArgs(x::json::Parser &parser):
         device_keys(parser.field<std::vector<std::string>>("device_keys")) {}
 };
 
@@ -87,11 +87,11 @@ struct Device : synnax::Device {
 /// @brief the default pattern for ignoring certain models.
 const std::vector<std::string> DEFAULT_IGNORED_MODELS = {"^cRIO.*", "^nown.*"};
 /// @brief configuration for opening a scan task.
-struct ScanTaskConfig : common::ScanTaskConfig {
+struct ScanTaskConfig : driver::task::common::ScanTaskConfig {
     /// @brief a set of regex patterns to ignore certain devices when scanning.
     std::vector<std::regex> ignored_models;
 
-    explicit ScanTaskConfig(xjson::Parser &cfg): common::ScanTaskConfig(cfg) {
+    explicit ScanTaskConfig(x::json::Parser &cfg): driver::task::common::ScanTaskConfig(cfg) {
         const auto i = cfg.field<std::vector<std::string>>(
             "ignored_models",
             DEFAULT_IGNORED_MODELS
@@ -109,7 +109,7 @@ struct ScanTaskConfig : common::ScanTaskConfig {
 };
 
 /// @brief a task that scans for NI devices.
-class Scanner final : public common::Scanner {
+class Scanner final : public driver::task::common::Scanner {
     /// @brief configuration for the scan task.
     const ScanTaskConfig cfg;
     const synnax::Task task;
@@ -121,15 +121,15 @@ class Scanner final : public common::Scanner {
     NISysCfgFilterHandle filter = nullptr;
 
     /// @brief parses the device located at the specified resource handle.
-    /// @returns the parsed device and xerrors::NIL error if successful.
+    /// @returns the parsed device and x::errors::NIL error if successful.
     /// @returns the device and an SKIP_DEVICE_ERR error if the device should be
     /// skipped.
     /// @returns an empty device and an error if the device could not be parsed.
-    std::pair<ni::Device, xerrors::Error>
+    std::pair<driver::ni::Device, x::errors::Error>
     parse_device(NISysCfgResourceHandle resource) const;
 
-    common::ScannerConfig config() const override {
-        return common::ScannerConfig{.make = MAKE, .log_prefix = SCAN_LOG_PREFIX};
+    driver::task::common::ScannerConfig config() const override {
+        return driver::task::common::ScannerConfig{.make = MAKE, .log_prefix = SCAN_LOG_PREFIX};
     }
 
 public:
@@ -139,11 +139,11 @@ public:
         synnax::Task task
     );
 
-    xerrors::Error start() override;
+    x::errors::Error start() override;
 
-    std::pair<std::vector<synnax::Device>, xerrors::Error>
-    scan(const common::ScannerContext &ctx) override;
+    std::pair<std::vector<synnax::Device>, x::errors::Error>
+    scan(const driver::task::common::ScannerContext &ctx) override;
 
-    xerrors::Error stop() override;
+    x::errors::Error stop() override;
 };
 }

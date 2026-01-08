@@ -15,8 +15,8 @@
 #include <utility>
 
 #include "client/cpp/task/types.gen.h"
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xjson/struct.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/struct.h"
 
 #include "core/pkg/service/task/pb/task.pb.h"
 
@@ -28,22 +28,22 @@ inline service::task::StatusDetails StatusDetails::to_proto() const {
     pb.set_running(this->running);
     pb.set_cmd(this->cmd);
     if (this->data.has_value())
-        *pb.mutable_data() = xjson::to_struct(*this->data).first;
+        *pb.mutable_data() = x::json::to_struct(*this->data).first;
     return pb;
 }
 
-inline std::pair<StatusDetails, xerrors::Error>
+inline std::pair<StatusDetails, x::errors::Error>
 StatusDetails::from_proto(const service::task::StatusDetails &pb) {
     StatusDetails cpp;
     cpp.task = Key(pb.task());
     cpp.running = pb.running();
     cpp.cmd = pb.cmd();
     if (pb.has_data()) {
-        auto [val, err] = xjson::from_struct(pb.data());
+        auto [val, err] = x::json::from_struct(pb.data());
         if (err) return {{}, err};
         cpp.data = val;
     }
-    return {cpp, xerrors::NIL};
+    return {cpp, x::errors::NIL};
 }
 
 inline service::task::Task Payload::to_proto() const {
@@ -58,7 +58,7 @@ inline service::task::Task Payload::to_proto() const {
     return pb;
 }
 
-inline std::pair<Payload, xerrors::Error>
+inline std::pair<Payload, x::errors::Error>
 Payload::from_proto(const service::task::Task &pb) {
     Payload cpp;
     cpp.key = Key(pb.key());
@@ -72,7 +72,7 @@ Payload::from_proto(const service::task::Task &pb) {
         if (err) return {{}, err};
         cpp.status = val;
     }
-    return {cpp, xerrors::NIL};
+    return {cpp, x::errors::NIL};
 }
 
 inline service::task::Command Command::to_proto() const {
@@ -80,22 +80,22 @@ inline service::task::Command Command::to_proto() const {
     pb.set_task(static_cast<uint64_t>(this->task));
     pb.set_type(this->type);
     pb.set_key(this->key);
-    *pb.mutable_args() = xjson::to_struct(this->args).first;
+    *pb.mutable_args() = x::json::to_struct(this->args).first;
     return pb;
 }
 
-inline std::pair<Command, xerrors::Error>
+inline std::pair<Command, x::errors::Error>
 Command::from_proto(const service::task::Command &pb) {
     Command cpp;
     cpp.task = Key(pb.task());
     cpp.type = pb.type();
     cpp.key = pb.key();
     {
-        auto [val, err] = xjson::from_struct(pb.args());
+        auto [val, err] = x::json::from_struct(pb.args());
         if (err) return {{}, err};
         cpp.args = val;
     }
-    return {cpp, xerrors::NIL};
+    return {cpp, x::errors::NIL};
 }
 
 }

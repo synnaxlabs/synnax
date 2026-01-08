@@ -9,15 +9,15 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/xtest.h"
 
 #include "driver/task/common/status.h"
 
 /// @brief it should correctly communicate the starting state of a task.
 TEST(TestTaskStateHandler, testStartCommunication) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
     const synnax::Task task("task1", "ni_analog_read", "");
-    auto handler = common::StatusHandler(ctx, task);
+    auto handler = driver::task::common::StatusHandler(ctx, task);
 
     handler.send_start("cmd_key");
     ASSERT_GE(ctx->statuses.size(), 1);
@@ -30,7 +30,7 @@ TEST(TestTaskStateHandler, testStartCommunication) {
     EXPECT_EQ(first.details.running, true);
     EXPECT_EQ(first.message, "Task started successfully");
 
-    handler.error(xerrors::Error(xerrors::VALIDATION, "task validation error"));
+    handler.error(x::errors::Error(x::errors::VALIDATION, "task validation error"));
     handler.send_start("cmd_key");
     ASSERT_GE(ctx->statuses.size(), 2);
     const auto second = ctx->statuses[1];
@@ -45,9 +45,9 @@ TEST(TestTaskStateHandler, testStartCommunication) {
 
 /// @brief it should correctly communicate a warning to the context.
 TEST(TestTaskStateHandler, testSendWarning) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
     const synnax::Task task("task1", "ni_analog_read", "");
-    auto handler = common::StatusHandler(ctx, task);
+    auto handler = driver::task::common::StatusHandler(ctx, task);
 
     handler.send_warning("Test warning message");
     ASSERT_GE(ctx->statuses.size(), 1);
@@ -57,7 +57,7 @@ TEST(TestTaskStateHandler, testSendWarning) {
     EXPECT_EQ(first.variant, status::variant::WARNING);
     EXPECT_EQ(first.message, "Test warning message");
 
-    handler.error(xerrors::Error(xerrors::VALIDATION, "task validation error"));
+    handler.error(x::errors::Error(x::errors::VALIDATION, "task validation error"));
     handler.send_warning("This warning should not be sent");
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second = ctx->statuses[1];
@@ -68,9 +68,9 @@ TEST(TestTaskStateHandler, testSendWarning) {
 
 /// @brief it should correctly move the task back to a nominal running state.
 TEST(TestTaskStateHandle, testClearWarning) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
     const synnax::Task task("task1", "ni_analog_read", "");
-    auto handler = common::StatusHandler(ctx, task);
+    auto handler = driver::task::common::StatusHandler(ctx, task);
 
     // First send a warning
     handler.send_warning("Test warning message");
@@ -89,7 +89,7 @@ TEST(TestTaskStateHandle, testClearWarning) {
     EXPECT_EQ(second.message, "Task running");
 
     // Test that clear_warning doesn't do anything if not in warning state
-    handler.error(xerrors::Error(xerrors::VALIDATION, "task validation error"));
+    handler.error(x::errors::Error(x::errors::VALIDATION, "task validation error"));
     handler.send_warning("This is an error");
     ASSERT_GE(ctx->statuses.size(), 3);
     const auto third = ctx->statuses[2];
@@ -103,9 +103,9 @@ TEST(TestTaskStateHandle, testClearWarning) {
 
 /// @brief it should correctly communicate the stopping state of a task.
 TEST(TestTaskStateHandler, testStopCommunication) {
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
     const synnax::Task task("task1", "ni_analog_read", "");
-    auto handler = common::StatusHandler(ctx, task);
+    auto handler = driver::task::common::StatusHandler(ctx, task);
 
     handler.send_stop("cmd_key");
     ASSERT_GE(ctx->statuses.size(), 1);
@@ -117,7 +117,7 @@ TEST(TestTaskStateHandler, testStopCommunication) {
     EXPECT_EQ(first.details.running, false);
     EXPECT_EQ(first.message, "Task stopped successfully");
 
-    handler.error(xerrors::Error(xerrors::VALIDATION, "task validation error"));
+    handler.error(x::errors::Error(x::errors::VALIDATION, "task validation error"));
     handler.send_stop("cmd_key");
     ASSERT_GE(ctx->statuses.size(), 2);
     const auto second = ctx->statuses[1];

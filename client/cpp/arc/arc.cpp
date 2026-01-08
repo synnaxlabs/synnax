@@ -13,7 +13,7 @@
 #include "client/cpp/arc/arc.h"
 #include "client/cpp/errors/errors.h"
 #include "freighter/cpp/freighter.h"
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 const std::string ARC_CREATE_ENDPOINT = "/api/v1/arc/create";
 const std::string ARC_RETRIEVE_ENDPOINT = "/api/v1/arc/retrieve";
@@ -52,7 +52,7 @@ ArcClient::ArcClient(
     create_client(std::move(create_client)),
     delete_client(std::move(delete_client)) {}
 
-xerrors::Error ArcClient::create(Arc &arc) const {
+x::errors::Error ArcClient::create(Arc &arc) const {
     auto req = grpc::arc::CreateRequest();
     arc.to_proto(req.add_arcs());
     auto [res, err] = create_client->send(ARC_CREATE_ENDPOINT, req);
@@ -68,10 +68,10 @@ xerrors::Error ArcClient::create(Arc &arc) const {
     arc.deploy = first.deploy();
     arc.version = first.version();
 
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
-xerrors::Error ArcClient::create(std::vector<Arc> &arcs) const {
+x::errors::Error ArcClient::create(std::vector<Arc> &arcs) const {
     auto req = grpc::arc::CreateRequest();
     req.mutable_arcs()->Reserve(static_cast<int>(arcs.size()));
     for (const auto &arc: arcs)
@@ -91,16 +91,16 @@ xerrors::Error ArcClient::create(std::vector<Arc> &arcs) const {
         arcs[i].version = pb.version();
     }
 
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
-std::pair<Arc, xerrors::Error> ArcClient::create(const std::string &name) const {
+std::pair<Arc, x::errors::Error> ArcClient::create(const std::string &name) const {
     auto arc = Arc(name);
     auto err = create(arc);
     return {arc, err};
 }
 
-std::pair<Arc, xerrors::Error> ArcClient::retrieve_by_name(
+std::pair<Arc, x::errors::Error> ArcClient::retrieve_by_name(
     const std::string &name,
     const RetrieveOptions &options
 ) const {
@@ -113,10 +113,10 @@ std::pair<Arc, xerrors::Error> ArcClient::retrieve_by_name(
     if (res.arcs_size() == 0) return {Arc(), unexpected_missing_error("arc")};
     if (res.arcs_size() > 1) return {Arc(), multiple_found_error("arc", name)};
 
-    return {Arc(res.arcs(0)), xerrors::NIL};
+    return {Arc(res.arcs(0)), x::errors::NIL};
 }
 
-std::pair<Arc, xerrors::Error> ArcClient::retrieve_by_key(
+std::pair<Arc, x::errors::Error> ArcClient::retrieve_by_key(
     const std::string &key,
     const RetrieveOptions &options
 ) const {
@@ -128,10 +128,10 @@ std::pair<Arc, xerrors::Error> ArcClient::retrieve_by_key(
     if (err) return {Arc(), err};
     if (res.arcs_size() == 0) return {Arc(), unexpected_missing_error("arc")};
 
-    return {Arc(res.arcs(0)), xerrors::NIL};
+    return {Arc(res.arcs(0)), x::errors::NIL};
 }
 
-std::pair<std::vector<Arc>, xerrors::Error> ArcClient::retrieve(
+std::pair<std::vector<Arc>, x::errors::Error> ArcClient::retrieve(
     const std::vector<std::string> &names,
     const RetrieveOptions &options
 ) const {
@@ -148,10 +148,10 @@ std::pair<std::vector<Arc>, xerrors::Error> ArcClient::retrieve(
     for (const auto &pb: res.arcs())
         arcs.emplace_back(pb);
 
-    return {arcs, xerrors::NIL};
+    return {arcs, x::errors::NIL};
 }
 
-std::pair<std::vector<Arc>, xerrors::Error> ArcClient::retrieve_by_keys(
+std::pair<std::vector<Arc>, x::errors::Error> ArcClient::retrieve_by_keys(
     const std::vector<std::string> &keys,
     const RetrieveOptions &options
 ) const {
@@ -168,10 +168,10 @@ std::pair<std::vector<Arc>, xerrors::Error> ArcClient::retrieve_by_keys(
     for (const auto &pb: res.arcs())
         arcs.emplace_back(pb);
 
-    return {arcs, xerrors::NIL};
+    return {arcs, x::errors::NIL};
 }
 
-xerrors::Error ArcClient::delete_arc(const std::string &key) const {
+x::errors::Error ArcClient::delete_arc(const std::string &key) const {
     auto req = grpc::arc::DeleteRequest();
     req.add_keys(key);
 
@@ -179,7 +179,7 @@ xerrors::Error ArcClient::delete_arc(const std::string &key) const {
     return err;
 }
 
-xerrors::Error ArcClient::delete_arc(const std::vector<std::string> &keys) const {
+x::errors::Error ArcClient::delete_arc(const std::vector<std::string> &keys) const {
     auto req = grpc::arc::DeleteRequest();
     for (const auto &key: keys)
         req.add_keys(key);

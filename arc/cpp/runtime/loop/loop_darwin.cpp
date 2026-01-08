@@ -21,7 +21,7 @@
 
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/runtime/loop/loop.h"
 
@@ -43,10 +43,10 @@ protected:
             LOG(WARNING) << "[loop] Memory locking not fully supported on macOS";
     }
 
-    xerrors::Error setup_kqueue() {
+    x::errors::Error setup_kqueue() {
         kqueue_fd_ = kqueue();
         if (kqueue_fd_ == -1)
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to create kqueue: " + std::string(strerror(errno))
             );
 
@@ -55,16 +55,16 @@ protected:
         EV_SET(&kev, USER_EVENT_IDENT, EVFILT_USER, EV_ADD | EV_CLEAR, 0, 0, nullptr);
         if (kevent(kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1) {
             close(kqueue_fd_);
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to register user event: " + std::string(strerror(errno))
             );
         }
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
-    xerrors::Error setup_timer() {
-        if (cfg.interval.nanoseconds() <= 0) return xerrors::NIL;
+    x::errors::Error setup_timer() {
+        if (cfg.interval.nanoseconds() <= 0) return x::errors::NIL;
 
         const uint64_t interval_ms = cfg.interval.milliseconds();
         if (interval_ms == 0)
@@ -82,12 +82,12 @@ protected:
             nullptr
         );
         if (kevent(kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1)
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to register timer event: " + std::string(strerror(errno))
             );
 
         timer_enabled = true;
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     void apply_thread_config() {
@@ -170,8 +170,8 @@ class BusyWaitLoop final : public BaseDarwinLoop {
 public:
     explicit BusyWaitLoop(const Config &config): BaseDarwinLoop(config) {}
 
-    xerrors::Error start() override {
-        if (running) return xerrors::NIL;
+    x::errors::Error start() override {
+        if (running) return x::errors::NIL;
 
         auto err = setup_kqueue();
         if (err) return err;
@@ -187,10 +187,10 @@ public:
         apply_thread_config();
         running = true;
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
-    void wait(breaker::Breaker &breaker) override {
+    void wait(x::breaker::Breaker &breaker) override {
         if (!running) return;
 
         constexpr timespec timeout = {0, 0};
@@ -211,22 +211,22 @@ public:
 };
 
 class HighRateLoop final : public BaseDarwinLoop {
-    std::unique_ptr<::loop::Timer> timer;
+    std::unique_ptr<::x::loop::Timer> timer;
 
 public:
     explicit HighRateLoop(const Config &config): BaseDarwinLoop(config) {}
 
-    xerrors::Error start() override {
-        if (running) return xerrors::NIL;
+    x::errors::Error start() override {
+        if (running) return x::errors::NIL;
         if (cfg.interval.nanoseconds() > 0)
-            timer = std::make_unique<::loop::Timer>(cfg.interval);
+            timer = std::make_unique<::x::loop::Timer>(cfg.interval);
         if (auto err = this->setup_kqueue()) return err;
         this->apply_thread_config();
         running = true;
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
-    void wait(breaker::Breaker &breaker) override {
+    void wait(x::breaker::Breaker &breaker) override {
         if (!running) return;
         if (timer) {
             timer->wait(breaker);
@@ -243,25 +243,25 @@ public:
 };
 
 class HybridLoop final : public BaseDarwinLoop {
-    std::unique_ptr<::loop::Timer> timer;
+    std::unique_ptr<::x::loop::Timer> timer;
 
 public:
     explicit HybridLoop(const Config &config): BaseDarwinLoop(config) {}
 
-    xerrors::Error start() override {
-        if (running) return xerrors::NIL;
+    x::errors::Error start() override {
+        if (running) return x::errors::NIL;
         if (auto err = setup_kqueue()) return err;
 
         if (cfg.interval.nanoseconds() > 0)
-            timer = std::make_unique<::loop::Timer>(cfg.interval);
+            timer = std::make_unique<::x::loop::Timer>(cfg.interval);
 
         apply_thread_config();
         running = true;
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
-    void wait(breaker::Breaker &breaker) override {
+    void wait(x::breaker::Breaker &breaker) override {
         if (!running) return;
 
         const auto spin_start = std::chrono::steady_clock::now();
@@ -300,8 +300,8 @@ class EventDrivenLoop final : public BaseDarwinLoop {
 public:
     explicit EventDrivenLoop(const Config &config): BaseDarwinLoop(config) {}
 
-    xerrors::Error start() override {
-        if (running) return xerrors::NIL;
+    x::errors::Error start() override {
+        if (running) return x::errors::NIL;
 
         auto err = setup_kqueue();
         if (err) return err;
@@ -317,10 +317,10 @@ public:
         apply_thread_config();
         running = true;
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
-    void wait(breaker::Breaker &breaker) override {
+    void wait(x::breaker::Breaker &breaker) override {
         if (!running) return;
 
         // Check if data is already available (handles early notifications)
@@ -338,7 +338,7 @@ public:
     }
 };
 
-std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {
+std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg) {
     Config adjusted_cfg = cfg;
 
     // Adjust unsupported modes
@@ -378,7 +378,7 @@ std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {
     }
 
     if (auto err = loop->start(); err) { return {nullptr, err}; }
-    return {std::move(loop), xerrors::NIL};
+    return {std::move(loop), x::errors::NIL};
 }
 
 }

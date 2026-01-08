@@ -11,16 +11,16 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/xtest.h"
 
 #include "driver/errors/errors.h"
 #include "driver/labjack/errors.h"
 #include "driver/ni/errors.h"
 
 const std::vector<driver::LibraryInfo> ALL_LIBS = {
-    labjack::LABJACK_LJM,
-    ni::NI_DAQMX,
-    ni::NI_SYSCFG,
+    driver::labjack::LABJACK_LJM,
+    driver::ni::NI_DAQMX,
+    driver::ni::NI_SYSCFG,
 };
 
 /// @brief it should have non-empty names and URLs for all library info.
@@ -51,7 +51,7 @@ TEST(ErrorsTest, LibraryInfoWithoutURL) {
 
     auto err = driver::missing_lib(no_url);
 
-    ASSERT_MATCHES(err, xlib::LOAD_ERROR);
+    ASSERT_MATCHES(err, x::lib::LOAD_ERROR);
     EXPECT_NE(err.data.find("Test Library"), std::string::npos);
     EXPECT_NE(err.data.find("is not installed"), std::string::npos);
     EXPECT_EQ(err.data.find("Download here:"), std::string::npos);
@@ -59,7 +59,7 @@ TEST(ErrorsTest, LibraryInfoWithoutURL) {
 
 /// @brief it should wrap error with channel name and hardware location.
 TEST(ErrorsTest, WrapChannelError) {
-    auto base_err = xerrors::Error(
+    auto base_err = x::errors::Error(
         driver::CRITICAL_HARDWARE_ERROR,
         "some hardware error"
     );

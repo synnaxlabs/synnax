@@ -40,7 +40,7 @@ synnax::Transport synnax::Transport::configure(
     const std::string &client_cert_file,
     const std::string &client_key_file
 ) {
-    auto base_target = url::URL(ip, port, "").to_string();
+    auto base_target = x::url::URL(ip, port, "").to_string();
     auto pool = std::make_shared<fgrpc::Pool>(
         ca_cert_file,
         client_cert_file,
@@ -76,17 +76,17 @@ synnax::Transport synnax::Transport::configure(
             grpc::ranger::CreateResponse,
             grpc::ranger::RangeCreateService>>(pool, base_target),
         .range_kv_delete = std::make_shared<fgrpc::UnaryClient<
-            grpc::kv::DeleteRequest,
+            grpc::x::kv::DeleteRequest,
             google::protobuf::Empty,
-            grpc::kv::KVDeleteService>>(pool, base_target),
+            grpc::x::kv::KVDeleteService>>(pool, base_target),
         .range_kv_get = std::make_shared<fgrpc::UnaryClient<
-            grpc::kv::GetRequest,
-            grpc::kv::GetResponse,
-            grpc::kv::KVGetService>>(pool, base_target),
+            grpc::x::kv::GetRequest,
+            grpc::x::kv::GetResponse,
+            grpc::x::kv::KVGetService>>(pool, base_target),
         .range_kv_set = std::make_shared<fgrpc::UnaryClient<
-            grpc::kv::SetRequest,
+            grpc::x::kv::SetRequest,
             google::protobuf::Empty,
-            grpc::kv::KVSetService>>(pool, base_target),
+            grpc::x::kv::KVSetService>>(pool, base_target),
         .rack_create_client = std::make_unique<fgrpc::UnaryClient<
             grpc::rack::CreateRequest,
             grpc::rack::CreateResponse,

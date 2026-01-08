@@ -10,7 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/series.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/xtest.h"
 
 #include "arc/cpp/runtime/state/state.h"
 
@@ -41,7 +41,7 @@ TEST(StateTest, GetNonExistentNode) {
     Config cfg{.ir = ir, .channels = {}};
     State s(cfg);
 
-    ASSERT_OCCURRED_AS_P(s.node("nonexistent"), xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS_P(s.node("nonexistent"), x::errors::NOT_FOUND);
 }
 
 /// @brief Test basic input alignment with two connected nodes
@@ -91,9 +91,9 @@ TEST(StateTest, RefreshInputs_BasicAlignment) {
 
     auto &o_time = producer_node.output_time(0);
     o_time->resize(3);
-    o_time->set(0, telem::TimeStamp(1000).nanoseconds());
-    o_time->set(1, telem::TimeStamp(2000).nanoseconds());
-    o_time->set(2, telem::TimeStamp(3000).nanoseconds());
+    o_time->set(0, x::telem::TimeStamp(1000).nanoseconds());
+    o_time->set(1, x::telem::TimeStamp(2000).nanoseconds());
+    o_time->set(2, x::telem::TimeStamp(3000).nanoseconds());
 
     auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
 
@@ -195,8 +195,8 @@ TEST(StateTest, RefreshInputs_WatermarkTracking) {
 
     auto &o_time = producer_node.output_time(0);
     o_time->resize(2);
-    o_time->set(0, telem::TimeStamp(1000).nanoseconds());
-    o_time->set(1, telem::TimeStamp(2000).nanoseconds());
+    o_time->set(0, x::telem::TimeStamp(1000).nanoseconds());
+    o_time->set(1, x::telem::TimeStamp(2000).nanoseconds());
 
     bool triggered1 = consumer_node.refresh_inputs();
     ASSERT_TRUE(triggered1);
@@ -208,7 +208,7 @@ TEST(StateTest, RefreshInputs_WatermarkTracking) {
     o->resize(3);
     o->set(2, 3.0f);
     o_time->resize(3);
-    o_time->set(2, telem::TimeStamp(3000).nanoseconds());
+    o_time->set(2, x::telem::TimeStamp(3000).nanoseconds());
 
     bool triggered3 = consumer_node.refresh_inputs();
     ASSERT_TRUE(triggered3);
@@ -284,8 +284,8 @@ TEST(StateTest, RefreshInputs_MultipleInputs) {
 
     auto &o1_time = producer1_node.output_time(0);
     o1_time->resize(2);
-    o1_time->set(0, telem::TimeStamp(1000).nanoseconds());
-    o1_time->set(1, telem::TimeStamp(2000).nanoseconds());
+    o1_time->set(0, x::telem::TimeStamp(1000).nanoseconds());
+    o1_time->set(1, x::telem::TimeStamp(2000).nanoseconds());
 
     bool triggered1 = consumer_node.refresh_inputs();
     ASSERT_FALSE(triggered1);
@@ -297,8 +297,8 @@ TEST(StateTest, RefreshInputs_MultipleInputs) {
 
     auto &o2_time = producer2_node.output_time(0);
     o2_time->resize(2);
-    o2_time->set(0, telem::TimeStamp(1000).nanoseconds());
-    o2_time->set(1, telem::TimeStamp(2000).nanoseconds());
+    o2_time->set(0, x::telem::TimeStamp(1000).nanoseconds());
+    o2_time->set(1, x::telem::TimeStamp(2000).nanoseconds());
 
     bool triggered2 = consumer_node.refresh_inputs();
     ASSERT_TRUE(triggered2);
@@ -385,8 +385,8 @@ TEST(StateTest, OptionalInput_OverrideDefault) {
 
     auto &o_time = producer_node.output_time(0);
     o_time->resize(2);
-    o_time->set(0, telem::TimeStamp(1000).nanoseconds());
-    o_time->set(1, telem::TimeStamp(2000).nanoseconds());
+    o_time->set(0, x::telem::TimeStamp(1000).nanoseconds());
+    o_time->set(1, x::telem::TimeStamp(2000).nanoseconds());
 
     auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
 

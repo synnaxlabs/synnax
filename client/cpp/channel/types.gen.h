@@ -16,8 +16,8 @@
 #include <utility>
 
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
 
 namespace distribution::channel {
 class Operation;
@@ -36,13 +36,13 @@ using Name = std::string;
 struct Operation {
     std::string type;
     ChannelKey reset_channel;
-    telem::TimeSpan duration;
+    x::telem::TimeSpan duration;
 
-    static Operation parse(xjson::Parser parser) {
+    static Operation parse(x::json::Parser parser) {
         return Operation{
             .type = parser.field<std::string>("type"),
             .reset_channel = parser.field<ChannelKey>("reset_channel"),
-            .duration = telem::TimeSpan(parser.field<std::int64_t>("duration")),
+            .duration = x::telem::TimeSpan(parser.field<std::int64_t>("duration")),
         };
     }
 
@@ -56,7 +56,7 @@ struct Operation {
 
     using proto_type = distribution::channel::Operation;
     [[nodiscard]] distribution::channel::Operation to_proto() const;
-    static std::pair<Operation, xerrors::Error>
+    static std::pair<Operation, x::errors::Error>
     from_proto(const distribution::channel::Operation &pb);
 };
 }

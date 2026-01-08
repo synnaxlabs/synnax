@@ -17,7 +17,7 @@
 #include "driver/task/common/read_task.h"
 #include "driver/task/common/sample_clock.h"
 
-namespace modbus {
+namespace driver::modbus {
 /// @brief interface for reading from different types of Modbus registers/bits.
 struct Reader {
     virtual ~Reader() = default;
@@ -28,10 +28,10 @@ struct Reader {
     /// @param fr the frame to populate with the response data.
     /// @param offset the series offset into the frame to start writing at. This is
     /// incremented by the number of series modified.
-    /// @returns xerrors::NIL if successful, any other error otherwise.
-    virtual xerrors::Error read(
+    /// @returns x::errors::NIL if successful, any other error otherwise.
+    virtual x::errors::Error read(
         const std::shared_ptr<device::Device> &dev,
-        telem::Frame &fr,
+        x::telem::Frame &fr,
         size_t &offset
     ) = 0;
 
@@ -75,12 +75,12 @@ public:
         this->buffer.resize(last_addr - first_addr);
     }
 
-    xerrors::Error read(
+    x::errors::Error read(
         const std::shared_ptr<device::Device> &dev,
-        telem::Frame &fr,
+        x::telem::Frame &fr,
         size_t &frame_offset
     ) override {
-        if (channels.empty()) return xerrors::NIL;
+        if (channels.empty()) return x::errors::NIL;
 
         const int start_addr = this->channels[0].address;
 
@@ -103,7 +103,7 @@ public:
             if (err) return err;
             fr.series->at(frame_offset++).write(value);
         }
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 };
 
@@ -123,12 +123,12 @@ public:
         bit_type(bit_type),
         buffer(this->channels.back().address - this->channels.front().address + 1) {}
 
-    xerrors::Error read(
+    x::errors::Error read(
         const std::shared_ptr<device::Device> &dev,
-        telem::Frame &fr,
+        x::telem::Frame &fr,
         size_t &frame_offset
     ) override {
-        if (channels.empty()) return xerrors::NIL;
+        if (channels.empty()) return x::errors::NIL;
 
         const int start_addr = channels.front().address;
 
@@ -143,12 +143,12 @@ public:
         for (const auto &channel: channels)
             fr.series->at(frame_offset++)
                 .write(this->buffer[channel.address - start_addr]);
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 };
 
 /// @brief configuration for a modbus read task.
-struct ReadTaskConfig : common::BaseReadTaskConfig {
+struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
     /// @brief the total number of data channels in the task.
     size_t data_channel_count;
     /// @brief the key of the device to read from.
@@ -177,7 +177,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 
     explicit ReadTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
-        xjson::Parser &cfg
+        x::json::Parser &cfg
     ):
         BaseReadTaskConfig(cfg),
         data_channel_count(0),
@@ -194,14 +194,14 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             return;
         }
 
-        auto conn_parser = xjson::Parser(dev.properties);
+        auto conn_parser = x::json::Parser(dev.properties);
         this->conn = device::ConnectionConfig(conn_parser.child("connection"));
         if (conn_parser.error()) {
             cfg.field_err("device", conn_parser.error().message());
             return;
         }
 
-        cfg.iter("channels", [&, this](xjson::Parser &ch) {
+        cfg.iter("channels", [&, this](x::json::Parser &ch) {
             const auto type = ch.field<std::string>("type");
             if (type == "holding_register_input")
                 holding_registers.emplace_back(ch);
@@ -285,9 +285,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// information.
     /// @param task the task to parse.
     /// @returns a pair containing the parsed configuration and any error that occurred.
-    static std::pair<ReadTaskConfig, xerrors::Error>
+    static std::pair<ReadTaskConfig, x::errors::Error>
     parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::Task &task) {
-        auto parser = xjson::Parser(task.config);
+        auto parser = x::json::Parser(task.config);
         ReadTaskConfig cfg(client, parser);
         return {std::move(cfg), parser.error()};
     }
@@ -313,19 +313,19 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             keys.push_back(idx);
         return synnax::WriterConfig{
             .channels = keys,
-            .mode = common::data_saving_writer_mode(this->data_saving),
+            .mode = driver::task::common::data_saving_writer_mode(this->data_saving),
         };
     }
 };
 
-/// @brief implements common::Source to read from a Modbus server.
-class ReadTaskSource final : public common::Source {
+/// @brief implements driver::task::common::Source to read from a Modbus server.
+class ReadTaskSource final : public driver::task::common::Source {
     /// @brief the configuration for the task.
     const ReadTaskConfig config;
     /// @brief the device to read from.
     std::shared_ptr<device::Device> dev;
     /// @brief the sample clock to regulate the read rate.
-    common::SoftwareTimedSampleClock sample_clock;
+    driver::task::common::SoftwareTimedSampleClock sample_clock;
 
 public:
     explicit ReadTaskSource(
@@ -334,17 +334,17 @@ public:
     ):
         config(std::move(cfg)), dev(dev), sample_clock(this->config.sample_rate) {}
 
-    common::ReadResult read(breaker::Breaker &breaker, telem::Frame &fr) override {
-        common::ReadResult res;
+    driver::task::common::ReadResult read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
+        driver::task::common::ReadResult res;
         const auto n_channels = this->config.data_channel_count;
         const auto n_samples = this->config.samples_per_chan;
         auto total_channel_count = n_channels + this->config.indexes.size();
         if (fr.size() != total_channel_count) {
             fr.reserve(total_channel_count);
             for (const auto &ch: this->config.data_channels())
-                fr.emplace(ch.key, telem::Series(ch.data_type, n_samples));
+                fr.emplace(ch.key, x::telem::Series(ch.data_type, n_samples));
             for (const auto &idx: this->config.indexes)
-                fr.emplace(idx, telem::Series(telem::TIMESTAMP_T, n_samples));
+                fr.emplace(idx, x::telem::Series(x::telem::TIMESTAMP_T, n_samples));
         }
         for (auto &ser: *fr.series)
             ser.clear();
@@ -355,7 +355,7 @@ public:
                 if (res.error = op->read(this->dev, fr, offset); res.error) return res;
             const auto end = this->sample_clock.end();
             for (size_t j = offset; j < this->config.indexes.size() + offset; ++j)
-                fr.series->at(j).write(telem::TimeStamp(end - (end - start) / 2));
+                fr.series->at(j).write(x::telem::TimeStamp(end - (end - start) / 2));
         }
         return res;
     }

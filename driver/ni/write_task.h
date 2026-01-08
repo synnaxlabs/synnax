@@ -14,7 +14,7 @@
 #include <string>
 
 #include "client/cpp/synnax.h"
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/json/json.h"
 
 #include "driver/ni/channel/channels.h"
 #include "driver/ni/hardware/hardware.h"
@@ -23,12 +23,12 @@
 #include "driver/task/common/common.h"
 #include "driver/task/common/write_task.h"
 
-namespace ni {
+namespace driver::ni {
 /// @brief WriteTaskConfig is the configuration for creating an NI Write Task.
-struct WriteTaskConfig : common::BaseWriteTaskConfig {
+struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
     /// @brief the rate at which the task will publish the states of the outputs
     /// back to the Synnax cluster.
-    const telem::Rate state_rate;
+    const x::telem::Rate state_rate;
     /// @brief a map of command channel keys to the configurations for each output
     /// channel in the task.
     std::map<synnax::ChannelKey, std::unique_ptr<channel::Output>> channels;
@@ -42,7 +42,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
 
     /// @brief move constructor to deal with output channel unique pointers.
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
-        common::BaseWriteTaskConfig(std::move(other)),
+        driver::task::common::BaseWriteTaskConfig(std::move(other)),
         state_rate(other.state_rate),
         channels(std::move(other.channels)),
         state_index_keys(std::move(other.state_index_keys)),
@@ -63,11 +63,11 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
     /// cfg.error() after this constructor in order to check for these errors.
     explicit WriteTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
-        xjson::Parser &cfg
+        x::json::Parser &cfg
     ):
-        common::BaseWriteTaskConfig(cfg),
-        state_rate(telem::Rate(cfg.field<float>("state_rate"))) {
-        cfg.iter("channels", [&](xjson::Parser &ch_cfg) {
+        driver::task::common::BaseWriteTaskConfig(cfg),
+        state_rate(x::telem::Rate(cfg.field<float>("state_rate"))) {
+        cfg.iter("channels", [&](x::json::Parser &ch_cfg) {
             auto ch = channel::parse_output(ch_cfg);
             if (ch != nullptr && ch->enabled)
                 this->channels[ch->cmd_ch_key] = std::move(ch);
@@ -132,31 +132,31 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
 
     /// @brief parses the task from the given configuration, returning an error
     /// if the task could not be parsed.
-    static std::pair<WriteTaskConfig, xerrors::Error> parse(
+    static std::pair<WriteTaskConfig, x::errors::Error> parse(
         const std::shared_ptr<synnax::Synnax> &client,
         const synnax::Task &task,
         /// We include this ignored parameter to make the parse method have the
         /// same signature as the read task, so we can save code duplication in
         /// the factory.
-        common::TimingConfig
+        driver::task::common::TimingConfig
     ) {
-        auto parser = xjson::Parser(task.config);
+        auto parser = x::json::Parser(task.config);
         return {WriteTaskConfig(client, parser), parser.error()};
     }
 
     /// @brief applies the configuration to the given DAQmx task.
-    xerrors::Error
+    x::errors::Error
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx, TaskHandle task_handle) {
         for (const auto &[_, ch]: channels)
             if (const auto err = ch->apply(dmx, task_handle)) return err;
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 };
 
 /// @brief sink is passed to the command pipeline in order to receive incoming
 /// data from Synnax, write it to the device, and update the state.
 template<typename T>
-class WriteTaskSink final : public common::Sink {
+class WriteTaskSink final : public driver::task::common::Sink {
     const WriteTaskConfig cfg;
 
 public:
@@ -184,25 +184,25 @@ private:
     /// time a command is provided.
     std::vector<T> buf;
 
-    /// @brief implements common::Task to start the hardware writer.
-    xerrors::Error start() override { return this->hw_writer->start(); }
+    /// @brief implements driver::task::common::Task to start the hardware writer.
+    x::errors::Error start() override { return this->hw_writer->start(); }
 
-    /// @brief implements common::Task to stop the hardware writer.
-    xerrors::Error stop() override { return this->hw_writer->stop(); }
+    /// @brief implements driver::task::common::Task to stop the hardware writer.
+    x::errors::Error stop() override { return this->hw_writer->stop(); }
 
-    /// @brief implements pipeline::Sink to write the incoming frame to the
+    /// @brief implements driver::pipeline::Sink to write the incoming frame to the
     /// underlying hardware. If the values are successfully written, updates
     /// the write tasks state to match the output values.
-    xerrors::Error write(const telem::Frame &frame) override {
+    x::errors::Error write(const x::telem::Frame &frame) override {
         for (const auto &[cmd_key, series]: frame)
             if (auto it = this->cfg.buf_indexes.find(cmd_key);
                 it != this->cfg.buf_indexes.end()) {
                 const auto buf_index = it->second;
-                buf[buf_index] = telem::cast<T>(series.at(-1));
+                buf[buf_index] = x::telem::cast<T>(series.at(-1));
             }
         if (const auto err = this->hw_writer->write(buf)) return translate_error(err);
         this->set_state(frame);
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 };
 }

@@ -99,7 +99,7 @@ struct Type {
 
     [[nodiscard]] bool is_valid() const { return kind != Kind::Invalid; }
 
-    [[nodiscard]] telem::DataType telem() const;
+    [[nodiscard]] x::telem::DataType telem() const;
 
     /// @brief Returns the string representation of the type.
     [[nodiscard]] std::string to_string() const {

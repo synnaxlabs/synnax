@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xos/xos.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/os/xos.h"
 
 #include "driver/rack/rack.h"
 
-xerrors::Error rack::Config::load_remote(breaker::Breaker &breaker) {
-    std::pair<synnax::Rack, xerrors::Error> res;
+x::errors::Error driver::rack::Config::load_remote(x::breaker::Breaker &breaker) {
+    std::pair<synnax::Rack, x::errors::Error> res;
     auto client = synnax::Synnax(this->connection);
     if (const auto err = client.auth->authenticate()) return err;
     if (this->remote_info.cluster_key != client.auth->cluster_info.cluster_key &&
@@ -34,7 +34,7 @@ xerrors::Error rack::Config::load_remote(breaker::Breaker &breaker) {
         //
         // In either case, set the rack key to zero and call the instantiate_rack
         // recursively to create a new rack.
-        if (res.second.matches(xerrors::NOT_FOUND)) {
+        if (res.second.matches(x::errors::NOT_FOUND)) {
             LOG(INFO) << "Rack " << this->remote_info.rack_key
                       << " not found. Creating a new rack";
             this->remote_info.rack_key = 0;
@@ -42,10 +42,10 @@ xerrors::Error rack::Config::load_remote(breaker::Breaker &breaker) {
         }
     } else {
         /// If the rack key is zero, we should create a new rack to use.
-        const auto [host_name, ok] = xos::get_hostname();
+        const auto [host_name, ok] = x::os::get_hostname();
         res = client.racks.create(host_name);
     }
-    const xerrors::Error err = res.second;
+    const x::errors::Error err = res.second;
     // If we can't reach the cluster, keep trying according to the breaker retry logic.
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message()))
         return this->load_remote(breaker);

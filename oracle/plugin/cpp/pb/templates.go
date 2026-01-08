@@ -73,7 +73,7 @@ inline {{.PBNamespace}}::{{.PBName}} {{.CppName}}<{{.TypeParamNames}}>::to_proto
 }
 
 template <typename {{.TypeParamNames}}>
-inline std::pair<{{.CppName}}<{{.TypeParamNames}}>, xerrors::Error> {{.CppName}}<{{.TypeParamNames}}>::from_proto(
+inline std::pair<{{.CppName}}<{{.TypeParamNames}}>, x::errors::Error> {{.CppName}}<{{.TypeParamNames}}>::from_proto(
     const {{.PBNamespace}}::{{.PBName}}& pb
 ) {
     {{.CppName}}<{{.TypeParamNames}}> cpp;
@@ -88,7 +88,7 @@ inline std::pair<{{.CppName}}<{{.TypeParamNames}}>, xerrors::Error> {{.CppName}}
     {{.BackwardExpr}}
 {{- end}}
 {{- end}}
-    return {cpp, xerrors::NIL};
+    return {cpp, x::errors::NIL};
 }
 {{- else}}
 
@@ -100,14 +100,14 @@ inline {{.PBNamespace}}::{{.PBName}} {{.CppName}}::to_proto() const {
     return pb;
 }
 
-inline std::pair<{{.CppName}}, xerrors::Error> {{.CppName}}::from_proto(
+inline std::pair<{{.CppName}}, x::errors::Error> {{.CppName}}::from_proto(
     const {{.PBNamespace}}::{{.PBName}}& pb
 ) {
     {{.CppName}} cpp;
 {{- range .Fields}}
     {{.BackwardExpr}}
 {{- end}}
-    return {cpp, xerrors::NIL};
+    return {cpp, x::errors::NIL};
 }
 {{- end}}
 {{- end}}

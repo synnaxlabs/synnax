@@ -12,21 +12,21 @@
 namespace hardware::mock {
 
 Base::Base(
-    const std::vector<xerrors::Error> &start_errors,
-    const std::vector<xerrors::Error> &stop_errors
+    const std::vector<x::errors::Error> &start_errors,
+    const std::vector<x::errors::Error> &stop_errors
 ):
     start_errors(start_errors),
     stop_errors(stop_errors),
     start_call_count(0),
     stop_call_count(0) {}
 
-xerrors::Error Base::start() {
+x::errors::Error Base::start() {
     auto err = start_errors[std::min(start_call_count, start_errors.size() - 1)];
     start_call_count++;
     return err;
 }
 
-xerrors::Error Base::stop() {
+x::errors::Error Base::stop() {
     auto err = stop_errors[std::min(stop_call_count, stop_errors.size() - 1)];
     stop_call_count++;
     return err;
@@ -34,9 +34,9 @@ xerrors::Error Base::stop() {
 
 template<typename T>
 Reader<T>::Reader(
-    const std::vector<xerrors::Error> &start_errors,
-    const std::vector<xerrors::Error> &stop_errors,
-    std::vector<std::pair<std::vector<T>, xerrors::Error>> read_responses
+    const std::vector<x::errors::Error> &start_errors,
+    const std::vector<x::errors::Error> &stop_errors,
+    std::vector<std::pair<std::vector<T>, x::errors::Error>> read_responses
 ):
     Base(start_errors, stop_errors),
     read_responses(std::move(read_responses)),
@@ -56,9 +56,9 @@ ReadResult Reader<T>::read(size_t samples_per_channel, std::vector<T> &data) {
 template<typename T>
 Writer<T>::Writer(
     std::shared_ptr<std::vector<std::vector<T>>> written_data,
-    const std::vector<xerrors::Error> &start_errors,
-    const std::vector<xerrors::Error> &stop_errors,
-    std::vector<xerrors::Error> write_responses
+    const std::vector<x::errors::Error> &start_errors,
+    const std::vector<x::errors::Error> &stop_errors,
+    std::vector<x::errors::Error> write_responses
 ):
     Base(start_errors, stop_errors),
     write_responses(std::move(write_responses)),
@@ -66,7 +66,7 @@ Writer<T>::Writer(
     written_data(written_data) {}
 
 template<typename T>
-xerrors::Error Writer<T>::write(const std::vector<T> &data) {
+x::errors::Error Writer<T>::write(const std::vector<T> &data) {
     written_data->push_back(data);
     auto err = write_responses[std::min(write_call_count, write_responses.size() - 1)];
     write_call_count++;

@@ -15,7 +15,7 @@
 #include <stdio.h>
 
 /// internal.
-#include "x/cpp/xos/xos.h"
+#include "x/cpp/os/xos.h"
 
 #include "driver/errors/errors.h"
 #include "driver/ni/errors.h"
@@ -30,16 +30,16 @@ static const std::string LIB_NAME = "libnisyscfg.so";
 #endif
 
 namespace syscfg {
-const auto LOAD_ERROR = driver::missing_lib(ni::NI_SYSCFG);
+const auto LOAD_ERROR = driver::missing_lib(driver::ni::NI_SYSCFG);
 
-std::pair<std::shared_ptr<API>, xerrors::Error> ProdAPI::load() {
-    if (xos::get() == xos::MACOS_NAME) return {nullptr, xerrors::NIL};
-    auto lib = std::make_unique<xlib::SharedLib>(LIB_NAME);
+std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
+    if (x::os::get() == x::os::MACOS_NAME) return {nullptr, x::errors::NIL};
+    auto lib = std::make_unique<x::lib::Shared>(LIB_NAME);
     if (!lib->load()) return {nullptr, LOAD_ERROR};
-    return {std::make_shared<ProdAPI>(lib), xerrors::NIL};
+    return {std::make_shared<ProdAPI>(lib), x::errors::NIL};
 }
 
-ProdAPI::ProdAPI(std::unique_ptr<xlib::SharedLib> &lib_): lib(std::move(lib_)) {
+ProdAPI::ProdAPI(std::unique_ptr<x::lib::Shared> &lib_): lib(std::move(lib_)) {
     memset(&function_pointers_, 0, sizeof(function_pointers_));
     function_pointers_.InitializeSession = reinterpret_cast<InitializeSessionPtr>(
         const_cast<void *>(this->lib->get_func_ptr("NISysCfgInitializeSession"))

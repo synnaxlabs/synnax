@@ -14,8 +14,8 @@
 
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/test/xtest.h"
 
 std::mt19937 gen_rand = random_generator(std::move("Arc Tests"));
 
@@ -179,12 +179,12 @@ TEST(TestArc, testRetrieveWithCompile) {
     // Create the channels referenced in calc.arc
     auto ox_pt_1 = ASSERT_NIL_P(client.channels.create(
         make_unique_channel_name("ox_pt_1"),
-        telem::FLOAT32_T,
+        x::telem::FLOAT32_T,
         true
     ));
     auto ox_pt_doubled = ASSERT_NIL_P(client.channels.create(
         make_unique_channel_name("ox_pt_doubled"),
-        telem::FLOAT32_T,
+        x::telem::FLOAT32_T,
         true
     ));
 

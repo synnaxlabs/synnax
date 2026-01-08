@@ -5,7 +5,7 @@ cc_library(
     deps = [
         "//client/cpp:synnax",
         "//x/cpp/telem",
-        "//x/cpp/xjson",
+        "//x/cpp/json",
     ],
 )
 

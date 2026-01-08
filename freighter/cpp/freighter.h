@@ -13,19 +13,19 @@
 #include <string>
 
 #include "x/cpp/url/url.h"
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 namespace freighter {
 const std::string TYPE_UNREACHABLE = "freighter.unreachable";
 const std::string TYPE_NIL = "nil";
 const std::string TYPE_UNKNOWN = "unknown";
 
-const xerrors::Error STREAM_CLOSED = {
+const x::errors::Error STREAM_CLOSED = {
     TYPE_UNREACHABLE + ".stream_closed",
     "Stream closed"
 };
-const xerrors::Error EOF_ERR = {"freighter.eof", "EOF"};
-const xerrors::Error UNREACHABLE = {TYPE_UNREACHABLE, "Unreachable"};
+const x::errors::Error EOF_ERR = {"freighter.eof", "EOF"};
+const x::errors::Error UNREACHABLE = {TYPE_UNREACHABLE, "Unreachable"};
 
 enum TransportVariant { UNARY, STREAM };
 
@@ -40,13 +40,13 @@ public:
     std::string protocol;
     /// @brief The target passed to UnaryClient::send or StreamClient::stream along
     /// with any base target configured in the underlying transport.
-    url::URL target;
+    x::url::URL target;
     /// @brief The transport variant that the context is associated with. Can either
     /// be a streaming (STREAM) or unary (UNARY) transport.
     TransportVariant variant;
 
     /// @brief Constructs the context with an empty set of parameters.
-    Context(std::string protocol, url::URL target, const TransportVariant variant):
+    Context(std::string protocol, x::url::URL target, const TransportVariant variant):
         id(0),
         protocol(std::move(protocol)),
         target(std::move(target)),
@@ -88,7 +88,7 @@ public:
 
 class Next {
 public:
-    virtual std::pair<Context, xerrors::Error> operator()(Context context) = 0;
+    virtual std::pair<Context, x::errors::Error> operator()(Context context) = 0;
 
     virtual ~Next() = default;
 };
@@ -105,7 +105,7 @@ public:
     /// the chain.
     /// @returns a pair containing the context for the inbound response and an
     /// error.
-    virtual std::pair<Context, xerrors::Error>
+    virtual std::pair<Context, x::errors::Error>
     operator()(Context context, Next &next) = 0;
 
     virtual ~Middleware() = default;
@@ -121,7 +121,7 @@ public:
     PassthroughMiddleware() = default;
 
     /// @implements Middleware::operator()
-    std::pair<Context, xerrors::Error>
+    std::pair<Context, x::errors::Error>
     operator()(const Context context, Next &next) override {
         return next(context);
     }
@@ -130,7 +130,7 @@ public:
 template<typename RS>
 struct FinalizerReturn {
     Context context;
-    xerrors::Error error;
+    x::errors::Error error;
     RS response;
 };
 
@@ -140,7 +140,7 @@ template<typename RQ, typename RS>
 class Finalizer {
 public:
     virtual FinalizerReturn<RS> operator()(Context context, RQ &req) {
-        return {context, xerrors::NIL};
+        return {context, x::errors::NIL};
     }
 
     virtual ~Finalizer() = default;
@@ -175,7 +175,7 @@ public:
     /// @param finalizer - A finalizer that represents the last middleware in the
     /// chain, and is responsible for executing the request.
     /// @param req - the request to execute.
-    std::pair<RS, xerrors::Error> exec(
+    std::pair<RS, x::errors::Error> exec(
         const freighter::Context &context,
         freighter::Finalizer<RQ, RS> *finalizer,
         RQ &req
@@ -196,7 +196,7 @@ public:
             ):
                 index(0), collector(collector), req(req), finalizer(finalizer) {}
 
-            std::pair<Context, xerrors::Error>
+            std::pair<Context, x::errors::Error>
             operator()(freighter::Context context) override {
                 if (this->index >= this->collector.middlewares.size()) {
                     auto f_res = this->finalizer->operator()(context, req);
@@ -231,7 +231,7 @@ public:
     /// @param target the target to send the request to.
     /// @param request the request to send.
     /// @returns a pair containing the response and an error.
-    virtual std::pair<RS, xerrors::Error>
+    virtual std::pair<RS, x::errors::Error>
     send(const std::string &target, RQ &request) = 0;
 
     virtual ~UnaryClient() = default;
@@ -246,12 +246,12 @@ public:
     /// @brief Receives a response from the stream. It's not safe to call receive
     /// concurrently with itself.
     /// @returns a pair containing the response and an error.
-    virtual std::pair<RS, xerrors::Error> receive() = 0;
+    virtual std::pair<RS, x::errors::Error> receive() = 0;
 
     /// @brief Sends a request to the stream. It is not safe to call send
     /// concurrently with itself or close_send.
     /// @param request - the request to send.
-    virtual xerrors::Error send(RQ &request) const = 0;
+    virtual x::errors::Error send(RQ &request) const = 0;
 
     /// @brief Closes the sending end of the stream, signaling to the server that no
     /// more requests will be sent, and (if desired) allowing the server to close
@@ -275,7 +275,7 @@ public:
     /// @see Stream.
     /// @param target the target to open the stream to.
     /// @returns a pointer to an object implementing the Stream interface.
-    virtual std::pair<std::unique_ptr<Stream<RQ, RS>>, xerrors::Error>
+    virtual std::pair<std::unique_ptr<Stream<RQ, RS>>, x::errors::Error>
     stream(const std::string &target) = 0;
 
     virtual ~StreamClient() = default;

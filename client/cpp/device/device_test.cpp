@@ -11,7 +11,7 @@
 
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/xtest.h"
 
 std::mt19937 gen_rand_device = random_generator("Device Tests");
 
@@ -260,7 +260,7 @@ TEST(DeviceTests, testRetrieveDevicesAfterDeletion) {
     ASSERT_NIL(client.devices.del(d1.key));
 
     // Verify deleted device returns NOT_FOUND
-    ASSERT_OCCURRED_AS_P(client.devices.retrieve(d1.key), xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS_P(client.devices.retrieve(d1.key), x::errors::NOT_FOUND);
 
     // Verify remaining device can still be retrieved
     const auto retrieved = ASSERT_NIL_P(client.devices.retrieve(d2.key));
@@ -286,7 +286,7 @@ TEST(DeviceTests, testDeleteDevice) {
     ASSERT_NIL(client.devices.create(d));
     ASSERT_NIL(client.devices.del(d.key));
 
-    ASSERT_OCCURRED_AS_P(client.devices.retrieve(d.key), xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS_P(client.devices.retrieve(d.key), x::errors::NOT_FOUND);
 }
 
 /// @brief it should correctly delete multiple devices.
@@ -320,7 +320,7 @@ TEST(DeviceTests, testDeleteDevices) {
     const std::vector keys = {d1.key, d2.key};
     ASSERT_NIL(client.devices.del(keys));
 
-    ASSERT_OCCURRED_AS_P(client.devices.retrieve(keys), xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS_P(client.devices.retrieve(keys), x::errors::NOT_FOUND);
 }
 
 /// @brief it should retrieve devices using a DeviceRetrieveRequest with keys and names.
@@ -426,7 +426,7 @@ TEST(DeviceTests, testCreateDeviceWithStatus) {
     );
     d.status.variant = ::status::variant::SUCCESS;
     d.status.message = "Device is connected";
-    d.status.time = telem::TimeStamp::now();
+    d.status.time = x::telem::TimeStamp::now();
     d.status.details.rack = r.key;
     d.status.details.device = d.key;
     ASSERT_NIL(client.devices.create(d));
@@ -457,7 +457,7 @@ TEST(DeviceTests, testRetrieveDevicesWithStatus) {
     );
     d1.status.variant = ::status::variant::SUCCESS;
     d1.status.message = "Device 1 OK";
-    d1.status.time = telem::TimeStamp::now();
+    d1.status.time = x::telem::TimeStamp::now();
     auto d2 = Device(
         "status_d2_" + rand,
         "device_2_status",
@@ -469,7 +469,7 @@ TEST(DeviceTests, testRetrieveDevicesWithStatus) {
     );
     d2.status.variant = ::status::variant::WARNING;
     d2.status.message = "Device 2 warning";
-    d2.status.time = telem::TimeStamp::now();
+    d2.status.time = x::telem::TimeStamp::now();
     ASSERT_NIL(client.devices.create(d1));
     ASSERT_NIL(client.devices.create(d2));
     const std::vector<std::string> keys = {d1.key, d2.key};
@@ -489,7 +489,7 @@ TEST(DeviceTests, testRetrieveDevicesWithStatus) {
 /// @brief it should correctly parse DeviceStatusDetails from JSON.
 TEST(DeviceStatusDetailsTests, testParseFromJSON) {
     json j = {{"rack", 12345}, {"device", "device-abc-123"}};
-    const xjson::Parser parser(j);
+    const x::json::Parser parser(j);
     const auto details = DeviceStatusDetails::parse(parser);
     ASSERT_NIL(parser.error());
     ASSERT_EQ(details.rack, 12345);
@@ -514,7 +514,7 @@ TEST(DeviceStatusDetailsTests, testRoundTrip) {
         .device = "round-trip-device",
     };
     const auto j = original.to_json();
-    xjson::Parser parser(j);
+    x::json::Parser parser(j);
     auto recovered = DeviceStatusDetails::parse(parser);
     ASSERT_NIL(parser.error());
     ASSERT_EQ(recovered.rack, original.rack);
@@ -533,7 +533,7 @@ TEST(DeviceTests, testParseFromJSON) {
         {"properties", "{\"custom\": true}"},
         {"configured", true}
     };
-    xjson::Parser parser(j);
+    x::json::Parser parser(j);
     auto d = Device::parse(parser);
     ASSERT_NIL(parser.error());
     ASSERT_EQ(d.key, "json-device-key");
@@ -548,7 +548,7 @@ TEST(DeviceTests, testParseFromJSON) {
 /// @brief it should handle default values when parsing Device from JSON.
 TEST(DeviceTests, testParseFromJSONDefaults) {
     const json j = json::object();
-    xjson::Parser parser(j);
+    x::json::Parser parser(j);
     const auto d = Device::parse(parser);
     ASSERT_EQ(d.key, "");
     ASSERT_EQ(d.name, "");

@@ -13,7 +13,7 @@
 
 #include "x/cpp/telem/telem.h"
 
-namespace telem {
+namespace x::telem {
 
 /// @brief ClockSkewCalculator calculates and tracks clock skew between two systems
 /// using a midpoint synchronization algorithm. This is useful for distributed

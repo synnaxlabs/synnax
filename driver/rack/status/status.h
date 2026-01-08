@@ -18,19 +18,19 @@
 #include "driver/task/common/factory.h"
 #include "driver/task/task.h"
 
-namespace rack::status {
+namespace driver::rack::status {
 const std::string INTEGRATION_NAME = "rack_status";
 const std::string LEGACY_HEARTBEAT_TYPE = "heartbeat";
 const std::string TASK_NAME = "Rack Status";
 const std::string TASK_TYPE = TASK_NAME;
-const auto EMISSION_RATE = telem::HERTZ * 1;
+const auto EMISSION_RATE = x::telem::HERTZ * 1;
 
-class Source final : public pipeline::Base {
+class Source final : public driver::pipeline::Base {
     /// @brief the key of the rack the heartbeat is for.
     const synnax::Rack rack;
     const synnax::Task task;
     /// @brief the loop used to control the emission rate of the heartbeat.
-    loop::Timer loop;
+    x::loop::Timer loop;
     std::shared_ptr<synnax::Synnax> client;
 
 public:
@@ -40,18 +40,18 @@ public:
         const std::shared_ptr<synnax::Synnax> &client
     ):
         Base(
-            breaker::Config{
+            x::breaker::Config{
                 .name = TASK_NAME,
-                .base_interval = 1 * telem::SECOND,
-                .max_retries = breaker::RETRY_INFINITELY,
+                .base_interval = 1 * x::telem::SECOND,
+                .max_retries = x::breaker::RETRY_INFINITELY,
                 .scale = 1.05f,
-                .max_interval = 5 * telem::SECOND,
+                .max_interval = 5 * x::telem::SECOND,
             },
             TASK_NAME
         ),
         rack(rack),
         task(task),
-        loop(loop::Timer(EMISSION_RATE)),
+        loop(x::loop::Timer(EMISSION_RATE)),
         client(client) {}
 
     void run() override {
@@ -60,7 +60,7 @@ public:
             .name = this->task.name,
             .variant = ::status::variant::SUCCESS,
             .message = "Started",
-            .time = telem::TimeStamp::now(),
+            .time = x::telem::TimeStamp::now(),
             .details = synnax::TaskStatusDetails{
                 .task = this->task.key,
             }
@@ -74,7 +74,7 @@ public:
                 .name = this->rack.name,
                 .variant = ::status::variant::SUCCESS,
                 .message = "Driver is running",
-                .time = telem::TimeStamp::now(),
+                .time = x::telem::TimeStamp::now(),
                 .details = synnax::RackStatusDetails{.rack = this->rack.key}
             };
             if (const auto err = this->client->statuses.set<synnax::RackStatusDetails>(
@@ -90,28 +90,28 @@ public:
 
 /// @brief a task that periodically
 /// to indicate that the driver is still alive.
-class Task final : public task::Task {
+class Task final : public driver::task::Task {
     Source pipe;
 
 public:
     Task(
         const synnax::Rack &rack,
         const synnax::Task &task,
-        const std::shared_ptr<task::Context> &ctx
+        const std::shared_ptr<driver::task::Context> &ctx
     ):
         pipe(rack, task, ctx->client) {
         this->pipe.start();
     }
 
-    /// @brief implements task::Task.
+    /// @brief implements driver::task::Task.
     std::string name() const override { return TASK_NAME; }
 
     /// @brief stop the heartbeat process
     void stop(bool will_reconfigure) override { this->pipe.stop(); }
 
     /// @brief configures the heartbeat task.
-    static std::unique_ptr<task::Task>
-    configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
+    static std::unique_ptr<driver::task::Task>
+    configure(const std::shared_ptr<driver::task::Context> &ctx, const synnax::Task &task) {
         auto rack_key = synnax::rack_key_from_task_key(task.key);
         auto [rack, rack_err] = ctx->client->racks.retrieve(rack_key);
         if (rack_err) {
@@ -132,26 +132,26 @@ public:
     }
 };
 
-struct Factory final : task::Factory {
-    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
-        const std::shared_ptr<task::Context> &ctx,
+struct Factory final : driver::task::Factory {
+    std::pair<std::unique_ptr<driver::task::Task>, bool> configure_task(
+        const std::shared_ptr<driver::task::Context> &ctx,
         const synnax::Task &task
     ) override {
         if (task.type == TASK_TYPE) return {Task::configure(ctx, task), true};
         return {nullptr, false};
     }
 
-    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
+    std::vector<std::pair<synnax::Task, std::unique_ptr<driver::task::Task>>>
     configure_initial_tasks(
-        const std::shared_ptr<task::Context> &ctx,
+        const std::shared_ptr<driver::task::Context> &ctx,
         const synnax::Rack &rack
     ) override {
-        common::delete_legacy_task_by_type(
+        driver::task::common::delete_legacy_task_by_type(
             rack,
             LEGACY_HEARTBEAT_TYPE,
             INTEGRATION_NAME
         );
-        return common::configure_initial_factory_tasks(
+        return driver::task::common::configure_initial_factory_tasks(
             this,
             ctx,
             rack,

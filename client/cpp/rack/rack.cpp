@@ -10,14 +10,14 @@
 #include "client/cpp/errors/errors.h"
 #include "client/cpp/rack/rack.h"
 #include "client/cpp/task/task.h"
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 namespace synnax {
 Rack::Rack(const RackKey key, std::string name): key(key), name(std::move(name)) {}
 
 Rack::Rack(std::string name): name(std::move(name)) {}
 
-std::pair<Rack, xerrors::Error> Rack::from_proto(const service::rack::Rack &rack) {
+std::pair<Rack, x::errors::Error> Rack::from_proto(const service::rack::Rack &rack) {
     Rack r;
     r.key = rack.key();
     r.name = rack.name();
@@ -26,7 +26,7 @@ std::pair<Rack, xerrors::Error> Rack::from_proto(const service::rack::Rack &rack
         if (err) return {r, err};
         r.status = s;
     }
-    return {r, xerrors::NIL};
+    return {r, x::errors::NIL};
 }
 
 void Rack::to_proto(service::rack::Rack *rack) const {
@@ -50,7 +50,7 @@ RackClient::RackClient(
     task_retrieve_client(std::move(task_retrieve_client)),
     task_delete_client(std::move(task_delete_client)) {}
 
-std::pair<Rack, xerrors::Error> RackClient::retrieve(const RackKey key) const {
+std::pair<Rack, x::errors::Error> RackClient::retrieve(const RackKey key) const {
     auto req = grpc::rack::RetrieveRequest();
     req.add_keys(key);
     auto [res, err] = rack_retrieve_client->send("/rack/retrieve", req);
@@ -65,10 +65,10 @@ std::pair<Rack, xerrors::Error> RackClient::retrieve(const RackKey key) const {
         task_retrieve_client,
         task_delete_client
     );
-    return {rack, xerrors::NIL};
+    return {rack, x::errors::NIL};
 }
 
-std::pair<Rack, xerrors::Error> RackClient::retrieve(const std::string &name) const {
+std::pair<Rack, x::errors::Error> RackClient::retrieve(const std::string &name) const {
     auto req = grpc::rack::RetrieveRequest();
     req.add_names(name);
     auto [res, err] = rack_retrieve_client->send("/rack/retrieve", req);
@@ -84,10 +84,10 @@ std::pair<Rack, xerrors::Error> RackClient::retrieve(const std::string &name) co
         task_retrieve_client,
         task_delete_client
     );
-    return {rack, xerrors::NIL};
+    return {rack, x::errors::NIL};
 }
 
-xerrors::Error RackClient::create(Rack &rack) const {
+x::errors::Error RackClient::create(Rack &rack) const {
     auto req = grpc::rack::CreateRequest();
     rack.to_proto(req.add_racks());
     auto [res, err] = rack_create_client->send("/rack/create", req);
@@ -103,13 +103,13 @@ xerrors::Error RackClient::create(Rack &rack) const {
     return err;
 }
 
-std::pair<Rack, xerrors::Error> RackClient::create(const std::string &name) const {
+std::pair<Rack, x::errors::Error> RackClient::create(const std::string &name) const {
     auto rack = Rack(name);
     auto err = create(rack);
     return {rack, err};
 }
 
-xerrors::Error RackClient::del(const RackKey key) const {
+x::errors::Error RackClient::del(const RackKey key) const {
     auto req = grpc::rack::DeleteRequest();
     req.add_keys(key);
     auto [res, err] = rack_delete_client->send("/rack/delete", req);

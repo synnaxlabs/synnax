@@ -19,7 +19,7 @@ cc_library(
     deps = [
         "//x/cpp/loop",
         "//x/cpp/breaker",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
         "//x/cpp/telem",
         "@glog",
     ],

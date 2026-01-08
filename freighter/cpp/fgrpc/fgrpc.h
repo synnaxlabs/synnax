@@ -20,16 +20,16 @@
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/fs/fs.h"
 
-namespace priv {
+namespace details {
 const std::string PROTOCOL = "grpc";
 const std::string ERROR_KEY = "error";
 
-/// @brief converts a grpc::Status to a xerrors::Error.
-inline xerrors::Error err_from_status(const grpc::Status &status) {
-    if (status.ok()) return xerrors::NIL;
+/// @brief converts a grpc::Status to a x::errors::Error.
+inline x::errors::Error err_from_status(const grpc::Status &status) {
+    if (status.ok()) return x::errors::NIL;
     if (status.error_code() == grpc::StatusCode::UNAVAILABLE)
         return {freighter::UNREACHABLE.type, status.error_message()};
-    return xerrors::Error(status.error_message());
+    return x::errors::Error(status.error_message());
 }
 }
 
@@ -99,7 +99,7 @@ public:
     /// @brief Get a channel for a given target.
     /// @param target The target to connect to.
     /// @returns A channel to the target.
-    std::shared_ptr<grpc::Channel> get_channel(const url::URL &target) {
+    std::shared_ptr<grpc::Channel> get_channel(const x::url::URL &target) {
         std::lock_guard lock(this->mu);
         const auto host_addr = target.host_address();
         const auto it = this->channels.find(host_addr);
@@ -129,11 +129,11 @@ class UnaryClient final : public freighter::UnaryClient<RQ, RS>,
     /// GRPCPool to pool connections across clients.
     const std::shared_ptr<Pool> pool;
     /// Base target for all requests.
-    const url::URL base_target;
+    const x::url::URL base_target;
 
 public:
     UnaryClient(const std::shared_ptr<Pool> &pool, const std::string &base_target):
-        pool(pool), base_target(url::URL(base_target)) {}
+        pool(pool), base_target(x::url::URL(base_target)) {}
 
     explicit UnaryClient(const std::shared_ptr<Pool> &pool): pool(pool) {}
 
@@ -147,10 +147,10 @@ public:
     /// @param target
     /// @param request Should be of a generated proto message type.
     /// @returns Should be of a generated proto message type.
-    std::pair<RS, xerrors::Error>
+    std::pair<RS, x::errors::Error>
     send(const std::string &target, RQ &request) override {
         freighter::Context ctx(
-            priv::PROTOCOL,
+            details::PROTOCOL,
             this->base_target.child(target),
             freighter::UNARY
         );
@@ -176,12 +176,12 @@ public:
             req_ctx.target,
             freighter::UNARY
         );
-        if (!stat.ok()) return {res_ctx, priv::err_from_status(stat), res};
+        if (!stat.ok()) return {res_ctx, details::err_from_status(stat), res};
 
         // Set inbound metadata.
         for (const auto &[k, v]: grpc_ctx.GetServerInitialMetadata())
             res_ctx.set(k.data(), v.data());
-        return {res_ctx, xerrors::NIL, res};
+        return {res_ctx, x::errors::NIL, res};
     }
 };
 
@@ -204,7 +204,7 @@ class Stream final
     /// @brief set to true when the stream is closed.
     bool closed = false;
     /// @brief the error that the stream closed with.
-    xerrors::Error close_err = xerrors::NIL;
+    x::errors::Error close_err = x::errors::NIL;
     /// @brief set to true when writes_done is called.
     bool writes_done_called = false;
 
@@ -227,18 +227,18 @@ public:
     }
 
     /// @brief implements Stream::send.
-    xerrors::Error send(RQ &request) const override {
-        if (this->stream->Write(request)) return xerrors::NIL;
+    x::errors::Error send(RQ &request) const override {
+        if (this->stream->Write(request)) return x::errors::NIL;
         return freighter::STREAM_CLOSED;
     }
 
     /// @brief implements Stream::receive.
-    std::pair<RS, xerrors::Error> receive() override {
+    std::pair<RS, x::errors::Error> receive() override {
         RS res;
-        if (this->stream->Read(&res)) return {res, xerrors::NIL};
+        if (this->stream->Read(&res)) return {res, x::errors::NIL};
         const auto ctx = freighter::Context(
-            priv::PROTOCOL,
-            url::URL(),
+            details::PROTOCOL,
+            x::url::URL(),
             freighter::STREAM
         );
         auto v = nullptr;
@@ -259,7 +259,7 @@ public:
         const grpc::Status status = this->stream->Finish();
         this->closed = true;
         this->close_err = status.ok() ? freighter::EOF_ERR
-                                      : priv::err_from_status(status);
+                                      : details::err_from_status(status);
         return {outbound, this->close_err, nullptr};
     }
 };
@@ -275,7 +275,7 @@ class StreamClient final
     /// GRPCPool to pool connections across clients.
     const std::shared_ptr<Pool> pool;
     /// Base target for all requests.
-    const url::URL base_target;
+    const x::url::URL base_target;
     /// Middleware collector.
     freighter::
         MiddlewareCollector<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>>
@@ -283,7 +283,7 @@ class StreamClient final
 
 public:
     StreamClient(const std::shared_ptr<Pool> &pool, const std::string &base_target):
-        pool(pool), base_target(url::URL(base_target)) {}
+        pool(pool), base_target(x::url::URL(base_target)) {}
 
     explicit StreamClient(const std::shared_ptr<Pool> &pool): pool(pool) {}
 
@@ -298,10 +298,10 @@ public:
     /// @returns A stream object, which can be used to listen to the server.
     /// NOTE: Sharing stream invocations is not thread safe.
     /// It is suggested to create one StreamClient and create a stream per thread.
-    std::pair<std::unique_ptr<freighter::Stream<RQ, RS>>, xerrors::Error>
+    std::pair<std::unique_ptr<freighter::Stream<RQ, RS>>, x::errors::Error>
     stream(const std::string &target) override {
         auto ctx = freighter::Context(
-            priv::PROTOCOL,
+            details::PROTOCOL,
             this->base_target.child(target),
             freighter::STREAM
         );
@@ -325,9 +325,9 @@ public:
             req_ctx,
             res_ctx
         );
-        if (res_ctx.has(priv::ERROR_KEY))
-            return {res_ctx, xerrors::Error(res_ctx.get(priv::ERROR_KEY))};
-        return {res_ctx, xerrors::NIL, std::move(stream)};
+        if (res_ctx.has(details::ERROR_KEY))
+            return {res_ctx, x::errors::Error(res_ctx.get(details::ERROR_KEY))};
+        return {res_ctx, x::errors::NIL, std::move(stream)};
     }
 };
 }

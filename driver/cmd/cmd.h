@@ -25,8 +25,8 @@
 #include "glog/logging.h"
 
 #include "client/cpp/synnax.h"
-#include "x/cpp/xlog/xlog.h"
-#include "x/cpp/xshutdown/xshutdown.h"
+#include "x/cpp/log/log.h"
+#include "x/cpp/shutdown/xshutdown.h"
 
 #include "core/pkg/version/version.h"
 #include "driver/cmd/cmd.h"
@@ -34,7 +34,7 @@
 #include "driver/rack/rack.h"
 
 /// @brief the configuration for opening a connection to the driver.
-namespace cmd {
+namespace driver::cmd {
 /// @brief exec runs the CLI command.
 int exec(int argc, char **argv);
 
@@ -42,36 +42,36 @@ std::string version();
 
 namespace sub {
 /// @brief logs the user into a Synnax cluster.
-int login(xargs::Parser &args);
+int login(x::args::Parser &args);
 
 /// @brief starts the driver process.
-int start(xargs::Parser &args);
+int start(x::args::Parser &args);
 
 /// @brief returns driver version info.
-int version(xargs::Parser &args);
+int version(x::args::Parser &args);
 
 /// @brief starts the driver as a background daemon.
-int service_start(xargs::Parser &args);
+int service_start(x::args::Parser &args);
 
 /// @brief stops the driver background daemon.
-int service_stop(xargs::Parser &args);
+int service_stop(x::args::Parser &args);
 
 /// @brief restarts the driver background daemon.
-int service_restart(xargs::Parser &args);
+int service_restart(x::args::Parser &args);
 
 /// @brief installs the driver as a background daemon.
-int service_install(xargs::Parser &args);
+int service_install(x::args::Parser &args);
 
 /// @brief uninstalls the driver background daemon.
-int service_uninstall(xargs::Parser &args);
+int service_uninstall(x::args::Parser &args);
 
 /// @brief views the status of the driver background daemon.
-int service_status(xargs::Parser &args);
+int service_status(x::args::Parser &args);
 
 /// @brief views the logs of the driver background daemon.
-int service_view_logs(xargs::Parser &args);
+int service_view_logs(x::args::Parser &args);
 
 /// @brief clears the driver persisted state.
-int clear(xargs::Parser &args);
+int clear(x::args::Parser &args);
 }
 }

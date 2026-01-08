@@ -10,33 +10,33 @@
 /// GTest
 #include "gtest/gtest.h"
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/xtest.h"
 
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/mock/pipeline.h"
 
-class MockSource final : public pipeline::Source {
+class MockSource final : public driver::pipeline::Source {
 public:
-    telem::TimeStamp start_ts;
-    xerrors::Error stopped_err = xerrors::NIL;
-    xerrors::Error read_err = xerrors::NIL;
+    x::telem::TimeStamp start_ts;
+    x::errors::Error stopped_err = x::errors::NIL;
+    x::errors::Error read_err = x::errors::NIL;
 
     explicit MockSource(
-        const telem::TimeStamp start_ts,
-        const xerrors::Error &read_err = xerrors::NIL
+        const x::telem::TimeStamp start_ts,
+        const x::errors::Error &read_err = x::errors::NIL
     ):
         start_ts(start_ts), read_err(read_err) {}
 
-    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
-        if (read_err != xerrors::NIL) return read_err;
+    x::errors::Error read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
+        if (read_err != x::errors::NIL) return read_err;
         std::this_thread::sleep_for(std::chrono::microseconds(100));
         fr.clear();
-        fr.emplace(1, telem::Series(start_ts));
-        return xerrors::NIL;
+        fr.emplace(1, x::telem::Series(start_ts));
+        return x::errors::NIL;
     }
 
-    void stopped_with_err(const xerrors::Error &err) override {
+    void stopped_with_err(const x::errors::Error &err) override {
         this->stopped_err = err;
     }
 };
@@ -44,16 +44,16 @@ public:
 /// @brief it should correctly resolve the start timestamp for the pipeline from the
 /// first frame written.
 TEST(AcquisitionPipeline, testStartResolution) {
-    auto writes = std::make_shared<std::vector<telem::Frame>>();
-    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
-    auto start_ts = telem::TimeStamp::now();
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(writes);
+    auto start_ts = x::telem::TimeStamp::now();
     const auto source = std::make_shared<MockSource>(start_ts);
     synnax::WriterConfig writer_config{.channels = {1}};
-    auto pipeline = pipeline::Acquisition(
+    auto pipeline = driver::pipeline::Acquisition(
         mock_factory,
         synnax::WriterConfig(),
         source,
-        breaker::Config()
+        x::breaker::Config()
     );
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_GE(writes->size(), 5);
@@ -64,19 +64,19 @@ TEST(AcquisitionPipeline, testStartResolution) {
 /// @brief it should correctly retry opening the writer when an unreachable error
 /// occurs.
 TEST(AcquisitionPipeline, testUnreachableRetrySuccess) {
-    auto writes = std::make_shared<std::vector<telem::Frame>>();
-    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(
         writes,
-        std::vector{freighter::UNREACHABLE, freighter::UNREACHABLE, xerrors::NIL}
+        std::vector{freighter::UNREACHABLE, freighter::UNREACHABLE, x::errors::NIL}
     );
-    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
-    auto pipeline = pipeline::Acquisition(
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = driver::pipeline::Acquisition(
         mock_factory,
         synnax::WriterConfig(),
         source,
-        breaker::Config{
+        x::breaker::Config{
             .name = "pipeline",
-            .base_interval = telem::MICROSECOND * 10,
+            .base_interval = x::telem::MICROSECOND * 10,
             .max_retries = 3,
             .scale = 0,
         }
@@ -88,18 +88,18 @@ TEST(AcquisitionPipeline, testUnreachableRetrySuccess) {
 
 /// @brief it should not retry when a non-unreachable error occurs.
 TEST(AcquisitionPipeline, testUnreachableUnauthorized) {
-    auto writes = std::make_shared<std::vector<telem::Frame>>();
-    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(
         writes,
-        std::vector{xerrors::Error(xerrors::UNAUTHORIZED), xerrors::NIL}
+        std::vector{x::errors::Error(x::errors::UNAUTHORIZED), x::errors::NIL}
     );
-    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
-    auto pipeline = pipeline::Acquisition(
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = driver::pipeline::Acquisition(
         mock_factory,
         synnax::WriterConfig(),
         source,
-        breaker::Config{
-            .base_interval = telem::MICROSECOND * 10,
+        x::breaker::Config{
+            .base_interval = x::telem::MICROSECOND * 10,
             .max_retries = 3,
             .scale = 0,
         }
@@ -113,20 +113,20 @@ TEST(AcquisitionPipeline, testUnreachableUnauthorized) {
 /// @brief it should retry opening the writer when write returns false and the
 /// error is unreachable.
 TEST(AcquisitionPipeline, testWriteRetrySuccess) {
-    auto writes = std::make_shared<std::vector<telem::Frame>>();
-    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(
         writes,
-        std::vector<xerrors::Error>{},
+        std::vector<x::errors::Error>{},
         std::vector{freighter::UNREACHABLE},
         std::vector{1}
     );
-    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
-    auto pipeline = pipeline::Acquisition(
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = driver::pipeline::Acquisition(
         mock_factory,
         synnax::WriterConfig(),
         source,
-        breaker::Config{
-            .base_interval = telem::MICROSECOND * 10,
+        x::breaker::Config{
+            .base_interval = x::telem::MICROSECOND * 10,
             .max_retries = 1,
             .scale = 0,
         }
@@ -140,40 +140,40 @@ TEST(AcquisitionPipeline, testWriteRetrySuccess) {
 /// @brief it should not retry opening the writer when write returns false and the
 /// error is not unreachable.
 TEST(AcquisitionPipeline, testWriteRetryUnauthorized) {
-    auto writes = std::make_shared<std::vector<telem::Frame>>();
-    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(
         writes,
-        std::vector<xerrors::Error>{},
-        std::vector{xerrors::Error(xerrors::UNAUTHORIZED)},
+        std::vector<x::errors::Error>{},
+        std::vector{x::errors::Error(x::errors::UNAUTHORIZED)},
         std::vector{0}
     );
-    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
-    auto pipeline = pipeline::Acquisition(
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = driver::pipeline::Acquisition(
         mock_factory,
         synnax::WriterConfig(),
         source,
-        breaker::Config{
-            .base_interval = telem::MICROSECOND * 10,
+        x::breaker::Config{
+            .base_interval = x::telem::MICROSECOND * 10,
             .max_retries = 1,
             .scale = 0,
         }
     );
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
-    ASSERT_EQ(source->stopped_err, xerrors::UNAUTHORIZED);
+    ASSERT_EQ(source->stopped_err, x::errors::UNAUTHORIZED);
     ASSERT_TRUE(pipeline.stop());
 }
 
 /// @brief it should not restart the pipeline if it has already been started.
 TEST(AcquisitionPipeline, testStartAlreadyStartedPipeline) {
-    auto writes = std::make_shared<std::vector<telem::Frame>>();
-    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
-    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
-    auto pipeline = pipeline::Acquisition(
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(writes);
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = driver::pipeline::Acquisition(
         mock_factory,
         synnax::WriterConfig(),
         source,
-        breaker::Config()
+        x::breaker::Config()
     );
     ASSERT_TRUE(pipeline.start());
     ASSERT_FALSE(pipeline.start());
@@ -183,14 +183,14 @@ TEST(AcquisitionPipeline, testStartAlreadyStartedPipeline) {
 
 /// @brief it should not stop the pipeline if it has already been stopped.
 TEST(AcquisitionPipeline, testStopAlreadyStoppedPipeline) {
-    auto writes = std::make_shared<std::vector<telem::Frame>>();
-    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
-    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
-    auto pipeline = pipeline::Acquisition(
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(writes);
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = driver::pipeline::Acquisition(
         mock_factory,
         synnax::WriterConfig(),
         source,
-        breaker::Config()
+        x::breaker::Config()
     );
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_EQ(writes->size(), 0);
@@ -201,18 +201,18 @@ TEST(AcquisitionPipeline, testStopAlreadyStoppedPipeline) {
 /// @brief it should stop the pipeline when the source returns an error on read,
 /// and communicate the error back to the source.
 TEST(AcquisitionPipeline, testErrorCommunicationOnReadCriticalHardwareError) {
-    auto writes = std::make_shared<std::vector<telem::Frame>>();
-    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
-    auto critical_error = xerrors::Error(driver::CRITICAL_HARDWARE_ERROR);
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(writes);
+    auto critical_error = x::errors::Error(driver::CRITICAL_HARDWARE_ERROR);
     const auto source = std::make_shared<MockSource>(
-        telem::TimeStamp::now(),
+        x::telem::TimeStamp::now(),
         critical_error
     );
-    auto pipeline = pipeline::Acquisition(
+    auto pipeline = driver::pipeline::Acquisition(
         mock_factory,
         synnax::WriterConfig(),
         source,
-        breaker::Config()
+        x::breaker::Config()
     );
 
     pipeline.start();
@@ -223,14 +223,14 @@ TEST(AcquisitionPipeline, testErrorCommunicationOnReadCriticalHardwareError) {
 
 /// @brief it should not stop the pipeline if it was never started.
 TEST(AcquisitionPipeline, testStopNeverStartedPipeline) {
-    auto writes = std::make_shared<std::vector<telem::Frame>>();
-    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
-    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
-    auto pipeline = pipeline::Acquisition(
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(writes);
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = driver::pipeline::Acquisition(
         mock_factory,
         synnax::WriterConfig(),
         source,
-        breaker::Config()
+        x::breaker::Config()
     );
     ASSERT_FALSE(pipeline.stop());
 }

@@ -20,11 +20,11 @@
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/json/json.h"
 
 using json = nlohmann::json;
 
-namespace task {
+namespace driver::task {
 /// @brief A command that can be executed on a task in order to change its state.
 struct Command {
     /// @brief the key of the task to be commanded.
@@ -40,7 +40,7 @@ struct Command {
     Command() = default;
 
     /// @brief constructs the command from the provided configuration parser.
-    explicit Command(xjson::Parser parser):
+    explicit Command(x::json::Parser parser):
         task(parser.field<synnax::TaskKey>("task")),
         type(parser.field<std::string>("type")),
         key(parser.field<std::string>("key", "")),
@@ -118,7 +118,7 @@ public:
         Context(client) {}
 
     void set_status(synnax::TaskStatus &status) override {
-        if (status.time == 0) status.time = telem::TimeStamp::now();
+        if (status.time == 0) status.time = x::telem::TimeStamp::now();
         if (const auto err = this->client->statuses.set<synnax::TaskStatusDetails>(
                 status
             );
@@ -188,7 +188,7 @@ public:
     Manager(
         synnax::Rack rack,
         const std::shared_ptr<synnax::Synnax> &client,
-        std::unique_ptr<task::Factory> factory
+        std::unique_ptr<driver::task::Factory> factory
     ):
         rack(std::move(rack)),
         ctx(std::make_shared<SynnaxContext>(client)),
@@ -205,7 +205,7 @@ public:
     ///
     /// @param on_started an optional callback that will be called when the manager
     /// has started successfully.
-    xerrors::Error run(std::function<void()> on_started = nullptr);
+    x::errors::Error run(std::function<void()> on_started = nullptr);
 
     /// @brief stops the task manager, halting all tasks and freeing all resources.
     /// Once the manager has shut down, the run() function will return with any
@@ -216,11 +216,11 @@ private:
     /// @brief the rack that this task manager belongs to.
     synnax::Rack rack;
     /// @brief a common context object passed to all tasks.
-    std::shared_ptr<task::Context> ctx;
+    std::shared_ptr<driver::task::Context> ctx;
     /// @brief the factory used to create tasks.
-    std::unique_ptr<task::Factory> factory;
+    std::unique_ptr<driver::task::Factory> factory;
     /// @brief a map of tasks that have been configured on the rack.
-    std::unordered_map<synnax::TaskKey, std::unique_ptr<task::Task>> tasks{};
+    std::unordered_map<synnax::TaskKey, std::unique_ptr<driver::task::Task>> tasks{};
 
     /// @brief the streamer variable is read from in both the run() and stop()
     /// functions, so we need to lock its assignment.
@@ -241,23 +241,23 @@ private:
 
     /// @brief opens the streamer for the task manager, which is used to listen for
     /// incoming task set, delete, and command requests.
-    xerrors::Error open_streamer();
+    x::errors::Error open_streamer();
 
     /// @brief retrieves and configures all initial tasks for the rack from the
     /// server.
-    xerrors::Error configure_initial_tasks();
+    x::errors::Error configure_initial_tasks();
 
     /// @brief stops all tasks.
     void stop_all_tasks();
 
     /// @brief processes when a new task is created or an existing task needs to be
     /// reconfigured.
-    void process_task_set(const telem::Series &series);
+    void process_task_set(const x::telem::Series &series);
 
     /// @brief processes when a task is deleted.
-    void process_task_delete(const telem::Series &series);
+    void process_task_delete(const x::telem::Series &series);
 
     /// @brief processes when a command needs to be executed on a configured task.
-    void process_task_cmd(const telem::Series &series);
+    void process_task_cmd(const x::telem::Series &series);
 };
 }

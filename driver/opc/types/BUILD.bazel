@@ -1,13 +1,13 @@
 cc_library(
     name = "types",
-    hdrs = ["types.h"],
     srcs = ["types.cpp"],
+    hdrs = ["types.h"],
     visibility = ["//visibility:public"],
     deps = [
         "//driver/opc/telem",
         "//vendor/open62541",
-        "//x/cpp/xerrors",
-        "//x/cpp/xjson",
+        "//x/cpp/errors",
+        "//x/cpp/json",
     ],
 )
 

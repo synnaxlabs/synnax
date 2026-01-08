@@ -11,28 +11,28 @@
 
 #include "open62541/types.h"
 
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/json/json.h"
 
 #include "driver/opc/connection/connection.h"
 #include "driver/task/task.h"
 
-namespace opc {
+namespace driver::opc {
 const std::string INTEGRATION_NAME = "opc";
 const std::string SCAN_TASK_TYPE = "opc_scan";
 const std::string WRITE_TASK_TYPE = "opc_write";
 const std::string READ_TASK_TYPE = "opc_read";
 
-struct Factory final : public task::Factory {
+struct Factory final : public driver::task::Factory {
     Factory(): conn_pool_(std::make_shared<connection::Pool>()) {}
 
-    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
-        const std::shared_ptr<task::Context> &ctx,
+    std::pair<std::unique_ptr<driver::task::Task>, bool> configure_task(
+        const std::shared_ptr<driver::task::Context> &ctx,
         const synnax::Task &task
     ) override;
 
-    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
+    std::vector<std::pair<synnax::Task, std::unique_ptr<driver::task::Task>>>
     configure_initial_tasks(
-        const std::shared_ptr<task::Context> &ctx,
+        const std::shared_ptr<driver::task::Context> &ctx,
         const synnax::Rack &rack
     ) override;
 

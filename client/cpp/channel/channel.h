@@ -40,7 +40,7 @@ struct Channel {
     /// @brief A human-readable name for the channel.
     std::string name;
     /// @brief the data type of the channel.
-    telem::DataType data_type;
+    x::telem::DataType data_type;
     /// @brief the key of the channel. This is auto-assigned by the cluster on calls
     /// to create and retrieve.
     ChannelKey key = 0;
@@ -70,7 +70,7 @@ struct Channel {
     /// @param is_index whether the channel is an index channel.
     Channel(
         std::string name,
-        telem::DataType data_type,
+        x::telem::DataType data_type,
         ChannelKey index,
         bool is_index = false
     );
@@ -79,7 +79,7 @@ struct Channel {
     /// @param name a human-readable name for the channel.
     /// @param data_type the data type of the channel.
     /// @param is_virtual whether the channel is virtual.
-    Channel(std::string name, telem::DataType data_type, bool is_virtual);
+    Channel(std::string name, x::telem::DataType data_type, bool is_virtual);
 
     /// @brief constructs the channel from its protobuf type.
     explicit Channel(const api::channel::Channel &ch);
@@ -155,7 +155,7 @@ public:
     /// @returns an error where ok() is false if the channel could not be created.
     /// Use err.message() to get the error message or err.type to get the error
     /// type.
-    [[nodiscard]] xerrors::Error create(Channel &channel) const;
+    [[nodiscard]] x::errors::Error create(Channel &channel) const;
 
     /// @brief creates the given channels in the Synnax cluster.
     /// @details More efficient than calling create on each channel individually,
@@ -164,7 +164,7 @@ public:
     /// @returns an error where ok() is false if the channels could not be created.
     /// Use err.message() to get the error message or err.type to get the error
     /// type.
-    [[nodiscard]] xerrors::Error create(std::vector<Channel> &channels) const;
+    [[nodiscard]] x::errors::Error create(std::vector<Channel> &channels) const;
 
     /// @brief creates a new index or indexed channel.
     /// @param name a human-readable name for the channel.
@@ -175,16 +175,16 @@ public:
     /// false if the channel could not be created. In the case of an error, the
     /// returned channel will be invalid. Use err.message() to get the error message
     /// or err.type to get the error type.
-    [[nodiscard]] std::pair<Channel, xerrors::Error> create(
+    [[nodiscard]] std::pair<Channel, x::errors::Error> create(
         const std::string &name,
-        const telem::DataType &data_type,
+        const x::telem::DataType &data_type,
         ChannelKey index,
         bool is_index = false
     ) const;
 
-    [[nodiscard]] std::pair<Channel, xerrors::Error> create(
+    [[nodiscard]] std::pair<Channel, x::errors::Error> create(
         const std::string &name,
-        const telem::DataType &data_type,
+        const x::telem::DataType &data_type,
         bool is_virtual = true
     ) const;
 
@@ -197,7 +197,7 @@ public:
     /// false if the channel could not be retrieved. In the case of an error, the
     /// returned channel will be invalid. Use err.message() to get the error message
     /// or err.type to get the error type.
-    [[nodiscard]] std::pair<Channel, xerrors::Error>
+    [[nodiscard]] std::pair<Channel, x::errors::Error>
     retrieve(const std::string &name) const;
 
     /// @brief retrieves a channel with the given key.
@@ -208,7 +208,7 @@ public:
     /// false if the channel could not be retrieved. In the case of an error, the
     /// returned channel will be invalid. Use err.message() to get the error message
     /// or err.type to get the error type.
-    [[nodiscard]] std::pair<Channel, xerrors::Error> retrieve(std::uint32_t key) const;
+    [[nodiscard]] std::pair<Channel, x::errors::Error> retrieve(std::uint32_t key) const;
 
     /// @brief retrieves channels with the given names.
     /// @param names the names of the channels to retrieve.
@@ -218,7 +218,7 @@ public:
     /// false if the channels could not be retrieved. In the case of an error, the
     /// returned channels will be invalid. Use err.message() to get the error
     /// message
-    [[nodiscard]] std::pair<std::vector<Channel>, xerrors::Error>
+    [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error>
     retrieve(const std::vector<std::string> &names) const;
 
     /// @brief retrieves channels with the given keys.
@@ -229,7 +229,7 @@ public:
     /// false if the channels could not be retrieved. In the case of an error, the
     /// returned channels will be invalid. Use err.message() to get the error
     /// message.
-    [[nodiscard]] std::pair<std::vector<Channel>, xerrors::Error>
+    [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error>
     retrieve(const std::vector<ChannelKey> &keys) const;
 
 private:

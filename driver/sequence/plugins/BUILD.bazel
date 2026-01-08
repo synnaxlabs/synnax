@@ -11,7 +11,7 @@ cc_library(
     deps = [
         "//client/cpp:synnax",
         "//driver/pipeline",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
         "//x/cpp/xlua",
         "@glog",
         "@nlohmann_json//:json",

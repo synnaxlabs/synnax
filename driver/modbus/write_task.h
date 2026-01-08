@@ -14,7 +14,7 @@
 #include "driver/modbus/util/util.h"
 #include "driver/task/common/write_task.h"
 
-namespace modbus {
+namespace driver::modbus {
 /// @brief interface for writing to different types of modbus registers/bits.
 class Writer {
 public:
@@ -26,8 +26,8 @@ public:
     /// for all channels in the writer. The writer should only write values for values
     /// contained in the frame. The frame may also have keys for channels that are not
     /// in the writer, which should be ignored.
-    virtual xerrors::Error
-    write(const std::shared_ptr<device::Device> &dev, const telem::Frame &fr) = 0;
+    virtual x::errors::Error
+    write(const std::shared_ptr<device::Device> &dev, const x::telem::Frame &fr) = 0;
 
     /// @returns the keys of all the command channels the writer is responsible for.
     [[nodiscard]] virtual std::vector<synnax::ChannelKey> cmd_keys() const = 0;
@@ -61,8 +61,8 @@ public:
 
     /// @brief initializes state if not already initialized, reading the current state
     /// of coils from the device.
-    xerrors::Error initialize_state(const std::shared_ptr<device::Device> &dev) {
-        if (!this->state.empty()) return xerrors::NIL;
+    x::errors::Error initialize_state(const std::shared_ptr<device::Device> &dev) {
+        if (!this->state.empty()) return x::errors::NIL;
         state.resize(channels.back().address - channels.front().address + 1);
         return dev->read_bits(
             device::Coil,
@@ -72,9 +72,9 @@ public:
         );
     }
 
-    xerrors::Error
-    write(const std::shared_ptr<device::Device> &dev, const telem::Frame &fr) override {
-        if (channels.empty()) return xerrors::NIL;
+    x::errors::Error
+    write(const std::shared_ptr<device::Device> &dev, const x::telem::Frame &fr) override {
+        if (channels.empty()) return x::errors::NIL;
         this->initialize_state(dev);
         const int start_addr = channels.front().address;
         for (const auto &ch: channels)
@@ -95,8 +95,8 @@ public:
 
     /// @brief initializes state if not already initialized, reading the current state
     /// of holding registers from the device.
-    xerrors::Error initialize_state(const std::shared_ptr<device::Device> &dev) {
-        if (!this->state.empty()) return xerrors::NIL;
+    x::errors::Error initialize_state(const std::shared_ptr<device::Device> &dev) {
+        if (!this->state.empty()) return x::errors::NIL;
         const auto &last_ch = channels.back();
         // Use ceiling division to convert bytes to 16-bit registers
         state.resize(
@@ -111,9 +111,9 @@ public:
         );
     }
 
-    xerrors::Error
-    write(const std::shared_ptr<device::Device> &dev, const telem::Frame &fr) override {
-        if (channels.empty()) return xerrors::NIL;
+    x::errors::Error
+    write(const std::shared_ptr<device::Device> &dev, const x::telem::Frame &fr) override {
+        if (channels.empty()) return x::errors::NIL;
         this->initialize_state(dev);
         const int start_addr = channels.front().address;
         for (const auto &channel: channels) {
@@ -144,7 +144,7 @@ struct WriteTaskConfig {
     /// @brief whether to automatically start the task after configuration.
     bool auto_start;
 
-    WriteTaskConfig(const std::shared_ptr<synnax::Synnax> &client, xjson::Parser &cfg):
+    WriteTaskConfig(const std::shared_ptr<synnax::Synnax> &client, x::json::Parser &cfg):
         device_key(cfg.field<std::string>("device")),
         auto_start(cfg.field<bool>("auto_start", false)) {
         auto [dev_info, dev_err] = client->devices.retrieve(this->device_key);
@@ -152,7 +152,7 @@ struct WriteTaskConfig {
             cfg.field_err("device", dev_err);
             return;
         }
-        auto conn_parser = xjson::Parser(dev_info.properties);
+        auto conn_parser = x::json::Parser(dev_info.properties);
         this->conn = device::ConnectionConfig(conn_parser.child("connection"));
         if (conn_parser.error()) {
             cfg.field_err("device", conn_parser.error());
@@ -160,7 +160,7 @@ struct WriteTaskConfig {
         }
         std::vector<channel::OutputCoil> coils;
         std::vector<channel::OutputHoldingRegister> registers;
-        cfg.iter("channels", [&](xjson::Parser &ch) {
+        cfg.iter("channels", [&](x::json::Parser &ch) {
             const auto type = ch.field<std::string>("type");
             if (type == "coil_output")
                 coils.emplace_back(ch);
@@ -190,16 +190,16 @@ struct WriteTaskConfig {
     /// information.
     /// @param task the task to parse.
     /// @returns a pair containing the parsed configuration and any error that occurred.
-    static std::pair<WriteTaskConfig, xerrors::Error>
+    static std::pair<WriteTaskConfig, x::errors::Error>
     parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::Task &task) {
-        auto parser = xjson::Parser(task.config);
+        auto parser = x::json::Parser(task.config);
         WriteTaskConfig cfg(client, parser);
         return {std::move(cfg), parser.error()};
     }
 };
 
-/// @brief implements common::Sink to write to a Modbus server.
-class WriteTaskSink final : public common::Sink {
+/// @brief implements driver::task::common::Sink to write to a Modbus server.
+class WriteTaskSink final : public driver::task::common::Sink {
     /// @brief the configuration for the task.
     const WriteTaskConfig config;
     /// @brief the device to write to.
@@ -209,10 +209,10 @@ public:
     WriteTaskSink(const std::shared_ptr<device::Device> &dev, WriteTaskConfig cfg):
         Sink(cfg.cmd_keys()), config(std::move(cfg)), dev(dev) {}
 
-    xerrors::Error write(const telem::Frame &frame) override {
+    x::errors::Error write(const x::telem::Frame &frame) override {
         for (const auto &writer: config.writers)
             if (auto err = writer->write(dev, frame)) return err;
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 };
 }

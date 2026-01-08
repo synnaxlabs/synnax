@@ -12,7 +12,7 @@
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/defer/defer.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/xtest.h"
 
 #include "driver/modbus/mock/slave.h"
 #include "driver/modbus/scan_task.h"
@@ -20,29 +20,29 @@
 
 /// @brief it should successfully test connection to Modbus device.
 TEST(ScanTask, testConnection) {
-    auto slave = modbus::mock::Slave(modbus::mock::SlaveConfig{});
+    auto slave = driver::modbus::mock::Slave(driver::modbus::mock::SlaveConfig{});
     ASSERT_NIL(slave.start());
-    x::defer stop_slave([&slave] { slave.stop(); });
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
 
     synnax::Task t;
     t.key = 12345;
     t.type = "modbus_scan";
 
-    auto dev_manager = std::make_shared<modbus::device::Manager>();
+    auto dev_manager = std::make_shared<driver::modbus::device::Manager>();
 
-    const auto cfg = modbus::ScanTaskConfig{};
-    auto scan_task = std::make_unique<common::ScanTask>(
-        std::make_unique<modbus::Scanner>(ctx, t, dev_manager),
+    const auto cfg = driver::modbus::ScanTaskConfig{};
+    auto scan_task = std::make_unique<driver::task::common::ScanTask>(
+        std::make_unique<driver::modbus::Scanner>(ctx, t, dev_manager),
         ctx,
         t,
-        breaker::default_config(t.name),
+        x::breaker::default_config(t.name),
         cfg.scan_rate
     );
 
-    auto conn_cfg = modbus::device::ConnectionConfig{"127.0.0.1", 1502};
+    auto conn_cfg = driver::modbus::device::ConnectionConfig{"127.0.0.1", 1502};
     auto cmd_args = json{{"connection", conn_cfg.to_json()}};
-    auto cmd = task::Command(t.key, modbus::TEST_CONNECTION_CMD_TYPE, cmd_args);
+    auto cmd = driver::task::Command(t.key, driver::modbus::TEST_CONNECTION_CMD_TYPE, cmd_args);
     cmd.key = "electric_boogaloo";
 
     scan_task->exec(cmd);
@@ -56,43 +56,43 @@ TEST(ScanTask, testConnection) {
 }
 
 TEST(ScanTask, testConfigReturnsCorrectValues) {
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
     synnax::Task t;
     t.key = 12345;
     t.type = "modbus_scan";
-    auto dev_manager = std::make_shared<modbus::device::Manager>();
+    auto dev_manager = std::make_shared<driver::modbus::device::Manager>();
 
-    const modbus::Scanner scanner(ctx, t, dev_manager);
+    const driver::modbus::Scanner scanner(ctx, t, dev_manager);
     auto cfg = scanner.config();
     EXPECT_EQ(cfg.make, "modbus");
     EXPECT_EQ(cfg.log_prefix, "[modbus.scan_task]");
 }
 
 TEST(ScanTask, testExecReturnsFalseForUnknownCommand) {
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
     synnax::Task t;
     t.key = 12345;
     t.type = "modbus_scan";
-    auto dev_manager = std::make_shared<modbus::device::Manager>();
+    auto dev_manager = std::make_shared<driver::modbus::device::Manager>();
 
-    modbus::Scanner scanner(ctx, t, dev_manager);
-    task::Command cmd(t.key, "unknown_command", json{});
+    driver::modbus::Scanner scanner(ctx, t, dev_manager);
+    driver::task::Command cmd(t.key, "unknown_command", json{});
     bool handled = scanner.exec(cmd, t, ctx);
     EXPECT_FALSE(handled);
 }
 
 TEST(ScanTask, testScanChecksDeviceHealth) {
-    auto slave = modbus::mock::Slave(modbus::mock::SlaveConfig{});
+    auto slave = driver::modbus::mock::Slave(driver::modbus::mock::SlaveConfig{});
     ASSERT_NIL(slave.start());
-    x::defer stop_slave([&slave] { slave.stop(); });
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
     synnax::Task t;
     t.key = 12345;
     t.type = "modbus_scan";
-    auto dev_manager = std::make_shared<modbus::device::Manager>();
+    auto dev_manager = std::make_shared<driver::modbus::device::Manager>();
 
-    modbus::Scanner scanner(ctx, t, dev_manager);
+    driver::modbus::Scanner scanner(ctx, t, dev_manager);
 
     // Create device with valid Modbus connection properties
     synnax::Device dev;
@@ -110,7 +110,7 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
 
     std::unordered_map<std::string, synnax::Device> devices_map;
     devices_map[dev.key] = dev;
-    common::ScannerContext scan_ctx;
+    driver::task::common::ScannerContext scan_ctx;
     scan_ctx.devices = &devices_map;
 
     auto [devices, err] = scanner.scan(scan_ctx);
@@ -121,13 +121,13 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
 }
 
 TEST(ScanTask, testScanReportsDisconnectedDevice) {
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
     synnax::Task t;
     t.key = 12345;
     t.type = "modbus_scan";
-    auto dev_manager = std::make_shared<modbus::device::Manager>();
+    auto dev_manager = std::make_shared<driver::modbus::device::Manager>();
 
-    modbus::Scanner scanner(ctx, t, dev_manager);
+    driver::modbus::Scanner scanner(ctx, t, dev_manager);
 
     // Create device with invalid connection (no server running on this port)
     synnax::Device dev;
@@ -145,7 +145,7 @@ TEST(ScanTask, testScanReportsDisconnectedDevice) {
 
     std::unordered_map<std::string, synnax::Device> devices_map;
     devices_map[dev.key] = dev;
-    common::ScannerContext scan_ctx;
+    driver::task::common::ScannerContext scan_ctx;
     scan_ctx.devices = &devices_map;
 
     auto [devices, err] = scanner.scan(scan_ctx);

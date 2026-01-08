@@ -13,7 +13,7 @@
 
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/xtest.h"
 
 void test_downsample(
     const std::vector<int> &raw_data,
@@ -25,7 +25,7 @@ void test_downsample(
 TEST(StreamerTests, testStreamBasic) {
     auto client = new_test_client();
     auto data = create_virtual_channel(client);
-    auto now = telem::TimeStamp::now();
+    auto now = x::telem::TimeStamp::now();
 
     std::vector channels = {data.key};
     auto [streamer, sErr] = client.telem.open_streamer(
@@ -37,14 +37,14 @@ TEST(StreamerTests, testStreamBasic) {
         synnax::WriterConfig{
             channels,
             now,
-            {telem::AUTH_ABSOLUTE},
-            telem::ControlSubject{"test_writer"}
+            {x::telem::AUTH_ABSOLUTE},
+            x::telem::ControlSubject{"test_writer"}
         }
     ));
 
-    auto frame = telem::Frame(1);
+    auto frame = x::telem::Frame(1);
     float v = 1.0;
-    frame.emplace(data.key, telem::Series(v));
+    frame.emplace(data.key, x::telem::Series(v));
     ASSERT_NIL(writer.write(frame));
     ASSERT_NIL_P(writer.commit());
     auto res_frame = ASSERT_NIL_P(streamer.read());
@@ -59,7 +59,7 @@ TEST(StreamerTests, testStreamBasic) {
 TEST(StreamerTests, testStreamSetChannels) {
     auto client = new_test_client();
     auto data = create_virtual_channel(client);
-    auto now = telem::TimeStamp::now();
+    auto now = x::telem::TimeStamp::now();
 
     auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
         synnax::StreamerConfig{
@@ -73,18 +73,18 @@ TEST(StreamerTests, testStreamSetChannels) {
         synnax::WriterConfig{
             {data.key},
             now,
-            {telem::AUTH_ABSOLUTE},
-            telem::ControlSubject{"test_writer"}
+            {x::telem::AUTH_ABSOLUTE},
+            x::telem::ControlSubject{"test_writer"}
         }
     ));
     // Sleep for 5 milliseconds to allow for the streamer to process the updated keys.
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
     ASSERT_NIL(set_err);
 
-    auto frame = telem::Frame(1);
+    auto frame = x::telem::Frame(1);
     frame.emplace(
         data.key,
-        telem::Series(
+        x::telem::Series(
             std::vector<float>{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0}
         )
     );
@@ -139,7 +139,7 @@ TEST(StreamerTests, TestStreamDownsampleNegative) {
     auto client = new_test_client();
     ASSERT_OCCURRED_AS_P(
         client.telem.open_streamer(synnax::StreamerConfig{.downsample_factor = -1}),
-        xerrors::VALIDATION
+        x::errors::VALIDATION
     );
 }
 
@@ -148,10 +148,10 @@ TEST(StreamerTests, TestStreamVariableChannel) {
     auto client = new_test_client();
     auto data = ASSERT_NIL_P(client.channels.create(
         make_unique_channel_name("stream_variable_channel_data"),
-        telem::STRING_T,
+        x::telem::STRING_T,
         true
     ));
-    auto now = telem::TimeStamp::now();
+    auto now = x::telem::TimeStamp::now();
     std::vector channels = {data.key};
     auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
         synnax::StreamerConfig{
@@ -163,13 +163,13 @@ TEST(StreamerTests, TestStreamVariableChannel) {
         synnax::WriterConfig{
             channels,
             now,
-            std::vector{telem::AUTH_ABSOLUTE},
-            telem::ControlSubject{"test_writer"}
+            std::vector{x::telem::AUTH_ABSOLUTE},
+            x::telem::ControlSubject{"test_writer"}
         }
     ));
 
     const std::string value = "cat";
-    auto frame = telem::Frame(data.key, telem::Series(value));
+    auto frame = x::telem::Frame(data.key, x::telem::Series(value));
     ASSERT_NIL(writer.write(frame));
 
     auto res_frame = ASSERT_NIL_P(streamer.read());
@@ -185,15 +185,15 @@ void test_downsample(
     int32_t downsample_factor
 ) {
     auto client = new_test_client();
-    auto data = create_virtual_channel(client, telem::INT32_T);
-    auto now = telem::TimeStamp::now();
+    auto data = create_virtual_channel(client, x::telem::INT32_T);
+    auto now = x::telem::TimeStamp::now();
     std::vector channels = {data.key};
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::WriterConfig{
             channels,
             now,
-            std::vector{telem::AUTH_ABSOLUTE},
-            telem::ControlSubject{"test_writer"}
+            std::vector{x::telem::AUTH_ABSOLUTE},
+            x::telem::ControlSubject{"test_writer"}
         }
     ));
 
@@ -204,8 +204,8 @@ void test_downsample(
     // Sleep for 5 milliseconds to allow for the streamer to bootstrap.
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-    auto frame = telem::Frame(1);
-    frame.emplace(data.key, telem::Series(raw_data));
+    auto frame = x::telem::Frame(1);
+    frame.emplace(data.key, x::telem::Series(raw_data));
     ASSERT_NIL(writer.write(frame));
     auto res_frame = ASSERT_NIL_P(streamer.read());
 
@@ -225,19 +225,19 @@ void test_downsample_string(
 
     synnax::Channel virtual_channel(
         make_unique_channel_name("virtual_string_channel"),
-        telem::STRING_T,
+        x::telem::STRING_T,
         true
     );
     ASSERT_NIL(client.channels.create(virtual_channel));
 
-    auto now = telem::TimeStamp::now();
+    auto now = x::telem::TimeStamp::now();
     std::vector channels = {virtual_channel.key};
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::WriterConfig{
             channels,
             now,
-            std::vector{telem::AUTH_ABSOLUTE},
-            telem::ControlSubject{"test_writer"}
+            std::vector{x::telem::AUTH_ABSOLUTE},
+            x::telem::ControlSubject{"test_writer"}
         }
     ));
 
@@ -247,9 +247,9 @@ void test_downsample_string(
 
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-    auto frame = telem::Frame(
+    auto frame = x::telem::Frame(
         virtual_channel.key,
-        telem::Series(raw_data, telem::STRING_T)
+        x::telem::Series(raw_data, x::telem::STRING_T)
     );
     ASSERT_NIL(writer.write(frame));
     auto res_frame = ASSERT_NIL_P(streamer.read());

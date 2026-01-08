@@ -19,7 +19,7 @@
 
 /// module
 #include "x/cpp/telem/series.h"
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 /// internal
 #include "driver/opc/connection/connection.h"
@@ -27,21 +27,21 @@
 #include "driver/opc/telem/telem.h"
 #include "driver/opc/types/types.h"
 
-namespace opc::device {
+namespace driver::opc::device {
 struct Properties {
-    opc::connection::Config connection;
+    driver::opc::connection::Config connection;
     std::vector<Node> channels;
 
     Properties(
-        const opc::connection::Config &connection,
+        const driver::opc::connection::Config &connection,
         const std::vector<Node> &channels
     ):
         connection(connection), channels(channels) {}
 
-    explicit Properties(const xjson::Parser &parser):
+    explicit Properties(const x::json::Parser &parser):
         connection(parser.child("connection")) {
         if (!parser.has("channels")) return;
-        parser.iter("channels", [&](xjson::Parser &cb) { channels.emplace_back(cb); });
+        parser.iter("channels", [&](x::json::Parser &cb) { channels.emplace_back(cb); });
     }
 
     json to_json() const {

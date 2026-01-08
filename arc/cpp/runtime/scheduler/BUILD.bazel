@@ -8,7 +8,7 @@ cc_library(
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
         "//arc/cpp/runtime/time",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
         "@glog//:glog",
     ],
 )

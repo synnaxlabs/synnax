@@ -15,7 +15,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/runtime/node/node.h"
 
@@ -153,7 +153,7 @@ public:
         this->ctx = node::Context{
             .mark_changed =
                 [&](const std::string &param) { this->mark_changed(param); },
-            .report_error = [&](const xerrors::Error &) {},
+            .report_error = [&](const x::errors::Error &) {},
             .activate_stage = [&](
                                   const std::string &node_key
                               ) { this->activate_stage_by_node(node_key); }
@@ -226,7 +226,7 @@ public:
         return this->active_stages.contains(seq_name);
     }
 
-    void next(const telem::TimeSpan elapsed) {
+    void next(const x::telem::TimeSpan elapsed) {
         this->ctx.elapsed = elapsed;
         this->just_activated.clear();
 

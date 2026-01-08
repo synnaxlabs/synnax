@@ -9,27 +9,27 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/xtest.h"
 
 #include "driver/pipeline/base.h"
 
-class ThrowingPipeline final : public pipeline::Base {
+class ThrowingPipeline final : public driver::pipeline::Base {
 public:
-    explicit ThrowingPipeline(const breaker::Config &config): Base(config) {}
+    explicit ThrowingPipeline(const x::breaker::Config &config): Base(config) {}
 
     void run() override { throw std::runtime_error("test exception"); }
 };
 
-class StdExceptionPipeline final : public pipeline::Base {
+class StdExceptionPipeline final : public driver::pipeline::Base {
 public:
-    explicit StdExceptionPipeline(const breaker::Config &config): Base(config) {}
+    explicit StdExceptionPipeline(const x::breaker::Config &config): Base(config) {}
 
     void run() override { throw std::out_of_range("test std::exception"); }
 };
 
 /// @brief it should catch and handle unknown exceptions in run().
 TEST(BasePipeline, testUnknownExceptionHandling) {
-    auto pipeline = ThrowingPipeline(breaker::Config{});
+    auto pipeline = ThrowingPipeline(x::breaker::Config{});
     ASSERT_TRUE(pipeline.start());
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
     ASSERT_TRUE(pipeline.stop());
@@ -37,7 +37,7 @@ TEST(BasePipeline, testUnknownExceptionHandling) {
 
 /// @brief it should catch and handle std::exception in run().
 TEST(BasePipeline, testStdExceptionHandling) {
-    auto pipeline = StdExceptionPipeline(breaker::Config{});
+    auto pipeline = StdExceptionPipeline(x::breaker::Config{});
     ASSERT_TRUE(pipeline.start());
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
     ASSERT_TRUE(pipeline.stop());

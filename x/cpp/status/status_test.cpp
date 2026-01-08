@@ -10,7 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/status/status.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 struct TestDetails {
     std::string field1;
@@ -20,7 +20,7 @@ struct TestDetails {
         return json{{"field1", field1}, {"field2", field2}};
     }
 
-    static TestDetails parse(xjson::Parser parser) {
+    static TestDetails parse(x::json::Parser parser) {
         return TestDetails{
             .field1 = parser.field<std::string>("field1", ""),
             .field2 = parser.field<int>("field2", 0),
@@ -58,7 +58,7 @@ TEST(StatusTest, TestParse) {
         {"details", {{"field1", "test"}, {"field2", 123}}},
         {"labels", json::array()}
     };
-    xjson::Parser p(j);
+    x::json::Parser p(j);
     const auto stat = synnax::status::Status<TestDetails>::parse(p);
     ASSERT_EQ(stat.key, "cat");
     ASSERT_EQ(stat.variant, synnax::status::VARIANT_ERROR);

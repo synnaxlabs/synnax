@@ -16,7 +16,7 @@
 
 #include "driver/pipeline/base.h"
 
-namespace pipeline {
+namespace driver::pipeline {
 /// @brief an object that writes data to an acquisition computer or other resource.
 class Sink {
 public:
@@ -25,7 +25,7 @@ public:
     /// acquisition pipeline will trigger a breaker (temporary backoff), and then
     /// retry the read operation. Any other error type will be considered a
     /// permanent error and the pipeline will exit.
-    virtual xerrors::Error write(const telem::Frame &frame) = 0;
+    virtual x::errors::Error write(const x::telem::Frame &frame) = 0;
 
     /// @brief communicates an error encountered by the control pipeline that
     /// occurred during shut down or occurred during a commanded shutdown.
@@ -34,7 +34,7 @@ public:
     /// the source (read, stopped_with_err) until the pipeline is restarted.
     ///
     /// This method may be called even if stop() was called on the pipeline.
-    virtual void stopped_with_err(const xerrors::Error &_) {}
+    virtual void stopped_with_err(const x::errors::Error &_) {}
 
     virtual ~Sink() = default;
 };
@@ -49,7 +49,7 @@ public:
     /// will trigger a breaker (temporary backoff), and then retry the read
     /// operation. Any other error type will be considered a permanent error and the
     /// pipeline will exit.
-    virtual std::pair<telem::Frame, xerrors::Error> read() = 0;
+    virtual std::pair<x::telem::Frame, x::errors::Error> read() = 0;
 
     /// @brief closes the streamer, returning any error that occurred during normal
     /// operation. If the returned error is of type freighter::UNREACHABLE, the
@@ -57,7 +57,7 @@ public:
     ///  until the configured number of maximum retries is exceeded. Any other error
     ///  will
     /// be considered permanent and the pipeline will exit.
-    virtual xerrors::Error close() = 0;
+    virtual x::errors::Error close() = 0;
 
     /// @brief signals the streamer that the caller is done sending requests, and
     /// that it should being the streamer shutdown process. This mechanism should be
@@ -77,13 +77,13 @@ public:
     /// the control pipeline will trigger a breaker (temporary backoff), and then
     /// retry until the configured number of maximum retries is exceeded. Any other
     /// error is considered permanent and the pipeline will exit.
-    virtual std::pair<std::unique_ptr<Streamer>, xerrors::Error>
+    virtual std::pair<std::unique_ptr<Streamer>, x::errors::Error>
     open_streamer(synnax::StreamerConfig config) = 0;
 
     virtual ~StreamerFactory() = default;
 };
 
-/// @brief an implementation of the pipeline::Streamer interface that is backed
+/// @brief an implementation of the driver::pipeline::Streamer interface that is backed
 /// by a Synnax streamer that receives data from a cluster.
 class SynnaxStreamer final : public Streamer {
     /// @brief the wrapped synnax streamer.
@@ -94,18 +94,18 @@ public:
     /// streamer.
     explicit SynnaxStreamer(synnax::Streamer internal);
 
-    /// @brief implements pipeline::Streamer to read the next frame from the
+    /// @brief implements driver::pipeline::Streamer to read the next frame from the
     /// streamer.
-    std::pair<telem::Frame, xerrors::Error> read() override;
+    std::pair<x::telem::Frame, x::errors::Error> read() override;
 
-    /// @brief implements pipeline::Streamer to close the streamer.
-    xerrors::Error close() override;
+    /// @brief implements driver::pipeline::Streamer to close the streamer.
+    x::errors::Error close() override;
 
-    /// @brief implements pipeline::Streamer to close the streamer.
+    /// @brief implements driver::pipeline::Streamer to close the streamer.
     void close_send() override;
 };
 
-/// @brief an implementation of the pipeline::StreamerFactory interface that is
+/// @brief an implementation of the driver::pipeline::StreamerFactory interface that is
 /// backed by an actual synnax client connected to a cluster.
 class SynnaxStreamerFactory final : public StreamerFactory {
     /// @brief the Synnax client to use for opening streamers.
@@ -116,8 +116,8 @@ public:
     /// client.
     explicit SynnaxStreamerFactory(const std::shared_ptr<synnax::Synnax> &client);
 
-    /// @brief implements pipeline::StreamerFactory to open a Synnax streamer.
-    std::pair<std::unique_ptr<pipeline::Streamer>, xerrors::Error>
+    /// @brief implements driver::pipeline::StreamerFactory to open a Synnax streamer.
+    std::pair<std::unique_ptr<driver::pipeline::Streamer>, x::errors::Error>
     open_streamer(synnax::StreamerConfig config) override;
 };
 
@@ -152,7 +152,7 @@ public:
         std::shared_ptr<synnax::Synnax> client,
         synnax::StreamerConfig streamer_config,
         std::shared_ptr<Sink> sink,
-        const breaker::Config &breaker_config,
+        const x::breaker::Config &breaker_config,
         std::string thread_name = ""
     );
 
@@ -171,7 +171,7 @@ public:
         std::shared_ptr<StreamerFactory> streamer_factory,
         synnax::StreamerConfig streamer_config,
         std::shared_ptr<Sink> sink,
-        const breaker::Config &breaker_config,
+        const x::breaker::Config &breaker_config,
         std::string thread_name = ""
     );
 

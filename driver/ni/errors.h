@@ -11,7 +11,7 @@
 
 #include "driver/errors/errors.h"
 
-namespace ni {
+namespace driver::ni {
 const driver::LibraryInfo NI_DAQMX = {
     "National Instruments NI-DAQmx shared",
     "https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html"
@@ -21,5 +21,5 @@ const driver::LibraryInfo NI_SYSCFG = {
     "https://www.ni.com/en/support/downloads/drivers/download.system-configuration.html"
 };
 
-const xerrors::Error END_OF_ENUM("ni.end_of_enum");
+const x::errors::Error END_OF_ENUM("ni.end_of_enum");
 }

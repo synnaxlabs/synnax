@@ -18,18 +18,18 @@ std::string ID::string() const {
     return type + ":" + key;
 }
 
-std::pair<ID, xerrors::Error> ID::parse(const std::string &s) {
+std::pair<ID, x::errors::Error> ID::parse(const std::string &s) {
     if (s.empty())
         return {
             ID{},
-            xerrors::Error(xerrors::VALIDATION, "[ontology] - cannot parse empty id")
+            x::errors::Error(x::errors::VALIDATION, "[ontology] - cannot parse empty id")
         };
     const auto colon_pos = s.find(':');
     if (colon_pos == std::string::npos)
         return {
             ID{},
-            xerrors::Error(
-                xerrors::VALIDATION,
+            x::errors::Error(
+                x::errors::VALIDATION,
                 "[ontology] - failed to parse id '" + s +
                     "': expected format 'type:key'"
             )
@@ -37,15 +37,15 @@ std::pair<ID, xerrors::Error> ID::parse(const std::string &s) {
     if (colon_pos == 0)
         return {
             ID{},
-            xerrors::Error(
-                xerrors::VALIDATION,
+            x::errors::Error(
+                x::errors::VALIDATION,
                 "[ontology] - failed to parse id '" + s + "': type is empty"
             )
         };
     const auto type = s.substr(0, colon_pos);
     const auto key = s.substr(colon_pos + 1);
     ID id{type, key};
-    return {id, xerrors::NIL};
+    return {id, x::errors::NIL};
 }
 
 bool ID::operator==(const ID &other) const {
@@ -56,7 +56,7 @@ bool ID::operator!=(const ID &other) const {
     return !(*this == other);
 }
 
-std::pair<std::vector<ID>, xerrors::Error>
+std::pair<std::vector<ID>, x::errors::Error>
 parse_ids(const std::vector<std::string> &strs) {
     std::vector<ID> ids;
     ids.reserve(strs.size());
@@ -65,7 +65,7 @@ parse_ids(const std::vector<std::string> &strs) {
         if (!err.ok()) return {std::vector<ID>{}, err};
         ids.push_back(std::move(id));
     }
-    return {ids, xerrors::NIL};
+    return {ids, x::errors::NIL};
 }
 
 std::vector<std::string> ids_to_strings(const std::vector<ID> &ids) {

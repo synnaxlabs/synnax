@@ -13,26 +13,26 @@
 #include "open62541/types.h"
 
 /// module
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 /// internal
 #include "driver/errors/errors.h"
 
-namespace opc::errors {
-const xerrors::Error CRITICAL = driver::CRITICAL_HARDWARE_ERROR.sub("opc");
-const xerrors::Error TEMPORARY = driver::TEMPORARY_HARDWARE_ERROR.sub("opc");
-const xerrors::Error UNREACHABLE = CRITICAL.sub("unreachable");
-const xerrors::Error NO_CONNECTION = UNREACHABLE.sub("no_connection");
+namespace driver::opc::errors {
+const x::errors::Error CRITICAL = driver::CRITICAL_HARDWARE_ERROR.sub("opc");
+const x::errors::Error TEMPORARY = driver::TEMPORARY_HARDWARE_ERROR.sub("opc");
+const x::errors::Error UNREACHABLE = CRITICAL.sub("unreachable");
+const x::errors::Error NO_CONNECTION = UNREACHABLE.sub("no_connection");
 
 /// @brief security-related errors for certificate and encryption issues
-const xerrors::Error SECURITY = CRITICAL.sub("security");
-const xerrors::Error MISSING_CERTIFICATE = SECURITY.sub("missing_certificate");
-const xerrors::Error INVALID_SECURITY_POLICY = SECURITY.sub("invalid_policy");
-const xerrors::Error ENCRYPTION_CONFIG_FAILED = SECURITY.sub("encryption_config");
+const x::errors::Error SECURITY = CRITICAL.sub("security");
+const x::errors::Error MISSING_CERTIFICATE = SECURITY.sub("missing_certificate");
+const x::errors::Error INVALID_SECURITY_POLICY = SECURITY.sub("invalid_policy");
+const x::errors::Error ENCRYPTION_CONFIG_FAILED = SECURITY.sub("encryption_config");
 
 /// @brief specific OPC UA error codes mapped to error types
-const xerrors::Error INVALID_ENDPOINT = CRITICAL.sub("BadTcpEndpointUrlInvalid");
-const xerrors::Error IDENTITY_TOKEN_REJECTED = CRITICAL.sub("BadIdentityTokenRejected");
+const x::errors::Error INVALID_ENDPOINT = CRITICAL.sub("BadTcpEndpointUrlInvalid");
+const x::errors::Error IDENTITY_TOKEN_REJECTED = CRITICAL.sub("BadIdentityTokenRejected");
 
-xerrors::Error parse(const UA_StatusCode &status);
+x::errors::Error parse(const UA_StatusCode &status);
 }

@@ -11,7 +11,7 @@
 #include "nlohmann/json.hpp"
 
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/xtest.h"
 
 #include "driver/opc/mock/server.h"
 #include "driver/opc/opc.h"
@@ -22,10 +22,10 @@ class TestReadTask : public ::testing::Test {
 protected:
     synnax::Task task;
     json task_cfg_json;
-    std::shared_ptr<task::MockContext> ctx;
-    std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
+    std::shared_ptr<driver::task::MockContext> ctx;
+    std::shared_ptr<driver::pipeline::mock::WriterFactory> mock_factory;
     std::unique_ptr<mock::Server> server;
-    std::shared_ptr<opc::connection::Pool> conn_pool;
+    std::shared_ptr<driver::opc::connection::Pool> conn_pool;
     synnax::Channel index_channel;
     synnax::Channel bool_channel;
     synnax::Channel uint16_channel;
@@ -43,71 +43,71 @@ protected:
 
         this->index_channel = ASSERT_NIL_P(
             client->channels
-                .create(make_unique_channel_name("index"), telem::TIMESTAMP_T, 0, true)
+                .create(make_unique_channel_name("index"), x::telem::TIMESTAMP_T, 0, true)
         );
         this->bool_channel = ASSERT_NIL_P(client->channels.create(
             make_unique_channel_name("bool_test"),
-            telem::UINT8_T,
+            x::telem::UINT8_T,
             this->index_channel.key,
             false
         ));
         this->uint16_channel = ASSERT_NIL_P(client->channels.create(
             make_unique_channel_name("uint16_test"),
-            telem::UINT16_T,
+            x::telem::UINT16_T,
             this->index_channel.key,
             false
         ));
         this->uint32_channel = ASSERT_NIL_P(client->channels.create(
             make_unique_channel_name("uint32_test"),
-            telem::UINT32_T,
+            x::telem::UINT32_T,
             this->index_channel.key,
             false
         ));
         this->uint64_channel = ASSERT_NIL_P(client->channels.create(
             make_unique_channel_name("uint64_test"),
-            telem::UINT64_T,
+            x::telem::UINT64_T,
             this->index_channel.key,
             false
         ));
         this->int8_channel = ASSERT_NIL_P(client->channels.create(
             make_unique_channel_name("int8_test"),
-            telem::INT8_T,
+            x::telem::INT8_T,
             this->index_channel.key,
             false
         ));
         this->int16_channel = ASSERT_NIL_P(client->channels.create(
             make_unique_channel_name("int16_test"),
-            telem::INT16_T,
+            x::telem::INT16_T,
             this->index_channel.key,
             false
         ));
         this->int32_channel = ASSERT_NIL_P(client->channels.create(
             make_unique_channel_name("int32_test"),
-            telem::INT32_T,
+            x::telem::INT32_T,
             this->index_channel.key,
             false
         ));
         this->int64_channel = ASSERT_NIL_P(client->channels.create(
             make_unique_channel_name("int64_test"),
-            telem::INT64_T,
+            x::telem::INT64_T,
             this->index_channel.key,
             false
         ));
         this->float_channel = ASSERT_NIL_P(client->channels.create(
             make_unique_channel_name("float_test"),
-            telem::FLOAT32_T,
+            x::telem::FLOAT32_T,
             this->index_channel.key,
             false
         ));
         this->double_channel = ASSERT_NIL_P(client->channels.create(
             make_unique_channel_name("double_test"),
-            telem::FLOAT64_T,
+            x::telem::FLOAT64_T,
             this->index_channel.key,
             false
         ));
         auto rack = ASSERT_NIL_P(client->racks.create("opc_read_task_test_rack"));
 
-        opc::connection::Config conn_cfg;
+        driver::opc::connection::Config conn_cfg;
         conn_cfg.endpoint = "opc.tcp://localhost:4840";
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
@@ -221,35 +221,35 @@ protected:
 
         task_cfg_json = task_cfg;
 
-        ctx = std::make_shared<task::MockContext>(client);
-        mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
-        conn_pool = std::make_shared<opc::connection::Pool>();
+        ctx = std::make_shared<driver::task::MockContext>(client);
+        mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
+        conn_pool = std::make_shared<driver::opc::connection::Pool>();
 
         server = std::make_unique<mock::Server>(server_cfg);
         server->start();
 
         // Wait for server to be ready by attempting to connect
-        opc::connection::Config test_conn_cfg;
+        driver::opc::connection::Config test_conn_cfg;
         test_conn_cfg.endpoint = conn_cfg.endpoint;
         test_conn_cfg.security_mode = "None";
         test_conn_cfg.security_policy = "None";
         auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-            opc::connection::connect(test_conn_cfg, "test"),
-            (5 * telem::SECOND).chrono(),
-            (250 * telem::MILLISECOND).chrono()
+            driver::opc::connection::connect(test_conn_cfg, "test"),
+            (5 * x::telem::SECOND).chrono(),
+            (250 * x::telem::MILLISECOND).chrono()
         );
         UA_Client_disconnect(test_client.get());
     }
 
-    std::unique_ptr<common::ReadTask> create_task() {
-        auto p = xjson::Parser(task_cfg_json);
-        auto cfg = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+    std::unique_ptr<driver::task::common::ReadTask> create_task() {
+        auto p = x::json::Parser(task_cfg_json);
+        auto cfg = std::make_unique<driver::opc::ReadTaskConfig>(ctx->client, p);
 
-        return std::make_unique<common::ReadTask>(
+        return std::make_unique<driver::task::common::ReadTask>(
             task,
             ctx,
-            breaker::default_config(task.name),
-            std::make_unique<opc::UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
+            x::breaker::default_config(task.name),
+            std::make_unique<driver::opc::UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
             mock_factory
         );
     }
@@ -257,7 +257,7 @@ protected:
 
 /// @brief it should read multiple data types from OPC UA server.
 TEST_F(TestReadTask, testBasicReadTask) {
-    auto start = telem::TimeStamp::now();
+    auto start = x::telem::TimeStamp::now();
     const auto rt = create_task();
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
@@ -304,7 +304,7 @@ TEST_F(TestReadTask, testBasicReadTask) {
     ASSERT_EQ(fr.at<std::int64_t>(this->int64_channel.key, 0), 12345);
     ASSERT_NEAR(fr.at<float>(this->float_channel.key, 0), 3.14159f, 0.0001f);
     ASSERT_NEAR(fr.at<double>(this->double_channel.key, 0), 2.71828, 0.0001);
-    ASSERT_GE(fr.at<telem::TimeStamp>(this->index_channel.key, 0), start);
+    ASSERT_GE(fr.at<x::telem::TimeStamp>(this->index_channel.key, 0), start);
 }
 
 /// @brief it should return error for non-existent OPC UA node.
@@ -328,14 +328,14 @@ TEST_F(TestReadTask, testInvalidNodeId) {
         {"stream_rate", 25}
     };
 
-    auto p = xjson::Parser(bad_task_cfg);
-    auto bad_cfg = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+    auto p = x::json::Parser(bad_task_cfg);
+    auto bad_cfg = std::make_unique<driver::opc::ReadTaskConfig>(ctx->client, p);
 
-    auto rt = std::make_unique<common::ReadTask>(
+    auto rt = std::make_unique<driver::task::common::ReadTask>(
         task,
         ctx,
-        breaker::default_config(task.name),
-        std::make_unique<opc::UnaryReadTaskSource>(conn_pool, std::move(*bad_cfg)),
+        x::breaker::default_config(task.name),
+        std::make_unique<driver::opc::UnaryReadTaskSource>(conn_pool, std::move(*bad_cfg)),
         mock_factory
     );
 
@@ -388,8 +388,8 @@ TEST_F(TestReadTask, testEmptyChannelList) {
         {"stream_rate", 25}
     };
 
-    auto p = xjson::Parser(empty_cfg);
-    auto empty_config = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+    auto p = x::json::Parser(empty_cfg);
+    auto empty_config = std::make_unique<driver::opc::ReadTaskConfig>(ctx->client, p);
     EXPECT_TRUE(p.error());
 }
 
@@ -414,8 +414,8 @@ TEST_F(TestReadTask, testDisabledChannels) {
         {"stream_rate", 25}
     };
 
-    auto p = xjson::Parser(disabled_cfg);
-    auto disabled_config = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+    auto p = x::json::Parser(disabled_cfg);
+    auto disabled_config = std::make_unique<driver::opc::ReadTaskConfig>(ctx->client, p);
     EXPECT_TRUE(p.error());
 }
 
@@ -511,14 +511,14 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
         {"stream_rate", 25}
     };
 
-    auto p = xjson::Parser(array_task_cfg);
-    auto cfg = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+    auto p = x::json::Parser(array_task_cfg);
+    auto cfg = std::make_unique<driver::opc::ReadTaskConfig>(ctx->client, p);
 
-    auto rt = std::make_unique<common::ReadTask>(
+    auto rt = std::make_unique<driver::task::common::ReadTask>(
         task,
         ctx,
-        breaker::default_config(task.name),
-        std::make_unique<opc::ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
+        x::breaker::default_config(task.name),
+        std::make_unique<driver::opc::ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -708,14 +708,14 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
         {"stream_rate", 25}
     };
 
-    auto p = xjson::Parser(multi_channel_array_cfg);
-    auto cfg = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+    auto p = x::json::Parser(multi_channel_array_cfg);
+    auto cfg = std::make_unique<driver::opc::ReadTaskConfig>(ctx->client, p);
 
-    auto rt = std::make_unique<common::ReadTask>(
+    auto rt = std::make_unique<driver::task::common::ReadTask>(
         task,
         ctx,
-        breaker::default_config(task.name),
-        std::make_unique<opc::ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
+        x::breaker::default_config(task.name),
+        std::make_unique<driver::opc::ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -787,14 +787,14 @@ TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
         {"stream_rate", 25}
     };
 
-    auto p = xjson::Parser(array_cfg);
-    auto cfg = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+    auto p = x::json::Parser(array_cfg);
+    auto cfg = std::make_unique<driver::opc::ReadTaskConfig>(ctx->client, p);
 
-    auto rt = std::make_unique<common::ReadTask>(
+    auto rt = std::make_unique<driver::task::common::ReadTask>(
         task,
         ctx,
-        breaker::default_config(task.name),
-        std::make_unique<opc::ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
+        x::breaker::default_config(task.name),
+        std::make_unique<driver::opc::ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -839,7 +839,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
         ctx->client->racks.create("opc_invalid_bool_rack")
     );
 
-    opc::connection::Config invalid_conn_cfg;
+    driver::opc::connection::Config invalid_conn_cfg;
     invalid_conn_cfg.endpoint = "opc.tcp://localhost:4841";
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
@@ -875,14 +875,14 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
         {"stream_rate", 25}
     };
 
-    auto p = xjson::Parser(invalid_bool_cfg);
-    auto cfg = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+    auto p = x::json::Parser(invalid_bool_cfg);
+    auto cfg = std::make_unique<driver::opc::ReadTaskConfig>(ctx->client, p);
 
-    auto rt = std::make_unique<common::ReadTask>(
+    auto rt = std::make_unique<driver::task::common::ReadTask>(
         task,
         ctx,
-        breaker::default_config(task.name),
-        std::make_unique<opc::UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
+        x::breaker::default_config(task.name),
+        std::make_unique<driver::opc::UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -919,7 +919,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
         ctx->client->racks.create("opc_invalid_float_rack")
     );
 
-    opc::connection::Config invalid_conn_cfg;
+    driver::opc::connection::Config invalid_conn_cfg;
     invalid_conn_cfg.endpoint = "opc.tcp://localhost:4842";
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
@@ -954,14 +954,14 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
         {"stream_rate", 25}
     };
 
-    auto p = xjson::Parser(invalid_float_cfg);
-    auto cfg = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+    auto p = x::json::Parser(invalid_float_cfg);
+    auto cfg = std::make_unique<driver::opc::ReadTaskConfig>(ctx->client, p);
 
-    auto rt = std::make_unique<common::ReadTask>(
+    auto rt = std::make_unique<driver::task::common::ReadTask>(
         task,
         ctx,
-        breaker::default_config(task.name),
-        std::make_unique<opc::UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
+        x::breaker::default_config(task.name),
+        std::make_unique<driver::opc::UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -998,7 +998,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
         ctx->client->racks.create("opc_invalid_double_rack")
     );
 
-    opc::connection::Config invalid_conn_cfg;
+    driver::opc::connection::Config invalid_conn_cfg;
     invalid_conn_cfg.endpoint = "opc.tcp://localhost:4843";
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
@@ -1034,14 +1034,14 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
         {"stream_rate", 25}
     };
 
-    auto p = xjson::Parser(invalid_double_cfg);
-    auto cfg = std::make_unique<opc::ReadTaskConfig>(ctx->client, p);
+    auto p = x::json::Parser(invalid_double_cfg);
+    auto cfg = std::make_unique<driver::opc::ReadTaskConfig>(ctx->client, p);
 
-    auto rt = std::make_unique<common::ReadTask>(
+    auto rt = std::make_unique<driver::task::common::ReadTask>(
         task,
         ctx,
-        breaker::default_config(task.name),
-        std::make_unique<opc::ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
+        x::breaker::default_config(task.name),
+        std::make_unique<driver::opc::ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -1073,7 +1073,7 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
     // Create rack and device
     auto rack = ASSERT_NIL_P(client->racks.create("opc_test_rack"));
 
-    opc::connection::Config conn_cfg;
+    driver::opc::connection::Config conn_cfg;
     conn_cfg.endpoint = "opc.tcp://localhost:4840";
     conn_cfg.security_mode = "None";
     conn_cfg.security_policy = "None";
@@ -1092,13 +1092,13 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
     // Create index and data channels
     auto index_ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("opc_test_index"),
-        telem::TIMESTAMP_T,
+        x::telem::TIMESTAMP_T,
         0,
         true
     ));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("opc_test_channel"),
-        telem::FLOAT32_T,
+        x::telem::FLOAT32_T,
         index_ch.key,
         false
     ));
@@ -1114,8 +1114,8 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
         {"channels", json::array({{{"node_id", "NS=2;I=8"}, {"channel", ch.key}}})}
     };
 
-    auto p = xjson::Parser(task_cfg);
-    auto cfg = std::make_unique<opc::ReadTaskConfig>(client, p);
+    auto p = x::json::Parser(task_cfg);
+    auto cfg = std::make_unique<driver::opc::ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
     // Verify that writer_config has enable_auto_commit set to true

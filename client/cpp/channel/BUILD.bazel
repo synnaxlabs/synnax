@@ -14,9 +14,9 @@ cc_library(
         "//freighter/cpp:freighter",
         "//freighter/cpp/fgrpc",
         "//x/cpp/control",
+        "//x/cpp/errors",
+        "//x/cpp/json",
         "//x/cpp/telem",
-        "//x/cpp/xerrors",
-        "//x/cpp/xjson",
         "@grpc//:grpc++",
     ],
 )

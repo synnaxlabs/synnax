@@ -6,7 +6,7 @@ cc_library(
     deps = [
         "//driver/errors",
         "//vendor/open62541",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
     ],
 )
 

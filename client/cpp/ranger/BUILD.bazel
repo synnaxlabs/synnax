@@ -10,7 +10,7 @@ cc_library(
         "//freighter/cpp/fgrpc",
         "//core/pkg/api/grpc:api_grpc",
         "//x/cpp/telem",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
         "//x/go/telem:telem_grpc",
         "@grpc//:grpc++",
     ],
@@ -22,7 +22,7 @@ cc_test(
     deps = [
         "//client/cpp:synnax",
         "//client/cpp/testutil",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
         "//x/cpp/xtest",
         "@googletest//:gtest_main",
     ],

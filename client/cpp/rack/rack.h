@@ -20,7 +20,7 @@
 #include "client/cpp/task/task.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/status/status.h"
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/json/json.h"
 #include "client/cpp/rack/types.gen.h"
 
 #include "core/pkg/service/rack/pb/rack.pb.h"
@@ -103,7 +103,7 @@ public:
     /// @brief Constructs a rack from its protobuf representation.
     /// @param rack The protobuf representation of the rack.
     /// @returns A pair containing the rack and an error if one occurred.
-    static std::pair<Rack, xerrors::Error> from_proto(const service::rack::Rack &rack);
+    static std::pair<Rack, x::errors::Error> from_proto(const service::rack::Rack &rack);
 
     /// @brief Equality operator for racks.
     /// @param rack The rack to compare with.
@@ -142,31 +142,31 @@ public:
     /// task client.
     /// @returns An error if the creation failed.
     [[nodiscard]]
-    xerrors::Error create(Rack &rack) const;
+    x::errors::Error create(Rack &rack) const;
 
     /// @brief Creates a rack with the given name in the cluster.
     /// @param name The name of the rack to create.
     /// @returns A pair containing the created rack and an error if one occurred.
     [[nodiscard]]
-    std::pair<Rack, xerrors::Error> create(const std::string &name) const;
+    std::pair<Rack, x::errors::Error> create(const std::string &name) const;
 
     /// @brief Retrieves a rack by its key.
     /// @param key The key of the rack to retrieve.
     /// @returns A pair containing the retrieved rack and an error if one occurred.
     [[nodiscard]]
-    std::pair<Rack, xerrors::Error> retrieve(std::uint32_t key) const;
+    std::pair<Rack, x::errors::Error> retrieve(std::uint32_t key) const;
 
     /// @brief Retrieves a rack by its name.
     /// @param name The name of the rack to retrieve.
     /// @returns A pair containing the retrieved rack and an error if one occurred.
     [[nodiscard]]
-    std::pair<Rack, xerrors::Error> retrieve(const std::string &name) const;
+    std::pair<Rack, x::errors::Error> retrieve(const std::string &name) const;
 
     /// @brief Deletes a rack by its key.
     /// @param key The key of the rack to delete.
     /// @returns An error if the deletion failed.
     [[nodiscard]]
-    xerrors::Error del(std::uint32_t key) const;
+    x::errors::Error del(std::uint32_t key) const;
 
 private:
     /// @brief Rack creation transport.

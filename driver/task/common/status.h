@@ -15,22 +15,22 @@
 /// modules
 #include "x/cpp/status/status.h"
 
-namespace common {
+namespace driver::task::common {
 const std::string STOP_CMD_TYPE = "stop";
 const std::string START_CMD_TYPE = "start";
 const std::string SCAN_CMD_TYPE = "scan";
 /// @brief a utility structure for managing the state of tasks.
 struct StatusHandler {
     /// @brief the task context used to communicate state changes back to Synnax.
-    const std::shared_ptr<task::Context> ctx;
+    const std::shared_ptr<driver::task::Context> ctx;
     /// @brief the raw synnax task.
     const synnax::Task task;
     /// @brief the accumulated error in the task state.
-    xerrors::Error accumulated_err = xerrors::NIL;
+    x::errors::Error accumulated_err = x::errors::NIL;
     /// @brief the wrapped raw task state that will be sent back to Synnax.
     synnax::TaskStatus status;
 
-    StatusHandler(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task):
+    StatusHandler(const std::shared_ptr<driver::task::Context> &ctx, const synnax::Task &task):
         ctx(ctx), task(task) {
         this->status.name = task.name;
         this->status.details.task = task.key;
@@ -40,20 +40,20 @@ struct StatusHandler {
     /// @brief resets the state handler to its initial state.
     void reset() {
         this->status.variant = status::variant::SUCCESS;
-        this->accumulated_err = xerrors::NIL;
+        this->accumulated_err = x::errors::NIL;
     }
 
     /// @brief register the provided error in the task state. If err is nil, then it
     /// will be ignored, and false will be returned. Otherwise, the provided error
     /// will override any other accumulated errors.
-    bool error(const xerrors::Error &err) {
+    bool error(const x::errors::Error &err) {
         if (!err) return false;
         this->status.variant = status::variant::ERR;
         this->accumulated_err = err;
         return true;
     }
 
-    void send_warning(const xerrors::Error &err) { this->send_warning(err.data); }
+    void send_warning(const x::errors::Error &err) { this->send_warning(err.data); }
 
     /// @brief sends the provided warning string to the task. If the task is in
     /// error state, the warning will not be sent.
@@ -112,10 +112,10 @@ struct StatusHandler {
 
 /// @brief a utility function that appropriately handles configuration errors and
 /// communicates them back to Synnax in the standard format.
-inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
-    const std::shared_ptr<task::Context> &ctx,
+inline std::pair<std::unique_ptr<driver::task::Task>, bool> handle_config_err(
+    const std::shared_ptr<driver::task::Context> &ctx,
     const synnax::Task &task,
-    std::pair<common::ConfigureResult, xerrors::Error> res
+    std::pair<driver::task::common::ConfigureResult, x::errors::Error> res
 ) {
     synnax::TaskStatus status;
     status.key = task.status_key();
@@ -130,7 +130,7 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
         if (!res.first.auto_start) { status.message = "Task configured successfully"; }
     }
     if (res.first.auto_start) {
-        task::Command start_cmd(task.key, START_CMD_TYPE, {});
+        driver::task::Command start_cmd(task.key, START_CMD_TYPE, {});
         res.first.task->exec(start_cmd);
     } else
         ctx->set_status(status);

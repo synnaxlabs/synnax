@@ -17,8 +17,8 @@
 #include <utility>
 
 #include "x/cpp/status/types.gen.h"
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
 
 namespace service::rack {
 class StatusDetails;
@@ -31,7 +31,7 @@ using Key = std::uint32_t;
 struct StatusDetails {
     Key rack;
 
-    static StatusDetails parse(xjson::Parser parser) {
+    static StatusDetails parse(x::json::Parser parser) {
         return StatusDetails{
             .rack = parser.field<Key>("rack"),
         };
@@ -45,7 +45,7 @@ struct StatusDetails {
 
     using proto_type = service::rack::StatusDetails;
     [[nodiscard]] service::rack::StatusDetails to_proto() const;
-    static std::pair<StatusDetails, xerrors::Error>
+    static std::pair<StatusDetails, x::errors::Error>
     from_proto(const service::rack::StatusDetails &pb);
 };
 
@@ -58,7 +58,7 @@ struct Payload {
     bool embedded;
     std::optional<Status> status;
 
-    static Payload parse(xjson::Parser parser) {
+    static Payload parse(x::json::Parser parser) {
         return Payload{
             .key = parser.field<Key>("key"),
             .name = parser.field<std::string>("name"),
@@ -82,6 +82,6 @@ struct Payload {
 
     using proto_type = service::rack::Rack;
     [[nodiscard]] service::rack::Rack to_proto() const;
-    static std::pair<Payload, xerrors::Error> from_proto(const service::rack::Rack &pb);
+    static std::pair<Payload, x::errors::Error> from_proto(const service::rack::Rack &pb);
 };
 }

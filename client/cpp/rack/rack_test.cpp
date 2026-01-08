@@ -11,7 +11,7 @@
 
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/xtest.h"
 
 std::mt19937 gen_rand = random_generator(std::move("Ranger Tests"));
 
@@ -40,7 +40,7 @@ TEST(RackTests, testDeleteRack) {
     auto r = Rack("test_rack");
     ASSERT_NIL(client.racks.create(r));
     ASSERT_NIL(client.racks.del(r.key));
-    ASSERT_OCCURRED_AS_P(client.racks.retrieve(r.key), xerrors::QUERY);
+    ASSERT_OCCURRED_AS_P(client.racks.retrieve(r.key), x::errors::QUERY);
 }
 /// @brief it should retrieve a rack by its name.
 TEST(RackTests, testRetrieveRackByName) {
@@ -61,7 +61,7 @@ TEST(RackTests, testCreateRackWithStatus) {
     r.status.key = "rack-status-key";
     r.status.variant = ::status::variant::SUCCESS;
     r.status.message = "Rack is healthy";
-    r.status.time = telem::TimeStamp::now();
+    r.status.time = x::telem::TimeStamp::now();
     r.status.details.rack = 123;
     ASSERT_NIL(client.racks.create(r));
     const auto r2 = ASSERT_NIL_P(client.racks.retrieve(r.key));
@@ -75,7 +75,7 @@ TEST(RackTests, testCreateRackWithStatus) {
 /// @brief it should correctly parse RackStatusDetails from JSON.
 TEST(RackStatusDetailsTests, testParseFromJSON) {
     json j = {{"rack", 54321}};
-    const xjson::Parser parser(j);
+    const x::json::Parser parser(j);
     const auto details = RackStatusDetails::parse(parser);
     ASSERT_NIL(parser.error());
     ASSERT_EQ(details.rack, 54321);
@@ -92,7 +92,7 @@ TEST(RackStatusDetailsTests, testToJSON) {
 TEST(RackStatusDetailsTests, testRoundTrip) {
     constexpr RackStatusDetails original{.rack = 11223};
     const auto j = original.to_json();
-    const xjson::Parser parser(j);
+    const x::json::Parser parser(j);
     const auto recovered = RackStatusDetails::parse(parser);
     ASSERT_NIL(parser.error());
     ASSERT_EQ(recovered.rack, original.rack);

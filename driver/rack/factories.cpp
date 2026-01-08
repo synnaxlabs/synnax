@@ -12,15 +12,15 @@
 #endif
 #include "driver/rack/rack.h"
 
-using FactoryList = std::vector<std::unique_ptr<task::Factory>>;
+using FactoryList = std::vector<std::unique_ptr<driver::task::Factory>>;
 
-bool rack::Config::integration_enabled(const std::string &i) const {
+bool driver::rack::Config::integration_enabled(const std::string &i) const {
     return std::find(integrations.begin(), integrations.end(), i) != integrations.end();
 }
 
 template<typename F>
 void configure_integration(
-    const rack::Config &config,
+    const driver::rack::Config &config,
     FactoryList &factories,
     const std::string &integration_name,
     F factory_creator
@@ -33,42 +33,42 @@ void configure_integration(
     factories.push_back(factory_creator());
 }
 
-void configure_opc(const rack::Config &config, FactoryList &factories) {
-    configure_integration(config, factories, opc::INTEGRATION_NAME, []() {
-        return std::make_unique<opc::Factory>();
+void configure_opc(const driver::rack::Config &config, FactoryList &factories) {
+    configure_integration(config, factories, driver::opc::INTEGRATION_NAME, []() {
+        return std::make_unique<driver::opc::Factory>();
     });
 }
 
-void configure_ni(const rack::Config &config, FactoryList &factories) {
-    configure_integration(config, factories, ni::INTEGRATION_NAME, [&config]() {
-        return ni::Factory::create(config.timing);
+void configure_ni(const driver::rack::Config &config, FactoryList &factories) {
+    configure_integration(config, factories, driver::ni::INTEGRATION_NAME, [&config]() {
+        return driver::ni::Factory::create(config.timing);
     });
 }
 
-void configure_sequences(const rack::Config &config, FactoryList &factories) {
-    configure_integration(config, factories, sequence::INTEGRATION_NAME, []() {
-        return std::make_unique<sequence::Factory>();
+void configure_sequences(const driver::rack::Config &config, FactoryList &factories) {
+    configure_integration(config, factories, driver::sequence::INTEGRATION_NAME, []() {
+        return std::make_unique<driver::sequence::Factory>();
     });
 }
 
-void configure_labjack(const rack::Config &config, FactoryList &factories) {
-    configure_integration(config, factories, labjack::INTEGRATION_NAME, [&config]() {
-        return labjack::Factory::create(config.timing);
+void configure_labjack(const driver::rack::Config &config, FactoryList &factories) {
+    configure_integration(config, factories, driver::labjack::INTEGRATION_NAME, [&config]() {
+        return driver::labjack::Factory::create(config.timing);
     });
 }
 
 void configure_state(FactoryList &factories) {
-    factories.push_back(std::make_unique<rack::status::Factory>());
+    factories.push_back(std::make_unique<driver::rack::status::Factory>());
 }
 
 #ifndef SYNNAX_NILINUXRT
-void configure_modbus(const rack::Config &config, FactoryList &factories) {
-    if (!config.integration_enabled(modbus::INTEGRATION_NAME)) return;
-    factories.push_back(std::make_unique<modbus::Factory>());
+void configure_modbus(const driver::rack::Config &config, FactoryList &factories) {
+    if (!config.integration_enabled(driver::modbus::INTEGRATION_NAME)) return;
+    factories.push_back(std::make_unique<driver::modbus::Factory>());
 }
 #endif
 
-std::unique_ptr<task::Factory> rack::Config::new_factory() const {
+std::unique_ptr<driver::task::Factory> driver::rack::Config::new_factory() const {
     FactoryList factories;
     configure_state(factories);
     configure_opc(*this, factories);
@@ -78,5 +78,5 @@ std::unique_ptr<task::Factory> rack::Config::new_factory() const {
 #ifndef SYNNAX_NILINUXRT
     configure_modbus(*this, factories);
 #endif
-    return std::make_unique<task::MultiFactory>(std::move(factories));
+    return std::make_unique<driver::task::MultiFactory>(std::move(factories));
 }

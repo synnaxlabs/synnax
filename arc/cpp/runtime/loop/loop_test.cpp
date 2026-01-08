@@ -14,7 +14,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/breaker/breaker.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/xtest.h"
 
 #include "arc/cpp/runtime/loop/loop.h"
 
@@ -24,7 +24,7 @@ using namespace arc::runtime::loop;
 TEST(LoopTest, Create) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = telem::MILLISECOND;
+    config.interval = x::telem::MILLISECOND;
 
     const auto loop = ASSERT_NIL_P(create(config));
     ASSERT_NE(loop, nullptr);
@@ -34,7 +34,7 @@ TEST(LoopTest, Create) {
 TEST(LoopTest, StartStop) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = telem::MILLISECOND;
+    config.interval = x::telem::MILLISECOND;
     const auto loop = ASSERT_NIL_P(create(config));
     loop->stop();
 }
@@ -43,13 +43,13 @@ TEST(LoopTest, StartStop) {
 TEST(LoopTest, NotifyData_EventDriven) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = telem::TimeSpan(0); // No timer
+    config.interval = x::telem::TimeSpan(0); // No timer
 
     const auto loop = ASSERT_NIL_P(create(config));
     ASSERT_NIL(loop->start());
 
     std::atomic<bool> woke_up{false};
-    breaker::Breaker breaker;
+    x::breaker::Breaker breaker;
 
     // Start a thread that waits on the loop
     std::thread waiter([&]() {
@@ -76,12 +76,12 @@ TEST(LoopTest, NotifyData_EventDriven) {
 TEST(LoopTest, TimerExpiration) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = 10 * telem::MILLISECOND;
+    config.interval = 10 * x::telem::MILLISECOND;
 
     const auto loop = ASSERT_NIL_P(create(config));
     ASSERT_NIL(loop->start());
 
-    breaker::Breaker breaker;
+    x::breaker::Breaker breaker;
 
     const auto start = std::chrono::steady_clock::now();
     loop->wait(breaker);
@@ -103,13 +103,13 @@ TEST(LoopTest, TimerExpiration) {
 TEST(LoopTest, BusyWaitMode) {
     Config config;
     config.mode = ExecutionMode::BUSY_WAIT;
-    config.interval = telem::TimeSpan(0); // No timer
+    config.interval = x::telem::TimeSpan(0); // No timer
 
     const auto loop = ASSERT_NIL_P(create(config));
     ASSERT_NIL(loop->start());
 
     std::atomic<bool> woke_up{false};
-    breaker::Breaker breaker;
+    x::breaker::Breaker breaker;
 
     std::thread waiter([&]() {
         loop->wait(breaker);
@@ -140,12 +140,12 @@ TEST(LoopTest, BusyWaitMode) {
 TEST(LoopTest, HighRateMode) {
     Config config;
     config.mode = ExecutionMode::HIGH_RATE;
-    config.interval = 10 * telem::MILLISECOND;
+    config.interval = 10 * x::telem::MILLISECOND;
 
     const auto loop = ASSERT_NIL_P(create(config));
     ASSERT_NIL(loop->start());
 
-    breaker::Breaker breaker;
+    x::breaker::Breaker breaker;
 
     const auto start = std::chrono::steady_clock::now();
     loop->wait(breaker);
@@ -167,14 +167,14 @@ TEST(LoopTest, HighRateMode) {
 TEST(LoopTest, HybridMode) {
     Config config;
     config.mode = ExecutionMode::HYBRID;
-    config.interval = telem::TimeSpan(0); // No timer
-    config.spin_duration = 50 * telem::MICROSECOND; // 50us spin
+    config.interval = x::telem::TimeSpan(0); // No timer
+    config.spin_duration = 50 * x::telem::MICROSECOND; // 50us spin
 
     const auto loop = ASSERT_NIL_P(create(config));
     ASSERT_NIL(loop->start());
 
     std::atomic<bool> woke_up{false};
-    breaker::Breaker breaker;
+    x::breaker::Breaker breaker;
 
     std::thread waiter([&]() {
         loop->wait(breaker);
@@ -194,7 +194,7 @@ TEST(LoopTest, HybridMode) {
 TEST(LoopTest, MultipleStartStop) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = telem::MILLISECOND;
+    config.interval = x::telem::MILLISECOND;
 
     for (int i = 0; i < 3; i++) {
         const auto loop = ASSERT_NIL_P(create(config));
@@ -216,7 +216,7 @@ TEST(LoopTest, DifferentModes) {
     for (const auto mode: modes) {
         Config config;
         config.mode = mode;
-        config.interval = telem::MILLISECOND;
+        config.interval = x::telem::MILLISECOND;
         const auto loop = ASSERT_NIL_P(create(config));
         ASSERT_NIL(loop->start());
         loop->stop();

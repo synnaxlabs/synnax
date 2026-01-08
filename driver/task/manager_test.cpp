@@ -13,19 +13,19 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/status/status.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/xtest.h"
 
 #include "driver/task/task.h"
 
 using json = nlohmann::json;
 
-class MockEchoTask final : public task::Task {
-    const std::shared_ptr<task::Context> ctx;
+class MockEchoTask final : public driver::task::Task {
+    const std::shared_ptr<driver::task::Context> ctx;
     const synnax::Task task;
 
 public:
     explicit MockEchoTask(
-        const std::shared_ptr<task::Context> &ctx,
+        const std::shared_ptr<driver::task::Context> &ctx,
         const synnax::Task &task
     ):
         ctx(ctx), task(task) {
@@ -42,7 +42,7 @@ public:
 
     std::string name() const override { return "echo"; }
 
-    void exec(task::Command &cmd) override {
+    void exec(driver::task::Command &cmd) override {
         synnax::TaskStatus status{
             .key = task.status_key(),
             .variant = status::variant::SUCCESS,
@@ -70,12 +70,12 @@ public:
     }
 };
 
-class EchoTaskFactory final : public task::Factory {
+class EchoTaskFactory final : public driver::task::Factory {
 public:
     bool configured = false;
 
-    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
-        const std::shared_ptr<task::Context> &ctx,
+    std::pair<std::unique_ptr<driver::task::Task>, bool> configure_task(
+        const std::shared_ptr<driver::task::Context> &ctx,
         const synnax::Task &task
     ) override {
         if (task.type != "echo") return {nullptr, false};
@@ -86,7 +86,7 @@ public:
 class TaskManagerTestFixture : public testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
-    std::unique_ptr<task::Manager> task_manager;
+    std::unique_ptr<driver::task::Manager> task_manager;
     synnax::Rack rack;
     std::thread task_thread;
     synnax::Channel status_chan;
@@ -103,7 +103,7 @@ protected:
         ));
 
         auto factory = std::make_unique<EchoTaskFactory>();
-        task_manager = std::make_unique<task::Manager>(
+        task_manager = std::make_unique<driver::task::Manager>(
             rack,
             client,
             std::move(factory)
@@ -141,13 +141,13 @@ synnax::TaskStatus wait_for_task_status(
     const std::chrono::milliseconds timeout = std::chrono::seconds(5)
 ) {
     synnax::TaskStatus result;
-    xtest::eventually(
+    x::test::eventually(
         [&]() {
             auto [frame, err] = streamer.read();
             if (err) return false;
             auto json_values = frame.series->at(0).json_values();
             for (const auto &j: json_values) {
-                auto p = xjson::Parser(j);
+                auto p = x::json::Parser(j);
                 auto s = synnax::TaskStatus::parse(p);
                 if (s.details.task == task.key && predicate(s)) {
                     result = s;
@@ -230,7 +230,7 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     auto writer = ASSERT_NIL_P(client->telem.open_writer(
         synnax::WriterConfig{
             .channels = {sy_task_cmd.key},
-            .start = telem::TimeStamp::now(),
+            .start = x::telem::TimeStamp::now(),
         }
     ));
     auto echo_task = synnax::Task(rack.key, "echo_task", "echo", "");
@@ -247,14 +247,14 @@ TEST_F(TaskManagerTestFixture, testEchoTaskCommand) {
     );
 
     // Create and send a command
-    auto cmd = task::Command(
+    auto cmd = driver::task::Command(
         echo_task.key,
         "test_command",
         json{{"message", "hello world"}}
     );
     cmd.key = "my_command";
     ASSERT_NIL(
-        writer.write(telem::Frame(sy_task_cmd.key, telem::Series(cmd.to_json())))
+        writer.write(x::telem::Frame(sy_task_cmd.key, x::telem::Series(cmd.to_json())))
     );
     ASSERT_NIL(writer.close());
 
@@ -288,7 +288,7 @@ TEST_F(TaskManagerTestFixture, testIgnoreDifferentRackTask) {
         auto [frame, err] = this->status_streamer.read();
         auto json_vs = frame.series->at(0).json_values();
         for (const auto &j: json_vs) {
-            auto parser = xjson::Parser(j);
+            auto parser = x::json::Parser(j);
             auto status = synnax::TaskStatus::parse(parser);
             if (status.variant != status::variant::WARNING) received_state = true;
         }
@@ -347,7 +347,7 @@ TEST_F(TaskManagerTestFixture, testIgnoresSnapshot) {
         if (err) return;
         auto json_vs = frame.series->at(0).json_values();
         for (const auto &j: json_vs) {
-            auto parser = xjson::Parser(j);
+            auto parser = x::json::Parser(j);
             auto status = synnax::TaskStatus::parse(parser);
             if (status.variant != status::variant::WARNING &&
                 status.details.task == snapshot_task.key) {

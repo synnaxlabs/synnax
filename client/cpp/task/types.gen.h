@@ -19,8 +19,8 @@
 #include "nlohmann/json.hpp"
 
 #include "x/cpp/status/types.gen.h"
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
 
 namespace service::task {
 class StatusDetails;
@@ -37,7 +37,7 @@ struct StatusDetails {
     std::string cmd;
     std::optional<nlohmann::json> data;
 
-    static StatusDetails parse(xjson::Parser parser) {
+    static StatusDetails parse(x::json::Parser parser) {
         return StatusDetails{
             .task = parser.field<Key>("task", {}),
             .running = parser.field<bool>("running", false),
@@ -59,7 +59,7 @@ struct StatusDetails {
 
     using proto_type = service::task::StatusDetails;
     [[nodiscard]] service::task::StatusDetails to_proto() const;
-    static std::pair<StatusDetails, xerrors::Error>
+    static std::pair<StatusDetails, x::errors::Error>
     from_proto(const service::task::StatusDetails &pb);
 };
 
@@ -69,7 +69,7 @@ struct Command {
     std::string key;
     nlohmann::json args;
 
-    static Command parse(xjson::Parser parser) {
+    static Command parse(x::json::Parser parser) {
         return Command{
             .task = parser.field<Key>("task"),
             .type = parser.field<std::string>("type"),
@@ -89,7 +89,7 @@ struct Command {
 
     using proto_type = service::task::Command;
     [[nodiscard]] service::task::Command to_proto() const;
-    static std::pair<Command, xerrors::Error>
+    static std::pair<Command, x::errors::Error>
     from_proto(const service::task::Command &pb);
 };
 
@@ -104,7 +104,7 @@ struct Payload {
     std::string config;
     std::optional<Status> status;
 
-    static Payload parse(xjson::Parser parser) {
+    static Payload parse(x::json::Parser parser) {
         return Payload{
             .key = parser.field<Key>("key"),
             .name = parser.field<std::string>("name"),
@@ -132,8 +132,6 @@ struct Payload {
 
     using proto_type = service::task::Task;
     [[nodiscard]] service::task::Task to_proto() const;
-    static std::pair<Payload, xerrors::Error> from_proto(const service::task::Task &pb);
+    static std::pair<Payload, x::errors::Error> from_proto(const service::task::Task &pb);
 };
 }
-template<typename Details>
-struct Status {

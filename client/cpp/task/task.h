@@ -20,8 +20,8 @@
 #include "client/cpp/task/proto.gen.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/status/status.h"
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
 
 #include "core/pkg/service/task/pb/task.pb.h"
 #include "core/pkg/api/grpc/task/task.pb.h"
@@ -206,55 +206,55 @@ public:
     /// @param task The task to create. Will be updated with the assigned key.
     /// @returns An error if the creation failed.
     [[nodiscard]]
-    xerrors::Error create(Task &task) const;
+    x::errors::Error create(Task &task) const;
 
     /// @brief Retrieves a task by its key.
     /// @param key The key of the task to retrieve.
     /// @returns A pair containing the retrieved task and an error if one occurred.
     [[nodiscard]]
-    std::pair<Task, xerrors::Error> retrieve(TaskKey key) const;
+    std::pair<Task, x::errors::Error> retrieve(TaskKey key) const;
 
     /// @brief Retrieves a task by its key with options.
     /// @param key The key of the task to retrieve.
     /// @param options Options for the retrieval.
     /// @returns A pair containing the retrieved task and an error if one occurred.
     [[nodiscard]]
-    std::pair<Task, xerrors::Error>
+    std::pair<Task, x::errors::Error>
     retrieve(TaskKey key, const TaskRetrieveOptions &options) const;
 
     /// @brief Retrieves a task by its type.
     /// @param type The type of the task to retrieve.
     /// @returns A pair containing the retrieved task and an error if one occurred.
     [[nodiscard]]
-    std::pair<Task, xerrors::Error> retrieve_by_type(const std::string &type) const;
+    std::pair<Task, x::errors::Error> retrieve_by_type(const std::string &type) const;
 
     /// @brief Retrieves a task by its type with options.
     /// @param type The type of the task to retrieve.
     /// @param options Options for the retrieval.
     /// @returns A pair containing the retrieved task and an error if one occurred.
     [[nodiscard]]
-    std::pair<Task, xerrors::Error>
+    std::pair<Task, x::errors::Error>
     retrieve_by_type(const std::string &type, const TaskRetrieveOptions &options) const;
 
     /// @brief Retrieves a task by its name.
     /// @param name The name of the task to retrieve.
     /// @returns A pair containing the retrieved task and an error if one occurred.
     [[nodiscard]]
-    std::pair<Task, xerrors::Error> retrieve(const std::string &name) const;
+    std::pair<Task, x::errors::Error> retrieve(const std::string &name) const;
 
     /// @brief Retrieves a task by its name with options.
     /// @param name The name of the task to retrieve.
     /// @param options Options for the retrieval.
     /// @returns A pair containing the retrieved task and an error if one occurred.
     [[nodiscard]]
-    std::pair<Task, xerrors::Error>
+    std::pair<Task, x::errors::Error>
     retrieve(const std::string &name, const TaskRetrieveOptions &options) const;
 
     /// @brief Retrieves multiple tasks by their names.
     /// @param names The names of the tasks to retrieve.
     /// @returns A pair containing the retrieved tasks and an error if one occurred.
     [[nodiscard]]
-    std::pair<std::vector<Task>, xerrors::Error>
+    std::pair<std::vector<Task>, x::errors::Error>
     retrieve(const std::vector<std::string> &names) const;
 
     /// @brief Retrieves multiple tasks by their names with options.
@@ -262,7 +262,7 @@ public:
     /// @param options Options for the retrieval.
     /// @returns A pair containing the retrieved tasks and an error if one occurred.
     [[nodiscard]]
-    std::pair<std::vector<Task>, xerrors::Error> retrieve(
+    std::pair<std::vector<Task>, x::errors::Error> retrieve(
         const std::vector<std::string> &names,
         const TaskRetrieveOptions &options
     ) const;
@@ -271,7 +271,7 @@ public:
     /// @param types The types of the tasks to retrieve.
     /// @returns A pair containing the retrieved tasks and an error if one occurred.
     [[nodiscard]]
-    std::pair<std::vector<Task>, xerrors::Error>
+    std::pair<std::vector<Task>, x::errors::Error>
     retrieve_by_type(const std::vector<std::string> &types) const;
 
     /// @brief Retrieves multiple tasks by their types with options.
@@ -279,7 +279,7 @@ public:
     /// @param options Options for the retrieval.
     /// @returns A pair containing the retrieved tasks and an error if one occurred.
     [[nodiscard]]
-    std::pair<std::vector<Task>, xerrors::Error> retrieve_by_type(
+    std::pair<std::vector<Task>, x::errors::Error> retrieve_by_type(
         const std::vector<std::string> &types,
         const TaskRetrieveOptions &options
     ) const;
@@ -288,18 +288,18 @@ public:
     /// @param key The key of the task to delete.
     /// @returns An error if the deletion failed.
     [[nodiscard]]
-    xerrors::Error del(TaskKey key) const;
+    x::errors::Error del(TaskKey key) const;
 
     /// @brief Lists all tasks on the rack.
     /// @returns A pair containing the list of tasks and an error if one occurred.
     [[nodiscard]]
-    std::pair<std::vector<Task>, xerrors::Error> list() const;
+    std::pair<std::vector<Task>, x::errors::Error> list() const;
 
     /// @brief Lists all tasks on the rack with options.
     /// @param options Options for the retrieval.
     /// @returns A pair containing the list of tasks and an error if one occurred.
     [[nodiscard]]
-    std::pair<std::vector<Task>, xerrors::Error>
+    std::pair<std::vector<Task>, x::errors::Error>
     list(const TaskRetrieveOptions &options) const;
 
 private:

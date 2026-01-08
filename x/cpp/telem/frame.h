@@ -16,7 +16,7 @@
 
 #include "x/go/telem/telem.pb.h"
 
-namespace telem {
+namespace x::telem {
 /// @brief A frame is a collection of series mapped to their corresponding channel
 /// keys.
 class Frame {
@@ -43,7 +43,7 @@ public:
 
     /// @brief constructs the frame from its protobuf representation.
     /// @param f the protobuf representation of the frame.
-    explicit Frame(const PBFrame &f);
+    explicit Frame(const ::telem::PBFrame &f);
 
     /// @brief constructs a frame with a single channel and series.
     /// @param chan the channel key corresponding to the given series.
@@ -57,7 +57,7 @@ public:
 
     /// @brief binds the frame to the given protobuf representation.
     /// @param f the protobuf representation to bind to. This pb must be non-null.
-    void to_proto(PBFrame *f) const;
+    void to_proto(::telem::PBFrame *f) const;
 
     /// @brief adds a channel and series to the frame.
     /// @param chan the channel key to add.

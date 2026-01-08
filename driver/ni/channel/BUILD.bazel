@@ -11,7 +11,7 @@ cc_library(
     deps = [
         "//client/cpp:synnax",
         "//driver/ni/daqmx",
-        "//x/cpp/xjson",
+        "//x/cpp/json",
     ],
 )
 

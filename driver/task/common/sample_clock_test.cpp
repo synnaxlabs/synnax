@@ -15,23 +15,23 @@
 
 /// @brief it should correctly use the system clock to time samples.
 TEST(TestSampleClock, testSoftwareTimedSampleClock) {
-    auto clock = common::SoftwareTimedSampleClock(telem::HERTZ * 250);
-    auto now = telem::TimeStamp::now();
-    breaker::Breaker b;
+    auto clock = driver::task::common::SoftwareTimedSampleClock(x::telem::HERTZ * 250);
+    auto now = x::telem::TimeStamp::now();
+    x::breaker::Breaker b;
     const auto start = clock.wait(b);
     EXPECT_GE(start, now);
-    now = telem::TimeStamp::now();
+    now = x::telem::TimeStamp::now();
     const auto end = clock.end();
     ASSERT_GE(end, now);
 }
 
 /// @brief it should correctly rely on steady sample spacing to time samples.
 TEST(TestSampleClock, testHardwareTimedSampleClockNominal) {
-    const auto sample_rate = telem::HERTZ * 2;
-    const auto stream_rate = telem::HERTZ * 1;
-    auto now_v = 0 * telem::SECOND;
-    auto now_f = [&now_v] { return telem::TimeStamp(now_v); };
-    auto clock = common::HardwareTimedSampleClock(
+    const auto sample_rate = x::telem::HERTZ * 2;
+    const auto stream_rate = x::telem::HERTZ * 1;
+    auto now_v = 0 * x::telem::SECOND;
+    auto now_f = [&now_v] { return x::telem::TimeStamp(now_v); };
+    auto clock = driver::task::common::HardwareTimedSampleClock(
         {.now = now_f,
          .sample_rate = sample_rate,
          .stream_rate = stream_rate,
@@ -39,29 +39,29 @@ TEST(TestSampleClock, testHardwareTimedSampleClockNominal) {
          .k_i = 0,
          .k_d = 0}
     );
-    breaker::Breaker b;
+    x::breaker::Breaker b;
 
     auto start = clock.wait(b);
-    ASSERT_EQ(start, telem::TimeStamp(now_v));
-    now_v = telem::SECOND * 1;
+    ASSERT_EQ(start, x::telem::TimeStamp(now_v));
+    now_v = x::telem::SECOND * 1;
     auto end = clock.end();
-    ASSERT_EQ(end, telem::TimeStamp(telem::SECOND * 1));
+    ASSERT_EQ(end, x::telem::TimeStamp(x::telem::SECOND * 1));
 
     start = clock.wait(b);
-    ASSERT_EQ(start, telem::TimeStamp(telem::SECOND * 1));
-    now_v = telem::SECOND * 2;
+    ASSERT_EQ(start, x::telem::TimeStamp(x::telem::SECOND * 1));
+    now_v = x::telem::SECOND * 2;
     end = clock.end();
-    ASSERT_EQ(end, telem::TimeStamp(telem::SECOND * 2));
+    ASSERT_EQ(end, x::telem::TimeStamp(x::telem::SECOND * 2));
 }
 
 /// @brief it should apply proportional correction when system time runs late.
 TEST(TestSampleClock, testHardwareTimedSampleClockNowIsLater) {
-    const auto sample_rate = telem::HERTZ * 2;
-    const auto stream_rate = telem::HERTZ * 1;
-    auto now_v = 0 * telem::SECOND;
-    auto now_f = [&now_v] { return telem::TimeStamp(now_v); };
+    const auto sample_rate = x::telem::HERTZ * 2;
+    const auto stream_rate = x::telem::HERTZ * 1;
+    auto now_v = 0 * x::telem::SECOND;
+    auto now_f = [&now_v] { return x::telem::TimeStamp(now_v); };
     constexpr double k_p = 0.1;
-    auto clock = common::HardwareTimedSampleClock(
+    auto clock = driver::task::common::HardwareTimedSampleClock(
         {.now = now_f,
          .sample_rate = sample_rate,
          .stream_rate = stream_rate,
@@ -69,30 +69,30 @@ TEST(TestSampleClock, testHardwareTimedSampleClockNowIsLater) {
          .k_i = 0,
          .k_d = 0}
     );
-    breaker::Breaker b;
+    x::breaker::Breaker b;
 
     auto start = clock.wait(b);
-    ASSERT_EQ(start, telem::TimeStamp(now_v));
-    now_v = telem::SECOND * 1;
+    ASSERT_EQ(start, x::telem::TimeStamp(now_v));
+    now_v = x::telem::SECOND * 1;
     auto end = clock.end();
-    ASSERT_EQ(end, telem::TimeStamp(telem::SECOND * 1));
+    ASSERT_EQ(end, x::telem::TimeStamp(x::telem::SECOND * 1));
 
     start = clock.wait(b);
-    ASSERT_EQ(start, telem::TimeStamp(telem::SECOND * 1));
+    ASSERT_EQ(start, x::telem::TimeStamp(x::telem::SECOND * 1));
 
-    const auto skew = telem::MILLISECOND * 250;
-    now_v = telem::SECOND * 2 + skew;
+    const auto skew = x::telem::MILLISECOND * 250;
+    now_v = x::telem::SECOND * 2 + skew;
     end = clock.end();
-    ASSERT_EQ(telem::TimeSpan(end.nanoseconds()), telem::SECOND * 2 + skew * k_p);
+    ASSERT_EQ(x::telem::TimeSpan(end.nanoseconds()), x::telem::SECOND * 2 + skew * k_p);
 }
 
 /// @brief it should reset clock state for new acquisition cycle.
 TEST(TestSampleClock, testHardwareTimedSampleClockReset) {
-    const auto sample_rate = telem::HERTZ * 2;
-    const auto stream_rate = telem::HERTZ * 1;
-    auto now_v = telem::SECOND * 5;
-    auto now_f = [&now_v] { return telem::TimeStamp(now_v); };
-    auto clock = common::HardwareTimedSampleClock(
+    const auto sample_rate = x::telem::HERTZ * 2;
+    const auto stream_rate = x::telem::HERTZ * 1;
+    auto now_v = x::telem::SECOND * 5;
+    auto now_f = [&now_v] { return x::telem::TimeStamp(now_v); };
+    auto clock = driver::task::common::HardwareTimedSampleClock(
         {.now = now_f,
          .sample_rate = sample_rate,
          .stream_rate = stream_rate,
@@ -100,30 +100,30 @@ TEST(TestSampleClock, testHardwareTimedSampleClockReset) {
          .k_i = 0,
          .k_d = 0}
     );
-    breaker::Breaker b;
+    x::breaker::Breaker b;
 
     // First cycle
     auto start = clock.wait(b);
-    ASSERT_EQ(start, telem::TimeStamp(now_v));
-    now_v += telem::SECOND * 1;
+    ASSERT_EQ(start, x::telem::TimeStamp(now_v));
+    now_v += x::telem::SECOND * 1;
     auto end = clock.end();
 
     clock.reset();
 
     start = clock.wait(b);
-    ASSERT_EQ(start, telem::TimeStamp(now_v));
-    now_v += telem::SECOND * 1;
+    ASSERT_EQ(start, x::telem::TimeStamp(now_v));
+    now_v += x::telem::SECOND * 1;
     end = clock.end();
-    ASSERT_EQ(end, telem::TimeStamp(now_v));
+    ASSERT_EQ(end, x::telem::TimeStamp(now_v));
 }
 
 /// @brief it should apply PID correction when system runs slower than expected.
 TEST(TestSampleClock, testHardwareTimedSampleClockPIDCorrection) {
-    const auto sample_rate = telem::HERTZ * 2;
-    const auto stream_rate = telem::HERTZ * 1;
-    auto now_v = 0 * telem::SECOND;
-    auto now_f = [&now_v] { return telem::TimeStamp(now_v); };
-    auto clock = common::HardwareTimedSampleClock(
+    const auto sample_rate = x::telem::HERTZ * 2;
+    const auto stream_rate = x::telem::HERTZ * 1;
+    auto now_v = 0 * x::telem::SECOND;
+    auto now_f = [&now_v] { return x::telem::TimeStamp(now_v); };
+    auto clock = driver::task::common::HardwareTimedSampleClock(
         {.now = now_f,
          .sample_rate = sample_rate,
          .stream_rate = stream_rate,
@@ -131,29 +131,29 @@ TEST(TestSampleClock, testHardwareTimedSampleClockPIDCorrection) {
          .k_i = 0.1,
          .k_d = 0.1}
     );
-    breaker::Breaker b;
+    x::breaker::Breaker b;
 
     // First sample - establish baseline
     const auto start = clock.wait(b);
-    ASSERT_EQ(start, telem::TimeStamp(now_v));
+    ASSERT_EQ(start, x::telem::TimeStamp(now_v));
 
     // Simulate system running slower than expected
-    now_v = telem::SECOND * 1 + telem::MILLISECOND * 100; // 100ms delay
+    now_v = x::telem::SECOND * 1 + x::telem::MILLISECOND * 100; // 100ms delay
     const auto end = clock.end();
 
     // The PID controller should attempt to correct for the delay
     // The exact value depends on the PID parameters, but it should be less than
     // the actual system time to compensate for the delay
-    ASSERT_LT(end, telem::TimeStamp(now_v.nanoseconds()));
+    ASSERT_LT(end, x::telem::TimeStamp(now_v.nanoseconds()));
 }
 
 /// @brief it should maintain timing continuity across multiple consecutive cycles.
 TEST(TestSampleClock, testHardwareTimedSampleClockConsecutiveCycles) {
-    const auto sample_rate = telem::HERTZ * 2;
-    const auto stream_rate = telem::HERTZ * 1;
-    auto now_v = 0 * telem::SECOND;
-    auto now_f = [&now_v] { return telem::TimeStamp(now_v); };
-    auto clock = common::HardwareTimedSampleClock(
+    const auto sample_rate = x::telem::HERTZ * 2;
+    const auto stream_rate = x::telem::HERTZ * 1;
+    auto now_v = 0 * x::telem::SECOND;
+    auto now_f = [&now_v] { return x::telem::TimeStamp(now_v); };
+    auto clock = driver::task::common::HardwareTimedSampleClock(
         {.now = now_f,
          .sample_rate = sample_rate,
          .stream_rate = stream_rate,
@@ -161,15 +161,15 @@ TEST(TestSampleClock, testHardwareTimedSampleClockConsecutiveCycles) {
          .k_i = 0,
          .k_d = 0}
     );
-    breaker::Breaker b;
+    x::breaker::Breaker b;
 
     // Test multiple consecutive cycles
     for (int i = 0; i < 3; i++) {
         auto start = clock.wait(b);
-        ASSERT_EQ(start, telem::TimeStamp(now_v));
-        now_v += telem::SECOND * 1; // Advance time by exactly one period
+        ASSERT_EQ(start, x::telem::TimeStamp(now_v));
+        now_v += x::telem::SECOND * 1; // Advance time by exactly one period
         auto end = clock.end();
-        ASSERT_EQ(end, telem::TimeStamp(now_v));
+        ASSERT_EQ(end, x::telem::TimeStamp(now_v));
 
         // Verify that the next start time matches the previous end time
         auto next_start = clock.wait(b);
@@ -179,15 +179,15 @@ TEST(TestSampleClock, testHardwareTimedSampleClockConsecutiveCycles) {
 
 /// @brief it should limit back correction to prevent excessive timestamp adjustments.
 TEST(TestSampleClock, testHardwareTimedSampleClockMaxBackCorrection) {
-    const auto sample_rate = telem::HERTZ * 2;
-    const auto stream_rate = telem::HERTZ * 1;
-    auto now_v = 0 * telem::SECOND;
-    auto now_f = [&now_v] { return telem::TimeStamp(now_v); };
+    const auto sample_rate = x::telem::HERTZ * 2;
+    const auto stream_rate = x::telem::HERTZ * 1;
+    auto now_v = 0 * x::telem::SECOND;
+    auto now_f = [&now_v] { return x::telem::TimeStamp(now_v); };
 
     // Set a large P gain to ensure correction would exceed max if unconstrained
     constexpr double k_p = 2.0;
     constexpr double max_back_correction_factor = 0.1; // 10% of period
-    auto clock = common::HardwareTimedSampleClock(
+    auto clock = driver::task::common::HardwareTimedSampleClock(
         {.now = now_f,
          .sample_rate = sample_rate,
          .stream_rate = stream_rate,
@@ -196,41 +196,41 @@ TEST(TestSampleClock, testHardwareTimedSampleClockMaxBackCorrection) {
          .k_d = 0,
          .max_back_correction_factor = max_back_correction_factor}
     );
-    breaker::Breaker b;
+    x::breaker::Breaker b;
 
     const auto start = clock.wait(b);
-    ASSERT_EQ(start, telem::TimeStamp(now_v));
+    ASSERT_EQ(start, x::telem::TimeStamp(now_v));
     /// now is way way earlier than end.
-    now_v = telem::MILLISECOND * 500;
+    now_v = x::telem::MILLISECOND * 500;
     const auto end = clock.end();
-    const auto expected_time = telem::TimeStamp(telem::MILLISECOND * 900);
+    const auto expected_time = x::telem::TimeStamp(x::telem::MILLISECOND * 900);
     ASSERT_EQ(end, expected_time);
 }
 
 struct PIDTestParams {
-    telem::Rate sample_rate;
-    telem::Rate stream_rate;
+    x::telem::Rate sample_rate;
+    x::telem::Rate stream_rate;
     double k_p;
     double k_i;
     double k_d;
     // Timing error patterns
-    telem::TimeSpan constant_offset;
+    x::telem::TimeSpan constant_offset;
     // Custom jitter function that takes cycle count and returns time offset
-    std::function<telem::TimeSpan(int)> jitter_func;
+    std::function<x::telem::TimeSpan(int)> jitter_func;
     int n_cycles;
 };
 
 class HardwareTimedSampleClockPIDTest : public testing::TestWithParam<PIDTestParams> {
 protected:
-    telem::TimeSpan current_time = 0 * telem::SECOND;
+    x::telem::TimeSpan current_time = 0 * x::telem::SECOND;
     std::default_random_engine rng;
     int current_cycle = 0;
 
-    [[nodiscard]] telem::TimeStamp now_func() const {
-        return telem::TimeStamp(current_time);
+    [[nodiscard]] x::telem::TimeStamp now_func() const {
+        return x::telem::TimeStamp(current_time);
     }
 
-    void advance_system_time(const telem::TimeSpan expected_advance) {
+    void advance_system_time(const x::telem::TimeSpan expected_advance) {
         const auto &params = GetParam();
         auto actual_advance = expected_advance + params.constant_offset;
 
@@ -245,7 +245,7 @@ protected:
 TEST_P(HardwareTimedSampleClockPIDTest, ConvergenceTest) {
     const auto &params = GetParam();
 
-    auto clock = common::HardwareTimedSampleClock(
+    auto clock = driver::task::common::HardwareTimedSampleClock(
         {.now = [this] { return this->now_func(); },
          .sample_rate = params.sample_rate,
          .stream_rate = params.stream_rate,
@@ -254,8 +254,8 @@ TEST_P(HardwareTimedSampleClockPIDTest, ConvergenceTest) {
          .k_d = params.k_d}
     );
 
-    breaker::Breaker b;
-    std::vector<telem::TimeSpan> timing_errors;
+    x::breaker::Breaker b;
+    std::vector<x::telem::TimeSpan> timing_errors;
     const int n_cycles = params.n_cycles;
 
     // Run the clock for multiple cycles
@@ -301,12 +301,12 @@ TEST_P(HardwareTimedSampleClockPIDTest, ConvergenceTest) {
 
     // System should improve over time
     EXPECT_LE(
-        telem::TimeSpan(late_avg_error).abs(),
-        telem::TimeSpan(early_avg_error).abs()
+        x::telem::TimeSpan(late_avg_error).abs(),
+        x::telem::TimeSpan(early_avg_error).abs()
     );
 
     // 2. Check maximum error in steady state (last 20 samples)
-    const auto max_steady_error = telem::TimeSpan(*std::max_element(
+    const auto max_steady_error = x::telem::TimeSpan(*std::max_element(
         timing_errors_ns.end() - n_cycles * 0.2,
         timing_errors_ns.end()
     ));
@@ -322,33 +322,33 @@ INSTANTIATE_TEST_SUITE_P(
     testing::Values(
         // Test case 1: Fast stream rate, constant jitter
         PIDTestParams{
-            .sample_rate = telem::HERTZ * 1000,
-            .stream_rate = telem::HERTZ * 100,
+            .sample_rate = x::telem::HERTZ * 1000,
+            .stream_rate = x::telem::HERTZ * 100,
             .k_p = 0.1,
             .k_i = 0.01,
             .k_d = 0.001,
-            .constant_offset = telem::MILLISECOND * 1,
+            .constant_offset = x::telem::MILLISECOND * 1,
             .jitter_func =
                 [](int cycle) {
-                    return telem::TimeSpan(0); // No jitter
+                    return x::telem::TimeSpan(0); // No jitter
                 },
             .n_cycles = 1000
         },
         // Test case 2: Slow stream rate with sinusoidal jitter
         PIDTestParams{
-            .sample_rate = telem::HERTZ * 100,
-            .stream_rate = telem::HERTZ * 10,
+            .sample_rate = x::telem::HERTZ * 100,
+            .stream_rate = x::telem::HERTZ * 10,
             .k_p = 0.2,
             .k_i = 0.05,
             .k_d = 0.01,
-            .constant_offset = telem::MILLISECOND * 2,
+            .constant_offset = x::telem::MILLISECOND * 2,
             .jitter_func =
                 [](int cycle) {
                     // Sinusoidal jitter with 1ms amplitude and 100-cycle period
-                    return telem::TimeSpan(
+                    return x::telem::TimeSpan(
                         static_cast<int64_t>(
                             std::sin(2 * M_PI * cycle / 100.0) *
-                            telem::MILLISECOND.nanoseconds()
+                            x::telem::MILLISECOND.nanoseconds()
                         )
                     );
                 },
@@ -356,64 +356,64 @@ INSTANTIATE_TEST_SUITE_P(
         },
         // Test case 3: Aggressive PID parameters
         PIDTestParams{
-            .sample_rate = telem::HERTZ * 500,
-            .stream_rate = telem::HERTZ * 50,
+            .sample_rate = x::telem::HERTZ * 500,
+            .stream_rate = x::telem::HERTZ * 50,
             .k_p = 0.5,
             .k_i = 0.1,
             .k_d = 0.05,
-            .constant_offset = telem::MILLISECOND * 1,
+            .constant_offset = x::telem::MILLISECOND * 1,
             .jitter_func =
                 [](int cycle) {
-                    return telem::TimeSpan(0); // No jitter
+                    return x::telem::TimeSpan(0); // No jitter
                 },
             .n_cycles = 1000
         },
         // Test case 4: Very slow rate with minimal correction
         PIDTestParams{
-            .sample_rate = telem::HERTZ * 50,
-            .stream_rate = telem::HERTZ * 1,
+            .sample_rate = x::telem::HERTZ * 50,
+            .stream_rate = x::telem::HERTZ * 1,
             .k_p = 0.05,
             .k_i = 0.005,
             .k_d = 0.001,
-            .constant_offset = telem::MILLISECOND * 5,
+            .constant_offset = x::telem::MILLISECOND * 5,
             .jitter_func =
                 [](int cycle) {
-                    return telem::TimeSpan(0); // No jitter
+                    return x::telem::TimeSpan(0); // No jitter
                 },
             .n_cycles = 100
         },
         // Test case 5: High frequency with tight timing
         PIDTestParams{
-            .sample_rate = telem::HERTZ * 2000,
-            .stream_rate = telem::HERTZ * 200,
+            .sample_rate = x::telem::HERTZ * 2000,
+            .stream_rate = x::telem::HERTZ * 200,
             .k_p = 0.1,
             .k_i = 0.01,
             .k_d = 0.000,
-            .constant_offset = telem::MICROSECOND * 500,
+            .constant_offset = x::telem::MICROSECOND * 500,
             .jitter_func =
                 [](int cycle) {
-                    return telem::TimeSpan(0); // No jitter
+                    return x::telem::TimeSpan(0); // No jitter
                 },
             .n_cycles = 20000
         },
         // Test case 6: Steady then sudden jitter
         PIDTestParams{
-            .sample_rate = telem::HERTZ * 1000,
-            .stream_rate = telem::HERTZ * 100,
+            .sample_rate = x::telem::HERTZ * 1000,
+            .stream_rate = x::telem::HERTZ * 100,
             .k_p = 0.3,
             .k_i = 0.02,
             .k_d = 0.05,
-            .constant_offset = telem::MICROSECOND * 100,
+            .constant_offset = x::telem::MICROSECOND * 100,
             .jitter_func =
                 [](int cycle) {
-                    if (cycle < 10000) return telem::TimeSpan(0);
+                    if (cycle < 10000) return x::telem::TimeSpan(0);
                     static std::random_device rd;
                     static std::mt19937 gen(rd());
                     static std::uniform_int_distribution<int64_t> dist(
-                        -80 * telem::MICROSECOND.nanoseconds(),
-                        80 * telem::MICROSECOND.nanoseconds()
+                        -80 * x::telem::MICROSECOND.nanoseconds(),
+                        80 * x::telem::MICROSECOND.nanoseconds()
                     );
-                    return telem::TimeSpan(dist(gen));
+                    return x::telem::TimeSpan(dist(gen));
                 },
             .n_cycles = 15000
         }
@@ -422,82 +422,82 @@ INSTANTIATE_TEST_SUITE_P(
 
 /// @brief it should generate evenly spaced timestamps for single index channel.
 TEST(TestCommonReadTask, testGenerateIndexDataSingleIndex) {
-    telem::Frame fr;
+    x::telem::Frame fr;
     fr.reserve(2); // 1 data channel + 1 index
-    fr.emplace(1, telem::Series(telem::FLOAT64_T, 3)); // Data channel
-    fr.emplace(2, telem::Series(telem::TIMESTAMP_T, 3)); // Index channel
+    fr.emplace(1, x::telem::Series(x::telem::FLOAT64_T, 3)); // Data channel
+    fr.emplace(2, x::telem::Series(x::telem::TIMESTAMP_T, 3)); // Index channel
 
     const std::set<synnax::ChannelKey> index_keys = {2};
-    const auto start = telem::TimeStamp(1000);
-    const auto end = telem::TimeStamp(4000);
+    const auto start = x::telem::TimeStamp(1000);
+    const auto end = x::telem::TimeStamp(4000);
     constexpr size_t n_read = 3;
     constexpr size_t offset = 1; // Index starts after data channel
 
-    common::generate_index_data(fr, index_keys, start, end, n_read, offset);
+    driver::task::common::generate_index_data(fr, index_keys, start, end, n_read, offset);
 
     // Check index values are evenly spaced
-    EXPECT_EQ(fr.series->at(1).at<telem::TimeStamp>(0), telem::TimeStamp(1000));
-    EXPECT_EQ(fr.series->at(1).at<telem::TimeStamp>(1), telem::TimeStamp(2000));
-    EXPECT_EQ(fr.series->at(1).at<telem::TimeStamp>(2), telem::TimeStamp(3000));
+    EXPECT_EQ(fr.series->at(1).at<x::telem::TimeStamp>(0), x::telem::TimeStamp(1000));
+    EXPECT_EQ(fr.series->at(1).at<x::telem::TimeStamp>(1), x::telem::TimeStamp(2000));
+    EXPECT_EQ(fr.series->at(1).at<x::telem::TimeStamp>(2), x::telem::TimeStamp(3000));
 }
 
 /// @brief it should generate identical timestamps for multiple index channels.
 TEST(TestCommonReadTask, testGenerateIndexDataMultipleIndices) {
-    telem::Frame fr;
+    x::telem::Frame fr;
     fr.reserve(3);
-    fr.emplace(1, telem::Series(telem::FLOAT64_T, 3));
-    fr.emplace(2, telem::Series(telem::TIMESTAMP_T, 3));
-    fr.emplace(3, telem::Series(telem::TIMESTAMP_T, 3));
+    fr.emplace(1, x::telem::Series(x::telem::FLOAT64_T, 3));
+    fr.emplace(2, x::telem::Series(x::telem::TIMESTAMP_T, 3));
+    fr.emplace(3, x::telem::Series(x::telem::TIMESTAMP_T, 3));
 
     const std::set<synnax::ChannelKey> index_keys = {2, 3};
-    const auto start = telem::TimeStamp(1000);
-    const auto end = telem::TimeStamp(4000);
+    const auto start = x::telem::TimeStamp(1000);
+    const auto end = x::telem::TimeStamp(4000);
     constexpr size_t n_read = 3;
     constexpr size_t offset = 1;
 
-    common::generate_index_data(fr, index_keys, start, end, n_read, offset);
+    driver::task::common::generate_index_data(fr, index_keys, start, end, n_read, offset);
 
     for (size_t i = 1; i <= 2; i++) {
-        EXPECT_EQ(fr.series->at(i).at<telem::TimeStamp>(0), telem::TimeStamp(1000));
-        EXPECT_EQ(fr.series->at(i).at<telem::TimeStamp>(1), telem::TimeStamp(2000));
-        EXPECT_EQ(fr.series->at(i).at<telem::TimeStamp>(2), telem::TimeStamp(3000));
+        EXPECT_EQ(fr.series->at(i).at<x::telem::TimeStamp>(0), x::telem::TimeStamp(1000));
+        EXPECT_EQ(fr.series->at(i).at<x::telem::TimeStamp>(1), x::telem::TimeStamp(2000));
+        EXPECT_EQ(fr.series->at(i).at<x::telem::TimeStamp>(2), x::telem::TimeStamp(3000));
     }
 }
 
 /// @brief it should handle empty index keys without modification.
 TEST(TestCommonReadTask, testGenerateIndexDataEmptyIndices) {
-    telem::Frame fr;
+    x::telem::Frame fr;
     fr.reserve(1);
-    fr.emplace(1, telem::Series(telem::FLOAT64_T, 3));
+    fr.emplace(1, x::telem::Series(x::telem::FLOAT64_T, 3));
 
     const std::set<synnax::ChannelKey> index_keys;
-    const auto start = telem::TimeStamp(1000);
-    const auto end = telem::TimeStamp(4000);
+    const auto start = x::telem::TimeStamp(1000);
+    const auto end = x::telem::TimeStamp(4000);
     constexpr size_t n_read = 3;
     constexpr size_t offset = 0;
 
-    common::generate_index_data(fr, index_keys, start, end, n_read, offset);
+    driver::task::common::generate_index_data(fr, index_keys, start, end, n_read, offset);
     EXPECT_EQ(fr.size(), 1);
 }
 
 /// @brief it should generate inclusive timestamps including end point.
 TEST(TestCommonReadTask, testGenerateIndexDataInclusive) {
-    telem::Frame fr;
+    x::telem::Frame fr;
     fr.reserve(2);
-    fr.emplace(1, telem::Series(telem::FLOAT64_T, 3)); // Data channel
-    fr.emplace(2, telem::Series(telem::TIMESTAMP_T, 3)); // Index channel
+    fr.emplace(1, x::telem::Series(x::telem::FLOAT64_T, 3)); // Data channel
+    fr.emplace(2, x::telem::Series(x::telem::TIMESTAMP_T, 3)); // Index channel
 
     const std::set<synnax::ChannelKey> index_keys = {2};
-    const auto start = telem::TimeStamp(1000);
-    const auto end = telem::TimeStamp(3000);
+    const auto start = x::telem::TimeStamp(1000);
+    const auto end = x::telem::TimeStamp(3000);
     constexpr size_t n_read = 3;
     constexpr size_t offset = 1;
     constexpr bool inclusive = true;
 
-    common::generate_index_data(fr, index_keys, start, end, n_read, offset, inclusive);
+    driver::task::common::generate_index_data(fr, index_keys, start, end, n_read, offset, inclusive);
 
     // Check inclusive spacing (end point included in equal intervals)
-    EXPECT_EQ(fr.series->at(1).at<telem::TimeStamp>(0), telem::TimeStamp(1000));
-    EXPECT_EQ(fr.series->at(1).at<telem::TimeStamp>(1), telem::TimeStamp(2000));
-    EXPECT_EQ(fr.series->at(1).at<telem::TimeStamp>(2), telem::TimeStamp(3000));
+    EXPECT_EQ(fr.series->at(1).at<x::telem::TimeStamp>(0), x::telem::TimeStamp(1000));
+    EXPECT_EQ(fr.series->at(1).at<x::telem::TimeStamp>(1), x::telem::TimeStamp(2000));
+    EXPECT_EQ(fr.series->at(1).at<x::telem::TimeStamp>(2), x::telem::TimeStamp(3000));
 }

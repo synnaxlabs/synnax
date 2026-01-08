@@ -15,7 +15,7 @@
 #include <utility>
 
 #include "client/cpp/channel/types.gen.h"
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "core/pkg/distribution/channel/pb/channel.pb.h"
 
@@ -52,13 +52,13 @@ inline distribution::channel::Operation Operation::to_proto() const {
     return pb;
 }
 
-inline std::pair<Operation, xerrors::Error>
+inline std::pair<Operation, x::errors::Error>
 Operation::from_proto(const distribution::channel::Operation &pb) {
     Operation cpp;
     cpp.type = OperationTypeFromPB(pb.type());
     cpp.reset_channel = ChannelKey(pb.reset_channel());
-    cpp.duration = telem::TimeSpan(pb.duration());
-    return {cpp, xerrors::NIL};
+    cpp.duration = x::telem::TimeSpan(pb.duration());
+    return {cpp, x::errors::NIL};
 }
 
 }

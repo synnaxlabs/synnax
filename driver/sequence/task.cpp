@@ -9,16 +9,16 @@
 
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/status/status.h"
-#include "x/cpp/xthread/xthread.h"
+#include "x/cpp/thread/thread.h"
 
 #include "driver/sequence/sequence.h"
 
-sequence::Task::Task(
-    const std::shared_ptr<task::Context> &ctx,
+driver::sequence::Task::Task(
+    const std::shared_ptr<driver::task::Context> &ctx,
     synnax::Task task,
     TaskConfig cfg,
-    std::unique_ptr<sequence::Sequence> seq,
-    const breaker::Config &breaker_config
+    std::unique_ptr<driver::sequence::Sequence> seq,
+    const x::breaker::Config &breaker_config
 ):
     cfg(std::move(cfg)),
     task(std::move(task)),
@@ -36,8 +36,8 @@ sequence::Task::Task(
         }
     ) {}
 
-void sequence::Task::run() {
-    xthread::set_name(this->task.name.c_str());
+void driver::sequence::Task::run() {
+    x::thread::set_name(this->task.name.c_str());
     if (const auto err = this->seq->begin(); err) {
         if (const auto end_err = this->seq->end())
             LOG(ERROR) << "[sequence] failed to end after failed start:" << end_err;
@@ -50,7 +50,7 @@ void sequence::Task::run() {
     this->status.details.running = true;
     this->status.message = "Sequence started";
     this->ctx->set_status(this->status);
-    loop::Timer timer(this->cfg.rate);
+    x::loop::Timer timer(this->cfg.rate);
     while (this->breaker.running()) {
         if (const auto next_err = this->seq->next()) {
             this->status.variant = status::variant::ERR;
@@ -77,16 +77,16 @@ void sequence::Task::run() {
     this->status.message = "Sequence stopped";
 }
 
-void sequence::Task::stop(bool will_reconfigure) {
+void driver::sequence::Task::stop(bool will_reconfigure) {
     this->stop("", will_reconfigure);
 }
 
-void sequence::Task::exec(task::Command &cmd) {
+void driver::sequence::Task::exec(driver::task::Command &cmd) {
     if (cmd.type == "start") return this->start(cmd.key);
     if (cmd.type == "stop") return this->stop(cmd.key, false);
 }
 
-void sequence::Task::start(const std::string &key) {
+void driver::sequence::Task::start(const std::string &key) {
     if (this->breaker.running()) return;
     this->breaker.reset();
     this->breaker.start();
@@ -94,7 +94,7 @@ void sequence::Task::start(const std::string &key) {
     this->thread = std::thread([this] { this->run(); });
 }
 
-void sequence::Task::stop(const std::string &key, bool will_reconfigure) {
+void driver::sequence::Task::stop(const std::string &key, bool will_reconfigure) {
     if (!this->breaker.running()) return;
     this->breaker.stop();
     this->breaker.reset();
@@ -103,14 +103,14 @@ void sequence::Task::stop(const std::string &key, bool will_reconfigure) {
     this->ctx->set_status(this->status);
 }
 
-std::unique_ptr<task::Task> sequence::Task::configure(
-    const std::shared_ptr<task::Context> &ctx,
+std::unique_ptr<driver::task::Task> driver::sequence::Task::configure(
+    const std::shared_ptr<driver::task::Context> &ctx,
     const synnax::Task &task
 ) {
     synnax::TaskStatus cfg_status;
     cfg_status.details.task = task.key;
 
-    auto parser = xjson::Parser(task.config);
+    auto parser = x::json::Parser(task.config);
     TaskConfig cfg(parser);
     if (!parser.ok()) {
         LOG(ERROR) << "[sequence] failed to parse task configuration: "
@@ -161,9 +161,9 @@ std::unique_ptr<task::Task> sequence::Task::configure(
 
         const synnax::WriterConfig writer_cfg{
             .channels = cfg.write,
-            .start = telem::TimeStamp::now(),
+            .start = x::telem::TimeStamp::now(),
             .authorities = {cfg.authority},
-            .subject = telem::ControlSubject{
+            .subject = x::telem::ControlSubject{
                 .name = task.name,
                 .key = std::to_string(task.key),
             }
@@ -176,8 +176,8 @@ std::unique_ptr<task::Task> sequence::Task::configure(
         plugins_list.push_back(ch_write_plugin);
     }
 
-    auto breaker_config = breaker::default_config("sequence (" + task.name + ")");
-    auto seq = std::make_unique<sequence::Sequence>(
+    auto breaker_config = x::breaker::default_config("sequence (" + task.name + ")");
+    auto seq = std::make_unique<driver::sequence::Sequence>(
         std::make_shared<plugins::MultiPlugin>(plugins_list),
         cfg.script
     );

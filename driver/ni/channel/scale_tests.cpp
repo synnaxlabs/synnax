@@ -10,8 +10,8 @@
 #include "nlohmann/json.hpp"
 #include <gtest/gtest.h>
 
-#include "x/cpp/xjson/xjson.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/json/json.h"
+#include "x/cpp/test/xtest.h"
 
 #include "driver/ni/channel/scale.h"
 
@@ -19,7 +19,7 @@ using json = nlohmann::json;
 
 TEST(Scale, None) {
     const json j = {{"scale", {{"type", "none"}}}};
-    const xjson::Parser p(j);
+    const x::json::Parser p(j);
     const auto scale = channel::parse_scale(p, "scale");
     ASSERT_NIL(p.error());
     ASSERT_NE(scale, nullptr);
@@ -35,7 +35,7 @@ TEST(Scale, Linear) {
           {"pre_scaled_units", "Volts"},
           {"scaled_units", "Pascals"}}}
     };
-    const xjson::Parser p(j);
+    const x::json::Parser p(j);
     const auto scale = channel::parse_scale(p, "scale");
     ASSERT_NIL(p.error());
     ASSERT_NE(scale, nullptr);
@@ -60,7 +60,7 @@ TEST(Scale, Map) {
           {"pre_scaled_units", "Volts"},
           {"scaled_units", "Pascals"}}}
     };
-    const xjson::Parser p(j);
+    const x::json::Parser p(j);
     const auto scale = channel::parse_scale(p, "scale");
     ASSERT_NIL(p.error());
     EXPECT_FALSE(scale->is_none());
@@ -85,7 +85,7 @@ TEST(Scale, Polynomial) {
           {"pre_scaled_units", "Volts"},
           {"scaled_units", "Pascals"}}}
     };
-    const xjson::Parser p(j);
+    const x::json::Parser p(j);
     const auto scale = channel::parse_scale(p, "scale");
     ASSERT_NIL(p.error());
     ASSERT_NE(scale, nullptr);
@@ -117,7 +117,7 @@ TEST(Scale, Table) {
           {"pre_scaled_units", "Volts"},
           {"scaled_units", "Pascals"}}}
     };
-    const xjson::Parser p(j);
+    const x::json::Parser p(j);
     const auto scale = channel::parse_scale(p, "scale");
     ASSERT_NIL(p.error());
     ASSERT_NE(scale, nullptr);
@@ -131,24 +131,24 @@ TEST(Scale, Table) {
 
 TEST(Scale, InvalidType) {
     const json j = {{"scale", {{"type", "invalid"}}}};
-    const xjson::Parser p(j);
+    const x::json::Parser p(j);
     const auto ptr = channel::parse_scale(p, "scale");
-    ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
     ASSERT_EQ(ptr, nullptr);
 }
 
 TEST(Scale, MissingRequiredFields) {
     const json j = {{"scale", {{"type", "linear"}, {"y_intercept", 1.0}}}};
-    const xjson::Parser p(j);
+    const x::json::Parser p(j);
     const auto scale = channel::parse_scale(p, "scale");
-    ASSERT_OCCURRED_AS(p.error(), xerrors::VALIDATION);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
 TEST(Scale, DefaultUnits) {
     const json j = {
         {"scale", {{"type", "linear"}, {"slope", 2.0}, {"y_intercept", 1.0}}}
     };
-    const xjson::Parser p(j);
+    const x::json::Parser p(j);
     const auto scale = channel::parse_scale(p, "scale");
     ASSERT_NIL(p.error());
     ASSERT_NE(scale, nullptr);

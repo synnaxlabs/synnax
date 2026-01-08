@@ -13,12 +13,12 @@
 #include "client/cpp/channel/channel.h"
 #include "client/cpp/errors/errors.h"
 #include "freighter/cpp/freighter.h"
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 namespace synnax {
 Channel::Channel(const api::channel::Channel &ch):
     name(ch.name()),
-    data_type(telem::DataType(ch.data_type())),
+    data_type(x::telem::DataType(ch.data_type())),
     key(ch.key()),
     index(ch.index()),
     is_index(ch.is_index()),
@@ -28,7 +28,7 @@ Channel::Channel(const api::channel::Channel &ch):
 
 Channel::Channel(
     std::string name,
-    telem::DataType data_type,
+    x::telem::DataType data_type,
     const ChannelKey index,
     const bool is_index
 ):
@@ -37,7 +37,7 @@ Channel::Channel(
     index(index),
     is_index(is_index) {}
 
-Channel::Channel(std::string name, telem::DataType data_type, const bool is_virtual):
+Channel::Channel(std::string name, x::telem::DataType data_type, const bool is_virtual):
     name(std::move(name)), data_type(std::move(data_type)), is_virtual(is_virtual) {}
 
 void Channel::to_proto(api::channel::Channel *ch) const {
@@ -50,7 +50,7 @@ void Channel::to_proto(api::channel::Channel *ch) const {
     ch->set_virtual_(is_virtual);
 }
 
-xerrors::Error ChannelClient::create(synnax::Channel &channel) const {
+x::errors::Error ChannelClient::create(synnax::Channel &channel) const {
     auto req = grpc::channel::CreateRequest();
     channel.to_proto(req.add_channels());
     auto [res, err] = create_client->send("/channel/create", req);
@@ -59,17 +59,17 @@ xerrors::Error ChannelClient::create(synnax::Channel &channel) const {
     const auto first = res.channels(0);
     channel.key = first.key();
     channel.name = first.name();
-    channel.data_type = telem::DataType(first.data_type());
+    channel.data_type = x::telem::DataType(first.data_type());
     channel.is_index = first.is_index();
     channel.leaseholder = first.leaseholder();
     channel.index = first.index();
     channel.internal = first.internal();
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
-std::pair<Channel, xerrors::Error> ChannelClient::create(
+std::pair<Channel, x::errors::Error> ChannelClient::create(
     const std::string &name,
-    const telem::DataType &data_type,
+    const x::telem::DataType &data_type,
     const ChannelKey index,
     const bool is_index
 ) const {
@@ -78,9 +78,9 @@ std::pair<Channel, xerrors::Error> ChannelClient::create(
     return {ch, err};
 }
 
-std::pair<Channel, xerrors::Error> ChannelClient::create(
+std::pair<Channel, x::errors::Error> ChannelClient::create(
     const std::string &name,
-    const telem::DataType &data_type,
+    const x::telem::DataType &data_type,
     const bool is_virtual
 ) const {
     auto ch = Channel(name, data_type, is_virtual);
@@ -88,7 +88,7 @@ std::pair<Channel, xerrors::Error> ChannelClient::create(
     return {ch, err};
 }
 
-xerrors::Error ChannelClient::create(std::vector<Channel> &channels) const {
+x::errors::Error ChannelClient::create(std::vector<Channel> &channels) const {
     auto req = grpc::channel::CreateRequest();
     req.mutable_channels()->Reserve(static_cast<int>(channels.size()));
     for (const auto &ch: channels)
@@ -99,7 +99,7 @@ xerrors::Error ChannelClient::create(std::vector<Channel> &channels) const {
     return exc;
 }
 
-std::pair<Channel, xerrors::Error> ChannelClient::retrieve(const ChannelKey key) const {
+std::pair<Channel, x::errors::Error> ChannelClient::retrieve(const ChannelKey key) const {
     auto req = grpc::channel::RetrieveRequest();
     req.add_keys(key);
     auto [res, err] = retrieve_client->send("/channel/retrieve", req);
@@ -109,7 +109,7 @@ std::pair<Channel, xerrors::Error> ChannelClient::retrieve(const ChannelKey key)
     return {Channel(res.channels(0)), err};
 }
 
-std::pair<Channel, xerrors::Error>
+std::pair<Channel, x::errors::Error>
 ChannelClient::retrieve(const std::string &name) const {
     auto payload = grpc::channel::RetrieveRequest();
     payload.add_names(name);
@@ -122,7 +122,7 @@ ChannelClient::retrieve(const std::string &name) const {
     return {Channel(res.channels(0)), err};
 }
 
-std::pair<std::vector<Channel>, xerrors::Error>
+std::pair<std::vector<Channel>, x::errors::Error>
 ChannelClient::retrieve(const std::vector<ChannelKey> &keys) const {
     grpc::channel::RetrieveRequest req;
     req.mutable_keys()->Add(keys.begin(), keys.end());
@@ -131,7 +131,7 @@ ChannelClient::retrieve(const std::vector<ChannelKey> &keys) const {
     return {channels, exc};
 }
 
-std::pair<std::vector<Channel>, xerrors::Error>
+std::pair<std::vector<Channel>, x::errors::Error>
 ChannelClient::retrieve(const std::vector<std::string> &names) const {
     auto req = grpc::channel::RetrieveRequest();
     req.mutable_names()->Add(names.begin(), names.end());

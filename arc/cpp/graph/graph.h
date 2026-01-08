@@ -23,7 +23,7 @@
 
 namespace arc::graph {
 struct Viewport {
-    spatial::XY position;
+    x::spatial::XY position;
     float zoom = 1.0f;
 
     Viewport() = default;
@@ -42,14 +42,14 @@ struct Node {
     std::string key;
     std::string type;
     std::map<std::string, nlohmann::json> config;
-    spatial::XY position;
+    x::spatial::XY position;
 
     Node() = default;
 
     explicit Node(const x::arc::graph::PBNode &pb): key(pb.key()), type(pb.type()) {
         for (const auto &[config_key, config_value]: pb.config())
             this->config[config_key] = proto::pb_value_to_json(config_value);
-        if (pb.has_position()) this->position = spatial::XY(pb.position());
+        if (pb.has_position()) this->position = x::spatial::XY(pb.position());
     }
 
     void to_proto(x::arc::graph::PBNode *pb) const {

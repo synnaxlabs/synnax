@@ -7,13 +7,12 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/errors",
+        "//x/cpp/json",
         "//x/cpp/label",
         "//x/cpp/telem",
-        "//x/cpp/xerrors",
-        "//x/cpp/xjson",
-        "//x/cpp/xjson:any",
         "//x/go/status:status_grpc",
-        "@protobuf//:protobuf",
+        "@protobuf",
     ],
 )
 
@@ -22,7 +21,7 @@ cc_test(
     srcs = ["status_test.cpp"],
     deps = [
         "//x/cpp/status",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

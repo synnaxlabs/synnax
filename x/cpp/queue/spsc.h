@@ -12,7 +12,7 @@
 #include <mutex>
 #include <queue>
 
-namespace queue {
+namespace x::queue {
 template<typename T>
 class SPSC {
 public:

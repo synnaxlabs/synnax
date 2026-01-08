@@ -14,8 +14,8 @@
 #include <type_traits>
 #include <utility>
 
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/label/types.gen.h"
-#include "x/cpp/xerrors/errors.h"
 
 #include "x/go/label/pb/label.pb.h"
 
@@ -29,12 +29,12 @@ inline x::label::Label Label::to_proto() const {
     return pb;
 }
 
-inline std::pair<Label, xerrors::Error> Label::from_proto(const x::label::Label &pb) {
+inline std::pair<Label, errors::Error> Label::from_proto(const x::label::Label &pb) {
     Label cpp;
     cpp.key = pb.key();
     cpp.name = pb.name();
     cpp.color = pb.color();
-    return {cpp, xerrors::NIL};
+    return {cpp, errors::NIL};
 }
 
 }
