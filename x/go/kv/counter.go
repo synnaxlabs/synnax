@@ -20,11 +20,11 @@ import (
 // key-value store. AtomicInt64Counter is safe for concurrent use. To create a new
 // AtomicInt64Counter, call OpenCounter.
 type AtomicInt64Counter struct {
-	ctx context.Context
-	db  Writer
-	atomicx.Int64Counter
+	ctx    context.Context
+	db     Writer
 	key    []byte
 	buffer []byte
+	atomicx.Int64Counter
 }
 
 // OpenCounter opens or creates a persisted counter at the given key. If

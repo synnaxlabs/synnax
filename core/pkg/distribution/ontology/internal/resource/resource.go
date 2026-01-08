@@ -108,15 +108,15 @@ func IDsToKeys(ids []ID) []string {
 
 // Resource represents an instance matching of a resource in the ontology.
 type Resource struct {
-	// ID is the unique identifier for the Resource.
-	ID ID `json:"id" msgpack:"id"`
-	// Name is a human-readable name for the Resource.
-	Name string `json:"name" msgpack:"name"`
 	// Data is the data for the Resource. Data must be parseable by the Resource's
 	// schema.
 	Data any `json:"data" msgpack:"data"`
 	// schema is the schema that this Resource matches.
 	schema zyn.Schema
+	// ID is the unique identifier for the Resource.
+	ID ID `json:"id" msgpack:"id"`
+	// Name is a human-readable name for the Resource.
+	Name string `json:"name" msgpack:"name"`
 }
 
 // New creates a new Resource with the given schema, name, and data. New panics if the

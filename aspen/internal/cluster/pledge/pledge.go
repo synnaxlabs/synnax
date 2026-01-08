@@ -150,9 +150,9 @@ func arbitrate(cfg Config) error {
 }
 
 type responsible struct {
-	Config
 	candidateSnapshot node.Group
-	_proposedKey      node.Key
+	Config
+	_proposedKey node.Key
 }
 
 func (r *responsible) propose(ctx context.Context) (res Response, err error) {
@@ -265,9 +265,9 @@ func (r *responsible) consultQuorum(ctx context.Context, key node.Key, quorum no
 }
 
 type juror struct {
-	Config
-	mu        sync.Mutex
 	approvals []node.Key
+	Config
+	mu sync.Mutex
 }
 
 func (j *juror) verdict(ctx context.Context, req Request) (err error) {

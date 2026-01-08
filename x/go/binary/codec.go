@@ -195,9 +195,9 @@ func (m *MsgPackCodec) EncodeStream(ctx context.Context, w io.Writer, value any)
 
 // TracingCodec wraps a Codec and traces the encoding and decoding operations.
 type TracingCodec struct {
+	Codec
 	alamos.Instrumentation
 	Level alamos.Environment
-	Codec
 }
 
 // Encode implements the Encoder interface.

@@ -23,14 +23,14 @@ import (
 // Provider is a dependency injection container containing essential utilities for API
 // services.
 type Provider struct {
-	Config
+	auth     authProvider
+	cluster  clusterProvider
 	db       dbProvider
 	user     userProvider
 	access   accessProvider
-	auth     authProvider
-	cluster  clusterProvider
 	ontology ontologyProvider
 	status   statusProvider
+	Config
 }
 
 func NewProvider(cfg Config) Provider {

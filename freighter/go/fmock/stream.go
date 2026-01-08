@@ -65,11 +65,11 @@ func NewStreams[RQ, RS freighter.Payload](
 // StreamServer implements the freighter.StreamSever interface using go channels as
 // the transport.
 type StreamServer[RQ, RS freighter.Payload] struct {
-	Address    address.Address
-	BufferSize int
-	Handler    func(ctx context.Context, srv freighter.ServerStream[RQ, RS]) error
+	Handler func(ctx context.Context, srv freighter.ServerStream[RQ, RS]) error
+	Address address.Address
 	freighter.Reporter
 	freighter.MiddlewareCollector
+	BufferSize int
 }
 
 // BindHandler implements the freighter.Stream interface.
@@ -97,12 +97,12 @@ func (s *StreamServer[RQ, RS]) exec(
 
 // StreamClient is a mock implementation of the freighter.Stream interface.
 type StreamClient[RQ, RS freighter.Payload] struct {
-	Address    address.Address
-	BufferSize int
-	Network    *Network[RQ, RS]
-	Server     *StreamServer[RQ, RS]
+	Network *Network[RQ, RS]
+	Server  *StreamServer[RQ, RS]
+	Address address.Address
 	freighter.Reporter
 	freighter.MiddlewareCollector
+	BufferSize int
 }
 
 // Stream implements the freighter.Stream interface.

@@ -27,29 +27,29 @@ const FlushOnEvery = -1 * time.Second
 
 type Config struct {
 	alamos.Instrumentation
-	// HostAddress is the reachable address of the host node.
-	// [REQUIRED]
-	HostAddress address.Address
 	// Storage is a key-value storage backend for the Cluster. Cluster will flush
 	// changes to its state to this backend based on Config.StorageFlushInterval.
 	// Open will also attempt to load an existing Cluster from this backend.
 	// If Config.Storage is not provided, Cluster state will only be stored in memory.
 	Storage kv.DB
+	// Codec is the encoder/decoder to use for encoding and decoding the
+	// Cluster state.
+	Codec binary.Codec
+	// Gossip is the configuration for propagating Cluster state through gossip.
+	// See the gossip package for more details on how to configure this.
+	Gossip gossip.Config
+	// HostAddress is the reachable address of the host node.
+	// [REQUIRED]
+	HostAddress address.Address
 	// StorageKey is the key used to store the Cluster state in the backend.
 	StorageKey []byte
+	// Pledge is the configuration for pledging to the Cluster upon a Open call.
+	// See the pledge package for more details on how to configure this.
+	Pledge pledge_.Config
 	// StorageFlushInterval	is the interval at which the Cluster state is flushed
 	// to the backend. If this is set to FlushOnEvery, the Cluster state is flushed on
 	// every change.
 	StorageFlushInterval time.Duration
-	// Gossip is the configuration for propagating Cluster state through gossip.
-	// See the gossip package for more details on how to configure this.
-	Gossip gossip.Config
-	// Pledge is the configuration for pledging to the Cluster upon a Open call.
-	// See the pledge package for more details on how to configure this.
-	Pledge pledge_.Config
-	// Codec is the encoder/decoder to use for encoding and decoding the
-	// Cluster state.
-	Codec binary.Codec
 }
 
 var _ config.Config[Config] = Config{}

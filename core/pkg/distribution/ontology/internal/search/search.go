@@ -27,9 +27,9 @@ import (
 )
 
 type Index struct {
-	Config
-	mapping *mapping.IndexMappingImpl
 	idx     bleve.Index
+	mapping *mapping.IndexMappingImpl
+	Config
 }
 
 type Config struct{ alamos.Instrumentation }

@@ -32,17 +32,17 @@ import (
 
 type leaseProxy struct {
 	cfg                ServiceConfig
-	createRouter       proxy.BatchFactory[Channel]
-	renameRouter       proxy.BatchFactory[renameBatchEntry]
-	keyRouter          proxy.BatchFactory[Key]
 	leasedCounter      *counter
 	freeCounter        *counter
-	group              group.Group
 	analyzeCalculation CalculationAnalyzer
+	group              group.Group
 	mu                 struct {
-		sync.RWMutex
 		externalNonVirtualSet *set.Integer[Key]
+		sync.RWMutex
 	}
+	createRouter proxy.BatchFactory[Channel]
+	renameRouter proxy.BatchFactory[renameBatchEntry]
+	keyRouter    proxy.BatchFactory[Key]
 }
 
 const (
@@ -679,8 +679,8 @@ func (lp *leaseProxy) deleteRemote(ctx context.Context, target cluster.NodeKey, 
 }
 
 type renameBatchEntry struct {
-	key  Key
 	name string
+	key  Key
 }
 
 var _ proxy.Entry = renameBatchEntry{}

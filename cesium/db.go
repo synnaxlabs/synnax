@@ -52,21 +52,21 @@ func LeadingAlignment(domainIdx, sampleIdx uint32) telem.Alignment {
 }
 
 type DB struct {
+	shutdown io.Closer
 	*options
-	relay *relay
-	mu    struct {
-		sync.RWMutex
+	relay  *relay
+	closed *atomic.Bool
+	mu     struct {
 		unaryDBs   map[ChannelKey]unary.DB
 		virtualDBs map[ChannelKey]virtual.DB
 		digests    struct {
-			key      ChannelKey
 			shutdown io.Closer
 			inlet    confluence.Inlet[WriterRequest]
 			outlet   confluence.Outlet[WriterResponse]
+			key      ChannelKey
 		}
+		sync.RWMutex
 	}
-	closed   *atomic.Bool
-	shutdown io.Closer
 }
 
 // Write writes the frame to database at the specified start time.

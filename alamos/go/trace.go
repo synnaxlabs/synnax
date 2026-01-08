@@ -79,9 +79,9 @@ func (c TracingConfig) Override(other TracingConfig) TracingConfig {
 // be used as part of Instrumentation. To creat a Tracer, use NewTracer and pass
 // it in a call to alamos.New using the WithTracer option.
 type Tracer struct {
-	meta        InstrumentationMeta
-	_otelTracer oteltrace.Tracer
 	config      TracingConfig
+	_otelTracer oteltrace.Tracer
+	meta        InstrumentationMeta
 }
 
 // NewTracer initializes a new devTracer using the given configuration. If no configuration
@@ -156,8 +156,8 @@ func (t *Tracer) child(meta InstrumentationMeta) (nt *Tracer) {
 }
 
 type span struct {
-	key  string
 	otel oteltrace.Span
+	key  string
 }
 
 var _ Span = span{}

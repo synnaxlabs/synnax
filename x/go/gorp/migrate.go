@@ -22,10 +22,10 @@ var ErrMigrationCountExceeded = errors.Newf(
 
 // MigrationSpec defines a single migration that should be run with a transaction.
 type MigrationSpec struct {
-	// Name is a unique identifier for this migration (e.g., "name_validation")
-	Name string
 	// Migrate is the migration function to execute
 	Migrate func(context.Context, Tx) error
+	// Name is a unique identifier for this migration (e.g., "name_validation")
+	Name string
 }
 
 // Migrator executes a series of migrations in order, tracking progress with

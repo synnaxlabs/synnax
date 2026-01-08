@@ -18,8 +18,8 @@ import (
 )
 
 type Message struct {
-	ID      int    `json:"id" msgpack:"id"`
 	Message string `json:"message" msgpack:"message"`
+	ID      int    `json:"id" msgpack:"id"`
 }
 
 type (
@@ -30,8 +30,8 @@ type (
 )
 
 type TestError struct {
-	Code    int
 	Message string
+	Code    int
 }
 
 func (t TestError) Error() string {

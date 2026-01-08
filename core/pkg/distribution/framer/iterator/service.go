@@ -50,9 +50,12 @@ type Config struct {
 // ServiceConfig is the configuration for opening the iterator Service, the main
 // entrypoint for using iterators.
 type ServiceConfig struct {
-	// Instrumentation is used for Logging, Tracing, and Metrics.
-	// [OPTIONAL]
-	alamos.Instrumentation
+	// HostResolver is used to resolve reachable addresses for nodes in a Synnax cluster.
+	// [REQUIRED]
+	HostResolver aspen.HostResolver
+	// Transport is the network transport for moving telemetry frames across nodes.
+	// [REQUIRED]
+	Transport Transport
 	// TS is the underlying storage layer time-series database for reading frames.
 	// [REQUIRED]
 	TS *ts.DB
@@ -60,12 +63,9 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED}
 	Channel *channel.Service
-	// HostResolver is used to resolve reachable addresses for nodes in a Synnax cluster.
-	// [REQUIRED]
-	HostResolver aspen.HostResolver
-	// Transport is the network transport for moving telemetry frames across nodes.
-	// [REQUIRED]
-	Transport Transport
+	// Instrumentation is used for Logging, Tracing, and Metrics.
+	// [OPTIONAL]
+	alamos.Instrumentation
 }
 
 var (
@@ -100,8 +100,8 @@ func (cfg ServiceConfig) Validate() error {
 // Iterators allow for reading chunks of historical data from channels distributed
 // across a multi-node cluster.
 type Service struct {
-	cfg    ServiceConfig
 	server *server
+	cfg    ServiceConfig
 }
 
 // NewService opens a new iterator service using the provided configuration. If the

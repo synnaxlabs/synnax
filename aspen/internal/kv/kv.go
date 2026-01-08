@@ -27,13 +27,13 @@ import (
 type DB struct {
 	xkv.DB
 	xkv.Observable
-	config     Config
-	leaseAlloc *leaseAllocator
-	source     struct {
-		confluence.AbstractUnarySource[TxRequest]
+	source struct {
 		confluence.NopFlow
+		confluence.AbstractUnarySource[TxRequest]
 	}
-	shutdown io.Closer
+	shutdown   io.Closer
+	leaseAlloc *leaseAllocator
+	config     Config
 }
 
 var _ xkv.DB = (*DB)(nil)

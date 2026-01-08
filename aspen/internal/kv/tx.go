@@ -32,14 +32,14 @@ import (
 // the transaction is not guaranteed to be atomic. See https://github.com/synnaxlabs/synnax/issues/102
 // for more details.
 type tx struct {
-	alamos.Instrumentation
 	// Tx is the underlying key-value transaction. This transaction is not actually
 	// applied, and simply serves as a cache for the operations that are applied.
 	// It also serves all read operations.
 	xkv.Tx
+	lease *leaseAllocator
+	apply func(reqs []TxRequest) error
+	alamos.Instrumentation
 	digests []Digest
-	lease   *leaseAllocator
-	apply   func(reqs []TxRequest) error
 }
 
 var _ xkv.Tx = (*tx)(nil)
@@ -144,11 +144,11 @@ type TxRequest struct {
 	// cancellation and tracing, but is extremely easy to misuse. If you don't know
 	// what you're doing, be careful when passing this context around.
 	Context     context.Context
+	span        alamos.Span
+	doneF       func(err error)
+	Operations  []Operation
 	Leaseholder node.Key
 	Sender      node.Key
-	Operations  []Operation
-	doneF       func(err error)
-	span        alamos.Span
 }
 
 func (tr TxRequest) empty() bool { return len(tr.Operations) == 0 }
@@ -213,11 +213,11 @@ func validateLeaseOption(maybeLease []any) (node.Key, error) {
 }
 
 type txCoordinator struct {
-	wg sync.WaitGroup
 	mu struct {
-		sync.Mutex
 		err error
+		sync.Mutex
 	}
+	wg sync.WaitGroup
 }
 
 func (bc *txCoordinator) done(err error) {

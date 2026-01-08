@@ -112,9 +112,9 @@ var _ = Describe("Task", Ordered, func() {
 		)
 		It("Should decode StatusDetails with task key as string", func() {
 			type statusDetailsWithString struct {
+				Data    map[string]any `msgpack:"data"`
 				Task    string         `msgpack:"task"`
 				Running bool           `msgpack:"running"`
-				Data    map[string]any `msgpack:"data"`
 			}
 			original := statusDetailsWithString{
 				Task:    "281543696187399",
@@ -129,9 +129,9 @@ var _ = Describe("Task", Ordered, func() {
 		})
 		It("Should decode StatusDetails with task key as float64", func() {
 			type statusDetailsWithFloat struct {
+				Data    map[string]any `msgpack:"data"`
 				Task    float64        `msgpack:"task"`
 				Running bool           `msgpack:"running"`
-				Data    map[string]any `msgpack:"data"`
 			}
 			original := statusDetailsWithFloat{
 				Task:    float64(65536),

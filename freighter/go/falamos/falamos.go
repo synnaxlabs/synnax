@@ -25,7 +25,6 @@ import (
 
 // Config is the configuration for the instrumentation Middleware.
 type Config struct {
-	alamos.Instrumentation
 	// EnableTracing sets whether the middleware starts traces. Defaults to true.
 	// [OPTIONAL]
 	EnableTracing *bool
@@ -36,6 +35,7 @@ type Config struct {
 	// EnableLogging sets whether the middleware logs the trace. Defaults to true.
 	// [OPTIONAL]
 	EnableLogging *bool
+	alamos.Instrumentation
 	// Level is the level of the trace. Defaults to alamos.Prod.
 	// [OPTIONAL]
 	Level alamos.Environment

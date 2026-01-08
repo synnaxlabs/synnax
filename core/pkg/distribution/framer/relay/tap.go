@@ -49,20 +49,20 @@ type tapController struct {
 // into the relays of other nodes and the storage layer to receive frames. It then pipes
 // these frames to an outlet, which, in this case is the relay's delta.
 type tapper struct {
-	Config
 	// UnarySink is where we receive demands from, using them to update the set of
 	// relay's we tap into.
 	confluence.UnarySink[demand]
 	// AbstractUnarySource is where we send our responses to, which are the frames
 	// we receive from the tapController relays.
 	confluence.AbstractUnarySource[Response]
+	// freeWrites is where we receive writes from free channels in the distribution
+	// write pipeline.
+	freeWrites confluence.Outlet[Response]
 	// demands track the current channels demanded by each entity.
 	demands map[address.Address]channel.Keys
 	// taps tracks the current taps we have open.
 	taps map[cluster.NodeKey]tapController
-	// freeWrites is where we receive writes from free channels in the distribution
-	// write pipeline.
-	freeWrites confluence.Outlet[Response]
+	Config
 }
 
 func newTapper(config Config) confluence.Segment[demand, Response] {

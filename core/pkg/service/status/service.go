@@ -25,7 +25,6 @@ import (
 )
 
 type ServiceConfig struct {
-	alamos.Instrumentation
 	// DB is the underlying database that the service will use to store Statuses.
 	DB *gorp.DB
 	// Ontology will be used to create relationships between statuses (parent-child) and
@@ -38,6 +37,7 @@ type ServiceConfig struct {
 	// deleted.
 	Signals *signals.Provider
 	Label   *label.Service
+	alamos.Instrumentation
 }
 
 var (
@@ -70,8 +70,8 @@ func (c ServiceConfig) Validate() error {
 // provides mechanisms for listening to changes in statuses.
 type Service struct {
 	cfg             ServiceConfig
-	group           group.Group
 	shutdownSignals io.Closer
+	group           group.Group
 }
 
 // OpenService opens a new status.Service with the provided configuration. If error is

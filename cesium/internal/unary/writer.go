@@ -28,6 +28,21 @@ import (
 )
 
 type WriterConfig struct {
+	// Persist denotes whether the writer writes its data to FS. If Persist is off, no
+	// data is written.
+	// [OPTIONAL] - Defaults to true
+	Persist *bool
+	// EnableAutoCommit denotes whether each write is committed.
+	//
+	// [OPTIONAL] - Defaults to True
+	EnableAutoCommit *bool
+	// ErrOnUnauthorizedOpen controls whether the writer will return an error on open
+	// when attempting to write to a channel that is does not have authority over.
+	// [OPTIONAL] - Defaults to false
+	ErrOnUnauthorizedOpen *bool
+	// Subject is the control subject held by the writer.
+	// [REQUIRED]
+	Subject xcontrol.Subject
 	// Start marks the starting bound of the writer.
 	// [REQUIRED]
 	Start telem.TimeStamp
@@ -37,34 +52,19 @@ type WriterConfig struct {
 	// called with a strictly increasing timestamp.
 	// [OPTIONAL]
 	End telem.TimeStamp
-	// Subject is the control subject held by the writer.
-	// [REQUIRED]
-	Subject xcontrol.Subject
-	// Authority is the control authority held by the writer: higher authority entities
-	// have priority access to the region.
-	// [OPTIONAL]
-	Authority xcontrol.Authority
-	// Persist denotes whether the writer writes its data to FS. If Persist is off, no
-	// data is written.
-	// [OPTIONAL] - Defaults to true
-	Persist *bool
-	// EnableAutoCommit denotes whether each write is committed.
-	//
-	// [OPTIONAL] - Defaults to True
-	EnableAutoCommit *bool
 	// AutoIndexPersistInterval is the frequency at which the changes to index are
 	// persisted to the disk.
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan
-	// ErrOnUnauthorizedOpen controls whether the writer will return an error on open
-	// when attempting to write to a channel that is does not have authority over.
-	// [OPTIONAL] - Defaults to false
-	ErrOnUnauthorizedOpen *bool
 	// AlignmentDomainIndex is the index of the domain that this writer is aligned to.
 	// This value is almost always set to the index of the domain within the 'Index'
 	// channel that is being written to at the same time as this writer. This value is
 	// used to guarantee alignment between samples written to index and data channels.
 	AlignmentDomainIndex uint32
+	// Authority is the control authority held by the writer: higher authority entities
+	// have priority access to the region.
+	// [OPTIONAL]
+	Authority xcontrol.Authority
 }
 
 var (
@@ -136,21 +136,21 @@ var _ control.Resource = controlledWriter{}
 func (w controlledWriter) ChannelKey() channel.Key { return w.channelKey }
 
 type Writer struct {
-	cfg WriterConfig
-	// Channel stores information about the channel this writer is writing to, including
-	// but not limited to density and index.
-	Channel channel.Channel
 	// control stores the gate held by the writer in the controller of the unaryDB.
 	control *control.Gate[*controlledWriter]
 	// idx stores the index of the unaryDB (rate or domain).
 	idx *index.Domain
+	// wrapError is a function that wraps any error originating from this writer to
+	// provide context including the writer's channel key and name.
+	wrapError func(error) error
+	// Channel stores information about the channel this writer is writing to, including
+	// but not limited to density and index.
+	Channel channel.Channel
+	cfg     WriterConfig
 	// highWaterMark is a hot-path optimization when writing to an index channel. We can avoid
 	// unnecessary index lookups by keeping track of the highest timestamp written. Only
 	// valid when Channel.IsIndex is true.
 	highWaterMark telem.TimeStamp
-	// wrapError is a function that wraps any error originating from this writer to
-	// provide context including the writer's channel key and name.
-	wrapError func(error) error
 	// closed stores whether the writer is closed. Operations like Write and Commit do
 	// not succeed on closed writers.
 	closed bool

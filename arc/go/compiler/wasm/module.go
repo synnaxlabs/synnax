@@ -22,9 +22,9 @@ type FunctionType struct {
 
 // Function represents a WASM function
 type Function struct {
-	TypeIdx uint32
 	Locals  []ValueType
 	Body    []byte
+	TypeIdx uint32
 }
 
 // Import represents an imported function
@@ -47,8 +47,8 @@ type Module struct {
 	imports   []Import
 	functions []Function
 	exports   []Export
-	memory    bool
 	buf       bytes.Buffer
+	memory    bool
 }
 
 // NewModule creates a new WASM module

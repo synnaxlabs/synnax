@@ -22,11 +22,11 @@ import (
 // DBState is meta-data about a single-channel database that can be migrated. This data
 // structure is passed into migration functions on bootup.
 type DBState struct {
-	// Channel is the channel specification for the DB.
-	Channel channel.Channel
 	// FS is the file-system for that channel in the DB. This is not the
 	// top level cesium directory, but the channel-specific directory itself.
 	FS fs.FS
+	// Channel is the channel specification for the DB.
+	Channel channel.Channel
 	// ShouldIgnoreChannel can be set to true by the migration function if the channel
 	// should be ignored on database startup.
 	ShouldIgnoreChannel bool

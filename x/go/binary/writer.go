@@ -16,9 +16,9 @@ import (
 // Writer makes it easy to writer various primitive data types to binary using a given
 // byte order.
 type Writer struct {
-	offset    int
 	byteOrder binary.ByteOrder
 	buf       []byte
+	offset    int
 }
 
 // NewWriter creates a new writer with the given size, starting offset, and byte order.

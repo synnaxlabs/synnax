@@ -34,9 +34,6 @@ import (
 
 // ServiceConfig is the configuration for creating a device service.
 type ServiceConfig struct {
-	// Instrumentation is used for logging, tracing, and metrics.
-	// [OPTIONAL] - Defaults to noop instrumentation.
-	alamos.Instrumentation
 	// DB is the gorp database that devices will be stored in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -57,6 +54,9 @@ type ServiceConfig struct {
 	// Rack is used to retrieve and manage racks.
 	// [REQUIRED]
 	Rack *rack.Service
+	// Instrumentation is used for logging, tracing, and metrics.
+	// [OPTIONAL] - Defaults to noop instrumentation.
+	alamos.Instrumentation
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -92,8 +92,8 @@ var DefaultConfig = ServiceConfig{}
 type Service struct {
 	cfg                           ServiceConfig
 	shutdownSignals               io.Closer
-	group                         group.Group
 	disconnectSuspectRackObserver observe.Disconnect
+	group                         group.Group
 }
 
 // OpenService opens a new device service using the provided configuration. If error

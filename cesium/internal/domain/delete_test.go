@@ -142,10 +142,13 @@ var _ = Describe("Delete", Ordered, func() {
 					)).To(Succeed())
 				})
 				type MultiPointerSpec struct {
-					TimeRange                       telem.TimeRange
-					StartOffset, EndOffset          int64
-					FirstTimeRange, SecondTimeRange telem.TimeRange
-					FirstData, SecondData           []byte
+					FirstData       []byte
+					SecondData      []byte
+					TimeRange       telem.TimeRange
+					FirstTimeRange  telem.TimeRange
+					SecondTimeRange telem.TimeRange
+					StartOffset     int64
+					EndOffset       int64
 				}
 				DescribeTable("Basic, continuous deletion of time range", func(
 					cfg MultiPointerSpec,

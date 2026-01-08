@@ -112,11 +112,11 @@ var _ = Describe("Deleter", Ordered, func() {
 })
 
 type scenario struct {
+	dist   mock.Node
+	closer io.Closer
 	name   string
 	keys   channel.Keys
 	names  []string
-	dist   mock.Node
-	closer io.Closer
 }
 
 func newChannelSet() []channel.Channel {

@@ -36,8 +36,8 @@ func NewTableService(p Provider) *TableService {
 
 type (
 	TableCreateRequest struct {
-		Workspace uuid.UUID     `json:"workspace" msgpack:"workspace"`
 		Tables    []table.Table `json:"tables" msgpack:"tables"`
+		Workspace uuid.UUID     `json:"workspace" msgpack:"workspace"`
 	}
 	TableCreateResponse struct {
 		Tables []table.Table `json:"tables" msgpack:"tables"`
@@ -65,8 +65,8 @@ func (s *TableService) Create(ctx context.Context, req TableCreateRequest) (res 
 }
 
 type TableRenameRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
 	Name string    `json:"name" msgpack:"name"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *TableService) Rename(ctx context.Context, req TableRenameRequest) (res types.Nil, err error) {
@@ -83,8 +83,8 @@ func (s *TableService) Rename(ctx context.Context, req TableRenameRequest) (res 
 }
 
 type TableSetDataRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
 	Data string    `json:"data" msgpack:"data"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *TableService) SetData(ctx context.Context, req TableSetDataRequest) (res types.Nil, err error) {

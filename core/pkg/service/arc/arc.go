@@ -23,22 +23,22 @@ type StatusDetails struct{ Running bool }
 // Arc is a representation of an arc automation stored within the cluster meta-data
 // store.
 type Arc struct {
-	// Key is a unique key for the automation.
-	Key uuid.UUID `json:"key" msgpack:"key"`
-	// Name is a human-readable name.
-	Name string `json:"name" msgpack:"name"`
-	// Graph is the raw representation of the arc program in its graph format. Note that
-	// this graph does not necessarily represent a valid arc program.
-	Graph graph.Graph `json:"graph" msgpack:"graph"`
 	// Text is the raw representation of the arc program in its next format. Note that
 	// this text content does not necessarily represent a valid arg program.
-	Text text.Text `json:"text" msgpack:"text"`
+	Text    text.Text `json:"text" msgpack:"text"`
+	Version string    `json:"version" msgpack:"version"`
+	// Name is a human-readable name.
+	Name string `json:"name" msgpack:"name"`
 	// Module is the compiled Arc module containing IR and WASM bytecode. This field is
 	// computed on-demand and not persisted to the database.
 	Module module.Module `json:"module" msgpack:"-"`
+	// Graph is the raw representation of the arc program in its graph format. Note that
+	// this graph does not necessarily represent a valid arc program.
+	Graph graph.Graph `json:"graph" msgpack:"graph"`
+	// Key is a unique key for the automation.
+	Key uuid.UUID `json:"key" msgpack:"key"`
 	// Deploy sets whether on not the arc program should be deployed.
-	Deploy  bool   `json:"deploy" msgpack:"deploy"`
-	Version string `json:"version" msgpack:"version"`
+	Deploy bool `json:"deploy" msgpack:"deploy"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Arc{}

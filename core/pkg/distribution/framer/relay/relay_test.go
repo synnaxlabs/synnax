@@ -32,11 +32,11 @@ import (
 )
 
 type scenario struct {
-	resCount int
-	name     string
-	channels []channel.Channel
 	dist     mock.Node
 	close    io.Closer
+	name     string
+	channels []channel.Channel
+	resCount int
 }
 
 var _ = Describe("Relay", func() {

@@ -42,26 +42,6 @@ import (
 // Config is the configuration for opening the distribution layer.  See fields for
 // details on defining the configuration.
 type Config struct {
-	// Instrumentation is for logging, tracing, and metrics.
-	//
-	// [OPTIONAL] - Defaults to noop instrumentation.
-	alamos.Instrumentation
-	// Storage is the storage layer that the distribution layer will use for persisting
-	// data across its various services.
-	//
-	// [REQUIRED]
-	Storage *storage.Layer
-	// AdvertiseAddress sets the network address that the distribution layer will publish
-	// to other nodes in the cluster.
-	//
-	// [REQUIRED]
-	AdvertiseAddress address.Address
-	// PeerAddresses sets the list of peer nodes in the cluster that the distribution
-	// layer will reach out to join the cluster. If this slice is empty, the distribution
-	// layer will bootstrap a new single node cluster.
-	//
-	// [OPTIONAL] - Defaults to []
-	PeerAddresses []address.Address
 	// ChannelTransport is the network transport used for channel-related RPCs.
 	//
 	// [REQUIRED]
@@ -70,20 +50,23 @@ type Config struct {
 	//
 	// [REQUIRED]
 	FrameTransport framer.Transport
+	// GorpCodec sets the codec used to encode/decode data structures within the
+	// cluster meta-data DB (gorp).
+	//
+	// [OPTIONAL] - Defaults to &binary.MsgPackCodec
+	GorpCodec binary.Codec
 	// AspenTransport is the network transport used for key-value gossip and cluster
 	// topology information.
 	//
 	// [REQUIRED]
 	AspenTransport aspen.Transport
-	// AspenOptions are additional options to pass when opening the aspen key-value
-	// store.
+	// Instrumentation is for logging, tracing, and metrics.
 	//
-	// [OPTIONAL] - Defaults to []
-	AspenOptions []aspen.Option
-	// Verifier is for verifying. Magic.
+	// Storage is the storage layer that the distribution layer will use for persisting
+	// data across its various services.
 	//
-	// [OPTIONAL] - Defaults to ""
-	Verifier string
+	// [REQUIRED]
+	Storage *storage.Layer
 	// TestingIntOverflowCheck is used for overriding default verifier behavior
 	// for testing purposes only.
 	//
@@ -93,16 +76,33 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to true
 	EnableSearch *bool
-	// GorpCodec sets the codec used to encode/decode data structures within the
-	// cluster meta-data DB (gorp).
-	//
-	// [OPTIONAL] - Defaults to &binary.MsgPackCodec
-	GorpCodec binary.Codec
 	// EnableServiceSignals sets whether to enable CDC signal propagation for changes
 	// to distribution layer data structures (channels, groups, etc.)
 	//
 	// [OPTIONAL] - Defaults to true.
 	EnableServiceSignals *bool
+	// [OPTIONAL] - Defaults to noop instrumentation.
+	alamos.Instrumentation
+	// Verifier is for verifying. Magic.
+	//
+	// [OPTIONAL] - Defaults to ""
+	Verifier string
+	// AdvertiseAddress sets the network address that the distribution layer will publish
+	// to other nodes in the cluster.
+	//
+	// [REQUIRED]
+	AdvertiseAddress address.Address
+	// AspenOptions are additional options to pass when opening the aspen key-value
+	// store.
+	//
+	// [OPTIONAL] - Defaults to []
+	AspenOptions []aspen.Option
+	// PeerAddresses sets the list of peer nodes in the cluster that the distribution
+	// layer will reach out to join the cluster. If this slice is empty, the distribution
+	// layer will bootstrap a new single node cluster.
+	//
+	// [OPTIONAL] - Defaults to []
+	PeerAddresses []address.Address
 }
 
 var (

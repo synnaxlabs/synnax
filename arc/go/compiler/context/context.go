@@ -22,15 +22,15 @@ import (
 // Context maintains compilation state across all code generation
 type Context[ASTNode antlr.ParserRuleContext] struct {
 	context.Context
+	AST     ASTNode
 	Imports *bindings.ImportIndex
 	Scope   *symbol.Scope
 	Writer  *wasm.Writer
 	Module  *wasm.Module
 	TypeMap map[antlr.ParserRuleContext]types.Type
-	AST     ASTNode
-	Hint    types.Type
 	// Outputs and OutputMemoryBase are set for multi-output functions
 	Outputs          types.Params
+	Hint             types.Type
 	OutputMemoryBase uint32
 }
 

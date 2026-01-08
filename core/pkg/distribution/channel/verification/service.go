@@ -39,14 +39,14 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	kv.DB
-	// CheckInterval is the interval at which verification will be performed.
-	//
-	// [OPTIONAL] - Defaults to 24 hours
-	CheckInterval time.Duration
 	// Verifier is the verifier used for verifying things that need to be verified.
 	//
 	// [OPTIONAL] - Defaults to ""
 	Verifier string
+	// CheckInterval is the interval at which verification will be performed.
+	//
+	// [OPTIONAL] - Defaults to 24 hours
+	CheckInterval time.Duration
 	// WarningTime is the period given to start warning before verification will fail.
 	//
 	// [OPTIONAL] - Defaults to 1 week
@@ -87,8 +87,8 @@ var DefaultConfig = ServiceConfig{
 // Service provides a service for verifying channels.
 type Service struct {
 	info
-	cfg      ServiceConfig
 	shutdown io.Closer
+	cfg      ServiceConfig
 }
 
 var _ io.Closer = &Service{}

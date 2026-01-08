@@ -22,12 +22,12 @@ import (
 // converting structured data. ObjectZ supports validation of structs and maps with
 // defined field schemas.
 type ObjectZ struct {
-	baseZ
-	fields          map[string]Schema
 	caseConversions struct {
 		snake  map[string]string
 		pascal map[string]string
 	}
+	fields map[string]Schema
+	baseZ
 }
 
 var _ Schema = (*ObjectZ)(nil)
@@ -45,8 +45,8 @@ func (o ObjectZ) Optional() ObjectZ { o.optional = true; return o }
 
 // objectShape represents the shape of an object schema.
 type objectShape struct {
-	baseZ
 	fields map[string]Shape
+	baseZ
 }
 
 // Shape returns the base shape of the object schema.

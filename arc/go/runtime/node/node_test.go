@@ -39,10 +39,10 @@ func (m *mockNode) IsOutputTruthy(param string) bool {
 func (m *mockNode) Reset() {}
 
 type mockFactory struct {
-	nodeType     string
-	createCalled int
 	returnNode   node.Node
 	returnError  error
+	nodeType     string
+	createCalled int
 }
 
 func (m *mockFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {

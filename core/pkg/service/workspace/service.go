@@ -56,8 +56,8 @@ func (c ServiceConfig) Validate() error {
 
 type Service struct {
 	cfg             ServiceConfig
-	group           group.Group
 	shutdownSignals io.Closer
+	group           group.Group
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {

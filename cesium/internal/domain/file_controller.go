@@ -36,26 +36,26 @@ func fileKeyToName(key uint16) string {
 // fileReaders represents readers on a file. It provides a mutex lock to prevent any
 // modifications to the list of readers.
 type fileReaders struct {
-	sync.RWMutex
 	open []controlledReader
+	sync.RWMutex
 }
 
 type fileController struct {
-	Config
-	writers struct {
-		sync.RWMutex
+	counter     *xio.Int32Counter
+	release     chan struct{}
+	counterFile io.Closer
+	writers     struct {
 		open map[uint16]controlledWriter
 		// unopened is a set of file keys to files that are not oversize and do not have
 		// any file handles for them in open.
 		unopened set.Set[uint16]
+		sync.RWMutex
 	}
 	readers struct {
-		sync.RWMutex
 		files map[uint16]*fileReaders
+		sync.RWMutex
 	}
-	release     chan struct{}
-	counter     *xio.Int32Counter
-	counterFile io.Closer
+	Config
 }
 
 const counterFile = "counter" + extension
@@ -463,8 +463,8 @@ func (fc *fileController) close() error {
 }
 
 type controlledWriter struct {
-	controllerEntry
 	xio.TrackedWriteCloser
+	controllerEntry
 }
 
 func (c *controlledWriter) tryAcquire() bool {
@@ -488,8 +488,8 @@ func (c *controlledWriter) HardClose() error {
 }
 
 type controlledReader struct {
-	controllerEntry
 	xio.ReaderAtCloser
+	controllerEntry
 }
 
 func (c *controlledReader) Close() error {
@@ -505,10 +505,10 @@ func (c *controlledReader) HardClose() error {
 }
 
 type controllerEntry struct {
-	ins     alamos.Instrumentation
 	inUse   *atomic.Bool
-	fileKey uint16
 	release chan struct{}
+	ins     alamos.Instrumentation
+	fileKey uint16
 }
 
 func newPoolEntry(key uint16, release chan struct{}, ins alamos.Instrumentation) controllerEntry {

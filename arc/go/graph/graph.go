@@ -60,12 +60,12 @@ type (
 // compiled type information, Node represents the user's visual layout including
 // position and raw configuration values.
 type Node struct {
+	// Config are the raw configuration parameter values.
+	Config map[string]any `json:"config"`
 	// Key is the unique identifier for this node instance.
 	Key string `json:"key"`
 	// Type is the function type this node instantiates.
 	Type string `json:"type"`
-	// Config are the raw configuration parameter values.
-	Config map[string]any `json:"config"`
 	// Position is the visual position in the graph editor.
 	Position spatial.XY `json:"position"`
 }
@@ -95,14 +95,14 @@ type Viewport struct {
 
 // Graph represents a complete visual graph.
 type Graph struct {
-	// Viewport is the visual viewport state.
-	Viewport Viewport `json:"viewport"`
 	// Functions are the function definitions available in the graph.
 	Functions []Function `json:"functions"`
 	// Edges connect node outputs to node inputs.
 	Edges Edges `json:"edges"`
 	// Nodes are the visual node instances in the graph.
 	Nodes Nodes `json:"nodes"`
+	// Viewport is the visual viewport state.
+	Viewport Viewport `json:"viewport"`
 }
 
 // bindParams adds function parameters to the symbol scope with the specified kind.

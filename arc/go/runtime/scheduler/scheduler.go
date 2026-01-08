@@ -48,9 +48,11 @@ type nodeState struct {
 // It maintains the execution graph, tracks changed nodes, and propagates changes
 // through the dependency graph. It also supports stage-based filtering for sequences.
 type Scheduler struct {
-	// strata defines the topological execution order.
-	// Each stratum contains nodes at the same dependency level.
-	strata ir.Strata
+	// nodeCtx is a reusable context struct passed to nodes during execution.
+	// This eliminates allocations by reusing the same struct across all executions.
+	nodeCtx node.Context
+	// errorHandler receives errors from node execution.
+	errorHandler ErrorHandler
 	// changed tracks which nodes need execution in the next cycle.
 	changed set.Set[string]
 	// nodes maps node keys to their runtime state.
@@ -58,17 +60,6 @@ type Scheduler struct {
 	// currState points to the currently executing node.
 	// Used for routing MarkChanged callbacks to the correct outgoing edges.
 	currState *nodeState
-	// errorHandler receives errors from node execution.
-	errorHandler ErrorHandler
-	// nodeCtx is a reusable context struct passed to nodes during execution.
-	// This eliminates allocations by reusing the same struct across all executions.
-	nodeCtx node.Context
-	// startTime tracks when the scheduler was initialized for elapsed time calculation.
-	startTime telem.TimeStamp
-
-	// Stage management
-	// sequences stores the IR sequence definitions for terminal detection.
-	sequences ir.Sequences
 	// activeStages maps sequence names to their currently active stage.
 	// Multiple sequences can run concurrently.
 	activeStages map[string]string
@@ -82,6 +73,13 @@ type Scheduler struct {
 	// Each sequence has its own set of fired edges, cleared when that sequence's stage changes.
 	// Edge keys are strings like "nodeA.output=>nodeB.input".
 	firedOneShots map[string]set.Set[string]
+	// sequences stores the IR sequence definitions for terminal detection.
+	sequences ir.Sequences
+	// strata defines the topological execution order.
+	// Each stratum contains nodes at the same dependency level.
+	strata ir.Strata
+	// startTime tracks when the scheduler was initialized for elapsed time calculation.
+	startTime telem.TimeStamp
 }
 
 // stageRef identifies a stage within a sequence.

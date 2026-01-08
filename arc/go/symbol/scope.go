@@ -82,19 +82,19 @@ func NewChannels() Channels {
 //  2. Parent scope (recursively)
 //  3. GlobalResolver (if non-nil)
 type Scope struct {
-	Symbol
 	// GlobalResolver provides global built-in symbols available from any scope.
 	GlobalResolver Resolver
+	// Channels tracks which Synnax channels this scope's AST node reads from and writes to.
+	Channels Channels
 	// Parent is the lexically enclosing scope. Nil for the root scope.
 	Parent *Scope
-	// Children are nested scopes within this scope.
-	Children []*Scope
 	// Counter is the ID counter for variable kinds. Functions create new counters.
 	Counter *int
 	// OnResolve is an optional callback invoked when symbols are resolved from this scope.
 	OnResolve func(ctx context.Context, s *Scope) error
-	// Channels tracks which Synnax channels this scope's AST node reads from and writes to.
-	Channels Channels
+	// Children are nested scopes within this scope.
+	Children []*Scope
+	Symbol
 }
 
 // GetChildByParserRule finds a direct child scope with the given AST parser rule.

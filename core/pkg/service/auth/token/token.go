@@ -44,6 +44,10 @@ type ServiceConfig struct {
 	// KeyProvider is the service used to generate and validate keys.
 	// [REQUIRED]
 	KeyProvider security.KeyProvider
+	// Now is a function that returns the current time. This can be used to override the
+	// current time.
+	// [OPTIONAL] [DEFAULT: time.Now]
+	Now func() time.Time
 	// Expiration is the duration that the token will be valid for.
 	// [OPTIONAL] [DEFAULT: 1 hour]
 	Expiration time.Duration
@@ -51,10 +55,6 @@ type ServiceConfig struct {
 	// issued.
 	// [OPTIONAL] [DEFAULT: 5 minutes]
 	RefreshThreshold time.Duration
-	// Now is a function that returns the current time. This can be used to override the
-	// current time.
-	// [OPTIONAL] [DEFAULT: time.Now]
-	Now func() time.Time
 }
 
 // Override implements config.Config.
