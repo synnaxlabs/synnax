@@ -12,6 +12,7 @@
 xerrors::Error rack::Config::load_args(xargs::Parser &args) {
     this->connection.override(args);
     this->timing.override(args);
+    this->manager.override(args);
     this->remote_info.override(args);
     this->override_integrations(
         args.field("enable-integrations", std::vector<std::string>{}),

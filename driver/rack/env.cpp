@@ -17,6 +17,7 @@ xerrors::Error rack::Config::load_env() {
     xenv::Parser p(ENV_PREFIX);
     this->connection.override(p);
     this->timing.override(p);
+    this->manager.override(p);
     this->remote_info.override(p);
     return xerrors::NIL;
 }

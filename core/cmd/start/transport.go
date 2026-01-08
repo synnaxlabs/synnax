@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cmd
+package start
 
 import (
 	"github.com/samber/lo"
@@ -28,6 +28,13 @@ func configureClientGRPC(
 	)
 }
 
-func getClientGRPCTransportCredentials(sec security.Provider, insecure bool) credentials.TransportCredentials {
-	return lo.Ternary(insecure, insecureGRPC.NewCredentials(), credentials.NewTLS(sec.TLS()))
+func getClientGRPCTransportCredentials(
+	sec security.Provider,
+	insecure bool,
+) credentials.TransportCredentials {
+	return lo.Ternary(
+		insecure,
+		insecureGRPC.NewCredentials(),
+		credentials.NewTLS(sec.TLS()),
+	)
 }

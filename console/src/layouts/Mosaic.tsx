@@ -210,7 +210,6 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
 
   const handleCreate = useCallback(
     (mosaicKey: number, location: location.Location, tabKeys?: string[]) => {
-      console.log("handleCreate", mosaicKey, location, tabKeys);
       if (tabKeys == null) {
         placeLayout(createSelectorLayout({ tab: { mosaicKey, location } }));
         return;

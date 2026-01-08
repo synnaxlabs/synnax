@@ -41,6 +41,13 @@ const (
 	startedMessage      = "started successfully"
 )
 
+var errStartTimeout = errors.New(
+	`timed out waiting for embedded Driver to start. This occurs either because
+the Driver could not reach the Core or a task took an unusual amount of time to
+start. Check logs above categorized 'driver' for more information.
+`,
+)
+
 const (
 	// embeddedDriverPath is the path at which the driver lives inside our
 	// embedded fs. Unix style paths are used in embedded directories regardless
@@ -175,8 +182,13 @@ func (d *Driver) start(ctx context.Context) error {
 		return err
 	}
 	sCtx.Go(mf)
-	_, err = signal.RecvUnderContext(ctx, d.started)
-	return err
+	if _, err = signal.RecvUnderContext(ctx, d.started); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return errStartTimeout
+		}
+		return errors.Wrap(err, "failed to start Embedded Driver")
+	}
+	return nil
 }
 
 const stopKeyword = "STOP\n"

@@ -199,7 +199,7 @@ public:
     Task() = default;
 
     friend std::ostream &operator<<(std::ostream &os, const Task &task) {
-        return os << task.name << " (" << task.key << ")";
+        return os << task.name << " (key=" << task.key << ",type=" << task.type << ")";
     }
 
     /// @brief returns the key used for creating statuses associated with the task.

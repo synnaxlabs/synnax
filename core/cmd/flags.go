@@ -9,17 +9,19 @@
 
 package cmd
 
-import (
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"go.uber.org/zap"
+import "github.com/spf13/cobra"
+
+const (
+	flagConfig  = "config"
+	flagVersion = "version"
 )
 
 func bindFlags(cmd *cobra.Command) {
-	if err := viper.BindPFlags(cmd.PersistentFlags()); err != nil {
-		zap.S().Error("failed to bind flags", zap.Error(err))
-	}
-	if err := viper.BindPFlags(cmd.Flags()); err != nil {
-		zap.S().Error("failed to bind flags", zap.Error(err))
-	}
+	cmd.PersistentFlags().StringP(
+		flagConfig,
+		"c",
+		"/usr/local/synnax/config.yaml",
+		"config file",
+	)
+	cmd.Flags().Bool(flagVersion, false, "Print the version of Synnax")
 }

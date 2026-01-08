@@ -63,6 +63,14 @@ type Config struct {
 	// directory to extract and execute the driver binary and extract configuration files
 	// into.
 	ParentDirname string `json:"parent_dirname"`
+	// TaskOpTimeout sets the duration before reporting stuck task operations.
+	TaskOpTimeout time.Duration `json:"task_op_timeout"`
+	// TaskPollInterval sets the interval between task timeout checks.
+	TaskPollInterval time.Duration `json:"task_poll_interval"`
+	// TaskShutdownTimeout sets the max time to wait for task workers during shutdown.
+	TaskShutdownTimeout time.Duration `json:"task_shutdown_timeout"`
+	// TaskWorkerCount sets the number of worker threads for task operations.
+	TaskWorkerCount uint8 `json:"task_worker_count"`
 }
 
 func (c Config) format() map[string]any {
@@ -90,6 +98,12 @@ func (c Config) format() map[string]any {
 			"rack_key":    c.RackKey,
 			"cluster_key": c.ClusterKey.String(),
 		},
+		"manager": map[string]any{
+			"op_timeout":       c.TaskOpTimeout.Seconds(),
+			"poll_interval":    c.TaskPollInterval.Seconds(),
+			"shutdown_timeout": c.TaskShutdownTimeout.Seconds(),
+			"worker_count":     c.TaskWorkerCount,
+		},
 		"integrations": c.Integrations,
 		"debug":        *c.Debug,
 	}
@@ -101,10 +115,14 @@ var (
 		"labjack", "modbus", "ni", "opc", "sequence",
 	}
 	DefaultConfig = Config{
-		Integrations: []string{},
-		Enabled:      config.True(),
-		Debug:        config.False(),
-		StartTimeout: time.Second * 10,
+		Integrations:        []string{},
+		Enabled:             config.True(),
+		Debug:               config.False(),
+		StartTimeout:        time.Second * 10,
+		TaskOpTimeout:       time.Second * 60,
+		TaskPollInterval:    time.Second * 1,
+		TaskShutdownTimeout: time.Second * 30,
+		TaskWorkerCount:     4,
 	}
 )
 
@@ -125,6 +143,10 @@ func (c Config) Override(other Config) Config {
 	c.Debug = override.Nil(c.Debug, other.Debug)
 	c.StartTimeout = override.Numeric(c.StartTimeout, other.StartTimeout)
 	c.ParentDirname = override.String(c.ParentDirname, other.ParentDirname)
+	c.TaskOpTimeout = override.Numeric(c.TaskOpTimeout, other.TaskOpTimeout)
+	c.TaskPollInterval = override.Numeric(c.TaskPollInterval, other.TaskPollInterval)
+	c.TaskShutdownTimeout = override.Numeric(c.TaskShutdownTimeout, other.TaskShutdownTimeout)
+	c.TaskWorkerCount = override.Numeric(c.TaskWorkerCount, other.TaskWorkerCount)
 	return c
 }
 
@@ -142,6 +164,7 @@ func (c Config) Validate() error {
 	validate.NotEmptyString(v, "address", c.Address)
 	validate.NotNil(v, "debug", c.Debug)
 	validate.NotEmptyString(v, "parent_dirname", c.ParentDirname)
+	validate.InBounds(v, "task_worker_count", c.TaskWorkerCount, 1, 64)
 	return v.Error()
 }
 
