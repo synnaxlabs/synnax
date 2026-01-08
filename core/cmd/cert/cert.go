@@ -24,8 +24,8 @@ func BuildLoaderConfig(ins alamos.Instrumentation) cert.LoaderConfig {
 		CertsDir:        viper.GetString(FlagCertsDir),
 		CAKeyPath:       viper.GetString(FlagCAKey),
 		CACertPath:      viper.GetString(FlagCACert),
-		NodeKeyPath:     viper.GetString(FlagCoreKey),
-		NodeCertPath:    viper.GetString(FlagCoreCert),
+		NodeKeyPath:     viper.GetString(FlagNodeKey),
+		NodeCertPath:    viper.GetString(FlagNodeCert),
 	}
 }
 

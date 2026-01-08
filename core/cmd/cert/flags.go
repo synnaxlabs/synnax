@@ -20,8 +20,8 @@ const (
 	FlagCertsDir      = "certs-dir"
 	FlagCAKey         = "ca-key"
 	FlagCACert        = "ca-cert"
-	FlagCoreKey       = "core-key"
-	FlagCoreCert      = "core-cert"
+	FlagNodeKey       = "node-key"
+	FlagNodeCert      = "node-cert"
 	FlagAllowKeyReuse = "allow-key-reuse"
 	FlagKeySize       = "key-size"
 )
@@ -45,14 +45,14 @@ func BindFlags(cmd *cobra.Command) {
 		"The path to the CA certificate, relative to certs-dir",
 	)
 	cmd.Flags().String(
-		FlagCoreKey,
+		FlagNodeKey,
 		cert.DefaultLoaderConfig.NodeKeyPath,
-		"The path to the Core key, relative to certs-dir",
+		"The path to the node key, relative to certs-dir",
 	)
 	cmd.Flags().String(
-		FlagCoreCert,
+		FlagNodeCert,
 		cert.DefaultLoaderConfig.NodeCertPath,
-		"The path to the Core certificate, relative to certs-dir",
+		"The path to the node certificate, relative to certs-dir",
 	)
 	cmd.Flags().Bool(
 		FlagAllowKeyReuse,

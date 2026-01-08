@@ -41,10 +41,10 @@ var caCmd = &cobra.Command{
 	},
 }
 
-var coreCmd = &cobra.Command{
-	Use:   "core",
-	Short: "Generate a self-signed certificate for a Synnax Core",
-	Long:  "Generate a self-signed certificate for a Synnax Core.",
+var nodeCmd = &cobra.Command{
+	Use:   "node",
+	Short: "Generate a self-signed node certificate",
+	Long:  "Generate a self-signed node certificate.",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, hosts []string) error {
 		ins := instrumentation.Configure()
@@ -74,7 +74,7 @@ func AddCommand(cmd *cobra.Command) error {
 		return err
 	}
 	certCmd.AddCommand(caCmd)
-	BindFlags(coreCmd)
-	certCmd.AddCommand(coreCmd)
+	BindFlags(nodeCmd)
+	certCmd.AddCommand(nodeCmd)
 	return nil
 }

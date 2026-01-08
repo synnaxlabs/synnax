@@ -52,26 +52,26 @@ import (
 
 type CoreConfig struct {
 	alamos.Instrumentation
-	insecure                     *bool
-	debug                        *bool
-	autoCert                     *bool
-	verifier                     string
-	memBacked                    *bool
-	listenAddress                address.Address
-	peers                        []address.Address
-	dataPath                     string
-	slowConsumerTimeout          time.Duration
-	rootUsername                 string
-	rootPassword                 string
-	noDriver                     *bool
-	taskOpTimeout                time.Duration
-	taskPollInterval             time.Duration
-	taskShutdownTimeout          time.Duration
-	taskWorkerCount              uint8
-	certFactoryConfig            cert.FactoryConfig
-	enabledIntegrations          []string
-	disabledIntegrations         []string
-	disableChannelNameValidation *bool
+	insecure             *bool
+	debug                *bool
+	autoCert             *bool
+	verifier             string
+	memBacked            *bool
+	listenAddress        address.Address
+	peers                []address.Address
+	dataPath             string
+	slowConsumerTimeout  time.Duration
+	rootUsername         string
+	rootPassword         string
+	noDriver             *bool
+	taskOpTimeout        time.Duration
+	taskPollInterval     time.Duration
+	taskShutdownTimeout  time.Duration
+	taskWorkerCount      uint8
+	certFactoryConfig    cert.FactoryConfig
+	enabledIntegrations  []string
+	disabledIntegrations []string
+	validateChannelNames *bool
 }
 
 var _ config.Config[CoreConfig] = CoreConfig{}
@@ -96,41 +96,41 @@ func (c CoreConfig) Validate() error {
 	validate.NonZero(v, "task_poll_interval", c.taskPollInterval)
 	validate.NonZero(v, "task_shutdown_timeout", c.taskShutdownTimeout)
 	validate.NonZero(v, "task_worker_count", c.taskWorkerCount)
-	validate.NotNil(v, "disable_channel_name_validation", c.disableChannelNameValidation)
-	v.Catcher.Exec(c.certFactoryConfig.Validate)
+	validate.NotNil(v, "validate_channel_names", c.validateChannelNames)
+	v.Exec(c.certFactoryConfig.Validate)
 	return v.Error()
 }
 
 func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 	return CoreConfig{
-		Instrumentation:              override.Zero(c.Instrumentation, other.Instrumentation),
-		insecure:                     override.Nil(c.insecure, other.insecure),
-		debug:                        override.Nil(c.debug, other.debug),
-		autoCert:                     override.Nil(c.autoCert, other.autoCert),
-		verifier:                     override.String(c.verifier, other.verifier),
-		memBacked:                    override.Nil(c.memBacked, other.memBacked),
-		listenAddress:                override.String(c.listenAddress, other.listenAddress),
-		peers:                        override.Slice(c.peers, other.peers),
-		dataPath:                     override.String(c.dataPath, other.dataPath),
-		slowConsumerTimeout:          override.Numeric(c.slowConsumerTimeout, other.slowConsumerTimeout),
-		rootUsername:                 override.String(c.rootUsername, other.rootUsername),
-		rootPassword:                 override.String(c.rootPassword, other.rootPassword),
-		noDriver:                     override.Nil(c.noDriver, other.noDriver),
-		taskOpTimeout:                override.Numeric(c.taskOpTimeout, other.taskOpTimeout),
-		taskPollInterval:             override.Numeric(c.taskPollInterval, other.taskPollInterval),
-		taskShutdownTimeout:          override.Numeric(c.taskShutdownTimeout, other.taskShutdownTimeout),
-		taskWorkerCount:              override.Numeric(c.taskWorkerCount, other.taskWorkerCount),
-		certFactoryConfig:            c.certFactoryConfig.Override(other.certFactoryConfig),
-		enabledIntegrations:          override.Slice(c.enabledIntegrations, other.enabledIntegrations),
-		disabledIntegrations:         override.Slice(c.disabledIntegrations, other.disabledIntegrations),
-		disableChannelNameValidation: override.Nil(c.disableChannelNameValidation, other.disableChannelNameValidation),
+		Instrumentation:      override.Zero(c.Instrumentation, other.Instrumentation),
+		insecure:             override.Nil(c.insecure, other.insecure),
+		debug:                override.Nil(c.debug, other.debug),
+		autoCert:             override.Nil(c.autoCert, other.autoCert),
+		verifier:             override.String(c.verifier, other.verifier),
+		memBacked:            override.Nil(c.memBacked, other.memBacked),
+		listenAddress:        override.String(c.listenAddress, other.listenAddress),
+		peers:                override.Slice(c.peers, other.peers),
+		dataPath:             override.String(c.dataPath, other.dataPath),
+		slowConsumerTimeout:  override.Numeric(c.slowConsumerTimeout, other.slowConsumerTimeout),
+		rootUsername:         override.String(c.rootUsername, other.rootUsername),
+		rootPassword:         override.String(c.rootPassword, other.rootPassword),
+		noDriver:             override.Nil(c.noDriver, other.noDriver),
+		taskOpTimeout:        override.Numeric(c.taskOpTimeout, other.taskOpTimeout),
+		taskPollInterval:     override.Numeric(c.taskPollInterval, other.taskPollInterval),
+		taskShutdownTimeout:  override.Numeric(c.taskShutdownTimeout, other.taskShutdownTimeout),
+		taskWorkerCount:      override.Numeric(c.taskWorkerCount, other.taskWorkerCount),
+		certFactoryConfig:    c.certFactoryConfig.Override(other.certFactoryConfig),
+		enabledIntegrations:  override.Slice(c.enabledIntegrations, other.enabledIntegrations),
+		disabledIntegrations: override.Slice(c.disabledIntegrations, other.disabledIntegrations),
+		validateChannelNames: override.Nil(c.validateChannelNames, other.validateChannelNames),
 	}
 }
 
 // BootupCore contains the most important Core startup logic. It does and should not
 // read any variables from viper, and instead should be called with  fully configured
 // CoreConfigs.
-func BootupCore(ctx context.Context, onServerStarted func(), cfgs ...CoreConfig) error {
+func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...CoreConfig) error {
 	cfg, err := config.New(DefaultCoreConfig, cfgs...)
 	if err != nil {
 		return err
@@ -186,7 +186,7 @@ func BootupCore(ctx context.Context, onServerStarted func(), cfgs ...CoreConfig)
 	cfg.L.Info("using working directory", zap.String("dir", workDir))
 
 	if storageLayer, err = storage.Open(ctx, storage.Config{
-		Instrumentation: cfg.Instrumentation.Child("storage"),
+		Instrumentation: cfg.Child("storage"),
 		InMemory:        cfg.memBacked,
 		Dirname:         cfg.dataPath,
 	}); !ok(err, storageLayer) {
@@ -206,7 +206,7 @@ func BootupCore(ctx context.Context, onServerStarted func(), cfgs ...CoreConfig)
 	)
 
 	if distributionLayer, err = distribution.Open(ctx, distribution.Config{
-		Instrumentation:      cfg.Instrumentation.Child("distribution"),
+		Instrumentation:      cfg.Child("distribution"),
 		AdvertiseAddress:     cfg.listenAddress,
 		PeerAddresses:        cfg.peers,
 		AspenTransport:       aspenTransport,
@@ -214,13 +214,13 @@ func BootupCore(ctx context.Context, onServerStarted func(), cfgs ...CoreConfig)
 		ChannelTransport:     channelTransport,
 		Verifier:             cfg.verifier,
 		Storage:              storageLayer,
-		ValidateChannelNames: cfg.disableChannelNameValidation,
+		ValidateChannelNames: cfg.validateChannelNames,
 	}); !ok(err, distributionLayer) {
 		return err
 	}
 
 	if serviceLayer, err = service.Open(ctx, service.Config{
-		Instrumentation: cfg.Instrumentation.Child("service"),
+		Instrumentation: cfg.Child("service"),
 		Distribution:    distributionLayer,
 		Security:        securityProvider,
 	}); !ok(err, serviceLayer) {
@@ -308,9 +308,9 @@ func BootupCore(ctx context.Context, onServerStarted func(), cfgs ...CoreConfig)
 			Username:            cfg.rootUsername,
 			Password:            cfg.rootPassword,
 			Debug:               cfg.debug,
-			CACertPath:          cfg.certFactoryConfig.LoaderConfig.AbsoluteCACertPath(),
-			ClientCertFile:      cfg.certFactoryConfig.LoaderConfig.AbsoluteNodeCertPath(),
-			ClientKeyFile:       cfg.certFactoryConfig.LoaderConfig.AbsoluteNodeKeyPath(),
+			CACertPath:          cfg.certFactoryConfig.AbsoluteCACertPath(),
+			ClientCertFile:      cfg.certFactoryConfig.AbsoluteNodeCertPath(),
+			ClientKeyFile:       cfg.certFactoryConfig.AbsoluteNodeKeyPath(),
 			ParentDirname:       workDir,
 			TaskOpTimeout:       cfg.taskOpTimeout,
 			TaskPollInterval:    cfg.taskPollInterval,
@@ -326,11 +326,11 @@ func BootupCore(ctx context.Context, onServerStarted func(), cfgs ...CoreConfig)
 		cfg.listenAddress,
 	)
 
-	onServerStarted()
-
+	if onServerStarted != nil {
+		onServerStarted <- struct{}{}
+	}
 	<-ctx.Done()
 	return err
-
 }
 
 func resolveWorkDir() (string, error) {

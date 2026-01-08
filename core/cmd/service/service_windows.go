@@ -19,16 +19,19 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/spf13/viper"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	cmdinst "github.com/synnaxlabs/synnax/cmd/instrumentation"
 	cmdstart "github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/x/errors"
 	signal "github.com/synnaxlabs/x/signal"
+	"go.uber.org/zap"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
 )
 
 const (
+	startupTimeout  = 60 * time.Second
 	shutdownTimeout = 30 * time.Second
 	name            = "SynnaxCore"
 )
@@ -58,7 +61,7 @@ func install() error {
 		if err != nil {
 			return errors.Wrap(err, "failed to get absolute data path")
 		}
-		viper.Set(cmdstart.FlagData, filepath.Join(ConfigDir(), dataPath))
+		viper.Set(cmdstart.FlagData, dataPath)
 	}
 	logPath := viper.GetString(cmdinst.FlagLogFilePath)
 	if !filepath.IsAbs(logPath) {
@@ -66,7 +69,7 @@ func install() error {
 		if err != nil {
 			return errors.Wrap(err, "failed to get absolute log path")
 		}
-		viper.Set(cmdinst.FlagLogFilePath, filepath.Join(ConfigDir(), logPath))
+		viper.Set(cmdinst.FlagLogFilePath, logPath)
 	}
 	certsDir := viper.GetString(cert.FlagCertsDir)
 	if !filepath.IsAbs(certsDir) {
@@ -74,7 +77,7 @@ func install() error {
 		if err != nil {
 			return errors.Wrap(err, "failed to get absolute certs path")
 		}
-		viper.Set(cert.FlagCertsDir, filepath.Join(ConfigDir(), certsDir))
+		viper.Set(cert.FlagCertsDir, certsDir)
 	}
 	if err = WriteConfig(); err != nil {
 		return errors.Wrap(err, "failed to write config")
@@ -182,7 +185,7 @@ func stop() error {
 
 // synnaxService implements svc.Handler for running Synnax as a Windows Service.
 type synnaxService struct {
-	startServer func(ctx context.Context, onServerStarted func()) error
+	ins alamos.Instrumentation
 }
 
 // Execute is the main service control handler called by the Windows SCM.
@@ -191,29 +194,56 @@ func (s *synnaxService) Execute(
 	r <-chan svc.ChangeRequest,
 	changes chan<- svc.Status,
 ) (bool, uint32) {
+	const accepts = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptInterrogate
+	defer func() { changes <- svc.Status{State: svc.Stopped} }()
+	status := svc.Status{State: svc.StartPending}
+	changes <- status
 
-	changes <- svc.Status{State: svc.StartPending}
-
-	ctx, cancel := signal.WithCancel(context.Background())
+	sCtx, cancel := signal.WithCancel(
+		context.Background(),
+		signal.WithInstrumentation(s.ins),
+	)
 	defer cancel()
-	ctx.Go(func(ctx context.Context) error {
-		return s.startServer(ctx, func() {
-			changes <- svc.Status{
-				State:   svc.Running,
-				Accepts: svc.AcceptStop | svc.AcceptShutdown,
-			}
-		})
-	})
 
-	c := <-r
-	if c.Cmd == svc.Stop || c.Cmd == svc.Shutdown {
-		changes <- svc.Status{State: svc.StopPending}
-		cancel()
-	} else {
+	onServerStarted := make(chan struct{}, 1)
+	sCtx.Go(func(ctx context.Context) error {
+		cfg := cmdstart.GetCoreConfigFromViper(s.ins)
+		return cmdstart.BootupCore(ctx, onServerStarted, cfg)
+	}, signal.CancelOnFail())
+
+	startupTimer := time.After(startupTimeout)
+o:
+	for {
+		select {
+		case <-onServerStarted:
+			status = svc.Status{State: svc.Running, Accepts: accepts}
+			startupTimer = nil
+			changes <- status
+		case <-startupTimer:
+			s.ins.L.Error("service startup timed out")
+			cancel()
+			break o
+		case c := <-r:
+			switch c.Cmd {
+			case svc.Stop, svc.Shutdown:
+				changes <- svc.Status{State: svc.StopPending}
+				cancel()
+				break o
+			case svc.Interrogate:
+				changes <- status
+			}
+		case <-sCtx.Stopped():
+			break o
+		}
+	}
+	select {
+	case <-sCtx.Stopped():
+	case <-time.After(shutdownTimeout):
+		s.ins.L.Error("service shutdown timed out")
 		return false, 1
 	}
-
-	if err := ctx.Wait(); err != nil && !errors.Is(err, context.Canceled) {
+	if err := sCtx.Wait(); errors.Skip(err, context.Canceled) != nil {
+		s.ins.L.Error("service failed", zap.Error(err))
 		return false, 1
 	}
 	return false, 0
@@ -225,10 +255,7 @@ func Run() error {
 	if err := viper.ReadInConfig(); err != nil {
 		return errors.Wrap(err, "failed to read service configuration")
 	}
-	return svc.Run(name, &synnaxService{startServer: func(ctx context.Context, onServerStarted func()) error {
-		ins := cmdinst.Configure()
-		defer cmdinst.Cleanup(ctx, ins)
-		cfg := cmdstart.GetCoreConfigFromViper(ins)
-		return cmdstart.BootupCore(ctx, onServerStarted, cfg)
-	}})
+	ins := cmdinst.Configure()
+	defer cmdinst.Cleanup(context.Background(), ins)
+	return svc.Run(name, &synnaxService{ins: ins})
 }

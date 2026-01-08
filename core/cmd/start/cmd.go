@@ -67,7 +67,7 @@ func start(cmd *cobra.Command) {
 	cfg := GetCoreConfigFromViper(ins)
 
 	sCtx.Go(func(ctx context.Context) error {
-		return BootupCore(ctx, func() {}, cfg)
+		return BootupCore(ctx, nil, cfg)
 	}, xsignal.WithKey("start"), xsignal.RecoverWithErrOnPanic())
 
 	select {
@@ -105,26 +105,26 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) CoreConfig {
 		return address.Address(peer)
 	})
 	return CoreConfig{
-		Instrumentation:              ins,
-		insecure:                     config.Bool(viper.GetBool(FlagInsecure)),
-		debug:                        config.Bool(viper.GetBool(instrumentation.FlagDebug)),
-		autoCert:                     config.Bool(viper.GetBool(FlagAutoCert)),
-		verifier:                     viper.GetString(FlagDecoded),
-		memBacked:                    config.Bool(viper.GetBool(FlagMem)),
-		listenAddress:                listenAddress,
-		peers:                        peers,
-		dataPath:                     viper.GetString(FlagData),
-		slowConsumerTimeout:          viper.GetDuration(FlagSlowConsumerTimeout),
-		rootUsername:                 viper.GetString(FlagUsername),
-		rootPassword:                 viper.GetString(FlagPassword),
-		noDriver:                     config.Bool(viper.GetBool(FlagNoDriver)),
-		taskOpTimeout:                viper.GetDuration(FlagTaskOpTimeout),
-		taskPollInterval:             viper.GetDuration(FlagTaskPollInterval),
-		taskShutdownTimeout:          viper.GetDuration(FlagTaskShutdownTimeout),
-		taskWorkerCount:              viper.GetUint8(FlagTaskWorkerCount),
-		certFactoryConfig:            cert.BuildCertFactoryConfig(ins, listenAddress),
-		enabledIntegrations:          viper.GetStringSlice(FlagEnableIntegrations),
-		disabledIntegrations:         viper.GetStringSlice(FlagDisableIntegrations),
-		disableChannelNameValidation: config.Bool(viper.GetBool(FlagDisableChannelNameValidation)),
+		Instrumentation:      ins,
+		insecure:             config.Bool(viper.GetBool(FlagInsecure)),
+		debug:                config.Bool(viper.GetBool(instrumentation.FlagDebug)),
+		autoCert:             config.Bool(viper.GetBool(FlagAutoCert)),
+		verifier:             viper.GetString(FlagDecoded),
+		memBacked:            config.Bool(viper.GetBool(FlagMem)),
+		listenAddress:        listenAddress,
+		peers:                peers,
+		dataPath:             viper.GetString(FlagData),
+		slowConsumerTimeout:  viper.GetDuration(FlagSlowConsumerTimeout),
+		rootUsername:         viper.GetString(FlagUsername),
+		rootPassword:         viper.GetString(FlagPassword),
+		noDriver:             config.Bool(viper.GetBool(FlagNoDriver)),
+		taskOpTimeout:        viper.GetDuration(FlagTaskOpTimeout),
+		taskPollInterval:     viper.GetDuration(FlagTaskPollInterval),
+		taskShutdownTimeout:  viper.GetDuration(FlagTaskShutdownTimeout),
+		taskWorkerCount:      viper.GetUint8(FlagTaskWorkerCount),
+		certFactoryConfig:    cert.BuildCertFactoryConfig(ins, listenAddress),
+		enabledIntegrations:  viper.GetStringSlice(FlagEnableIntegrations),
+		disabledIntegrations: viper.GetStringSlice(FlagDisableIntegrations),
+		validateChannelNames: config.Bool(!viper.GetBool(FlagDisableChannelNameValidation)),
 	}
 }

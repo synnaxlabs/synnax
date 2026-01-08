@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/viper"
+	"github.com/synnaxlabs/x/set"
 	"gopkg.in/yaml.v3"
 )
 
@@ -34,10 +35,7 @@ func ConfigPath() string { return filepath.Join(ConfigDir(), "config.yaml") }
 
 // configKeysToExclude contains keys that should not be written to the config file.
 // These are either service-specific (not needed at runtime) or internal.
-var configKeysToExclude = map[string]bool{
-	"auto-start":    true,
-	"delayed-start": true,
-}
+var configKeysToExclude = set.FromSlice([]string{"auto-start", "delayed-start"})
 
 // WriteConfig writes the current viper configuration to the config file.
 // This captures all the core configuration flags set during service installation,
@@ -53,12 +51,10 @@ func WriteConfig() error {
 	// bound flag values - it returns defaults instead of actual flag values.
 	settings := make(map[string]any)
 	for _, key := range viper.AllKeys() {
-		if configKeysToExclude[key] {
-			continue
+		if !configKeysToExclude.Contains(key) {
+			settings[key] = viper.Get(key)
 		}
-		settings[key] = viper.Get(key)
 	}
-
 	data, err := yaml.Marshal(settings)
 	if err != nil {
 		return err
