@@ -67,7 +67,7 @@ func start(cmd *cobra.Command) {
 	cfg := GetCoreConfigFromViper(ins)
 
 	sCtx.Go(func(ctx context.Context) error {
-		return BootupCore(ctx, cfg)
+		return BootupCore(ctx, func() {}, cfg)
 	}, xsignal.WithKey("start"), xsignal.RecoverWithErrOnPanic())
 
 	select {

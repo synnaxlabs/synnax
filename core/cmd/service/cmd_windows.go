@@ -31,9 +31,7 @@ var serviceCmd = &cobra.Command{
 	Short: "Manage Synnax as a Windows service",
 	Long: `Manage Synnax as a Windows service.
 
-The service subcommands allow you to install, uninstall, start, and stop Synnax as a
-Windows Service. When running as a service, Synnax will receive proper shutdown signals,
-enabling graceful shutdown of both the Core and embedded Driver.`,
+The service subcommands allow you to install, uninstall, start, and stop Synnax as a Windows service. When running as a service, Synnax will receive proper shutdown signals, enabling graceful shutdown of both the Core and embedded Driver.`,
 	Args: cobra.NoArgs,
 }
 
@@ -42,14 +40,11 @@ var installCmd = &cobra.Command{
 	Short: "Install Synnax as a Windows service",
 	Long: `Install Synnax as a Windows service.
 
-Core configuration flags (--listen, --data, --insecure, etc.) will be stored
-in a YAML config file at C:\ProgramData\Synnax\config.yaml and used when the
-service starts. You can edit this file to change the configuration without
-reinstalling the service.`,
+Core configuration flags (--listen, --data, --insecure, etc.) will be stored in a YAML config file at C:\ProgramData\Synnax\config.yaml and used when the service starts. You can edit this file to change the configuration without reinstalling the service.`,
 	PreRun:  syncFlagsToViper,
 	RunE:    runInstall,
 	Args:    cobra.NoArgs,
-	Example: "synnax service install --listen 0.0.0.0:9090 --insecure",
+	Example: "synnax service install --listen localhost:9090 --insecure",
 }
 
 var uninstallCmd = &cobra.Command{
@@ -114,7 +109,7 @@ func runInstall(c *cobra.Command, _ []string) error {
 	}
 	c.Printf("Windows service %s installed successfully.\n", name)
 	c.Printf("Configuration saved to: %s\n", ConfigPath())
-	c.Printf("Use 'synnax service start' or 'net start %s' to start %s.\n", name, name)
+	c.Printf("Use 'synnax service start' to start %s.\n", name)
 	return nil
 }
 

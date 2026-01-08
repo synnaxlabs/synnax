@@ -23,6 +23,7 @@ import (
 	cmdinst "github.com/synnaxlabs/synnax/cmd/instrumentation"
 	cmdstart "github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/x/errors"
+	signal "github.com/synnaxlabs/x/signal"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
 )
@@ -180,7 +181,9 @@ func stop() error {
 }
 
 // synnaxService implements svc.Handler for running Synnax as a Windows Service.
-type synnaxService struct{ startServer func(context.Context) error }
+type synnaxService struct {
+	startServer func(ctx context.Context, onServerStarted func()) error
+}
 
 // Execute is the main service control handler called by the Windows SCM.
 func (s *synnaxService) Execute(
@@ -188,63 +191,32 @@ func (s *synnaxService) Execute(
 	r <-chan svc.ChangeRequest,
 	changes chan<- svc.Status,
 ) (bool, uint32) {
-	const acceptedCmds = svc.AcceptStop | svc.AcceptShutdown
 
 	changes <- svc.Status{State: svc.StartPending}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := signal.WithCancel(context.Background())
 	defer cancel()
+	ctx.Go(func(ctx context.Context) error {
+		return s.startServer(ctx, func() {
+			changes <- svc.Status{
+				State:   svc.Running,
+				Accepts: svc.AcceptStop | svc.AcceptShutdown,
+			}
+		})
+	})
 
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- s.startServer(ctx)
-	}()
-
-	// Give the server a moment to fail during startup before declaring Running.
-	// This allows early startup errors to be caught before we tell SCM we're ready.
-	select {
-	case err := <-errCh:
-		if err != nil {
-			changes <- svc.Status{State: svc.Stopped}
-			return false, 1
-		}
-		// Server exited cleanly during startup (unusual but possible)
-		changes <- svc.Status{State: svc.Stopped}
-		return false, 0
-	case <-time.After(2 * time.Second):
-		// Server didn't fail immediately, assume it's starting up
+	c := <-r
+	if c.Cmd == svc.Stop || c.Cmd == svc.Shutdown {
+		changes <- svc.Status{State: svc.StopPending}
+		cancel()
+	} else {
+		return false, 1
 	}
 
-	changes <- svc.Status{State: svc.Running, Accepts: acceptedCmds}
-
-	for {
-		select {
-		case err := <-errCh:
-			if err != nil && !errors.Is(err, context.Canceled) {
-				changes <- svc.Status{State: svc.Stopped}
-				return false, 1
-			}
-			changes <- svc.Status{State: svc.Stopped}
-			return false, 0
-
-		case c := <-r:
-			switch c.Cmd {
-			case svc.Interrogate:
-				changes <- c.CurrentStatus
-			case svc.Stop, svc.Shutdown:
-				changes <- svc.Status{State: svc.StopPending}
-				cancel()
-
-				select {
-				case <-errCh:
-				case <-time.After(shutdownTimeout):
-				}
-
-				changes <- svc.Status{State: svc.Stopped}
-				return false, 0
-			}
-		}
+	if err := ctx.Wait(); err != nil && !errors.Is(err, context.Canceled) {
+		return false, 1
 	}
+	return false, 0
 }
 
 // Run runs Synnax as a Windows Service.
@@ -253,10 +225,10 @@ func Run() error {
 	if err := viper.ReadInConfig(); err != nil {
 		return errors.Wrap(err, "failed to read service configuration")
 	}
-	return svc.Run(name, &synnaxService{startServer: func(ctx context.Context) error {
+	return svc.Run(name, &synnaxService{startServer: func(ctx context.Context, onServerStarted func()) error {
 		ins := cmdinst.Configure()
 		defer cmdinst.Cleanup(ctx, ins)
 		cfg := cmdstart.GetCoreConfigFromViper(ins)
-		return cmdstart.BootupCore(ctx, cfg)
+		return cmdstart.BootupCore(ctx, onServerStarted, cfg)
 	}})
 }

@@ -127,7 +127,7 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 // BootupCore contains the most important Core startup logic. It does and should not
 // read any variables from viper, and instead should be called with  fully configured
 // CoreConfigs.
-func BootupCore(ctx context.Context, cfgs ...CoreConfig) error {
+func BootupCore(ctx context.Context, onServerStarted func(), cfgs ...CoreConfig) error {
 	cfg, err := config.New(DefaultCoreConfig, cfgs...)
 	if err != nil {
 		return err
@@ -321,6 +321,8 @@ func BootupCore(ctx context.Context, cfgs ...CoreConfig) error {
 		"\033[32mSynnax is running and available at %v \033[0m",
 		cfg.listenAddress,
 	)
+
+	onServerStarted()
 
 	<-ctx.Done()
 	return err
