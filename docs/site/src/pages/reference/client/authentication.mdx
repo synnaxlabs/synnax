@@ -1,0 +1,185 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Authentication"
+description: "Comprehensive guide for authenticating Synnax clients."
+next: "Channels"
+nextURL: "/reference/client/channels"
+prev: "Quick Start"
+prevURL: "/reference/client/quick-start"
+clients: ["python", "typescript"]
+platforms: ["Linux", "Windows", "macOS"]
+---
+
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Platform } from "@/components/platform";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+This guide covers all authentication methods and connection parameters for the Synnax
+clients. If you're looking for a quick start, check out the
+[Quick Start](/reference/client/quick-start) guide instead.
+
+<Divider.Divider x />
+
+## Authentication Methods
+
+There are three ways to authenticate with a Synnax Core: using the CLI to permanently
+store your credentials, passing your credentials directly to the client, or configuring
+environment variables.
+
+- For instructions on direct authentication, see
+  [Create a Client](/reference/client/quick-start#create-a-client).
+- CLI authentication is only supported in the Python client.
+
+| Parameter  | Description                        |
+| ---------- | ---------------------------------- |
+| `host`     | The hostname of the Synnax Core    |
+| `port`     | The port of the Synnax Core        |
+| `username` | The username to authenticate with  |
+| `password` | The password to authenticate with. |
+| `secure`   | Whether to use TLS encryption.     |
+
+### CLI Authentication (Python Only)
+
+The easiest way to authenticate with a Core is with the `login` command. This will
+permanently store your credentials in the operating system's keychain.
+
+**This method is highly recommended**, as it makes it easy to share scripts without
+accidentally revealing credentials.
+
+In the terminal, run the following command:
+
+```bash
+sy login
+```
+
+<Note.Note variant="info" className="compact">
+  If you get the error `command not found`, see our [troubleshooting
+  guide](/reference/client/troubleshooting#synnax-command-not-found).
+</Note.Note>
+
+The CLI will prompt for additional information:
+
+```
+Enter your Synnax connection parameters:
+Host (localhost): # YOUR HOST
+Port (9090): # YOUR PORT
+Username (synnax): # YOUR USERNAME
+Password: # YOUR PASSWORD
+Secure connection? (y/n) (n):
+```
+
+You should then see the following message:
+
+```
+Saved credentials. You can now use the Synnax Client
+without having to log in. To connect to the Core in a Python shell, use the following:
+
+from synnax import Synnax
+client = Synnax()
+```
+
+<Divider.Divider x />
+
+### Environment Variables
+
+You can store your connection parameters as environment variables to keep them out of
+your code. This is useful for production deployments or when working with multiple
+environments.
+
+#### Setting environment variables
+
+Select your operating system below to see how to set environment variables:
+
+<Platform.Tabs client:only="react" exclude={["Docker"]}>
+
+  <Fragment slot="Linux">
+
+```bash
+export SYNNAX_HOST="localhost"
+export SYNNAX_PORT="9090"
+export SYNNAX_USERNAME="synnax"
+export SYNNAX_PASSWORD="seldon"
+export SYNNAX_SECURE="false"
+```
+
+  </Fragment>
+
+  <Fragment slot="Windows">
+
+**PowerShell:**
+
+```powershell
+$env:SYNNAX_HOST="localhost"
+$env:SYNNAX_PORT="9090"
+$env:SYNNAX_USERNAME="synnax"
+$env:SYNNAX_PASSWORD="seldon"
+$env:SYNNAX_SECURE="false"
+```
+
+**Command Prompt:**
+
+```cmd
+set SYNNAX_HOST=localhost
+set SYNNAX_PORT=9090
+set SYNNAX_USERNAME=synnax
+set SYNNAX_PASSWORD=seldon
+set SYNNAX_SECURE=false
+```
+
+  </Fragment>
+
+  <Fragment slot="macOS">
+
+```bash
+export SYNNAX_HOST="localhost"
+export SYNNAX_PORT="9090"
+export SYNNAX_USERNAME="synnax"
+export SYNNAX_PASSWORD="seldon"
+export SYNNAX_SECURE="false"
+```
+
+  </Fragment>
+
+</Platform.Tabs>
+
+#### Using environment variables in code
+
+<Client.Tabs client:load exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+
+```python
+import os
+import synnax as sy
+
+client = sy.Synnax(
+    host=os.environ["SYNNAX_HOST"],
+    port=int(os.environ["SYNNAX_PORT"]),
+    username=os.environ["SYNNAX_USERNAME"],
+    password=os.environ["SYNNAX_PASSWORD"],
+    secure=os.environ.get("SYNNAX_SECURE", "false").lower() == "true"
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax({
+  host: process.env.SYNNAX_HOST!,
+  port: parseInt(process.env.SYNNAX_PORT ?? "9090"),
+  username: process.env.SYNNAX_USERNAME!,
+  password: process.env.SYNNAX_PASSWORD!,
+  secure: process.env.SYNNAX_SECURE === "true",
+});
+```
+
+  </Fragment>
+
+</Client.Tabs>

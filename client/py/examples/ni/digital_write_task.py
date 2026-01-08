@@ -10,7 +10,7 @@
 import synnax as sy
 
 # We've logged in via the CLI, so there's no need to provide credentials here.
-# See https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
+# See https://docs.synnaxlabs.com/reference/client/quick-start for more information.
 client = sy.Synnax()
 
 # Retrieve the USB-6000 device from Synnax.

@@ -74,7 +74,7 @@ type ParsedStreamerConfig = z.output<typeof streamerConfigZ>;
  * resources. We recommend using the streamer within a try-finally block to ensure
  * that it is closed properly in the event of an error.
  *
- * For details documentation, see https://docs.synnaxlabs.com/reference/typescript-client/stream-data
+ * For detailed documentation, see https://docs.synnaxlabs.com/reference/client/working-with-data/streaming-data
  */
 export interface Streamer extends AsyncIterator<Frame>, AsyncIterable<Frame> {
   /** The keys of the channels currently being streamed from. */

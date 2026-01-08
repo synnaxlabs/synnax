@@ -37,4 +37,18 @@ inline xerrors::Error missing_lib(const LibraryInfo &lib) {
     return xerrors::Error(xlib::LOAD_ERROR, message);
 }
 
+/// @brief wraps an error with channel name and hardware location context for easier
+/// debugging. The hardware location is integration-specific (e.g., node_id for OPC UA,
+/// port for LabJack, physical_channel for NI, address for Modbus).
+inline xerrors::Error wrap_channel_error(
+    const xerrors::Error &err,
+    const std::string &channel_name,
+    const std::string &hardware_location
+) {
+    return xerrors::Error(
+        err,
+        channel_name + " (" + hardware_location + "): " + err.data
+    );
+}
+
 }

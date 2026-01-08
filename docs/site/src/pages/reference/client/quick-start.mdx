@@ -1,0 +1,279 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Quick Start"
+description:
+  "Get started with the Synnax client in 5 minutes - from installation to reading and
+  writing data."
+next: "Authentication"
+nextURL: "/reference/client/authentication"
+clients: ["python", "typescript"]
+---
+
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Synnax provides first-class Python support and TypeScript support. Our client delivers
+many capabilities, including
+
+- Direct integration with [pandas](https://pandas.pydata.org/) and
+  [numpy](https://numpy.org/doc/stable/index.html).
+- Tooling to implement automated control of your hardware.
+- Change data capture (CDC) infrastructure to build automated analysis pipelines.
+
+<Divider.Divider x />
+
+## Installation
+
+<Client.Tabs client:load exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+
+    The `synnax` library requires Python 3.11 or higher, and is available on
+    [PyPI](https://pypi.org/project/synnax/). Install it directly using `pip` or define it
+    as a requirement in your virtual environment of choice:
+
+    ```bash
+    pip install synnax
+    ```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+    The TypeScript client is available on
+    [npm](https://www.npmjs.com/package/@synnaxlabs/client), and can be installed with your
+    package manager of choice. This documentation uses `npm`, but `yarn`, `pnpm`, or any
+    other package manager will work.
+
+    ```cmd
+    npm install @synnaxlabs/client
+    ```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Create a Client
+
+To
+[authenticate with a Synnax Core](/reference/client/authentication#authentication-methods),
+simply instantiate a new client with your connection parameters and credentials:
+
+<Client.Tabs client:load exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+    ```python
+    import synnax as sy
+
+    client = sy.Synnax(
+        host="demo.synnaxlabs.com",
+        port=9090,
+        username="synnax",
+        password="seldon",
+        secure=True,
+    )
+    ```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+    ```typescript
+    import { Synnax } from "@synnaxlabs/client";
+
+    const client = new Synnax({
+      host: "demo.synnaxlabs.com",
+      port: 9090,
+      username: "synnax",
+      password: "seldon",
+      secure: true,
+    });
+
+    ```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Create a Channel
+
+[Create a channel](/reference/client/channels#creating-channels) using the
+`channels.create` client method. First create an "index" channel to
+[store timestamps for your data channel](/reference/concepts/channels#index-channels).
+
+<Client.Tabs client:load exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+    ```python
+    # Index Channel
+    time_channel = client.channels.create(
+        name="time",
+        data_type=sy.DataType.TIMESTAMP,
+        is_index=True,
+    )
+
+    # Data Channel
+    temp_channel = client.channels.create(
+        name="my_temp_sensor",
+        data_type=sy.DataType.FLOAT32,
+        index=time_channel.key,
+    )
+    ```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+    ```typescript
+    import { DataType } from "@synnaxlabs/client";
+
+    // Index Channel
+    const timeChannel = await client.channels.create({
+      name: "time",
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    });
+
+    // Data Channel
+    const tempChannel = await client.channels.create({
+      name: "my_temp_sensor",
+      dataType: DataType.FLOAT32,
+      index: timeChannel.key,
+    });
+    ```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Write Data
+
+[Write data](/reference/client/write-data) to the time and temperature channels. The
+index channel must be written to before writing to the data channel.
+
+<Client.Tabs client:load exclude={["console", "cpp"]}>
+  <Fragment slot="python">
+      ```python
+      start = sy.TimeStamp.now()
+      times = [
+          start,
+          start + 1 * sy.TimeSpan.MINUTE,
+          start + 2 * sy.TimeSpan.MINUTE,
+          start + 3 * sy.TimeSpan.MINUTE,
+          start + 4 * sy.TimeSpan.MINUTE,
+      ]
+      temperatures = [55, 55.1, 55.7, 57.2, 58.1]
+
+      # Write the timestamps to the index
+      time_channel.write(start, times)
+
+      # Write the data to the channel
+      temp_channel.write(start, temperatures)
+      ```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+    ```typescript
+    const start = TimeStamp.now();
+    const timestamps = new BigInt64Array([
+      start.valueOf(),
+      start.add(TimeSpan.seconds(1)).valueOf(),
+      start.add(TimeSpan.seconds(2)).valueOf(),
+      start.add(TimeSpan.seconds(3)).valueOf(),
+      start.add(TimeSpan.seconds(4)).valueOf(),
+    ]);
+    const temperatures = new Float32Array([20.0, 20.1, 20.2, 20.3, 20.4]);
+
+    // Write the timestamps to the index first
+    await timeChannel.write(start, timestamps);
+
+    // Then write the data
+    await tempChannel.write(start, temperatures);
+    ```
+
+  </Fragment>
+</Client.Tabs>
+
+Notice how the two arrays are aligned using the common `start` timestamp. This tells
+Synnax that the first sample in the `temperatures` array is associated with the first
+timestamp in the `timestamps` array.
+
+Synnax will raise a `ValidationError` if the index channel does not contain a
+corresponding timestamp for every sample in the data channel. After all, it wouldn't
+make sense to have a temperature reading without an associated timestamp.
+
+<Divider.Divider x />
+
+## Read Data
+
+The simplest way to read data from Synnax is to use the `read` method on a `Channel`
+object:
+
+<Client.Tabs client:load exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+    ```python
+    channel = client.channels.retrieve("my_temp_sensor")
+    start = sy.TimeStamp("2025-02-12 12:30:00")
+    end = sy.TimeStamp("2025-02-12 14:30:00")
+
+    data = channel.read(start, end)
+    ```
+
+    The returned data is a [`Series`](/reference/client/series-and-frames#series) object, which contains the time-range occupied by the data. Notably, the `Series` can be treated exactly like a `numpy.ndarray`.
+
+    ```python
+    data = data - 273.15
+    tr = data.time_range
+    ```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+    ```typescript
+    const channel = await client.channels.retrieve("my_temp_sensor");
+    const start = new Date("2025-02-12T12:30:00Z");
+    const end = new Date("2025-02-12T14:30:00Z");
+
+    const series = await channel.read(start, end);
+
+    ```
+
+The returned data is a [`Series`](/reference/client/series-and-frames#series), which
+maintains a very similar interface to a JavaScript typed array (e.g. `Float32Array`,
+`Int32Array`, etc.). Convert the returned data to a JavaScript array easily:
+
+```typescript
+const data = Array.from(series);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Note.Note variant="info" className="compact">
+  Data can also be read in chunks with [iterators](/reference/client/advanced/iterators)
+  or live-streamed with [streamers](/reference/client/read-data#streaming-data). Data
+  can also be read from a specific time range with [ranges](/reference/client/ranges).
+</Note.Note>
+
+<Divider.Divider x />
+
+## Next Steps
+
+Now that you've completed the quick start, here are some recommended next steps:
+
+- **[Authentication](/reference/client/authentication)**: Learn about authentication
+  methods, connection parameters, and troubleshooting.
+- **[Channels](/reference/client/channels)**: Master channel creation, retrieval,
+  renaming, and deletion.
+- **[Reading Data](/reference/client/read-data)**: Explore different ways to read data
+  from Synnax.
+- **[Writing Data](/reference/client/write-data)**: Learn best practices for writing
+  data to Synnax.
+- **[Examples](/reference/client/examples)**: Browse full working examples for common
+  use cases.
