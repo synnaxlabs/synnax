@@ -1,0 +1,11 @@
+version: "2"
+linters:
+  settings:
+    govet:
+      enable-all: true
+      disable:
+        - shadow
+run:
+  build-tags:
+    - console
+    - driver
