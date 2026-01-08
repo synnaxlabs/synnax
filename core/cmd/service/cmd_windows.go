@@ -12,9 +12,13 @@
 package service
 
 import (
+	"path/filepath"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/synnaxlabs/synnax/cmd/start"
+	"github.com/synnaxlabs/synnax/cmd/cert"
+	"github.com/synnaxlabs/synnax/cmd/instrumentation"
+	cmdstart "github.com/synnaxlabs/synnax/cmd/start"
 )
 
 const (
@@ -45,8 +49,11 @@ reinstalling the service.
 
 Example:
   synnax service install --listen 0.0.0.0:9090 --insecure`,
-	RunE: runInstall,
-	Args: cobra.NoArgs,
+	// PreRunE syncs changed cobra flags to viper. This is necessary because
+	// viper.BindPFlags doesn't properly pick up flag values after cobra parses them.
+	PreRun: syncFlagsToViper,
+	RunE:   runInstall,
+	Args:   cobra.NoArgs,
 }
 
 var uninstallCmd = &cobra.Command{
@@ -73,6 +80,15 @@ var stopCmd = &cobra.Command{
 	RunE:  runStop,
 }
 
+// syncFlagsToViper syncs changed cobra flags to viper. This is necessary because
+// viper.BindPFlags doesn't properly pick up flag values after cobra parses them.
+func syncFlagsToViper(cmd *cobra.Command, _ []string) {
+	viper.BindPFlags(cmd.Flags())
+	viper.SetDefault(cmdstart.FlagData, filepath.Join(ConfigDir(), "data"))
+	viper.SetDefault(instrumentation.FlagLogFilePath, filepath.Join(ConfigDir(), "logs", "synnax.log"))
+	viper.SetDefault(cert.FlagCertsDir, filepath.Join(ConfigDir(), "certs"))
+}
+
 // AddCommand adds the service subcommand to the given parent command.
 func AddCommand(cmd *cobra.Command) error {
 	cmd.AddCommand(serviceCmd)
@@ -87,11 +103,11 @@ func AddCommand(cmd *cobra.Command) error {
 		false,
 		"Delay service start until after Windows startup completes",
 	)
-	start.BindFlags(installCmd)
+	cmdstart.BindFlags(installCmd)
 	serviceCmd.AddCommand(uninstallCmd)
 	serviceCmd.AddCommand(startCmd)
 	serviceCmd.AddCommand(stopCmd)
-	return viper.BindPFlags(installCmd.Flags())
+	return viper.BindPFlags(cmd.Flags())
 }
 
 func runInstall(c *cobra.Command, _ []string) error {
@@ -104,7 +120,7 @@ func runInstall(c *cobra.Command, _ []string) error {
 	}
 	c.Printf("Windows Service %s installed successfully.\n", name)
 	c.Printf("Configuration saved to: %s\n", ConfigPath())
-	c.Printf("Use 'synnax service start' or 'net start %s' to start the service.\n", name)
+	c.Printf("Use 'synnax service start' or 'net start %s' to start %s.\n", name, name)
 	return nil
 }
 
@@ -117,7 +133,7 @@ func runUninstall(c *cobra.Command, _ []string) error {
 }
 
 func runStart(c *cobra.Command, _ []string) error {
-	if err := Start(); err != nil {
+	if err := start(); err != nil {
 		return err
 	}
 	c.Printf("%s started.\n", name)

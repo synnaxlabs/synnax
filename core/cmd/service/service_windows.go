@@ -19,10 +19,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	cmdinst "github.com/synnaxlabs/synnax/cmd/instrumentation"
-	"github.com/synnaxlabs/synnax/cmd/start"
+	cmdstart "github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/x/errors"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/eventlog"
@@ -52,24 +53,37 @@ func install(cfg Config) error {
 		return errors.Wrap(err, "failed to get absolute executable path")
 	}
 
-	// For services, always use absolute paths for directories.
-	// If the user specified a relative path or didn't specify one (using the default),
-	// set them to appropriate paths under C:\ProgramData\Synnax.
-	dataDir := viper.GetString(start.FlagData)
-	if dataDir == "" || dataDir == "synnax-data" || !filepath.IsAbs(dataDir) {
-		viper.Set(start.FlagData, filepath.Join(ConfigDir(), "data"))
+	// For services, always use absolute paths for directories. If the user specified a
+	// relative path or didn't specify one (using the default), find the absolute path
+	// by combining that path with the working directory.
+	workDir, err := os.Getwd()
+	if err != nil {
+		return errors.Wrap(err, "failed to get working directory")
 	}
-
+	dataPath := viper.GetString(cmdstart.FlagData)
+	if !filepath.IsAbs(dataPath) {
+		dataPath, err = filepath.Abs(filepath.Join(workDir, dataPath))
+		if err != nil {
+			return err
+		}
+		viper.Set(cmdstart.FlagData, filepath.Join(ConfigDir(), dataPath))
+	}
 	logPath := viper.GetString(cmdinst.FlagLogFilePath)
-	if logPath == "" || strings.HasPrefix(logPath, "./") || !filepath.IsAbs(logPath) {
-		viper.Set(cmdinst.FlagLogFilePath, filepath.Join(ConfigDir(), "logs", "synnax.log"))
+	if !filepath.IsAbs(logPath) {
+		logPath, err = filepath.Abs(filepath.Join(workDir, logPath))
+		if err != nil {
+			return err
+		}
+		viper.Set(cmdinst.FlagLogFilePath, filepath.Join(ConfigDir(), logPath))
 	}
-
 	certsDir := viper.GetString(cert.FlagCertsDir)
-	if certsDir == "" || strings.HasPrefix(certsDir, "/") || !filepath.IsAbs(certsDir) {
-		viper.Set(cert.FlagCertsDir, filepath.Join(ConfigDir(), "certs"))
+	if !filepath.IsAbs(certsDir) {
+		certsDir, err = filepath.Abs(filepath.Join(workDir, certsDir))
+		if err != nil {
+			return err
+		}
+		viper.Set(cert.FlagCertsDir, filepath.Join(ConfigDir(), certsDir))
 	}
-
 	if err = WriteConfig(); err != nil {
 		return err
 	}
@@ -82,20 +96,18 @@ func install(cfg Config) error {
 		err = errors.Combine(err, errors.Wrap(m.Disconnect(), "failed to disconnect from service manager"))
 	}()
 
-	if s, sErr := m.OpenService(name); sErr == nil {
-		return errors.Combine(errors.Newf("service %s already exists; use 'synnax service uninstall' first", name), s.Close())
-	}
-
-	startType := uint32(mgr.StartAutomatic)
-	if !cfg.AutoStart {
-		startType = uint32(mgr.StartManual)
-	}
+	startType := lo.Ternary(
+		cfg.AutoStart || cfg.DelayedStart,
+		uint32(mgr.StartAutomatic),
+		uint32(mgr.StartManual),
+	)
 
 	s, err := m.CreateService(name, exePath, mgr.Config{
-		StartType:    startType,
-		ErrorControl: mgr.ErrorNormal,
-		DisplayName:  displayName,
-		Description:  description,
+		StartType:        startType,
+		ErrorControl:     mgr.ErrorNormal,
+		DisplayName:      displayName,
+		Description:      description,
+		DelayedAutoStart: cfg.DelayedStart,
 	})
 	if err != nil {
 		return err
@@ -104,18 +116,6 @@ func install(cfg Config) error {
 		err = errors.Combine(err, s.Close())
 	}()
 
-	if cfg.DelayedStart {
-		if err = s.UpdateConfig(mgr.Config{
-			StartType:        uint32(mgr.StartAutomatic),
-			ErrorControl:     mgr.ErrorNormal,
-			DisplayName:      displayName,
-			Description:      description,
-			DelayedAutoStart: true,
-		}); err != nil {
-			return errors.Wrap(err, "failed to set delayed start")
-		}
-	}
-
 	if err = s.SetRecoveryActions([]mgr.RecoveryAction{
 		{Type: mgr.ServiceRestart, Delay: 5 * time.Second},
 		{Type: mgr.ServiceRestart, Delay: 30 * time.Second},
@@ -123,7 +123,6 @@ func install(cfg Config) error {
 	}, 86400); err != nil {
 		return err
 	}
-
 	return eventlog.InstallAsEventCreate(name, eventlog.Error|eventlog.Warning|eventlog.Info)
 }
 
@@ -163,8 +162,8 @@ func uninstall() error {
 	return err
 }
 
-// Start starts the Synnax Windows Service.
-func Start() error {
+// start starts the Synnax Windows Service.
+func start() error {
 	m, err := mgr.Connect()
 	if err != nil {
 		return errors.Wrap(err, "failed to connect to service manager (are you running as administrator?)")
@@ -338,7 +337,7 @@ func Run() error {
 		ins := cmdinst.Configure()
 		defer cmdinst.Cleanup(ctx, ins)
 		// TODO: connect elog and instrumentation somehow?
-		cfg := start.GetCoreConfigFromViper(ins)
-		return start.BootupCore(ctx, cfg)
+		cfg := cmdstart.GetCoreConfigFromViper(ins)
+		return cmdstart.BootupCore(ctx, cfg)
 	}})
 }

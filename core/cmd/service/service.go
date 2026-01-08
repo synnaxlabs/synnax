@@ -13,7 +13,6 @@
 package service
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -58,12 +57,6 @@ func WriteConfig() error {
 		return err
 	}
 
-	// Debug: print viper state
-	fmt.Printf("DEBUG WriteConfig: viper.AllKeys() = %v\n", viper.AllKeys())
-	fmt.Printf("DEBUG WriteConfig: viper.Get('insecure') = %v\n", viper.Get("insecure"))
-	fmt.Printf("DEBUG WriteConfig: viper.GetBool('insecure') = %v\n", viper.GetBool("insecure"))
-	fmt.Printf("DEBUG WriteConfig: viper.AllSettings() = %v\n", viper.AllSettings())
-
 	// Build settings map by explicitly reading each key from viper.
 	// This is necessary because viper.AllSettings() doesn't properly evaluate
 	// bound flag values - it returns defaults instead of actual flag values.
@@ -74,8 +67,6 @@ func WriteConfig() error {
 		}
 		settings[key] = viper.Get(key)
 	}
-
-	fmt.Printf("DEBUG WriteConfig: final settings = %v\n", settings)
 
 	data, err := yaml.Marshal(settings)
 	if err != nil {
