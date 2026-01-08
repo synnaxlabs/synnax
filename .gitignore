@@ -261,3 +261,5 @@ core/synnax
 
 # ||| VSCODE EXTENSIONS |||
 *.vsix
+
+.claude

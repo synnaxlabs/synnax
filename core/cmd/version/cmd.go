@@ -7,21 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cmd
+package version
 
 import "github.com/spf13/cobra"
 
-const (
-	flagConfig  = "config"
-	flagVersion = "version"
-)
-
-func bindFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().StringP(
-		flagConfig,
-		"c",
-		"/usr/local/synnax/config.yaml",
-		"config file",
-	)
-	cmd.Flags().Bool(flagVersion, false, "Print the version of Synnax")
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print the version of Synnax",
+	Long:  "Print the version of Synnax.",
+	Run:   func(*cobra.Command, []string) { Print() },
 }
+
+// AddCommand registers the version command to the given parent command.
+func AddCommand(cmd *cobra.Command) { cmd.AddCommand(versionCmd) }
