@@ -20,15 +20,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Config holds the service-specific configuration for installing the Synnax service.
-// Core configuration is read from viper and written to the YAML config file.
-type Config struct {
-	// AutoStart enables automatic service start on machine bootup.
-	AutoStart bool
-	// DelayedStart delays service start until after OS startup completes.
-	DelayedStart bool
-}
-
 // ConfigDir returns the directory where the service config file is stored.
 func ConfigDir() string {
 	programData := os.Getenv("ProgramData")

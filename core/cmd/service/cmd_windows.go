@@ -22,14 +22,14 @@ import (
 )
 
 const (
-	autoStartFlag    = "auto-start"
-	delayedStartFlag = "delayed-start"
+	flagAutoStart    = "auto-start"
+	flagDelayedStart = "delayed-start"
 )
 
 var serviceCmd = &cobra.Command{
 	Use:   "service",
-	Short: "Manage Synnax as a Windows Service",
-	Long: `Manage Synnax as a Windows Service.
+	Short: "Manage Synnax as a Windows service",
+	Long: `Manage Synnax as a Windows service.
 
 The service subcommands allow you to install, uninstall, start, and stop Synnax as a
 Windows Service. When running as a service, Synnax will receive proper shutdown signals,
@@ -39,27 +39,23 @@ enabling graceful shutdown of both the Core and embedded Driver.`,
 
 var installCmd = &cobra.Command{
 	Use:   "install [flags]",
-	Short: "Install Synnax as a Windows Service",
-	Long: `Install Synnax as a Windows Service.
+	Short: "Install Synnax as a Windows service",
+	Long: `Install Synnax as a Windows service.
 
 Core configuration flags (--listen, --data, --insecure, etc.) will be stored
 in a YAML config file at C:\ProgramData\Synnax\config.yaml and used when the
 service starts. You can edit this file to change the configuration without
-reinstalling the service.
-
-Example:
-  synnax service install --listen 0.0.0.0:9090 --insecure`,
-	// PreRunE syncs changed cobra flags to viper. This is necessary because
-	// viper.BindPFlags doesn't properly pick up flag values after cobra parses them.
-	PreRun: syncFlagsToViper,
-	RunE:   runInstall,
-	Args:   cobra.NoArgs,
+reinstalling the service.`,
+	PreRun:  syncFlagsToViper,
+	RunE:    runInstall,
+	Args:    cobra.NoArgs,
+	Example: "synnax service install --listen 0.0.0.0:9090 --insecure",
 }
 
 var uninstallCmd = &cobra.Command{
 	Use:   "uninstall",
-	Short: "Uninstall Synnax Windows Service",
-	Long: `Uninstall the Synnax Windows Service.
+	Short: "Uninstall Synnax Windows service",
+	Long: `Uninstall the Synnax Windows service.
 
 This will stop the service if it is running and remove it from the system.`,
 	Args: cobra.NoArgs,
@@ -68,14 +64,16 @@ This will stop the service if it is running and remove it from the system.`,
 
 var startCmd = &cobra.Command{
 	Use:   "start",
-	Short: "Start the Synnax Windows Service",
+	Short: "Start the Synnax Windows service",
+	Long:  "Start the Synnax Windows service.",
 	Args:  cobra.NoArgs,
 	RunE:  runStart,
 }
 
 var stopCmd = &cobra.Command{
 	Use:   "stop",
-	Short: "Stop the Synnax Windows Service",
+	Short: "Stop the Synnax Windows service",
+	Long:  "Stop the Synnax Windows service.",
 	Args:  cobra.NoArgs,
 	RunE:  runStop,
 }
@@ -94,12 +92,12 @@ func AddCommand(cmd *cobra.Command) error {
 	cmd.AddCommand(serviceCmd)
 	serviceCmd.AddCommand(installCmd)
 	installCmd.Flags().Bool(
-		autoStartFlag,
+		flagAutoStart,
 		true,
 		"Start the service automatically when Windows starts",
 	)
 	installCmd.Flags().Bool(
-		delayedStartFlag,
+		flagDelayedStart,
 		false,
 		"Delay service start until after Windows startup completes",
 	)
@@ -111,14 +109,10 @@ func AddCommand(cmd *cobra.Command) error {
 }
 
 func runInstall(c *cobra.Command, _ []string) error {
-	cfg := Config{
-		AutoStart:    viper.GetBool(autoStartFlag),
-		DelayedStart: viper.GetBool(delayedStartFlag),
-	}
-	if err := install(cfg); err != nil {
+	if err := install(); err != nil {
 		return err
 	}
-	c.Printf("Windows Service %s installed successfully.\n", name)
+	c.Printf("Windows service %s installed successfully.\n", name)
 	c.Printf("Configuration saved to: %s\n", ConfigPath())
 	c.Printf("Use 'synnax service start' or 'net start %s' to start %s.\n", name, name)
 	return nil
@@ -128,7 +122,7 @@ func runUninstall(c *cobra.Command, _ []string) error {
 	if err := uninstall(); err != nil {
 		return err
 	}
-	c.Printf("Windows Service %s uninstalled successfully.\n", name)
+	c.Printf("Windows service %s uninstalled successfully.\n", name)
 	return nil
 }
 
