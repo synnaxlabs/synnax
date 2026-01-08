@@ -15,9 +15,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -528,4 +530,92 @@ var _ = Describe("Create", Ordered, func() {
 			})
 	})
 
+})
+
+var _ = Context("Name Validation Disabled", func() {
+	Describe("Channel Creation", Ordered, func() {
+		var mockCluster *mock.Cluster
+		BeforeAll(func() {
+			mockCluster = mock.ProvisionCluster(ctx, 1, distribution.Config{
+				ValidateChannelNames: config.False(),
+			})
+		})
+		AfterAll(func() {
+			Expect(mockCluster.Close()).To(Succeed())
+		})
+		It("Should create a channel with spaces in the name", func() {
+			ch := channel.Channel{
+				Name:        "my channel with spaces",
+				DataType:    telem.TimeStampT,
+				IsIndex:     true,
+				Leaseholder: 1,
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
+			Expect(ch.Key()).ToNot(BeZero())
+			var retrieved channel.Channel
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereKeys(ch.Key()).
+				Entry(&retrieved).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(retrieved.Name).To(Equal("my channel with spaces"))
+		})
+		It("Should create a channel with special characters in the name", func() {
+			ch := channel.Channel{
+				Name:        "sensor!@#$%",
+				DataType:    telem.Float64T,
+				Virtual:     true,
+				Leaseholder: cluster.Free,
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
+			Expect(ch.Key()).ToNot(BeZero())
+			var retrieved channel.Channel
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereKeys(ch.Key()).
+				Entry(&retrieved).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(retrieved.Name).To(Equal("sensor!@#$%"))
+		})
+		It("Should create a channel with a name starting with a digit", func() {
+			ch := channel.Channel{
+				Name:        "1sensor",
+				DataType:    telem.TimeStampT,
+				IsIndex:     true,
+				Leaseholder: 1,
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
+			Expect(ch.Key()).ToNot(BeZero())
+			var retrieved channel.Channel
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereKeys(ch.Key()).
+				Entry(&retrieved).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(retrieved.Name).To(Equal("1sensor"))
+		})
+		It("Should still reject empty names", func() {
+			ch := channel.Channel{
+				Name:        "",
+				DataType:    telem.Float64T,
+				Virtual:     true,
+				Leaseholder: cluster.Free,
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).
+				To(MatchError(ContainSubstring("name: required")))
+		})
+		It("Should allow renaming to a name with special characters", func() {
+			ch := channel.Channel{
+				Name:        "original_name",
+				DataType:    telem.TimeStampT,
+				IsIndex:     true,
+				Leaseholder: 1,
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
+			Expect(mockCluster.Nodes[1].Channel.Rename(ctx, ch.Key(), "new name with spaces!", false)).To(Succeed())
+			var retrieved channel.Channel
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereKeys(ch.Key()).
+				Entry(&retrieved).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(retrieved.Name).To(Equal("new name with spaces!"))
+		})
+	})
 })
