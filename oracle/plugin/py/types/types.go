@@ -327,13 +327,32 @@ func processStruct(
 		return sd
 	}
 
-	// Handle struct extension with Pydantic inheritance
-	if form.Extends != nil {
-		parent, parentOk := form.Extends.Resolve(table)
-		if parentOk {
+	// Handle struct extension with Pydantic inheritance (supports multiple parents)
+	if len(form.Extends) > 0 {
+		var allParentsValid = true
+		for _, extendsRef := range form.Extends {
+			parent, ok := extendsRef.Resolve(table)
+			if !ok {
+				allParentsValid = false
+				break
+			}
+			sd.ExtendsNames = append(sd.ExtendsNames, getPyName(parent))
+		}
+
+		if allParentsValid {
 			sd.HasExtends = true
-			sd.ExtendsName = getPyName(parent)
-			parentFields := resolution.UnifiedFields(parent, table)
+			// Get all parent fields for comparison (first parent wins on conflict)
+			parentFields := make([]resolution.Field, 0)
+			seenFields := make(map[string]bool)
+			for _, extendsRef := range form.Extends {
+				parent, _ := extendsRef.Resolve(table)
+				for _, pf := range resolution.UnifiedFields(parent, table) {
+					if !seenFields[pf.Name] {
+						seenFields[pf.Name] = true
+						parentFields = append(parentFields, pf)
+					}
+				}
+			}
 
 			// For extends, only include child's own fields (not inherited)
 			// Pass OmittedFields so excluded fields get Field(exclude=True)
@@ -820,9 +839,9 @@ type structData struct {
 	IsAlias bool   // If true, this struct is a type alias
 	AliasOf string // Python expression for the aliased type (e.g., "status.Status[StatusDetails]")
 
-	// Extension support
-	HasExtends  bool
-	ExtendsName string // Parent class name
+	// Extension support (single and multiple inheritance)
+	HasExtends   bool
+	ExtendsNames []string // Parent class names for multiple inheritance
 
 	// Key field support for __hash__ generation
 	KeyField string // Name of the key field (if any) for generating __hash__
@@ -940,7 +959,7 @@ class {{ .Name }}(IntEnum):
 {{- else if .HasExtends }}
 
 
-class {{ .PyName }}({{ .ExtendsName }}):
+class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ $n }}{{ end }}):
 {{- if or .Fields .KeyField }}
 {{- range .Fields }}
     {{ .Name }}: {{ .PyType }}{{ .Default }}

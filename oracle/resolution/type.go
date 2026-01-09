@@ -28,7 +28,7 @@ type TypeForm interface {
 type StructForm struct {
 	Fields        []Field
 	TypeParams    []TypeParam
-	Extends       *TypeRef
+	Extends       []TypeRef
 	OmittedFields []string
 	IsRecursive   bool
 	HasKeyDomain  bool
@@ -150,16 +150,7 @@ func UnifiedFields(typ Type, table *Table) []Field {
 	if !ok {
 		return nil
 	}
-	if form.Extends == nil {
-		return form.Fields
-	}
-
-	parent, ok := form.Extends.Resolve(table)
-	if !ok {
-		return form.Fields
-	}
-	parentForm, ok := parent.Form.(StructForm)
-	if !ok {
+	if len(form.Extends) == 0 {
 		return form.Fields
 	}
 
@@ -168,33 +159,60 @@ func UnifiedFields(typ Type, table *Table) []Field {
 		childFieldMap[form.Fields[i].Name] = &form.Fields[i]
 	}
 
-	typeArgMap := make(map[string]TypeRef)
-	for i, tp := range parentForm.TypeParams {
-		if i < len(form.Extends.TypeArgs) {
-			typeArgMap[tp.Name] = form.Extends.TypeArgs[i]
+	// Collect fields from all parents (left-to-right, first wins on conflict)
+	seenFields := make(map[string]bool)
+	var allParentFields []Field
+
+	for _, extendsRef := range form.Extends {
+		parent, ok := extendsRef.Resolve(table)
+		if !ok {
+			continue
+		}
+		parentForm, ok := parent.Form.(StructForm)
+		if !ok {
+			continue
+		}
+
+		// Build type argument substitution map for this parent
+		typeArgMap := make(map[string]TypeRef)
+		for i, tp := range parentForm.TypeParams {
+			if i < len(extendsRef.TypeArgs) {
+				typeArgMap[tp.Name] = extendsRef.TypeArgs[i]
+			}
+		}
+
+		// Copy parent fields before modifying to avoid mutating the table
+		parentFieldsOrig := UnifiedFields(parent, table)
+		for _, pf := range parentFieldsOrig {
+			if form.IsFieldOmitted(pf.Name) {
+				continue
+			}
+			if seenFields[pf.Name] {
+				continue // First parent wins
+			}
+			substitutedField := pf
+			substitutedField.Type = SubstituteTypeRef(pf.Type, typeArgMap)
+			seenFields[pf.Name] = true
+			allParentFields = append(allParentFields, substitutedField)
 		}
 	}
 
-	// Copy parent fields before modifying to avoid mutating the table.
-	parentFieldsOrig := UnifiedFields(parent, table)
-	parentFields := make([]Field, len(parentFieldsOrig))
-	for i, pf := range parentFieldsOrig {
-		parentFields[i] = pf
-		parentFields[i].Type = SubstituteTypeRef(pf.Type, typeArgMap)
-	}
-	parentFieldMap := make(map[string]*Field, len(parentFields))
-	for i := range parentFields {
-		parentFieldMap[parentFields[i].Name] = &parentFields[i]
+	// Build parent field map for domain merging during override
+	parentFieldMap := make(map[string]*Field, len(allParentFields))
+	for i := range allParentFields {
+		parentFieldMap[allParentFields[i].Name] = &allParentFields[i]
 	}
 
+	// Collect parent fields that are not overridden by child
 	var result []Field
-	for _, pf := range parentFields {
-		if form.IsFieldOmitted(pf.Name) || childFieldMap[pf.Name] != nil {
-			continue
+	for _, pf := range allParentFields {
+		if childFieldMap[pf.Name] != nil {
+			continue // Child overrides this field
 		}
 		result = append(result, pf)
 	}
 
+	// Add child fields with domain merging for overrides
 	for _, cf := range form.Fields {
 		if pf, isOverride := parentFieldMap[cf.Name]; isOverride {
 			mergedDomains := make(map[string]Domain, len(pf.Domains)+len(cf.Domains))

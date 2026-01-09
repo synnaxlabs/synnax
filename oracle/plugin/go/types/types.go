@@ -288,30 +288,12 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 	}
 
 	// Handle struct extension
-	if form.Extends != nil {
-		parent, ok := form.Extends.Resolve(data.table)
-		if ok {
-			// If omitting fields, fall back to field flattening
-			// since Go struct embedding can't exclude individual parent fields
-			if len(form.OmittedFields) > 0 {
-				// Use UnifiedFields() which respects OmittedFields
-				for _, field := range resolution.UnifiedFields(entry, data.table) {
-					sd.Fields = append(sd.Fields, processField(field, data))
-				}
-				// Process @go field and @go imports directives
-				sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
-				for _, imp := range domain.GetAllStringsFromType(entry, "go", "imports") {
-					data.imports.AddExternal(imp)
-				}
-				return sd
-			}
-
-			// Use struct embedding (idiomatic Go pattern)
-			sd.HasExtends = true
-			sd.ExtendsType = resolveExtendsType(form.Extends, parent, data)
-
-			// Only include child's own fields (parent fields come via embedding)
-			for _, field := range form.Fields {
+	if len(form.Extends) > 0 {
+		// If omitting fields, fall back to field flattening
+		// since Go struct embedding can't exclude individual parent fields
+		if len(form.OmittedFields) > 0 {
+			// Use UnifiedFields() which respects OmittedFields
+			for _, field := range resolution.UnifiedFields(entry, data.table) {
 				sd.Fields = append(sd.Fields, processField(field, data))
 			}
 			// Process @go field and @go imports directives
@@ -321,6 +303,40 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 			}
 			return sd
 		}
+
+		// Check for field conflicts between parents (requires flattening)
+		if hasFieldConflicts(form.Extends, data.table) {
+			// Use UnifiedFields() which handles conflict resolution
+			for _, field := range resolution.UnifiedFields(entry, data.table) {
+				sd.Fields = append(sd.Fields, processField(field, data))
+			}
+			// Process @go field and @go imports directives
+			sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
+			for _, imp := range domain.GetAllStringsFromType(entry, "go", "imports") {
+				data.imports.AddExternal(imp)
+			}
+			return sd
+		}
+
+		// Use struct embedding (idiomatic Go pattern)
+		sd.HasExtends = true
+		for _, extendsRef := range form.Extends {
+			parent, ok := extendsRef.Resolve(data.table)
+			if ok {
+				sd.ExtendsTypes = append(sd.ExtendsTypes, resolveExtendsType(extendsRef, parent, data))
+			}
+		}
+
+		// Only include child's own fields (parent fields come via embedding)
+		for _, field := range form.Fields {
+			sd.Fields = append(sd.Fields, processField(field, data))
+		}
+		// Process @go field and @go imports directives
+		sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
+		for _, imp := range domain.GetAllStringsFromType(entry, "go", "imports") {
+			data.imports.AddExternal(imp)
+		}
+		return sd
 	}
 
 	// Process fields for non-extending structs
@@ -400,10 +416,7 @@ func buildGenericType(baseName string, typeArgs []resolution.TypeRef, data *temp
 	return fmt.Sprintf("%s[%s]", baseName, strings.Join(args, ", "))
 }
 
-func resolveExtendsType(extendsRef *resolution.TypeRef, parent resolution.Type, data *templateData) string {
-	if extendsRef == nil {
-		return ""
-	}
+func resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, data *templateData) string {
 	targetOutputPath := output.GetPath(parent, "go")
 
 	// Same namespace AND same output path (or no output path) -> use unqualified name
@@ -419,6 +432,28 @@ func resolveExtendsType(extendsRef *resolution.TypeRef, parent resolution.Type, 
 	alias := gointernal.DerivePackageAlias(targetOutputPath, data.Package)
 	data.imports.AddInternal(alias, resolveGoImportPath(targetOutputPath, data.repoRoot))
 	return fmt.Sprintf("%s.%s", alias, buildGenericType(parent.Name, extendsRef.TypeArgs, data))
+}
+
+// hasFieldConflicts checks if multiple parents have fields with the same name,
+// which would cause ambiguity in Go struct embedding.
+func hasFieldConflicts(extends []resolution.TypeRef, table *resolution.Table) bool {
+	if len(extends) < 2 {
+		return false
+	}
+	seenFields := make(map[string]bool)
+	for _, extendsRef := range extends {
+		parent, ok := extendsRef.Resolve(table)
+		if !ok {
+			continue
+		}
+		for _, field := range resolution.UnifiedFields(parent, table) {
+			if seenFields[field.Name] {
+				return true // Conflict found
+			}
+			seenFields[field.Name] = true
+		}
+	}
+	return false
 }
 
 type templateData struct {
@@ -451,9 +486,9 @@ type structData struct {
 	IsGeneric  bool
 	IsAlias    bool
 	AliasOf    string
-	// Extension support
-	HasExtends  bool
-	ExtendsType string // Parent type (may be qualified: "parent.Parent")
+	// Extension support (multiple inheritance via embedding)
+	HasExtends   bool
+	ExtendsTypes []string // Parent types (may be qualified: "parent.Parent")
 	// Extra fields from @go field directives (raw Go field declarations)
 	ExtraFields []string
 }
@@ -565,7 +600,9 @@ const (
 type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}} = {{.AliasOf}}
 {{else if .HasExtends -}}
 type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}} struct {
-	{{.ExtendsType}}
+{{- range .ExtendsTypes}}
+	{{.}}
+{{- end}}
 {{- range .Fields}}
 {{- if .Doc}}
 	// {{.Doc}}

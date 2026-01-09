@@ -577,65 +577,84 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 	}
 
 	// Handle struct extension with Zod's .omit().partial().extend() pattern
-	if form.Extends != nil {
-		parentType, ok := form.Extends.Resolve(table)
-		if ok {
+	// For multiple inheritance, we chain .merge() calls
+	if len(form.Extends) > 0 {
+		// Collect all parent schema names for merge chaining
+		var allParentsValid = true
+		for _, extendsRef := range form.Extends {
+			parentType, ok := extendsRef.Resolve(table)
+			if !ok {
+				allParentsValid = false
+				break
+			}
 			parentForm, isStruct := parentType.Form.(resolution.StructForm)
-			if isStruct {
-				sd.HasExtends = true
+			if !isStruct {
+				allParentsValid = false
+				break
+			}
 
-				// Get parent's TSName (respecting @ts name domain)
-				parentTSName := domain.GetName(parentType, "ts")
-				sd.ExtendsName = lo.CamelCase(parentTSName) + "Z"
-				sd.ExtendsTypeName = parentTSName
-				// Convert omitted field names to camelCase for TypeScript
-				for _, f := range form.OmittedFields {
-					sd.OmittedFields = append(sd.OmittedFields, lo.CamelCase(f))
+			// Get parent's TSName (respecting @ts name domain)
+			parentTSName := domain.GetName(parentType, "ts")
+			parentInfo := extendsParentInfo{
+				Name:     lo.CamelCase(parentTSName) + "Z",
+				TypeName: parentTSName,
+			}
+
+			// Handle generic parent: need to call parent function with schema args
+			if parentForm.IsGeneric() {
+				parentInfo.IsGeneric = true
+				for _, tp := range parentForm.TypeParams {
+					parentInfo.SchemaArgs = append(parentInfo.SchemaArgs, lo.CamelCase(tp.Name))
 				}
+			}
 
-				// Handle generic parent: need to call parent function with schema args
-				if parentForm.IsGeneric() {
-					sd.ExtendsParentIsGeneric = true
-					// Build list of schema param names from parent's type params
-					for _, tp := range parentForm.TypeParams {
-						sd.ExtendsParentSchemaArgs = append(sd.ExtendsParentSchemaArgs, lo.CamelCase(tp.Name))
+			sd.ExtendsParents = append(sd.ExtendsParents, parentInfo)
+		}
+
+		if allParentsValid && len(sd.ExtendsParents) > 0 {
+			sd.HasExtends = true
+
+			// For backward compatibility, set single-parent fields from first parent
+			sd.ExtendsName = sd.ExtendsParents[0].Name
+			sd.ExtendsTypeName = sd.ExtendsParents[0].TypeName
+			sd.ExtendsParentIsGeneric = sd.ExtendsParents[0].IsGeneric
+			sd.ExtendsParentSchemaArgs = sd.ExtendsParents[0].SchemaArgs
+
+			// Convert omitted field names to camelCase for TypeScript
+			for _, f := range form.OmittedFields {
+				sd.OmittedFields = append(sd.OmittedFields, lo.CamelCase(f))
+			}
+
+			// Build map of all parent fields for comparison
+			parentFields := make(map[string]resolution.Field)
+			for _, extendsRef := range form.Extends {
+				parentType, _ := extendsRef.Resolve(table)
+				for _, pf := range resolution.UnifiedFields(parentType, table) {
+					if _, exists := parentFields[pf.Name]; !exists {
+						parentFields[pf.Name] = pf // First parent wins
 					}
 				}
+			}
 
-				// Build map of parent fields for comparison
-				parentFields := make(map[string]resolution.Field)
-				for _, pf := range resolution.UnifiedFields(parentType, table) {
-					parentFields[pf.Name] = pf
-				}
-
-				// Categorize child fields into partial vs extend
-				for _, field := range form.Fields {
-					parentField, existsInParent := parentFields[field.Name]
-					if existsInParent {
-						if isOnlyOptionalityChange(parentField, field) {
-							// Same base type, just made optional -> use .partial()
-							sd.PartialFields = append(sd.PartialFields, p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes))
-						} else {
-							// Different type -> omit parent's version AND extend with new type
-							sd.OmittedFields = append(sd.OmittedFields, lo.CamelCase(field.Name))
-							sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes))
-						}
+			// Categorize child fields into partial vs extend
+			for _, field := range form.Fields {
+				parentField, existsInParent := parentFields[field.Name]
+				if existsInParent {
+					if isOnlyOptionalityChange(parentField, field) {
+						sd.PartialFields = append(sd.PartialFields, p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes))
 					} else {
-						// New field -> just extend
+						sd.OmittedFields = append(sd.OmittedFields, lo.CamelCase(field.Name))
 						sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes))
 					}
+				} else {
+					sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes))
 				}
-
-				// Note: With the new @ts stringify directive, inherited JSON fields are NOT
-				// automatically re-processed. Users must explicitly override fields with
-				// @ts stringify if they want them to use jsonStringifier.
-
-				// Add optional import for concrete types with partial fields
-				if sd.ConcreteTypes && len(sd.PartialFields) > 0 {
-					addXImport(data, xImport{name: "optional", submodule: "optional"})
-				}
-				return sd
 			}
+
+			if sd.ConcreteTypes && len(sd.PartialFields) > 0 {
+				addXImport(data, xImport{name: "optional", submodule: "optional"})
+			}
+			return sd
 		}
 	}
 
@@ -1697,19 +1716,28 @@ type structData struct {
 	IsGeneric, IsSingleParam, IsAlias, IsRecursive bool
 	AllParamsOptional                              bool // True if all type params have defaults or are optional
 
-	// Extension support
+	// Extension support (single and multiple inheritance)
 	HasExtends              bool
-	ExtendsName             string      // Parent schema name (e.g., "payloadZ")
-	ExtendsTypeName         string      // Parent type name (e.g., "Payload")
-	ExtendsParentIsGeneric  bool        // True if parent has type params
-	ExtendsParentSchemaArgs []string    // Schema param names for calling generic parent (e.g., ["properties", "make", "model"])
-	OmittedFields           []string    // Fields omitted from parent via -fieldName
-	PartialFields           []fieldData // Fields that only need .partial() (just optionality change)
-	ExtendFields            []fieldData // Fields that need .extend() (new fields or type changes)
+	ExtendsParents          []extendsParentInfo // All parent info for multiple inheritance
+	ExtendsName             string              // First parent schema name (backward compat)
+	ExtendsTypeName         string              // First parent type name (backward compat)
+	ExtendsParentIsGeneric  bool                // True if first parent has type params (backward compat)
+	ExtendsParentSchemaArgs []string            // Schema param names for first parent (backward compat)
+	OmittedFields           []string            // Fields omitted from parent via -fieldName
+	PartialFields           []fieldData         // Fields that only need .partial() (just optionality change)
+	ExtendFields            []fieldData         // Fields that need .extend() (new fields or type changes)
 
 	// Conditional field support for optional type params
 	ConditionalFields []conditionalFieldData // Fields to include conditionally based on type param
 	BaseFields        []fieldData            // Fields that are always present (non-conditional)
+}
+
+// extendsParentInfo holds information about a parent type for multiple inheritance
+type extendsParentInfo struct {
+	Name       string   // Schema name (e.g., "payloadZ")
+	TypeName   string   // Type name (e.g., "Payload")
+	IsGeneric  bool     // True if parent has type params
+	SchemaArgs []string // Schema param names for calling generic parent
 }
 
 type typeParamData struct {
@@ -1866,7 +1894,7 @@ export const {{ camelCase .TSName }}Z: {{ .TSName }}ZFunction = <{{ range $i, $p
 export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}>({{ range $i, $p := .TypeParams }}{{ $p.Name | camelCase }}{{ if $p.HasDefault }}?{{ end }}: {{ $p.Name }}{{ end }}) =>
 {{- end }}
 {{- if .HasExtends }}
-  {{ .ExtendsName }}({{ if .ExtendsParentIsGeneric }}{{ range $i, $a := .ExtendsParentSchemaArgs }}{{ if $i }}, {{ end }}{{ $a }}{{ end }}{{ end }})
+  {{ range $i, $p := .ExtendsParents }}{{ if $i }}.merge({{ end }}{{ $p.Name }}({{ if $p.IsGeneric }}{{ range $j, $a := $p.SchemaArgs }}{{ if $j }}, {{ end }}{{ $a }}{{ end }}{{ end }}){{ if $i }}){{ end }}{{ end }}
 {{- if .OmittedFields }}
     .omit({ {{ range $i, $f := .OmittedFields }}{{ if $i }}, {{ end }}{{ $f }}: true{{ end }} })
 {{- end }}
@@ -1939,7 +1967,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
 }: {{ .TSName }}Schemas<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }}{{ end }}>{{ if .AllParamsOptional }} = {}{{ end }}) =>
 {{- end }}
 {{- if .HasExtends }}
-  {{ .ExtendsName }}({{ if .ExtendsParentIsGeneric }}{ {{ range $i, $a := .ExtendsParentSchemaArgs }}{{ if $i }}, {{ end }}{{ $a }}{{ end }} }{{ end }})
+  {{ range $i, $p := .ExtendsParents }}{{ if $i }}.merge({{ end }}{{ $p.Name }}({{ if $p.IsGeneric }}{ {{ range $j, $a := $p.SchemaArgs }}{{ if $j }}, {{ end }}{{ $a }}{{ end }} }{{ end }}){{ if $i }}){{ end }}{{ end }}
 {{- if .OmittedFields }}
     .omit({ {{ range $i, $f := .OmittedFields }}{{ if $i }}, {{ end }}{{ $f }}: true{{ end }} })
 {{- end }}
@@ -2004,7 +2032,7 @@ export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }
 {{- end }}
 {{- else if .HasExtends }}
 
-export const {{ camelCase .TSName }}Z = {{ .ExtendsName }}
+export const {{ camelCase .TSName }}Z = {{ range $i, $p := .ExtendsParents }}{{ if $i }}.merge({{ end }}{{ $p.Name }}{{ if $i }}){{ end }}{{ end }}
 {{- if .OmittedFields }}
   .omit({ {{ range $i, $f := .OmittedFields }}{{ if $i }}, {{ end }}{{ $f }}: true{{ end }} })
 {{- end }}

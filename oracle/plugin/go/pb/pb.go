@@ -1310,12 +1310,12 @@ func findStructWithPB(s resolution.Type, table *resolution.Table) (*resolution.T
 		if pbPath != "" {
 			return current, pbPath
 		}
-		// Walk up the extends chain
+		// Walk up the extends chain (use first parent for multiple inheritance)
 		form, ok := current.Form.(resolution.StructForm)
-		if !ok || form.Extends == nil {
+		if !ok || len(form.Extends) == 0 {
 			break
 		}
-		parent, ok := form.Extends.Resolve(table)
+		parent, ok := form.Extends[0].Resolve(table)
 		if !ok {
 			break
 		}

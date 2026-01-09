@@ -277,8 +277,8 @@ func (t *Table) collectDependencies(typ Type) []string {
 
 	switch form := typ.Form.(type) {
 	case StructForm:
-		if form.Extends != nil {
-			addDep(*form.Extends)
+		for _, extendsRef := range form.Extends {
+			addDep(extendsRef)
 		}
 		for _, field := range form.Fields {
 			addDep(field.Type)

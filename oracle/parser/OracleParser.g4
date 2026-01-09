@@ -71,8 +71,14 @@ definition
 //   RackStatus = status.Status<RackDetails>
 //   Status<D> = status.Status<D> { @ts output "..." }
 structDef
-    : IDENT STRUCT typeParams? (EXTENDS typeRef)? nl* LBRACE nl* structBody RBRACE  # StructFull
-    | IDENT typeParams? EQUALS typeRef aliasBody?                                     # StructAlias
+    : IDENT STRUCT typeParams? (EXTENDS typeRefList)? nl* LBRACE nl* structBody RBRACE  # StructFull
+    | IDENT typeParams? EQUALS typeRef aliasBody?                                        # StructAlias
+    ;
+
+// List of type references for multiple inheritance
+// Examples: Parent, Base1, Base2, Generic<T>
+typeRefList
+    : typeRef (COMMA nl* typeRef)*
     ;
 
 // Optional body for struct aliases (domains only, no fields)

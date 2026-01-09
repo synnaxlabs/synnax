@@ -526,8 +526,8 @@ var _ = Describe("Analyzer", func() {
 
 			childType := table.MustGet("test.Child")
 			form := childType.Form.(resolution.StructForm)
-			Expect(form.Extends).NotTo(BeNil())
-			Expect(form.Extends.Name).To(Equal("test.Parent"))
+			Expect(form.Extends).To(HaveLen(1))
+			Expect(form.Extends[0].Name).To(Equal("test.Parent"))
 
 			// Child should have its own field
 			Expect(form.Fields).To(HaveLen(1))
@@ -628,9 +628,9 @@ var _ = Describe("Analyzer", func() {
 
 			rackStatusType := table.MustGet("test.RackStatus")
 			form := rackStatusType.Form.(resolution.StructForm)
-			Expect(form.Extends).NotTo(BeNil())
-			Expect(form.Extends.TypeArgs).To(HaveLen(1))
-			Expect(form.Extends.TypeArgs[0].Name).To(Equal("test.Details"))
+			Expect(form.Extends).To(HaveLen(1))
+			Expect(form.Extends[0].TypeArgs).To(HaveLen(1))
+			Expect(form.Extends[0].TypeArgs[0].Name).To(Equal("test.Details"))
 
 			// UnifiedFields should substitute type parameters
 			allFields := resolution.UnifiedFields(rackStatusType, table)
@@ -692,8 +692,8 @@ var _ = Describe("Analyzer", func() {
 
 			extendedType := table.MustGet("test.Extended")
 			form := extendedType.Form.(resolution.StructForm)
-			Expect(form.Extends).NotTo(BeNil())
-			Expect(form.Extends.Name).To(Equal("base.Base"))
+			Expect(form.Extends).To(HaveLen(1))
+			Expect(form.Extends[0].Name).To(Equal("base.Base"))
 
 			allFields := resolution.UnifiedFields(extendedType, table)
 			Expect(allFields).To(HaveLen(3))

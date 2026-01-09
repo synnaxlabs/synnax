@@ -1,16 +1,6 @@
-// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from OracleParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // OracleParser
-
 import "github.com/antlr4-go/antlr/v4"
 
 // A complete Visitor for a parse tree produced by OracleParser.
@@ -37,6 +27,9 @@ type OracleParserVisitor interface {
 
 	// Visit a parse tree produced by OracleParser#StructAlias.
 	VisitStructAlias(ctx *StructAliasContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#typeRefList.
+	VisitTypeRefList(ctx *TypeRefListContext) interface{}
 
 	// Visit a parse tree produced by OracleParser#aliasBody.
 	VisitAliasBody(ctx *AliasBodyContext) interface{}
@@ -103,4 +96,10 @@ type OracleParserVisitor interface {
 
 	// Visit a parse tree produced by OracleParser#enumValue.
 	VisitEnumValue(ctx *EnumValueContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#typeDefDef.
+	VisitTypeDefDef(ctx *TypeDefDefContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#typeDefBody.
+	VisitTypeDefBody(ctx *TypeDefBodyContext) interface{}
 }

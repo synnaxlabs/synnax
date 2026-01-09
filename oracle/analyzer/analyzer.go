@@ -207,8 +207,12 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 	}
 
 	if def.EXTENDS() != nil {
-		ext := collectTypeRef(def.TypeRef(), nil)
-		form.Extends = &ext
+		if typeRefList := def.TypeRefList(); typeRefList != nil {
+			for _, tr := range typeRefList.AllTypeRef() {
+				ext := collectTypeRef(tr, nil)
+				form.Extends = append(form.Extends, ext)
+			}
+		}
 	}
 
 	domains := make(map[string]resolution.Domain)
@@ -619,8 +623,8 @@ func resolveTypeRefs(c *analysisCtx, typ *resolution.Type) {
 				resolveTypeRef(c, typ, form.TypeParams[i].Default)
 			}
 		}
-		if form.Extends != nil {
-			resolveTypeRef(c, typ, form.Extends)
+		for i := range form.Extends {
+			resolveTypeRef(c, typ, &form.Extends[i])
 		}
 		typ.Form = form
 	case resolution.AliasForm:
@@ -764,59 +768,71 @@ func typeRefersTo(ref resolution.TypeRef, target *resolution.Type, table *resolu
 
 func validateExtends(c *analysisCtx, typ resolution.Type) {
 	form, ok := typ.Form.(resolution.StructForm)
-	if !ok || form.Extends == nil {
+	if !ok || len(form.Extends) == 0 {
 		return
 	}
 
-	parent, ok := form.Extends.Resolve(c.table)
-	if !ok {
-		c.diag.AddErrorf(nil, c.filePath,
-			"struct %s extends unresolved type: %s",
-			typ.Name, form.Extends.Name)
-		return
+	// Validate each parent
+	for i, extendsRef := range form.Extends {
+		parent, ok := extendsRef.Resolve(c.table)
+		if !ok {
+			c.diag.AddErrorf(nil, c.filePath,
+				"struct %s extends unresolved type at position %d: %s",
+				typ.Name, i+1, extendsRef.Name)
+			continue
+		}
+
+		parentForm, ok := parent.Form.(resolution.StructForm)
+		if !ok {
+			c.diag.AddErrorf(nil, c.filePath,
+				"struct %s extends non-struct type at position %d: %s",
+				typ.Name, i+1, parent.Name)
+			continue
+		}
+
+		if parent.QualifiedName == typ.QualifiedName {
+			c.diag.AddErrorf(nil, c.filePath, "struct %s cannot extend itself", typ.Name)
+			continue
+		}
+
+		// Validate type parameters for this parent
+		if len(parentForm.TypeParams) > 0 {
+			requiredParams := 0
+			for _, tp := range parentForm.TypeParams {
+				if tp.Default == nil && !tp.Optional {
+					requiredParams++
+				}
+			}
+			if len(extendsRef.TypeArgs) < requiredParams {
+				c.diag.AddErrorf(nil, c.filePath,
+					"struct %s extends %s but provides %d type arguments (need at least %d)",
+					typ.Name, parent.Name, len(extendsRef.TypeArgs), requiredParams)
+			}
+		}
 	}
 
-	parentForm, ok := parent.Form.(resolution.StructForm)
-	if !ok {
-		c.diag.AddErrorf(nil, c.filePath,
-			"struct %s extends non-struct type: %s",
-			typ.Name, parent.Name)
-		return
-	}
-
-	if parent.QualifiedName == typ.QualifiedName {
-		c.diag.AddErrorf(nil, c.filePath, "struct %s cannot extend itself", typ.Name)
-		return
-	}
-
+	// Check for circular inheritance
 	if hasCircularInheritance(typ, c.table, make(map[string]bool)) {
 		c.diag.AddErrorf(nil, c.filePath, "circular inheritance detected: struct %s", typ.Name)
 		return
 	}
 
-	parentFieldNames := make(map[string]bool)
-	for _, f := range resolution.UnifiedFields(parent, c.table) {
-		parentFieldNames[f.Name] = true
+	// Validate omitted fields exist in at least one parent
+	allParentFields := make(map[string]bool)
+	for _, extendsRef := range form.Extends {
+		parent, ok := extendsRef.Resolve(c.table)
+		if !ok {
+			continue
+		}
+		for _, f := range resolution.UnifiedFields(parent, c.table) {
+			allParentFields[f.Name] = true
+		}
 	}
 	for _, omitted := range form.OmittedFields {
-		if !parentFieldNames[omitted] {
+		if !allParentFields[omitted] {
 			c.diag.AddErrorf(nil, c.filePath,
-				"cannot omit field %q: not found in parent struct %s",
-				omitted, parent.Name)
-		}
-	}
-
-	if len(parentForm.TypeParams) > 0 {
-		requiredParams := 0
-		for _, tp := range parentForm.TypeParams {
-			if tp.Default == nil && !tp.Optional {
-				requiredParams++
-			}
-		}
-		if len(form.Extends.TypeArgs) < requiredParams {
-			c.diag.AddErrorf(nil, c.filePath,
-				"struct %s extends %s but provides %d type arguments (need at least %d)",
-				typ.Name, parent.Name, len(form.Extends.TypeArgs), requiredParams)
+				"cannot omit field %q: not found in any parent struct",
+				omitted)
 		}
 	}
 }
@@ -826,13 +842,18 @@ func hasCircularInheritance(typ resolution.Type, table *resolution.Table, visite
 		return true
 	}
 	form, ok := typ.Form.(resolution.StructForm)
-	if !ok || form.Extends == nil {
-		return false
-	}
-	parent, ok := form.Extends.Resolve(table)
-	if !ok {
+	if !ok || len(form.Extends) == 0 {
 		return false
 	}
 	visited[typ.QualifiedName] = true
-	return hasCircularInheritance(parent, table, visited)
+	for _, extendsRef := range form.Extends {
+		parent, ok := extendsRef.Resolve(table)
+		if !ok {
+			continue
+		}
+		if hasCircularInheritance(parent, table, visited) {
+			return true
+		}
+	}
+	return false
 }

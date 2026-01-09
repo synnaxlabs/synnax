@@ -1,16 +1,6 @@
-// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from OracleParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // OracleParser
-
 import "github.com/antlr4-go/antlr/v4"
 
 type BaseOracleParserVisitor struct {
@@ -42,6 +32,10 @@ func (v *BaseOracleParserVisitor) VisitStructFull(ctx *StructFullContext) interf
 }
 
 func (v *BaseOracleParserVisitor) VisitStructAlias(ctx *StructAliasContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitTypeRefList(ctx *TypeRefListContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -130,5 +124,13 @@ func (v *BaseOracleParserVisitor) VisitEnumBody(ctx *EnumBodyContext) interface{
 }
 
 func (v *BaseOracleParserVisitor) VisitEnumValue(ctx *EnumValueContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitTypeDefDef(ctx *TypeDefDefContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitTypeDefBody(ctx *TypeDefBodyContext) interface{} {
 	return v.VisitChildren(ctx)
 }

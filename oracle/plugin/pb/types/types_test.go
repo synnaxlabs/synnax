@@ -169,7 +169,7 @@ var _ = Describe("Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring("syntax = \"proto3\";"))
-			Expect(content).To(ContainSubstring("package api.user;"))
+			Expect(content).To(ContainSubstring("package api.user.pb;"))
 			Expect(content).To(ContainSubstring("message User"))
 			Expect(content).To(ContainSubstring("string key = 1;"))
 			Expect(content).To(ContainSubstring("string username = 2;"))

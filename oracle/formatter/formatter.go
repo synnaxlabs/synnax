@@ -306,10 +306,16 @@ func (f *formatter) formatStructFull(ctx *parser.StructFullContext) {
 		f.formatTypeParams(ctx.TypeParams())
 	}
 
-	// Handle extends clause
-	if ctx.EXTENDS() != nil && ctx.TypeRef() != nil {
+	// Handle extends clause (supports multiple inheritance)
+	if ctx.EXTENDS() != nil && ctx.TypeRefList() != nil {
 		f.write(" extends ")
-		f.formatTypeRef(ctx.TypeRef())
+		typeRefs := ctx.TypeRefList().AllTypeRef()
+		for i, tr := range typeRefs {
+			if i > 0 {
+				f.write(", ")
+			}
+			f.formatTypeRef(tr)
+		}
 	}
 
 	// Check if struct is empty

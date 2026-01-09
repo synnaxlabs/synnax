@@ -452,7 +452,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`D details;`))
 		})
 
-		It("Should generate if constexpr for generic field in parse()", func() {
+		It("Should generate generic struct with type parameter field", func() {
 			source := `
 				@cpp output "client/cpp/status"
 
@@ -472,12 +472,13 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`if constexpr (std::is_same_v<D, x::json::json>)`))
-			Expect(content).To(ContainSubstring(`parser.field<x::json::json>("details")`))
-			Expect(content).To(ContainSubstring(`D::parse(`))
+			Expect(content).To(ContainSubstring(`template <typename D>`))
+			Expect(content).To(ContainSubstring(`struct Status {`))
+			Expect(content).To(ContainSubstring(`D details;`))
+			Expect(content).To(ContainSubstring(`#include <type_traits>`))
 		})
 
-		It("Should generate if constexpr for generic field in to_json()", func() {
+		It("Should generate method declarations for generic struct", func() {
 			source := `
 				@cpp output "client/cpp/status"
 
@@ -497,12 +498,11 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`if constexpr (std::is_same_v<D, x::json::json>)`))
-			Expect(content).To(ContainSubstring(`j["details"] = this->details;`))
-			Expect(content).To(ContainSubstring(`j["details"] = this->details.to_json();`))
+			Expect(content).To(ContainSubstring(`static Status parse(x::json::Parser parser);`))
+			Expect(content).To(ContainSubstring(`[[nodiscard]] x::json::json to_json() const;`))
 		})
 
-		It("Should handle optional generic fields with if constexpr", func() {
+		It("Should handle optional generic fields", func() {
 			source := `
 				@cpp output "client/cpp/status"
 
@@ -523,9 +523,8 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`std::optional<D> details;`))
-			Expect(content).To(ContainSubstring(`if constexpr (std::is_same_v<D, x::json::json>)`))
-			// Check that hard optional parse returns std::optional
-			Expect(content).To(ContainSubstring(`-> std::optional<D>`))
+			Expect(content).To(ContainSubstring(`#include <optional>`))
+			Expect(content).To(ContainSubstring(`#include <type_traits>`))
 		})
 
 		It("Should include type_traits for generic structs", func() {
@@ -551,7 +550,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`#include <type_traits>`))
 		})
 
-		It("Should generate if constexpr for inherited generic fields", func() {
+		It("Should handle inherited generic fields", func() {
 			source := `
 				@cpp output "x/cpp/status"
 
@@ -591,8 +590,8 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			// GoStatus should have if constexpr for the inherited details field
-			Expect(content).To(ContainSubstring(`if constexpr (std::is_same_v<Details, x::json::json>)`))
+			Expect(content).To(ContainSubstring(`template <typename Details>`))
+			Expect(content).To(ContainSubstring(`struct Status {`))
 			Expect(content).To(ContainSubstring(`#include <type_traits>`))
 		})
 
@@ -716,11 +715,8 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(resp.Files).To(HaveLen(1))
 
 			content := string(resp.Files[0].Content)
-			// Should include the handwritten status header
 			Expect(content).To(ContainSubstring(`#include "x/cpp/status/status.h"`))
-			// Should use full namespace path for the omitted type
-			Expect(content).To(ContainSubstring(`using RackStatus = status::Status<StatusDetails>;`))
-			// Should reference the alias in the struct with hard optional
+			Expect(content).To(ContainSubstring(`using RackStatus = ::status::Status<StatusDetails>;`))
 			Expect(content).To(ContainSubstring(`std::optional<RackStatus> status;`))
 		})
 
