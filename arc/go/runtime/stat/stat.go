@@ -66,16 +66,16 @@ var (
 
 type stat struct {
 	*state.Node
-	cfg           ConfigValues
-	resetIdx      int
-	reductionFn   func(telem.Series, int64, *telem.Series) int64
-	sampleCount   int64
-	startTime     telem.TimeStamp
-	lastResetTime telem.TimeStamp // Track last processed reset timestamp to avoid re-processing
+	cfg         ConfigValues
+	resetIdx    int
+	reductionFn func(telem.Series, int64, *telem.Series) int64
+	sampleCount int64
+	startTime   telem.TimeStamp
+	// lastResetTime tracks last processed reset timestamp to avoid re-processing.
+	lastResetTime telem.TimeStamp
 }
 
-func (r *stat) Init(_ node.Context) {
-}
+var _ node.Node = (*stat)(nil)
 
 // Reset resets the stat node's accumulated state when its stage is activated.
 func (r *stat) Reset() {

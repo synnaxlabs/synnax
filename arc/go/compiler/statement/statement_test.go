@@ -19,6 +19,8 @@ import (
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -27,7 +29,7 @@ func compile(source string) []byte {
 	aCtx := acontext.CreateRoot(bCtx, stmt, nil)
 	Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
 	ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, true)
-	MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+	Expect(MustSucceed(statement.Compile(context.Child(ctx, stmt)))).To(BeFalse())
 	return ctx.Writer.Bytes()
 }
 
@@ -36,7 +38,8 @@ func compileBlock(source string) []byte {
 	aCtx := acontext.CreateRoot(bCtx, block, nil)
 	Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
 	ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, true)
-	MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+	diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+	Expect(diverged).To(BeFalse())
 	return ctx.Writer.Bytes()
 }
 
@@ -92,7 +95,8 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
 			Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
-			MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+			Expect(diverged).To(BeFalse())
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
@@ -109,7 +113,8 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
 			Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
-			MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+			Expect(diverged).To(BeFalse())
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
@@ -129,7 +134,8 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
 			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
-			MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			stateStoreIdx := ctx.Imports.StateStore["i64"]
@@ -158,7 +164,8 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
 			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
-			MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
@@ -188,7 +195,8 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
 			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
-			MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
 
 			stateLoadIdx := ctx.Imports.StateLoad["i64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
@@ -223,7 +231,8 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
 			Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
-			MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+			Expect(diverged).To(BeFalse())
 
 			stateLoadIdx := ctx.Imports.StateLoad["f64"]
 			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
@@ -232,6 +241,109 @@ var _ = Describe("Statement Compiler", func() {
 				OpF64Const, 20.5, // init value
 				OpCall, uint64(stateLoadIdx),
 				OpLocalSet, 0, // store in local
+			))
+		})
+
+		It("Should compile stateful variable compound assignment", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				count i64 $= 10
+				count += 5
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			stateLoadIdx := ctx.Imports.StateLoad["i64"]
+			stateStoreIdx := ctx.Imports.StateStore["i64"]
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpI64Const, int64(10),
+				OpCall, uint64(stateLoadIdx),
+				OpLocalSet, 0,
+
+				OpLocalGet, 0,
+				OpI64Const, int64(5),
+				OpI64Add,
+				OpLocalSet, 0,
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpLocalGet, 0,
+				OpCall, uint64(stateStoreIdx),
+			))
+		})
+
+		It("Should compile stateful variable compound subtraction", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				value f64 $= 100.0
+				value -= 25.5
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			stateLoadIdx := ctx.Imports.StateLoad["f64"]
+			stateStoreIdx := ctx.Imports.StateStore["f64"]
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpF64Const, 100.0,
+				OpCall, uint64(stateLoadIdx),
+				OpLocalSet, 0,
+
+				OpLocalGet, 0,
+				OpF64Const, 25.5,
+				OpF64Sub,
+				OpLocalSet, 0,
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpLocalGet, 0,
+				OpCall, uint64(stateStoreIdx),
+			))
+		})
+
+		It("Should compile multiple compound assignments to stateful variable", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				n i32 $= 1
+				n *= 2
+				n *= 3
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			stateLoadIdx := ctx.Imports.StateLoad["i32"]
+			stateStoreIdx := ctx.Imports.StateStore["i32"]
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpI32Const, int32(1),
+				OpCall, uint64(stateLoadIdx),
+				OpLocalSet, 0,
+
+				OpLocalGet, 0,
+				OpI32Const, int32(2),
+				OpI32Mul,
+				OpLocalSet, 0,
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpLocalGet, 0,
+				OpCall, uint64(stateStoreIdx),
+
+				OpLocalGet, 0,
+				OpI32Const, int32(3),
+				OpI32Mul,
+				OpLocalSet, 0,
+				OpI32Const, int32(0),
+				OpI32Const, int32(0),
+				OpLocalGet, 0,
+				OpCall, uint64(stateStoreIdx),
 			))
 		})
 	})
@@ -504,6 +616,145 @@ var _ = Describe("Statement Compiler", func() {
 		),
 	)
 
+	DescribeTable("Compound assignment operators", func(source string, instructions ...any) {
+		Expect(compileBlock(source)).To(MatchOpcodes(instructions...))
+	},
+		Entry("i64 plus equals",
+			`x i64 := 10
+			x += 5`,
+			OpI64Const, int64(10),
+			OpLocalSet, 0,
+			OpLocalGet, 0,
+			OpI64Const, int64(5),
+			OpI64Add,
+			OpLocalSet, 0,
+		),
+		Entry("f64 minus equals",
+			`x f64 := 10.0
+			x -= 2.5`,
+			OpF64Const, float64(10.0),
+			OpLocalSet, 0,
+			OpLocalGet, 0,
+			OpF64Const, 2.5,
+			OpF64Sub,
+			OpLocalSet, 0,
+		),
+		Entry("i32 multiply equals",
+			`x i32 := 3
+			x *= 4`,
+			OpI32Const, int32(3),
+			OpLocalSet, 0,
+			OpLocalGet, 0,
+			OpI32Const, int32(4),
+			OpI32Mul,
+			OpLocalSet, 0,
+		),
+		Entry("f32 divide equals",
+			`x f32 := 10.0
+			x /= 2.0`,
+			OpF32Const, float32(10.0),
+			OpLocalSet, 0,
+			OpLocalGet, 0,
+			OpF32Const, float32(2.0),
+			OpF32Div,
+			OpLocalSet, 0,
+		),
+		Entry("i64 modulo equals",
+			`x i64 := 17
+			x %= 5`,
+			OpI64Const, int64(17),
+			OpLocalSet, 0,
+			OpLocalGet, 0,
+			OpI64Const, int64(5),
+			OpI64RemS,
+			OpLocalSet, 0,
+		),
+	)
+
+	Describe("Compound string concatenation", func() {
+		var sLit, sConcat uint64
+		compileStr := func(source string) []byte {
+			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+			sLit = uint64(ctx.Imports.StringFromLiteral)
+			sConcat = uint64(ctx.Imports.StringConcat)
+			return ctx.Writer.Bytes()
+		}
+
+		It("Should compile string += with string literal", func() {
+			Expect(compileStr(`
+				s str := "hello"
+				s += " world"
+			`)).To(MatchOpcodes(
+				OpI32Const, int32(0),
+				OpI32Const, int32(5),
+				OpCall, sLit,
+				OpLocalSet, 0,
+
+				OpLocalGet, 0,
+				OpI32Const, int32(5),
+				OpI32Const, int32(6),
+				OpCall, sLit,
+				OpCall, sConcat,
+				OpLocalSet, 0,
+			))
+		})
+
+		It("Should compile string += with string variable", func() {
+			Expect(compileStr(`
+				s str := "hello"
+				suffix str := " world"
+				s += suffix
+			`)).To(MatchOpcodes(
+				OpI32Const, int32(0),
+				OpI32Const, int32(5),
+				OpCall, sLit,
+				OpLocalSet, 0,
+
+				OpI32Const, int32(5),
+				OpI32Const, int32(6),
+				OpCall, sLit,
+				OpLocalSet, 1,
+
+				OpLocalGet, 0,
+				OpLocalGet, 1,
+				OpCall, sConcat,
+				OpLocalSet, 0,
+			))
+		})
+
+		It("Should compile multiple string += operations", func() {
+			Expect(compileStr(`
+				s str := "a"
+				s += "b"
+				s += "c"
+			`)).To(MatchOpcodes(
+				OpI32Const, int32(0),
+				OpI32Const, int32(1),
+				OpCall, sLit,
+				OpLocalSet, 0,
+
+				OpLocalGet, 0,
+				OpI32Const, int32(1),
+				OpI32Const, int32(1),
+				OpCall, sLit,
+				OpCall, sConcat,
+				OpLocalSet, 0,
+
+				OpLocalGet, 0,
+				OpI32Const, int32(2),
+				OpI32Const, int32(1),
+				OpCall, sLit,
+				OpCall, sConcat,
+				OpLocalSet, 0,
+			))
+		})
+	})
+
 	DescribeTable("Variable casts", func(source string, instructions ...any) {
 		Expect(compileBlock(source)).To(MatchOpcodes(instructions...))
 	},
@@ -581,4 +832,42 @@ var _ = Describe("Statement Compiler", func() {
 			OpLocalSet, 1,
 		),
 	)
+
+	Describe("Indexed Assignment", func() {
+		It("Should compile indexed assignment to series", func() {
+			block := MustSucceed(parser.ParseBlock(`{
+				data series i64 := [1, 2, 3]
+				data[0] = 42
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+
+			// Set up function scope BEFORE analysis (required for indexed assignment)
+			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
+				Name: "testFunc",
+				Kind: symbol.KindFunction,
+			}))
+			Expect(fnScope).ToNot(BeNil())
+			fn := MustSucceed(aCtx.Scope.Resolve(aCtx, "testFunc"))
+			aCtx.Scope = fn
+
+			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue(), aCtx.Diagnostics.String())
+
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			// Get the import indices we need to verify
+			seriesCreateIdx := ctx.Imports.SeriesCreateEmpty[types.I64().String()]
+			seriesSetElementIdx := ctx.Imports.SeriesSetElement[types.I64().String()]
+
+			// Verify that bytecode contains correct sequence for indexed assignment:
+			// 1. Create series and store in local
+			// 2. For indexed assignment: get local, push index, push value, call set_element
+			bytecode := ctx.Writer.Bytes()
+
+			Expect(bytecode).To(ContainSubstring(string([]byte{byte(OpLocalGet)})))
+			Expect(seriesCreateIdx).ToNot(Equal(uint32(0)))
+			Expect(seriesSetElementIdx).ToNot(Equal(uint32(0)))
+		})
+	})
 })

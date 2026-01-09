@@ -91,54 +91,6 @@ var _ = Describe("Select", func() {
 			Expect(err).To(Equal(query.NotFound))
 		})
 	})
-	Describe("select.Init", func() {
-		It("Should not emit output on Init", func() {
-			g := graph.Graph{
-				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "select", Type: "select"},
-				},
-				Edges: []graph.Edge{
-					{
-						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "select", Param: ir.DefaultInputParam},
-					},
-				},
-				Functions: []graph.Function{
-					{
-						Key: "source",
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.U8()},
-						},
-					},
-					{
-						Key: "select",
-						Inputs: types.Params{
-							{Name: ir.DefaultInputParam, Type: types.U8()},
-						},
-						Outputs: types.Params{
-							{Name: "true", Type: types.U8()},
-							{Name: "false", Type: types.U8()},
-						},
-					},
-				},
-			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, selector.SymbolResolver)
-			Expect(diagnostics.Ok()).To(BeTrue())
-			s := state.New(state.Config{IR: analyzed})
-			factory := selector.NewFactory()
-			cfg := node.Config{
-				Node:  ir.Node{Type: "select"},
-				State: s.Node("select"),
-			}
-			n, _ := factory.Create(ctx, cfg)
-			outputs := []string{}
-			n.Init(node.Context{Context: ctx, MarkChanged: func(output string) {
-				outputs = append(outputs, output)
-			}})
-			Expect(outputs).To(BeEmpty())
-		})
-	})
 	Describe("select.Next", func() {
 		var s *state.State
 		var factory node.Factory

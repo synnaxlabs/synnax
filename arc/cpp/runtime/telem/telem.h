@@ -31,7 +31,7 @@ class On : public node::Node {
     telem::Alignment high_water_mark{0};
 
 public:
-    On(state::Node state, types::ChannelKey channel_key):
+    On(state::Node &&state, types::ChannelKey channel_key):
         state(std::move(state)), channel_key(channel_key) {}
 
     xerrors::Error next(node::Context &ctx) override {
@@ -41,7 +41,8 @@ public:
         for (size_t i = 0; i < data.series.size(); i++) {
             auto &ser = data.series[i];
             auto lower = ser.alignment;
-            auto upper_val = lower.uint64() + (ser.size() > 0 ? ser.size() - 1 : 0);
+            const auto upper_val = lower.uint64() +
+                                   (ser.size() > 0 ? ser.size() - 1 : 0);
 
             if (lower.uint64() < high_water_mark.uint64()) continue;
 
@@ -57,15 +58,14 @@ public:
                                           : std::move(index_data.series[i]);
 
             if (generate_synthetic) {
-                auto now = telem::TimeStamp::now();
+                const auto now = telem::TimeStamp::now();
                 for (size_t j = 0; j < ser.size(); j++)
                     time_series.write(
                         telem::TimeStamp(now.nanoseconds() + static_cast<int64_t>(j))
                     );
                 time_series.alignment = ser.alignment;
-            } else if (time_series.alignment != ser.alignment) {
+            } else if (time_series.alignment != ser.alignment)
                 return xerrors::NIL;
-            }
 
             state.output(0) = xmemory::make_local_shared<telem::Series>(
                 ser.deep_copy()
@@ -91,14 +91,22 @@ class Write : public node::Node {
     types::ChannelKey channel_key;
 
 public:
-    Write(state::Node state, types::ChannelKey channel_key):
+    Write(state::Node &&state, types::ChannelKey channel_key):
         state(std::move(state)), channel_key(channel_key) {}
 
     xerrors::Error next(node::Context & /*ctx*/) override {
         if (!state.refresh_inputs()) return xerrors::NIL;
         const auto &data = state.input(0);
-        const auto &time = state.input_time(0);
         if (data->empty()) return xerrors::NIL;
+        // TODO: Fix this hacky code
+        const auto start = telem::TimeStamp::now();
+        const auto time = xmemory::local_shared(
+            telem::Series::linspace(
+                start,
+                start + 100 * telem::MICROSECOND,
+                data->size()
+            )
+        );
         state.write_chan(channel_key, data, time);
         return xerrors::NIL;
     }
@@ -111,21 +119,23 @@ public:
 /// Factory creates On and Write nodes for "on" and "write" type nodes in the IR.
 class Factory : public node::Factory {
 public:
+    bool handles(const std::string &node_type) const override {
+        return node_type == "on" || node_type == "write";
+    }
+
     std::pair<std::unique_ptr<node::Node>, xerrors::Error>
-    create(const node::Config &cfg) override {
-        if (cfg.node.type != "on" && cfg.node.type != "write")
-            return {nullptr, xerrors::NOT_FOUND};
-
-        auto channel_param = cfg.node.config.get("channel");
-        if (channel_param == nullptr)
-            return {nullptr, xerrors::Error("telem node missing channel config")};
-
-        auto channel_key = channel_param->value.get<types::ChannelKey>();
-
-        if (cfg.node.type == "on") {
-            return {std::make_unique<On>(cfg.state, channel_key), xerrors::NIL};
-        }
-        return {std::make_unique<Write>(cfg.state, channel_key), xerrors::NIL};
+    create(node::Config &&cfg) override {
+        if (!this->handles(cfg.node.type)) return {nullptr, xerrors::NOT_FOUND};
+        auto channel_key = cfg.node.config["channel"].get<types::ChannelKey>();
+        if (cfg.node.type == "on")
+            return {
+                std::make_unique<On>(std::move(cfg.state), channel_key),
+                xerrors::NIL
+            };
+        return {
+            std::make_unique<Write>(std::move(cfg.state), channel_key),
+            xerrors::NIL
+        };
     }
 };
 

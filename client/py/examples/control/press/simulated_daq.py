@@ -78,7 +78,14 @@ vent_vlv_state = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-loop = sy.Loop(sy.Rate.HZ * 100)
+start_seq_cmd = client.channels.create(
+    name="start_seq_cmd",
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+    virtual=True,
+)
+
+loop = sy.Loop(sy.Rate.HZ * 3)
 
 state = {
     "daq_time": sy.TimeStamp.now(),

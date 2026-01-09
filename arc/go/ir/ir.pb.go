@@ -197,6 +197,7 @@ type PBStage struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Nodes         []string               `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
+	Strata        []*PBStratum           `protobuf:"bytes,3,rep,name=strata,proto3" json:"strata,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -241,6 +242,13 @@ func (x *PBStage) GetKey() string {
 func (x *PBStage) GetNodes() []string {
 	if x != nil {
 		return x.Nodes
+	}
+	return nil
+}
+
+func (x *PBStage) GetStrata() []*PBStratum {
+	if x != nil {
+		return x.Strata
 	}
 	return nil
 }
@@ -640,10 +648,11 @@ const file_arc_go_ir_ir_proto_rawDesc = "" +
 	"\x06PBEdge\x12+\n" +
 	"\x06source\x18\x01 \x01(\v2\x13.arc.v1.ir.PBHandleR\x06source\x12+\n" +
 	"\x06target\x18\x02 \x01(\v2\x13.arc.v1.ir.PBHandleR\x06target\x12)\n" +
-	"\x04kind\x18\x03 \x01(\x0e2\x15.arc.v1.ir.PBEdgeKindR\x04kind\"1\n" +
+	"\x04kind\x18\x03 \x01(\x0e2\x15.arc.v1.ir.PBEdgeKindR\x04kind\"_\n" +
 	"\aPBStage\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05nodes\x18\x02 \x03(\tR\x05nodes\"J\n" +
+	"\x05nodes\x18\x02 \x03(\tR\x05nodes\x12,\n" +
+	"\x06strata\x18\x03 \x03(\v2\x14.arc.v1.ir.PBStratumR\x06strata\"J\n" +
 	"\n" +
 	"PBSequence\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12*\n" +
@@ -712,26 +721,27 @@ var file_arc_go_ir_ir_proto_depIdxs = []int32{
 	1,  // 0: arc.v1.ir.PBEdge.source:type_name -> arc.v1.ir.PBHandle
 	1,  // 1: arc.v1.ir.PBEdge.target:type_name -> arc.v1.ir.PBHandle
 	0,  // 2: arc.v1.ir.PBEdge.kind:type_name -> arc.v1.ir.PBEdgeKind
-	3,  // 3: arc.v1.ir.PBSequence.stages:type_name -> arc.v1.ir.PBStage
-	5,  // 4: arc.v1.ir.PBFunction.body:type_name -> arc.v1.ir.PBBody
-	10, // 5: arc.v1.ir.PBFunction.config:type_name -> arc.v1.types.PBParam
-	10, // 6: arc.v1.ir.PBFunction.inputs:type_name -> arc.v1.types.PBParam
-	10, // 7: arc.v1.ir.PBFunction.outputs:type_name -> arc.v1.types.PBParam
-	11, // 8: arc.v1.ir.PBFunction.channels:type_name -> arc.v1.symbol.PBChannels
-	10, // 9: arc.v1.ir.PBNode.config:type_name -> arc.v1.types.PBParam
-	10, // 10: arc.v1.ir.PBNode.inputs:type_name -> arc.v1.types.PBParam
-	10, // 11: arc.v1.ir.PBNode.outputs:type_name -> arc.v1.types.PBParam
-	11, // 12: arc.v1.ir.PBNode.channels:type_name -> arc.v1.symbol.PBChannels
-	6,  // 13: arc.v1.ir.PBIR.functions:type_name -> arc.v1.ir.PBFunction
-	8,  // 14: arc.v1.ir.PBIR.nodes:type_name -> arc.v1.ir.PBNode
-	2,  // 15: arc.v1.ir.PBIR.edges:type_name -> arc.v1.ir.PBEdge
-	7,  // 16: arc.v1.ir.PBIR.strata:type_name -> arc.v1.ir.PBStratum
-	4,  // 17: arc.v1.ir.PBIR.sequences:type_name -> arc.v1.ir.PBSequence
-	18, // [18:18] is the sub-list for method output_type
-	18, // [18:18] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	7,  // 3: arc.v1.ir.PBStage.strata:type_name -> arc.v1.ir.PBStratum
+	3,  // 4: arc.v1.ir.PBSequence.stages:type_name -> arc.v1.ir.PBStage
+	5,  // 5: arc.v1.ir.PBFunction.body:type_name -> arc.v1.ir.PBBody
+	10, // 6: arc.v1.ir.PBFunction.config:type_name -> arc.v1.types.PBParam
+	10, // 7: arc.v1.ir.PBFunction.inputs:type_name -> arc.v1.types.PBParam
+	10, // 8: arc.v1.ir.PBFunction.outputs:type_name -> arc.v1.types.PBParam
+	11, // 9: arc.v1.ir.PBFunction.channels:type_name -> arc.v1.symbol.PBChannels
+	10, // 10: arc.v1.ir.PBNode.config:type_name -> arc.v1.types.PBParam
+	10, // 11: arc.v1.ir.PBNode.inputs:type_name -> arc.v1.types.PBParam
+	10, // 12: arc.v1.ir.PBNode.outputs:type_name -> arc.v1.types.PBParam
+	11, // 13: arc.v1.ir.PBNode.channels:type_name -> arc.v1.symbol.PBChannels
+	6,  // 14: arc.v1.ir.PBIR.functions:type_name -> arc.v1.ir.PBFunction
+	8,  // 15: arc.v1.ir.PBIR.nodes:type_name -> arc.v1.ir.PBNode
+	2,  // 16: arc.v1.ir.PBIR.edges:type_name -> arc.v1.ir.PBEdge
+	7,  // 17: arc.v1.ir.PBIR.strata:type_name -> arc.v1.ir.PBStratum
+	4,  // 18: arc.v1.ir.PBIR.sequences:type_name -> arc.v1.ir.PBSequence
+	19, // [19:19] is the sub-list for method output_type
+	19, // [19:19] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_arc_go_ir_ir_proto_init() }

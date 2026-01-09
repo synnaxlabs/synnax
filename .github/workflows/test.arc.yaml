@@ -48,94 +48,58 @@ env:
   BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
 
 jobs:
-  test-go:
-    name: Test Go (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            lint: true
-        exclude:
-          - os:
-              ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
-              'refs/heads/main' && github.base_ref != 'main') && 'macos-latest' }}
-          - os:
-              ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
-              'refs/heads/main' && github.base_ref != 'main') && 'windows-latest' }}
-    runs-on: ${{ matrix.os }}
+  server:
+    name: Build - Server
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    env:
+      GITHUB_SHA: ${{ github.sha }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
-      - name: Set up Go
-        uses: actions/setup-go@v6
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Github Container Registry
+        uses: docker/login-action@v3
         with:
-          go-version-file: go.work
-          cache-dependency-path: |
-            go.work.sum
-            **/go.sum
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Check Formatting
-        if: matrix.lint
-        run: scripts/check_gofmt.sh arc
-
-      - name: Lint
-        if: matrix.lint
-        uses: golangci/golangci-lint-action@v9
+      - name: Build and Push Image
+        uses: docker/build-push-action@v6
         with:
-          working-directory: arc/go
-
-      - name: Test
-        run:
-          go run github.com/onsi/ginkgo/v2/ginkgo -r -p --randomize-all
-          --randomize-suites --fail-on-pending --fail-on-empty --keep-going --race
-          --trace --github-output
-        working-directory: arc/go
+          context: .
+          file: ./core/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+          cache-from: type=gha,scope=synnax-docker-cache
+          cache-to: type=inline
+          build-args: |
+            DRIVER_ENABLED=false
 
   test-cpp:
-    name: Test C++ (${{ matrix.os }})
-    if:
-      github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' ||
-      github.base_ref == 'main'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-
-      - name: Install Rust
-        run: rustup update
-
-      - name: Update Submodules
-        run: git submodule update --init --recursive
-
-      - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.15.0
-        with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}-${{ matrix.os }}
-          repository-cache: true
-
-      - name: Test (macOS)
-        if: matrix.os == 'macos-latest'
-        run:
-          bazel test --config=asan --test_output=all //arc/cpp/...
-          --test_tag_filters=-no-asan
-        shell: bash
-
-      - name: Test (Windows)
-        if: matrix.os == 'windows-latest'
-        run: bazel test --test_output=all //arc/cpp/...
-        shell: bash
-
-  test-cpp-ubuntu:
-    name: Test C++ (ubuntu-build-bot)
+    name: Test C++
     runs-on: ubuntu-build-bot
+    needs: [server]
+    services:
+      synnax:
+        image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+        env:
+          SYNNAX_LISTEN: localhost:9090
+          SYNNAX_VERBOSE: true
+          SYNNAX_INSECURE: true
+          SYNNAX_MEM: true
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        ports:
+          - 9090:9090
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
