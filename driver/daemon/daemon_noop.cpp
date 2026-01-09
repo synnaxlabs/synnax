@@ -9,7 +9,7 @@
 
 /// @brief noop implementation of daemon functions that do nothing on macOS and Windows.
 
-#include "x/cpp/os/xos.h"
+#include "x/cpp/os/os.h"
 
 #include "driver/daemon/daemon.h"
 

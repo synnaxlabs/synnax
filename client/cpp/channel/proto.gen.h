@@ -21,31 +21,36 @@
 
 namespace synnax::channel {
 
-inline pb::OperationType OperationTypeToPB(const std::string &cpp) {
-    if (cpp == OPERATION_TYPE_MIN) return pb::OPERATION_TYPE_MIN;
-    if (cpp == OPERATION_TYPE_MAX) return pb::OPERATION_TYPE_MAX;
-    if (cpp == OPERATION_TYPE_AVG) return pb::OPERATION_TYPE_AVG;
-    if (cpp == OPERATION_TYPE_NONE) return pb::OPERATION_TYPE_NONE;
-    return pb::OPERATION_TYPE_UNSPECIFIED;
+inline ::distribution::channel::pb::OperationType
+OperationTypeToPB(const std::string &cpp) {
+    if (cpp == OPERATION_TYPE_MIN)
+        return ::distribution::channel::pb::OPERATION_TYPE_MIN;
+    if (cpp == OPERATION_TYPE_MAX)
+        return ::distribution::channel::pb::OPERATION_TYPE_MAX;
+    if (cpp == OPERATION_TYPE_AVG)
+        return ::distribution::channel::pb::OPERATION_TYPE_AVG;
+    if (cpp == OPERATION_TYPE_NONE)
+        return ::distribution::channel::pb::OPERATION_TYPE_NONE;
+    return ::distribution::channel::pb::OPERATION_TYPE_UNSPECIFIED;
 }
 
-inline std::string OperationTypeFromPB(pb::OperationType pb) {
+inline std::string OperationTypeFromPB(::distribution::channel::pb::OperationType pb) {
     switch (pb) {
-        case pb::OPERATION_TYPE_MIN:
+        case ::distribution::channel::pb::OPERATION_TYPE_MIN:
             return OPERATION_TYPE_MIN;
-        case pb::OPERATION_TYPE_MAX:
+        case ::distribution::channel::pb::OPERATION_TYPE_MAX:
             return OPERATION_TYPE_MAX;
-        case pb::OPERATION_TYPE_AVG:
+        case ::distribution::channel::pb::OPERATION_TYPE_AVG:
             return OPERATION_TYPE_AVG;
-        case pb::OPERATION_TYPE_NONE:
+        case ::distribution::channel::pb::OPERATION_TYPE_NONE:
             return OPERATION_TYPE_NONE;
         default:
             return OPERATION_TYPE_MIN;
     }
 }
 
-inline pb::Operation Operation::to_proto() const {
-    pb::Operation pb;
+inline ::distribution::channel::pb::Operation Operation::to_proto() const {
+    ::distribution::channel::pb::Operation pb;
     pb.set_type(OperationTypeToPB(this->type));
     pb.set_reset_channel(static_cast<uint32_t>(this->reset_channel));
     pb.set_duration(this->duration.nanoseconds());
@@ -53,10 +58,10 @@ inline pb::Operation Operation::to_proto() const {
 }
 
 inline std::pair<Operation, x::errors::Error>
-Operation::from_proto(const pb::Operation &pb) {
+Operation::from_proto(const ::distribution::channel::pb::Operation &pb) {
     Operation cpp;
     cpp.type = OperationTypeFromPB(pb.type());
-    cpp.reset_channel = ChannelKey(pb.reset_channel());
+    cpp.reset_channel = Key(pb.reset_channel());
     cpp.duration = x::telem::TimeSpan(pb.duration());
     return {cpp, x::errors::NIL};
 }

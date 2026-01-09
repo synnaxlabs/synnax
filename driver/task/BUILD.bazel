@@ -8,7 +8,7 @@ cc_library(
         "//x/cpp/breaker",
         "//x/cpp/json",
         "//x/cpp/log",
-        "//x/cpp/xos",
+        "//x/cpp/os",
         "@glog",
         "@nlohmann_json//:json",
     ],

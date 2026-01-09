@@ -12,7 +12,7 @@
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
 
-#include "x/cpp/os/xos.h"
+#include "x/cpp/os/os.h"
 
 #include "driver/ni/daqmx/prod.h"
 #include "driver/ni/hardware/hardware.h"

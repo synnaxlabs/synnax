@@ -29,11 +29,11 @@ service RackDeleteService {
 }
 
 message CreateRequest {
-  repeated service.rack.Rack racks = 1;
+  repeated service.rack.pb.Rack racks = 1;
 }
 
 message CreateResponse {
-  repeated service.rack.Rack racks = 1;
+  repeated service.rack.pb.Rack racks = 1;
 }
 
 message RetrieveRequest {
@@ -42,7 +42,7 @@ message RetrieveRequest {
 }
 
 message RetrieveResponse {
-  repeated service.rack.Rack racks = 1;
+  repeated service.rack.pb.Rack racks = 1;
 }
 
 message DeleteRequest {

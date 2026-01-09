@@ -28,7 +28,7 @@ namespace driver::task {
 /// @brief A command that can be executed on a task in order to change its state.
 struct Command {
     /// @brief the key of the task to be commanded.
-    synnax::TaskKey task = 0;
+    synnax::task::Key task = 0;
     /// @brief the type of the command to execute.
     std::string type;
     /// @brief an optional key to assign to the command. This is useful for tracking
@@ -41,13 +41,13 @@ struct Command {
 
     /// @brief constructs the command from the provided configuration parser.
     explicit Command(x::json::Parser parser):
-        task(parser.field<synnax::TaskKey>("task")),
+        task(parser.field<synnax::task::Key>("task")),
         type(parser.field<std::string>("type")),
         key(parser.field<std::string>("key", "")),
         args(parser.field<json>("args", json{})) {}
 
     /// @brief Construct a new Task Command object
-    Command(const synnax::TaskKey task, std::string type, json args):
+    Command(const synnax::task::Key task, std::string type, json args):
         task(task), type(std::move(type)), args(std::move(args)) {}
 
     [[nodiscard]] json to_json() const {
@@ -60,7 +60,7 @@ struct Command {
 class Task {
 public:
     /// @brief the key of the task
-    synnax::TaskKey key = 0;
+    synnax::task::Key key = 0;
 
     [[nodiscard]] virtual std::string name() const { return ""; }
 
@@ -220,7 +220,7 @@ private:
     /// @brief the factory used to create tasks.
     std::unique_ptr<driver::task::Factory> factory;
     /// @brief a map of tasks that have been configured on the rack.
-    std::unordered_map<synnax::TaskKey, std::unique_ptr<driver::task::Task>> tasks{};
+    std::unordered_map<synnax::task::Key, std::unique_ptr<driver::task::Task>> tasks{};
 
     /// @brief the streamer variable is read from in both the run() and stop()
     /// functions, so we need to lock its assignment.
@@ -237,7 +237,7 @@ private:
         synnax::Channel task_cmd;
     } channels;
 
-    [[nodiscard]] bool skip_foreign_rack(const synnax::TaskKey &task_key) const;
+    [[nodiscard]] bool skip_foreign_rack(const synnax::task::Key &task_key) const;
 
     /// @brief opens the streamer for the task manager, which is used to listen for
     /// incoming task set, delete, and command requests.

@@ -10,7 +10,7 @@
 #pragma once
 
 #include "x/cpp/lib/xlib.h"
-#include "x/cpp/os/xos.h"
+#include "x/cpp/os/os.h"
 
 #include "driver/errors/errors.h"
 #include "driver/labjack/errors.h"

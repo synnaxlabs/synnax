@@ -17,16 +17,16 @@
 #include "core/pkg/api/grpc/kv/kv.pb.h"
 #include "x/go/telem/telem.pb.h"
 
-namespace synnax {
+namespace synnax::range {
 Range::Range(std::string name, x::telem::TimeRange time_range):
     name(std::move(name)), time_range(time_range) {}
 
-Range::Range(const api::range::Range &rng):
+Range::Range(const api::range::pb::Range &rng):
     key(rng.key()),
     name(rng.name()),
     time_range(x::telem::TimeRange(rng.time_range().start(), rng.time_range().end())) {}
 
-void Range::to_proto(api::range::Range *rng) const {
+void Range::to_proto(api::range::pb::Range *rng) const {
     rng->set_name(name);
     rng->set_key(key);
     auto tr = x::telem::PBTimeRange();
@@ -115,7 +115,7 @@ x::errors::Error RangeClient::create(Range &range) const {
     if (res.ranges_size() == 0) return unexpected_missing_error("range");
     const auto rng = res.ranges(0);
     range.key = rng.key();
-    range.kv = RangeKV(rng.key(), kv_get_client, kv_set_client, kv_delete_client);
+    range.kv = this->kv_client;
     return err;
 }
 
@@ -126,32 +126,5 @@ RangeClient::create(const std::string &name, x::telem::TimeRange time_range) con
     return {rng, err};
 }
 
-std::pair<std::string, x::errors::Error> RangeKV::get(const std::string &key) const {
-    auto req = grpc::x::kv::GetRequest();
-    req.add_keys(key);
-    req.set_range(range_key);
-    auto [res, err] = kv_get_client->send("/range/kv/get", req);
-    if (err) return {"", err};
-    if (res.pairs_size() == 0)
-        return {"", not_found_error("range key-value pair", "key " + key)};
-    return {res.pairs().at(0).value(), err};
-}
 
-x::errors::Error RangeKV::set(const std::string &key, const std::string &value) const {
-    auto req = grpc::x::kv::SetRequest();
-    req.set_range(range_key);
-    const auto pair = req.add_pairs();
-    pair->set_key(key);
-    pair->set_value(value);
-    auto [res, err] = kv_set_client->send("/range/kv/set", req);
-    return err;
-}
-
-x::errors::Error RangeKV::del(const std::string &key) const {
-    auto req = grpc::x::kv::DeleteRequest();
-    req.set_range(range_key);
-    req.add_keys(key);
-    auto [res, err] = kv_delete_client->send("/range/kv/delete", req);
-    return err;
-}
 }

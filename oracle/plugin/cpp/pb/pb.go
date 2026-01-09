@@ -259,6 +259,8 @@ func (p *Plugin) processStructForTranslation(
 	cppName := domain.GetName(s, "cpp")
 
 	pbName := getPBName(s)
+	pbOutputPath := output.GetPBPath(s)
+	pbNamespace := derivePBCppNamespace(pbOutputPath)
 
 	typeParams := make([]typeParamData, 0, len(form.TypeParams))
 	typeParamNames := make([]string, 0, len(form.TypeParams))
@@ -270,7 +272,7 @@ func (p *Plugin) processStructForTranslation(
 	translator := &translatorData{
 		CppName:        cppName,
 		PBName:         pbName,
-		PBNamespace:    "pb",
+		PBNamespace:    pbNamespace,
 		Fields:         make([]fieldTranslatorData, 0),
 		IsGeneric:      form.IsGeneric(),
 		TypeParams:     typeParams,
@@ -539,8 +541,12 @@ func (p *Plugin) generateEnumConversion(
 ) (forward, backward string) {
 	enumName := resolved.Name
 
+	// Derive the pb namespace for the enum
+	pbOutputPath := enum.FindPBOutputPath(resolved, data.table)
+	pbNamespace := derivePBCppNamespace(pbOutputPath)
+
 	if form.IsIntEnum {
-		forward = fmt.Sprintf("%s(static_cast<pb::%s>(this->%s))", pbSetter, enumName, fieldName)
+		forward = fmt.Sprintf("%s(static_cast<%s::%s>(this->%s))", pbSetter, pbNamespace, enumName, fieldName)
 		backward = fmt.Sprintf("cpp.%s = static_cast<%s>(pb.%s());", fieldName, enumName, fieldName)
 	} else {
 		forward = fmt.Sprintf("%s(%sToPB(this->%s))", pbSetter, enumName, fieldName)
@@ -677,6 +683,10 @@ func (p *Plugin) processEnumForTranslation(
 		return nil
 	}
 
+	// Derive the pb namespace from the enum's pb output path
+	pbOutputPath := enum.FindPBOutputPath(e, data.table)
+	pbNamespace := derivePBCppNamespace(pbOutputPath)
+
 	values := make([]enumValueTranslatorData, 0, len(form.Values))
 	for _, v := range form.Values {
 		cppValueName := fmt.Sprintf("%s_%s", toScreamingSnake(e.Name), toScreamingSnake(v.Name))
@@ -690,7 +700,7 @@ func (p *Plugin) processEnumForTranslation(
 
 	return &enumTranslatorData{
 		Name:        e.Name,
-		PBNamespace: "pb",
+		PBNamespace: pbNamespace,
 		Values:      values,
 		PBDefault:   fmt.Sprintf("%s_UNSPECIFIED", toScreamingSnake(e.Name)),
 		CppDefault:  fmt.Sprintf("%s_%s", toScreamingSnake(e.Name), toScreamingSnake(form.Values[0].Name)),
@@ -718,6 +728,39 @@ func deriveNamespace(outputPath string) string {
 
 	subNs := parts[len(parts)-1]
 	return fmt.Sprintf("%s::%s", topLevel, subNs)
+}
+
+// derivePBCppNamespace converts a pb output path to a fully qualified C++ namespace.
+// This mirrors the package derivation logic in pb/types plugin:
+// - For "core/pkg/{layer}/{service}/pb" -> "::{layer}::{service}::pb"
+// - For "x/go/{service}/pb" -> "::x::{service}::pb"
+// - For other paths -> "::{first}::{last-before-pb}::pb"
+func derivePBCppNamespace(pbOutputPath string) string {
+	if pbOutputPath == "" {
+		return "pb"
+	}
+	parts := strings.Split(pbOutputPath, "/")
+	if len(parts) == 0 {
+		return "pb"
+	}
+
+	// Derive namespace (directory before /pb, or last component)
+	namespace := parts[len(parts)-1]
+	if namespace == "pb" && len(parts) >= 2 {
+		namespace = parts[len(parts)-2]
+	}
+
+	// Derive layer prefix (mirrors deriveLayerPrefix in pb/types)
+	var prefix string
+	if len(parts) >= 3 && parts[0] == "core" && parts[1] == "pkg" {
+		prefix = parts[2] // e.g., "distribution", "service", "api"
+	} else if len(parts) >= 1 && parts[0] != "" {
+		prefix = parts[0] // e.g., "x", "freighter"
+	} else {
+		prefix = "synnax"
+	}
+
+	return fmt.Sprintf("::%s::%s::pb", prefix, namespace)
 }
 
 func deriveProtoInclude(pbOutputPath, namespace string) string {

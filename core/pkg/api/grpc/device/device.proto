@@ -29,11 +29,11 @@ service DeviceDeleteService {
 }
 
 message CreateRequest {
-  repeated service.device.Device devices = 1;
+  repeated service.device.pb.Device devices = 1;
 }
 
 message CreateResponse {
-  repeated service.device.Device devices = 1;
+  repeated service.device.pb.Device devices = 1;
 }
 
 message RetrieveRequest {
@@ -51,7 +51,7 @@ message RetrieveRequest {
 }
 
 message RetrieveResponse {
-  repeated service.device.Device devices = 1;
+  repeated service.device.pb.Device devices = 1;
 }
 
 message DeleteRequest {

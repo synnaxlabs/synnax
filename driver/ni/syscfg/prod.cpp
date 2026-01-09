@@ -15,7 +15,7 @@
 #include <stdio.h>
 
 /// internal.
-#include "x/cpp/os/xos.h"
+#include "x/cpp/os/os.h"
 
 #include "driver/errors/errors.h"
 #include "driver/ni/errors.h"

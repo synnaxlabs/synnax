@@ -49,7 +49,7 @@ distribution::channel::Operation to_pb(const Operation &cpp) {
 Operation from_pb(const distribution::channel::Operation &pb) {
     Operation cpp;
     cpp.type = OperationTypeFromPB(pb.type());
-    cpp.reset_channel = ChannelKey(pb.reset_channel());
+    cpp.reset_channel = Key(pb.reset_channel());
     cpp.duration = x::telem::TimeSpan(pb.duration());
     return cpp;
 }

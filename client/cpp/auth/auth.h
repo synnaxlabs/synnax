@@ -19,7 +19,7 @@
 #include "x/cpp/telem/clock_skew.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/os/xos.h"
+#include "x/cpp/os/os.h"
 
 #include "core/pkg/api/grpc/auth/auth.pb.h"
 
@@ -33,11 +33,11 @@ const std::string HEADER_VALUE_PREFIX = "Bearer ";
 using AuthLoginClient = freighter::
     UnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>;
 
-const x::errors::Error AUTH_ERROR = x::errors::SY.sub("auth");
-const x::errors::Error INVALID_TOKEN = AUTH_ERROR.sub("invalid_token");
-const x::errors::Error EXPIRED_TOKEN = AUTH_ERROR.sub("expired_token");
-const x::errors::Error INVALID_CREDENTIALS = AUTH_ERROR.sub("invalid-credentials");
-const std::vector RETRY_ON_ERRORS = {INVALID_TOKEN, EXPIRED_TOKEN};
+const x::errors::Error ERR = x::errors::SY.sub("auth");
+const x::errors::Error ERR_INVALID_TOKEN = ERR.sub("invalid_token");
+const x::errors::Error ERR_EXPIRED_TOKEN = ERR.sub("expired_token");
+const x::errors::Error ERR_INVALID_CREDENTIALS = ERR.sub("invalid-credentials");
+const std::vector RETRY_ON_ERRORS = {ERR_INVALID_TOKEN, ERR_EXPIRED_TOKEN};
 
 /// @brief diagnostic information about the Synnax cluster.
 struct ClusterInfo {

@@ -37,11 +37,11 @@ message DeleteRequest {
 }
 
 message CreateRequest {
-  repeated api.range.Range ranges = 1;
+  repeated api.range.pb.Range ranges = 1;
 }
 
 message CreateResponse {
-  repeated api.range.Range ranges = 1;
+  repeated api.range.pb.Range ranges = 1;
 }
 
 message RetrieveRequest {
@@ -50,7 +50,7 @@ message RetrieveRequest {
 }
 
 message RetrieveResponse {
-  repeated api.range.Range ranges = 1;
+  repeated api.range.pb.Range ranges = 1;
 }
 
 message RenameRequest {

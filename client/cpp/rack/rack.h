@@ -26,34 +26,34 @@
 #include "core/pkg/service/rack/pb/rack.pb.h"
 #include "core/pkg/api/grpc/rack/rack.pb.h"
 
-namespace synnax {
+namespace synnax::rack {
 
 /// @brief Type alias for the transport used to create a rack.
-using RackCreateClient = freighter::
+using CreateClient = freighter::
     UnaryClient<grpc::rack::CreateRequest, grpc::rack::CreateResponse>;
 
 /// @brief Type alias for the transport used to retrieve a rack.
-using RackRetrieveClient = freighter::
+using RetrieveClient = freighter::
     UnaryClient<grpc::rack::RetrieveRequest, grpc::rack::RetrieveResponse>;
 
 /// @brief Type alias for the transport used to delete a rack.
-using RackDeleteClient = freighter::
+using DeleteClient = freighter::
     UnaryClient<grpc::rack::DeleteRequest, google::protobuf::Empty>;
 
 /// @brief An alias for the type of rack's key.
-using RackKey = std::uint32_t;
+using Key = std::uint32_t;
 
 /// @brief Converts a rack key to an ontology ID.
 /// @param key The rack key.
 /// @returns An ontology ID with type "rack" and the given key.
-inline ontology::ID rack_ontology_id(RackKey key) {
+inline ontology::ID rack_ontology_id(const Key key) {
     return ontology::ID("rack", std::to_string(key));
 }
 
 /// @brief Converts a vector of rack keys to a vector of ontology IDs.
 /// @param keys The rack keys.
 /// @returns A vector of ontology IDs.
-inline std::vector<ontology::ID> rack_ontology_ids(const std::vector<RackKey> &keys) {
+inline std::vector<ontology::ID> rack_ontology_ids(const std::vector<Key> &keys) {
     std::vector<ontology::ID> ids;
     ids.reserve(keys.size());
     for (const auto &key: keys)
@@ -64,7 +64,7 @@ inline std::vector<ontology::ID> rack_ontology_ids(const std::vector<RackKey> &k
 /// @brief Extracts the node ID from a rack key.
 /// @param key The rack key.
 /// @returns The node ID portion of the rack key.
-inline std::uint16_t rack_key_node(const RackKey key) {
+inline std::uint16_t rack_key_node(const Key key) {
     return key >> 12;
 }
 
@@ -76,7 +76,7 @@ using RackStatus = rack::Status;
 class Rack {
 public:
     /// @brief The unique identifier for the rack.
-    RackKey key{};
+    Key key{};
 
     /// @brief A human-readable name for the rack.
     std::string name;
@@ -91,7 +91,7 @@ public:
     /// @brief Constructs a new rack with the given key and name.
     /// @param key The unique identifier for the rack.
     /// @param name A human-readable name for the rack.
-    Rack(RackKey key, std::string name);
+    Rack(Key key, std::string name);
 
     /// @brief Constructs a new rack with the given name.
     /// @param name A human-readable name for the rack.
@@ -115,11 +115,11 @@ private:
     /// @param rack The protobuf object to populate.
     void to_proto(service::rack::Rack *rack) const;
 
-    friend class RackClient;
+    friend class Client;
 };
 
 /// @brief Client for managing racks in a Synnax cluster.
-class RackClient {
+class Client {
 public:
     /// @brief Constructs a new rack client with the given transport clients.
     /// @param rack_create_client Client for creating racks.
@@ -128,10 +128,10 @@ public:
     /// @param task_create_client Client for creating tasks (shared for TaskClient).
     /// @param task_retrieve_client Client for retrieving tasks (shared for TaskClient).
     /// @param task_delete_client Client for deleting tasks (shared for TaskClient).
-    RackClient(
-        std::unique_ptr<RackCreateClient> rack_create_client,
-        std::unique_ptr<RackRetrieveClient> rack_retrieve_client,
-        std::unique_ptr<RackDeleteClient> rack_delete_client,
+    Client(
+        std::unique_ptr<CreateClient> rack_create_client,
+        std::unique_ptr<RetrieveClient> rack_retrieve_client,
+        std::unique_ptr<DeleteClient> rack_delete_client,
         std::shared_ptr<TaskCreateClient> task_create_client,
         std::shared_ptr<TaskRetrieveClient> task_retrieve_client,
         std::shared_ptr<TaskDeleteClient> task_delete_client
@@ -170,11 +170,11 @@ public:
 
 private:
     /// @brief Rack creation transport.
-    std::unique_ptr<RackCreateClient> rack_create_client;
+    std::unique_ptr<CreateClient> rack_create_client;
     /// @brief Rack retrieval transport.
-    std::unique_ptr<RackRetrieveClient> rack_retrieve_client;
+    std::unique_ptr<RetrieveClient> rack_retrieve_client;
     /// @brief Rack deletion transport.
-    std::unique_ptr<RackDeleteClient> rack_delete_client;
+    std::unique_ptr<DeleteClient> rack_delete_client;
     /// @brief Task creation transport (shared for creating TaskClient).
     std::shared_ptr<TaskCreateClient> task_create_client;
     /// @brief Task retrieval transport (shared for creating TaskClient).

@@ -46,7 +46,7 @@ TEST(TestAuth, testLoginInvalidCredentials) {
     auto mock_login_client = std::make_unique<
         MockUnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>>(
         res,
-        INVALID_CREDENTIALS
+        ERR_INVALID_CREDENTIALS
     );
     const auto mw = std::make_shared<AuthMiddleware>(
         std::move(mock_login_client),
@@ -58,7 +58,7 @@ TEST(TestAuth, testLoginInvalidCredentials) {
     mock_client.use(mw);
     auto v = 1;
     auto [r, err] = mock_client.send("", v);
-    ASSERT_OCCURRED_AS(err, INVALID_CREDENTIALS);
+    ASSERT_OCCURRED_AS(err, ERR_INVALID_CREDENTIALS);
 }
 
 /// @brief it should retry authentication if the authentication token is invalid.
@@ -78,7 +78,7 @@ TEST(TestAuth, testLoginRetry) {
     );
     auto mock_client = MockUnaryClient<int, int>{
         {1, 1},
-        {x::errors::Error(INVALID_TOKEN, ""), x::errors::NIL}
+        {x::errors::Error(ERR_INVALID_TOKEN, ""), x::errors::NIL}
     };
     mock_client.use(mw);
     auto v = 1;
@@ -115,7 +115,7 @@ protected:
 
 /// @brief it should retry authentication if the authentication token is invalid.
 TEST_F(TestAuthRetry, RetryOnInvalidToken) {
-    setupTest(x::errors::Error(INVALID_TOKEN, ""));
+    setupTest(x::errors::Error(ERR_INVALID_TOKEN, ""));
     auto v = 1;
     const auto r = ASSERT_NIL_P(mock_client.send("", v));
     ASSERT_EQ(r, 1);
@@ -123,7 +123,7 @@ TEST_F(TestAuthRetry, RetryOnInvalidToken) {
 
 /// @brief it should retry authentication if the authentication token is expired.
 TEST_F(TestAuthRetry, RetryOnExpiredToken) {
-    setupTest(x::errors::Error(EXPIRED_TOKEN, ""));
+    setupTest(x::errors::Error(ERR_EXPIRED_TOKEN, ""));
     auto v = 1;
     const auto r = ASSERT_NIL_P(mock_client.send("", v));
     ASSERT_EQ(r, 1);

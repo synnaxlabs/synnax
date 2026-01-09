@@ -34,10 +34,10 @@ struct StatusDetails {
     static StatusDetails parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = pb::StatusDetails;
-    [[nodiscard]] pb::StatusDetails to_proto() const;
+    using proto_type = ::service::task::pb::StatusDetails;
+    [[nodiscard]] ::service::task::pb::StatusDetails to_proto() const;
     static std::pair<StatusDetails, x::errors::Error>
-    from_proto(const pb::StatusDetails &pb);
+    from_proto(const ::service::task::pb::StatusDetails &pb);
 };
 
 struct Command {
@@ -49,9 +49,10 @@ struct Command {
     static Command parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = pb::Command;
-    [[nodiscard]] pb::Command to_proto() const;
-    static std::pair<Command, x::errors::Error> from_proto(const pb::Command &pb);
+    using proto_type = ::service::task::pb::Command;
+    [[nodiscard]] ::service::task::pb::Command to_proto() const;
+    static std::pair<Command, x::errors::Error>
+    from_proto(const ::service::task::pb::Command &pb);
 };
 
 using Status = x::status::Status<StatusDetails>;
@@ -68,8 +69,9 @@ struct Payload {
     static Payload parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = pb::Task;
-    [[nodiscard]] pb::Task to_proto() const;
-    static std::pair<Payload, x::errors::Error> from_proto(const pb::Task &pb);
+    using proto_type = ::service::task::pb::Task;
+    [[nodiscard]] ::service::task::pb::Task to_proto() const;
+    static std::pair<Payload, x::errors::Error>
+    from_proto(const ::service::task::pb::Task &pb);
 };
 }

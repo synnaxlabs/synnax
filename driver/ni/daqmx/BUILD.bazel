@@ -15,7 +15,7 @@ cc_library(
         "//driver/ni:ni_errors",
         "//driver/ni/daqmx:nidaqmx_official",
         "//x/cpp/xlib",
-        "//x/cpp/xos",
+        "//x/cpp/os",
     ],
 )
 

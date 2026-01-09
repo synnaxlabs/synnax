@@ -22,8 +22,8 @@
 
 namespace synnax::task {
 
-inline pb::StatusDetails StatusDetails::to_proto() const {
-    pb::StatusDetails pb;
+inline ::service::task::pb::StatusDetails StatusDetails::to_proto() const {
+    ::service::task::pb::StatusDetails pb;
     pb.set_task(static_cast<uint64_t>(this->task));
     pb.set_running(this->running);
     pb.set_cmd(this->cmd);
@@ -33,7 +33,7 @@ inline pb::StatusDetails StatusDetails::to_proto() const {
 }
 
 inline std::pair<StatusDetails, x::errors::Error>
-StatusDetails::from_proto(const pb::StatusDetails &pb) {
+StatusDetails::from_proto(const ::service::task::pb::StatusDetails &pb) {
     StatusDetails cpp;
     cpp.task = Key(pb.task());
     cpp.running = pb.running();
@@ -46,8 +46,8 @@ StatusDetails::from_proto(const pb::StatusDetails &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline pb::Task Payload::to_proto() const {
-    pb::Task pb;
+inline ::service::task::pb::Task Payload::to_proto() const {
+    ::service::task::pb::Task pb;
     pb.set_key(static_cast<uint64_t>(this->key));
     pb.set_name(this->name);
     pb.set_type(this->type);
@@ -58,7 +58,8 @@ inline pb::Task Payload::to_proto() const {
     return pb;
 }
 
-inline std::pair<Payload, x::errors::Error> Payload::from_proto(const pb::Task &pb) {
+inline std::pair<Payload, x::errors::Error>
+Payload::from_proto(const ::service::task::pb::Task &pb) {
     Payload cpp;
     cpp.key = Key(pb.key());
     cpp.name = pb.name();
@@ -74,8 +75,8 @@ inline std::pair<Payload, x::errors::Error> Payload::from_proto(const pb::Task &
     return {cpp, x::errors::NIL};
 }
 
-inline pb::Command Command::to_proto() const {
-    pb::Command pb;
+inline ::service::task::pb::Command Command::to_proto() const {
+    ::service::task::pb::Command pb;
     pb.set_task(static_cast<uint64_t>(this->task));
     pb.set_type(this->type);
     pb.set_key(this->key);
@@ -83,7 +84,8 @@ inline pb::Command Command::to_proto() const {
     return pb;
 }
 
-inline std::pair<Command, x::errors::Error> Command::from_proto(const pb::Command &pb) {
+inline std::pair<Command, x::errors::Error>
+Command::from_proto(const ::service::task::pb::Command &pb) {
     Command cpp;
     cpp.task = Key(pb.task());
     cpp.type = pb.type();

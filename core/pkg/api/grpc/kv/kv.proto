@@ -34,12 +34,12 @@ message GetRequest {
 }
 
 message GetResponse {
-  repeated service.kv.Pair pairs = 1;
+  repeated service.kv.pb.Pair pairs = 1;
 }
 
 message SetRequest {
   string range = 1;
-  repeated service.kv.Pair pairs = 2;
+  repeated service.kv.pb.Pair pairs = 2;
 }
 
 message DeleteRequest {

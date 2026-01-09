@@ -46,8 +46,9 @@ struct Status {
     static Status parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = pb::Status;
-    [[nodiscard]] pb::Status to_proto() const;
-    static std::pair<Status, x::errors::Error> from_proto(const pb::Status &pb);
+    using proto_type = ::x::status::pb::Status;
+    [[nodiscard]] ::x::status::pb::Status to_proto() const;
+    static std::pair<Status, x::errors::Error>
+    from_proto(const ::x::status::pb::Status &pb);
 };
 }

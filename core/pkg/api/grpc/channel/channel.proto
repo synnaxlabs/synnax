@@ -29,12 +29,12 @@ service ChannelDeleteService {
 }
 
 message CreateRequest {
-  repeated api.channel.Channel channels = 1;
+  repeated api.channel.pb.Channel channels = 1;
   bool retrieve_if_name_exists = 2;
 }
 
 message CreateResponse {
-  repeated api.channel.Channel channels = 1;
+  repeated api.channel.pb.Channel channels = 1;
 }
 
 message RetrieveRequest {
@@ -45,7 +45,7 @@ message RetrieveRequest {
 }
 
 message RetrieveResponse {
-  repeated api.channel.Channel channels = 1;
+  repeated api.channel.pb.Channel channels = 1;
 }
 
 message DeleteRequest {

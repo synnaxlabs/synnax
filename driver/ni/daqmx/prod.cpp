@@ -12,7 +12,7 @@
 #include <utility>
 
 #include "x/cpp/lib/xlib.h"
-#include "x/cpp/os/xos.h"
+#include "x/cpp/os/os.h"
 
 #include "driver/errors/errors.h"
 #include "driver/ni/daqmx/prod.h"

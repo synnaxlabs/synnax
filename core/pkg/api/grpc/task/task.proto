@@ -33,11 +33,11 @@ service TaskCopyService {
 }
 
 message CreateRequest {
-  repeated service.task.Task tasks = 1;
+  repeated service.task.pb.Task tasks = 1;
 }
 
 message CreateResponse {
-  repeated service.task.Task tasks = 1;
+  repeated service.task.pb.Task tasks = 1;
 }
 
 message RetrieveRequest {
@@ -49,7 +49,7 @@ message RetrieveRequest {
 }
 
 message RetrieveResponse {
-  repeated service.task.Task tasks = 1;
+  repeated service.task.pb.Task tasks = 1;
 }
 
 message DeleteRequest {
@@ -63,5 +63,5 @@ message CopyRequest {
 }
 
 message CopyResponse {
-  service.task.Task task = 1;
+  service.task.pb.Task task = 1;
 }

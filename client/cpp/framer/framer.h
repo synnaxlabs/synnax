@@ -23,7 +23,7 @@
 
 #include "core/pkg/api/grpc/framer/framer.pb.h"
 
-namespace synnax {
+namespace synnax::framer {
 /// @brief type alias for streamer network transport stream.
 using StreamerStream = freighter::
     Stream<grpc::framer::StreamerRequest, grpc::framer::StreamerResponse>;
@@ -78,15 +78,15 @@ struct CodecFlags {
 class Codec {
     struct State {
         /// @brief the ordered set of channel keys for the codec.
-        std::set<ChannelKey> keys;
+        std::set<channel::Key> keys;
         /// @brief the data types for each channel in keys.
-        std::unordered_map<ChannelKey, x::telem::DataType> key_data_types;
+        std::unordered_map<channel::Key, x::telem::DataType> key_data_types;
         /// @brief whether the codec has any channels with variable density data types.
         bool has_variable_data_types = false;
     };
     /// @brief a cached set of sorting indices for ensuring that encoded/decoded
     /// frames are properly sorted.
-    std::vector<std::pair<ChannelKey, size_t>> sorting_indices;
+    std::vector<std::pair<channel::Key, size_t>> sorting_indices;
 
     /// @brief the current sequence number for the codec. This is used to identify
     /// which codec state to use when encoding/decoding frames.
@@ -97,7 +97,7 @@ class Codec {
     std::unordered_map<std::uint32_t, State> states;
 
     /// @brief used to retrieve channels when updating the codec state.
-    ChannelClient channel_client;
+    channel::Client channel_client;
 
     void throw_if_uninitialized() const;
 
@@ -108,18 +108,18 @@ public:
     /// @param data_types The data types corresponding to each channel
     /// @param channels The channel keys
     Codec(
-        const std::vector<ChannelKey> &channels,
+        const std::vector<channel::Key> &channels,
         const std::vector<x::telem::DataType> &data_types
     );
 
     /// @brief instantiates a dynamic codec that uses the provided function to look up
     /// the relevant channels when update() is called.
-    explicit Codec(ChannelClient channel_client):
+    explicit Codec(channel::Client channel_client):
         channel_client(std::move(channel_client)) {}
 
     /// @brief updates the codec to use the given channels. If the channels do not
     /// exist, the codec will return a query::NOT_FOUND error.
-    x::errors::Error update(const std::vector<ChannelKey> &keys);
+    x::errors::Error update(const std::vector<channel::Key> &keys);
 
     /// @brief Encodes a frame into a byte array
     /// @param frame The frame to encode
@@ -144,7 +144,7 @@ public:
 class StreamerConfig {
 public:
     /// @brief the channels to stream.
-    std::vector<ChannelKey> channels;
+    std::vector<channel::Key> channels;
     /// @brief the downsample factor for the streamer.
     int downsample_factor = 1;
     /// @brief enable experimental high-performance codec for the writer.
@@ -154,7 +154,7 @@ private:
     /// @brief binds the configuration fields to it's protobuf representation.
     void to_proto(grpc::framer::StreamerRequest &f) const;
 
-    friend class FrameClient;
+    friend class Client;
     friend class Streamer;
 };
 
@@ -187,7 +187,7 @@ public:
     /// @param channels - the channels to stream.
     /// @note setChannels is not safe to call concurrently with itself or with
     /// close(), but it is safe to call concurrently with read().
-    [[nodiscard]] x::errors::Error set_channels(const std::vector<ChannelKey> &channels);
+    [[nodiscard]] x::errors::Error set_channels(const std::vector<channel::Key> &channels);
 
     /// @brief closes the streamer and releases any resources associated with it. If
     /// any errors occurred during the stream, they will be returned. A streamer
@@ -225,7 +225,7 @@ private:
     std::unique_ptr<StreamerStream> stream;
 
     /// @brief the only class that can construct a streamer.
-    friend class FrameClient;
+    friend class Client;
 };
 
 /// @brief sets the persistence and streaming mode for a writer.
@@ -244,7 +244,7 @@ enum WriterMode : uint8_t {
 /// see https://docs.synnaxlabs.com/concepts/write.
 struct WriterConfig {
     /// @brief The channels to write to.
-    std::vector<ChannelKey> channels;
+    std::vector<channel::Key> channels;
 
     /// @brief sets the starting timestamp for the first sample in the writer. If
     /// this timestamp overlaps with existing data for ANY of the provided channels,
@@ -302,7 +302,7 @@ private:
     /// @brief binds the configuration fields to it's protobuf representation.
     void to_proto(grpc::framer::WriterConfig *f) const;
 
-    friend class FrameClient;
+    friend class Client;
 
     friend class Writer;
 };
@@ -352,7 +352,7 @@ public:
     /// @param key the channel to set the authority of.
     /// @param authority the authority level to set the channel to.
     [[nodiscard]] x::errors::Error
-    set_authority(const ChannelKey &key, const x::telem::Authority &authority);
+    set_authority(const channel::Key &key, const x::telem::Authority &authority);
 
     /// @brief changes the authority of the given channels to the given authority
     /// levels.
@@ -360,7 +360,7 @@ public:
     /// @param keys the channels to set the authority of.
     /// @param authorities the authority levels to set the channels to.
     [[nodiscard]] x::errors::Error set_authority(
-        const std::vector<ChannelKey> &keys,
+        const std::vector<channel::Key> &keys,
         const std::vector<x::telem::Authority> &authorities
     );
 
@@ -397,7 +397,7 @@ private:
     /// @brief cached request for reuse during writes
     std::unique_ptr<grpc::framer::WriterRequest> cached_write_req;
     /// @brief cached frame within the request for reuse
-    x::telem::PBFrame *cached_frame = nullptr;
+    ::telem::PBFrame *cached_frame = nullptr;
 
     /// @brief internal function that waits until an ack is received for a
     /// particular command.
@@ -414,15 +414,15 @@ private:
     /// @brief initializes the cached request with the frame structure
     x::errors::Error init_request(const x::telem::Frame &fr);
 
-    friend class FrameClient;
+    friend class Client;
 };
 
-class FrameClient {
+class Client {
 public:
-    FrameClient(
+    Client(
         std::unique_ptr<StreamerClient> streamer_client,
         std::unique_ptr<WriterClient> writer_client,
-        ChannelClient channel_client
+        channel::Client channel_client
     ):
         streamer_client(std::move(streamer_client)),
         writer_client(std::move(writer_client)),
@@ -456,7 +456,7 @@ private:
     std::unique_ptr<WriterClient> writer_client;
     /// @brief a utility function used to retrieve information about channels from the
     /// cluster.
-    ChannelClient channel_client;
+    channel::Client channel_client;
 };
 
 }

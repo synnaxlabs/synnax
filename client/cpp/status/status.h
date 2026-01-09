@@ -21,32 +21,31 @@
 
 #include "core/pkg/api/grpc/status/status.pb.h"
 
-namespace synnax {
-
+namespace synnax::status {
 const std::string STATUS_SET_CHANNEL_NAME = "sy_status_set";
 
 /// @brief Freighter retrieve transport.
-using StatusRetrieveClient = freighter::
+using RetrieveClient = freighter::
     UnaryClient<grpc::status::RetrieveRequest, grpc::status::RetrieveResponse>;
 
 /// @brief Freighter set transport.
-using StatusSetClient = freighter::
+using SetClient = freighter::
     UnaryClient<grpc::status::SetRequest, grpc::status::SetResponse>;
 
 /// @brief Freighter delete transport.
-using StatusDeleteClient = freighter::
+using DeleteClient = freighter::
     UnaryClient<grpc::status::DeleteRequest, google::protobuf::Empty>;
 
 /// @brief StatusClient for creating, retrieving, and deleting statuses in a Synnax
 /// cluster.
-class StatusClient {
+class Client {
 public:
-    StatusClient() = default;
+    Client() = default;
 
-    StatusClient(
-        std::shared_ptr<StatusRetrieveClient> retrieve_client,
-        std::shared_ptr<StatusSetClient> set_client,
-        std::shared_ptr<StatusDeleteClient> delete_client
+    Client(
+        std::shared_ptr<RetrieveClient> retrieve_client,
+        std::shared_ptr<SetClient> set_client,
+        std::shared_ptr<DeleteClient> delete_client
     ):
         retrieve_client(std::move(retrieve_client)),
         set_client(std::move(set_client)),
@@ -59,13 +58,13 @@ public:
     /// @returns An error where ok() is false if the status could not be created.
     /// Use err.message() to get the error message or err.type to get the error type.
     template<typename Details = json>
-    [[nodiscard]] x::errors::Error set(status::Status<Details> &status) const {
+    [[nodiscard]] x::errors::Error set(x::status::Status<Details> &status) const {
         grpc::status::SetRequest req;
         *req.add_statuses() = status.to_proto();
         auto [res, err] = this->set_client->send("/status/set", req);
         if (err) return err;
         if (res.statuses_size() == 0) return unexpected_missing_error("status");
-        auto [decoded, decode_err] = status::Status<Details>::from_proto(
+        auto [decoded, decode_err] = x::status::Status<Details>::from_proto(
             res.statuses(0)
         );
         if (decode_err) return decode_err;
@@ -82,7 +81,7 @@ public:
     /// Use err.message() to get the error message or err.type to get the error type.
     template<typename Details = json>
     [[nodiscard]] x::errors::Error
-    set(std::vector<status::Status<Details>> &statuses) const {
+    set(std::vector<x::status::Status<Details>> &statuses) const {
         grpc::status::SetRequest req;
         req.mutable_statuses()->Reserve(static_cast<int>(statuses.size()));
         for (const auto &s: statuses)
@@ -90,7 +89,7 @@ public:
         auto [res, err] = this->set_client->send("/status/set", req);
         if (err) return err;
         for (int i = 0; i < res.statuses_size(); i++) {
-            auto [decoded, decode_err] = status::Status<Details>::from_proto(
+            auto [decoded, decode_err] = x::status::Status<Details>::from_proto(
                 res.statuses(i)
             );
             if (decode_err) return decode_err;
@@ -107,12 +106,12 @@ public:
     /// returned status will be invalid. Use err.message() to get the error message
     /// or err.type to get the error type.
     template<typename Details = json>
-    [[nodiscard]] std::pair<status::Status<Details>, x::errors::Error>
+    [[nodiscard]] std::pair<x::status::Status<Details>, x::errors::Error>
     retrieve(const std::string &key) const {
         auto [statuses, err] = this->retrieve<Details>(std::vector{key});
-        if (err) return {status::Status<Details>{}, err};
+        if (err) return {x::status::Status<Details>{}, err};
         if (statuses.empty()) {
-            return {status::Status<Details>(), not_found_error("status", "key " + key)};
+            return {x::status::Status<Details>(), not_found_error("status", "key " + key)};
         }
         return {statuses[0], x::errors::NIL};
     }
@@ -124,17 +123,17 @@ public:
     /// where ok() is false if the statuses could not be retrieved. Statuses that
     /// don't exist will not be in the returned vector.
     template<typename Details = json>
-    [[nodiscard]] std::pair<std::vector<status::Status<Details>>, x::errors::Error>
+    [[nodiscard]] std::pair<std::vector<x::status::Status<Details>>, x::errors::Error>
     retrieve(const std::vector<std::string> &keys) const {
         grpc::status::RetrieveRequest req;
         req.mutable_keys()->Add(keys.begin(), keys.end());
         auto [res, err] = this->retrieve_client->send("/status/retrieve", req);
-        if (err) return {std::vector<status::Status<Details>>(), err};
-        std::vector<status::Status<Details>> statuses;
+        if (err) return {std::vector<x::status::Status<Details>>(), err};
+        std::vector<x::status::Status<Details>> statuses;
         statuses.reserve(res.statuses_size());
         for (const auto &pb_status: res.statuses()) {
-            auto [decoded, decode_err] = status::Status<Details>::from_proto(pb_status);
-            if (decode_err) return {std::vector<status::Status<Details>>(), decode_err};
+            auto [decoded, decode_err] = x::status::Status<Details>::from_proto(pb_status);
+            if (decode_err) return {std::vector<x::status::Status<Details>>(), decode_err};
             statuses.push_back(decoded);
         }
         return {statuses, x::errors::NIL};
@@ -163,9 +162,9 @@ public:
     }
 
 private:
-    std::shared_ptr<StatusRetrieveClient> retrieve_client;
-    std::shared_ptr<StatusSetClient> set_client;
-    std::shared_ptr<StatusDeleteClient> delete_client;
+    std::shared_ptr<RetrieveClient> retrieve_client;
+    std::shared_ptr<SetClient> set_client;
+    std::shared_ptr<DeleteClient> delete_client;
 };
 
 }

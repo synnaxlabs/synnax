@@ -29,5 +29,5 @@ message Channel {
   bool internal = 9;
   string expression = 10;
   repeated distribution.channel.pb.Operation operations = 11;
-  x.control.Concurrency concurrency = 12;
+  x.control.pb.Concurrency concurrency = 12;
 }

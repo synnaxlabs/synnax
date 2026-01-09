@@ -11,10 +11,9 @@
 #include "client/cpp/task/task.h"
 #include "x/cpp/errors/errors.h"
 
-namespace synnax {
-
-Task::Task(
-    TaskKey key,
+namespace synnax::task {
+Task(
+    Key key,
     std::string name,
     std::string type,
     std::string config,
@@ -29,7 +28,7 @@ Task::Task(
     this->snapshot = snapshot;
 }
 
-Task::Task(
+Task(
     std::string name,
     std::string type,
     std::string config,
@@ -44,7 +43,7 @@ Task::Task(
     this->snapshot = snapshot;
 }
 
-Task::Task(
+Task(
     RackKey rack,
     std::string name,
     std::string type,
@@ -60,12 +59,12 @@ Task::Task(
     this->snapshot = snapshot;
 }
 
-std::pair<Task, x::errors::Error> TaskClient::retrieve(const TaskKey key) const {
+std::pair<Task, x::errors::Error> Client::retrieve(const Key key) const {
     return retrieve(key, TaskRetrieveOptions{});
 }
 
 std::pair<Task, x::errors::Error>
-TaskClient::retrieve(const TaskKey key, const TaskRetrieveOptions &options) const {
+Client::retrieve(const Key key, const TaskRetrieveOptions &options) const {
     auto req = grpc::task::RetrieveRequest();
     req.set_rack(rack);
     req.add_keys(key);
@@ -75,16 +74,16 @@ TaskClient::retrieve(const TaskKey key, const TaskRetrieveOptions &options) cons
     if (res.tasks_size() == 0)
         return {Task(), not_found_error("task", "key " + std::to_string(key))};
     // Use generated translator, wrap result in Task
-    auto [payload, proto_err] = task::Payload::from_proto(res.tasks(0));
+    auto [payload, proto_err] = Payload::from_proto(res.tasks(0));
     if (proto_err) return {Task(), proto_err};
     return {Task(std::move(payload)), x::errors::NIL};
 }
 
-std::pair<Task, x::errors::Error> TaskClient::retrieve(const std::string &name) const {
+std::pair<Task, x::errors::Error> Client::retrieve(const std::string &name) const {
     return retrieve(name, TaskRetrieveOptions{});
 }
 
-std::pair<Task, x::errors::Error> TaskClient::retrieve(
+std::pair<Task, x::errors::Error> Client::retrieve(
     const std::string &name,
     const TaskRetrieveOptions &options
 ) const {
@@ -96,17 +95,17 @@ std::pair<Task, x::errors::Error> TaskClient::retrieve(
     if (err) return {Task(), err};
     if (res.tasks_size() == 0) return {Task(), not_found_error("task", "name " + name)};
     // Use generated translator, wrap result in Task
-    auto [payload, proto_err] = task::Payload::from_proto(res.tasks(0));
+    auto [payload, proto_err] = Payload::from_proto(res.tasks(0));
     if (proto_err) return {Task(), proto_err};
     return {Task(std::move(payload)), x::errors::NIL};
 }
 
 std::pair<std::vector<Task>, x::errors::Error>
-TaskClient::retrieve(const std::vector<std::string> &names) const {
+Client::retrieve(const std::vector<std::string> &names) const {
     return retrieve(names, TaskRetrieveOptions{});
 }
 
-std::pair<std::vector<Task>, x::errors::Error> TaskClient::retrieve(
+std::pair<std::vector<Task>, x::errors::Error> Client::retrieve(
     const std::vector<std::string> &names,
     const TaskRetrieveOptions &options
 ) const {
@@ -119,7 +118,7 @@ std::pair<std::vector<Task>, x::errors::Error> TaskClient::retrieve(
     std::vector<Task> tasks;
     tasks.reserve(res.tasks_size());
     for (const auto &t: res.tasks()) {
-        auto [payload, proto_err] = task::Payload::from_proto(t);
+        auto [payload, proto_err] = Payload::from_proto(t);
         if (proto_err) return {std::vector<Task>(), proto_err};
         tasks.push_back(Task(std::move(payload)));
     }
@@ -127,11 +126,11 @@ std::pair<std::vector<Task>, x::errors::Error> TaskClient::retrieve(
 }
 
 std::pair<Task, x::errors::Error>
-TaskClient::retrieve_by_type(const std::string &type) const {
+Client::retrieve_by_type(const std::string &type) const {
     return retrieve_by_type(type, TaskRetrieveOptions{});
 }
 
-std::pair<Task, x::errors::Error> TaskClient::retrieve_by_type(
+std::pair<Task, x::errors::Error> Client::retrieve_by_type(
     const std::string &type,
     const TaskRetrieveOptions &options
 ) const {
@@ -143,17 +142,17 @@ std::pair<Task, x::errors::Error> TaskClient::retrieve_by_type(
     if (err) return {Task(), err};
     if (res.tasks_size() == 0) return {Task(), not_found_error("task", "type " + type)};
     // Use generated translator, wrap result in Task
-    auto [payload, proto_err] = task::Payload::from_proto(res.tasks(0));
+    auto [payload, proto_err] = Payload::from_proto(res.tasks(0));
     if (proto_err) return {Task(), proto_err};
     return {Task(std::move(payload)), x::errors::NIL};
 }
 
 std::pair<std::vector<Task>, x::errors::Error>
-TaskClient::retrieve_by_type(const std::vector<std::string> &types) const {
+Client::retrieve_by_type(const std::vector<std::string> &types) const {
     return retrieve_by_type(types, TaskRetrieveOptions{});
 }
 
-std::pair<std::vector<Task>, x::errors::Error> TaskClient::retrieve_by_type(
+std::pair<std::vector<Task>, x::errors::Error> Client::retrieve_by_type(
     const std::vector<std::string> &types,
     const TaskRetrieveOptions &options
 ) const {
@@ -166,16 +165,16 @@ std::pair<std::vector<Task>, x::errors::Error> TaskClient::retrieve_by_type(
     std::vector<Task> tasks;
     tasks.reserve(res.tasks_size());
     for (const auto &t: res.tasks()) {
-        auto [payload, proto_err] = task::Payload::from_proto(t);
+        auto [payload, proto_err] = Payload::from_proto(t);
         if (proto_err) return {std::vector<Task>(), proto_err};
         tasks.push_back(Task(std::move(payload)));
     }
     return {tasks, x::errors::NIL};
 }
 
-x::errors::Error TaskClient::create(Task &task) const {
+x::errors::Error Client::create(Task &task) const {
     auto req = grpc::task::CreateRequest();
-    // Use generated translator - implicit upcast to task::Payload works
+    // Use generated translator - implicit upcast to Payload works
     *req.add_tasks() = task.to_proto();
     auto [res, err] = task_create_client->send("/task/create", req);
     if (err) return err;
@@ -184,19 +183,19 @@ x::errors::Error TaskClient::create(Task &task) const {
     return x::errors::NIL;
 }
 
-x::errors::Error TaskClient::del(const TaskKey key) const {
+x::errors::Error Client::del(const Key key) const {
     auto req = grpc::task::DeleteRequest();
     req.add_keys(key);
     auto [res, err] = task_delete_client->send("/task/delete", req);
     return err;
 }
 
-std::pair<std::vector<Task>, x::errors::Error> TaskClient::list() const {
+std::pair<std::vector<Task>, x::errors::Error> Client::list() const {
     return list(TaskRetrieveOptions{});
 }
 
 std::pair<std::vector<Task>, x::errors::Error>
-TaskClient::list(const TaskRetrieveOptions &options) const {
+Client::list(const TaskRetrieveOptions &options) const {
     auto req = grpc::task::RetrieveRequest();
     req.set_rack(rack);
     req.set_include_status(options.include_status);
@@ -205,7 +204,7 @@ TaskClient::list(const TaskRetrieveOptions &options) const {
     std::vector<Task> tasks;
     tasks.reserve(res.tasks_size());
     for (const auto &t: res.tasks()) {
-        auto [payload, proto_err] = task::Payload::from_proto(t);
+        auto [payload, proto_err] = Payload::from_proto(t);
         if (proto_err) return {std::vector<Task>(), proto_err};
         tasks.push_back(Task(std::move(payload)));
     }

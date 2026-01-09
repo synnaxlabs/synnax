@@ -17,7 +17,6 @@ cc_library(
         "//freighter/cpp:freighter",
         "//x/cpp/errors",
         "//x/cpp/json",
-        "//x/cpp/json:struct",
         "//x/cpp/status",
         "@nlohmann_json//:json",
     ],

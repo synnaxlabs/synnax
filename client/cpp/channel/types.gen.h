@@ -14,33 +14,33 @@
 #include <cstdint>
 #include <string>
 #include <utility>
-
-#include "x/cpp/errors/errors.h"
-#include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
-
+#include "x/cpp/json/json.h"
+#include "x/cpp/errors/errors.h"
 #include "core/pkg/distribution/channel/pb/channel.pb.h"
 
-namespace synnax::channel {
-using ChannelKey = std::uint32_t;
 
-constexpr const char *OPERATION_TYPE_MIN = "min";
-constexpr const char *OPERATION_TYPE_MAX = "max";
-constexpr const char *OPERATION_TYPE_AVG = "avg";
-constexpr const char *OPERATION_TYPE_NONE = "none";
+namespace synnax::channel {
+using Key = std::uint32_t;
+
+
+constexpr const char* OPERATION_TYPE_MIN = "min";
+constexpr const char* OPERATION_TYPE_MAX = "max";
+constexpr const char* OPERATION_TYPE_AVG = "avg";
+constexpr const char* OPERATION_TYPE_NONE = "none";
 
 using Name = std::string;
 
 struct Operation {
     std::string type;
-    ChannelKey reset_channel;
+    Key reset_channel;
     x::telem::TimeSpan duration;
 
     static Operation parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = pb::Operation;
-    [[nodiscard]] pb::Operation to_proto() const;
-    static std::pair<Operation, x::errors::Error> from_proto(const pb::Operation &pb);
+    using proto_type = ::distribution::channel::pb::Operation;
+    [[nodiscard]] ::distribution::channel::pb::Operation to_proto() const;
+    static std::pair<Operation, x::errors::Error> from_proto(const ::distribution::channel::pb::Operation& pb);
 };
 }

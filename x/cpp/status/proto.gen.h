@@ -23,29 +23,29 @@
 
 namespace x::status {
 
-inline pb::Variant VariantToPB(const std::string &cpp) {
-    if (cpp == VARIANT_SUCCESS) return pb::VARIANT_SUCCESS;
-    if (cpp == VARIANT_INFO) return pb::VARIANT_INFO;
-    if (cpp == VARIANT_WARNING) return pb::VARIANT_WARNING;
-    if (cpp == VARIANT_ERROR) return pb::VARIANT_ERROR;
-    if (cpp == VARIANT_LOADING) return pb::VARIANT_LOADING;
-    if (cpp == VARIANT_DISABLED) return pb::VARIANT_DISABLED;
-    return pb::VARIANT_UNSPECIFIED;
+inline ::x::status::pb::Variant VariantToPB(const std::string &cpp) {
+    if (cpp == VARIANT_SUCCESS) return ::x::status::pb::VARIANT_SUCCESS;
+    if (cpp == VARIANT_INFO) return ::x::status::pb::VARIANT_INFO;
+    if (cpp == VARIANT_WARNING) return ::x::status::pb::VARIANT_WARNING;
+    if (cpp == VARIANT_ERROR) return ::x::status::pb::VARIANT_ERROR;
+    if (cpp == VARIANT_LOADING) return ::x::status::pb::VARIANT_LOADING;
+    if (cpp == VARIANT_DISABLED) return ::x::status::pb::VARIANT_DISABLED;
+    return ::x::status::pb::VARIANT_UNSPECIFIED;
 }
 
-inline std::string VariantFromPB(pb::Variant pb) {
+inline std::string VariantFromPB(::x::status::pb::Variant pb) {
     switch (pb) {
-        case pb::VARIANT_SUCCESS:
+        case ::x::status::pb::VARIANT_SUCCESS:
             return VARIANT_SUCCESS;
-        case pb::VARIANT_INFO:
+        case ::x::status::pb::VARIANT_INFO:
             return VARIANT_INFO;
-        case pb::VARIANT_WARNING:
+        case ::x::status::pb::VARIANT_WARNING:
             return VARIANT_WARNING;
-        case pb::VARIANT_ERROR:
+        case ::x::status::pb::VARIANT_ERROR:
             return VARIANT_ERROR;
-        case pb::VARIANT_LOADING:
+        case ::x::status::pb::VARIANT_LOADING:
             return VARIANT_LOADING;
-        case pb::VARIANT_DISABLED:
+        case ::x::status::pb::VARIANT_DISABLED:
             return VARIANT_DISABLED;
         default:
             return VARIANT_SUCCESS;
@@ -53,8 +53,8 @@ inline std::string VariantFromPB(pb::Variant pb) {
 }
 
 template<typename Details>
-inline pb::Status Status<Details>::to_proto() const {
-    pb::Status pb;
+inline ::x::status::pb::Status Status<Details>::to_proto() const {
+    ::x::status::pb::Status pb;
     pb.set_key(this->key);
     pb.set_name(this->name);
     pb.set_message(this->message);
@@ -73,7 +73,7 @@ inline pb::Status Status<Details>::to_proto() const {
 
 template<typename Details>
 inline std::pair<Status<Details>, x::errors::Error>
-Status<Details>::from_proto(const pb::Status &pb) {
+Status<Details>::from_proto(const ::x::status::pb::Status &pb) {
     Status<Details> cpp;
     cpp.key = pb.key();
     cpp.name = pb.name();

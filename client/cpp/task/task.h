@@ -26,40 +26,37 @@
 #include "core/pkg/service/task/pb/task.pb.h"
 #include "core/pkg/api/grpc/task/task.pb.h"
 
-namespace synnax {
+namespace synnax::task {
 // Forward declaration for RackKey (needed for task key utilities)
 using RackKey = std::uint32_t;
 
 /// @brief Type alias for the transport used to create a task.
-using TaskCreateClient = freighter::
+using CreateClient = freighter::
     UnaryClient<grpc::task::CreateRequest, grpc::task::CreateResponse>;
 
 /// @brief Type alias for the transport used to retrieve a task.
-using TaskRetrieveClient = freighter::
+using RetrieveClient = freighter::
     UnaryClient<grpc::task::RetrieveRequest, grpc::task::RetrieveResponse>;
 
 /// @brief Type alias for the transport used to delete a task.
-using TaskDeleteClient = freighter::
+using DeleteClient = freighter::
     UnaryClient<grpc::task::DeleteRequest, google::protobuf::Empty>;
-
-/// @brief An alias for the type of task's key.
-using TaskKey = task::Key;
 
 /// @brief Converts a task key to an ontology ID.
 /// @param key The task key.
 /// @returns An ontology ID with type "task" and the given key.
-inline ontology::ID task_ontology_id(TaskKey key) {
+inline ontology::ID ontology_id(const Key key){
     return ontology::ID("task", std::to_string(key));
 }
 
 /// @brief Converts a vector of task keys to a vector of ontology IDs.
 /// @param keys The task keys.
 /// @returns A vector of ontology IDs.
-inline std::vector<ontology::ID> task_ontology_ids(const std::vector<TaskKey> &keys) {
+inline std::vector<ontology::ID> task_ontology_ids(const std::vector<Key> &keys) {
     std::vector<ontology::ID> ids;
     ids.reserve(keys.size());
     for (const auto &key: keys)
-        ids.push_back(task_ontology_id(key));
+        ids.push_back(ontology_id(key));
     return ids;
 }
 
@@ -67,32 +64,32 @@ inline std::vector<ontology::ID> task_ontology_ids(const std::vector<TaskKey> &k
 /// @param rack The rack key.
 /// @param task The local task key.
 /// @returns A combined task key.
-inline TaskKey create_task_key(const RackKey rack, const TaskKey task) {
-    return static_cast<TaskKey>(rack) << 32 | task;
+inline Key create_task_key(const RackKey rack, const Key task) {
+    return static_cast<task::Key>(rack) << 32 | task;
 }
 
 /// @brief Extracts the rack key from a task key.
 /// @param key The task key.
 /// @returns The rack key portion of the task key.
-inline RackKey rack_key_from_task_key(const TaskKey key) {
+inline RackKey rack_key_from_task_key(const Key key) {
     return key >> 32;
 }
 
 /// @brief Extracts the local task key from a task key.
 /// @param key The task key.
 /// @returns The local task key portion of the task key.
-inline std::uint32_t local_task_key(const TaskKey key) {
+inline std::uint32_t local_task_key(const Key key) {
     return key & 0xFFFFFFFF;
 }
 
 /// @brief Alias for task status details (uses generated type).
-using TaskStatusDetails = task::StatusDetails;
+using TaskStatusDetails = StatusDetails;
 
 /// @brief Status information for a task.
-using TaskStatus = synnax::status::Status<json>;
+using TaskStatus = x::status::Status<json>;
 
 /// @brief Alias for the generated task payload type.
-using TaskPayload = task::Payload;
+using TaskPayload = Payload;
 
 /// @brief Options for retrieving tasks.
 struct TaskRetrieveOptions {
@@ -107,18 +104,18 @@ struct TaskRetrieveOptions {
 /// Task extends the generated task::Payload struct, adding convenience constructors
 /// and utility methods while leveraging generated code for data fields and
 /// protobuf translation.
-class Task : public task::Payload {
+class Task : public Payload {
 public:
     /// @brief Default constructor for an empty task.
     Task() = default;
 
     /// @brief Converting constructor from generated Payload type.
     /// @param payload The generated payload to convert from.
-    Task(task::Payload &&payload) : task::Payload(std::move(payload)) {}
+    Task(Payload &&payload) : Payload(std::move(payload)) {}
 
     /// @brief Converting constructor from generated Payload type (const ref).
     /// @param payload The generated payload to convert from.
-    Task(const task::Payload &payload) : task::Payload(payload) {}
+    Task(const Payload &payload) : Payload(payload) {}
 
     /// @brief Constructs a new task with the given properties.
     /// @param name A human-readable name for the task.
@@ -142,7 +139,7 @@ public:
     /// @param internal Whether the task is internal to the system.
     /// @param snapshot Whether the task is a snapshot and cannot be modified.
     Task(
-        TaskKey key,
+        Key key,
         std::string name,
         std::string type,
         std::string config,
@@ -172,30 +169,30 @@ public:
 
     /// @brief returns the key used for creating statuses associated with the task.
     [[nodiscard]] std::string status_key() const {
-        return task_ontology_id(this->key).string();
+        return ontology_id(this->key).string();
     }
 
     /// @brief Returns the rack key that this task belongs to.
-    [[nodiscard]] synnax::RackKey rack() const {
+    [[nodiscard]] RackKey rack() const {
         return rack_key_from_task_key(this->key);
     }
 
-    friend class TaskClient;
+    friend class Client;
 };
 
 /// @brief Client for managing tasks on a specific rack.
-class TaskClient {
+class Client {
 public:
     /// @brief Constructs a new task client for the given rack.
     /// @param rack The rack key that this client operates on.
     /// @param task_create_client Client for creating tasks.
     /// @param task_retrieve_client Client for retrieving tasks.
     /// @param task_delete_client Client for deleting tasks.
-    TaskClient(
+    Client(
         const RackKey rack,
-        std::shared_ptr<TaskCreateClient> task_create_client,
-        std::shared_ptr<TaskRetrieveClient> task_retrieve_client,
-        std::shared_ptr<TaskDeleteClient> task_delete_client
+        std::shared_ptr<CreateClient> task_create_client,
+        std::shared_ptr<RetrieveClient> task_retrieve_client,
+        std::shared_ptr<DeleteClient> task_delete_client
     ):
         rack(rack),
         task_create_client(std::move(task_create_client)),
@@ -212,7 +209,7 @@ public:
     /// @param key The key of the task to retrieve.
     /// @returns A pair containing the retrieved task and an error if one occurred.
     [[nodiscard]]
-    std::pair<Task, x::errors::Error> retrieve(TaskKey key) const;
+    std::pair<Task, x::errors::Error> retrieve(Key key) const;
 
     /// @brief Retrieves a task by its key with options.
     /// @param key The key of the task to retrieve.
@@ -220,7 +217,7 @@ public:
     /// @returns A pair containing the retrieved task and an error if one occurred.
     [[nodiscard]]
     std::pair<Task, x::errors::Error>
-    retrieve(TaskKey key, const TaskRetrieveOptions &options) const;
+    retrieve(Key key, const TaskRetrieveOptions &options) const;
 
     /// @brief Retrieves a task by its type.
     /// @param type The type of the task to retrieve.
@@ -288,7 +285,7 @@ public:
     /// @param key The key of the task to delete.
     /// @returns An error if the deletion failed.
     [[nodiscard]]
-    x::errors::Error del(TaskKey key) const;
+    x::errors::Error del(task::Key key) const;
 
     /// @brief Lists all tasks on the rack.
     /// @returns A pair containing the list of tasks and an error if one occurred.
@@ -306,11 +303,11 @@ private:
     /// @brief Key of rack that this client belongs to.
     RackKey rack;
     /// @brief Task creation transport.
-    std::shared_ptr<TaskCreateClient> task_create_client;
+    std::shared_ptr<CreateClient> task_create_client;
     /// @brief Task retrieval transport.
-    std::shared_ptr<TaskRetrieveClient> task_retrieve_client;
+    std::shared_ptr<RetrieveClient> task_retrieve_client;
     /// @brief Task deletion transport.
-    std::shared_ptr<TaskDeleteClient> task_delete_client;
+    std::shared_ptr<DeleteClient> task_delete_client;
 };
 
 }

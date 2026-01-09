@@ -133,18 +133,18 @@ struct Config {
 class Synnax {
 public:
     /// @brief Client for creating and retrieving channels in a cluster.
-    ChannelClient channels = ChannelClient(nullptr, nullptr);
+    channel::Client channels = channel::Client(nullptr, nullptr);
     /// @brief Client for creating, retrieving, and performing operations on ranges
     /// in a cluster.
     RangeClient ranges = RangeClient(nullptr, nullptr, nullptr, nullptr, nullptr);
     /// @brief Client for reading and writing telemetry to a cluster.
-    FrameClient telem = FrameClient(nullptr, nullptr, ChannelClient());
+    framer::Client telem = framer::Client(nullptr, nullptr, channel::Client());
     /// @brief Client for managing racks.
-    RackClient racks = RackClient(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+    rack::Client racks = rack::Client(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
     /// @brief Client for managing devices.
-    DeviceClient devices = DeviceClient(nullptr, nullptr, nullptr);
+    device::Client devices = device::Client(nullptr, nullptr, nullptr);
     /// @brief Client for managing statuses.
-    StatusClient statuses = StatusClient();
+    status::Client statuses = status::Client();
     /// @brief Client for managing Arc automation programs.
     arc::Client arcs = arc::Client(nullptr, nullptr, nullptr);
     std::shared_ptr<AuthMiddleware> auth = nullptr;
@@ -166,7 +166,7 @@ public:
             cfg.clock_skew_threshold
         );
         t.use(this->auth);
-        this->channels = ChannelClient(t.chan_retrieve, t.chan_create);
+        this->channels = channel::Client(t.chan_retrieve, t.chan_create);
         this->ranges = RangeClient(
             std::move(t.range_retrieve),
             std::move(t.range_create),
@@ -174,12 +174,12 @@ public:
             t.range_kv_set,
             t.range_kv_delete
         );
-        this->telem = FrameClient(
+        this->telem = framer::Client(
             std::move(t.frame_stream),
             std::move(t.frame_write),
-            ChannelClient(t.chan_retrieve, t.chan_create)
+            channel::Client(t.chan_retrieve, t.chan_create)
         );
-        this->racks = RackClient(
+        this->racks = rack::Client(
             std::move(t.rack_create_client),
             std::move(t.rack_retrieve),
             std::move(t.rack_delete),
@@ -187,13 +187,13 @@ public:
             t.module_retrieve,
             t.module_delete
         );
-        this->devices = DeviceClient(
+        this->devices = device::Client(
             std::move(t.device_create),
             std::move(t.device_retrieve),
             std::move(t.device_delete)
         );
-        this->statuses = StatusClient(t.status_retrieve, t.status_set, t.status_delete);
-        this->arcs = ArcClient(t.arc_retrieve, t.arc_create, t.arc_delete);
+        this->statuses = status::Client(t.status_retrieve, t.status_set, t.status_delete);
+        this->arcs = arc::Client(t.arc_retrieve, t.arc_create, t.arc_delete);
     }
 };
 }

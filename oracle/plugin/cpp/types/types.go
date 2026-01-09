@@ -336,6 +336,39 @@ func deriveNamespace(outputPath string) string {
 	return fmt.Sprintf("%s::%s", topLevel, subNs)
 }
 
+// derivePBCppNamespace converts a pb output path to a fully qualified C++ namespace.
+// This mirrors the package derivation logic in pb/types plugin:
+// - For "core/pkg/{layer}/{service}/pb" -> "::{layer}::{service}::pb"
+// - For "x/go/{service}/pb" -> "::x::{service}::pb"
+// - For other paths -> "::{first}::{last-before-pb}::pb"
+func derivePBCppNamespace(pbOutputPath string) string {
+	if pbOutputPath == "" {
+		return "pb"
+	}
+	parts := strings.Split(pbOutputPath, "/")
+	if len(parts) == 0 {
+		return "pb"
+	}
+
+	// Derive namespace (directory before /pb, or last component)
+	namespace := parts[len(parts)-1]
+	if namespace == "pb" && len(parts) >= 2 {
+		namespace = parts[len(parts)-2]
+	}
+
+	// Derive layer prefix (mirrors deriveLayerPrefix in pb/types)
+	var prefix string
+	if len(parts) >= 3 && parts[0] == "core" && parts[1] == "pkg" {
+		prefix = parts[2] // e.g., "distribution", "service", "api"
+	} else if len(parts) >= 1 && parts[0] != "" {
+		prefix = parts[0] // e.g., "x", "freighter"
+	} else {
+		prefix = "synnax"
+	}
+
+	return fmt.Sprintf("::%s::%s::pb", prefix, namespace)
+}
+
 func (p *Plugin) processEnum(e resolution.Type) enumData {
 	form, ok := e.Form.(resolution.EnumForm)
 	if !ok {
@@ -574,9 +607,10 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 		pbOutputPath := output.GetPBPath(entry)
 		if pbOutputPath != "" {
 			pbName := getPBName(entry)
+			pbNamespace := derivePBCppNamespace(pbOutputPath)
 			sd.HasProto = true
-			sd.ProtoType = fmt.Sprintf("pb::%s", pbName)
-			sd.ProtoNamespace = "pb"
+			sd.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, pbName)
+			sd.ProtoNamespace = pbNamespace
 			sd.ProtoClass = pbName
 			data.includes.addSystem("utility")
 			data.includes.addInternal("x/cpp/errors/errors.h")

@@ -15,11 +15,11 @@
 
 std::mt19937 gen_rand_task = random_generator("Task Tests");
 
-namespace synnax {
+namespace synnax::task {
 /// @brief it should correctly create a module on the rack.
 TEST(TaskTests, testCreateTask) {
     auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack("test_rack");
     ASSERT_NIL(client.racks.create(r));
     auto m = Task(r.key, "test_module", "mock", "config", false, true);
     ASSERT_NIL(r.tasks.create(m));
@@ -31,7 +31,7 @@ TEST(TaskTests, testCreateTask) {
 /// @brief it should correctly retrieve a module from the rack.
 TEST(TaskTests, testRetrieveTask) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack("test_rack");
     ASSERT_NIL(client.racks.create(r));
     auto t = Task(r.key, "test_module", "mock", "config", false, true);
     ASSERT_NIL(r.tasks.create(t));
@@ -45,7 +45,7 @@ TEST(TaskTests, testRetrieveTask) {
 /// @brief it should retrieve a task by its name
 TEST(TaskTests, testRetrieveTaskByName) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack("test_rack");
     ASSERT_NIL(client.racks.create(r));
     const auto rand_name = std::to_string(gen_rand_task());
     auto t = Task(r.key, rand_name, "mock", "config");
@@ -58,7 +58,7 @@ TEST(TaskTests, testRetrieveTaskByName) {
 /// @brief it should retrieve a task by its type
 TEST(TaskTests, testRetrieveTaskByType) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack("test_rack");
     ASSERT_NIL(client.racks.create(r));
     const auto rand_type = std::to_string(gen_rand_task());
     auto t = Task(r.key, "test_module", rand_type, "config");
@@ -71,7 +71,7 @@ TEST(TaskTests, testRetrieveTaskByType) {
 /// @brief it should correctly list the tasks on a rack.
 TEST(TaskTests, testListTasks) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack("test_rack");
     ASSERT_NIL(client.racks.create(r));
     auto m = Task(r.key, "test_module", "mock", "config");
     ASSERT_NIL(r.tasks.create(m));
@@ -85,7 +85,7 @@ TEST(TaskTests, testListTasks) {
 /// @brief it should correctly delete a task from the rack.
 TEST(TaskTests, testDeleteTask) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack("test_rack");
     ASSERT_NIL(client.racks.create(r));
     auto t = Task(r.key, "test_module", "mock", "config");
     ASSERT_NIL(r.tasks.create(t));
@@ -95,7 +95,7 @@ TEST(TaskTests, testDeleteTask) {
 
 /// @brief it should convert a task key to an ontology ID
 TEST(TaskTests, testTaskOntologyId) {
-    constexpr synnax::TaskKey key = 12345678901234;
+    constexpr synnax::task::Key key = 12345678901234;
     const auto id = synnax::task_ontology_id(key);
     ASSERT_EQ(id.type, "task");
     ASSERT_EQ(id.key, "12345678901234");
@@ -103,7 +103,7 @@ TEST(TaskTests, testTaskOntologyId) {
 
 /// @brief it should convert multiple task keys to ontology IDs
 TEST(TaskTests, testTaskOntologyIds) {
-    const std::vector<synnax::TaskKey> keys = {100, 200, 300};
+    const std::vector<synnax::task::Key> keys = {100, 200, 300};
     const auto ids = synnax::task_ontology_ids(keys);
     ASSERT_EQ(ids.size(), 3);
     ASSERT_EQ(ids[0].type, "task");
@@ -116,7 +116,7 @@ TEST(TaskTests, testTaskOntologyIds) {
 
 /// @brief it should return empty vector for empty input
 TEST(TaskTests, testTaskOntologyIdsEmpty) {
-    const std::vector<synnax::TaskKey> keys;
+    const std::vector<synnax::task::Key> keys;
     const auto ids = synnax::task_ontology_ids(keys);
     ASSERT_TRUE(ids.empty());
 }
@@ -124,7 +124,7 @@ TEST(TaskTests, testTaskOntologyIdsEmpty) {
 /// @brief it should correctly create and retrieve a task with a status.
 TEST(TaskTests, testCreateTaskWithStatus) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack("test_rack");
     ASSERT_NIL(client.racks.create(r));
     auto t = Task(r.key, "test_task_with_status", "mock", "config");
     t.status = TaskStatus{};
@@ -148,7 +148,7 @@ TEST(TaskTests, testCreateTaskWithStatus) {
 /// @brief it should correctly retrieve a task with status by name.
 TEST(TaskTests, testRetrieveTaskWithStatusByName) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack("test_rack");
     ASSERT_NIL(client.racks.create(r));
     const auto rand_name = std::to_string(gen_rand_task());
     auto t = Task(r.key, rand_name, "mock", "config");
@@ -168,7 +168,7 @@ TEST(TaskTests, testRetrieveTaskWithStatusByName) {
 /// @brief it should correctly list tasks with statuses.
 TEST(TaskTests, testListTasksWithStatus) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack("test_rack");
     ASSERT_NIL(client.racks.create(r));
     auto t = Task(r.key, "test_task_list_status", "mock", "config");
     t.status = TaskStatus{};
@@ -186,7 +186,7 @@ TEST(TaskTests, testListTasksWithStatus) {
 /// @brief it should retrieve multiple tasks by their names.
 TEST(TaskTests, testRetrieveTasksByNames) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack("test_rack");
     ASSERT_NIL(client.racks.create(r));
     const auto rand1 = std::to_string(gen_rand_task());
     const auto rand2 = std::to_string(gen_rand_task());
@@ -208,7 +208,7 @@ TEST(TaskTests, testRetrieveTasksByNames) {
 /// @brief it should retrieve multiple tasks by their types.
 TEST(TaskTests, testRetrieveTasksByTypes) {
     const auto client = new_test_client();
-    auto r = Rack("test_rack");
+    auto r = rack::Rack("test_rack");
     ASSERT_NIL(client.racks.create(r));
     const auto type1 = std::to_string(gen_rand_task());
     const auto type2 = std::to_string(gen_rand_task());

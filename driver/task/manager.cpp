@@ -15,7 +15,7 @@
 
 #include "x/cpp/json/json.h"
 #include "x/cpp/log/log.h"
-#include "x/cpp/os/xos.h"
+#include "x/cpp/os/os.h"
 
 #include "driver/task/task.h"
 
@@ -94,7 +94,7 @@ void driver::task::Manager::stop() {
     if (this->streamer != nullptr) this->streamer->close_send();
 }
 
-bool driver::task::Manager::skip_foreign_rack(const synnax::TaskKey &task_key) const {
+bool driver::task::Manager::skip_foreign_rack(const synnax::task::Key &task_key) const {
     if (synnax::rack_key_from_task_key(task_key) != this->rack.key) {
         VLOG(1) << "received task for foreign rack: " << task_key << ", skipping";
         return true;
@@ -200,7 +200,7 @@ void driver::task::Manager::stop_all_tasks() {
 }
 
 void driver::task::Manager::process_task_delete(const x::telem::Series &series) {
-    const auto task_keys = series.values<synnax::TaskKey>();
+    const auto task_keys = series.values<synnax::task::Key>();
     for (const auto task_key: task_keys) {
         if (this->skip_foreign_rack(task_key)) continue;
         const auto it = this->tasks.find(task_key);

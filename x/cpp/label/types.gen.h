@@ -30,8 +30,9 @@ struct Label {
     static Label parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = pb::Label;
-    [[nodiscard]] pb::Label to_proto() const;
-    static std::pair<Label, x::errors::Error> from_proto(const pb::Label &pb);
+    using proto_type = ::x::label::pb::Label;
+    [[nodiscard]] ::x::label::pb::Label to_proto() const;
+    static std::pair<Label, x::errors::Error>
+    from_proto(const ::x::label::pb::Label &pb);
 };
 }

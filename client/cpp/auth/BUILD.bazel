@@ -6,8 +6,8 @@ cc_library(
     deps = [
         "//core/pkg/api/grpc:api_grpc",
         "//freighter/cpp/grpc",
+        "//x/cpp/os",
         "//x/cpp/telem",
-        "//x/cpp/xos",
         "@grpc//:grpc++",
     ],
 )

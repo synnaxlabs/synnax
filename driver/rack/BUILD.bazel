@@ -35,7 +35,7 @@ cc_library(
         "//x/cpp/log",
         "//x/cpp/path",
         "//x/cpp/xenv",
-        "//x/cpp/xos",
+        "//x/cpp/os",
         "//x/cpp/xthread",
     ] + select({
         ":nilinuxrt": [],
