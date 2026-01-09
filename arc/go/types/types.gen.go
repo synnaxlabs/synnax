@@ -48,8 +48,8 @@ type FunctionProperties struct {
 type Type struct {
 	FunctionProperties
 	Kind       Kind   `json:"kind" msgpack:"kind"`
-	Elem       *Type  `json:"elem,omitempty" msgpack:"elem,omitempty"`
 	Name       string `json:"name" msgpack:"name"`
+	Elem       *Type  `json:"elem,omitempty" msgpack:"elem,omitempty"`
 	Unit       *Unit  `json:"unit,omitempty" msgpack:"unit,omitempty"`
 	Constraint *Type  `json:"constraint,omitempty" msgpack:"constraint,omitempty"`
 }

@@ -10,6 +10,7 @@
 @ts output  "client/ts/src/arc/text"
 @go output  "arc/go/text"
 @cpp output "arc/cpp/text"
+@pb
 
 Text struct {
     raw string

@@ -28,6 +28,6 @@ message Channel {
   bool virtual = 8;
   bool internal = 9;
   string expression = 10;
-  repeated distribution.channel.pb.Operation operations = 11;
-  x.control.pb.Concurrency concurrency = 12;
+  repeated .distribution.channel.pb.Operation operations = 11;
+  .x.control.pb.Concurrency concurrency = 12;
 }

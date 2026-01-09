@@ -37,6 +37,7 @@ var mapping = map[string]primitives.Mapping{
 	"color":              {TargetType: "string"},
 	"json":               {TargetType: "google.protobuf.Struct", Imports: []primitives.Import{{Category: "external", Path: "google/protobuf/struct.proto"}}},
 	"bytes":              {TargetType: "bytes"},
+	"any":                {TargetType: "google.protobuf.Value", Imports: []primitives.Import{{Category: "external", Path: "google/protobuf/struct.proto"}}},
 }
 
 // Mapper implements primitives.Mapper for Protocol Buffers code generation.

@@ -13,5 +13,6 @@ import "schemas/arc/compiler"
 @ts output  "client/ts/src/arc/module"
 @go output  "arc/go/module"
 @cpp output "arc/cpp/module"
+@pb
 
 Module struct extends ir.IR, compiler.Output {}

@@ -55,6 +55,7 @@ var all = []Primitive{
 	{Name: "color", Category: CategoryString},
 	{Name: "json", Category: CategoryOther},
 	{Name: "bytes", Category: CategoryBinary},
+	{Name: "any", Category: CategoryOther},
 }
 
 // primitivesByName is a lookup map for fast access.

@@ -9,6 +9,7 @@
 
 @ts output "client/ts/src/arc/types"
 @go output "arc/go/types"
+@pb
 
 Kind enum {
     invalid          = 0
@@ -42,8 +43,8 @@ FunctionProperties struct {
 
 Type struct extends FunctionProperties {
     kind       Kind
-    elem       Type??
     name       string
+    elem       Type??
     unit       Unit??
     constraint Type??
 }

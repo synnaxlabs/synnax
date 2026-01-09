@@ -13,6 +13,7 @@ import "schemas/arc/ir"
 @ts output  "client/ts/src/arc/graph"
 @go output  "arc/go/graph"
 @cpp output "arc/cpp/graph"
+@pb
 
 Node struct {
     key      string

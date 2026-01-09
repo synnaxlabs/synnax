@@ -10,6 +10,7 @@
 @ts output  "client/ts/src/arc/compiler"
 @go output  "arc/go/compiler"
 @cpp output "arc/cpp/compiler"
+@pb
 
 Output struct {
     WASM              bytes

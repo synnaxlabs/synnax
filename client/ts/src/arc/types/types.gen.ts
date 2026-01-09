@@ -73,10 +73,10 @@ export interface Unit extends z.infer<typeof unitZ> {}
 
 export const typeZ = functionPropertiesZ.extend({
   kind: kindZ,
+  name: z.string(),
   get elem() {
     return typeZ.optional();
   },
-  name: z.string(),
   unit: unitZ.optional(),
   get constraint() {
     return typeZ.optional();

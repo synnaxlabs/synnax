@@ -275,13 +275,30 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) (messa
 }
 
 func (p *Plugin) processField(field resolution.Field, number int, data *templateData) (fieldData, error) {
+	// Check if the type is an array (following aliases)
+	isArray := p.isArrayType(field.Type, data.table)
+
+	// Check if the type is a nested array (array of arrays)
+	if p.isNestedArrayType(field.Type, data.table) {
+		// Generate a wrapper message for the inner array
+		wrapperName, err := p.generateNestedArrayWrapper(field.Type, data)
+		if err != nil {
+			return fieldData{}, errors.Wrapf(err, "field %q", field.Name)
+		}
+		// Use the wrapper type instead
+		return fieldData{
+			Name:       toSnakeCase(field.Name),
+			Type:       wrapperName,
+			Number:     number,
+			IsOptional: field.IsHardOptional,
+			IsRepeated: true, // outer array is repeated
+		}, nil
+	}
+
 	protoType, err := p.typeToProto(field.Type, data)
 	if err != nil {
 		return fieldData{}, errors.Wrapf(err, "field %q", field.Name)
 	}
-
-	// Check if the type is an array
-	isArray := field.Type.Name == "Array"
 
 	// Only hard optional (??) types are optional in proto.
 	// Soft optional (?) types are regular fields in proto.
@@ -292,6 +309,134 @@ func (p *Plugin) processField(field resolution.Field, number int, data *template
 		IsOptional: field.IsHardOptional,
 		IsRepeated: isArray,
 	}, nil
+}
+
+// isArrayType checks if a type reference resolves to an array type, following aliases and distinct types.
+func (p *Plugin) isArrayType(typeRef resolution.TypeRef, table *resolution.Table) bool {
+	// Direct Array type
+	if typeRef.Name == "Array" {
+		return true
+	}
+
+	// Resolve the type and check if it's an alias/distinct to an array
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return false
+	}
+
+	switch form := resolved.Form.(type) {
+	case resolution.BuiltinGenericForm:
+		return form.Name == "Array"
+	case resolution.AliasForm:
+		return p.isArrayType(form.Target, table)
+	case resolution.DistinctForm:
+		return p.isArrayType(form.Base, table)
+	default:
+		return false
+	}
+}
+
+// getArrayElementType gets the element type of an array, following aliases and distinct types.
+func (p *Plugin) getArrayElementType(typeRef resolution.TypeRef, table *resolution.Table) (resolution.TypeRef, bool) {
+	// Direct Array type
+	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
+		return typeRef.TypeArgs[0], true
+	}
+
+	// Resolve the type and follow aliases/distinct types
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return resolution.TypeRef{}, false
+	}
+
+	switch form := resolved.Form.(type) {
+	case resolution.BuiltinGenericForm:
+		if form.Name == "Array" && len(typeRef.TypeArgs) > 0 {
+			return typeRef.TypeArgs[0], true
+		}
+		return resolution.TypeRef{}, false
+	case resolution.AliasForm:
+		return p.getArrayElementType(form.Target, table)
+	case resolution.DistinctForm:
+		return p.getArrayElementType(form.Base, table)
+	default:
+		return resolution.TypeRef{}, false
+	}
+}
+
+// isNestedArrayType checks if a type is an array of arrays (nested array).
+func (p *Plugin) isNestedArrayType(typeRef resolution.TypeRef, table *resolution.Table) bool {
+	if !p.isArrayType(typeRef, table) {
+		return false
+	}
+	elemType, ok := p.getArrayElementType(typeRef, table)
+	if !ok {
+		return false
+	}
+	return p.isArrayType(elemType, table)
+}
+
+// getNestedArrayWrapperName returns the wrapper message name for a nested array element type.
+func (p *Plugin) getNestedArrayWrapperName(typeRef resolution.TypeRef, table *resolution.Table) string {
+	// Get the element type name to generate a wrapper name
+	elemType, ok := p.getArrayElementType(typeRef, table)
+	if !ok {
+		return "ArrayWrapper"
+	}
+
+	// Try to get a meaningful name from the element type
+	resolved, ok := elemType.Resolve(table)
+	if ok {
+		return resolved.Name + "Wrapper"
+	}
+
+	// For primitives, capitalize the type name
+	if resolution.IsPrimitive(elemType.Name) {
+		return strings.Title(elemType.Name) + "Array"
+	}
+
+	return "ArrayWrapper"
+}
+
+// generateNestedArrayWrapper generates a wrapper message for a nested array element type.
+func (p *Plugin) generateNestedArrayWrapper(typeRef resolution.TypeRef, data *templateData) (string, error) {
+	// Get the inner element type (the element of the inner array)
+	elemType, ok := p.getArrayElementType(typeRef, data.table)
+	if !ok {
+		return "", errors.New("could not get element type for nested array")
+	}
+
+	// Get the innermost element type (element of the inner array)
+	innerElemType, ok := p.getArrayElementType(elemType, data.table)
+	if !ok {
+		return "", errors.New("could not get inner element type for nested array")
+	}
+
+	// Convert the innermost element type to proto
+	innerProtoType, err := p.typeToProto(innerElemType, data)
+	if err != nil {
+		return "", errors.Wrap(err, "could not convert inner element type to proto")
+	}
+
+	// Generate wrapper name based on the distinct/alias type name
+	wrapperName := p.getNestedArrayWrapperName(typeRef, data.table)
+
+	// Check if we've already generated this wrapper
+	if data.wrapperMessages == nil {
+		data.wrapperMessages = make(map[string]bool)
+	}
+	if !data.wrapperMessages[wrapperName] {
+		data.wrapperMessages[wrapperName] = true
+		// Add the wrapper message
+		data.Messages = append(data.Messages, messageData{
+			Name: wrapperName,
+			Fields: []fieldData{
+				{Name: "values", Type: innerProtoType, Number: 1, IsRepeated: true},
+			},
+		})
+	}
+
+	return wrapperName, nil
 }
 
 func (p *Plugin) typeToProto(typeRef resolution.TypeRef, data *templateData) (string, error) {
@@ -386,9 +531,10 @@ func (p *Plugin) resolveStructType(typeRef resolution.TypeRef, resolved resoluti
 	importPath := targetOutputPath + "/" + resolved.Namespace + ".proto"
 	data.imports.add(importPath)
 
-	// Use fully qualified name with package prefix
+	// Use fully qualified name with package prefix and leading dot for absolute reference
+	// The leading dot prevents protobuf from resolving types relative to the current package
 	pkg := derivePackageName(targetOutputPath, []resolution.Type{resolved})
-	return fmt.Sprintf("%s.%s", pkg, pbName), nil
+	return fmt.Sprintf(".%s.%s", pkg, pbName), nil
 }
 
 func (p *Plugin) resolveEnumType(resolved resolution.Type, data *templateData) string {
@@ -408,9 +554,9 @@ func (p *Plugin) resolveEnumType(resolved resolution.Type, data *templateData) s
 	importPath := targetOutputPath + "/" + resolved.Namespace + ".proto"
 	data.imports.add(importPath)
 
-	// Use fully qualified name with package prefix
+	// Use fully qualified name with package prefix and leading dot for absolute reference
 	pkg := deriveLayerPrefix(targetOutputPath) + "." + resolved.Namespace + ".pb"
-	return fmt.Sprintf("%s.%s", pkg, resolved.Name)
+	return fmt.Sprintf(".%s.%s", pkg, resolved.Name)
 }
 
 func (p *Plugin) resolveMapType(typeRef resolution.TypeRef, data *templateData) (string, error) {
@@ -458,15 +604,16 @@ func (m *importManager) add(path string) {
 }
 
 type templateData struct {
-	Package    string
-	GoPackage  string
-	OutputPath string
-	Namespace  string
-	Messages   []messageData
-	Enums      []enumData
-	imports    *importManager
-	table      *resolution.Table
-	repoRoot   string
+	Package         string
+	GoPackage       string
+	OutputPath      string
+	Namespace       string
+	Messages        []messageData
+	Enums           []enumData
+	imports         *importManager
+	table           *resolution.Table
+	repoRoot        string
+	wrapperMessages map[string]bool
 }
 
 func (d *templateData) Imports() []string {

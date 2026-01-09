@@ -17,5 +17,5 @@ message Rack {
   string name = 2;
   uint32 task_counter = 3;
   bool embedded = 4;
-  optional x.status.pb.Status status = 5;
+  optional .x.status.pb.Status status = 5;
 }

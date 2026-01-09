@@ -13,6 +13,7 @@ import { status } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { graph } from "@/arc/graph";
+import { module } from "@/arc/module";
 import { text } from "@/arc/text";
 import { ontology } from "@/ontology";
 
@@ -42,6 +43,7 @@ export const arcZ = z.object({
   name: z.string(),
   graph: graph.graphZ,
   text: text.textZ,
+  module: module.moduleZ,
   deploy: z.boolean(),
   version: z.string(),
   status: statusZ.optional(),

@@ -37,6 +37,7 @@ var mapping = map[string]primitives.Mapping{
 	"color":              {TargetType: "color.Color", Imports: []primitives.Import{{Category: "internal", Path: "github.com/synnaxlabs/x/color"}}},
 	"json":               {TargetType: "map[string]any"},
 	"bytes":              {TargetType: "[]byte"},
+	"any":                {TargetType: "any"},
 }
 
 // Mapper implements primitives.Mapper for Go code generation.

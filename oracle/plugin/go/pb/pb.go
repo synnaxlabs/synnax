@@ -373,7 +373,9 @@ func (p *Plugin) processFieldForTranslation(
 	parentStruct resolution.Type,
 ) fieldTranslatorData {
 	goName := gointernal.ToPascalCase(field.Name)
-	pbName := gointernal.ToPascalCase(field.Name)
+	// Proto uses snake_case, protoc converts to PascalCase
+	// e.g., WASM -> wasm (proto) -> Wasm (Go protobuf)
+	pbName := gointernal.ToPascalCase(lo.SnakeCase(field.Name))
 
 	// Only hard optional (??) results in a pointer in Go
 	isHardOptional := field.IsHardOptional
@@ -477,7 +479,8 @@ func (p *Plugin) processGenericFieldForTranslation(
 	typeParams []typeParamData,
 ) (fieldTranslatorData, bool) {
 	goName := gointernal.ToPascalCase(field.Name)
-	pbName := gointernal.ToPascalCase(field.Name)
+	// Proto uses snake_case, protoc converts to PascalCase
+	pbName := gointernal.ToPascalCase(lo.SnakeCase(field.Name))
 	typeRef := field.Type
 
 	isHardOptional := field.IsHardOptional
@@ -634,6 +637,103 @@ func (p *Plugin) processDelegationTranslator(
 	}, nil
 }
 
+// isArrayType checks if a type reference resolves to an array type, following aliases and distinct types.
+func (p *Plugin) isArrayType(typeRef resolution.TypeRef, table *resolution.Table) bool {
+	// Direct Array type
+	if typeRef.Name == "Array" {
+		return true
+	}
+
+	// Resolve the type and check if it's an alias/distinct to an array
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return false
+	}
+
+	switch form := resolved.Form.(type) {
+	case resolution.BuiltinGenericForm:
+		return form.Name == "Array"
+	case resolution.AliasForm:
+		return p.isArrayType(form.Target, table)
+	case resolution.DistinctForm:
+		return p.isArrayType(form.Base, table)
+	default:
+		return false
+	}
+}
+
+// getArrayElementType gets the element type of an array, following aliases and distinct types.
+func (p *Plugin) getArrayElementType(typeRef resolution.TypeRef, table *resolution.Table) (resolution.TypeRef, bool) {
+	// Direct Array type
+	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
+		return typeRef.TypeArgs[0], true
+	}
+
+	// Resolve the type and follow aliases/distinct types
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return resolution.TypeRef{}, false
+	}
+
+	switch form := resolved.Form.(type) {
+	case resolution.BuiltinGenericForm:
+		if form.Name == "Array" && len(typeRef.TypeArgs) > 0 {
+			return typeRef.TypeArgs[0], true
+		}
+		return resolution.TypeRef{}, false
+	case resolution.AliasForm:
+		return p.getArrayElementType(form.Target, table)
+	case resolution.DistinctForm:
+		return p.getArrayElementType(form.Base, table)
+	default:
+		return resolution.TypeRef{}, false
+	}
+}
+
+// isNestedArrayType checks if a type is an array of arrays (nested array).
+func (p *Plugin) isNestedArrayType(typeRef resolution.TypeRef, table *resolution.Table) bool {
+	if !p.isArrayType(typeRef, table) {
+		return false
+	}
+	elemType, ok := p.getArrayElementType(typeRef, table)
+	if !ok {
+		return false
+	}
+	return p.isArrayType(elemType, table)
+}
+
+// getNestedArrayWrapperName returns the wrapper message name for a nested array element type.
+// This must match the naming in pb/types plugin.
+func (p *Plugin) getNestedArrayWrapperName(typeRef resolution.TypeRef, table *resolution.Table) string {
+	// Get the element type name to generate a wrapper name
+	elemType, ok := p.getArrayElementType(typeRef, table)
+	if !ok {
+		return "ArrayWrapper"
+	}
+
+	// Try to get a meaningful name from the element type
+	resolved, ok := elemType.Resolve(table)
+	if ok {
+		return resolved.Name + "Wrapper"
+	}
+
+	// For primitives, capitalize the type name
+	if resolution.IsPrimitive(elemType.Name) {
+		return strings.Title(elemType.Name) + "Array"
+	}
+
+	return "ArrayWrapper"
+}
+
+// getNestedArrayInnerType gets the innermost element type of a nested array.
+func (p *Plugin) getNestedArrayInnerType(typeRef resolution.TypeRef, table *resolution.Table) (resolution.TypeRef, bool) {
+	elemType, ok := p.getArrayElementType(typeRef, table)
+	if !ok {
+		return resolution.TypeRef{}, false
+	}
+	return p.getArrayElementType(elemType, table)
+}
+
 // generateFieldConversion generates the forward and backward conversion expressions.
 // Returns forward expr, backward expr, backward cast, and whether forward/backward conversions return errors.
 func (p *Plugin) generateFieldConversion(
@@ -642,12 +742,13 @@ func (p *Plugin) generateFieldConversion(
 	parentStruct resolution.Type,
 ) (forward, backward, backwardCast string, hasError, hasBackwardError bool) {
 	typeRef := field.Type
-	fieldName := gointernal.ToPascalCase(field.Name)
-	goFieldName := "r." + fieldName
-	pbFieldName := "pb." + fieldName
+	goFieldName := "r." + gointernal.ToPascalCase(field.Name)
+	// Proto uses snake_case, protoc converts to PascalCase
+	// e.g., WASM -> wasm (proto) -> Wasm (Go protobuf)
+	pbFieldName := "pb." + gointernal.ToPascalCase(lo.SnakeCase(field.Name))
 
-	// Handle arrays
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
+	// Handle arrays (including via aliases and distinct types)
+	if p.isArrayType(typeRef, data.table) {
 		f, b, e := p.generateArrayConversion(field, data, goFieldName, pbFieldName)
 		return f, b, "", e, e
 	}
@@ -768,6 +869,15 @@ func (p *Plugin) generatePrimitiveConversion(
 		data.imports.AddExternal("github.com/synnaxlabs/x/color")
 		return fmt.Sprintf("string(%s)", goField),
 			fmt.Sprintf("color.Color(%s)", pbField), false, false
+	case "any":
+		data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
+		// structpb.NewValue returns (*Value, error) - needs error handling
+		// AsInterface() does NOT return an error
+		return fmt.Sprintf("structpb.NewValue(%s)", goField),
+			fmt.Sprintf("%s.AsInterface()", pbField), true, false
+	case "int8":
+		return fmt.Sprintf("int32(%s)", goField),
+			fmt.Sprintf("int8(%s)", pbField), false, false
 	default:
 		return goField, pbField, false, false
 	}
@@ -1119,11 +1229,16 @@ func (p *Plugin) generateArrayConversion(
 ) (forward, backward string, hasError bool) {
 	typeRef := field.Type
 
-	// Get the element type from TypeArgs
-	if len(typeRef.TypeArgs) == 0 {
+	// Check if this is a nested array (array of arrays)
+	if p.isNestedArrayType(typeRef, data.table) {
+		return p.generateNestedArrayConversion(typeRef, data, goField, pbField)
+	}
+
+	// Get the element type, following aliases and distinct types
+	elemType, ok := p.getArrayElementType(typeRef, data.table)
+	if !ok {
 		return goField, pbField, false
 	}
-	elemType := typeRef.TypeArgs[0]
 
 	// For struct arrays, use slice helper
 	elemResolved, ok := elemType.Resolve(data.table)
@@ -1152,6 +1267,29 @@ func (p *Plugin) generateArrayConversion(
 	}
 
 	return goField, pbField, false
+}
+
+// generateNestedArrayConversion generates conversion for nested array types (array of arrays).
+// This handles types like Strata which is Stratum[] where Stratum = string[].
+// Proto uses wrapper messages for these (e.g., StratumWrapper with repeated string values).
+func (p *Plugin) generateNestedArrayConversion(
+	typeRef resolution.TypeRef,
+	data *templateData,
+	goField, pbField string,
+) (forward, backward string, hasError bool) {
+	wrapperName := p.getNestedArrayWrapperName(typeRef, data.table)
+
+	data.imports.AddExternal("github.com/samber/lo")
+
+	// Forward: wrap each inner array in a wrapper message
+	// lo.Map(r.Strata, func(inner []string, _ int) *StratumWrapper { return &StratumWrapper{Values: inner} })
+	forward = fmt.Sprintf("lo.Map(%s, func(inner []string, _ int) *%s { return &%s{Values: inner} })", goField, wrapperName, wrapperName)
+
+	// Backward: unwrap each wrapper to get the inner array
+	// lo.Map(pb.Strata, func(w *StratumWrapper, _ int) []string { return w.Values })
+	backward = fmt.Sprintf("lo.Map(%s, func(w *%s, _ int) []string { return w.Values })", pbField, wrapperName)
+
+	return forward, backward, false
 }
 
 // generateEnumTranslator generates translator data for an enum.

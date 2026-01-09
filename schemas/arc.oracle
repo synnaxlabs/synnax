@@ -17,6 +17,7 @@ import "schemas/arc/module"
 
 @ts output "client/ts/src/arc"
 @go output "core/pkg/service/arc"
+@pb
 
 StatusDetails struct {
     running bool
@@ -27,10 +28,11 @@ Status = status.GoStatus<StatusDetails>
 Key = uuid
 
 Arc struct {
-    key     Key         @key
+    key     Key           @key
     name    string
     graph   graph.Graph
     text    text.Text
+    module  module.Module
     deploy  bool
     version string
     status  Status??
@@ -48,4 +50,5 @@ New struct {
 
     @ts use_input
     @go omit
+    @pb omit
 }

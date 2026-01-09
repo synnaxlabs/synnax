@@ -14,6 +14,7 @@ package arc
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/module"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/status"
 )
@@ -27,11 +28,12 @@ type StatusDetails struct {
 }
 
 type Arc struct {
-	Key     Key         `json:"key" msgpack:"key"`
-	Name    string      `json:"name" msgpack:"name"`
-	Graph   graph.Graph `json:"graph" msgpack:"graph"`
-	Text    text.Text   `json:"text" msgpack:"text"`
-	Deploy  bool        `json:"deploy" msgpack:"deploy"`
-	Version string      `json:"version" msgpack:"version"`
-	Status  *Status     `json:"status,omitempty" msgpack:"status,omitempty"`
+	Key     Key           `json:"key" msgpack:"key"`
+	Name    string        `json:"name" msgpack:"name"`
+	Graph   graph.Graph   `json:"graph" msgpack:"graph"`
+	Text    text.Text     `json:"text" msgpack:"text"`
+	Module  module.Module `json:"module" msgpack:"module"`
+	Deploy  bool          `json:"deploy" msgpack:"deploy"`
+	Version string        `json:"version" msgpack:"version"`
+	Status  *Status       `json:"status,omitempty" msgpack:"status,omitempty"`
 }

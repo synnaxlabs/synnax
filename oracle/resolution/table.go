@@ -38,7 +38,7 @@ func (t *Table) registerBuiltins() {
 		"float32", "float64",
 		"bool", "string", "uuid",
 		"timestamp", "timespan", "time_range", "time_range_bounded",
-		"json", "bytes", "data_type", "color",
+		"json", "bytes", "data_type", "color", "any",
 	}
 	for _, name := range primitives {
 		t.Types = append(t.Types, Type{

@@ -37,6 +37,7 @@ var zodMapping = map[string]primitives.Mapping{
 	"color":              {TargetType: "z.string()"},
 	"json":               {TargetType: "z.record(z.string(), z.unknown())"},
 	"bytes":              {TargetType: "z.instanceof(Uint8Array)"},
+	"any":                {TargetType: "z.unknown()"},
 }
 
 // typeMapping contains TypeScript-specific primitive type mappings for type annotations.
@@ -64,6 +65,7 @@ var typeMapping = map[string]primitives.Mapping{
 	"color":              {TargetType: "string"},
 	"json":               {TargetType: "Record<string, unknown>"},
 	"bytes":              {TargetType: "Uint8Array"},
+	"any":                {TargetType: "unknown"},
 }
 
 // ZodMapper implements primitives.Mapper for TypeScript Zod schema code generation.

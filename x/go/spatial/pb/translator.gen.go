@@ -246,6 +246,58 @@ func BoundssFromPB(ctx context.Context, pbs []*Bounds) ([]spatial.Bounds, error)
 	return result, nil
 }
 
+// AlignmentToPB converts spatial.Alignment to Alignment.
+func AlignmentToPB(v spatial.Alignment) Alignment {
+	switch v {
+	case spatial.AlignmentStart:
+		return Alignment_ALIGNMENT_START
+	case spatial.AlignmentCenter:
+		return Alignment_ALIGNMENT_CENTER
+	case spatial.AlignmentEnd:
+		return Alignment_ALIGNMENT_END
+	default:
+		return Alignment_ALIGNMENT_UNSPECIFIED
+	}
+}
+
+// AlignmentFromPB converts Alignment to spatial.Alignment.
+func AlignmentFromPB(v Alignment) spatial.Alignment {
+	switch v {
+	case Alignment_ALIGNMENT_START:
+		return spatial.AlignmentStart
+	case Alignment_ALIGNMENT_CENTER:
+		return spatial.AlignmentCenter
+	case Alignment_ALIGNMENT_END:
+		return spatial.AlignmentEnd
+	default:
+		return spatial.AlignmentStart
+	}
+}
+
+// OrderToPB converts spatial.Order to Order.
+func OrderToPB(v spatial.Order) Order {
+	switch v {
+	case spatial.OrderFirst:
+		return Order_ORDER_FIRST
+	case spatial.OrderLast:
+		return Order_ORDER_LAST
+	default:
+		return Order_ORDER_UNSPECIFIED
+	}
+}
+
+// OrderFromPB converts Order to spatial.Order.
+func OrderFromPB(v Order) spatial.Order {
+	switch v {
+	case Order_ORDER_FIRST:
+		return spatial.OrderFirst
+	case Order_ORDER_LAST:
+		return spatial.OrderLast
+	default:
+		return spatial.OrderFirst
+	}
+}
+
 // DirectionToPB converts spatial.Direction to Direction.
 func DirectionToPB(v spatial.Direction) Direction {
 	switch v {
@@ -403,57 +455,5 @@ func LocationFromPB(v Location) spatial.Location {
 		return spatial.LocationCenter
 	default:
 		return spatial.LocationTop
-	}
-}
-
-// AlignmentToPB converts spatial.Alignment to Alignment.
-func AlignmentToPB(v spatial.Alignment) Alignment {
-	switch v {
-	case spatial.AlignmentStart:
-		return Alignment_ALIGNMENT_START
-	case spatial.AlignmentCenter:
-		return Alignment_ALIGNMENT_CENTER
-	case spatial.AlignmentEnd:
-		return Alignment_ALIGNMENT_END
-	default:
-		return Alignment_ALIGNMENT_UNSPECIFIED
-	}
-}
-
-// AlignmentFromPB converts Alignment to spatial.Alignment.
-func AlignmentFromPB(v Alignment) spatial.Alignment {
-	switch v {
-	case Alignment_ALIGNMENT_START:
-		return spatial.AlignmentStart
-	case Alignment_ALIGNMENT_CENTER:
-		return spatial.AlignmentCenter
-	case Alignment_ALIGNMENT_END:
-		return spatial.AlignmentEnd
-	default:
-		return spatial.AlignmentStart
-	}
-}
-
-// OrderToPB converts spatial.Order to Order.
-func OrderToPB(v spatial.Order) Order {
-	switch v {
-	case spatial.OrderFirst:
-		return Order_ORDER_FIRST
-	case spatial.OrderLast:
-		return Order_ORDER_LAST
-	default:
-		return Order_ORDER_UNSPECIFIED
-	}
-}
-
-// OrderFromPB converts Order to spatial.Order.
-func OrderFromPB(v Order) spatial.Order {
-	switch v {
-	case Order_ORDER_FIRST:
-		return spatial.OrderFirst
-	case Order_ORDER_LAST:
-		return spatial.OrderLast
-	default:
-		return spatial.OrderFirst
 	}
 }

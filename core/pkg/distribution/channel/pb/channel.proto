@@ -30,7 +30,7 @@ message Channel {
   uint32 local_key = 5;
   uint32 local_index = 6;
   bool virtual = 7;
-  x.control.pb.Concurrency concurrency = 8;
+  .x.control.pb.Concurrency concurrency = 8;
   bool internal = 9;
   repeated Operation operations = 10;
   string expression = 11;

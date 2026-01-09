@@ -36,6 +36,7 @@ var mapping = map[string]primitives.Mapping{
 	"color":      {TargetType: "str"},
 	"json":       {TargetType: "dict[str, Any]", Imports: []primitives.Import{{Category: "typing", Name: "Any"}}},
 	"bytes":      {TargetType: "bytes"},
+	"any":        {TargetType: "Any", Imports: []primitives.Import{{Category: "typing", Name: "Any"}}},
 }
 
 // Mapper implements primitives.Mapper for Python code generation.
