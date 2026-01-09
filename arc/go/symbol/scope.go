@@ -11,6 +11,7 @@ package symbol
 
 import (
 	"context"
+	"maps"
 	"strconv"
 	"strings"
 
@@ -19,7 +20,6 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/set"
 )
 
 // CreateRootScope creates a new scope representing the root scope of a program.
@@ -35,35 +35,20 @@ func CreateRootScope(globalResolver Resolver) *Scope {
 	}
 }
 
-// Channels tracks which Synnax channels a node reads from and writes to.
-//
-// This is used for data flow analysis to understand which channels are accessed by
-// different parts of an Arc program. The maps use channel IDs as keys and channel
-// names as values.
-type Channels struct {
-	// Read contains Synnax channels that the node reads from.
-	Read set.Mapped[uint32, string] `json:"read"`
-	// Write contains Synnax channels that the node writes to.
-	Write set.Mapped[uint32, string] `json:"write"`
-}
-
 // Copy returns a deep copy of the Channels.
 func (c Channels) Copy() Channels {
 	if c.Read == nil {
-		c.Read = make(set.Mapped[uint32, string])
+		c.Read = make(map[uint32]string)
 	}
 	if c.Write == nil {
-		c.Write = make(set.Mapped[uint32, string])
+		c.Write = make(map[uint32]string)
 	}
-	return Channels{Read: c.Read.Copy(), Write: c.Write.Copy()}
+	return Channels{Read: maps.Clone(c.Read), Write: maps.Clone(c.Write)}
 }
 
 // NewChannels creates a new Channels with empty read and write sets.
 func NewChannels() Channels {
-	return Channels{
-		Read:  make(set.Mapped[uint32, string]),
-		Write: make(set.Mapped[uint32, string]),
-	}
+	return Channels{Read: make(map[uint32]string), Write: make(map[uint32]string)}
 }
 
 // Scope represents a symbol scope in the hierarchical scope tree.

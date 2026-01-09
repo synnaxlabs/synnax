@@ -246,106 +246,6 @@ func BoundssFromPB(ctx context.Context, pbs []*Bounds) ([]spatial.Bounds, error)
 	return result, nil
 }
 
-// OuterLocationToPB converts spatial.OuterLocation to OuterLocation.
-func OuterLocationToPB(v spatial.OuterLocation) OuterLocation {
-	switch v {
-	case spatial.OuterLocationTop:
-		return OuterLocation_OUTER_LOCATION_TOP
-	case spatial.OuterLocationRight:
-		return OuterLocation_OUTER_LOCATION_RIGHT
-	case spatial.OuterLocationBottom:
-		return OuterLocation_OUTER_LOCATION_BOTTOM
-	case spatial.OuterLocationLeft:
-		return OuterLocation_OUTER_LOCATION_LEFT
-	default:
-		return OuterLocation_OUTER_LOCATION_UNSPECIFIED
-	}
-}
-
-// OuterLocationFromPB converts OuterLocation to spatial.OuterLocation.
-func OuterLocationFromPB(v OuterLocation) spatial.OuterLocation {
-	switch v {
-	case OuterLocation_OUTER_LOCATION_TOP:
-		return spatial.OuterLocationTop
-	case OuterLocation_OUTER_LOCATION_RIGHT:
-		return spatial.OuterLocationRight
-	case OuterLocation_OUTER_LOCATION_BOTTOM:
-		return spatial.OuterLocationBottom
-	case OuterLocation_OUTER_LOCATION_LEFT:
-		return spatial.OuterLocationLeft
-	default:
-		return spatial.OuterLocationTop
-	}
-}
-
-// XLocationToPB converts spatial.XLocation to XLocation.
-func XLocationToPB(v spatial.XLocation) XLocation {
-	switch v {
-	case spatial.XLocationLeft:
-		return XLocation_X_LOCATION_LEFT
-	case spatial.XLocationRight:
-		return XLocation_X_LOCATION_RIGHT
-	default:
-		return XLocation_X_LOCATION_UNSPECIFIED
-	}
-}
-
-// XLocationFromPB converts XLocation to spatial.XLocation.
-func XLocationFromPB(v XLocation) spatial.XLocation {
-	switch v {
-	case XLocation_X_LOCATION_LEFT:
-		return spatial.XLocationLeft
-	case XLocation_X_LOCATION_RIGHT:
-		return spatial.XLocationRight
-	default:
-		return spatial.XLocationLeft
-	}
-}
-
-// YLocationToPB converts spatial.YLocation to YLocation.
-func YLocationToPB(v spatial.YLocation) YLocation {
-	switch v {
-	case spatial.YLocationTop:
-		return YLocation_Y_LOCATION_TOP
-	case spatial.YLocationBottom:
-		return YLocation_Y_LOCATION_BOTTOM
-	default:
-		return YLocation_Y_LOCATION_UNSPECIFIED
-	}
-}
-
-// YLocationFromPB converts YLocation to spatial.YLocation.
-func YLocationFromPB(v YLocation) spatial.YLocation {
-	switch v {
-	case YLocation_Y_LOCATION_TOP:
-		return spatial.YLocationTop
-	case YLocation_Y_LOCATION_BOTTOM:
-		return spatial.YLocationBottom
-	default:
-		return spatial.YLocationTop
-	}
-}
-
-// CenterLocationToPB converts spatial.CenterLocation to CenterLocation.
-func CenterLocationToPB(v spatial.CenterLocation) CenterLocation {
-	switch v {
-	case spatial.CenterLocationCenter:
-		return CenterLocation_CENTER_LOCATION_CENTER
-	default:
-		return CenterLocation_CENTER_LOCATION_UNSPECIFIED
-	}
-}
-
-// CenterLocationFromPB converts CenterLocation to spatial.CenterLocation.
-func CenterLocationFromPB(v CenterLocation) spatial.CenterLocation {
-	switch v {
-	case CenterLocation_CENTER_LOCATION_CENTER:
-		return spatial.CenterLocationCenter
-	default:
-		return spatial.CenterLocationCenter
-	}
-}
-
 // LocationToPB converts spatial.Location to Location.
 func LocationToPB(v spatial.Location) Location {
 	switch v {
@@ -455,5 +355,105 @@ func DirectionFromPB(v Direction) spatial.Direction {
 		return spatial.DirectionY
 	default:
 		return spatial.DirectionX
+	}
+}
+
+// OuterLocationToPB converts spatial.OuterLocation to OuterLocation.
+func OuterLocationToPB(v spatial.OuterLocation) OuterLocation {
+	switch v {
+	case spatial.OuterLocationTop:
+		return OuterLocation_OUTER_LOCATION_TOP
+	case spatial.OuterLocationRight:
+		return OuterLocation_OUTER_LOCATION_RIGHT
+	case spatial.OuterLocationBottom:
+		return OuterLocation_OUTER_LOCATION_BOTTOM
+	case spatial.OuterLocationLeft:
+		return OuterLocation_OUTER_LOCATION_LEFT
+	default:
+		return OuterLocation_OUTER_LOCATION_UNSPECIFIED
+	}
+}
+
+// OuterLocationFromPB converts OuterLocation to spatial.OuterLocation.
+func OuterLocationFromPB(v OuterLocation) spatial.OuterLocation {
+	switch v {
+	case OuterLocation_OUTER_LOCATION_TOP:
+		return spatial.OuterLocationTop
+	case OuterLocation_OUTER_LOCATION_RIGHT:
+		return spatial.OuterLocationRight
+	case OuterLocation_OUTER_LOCATION_BOTTOM:
+		return spatial.OuterLocationBottom
+	case OuterLocation_OUTER_LOCATION_LEFT:
+		return spatial.OuterLocationLeft
+	default:
+		return spatial.OuterLocationTop
+	}
+}
+
+// XLocationToPB converts spatial.XLocation to XLocation.
+func XLocationToPB(v spatial.XLocation) XLocation {
+	switch v {
+	case spatial.XLocationLeft:
+		return XLocation_X_LOCATION_LEFT
+	case spatial.XLocationRight:
+		return XLocation_X_LOCATION_RIGHT
+	default:
+		return XLocation_X_LOCATION_UNSPECIFIED
+	}
+}
+
+// XLocationFromPB converts XLocation to spatial.XLocation.
+func XLocationFromPB(v XLocation) spatial.XLocation {
+	switch v {
+	case XLocation_X_LOCATION_LEFT:
+		return spatial.XLocationLeft
+	case XLocation_X_LOCATION_RIGHT:
+		return spatial.XLocationRight
+	default:
+		return spatial.XLocationLeft
+	}
+}
+
+// YLocationToPB converts spatial.YLocation to YLocation.
+func YLocationToPB(v spatial.YLocation) YLocation {
+	switch v {
+	case spatial.YLocationTop:
+		return YLocation_Y_LOCATION_TOP
+	case spatial.YLocationBottom:
+		return YLocation_Y_LOCATION_BOTTOM
+	default:
+		return YLocation_Y_LOCATION_UNSPECIFIED
+	}
+}
+
+// YLocationFromPB converts YLocation to spatial.YLocation.
+func YLocationFromPB(v YLocation) spatial.YLocation {
+	switch v {
+	case YLocation_Y_LOCATION_TOP:
+		return spatial.YLocationTop
+	case YLocation_Y_LOCATION_BOTTOM:
+		return spatial.YLocationBottom
+	default:
+		return spatial.YLocationTop
+	}
+}
+
+// CenterLocationToPB converts spatial.CenterLocation to CenterLocation.
+func CenterLocationToPB(v spatial.CenterLocation) CenterLocation {
+	switch v {
+	case spatial.CenterLocationCenter:
+		return CenterLocation_CENTER_LOCATION_CENTER
+	default:
+		return CenterLocation_CENTER_LOCATION_UNSPECIFIED
+	}
+}
+
+// CenterLocationFromPB converts CenterLocation to spatial.CenterLocation.
+func CenterLocationFromPB(v CenterLocation) spatial.CenterLocation {
+	switch v {
+	case CenterLocation_CENTER_LOCATION_CENTER:
+		return spatial.CenterLocationCenter
+	default:
+		return spatial.CenterLocationCenter
 	}
 }

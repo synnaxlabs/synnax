@@ -120,7 +120,7 @@ Channels struct {
     read  map<uint32, string>
     write map<uint32, string>
 
-    @go output "arc/go/ir"
+    @go output "arc/go/symbol"
 }
 
 Function struct {
@@ -173,11 +173,12 @@ IR struct {
     @go imports "github.com/antlr4-go/antlr/v4" "github.com/synnaxlabs/arc/symbol" "github.com/synnaxlabs/arc/types"
 }
 
-Module struct {
-    ir                  IR
-    wasm                bytes
-    output_memory_bases map<string, uint32>
+CompilerOutput struct {
+    WASM bytes
+    OutputMemoryBases map<string, uint32>
+}
 
+Module struct extends IR, CompilerOutput {
     @go output "arc/go/module"
 }
 
@@ -269,3 +270,4 @@ Unit struct {
     scale      float64
     name       string
 }
+

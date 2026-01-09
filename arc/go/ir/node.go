@@ -14,8 +14,6 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/arc/types"
 )
 
 // Find searches for a node by key. Returns the node and true if found,

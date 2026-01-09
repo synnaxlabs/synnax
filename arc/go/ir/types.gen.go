@@ -34,7 +34,7 @@ type Nodes []Node
 type EdgeKind uint8
 
 const (
-	EdgeKindContinuous EdgeKind = iota
+	EdgeKindContinuous EdgeKind = iota + 1
 	EdgeKindOneShot
 )
 
@@ -65,27 +65,22 @@ type Body struct {
 	AST antlr.ParserRuleContext `json:"-"`
 }
 
-type Channels struct {
-	Read  map[uint32]string `json:"read" msgpack:"read"`
-	Write map[uint32]string `json:"write" msgpack:"write"`
-}
-
 type Function struct {
-	Key      string       `json:"key" msgpack:"key"`
-	Body     Body         `json:"body" msgpack:"body"`
-	Config   types.Params `json:"config" msgpack:"config"`
-	Inputs   types.Params `json:"inputs" msgpack:"inputs"`
-	Outputs  types.Params `json:"outputs" msgpack:"outputs"`
-	Channels Channels     `json:"channels" msgpack:"channels"`
+	Key      string          `json:"key" msgpack:"key"`
+	Body     Body            `json:"body" msgpack:"body"`
+	Config   types.Params    `json:"config" msgpack:"config"`
+	Inputs   types.Params    `json:"inputs" msgpack:"inputs"`
+	Outputs  types.Params    `json:"outputs" msgpack:"outputs"`
+	Channels symbol.Channels `json:"channels" msgpack:"channels"`
 }
 
 type Node struct {
-	Key      string       `json:"key" msgpack:"key"`
-	Type     string       `json:"type" msgpack:"type"`
-	Config   types.Params `json:"config" msgpack:"config"`
-	Inputs   types.Params `json:"inputs" msgpack:"inputs"`
-	Outputs  types.Params `json:"outputs" msgpack:"outputs"`
-	Channels Channels     `json:"channels" msgpack:"channels"`
+	Key      string          `json:"key" msgpack:"key"`
+	Type     string          `json:"type" msgpack:"type"`
+	Config   types.Params    `json:"config" msgpack:"config"`
+	Inputs   types.Params    `json:"inputs" msgpack:"inputs"`
+	Outputs  types.Params    `json:"outputs" msgpack:"outputs"`
+	Channels symbol.Channels `json:"channels" msgpack:"channels"`
 }
 
 type IR struct {

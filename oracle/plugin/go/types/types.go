@@ -213,10 +213,21 @@ func processEnum(e resolution.Type) enumData {
 			IntValue: v.IntValue(),
 		})
 	}
+	// Check if enum values are continuous starting at 1 (e.g., 1, 2, 3, ...)
+	startsAtOne := form.IsIntEnum && len(values) > 0 && values[0].IntValue == 1
+	if startsAtOne {
+		for i, v := range values {
+			if v.IntValue != int64(i+1) {
+				startsAtOne = false
+				break
+			}
+		}
+	}
 	return enumData{
-		Name:      e.Name,
-		Values:    values,
-		IsIntEnum: form.IsIntEnum,
+		Name:        e.Name,
+		Values:      values,
+		IsIntEnum:   form.IsIntEnum,
+		StartsAtOne: startsAtOne,
 	}
 }
 
@@ -469,9 +480,10 @@ func (f fieldData) TagSuffix() string {
 }
 
 type enumData struct {
-	Name      string
-	Values    []enumValueData
-	IsIntEnum bool
+	Name        string
+	Values      []enumValueData
+	IsIntEnum   bool
+	StartsAtOne bool
 }
 
 type enumValueData struct {
@@ -528,7 +540,7 @@ type {{$enum.Name}} uint8
 const (
 {{- range $i, $v := $enum.Values}}
 {{- if eq $i 0}}
-	{{$enum.Name}}{{$v.Name}} {{$enum.Name}} = iota
+	{{$enum.Name}}{{$v.Name}} {{$enum.Name}} = iota{{if $enum.StartsAtOne}} + 1{{end}}
 {{- else}}
 	{{$enum.Name}}{{$v.Name}}
 {{- end}}

@@ -374,12 +374,12 @@ func newFlowChainProcessor(ctx acontext.Context[parser.IFlowStatementContext], k
 func (p *flowChainProcessor) edgeKind() ir.EdgeKind {
 	children := p.ctx.AST.GetChildren()
 	if p.lastOpIndex < 0 || p.lastOpIndex >= len(children) {
-		return ir.Continuous
+		return ir.EdgeKindContinuous
 	}
 	if opCtx, ok := children[p.lastOpIndex].(parser.IFlowOperatorContext); ok && opCtx.TRANSITION() != nil {
-		return ir.OneShot
+		return ir.EdgeKindOneShot
 	}
-	return ir.Continuous
+	return ir.EdgeKindContinuous
 }
 
 // injectImplicitTriggers creates channel read nodes for all channels referenced
@@ -446,7 +446,7 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 			p.edges = append(p.edges, ir.Edge{
 				Source: trigger.output,
 				Target: result.input,
-				Kind:   ir.Continuous,
+				Kind:   ir.EdgeKindContinuous,
 			})
 		}
 		p.additionalTriggers = nil
@@ -610,10 +610,10 @@ func analyzeOutputRoutingTable(
 				edges = append(edges, ir.Edge{
 					Source: ir.Handle{Node: sourceNode.Key, Param: outputName},
 					Target: result.input,
-					Kind:   ir.Continuous,
+					Kind:   ir.EdgeKindContinuous,
 				})
 			} else {
-				edges = append(edges, ir.Edge{Source: prevOutputHandle, Target: result.input, Kind: ir.Continuous})
+				edges = append(edges, ir.Edge{Source: prevOutputHandle, Target: result.input, Kind: ir.EdgeKindContinuous})
 			}
 
 			if isLast && targetParamName != "" {
